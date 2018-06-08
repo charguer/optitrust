@@ -10,8 +10,8 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From TLC Require Import LibTactics LibLogic LibList LibReflect.
-From TLC Require LibListZ.
+Require Import LibTactics LibLogic LibList LibReflect.
+Require LibListZ.
 Generalizable Variables A B.
 
 

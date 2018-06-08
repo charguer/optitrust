@@ -3,14 +3,14 @@
 This file describes the representation of variables, binders, and
 contexts.
 
-Author: Arthur Charguéraud.
+Author: Arthur CharguÃ©raud.
 License: MIT.
 
 *)
 
 Set Implicit Arguments.
-From TLC Require Export LibString LibList LibCore.
-From Sep Require Export Fmap TLCbuffer.
+Require Export LibString LibList LibCore.
+Require Export Fmap TLCbuffer.
 Open Scope string_scope.
 
 

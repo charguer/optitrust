@@ -12,8 +12,8 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Export LibString LibList LibCore.
-From Sep Require Export Fmap Bind TLCbuffer.
+Require Export LibString LibList LibCore.
+Require Export Fmap Bind TLCbuffer.
 Open Scope string_scope.
 
 
