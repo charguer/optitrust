@@ -34,6 +34,29 @@ Global Opaque field loc.
 
 
 (* ---------------------------------------------------------------------- *)
+(** Grammar of types *)
+
+Inductive typ : Type :=
+  | typ_int : typ
+  | typ_var : var -> typ.
+
+Inductive typdef : Type :=
+  | typ_struct : list (typ * field) -> typdef.
+
+Definition typctx := fmap var (nat * typdef).
+
+Definition sizeof (c:typctx) (T:typ) : nat :=
+  match T with
+  | typ_int => 1
+  | typ_var x =>
+    match fmap_data c x with
+    | Some v => fst v
+    | None => 0
+    end
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
 (** Syntax of the source language *)
 
 Inductive prim : Type :=
