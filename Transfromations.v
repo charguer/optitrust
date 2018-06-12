@@ -12,8 +12,8 @@ Require Export LambdaSemantics.
 (* Remove plus zero, i.e. t + 0 = t and 0 + t = t *)
 Fixpoint transf_rm_pz (t:trm) : trm :=
   match t with
-  | trm_app (trm_app val_add (val_int 0)) t1 => t1
-  | trm_app (trm_app val_add t1) (val_int 0) => t1
+  | trm_app (trm_app val_add (val_int 0)) t1 => transf_rm_pz t1
+  | trm_app (trm_app val_add t1) (val_int 0) => transf_rm_pz t1
   | trm_val v => trm_val v
   | trm_var x => trm_var x
   | trm_fix b1 b2 t1 => trm_fix b1 b2 (transf_rm_pz t1)
@@ -41,8 +41,8 @@ Proof.
 Qed.
 
 Lemma simple_examples_generalisation: forall t,
-  transf_rm_pz (val_add t (val_int 0)) = t /\
-  transf_rm_pz (val_add (val_int 0) t) = t.
+  transf_rm_pz (val_add t (val_int 0)) = transf_rm_pz t /\
+  transf_rm_pz (val_add (val_int 0) t) = transf_rm_pz t.
 Proof.
   intros t. intuition. destruct t.
   - destruct v. 
@@ -80,6 +80,6 @@ Proof.
   - simpl. exact H.
   - admit. (* Fix... *)
   - admit. (* Ifs. But how do I know t1 is a bool? *)
-  - simpl. applys* red_let. 
+  - simpl. applys red_let. apply IHt1. (* Unfinished *) 
 Admitted.
 
