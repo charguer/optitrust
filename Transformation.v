@@ -9,9 +9,10 @@ Set Implicit Arguments.
 
 Require Export LambdaSemantics.
 
-Definition is_add_zero (t1 t2 : trm) : option trm :=
-  match t1 with
-  | trm_app val_add (val_int 0) => Some t2
+(*
+Definition is_add_zero t : option trm :=
+  match t with
+  | trm_binop binop_add (val_int 0) t2 => Some t2
   | _ => None
   end.
 
@@ -29,27 +30,36 @@ Proof.
   { inverts H1. inverts H3. }
   { asserts_rewrite (0 + n2 = n2). math. constructor. }
 Qed.
+*)
+
 
 (* Remove plus zero, i.e. t + 0 = t and 0 + t = t *)
 Fixpoint transf_rm_pz (t:trm) : trm :=
+  let aux := transf_rm_pz in
   match t with
   | trm_val v => trm_val v
   | trm_var x => trm_var x
-  | trm_fix b1 b2 t1 => trm_fix b1 b2 (transf_rm_pz t1)
+  (* | trm_fix b1 b2 t1 => trm_fix b1 b2 (aux t1) *)
   | trm_if t1 t2 t3 => 
-      trm_if (transf_rm_pz t1) (transf_rm_pz t2) (transf_rm_pz t3)
+      trm_if (aux t1) (aux t2) (aux t3)
   | trm_let b t1 t2 => 
-      trm_let b (transf_rm_pz t1) (transf_rm_pz t2)
-  | trm_app t1 t2 => 
-      let t1' := transf_rm_pz t1 in
-      let t2' := transf_rm_pz t2 in
+      trm_let b (aux t1) (aux t2)
+  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+     (*  let t1' := aux t1 in
+      let t2' := aux t2 in
       match is_add_zero t1' t2' with
       | Some t => t
       | None => trm_app t1' t2'
-      end
-  | trm_while t1 t2 => trm_while (transf_rm_pz t1) (transf_rm_pz t2)
+      end*)
+  | trm_binop op t1 t2 => 
+    match op, t1, t2 with
+    | binop_add, val_int 0, t2 => aux t2
+    (* | binop_add, t1, val_int 0 => aux t1 *)
+    | _, _, _  => trm_binop op (aux t1) (aux t2)
+    end
+  | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for v t1 t2 t3 => 
-      trm_for v t(transf_rm_pz t1) (transf_rm_pz t2) (transf_rm_pz t3)
+      trm_for v t(aux t1) (aux t2) (aux t3)
   end.
   
 
@@ -83,48 +93,6 @@ Lemma subst_inert_in_red: forall s1 b v t s2 w,
   red s1 (subst1 b v t) s2 w <-> red s1 t s2 w.
 Proof.
 Admitted.
-
-Definition bind_eq (b1 b2 : bind) : bool :=
-  match b1, b2 with
-  | bind_anon, bind_anon => true
-  | bind_var x1, bind_var x2 => var_eq x1 x2
-  | _, _ => false
-  end.
-
-(*
-Fixpoint subst' (y:var) (w:val) (t:trm) : trm :=
-  let aux := subst' y w in
-  match t with
-  | trm_val v => t
-  | trm_var x => if var_eq x y then w else t
-  | trm_fix f z t1 => t (* TODO *)
-  | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
-  | trm_let z t1 t2 => trm_let z (aux t1) (if bind_eq z y then t2 else aux t2)
-  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
-  | trm_while t1 t2 => trm_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => t (* TODO *)
-  end.
-
-Definition subst1' (b:bind) (v:val) (t:trm) : trm :=
-  match b with
-  | bind_anon => t
-  | bind_var x => subst' x v t
-  end.
-*)
-Fixpoint subst1' (b:bind) (w:val) (t:trm) : trm :=
-  let aux := subst1' b w in
-  match t with
-  | trm_val v => t
-  | trm_var x => if bind_eq b x then w else t
-  | trm_fix f z t1 => t (* TODO *)
-  | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
-  | trm_let z t1 t2 => trm_let z (aux t1) (if bind_eq z b then t2 else aux t2)
-  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
-  | trm_while t1 t2 => trm_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => t (* TODO *)
-  end.
-
-Axiom subst1_eq_subst1' : subst1 = subst1'.
 
 Lemma transf_subst_commute: forall b v t,
   subst1 b v (transf_rm_pz t) = transf_rm_pz (subst1 b v t).
