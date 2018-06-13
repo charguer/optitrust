@@ -249,6 +249,14 @@ Inductive bind : Type :=
 Coercion bind_var : var >-> bind.
 Coercion bind_var' (x:string) : bind := bind_var x.
 
+(** Comparison between two bindings *)
+
+Definition bind_eq (z1 z2 : bind) : bool :=
+  match z1, z2 with
+  | bind_anon, bind_anon => true
+  | bind_var x1, bind_var x2 => var_eq x1 x2
+  | _, _ => false
+  end.
 
 
 (* ********************************************************************** *)
