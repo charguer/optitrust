@@ -61,15 +61,17 @@ Definition sizeof (c:typctx) (T:typ) : typsize :=
 (* ---------------------------------------------------------------------- *)
 (** Syntax of the source language *)
 
+Inductive binop : Type :=
+  | binop_eq : binop
+  | binop_sub : binop
+  | binop_add : binop
+  | binop_ptr_add : binop.
+
 Inductive prim : Type :=
   | val_ref : prim
   | val_get : prim
   | val_set : prim
-  | val_alloc : prim
-  | val_eq : prim
-  | val_sub : prim
-  | val_add : prim
-  | val_ptr_add : prim.
+  | val_alloc : prim.
 
 Inductive val : Type :=
   | val_unit : val
@@ -86,6 +88,7 @@ with trm : Type :=
   | trm_if : trm -> trm -> trm -> trm
   | trm_let : bind -> trm -> trm -> trm
   | trm_app : trm -> trm -> trm
+  | trm_binop : binop -> trm -> trm -> trm
   | trm_while : trm -> trm -> trm
   | trm_for : var -> trm -> trm -> trm -> trm.
 
@@ -134,6 +137,7 @@ Fixpoint subst (z:bind) (w:val) (t:trm) : trm :=
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z1 t1 t2 => trm_let z (aux t1) (if bind_eq z z1 then t2 else aux t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+  | trm_binop op t1 t2 => trm_binop op (aux t1) (aux t2)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (if bind_eq z x then t3 else aux t3)
   end.
@@ -168,6 +172,7 @@ Fixpoint substx (E:ctx) (t:trm) : trm :=
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (substx (Ctx.rem z E) t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+  | trm_binop op t1 t2 => trm_binop op (aux t1) (aux t2)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (substx (Ctx.rem x E) t3)
   end.
@@ -305,6 +310,18 @@ Section Red.
 
 Local Open Scope fmap_scope.
 
+Inductive redbinop : binop -> val -> val -> val -> Prop :=
+  | redbinop_add : forall n1 n2,
+      redbinop binop_add (val_int n1) (val_int n2) (val_int (n1 + n2))
+  | redbinop_sub : forall n1 n2,
+      redbinop binop_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
+  | redbinop_ptr_add : forall l' l n,
+      (l':nat) = (l:nat) + n :> int ->
+      redbinop binop_ptr_add (val_loc l) (val_int n) (val_loc l')
+  | redbinop_eq : forall v1 v2,
+      redbinop binop_add v1 v2 (val_bool (isTrue (v1 = v2))).
+
+
 Inductive red : state -> trm -> state -> val -> Prop :=
   (* Core constructs *)
   | red_val : forall m v,
@@ -359,18 +376,13 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       l <> null ->
       \# ma mb ->
       red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
-  (* Other primitive operations *)
-  | red_add : forall m n1 n2 n',
-      n' = n1 + n2 ->
-      red m (val_add (val_int n1) (val_int n2)) m (val_int n')
-  | red_sub : forall m n1 n2 n',
-      n' = n1 - n2 ->
-      red m (val_sub (val_int n1) (val_int n2)) m (val_int n')
-  | red_ptr_add : forall l' m l n,
-      (l':nat) = (l:nat) + n :> int ->
-      red m (val_ptr_add (val_loc l) (val_int n)) m (val_loc l')
-  | red_eq : forall m v1 v2,
-      red m (val_eq v1 v2) m (val_bool (isTrue (v1 = v2))).
+  (* Binary operations *)
+  | red_binop : forall op m1 m2 m3 t1 t2 v1 v2 v,
+      red m1 t1 m2 v1 ->
+      red m2 t2 m3 v2 ->
+      redbinop op v1 v2 v ->
+      red m1 (trm_binop op t1 t2) m3 v.
+
 
   (* Remark: alternative for red_for rules.
     | red_for : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
@@ -412,8 +424,8 @@ Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
 Proof using. introv M1 M2. applys* red_let. rewrite* subst1_anon. Qed.
 
 Lemma red_ptr_add_nat : forall m l (f : nat),
-  red m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
-Proof using. intros. applys* red_ptr_add. math. Qed.
+  red m (trm_binop binop_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
+Proof using. intros. hint red_val. applys* red_binop. applys redbinop_ptr_add. math. Qed.
 
 Lemma red_if_bool : forall m1 m2 b r t1 t2,
   red m1 (if b then t1 else t2) m2 r ->
@@ -735,6 +747,7 @@ Fixpoint trm_size (t:trm) : nat :=
   | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
   | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_binop op t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
   end.
@@ -877,15 +890,15 @@ Notation "t1 ':= t2" :=
   (at level 67) : trm_scope.
 
 Notation "t1 '+ t2" :=
-  (val_add t1 t2)
+  (trm_binop binop_add t1 t2)
   (at level 69) : trm_scope.
 
 Notation "t1 '- t2" :=
-  (val_sub t1 t2)
+  (trm_binop binop_sub t1 t2)
   (at level 69) : trm_scope.
 
 Notation "t1 '= t2" :=
-  (val_eq t1 t2)
+  (trm_binop binop_eq t1 t2)
   (at level 69) : trm_scope.
 
 
@@ -903,6 +916,7 @@ Notation "t1 '= t2" :=
 *)
 
 End NotationForTerms.
+
 
 
 
