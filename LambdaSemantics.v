@@ -79,12 +79,12 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_loc : loc -> val
   | val_prim : prim -> val
-  | val_fix : bind -> bind -> trm -> val
+  (* | val_fix : bind -> bind -> trm -> val *)
 
 with trm : Type :=
   | trm_val : val -> trm
   | trm_var : var -> trm
-  | trm_fix : bind -> bind -> trm -> trm
+  (* | trm_fix : bind -> bind -> trm -> trm *)
   | trm_if : trm -> trm -> trm -> trm
   | trm_let : bind -> trm -> trm -> trm
   | trm_app : trm -> trm -> trm
@@ -100,8 +100,10 @@ Proof using. apply (Inhab_of_val val_unit). Qed.
 (** Encoded constructs *)
 
 Notation trm_seq := (trm_let bind_anon).
+(*
 Notation trm_fun := (trm_fix bind_anon).
 Notation val_fun := (val_fix bind_anon).
+*)
 
 (** Shorthand [vars], [vals] and [trms] for lists of items. *)
 
@@ -133,7 +135,7 @@ Fixpoint subst (z:bind) (w:val) (t:trm) : trm :=
   match t with
   | trm_val v => t
   | trm_var x => if bind_eq z x then w else t
-  | trm_fix f z1 t1 => trm_fix f z1 (if bind_eq z z1 || bind_eq z f then t1 else aux t1)
+  (* | trm_fix f z1 t1 => trm_fix f z1 (if bind_eq z z1 || bind_eq z f then t1 else aux t1) *)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z1 t1 t2 => trm_let z (aux t1) (if bind_eq z z1 then t2 else aux t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
@@ -168,7 +170,7 @@ Fixpoint substx (E:ctx) (t:trm) : trm :=
                  | None => t
                  | Some v => v
                  end
-  | trm_fix f z t1 => trm_fix f z (substx (Ctx.rem z (Ctx.rem f E)) t1)
+  (* | trm_fix f z t1 => trm_fix f z (substx (Ctx.rem z (Ctx.rem f E)) t1) *)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (substx (Ctx.rem z E) t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
@@ -227,15 +229,15 @@ Proof using.
   intros. unfold subst1. simpl. rew_ctx. gen E.
     induction t; intros; simpl; try solve [ fequals* ].
     { rewrite var_eq_spec. case_if~. }
-    { rew_ctx. fequals. tests: (b = x).
+    (* { rew_ctx. fequals. tests: (b = x).
       { repeat rewrite Ctx.rem_add_same. fequals.
         rewrite Ctx.rem_empty, substx_empty. auto. }
-      { repeat rewrites~ (>> Ctx.rem_add_neq b). rewrite Ctx.rem_empty.
-        tests: (b0 = x).
+      { repeat rewrites~ (>> Ctx.rem_add_neq b). rewrite Ctx.rem_empty. 
+        tests: (b0 = bind_var x).
         { repeat rewrite Ctx.rem_add_same.
           rewrite Ctx.rem_empty. rewrite~ substx_empty. }
         { repeat rewrite~ Ctx.rem_add_neq. rewrite Ctx.rem_empty.
-          rewrite~ IHt. } } }
+          rewrite~ IHt. } } } *)
   { rew_ctx. fequals. tests: (b = x).
     { do 2 rewrite Ctx.rem_add_same. fequals. rewrite~ substx_empty. }
     { do 2 (rewrite~ Ctx.rem_add_neq). rewrite Ctx.rem_empty. rewrite~ IHt2. } }
@@ -326,8 +328,8 @@ Inductive red : state -> trm -> state -> val -> Prop :=
   (* Core constructs *)
   | red_val : forall m v,
       red m v m v
-  | red_fix : forall m f z t1,
-      red m (trm_fix f z t1) m (val_fix f z t1)
+  (* | red_fix : forall m f z t1,
+      red m (trm_fix f z t1) m (val_fix f z t1) *)
   | red_if : forall m1 m2 m3 b r t0 t1 t2,
       red m1 t0 m2 (val_bool b) ->
       red m2 (if b then t1 else t2) m3 r ->
@@ -336,12 +338,12 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       red m1 t1 m2 v1 ->
       red m2 (subst1 z v1 t2) m3 r ->
       red m1 (trm_let z t1 t2) m3 r
-  | red_app : forall m1 m2 m3 m4 t1 t2 f z t3 v1 v2 r,
+  (* | red_app : forall m1 m2 m3 m4 t1 t2 f z t3 v1 v2 r,
       red m1 t1 m2 v1 ->
       red m2 t2 m3 v2 ->
       v1 = val_fix f z t3 ->
       red m3 (subst2 f v1 z v2 t3) m4 r ->
-      red m1 (trm_app t1 t2) m4 r
+      red m1 (trm_app t1 t2) m4 r *)
   | red_while : forall m1 m2 t1 t2 r,
       red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
       red m1 (trm_while t1 t2) m2 r
@@ -405,6 +407,7 @@ End Red.
 (* ---------------------------------------------------------------------- *)
 (* ** Derived rules *)
 
+(*
 Lemma red_fun : forall m x t1,
   red m (trm_fun x t1) m (val_fun x t1).
 Proof using. intros. apply red_fix. Qed.
@@ -416,6 +419,7 @@ Lemma red_app_fun : forall m1 m2 m3 m4 t1 t2 z t3 v1 v2 r,
   red m3 (subst1 z v2 t3) m4 r ->
   red m1 (trm_app t1 t2) m4 r.
 Proof using. intros. applys* red_app. Qed.
+*)
 
 Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
   red m1 t1 m2 r1 ->
@@ -508,6 +512,7 @@ Tactic Notation "rew_vals_to_trms" :=
 
 (* ---------------------------------------------------------------------- *)
 (** N-ary applications and N-ary functions *)
+(*
 
 (** [trm_apps t (t1::...tn::nil] describes the application term
     [t t1 .. tn]. *)
@@ -731,6 +736,9 @@ Proof using. intros. rew_nary. Abort.
 *)
 
 
+*)
+
+
 (* ********************************************************************** *)
 (* * Size of a term *)
 
@@ -743,7 +751,7 @@ Fixpoint trm_size (t:trm) : nat :=
   match t with
   | trm_var x => 1
   | trm_val v => 1
-  | trm_fix f x t1 => 1 + trm_size t1
+  (* | trm_fix f x t1 => 1 + trm_size t1 *)
   | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
   | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
@@ -798,6 +806,7 @@ Notation "'Let' x ':=' t1 'in' t2" :=
   (at level 69, x at level 0, right associativity,
   format "'[v' '[' 'Let'  x  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
 
+(*
 Notation "'Let' 'Rec' f x1 ':=' t1 'in' t2" :=
   (trm_let f (trm_fix f x1 t1) t2)
   (at level 69, f, x1 at level 0, right associativity,
@@ -808,6 +817,7 @@ Notation "'Let' 'Rec' f x1 x2 .. xn ':=' t1 'in' t2" :=
   (at level 69, f, x1, x2, xn at level 0, right associativity,
   format "'[v' '[' 'Let'  'Rec'  f  x1  x2  ..  xn  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
 
+*)
   (* LATER: the above might need to be fixed. Here is how to test it:
      Definition test2 := Let Rec 'f 'x 'y := val_unit in val_unit.
      Print test2. *)
@@ -817,6 +827,7 @@ Notation "t1 ;;; t2" :=
   (at level 68, right associativity, only parsing,
    format "'[v' '[' t1 ']'  ;;;  '/'  '[' t2 ']' ']'") : trm_scope.
 
+(*
 Notation "'Fix' f x1 ':=' t" :=
   (trm_fix f x1 t)
   (at level 69, f, x1 at level 0) : trm_scope.
@@ -864,6 +875,8 @@ Notation "'LetFun' f x1 x2 .. xn ':=' t1 'in' t2" :=
 Notation "'LetFix' f x1 ':=' t1 'in' t2" :=
   (trm_let f (trm_fix f x1 t1) t2)
   (at level 69, f at level 0, x1 at level 0) : trm_scope.
+
+*)
 
 Notation "'While' t1 'Do' t2 'Done'" :=
   (trm_while t1 t2)
