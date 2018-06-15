@@ -34,7 +34,7 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC := TLCbuffer Fmap  LambdaSemantics
+SRC := TLCbuffer Fmap MyLibVar MyLibEnv Bind Semantics Transformation
 
 
 # using the variable SRC_CUSTOM, one can modify the compilation targets and/or their order.

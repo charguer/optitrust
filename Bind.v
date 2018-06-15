@@ -10,34 +10,12 @@ License: MIT.
 
 Set Implicit Arguments.
 Require Export LibString LibList LibCore.
-Require Export Fmap TLCbuffer.
+Require Export Fmap TLCbuffer MyLibVar MyLibEnv.
 Open Scope string_scope.
 
 
 (* ********************************************************************** *)
 (* * Variables *)
-
-(* ---------------------------------------------------------------------- *)
-(** Representation of variables *)
-
-(** Variables are represented as strings *)
-
-Definition var := string.
-
-(** Variables can be compared via [var_eq s1 s2] *)
-
-Definition eq_var_dec := String.string_dec.
-
-Definition var_eq (s1:var) (s2:var) : bool :=
-  if eq_var_dec s1 s2 then true else false.
-
-Lemma var_eq_spec : forall s1 s2,
-  var_eq s1 s2 = isTrue (s1 = s2).
-Proof using.
-  intros. unfold var_eq. case_if; rew_bool_eq~.
-Qed.
-
-Global Opaque var.
 
 (** Tactic [var_neq] for proving two concrete variables distinct.
     Also registered as hint for [auto] *)
@@ -45,7 +23,7 @@ Global Opaque var.
 Ltac var_neq :=
   match goal with |- ?x <> ?y :> var =>
     solve [ let E := fresh in
-            destruct (eq_var_dec x y) as [E|E];
+            destruct (String.string_dec x y) as [E|E];
               [ false | apply E ] ] end.
 
 Hint Extern 1 (?x <> ?y) => var_neq.
