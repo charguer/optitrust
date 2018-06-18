@@ -41,17 +41,31 @@ Definition size := nat.
 Inductive typ : Type :=
   | typ_int : typ
   | typ_double : typ
+  | typ_ptr : typ -> typ
   | typ_array : typ -> size -> typ
-  | typ_var : var -> typ. 
+  | typ_struct : var -> typ.
 
-Inductive typdef : Type :=
-  | typdef_typ : typ -> typdef
-  | typdef_struct : fmap field typ -> typdef.
+Record struct : Type := {
+  typdef_struct_fields : fmap var typ;
+  typdef_struct_size : nat
+}.
 
 Definition typvar := var.
 
-Definition typctx := fmap typvar typdef.
+Definition typctx := fmap typvar struct.
 
+Fixpoint sizeof (T:typ) (c:typctx) : nat := 
+  match T with
+  | typ_int => 1
+  | typ_double => 2
+  | typ_ptr _ => 1 (* say *)
+  | typ_array T' n => n * (sizeof T' c)
+  | typ_struct id => 
+    match (fmap_data c id) with
+    | Some s => typdef_struct_size s
+    | None => 0
+    end
+  end.
 
 (* ---------------------------------------------------------------------- *)
 (** Syntax of the source language *)
