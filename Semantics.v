@@ -40,11 +40,12 @@ Definition size := nat.
 
 Inductive typ : Type :=
   | typ_int : typ
-  | type_double : typ
-  | type_array : size -> typ
-  | typ_var : var -> typ.
+  | typ_double : typ
+  | typ_array : typ -> size -> typ
+  | typ_var : var -> typ. 
 
 Inductive typdef : Type :=
+  | typdef_typ : typ -> typdef
   | typdef_struct : fmap field typ -> typdef.
 
 Definition typvar := var.
