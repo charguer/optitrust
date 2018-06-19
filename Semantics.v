@@ -121,21 +121,23 @@ Inductive binop : Type :=
 
 Inductive prim : Type :=
   | prim_binop : binop -> prim
+  | prim_struct_new : typ -> prim
+  | prim_struct_access : typ -> field -> prim.
+  (*
   | prim_ptr_new : typ -> prim
   | prim_ptr_get : typ -> prim
-  | prim_ptr_set : typ -> prim
-  | prim_struct_new : typ -> prim
-  | prim_struct_get : typ -> field -> prim
-  | prim_struct_set : typ -> field -> prim
+  | prim_ptr_set : typ -> prim 
   | prim_array_new : typ -> prim
   | prim_array_get : typ -> prim
   | prim_array_set : typ -> prim.
+  *)
 
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
 
 Inductive val : Type :=
   | val_unit : val
+  | val_bool : bool -> val
   | val_int : int -> val
   | val_double : double -> val
   | val_abstract_ptr : loc -> accesses -> val
@@ -325,12 +327,13 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
       redbinop binop_add (val_int n1) (val_int n2) (val_int (n1 + n2))
   | redbinop_sub : forall n1 n2,
       redbinop binop_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
-  | redbinop_ptr_add : forall l' l n,
+  (*| redbinop_ptr_add : forall l' l n,
       (l':nat) = (l:nat) + n :> int ->
-      redbinop binop_ptr_add (val_loc l) (val_int n) (val_loc l')
+      redbinop binop_ptr_add (val_loc l) (val_int n) (val_loc l')*)
   | redbinop_eq : forall v1 v2,
       redbinop binop_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
+Open Scope list_scope.
 
 Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_var : forall E m v x,
@@ -363,18 +366,13 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
       m' = fmap_update m l v ->
       red E m (trm_app (prim_ptr_set T) ((trm_val l)::(trm_val v)::nil)) m' val_unit.
   *)
-  (* Operations on the abstract heap *)
-  | red_ptr_get : forall E m l v T,
-      fmap_data m l = Some v -> 
-      path_get v p = Some w ->
-      red E m (trm_app (prim_ptr_get T) ((trm_val (val_abstract_ptr l p))::nil)) m w
-  | red_ptr_set : forall E m m' l v T,
-      m' = fmap_update m l v ->
-      red E m (trm_app (prim_ptr_set T) ((trm_val l)::(trm_val v)::nil)) m' val_unit.
-
-
-  | red_struct_get: 
-
+  (* Operations on the abstract heap *) 
+  | red_struct_access : forall E m l s f p T v,
+      fmap_data m l = Some (val_struct s) ->
+      s f = Some v ->
+      red E m (trm_app (prim_struct_access T f) 
+              ((trm_val (val_abstract_ptr l p))::nil)) m 
+              (val_abstract_ptr l (p ++ ((access_field f)::nil))).
   (* | red_arg : forall E m1 m2 m3 f vs ts t1 v1 r,
       ~ is_val t1 ->
       red E m1 t1 m2 v1 ->
