@@ -12,10 +12,25 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
+Require Import LibMonoid.
 Require Export LibString LibList LibCore.
 Require Export Fmap Bind TLCbuffer.
 Open Scope string_scope.
 
+Axiom fmap_get : forall A B, fmap A B -> A -> B.
+
+(*Axiom fmap_fold : forall A B C, (monoid_op C) -> (A->B->C) -> fmap A B -> C. *)
+Axiom fmap_fold : forall A B C, (monoid_op C) -> (A->B->C) -> fmap A B -> C.
+
+Axiom fold_induction:
+  forall A B C (m : monoid_op C) (f : A -> B -> C) (P : C -> Prop),
+  Comm_monoid m ->
+  P (monoid_neutral m) ->
+  (forall x a b, P x -> P (monoid_oper m (f a b) x)) ->
+  forall E,
+  P (fmap_fold m f E).
+
+Axiom fmap_indom : forall A B, fmap A B -> A -> Prop.
 
 (* ********************************************************************** *)
 (* * Source language syntax *)
@@ -49,7 +64,8 @@ Inductive typ : Type :=
   | typ_double : typ
   | typ_ptr : typ -> typ
   | typ_array : typ -> size -> typ
-  | typ_struct : typvar -> typ.
+  | typ_struct : typvar -> typ
+  | typ_fun : list typ -> typ -> typ.
 
 Definition typdef_struct : Type := fmap field typ.
 
@@ -67,9 +83,6 @@ Section TypeSizes.
 
 Open Scope nat_scope.
 
-Axiom fmap_get : forall A B, fmap A B -> A -> B.
-
-
 Fixpoint sizeof (S:typctx_size) (T:typ) : nat := 
   match T with
   | typ_int => 1%nat
@@ -77,21 +90,8 @@ Fixpoint sizeof (S:typctx_size) (T:typ) : nat :=
   | typ_ptr _ => 1%nat
   | typ_array T' n => (n * (sizeof S T'))%nat
   | typ_struct X => fmap_get S X
+  | typ_fun _ _ => 1%nat
   end.
-
-Require Import LibMonoid.
-(*Axiom fmap_fold : forall A B C, (monoid_op C) -> (A->B->C) -> fmap A B -> C. *)
-Axiom fmap_fold : forall A B C, (monoid_op C) -> (A->B->C) -> fmap A B -> C.
-
-Axiom fold_induction:
-  forall A B C (m : monoid_op C) (f : A -> B -> C) (P : C -> Prop),
-  Comm_monoid m ->
-  P (monoid_neutral m) ->
-  (forall x a b, P x -> P (monoid_oper m (f a b) x)) ->
-  forall E,
-  P (fmap_fold m f E).
-
-Axiom fmap_indom : forall A B, fmap A B -> A -> Prop.
 
 Definition sizeof_typdef_struct (S:typctx_size) (m:typdef_struct) : nat :=
   fmap_fold (monoid_make plus 0%nat) (fun f T => sizeof S T) m.
@@ -106,6 +106,12 @@ End TypeSizes.
 
 (* ---------------------------------------------------------------------- *)
 (** Syntax of the source language *)
+
+Inductive access : Type :=
+  | access_array : int -> access
+  | access_field : field -> access.
+
+Definition accesses := list access. 
 
 Inductive binop : Type :=
   | binop_eq : binop
@@ -125,18 +131,20 @@ Inductive prim : Type :=
   | prim_array_get : typ -> prim
   | prim_array_set : typ -> prim.
 
-(* TODO: Change this! Probably use Flocq? *)
+(** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
 
 Inductive val : Type :=
   | val_unit : val
-  | val_bool : bool -> val
   | val_int : int -> val
   | val_double : double -> val
-  | val_loc : loc -> val
+  | val_abstract_ptr : loc -> accesses -> val
+  | val_concrete_ptr : loc -> offset -> val
   | val_prim : prim -> val
   | val_array : list val -> val
-  | val_struct : fmap field val -> val.
+  | val_struct : Fmap.map field val -> val.
+
+Axiom fmap_of_map : forall A B, Fmap.map A B -> fmap A B.
 
 Inductive trm : Type :=
   | trm_var : var -> trm
@@ -170,9 +178,7 @@ Definition trms : Type := list trm.
 
 Coercion prim_binop : binop >-> prim.
 Coercion val_prim : prim >-> val.
-Coercion val_bool : bool >-> val.
 Coercion val_int : Z >-> val.
-Coercion val_loc : loc >-> val.
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
 Coercion trm_app : prim >-> Funclass.
@@ -226,13 +232,9 @@ End Trm_induct.
 (* ********************************************************************** *)
 (* * High-level memory model *)
 
-Inductive access : Type :=
-  | access_array : nat -> access (* ... [n] *)
-  | access_field : field -> access. (* ... .x *)
 
-Definition access_path := list access. 
 
-Definition state := fmap loc val.
+(*
 
 (* Check that the value in the memory cell has the correct type. *)
 Definition val_welltyped (T:typ) (v:val) : bool :=
@@ -286,6 +288,7 @@ Fixpoint access_val (s:state) (l:loc) (ap:access_path) : option val :=
   | None, _ => None
   end.
 
+*)
 (* ********************************************************************** *)
 (* * Source language semantics *)
 
@@ -347,7 +350,7 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_binop : forall E (op:binop) m v1 v2 v,
       redbinop op v1 v2 v ->
       red E m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m v
-  (* Operations on the heap *)
+  (* Operations on the concrete heap 
   | red_ptr_new : forall E ma mb v l T,
       mb = (fmap_single l v) ->
       l <> null ->
@@ -359,6 +362,18 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_ptr_set : forall E m m' l v T,
       m' = fmap_update m l v ->
       red E m (trm_app (prim_ptr_set T) ((trm_val l)::(trm_val v)::nil)) m' val_unit.
+  *)
+  (* Operations on the abstract heap *)
+  | red_ptr_get : forall E m l v T,
+      fmap_data m l = Some v -> 
+      path_get v p = Some w ->
+      red E m (trm_app (prim_ptr_get T) ((trm_val (val_abstract_ptr l p))::nil)) m w
+  | red_ptr_set : forall E m m' l v T,
+      m' = fmap_update m l v ->
+      red E m (trm_app (prim_ptr_set T) ((trm_val l)::(trm_val v)::nil)) m' val_unit.
+
+
+  | red_struct_get: 
 
   (* | red_arg : forall E m1 m2 m3 f vs ts t1 v1 r,
       ~ is_val t1 ->
