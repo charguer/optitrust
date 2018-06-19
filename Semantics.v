@@ -42,13 +42,13 @@ Definition offset := nat.
 Inductive typ : Type :=
   | typ_int : typ
   | typ_double : typ
-  | typ_ptr : typ -> typ
+  | typ_loc : typ -> typ
   | typ_array : typ -> size -> typ
   | typ_struct : var -> typ.
 
-Record struct : Type := {
+Record typdef_struct : Type := {
   typdef_struct_typ : typ; (* typ_struct id *)
-  typdef_struct_fields : fmap var typ;
+  typdef_struct_fields_typ : fmap var typ;
   typdef_struct_fields_list : list var 
   (* TODO: just use fields and get elements list. *)
 }.
@@ -56,7 +56,7 @@ Record struct : Type := {
 Definition typvar := var.
 
 (* The context is detached from size information. *)
-Definition typctx := fmap typvar struct.
+Definition typctx := fmap typvar typdef_struct.
 Definition typsize := fmap typvar size.
 Definition typoffset := fmap typvar (fmap field offset).
 
@@ -64,7 +64,7 @@ Fixpoint sizeof (T:typ) (c:typctx) (s:typsize) : option nat :=
   match T with
   | typ_int => Some 1%nat
   | typ_double => Some 2%nat
-  | typ_ptr _ => Some 1%nat (* say *)
+  | typ_loc _ => Some 1%nat (* say *)
   | typ_array T' n => 
     match (sizeof T' c s) with
     | Some m => Some (n * m)%nat
@@ -106,10 +106,14 @@ Inductive prim : Type :=
   | prim_array_get : typ -> prim
   | prim_array_set : typ -> prim.
 
+(* TODO: Change this! Probably use Flocq? *)
+Definition double := int.
+
 Inductive val : Type :=
   | val_unit : val
   | val_bool : bool -> val
   | val_int : int -> val
+  | val_double : double -> val
   | val_loc : loc -> val
   | val_prim : prim -> val.
 
@@ -199,26 +203,55 @@ End Trm_induct.
 
 
 (* ********************************************************************** *)
-(* * Low-level semantics *)
+(* * High-level memory model *)
 
-(* LATER
+Inductive memcell : Type :=
+  | memcell_val : typ -> val -> memcell
+  | memcell_array : typ -> list val -> memcell
+  | memcell_struct : typdef_struct -> fmap var val -> memcell.
 
-Definition typsize := nat.
+Inductive access : Type :=
+  | access_array : nat -> access (* ... [n] *)
+  | access_field : field -> access. (* ... .x *)
 
-Definition typctxsize := fmap typvar typsize.
+Definition access_path := list access. 
 
-Definition sizeof (C:typctx) (T:typ) : typsize :=
-  match T with
-  | typ_int => 1%nat
-  | typ_double => 2%nat
-  | typ_var X =>
-    match fmap_data C X with
-    | Some n => n
-    | None => 0%nat (* or [arbitrary] *)
-    end
+Definition state := fmap (loc * access_path) memcell.
+
+(* We will need these properties at some point. *)
+Definition val_welltyped (T:typ) (v:val) : bool :=
+  match T, v with
+  | typ_int, val_int _ => true
+  | typ_double, val_double _ => true
+  | typ_loc _, val_loc _ => true
+  | _, _ => false
   end.
 
-*)
+Definition val_welltyped_option (T:option typ) (v:option val) : bool :=
+  match T, v with
+  | Some T', Some v' => val_welltyped T' v'
+  | _, _ => false
+  end.
+
+Definition memcell_val_welltyped := val_welltyped.
+
+Definition memcell_array_welltyped (T:typ) (l:list val) : bool :=
+  List.fold_left and (List.map (val_welltyped T) l) true.
+
+(* Definition memcell_struct_fields_welltyped typs vals : bool :=
+  let aux := memcell_struct_fields_welltyped in
+  match typs, vals with
+  | nil, nil => true
+  | t::ts, v::vs => (val_welltyped_option t v) && (aux ts vs)
+  | _, _ => false
+  end.
+
+Definition memcell_struct_welltyped (T:typdef_struct) (f:fmap var val) :=
+  let vars := typdef_struct_fields_list T in
+  let vals := List.map (fmap_data f) vars in
+  let typs := List.map (fmap_data (typdef_struct_fields_typ T)) vars in
+    (memcell_struct_fields_welltyped typs vals)
+. *)
 
 
 
