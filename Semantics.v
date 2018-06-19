@@ -218,7 +218,7 @@ Definition access_path := list access.
 
 Definition state := fmap (loc * access_path) memcell.
 
-(* We will need these properties at some point. *)
+(* Check that the value in the memory cell has the correct type. *)
 Definition val_welltyped (T:typ) (v:val) : bool :=
   match T, v with
   | typ_int, val_int _ => true
@@ -238,7 +238,8 @@ Definition memcell_val_welltyped := val_welltyped.
 Definition memcell_array_welltyped (T:typ) (l:list val) : bool :=
   List.fold_left and (List.map (val_welltyped T) l) true.
 
-(* Definition memcell_struct_fields_welltyped typs vals : bool :=
+Fixpoint memcell_struct_fields_welltyped 
+  (typs:list (option typ)) (vals:list (option val)) : bool :=
   let aux := memcell_struct_fields_welltyped in
   match typs, vals with
   | nil, nil => true
@@ -250,9 +251,16 @@ Definition memcell_struct_welltyped (T:typdef_struct) (f:fmap var val) :=
   let vars := typdef_struct_fields_list T in
   let vals := List.map (fmap_data f) vars in
   let typs := List.map (fmap_data (typdef_struct_fields_typ T)) vars in
-    (memcell_struct_fields_welltyped typs vals)
-. *)
+    (memcell_struct_fields_welltyped typs vals).
 
+Definition memcell_welltyped (mc:memcell) : bool :=
+  match mc with
+  | memcell_val T v => memcell_val_welltyped T v
+  | memcell_array T l => memcell_array_welltyped T l
+  | memcell_struct str m => memcell_struct_welltyped str m
+  end.
+
+(* Accesses. *)
 
 
 (* ********************************************************************** *)
