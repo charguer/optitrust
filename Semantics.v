@@ -37,6 +37,7 @@ Global Opaque field loc.
 (** Grammar of types *)
 
 Definition size := nat.
+Definition offset := nat.
 
 Inductive typ : Type :=
   | typ_int : typ
@@ -46,24 +47,41 @@ Inductive typ : Type :=
   | typ_struct : var -> typ.
 
 Record struct : Type := {
+  typdef_struct_typ : typ; (* typ_struct id *)
   typdef_struct_fields : fmap var typ;
-  typdef_struct_size : nat
+  typdef_struct_fields_list : list var 
+  (* TODO: just use fields and get elements list. *)
 }.
 
 Definition typvar := var.
 
+(* The context is detached from size information. *)
 Definition typctx := fmap typvar struct.
+Definition typsize := fmap typvar size.
+Definition typoffset := fmap typvar (fmap field offset).
 
-Fixpoint sizeof (T:typ) (c:typctx) : nat := 
+Fixpoint sizeof (T:typ) (c:typctx) (s:typsize) : option nat := 
   match T with
-  | typ_int => 1
-  | typ_double => 2
-  | typ_ptr _ => 1 (* say *)
-  | typ_array T' n => n * (sizeof T' c)
+  | typ_int => Some 1%nat
+  | typ_double => Some 2%nat
+  | typ_ptr _ => Some 1%nat (* say *)
+  | typ_array T' n => 
+    match (sizeof T' c s) with
+    | Some m => Some (n * m)%nat
+    | None => None
+    end
   | typ_struct id => 
     match (fmap_data c id) with
-    | Some s => typdef_struct_size s
-    | None => 0
+    | Some str => 
+        let aux := (fmap_data s) in
+        let option_list := List.map aux (typdef_struct_fields_list str) in
+        List.fold_left 
+          (fun x y => match x, y with 
+            | Some a, Some b => Some (a + b)%nat
+            | _, _ => None
+            end) 
+          option_list (Some 0%nat)
+    | None => None
     end
   end.
 
