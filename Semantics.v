@@ -24,66 +24,85 @@ Open Scope string_scope.
 (* ---------------------------------------------------------------------- *)
 (** Representation of locations and fields *)
 
-Definition loc := nat.
+(** [loc] describes base pointers to an allocated block. *)
+
+Definition loc := nat. 
 
 Definition null : loc := 0%nat.
 
 Definition field := var.
 
-Global Opaque field loc.
+Definition size := nat.
+
+Definition offset := nat.
+
+Definition typvar := var.
+
+Global Opaque field loc size offset typvar.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Grammar of types *)
 
-Definition size := nat.
-Definition offset := nat.
-
 Inductive typ : Type :=
   | typ_int : typ
   | typ_double : typ
-  | typ_loc : typ -> typ
+  | typ_ptr : typ -> typ
   | typ_array : typ -> size -> typ
-  | typ_struct : var -> typ.
+  | typ_struct : typvar -> typ.
 
-Record typdef_struct : Type := {
-  typdef_struct_typ : typ; (* typ_struct id *)
-  typdef_struct_fields_typ : fmap var typ;
-  typdef_struct_fields_list : list var 
-  (* TODO: just use fields and get elements list. *)
-}.
+Definition typdef_struct : Type := fmap field typ.
 
-Definition typvar := var.
-
-(* The context is detached from size information. *)
 Definition typctx := fmap typvar typdef_struct.
-Definition typsize := fmap typvar size.
-Definition typoffset := fmap typvar (fmap field offset).
 
-Fixpoint sizeof (T:typ) (c:typctx) (s:typsize) : option nat := 
+
+(* ---------------------------------------------------------------------- *)
+(** Size of types *)
+
+Definition typctx_size := fmap typvar size.
+
+Definition typctx_offset := fmap typvar (fmap field offset).
+
+Section TypeSizes.
+
+Open Scope nat_scope.
+
+Axiom fmap_get : forall A B, fmap A B -> A -> B.
+
+
+Fixpoint sizeof (S:typctx_size) (T:typ) : nat := 
   match T with
-  | typ_int => Some 1%nat
-  | typ_double => Some 2%nat
-  | typ_loc _ => Some 1%nat (* say *)
-  | typ_array T' n => 
-    match (sizeof T' c s) with
-    | Some m => Some (n * m)%nat
-    | None => None
-    end
-  | typ_struct id => 
-    match (fmap_data c id) with
-    | Some str => 
-        let aux := (fmap_data s) in
-        let option_list := List.map aux (typdef_struct_fields_list str) in
-        List.fold_left 
-          (fun x y => match x, y with 
-            | Some a, Some b => Some (a + b)%nat
-            | _, _ => None
-            end) 
-          option_list (Some 0%nat)
-    | None => None
-    end
+  | typ_int => 1%nat
+  | typ_double => 2%nat
+  | typ_ptr _ => 1%nat
+  | typ_array T' n => (n * (sizeof S T'))%nat
+  | typ_struct X => fmap_get S X
   end.
+
+Require Import LibMonoid.
+(*Axiom fmap_fold : forall A B C, (monoid_op C) -> (A->B->C) -> fmap A B -> C. *)
+Axiom fmap_fold : forall A B C, (monoid_op C) -> (A->B->C) -> fmap A B -> C.
+
+Axiom fold_induction:
+  forall A B C (m : monoid_op C) (f : A -> B -> C) (P : C -> Prop),
+  Comm_monoid m ->
+  P (monoid_neutral m) ->
+  (forall x a b, P x -> P (monoid_oper m (f a b) x)) ->
+  forall E,
+  P (fmap_fold m f E).
+
+Axiom fmap_indom : forall A B, fmap A B -> A -> Prop.
+
+Definition sizeof_typdef_struct (S:typctx_size) (m:typdef_struct) : nat :=
+  fmap_fold (monoid_make plus 0%nat) (fun f T => sizeof S T) m.
+
+Definition wf_typctx_size (C:typctx) (S:typctx_size) : Prop :=
+  forall X, fmap_indom C X -> 
+     fmap_indom S X 
+  /\ fmap_get S X = sizeof_typdef_struct S (fmap_get C X).
+
+End TypeSizes.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Syntax of the source language *)
@@ -99,7 +118,7 @@ Inductive prim : Type :=
   | prim_ptr_new : typ -> prim
   | prim_ptr_get : typ -> prim
   | prim_ptr_set : typ -> prim
-  | prim_struct_new : typ -> list field -> prim
+  | prim_struct_new : typ -> prim
   | prim_struct_get : typ -> field -> prim
   | prim_struct_set : typ -> field -> prim
   | prim_array_new : typ -> prim
@@ -115,7 +134,9 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_double : double -> val
   | val_loc : loc -> val
-  | val_prim : prim -> val.
+  | val_prim : prim -> val
+  | val_array : list val -> val
+  | val_struct : fmap field val -> val.
 
 Inductive trm : Type :=
   | trm_var : var -> trm
@@ -205,18 +226,13 @@ End Trm_induct.
 (* ********************************************************************** *)
 (* * High-level memory model *)
 
-Inductive memcell : Type :=
-  | memcell_val : typ -> val -> memcell
-  | memcell_array : typ -> list val -> memcell
-  | memcell_struct : typdef_struct -> fmap var val -> memcell.
-
 Inductive access : Type :=
   | access_array : nat -> access (* ... [n] *)
   | access_field : field -> access. (* ... .x *)
 
 Definition access_path := list access. 
 
-Definition state := fmap (loc * access_path) memcell.
+Definition state := fmap loc val.
 
 (* Check that the value in the memory cell has the correct type. *)
 Definition val_welltyped (T:typ) (v:val) : bool :=
@@ -260,8 +276,15 @@ Definition memcell_welltyped (mc:memcell) : bool :=
   | memcell_struct str m => memcell_struct_welltyped str m
   end.
 
-(* Accesses. *)
-
+(* Follow path. *)
+Fixpoint access_val (s:state) (l:loc) (ap:access_path) : option val :=
+  match (fmap_data s l), ap with
+  | Some (memcell_val _ v), nil => Some v
+  | Some (memcell_array _ l), (access_array i)::nil => nth l i
+  | Some (memcell_struct str m), _ => None
+  | Some _, _ => None
+  | None, _ => None
+  end.
 
 (* ********************************************************************** *)
 (* * Source language semantics *)
