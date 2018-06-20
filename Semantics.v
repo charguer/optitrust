@@ -108,7 +108,7 @@ End TypeSizes.
 (** Syntax of the source language *)
 
 Inductive access : Type :=
-  | access_array : int -> access
+  | access_array : nat -> access
   | access_field : field -> access.
 
 Definition accesses := list access. 
@@ -121,6 +121,8 @@ Inductive binop : Type :=
 
 Inductive prim : Type :=
   | prim_binop : binop -> prim
+  | prim_get : typ -> prim
+  | prim_set : typ -> prim
   | prim_struct_new : typ -> prim
   | prim_struct_access : typ -> field -> prim.
   (*
@@ -192,7 +194,6 @@ Coercion trms_vals (vs:vals) : trms :=
 (* ---------------------------------------------------------------------- *)
 (** Induction principle *)
 
-
 (** An induction principle for trees *)
 
 Section Trm_induct.
@@ -231,66 +232,6 @@ End Trm_induct.
 *)
 
 
-(* ********************************************************************** *)
-(* * High-level memory model *)
-
-
-
-(*
-
-(* Check that the value in the memory cell has the correct type. *)
-Definition val_welltyped (T:typ) (v:val) : bool :=
-  match T, v with
-  | typ_int, val_int _ => true
-  | typ_double, val_double _ => true
-  | typ_loc _, val_loc _ => true
-  | _, _ => false
-  end.
-
-Definition val_welltyped_option (T:option typ) (v:option val) : bool :=
-  match T, v with
-  | Some T', Some v' => val_welltyped T' v'
-  | _, _ => false
-  end.
-
-Definition memcell_val_welltyped := val_welltyped.
-
-Definition memcell_array_welltyped (T:typ) (l:list val) : bool :=
-  List.fold_left and (List.map (val_welltyped T) l) true.
-
-Fixpoint memcell_struct_fields_welltyped 
-  (typs:list (option typ)) (vals:list (option val)) : bool :=
-  let aux := memcell_struct_fields_welltyped in
-  match typs, vals with
-  | nil, nil => true
-  | t::ts, v::vs => (val_welltyped_option t v) && (aux ts vs)
-  | _, _ => false
-  end.
-
-Definition memcell_struct_welltyped (T:typdef_struct) (f:fmap var val) :=
-  let vars := typdef_struct_fields_list T in
-  let vals := List.map (fmap_data f) vars in
-  let typs := List.map (fmap_data (typdef_struct_fields_typ T)) vars in
-    (memcell_struct_fields_welltyped typs vals).
-
-Definition memcell_welltyped (mc:memcell) : bool :=
-  match mc with
-  | memcell_val T v => memcell_val_welltyped T v
-  | memcell_array T l => memcell_array_welltyped T l
-  | memcell_struct str m => memcell_struct_welltyped str m
-  end.
-
-(* Follow path. *)
-Fixpoint access_val (s:state) (l:loc) (ap:access_path) : option val :=
-  match (fmap_data s l), ap with
-  | Some (memcell_val _ v), nil => Some v
-  | Some (memcell_array _ l), (access_array i)::nil => nth l i
-  | Some (memcell_struct str m), _ => None
-  | Some _, _ => None
-  | None, _ => None
-  end.
-
-*)
 (* ********************************************************************** *)
 (* * Source language semantics *)
 
@@ -335,6 +276,40 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 
 Open Scope list_scope.
 
+Check List.nth_error.
+
+(** Returns v.π0...πn. *)
+Fixpoint follow (v:val) (π:accesses) : option val :=
+  match v, π with
+  | val_array l, ((access_array i)::π') => 
+    match List.nth_error l i with
+    | Some v' => follow v' π'
+    | None => None
+    end
+  | val_struct s, ((access_field f)::π') => 
+    match s f with
+    | Some v' => follow v' π'
+    | None => None
+    end
+  | _, nil => Some v
+  | _, _ => None
+  end.
+
+(** Returns v but with v.π0...πn = w. *)
+Fixpoint value_update (v:val) (π:accesses) (w:val) : option val :=
+  Some v.
+
+(** Returns m but with m[l].π0...πn = v. *)
+Definition state_update (l:loc) (π:accesses) (v:val) (m:state) : option state :=
+  match fmap_data m l with
+  | Some w => 
+    match value_update w π v with
+    | Some w' => fmap_update m l w'
+    | None => None 
+    end
+  | None => None
+  end.
+
 Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_var : forall E m v x,
       Ctx.lookup x E = Some v ->
@@ -367,12 +342,22 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
       red E m (trm_app (prim_ptr_set T) ((trm_val l)::(trm_val v)::nil)) m' val_unit.
   *)
   (* Operations on the abstract heap *) 
-  | red_struct_access : forall E m l s f p T v,
+  | red_get : forall E m p l π T v w,
+      red E m p m (val_abstract_ptr l π) ->
+      fmap_data m l = Some v
+      follow v π = Some w ->
+      red E m (trm_app (prim_get T) (p::nil)) m w
+  | red_set : forall E m p l π t v T
+      red E m p m (val_abstract_ptr l π) ->
+      red E m t m v ->
+      state_update l π v m = Some m'
+      red E m (trm_app (prim_set T) (p::t::nil)) m' val_unit
+  | red_struct_access : forall E m l s f π T v,
       fmap_data m l = Some (val_struct s) ->
       s f = Some v ->
       red E m (trm_app (prim_struct_access T f) 
-              ((trm_val (val_abstract_ptr l p))::nil)) m 
-              (val_abstract_ptr l (p ++ ((access_field f)::nil))).
+              ((trm_val (val_abstract_ptr l π))::nil)) m 
+              (val_abstract_ptr l (π++((access_field f)::nil))).
   (* | red_arg : forall E m1 m2 m3 f vs ts t1 v1 r,
       ~ is_val t1 ->
       red E m1 t1 m2 v1 ->
