@@ -276,8 +276,6 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 
 Open Scope list_scope.
 
-Check List.nth_error.
-
 (** Returns v.π0...πn. *)
 Fixpoint follow (v:val) (π:accesses) : option val :=
   match v, π with
@@ -295,20 +293,13 @@ Fixpoint follow (v:val) (π:accesses) : option val :=
   | _, _ => None
   end.
 
-(** Returns v but with v.π0...πn = w. *)
-Fixpoint value_update (v:val) (π:accesses) (w:val) : option val :=
-  Some v.
-
-(** Returns m but with m[l].π0...πn = v. *)
-Definition state_update (l:loc) (π:accesses) (v:val) (m:state) : option state :=
-  match fmap_data m l with
-  | Some w => 
-    match value_update w π v with
-    | Some w' => fmap_update m l w'
-    | None => None 
-    end
-  | None => None
-  end.
+(** m' is m but with m[l].π0...πn = v. *)
+Definition state_update (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Prop :=
+  forall l' π' w' w,
+  fmap_data m l = Some w /\ fmap_data m' l = Some w' ->
+      (not (l = l') -> fmap_data m l' = fmap_data m' l') 
+  /\  (l = l'-> (not (π = π') -> follow w π' = follow w' π')
+            /\  (π = π' -> follow v' π' = Some v)).
 
 Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_var : forall E m v x,
@@ -344,13 +335,13 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
   (* Operations on the abstract heap *) 
   | red_get : forall E m p l π T v w,
       red E m p m (val_abstract_ptr l π) ->
-      fmap_data m l = Some v
+      fmap_data m l = Some v ->
       follow v π = Some w ->
       red E m (trm_app (prim_get T) (p::nil)) m w
-  | red_set : forall E m p l π t v T
+  | red_set : forall E m m' p l π t v T,
       red E m p m (val_abstract_ptr l π) ->
       red E m t m v ->
-      state_update l π v m = Some m'
+      state_update l π v m m' ->
       red E m (trm_app (prim_set T) (p::t::nil)) m' val_unit
   | red_struct_access : forall E m l s f π T v,
       fmap_data m l = Some (val_struct s) ->
