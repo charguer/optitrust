@@ -239,9 +239,7 @@ End Trm_induct.
 Implicit Types t : trm.
 Implicit Types v : val.
 Implicit Types l : loc.
-Implicit Types i : field.
 Implicit Types b : bool.
-Implicit Types n : int.
 Implicit Types x : var.
 Implicit Types z : bind.
 Implicit Types vs : vals.
@@ -327,21 +325,24 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
       red E m1 t m1 v ->
       updated_state l π v m1 m2 ->
       red E m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_new: forall E l v ma mb T,
-      mb = (fmap_single l v) ->
+  | red_new: forall E l v m1 m2 m3 T t,
+      red E m1 t m2 v ->
       l <> null ->
-      \# ma mb ->
-      red E ma (trm_app (prim_new T) ((trm_val v)::nil)) mb (val_abstract_ptr l nil)
-  | red_struct_access : forall E m l s f π T v,
-      fmap_data m l = Some (val_struct s) ->
+      \# m2 (fmap_single l v) ->
+      m3 = fmap_update m2 l v ->
+      red E m1 (trm_app (prim_new T) (t::nil)) m3 (val_abstract_ptr l nil)
+  | red_struct_access : forall E m1 m2 t l s f π T v,
+      red E m1 t m2 (val_abstract_ptr l π) ->
+      fmap_data m2 l = Some (val_struct s) ->
       fmap_data (fmap_of_map s) f = Some v ->
-      red E m (trm_app (prim_struct_access T f) ((trm_val (val_abstract_ptr l π))::nil)) m 
-              (val_abstract_ptr l (π++((access_field f)::nil)))
-  | red_array_access : forall E m l a (i:nat) π T v,
-      fmap_data m l = Some (val_array a) ->
+      red E m1 (trm_app (prim_struct_access T f) (t::nil)) m2 
+               (val_abstract_ptr l (π++((access_field f)::nil)))
+  | red_array_access : forall E m1 m2 t l a i π T v,
+      red E m1 t m2 (val_abstract_ptr l π) ->
+      fmap_data m2 l = Some (val_array a) ->
       List.nth_error a i = Some v ->
-      red E m (trm_app (prim_array_access T i) ((trm_val (val_abstract_ptr l π))::nil)) m 
-              (val_abstract_ptr l (π++((access_array i)::nil))).
+      red E m1 (trm_app (prim_array_access T i) (t::nil)) m2 
+               (val_abstract_ptr l (π++((access_array i)::nil))).
 
 End Red.
 
@@ -358,35 +359,62 @@ Proof using. intros. applys* red_let. Qed.
 (* ---------------------------------------------------------------------- *)
 (** Type inference rules *)
 
-Definition typctx_var := fmap var typ.
-Definition typctx_loc := fmap (loc * accesses) typ.
+Definition typctx_var := Ctx.ctx typ.
+Definition typctx_loc := fmap loc (fmap accesses typ).
 
-(*
-Inductive val : Type :=
-  | val_unit : val
-  | val_bool : bool -> val
-  | val_int : int -> val
-  | val_double : double -> val
-  | val_abstract_ptr : loc -> accesses -> val
-  | val_concrete_ptr : loc -> offset -> val
-  | val_prim : prim -> val
-  | val_array : list val -> val
-  | val_struct : Fmap.map field val -> val.
-*)
+Inductive typ_inf : typdefctx -> typctx_var -> trm -> typ -> Prop :=
+  (* Values *)
+  | typ_inf_val_unit : forall cs cv,
+      typ_inf cs cv val_unit typ_unit
+  | typ_inf_val_bool : forall cs cv b,
+      typ_inf cs cv (val_bool b) typ_bool
+  | typ_inf_val_int : forall cs cv i,
+      typ_inf cs cv (val_int i) typ_int
+  | typ_inf_val_double : forall cs cv d,
+      typ_inf cs cv (val_double d) typ_double
+  (*| typ_inf_val_abstract_ptr : forall cs cv φ l m π T,
+      fmap_data φ l = Some m ->
+      fmap_data m π = Some T ->
+      typ_inf cs cv (val_abstract_ptr l π) cv (typ_ptr T)*)
+  (* Binary operations *)
+  | typ_inf_binop : forall cs cv v1 v2 (op:binop),
+      typ_inf cs cv v1 typ_int ->
+      typ_inf cs cv v2 typ_int ->
+      typ_inf cs cv (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
+  (* Abstract heap operations *)
+  | typ_inf_get : forall cs cv T p,
+      typ_inf cs cv p (typ_ptr T) ->
+      typ_inf cs cv (trm_app (prim_get T) (p::nil)) T
+  | typ_inf_set : forall cs cv p t T,
+      typ_inf cs cv p (typ_ptr T) ->
+      typ_inf cs cv t T ->
+      typ_inf cs cv (trm_app (prim_set T) (p::t::nil)) typ_unit
+  | typ_inf_new : forall cs cv t T, 
+      typ_inf cs cv t T ->
+      typ_inf cs cv (trm_app (prim_new T) (t::nil)) (typ_ptr T)
+  | typ_inf_struct_access : forall cs cv s m f T t,
+      fmap_data cs s = Some m ->
+      fmap_data m f = Some T ->
+      typ_inf cs cv t (typ_ptr (typ_struct s)) ->
+      typ_inf cs cv (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T)
+  | typ_inf_array_access : forall cs cv t A i n,
+      typ_inf cs cv t (typ_ptr (typ_array A n)) ->
+      typ_inf cs cv (trm_app (prim_array_access A i) (t::nil)) (typ_ptr A)
+  (* Variables *)
+  | typ_inf_var : forall cs cv x T,
+      Ctx.lookup x cv = Some T ->
+      typ_inf cs cv x T
+  (* Other language constructs *)
+  | typ_inf_if : forall cs cv t0 t1 t2 T,
+      typ_inf cs cv t0 typ_bool ->
+      typ_inf cs cv t1 T ->
+      typ_inf cs cv t2 T ->
+      typ_inf cs cv (trm_if t0 t1 t2) T
+  | typ_inf_let : forall cs cv X T z t1 t2,
+      typ_inf cs cv t1 X ->
+      typ_inf cs (Ctx.add z X cv) t2 T ->
+      typ_inf cs cv (trm_let z t1 t2) T.
 
-Inductive typ_inf : typctx_var -> typctx_loc -> trm -> typ -> Prop :=
-  | typ_inf_val_unit : forall cv cl,
-      typ_inf cv cl val_unit typ_unit
-  | typ_inf_val_bool : forall cv cl b,
-      typ_inf cv cl (val_bool b) typ_bool
-  | typ_inf_val_int : forall cv cl i,
-      typ_inf cv cl (val_int i) typ_int
-  | typ_inf_val_double : forall cv cl d,
-      typ_inf cv cl (val_double d) typ_double
-  | typ_inf_val_abstract_ptr : forall cv cl l π T,
-      fmap_data cl (l, π) = Some T ->
-      typ_inf cv cl (val_abstract_ptr l π) T
-.
 
 (* ********************************************************************** *)
 (* * Notation for terms *)
