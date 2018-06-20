@@ -359,61 +359,61 @@ Proof using. intros. applys* red_let. Qed.
 (* ---------------------------------------------------------------------- *)
 (** Type inference rules *)
 
-Definition typctx_var := Ctx.ctx typ.
-Definition typctx_loc := fmap loc (fmap accesses typ).
+Definition typenv := Ctx.ctx typ.
+Definition typheap := fmap loc (fmap accesses typ).
 
-Inductive typ_inf : typdefctx -> typctx_var -> trm -> typ -> Prop :=
+Inductive typ_inf : typdefctx -> typenv -> trm -> typ -> Prop :=
   (* Values *)
-  | typ_inf_val_unit : forall cs cv,
-      typ_inf cs cv val_unit typ_unit
-  | typ_inf_val_bool : forall cs cv b,
-      typ_inf cs cv (val_bool b) typ_bool
-  | typ_inf_val_int : forall cs cv i,
-      typ_inf cs cv (val_int i) typ_int
-  | typ_inf_val_double : forall cs cv d,
-      typ_inf cs cv (val_double d) typ_double
-  (*| typ_inf_val_abstract_ptr : forall cs cv φ l m π T,
+  | typ_inf_val_unit : forall C Γ, 
+      typ_inf C Γ val_unit typ_unit
+  | typ_inf_val_bool : forall C Γ b,
+      typ_inf C Γ (val_bool b) typ_bool
+  | typ_inf_val_int : forall C Γ i,
+      typ_inf C Γ (val_int i) typ_int
+  | typ_inf_val_double : forall C Γ d,
+      typ_inf C Γ (val_double d) typ_double
+  (*| typ_inf_val_abstract_ptr : forall C Γ φ l m π T,
       fmap_data φ l = Some m ->
       fmap_data m π = Some T ->
-      typ_inf cs cv (val_abstract_ptr l π) cv (typ_ptr T)*)
+      typ_inf C Γ (val_abstract_ptr l π) Γ (typ_ptr T)*)
   (* Binary operations *)
-  | typ_inf_binop : forall cs cv v1 v2 (op:binop),
-      typ_inf cs cv v1 typ_int ->
-      typ_inf cs cv v2 typ_int ->
-      typ_inf cs cv (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
+  | typ_inf_binop : forall C Γ v1 v2 (op:binop),
+      typ_inf C Γ v1 typ_int ->
+      typ_inf C Γ v2 typ_int ->
+      typ_inf C Γ (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
   (* Abstract heap operations *)
-  | typ_inf_get : forall cs cv T p,
-      typ_inf cs cv p (typ_ptr T) ->
-      typ_inf cs cv (trm_app (prim_get T) (p::nil)) T
-  | typ_inf_set : forall cs cv p t T,
-      typ_inf cs cv p (typ_ptr T) ->
-      typ_inf cs cv t T ->
-      typ_inf cs cv (trm_app (prim_set T) (p::t::nil)) typ_unit
-  | typ_inf_new : forall cs cv t T, 
-      typ_inf cs cv t T ->
-      typ_inf cs cv (trm_app (prim_new T) (t::nil)) (typ_ptr T)
-  | typ_inf_struct_access : forall cs cv s m f T t,
-      fmap_data cs s = Some m ->
+  | typ_inf_get : forall C Γ T p,
+      typ_inf C Γ p (typ_ptr T) ->
+      typ_inf C Γ (trm_app (prim_get T) (p::nil)) T
+  | typ_inf_set : forall C Γ p t T,
+      typ_inf C Γ p (typ_ptr T) ->
+      typ_inf C Γ t T ->
+      typ_inf C Γ (trm_app (prim_set T) (p::t::nil)) typ_unit
+  | typ_inf_new : forall C Γ t T, 
+      typ_inf C Γ t T ->
+      typ_inf C Γ (trm_app (prim_new T) (t::nil)) (typ_ptr T)
+  | typ_inf_struct_access : forall C Γ s m f T t,
+      fmap_data C s = Some m ->
       fmap_data m f = Some T ->
-      typ_inf cs cv t (typ_ptr (typ_struct s)) ->
-      typ_inf cs cv (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T)
-  | typ_inf_array_access : forall cs cv t A i n,
-      typ_inf cs cv t (typ_ptr (typ_array A n)) ->
-      typ_inf cs cv (trm_app (prim_array_access A i) (t::nil)) (typ_ptr A)
+      typ_inf C Γ t (typ_ptr (typ_struct s)) ->
+      typ_inf C Γ (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T)
+  | typ_inf_array_access : forall C Γ t A i n,
+      typ_inf C Γ t (typ_ptr (typ_array A n)) ->
+      typ_inf C Γ (trm_app (prim_array_access A i) (t::nil)) (typ_ptr A)
   (* Variables *)
-  | typ_inf_var : forall cs cv x T,
-      Ctx.lookup x cv = Some T ->
-      typ_inf cs cv x T
+  | typ_inf_var : forall C Γ x T,
+      Ctx.lookup x Γ = Some T ->
+      typ_inf C Γ x T
   (* Other language constructs *)
-  | typ_inf_if : forall cs cv t0 t1 t2 T,
-      typ_inf cs cv t0 typ_bool ->
-      typ_inf cs cv t1 T ->
-      typ_inf cs cv t2 T ->
-      typ_inf cs cv (trm_if t0 t1 t2) T
-  | typ_inf_let : forall cs cv X T z t1 t2,
-      typ_inf cs cv t1 X ->
-      typ_inf cs (Ctx.add z X cv) t2 T ->
-      typ_inf cs cv (trm_let z t1 t2) T.
+  | typ_inf_if : forall C Γ t0 t1 t2 T,
+      typ_inf C Γ t0 typ_bool ->
+      typ_inf C Γ t1 T ->
+      typ_inf C Γ t2 T ->
+      typ_inf C Γ (trm_if t0 t1 t2) T
+  | typ_inf_let : forall C Γ X T z t1 t2,
+      typ_inf C Γ t1 X ->
+      typ_inf C (Ctx.add z X Γ) t2 T ->
+      typ_inf C Γ (trm_let z t1 t2) T.
 
 
 (* ********************************************************************** *)
