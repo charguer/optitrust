@@ -32,6 +32,7 @@ Axiom fold_induction:
 
 Axiom fmap_indom : forall A B, fmap A B -> A -> Prop.
 
+
 (* ********************************************************************** *)
 (* * Source language syntax *)
 
@@ -123,16 +124,9 @@ Inductive prim : Type :=
   | prim_binop : binop -> prim
   | prim_get : typ -> prim
   | prim_set : typ -> prim
-  | prim_struct_new : typ -> prim
-  | prim_struct_access : typ -> field -> prim.
-  (*
-  | prim_ptr_new : typ -> prim
-  | prim_ptr_get : typ -> prim
-  | prim_ptr_set : typ -> prim 
-  | prim_array_new : typ -> prim
-  | prim_array_get : typ -> prim
-  | prim_array_set : typ -> prim.
-  *)
+  | prim_new : typ -> prim
+  | prim_struct_access : typ -> field -> prim
+  | prim_array_access : typ -> nat -> prim.
 
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
@@ -268,9 +262,6 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
       redbinop binop_add (val_int n1) (val_int n2) (val_int (n1 + n2))
   | redbinop_sub : forall n1 n2,
       redbinop binop_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
-  (*| redbinop_ptr_add : forall l' l n,
-      (l':nat) = (l:nat) + n :> int ->
-      redbinop binop_ptr_add (val_loc l) (val_int n) (val_loc l')*)
   | redbinop_eq : forall v1 v2,
       redbinop binop_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
@@ -294,12 +285,14 @@ Fixpoint follow (v:val) (π:accesses) : option val :=
   end.
 
 (** m' is m but with m[l].π0...πn = v. *)
-Definition state_update (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Prop :=
+Definition updated_state (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Prop :=
   forall l' π' w' w,
   fmap_data m l = Some w /\ fmap_data m' l = Some w' ->
       (not (l = l') -> fmap_data m l' = fmap_data m' l') 
   /\  (l = l'-> (not (π = π') -> follow w π' = follow w' π')
-            /\  (π = π' -> follow v' π' = Some v)).
+            /\  (π = π' -> follow w' π' = Some v)).
+
+Check access_array.
 
 Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_var : forall E m v x,
@@ -319,49 +312,34 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_binop : forall E (op:binop) m v1 v2 v,
       redbinop op v1 v2 v ->
       red E m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m v
-  (* Operations on the concrete heap 
-  | red_ptr_new : forall E ma mb v l T,
-      mb = (fmap_single l v) ->
-      l <> null ->
-      \# ma mb ->
-      red E ma (trm_app (prim_ptr_new T) (trm_val v::nil)) (mb \+ ma) (val_loc l)
-  | red_ptr_get : forall E m l v T,
-      fmap_data m l = Some v ->
-      red E m (trm_app (prim_ptr_get T) ((trm_val l)::nil)) m v
-  | red_ptr_set : forall E m m' l v T,
-      m' = fmap_update m l v ->
-      red E m (trm_app (prim_ptr_set T) ((trm_val l)::(trm_val v)::nil)) m' val_unit.
-  *)
   (* Operations on the abstract heap *) 
   | red_get : forall E m p l π T v w,
       red E m p m (val_abstract_ptr l π) ->
       fmap_data m l = Some v ->
       follow v π = Some w ->
       red E m (trm_app (prim_get T) (p::nil)) m w
-  | red_set : forall E m m' p l π t v T,
-      red E m p m (val_abstract_ptr l π) ->
-      red E m t m v ->
-      state_update l π v m m' ->
-      red E m (trm_app (prim_set T) (p::t::nil)) m' val_unit
+  | red_set : forall E m1 m2 p l π t v T,
+      red E m1 p m1 (val_abstract_ptr l π) ->
+      red E m1 t m1 v ->
+      updated_state l π v m1 m2 ->
+      red E m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
+  | red_new: forall E l v ma mb T,
+      mb = (fmap_single l v) ->
+      l <> null ->
+      \# ma mb ->
+      red E ma (trm_app (prim_new T) ((trm_val v)::nil)) mb (val_abstract_ptr l nil)
   | red_struct_access : forall E m l s f π T v,
       fmap_data m l = Some (val_struct s) ->
       s f = Some v ->
-      red E m (trm_app (prim_struct_access T f) 
-              ((trm_val (val_abstract_ptr l π))::nil)) m 
-              (val_abstract_ptr l (π++((access_field f)::nil))).
-  (* | red_arg : forall E m1 m2 m3 f vs ts t1 v1 r,
-      ~ is_val t1 ->
-      red E m1 t1 m2 v1 ->
-      red E m2 (trm_app f ((trms_vals vs)++(trm_val v1)::ts)) m3 r ->
-      red E m1 (trm_app f ((trms_vals vs)++t1::ts)) m3 r *)
-  (* Generic function calls -- later
-      | red_call : forall E m1 m2 m3 m4 t1 t2 f z t3 v1 r,
-      ... execute body of f ...
-      red E m1 (trm_app f vs) m3 r
-   *)
+      red E m (trm_app (prim_struct_access T f) ((trm_val (val_abstract_ptr l π))::nil)) m 
+              (val_abstract_ptr l (π++((access_field f)::nil)))
+  | red_array_access : forall E m l a (i:nat) π T v,
+      fmap_data m l = Some (val_array a) ->
+      List.nth_error a i = Some v ->
+      red E m (trm_app (prim_array_access T i) ((trm_val (val_abstract_ptr l π))::nil)) m 
+              (val_abstract_ptr l (π++((access_array i)::nil))).
 
 End Red.
-
 
 (* Derived *)
 
@@ -370,7 +348,6 @@ Lemma red_seq : forall E m1 m2 m3 t1 t2 r1 r,
   red E m2 t2 m3 r ->
   red E m1 (trm_seq t1 t2) m3 r.
 Proof using. intros. applys* red_let. Qed.
-
 
 
 (* ********************************************************************** *)
@@ -403,41 +380,4 @@ Notation "t1 ;;; t2" :=
   (at level 68, right associativity, only parsing,
    format "'[v' '[' t1 ']'  ;;;  '/'  '[' t2 ']' ']'") : trm_scope.
 
-(*
-Notation "'ref t" :=
-  (val_ref t)
-  (at level 67) : trm_scope.
-
-Notation "'! t" :=
-  (val_get t)
-  (at level 67) : trm_scope.
-
-Notation "t1 ':= t2" :=
-  (val_set t1 t2)
-  (at level 67) : trm_scope.
-
-Notation "t1 '+ t2" :=
-  (trm_app binop_add (t1::t2::nil))
-  (at level 69) : trm_scope.
-
-Notation "t1 '- t2" :=
-  (trm_binop binop_sub t1 t2)
-  (at level 69) : trm_scope.
-
-Notation "t1 '= t2" :=
-  (trm_binop binop_eq t1 t2)
-  (at level 69) : trm_scope.
-*)
-
-(* Demo for the above notation:
-
-  Open Scope trm_scope.
-  Import NotationForVariables.
-  Definition test := Let 'x := val_unit in val_unit.
-*)
-
 End NotationForTerms.
-
-
-
-
