@@ -61,8 +61,10 @@ Global Opaque field loc size offset typvar.
 (** Grammar of types *)
 
 Inductive typ : Type :=
+  | typ_unit : typ
   | typ_int : typ
   | typ_double : typ
+  | typ_bool : typ
   | typ_ptr : typ -> typ
   | typ_array : typ -> size -> typ
   | typ_struct : typvar -> typ
@@ -70,22 +72,24 @@ Inductive typ : Type :=
 
 Definition typdef_struct : Type := fmap field typ.
 
-Definition typctx := fmap typvar typdef_struct.
+Definition typdefctx := fmap typvar typdef_struct.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Size of types *)
 
-Definition typctx_size := fmap typvar size.
+Definition typdefctx_size := fmap typvar size.
 
-Definition typctx_offset := fmap typvar (fmap field offset).
+Definition typdefctx_offset := fmap typvar (fmap field offset).
 
 Section TypeSizes.
 
 Open Scope nat_scope.
 
-Fixpoint sizeof (S:typctx_size) (T:typ) : nat := 
+Fixpoint sizeof (S:typdefctx_size) (T:typ) : nat := 
   match T with
+  | typ_unit => 0%nat
+  | typ_bool => 1%nat
   | typ_int => 1%nat
   | typ_double => 2%nat
   | typ_ptr _ => 1%nat
@@ -94,10 +98,10 @@ Fixpoint sizeof (S:typctx_size) (T:typ) : nat :=
   | typ_fun _ _ => 1%nat
   end.
 
-Definition sizeof_typdef_struct (S:typctx_size) (m:typdef_struct) : nat :=
+Definition sizeof_typdef_struct (S:typdefctx_size) (m:typdef_struct) : nat :=
   fmap_fold (monoid_make plus 0%nat) (fun f T => sizeof S T) m.
 
-Definition wf_typctx_size (C:typctx) (S:typctx_size) : Prop :=
+Definition wf_typctx_size (C:typdefctx) (S:typdefctx_size) : Prop :=
   forall X, fmap_indom C X -> 
      fmap_indom S X 
   /\ fmap_get S X = sizeof_typdef_struct S (fmap_get C X).
@@ -330,7 +334,7 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
       red E ma (trm_app (prim_new T) ((trm_val v)::nil)) mb (val_abstract_ptr l nil)
   | red_struct_access : forall E m l s f π T v,
       fmap_data m l = Some (val_struct s) ->
-      s f = Some v ->
+      fmap_data (fmap_of_map s) f = Some v ->
       red E m (trm_app (prim_struct_access T f) ((trm_val (val_abstract_ptr l π))::nil)) m 
               (val_abstract_ptr l (π++((access_field f)::nil)))
   | red_array_access : forall E m l a (i:nat) π T v,
@@ -349,6 +353,40 @@ Lemma red_seq : forall E m1 m2 m3 t1 t2 r1 r,
   red E m1 (trm_seq t1 t2) m3 r.
 Proof using. intros. applys* red_let. Qed.
 
+
+
+(* ---------------------------------------------------------------------- *)
+(** Type inference rules *)
+
+Definition typctx_var := fmap var typ.
+Definition typctx_loc := fmap (loc * accesses) typ.
+
+(*
+Inductive val : Type :=
+  | val_unit : val
+  | val_bool : bool -> val
+  | val_int : int -> val
+  | val_double : double -> val
+  | val_abstract_ptr : loc -> accesses -> val
+  | val_concrete_ptr : loc -> offset -> val
+  | val_prim : prim -> val
+  | val_array : list val -> val
+  | val_struct : Fmap.map field val -> val.
+*)
+
+Inductive typ_inf : typctx_var -> typctx_loc -> trm -> typ -> Prop :=
+  | typ_inf_val_unit : forall cv cl,
+      typ_inf cv cl val_unit typ_unit
+  | typ_inf_val_bool : forall cv cl b,
+      typ_inf cv cl (val_bool b) typ_bool
+  | typ_inf_val_int : forall cv cl i,
+      typ_inf cv cl (val_int i) typ_int
+  | typ_inf_val_double : forall cv cl d,
+      typ_inf cv cl (val_double d) typ_double
+  | typ_inf_val_abstract_ptr : forall cv cl l π T,
+      fmap_data cl (l, π) = Some T ->
+      typ_inf cv cl (val_abstract_ptr l π) T
+.
 
 (* ********************************************************************** *)
 (* * Notation for terms *)
