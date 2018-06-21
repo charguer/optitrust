@@ -328,7 +328,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red E m1 t m1 v ->
       updated_state l π v m1 m2 ->
       red E m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_alloc: forall E l v m1 m2 m3 T t p,
+  | red_alloc: forall E l v m1 m2 m3 T t,
       red E m1 t m2 v ->
       l <> null ->
       \# m2 (fmap_single l v) -> (* l \notin fmap_dom m2 *)
@@ -340,10 +340,11 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       fmap_data (fmap_of_map s) f = Some v ->
       red E m1 (trm_app (prim_struct_access T f) (t::nil)) m2 
                (val_abstract_ptr l (π++((access_field f)::nil)))
-  | red_array_access : forall E m1 m2 t l a i π T v,
+  | red_array_access : forall E m t l i π T vr ti (k:nat),
       t = val_abstract_ptr l π ->
-      ti = val_int i ->
-      vr = val_abstract_ptr l (π&(access_array i)) ->
+      ti = trm_val (val_int i) ->
+      i = k ->
+      vr = val_abstract_ptr l (π++(access_array k)::nil) ->
       red E m (trm_app (prim_array_access T) (t::ti::nil)) m vr.
 
 End Red.
@@ -362,34 +363,13 @@ Proof using. intros. applys* red_let. Qed.
 (** Type inference rules *)
 
 Definition gamma := Ctx.ctx typ.
-Definition phi := fmap loc (fmap accesses typ).
-
-(** Returns T..π. *)
-Fixpoint follow_typ (C:typdefctx) (T:typ) (π:accesses) : option typ :=
-  match T, π with
-  | typ_array T' n, ((access_array i)::π') => 
-    if Nat.ltb i n && Nat.leb 0 i 
-    then follow_typ C T' π'
-    else None
-  | typ_struct s, ((access_field f)::π') => 
-    match fmap_data C s with
-    | Some m => 
-        match fmap_data m f with
-        | Some T' => follow_typ C T' π'
-        | None => None
-        end
-    | None => None
-    end
-  | _, nil => Some T
-  | _, _ => None
-  end.
-
-Module M.
-
 Definition phi := fmap loc typ.
 
 Axiom fmap_binds : forall A B, fmap A B -> A -> B -> Prop.
 
+Axiom fmap_dom : forall A B, fmap A B -> A.
+
+(** Returns T..π. *)
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
     follow_typ C T nil T
@@ -406,15 +386,11 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
 Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
   | read_phi_intro : forall T1, fmap_binds φ l T1 -> follow_typ C T1 π T -> read_phi C φ l π T.
 
-End M.
-
 (** φ2 is φ1 but with φ2(l)(π) = T..π. *)
 Definition updated_phi (C:typdefctx) (l:loc) (T:typ) (φ1:phi) (φ2:phi) : Prop := 
-  forall l' T' m π,
+  forall l' T' π,
       (not (l = l') -> fmap_data φ1 l' = fmap_data φ2 l')
-  /\  (l = l' -> (follow_typ C T π = Some T' ->
-                      fmap_data φ2 l = Some m
-                  /\  fmap_data m π = Some T')).
+  /\  (l = l' -> (fmap_binds φ2 l T -> follow_typ C T π T')).
 
 Record env := make_env { 
   env_typdefctx : typdefctx;
@@ -422,84 +398,83 @@ Record env := make_env {
   env_phi : phi
 }.
 
-Inductive typing : env -> trm -> typ -> Prop :=
-  (* Values *)
-  | typing_val_unit : forall C Γ φ, 
-      typing C Γ φ val_unit typ_unit
-  | typing_val_bool : forall C Γ b φ,
-      typing C Γ φ (val_bool b) typ_bool
-  | typing_val_int : forall C Γ i φ,
-      typing C Γ φ (val_int i) typ_int
-  | typing_val_double : forall C Γ d φ,
-      typing C Γ φ (val_double d) typ_double
-  | typing_val_struct : forall C Γ mt mv s T φ,
-      fmap_binds C s mt ->
-      fmap_dom mt = fmap_dom mv ->
-      (forall f v, fmap_binds mt f T -> 
-          fmap_binds (fmap_of_map mv) f v ->
-          typing C Γ φ v T) ->
-      typing C Γ φ (val_struct mv) (typ_struct s)
-  | typing_val_array : forall C Γ a T φ,
-      (forall i v, Nth a i v -> typing C Γ φ v T) -> 
-      typing C Γ φ (val_array a) (typ_array T (List.length a))
-  | typing_val_abstract_ptr : forall C Γ φ l m π T,
-      read_phi C φ l π T ->
-      typing C Γ φ (val_abstract_ptr l π) (typ_ptr T)
-  (* Binary operations *)
-  | typing_binop : forall C Γ v1 v2 (op:binop) φ,
-      typing C Γ φ v1 typ_int ->
-      typing C Γ φ v2 typ_int ->
-      typing C Γ φ (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
-  (* Abstract heap operations *)
-  | typing_get : forall C Γ T p φ,
-      typing C Γ φ p (typ_ptr T) ->
-      typing C Γ φ (trm_app (prim_get T) (p::nil)) T
-  | typing_set : forall C Γ p t T φ,
-      typing C Γ φ p (typ_ptr T) ->
-      typing C Γ φ t T ->
-      typing C Γ φ (trm_app (prim_set T) (p::t::nil)) typ_unit
-  | typing_alloc : forall C Γ t T l φ1 φ2 p, 
-      typing C Γ φ t T ->
-      typing C Γ φ (trm_app (prim_alloc T) (t::nil)) (typ_ptr T)
-  | typing_struct_access : forall C Γ s m f T t φ,
-      fmap_binds C s m ->
-      fmap_binds m f T1 ->
-      T = typ_struct s ->
-      typing C Γ φ t (typ_ptr T) ->
-      typing C Γ φ (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T1)
-  | typing_array_access : forall C Γ t A i n φ,
-      typing C Γ φ t (typ_ptr (typ_array A n)) ->
-      typing C Γ φ i typ_int ->
-      typing C Γ φ (trm_app (prim_array_access A) (t::i::nil)) (typ_ptr A)
-  (* Variables *)
-  | typing_var : forall C Γ x T φ,
-      Ctx.lookup x Γ = Some T ->
-      typing C Γ φ x T
-  (* Other language constructs *)
-  | typing_if : forall C Γ t0 t1 t2 T φ,
-      typing C Γ φ t0 typ_bool ->
-      typing C Γ φ t1 T ->
-      typing C Γ φ t2 T ->
-      typing C Γ φ (trm_if t0 t1 t2) T
-  | typing_let : forall T1 T z t1 t2 E,
-      typing E t1 T1 ->
-      typing (env_add_binding E z T1) t2 T ->
-      typing E (trm_let z t1 t2) T.
-
 Definition env_add_binding E z X :=
   match E with
   | make_env C Γ φ => make_env C (Ctx.add z X Γ) φ
   end. 
 
+Inductive typing : env -> trm -> typ -> Prop :=
+  (* Values *)
+  | typing_val_unit : forall E, 
+      typing E val_unit typ_unit
+  | typing_val_bool : forall E b,
+      typing E (val_bool b) typ_bool
+  | typing_val_int : forall E i,
+      typing E (val_int i) typ_int
+  | typing_val_double : forall E d,
+      typing E (val_double d) typ_double
+  | typing_val_struct : forall E mt mv s T,
+      fmap_binds (env_typdefctx E) s mt ->
+      fmap_dom mt = fmap_dom mv ->
+      (forall f v, fmap_binds mt f T -> 
+          fmap_binds (fmap_of_map mv) f v ->
+          typing E v T) ->
+      typing E (val_struct mv) (typ_struct s)
+  | typing_val_array : forall E a T,
+      (forall i v, Nth i a v -> 
+        typing E v T) -> 
+      typing E (val_array a) (typ_array T (List.length a))
+  | typing_val_abstract_ptr : forall E l π T,
+      read_phi (env_typdefctx E) (env_phi E) l π T ->
+      typing E (val_abstract_ptr l π) (typ_ptr T)
+  (* Binary operations *)
+  | typing_binop : forall E v1 v2 (op:binop),
+      typing E v1 typ_int ->
+      typing E v2 typ_int ->
+      typing E (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
+  (* Abstract heap operations *)
+  | typing_get : forall E T p,
+      typing E p (typ_ptr T) ->
+      typing E (trm_app (prim_get T) (p::nil)) T
+  | typing_set : forall E p t T,
+      typing E p (typ_ptr T) ->
+      typing E t T ->
+      typing E (trm_app (prim_set T) (p::t::nil)) typ_unit
+  | typing_alloc : forall E t T l, 
+      typing E t T ->
+      typing E (trm_app (prim_alloc T) (t::nil)) (typ_ptr T)
+  | typing_struct_access : forall E s m f T T1 t,
+      fmap_binds (env_typdefctx E) s m ->
+      fmap_binds m f T1 ->
+      T = typ_struct s ->
+      typing E t (typ_ptr T) ->
+      typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T1)
+  | typing_array_access : forall E t A i n,
+      typing E t (typ_ptr (typ_array A n)) ->
+      typing E i typ_int ->
+      typing E (trm_app (prim_array_access A) (t::i::nil)) (typ_ptr A)
+  (* Variables *)
+  | typing_var : forall E x T,
+      Ctx.lookup x (env_gamma E) = Some T ->
+      typing E x T
+  (* Other language constructs *)
+  | typing_if : forall E t0 t1 t2 T,
+      typing E t0 typ_bool ->
+      typing E t1 T ->
+      typing E t2 T ->
+      typing E (trm_if t0 t1 t2) T
+  | typing_let : forall T1 T z t1 t2 E,
+      typing E t1 T1 ->
+      typing (env_add_binding E z T1) t2 T ->
+      typing E (trm_let z t1 t2) T.
+
 (* If m(l)..π = w and |- w:T then φ(l)(π) = T. *)
-Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
+(*Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
   fmap_data m l = Some v ->
   follow v π = Some w ->
   typing fmap_empty Ctx.empty fmap_empty w T ->
       fmap_data φ l = Some f
   /\  fmap_data f π = Some T.
-
-Check @fmap_empty.
 
 (** C,Γ |- t:T => (E)v:T. t \\ v *)
 Theorem type_soundness : forall t T v C Γ φ,
@@ -523,7 +498,7 @@ Proof.
   { exists (val_abstract_ptr l π). exists (@fmap_empty loc val).
     split; constructors*. }
   {  }
-Admitted.
+Admitted.*)
 
 (* ********************************************************************** *)
 (* * Notation for terms *)
