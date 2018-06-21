@@ -365,20 +365,6 @@ Proof using. intros. applys* red_let. Qed.
 Definition gamma := Ctx.ctx typ.
 Definition phi := fmap loc (fmap accesses typ).
 
-(*
-Inductive typ : Type :=
-  | typ_unit : typ
-  | typ_int : typ
-  | typ_double : typ
-  | typ_bool : typ
-  | typ_ptr : typ -> typ
-  | typ_array : typ -> size -> typ
-  | typ_struct : typvar -> typ
-  | typ_fun : list typ -> typ -> typ.
-*)
-
-Check bool.
-
 (** Returns T..π. *)
 Fixpoint follow_typ (C:typdefctx) (T:typ) (π:accesses) : option typ :=
   match T, π with
@@ -476,15 +462,15 @@ Inductive typing : typdefctx -> gamma -> phi -> trm -> typ -> Prop :=
 Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
   fmap_data m l = Some v ->
   follow v π = Some w ->
-  typing fmap_empty Ctx.empty w T ->
+  typing fmap_empty Ctx.empty fmap_empty w T ->
       fmap_data φ l = Some f
-  /\  fmap_data f π = Some T. 
+  /\  fmap_data f π = Some T.
 
 (** C,Γ |- t:T => (E)v:T. t \\ v *)
-Theorem type_soundness : forall t T v C Γ,
-  typing C Γ t T -> exists v m,
+Theorem type_soundness : forall t T v C Γ φ,
+  typing C Γ φ t T -> exists v m,
       red Ctx.empty fmap_empty t m v
-  /\  typing C Γ v T.
+  /\  typing C Γ φ v T.
 Proof.
 Admitted.
 
