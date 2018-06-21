@@ -359,62 +359,68 @@ Proof using. intros. applys* red_let. Qed.
 (* ---------------------------------------------------------------------- *)
 (** Type inference rules *)
 
-Definition typenv := Ctx.ctx typ.
-Definition typheap := fmap loc (fmap accesses typ).
+Definition gamma := Ctx.ctx typ.
+Definition phi := fmap loc (fmap accesses typ).
 
-Inductive typ_inf : typdefctx -> typenv -> trm -> typ -> Prop :=
+Inductive typing : typdefctx -> gamma -> trm -> typ -> Prop :=
   (* Values *)
-  | typ_inf_val_unit : forall C Γ, 
-      typ_inf C Γ val_unit typ_unit
-  | typ_inf_val_bool : forall C Γ b,
-      typ_inf C Γ (val_bool b) typ_bool
-  | typ_inf_val_int : forall C Γ i,
-      typ_inf C Γ (val_int i) typ_int
-  | typ_inf_val_double : forall C Γ d,
-      typ_inf C Γ (val_double d) typ_double
-  (*| typ_inf_val_abstract_ptr : forall C Γ φ l m π T,
+  | typing_val_unit : forall C Γ, 
+      typing C Γ val_unit typ_unit
+  | typing_val_bool : forall C Γ b,
+      typing C Γ (val_bool b) typ_bool
+  | typing_val_int : forall C Γ i,
+      typing C Γ (val_int i) typ_int
+  | typing_val_double : forall C Γ d,
+      typing C Γ (val_double d) typ_double
+  (*| typing_val_abstract_ptr : forall C Γ φ l m π T,
       fmap_data φ l = Some m ->
       fmap_data m π = Some T ->
-      typ_inf C Γ (val_abstract_ptr l π) Γ (typ_ptr T)*)
+      typing C Γ (val_abstract_ptr l π) Γ (typ_ptr T)*)
   (* Binary operations *)
-  | typ_inf_binop : forall C Γ v1 v2 (op:binop),
-      typ_inf C Γ v1 typ_int ->
-      typ_inf C Γ v2 typ_int ->
-      typ_inf C Γ (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
+  | typing_binop : forall C Γ v1 v2 (op:binop),
+      typing C Γ v1 typ_int ->
+      typing C Γ v2 typ_int ->
+      typing C Γ (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
   (* Abstract heap operations *)
-  | typ_inf_get : forall C Γ T p,
-      typ_inf C Γ p (typ_ptr T) ->
-      typ_inf C Γ (trm_app (prim_get T) (p::nil)) T
-  | typ_inf_set : forall C Γ p t T,
-      typ_inf C Γ p (typ_ptr T) ->
-      typ_inf C Γ t T ->
-      typ_inf C Γ (trm_app (prim_set T) (p::t::nil)) typ_unit
-  | typ_inf_new : forall C Γ t T, 
-      typ_inf C Γ t T ->
-      typ_inf C Γ (trm_app (prim_new T) (t::nil)) (typ_ptr T)
-  | typ_inf_struct_access : forall C Γ s m f T t,
+  | typing_get : forall C Γ T p,
+      typing C Γ p (typ_ptr T) ->
+      typing C Γ (trm_app (prim_get T) (p::nil)) T
+  | typing_set : forall C Γ p t T,
+      typing C Γ p (typ_ptr T) ->
+      typing C Γ t T ->
+      typing C Γ (trm_app (prim_set T) (p::t::nil)) typ_unit
+  | typing_new : forall C Γ t T, 
+      typing C Γ t T ->
+      typing C Γ (trm_app (prim_new T) (t::nil)) (typ_ptr T)
+  | typing_struct_access : forall C Γ s m f T t,
       fmap_data C s = Some m ->
       fmap_data m f = Some T ->
-      typ_inf C Γ t (typ_ptr (typ_struct s)) ->
-      typ_inf C Γ (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T)
-  | typ_inf_array_access : forall C Γ t A i n,
-      typ_inf C Γ t (typ_ptr (typ_array A n)) ->
-      typ_inf C Γ (trm_app (prim_array_access A i) (t::nil)) (typ_ptr A)
+      typing C Γ t (typ_ptr (typ_struct s)) ->
+      typing C Γ (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T)
+  | typing_array_access : forall C Γ t A i n,
+      typing C Γ t (typ_ptr (typ_array A n)) ->
+      typing C Γ (trm_app (prim_array_access A i) (t::nil)) (typ_ptr A)
   (* Variables *)
-  | typ_inf_var : forall C Γ x T,
+  | typing_var : forall C Γ x T,
       Ctx.lookup x Γ = Some T ->
-      typ_inf C Γ x T
+      typing C Γ x T
   (* Other language constructs *)
-  | typ_inf_if : forall C Γ t0 t1 t2 T,
-      typ_inf C Γ t0 typ_bool ->
-      typ_inf C Γ t1 T ->
-      typ_inf C Γ t2 T ->
-      typ_inf C Γ (trm_if t0 t1 t2) T
-  | typ_inf_let : forall C Γ X T z t1 t2,
-      typ_inf C Γ t1 X ->
-      typ_inf C (Ctx.add z X Γ) t2 T ->
-      typ_inf C Γ (trm_let z t1 t2) T.
+  | typing_if : forall C Γ t0 t1 t2 T,
+      typing C Γ t0 typ_bool ->
+      typing C Γ t1 T ->
+      typing C Γ t2 T ->
+      typing C Γ (trm_if t0 t1 t2) T
+  | typing_let : forall C Γ X T z t1 t2,
+      typing C Γ t1 X ->
+      typing C (Ctx.add z X Γ) t2 T ->
+      typing C Γ (trm_let z t1 t2) T.
 
+Theorem type_soundness : forall t T v C Γ,
+  typing C Γ t T -> exists v m,
+      red Ctx.empty fmap_empty t m v
+  /\  typing C Γ v T.
+Proof.
+Admitted.
 
 (* ********************************************************************** *)
 (* * Notation for terms *)
