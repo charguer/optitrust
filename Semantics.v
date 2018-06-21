@@ -130,7 +130,7 @@ Inductive prim : Type :=
   | prim_set : typ -> prim
   | prim_alloc : typ -> prim
   | prim_struct_access : typ -> field -> prim
-  | prim_array_access : typ -> nat -> prim.
+  | prim_array_access : typ -> prim.
 
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
@@ -250,7 +250,7 @@ Implicit Types ts : trms.
 
 Definition state := fmap loc val.
 
-Definition env := Ctx.ctx val.
+Definition stack := Ctx.ctx val.
 
 Section Red.
 
@@ -298,7 +298,7 @@ Definition updated_state (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Pr
               /\  (not (π = π') -> follow w π' = follow w' π')
               /\  (π = π' -> follow w' π' = Some v)).
 
-Inductive red : env -> state -> trm -> state -> val -> Prop :=
+Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_var : forall E m v x,
       Ctx.lookup x E = Some v ->
       red E m (trm_var x) m v
@@ -321,19 +321,19 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
       red E m p m (val_abstract_ptr l π) ->
       fmap_data m l = Some v ->
       follow v π = Some w ->
+      (* two lines above:       read_mem m l π w *)
       red E m (trm_app (prim_get T) (p::nil)) m w
   | red_set : forall E m1 m2 p l π t v T,
       red E m1 p m1 (val_abstract_ptr l π) ->
       red E m1 t m1 v ->
       updated_state l π v m1 m2 ->
       red E m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_alloc: forall E l v m1 m2 m3 m4 T t p,
+  | red_alloc: forall E l v m1 m2 m3 T t p,
       red E m1 t m2 v ->
-      red E m2 p m3 (val_abstract_ptr l nil) ->
       l <> null ->
-      \# m3 (fmap_single l v) ->
-      m4 = fmap_update m3 l v ->
-      red E m1 (trm_app (prim_alloc T) (p::t::nil)) m4 (val_abstract_ptr l nil)
+      \# m2 (fmap_single l v) -> (* l \notin fmap_dom m2 *)
+      m3 = fmap_update m2 l v ->
+      red E m1 (trm_app (prim_alloc T) (t::nil)) m3 (val_abstract_ptr l nil)
   | red_struct_access : forall E m1 m2 t l s f π T v,
       red E m1 t m2 (val_abstract_ptr l π) ->
       fmap_data m2 l = Some (val_struct s) ->
@@ -341,11 +341,10 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
       red E m1 (trm_app (prim_struct_access T f) (t::nil)) m2 
                (val_abstract_ptr l (π++((access_field f)::nil)))
   | red_array_access : forall E m1 m2 t l a i π T v,
-      red E m1 t m2 (val_abstract_ptr l π) ->
-      fmap_data m2 l = Some (val_array a) ->
-      List.nth_error a i = Some v ->
-      red E m1 (trm_app (prim_array_access T i) (t::nil)) m2 
-               (val_abstract_ptr l (π++((access_array i)::nil))).
+      t = val_abstract_ptr l π ->
+      ti = val_int i ->
+      vr = val_abstract_ptr l (π&(access_array i)) ->
+      red E m (trm_app (prim_array_access T) (t::ti::nil)) m vr.
 
 End Red.
 
@@ -385,6 +384,30 @@ Fixpoint follow_typ (C:typdefctx) (T:typ) (π:accesses) : option typ :=
   | _, _ => None
   end.
 
+Module M.
+
+Definition phi := fmap loc typ.
+
+Axiom fmap_binds : forall A B, fmap A B -> A -> B -> Prop.
+
+Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
+  | follow_typ_nil : forall T,
+    follow_typ C T nil T
+  | follow_typ_array : forall T' π' T1 i n,
+    follow_typ C T' π' T1 ->
+    (0 <= i < n)%nat ->
+    follow_typ C (typ_array T' n) ((access_array i)::π') T1
+  | follow_typ_struct : forall S m f T' π' T1,
+    fmap_binds C S m ->
+    fmap_binds m f T' ->
+    follow_typ C T' π' T1 ->
+    follow_typ C (typ_struct S) ((access_field f)::π') T1.
+
+Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
+  | read_phi_intro : forall T1, fmap_binds φ l T1 -> follow_typ C T1 π T -> read_phi C φ l π T.
+
+End M.
+
 (** φ2 is φ1 but with φ2(l)(π) = T..π. *)
 Definition updated_phi (C:typdefctx) (l:loc) (T:typ) (φ1:phi) (φ2:phi) : Prop := 
   forall l' T' m π,
@@ -393,7 +416,13 @@ Definition updated_phi (C:typdefctx) (l:loc) (T:typ) (φ1:phi) (φ2:phi) : Prop 
                       fmap_data φ2 l = Some m
                   /\  fmap_data m π = Some T')).
 
-Inductive typing : typdefctx -> gamma -> phi -> trm -> typ -> Prop :=
+Record env := make_env { 
+  env_typdefctx : typdefctx;
+  env_gamma : gamma;
+  env_phi : phi
+}.
+
+Inductive typing : env -> trm -> typ -> Prop :=
   (* Values *)
   | typing_val_unit : forall C Γ φ, 
       typing C Γ φ val_unit typ_unit
@@ -403,19 +432,18 @@ Inductive typing : typdefctx -> gamma -> phi -> trm -> typ -> Prop :=
       typing C Γ φ (val_int i) typ_int
   | typing_val_double : forall C Γ d φ,
       typing C Γ φ (val_double d) typ_double
-  | typing_val_struct : forall C Γ mt mv s f v T φ,
-      fmap_data C s = Some mt ->
-      fmap_data mt f = Some T ->
-      fmap_data (fmap_of_map mv) f = Some v ->
-      typing C Γ φ v T ->
+  | typing_val_struct : forall C Γ mt mv s T φ,
+      fmap_binds C s mt ->
+      fmap_dom mt = fmap_dom mv ->
+      (forall f v, fmap_binds mt f T -> 
+          fmap_binds (fmap_of_map mv) f v ->
+          typing C Γ φ v T) ->
       typing C Γ φ (val_struct mv) (typ_struct s)
-  | typing_val_array : forall C Γ i a T v φ,
-      List.nth_error a i = Some v ->
-      typing C Γ φ v T -> 
+  | typing_val_array : forall C Γ a T φ,
+      (forall i v, Nth a i v -> typing C Γ φ v T) -> 
       typing C Γ φ (val_array a) (typ_array T (List.length a))
   | typing_val_abstract_ptr : forall C Γ φ l m π T,
-      fmap_data φ l = Some m ->
-      fmap_data m π = Some T ->
+      read_phi C φ l π T ->
       typing C Γ φ (val_abstract_ptr l π) (typ_ptr T)
   (* Binary operations *)
   | typing_binop : forall C Γ v1 v2 (op:binop) φ,
@@ -431,18 +459,18 @@ Inductive typing : typdefctx -> gamma -> phi -> trm -> typ -> Prop :=
       typing C Γ φ t T ->
       typing C Γ φ (trm_app (prim_set T) (p::t::nil)) typ_unit
   | typing_alloc : forall C Γ t T l φ1 φ2 p, 
-      typing C Γ φ1 t T ->
-      p = trm_val (val_abstract_ptr l nil) ->
-      updated_phi C l T φ1 φ2 ->
-      typing C Γ φ2 (trm_app (prim_alloc T) (p::t::nil)) (typ_ptr T)
+      typing C Γ φ t T ->
+      typing C Γ φ (trm_app (prim_alloc T) (t::nil)) (typ_ptr T)
   | typing_struct_access : forall C Γ s m f T t φ,
-      fmap_data C s = Some m ->
-      fmap_data m f = Some T ->
-      typing C Γ φ t (typ_ptr (typ_struct s)) ->
-      typing C Γ φ (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T)
+      fmap_binds C s m ->
+      fmap_binds m f T1 ->
+      T = typ_struct s ->
+      typing C Γ φ t (typ_ptr T) ->
+      typing C Γ φ (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T1)
   | typing_array_access : forall C Γ t A i n φ,
       typing C Γ φ t (typ_ptr (typ_array A n)) ->
-      typing C Γ φ (trm_app (prim_array_access A i) (t::nil)) (typ_ptr A)
+      typing C Γ φ i typ_int ->
+      typing C Γ φ (trm_app (prim_array_access A) (t::i::nil)) (typ_ptr A)
   (* Variables *)
   | typing_var : forall C Γ x T φ,
       Ctx.lookup x Γ = Some T ->
@@ -453,10 +481,15 @@ Inductive typing : typdefctx -> gamma -> phi -> trm -> typ -> Prop :=
       typing C Γ φ t1 T ->
       typing C Γ φ t2 T ->
       typing C Γ φ (trm_if t0 t1 t2) T
-  | typing_let : forall C Γ X T z t1 t2 φ,
-      typing C Γ φ t1 X ->
-      typing C (Ctx.add z X Γ) φ t2 T ->
-      typing C Γ φ (trm_let z t1 t2) T.
+  | typing_let : forall T1 T z t1 t2 E,
+      typing E t1 T1 ->
+      typing (env_add_binding E z T1) t2 T ->
+      typing E (trm_let z t1 t2) T.
+
+Definition env_add_binding E z X :=
+  match E with
+  | make_env C Γ φ => make_env C (Ctx.add z X Γ) φ
+  end. 
 
 (* If m(l)..π = w and |- w:T then φ(l)(π) = T. *)
 Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
@@ -466,12 +499,30 @@ Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
       fmap_data φ l = Some f
   /\  fmap_data f π = Some T.
 
+Check @fmap_empty.
+
 (** C,Γ |- t:T => (E)v:T. t \\ v *)
 Theorem type_soundness : forall t T v C Γ φ,
   typing C Γ φ t T -> exists v m,
       red Ctx.empty fmap_empty t m v
   /\  typing C Γ φ v T.
 Proof.
+  intros. induction H.
+  { exists val_unit.  exists (@fmap_empty loc val). 
+    split; constructors*. }
+  { exists (val_bool b). exists (@fmap_empty loc val). 
+    split; constructors*. }
+  { exists i. exists (@fmap_empty loc val). 
+    split; constructors*. }
+  { exists (val_double d). exists (@fmap_empty loc val). 
+    split; constructors*. }
+  { exists (val_struct mv). exists (@fmap_empty loc val). 
+    split; constructors*. }
+  { exists (val_array a). exists (@fmap_empty loc val). 
+    split; constructors*. }
+  { exists (val_abstract_ptr l π). exists (@fmap_empty loc val).
+    split; constructors*. }
+  {  }
 Admitted.
 
 (* ********************************************************************** *)
