@@ -286,15 +286,13 @@ Fixpoint follow (v:val) (π:accesses) : option val :=
   | _, _ => None
   end.
 
-(** m' is m but with m[l].π0...πn = v. *)
+(** m' is m but with m(l)..π = v. *)
 Definition updated_state (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Prop :=
   forall l' π' w' w,
   fmap_data m l = Some w /\ fmap_data m' l = Some w' ->
       (not (l = l') -> fmap_data m l' = fmap_data m' l') 
   /\  (l = l'-> (not (π = π') -> follow w π' = follow w' π')
             /\  (π = π' -> follow w' π' = Some v)).
-
-Check access_array.
 
 Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_var : forall E m v x,
@@ -414,6 +412,14 @@ Inductive typing : typdefctx -> gamma -> trm -> typ -> Prop :=
       typing C Γ t1 X ->
       typing C (Ctx.add z X Γ) t2 T ->
       typing C Γ (trm_let z t1 t2) T.
+
+(* If m(l)..π = w and |- w:T then φ(l)(π) = T. *)
+Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
+  fmap_data m l = Some v ->
+  follow v π = Some w ->
+  typing fmap_empty Ctx.empty w T ->
+      fmap_data φ l = Some f
+  /\  fmap_data f π = Some T. 
 
 Theorem type_soundness : forall t T v C Γ,
   typing C Γ t T -> exists v m,
