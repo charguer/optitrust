@@ -147,6 +147,7 @@ Inductive val : Type :=
   | val_struct : Fmap.map field val -> val.
 
 Axiom fmap_of_map : forall A B, Fmap.map A B -> fmap A B.
+Axiom map_of_fmap : forall A B, fmap A B -> Fmap.map A B.
 
 Inductive trm : Type :=
   | trm_var : var -> trm
@@ -158,6 +159,8 @@ Inductive trm : Type :=
   | trm_while : trm -> trm -> trm
   | trm_for : var -> trm -> trm -> trm -> trm
   *)
+
+Definition prog : Type := typdefctx * trm.
 
 
 (** Sequence is a special case of let bindings *)
@@ -269,7 +272,7 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 
 Open Scope list_scope.
 
-(** Returns v.π0...πn. *)
+(** Returns v..π. *)
 Fixpoint follow (v:val) (π:accesses) : option val :=
   match v, π with
   | val_array l, ((access_array i)::π') => 
@@ -278,7 +281,7 @@ Fixpoint follow (v:val) (π:accesses) : option val :=
     | None => None
     end
   | val_struct s, ((access_field f)::π') => 
-    match s f with
+    match fmap_data (fmap_of_map s) f with
     | Some v' => follow v' π'
     | None => None
     end
@@ -289,10 +292,11 @@ Fixpoint follow (v:val) (π:accesses) : option val :=
 (** m' is m but with m(l)..π = v. *)
 Definition updated_state (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Prop :=
   forall l' π' w' w,
-  fmap_data m l = Some w /\ fmap_data m' l = Some w' ->
       (not (l = l') -> fmap_data m l' = fmap_data m' l') 
-  /\  (l = l'-> (not (π = π') -> follow w π' = follow w' π')
-            /\  (π = π' -> follow w' π' = Some v)).
+  /\  (l = l' ->  fmap_data m l = Some w 
+              /\  fmap_data m' l = Some w'
+              /\  (not (π = π') -> follow w π' = follow w' π')
+              /\  (π = π' -> follow w' π' = Some v)).
 
 Inductive red : env -> state -> trm -> state -> val -> Prop :=
   | red_var : forall E m v x,
@@ -360,6 +364,8 @@ Proof using. intros. applys* red_let. Qed.
 Definition gamma := Ctx.ctx typ.
 Definition phi := fmap loc (fmap accesses typ).
 
+Check List.length.
+
 Inductive typing : typdefctx -> gamma -> trm -> typ -> Prop :=
   (* Values *)
   | typing_val_unit : forall C Γ, 
@@ -370,6 +376,16 @@ Inductive typing : typdefctx -> gamma -> trm -> typ -> Prop :=
       typing C Γ (val_int i) typ_int
   | typing_val_double : forall C Γ d,
       typing C Γ (val_double d) typ_double
+  | typing_val_struct : forall C Γ mt mv s f v T,
+      fmap_data C s = Some mt ->
+      fmap_data mt f = Some T ->
+      fmap_data (fmap_of_map mv) f = Some v ->
+      typing C Γ v T ->
+      typing C Γ (val_struct mv) (typ_struct s)
+  | typing_val_array : forall C Γ i a T v,
+      List.nth_error a i = Some v ->
+      typing C Γ v T -> 
+      typing C Γ (val_array a) (typ_array T (List.length a))
   (*| typing_val_abstract_ptr : forall C Γ φ l m π T,
       fmap_data φ l = Some m ->
       fmap_data m π = Some T ->
