@@ -128,7 +128,7 @@ Inductive prim : Type :=
   | prim_binop : binop -> prim
   | prim_get : typ -> prim
   | prim_set : typ -> prim
-  | prim_new : typ -> prim
+  | prim_alloc : typ -> prim
   | prim_struct_access : typ -> field -> prim
   | prim_array_access : typ -> nat -> prim.
 
@@ -327,12 +327,13 @@ Inductive red : env -> state -> trm -> state -> val -> Prop :=
       red E m1 t m1 v ->
       updated_state l π v m1 m2 ->
       red E m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_new: forall E l v m1 m2 m3 T t,
+  | red_alloc: forall E l v m1 m2 m3 m4 T t p,
       red E m1 t m2 v ->
+      red E m2 p m3 (val_abstract_ptr l nil) ->
       l <> null ->
-      \# m2 (fmap_single l v) ->
-      m3 = fmap_update m2 l v ->
-      red E m1 (trm_app (prim_new T) (t::nil)) m3 (val_abstract_ptr l nil)
+      \# m3 (fmap_single l v) ->
+      m4 = fmap_update m3 l v ->
+      red E m1 (trm_app (prim_alloc T) (p::t::nil)) m4 (val_abstract_ptr l nil)
   | red_struct_access : forall E m1 m2 t l s f π T v,
       red E m1 t m2 (val_abstract_ptr l π) ->
       fmap_data m2 l = Some (val_struct s) ->
@@ -364,70 +365,112 @@ Proof using. intros. applys* red_let. Qed.
 Definition gamma := Ctx.ctx typ.
 Definition phi := fmap loc (fmap accesses typ).
 
-Check List.length.
+(*
+Inductive typ : Type :=
+  | typ_unit : typ
+  | typ_int : typ
+  | typ_double : typ
+  | typ_bool : typ
+  | typ_ptr : typ -> typ
+  | typ_array : typ -> size -> typ
+  | typ_struct : typvar -> typ
+  | typ_fun : list typ -> typ -> typ.
+*)
 
-Inductive typing : typdefctx -> gamma -> trm -> typ -> Prop :=
+Check bool.
+
+(** Returns T..π. *)
+Fixpoint follow_typ (C:typdefctx) (T:typ) (π:accesses) : option typ :=
+  match T, π with
+  | typ_array T' n, ((access_array i)::π') => 
+    if Nat.ltb i n && Nat.leb 0 i 
+    then follow_typ C T' π'
+    else None
+  | typ_struct s, ((access_field f)::π') => 
+    match fmap_data C s with
+    | Some m => 
+        match fmap_data m f with
+        | Some T' => follow_typ C T' π'
+        | None => None
+        end
+    | None => None
+    end
+  | _, nil => Some T
+  | _, _ => None
+  end.
+
+(** φ2 is φ1 but with φ2(l)(π) = T..π. *)
+Definition updated_phi (C:typdefctx) (l:loc) (T:typ) (φ1:phi) (φ2:phi) : Prop := 
+  forall l' T' m π,
+      (not (l = l') -> fmap_data φ1 l' = fmap_data φ2 l')
+  /\  (l = l' -> (follow_typ C T π = Some T' ->
+                      fmap_data φ2 l = Some m
+                  /\  fmap_data m π = Some T')).
+
+Inductive typing : typdefctx -> gamma -> phi -> trm -> typ -> Prop :=
   (* Values *)
-  | typing_val_unit : forall C Γ, 
-      typing C Γ val_unit typ_unit
-  | typing_val_bool : forall C Γ b,
-      typing C Γ (val_bool b) typ_bool
-  | typing_val_int : forall C Γ i,
-      typing C Γ (val_int i) typ_int
-  | typing_val_double : forall C Γ d,
-      typing C Γ (val_double d) typ_double
-  | typing_val_struct : forall C Γ mt mv s f v T,
+  | typing_val_unit : forall C Γ φ, 
+      typing C Γ φ val_unit typ_unit
+  | typing_val_bool : forall C Γ b φ,
+      typing C Γ φ (val_bool b) typ_bool
+  | typing_val_int : forall C Γ i φ,
+      typing C Γ φ (val_int i) typ_int
+  | typing_val_double : forall C Γ d φ,
+      typing C Γ φ (val_double d) typ_double
+  | typing_val_struct : forall C Γ mt mv s f v T φ,
       fmap_data C s = Some mt ->
       fmap_data mt f = Some T ->
       fmap_data (fmap_of_map mv) f = Some v ->
-      typing C Γ v T ->
-      typing C Γ (val_struct mv) (typ_struct s)
-  | typing_val_array : forall C Γ i a T v,
+      typing C Γ φ v T ->
+      typing C Γ φ (val_struct mv) (typ_struct s)
+  | typing_val_array : forall C Γ i a T v φ,
       List.nth_error a i = Some v ->
-      typing C Γ v T -> 
-      typing C Γ (val_array a) (typ_array T (List.length a))
-  (*| typing_val_abstract_ptr : forall C Γ φ l m π T,
+      typing C Γ φ v T -> 
+      typing C Γ φ (val_array a) (typ_array T (List.length a))
+  | typing_val_abstract_ptr : forall C Γ φ l m π T,
       fmap_data φ l = Some m ->
       fmap_data m π = Some T ->
-      typing C Γ (val_abstract_ptr l π) Γ (typ_ptr T)*)
+      typing C Γ φ (val_abstract_ptr l π) (typ_ptr T)
   (* Binary operations *)
-  | typing_binop : forall C Γ v1 v2 (op:binop),
-      typing C Γ v1 typ_int ->
-      typing C Γ v2 typ_int ->
-      typing C Γ (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
+  | typing_binop : forall C Γ v1 v2 (op:binop) φ,
+      typing C Γ φ v1 typ_int ->
+      typing C Γ φ v2 typ_int ->
+      typing C Γ φ (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
   (* Abstract heap operations *)
-  | typing_get : forall C Γ T p,
-      typing C Γ p (typ_ptr T) ->
-      typing C Γ (trm_app (prim_get T) (p::nil)) T
-  | typing_set : forall C Γ p t T,
-      typing C Γ p (typ_ptr T) ->
-      typing C Γ t T ->
-      typing C Γ (trm_app (prim_set T) (p::t::nil)) typ_unit
-  | typing_new : forall C Γ t T, 
-      typing C Γ t T ->
-      typing C Γ (trm_app (prim_new T) (t::nil)) (typ_ptr T)
-  | typing_struct_access : forall C Γ s m f T t,
+  | typing_get : forall C Γ T p φ,
+      typing C Γ φ p (typ_ptr T) ->
+      typing C Γ φ (trm_app (prim_get T) (p::nil)) T
+  | typing_set : forall C Γ p t T φ,
+      typing C Γ φ p (typ_ptr T) ->
+      typing C Γ φ t T ->
+      typing C Γ φ (trm_app (prim_set T) (p::t::nil)) typ_unit
+  | typing_alloc : forall C Γ t T l φ1 φ2 p, 
+      typing C Γ φ1 t T ->
+      p = trm_val (val_abstract_ptr l nil) ->
+      updated_phi C l T φ1 φ2 ->
+      typing C Γ φ2 (trm_app (prim_alloc T) (p::t::nil)) (typ_ptr T)
+  | typing_struct_access : forall C Γ s m f T t φ,
       fmap_data C s = Some m ->
       fmap_data m f = Some T ->
-      typing C Γ t (typ_ptr (typ_struct s)) ->
-      typing C Γ (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T)
-  | typing_array_access : forall C Γ t A i n,
-      typing C Γ t (typ_ptr (typ_array A n)) ->
-      typing C Γ (trm_app (prim_array_access A i) (t::nil)) (typ_ptr A)
+      typing C Γ φ t (typ_ptr (typ_struct s)) ->
+      typing C Γ φ (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T)
+  | typing_array_access : forall C Γ t A i n φ,
+      typing C Γ φ t (typ_ptr (typ_array A n)) ->
+      typing C Γ φ (trm_app (prim_array_access A i) (t::nil)) (typ_ptr A)
   (* Variables *)
-  | typing_var : forall C Γ x T,
+  | typing_var : forall C Γ x T φ,
       Ctx.lookup x Γ = Some T ->
-      typing C Γ x T
+      typing C Γ φ x T
   (* Other language constructs *)
-  | typing_if : forall C Γ t0 t1 t2 T,
-      typing C Γ t0 typ_bool ->
-      typing C Γ t1 T ->
-      typing C Γ t2 T ->
-      typing C Γ (trm_if t0 t1 t2) T
-  | typing_let : forall C Γ X T z t1 t2,
-      typing C Γ t1 X ->
-      typing C (Ctx.add z X Γ) t2 T ->
-      typing C Γ (trm_let z t1 t2) T.
+  | typing_if : forall C Γ t0 t1 t2 T φ,
+      typing C Γ φ t0 typ_bool ->
+      typing C Γ φ t1 T ->
+      typing C Γ φ t2 T ->
+      typing C Γ φ (trm_if t0 t1 t2) T
+  | typing_let : forall C Γ X T z t1 t2 φ,
+      typing C Γ φ t1 X ->
+      typing C (Ctx.add z X Γ) φ t2 T ->
+      typing C Γ φ (trm_let z t1 t2) T.
 
 (* If m(l)..π = w and |- w:T then φ(l)(π) = T. *)
 Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
@@ -437,6 +480,7 @@ Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
       fmap_data φ l = Some f
   /\  fmap_data f π = Some T. 
 
+(** C,Γ |- t:T => (E)v:T. t \\ v *)
 Theorem type_soundness : forall t T v C Γ,
   typing C Γ t T -> exists v m,
       red Ctx.empty fmap_empty t m v
