@@ -274,7 +274,7 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 
 Open Scope list_scope.
 
-(** Is v..π? *)
+(** v'..π = v *)
 Inductive follow : val -> accesses -> val -> Prop :=
   | follow_nil : forall v,
     follow v nil v
@@ -287,15 +287,20 @@ Inductive follow : val -> accesses -> val -> Prop :=
     follow v1 π v2 ->
     follow (val_struct s) ((access_field f)::π) v2.
 
-(** m' is m but with m(l)..π = v. *)
-Definition updated_state (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Prop :=
-  forall l' π' w' w,
-      (not (l = l') -> fmap_data m l' = fmap_data m' l') 
-  /\  (l = l' ->  fmap_data m l = Some w 
-              /\  fmap_data m' l = Some w'
-              /\  (not (π = π') -> follow w π' = follow w' π')
-              /\  (π = π' -> follow w' π' = Some v)).
+(** m(l)..π = v *)
+Inductive read_mem (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
+  read_mem_intro : forall v1, 
+  fmap_binds m l v1 ->
+  follow v1 π v ->
+  read_mem m l π v.
 
+(** m' ~(l,π) m && m'(l).π = v *)
+Definition updated_state (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Prop :=
+  forall l',
+      (not (l = l') -> fmap_data m l' = fmap_data m' l') 
+  /\  (l = l' ->  read_mem m' l π v).
+
+(** <E, m, t> // <m', v> *)
 Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_var : forall E m v x,
       Ctx.lookup x E = Some v ->
@@ -317,9 +322,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   (* Operations on the abstract heap *) 
   | red_get : forall E m p l π T v w,
       red E m p m (val_abstract_ptr l π) ->
-      fmap_data m l = Some v ->
-      follow v π = Some w ->
-      (* two lines above:       read_mem m l π w *)
+      read_mem m l π w ->
       red E m (trm_app (prim_get T) (p::nil)) m w
   | red_set : forall E m1 m2 p l π t v T,
       red E m1 p m1 (val_abstract_ptr l π) ->
@@ -356,14 +359,13 @@ Lemma red_seq : forall E m1 m2 m3 t1 t2 r1 r,
 Proof using. intros. applys* red_let. Qed.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (** Type inference rules *)
 
 Definition gamma := Ctx.ctx typ.
 Definition phi := fmap loc typ.
 
-(** Returns T..π. *)
+(** T'..π = T *)
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
     follow_typ C T nil T
@@ -377,14 +379,12 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
     follow_typ C T' π' T1 ->
     follow_typ C (typ_struct S) ((access_field f)::π') T1.
 
+(** φ(l)..π = T *)
 Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
-  | read_phi_intro : forall T1, fmap_binds φ l T1 -> follow_typ C T1 π T -> read_phi C φ l π T.
-
-(** φ2 is φ1 but with φ2(l)(π) = T..π. *)
-Definition updated_phi (C:typdefctx) (l:loc) (T:typ) (φ1:phi) (φ2:phi) : Prop := 
-  forall l' T' π,
-      (not (l = l') -> fmap_data φ1 l' = fmap_data φ2 l')
-  /\  (l = l' -> (fmap_binds φ2 l T -> follow_typ C T π T')).
+  | read_phi_intro : forall T1, 
+    fmap_binds φ l T1 -> 
+    follow_typ C T1 π T -> 
+    read_phi C φ l π T.
 
 Record env := make_env { 
   env_typdefctx : typdefctx;
