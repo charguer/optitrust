@@ -413,30 +413,35 @@ Definition env_add_binding E z X :=
   | make_env C Γ φ => make_env C (Ctx.add z X Γ) φ
   end. 
 
-Inductive typing : env -> trm -> typ -> Prop :=
-  (* Values *)
+Inductive typing_val : env -> val -> typ -> Prop :=
   | typing_val_unit : forall E, 
-      typing E val_unit typ_unit
+      typing_val E val_unit typ_unit
   | typing_val_bool : forall E b,
-      typing E (val_bool b) typ_bool
+      typing_val E (val_bool b) typ_bool
   | typing_val_int : forall E i,
-      typing E (val_int i) typ_int
+      typing_val E (val_int i) typ_int
   | typing_val_double : forall E d,
-      typing E (val_double d) typ_double
+      typing_val E (val_double d) typ_double
   | typing_val_struct : forall E mt mv s T,
       fmap_binds (env_typdefctx E) s mt ->
       fmap_dom mt = fmap_dom mv ->
       (forall f v, fmap_binds mt f T -> 
           fmap_binds (fmap_of_map mv) f v ->
-          typing E v T) ->
-      typing E (val_struct mv) (typ_struct s)
+          typing_val E v T) ->
+      typing_val E (val_struct mv) (typ_struct s)
   | typing_val_array : forall E a T,
       (forall i v, Nth i a v -> 
-        typing E v T) -> 
-      typing E (val_array a) (typ_array T (List.length a))
+        typing_val E v T) -> 
+      typing_val E (val_array a) (typ_array T (List.length a))
   | typing_val_abstract_ptr : forall E l π T,
       read_phi (env_typdefctx E) (env_phi E) l π T ->
-      typing E (val_abstract_ptr l π) (typ_ptr T)
+      typing_val E (val_abstract_ptr l π) (typ_ptr T).
+
+Inductive typing : env -> trm -> typ -> Prop :=
+  (* Values *)
+  | typing_trm_val : forall E v T,
+      typing_val E v T ->
+      typing E (trm_val v) T
   (* Binary operations *)
   | typing_binop : forall E v1 v2 (op:binop),
       typing E v1 typ_int ->
@@ -452,7 +457,7 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E (trm_app (prim_set T) (p::t::nil)) typ_unit
   | typing_alloc : forall E t T l, 
       typing E t T ->
-      typing E (trm_app (prim_alloc T) (t::nil)) (typ_ptr T)
+      typing E (trm_app (prim_new T) (t::nil)) (typ_ptr T)
   | typing_struct_access : forall E s m f T T1 t,
       fmap_binds (env_typdefctx E) s m ->
       fmap_binds m f T1 ->
