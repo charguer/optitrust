@@ -256,10 +256,10 @@ Definition stack := Ctx.ctx val.
 
 Section Red.
 
-Definition is_val t :=
+Definition is_not_val (t:trm) :=
   match t with
-  | trm_val v => True
-  | _ => False
+  | trm_val v => False
+  | _ => True
   end.
 
 Local Open Scope fmap_scope.
@@ -346,7 +346,23 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       ti = trm_val (val_int i) ->
       i = k ->
       vr = val_abstract_ptr l (π++(access_array k)::nil) ->
-      red E m (trm_app (prim_array_access T) (t::ti::nil)) m vr.
+      red E m (trm_app (prim_array_access T) (t::ti::nil)) m vr
+  (* Arguments *) 
+  | red_args_one : forall v1 m2 E m1 op t1 m3 v2,
+      is_not_val t1 ->
+      red E m1 t1 m2 v1 ->
+      red E m2 (trm_app op ((trm_val v1)::nil)) m3 v2 ->
+      red E m1 (trm_app op (t1::nil)) m3 v2
+  | red_args_two_fst : forall v1 m2 E m1 op t1 t2 m3 v3,
+      is_not_val t1 ->
+      red E m1 t1 m2 v1 ->
+      red E m2 (trm_app op ((trm_val v1)::t2::nil)) m3 v3 ->
+      red E m1 (trm_app op (t1::t2::nil)) m3 v3
+  | red_args_two_snd : forall m2 v2 E m1 op v1 t2 m3 v3,
+      is_not_val t2 ->
+      red E m1 t2 m2 v2 ->
+      red E m2 (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m3 v3 ->
+      red E m1 (trm_app op ((trm_val v1)::t2::nil)) m3 v3.
 
 End Red.
 
