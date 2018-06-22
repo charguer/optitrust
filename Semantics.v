@@ -38,6 +38,8 @@ Axiom fmap_dom : forall A B, fmap A B -> A.
 
 Axiom fmap_of_map : forall A B, Fmap.map A B -> fmap A B.
 
+Axiom fmap_extends : forall A B, fmap A B -> fmap A B -> Prop.
+
 (* ********************************************************************** *)
 (* * Source language syntax *)
 
@@ -483,37 +485,35 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing (env_add_binding E z T1) t2 T ->
       typing E (trm_let z t1 t2) T.
 
-(* If m(l)..π = w and |- w:T then φ(l)(π) = T. *)
-(*Definition wf_state (φ:phi) (m:state) : Prop := forall l π v w T f,
-  fmap_data m l = Some v ->
-  follow v π = Some w ->
-  typing fmap_empty Ctx.empty fmap_empty w T ->
-      fmap_data φ l = Some f
-  /\  fmap_data f π = Some T.
+Inductive state_ok : state -> Prop :=
+  | state_ok_empty : state_ok fmap_empty
+  | state_ok_push : forall m l v,
+      state_ok m ->
+      state_ok (fmap_update m l v).
 
-(** C,Γ |- t:T => (E)v:T. t \\ v *)
-Theorem type_soundness : forall t T v C Γ φ,
-  typing C Γ φ t T -> exists v m,
-      red Ctx.empty fmap_empty t m v
-  /\  typing C Γ φ v T.
+Definition state_typing (C:typdefctx) (φ:phi) (m:state) :=
+      state_ok m
+  /\  (forall l, fmap_indom m l -> fmap_indom φ l)
+  /\  (forall l T, fmap_binds φ l T ->
+         exists v, fmap_binds m l v
+               /\  typing_val (make_env C Ctx.empty φ) v T).
+
+Theorem type_soundess : forall C φ (φ':phi) m t v T,
+  typing (make_env C Ctx.empty φ) t T ->
+  state_typing C φ m ->
+  exists v m' φ',
+        red Ctx.empty m t m' v  
+    /\  fmap_extends φ φ'
+    /\  typing_val (make_env C Ctx.empty φ') v T
+    /\  state_typing C φ' m'.
 Proof.
   intros. induction H.
-  { exists val_unit.  exists (@fmap_empty loc val). 
-    split; constructors*. }
-  { exists (val_bool b). exists (@fmap_empty loc val). 
-    split; constructors*. }
-  { exists i. exists (@fmap_empty loc val). 
-    split; constructors*. }
-  { exists (val_double d). exists (@fmap_empty loc val). 
-    split; constructors*. }
-  { exists (val_struct mv). exists (@fmap_empty loc val). 
-    split; constructors*. }
-  { exists (val_array a). exists (@fmap_empty loc val). 
-    split; constructors*. }
-  { exists (val_abstract_ptr l π). exists (@fmap_empty loc val).
-    split; constructors*. }
-  {  }
-Admitted.*)
+  { exists v0 m φ. splits.
+    { gen_eq E': (Ctx.empty : stack). intros. constructors*. }
+    { admit. }
+    { gen_eq E': ({| env_typdefctx := C; env_gamma := Ctx.empty; env_phi := φ |}: env).
+       } }
+Admitted.
 
 (* ********************************************************************** *)
 (* * Notation for terms *)
