@@ -133,7 +133,7 @@ Inductive prim : Type :=
   | prim_binop : binop -> prim
   | prim_get : typ -> prim
   | prim_set : typ -> prim
-  | prim_alloc : typ -> prim
+  | prim_new : typ -> prim
   | prim_struct_access : typ -> field -> prim
   | prim_array_access : typ -> prim.
 
@@ -320,27 +320,27 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       redbinop op v1 v2 v ->
       red E m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m v
   (* Operations on the abstract heap *) 
-  | red_get : forall E m p l π T v w,
-      red E m p m (val_abstract_ptr l π) ->
+  | red_get : forall l π E T (p:trm) m w,
+      p = val_abstract_ptr l π ->
       read_mem m l π w ->
       red E m (trm_app (prim_get T) (p::nil)) m w
-  | red_set : forall E m1 m2 p l π t v T,
-      red E m1 p m1 (val_abstract_ptr l π) ->
-      red E m1 t m1 v ->
+  | red_set : forall (v:val) l π  E m1 T (p:trm) (t:trm) m2,
+      p = val_abstract_ptr l π ->
+      t = trm_val v ->
       updated_state l π v m1 m2 ->
       red E m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_alloc: forall E l v m1 m2 m3 T t,
-      red E m1 t m2 v ->
+  | red_new: forall l (v:val) E m1 T (t:trm) m2 l,
+      t = v ->
       l <> null ->
-      \# m2 (fmap_single l v) -> (* l \notin fmap_dom m2 *)
-      m3 = fmap_update m2 l v ->
-      red E m1 (trm_app (prim_alloc T) (t::nil)) m3 (val_abstract_ptr l nil)
-  | red_struct_access : forall E m1 m2 t l s f π T v,
-      red E m1 t m2 (val_abstract_ptr l π) ->
-      fmap_data m2 l = Some (val_struct s) ->
-      fmap_data (fmap_of_map s) f = Some v ->
-      red E m1 (trm_app (prim_struct_access T f) (t::nil)) m2 
-               (val_abstract_ptr l (π++((access_field f)::nil)))
+      \# m1 (fmap_single l v) -> (* l \notin fmap_dom m2 *)
+      m2 = fmap_update m1 l v ->
+      red E m1 (trm_app (prim_new T) (t::nil)) m2 (val_abstract_ptr l nil)
+  | red_struct_access : forall E m t l s f π T v vr,
+      t = val_abstract_ptr l π ->
+      fmap_binds m l (val_struct s) ->
+      fmap_binds (fmap_of_map s) f v ->
+      vr = val_abstract_ptr l (π++((access_field f)::nil)) ->
+      red E m (trm_app (prim_struct_access T f) (t::nil)) m vr
   | red_array_access : forall E m t l i π T vr ti (k:nat),
       t = val_abstract_ptr l π ->
       ti = trm_val (val_int i) ->
