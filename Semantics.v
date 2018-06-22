@@ -512,7 +512,9 @@ Proof.
     { gen_eq E': (Ctx.empty : stack). intros. constructors*. }
     { admit. }
     { gen_eq E': ({| env_typdefctx := C; env_gamma := Ctx.empty; env_phi := φ |}: env).
-       } }
+      intros. admit. } 
+    { auto. } }
+  { admit. }
 Admitted.
 
 (* ********************************************************************** *)
