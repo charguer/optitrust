@@ -13,9 +13,9 @@ License: MIT.
 
 Set Implicit Arguments.
 Require Export Bind TLCbuffer.
-Require Export LibString LibList LibCore LibLogic LibReflect 
+Require Export LibString LibCore LibLogic LibReflect 
   LibOption LibRelation LibLogic LibOperation LibEpsilon 
-  LibMonoid LibSet LibContainer LibMap.
+  LibMonoid LibSet LibContainer LibList LibMap.
 
 Local Open Scope set_scope.
 
@@ -122,6 +122,8 @@ Inductive prim : Type :=
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
 
+Check update.
+
 Inductive val : Type :=
   | val_unit : val
   | val_bool : bool -> val
@@ -205,6 +207,9 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_eq : forall v1 v2,
       redbinop binop_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
+Open Scope nat_scope.
+Open Scope list_scope.
+
 (** v[π] = w *)
 Inductive read_accesses : val -> accesses -> val -> Prop :=
   | read_accesses_nil : forall v,
@@ -219,67 +224,88 @@ Inductive read_accesses : val -> accesses -> val -> Prop :=
       read_accesses (val_struct s) ((access_field f)::π) v2.
 
 (** m(l)[π] = v *)
-Inductive read_mem (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
-  | read_mem_intro : forall v1, 
+Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
+  | read_state_intro : forall v1, 
       binds m l v1 ->
       read_accesses v1 π v ->
-      read_mem m l π v.
+      read_state m l π v.
+
+Open Scope liblist_scope.
+
+(** update. I guess this shouldn't be here... *)
+Fixpoint update A (n:nat) (v:A) (l:list A) { struct l } : list A :=
+  match l with
+  | nil => nil
+  | x::l' =>
+     match n with
+     | 0 => v::l'
+     | S n' => x::update n' v l'
+     end
+  end.
 
 (** v[π := w] = v' *)
 Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
   | write_accesses_nil : forall v w,
       write_accesses v nil w w
-  | write_accesses_array : forall v1 a1 a2 i π w v2,
+  | write_accesses_array : forall v1 v2 a1 i π w a2,
       Nth i a1 v1 ->
       write_accesses v1 π w v2 ->
-      a2 = a1[i := v2] ->
+      a2 = update i v2 a1 ->
       write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
-  | write_accesses_struct : forall v1 s f π w v2,
-      binds s f v1 ->
+  | write_accesses_struct : forall v1 s1 s2 f π w v2,
+      binds s1 f v1 ->
       write_accesses v1 π w v2 ->
-      write_accesses (val_struct s) ((access_field f)::π) w v2.
+      s2 = s1[f := v2] ->
+      write_accesses (val_struct s1) ((access_field f)::π) w (val_struct s2).
 
 (** m[l := m(l)[π := w]] = m' *)
-Inductive write_mem (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
+Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
   | write_mem_intro : forall v1 v2, 
       binds m l v1 ->
       write_accesses v1 π w v2 ->
       m' = m[l := v2] ->
-      write_mem m l π w m'.
+      write_state m l π w m'.
 
 (** Some lemmas *)
 
-Lemma read_write_accesses_neq : forall v1 v2 π π' w,
-  read_accesses v1 π' w ->
-  write_accesses v1 π w v2 ->
-    π <> π' ->
-  read_accesses v2 π' w.
+(** We need the paths to be disjoint, not just different. *)
+(*Lemma read_write_accesses_neq : forall v1 v2 π π' w1 w2,
+  read_accesses v1 π w1 ->
+  write_accesses v1 π' w2 v2 ->
+  p <> p' ->
+  read_accesses v2 π w1.
 Proof.
 Admitted.
 
-Lemma read_write_mem_neq : forall m l π w m' l' π' v,
-  read_mem m l' π' v ->
-  write_mem m l π w m' ->
+Lemma read_write_state_neq : forall m l π w m' l' π' v,
+  read_state m l' π' v ->
+  write_state m l π w m' ->
   (l <> l' \/ π <> π') ->
-  read_mem m' l' π' v.
+  read_state m' l' π' v.
 Proof.
   introv Hr Hw Hneq. gen m l π.
-Admitted.
+Admitted. *)
 
 Lemma read_write_accesses_same : forall v1 v2 π w,
   write_accesses v1 π w v2 ->
   read_accesses v2 π w.
 Proof.
-  introv H. induction H.
-  { constructor. }
-  { inverts H0.  }
-Admitted.
+  introv H. induction H; constructors*.
+  (** Write a lemma Nth_update in LibList? *)
+  { applys* Nth_of_nth; apply Nth_inbound in H; subst a2. 
+    { applys* nth_update_same. } 
+    { rewrite* length_update. } } 
+  { subst s2. applys* binds_update_same. }
+Qed.
 
-Lemma read_write_mem_same : forall m m' l π w,
-  write_mem m l π w m' ->
-  read_mem m' l π w.
+Lemma read_write_state_same : forall m m' l π w,
+  write_state m l π w m' ->
+  read_state m' l π w.
 Proof.
-Admitted.
+  introv H. induction H. constructors*.
+  { subst m'. applys* binds_update_same. }
+  { applys* read_write_accesses_same. }
+Qed.
 
 (** <S, m, t> // <m', v> *)
 Inductive red : stack -> state -> trm -> state -> val -> Prop :=
@@ -303,12 +329,12 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   (* Operations on the abstract heap *) 
   | red_get : forall l π S T (p:trm) m w,
       p = val_abstract_ptr l π ->
-      read_mem m l π w ->
+      read_state m l π w ->
       red S m (trm_app (prim_get T) (p::nil)) m w
   | red_set : forall (v:val) l π  S m1 T (p:trm) (t:trm) m2,
       p = val_abstract_ptr l π ->
       t = trm_val v ->
-      write_mem m1 l π v m2 ->
+      write_state m1 l π v m2 ->
       red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
   | red_new : forall l (v:val) S m1 T (t:trm) m2 l,
       t = v ->
@@ -522,7 +548,7 @@ Theorem type_soundess : forall C φ m t v T Γ S v m',
   red S m t m' v -> 
   exists φ',
         extends φ φ'
-    /\  typing_val (make_env C φ' Ctx.empty) v T
+    /\  typing_val C φ' v T
     /\  state_typing C φ' m'.
 Proof.
 Admitted.
