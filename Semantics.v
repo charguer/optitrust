@@ -12,33 +12,12 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Import LibMonoid.
-Require Export LibString LibList LibCore LibSet.
-Require Export Fmap Bind TLCbuffer.
-Open Scope string_scope.
+Require Export Bind TLCbuffer.
+Require Export LibString LibList LibCore LibLogic LibReflect 
+  LibOption LibRelation LibLogic LibOperation LibEpsilon 
+  LibMonoid LibSet LibContainer LibMap.
 
-Axiom fmap_get : forall A B, fmap A B -> A -> B.
-
-(*Axiom fmap_fold : forall A B C, (monoid_op C) -> (A->B->C) -> fmap A B -> C. *)
-Axiom fmap_fold : forall A B C, (monoid_op C) -> (A->B->C) -> fmap A B -> C.
-
-Axiom fold_induction:
-  forall A B C (m : monoid_op C) (f : A -> B -> C) (P : C -> Prop),
-  Comm_monoid m ->
-  P (monoid_neutral m) ->
-  (forall x a b, P x -> P (monoid_oper m (f a b) x)) ->
-  forall E,
-  P (fmap_fold m f E).
-
-Axiom fmap_indom : forall A B, fmap A B -> A -> Prop.
-
-Axiom fmap_binds : forall A B, fmap A B -> A -> B -> Prop.
-
-Axiom fmap_dom : forall A B, fmap A B -> set A.
-
-Axiom fmap_of_map : forall A B, Fmap.map A B -> fmap A B.
-
-Axiom fmap_extends : forall A B, fmap A B -> fmap A B -> Prop.
+Local Open Scope set_scope.
 
 (* ********************************************************************** *)
 (* * Source language syntax *)
@@ -63,7 +42,6 @@ Definition typvar := var.
 
 Global Opaque field loc size offset typvar.
 
-
 (* ---------------------------------------------------------------------- *)
 (** Grammar of types *)
 
@@ -77,17 +55,19 @@ Inductive typ : Type :=
   | typ_struct : typvar -> typ
   | typ_fun : list typ -> typ -> typ.
 
-Definition typdef_struct : Type := fmap field typ.
+Check map.
 
-Definition typdefctx := fmap typvar typdef_struct.
+Definition typdef_struct := map field typ.
+
+Definition typdefctx := map typvar typdef_struct.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Size of types *)
 
-Definition typdefctx_size := fmap typvar size.
+Definition typdefctx_size := map typvar size.
 
-Definition typdefctx_offset := fmap typvar (fmap field offset).
+Definition typdefctx_offset := map typvar (map field offset).
 
 Section TypeSizes.
 
@@ -101,17 +81,17 @@ Fixpoint sizeof (S:typdefctx_size) (T:typ) : nat :=
   | typ_double => 2%nat
   | typ_ptr _ => 1%nat
   | typ_array T' n => (n * (sizeof S T'))%nat
-  | typ_struct X => fmap_get S X
+  | typ_struct X => S[X]
   | typ_fun _ _ => 1%nat
   end.
 
 Definition sizeof_typdef_struct (S:typdefctx_size) (m:typdef_struct) : nat :=
-  fmap_fold (monoid_make plus 0%nat) (fun f T => sizeof S T) m.
+  fold (monoid_make plus 0%nat) (fun f T => sizeof S T) m.
 
 Definition wf_typctx_size (C:typdefctx) (S:typdefctx_size) : Prop :=
-  forall X, fmap_indom C X -> 
-     fmap_indom S X 
-  /\ fmap_get S X = sizeof_typdef_struct S (fmap_get C X).
+  forall X, X \indom C -> 
+     X \indom S 
+  /\ S[X] = sizeof_typdef_struct S C[X].
 
 End TypeSizes.
 
@@ -164,9 +144,6 @@ Inductive trm : Type :=
   | trm_for : var -> trm -> trm -> trm -> trm
   *)
 
-Definition prog : Type := typdefctx * trm.
-
-
 (** Sequence is a special case of let bindings *)
 
 Notation trm_seq := (trm_let bind_anon).
@@ -192,50 +169,6 @@ Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
 Coercion trm_app : prim >-> Funclass.
 
-Coercion trms_vals (vs:vals) : trms :=
-  List.map trm_val vs.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Induction principle *)
-
-(** An induction principle for trees *)
-
-Section Trm_induct.
-
-Variables
-(P : trm -> Prop)
-(Q : trms -> Prop)
-(P1: forall v : var, P v)
-(P2: forall v : val, P v)
-(P3: forall t : trm, P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_if t t0 t1))
-(P4: forall (b : bind) (t : trm), P t -> forall t0 : trm, P t0 -> P (trm_let b t t0))
-(P5: forall (f : prim) (l : list trm), Q l -> P (trm_app f l))
-(Q1: Q nil)
-(Q2: forall t l, P t -> Q l -> Q (t::l)).
-
-Fixpoint trm_induct_gen (t : trm) : P t :=
-  let F := trm_induct_gen in
-  match t as x return P x with
-  | trm_var v => P1 v
-  | trm_val v => P2 v
-  | trm_if t0 t1 t2 => P3 (F t0) (F t1) (F t2)
-  | trm_let b t0 t1 => P4 b (F t0) (F t1)
-  | trm_app f l => P5 f 
-      ((fix trms_induct (l : trms) : Q l :=
-      match l as x return Q x with
-      | nil   => Q1
-      | t::l' => Q2 (F t) (trms_induct l')
-      end) l)
-  end.
-
-End Trm_induct.
-
-(* To use it:
-  eapply tree_induct_gen with (Q := fun l =>
-    forall t, Mem t l -> P t);
-*)
-
 
 (* ********************************************************************** *)
 (* * Source language semantics *)
@@ -252,7 +185,7 @@ Implicit Types z : bind.
 Implicit Types vs : vals.
 Implicit Types ts : trms.
 
-Definition state := fmap loc val.
+Definition state := map loc val.
 
 Definition stack := Ctx.ctx val.
 
@@ -263,8 +196,6 @@ Definition is_not_val (t:trm) :=
   | trm_val v => False
   | _ => True
   end.
-
-Local Open Scope fmap_scope.
 
 Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_add : forall n1 n2,
@@ -285,14 +216,14 @@ Inductive read_accesses : val -> accesses -> val -> Prop :=
       read_accesses v1 π v2 ->
       read_accesses (val_array a) ((access_array i)::π) v2
   | read_accesses_struct : forall v1 s f π v2,
-      fmap_binds s f v1 ->
+      binds s f v1 ->
       read_accesses v1 π v2 ->
       read_accesses (val_struct s) ((access_field f)::π) v2.
 
 (** m(l)[π] = v *)
 Inductive read_mem (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
   | read_mem_intro : forall v1, 
-      fmap_binds m l v1 ->
+      binds m l v1 ->
       read_accesses v1 π v ->
       read_mem m l π v.
 
@@ -305,16 +236,16 @@ Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
       write_accesses v1 π w v2 ->
       write_accesses (val_array a) ((access_array i)::π) w v2
   | write_accesses_struct : forall v1 s f π w v2,
-      fmap_binds s f v1 ->
+      binds s f v1 ->
       write_accesses v1 π w v2 ->
       write_accesses (val_struct s) ((access_field f)::π) w v2.
 
 (** m[l := m(l)[π := w]] = m' *)
 Inductive write_mem (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
   | write_mem_intro : forall v1 v2, 
-      fmap_binds m l v1 ->
+      binds m l v1 ->
       write_accesses v1 π w v2 ->
-      m' = fmap_update m l v2 ->
+      m' = m[l := v2] ->
       write_mem m l π w m'.
 
 Lemma read_write_mem_neq : forall m l π w m' l' π' v,
@@ -369,13 +300,13 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_new : forall l (v:val) S m1 T (t:trm) m2 l,
       t = v ->
       l <> null ->
-      \# m1 (fmap_single l v) -> (* l \notin fmap_dom m2 *)
-      m2 = fmap_update m1 l v ->
+      l \notindom m1 ->
+      m2 = m1[l := v] ->
       red S m1 (trm_app (prim_new T) (t::nil)) m2 (val_abstract_ptr l nil)
   | red_struct_access : forall S m t l s f π T v vr,
       t = val_abstract_ptr l π ->
-      fmap_binds m l (val_struct s) ->
-      fmap_binds (fmap_of_map s) f v ->
+      binds m l (val_struct s) ->
+      binds s f v ->
       vr = val_abstract_ptr l (π++((access_field f)::nil)) ->
       red S m (trm_app (prim_struct_access T f) (t::nil)) m vr
   | red_array_access : forall S m t l i π T vr ti (k:nat),
@@ -426,7 +357,7 @@ Proof using. intros. applys* red_let. Qed.
 (** Type inference rules *)
 
 Definition gamma := Ctx.ctx typ.
-Definition phi := fmap loc typ.
+Definition phi := map loc typ.
 
 (** T[π] = T1 *)
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
@@ -437,15 +368,15 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
       (0 <= i < n)%nat ->
       follow_typ C (typ_array T' n) ((access_array i)::π') T1
   | follow_typ_struct : forall S m f T' π' T1,
-      fmap_binds C S m ->
-      fmap_binds m f T' ->
+      binds C S m ->
+      binds m f T' ->
       follow_typ C T' π' T1 ->
       follow_typ C (typ_struct S) ((access_field f)::π') T1.
 
 (** φ(l)..π = T *)
 Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
   | read_phi_intro : forall T1, 
-      fmap_binds φ l T1 -> 
+      binds φ l T1 -> 
       follow_typ C T1 π T -> 
       read_phi C φ l π T.
 
@@ -460,6 +391,8 @@ Definition env_add_binding E z X :=
   | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
   end. 
 
+Notation "'make_env''" := make_env.
+
 (* c and phi *)
 Inductive typing_val : env -> val -> typ -> Prop :=
   | typing_val_unit : forall E, 
@@ -471,10 +404,10 @@ Inductive typing_val : env -> val -> typ -> Prop :=
   | typing_val_double : forall E d,
       typing_val E (val_double d) typ_double
   | typing_val_struct : forall E mt mv s T,
-      fmap_binds (env_typdefctx E) s mt ->
-      fmap_dom mt = fmap_dom mv ->
-      (forall f v, fmap_binds mt f T -> 
-          fmap_binds (fmap_of_map mv) f v ->
+      binds (env_typdefctx E) s mt ->
+      dom mt = dom mv ->
+      (forall f v, binds mt f T -> 
+          binds mv f v ->
           typing_val E v T) ->
       typing_val E (val_struct mv) (typ_struct s)
   | typing_val_array : forall E a T,
@@ -511,8 +444,8 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E t T ->
       typing E (trm_app (prim_new T) (t::nil)) (typ_ptr T)
   | typing_struct_access : forall E s Fs f T T1 t,
-      fmap_binds (env_typdefctx E) s Fs ->
-      fmap_binds Fs f T1 ->
+      binds (env_typdefctx E) s Fs ->
+      binds Fs f T1 ->
       T = typ_struct s ->
       typing E t (typ_ptr T) ->
       typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T1)
@@ -535,54 +468,57 @@ Inductive typing : env -> trm -> typ -> Prop :=
 
 Open Scope container_scope.
 
-Definition state_typing (C:typdefctx) (φ:phi) (m:state) :=
-      fmap_dom φ \c fmap_dom m
-  /\  (forall l T, fmap_binds φ l T ->
-         exists v, fmap_binds m l v
-               /\  typing_val (make_env C φ Ctx.empty) v T).
+Definition state_typing (C:typdefctx) (φ:phi) (m:state) : Prop :=
+      dom φ \c dom m
+  /\  (forall l T, binds φ l T ->
+         exists v, binds m l v
+               /\  typing_val (make_env' C φ Ctx.empty) v T).
 
-Definition stack_typing (C:typdefctx) (φ:phi) (S:stack) (Γ:gamma) := True.
+Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
+  forall x v T,
+    Ctx.lookup x S = Some v ->
+    Ctx.lookup x Γ = Some T ->
+    typing_val (make_env' C φ Ctx.empty) v T.
 
-Notation "'make_env''" := make_env.
-
-(*
-| red_var : forall S m v x,
-      Ctx.lookup x S = Some v ->
-      red S m (trm_var x) m v
-  | red_val : forall S m v,
-      red S m v m v
-*)
+Lemma vals_closed : forall C φ T Γ v,
+  typing_val (make_env C φ Γ) v T ->
+  forall Γ',
+    typing_val (make_env C φ Γ') v T.
+Proof.
+  introv H. intros. inverts H; constructors*.
+  { introv HTf HVf. admit.  }
+  { admit. }
+Admitted.
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
   red S m t m' v -> 
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
-  stack_typing C φ S Γ ->
+  stack_typing C φ Γ S ->
         typing_val (make_env C φ Ctx.empty) v T
     /\  state_typing C φ m'.
 Proof.
   introv R. gen φ T Γ. induction R; introv HT HM HS.
   { (* var *)
-    inverts HT. simpls. split*. admit. }
-  { (* val *)  admit. }
+    inverts HT. simpls. split*. }
+  { (* val *)  
+    inverts HT. split*. applys* vals_closed. }
   { (* if *) inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2. 
     case_if*. }
 Focus 3. subst p. inverts HT as HT1. inverts HT1 as HT2. simpls. inverts HT2. simpls. split.
 Admitted.
 
-(*
-Ctx.lookup x S = Some v
-Ctx.lookup x Γ = Some T
-typing_val (make_env' C φ Ctx.empty) v T
-*)
+Definition extends (φ:phi) (φ':phi) :=
+      dom φ \c dom φ'
+  /\  forall l, l \indom φ -> φ' l = φ l.
 
-Theorem type_soundess : forall C φ (φ':phi) m t v T Γ S v m',
+Theorem type_soundess : forall C φ m t v T Γ S v m',
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
-  stack_typing C φ S Γ ->
+  stack_typing C φ Γ S ->
   red S m t m' v -> 
-  exists φ',  
-        fmap_extends φ φ'
+  exists φ',
+        extends φ φ'
     /\  typing_val (make_env C φ' Ctx.empty) v T
     /\  state_typing C φ' m'.
 Proof.
