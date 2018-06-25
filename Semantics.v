@@ -13,7 +13,7 @@ License: MIT.
 
 Set Implicit Arguments.
 Require Import LibMonoid.
-Require Export LibString LibList LibCore.
+Require Export LibString LibList LibCore LibSet.
 Require Export Fmap Bind TLCbuffer.
 Open Scope string_scope.
 
@@ -34,7 +34,7 @@ Axiom fmap_indom : forall A B, fmap A B -> A -> Prop.
 
 Axiom fmap_binds : forall A B, fmap A B -> A -> B -> Prop.
 
-Axiom fmap_dom : forall A B, fmap A B -> A.
+Axiom fmap_dom : forall A B, fmap A B -> set A.
 
 Axiom fmap_of_map : forall A B, Fmap.map A B -> fmap A B.
 
@@ -276,104 +276,149 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 
 Open Scope list_scope.
 
-(** v'..π = v *)
-Inductive follow : val -> accesses -> val -> Prop :=
-  | follow_nil : forall v,
-    follow v nil v
-  | follow_array : forall v1 a i π v2,
-    Nth i a v1 ->
-    follow v1 π v2 ->
-    follow (val_array a) ((access_array i)::π) v2
-  | follow_struct : forall v1 s f π v2,
-    fmap_binds s f v1 ->
-    follow v1 π v2 ->
-    follow (val_struct s) ((access_field f)::π) v2.
+(** v[π] = w *)
+Inductive read_accesses : val -> accesses -> val -> Prop :=
+  | read_accesses_nil : forall v,
+      read_accesses v nil v
+  | read_accesses_array : forall v1 a i π v2,
+      Nth i a v1 ->
+      read_accesses v1 π v2 ->
+      read_accesses (val_array a) ((access_array i)::π) v2
+  | read_accesses_struct : forall v1 s f π v2,
+      fmap_binds s f v1 ->
+      read_accesses v1 π v2 ->
+      read_accesses (val_struct s) ((access_field f)::π) v2.
 
-(** m(l)..π = v *)
+(** m(l)[π] = v *)
 Inductive read_mem (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
-  read_mem_intro : forall v1, 
-  fmap_binds m l v1 ->
-  follow v1 π v ->
-  read_mem m l π v.
+  | read_mem_intro : forall v1, 
+      fmap_binds m l v1 ->
+      read_accesses v1 π v ->
+      read_mem m l π v.
 
-(** m' ~(l,π) m && m'(l).π = v *)
-Definition updated_state (l:loc) (π:accesses) (v:val) (m:state) (m':state) : Prop :=
-  forall l',
-      (not (l = l') -> fmap_data m l' = fmap_data m' l') 
-  /\  (l = l' ->  read_mem m' l π v).
+(** v[π := w] = v' *)
+Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
+  | write_accesses_nil : forall v w,
+      write_accesses v nil w w
+  | write_accesses_array : forall v1 a i π w v2,
+      Nth i a v1 ->
+      write_accesses v1 π w v2 ->
+      write_accesses (val_array a) ((access_array i)::π) w v2
+  | write_accesses_struct : forall v1 s f π w v2,
+      fmap_binds s f v1 ->
+      write_accesses v1 π w v2 ->
+      write_accesses (val_struct s) ((access_field f)::π) w v2.
 
-(** <E, m, t> // <m', v> *)
+(** m[l := m(l)[π := w]] = m' *)
+Inductive write_mem (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
+  | write_mem_intro : forall v1 v2, 
+      fmap_binds m l v1 ->
+      write_accesses v1 π w v2 ->
+      m' = fmap_update m l v2 ->
+      write_mem m l π w m'.
+
+Lemma read_write_mem_neq : forall m l π w m' l' π' v,
+  read_mem m l' π' v ->
+  write_mem m l π w m' ->
+  (l <> l' \/ π <> π') ->
+  read_mem m' l' π' v.
+Proof.
+Admitted.
+
+Lemma read_write_accesses_eq : forall v1 v2 π w,
+  write_accesses v1 π w v2 ->
+  read_accesses v2 π w.
+Proof.
+Admitted.
+
+Lemma read_write_mem_eq : forall m m' l π w,
+  write_mem m l π w m' ->
+  read_mem m' l π w.
+Proof.
+Admitted.
+
+(** <S, m, t> // <m', v> *)
 Inductive red : stack -> state -> trm -> state -> val -> Prop :=
-  | red_var : forall E m v x,
-      Ctx.lookup x E = Some v ->
-      red E m (trm_var x) m v
-  | red_val : forall E m v,
-      red E m v m v
-  | red_if : forall E m1 m2 m3 b r t0 t1 t2,
-      red E m1 t0 m2 (val_bool b) ->
-      red E m2 (if b then t1 else t2) m3 r ->
-      red E m1 (trm_if t0 t1 t2) m3 r
-  | red_let : forall E m1 m2 m3 z t1 t2 v1 r,
-      red E m1 t1 m2 v1 ->
-      red (Ctx.add z v1 E) m2 t2 m3 r ->
-      red E m1 (trm_let z t1 t2) m3 r
+  | red_var : forall S m v x,
+      Ctx.lookup x S = Some v ->
+      red S m (trm_var x) m v
+  | red_val : forall S m v,
+      red S m v m v
+  | red_if : forall S m1 m2 m3 b r t0 t1 t2,
+      red S m1 t0 m2 (val_bool b) ->
+      red S m2 (if b then t1 else t2) m3 r ->
+      red S m1 (trm_if t0 t1 t2) m3 r
+  | red_let : forall S m1 m2 m3 z t1 t2 v1 r,
+      red S m1 t1 m2 v1 ->
+      red (Ctx.add z v1 S) m2 t2 m3 r ->
+      red S m1 (trm_let z t1 t2) m3 r
   (* Binary operations *)
-  | red_binop : forall E (op:binop) m v1 v2 v,
+  | red_binop : forall S (op:binop) m v1 v2 v,
       redbinop op v1 v2 v ->
-      red E m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m v
+      red S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m v
   (* Operations on the abstract heap *) 
-  | red_get : forall l π E T (p:trm) m w,
+  | red_get : forall l π S T (p:trm) m w,
       p = val_abstract_ptr l π ->
       read_mem m l π w ->
-      red E m (trm_app (prim_get T) (p::nil)) m w
-  | red_set : forall (v:val) l π  E m1 T (p:trm) (t:trm) m2,
+      red S m (trm_app (prim_get T) (p::nil)) m w
+  | red_set : forall (v:val) l π  S m1 T (p:trm) (t:trm) m2,
       p = val_abstract_ptr l π ->
       t = trm_val v ->
-      updated_state l π v m1 m2 ->
-      red E m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_new: forall l (v:val) E m1 T (t:trm) m2 l,
+      write_mem m1 l π v m2 ->
+      red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
+  | red_new : forall l (v:val) S m1 T (t:trm) m2 l,
       t = v ->
       l <> null ->
       \# m1 (fmap_single l v) -> (* l \notin fmap_dom m2 *)
       m2 = fmap_update m1 l v ->
-      red E m1 (trm_app (prim_new T) (t::nil)) m2 (val_abstract_ptr l nil)
-  | red_struct_access : forall E m t l s f π T v vr,
+      red S m1 (trm_app (prim_new T) (t::nil)) m2 (val_abstract_ptr l nil)
+  | red_struct_access : forall S m t l s f π T v vr,
       t = val_abstract_ptr l π ->
       fmap_binds m l (val_struct s) ->
       fmap_binds (fmap_of_map s) f v ->
       vr = val_abstract_ptr l (π++((access_field f)::nil)) ->
-      red E m (trm_app (prim_struct_access T f) (t::nil)) m vr
-  | red_array_access : forall E m t l i π T vr ti (k:nat),
+      red S m (trm_app (prim_struct_access T f) (t::nil)) m vr
+  | red_array_access : forall S m t l i π T vr ti (k:nat),
       t = val_abstract_ptr l π ->
       ti = trm_val (val_int i) ->
       i = k ->
       vr = val_abstract_ptr l (π++(access_array k)::nil) ->
-      red E m (trm_app (prim_array_access T) (t::ti::nil)) m vr
+      red S m (trm_app (prim_array_access T) (t::ti::nil)) m vr
   (* Arguments *) 
-  | red_args_one : forall v1 m2 E m1 op t1 m3 v2,
+  | red_args_one : forall v1 m2 S m1 op t1 m3 v2,
       is_not_val t1 ->
-      red E m1 t1 m2 v1 ->
-      red E m2 (trm_app op ((trm_val v1)::nil)) m3 v2 ->
-      red E m1 (trm_app op (t1::nil)) m3 v2
-  | red_args_two_fst : forall v1 m2 E m1 op t1 t2 m3 v3,
+      red S m1 t1 m2 v1 ->
+      red S m2 (trm_app op ((trm_val v1)::nil)) m3 v2 ->
+      red S m1 (trm_app op (t1::nil)) m3 v2
+  | red_args_two_fst : forall v1 m2 S m1 op t1 t2 m3 v3,
       is_not_val t1 ->
-      red E m1 t1 m2 v1 ->
-      red E m2 (trm_app op ((trm_val v1)::t2::nil)) m3 v3 ->
-      red E m1 (trm_app op (t1::t2::nil)) m3 v3
-  | red_args_two_snd : forall m2 v2 E m1 op v1 t2 m3 v3,
+      red S m1 t1 m2 v1 ->
+      red S m2 (trm_app op ((trm_val v1)::t2::nil)) m3 v3 ->
+      red S m1 (trm_app op (t1::t2::nil)) m3 v3
+  | red_args_two_snd : forall m2 v2 S m1 op v1 t2 m3 v3,
       is_not_val t2 ->
-      red E m1 t2 m2 v2 ->
-      red E m2 (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m3 v3 ->
-      red E m1 (trm_app op ((trm_val v1)::t2::nil)) m3 v3.
+      red S m1 t2 m2 v2 ->
+      red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m3 v3 ->
+      red S m1 (trm_app op ((trm_val v1)::t2::nil)) m3 v3.
+  (*| red_args_1 : forall v1 m2 S m1 op t1 ts m3 v2,
+      is_not_val t1 ->
+      red S m1 t1 m2 v1 ->
+      red S m2 (trm_app op ((trm_val v1)::ts)) m3 v2 ->
+      red S m1 (trm_app op (t1::ts)) m3 v2
+  | red_args_2 : forall m2 v2 S m1 op v1 t2 ts m3 v3,
+      is_not_val t2 ->
+      red S m1 t2 m2 v2 ->
+      red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
+      red S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3.*)
 
 End Red.
 
 (* Derived *)
 
-Lemma red_seq : forall E m1 m2 m3 t1 t2 r1 r,
-  red E m1 t1 m2 r1 ->
-  red E m2 t2 m3 r ->
-  red E m1 (trm_seq t1 t2) m3 r.
+Lemma red_seq : forall S m1 m2 m3 t1 t2 r1 r,
+  red S m1 t1 m2 r1 ->
+  red S m2 t2 m3 r ->
+  red S m1 (trm_seq t1 t2) m3 r.
 Proof using. intros. applys* red_let. Qed.
 
 
@@ -383,38 +428,39 @@ Proof using. intros. applys* red_let. Qed.
 Definition gamma := Ctx.ctx typ.
 Definition phi := fmap loc typ.
 
-(** T'..π = T *)
+(** T[π] = T1 *)
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
-    follow_typ C T nil T
+      follow_typ C T nil T
   | follow_typ_array : forall T' π' T1 i n,
-    follow_typ C T' π' T1 ->
-    (0 <= i < n)%nat ->
-    follow_typ C (typ_array T' n) ((access_array i)::π') T1
+      follow_typ C T' π' T1 ->
+      (0 <= i < n)%nat ->
+      follow_typ C (typ_array T' n) ((access_array i)::π') T1
   | follow_typ_struct : forall S m f T' π' T1,
-    fmap_binds C S m ->
-    fmap_binds m f T' ->
-    follow_typ C T' π' T1 ->
-    follow_typ C (typ_struct S) ((access_field f)::π') T1.
+      fmap_binds C S m ->
+      fmap_binds m f T' ->
+      follow_typ C T' π' T1 ->
+      follow_typ C (typ_struct S) ((access_field f)::π') T1.
 
 (** φ(l)..π = T *)
 Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
   | read_phi_intro : forall T1, 
-    fmap_binds φ l T1 -> 
-    follow_typ C T1 π T -> 
-    read_phi C φ l π T.
+      fmap_binds φ l T1 -> 
+      follow_typ C T1 π T -> 
+      read_phi C φ l π T.
 
 Record env := make_env { 
   env_typdefctx : typdefctx;
-  env_gamma : gamma;
-  env_phi : phi
+  env_phi : phi;
+  env_gamma : gamma
 }.
 
 Definition env_add_binding E z X :=
   match E with
-  | make_env C Γ φ => make_env C (Ctx.add z X Γ) φ
+  | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
   end. 
 
+(* c and phi *)
 Inductive typing_val : env -> val -> typ -> Prop :=
   | typing_val_unit : forall E, 
       typing_val E val_unit typ_unit
@@ -440,10 +486,14 @@ Inductive typing_val : env -> val -> typ -> Prop :=
       typing_val E (val_abstract_ptr l π) (typ_ptr T).
 
 Inductive typing : env -> trm -> typ -> Prop :=
-  (* Values *)
+  (* Closed values *)
   | typing_trm_val : forall E v T,
       typing_val E v T ->
       typing E (trm_val v) T
+  (* Variables *)
+  | typing_var : forall E x T,
+      Ctx.lookup x (env_gamma E) = Some T ->
+      typing E x T
   (* Binary operations *)
   | typing_binop : forall E v1 v2 (op:binop),
       typing E v1 typ_int ->
@@ -457,12 +507,12 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E p (typ_ptr T) ->
       typing E t T ->
       typing E (trm_app (prim_set T) (p::t::nil)) typ_unit
-  | typing_alloc : forall E t T l, 
+  | typing_new : forall E t T l, 
       typing E t T ->
       typing E (trm_app (prim_new T) (t::nil)) (typ_ptr T)
-  | typing_struct_access : forall E s m f T T1 t,
-      fmap_binds (env_typdefctx E) s m ->
-      fmap_binds m f T1 ->
+  | typing_struct_access : forall E s Fs f T T1 t,
+      fmap_binds (env_typdefctx E) s Fs ->
+      fmap_binds Fs f T1 ->
       T = typ_struct s ->
       typing E t (typ_ptr T) ->
       typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T1)
@@ -470,10 +520,6 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E t (typ_ptr (typ_array A n)) ->
       typing E i typ_int ->
       typing E (trm_app (prim_array_access A) (t::i::nil)) (typ_ptr A)
-  (* Variables *)
-  | typing_var : forall E x T,
-      Ctx.lookup x (env_gamma E) = Some T ->
-      typing E x T
   (* Other language constructs *)
   | typing_if : forall E t0 t1 t2 T,
       typing E t0 typ_bool ->
@@ -485,36 +531,61 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing (env_add_binding E z T1) t2 T ->
       typing E (trm_let z t1 t2) T.
 
-Inductive state_ok : state -> Prop :=
-  | state_ok_empty : state_ok fmap_empty
-  | state_ok_push : forall m l v,
-      state_ok m ->
-      state_ok (fmap_update m l v).
+(* Lemma : fmap_dom m \c fmap_dom φ <-> (forall l, fmap_indom m l -> fmap_indom φ l) *)
+
+Open Scope container_scope.
 
 Definition state_typing (C:typdefctx) (φ:phi) (m:state) :=
-      state_ok m
-  /\  (forall l, fmap_indom m l -> fmap_indom φ l)
+      fmap_dom φ \c fmap_dom m
   /\  (forall l T, fmap_binds φ l T ->
          exists v, fmap_binds m l v
-               /\  typing_val (make_env C Ctx.empty φ) v T).
+               /\  typing_val (make_env C φ Ctx.empty) v T).
 
-Theorem type_soundess : forall C φ (φ':phi) m t v T,
-  typing (make_env C Ctx.empty φ) t T ->
+Definition stack_typing (C:typdefctx) (φ:phi) (S:stack) (Γ:gamma) := True.
+
+Notation "'make_env''" := make_env.
+
+(*
+| red_var : forall S m v x,
+      Ctx.lookup x S = Some v ->
+      red S m (trm_var x) m v
+  | red_val : forall S m v,
+      red S m v m v
+*)
+
+Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
+  red S m t m' v -> 
+  typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
-  exists v m' φ',
-        red Ctx.empty m t m' v  
-    /\  fmap_extends φ φ'
-    /\  typing_val (make_env C Ctx.empty φ') v T
+  stack_typing C φ S Γ ->
+        typing_val (make_env C φ Ctx.empty) v T
+    /\  state_typing C φ m'.
+Proof.
+  introv R. gen φ T Γ. induction R; introv HT HM HS.
+  { (* var *)
+    inverts HT. simpls. split*. admit. }
+  { (* val *)  admit. }
+  { (* if *) inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2. 
+    case_if*. }
+Focus 3. subst p. inverts HT as HT1. inverts HT1 as HT2. simpls. inverts HT2. simpls. split.
+Admitted.
+
+(*
+Ctx.lookup x S = Some v
+Ctx.lookup x Γ = Some T
+typing_val (make_env' C φ Ctx.empty) v T
+*)
+
+Theorem type_soundess : forall C φ (φ':phi) m t v T Γ S v m',
+  typing (make_env C φ Γ) t T ->
+  state_typing C φ m ->
+  stack_typing C φ S Γ ->
+  red S m t m' v -> 
+  exists φ',  
+        fmap_extends φ φ'
+    /\  typing_val (make_env C φ' Ctx.empty) v T
     /\  state_typing C φ' m'.
 Proof.
-  intros. induction H.
-  { exists v0 m φ. splits.
-    { gen_eq E': (Ctx.empty : stack). intros. constructors*. }
-    { admit. }
-    { gen_eq E': ({| env_typdefctx := C; env_gamma := Ctx.empty; env_phi := φ |}: env).
-      intros. admit. } 
-    { auto. } }
-  { admit. }
 Admitted.
 
 (* ********************************************************************** *)
