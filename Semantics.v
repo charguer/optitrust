@@ -485,8 +485,8 @@ Lemma vals_closed : forall C φ T Γ v,
   forall Γ',
     typing_val (make_env C φ Γ') v T.
 Proof.
-  introv H. intros. inverts H; constructors*.
-  { introv HTf HVf. admit.  }
+  introv H. induction H; constructors*.
+  { simpl.  }
   { admit. }
 Admitted.
 
