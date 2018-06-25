@@ -131,7 +131,7 @@ Inductive val : Type :=
   | val_concrete_ptr : loc -> offset -> val
   | val_prim : prim -> val
   | val_array : list val -> val
-  | val_struct : Fmap.map field val -> val.
+  | val_struct : map field val -> val.
 
 Inductive trm : Type :=
   | trm_var : var -> trm
@@ -205,8 +205,6 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_eq : forall v1 v2,
       redbinop binop_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
-Open Scope list_scope.
-
 (** v[π] = w *)
 Inductive read_accesses : val -> accesses -> val -> Prop :=
   | read_accesses_nil : forall v,
@@ -231,10 +229,11 @@ Inductive read_mem (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
 Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
   | write_accesses_nil : forall v w,
       write_accesses v nil w w
-  | write_accesses_array : forall v1 a i π w v2,
-      Nth i a v1 ->
+  | write_accesses_array : forall v1 a1 a2 i π w v2,
+      Nth i a1 v1 ->
       write_accesses v1 π w v2 ->
-      write_accesses (val_array a) ((access_array i)::π) w v2
+      a2 = a1[i := v2] ->
+      write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
   | write_accesses_struct : forall v1 s f π w v2,
       binds s f v1 ->
       write_accesses v1 π w v2 ->
@@ -248,21 +247,35 @@ Inductive write_mem (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
       m' = m[l := v2] ->
       write_mem m l π w m'.
 
+(** Some lemmas *)
+
+Lemma read_write_accesses_neq : forall v1 v2 π π' w,
+  read_accesses v1 π' w ->
+  write_accesses v1 π w v2 ->
+    π <> π' ->
+  read_accesses v2 π' w.
+Proof.
+Admitted.
+
 Lemma read_write_mem_neq : forall m l π w m' l' π' v,
   read_mem m l' π' v ->
   write_mem m l π w m' ->
   (l <> l' \/ π <> π') ->
   read_mem m' l' π' v.
 Proof.
+  introv Hr Hw Hneq. gen m l π.
 Admitted.
 
-Lemma read_write_accesses_eq : forall v1 v2 π w,
+Lemma read_write_accesses_same : forall v1 v2 π w,
   write_accesses v1 π w v2 ->
   read_accesses v2 π w.
 Proof.
+  introv H. induction H.
+  { constructor. }
+  { inverts H0.  }
 Admitted.
 
-Lemma read_write_mem_eq : forall m m' l π w,
+Lemma read_write_mem_same : forall m m' l π w,
   write_mem m l π w m' ->
   read_mem m' l π w.
 Proof.
@@ -394,34 +407,34 @@ Definition env_add_binding E z X :=
 Notation "'make_env''" := make_env.
 
 (* c and phi *)
-Inductive typing_val : env -> val -> typ -> Prop :=
-  | typing_val_unit : forall E, 
-      typing_val E val_unit typ_unit
-  | typing_val_bool : forall E b,
-      typing_val E (val_bool b) typ_bool
-  | typing_val_int : forall E i,
-      typing_val E (val_int i) typ_int
-  | typing_val_double : forall E d,
-      typing_val E (val_double d) typ_double
-  | typing_val_struct : forall E mt mv s T,
-      binds (env_typdefctx E) s mt ->
+Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
+  | typing_val_unit : forall C φ, 
+      typing_val C φ val_unit typ_unit
+  | typing_val_bool : forall C φ b,
+      typing_val C φ (val_bool b) typ_bool
+  | typing_val_int : forall C φ i,
+      typing_val C φ (val_int i) typ_int
+  | typing_val_double : forall C φ d,
+      typing_val C φ (val_double d) typ_double
+  | typing_val_struct : forall C φ mt mv s T,
+      binds C s mt ->
       dom mt = dom mv ->
       (forall f v, binds mt f T -> 
           binds mv f v ->
-          typing_val E v T) ->
-      typing_val E (val_struct mv) (typ_struct s)
-  | typing_val_array : forall E a T,
+          typing_val C φ v T) ->
+      typing_val C φ (val_struct mv) (typ_struct s)
+  | typing_val_array : forall C φ a T,
       (forall i v, Nth i a v -> 
-        typing_val E v T) -> 
-      typing_val E (val_array a) (typ_array T (List.length a))
-  | typing_val_abstract_ptr : forall E l π T,
-      read_phi (env_typdefctx E) (env_phi E) l π T ->
-      typing_val E (val_abstract_ptr l π) (typ_ptr T).
+        typing_val C φ v T) -> 
+      typing_val C φ (val_array a) (typ_array T (List.length a))
+  | typing_val_abstract_ptr : forall C φ l π T,
+      read_phi C φ l π T ->
+      typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
 
 Inductive typing : env -> trm -> typ -> Prop :=
   (* Closed values *)
   | typing_trm_val : forall E v T,
-      typing_val E v T ->
+      typing_val (env_typdefctx E) (env_phi E) v T ->
       typing E (trm_val v) T
   (* Variables *)
   | typing_var : forall E x T,
@@ -472,40 +485,30 @@ Definition state_typing (C:typdefctx) (φ:phi) (m:state) : Prop :=
       dom φ \c dom m
   /\  (forall l T, binds φ l T ->
          exists v, binds m l v
-               /\  typing_val (make_env' C φ Ctx.empty) v T).
+               /\  typing_val C φ v T).
 
 Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
   forall x v T,
     Ctx.lookup x S = Some v ->
     Ctx.lookup x Γ = Some T ->
-    typing_val (make_env' C φ Ctx.empty) v T.
-
-Lemma vals_closed : forall C φ T Γ v,
-  typing_val (make_env C φ Γ) v T ->
-  forall Γ',
-    typing_val (make_env C φ Γ') v T.
-Proof.
-  introv H. induction H; constructors*.
-  { simpl.  }
-  { admit. }
-Admitted.
+    typing_val C φ v T.
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
   red S m t m' v -> 
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
   stack_typing C φ Γ S ->
-        typing_val (make_env C φ Ctx.empty) v T
+        typing_val C φ v T
     /\  state_typing C φ m'.
 Proof.
   introv R. gen φ T Γ. induction R; introv HT HM HS.
   { (* var *)
     inverts HT. simpls. split*. }
   { (* val *)  
-    inverts HT. split*. applys* vals_closed. }
+    inverts HT. split*. }
   { (* if *) inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2. 
     case_if*. }
-Focus 3. subst p. inverts HT as HT1. inverts HT1 as HT2. simpls. inverts HT2. simpls. split.
+  { (* let *) admit. }
 Admitted.
 
 Definition extends (φ:phi) (φ':phi) :=
