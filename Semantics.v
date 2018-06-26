@@ -268,6 +268,8 @@ Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop 
 
 (** Some lemmas *)
 
+
+
 (** We need the paths to be disjoint, not just different. *)
 (*Lemma read_write_accesses_neq : forall v1 v2 π π' w1 w2,
   read_accesses v1 π w1 ->
@@ -467,10 +469,18 @@ Inductive typing : env -> trm -> typ -> Prop :=
       Ctx.lookup x (env_gamma E) = Some T ->
       typing E x T
   (* Binary operations *)
-  | typing_binop : forall E v1 v2 (op:binop),
+  | typing_binop_add : forall E v1 v2,
       typing E v1 typ_int ->
       typing E v2 typ_int ->
-      typing E (trm_app op ((trm_val v1)::(trm_val v2)::nil)) typ_int
+      typing E (trm_app binop_add ((trm_val v1)::(trm_val v2)::nil)) typ_int
+  | typing_binop_sub : forall E v1 v2,
+      typing E v1 typ_int ->
+      typing E v2 typ_int ->
+      typing E (trm_app binop_sub ((trm_val v1)::(trm_val v2)::nil)) typ_int
+  | typing_binop_eq : forall E v1 v2,
+      typing E v1 typ_int ->
+      typing E v2 typ_int ->
+      typing E (trm_app binop_eq ((trm_val v1)::(trm_val v2)::nil)) typ_bool
   (* Abstract heap operations *)
   | typing_get : forall E T p,
       typing E p (typ_ptr T) ->
@@ -519,6 +529,61 @@ Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop :=
     Ctx.lookup x Γ = Some T ->
     typing_val C φ v T.
 
+Check Some.
+
+(* Lemma for stack_typing_ctx_add *)
+Lemma ctx_lookup_add {A:Type} :
+  forall C (z1 z2:var) (w1 w2:A),
+    Ctx.lookup z1 ((z2, w1) :: C) = Some w2 ->
+        (z1 = z2 /\ w1 = w2)
+    \/  (z1 <> z2 /\ Ctx.lookup z1 C = Some w2).
+Proof.
+  introv H. unfold Ctx.lookup in H.
+  destruct (var_eq z1 z2) eqn:HE.
+  { left. rewrite var_eq_spec in HE.  
+    rewrite isTrue_eq_true_eq in HE.
+    inverts H. splits*. }
+  { right. folds Ctx.lookup.
+    rewrite var_eq_spec in HE.  
+    rewrite isTrue_eq_false_eq in HE.
+    splits*. }
+Qed.
+
+(* Lemma for let case *)
+Lemma stack_typing_ctx_add :
+  forall C φ z T Γ v S,
+    stack_typing C φ Γ S ->
+    typing_val C φ v T ->
+    stack_typing C φ (Ctx.add z T Γ) (Ctx.add z v S).
+Proof.
+  introv HS HT. unfolds* stack_typing. introv HS1 HT1.
+  unfolds* Ctx.add. destruct z.
+  { forwards*: HS. }
+  { apply ctx_lookup_add in HS1. 
+    apply ctx_lookup_add in HT1.
+    inverts* HS1; inverts* HT1.
+    destruct H. destruct H0. 
+    subst v. subst T. auto. }
+Qed.
+
+(* Lemma for get case *)
+Lemma typing_val_get :
+  forall m l π C φ w T,
+    state_typing C φ m ->
+    read_state m l π w ->
+    read_phi C φ l π T ->
+    typing_val C φ w T.
+Proof.
+  (*introv HT HS HP. induction HS. unfolds state_typing. destruct HT as (HT1&HT2).
+  inverts HP. apply HT2 in H1. inverts H0.
+  {  }
+  inverts HP. apply HT2 in H. inverts HS. inverts H2.
+  { inverts H0. }*)
+Admitted.
+
+(* Lemma for uniqueness of bind *)
+(* binds m l w -> forall v, binds m l v -> v = w.*)
+
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
   red S m t m' v -> 
   typing (make_env C φ Γ) t T ->
@@ -532,10 +597,24 @@ Proof.
     inverts HT. simpls. split*. }
   { (* val *)  
     inverts HT. split*. }
-  { (* if *) inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2. 
-    case_if*. }
-  { (* let *) admit. }
-Admitted.
+  { (* if *) 
+    inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2. case_if*. }
+  { (* let *) 
+    inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2.
+    applys* stack_typing_ctx_add. }
+  { (* binop *) 
+    inverts HT; splits*; inverts H; constructors*. }
+  { (* get *) 
+    splits*. inverts HT. subst p. inverts H5. simpls. inverts H2.
+    applys* typing_val_get.  }
+  { (* set *) admit. }
+  { (* new *) admit. }
+  { (* struct access *) admit. }
+  { (* array_access *) admit. }
+  { (* app 1 *) admit. }
+  { (* app 2 fst *) admit. }
+  { (* app 2 snd *) admit. }
+Qed.
 
 Definition extends (φ:phi) (φ':phi) :=
       dom φ \c dom φ'
