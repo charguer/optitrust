@@ -125,6 +125,7 @@ Definition double := int.
 Check update.
 
 Inductive val : Type :=
+  | val_error : val
   | val_unit : val
   | val_bool : bool -> val
   | val_int : int -> val
@@ -154,6 +155,9 @@ Notation trm_seq := (trm_let bind_anon).
 
 Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
+
+Global Instance Inhab_typdef_struct : Inhab typdef_struct.
+Proof using. apply (Inhab_of_val \{}). Qed.
 
 (** Shorthand [vars], [vals] and [trms] for lists of items. *)
 
@@ -197,6 +201,15 @@ Definition is_not_val (t:trm) :=
   match t with
   | trm_val v => False
   | _ => True
+  end.
+
+Definition is_error (v:val) :=
+  v = val_error.
+
+Definition is_bool (v:val) :=
+  match v with 
+    | val_bool b => True
+    | _ => False
   end.
 
 Inductive redbinop : binop -> val -> val -> val -> Prop :=
@@ -322,6 +335,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 (trm_if t0 t1 t2) m3 r
   | red_let : forall S m1 m2 m3 z t1 t2 v1 r,
       red S m1 t1 m2 v1 ->
+      ~ is_error v1 ->
       red (Ctx.add z v1 S) m2 t2 m3 r ->
       red S m1 (trm_let z t1 t2) m3 r
   (* Binary operations *)
@@ -338,12 +352,11 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       t = trm_val v ->
       write_state m1 l π v m2 ->
       red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_new : forall l (v:val) S m1 T (t:trm) m2 l,
-      t = v ->
+  | red_new : forall l (v:val) S m1 T m2 l,
       l <> null ->
       l \notindom m1 ->
       m2 = m1[l := v] ->
-      red S m1 (trm_app (prim_new T) (t::nil)) m2 (val_abstract_ptr l nil)
+      red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 (val_abstract_ptr l nil)
   | red_struct_access : forall S m t l s f π T v vr,
       t = val_abstract_ptr l π ->
       binds m l (val_struct s) ->
@@ -371,7 +384,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       is_not_val t2 ->
       red S m1 t2 m2 v2 ->
       red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m3 v3 ->
-      red S m1 (trm_app op ((trm_val v1)::t2::nil)) m3 v3.
+      red S m1 (trm_app op ((trm_val v1)::t2::nil)) m3 v3
   (*| red_args_1 : forall v1 m2 S m1 op t1 ts m3 v2,
       is_not_val t1 ->
       red S m1 t1 m2 v1 ->
@@ -382,6 +395,10 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 t2 m2 v2 ->
       red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
       red S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3.*)
+  (* Error cases *)
+  | red_binop_error : forall S (op:binop) m v1 v2,
+      ~ (exists v, redbinop op v1 v2 v) ->
+      red S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m val_error.
 
 End Red.
 
@@ -444,10 +461,10 @@ Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
       typing_val C φ (val_int i) typ_int
   | typing_val_double : forall C φ d,
       typing_val C φ (val_double d) typ_double
-  | typing_val_struct : forall C φ mt mv s T,
+  | typing_val_struct : forall C φ mt mv s,
       binds C s mt ->
       dom mt = dom mv ->
-      (forall f v, binds mt f T -> 
+      (forall f v T, binds mt f T -> 
           binds mv f v ->
           typing_val C φ v T) ->
       typing_val C φ (val_struct mv) (typ_struct s)
@@ -532,38 +549,48 @@ Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop :=
 Check Some.
 
 (* Lemma for stack_typing_ctx_add *)
-Lemma ctx_lookup_add {A:Type} :
-  forall C (z1 z2:var) (w1 w2:A),
-    Ctx.lookup z1 ((z2, w1) :: C) = Some w2 ->
-        (z1 = z2 /\ w1 = w2)
-    \/  (z1 <> z2 /\ Ctx.lookup z1 C = Some w2).
+Lemma ctx_lookup_add_inv {A:Type} : forall C (z1 z2:var) (w1 w2:A),
+  Ctx.lookup z1 (Ctx.add z2 w1 C) = Some w2 ->
+      (z1 = z2 /\ w1 = w2)
+  \/  (z1 <> z2 /\ Ctx.lookup z1 C = Some w2).
 Proof.
-  introv H. unfold Ctx.lookup in H.
-  destruct (var_eq z1 z2) eqn:HE.
-  { left. rewrite var_eq_spec in HE.  
-    rewrite isTrue_eq_true_eq in HE.
-    inverts H. splits*. }
-  { right. folds Ctx.lookup.
-    rewrite var_eq_spec in HE.  
-    rewrite isTrue_eq_false_eq in HE.
-    splits*. }
+  introv H. simpls. rewrite var_eq_spec in *. case_if*. { inverts* H. }
 Qed.
 
 (* Lemma for let case *)
-Lemma stack_typing_ctx_add :
-  forall C φ z T Γ v S,
-    stack_typing C φ Γ S ->
-    typing_val C φ v T ->
-    stack_typing C φ (Ctx.add z T Γ) (Ctx.add z v S).
+Lemma stack_typing_ctx_add : forall C φ z T Γ v S,
+  stack_typing C φ Γ S ->
+  typing_val C φ v T ->
+  stack_typing C φ (Ctx.add z T Γ) (Ctx.add z v S).
 Proof.
   introv HS HT. unfolds* stack_typing. introv HS1 HT1.
-  unfolds* Ctx.add. destruct z.
-  { forwards*: HS. }
-  { apply ctx_lookup_add in HS1. 
-    apply ctx_lookup_add in HT1.
-    inverts* HS1; inverts* HT1.
-    destruct H. destruct H0. 
-    subst v. subst T. auto. }
+  destruct z.
+  { simpls. forwards*: HS. }
+  { simpls. rewrite var_eq_spec in *. case_if.
+    { inverts* HS1; inverts* HT1. }
+    { forwards*: HS. } }
+Qed.
+
+Hint Constructors typing_val redbinop. 
+
+Ltac binds_inj := 
+  match goal with H1: binds ?m ?a ?b, H2: binds ?m ?a ?b' |- _=>
+    let HTEMP := fresh in
+    forwards HTEMP: binds_inj H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end. 
+
+(* Lemma for typing_val_get *)
+Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
+  typing_val C φ w1 T1 ->
+  follow_typ C T1 π T2 ->
+  read_accesses w1 π w2 ->
+  typing_val C φ w2 T2.
+Proof.
+  introv HT HF HR. gen π. induction HT; intros;
+   try solve [ inverts HR; inverts HF; constructors* ].
+  { inverts HF as; inverts HR as; try constructors*.
+    introv HB1 HR HB2 HF HT. binds_inj. eauto. (* IH *) }
+  { inverts HF as; inverts HR as; try constructors*.
+    introv HN1 HR HT Hi. eauto. (* IH *) }
 Qed.
 
 (* Lemma for get case *)
@@ -574,15 +601,10 @@ Lemma typing_val_get :
     read_phi C φ l π T ->
     typing_val C φ w T.
 Proof.
-  (*introv HT HS HP. induction HS. unfolds state_typing. destruct HT as (HT1&HT2).
-  inverts HP. apply HT2 in H1. inverts H0.
-  {  }
-  inverts HP. apply HT2 in H. inverts HS. inverts H2.
-  { inverts H0. }*)
-Admitted.
-
-(* Lemma for uniqueness of bind *)
-(* binds m l w -> forall v, binds m l v -> v = w.*)
+  introv (HD&HT) HS HP. inverts HS as Hv1 HR.
+  inverts HP as HT1 HF. forwards (v&Hv&Tv): (rm HT) HT1.
+  binds_inj. applys* typing_val_follow T1 v1.
+Qed.
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
   red S m t m' v -> 
@@ -598,23 +620,35 @@ Proof.
   { (* val *)  
     inverts HT. split*. }
   { (* if *) 
-    inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2. case_if*. }
+    inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2. 
+    case_if*. }
   { (* let *) 
     inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2.
     applys* stack_typing_ctx_add. }
   { (* binop *) 
-    inverts HT; splits*; inverts H; constructors*. }
+    rename H into R. inverts HT; inverts* R. }
   { (* get *) 
-    splits*. inverts HT. subst p. inverts H5. simpls. inverts H2.
-    applys* typing_val_get.  }
+    splits*. 
+    { subst. inverts HT as HT. inverts HT as HT; simpls.  
+      inverts HT. applys* typing_val_get. } }
   { (* set *) admit. }
   { (* new *) admit. }
-  { (* struct access *) admit. }
+  { (* struct_access *) admit. }
   { (* array_access *) admit. }
   { (* app 1 *) admit. }
   { (* app 2 fst *) admit. }
   { (* app 2 snd *) admit. }
+  { (* binop_error *) false H. inverts HT as HT1 HT2;
+     (inverts HT1 as HT; inverts HT);
+     (inverts HT2 as HT; inverts HT); eauto. }
 Qed.
+
+(*
+lemma typing_val_int_inv:
+  typing E (trm_val v) typ_int -> 
+  exists i, v = val_int i.
+    forwards (i&Ei): typing_val_int_inv HT1; subst.
+*)
 
 Definition extends (φ:phi) (φ':phi) :=
       dom φ \c dom φ'
