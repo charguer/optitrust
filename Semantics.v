@@ -156,6 +156,9 @@ Notation trm_seq := (trm_let bind_anon).
 Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
+Global Instance Inhab_typ : Inhab typ.
+Proof using. apply (Inhab_of_val typ_unit). Qed.
+
 Global Instance Inhab_typdef_struct : Inhab typdef_struct.
 Proof using. apply (Inhab_of_val \{}). Qed.
 
@@ -406,7 +409,9 @@ End Red.
 
 Lemma red_seq : forall S m1 m2 m3 t1 t2 r1 r,
   red S m1 t1 m2 r1 ->
+  ~ is_error r1 ->
   red S m2 t2 m3 r ->
+  ~ is_error r -> 
   red S m1 (trm_seq t1 t2) m3 r.
 Proof using. intros. applys* red_let. Qed.
 
@@ -594,17 +599,80 @@ Proof.
 Qed.
 
 (* Lemma for get case *)
-Lemma typing_val_get :
-  forall m l π C φ w T,
-    state_typing C φ m ->
-    read_state m l π w ->
-    read_phi C φ l π T ->
-    typing_val C φ w T.
+Lemma typing_val_get : forall m l π C φ w T,
+  state_typing C φ m ->
+  read_state m l π w ->
+  read_phi C φ l π T ->
+  typing_val C φ w T.
 Proof.
   introv (HD&HT) HS HP. inverts HS as Hv1 HR.
   inverts HP as HT1 HF. forwards (v&Hv&Tv): (rm HT) HT1.
   binds_inj. applys* typing_val_follow T1 v1.
 Qed.
+
+(* Lemma for set case *)
+Lemma state_typing_get : forall T m1 l π v C φ m2,
+  state_typing C φ m1 ->
+  write_state m1 l π v m2 ->
+  typing_val C φ (val_abstract_ptr l π) (typ_ptr T) ->
+  typing_val C φ v T ->
+  state_typing C φ m2.
+Proof.
+  introv (HD&HT) HW HTp HTv. inverts HW as Hv1 HWA.
+  inverts HTp as HP. inverts HP as HT1 HF.
+  forwards (v3&Hv3&HTv3): HT HT1.
+  binds_inj. unfolds. splits.
+  { forwards* Hin: index_of_binds Hv1. typeclass.
+    forwards* Heq: dom_update_at_index v2 m1 Hin. typeclass.
+    rewrite Heq at 1. auto. }
+  { introv HT0. forwards (v4&Hv4&HTv4): HT HT0. (*
+    rewrite binds_update_eq at 6. case_if*.*)
+    subst. admit. }
+Admitted.
+
+Lemma state_typing_update : forall C φ m1 T l v2,
+  state_typing C φ m1 ->
+  typing_val C φ m1[l] T ->
+  typing_val C φ v2 T ->
+  state_typing C φ m1[l:=v2].
+Proof. 
+  introv (HD&HT) HT1 HT2. unfolds. splits.
+  { rewrite incl_in_eq in *. introv Hin.
+    forwards Hup: HD Hin. 
+    forwards*: indom_update_of_indom Hup. typeclass. }
+  { introv HB0. forwards (v3&HB3&HTv3): HT HB0.
+    exists m1[l := v2][l0]. splits.
+    { admit. }   (* Some work to be done with map udpates. *)
+    { admit. } } (* but I think it'll work... *)
+Admitted.
+
+Lemma typing_val_after_write : forall v1 v l π T C φ v2 T1,
+  typing_val C φ v1 T1 ->
+  write_accesses v1 π v v2 ->
+  read_phi C φ l π T ->
+  typing_val C φ v T ->
+  typing_val C φ v2 T1.
+Proof. Admitted.
+
+(* Lemma for set case *)
+Lemma state_typing_get' : forall T m1 l π v C φ m2,
+  state_typing C φ m1 ->
+  write_state m1 l π v m2 ->
+  typing_val C φ (val_abstract_ptr l π) (typ_ptr T) ->
+  typing_val C φ v T ->
+  state_typing C φ m2.
+Proof.
+  introv HS HW HTp HTv. lets HS': HS.
+  inverts HS as HD HT. 
+  inverts HW as Hv1 HWA.
+  inverts HTp as HP. lets HP': HP. 
+  inverts HP as HT1 HF. 
+  forwards (v3&Hv3&HTv3): HT HT1. binds_inj.
+  forwards*: typing_val_after_write HTv3 HWA HP' HTv.
+  applys* state_typing_update.
+  forwards* HPl: read_of_binds Hv1. subst*.
+Qed.
+
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
   red S m t m' v -> 
@@ -631,16 +699,20 @@ Proof.
     splits*. 
     { subst. inverts HT as HT. inverts HT as HT; simpls.  
       inverts HT. applys* typing_val_get. } }
-  { (* set *) admit. }
+  { (* set *) 
+    subst. inverts HT as HT1 HT2. splits*.
+    { inverts HT1 as HT1. inverts HT2 as HT2. 
+      applys* state_typing_get'. } }
   { (* new *) admit. }
   { (* struct_access *) admit. }
   { (* array_access *) admit. }
   { (* app 1 *) admit. }
   { (* app 2 fst *) admit. }
   { (* app 2 snd *) admit. }
-  { (* binop_error *) false H. inverts HT as HT1 HT2;
-     (inverts HT1 as HT; inverts HT);
-     (inverts HT2 as HT; inverts HT); eauto. }
+  { (* binop_error *) 
+    false H. inverts HT as HT1 HT2;
+    (inverts HT1 as HT; inverts HT);
+    (inverts HT2 as HT; inverts HT); eauto. }
 Qed.
 
 (*
