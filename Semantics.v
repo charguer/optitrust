@@ -630,12 +630,11 @@ Qed.
 
 (* *)
 Lemma typing_val_inj : forall C φ v T1 T2,
-  ~ is_error v ->
   typing_val C φ v T1 ->
   typing_val C φ v T2 ->
   T1 = T2.
 Proof.
-  introv HE H1 H2. induction v; inverts H1; inverts H2; auto.
+  introv H1 H2. induction v; inverts H1; inverts H2; auto.
   { fequals. applys* read_phi_inj. }
   { admit. } (* typ_array *)
   { admit. } (* typ_struct *)
