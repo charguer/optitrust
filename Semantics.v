@@ -458,7 +458,7 @@ Notation "'make_env''" := make_env.
 
 (* c and phi *)
 Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
-  | typing_val_unit : forall C φ, 
+  | typing_val_unit : forall C φ,
       typing_val C φ val_unit typ_unit
   | typing_val_bool : forall C φ b,
       typing_val C φ (val_bool b) typ_bool
@@ -610,26 +610,38 @@ Proof.
   binds_inj. applys* typing_val_follow T1 v1.
 Qed.
 
-(* Lemma for set case *)
-Lemma state_typing_get : forall T m1 l π v C φ m2,
-  state_typing C φ m1 ->
-  write_state m1 l π v m2 ->
-  typing_val C φ (val_abstract_ptr l π) (typ_ptr T) ->
-  typing_val C φ v T ->
-  state_typing C φ m2.
+(* *)
+Lemma follow_typ_inj : forall C T π T1 T2,
+  follow_typ C T π T1 ->
+  follow_typ C T π T2 ->
+  T1 = T2.
 Proof.
-  introv (HD&HT) HW HTp HTv. inverts HW as Hv1 HWA.
-  inverts HTp as HP. inverts HP as HT1 HF.
-  forwards (v3&Hv3&HTv3): HT HT1.
-  binds_inj. unfolds. splits.
-  { forwards* Hin: index_of_binds Hv1. typeclass.
-    forwards* Heq: dom_update_at_index v2 m1 Hin. typeclass.
-    rewrite Heq at 1. auto. }
-  { introv HT0. forwards (v4&Hv4&HTv4): HT HT0. (*
-    rewrite binds_update_eq at 6. case_if*.*)
-    subst. admit. }
 Admitted.
 
+(* *)
+Lemma read_phi_inj : forall C φ l π T1 T2,
+  read_phi C φ l π T1 ->
+  read_phi C φ l π T2 ->
+  T1 = T2.
+Proof.
+  introv H1 H2. inverts H1. inverts H2.
+  binds_inj. applys* follow_typ_inj.
+Qed.
+
+(* *)
+Lemma typing_val_inj : forall C φ v T1 T2,
+  ~ is_error v ->
+  typing_val C φ v T1 ->
+  typing_val C φ v T2 ->
+  T1 = T2.
+Proof.
+  introv HE H1 H2. induction v; inverts H1; inverts H2; auto.
+  { fequals. applys* read_phi_inj. }
+  { admit. } (* typ_array *)
+  { admit. } (* typ_struct *)
+Qed.
+
+(* *)
 Lemma state_typing_update : forall C φ m1 T l v2,
   state_typing C φ m1 ->
   typing_val C φ m1[l] T ->
@@ -642,9 +654,17 @@ Proof.
     forwards*: indom_update_of_indom Hup. typeclass. }
   { introv HB0. forwards (v3&HB3&HTv3): HT HB0.
     exists m1[l := v2][l0]. splits.
-    { admit. }   (* Some work to be done with map udpates. *)
-    { admit. } } (* but I think it'll work... *)
-Admitted.
+    { rewrite binds_update_eq. case_if*.
+      { subst. rewrite* read_update_same. }
+      { applys binds_of_indom_read.
+        { forwards*: indom_of_binds HB3. typeclass. } 
+        { symmetry. applys* read_update_neq. } } } 
+    { rewrite read_update. case_if.
+      { forwards: read_of_binds HB3. subst.
+        forwards: typing_val_inj HT1 HTv3. subst*. }
+      { forwards: read_of_binds HB3. subst*. } } } 
+Qed.
+
 
 Lemma typing_val_after_write : forall v1 v l π T C φ v2 T1,
   typing_val C φ v1 T1 ->
@@ -655,7 +675,7 @@ Lemma typing_val_after_write : forall v1 v l π T C φ v2 T1,
 Proof. Admitted.
 
 (* Lemma for set case *)
-Lemma state_typing_get' : forall T m1 l π v C φ m2,
+Lemma state_typing_set : forall T m1 l π v C φ m2,
   state_typing C φ m1 ->
   write_state m1 l π v m2 ->
   typing_val C φ (val_abstract_ptr l π) (typ_ptr T) ->
@@ -702,7 +722,7 @@ Proof.
   { (* set *) 
     subst. inverts HT as HT1 HT2. splits*.
     { inverts HT1 as HT1. inverts HT2 as HT2. 
-      applys* state_typing_get'. } }
+      applys* state_typing_set. } }
   { (* new *) admit. }
   { (* struct_access *) admit. }
   { (* array_access *) admit. }
