@@ -476,7 +476,7 @@ Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
   | typing_val_array : forall C φ a T,
       (forall i v, Nth i a v -> 
         typing_val C φ v T) -> 
-      typing_val C φ (val_array a) (typ_array T (List.length a))
+      typing_val C φ (val_array a) (typ_array T (length a))
   | typing_val_abstract_ptr : forall C φ l π T,
       read_phi C φ l π T ->
       typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
@@ -610,15 +610,18 @@ Proof.
   binds_inj. applys* typing_val_follow T1 v1.
 Qed.
 
-(* *)
+
+(* Types are well-formed *)
 Lemma follow_typ_inj : forall C T π T1 T2,
   follow_typ C T π T1 ->
   follow_typ C T π T2 ->
   T1 = T2.
 Proof.
-Admitted.
+  introv HF1 HF2. induction HF1; inverts* HF2.
+  { binds_inj. binds_inj. forwards*: IHHF1 H7. }
+Qed.
 
-(* *)
+(* φ is well-formed *)
 Lemma read_phi_inj : forall C φ l π T1 T2,
   read_phi C φ l π T1 ->
   read_phi C φ l π T2 ->
@@ -626,18 +629,6 @@ Lemma read_phi_inj : forall C φ l π T1 T2,
 Proof.
   introv H1 H2. inverts H1. inverts H2.
   binds_inj. applys* follow_typ_inj.
-Qed.
-
-(* *)
-Lemma typing_val_inj : forall C φ v T1 T2,
-  typing_val C φ v T1 ->
-  typing_val C φ v T2 ->
-  T1 = T2.
-Proof.
-  introv H1 H2. induction v; inverts H1; inverts H2; auto.
-  { fequals. applys* read_phi_inj. }
-  { admit. } (* typ_array *)
-  { admit. } (* typ_struct *)
 Qed.
 
 (* *)
@@ -658,12 +649,9 @@ Proof.
       { applys binds_of_indom_read.
         { forwards*: indom_of_binds HB3. typeclass. } 
         { symmetry. applys* read_update_neq. } } } 
-    { rewrite read_update. case_if.
-      { forwards: read_of_binds HB3. subst.
-        forwards: typing_val_inj HT1 HTv3. subst*. }
-      { forwards: read_of_binds HB3. subst*. } } } 
-Qed.
-
+    { forwards: read_of_binds HB3. subst.
+      rewrite read_update. case_if*. admit. } } 
+Admitted.
 
 Lemma typing_val_after_write : forall v1 v l π T C φ v2 T1,
   typing_val C φ v1 T1 ->
@@ -671,7 +659,8 @@ Lemma typing_val_after_write : forall v1 v l π T C φ v2 T1,
   read_phi C φ l π T ->
   typing_val C φ v T ->
   typing_val C φ v2 T1.
-Proof. Admitted.
+Proof. 
+Admitted.
 
 (* Lemma for set case *)
 Lemma state_typing_set : forall T m1 l π v C φ m2,
