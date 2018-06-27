@@ -200,18 +200,24 @@ Definition stack := Ctx.ctx val.
 
 Section Red.
 
-Definition is_not_val (t:trm) :=
+Definition is_val (t:trm) :=
   match t with
-  | trm_val v => False
-  | _ => True
+  | trm_val v => True
+  | _ => False
   end.
 
 Definition is_error (v:val) :=
   v = val_error.
 
-Definition is_bool (v:val) :=
-  match v with 
-    | val_bool b => True
+Definition is_bool (t:trm) :=
+  match t with 
+    | trm_val (val_bool b) => True
+    | _ => False
+  end.
+
+Definition is_ptr (t:trm) :=
+  match t with
+    | trm_val (val_abstract_ptr l π) => True
     | _ => False
   end.
 
@@ -374,17 +380,17 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m (trm_app (prim_array_access T) (t::ti::nil)) m vr
   (* Arguments *) 
   | red_args_one : forall v1 m2 S m1 op t1 m3 v2,
-      is_not_val t1 ->
+      ~ is_val t1 ->
       red S m1 t1 m2 v1 ->
       red S m2 (trm_app op ((trm_val v1)::nil)) m3 v2 ->
       red S m1 (trm_app op (t1::nil)) m3 v2
   | red_args_two_fst : forall v1 m2 S m1 op t1 t2 m3 v3,
-      is_not_val t1 ->
+      ~ is_val t1 ->
       red S m1 t1 m2 v1 ->
       red S m2 (trm_app op ((trm_val v1)::t2::nil)) m3 v3 ->
       red S m1 (trm_app op (t1::t2::nil)) m3 v3
   | red_args_two_snd : forall m2 v2 S m1 op v1 t2 m3 v3,
-      is_not_val t2 ->
+      ~ is_val t2 ->
       red S m1 t2 m2 v2 ->
       red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m3 v3 ->
       red S m1 (trm_app op ((trm_val v1)::t2::nil)) m3 v3
@@ -399,9 +405,51 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
       red S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3.*)
   (* Error cases *)
+  | red_var_error :  forall S m x,
+      Ctx.lookup x S = None ->
+      red S m (trm_var x) m val_error
+  | red_if_error_cond : forall S m1 m2 t0 t1 t2,
+      ~ is_bool t0 ->
+      red S m1 (trm_if t0 t1 t2) m2 val_error
+  | red_if_error_body : forall S m1 m2 m3 b t0 t1 t2,
+      red S m1 t0 m2 (val_bool b) ->
+      red S m2 (if b then t1 else t2) m3 val_error ->
+      red S m1 (trm_if t0 t1 t2) m3 val_error
+  | red_let_error_let : forall S m1 m2 m3 z t1 t2 v1,
+      red S m1 t1 m2 val_error ->
+      red S m1 (trm_let z t1 t2) m3 val_error
+  | red_let_error_body : forall S m1 m2 m3 z t1 t2 v1,
+      red S m1 t1 m2 v1 ->
+      ~ is_error v1 ->
+      red (Ctx.add z v1 S) m2 t2 m3 val_error ->
+      red S m1 (trm_let z t1 t2) m3 val_error
   | red_binop_error : forall S (op:binop) m v1 v2,
       ~ (exists v, redbinop op v1 v2 v) ->
-      red S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m val_error.
+      red S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m val_error
+  | red_get_error_not_a_ptr : forall S T (p:trm) m,
+      ~ is_ptr p ->
+      red S m (trm_app (prim_get T) (p::nil)) m val_error
+  | red_get_error_bad_address : forall l π S T (p:trm) m,
+      p = val_abstract_ptr l π ->
+      ~ (exists w, read_state m l π w) ->
+      red S m (trm_app (prim_get T) (p::nil)) m val_error
+  | red_set_error_not_a_ptr : forall S m1 T (p:trm) (t:trm) m2,
+      ~ is_ptr p ->
+      red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_error
+  | red_set_error_not_a_val : forall  S m1 T (p:trm) (t:trm) m2,
+      ~ is_val t ->
+      red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
+  | red_set_error_bad_address : forall (v:val) l π  S m1 T (p:trm) (t:trm),
+      p = val_abstract_ptr l π ->
+      t = trm_val v ->
+      ~ (exists m2, write_state m1 l π v m2) ->
+      red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_error
+  | red_new_error_null : forall l (v:val) S m1 T m2 l,
+      l = null ->
+      red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 val_error
+  | red_new_error_used_loc : forall l (v:val) S m1 T m2 l,
+      l \indom m1 ->
+      red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 val_error.
 
 End Red.
 
