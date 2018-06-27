@@ -368,7 +368,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 (val_abstract_ptr l nil)
   | red_struct_access : forall S m t l s f π T v vr,
       t = val_abstract_ptr l π ->
-      binds m l (val_struct s) ->
+      read_state m l π (val_struct s) ->
       binds s f v ->
       vr = val_abstract_ptr l (π++((access_field f)::nil)) ->
       red S m (trm_app (prim_struct_access T f) (t::nil)) m vr
@@ -404,6 +404,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 t2 m2 v2 ->
       red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
       red S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3.*)
+
   (* Error cases *)
   | red_var_error :  forall S m x,
       Ctx.lookup x S = None ->
@@ -439,7 +440,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_set_error_not_a_val : forall  S m1 T (p:trm) (t:trm) m2,
       ~ is_val t ->
       red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_set_error_bad_address : forall (v:val) l π  S m1 T (p:trm) (t:trm),
+  | red_set_error_bad_address : forall (v:val) l π  S m1 m2 T (p:trm) (t:trm),
       p = val_abstract_ptr l π ->
       t = trm_val v ->
       ~ (exists m2, write_state m1 l π v m2) ->
@@ -449,7 +450,24 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 val_error
   | red_new_error_used_loc : forall l (v:val) S m1 T m2 l,
       l \indom m1 ->
-      red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 val_error.
+      red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 val_error
+  | red_struct_access_error_not_a_ptr : forall S m t f T,
+      ~ is_ptr t ->
+      red S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
+  | red_struct_access_error_not_a_struct : forall S m t l f π T,
+      t = val_abstract_ptr l π ->
+      ~ (exists s, read_state m l π (val_struct s)) ->
+      red S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
+  | red_struct_access_error_not_a_field : forall S m t l s f π T,
+      t = val_abstract_ptr l π ->
+      read_state m l π (val_struct s) ->
+      ~ (exists v, binds s f v) ->
+      red S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
+  | red_array_access_not_a_ptr : forall S m t T ti,
+      ~ is_ptr t ->
+      red S m (trm_app (prim_array_access T) (t::ti::nil)) m val_error.
+(* Error cases missing: bad number of arguments, some more bad array accesses,
+   For array and struct access, do we want to error early or late? *)
 
 End Red.
 
@@ -679,6 +697,14 @@ Proof.
   binds_inj. applys* follow_typ_inj.
 Qed.
 
+Lemma typing_val_compatibility : forall v T1 C φ w T2,
+  typing_val C φ v T1 ->
+  typing_val C φ v T2 ->
+  typing_val C φ w T1 ->
+  typing_val C φ w T2.
+Proof.
+Admitted.
+
 (* *)
 Lemma state_typing_update : forall C φ m1 T l v2,
   state_typing C φ m1 ->
@@ -698,8 +724,9 @@ Proof.
         { forwards*: indom_of_binds HB3. typeclass. } 
         { symmetry. applys* read_update_neq. } } } 
     { forwards: read_of_binds HB3. subst.
-      rewrite read_update. case_if*. admit. } } 
-Admitted.
+      rewrite read_update. case_if*. subst.
+      forwards*: typing_val_compatibility HT1 HTv3 HT2. } } 
+Qed.
 
 Lemma typing_val_after_write : forall v1 v l π T C φ v2 T1,
   typing_val C φ v1 T1 ->
@@ -766,10 +793,10 @@ Proof.
   { (* app 2 fst *) admit. }
   { (* app 2 snd *) admit. }
   { (* binop_error *) 
-    false H. inverts HT as HT1 HT2;
+    (*false H. inverts HT as HT1 HT2;
     (inverts HT1 as HT; inverts HT);
-    (inverts HT2 as HT; inverts HT); eauto. }
-Qed.
+    (inverts HT2 as HT; inverts HT); eauto.*)  admit. }
+Admitted.
 
 (*
 lemma typing_val_int_inv:
