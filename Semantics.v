@@ -672,8 +672,9 @@ Proof.
   { inverts HF. inverts HT1. subst s2. constructors*.
     { unfold state. rewrite* dom_update_at_index. 
       applys* index_of_binds. }
-    { intros f' v' Tv'. rewrite binds_update_eq. case_if*.
-     intros. subst*. applys* IHHW. do 2 binds_inj. auto. } }
+    { intros f' v' Tv'. rewrite binds_update_eq. 
+      tests Cf: (f = f'); case_if*. intros. 
+      subst*. applys* IHHW. do 2 binds_inj. auto. } }
 Qed.
 
 
