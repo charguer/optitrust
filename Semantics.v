@@ -657,6 +657,9 @@ Proof.
   binds_inj. applys* follow_typ_inj.
 Qed.
 
+Hint Extern 1 (Inhab val) => apply Inhab_val.
+
+(* Lemma for state_typing_set *)
 Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
   write_accesses v1 π w v2 ->
   typing_val C φ v1 T1 ->
@@ -672,10 +675,15 @@ Proof.
         { subst. applys* IHHW. }
         { eauto. } }
     { rewrite* length_update. } }
-  { admit. }
+  { inverts HF. inverts HT1. subst s2. constructors*.
+    { unfold state. rewrite* dom_update_at_index. 
+      applys* index_of_binds. }
+    { intros f' v' Tv'. tests Cf: (f = f').
+      { rewrite binds_update_eq. case_if*. intros. 
+        subst*. applys* IHHW. do 2 binds_inj. auto. }
+      { rewrite binds_update_eq. case_if*. } } }
 Qed.
 
-Hint Extern 1 (Inhab val) => apply Inhab_val.
 
 (* Lemma for set case *)
 Lemma state_typing_set : forall T m1 l π v C φ m2,
