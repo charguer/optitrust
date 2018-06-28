@@ -15,7 +15,7 @@ Set Implicit Arguments.
 Require Export Bind TLCbuffer.
 Require Export LibString LibCore LibLogic LibReflect 
   LibOption LibRelation LibLogic LibOperation LibEpsilon 
-  LibMonoid LibSet LibContainer LibList LibMap.
+  LibMonoid LibSet LibContainer LibList LibListZ LibMap.
 
 Local Open Scope set_scope.
 
@@ -100,7 +100,7 @@ End TypeSizes.
 (** Syntax of the source language *)
 
 Inductive access : Type :=
-  | access_array : nat -> access
+  | access_array : int -> access
   | access_field : field -> access.
 
 Definition accesses := list access. 
@@ -209,15 +209,21 @@ Definition is_val (t:trm) :=
 Definition is_error (v:val) :=
   v = val_error.
 
-Definition is_bool (t:trm) :=
-  match t with 
-    | trm_val (val_bool b) => True
+Definition is_val_bool (v:val) :=
+  match v with 
+    | val_bool b => True
     | _ => False
   end.
 
 Definition is_ptr (t:trm) :=
   match t with
     | trm_val (val_abstract_ptr l π) => True
+    | _ => False
+  end.
+
+Definition is_int (t:trm) :=
+  match t with
+    | trm_val (val_int i) => True
     | _ => False
   end.
 
@@ -236,9 +242,9 @@ Open Scope list_scope.
 Inductive read_accesses : val -> accesses -> val -> Prop :=
   | read_accesses_nil : forall v,
       read_accesses v nil v
-  | read_accesses_array : forall v1 a i π v2,
-      Nth i a v1 ->
-      read_accesses v1 π v2 ->
+  | read_accesses_array : forall v1 a (i:Z) π v2,
+      index a i -> 
+      read_accesses (a[i]) π v2 ->
       read_accesses (val_array a) ((access_array i)::π) v2
   | read_accesses_struct : forall v1 s f π v2,
       binds s f v1 ->
@@ -252,27 +258,15 @@ Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
       read_accesses v1 π v ->
       read_state m l π v.
 
-Open Scope liblist_scope.
-
-(** update. I guess this shouldn't be here... *)
-Fixpoint update A (n:nat) (v:A) (l:list A) { struct l } : list A :=
-  match l with
-  | nil => nil
-  | x::l' =>
-     match n with
-     | 0 => v::l'
-     | S n' => x::update n' v l'
-     end
-  end.
-
 (** v[π := w] = v' *)
 Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
-  | write_accesses_nil : forall v w,
-      write_accesses v nil w w
-  | write_accesses_array : forall v1 v2 a1 i π w a2,
-      Nth i a1 v1 ->
-      write_accesses v1 π w v2 ->
-      a2 = update i v2 a1 ->
+  | write_accesses_nil : forall v1 v2 w,
+      v2 = w ->
+      write_accesses v1 nil w v2
+  | write_accesses_array : forall v1 v2 a1 (i:Z) π w a2,
+      index a1 i -> 
+      write_accesses (a1[i]) π w v2 ->
+      a2 = update a1 (i:Z) v2 ->
       write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
   | write_accesses_struct : forall v1 s1 s2 f π w v2,
       binds s1 f v1 ->
@@ -283,14 +277,13 @@ Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
 (** m[l := m(l)[π := w]] = m' *)
 Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
   | write_mem_intro : forall v1 v2, 
+      ~ is_error w ->
       binds m l v1 ->
       write_accesses v1 π w v2 ->
       m' = m[l := v2] ->
       write_state m l π w m'.
 
 (** Some lemmas *)
-
-
 
 (** We need the paths to be disjoint, not just different. *)
 (*Lemma read_write_accesses_neq : forall v1 v2 π π' w1 w2,
@@ -314,12 +307,10 @@ Lemma read_write_accesses_same : forall v1 v2 π w,
   write_accesses v1 π w v2 ->
   read_accesses v2 π w.
 Proof.
-  introv H. induction H; constructors*.
-  (** Write a lemma Nth_update in LibList? *)
-  { applys* Nth_of_nth; apply Nth_inbound in H; subst a2. 
-    { applys* nth_update_same. } 
-    { rewrite* length_update. } } 
-  { subst s2. applys* binds_update_same. }
+  introv H. induction H; try subst; constructors*.
+  { applys* index_update. } 
+  { rewrite* LibListZ.read_update_same. } 
+  { applys* binds_update_same. }
 Qed.
 
 Lemma read_write_state_same : forall m m' l π w,
@@ -366,63 +357,37 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       l \notindom m1 ->
       m2 = m1[l := v] ->
       red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 (val_abstract_ptr l nil)
-  | red_struct_access : forall S m t l s f π T v vr,
+  | red_struct_access : forall S m t l f π T v vr,
       t = val_abstract_ptr l π ->
-      read_state m l π (val_struct s) ->
-      binds s f v ->
       vr = val_abstract_ptr l (π++((access_field f)::nil)) ->
       red S m (trm_app (prim_struct_access T f) (t::nil)) m vr
-  | red_array_access : forall S m t l i π T vr ti (k:nat),
+  | red_array_access : forall S m t l i π T vr ti,
       t = val_abstract_ptr l π ->
       ti = trm_val (val_int i) ->
-      i = k ->
-      vr = val_abstract_ptr l (π++(access_array k)::nil) ->
+      vr = val_abstract_ptr l (π++(access_array i)::nil) ->
       red S m (trm_app (prim_array_access T) (t::ti::nil)) m vr
   (* Arguments *) 
-  | red_args_one : forall v1 m2 S m1 op t1 m3 v2,
+  | red_args_1 : forall v1 m2 S m1 op t1 m3 v2 ts,
       ~ is_val t1 ->
-      red S m1 t1 m2 v1 ->
-      red S m2 (trm_app op ((trm_val v1)::nil)) m3 v2 ->
-      red S m1 (trm_app op (t1::nil)) m3 v2
-  | red_args_two_fst : forall v1 m2 S m1 op t1 t2 m3 v3,
-      ~ is_val t1 ->
-      red S m1 t1 m2 v1 ->
-      red S m2 (trm_app op ((trm_val v1)::t2::nil)) m3 v3 ->
-      red S m1 (trm_app op (t1::t2::nil)) m3 v3
-  | red_args_two_snd : forall m2 v2 S m1 op v1 t2 m3 v3,
-      ~ is_val t2 ->
-      red S m1 t2 m2 v2 ->
-      red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m3 v3 ->
-      red S m1 (trm_app op ((trm_val v1)::t2::nil)) m3 v3
-  (*| red_args_1 : forall v1 m2 S m1 op t1 ts m3 v2,
-      is_not_val t1 ->
       red S m1 t1 m2 v1 ->
       red S m2 (trm_app op ((trm_val v1)::ts)) m3 v2 ->
       red S m1 (trm_app op (t1::ts)) m3 v2
-  | red_args_2 : forall m2 v2 S m1 op v1 t2 ts m3 v3,
-      is_not_val t2 ->
+  | red_args_2 : forall m2 v2 S m1 op v1 t2 m3 v3 ts,
+      ~ is_val t2 ->
       red S m1 t2 m2 v2 ->
       red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
-      red S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3.*)
+      red S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3
 
   (* Error cases *)
   | red_var_error :  forall S m x,
       Ctx.lookup x S = None ->
       red S m (trm_var x) m val_error
-  | red_if_error_cond : forall S m1 m2 t0 t1 t2,
-      ~ is_bool t0 ->
+  | red_if_error_cond : forall S m1 m2 t0 t1 t2 v0,
+      red S m1 t0 m2 v0 ->
+      ~ is_val_bool v0 ->
       red S m1 (trm_if t0 t1 t2) m2 val_error
-  | red_if_error_body : forall S m1 m2 m3 b t0 t1 t2,
-      red S m1 t0 m2 (val_bool b) ->
-      red S m2 (if b then t1 else t2) m3 val_error ->
-      red S m1 (trm_if t0 t1 t2) m3 val_error
   | red_let_error_let : forall S m1 m2 m3 z t1 t2 v1,
       red S m1 t1 m2 val_error ->
-      red S m1 (trm_let z t1 t2) m3 val_error
-  | red_let_error_body : forall S m1 m2 m3 z t1 t2 v1,
-      red S m1 t1 m2 v1 ->
-      ~ is_error v1 ->
-      red (Ctx.add z v1 S) m2 t2 m3 val_error ->
       red S m1 (trm_let z t1 t2) m3 val_error
   | red_binop_error : forall S (op:binop) m v1 v2,
       ~ (exists v, redbinop op v1 v2 v) ->
@@ -437,9 +402,6 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_set_error_not_a_ptr : forall S m1 T (p:trm) (t:trm) m2,
       ~ is_ptr p ->
       red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_error
-  | red_set_error_not_a_val : forall  S m1 T (p:trm) (t:trm) m2,
-      ~ is_val t ->
-      red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
   | red_set_error_bad_address : forall (v:val) l π  S m1 m2 T (p:trm) (t:trm),
       p = val_abstract_ptr l π ->
       t = trm_val v ->
@@ -454,20 +416,21 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_struct_access_error_not_a_ptr : forall S m t f T,
       ~ is_ptr t ->
       red S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
-  | red_struct_access_error_not_a_struct : forall S m t l f π T,
-      t = val_abstract_ptr l π ->
-      ~ (exists s, read_state m l π (val_struct s)) ->
-      red S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
-  | red_struct_access_error_not_a_field : forall S m t l s f π T,
-      t = val_abstract_ptr l π ->
-      read_state m l π (val_struct s) ->
-      ~ (exists v, binds s f v) ->
-      red S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
-  | red_array_access_not_a_ptr : forall S m t T ti,
+  | red_array_access_error_not_a_ptr : forall S m t T ti,
       ~ is_ptr t ->
-      red S m (trm_app (prim_array_access T) (t::ti::nil)) m val_error.
-(* Error cases missing: bad number of arguments, some more bad array accesses,
-   For array and struct access, do we want to error early or late? *)
+      red S m (trm_app (prim_array_access T) (t::ti::nil)) m val_error
+  | red_array_access_error_not_an_int : forall S m t T ti,
+      ~ is_int ti ->
+      red S m (trm_app (prim_array_access T) (t::ti::nil)) m val_error
+  | red_args_1_error : forall v1 m2 S m1 op t1 v2,
+      ~ is_val t1 ->
+      red S m1 t1 m2 val_error ->
+      red S m1 (trm_app op (t1::nil)) m2 val_error
+  | red_args_2_error : forall m2 v2 S m1 op v1 t2 v3,
+      ~ is_val t2 ->
+      ~ is_error v1 ->
+      red S m1 t2 m2 val_error ->
+      red S m1 (trm_app op ((trm_val v1)::t2::nil)) m2 val_error.
 
 End Red.
 
@@ -539,10 +502,10 @@ Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
           binds mv f v ->
           typing_val C φ v T) ->
       typing_val C φ (val_struct mv) (typ_struct s)
-  | typing_val_array : forall C φ a T,
-      (forall i v, Nth i a v -> 
-        typing_val C φ v T) -> 
-      typing_val C φ (val_array a) (typ_array T (length a))
+  | typing_val_array : forall C φ a T (n:nat),
+      (forall i, index a i -> typing_val C φ a[i] T) -> 
+      length a = n ->
+      typing_val C φ (val_array a) (typ_array T n)
   | typing_val_abstract_ptr : forall C φ l π T,
       read_phi C φ l π T ->
       typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
@@ -617,8 +580,6 @@ Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop :=
     Ctx.lookup x Γ = Some T ->
     typing_val C φ v T.
 
-Check Some.
-
 (* Lemma for stack_typing_ctx_add *)
 Lemma ctx_lookup_add_inv {A:Type} : forall C (z1 z2:var) (w1 w2:A),
   Ctx.lookup z1 (Ctx.add z2 w1 C) = Some w2 ->
@@ -676,7 +637,6 @@ Proof.
   binds_inj. applys* typing_val_follow T1 v1.
 Qed.
 
-
 (* Types are well-formed *)
 Lemma follow_typ_inj : forall C T π T1 T2,
   follow_typ C T π T1 ->
@@ -697,45 +657,25 @@ Proof.
   binds_inj. applys* follow_typ_inj.
 Qed.
 
-Lemma typing_val_compatibility : forall v T1 C φ w T2,
-  typing_val C φ v T1 ->
-  typing_val C φ v T2 ->
-  typing_val C φ w T1 ->
-  typing_val C φ w T2.
+Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
+  write_accesses v1 π w v2 ->
+  typing_val C φ v1 T1 ->
+  follow_typ C T1 π T2 ->
+  typing_val C φ w T2 ->
+  typing_val C φ v2 T1.
 Proof.
-Admitted.
-
-(* *)
-Lemma state_typing_update : forall C φ m1 T l v2,
-  state_typing C φ m1 ->
-  typing_val C φ m1[l] T ->
-  typing_val C φ v2 T ->
-  state_typing C φ m1[l:=v2].
-Proof. 
-  introv (HD&HT) HT1 HT2. unfolds. splits.
-  { rewrite incl_in_eq in *. introv Hin.
-    forwards Hup: HD Hin. 
-    forwards*: indom_update_of_indom Hup. typeclass. }
-  { introv HB0. forwards (v3&HB3&HTv3): HT HB0.
-    exists m1[l := v2][l0]. splits.
-    { rewrite binds_update_eq. case_if*.
-      { subst. rewrite* read_update_same. }
-      { applys binds_of_indom_read.
-        { forwards*: indom_of_binds HB3. typeclass. } 
-        { symmetry. applys* read_update_neq. } } } 
-    { forwards: read_of_binds HB3. subst.
-      rewrite read_update. case_if*. subst.
-      forwards*: typing_val_compatibility HT1 HTv3 HT2. } } 
+  introv HW HT1 HF HT2. gen T1. induction HW; intros.
+  { subst. inverts* HF. }
+  { inverts HF. inverts HT1. subst a2. constructors. 
+    { intros. rewrite index_update_eq in *. 
+      rewrite* read_update_case. case_if.
+        { subst. applys* IHHW. }
+        { eauto. } }
+    { rewrite* length_update. } }
+  { admit. }
 Qed.
 
-Lemma typing_val_after_write : forall v1 v l π T C φ v2 T1,
-  typing_val C φ v1 T1 ->
-  write_accesses v1 π v v2 ->
-  read_phi C φ l π T ->
-  typing_val C φ v T ->
-  typing_val C φ v2 T1.
-Proof. 
-Admitted.
+Hint Extern 1 (Inhab val) => apply Inhab_val.
 
 (* Lemma for set case *)
 Lemma state_typing_set : forall T m1 l π v C φ m2,
@@ -745,17 +685,18 @@ Lemma state_typing_set : forall T m1 l π v C φ m2,
   typing_val C φ v T ->
   state_typing C φ m2.
 Proof.
-  introv HS HW HTp HTv. lets HS': HS.
+  introv HS HW HTp HTv. 
   inverts HS as HD HT. 
   inverts HW as Hv1 HWA.
-  inverts HTp as HP. lets HP': HP. 
-  inverts HP as HT1 HF. 
-  forwards (v3&Hv3&HTv3): HT HT1. binds_inj.
-  forwards*: typing_val_after_write HTv3 HWA HP' HTv.
-  applys* state_typing_update.
-  forwards* HPl: read_of_binds Hv1. subst*.
+  inverts HTp as HP. 
+  unfolds. split.
+  { unfold state. rewrite* dom_update_at_index. applys* index_of_binds. }
+  { intros l' T' HB'. forwards (v'&HB''&HT''): HT HB'. 
+    tests Cl: (l' = l).
+    { exists v2. rewrite binds_update_eq; case_if. split~.
+      binds_inj. inverts HP. binds_inj. applys* typing_val_after_write. }
+    { esplit.  rewrite binds_update_eq; case_if. split*. } }
 Qed.
-
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
   red S m t m' v -> 
