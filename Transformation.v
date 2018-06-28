@@ -31,20 +31,11 @@ Fixpoint tr (t:trm) : trm :=
         else trm_app f ts'
   end.
 
-Example simple_example:
-  tr (trm_app binop_add ((trm_val 0)::(trm_val 5)::nil)) = trm_val 5.
-Proof.
-  simpl. case_if*. destruct C. split; try exists 5; auto. 
-Qed.
 
-Lemma simple_example_generalisation: forall t,
- tr (trm_app binop_add ((trm_val 0)::t::nil)) = tr t.
-Proof.
-  simpl. intros. case_if*. destruct C. split; try exists (tr t); auto.
-Qed.
+
 
 (* Semantics preserved by tr. *)
-Theorem red_tr: forall E t s1 s2 v,
+(*Theorem red_tr: forall E t s1 s2 v,
   red E s1 t s2 v -> 
   red E s1 (tr t) s2 v.
 Proof.
@@ -63,4 +54,4 @@ Proof.
   { case_if as C; [rew_logic in C; destruct C; tryfalse | ]. constructors*.  }
   { case_if as C; [rew_logic in C; destruct C; tryfalse | ]. constructors*.  }
   { case_if as C; [rew_logic in C; destruct C; tryfalse | ]. constructors*.  }
-Qed.
+Qed.*)

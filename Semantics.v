@@ -667,17 +667,13 @@ Proof.
   { subst. inverts* HF. }
   { inverts HF. inverts HT1. subst a2. constructors. 
     { intros. rewrite index_update_eq in *. 
-      rewrite* read_update_case. case_if.
-        { subst. applys* IHHW. }
-        { eauto. } }
+      rewrite* read_update_case. case_if*. }
     { rewrite* length_update. } }
   { inverts HF. inverts HT1. subst s2. constructors*.
     { unfold state. rewrite* dom_update_at_index. 
       applys* index_of_binds. }
-    { intros f' v' Tv'. tests Cf: (f = f').
-      { rewrite binds_update_eq. case_if*. intros. 
-        subst*. applys* IHHW. do 2 binds_inj. auto. }
-      { rewrite binds_update_eq. case_if*. } } }
+    { intros f' v' Tv'. rewrite binds_update_eq. case_if*.
+     intros. subst*. applys* IHHW. do 2 binds_inj. auto. } }
 Qed.
 
 
