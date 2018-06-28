@@ -55,8 +55,6 @@ Inductive typ : Type :=
   | typ_struct : typvar -> typ
   | typ_fun : list typ -> typ -> typ.
 
-Check map.
-
 Definition typdef_struct := map field typ.
 
 Definition typdefctx := map typvar typdef_struct.
@@ -121,8 +119,6 @@ Inductive prim : Type :=
 
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
-
-Check update.
 
 Inductive val : Type :=
   | val_error : val
@@ -735,24 +731,22 @@ Proof.
     subst. inverts HT as HT1 HT2. splits*.
     { inverts HT1 as HT1. inverts HT2 as HT2. 
       applys* state_typing_set. } }
-  { (* new *) admit. }
-  { (* struct_access *) admit. }
-  { (* array_access *) admit. }
-  { (* app 1 *) admit. }
-  { (* app 2 fst *) admit. }
-  { (* app 2 snd *) admit. }
-  { (* binop_error *) 
-    (*false H. inverts HT as HT1 HT2;
+  { (* new *) 
+    admit. }
+  { (* struct_access *) 
+    admit. }
+  { (* array_access *) 
+    admit. }
+  { (* app 1 *) 
+    admit. }
+  { (* app 2 *) 
+    admit. }
+  { (* errors *) 
+    (* In general, it will work more or less like this:
+    false H. inverts HT as HT1 HT2;
     (inverts HT1 as HT; inverts HT);
     (inverts HT2 as HT; inverts HT); eauto.*)  admit. }
 Admitted.
-
-(*
-lemma typing_val_int_inv:
-  typing E (trm_val v) typ_int -> 
-  exists i, v = val_int i.
-    forwards (i&Ei): typing_val_int_inv HT1; subst.
-*)
 
 Definition extends (φ:phi) (φ':phi) :=
       dom φ \c dom φ'
