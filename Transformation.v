@@ -22,61 +22,19 @@ Definition struct_x : typdef_struct := (\{})["x" := typ_int].
 Definition pos' : typdef_struct := (\{})["s" := (typ_struct "struct_x")]["y" := typ_int]["z" := typ_int].
 Definition C' : typdefctx := (\{})["pos" := pos'].
 
-(*
-Axiom map_tr_vals_on_map_vals : forall A B, map A B -> map A B.
-
-(*
-Definition map_union := monoid_make (fun m1 m2 : map field val => m1 \u m2) \{}.
-
-Fixpoint map_map_vals (f:val -> val) (m:map field val) : map field val :=
-  fold map_union (fun (k:field) (v:val) => \{}[k:=(f v)]) m.
-*)
-
-Fixpoint tr_accesses (π:accesses) : accesses :=
-  match π with
-  | nil => nil
-  | (access_field "x")::π' => (access_field "s")::(access_field "x")::(tr_accesses π')
-  | p::π' => p::(tr_accesses π')
-  end.
-
-Fixpoint tr_val (v:val) : val :=
-  match v with
-  | val_abstract_ptr l π => val_abstract_ptr l (tr_accesses π)
-  | val_array a => val_array (List.map tr_val a)
-  | val_struct s => val_struct (map_tr_vals_on_map_vals s)
-  | _ => v
-  end.
-
-(* Assuming we're going from C to C' *)
-Fixpoint tr (t:trm) : trm :=
-  match t with
-  | trm_val v => trm_val (tr_val v)
-  | trm_var x => trm_var x
-  | trm_if t1 t2 t3 =>
-      trm_if (tr t1) (tr t2) (tr t3)
-  | trm_let b t1 t2 =>
-      trm_let b (tr t1) (tr t2)
-  | trm_app f ts => 
-      let ts' := List.map tr ts in
-      match f, ts with
-      | (prim_struct_access pos "x"), p::nil => 
-          let outer_access := prim_struct_access (typ_struct "struct_x") "x" in
-          let inner_access := prim_struct_access (typ_struct "pos") "s" in
-          trm_app outer_access ((trm_app inner_access (p::nil))::nil)
-      | _, _ => trm_app f ts'
-      end
-  end.*)
-
+(* π ~ |π| *)
 Inductive tr_accesses : accesses -> accesses -> Prop :=
   | tr_accesses_nil :
       tr_accesses nil nil
-  | tr_accesses_access_field_x : forall π π',
+  | tr_accesses_access_x : forall π π',
       tr_accesses π π' ->
       tr_accesses ((access_field "x")::π) ((access_field "s")::(access_field "x")::π')
   | tr_accesses_other : forall π π' x,
+      x <> access_field "x" ->
       tr_accesses π π' ->
       tr_accesses (x::π) (x::π').
 
+(* v ~ |v| *)
 Inductive tr_val : val -> val -> Prop :=
   | tr_val_unit :
       tr_val val_unit val_unit
@@ -102,6 +60,18 @@ Inductive tr_val : val -> val -> Prop :=
         index s' f /\ tr_val s[f] s'[f]) ->
       tr_val (val_struct s) (val_struct s').
 
+Search Ctx.ctx.
+
+(* S ~ |S| *)
+Inductive tr_stack : stack -> stack -> Prop :=
+  | tr_stack_intro : forall S S',
+      List.map fst S = List.map fst S' ->
+      (forall x v v',
+        Ctx.lookup x S = Some v ->
+        Ctx.lookup x S' = Some v' /\ tr_val v v') ->
+      tr_stack S S'.
+
+(* m ~ |m| *)
 Inductive tr_state : state -> state -> Prop :=
   | tr_state_intro : forall m m',
       dom m = dom m' ->
@@ -110,6 +80,7 @@ Inductive tr_state : state -> state -> Prop :=
         index m' l /\ tr_val m[l] m'[l]) ->
       tr_state m m'.
 
+(* t ~ |t| *)
 Inductive tr_trm : trm -> trm -> Prop :=
   | tr_trm_val : forall v v',
       tr_val v v' ->
@@ -141,14 +112,30 @@ Inductive tr_trm : trm -> trm -> Prop :=
       tr_trm t t' ->
       tr_trm (trm_app (prim_new T) (t::nil)) (trm_app (prim_new T) (t'::nil))
   | tr_trm_array_access : forall A t i t' i',
-      tr_trm (trm_app (prim_array_access A) (t::i::nil)) (trm_app (prim_array_access A) (t'::i'::nil)).
+      tr_trm (trm_app (prim_array_access A) (t::i::nil)) (trm_app (prim_array_access A) (t'::i'::nil))
   (* Special case: struct access *)
-  (*| tr_trm_struct_access :
-      (trm_app (prim_struct_access T f) (t::nil))*)
+  | tr_trm_struct_access_x : forall p p' a1 a2 r,
+      tr_trm p p' ->
+      a1 = prim_struct_access (typ_struct "struct_x") "x" ->
+      a2 = prim_struct_access (typ_struct "pos") "s" ->
+      r = trm_app a1 ((trm_app a2 (p'::nil))::nil) ->
+      tr_trm (trm_app (prim_struct_access (typ_struct "pos") "x") (p::nil)) r
+  | tr_trm_struct_access_other : forall p p' T f r,
+      (T <> "pos" \/ f <> "x") -> 
+      tr_trm p p' -> 
+      r = (trm_app (prim_struct_access (typ_struct T) f) (p'::nil)) ->
+      tr_trm (trm_app (prim_struct_access (typ_struct T) f) (p::nil)) r.
 
 (* Semantics preserved by tr. *)
-Theorem red_tr: forall E t s1 s2 v,
-  red E s1 t s2 v -> 
-  red E s1 (tr t) s2 v.
+Theorem red_tr: forall t t' v S m1 m2,
+  red S m1 t m2 v -> 
+  tr_trm t t' ->
+  (exists v' S' m1' m2',
+        tr_val v v'
+    /\  tr_stack S S'
+    /\  tr_state m1 m1'
+    /\  tr_state m2 m2'
+    /\  red S' m1' t' m2' v').
 Proof.
+  introv H TRt. induction H. 
 Admitted.
