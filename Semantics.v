@@ -114,7 +114,7 @@ Inductive prim : Type :=
   | prim_get : typ -> prim
   | prim_set : typ -> prim
   | prim_new : typ -> prim
-  | prim_struct_access : typ -> field -> prim
+  | prim_struct_access : typvar -> field -> prim
   | prim_array_access : typ -> prim.
 
 (** TODO: Change this! Probably use Flocq? *)
@@ -273,7 +273,6 @@ Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
 (** m[l := m(l)[π := w]] = m' *)
 Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
   | write_mem_intro : forall v1 v2, 
-      ~ is_error w ->
       binds m l v1 ->
       write_accesses v1 π w v2 ->
       m' = m[l := v2] ->
@@ -346,6 +345,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_set : forall (v:val) l π  S m1 T (p:trm) (t:trm) m2,
       p = val_abstract_ptr l π ->
       t = trm_val v ->
+      ~ is_error v ->
       write_state m1 l π v m2 ->
       red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
   | red_new : forall l (v:val) S m1 T m2 l,
@@ -447,6 +447,9 @@ Proof using. intros. applys* red_let. Qed.
 Definition gamma := Ctx.ctx typ.
 Definition phi := map loc typ.
 
+Definition typing_field (C:typdefctx) (S:typvar) (f:field) (T:typ) : Prop :=
+  exists s, binds C S s /\ binds s f T.
+
 (** T[π] = T1 *)
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
@@ -455,9 +458,8 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
       follow_typ C T' π' T1 ->
       (0 <= i < n)%nat ->
       follow_typ C (typ_array T' n) ((access_array i)::π') T1
-  | follow_typ_struct : forall S m f T' π' T1,
-      binds C S m ->
-      binds m f T' ->
+  | follow_typ_struct : forall S f T' π' T1,
+      typing_field C S f T' ->
       follow_typ C T' π' T1 ->
       follow_typ C (typ_struct S) ((access_field f)::π') T1.
 
@@ -494,7 +496,8 @@ Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
   | typing_val_struct : forall C φ mt mv s,
       binds C s mt ->
       dom mt = dom mv ->
-      (forall f v T, binds mt f T -> 
+      (forall f v T, 
+          binds mt f T -> 
           binds mv f v ->
           typing_val C φ v T) ->
       typing_val C φ (val_struct mv) (typ_struct s)
@@ -539,11 +542,10 @@ Inductive typing : env -> trm -> typ -> Prop :=
   | typing_new : forall E t T l, 
       typing E t T ->
       typing E (trm_app (prim_new T) (t::nil)) (typ_ptr T)
-  | typing_struct_access : forall E s Fs f T T1 t,
-      binds (env_typdefctx E) s Fs ->
+  | typing_struct_access : forall E Fs f T T1 t,
+      binds (env_typdefctx E) T Fs ->
       binds Fs f T1 ->
-      T = typ_struct s ->
-      typing E t (typ_ptr T) ->
+      typing E t (typ_ptr (typ_struct T)) ->
       typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr T1)
   | typing_array_access : forall E t A i n,
       typing E t (typ_ptr (typ_array A n)) ->
@@ -606,6 +608,15 @@ Ltac binds_inj :=
     let HTEMP := fresh in
     forwards HTEMP: binds_inj H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end. 
 
+Lemma typing_field_inj : forall C S f T1 T2,
+  typing_field C S f T1 ->
+  typing_field C S f T2 ->
+  T1 = T2.
+Proof.
+  introv H1 H2. inverts H1 as H1. inverts H2 as H2.
+  inverts H1. inverts H2. binds_inj. binds_inj. auto.
+Qed.
+
 (* Lemma for typing_val_get *)
 Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
   typing_val C φ w1 T1 ->
@@ -616,7 +627,7 @@ Proof.
   introv HT HF HR. gen π. induction HT; intros;
    try solve [ inverts HR; inverts HF; constructors* ].
   { inverts HF as; inverts HR as; try constructors*.
-    introv HB1 HR HB2 HF HT. binds_inj. eauto. (* IH *) }
+    introv HB1 HR HB2 HF. inverts HB2. inverts H3. binds_inj. eauto. (* IH *) }
   { inverts HF as; inverts HR as; try constructors*.
     introv HN1 HR HT Hi. eauto. (* IH *) }
 Qed.
@@ -640,7 +651,7 @@ Lemma follow_typ_inj : forall C T π T1 T2,
   T1 = T2.
 Proof.
   introv HF1 HF2. induction HF1; inverts* HF2.
-  { binds_inj. binds_inj. forwards*: IHHF1 H7. }
+  { applys IHHF1. forwards: typing_field_inj H H3. subst*. }
 Qed.
 
 (* φ is well-formed *)
@@ -674,7 +685,8 @@ Proof.
       applys* index_of_binds. }
     { intros f' v' Tv'. rewrite binds_update_eq. 
       tests Cf: (f = f'); case_if*. intros. 
-      subst*. applys* IHHW. do 2 binds_inj. auto. } }
+      subst*. applys* IHHW. inverts H4 as H4. inverts H4.
+      do 2 binds_inj. auto. } }
 Qed.
 
 
