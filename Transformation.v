@@ -63,19 +63,21 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
   | tr_val_array : forall a a',
       length a = length a' ->
       (forall i, 
-        index a i -> tr_val gt a[i] a'[i]) -> 
+        index a i -> 
+        tr_val gt a[i] a'[i]) -> 
       tr_val gt (val_array a) (val_array a')
   | tr_val_struct : forall s s',
       dom s = dom s' ->
-      (forall f,
-        index s f ->
-        index s' f /\ tr_val gt s[f] s'[f]) ->
+      (forall f v v',
+        binds s f v ->
+        binds s' f v' ->
+        tr_val gt v v') ->
       tr_val gt (val_struct s) (val_struct s').
 
 (* S ~ |S| *)
 Inductive tr_stack (gt:group_tr) : stack -> stack -> Prop :=
   | tr_stack_intro : forall S S',
-      List.map fst S = List.map fst S' ->
+      length S = length S' ->
       (forall x v v',
         Ctx.lookup x S = Some v ->
         Ctx.lookup x S' = Some v' /\ tr_val gt v v') ->
@@ -87,7 +89,7 @@ Inductive tr_state (gt:group_tr) : state -> state -> Prop :=
       dom m = dom m' ->
       (forall l,
         index m l ->
-        index m' l /\ tr_val gt m[l] m'[l]) ->
+        tr_val gt m[l] m'[l]) ->
       tr_state gt m m'.
 
 (* t ~ |t| *)
@@ -175,21 +177,64 @@ Proof.
   introv H1 H2. gen v2. induction H1; intros; inverts H2; fequals.
   { applys* functional_tr_accesses. }
   { applys* eq_of_extens. math. }
-  { admit. }
+  { admit. } (* extens lemma for maps *)
+Admitted.
+
+Theorem functional_tr_trm : forall gt t t1 t2,
+  tr_trm gt t t1 ->
+  tr_trm gt t t2 ->
+  t1 = t2.
+Proof.
+  introv H1 H2. gen t2. induction H1; intros;
+  try solve [ inverts H2 ; try subst ; repeat fequals* ].
+  { inverts H2. fequals. applys* functional_tr_val. }
+  { inverts* H7. forwards*: IHtr_trm H11. subst*. }
+  { inverts* H3. 
+    { forwards*: IHtr_trm H7. subst*. }
+    { forwards*: IHtr_trm H10. subst*. } }
 Qed.
- 
+
+Theorem functional_tr_stack : forall gt S S1 S2,
+  tr_stack gt S S1 ->
+  tr_stack gt S S2 ->
+  S1 = S2.
+Proof.
+  admit. (* extens lemma for ctxts. *)
+Admitted.
+
+Theorem functional_tr_state : forall gt m m1 m2,
+  tr_state gt m m1 ->
+  tr_state gt m m2 ->
+  m1 = m2.
+Proof.
+  admit. (* extens lemma for maps. *)
+Admitted.
 
 (* Semantics preserved by tr. *)
-Theorem red_tr: forall t t' v v' S S' m1 m1' m2 m2',
-  tr_trm t t' ->
-  tr_val v v' ->
-  tr_stack S S' ->
-  tr_state m1 m1' ->
-  tr_state m2 m2' ->
+Theorem red_tr: forall gt t t' v v' S S' m1 m1' m2 m2',
+  tr_trm gt t t' ->
+  tr_val gt v v' ->
+  tr_stack gt S S' ->
+  tr_state gt m1 m1' ->
+  tr_state gt m2 m2' ->
   red S m1 t m2 v -> 
   red S' m1' t' m2' v'.
 Proof.
   introv Ht Hv HS Hm1 Hm2 H. gen t' v' S' m1' m2'.
-  induction H. 
-  { intros. inverts Ht. inverts HS. inverts Hm1. inverts Hm2. admit. }
+  induction H; intros.  
+  { (* var *)
+    inverts Ht. inverts HS as HS1 HS2.
+    forwards (H'&Hv'): HS2 H.
+    forwards Hveq: functional_tr_val Hv Hv'; rewrite <- Hveq in *.
+    forwards Hmeq: functional_tr_state Hm1 Hm2. rewrite Hmeq.
+    constructors*.  }
+  { (* val *)
+    inverts Ht as Hv'. 
+    forwards Hveq: functional_tr_val Hv Hv'. rewrite Hveq.
+    forwards Hmeq: functional_tr_state Hm1 Hm2. rewrite Hmeq.
+    constructors*. }
+  { (* if *)
+    admit. }
+  { (* let *)
+    admit. }
 Admitted.
