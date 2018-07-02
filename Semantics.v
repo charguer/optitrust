@@ -99,7 +99,7 @@ End TypeSizes.
 
 Inductive access : Type :=
   | access_array : int -> access
-  | access_field : field -> access.
+  | access_field : typvar -> field -> access.
 
 Definition accesses := list access. 
 
@@ -130,7 +130,7 @@ Inductive val : Type :=
   | val_concrete_ptr : loc -> offset -> val
   | val_prim : prim -> val
   | val_array : list val -> val
-  | val_struct : map field val -> val.
+  | val_struct : typvar -> map field val -> val. 
 
 Inductive trm : Type :=
   | trm_var : var -> trm
@@ -242,10 +242,10 @@ Inductive read_accesses : val -> accesses -> val -> Prop :=
       index a i -> 
       read_accesses (a[i]) π v2 ->
       read_accesses (val_array a) ((access_array i)::π) v2
-  | read_accesses_struct : forall v1 s f π v2,
+  | read_accesses_struct : forall T v1 s f π v2,
       binds s f v1 ->
       read_accesses v1 π v2 ->
-      read_accesses (val_struct s) ((access_field f)::π) v2.
+      read_accesses (val_struct T s) ((access_field T f)::π) v2.
 
 (** m(l)[π] = v *)
 Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
@@ -264,11 +264,11 @@ Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
       write_accesses (a1[i]) π w v2 ->
       a2 = update a1 (i:Z) v2 ->
       write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
-  | write_accesses_struct : forall v1 s1 s2 f π w v2,
+  | write_accesses_struct : forall T v1 s1 s2 f π w v2,
       binds s1 f v1 ->
       write_accesses v1 π w v2 ->
       s2 = s1[f := v2] ->
-      write_accesses (val_struct s1) ((access_field f)::π) w (val_struct s2).
+      write_accesses (val_struct T s1) ((access_field T f)::π) w (val_struct T s2).
 
 (** m[l := m(l)[π := w]] = m' *)
 Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
@@ -355,7 +355,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 (val_abstract_ptr l nil)
   | red_struct_access : forall S m t l f π T v vr,
       t = val_abstract_ptr l π ->
-      vr = val_abstract_ptr l (π++((access_field f)::nil)) ->
+      vr = val_abstract_ptr l (π++((access_field T f)::nil)) ->
       red S m (trm_app (prim_struct_access T f) (t::nil)) m vr
   | red_array_access : forall S m t l i π T vr ti,
       t = val_abstract_ptr l π ->
@@ -373,7 +373,6 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 t2 m2 v2 ->
       red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
       red S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3
-
   (* Error cases *)
   | red_var_error :  forall S m x,
       Ctx.lookup x S = None ->
@@ -454,14 +453,14 @@ Definition typing_field (C:typdefctx) (S:typvar) (f:field) (T:typ) : Prop :=
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
       follow_typ C T nil T
-  | follow_typ_array : forall T' π' T1 i n,
-      follow_typ C T' π' T1 ->
+  | follow_typ_array : forall T π Tr i n,
+      follow_typ C T π Tr ->
       (0 <= i < n)%nat ->
-      follow_typ C (typ_array T' n) ((access_array i)::π') T1
-  | follow_typ_struct : forall S f T' π' T1,
-      typing_field C S f T' ->
-      follow_typ C T' π' T1 ->
-      follow_typ C (typ_struct S) ((access_field f)::π') T1.
+      follow_typ C (typ_array T n) ((access_array i)::π) Tr
+  | follow_typ_struct : forall T f Tf π Tr,
+      typing_field C T f Tf ->
+      follow_typ C Tf π Tr ->
+      follow_typ C (typ_struct T) ((access_field T f)::π) Tr.
 
 (** φ(l)..π = T *)
 Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
@@ -493,14 +492,14 @@ Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
       typing_val C φ (val_int i) typ_int
   | typing_val_double : forall C φ d,
       typing_val C φ (val_double d) typ_double
-  | typing_val_struct : forall C φ mt mv s,
-      binds C s mt ->
+  | typing_val_struct : forall C φ mt mv T,
+      binds C T mt ->
       dom mt = dom mv ->
-      (forall f v T, 
-          binds mt f T -> 
+      (forall f v Tv, 
+          binds mt f Tv -> 
           binds mv f v ->
-          typing_val C φ v T) ->
-      typing_val C φ (val_struct mv) (typ_struct s)
+          typing_val C φ v Tv) ->
+      typing_val C φ (val_struct T mv) (typ_struct T)
   | typing_val_array : forall C φ a T (n:nat),
       (forall i, index a i -> typing_val C φ a[i] T) -> 
       length a = n ->
@@ -685,7 +684,7 @@ Proof.
       applys* index_of_binds. }
     { intros f' v' Tv'. rewrite binds_update_eq. 
       tests Cf: (f = f'); case_if*. intros. 
-      subst*. applys* IHHW. inverts H4 as H4. inverts H4.
+      subst*. applys* IHHW. inverts H6 as H6. inverts H6.
       do 2 binds_inj. auto. } }
 Qed.
 
