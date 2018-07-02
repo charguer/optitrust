@@ -607,6 +607,14 @@ Ltac binds_inj :=
     let HTEMP := fresh in
     forwards HTEMP: binds_inj H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end. 
 
+(*
+Ltac exploit_functional P P_functional := 
+  match goal with H1: P ?m ?a ?b, H2: P ?m ?a ?b' |- _=>
+    let HTEMP := fresh in
+    forwards HTEMP: P_functional H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end. 
+
+Ltac binds_inj := exploit_functional constr:(binds) constr:(binds_inj).
+*)
 Lemma typing_field_inj : forall C S f T1 T2,
   typing_field C S f T1 ->
   typing_field C S f T2 ->
