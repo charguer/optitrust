@@ -24,10 +24,10 @@ Definition C' : typdefctx := (\{})["pos" := pos'].
 
 (* Grouping transformation *)
 Record group_tr := make_group_tr {
-  group_tr_struct_name : typvar; (* s *)
+  group_tr_struct_name : typvar; (* Ts *)
   group_tr_fields : set field; (* {..f..} *)
-  group_tr_new_struct_name : typvar; (* s_g *)
-  group_tr_new_struct_field : field (* f_g *)
+  group_tr_new_struct_name : typvar; (* Tsg *)
+  group_tr_new_struct_field : field (* fg *)
 }.
 
 (* π ~ |π| *)
@@ -37,15 +37,19 @@ Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
   | tr_accesses_array : forall π π' i,
       tr_accesses gt π π' ->
       tr_accesses gt ((access_array i)::π) ((access_array i)::π')
-  | tr_accesses_field_group : forall π π' f f_g,
+  | tr_accesses_field_group : forall π π' f fg Ts Tsg,
+      Ts = group_tr_struct_name gt ->
+      Tsg = group_tr_struct_name gt ->
       tr_accesses gt π π' ->
       f \in (group_tr_fields gt) ->
-      f_g = group_tr_new_struct_field gt ->
-      tr_accesses gt ((access_field f)::π) ((access_field f_g)::(access_field f)::π')
-  | tr_accesses_field_other : forall π π' f,
+      fg = group_tr_new_struct_field gt ->
+      tr_accesses gt ((access_field Ts f)::π) ((access_field Ts fg)::(access_field Tsg f)::π')
+  | tr_accesses_field_other : forall T Ts π π' f,
       tr_accesses gt π π' ->
-      f \notin (group_tr_fields gt) ->
-      tr_accesses gt ((access_field f)::π) ((access_field f)::π').
+      Ts = group_tr_struct_name gt ->
+      (T <> Ts \/ f \notin (group_tr_fields gt)) ->
+      tr_accesses gt ((access_field T f)::π) ((access_field T f)::π').
+
 
 (* v ~ |v| *)
 Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
@@ -66,22 +70,27 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         index a i -> 
         tr_val gt a[i] a'[i]) -> 
       tr_val gt (val_array a) (val_array a')
-  | tr_val_struct : forall s s' f_g fs s_g,
-      f_g = group_tr_new_struct_field gt ->
+  | tr_val_struct_group : forall Ts Tsg s s' fg fs sg,
+      Ts = group_tr_struct_name gt ->
+      Tsg = group_tr_new_struct_name gt ->
+      fg = group_tr_new_struct_field gt ->
       fs = group_tr_fields gt ->
-      dom s' = (dom s \- fs) \u \{f_g} ->
-      (forall f v,
-        f \indom s ->
-        f \notin fs ->
-        binds s f v ->
-        binds s' f v) ->
-      binds s' f_g (val_struct s_g) ->
-      dom s_g = fs ->
+      dom s' = (dom s \- fs) \u \{fg} ->
+      binds s' fg (val_struct Tsg sg) ->
+      dom sg = fs ->
       (forall f v,
         f \in fs ->
         binds s f v ->
-        binds s_g f v) ->
-      tr_val gt (val_struct s) (val_struct s').
+        binds sg f v) ->
+      tr_val gt (val_struct Ts s) (val_struct Ts s')
+  | tr_val_struct_other : forall Ts T s s',
+      Ts = group_tr_struct_name gt ->
+      T <> Ts ->
+      dom s = dom s' ->
+      (forall f,
+        index s f ->
+        tr_val gt s[f] s'[f]) ->
+      tr_val gt (val_struct T s) (val_struct T s').
 
 (* S ~ |S| *)
 Inductive tr_stack (gt:group_tr) : stack -> stack -> Prop :=
@@ -172,8 +181,12 @@ Theorem functional_tr_accesses : forall gt π π1 π2,
   tr_accesses gt π π2 ->
     π1 = π2.
 Proof.
-  introv H1 H2. gen π2. induction H1; intros; inverts* H2;
-  repeat fequals*.
+  introv H1 H2. gen π2. induction H1; intros;
+  try solve [ inverts* H2 ; repeat fequals* ].
+  { inverts H4; repeat fequals*;
+    inverts H11; tryfalse. }
+  { inverts H2; repeat fequals*;
+    inverts H0; tryfalse. }
 Qed.
 
 Theorem functional_tr_val : forall gt v v1 v2,
@@ -224,14 +237,6 @@ Lemma tr_stack_add : forall gt z v S v' S',
   tr_stack gt S S' ->
   tr_val gt v v' ->
   tr_stack gt (Ctx.add z v S) (Ctx.add z v' S').
-Proof.
-Admitted.
-
-Lemma tr_read_accesses : forall π v1 v2 gt w1 w2,
-  read_accesses v1 π w1 ->
-  read_accesses v2 π w2 ->
-  tr_val gt v1 v2 ->
-  tr_val gt w1 w2.
 Proof.
 Admitted.
 
