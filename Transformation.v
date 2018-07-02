@@ -240,6 +240,23 @@ Lemma tr_stack_add : forall gt z v S v' S',
 Proof.
 Admitted.
 
+Lemma tr_read_accesses : forall gt v π v' π' w,
+  tr_val gt v v' ->
+  tr_accesses gt π π' ->
+  read_accesses v π w ->
+  (exists w',
+      tr_val gt w w'
+  /\  read_accesses v' π' w').
+Proof.
+  introv Hv Ha HR. gen gt v' π'. induction HR; intros.
+  { inverts Ha. exists v'. splits*. constructors*. }
+  { inverts Ha as Ha. inverts Hv as Hl Htr.
+    forwards Htra: Htr H. 
+    forwards (w'&Hw'&Hπ'): IHHR Htra Ha.
+    exists w'. splits*. constructors*. }
+  { admit. }
+Admitted.
+
 (* Semantics preserved by tr. *)
 Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   tr_trm gt t t' ->
@@ -281,10 +298,18 @@ Proof.
     inverts Ht as Hp. inverts Hm1 as HD Htrm.
     inverts H0 as Hb Ha. forwards Hi: index_of_binds Hb.
     typeclass. forwards Htrml: Htrm Hi.
-    
-    
-    exists m1'. }
+    subst_hyp H. inverts Hp as Hp. inverts Hp.
+    forwards: read_of_binds Hb. subst_hyp H.
+    forwards (w'&Hw'&Ha'): tr_read_accesses Htrml H2 Ha.
+    exists w' m1'. splits*. 
+    constructors*. constructors*.
+    applys* read_state_intro. 
+    applys* binds_of_indom_read. 
+    rewrite <- HD at 1.
+    forwards*: indom_of_binds Hb. }
 Admitted.
+
+
 
 
 
