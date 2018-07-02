@@ -135,16 +135,16 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       s_g = group_tr_new_struct_name gt ->
       mem f (group_tr_fields gt) ->
       f_g = group_tr_new_struct_field gt ->
-      a1 = prim_struct_access (typ_struct s_g) f ->
-      a2 = prim_struct_access (typ_struct s) f_g ->
+      a1 = prim_struct_access s_g f ->
+      a2 = prim_struct_access s f_g ->
       r = trm_app a1 ((trm_app a2 (p'::nil))::nil) ->
-      tr_trm gt (trm_app (prim_struct_access (typ_struct s) f) (p::nil)) r
+      tr_trm gt (trm_app (prim_struct_access s f) (p::nil)) r
   | tr_trm_struct_access_other : forall s p p' T f r,
       s = group_tr_struct_name gt ->
       (T <> s \/ ~ mem f (group_tr_fields gt)) -> 
       tr_trm gt p p' -> 
-      r = (trm_app (prim_struct_access (typ_struct T) f) (p'::nil)) ->
-      tr_trm gt (trm_app (prim_struct_access (typ_struct T) f) (p::nil)) r.
+      r = (trm_app (prim_struct_access T f) (p'::nil)) ->
+      tr_trm gt (trm_app (prim_struct_access T f) (p::nil)) r.
 
 Lemma index_of_index_length' : forall A (l' l : list A) i,
   index l' i ->
@@ -163,10 +163,8 @@ Theorem functional_tr_accesses : forall gt π π1 π2,
   tr_accesses gt π π2 ->
     π1 = π2.
 Proof.
-  induction π, π1, π2; introv H1 H2; inverts* H1 as; inverts* H2 as.
-  { introv H1 H2. forwards* Heq: IHπ H1 H2. rewrite* Heq. }
-  { introv H1 _ H2 _. forwards* Heq: IHπ H1 H2. rewrite* Heq. }
-  { introv H1 _ H2 _. forwards* Heq: IHπ H1 H2. rewrite* Heq. }
+  introv H1 H2. gen π2. induction H1; intros; inverts* H2;
+  repeat fequals*.
 Qed.
 
 Theorem functional_tr_val : forall gt v v1 v2,
@@ -211,7 +209,19 @@ Proof.
 Admitted.
 
 (* Semantics preserved by tr. *)
-Theorem red_tr: forall gt t t' v v' S S' m1 m1' m2 m2',
+Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
+  tr_trm gt t t' ->
+  tr_stack gt S S' ->
+  tr_state gt m1 m1' ->
+  red S m1 t m2 v -> exists v' m2',
+      tr_val gt v v'
+  /\  tr_state gt m2 m2'
+  /\  red S' m1' t' m2' v'.
+Proof.
+Admitted.
+
+(* Semantics preserved by tr. *)
+Theorem red_tr': forall gt t t' v v' S S' m1 m1' m2 m2',
   tr_trm gt t t' ->
   tr_val gt v v' ->
   tr_stack gt S S' ->
