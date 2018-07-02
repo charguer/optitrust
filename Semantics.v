@@ -602,19 +602,36 @@ Qed.
 
 Hint Constructors typing_val redbinop. 
 
+(* DEPRECATED
 Ltac binds_inj := 
   match goal with H1: binds ?m ?a ?b, H2: binds ?m ?a ?b' |- _=>
     let HTEMP := fresh in
     forwards HTEMP: binds_inj H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end. 
-
-(*
-Ltac exploit_functional P P_functional := 
-  match goal with H1: P ?m ?a ?b, H2: P ?m ?a ?b' |- _=>
-    let HTEMP := fresh in
-    forwards HTEMP: P_functional H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end. 
-
-Ltac binds_inj := exploit_functional constr:(binds) constr:(binds_inj).
 *)
+
+Ltac exploit_functional P P_functional := 
+  match goal with H1: ?F ?x1, H2: ?F ?x2 |- _=>
+  match get_head F with P =>
+    let HTEMP := fresh in
+    forwards HTEMP: P_functional H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end end.
+
+
+Ltac binds_inj := exploit_functional constr:(@binds) constr:(@binds_inj).
+(* TODO: rename [inj] to [functional] everywhere, e.g. 
+
+   Ltac binds_functional :=
+      exploit_functional constr:(@binds) constr:(@binds_functional).
+*)
+
+(* Todo several functional, you can do:
+
+   Ltac exploit_functional_all := 
+      repeat binds_functional;
+      repeat tr_val_functional;
+      repeat tr_trm_functional.
+
+*)
+
 Lemma typing_field_inj : forall C S f T1 T2,
   typing_field C S f T1 ->
   typing_field C S f T2 ->
