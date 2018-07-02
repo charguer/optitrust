@@ -25,7 +25,7 @@ Definition C' : typdefctx := (\{})["pos" := pos'].
 (* Grouping transformation *)
 Record group_tr := make_group_tr {
   group_tr_struct_name : typvar; (* s *)
-  group_tr_fields : list field; (* [..f..] *)
+  group_tr_fields : set field; (* {..f..} *)
   group_tr_new_struct_name : typvar; (* s_g *)
   group_tr_new_struct_field : field (* f_g *)
 }.
@@ -39,12 +39,12 @@ Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
       tr_accesses gt ((access_array i)::π) ((access_array i)::π')
   | tr_accesses_field_group : forall π π' f f_g,
       tr_accesses gt π π' ->
-      mem f (group_tr_fields gt) ->
+      f \in (group_tr_fields gt) ->
       f_g = group_tr_new_struct_field gt ->
       tr_accesses gt ((access_field f)::π) ((access_field f_g)::(access_field f)::π')
   | tr_accesses_field_other : forall π π' f,
       tr_accesses gt π π' ->
-      ~ mem f (group_tr_fields gt) ->
+      f \notin (group_tr_fields gt) ->
       tr_accesses gt ((access_field f)::π) ((access_field f)::π').
 
 (* v ~ |v| *)
@@ -66,21 +66,30 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         index a i -> 
         tr_val gt a[i] a'[i]) -> 
       tr_val gt (val_array a) (val_array a')
-  | tr_val_struct : forall s s',
-      dom s = dom s' ->
-      (forall f v v',
+  | tr_val_struct : forall s s' f_g fs s_g,
+      f_g = group_tr_new_struct_field gt ->
+      fs = group_tr_fields gt ->
+      dom s' = (dom s \- fs) \u \{f_g} ->
+      (forall f v,
+        f \indom s ->
+        f \notin fs ->
         binds s f v ->
-        binds s' f v' ->
-        tr_val gt v v') ->
+        binds s' f v) ->
+      binds s' f_g (val_struct s_g) ->
+      dom s_g = fs ->
+      (forall f v,
+        f \in fs ->
+        binds s f v ->
+        binds s_g f v) ->
       tr_val gt (val_struct s) (val_struct s').
 
 (* S ~ |S| *)
 Inductive tr_stack (gt:group_tr) : stack -> stack -> Prop :=
   | tr_stack_intro : forall S S',
       length S = length S' ->
-      (forall x v v',
+      (forall x v,
         Ctx.lookup x S = Some v ->
-        Ctx.lookup x S' = Some v' /\ tr_val gt v v') ->
+        (exists v', Ctx.lookup x S' = Some v' /\ tr_val gt v v')) ->
       tr_stack gt S S'.
 
 (* m ~ |m| *)
@@ -133,7 +142,7 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       tr_trm gt p p' ->
       s = group_tr_struct_name gt ->
       s_g = group_tr_new_struct_name gt ->
-      mem f (group_tr_fields gt) ->
+      f \in (group_tr_fields gt) ->
       f_g = group_tr_new_struct_field gt ->
       a1 = prim_struct_access s_g f ->
       a2 = prim_struct_access s f_g ->
@@ -141,7 +150,7 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       tr_trm gt (trm_app (prim_struct_access s f) (p::nil)) r
   | tr_trm_struct_access_other : forall s p p' T f r,
       s = group_tr_struct_name gt ->
-      (T <> s \/ ~ mem f (group_tr_fields gt)) -> 
+      (T <> s \/ f \notin (group_tr_fields gt)) -> 
       tr_trm gt p p' -> 
       r = (trm_app (prim_struct_access T f) (p'::nil)) ->
       tr_trm gt (trm_app (prim_struct_access T f) (p::nil)) r.
@@ -172,9 +181,10 @@ Theorem functional_tr_val : forall gt v v1 v2,
   tr_val gt v v2 ->
   v1 = v2.
 Proof.
-  introv H1 H2. gen v2. induction H1; intros; inverts H2; fequals.
-  { applys* functional_tr_accesses. }
-  { applys* eq_of_extens. math. }
+  introv H1 H2. gen v2. induction H1; intros; 
+  try solve [ inverts H2 ; fequals* ].
+  { inverts H2. fequals. applys* functional_tr_accesses. }
+  { inverts H2. fequals. applys* eq_of_extens. math. }
   { admit. } (* extens lemma for maps *)
 Admitted.
 
@@ -186,9 +196,11 @@ Proof.
   introv H1 H2. gen t2. induction H1; intros;
   try solve [ inverts H2 ; try subst ; repeat fequals* ].
   { inverts H2. fequals. applys* functional_tr_val. }
-  { inverts* H7. forwards*: IHtr_trm H11. subst*. }
+  { inverts* H7.
+    { forwards*: IHtr_trm H11. subst*. } 
+    { inverts H12; tryfalse. } }
   { inverts* H3. 
-    { forwards*: IHtr_trm H7. subst*. }
+    { inverts H0; tryfalse. }
     { forwards*: IHtr_trm H10. subst*. } }
 Qed.
 
@@ -208,6 +220,21 @@ Proof.
   admit. (* extens lemma for maps. *)
 Admitted.
 
+Lemma tr_stack_add : forall gt z v S v' S',
+  tr_stack gt S S' ->
+  tr_val gt v v' ->
+  tr_stack gt (Ctx.add z v S) (Ctx.add z v' S').
+Proof.
+Admitted.
+
+Lemma tr_read_accesses : forall π v1 v2 gt w1 w2,
+  read_accesses v1 π w1 ->
+  read_accesses v2 π w2 ->
+  tr_val gt v1 v2 ->
+  tr_val gt w1 w2.
+Proof.
+Admitted.
+
 (* Semantics preserved by tr. *)
 Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   tr_trm gt t t' ->
@@ -218,7 +245,43 @@ Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   /\  tr_state gt m2 m2'
   /\  red S' m1' t' m2' v'.
 Proof.
+  introv Ht HS Hm1 HR. gen t' S' m1'. induction HR; intros.
+  { (* var *)
+    inverts Ht. inverts HS. 
+    forwards: H1 H. inverts H2. exists x0 m1'. splits*.
+    constructors*. }
+  { (* val *)
+    inverts Ht. exists v' m1'. splits*. constructors*. }
+  { (* if *)
+    inverts Ht as Hb HTrue HFalse. 
+    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
+    destruct b;
+    try forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HTrue HS Hm2';
+    try forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HFalse HS Hm2';
+    exists vr' m3'; splits*; inverts* Hv'; constructors*. }
+  { (* let *)
+    inverts Ht as Ht1 Ht2.
+    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
+    forwards HS': tr_stack_add HS Hv'.
+    forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
+    exists vr' m3'. splits*. constructors*. unfolds. 
+    intros contra. inverts contra. inverts Hv'. }
+  { (* binop *)
+    inverts Ht as Ht1 Ht2.
+    inverts H. exists (n1 + n2)%Z m1'. 
+    inverts Ht1 as Ht1. inverts Ht2 as Ht2.
+    splits*. constructors*. applys red_binop.
+    inverts Ht1. inverts Ht2. constructors*. }
+  { (* get *)
+    inverts Ht as Hp. inverts Hm1 as HD Htrm.
+    inverts H0 as Hb Ha. forwards Hi: index_of_binds Hb.
+    typeclass. forwards Htrml: Htrm Hi.
+    
+    
+    exists m1'. }
 Admitted.
+
+
 
 (* Semantics preserved by tr. *)
 Theorem red_tr': forall gt t t' v v' S S' m1 m1' m2 m2',
