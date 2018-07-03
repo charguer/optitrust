@@ -256,6 +256,15 @@ Hint Constructors tr_val read_accesses.
 
 Notation make_group_tr' := make_group_tr.
 
+Axiom in_union : forall A (x:A) (S1 S2:set A), 
+        (x \in S1) \/ (x \in S2) -> 
+        x \in (S1 \u S2).
+
+Axiom in_setminus : forall A (x:A) (S1 S2: set A),
+        x \in S1 -> 
+        x \notin S2 -> 
+        x \in (S1 \- S2).
+
 Lemma tr_read_accesses : forall gt v π v' π' w,
   tr_val gt v v' ->
   tr_accesses gt π π' ->
@@ -270,16 +279,40 @@ Proof.
     forwards Htra: Htr H. 
     forwards (w'&Hw'&Hπ'): IHHR Htra Ha.
     exists* w'. }
-  { inverts Ha; inverts Hv; tryfalse.
-    { admit. }
-    { admit. }
-    { forwards: index_of_binds H. typeclass.
-      forwards: H7 H0. forwards: read_of_binds H.
-      subst_hyp H5. forwards (w'&Hw'&HR'): IHHR H1 H3.
+
+  { inverts Ha as; inverts Hv as; tryfalse.
+
+    { introv HD1 Hgt HD2 HD3 HB Hsg Hfs Ha Hin.
+      rewrite Hgt in Hin. simpl in Hin.
+      forwards Hsf: Hsg Hin.
+      forwards Heq: read_of_binds H. subst_hyp Heq.
+      forwards (w'&Hw'&HR'): IHHR Hsf Ha.
+      exists w'. splits*.
+      constructors*; rewrite Hgt; simpls*. 
+      constructors*.
+      applys* binds_of_indom_read. }
+
+    { introv Hn HD HFs Ha Hin. tryfalse. }
+
+    { introv HD1 HD2 HD3 HB Hsg Hfs Ha Hor.
+      inverts Hor as Hf; simpl in Hf; tryfalse.
+      forwards Hf': indom_of_binds H. typeclass.
+      forwards Hsf: Hfs Hf Hf'.
+      forwards Hv1: read_of_binds H. subst_hyp Hv1.
+      forwards (w'&Hw'&HR'): IHHR Hsf Ha.
       exists w'. splits*. constructors*. 
       applys* binds_of_indom_read.
-      rewrite <- H4. rewrite* <- index_eq_indom. } }
-Admitted.
+      rewrite HD3. applys* in_union. 
+      left. applys* in_setminus. }
+
+    { intros Hn HD Hfs Ha Hor. 
+      forwards Hidx: index_of_binds H. typeclass.
+      forwards Hsf: Hfs Hidx. forwards Heq: read_of_binds H.
+      subst_hyp Heq. forwards (w'&Hw'&HR'): IHHR Hsf Ha.
+      exists w'. splits*. constructors*. 
+      applys* binds_of_indom_read.
+      rewrite <- HD. rewrite* <- index_eq_indom. } }
+Qed.
 
 (* Semantics preserved by tr. *)
 Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
