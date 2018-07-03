@@ -10,6 +10,9 @@ Set Implicit Arguments.
 Require Export Semantics.
 
 
+Hint Constructors red.
+
+
 Global Instance Inhab_trm : Inhab trm.
 Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
 
@@ -38,9 +41,9 @@ Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
       tr_accesses gt π π' ->
       tr_accesses gt ((access_array i)::π) ((access_array i)::π')
   | tr_accesses_field_group : forall π π' f fg Ts Tsg,
-      Ts = group_tr_struct_name gt ->
-      Tsg = group_tr_struct_name gt ->
       tr_accesses gt π π' ->
+      Ts = group_tr_struct_name gt ->
+      Tsg = group_tr_new_struct_name gt ->
       f \in (group_tr_fields gt) ->
       fg = group_tr_new_struct_field gt ->
       tr_accesses gt ((access_field Ts f)::π) ((access_field Ts fg)::(access_field Tsg f)::π')
@@ -71,21 +74,30 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         tr_val gt a[i] a'[i]) -> 
       tr_val gt (val_array a) (val_array a')
   | tr_val_struct_group : forall Ts Tsg s s' fg fs sg,
+      gt = make_group_tr Ts fs Tsg fg ->
+(*
       Ts = group_tr_struct_name gt ->
       Tsg = group_tr_new_struct_name gt ->
       fg = group_tr_new_struct_field gt ->
       fs = group_tr_fields gt ->
+*)
+      fs \c dom s ->  
+      fg \notindom s ->
       dom s' = (dom s \- fs) \u \{fg} ->
       binds s' fg (val_struct Tsg sg) ->
       dom sg = fs ->
-      (forall f v,
+      (forall f,
         f \in fs ->
-        binds s f v ->
-        binds sg f v) ->
+        (*index f s -> derivable using a lemma*)
+        tr_val gt s[f] sg[f]) ->
+      (forall f, (* f \indom (s \- fs) *) 
+        (* index f s -> index f s' -> *)        
+        f \notin fs ->
+        f \indom s ->
+        tr_val gt s[f] s'[f]) ->
       tr_val gt (val_struct Ts s) (val_struct Ts s')
-  | tr_val_struct_other : forall Ts T s s',
-      Ts = group_tr_struct_name gt ->
-      T <> Ts ->
+  | tr_val_struct_other : forall T s s',
+      T <> group_tr_struct_name gt ->
       dom s = dom s' ->
       (forall f,
         index s f ->
@@ -240,6 +252,10 @@ Lemma tr_stack_add : forall gt z v S v' S',
 Proof.
 Admitted.
 
+Hint Constructors tr_val read_accesses.
+
+Notation make_group_tr' := make_group_tr.
+
 Lemma tr_read_accesses : forall gt v π v' π' w,
   tr_val gt v v' ->
   tr_accesses gt π π' ->
@@ -249,12 +265,20 @@ Lemma tr_read_accesses : forall gt v π v' π' w,
   /\  read_accesses v' π' w').
 Proof.
   introv Hv Ha HR. gen gt v' π'. induction HR; intros.
-  { inverts Ha. exists v'. splits*. constructors*. }
+  { inverts Ha. exists* v'. } 
   { inverts Ha as Ha. inverts Hv as Hl Htr.
     forwards Htra: Htr H. 
     forwards (w'&Hw'&Hπ'): IHHR Htra Ha.
-    exists w'. splits*. constructors*. }
-  { admit. }
+    exists* w'. }
+  { inverts Ha; inverts Hv; tryfalse.
+    { admit. }
+    { admit. }
+    { forwards: index_of_binds H. typeclass.
+      forwards: H7 H0. forwards: read_of_binds H.
+      subst_hyp H5. forwards (w'&Hw'&HR'): IHHR H1 H3.
+      exists w'. splits*. constructors*. 
+      applys* binds_of_indom_read.
+      rewrite <- H4. rewrite* <- index_eq_indom. } }
 Admitted.
 
 (* Semantics preserved by tr. *)
@@ -270,24 +294,21 @@ Proof.
   introv Ht HS Hm1 HR. gen t' S' m1'. induction HR; intros.
   { (* var *)
     inverts Ht. inverts HS. 
-    forwards: H1 H. inverts H2. exists x0 m1'. splits*.
-    constructors*. }
+    forwards: H1 H. inverts H2. exists* x0 m1'. }
   { (* val *)
-    inverts Ht. exists v' m1'. splits*. constructors*. }
+    inverts Ht. exists* v' m1'. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse. 
-    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
-    destruct b;
-    try forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HTrue HS Hm2';
-    try forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HFalse HS Hm2';
-    exists vr' m3'; splits*; inverts* Hv'; constructors*. }
+    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1. inverts* Hv'.
+    forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 2: exists* vr' m3'. case_if*. } 
   { (* let *)
     inverts Ht as Ht1 Ht2.
     forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
-    forwards HS': tr_stack_add HS Hv'.
+    forwards HS': tr_stack_add z HS Hv'.
     forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
-    exists vr' m3'. splits*. constructors*. unfolds. 
-    intros contra. inverts contra. inverts Hv'. }
+Axiom not_tr_val_error : forall gt v1 v2, tr_val gt v1 v2 -> ~ is_error v2.
+    forwards: not_tr_val_error Hv'.
+    exists* vr' m3'. }
   { (* binop *)
     inverts Ht as Ht1 Ht2.
     inverts H. exists (n1 + n2)%Z m1'. 
