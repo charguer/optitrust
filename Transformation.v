@@ -80,17 +80,15 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
       fs \c dom s ->  
       fg \notindom s ->
       dom s' = (dom s \- fs) \u \{fg} ->
-      binds s' fg (val_struct Tsg sg) ->
       dom sg = fs ->
       (forall f,
         f \in fs ->
-        (*index f s -> derivable using a lemma*)
         tr_val gt s[f] sg[f]) ->
-      (forall f, (* f \indom (s \- fs) *) 
-        (* index f s -> index f s' -> *)        
+      (forall f,       
         f \notin fs ->
         f \indom s ->
         tr_val gt s[f] s'[f]) ->
+      binds s' fg (val_struct Tsg sg) ->
       tr_val gt (val_struct Ts s) (val_struct Ts s')
   | tr_val_struct_other : forall T s s',
       T <> group_tr_struct_name gt ->
@@ -283,6 +281,15 @@ Axiom notin_notin_subset : forall A (x:A) (S1 S2:set A),
   x \notin S2 ->
   x \notin S1.
 
+Axiom in_subset : forall A (x:A) (S1 S2:set A),
+  S2 \c S1 ->
+  x \in S2 ->
+  x \in S1.
+
+Axiom in_single : forall A (x:A) (S:set A),
+  S = '{x} ->
+  x \in S.
+
 Lemma tr_read_accesses : forall gt v π v' π' w,
   tr_val gt v v' ->
   tr_accesses gt π π' ->
@@ -303,7 +310,7 @@ Proof.
     inverts Ha as; inverts Hv as; 
     try solve [ intros ; false ].
     { (* one of the fields to group *) 
-      introv HD1 Hgt HD2 HD3 HB Hsg Hfs Ha Hin.
+      introv HD1 Hgt HD2 HD3 Hsg Hfs HB Ha Hin.
       rewrite* Hgt in Hin. simpls.
       forwards Hsf: Hsg Hin.
       forwards Heq: read_of_binds H. 
@@ -313,7 +320,7 @@ Proof.
       constructors*; rewrite Hgt; simpls*. 
       constructors*. applys* binds_of_indom_read. }
     { (* struct transformed but another field *) 
-      introv HD1 HD2 HD3 HB Hsg Hfs Ha Hor.
+      introv HD1 HD2 HD3 Hsg Hfs HB Ha Hor.
       inverts Hor as Hf; simpl in Hf; tryfalse.
       forwards Hf': indom_of_binds H. typeclass.
       forwards Hsf: Hfs Hf Hf'.
@@ -370,10 +377,22 @@ Proof.
     inverts Ha as; inverts Hv1 as;
     try solve [ intros ; false ].
     { (* one of the fields to group *) 
-      introv HD1 Hgt HD2 HD3 HB Hsg Hfs Ha Hin.
-      admit. }
+      introv HD1 Hgt HD2 HD3 Hsg Hfs HB Ha Hin.
+      rewrite* Hgt in Hin. simpls.
+      forwards Hsf: Hsg Hin.
+      forwards Heq: read_of_binds H. 
+      subst_hyp Heq.
+      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Ha.
+      remember (group_tr_struct_name gt) as T.
+      exists (val_struct T s'[fg:=(val_struct Tsg sg[f:=v2'])]).
+      splits.
+
+      { admit. (* <--- *) }
+
+      { constructors*; subst_hyp Hgt; simpls*.
+        constructors*. applys* binds_of_indom_read. } }
     { (* struct transformed but another field *) 
-      introv HD1 HD2 HD3 HB Hsg Hfs Ha Hor. 
+      introv HD1 HD2 HD3 Hsg Hfs HB Ha Hor. 
       inverts Hor as Hf; simpl in Hf; tryfalse.
       forwards Hf': indom_of_binds H. typeclass.
       forwards Hsf: Hfs Hf Hf'.
@@ -385,13 +404,13 @@ Proof.
         try solve [ rewrite* dom_update_at_indom ].
         { repeat rewrite* dom_update_at_indom.
           rewrite HD3. applys* in_union. left.
-          applys* in_setminus. }
-        { applys* binds_update_neq.
-          apply in_notin_neq with (S:=dom s1); auto. }
+          applys* in_setminus. }        
         { introv Hf0. rewrite read_update. case_if*.
           forwards: in_notin_neq Hf0 Hf. false. }
         { introv HD4 HD5. repeat rewrite read_update.
-          case_if*. rewrite* dom_update_at_indom in HD5. } }
+          case_if*. rewrite* dom_update_at_indom in HD5. }
+        { applys* binds_update_neq.
+          apply in_notin_neq with (S:=dom s1); auto. } }
       { constructors*.  applys* binds_of_indom_read.
         rewrite HD3. applys in_union. left.
         applys* in_setminus. } }
