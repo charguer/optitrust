@@ -248,7 +248,7 @@ Lemma tr_stack_add : forall gt z v S v' S',
 Proof.
 Admitted.
 
-Hint Constructors tr_val read_accesses.
+Hint Constructors tr_val read_accesses write_accesses.
 
 Axiom in_union : forall A (x:A) (S1 S2:set A), 
         (x \in S1) \/ (x \in S2) -> 
@@ -259,6 +259,30 @@ Axiom in_setminus : forall A (x:A) (S1 S2: set A),
         x \notin S2 -> 
         x \in (S1 \- S2).
 
+Axiom not_tr_val_error : forall gt v1 v2, 
+  tr_val gt v1 v2 -> 
+  ~ is_error v2.
+
+Axiom index_of_update_neq : forall A B (v:B) (l l':A) (m:map A B),
+  index m[l:=v] l' ->
+  l <> l' ->
+  index m l'.
+
+Axiom index_of_update_neq' : forall A (v:A) i i' (l:list A),
+  index l[i:=v] i' ->
+  i <> i' ->
+  index l i'.
+
+Axiom in_notin_neq : forall A (x y:A) (S:set A),
+  x \in S ->
+  y \notin S ->
+  y <> x.
+
+Axiom notin_notin_subset : forall A (x:A) (S1 S2:set A),
+  S1 \c S2 ->
+  x \notin S2 ->
+  x \notin S1.
+
 Lemma tr_read_accesses : forall gt v π v' π' w,
   tr_val gt v v' ->
   tr_accesses gt π π' ->
@@ -268,16 +292,18 @@ Lemma tr_read_accesses : forall gt v π v' π' w,
   /\  read_accesses v' π' w').
 Proof.
   introv Hv Ha HR. gen gt v' π'. induction HR; intros.
-  { inverts Ha. exists* v'. } 
-  { inverts Ha as Ha. inverts Hv as Hl Htr.
+  { (* nil *) 
+    inverts Ha. exists* v'. } 
+  { (* array_access *)
+    inverts Ha as Ha. inverts Hv as Hl Htr.
     forwards Htra: Htr H. 
     forwards (w'&Hw'&Hπ'): IHHR Htra Ha.
     exists* w'. }
-
-  { inverts Ha as; inverts Hv as; 
+  { (* struct_access *) 
+    inverts Ha as; inverts Hv as; 
     try solve [ intros ; false ].
-
-    { introv HD1 Hgt HD2 HD3 HB Hsg Hfs Ha Hin.
+    { (* one of the fields to group *) 
+      introv HD1 Hgt HD2 HD3 HB Hsg Hfs Ha Hin.
       rewrite* Hgt in Hin. simpls.
       forwards Hsf: Hsg Hin.
       forwards Heq: read_of_binds H. 
@@ -286,8 +312,8 @@ Proof.
       exists* w'. splits*.
       constructors*; rewrite Hgt; simpls*. 
       constructors*. applys* binds_of_indom_read. }
-
-    { introv HD1 HD2 HD3 HB Hsg Hfs Ha Hor.
+    { (* struct transformed but another field *) 
+      introv HD1 HD2 HD3 HB Hsg Hfs Ha Hor.
       inverts Hor as Hf; simpl in Hf; tryfalse.
       forwards Hf': indom_of_binds H. typeclass.
       forwards Hsf: Hfs Hf Hf'.
@@ -298,8 +324,8 @@ Proof.
       applys* binds_of_indom_read.
       rewrite HD3. applys* in_union. 
       left. applys* in_setminus. }
-
-    { intros Hn HD Hfs Ha Hor. 
+    { (* another struct *)
+      intros Hn HD Hfs Ha Hor. 
       forwards Hidx: index_of_binds H. typeclass.
       forwards Hsf: Hfs Hidx. 
       forwards Heq: read_of_binds H.
@@ -312,24 +338,85 @@ Proof.
 Qed.
 
 Lemma tr_write_accesses : forall v1 w gt π v1' π' w' v2,
-  write_accesses v1 π w v2 ->
   tr_val gt v1 v1' ->
   tr_val gt w w' ->
   tr_accesses gt π π' ->
+  write_accesses v1 π w v2 ->
   (exists v2',
         tr_val gt v2 v2'
     /\  write_accesses v1' π' w' v2').
 Proof.
-Admitted.
-
-Axiom not_tr_val_error : forall gt v1 v2, 
-  tr_val gt v1 v2 -> 
-  ~ is_error v2.
-
-Axiom index_of_update_neq : forall A B (v:B) (l l':A) (m:map A B),
-  index m[l:=v] l' ->
-  l <> l' ->
-  index m l'.
+  introv Hv1 Hw Ha HW. gen gt v1' w' π'. induction HW; intros.
+  { (* nil *)
+    inverts Ha. subst_hyp H. exists* w'. }
+  { (* array_access *)
+    inverts Ha as Ha. inverts Hv1 as Hl Htr.
+    forwards Htra: Htr H.
+    forwards (v2'&Hv2'&HW'): IHHW Htra Hw Ha.
+    exists (val_array a'[i:=v2']).
+    splits; constructors*.
+    { (* val_array under tr *)
+      rewrite H0. repeat rewrite* length_update. }
+    { (* write_accesses of transformed array *) 
+      introv Hi0. rewrite read_update_case. 
+      { case_if*; subst_hyp H0.
+        { subst_hyp C0. rewrites* LibListZ.read_update_same. }
+        { forwards: index_of_update_neq' Hi0 C0. 
+          rewrites* LibListZ.read_update_neq. } }
+      { rewrite index_eq_index_length in *.
+        rewrite H0 in Hi0. rewrite length_update in Hi0.
+        rewrite* <- Hl. } } }
+  { (* struct_access *)
+    inverts Ha as; inverts Hv1 as;
+    try solve [ intros ; false ].
+    { (* one of the fields to group *) 
+      introv HD1 Hgt HD2 HD3 HB Hsg Hfs Ha Hin.
+      admit. }
+    { (* struct transformed but another field *) 
+      introv HD1 HD2 HD3 HB Hsg Hfs Ha Hor. 
+      inverts Hor as Hf; simpl in Hf; tryfalse.
+      forwards Hf': indom_of_binds H. typeclass.
+      forwards Hsf: Hfs Hf Hf'.
+      forwards Hv1: read_of_binds H. 
+      subst_hyp Hv1.
+      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Ha.
+      exists (val_struct T s'[f:=v2']). splits.
+      { applys* tr_val_struct_group; subst_hyp H0;
+        try solve [ rewrite* dom_update_at_indom ].
+        { repeat rewrite* dom_update_at_indom.
+          rewrite HD3. applys* in_union. left.
+          applys* in_setminus. }
+        { applys* binds_update_neq.
+          apply in_notin_neq with (S:=dom s1); auto. }
+        { introv Hf0. rewrite read_update. case_if*.
+          forwards: in_notin_neq Hf0 Hf. false. }
+        { introv HD4 HD5. repeat rewrite read_update.
+          case_if*. rewrite* dom_update_at_indom in HD5. } }
+      { constructors*.  applys* binds_of_indom_read.
+        rewrite HD3. applys in_union. left.
+        applys* in_setminus. } }
+    { (* another struct *)
+      intros Hn HD Hfs Ha Hor.
+      forwards Hidx: index_of_binds H. typeclass.
+      forwards Hsf: Hfs Hidx. 
+      forwards Heq: read_of_binds H.
+      subst_hyp Heq. 
+      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Ha.
+      exists (val_struct T s'[f:=v2']). splits.
+      { constructors*; subst_hyp H0.
+        { rewrite index_eq_indom in Hidx.
+          rewrites* dom_update_at_indom.
+          rewrite HD in Hidx.
+          rewrites* dom_update_at_indom. }
+        { introv Hif0. rewrite read_update. case_if*.
+          { subst_hyp C0. rewrite* read_update_same. }
+          { rewrite* read_update_neq. 
+            forwards Hif0': index_of_update_neq Hif0 C0.
+            forwards*: Hfs Hif0'. } } }
+      { constructors*. applys* binds_of_indom_read.
+        rewrite index_eq_indom in Hidx.
+        rewrite* <- HD. } } }
+Qed.
 
 (* Semantics preserved by tr. *)
 Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
@@ -384,7 +471,7 @@ Proof.
     inverts Hp as Hp. inverts Hp as Ha.
     subst_hyp H0. inverts Ht as Hv. 
     forwards Heq: read_of_binds Hb. subst_hyp Heq.
-    forwards (w'&Hw'&HW'): tr_write_accesses HW Htrml Hv Ha.
+    forwards (w'&Hw'&HW'): tr_write_accesses Htrml Hv Ha HW.
     exists val_unit m1'[l:=w']. splits*.
     { constructors. 
       { rewrite index_eq_indom in Hi.
