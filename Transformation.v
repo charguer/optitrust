@@ -12,6 +12,8 @@ Require Export Semantics.
 
 Hint Constructors red.
 
+Open Scope list_scope.
+
 
 Global Instance Inhab_trm : Inhab trm.
 Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
@@ -54,7 +56,6 @@ Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
       Ts = group_tr_struct_name gt ->
       (T <> Ts \/ f \notin (group_tr_fields gt)) ->
       tr_accesses gt ((access_field T f)::π) ((access_field T f)::π').
-
 
 (* v ~ |v| *)
 Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
@@ -195,6 +196,17 @@ Proof.
     inverts H0; tryfalse. }
 Qed.
 
+Lemma tr_accesses_app : forall gt π1 π2 π1' π2',
+  tr_accesses gt π1 π1' ->
+  tr_accesses gt π2 π2' ->
+  tr_accesses gt (π1 ++ π2) (π1' ++ π2').
+Proof.
+  introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
+  try solve [ subst ; forwards Ha': IHHa1 Ha2 ;
+  repeat rewrite* <- List.app_comm_cons ; constructors* ].
+  1: repeat rewrite* List.app_nil_l. 
+Qed.
+
 Theorem functional_tr_val : forall gt v v1 v2,
   tr_val gt v v1 ->
   tr_val gt v v2 ->
@@ -246,7 +258,7 @@ Lemma tr_stack_add : forall gt z v S v' S',
 Proof.
 Admitted.
 
-Hint Constructors tr_val read_accesses write_accesses.
+Hint Constructors tr_val tr_accesses read_accesses write_accesses.
 
 Axiom in_union : forall A (x:A) (S1 S2:set A), 
         (x \in S1) \/ (x \in S2) -> 
@@ -289,6 +301,11 @@ Axiom in_subset : forall A (x:A) (S1 S2:set A),
 Axiom in_single : forall A (x:A) (S:set A),
   S = '{x} ->
   x \in S.
+
+Axiom union_eq : forall A (S1 S2 S3 S4:set A),
+  S1 = S3 ->
+  S2 = S4 ->
+  S1 \u S2 = S3 \u S4.
 
 Lemma tr_read_accesses : forall gt v π v' π' w,
   tr_val gt v v' ->
@@ -506,9 +523,44 @@ Proof.
       constructors*. applys* binds_of_indom_read.
       rewrite <- HD at 1. forwards*: indom_of_binds Hb. } }
   { (* new *) 
-    admit. }
+    inverts Ht as Ht. inverts Ht as Hv. 
+    inverts Hm1 as HD Htrm.
+    subst_hyp H1.
+    exists __ m1'[l0:=v']. (*(val_abstract_ptr l0 nil)*)
+    splits*.
+    { constructors. 
+      { unfold state. repeat rewrite dom_update. 
+        applys* union_eq.  }
+      { introv Hi. rewrite read_update. case_if*.
+        { subst_hyp C0. rewrite* read_update_same. }
+        { rewrite* read_update_neq. 
+          forwards Hi': index_of_update_neq Hi C0.
+          forwards*: Htrm Hi'. } } }
+    { constructors*. rewrite* <- HD. } }
+  { (* struct_access *) 
+    inverts Ht as; inverts Hm1 as HD Htrm.
+    { (* accessing grouped field *)
+      introv Ht Hf. subst. 
+      inverts Ht as Hv. inverts Hv as Ha.
+      remember (group_tr_struct_name gt) as Ts.
+      remember (group_tr_new_struct_name gt) as Tsg.
+      remember (group_tr_new_struct_field gt) as fg.
+      remember (access_field Ts fg) as a1.
+      remember (access_field Tsg f) as a2.
+      exists (val_abstract_ptr l (π'++(a1::a2::nil))) m1'.
+      splits.
+      { constructors. applys* tr_accesses_app. subst.
+        constructors*. }
+      { constructors*. }
+      { subst. applys* red_args_1. applys* red_struct_access.
+        fequals*. rewrite* <- List.app_assoc. } }
+    { (* accessing another field *) 
+      introv Hor Ht. subst. inverts Ht as Hv. inverts Hv as Ha.
+      exists (val_abstract_ptr l (π'++(access_field T f :: nil))) m1'.
+      splits; constructors*. applys* tr_accesses_app. } }
+  { (* array_access *)
+     }
 Admitted.
-
 
 
 (* Semantics preserved by tr. *)
