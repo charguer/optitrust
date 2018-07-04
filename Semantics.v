@@ -206,7 +206,7 @@ Definition is_error (v:val) :=
   v = val_error.
 
 Definition is_val_bool (v:val) :=
-  match v with 
+  match v with
     | val_bool b => True
     | _ => False
   end.
@@ -377,13 +377,13 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_var_error :  forall S m x,
       Ctx.lookup x S = None ->
       red S m (trm_var x) m val_error
-  | red_if_error_cond : forall S m1 m2 t0 t1 t2 v0,
+  | red_if_error_not_a_bool : forall S m1 m2 t0 t1 t2 v0,
       red S m1 t0 m2 v0 ->
       ~ is_val_bool v0 ->
       red S m1 (trm_if t0 t1 t2) m2 val_error
-  | red_let_error_let : forall S m1 m2 m3 z t1 t2 v1,
+  | red_let_error_let : forall S m1 m2 z t1 t2 v1,
       red S m1 t1 m2 val_error ->
-      red S m1 (trm_let z t1 t2) m3 val_error
+      red S m1 (trm_let z t1 t2) m2 val_error
   | red_binop_error : forall S (op:binop) m v1 v2,
       ~ (exists v, redbinop op v1 v2 v) ->
       red S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m val_error
@@ -417,15 +417,13 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_array_access_error_not_an_int : forall S m t T ti,
       ~ is_int ti ->
       red S m (trm_app (prim_array_access T) (t::ti::nil)) m val_error
-  | red_args_1_error : forall v1 m2 S m1 op t1 v2,
-      ~ is_val t1 ->
+  | red_args_1_error : forall v1 m2 S m1 op t1 v2 ts,
       red S m1 t1 m2 val_error ->
-      red S m1 (trm_app op (t1::nil)) m2 val_error
-  | red_args_2_error : forall m2 v2 S m1 op v1 t2 v3,
-      ~ is_val t2 ->
+      red S m1 (trm_app op (t1::ts)) m2 val_error
+  | red_args_2_error : forall m2 v2 S m1 op v1 t2 v3 ts,
       ~ is_error v1 ->
       red S m1 t2 m2 val_error ->
-      red S m1 (trm_app op ((trm_val v1)::t2::nil)) m2 val_error.
+      red S m1 (trm_app op ((trm_val v1)::t2::ts)) m2 val_error.
 
 End Red.
 

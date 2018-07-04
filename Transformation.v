@@ -59,6 +59,8 @@ Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
 
 (* v ~ |v| *)
 Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
+  | tr_val_error :
+      tr_val gt val_error val_error
   | tr_val_unit : 
       tr_val gt val_unit val_unit
   | tr_val_bool : forall b,
@@ -99,10 +101,18 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         tr_val gt s[f] s'[f]) ->
       tr_val gt (val_struct T s) (val_struct T s').
 
+
+Axiom ctx_vars : forall A, Ctx.ctx A -> set var.
+
+Axiom ctx_vars_eq_lookup_none : forall A (c1 c2:Ctx.ctx A) (x:var),
+  ctx_vars c1 = ctx_vars c2 ->
+  Ctx.lookup x c1 = None ->
+  Ctx.lookup x c2 = None.
+
 (* S ~ |S| *)
 Inductive tr_stack (gt:group_tr) : stack -> stack -> Prop :=
   | tr_stack_intro : forall S S',
-      length S = length S' ->
+     ctx_vars S = ctx_vars S' ->
       (forall x v,
         Ctx.lookup x S = Some v ->
         (exists v', Ctx.lookup x S' = Some v' /\ tr_val gt v v')) ->
@@ -165,11 +175,23 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       r = trm_app a1 ((trm_app a2 (p'::nil))::nil) ->
       tr_trm gt (trm_app (prim_struct_access s f) (p::nil)) r
   | tr_trm_struct_access_other : forall s p p' T f r,
-      s = group_tr_struct_name gt ->
-      (T <> s \/ f \notin (group_tr_fields gt)) -> 
       tr_trm gt p p' -> 
+      s = group_tr_struct_name gt ->
+      (T <> s \/ f \notin (group_tr_fields gt)) ->       
       r = (trm_app (prim_struct_access T f) (p'::nil)) ->
       tr_trm gt (trm_app (prim_struct_access T f) (p::nil)) r.
+  (* Args *)
+  (*| tr_trm_args_1 : forall op t t' ts,
+      ~ is_val t ->
+      tr_trm gt t t' ->
+      tr_trm gt (trm_app op (t::ts)) (trm_app op (t'::ts))
+  | tr_trm_args_2 : forall op v v' t t' ts,
+      is_val v ->
+      is_val v' ->
+      ~ is_val t ->
+      tr_trm gt v v' ->
+      tr_trm gt t t' ->
+      tr_trm gt (trm_app op (v::t::ts)) (trm_app op (v'::t'::ts)).*)
 
 Lemma index_of_index_length' : forall A (l' l : list A) i,
   index l' i ->
@@ -229,10 +251,10 @@ Proof.
   { inverts H2. fequals. applys* functional_tr_val. }
   { inverts* H7.
     { forwards*: IHtr_trm H11. subst*. } 
-    { inverts H12; tryfalse. } }
+    { inverts H14; tryfalse. } }
   { inverts* H3. 
     { inverts H0; tryfalse. }
-    { forwards*: IHtr_trm H10. subst*. } }
+    { forwards*: IHtr_trm H7. subst*. } }
 Qed.
 
 Theorem functional_tr_stack : forall gt S S1 S2,
@@ -258,7 +280,7 @@ Lemma tr_stack_add : forall gt z v S v' S',
 Proof.
 Admitted.
 
-Hint Constructors tr_val tr_accesses read_accesses write_accesses.
+Hint Constructors tr_trm tr_val tr_accesses read_accesses write_accesses.
 
 Axiom in_union : forall A (x:A) (S1 S2:set A), 
         (x \in S1) \/ (x \in S2) -> 
@@ -454,6 +476,18 @@ Proof.
         rewrite* <- HD. } } }
 Qed.
 
+Lemma not_is_val_tr : forall gt t1 t2,
+  ~ is_val t1 ->
+  tr_trm gt t1 t2 ->
+  ~ is_val t2.
+Proof.
+Admitted.
+
+Lemma ptr_is_val : forall p,
+  is_ptr p -> is_val p.
+Proof.
+Admitted.
+
 (* Semantics preserved by tr. *)
 Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   tr_trm gt t t' ->
@@ -472,8 +506,10 @@ Proof.
     inverts Ht. exists* v' m1'. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse. 
-    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1. inverts* Hv'.
-    forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 2: exists* vr' m3'. case_if*. } 
+    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1. 
+    inverts* Hv'.
+    forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 2: 
+    exists* vr' m3'. case_if*. } 
   { (* let *)
     inverts Ht as Ht1 Ht2.
     forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
@@ -555,39 +591,40 @@ Proof.
       { subst. applys* red_args_1. applys* red_struct_access.
         fequals*. rewrite* <- List.app_assoc. } }
     { (* accessing another field *) 
-      introv Hor Ht. subst. inverts Ht as Hv. inverts Hv as Ha.
+      introv Ht Hor. subst. inverts Ht as Hv. inverts Hv as Ha.
       exists (val_abstract_ptr l (π'++(access_field T f :: nil))) m1'.
       splits; constructors*. applys* tr_accesses_app. } }
   { (* array_access *)
-     }
-Admitted.
-
-
-(* Semantics preserved by tr. *)
-Theorem red_tr': forall gt t t' v v' S S' m1 m1' m2 m2',
-  tr_trm gt t t' ->
-  tr_val gt v v' ->
-  tr_stack gt S S' ->
-  tr_state gt m1 m1' ->
-  tr_state gt m2 m2' ->
-  red S m1 t m2 v -> 
-  red S' m1' t' m2' v'.
-Proof.
-  introv Ht Hv HS Hm1 Hm2 H. gen t' v' S' m1' m2'.
-  induction H; intros.  
-  { (* var *)
-    inverts Ht. inverts HS as HS1 HS2.
-    forwards (H'&Hv'): HS2 H.
-    forwards Hveq: functional_tr_val Hv Hv'; rewrite <- Hveq in *.
-    forwards Hmeq: functional_tr_state Hm1 Hm2. rewrite Hmeq.
-    constructors*.  }
-  { (* val *)
-    inverts Ht as Hv'. 
-    forwards Hveq: functional_tr_val Hv Hv'. rewrite Hveq.
-    forwards Hmeq: functional_tr_state Hm1 Hm2. rewrite Hmeq.
-    constructors*. }
-  { (* if *)
+    inverts Ht as Ht Hti. subst. 
+    inverts Ht as Hv. inverts Hv as Ha.
+    inverts Hti as Hv. inverts Hv.
+    inverts Hm1 as HD Htrm.
+    exists (val_abstract_ptr l (π'++(access_array i::nil))) m1'. 
+    splits; constructors*. applys* tr_accesses_app. }
+  { (* args_1 *) 
+    (* inverts Ht as Ht;
+    forwards (v'&m2'&Hv'&Hm2'&HR'): IHHR1 Ht HS Hm1;
+    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+    exists v'' m3'; splits*; 
+    try solve [ forwards*: not_is_val_tr H Ht ]. *)
     admit. }
-  { (* let *)
+  { (* args_2 *) 
     admit. }
+  { (* error var *)
+    inverts Ht. exists val_error m1'. splits*. 
+    applys* red_var_error. inverts HS as HD HtrS. 
+    forwards*: ctx_vars_eq_lookup_none HD H. }
+  { (* error if not a bool *)
+    inverts Ht as Ht0 Ht1 Ht2.
+    forwards (v'&m2'&Hv'&Hm2'&HR'): IHHR Ht0 HS Hm1.
+    exists val_error m2'.
+    splits*. applys* red_if_error_not_a_bool. 
+    unfold is_val_bool. destruct* v'.
+    inverts Hv'. simpls*. }
+  { (* error let *) 
+    inverts Ht as Ht1 Ht2.
+    forwards (v'&m2'&Hv'&Hm2'&HR'): IHHR Ht1 HS Hm1.
+    exists val_error m2'. splits*. constructors*.
+    inverts* Hv'. }
+  { admit. }
 Admitted.
