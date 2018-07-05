@@ -513,6 +513,13 @@ Lemma not_is_ptr_tr : forall gt p1 p2,
 Proof.
 Admitted.
 
+Lemma not_is_int_tr : forall gt t1 t2,
+  ~ is_int t1 ->
+  tr_trm gt t1 t2 ->
+  ~ is_int t2.
+Proof.
+Admitted.
+
 Lemma ptr_is_val : forall p,
   is_ptr p -> is_val p.
 Proof.
@@ -709,7 +716,21 @@ Proof.
     forwards (v2'&Hv2'&HW'): tr_write_accesses_inv H Hv Hπ HW.
     exists m[l:=v2']. constructors*.
     applys* binds_of_indom_read. }
-  { (* error new null *) 
+  { (* error struct access not a ptr *) 
+    exists val_error m1'. splits*.
+    inverts Ht; constructors*.
+    applys* not_is_ptr_tr. }
+  { (* error array access not a ptr *) 
+    exists val_error m1'. splits*.
+    inverts Ht; constructors*. 
+    applys* not_is_ptr_tr. }
+  { (* error array access not an int *)
+    exists val_error m1'. splits*.
+    inverts Ht. applys* red_array_access_error_not_an_int.
+    applys* not_is_int_tr. }
+  { (* error args 1 *) 
+    admit. }
+  { (* error args 2 *) 
     admit. }
 Admitted.
 

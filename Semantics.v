@@ -402,12 +402,6 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       t = trm_val v ->
       ~ (exists m', write_state m l π v m') ->
       red S m (trm_app (prim_set T) (p::t::nil)) m val_error
-  | red_new_error_null : forall l (v:val) S m1 T m2 l,
-      l = null ->
-      red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 val_error
-  | red_new_error_used_loc : forall l (v:val) S m1 T m2 l,
-      l \indom m1 ->
-      red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 val_error
   | red_struct_access_error_not_a_ptr : forall S m t f T,
       ~ is_ptr t ->
       red S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
