@@ -281,7 +281,8 @@ Lemma tr_stack_add : forall gt z v S v' S',
 Proof.
 Admitted.
 
-Hint Constructors tr_trm tr_val tr_accesses read_accesses write_accesses.
+Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack 
+                  read_accesses write_accesses.
 
 Axiom in_union : forall A (x:A) (S1 S2:set A), 
         (x \in S1) \/ (x \in S2) -> 
@@ -306,20 +307,25 @@ Axiom index_of_update_neq' : forall A (v:A) i i' (l:list A),
   i <> i' ->
   index l i'.
 
-Axiom in_notin_neq : forall A (x y:A) (S:set A),
+Lemma in_notin_neq : forall A (x y:A) (S:set A),
   x \in S ->
   y \notin S ->
   y <> x.
+Admitted.
 
 Axiom notin_notin_subset : forall A (x:A) (S1 S2:set A),
   S1 \c S2 ->
   x \notin S2 ->
   x \notin S1.
 
-Axiom in_subset : forall A (x:A) (S1 S2:set A),
+Lemma in_subset : forall A (x:A) (S1 S2:set A),
   S2 \c S1 ->
   x \in S2 ->
   x \in S1.
+Admitted.
+(*
+intros. set_prove.
+*)
 
 Axiom in_single : forall A (x:A) (S:set A),
   S = '{x} ->
@@ -329,6 +335,9 @@ Axiom union_eq : forall A (S1 S2 S3 S4:set A),
   S1 = S3 ->
   S2 = S4 ->
   S1 \u S2 = S3 \u S4.
+
+Tactic Notation "rew_set" "*" := 
+  rew_set; auto_star.
 
 Lemma tr_read_accesses : forall gt v π v' π' w,
   tr_val gt v v' ->
@@ -351,6 +360,8 @@ Proof.
     try solve [ intros ; false ].
     { (* one of the fields to group *) 
       introv HD1 Hgt HD2 HD3 Hsg Hfs HB Ha Hin.
+(*  sets_eq Gtn: (group_tr_struct_name gt).
+subst gt. simpls.*)
       rewrite* Hgt in Hin. simpls.
       forwards Hsf: Hsg Hin.
       forwards Heq: read_of_binds H. 
@@ -369,8 +380,9 @@ Proof.
       forwards (w'&Hw'&HR'): IHHR Hsf Ha.
       exists w'. splits*. constructors*. 
       applys* binds_of_indom_read.
-      rewrite HD3. applys* in_union. 
-      left. applys* in_setminus. }
+      rewrite HD3. rew_set*.
+(*   left*. applys* in_union. 
+      left. applys* in_setminus. *) }
     { (* another struct *)
       intros Hn HD Hfs Ha Hor. 
       forwards Hidx: index_of_binds H. typeclass.
@@ -426,10 +438,18 @@ Proof.
       remember (group_tr_struct_name gt) as T.
       exists (val_struct T s'[fg:=(val_struct Tsg sg[f:=v2'])]).
       splits.
-
-      { substs. applys* tr_val_struct_group;
-        admit. }
-
+      { substs. 
+        applys tr_val_struct_group (sg[f:=v2']); try reflexivity; 
+        repeat rewrite dom_update_at_indom; try typeclass;
+        try solve [ applys* in_subset ].
+        (*Ltac rew_dom_at_core tt := repeat rewrite dom_update_at_indom.
+        Tactic Notation "rew_dom_at" := rew_dom_at_core tt.
+        Tactic Notation "rew_dom_at" "*" := rew_dom_at; auto_star.*)
+        { forwards*: indom_of_binds HB. }
+        { introv HD4. repeat rewrite read_update. case_if*. }
+        { introv HD4 HD5. repeat rewrite read_update. 
+          repeat case_if*; subst; contradiction. }
+        { applys* binds_update_same. } }
       { constructors*; subst_hyp Hgt; simpls*.
         constructors*. applys* binds_of_indom_read. } }
     { (* struct transformed but another field *) 
@@ -478,27 +498,6 @@ Proof.
         rewrite* <- HD. } } }
 Qed.
 
-Lemma tr_read_accesses_inv : forall gt v π v' π' w',
-  tr_val gt v v' ->
-  tr_accesses gt π π' ->
-  read_accesses v' π' w' ->
-  (exists w,
-      tr_val gt w w'
-  /\  read_accesses v π w).
-Proof.
-Admitted.
-
-Lemma tr_write_accesses_inv : forall v1 w gt π v1' π' w' v2',
-  tr_val gt v1 v1' ->
-  tr_val gt w w' ->
-  tr_accesses gt π π' ->
-  write_accesses v1' π' w' v2' ->
-  (exists v2,
-        tr_val gt v2 v2'
-    /\  write_accesses v1 π w v2).
-Proof.
-Admitted.
-
 Lemma not_is_val_tr : forall gt t1 t2,
   ~ is_val t1 ->
   tr_trm gt t1 t2 ->
@@ -530,12 +529,14 @@ Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   tr_trm gt t t' ->
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
-  red S m1 t m2 v -> exists v' m2',
+  red S m1 t m2 v -> 
+  ~ is_error v -> exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
   /\  red S' m1' t' m2' v'.
 Proof.
-  introv Ht HS Hm1 HR. gen t' S' m1'. induction HR; intros.
+  introv Ht HS Hm1 HR He. gen t' S' m1'. induction HR; intros;
+  try solve [ forwards*: He; unfolds* ].
   { (* var *)
     inverts Ht. inverts HS. 
     forwards: H1 H. inverts H2. exists* x0 m1'. }
@@ -543,15 +544,16 @@ Proof.
     inverts Ht. exists* v' m1'. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse. 
-    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1. 
+    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
+    introv HN. inverts HN.
     inverts* Hv'.
-    forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 2: 
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 2: 
     exists* vr' m3'. case_if*. } 
   { (* let *)
     inverts Ht as Ht1 Ht2.
-    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
+    forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
     forwards HS': tr_stack_add z HS Hv'.
-    forwards (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
     forwards: not_tr_val_error Hv'.
     exists* vr' m3'. }
   { (* binop *)
@@ -569,7 +571,6 @@ Proof.
     forwards (w'&Hw'&Ha'): tr_read_accesses Htrml H2 Ha.
     exists w' m1'. splits*. 
     constructors*. constructors*.
-    applys* read_state_intro. 
     applys* binds_of_indom_read. 
     rewrite <- HD at 1.
     forwards*: indom_of_binds Hb. }
@@ -584,9 +585,9 @@ Proof.
     exists val_unit m1'[l:=w']. splits*.
     { constructors. 
       { rewrite index_eq_indom in Hi.
-        forwards HDm1: dom_update_at_indom Hi. typeclass.
+        forwards* HDm1: dom_update_at_indom Hi.
         rewrite HD in Hi at 1.
-        forwards HDm1': dom_update_at_indom Hi. typeclass.
+        forwards* HDm1': dom_update_at_indom Hi.
         rewrite* HDm1. rewrite* HDm1'. }
       { introv Hi'. do 2 rewrites read_update.
         case_if*. 
@@ -599,7 +600,7 @@ Proof.
     inverts Ht as Ht. inverts Ht as Hv. 
     inverts Hm1 as HD Htrm.
     subst_hyp H1.
-    exists __ m1'[l0:=v']. (*(val_abstract_ptr l0 nil)*)
+    exists (val_abstract_ptr l0 nil) m1'[l0:=v'].
     splits*.
     { constructors. 
       { unfold state. repeat rewrite dom_update. 
@@ -621,10 +622,8 @@ Proof.
       remember (access_field Ts fg) as a1.
       remember (access_field Tsg f) as a2.
       exists (val_abstract_ptr l (π'++(a1::a2::nil))) m1'.
-      splits.
-      { constructors. applys* tr_accesses_app. subst.
-        constructors*. }
-      { constructors*. }
+      splits*.
+      { constructors. applys* tr_accesses_app. subst*. }
       { subst. applys* red_args_1. applys* red_struct_access.
         fequals*. rewrite* <- List.app_assoc. } }
     { (* accessing another field *) 
@@ -639,100 +638,10 @@ Proof.
     exists (val_abstract_ptr l (π'++(access_array i::nil))) m1'. 
     splits; constructors*. applys* tr_accesses_app. }
   { (* args_1 *) 
-    (* inverts Ht as Ht;
-    forwards (v'&m2'&Hv'&Hm2'&HR'): IHHR1 Ht HS Hm1;
-    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-    exists v'' m3'; splits*; 
-    try solve [ forwards*: not_is_val_tr H Ht ]. *)
     admit. }
   { (* args_2 *) 
     admit. }
-  { (* error var *)
-    inverts Ht. exists val_error m1'. splits*. 
-    applys* red_var_error. inverts HS as HD HtrS. 
-    forwards*: ctx_vars_eq_lookup_none HD H. }
-  { (* error if not a bool *)
-    inverts Ht as Ht0 Ht1 Ht2.
-    forwards (v'&m2'&Hv'&Hm2'&HR'): IHHR Ht0 HS Hm1.
-    exists val_error m2'.
-    splits*. applys* red_if_error_not_a_bool. 
-    unfold is_val_bool. destruct* v'.
-    inverts Hv'. simpls*. }
-  { (* error let *) 
-    inverts Ht as Ht1 Ht2.
-    forwards (v'&m2'&Hv'&Hm2'&HR'): IHHR Ht1 HS Hm1.
-    exists val_error m2'. splits*. constructors*.
-    inverts* Hv'. }
-  { (* error binop *)
-    inverts Ht as Ht1' Ht2'. inverts Ht1' as Hv1.
-    inverts Ht2' as Hv2.
-    exists val_error m1'. splits*.
-    applys* red_binop_error. introv HN.
-    inverts HN as HN. inverts HN.
-    inverts Hv1. inverts Hv2.
-    forwards*: H. }
-  { (* error get not a ptr *)
-    inverts Ht as Hp.
-    exists val_error m1'. splits*.
-    constructors*.
-    applys* not_is_ptr_tr. }
-  { (* error get bad address *)
-    inverts Ht as Hp. subst. inverts Hp as Hv'.
-    inverts Hv' as Hπ. 
-    exists val_error m1'. splits*.
-    applys* red_get_error_bad_address. 
-    inverts Hm1 as HD Hm1. 
-    introv HN. inverts HN as HN. inverts HN as HB HR. 
-    forwards*: H0. 
-    forwards Hi: index_of_binds HB. typeclass.
-    rewrite index_eq_indom in Hi.
-    rewrite <- HD in Hi at 1.
-    forwards Hi': index_of_indom Hi.
-    forwards: Hm1 Hi'.
-    forwards Heq: read_of_binds HB. subst. 
-    forwards (w&Hw&HR'): tr_read_accesses_inv H Hπ HR.
-    exists w. constructors*. 
-    applys* binds_of_indom_read. }
-  { (* error set not a ptr *)
-    inverts Ht as Hp Ht.
-    exists val_error m1'. splits*.
-    constructors*.
-    applys* not_is_ptr_tr. }
-  { (* error set bad address *) 
-    inverts Ht as Hp Ht. 
-    exists val_error m1'. splits*. 
-    subst. inverts Hp as Hp. inverts Hp as Hπ.
-    inverts Ht as Hv. 
-    applys* red_set_error_bad_address.
-    introv HN. forwards*: H1.
-    inverts HN as HW. inverts HW as HB HW.
-    forwards Hi: index_of_binds HB. typeclass.
-    inverts Hm1 as HD Hm1.
-    rewrite index_eq_indom in Hi.
-    rewrite <- HD in Hi at 1.
-    forwards Hi': index_of_indom Hi.
-    forwards: Hm1 Hi'.
-    forwards Heq: read_of_binds HB. subst. 
-    forwards (v2'&Hv2'&HW'): tr_write_accesses_inv H Hv Hπ HW.
-    exists m[l:=v2']. constructors*.
-    applys* binds_of_indom_read. }
-  { (* error struct access not a ptr *) 
-    exists val_error m1'. splits*.
-    inverts Ht; constructors*.
-    applys* not_is_ptr_tr. }
-  { (* error array access not a ptr *) 
-    exists val_error m1'. splits*.
-    inverts Ht; constructors*. 
-    applys* not_is_ptr_tr. }
-  { (* error array access not an int *)
-    exists val_error m1'. splits*.
-    inverts Ht. applys* red_array_access_error_not_an_int.
-    applys* not_is_int_tr. }
-  { (* error args 1 *) 
-    admit. }
-  { (* error args 2 *) 
-    admit. }
-Admitted.
+Qed.
 
 
 
