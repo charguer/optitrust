@@ -101,8 +101,6 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         tr_val gt s[f] s'[f]) ->
       tr_val gt (val_struct T s) (val_struct T s').
 
-Search map.
-
 Axiom ctx_vars : forall A, Ctx.ctx A -> set var.
 
 Axiom ctx_vars_eq_lookup_none : forall A (c1 c2:Ctx.ctx A) (x:var),
@@ -524,6 +522,13 @@ Lemma ptr_is_val : forall p,
 Proof.
 Admitted.
 
+Lemma red_app_not_is_error : forall S m op ts m' v w,
+  red S m (trm_app op (trm_val w :: ts)) m' v ->
+  ~ is_error v ->
+  ~ is_error w.
+Proof.
+Admitted.
+
 (* Semantics preserved by tr. *)
 Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   tr_trm gt t t' ->
@@ -638,12 +643,16 @@ Proof.
     exists (val_abstract_ptr l (π'++(access_array i::nil))) m1'. 
     splits; constructors*. applys* tr_accesses_app. }
   { (* args_1 *) 
+    inverts Ht; try solve [ forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1; 
+    forwards*: red_app_not_is_error HR2 He;
+    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+    exists v'' m3'; splits*;
+    applys* red_args_1; applys* not_is_val_tr ].
+
     admit. }
   { (* args_2 *) 
     admit. }
 Qed.
-
-
 
 
 
