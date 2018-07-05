@@ -85,7 +85,7 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
       dom s' = (dom s \- fs) \u \{fg} ->
       dom sg = fs ->
       (forall f,
-        f \in fs ->
+        f \indom sg ->
         tr_val gt s[f] sg[f]) ->
       (forall f,       
         f \notin fs ->
@@ -101,6 +101,7 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         tr_val gt s[f] s'[f]) ->
       tr_val gt (val_struct T s) (val_struct T s').
 
+Search map.
 
 Axiom ctx_vars : forall A, Ctx.ctx A -> set var.
 
@@ -426,7 +427,8 @@ Proof.
       exists (val_struct T s'[fg:=(val_struct Tsg sg[f:=v2'])]).
       splits.
 
-      { admit. (* <--- *) }
+      { substs. applys* tr_val_struct_group;
+        admit. }
 
       { constructors*; subst_hyp Hgt; simpls*.
         constructors*. applys* binds_of_indom_read. } }
@@ -476,10 +478,38 @@ Proof.
         rewrite* <- HD. } } }
 Qed.
 
+Lemma tr_read_accesses_inv : forall gt v π v' π' w',
+  tr_val gt v v' ->
+  tr_accesses gt π π' ->
+  read_accesses v' π' w' ->
+  (exists w,
+      tr_val gt w w'
+  /\  read_accesses v π w).
+Proof.
+Admitted.
+
+Lemma tr_write_accesses_inv : forall v1 w gt π v1' π' w' v2',
+  tr_val gt v1 v1' ->
+  tr_val gt w w' ->
+  tr_accesses gt π π' ->
+  write_accesses v1' π' w' v2' ->
+  (exists v2,
+        tr_val gt v2 v2'
+    /\  write_accesses v1 π w v2).
+Proof.
+Admitted.
+
 Lemma not_is_val_tr : forall gt t1 t2,
   ~ is_val t1 ->
   tr_trm gt t1 t2 ->
   ~ is_val t2.
+Proof.
+Admitted.
+
+Lemma not_is_ptr_tr : forall gt p1 p2,
+  ~ is_ptr p1 ->
+  tr_trm gt p1 p2 ->
+  ~ is_ptr p2.
 Proof.
 Admitted.
 
@@ -626,5 +656,83 @@ Proof.
     forwards (v'&m2'&Hv'&Hm2'&HR'): IHHR Ht1 HS Hm1.
     exists val_error m2'. splits*. constructors*.
     inverts* Hv'. }
-  { admit. }
+  { (* error binop *)
+    inverts Ht as Ht1' Ht2'. inverts Ht1' as Hv1.
+    inverts Ht2' as Hv2.
+    exists val_error m1'. splits*.
+    applys* red_binop_error. introv HN.
+    inverts HN as HN. inverts HN.
+    inverts Hv1. inverts Hv2.
+    forwards*: H. }
+  { (* error get not a ptr *)
+    inverts Ht as Hp.
+    exists val_error m1'. splits*.
+    constructors*.
+    applys* not_is_ptr_tr. }
+  { (* error get bad address *)
+    inverts Ht as Hp. subst. inverts Hp as Hv'.
+    inverts Hv' as Hπ. 
+    exists val_error m1'. splits*.
+    applys* red_get_error_bad_address. 
+    inverts Hm1 as HD Hm1. 
+    introv HN. inverts HN as HN. inverts HN as HB HR. 
+    forwards*: H0. 
+    forwards Hi: index_of_binds HB. typeclass.
+    rewrite index_eq_indom in Hi.
+    rewrite <- HD in Hi at 1.
+    forwards Hi': index_of_indom Hi.
+    forwards: Hm1 Hi'.
+    forwards Heq: read_of_binds HB. subst. 
+    forwards (w&Hw&HR'): tr_read_accesses_inv H Hπ HR.
+    exists w. constructors*. 
+    applys* binds_of_indom_read. }
+  { (* error set not a ptr *)
+    inverts Ht as Hp Ht.
+    exists val_error m1'. splits*.
+    constructors*.
+    applys* not_is_ptr_tr. }
+  { (* error set bad address *) 
+    inverts Ht as Hp Ht. 
+    exists val_error m1'. splits*. 
+    subst. inverts Hp as Hp. inverts Hp as Hπ.
+    inverts Ht as Hv. 
+    applys* red_set_error_bad_address.
+    introv HN. forwards*: H1.
+    inverts HN as HW. inverts HW as HB HW.
+    forwards Hi: index_of_binds HB. typeclass.
+    inverts Hm1 as HD Hm1.
+    rewrite index_eq_indom in Hi.
+    rewrite <- HD in Hi at 1.
+    forwards Hi': index_of_indom Hi.
+    forwards: Hm1 Hi'.
+    forwards Heq: read_of_binds HB. subst. 
+    forwards (v2'&Hv2'&HW'): tr_write_accesses_inv H Hv Hπ HW.
+    exists m[l:=v2']. constructors*.
+    applys* binds_of_indom_read. }
+  { (* error new null *) 
+    admit. }
 Admitted.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

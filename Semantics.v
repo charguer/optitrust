@@ -394,14 +394,14 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       p = val_abstract_ptr l π ->
       ~ (exists w, read_state m l π w) ->
       red S m (trm_app (prim_get T) (p::nil)) m val_error
-  | red_set_error_not_a_ptr : forall S m1 T (p:trm) (t:trm) m2,
+  | red_set_error_not_a_ptr : forall S m T (p:trm) (t:trm),
       ~ is_ptr p ->
-      red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_error
-  | red_set_error_bad_address : forall (v:val) l π  S m1 m2 T (p:trm) (t:trm),
+      red S m (trm_app (prim_set T) (p::t::nil)) m val_error
+  | red_set_error_bad_address : forall (v:val) l π  S m T (p:trm) (t:trm),
       p = val_abstract_ptr l π ->
       t = trm_val v ->
-      ~ (exists m2, write_state m1 l π v m2) ->
-      red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_error
+      ~ (exists m', write_state m l π v m') ->
+      red S m (trm_app (prim_set T) (p::t::nil)) m val_error
   | red_new_error_null : forall l (v:val) S m1 T m2 l,
       l = null ->
       red S m1 (trm_app (prim_new T) ((trm_val v)::nil)) m2 val_error
