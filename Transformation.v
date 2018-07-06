@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics LibMap.
+Require Export Semantics LibSet LibMap.
 
 
 
@@ -250,20 +250,6 @@ Proof.
     inverts H0; tryfalse. }
 Qed. 
 
-Generalizable Variables A B.
-Axiom map_ext : forall A `{Inhab B} (m1 m2:map A B),
-  dom m1 = dom m2 ->
-  (forall i, index m1 i -> m1[i] = m2[i]) ->
-  m1 = m2.
-
-Lemma dom_eq_trans : forall A `{Inhab B} (s1 s2 s3:map A B),
-  dom s1 = dom s2 ->
-  dom s2 = dom s3 ->
-  dom s1 = dom s3.
-Proof.
-  introv _ HD1 HD2. rewrite* HD1.
-Qed.
-
 Theorem functional_tr_val : forall gt v v1 v2,
   tr_val gt v v1 ->
   tr_val gt v v2 ->
@@ -393,60 +379,159 @@ Lemma neq_tr : forall gt v1 v2 v1' v2',
 Proof.
 Admitted.
 
-(* ---------------------------------------------------------------------- *)
-(** Auxiliary set results *)
-
-Axiom in_union : forall A (x:A) (S1 S2:set A), 
-        (x \in S1) \/ (x \in S2) -> 
-        x \in (S1 \u S2).
-
-Axiom in_setminus : forall A (x:A) (S1 S2: set A),
-        x \in S1 -> 
-        x \notin S2 -> 
-        x \in (S1 \- S2).
-
 Axiom not_tr_val_error : forall gt v1 v2, 
   tr_val gt v1 v2 -> 
   ~ is_error v2.
 
-Axiom index_of_update_neq : forall A B (v:B) (l l':A) (m:map A B),
-  index m[l:=v] l' ->
-  l <> l' ->
-  index m l'.
 
-Axiom index_of_update_neq' : forall A (v:A) i i' (l:list A),
-  index l[i:=v] i' ->
-  i <> i' ->
-  index l i'.
+(* ---------------------------------------------------------------------- *)
+(* TLC BUFFER *)
+
+Section Autorewrite.
+Variables (A : Type).
+Implicit Types x y : A.
+Implicit Types E F : set A.
+
+Lemma set_notin_eq : forall x E,
+  x \notin E = ~ x \in E.
+Proof using. apply notin_eq. Qed.
+
+End Autorewrite.
+
+Hint Rewrite set_notin_eq : rew_set.
+
+Ltac eliminate_neq_goal tt :=
+  match goal with |- ?x <> ?y =>
+    let H := fresh in intros H; subst_hyp H end.
+
+Ltac set_prove_setup use_classic ::=
+  intros;
+  try match goal with |- ?x <> ?y => intros ? end;
+  try substs;
+  rew_set_tactic tt;
+  try set_specialize use_classic;
+  rew_set_tactic tt.
+
+Ltac set_prove_conclude ::=
+  solve [ intros; subst; intuition eauto ].
+
+(** Use [set_prove_show] to see what preprocessing is done before
+   [set_prove_conclude] gets called.  *)
+
+Ltac set_prove_show :=
+  set_prove_setup false.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Auxiliary set results *)
+
+
+Lemma in_union : forall A (x:A) (S1 S2:set A), 
+        (x \in S1) \/ (x \in S2) -> 
+        x \in (S1 \u S2).
+Proof using. set_prove. Qed.
+
+
+Lemma in_setminus : forall A (x:A) (S1 S2: set A),
+        x \in S1 -> 
+        x \notin S2 -> 
+        x \in (S1 \- S2).
+Proof using. set_prove. Qed.
 
 Lemma in_notin_neq : forall A (x y:A) (S:set A),
   x \in S ->
   y \notin S ->
   y <> x.
-Admitted.
+Proof using. set_prove. Qed.
 
-Axiom notin_notin_subset : forall A (x:A) (S1 S2:set A),
+Lemma notin_notin_subset : forall A (x:A) (S1 S2:set A),
   S1 \c S2 ->
   x \notin S2 ->
   x \notin S1.
+Proof using. set_prove. Qed.
 
 Lemma in_subset : forall A (x:A) (S1 S2:set A),
   S2 \c S1 ->
   x \in S2 ->
   x \in S1.
-Admitted.
-(*
-intros. set_prove.
-*)
+Proof using. set_prove. Qed.
 
-Axiom in_single : forall A (x:A) (S:set A),
+Lemma in_single : forall A (x:A) (S:set A),
   S = '{x} ->
   x \in S.
+Proof using. set_prove. Qed.
 
-Axiom union_eq : forall A (S1 S2 S3 S4:set A),
+Lemma union_eq : forall A (S1 S2 S3 S4:set A),
   S1 = S3 ->
   S2 = S4 ->
   S1 \u S2 = S3 \u S4.
+Proof using. set_prove. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Auxiliary map results *)
+
+Section MapProperties.
+Generalizable Variables A B.
+
+Axiom map_ext : forall A `{Inhab B} (m1 m2:map A B),
+  dom m1 = dom m2 ->
+  (forall i, index m1 i -> m1[i] = m2[i]) ->
+  m1 = m2.
+
+End MapProperties.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Auxiliary index results *)
+
+Section IndexProperties.
+Generalizable Variables A B.
+
+Lemma index_update_eq : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
+  index (m[i:=v]) j = (j = i \/ index m j).
+Proof using. intros. rewrite index_eq_indom, indom_update_eq; auto. Qed.
+
+Lemma index_update_inv : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
+  index (m[i:=v]) j ->
+  (j = i \/ index m j).
+Proof using. intros. rewrite index_update_eq in *; auto. Qed.
+
+Lemma index_of_index_update_at_index : forall A B `{Inhab B} (m:map A B) (i j:A) (v:B),
+  index (m[i:=v]) j ->
+  index m i ->
+  index m j.
+Proof using.
+  introv IB H1 H2. rewrite index_update_eq in H1. destruct H1; subst*. 
+  rewrite index_eq_indom in *. auto.
+  (* forwards*: indom_of_indom_update_at_indom. *)
+Qed.
+
+Lemma index_of_index_update_neq : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
+  index (m[i:=v]) j ->
+  i <> j ->
+  index m j.
+Proof using.
+  introv H1 H2 N. rewrite index_update_eq in *; auto. destruct H2; auto_false.
+Qed.
+
+Lemma indom_update_of_index : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
+  index m j ->
+  index (m[i:=v]) j.
+Proof using. intros. rewrite~ index_update_eq. Qed.
+
+Lemma index_update_same : forall A `{Inhab B} (m:map A B) (i:A) (v:B),
+  index (m[i:=v]) i.
+Proof using. intros. rewrite~ index_update_eq. Qed.
+
+End IndexProperties.
+
+(* TODO: this will later be factorized in TLC *)
+Lemma index_of_update_neq' : forall A (v:A) i i' (l:list A),
+  index l[i:=v] i' ->
+  i <> i' ->
+  index l i'.
+Proof using. introv H N. rewrite~ LibListZ.index_update_eq in H. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -604,7 +689,7 @@ Proof.
         { introv Hif0. rewrite read_update. case_if*.
           { subst_hyp C. rewrite* read_update_same. }
           { rewrite* read_update_neq. 
-            forwards Hif0': index_of_update_neq Hif0 C.
+            forwards Hif0': index_of_index_update_neq Hif0 C. auto.
             forwards*: Hfs Hif0'. } } }
       { constructors*. applys* binds_of_indom_read.
         rewrite index_eq_indom in Hidx.
@@ -696,8 +781,7 @@ Proof.
         rewrite* HDm1. rewrite* HDm1'. }
       { introv Hi'. do 2 rewrites read_update.
         case_if*. 
-        forwards Hi'': index_of_update_neq Hi' C. 
-        forwards*: Htrm Hi''. } }
+        forwards* Hi'': index_of_index_update_neq Hi' C. } }
     { constructors*. applys* not_tr_val_error.
       constructors*. applys* binds_of_indom_read.
       rewrite <- HD at 1. forwards*: indom_of_binds Hb. } }
@@ -713,8 +797,7 @@ Proof.
       { introv Hi. rewrite read_update. case_if*.
         { subst_hyp C. rewrite* read_update_same. }
         { rewrite* read_update_neq. 
-          forwards Hi': index_of_update_neq Hi C.
-          forwards*: Htrm Hi'. } } }
+          forwards* Hi': index_of_index_update_neq Hi C. } } }
     { constructors*. rewrite* <- HD. } }
   { (* struct_access *) 
     inverts Ht as; inverts Hm1 as HD Htrm.
