@@ -476,58 +476,6 @@ End MapProperties.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Auxiliary index results *)
-
-Section IndexProperties.
-Generalizable Variables A B.
-
-Lemma index_update_eq : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
-  index (m[i:=v]) j = (j = i \/ index m j).
-Proof using. intros. rewrite index_eq_indom, indom_update_eq; auto. Qed.
-
-Lemma index_update_inv : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
-  index (m[i:=v]) j ->
-  (j = i \/ index m j).
-Proof using. intros. rewrite index_update_eq in *; auto. Qed.
-
-Lemma index_of_index_update_at_index : forall A B `{Inhab B} (m:map A B) (i j:A) (v:B),
-  index (m[i:=v]) j ->
-  index m i ->
-  index m j.
-Proof using.
-  introv IB H1 H2. rewrite index_update_eq in H1. destruct H1; subst*. 
-  rewrite index_eq_indom in *. auto.
-  (* forwards*: indom_of_indom_update_at_indom. *)
-Qed.
-
-Lemma index_of_index_update_neq : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
-  index (m[i:=v]) j ->
-  i <> j ->
-  index m j.
-Proof using.
-  introv H1 H2 N. rewrite index_update_eq in *; auto. destruct H2; auto_false.
-Qed.
-
-Lemma indom_update_of_index : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
-  index m j ->
-  index (m[i:=v]) j.
-Proof using. intros. rewrite~ index_update_eq. Qed.
-
-Lemma index_update_same : forall A `{Inhab B} (m:map A B) (i:A) (v:B),
-  index (m[i:=v]) i.
-Proof using. intros. rewrite~ index_update_eq. Qed.
-
-End IndexProperties.
-
-(* TODO: this will later be factorized in TLC *)
-Lemma index_of_update_neq' : forall A (v:A) i i' (l:list A),
-  index l[i:=v] i' ->
-  i <> i' ->
-  index l i'.
-Proof using. introv H N. rewrite~ LibListZ.index_update_eq in H. Qed.
-
-
-(* ---------------------------------------------------------------------- *)
 (** Correctness of access transformations *)
 
 Lemma tr_read_accesses : forall gt v π v' π' w,

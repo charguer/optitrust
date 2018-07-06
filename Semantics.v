@@ -171,6 +171,7 @@ Proof using. apply (Inhab_of_val \{}). Qed.
 
 Hint Extern 1 (Inhab val) => apply Inhab_val.
 
+Hint Extern 1 (Inhab typ) => apply Inhab_typ.
 
 (* ---------------------------------------------------------------------- *)
 (** Coercions *)
@@ -269,17 +270,17 @@ Inductive read_accesses : val -> accesses -> val -> Prop :=
       index a i -> 
       read_accesses (a[i]) π v ->
       read_accesses (val_array a) ((access_array i)::π) v
-  | read_accesses_struct : forall T v1 s f π v2,
-      binds s f v1 ->
-      read_accesses v1 π v2 ->
-      read_accesses (val_struct T s) ((access_field T f)::π) v2.
+  | read_accesses_struct : forall T s f π v,
+      index s f ->
+      read_accesses s[f] π v ->
+      read_accesses (val_struct T s) ((access_field T f)::π) v.
 
 (** m(l)[π] = v *)
 
 Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
-  | read_state_intro : forall v1, 
-      binds m l v1 ->
-      read_accesses v1 π v ->
+  | read_state_intro :
+      index m l ->
+      read_accesses m[l] π v ->
       read_state m l π v.
 
 (** v[π := w] = v' *)
@@ -288,24 +289,24 @@ Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
   | write_accesses_nil : forall v1 v2 w,
       v2 = w ->
       write_accesses v1 nil w v2
-  | write_accesses_array : forall v1 v2 a1 (i:Z) π w a2,
+  | write_accesses_array : forall v1 v2 a1 i π w a2,
       index a1 i -> 
-      write_accesses (a1[i]) π w v2 ->
-      a2 = update a1 (i:Z) v2 ->
+      write_accesses a1[i] π w v2 ->
+      a2 = update a1 i v2 ->
       write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
-  | write_accesses_struct : forall T v1 s1 s2 f π w v2,
-      binds s1 f v1 ->
-      write_accesses v1 π w v2 ->
-      s2 = s1[f := v2] ->
+  | write_accesses_struct : forall T s1 s2 f π w v,
+      index s1 f ->
+      write_accesses s1[f] π w v ->
+      s2 = s1[f := v] ->
       write_accesses (val_struct T s1) ((access_field T f)::π) w (val_struct T s2).
 
 (** m[l := m(l)[π := w]] = m' *)
 
 Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
-  | write_mem_intro : forall v1 v2, 
-      binds m l v1 ->
-      write_accesses v1 π w v2 ->
-      m' = m[l := v2] ->
+  | write_mem_intro : forall v, 
+      index m l ->
+      write_accesses m[l] π w v ->
+      m' = m[l := v] ->
       write_state m l π w m'.
 
 
@@ -443,7 +444,8 @@ Proof.
   introv H. induction H; try subst; constructors*.
   { applys* index_update. } 
   { rewrite* LibListZ.read_update_same. } 
-  { applys* binds_update_same. }
+  { applys* index_update_same. }
+  { rewrite* read_update_same. }
 Qed.
 
 Lemma read_write_state_same : forall m m' l π w,
@@ -451,8 +453,9 @@ Lemma read_write_state_same : forall m m' l π w,
   read_state m' l π w.
 Proof.
   introv H. induction H. constructors*.
-  { subst m'. applys* binds_update_same. }
-  { applys* read_write_accesses_same. }
+  { subst m'. applys* index_update_same. }
+  { subst m'. applys* read_write_accesses_same.
+    rewrite* read_update_same. }
 Qed.
 
 (** We need the paths to be disjoint, not just different. *)
@@ -524,7 +527,7 @@ Definition env_add_binding E z X :=
 (** Typing of a struct field *)
 
 Definition typing_field (C:typdefctx) (S:typvar) (f:field) (T:typ) : Prop :=
-  exists s, binds C S s /\ binds s f T.
+  C[S][f] = T.
 
 (** T[π] = T1 *)
 
@@ -543,9 +546,8 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
 (** φ(l)..π = T *)
 
 Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
-  | read_phi_intro : forall T1, 
-      binds φ l T1 -> 
-      follow_typ C T1 π T -> 
+  | read_phi_intro : 
+      follow_typ C φ[l] π T -> 
       read_phi C φ l π T.
 
 
@@ -564,16 +566,18 @@ Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
   | typing_val_double : forall C φ d,
       typing_val C φ (val_double d) typ_double
   | typing_val_struct : forall C φ mt mv T,
-      binds C T mt ->
+      C[T] = mt ->
       dom mt = dom mv ->
-      (forall f v Tv, 
-          binds mt f Tv -> 
-          binds mv f v ->
-          typing_val C φ v Tv) ->
+      (forall f, 
+          index mt f -> 
+          index mv f ->
+          typing_val C φ mv[f] mt[f]) ->
       typing_val C φ (val_struct T mv) (typ_struct T)
   | typing_val_array : forall C φ a T (n:nat),
-      (forall i, index a i -> typing_val C φ a[i] T) -> 
       length a = n ->
+      (forall i, 
+        index a i -> 
+        typing_val C φ a[i] T) -> 
       typing_val C φ (val_array a) (typ_array T n)
   | typing_val_abstract_ptr : forall C φ l π T,
       read_phi C φ l π T ->
@@ -642,9 +646,9 @@ Inductive typing : env -> trm -> typ -> Prop :=
 
 Definition state_typing (C:typdefctx) (φ:phi) (m:state) : Prop :=
       dom φ \c dom m
-  /\  (forall l T, binds φ l T ->
-         exists v, binds m l v
-               /\  typing_val C φ v T).
+  /\  (forall l T v, 
+                φ[l] = T -> 
+        m[l] = v /\ typing_val C φ v T).
 
 Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
   forall x v T,
@@ -664,27 +668,22 @@ Hint Constructors typing_val redbinop.
 (* ---------------------------------------------------------------------- *)
 (** Functional predicates *)
 
-(** TODO: this tactic will no longer be needed after removing binds *)
-
-Ltac binds_inj := exploit_functional constr:(@binds) constr:(@binds_inj).
-
-Lemma typing_field_inj : forall C S f T1 T2,
+Lemma functional_typing_field : forall C S f T1 T2,
   typing_field C S f T1 ->
   typing_field C S f T2 ->
   T1 = T2.
 Proof.
-  introv H1 H2. inverts H1 as H1. inverts H2 as H2.
-  inverts H1. inverts H2. binds_inj. binds_inj. auto.
+  introv H1 H2. inverts* H1.
 Qed.
 
 (* Types are well-formed *)
-Lemma follow_typ_inj : forall C T π T1 T2,
+Lemma functional_follow_typ : forall C T π T1 T2,
   follow_typ C T π T1 ->
   follow_typ C T π T2 ->
   T1 = T2.
 Proof.
   introv HF1 HF2. induction HF1; inverts* HF2.
-  { applys IHHF1. forwards: typing_field_inj H H3. subst*. }
+  { applys IHHF1. forwards*: functional_typing_field C T f Tf. subst*. }
 Qed.
 
 (* φ is well-formed *)
@@ -694,7 +693,7 @@ Lemma read_phi_inj : forall C φ l π T1 T2,
   T1 = T2.
 Proof.
   introv H1 H2. inverts H1. inverts H2.
-  binds_inj. applys* follow_typ_inj.
+  applys* functional_follow_typ.
 Qed.
 
 
@@ -718,6 +717,13 @@ Qed.
 
 (** Auxiliary lemma for typing preservation of [get] *)
 
+(* TODO: Put this in TLC buffer or find equivalent lemma. *)
+Generalizable Variables A B.
+Axiom index_dom_same : forall A `{ Inhab B } (m1 m2:map A B) k,
+  index m1 k ->
+  dom m2 = dom m1 ->
+  index m2 k.
+
 Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
   typing_val C φ w1 T1 ->
   follow_typ C T1 π T2 ->
@@ -726,10 +732,9 @@ Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
 Proof.
   introv HT HF HR. gen π. induction HT; intros;
    try solve [ inverts HR; inverts HF; constructors* ].
-  { inverts HF as; inverts HR as; try constructors*.
-    introv HB1 HR HB2 HF.
-    (* TODO: here use: [destruct HB2 as (v&HBv&HTf).] *)
-    inverts HB2. inverts H3. binds_inj. eauto. (* IH *) }
+  { inverts HF as; inverts HR as; subst*; try constructors*.
+    introv Hi HR HTf HF. inverts HTf. applys* H2.
+    applys* index_dom_same. }
   { inverts HF as; inverts HR as; try constructors*.
     introv HN1 HR HT Hi. eauto. (* IH *) }
 Qed.
