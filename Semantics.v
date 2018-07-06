@@ -251,8 +251,8 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
       redbinop binop_add (val_int n1) (val_int n2) (val_int (n1 + n2))
   | redbinop_sub : forall n1 n2,
       redbinop binop_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
-  | redbinop_eq : forall n1 n2,
-      redbinop binop_eq (val_int n1) (val_int n2) (val_bool (isTrue (n1 = n2))).
+  | redbinop_eq : forall v1 v2,
+      redbinop binop_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
 
 (* ---------------------------------------------------------------------- *)

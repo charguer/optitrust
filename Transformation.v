@@ -250,16 +250,35 @@ Proof.
     inverts H0; tryfalse. }
 Qed. 
 
+Generalizable Variables A B.
+Axiom map_ext : forall A `{Inhab B} (m1 m2:map A B),
+  dom m1 = dom m2 ->
+  (forall i, index m1 i -> m1[i] = m2[i]) ->
+  m1 = m2.
+
+Lemma dom_eq_trans : forall A `{Inhab B} (s1 s2 s3:map A B),
+  dom s1 = dom s2 ->
+  dom s2 = dom s3 ->
+  dom s1 = dom s3.
+Proof.
+  introv _ HD1 HD2. rewrite* HD1.
+Qed.
+
 Theorem functional_tr_val : forall gt v v1 v2,
   tr_val gt v v1 ->
   tr_val gt v v2 ->
   v1 = v2.
-Proof.
+Proof using.
   introv H1 H2. gen v2. induction H1; intros; 
-  try solve [ inverts H2 ; fequals* ]. (* TODO: use inverts_head *)
-  { inverts H2. fequals. applys* functional_tr_accesses. }
-  { inverts H2. fequals. applys* eq_of_extens. math. }
-  { admit. } (* extens lemma for maps *)
+  inverts_head tr_val; try solve [ fequals* ].
+  { fequals. applys* functional_tr_accesses. }
+  { fequals. applys* eq_of_extens. math. }
+  { (*subst. inverts_head make_group_tr'. fequals. 
+    applys* map_ext. rew_set in *. intuition. {  } intuition. auto.
+    { admit. } 
+    { admit. } }
+  { subst. simpls. contradiction.*) admit. }
+  { admit. }
 Admitted.
 
 Theorem functional_tr_trm : forall gt t t1 t2,
@@ -366,6 +385,13 @@ Lemma red_app_not_is_error_2 : forall S m op t ts m' v w,
 Proof.
 Admitted.
 
+Lemma neq_tr : forall gt v1 v2 v1' v2',
+  v1 <> v2 ->
+  tr_val gt v1 v1' ->
+  tr_val gt v2 v2' ->
+  v1' <> v2'.
+Proof.
+Admitted.
 
 (* ---------------------------------------------------------------------- *)
 (** Auxiliary set results *)
@@ -589,6 +615,10 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
+Axiom isTrue_var_eq : forall A (v1 v2:A), v1 = v2 -> isTrue (v1 = v2) = true.
+
+Axiom isTrue_var_neq : forall A (v1 v2:A), v1 <> v2 -> isTrue (v1 = v2) = false. 
+
 Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   tr_trm gt t t' ->
   tr_stack gt S S' ->
@@ -625,9 +655,18 @@ Proof.
     inverts Ht as Ht1 Ht2.
     inverts Ht1 as Ht1. inverts Ht2 as Ht2.
     inverts H; 
-    exists __ m1'; splits*;
+    try solve [ exists __ m1'; splits*;
     inverts Ht1; inverts Ht2; 
-    try solve [ repeat constructors* ]. }
+    repeat constructors* ].
+    (* equality case *)
+    exists (val_bool (isTrue (v' = v'0))) m1'.
+    splits*.
+    { tests C: (v1 = v2). 
+      { forwards: functional_tr_val Ht1 Ht2. subst.
+        repeat rewrite* isTrue_var_eq. }
+      { forwards*: neq_tr.
+        repeat rewrite* isTrue_var_neq. } }
+    { repeat constructors*. } }
   { (* get *)
     inverts Ht as _ Hp. inverts Hm1 as HD Htrm.
     inverts H0 as Hb Ha. forwards Hi: index_of_binds Hb.
