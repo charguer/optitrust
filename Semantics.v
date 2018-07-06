@@ -17,10 +17,13 @@ Require Export LibString LibCore LibLogic LibReflect
   LibOption LibRelation LibLogic LibOperation LibEpsilon 
   LibMonoid LibSet LibContainer LibList LibListZ LibMap.
 
-Local Open Scope set_scope.
+Open Scope set_scope.
+Open Scope container_scope.
+Open Scope list_scope.
+
 
 (* ********************************************************************** *)
-(* * Source language syntax *)
+(* * Syntax *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -68,7 +71,6 @@ Definition typdefctx_size := map typvar size.
 Definition typdefctx_offset := map typvar (map field offset).
 
 Section TypeSizes.
-
 Open Scope nat_scope.
 
 Fixpoint sizeof (S:typdefctx_size) (T:typ) : nat := 
@@ -147,6 +149,15 @@ Inductive trm : Type :=
 
 Notation trm_seq := (trm_let bind_anon).
 
+(** Shorthand [vars], [vals] and [trms] for lists of items. *)
+
+Definition vals : Type := list val.
+Definition trms : Type := list trm.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Inhabited types *)
+
 (** The type of values is inhabited *)
 
 Global Instance Inhab_val : Inhab val.
@@ -158,10 +169,7 @@ Proof using. apply (Inhab_of_val typ_unit). Qed.
 Global Instance Inhab_typdef_struct : Inhab typdef_struct.
 Proof using. apply (Inhab_of_val \{}). Qed.
 
-(** Shorthand [vars], [vals] and [trms] for lists of items. *)
-
-Definition vals : Type := list val.
-Definition trms : Type := list trm.
+Hint Extern 1 (Inhab val) => apply Inhab_val.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -175,11 +183,8 @@ Coercion trm_var : var >-> trm.
 Coercion trm_app : prim >-> Funclass.
 
 
-(* ********************************************************************** *)
-(* * Source language semantics *)
-
 (* ---------------------------------------------------------------------- *)
-(** Big-step evaluation *)
+(** Implicit types *)
 
 Implicit Types t : trm.
 Implicit Types v : val.
@@ -190,11 +195,13 @@ Implicit Types z : bind.
 Implicit Types vs : vals.
 Implicit Types ts : trms.
 
-Definition state := map loc val.
 
-Definition stack := Ctx.ctx val.
 
-Section Red.
+(* ********************************************************************** *)
+(* * Semantics *)
+
+(* ---------------------------------------------------------------------- *)
+(** Auxiliary predicates for the semantics *)
 
 Definition is_val (t:trm) :=
   match t with
@@ -207,21 +214,37 @@ Definition is_error (v:val) :=
 
 Definition is_val_bool (v:val) :=
   match v with
-    | val_bool b => True
-    | _ => False
+  | val_bool b => True
+  | _ => False
   end.
 
 Definition is_ptr (t:trm) :=
   match t with
-    | trm_val (val_abstract_ptr l π) => True
-    | _ => False
+  | trm_val (val_abstract_ptr l π) => True
+  | _ => False
   end.
 
 Definition is_int (t:trm) :=
   match t with
-    | trm_val (val_int i) => True
-    | _ => False
+  | trm_val (val_int i) => True
+  | _ => False
   end.
+
+
+(* ---------------------------------------------------------------------- *)
+(** State and stack *)
+
+(** Representation of the state *)
+
+Definition state := map loc val.
+
+(** Representation of the stack *)
+
+Definition stack := Ctx.ctx val.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Semantics of unary/binary operations *)
 
 Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_add : forall n1 n2,
@@ -231,23 +254,26 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_eq : forall v1 v2,
       redbinop binop_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
-Open Scope nat_scope.
-Open Scope list_scope.
+
+(* ---------------------------------------------------------------------- *)
+(** Semantics of memory accesses *)
 
 (** v[π] = w *)
+
 Inductive read_accesses : val -> accesses -> val -> Prop :=
   | read_accesses_nil : forall v,
       read_accesses v nil v
-  | read_accesses_array : forall v1 a (i:Z) π v2,
+  | read_accesses_array : forall a (i:Z) π v,
       index a i -> 
-      read_accesses (a[i]) π v2 ->
-      read_accesses (val_array a) ((access_array i)::π) v2
+      read_accesses (a[i]) π v ->
+      read_accesses (val_array a) ((access_array i)::π) v
   | read_accesses_struct : forall T v1 s f π v2,
       binds s f v1 ->
       read_accesses v1 π v2 ->
       read_accesses (val_struct T s) ((access_field T f)::π) v2.
 
 (** m(l)[π] = v *)
+
 Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
   | read_state_intro : forall v1, 
       binds m l v1 ->
@@ -255,6 +281,7 @@ Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
       read_state m l π v.
 
 (** v[π := w] = v' *)
+
 Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
   | write_accesses_nil : forall v1 v2 w,
       v2 = w ->
@@ -271,6 +298,7 @@ Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
       write_accesses (val_struct T s1) ((access_field T f)::π) w (val_struct T s2).
 
 (** m[l := m(l)[π := w]] = m' *)
+
 Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
   | write_mem_intro : forall v1 v2, 
       binds m l v1 ->
@@ -278,46 +306,12 @@ Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop 
       m' = m[l := v2] ->
       write_state m l π w m'.
 
-(** Some lemmas *)
 
-(** We need the paths to be disjoint, not just different. *)
-(*Lemma read_write_accesses_neq : forall v1 v2 π π' w1 w2,
-  read_accesses v1 π w1 ->
-  write_accesses v1 π' w2 v2 ->
-  p <> p' ->
-  read_accesses v2 π w1.
-Proof.
-Admitted.
-
-Lemma read_write_state_neq : forall m l π w m' l' π' v,
-  read_state m l' π' v ->
-  write_state m l π w m' ->
-  (l <> l' \/ π <> π') ->
-  read_state m' l' π' v.
-Proof.
-  introv Hr Hw Hneq. gen m l π.
-Admitted. *)
-
-Lemma read_write_accesses_same : forall v1 v2 π w,
-  write_accesses v1 π w v2 ->
-  read_accesses v2 π w.
-Proof.
-  introv H. induction H; try subst; constructors*.
-  { applys* index_update. } 
-  { rewrite* LibListZ.read_update_same. } 
-  { applys* binds_update_same. }
-Qed.
-
-Lemma read_write_state_same : forall m m' l π w,
-  write_state m l π w m' ->
-  read_state m' l π w.
-Proof.
-  introv H. induction H. constructors*.
-  { subst m'. applys* binds_update_same. }
-  { applys* read_write_accesses_same. }
-Qed.
+(* ---------------------------------------------------------------------- *)
+(** Big-step evaluation *)
 
 (** <S, m, t> // <m', v> *)
+
 Inductive red : stack -> state -> trm -> state -> val -> Prop :=
   | red_var : forall S m v x,
       Ctx.lookup x S = Some v ->
@@ -373,6 +367,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 t2 m2 v2 ->
       red S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
       red S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3
+
   (* Error cases *)
   | red_var_error :  forall S m x,
       Ctx.lookup x S = None ->
@@ -419,29 +414,115 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       red S m1 t2 m2 val_error ->
       red S m1 (trm_app op ((trm_val v1)::t2::ts)) m2 val_error.
 
-End Red.
-
 (* Derived *)
 
 Lemma red_seq : forall S m1 m2 m3 t1 t2 r1 r,
   red S m1 t1 m2 r1 ->
   ~ is_error r1 ->
   red S m2 t2 m3 r ->
-  ~ is_error r -> 
   red S m1 (trm_seq t1 t2) m3 r.
 Proof using. intros. applys* red_let. Qed.
 
 
+
+(* ********************************************************************** *)
+(* * Lemmas about the semantics *)
+
 (* ---------------------------------------------------------------------- *)
-(** Type inference rules *)
+(** Lemmas about accesses *)
+
+Lemma read_write_accesses_same : forall v1 v2 π w,
+  write_accesses v1 π w v2 ->
+  read_accesses v2 π w.
+Proof.
+  introv H. induction H; try subst; constructors*.
+  { applys* index_update. } 
+  { rewrite* LibListZ.read_update_same. } 
+  { applys* binds_update_same. }
+Qed.
+
+Lemma read_write_state_same : forall m m' l π w,
+  write_state m l π w m' ->
+  read_state m' l π w.
+Proof.
+  introv H. induction H. constructors*.
+  { subst m'. applys* binds_update_same. }
+  { applys* read_write_accesses_same. }
+Qed.
+
+(** We need the paths to be disjoint, not just different. *)
+(*Lemma read_write_accesses_neq : forall v1 v2 π π' w1 w2,
+  read_accesses v1 π w1 ->
+  write_accesses v1 π' w2 v2 ->
+  p <> p' ->
+  read_accesses v2 π w1.
+Proof.
+Admitted.
+
+Lemma read_write_state_neq : forall m l π w m' l' π' v,
+  read_state m l' π' v ->
+  write_state m l π w m' ->
+  (l <> l' \/ π <> π') ->
+  read_state m' l' π' v.
+Proof.
+  introv Hr Hw Hneq. gen m l π.
+Admitted. *)
+
+
+(* ---------------------------------------------------------------------- *)
+(** Lemmas about the stack structure *)
+
+Lemma ctx_lookup_add_inv {A:Type} : forall C (z1 z2:var) (w1 w2:A),
+  Ctx.lookup z1 (Ctx.add z2 w1 C) = Some w2 ->
+      (z1 = z2 /\ w1 = w2)
+  \/  (z1 <> z2 /\ Ctx.lookup z1 C = Some w2).
+Proof.
+  introv H. simpls. rewrite var_eq_spec in *. case_if*. { inverts* H. }
+Qed.
+
+
+(* ********************************************************************** *)
+(* * Typing *)
+
+(* TODO: move the typing stuff to a separate file called Typing.v *)
+
+(* ---------------------------------------------------------------------- *)
+(** Typing of state and stack *)
+
+(** Type of the state *)
+
+Definition phi := map loc typ.
+
+(** Type of a stack *)
 
 Definition gamma := Ctx.ctx typ.
-Definition phi := map loc typ.
+
+(** Full typing environment *)
+
+Record env := make_env { 
+  env_typdefctx : typdefctx;
+  env_phi : phi;
+  env_gamma : gamma
+}.
+
+Notation "'make_env''" := make_env.
+
+Definition env_add_binding E z X :=
+  match E with
+  | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
+  end. 
+
+
+(* ---------------------------------------------------------------------- *)
+(** Typing of access paths *)
+
+(** Typing of a struct field *)
 
 Definition typing_field (C:typdefctx) (S:typvar) (f:field) (T:typ) : Prop :=
   exists s, binds C S s /\ binds s f T.
 
 (** T[π] = T1 *)
+
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
       follow_typ C T nil T
@@ -455,26 +536,19 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
       follow_typ C (typ_struct T) ((access_field T f)::π) Tr.
 
 (** φ(l)..π = T *)
+
 Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
   | read_phi_intro : forall T1, 
       binds φ l T1 -> 
       follow_typ C T1 π T -> 
       read_phi C φ l π T.
 
-Record env := make_env { 
-  env_typdefctx : typdefctx;
-  env_phi : phi;
-  env_gamma : gamma
-}.
 
-Definition env_add_binding E z X :=
-  match E with
-  | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
-  end. 
+(* ---------------------------------------------------------------------- *)
+(** Typing of values *)
 
-Notation "'make_env''" := make_env.
+(* TODO: C φ  are constant, so should write [Inductive typing_val C φ : val -> typ -> Prop] *)
 
-(* c and phi *)
 Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
   | typing_val_unit : forall C φ,
       typing_val C φ val_unit typ_unit
@@ -499,6 +573,10 @@ Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
   | typing_val_abstract_ptr : forall C φ l π T,
       read_phi C φ l π T ->
       typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
+
+
+(* ---------------------------------------------------------------------- *)
+(** Typing of terms *)
 
 Inductive typing : env -> trm -> typ -> Prop :=
   (* Closed values *)
@@ -553,9 +631,9 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing (env_add_binding E z T1) t2 T ->
       typing E (trm_let z t1 t2) T.
 
-(* Lemma : fmap_dom m \c fmap_dom φ <-> (forall l, fmap_indom m l -> fmap_indom φ l) *)
 
-Open Scope container_scope.
+(* ---------------------------------------------------------------------- *)
+(** Typing of the state and the stack *)
 
 Definition state_typing (C:typdefctx) (φ:phi) (m:state) : Prop :=
       dom φ \c dom m
@@ -569,37 +647,19 @@ Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop :=
     Ctx.lookup x Γ = Some T ->
     typing_val C φ v T.
 
-(* Lemma for stack_typing_ctx_add *)
-Lemma ctx_lookup_add_inv {A:Type} : forall C (z1 z2:var) (w1 w2:A),
-  Ctx.lookup z1 (Ctx.add z2 w1 C) = Some w2 ->
-      (z1 = z2 /\ w1 = w2)
-  \/  (z1 <> z2 /\ Ctx.lookup z1 C = Some w2).
-Proof.
-  introv H. simpls. rewrite var_eq_spec in *. case_if*. { inverts* H. }
-Qed.
 
-(* Lemma for let case *)
-Lemma stack_typing_ctx_add : forall C φ z T Γ v S,
-  stack_typing C φ Γ S ->
-  typing_val C φ v T ->
-  stack_typing C φ (Ctx.add z T Γ) (Ctx.add z v S).
-Proof.
-  introv HS HT. unfolds* stack_typing. introv HS1 HT1.
-  destruct z.
-  { simpls. forwards*: HS. }
-  { simpls. rewrite var_eq_spec in *. case_if.
-    { inverts* HS1; inverts* HT1. }
-    { forwards*: HS. } }
-Qed.
+(* ********************************************************************** *)
+(* * Type soundness *)
+
+Section TypeSoundness.
 
 Hint Constructors typing_val redbinop. 
 
-(* DEPRECATED
-Ltac binds_inj := 
-  match goal with H1: binds ?m ?a ?b, H2: binds ?m ?a ?b' |- _=>
-    let HTEMP := fresh in
-    forwards HTEMP: binds_inj H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end. 
-*)
+
+(* ---------------------------------------------------------------------- *)
+(** Functional predicates *)
+
+(** TODO: this section will no longer be needed after removing binds *)
 
 Ltac exploit_functional P P_functional := 
   match goal with H1: ?F ?x1, H2: ?F ?x2 |- _=>
@@ -607,22 +667,7 @@ Ltac exploit_functional P P_functional :=
     let HTEMP := fresh in
     forwards HTEMP: P_functional H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end end.
 
-
 Ltac binds_inj := exploit_functional constr:(@binds) constr:(@binds_inj).
-(* TODO: rename [inj] to [functional] everywhere, e.g. 
-
-   Ltac binds_functional :=
-      exploit_functional constr:(@binds) constr:(@binds_functional).
-*)
-
-(* Todo several functional, you can do:
-
-   Ltac exploit_functional_all := 
-      repeat binds_functional;
-      repeat tr_val_functional;
-      repeat tr_trm_functional.
-
-*)
 
 Lemma typing_field_inj : forall C S f T1 T2,
   typing_field C S f T1 ->
@@ -631,33 +676,6 @@ Lemma typing_field_inj : forall C S f T1 T2,
 Proof.
   introv H1 H2. inverts H1 as H1. inverts H2 as H2.
   inverts H1. inverts H2. binds_inj. binds_inj. auto.
-Qed.
-
-(* Lemma for typing_val_get *)
-Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
-  typing_val C φ w1 T1 ->
-  follow_typ C T1 π T2 ->
-  read_accesses w1 π w2 ->
-  typing_val C φ w2 T2.
-Proof.
-  introv HT HF HR. gen π. induction HT; intros;
-   try solve [ inverts HR; inverts HF; constructors* ].
-  { inverts HF as; inverts HR as; try constructors*.
-    introv HB1 HR HB2 HF. inverts HB2. inverts H3. binds_inj. eauto. (* IH *) }
-  { inverts HF as; inverts HR as; try constructors*.
-    introv HN1 HR HT Hi. eauto. (* IH *) }
-Qed.
-
-(* Lemma for get case *)
-Lemma typing_val_get : forall m l π C φ w T,
-  state_typing C φ m ->
-  read_state m l π w ->
-  read_phi C φ l π T ->
-  typing_val C φ w T.
-Proof.
-  introv (HD&HT) HS HP. inverts HS as Hv1 HR.
-  inverts HP as HT1 HF. forwards (v&Hv&Tv): (rm HT) HT1.
-  binds_inj. applys* typing_val_follow T1 v1.
 Qed.
 
 (* Types are well-formed *)
@@ -680,9 +698,58 @@ Proof.
   binds_inj. applys* follow_typ_inj.
 Qed.
 
-Hint Extern 1 (Inhab val) => apply Inhab_val.
 
-(* Lemma for state_typing_set *)
+(* ---------------------------------------------------------------------- *)
+(** Preservation of typing over operations *)
+
+(** Lemma for typing preservation of [let] *)
+
+Lemma stack_typing_ctx_add : forall C φ z T Γ v S,
+  stack_typing C φ Γ S ->
+  typing_val C φ v T ->
+  stack_typing C φ (Ctx.add z T Γ) (Ctx.add z v S).
+Proof.
+  introv HS HT. unfolds* stack_typing. introv HS1 HT1.
+  destruct z.
+  { simpls. forwards*: HS. }
+  { simpls. rewrite var_eq_spec in *. case_if.
+    { inverts* HS1; inverts* HT1. }
+    { forwards*: HS. } }
+Qed.
+
+(** Auxiliary lemma for typing preservation of [get] *)
+
+Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
+  typing_val C φ w1 T1 ->
+  follow_typ C T1 π T2 ->
+  read_accesses w1 π w2 ->
+  typing_val C φ w2 T2.
+Proof.
+  introv HT HF HR. gen π. induction HT; intros;
+   try solve [ inverts HR; inverts HF; constructors* ].
+  { inverts HF as; inverts HR as; try constructors*.
+    introv HB1 HR HB2 HF.
+    (* TODO: here use: [destruct HB2 as (v&HBv&HTf).] *)
+    inverts HB2. inverts H3. binds_inj. eauto. (* IH *) }
+  { inverts HF as; inverts HR as; try constructors*.
+    introv HN1 HR HT Hi. eauto. (* IH *) }
+Qed.
+
+(** Lemma for typing preservation of [get] *)
+
+Lemma typing_val_get : forall m l π C φ w T,
+  state_typing C φ m ->
+  read_state m l π w ->
+  read_phi C φ l π T ->
+  typing_val C φ w T.
+Proof.
+  introv (HD&HT) HS HP. inverts HS as Hv1 HR.
+  inverts HP as HT1 HF. forwards (v&Hv&Tv): (rm HT) HT1.
+  binds_inj. applys* typing_val_follow T1 v1.
+Qed.
+
+(** Auxiliary lemma for typing preservation of [set] *)
+
 Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
   write_accesses v1 π w v2 ->
   typing_val C φ v1 T1 ->
@@ -696,7 +763,8 @@ Proof.
     { intros. rewrite index_update_eq in *. 
       rewrite* read_update_case. case_if*. }
     { rewrite* length_update. } }
-  { inverts HF. inverts HT1. subst s2. constructors*.
+  { inverts HF. (* TODO: here use [inverts as.] so as to name H6 and H7 *)
+    inverts HT1. subst s2. constructors*.
     { unfold state. rewrite* dom_update_at_index. 
       applys* index_of_binds. }
     { intros f' v' Tv'. rewrite binds_update_eq. 
@@ -705,8 +773,8 @@ Proof.
       do 2 binds_inj. auto. } }
 Qed.
 
+(** Lemma for typing preservation of [set] *)
 
-(* Lemma for set case *)
 Lemma state_typing_set : forall T m1 l π v C φ m2,
   state_typing C φ m1 ->
   write_state m1 l π v m2 ->
@@ -716,16 +784,52 @@ Lemma state_typing_set : forall T m1 l π v C φ m2,
 Proof.
   introv HS HW HTp HTv. 
   inverts HS as HD HT. 
-  inverts HW as Hv1 HWA.
+  (* TODO Since you use [v2] later in the script, you chould name it using:
+     [invert HW. intros v1 v2 Hv1 HWA Em2.]
+     But even better is to not change anything here, and remove the reference
+     to [v2] further down. 
+     Note that [v2] will probably disappear anyway when you remove [binds].
+   *)
+  inverts HW as Hv1 HWA.   
   inverts HTp as HP. 
   unfolds. split.
   { unfold state. rewrite* dom_update_at_index. applys* index_of_binds. }
   { intros l' T' HB'. forwards (v'&HB''&HT''): HT HB'. 
     tests Cl: (l' = l).
-    { exists v2. rewrite binds_update_eq; case_if. split~.
-      binds_inj. inverts HP. binds_inj. applys* typing_val_after_write. }
-    { esplit.  rewrite binds_update_eq; case_if. split*. } }
+    { (* TODO: here could do:
+         esplit. rewrite binds_update_eq; case_if. split~. *)
+       exists v2. rewrite binds_update_eq; case_if. split~. 
+       binds_inj. inverts HP. binds_inj. applys* typing_val_after_write. }
+    { esplit. rewrite binds_update_eq; case_if. split*. } }
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Typing state extension *)
+
+Definition extends (φ:phi) (φ':phi) :=
+      dom φ \c dom φ'
+  /\  forall l, l \indom φ -> φ' l = φ l.
+
+(* TODO: I added this for automation *)
+
+Axiom trans_extends : trans extends.
+
+Hint Extern 1 (extends ?φ1 ?φ3) => 
+  match goal with
+  | H: extends ?φ1 ?φ2 |- _ => applys trans_extends H
+  | H: extends ?φ2 ?φ3 |- _ => applys trans_extends H
+  end.
+
+Lemma extends_transitivity_demo : forall φ1 φ2 φ3,
+  extends φ1 φ2 ->
+  extends φ2 φ3 ->
+  extends φ1 φ3.
+Proof using. intros. auto. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Type preservation proof *)
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
   red S m t m' v -> 
@@ -773,10 +877,6 @@ Proof.
     (inverts HT2 as HT; inverts HT); eauto.*)  admit. }
 Admitted.
 
-Definition extends (φ:phi) (φ':phi) :=
-      dom φ \c dom φ'
-  /\  forall l, l \indom φ -> φ' l = φ l.
-
 Theorem type_soundess : forall C φ m t v T Γ S v m',
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
@@ -789,34 +889,12 @@ Theorem type_soundess : forall C φ m t v T Γ S v m',
 Proof.
 Admitted.
 
+
 (* ********************************************************************** *)
-(* * Notation for terms *)
+(* * Notes *)
 
-(* ---------------------------------------------------------------------- *)
-(** Notation for concrete programs *)
+(* TODO: leftover.
+  Lemma : fmap_dom m \c fmap_dom φ <-> (forall l, fmap_indom m l -> fmap_indom φ l) *)
 
-Module NotationForTerms.
 
-(** Note: below, many occurences of [x] have type [bind], and not [var] *)
 
-Notation "'()" := val_unit : trm_scope.
-
-Notation "'If_' t0 'Then' t1 'Else' t2" :=
-  (trm_if t0 t1 t2)
-  (at level 69, t0 at level 0) : trm_scope.
-
-Notation "'If_' t0 'Then' t1 'End'" :=
-  (trm_if t0 t1 val_unit)
-  (at level 69, t0 at level 0) : trm_scope.
-
-Notation "'Let' x ':=' t1 'in' t2" :=
-  (trm_let x t1 t2)
-  (at level 69, x at level 0, right associativity,
-  format "'[v' '[' 'Let'  x  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
-
-Notation "t1 ;;; t2" :=
-  (trm_seq t1 t2)
-  (at level 68, right associativity, only parsing,
-   format "'[v' '[' t1 ']'  ;;;  '/'  '[' t2 ']' ']'") : trm_scope.
-
-End NotationForTerms.
