@@ -566,7 +566,7 @@ Inductive typing_val : typdefctx -> phi -> val -> typ -> Prop :=
   | typing_val_double : forall C φ d,
       typing_val C φ (val_double d) typ_double
   | typing_val_struct : forall C φ mt mv T,
-      C[T] = mt ->
+      mt = C[T] ->
       dom mt = dom mv ->
       (forall f, 
           index mt f -> 
@@ -718,8 +718,8 @@ Qed.
 (** Auxiliary lemma for typing preservation of [get] *)
 
 (* TODO: Put this in TLC buffer or find equivalent lemma. *)
-Generalizable Variables A B.
-Axiom index_dom_same : forall A `{ Inhab B } (m1 m2:map A B) k,
+Generalizable Variables A B C.
+Axiom index_dom_same : forall A `{ Inhab B } `{ Inhab  C } (m1:map A B) (m2:map A C) k,
   index m1 k ->
   dom m2 = dom m1 ->
   index m2 k.
@@ -734,7 +734,7 @@ Proof.
    try solve [ inverts HR; inverts HF; constructors* ].
   { inverts HF as; inverts HR as; subst*; try constructors*.
     introv Hi HR HTf HF. inverts HTf. applys* H2.
-    applys* index_dom_same. }
+    forwards*: index_dom_same Hi H0. }
   { inverts HF as; inverts HR as; try constructors*.
     introv HN1 HR HT Hi. eauto. (* IH *) }
 Qed.
