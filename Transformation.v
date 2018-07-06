@@ -1,22 +1,22 @@
 (**
 
-Basic transformations.
+This file describes transformations of the layout of records and arrays.
+
+Author: Ramon Fernandez I Mir and Arthur Charguéraud.
+
+License: MIT.
 
 *)
 
-
 Set Implicit Arguments.
-
-Require Export Semantics.
-
-
-Hint Constructors red.
-
-Open Scope list_scope.
+Require Export Semantics LibMap.
 
 
-Global Instance Inhab_trm : Inhab trm.
-Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
+
+(* ********************************************************************** *)
+(* * Specification of the transformation *)
+
+Module Example.
 
 (* Initial typdefctx *)
 Definition pos : typdef_struct := (\{})["x" := typ_int]["y" := typ_int]["z" := typ_int].
@@ -27,7 +27,15 @@ Definition struct_x : typdef_struct := (\{})["x" := typ_int].
 Definition pos' : typdef_struct := (\{})["s" := (typ_struct "struct_x")]["y" := typ_int]["z" := typ_int].
 Definition C' : typdefctx := (\{})["pos" := pos'].
 
-(* Grouping transformation *)
+End Example.
+
+
+(* ********************************************************************** *)
+(* * Definition of the transformation *)
+
+(** Grouping transformation 
+    TODO: add some comments here *)
+
 Record group_tr := make_group_tr {
   group_tr_struct_name : typvar; (* Ts *)
   group_tr_fields : set field; (* {..f..} *)
@@ -37,7 +45,8 @@ Record group_tr := make_group_tr {
 
 Notation make_group_tr' := make_group_tr.
 
-(* π ~ |π| *)
+(** Transformation of paths: π ~ |π| *)
+
 Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
   | tr_accesses_nil : 
       tr_accesses gt nil nil
@@ -57,7 +66,8 @@ Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
       (T <> Ts \/ f \notin (group_tr_fields gt)) ->
       tr_accesses gt ((access_field T f)::π) ((access_field T f)::π').
 
-(* v ~ |v| *)
+(** Transformation of values: v ~ |v| *)
+
 Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
   | tr_val_error :
       tr_val gt val_error val_error
@@ -101,32 +111,8 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         tr_val gt s[f] s'[f]) ->
       tr_val gt (val_struct T s) (val_struct T s').
 
-Axiom ctx_vars : forall A, Ctx.ctx A -> set var.
+(** Transformation of terms: t ~ |t| *)
 
-Axiom ctx_vars_eq_lookup_none : forall A (c1 c2:Ctx.ctx A) (x:var),
-  ctx_vars c1 = ctx_vars c2 ->
-  Ctx.lookup x c1 = None ->
-  Ctx.lookup x c2 = None.
-
-(* S ~ |S| *)
-Inductive tr_stack (gt:group_tr) : stack -> stack -> Prop :=
-  | tr_stack_intro : forall S S',
-     ctx_vars S = ctx_vars S' ->
-      (forall x v,
-        Ctx.lookup x S = Some v ->
-        (exists v', Ctx.lookup x S' = Some v' /\ tr_val gt v v')) ->
-      tr_stack gt S S'.
-
-(* m ~ |m| *)
-Inductive tr_state (gt:group_tr) : state -> state -> Prop :=
-  | tr_state_intro : forall m m',
-      dom m = dom m' ->
-      (forall l,
-        index m l ->
-        tr_val gt m[l] m'[l]) ->
-      tr_state gt m m'.
-
-(* t ~ |t| *)
 Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
   | tr_trm_val : forall v v',
       tr_val gt v v' ->
@@ -192,6 +178,60 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       tr_trm gt t t' ->
       tr_trm gt (trm_app op (v::t::ts)) (trm_app op (v'::t'::ts)).*)
 
+(** Transformation of stacks: S ~ |S| *)
+
+(** TODO: ctx_vars, if needed, can be computed something like
+    [to_list (List.map fst S)].
+
+    A more direct definition for the domain equality is
+    [forall x, fresh x S <-> fresh x S'].
+
+    An alternative, is to impose the stack to have the same 
+    structure, with [tr_stack S S' := LibList.Forall2 tr_stack_item S S']
+    with [Inductive tr_stack_item : 
+            | tr_stack_item_intro : tr_val v1 v2 -> tr_stack_item (x,v1) (x,v2).]
+    Then, by constructions, the stacks have the same domains.
+    I would probably recommand this version, and proving as derived lemma
+    that [Ctx.lookup x S = Some v1 -> exists v2, Ctx.lookup x S = Some v2
+          /\ tr_val v1 v2].
+*)
+Axiom ctx_vars : forall A, Ctx.ctx A -> set var.
+
+Axiom ctx_vars_eq_lookup_none : forall A (c1 c2:Ctx.ctx A) (x:var),
+  ctx_vars c1 = ctx_vars c2 ->
+  Ctx.lookup x c1 = None ->
+  Ctx.lookup x c2 = None.
+
+
+Inductive tr_stack (gt:group_tr) : stack -> stack -> Prop :=
+  | tr_stack_intro : forall S S',
+     ctx_vars S = ctx_vars S' ->
+      (forall x v,
+        Ctx.lookup x S = Some v ->
+        (exists v', Ctx.lookup x S' = Some v' /\ tr_val gt v v')) ->
+      tr_stack gt S S'.
+
+
+(** Transformation of states: m ~ |m| *)
+
+Inductive tr_state (gt:group_tr) : state -> state -> Prop :=
+  | tr_state_intro : forall m m',
+      dom m = dom m' ->
+      (forall l,
+        index m l ->
+        tr_val gt m[l] m'[l]) ->
+      tr_state gt m m'.
+
+
+(* ********************************************************************** *)
+(* * Correctness of the transformation *)
+
+Section TransformationsProofs.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Hints *)
+
 Lemma index_of_index_length' : forall A (l' l : list A) i,
   index l' i ->
   length l' = length l ->
@@ -203,7 +243,13 @@ Qed.
 
 Hint Resolve index_of_index_length'.
 
-(* Transformations are functions. *)
+Hint Constructors red tr_trm tr_val tr_accesses tr_state tr_stack 
+                  read_accesses write_accesses.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Functionality of the relations *)
+
 Theorem functional_tr_accesses : forall gt π π1 π2,
   tr_accesses gt π π1 ->
   tr_accesses gt π π2 ->
@@ -211,22 +257,14 @@ Theorem functional_tr_accesses : forall gt π π1 π2,
 Proof.
   introv H1 H2. gen π2. induction H1; intros;
   try solve [ inverts* H2 ; repeat fequals* ].
-  { inverts H4; repeat fequals*;
+  { (* TODO: new proof using new tactic:
+    inverts_head tr_accesses; repeat fequals*;
+    inverts_head Logic.or; repeat fequals*. *)
+    inverts H4; repeat fequals*;
     inverts H11; tryfalse. }
   { inverts H2; repeat fequals*;
     inverts H0; tryfalse. }
-Qed.
-
-Lemma tr_accesses_app : forall gt π1 π2 π1' π2',
-  tr_accesses gt π1 π1' ->
-  tr_accesses gt π2 π2' ->
-  tr_accesses gt (π1 ++ π2) (π1' ++ π2').
-Proof.
-  introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
-  try solve [ subst ; forwards Ha': IHHa1 Ha2 ;
-  repeat rewrite* <- List.app_comm_cons ; constructors* ].
-  1: repeat rewrite* List.app_nil_l. 
-Qed.
+Qed. 
 
 Theorem functional_tr_val : forall gt v v1 v2,
   tr_val gt v v1 ->
@@ -234,7 +272,7 @@ Theorem functional_tr_val : forall gt v v1 v2,
   v1 = v2.
 Proof.
   introv H1 H2. gen v2. induction H1; intros; 
-  try solve [ inverts H2 ; fequals* ].
+  try solve [ inverts H2 ; fequals* ]. (* TODO: use inverts_head *)
   { inverts H2. fequals. applys* functional_tr_accesses. }
   { inverts H2. fequals. applys* eq_of_extens. math. }
   { admit. } (* extens lemma for maps *)
@@ -244,7 +282,7 @@ Theorem functional_tr_trm : forall gt t t1 t2,
   tr_trm gt t t1 ->
   tr_trm gt t t2 ->
   t1 = t2.
-Proof.
+Proof. (* TODO: use inverts_head *)
   introv H1 H2. gen t2. induction H1; intros;
   try solve [ inverts H2 ; try subst ; repeat fequals* ].
   { inverts H2. fequals. applys* functional_tr_val. }
@@ -279,8 +317,67 @@ Lemma tr_stack_add : forall gt z v S v' S',
 Proof.
 Admitted.
 
-Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack 
-                  read_accesses write_accesses.
+
+(* ---------------------------------------------------------------------- *)
+(** Path surgery *)
+
+Lemma tr_accesses_app : forall gt π1 π2 π1' π2',
+  tr_accesses gt π1 π1' ->
+  tr_accesses gt π2 π2' ->
+  tr_accesses gt (π1 ++ π2) (π1' ++ π2').
+Proof.
+  (* TODO: there was a problem because ++ was that from Stdlib and
+     not that from TLC. I changed that by remove "open scope list_scope". *)
+  (* TODO: look at new proof using [rew_list] *)
+  introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
+    rew_list in *; eauto. 
+  (* old proof deprecated:
+  introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
+  try solve [ subst ; forwards Ha': IHHa1 Ha2 ;
+  repeat rewrite* <- List.app_comm_cons ; constructors* ].
+  1: repeat rewrite* List.app_nil_l. *)
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Regularity of the transformation with respect to values *)
+
+Lemma not_is_val_tr : forall gt t1 t2,
+  ~ is_val t1 ->
+  tr_trm gt t1 t2 ->
+  ~ is_val t2.
+Proof.
+Admitted.
+
+Lemma not_is_ptr_tr : forall gt p1 p2,
+  ~ is_ptr p1 ->
+  tr_trm gt p1 p2 ->
+  ~ is_ptr p2.
+Proof.
+Admitted.
+
+Lemma not_is_int_tr : forall gt t1 t2,
+  ~ is_int t1 ->
+  tr_trm gt t1 t2 ->
+  ~ is_int t2.
+Proof.
+Admitted.
+
+Lemma ptr_is_val : forall p,
+  is_ptr p -> is_val p.
+Proof.
+Admitted.
+
+Lemma red_app_not_is_error : forall S m op ts m' v w,
+  red S m (trm_app op (trm_val w :: ts)) m' v ->
+  ~ is_error v ->
+  ~ is_error w.
+Proof.
+Admitted.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Auxiliary set results *)
 
 Axiom in_union : forall A (x:A) (S1 S2:set A), 
         (x \in S1) \/ (x \in S2) -> 
@@ -334,8 +431,9 @@ Axiom union_eq : forall A (S1 S2 S3 S4:set A),
   S2 = S4 ->
   S1 \u S2 = S3 \u S4.
 
-Tactic Notation "rew_set" "*" := 
-  rew_set; auto_star.
+
+(* ---------------------------------------------------------------------- *)
+(** Correctness of access transformations *)
 
 Lemma tr_read_accesses : forall gt v π v' π' w,
   tr_val gt v v' ->
@@ -416,9 +514,9 @@ Proof.
       rewrite H0. repeat rewrite* length_update. }
     { (* write_accesses of transformed array *) 
       introv Hi0. rewrite read_update_case. 
-      { case_if*; subst_hyp H0.
-        { subst_hyp C0. rewrites* LibListZ.read_update_same. }
-        { forwards: index_of_update_neq' Hi0 C0. 
+      { (* HERE, should do [case_if as C] *) case_if*; subst_hyp H0.
+        { subst_hyp C. rewrites* LibListZ.read_update_same. }
+        { forwards: index_of_update_neq' Hi0 C. 
           rewrites* LibListZ.read_update_neq. } }
       { rewrite index_eq_index_length in *.
         rewrite H0 in Hi0. rewrite length_update in Hi0.
@@ -487,55 +585,26 @@ Proof.
           rewrite HD in Hidx.
           rewrites* dom_update_at_indom. }
         { introv Hif0. rewrite read_update. case_if*.
-          { subst_hyp C0. rewrite* read_update_same. }
+          { subst_hyp C. rewrite* read_update_same. }
           { rewrite* read_update_neq. 
-            forwards Hif0': index_of_update_neq Hif0 C0.
+            forwards Hif0': index_of_update_neq Hif0 C.
             forwards*: Hfs Hif0'. } } }
       { constructors*. applys* binds_of_indom_read.
         rewrite index_eq_indom in Hidx.
         rewrite* <- HD. } } }
 Qed.
 
-Lemma not_is_val_tr : forall gt t1 t2,
-  ~ is_val t1 ->
-  tr_trm gt t1 t2 ->
-  ~ is_val t2.
-Proof.
-Admitted.
 
-Lemma not_is_ptr_tr : forall gt p1 p2,
-  ~ is_ptr p1 ->
-  tr_trm gt p1 p2 ->
-  ~ is_ptr p2.
-Proof.
-Admitted.
+(* ---------------------------------------------------------------------- *)
+(** Correctness of the transformation *)
 
-Lemma not_is_int_tr : forall gt t1 t2,
-  ~ is_int t1 ->
-  tr_trm gt t1 t2 ->
-  ~ is_int t2.
-Proof.
-Admitted.
-
-Lemma ptr_is_val : forall p,
-  is_ptr p -> is_val p.
-Proof.
-Admitted.
-
-Lemma red_app_not_is_error : forall S m op ts m' v w,
-  red S m (trm_app op (trm_val w :: ts)) m' v ->
-  ~ is_error v ->
-  ~ is_error w.
-Proof.
-Admitted.
-
-(* Semantics preserved by tr. *)
 Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   tr_trm gt t t' ->
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
   red S m1 t m2 v -> 
-  ~ is_error v -> exists v' m2',
+  ~ is_error v -> 
+  exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
   /\  red S' m1' t' m2' v'.
@@ -596,7 +665,7 @@ Proof.
         rewrite* HDm1. rewrite* HDm1'. }
       { introv Hi'. do 2 rewrites read_update.
         case_if*. 
-        forwards Hi'': index_of_update_neq Hi' C0. 
+        forwards Hi'': index_of_update_neq Hi' C. 
         forwards*: Htrm Hi''. } }
     { constructors*. applys* not_tr_val_error.
       constructors*. applys* binds_of_indom_read.
@@ -611,9 +680,9 @@ Proof.
       { unfold state. repeat rewrite dom_update. 
         applys* union_eq.  }
       { introv Hi. rewrite read_update. case_if*.
-        { subst_hyp C0. rewrite* read_update_same. }
+        { subst_hyp C. rewrite* read_update_same. }
         { rewrite* read_update_neq. 
-          forwards Hi': index_of_update_neq Hi C0.
+          forwards Hi': index_of_update_neq Hi C.
           forwards*: Htrm Hi'. } } }
     { constructors*. rewrite* <- HD. } }
   { (* struct_access *) 
@@ -630,7 +699,7 @@ Proof.
       splits*.
       { constructors. applys* tr_accesses_app. subst*. }
       { subst. applys* red_args_1. applys* red_struct_access.
-        fequals*. rewrite* <- List.app_assoc. } }
+        fequals*. rew_list*. (* TODO: was: rewrite* <- List.app_assoc. *) } }
     { (* accessing another field *) 
       introv Ht Hor. subst. inverts Ht as Hv. inverts Hv as Ha.
       exists (val_abstract_ptr l (π'++(access_field T f :: nil))) m1'.

@@ -265,3 +265,49 @@ Tactic Notation "list2_ind_last" constr(E) :=
 
 
 
+
+
+(* ---------------------------------------------------------------------- *)
+(* Functional relations *)
+
+Ltac exploit_functional P P_functional := 
+  match goal with H1: ?F ?x1, H2: ?F ?x2 |- _=>
+  match get_head F with P =>
+    let HTEMP := fresh in
+    forwards HTEMP: P_functional H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end end.
+
+
+(* ---------------------------------------------------------------------- *)
+(* Functional relations *)
+
+(** [inverts_where C] inverts the bottom-most hypothesis that contains
+    subexpression [C] *)
+
+Ltac inverts_where C := 
+  match goal with H: context[C] |- _ => inverts H end.
+
+(** [inverts_head P] inverts the bottom-most hypothesis whose
+    head is the predicate [P]. *)
+
+Ltac inverts_head P := 
+  match goal with H: context[?C] |- _ => 
+    match get_head C with P => inverts H end end.
+
+
+(* ---------------------------------------------------------------------- *)
+(* Set *)
+
+Require Import LibSet.
+
+Tactic Notation "rew_set" "~" := 
+  rew_set; auto_tilde.
+Tactic Notation "rew_set" "*" := 
+  rew_set; auto_star.
+
+
+
+
+
+
+
+

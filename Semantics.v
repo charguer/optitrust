@@ -1,12 +1,10 @@
 (**
 
-This file describes the syntax and semantics of a lambda calculus
-with mutable heap. The language includes recursive functions, and a
-couple of primitive functions. Records and arrays operations are
-encoded using pointer arithmetics, and using the [alloc] operation
-which allocates at once a requested number of consecutive memory cells.
+This file describes the syntax and semantics of an imperative lambda 
+calculus with records and arrays.
 
-Author: Arthur Charguéraud.
+Author: Ramon Fernandez I Mir and Arthur Charguéraud.
+
 License: MIT.
 
 *)
@@ -19,7 +17,6 @@ Require Export LibString LibCore LibLogic LibReflect
 
 Open Scope set_scope.
 Open Scope container_scope.
-Open Scope list_scope.
 
 
 (* ********************************************************************** *)
@@ -162,6 +159,9 @@ Definition trms : Type := list trm.
 
 Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
+
+Global Instance Inhab_trm : Inhab trm.
+Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
 
 Global Instance Inhab_typ : Inhab typ.
 Proof using. apply (Inhab_of_val typ_unit). Qed.
@@ -659,13 +659,7 @@ Hint Constructors typing_val redbinop.
 (* ---------------------------------------------------------------------- *)
 (** Functional predicates *)
 
-(** TODO: this section will no longer be needed after removing binds *)
-
-Ltac exploit_functional P P_functional := 
-  match goal with H1: ?F ?x1, H2: ?F ?x2 |- _=>
-  match get_head F with P =>
-    let HTEMP := fresh in
-    forwards HTEMP: P_functional H2 H1; [typeclass | subst_hyp HTEMP; clear H2] end end.
+(** TODO: this tactic will no longer be needed after removing binds *)
 
 Ltac binds_inj := exploit_functional constr:(@binds) constr:(@binds_inj).
 
@@ -889,6 +883,8 @@ Theorem type_soundess : forall C φ m t v T Γ S v m',
 Proof.
 Admitted.
 
+
+End TypeSoundness.
 
 (* ********************************************************************** *)
 (* * Notes *)
