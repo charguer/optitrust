@@ -252,6 +252,8 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_sub : forall n1 n2,
       redbinop binop_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
   | redbinop_eq : forall v1 v2,
+      ~ is_error v1 ->
+      ~ is_error v2 ->
       redbinop binop_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
 
@@ -343,6 +345,7 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       write_state m1 l π v m2 ->
       red S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
   | red_new : forall l (v:val) S m1 T m2 l,
+      ~ is_error v ->
       l <> null ->
       l \notindom m1 ->
       m2 = m1[l := v] ->
@@ -397,6 +400,8 @@ Inductive red : stack -> state -> trm -> state -> val -> Prop :=
       t = trm_val v ->
       ~ (exists m', write_state m l π v m') ->
       red S m (trm_app (prim_set T) (p::t::nil)) m val_error
+  | red_new_error : forall l (v:val) S m1 T m2 l,
+      red S m1 (trm_app (prim_new T) ((trm_val val_error)::nil)) m2 val_error
   | red_struct_access_error_not_a_ptr : forall S m t f T,
       ~ is_ptr t ->
       red S m (trm_app (prim_struct_access T f) (t::nil)) m val_error

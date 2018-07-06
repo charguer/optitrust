@@ -308,16 +308,8 @@ Lemma tr_accesses_app : forall gt π1 π2 π1' π2',
   tr_accesses gt π2 π2' ->
   tr_accesses gt (π1 ++ π2) (π1' ++ π2').
 Proof.
-  (* TODO: there was a problem because ++ was that from Stdlib and
-     not that from TLC. I changed that by remove "open scope list_scope". *)
-  (* TODO: look at new proof using [rew_list] *)
   introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
-    rew_list in *; eauto. 
-  (* old proof deprecated:
-  introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
-  try solve [ subst ; forwards Ha': IHHa1 Ha2 ;
-  repeat rewrite* <- List.app_comm_cons ; constructors* ].
-  1: repeat rewrite* List.app_nil_l. *)
+  rew_list in *; eauto. 
 Qed.
 
 
@@ -329,47 +321,47 @@ Lemma not_is_val_tr : forall gt t1 t2,
   tr_trm gt t1 t2 ->
   ~ is_val t2.
 Proof.
-Admitted.
-
-Lemma not_is_ptr_tr : forall gt p1 p2,
-  ~ is_ptr p1 ->
-  tr_trm gt p1 p2 ->
-  ~ is_ptr p2.
-Proof.
-Admitted.
-
-Lemma not_is_int_tr : forall gt t1 t2,
-  ~ is_int t1 ->
-  tr_trm gt t1 t2 ->
-  ~ is_int t2.
-Proof.
-Admitted.
+  introv Hv Htr. induction Htr; introv HN;
+  try solve [ subst ; inverts HN ]. forwards*: Hv.
+Qed.
 
 Lemma not_is_error_tr : forall gt v1 v2,
   ~ is_error v1 ->
   tr_val gt v1 v2 ->
   ~ is_error v2.
 Proof.
-Admitted.
+  introv He Htr. induction Htr; introv HN;
+  try solve [ subst ; inverts HN ]. forwards*: He.
+Qed.
 
-Lemma ptr_is_val : forall p,
-  is_ptr p -> is_val p.
-Proof.
-Admitted.
-
-Lemma red_app_not_is_error : forall S m op ts m' v w,
+Lemma not_is_error_args_1 : forall S m op ts m' v w,
   red S m (trm_app op (trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
 Proof.
-Admitted.
+  introv HR He HN. inverts HN;
+  inverts HR; tryfalse. 
+  { inverts_head redbinop. tryfalse. }
+  { forwards*: (is_val val_error). }
+  { inverts_head red; tryfalse.
+    { inverts_head redbinop. tryfalse. }
+    { forwards*: (is_val val_error). }
+    { forwards*: (is_val v2). } }
+Qed.
 
-Lemma red_app_not_is_error_2 : forall S m op t ts m' v w,
+Lemma not_is_error_args_2 : forall S m op t ts m' v w,
   red S m (trm_app op (t :: trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
 Proof.
-Admitted.
+  introv HR He HN. inverts HN; inverts HR; tryfalse.
+  { inverts_head redbinop. tryfalse. }
+  { inverts_head red; tryfalse.
+    { inverts_head redbinop. tryfalse. }
+    { forwards*: (is_val v1). }
+    { forwards*: (is_val val_error). } }
+  { forwards*: (is_val val_error). }
+Qed.
 
 Lemma neq_tr : forall gt v1 v2 v1' v2',
   v1 <> v2 ->
@@ -377,6 +369,8 @@ Lemma neq_tr : forall gt v1 v2 v1' v2',
   tr_val gt v2 v2' ->
   v1' <> v2'.
 Proof.
+  (* Exactly the same as saying that tr_val is injective. *)
+  introv Hneq Hv1 Hv2 HN. admit.
 Admitted.
 
 Axiom not_tr_val_error : forall gt v1 v2, 
@@ -427,15 +421,14 @@ Ltac set_prove_show :=
 
 
 Lemma in_union : forall A (x:A) (S1 S2:set A), 
-        (x \in S1) \/ (x \in S2) -> 
-        x \in (S1 \u S2).
+  x \in S1 \/ x \in S2 -> 
+  x \in S1 \u S2.
 Proof using. set_prove. Qed.
 
-
 Lemma in_setminus : forall A (x:A) (S1 S2: set A),
-        x \in S1 -> 
-        x \notin S2 -> 
-        x \in (S1 \- S2).
+  x \in S1 -> 
+  x \notin S2 -> 
+  x \in (S1 \- S2).
 Proof using. set_prove. Qed.
 
 Lemma in_notin_neq : forall A (x y:A) (S:set A),
@@ -558,8 +551,6 @@ Proof.
     try solve [ intros ; false ].
     { (* one of the fields to group *) 
       introv HD1 Hgt HD2 HD3 Hsg Hfs HB Ha Hin.
-(*  sets_eq Gtn: (group_tr_struct_name gt).
-subst gt. simpls.*)
       rewrite* Hgt in Hin. simpls.
       forwards Hsf: Hsg Hin.
       forwards Heq: read_of_binds H. 
@@ -751,7 +742,9 @@ Proof.
         repeat rewrite* isTrue_var_eq. }
       { forwards*: neq_tr.
         repeat rewrite* isTrue_var_neq. } }
-    { repeat constructors*. } }
+    { repeat constructors*. 
+      forwards*: not_is_error_tr Ht1.
+      forwards*: not_is_error_tr Ht2. } }
   { (* get *)
     inverts Ht as _ Hp. inverts Hm1 as HD Htrm.
     inverts H0 as Hb Ha. forwards Hi: index_of_binds Hb.
@@ -787,8 +780,7 @@ Proof.
       rewrite <- HD at 1. forwards*: indom_of_binds Hb. } }
   { (* new *) 
     inverts Ht as _ Ht. inverts Ht as Hv. 
-    inverts Hm1 as HD Htrm.
-    subst_hyp H1.
+    inverts Hm1 as HD Htrm. subst.
     exists (val_abstract_ptr l0 nil) m1'[l0:=v'].
     splits*.
     { constructors. 
@@ -798,7 +790,9 @@ Proof.
         { subst_hyp C. rewrite* read_update_same. }
         { rewrite* read_update_neq. 
           forwards* Hi': index_of_index_update_neq Hi C. } } }
-    { constructors*. rewrite* <- HD. } }
+    { constructors*. 
+      { forwards*: not_is_error_tr v. } 
+      { rewrite* <- HD. } } }
   { (* struct_access *) 
     inverts Ht as; inverts Hm1 as HD Htrm.
     { (* accessing grouped field *)
@@ -813,7 +807,7 @@ Proof.
       splits*.
       { constructors. applys* tr_accesses_app. subst*. }
       { subst. applys* red_args_1. applys* red_struct_access.
-        fequals*. rew_list*. (* TODO: was: rewrite* <- List.app_assoc. *) } }
+        fequals*. rew_list*. } }
     { (* accessing another field *) 
       introv Ht Hor. subst. inverts Ht as Hv. inverts Hv as Ha.
       exists (val_abstract_ptr l (π'++(access_field T f :: nil))) m1'.
