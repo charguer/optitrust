@@ -42,6 +42,7 @@ Definition typvar := var.
 
 Global Opaque field loc size offset typvar.
 
+
 (* ---------------------------------------------------------------------- *)
 (** Grammar of types *)
 
@@ -51,7 +52,7 @@ Inductive typ : Type :=
   | typ_double : typ
   | typ_bool : typ
   | typ_ptr : typ -> typ
-  | typ_array : typ -> size -> typ
+  | typ_array : typ -> option size -> typ
   | typ_struct : typvar -> typ
   | typ_fun : list typ -> typ -> typ.
 
@@ -77,9 +78,10 @@ Fixpoint sizeof (S:typdefctx_size) (T:typ) : nat :=
   | typ_int => 1%nat
   | typ_double => 2%nat
   | typ_ptr _ => 1%nat
-  | typ_array T' n => (n * (sizeof S T'))%nat
+  | typ_array T' (Some n) => (n * (sizeof S T'))%nat
   | typ_struct X => S[X]
   | typ_fun _ _ => 1%nat
+  | _ => 0%nat
   end.
 
 Definition sizeof_typdef_struct (S:typdefctx_size) (m:typdef_struct) : nat :=
@@ -280,7 +282,7 @@ Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
       (forall i, 
         index a i -> 
         uninitialized_val C T a[i]) ->
-      uninitialized_val C (typ_array T n) (val_array a)
+      uninitialized_val C (typ_array T (Some n)) (val_array a)
   | uninitialized_val_struct : forall T Tfs vfs,
       Tfs = C[T] ->
       dom Tfs = dom vfs ->
@@ -387,7 +389,7 @@ Inductive red (C:typdefctx) : stack -> state -> trm -> state -> val -> Prop :=
       l <> null ->
       l \notindom m1 ->
       n = k ->
-      uninitialized_val C (typ_array T k) v -> 
+      uninitialized_val C (typ_array T (Some k)) v -> 
       m2 = m1[l := v] ->
       red C S m1 (trm_app (prim_new_array T) ((trm_val (val_int n))::nil)) m2 (val_abstract_ptr l nil)
   | red_struct_access : forall S m t l f π T v vr,
@@ -443,6 +445,10 @@ Inductive red (C:typdefctx) : stack -> state -> trm -> state -> val -> Prop :=
   | red_new_error : forall l (v:val) S m1 T m2 l,
       ~ (exists v, uninitialized_val C T v) ->
       red C S m1 (trm_app (prim_new T) (nil)) m2 val_error
+  | red_new_array_error : forall l (v:val) S m1 T m2 l (k:nat) (n:int),
+      n = k ->
+      ~ (exists v, uninitialized_val C (typ_array T (Some k)) v) -> 
+      red C S m1 (trm_app (prim_new_array T) ((trm_val (val_int n))::nil)) m2 val_error
   | red_struct_access_error_not_a_ptr : forall S m t f T,
       ~ is_ptr t ->
       red C S m (trm_app (prim_struct_access T f) (t::nil)) m val_error

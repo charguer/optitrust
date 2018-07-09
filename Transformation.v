@@ -297,7 +297,7 @@ Proof.
     { inverts_head Logic.or; tryfalse. }
     { repeat fequals~. } 
     { unfolds is_prim_struct_access. contradiction. } }
-  { inverts_head tr_trm;
+  { inverts_head tr_trm; 
     try solve [ unfolds is_prim_struct_access ; contradiction ].
     repeat fequals~. }
 Qed.

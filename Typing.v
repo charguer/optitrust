@@ -60,7 +60,7 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_array : forall T π Tr i n,
       follow_typ C T π Tr ->
       (0 <= i < n)%nat ->
-      follow_typ C (typ_array T n) ((access_array i)::π) Tr
+      follow_typ C (typ_array T (Some n)) ((access_array i)::π) Tr
   | follow_typ_struct : forall T f Tf π Tr,
       typing_field C T f Tf ->
       follow_typ C Tf π Tr ->
@@ -99,7 +99,7 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
-      typing_val C φ (val_array a) (typ_array T n)
+      typing_val C φ (val_array a) (typ_array T (Some n))
   | typing_val_abstract_ptr : forall l π T,
       read_phi C φ l π T ->
       typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
@@ -138,9 +138,11 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E p (typ_ptr T) ->
       typing E t T ->
       typing E (trm_app (prim_set T) (p::t::nil)) typ_unit
-  | typing_new : forall E t T, 
-      typing E t T ->
-      typing E (trm_app (prim_new T) (t::nil)) (typ_ptr T)
+  | typing_new : forall E T, 
+      typing E (trm_app (prim_new T) nil) (typ_ptr T)
+  | typing_new_array : forall E T t, 
+      typing E t typ_int ->
+      typing E (trm_app (prim_new_array T) (t::nil)) (typ_ptr (typ_array T None))
   | typing_struct_access : forall E Tfs f T t,
       Tfs = (env_typdefctx E)[T] ->
       index Tfs f ->
