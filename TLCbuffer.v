@@ -349,6 +349,13 @@ Ltac inverts_head P :=
   match goal with H: context[?C] |- _ => 
     match get_head C with P => inverts H end end.
 
+(** [rewrites_head P] rewrites the bottom-most hypothesis whose
+    head is the predicate [P]. *)
+
+Ltac rewrites_head P := 
+  match goal with H: ?A = ?B |- _ => 
+      match get_head A with P => rewrites H end end.
+
 
 (* ---------------------------------------------------------------------- *)
 (* Set *)

@@ -33,8 +33,12 @@ End Example.
 (* ********************************************************************** *)
 (* * Definition of the transformation *)
 
-(** Grouping transformation 
-    TODO: add some comments here *)
+(** Grouping transformation. Specified by:
+    - The name of the struct to be modified.
+    - The set of fields to be grouped.
+    - The name of the new struct that will hold the fields to be grouped.
+    - The name of the field in the new struct that will have as type
+      the new struct. *)
 
 Record group_tr := make_group_tr {
   group_tr_struct_name : typvar;
@@ -101,7 +105,7 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         f \notin fs ->
         f \indom s ->
         tr_val gt s[f] s'[f]) ->
-      binds s' fg (val_struct Tsg sg) ->
+      s'[fg] = val_struct Tsg sg ->
       tr_val gt (val_struct Ts s) (val_struct Ts s')
   | tr_val_struct_other : forall T s s',
       T <> group_tr_struct_name gt ->
@@ -164,36 +168,30 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
 
 (** Transformation of stacks: S ~ |S| *)
 
-(** TODO: ctx_vars, if needed, can be computed something like
-    [to_list (List.map fst S)].
+Inductive tr_stack_item (gt:group_tr) : (var * val) -> (var * val) -> Prop :=
+  | tr_stack_item_intro : forall x v v',
+      tr_val gt v v' -> 
+      tr_stack_item gt (x, v) (x, v').
 
-    A more direct definition for the domain equality is
-    [forall x, fresh x S <-> fresh x S'].
-
-    An alternative, is to impose the stack to have the same 
-    structure, with [tr_stack S S' := LibList.Forall2 tr_stack_item S S']
-    with [Inductive tr_stack_item : 
-            | tr_stack_item_intro : tr_val v1 v2 -> tr_stack_item (x,v1) (x,v2).]
-    Then, by constructions, the stacks have the same domains.
-    I would probably recommand this version, and proving as derived lemma
-    that [Ctx.lookup x S = Some v1 -> exists v2, Ctx.lookup x S = Some v2
-          /\ tr_val v1 v2].
-*)
-Axiom ctx_vars : forall A, Ctx.ctx A -> set var.
-
-Axiom ctx_vars_eq_lookup_none : forall A (c1 c2:Ctx.ctx A) (x:var),
-  ctx_vars c1 = ctx_vars c2 ->
-  Ctx.lookup x c1 = None ->
-  Ctx.lookup x c2 = None.
-
-
-Inductive tr_stack (gt:group_tr) : stack -> stack -> Prop :=
+Inductive tr_stack (gt:group_tr) : stack -> stack -> Prop := 
   | tr_stack_intro : forall S S',
-     ctx_vars S = ctx_vars S' ->
-      (forall x v,
-        Ctx.lookup x S = Some v ->
-        (exists v', Ctx.lookup x S' = Some v' /\ tr_val gt v v')) ->
+      LibList.Forall2 (tr_stack_item gt) S S' ->
       tr_stack gt S S'.
+
+Lemma stack_lookup_tr : forall gt S S' x v,
+  tr_stack gt S S' ->
+  Ctx.lookup x S = Some v -> 
+    exists v', 
+       Ctx.lookup x S' = Some v' 
+    /\ tr_val gt v v'.
+Proof.
+  introv HS Hx. inverts HS as HS. induction HS.
+  { inverts Hx. }
+  { inverts H as Hv. inverts Hx as Hx. case_if in Hx.
+    { inverts Hx. exists v'. splits*. unfolds. case_if*. }
+    { forwards (v''&Hx'&Hv''): IHHS Hx. exists v''.
+      splits*. unfolds. case_if. fold Ctx.lookup. auto. } }
+Qed.
 
 
 (** Transformation of states: m ~ |m| *)
@@ -240,26 +238,39 @@ Theorem functional_tr_accesses : forall gt π π1 π2,
     π1 = π2.
 Proof.
   introv H1 H2. gen π2. induction H1; intros;
-  try solve [ inverts* H2 ; repeat fequals* ].
-  { (* TODO: new proof using new tactic:
-    inverts_head tr_accesses; repeat fequals*;
-    inverts_head Logic.or; repeat fequals*. *)
-    inverts H4; repeat fequals*;
-    inverts H11; tryfalse. }
-  { inverts H2; repeat fequals*;
-    inverts H0; tryfalse. }
+  inverts_head tr_accesses; repeat fequals*;
+  inverts_head Logic.or; repeat fequals*.
 Qed. 
+
+Generalizable Variables A B.
+Axiom map_ext : forall A `{ Inhab B } (m1 m2:map A B),
+  dom m1 = dom m2 ->
+  (forall k, k \indom m1 -> m1[k] = m2[k]) ->
+  m1 = m2.
+
+Ltac name_fun_occ H I :=
+  match goal with H: context[H ?a] |- _ => 
+    match get_head H with F =>
+      sets I: (H a) end end.
 
 Theorem functional_tr_val : forall gt v v1 v2,
   tr_val gt v v1 ->
   tr_val gt v v2 ->
   v1 = v2.
 Proof using.
-  introv H1 H2. gen v2. induction H1; intros; 
-  inverts_head tr_val; try solve [ fequals* ].
-  { fequals. applys* functional_tr_accesses. }
-  { fequals. applys* eq_of_extens. math. }
-  { (*subst. inverts_head make_group_tr'. fequals. 
+  introv H1 H2. gen v2. induction H1; intros;
+   try solve [ inverts_head tr_val; fequals ].
+  { inverts_head tr_val; fequals. applys* functional_tr_accesses. }
+  { inverts_head tr_val; fequals. applys* eq_of_extens. math. }
+  { inverts_head tr_val; fequals. name_fun_occ_4 make_group I.
+  match goal with H: context[make_group_tr' ?a ?b ?c ?d] |- _ => 
+    sets G: (make_group_tr' a b c d) end. 
+    
+
+ invert H9. intros. subst fs0 s0 Ts0. fequals.  applys* map_ext.
+    { rewrite H in H12. inverts H12. set_prove. inverts_head make_group_tr'. set_prove. }
+    {  }
+    (*subst. inverts_head make_group_tr'. fequals. 
     applys* map_ext. rew_set in *. intuition. {  } intuition. auto.
     { admit. } 
     { admit. } }
