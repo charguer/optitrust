@@ -248,8 +248,8 @@ Axiom map_ext : forall A `{ Inhab B } (m1 m2:map A B),
   (forall k, k \indom m1 -> m1[k] = m2[k]) ->
   m1 = m2.
 
-Ltac name_fun_occ H I :=
-  match goal with H: context[H ?a] |- _ => 
+Ltac name_fun_occ F I :=
+  match goal with H: context[F ?a] |- _ => 
     match get_head H with F =>
       sets I: (H a) end end.
 
@@ -259,17 +259,14 @@ Theorem functional_tr_val : forall gt v v1 v2,
   v1 = v2.
 Proof using.
   introv H1 H2. gen v2. induction H1; intros;
-   try solve [ inverts_head tr_val; fequals ].
-  { inverts_head tr_val; fequals. applys* functional_tr_accesses. }
-  { inverts_head tr_val; fequals. applys* eq_of_extens. math. }
-  { inverts_head tr_val; fequals. name_fun_occ_4 make_group I.
-  match goal with H: context[make_group_tr' ?a ?b ?c ?d] |- _ => 
-    sets G: (make_group_tr' a b c d) end. 
-    
-
- invert H9. intros. subst fs0 s0 Ts0. fequals.  applys* map_ext.
-    { rewrite H in H12. inverts H12. set_prove. inverts_head make_group_tr'. set_prove. }
-    {  }
+  inverts_head tr_val; fequals*.
+  { applys* functional_tr_accesses. }
+  { applys* eq_of_extens. math. }
+  { applys* map_ext.
+    { inverts_head make_group_tr'. congruence. }
+    { introv Hin. tests C: (k = fg).
+      { . }
+      {  } }
     (*subst. inverts_head make_group_tr'. fequals. 
     applys* map_ext. rew_set in *. intuition. {  } intuition. auto.
     { admit. } 
