@@ -262,7 +262,7 @@ Tactic Notation "cases" constr(E) :=
 Lemma list2_ind : forall A B (P:list A->list B->Prop) l1 l2,
   length l1 = length l2 ->
   P nil nil ->
-  (forall x1 xs1 x2 xs2, 
+  (forall x1 xs1 x2 xs2,
      length xs1 = length xs2 -> P xs1 xs2 -> P (x1::xs1) (x2::xs2)) ->
   P l1 l2.
 Proof using.
@@ -292,7 +292,7 @@ Tactic Notation "list2_ind" constr(E) :=
 Lemma list2_ind_last : forall A B (P:list A->list B->Prop) l1 l2,
   length l1 = length l2 ->
   P nil nil ->
-  (forall x1 xs1 x2 xs2, 
+  (forall x1 xs1 x2 xs2,
      length xs1 = length xs2 -> P xs1 xs2 -> P (xs1&x1) (xs2&x2)) ->
   P l1 l2.
 Proof using.
@@ -326,7 +326,7 @@ Tactic Notation "list2_ind_last" constr(E) :=
 (* ---------------------------------------------------------------------- *)
 (* Functional relations *)
 
-Ltac exploit_functional P P_functional := 
+Ltac exploit_functional P P_functional :=
   match goal with H1: ?F ?x1, H2: ?F ?x2 |- _=>
   match get_head F with P =>
     let HTEMP := fresh in
@@ -339,14 +339,14 @@ Ltac exploit_functional P P_functional :=
 (** [inverts_where C] inverts the bottom-most hypothesis that contains
     subexpression [C] *)
 
-Ltac inverts_where C := 
+Ltac inverts_where C :=
   match goal with H: context[C] |- _ => inverts H end.
 
 (** [inverts_head P] inverts the bottom-most hypothesis whose
     head is the predicate [P]. *)
 
-Ltac inverts_head P := 
-  match goal with H: context[?C] |- _ => 
+Ltac inverts_head P :=
+  match goal with H: context[?C] |- _ =>
     match get_head C with P => inverts H end end.
 
 (** [rewrites_head P] rewrites the bottom-most hypothesis whose
@@ -362,10 +362,280 @@ Ltac rewrites_head P :=
 
 Require Import LibSet.
 
-Tactic Notation "rew_set" "~" := 
+Tactic Notation "rew_set" "~" :=
   rew_set; auto_tilde.
-Tactic Notation "rew_set" "*" := 
+Tactic Notation "rew_set" "*" :=
   rew_set; auto_star.
+
+
+Notation "x \indom E" := (x \in dom E)
+  (at level 39) : container_scope.
+Notation "x \notindom E" := (x \notin dom E)
+  (at level 39) : container_scope.
+Notation "x \indom E" := (x \in (dom E : set _))
+  (at level 39) : container_scope.
+Notation "x \notindom E" := (x \notin ((dom E) : set _))
+  (at level 39) : container_scope.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* Map *)
+
+Require Import LibMap.
+Section MapLemma.
+Transparent binds dom union.
+Transparent map empty_inst single_bind_inst binds_inst
+ union_inst restrict_inst remove_inst read_inst
+ dom_inst disjoint_inst index_inst fold_inst.
+
+(* only for internal use *)
+Lemma read_impl_indom_eq : forall A `{Inhab B} (M:map A B) k,
+  k \indom M -> M k = Some (M[k]).
+Proof using.
+  introv R. simpls. unfolds read_impl, dom_impl.
+  rewrite in_set_st_eq in R. destruct* (M k).
+Qed.
+
+(* only for internal use *)
+Lemma read_impl_notindom_eq : forall A B (M:map A B) k,
+  k \notindom M -> M k = None.
+Proof using.
+  introv R. simpls. unfolds read_impl, dom_impl.
+  unfold notin in R. rewrite in_set_st_eq in R.
+  rewrite~ not_not_eq in R.
+Qed.
+
+Arguments read_impl_indom_eq : clear implicits.
+
+Lemma read_extens : forall A `{Inhab B} (m1 m2:map A B),
+  dom m1 = dom m2 ->
+  (forall i, i \indom m1 -> m1[i] = m2[i]) ->
+  m1 = m2.
+Proof using. 
+  introv ED EV. extens. intros i. tests C: (i \indom m1).
+  { rewrites~ (>> read_impl_indom_eq m1).
+    rewrites~ (>> read_impl_indom_eq m2). rewrite~ <- ED.
+    rewrite~ EV. }
+  { rewrite~ read_impl_notindom_eq.
+    rewrite~ read_impl_notindom_eq. rewrite~ <- ED. }
+Qed.
+
+(* TODO RAMON : rename map_ext with read_extens *)
+
+End MapLemma.
+
+(* TODO RAMON: replace in your dev "index" on maps by "indom" everywhere *)
+
+(* renamings that will be performed in TLC *)
+Definition update_update_same := update_update. 
+Definition indom_update := @indom_update_of_indom. 
+
+Lemma update_update_neq_swap : forall A i1 i2 `{Inhab B} v1 v2 (M:map A B),
+  i1 <> i2 ->
+  M[i1:=v1][i2:=v2] = M[i2:=v2][i1:=v1].
+Proof using.
+  introv IB N. applys read_extens.
+  { repeat rewrite dom_update. set_prove. }
+  { intros i Hi. repeat rewrite read_update.
+    repeat case_if; auto. }
+Qed.
+
+Lemma indom_update_same_eq : forall A `{Inhab B} (m:map A B) (i:A) (v:B),
+  i \indom (m[i:=v]) = True.
+Proof using. intros. rewrite~ indom_update_eq. Qed.
+
+Lemma indom_update_at_indom_eq : forall A i j `{IB:Inhab B} v (M:map A B),
+  i \indom M ->
+  j \indom (M[i:=v]) = j \indom M.
+Proof using. introv IB H. extens. rewrite* indom_update_eq. iff [N|N] N; subst*. Qed.
+
+Lemma indom_update_neq_eq : forall A i j `{IB:Inhab B} v (M:map A B),
+  i <> j ->
+  j \indom (M[i:=v]) = j \indom M.
+Proof using. introv IB H. extens. rewrite* indom_update_eq. iff [N|N] N; subst*. Qed.
+
+Lemma indom_update_inv_neq : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
+  j \indom (m[i:=v]) ->
+  i <> j ->
+  j \indom m.
+Proof using. introv IB H N. rewrite~ indom_update_neq_eq in H. Qed.
+
+(* TODO RAMON: replace index_of_index_update_neq with indom_update_inv_neq *)
+
+
+
+Hint Resolve @indom_update @indom_of_indom_update_at_indom @indom_update_same @indom_update_inv_neq.
+
+
+(* ---------------------------------------------------------------------- *)
+(* LibMap automation *)
+
+Tactic Notation "rew_map" "~" "in" "*" :=
+  rew_map in *; auto_tilde.
+Tactic Notation "rew_map" "*" "in" "*" :=
+  rew_map in *; auto_star.
+
+
+Hint Rewrite @indom_update_same_eq @indom_update_eq : rew_indom.
+
+Tactic Notation "rew_indom" :=
+  autorewrite with rew_indom.
+Tactic Notation "rew_indom" "in" hyp(H) :=
+  autorewrite with rew_indom in H.
+Tactic Notation "rew_indom" "in" "*" :=
+  autorewrite_in_star_patch ltac:(fun tt => autorewrite with rew_indom).
+  (* autorewrite with rew_indom in *. *)
+Tactic Notation "rew_indom" "~" :=
+  rew_indom; auto_tilde.
+Tactic Notation "rew_indom" "*" :=
+   rew_indom; auto_star.
+Tactic Notation "rew_indom" "~" "in" hyp(H) :=
+  rew_indom in H; auto_tilde.
+Tactic Notation "rew_indom" "*" "in" hyp(H) :=
+  rew_indom in H; auto_star.
+Tactic Notation "rew_indom" "~" "in" "*" :=
+  rew_indom in *; auto_tilde.
+Tactic Notation "rew_indom" "*" "in" "*" :=
+  rew_indom in *; auto_star.
+
+
+Ltac prove_indom_core tt :=
+  rew_indom in *.
+
+Tactic Notation "prove_indom" :=
+  prove_indom_core tt.
+
+
+Definition ltac_classicT_to_destruct := classicT.
+
+Lemma read_update_with_ltac_if : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
+  (m[i:=v])[j] = (if ltac_classicT_to_destruct (i = j) then v else m[j]).
+Proof using. intros. rewrite~ read_update. Qed.
+
+Hint Rewrite @read_update_same @read_update_with_ltac_if : rew_read.
+
+Tactic Notation "rew_read" :=
+  autorewrite with rew_read.
+Tactic Notation "rew_read" "in" hyp(H) :=
+  autorewrite with rew_read in H.
+Tactic Notation "rew_read" "in" "*" :=
+  autorewrite_in_star_patch ltac:(fun tt => autorewrite with rew_read).
+  (* autorewrite with rew_read in *. *)
+Tactic Notation "rew_read" "~" :=
+  rew_read; auto_tilde.
+Tactic Notation "rew_read" "*" :=
+   rew_read; auto_star.
+Tactic Notation "rew_read" "~" "in" hyp(H) :=
+  rew_read in H; auto_tilde.
+Tactic Notation "rew_read" "*" "in" hyp(H) :=
+  rew_read in H; auto_star.
+Tactic Notation "rew_read" "~" "in" "*" :=
+  rew_read in *; auto_tilde.
+Tactic Notation "rew_read" "*" "in" "*" :=
+  rew_read in *; auto_star.
+
+
+Ltac rew_read_post_on P :=
+  let Eq := fresh in
+  destruct (ltac_classicT_to_destruct P) as [Eq|Eq];
+  case_if_post Eq;
+  revert Eq. (* LATER: TLC's case_if should follow the same pattern *)
+
+Ltac rew_read_post Eq :=
+  repeat match goal with 
+  | |- context [ if ltac_classicT_to_destruct ?P then _ else _ ] => rew_read_post_on P
+  | H: context [ if ltac_classicT_to_destruct ?P then _ else _ ] |- _ => rew_read_post_on P
+  end.
+
+Lemma demo_rew_read_post : forall (P:Prop) A (x y:A),
+  (if ltac_classicT_to_destruct P then x else y) = x ->
+  (if ltac_classicT_to_destruct P then x else y) = x.
+Proof using.  
+  intros. rew_read_post tt ;=> C. auto. auto.
+Qed.
+
+Tactic Notation "rew_reads" :=
+  rew_read; rew_read_post tt.
+Tactic Notation "rew_reads" "in" hyp(H) :=
+  rew_read in H; rew_read_post tt.
+Tactic Notation "rew_reads" "in" "*" :=
+  rew_read in *; rew_read_post tt.
+Tactic Notation "rew_reads" "~" :=
+  rew_reads; auto_tilde.
+Tactic Notation "rew_reads" "*" :=
+   rew_reads; auto_star.
+Tactic Notation "rew_reads" "~" "in" hyp(H) :=
+  rew_reads in H; auto_tilde.
+Tactic Notation "rew_reads" "*" "in" hyp(H) :=
+  rew_reads in H; auto_star.
+Tactic Notation "rew_reads" "~" "in" "*" :=
+  rew_reads in *; auto_tilde.
+Tactic Notation "rew_reads" "*" "in" "*" :=
+  rew_reads in *; auto_star.
+
+
+Lemma demo_rew_reads : forall A i1 i2 `{Inhab B} v1 v2 (M:map A B),
+  i1 <> i2 ->
+  M[i1:=v1][i2:=v2] = M[i2:=v2][i1:=v1].
+Proof using.
+  introv IB N. applys read_extens.
+  { repeat rewrite dom_update. set_prove. }
+  { intros i Hi. (* rew_reads. *) rew_reads; auto_false. } 
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ListZ *)
+
+Lemma index_of_update_neq' : forall A (v:A) i i' (l:list A),
+  index l[i:=v] i' ->
+  i <> i' ->
+  index l i'.
+Proof using. introv H N. rewrite~ LibListZ.index_update_eq in H. Qed.
+
+
+Hint Rewrite @LibListZ.index_update_eq : rew_index.
+
+Tactic Notation "rew_index" :=
+  autorewrite with rew_index.
+Tactic Notation "rew_index" "in" hyp(H) :=
+  autorewrite with rew_index in H.
+Tactic Notation "rew_index" "in" "*" :=
+  autorewrite_in_star_patch ltac:(fun tt => autorewrite with rew_index).
+  (* autorewrite with rew_index in *. *)
+Tactic Notation "rew_index" "~" :=
+  rew_index; auto_tilde.
+Tactic Notation "rew_index" "*" :=
+   rew_index; auto_star.
+Tactic Notation "rew_index" "~" "in" hyp(H) :=
+  rew_index in H; auto_tilde.
+Tactic Notation "rew_index" "*" "in" hyp(H) :=
+  rew_index in H; auto_star.
+Tactic Notation "rew_index" "~" "in" "*" :=
+  rew_index in *; auto_tilde.
+Tactic Notation "rew_index" "*" "in" "*" :=
+  rew_index in *; auto_star.
+
+
+Hint Resolve LibListZ.index_update.
+
+Lemma read_update_case_with_ltac_if : forall `{Inhab A} (l:list A) i j v,
+  index l j ->
+  l[i:=v][j] = (if ltac_classicT_to_destruct (i = j) then v else l[j]).
+Proof using. intros. rewrite~ LibListZ.read_update_case. Qed.
+
+Hint Rewrite @read_update_same @read_update_case_with_ltac_if : rew_read.
+
+
+
+
+
+
+
+
+
+
 
 
 
