@@ -12,7 +12,7 @@ License: MIT.
 Set Implicit Arguments.
 Require Import LibTactics LibLogic LibList LibMap LibReflect.
 Require LibListZ.
-Generalizable Variables A B.
+Generalizable Variables A B C.
 
 
 
@@ -195,6 +195,14 @@ Lemma index_of_update_neq' : forall A (v:A) i i' (l:list A),
   i <> i' ->
   index l i'.
 Proof using. introv H N. rewrite~ LibListZ.index_update_eq in H. Qed.
+
+Lemma index_dom_same : forall A `{ Inhab B } `{ Inhab  C } (m1:map A B) (m2:map A C) k,
+  dom m2 = dom m1 ->
+  index m1 k ->
+  index m2 k.
+Proof using.
+  introv _ _ HD Hi. rewrite index_eq_indom in *. rewrite* HD.
+Qed.
 
 End IndexProperties.
 

@@ -37,10 +37,10 @@ End Example.
     TODO: add some comments here *)
 
 Record group_tr := make_group_tr {
-  group_tr_struct_name : typvar; (* Ts *)
-  group_tr_fields : set field; (* {..f..} *)
-  group_tr_new_struct_name : typvar; (* Tsg *)
-  group_tr_new_struct_field : field (* fg *)
+  group_tr_struct_name : typvar;
+  group_tr_fields : set field;
+  group_tr_new_struct_name : typvar;
+  group_tr_new_struct_field : field
 }.
 
 Notation make_group_tr' := make_group_tr.

@@ -10,7 +10,7 @@ License: MIT.
 
 Set Implicit Arguments.
 Require Export LibString LibList LibCore.
-Require Export Fmap TLCbuffer MyLibVar MyLibEnv.
+Require Export TLCbuffer MyLibVar.
 Open Scope string_scope.
 
 
