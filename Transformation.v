@@ -262,15 +262,16 @@ Proof using.
   inverts_head tr_val; fequals*.
   { applys* functional_tr_accesses. }
   { applys* eq_of_extens. math. }
-  { applys* map_ext.
+  { applys* map_ext. 
     { inverts_head make_group_tr'. congruence. }
     { introv Hin. tests C: (k = fg).
-      { . }
+      { inverts_head make_group_tr'.
+        asserts_rewrite (s'0[fg0] = val_struct Tsg0 sg0). auto. 
+        asserts_rewrite (s'[fg0] = val_struct Tsg0 sg). auto.
+        fequals. applys~ map_ext. introv Hk.
+        forwards*: H17.  }
       {  } }
-    (*subst. inverts_head make_group_tr'. fequals. 
-    applys* map_ext. rew_set in *. intuition. {  } intuition. auto.
-    { admit. } 
-    { admit. } }
+
   { subst. simpls. contradiction.*) admit. }
   { admit. }
 Admitted.

@@ -113,6 +113,7 @@ Inductive prim : Type :=
   | prim_get : typ -> prim
   | prim_set : typ -> prim
   | prim_new : typ -> prim
+  | prim_new_array : typ -> prim
   | prim_struct_access : typvar -> field -> prim
   | prim_array_access : typ -> prim.
 
@@ -249,7 +250,7 @@ Definition stack := Ctx.ctx val.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Semantics of unary/binary operations *)
+(** Semantics of binary operations *)
 
 Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_add : forall n1 n2,
@@ -376,13 +377,19 @@ Inductive red (C:typdefctx) : stack -> state -> trm -> state -> val -> Prop :=
       ~ is_error v ->
       write_state m1 l π v m2 ->
       red C S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_new : forall l (v:val) S m1 T m2 l,
-      ~ is_error v ->
+  | red_new : forall l v S m1 T m2 l,
       l <> null ->
       l \notindom m1 ->
       uninitialized_val C T v -> 
       m2 = m1[l := v] ->
-      red C S m1 (trm_app (prim_new T) (nil)) m2 (val_abstract_ptr l nil)
+      red C S m1 (trm_app (prim_new T) nil) m2 (val_abstract_ptr l nil)
+  | red_new_array : forall l (v:val) S m1 T m2 l (n:int) (k:nat),
+      l <> null ->
+      l \notindom m1 ->
+      n = k ->
+      uninitialized_val C (typ_array T k) v -> 
+      m2 = m1[l := v] ->
+      red C S m1 (trm_app (prim_new_array T) ((trm_val (val_int n))::nil)) m2 (val_abstract_ptr l nil)
   | red_struct_access : forall S m t l f π T v vr,
       t = val_abstract_ptr l π ->
       vr = val_abstract_ptr l (π++((access_field T f)::nil)) ->
