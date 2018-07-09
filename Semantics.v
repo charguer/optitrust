@@ -301,40 +301,25 @@ Inductive read_accesses : val -> accesses -> val -> Prop :=
   | read_accesses_nil : forall v,
       read_accesses v nil v
   | read_accesses_array : forall a (i:Z) π v,
-<<<<<<< HEAD
       index a i -> 
       read_accesses a[i] π v ->
-      read_accesses (val_array a) ((access_array i)::π) v
-  | read_accesses_struct : forall T s f π v,
-      index s f ->
-      read_accesses s[f] π v ->
-      read_accesses (val_struct T s) ((access_field T f)::π) v.
-=======
-      read_accesses (a[i]) π v ->
-      index a i -> 
       read_accesses (val_array a) ((access_array i)::π) v
   | read_accesses_struct : forall T s f π v2,
       f \indom s ->
       read_accesses s[f] π v2 ->
       read_accesses (val_struct T s) ((access_field T f)::π) v2.
->>>>>>> f6ec174ae2c9450028d227fe016852cd9d6933ff
 
 (** m(l)[π] = v *)
 
 Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
   | read_state_intro :
-<<<<<<< HEAD
-      index m l ->
-=======
       l \indom m ->
->>>>>>> f6ec174ae2c9450028d227fe016852cd9d6933ff
       read_accesses m[l] π v ->
       read_state m l π v.
 
 (** v[π := w] = v' *)
 
 Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
-<<<<<<< HEAD
   | write_accesses_nil : forall v w,
       write_accesses v nil w w
   | write_accesses_array : forall v1 v2 a1 i π w a2,
@@ -342,40 +327,19 @@ Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
       write_accesses a1[i] π w v2 ->
       a2 = update a1 i v2 ->
       write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
-  | write_accesses_struct : forall T s1 s2 f π w v,
-      index s1 f ->
-      write_accesses s1[f] π w v ->
-      s2 = s1[f := v] ->
-=======
-  | write_accesses_nil : forall v1 v2 w,
-      v2 = w ->
-      write_accesses v1 nil w v2
-  | write_accesses_array : forall v1 v2 a1 (i:Z) π w a2,
-      write_accesses (a1[i]) π w v2 ->
-      index a1 i -> 
-      a2 = update a1 (i:Z) v2 ->
-      write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
   | write_accesses_struct : forall T s1 s2 f π w v2,
       f \indom s1 ->
       write_accesses s1[f] π w v2 ->
       s2 = s1[f := v2] ->
->>>>>>> f6ec174ae2c9450028d227fe016852cd9d6933ff
       write_accesses (val_struct T s1) ((access_field T f)::π) w (val_struct T s2).
 
 (** m[l := m(l)[π := w]] = m' *)
 
 Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
-<<<<<<< HEAD
-  | write_mem_intro : forall v, 
-      index m l ->
-      write_accesses m[l] π w v ->
-      m' = m[l := v] ->
-=======
   | write_mem_intro : forall v2,
       l \indom m ->
       write_accesses m[l] π w v2 ->
       m' = m[l := v2] ->
->>>>>>> f6ec174ae2c9450028d227fe016852cd9d6933ff
       write_state m l π w m'.
 
 
@@ -522,18 +486,10 @@ Lemma read_write_accesses_same : forall v1 v2 π w,
   write_accesses v1 π w v2 ->
   read_accesses v2 π w.
 Proof.
-<<<<<<< HEAD
-  introv H. induction H; try subst; constructors*.
-  { applys* index_update. } 
-  { rewrite* LibListZ.read_update_same. } 
-  { applys* index_update_same. }
-  { rewrite* read_update_same. }
-=======
   introv H. induction H; subst.
   { constructors*. }
   { constructors*. rew_reads~. }
   { constructors*. rew_reads~. }
->>>>>>> f6ec174ae2c9450028d227fe016852cd9d6933ff
 Qed.
 
 Hint Extern 1 (?j \in dom (?m[?i:=?v])) => applys @indom_update.
@@ -543,15 +499,8 @@ Lemma read_write_state_same : forall m m' l π w,
   write_state m l π w m' ->
   read_state m' l π w.
 Proof.
-<<<<<<< HEAD
-  introv H. induction H. constructors*.
-  { subst m'. applys* index_update_same. }
-  { subst m'. applys* read_write_accesses_same.
-    rewrite* read_update_same. }
-=======
   introv H. induction H. subst. constructors*.
   { applys* read_write_accesses_same. rew_reads*. }
->>>>>>> f6ec174ae2c9450028d227fe016852cd9d6933ff
 Qed.
 
 

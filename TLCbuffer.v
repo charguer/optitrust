@@ -588,13 +588,6 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ListZ *)
 
-Lemma index_of_update_neq' : forall A (v:A) i i' (l:list A),
-  index l[i:=v] i' ->
-  i <> i' ->
-  index l i'.
-Proof using. introv H N. rewrite~ LibListZ.index_update_eq in H. Qed.
-
-
 Hint Rewrite @LibListZ.index_update_eq : rew_index.
 
 Tactic Notation "rew_index" :=
