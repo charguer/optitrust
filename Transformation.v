@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics LibSet LibMap.
+Require Export Semantics LibSet LibMap TLCbuffer.
 
 
 
@@ -214,7 +214,8 @@ Section TransformationsProofs.
 (* ---------------------------------------------------------------------- *)
 (** Hints *)
 
-Lemma index_of_index_length' : forall A (l' l : list A) i,
+(* TODO: Factor this out. *)
+Lemma index_of_index_length : forall A (l' l : list A) i,
   index l' i ->
   length l' = length l ->
   index l i.
@@ -223,10 +224,11 @@ Proof.
   applys* index_of_index_length'.
 Qed.
 
-Hint Resolve index_of_index_length'.
+Hint Resolve index_of_index_length.
 
-Hint Constructors red tr_trm tr_val tr_accesses tr_state tr_stack
-                  read_accesses write_accesses.
+Hint Constructors red.
+Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
+Hint Constructors read_accesses write_accesses.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -242,17 +244,6 @@ Proof.
   inverts_head Logic.or; repeat fequals*.
 Qed. 
 
-Generalizable Variables A B.
-Axiom map_ext : forall A `{ Inhab B } (m1 m2:map A B),
-  dom m1 = dom m2 ->
-  (forall k, k \indom m1 -> m1[k] = m2[k]) ->
-  m1 = m2.
-
-Ltac name_fun_occ F I :=
-  match goal with H: context[F ?a] |- _ => 
-    match get_head H with F =>
-      sets I: (H a) end end.
-
 Theorem functional_tr_val : forall gt v v1 v2,
   tr_val gt v v1 ->
   tr_val gt v v2 ->
@@ -262,20 +253,20 @@ Proof using.
   inverts_head tr_val; fequals*.
   { applys* functional_tr_accesses. }
   { applys* eq_of_extens. math. }
-  { applys map_ext. 
+  { applys read_extens. 
     { inverts_head make_group_tr'. congruence. }
-    { introv Hin. tests C: (k = fg).
+    { introv Hin. tests C: (i = fg).
       { inverts_head make_group_tr'.
         asserts_rewrite~ (s'0[fg0] = val_struct Tsg0 sg0).
         asserts_rewrite~ (s'[fg0] = val_struct Tsg0 sg).
-        fequals. applys~ map_ext. introv Hk. 
+        fequals. applys~ read_extens. introv Hk. 
         asserts_rewrite* (dom sg = dom sg0) in *. }
       { inverts_head make_group_tr'.
         asserts_rewrite~ (dom s' = dom s \- dom sg \u '{fg0}) in Hin.
         inverts Hin as Hin; tryfalse. inverts Hin as Hin Hnotin.
         asserts_rewrite* (dom sg = dom sg0) in *. } } }
   { subst. simpls. contradiction. }
-  { applys map_ext.
+  { applys read_extens.
     { congruence. }
     { introv Hin. 
       asserts_rewrite* (dom s' = dom s) in *. } }
@@ -485,20 +476,7 @@ Lemma union_eq : forall A (S1 S2 S3 S4:set A),
   S1 \u S2 = S3 \u S4.
 Proof using. set_prove. Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Auxiliary map results *)
-
-Section MapProperties.
-Generalizable Variables A B.
-
-Axiom map_ext : forall A `{Inhab B} (m1 m2:map A B),
-  dom m1 = dom m2 ->
-  (forall i, index m1 i -> m1[i] = m2[i]) ->
-  m1 = m2.
-
-End MapProperties.
-
+(* Note: everything should work up to here. *)
 
 (* ---------------------------------------------------------------------- *)
 (** Correctness of access transformations *)

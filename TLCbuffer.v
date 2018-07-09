@@ -173,14 +173,6 @@ Proof using.
   rewrite index_eq_indom in *. auto.
 Qed.
 
-Lemma index_of_index_update_neq : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
-  index (m[i:=v]) j ->
-  i <> j ->
-  index m j.
-Proof using.
-  introv H1 H2 N. rewrite index_update_eq in *; auto. destruct H2; auto_false.
-Qed.
-
 Lemma indom_update_of_index : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
   index m j ->
   index (m[i:=v]) j.
@@ -190,7 +182,7 @@ Lemma index_update_same : forall A `{Inhab B} (m:map A B) (i:A) (v:B),
   index (m[i:=v]) i.
 Proof using. intros. rewrite~ index_update_eq. Qed.
 
-Lemma index_of_update_neq' : forall A (v:A) i i' (l:list A),
+Lemma index_of_update_neq : forall A (v:A) i i' (l:list A),
   index l[i:=v] i' ->
   i <> i' ->
   index l i'.
