@@ -264,20 +264,20 @@ Inductive read_accesses : val -> accesses -> val -> Prop :=
   | read_accesses_nil : forall v,
       read_accesses v nil v
   | read_accesses_array : forall a (i:Z) π v,
-      index a i -> 
       read_accesses (a[i]) π v ->
+      index a i -> 
       read_accesses (val_array a) ((access_array i)::π) v
-  | read_accesses_struct : forall T v1 s f π v2,
-      binds s f v1 ->
-      read_accesses v1 π v2 ->
+  | read_accesses_struct : forall T s f π v2,
+      f \indom s ->
+      read_accesses s[f] π v2 ->
       read_accesses (val_struct T s) ((access_field T f)::π) v2.
 
 (** m(l)[π] = v *)
 
 Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
-  | read_state_intro : forall v1, 
-      binds m l v1 ->
-      read_accesses v1 π v ->
+  | read_state_intro :
+      l \indom m ->
+      read_accesses m[l] π v ->
       read_state m l π v.
 
 (** v[π := w] = v' *)
@@ -287,22 +287,22 @@ Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
       v2 = w ->
       write_accesses v1 nil w v2
   | write_accesses_array : forall v1 v2 a1 (i:Z) π w a2,
-      index a1 i -> 
       write_accesses (a1[i]) π w v2 ->
+      index a1 i -> 
       a2 = update a1 (i:Z) v2 ->
       write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
-  | write_accesses_struct : forall T v1 s1 s2 f π w v2,
-      binds s1 f v1 ->
-      write_accesses v1 π w v2 ->
+  | write_accesses_struct : forall T s1 s2 f π w v2,
+      f \indom s1 ->
+      write_accesses s1[f] π w v2 ->
       s2 = s1[f := v2] ->
       write_accesses (val_struct T s1) ((access_field T f)::π) w (val_struct T s2).
 
 (** m[l := m(l)[π := w]] = m' *)
 
 Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
-  | write_mem_intro : forall v1 v2, 
-      binds m l v1 ->
-      write_accesses v1 π w v2 ->
+  | write_mem_intro : forall v2,
+      l \indom m ->
+      write_accesses m[l] π w v2 ->
       m' = m[l := v2] ->
       write_state m l π w m'.
 
@@ -435,19 +435,21 @@ Lemma read_write_accesses_same : forall v1 v2 π w,
   write_accesses v1 π w v2 ->
   read_accesses v2 π w.
 Proof.
-  introv H. induction H; try subst; constructors*.
-  { applys* index_update. } 
-  { rewrite* LibListZ.read_update_same. } 
-  { applys* binds_update_same. }
+  introv H. induction H; subst.
+  { constructors*. }
+  { constructors*. rew_reads~. }
+  { constructors*. rew_reads~. }
 Qed.
+
+Hint Extern 1 (?j \in dom (?m[?i:=?v])) => applys @indom_update.
+
 
 Lemma read_write_state_same : forall m m' l π w,
   write_state m l π w m' ->
   read_state m' l π w.
 Proof.
-  introv H. induction H. constructors*.
-  { subst m'. applys* binds_update_same. }
-  { applys* read_write_accesses_same. }
+  introv H. induction H. subst. constructors*.
+  { applys* read_write_accesses_same. rew_reads*. }
 Qed.
 
 (** We need the paths to be disjoint, not just different. *)
