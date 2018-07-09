@@ -262,19 +262,24 @@ Proof using.
   inverts_head tr_val; fequals*.
   { applys* functional_tr_accesses. }
   { applys* eq_of_extens. math. }
-  { applys* map_ext. 
+  { applys map_ext. 
     { inverts_head make_group_tr'. congruence. }
     { introv Hin. tests C: (k = fg).
       { inverts_head make_group_tr'.
-        asserts_rewrite (s'0[fg0] = val_struct Tsg0 sg0). auto. 
-        asserts_rewrite (s'[fg0] = val_struct Tsg0 sg). auto.
-        fequals. applys~ map_ext. introv Hk.
-        forwards*: H17.  }
-      {  } }
-
-  { subst. simpls. contradiction.*) admit. }
-  { admit. }
-Admitted.
+        asserts_rewrite~ (s'0[fg0] = val_struct Tsg0 sg0).
+        asserts_rewrite~ (s'[fg0] = val_struct Tsg0 sg).
+        fequals. applys~ map_ext. introv Hk. 
+        asserts_rewrite* (dom sg = dom sg0) in *. }
+      { inverts_head make_group_tr'.
+        asserts_rewrite~ (dom s' = dom s \- dom sg \u '{fg0}) in Hin.
+        inverts Hin as Hin; tryfalse. inverts Hin as Hin Hnotin.
+        asserts_rewrite* (dom sg = dom sg0) in *. } } }
+  { subst. simpls. contradiction. }
+  { applys map_ext.
+    { congruence. }
+    { introv Hin. 
+      asserts_rewrite* (dom s' = dom s) in *. } }
+Qed.
 
 Theorem functional_tr_trm : forall gt t t1 t2,
   tr_trm gt t t1 ->
