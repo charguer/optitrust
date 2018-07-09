@@ -285,9 +285,21 @@ Theorem functional_tr_trm : forall gt t t1 t2,
   tr_trm gt t t1 ->
   tr_trm gt t t2 ->
   t1 = t2.
-Proof. (* TODO: use inverts_head *)
+Proof.
   introv H1 H2. gen t2. induction H1; intros;
-  try solve [ inverts H2 ; try subst ; repeat fequals* ]; admit.
+  try solve [ inverts H2 ; try subst ; repeat fequals* ].
+  { inverts H2. fequals. applys* functional_tr_val. }
+  { inverts_head tr_trm; subst. 
+    { repeat fequals~. }
+    { inverts_head Logic.or; tryfalse. } 
+    { unfolds is_prim_struct_access. contradiction. } }
+  { inverts_head tr_trm; subst.
+    { inverts_head Logic.or; tryfalse. }
+    { repeat fequals~. } 
+    { unfolds is_prim_struct_access. contradiction. } }
+  { inverts_head tr_trm;
+    try solve [ unfolds is_prim_struct_access ; contradiction ].
+    repeat fequals~. }
 Qed.
 
 Theorem functional_tr_stack : forall gt S S1 S2,
