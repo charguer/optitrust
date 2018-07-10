@@ -368,7 +368,10 @@ Lemma tr_stack_add : forall gt z v S v' S',
   tr_val gt v v' ->
   tr_stack gt (Ctx.add z v S) (Ctx.add z v' S').
 Proof.
-Admitted.
+  introv HS Hv. constructors~. inverts HS.
+  unfolds Ctx.add. destruct* z.
+  applys~ Forall2_cons. constructors~.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)

@@ -283,6 +283,31 @@ Inductive uninitialized_val : typ -> val -> Prop :=
   | uninitialized_val_struct : forall T,
       uninitialized_val (typ_struct T) (val_struct T \{}).
 
+(*
+Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
+  | uninitialized_val_bool : 
+      uninitialized_val C typ_bool val_uninitialized
+  | uninitialized_val_int :
+      uninitialized_val C typ_int val_uninitialized
+  | uninitialized_val_double :
+      uninitialized_val C typ_double val_uninitialized
+  | uninitialized_ptr : forall T,
+      uninitialized_val C (typ_ptr T) val_uninitialized
+  | uninitialized_val_array : forall T (n:nat) a,
+      length a = n ->
+      (forall i, 
+        index a i -> 
+        uninitialized_val C T a[i]) ->
+      uninitialized_val C (typ_array T (Some n)) (val_array a)
+  | uninitialized_val_struct : forall T Tfs vfs,
+      Tfs = C[T] ->
+      dom Tfs = dom vfs ->
+      (forall f,
+        f \indom Tfs ->
+        uninitialized_val C Tfs[f] vfs[f]) ->
+      uninitialized_val C (typ_struct T) (val_struct T vfs).
+*)
+
 
 (* ---------------------------------------------------------------------- *)
 (** Semantics of memory accesses *)
