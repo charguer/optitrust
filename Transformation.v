@@ -436,6 +436,16 @@ Axiom not_tr_val_error : forall gt v1 v2,
   tr_val gt v1 v2 ->
   ~ is_error v2.
 
+(* TODO: This doesn't quite work. *)
+Lemma tr_uninitialized_val : forall gt v C C' T,
+  tr_typdefctx gt C C' ->
+  uninitialized_val C T v ->
+  exists v',
+        tr_val gt v v'
+    /\  uninitialized_val C' T v'.
+Proof.
+Admitted.
+
 
 (* ---------------------------------------------------------------------- *)
 (* TLC BUFFER *)
@@ -531,7 +541,6 @@ Proof.
       rewrite~ <- HD. } }
 Qed.
 
-Hint Resolve dom_update_at_indom.
 
 Lemma tr_write_accesses : forall v1 w gt π v1' π' w' v2,
   tr_val gt v1 v1' ->
@@ -603,19 +612,19 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
-(* TODO: This doesn't quite work *)
-Lemma tr_uninitialized_val : forall gt v C C' T,
-  tr_typdefctx gt C C' ->
-  uninitialized_val C T v ->
-  exists v',
-        tr_val gt v v'
-    /\  uninitialized_val C' T v'.
-Proof.
-Admitted.
-
 Axiom isTrue_var_eq : forall A (v1 v2:A), v1 = v2 -> isTrue (v1 = v2) = true.
 
 Axiom isTrue_var_neq : forall A (v1 v2:A), v1 <> v2 -> isTrue (v1 = v2) = false.
+
+(* TODO: Rewrites used quite often throughout: 
+   - dom_update_at_indom
+   - dom_update *)
+
+(* TODO: Sometimes, in order to use map tactics or 
+   lemmas, I have to do [unfold state] in order to get
+   [map loc var] instead of [state] but then the
+   rewrites stop working so I have to [fold state] again.
+   How can we fix this? *)
 
 Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   tr_typdefctx gt C C' ->

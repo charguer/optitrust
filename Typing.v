@@ -90,8 +90,8 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
       Tfs = C[T] ->
       dom Tfs = dom vfs ->
       (forall f, 
-          index Tfs f -> 
-          index vfs f ->
+          f \indom Tfs -> 
+          f \indom vfs ->
           typing_val C φ vfs[f] Tfs[f]) ->
       typing_val C φ (val_struct T vfs) (typ_struct T)
   | typing_val_array : forall a T (n:nat),
@@ -248,7 +248,7 @@ Proof.
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
   { inverts HF as; inverts HR as; subst*; try constructors*.
     introv Hi HR HTf HF. inverts HTf. applys* H2.
-    forwards*: index_dom_same H0 Hi. }
+    rewrite~ H0. }
   { inverts HF as; inverts HR as; try constructors*.
     introv HN1 HR HT Hi. eauto. }
 Qed.
@@ -286,8 +286,7 @@ Proof.
     { unfold state. rewrite* dom_update_at_index. }
     { intros f' Hi1 Hi2. rewrite read_update.
       case_if*. 
-      { subst. applys* IHHW. inverts* HTf. }
-      { applys~ HCT. applys* index_of_index_update_neq. } } }
+      { subst. applys* IHHW. inverts* HTf. } } }
 Qed.
 
 (** Lemma for typing preservation of [set] *)
