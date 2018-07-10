@@ -287,7 +287,7 @@ Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
       Tfs = C[T] ->
       dom Tfs = dom vfs ->
       (forall f,
-        index Tfs f ->
+        f \indom Tfs ->
         uninitialized_val C Tfs[f] vfs[f]) ->
       uninitialized_val C (typ_struct T) (val_struct T vfs).
 

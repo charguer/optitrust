@@ -188,14 +188,6 @@ Lemma index_of_update_neq : forall A (v:A) i i' (l:list A),
   index l i'.
 Proof using. introv H N. rewrite~ LibListZ.index_update_eq in H. Qed.
 
-Lemma index_dom_same : forall A `{ Inhab B } `{ Inhab  C } (m1:map A B) (m2:map A C) k,
-  dom m2 = dom m1 ->
-  index m1 k ->
-  index m2 k.
-Proof using.
-  introv _ _ HD Hi. rewrite index_eq_indom in *. rewrite* HD.
-Qed.
-
 End IndexProperties.
 
 
@@ -413,11 +405,7 @@ Proof using.
     rewrite~ read_impl_notindom_eq. rewrite~ <- ED. }
 Qed.
 
-(* TODO RAMON : rename map_ext with read_extens *)
-
 End MapLemma.
-
-(* TODO RAMON: replace in your dev "index" on maps by "indom" everywhere *)
 
 (* renamings that will be performed in TLC *)
 Definition update_update_same := update_update. 

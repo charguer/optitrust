@@ -111,7 +111,7 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
       T <> group_tr_struct_name gt ->
       dom s = dom s' ->
       (forall f,
-        index s f ->
+        f \indom s ->
         tr_val gt s[f] s'[f]) ->
       tr_val gt (val_struct T s) (val_struct T s').
 
@@ -476,7 +476,6 @@ Lemma union_eq : forall A (S1 S2 S3 S4:set A),
   S1 \u S2 = S3 \u S4.
 Proof using. set_prove. Qed.
 
-(* Note: everything should work up to here. *)
 
 (* ---------------------------------------------------------------------- *)
 (** Correctness of access transformations *)
@@ -491,7 +490,7 @@ Lemma tr_read_accesses : forall gt v π v' π' w,
 Proof.
   introv Hv Ha HR. gen gt v' π'. induction HR; intros.
   { (* nil *)
-    inverts Ha. exists* v'. }
+    inverts Ha. exists~ v'. }
   { (* array_access *)
     inverts Ha as Ha. inverts Hv as Hl Htr.
     forwards Htra: Htr H.
@@ -501,38 +500,30 @@ Proof.
     inverts Ha as; inverts Hv as;
     try solve [ intros ; false ].
     { (* one of the fields to group *)
-      introv HD1 Hgt HD2 HD3 Hsg Hfs HB Ha Hin.
-      rewrite* Hgt in Hin. simpls.
+      introv HD1 Hgt HD2 HD3 Hsg Hfs Hsfg Hπ Hin.
+      rewrite Hgt in *. simpls.
       forwards Hsf: Hsg Hin.
-      forwards Heq: read_of_binds H.
-      subst_hyp Heq.
-      forwards (w'&Hw'&HR'): IHHR Hsf Ha.
-      exists* w'. splits*.
-      constructors*; rewrite Hgt; simpls*.
-      constructors*. applys* binds_of_indom_read. }
+      forwards (w'&Hw'&HR'): IHHR Hsf Hπ.
+      exists w'. splits~.
+      constructors. 
+      { rewrite HD3. rew_set~. } 
+      rewrite Hsfg. constructors~. }
     { (* struct transformed but another field *)
-      introv HD1 HD2 HD3 Hsg Hfs HB Ha Hor.
+      introv HD1 HD2 HD3 Hsg Hfs Hsfg Hπ Hor.
       inverts Hor as Hf; simpl in Hf; tryfalse.
-      forwards Hf': indom_of_binds H. typeclass.
-      forwards Hsf: Hfs Hf Hf'.
-      forwards Hv1: read_of_binds H.
-      subst_hyp Hv1.
-      forwards (w'&Hw'&HR'): IHHR Hsf Ha.
-      exists w'. splits*. constructors*.
-      applys* binds_of_indom_read.
-      rewrite HD3. rew_set*. }
+      forwards Hsf: Hfs Hf H.
+      forwards (w'&Hw'&HR'): IHHR Hsf Hπ.
+      exists w'. splits~. constructors~.
+      rewrite HD3. rew_set~. }
     { (* another struct *)
-      intros Hn HD Hfs Ha Hor.
-      forwards Hidx: index_of_binds H. typeclass.
-      forwards Hsf: Hfs Hidx.
-      forwards Heq: read_of_binds H.
-      subst_hyp Heq.
-      forwards (w'&Hw'&HR'): IHHR Hsf Ha.
-      exists w'. splits*. constructors*.
-      applys* binds_of_indom_read.
-      rewrite <- HD.
-      rewrite* <- index_eq_indom. } }
+      intros Hn HD Hfs Hπ Hor.
+      forwards Hsf: Hfs H.
+      forwards (w'&Hw'&HR'): IHHR Hsf Hπ.
+      exists w'. splits~. constructors~.
+      rewrite~ <- HD. } }
 Qed.
+
+Hint Resolve dom_update_at_indom.
 
 Lemma tr_write_accesses : forall v1 w gt π v1' π' w' v2,
   tr_val gt v1 v1' ->
@@ -543,97 +534,61 @@ Lemma tr_write_accesses : forall v1 w gt π v1' π' w' v2,
         tr_val gt v2 v2'
     /\  write_accesses v1' π' w' v2').
 Proof.
-  introv Hv1 Hw Ha HW. gen gt v1' w' π'. induction HW; intros.
+  introv Hv1 Hw Hπ HW. gen gt v1' w' π'. induction HW; intros.
   { (* nil *)
-    inverts Ha. subst_hyp H. exists* w'. }
+    inverts Hπ. exists~ w'. }
   { (* array_access *)
-    inverts Ha as Ha. inverts Hv1 as Hl Htr.
+    inverts Hπ as Hπ. inverts Hv1 as Hl Htr.
     forwards Htra: Htr H.
-    forwards (v2'&Hv2'&HW'): IHHW Htra Hw Ha.
+    forwards (v2'&Hv2'&HW'): IHHW Htra Hw Hπ.
     exists (val_array a'[i:=v2']).
-    splits; constructors*.
-    { (* val_array under tr *)
-      rewrite H0. repeat rewrite* length_update. }
-    { (* write_accesses of transformed array *)
-      introv Hi0. rewrite read_update_case.
-      { (* HERE, should do [case_if as C] *) case_if*; subst_hyp H0.
-        { subst_hyp C. rewrites* LibListZ.read_update_same. }
-        { forwards: index_of_update_neq' Hi0 C.
-          rewrites* LibListZ.read_update_neq. } }
-      { rewrite index_eq_index_length in *.
-        rewrite H0 in Hi0. rewrite length_update in Hi0.
-        rewrite* <- Hl. } } }
+    splits; constructors*; rewrite H0.
+    { repeat rewrite~ length_update. }
+    { introv Hi0. rew_reads; rew_index* in *. } }
   { (* struct_access *)
-    inverts Ha as; inverts Hv1 as;
+    inverts Hπ as; inverts Hv1 as;
     try solve [ intros ; false ].
     { (* one of the fields to group *)
-      introv HD1 Hgt HD2 HD3 Hsg Hfs HB Ha Hin.
-      rewrite* Hgt in Hin. simpls.
+      introv HD1 Hgt HD2 HD3 Hsg Hfs Hsfg Hπ Hin.
+      rewrite Hgt in *. simpls.
       forwards Hsf: Hsg Hin.
-      forwards Heq: read_of_binds H.
-      subst_hyp Heq.
-      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Ha.
+      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Hπ.
       remember (group_tr_struct_name gt) as T.
       exists (val_struct T s'[fg:=(val_struct Tsg sg[f:=v2'])]).
-      splits.
-      { substs.
-        applys tr_val_struct_group (sg[f:=v2']); try reflexivity;
-        repeat rewrite dom_update_at_indom; try typeclass;
-        try solve [ applys* in_subset ].
-        (*Ltac rew_dom_at_core tt := repeat rewrite dom_update_at_indom.
-        Tactic Notation "rew_dom_at" := rew_dom_at_core tt.
-        Tactic Notation "rew_dom_at" "*" := rew_dom_at; auto_star.*)
-        { forwards*: indom_of_binds HB. }
-        { introv HD4. repeat rewrite read_update. case_if*. }
-        { introv HD4 HD5. repeat rewrite read_update.
-          repeat case_if*; subst; contradiction. }
-        { applys* binds_update_same. } }
-      { constructors*; subst_hyp Hgt; simpls*.
-        constructors*. applys* binds_of_indom_read. } }
+      substs. splits.
+      { applys~ tr_val_struct_group (sg[f:=v2']);
+        repeat rewrite dom_update_at_indom in *; eauto.
+        { rewrite HD3. rew_set~. }
+        { intros. rew_reads*. }
+        { intros. rew_reads; intros; subst; eauto; contradiction. }
+        { rew_reads~. } }
+      { constructors~. rewrite HD3. rew_set~.
+        rewrite Hsfg. constructors*. } }
     { (* struct transformed but another field *)
-      introv HD1 HD2 HD3 Hsg Hfs HB Ha Hor.
+      introv HD1 HD2 HD3 Hsg Hfs Hsfg Hπ Hor.
       inverts Hor as Hf; simpl in Hf; tryfalse.
-      forwards Hf': indom_of_binds H. typeclass.
-      forwards Hsf: Hfs Hf Hf'.
-      forwards Hv1: read_of_binds H.
-      subst_hyp Hv1.
-      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Ha.
+      forwards Hsf: Hfs Hf H.
+      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Hπ.
       exists (val_struct T s'[f:=v2']). splits.
-      { applys* tr_val_struct_group; subst_hyp H0;
-        try solve [ rewrite* dom_update_at_indom ].
-        { repeat rewrite* dom_update_at_indom.
-          rewrite HD3. applys* in_union. left.
-          applys* in_setminus. }
-        { introv Hf0. rewrite read_update. case_if*.
-          forwards: in_notin_neq Hf0 Hf. false. }
-        { introv HD4 HD5. repeat rewrite read_update.
-          case_if*. rewrite* dom_update_at_indom in HD5. }
-        { applys* binds_update_neq.
-          apply in_notin_neq with (S:=dom s1); auto. } }
-      { constructors*.  applys* binds_of_indom_read.
-        rewrite HD3. applys in_union. left.
-        applys* in_setminus. } }
+      { applys~ tr_val_struct_group; subst;
+        repeat rewrite dom_update_at_indom in *; eauto.
+        { rewrite HD3. rew_set~. }
+        { intros. rew_reads; intros; eauto. 
+          subst. forwards*: in_notin_neq. }
+        { intros. rew_reads*. }
+        { rew_reads~. intros. 
+          subst. forwards*: in_notin_neq. } }
+      { constructors~. rewrite HD3. rew_set~. auto. } }
     { (* another struct *)
-      intros Hn HD Hfs Ha Hor.
-      forwards Hidx: index_of_binds H. typeclass.
-      forwards Hsf: Hfs Hidx.
-      forwards Heq: read_of_binds H.
-      subst_hyp Heq.
-      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Ha.
+      intros Hn HD Hfs Hπ Hor.
+      forwards Hsf: Hfs H.
+      forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Hπ.
       exists (val_struct T s'[f:=v2']). splits.
-      { constructors*; subst_hyp H0.
-        { rewrite index_eq_indom in Hidx.
-          rewrites* dom_update_at_indom.
-          rewrite HD in Hidx.
-          rewrites* dom_update_at_indom. }
-        { introv Hif0. rewrite read_update. case_if*.
-          { subst_hyp C. rewrite* read_update_same. }
-          { rewrite* read_update_neq.
-            forwards Hif0': index_of_index_update_neq Hif0 C. auto.
-            forwards*: Hfs Hif0'. } } }
-      { constructors*. applys* binds_of_indom_read.
-        rewrite index_eq_indom in Hidx.
-        rewrite* <- HD. } } }
+      { constructors~; subst;
+        repeat rewrite dom_update_at_indom; eauto.
+        { rewrite~ <- HD. }
+        { intros. rew_reads~. } }
+      { constructors~. rewrite* <- HD. auto. } } }
 Qed.
 
 
