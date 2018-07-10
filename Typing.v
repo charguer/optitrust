@@ -337,7 +337,7 @@ Proof using. intros. auto. Qed.
 (** Type preservation proof *)
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
-  red C S m t m' v -> 
+  red S m t m' v -> 
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
   stack_typing C φ Γ S ->
@@ -381,7 +381,7 @@ Theorem type_soundess : forall C φ m t v T Γ S m',
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
   stack_typing C φ Γ S ->
-  red C S m t m' v -> 
+  red S m t m' v -> 
   exists φ',
         extends φ φ'
     /\  typing_val C φ' v T

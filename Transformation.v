@@ -414,8 +414,8 @@ Proof.
   subst; inverts HN. forwards~: Hu. unfolds~.
 Qed.
 
-Lemma not_is_error_args_1 : forall C S m op ts m' v w,
-  red C S m (trm_app op (trm_val w :: ts)) m' v ->
+Lemma not_is_error_args_1 : forall S m op ts m' v w,
+  red S m (trm_app op (trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
 Proof.
@@ -429,8 +429,8 @@ Proof.
     { forwards*: (is_val v2). } }
 Qed.
 
-Lemma not_is_error_args_2 : forall C S m op t ts m' v w,
-  red C S m (trm_app op (t :: trm_val w :: ts)) m' v ->
+Lemma not_is_error_args_2 : forall S m op t ts m' v w,
+  red S m (trm_app op (t :: trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
 Proof.
@@ -458,13 +458,21 @@ Axiom not_tr_val_error : forall gt v1 v2,
   ~ is_error v2.
 
 (* TODO: This doesn't quite work. *)
-Lemma tr_uninitialized_val : forall gt v C C' T,
-  tr_typdefctx gt C C' ->
-  uninitialized_val C T v ->
+Lemma tr_uninitialized_val : forall gt v T,
+  uninitialized_val T v ->
   exists v',
         tr_val gt v v'
-    /\  uninitialized_val C' T v'.
+    /\  uninitialized_val T v'.
 Proof.
+  introv Hu. induction Hu;
+  try solve [ exists __ ; splits ; constructors~ ].
+  { exists (val_array nil). splits. constructors~.
+    { introv Hi. rewrite index_eq_inbound in *. 
+      rewrite length_nil in *. math. }
+    { constructors~. } }
+  { exists __. splits.
+    { constructors~. admit. admit. }
+    { admit. } }
 Admitted.
 
 
@@ -647,19 +655,18 @@ Axiom isTrue_var_neq : forall A (v1 v2:A), v1 <> v2 -> isTrue (v1 = v2) = false.
    rewrites stop working so I have to [fold state] again.
    How can we fix this? *)
 
-Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
-  tr_typdefctx gt C C' ->
+Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
   tr_trm gt t t' ->
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
-  red C S m1 t m2 v ->
+  red S m1 t m2 v ->
   ~ is_error v ->
   exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
-  /\  red C' S' m1' t' m2' v'.
+  /\  red S' m1' t' m2' v'.
 Proof.
-  introv HC Ht HS Hm1 HR He. gen C' t' S' m1'. induction HR; intros;
+  introv Ht HS Hm1 HR He. gen t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ].
   { (* var *)
     inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H.
@@ -728,7 +735,7 @@ Proof.
   { (* new *) 
     inverts Ht. subst.
     inverts Hm1 as HD Htrm. 
-    forwards* (v'&Hv'&Hu): tr_uninitialized_val HC.
+    forwards* (v'&Hv'&Hu): tr_uninitialized_val.
     exists (val_abstract_ptr l0 nil) m1'[l0:=v']. splits~.    
     { constructors.
       { unfold state. repeat rewrite~ dom_update.
@@ -740,7 +747,7 @@ Proof.
     inverts Ht as Hv.
     inverts Hv. 
     inverts Hm1 as HD Htrm. subst.
-    forwards* (v''&Hv''&Hu): tr_uninitialized_val HC.
+    forwards* (v''&Hv''&Hu): tr_uninitialized_val.
     exists (val_abstract_ptr l0 nil) m1'[l0:=v'']. splits~.
     { constructors.
       { unfold state. repeat rewrite~ dom_update.
