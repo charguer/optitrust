@@ -378,6 +378,15 @@ Proof.
   try solve [ subst ; inverts HN ]. forwards*: He.
 Qed.
 
+Lemma not_is_uninitialized_tr : forall gt v v',
+  ~ is_uninitialized v ->
+  tr_val gt v v' -> 
+  ~ is_uninitialized v'.
+Proof.
+  introv Hu Htr. induction Htr; introv HN;
+  subst ; inverts HN.
+Qed.
+
 Lemma not_is_error_args_1 : forall C S m op ts m' v w,
   red C S m (trm_app op (trm_val w :: ts)) m' v ->
   ~ is_error v ->
@@ -588,6 +597,10 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
+Axiom isTrue_var_eq : forall A (v1 v2:A), v1 = v2 -> isTrue (v1 = v2) = true.
+
+Axiom isTrue_var_neq : forall A (v1 v2:A), v1 <> v2 -> isTrue (v1 = v2) = false.
+
 Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   tr_typdefctx gt C C' ->
   tr_trm gt t t' ->
@@ -603,8 +616,8 @@ Proof.
   introv HC Ht HS Hm1 HR He. gen t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ].
   { (* var *)
-    inverts Ht. inverts HS.
-    forwards: H1 H. inverts H2. exists* x0 m1'. }
+    inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H.
+    exists* v' m1'. }
   { (* val *)
     inverts Ht. exists* v' m1'. }
   { (* if *)
@@ -612,8 +625,8 @@ Proof.
     forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
     introv HN. inverts HN.
     inverts* Hv'.
-    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 2:
-    exists* vr' m3'. case_if*. }
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 
+    2: exists* vr' m3'. case_if*. }
   { (* let *)
     inverts Ht as Ht1 Ht2.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
@@ -631,26 +644,24 @@ Proof.
     (* equality case *)
     exists (val_bool (isTrue (v' = v'0))) m1'.
     splits*.
-    { tests C: (v1 = v2).
+    { tests Heq: (v1 = v2).
       { forwards: functional_tr_val Ht1 Ht2. subst.
-        repeat rewrite* isTrue_var_eq. }
+        repeat rewrite* isTrue_var_eq.  }
       { forwards*: neq_tr.
         repeat rewrite* isTrue_var_neq. } }
     { repeat constructors*. 
       forwards*: not_is_error_tr Ht1.
       forwards*: not_is_error_tr Ht2. } }
   { (* get *)
-    inverts Ht as _ Hp. inverts Hm1 as HD Htrm.
-    inverts H0 as Hb Ha. forwards Hi: index_of_binds Hb.
-    typeclass. forwards Htrml: Htrm Hi.
-    subst_hyp H. inverts Hp as Hp. inverts Hp.
-    forwards: read_of_binds Hb. subst_hyp H.
-    forwards (w'&Hw'&Ha'): tr_read_accesses Htrml H2 Ha.
+    inverts Ht as _ Hp. subst.
+    inverts Hm1 as HD Htrm.
+    inverts H0 as Hi Ha.
+    forwards Htrml: Htrm Hi.
+    inverts Hp as Hp. inverts Hp as Hπ.
+    forwards (w'&Hw'&Ha'): tr_read_accesses Htrml Hπ Ha.
     exists w' m1'. splits*.
-    constructors*. constructors*.
-    applys* binds_of_indom_read.
-    rewrite <- HD at 1.
-    forwards*: indom_of_binds Hb. }
+    repeat constructors~. rewrite~ <- HD.
+    applys* not_is_uninitialized_tr. }
   { (* set *)
     inverts Ht as Hp Ht. inverts Hm1 as HD Htrm.
     inverts H2 as Hb HW. forwards Hi: index_of_binds Hb.
