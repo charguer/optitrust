@@ -441,8 +441,6 @@ Lemma indom_update_inv_neq : forall A `{Inhab B} (m:map A B) (i j:A) (v:B),
   j \indom m.
 Proof using. introv IB H N. rewrite~ indom_update_neq_eq in H. Qed.
 
-(* TODO RAMON: replace index_of_index_update_neq with indom_update_inv_neq *)
-
 
 
 Hint Resolve @indom_update @indom_of_indom_update_at_indom @indom_update_same @indom_update_inv_neq.

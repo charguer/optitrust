@@ -75,6 +75,8 @@ Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
 Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
   | tr_val_error :
       tr_val gt val_error val_error
+  | tr_val_uninitialized :
+      tr_val gt val_uninitialized val_uninitialized
   | tr_val_unit :
       tr_val gt val_unit val_unit
   | tr_val_bool : forall b,
@@ -121,6 +123,7 @@ Definition is_prim_struct_access (op:prim) :=
   | _ => False
   end.
 
+
 (** Transformation of terms: t ~ |t| *)
 
 Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
@@ -138,6 +141,9 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       tr_trm gt t1 t1' ->
       tr_trm gt t2 t2' ->
       tr_trm gt (trm_let x t1 t2) (trm_let x t1' t2')
+  (* new *)  
+  | tr_trm_new : forall T,
+      tr_trm gt (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
   (* Special case: struct access *)
   | tr_trm_struct_access_x : forall p p' s s_g f f_g a1 a2 r,
       tr_trm gt p p' ->
@@ -200,7 +206,7 @@ Inductive tr_state (gt:group_tr) : state -> state -> Prop :=
   | tr_state_intro : forall m m',
       dom m = dom m' ->
       (forall l,
-        index m l ->
+        l \indom m ->
         tr_val gt m[l] m'[l]) ->
       tr_state gt m m'.
 
@@ -384,7 +390,7 @@ Lemma not_is_uninitialized_tr : forall gt v v',
   ~ is_uninitialized v'.
 Proof.
   introv Hu Htr. induction Htr; introv HN;
-  subst ; inverts HN.
+  subst; inverts HN. forwards~: Hu. unfolds~.
 Qed.
 
 Lemma not_is_error_args_1 : forall C S m op ts m' v w,
@@ -597,6 +603,16 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
+(* TODO: This doesn't quite work *)
+Lemma tr_uninitialized_val : forall gt v C C' T,
+  tr_typdefctx gt C C' ->
+  uninitialized_val C T v ->
+  exists v',
+        tr_val gt v v'
+    /\  uninitialized_val C' T v'.
+Proof.
+Admitted.
+
 Axiom isTrue_var_eq : forall A (v1 v2:A), v1 = v2 -> isTrue (v1 = v2) = true.
 
 Axiom isTrue_var_neq : forall A (v1 v2:A), v1 <> v2 -> isTrue (v1 = v2) = false.
@@ -613,7 +629,7 @@ Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   /\  tr_state gt m2 m2'
   /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv HC Ht HS Hm1 HR He. gen t' S' m1'. induction HR; intros;
+  introv HC Ht HS Hm1 HR He. gen C' t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ].
   { (* var *)
     inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H.
@@ -622,7 +638,7 @@ Proof.
     inverts Ht. exists* v' m1'. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse.
-    forwards (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
+    forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
     introv HN. inverts HN.
     inverts* Hv'.
     forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 
@@ -663,39 +679,44 @@ Proof.
     repeat constructors~. rewrite~ <- HD.
     applys* not_is_uninitialized_tr. }
   { (* set *)
-    inverts Ht as Hp Ht. inverts Hm1 as HD Htrm.
-    inverts H2 as Hb HW. forwards Hi: index_of_binds Hb.
-    typeclass. forwards Htrml: Htrm Hi. subst_hyp H.
-    inverts Hp as Hp. inverts Hp as Ha.
-    subst_hyp H0. inverts Ht as Hv.
-    forwards Heq: read_of_binds Hb. subst_hyp Heq.
-    forwards (w'&Hw'&HW'): tr_write_accesses Htrml Hv Ha HW.
-    exists val_unit m1'[l:=w']. splits*.
+    inverts Ht as Hp Ht. subst.
+    inverts Hm1 as HD Htrm.
+    inverts H2 as Hin HW. 
+    forwards Htrml: Htrm Hin.
+    inverts Hp as Hp. 
+    inverts Hp as Hπ.
+    inverts Ht as Hv.
+    forwards (w'&Hw'&HW'): tr_write_accesses Htrml Hv Hπ HW.
+    exists val_unit m1'[l:=w']. splits~.
     { constructors.
-      { rewrite index_eq_indom in Hi.
-        forwards* HDm1: dom_update_at_indom Hi.
-        rewrite HD in Hi at 1.
-        forwards* HDm1': dom_update_at_indom Hi.
-        rewrite* HDm1. rewrite* HDm1'. }
-      { introv Hi'. do 2 rewrites read_update.
-        case_if*.
-        forwards* Hi'': index_of_index_update_neq Hi' C. } }
-    { constructors*. applys* not_tr_val_error.
-      constructors*. applys* binds_of_indom_read.
-      rewrite <- HD at 1. forwards*: indom_of_binds Hb. } }
+      { unfold state. repeat rewrite~ dom_update.
+        fold state. rewrite~ HD. }
+      { introv Hi'. rew_reads~. intros. applys Htrm.  
+        applys~ indom_update_inv_neq Hi'. } }
+    { constructors~. applys* not_tr_val_error.
+      constructors*. rewrite~ <- HD. } }
   { (* new *) 
-    inverts Ht as _ Ht. inverts Ht as Hv. 
-    inverts Hm1 as HD Htrm. subst.
-    exists (val_abstract_ptr l0 nil) m1'[l0:=v'].
-    splits*.
+    inverts Ht. subst.
+    inverts Hm1 as HD Htrm. 
+    forwards* (v'&Hv'&Hu): tr_uninitialized_val HC.
+    exists (val_abstract_ptr l0 nil) m1'[l0:=v']. splits~.    
     { constructors.
-      { unfold state. repeat rewrite dom_update.
-        applys* union_eq.  }
-      { introv Hi. rewrite read_update. case_if*.
-        { subst_hyp C. rewrite* read_update_same. }
-        { rewrite* read_update_neq.
-          forwards* Hi': index_of_index_update_neq Hi C. } } }
-    { constructors*. rewrite* <- HD. } }
+      { unfold state. repeat rewrite~ dom_update.
+        fold state. rewrite~ HD. }
+      { introv Hin. unfolds state. rew_reads; intros; eauto. } }
+    { constructors~. rewrite~ <- HD. auto. } }  
+  { (* new_array *)
+    inverts Ht as _ Ht.
+    inverts Ht as Hv.
+    inverts Hv. 
+    inverts Hm1 as HD Htrm. subst.
+    forwards* (v''&Hv''&Hu): tr_uninitialized_val HC.
+    exists (val_abstract_ptr l0 nil) m1'[l0:=v'']. splits~.
+    { constructors.
+      { unfold state. repeat rewrite~ dom_update.
+        fold state. rewrite~ HD. }
+      { introv Hin. unfolds state. rew_reads; intros; eauto. } }
+    { applys~ red_new_array. rewrite~ <- HD. auto. } }
   { (* struct_access *)
     inverts Ht as; inverts Hm1 as HD Htrm.
     { (* accessing grouped field *)
@@ -725,13 +746,13 @@ Proof.
     splits; constructors*. applys* tr_accesses_app. }
   { (* args_1 *)
     inverts Ht; forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
-    forwards*: red_app_not_is_error HR2 He;
+    forwards*: not_is_error_args_1 HR2 He;
     forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
     exists v'' m3'; splits*;
     try solve [ applys* red_args_1; applys* not_is_val_tr ].
     (* remaining cases are structs *)
     inverts HR''.
-    { inverts H10. }
+    { tryfalse. }
     { applys* red_args_1. applys* red_args_1.
       apply not_is_val_tr with (gt:=gt) (t1:=t1); auto. }
     { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. }
@@ -739,7 +760,7 @@ Proof.
   { (* args_2 *)
     inverts Ht as Ht1 Ht2.
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
-    forwards*: red_app_not_is_error_2 HR2 He.
+    forwards*: not_is_error_args_2 HR2 He.
     forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
     exists v'' m3'. splits*.
     inverts Ht1. applys* red_args_2.
