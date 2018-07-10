@@ -25,7 +25,7 @@ Definition C : typdefctx := (\{})["pos" := pos].
 (* Final typdefctx *)
 Definition struct_x : typdef_struct := (\{})["x" := typ_int].
 Definition pos' : typdef_struct := (\{})["s" := (typ_struct "struct_x")]["y" := typ_int]["z" := typ_int].
-Definition C' : typdefctx := (\{})["pos" := pos'].
+Definition C' : typdefctx := (\{})["pos" := pos']["struct_x" := struct_x].
 
 End Example.
 
@@ -203,6 +203,33 @@ Inductive tr_state (gt:group_tr) : state -> state -> Prop :=
         index m l ->
         tr_val gt m[l] m'[l]) ->
       tr_state gt m m'.
+
+
+(** Transformation of typdefctxs: C ~ |C| *)
+
+Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
+  | tr_typdefctx_intro : forall Tt fs Tg fg C C',
+      gt = make_group_tr Tt fs Tg fg ->
+      Tt \indom C ->
+      Tg \notindom C ->
+      dom C' = dom C \u \{Tg} ->
+      (forall T,
+        T \indom C ->
+        T <> Tt ->
+        C'[T] = C[T]) ->
+      fs \c dom (C[Tt]) ->
+      fg \notindom (C[Tt]) ->
+      dom (C'[Tt]) = (dom (C[Tt]) \- fs) \u \{fg} ->
+      (forall f,
+        f \indom (C[Tt]) ->
+        f \notin fs ->
+        C'[Tt][f] = C[Tt][f]) ->
+      C[Tt][fg] = typ_struct Tg ->
+      dom (C'[Tg]) = fs ->
+      (forall f,
+        f \indom (C'[Tg]) ->
+        C'[Tg][f] = C[Tt][f]) ->
+      tr_typdefctx gt C C'.
 
 
 (* ********************************************************************** *)
@@ -436,44 +463,10 @@ Ltac set_prove_show :=
 (* ---------------------------------------------------------------------- *)
 (** Auxiliary set results *)
 
-Lemma in_union : forall A (x:A) (S1 S2:set A), 
-  x \in S1 \/ x \in S2 -> 
-  x \in S1 \u S2.
-Proof using. set_prove. Qed.
-
-Lemma in_setminus : forall A (x:A) (S1 S2: set A),
-  x \in S1 -> 
-  x \notin S2 -> 
-  x \in (S1 \- S2).
-Proof using. set_prove. Qed.
-
 Lemma in_notin_neq : forall A (x y:A) (S:set A),
   x \in S ->
   y \notin S ->
   y <> x.
-Proof using. set_prove. Qed.
-
-Lemma notin_notin_subset : forall A (x:A) (S1 S2:set A),
-  S1 \c S2 ->
-  x \notin S2 ->
-  x \notin S1.
-Proof using. set_prove. Qed.
-
-Lemma in_subset : forall A (x:A) (S1 S2:set A),
-  S2 \c S1 ->
-  x \in S2 ->
-  x \in S1.
-Proof using. set_prove. Qed.
-
-Lemma in_single : forall A (x:A) (S:set A),
-  S = '{x} ->
-  x \in S.
-Proof using. set_prove. Qed.
-
-Lemma union_eq : forall A (S1 S2 S3 S4:set A),
-  S1 = S3 ->
-  S2 = S4 ->
-  S1 \u S2 = S3 \u S4.
 Proof using. set_prove. Qed.
 
 
@@ -595,22 +588,19 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
-Axiom isTrue_var_eq : forall A (v1 v2:A), v1 = v2 -> isTrue (v1 = v2) = true.
-
-Axiom isTrue_var_neq : forall A (v1 v2:A), v1 <> v2 -> isTrue (v1 = v2) = false.
-
-Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
+Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
+  tr_typdefctx gt C C' ->
   tr_trm gt t t' ->
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
-  red S m1 t m2 v ->
+  red C S m1 t m2 v ->
   ~ is_error v ->
   exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
-  /\  red S' m1' t' m2' v'.
+  /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv Ht HS Hm1 HR He. gen t' S' m1'. induction HR; intros;
+  introv HC Ht HS Hm1 HR He. gen t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ].
   { (* var *)
     inverts Ht. inverts HS.
