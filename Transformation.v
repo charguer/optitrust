@@ -326,21 +326,42 @@ Proof.
     repeat fequals~. }
 Qed.
 
+Theorem functional_tr_stack_item : forall gt i i1 i2,
+  tr_stack_item gt i i1 ->
+  tr_stack_item gt i i2 ->
+  i1 = i2.
+Proof.
+  introv Hi1 Hi2. 
+  inverts Hi1 as H. inverts Hi2 as H'. 
+  forwards*: functional_tr_val H H'.
+Qed.
+
 Theorem functional_tr_stack : forall gt S S1 S2,
   tr_stack gt S S1 ->
   tr_stack gt S S2 ->
   S1 = S2.
 Proof.
-  admit. (* extens lemma for ctxts. *)
-Admitted.
+  introv HS1 HS2. inverts HS1 as HS1. inverts HS2 as HS2. 
+  gen S2. induction HS1; intros.
+  { inverts~ HS2. }
+  { inverts HS2 as HSy0 HS1'. fequals.
+    { forwards*: functional_tr_stack_item H HSy0. }
+    { applys~ IHHS1. } }
+Qed.
 
 Theorem functional_tr_state : forall gt m m1 m2,
   tr_state gt m m1 ->
   tr_state gt m m2 ->
   m1 = m2.
 Proof.
-  admit. (* extens lemma for maps. *)
-Admitted.
+  introv Hm1 Hm2. 
+  inverts Hm1 as HD1 Htr1. inverts Hm2 as HD2 Htr2.
+  applys read_extens.
+  { unfolds state. congruence. }
+  { introv Hi. rewrite HD1 in *. 
+    forwards Hm1i: Htr1 Hi. forwards Hm2i: Htr2 Hi.
+    forwards~: functional_tr_val Hm1i Hm2i. }
+Qed.
 
 Lemma tr_stack_add : forall gt z v S v' S',
   tr_stack gt S S' ->
