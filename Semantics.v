@@ -283,6 +283,7 @@ Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
         uninitialized_val C T a[i]) ->
       uninitialized_val C (typ_array T (Some n)) (val_array a)
   | uninitialized_val_struct : forall T Tfs vfs,
+      T \indom C ->
       Tfs = C[T] ->
       dom Tfs = dom vfs ->
       (forall f,

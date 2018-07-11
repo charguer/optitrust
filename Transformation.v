@@ -230,7 +230,7 @@ Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
         f \indom (C[Tt]) ->
         f \notin fs ->
         C'[Tt][f] = C[Tt][f]) ->
-      C[Tt][fg] = typ_struct Tg ->
+      C'[Tt][fg] = typ_struct Tg ->
       dom (C'[Tg]) = fs ->
       (forall f,
         f \indom (C'[Tg]) ->
@@ -514,6 +514,49 @@ Proof.
     { admit. }
     { admit. } }
 Admitted.
+
+Lemma tr_uninitialized_val' : forall gt v v' T C C',
+  tr_typdefctx gt C C' ->
+  tr_val gt v v' ->
+  uninitialized_val C T v ->
+  uninitialized_val C' T v'.
+Proof.
+  introv HC Hv Hu. gen C' v'. induction Hu; intros;
+  try solve [ inverts Hv ; constructors~ ].
+  { (* val array *)
+    inverts Hv as Hl Hai. constructors. congruence.
+    introv Hi. forwards*: Hai i. }
+  { (* val struct *)
+    tests: (T = group_tr_struct_name gt); 
+    inverts Hv; inverts HC; simpls; tryfalse.
+    { (* fields grouped *)
+      constructors*. unfolds typdefctx. unfolds typdef_struct.
+      rewrite H13. rew_set~. unfolds typdefctx. unfolds typdef_struct.
+      inverts H6. subst. congruence. inverts H6. introv Hi. subst.
+      tests: (f = fg).
+      { unfolds typdefctx; unfolds typdef_struct. rewrite H14. rewrite H20.
+        constructors*. 
+        { rewrite H13 at 1. rew_set~. }
+        { introv Hi'. rewrite~ H22. forwards*: H3 f C' sg[f].
+          { rew_set in *. applys* H16. }
+          { constructors*. }
+          { applys* H11. rewrite~ <- H21. } } }
+      { forwards*: H3 f C' (s'[f]); unfolds typdefctx; unfolds typdef_struct. 
+        rewrite H18 in Hi; rew_set in *. inverts Hi; tryfalse. destruct~ H0.
+        constructors*. rewrite H18 in Hi. rew_set in Hi. inverts Hi; tryfalse.
+        applys~ H12. destruct H0. rewrite~ <- H21. destruct H0. rewrite~ <- H1.
+        rewrite* H19; rewrite H18 in Hi; rew_set in Hi; inverts Hi; tryfalse;
+        destruct~ H4. } }
+    { (* other struct *)
+      constructors*. unfolds typdefctx. unfolds typdef_struct.
+      rewrite* H10. rew_set~.  unfolds typdefctx. unfolds typdef_struct.
+      rewrite~ H11. congruence. introv Hi. rewrite* H11. subst.
+      forwards*: H3 f C' (s'[f]).
+      { rewrite~ <- H11. }
+      { constructors*. } 
+      { applys* H9. unfolds typdefctx. unfolds typdef_struct. rewrite <- H1.
+        rewrite~ <- H11. } } }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
