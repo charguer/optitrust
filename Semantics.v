@@ -130,8 +130,6 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_double : double -> val
   | val_abstract_ptr : loc -> accesses -> val
-  | val_concrete_ptr : loc -> offset -> val
-  | val_prim : prim -> val
   | val_array : list val -> val
   | val_struct : typvar -> map field val -> val. 
 
@@ -181,7 +179,6 @@ Hint Extern 1 (Inhab typ) => apply Inhab_typ.
 (** Coercions *)
 
 Coercion prim_binop : binop >-> prim.
-Coercion val_prim : prim >-> val.
 Coercion val_int : Z >-> val.
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.

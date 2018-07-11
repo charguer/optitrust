@@ -460,21 +460,81 @@ Axiom not_tr_val_error : forall gt v1 v2,
   tr_val gt v1 v2 ->
   ~ is_error v2.
 
-(* TODO: This doesn't quite work. *)
-Lemma tr_uninitialized_val : forall gt v T,
-  uninitialized_val T v ->
+(* ---------------------------------------------------------------------- *)
+(** WIP towards proving tr_uninitialized_val *)
+
+Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
+  | uninitialized_val_bool : 
+      uninitialized_val C typ_bool val_uninitialized
+  | uninitialized_val_int :
+      uninitialized_val C typ_int val_uninitialized
+  | uninitialized_val_double :
+      uninitialized_val C typ_double val_uninitialized
+  | uninitialized_ptr : forall T,
+      uninitialized_val C (typ_ptr T) val_uninitialized
+  | uninitialized_val_array : forall T (n:nat) a,
+      length a = n ->
+      (forall i, 
+        index a i -> 
+        uninitialized_val C T a[i]) ->
+      uninitialized_val C (typ_array T (Some n)) (val_array a)
+  | uninitialized_val_struct : forall T Tfs vfs,
+      Tfs = C[T] ->
+      dom Tfs = dom vfs ->
+      (forall f,
+        f \indom Tfs ->
+        uninitialized_val C Tfs[f] vfs[f]) ->
+      uninitialized_val C (typ_struct T) (val_struct T vfs).
+
+Lemma total_tr_accesses : forall gt π,
+  exists π', tr_accesses gt π π'.
+Proof.
+Admitted.
+
+Lemma total_tr_val : forall gt v,
+  exists v', tr_val gt v v'.
+Proof.
+Admitted.
+
+Lemma tr_array : forall gt (a:list val),
+  exists a', 
+        length a' = length a
+    /\  (forall i, 
+          index a' i -> 
+          tr_val gt a[i] a'[i]).
+Proof.
+  induction a.
+  { exists __. rewrite length_nil in *. splits~. introv Hi.
+    inverts Hi. rewrite LibList.length_nil in *. math. }
+  { inverts IHa as (IHl&IHx). forwards (v'&Hv'): total_tr_val gt a.
+    exists (v'::x). splits.
+    { repeat rewrite length_cons. fequals. }
+    { introv Hi. tests: (i = 0).
+      { repeat rewrite~ read_zero. }
+      { repeat rewrite read_cons_case. case_if*. 
+        inverts Hi. forwards~: IHx (i - 1).
+        applys int_index_prove. math.  
+        rewrite LibList.length_cons in *. math. } } }
+Qed.
+
+Lemma tr_uninitialized_val : forall gt v T C C',
+  tr_typdefctx gt C C' ->
+  uninitialized_val C T v ->
   exists v',
         tr_val gt v v'
-    /\  uninitialized_val T v'.
+    /\  uninitialized_val C' T v'.
 Proof.
-  introv Hu. induction Hu;
+  introv HC Hu. gen C'. induction Hu; intros;
   try solve [ exists __ ; splits ; constructors~ ].
-  { exists (val_array nil). splits. constructors~.
-    { introv Hi. rewrite index_eq_inbound in *. 
-      rewrite length_nil in *. math. }
-    { constructors~. } }
-  { exists __. splits.
-    { constructors~. admit. admit. }
+  { forwards (a'&Hl&Ha'): tr_array gt a.
+    exists (val_array a'). splits.
+    { constructors~. introv Hi. applys* Ha'. }
+    { constructors~. congruence. 
+      introv Hi. forwards Hxi: Ha' Hi.
+      forwards* (v'&Hv'&Hu): H1 i. 
+      forwards*: functional_tr_val Hxi Hv'. subst~. } }
+  { inverts HC. tests: (T=Tt).
+    { admit. }
     { admit. } }
 Admitted.
 
