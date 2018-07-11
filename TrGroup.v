@@ -237,13 +237,6 @@ Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
         C'[Tg][f] = C[Tt][f]) ->
       tr_typdefctx gt C C'.
 
-
-(* ********************************************************************** *)
-(* * Correctness of the transformation *)
-
-Section TransformationsProofs.
-
-
 (* ---------------------------------------------------------------------- *)
 (** Hints *)
 
@@ -264,6 +257,110 @@ Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
 Hint Constructors read_accesses write_accesses.
 
 
+(* ---------------------------------------------------------------------- *)
+(** Functionality of the relations *)
+
+Theorem functional_tr_accesses : forall gt π π1 π2,
+  tr_accesses gt π π1 ->
+  tr_accesses gt π π2 ->
+    π1 = π2.
+Proof.
+  introv H1 H2. gen π2. induction H1; intros;
+  inverts_head tr_accesses; repeat fequals*;
+  inverts_head Logic.or; repeat fequals*.
+Qed. 
+
+Theorem functional_tr_val : forall gt v v1 v2,
+  tr_val gt v v1 ->
+  tr_val gt v v2 ->
+  v1 = v2.
+Proof using.
+  introv H1 H2. gen v2. induction H1; intros;
+  inverts_head tr_val; fequals*.
+  { applys* functional_tr_accesses. }
+  { applys* eq_of_extens. math. }
+  { applys read_extens. 
+    { inverts_head make_group_tr'. congruence. }
+    { introv Hin. tests C: (i = fg).
+      { inverts_head make_group_tr'.
+        asserts_rewrite~ (s'0[fg0] = val_struct Tsg0 sg0).
+        asserts_rewrite~ (s'[fg0] = val_struct Tsg0 sg).
+        fequals. applys~ read_extens. introv Hk. 
+        asserts_rewrite* (dom sg = dom sg0) in *. }
+      { inverts_head make_group_tr'.
+        asserts_rewrite~ (dom s' = dom s \- dom sg \u '{fg0}) in Hin.
+        inverts Hin as Hin; tryfalse. inverts Hin as Hin Hnotin.
+        asserts_rewrite* (dom sg = dom sg0) in *. } } }
+  { subst. simpls. contradiction. }
+  { applys read_extens.
+    { congruence. }
+    { introv Hin. 
+      asserts_rewrite* (dom s' = dom s) in *. } }
+Qed.
+
+Theorem functional_tr_trm : forall gt t t1 t2,
+  tr_trm gt t t1 ->
+  tr_trm gt t t2 ->
+  t1 = t2.
+Proof.
+  introv H1 H2. gen t2. induction H1; intros;
+  try solve [ inverts H2 ; try subst ; repeat fequals* ].
+  { inverts H2. fequals. applys* functional_tr_val. }
+  { inverts_head tr_trm; subst. 
+    { repeat fequals~. }
+    { inverts_head Logic.or; tryfalse. } 
+    { unfolds is_prim_struct_access. contradiction. } }
+  { inverts_head tr_trm; subst.
+    { inverts_head Logic.or; tryfalse. }
+    { repeat fequals~. } 
+    { unfolds is_prim_struct_access. contradiction. } }
+  { inverts_head tr_trm; 
+    try solve [ unfolds is_prim_struct_access ; contradiction ].
+    repeat fequals~. }
+Qed.
+
+Theorem functional_tr_stack_item : forall gt i i1 i2,
+  tr_stack_item gt i i1 ->
+  tr_stack_item gt i i2 ->
+  i1 = i2.
+Proof.
+  introv Hi1 Hi2. 
+  inverts Hi1 as H. inverts Hi2 as H'. 
+  forwards*: functional_tr_val H H'.
+Qed.
+
+Theorem functional_tr_stack : forall gt S S1 S2,
+  tr_stack gt S S1 ->
+  tr_stack gt S S2 ->
+  S1 = S2.
+Proof.
+  introv HS1 HS2. inverts HS1 as HS1. inverts HS2 as HS2. 
+  gen S2. induction HS1; intros.
+  { inverts~ HS2. }
+  { inverts HS2 as HSy0 HS1'. fequals.
+    { forwards*: functional_tr_stack_item H HSy0. }
+    { applys~ IHHS1. } }
+Qed.
+
+Theorem functional_tr_state : forall gt m m1 m2,
+  tr_state gt m m1 ->
+  tr_state gt m m2 ->
+  m1 = m2.
+Proof.
+  introv Hm1 Hm2. 
+  inverts Hm1 as HD1 Htr1. inverts Hm2 as HD2 Htr2.
+  applys read_extens.
+  { unfolds state. congruence. }
+  { introv Hi. rewrite HD1 in *. 
+    forwards Hm1i: Htr1 Hi. forwards Hm2i: Htr2 Hi.
+    forwards~: functional_tr_val Hm1i Hm2i. }
+Qed.
+
+
+(* ********************************************************************** *)
+(* * Correctness of the transformation *)
+
+Section TransformationsProofs.
 
 (* ---------------------------------------------------------------------- *)
 (** Path surgery *)
@@ -315,10 +412,10 @@ Lemma not_is_error_args_1 : forall C S m op ts m' v w,
 Proof.
   introv HR He HN. inverts HN;
   inverts HR; tryfalse. 
-  { inverts_head redbinop. tryfalse. }
+  { inverts_head redbinop; tryfalse. }
   { forwards*: (is_val val_error). }
   { inverts_head red; tryfalse.
-    { inverts_head redbinop. tryfalse. }
+    { inverts_head redbinop; tryfalse. }
     { forwards*: (is_val val_error). }
     { forwards*: (is_val v2). } }
 Qed.
@@ -329,9 +426,9 @@ Lemma not_is_error_args_2 : forall C S m op t ts m' v w,
   ~ is_error w.
 Proof.
   introv HR He HN. inverts HN; inverts HR; tryfalse.
-  { inverts_head redbinop. tryfalse. }
+  { inverts_head redbinop; tryfalse. }
   { inverts_head red; tryfalse.
-    { inverts_head redbinop. tryfalse. }
+    { inverts_head redbinop; tryfalse. }
     { forwards*: (is_val v1). }
     { forwards*: (is_val val_error). } }
   { forwards*: (is_val val_error). }
@@ -413,6 +510,7 @@ Lemma total_tr_val' : forall gt v,
 Proof.
 Admitted.
 
+(* Lemma for the new case. *)
 Lemma tr_uninitialized_val : forall gt v T C C',
   tr_typdefctx gt C C' ->
   uninitialized_val C T v ->
@@ -420,7 +518,9 @@ Lemma tr_uninitialized_val : forall gt v T C C',
         tr_val gt v v'
     /\  uninitialized_val C' T v'.
 Proof.
-Admitted.
+  introv HC Hu. forwards* (v'&Hv'): total_tr_val' gt v.
+  exists v'. splits~. applys* tr_uninitialized_val'.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -590,21 +690,19 @@ Proof.
   { (* binop *)
     inverts Ht as Ht1 Ht2.
     inverts Ht1 as Ht1. inverts Ht2 as Ht2.
-    inverts H;
-    try solve [ exists __ m1'; splits*;
-    inverts Ht1; inverts Ht2;
-    repeat constructors* ].
-    (* equality case *)
-    (*exists (val_bool (isTrue (v' = v'0))) m1'.
-    splits*.
-    { tests Heq: (v1 = v2).
-      { forwards: functional_tr_val Ht1 Ht2. subst.
-        repeat rewrite* isTrue_var_eq.  }
-      { forwards*: neq_tr.
-        repeat rewrite* isTrue_var_neq. } }
-    { repeat constructors*. 
-      forwards*: not_is_error_tr Ht1.
-      forwards*: not_is_error_tr Ht2. }*) admit. }
+    inverts H.
+    { exists __ m1'. splits~. inverts Ht1. inverts Ht2. 
+      constructors. constructors~. }
+    { exists __ m1'. splits~. inverts Ht1. inverts Ht2. 
+      constructors. constructors~. }
+    { exists __ m1'. splits~. constructors.
+      forwards: functional_tr_val Ht1 Ht2. subst.
+      constructors~; applys* not_is_error_tr. }
+    { exists __ m1'. splits~. constructors.
+      forwards: neq_tr gt H2 Ht1 Ht2.
+      constructors~.
+      { apply not_is_error_tr with (gt:=gt) (v1:=v1) (v2:=v'); auto. }
+      { apply not_is_error_tr with (gt:=gt) (v1:=v2) (v2:=v'0); auto. } } }
   { (* get *)
     inverts Ht as _ Hp. subst.
     inverts Hm1 as HD Htrm.
