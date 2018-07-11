@@ -69,18 +69,26 @@ Fixpoint fun_tr_val_depth (depth:nat) (gt:group_tr) (v:val) : val :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Lemmas outline *)
+(** Lemmas outline. Some ideas. *)
 
-Lemma fixpoint_fun_tr_val : forall gt n v,
+Lemma tr_val_fun_tr_val : forall gt n v,
   fun_tr_val_depth n gt v = fun_tr_val_depth (S n) gt v ->
   tr_val gt v (fun_tr_val_depth n gt v).
+Proof.
+Admitted.
+
+Lemma fixpoint_fun_tr_val : forall gt v,
+  exists n, fun_tr_val_depth n gt v = fun_tr_val_depth (S n) gt v.
 Proof.
 Admitted.
 
 Lemma depth_fun_tr_val : forall gt v,
   exists n, tr_val gt v (fun_tr_val_depth n gt v).
 Proof.
-Admitted.
+  intros. forwards (n&H): fixpoint_fun_tr_val gt v.
+  exists n. applys tr_val_fun_tr_val. 
+  unfolds fun_tr_val_depth. auto.
+Qed.
 
 Lemma total_tr_accesses : forall gt π,
   exists π', tr_accesses gt π π'.
