@@ -417,8 +417,8 @@ Proof.
   subst; inverts HN. forwards~: Hu. unfolds~.
 Qed.
 
-Lemma not_is_error_args_1 : forall S m op ts m' v w,
-  red S m (trm_app op (trm_val w :: ts)) m' v ->
+Lemma not_is_error_args_1 : forall C S m op ts m' v w,
+  red C S m (trm_app op (trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
 Proof.
@@ -432,8 +432,8 @@ Proof.
     { forwards*: (is_val v2). } }
 Qed.
 
-Lemma not_is_error_args_2 : forall S m op t ts m' v w,
-  red S m (trm_app op (t :: trm_val w :: ts)) m' v ->
+Lemma not_is_error_args_2 : forall C S m op t ts m' v w,
+  red C S m (trm_app op (t :: trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
 Proof.
@@ -462,29 +462,6 @@ Axiom not_tr_val_error : forall gt v1 v2,
 
 (* ---------------------------------------------------------------------- *)
 (** WIP towards proving tr_uninitialized_val *)
-
-Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
-  | uninitialized_val_bool : 
-      uninitialized_val C typ_bool val_uninitialized
-  | uninitialized_val_int :
-      uninitialized_val C typ_int val_uninitialized
-  | uninitialized_val_double :
-      uninitialized_val C typ_double val_uninitialized
-  | uninitialized_ptr : forall T,
-      uninitialized_val C (typ_ptr T) val_uninitialized
-  | uninitialized_val_array : forall T (n:nat) a,
-      length a = n ->
-      (forall i, 
-        index a i -> 
-        uninitialized_val C T a[i]) ->
-      uninitialized_val C (typ_array T (Some n)) (val_array a)
-  | uninitialized_val_struct : forall T Tfs vfs,
-      Tfs = C[T] ->
-      dom Tfs = dom vfs ->
-      (forall f,
-        f \indom Tfs ->
-        uninitialized_val C Tfs[f] vfs[f]) ->
-      uninitialized_val C (typ_struct T) (val_struct T vfs).
 
 Lemma total_tr_accesses : forall gt π,
   exists π', tr_accesses gt π π'.
@@ -718,18 +695,19 @@ Axiom isTrue_var_neq : forall A (v1 v2:A), v1 <> v2 -> isTrue (v1 = v2) = false.
    rewrites stop working so I have to [fold state] again.
    How can we fix this? *)
 
-Theorem red_tr: forall gt t t' v S S' m1 m1' m2,
+Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
+  tr_typdefctx gt C C' ->
   tr_trm gt t t' ->
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
-  red S m1 t m2 v ->
+  red C S m1 t m2 v ->
   ~ is_error v ->
   exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
-  /\  red S' m1' t' m2' v'.
+  /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv Ht HS Hm1 HR He. gen t' S' m1'. induction HR; intros;
+  introv HC Ht HS Hm1 HR He. gen C' t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ].
   { (* var *)
     inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H.
