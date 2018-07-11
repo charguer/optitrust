@@ -264,115 +264,6 @@ Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
 Hint Constructors read_accesses write_accesses.
 
 
-(* ---------------------------------------------------------------------- *)
-(** Functionality of the relations *)
-
-Theorem functional_tr_accesses : forall gt π π1 π2,
-  tr_accesses gt π π1 ->
-  tr_accesses gt π π2 ->
-    π1 = π2.
-Proof.
-  introv H1 H2. gen π2. induction H1; intros;
-  inverts_head tr_accesses; repeat fequals*;
-  inverts_head Logic.or; repeat fequals*.
-Qed. 
-
-Theorem functional_tr_val : forall gt v v1 v2,
-  tr_val gt v v1 ->
-  tr_val gt v v2 ->
-  v1 = v2.
-Proof using.
-  introv H1 H2. gen v2. induction H1; intros;
-  inverts_head tr_val; fequals*.
-  { applys* functional_tr_accesses. }
-  { applys* eq_of_extens. math. }
-  { applys read_extens. 
-    { inverts_head make_group_tr'. congruence. }
-    { introv Hin. tests C: (i = fg).
-      { inverts_head make_group_tr'.
-        asserts_rewrite~ (s'0[fg0] = val_struct Tsg0 sg0).
-        asserts_rewrite~ (s'[fg0] = val_struct Tsg0 sg).
-        fequals. applys~ read_extens. introv Hk. 
-        asserts_rewrite* (dom sg = dom sg0) in *. }
-      { inverts_head make_group_tr'.
-        asserts_rewrite~ (dom s' = dom s \- dom sg \u '{fg0}) in Hin.
-        inverts Hin as Hin; tryfalse. inverts Hin as Hin Hnotin.
-        asserts_rewrite* (dom sg = dom sg0) in *. } } }
-  { subst. simpls. contradiction. }
-  { applys read_extens.
-    { congruence. }
-    { introv Hin. 
-      asserts_rewrite* (dom s' = dom s) in *. } }
-Qed.
-
-Theorem functional_tr_trm : forall gt t t1 t2,
-  tr_trm gt t t1 ->
-  tr_trm gt t t2 ->
-  t1 = t2.
-Proof.
-  introv H1 H2. gen t2. induction H1; intros;
-  try solve [ inverts H2 ; try subst ; repeat fequals* ].
-  { inverts H2. fequals. applys* functional_tr_val. }
-  { inverts_head tr_trm; subst. 
-    { repeat fequals~. }
-    { inverts_head Logic.or; tryfalse. } 
-    { unfolds is_prim_struct_access. contradiction. } }
-  { inverts_head tr_trm; subst.
-    { inverts_head Logic.or; tryfalse. }
-    { repeat fequals~. } 
-    { unfolds is_prim_struct_access. contradiction. } }
-  { inverts_head tr_trm; 
-    try solve [ unfolds is_prim_struct_access ; contradiction ].
-    repeat fequals~. }
-Qed.
-
-Theorem functional_tr_stack_item : forall gt i i1 i2,
-  tr_stack_item gt i i1 ->
-  tr_stack_item gt i i2 ->
-  i1 = i2.
-Proof.
-  introv Hi1 Hi2. 
-  inverts Hi1 as H. inverts Hi2 as H'. 
-  forwards*: functional_tr_val H H'.
-Qed.
-
-Theorem functional_tr_stack : forall gt S S1 S2,
-  tr_stack gt S S1 ->
-  tr_stack gt S S2 ->
-  S1 = S2.
-Proof.
-  introv HS1 HS2. inverts HS1 as HS1. inverts HS2 as HS2. 
-  gen S2. induction HS1; intros.
-  { inverts~ HS2. }
-  { inverts HS2 as HSy0 HS1'. fequals.
-    { forwards*: functional_tr_stack_item H HSy0. }
-    { applys~ IHHS1. } }
-Qed.
-
-Theorem functional_tr_state : forall gt m m1 m2,
-  tr_state gt m m1 ->
-  tr_state gt m m2 ->
-  m1 = m2.
-Proof.
-  introv Hm1 Hm2. 
-  inverts Hm1 as HD1 Htr1. inverts Hm2 as HD2 Htr2.
-  applys read_extens.
-  { unfolds state. congruence. }
-  { introv Hi. rewrite HD1 in *. 
-    forwards Hm1i: Htr1 Hi. forwards Hm2i: Htr2 Hi.
-    forwards~: functional_tr_val Hm1i Hm2i. }
-Qed.
-
-Lemma tr_stack_add : forall gt z v S v' S',
-  tr_stack gt S S' ->
-  tr_val gt v v' ->
-  tr_stack gt (Ctx.add z v S) (Ctx.add z v' S').
-Proof.
-  introv HS Hv. constructors~. inverts HS.
-  unfolds Ctx.add. destruct* z.
-  applys~ Forall2_cons. constructors~.
-Qed.
-
 
 (* ---------------------------------------------------------------------- *)
 (** Path surgery *)
@@ -460,60 +351,19 @@ Axiom not_tr_val_error : forall gt v1 v2,
   tr_val gt v1 v2 ->
   ~ is_error v2.
 
-(* ---------------------------------------------------------------------- *)
-(** WIP towards proving tr_uninitialized_val *)
-
-Lemma total_tr_accesses : forall gt π,
-  exists π', tr_accesses gt π π'.
+Lemma tr_stack_add : forall gt z v S v' S',
+  tr_stack gt S S' ->
+  tr_val gt v v' ->
+  tr_stack gt (Ctx.add z v S) (Ctx.add z v' S').
 Proof.
-Admitted.
-
-Lemma total_tr_val : forall gt v,
-  exists v', tr_val gt v v'.
-Proof.
-Admitted.
-
-Lemma tr_array : forall gt (a:list val),
-  exists a', 
-        length a' = length a
-    /\  (forall i, 
-          index a' i -> 
-          tr_val gt a[i] a'[i]).
-Proof.
-  induction a.
-  { exists __. rewrite length_nil in *. splits~. introv Hi.
-    inverts Hi. rewrite LibList.length_nil in *. math. }
-  { inverts IHa as (IHl&IHx). forwards (v'&Hv'): total_tr_val gt a.
-    exists (v'::x). splits.
-    { repeat rewrite length_cons. fequals. }
-    { introv Hi. tests: (i = 0).
-      { repeat rewrite~ read_zero. }
-      { repeat rewrite read_cons_case. case_if*. 
-        inverts Hi. forwards~: IHx (i - 1).
-        applys int_index_prove. math.  
-        rewrite LibList.length_cons in *. math. } } }
+  introv HS Hv. constructors~. inverts HS.
+  unfolds Ctx.add. destruct* z.
+  applys~ Forall2_cons. constructors~.
 Qed.
 
-Lemma tr_uninitialized_val : forall gt v T C C',
-  tr_typdefctx gt C C' ->
-  uninitialized_val C T v ->
-  exists v',
-        tr_val gt v v'
-    /\  uninitialized_val C' T v'.
-Proof.
-  introv HC Hu. gen C'. induction Hu; intros;
-  try solve [ exists __ ; splits ; constructors~ ].
-  { forwards (a'&Hl&Ha'): tr_array gt a.
-    exists (val_array a'). splits.
-    { constructors~. introv Hi. applys* Ha'. }
-    { constructors~. congruence. 
-      introv Hi. forwards Hxi: Ha' Hi.
-      forwards* (v'&Hv'&Hu): H1 i. 
-      forwards*: functional_tr_val Hxi Hv'. subst~. } }
-  { inverts HC. tests: (T=Tt).
-    { admit. }
-    { admit. } }
-Admitted.
+
+(* ---------------------------------------------------------------------- *)
+(** WIP towards proving tr_uninitialized_val *)
 
 Lemma tr_uninitialized_val' : forall gt v v' T C C',
   tr_typdefctx gt C C' ->
@@ -558,116 +408,19 @@ Proof.
         rewrite~ <- H11. } } }
 Qed.
 
-Fixpoint fun_tr_accesses (gt:group_tr) (π:accesses) : accesses :=
-  let aux := fun_tr_accesses gt in
-  match π with
-  | nil => nil
-  | ((access_array i)::π') => ((access_array i)::(aux π'))
-  | ((access_field T f)::π') => 
-      if isTrue(T = group_tr_struct_name gt) then
-        if isTrue(f \in group_tr_fields gt) then
-          let Tg := group_tr_new_struct_name gt in
-          let fg := group_tr_new_struct_field gt in
-          ((access_field T fg)::(access_field Tg f)::(aux π'))
-        else
-          ((access_field T f)::(aux π'))
-      else
-        ((access_field T f)::(aux π'))
-  end.
-
-Fixpoint fun_tr_val_depth (depth:nat) (gt:group_tr) (v:val) : val :=
-  match depth with
-    | O => v
-    | S n =>
-      let aux := fun_tr_val_depth n gt in
-      match v with
-      | val_error => val_error
-      | val_uninitialized => val_uninitialized
-      | val_unit => val_unit
-      | val_bool b => val_bool b
-      | val_int i => val_int i
-      | val_double d => val_double d
-      | val_abstract_ptr l π => val_abstract_ptr l (fun_tr_accesses gt π)
-      | val_array nil => val_array nil
-      | val_array vs => (val_array (LibList.map aux vs)) 
-      | val_struct T s =>
-          let m : monoid_op (map field val) := monoid_make (fun a b => a \u b) \{} in
-          let g : field -> val -> map field val := fun f v => (\{})[f:=(aux v)] in
-          if isTrue(T=group_tr_struct_name gt) then
-            let Tg := group_tr_new_struct_name gt in
-            let fg := group_tr_new_struct_field gt in
-            let fs := group_tr_fields gt in
-            let s' := fold m g s in
-            let g1' : field -> val -> map field val := 
-              fun f v => if (isTrue(f \in fs)) then (\{}) else (\{})[f:=v] in
-            let g2' : field -> val -> map field val := 
-              fun f v => if (isTrue(f \in fs)) then (\{})[f:=v] else (\{}) in
-            let s1' := fold m g1' s in
-            let s2' := fold m g2' s in
-            val_struct T (s1'[fg:=(val_struct Tg s2')])
-          else
-            val_struct T (fold m g s)
-      end
-   end.
-
-Lemma total_tr_val' : forall gt C T v,
+Lemma total_tr_val' : forall gt v,
   exists v', tr_val gt v v'.
 Proof.
-  introv Hu. gen gt. induction Hu; intros;
-  try solve [ exists __ ; constructors~ ].
-  { induction a.
-    { admit. }
-    { admit. } }
-  { exists  }
-Qed.
+Admitted.
 
-
-(* ---------------------------------------------------------------------- *)
-(* TLC BUFFER *)
-
-Section Autorewrite.
-Variables (A : Type).
-Implicit Types x y : A.
-Implicit Types E F : set A.
-
-Lemma set_notin_eq : forall x E,
-  x \notin E = ~ x \in E.
-Proof using. apply notin_eq. Qed.
-
-End Autorewrite.
-
-Hint Rewrite set_notin_eq : rew_set.
-
-Ltac eliminate_neq_goal tt :=
-  match goal with |- ?x <> ?y =>
-    let H := fresh in intros H; subst_hyp H end.
-
-Ltac set_prove_setup use_classic ::=
-  intros;
-  try match goal with |- ?x <> ?y => intros ? end;
-  try substs;
-  rew_set_tactic tt;
-  try set_specialize use_classic;
-  rew_set_tactic tt.
-
-Ltac set_prove_conclude ::=
-  solve [ intros; subst; intuition eauto ].
-
-(** Use [set_prove_show] to see what preprocessing is done before
-   [set_prove_conclude] gets called.  *)
-
-Ltac set_prove_show :=
-  set_prove_setup false.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Auxiliary set results *)
-
-Lemma in_notin_neq : forall A (x y:A) (S:set A),
-  x \in S ->
-  y \notin S ->
-  y <> x.
-Proof using. set_prove. Qed.
+Lemma tr_uninitialized_val : forall gt v T C C',
+  tr_typdefctx gt C C' ->
+  uninitialized_val C T v ->
+  exists v',
+        tr_val gt v v'
+    /\  uninitialized_val C' T v'.
+Proof.
+Admitted.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -842,7 +595,7 @@ Proof.
     inverts Ht1; inverts Ht2;
     repeat constructors* ].
     (* equality case *)
-    exists (val_bool (isTrue (v' = v'0))) m1'.
+    (*exists (val_bool (isTrue (v' = v'0))) m1'.
     splits*.
     { tests Heq: (v1 = v2).
       { forwards: functional_tr_val Ht1 Ht2. subst.
@@ -851,7 +604,7 @@ Proof.
         repeat rewrite* isTrue_var_neq. } }
     { repeat constructors*. 
       forwards*: not_is_error_tr Ht1.
-      forwards*: not_is_error_tr Ht2. } }
+      forwards*: not_is_error_tr Ht2. }*) admit. }
   { (* get *)
     inverts Ht as _ Hp. subst.
     inverts Hm1 as HD Htrm.

@@ -346,6 +346,53 @@ Ltac rewrites_head P :=
 
 Require Import LibSet.
 
+(* TODO: Does this go here? *)
+Section SetProperties.
+
+Section Autorewrite.
+Variables (A : Type).
+Implicit Types x y : A.
+Implicit Types E F : set A.
+
+Lemma set_notin_eq : forall x E,
+  x \notin E = ~ x \in E.
+Proof using. apply notin_eq. Qed.
+
+End Autorewrite.
+
+Hint Rewrite set_notin_eq : rew_set.
+
+Ltac eliminate_neq_goal tt :=
+  match goal with |- ?x <> ?y =>
+    let H := fresh in intros H; subst_hyp H end.
+
+Ltac set_prove_setup use_classic ::=
+  intros;
+  try match goal with |- ?x <> ?y => intros ? end;
+  try substs;
+  rew_set_tactic tt;
+  try set_specialize use_classic;
+  rew_set_tactic tt.
+
+Ltac set_prove_conclude ::=
+  solve [ intros; subst; intuition eauto ].
+
+(** Use [set_prove_show] to see what preprocessing is done before
+   [set_prove_conclude] gets called.  *)
+
+Ltac set_prove_show :=
+  set_prove_setup false.
+
+(** Auxiliary set results *)
+Lemma in_notin_neq : forall A (x y:A) (S:set A),
+  x \in S ->
+  y \notin S ->
+  y <> x.
+Proof using. set_prove. Qed.
+
+End SetProperties.
+
+
 Tactic Notation "rew_set" "~" :=
   rew_set; auto_tilde.
 Tactic Notation "rew_set" "*" :=
