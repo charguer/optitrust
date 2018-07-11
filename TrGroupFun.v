@@ -59,8 +59,8 @@ Fixpoint fun_tr_val_depth (depth:nat) (gt:group_tr) (v:val) : val :=
               fun f v => if (isTrue(f \in fs)) then (\{}) else (\{})[f:=v] in
             let g2' : field -> val -> map field val := 
               fun f v => if (isTrue(f \in fs)) then (\{})[f:=v] else (\{}) in
-            let s1' := fold m g1' s in
-            let s2' := fold m g2' s in
+            let s1' := fold m g1' s' in
+            let s2' := fold m g2' s' in
             val_struct T (s1'[fg:=(val_struct Tg s2')])
           else
             val_struct T (fold m g s)

@@ -11,6 +11,11 @@ License: MIT.
 Set Implicit Arguments.
 Require Export Semantics LibSet LibMap TLCbuffer.
 
+(** In order to make this transformation work, we will need to first:
+    - Annotate val_array with the array type.
+    - Annotate array_access with the array type.
+*)
+
 
 (* ********************************************************************** *)
 (* * Definition of the transformation *)
