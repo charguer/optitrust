@@ -177,6 +177,7 @@ Hint Extern 1 (Inhab val) => apply Inhab_val.
 
 Hint Extern 1 (Inhab typ) => apply Inhab_typ.
 
+
 (* ---------------------------------------------------------------------- *)
 (** Coercions *)
 

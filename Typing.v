@@ -46,12 +46,6 @@ Definition env_add_binding E z X :=
 (* ---------------------------------------------------------------------- *)
 (** Typing of access paths *)
 
-(** Typing of a struct field *)
-
-Inductive typing_field (C:typdefctx) : typvar -> field -> typ -> Prop :=
-  | typing_field_intro : forall S f,
-      typing_field C S f C[S][f].
-
 (** T[π] = T1 *)
 
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
@@ -61,9 +55,10 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
       follow_typ C T π Tr ->
       (0 <= i < n)%nat ->
       follow_typ C (typ_array T (Some n)) ((access_array i)::π) Tr
-  | follow_typ_struct : forall T f Tf π Tr,
-      typing_field C T f Tf ->
-      follow_typ C Tf π Tr ->
+  | follow_typ_struct : forall T f π Tr,
+      T \indom C ->
+      f \indom C[T] ->
+      follow_typ C C[T][f] π Tr ->
       follow_typ C (typ_struct T) ((access_field T f)::π) Tr.
 
 (** φ(l)..π = T *)
@@ -78,6 +73,8 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 (** Typing of values *)
 
 Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
+  | typing_val_uninitialized : forall T,
+      typing_val C φ val_uninitialized T
   | typing_val_unit :
       typing_val C φ val_unit typ_unit
   | typing_val_bool : forall b,
@@ -203,14 +200,6 @@ Hint Constructors typing_val redbinop.
 (* ---------------------------------------------------------------------- *)
 (** Functional predicates *)
 
-Lemma functional_typing_field : forall C S f T1 T2,
-  typing_field C S f T1 ->
-  typing_field C S f T2 ->
-  T1 = T2.
-Proof.
-  introv H1 H2. inverts* H1. inverts* H2.
-Qed.
-
 (* Types are well-formed *)
 Lemma functional_follow_typ : forall C T π T1 T2,
   follow_typ C T π T1 ->
@@ -218,7 +207,6 @@ Lemma functional_follow_typ : forall C T π T1 T2,
   T1 = T2.
 Proof.
   introv HF1 HF2. induction HF1; inverts* HF2.
-  { applys IHHF1. forwards*: functional_typing_field C T f Tf. subst*. }
 Qed.
 
 (* φ is well-formed *)
@@ -260,9 +248,7 @@ Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
 Proof.
   introv HT HF HR. gen π. induction HT; intros;
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
-  { inverts HF as; inverts HR as; subst*; try constructors*.
-    introv Hi HR HTf HF. inverts HTf. applys* H2.
-    rewrite~ H0. }
+  { inverts HF as; inverts HR as; subst*; try constructors*. }
   { inverts HF as; inverts HR as; try constructors*.
     introv HN1 HR HT Hi. eauto. }
 Qed.
@@ -295,12 +281,12 @@ Proof.
     { rewrite* length_update. }
     { intros. rewrite index_update_eq in *. 
       rewrite* read_update_case. case_if*. } }
-  { inverts HF as HTf HF.
+  { inverts HF as _ _ HF.
     inverts HT1 as HD HCT. subst. constructors*.
     { unfold state. rewrite* dom_update_at_index. }
     { intros f' Hi1 Hi2. rewrite read_update.
       case_if*. 
-      { subst. applys* IHHW. inverts* HTf. } } }
+      { subst. applys* IHHW. } } }
 Qed.
 
 (** Lemma for typing preservation of [set] *)
@@ -320,6 +306,30 @@ Proof.
   { unfold state. rewrite* dom_update_at_index. }
   { intros l'. forwards HT': HT l'. rewrite read_update. case_if*.
     subst. inverts HP as HF. applys* typing_val_after_write. }
+Qed.
+
+(** Lemma for typing preservation of [new] *)
+
+Lemma uninitialized_val_typ : forall C T v φ,
+  uninitialized_val C T v ->
+  typing_val C φ v T.
+Proof.
+  introv Hu. induction Hu; subst; constructors~.
+Qed.
+
+(** Lemma for typing preservation of [struct_access] *)
+
+Lemma follow_typ_access_field : forall C π T T' f,
+  T \indom C ->
+  f \indom C[T] ->
+  follow_typ C T' π (typ_struct T) ->
+  follow_typ C T' (π & (access_field T f)) C[T][f].
+Proof.
+  introv HTin Hfin HF. gen C T T' f. induction π.
+  { intros. rew_list. inverts HF. repeat constructors~. }
+  { intros. inverts HF. 
+    { rew_list. constructors~. }
+    { rew_list. constructors~. } }
 Qed.
 
 
@@ -352,19 +362,23 @@ Proof using. intros. auto. Qed.
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
   red C S m t m' v -> 
+  ~ is_error v ->
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
   stack_typing C φ Γ S ->
         typing_val C φ v T
     /\  state_typing C φ m'.
 Proof.
-  introv R. gen φ T Γ. induction R; introv HT HM HS.
+  introv R He. gen φ T Γ. induction R; introv HT HM HS;
+  try solve [ forwards*: He ; unfolds~ ]. 
   { (* var *)
     inverts HT. simpls. split*. }
   { (* val *)  
     inverts HT. split*. }
   { (* if *) 
-    inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2. 
+    inverts HT. 
+    forwards* (HT1&HM1): IHR1. introv HN. inverts HN.
+    forwards* (HT2&HM2): IHR2. 
     case_if*. }
   { (* let *) 
     inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2.
@@ -381,8 +395,15 @@ Proof.
       applys* state_typing_set. } }
   { (* new *) 
     admit. }
-  { (* struct_access *) 
+  { (* new_array *)
     admit. }
+  { (* struct_access *) 
+    subst. inverts HT as HTin Hfin HT. splits~.
+    inverts HT as HT. simpls.
+    inverts HT as Hφ.
+    inverts Hφ as HF.
+    repeat constructors.
+    applys~ follow_typ_access_field. }
   { (* array_access *) 
     admit. }
   { (* app 1 *) 
@@ -390,6 +411,7 @@ Proof.
   { (* app 2 *) 
     admit. }
 Admitted.
+
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
   typing (make_env C φ Γ) t T ->
