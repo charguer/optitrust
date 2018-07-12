@@ -143,15 +143,29 @@ Inductive typing : env -> trm -> typ -> Prop :=
   | typing_new_array : forall E T t, 
       typing E t typ_int ->
       typing E (trm_app (prim_new_array T) (t::nil)) (typ_ptr (typ_array T None))
-  | typing_struct_access : forall E Tfs f T t,
-      Tfs = (env_typdefctx E)[T] ->
-      index Tfs f ->
+  | typing_struct_access : forall E C Tfs f T t,
+      C = env_typdefctx E ->
+      T \indom C ->
+      Tfs = C[T] ->
+      f \indom Tfs ->
       typing E t (typ_ptr (typ_struct T)) ->
       typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr Tfs[f])
-  | typing_array_access : forall E t A i n,
-      typing E t (typ_ptr (typ_array A n)) ->
-      typing E i typ_int ->
-      typing E (trm_app (prim_array_access A) (t::i::nil)) (typ_ptr A)
+  | typing_array_access : forall E t T ti n,
+      typing E t (typ_ptr (typ_array T n)) ->
+      typing E ti typ_int ->
+      typing E (trm_app (prim_array_access T) (t::ti::nil)) (typ_ptr T)
+  (* Operations on structs and arrays as values *)
+  | typing_struct_get : forall E C Tfs f T t,
+      C = env_typdefctx E ->
+      T \indom C ->
+      Tfs = C[T] ->
+      f \indom Tfs ->
+      typing E t (typ_struct T) ->
+      typing E (trm_app (prim_struct_get T f) (t::nil)) Tfs[f]
+  | typing_array_get : forall E T t ti n,
+      typing E t (typ_array T n) ->
+      typing E ti typ_int ->
+      typing E (trm_app (prim_array_get T) (t::ti::nil)) T
   (* Other language constructs *)
   | typing_if : forall E t0 t1 t2 T,
       typing E t0 typ_bool ->
