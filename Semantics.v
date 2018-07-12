@@ -117,7 +117,9 @@ Inductive prim : Type :=
   | prim_new : typ -> prim
   | prim_new_array : typ -> prim
   | prim_struct_access : typvar -> field -> prim
-  | prim_array_access : typ -> prim.
+  | prim_array_access : typ -> prim
+  | prim_struct_get : typvar -> field -> prim
+  | prim_array_get : typ -> prim.
 
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
@@ -405,6 +407,16 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       ti = trm_val (val_int i) ->
       vr = val_abstract_ptr l (π++(access_array i)::nil) ->
       red C S m (trm_app (prim_array_access T) (t::ti::nil)) m vr
+  (* Operations on structs and arrays as values *)
+  | red_struct_get : forall S m T f t s,
+      t = trm_val (val_struct T s) ->
+      f \indom s ->
+      red C S m (trm_app (prim_struct_get T f) (t::nil)) m s[f]
+  | red_array_get : forall S m t ti T a i,
+      t = trm_val (val_array a) ->
+      ti = trm_val (val_int i) ->
+      index a i ->
+      red C S m (trm_app (prim_array_get T) (t::ti::nil)) m a[i]
   (* Arguments *) 
   | red_args_1 : forall v1 m2 S m1 op t1 m3 v2 ts,
       ~ is_val t1 ->
@@ -416,7 +428,6 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       red C S m1 t2 m2 v2 ->
       red C S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
       red C S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3
-
   (* Error cases *)
   | red_var_error :  forall S m x,
       Ctx.lookup x S = None ->
