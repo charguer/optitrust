@@ -53,8 +53,7 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
       follow_typ C T nil T
   | follow_typ_array : forall T π Tr i n,
       follow_typ C T π Tr ->
-      (0 <= i < n)%nat ->
-      follow_typ C (typ_array T (Some n)) ((access_array i)::π) Tr
+      follow_typ C (typ_array T n) ((access_array i)::π) Tr
   | follow_typ_struct : forall T f π Tr,
       T \indom C ->
       f \indom C[T] ->
@@ -250,7 +249,7 @@ Proof.
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
   { inverts HF as; inverts HR as; subst*; try constructors*. }
   { inverts HF as; inverts HR as; try constructors*.
-    introv HN1 HR HT Hi. eauto. }
+    introv HN1 HR HT. eauto. }
 Qed.
 
 (** Lemma for typing preservation of [get] *)
@@ -325,11 +324,18 @@ Lemma follow_typ_access_field : forall C π T T' f,
   follow_typ C T' π (typ_struct T) ->
   follow_typ C T' (π & (access_field T f)) C[T][f].
 Proof.
-  introv HTin Hfin HF. gen C T T' f. induction π.
-  { intros. rew_list. inverts HF. repeat constructors~. }
-  { intros. inverts HF. 
-    { rew_list. constructors~. }
-    { rew_list. constructors~. } }
+  introv HTin Hfin HF. gen C T T' f. induction π; 
+  intros; inverts HF; rew_list; repeat constructors*. 
+Qed.
+
+(** Lemma for typing preservation of [array_access] *)
+
+Lemma follow_typ_access_array : forall C T' T i n π,
+  follow_typ C T' π (typ_array T n) ->
+  follow_typ C T' (π & access_array i) T.
+Proof.
+  introv HF. gen C T T' i n. induction π;
+  intros; inverts HF; rew_list; repeat constructors*.
 Qed.
 
 
@@ -405,7 +411,13 @@ Proof.
     repeat constructors.
     applys~ follow_typ_access_field. }
   { (* array_access *) 
-    admit. }
+    inverts HT as HT HTi. subst.
+    inverts HT as HT. simpls.
+    inverts HT as Hφ.
+    inverts Hφ as HF.
+    inverts HM as HD HM.
+    repeat constructors~.
+    applys* follow_typ_access_array. }
   { (* app 1 *) 
     admit. }
   { (* app 2 *) 
