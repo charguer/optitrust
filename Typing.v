@@ -361,6 +361,10 @@ Definition extends (φ:phi) (φ':phi) :=
 
 (* TODO: I added this for automation *)
 
+Axiom trans_refl : refl extends.
+
+Hint Resolve trans_refl.
+
 Axiom trans_extends : trans extends.
 
 Hint Extern 1 (extends ?φ1 ?φ3) => 
@@ -453,15 +457,22 @@ Qed.
 
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
+  red C S m t m' v ->
+  ~ is_error v ->
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
   stack_typing C φ Γ S ->
-  red C S m t m' v -> 
   exists φ',
         extends φ φ'
     /\  typing_val C φ' v T
     /\  state_typing C φ' m'.
 Proof.
+  introv R He. gen φ T Γ. induction R; introv HT HM HS;
+  try solve [ forwards*: He ; unfolds~ ]. 
+  { (* var *)
+    exists φ. inverts HT. simpls. split*. }
+  { (* val *)  
+    exists φ. inverts HT. split*. }
 Admitted.
 
 End TypeSoundness.

@@ -882,19 +882,3 @@ Proof.
 Qed.
 
 End TransformationsProofs.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
