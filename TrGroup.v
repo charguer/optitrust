@@ -845,20 +845,32 @@ Proof.
           constructors~. rewrite~ <- HDs. } } }
     { introv HN. forwards*: HN. } }
   { (* array_get *) 
-    admit. }
+    inverts Ht as Ht Hti. subst.
+    inverts Ht as Hv.
+    inverts Hti as Hvi.
+    inverts Hv as Hl Hai.
+    inverts Hvi.
+    exists a'[i] m1'. 
+    splits~. constructors*. }
   { (* args_1 *)
     inverts Ht; forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He;
     forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
     exists v'' m3'; splits*;
     try solve [ applys* red_args_1; applys* not_is_val_tr ].
-    (* remaining cases are structs *)
-    inverts HR''.
-    { tryfalse. }
-    { applys* red_args_1. applys* red_args_1.
-      apply not_is_val_tr with (gt:=gt) (t1:=t1); auto. }
-    { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. }
-    { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. } }
+    { (* Case struct access *)
+      inverts HR''.
+      { tryfalse. }
+      { applys* red_args_1. applys* red_args_1.
+        apply not_is_val_tr with (gt:=gt) (t1:=t1); auto. }
+      { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. }
+      { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. } }
+    { (* Case struct get *) 
+      inverts HR''. 
+      { tryfalse. } 
+      { applys* red_args_1. applys* red_args_1.
+        apply not_is_val_tr with (gt:=gt) (t1:=t1); auto. }
+      { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. } } }
   { (* args_2 *)
     inverts Ht as Ht1 Ht2.
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
@@ -870,3 +882,19 @@ Proof.
 Qed.
 
 End TransformationsProofs.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
