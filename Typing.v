@@ -339,6 +339,19 @@ Proof.
 Qed.
 
 
+(* TODO: These are shared with TrGroup. 
+   Find a nice way to factor this out. *)
+Axiom not_is_error_args_1 : forall C S m op ts m' v w,
+  red C S m (trm_app op (trm_val w :: ts)) m' v ->
+  ~ is_error v ->
+  ~ is_error w.
+
+Axiom not_is_error_args_2 : forall C S m op t ts m' v w,
+  red C S m (trm_app op (t :: trm_val w :: ts)) m' v ->
+  ~ is_error v ->
+  ~ is_error w.
+
+
 (* ---------------------------------------------------------------------- *)
 (** Typing state extension *)
 
@@ -418,11 +431,26 @@ Proof.
     inverts HM as HD HM.
     repeat constructors~.
     applys* follow_typ_access_array. }
+  { (* struct_get *) 
+    subst. inverts HT as HTin Hfin HT. 
+    splits~.
+    inverts HT as HT. simpls.
+    inverts HT as HD HT.
+    applys~ HT. }
+  { (* array_get *) 
+    subst. inverts HT as HTa HTi.
+    splits~.
+    inverts HTa as HTa. simpls.
+    inverts HTa as Hl HTa.
+    applys~ HTa. }
   { (* app 1 *) 
-    admit. }
+    forwards*: IHR2; inverts HT; forwards* (HTv1&Hm2): IHR1;
+    try applys* not_is_error_args_1 ; repeat constructors*. }
   { (* app 2 *) 
-    admit. }
+     }
 Admitted.
+
+
 
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
