@@ -447,10 +447,9 @@ Proof.
     forwards*: IHR2; inverts HT; forwards* (HTv1&Hm2): IHR1;
     try applys* not_is_error_args_1 ; repeat constructors*. }
   { (* app 2 *) 
-     }
-Admitted.
-
-
+    forwards*: IHR2; inverts HT; forwards* (HTv1&Hm2): IHR1;
+    try applys* not_is_error_args_2 ; repeat constructors*. }
+Qed.
 
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
