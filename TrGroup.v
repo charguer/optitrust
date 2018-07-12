@@ -163,22 +163,22 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       r = (trm_app (prim_struct_access T f) (p'::nil)) ->
       tr_trm gt (trm_app (prim_struct_access T f) (p::nil)) r
   (* Special case: structs get. TODO: avoid repetition. *)
-  | tr_trm_struct_get_group : forall p p' Tt Tg f fg a1 a2 r,
-      tr_trm gt p p' ->
+  | tr_trm_struct_get_group : forall t t' Tt Tg f fg a1 a2 r,
+      tr_trm gt t t' ->
       Tt = group_tr_struct_name gt ->
       Tg = group_tr_new_struct_name gt ->
       f \in (group_tr_fields gt) ->
       fg = group_tr_new_struct_field gt ->
       a1 = prim_struct_get Tg f ->
       a2 = prim_struct_get Tt fg ->
-      r = trm_app a1 ((trm_app a2 (p'::nil))::nil) ->
-      tr_trm gt (trm_app (prim_struct_get Tt f) (p::nil)) r
-  | tr_trm_struct_get_other : forall s p p' T f r,
-      tr_trm gt p p' ->
+      r = trm_app a1 ((trm_app a2 (t'::nil))::nil) ->
+      tr_trm gt (trm_app (prim_struct_get Tt f) (t::nil)) r
+  | tr_trm_struct_get_other : forall s t t' T f r,
+      tr_trm gt t t' ->
       s = group_tr_struct_name gt ->
       (T <> s \/ f \notin (group_tr_fields gt)) ->
-      r = (trm_app (prim_struct_get T f) (p'::nil)) ->
-      tr_trm gt (trm_app (prim_struct_get T f) (p::nil)) r
+      r = (trm_app (prim_struct_get T f) (t'::nil)) ->
+      tr_trm gt (trm_app (prim_struct_get T f) (t::nil)) r
   (* Args *)
   | tr_trm_args1 : forall op t1 t1',
       ~ is_struct_op op ->
@@ -818,7 +818,32 @@ Proof.
     exists (val_abstract_ptr l (π'++(access_array i::nil))) m1'.
     splits; constructors*. applys* tr_accesses_app. }
   { (* struct_get *) 
-    admit. }
+    inverts Ht as.
+    { (* accessing grouped field *)
+      introv Ht Hf. subst.
+      inverts Ht as Hv. inverts Hv as; 
+      try solve [ intros ; contradiction ].
+      introv HDsg Hgt Hfg HDs' Hsf Htrsf Hs'fg.
+      exists sg[f] m1'.
+      splits~.
+      { applys~ Hsf. rewrite Hgt in *. simpls~. }
+      { applys~ red_args_1.
+        { applys~ red_struct_get. rewrite Hgt. simpls~.
+          rewrite HDs'. rew_set~. }
+        { rewrite Hgt in *. simpls. applys~ red_struct_get. 
+          rewrite~ Hs'fg. } } }
+    { (* accessing another field *) 
+      introv Ht Hor. subst. inverts Ht as Hv. inverts Hor.  
+      { inverts Hv as; try solve [ intros ; contradiction ].
+        introv _ HDs Htrsf. exists s'[f] m1'. splits~. constructors~.
+        rewrite~ <- HDs. }
+      { inverts Hv as. 
+        { introv HDsg Hfg HDs' Hsf Htrsf Hs'fg. 
+          exists s'[f] m1'. splits~. constructors~.
+          rewrite HDs'. rew_set~. }
+        { introv Hneq HDs Htrsf. exists s'[f] m1'. splits~.
+          constructors~. rewrite~ <- HDs. } } }
+    { introv HN. forwards*: HN. } }
   { (* array_get *) 
     admit. }
   { (* args_1 *)
