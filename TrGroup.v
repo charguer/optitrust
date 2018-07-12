@@ -117,9 +117,10 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         tr_val gt s[f] s'[f]) ->
       tr_val gt (val_struct T s) (val_struct T s').
 
-Definition is_prim_struct_access (op:prim) :=
+Definition is_struct_op (op:prim) :=
   match op with
   | prim_struct_access _ _ => True
+  | prim_struct_get _ _ => True
   | _ => False
   end.
 
@@ -144,26 +145,43 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
   (* new *)  
   | tr_trm_new : forall T,
       tr_trm gt (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
-  (* Special case: struct access *)
-  | tr_trm_struct_access_x : forall p p' s s_g f f_g a1 a2 r,
+  (* Special case: structs accesses *)
+  | tr_trm_struct_access_group : forall p p' Tt Tg f fg a1 a2 r,
       tr_trm gt p p' ->
-      s = group_tr_struct_name gt ->
-      s_g = group_tr_new_struct_name gt ->
+      Tt = group_tr_struct_name gt ->
+      Tg = group_tr_new_struct_name gt ->
       f \in (group_tr_fields gt) ->
-      f_g = group_tr_new_struct_field gt ->
-      a1 = prim_struct_access s_g f ->
-      a2 = prim_struct_access s f_g ->
+      fg = group_tr_new_struct_field gt ->
+      a1 = prim_struct_access Tg f ->
+      a2 = prim_struct_access Tt fg ->
       r = trm_app a1 ((trm_app a2 (p'::nil))::nil) ->
-      tr_trm gt (trm_app (prim_struct_access s f) (p::nil)) r
+      tr_trm gt (trm_app (prim_struct_access Tt f) (p::nil)) r
   | tr_trm_struct_access_other : forall s p p' T f r,
       tr_trm gt p p' ->
       s = group_tr_struct_name gt ->
       (T <> s \/ f \notin (group_tr_fields gt)) ->
       r = (trm_app (prim_struct_access T f) (p'::nil)) ->
       tr_trm gt (trm_app (prim_struct_access T f) (p::nil)) r
+  (* Special case: structs get. TODO: avoid repetition. *)
+  | tr_trm_struct_get_group : forall p p' Tt Tg f fg a1 a2 r,
+      tr_trm gt p p' ->
+      Tt = group_tr_struct_name gt ->
+      Tg = group_tr_new_struct_name gt ->
+      f \in (group_tr_fields gt) ->
+      fg = group_tr_new_struct_field gt ->
+      a1 = prim_struct_get Tg f ->
+      a2 = prim_struct_get Tt fg ->
+      r = trm_app a1 ((trm_app a2 (p'::nil))::nil) ->
+      tr_trm gt (trm_app (prim_struct_get Tt f) (p::nil)) r
+  | tr_trm_struct_get_other : forall s p p' T f r,
+      tr_trm gt p p' ->
+      s = group_tr_struct_name gt ->
+      (T <> s \/ f \notin (group_tr_fields gt)) ->
+      r = (trm_app (prim_struct_get T f) (p'::nil)) ->
+      tr_trm gt (trm_app (prim_struct_get T f) (p::nil)) r
   (* Args *)
   | tr_trm_args1 : forall op t1 t1',
-      ~ is_prim_struct_access op ->
+      ~ is_struct_op op ->
       tr_trm gt t1 t1' ->
       tr_trm gt (trm_app op (t1::nil)) (trm_app op (t1'::nil))
   | tr_trm_args2 : forall op t1 t1' t2 t2',
@@ -237,6 +255,7 @@ Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
         C'[Tg][f] = C[Tt][f]) ->
       tr_typdefctx gt C C'.
 
+
 (* ---------------------------------------------------------------------- *)
 (** Hints *)
 
@@ -306,16 +325,26 @@ Proof.
   introv H1 H2. gen t2. induction H1; intros;
   try solve [ inverts H2 ; try subst ; repeat fequals* ].
   { inverts H2. fequals. applys* functional_tr_val. }
+  (* TODO: avoid repetition. Related to the TODO in 
+     the definition of tr_trm. *)
   { inverts_head tr_trm; subst. 
     { repeat fequals~. }
     { inverts_head Logic.or; tryfalse. } 
-    { unfolds is_prim_struct_access. contradiction. } }
+    { unfolds is_struct_op. contradiction. } }
   { inverts_head tr_trm; subst.
     { inverts_head Logic.or; tryfalse. }
     { repeat fequals~. } 
-    { unfolds is_prim_struct_access. contradiction. } }
-  { inverts_head tr_trm; 
-    try solve [ unfolds is_prim_struct_access ; contradiction ].
+    { unfolds is_struct_op. contradiction. } }
+  { inverts_head tr_trm; subst. 
+    { repeat fequals~. }
+    { inverts_head Logic.or; tryfalse. } 
+    { unfolds is_struct_op. contradiction. } }
+  { inverts_head tr_trm; subst.
+    { inverts_head Logic.or; tryfalse. }
+    { repeat fequals~. } 
+    { unfolds is_struct_op. contradiction. } }
+  { inverts H2; 
+    try solve [ unfolds is_struct_op ; contradiction ].
     repeat fequals~. }
 Qed.
 
@@ -788,6 +817,10 @@ Proof.
     inverts Hm1 as HD Htrm.
     exists (val_abstract_ptr l (π'++(access_array i::nil))) m1'.
     splits; constructors*. applys* tr_accesses_app. }
+  { (* struct_get *) 
+    admit. }
+  { (* array_get *) 
+    admit. }
   { (* args_1 *)
     inverts Ht; forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He;
