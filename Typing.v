@@ -63,7 +63,8 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
 (** φ(l)..π = T *)
 
 Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
-  | read_phi_intro : 
+  | read_phi_intro :
+      l \indom φ ->
       follow_typ C φ[l] π T -> 
       read_phi C φ l π T.
 
@@ -178,8 +179,8 @@ Inductive typing : env -> trm -> typ -> Prop :=
 (** Typing of the state and the stack *)
 
 Definition state_typing (C:typdefctx) (φ:phi) (m:state) : Prop :=
-      dom φ \c dom m
-  /\  (forall l, typing_val C φ m[l] φ[l]).
+      dom m \c dom φ
+  /\  (forall l, l \indom m -> typing_val C φ m[l] φ[l]).
 
 Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
   forall x v T,
@@ -260,8 +261,8 @@ Lemma typing_val_get : forall m l π C φ w T,
   read_phi C φ l π T ->
   typing_val C φ w T.
 Proof.
-  introv (HD&HT) HS HP. inverts HS as Hi HR.
-  inverts HP as HF. forwards HTl: HT l.
+  introv (HD&HT) HS HP. inverts HS as Hlin HR.
+  inverts HP as Hlin' HF. forwards~ HTl: HT l.
   applys* typing_val_follow HTl HF HR.
 Qed.
 
@@ -303,7 +304,9 @@ Proof.
   inverts HTp as HP. 
   unfolds. split.
   { unfold state. rewrite* dom_update_at_index. }
-  { intros l'. forwards HT': HT l'. rewrite read_update. case_if*.
+  { introv Hl0. forwards HT': HT l0. unfolds state.
+    rewrite dom_update_at_indom in *; auto.
+    rewrite read_update. case_if*.
     subst. inverts HP as HF. applys* typing_val_after_write. }
 Qed.
 
@@ -357,7 +360,7 @@ Axiom not_is_error_args_2 : forall C S m op t ts m' v w,
 
 Definition extends (φ:phi) (φ':phi) :=
       dom φ \c dom φ'
-  /\  forall l, l \indom φ -> φ' l = φ l.
+  /\  forall l, l \indom φ -> φ'[l] = φ[l].
 
 (* TODO: I added this for automation *)
 
@@ -425,7 +428,7 @@ Proof.
     inverts HT as HT. simpls.
     inverts HT as Hφ.
     inverts Hφ as HF.
-    repeat constructors.
+    repeat constructors~.
     applys~ follow_typ_access_field. }
   { (* array_access *) 
     inverts HT as HT HTi. subst.
@@ -456,6 +459,36 @@ Proof.
 Qed.
 
 
+(** Auxiliary phi extension lemmas *)
+
+Lemma extended_typing_val : forall C φ φ' v T,
+  extends φ φ' ->
+  typing_val C φ v T ->
+  typing_val C φ' v T.
+Proof.
+  introv Hφ HT. gen φ'. induction HT; intros;
+  try solve [ constructors* ].
+  { constructors~; rewrite~ <- H. }
+  { inverts H. inverts Hφ. repeat constructors.
+    { rew_set in *. auto. }
+    { rewrite~ H2. } }
+Qed.
+
+Lemma extended_typing : forall E E' C φ φ' Γ t T,
+  E = make_env C φ Γ ->
+  E' = make_env C φ' Γ ->
+  extends φ φ' ->
+  typing E t T ->
+  typing E' t T.
+Proof.
+  introv HE HE' Hφ HT. gen E' C φ φ' Γ. induction HT; 
+  intros; subst; try solve [ constructors* ].
+  { constructors. simpls. 
+    forwards*: extended_typing_val Hφ H. }
+  { constructors*. unfolds* env_add_binding. }
+Qed.
+
+
 Theorem type_soundess : forall C φ m t v T Γ S m',
   red C S m t m' v ->
   ~ is_error v ->
@@ -473,6 +506,15 @@ Proof.
     exists φ. inverts HT. simpls. split*. }
   { (* val *)  
     exists φ. inverts HT. split*. }
+  { (* if *) 
+    inverts HT as Ht0 Ht1 Ht2. 
+    forwards* (φ'&Hφ'&HT1&HM1): IHR1. introv HN. inverts HN.
+    forwards* (φ''&Hφ''&HT2&HM2): IHR2 He φ' T Γ.  
+    case_if*.
+    { forwards*: extended_typing Hφ' Ht1. }
+    { forwards*: extended_typing Hφ' Ht2. }
+    { admit. } }
 Admitted.
+
 
 End TypeSoundness.
