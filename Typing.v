@@ -579,7 +579,28 @@ Proof.
             { introv Hl2. rew_reads~. intros. subst.
               rewrite HD in *. contradiction. } } } } } }
   { (* new_array *) 
-    inverts HT. exists φ[l0:=] }
+    inverts HT. inverts HM as HD Hm1l. exists φ[l0:=(typ_array T None)]. splits.
+    { unfolds. splits.
+      { rew_set. introv Hl0. unfolds phi.
+        rewrite dom_update. set_prove. }
+      { introv Hl0. unfolds phi. rew_reads~. 
+        intros. subst. rewrite <- HD in Hl0.
+        contradiction. } }
+    { repeat constructors.
+      { unfolds phi. rewrite dom_update. set_prove. }
+      { rew_reads. constructors~. } }
+    { (*constructors.
+      { subst. unfolds phi. 
+        unfolds state. repeat rewrite dom_update.
+        rewrite~ HD. }
+      { introv Hl1. subst. rew_reads; intros.
+        { subst. forwards*: uninitialized_val_typ H2. admit. }
+        { forwards: Hm1l l1. 
+          { unfolds state. rewrite~ indom_update_neq_eq in Hl1. }
+          { applys* extended_typing_val. unfolds. splits.
+            { unfolds phi. rewrite dom_update. set_prove. }
+            { introv Hl2. rew_reads~. intros. subst.
+              rewrite HD in *. contradiction. } } } } }*) admit. }
 Admitted.
 
 
