@@ -364,9 +364,12 @@ Definition extends (φ:phi) (φ':phi) :=
 
 (* TODO: I added this for automation *)
 
-Axiom trans_refl : refl extends.
+Axiom refl_extends : refl extends.
 
-Hint Resolve trans_refl.
+(* TODO: I wanted to automate the relf_extends as well. However, it's a bit
+   problematic because when I applys* the lemma extends_typing (defined 
+   below) it picks as the first premise the axiom refl_extends, which is 
+   not what I need. *)
 
 Axiom trans_extends : trans extends.
 
@@ -512,19 +515,36 @@ Proof.
   introv R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ]. 
   { (* var *)
-    exists φ. inverts HT. simpls. split*. }
+    exists φ. inverts HT. simpls. split*. applys~ refl_extends. }
   { (* val *)  
-    exists φ. inverts HT. split*. }
+    exists φ. inverts HT. split*. applys~ refl_extends. }
   { (* if *) 
     inverts HT as Ht0 Ht1 Ht2. 
     forwards* (φ'&Hφ'&HT1&HM1): IHR1. introv HN. inverts HN.
     forwards* (φ''&Hφ''&HT2&HM2): IHR2 He φ' T Γ.  
-    case_if*.
-    { forwards*: extended_typing Hφ' Ht1. }
-    { forwards*: extended_typing Hφ' Ht2. }
-    { forwards*: extended_stack_typing Hφ' HS. } }
+    case_if*; apply* extended_typing. 
+    apply* extended_stack_typing. }
   { (* let *)
-    admit. }
+    inverts HT. 
+    forwards* (φ'&Hφ'&HT1&HM1): IHR1.
+    unfolds env_add_binding. 
+    forwards* (φ''&Hφ''HT2&HM2): IHR2 He φ' T (Ctx.add z T1 Γ).
+    { apply* extended_typing. }
+    { applys* stack_typing_ctx_add. apply* extended_stack_typing. } }
+  { (* binop *) 
+    exists φ. lets: refl_extends φ. 
+    inverts HT; inverts* H; splits*. }
+  { (* get *)
+    exists φ. splits*. 
+    { applys~ refl_extends. } 
+    { subst. inverts HT as HT. inverts HT as HT; simpls.  
+      inverts HT. applys* typing_val_get. } }
+  { (* set *)
+    exists φ. subst. inverts HT as HT1 HT2. splits*.
+    { applys~ refl_extends. }
+    { inverts HT1 as HT1. inverts HT2 as HT2. 
+      applys* state_typing_set. } }
+  { (* new *) admit. }
 Admitted.
 
 
