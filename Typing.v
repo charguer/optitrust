@@ -179,7 +179,7 @@ Inductive typing : env -> trm -> typ -> Prop :=
 (** Typing of the state and the stack *)
 
 Definition state_typing (C:typdefctx) (φ:phi) (m:state) : Prop :=
-      dom m \c dom φ
+      dom m = dom φ
   /\  (forall l, l \indom m -> typing_val C φ m[l] φ[l]).
 
 Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
@@ -308,15 +308,6 @@ Proof.
     rewrite dom_update_at_indom in *; auto.
     rewrite read_update. case_if*.
     subst. inverts HP as HF. applys* typing_val_after_write. }
-Qed.
-
-(** Lemma for typing preservation of [new] *)
-
-Lemma uninitialized_val_typ : forall C T v φ,
-  uninitialized_val C T v ->
-  typing_val C φ v T.
-Proof.
-  introv Hu. induction Hu; subst; constructors~.
 Qed.
 
 (** Lemma for typing preservation of [struct_access] *)
@@ -501,6 +492,15 @@ Proof.
   forwards~: extended_typing_val Hφ HT.
 Qed.
 
+(** Lemma for typing preservation of [new] *)
+
+Lemma uninitialized_val_typ : forall C T v φ,
+  uninitialized_val C T v ->
+  typing_val C φ v T.
+Proof.
+  introv Hu. induction Hu; subst; constructors~.
+Qed.
+
 Theorem type_soundess : forall C φ m t v T Γ S m',
   red C S m t m' v ->
   ~ is_error v ->
@@ -544,7 +544,30 @@ Proof.
     { applys~ refl_extends. }
     { inverts HT1 as HT1. inverts HT2 as HT2. 
       applys* state_typing_set. } }
-  { (* new *) admit. }
+  { (* new *) 
+    exists φ[l0:=T]. inverts HM as HD Hm1l. splits.
+    { unfolds. splits.
+      { rew_set. introv Hl0. unfolds phi.
+        rewrite dom_update. set_prove. }
+      { introv Hl0. unfolds phi. rew_reads~. 
+        intros. subst. rewrite <- HD in Hl0.
+        contradiction. } }
+    { inverts HT. repeat constructors.
+      { unfolds phi. rewrite dom_update. set_prove. }
+      { rew_reads. constructors~. } }
+    { constructors.
+      { rewrite H2. unfolds phi. 
+        unfolds state. repeat rewrite dom_update.
+        rewrite~ HD. }
+      { introv Hl1. subst. rew_reads; intros.
+        { subst. forwards*: uninitialized_val_typ H1. }
+        { forwards: Hm1l l1. 
+          { unfolds state. rewrite~ indom_update_neq_eq in Hl1. }
+          { applys* extended_typing_val. unfolds. splits.
+            { unfolds phi. rewrite dom_update. set_prove. }
+            { introv Hl2. rew_reads~. intros. subst.
+              rewrite HD in *. contradiction. } } } } } }
+  { (* new_array *) admit. }
 Admitted.
 
 
