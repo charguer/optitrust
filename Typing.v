@@ -488,6 +488,15 @@ Proof.
   { constructors*. unfolds* env_add_binding. }
 Qed.
 
+Lemma extended_stack_typing : forall C φ φ' Γ S,
+  extends φ φ' ->
+  stack_typing C φ Γ S ->
+  stack_typing C φ' Γ S.
+Proof.
+  introv Hφ HS. unfolds stack_typing.
+  introv HxS HxΓ. forwards HT: HS HxS HxΓ.
+  forwards~: extended_typing_val Hφ HT.
+Qed.
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
   red C S m t m' v ->
@@ -513,8 +522,11 @@ Proof.
     case_if*.
     { forwards*: extended_typing Hφ' Ht1. }
     { forwards*: extended_typing Hφ' Ht2. }
-    { admit. } }
+    { forwards*: extended_stack_typing Hφ' HS. } }
+  { (* let *)
+    admit. }
 Admitted.
+
 
 
 End TypeSoundness.
