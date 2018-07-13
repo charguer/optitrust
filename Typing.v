@@ -91,12 +91,17 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
           f \indom vfs ->
           typing_val C φ vfs[f] Tfs[f]) ->
       typing_val C φ (val_struct T vfs) (typ_struct T)
-  | typing_val_array : forall a T (n:nat),
+  | typing_val_array_fixed : forall a T (n:nat),
       length a = n ->
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
       typing_val C φ (val_array a) (typ_array T (Some n))
+  | typing_val_array_variable : forall a T (n:nat),
+      (forall i, 
+        index a i -> 
+        typing_val C φ a[i] T) -> 
+      typing_val C φ (val_array a) (typ_array T None)
   | typing_val_abstract_ptr : forall l π T,
       read_phi C φ l π T ->
       typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
@@ -251,6 +256,8 @@ Proof.
   { inverts HF as; inverts HR as; subst*; try constructors*. }
   { inverts HF as; inverts HR as; try constructors*.
     introv HN1 HR HT. eauto. }
+  { inverts HF as; inverts HR as; try constructors*.
+    introv HN1 HR HT. eauto. }
 Qed.
 
 (** Lemma for typing preservation of [get] *)
@@ -280,7 +287,10 @@ Proof.
   { inverts HF. inverts HT1. subst. constructors. 
     { rewrite* length_update. }
     { intros. rewrite index_update_eq in *. 
-      rewrite* read_update_case. case_if*. } }
+      rewrite* read_update_case. case_if*. }
+    { constructors~. subst. introv Hi0. rew_reads~.
+      { introv Hneq. applys H3. rewrite~ index_update_eq in Hi0. }
+      { tests: (i=i0); auto. rewrite~ index_update_eq in Hi0. } } }
   { inverts HF as _ _ HF.
     inverts HT1 as HD HCT. subst. constructors*.
     { unfold state. rewrite* dom_update_at_index. }
@@ -442,8 +452,8 @@ Proof.
     subst. inverts HT as HTa HTi.
     splits~.
     inverts HTa as HTa. simpls.
-    inverts HTa as Hl HTa.
-    applys~ HTa. }
+    inverts HTa as Hl HTa;
+    applys* HTa. }
   { (* app 1 *) 
     forwards*: IHR2; inverts HT; forwards* (HTv1&Hm2): IHR1;
     try applys* not_is_error_args_1 ; repeat constructors*. }
@@ -498,7 +508,8 @@ Lemma uninitialized_val_typ : forall C T v φ,
   uninitialized_val C T v ->
   typing_val C φ v T.
 Proof.
-  introv Hu. induction Hu; subst; constructors~.
+  introv Hu. induction Hu; subst; try constructors~.
+  typeclass. (* TODO: why?? *)
 Qed.
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
@@ -567,7 +578,8 @@ Proof.
             { unfolds phi. rewrite dom_update. set_prove. }
             { introv Hl2. rew_reads~. intros. subst.
               rewrite HD in *. contradiction. } } } } } }
-  { (* new_array *) admit. }
+  { (* new_array *) 
+    inverts HT. exists φ[l0:=] }
 Admitted.
 
 
