@@ -304,7 +304,7 @@ Proof.
     { intros. rewrite index_update_eq in *. 
       rewrite* read_update_case. case_if*. }
     { constructors~. subst. introv Hi0. rew_reads~.
-      { introv Hneq. applys H3. rewrite~ index_update_eq in Hi0. }
+      { introv Hneq. applys H2. rewrite~ index_update_eq in Hi0. }
       { tests: (i=i0); auto. rewrite~ index_update_eq in Hi0. } } }
   { inverts HF as _ _ HF.
     inverts HT1 as HD HCT. subst. constructors*.
@@ -337,23 +337,24 @@ Qed.
 
 (** Lemma for typing preservation of [struct_access] *)
 
-Lemma follow_typ_access_field : forall C π T T' f,
+Lemma follow_typ_access_field : forall C π T T' Tfs f,
   T \indom C ->
-  f \indom C[T] ->
-  follow_typ C T' π (typ_struct T) ->
-  follow_typ C T' (π & (access_field T f)) C[T][f].
+  typ_struct Tfs = C[T] ->
+  f \indom Tfs ->
+  follow_typ C T' π (typ_struct Tfs) ->
+  follow_typ C T' (π & (access_field T f)) Tfs[f].
 Proof.
-  introv HTin Hfin HF. gen C T T' f. induction π; 
+  introv HTin HTfs Hfin HF. gen C T Tfs T' f. induction π; 
   intros; inverts HF; rew_list; repeat constructors*. 
 Qed.
 
 (** Lemma for typing preservation of [array_access] *)
 
-Lemma follow_typ_access_array : forall C T' T i n π,
+Lemma follow_typ_access_array : forall C T' T Ta i n π,
   follow_typ C T' π (typ_array T n) ->
-  follow_typ C T' (π & access_array i) T.
+  follow_typ C T' (π & access_array Ta i) T.
 Proof.
-  introv HF. gen C T T' i n. induction π;
+  introv HF. gen C T T' Ta i n. induction π;
   intros; inverts HF; rew_list; repeat constructors*.
 Qed.
 
@@ -443,32 +444,46 @@ Proof.
   { (* new_array *)
     admit. }
   { (* struct_access *) 
-    subst. inverts HT as HTin Hfin HT. splits~.
+    subst. inverts HT as HTin HTfs Hfin HT. splits~.
     inverts HT as HT. simpls.
     inverts HT as Hφ.
     inverts Hφ as HF.
     repeat constructors~.
     applys~ follow_typ_access_field. }
   { (* array_access *) 
-    inverts HT as HT HTi. subst.
-    inverts HT as HT. simpls.
-    inverts HT as Hφ.
-    inverts Hφ as HF.
-    inverts HM as HD HM.
-    repeat constructors~.
-    applys* follow_typ_access_array. }
+    inverts HT as.
+    { introv HT HTi. subst.
+      inverts HT as HT. simpls.
+      inverts HT as Hφ.
+      inverts Hφ as HF.
+      inverts HM as HD HM.
+      repeat constructors~.
+      applys* follow_typ_access_array. }
+    { (* TODO: Avoid repetition. *)
+      introv HTin HT' HT HTi. subst.
+      inverts HT as HT. simpls.
+      inverts HT as Hφ.
+      inverts Hφ as HF.
+      inverts HM as HD HM.
+      repeat constructors~.
+      applys* follow_typ_access_array.  } }
   { (* struct_get *) 
-    subst. inverts HT as HTin Hfin HT. 
+    subst. inverts HT as HTin HTfs Hfin HT. 
     splits~.
     inverts HT as HT. simpls.
-    inverts HT as HD HT.
+    inverts HT as HCT HD HT.
     applys~ HT. }
   { (* array_get *) 
-    subst. inverts HT as HTa HTi.
-    splits~.
-    inverts HTa as HTa. simpls.
-    inverts HTa as Hl HTa;
-    applys* HTa. }
+    subst. inverts HT as.
+    { introv HTa HTi. splits~.
+      inverts HTa as HTa. simpls.
+      inverts HTa as Hl HTa;
+      applys* HTa. }
+    { (* TODO: Same issue here. Repetitive *)
+      introv HT' HCT' HTa HTi. splits~.
+      inverts HTa as HTa. simpls.
+      inverts HTa as Hl HTa;
+      applys* HTa. } }
   { (* app 1 *) 
     forwards*: IHR2; inverts HT; forwards* (HTv1&Hm2): IHR1;
     try applys* not_is_error_args_1 ; repeat constructors*. }
