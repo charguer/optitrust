@@ -579,7 +579,8 @@ Proof.
             { introv Hl2. rew_reads~. intros. subst.
               rewrite HD in *. contradiction. } } } } } }
   { (* new_array *) 
-    inverts HT. inverts HM as HD Hm1l. exists φ[l0:=(typ_array T None)]. splits.
+    inverts HT. inverts HM as HD Hm1l. 
+    exists φ[l0:=(typ_array T None)]. splits.
     { unfolds. splits.
       { rew_set. introv Hl0. unfolds phi.
         rewrite dom_update. set_prove. }
@@ -589,18 +590,59 @@ Proof.
     { repeat constructors.
       { unfolds phi. rewrite dom_update. set_prove. }
       { rew_reads. constructors~. } }
-    { (*constructors.
+    { constructors.
       { subst. unfolds phi. 
         unfolds state. repeat rewrite dom_update.
         rewrite~ HD. }
       { introv Hl1. subst. rew_reads; intros.
-        { subst. forwards*: uninitialized_val_typ H2. admit. }
+        { subst. inverts H2. constructors~. introv Hi. 
+          forwards Hu: H6 Hi.
+          forwards* HT: uninitialized_val_typ Hu. }
         { forwards: Hm1l l1. 
           { unfolds state. rewrite~ indom_update_neq_eq in Hl1. }
           { applys* extended_typing_val. unfolds. splits.
             { unfolds phi. rewrite dom_update. set_prove. }
             { introv Hl2. rew_reads~. intros. subst.
-              rewrite HD in *. contradiction. } } } } }*) admit. }
+              rewrite HD in *. contradiction. } } } } } }
+  { (* struct_access *)
+    subst. inverts HT as HTin Hfin HT. 
+    exists φ. splits~.
+    { applys~ refl_extends. }
+    { inverts HT as HT. simpls.
+      inverts HT as Hφ.
+      inverts Hφ as HF.
+      repeat constructors~.
+      applys~ follow_typ_access_field. } }
+  { (* array_access *)
+    subst. inverts HT as HT HTi. 
+    inverts HT as HT. simpls.
+    inverts HT as Hφ.
+    inverts Hφ as HF.
+    exists φ. splits~.
+    { applys~ refl_extends. }
+    { repeat constructors~.
+    applys* follow_typ_access_array. } }
+  { (* struct_get *)
+    subst. inverts HT as HTin Hfin HT. 
+    exists φ. splits~.
+    { applys~ refl_extends. }
+    { inverts HT as HT. simpls.
+      inverts HT as HD HT.
+      applys~ HT. } }
+  { (* array_get *)
+    subst. inverts HT as HTa HTi.
+    exists φ. splits~.
+    { applys~ refl_extends. }
+    { inverts HTa as HTa. simpls.
+      inverts HTa as Hl HTa;
+      applys* HTa. } }
+  { (* args_1 *)
+    inverts HT; 
+    forwards* (φ''&Hφ''&HTv2&Hm3): IHR2; 
+    forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ;
+    try applys* not_is_error_args_1. 2: { constructors. }
+    try applys* extended_stack_typing. 2: { f* extended_stack_typing. }
+    repeat constructors*. }
 Admitted.
 
 
