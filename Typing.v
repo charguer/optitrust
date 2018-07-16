@@ -637,14 +637,28 @@ Proof.
       inverts HTa as Hl HTa;
       applys* HTa. } }
   { (* args_1 *)
-    inverts HT; 
-    forwards* (φ''&Hφ''&HTv2&Hm3): IHR2; 
-    forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ;
-    try applys* not_is_error_args_1. 2: { constructors. }
-    try applys* extended_stack_typing. 2: { f* extended_stack_typing. }
-    repeat constructors*. }
-Admitted.
-
+    inverts HT;
+    forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ;
+    try applys* not_is_error_args_1;
+    forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ;
+    repeat constructors*;
+    try applys* extended_typing;
+    try applys* extended_stack_typing. }
+  { (* args_2 *)
+    inverts HT; try solve [
+    forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ;
+    try applys* not_is_error_args_2;
+    forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ;    
+    try applys* extended_stack_typing; constructors;
+    try applys* extended_typing;
+    inverts* HTv1 ; constructors* ].
+    { forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ.
+      applys* not_is_error_args_2.
+      forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ.
+      { constructors. applys* extended_typing.
+        constructors*. }
+      { applys* extended_stack_typing. } } }
+Qed.
 
 
 End TypeSoundness.
