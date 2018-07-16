@@ -40,7 +40,7 @@ Definition offset := nat.
 
 Definition typvar := var.
 
-Global Opaque field loc size offset typvar.
+Definition anon : typvar := "".
 
 
 (* ---------------------------------------------------------------------- *)
@@ -53,44 +53,49 @@ Inductive typ : Type :=
   | typ_bool : typ
   | typ_ptr : typ -> typ
   | typ_array : typ -> option size -> typ
-  | typ_struct : typvar -> typ
+  | typ_struct : map field typ -> typ
   | typ_fun : list typ -> typ -> typ.
 
-Definition typdef_struct := map field typ.
+(* Richer typdefs *)
+(*Definition typdef_struct : Type := (map field typ).
 
-Definition typdefctx := map typvar typdef_struct.
+Definition typdef_array : Type := (typ * size).
+
+(*Record typdefctx := make_typdef {
+  typdef_structs : map typvar typdef_struct;
+  typdef_arrays : map typvar typ
+}.*)
+
+Inductive typdef :=
+  | typdef_typdef_struct : typdef_struct -> typdef
+  | typdef_typdef_array : typdef_array -> typdef.
+*)
+
+Definition typdefctx := map typvar typ.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Size of types *)
 
-Definition typdefctx_size := map typvar size.
-
-Definition typdefctx_offset := map typvar (map field offset).
-
 Section TypeSizes.
 Open Scope nat_scope.
 
-Fixpoint sizeof (S:typdefctx_size) (T:typ) : nat := 
+Definition typdefctx_size := (map typvar size).
+
+Definition typdefctx_offset := (map typvar (map field offset)).
+
+(*Fixpoint sizeof (T:typ) : size := 
   match T with
-  | typ_unit => 0%nat
-  | typ_bool => 1%nat
-  | typ_int => 1%nat
-  | typ_double => 2%nat
-  | typ_ptr _ => 1%nat
-  | typ_array T' (Some n) => (n * (sizeof S T'))%nat
-  | typ_struct X => S[X]
-  | typ_fun _ _ => 1%nat
-  | _ => 0%nat
-  end.
-
-Definition sizeof_typdef_struct (S:typdefctx_size) (m:typdef_struct) : nat :=
-  fold (monoid_make plus 0%nat) (fun f T => sizeof S T) m.
-
-Definition wf_typctx_size (C:typdefctx) (S:typdefctx_size) : Prop :=
-  forall X, X \indom C -> 
-     X \indom S 
-  /\ S[X] = sizeof_typdef_struct S C[X].
+  | typ_unit => 0
+  | typ_bool => 1
+  | typ_int => 1
+  | typ_double => 2
+  | typ_ptr _ => 1
+  | typ_array T' (Some n) => (n * (sizeof T'))
+  | typ_struct m => fold (monoid_make plus 0) (fun f T' => sizeof T') m
+  | typ_fun _ _ => 1
+  | _ => 0
+  end.*)
 
 End TypeSizes.
 
@@ -99,7 +104,7 @@ End TypeSizes.
 (** Syntax of the source language *)
 
 Inductive access : Type :=
-  | access_array : int -> access
+  | access_array : typvar -> int -> access
   | access_field : typvar -> field -> access.
 
 Definition accesses := list access. 
@@ -117,9 +122,9 @@ Inductive prim : Type :=
   | prim_new : typ -> prim
   | prim_new_array : typ -> prim
   | prim_struct_access : typvar -> field -> prim
-  | prim_array_access : typ -> prim
+  | prim_array_access : typvar -> typ -> prim
   | prim_struct_get : typvar -> field -> prim
-  | prim_array_get : typ -> prim.
+  | prim_array_get : typvar -> typ -> prim.
 
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
@@ -132,7 +137,7 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_double : double -> val
   | val_abstract_ptr : loc -> accesses -> val
-  | val_array : list val -> val
+  | val_array : typvar -> list val -> val
   | val_struct : typvar -> map field val -> val. 
 
 Inductive trm : Type :=
@@ -169,9 +174,6 @@ Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
 
 Global Instance Inhab_typ : Inhab typ.
 Proof using. apply (Inhab_of_val typ_unit). Qed.
-
-Global Instance Inhab_typdef_struct : Inhab typdef_struct.
-Proof using. apply (Inhab_of_val \{}). Qed.
 
 Hint Extern 1 (Inhab val) => apply Inhab_val.
 
@@ -283,25 +285,33 @@ Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
       uninitialized_val C typ_double val_uninitialized
   | uninitialized_ptr : forall T,
       uninitialized_val C (typ_ptr T) val_uninitialized
-  | uninitialized_val_array_fixed : forall T (n:nat) a,
+  | uninitialized_val_array_fixed : forall T T' (n:nat) a,
+      T' \indom C ->
+      (typ_array T (Some n)) = C[T'] ->
       length a = n ->
       (forall i,
         index a i ->
         uninitialized_val C T a[i]) ->
-      uninitialized_val C (typ_array T (Some n)) (val_array a)
+      uninitialized_val C (typ_array T (Some n)) (val_array T' a)
+  | uninitialized_val_array_fixed_anonymous : forall T (n:nat) a,
+      length a = n ->
+      (forall i,
+        index a i ->
+        uninitialized_val C T a[i]) ->
+      uninitialized_val C (typ_array T (Some n)) (val_array anon a)
   | uninitialized_val_array_variable : forall T a,
       (forall i,
         index a i ->
         uninitialized_val C T a[i]) ->
-      uninitialized_val C (typ_array T None) (val_array a)
+      uninitialized_val C (typ_array T None) (val_array anon a)
   | uninitialized_val_struct : forall T Tfs vfs,
       T \indom C ->
-      Tfs = C[T] ->
+      (typ_struct Tfs) = C[T] ->
       dom Tfs = dom vfs ->
       (forall f,
         f \indom Tfs ->
         uninitialized_val C Tfs[f] vfs[f]) ->
-      uninitialized_val C (typ_struct T) (val_struct T vfs).
+      uninitialized_val C (typ_struct Tfs) (val_struct T vfs).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -312,10 +322,10 @@ Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
 Inductive read_accesses : val -> accesses -> val -> Prop :=
   | read_accesses_nil : forall v,
       read_accesses v nil v
-  | read_accesses_array : forall a (i:Z) π v,
+  | read_accesses_array : forall a (i:Z) T π v,
       index a i -> 
       read_accesses a[i] π v ->
-      read_accesses (val_array a) ((access_array i)::π) v
+      read_accesses (val_array T a) ((access_array T i)::π) v
   | read_accesses_struct : forall T s f π v2,
       f \indom s ->
       read_accesses s[f] π v2 ->
@@ -334,11 +344,11 @@ Inductive read_state (m:state) (l:loc) (π:accesses) (v:val) : Prop :=
 Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
   | write_accesses_nil : forall v w,
       write_accesses v nil w w
-  | write_accesses_array : forall v1 v2 a1 i π w a2,
+  | write_accesses_array : forall v1 v2 a1 i T π w a2,
       index a1 i -> 
       write_accesses a1[i] π w v2 ->
       a2 = update a1 i v2 ->
-      write_accesses (val_array a1) ((access_array i)::π) w (val_array a2)
+      write_accesses (val_array T a1) ((access_array T i)::π) w (val_array T a2)
   | write_accesses_struct : forall T s1 s2 f π w v2,
       f \indom s1 ->
       write_accesses s1[f] π w v2 ->
@@ -408,21 +418,21 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       t = val_abstract_ptr l π ->
       vr = val_abstract_ptr l (π++((access_field T f)::nil)) ->
       red C S m (trm_app (prim_struct_access T f) (t::nil)) m vr
-  | red_array_access : forall S m t l i π T vr ti,
+  | red_array_access : forall S m t l i π T T' vr ti,
       t = val_abstract_ptr l π ->
       ti = trm_val (val_int i) ->
-      vr = val_abstract_ptr l (π++(access_array i)::nil) ->
-      red C S m (trm_app (prim_array_access T) (t::ti::nil)) m vr
+      vr = val_abstract_ptr l (π++(access_array T' i)::nil) ->
+      red C S m (trm_app (prim_array_access T' T) (t::ti::nil)) m vr
   (* Operations on structs and arrays as values *)
   | red_struct_get : forall S m T f t s,
       t = trm_val (val_struct T s) ->
       f \indom s ->
       red C S m (trm_app (prim_struct_get T f) (t::nil)) m s[f]
-  | red_array_get : forall S m t ti T a i,
-      t = trm_val (val_array a) ->
+  | red_array_get : forall S m t ti T T' a i,
+      t = trm_val (val_array T' a) ->
       ti = trm_val (val_int i) ->
       index a i ->
-      red C S m (trm_app (prim_array_get T) (t::ti::nil)) m a[i]
+      red C S m (trm_app (prim_array_get T' T) (t::ti::nil)) m a[i]
   (* Arguments *) 
   | red_args_1 : forall v1 m2 S m1 op t1 m3 v2 ts,
       ~ is_val t1 ->
@@ -473,12 +483,12 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
   | red_struct_access_error_not_a_ptr : forall S m t f T,
       ~ is_ptr t ->
       red C S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
-  | red_array_access_error_not_a_ptr : forall S m t T ti,
+  | red_array_access_error_not_a_ptr : forall S m t T T' ti,
       ~ is_ptr t ->
-      red C S m (trm_app (prim_array_access T) (t::ti::nil)) m val_error
-  | red_array_access_error_not_an_int : forall S m t T ti,
+      red C S m (trm_app (prim_array_access T' T) (t::ti::nil)) m val_error
+  | red_array_access_error_not_an_int : forall S m t T T' ti,
       ~ is_int ti ->
-      red C S m (trm_app (prim_array_access T) (t::ti::nil)) m val_error
+      red C S m (trm_app (prim_array_access T' T) (t::ti::nil)) m val_error
   | red_args_1_error : forall v1 m2 S m1 op t1 v2 ts,
       red C S m1 t1 m2 val_error ->
       red C S m1 (trm_app op (t1::ts)) m2 val_error
@@ -507,10 +517,7 @@ Lemma read_write_accesses_same : forall v1 v2 π w,
   write_accesses v1 π w v2 ->
   read_accesses v2 π w.
 Proof.
-  introv H. induction H; subst.
-  { constructors*. }
-  { constructors*. rew_reads~. }
-  { constructors*. rew_reads~. }
+  introv H. induction H; subst; constructors*; rew_reads~.
 Qed.
 
 Hint Extern 1 (?j \in dom (?m[?i:=?v])) => applys @indom_update.

@@ -53,7 +53,7 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
       follow_typ C T nil T
   | follow_typ_array : forall T π Tr i n,
       follow_typ C T π Tr ->
-      follow_typ C (typ_array T n) ((access_array i)::π) Tr
+      follow_typ C (typ_array T n) ((access_array typdef_anon i)::π) Tr
   | follow_typ_struct : forall T f π Tr,
       T \indom C ->
       f \indom C[T] ->
@@ -152,10 +152,14 @@ Inductive typing : env -> trm -> typ -> Prop :=
       f \indom Tfs ->
       typing E t (typ_ptr (typ_struct T)) ->
       typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr Tfs[f])
-  | typing_array_access : forall E t T ti n,
+  | typing_array_access_anon : forall E t T ti n,
       typing E t (typ_ptr (typ_array T n)) ->
       typing E ti typ_int ->
-      typing E (trm_app (prim_array_access T) (t::ti::nil)) (typ_ptr T)
+      typing E (trm_app (prim_array_access typdef_anon T) (t::ti::nil)) (typ_ptr T).
+  | typing_array_access_typdef : forall E t T T' ti n,
+      typing E t (typ_ptr (typ_array T n)) ->
+      typing E ti typ_int ->
+      typing E (trm_app (prim_array_access T' T) (t::ti::nil)) (typ_ptr T)
   (* Operations on structs and arrays as values *)
   | typing_struct_get : forall E C Tfs f T t,
       C = env_typdefctx E ->
