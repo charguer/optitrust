@@ -51,14 +51,15 @@ Definition env_add_binding E z X :=
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
       follow_typ C T nil T
-  | follow_typ_array : forall T π Tr i n,
+  | follow_typ_array : forall T Ta π Tr i n,
       follow_typ C T π Tr ->
-      follow_typ C (typ_array T n) ((access_array typdef_anon i)::π) Tr
-  | follow_typ_struct : forall T f π Tr,
+      follow_typ C (typ_array T n) ((access_array Ta i)::π) Tr
+  | follow_typ_struct : forall (T:typvar) f Tfs π Tr,
       T \indom C ->
-      f \indom C[T] ->
-      follow_typ C C[T][f] π Tr ->
-      follow_typ C (typ_struct T) ((access_field T f)::π) Tr.
+      (typ_struct Tfs) = C[T] ->
+      f \indom Tfs ->
+      follow_typ C Tfs[f] π Tr ->
+      follow_typ C (typ_struct Tfs) ((access_field T f)::π) Tr.
 
 (** φ(l)..π = T *)
 
@@ -84,24 +85,24 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_double : forall d,
       typing_val C φ (val_double d) typ_double
   | typing_val_struct : forall Tfs vfs T,
-      Tfs = C[T] ->
+      typ_struct Tfs = C[T] ->
       dom Tfs = dom vfs ->
       (forall f, 
           f \indom Tfs -> 
           f \indom vfs ->
           typing_val C φ vfs[f] Tfs[f]) ->
-      typing_val C φ (val_struct T vfs) (typ_struct T)
-  | typing_val_array_fixed : forall a T (n:nat),
+      typing_val C φ (val_struct T vfs) (typ_struct Tfs)
+  | typing_val_array_fixed : forall a T Ta (n:nat),
       length a = n ->
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
-      typing_val C φ (val_array a) (typ_array T (Some n))
-  | typing_val_array_variable : forall a T (n:nat),
+      typing_val C φ (val_array Ta a) (typ_array T (Some n))
+  | typing_val_array_variable : forall a T Ta (n:nat),
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
-      typing_val C φ (val_array a) (typ_array T None)
+      typing_val C φ (val_array Ta a) (typ_array T None)
   | typing_val_abstract_ptr : forall l π T,
       read_phi C φ l π T ->
       typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
@@ -148,30 +149,40 @@ Inductive typing : env -> trm -> typ -> Prop :=
   | typing_struct_access : forall E C Tfs f T t,
       C = env_typdefctx E ->
       T \indom C ->
-      Tfs = C[T] ->
+      typ_struct Tfs = C[T] ->
       f \indom Tfs ->
-      typing E t (typ_ptr (typ_struct T)) ->
+      typing E t (typ_ptr (typ_struct Tfs)) ->
       typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr Tfs[f])
   | typing_array_access_anon : forall E t T ti n,
       typing E t (typ_ptr (typ_array T n)) ->
       typing E ti typ_int ->
-      typing E (trm_app (prim_array_access typdef_anon T) (t::ti::nil)) (typ_ptr T).
-  | typing_array_access_typdef : forall E t T T' ti n,
+      typing E (trm_app (prim_array_access anon T) (t::ti::nil)) (typ_ptr T)
+  | typing_array_access_typdef : forall E C t T Ta ti n,
+      C = env_typdefctx E ->
+      Ta \indom C ->
+      typ_array T n = C[Ta] ->
       typing E t (typ_ptr (typ_array T n)) ->
       typing E ti typ_int ->
-      typing E (trm_app (prim_array_access T' T) (t::ti::nil)) (typ_ptr T)
+      typing E (trm_app (prim_array_access Ta T) (t::ti::nil)) (typ_ptr T)
   (* Operations on structs and arrays as values *)
   | typing_struct_get : forall E C Tfs f T t,
       C = env_typdefctx E ->
       T \indom C ->
-      Tfs = C[T] ->
+      typ_struct Tfs = C[T] ->
       f \indom Tfs ->
-      typing E t (typ_struct T) ->
+      typing E t (typ_struct Tfs) ->
       typing E (trm_app (prim_struct_get T f) (t::nil)) Tfs[f]
-  | typing_array_get : forall E T t ti n,
+  | typing_array_get_anon : forall E T t ti n,
       typing E t (typ_array T n) ->
       typing E ti typ_int ->
-      typing E (trm_app (prim_array_get T) (t::ti::nil)) T
+      typing E (trm_app (prim_array_get anon T) (t::ti::nil)) T
+  | typing_array_get_typdef : forall E C T Ta t ti n,
+      C = env_typdefctx E ->
+      Ta \indom C ->
+      typ_array T n = C[Ta] ->
+      typing E t (typ_array T n) ->
+      typing E ti typ_int ->
+      typing E (trm_app (prim_array_get Ta T) (t::ti::nil)) T
   (* Other language constructs *)
   | typing_if : forall E t0 t1 t2 T,
       typing E t0 typ_bool ->
