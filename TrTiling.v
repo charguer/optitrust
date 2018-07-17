@@ -32,16 +32,18 @@ Record group_tr := make_group_tr {
   group_tr_fields : set field;
   group_tr_new_struct_name : typvar;
   group_tr_new_struct_field : field
-}.
+}. 
 
 Notation make_group_tr' := make_group_tr.
+
+
 
 (** Transformation of paths: π ~ |π| *)
 
 Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
   | tr_accesses_nil :
       tr_accesses gt nil nil
-  | tr_accesses_array : forall π π' i,
+  | tr_accesses_array : forall π π' i, 
       tr_accesses gt π π' ->
       tr_accesses gt ((access_array i)::π) ((access_array i)::π')
   | tr_accesses_field_group : forall π π' f fg Ts Tsg,

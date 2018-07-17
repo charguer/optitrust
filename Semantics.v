@@ -40,8 +40,6 @@ Definition offset := nat.
 
 Definition typvar := var.
 
-Definition anon : typvar := "".
-
 
 (* ---------------------------------------------------------------------- *)
 (** Grammar of types *)
@@ -54,7 +52,8 @@ Inductive typ : Type :=
   | typ_ptr : typ -> typ
   | typ_array : typ -> option size -> typ
   | typ_struct : map field typ -> typ
-  | typ_fun : list typ -> typ -> typ.
+  | typ_fun : list typ -> typ -> typ
+  | typ_var : typvar -> typ.
 
 (* Richer typdefs *)
 (*Definition typdef_struct : Type := (map field typ).
@@ -104,8 +103,8 @@ End TypeSizes.
 (** Syntax of the source language *)
 
 Inductive access : Type :=
-  | access_array : typvar -> int -> access
-  | access_field : typvar -> field -> access.
+  | access_array : typ -> int -> access
+  | access_field : typ -> field -> access.
 
 Definition accesses := list access. 
 
@@ -121,10 +120,10 @@ Inductive prim : Type :=
   | prim_set : typ -> prim
   | prim_new : typ -> prim
   | prim_new_array : typ -> prim
-  | prim_struct_access : typvar -> field -> prim
-  | prim_array_access : typvar -> typ -> prim
-  | prim_struct_get : typvar -> field -> prim
-  | prim_array_get : typvar -> typ -> prim.
+  | prim_struct_access : typ -> field -> prim
+  | prim_array_access : typ -> prim
+  | prim_struct_get : typ -> field -> prim
+  | prim_array_get : typ -> prim.
 
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
@@ -145,11 +144,9 @@ Inductive trm : Type :=
   | trm_val : val -> trm
   | trm_if : trm -> trm -> trm -> trm
   | trm_let : bind -> trm -> trm -> trm
-  | trm_app : prim -> list trm -> trm.
-  (*
+  | trm_app : prim -> list trm -> trm
   | trm_while : trm -> trm -> trm
-  | trm_for : var -> trm -> trm -> trm -> trm
-  *)
+  | trm_for : var -> val -> val -> trm -> trm.
 
 (** Sequence is a special case of let bindings *)
 
@@ -262,19 +259,20 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_sub : forall n1 n2,
       redbinop binop_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
   | redbinop_eq_true : forall v1 v2,
-      ~ is_error v1 ->
-      ~ is_error v2 ->
       v1 = v2 ->
       redbinop binop_eq v1 v2 (val_bool true)
   | redbinop_eq_false : forall v1 v2,
-      ~ is_error v1 ->
-      ~ is_error v2 ->
       v1 <> v2 ->
       redbinop binop_eq v1 v2 (val_bool false).
 
 
 (* ---------------------------------------------------------------------- *)
 (** Uninitialized values construction *)
+
+(* - uninit or just remove val
+   - base type?
+   - (forall n, os = Some n -> length a = n)
+     (match os with Some n => length a = n | None => True end *)
 
 Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
   | uninitialized_val_bool : 
@@ -286,32 +284,28 @@ Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
   | uninitialized_ptr : forall T,
       uninitialized_val C (typ_ptr T) val_uninitialized
   | uninitialized_val_array_fixed : forall T T' (n:nat) a,
-      T' \indom C ->
-      (typ_array T (Some n)) = C[T'] ->
       length a = n ->
       (forall i,
         index a i ->
         uninitialized_val C T a[i]) ->
       uninitialized_val C (typ_array T (Some n)) (val_array T' a)
-  | uninitialized_val_array_fixed_anonymous : forall T (n:nat) a,
-      length a = n ->
+  | uninitialized_val_array_variable : forall T T' a,
       (forall i,
         index a i ->
         uninitialized_val C T a[i]) ->
-      uninitialized_val C (typ_array T (Some n)) (val_array anon a)
-  | uninitialized_val_array_variable : forall T a,
-      (forall i,
-        index a i ->
-        uninitialized_val C T a[i]) ->
-      uninitialized_val C (typ_array T None) (val_array anon a)
+      uninitialized_val C (typ_array T None) (val_array T' a)
   | uninitialized_val_struct : forall T Tfs vfs,
       T \indom C ->
       (typ_struct Tfs) = C[T] ->
       dom Tfs = dom vfs ->
-      (forall f,
+      (forall f, (* forall_ f \indom Tfs *)
         f \indom Tfs ->
         uninitialized_val C Tfs[f] vfs[f]) ->
-      uninitialized_val C (typ_struct Tfs) (val_struct T vfs).
+      uninitialized_val C (typ_struct Tfs) (val_struct T vfs)
+  | uninnitialized_val_typvar : forall T v,
+      T \indom C ->
+      uninitialized_val C C[T] v ->
+      uninitialized_val C (typ_var T) v.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -387,6 +381,8 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       red C S m1 (trm_let z t1 t2) m3 r
   (* Binary operations *)
   | red_binop : forall S (op:binop) m v1 v2 v,
+      ~ is_error v1 ->
+      ~ is_error v2 ->
       redbinop op v1 v2 v ->
       red C S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m v
   (* Operations on the abstract heap *) 
@@ -496,6 +492,12 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       ~ is_error v1 ->
       red C S m1 t2 m2 val_error ->
       red C S m1 (trm_app op ((trm_val v1)::t2::ts)) m2 val_error.
+(* TODO: Add error cases for array and struct get. *)
+
+
+Lemma red_complete : forall C S m1 t, 
+  exists v m2, red C S m1 t m2 v.
+
 
 (* Derived *)
 
@@ -542,3 +544,10 @@ Lemma ctx_lookup_add_inv {A:Type} : forall C (z1 z2:var) (w1 w2:A),
 Proof.
   introv H. simpls. rewrite var_eq_spec in *. case_if*. { inverts* H. }
 Qed.
+
+(* TODO:
+   - rew_reads improve.
+   - dom_prove new tactic. 
+   - map on maps. 
+   - automation for red_complete. *)
+

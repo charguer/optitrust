@@ -22,6 +22,7 @@ Require Export TLCbuffer Semantics LibSet LibMap.
 (** Type of the state *)
 
 Definition phi := map loc typ.
+Notation phi := (map loc typ).
 
 (** Type of a stack *)
 
@@ -52,6 +53,7 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
       follow_typ C T nil T
   | follow_typ_array : forall T Ta π Tr i n,
+      Ta \indom C /\ typ_array T n = C[Ta] \/ Ta = anon ->
       follow_typ C T π Tr ->
       follow_typ C (typ_array T n) ((access_array Ta i)::π) Tr
   | follow_typ_struct : forall (T:typvar) f Tfs π Tr,
@@ -73,6 +75,7 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 (* ---------------------------------------------------------------------- *)
 (** Typing of values *)
 
+(* TODO: New approach for typ vars and factorise val array. *)
 Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_uninitialized : forall T,
       typing_val C φ val_uninitialized T
@@ -93,16 +96,17 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
           typing_val C φ vfs[f] Tfs[f]) ->
       typing_val C φ (val_struct T vfs) (typ_struct Tfs)
   | typing_val_array_fixed : forall a T Ta (n:nat),
+      Ta \indom C /\ typ_array T (Some n) = C[Ta] \/ Ta = anon ->
       length a = n ->
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
       typing_val C φ (val_array Ta a) (typ_array T (Some n))
-  | typing_val_array_variable : forall a T Ta (n:nat),
+  | typing_val_array_variable : forall a T,
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
-      typing_val C φ (val_array Ta a) (typ_array T None)
+      typing_val C φ (val_array anon a) (typ_array T None)
   | typing_val_abstract_ptr : forall l π T,
       read_phi C φ l π T ->
       typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
@@ -147,20 +151,23 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E t typ_int ->
       typing E (trm_app (prim_new_array T) (t::nil)) (typ_ptr (typ_array T None))
   | typing_struct_access : forall E C Tfs f T t,
+(*
+  typing_struct_field E T f Tf :=
+  | typing_struct_field E (typ_struct Tfs) f Tfs[f]
+  | C[X] = T
+    typing_struct_field E T f Tf
+    typing_struct_field E (typ_var X) f Tf
+
+*)
       C = env_typdefctx E ->
       T \indom C ->
       typ_struct Tfs = C[T] ->
       f \indom Tfs ->
       typing E t (typ_ptr (typ_struct Tfs)) ->
       typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr Tfs[f])
-  | typing_array_access_anon : forall E t T ti n,
-      typing E t (typ_ptr (typ_array T n)) ->
-      typing E ti typ_int ->
-      typing E (trm_app (prim_array_access anon T) (t::ti::nil)) (typ_ptr T)
-  | typing_array_access_typdef : forall E C t T Ta ti n,
+  | typing_array_access : forall E C t T Ta ti n,
       C = env_typdefctx E ->
-      Ta \indom C ->
-      typ_array T n = C[Ta] ->
+      Ta \indom C /\ typ_array T n = C[Ta] \/ Ta = anon ->
       typing E t (typ_ptr (typ_array T n)) ->
       typing E ti typ_int ->
       typing E (trm_app (prim_array_access Ta T) (t::ti::nil)) (typ_ptr T)
@@ -172,14 +179,9 @@ Inductive typing : env -> trm -> typ -> Prop :=
       f \indom Tfs ->
       typing E t (typ_struct Tfs) ->
       typing E (trm_app (prim_struct_get T f) (t::nil)) Tfs[f]
-  | typing_array_get_anon : forall E T t ti n,
-      typing E t (typ_array T n) ->
-      typing E ti typ_int ->
-      typing E (trm_app (prim_array_get anon T) (t::ti::nil)) T
-  | typing_array_get_typdef : forall E C T Ta t ti n,
+  | typing_array_get : forall E C T Ta t ti n,
       C = env_typdefctx E ->
-      Ta \indom C ->
-      typ_array T n = C[Ta] ->
+      Ta \indom C /\ typ_array T n = C[Ta] \/ Ta = anon ->
       typing E t (typ_array T n) ->
       typing E ti typ_int ->
       typing E (trm_app (prim_array_get Ta T) (t::ti::nil)) T
@@ -299,7 +301,7 @@ Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
 Proof.
   introv HW HT1 HF HT2. gen T1. induction HW; intros.
   { subst. inverts* HF. }
-  { inverts HF. inverts HT1. subst. constructors. 
+  { inverts HF. inverts HT1. subst. constructors~. 
     { rewrite* length_update. }
     { intros. rewrite index_update_eq in *. 
       rewrite* read_update_case. case_if*. }
@@ -309,7 +311,7 @@ Proof.
   { inverts HF as _ _ HF.
     inverts HT1 as HD HCT. subst. constructors*.
     { unfold state. rewrite* dom_update_at_index. }
-    { intros f' Hi1 Hi2. rewrite read_update.
+    { intros f' Hi1 Hi2. rewrite read_update. (**)
       case_if*. 
       { subst. applys* IHHW. } } }
 Qed.
@@ -351,10 +353,11 @@ Qed.
 (** Lemma for typing preservation of [array_access] *)
 
 Lemma follow_typ_access_array : forall C T' T Ta i n π,
+  Ta \indom C /\ typ_array T n = C[Ta] \/ Ta = anon ->
   follow_typ C T' π (typ_array T n) ->
   follow_typ C T' (π & access_array Ta i) T.
 Proof.
-  introv HF. gen C T T' Ta i n. induction π;
+  introv HTa HF. gen C T T' Ta i n. induction π;
   intros; inverts HF; rew_list; repeat constructors*.
 Qed.
 
@@ -451,22 +454,13 @@ Proof.
     repeat constructors~.
     applys~ follow_typ_access_field. }
   { (* array_access *) 
-    inverts HT as.
-    { introv HT HTi. subst.
-      inverts HT as HT. simpls.
-      inverts HT as Hφ.
-      inverts Hφ as HF.
-      inverts HM as HD HM.
-      repeat constructors~.
-      applys* follow_typ_access_array. }
-    { (* TODO: Avoid repetition. *)
-      introv HTin HT' HT HTi. subst.
-      inverts HT as HT. simpls.
-      inverts HT as Hφ.
-      inverts Hφ as HF.
-      inverts HM as HD HM.
-      repeat constructors~.
-      applys* follow_typ_access_array.  } }
+    inverts HT as HTa HT HTi. subst.
+    inverts HT as HT. simpls.
+    inverts HT as Hφ.
+    inverts Hφ as HF.
+    inverts HM as HD HM.
+    repeat constructors~.
+    applys* follow_typ_access_array. }
   { (* struct_get *) 
     subst. inverts HT as HTin HTfs Hfin HT. 
     splits~.
@@ -474,16 +468,11 @@ Proof.
     inverts HT as HCT HD HT.
     applys~ HT. }
   { (* array_get *) 
-    subst. inverts HT as.
-    { introv HTa HTi. splits~.
-      inverts HTa as HTa. simpls.
-      inverts HTa as Hl HTa;
-      applys* HTa. }
-    { (* TODO: Same issue here. Repetitive *)
-      introv HT' HCT' HTa HTi. splits~.
-      inverts HTa as HTa. simpls.
-      inverts HTa as Hl HTa;
-      applys* HTa. } }
+    subst. inverts HT as HTa HT HTi.
+    splits~.
+    inverts HT as HT. simpls.
+    inverts HT as HTa' Hl HT. admit.
+    admit. }
   { (* app 1 *) 
     forwards*: IHR2; inverts HT; forwards* (HTv1&Hm2): IHR1;
     try applys* not_is_error_args_1 ; repeat constructors*. }
@@ -502,11 +491,28 @@ Lemma extended_typing_val : forall C φ φ' v T,
 Proof.
   introv Hφ HT. gen φ'. induction HT; intros;
   try solve [ constructors* ].
-  { constructors~; rewrite~ <- H. }
   { inverts H. inverts Hφ. repeat constructors.
     { rew_set in *. auto. }
     { rewrite~ H2. } }
 Qed.
+
+
+  extends φ φ' ->
+  env_extends (make_env C φ Γ ) (make_env C φ' Γ )
+
+Lemma extended_typing : forall E E' C φ φ' Γ t T,
+  typing E t T ->
+  env_extends_phi E E' ->
+  typing  t T.
+
+
+
+Lemma extended_typing : forall E E' C φ φ' Γ t T,
+  typing (make_env C φ Γ ) t T ->
+  extends φ φ' ->
+  typing (make_env C φ' Γ ) t T.
+
+introv HT HE. gen_eq E: (make_env C φ Γ ). gen φ'. induction HT; intros.
 
 Lemma extended_typing : forall E E' C φ φ' Γ t T,
   E = make_env C φ Γ ->
@@ -523,11 +529,11 @@ Proof.
 Qed.
 
 Lemma extended_stack_typing : forall C φ φ' Γ S,
-  extends φ φ' ->
   stack_typing C φ Γ S ->
+  extends φ φ' ->
   stack_typing C φ' Γ S.
 Proof.
-  introv Hφ HS. unfolds stack_typing.
+  introv HS Hφ. unfolds stack_typing.
   introv HxS HxΓ. forwards HT: HS HxS HxΓ.
   forwards~: extended_typing_val Hφ HT.
 Qed.
@@ -539,7 +545,6 @@ Lemma uninitialized_val_typ : forall C T v φ,
   typing_val C φ v T.
 Proof.
   introv Hu. induction Hu; subst; try constructors~.
-  typeclass. (* TODO: why?? *)
 Qed.
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
@@ -592,7 +597,7 @@ Proof.
         rewrite dom_update. set_prove. }
       { introv Hl0. unfolds phi. rew_reads~. 
         intros. subst. rewrite <- HD in Hl0.
-        contradiction. } }
+        false. } }
     { inverts HT. repeat constructors.
       { unfolds phi. rewrite dom_update. set_prove. }
       { rew_reads. constructors~. } }
@@ -625,9 +630,11 @@ Proof.
         unfolds state. repeat rewrite dom_update.
         rewrite~ HD. }
       { introv Hl1. subst. rew_reads; intros.
-        { subst. inverts H2. constructors~. introv Hi. 
-          forwards Hu: H6 Hi.
-          forwards* HT: uninitialized_val_typ Hu. }
+        { subst. inverts H2; constructors~; introv Hi.
+          { forwards Hu: H9 Hi.
+            forwards* HT: uninitialized_val_typ Hu. }
+          { forwards Hu: H6 Hi. (* TODO: H6? H9? No. *)
+            forwards* HT: uninitialized_val_typ Hu. } }
         { forwards: Hm1l l1. 
           { unfolds state. rewrite~ indom_update_neq_eq in Hl1. }
           { applys* extended_typing_val. unfolds. splits.
@@ -635,7 +642,7 @@ Proof.
             { introv Hl2. rew_reads~. intros. subst.
               rewrite HD in *. contradiction. } } } } } }
   { (* struct_access *)
-    subst. inverts HT as HTin Hfin HT. 
+    subst. inverts HT as HTin HTfs Hfin HT. 
     exists φ. splits~.
     { applys~ refl_extends. }
     { inverts HT as HT. simpls.
@@ -644,14 +651,25 @@ Proof.
       repeat constructors~.
       applys~ follow_typ_access_field. } }
   { (* array_access *)
-    subst. inverts HT as HT HTi. 
-    inverts HT as HT. simpls.
-    inverts HT as Hφ.
-    inverts Hφ as HF.
-    exists φ. splits~.
-    { applys~ refl_extends. }
-    { repeat constructors~.
-    applys* follow_typ_access_array. } }
+    subst. inverts HT as. 
+
+    { introv HT HTi. 
+      inverts HT as HT. simpls.
+      inverts HT as Hφ.
+      inverts Hφ as HF.
+      exists φ. splits~.
+      { applys~ refl_extends. }
+      { repeat constructors~.
+       applys* follow_typ_access_array. } }
+
+    { introv 
+      inverts HT as HT. simpls.
+      inverts HT as Hφ.
+      inverts Hφ as HF.
+      exists φ. splits~.
+      { applys~ refl_extends. }
+      { repeat constructors~.
+       applys* follow_typ_access_array. } } }
   { (* struct_get *)
     subst. inverts HT as HTin Hfin HT. 
     exists φ. splits~.

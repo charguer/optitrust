@@ -408,29 +408,29 @@ Qed.
 (** Regularity of the transformation with respect to values *)
 
 Lemma not_is_val_tr : forall gt t1 t2,
-  ~ is_val t1 ->
   tr_trm gt t1 t2 ->
+  ~ is_val t1 ->
   ~ is_val t2.
 Proof.
-  introv Hv Htr. induction Htr; introv HN;
+  introv Htr Hv. induction Htr; introv HN;
   try solve [ subst ; inverts HN ]. forwards*: Hv.
 Qed.
 
 Lemma not_is_error_tr : forall gt v1 v2,
-  ~ is_error v1 ->
   tr_val gt v1 v2 ->
+  ~ is_error v1 ->
   ~ is_error v2.
 Proof.
-  introv He Htr. induction Htr; introv HN;
+  introv Htr He. induction Htr; introv HN;
   try solve [ subst ; inverts HN ]. forwards*: He.
 Qed.
 
 Lemma not_is_uninitialized_tr : forall gt v v',
-  ~ is_uninitialized v ->
   tr_val gt v v' -> 
+  ~ is_uninitialized v ->
   ~ is_uninitialized v'.
 Proof.
-  introv Hu Htr. induction Htr; introv HN;
+  introv Htr Hu. induction Htr; introv HN;
   subst; inverts HN. forwards~: Hu. unfolds~.
 Qed.
 
@@ -464,9 +464,9 @@ Proof.
 Qed.
 
 Lemma neq_tr : forall gt v1 v2 v1' v2',
-  v1 <> v2 ->
   tr_val gt v1 v1' ->
   tr_val gt v2 v2' ->
+  v1 <> v2 ->
   v1' <> v2'.
 Proof.
   (* Exactly the same as saying that tr_val is injective. *)
@@ -738,7 +738,7 @@ Proof.
       constructors~; applys* not_is_error_tr. }
     { exists __ m1'. splits~. constructors.
       forwards: neq_tr gt H2 Ht1 Ht2.
-      constructors~.
+      constructors~. (* TODO: try applys not_is_error_tr v1 v' *)
       { apply not_is_error_tr with (gt:=gt) (v1:=v1) (v2:=v'); auto. }
       { apply not_is_error_tr with (gt:=gt) (v1:=v2) (v2:=v'0); auto. } } }
   { (* get *)

@@ -67,6 +67,16 @@ Fixpoint fun_tr_val_depth (depth:nat) (gt:group_tr) (v:val) : val :=
       end
    end.
 
+(*
+Section P.
+Variables (C:ctx) (gt:group_tr).
+Definition Fun_tr_val_depth fun_tr_val_depth (v:val) : val :=
+  ..
+
+Lemma 
+End P.
+fun_tr_val_depth : 
+*)
 
 (* ---------------------------------------------------------------------- *)
 (** Lemmas outline. Some ideas. *)
