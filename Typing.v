@@ -88,6 +88,22 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 (* ---------------------------------------------------------------------- *)
 (** Typing of values *)
 
+Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
+  | typing_array_base : forall T os,
+      typing_array C (typ_array T os) T os
+  | typing_array_typvar : forall Tv T os,
+      Tv \indom C ->
+      typing_array C C[Tv] T os ->
+      typing_array C (typ_var Tv) T os.
+
+Inductive typing_struct (C:typdefctx) : typ -> map field typ -> Prop :=
+  | typing_struct_base : forall Tfs,
+      typing_struct C (typ_struct Tfs) Tfs
+  | typing_struct_typvar : forall Tv Tfs,
+      Tv \indom C ->
+      typing_struct C C[Tv] Tfs ->
+      typing_struct C (typ_var Tv) Tfs.
+
 Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_uninitialized : forall T,
       typing_val C φ val_uninitialized T
@@ -103,7 +119,7 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
       read_phi C φ l π T ->
       typing_val C φ (val_abstract_ptr l π) (typ_ptr T)
   | typing_val_struct : forall Ts vfs Tfs,
-      Ts = typ_struct Tfs ->
+      typing_struct C Ts Tfs ->
       dom Tfs = dom vfs ->
       (forall f,
         f \indom Tfs ->
@@ -111,26 +127,14 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
         typing_val C φ vfs[f] Tfs[f]) ->
       typing_val C φ (val_struct Ts vfs) (typ_struct Tfs)
   | typing_val_array : forall Ta a T os,
-      Ta = typ_array T os ->
+      typing_array C Ta T os ->
       (forall n,
         os = Some n ->
         length a = n) ->
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
-      typing_val C φ (val_array Ta a) (typ_array T os)
-  | typing_val_array_typvar : forall Tv Ta a T os,
-      Ta = typ_var Tv ->
-      Tv \indom C ->
-      is_composed C[Tv] ->
-      typing_val C φ (val_array C[Tv] a) (typ_array T os) ->
-      typing_val C φ (val_array Ta a) (typ_array T os)
-  | typing_val_struct_typvar : forall Tv Ts vfs Tfs,
-      Ts = typ_var Tv ->
-      Tv \indom C ->
-      is_composed C[Tv] ->
-      typing_val C φ (val_struct C[Tv] vfs) (typ_struct Tfs) ->
-      typing_val C φ (val_struct Ts vfs) (typ_struct Tfs).
+      typing_val C φ (val_array Ta a) (typ_array T os).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -159,53 +163,39 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E t2 typ_int ->
       typing E (trm_app binop_eq (t1::t2::nil)) typ_bool
   (* Abstract heap operations *)
-  | typing_get : forall E T p,
-      typing E p (typ_ptr T) ->
-      typing E (trm_app (prim_get T) (p::nil)) T
-  | typing_set : forall E p t T,
-      typing E p (typ_ptr T) ->
-      typing E t T ->
-      typing E (trm_app (prim_set T) (p::t::nil)) typ_unit
+  | typing_get : forall E T t1,
+      typing E t1 (typ_ptr T) ->
+      typing E (trm_app (prim_get T) (t1::nil)) T
+  | typing_set : forall E T t1 t2,
+      typing E t1 (typ_ptr T) ->
+      typing E t2 T ->
+      typing E (trm_app (prim_set T) (t1::t2::nil)) typ_unit
   | typing_new : forall E T, 
       typing E (trm_app (prim_new T) nil) (typ_ptr T)
-  | typing_new_array : forall E T t, 
-      typing E t typ_int ->
-      typing E (trm_app (prim_new_array T) (t::nil)) (typ_ptr (typ_array T None))
-  | typing_struct_access : forall E C Tfs f T t,
-(*
-  typing_struct_field E T f Tf :=
-  | typing_struct_field E (typ_struct Tfs) f Tfs[f]
-  | C[X] = T
-    typing_struct_field E T f Tf
-    typing_struct_field E (typ_var X) f Tf
-
-*)
-      C = env_typdefctx E ->
-      T \indom C ->
-      typ_struct Tfs = C[T] ->
+  | typing_new_array : forall E t1 T, 
+      typing E t1 typ_int ->
+      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T None))
+  | typing_struct_access : forall E Ts t1 Tfs f,
+      typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
-      typing E t (typ_ptr (typ_struct Tfs)) ->
-      typing E (trm_app (prim_struct_access T f) (t::nil)) (typ_ptr Tfs[f])
-  | typing_array_access : forall E C t T Ta ti n,
-      C = env_typdefctx E ->
-      Ta \indom C /\ typ_array T n = C[Ta] \/ Ta = anon ->
-      typing E t (typ_ptr (typ_array T n)) ->
-      typing E ti typ_int ->
-      typing E (trm_app (prim_array_access Ta T) (t::ti::nil)) (typ_ptr T)
+      typing E t1 (typ_ptr (typ_struct Tfs)) ->
+      typing E (trm_app (prim_struct_access Ts f) (t1::nil)) (typ_ptr Tfs[f])
+  | typing_array_access : forall os E Ta t1 t2 T,
+      typing_array (env_typdefctx E) Ta T os ->
+      typing E t1 (typ_ptr (typ_array T os)) ->
+      typing E t2 typ_int ->
+      typing E (trm_app (prim_array_access Ta) (t1::t2::nil)) (typ_ptr T)
   (* Operations on structs and arrays as values *)
-  | typing_struct_get : forall E C Tfs f T t,
-      C = env_typdefctx E ->
-      T \indom C ->
-      typ_struct Tfs = C[T] ->
+  | typing_struct_get : forall E Ts t1 Tfs f,
+      typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
-      typing E t (typ_struct Tfs) ->
-      typing E (trm_app (prim_struct_get T f) (t::nil)) Tfs[f]
-  | typing_array_get : forall E C T Ta t ti n,
-      C = env_typdefctx E ->
-      Ta \indom C /\ typ_array T n = C[Ta] \/ Ta = anon ->
-      typing E t (typ_array T n) ->
-      typing E ti typ_int ->
-      typing E (trm_app (prim_array_get Ta T) (t::ti::nil)) T
+      typing E t1 (typ_struct Tfs) ->
+      typing E (trm_app (prim_struct_get Ts f) (t1::nil)) Tfs[f]
+  | typing_array_get : forall os E Ta t1 t2 T,
+      typing_array (env_typdefctx E) Ta T os ->
+      typing E t1 (typ_array T os) ->
+      typing E t2 typ_int ->
+      typing E (trm_app (prim_array_get Ta) (t1::t2::nil)) T
   (* Other language constructs *)
   | typing_if : forall E t0 t1 t2 T,
       typing E t0 typ_bool ->
@@ -249,7 +239,8 @@ Lemma functional_follow_typ : forall C T π T1 T2,
   follow_typ C T π T2 ->
   T1 = T2.
 Proof.
-  introv HF1 HF2. induction HF1; inverts* HF2.
+  introv HF1 HF2. induction HF1.
+  {  }
 Qed.
 
 (* φ is well-formed *)
