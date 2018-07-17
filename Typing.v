@@ -151,9 +151,9 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E (trm_app (prim_set T) (t1::t2::nil)) typ_unit
   | typing_new : forall E T, 
       typing E (trm_app (prim_new T) nil) (typ_ptr T)
-  | typing_new_array : forall E t1 T, 
+  | typing_new_array : forall E t1 T os,
       typing E t1 typ_int ->
-      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T None))
+      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T os))
   | typing_struct_access : forall E Ts t1 Tfs f,
       typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
@@ -213,7 +213,7 @@ Hint Constructors typing_val redbinop.
 (** Functional predicates *)
 
 (* Inferring array types is functional *)
-Lemma functional_typing_array : forall C Ta T1 T2 os1 os2, 
+Lemma functional_typing_array : forall C Ta T1 T2 os1 os2,
   typing_array C Ta T1 os1 ->
   typing_array C Ta T2 os2 ->
   T1 = T2 /\ os1 = os2.
@@ -559,13 +559,13 @@ Theorem type_soundess : forall C φ m t v T Γ S m',
 Proof.
   introv R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ]. 
-  { (* var *)
-    exists φ. inverts HT. simpls. split*. applys~ refl_extends. }
-  { (* val *)  
-    exists φ. inverts HT. split*. applys~ refl_extends. }
+  { (* val *)
+    exists φ. inverts* HT. splits~. applys~ refl_extends. }
+  { (* var *)  
+    exists φ. inverts* HT. simpls. splits*. applys~ refl_extends. }
   { (* if *) 
     inverts HT as Ht0 Ht1 Ht2. 
-    forwards* (φ'&Hφ'&HT1&HM1): IHR1. introv HN. inverts HN.
+    forwards* (φ'&Hφ'&HT1&HM1): IHR1.
     forwards* (φ''&Hφ''&HT2&HM2): IHR2 He φ' T Γ.  
     case_if*; apply* extended_typing. 
     apply* extended_stack_typing. }
@@ -578,7 +578,7 @@ Proof.
     { applys* stack_typing_ctx_add. apply* extended_stack_typing. } }
   { (* binop *) 
     exists φ. lets: refl_extends φ. 
-    inverts HT; inverts* H; splits*. }
+    inverts HT; inverts_head redbinop; splits*. }
   { (* get *)
     exists φ. splits*. 
     { applys~ refl_extends. } 
@@ -590,38 +590,38 @@ Proof.
     { inverts HT1 as HT1. inverts HT2 as HT2. 
       applys* state_typing_set. } }
   { (* new *) 
-    exists φ[l0:=T]. inverts HM as HD Hm1l. splits.
+    exists φ[l:=T]. inverts HM as HD Hm1l. splits.
     { unfolds. splits.
       { rew_set. introv Hl0. unfolds phi.
         rewrite dom_update. set_prove. }
       { introv Hl0. unfolds phi. rew_reads~. 
         intros. subst. rewrite <- HD in Hl0.
-        false. } }
-    { inverts HT. repeat constructors.
+        false*. } }
+    { inverts HT. subst. repeat constructors.
       { unfolds phi. rewrite dom_update. set_prove. }
       { rew_reads. constructors~. } }
     { constructors.
-      { rewrite H2. unfolds phi. 
+      { subst m2. unfolds phi. 
         unfolds state. repeat rewrite dom_update.
         rewrite~ HD. }
       { introv Hl1. subst. rew_reads; intros.
-        { subst. forwards*: uninitialized_val_typ H1. }
-        { forwards: Hm1l l1. 
+        { subst. forwards*: uninitialized_val_typ C T v. }
+        { forwards: Hm1l l0. 
           { unfolds state. rewrite~ indom_update_neq_eq in Hl1. }
           { applys* extended_typing_val. unfolds. splits.
             { unfolds phi. rewrite dom_update. set_prove. }
             { introv Hl2. rew_reads~. intros. subst.
-              rewrite HD in *. contradiction. } } } } } }
+              rewrite HD in *. false*. } } } } } }
   { (* new_array *) 
-    inverts HT. inverts HM as HD Hm1l. 
-    exists φ[l0:=(typ_array T None)]. splits.
+    inverts HT.  inverts HM as HD Hm1l.
+    (* TODO: Fix this. *)
+    exists φ[l:=(typ_array T (Some k))]. splits.
     { unfolds. splits.
       { rew_set. introv Hl0. unfolds phi.
         rewrite dom_update. set_prove. }
       { introv Hl0. unfolds phi. rew_reads~. 
-        intros. subst. rewrite <- HD in Hl0.
-        contradiction. } }
-    { repeat constructors.
+        intros. subst. rewrite <- HD in Hl0. false*. } }
+    { subst. repeat constructors.
       { unfolds phi. rewrite dom_update. set_prove. }
       { rew_reads. constructors~. } }
     { constructors.
@@ -629,7 +629,7 @@ Proof.
         unfolds state. repeat rewrite dom_update.
         rewrite~ HD. }
       { introv Hl1. subst. rew_reads; intros.
-        { subst. inverts H2; constructors~; introv Hi.
+        { subst. inverts_head uninitialized; inverts H.
           { forwards Hu: H9 Hi.
             forwards* HT: uninitialized_val_typ Hu. }
           { forwards Hu: H6 Hi. (* TODO: H6? H9? No. *)
