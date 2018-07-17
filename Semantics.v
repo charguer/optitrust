@@ -270,6 +270,29 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 
 
 (* ---------------------------------------------------------------------- *)
+(** Typing of arrays and structs *)
+
+(* TODO: Factorise some of the common typing stuff between this and
+   Typing.v. These functions are also used there. *)
+
+Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
+  | typing_array_base : forall T os,
+      typing_array C (typ_array T os) T os
+  | typing_array_typvar : forall Tv T os,
+      Tv \indom C ->
+      typing_array C C[Tv] T os ->
+      typing_array C (typ_var Tv) T os.
+
+Inductive typing_struct (C:typdefctx) : typ -> map field typ -> Prop :=
+  | typing_struct_base : forall Tfs,
+      typing_struct C (typ_struct Tfs) Tfs
+  | typing_struct_typvar : forall Tv Tfs,
+      Tv \indom C ->
+      typing_struct C C[Tv] Tfs ->
+      typing_struct C (typ_var Tv) Tfs.
+
+
+(* ---------------------------------------------------------------------- *)
 (** Uninitialized values construction *)
 
 Inductive uninitialized (C:typdefctx) : typ -> val -> Prop :=
@@ -282,7 +305,7 @@ Inductive uninitialized (C:typdefctx) : typ -> val -> Prop :=
   | uninitialized_ptr : forall T,
       uninitialized C (typ_ptr T) val_uninitialized
   | uninitialized_array : forall T Ta os a,
-      Ta = typ_array T os ->
+      typing_array C Ta T os ->
       (forall n, 
         os = Some n -> 
         length a = n) ->
@@ -291,22 +314,12 @@ Inductive uninitialized (C:typdefctx) : typ -> val -> Prop :=
         uninitialized C T a[i]) ->
       uninitialized C Ta (val_array Ta a)
   | uninitialized_struct : forall Ts Tfs vfs,
-      Ts = typ_struct Tfs ->
+      typing_struct C Ts Tfs ->
       dom Tfs = dom vfs ->
       (forall f,
         f \indom Tfs ->
         uninitialized C Tfs[f] vfs[f]) ->
-      uninitialized C Ts (val_struct Ts vfs)
-  | uninitialized_typvar_array : forall T Tv v a,
-      Tv = typ_var T ->
-      T \indom C ->
-      uninitialized C C[T] (val_array C[T] a) ->
-      uninitialized C Tv (val_array Tv a)
-  | uninitialized_typvar_struct : forall T Tv v m,
-      Tv = typ_var T ->
-      T \indom C ->
-      uninitialized C C[T] (val_struct C[T] m) ->
-      uninitialized C Tv (val_struct Tv m).
+      uninitialized C Ts (val_struct Ts vfs).
 
 
 (* ---------------------------------------------------------------------- *)

@@ -55,26 +55,6 @@ Definition is_composed (T:typ) :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Typing of arrays and structs *)
-
-Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
-  | typing_array_base : forall T os,
-      typing_array C (typ_array T os) T os
-  | typing_array_typvar : forall Tv T os,
-      Tv \indom C ->
-      typing_array C C[Tv] T os ->
-      typing_array C (typ_var Tv) T os.
-
-Inductive typing_struct (C:typdefctx) : typ -> map field typ -> Prop :=
-  | typing_struct_base : forall Tfs,
-      typing_struct C (typ_struct Tfs) Tfs
-  | typing_struct_typvar : forall Tv Tfs,
-      Tv \indom C ->
-      typing_struct C C[Tv] Tfs ->
-      typing_struct C (typ_var Tv) Tfs.
-
-
-(* ---------------------------------------------------------------------- *)
 (** Typing of access paths *)
 
 (** T[π] = T1 *)
@@ -124,7 +104,7 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
         f \indom Tfs ->
         f \indom vfs ->
         typing_val C φ vfs[f] Tfs[f]) ->
-      typing_val C φ (val_struct Ts vfs) (typ_struct Tfs)
+      typing_val C φ (val_struct Ts vfs) Ts
   | typing_val_array : forall Ta a T os,
       typing_array C Ta T os ->
       (forall n,
@@ -133,7 +113,7 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
-      typing_val C φ (val_array Ta a) (typ_array T os).
+      typing_val C φ (val_array Ta a) Ta.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -177,11 +157,11 @@ Inductive typing : env -> trm -> typ -> Prop :=
   | typing_struct_access : forall E Ts t1 Tfs f,
       typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
-      typing E t1 (typ_ptr (typ_struct Tfs)) ->
+      typing E t1 (typ_ptr Ts) ->
       typing E (trm_app (prim_struct_access Ts f) (t1::nil)) (typ_ptr Tfs[f])
   | typing_array_access : forall os E Ta t1 t2 T,
       typing_array (env_typdefctx E) Ta T os ->
-      typing E t1 (typ_ptr (typ_array T os)) ->
+      typing E t1 (typ_ptr Ta) ->
       typing E t2 typ_int ->
       typing E (trm_app (prim_array_access Ta) (t1::t2::nil)) (typ_ptr T)
   (* Operations on structs and arrays as values *)
@@ -304,9 +284,11 @@ Proof.
   introv HT HF HR. gen π. induction HT; intros;
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
   { inverts HF as; inverts* HR as. introv Hfin HR HTs HF. 
-    rewrite H0 in *. inverts HTs. applys* H2. }
+    rewrite H0 in *. forwards*: functional_typing_struct H HTs.
+    applys* H2. subst~. }
   { inverts HF as; inverts* HR as. introv Hi HR HTa HF.
-    inverts HTa. applys* H2. }
+    forwards* (HT&Hos): functional_typing_array H HTa.
+    applys* H2. subst~. }
 Qed.
 
 (** Lemma for typing preservation of [get] *)
@@ -333,16 +315,19 @@ Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
 Proof.
   introv HW HT1 HF HT2. gen T1. induction HW; intros.
   { subst. inverts* HF. }
-  { inverts HF. inverts HT1. subst. constructors~. 
+  { inverts HF. inverts HT1. subst. constructors*. 
     { rewrite* length_update. }
     { intros. rewrite index_update_eq in *. 
       rewrite* read_update_case. case_if*. subst. 
-      repeat inverts_head typing_array. applys* IHHW. } }
+      forwards* (HT&Hos): functional_typing_array T T0 T1. 
+      applys* IHHW. subst~. } }
   { inverts HF as HTs HF.
-    inverts HT1 as HD HCT. subst. constructors*.
+    inverts HT1 as HTs HD HCT. subst. constructors*.
     { unfold state. rewrite* dom_update_at_index. }
     { intros f' Hi1 Hi2. rewrite read_update.
-      case_if*. inverts HTs. subst. applys* IHHW. } }
+      case_if*. subst.
+      forwards*: functional_typing_struct T Tfs Tfs0.
+      applys* IHHW. subst~. } }
 Qed.
 
 (** Lemma for typing preservation of [set] *)
@@ -482,8 +467,7 @@ Proof.
     inverts HT as Hφ.
     inverts Hφ as HF.
     repeat constructors~.
-    applys~ follow_typ_access_field. admit.
-    (* TODO: Continue with this and fix it. *) }
+    applys~ follow_typ_access_field. }
   { (* array_access *) 
     inverts HT as HTa HT HTi. subst.
     inverts HT as HT. simpls.
@@ -493,17 +477,21 @@ Proof.
     repeat constructors~.
     applys* follow_typ_access_array. }
   { (* struct_get *) 
-    subst. inverts HT as HTin HTfs Hfin HT. 
+    subst. inverts HT as HTs Hfin HT. 
     splits~.
     inverts HT as HT. simpls.
-    inverts HT as HCT HD HT.
+    inverts HT as HTs0 HD HT.
+    forwards*: functional_typing_struct HTs HTs0.
+    subst.
     applys~ HT. }
   { (* array_get *) 
     subst. inverts HT as HTa HT HTi.
     splits~.
     inverts HT as HT. simpls.
-    inverts HT as HTa' Hl HT. admit.
-    admit. }
+    inverts HT as HTa0 Hl HT.
+    forwards* (HTeq&Hos): functional_typing_array HTa HTa0.
+    subst.
+    applys~ HT. }
   { (* app 1 *) 
     forwards*: IHR2; inverts HT; forwards* (HTv1&Hm2): IHR1;
     try applys* not_is_error_args_1 ; repeat constructors*. }
@@ -527,33 +515,13 @@ Proof.
     { rewrite~ H2. } }
 Qed.
 
-
-  extends φ φ' ->
-  env_extends (make_env C φ Γ ) (make_env C φ' Γ )
-
-Lemma extended_typing : forall E E' C φ φ' Γ t T,
-  typing E t T ->
-  env_extends_phi E E' ->
-  typing  t T.
-
-
-
-Lemma extended_typing : forall E E' C φ φ' Γ t T,
+Lemma extended_typing : forall C φ φ' Γ t T,
   typing (make_env C φ Γ ) t T ->
   extends φ φ' ->
   typing (make_env C φ' Γ ) t T.
-
-introv HT HE. gen_eq E: (make_env C φ Γ ). gen φ'. induction HT; intros.
-
-Lemma extended_typing : forall E E' C φ φ' Γ t T,
-  E = make_env C φ Γ ->
-  E' = make_env C φ' Γ ->
-  extends φ φ' ->
-  typing E t T ->
-  typing E' t T.
 Proof.
-  introv HE HE' Hφ HT. gen E' C φ φ' Γ. induction HT; 
-  intros; subst; try solve [ constructors* ].
+  introv HT Hφ. gen_eq E: (make_env C φ Γ ). gen φ φ' Γ C. 
+  induction HT; intros; subst; try solve [ constructors* ].
   { constructors. simpls. 
     forwards*: extended_typing_val Hφ H. }
   { constructors*. unfolds* env_add_binding. }
@@ -572,10 +540,10 @@ Qed.
 (** Lemma for typing preservation of [new] *)
 
 Lemma uninitialized_val_typ : forall C T v φ,
-  uninitialized_val C T v ->
+  uninitialized C T v ->
   typing_val C φ v T.
 Proof.
-  introv Hu. induction Hu; subst; try constructors~.
+  introv Hu. induction Hu; subst; try repeat constructors*.
 Qed.
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
