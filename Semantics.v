@@ -518,13 +518,6 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       red C S m1 t2 m2 val_error ->
       red C S m1 (trm_app op ((trm_val v1)::t2::ts)) m2 val_error.
 
-
-Lemma red_complete : forall C S m1 t, 
-  exists v m2, red C S m1 t m2 v.
-Proof.
-Admitted.
-
-
 (* Derived *)
 
 Lemma red_seq : forall C S m1 m2 m3 t1 t2 r1 r,
@@ -570,6 +563,16 @@ Lemma ctx_lookup_add_inv {A:Type} : forall C (z1 z2:var) (w1 w2:A),
 Proof.
   introv H. simpls. rewrite var_eq_spec in *. case_if*. { inverts* H. }
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Lemmas about the completeness of the reduction rules *)
+
+Lemma red_complete : forall C S m1 t, 
+  exists v m2, red C S m1 t m2 v.
+Proof.
+Admitted.
+
 
 (* TODO:
    - rew_reads improve.

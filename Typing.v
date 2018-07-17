@@ -12,7 +12,6 @@ Set Implicit Arguments.
 Require Export TLCbuffer Semantics LibSet LibMap.
 
 
-
 (* ********************************************************************** *)
 (* * Typing *)
 
@@ -22,7 +21,6 @@ Require Export TLCbuffer Semantics LibSet LibMap.
 (** Type of the state *)
 
 Definition phi := map loc typ.
-Notation phi := (map loc typ).
 
 (** Type of a stack *)
 
@@ -30,7 +28,7 @@ Definition gamma := Ctx.ctx typ.
 
 (** Full typing environment *)
 
-Record env := make_env { 
+Record env := make_env {
   env_typdefctx : typdefctx;
   env_phi : phi;
   env_gamma : gamma
@@ -41,7 +39,19 @@ Notation "'make_env''" := make_env.
 Definition env_add_binding E z X :=
   match E with
   | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
-  end. 
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Auxiliary predicates for typing *)
+
+Definition is_composed (T:typ) :=
+  match T with
+  | typ_array Ta os => True
+  | typ_struct Tfs => True
+(*| typ_var Tv => is_composed C C[Tv]*)
+  | _ => False
+  end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -52,16 +62,19 @@ Definition env_add_binding E z X :=
 Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
   | follow_typ_nil : forall T,
       follow_typ C T nil T
-  | follow_typ_array : forall T Ta π Tr i n,
-      Ta \indom C /\ typ_array T n = C[Ta] \/ Ta = anon ->
+  | follow_typ_array : forall T n Ta i π Tr,
+      Ta = typ_array T n ->
       follow_typ C T π Tr ->
-      follow_typ C (typ_array T n) ((access_array Ta i)::π) Tr
-  | follow_typ_struct : forall (T:typvar) f Tfs π Tr,
-      T \indom C ->
-      (typ_struct Tfs) = C[T] ->
-      f \indom Tfs ->
+      follow_typ C Ta ((access_array Ta i)::π) Tr
+  | follow_typ_struct : forall Ts Tfs f π Tr,
+      Ts = typ_struct Tfs ->
       follow_typ C Tfs[f] π Tr ->
-      follow_typ C (typ_struct Tfs) ((access_field T f)::π) Tr.
+      follow_typ C Ts ((access_field Ts f)::π) Tr
+  | follow_typ_var : forall Tv π Tr,
+      Tv \indom C ->
+      is_composed C[Tv] ->
+      follow_typ C C[Tv] π Tr ->
+      follow_typ C (typ_var Tv) π Tr.
 
 (** φ(l)..π = T *)
 
@@ -75,7 +88,6 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 (* ---------------------------------------------------------------------- *)
 (** Typing of values *)
 
-(* TODO: New approach for typ vars and factorise val array. *)
 Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_uninitialized : forall T,
       typing_val C φ val_uninitialized T
@@ -87,29 +99,38 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
       typing_val C φ (val_int i) typ_int
   | typing_val_double : forall d,
       typing_val C φ (val_double d) typ_double
-  | typing_val_struct : forall Tfs vfs T,
-      typ_struct Tfs = C[T] ->
-      dom Tfs = dom vfs ->
-      (forall f, 
-          f \indom Tfs -> 
-          f \indom vfs ->
-          typing_val C φ vfs[f] Tfs[f]) ->
-      typing_val C φ (val_struct T vfs) (typ_struct Tfs)
-  | typing_val_array_fixed : forall a T Ta (n:nat),
-      Ta \indom C /\ typ_array T (Some n) = C[Ta] \/ Ta = anon ->
-      length a = n ->
-      (forall i, 
-        index a i -> 
-        typing_val C φ a[i] T) -> 
-      typing_val C φ (val_array Ta a) (typ_array T (Some n))
-  | typing_val_array_variable : forall a T,
-      (forall i, 
-        index a i -> 
-        typing_val C φ a[i] T) -> 
-      typing_val C φ (val_array anon a) (typ_array T None)
   | typing_val_abstract_ptr : forall l π T,
       read_phi C φ l π T ->
-      typing_val C φ (val_abstract_ptr l π) (typ_ptr T).
+      typing_val C φ (val_abstract_ptr l π) (typ_ptr T)
+  | typing_val_struct : forall Ts vfs Tfs,
+      Ts = typ_struct Tfs ->
+      dom Tfs = dom vfs ->
+      (forall f,
+        f \indom Tfs ->
+        f \indom vfs ->
+        typing_val C φ vfs[f] Tfs[f]) ->
+      typing_val C φ (val_struct Ts vfs) (typ_struct Tfs)
+  | typing_val_array : forall Ta a T os,
+      Ta = typ_array T os ->
+      (forall n,
+        os = Some n ->
+        length a = n) ->
+      (forall i, 
+        index a i -> 
+        typing_val C φ a[i] T) -> 
+      typing_val C φ (val_array Ta a) (typ_array T os)
+  | typing_val_array_typvar : forall Tv Ta a T os,
+      Ta = typ_var Tv ->
+      Tv \indom C ->
+      is_composed C[Tv] ->
+      typing_val C φ (val_array C[Tv] a) (typ_array T os) ->
+      typing_val C φ (val_array Ta a) (typ_array T os)
+  | typing_val_struct_typvar : forall Tv Ts vfs Tfs,
+      Ts = typ_var Tv ->
+      Tv \indom C ->
+      is_composed C[Tv] ->
+      typing_val C φ (val_struct C[Tv] vfs) (typ_struct Tfs) ->
+      typing_val C φ (val_struct Ts vfs) (typ_struct Tfs).
 
 
 (* ---------------------------------------------------------------------- *)
