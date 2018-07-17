@@ -55,21 +55,6 @@ Inductive typ : Type :=
   | typ_fun : list typ -> typ -> typ
   | typ_var : typvar -> typ.
 
-(* Richer typdefs *)
-(*Definition typdef_struct : Type := (map field typ).
-
-Definition typdef_array : Type := (typ * size).
-
-(*Record typdefctx := make_typdef {
-  typdef_structs : map typvar typdef_struct;
-  typdef_arrays : map typvar typ
-}.*)
-
-Inductive typdef :=
-  | typdef_typdef_struct : typdef_struct -> typdef
-  | typdef_typdef_array : typdef_array -> typdef.
-*)
-
 Definition typdefctx := map typvar typ.
 
 
@@ -136,8 +121,9 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_double : double -> val
   | val_abstract_ptr : loc -> accesses -> val
-  | val_array : typvar -> list val -> val
-  | val_struct : typvar -> map field val -> val. 
+  | val_concrete_ptr : loc -> offset -> val
+  | val_array : typ -> list val -> val
+  | val_struct : typ -> map field val -> val.
 
 Inductive trm : Type :=
   | trm_var : var -> trm
@@ -200,7 +186,6 @@ Implicit Types vs : vals.
 Implicit Types ts : trms.
 
 
-
 (* ********************************************************************** *)
 (* * Semantics *)
 
@@ -214,26 +199,44 @@ Definition is_val (t:trm) :=
   end.
 
 Definition is_error (v:val) :=
-  v = val_error.
+  match v with
+  | val_error => True
+  | _ => False
+  end.
 
 Definition is_uninitialized (v:val) :=
-  v = val_uninitialized.
+  match v with
+  | val_uninitialized => True
+  | _ => False
+  end.
 
-Definition is_val_bool (v:val) :=
+Definition is_bool (v:val) :=
   match v with
   | val_bool b => True
   | _ => False
   end.
 
-Definition is_ptr (t:trm) :=
-  match t with
-  | trm_val (val_abstract_ptr l π) => True
+Definition is_ptr (v:val) :=
+  match v with
+  | val_abstract_ptr l π => True
   | _ => False
   end.
 
-Definition is_int (t:trm) :=
-  match t with
-  | trm_val (val_int i) => True
+Definition is_int (v:val) :=
+  match v with
+  | val_int i => True
+  | _ => False
+  end.
+
+Definition is_struct (v:val) :=
+  match v with
+  | val_struct T m => True
+  | _ => False
+  end.
+
+Definition is_array (v:val) :=
+  match v with
+  | val_array T a => True
   | _ => False
   end.
 
@@ -269,43 +272,41 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 (* ---------------------------------------------------------------------- *)
 (** Uninitialized values construction *)
 
-(* - uninit or just remove val
-   - base type?
-   - (forall n, os = Some n -> length a = n)
-     (match os with Some n => length a = n | None => True end *)
-
-Inductive uninitialized_val (C:typdefctx) : typ -> val -> Prop :=
-  | uninitialized_val_bool : 
-      uninitialized_val C typ_bool val_uninitialized
-  | uninitialized_val_int :
-      uninitialized_val C typ_int val_uninitialized
-  | uninitialized_val_double :
-      uninitialized_val C typ_double val_uninitialized
+Inductive uninitialized (C:typdefctx) : typ -> val -> Prop :=
+  | uninitialized_bool : 
+      uninitialized C typ_bool val_uninitialized
+  | uninitialized_int :
+      uninitialized C typ_int val_uninitialized
+  | uninitialized_double :
+      uninitialized C typ_double val_uninitialized
   | uninitialized_ptr : forall T,
-      uninitialized_val C (typ_ptr T) val_uninitialized
-  | uninitialized_val_array_fixed : forall T T' (n:nat) a,
-      length a = n ->
+      uninitialized C (typ_ptr T) val_uninitialized
+  | uninitialized_array : forall T Ta os a,
+      Ta = typ_array T os ->
+      (forall n, 
+        os = Some n -> 
+        length a = n) ->
       (forall i,
         index a i ->
-        uninitialized_val C T a[i]) ->
-      uninitialized_val C (typ_array T (Some n)) (val_array T' a)
-  | uninitialized_val_array_variable : forall T T' a,
-      (forall i,
-        index a i ->
-        uninitialized_val C T a[i]) ->
-      uninitialized_val C (typ_array T None) (val_array T' a)
-  | uninitialized_val_struct : forall T Tfs vfs,
-      T \indom C ->
-      (typ_struct Tfs) = C[T] ->
+        uninitialized C T a[i]) ->
+      uninitialized C Ta (val_array Ta a)
+  | uninitialized_struct : forall Ts Tfs vfs,
+      Ts = typ_struct Tfs ->
       dom Tfs = dom vfs ->
-      (forall f, (* forall_ f \indom Tfs *)
+      (forall f,
         f \indom Tfs ->
-        uninitialized_val C Tfs[f] vfs[f]) ->
-      uninitialized_val C (typ_struct Tfs) (val_struct T vfs)
-  | uninnitialized_val_typvar : forall T v,
+        uninitialized C Tfs[f] vfs[f]) ->
+      uninitialized C Ts (val_struct Ts vfs)
+  | uninitialized_typvar_array : forall T Tv v a,
+      Tv = typ_var T ->
       T \indom C ->
-      uninitialized_val C C[T] v ->
-      uninitialized_val C (typ_var T) v.
+      uninitialized C C[T] (val_array C[T] a) ->
+      uninitialized C Tv (val_array Tv a)
+  | uninitialized_typvar_struct : forall T Tv v m,
+      Tv = typ_var T ->
+      T \indom C ->
+      uninitialized C C[T] (val_struct C[T] m) ->
+      uninitialized C Tv (val_struct Tv m).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -365,138 +366,163 @@ Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop 
 (** <C, S, m, t> // <m', v> *)
 
 Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
-  | red_var : forall S m v x,
-      Ctx.lookup x S = Some v ->
-      red C S m (trm_var x) m v
+  (* Basic language constructs *)
   | red_val : forall S m v,
       red C S m v m v
-  | red_if : forall S m1 m2 m3 b r t0 t1 t2,
+  | red_var : forall S m x v,
+      Ctx.lookup x S = Some v ->
+      red C S m (trm_var x) m v
+  | red_if : forall m2 b S m1 t0 t1 t2 m3 vr,
       red C S m1 t0 m2 (val_bool b) ->
-      red C S m2 (if b then t1 else t2) m3 r ->
-      red C S m1 (trm_if t0 t1 t2) m3 r
-  | red_let : forall S m1 m2 m3 z t1 t2 v1 r,
+      red C S m2 (if b then t1 else t2) m3 vr ->
+      red C S m1 (trm_if t0 t1 t2) m3 vr
+  | red_let : forall m2 v1 S m1 z t1 t2 m3 vr,
       red C S m1 t1 m2 v1 ->
       ~ is_error v1 ->
-      red C (Ctx.add z v1 S) m2 t2 m3 r ->
-      red C S m1 (trm_let z t1 t2) m3 r
+      red C (Ctx.add z v1 S) m2 t2 m3 vr ->
+      red C S m1 (trm_let z t1 t2) m3 vr
   (* Binary operations *)
-  | red_binop : forall S (op:binop) m v1 v2 v,
+  | red_binop : forall S (op:binop) m v1 v2 vr,
       ~ is_error v1 ->
       ~ is_error v2 ->
-      redbinop op v1 v2 v ->
-      red C S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m v
+      redbinop op v1 v2 vr ->
+      red C S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m vr
   (* Operations on the abstract heap *) 
-  | red_get : forall l π S T (p:trm) m w,
-      p = val_abstract_ptr l π ->
-      read_state m l π w ->
-      ~ is_uninitialized w ->
-      red C S m (trm_app (prim_get T) (p::nil)) m w
-  | red_set : forall (v:val) l π  S m1 T (p:trm) (t:trm) m2,
-      p = val_abstract_ptr l π ->
-      t = trm_val v ->
-      ~ is_error v ->
-      write_state m1 l π v m2 ->
-      red C S m1 (trm_app (prim_set T) (p::t::nil)) m2 val_unit
-  | red_new : forall l v S m1 T m2 l,
+  | red_get : forall l π S T v1 m vr,
+      v1 = val_abstract_ptr l π ->
+      read_state m l π vr ->
+      ~ is_uninitialized vr ->
+      red C S m (trm_app (prim_get T) ((trm_val v1)::nil)) m vr
+  | red_set : forall l π  S m1 T v1 v2 m2 vr,
+      v1 = val_abstract_ptr l π ->
+      vr = val_unit ->
+      ~ is_error v2 ->
+      write_state m1 l π v2 m2 ->
+      red C S m1 (trm_app (prim_set T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr
+  | red_new : forall l v S m1 T m2 vr,
+      vr = val_abstract_ptr l nil ->
       l <> null ->
       l \notindom m1 ->
-      uninitialized_val C T v -> 
+      uninitialized C T v -> 
       m2 = m1[l := v] ->
-      red C S m1 (trm_app (prim_new T) nil) m2 (val_abstract_ptr l nil)
-  | red_new_array : forall l (v:val) S m1 T m2 l (n:int) (k:nat),
+      red C S m1 (trm_app (prim_new T) nil) m2 vr
+  | red_new_array : forall l (n:int) (k:nat) v S m1 T v1 m2 vr,
+      v1 = val_int n ->
+      vr = val_abstract_ptr l nil ->
       l <> null ->
       l \notindom m1 ->
       n = k ->
-      uninitialized_val C (typ_array T (Some k)) v -> 
+      uninitialized C (typ_array T (Some k)) v -> 
       m2 = m1[l := v] ->
-      red C S m1 (trm_app (prim_new_array T) ((trm_val (val_int n))::nil)) m2 (val_abstract_ptr l nil)
-  | red_struct_access : forall S m t l f π T v vr,
-      t = val_abstract_ptr l π ->
-      vr = val_abstract_ptr l (π++((access_field T f)::nil)) ->
-      red C S m (trm_app (prim_struct_access T f) (t::nil)) m vr
-  | red_array_access : forall S m t l i π T T' vr ti,
-      t = val_abstract_ptr l π ->
-      ti = trm_val (val_int i) ->
-      vr = val_abstract_ptr l (π++(access_array T' i)::nil) ->
-      red C S m (trm_app (prim_array_access T' T) (t::ti::nil)) m vr
-  (* Operations on structs and arrays as values *)
-  | red_struct_get : forall S m T f t s,
-      t = trm_val (val_struct T s) ->
+      red C S m1 (trm_app (prim_new_array T) ((trm_val v1)::nil)) m2 vr
+  | red_struct_access : forall l π S T f v1 m vr,
+      v1 = val_abstract_ptr l π ->
+      vr = val_abstract_ptr l (π ++ ((access_field T f)::nil)) ->
+      red C S m (trm_app (prim_struct_access T f) ((trm_val v1)::nil)) m vr
+  | red_array_access : forall l π i S T v1 v2 m vr,
+      v1 = val_abstract_ptr l π ->
+      v2 = val_int i ->
+      vr = val_abstract_ptr l (π++(access_array T i)::nil) ->
+      red C S m (trm_app (prim_array_access T) ((trm_val v1)::(trm_val v2)::nil)) m vr
+  (* Operations on composed values *)
+  | red_struct_get : forall s f S T v1 m vr,
+      v1 = val_struct T s ->
+      vr = s[f] ->
       f \indom s ->
-      red C S m (trm_app (prim_struct_get T f) (t::nil)) m s[f]
-  | red_array_get : forall S m t ti T T' a i,
-      t = trm_val (val_array T' a) ->
-      ti = trm_val (val_int i) ->
+      red C S m (trm_app (prim_struct_get T f) ((trm_val v1)::nil)) m vr
+  | red_array_get : forall a i S T v1 v2 m vr,
+      v1 = val_array T a ->
+      v2 = val_int i ->
+      vr = a[i] ->
       index a i ->
-      red C S m (trm_app (prim_array_get T' T) (t::ti::nil)) m a[i]
+      red C S m (trm_app (prim_array_get T) ((trm_val v1)::(trm_val v2)::nil)) m vr
   (* Arguments *) 
-  | red_args_1 : forall v1 m2 S m1 op t1 m3 v2 ts,
+  | red_args_1 : forall v1 m2 S m1 op t1 ts m3 vr,
       ~ is_val t1 ->
       red C S m1 t1 m2 v1 ->
-      red C S m2 (trm_app op ((trm_val v1)::ts)) m3 v2 ->
-      red C S m1 (trm_app op (t1::ts)) m3 v2
-  | red_args_2 : forall m2 v2 S m1 op v1 t2 m3 v3 ts,
+      red C S m2 (trm_app op ((trm_val v1)::ts)) m3 vr ->
+      red C S m1 (trm_app op (t1::ts)) m3 vr
+  | red_args_2 : forall m2 v2 S m1 op v1 t2 ts m3 vr,
       ~ is_val t2 ->
       red C S m1 t2 m2 v2 ->
-      red C S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 v3 ->
-      red C S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 v3
+      red C S m2 (trm_app op ((trm_val v1)::(trm_val v2)::ts)) m3 vr ->
+      red C S m1 (trm_app op ((trm_val v1)::t2::ts)) m3 vr
   (* Error cases *)
-  | red_var_error :  forall S m x,
+  | red_var_error : forall S x m,
       Ctx.lookup x S = None ->
       red C S m (trm_var x) m val_error
-  | red_if_error_not_a_bool : forall S m1 m2 t0 t1 t2 v0,
+  | red_if_error_not_a_bool : forall v0 S m1 t0 t1 t2 m2,
       red C S m1 t0 m2 v0 ->
-      ~ is_val_bool v0 ->
+      ~ is_bool v0 ->
       red C S m1 (trm_if t0 t1 t2) m2 val_error
-  | red_let_error_let : forall S m1 m2 z t1 t2 v1,
+  | red_let_error_let : forall S m1 z t1 t2 m2,
       red C S m1 t1 m2 val_error ->
       red C S m1 (trm_let z t1 t2) m2 val_error
-  | red_binop_error : forall S (op:binop) m v1 v2,
+  | red_binop_error : forall S (op:binop) v1 v2 m,
       ~ (exists v, redbinop op v1 v2 v) ->
       red C S m (trm_app op ((trm_val v1)::(trm_val v2)::nil)) m val_error
-  | red_get_error_not_a_ptr : forall S T (p:trm) m,
-      ~ is_ptr p ->
-      red C S m (trm_app (prim_get T) (p::nil)) m val_error
-  | red_get_error_bad_address : forall l π S T (p:trm) m,
-      p = val_abstract_ptr l π ->
+  | red_get_error_not_a_ptr : forall S T v1 m,
+      ~ is_ptr v1 ->
+      red C S m (trm_app (prim_get T) ((trm_val v1)::nil)) m val_error
+  | red_get_error_bad_address : forall l π S T v1 m,
+      v1 = val_abstract_ptr l π ->
       ~ (exists w, read_state m l π w) ->
-      red C S m (trm_app (prim_get T) (p::nil)) m val_error
-  | red_set_error_not_a_ptr : forall S m T (p:trm) (t:trm),
-      ~ is_ptr p ->
-      red C S m (trm_app (prim_set T) (p::t::nil)) m val_error
-  | red_set_error_bad_address : forall (v:val) l π  S m T (p:trm) (t:trm),
-      p = val_abstract_ptr l π ->
-      t = trm_val v ->
-      ~ (exists m', write_state m l π v m') ->
-      red C S m (trm_app (prim_set T) (p::t::nil)) m val_error
-  | red_new_error : forall l (v:val) S m1 T m2 l,
-      ~ (exists v, uninitialized_val C T v) ->
-      red C S m1 (trm_app (prim_new T) (nil)) m2 val_error
-  | red_new_array_error : forall l (v:val) S m1 T m2 l (k:nat) (n:int),
+      red C S m (trm_app (prim_get T) ((trm_val v1)::nil)) m val_error
+  | red_set_error_not_a_ptr : forall S T v1 v2 m,
+      ~ is_ptr v1 ->
+      red C S m (trm_app (prim_set T) ((trm_val v1)::(trm_val v2)::nil)) m val_error
+  | red_set_error_bad_address : forall l π  S T v1 v2 m,
+      v1 = val_abstract_ptr l π ->
+      ~ (exists m', write_state m l π v2 m') ->
+      red C S m (trm_app (prim_set T) ((trm_val v1)::(trm_val v2)::nil)) m val_error
+  | red_new_error : forall S T m,
+      ~ (exists v, uninitialized C T v) ->
+      red C S m (trm_app (prim_new T) nil) m val_error
+  | red_new_array_error : forall (n:int) (k:nat) S m1 T v1 m2,
+      v1 = val_int n ->
       n = k ->
-      ~ (exists v, uninitialized_val C (typ_array T (Some k)) v) -> 
-      red C S m1 (trm_app (prim_new_array T) ((trm_val (val_int n))::nil)) m2 val_error
-  | red_struct_access_error_not_a_ptr : forall S m t f T,
-      ~ is_ptr t ->
-      red C S m (trm_app (prim_struct_access T f) (t::nil)) m val_error
-  | red_array_access_error_not_a_ptr : forall S m t T T' ti,
-      ~ is_ptr t ->
-      red C S m (trm_app (prim_array_access T' T) (t::ti::nil)) m val_error
-  | red_array_access_error_not_an_int : forall S m t T T' ti,
-      ~ is_int ti ->
-      red C S m (trm_app (prim_array_access T' T) (t::ti::nil)) m val_error
-  | red_args_1_error : forall v1 m2 S m1 op t1 v2 ts,
+      ~ (exists v, uninitialized C (typ_array T (Some k)) v) -> 
+      red C S m1 (trm_app (prim_new_array T) ((trm_val v1)::nil)) m2 val_error
+  | red_struct_access_error_not_a_ptr : forall S T f v1 m,
+      ~ is_ptr v1 ->
+      red C S m (trm_app (prim_struct_access T f) ((trm_val v1)::nil)) m val_error
+  | red_array_access_error_not_a_ptr : forall S T v1 v2 m,
+      ~ is_ptr v1 ->
+      red C S m (trm_app (prim_array_access T) ((trm_val v1)::(trm_val v2)::nil)) m val_error
+  | red_array_access_error_not_an_int : forall S T v1 v2 m,
+      ~ is_int v2 ->
+      red C S m (trm_app (prim_array_access T) ((trm_val v1)::(trm_val v2)::nil)) m val_error
+  | red_struct_get_error_not_a_struct : forall S T f v1 m,
+      ~ is_struct v1 ->
+      red C S m (trm_app (prim_struct_get T f) ((trm_val v1)::nil)) m val_error
+  | red_struct_get_error_invalid_field : forall s S T f v1 m,
+      v1 = val_struct T s ->
+      f \notindom s ->
+      red C S m (trm_app (prim_struct_get T f) ((trm_val v1)::nil)) m val_error
+  | red_array_get_error_not_an_array : forall S T v1 v2 m,
+      ~ is_array v1 ->
+      red C S m (trm_app (prim_array_get T) ((trm_val v1)::(trm_val v2)::nil)) m val_error
+  | red_array_get_error_not_an_int : forall S T v1 v2 m,
+      ~ is_int v2 ->
+      red C S m (trm_app (prim_array_get T) ((trm_val v1)::(trm_val v2)::nil)) m val_error
+  | red_array_get_error_out_of_bounds : forall a i S T v1 v2 m,
+      v1 = val_array T a ->
+      v2 = val_int i ->
+      ~ (index a i) ->
+      red C S m (trm_app (prim_array_get T) ((trm_val v1)::(trm_val v2)::nil)) m val_error
+  | red_args_1_error : forall S m1 op t1 ts m2,
       red C S m1 t1 m2 val_error ->
       red C S m1 (trm_app op (t1::ts)) m2 val_error
-  | red_args_2_error : forall m2 v2 S m1 op v1 t2 v3 ts,
+  | red_args_2_error : forall S m1 op v1 t2 ts m2,
       ~ is_error v1 ->
       red C S m1 t2 m2 val_error ->
       red C S m1 (trm_app op ((trm_val v1)::t2::ts)) m2 val_error.
-(* TODO: Add error cases for array and struct get. *)
 
 
 Lemma red_complete : forall C S m1 t, 
   exists v m2, red C S m1 t m2 v.
+Proof.
+Admitted.
 
 
 (* Derived *)

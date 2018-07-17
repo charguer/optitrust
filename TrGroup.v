@@ -849,7 +849,7 @@ Proof.
     inverts Ht as Hv.
     inverts Hti as Hvi.
     inverts Hv as Hl Hai.
-    inverts Hvi.
+    inverts Hvi. 
     exists a'[i] m1'. 
     splits~. constructors*. }
   { (* args_1 *)
