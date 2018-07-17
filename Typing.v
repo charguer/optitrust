@@ -55,38 +55,7 @@ Definition is_composed (T:typ) :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Typing of access paths *)
-
-(** T[π] = T1 *)
-
-Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
-  | follow_typ_nil : forall T,
-      follow_typ C T nil T
-  | follow_typ_array : forall T n Ta i π Tr,
-      Ta = typ_array T n ->
-      follow_typ C T π Tr ->
-      follow_typ C Ta ((access_array Ta i)::π) Tr
-  | follow_typ_struct : forall Ts Tfs f π Tr,
-      Ts = typ_struct Tfs ->
-      follow_typ C Tfs[f] π Tr ->
-      follow_typ C Ts ((access_field Ts f)::π) Tr
-  | follow_typ_var : forall Tv π Tr,
-      Tv \indom C ->
-      is_composed C[Tv] ->
-      follow_typ C C[Tv] π Tr ->
-      follow_typ C (typ_var Tv) π Tr.
-
-(** φ(l)..π = T *)
-
-Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
-  | read_phi_intro :
-      l \indom φ ->
-      follow_typ C φ[l] π T -> 
-      read_phi C φ l π T.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Typing of values *)
+(** Typing of arrays and structs *)
 
 Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
   | typing_array_base : forall T os,
@@ -103,6 +72,36 @@ Inductive typing_struct (C:typdefctx) : typ -> map field typ -> Prop :=
       Tv \indom C ->
       typing_struct C C[Tv] Tfs ->
       typing_struct C (typ_var Tv) Tfs.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Typing of access paths *)
+
+(** T[π] = T1 *)
+
+Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
+  | follow_typ_nil : forall T,
+      follow_typ C T nil T
+  | follow_typ_array : forall T os Ta i π Tr,
+      typing_array C Ta T os ->
+      follow_typ C T π Tr ->
+      follow_typ C Ta ((access_array Ta i)::π) Tr
+  | follow_typ_struct : forall Ts Tfs f π Tr,
+      typing_struct C Ts Tfs ->
+      follow_typ C Tfs[f] π Tr ->
+      follow_typ C Ts ((access_field Ts f)::π) Tr.
+
+(** φ(l)..π = T *)
+
+Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :=
+  | read_phi_intro :
+      l \indom φ ->
+      follow_typ C φ[l] π T -> 
+      read_phi C φ l π T.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Typing of values *)
 
 Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_uninitialized : forall T,
@@ -233,6 +232,24 @@ Hint Constructors typing_val redbinop.
 (* ---------------------------------------------------------------------- *)
 (** Functional predicates *)
 
+(* Inferring array types is functional *)
+Lemma functional_typing_array : forall C Ta T1 T2 os1 os2, 
+  typing_array C Ta T1 os1 ->
+  typing_array C Ta T2 os2 ->
+  T1 = T2 /\ os1 = os2.
+Proof.
+  introv HTa1 HTa2. induction HTa1; inverts* HTa2.
+Qed.
+
+(* Inferring struct types is functional *)
+Lemma functional_typing_struct : forall C Ts Tfs1 Tfs2, 
+  typing_struct C Ts Tfs1 ->
+  typing_struct C Ts Tfs2 ->
+  Tfs1 = Tfs2.
+Proof.
+  introv HTs1 HTs2. induction HTs1; inverts* HTs2.
+Qed.
+
 (* Types are well-formed *)
 Lemma functional_follow_typ : forall C T π T1 T2,
   follow_typ C T π T1 ->
@@ -240,7 +257,11 @@ Lemma functional_follow_typ : forall C T π T1 T2,
   T1 = T2.
 Proof.
   introv HF1 HF2. induction HF1.
-  {  }
+  { inverts* HF2. }
+  { inverts HF2 as HTa. applys* IHHF1. 
+    forwards* (HT&Hos): functional_typing_array H HTa. subst~. }
+  { inverts HF2 as HTs. applys* IHHF1. 
+    forwards* HTfs: functional_typing_struct H HTs. subst~. }
 Qed.
 
 (* φ is well-formed *)
