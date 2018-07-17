@@ -303,11 +303,10 @@ Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
 Proof.
   introv HT HF HR. gen π. induction HT; intros;
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
-  { inverts HF as; inverts HR as; subst*; try constructors*. }
-  { inverts HF as; inverts HR as; try constructors*.
-    introv HN1 HR HT. eauto. }
-  { inverts HF as; inverts HR as; try constructors*.
-    introv HN1 HR HT. eauto. }
+  { inverts HF as; inverts* HR as. introv Hfin HR HTs HF. 
+    rewrite H0 in *. inverts HTs. applys* H2. }
+  { inverts HF as; inverts* HR as. introv Hi HR HTa HF.
+    inverts HTa. applys* H2. }
 Qed.
 
 (** Lemma for typing preservation of [get] *)
@@ -337,16 +336,13 @@ Proof.
   { inverts HF. inverts HT1. subst. constructors~. 
     { rewrite* length_update. }
     { intros. rewrite index_update_eq in *. 
-      rewrite* read_update_case. case_if*. }
-    { constructors~. subst. introv Hi0. rew_reads~.
-      { introv Hneq. applys H2. rewrite~ index_update_eq in Hi0. }
-      { tests: (i=i0); auto. rewrite~ index_update_eq in Hi0. } } }
-  { inverts HF as _ _ HF.
+      rewrite* read_update_case. case_if*. subst. 
+      repeat inverts_head typing_array. applys* IHHW. } }
+  { inverts HF as HTs HF.
     inverts HT1 as HD HCT. subst. constructors*.
     { unfold state. rewrite* dom_update_at_index. }
-    { intros f' Hi1 Hi2. rewrite read_update. (**)
-      case_if*. 
-      { subst. applys* IHHW. } } }
+    { intros f' Hi1 Hi2. rewrite read_update.
+      case_if*. inverts HTs. subst. applys* IHHW. } }
 Qed.
 
 (** Lemma for typing preservation of [set] *)
@@ -372,25 +368,24 @@ Qed.
 
 (** Lemma for typing preservation of [struct_access] *)
 
-Lemma follow_typ_access_field : forall C π T T' Tfs f,
-  T \indom C ->
-  typ_struct Tfs = C[T] ->
+Lemma follow_typ_access_field : forall C T1 π T2 Tfs f,
+  typing_struct C T2 Tfs ->
   f \indom Tfs ->
-  follow_typ C T' π (typ_struct Tfs) ->
-  follow_typ C T' (π & (access_field T f)) Tfs[f].
+  follow_typ C T1 π T2 ->
+  follow_typ C T1 (π & (access_field T2 f)) Tfs[f].
 Proof.
-  introv HTin HTfs Hfin HF. gen C T Tfs T' f. induction π; 
-  intros; inverts HF; rew_list; repeat constructors*. 
+  introv HTs Hfin HF. gen C T1 T2 Tfs f. induction π; 
+  intros; inverts HF as; rew_list; repeat constructors*.
 Qed.
 
 (** Lemma for typing preservation of [array_access] *)
 
-Lemma follow_typ_access_array : forall C T' T Ta i n π,
-  Ta \indom C /\ typ_array T n = C[Ta] \/ Ta = anon ->
-  follow_typ C T' π (typ_array T n) ->
-  follow_typ C T' (π & access_array Ta i) T.
+Lemma follow_typ_access_array : forall C os T1 π T2 i T,
+  typing_array C T2 T os ->
+  follow_typ C T1 π T2 ->
+  follow_typ C T1 (π & access_array T2 i) T.
 Proof.
-  introv HTa HF. gen C T T' Ta i n. induction π;
+  introv HTa HF. gen C os T1 T2 i T. induction π;
   intros; inverts HF; rew_list; repeat constructors*.
 Qed.
 
@@ -453,20 +448,20 @@ Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
 Proof.
   introv R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ]. 
-  { (* var *)
-    inverts HT. simpls. split*. }
-  { (* val *)  
-    inverts HT. split*. }
-  { (* if *) 
+  { (* val *)
+    inverts* HT. }
+  { (* val *)
+    inverts* HT. }
+  { (* if *)
     inverts HT. 
-    forwards* (HT1&HM1): IHR1. introv HN. inverts HN.
+    forwards* (HT1&HM1): IHR1.
     forwards* (HT2&HM2): IHR2. 
     case_if*. }
   { (* let *) 
     inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2.
     applys* stack_typing_ctx_add. }
   { (* binop *) 
-    rename H into R. inverts HT; inverts* R. }
+    rename H1 into R. inverts HT; inverts* R. }
   { (* get *) 
     splits*. 
     { subst. inverts HT as HT. inverts HT as HT; simpls.  
@@ -480,12 +475,15 @@ Proof.
   { (* new_array *)
     admit. }
   { (* struct_access *) 
-    subst. inverts HT as HTin HTfs Hfin HT. splits~.
-    inverts HT as HT. simpls.
+    subst. inverts HT as HTs HTfs HT.
+    splits~. 
+    inverts HT as HT.
+    simpls.
     inverts HT as Hφ.
     inverts Hφ as HF.
     repeat constructors~.
-    applys~ follow_typ_access_field. }
+    applys~ follow_typ_access_field. admit.
+    (* TODO: Continue with this and fix it. *) }
   { (* array_access *) 
     inverts HT as HTa HT HTi. subst.
     inverts HT as HT. simpls.
