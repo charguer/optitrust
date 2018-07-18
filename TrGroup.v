@@ -158,9 +158,6 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       tr_trm gt t1 t1' ->
       tr_trm gt t2 t2' ->
       tr_trm gt (trm_let x t1 t2) (trm_let x t1' t2')
-  (* new *)  
-  | tr_trm_new : forall T,
-      tr_trm gt (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
   (* Special case: structs *)
   | tr_trm_struct_op : forall t1' op t1 tr,
       is_struct_op op ->
@@ -168,6 +165,8 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       tr_struct_op gt op (t1'::nil) tr ->
       tr_trm gt (trm_app op (t1::nil)) tr
   (* Args *)
+  | tr_trm_args0 : forall op,
+      tr_trm gt (trm_app op nil) (trm_app op nil)
   | tr_trm_args1 : forall op t1 t1',
       ~ is_struct_op op ->
       tr_trm gt t1 t1' ->
@@ -220,28 +219,32 @@ Inductive tr_state (gt:group_tr) : state -> state -> Prop :=
 (** Transformation of typdefctxs: C ~ |C| *)
 
 Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
-  | tr_typdefctx_intro : forall Tt fs Tg fg C C',
+  | tr_typdefctx_nil :
+      tr_typdefctx gt nil nil
+  | tr_typdefctx_group : forall Tfs2 fg fs Tfs1 Tfs0 Td0 C Tg Td1 Tt Td2 C',
+      Td0 = typ_struct Tfs0 ->
+      Td1 = typ_struct Tfs1 ->
+      Td2 = typ_struct Tfs2 ->
       gt = make_group_tr Tt fs Tg fg ->
-      Tt \indom C ->
-      Tg \notindom C ->
-      dom C' = dom C \u \{Tg} ->
-      (forall T,
-        T \indom C ->
-        T <> Tt ->
-        C'[T] = C[T]) ->
-      fs \c dom (C[Tt]) ->
-      fg \notindom (C[Tt]) ->
-      dom (C'[Tt]) = (dom (C[Tt]) \- fs) \u \{fg} ->
+      Ctx.fresh Tg C' ->
+      fs \c (dom Tfs0) ->
+      fg \notindom Tfs0 ->
+      dom Tfs2 = (dom Tfs0 \- fs) \u \{fg} ->
       (forall f,
-        f \indom (C[Tt]) ->
+        f \indom Tfs0 ->
         f \notin fs ->
-        C'[Tt][f] = C[Tt][f]) ->
-      C'[Tt][fg] = typ_struct Tg ->
-      dom (C'[Tg]) = fs ->
+        Tfs2[f] = Tfs0[f]) ->
+      Tfs2[fg] = typ_var Tg ->
+      dom Tfs1 = fs ->
       (forall f,
-        f \indom (C'[Tg]) ->
-        C'[Tg][f] = C[Tt][f]) ->
-      tr_typdefctx gt C C'.
+        f \indom Tfs1 ->
+        Tfs1[f] = Tfs0[f]) ->
+      tr_typdefctx gt ((Tt, Td0)::C) ((Tg, Td1)::(Tt, Td2)::C')
+  | tr_typdefctx_other : forall Tt C Tv Td C',
+      Tt = group_tr_struct_name gt ->
+      Tv <> Tt ->
+      tr_typdefctx gt C C' ->
+      tr_typdefctx gt ((Tv, Td)::C) ((Tv, Td)::C').
 
 
 (* ---------------------------------------------------------------------- *)
