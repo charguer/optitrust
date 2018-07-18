@@ -54,20 +54,21 @@ Notation make_group_tr' := make_group_tr.
 Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
   | tr_accesses_nil :
       tr_accesses gt nil nil
-  | tr_accesses_array : forall π π' i,
+  | tr_accesses_array : forall π π' T i,
       tr_accesses gt π π' ->
-      tr_accesses gt ((access_array i)::π) ((access_array i)::π')
-  | tr_accesses_field_group : forall π π' f fg Ts Tsg,
+      tr_accesses gt ((access_array T i)::π) ((access_array T i)::π')
+  | tr_accesses_field_group : forall Tt fs fg Tg f a0 π a1 a2 π',
       tr_accesses gt π π' ->
-      Ts = group_tr_struct_name gt ->
-      Tsg = group_tr_new_struct_name gt ->
-      f \in (group_tr_fields gt) ->
-      fg = group_tr_new_struct_field gt ->
-      tr_accesses gt ((access_field Ts f)::π) ((access_field Ts fg)::(access_field Tsg f)::π')
-  | tr_accesses_field_other : forall T Ts π π' f,
+      gt = make_group_tr Tt fs Tg fg ->
+      f \in fs ->
+      a0 = access_field (typ_var Tt) f ->
+      a1 = access_field (typ_var Tt) fg ->
+      a2 = access_field (typ_var Tg) f ->
+      tr_accesses gt (a0::π) (a1::a2::π')
+  | tr_accesses_field_other : forall T Tt π π' f,
       tr_accesses gt π π' ->
-      Ts = group_tr_struct_name gt ->
-      (T <> Ts \/ f \notin (group_tr_fields gt)) ->
+      Tt = group_tr_struct_name gt ->
+      (T <> (typ_var Tt) \/ f \notin (group_tr_fields gt)) ->
       tr_accesses gt ((access_field T f)::π) ((access_field T f)::π').
 
 (** Transformation of values: v ~ |v| *)
@@ -88,14 +89,14 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
   | tr_val_abstract_ptr : forall l π π',
       tr_accesses gt π π' ->
       tr_val gt (val_abstract_ptr l π) (val_abstract_ptr l π')
-  | tr_val_array : forall a a',
+  | tr_val_array : forall a T a',
       length a = length a' ->
       (forall i,
         index a i ->
         tr_val gt a[i] a'[i]) ->
-      tr_val gt (val_array a) (val_array a')
-  | tr_val_struct_group : forall Ts Tsg s s' fg fs sg,
-      gt = make_group_tr Ts fs Tsg fg ->
+      tr_val gt (val_array T a) (val_array T a')
+  | tr_val_struct_group : forall Tt Tg s s' fg fs sg,
+      gt = make_group_tr Tt fs Tg fg ->
       fs \c dom s ->
       fg \notindom s ->
       dom s' = (dom s \- fs) \u \{fg} ->
@@ -107,10 +108,11 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         f \notin fs ->
         f \indom s ->
         tr_val gt s[f] s'[f]) ->
-      s'[fg] = val_struct Tsg sg ->
-      tr_val gt (val_struct Ts s) (val_struct Ts s')
-  | tr_val_struct_other : forall T s s',
-      T <> group_tr_struct_name gt ->
+      s'[fg] = val_struct (typ_var Tg) sg ->
+      tr_val gt (val_struct (typ_var Tt) s) (val_struct (typ_var Tt) s')
+  | tr_val_struct_other : forall Tt T s s',
+      Tt = group_tr_struct_name gt ->
+      T <> (typ_var Tt) ->
       dom s = dom s' ->
       (forall f,
         f \indom s ->
@@ -124,6 +126,20 @@ Definition is_struct_op (op:prim) :=
   | _ => False
   end.
 
+(* Transformation used in the struct cases to avoid repetition. *)
+
+Inductive tr_struct_op (gt:group_tr) : prim -> list trm -> trm -> Prop :=
+  | tr_struct_op_group : forall fs Tt fg prim Tg f op1 op2 op0 ts,
+      gt = make_group_tr Tt fs Tg fg ->
+      f \in fs ->
+      op0 = prim (typ_var Tt) f ->
+      op1 = prim (typ_var Tt) fg ->
+      op2 = prim (typ_var Tg) f ->
+      tr_struct_op gt op0 ts (trm_app op2 ((trm_app op1 ts)::nil))
+  | tr_struct_op_other : forall Tt T prim f ts,
+      Tt = group_tr_struct_name gt ->
+      (T <> (typ_var Tt) \/ f \notin (group_tr_fields gt)) ->
+      tr_struct_op gt (prim T f) ts (trm_app (prim T f) ts).
 
 (** Transformation of terms: t ~ |t| *)
 
@@ -145,40 +161,12 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
   (* new *)  
   | tr_trm_new : forall T,
       tr_trm gt (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
-  (* Special case: structs accesses *)
-  | tr_trm_struct_access_group : forall p p' Tt Tg f fg a1 a2 r,
-      tr_trm gt p p' ->
-      Tt = group_tr_struct_name gt ->
-      Tg = group_tr_new_struct_name gt ->
-      f \in (group_tr_fields gt) ->
-      fg = group_tr_new_struct_field gt ->
-      a1 = prim_struct_access Tg f ->
-      a2 = prim_struct_access Tt fg ->
-      r = trm_app a1 ((trm_app a2 (p'::nil))::nil) ->
-      tr_trm gt (trm_app (prim_struct_access Tt f) (p::nil)) r
-  | tr_trm_struct_access_other : forall s p p' T f r,
-      tr_trm gt p p' ->
-      s = group_tr_struct_name gt ->
-      (T <> s \/ f \notin (group_tr_fields gt)) ->
-      r = (trm_app (prim_struct_access T f) (p'::nil)) ->
-      tr_trm gt (trm_app (prim_struct_access T f) (p::nil)) r
-  (* Special case: structs get. TODO: avoid repetition. *)
-  | tr_trm_struct_get_group : forall t t' Tt Tg f fg a1 a2 r,
-      tr_trm gt t t' ->
-      Tt = group_tr_struct_name gt ->
-      Tg = group_tr_new_struct_name gt ->
-      f \in (group_tr_fields gt) ->
-      fg = group_tr_new_struct_field gt ->
-      a1 = prim_struct_get Tg f ->
-      a2 = prim_struct_get Tt fg ->
-      r = trm_app a1 ((trm_app a2 (t'::nil))::nil) ->
-      tr_trm gt (trm_app (prim_struct_get Tt f) (t::nil)) r
-  | tr_trm_struct_get_other : forall s t t' T f r,
-      tr_trm gt t t' ->
-      s = group_tr_struct_name gt ->
-      (T <> s \/ f \notin (group_tr_fields gt)) ->
-      r = (trm_app (prim_struct_get T f) (t'::nil)) ->
-      tr_trm gt (trm_app (prim_struct_get T f) (t::nil)) r
+  (* Special case: structs *)
+  | tr_trm_struct_op : forall t1' op t1 tr,
+      is_struct_op op ->
+      tr_trm gt t1 t1' ->
+      tr_struct_op gt op (t1'::nil) tr ->
+      tr_trm gt (trm_app op (t1::nil)) tr
   (* Args *)
   | tr_trm_args1 : forall op t1 t1',
       ~ is_struct_op op ->
