@@ -221,7 +221,7 @@ Inductive typdefctx_wf : typdefctx -> Prop :=
       Ctx.fresh Tv C ->
       typdefinable C Td ->
       typdefctx_wf C ->
-      typdefctx_wf (Ctx.add Tv Td C).
+      typdefctx_wf ((Tv, Td)::C).
 
 Lemma typdefctx_lookup : forall C Tv Td1 Td2,
   typdefctx_wf C ->
