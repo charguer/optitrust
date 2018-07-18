@@ -50,7 +50,7 @@ Inductive typ : Type :=
   | typ_double : typ
   | typ_bool : typ
   | typ_ptr : typ -> typ
-  | typ_array : typ -> option size -> typ
+  | typ_array : typ -> size -> typ
   | typ_struct : map field typ -> typ
   | typ_fun : list typ -> typ -> typ
   | typ_var : typvar -> typ.
@@ -275,15 +275,13 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 (* TODO: Factorise some of the common typing stuff between this and
    Typing.v. These functions are also used there. *)
 
-Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
+Inductive typing_array (C:typdefctx) : typ -> typ -> size -> Prop :=
   | typing_array_base : forall T k,
-      typing_array C (typ_array T (Some k)) T (Some k)
-  | typing_array_variable : forall T os,
-      typing_array C (typ_array T None) T os
-  | typing_array_typvar : forall Td Tv T os,
+      typing_array C (typ_array T k) T k
+  | typing_array_typvar : forall Td Tv T k,
       Ctx.lookup Tv C = Some Td ->
-      typing_array C Td T os ->
-      typing_array C (typ_var Tv) T os.
+      typing_array C Td T k ->
+      typing_array C (typ_var Tv) T k.
 
 Inductive typing_struct (C:typdefctx) : typ -> map field typ -> Prop :=
   | typing_struct_base : forall Tfs,
@@ -306,11 +304,9 @@ Inductive uninitialized (C:typdefctx) : typ -> val -> Prop :=
       uninitialized C typ_double val_uninitialized
   | uninitialized_ptr : forall T,
       uninitialized C (typ_ptr T) val_uninitialized
-  | uninitialized_array : forall T Ta os a,
-      typing_array C Ta T os ->
-      (forall n, 
-        os = Some n -> 
-        length a = n) ->
+  | uninitialized_array : forall n T Ta a,
+      typing_array C Ta T n ->
+      length a = n ->
       (forall i,
         index a i ->
         uninitialized C T a[i]) ->
@@ -427,7 +423,7 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       l <> null ->
       l \notindom m1 ->
       n = k ->
-      uninitialized C (typ_array T (Some k)) v -> 
+      uninitialized C (typ_array T k) v -> 
       m2 = m1[l := v] ->
       red C S m1 (trm_app (prim_new_array T) ((trm_val v1)::nil)) m2 vr
   | red_struct_access : forall l π S T f v1 m vr,
@@ -496,7 +492,7 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
   | red_new_array_error : forall (n:int) (k:nat) S m1 T v1 m2,
       v1 = val_int n ->
       n = k ->
-      ~ (exists v, uninitialized C (typ_array T (Some k)) v) -> 
+      ~ (exists v, uninitialized C (typ_array T k) v) -> 
       red C S m1 (trm_app (prim_new_array T) ((trm_val v1)::nil)) m2 val_error
   | red_struct_access_error_not_a_ptr : forall S T f v1 m,
       ~ is_ptr v1 ->
