@@ -19,13 +19,13 @@ Require Export Semantics LibSet LibMap TLCbuffer.
 Module Example.
 
 (* Initial typdefctx *)
-Definition pos : typdef_struct := (\{})["x" := typ_int]["y" := typ_int]["z" := typ_int].
-Definition C : typdefctx := (\{})["pos" := pos].
+Definition pos : map field typ := (\{})["x" := typ_int]["y" := typ_int]["z" := typ_int].
+Definition C : typdefctx := ("pos", (typ_struct pos))::nil.
 
 (* Final typdefctx *)
-Definition struct_x : typdef_struct := (\{})["x" := typ_int].
-Definition pos' : typdef_struct := (\{})["s" := (typ_struct "struct_x")]["y" := typ_int]["z" := typ_int].
-Definition C' : typdefctx := (\{})["pos" := pos']["struct_x" := struct_x].
+Definition struct_x : map field typ := (\{})["x" := typ_int].
+Definition pos' : map field typ := (\{})["s" := (typ_var "struct_x")]["y" := typ_int]["z" := typ_int].
+Definition C' : typdefctx := ("pos", (typ_struct pos'))::(("struct_x", (typ_struct struct_x))::nil).
 
 End Example.
 
@@ -432,35 +432,6 @@ Lemma not_is_uninitialized_tr : forall gt v v',
 Proof.
   introv Htr Hu. induction Htr; introv HN;
   subst; inverts HN. forwards~: Hu. unfolds~.
-Qed.
-
-Lemma not_is_error_args_1 : forall C S m op ts m' v w,
-  red C S m (trm_app op (trm_val w :: ts)) m' v ->
-  ~ is_error v ->
-  ~ is_error w.
-Proof.
-  introv HR He HN. inverts HN;
-  inverts HR; tryfalse. 
-  { inverts_head redbinop; tryfalse. }
-  { forwards*: (is_val val_error). }
-  { inverts_head red; tryfalse.
-    { inverts_head redbinop; tryfalse. }
-    { forwards*: (is_val val_error). }
-    { forwards*: (is_val v2). } }
-Qed.
-
-Lemma not_is_error_args_2 : forall C S m op t ts m' v w,
-  red C S m (trm_app op (t :: trm_val w :: ts)) m' v ->
-  ~ is_error v ->
-  ~ is_error w.
-Proof.
-  introv HR He HN. inverts HN; inverts HR; tryfalse.
-  { inverts_head redbinop; tryfalse. }
-  { inverts_head red; tryfalse.
-    { inverts_head redbinop; tryfalse. }
-    { forwards*: (is_val v1). }
-    { forwards*: (is_val val_error). } }
-  { forwards*: (is_val val_error). }
 Qed.
 
 Lemma neq_tr : forall gt v1 v2 v1' v2',

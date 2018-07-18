@@ -577,6 +577,28 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
+(** Lemmas about the error cases *)
+
+Lemma not_is_error_args_1 : forall C S m op ts m' v w,
+  red C S m (trm_app op (trm_val w :: ts)) m' v ->
+  ~ is_error v ->
+  ~ is_error w.
+Proof.
+  introv HR He HN. destruct w; inverts HN;
+  inverts HR; tryfalse*. inverts_head red; tryfalse*.
+Qed.
+
+Lemma not_is_error_args_2 : forall C S m op t ts m' v w,
+  red C S m (trm_app op (t :: trm_val w :: ts)) m' v ->
+  ~ is_error v ->
+  ~ is_error w.
+Proof.
+  introv HR He HN. destruct w; inverts HN; 
+  inverts HR; tryfalse*. inverts_head red; tryfalse*.
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
 (** Lemmas about the completeness of the reduction rules *)
 
 Lemma red_complete : forall C S m1 t, 
