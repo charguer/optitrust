@@ -105,11 +105,9 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
         f \indom vfs ->
         typing_val C φ vfs[f] Tfs[f]) ->
       typing_val C φ (val_struct Ts vfs) Ts
-  | typing_val_array : forall Ta a T os,
-      typing_array C Ta T os ->
-      (forall n,
-        os = Some n ->
-        length a = n) ->
+  | typing_val_array : forall Ta a T n,
+      typing_array C Ta T n ->
+      length a = n ->
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
@@ -151,9 +149,9 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E (trm_app (prim_set T) (t1::t2::nil)) typ_unit
   | typing_new : forall E T, 
       typing E (trm_app (prim_new T) nil) (typ_ptr T)
-  | typing_new_array : forall E t1 T os,
+  | typing_new_array : forall E t1 T n,
       typing E t1 typ_int ->
-      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T os))
+      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T n))
   | typing_struct_access : forall E Ts t1 Tfs f,
       typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
@@ -226,7 +224,7 @@ Inductive typdefinable (C:typdefctx) : typ -> Prop :=
       typdefinable C (typ_ptr T)
   | typdefinable_array_fixed : forall T k, 
       typdefinable C T ->
-      typdefinable C (typ_array T (Some k))
+      typdefinable C (typ_array T k)
   | typdefinable_struct : forall Tfs,
        (forall f,
         f \indom Tfs ->
@@ -249,31 +247,52 @@ Inductive typdefctx_wf : typdefctx -> Prop :=
 (* ---------------------------------------------------------------------- *)
 (** Functional predicates *)
 
-(* Inferring array types is functional *)
-Lemma functional_typing_array : forall C Ta T1 T2 os1 os2,
-  typing_array C Ta T1 os1 ->
-  typing_array C Ta T2 os2 ->
-  T1 = T2 /\ os1 = os2.
+(* TODO: TLC buffer *)
+Lemma typdefctx_lookup : forall C Tv Td1 Td2,
+  typdefctx_wf C ->
+  Ctx.lookup Tv C = Some Td1 ->
+  Ctx.lookup Tv C = Some Td2 ->
+  Td1 = Td2.
 Proof.
-  introv HTa1 HTa2. induction HTa1; inverts* HTa2.
+  introv HC HTd1 HTd2. induction HC.
+  { inverts HTd1. }
+  { tests: (Tv=Tv0); inverts HTd1 as HTd1; inverts HTd2 as HTd2; case_if*.
+    { inverts HTd1. inverts HTd2. auto. }
+    { rewrite var_eq_spec in C1. rewrite istrue_isTrue_eq in *. false. } }
+Qed.
+
+(* Inferring array types is functional *)
+Lemma functional_typing_array : forall C Ta T1 T2 k1 k2,
+  typdefctx_wf C ->
+  typing_array C Ta T1 k1 ->
+  typing_array C Ta T2 k2 ->
+  T1 = T2 /\ k1 = k2.
+Proof.
+  introv HC HTa1 HTa2. induction HTa1; inverts* HTa2.
+  forwards*: typdefctx_lookup C Tv Td Td0. subst.
+  applys~ IHHTa1.
 Qed.
 
 (* Inferring struct types is functional *)
-Lemma functional_typing_struct : forall C Ts Tfs1 Tfs2, 
+Lemma functional_typing_struct : forall C Ts Tfs1 Tfs2,
+  typdefctx_wf C ->
   typing_struct C Ts Tfs1 ->
   typing_struct C Ts Tfs2 ->
   Tfs1 = Tfs2.
 Proof.
-  introv HTs1 HTs2. induction HTs1; inverts* HTs2.
+  introv HC HTs1 HTs2. induction HTs1; inverts* HTs2.
+  forwards*: typdefctx_lookup C Tv Td Td0. subst.
+  applys~ IHHTs1.
 Qed.
 
 (* Types are well-formed *)
 Lemma functional_follow_typ : forall C T π T1 T2,
+  typdefctx_wf C ->
   follow_typ C T π T1 ->
   follow_typ C T π T2 ->
   T1 = T2.
 Proof.
-  introv HF1 HF2. induction HF1.
+  introv HC HF1 HF2. induction HF1.
   { inverts* HF2. }
   { inverts HF2 as HTa. applys* IHHF1. 
     forwards* (HT&Hos): functional_typing_array H HTa. subst~. }
@@ -283,11 +302,12 @@ Qed.
 
 (* φ is well-formed *)
 Lemma read_phi_inj : forall C φ l π T1 T2,
+  typdefctx_wf C ->
   read_phi C φ l π T1 ->
   read_phi C φ l π T2 ->
   T1 = T2.
 Proof.
-  introv H1 H2. inverts H1. inverts H2.
+  introv HC H1 H2. inverts H1. inverts H2.
   applys* functional_follow_typ.
 Qed.
 
@@ -313,44 +333,47 @@ Qed.
 (** Auxiliary lemma for typing preservation of [get] *)
 
 Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
+  typdefctx_wf C ->
   typing_val C φ w1 T1 ->
   follow_typ C T1 π T2 ->
   read_accesses w1 π w2 ->
   typing_val C φ w2 T2.
 Proof.
-  introv HT HF HR. gen π. induction HT; intros;
+  introv HC HT HF HR. gen π. induction HT; intros;
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
   { inverts HF as; inverts* HR as. introv Hfin HR HTs HF. 
-    rewrite H0 in *. forwards*: functional_typing_struct H HTs.
+    rewrite H0 in *. forwards*: functional_typing_struct HC H HTs.
     applys* H2. subst~. }
   { inverts HF as; inverts* HR as. introv Hi HR HTa HF.
-    forwards* (HT&Hos): functional_typing_array H HTa.
+    forwards* (HT&Hos): functional_typing_array HC H HTa.
     applys* H2. subst~. }
 Qed.
 
 (** Lemma for typing preservation of [get] *)
 
 Lemma typing_val_get : forall m l π C φ w T,
+  typdefctx_wf C ->
   state_typing C φ m ->
   read_state m l π w ->
   read_phi C φ l π T ->
   typing_val C φ w T.
 Proof.
-  introv (HD&HT) HS HP. inverts HS as Hlin HR.
+  introv HC (HD&HT) HS HP. inverts HS as Hlin HR.
   inverts HP as Hlin' HF. forwards~ HTl: HT l.
-  applys* typing_val_follow HTl HF HR.
+  applys* typing_val_follow HC HTl HF HR.
 Qed.
 
 (** Auxiliary lemma for typing preservation of [set] *)
 
 Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
+  typdefctx_wf C ->
   write_accesses v1 π w v2 ->
   typing_val C φ v1 T1 ->
   follow_typ C T1 π T2 ->
   typing_val C φ w T2 ->
   typing_val C φ v2 T1.
 Proof.
-  introv HW HT1 HF HT2. gen T1. induction HW; intros.
+  introv HC HW HT1 HF HT2. gen T1. induction HW; intros.
   { subst. inverts* HF. }
   { inverts HF. inverts HT1. subst. constructors*. 
     { rewrite* length_update. }
@@ -370,13 +393,14 @@ Qed.
 (** Lemma for typing preservation of [set] *)
 
 Lemma state_typing_set : forall T m1 l π v C φ m2,
+  typdefctx_wf C ->
   state_typing C φ m1 ->
   write_state m1 l π v m2 ->
   typing_val C φ (val_abstract_ptr l π) (typ_ptr T) ->
   typing_val C φ v T ->
   state_typing C φ m2.
 Proof.
-  introv HS HW HTp HTv. 
+  introv HC HS HW HTp HTv. 
   inverts HS as HD HT. 
   inverts HW as Hv1 HWA.   
   inverts HTp as HP. 
