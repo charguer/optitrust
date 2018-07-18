@@ -276,7 +276,8 @@ Theorem functional_tr_accesses : forall gt π π1 π2,
     π1 = π2.
 Proof.
   introv H1 H2. gen π2. induction H1; intros;
-  inverts_head tr_accesses; repeat fequals*;
+  inverts_head tr_accesses; repeat fequals*; 
+  inverts_head access_field; subst; simpls;
   inverts_head Logic.or; repeat fequals*.
 Qed. 
 
@@ -286,26 +287,25 @@ Theorem functional_tr_val : forall gt v v1 v2,
   v1 = v2.
 Proof using.
   introv H1 H2. gen v2. induction H1; intros;
-  inverts_head tr_val; fequals*.
+  inverts_head tr_val; fequals*; subst; simpls; tryfalse.
   { applys* functional_tr_accesses. }
   { applys* eq_of_extens. math. }
   { applys read_extens. 
     { inverts_head make_group_tr'. congruence. }
     { introv Hin. tests C: (i = fg).
       { inverts_head make_group_tr'.
-        asserts_rewrite~ (s'0[fg0] = val_struct Tsg0 sg0).
-        asserts_rewrite~ (s'[fg0] = val_struct Tsg0 sg).
+        asserts_rewrite~ (s'0[fg0] = val_struct (typ_var Tg0) sg0).
+        asserts_rewrite~ (s'[fg0] = val_struct (typ_var Tg0) sg).
         fequals. applys~ read_extens. introv Hk. 
         asserts_rewrite* (dom sg = dom sg0) in *. }
       { inverts_head make_group_tr'.
         asserts_rewrite~ (dom s' = dom s \- dom sg \u '{fg0}) in Hin.
         inverts Hin as Hin; tryfalse. inverts Hin as Hin Hnotin.
         asserts_rewrite* (dom sg = dom sg0) in *. } } }
-  { subst. simpls. contradiction. }
   { applys read_extens.
     { congruence. }
     { introv Hin. 
-      asserts_rewrite* (dom s' = dom s) in *. } }
+      asserts_rewrite* (dom s' = dom s) in *. } } }
 Qed.
 
 Theorem functional_tr_trm : forall gt t t1 t2,
@@ -316,6 +316,9 @@ Proof.
   introv H1 H2. gen t2. induction H1; intros;
   try solve [ inverts H2 ; try subst ; repeat fequals* ].
   { inverts H2. fequals. applys* functional_tr_val. }
+  { inverts_head tr_trm; subst.
+    {  }
+    {  } }
   (* TODO: avoid repetition. Related to the TODO in 
      the definition of tr_trm. *)
   { inverts_head tr_trm; subst. 
