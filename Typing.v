@@ -206,7 +206,44 @@ Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop :=
 
 Section TypeSoundness.
 
-Hint Constructors typing_val redbinop. 
+Hint Constructors typing_val redbinop.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Typdefctx well-foundedness *)
+
+(* Types that can be defined in the typdefctx. *)
+
+Inductive typdefinable (C:typdefctx) : typ -> Prop :=
+  | typdefinable_int :
+      typdefinable C typ_int
+  | typdefinable_aux_double :
+      typdefinable C typ_double
+  | typdefinable_bool :
+      typdefinable C typ_bool
+  | typdefinable_prt : forall T,
+      typdefinable C T ->
+      typdefinable C (typ_ptr T)
+  | typdefinable_array_fixed : forall T k, 
+      typdefinable C T ->
+      typdefinable C (typ_array T (Some k))
+  | typdefinable_struct : forall Tfs,
+       (forall f,
+        f \indom Tfs ->
+        typdefinable C Tfs[f]) ->
+      typdefinable C (typ_struct Tfs)
+  | typdefinable_typvar : forall T Tv,
+      Ctx.lookup Tv C = Some T ->
+      typdefinable C (typ_var Tv).
+
+Inductive typdefctx_wf : typdefctx -> Prop :=
+  | typdefctx_wf_nil :
+      typdefctx_wf nil
+  | typdefctx_wf_cons : forall Tv Td C,
+      Ctx.fresh Tv C ->
+      typdefinable C Td ->
+      typdefctx_wf C ->
+      typdefctx_wf (Ctx.add Tv Td C).
 
 
 (* ---------------------------------------------------------------------- *)
