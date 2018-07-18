@@ -149,9 +149,9 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E (trm_app (prim_set T) (t1::t2::nil)) typ_unit
   | typing_new : forall E T, 
       typing E (trm_app (prim_new T) nil) (typ_ptr T)
-  | typing_new_array : forall E t1 T n,
+  | typing_new_array : forall E t1 T k, (* TODO: This is a problem. *)
       typing E t1 typ_int ->
-      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T n))
+      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T k))
   | typing_struct_access : forall E Ts t1 Tfs f,
       typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
@@ -484,6 +484,7 @@ Proof using. intros. auto. Qed.
 (** Type preservation proof *)
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
+  typdefctx_wf C ->
   red C S m t m' v -> 
   ~ is_error v ->
   typing (make_env C φ Γ) t T ->
@@ -492,7 +493,7 @@ Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
         typing_val C φ v T
     /\  state_typing C φ m'.
 Proof.
-  introv R He. gen φ T Γ. induction R; introv HT HM HS;
+  introv HC R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ]. 
   { (* val *)
     inverts* HT. }
@@ -542,7 +543,7 @@ Proof.
     splits~.
     inverts HT as HT. simpls.
     inverts HT as HTs0 HD HT.
-    forwards*: functional_typing_struct HTs HTs0.
+    forwards*: functional_typing_struct HC HTs HTs0.
     subst.
     applys~ HT. }
   { (* array_get *) 
@@ -550,7 +551,7 @@ Proof.
     splits~.
     inverts HT as HT. simpls.
     inverts HT as HTa0 Hl HT.
-    forwards* (HTeq&Hos): functional_typing_array HTa HTa0.
+    forwards* (HTeq&Hos): functional_typing_array HC HTa HTa0.
     subst.
     applys~ HT. }
   { (* app 1 *) 
@@ -607,7 +608,9 @@ Proof.
   introv Hu. induction Hu; subst; try repeat constructors*.
 Qed.
 
+
 Theorem type_soundess : forall C φ m t v T Γ S m',
+  typdefctx_wf C ->
   red C S m t m' v ->
   ~ is_error v ->
   typing (make_env C φ Γ) t T ->
@@ -618,7 +621,7 @@ Theorem type_soundess : forall C φ m t v T Γ S m',
     /\  typing_val C φ' v T
     /\  state_typing C φ' m'.
 Proof.
-  introv R He. gen φ T Γ. induction R; introv HT HM HS;
+  introv HC R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ]. 
   { (* val *)
     exists φ. inverts* HT. splits~. applys~ refl_extends. }
@@ -674,35 +677,9 @@ Proof.
             { introv Hl2. rew_reads~. intros. subst.
               rewrite HD in *. false*. } } } } } }
   { (* new_array *) 
-    inverts HT.  inverts HM as HD Hm1l.
-    (* TODO: Fix this. *)
-    exists φ[l:=(typ_array T (Some k))]. splits.
-    { unfolds. splits.
-      { rew_set. introv Hl0. unfolds phi.
-        rewrite dom_update. set_prove. }
-      { introv Hl0. unfolds phi. rew_reads~. 
-        intros. subst. rewrite <- HD in Hl0. false*. } }
-    { subst. repeat constructors.
-      { unfolds phi. rewrite dom_update. set_prove. }
-      { rew_reads. constructors~. } }
-    { constructors.
-      { subst. unfolds phi. 
-        unfolds state. repeat rewrite dom_update.
-        rewrite~ HD. }
-      { introv Hl1. subst. rew_reads; intros.
-        { subst. inverts_head uninitialized; inverts H.
-          { forwards Hu: H9 Hi.
-            forwards* HT: uninitialized_val_typ Hu. }
-          { forwards Hu: H6 Hi. (* TODO: H6? H9? No. *)
-            forwards* HT: uninitialized_val_typ Hu. } }
-        { forwards: Hm1l l1. 
-          { unfolds state. rewrite~ indom_update_neq_eq in Hl1. }
-          { applys* extended_typing_val. unfolds. splits.
-            { unfolds phi. rewrite dom_update. set_prove. }
-            { introv Hl2. rew_reads~. intros. subst.
-              rewrite HD in *. contradiction. } } } } } }
+    admit. }
   { (* struct_access *)
-    subst. inverts HT as HTin HTfs Hfin HT. 
+    subst. inverts HT as HTs Hfin HT. 
     exists φ. splits~.
     { applys~ refl_extends. }
     { inverts HT as HT. simpls.
@@ -711,39 +688,30 @@ Proof.
       repeat constructors~.
       applys~ follow_typ_access_field. } }
   { (* array_access *)
-    subst. inverts HT as. 
-
-    { introv HT HTi. 
-      inverts HT as HT. simpls.
-      inverts HT as Hφ.
-      inverts Hφ as HF.
-      exists φ. splits~.
-      { applys~ refl_extends. }
-      { repeat constructors~.
-       applys* follow_typ_access_array. } }
-
-    { introv 
-      inverts HT as HT. simpls.
-      inverts HT as Hφ.
-      inverts Hφ as HF.
-      exists φ. splits~.
-      { applys~ refl_extends. }
-      { repeat constructors~.
-       applys* follow_typ_access_array. } } }
+    subst. inverts HT as HTa HT HTi.
+    inverts HT as HT. simpls.
+    inverts HT as Hφ.
+    inverts Hφ as HF.
+    exists φ. splits~.
+    { applys~ refl_extends. }
+    { repeat constructors~.
+     applys* follow_typ_access_array. } }
   { (* struct_get *)
-    subst. inverts HT as HTin Hfin HT. 
+    subst. inverts HT as HTs Hfin HT. 
     exists φ. splits~.
     { applys~ refl_extends. }
     { inverts HT as HT. simpls.
-      inverts HT as HD HT.
-      applys~ HT. } }
+      inverts HT as HTs' HD HT.
+      forwards*: functional_typing_struct Tfs Tfs0.
+      subst. applys~ HT. } }
   { (* array_get *)
-    subst. inverts HT as HTa HTi.
+    subst. inverts HT as HTa HT HTi.
     exists φ. splits~.
     { applys~ refl_extends. }
-    { inverts HTa as HTa. simpls.
-      inverts HTa as Hl HTa;
-      applys* HTa. } }
+    { inverts HT as HT. simpls.
+      inverts HT as HTa' Hl HT.
+      forwards* (Heq1&Heq2): functional_typing_array HTa HTa'.
+      subst. applys* HT. } }
   { (* args_1 *)
     inverts HT;
     forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ;
@@ -753,20 +721,21 @@ Proof.
     try applys* extended_typing;
     try applys* extended_stack_typing. }
   { (* args_2 *)
-    inverts HT; try solve [
-    forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ;
+    inverts HT; try solve [ forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ;
     try applys* not_is_error_args_2;
-    forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ;    
-    try applys* extended_stack_typing; constructors;
-    try applys* extended_typing;
-    inverts* HTv1 ; constructors* ].
+    forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ;
+    try applys* extended_stack_typing; constructors*;
+    try applys* extended_typing; constructors*; simpls;
+    inverts HTv1; constructors*; 
+    try inverts_head typing_struct;
+    try inverts_head typing_array ].
     { forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ.
       applys* not_is_error_args_2.
       forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ.
       { constructors. applys* extended_typing.
         constructors*. }
       { applys* extended_stack_typing. } } }
-Qed.
+Qed. 
 
 
 End TypeSoundness.
