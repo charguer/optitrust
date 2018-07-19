@@ -128,18 +128,19 @@ Definition is_struct_op (op:prim) :=
 
 (* Transformation used in the struct cases to avoid repetition. *)
 
-Inductive tr_struct_op (gt:group_tr) : prim -> list trm -> trm -> Prop :=
-  | tr_struct_op_group : forall fs Tt fg prim Tg f op1 op2 op0 ts,
+Inductive tr_struct_op (gt:group_tr) : trm -> trm -> Prop :=
+  | tr_struct_op_group : forall fs Tt fg pr Tg f op1 op2 ts,
+      pr = prim_struct_access \/ pr = prim_struct_get ->
       gt = make_group_tr Tt fs Tg fg ->
       f \in fs ->
-      op0 = prim (typ_var Tt) f ->
-      op1 = prim (typ_var Tt) fg ->
-      op2 = prim (typ_var Tg) f ->
-      tr_struct_op gt op0 ts (trm_app op2 ((trm_app op1 ts)::nil))
-  | tr_struct_op_other : forall Tt T prim f ts,
+      op1 = pr (typ_var Tt) fg ->
+      op2 = pr (typ_var Tg) f ->
+      tr_struct_op gt (trm_app (pr (typ_var Tt) f) ts) (trm_app op2 ((trm_app op1 ts)::nil))
+  | tr_struct_op_other : forall Tt T pr f ts,
+      pr = prim_struct_access \/ pr = prim_struct_get ->
       Tt = group_tr_struct_name gt ->
       (T <> (typ_var Tt) \/ f \notin (group_tr_fields gt)) ->
-      tr_struct_op gt (prim T f) ts (trm_app (prim T f) ts).
+      tr_struct_op gt (trm_app (pr T f) ts) (trm_app (pr T f) ts).
 
 (** Transformation of terms: t ~ |t| *)
 
@@ -162,7 +163,7 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
   | tr_trm_struct_op : forall t1' op t1 tr,
       is_struct_op op ->
       tr_trm gt t1 t1' ->
-      tr_struct_op gt op (t1'::nil) tr ->
+      tr_struct_op gt (trm_app op (t1'::nil)) tr ->
       tr_trm gt (trm_app op (t1::nil)) tr
   (* Args *)
   | tr_trm_args0 : forall op,
@@ -305,7 +306,21 @@ Proof using.
   { applys read_extens.
     { congruence. }
     { introv Hin. 
-      asserts_rewrite* (dom s' = dom s) in *. } } }
+      asserts_rewrite* (dom s' = dom s) in *. } }
+Qed.
+
+Lemma functional_tr_struct_op : forall gt op t1 tr1 tr2,
+  is_struct_op op ->
+  tr_struct_op gt (trm_app op (t1 :: nil)) tr1 ->
+  tr_struct_op gt (trm_app op (t1 :: nil)) tr2 ->
+  tr1 = tr2.
+Proof.
+  introv Hop Htr1 Htr2. induction Htr1; subst; 
+  inverts H; inverts Htr2; inverts_head Logic.or;
+  try inverts_head make_group_tr'; simpls;
+  try inverts_head prim_struct_access;
+  try inverts_head prim_struct_get;
+  repeat fequals*.
 Qed.
 
 Theorem functional_tr_trm : forall gt t t1 t2,
@@ -317,29 +332,9 @@ Proof.
   try solve [ inverts H2 ; try subst ; repeat fequals* ].
   { inverts H2. fequals. applys* functional_tr_val. }
   { inverts_head tr_trm; subst.
-    {  }
-    {  } }
-  (* TODO: avoid repetition. Related to the TODO in 
-     the definition of tr_trm. *)
-  { inverts_head tr_trm; subst. 
-    { repeat fequals~. }
-    { inverts_head Logic.or; tryfalse. } 
-    { unfolds is_struct_op. contradiction. } }
-  { inverts_head tr_trm; subst.
-    { inverts_head Logic.or; tryfalse. }
-    { repeat fequals~. } 
-    { unfolds is_struct_op. contradiction. } }
-  { inverts_head tr_trm; subst. 
-    { repeat fequals~. }
-    { inverts_head Logic.or; tryfalse. } 
-    { unfolds is_struct_op. contradiction. } }
-  { inverts_head tr_trm; subst.
-    { inverts_head Logic.or; tryfalse. }
-    { repeat fequals~. } 
-    { unfolds is_struct_op. contradiction. } }
-  { inverts H2; 
-    try solve [ unfolds is_struct_op ; contradiction ].
-    repeat fequals~. }
+    { forwards~: IHtr_trm t1'0. subst.
+      applys* functional_tr_struct_op. }
+    { false. } }
 Qed.
 
 Theorem functional_tr_stack_item : forall gt i i1 i2,
