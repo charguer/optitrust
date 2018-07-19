@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics LibSet LibMap TLCbuffer.
+Require Export Semantics LibSet LibMap TLCbuffer Typing.
 
 
 
@@ -86,6 +86,7 @@ Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
       (forall f,
         f \indom Tfs1 ->
         Tfs1[f] = Tfs0[f]) ->
+      tr_typdefctx gt C C' ->
       tr_typdefctx gt ((Tt, Td0)::C) ((Tg, Td1)::(Tt, Td2)::C')
   | tr_typdefctx_other : forall Tt C Tv Td C',
       Tt = group_tr_struct_name gt ->
@@ -469,29 +470,52 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** uninitialized is coherent with the transformation *)
 
+Lemma ctx_lookup_var_neq : forall A x2 w (C:Ctx.ctx A) x1 v,
+  x1 <> x2 ->
+  Ctx.lookup x1 C = Some v ->
+  Ctx.lookup x1 ((x2, w)::C) = Some v.
+Proof.
+  introv Hneq HC. gen x2 w. induction HC; intros.
+  unfolds Ctx.lookup. case_if*. 
+  { rewrite var_eq_spec in C0. rewrite istrue_isTrue_eq in C0. false. }
+Qed.
+
+Lemma typing_array_typvar_neq : forall C Tv1 Td Tv2 T n,
+  Tv1 <> Tv2 ->
+  typing_array C (typ_var Tv2) T n ->
+  typing_array ((Tv1, Td)::C) (typ_var Tv2) T n.
+Proof.
+  introv Hneq HTa. gen Tv1 Td. induction HTa; constructors~.
+  { forwards* HTa': IHHTa Tv1 Td. tests: (Tv=Tv1). 
+    { admit. (*this can never happen*) }
+    { applys~ ctx_lookup_var_neq. } }
+Qed.
+
 Lemma tr_arrays_inert : forall gt C C' Ta T n,
+  group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
   typing_array C Ta T n ->
   typing_array C' Ta T n.
 Proof.
-  introv HC HTa. induction HC.
-  { inverts HTa. 
-    { constructors. } 
-    { inverts H. } }
+  introv Hok HC HTa. gen Ta T n. induction HC; intros.
+  { auto. }
   { subst. inverts HTa.
-    { constructors. }
-    { tests: (Tv=Tt).
-      { inverts H. case_if* in H2; rewrite var_eq_spec in *. 
-        {  } 
-        { forwards*: C0. rewrite~ istrue_isTrue_eq. } }
-      {  } } }
-  {  }
+    { constructors~. }
+    { inverts Hok. inverts H1.
+      tests CTt0: (Tv=Tt0); tests CTg0: (Tt0=Tg0).
+      { unfolds Ctx.lookup. case_if*.
+        { inverts H. inverts H0. }
+        { forwards*: C0. rewrite var_eq_spec. rewrite~ istrue_isTrue_eq. } }
+      { unfolds Ctx.lookup. case_if*.
+        { tests CTv: (Tg0=Tv).
+          { case_if*.
+            { rewrite var_eq_spec in C1. rewrite istrue_isTrue_eq in C1. false. }
+            { folds Ctx.lookup. inverts H12. case_if. } }
+          { case_if*.
+            { rewrite var_eq_spec in C1. rewrite istrue_isTrue_eq in C1. false. }
+            { folds Ctx.lookup. (* HERE *) constructors. } } }
+        { forwards*: C0. rewrite var_eq_spec. rewrite~ istrue_isTrue_eq. } } } }
 
-  { constructors~. }
-  { inverts HC.
-    { inverts H. }
-    {  }
-    { } }
 Qed.
 
 
