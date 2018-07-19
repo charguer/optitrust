@@ -481,41 +481,72 @@ Proof.
 Qed.
 
 Lemma typing_array_typvar_neq : forall C Tv1 Td Tv2 T n,
+  Ctx.fresh Tv1 C ->
   Tv1 <> Tv2 ->
   typing_array C (typ_var Tv2) T n ->
   typing_array ((Tv1, Td)::C) (typ_var Tv2) T n.
 Proof.
-  introv Hneq HTa. gen Tv1 Td. induction HTa; constructors~.
-  { forwards* HTa': IHHTa Tv1 Td. tests: (Tv=Tv1). 
-    { admit. (*this can never happen*) }
-    { applys~ ctx_lookup_var_neq. } }
+  introv Hfr Hneq HTa. gen Tv1 Td. induction HTa; constructors~.
+  { forwards* HTa': IHHTa Tv1 Td. tests: (Tv=Tv1).
+    applys~ ctx_lookup_var_neq. }
 Qed.
 
+Lemma tr_typdefctx_fresh_vars : forall gt C Tv C' w w',
+  tr_typdefctx gt C C' ->
+  Tv <> group_tr_new_struct_name gt ->
+  Ctx.lookup Tv C = Some w ->
+  Ctx.lookup Tv C' = Some w'.
+Proof.
+Admitted.
+
 Lemma tr_arrays_inert : forall gt C C' Ta T n,
+  typdefctx_wf C ->
   group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
   typing_array C Ta T n ->
   typing_array C' Ta T n.
 Proof.
-  introv Hok HC HTa. gen Ta T n. induction HC; intros.
-  { auto. }
-  { subst. inverts HTa.
-    { constructors~. }
-    { inverts Hok. inverts H1.
-      tests CTt0: (Tv=Tt0); tests CTg0: (Tt0=Tg0).
-      { unfolds Ctx.lookup. case_if*.
-        { inverts H. inverts H0. }
-        { forwards*: C0. rewrite var_eq_spec. rewrite~ istrue_isTrue_eq. } }
-      { unfolds Ctx.lookup. case_if*.
-        { tests CTv: (Tg0=Tv).
-          { case_if*.
-            { rewrite var_eq_spec in C1. rewrite istrue_isTrue_eq in C1. false. }
-            { folds Ctx.lookup. inverts H12. case_if. } }
-          { case_if*.
-            { rewrite var_eq_spec in C1. rewrite istrue_isTrue_eq in C1. false. }
-            { folds Ctx.lookup. (* HERE *) constructors. } } }
-        { forwards*: C0. rewrite var_eq_spec. rewrite~ istrue_isTrue_eq. } } } }
-
+  introv Hwf Hok HC HTa. gen gt C'. induction HTa; intros.
+  { (* Case typ_array *)
+    constructors~. }
+  { (* Case typ_var *)
+    forwards* HTa': IHHTa. inverts HC as. 
+    { (* Empty typdefctx *)
+      inverts H; inverts H. }
+    { (* Transformed typdefctx element *)
+      introv Hfr HDTfs1 Hfgin HTfs2f HDTfs2 HTfs2fg HTfs1f HC0.
+      inverts Hok. tests: (Tv=Tt); tests: (Tt=Tg).
+      { constructors.
+        { unfolds Ctx.lookup. case_if; admit. (*contradiction*) }
+        { constructors. } }
+      { constructors.
+        { unfolds Ctx.lookup. case_if.
+          { admit. (*contradiction*) }
+          { case_if.
+            { admit. (*contradiction*) }
+            { folds Ctx.lookup. tests: (Tg=Tv).
+              { inverts H0. admit. (*contradiction*) }
+              { applys* tr_typdefctx_fresh_vars. } } } }
+        { constructors. } } }
+    { (* Not transformed typdefctx element *) 
+      introv Hneq HC0. inverts Hok. simpls. case_if.
+      { admit. (*contradiction*) }
+      { tests: (Tv=Tg).
+        { case_if.
+          { inverts_head Ctx.fresh. case_if. }
+          { inverts_head Ctx.fresh. case_if. } }
+        { case_if~. 
+          { constructors. 
+            { unfolds. case_if~. }
+            { inverts H. applys~ IHHTa.
+              { apply group_tr_ok_intros with 
+                (fs:=fs) (fg:=fg) (Tfs:=Tfs) (Tg:=Tg) (Tt:=Tt); 
+                auto. unfolds. case_if~. }
+              { constructors*. } } }
+          { constructors.
+            { unfolds. case_if. folds Ctx.lookup.
+              applys* tr_typdefctx_fresh_vars. }
+            { constructors~. } } } } } }
 Qed.
 
 
