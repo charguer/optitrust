@@ -480,7 +480,7 @@ Proof.
   { rewrite var_eq_spec in C0. rewrite istrue_isTrue_eq in C0. false. }
 Qed.
 
-Lemma typing_array_typvar_neq : forall C Tv1 Td Tv2 T n,
+(*Lemma typing_array_typvar_neq : forall C Tv1 Td Tv2 T n,
   Ctx.fresh Tv1 C ->
   Tv1 <> Tv2 ->
   typing_array C (typ_var Tv2) T n ->
@@ -495,21 +495,25 @@ Lemma tr_typdefctx_fresh_vars : forall gt C Tv C' w,
   typdefctx_wf C ->
   group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
-  Tv <> group_tr_struct_name gt -> (* NOOOOOOOOOOOOOOOOOOOOO *)
   Tv <> group_tr_new_struct_name gt ->
   Ctx.lookup Tv C = Some w ->
   (exists w', Ctx.lookup Tv C' = Some w').
 Proof.
-  introv Hwf Hok HC Hneq1 Hneq2 HCl. gen w Tv. induction HC; intros.
+  introv Hwf Hok HC Hneq HCl. gen w Tv. induction HC; intros.
   { inverts HCl. }
-  { subst. simpl in Hneq1. simpl in Hneq2. forwards* (w'&Hw'): IHHC w Tv.
+  { subst. simpl in Hneq. simpls. case_if*. case_if*.
+    inverts Hwf. inverts Hok. inverts H.
+    forwards (w'&Hw'): IHHC.
+    { inverts~ Hwf. }
+    {  }
+
     { inverts~ Hwf. }
     { unfolds Ctx.lookup. case_if.
       { admit. (*contradiction*) }
       { folds Ctx.lookup. inverts Hok. inverts H. 
         tests: (Tg0=Tt0). inverts_head Ctx.fresh.
         unfolds Ctx.lookup. repeat case_if.
-        { folds Ctx.lookup. admit. (*contradiction*) }
+        { folds Ctx.lookup. constructors. admit. (*contradiction*) }
         { folds Ctx.lookup. admit. (*contradiction*) } } }
     { unfold Ctx.lookup in HCl. case_if*. admit. (*contradiction*) }
     { exists w'. repeat applys~ ctx_lookup_var_neq. } }
@@ -572,7 +576,7 @@ Proof.
             { unfolds. case_if. folds Ctx.lookup.
               applys* tr_typdefctx_fresh_vars. }
             { constructors~. } } } } } }
-Qed.
+Qed.*)
 
 
 Lemma tr_uninitialized_val' : forall gt v v' T C C',
@@ -588,7 +592,7 @@ Proof using.
     apply eq_nat_of_eq_int in H0. rewrite~ H0.
     inverts_head typing_array.
     { constructors. }
-    {  } }
+    { constructors. admit. admit. (* HERE APPLY LEMMAS *) } }
   { (* val struct *)
     tests: (T = group_tr_struct_name gt); 
     inverts Hv as; inverts HC as; 
