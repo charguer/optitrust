@@ -49,6 +49,54 @@ Record group_tr := make_group_tr {
 
 Notation make_group_tr' := make_group_tr.
 
+(** Checking if the transformation is acceptable *)
+
+Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
+  | group_tr_ok_intros : forall Tt fs fg Tfs Tg gt C,
+      gt = make_group_tr Tt fs Tg fg ->
+      Ctx.lookup Tt C = Some (typ_struct Tfs) ->
+      fs \c (dom Tfs) ->
+      fg \notindom Tfs ->
+      Ctx.fresh Tg C ->
+      group_tr_ok gt C.
+
+(** Transformation of typdefctxs: C ~ |C| *)
+
+(* TODO: Probably not necessary to make all these checks in tr_typdefctx
+   if it goes together with group_tr_ok. *)
+
+Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
+  | tr_typdefctx_nil :
+      tr_typdefctx gt nil nil
+  | tr_typdefctx_group : forall Tfs2 fg fs Tfs1 Tfs0 Td0 C Tg Td1 Tt Td2 C',
+      Td0 = typ_struct Tfs0 ->
+      Td1 = typ_struct Tfs1 ->
+      Td2 = typ_struct Tfs2 ->
+      gt = make_group_tr Tt fs Tg fg ->
+      Ctx.fresh Tg C' ->
+      fs \c (dom Tfs0) ->
+      fg \notindom Tfs0 ->
+      dom Tfs2 = (dom Tfs0 \- fs) \u \{fg} ->
+      (forall f,
+        f \indom Tfs0 ->
+        f \notin fs ->
+        Tfs2[f] = Tfs0[f]) ->
+      Tfs2[fg] = typ_var Tg ->
+      dom Tfs1 = fs ->
+      (forall f,
+        f \indom Tfs1 ->
+        Tfs1[f] = Tfs0[f]) ->
+      tr_typdefctx gt ((Tt, Td0)::C) ((Tg, Td1)::(Tt, Td2)::C')
+  | tr_typdefctx_other : forall Tt C Tv Td C',
+      Tt = group_tr_struct_name gt ->
+      Tv <> Tt ->
+      tr_typdefctx gt C C' ->
+      tr_typdefctx gt ((Tv, Td)::C) ((Tv, Td)::C').
+
+
+(* ********************************************************************** *)
+(* * The transformation applied to the different constructs. *)
+
 (** Transformation of paths: π ~ |π| *)
 
 Inductive tr_accesses (gt:group_tr) : accesses -> accesses -> Prop :=
@@ -217,37 +265,6 @@ Inductive tr_state (gt:group_tr) : state -> state -> Prop :=
       tr_state gt m m'.
 
 
-(** Transformation of typdefctxs: C ~ |C| *)
-
-Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
-  | tr_typdefctx_nil :
-      tr_typdefctx gt nil nil
-  | tr_typdefctx_group : forall Tfs2 fg fs Tfs1 Tfs0 Td0 C Tg Td1 Tt Td2 C',
-      Td0 = typ_struct Tfs0 ->
-      Td1 = typ_struct Tfs1 ->
-      Td2 = typ_struct Tfs2 ->
-      gt = make_group_tr Tt fs Tg fg ->
-      Ctx.fresh Tg C' ->
-      fs \c (dom Tfs0) ->
-      fg \notindom Tfs0 ->
-      dom Tfs2 = (dom Tfs0 \- fs) \u \{fg} ->
-      (forall f,
-        f \indom Tfs0 ->
-        f \notin fs ->
-        Tfs2[f] = Tfs0[f]) ->
-      Tfs2[fg] = typ_var Tg ->
-      dom Tfs1 = fs ->
-      (forall f,
-        f \indom Tfs1 ->
-        Tfs1[f] = Tfs0[f]) ->
-      tr_typdefctx gt ((Tt, Td0)::C) ((Tg, Td1)::(Tt, Td2)::C')
-  | tr_typdefctx_other : forall Tt C Tv Td C',
-      Tt = group_tr_struct_name gt ->
-      Tv <> Tt ->
-      tr_typdefctx gt C C' ->
-      tr_typdefctx gt ((Tv, Td)::C) ((Tv, Td)::C').
-
-
 (* ---------------------------------------------------------------------- *)
 (** Hints *)
 
@@ -403,6 +420,7 @@ Lemma not_is_val_tr : forall gt t1 t2,
 Proof.
   introv Htr Hv. induction Htr; introv HN;
   try solve [ subst ; inverts HN ]. forwards*: Hv.
+  inverts_head tr_struct_op; inverts HN.
 Qed.
 
 Lemma not_is_error_tr : forall gt v1 v2,
@@ -420,7 +438,7 @@ Lemma not_is_uninitialized_tr : forall gt v v',
   ~ is_uninitialized v'.
 Proof.
   introv Htr Hu. induction Htr; introv HN;
-  subst; inverts HN. forwards~: Hu. unfolds~.
+  subst; inverts HN. forwards~: Hu.
 Qed.
 
 Lemma neq_tr : forall gt v1 v2 v1' v2',
@@ -449,19 +467,48 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** WIP towards proving tr_uninitialized_val *)
+(** uninitialized is coherent with the transformation *)
+
+Lemma tr_arrays_inert : forall gt C C' Ta T n,
+  tr_typdefctx gt C C' ->
+  typing_array C Ta T n ->
+  typing_array C' Ta T n.
+Proof.
+  introv HC HTa. induction HC.
+  { inverts HTa. 
+    { constructors. } 
+    { inverts H. } }
+  { subst. inverts HTa.
+    { constructors. }
+    { tests: (Tv=Tt).
+      { inverts H. case_if* in H2; rewrite var_eq_spec in *. 
+        {  } 
+        { forwards*: C0. rewrite~ istrue_isTrue_eq. } }
+      {  } } }
+  {  }
+
+  { constructors~. }
+  { inverts HC.
+    { inverts H. }
+    {  }
+    { } }
+Qed.
+
 
 Lemma tr_uninitialized_val' : forall gt v v' T C C',
   tr_typdefctx gt C C' ->
   tr_val gt v v' ->
-  uninitialized_val C T v ->
-  uninitialized_val C' T v'.
+  uninitialized C T v ->
+  uninitialized C' T v'.
 Proof using.
   introv HC Hv Hu. gen C' v'. induction Hu; intros;
   try solve [ inverts Hv ; constructors~ ].
   { (* val array *)
-    inverts Hv as Hl Hai. constructors. congruence.
-    introv Hi. forwards*: Hai i. }
+    inverts Hv as Hl Hai. constructors*. unfolds length. 
+    apply eq_nat_of_eq_int in H0. rewrite~ H0.
+    inverts_head typing_array.
+    { constructors. }
+    {  } }
   { (* val struct *)
     tests: (T = group_tr_struct_name gt); 
     inverts Hv as; inverts HC as; 
