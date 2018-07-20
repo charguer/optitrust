@@ -364,7 +364,36 @@ Proof.
             { introv Hl2. rew_reads~. intros. subst.
               rewrite HD in *. false*. } } } } } }
   { (* new_array *) 
-    admit. }
+    inverts_head uninitialized. 
+    inverts_head typing_array. subst. inverts HT.
+    exists φ[l:=(typ_array T1 None)].
+    splits.
+    { unfolds. splits.
+      { rew_set. introv Hx. unfolds phi.
+        rewrite dom_update. set_prove. }
+      { introv Hx. rew_reads~. intros. subst.
+        inverts HM as HD HM. rewrite <- HD in Hx.
+        false*. } }
+    { repeat constructors.
+      { unfolds phi. rewrite dom_update. set_prove. }
+      { rew_reads. constructors~. } }
+    { constructors.
+      { inverts HM as HD HM. 
+        unfolds phi. unfolds state. repeat rewrite dom_update.
+        rewrite~ HD. }
+      { introv Hl0. rew_reads; intros.
+        { apply typing_val_array with (os:=None) (T:=T1). 
+          { constructors~. }
+          { introv HN. inverts HN. }
+          { introv Hi. forwards Hu: H10 Hi.
+             forwards*: uninitialized_val_typ Hu. } }
+        { inverts HM as HD HM. unfolds state. rewrite dom_update in Hl0.
+          forwards: HM l0. 
+          { rew_set in Hl0. inverts* Hl0. }
+          { applys* extended_typing_val. unfolds. splits.
+            { unfolds phi. rewrite dom_update. set_prove. }
+            { introv Hl1. rew_reads~. intros. subst.
+              rewrite HD in *. false*. } } } } } }
   { (* struct_access *)
     subst. inverts HT as HTs Hfin HT. 
     exists φ. splits~.
