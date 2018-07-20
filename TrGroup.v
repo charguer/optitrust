@@ -526,7 +526,11 @@ Proof.
         { unfolds Ctx.fresh. unfolds. case_if*. admit. (*contradiction*) }
         { applys~ typing_array_typvar_neq.
           { admit. (* TODO: lemma needed here. *) }
-          { constructors*. admit. admit. (* TODO: Check this. *) } } } } 
+          { constructors*. 
+            { simpl in H. case_if*. 
+              { admit. (*contradiction*) }
+(*               { forwards (Td'&HTd'): tr_typdefctx_fresh_vars HC0 H. eapply HTd'. (* TODO: ?? *) } }  *)
+            { admit. } } } } } 
 
     { (* Not transformed typdefctx element *) 
       introv Hneq HC0. inverts Hok. simpls. case_if.
@@ -548,7 +552,7 @@ Proof.
               forwards* (w&Hw): tr_typdefctx_fresh_vars Tv. eauto. admit. (* TODO: I thought this would work. *) }
             { constructors~. } } } } } }
 Unshelve. typeclass.
-Qed.
+Qed.*)
 
 
 Lemma tr_uninitialized_val' : forall gt v v' T C C',
@@ -560,7 +564,8 @@ Proof using.
   introv HC Hv Hu. gen C' v'. induction Hu; intros;
   try solve [ inverts Hv ; constructors~ ].
   { (* val array *)
-    inverts Hv as Hl Hai. constructors*. unfolds length. 
+    inverts Hv as Hl Hai. constructors*. 
+    2 : { rewrite <- Hl. eauto. } unfolds length. 
     apply eq_nat_of_eq_int in H0. rewrite~ H0.
     inverts_head typing_array.
     { constructors. }

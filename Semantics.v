@@ -425,7 +425,7 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       l <> null ->
       l \notindom m1 ->
       n = k ->
-      uninitialized C (typ_array T (Some k)) (val_array  (typ_array T (Some k)) a) -> 
+      uninitialized C (typ_array T (Some k)) (val_array (typ_array T (Some k)) a) -> 
       m2 = m1[l := (val_array  (typ_array T None) a)] ->
       red C S m1 (trm_app (prim_new_array T) ((trm_val v1)::nil)) m2 vr
   | red_struct_access : forall l π S T f v1 m vr,

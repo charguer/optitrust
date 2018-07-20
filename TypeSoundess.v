@@ -451,6 +451,7 @@ Proof.
       { constructors. applys* extended_typing.
         constructors*. }
       { applys* extended_stack_typing. } } }
+Unshelve. typeclass.
 Qed.
 
 End TypeSoundness.
