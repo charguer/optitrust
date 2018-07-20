@@ -93,9 +93,11 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
         f \indom vfs ->
         typing_val C φ vfs[f] Tfs[f]) ->
       typing_val C φ (val_struct Ts vfs) Ts
-  | typing_val_array : forall Ta a T n,
-      typing_array C Ta T n ->
-      length a = n ->
+  | typing_val_array : forall Ta a T os,
+      typing_array C Ta T os ->
+      (forall n,
+        os = Some n ->
+        length a = n) ->
       (forall i, 
         index a i -> 
         typing_val C φ a[i] T) -> 
@@ -137,9 +139,9 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E (trm_app (prim_set T) (t1::t2::nil)) typ_unit
   | typing_new : forall E T, 
       typing E (trm_app (prim_new T) nil) (typ_ptr T)
-  | typing_new_array : forall E t1 T k, (* TODO: This is a problem. *)
+  | typing_new_array : forall E t1 T,
       typing E t1 typ_int ->
-      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T k))
+      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T None))
   | typing_struct_access : forall E Ts t1 Tfs f,
       typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
