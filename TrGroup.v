@@ -52,11 +52,8 @@ Notation make_group_tr' := make_group_tr.
 (** Checking if the transformation is acceptable *)
 
 Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
-  | group_tr_ok_intros : forall Tt fs fg Tfs Tg gt C,
+  | group_tr_ok_intros : forall Tt fs fg Tg gt C,
       gt = make_group_tr Tt fs Tg fg ->
-      Ctx.lookup Tt C = Some (typ_struct Tfs) ->
-      fs \c (dom Tfs) ->
-      fg \notindom Tfs ->
       Ctx.fresh Tg C ->
       group_tr_ok gt C.
 
@@ -480,6 +477,13 @@ Proof.
   { rewrite var_eq_spec in C0. rewrite istrue_isTrue_eq in C0. false. }
 Qed.
 
+Lemma ctx_lookup_var_neq_inv : forall A x2 w (C:Ctx.ctx A) x1 v,
+  x1 <> x2 ->
+  Ctx.lookup x1 ((x2, w)::C) = Some v ->
+  Ctx.lookup x1 C = Some v.
+Proof.
+Admitted.
+
 Lemma typing_array_typvar_neq : forall C Tv1 Td Tv2 T n,
   Ctx.fresh Tv1 C ->
   Tv1 <> Tv2 ->
@@ -490,6 +494,22 @@ Proof.
   { forwards* HTa': IHHTa Tv1 Td. tests: (Tv=Tv1).
     applys~ ctx_lookup_var_neq. }
 Qed.
+
+Lemma typing_array_typvar_neq_inv : forall C Tv1 Td Tv2 T n,
+  Ctx.fresh Tv1 C ->
+  Tv1 <> Tv2 ->
+  typing_array ((Tv1, Td)::C) (typ_var Tv2) T n ->
+  typing_array C (typ_var Tv2) T n.
+Proof.
+Admitted.
+
+Lemma typing_array_typvar_neq_inv_gen : forall C Tv1 Td Ta T n,
+  Ctx.fresh Tv1 C ->
+  Ta <> (typ_var Tv1) ->
+  typing_array ((Tv1, Td)::C) Ta T n ->
+  typing_array C Ta T n.
+Proof.
+Admitted.
 
 Lemma tr_typdefctx_fresh_vars : forall gt C Tv C' w,
   tr_typdefctx gt C C' ->
@@ -502,15 +522,65 @@ Proof.
   { simpls. case_if*. }
 Qed.
 
+Lemma typvar_freshness : forall gt C Tv C',
+  tr_typdefctx gt C C' ->
+  Tv <> group_tr_new_struct_name gt ->
+  Ctx.fresh Tv C ->
+  Ctx.fresh Tv C'.
+Proof.
+  introv HC Hneq Hfr. gen Tv. induction HC; intros.
+  { unfolds. unfolds. auto. }
+  { unfolds. subst. simpls. case_if*.
+    { admit. (*contradiction*) }
+    { case_if*.
+      { inverts Hfr. case_if*. }
+      { applys~ IHHC. inverts Hfr. case_if*. } } }
+  { unfolds. subst. simpls. case_if*.
+    { inverts Hfr. case_if*. }
+    { applys~ IHHC. inverts Hfr. case_if*. } }
+Qed.
+
 Lemma tr_arrays_inert : forall gt C C' Ta T n,
   typdefctx_wf C ->
   group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
+  Ta <> typ_var (group_tr_struct_name gt) ->
   typing_array C Ta T n ->
   typing_array C' Ta T n.
 Proof.
-  introv Hwf Hok HC HTa. gen gt C'. induction HTa; intros.
-  { (* Case typ_array *)
+  introv Hwf Hok HC Hneq HTa. gen Ta T n. induction HC; intros.
+  { inverts HTa; constructors*. }
+  { inverts HTa as; try solve [ constructors* ]. 
+    introv HCl HTa.
+    tests: (Tv=Tt); tests: (Tt=Tg).
+    { subst. inverts Hok. inverts H. simpls. case_if*. }
+    { subst. inverts Hok. inverts H. simpls. case_if*. }
+    { subst. inverts Hok. inverts H. inverts H0.
+      case_if*. admit. (*contradiction*) }
+    { subst. inverts Hok. inverts H.
+      tests: (Tv=Tg0). applys~ typing_array_typvar_neq.
+      { unfolds. simpls. case_if*. admit. (*contradiction*) }
+      { inverts Hwf. applys~ typing_array_typvar_neq.
+        { applys* typvar_freshness. }
+        { simpls. case_if*.
+          { admit. (*contradiction*) }
+          { applys~ IHHC.
+            { constructors*. unfolds Ctx.fresh. simpls. case_if*. }
+            { tests: (Td=typ_var Tt0).
+              { inverts HTa. simpls. case_if*. inverts H1. inverts H2. }
+              { forwards*: typing_array_typvar_neq_inv_gen C4 HTa.
+                constructors*. } } } } } } }
+  { tests: (Ta=typ_var Tv).
+    { tests: (Td=typ_var Tv).
+      { admit. (*should be a contradiction*) }
+      {   } }
+    { admit. (*should be ok*) } }
+Qed.
+
+
+
+
+(*  { (* Case typ_array *)
     constructors~. }
   { (* Case typ_var *)
     forwards* HTa': IHHTa. inverts HC as. 
@@ -526,11 +596,10 @@ Proof.
         { unfolds Ctx.fresh. unfolds. case_if*. admit. (*contradiction*) }
         { applys~ typing_array_typvar_neq.
           { admit. (* TODO: lemma needed here. *) }
-          { constructors*. 
-            { simpl in H. case_if*. 
-              { admit. (*contradiction*) }
-(*               { forwards (Td'&HTd'): tr_typdefctx_fresh_vars HC0 H. eapply HTd'. (* TODO: ?? *) } }  *)
-            { admit. } } } } } 
+          { simpl in H. case_if*. 
+            { admit. (*contradiction*) }
+            { forwards* (Td'&HTd'): tr_typdefctx_fresh_vars HC0 H. 
+              constructors*. inverts H0.  } } } }
 
     { (* Not transformed typdefctx element *) 
       introv Hneq HC0. inverts Hok. simpls. case_if.
@@ -550,7 +619,7 @@ Proof.
           { constructors.
             { unfolds. case_if. folds Ctx.lookup.
               forwards* (w&Hw): tr_typdefctx_fresh_vars Tv. eauto. admit. (* TODO: I thought this would work. *) }
-            { constructors~. } } } } } }
+            { constructors~. } } } } } }*)
 Unshelve. typeclass.
 Qed.*)
 
