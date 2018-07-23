@@ -540,6 +540,8 @@ Proof.
     { applys~ IHHC. inverts Hfr. case_if*. } }
 Qed.
 
+
+
 Lemma tr_arrays_inert : forall gt C C' Ta T n,
   typdefctx_wf C ->
   group_tr_ok gt C ->

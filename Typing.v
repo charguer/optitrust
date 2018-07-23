@@ -238,6 +238,47 @@ Proof.
     { rewrite var_eq_spec in C1. rewrite istrue_isTrue_eq in *. false. } }
 Qed.
 
+(* typvar appears in the type. *)
+Inductive typvar_in (C:typdefctx) (Tv:typvar) : typ -> Prop :=
+  | typvar_in_typvar_eq : forall Td,
+      Ctx.lookup Tv C = Some Td ->
+      typvar_in C Tv (typ_var Tv)
+  | typvar_in_typvar_other : forall Td Tv',
+      Tv <> Tv' ->
+      Ctx.lookup Tv' C = Some Td -> 
+      typvar_in C Tv Td ->
+      typvar_in C Tv (typ_var Tv')
+  | typvar_in_array : forall T os,
+      typvar_in C Tv T ->
+      typvar_in C Tv (typ_array T os)
+  | typvar_in_struct : forall Tfs,
+      (exists f,
+        f \indom Tfs /\
+        typvar_in C Tv Tfs[f]) ->
+      typvar_in C Tv (typ_struct Tfs).
+
+Lemma typdefinable_not_typvar_in : forall C Tv Td,
+  Ctx.fresh Tv C ->
+  typdefinable C Td ->
+  ~ typvar_in C Tv Td.
+Proof.
+  introv HTv HTd HN.
+  assert (exists Td', Ctx.lookup Tv C = Some Td').
+  { gen Tv. induction HTd; intros; try solve [ inverts* HN ].
+    { inverts HN. inverts H2 as (A&B). applys* H0. }
+    { inverts HN.
+      { exists~ Td. }
+      {  } } }
+Admitted.
+
+Lemma productive_typing : forall C Tv Td,
+  typdefctx_wf ((Tv,Td)::C) ->
+  ~ typvar_in C Tv Td.
+Proof.
+  introv HC. inverts HC. unfolds. intros.
+  forwards*: typdefinable_not_typvar_in.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Functional predicates *)
