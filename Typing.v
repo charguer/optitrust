@@ -239,44 +239,74 @@ Proof.
 Qed.
 
 (* typvar appears in the type. *)
-Inductive typvar_in (C:typdefctx) (Tv:typvar) : typ -> Prop :=
-  | typvar_in_typvar_eq : forall Td,
-      Ctx.lookup Tv C = Some Td ->
+Inductive typvar_in : typdefctx -> typvar -> typ -> Prop :=  
+  | typvar_in_typvar_eq : forall C Tv,
       typvar_in C Tv (typ_var Tv)
-  | typvar_in_typvar_other : forall Td Tv',
+  | typvar_in_typvar_other : forall C Tv Td Tv',
       Tv <> Tv' ->
       Ctx.lookup Tv' C = Some Td -> 
       typvar_in C Tv Td ->
       typvar_in C Tv (typ_var Tv')
-  | typvar_in_array : forall T os,
+  | typvar_in_ptr : forall C Tv T,
+      typvar_in C Tv T ->
+      typvar_in C Tv (typ_ptr T)
+  | typvar_in_array : forall C Tv T os,
       typvar_in C Tv T ->
       typvar_in C Tv (typ_array T os)
-  | typvar_in_struct : forall Tfs,
+  | typvar_in_struct : forall C Tv Tfs,
       (exists f,
         f \indom Tfs /\
         typvar_in C Tv Tfs[f]) ->
       typvar_in C Tv (typ_struct Tfs).
 
+Lemma no_direct_recursion : forall C Tv Td,
+  Ctx.fresh Tv C ->
+  typdefinable C Td ->
+  Td <> typ_var Tv.
+Proof.
+  intros. inverts H0; unfolds not; introv HN; inverts~ HN.
+  { false. }
+Qed.
+
 Lemma typdefinable_not_typvar_in : forall C Tv Td,
   Ctx.fresh Tv C ->
+  typdefctx_wf C ->
   typdefinable C Td ->
   ~ typvar_in C Tv Td.
 Proof.
-  introv HTv HTd HN.
-  assert (exists Td', Ctx.lookup Tv C = Some Td').
-  { gen Tv. induction HTd; intros; try solve [ inverts* HN ].
-    { inverts HN. inverts H2 as (A&B). applys* H0. }
-    { inverts HN.
-      { exists~ Td. }
-      {  } } }
+  introv HTv Hwf HTd HN.
+  induction HN; intros; try solve [ applys~ IHHN ; inverts* HTd ].
+  { inverts HTd. false. }
+  { applys~ IHHN. inverts HTd. admit. } admit.
 Admitted.
 
+Lemma typvar_in_growing_typdefctx : forall Tv2 Td2 C Tv1 Td1,
+  Tv1 <> Tv2 ->
+  typvar_in ((Tv2, Td2) :: C) Tv1 Td1 ->
+  typvar_in C Tv1 Td1.
+Proof.
+  introv Hneq HTv. gen Tv1 Tv2 Td2 C. 
+  induction Td1; intros; inverts HTv.
+  { constructors. applys* IHTd1. }
+  { constructors. applys* IHTd1. }
+  { constructors. admit. }
+  { constructors*. }
+  { simpls. case_if*. { admit. } { constructors*. } constructors*. }
+Qed.
+
 Lemma productive_typing : forall C Tv Td,
-  typdefctx_wf ((Tv,Td)::C) ->
+  Ctx.lookup Tv C = Some Td ->
+  typdefctx_wf C ->
   ~ typvar_in C Tv Td.
 Proof.
-  introv HC. inverts HC. unfolds. intros.
-  forwards*: typdefinable_not_typvar_in.
+  introv HCl HC HN. gen Tv Td. induction HC; intros.
+  { false. }
+  { simpls. case_if*. 
+    { inverts HCl. admit. }
+    { applys* IHHC. inverts HN; try solve [ constructors* ].
+      { simpls. case_if*. 
+        { inverts H2.  } 
+        {} constructors*. } } }
 Qed.
 
 
