@@ -55,7 +55,7 @@ Inductive typ : Type :=
   | typ_fun : list typ -> typ -> typ
   | typ_var : typvar -> typ.
 
-Definition typdefctx := Ctx.ctx typ.
+Definition typdefctx := map typvar typ.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -278,17 +278,17 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
 Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
   | typing_array_base : forall T os,
       typing_array C (typ_array T os) T os
-  | typing_array_typvar : forall Td Tv T os,
-      Ctx.lookup Tv C = Some Td ->
-      typing_array C Td T os ->
+  | typing_array_typvar : forall Tv T os,
+      Tv \indom C ->
+      typing_array C C[Tv] T os ->
       typing_array C (typ_var Tv) T os.
 
 Inductive typing_struct (C:typdefctx) : typ -> map field typ -> Prop :=
   | typing_struct_base : forall Tfs,
       typing_struct C (typ_struct Tfs) Tfs
-  | typing_struct_typvar : forall Td Tv Tfs,
-      Ctx.lookup Tv C = Some Td ->
-      typing_struct C Td Tfs ->
+  | typing_struct_typvar : forall Tv Tfs,
+      Tv \indom C ->
+      typing_struct C C[Tv] Tfs ->
       typing_struct C (typ_var Tv) Tfs.
 
 
