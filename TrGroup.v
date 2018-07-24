@@ -547,22 +547,34 @@ Qed.
 
 (*---------------------------------------*)
 
-Lemma tr_accesses_inj : forall gt π π1 π2,
+Lemma tr_accesses_inj : forall C gt π π1 π2,
+  group_tr_ok gt C ->
+  valid_accesses C π1 ->
+  valid_accesses C π2 ->
   tr_accesses gt π1 π ->
   tr_accesses gt π2 π ->
     π1 = π2.
 Proof.
-  introv Hπ1 Hπ2. gen π2. induction Hπ1; intros.
+  introv Hok Hva1 Hva2 Hπ1 Hπ2. gen C π2. induction Hπ1; intros.
   { inverts Hπ2. auto. }
-  { inverts Hπ2.
-    { fequals. applys~ IHHπ1. }
+  { inverts Hπ2; inverts Hva1; inverts Hva2.
+    { fequals. applys* IHHπ1. }
     { fequals. } }
-  { subst. inverts Hπ2.
-    { fequals. applys~ IHHπ1. }
-    { simpls. inverts H4.
-      { inverts H3. inverts H6; tryfalse. }
-      { simpls. inverts H6; tryfalse.
-        inverts H8; tryfalse. }
+  { subst. inverts Hπ2; inverts Hva1; inverts Hva2.
+    { fequals. applys* IHHπ1. }
+    { simpls. inverts Hok as Hgt. inverts Hgt.
+      inverts_head Logic.or; tryfalse. inverts H4.
+      { inverts H14. fequals. }
+      { inverts H8. inverts H12. false*. } } }
+  { inverts Hπ2; inverts Hva1; inverts Hva2.
+    { inverts Hok as Hgt. inverts Hgt. inverts H8.
+      subst. simpls. inverts_head Logic.or; tryfalse.
+      inverts H6. inverts Hπ1.
+      { inverts H7. inverts H15. inverts H19. inverts H3; fequals. }
+      { simpls. inverts H18.
+        { inverts H7. inverts H15. false*. }
+        { false*. } } }
+    { fequals. applys* IHHπ1. } }
 Qed.
 
 Lemma tr_val_inj : forall gt v v1 v2,
