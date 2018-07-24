@@ -34,7 +34,7 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC := TLCbuffer MyLibVar Bind Semantics Typing TypeSoundess TrGroup TrGroupFun TrTiling
+SRC := util/TLCbuffer util/MyLibVar util/Bind Language Typing Semantics TypeSoundess TrGroup TrGroupFun TrTiling
 
 
 # using the variable SRC_CUSTOM, one can modify the compilation targets and/or their order.
@@ -54,6 +54,6 @@ V := $(addprefix $(PWD)/,$(SRC:=.v))
 COQFLAGS:=-w -notation-overridden,-implicits-in-term,-redundant-canonical-projection,-several-object-files
 
 COQINCLUDE := \
-  -R $(TLC) TLC 
+  -R $(TLC) TLC -R $(PWD)/util util
 
 include $(TLC)/Makefile.coq

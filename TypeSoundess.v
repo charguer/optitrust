@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export TLCbuffer Semantics Typing LibSet LibMap.
+Require Export TLCbuffer Semantics Typing.
 
 
 (* ********************************************************************** *)

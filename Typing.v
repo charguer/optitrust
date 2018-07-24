@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export TLCbuffer Semantics LibSet LibMap.
+Require Export TLCbuffer Language.
 
 
 (* ********************************************************************** *)
@@ -40,6 +40,26 @@ Definition env_add_binding E z X :=
   match E with
   | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
   end.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Typing of arrays and structs *)
+
+Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
+  | typing_array_base : forall T os,
+      typing_array C (typ_array T os) T os
+  | typing_array_typvar : forall Tv T os,
+      Tv \indom C ->
+      typing_array C C[Tv] T os ->
+      typing_array C (typ_var Tv) T os.
+
+Inductive typing_struct (C:typdefctx) : typ -> map field typ -> Prop :=
+  | typing_struct_base : forall Tfs,
+      typing_struct C (typ_struct Tfs) Tfs
+  | typing_struct_typvar : forall Tv Tfs,
+      Tv \indom C ->
+      typing_struct C C[Tv] Tfs ->
+      typing_struct C (typ_var Tv) Tfs.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -263,4 +283,126 @@ Lemma read_phi_inj : forall C φ l π T1 T2,
 Proof.
   introv HR1 HR2. inverts HR1. inverts HR2.
   applys* functional_follow_typ.
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Validity of types *)
+
+Inductive valid_typ (C:typdefctx) : typ -> Prop :=
+  | valid_typ_unit :
+      valid_typ C typ_unit
+  | valid_typ_int :
+      valid_typ C typ_int
+  | valid_typ_double :
+      valid_typ C typ_double
+  | valid_typ_bool :
+      valid_typ C typ_bool
+  | valid_typ_ptr : forall T,
+      valid_typ C T ->
+      valid_typ C (typ_ptr T)
+  | valid_typ_array : forall T os,
+      valid_typ C T ->
+      valid_typ C (typ_array T os)
+  | valid_typ_struct : forall Tfs,
+      (forall f,
+        f \indom Tfs ->
+        valid_typ C Tfs[f]) ->
+      valid_typ C (typ_struct Tfs)
+  | valid_typ_var : forall Tv,
+      Tv \indom C ->
+      valid_typ C C[Tv] ->
+      valid_typ C (typ_var Tv).
+
+Definition valid_phi (C:typdefctx) (φ:phi) : Prop :=
+  forall l,
+    l \indom φ ->
+    valid_typ C φ[l].
+
+Inductive valid_accesses (C:typdefctx) : accesses -> Prop :=
+  | valid_accesses_nil :
+      valid_accesses C nil 
+  | valid_accesses_cons_array : forall T i π,
+      valid_typ C T ->
+      valid_accesses C π ->
+      valid_accesses C ((access_array T i)::π)
+  | valid_accesses_cons_field : forall T f π,
+      valid_typ C T ->
+      valid_accesses C π ->
+      valid_accesses C ((access_field T f)::π).
+
+
+(* Lemmas about the connection of validity and typing. *)
+
+Lemma valid_typing_array : forall T os C Ta,
+  typing_array C Ta T os ->
+  valid_typ C Ta ->
+  valid_typ C T.
+Proof.
+  introv HTa HT. induction HTa; inverts~ HT.
+Qed.
+
+Lemma valid_typing_struct : forall Tfs C Ts,
+  typing_struct C Ts Tfs ->
+  valid_typ C Ts ->
+  (forall f, 
+    f \indom Tfs ->
+    valid_typ C Tfs[f]).
+Proof.
+  introv HTs HT. induction HTs; inverts~ HT.
+Qed.
+
+Lemma valid_typing_array_inv : forall T os C Ta,
+  typing_array C Ta T os ->
+  valid_typ C T ->
+  valid_typ C Ta.
+Proof.
+  introv HTa HT. induction HTa; constructors~.
+Qed.
+
+Lemma valid_typing_struct_inv : forall Tfs C Ts,
+  typing_struct C Ts Tfs ->
+  (forall f, 
+    f \indom Tfs ->
+    valid_typ C Tfs[f]) ->
+  valid_typ C Ts.
+Proof.
+  introv HTs HT. induction HTs; constructors~.
+Qed.
+
+Lemma follow_typ_valid_accesses : forall T T' C π,
+  valid_typ C T ->
+  follow_typ C T π T' ->
+  valid_accesses C π .
+Proof.
+  introv HT HF. induction HF; constructors~.
+  { applys IHHF. applys* valid_typing_array. }
+  { applys IHHF. applys* valid_typing_struct. }
+Qed.
+
+Lemma follow_typ_valid_typ : forall T T' C π,
+  valid_typ C T ->
+  follow_typ C T π T' ->
+  valid_accesses C π  ->
+  valid_typ C T'.
+Proof.
+  introv HT HF Hva. induction HF.   
+  { auto. }
+  { inverts Hva. applys~ IHHF. applys* valid_typing_array. }
+  { inverts Hva. applys~ IHHF. applys* valid_typing_struct. }
+Qed.
+
+Lemma typing_valid_typ : forall φ v C T,
+  valid_phi C φ ->
+  typing_val C φ v T ->
+  valid_typ C T.
+Proof.
+  introv Hφ HT. induction HT; try solve [ constructors~ ].
+  { admit. (*uninitalised should only accept valid types*) }
+  { constructors. inverts H. 
+    applys* follow_typ_valid_typ.
+    applys* follow_typ_valid_accesses. }
+  { applys* valid_typing_struct_inv. 
+    introv Hfin. applys~ H2. rewrite~ <- H0. }
+  { admit. (*empty arrays can have unacceptable types*) }
 Qed.

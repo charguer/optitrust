@@ -429,123 +429,6 @@ Proof.
   subst; inverts HN. forwards~: Hu.
 Qed.
 
-(* TODO: Move this. *)
-Inductive valid_typ (C:typdefctx) : typ -> Prop :=
-  | valid_typ_unit :
-      valid_typ C typ_unit
-  | valid_typ_int :
-      valid_typ C typ_int
-  | valid_typ_double :
-      valid_typ C typ_double
-  | valid_typ_bool :
-      valid_typ C typ_bool
-  | valid_typ_ptr : forall T,
-      valid_typ C T ->
-      valid_typ C (typ_ptr T)
-  | valid_typ_array : forall T os,
-      valid_typ C T ->
-      valid_typ C (typ_array T os)
-  | valid_typ_struct : forall Tfs,
-      (forall f,
-        f \indom Tfs ->
-        valid_typ C Tfs[f]) ->
-      valid_typ C (typ_struct Tfs)
-  | valid_typ_var : forall Tv,
-      Tv \indom C ->
-      valid_typ C C[Tv] ->
-      valid_typ C (typ_var Tv).
-
-Definition valid_phi (C:typdefctx) (φ:phi) : Prop :=
-  forall l,
-    l \indom φ ->
-    valid_typ C φ[l].
-
-Inductive valid_accesses (C:typdefctx) : accesses -> Prop :=
-  | valid_accesses_nil :
-      valid_accesses C nil 
-  | valid_accesses_cons_array : forall T i π,
-      valid_typ C T ->
-      valid_accesses C π ->
-      valid_accesses C ((access_array T i)::π)
-  | valid_accesses_cons_field : forall T f π,
-      valid_typ C T ->
-      valid_accesses C π ->
-      valid_accesses C ((access_field T f)::π).
-
-Lemma valid_typing_array : forall T os C Ta,
-  typing_array C Ta T os ->
-  valid_typ C Ta ->
-  valid_typ C T.
-Proof.
-  introv HTa HT. induction HTa; inverts~ HT.
-Qed.
-
-Lemma valid_typing_struct : forall Tfs C Ts,
-  typing_struct C Ts Tfs ->
-  valid_typ C Ts ->
-  (forall f, 
-    f \indom Tfs ->
-    valid_typ C Tfs[f]).
-Proof.
-  introv HTs HT. induction HTs; inverts~ HT.
-Qed.
-
-Lemma valid_typing_array_inv : forall T os C Ta,
-  typing_array C Ta T os ->
-  valid_typ C T ->
-  valid_typ C Ta.
-Proof.
-  introv HTa HT. induction HTa; constructors~.
-Qed.
-
-Lemma valid_typing_struct_inv : forall Tfs C Ts,
-  typing_struct C Ts Tfs ->
-  (forall f, 
-    f \indom Tfs ->
-    valid_typ C Tfs[f]) ->
-  valid_typ C Ts.
-Proof.
-  introv HTs HT. induction HTs; constructors~.
-Qed.
-
-Lemma follow_typ_valid_accesses : forall T T' C π,
-  valid_typ C T ->
-  follow_typ C T π T' ->
-  valid_accesses C π .
-Proof.
-  introv HT HF. induction HF; constructors~.
-  { applys IHHF. applys* valid_typing_array. }
-  { applys IHHF. applys* valid_typing_struct. }
-Qed.
-
-Lemma follow_typ_valid_typ : forall T T' C π,
-  valid_typ C T ->
-  follow_typ C T π T' ->
-  valid_accesses C π  ->
-  valid_typ C T'.
-Proof.
-  introv HT HF Hva. induction HF.   
-  { auto. }
-  { inverts Hva. applys~ IHHF. applys* valid_typing_array. }
-  { inverts Hva. applys~ IHHF. applys* valid_typing_struct. }
-Qed.
-
-Lemma typing_valid_typ : forall φ v C T,
-  valid_phi C φ ->
-  typing_val C φ v T ->
-  valid_typ C T.
-Proof.
-  introv Hφ HT. induction HT; try solve [ constructors~ ].
-  { admit. (*uninitalised should only accept valid types*) }
-  { constructors. inverts H. 
-    applys* follow_typ_valid_typ.
-    applys* follow_typ_valid_accesses. }
-  { applys* valid_typing_struct_inv. 
-    introv Hfin. applys~ H2. rewrite~ <- H0. }
-  { admit. (*empty arrays can have unacceptable types*) }
-Qed.
-
-(*---------------------------------------*)
 
 Lemma tr_accesses_inj : forall C gt π π1 π2,
   group_tr_ok gt C ->
@@ -617,7 +500,7 @@ Lemma tr_val_inj : forall T1 T2 φ C gt v v1 v2,
   tr_val gt v2 v ->
   v1 = v2.
 Proof.
-  introv Hok Hφ HTv1 HTv2 Hv1 Hv2. gen C φ v2. induction Hv1; intros; 
+  introv Hok Hφ HTv1 HTv2 Hv1 Hv2. gen C φ v2 T1 T2. induction Hv1; intros; 
   inverts Hv2; repeat fequals*; subst; simpls; tryfalse*.
   { inverts HTv1 as HRφ1. inverts HTv2 as HRφ2. 
     inverts HRφ1. inverts HRφ2. 
@@ -626,28 +509,42 @@ Proof.
     forwards~: follow_typ_valid_accesses φ[l] T0 C π0.
     forwards~: Hφ l.
     applys* tr_accesses_inj. }
-  { applys* eq_of_extens. congruence. }
+  { applys* eq_of_extens. congruence. 
+    inverts HTv1. inverts HTv2. introv Hi.
+    applys* H1. }
   { applys* read_extens. 
     { inverts_head make_group_tr'. rewrite <- H3 in *.
       applys~ incl_eq (dom s) (dom s0) (dom sg).
       rewrite H2 in H14. admit. (*True but more set lemmas needed.*) }
-    { introv Hi. inverts_head make_group_tr'. 
+    { introv Hi. inverts HTv1. inverts HTv2.
+      inverts_head make_group_tr'. 
       rewrite H8 in H19. inverts H19. tests: (i \indom sg0).
-      { applys~ H5. }
-      { applys~ H7. applys~ H18. admit. (*More set lemmas needed*) } } }
-  { applys* read_extens. congruence.
-    introv Hi. applys~ H3. applys~ H10.
-    rewrite H9. rewrite~ <- H1. }
+      { applys* H5.
+        { applys~ H15. rewrite~ H10. }
+        { applys~ H21. admit. admit. (*Set lemmas*) } }
+      { applys* H7. 
+        { applys~ H18. admit. (*More set lemmas needed*) } 
+        { applys~ H15. rewrite~ H10. }
+        { applys~ H21. admit. admit. (*Set lemmas*) } } } }
+  { inverts HTv1. inverts HTv2. applys* read_extens. congruence.
+    introv Hi. applys* H3. 
+    { applys~ H10. admit. (*Some rewrites*) }
+    { applys~ H11. rewrite~ H6. }
+    { applys~ H14. admit. admit. (*Some rewrites*) } }
 Qed.
 
-Lemma tr_val_inj_cp : forall gt v1 v2 v1' v2',
+Lemma tr_val_inj_cp : forall C φ T1 T2 gt v1 v2 v1' v2',
+  group_tr_ok gt C ->
+  valid_phi C φ ->
+  typing_val C φ v1 T1 ->
+  typing_val C φ v2 T2 ->
   tr_val gt v1 v1' ->
   tr_val gt v2 v2' ->
   v1 <> v2 ->
   v1' <> v2'.
 Proof.
-  introv Hv1 Hv2 Hneq HN. subst. 
-  forwards: tr_val_inj Hv1 Hv2. false. 
+  introv Hok Hφ HTv1 HTv2 Hv1 Hv2 Hneq HN. subst. 
+  forwards*: tr_val_inj Hok Hφ HTv1 HTv2 Hv1.
 Qed.
 
 Lemma not_tr_val_error : forall gt v1 v2,
@@ -671,120 +568,6 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** uninitialized is coherent with the transformation *)
 
-Lemma ctx_lookup_var_neq : forall A x2 w (C:Ctx.ctx A) x1 v,
-  x1 <> x2 ->
-  Ctx.lookup x1 C = Some v ->
-  Ctx.lookup x1 ((x2, w)::C) = Some v.
-Proof.
-  introv Hneq HC. gen x2 w. induction HC; intros.
-  unfolds Ctx.lookup. case_if*. 
-  { rewrite var_eq_spec in C0. rewrite istrue_isTrue_eq in C0. false. }
-Qed.
-
-Lemma ctx_lookup_var_neq_inv : forall A x2 w (C:Ctx.ctx A) x1 v,
-  x1 <> x2 ->
-  Ctx.lookup x1 ((x2, w)::C) = Some v ->
-  Ctx.lookup x1 C = Some v.
-Proof.
-Admitted.
-
-Lemma typing_array_typvar_neq : forall C Tv1 Td Tv2 T n,
-  Ctx.fresh Tv1 C ->
-  Tv1 <> Tv2 ->
-  typing_array C (typ_var Tv2) T n ->
-  typing_array ((Tv1, Td)::C) (typ_var Tv2) T n.
-Proof.
-  introv Hfr Hneq HTa. gen Tv1 Td. induction HTa; constructors~.
-  { forwards* HTa': IHHTa Tv1 Td. tests: (Tv=Tv1).
-    applys~ ctx_lookup_var_neq. }
-Qed.
-
-Lemma typing_array_typvar_neq_inv : forall C Tv1 Td Tv2 T n,
-  Ctx.fresh Tv1 C ->
-  Tv1 <> Tv2 ->
-  typing_array ((Tv1, Td)::C) (typ_var Tv2) T n ->
-  typing_array C (typ_var Tv2) T n.
-Proof.
-Admitted.
-
-Lemma typing_array_typvar_neq_inv_gen : forall C Tv1 Td Ta T n,
-  Ctx.fresh Tv1 C ->
-  Ta <> (typ_var Tv1) ->
-  typing_array ((Tv1, Td)::C) Ta T n ->
-  typing_array C Ta T n.
-Proof.
-Admitted.
-
-Lemma tr_typdefctx_fresh_vars : forall gt C Tv C' w,
-  tr_typdefctx gt C C' ->
-  Ctx.lookup Tv C = Some w ->
-  (exists w', Ctx.lookup Tv C' = Some w').
-Proof.
-  introv HC HCl. gen w Tv. induction HC; intros.
-  { inverts HCl. }
-  { simpls. case_if*. case_if*. }
-  { simpls. case_if*. }
-Qed.
-
-Lemma typvar_freshness : forall gt C Tv C',
-  tr_typdefctx gt C C' ->
-  Tv <> group_tr_new_struct_name gt ->
-  Ctx.fresh Tv C ->
-  Ctx.fresh Tv C'.
-Proof.
-  introv HC Hneq Hfr. gen Tv. induction HC; intros.
-  { unfolds. unfolds. auto. }
-  { unfolds. subst. simpls. case_if*.
-    { admit. (*contradiction*) }
-    { case_if*.
-      { inverts Hfr. case_if*. }
-      { applys~ IHHC. inverts Hfr. case_if*. } } }
-  { unfolds. subst. simpls. case_if*.
-    { inverts Hfr. case_if*. }
-    { applys~ IHHC. inverts Hfr. case_if*. } }
-Qed.
-
-
-
-Lemma tr_arrays_inert : forall gt C C' Ta T n,
-  typdefctx_wf C ->
-  group_tr_ok gt C ->
-  tr_typdefctx gt C C' ->
-  Ta <> typ_var (group_tr_struct_name gt) ->
-  typing_array C Ta T n ->
-  typing_array C' Ta T n.
-Proof.
-  introv Hwf Hok HC Hneq HTa. gen Ta T n. induction HC; intros.
-  { inverts HTa; constructors*. }
-  { inverts HTa as; try solve [ constructors* ]. 
-    introv HCl HTa.
-    tests: (Tv=Tt); tests: (Tt=Tg).
-    { subst. inverts Hok. inverts H. simpls. case_if*. }
-    { subst. inverts Hok. inverts H. simpls. case_if*. }
-    { subst. inverts Hok. inverts H. inverts H0.
-      case_if*. admit. (*contradiction*) }
-    { subst. inverts Hok. inverts H.
-      tests: (Tv=Tg0). applys~ typing_array_typvar_neq.
-      { unfolds. simpls. case_if*. admit. (*contradiction*) }
-      { inverts Hwf. applys~ typing_array_typvar_neq.
-        { applys* typvar_freshness. }
-        { simpls. case_if*.
-          { admit. (*contradiction*) }
-          { applys~ IHHC.
-            { constructors*. unfolds Ctx.fresh. simpls. case_if*. }
-            { tests: (Td=typ_var Tt0).
-              { inverts HTa. simpls. case_if*. inverts H1. inverts H2. }
-              { forwards*: typing_array_typvar_neq_inv_gen C4 HTa.
-                constructors*. } } } } } } }
-  { tests: (Ta=typ_var Tv).
-    { tests: (Td=typ_var Tv).
-      { admit. (*should be a contradiction*) }
-      { admit.  } }
-    { admit. (*should be ok*) } }
-Qed.
-
-
-
 Lemma tr_uninitialized_val' : forall gt v v' T C C',
   tr_typdefctx gt C C' ->
   tr_val gt v v' ->
@@ -798,8 +581,14 @@ Proof using.
     2 : { rewrite <- Hl. eauto. }
     inverts_head typing_array.
     { constructors. }
-    { constructors. admit. admit. (* HERE APPLY LEMMAS *) } }
-  { (* val struct *)
+    { inverts HC. constructors. admit. tests: (Tv=Tt).
+      { inverts H4. 
+        { rewrite H6 in H12. inverts H12. }
+        { rewrite H6 in H. inverts H. } }
+      { rewrite~ H9. inverts H4.
+        { constructors. }
+        { admit. } } } }
+(*   { (* val struct *)
     tests: (T = group_tr_struct_name gt); 
     inverts Hv as; inverts HC as; 
     try solve [ intros ; simpls ; tryfalse ].
@@ -839,7 +628,7 @@ Proof using.
         { constructors~. }
         { applys~ Htrs'f. rewrite <- H1. rewrite~ <- HC'T. } } } }
 (* TODO: I had to add this because there were 'remaining goals on the shelf'. *)
-Unshelve. typeclass.
+Unshelve. typeclass. *) admit.
 Qed.
 
 (* This will be proved when the relation is translated to a function. 
@@ -852,10 +641,10 @@ Admitted.
 (* Lemma for the new case. *)
 Lemma tr_uninitialized_val : forall gt v T C C',
   tr_typdefctx gt C C' ->
-  uninitialized_val C T v ->
+  uninitialized C T v ->
   exists v',
         tr_val gt v v'
-    /\  uninitialized_val C' T v'.
+    /\  uninitialized C' T v'.
 Proof.
   introv HC Hu. forwards* (v'&Hv'): total_tr_val' gt v.
   exists v'. splits~. applys* tr_uninitialized_val'.
