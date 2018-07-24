@@ -192,122 +192,31 @@ Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop :=
 (* ---------------------------------------------------------------------- *)
 (** Typdefctx well-foundedness *)
 
-(* Types that can be defined in the typdefctx. *)
-
-Inductive typdefinable (C:typdefctx) : typ -> Prop :=
-  | typdefinable_int :
-      typdefinable C typ_int
-  | typdefinable_aux_double :
-      typdefinable C typ_double
-  | typdefinable_bool :
-      typdefinable C typ_bool
-  | typdefinable_prt : forall T,
-      typdefinable C T ->
-      typdefinable C (typ_ptr T)
-  | typdefinable_array_fixed : forall T k, 
-      typdefinable C T ->
-      typdefinable C (typ_array T k)
-  | typdefinable_struct : forall Tfs,
-       (forall f,
-        f \indom Tfs ->
-        typdefinable C Tfs[f]) ->
-      typdefinable C (typ_struct Tfs)
-  | typdefinable_typvar : forall T Tv,
-      Ctx.lookup Tv C = Some T ->
-      typdefinable C (typ_var Tv).
-
-Inductive typdefctx_wf : typdefctx -> Prop :=
-  | typdefctx_wf_nil :
-      typdefctx_wf nil
-  | typdefctx_wf_cons : forall Tv Td C,
-      Ctx.fresh Tv C ->
-      typdefinable C Td ->
-      typdefctx_wf C ->
-      typdefctx_wf ((Tv, Td)::C).
-
-Lemma typdefctx_lookup : forall C Tv Td1 Td2,
-  typdefctx_wf C ->
-  Ctx.lookup Tv C = Some Td1 ->
-  Ctx.lookup Tv C = Some Td2 ->
-  Td1 = Td2.
-Proof.
-  introv HC HTd1 HTd2. induction HC.
-  { inverts HTd1. }
-  { tests: (Tv=Tv0); inverts HTd1 as HTd1; inverts HTd2 as HTd2; case_if*.
-    { inverts HTd1. inverts HTd2. auto. }
-    { rewrite var_eq_spec in C1. rewrite istrue_isTrue_eq in *. false. } }
-Qed.
-
 (* typvar appears in the type. *)
-Inductive typvar_in : typdefctx -> typvar -> typ -> Prop :=  
-  | typvar_in_typvar_eq : forall C Tv,
-      typvar_in C Tv (typ_var Tv)
-  | typvar_in_typvar_other : forall C Tv Td Tv',
+Inductive free_typvar (C:typdefctx) (Tv:typvar) : typ -> Prop :=  
+  | free_typvar_typvar_eq :
+      free_typvar C Tv (typ_var Tv)
+  | free_typvar_typvar_other : forall Tv',
       Tv <> Tv' ->
-      Ctx.lookup Tv' C = Some Td -> 
-      typvar_in C Tv Td ->
-      typvar_in C Tv (typ_var Tv')
-  | typvar_in_ptr : forall C Tv T,
-      typvar_in C Tv T ->
-      typvar_in C Tv (typ_ptr T)
-  | typvar_in_array : forall C Tv T os,
-      typvar_in C Tv T ->
-      typvar_in C Tv (typ_array T os)
-  | typvar_in_struct : forall C Tv Tfs,
+      Tv' \indom C -> 
+      free_typvar C Tv C[Tv'] ->
+      free_typvar C Tv (typ_var Tv')
+  | free_typvar_ptr : forall T,
+      free_typvar C Tv T ->
+      free_typvar C Tv (typ_ptr T)
+  | free_typvar_array : forall T os,
+      free_typvar C Tv T ->
+      free_typvar C Tv (typ_array T os)
+  | free_typvar_struct : forall Tfs,
       (exists f,
         f \indom Tfs /\
-        typvar_in C Tv Tfs[f]) ->
-      typvar_in C Tv (typ_struct Tfs).
+        free_typvar C Tv Tfs[f]) ->
+      free_typvar C Tv (typ_struct Tfs).
 
-Lemma no_direct_recursion : forall C Tv Td,
-  Ctx.fresh Tv C ->
-  typdefinable C Td ->
-  Td <> typ_var Tv.
-Proof.
-  intros. inverts H0; unfolds not; introv HN; inverts~ HN.
-  { false. }
-Qed.
-
-Lemma typdefinable_not_typvar_in : forall C Tv Td,
-  Ctx.fresh Tv C ->
-  typdefctx_wf C ->
-  typdefinable C Td ->
-  ~ typvar_in C Tv Td.
-Proof.
-  introv HTv Hwf HTd HN.
-  induction HN; intros; try solve [ applys~ IHHN ; inverts* HTd ].
-  { inverts HTd. false. }
-  { applys~ IHHN. inverts HTd. admit. } admit.
-Admitted.
-
-Lemma typvar_in_growing_typdefctx : forall Tv2 Td2 C Tv1 Td1,
-  Tv1 <> Tv2 ->
-  typvar_in ((Tv2, Td2) :: C) Tv1 Td1 ->
-  typvar_in C Tv1 Td1.
-Proof.
-  introv Hneq HTv. gen Tv1 Tv2 Td2 C. 
-  induction Td1; intros; inverts HTv.
-  { constructors. applys* IHTd1. }
-  { constructors. applys* IHTd1. }
-  { constructors. admit. }
-  { constructors*. }
-  { simpls. case_if*. { admit. } { constructors*. } constructors*. }
-Qed.
-
-Lemma productive_typing : forall C Tv Td,
-  Ctx.lookup Tv C = Some Td ->
-  typdefctx_wf C ->
-  ~ typvar_in C Tv Td.
-Proof.
-  introv HCl HC HN. gen Tv Td. induction HC; intros.
-  { false. }
-  { simpls. case_if*. 
-    { inverts HCl. admit. }
-    { applys* IHHC. inverts HN; try solve [ constructors* ].
-      { simpls. case_if*. 
-        { inverts H2.  } 
-        {} constructors*. } } }
-Qed.
+Definition wf_typdefctx (C:typdefctx) : Prop :=
+  forall Tv,
+    Tv \indom C ->
+    ~ free_typvar C Tv C[Tv].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -315,36 +224,29 @@ Qed.
 
 (* Inferring array types is functional *)
 Lemma functional_typing_array : forall C Ta T1 T2 k1 k2,
-  typdefctx_wf C ->
   typing_array C Ta T1 k1 ->
   typing_array C Ta T2 k2 ->
   T1 = T2 /\ k1 = k2.
 Proof.
-  introv HC HTa1 HTa2. induction HTa1; inverts* HTa2.
-  forwards*: typdefctx_lookup C Tv Td Td0. subst.
-  applys~ IHHTa1.
+  introv HTa1 HTa2. induction HTa1; inverts* HTa2.
 Qed.
 
 (* Inferring struct types is functional *)
 Lemma functional_typing_struct : forall C Ts Tfs1 Tfs2,
-  typdefctx_wf C ->
   typing_struct C Ts Tfs1 ->
   typing_struct C Ts Tfs2 ->
   Tfs1 = Tfs2.
 Proof.
-  introv HC HTs1 HTs2. induction HTs1; inverts* HTs2.
-  forwards*: typdefctx_lookup C Tv Td Td0. subst.
-  applys~ IHHTs1.
+  introv HTs1 HTs2. induction HTs1; inverts* HTs2.
 Qed.
 
 (* Types are well-formed *)
 Lemma functional_follow_typ : forall C T π T1 T2,
-  typdefctx_wf C ->
   follow_typ C T π T1 ->
   follow_typ C T π T2 ->
   T1 = T2.
 Proof.
-  introv HC HF1 HF2. induction HF1.
+  introv HF1 HF2. induction HF1.
   { inverts* HF2. }
   { inverts HF2 as HTa. applys* IHHF1. 
     forwards* (HT&Hos): functional_typing_array H HTa. subst~. }
@@ -354,11 +256,10 @@ Qed.
 
 (* φ is well-formed *)
 Lemma read_phi_inj : forall C φ l π T1 T2,
-  typdefctx_wf C ->
   read_phi C φ l π T1 ->
   read_phi C φ l π T2 ->
   T1 = T2.
 Proof.
-  introv HC H1 H2. inverts H1. inverts H2.
+  introv HR1 HR2. inverts HR1. inverts HR2.
   applys* functional_follow_typ.
 Qed.
