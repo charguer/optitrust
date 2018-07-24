@@ -429,6 +429,90 @@ Proof.
   subst; inverts HN. forwards~: Hu.
 Qed.
 
+(* TODO: Move this. *)
+Inductive valid_typ (C:typdefctx) : typ -> Prop :=
+  | valid_typ_unit :
+      valid_typ C typ_unit
+  | valid_typ_int :
+      valid_typ C typ_int
+  | valid_typ_double :
+      valid_typ C typ_double
+  | valid_typ_ptr : forall T,
+      valid_typ C T ->
+      valid_typ C (typ_ptr T)
+  | valid_typ_array : forall T os,
+      valid_typ C T ->
+      valid_typ C (typ_array T os)
+  | valid_typ_struct : forall Tfs,
+      (forall f,
+        f \indom Tfs ->
+        valid_typ C Tfs[f]) ->
+      valid_typ C (typ_struct Tfs)
+  | valid_typ_var : forall Tv,
+      Tv \indom C ->
+      valid_typ C C[Tv] ->
+      valid_typ C (typ_var Tv).
+
+Inductive valid_accesses (C:typdefctx) : accesses -> Prop :=
+  | valid_accesses_nil :
+      valid_accesses C nil 
+  | valid_accesses_cons_array : forall T i π,
+      valid_typ C T ->
+      valid_accesses C π ->
+      valid_accesses C ((access_array T i)::π)
+  | valid_accesses_cons_field : forall T f π,
+      valid_typ C T ->
+      valid_accesses C π ->
+      valid_accesses C ((access_field T f)::π).
+
+Lemma valid_typing_array : forall T os C Ta,
+  valid_typ C Ta ->
+  typing_array C Ta T os ->
+  valid_typ C T.
+Proof.
+  introv HT HTa. induction HTa; inverts~ HT.
+Qed.
+
+Lemma valid_typing_struct : forall Tfs C Ts,
+  valid_typ C Ts ->
+  typing_struct C Ts Tfs ->
+  (forall f, 
+    f \indom Tfs ->
+    valid_typ C Tfs[f]).
+Proof.
+  introv HT HTs. induction HTs; inverts~ HT.
+Qed.
+
+Lemma follow_typ_valid_accesses : forall T T' C π,
+  valid_typ C T ->
+  follow_typ C T π T' ->
+  valid_accesses C π.
+Proof.
+  introv HT HF. induction HF; constructors~.
+  { applys IHHF. applys* valid_typing_array. }
+  { applys IHHF. applys* valid_typing_struct. }
+Qed.
+
+(*---------------------------------------*)
+
+Lemma tr_accesses_inj : forall gt π π1 π2,
+  tr_accesses gt π1 π ->
+  tr_accesses gt π2 π ->
+    π1 = π2.
+Proof.
+  introv Hπ1 Hπ2. gen π2. induction Hπ1; intros.
+  { inverts Hπ2. auto. }
+  { inverts Hπ2.
+    { fequals. applys~ IHHπ1. }
+    { fequals. } }
+  { subst. inverts Hπ2.
+    { fequals. applys~ IHHπ1. }
+    { simpls. inverts H4.
+      { inverts H3. inverts H6; tryfalse. }
+      { simpls. inverts H6; tryfalse.
+        inverts H8; tryfalse. }
+Qed.
+
 Lemma tr_val_inj : forall gt v v1 v2,
   tr_val gt v1 v ->
   tr_val gt v2 v ->
@@ -441,7 +525,9 @@ Proof.
   { applys* read_extens. 
     { admit. }
     { admit. } }
-  { applys* read_extens. congruence. admit. (*Here I'll need productive typing*) }
+  { applys* read_extens. congruence.
+    introv Hi. applys~ H3. applys~ H10.
+    rewrite H9. rewrite~ <- H1. }
 Qed.
 
 Lemma tr_val_inj_cp : forall gt v1 v2 v1' v2',

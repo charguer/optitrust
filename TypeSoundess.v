@@ -47,7 +47,7 @@ Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
 Proof.
   introv HT HF HR. gen π. induction HT; intros;
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
-  { inverts HF as; inverts* HR as. introv Hfin HR HTs HF. 
+  { inverts HF as; inverts* HR as. introv Hfin HR HTs Hfin' HF. 
     rewrite H0 in *. forwards*: functional_typing_struct H HTs.
     applys* H2. subst~. }
   { inverts HF as; inverts* HR as. introv Hi HR HTa HF.

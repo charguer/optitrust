@@ -56,6 +56,7 @@ Inductive follow_typ (C:typdefctx) : typ -> accesses -> typ -> Prop :=
       follow_typ C Ta ((access_array Ta i)::π) Tr
   | follow_typ_struct : forall Ts Tfs f π Tr,
       typing_struct C Ts Tfs ->
+      f \indom Tfs ->
       follow_typ C Tfs[f] π Tr ->
       follow_typ C Ts ((access_field Ts f)::π) Tr.
 
