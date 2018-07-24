@@ -404,5 +404,6 @@ Proof.
     applys* follow_typ_valid_accesses. }
   { applys* valid_typing_struct_inv. 
     introv Hfin. applys~ H2. rewrite~ <- H0. }
-  { admit. (*empty arrays can have unacceptable types*) }
+  { applys* valid_typing_array_inv.
+    admit. (*empty arrays can have unacceptable types*) }
 Qed.
