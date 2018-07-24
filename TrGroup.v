@@ -577,18 +577,64 @@ Proof.
     { fequals. applys* IHHπ1. } }
 Qed.
 
-Lemma tr_val_inj : forall gt v v1 v2,
+(* TODO: Set lemmas *)
+Lemma subset_union_eq : forall A (S1 S2:set A),
+  S1 \c S2 ->
+  S2 = (S2 \- S1) \u S1.
+Proof.
+  intros. rew_set in *. intuition.
+  { rew_set. tests: (x \in S1).
+    { right~. }
+    { left~. } }
+  { rew_set in *. inverts H0.
+    { inverts~ H1. }
+    { applys~ H. } }
+Qed.
+
+Lemma incl_eq : forall A (S1 S2 S:set A),
+  S \c S1 ->
+  S \c S2 ->
+  (S1 \- S) = (S2 \- S) ->
+  S1 = S2.
+Proof.
+  intros. 
+  asserts_rewrite (S1 = (S1 \- S) \u S). 
+  { applys~ subset_union_eq. }
+  asserts_rewrite (S2 = (S2 \- S) \u S). 
+  { applys~ subset_union_eq. }
+  rew_set. intuition.
+  { rewrite~ <- H1. }
+  { rewrite~ H1. }
+Qed.
+(* ------------- *)
+
+Lemma tr_val_inj : forall T1 T2 φ C gt v v1 v2,
+  group_tr_ok gt C ->
+  valid_phi C φ ->
+  typing_val C φ v1 T1 ->
+  typing_val C φ v2 T2 ->
   tr_val gt v1 v ->
   tr_val gt v2 v ->
   v1 = v2.
 Proof.
-  introv Hv1 Hv2. gen v2. induction Hv1; intros; 
-  inverts Hv2; repeat fequals*; subst; simpls; tryfalse*. 
-  { admit. }
+  introv Hok Hφ HTv1 HTv2 Hv1 Hv2. gen C φ v2. induction Hv1; intros; 
+  inverts Hv2; repeat fequals*; subst; simpls; tryfalse*.
+  { inverts HTv1 as HRφ1. inverts HTv2 as HRφ2. 
+    inverts HRφ1. inverts HRφ2. 
+    unfolds valid_phi.
+    forwards~: follow_typ_valid_accesses φ[l] T C π.
+    forwards~: follow_typ_valid_accesses φ[l] T0 C π0.
+    forwards~: Hφ l.
+    applys* tr_accesses_inj. }
   { applys* eq_of_extens. congruence. }
   { applys* read_extens. 
-    { admit. }
-    { admit. } }
+    { inverts_head make_group_tr'. rewrite <- H3 in *.
+      applys~ incl_eq (dom s) (dom s0) (dom sg).
+      rewrite H2 in H14. admit. (*True but more set lemmas needed.*) }
+    { introv Hi. inverts_head make_group_tr'. 
+      rewrite H8 in H19. inverts H19. tests: (i \indom sg0).
+      { applys~ H5. }
+      { applys~ H7. applys~ H18. admit. (*More set lemmas needed*) } } }
   { applys* read_extens. congruence.
     introv Hi. applys~ H3. applys~ H10.
     rewrite H9. rewrite~ <- H1. }
