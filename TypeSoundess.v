@@ -40,47 +40,44 @@ Qed.
 (** Auxiliary lemma for typing preservation of [get] *)
 
 Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
-  typdefctx_wf C ->
   typing_val C φ w1 T1 ->
   follow_typ C T1 π T2 ->
   read_accesses w1 π w2 ->
   typing_val C φ w2 T2.
 Proof.
-  introv HC HT HF HR. gen π. induction HT; intros;
+  introv HT HF HR. gen π. induction HT; intros;
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
   { inverts HF as; inverts* HR as. introv Hfin HR HTs HF. 
-    rewrite H0 in *. forwards*: functional_typing_struct HC H HTs.
+    rewrite H0 in *. forwards*: functional_typing_struct H HTs.
     applys* H2. subst~. }
   { inverts HF as; inverts* HR as. introv Hi HR HTa HF.
-    forwards* (HT&Hos): functional_typing_array HC H HTa.
+    forwards* (HT&Hos): functional_typing_array H HTa.
     applys* H2. subst~. }
 Qed.
 
 (** Lemma for typing preservation of [get] *)
 
 Lemma typing_val_get : forall m l π C φ w T,
-  typdefctx_wf C ->
   state_typing C φ m ->
   read_state m l π w ->
   read_phi C φ l π T ->
   typing_val C φ w T.
 Proof.
-  introv HC (HD&HT) HS HP. inverts HS as Hlin HR.
+  introv (HD&HT) HS HP. inverts HS as Hlin HR.
   inverts HP as Hlin' HF. forwards~ HTl: HT l.
-  applys* typing_val_follow HC HTl HF HR.
+  applys* typing_val_follow HTl HF HR.
 Qed.
 
 (** Auxiliary lemma for typing preservation of [set] *)
 
 Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
-  typdefctx_wf C ->
   write_accesses v1 π w v2 ->
   typing_val C φ v1 T1 ->
   follow_typ C T1 π T2 ->
   typing_val C φ w T2 ->
   typing_val C φ v2 T1.
 Proof.
-  introv HC HW HT1 HF HT2. gen T1. induction HW; intros.
+  introv HW HT1 HF HT2. gen T1. induction HW; intros.
   { subst. inverts* HF. }
   { inverts HF. inverts HT1. subst. constructors*. 
     { rewrite* length_update. }
@@ -100,14 +97,13 @@ Qed.
 (** Lemma for typing preservation of [set] *)
 
 Lemma state_typing_set : forall T m1 l π v C φ m2,
-  typdefctx_wf C ->
   state_typing C φ m1 ->
   write_state m1 l π v m2 ->
   typing_val C φ (val_abstract_ptr l π) (typ_ptr T) ->
   typing_val C φ v T ->
   state_typing C φ m2.
 Proof.
-  introv HC HS HW HTp HTv. 
+  introv HS HW HTp HTv. 
   inverts HS as HD HT. 
   inverts HW as Hv1 HWA.   
   inverts HTp as HP. 
@@ -156,7 +152,6 @@ Qed.
 (** Type preservation proof without changing φ *)
 
 Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
-  typdefctx_wf C ->
   red C S m t m' v -> 
   ~ is_error v ->
   typing (make_env C φ Γ) t T ->
@@ -165,7 +160,7 @@ Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
         typing_val C φ v T
     /\  state_typing C φ m'.
 Proof.
-  introv HC R He. gen φ T Γ. induction R; introv HT HM HS;
+  introv R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ]. 
   { (* val *)
     inverts* HT. }
@@ -215,7 +210,7 @@ Proof.
     splits~.
     inverts HT as HT. simpls.
     inverts HT as HTs0 HD HT.
-    forwards*: functional_typing_struct HC HTs HTs0.
+    forwards*: functional_typing_struct HTs HTs0.
     subst.
     applys~ HT. }
   { (* array_get *) 
@@ -223,7 +218,7 @@ Proof.
     splits~.
     inverts HT as HT. simpls.
     inverts HT as HTa0 Hl HT.
-    forwards* (HTeq&Hos): functional_typing_array HC HTa HTa0.
+    forwards* (HTeq&Hos): functional_typing_array HTa HTa0.
     subst.
     applys~ HT. }
   { (* app 1 *) 
@@ -297,7 +292,6 @@ Qed.
 (** Type preservation proof *)
 
 Theorem type_soundess : forall C φ m t v T Γ S m',
-  typdefctx_wf C ->
   red C S m t m' v ->
   ~ is_error v ->
   typing (make_env C φ Γ) t T ->
@@ -308,7 +302,7 @@ Theorem type_soundess : forall C φ m t v T Γ S m',
     /\  typing_val C φ' v T
     /\  state_typing C φ' m'.
 Proof.
-  introv HC R He. gen φ T Γ. induction R; introv HT HM HS;
+  introv R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ]. 
   { (* val *)
     exists φ. inverts* HT. splits~. applys~ refl_extends. }
@@ -418,7 +412,7 @@ Proof.
     { applys~ refl_extends. }
     { inverts HT as HT. simpls.
       inverts HT as HTs' HD HT.
-      forwards*: functional_typing_struct Tfs Tfs0.
+      forwards*: functional_typing_struct HTs HTs'.
       subst. applys~ HT. } }
   { (* array_get *)
     subst. inverts HT as HTa HT HTi.
