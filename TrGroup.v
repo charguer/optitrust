@@ -83,6 +83,7 @@ Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
         T <> Tt ->
         C'[T] = C[T]) ->
       dom Tfs' = (dom Tfs \- fs) \u \{fg} ->
+      Tfs'[fg] = typ_var Tg ->
       (forall f,
         f \indom Tfs ->
         f \notin fs ->
@@ -574,23 +575,20 @@ Qed.
 
 Lemma tr_typing_array : forall gt C C' Ta T os,
   tr_typdefctx gt C C' ->
-  (*group_tr_ok gt C ->*)
   typing_array C Ta T os ->
   typing_array C' Ta T os.
 Proof.
-  introv HC (*Hok*) HTa. gen gt C'. induction HTa; intros;
+  introv HC HTa. gen gt C'. induction HTa; intros;
   try solve [ inverts~ HTa ].
   { constructors~. }
-  { inverts HC as HD HCTt HC'Tt HC'Tg HC'T HTfs'f HDTfs' HTfs''f. 
-    (*inverts Hok as Hgt HTt0 HCTt0 HTg0 Hfs Hfg0. inverts Hgt.*)
-    tests: (Tv=Tt0).
+  { inverts HC as HD HCTt HC'Tt HC'Tg HC'T HTfs'f HDTfs' HTfs''f.
+    tests: (Tv=Tt).
     { inverts HTa as.
       { introv HTa. rewrite HCTt in HTa. inverts HTa. }
       { introv HDC HTa HTv. rewrite HCTt in HTv. inverts HTv. } }
     { constructors~.
       { rewrite HD. rew_set~. }
-      { rewrite~ HC'T. (*rewrite HCTt in HCTt0. inverts HCTt0.*) 
-        applys* IHHTa. 2: { constructors*. } constructors*. } } }
+      { rewrite~ HC'T. applys* IHHTa. constructors*. } } }
 Qed.
 
 Lemma tr_uninitialized_val' : forall gt v v' T C C',
@@ -604,36 +602,28 @@ Proof using.
   { (* val array *)
     inverts Hv as Hl Hai. constructors*.
     2: { rewrite* <- Hl. }
-    a }
-(*   { (* val struct *)
-    tests: (T = group_tr_struct_name gt); 
+    applys* tr_typing_array. }
+  { (* val struct *)
     inverts Hv as; inverts HC as; 
     try solve [ intros ; simpls ; tryfalse ].
     { (* fields grouped *)
-      introv HTtD HTgD HDC' HDCT HDCTt HfgD HCTtf HDC'Tt HC'Ttfg HC'Tgf.
-      introv HDvfs Hmg Hfg0 HDs' Htrsg Htrs' Hs'fg0. 
-      constructors~; unfolds typdefctx; unfolds typdef_struct.
-      { rewrite HDC'. rew_set~. }
-      { inverts Hmg. simpls. congruence. }
-      { inverts Hmg. simpls. introv Hi. subst.
-        tests: (f = fg0).
-        { rewrite HC'Ttfg. rewrite Hs'fg0. constructors~. 
-          { rewrite HDC' at 1. rew_set~. }
-          { introv Hi'. rewrite~ HC'Tgf. forwards~: H3 f C' sg[f].
-            { rew_set in *. applys~ HDCTt. }
-            { constructors~. }
-            { applys~ Htrsg. rewrite~ <- H5. } } }
-        { forwards~: H3 f C' (s'[f]).
-          { rewrite HDC'Tt in Hi; rew_set in *. 
-            inverts Hi as (Hin&Hnin); eauto. }
-          { constructors~. }
-          { applys~ Htrs'; rewrite HDC'Tt in Hi; rew_set in Hi.
-            { inverts Hi as (Hin&Hnin); tryfalse.
-              rewrite~ <- H5. }
-            { inverts Hi as (Hin&Hnin); tryfalse. 
-              rewrite~ <- H1. } }
-          { rewrite~ HCTtf; rewrite HDC'Tt in Hi; rew_set in Hi;
-            inverts Hi as (Hin&Hnin); tryfalse; auto. } } } }
+      introv Hgt HDC' HCTt0 HC'Tt0 HC'Tg0 HC'T HTfs'f HDTfs'. 
+      introv HTfs''f HDsg Hfg HDs' Htrsgf Htrs'f Hs'fg. 
+      inverts Hgt as HDTfs''. 
+      constructors; unfolds typdefctx. 
+      2:{ rewrite HDTfs'. rewrite HDs'. rewrite HDTfs''. 
+        inverts H as HTt0 HTs. inverts HTs as.
+        { introv HTfs. asserts Heq: (typ_struct Tfs = typ_struct Tfs0).
+          { rewrite HTfs. rewrite <- HCTt0. auto. } inverts Heq. rewrite~ <- H0. }
+        { introv HTv HTs HN. asserts HN': (typ_var Tv = typ_struct Tfs0).
+          { rewrite HN. rewrite <- HCTt0. auto. } inverts HN'. } } 
+      { constructors~.
+        { admit. (*TODO: rewrite HDC'. rew_set~.*) }
+        { admit. (*TODO: rewrite HC'Tt0. constructors*.*) } }
+      { introv Hfin. rewrite HDTfs' in Hfin. rew_set in Hfin. 
+        inverts Hfin as Hfin.
+        { inverts Hfin as Hfin Hfnin. admit. }
+        { rewrite Hs'fg. rewrite HTfs'f. } } }
     { (* other struct *)
       introv HTtD HTgD HDC' HC'T HDC'Tg HfgD HC'Tt HDC'Tt HC'Ttfg HC'Tgf. 
       introv Hneq HDvfs Htrs'f.
@@ -644,8 +634,7 @@ Proof using.
         { rewrite~ <- HC'T. }
         { constructors~. }
         { applys~ Htrs'f. rewrite <- H1. rewrite~ <- HC'T. } } } }
-(* TODO: I had to add this because there were 'remaining goals on the shelf'. *)
-Unshelve. typeclass. *) admit.
+Unshelve. typeclass.
 Qed.
 
 (* This will be proved when the relation is translated to a function. 
