@@ -59,6 +59,10 @@ Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
       Tg \notindom C ->
       fs \c dom Tfs ->
       fg \notindom Tfs ->
+      (forall Tv,
+        Tv \indom C ->
+        Tv <> Tt ->
+        ~ free_typvar C Tt C[Tv]) ->
       group_tr_ok gt C.
 
 
@@ -452,15 +456,15 @@ Proof.
     { fequals. applys* IHHπ1. }
     { simpls. inverts Hok as Hgt. inverts Hgt.
       inverts_head Logic.or; tryfalse. inverts H4.
-      { inverts H14. fequals. }
-      { inverts H8. inverts H12. false*. } } }
+      { inverts_head make_group_tr'. fequals. }
+      { inverts H8. inverts H13. false*. } } }
   { inverts Hπ2; inverts Hva1; inverts Hva2.
     { inverts Hok as Hgt. inverts Hgt. inverts H8.
       subst. simpls. inverts_head Logic.or; tryfalse.
       inverts H6. inverts Hπ1.
-      { inverts H7. inverts H15. inverts H19. inverts H3; fequals. }
-      { simpls. inverts H18.
-        { inverts H7. inverts H15. false*. }
+      { inverts H7. inverts_head make_group_tr'. inverts H18. inverts H3; fequals. }
+      { simpls. inverts_head Logic.or.
+        { inverts H7. inverts H16. false*. }
         { false*. } } }
     { fequals. applys* IHHπ1. } }
 Qed.
@@ -591,13 +595,35 @@ Proof.
       { rewrite~ HC'T. applys* IHHTa. constructors*. } } }
 Qed.
 
-Lemma tr_uninitialized_val' : forall gt v v' T C C',
+Lemma tr_typing_struct : forall Tt fg Tg fs C C' Ts Tfs,
+  tr_typdefctx (make_group_tr Tt fs Tg fg) C C' ->
+  wf_typdefctx C ->
+  ~ free_typvar C Tt Ts ->
+  typing_struct C Ts Tfs ->
+  typing_struct C' Ts Tfs.
+Proof.
+  introv HC Hwf Hfv HTs. gen Tt fg Tg fs. induction HTs; intros.
+  { constructors~. }
+  { inverts HC as.
+    introv Hgt HDC' HCTt HC'Tt HC'Tg HC'T HDTfs' HTfs'fg HTfs'f HTfs''f.
+    simpls. constructors~.
+    { rewrite HDC'. rew_set~. }
+    { inverts_head make_group_tr'. tests: (Tv=Tt0).
+      { false. applys Hfv. constructors~. }
+      { rewrite~ HC'T. applys IHHTs.
+        { introv HN. applys Hfv. constructors~. eapply HN. }
+        { constructors*. } } } }
+Qed.
+
+Lemma tr_uninitialized_val_aux : forall gt v v' T C C',
   tr_typdefctx gt C C' ->
+  group_tr_ok gt C ->
+  wf_typdefctx C ->
   tr_val gt v v' ->
   uninitialized C T v ->
   uninitialized C' T v'.
 Proof using.
-  introv HC Hv Hu. gen gt C' v'. induction Hu; intros;
+  introv HC Hok Hwf Hv Hu. gen gt C' v'. induction Hu; intros;
   try solve [ inverts Hv ; constructors~ ].
   { (* val array *)
     inverts Hv as Hl Hai. constructors*.
@@ -631,25 +657,34 @@ Proof using.
             { introv HTfs. rewrite HCTt0 in HTfs at 1. inverts HTfs.
               rewrite~ HTfs''f. rewrite <- HDTfs'' in Hfin. applys~ H2.
               { rewrite <- H0 in HDsg. rew_set in *. applys~ HDsg. }
+              { exact Hok. }
               { rewrite HDTfs''. constructors*. } }
             { introv HDTv HTs HTv. rewrite HCTt0 in HTv at 1. 
               inverts HTv. } } } } }
     { (* other struct *)
-      introv HTtD HTgD HDC' HC'T HDC'Tg HfgD HC'Tt HDC'Tt HC'Ttfg HC'Tgf. 
+      introv HDC' HCTt HC'Tt HC'Tg HC'T HDTfs' HTfs'fg HTfs'f HTfs''f. 
       introv Hneq HDvfs Htrs'f.
-      constructors~; unfolds typdefctx; unfolds typdef_struct.
-      { rewrite HDC'. rew_set~. }
-      { simpls. rewrite~ HC'T. congruence. }
-      { introv Hi. rewrite~ HC'T. subst. forwards~: H3 f C' (s'[f]).
-        { rewrite~ <- HC'T. }
-        { constructors~. }
-        { applys~ Htrs'f. rewrite <- H1. rewrite~ <- HC'T. } } } }
-Unshelve. typeclass.
+      constructors~; unfolds typdefctx.
+      2:{ rewrite H0. rewrite~ <- HDvfs. }
+      { inverts H.
+        { constructors*. }
+        { simpls. applys* tr_typing_struct. 
+          { constructors*. }
+          { unfolds wf_typdefctx. introv HN. 
+            inverts Hok as Hgt HTt0in HCTt0 HTg0nin Hfs Hfg0in Hfv.
+            inverts Hgt. forwards~: Hfv Tv. inverts HN.
+            { forwards*: Hneq. }
+            { false*. } }
+          { constructors*. } } }
+      { introv Hfin. applys* H2.
+        { constructors*. }
+        { applys~ Htrs'f. rewrite~ <- H0. } } } }
 Qed.
+
 
 (* This will be proved when the relation is translated to a function. 
    See TrGroupFun.v. *)
-Lemma total_tr_val' : forall gt v,
+Lemma total_tr_val_aux : forall gt v,
   exists v', tr_val gt v v'.
 Proof.
 Admitted.
@@ -657,13 +692,15 @@ Admitted.
 (* Lemma for the new case. *)
 Lemma tr_uninitialized_val : forall gt v T C C',
   tr_typdefctx gt C C' ->
+  group_tr_ok gt C ->
+  wf_typdefctx C ->
   uninitialized C T v ->
   exists v',
         tr_val gt v v'
     /\  uninitialized C' T v'.
 Proof.
-  introv HC Hu. forwards* (v'&Hv'): total_tr_val' gt v.
-  exists v'. splits~. applys* tr_uninitialized_val'.
+  introv HC Hok Hwf Hu. forwards* (v'&Hv'): total_tr_val_aux gt v.
+  exists v'. splits~. applys* tr_uninitialized_val_aux.
 Qed.
 
 
