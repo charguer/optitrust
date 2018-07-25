@@ -607,8 +607,8 @@ Proof using.
     inverts Hv as; inverts HC as; 
     try solve [ intros ; simpls ; tryfalse ].
     { (* fields grouped *)
-      introv Hgt HDC' HCTt0 HC'Tt0 HC'Tg0 HC'T HTfs'f HDTfs'. 
-      introv HTfs''f HDsg Hfg HDs' Htrsgf Htrs'f Hs'fg. 
+      introv Hgt HDC' HCTt0 HC'Tt0 HC'Tg0 HC'T HDTfs' HTfs'fg0.
+      introv HTfs'f HTfs''f HDsg Hfg HDs' Htrsgf Htrs'f Hs'fg.
       inverts Hgt as HDTfs''. 
       constructors; unfolds typdefctx. 
       2:{ rewrite HDTfs'. rewrite HDs'. rewrite HDTfs''. 
@@ -618,12 +618,22 @@ Proof using.
         { introv HTv HTs HN. asserts HN': (typ_var Tv = typ_struct Tfs0).
           { rewrite HN. rewrite <- HCTt0. auto. } inverts HN'. } } 
       { constructors~.
-        { admit. (*TODO: rewrite HDC'. rew_set~.*) }
-        { admit. (*TODO: rewrite HC'Tt0. constructors*.*) } }
+        { inverts H as HTt0 HTs. rewrite HDC' at 1. rew_set~. }
+        { rewrite HC'Tt0 at 1. constructors*. } }
       { introv Hfin. rewrite HDTfs' in Hfin. rew_set in Hfin. 
         inverts Hfin as Hfin.
         { inverts Hfin as Hfin Hfnin. admit. }
-        { rewrite Hs'fg. rewrite HTfs'f. } } }
+        { rewrite Hs'fg. rewrite HTfs'fg0. constructors*.
+          { constructors. 
+            { rewrite HDC' at 1. rew_set~. }
+            { rewrite HC'Tg0 at 1. constructors*. } }
+          { introv Hfin. inverts H as HTt0 HTs. inverts HTs as.
+            { introv HTfs. rewrite HCTt0 in HTfs at 1. inverts HTfs.
+              rewrite~ HTfs''f. rewrite <- HDTfs'' in Hfin. applys~ H2.
+              { rewrite <- H0 in HDsg. rew_set in *. applys~ HDsg. }
+              { rewrite HDTfs''. constructors*. } }
+            { introv HDTv HTs HTv. rewrite HCTt0 in HTv at 1. 
+              inverts HTv. } } } } }
     { (* other struct *)
       introv HTtD HTgD HDC' HC'T HDC'Tg HfgD HC'Tt HDC'Tt HC'Ttfg HC'Tgf. 
       introv Hneq HDvfs Htrs'f.
