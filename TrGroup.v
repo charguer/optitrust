@@ -65,6 +65,10 @@ Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
 (* ********************************************************************** *)
 (* * The transformation applied to the different constructs. *)
 
+(** Transformation of typdefctxs: T ~ |T| *)
+
+(* Inductive tr_typ  *)
+
 (** Transformation of typdefctxs: C ~ |C| *)
 
 Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
@@ -568,26 +572,39 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** uninitialized is coherent with the transformation *)
 
+Lemma tr_typing_array : forall gt C C' Ta T os,
+  tr_typdefctx gt C C' ->
+  (*group_tr_ok gt C ->*)
+  typing_array C Ta T os ->
+  typing_array C' Ta T os.
+Proof.
+  introv HC (*Hok*) HTa. gen gt C'. induction HTa; intros;
+  try solve [ inverts~ HTa ].
+  { constructors~. }
+  { inverts HC as HD HCTt HC'Tt HC'Tg HC'T HTfs'f HDTfs' HTfs''f. 
+    (*inverts Hok as Hgt HTt0 HCTt0 HTg0 Hfs Hfg0. inverts Hgt.*)
+    tests: (Tv=Tt0).
+    { inverts HTa as.
+      { introv HTa. rewrite HCTt in HTa. inverts HTa. }
+      { introv HDC HTa HTv. rewrite HCTt in HTv. inverts HTv. } }
+    { constructors~.
+      { rewrite HD. rew_set~. }
+      { rewrite~ HC'T. (*rewrite HCTt in HCTt0. inverts HCTt0.*) 
+        applys* IHHTa. 2: { constructors*. } constructors*. } } }
+Qed.
+
 Lemma tr_uninitialized_val' : forall gt v v' T C C',
   tr_typdefctx gt C C' ->
   tr_val gt v v' ->
   uninitialized C T v ->
   uninitialized C' T v'.
 Proof using.
-  introv HC Hv Hu. gen C' v'. induction Hu; intros;
+  introv HC Hv Hu. gen gt C' v'. induction Hu; intros;
   try solve [ inverts Hv ; constructors~ ].
   { (* val array *)
-    inverts Hv as Hl Hai. constructors*. 
-    2 : { rewrite <- Hl. eauto. }
-    inverts_head typing_array.
-    { constructors. }
-    { inverts HC. constructors. admit. tests: (Tv=Tt).
-      { inverts H4. 
-        { rewrite H6 in H12. inverts H12. }
-        { rewrite H6 in H. inverts H. } }
-      { rewrite~ H9. inverts H4.
-        { constructors. }
-        { admit. } } } }
+    inverts Hv as Hl Hai. constructors*.
+    2: { rewrite* <- Hl. }
+    a }
 (*   { (* val struct *)
     tests: (T = group_tr_struct_name gt); 
     inverts Hv as; inverts HC as; 
