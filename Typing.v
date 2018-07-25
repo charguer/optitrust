@@ -392,6 +392,7 @@ Proof.
   { inverts Hva. applys~ IHHF. applys* valid_typing_struct. }
 Qed.
 
+(* TODO: This is false but I don't think is used. *)
 Lemma typing_valid_typ : forall φ v C T,
   valid_phi C φ ->
   typing_val C φ v T ->
