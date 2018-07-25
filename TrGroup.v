@@ -719,22 +719,27 @@ Proof.
   { (* nil *)
     inverts Ha. exists~ v'. }
   { (* array_access *)
-    inverts Ha as Ha. inverts Hv as Hl Htr.
-    forwards Htra: Htr H.
-    forwards (w'&Hw'&Hπ'): IHHR Htra Ha.
-    exists* w'. }
+    inverts Ha as Ha.
+    { inverts Hv as Hl Htr.
+      forwards Htra: Htr H.
+      forwards (w'&Hw'&Hπ'): IHHR Htra Ha.
+      exists* w'. }
+    { false*. } }
   { (* struct_access *)
     inverts Ha as; inverts Hv as;
-    try solve [ intros ; false ].
+    try solve [ intros ; false* ].
     { (* one of the fields to group *)
-      introv HD1 Hgt HD2 HD3 Hsg Hfs Hsfg Hπ Hin.
-      rewrite Hgt in *. simpls.
+      introv HD1 Hgt HD2 HD3 Hsg Hfs Hsfg Hπ Hin Heq.
+      inverts Heq. inverts Hgt. simpls.
       forwards Hsf: Hsg Hin.
       forwards (w'&Hw'&HR'): IHHR Hsf Hπ.
       exists w'. splits~.
       constructors. 
       { rewrite HD3. rew_set~. } 
       rewrite Hsfg. constructors~. }
+    { (* absurd case *)
+      introv Hneq HDs Htrsf Htrπ Hf0in Heq. simpls.
+      inverts Heq. false. }
     { (* struct transformed but another field *)
       introv HD1 HD2 HD3 Hsg Hfs Hsfg Hπ Hor.
       inverts Hor as Hf; simpl in Hf; tryfalse.
@@ -764,10 +769,10 @@ Proof.
   { (* nil *)
     inverts Hπ. exists~ w'. }
   { (* array_access *)
-    inverts Hπ as Hπ. inverts Hv1 as Hl Htr.
+    inverts Hπ as Hπ; tryfalse. inverts Hv1 as Hl Htr.
     forwards Htra: Htr H.
     forwards (v2'&Hv2'&HW'): IHHW Htra Hw Hπ.
-    exists (val_array a'[i:=v2']).
+    exists (val_array T a'[i:=v2']).
     splits; constructors*; rewrite H0.
     { repeat rewrite~ length_update. }
     { introv Hi0. rew_reads; rew_index* in *. } }
@@ -775,14 +780,13 @@ Proof.
     inverts Hπ as; inverts Hv1 as;
     try solve [ intros ; false ].
     { (* one of the fields to group *)
-      introv HD1 Hgt HD2 HD3 Hsg Hfs Hsfg Hπ Hin.
-      rewrite Hgt in *. simpls.
+      introv HD1 Hgt HD2 HD3 Hsg Hfs Hsfg Hπ Hin Heq.
+      inverts Heq. inverts Hgt. simpls.
       forwards Hsf: Hsg Hin.
       forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Hπ.
-      remember (group_tr_struct_name gt) as T.
-      exists (val_struct T s'[fg:=(val_struct Tsg sg[f:=v2'])]).
+      exists (val_struct (typ_var Tt) s'[fg0:=(val_struct (typ_var Tg0) sg[f0:=v2'])]).
       substs. splits.
-      { applys~ tr_val_struct_group (sg[f:=v2']);
+      { applys~ tr_val_struct_group (sg[f0:=v2']);
         repeat rewrite dom_update_at_indom in *; eauto.
         { rewrite HD3. rew_set~. }
         { intros. rew_reads*. }
@@ -790,12 +794,15 @@ Proof.
         { rew_reads~. } }
       { constructors~. rewrite HD3. rew_set~.
         rewrite Hsfg. constructors*. } }
+    { (* absurd case *)
+      introv HN HDs1 Hs1f1 Htrπ Hf0in Heq. simpls.
+      inverts Heq. false. }
     { (* struct transformed but another field *)
       introv HD1 HD2 HD3 Hsg Hfs Hsfg Hπ Hor.
       inverts Hor as Hf; simpl in Hf; tryfalse.
       forwards Hsf: Hfs Hf H.
       forwards (v2'&Hv2'&HW'): IHHW Hsf Hw Hπ.
-      exists (val_struct T s'[f:=v2']). splits.
+      exists (val_struct (typ_var Tt) s'[f:=v2']). splits.
       { applys~ tr_val_struct_group; subst;
         repeat rewrite dom_update_at_indom in *; eauto.
         { rewrite HD3. rew_set~. }
@@ -831,34 +838,50 @@ Qed.
    rewrites stop working so I have to [fold state] again.
    How can we fix this? *)
 
-Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
+(*
+Lemma tr_val_inj_cp : forall C φ T1 T2 gt v1 v2 v1' v2',
+  group_tr_ok gt C ->
+  valid_phi C φ ->
+  typing_val C φ v1 T1 ->
+  typing_val C φ v2 T2 ->
+  tr_val gt v1 v1' ->
+  tr_val gt v2 v2' ->
+  v1 <> v2 ->
+  v1' <> v2'.
+*)
+
+Hint Constructors typing.
+
+Theorem red_tr: forall gt C C' t t' φ Γ T v S S' m1 m1' m2,
+  wf_typdefctx C ->
   tr_typdefctx gt C C' ->
+  group_tr_ok gt C ->
   tr_trm gt t t' ->
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
   red C S m1 t m2 v ->
+  valid_phi C φ ->
+  typing (make_env C φ Γ) t T ->
   ~ is_error v ->
   exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
   /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv HC Ht HS Hm1 HR He. gen C' t' S' m1'. induction HR; intros;
+  introv Hwf HC Hok Ht HS Hm1 HR Hφ HT He. gen gt φ Γ T C' t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ].
   { (* var *)
-    inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H.
-    exists* v' m1'. }
+    inverts Ht as Hv. exists* v' m1'. }
   { (* val *)
-    inverts Ht. exists* v' m1'. }
+    inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H. exists* v' m1'. }
   { (* if *)
-    inverts Ht as Hb HTrue HFalse.
+    inverts Ht as Hb HTrue HFalse. inverts HT as HT0 HT1 HT2.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
-    introv HN. inverts HN.
-    inverts* Hv'.
-    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'. 
-    2: exists* vr' m3'. case_if*. }
+    inverts* Hv'. destruct b;
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2';
+    exists* vr' m3'. }
   { (* let *)
-    inverts Ht as Ht1 Ht2.
+    inverts Ht as Ht1 Ht2. inverts HT.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
     forwards HS': tr_stack_add z HS Hv'.
     forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
@@ -867,21 +890,25 @@ Proof.
   { (* binop *)
     inverts Ht as Ht1 Ht2.
     inverts Ht1 as Ht1. inverts Ht2 as Ht2.
-    inverts H.
+    inverts H1.
     { exists __ m1'. splits~. inverts Ht1. inverts Ht2. 
-      constructors. constructors~. }
+      repeat constructors~. }
     { exists __ m1'. splits~. inverts Ht1. inverts Ht2. 
-      constructors. constructors~. }
+      repeat constructors~. }
     { exists __ m1'. splits~. constructors.
       forwards: functional_tr_val Ht1 Ht2. subst.
-      constructors~; applys* not_is_error_tr. }
+      applys* not_is_error_tr. applys* not_is_error_tr.
+      constructors~. applys* functional_tr_val. }
     { exists __ m1'. splits~. constructors.
-      forwards: neq_tr gt H2 Ht1 Ht2.
-      constructors~. (* TODO: try applys not_is_error_tr v1 v' *)
-      { apply not_is_error_tr with (gt:=gt) (v1:=v1) (v2:=v'); auto. }
-      { apply not_is_error_tr with (gt:=gt) (v1:=v2) (v2:=v'0); auto. } } }
+      applys* not_is_error_tr. applys* not_is_error_tr.
+      inverts HT as HT1 HT2. 
+      inverts HT1 as HT1. inverts HT2 as HT2. simpls.
+      forwards*: tr_val_inj_cp H2.
+      constructors~. } }
   { (* get *)
-    inverts Ht as _ Hp. subst.
+    inverts Ht as. 
+    { introv HN. inverts HN. }
+    introv _ Hp. subst.
     inverts Hm1 as HD Htrm.
     inverts H0 as Hi Ha.
     forwards Htrml: Htrm Hi.
@@ -911,24 +938,26 @@ Proof.
     inverts Ht. subst.
     inverts Hm1 as HD Htrm. 
     forwards* (v'&Hv'&Hu): tr_uninitialized_val.
-    exists (val_abstract_ptr l0 nil) m1'[l0:=v']. splits~.    
+    exists (val_abstract_ptr l nil) m1'[l:=v']. splits~.
     { constructors.
       { unfold state. repeat rewrite~ dom_update.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. } }
     { constructors~. rewrite~ <- HD. auto. } }  
   { (* new_array *)
-    inverts Ht as _ Ht.
+    inverts Ht as.
+    { introv HN. inverts HN. }
+    introv _ Ht.
     inverts Ht as Hv.
-    inverts Hv. 
     inverts Hm1 as HD Htrm. subst.
     forwards* (v''&Hv''&Hu): tr_uninitialized_val.
-    exists (val_abstract_ptr l0 nil) m1'[l0:=v'']. splits~.
+    inverts Hv''.
+    exists (val_abstract_ptr l nil) m1'[l:=(val_array (typ_array T None) a')]. splits~.
     { constructors.
       { unfold state. repeat rewrite~ dom_update.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. } }
-    { applys~ red_new_array. rewrite~ <- HD. auto. } }
+    { inverts Hv. applys~ red_new_array. rewrite~ <- HD. auto. } }
   { (* struct_access *)
     inverts Ht as; inverts Hm1 as HD Htrm.
     { (* accessing grouped field *)
