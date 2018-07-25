@@ -960,58 +960,62 @@ Proof.
     { inverts Hv. applys~ red_new_array. rewrite~ <- HD. auto. } }
   { (* struct_access *)
     inverts Ht as; inverts Hm1 as HD Htrm.
-    { (* accessing grouped field *)
-      introv Ht Hf. subst.
+    { (* struct op *)
+      introv _ Ht Hop. subst.
       inverts Ht as Hv. inverts Hv as Ha.
-      remember (group_tr_struct_name gt) as Ts.
-      remember (group_tr_new_struct_name gt) as Tsg.
-      remember (group_tr_new_struct_field gt) as fg.
-      remember (access_field Ts fg) as a1.
-      remember (access_field Tsg f) as a2.
-      exists (val_abstract_ptr l (π'++(a1::a2::nil))) m1'.
-      splits*.
-      { constructors. applys* tr_accesses_app. subst*. }
-      { subst. applys* red_args_1. applys* red_struct_access.
-        fequals*. rew_list*. } }
-    { (* accessing another field *) 
-      introv Ht Hor. subst. inverts Ht as Hv. inverts Hv as Ha.
-      exists (val_abstract_ptr l (π'++(access_field T f :: nil))) m1'.
-      splits; constructors*. applys* tr_accesses_app. }
-    { introv HN. forwards*: HN. } }
+      inverts Hop as.
+      { (* grouped field*)
+        introv Hor Hf0in Hpr.
+        inverts Hor; tryfalse.
+        remember (access_field (typ_var Tt) fg) as a1.
+        remember (access_field (typ_var Tg) f) as a2.
+        exists (val_abstract_ptr l (π'++(a1::a2::nil))) m1'.
+        inverts Hpr. splits*.
+        { constructors. applys* tr_accesses_app. }
+        { subst. applys* red_args_1. applys* red_struct_access.
+          fequals*. rew_list*. } }
+      { (* other field *)
+        introv Hor Hneq Hpr. 
+        inverts Hor; tryfalse. inverts Hpr.
+        exists (val_abstract_ptr l (π'++(access_field T f :: nil))) m1'.
+        splits; constructors*. applys* tr_accesses_app. } }
+    { (* not struct op *)
+      introv HN. forwards*: HN. } }
   { (* array_access *)
     inverts Ht as Ht Hti. subst.
     inverts Ht as Hv. inverts Hv as Ha.
     inverts Hti as Hv. inverts Hv.
     inverts Hm1 as HD Htrm.
-    exists (val_abstract_ptr l (π'++(access_array i::nil))) m1'.
+    exists (val_abstract_ptr l (π'++(access_array T i::nil))) m1'.
     splits; constructors*. applys* tr_accesses_app. }
   { (* struct_get *) 
     inverts Ht as.
-    { (* accessing grouped field *)
-      introv Ht Hf. subst.
-      inverts Ht as Hv. inverts Hv as; 
-      try solve [ intros ; contradiction ].
-      introv HDsg Hgt Hfg HDs' Hsf Htrsf Hs'fg.
-      exists sg[f] m1'.
-      splits~.
-      { applys~ Hsf. rewrite Hgt in *. simpls~. }
-      { applys~ red_args_1.
-        { applys~ red_struct_get. rewrite Hgt. simpls~.
-          rewrite HDs'. rew_set~. }
-        { rewrite Hgt in *. simpls. applys~ red_struct_get. 
-          rewrite~ Hs'fg. } } }
-    { (* accessing another field *) 
-      introv Ht Hor. subst. inverts Ht as Hv. inverts Hor.  
-      { inverts Hv as; try solve [ intros ; contradiction ].
-        introv _ HDs Htrsf. exists s'[f] m1'. splits~. constructors~.
-        rewrite~ <- HDs. }
-      { inverts Hv as. 
-        { introv HDsg Hfg HDs' Hsf Htrsf Hs'fg. 
-          exists s'[f] m1'. splits~. constructors~.
-          rewrite HDs'. rew_set~. }
-        { introv Hneq HDs Htrsf. exists s'[f] m1'. splits~.
-          constructors~. rewrite~ <- HDs. } } }
-    { introv HN. forwards*: HN. } }
+    { (* struct op *)
+      introv _ Ht Hop. inverts Hop as.
+      { (* accessing grouped field *)
+        introv Hor Hf0in Hpr. inverts Hor; tryfalse.
+        inverts Hpr. inverts Ht as Hv. subst. inverts Hv as; 
+        try solve [ intros ; contradiction ].
+        introv HDsg Hgt Hfg HDs' Hsf Htrsf Hs'fg. inverts Hgt.
+        exists sg[f] m1'.
+        splits~.
+        { applys~ red_args_1.
+          { applys~ red_struct_get. rewrite HDs'. rew_set~. }
+          { applys~ red_struct_get. rewrite~ Hs'fg. } } } }
+      { (* accessing another field *) 
+        introv Hor Hneqor Hpr. inverts Hor; tryfalse. subst.
+        inverts Ht as Hv. inverts Hpr. inverts Hneqor.  
+        { inverts Hv as; try solve [ intros ; contradiction ].
+          introv _ HDs Htrsf. exists s'[f] m1'. splits~. constructors~.
+          rewrite~ <- HDs. }
+        { inverts Hv as. 
+          { introv HDsg Hfg HDs' Hsf Htrsf Hs'fg. 
+            exists s'[f] m1'. splits~. constructors~.
+            rewrite HDs'. rew_set~. }
+          { introv Hneq HDs Htrsf. exists s'[f] m1'. splits~.
+            constructors~. rewrite~ <- HDs. } } } }
+    { (* not struct op *) 
+      introv HN. forwards*: HN. } }
   { (* array_get *) 
     inverts Ht as Ht Hti. subst.
     inverts Ht as Hv.
@@ -1021,9 +1025,14 @@ Proof.
     exists a'[i] m1'. 
     splits~. constructors*. }
   { (* args_1 *)
-    inverts Ht; forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
+    inverts Ht; inverts HT; 
+    forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He;
-    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+
+    (* TODO: Apply type soundness *)
+
+    { repeat constructors*. simpls. }
     exists v'' m3'; splits*;
     try solve [ applys* red_args_1; applys* not_is_val_tr ].
     { (* Case struct access *)
