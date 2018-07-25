@@ -69,10 +69,6 @@ Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
 (* ********************************************************************** *)
 (* * The transformation applied to the different constructs. *)
 
-(** Transformation of typdefctxs: T ~ |T| *)
-
-(* Inductive tr_typ  *)
-
 (** Transformation of typdefctxs: C ~ |C| *)
 
 Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
