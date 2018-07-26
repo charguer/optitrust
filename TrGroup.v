@@ -496,16 +496,15 @@ Proof.
 Qed.
 (* ------------- *)
 
-Lemma tr_val_inj : forall φ C gt v v1 v2,
+Lemma tr_val_inj : forall C gt v v1 v2,
   group_tr_ok gt C ->
-  valid_phi C φ ->
   valid_val C v1 ->
   valid_val C v2 ->
   tr_val gt v1 v ->
   tr_val gt v2 v ->
   v1 = v2.
 Proof.
-  introv Hok Hφ HV1 HV2 Hv1 Hv2. gen C φ v2. induction Hv1; intros;
+  introv Hok HV1 HV2 Hv1 Hv2. gen C v2. induction Hv1; intros;
   try solve [ inverts Hv2; repeat fequals*; subst; simpls; tryfalse* ].
   { inverts Hv2 as Hπ. fequals*.
     inverts HV1 as HRφ1. inverts HV2 as HRφ2.
@@ -541,9 +540,8 @@ Proof.
         rewrite~ <- HD. } } }
 Qed.
 
-Lemma tr_val_inj_cp : forall C φ gt v1 v2 v1' v2',
+Lemma tr_val_inj_cp : forall C gt v1 v2 v1' v2',
   group_tr_ok gt C ->
-  valid_phi C φ ->
   valid_val C v1 ->
   valid_val C v2 ->
   tr_val gt v1 v1' ->
@@ -551,8 +549,8 @@ Lemma tr_val_inj_cp : forall C φ gt v1 v2 v1' v2',
   v1 <> v2 ->
   v1' <> v2'.
 Proof.
-  introv Hok Hφ HTv1 HTv2 Hv1 Hv2 Hneq HN. subst. 
-  forwards*: tr_val_inj Hok Hφ HTv1 HTv2 Hv1.
+  introv Hok HTv1 HTv2 Hv1 Hv2 Hneq HN. subst. 
+  forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
 
 Lemma not_tr_val_error : forall gt v1 v2,
@@ -827,6 +825,43 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
+(* Validity of a type in a changed typdefctx. *)
+
+Lemma tr_typ_valid : forall gt C C' T,
+  tr_typdefctx gt C C' ->
+  group_tr_ok gt C ->
+  valid_typ C T ->
+  valid_typ C' T.
+Proof.
+  introv HC Hok HT. induction HT; try solve [ constructors* ].
+  inverts Hok as HTt HCTt HTg Hfs Hfg Hfv. inverts HC as.
+  introv Hgt HDC' HCTt0 HC'Tt0 HC'Tg0.
+  introv HC'T HDTfs' HTfs'fg0 HTfs'f HTfs''f.
+  constructors.
+  { rewrite HDC'. rew_set~. }
+  { inverts Hgt. tests: (Tv=Tt0).
+    { rewrite HC'Tt0. constructors. introv Hfin.
+      rewrite HCTt0 in HCTt. inverts HCTt.
+      rewrite HCTt0 in IHHT. inverts IHHT as HTfsf.
+      tests: (f = fg0).
+      { rewrite HTfs'fg0. constructors.
+        { rewrite HDC'. rew_set~. }
+        rewrite HC'Tg0. constructors~. introv Hfin'.
+        rewrite~ HTfs''f. applys~ HTfsf. rew_set in Hfs.
+        applys~ Hfs. }
+      { tests: (f \indom Tfs'').
+        { rewrite HDTfs' in Hfin. rew_set in Hfin.
+          inverts Hfin as Hfin; tryfalse. destruct Hfin.
+          false*. }
+        { asserts Hfin': (f \indom Tfs).
+          { rewrite HDTfs' in Hfin.
+            rew_set in Hfin. inverts Hfin as Hfin; tryfalse.
+            destruct~ Hfin. }
+          rewrite~ HTfs'f. } } }
+    { rewrite~ HC'T. } }
+Qed.
+ 
+
 (* TODO: Rewrites used quite often throughout: 
    - dom_update_at_indom
    - dom_update *)
@@ -838,6 +873,8 @@ Qed.
    How can we fix this? *)
 
 Hint Constructors valid_trm valid_prim valid_val.
+
+Hint Resolve red_valid.
 
 Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   wf_typdefctx C ->
@@ -866,14 +903,16 @@ Proof.
     inverts Ht as Hb HTrue HFalse. inverts HV as HV0 HV1 HV2.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
     inverts* Hv'. destruct b;
-    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'.
-    exists* vr' m3'. }
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2';
+    forwards*: red_valid HR1; exists* vr' m3'. }
   { (* let *)
     inverts Ht as Ht1 Ht2. inverts HV as HV0 HV1.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
     forwards HS': tr_stack_add z HS Hv'.
-    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
     forwards: not_tr_val_error Hv'.
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
+    { applys~ stack_valid_add. applys* red_valid HR1. }
+    { applys* red_valid HR1. }
     exists* vr' m3'. }
   { (* binop *)
     inverts Ht as Ht1 Ht2.
@@ -892,7 +931,7 @@ Proof.
       forwards*: tr_val_inj_cp H2.
       constructors~. } }
   { (* get *)
-    inverts Ht as. 
+    inverts Ht as.
     { introv HN. inverts HN. }
     introv _ Hp. subst.
     inverts Hm1 as HD Htrm.
@@ -929,7 +968,7 @@ Proof.
       { unfold state. repeat rewrite~ dom_update.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. } }
-    { constructors~. rewrite~ <- HD. auto. } }  
+    { constructors*. rewrite~ <- HD. } }
   { (* new_array *)
     inverts Ht as.
     { introv HN. inverts HN. }
