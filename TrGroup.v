@@ -968,7 +968,7 @@ Proof.
       { unfold state. repeat rewrite~ dom_update.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. } }
-    { constructors*. rewrite~ <- HD. } }
+    { constructors*. rewrite~ <- HD. applys* tr_typ_valid. } }
   { (* new_array *)
     inverts Ht as.
     { introv HN. inverts HN. }
@@ -982,7 +982,8 @@ Proof.
       { unfold state. repeat rewrite~ dom_update.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. } }
-    { inverts Hv. applys~ red_new_array. rewrite~ <- HD. auto. } }
+    { inverts Hv. applys~ red_new_array. rewrite~ <- HD. 
+      applys* tr_typ_valid. auto. } }
   { (* struct_access *)
     inverts Ht as; inverts Hm1 as HD Htrm.
     { (* struct op *)
@@ -1052,27 +1053,16 @@ Proof.
   { (* args_1 *)
     inverts Ht; inverts HV;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
-    forwards*: not_is_error_args_1 HR2 He;
-    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
-    6:{  }
-    (* TODO: Apply type soundness *)
-
-    13 : { repeat constructors*. simpls. }
-    exists v'' m3'; splits*;
-    try solve [ applys* red_args_1; applys* not_is_val_tr ].
-    { (* Case struct access *)
-      inverts HR''.
-      { tryfalse. }
-      { applys* red_args_1. applys* red_args_1.
-        apply not_is_val_tr with (gt:=gt) (t1:=t1); auto. }
-      { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. }
-      { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. } }
-    { (* Case struct get *) 
-      inverts HR''. 
-      { tryfalse. } 
-      { applys* red_args_1. applys* red_args_1.
-        apply not_is_val_tr with (gt:=gt) (t1:=t1); auto. }
-      { forwards HN: not_is_error_tr He Hv''. forwards*: HN. unfolds*. } } }
+    forwards*: not_is_error_args_1 HR2 He.
+    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+    try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+    try solve [ exists v'' m3'; splits* ;
+    applys* red_args_1; applys* not_is_val_tr ].
+    { applys* tr_trm_struct_op. inverts_head tr_struct_op.
+      { constructors*. eauto. }
+      {  } }
+    { exists v'' m3'; splits*.
+      applys* red_args_1; applys* not_is_val_tr. } } }
   { (* args_2 *)
     inverts Ht as Ht1 Ht2.
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
