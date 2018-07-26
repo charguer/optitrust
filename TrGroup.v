@@ -505,44 +505,47 @@ Lemma tr_val_inj : forall φ C gt v v1 v2,
   tr_val gt v2 v ->
   v1 = v2.
 Proof.
-  introv Hok Hφ HTv1 HTv2 Hv1 Hv2. gen C φ v2 T1 T2. induction Hv1; intros; 
-  inverts Hv2; repeat fequals*; subst; simpls; tryfalse*.
-  { inverts HTv1 as HRφ1. inverts HTv2 as HRφ2. 
-    inverts HRφ1. inverts HRφ2. 
+  introv Hok Hφ HV1 HV2 Hv1 Hv2. gen C φ v2. induction Hv1; intros;
+  try solve [ inverts Hv2; repeat fequals*; subst; simpls; tryfalse* ].
+  { inverts Hv2 as Hπ. fequals*.
+    inverts HV1 as HRφ1. inverts HV2 as HRφ2.
     unfolds valid_phi.
-    forwards~: follow_typ_valid_accesses φ[l] T C π.
-    forwards~: follow_typ_valid_accesses φ[l] T0 C π0.
-    forwards~: Hφ l.
     applys* tr_accesses_inj. }
-  { applys* eq_of_extens. congruence. 
-    inverts HTv1. inverts HTv2. introv Hi.
-    applys* H1. }
-  { applys* read_extens. 
-    { inverts_head make_group_tr'. rewrite <- H3 in *.
-      applys~ incl_eq (dom s) (dom s0) (dom sg).
-      rewrite H2 in H14. admit. (*True but more set lemmas needed.*) }
-    { introv Hi. inverts HTv1. inverts HTv2.
-      inverts_head make_group_tr'. 
-      rewrite H8 in H19. inverts H19. tests: (i \indom sg0).
-      { applys* H5.
-        { applys~ H15. rewrite~ H10. }
-        { applys~ H21. admit. admit. (*Set lemmas*) } }
-      { applys* H7. 
-        { applys~ H18. admit. (*More set lemmas needed*) } 
-        { applys~ H15. rewrite~ H10. }
-        { applys~ H21. admit. admit. (*Set lemmas*) } } } }
-  { inverts HTv1. inverts HTv2. applys* read_extens. congruence.
-    introv Hi. applys* H3. 
-    { applys~ H10. admit. (*Some rewrites*) }
-    { applys~ H11. rewrite~ H6. }
-    { applys~ H14. admit. admit. (*Some rewrites*) } }
+  { inverts Hv2 as Hl Htra. fequals. 
+    applys* eq_of_extens. 
+    { congruence. }
+    { inverts HV1. inverts HV2. introv Hi. applys* H1. } }
+  { subst. inverts Hv2 as.
+    { introv HDsg0 Hgt Hfg0in HDs' Hsg0f Hs'f Hs'fg0.
+      inverts Hgt as HDsg. rewrite <- HDsg in *. 
+      fequals. asserts HD: (dom s = dom s0). 
+      { rewrite HDs' in *.
+        applys~ incl_eq (dom s) (dom s0) (dom sg).
+        rew_set in *. intros x. forwards Hiff: H2 x.
+        rew_set in *. inverts Hiff as HD1 HD2.
+        intuition; subst; tryfalse*. }
+      applys* read_extens.
+      { introv Hi. inverts HV1 as HV1 HV1sf. inverts HV2 as HV2 HV2sf.
+        forwards HV1sf': HV1sf Hi. rewrite HD in Hi. forwards HV2sf': HV2sf Hi.
+        rewrite Hs'fg0 in H8. inverts H8. tests: (i \indom sg).
+        { applys* H5. }
+        { applys* H7. rewrite~ HD. } } }
+    { introv HN. simpls. false. } }
+  { inverts Hv2 as.
+    { intros. subst. simpls. false. }
+    { introv Hneq HDs0 Hs'f. fequals. asserts HD: (dom s = dom s0).
+      { congruence. }
+      applys~ read_extens.
+      { introv Hi. inverts HV1 as HV1 HV1sf. inverts HV2 as HV2 HV2sf. 
+        rewrite <- HD in HV2sf. applys* H3. applys Hs'f.
+        rewrite~ <- HD. } } }
 Qed.
 
-Lemma tr_val_inj_cp : forall C φ T1 T2 gt v1 v2 v1' v2',
+Lemma tr_val_inj_cp : forall C φ gt v1 v2 v1' v2',
   group_tr_ok gt C ->
   valid_phi C φ ->
-  typing_val C φ v1 T1 ->
-  typing_val C φ v2 T2 ->
+  valid_val C v1 ->
+  valid_val C v2 ->
   tr_val gt v1 v1' ->
   tr_val gt v2 v2' ->
   v1 <> v2 ->
@@ -836,7 +839,7 @@ Qed.
 
 Hint Constructors valid_trm valid_prim valid_val.
 
-Theorem red_tr: forall gt C C' t t' φ Γ T v S S' m1 m1' m2,
+Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   wf_typdefctx C ->
   group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
@@ -844,7 +847,8 @@ Theorem red_tr: forall gt C C' t t' φ Γ T v S S' m1 m1' m2,
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
   red C S m1 t m2 v ->
-  valid_phi C φ ->
+  valid_stack C S ->
+  valid_state C m1 ->
   valid_trm C t ->
   ~ is_error v ->
   exists v' m2',
@@ -852,20 +856,20 @@ Theorem red_tr: forall gt C C' t t' φ Γ T v S S' m1 m1' m2,
   /\  tr_state gt m2 m2'
   /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv Hwf Hok HC Ht HS Hm1 HR Hφ HV He. gen gt φ C' t' S' m1'. induction HR; intros;
-  try solve [ forwards*: He; unfolds* ].
+  introv Hwf Hok HC Ht HS Hm1 HR HVS HVm1 HV. introv He. gen gt C' t' S' m1'. 
+  induction HR; intros; try solve [ forwards*: He; unfolds* ].
   { (* var *)
     inverts Ht as Hv. exists* v' m1'. }
   { (* val *)
     inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H. exists* v' m1'. }
   { (* if *)
-    inverts Ht as Hb HTrue HFalse. inverts HT as HT0 HT1 HT2.
+    inverts Ht as Hb HTrue HFalse. inverts HV as HV0 HV1 HV2.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
     inverts* Hv'. destruct b;
-    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2';
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'.
     exists* vr' m3'. }
   { (* let *)
-    inverts Ht as Ht1 Ht2. inverts HT.
+    inverts Ht as Ht1 Ht2. inverts HV as HV0 HV1.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
     forwards HS': tr_stack_add z HS Hv'.
     forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
@@ -883,8 +887,8 @@ Proof.
       constructors~. applys* functional_tr_val. }
     { exists __ m1'. splits~. constructors.
       applys* not_is_error_tr. applys* not_is_error_tr.
-      inverts HT as HT1 HT2. 
-      inverts HT1 as HT1. inverts HT2 as HT2. simpls.
+      inverts HV as HVprim HV1 HV2.
+      inverts HV1 as HV1. inverts HV2 as HV2.
       forwards*: tr_val_inj_cp H2.
       constructors~. } }
   { (* get *)
@@ -912,7 +916,7 @@ Proof.
     { constructors.
       { unfold state. repeat rewrite~ dom_update.
         fold state. rewrite~ HD. }
-      { introv Hi'. rew_reads~. intros. applys Htrm.  
+      { introv Hi'. rew_reads~. intros. applys Htrm.
         applys~ indom_update_inv_neq Hi'. } }
     { constructors~. applys* not_tr_val_error.
       constructors*. rewrite~ <- HD. } }
@@ -1007,11 +1011,11 @@ Proof.
     exists a'[i] m1'. 
     splits~. constructors*. }
   { (* args_1 *)
-    inverts Ht; inverts HT.
+    inverts Ht; inverts HV;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He;
     forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
-
+    6:{  }
     (* TODO: Apply type soundness *)
 
     13 : { repeat constructors*. simpls. }
