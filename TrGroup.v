@@ -857,7 +857,7 @@ Theorem red_tr: forall gt C C' t t' φ Γ T v S S' m1 m1' m2,
   tr_state gt m1 m1' ->
   red C S m1 t m2 v ->
   valid_phi C φ ->
-  typing (make_env C φ Γ) t T ->
+  typing (make_env C φ Γ) t T -> (* TODO: Get rid of this *)
   ~ is_error v ->
   exists v' m2',
       tr_val gt v v'
@@ -886,11 +886,9 @@ Proof.
   { (* binop *)
     inverts Ht as Ht1 Ht2.
     inverts Ht1 as Ht1. inverts Ht2 as Ht2.
-    inverts H1.
-    { exists __ m1'. splits~. inverts Ht1. inverts Ht2. 
-      repeat constructors~. }
-    { exists __ m1'. splits~. inverts Ht1. inverts Ht2. 
-      repeat constructors~. }
+    inverts H1;
+    try solve [ exists __ m1' ; splits~ ; inverts Ht1 ;
+    inverts Ht2 ; repeat constructors~ ].
     { exists __ m1'. splits~. constructors.
       forwards: functional_tr_val Ht1 Ht2. subst.
       applys* not_is_error_tr. applys* not_is_error_tr.
@@ -997,7 +995,7 @@ Proof.
         splits~.
         { applys~ red_args_1.
           { applys~ red_struct_get. rewrite HDs'. rew_set~. }
-          { applys~ red_struct_get. rewrite~ Hs'fg. } } } }
+          { applys~ red_struct_get. rewrite~ Hs'fg. } } }
       { (* accessing another field *) 
         introv Hor Hneqor Hpr. inverts Hor; tryfalse. subst.
         inverts Ht as Hv. inverts Hpr. inverts Hneqor.  
@@ -1021,14 +1019,14 @@ Proof.
     exists a'[i] m1'. 
     splits~. constructors*. }
   { (* args_1 *)
-    inverts Ht; inverts HT; 
+    inverts Ht; inverts HT.
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He;
     forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
 
     (* TODO: Apply type soundness *)
 
-    { repeat constructors*. simpls. }
+    13 : { repeat constructors*. simpls. }
     exists v'' m3'; splits*;
     try solve [ applys* red_args_1; applys* not_is_val_tr ].
     { (* Case struct access *)

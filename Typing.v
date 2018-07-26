@@ -392,19 +392,84 @@ Proof.
   { inverts Hva. applys~ IHHF. applys* valid_typing_struct. }
 Qed.
 
-(* TODO: This is false but I don't think is used. *)
-Lemma typing_valid_typ : forall φ v C T,
-  valid_phi C φ ->
-  typing_val C φ v T ->
-  valid_typ C T.
-Proof.
-  introv Hφ HT. induction HT; try solve [ constructors~ ].
-  { admit. (*uninitalised should only accept valid types*) }
-  { constructors. inverts H. 
-    applys* follow_typ_valid_typ.
-    applys* follow_typ_valid_accesses. }
-  { applys* valid_typing_struct_inv. 
-    introv Hfin. applys~ H2. rewrite~ <- H0. }
-  { applys* valid_typing_array_inv.
-    admit. (*empty arrays can have unacceptable types*) }
-Qed.
+(* ---------------------------------------------------------------------- *)
+(** Validity of values and terms *)
+
+(* A value is valid if all of the types that appear in it are. *)
+
+Inductive valid_val (C:typdefctx) : val -> Prop :=
+  | valid_val_unit :
+      valid_val C val_unit
+  | valid_val_bool : forall b,
+      valid_val C (val_bool b)
+  | valid_val_int : forall i,
+      valid_val C (val_int i)
+  | valid_val_double : forall d,
+      valid_val C (val_double d)
+  | valid_val_abstract_ptr : forall l π,
+      valid_accesses C π ->
+      valid_val C (val_abstract_ptr l π)
+  | valid_val_array : forall Ta a,
+      valid_typ C Ta ->
+      (forall i,
+        index a i ->
+        valid_val C a[i]) ->
+      valid_val C (val_array Ta a)
+  | valid_val_struct : forall Ts s,
+      valid_typ C Ts ->
+      (forall f,
+        f \indom s ->
+        valid_val C s[f]) ->
+      valid_val C (val_struct Ts s).
+
+(* A term is valid if all of the types that appear in it are. *)
+
+Inductive valid_prim (C:typdefctx) : prim -> Prop :=
+  | valid_prim_binop : forall bop,
+      valid_prim C (prim_binop bop)
+  | valid_prim_get : forall T,
+      valid_typ C T ->
+      valid_prim C (prim_get T)
+  | valid_prim_set : forall T,
+      valid_typ C T ->
+      valid_prim C (prim_set T)
+  | valid_prim_new : forall T,
+      valid_typ C T ->
+      valid_prim C (prim_new T)
+  | valid_prim_new_array : forall T,
+      valid_typ C T ->
+      valid_prim C (prim_new_array T)
+  | valid_prim_struct_access : forall T f,
+      valid_typ C T ->
+      valid_prim C (prim_struct_access T f)
+  | valid_prim_array_access : forall T,
+      valid_typ C T ->
+      valid_prim C (prim_array_access T)
+  | valid_prim_struct_get : forall T f,
+      valid_typ C T ->
+      valid_prim C (prim_struct_get T f)
+  | valid_prim_array_get : forall T,
+      valid_typ C T ->
+      valid_prim C (prim_array_get T).
+
+Inductive valid_trm (C:typdefctx) : trm -> Prop :=
+  | valid_trm_val : forall v,
+      valid_val C v ->
+      valid_trm C (trm_val v)
+  | valid_trm_var : forall x,
+      valid_trm C (trm_var x)
+  | valid_trm_if : forall t0 t1 t2,
+      valid_trm C t0 ->
+      valid_trm C t1 ->
+      valid_trm C t2 ->
+      valid_trm C (trm_if t0 t1 t2)
+  | valid_trm_let : forall x t0 t1,
+      valid_trm C t0 ->
+      valid_trm C t1 ->
+      valid_trm C (trm_let x t0 t1)
+  | valid_trm_app : forall op ts,
+      (forall i,
+        index ts i ->
+        valid_trm C ts[i]) ->
+      valid_prim C op ->
+      valid_trm C (trm_app op ts).
