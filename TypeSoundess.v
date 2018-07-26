@@ -379,7 +379,7 @@ Proof.
         { apply typing_val_array with (os:=None) (T:=T1). 
           { constructors~. }
           { introv HN. inverts HN. }
-          { introv Hi. forwards Hu: H10 Hi.
+          { introv Hi. forwards Hu: H11 Hi.
              forwards*: uninitialized_val_typ Hu. } }
         { inverts HM as HD HM. unfolds state. rewrite dom_update in Hl0.
           forwards: HM l0. 
