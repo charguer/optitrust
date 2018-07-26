@@ -113,7 +113,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
         length a'' = k ->
         (forall j,
           index a'' j ->
-          tr_val tt a''[j] a''[j])) ->
+          tr_val tt a[i*(length a')+j] a''[j])) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->

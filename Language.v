@@ -96,6 +96,9 @@ Inductive binop : Type :=
   | binop_eq : binop
   | binop_sub : binop
   | binop_add : binop
+  | binop_mul : binop
+  | binop_div : binop
+  | binop_mod : binop
   | binop_ptr_add : binop.
 
 Inductive prim : Type :=
