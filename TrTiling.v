@@ -137,6 +137,32 @@ Definition is_array_access (op:prim) :=
   end.
 
 
+(* Transformation used in the struct cases to avoid repetition. *)
+
+Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
+  | tr_array_op_tiling : forall Tt k op1 op2 ta1 ta2 tlk tlj tli pr Ta t1 t2 tlt,
+      pr = prim_array_access \/ pr = prim_array_get ->
+      tt = make_tiling_tr Ta Tt k ->
+      (* let t = t1 in
+         let i = t2 in
+         let j = i / k in
+         let k = i % k in
+           t[j][k] *)
+      op1 = pr (typ_var Ta) ->
+      op2 = pr (typ_var Tt) ->
+      ta1 = trm_app op1 ((trm_var "t")::(trm_var "j")::nil) ->
+      ta2 = trm_app op2 (ta1::(trm_var "k")::nil) ->
+      tlk = trm_let "k" (trm_app binop_mod ((trm_var "i")::(trm_val (val_int k))::nil)) ta2 ->
+      tlj = trm_let "j" (trm_app binop_div ((trm_var "i")::(trm_val (val_int k))::nil)) tlk ->
+      tli = trm_let "i" t2 tlj ->
+      tlt = trm_let "t" t1 tli ->
+      tr_array_op tt (trm_app (pr (typ_var Ta)) (t1::t2::nil)) tlt
+  | tr_array_op_other : forall Ta pr T ts,
+      pr = prim_array_access \/ pr = prim_array_get ->
+      Ta = tiling_tr_array_name tt ->
+      T <> (typ_var Ta) ->
+      tr_array_op tt (trm_app (pr T) ts) (trm_app (pr T) ts).
+
 (** Transformation of terms: t ~ |t| *)
 
 Inductive tr_trm (tt:tiling_tr) : trm -> trm -> Prop :=
@@ -157,18 +183,19 @@ Inductive tr_trm (tt:tiling_tr) : trm -> trm -> Prop :=
   (* new *)  
   | tr_trm_new : forall T,
       tr_trm tt (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
-
-  (* TODO: Special case: array access *)
-  (*
-  | tr_trm_array_access_x :
-  | tr_trm_array_access_other : *)
-
+  (* Special case: array access *)
+  | tr_trm_array : forall t1' t2' op t1 t2 tr,
+      is_array_access op ->
+      tr_trm tt t1 t1' ->
+      tr_trm tt t2 t2' ->
+      tr_array_op tt (trm_app op (t1'::t2'::nil)) tr ->
+      tr_trm tt (trm_app op (t1::t2::nil)) tr
   (* Args *)
   | tr_trm_args1 : forall op t1 t1',
-      ~ is_array_access op ->
       tr_trm tt t1 t1' ->
       tr_trm tt (trm_app op (t1::nil)) (trm_app op (t1'::nil))
   | tr_trm_args2 : forall op t1 t1' t2 t2',
+      ~ is_array_access op ->
       tr_trm tt t1 t1' ->
       tr_trm tt t2 t2' ->
       tr_trm tt (trm_app op (t1::t2::nil)) (trm_app op (t1'::t2'::nil)).
