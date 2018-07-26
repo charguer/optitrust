@@ -496,11 +496,11 @@ Proof.
 Qed.
 (* ------------- *)
 
-Lemma tr_val_inj : forall T1 T2 φ C gt v v1 v2,
+Lemma tr_val_inj : forall φ C gt v v1 v2,
   group_tr_ok gt C ->
   valid_phi C φ ->
-  typing_val C φ v1 T1 ->
-  typing_val C φ v2 T2 ->
+  valid_val C v1 ->
+  valid_val C v2 ->
   tr_val gt v1 v ->
   tr_val gt v2 v ->
   v1 = v2.
@@ -834,37 +834,25 @@ Qed.
    rewrites stop working so I have to [fold state] again.
    How can we fix this? *)
 
-(*
-Lemma tr_val_inj_cp : forall C φ T1 T2 gt v1 v2 v1' v2',
-  group_tr_ok gt C ->
-  valid_phi C φ ->
-  typing_val C φ v1 T1 ->
-  typing_val C φ v2 T2 ->
-  tr_val gt v1 v1' ->
-  tr_val gt v2 v2' ->
-  v1 <> v2 ->
-  v1' <> v2'.
-*)
-
-Hint Constructors typing.
+Hint Constructors valid_trm valid_prim valid_val.
 
 Theorem red_tr: forall gt C C' t t' φ Γ T v S S' m1 m1' m2,
   wf_typdefctx C ->
-  tr_typdefctx gt C C' ->
   group_tr_ok gt C ->
+  tr_typdefctx gt C C' ->
   tr_trm gt t t' ->
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
   red C S m1 t m2 v ->
   valid_phi C φ ->
-  typing (make_env C φ Γ) t T -> (* TODO: Get rid of this *)
+  valid_trm C t ->
   ~ is_error v ->
   exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
   /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv Hwf HC Hok Ht HS Hm1 HR Hφ HT He. gen gt φ Γ T C' t' S' m1'. induction HR; intros;
+  introv Hwf Hok HC Ht HS Hm1 HR Hφ HV He. gen gt φ C' t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ].
   { (* var *)
     inverts Ht as Hv. exists* v' m1'. }
