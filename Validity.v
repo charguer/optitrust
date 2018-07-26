@@ -193,12 +193,19 @@ Inductive valid_trm (C:typdefctx) : trm -> Prop :=
       valid_trm C t0 ->
       valid_trm C t1 ->
       valid_trm C (trm_let x t0 t1)
-  | valid_trm_app : forall op ts,
-      (forall i,
-        index ts i ->
-        valid_trm C ts[i]) ->
+  | valid_trm_app_args_0 : forall op,
       valid_prim C op ->
-      valid_trm C (trm_app op ts).
+      valid_trm C (trm_app op nil)
+  | valid_trm_app_args_1 : forall op t1,
+      valid_prim C op ->
+      valid_trm C t1 ->
+      valid_trm C (trm_app op (t1::nil))
+  | valid_trm_app_args_2 : forall op t1 t2,
+      valid_prim C op ->
+      valid_trm C t1 ->
+      valid_trm C t2 ->
+      valid_trm C (trm_app op (t1::t2::nil)).
+
 
 (* Valid stack *)
 
@@ -228,6 +235,67 @@ Proof.
   { applys~ HS x. }
 Qed.
 
+Lemma redbinop_valid : forall op v1 v2 C vr,
+  redbinop op v1 v2 vr ->
+  valid_val C v1 ->
+  valid_val C v2 ->
+  valid_val C vr.
+Proof.
+  introv HR Hv1 Hv2. induction HR; constructors*.
+Qed.
+
+Lemma read_accesses_valid : forall v1 π C v2,
+  read_accesses v1 π v2 ->
+  valid_val C v1 ->
+  valid_accesses C π ->
+  valid_val C v2.
+Proof.
+  introv HR Hv1 Hπ. induction HR.
+  { auto. }
+  { inverts Hπ. inverts Hv1 as Hv1 Hai. 
+    applys~ IHHR. }
+  { inverts Hπ. inverts Hv1 as Hv1 Hsf.
+    applys~ IHHR. }
+Qed.
+
+Lemma read_state_valid : forall m l π C v,
+  read_state m l π v ->
+  valid_state C m ->
+  valid_accesses C π ->
+  valid_val C v.
+Proof.
+  introv HR Hm Hπ. unfolds valid_state. inverts HR.
+  forwards*: Hm. applys* read_accesses_valid.
+Qed.
+
+Lemma write_accesses_valid : forall v1 w π C v2,
+  write_accesses v1 π w v2 ->
+  valid_val C v1 ->
+  valid_val C w ->
+  valid_accesses C π ->
+  valid_val C v2.
+Proof.
+  introv HW Hv1 Hw Hπ. induction HW.
+  { auto. }
+  { subst. inverts Hπ. inverts Hv1 as Hv1 Ha0i.
+    constructors*. introv Hi. rew_index~ in Hi. rew_reads*. }
+  { subst. inverts Hπ. inverts Hv1 as Hv1 Hs1f.
+    constructors*. introv Hf. rew_reads*. }
+Qed.
+
+Lemma write_state_valid : forall m1 l π v C m2,
+  write_state m1 l π v m2 ->
+  valid_state C m1 ->
+  valid_accesses C π ->
+  valid_val C v ->
+  valid_state C m2.
+Proof. 
+  introv HW Hm1 Hπ Hv. inverts HW. unfolds valid_state.
+  forwards*: Hm1. introv Hl0. rew_reads*; intros.
+  { applys* write_accesses_valid. }
+  { applys~ Hm1. applys~ indom_update_inv_neq l l0 v2. }
+Qed.
+
 Lemma red_valid : forall S m1 t C m2 v,
   red C S m1 t m2 v ->
   valid_stack C S ->
@@ -243,9 +311,18 @@ Proof.
     applys~ IHHR2. case_if*. }
   { inverts Ht. forwards* (Hm2&HVb): IHHR1.
     applys~ IHHR2. applys~ stack_valid_add. }
+  { inverts Ht as Hop Hv1 Hv2.
+    inverts Hv1 as Hv1. inverts Hv2 as Hv2.
+    splits~. applys* redbinop_valid. }
+  { subst. inverts Ht as Hop Hp. inverts Hp as Hp. 
+    inverts Hp as Hπ. splits~. 
+    applys* read_state_valid. }
+  { subst. inverts Ht as Hop Hp Hv2. 
+    inverts Hv2 as Hv2. inverts Hp as Hp.
+    inverts Hp as Hπ. splits; try constructors*.
+    applys* write_state_valid. }
+  {  }
 Qed.
-
-
 
 
 
