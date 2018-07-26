@@ -10,7 +10,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Typing.
+Require Export Typing Validity.
 
 Open Scope set_scope.
 Open Scope container_scope.
@@ -165,6 +165,7 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       vr = val_abstract_ptr l nil ->
       l <> null ->
       l \notindom m1 ->
+      valid_typ C T ->
       uninitialized C T v -> 
       m2 = m1[l := v] ->
       red C S m1 (trm_app (prim_new T) nil) m2 vr
@@ -174,6 +175,7 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       l <> null ->
       l \notindom m1 ->
       n = k ->
+      valid_typ C T ->
       uninitialized C (typ_array T (Some k)) (val_array (typ_array T (Some k)) a) -> 
       m2 = m1[l := (val_array  (typ_array T None) a)] ->
       red C S m1 (trm_app (prim_new_array T) ((trm_val v1)::nil)) m2 vr
@@ -357,6 +359,181 @@ Lemma red_complete : forall C S m1 t,
 Proof.
 Admitted.
 
+
+(* ********************************************************************** *)
+(* * Validity results *)
+
+Lemma stack_valid_add : forall C x v S,
+  valid_stack C S ->
+  valid_val C v ->
+  valid_stack C (Ctx.add x v S).
+Proof.
+  introv HS Hv. unfolds Ctx.add. destruct~ x.
+  unfolds. introv HCl. unfold Ctx.lookup in HCl.
+  case_if in HCl.
+  { inverts~ HCl. }
+  { applys~ HS x. }
+Qed.
+
+Lemma redbinop_valid : forall op v1 v2 C vr,
+  redbinop op v1 v2 vr ->
+  valid_val C v1 ->
+  valid_val C v2 ->
+  valid_val C vr.
+Proof.
+  introv HR Hv1 Hv2. induction HR; constructors*.
+Qed.
+
+Lemma read_accesses_valid : forall v1 π C v2,
+  read_accesses v1 π v2 ->
+  valid_val C v1 ->
+  valid_accesses C π ->
+  valid_val C v2.
+Proof.
+  introv HR Hv1 Hπ. induction HR.
+  { auto. }
+  { inverts Hπ. inverts Hv1 as Hv1 Hai. 
+    applys~ IHHR. }
+  { inverts Hπ. inverts Hv1 as Hv1 Hsf.
+    applys~ IHHR. }
+Qed.
+
+Lemma read_state_valid : forall m l π C v,
+  read_state m l π v ->
+  valid_state C m ->
+  valid_accesses C π ->
+  valid_val C v.
+Proof.
+  introv HR Hm Hπ. unfolds valid_state. inverts HR.
+  forwards*: Hm. applys* read_accesses_valid.
+Qed.
+
+Lemma write_accesses_valid : forall v1 w π C v2,
+  write_accesses v1 π w v2 ->
+  valid_val C v1 ->
+  valid_val C w ->
+  valid_accesses C π ->
+  valid_val C v2.
+Proof.
+  introv HW Hv1 Hw Hπ. induction HW.
+  { auto. }
+  { subst. inverts Hπ. inverts Hv1 as Hv1 Ha0i.
+    constructors*. introv Hi. rew_index~ in Hi. rew_reads*. }
+  { subst. inverts Hπ. inverts Hv1 as Hv1 Hs1f.
+    constructors*. introv Hf. rew_reads*. }
+Qed.
+
+Lemma write_state_valid : forall m1 l π v C m2,
+  write_state m1 l π v m2 ->
+  valid_state C m1 ->
+  valid_accesses C π ->
+  valid_val C v ->
+  valid_state C m2.
+Proof. 
+  introv HW Hm1 Hπ Hv. inverts HW. unfolds valid_state.
+  forwards*: Hm1. introv Hl0. rew_reads*; intros.
+  { applys* write_accesses_valid. }
+  { applys~ Hm1. applys~ indom_update_inv_neq l l0 v2. }
+Qed.
+
+Lemma typing_array_valid : forall Ta os C T,
+  typing_array C Ta T os ->
+  valid_typ C Ta ->
+  valid_typ C T.
+Proof.
+  introv HTa HVTa. induction HTa; inverts~ HVTa.
+Qed.
+
+Lemma typing_struct_valid : forall Ts C Tfs,
+  typing_struct C Ts Tfs ->
+  valid_typ C Ts ->
+  (forall f,
+    f \indom Tfs ->
+    valid_typ C Tfs[f]).
+Proof.
+  introv HTs HVTs. induction HTs; inverts~ HVTs.
+Qed.
+
+Lemma uninitialized_valid : forall v C T,
+  valid_typ C T ->
+  uninitialized C T v ->
+  valid_val C v.
+Proof.
+  introv HT Hu. induction Hu; try solve [ constructors* ].
+  { constructors~. introv Hi. applys~ H2.
+    applys* typing_array_valid. }
+  { constructors~. introv Hf. rewrite <- H0 in Hf. applys~ H2.
+    applys* typing_struct_valid. }
+Qed.
+
+(* Path surgery of valid accesses *)
+
+Lemma valid_accesses_app : forall C π1 π2,
+  valid_accesses C π1 ->
+  valid_accesses C π2 ->
+  valid_accesses C (π1 ++ π2).
+Proof.
+  introv Ha1 Ha2. gen π2. induction Ha1; intros;
+  rew_list in *; eauto; constructors~.
+Qed.
+
+Lemma red_valid : forall S m1 t C m2 v,
+  red C S m1 t m2 v ->
+  valid_stack C S ->
+  valid_state C m1 ->
+  valid_trm C t ->
+  ~ is_error v ->
+      valid_state C m2
+  /\  valid_val C v.
+Proof.
+  introv HR HS Hm1 Ht He. induction HR; intros;
+  try solve [ inverts* Ht ; forwards*: He ].
+  { inverts Ht. forwards* (Hm2&HVb): IHHR1.
+    applys~ IHHR2. case_if*. }
+  { inverts Ht. forwards* (Hm2&HVb): IHHR1.
+    applys~ IHHR2. applys~ stack_valid_add. }
+  { inverts Ht as Hop Hv1 Hv2.
+    inverts Hv1 as Hv1. inverts Hv2 as Hv2.
+    splits~. applys* redbinop_valid. }
+  { subst. inverts Ht as Hop Hp. inverts Hp as Hp. 
+    inverts Hp as Hπ. splits~. 
+    applys* read_state_valid. }
+  { subst. inverts Ht as Hop Hp Hv2. 
+    inverts Hv2 as Hv2. inverts Hp as Hp.
+    inverts Hp as Hπ. splits; try constructors*.
+    applys* write_state_valid. }
+  { subst. splits.
+    { unfolds valid_state. introv Hl0. rew_reads; intros; subst.
+      { applys* uninitialized_valid. }
+      { applys~ Hm1. applys~ indom_update_inv_neq l l0 v. } }
+    { repeat constructors*. } }
+  { subst. splits.
+    { unfolds valid_state. introv Hl0. rew_reads; intros; subst.
+      { forwards HV: uninitialized_valid H5. { constructors~. }
+        inverts HV as HV HVai. repeat constructors~. }
+      { applys~ Hm1. applys* indom_update_inv_neq l l0. } }
+    { repeat constructors*. } }
+  { subst. inverts Ht as Hop Hp. inverts Hop. inverts Hp as Hπ.
+    splits~. constructors~. inverts Hπ. applys~ valid_accesses_app.
+    repeat constructors~. }
+  { subst. inverts Ht as Hop Hp Hi. inverts Hop. inverts Hp as Hπ.
+    splits~. constructors~. inverts Hπ. applys~ valid_accesses_app.
+    repeat constructors~. }
+  { subst. inverts Ht as Hop Hs. inverts Hop. inverts Hs as Hs.
+    inverts Hs as Hs Hsf0. splits~. }
+  { subst. inverts Ht as Hop Ha Hi. inverts Ha as Ha.
+    inverts Ha as Ha Hai. splits~. }
+  { forwards* (Hm2&Hv1): IHHR1.
+    { inverts~ Ht. }
+    { applys* not_is_error_args_1. }
+    applys~ IHHR2.
+    { inverts~ Ht; repeat constructors~. } }
+  { forwards* (Hm2&Hv1): IHHR1.
+    { inverts~ Ht. }
+    { applys* not_is_error_args_2. }
+    applys~ IHHR2.
+    { inverts~ Ht; repeat constructors~. } }
+Qed.
 
 (* TODO:
    - rew_reads improve.
