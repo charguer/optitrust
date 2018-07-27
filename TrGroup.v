@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics LibSet LibMap TLCbuffer Typing.
+Require Export Semantics LibSet LibMap Typing TLCbuffer.
 
 
 
@@ -470,7 +470,6 @@ Proof.
   try solve [ inverts Hv2; repeat fequals*; subst; simpls; tryfalse* ].
   { inverts Hv2 as Hπ. fequals*.
     inverts HV1 as HRφ1. inverts HV2 as HRφ2.
-    unfolds valid_phi.
     applys* tr_accesses_inj. }
   { inverts Hv2 as Hl Htra. fequals. 
     applys* eq_of_extens. 
