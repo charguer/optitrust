@@ -1050,24 +1050,54 @@ Proof.
     inverts Hvi. 
     exists a'[i] m1'. 
     splits~. constructors*. }
-  { (* args_1 *)
+  { (* TODO: Clean up these cases. *)
+    (* args_1 *)
     inverts Ht; inverts HV;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He.
-    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-    try solve [ repeat constructors~ ; applys* red_valid HR1 ];
-    try solve [ exists v'' m3'; splits* ;
-    applys* red_args_1; applys* not_is_val_tr ].
-    { applys* tr_trm_struct_op. inverts_head tr_struct_op.
-      { constructors*. eauto. }
-      {  } }
-    { exists v'' m3'; splits*.
-      applys* red_args_1; applys* not_is_val_tr. } } }
+    { inverts_head tr_struct_op.
+      { inverts H8.
+        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+          try solve [ repeat constructors~ ; applys* red_valid HR1 ].
+          applys* tr_trm_struct_op. constructors*.
+          exists v'' m3'; splits*. inverts HR''.
+          { applys* red_args_1. applys* red_args_1.
+            applys* not_is_val_tr. }
+          { forwards*: not_is_error_tr Hv''. } }
+        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+          try solve [ repeat constructors~ ; applys* red_valid HR1 ].          
+          applys* tr_trm_struct_op. constructors*.
+          exists v'' m3'; splits*. inverts HR''.
+          { applys* red_args_1. applys* red_args_1.
+            applys* not_is_val_tr. }
+          { forwards*: not_is_error_tr Hv''. } } }
+      { inverts H8.
+        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+          try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+          try solve [ exists v'' m3'; splits* ;
+          applys* red_args_1; applys* not_is_val_tr ].
+          applys* tr_trm_struct_op. constructors*. }
+        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+          try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+          try solve [ exists v'' m3'; splits* ;
+          applys* red_args_1; applys* not_is_val_tr ].
+          applys* tr_trm_struct_op. constructors*.  } } }
+    { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+      try solve [ exists v'' m3'; splits* ;
+      applys* red_args_1; applys* not_is_val_tr ]. }
+    { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+      try solve [ exists v'' m3'; splits* ;
+      applys* red_args_1; applys* not_is_val_tr ]. } }
   { (* args_2 *)
-    inverts Ht as Ht1 Ht2.
+    inverts Ht as Ht1 Ht2. inverts HV.
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
     forwards*: not_is_error_args_2 HR2 He.
     forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+    applys* red_valid HR1. applys* not_is_error_args_2 HR2 He.
+    constructors~. constructors. applys* red_valid HR1.
+    applys* not_is_error_args_2 HR2 He.
     exists v'' m3'. splits*.
     inverts Ht1. applys* red_args_2.
     applys* not_is_val_tr. }
