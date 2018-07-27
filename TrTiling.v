@@ -388,7 +388,11 @@ Lemma tr_val_inj : forall C tt v v1 v2,
   tr_val tt v2 v ->
   v1 = v2.
 Proof.
-  
+  introv Hok HV1 HV2 Hv1 Hv2. gen C v2. induction Hv1; intros;
+  try solve [ inverts Hv2; repeat fequals*; subst; simpls; tryfalse* ].
+  { inverts Hv2 as Hπ. fequals*.
+    inverts HV1 as HRφ1. inverts HV2 as HRφ2.
+    applys* tr_accesses_inj. }
 Admitted.
 
 Lemma tr_val_inj_cp : forall C tt v1 v2 v1' v2',
