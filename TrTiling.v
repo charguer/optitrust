@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics LibSet LibMap TLCbuffer Typing.
+Require Export Semantics LibSet LibMap LibList TLCbuffer Typing.
 
 (* ********************************************************************** *)
 (* * Definition of the transformation *)
@@ -106,13 +106,15 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
       length a = l ->
       length a' = l / k ->
       (forall i,
-        index a' i ->
-          (exists a'',
+        exists a'',
             a'[i] = val_array (typ_var Tt) a''
-        /\  length a'' = k
-        /\  (forall j,
-              index a'' j ->
-              tr_val tt a[i*(length a')+j] a''[j]))) ->
+        /\  length a'' = k) ->
+      (forall i a'',
+        index a' i ->
+        a'[i] = val_array (typ_var Tt) a'' ->
+        (forall j,
+          index a'' j ->
+          tr_val tt a[i*(length a')+j] a''[j])) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->
@@ -302,6 +304,14 @@ Qed.
 
 Hint Resolve TLCbuffer.index_of_index_length.
 
+(* TODO: Factor this out or find alternative. *)
+Lemma nat_to_Z_div : forall a b,
+  b <> 0 ->
+  nat_to_Z (Nat.div a b) = Z.div (nat_to_Z a) (nat_to_Z b).
+Proof.
+  admit.
+Qed.
+
 Theorem functional_tr_val : forall tt v v1 v2,
   tr_val tt v v1 ->
   tr_val tt v v2 ->
@@ -311,17 +321,24 @@ Proof using.
   inverts_head tr_val; fequals*; subst; simpls; tryfalse.
   { applys* functional_tr_accesses. }
   { asserts Hl: (length a' = length a'0).
-    { admit. (*TODO: math*) }
+    { inverts_head make_tiling_tr'.
+      rewrite H1. rewrite H10. applys eq_int_of_eq_nat.
+      rewrite length_eq in *.
+      forwards Heq1: eq_nat_of_eq_int H0.
+      forwards Heq2: eq_nat_of_eq_int H9.
+      rewrite <- Heq1. rewrite~ <- Heq2. }
     applys* eq_of_extens. inverts_head make_tiling_tr'.
     introv Hi.
     asserts Hi': (index a'0 i).
     { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
-    forwards* (a1''&Ha'0i&Hla1''&Htra1): H10 i.
-    forwards* (a2''&Ha'i&Hla2''&Htra2): H2 i.
-    rewrite Ha'0i. rewrite Ha'i. fequals.
-    asserts Hl': (length a1'' = length a2''). 
+    forwards (a1''&Ha1''i&Hla1''): H11 i.
+    forwards (a2''&Ha2''i&Hla2''): H2 i.
+    rewrite Ha1''i. rewrite Ha2''i. fequals.
+    asserts Hl': (length a1'' = length a2'').
     { congruence. }
-    applys~ eq_of_extens. introv Hi0. admit. (* TODO: issue with induction *) }
+    applys~ eq_of_extens. introv Hi0. applys~ H4 i.
+    rewrite Hl. applys~ H13.
+    { rewrite index_eq_index_length in *. rewrite~ Hl'. } }
   { applys eq_of_extens. 
     { congruence. }
     { introv Hi. asserts: (index a i).
@@ -333,7 +350,41 @@ Proof using.
       asserts_rewrite* (dom s' = dom s) in *. } }
 Qed.
 
+Lemma tr_accesses_inj : forall C tt π π1 π2,
+  tiling_tr_ok tt C ->
+  valid_accesses C π1 ->
+  valid_accesses C π2 ->
+  tr_accesses tt π1 π ->
+  tr_accesses tt π2 π ->
+    π1 = π2.
+Proof.
+Admitted.
+
+Lemma tr_val_inj : forall C tt v v1 v2,
+  tiling_tr_ok tt C ->
+  valid_val C v1 ->
+  valid_val C v2 ->
+  tr_val tt v1 v ->
+  tr_val tt v2 v ->
+  v1 = v2.
+Proof.
+Admitted.
+
+Lemma tr_val_inj_cp : forall C tt v1 v2 v1' v2',
+  tiling_tr_ok tt C ->
+  valid_val C v1 ->
+  valid_val C v2 ->
+  tr_val tt v1 v1' ->
+  tr_val tt v2 v2' ->
+  v1 <> v2 ->
+  v1' <> v2'.
+Proof.
+  introv Hok HTv1 HTv2 Hv1 Hv2 Hneq HN. subst. 
+  forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
+Qed.
+
 End CommonResults.
+
 
 Section TransformationsProofs.
 
@@ -396,8 +447,7 @@ Proof.
         applys* not_is_error_tr. applys* not_is_error_tr.
         inverts HV as HVprim HV1 HV2.
         inverts HV1 as HV1. inverts HV2 as HV2.
-        forwards*: tr_val_inj_cp H2.
-        constructors~. } }
+        forwards*: tr_val_inj_cp H2. } }
 Admitted.
 
 End TransformationProofs.
