@@ -292,6 +292,9 @@ Proof.
   subst; inverts HN. forwards~: Hu.
 Qed.
 
+End CommonResults.
+
+
 Theorem functional_tr_accesses : forall tt π π1 π2,
   tr_accesses tt π π1 ->
   tr_accesses tt π π2 ->
@@ -350,6 +353,11 @@ Proof using.
       asserts_rewrite* (dom s' = dom s) in *. } }
 Qed.
 
+Axiom div_mod_eq : forall i j k:Z, 
+  (i / k)%Z = (j / k)%Z ->
+  (i mod k)%Z = (j mod k)%Z ->
+  i = j.
+
 Lemma tr_accesses_inj : forall C tt π π1 π2,
   tiling_tr_ok tt C ->
   valid_accesses C π1 ->
@@ -358,7 +366,19 @@ Lemma tr_accesses_inj : forall C tt π π1 π2,
   tr_accesses tt π2 π ->
     π1 = π2.
 Proof.
-Admitted.
+  introv Hok Hva1 Hva2 Hπ1 Hπ2. gen C π2. induction Hπ1; intros.
+  { inverts Hπ2. auto. }
+  { subst. inverts Hπ2; inverts Hva1; inverts Hva2.
+    { inverts_head make_tiling_tr'. repeat inverts_head access_array.
+      repeat fequals*. applys* div_mod_eq. }
+    { simpls. false. } }
+  { inverts Hπ2; inverts Hva1; inverts Hva2.
+    { inverts_head access_array. fequals*. }
+    { fequals*. } }
+  { inverts Hπ2; inverts Hva1; inverts Hva2.
+    { inverts_head access_array. }
+    { fequals*. } }
+Qed.
 
 Lemma tr_val_inj : forall C tt v v1 v2,
   tiling_tr_ok tt C ->
@@ -368,6 +388,7 @@ Lemma tr_val_inj : forall C tt v v1 v2,
   tr_val tt v2 v ->
   v1 = v2.
 Proof.
+  
 Admitted.
 
 Lemma tr_val_inj_cp : forall C tt v1 v2 v1' v2',
@@ -383,7 +404,7 @@ Proof.
   forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
 
-End CommonResults.
+
 
 
 Section TransformationsProofs.
