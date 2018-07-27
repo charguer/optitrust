@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics LibSet LibMap TLCbuffer.
+Require Export Semantics LibSet LibMap TLCbuffer Typing.
 
 (* ********************************************************************** *)
 (* * Definition of the transformation *)
@@ -105,13 +105,14 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
       tt = make_tiling_tr Ta Tt k ->
       length a = l ->
       length a' = l / k ->
-      (forall i a'',
+      (forall i,
         index a' i ->
+          (exists a'',
             a'[i] = val_array (typ_var Tt) a''
         /\  length a'' = k
         /\  (forall j,
               index a'' j ->
-              tr_val tt a[i*(length a')+j] a''[j])) ->
+              tr_val tt a[i*(length a')+j] a''[j]))) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->
@@ -299,11 +300,11 @@ Proof.
   inverts_head access_array; subst; simpls; tryfalse.
 Qed.
 
-Hint Resolve index_of_index_length.
+Hint Resolve TLCbuffer.index_of_index_length.
 
-Theorem functional_tr_val : forall gt v v1 v2,
-  tr_val gt v v1 ->
-  tr_val gt v v2 ->
+Theorem functional_tr_val : forall tt v v1 v2,
+  tr_val tt v v1 ->
+  tr_val tt v v2 ->
   v1 = v2.
 Proof using.
   introv H1 H2. gen v2. induction H1; intros;
@@ -312,19 +313,20 @@ Proof using.
   { asserts Hl: (length a' = length a'0).
     { admit. (*TODO: math*) }
     applys* eq_of_extens. inverts_head make_tiling_tr'.
-    introv Hi. forwards* (Ha'0i&Hla''&Htra): H10 i. }
-  { applys read_extens.
-    { inverts_head make_group_tr'. congruence. }
-    { introv Hin. tests C: (i = fg).
-      { inverts_head make_group_tr'.
-        asserts_rewrite~ (s'0[fg0] = val_struct (typ_var Tg0) sg0).
-        asserts_rewrite~ (s'[fg0] = val_struct (typ_var Tg0) sg).
-        fequals. applys~ read_extens. introv Hk. 
-        asserts_rewrite* (dom sg = dom sg0) in *. }
-      { inverts_head make_group_tr'.
-        asserts_rewrite~ (dom s' = dom s \- dom sg \u '{fg0}) in Hin.
-        inverts Hin as Hin; tryfalse. inverts Hin as Hin Hnotin.
-        asserts_rewrite* (dom sg = dom sg0) in *. } } }
+    introv Hi.
+    asserts Hi': (index a'0 i).
+    { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
+    forwards* (a1''&Ha'0i&Hla1''&Htra1): H10 i.
+    forwards* (a2''&Ha'i&Hla2''&Htra2): H2 i.
+    rewrite Ha'0i. rewrite Ha'i. fequals.
+    asserts Hl': (length a1'' = length a2''). 
+    { congruence. }
+    applys~ eq_of_extens. introv Hi0. admit. (* TODO: issue with induction *) }
+  { applys eq_of_extens. 
+    { congruence. }
+    { introv Hi. asserts: (index a i).
+      { rewrite index_eq_index_length in *. rewrite~ H0. }
+      applys* H2. } }
   { applys read_extens.
     { congruence. }
     { introv Hin. 

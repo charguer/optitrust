@@ -290,7 +290,7 @@ Proof using.
   introv H1 H2. gen v2. induction H1; intros;
   inverts_head tr_val; fequals*; subst; simpls; tryfalse.
   { applys* functional_tr_accesses. }
-  { applys* eq_of_extens. math. introv Hi. 
+  { applys* eq_of_extens. math. introv Hi.
     asserts: (index a i).
     { rewrite index_eq_index_length in *. rewrite~ H. }
     applys~ H1. }
