@@ -419,6 +419,37 @@ Notation "x \notindom E" := (x \notin ((dom E) : set _))
   (at level 39) : container_scope.
 
 
+(* More set lemmas *)
+
+Lemma subset_union_eq : forall A (S1 S2:set A),
+  S1 \c S2 ->
+  S2 = (S2 \- S1) \u S1.
+Proof.
+  intros. rew_set in *. intuition.
+  { rew_set. tests: (x \in S1).
+    { right~. }
+    { left~. } }
+  { rew_set in *. inverts H0.
+    { inverts~ H1. }
+    { applys~ H. } }
+Qed.
+
+Lemma incl_eq : forall A (S1 S2 S:set A),
+  S \c S1 ->
+  S \c S2 ->
+  (S1 \- S) = (S2 \- S) ->
+  S1 = S2.
+Proof.
+  intros. 
+  asserts_rewrite (S1 = (S1 \- S) \u S). 
+  { applys~ subset_union_eq. }
+  asserts_rewrite (S2 = (S2 \- S) \u S). 
+  { applys~ subset_union_eq. }
+  rew_set. intuition.
+  { rewrite~ <- H1. }
+  { rewrite~ H1. }
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* Map *)
