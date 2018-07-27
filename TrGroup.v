@@ -261,17 +261,7 @@ Inductive tr_state (gt:group_tr) : state -> state -> Prop :=
 (* ---------------------------------------------------------------------- *)
 (** Hints *)
 
-(* TODO: Factor this out. *)
-Lemma index_of_index_length : forall A (l' l : list A) i,
-  index l' i ->
-  length l' = length l ->
-  index l i.
-Proof.
-  intros. rewrite index_eq_index_length in *.
-  applys* index_of_index_length'.
-Qed.
-
-Hint Resolve index_of_index_length.
+Hint Resolve TLCbuffer.index_of_index_length.
 
 Hint Constructors red.
 Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
@@ -300,7 +290,10 @@ Proof using.
   introv H1 H2. gen v2. induction H1; intros;
   inverts_head tr_val; fequals*; subst; simpls; tryfalse.
   { applys* functional_tr_accesses. }
-  { applys* eq_of_extens. math. }
+  { applys* eq_of_extens. math. introv Hi. 
+    asserts: (index a i).
+    { rewrite index_eq_index_length in *. rewrite~ H. }
+    applys~ H1. }
   { applys read_extens. 
     { inverts_head make_group_tr'. congruence. }
     { introv Hin. tests C: (i = fg).
@@ -513,7 +506,10 @@ Proof.
   { inverts Hv2 as Hl Htra. fequals. 
     applys* eq_of_extens. 
     { congruence. }
-    { inverts HV1. inverts HV2. introv Hi. applys* H1. } }
+    { inverts HV1. inverts HV2. introv Hi. 
+      asserts: (index a0 i).
+      { rewrite index_eq_index_length in *. rewrite Hl. rewrite~ <- H. }
+      applys* H1. } }
   { subst. inverts Hv2 as.
     { introv HDsg0 Hgt Hfg0in HDs' Hsg0f Hs'f Hs'fg0.
       inverts Hgt as HDsg. rewrite <- HDsg in *. 
@@ -625,7 +621,10 @@ Proof using.
   { (* val array *)
     inverts Hv as Hl Hai. constructors*.
     2: { rewrite* <- Hl. }
-    applys* tr_typing_array. }
+    applys* tr_typing_array.
+    introv Hi. asserts: (index a i). 
+    { rewrite index_eq_index_length in *. rewrite~ Hl. }
+    applys* H2 i. }
   { (* val struct *)
     inverts Hv as; inverts HC as; 
     try solve [ intros ; simpls ; tryfalse ].
@@ -720,7 +719,8 @@ Proof.
     { inverts Hv as Hl Htr.
       forwards Htra: Htr H.
       forwards (w'&Hw'&Hπ'): IHHR Htra Ha.
-      exists* w'. }
+      exists* w'. splits*. constructors~.
+      rewrite index_eq_index_length. rewrite~ <- Hl. }
     { false*. } }
   { (* struct_access *)
     inverts Ha as; inverts Hv as;
@@ -770,9 +770,12 @@ Proof.
     forwards Htra: Htr H.
     forwards (v2'&Hv2'&HW'): IHHW Htra Hw Hπ.
     exists (val_array T a'[i:=v2']).
-    splits; constructors*; rewrite H0.
+    asserts: (index a' i).
+    { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
+    splits; constructors*; try rewrite H0.
     { repeat rewrite~ length_update. }
-    { introv Hi0. rew_reads; rew_index* in *. } }
+    { introv Hi0. rew_reads; rew_index* in *.
+      rewrite index_eq_index_length in *. rewrite~ <- Hl. } }
   { (* struct_access *)
     inverts Hπ as; inverts Hv1 as;
     try solve [ intros ; false ].
@@ -1049,7 +1052,9 @@ Proof.
     inverts Hv as Hl Hai.
     inverts Hvi. 
     exists a'[i] m1'. 
-    splits~. constructors*. }
+    splits~. constructors*.
+    rewrite index_eq_index_length in *.
+    rewrite~ <- Hl. }
   { (* TODO: Clean up these cases. *)
     (* args_1 *)
     inverts Ht; inverts HV;

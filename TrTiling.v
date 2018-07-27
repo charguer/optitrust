@@ -107,11 +107,11 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
       length a' = l / k ->
       (forall i a'',
         index a' i ->
-        a'[i] = val_array (typ_var Tt) a'' ->
-        length a'' = k ->
-        (forall j,
-          index a'' j ->
-          tr_val tt a[i*(length a')+j] a''[j])) ->
+            a'[i] = val_array (typ_var Tt) a''
+        /\  length a'' = k
+        /\  (forall j,
+              index a'' j ->
+              tr_val tt a[i*(length a')+j] a''[j])) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->
@@ -289,12 +289,57 @@ Proof.
   subst; inverts HN. forwards~: Hu.
 Qed.
 
+Theorem functional_tr_accesses : forall tt π π1 π2,
+  tr_accesses tt π π1 ->
+  tr_accesses tt π π2 ->
+    π1 = π2.
+Proof.
+  introv H1 H2. gen π2. induction H1; intros;
+  inverts_head tr_accesses; repeat fequals*;
+  inverts_head access_array; subst; simpls; tryfalse.
+Qed.
+
+Hint Resolve index_of_index_length.
+
+Theorem functional_tr_val : forall gt v v1 v2,
+  tr_val gt v v1 ->
+  tr_val gt v v2 ->
+  v1 = v2.
+Proof using.
+  introv H1 H2. gen v2. induction H1; intros;
+  inverts_head tr_val; fequals*; subst; simpls; tryfalse.
+  { applys* functional_tr_accesses. }
+  { asserts Hl: (length a' = length a'0).
+    { admit. (*TODO: math*) }
+    applys* eq_of_extens. inverts_head make_tiling_tr'.
+    introv Hi. forwards* (Ha'0i&Hla''&Htra): H10 i. }
+  { applys read_extens.
+    { inverts_head make_group_tr'. congruence. }
+    { introv Hin. tests C: (i = fg).
+      { inverts_head make_group_tr'.
+        asserts_rewrite~ (s'0[fg0] = val_struct (typ_var Tg0) sg0).
+        asserts_rewrite~ (s'[fg0] = val_struct (typ_var Tg0) sg).
+        fequals. applys~ read_extens. introv Hk. 
+        asserts_rewrite* (dom sg = dom sg0) in *. }
+      { inverts_head make_group_tr'.
+        asserts_rewrite~ (dom s' = dom s \- dom sg \u '{fg0}) in Hin.
+        inverts Hin as Hin; tryfalse. inverts Hin as Hin Hnotin.
+        asserts_rewrite* (dom sg = dom sg0) in *. } } }
+  { applys read_extens.
+    { congruence. }
+    { introv Hin. 
+      asserts_rewrite* (dom s' = dom s) in *. } }
+Qed.
+
 End CommonResults.
 
 Section TransformationsProofs.
 
-Hint Constructors red.
+Hint Constructors red redbinop.
 Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
+Hint Constructors valid_trm valid_prim valid_val.
+
+Hint Resolve red_valid.
 
 Theorem red_tr: forall tt C C' t t' v S S' m1 m1' m2,
   wf_typdefctx C ->
@@ -334,6 +379,23 @@ Proof.
     { applys~ stack_valid_add. applys* red_valid HR1. }
     { applys* red_valid HR1. }
     exists* vr' m3'. }
+  { (* binop *)
+    inverts Ht as.
+    { introv Hop. inverts Hop. }
+    { introv Hop Ht1 Ht2. inverts Ht1 as Ht1. inverts Ht2 as Ht2.
+      inverts H1;
+      try solve [ exists __ m1' ; splits~ ; inverts Ht1 ;
+      inverts Ht2 ; repeat constructors~ ].
+      { exists __ m1'. splits~. constructors.
+        forwards: functional_tr_val Ht1 Ht2. subst.
+        applys* not_is_error_tr. applys* not_is_error_tr.
+        constructors~. applys* functional_tr_val. }
+      { exists __ m1'. splits~. constructors.
+        applys* not_is_error_tr. applys* not_is_error_tr.
+        inverts HV as HVprim HV1 HV2.
+        inverts HV1 as HV1. inverts HV2 as HV2.
+        forwards*: tr_val_inj_cp H2.
+        constructors~. } }
 Admitted.
 
 End TransformationProofs.

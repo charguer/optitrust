@@ -188,6 +188,16 @@ Lemma index_of_update_neq : forall A (v:A) i i' (l:list A),
   index l i'.
 Proof using. introv H N. rewrite~ LibListZ.index_update_eq in H. Qed.
 
+Lemma index_of_index_length : forall A (l' l : list A) i,
+  index l' i ->
+  length l' = length l ->
+  index l i.
+Proof.
+  intros. rewrite LibListZ.index_eq_index_length in *.
+  applys* LibListZ.index_of_index_length'. 
+  repeat rewrite~ LibListZ.length_eq.
+Qed.
+
 End IndexProperties.
 
 
@@ -644,21 +654,3 @@ Lemma read_update_case_with_ltac_if : forall `{Inhab A} (l:list A) i j v,
 Proof using. intros. rewrite~ LibListZ.read_update_case. Qed.
 
 Hint Rewrite @read_update_same @read_update_case_with_ltac_if : rew_read.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
