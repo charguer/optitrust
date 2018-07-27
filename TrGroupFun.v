@@ -19,11 +19,11 @@ Fixpoint fun_tr_accesses (gt:group_tr) (π:accesses) : accesses :=
   let aux := fun_tr_accesses gt in
   match π with
   | nil => nil
-  | ((access_array i)::π') => ((access_array i)::(aux π'))
+  | ((access_array T i)::π') => ((access_array T i)::(aux π'))
   | ((access_field T f)::π') => 
-      if isTrue(T = group_tr_struct_name gt) then
+      if isTrue(T = typ_var (group_tr_struct_name gt)) then
         if isTrue(f \in group_tr_fields gt) then
-          let Tg := group_tr_new_struct_name gt in
+          let Tg := typ_var (group_tr_new_struct_name gt) in
           let fg := group_tr_new_struct_field gt in
           ((access_field T fg)::(access_field Tg f)::(aux π'))
         else
@@ -45,13 +45,14 @@ Fixpoint fun_tr_val_depth (depth:nat) (gt:group_tr) (v:val) : val :=
       | val_int i => val_int i
       | val_double d => val_double d
       | val_abstract_ptr l π => val_abstract_ptr l (fun_tr_accesses gt π)
-      | val_array nil => val_array nil
-      | val_array vs => (val_array (LibList.map aux vs)) 
+      | val_concrete_ptr l o => val_concrete_ptr l o (* TODO: This is not correct. *)
+      | val_array T nil => val_array T nil
+      | val_array T vs => (val_array T (LibList.map aux vs)) 
       | val_struct T s =>
           let m : monoid_op (map field val) := monoid_make (fun a b => a \u b) \{} in
           let g : field -> val -> map field val := fun f v => (\{})[f:=(aux v)] in
-          if isTrue(T=group_tr_struct_name gt) then
-            let Tg := group_tr_new_struct_name gt in
+          if isTrue(T=typ_var (group_tr_struct_name gt)) then
+            let Tg := typ_var (group_tr_new_struct_name gt) in
             let fg := group_tr_new_struct_field gt in
             let fs := group_tr_fields gt in
             let s' := fold m g s in
@@ -105,10 +106,12 @@ Lemma total_tr_accesses : forall gt π,
 Proof.
   induction π; eauto. destruct a.  
   { inverts IHπ; exists __. constructors*.  }
-  { tests: (t = group_tr_struct_name gt).
+  { tests: (t = typ_var (group_tr_struct_name gt)).
     { tests: (f \in group_tr_fields gt).
-      { inverts IHπ; exists __. applys* tr_accesses_field_group. }
-      { inverts IHπ; exists __. applys* tr_accesses_field_other. } }
+      { inverts IHπ. destruct gt. exists __. 
+        applys* tr_accesses_field_group. }
+      { inverts IHπ. destruct gt. exists __. 
+        applys* tr_accesses_field_other. } }
     { inverts IHπ; exists __. applys* tr_accesses_field_other. } }
 Qed.
 
