@@ -895,9 +895,9 @@ Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
 Proof.
   introv Hwf Hok HC Ht HS Hm1 HR HVS HVm1 HV. introv He. gen gt C' t' S' m1'. 
   induction HR; intros; try solve [ forwards*: He; unfolds* ].
-  { (* var *)
-    inverts Ht as Hv. exists* v' m1'. }
   { (* val *)
+    inverts Ht as Hv. exists* v' m1'. }
+  { (* var *)
     inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H. exists* v' m1'. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse. inverts HV as HV0 HV1 HV2.

@@ -88,8 +88,6 @@ Inductive tr_accesses (tt:tiling_tr) : accesses -> accesses -> Prop :=
 (** Transformation of values: v ~ |v| *)
 
 Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
-  | tr_val_error :
-      tr_val tt val_error val_error
   | tr_val_uninitialized :
       tr_val tt val_uninitialized val_uninitialized
   | tr_val_unit :
@@ -213,6 +211,23 @@ Inductive tr_stack (tt:tiling_tr) : stack -> stack -> Prop :=
       LibList.Forall2 (tr_stack_item tt) S S' ->
       tr_stack tt S S'.
 
+(** Transformation of states: m ~ |m| *)
+
+Inductive tr_state (tt:tiling_tr) : state -> state -> Prop :=
+  | tr_state_intro : forall m m',
+      dom m = dom m' ->
+      (forall l,
+        l \indom m ->
+        tr_val tt m[l] m'[l]) ->
+      tr_state tt m m'.
+
+
+(* ********************************************************************** *)
+(* * Preservation of semantics proof. *)
+
+(* These lemmas are common with all transformations. *)
+Section CommonResults.
+
 Lemma stack_lookup_tr : forall tt S S' x v,
   tr_stack tt S S' ->
   Ctx.lookup x S = Some v -> 
@@ -228,13 +243,127 @@ Proof.
       splits*. unfolds. case_if. fold Ctx.lookup. auto. } }
 Qed.
 
+Lemma tr_stack_add : forall tt z v S v' S',
+  tr_stack tt S S' ->
+  tr_val tt v v' ->
+  tr_stack tt (Ctx.add z v S) (Ctx.add z v' S').
+Proof.
+  introv HS Hv. constructors~. inverts HS.
+  unfolds Ctx.add. destruct* z.
+  applys~ Forall2_cons. constructors~.
+Qed.
 
-(** Transformation of states: m ~ |m| *)
+Lemma not_tr_val_error : forall tt v1 v2,
+  tr_val tt v1 v2 ->
+  ~ is_error v2.
+Proof.
+  introv Hv He. unfolds is_error. destruct* v2. inverts Hv.
+Qed.
 
-Inductive tr_state (tt:tiling_tr) : state -> state -> Prop :=
-  | tr_state_intro : forall m m',
-      dom m = dom m' ->
-      (forall l,
-        l \indom m ->
-        tr_val tt m[l] m'[l]) ->
-      tr_state tt m m'.
+Lemma not_is_val_tr : forall tt t1 t2,
+  tr_trm tt t1 t2 ->
+  ~ is_val t1 ->
+  ~ is_val t2.
+Proof.
+  introv Htr Hv. induction Htr; introv HN;
+  try solve [ subst ; inverts HN ]. 
+  forwards*: Hv.
+  inverts H0; inverts HN. (* Changes here. *)
+Qed.
+
+Lemma not_is_error_tr : forall tt v1 v2,
+  tr_val tt v1 v2 ->
+  ~ is_error v1 ->
+  ~ is_error v2.
+Proof.
+  introv Htr He. induction Htr; introv HN;
+  try solve [ subst ; inverts HN ; forwards*: He ]. (* Changes here. *) 
+Qed.
+
+Lemma not_is_uninitialized_tr : forall tt v v',
+  tr_val tt v v' -> 
+  ~ is_uninitialized v ->
+  ~ is_uninitialized v'.
+Proof.
+  introv Htr Hu. induction Htr; introv HN;
+  subst; inverts HN. forwards~: Hu.
+Qed.
+
+End CommonResults.
+
+Section TransformationsProofs.
+
+Hint Constructors red.
+Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
+
+Theorem red_tr: forall tt C C' t t' v S S' m1 m1' m2,
+  wf_typdefctx C ->
+  tiling_tr_ok tt C ->
+  tr_typdefctx tt C C' ->
+  tr_trm tt t t' ->
+  tr_stack tt S S' ->
+  tr_state tt m1 m1' ->
+  red C S m1 t m2 v ->
+  valid_stack C S ->
+  valid_state C m1 ->
+  valid_trm C t ->
+  ~ is_error v ->
+  exists v' m2',
+      tr_val tt v v'
+  /\  tr_state tt m2 m2'
+  /\  red C' S' m1' t' m2' v'.
+Proof.
+  introv Hwf Hok HC Ht HS Hm1 HR HVS HVm1 HV. introv He. gen tt C' t' S' m1'.
+  induction HR; intros; try solve [ forwards*: He; unfolds* ].
+  { (* val *) 
+    inverts Ht as Hv. exists* v' m1'. }
+  { (* var *) 
+    inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H. exists* v' m1'. }
+  { (* if *)
+    inverts Ht as Hb HTrue HFalse. inverts HV as HV0 HV1 HV2.
+    forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
+    inverts* Hv'. destruct b;
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2';
+    forwards*: red_valid HR1; exists* vr' m3'. }
+  { (* let *)
+    inverts Ht as Ht1 Ht2. inverts HV as HV0 HV1.
+    forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
+    forwards HS': tr_stack_add z HS Hv'.
+    forwards: not_tr_val_error Hv'.
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
+    { applys~ stack_valid_add. applys* red_valid HR1. }
+    { applys* red_valid HR1. }
+    exists* vr' m3'. }
+Admitted.
+
+End TransformationProofs.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
