@@ -98,6 +98,7 @@ Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
       C[Tt] = typ_struct Tfs ->
       C'[Tt] = typ_struct Tfs' ->
       C'[Tg] = typ_struct Tfs'' ->
+      (* TODO: Factor out relation Tfs Tfs' *)
       (forall T,
         T \indom C ->
         T <> Tt ->
@@ -1097,3 +1098,9 @@ Proof.
 Qed.
 
 End TransformationsProofs.
+
+(*
+hint red_args1.
+Hint Extern 1 (valid_val ?v) =>
+   match goal with H: red _ _ _ _ v |- _ => applys red_valid_val' H end.
+*)

@@ -58,11 +58,11 @@ Inductive tr_typdefctx (tt:tiling_tr) : typdefctx -> typdefctx -> Prop :=
         Tv \indom C ->
         Tv <> Ta ->
         C'[Tv] = C[Tv]) ->
-      (forall n,
-        os = Some n ->
-        os' = Some (n / k)) ->
-      (os = None ->
-        os' = None) ->
+      (match os, os' with
+      | Some n, Some m => nbtiles n m
+      | None, None => True  
+      | _,_ => False
+      end) ->
       tr_typdefctx tt C C'.
 
 (** Transformation of paths: π ~ |π| *)
@@ -86,6 +86,8 @@ Inductive tr_accesses (tt:tiling_tr) : accesses -> accesses -> Prop :=
       tr_accesses tt ((access_field T f)::π) ((access_field T f)::π').
 
 (** Transformation of values: v ~ |v| *)
+
+(* TODO: tr_index *)
 
 Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
   | tr_val_uninitialized :
@@ -115,7 +117,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
         a'[i] = val_array (typ_var Tt) a'' ->
         (forall j,
           index a'' j ->
-          tr_val tt a[i*(length a')+j] a''[j])) ->
+          tr_val tt a[i*k+j] a''[j])) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->
@@ -149,7 +151,7 @@ Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
          let i = t2 in
          let j = i / k in
          let k = i % k in
-           t[j][k] *)
+           t[j][k] TODO: Name this *)
       op1 = pr (typ_var Ta) ->
       op2 = pr (typ_var Tt) ->
       ta1 = trm_app op1 ((trm_var "t")::(trm_var "j")::nil) ->
@@ -263,6 +265,18 @@ Lemma not_tr_val_error : forall tt v1 v2,
 Proof.
   introv Hv He. unfolds is_error. destruct* v2. inverts Hv.
 Qed.
+
+
+(* Definition preserves_is_val R := forall t1 t2
+  R t1 t2 ->
+  ~ is_val t1 ->
+  ~ is_val t2.
+
+Lemma tr_preserves_is_val : forall R,  
+  R = tr_trm t \/ R = tr_tiling gt ->
+  preserves_is_val R.
+
+ *)
 
 Lemma not_is_val_tr : forall tt t1 t2,
   tr_trm tt t1 t2 ->
