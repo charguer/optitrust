@@ -51,11 +51,10 @@ Notation make_group_tr' := make_group_tr.
 
 (** Checking if the transformation is acceptable *)
 
-Record group_tr_ok (C:typdefctx) (gt:group_tr) := group_tr_ok_make {
+(*Record group_tr_ok (C:typdefctx) (gt:group_tr) := group_tr_ok_make {
   let (Tt,fs,Tg,fg) := gt in 
   group_tr_ok_Tt : Tt \indom C;
-}.
-
+}.*)
 
 
 Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
@@ -72,8 +71,7 @@ Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
         ~ free_typvar C Tt C[Tv]) ->
       group_tr_ok gt C.
 
-
-Lemma group_tr_ok_Tt : 
+(*Lemma group_tr_ok_Tt : 
    forall Tt fs Tg fg,
    group_tr_ok C gt ->
    gt = make_group_tr Tt fs Tg fg ->
@@ -83,7 +81,7 @@ Lemma group_tr_ok_Tt :
    forall Tt fs Tg fg,
    group_tr_ok C (make_group_tr Tt fs Tg fg) ->
    Tt \indom C.
-
+*)
 
 
 (* ********************************************************************** *)
@@ -91,18 +89,10 @@ Lemma group_tr_ok_Tt :
 
 (** Transformation of typdefctxs: C ~ |C| *)
 
-Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
-  | tr_typdefctx_intro : forall Tfs Tfs' Tfs'' Tt fs Tg fg C C',
+Inductive tr_struct_map (gt:group_tr) : map field typ -> map field typ -> 
+                                        map field typ  -> Prop :=
+  | tr_struct_map_intro : forall Tfs Tfs' Tfs'' Tt fs Tg fg,
       gt = make_group_tr Tt fs Tg fg ->
-      dom C' = dom C \u \{Tg} ->
-      C[Tt] = typ_struct Tfs ->
-      C'[Tt] = typ_struct Tfs' ->
-      C'[Tg] = typ_struct Tfs'' ->
-      (* TODO: Factor out relation Tfs Tfs' *)
-      (forall T,
-        T \indom C ->
-        T <> Tt ->
-        C'[T] = C[T]) ->
       dom Tfs' = (dom Tfs \- fs) \u \{fg} ->
       Tfs'[fg] = typ_var Tg ->
       (forall f,
@@ -113,6 +103,20 @@ Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
       (forall f,
         f \indom Tfs'' ->
         Tfs''[f] = Tfs[f]) ->
+      tr_struct_map gt Tfs Tfs' Tfs''.
+
+Inductive tr_typdefctx (gt:group_tr) : typdefctx -> typdefctx -> Prop :=
+  | tr_typdefctx_intro : forall Tfs Tfs' Tfs'' Tt fs Tg fg C C',
+      gt = make_group_tr Tt fs Tg fg ->
+      dom C' = dom C \u \{Tg} ->
+      C[Tt] = typ_struct Tfs ->
+      C'[Tt] = typ_struct Tfs' ->
+      C'[Tg] = typ_struct Tfs'' ->
+      (forall T,
+        T \indom C ->
+        T <> Tt ->
+        C'[T] = C[T]) ->
+      tr_struct_map gt Tfs Tfs' Tfs'' ->
       tr_typdefctx gt C C'.
 
 (** Transformation of paths: π ~ |π| *)
@@ -467,12 +471,14 @@ Proof.
     { simpls. inverts Hok as Hgt. inverts Hgt.
       inverts_head Logic.or; tryfalse. inverts H4.
       { inverts_head make_group_tr'. fequals. }
-      { inverts H8. inverts H13. false*. } } }
+      { inverts_head valid_accesses. inverts_head valid_typ. 
+        false*. } } }
   { inverts Hπ2; inverts Hva1; inverts Hva2.
-    { inverts Hok as Hgt. inverts Hgt. inverts H8.
+    { inverts Hok as Hgt. inverts Hgt. inverts_head access_field.
       subst. simpls. inverts_head Logic.or; tryfalse.
-      inverts H6. inverts Hπ1.
-      { inverts H7. inverts_head make_group_tr'. inverts H18. inverts H3; fequals. }
+      inverts_head valid_typ. inverts Hπ1.
+      { inverts H7. inverts_head make_group_tr'. 
+        inverts H18. inverts H3; fequals. }
       { simpls. inverts_head Logic.or.
         { inverts H7. inverts H16. false*. }
         { false*. } } }
@@ -567,7 +573,7 @@ Proof.
   introv HC HTa. gen gt C'. induction HTa; intros;
   try solve [ inverts~ HTa ].
   { constructors~. }
-  { inverts HC as HD HCTt HC'Tt HC'Tg HC'T HTfs'f HDTfs' HTfs''f.
+  { inverts HC as HD HCTt HC'Tt HC'Tg HC'T Htrsm.
     tests: (Tv=Tt).
     { inverts HTa as.
       { introv HTa. rewrite HCTt in HTa. inverts HTa. }
@@ -586,15 +592,16 @@ Lemma tr_typing_struct : forall Tt fg Tg fs C C' Ts Tfs,
 Proof.
   introv HC Hwf Hfv HTs. gen Tt fg Tg fs. induction HTs; intros.
   { constructors~. }
-  { inverts HC as.
-    introv Hgt HDC' HCTt HC'Tt HC'Tg HC'T HDTfs' HTfs'fg HTfs'f HTfs''f.
+  { inverts HC as Hgt HDC' HCTt HC'Tt HC'Tg HC'T Htrsm.
+    inverts Htrsm as Hgt' HDTfs' HTfs'fg HTfs'f HTfs''f.
+    inverts Hgt. inverts Hgt'.
     simpls. constructors~.
     { rewrite HDC'. rew_set~. }
-    { inverts_head make_group_tr'. tests: (Tv=Tt0).
+    { tests: (Tv=Tt1).
       { false. applys Hfv. constructors~. }
       { rewrite~ HC'T. applys IHHTs.
         { introv HN. applys Hfv. constructors~. eapply HN. }
-        { constructors*. } } } }
+        { repeat constructors*. } } } }
 Qed.
 
 Lemma tr_uninitialized_val_aux : forall gt v v' T C C',
@@ -618,16 +625,19 @@ Proof using.
     inverts Hv as; inverts HC as; 
     try solve [ intros ; simpls ; tryfalse ].
     { (* fields grouped *)
-      introv Hgt HDC' HCTt0 HC'Tt0 HC'Tg0 HC'T HDTfs' HTfs'fg0.
-      introv HTfs'f HTfs''f HDsg Hfg HDs' Htrsgf Htrs'f Hs'fg.
-      inverts Hgt as HDTfs''. 
+      introv Hgt HDC' HCTt0 HC'Tt0 HC'Tg0 HC'T Htrsm.
+      introv HDsg Hfg HDs' Htrsgf Htrs'f Hs'fg.
+      inverts Htrsm as Hgt' HDTfs' HTfs'fg0 HTfs'f HDTfs''f.
+      inverts Hgt. inverts Hgt' as HD.
       constructors; unfolds typdefctx. 
-      2:{ rewrite HDTfs'. rewrite HDs'. rewrite HDTfs''. 
+      2:{ rewrite HDTfs'. rewrite HDs'. rewrite HD. 
         inverts H as HTt0 HTs. inverts HTs as.
         { introv HTfs. asserts Heq: (typ_struct Tfs = typ_struct Tfs0).
-          { rewrite HTfs. rewrite <- HCTt0. auto. } inverts Heq. rewrite~ <- H0. }
+          { rewrite HTfs. rewrite <- HCTt0. auto. } 
+          inverts Heq. rewrite~ <- H0. }
         { introv HTv HTs HN. asserts HN': (typ_var Tv = typ_struct Tfs0).
-          { rewrite HN. rewrite <- HCTt0. auto. } inverts HN'. } } 
+          { rewrite HN. rewrite <- HCTt0. auto. } 
+          inverts HN'. } } 
       { constructors~.
         { inverts H as HTt0 HTs. rewrite HDC' at 1. rew_set~. }
         { rewrite HC'Tt0 at 1. constructors*. } }
@@ -640,15 +650,18 @@ Proof using.
             { rewrite HC'Tg0 at 1. constructors*. } }
           { introv Hfin. inverts H as HTt0 HTs. inverts HTs as.
             { introv HTfs. rewrite HCTt0 in HTfs at 1. inverts HTfs.
-              rewrite~ HTfs''f. rewrite <- HDTfs'' in Hfin. applys~ H2.
-              { rewrite <- H0 in HDsg. rew_set in *. applys~ HDsg. }
+              rewrite~ HDTfs''f. applys~ H2.
+              { rewrite <- H0 in HDsg. rewrite <- HD in Hfin.
+                rew_set in *. applys~ HDsg. }
               { exact Hok. }
-              { rewrite HDTfs''. constructors*. } }
+              { repeat constructors*. rewrite~ HD.
+                introv Hf0in Hf0nin. rewrite HD in Hf0nin.
+                applys~ HTfs'f. } 
+              { applys~ Htrsgf. rewrite~ HD. } }
             { introv HDTv HTs HTv. rewrite HCTt0 in HTv at 1. 
               inverts HTv. } } } } }
     { (* other struct *)
-      introv HDC' HCTt HC'Tt HC'Tg HC'T HDTfs' HTfs'fg HTfs'f HTfs''f. 
-      introv Hneq HDvfs Htrs'f.
+      introv HDC' HCTt HC'Tt HC'Tg HC'T Htrsm Hneq HDvfs Htrs'f.
       constructors~; unfolds typdefctx.
       2:{ rewrite H0. rewrite~ <- HDvfs. }
       { inverts H.
@@ -826,16 +839,16 @@ Lemma tr_typ_valid : forall gt C C' T,
   valid_typ C' T.
 Proof.
   introv HC Hok HT. induction HT; try solve [ constructors* ].
-  inverts Hok as HTt HCTt HTg Hfs Hfg Hfv. inverts HC as.
-  introv Hgt HDC' HCTt0 HC'Tt0 HC'Tg0.
-  introv HC'T HDTfs' HTfs'fg0 HTfs'f HTfs''f.
-  constructors.
+  inverts Hok as HTt HCTt HTg Hfs Hfg Hfv. 
+  inverts HC as Hgt HDC' HCTt0 HC'Tt0 HC'Tg0 HC'T Htrsm.
+  inverts Htrsm as Hgt' HDTfs' HTfs'fg0 HTfs'f HTfs''f.
+  inverts Hgt. inverts Hgt'. constructors.
   { rewrite HDC'. rew_set~. }
-  { inverts Hgt. tests: (Tv=Tt0).
+  { tests: (Tv=Tt1).
     { rewrite HC'Tt0. constructors. introv Hfin.
       rewrite HCTt0 in HCTt. inverts HCTt.
       rewrite HCTt0 in IHHT. inverts IHHT as HTfsf.
-      tests: (f = fg0).
+      tests: (f=fg1).
       { rewrite HTfs'fg0. constructors.
         { rewrite HDC'. rew_set~. }
         rewrite HC'Tg0. constructors~. introv Hfin'.

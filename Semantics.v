@@ -46,7 +46,6 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_eq_false : forall v1 v2,
       basic_value v1
       redbinop binop_eq v1 v2 (val_bool (isTrue(v1 = v2))).
-   
 *)
 
 (* ---------------------------------------------------------------------- *)
