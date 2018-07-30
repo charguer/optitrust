@@ -109,10 +109,9 @@ Qed.
 Lemma follow_typ_valid_typ : forall T T' C π,
   valid_typ C T ->
   follow_typ C T π T' ->
-  valid_accesses C π  ->
   valid_typ C T'.
 Proof.
-  introv HT HF Hva. induction HF.   
+  introv HT HF. forwards* Hva: follow_typ_valid_accesses. induction HF.
   { auto. }
   { inverts Hva. applys~ IHHF. applys* valid_typing_array. }
   { inverts Hva. applys~ IHHF. applys* valid_typing_struct. }

@@ -47,6 +47,7 @@ Definition env_add_binding E z X :=
 
 Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
   | typing_array_base : forall T os,
+      valid_typ C T ->
       typing_array C (typ_array T os) T os
   | typing_array_typvar : forall Tv T os,
       Tv \indom C ->
@@ -148,7 +149,7 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E (trm_app binop_sub (t1::t2::nil)) typ_int
   | typing_binop_eq : forall E t1 t2,
       typing E t1 typ_int ->
-      typing E t2 typ_int ->
+      typing E t2 typ_int -> (* for some basic type T *)
       typing E (trm_app binop_eq (t1::t2::nil)) typ_bool
   (* Abstract heap operations *)
   | typing_get : forall E T t1,

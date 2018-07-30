@@ -106,6 +106,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
       length a = l ->
       length a' = l / k ->
       (forall i,
+        index a' i ->
         exists a'',
             a'[i] = val_array (typ_var Tt) a''
         /\  length a'' = k) ->
@@ -307,14 +308,6 @@ Qed.
 
 Hint Resolve TLCbuffer.index_of_index_length.
 
-(* TODO: Factor this out or find alternative. *)
-Lemma nat_to_Z_div : forall a b,
-  b <> 0 ->
-  nat_to_Z (Nat.div a b) = Z.div (nat_to_Z a) (nat_to_Z b).
-Proof.
-  admit.
-Qed.
-
 Theorem functional_tr_val : forall tt v v1 v2,
   tr_val tt v v1 ->
   tr_val tt v v2 ->
@@ -334,8 +327,8 @@ Proof using.
     introv Hi.
     asserts Hi': (index a'0 i).
     { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
-    forwards (a1''&Ha1''i&Hla1''): H11 i.
-    forwards (a2''&Ha2''i&Hla2''): H2 i.
+    forwards* (a1''&Ha1''i&Hla1''): H11 i.
+    forwards* (a2''&Ha2''i&Hla2''): H2 i.
     rewrite Ha1''i. rewrite Ha2''i. fequals.
     asserts Hl': (length a1'' = length a2'').
     { congruence. }
@@ -408,16 +401,55 @@ Proof.
   forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
 
-
+Axiom index_div : forall (l:nat) (k:size) (i:int),
+  index (nat_to_Z l) i ->
+  index (nat_to_Z (l/k)) ((i/k)%Z).
 
 
 Section TransformationsProofs.
 
 Hint Constructors red redbinop.
+Hint Constructors read_accesses write_accesses.
 Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
 Hint Constructors valid_trm valid_prim valid_val.
 
 Hint Resolve red_valid.
+
+Lemma tr_read_accesses : forall gt v π v' π' w,
+  tr_val gt v v' ->
+  tr_accesses gt π π' ->
+  read_accesses v π w ->
+  (exists w',
+      tr_val gt w w'
+  /\  read_accesses v' π' w').
+Proof.
+  introv Hv Ha HR. gen gt v' π'. induction HR; intros.
+  { (* nil *)
+    inverts Ha. exists~ v'. }
+  { (* array_access *)
+    inverts Ha as.
+    { (* tiling array *) 
+      introv Hπ Heq. inverts Heq.
+      inverts Hv as.
+      2:{ introv HN. simpls. false. }
+      introv Heq Hla Hla' Ha'' Htrv.
+      inverts Heq.
+      asserts Hia': (index a' (i0 / k)%Z).
+      { rewrite index_eq_index_length in *.
+        rewrite Hla'. rewrite Hla in H.
+        applys~ index_div. }
+      forwards~ (a''&Ha'i&Hla''): Ha'' ((i0/k)%Z).
+      asserts Hia'': (index a'' (i0 mod k)%Z).
+      { admit. }
+      forwards*: Htrv ((i0/k)%Z) a'' ((i0 mod k)%Z).
+ } }
+    { (* other array *) } }
+  { (* struct_access *)
+     }
+Qed.
+
+
+
 
 Theorem red_tr: forall tt C C' t t' v S S' m1 m1' m2,
   wf_typdefctx C ->
@@ -472,7 +504,17 @@ Proof.
         applys* not_is_error_tr. applys* not_is_error_tr.
         inverts HV as HVprim HV1 HV2.
         inverts HV1 as HV1. inverts HV2 as HV2.
-        forwards*: tr_val_inj_cp H2. } }
+        forwards*: tr_val_inj_cp H2. } } }
+  { (* get *)
+    inverts Ht as Ht1'. subst.
+    inverts Ht1' as Ht1'. inverts Ht1' as Hπ.
+    inverts Hm1 as HD Htrm.
+    inverts H0 as Hi Ha.
+    forwards Htrml: Htrm Hi.
+    forwards (w'&Hw'&Ha'): tr_read_accesses Htrml Hπ Ha.
+    exists w' m1'. splits*.
+    repeat constructors~. rewrite~ <- HD.
+    applys* not_is_uninitialized_tr. }
 Admitted.
 
 End TransformationProofs.

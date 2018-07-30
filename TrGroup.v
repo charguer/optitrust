@@ -51,6 +51,13 @@ Notation make_group_tr' := make_group_tr.
 
 (** Checking if the transformation is acceptable *)
 
+Record group_tr_ok (C:typdefctx) (gt:group_tr) := group_tr_ok_make {
+  let (Tt,fs,Tg,fg) := gt in 
+  group_tr_ok_Tt : Tt \indom C;
+}.
+
+
+
 Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
   | group_tr_ok_intros : forall Tfs Tt fs fg Tg gt C,
       gt = make_group_tr Tt fs Tg fg ->
@@ -64,6 +71,19 @@ Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
         Tv <> Tt ->
         ~ free_typvar C Tt C[Tv]) ->
       group_tr_ok gt C.
+
+
+Lemma group_tr_ok_Tt : 
+   forall Tt fs Tg fg,
+   group_tr_ok C gt ->
+   gt = make_group_tr Tt fs Tg fg ->
+   Tt \indom C.
+
+Lemma group_tr_ok_Tt : 
+   forall Tt fs Tg fg,
+   group_tr_ok C (make_group_tr Tt fs Tg fg) ->
+   Tt \indom C.
+
 
 
 (* ********************************************************************** *)

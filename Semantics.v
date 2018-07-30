@@ -30,8 +30,10 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
   | redbinop_mul : forall n1 n2,
       redbinop binop_mul (val_int n1) (val_int n2) (val_int (n1 * n2))
   | redbinop_div : forall n1 n2,
+      n2 <> 0 ->
       redbinop binop_div (val_int n1) (val_int n2) (val_int (n1 / n2))
   | redbinop_mod : forall n1 n2,
+      n2 <> 0 ->
       redbinop binop_mod (val_int n1) (val_int n2) (val_int (n1 mod n2))
   | redbinop_eq_true : forall v1 v2,
       v1 = v2 ->
@@ -40,6 +42,12 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
       v1 <> v2 ->
       redbinop binop_eq v1 v2 (val_bool false).
 
+(*
+  | redbinop_eq_false : forall v1 v2,
+      basic_value v1
+      redbinop binop_eq v1 v2 (val_bool (isTrue(v1 = v2))).
+   
+*)
 
 (* ---------------------------------------------------------------------- *)
 (** Uninitialized values construction *)
@@ -52,6 +60,7 @@ Inductive uninitialized (C:typdefctx) : typ -> val -> Prop :=
   | uninitialized_double :
       uninitialized C typ_double val_uninitialized
   | uninitialized_ptr : forall T,
+      (* wf_typ C T -> *)
       uninitialized C (typ_ptr T) val_uninitialized
   | uninitialized_array : forall os T Ta a,
       typing_array C Ta T os ->
@@ -177,11 +186,11 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       n = k ->
       valid_typ C T ->
       uninitialized C (typ_array T (Some k)) (val_array (typ_array T (Some k)) a) -> 
-      m2 = m1[l := (val_array  (typ_array T None) a)] ->
+      m2 = m1[l := (val_array (typ_array T None) a)] ->
       red C S m1 (trm_app (prim_new_array T) ((trm_val v1)::nil)) m2 vr
   | red_struct_access : forall l π S T f v1 m vr,
       v1 = val_abstract_ptr l π ->
-      vr = val_abstract_ptr l (π ++ ((access_field T f)::nil)) ->
+      vr = val_abstract_ptr l (π ++((access_field T f)::nil)) ->
       red C S m (trm_app (prim_struct_access T f) ((trm_val v1)::nil)) m vr
   | red_array_access : forall l π i S T v1 v2 m vr,
       v1 = val_abstract_ptr l π ->
@@ -354,6 +363,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Lemmas about the completeness of the reduction rules *)
 
+(* Holds because there's no loop *)
 Lemma red_complete : forall C S m1 t, 
   exists v m2, red C S m1 t m2 v.
 Proof.
@@ -482,7 +492,7 @@ Lemma red_valid : forall S m1 t C m2 v,
   valid_stack C S ->
   valid_state C m1 ->
   valid_trm C t ->
-  ~ is_error v ->
+  ~ is_error v -> (* TODO: No need to assume this. *)
       valid_state C m2
   /\  valid_val C v.
 Proof.
