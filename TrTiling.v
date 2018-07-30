@@ -47,6 +47,9 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
 
 (** Transformation of typdefctxs: C ~ |C| *)
 
+Definition nbtiles (n:size) (k:size) (m:size) : Prop :=
+  n = (m*k)%nat.
+
 Inductive tr_typdefctx (tt:tiling_tr) : typdefctx -> typdefctx -> Prop :=
   | tr_typdefctx_intro : forall T Tt Ta k os os' C C',
       tt = make_tiling_tr Ta Tt k ->
@@ -59,8 +62,8 @@ Inductive tr_typdefctx (tt:tiling_tr) : typdefctx -> typdefctx -> Prop :=
         Tv <> Ta ->
         C'[Tv] = C[Tv]) ->
       (match os, os' with
-      | Some n, Some m => nbtiles n m
-      | None, None => True  
+      | Some n, Some m => nbtiles n k m
+      | None, None => True
       | _,_ => False
       end) ->
       tr_typdefctx tt C C'.
@@ -347,7 +350,7 @@ Proof using.
     asserts Hl': (length a1'' = length a2'').
     { congruence. }
     applys~ eq_of_extens. introv Hi0. applys~ H4 i.
-    rewrite Hl. applys~ H13.
+    applys~ H13.
     { rewrite index_eq_index_length in *. rewrite~ Hl'. } }
   { applys eq_of_extens. 
     { congruence. }
@@ -360,10 +363,26 @@ Proof using.
       asserts_rewrite* (dom s' = dom s) in *. } }
 Qed.
 
+(** Results about division and modulo operation. *)
+Section DivModResults.
+
 Axiom div_mod_eq : forall i j k:Z, 
   (i / k)%Z = (j / k)%Z ->
   (i mod k)%Z = (j mod k)%Z ->
   i = j.
+
+Axiom index_div : forall (l:nat) (k:size) (i:int),
+  index (nat_to_Z l) i ->
+  index (nat_to_Z (l/k)) ((i/k)%Z).
+
+Axiom div_plus_mod_eq : forall (i:int) (k:size),
+  i = (i/k)*k + (i mod k).
+
+Axiom index_mod : forall (k:nat) (i:int),
+  index (nat_to_Z k) ((i mod k)%Z).
+
+End DivModResults.
+
 
 Lemma tr_accesses_inj : forall C tt π π1 π2,
   tiling_tr_ok tt C ->
@@ -415,11 +434,6 @@ Proof.
   forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
 
-Axiom index_div : forall (l:nat) (k:size) (i:int),
-  index (nat_to_Z l) i ->
-  index (nat_to_Z (l/k)) ((i/k)%Z).
-
-
 Section TransformationsProofs.
 
 Hint Constructors red redbinop.
@@ -454,12 +468,34 @@ Proof.
         applys~ index_div. }
       forwards~ (a''&Ha'i&Hla''): Ha'' ((i0/k)%Z).
       asserts Hia'': (index a'' (i0 mod k)%Z).
-      { admit. }
-      forwards*: Htrv ((i0/k)%Z) a'' ((i0 mod k)%Z).
- } }
-    { (* other array *) } }
+      { rewrite index_eq_index_length. rewrite Hla''.
+        applys~ index_mod. }
+      forwards* Hai0: Htrv ((i0/k)%Z) a'' ((i0 mod k)%Z).
+      asserts Heq: (i0 = (i0 / k * k + i0 mod k)%Z).
+      { applys~ div_plus_mod_eq. }
+      rewrite <- Heq in Hai0.
+      forwards* (w'&Hvw'&HR'): IHHR.
+      exists w'. splits~.
+      constructors~. rewrite Ha'i.
+      constructors~. }
+    { (* absurd case *)
+      introv Hneq Hπ. inverts Hv as.
+      { intros. simpls. false. }
+      { introv _ Hla Htrv.
+        forwards Htrv': Htrv H.
+        forwards* (w'&Hvw'&HR'): IHHR.
+        exists w'. splits~.
+        constructors~.
+        { rewrite index_eq_index_length in *.
+          rewrite~ <- Hla. } } } }
   { (* struct_access *)
-     }
+    inverts Ha as.
+    { introv _ HN. inverts HN. }
+    introv Hπ. inverts Hv as HD Hsf.
+    forwards~ Htr: Hsf f.
+    forwards* (w'&Htrv2w'&HR'): IHHR.
+    exists w'. splits~.
+    constructors~. rewrite~ <- HD. }
 Qed.
 
 
