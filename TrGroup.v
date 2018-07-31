@@ -307,7 +307,7 @@ Theorem functional_tr_val : forall gt v v1 v2,
 Proof using.
   introv H1 H2. gen v2. induction H1; intros;
   inverts_head tr_val; fequals*; subst; simpls; tryfalse.
-  { applys* functional_tr_accesses. }
+  { fequals. applys* functional_tr_accesses. }
   { applys* eq_of_extens. math. introv Hi.
     asserts: (index a i).
     { rewrite index_eq_index_length in *. rewrite~ H. }
@@ -448,8 +448,8 @@ Qed.
 
 Lemma tr_accesses_inj : forall C gt π π1 π2,
   group_tr_ok gt C ->
-  valid_accesses C π1 ->
-  valid_accesses C π2 ->
+  wf_accesses C π1 ->
+  wf_accesses C π2 ->
   tr_accesses gt π1 π ->
   tr_accesses gt π2 π ->
     π1 = π2.
@@ -464,12 +464,12 @@ Proof.
     { simpls. inverts Hok as Hgt. inverts Hgt.
       inverts_head Logic.or; tryfalse. inverts H4.
       { inverts_head make_group_tr'. fequals. }
-      { inverts_head valid_accesses. inverts_head valid_typ. 
+      { inverts_head wf_accesses. inverts_head wf_typ. 
         false*. } } }
   { inverts Hπ2; inverts Hva1; inverts Hva2.
     { inverts Hok as Hgt. inverts Hgt. inverts_head access_field.
       subst. simpls. inverts_head Logic.or; tryfalse.
-      inverts_head valid_typ. inverts Hπ1.
+      inverts_head wf_typ. inverts Hπ1.
       { inverts H7. inverts_head make_group_tr'. 
         inverts H18. inverts H3; fequals. }
       { simpls. inverts_head Logic.or.
@@ -480,15 +480,15 @@ Qed.
 
 Lemma tr_val_inj : forall C gt v v1 v2,
   group_tr_ok gt C ->
-  valid_val C v1 ->
-  valid_val C v2 ->
+  wf_val C v1 ->
+  wf_val C v2 ->
   tr_val gt v1 v ->
   tr_val gt v2 v ->
   v1 = v2.
 Proof.
   introv Hok HV1 HV2 Hv1 Hv2. gen C v2. induction Hv1; intros;
   try solve [ inverts Hv2; repeat fequals*; subst; simpls; tryfalse* ].
-  { inverts Hv2 as Hπ. fequals*.
+  { inverts Hv2 as Hπ. repeat fequals*.
     inverts HV1 as HRφ1. inverts HV2 as HRφ2.
     applys* tr_accesses_inj. }
   { inverts Hv2 as Hl Htra. fequals. 
@@ -526,8 +526,8 @@ Qed.
 
 Lemma tr_val_inj_cp : forall C gt v1 v2 v1' v2',
   group_tr_ok gt C ->
-  valid_val C v1 ->
-  valid_val C v2 ->
+  wf_val C v1 ->
+  wf_val C v2 ->
   tr_val gt v1 v1' ->
   tr_val gt v2 v2' ->
   v1 <> v2 ->
@@ -541,7 +541,8 @@ Lemma not_tr_val_error : forall gt v1 v2,
   tr_val gt v1 v2 ->
   ~ is_error v2.
 Proof.
-  introv Hv He. unfolds is_error. destruct* v2. inverts Hv.
+  introv Hv He. unfolds is_error.
+  destruct* v2. inverts* Hv.
 Qed.
 
 Lemma tr_stack_add : forall gt z v S v' S',
@@ -558,18 +559,56 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** uninitialized is coherent with the transformation *)
 
+Lemma tr_typdefctx_wf_typ : forall gt C C' T,
+  group_tr_ok gt C ->
+  tr_typdefctx gt C C' ->
+  wf_typ C T ->
+  wf_typ C' T.
+Proof.
+  introv Hok HC HT. gen C'. induction HT; intros;
+  try solve [ constructors* ].
+  { lets HC': HC.
+    inverts HC as HDC' HCTt HC'Tt HC'Tg HC'T Htrsm.
+    constructors.
+    { rewrite HDC'. rew_set~. }
+    { tests: (Tv = Tt).
+      { rewrite HC'Tt. constructors.
+        inverts Htrsm as Hgt HDTfs' HTfs'fg0 HTfs'f HTfs''f.
+        introv Hfin. inverts Hgt.
+        tests: (f=fg0).
+        { rewrite HTfs'fg0. constructors~.
+          { rewrite HDC'. rew_set~. }
+          { rewrite HC'Tg. constructors.
+            introv Hfin'. rewrite~ HTfs''f.
+            forwards* Hwf': IHHT.
+            rewrite HCTt in Hwf'. inverts Hwf' as HTfs.
+            applys~ HTfs.
+            inverts Hok as Hgt HTtin HCTt0 HTgnin Hfs Hfg.
+            inverts Hgt. rewrite HCTt0 in HCTt. inverts HCTt.
+            rew_set in *. applys~ Hfs. } }
+        { rewrite HDTfs' in Hfin. rew_set in Hfin.
+          inverts Hfin as; tryfalse; introv (Hfin&Hfnin).
+          tests: (f \indom Tfs'').
+          { false*. }
+          { rewrite~ HTfs'f.
+            forwards* Hwf': IHHT. rewrite HCTt in Hwf'.
+            inverts Hwf' as Hfs. applys~ Hfs. } } }
+      { rewrite~ HC'T. } } }
+Qed.
+
 Lemma tr_typing_array : forall gt C C' Ta T os,
+  group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
   typing_array C Ta T os ->
   typing_array C' Ta T os.
 Proof.
-  introv HC HTa. gen gt C'. induction HTa; intros;
+  introv Hok HC HTa. gen gt C'. induction HTa; intros;
   try solve [ inverts~ HTa ].
-  { constructors~. }
+  { constructors~. applys* tr_typdefctx_wf_typ. }
   { inverts HC as HD HCTt HC'Tt HC'Tg HC'T Htrsm.
     tests: (Tv=Tt).
     { inverts HTa as.
-      { introv HTa. rewrite HCTt in HTa. inverts HTa. }
+      { introv Hwf HTa. rewrite HCTt in HTa. inverts HTa. }
       { introv HDC HTa HTv. rewrite HCTt in HTv. inverts HTv. } }
     { constructors~.
       { rewrite HD. rew_set~. }
