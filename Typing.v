@@ -306,3 +306,15 @@ Proof.
   { inverts Hva. applys~ IHHF. applys* wf_typing_array. }
   { inverts Hva. applys~ IHHF. applys* wf_typing_struct. }
 Qed.
+
+Lemma wf_stack_add : forall C x v S,
+  wf_stack C S ->
+  wf_val C v ->
+  wf_stack C (Ctx.add x v S).
+Proof.
+  introv HS Hv. unfolds Ctx.add. destruct~ x.
+  unfolds. introv HCl. unfold Ctx.lookup in HCl.
+  case_if in HCl.
+  { inverts~ HCl. }
+  { applys~ HS x. }
+Qed.
