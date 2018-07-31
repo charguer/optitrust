@@ -1109,8 +1109,8 @@ Proof.
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
     forwards*: not_is_error_args_2 HR2 He.
     forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
-    applys* wf_red HR1.
     repeat constructors*.
+    applys* wf_red HR1.
     applys* wf_red HR1.
     exists v'' m3'. splits*.
     inverts Ht1. applys* red_args_2.

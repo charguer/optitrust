@@ -403,6 +403,8 @@ Proof.
     { forwards (v2&m3&Ht2): IHt2 C (Ctx.add b v1 S) m2.
       exists v2 m3. constructors*. } }
   { (* app *)
+    (* NOTE: In order to make this work all the application cases need to
+       have error cases for the wrong number of arguments.*)
     admit. }
   { (* while. NOTE: Won't be provable. *)
     admit. }
