@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export TLCbuffer Semantics Typing.
+Require Export TLCbuffer Semantics.
 
 
 (* ********************************************************************** *)
@@ -142,9 +142,12 @@ Qed.
 
 Lemma uninitialized_val_typ : forall C T v φ,
   uninitialized C T v ->
+  wf_typ C T ->
   typing_val C φ v T.
 Proof.
-  introv Hu. induction Hu; subst; try repeat constructors*.
+  introv Hu Hwf. induction Hu; subst; try repeat constructors*.
+  { introv Hi. applys~ H2. applys* wf_typing_array. }
+  { introv Hf Hf'. forwards*: wf_typing_struct. }
 Qed.
 
 
@@ -442,7 +445,13 @@ Proof.
     { forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ.
       applys* not_is_error_args_2.
       forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ.
-      { constructors. applys* extended_typing.
+      { constructors*. applys* extended_typing.
+        constructors*. }
+      { applys* extended_stack_typing. } }
+    { forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ.
+      applys* not_is_error_args_2.
+      forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ.
+      { constructors*. applys* extended_typing.
         constructors*. }
       { applys* extended_stack_typing. } } }
 Unshelve. typeclass.
