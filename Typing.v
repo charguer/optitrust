@@ -17,6 +17,22 @@ Require Export TLCbuffer Wellfoundedness.
 (* ********************************************************************** *)
 (* * Typing *)
 
+(* ---------------------------------------------------------------------- *)
+(** Basic, or comparable, types *)
+
+Inductive basic_typ (C:typdefctx) : typ -> Type :=
+  | basic_typ_int :
+      basic_typ C typ_int
+  | basic_typ_double :
+      basic_typ C typ_double
+  | basic_typ_bool :
+      basic_typ C typ_bool
+  | basic_typ_ptr : forall T,
+      basic_typ C (typ_ptr T)
+  | basic_typ_var : forall Tv,
+      basic_typ C C[Tv] ->
+      basic_typ C (typ_var Tv).
+
 
 (* ---------------------------------------------------------------------- *)
 (** Typing of arrays and structs *)
@@ -138,6 +154,7 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E (trm_app binop_mod (t1::t2::nil)) typ_int
   | typing_binop_eq : forall E T t1 t2,
       wf_typ (env_typdefctx E) T ->
+      basic_typ (env_typdefctx E) T ->
       typing E t1 T ->
       typing E t2 T ->
       typing E (trm_app binop_eq (t1::t2::nil)) typ_bool

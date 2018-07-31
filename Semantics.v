@@ -152,6 +152,8 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       red C S m1 (trm_let z t1 t2) m3 vr
   (* Binary operations *)
   | red_binop : forall S (op:binop) m v1 v2 vr,
+      is_basic v1 ->
+      is_basic v2 ->
       ~ is_error v1 ->
       ~ is_error v2 ->
       redbinop op v1 v2 vr ->

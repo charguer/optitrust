@@ -557,7 +557,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** uninitialized is coherent with the transformation *)
+(** The transformation preserves well-founded types. *)
 
 Lemma tr_typdefctx_wf_typ : forall gt C C' T,
   group_tr_ok gt C ->
@@ -565,36 +565,37 @@ Lemma tr_typdefctx_wf_typ : forall gt C C' T,
   wf_typ C T ->
   wf_typ C' T.
 Proof.
-  introv Hok HC HT. gen C'. induction HT; intros;
-  try solve [ constructors* ].
-  { lets HC': HC.
-    inverts HC as HDC' HCTt HC'Tt HC'Tg HC'T Htrsm.
-    constructors.
-    { rewrite HDC'. rew_set~. }
-    { tests: (Tv = Tt).
-      { rewrite HC'Tt. constructors.
-        inverts Htrsm as Hgt HDTfs' HTfs'fg0 HTfs'f HTfs''f.
-        introv Hfin. inverts Hgt.
-        tests: (f=fg0).
-        { rewrite HTfs'fg0. constructors~.
-          { rewrite HDC'. rew_set~. }
-          { rewrite HC'Tg. constructors.
-            introv Hfin'. rewrite~ HTfs''f.
-            forwards* Hwf': IHHT.
-            rewrite HCTt in Hwf'. inverts Hwf' as HTfs.
-            applys~ HTfs.
-            inverts Hok as Hgt HTtin HCTt0 HTgnin Hfs Hfg.
-            inverts Hgt. rewrite HCTt0 in HCTt. inverts HCTt.
-            rew_set in *. applys~ Hfs. } }
+  introv Hok HC HT. induction HT; try solve [ constructors* ].
+  inverts Hok as HTt HCTt HTg Hfs Hfg Hfv. 
+  inverts HC as Hgt HDC' HCTt0 HC'Tt0 HC'Tg0 HC'T Htrsm.
+  inverts Htrsm as Hgt' HDTfs' HTfs'fg0 HTfs'f HTfs''f.
+  inverts Hgt. inverts Hgt'. constructors.
+  { rewrite HDC'. rew_set~. }
+  { tests: (Tv=Tt1).
+    { rewrite HC'Tt0. constructors. introv Hfin.
+      rewrite HCTt0 in HCTt. inverts HCTt.
+      rewrite HCTt0 in IHHT. inverts IHHT as HTfsf.
+      tests: (f=fg1).
+      { rewrite HTfs'fg0. constructors.
+        { rewrite HDC'. rew_set~. }
+        rewrite HC'Tg0. constructors~. introv Hfin'.
+        rewrite~ HTfs''f. applys~ HTfsf. rew_set in Hfs.
+        applys~ Hfs. }
+      { tests: (f \indom Tfs'').
         { rewrite HDTfs' in Hfin. rew_set in Hfin.
-          inverts Hfin as; tryfalse; introv (Hfin&Hfnin).
-          tests: (f \indom Tfs'').
-          { false*. }
-          { rewrite~ HTfs'f.
-            forwards* Hwf': IHHT. rewrite HCTt in Hwf'.
-            inverts Hwf' as Hfs. applys~ Hfs. } } }
-      { rewrite~ HC'T. } } }
+          inverts Hfin as Hfin; tryfalse. destruct Hfin.
+          false*. }
+        { asserts Hfin': (f \indom Tfs).
+          { rewrite HDTfs' in Hfin.
+            rew_set in Hfin. inverts Hfin as Hfin; tryfalse.
+            destruct~ Hfin. }
+          rewrite~ HTfs'f. } } }
+    { rewrite~ HC'T. } }
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** uninitialized is coherent with the transformation *)
 
 Lemma tr_typing_array : forall gt C C' Ta T os,
   group_tr_ok gt C ->
@@ -700,11 +701,9 @@ Proof using.
         { constructors*. }
         { simpls. applys* tr_typing_struct. 
           { constructors*. }
-          { unfolds wf_typdefctx. introv HN. 
+          { unfolds wf_typdefctx. introv HN.
             inverts Hok as Hgt HTt0in HCTt0 HTg0nin Hfs Hfg0in Hfv.
-            inverts Hgt. forwards~: Hfv Tv. inverts HN.
-            { forwards*: Hneq. }
-            { false*. } }
+            inverts Hgt. inverts~ HN. forwards~: Hfv Tv. }
           { constructors*. } } }
       { introv Hfin. applys* H2.
         { constructors*. }
@@ -862,43 +861,6 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
-(* Validity of a type in a changed typdefctx. *)
-
-Lemma tr_typ_valid : forall gt C C' T,
-  tr_typdefctx gt C C' ->
-  group_tr_ok gt C ->
-  valid_typ C T ->
-  valid_typ C' T.
-Proof.
-  introv HC Hok HT. induction HT; try solve [ constructors* ].
-  inverts Hok as HTt HCTt HTg Hfs Hfg Hfv. 
-  inverts HC as Hgt HDC' HCTt0 HC'Tt0 HC'Tg0 HC'T Htrsm.
-  inverts Htrsm as Hgt' HDTfs' HTfs'fg0 HTfs'f HTfs''f.
-  inverts Hgt. inverts Hgt'. constructors.
-  { rewrite HDC'. rew_set~. }
-  { tests: (Tv=Tt1).
-    { rewrite HC'Tt0. constructors. introv Hfin.
-      rewrite HCTt0 in HCTt. inverts HCTt.
-      rewrite HCTt0 in IHHT. inverts IHHT as HTfsf.
-      tests: (f=fg1).
-      { rewrite HTfs'fg0. constructors.
-        { rewrite HDC'. rew_set~. }
-        rewrite HC'Tg0. constructors~. introv Hfin'.
-        rewrite~ HTfs''f. applys~ HTfsf. rew_set in Hfs.
-        applys~ Hfs. }
-      { tests: (f \indom Tfs'').
-        { rewrite HDTfs' in Hfin. rew_set in Hfin.
-          inverts Hfin as Hfin; tryfalse. destruct Hfin.
-          false*. }
-        { asserts Hfin': (f \indom Tfs).
-          { rewrite HDTfs' in Hfin.
-            rew_set in Hfin. inverts Hfin as Hfin; tryfalse.
-            destruct~ Hfin. }
-          rewrite~ HTfs'f. } } }
-    { rewrite~ HC'T. } }
-Qed.
- 
-
 (* TODO: Rewrites used quite often throughout: 
    - dom_update_at_indom
    - dom_update *)
@@ -909,9 +871,9 @@ Qed.
    rewrites stop working so I have to [fold state] again.
    How can we fix this? *)
 
-Hint Constructors valid_trm valid_prim valid_val.
+Hint Constructors wf_trm wf_prim wf_val.
 
-Hint Resolve red_valid.
+Hint Resolve wf_red.
 
 Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   wf_typdefctx C ->
@@ -921,35 +883,38 @@ Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
   red C S m1 t m2 v ->
-  valid_stack C S ->
-  valid_state C m1 ->
-  valid_trm C t ->
+  wf_stack C S ->
+  wf_state C m1 ->
+  wf_trm C t ->
   ~ is_error v ->
   exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
   /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv Hwf Hok HC Ht HS Hm1 HR HVS HVm1 HV. introv He. gen gt C' t' S' m1'. 
+  introv Hwf Hok HC Ht HS Hm1 HR HwfS Hwfm1 Hwft.
+  introv He. gen gt C' t' S' m1'.
   induction HR; intros; try solve [ forwards*: He; unfolds* ].
   { (* val *)
     inverts Ht as Hv. exists* v' m1'. }
   { (* var *)
     inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H. exists* v' m1'. }
   { (* if *)
-    inverts Ht as Hb HTrue HFalse. inverts HV as HV0 HV1 HV2.
+    inverts Ht as Hb HTrue HFalse. 
+    inverts Hwft as Hwft0 Hwft1 Hwft2.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
     inverts* Hv'. destruct b;
     forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2';
-    forwards*: red_valid HR1; exists* vr' m3'. }
+    forwards*: wf_red HR1; exists* vr' m3'. }
   { (* let *)
-    inverts Ht as Ht1 Ht2. inverts HV as HV0 HV1.
+    inverts Ht as Ht1 Ht2. 
+    inverts Hwft as Hwft0 Hwft1.
     forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Ht1 HS Hm1.
     forwards HS': tr_stack_add z HS Hv'.
     forwards: not_tr_val_error Hv'.
     forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 Ht2 HS' Hm2'.
-    { applys~ stack_valid_add. applys* red_valid HR1. }
-    { applys* red_valid HR1. }
+    { applys~ wf_stack_add. applys* wf_red HR1. }
+    { applys* wf_red HR1. }
     exists* vr' m3'. }
   { (* binop *)
     inverts Ht as Ht1 Ht2.

@@ -232,6 +232,12 @@ Definition is_val (t:trm) :=
   | _ => False
   end.
 
+Definition is_basic (v:val) :=
+  match v with
+  | val_basic vb => True
+  | _ => False
+  end.
+
 Definition is_error (v:val) :=
   match v with
   | val_basic val_error => True
