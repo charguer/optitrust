@@ -889,16 +889,16 @@ Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
   wf_typdefctx C ->
+  wf_trm C t ->
   wf_stack C S ->
   wf_state C m1 ->
-  wf_trm C t ->
   ~ is_error v ->
   exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
   /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv HR Hok HC Ht HS Hm1 HwfC HwfS Hwfm1 Hwft.
+  introv HR Hok HC Ht HS Hm1 HwfC Hwft HwfS Hwfm1.
   introv He. gen gt C' t' S' m1'.
   induction HR; intros; try solve [ forwards*: He; unfolds* ].
   { (* val *)
