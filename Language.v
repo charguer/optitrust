@@ -115,15 +115,18 @@ Inductive prim : Type :=
 (** TODO: Change this! Probably use Flocq? *)
 Definition double := int.
 
+Inductive basic_val : Type :=
+  | val_error : basic_val
+  | val_unit : basic_val
+  | val_uninitialized : basic_val
+  | val_bool : bool -> basic_val
+  | val_int : int -> basic_val
+  | val_double : double -> basic_val
+  | val_abstract_ptr : loc -> accesses -> basic_val
+  | val_concrete_ptr : loc -> offset -> basic_val.
+
 Inductive val : Type :=
-  | val_error : val
-  | val_unit : val
-  | val_uninitialized : val
-  | val_bool : bool -> val
-  | val_int : int -> val
-  | val_double : double -> val
-  | val_abstract_ptr : loc -> accesses -> val
-  | val_concrete_ptr : loc -> offset -> val
+  | val_basic : basic_val -> val
   | val_array : typ -> list val -> val
   | val_struct : typ -> map field val -> val.
 
@@ -151,11 +154,14 @@ Definition trms : Type := list trm.
 
 (** The type of values is inhabited *)
 
-Global Instance Inhab_val : Inhab val.
+Global Instance Inhab_basic_val : Inhab basic_val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
+Global Instance Inhab_val : Inhab val.
+Proof using. apply (Inhab_of_val (val_basic val_unit)). Qed.
+
 Global Instance Inhab_trm : Inhab trm.
-Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
+Proof using. apply (Inhab_of_val (trm_val (val_basic val_unit))). Qed.
 
 Global Instance Inhab_typ : Inhab typ.
 Proof using. apply (Inhab_of_val typ_unit). Qed.
@@ -169,7 +175,7 @@ Hint Extern 1 (Inhab typ) => apply Inhab_typ.
 (** Coercions *)
 
 Coercion prim_binop : binop >-> prim.
-Coercion val_int : Z >-> val.
+Coercion val_basic : basic_val >-> val.
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
 Coercion trm_app : prim >-> Funclass.
@@ -199,37 +205,37 @@ Definition is_val (t:trm) :=
 
 Definition is_error (v:val) :=
   match v with
-  | val_error => True
+  | val_basic val_error => True
   | _ => False
   end.
 
 Definition is_uninitialized (v:val) :=
   match v with
-  | val_uninitialized => True
+  | val_basic val_uninitialized => True
   | _ => False
   end.
 
 Definition is_bool (v:val) :=
   match v with
-  | val_bool b => True
+  | val_basic (val_bool b) => True
   | _ => False
   end.
 
 Definition is_ptr (v:val) :=
   match v with
-  | val_abstract_ptr l π => True
+  | val_basic (val_abstract_ptr l π) => True
   | _ => False
   end.
 
 Definition is_int (v:val) :=
   match v with
-  | val_int i => True
+  | val_basic (val_int i) => True
   | _ => False
   end.
 
 Definition is_struct (v:val) :=
   match v with
-  | val_struct T m => True
+  | val_struct T s => True
   | _ => False
   end.
 
