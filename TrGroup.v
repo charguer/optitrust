@@ -417,6 +417,16 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Regularity of the transformation with respect to values *)
 
+Lemma is_basic_tr : forall gt v1 v2,
+  tr_val gt v1 v2 ->
+  is_basic v1 ->
+  is_basic v2.
+Proof.
+  introv Htr Hv1. induction Htr;
+  try solve [ inverts Hv1 ];
+  constructors~.
+Qed.
+
 Lemma not_is_val_tr : forall gt t1 t2,
   tr_trm gt t1 t2 ->
   ~ is_val t1 ->
@@ -861,28 +871,24 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
-(* TODO: Rewrites used quite often throughout: 
-   - dom_update_at_indom
-   - dom_update *)
-
-(* TODO: Sometimes, in order to use map tactics or 
-   lemmas, I have to do [unfold state] in order to get
-   [map loc var] instead of [state] but then the
-   rewrites stop working so I have to [fold state] again.
-   How can we fix this? *)
-
 Hint Constructors wf_trm wf_prim wf_val.
 
 Hint Resolve wf_red.
 
+Hint Extern 1 (wf_val ?v) =>
+   match goal with H: red _ _ _ _ v |- _ => applys wf_red H end.
+
+Hint Extern 1 (wf_state ?m2) =>
+   match goal with H: red _ _ _ m2 _ |- _ => applys wf_red H end.
+
 Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
-  wf_typdefctx C ->
+  red C S m1 t m2 v ->
   group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
   tr_trm gt t t' ->
   tr_stack gt S S' ->
   tr_state gt m1 m1' ->
-  red C S m1 t m2 v ->
+  wf_typdefctx C ->
   wf_stack C S ->
   wf_state C m1 ->
   wf_trm C t ->
@@ -892,7 +898,7 @@ Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   /\  tr_state gt m2 m2'
   /\  red C' S' m1' t' m2' v'.
 Proof.
-  introv Hwf Hok HC Ht HS Hm1 HR HwfS Hwfm1 Hwft.
+  introv HR Hok HC Ht HS Hm1 HwfC HwfS Hwfm1 Hwft.
   introv He. gen gt C' t' S' m1'.
   induction HR; intros; try solve [ forwards*: He; unfolds* ].
   { (* val *)
@@ -919,18 +925,22 @@ Proof.
   { (* binop *)
     inverts Ht as Ht1 Ht2.
     inverts Ht1 as Ht1. inverts Ht2 as Ht2.
-    inverts H1;
+    inverts H3;
     try solve [ exists __ m1' ; splits~ ; inverts Ht1 ;
     inverts Ht2 ; repeat constructors~ ].
-    { exists __ m1'. splits~. constructors.
+    { exists __ m1'. splits~.
       forwards: functional_tr_val Ht1 Ht2. subst.
-      applys* not_is_error_tr. applys* not_is_error_tr.
-      constructors~. applys* functional_tr_val. }
-    { exists __ m1'. splits~. constructors.
-      applys* not_is_error_tr. applys* not_is_error_tr.
-      inverts HV as HVprim HV1 HV2.
-      inverts HV1 as HV1. inverts HV2 as HV2.
-      forwards*: tr_val_inj_cp H2.
+      constructors;
+      repeat applys* is_basic_tr;
+      repeat applys* not_is_error_tr.
+      constructors~. }
+    { exists __ m1'. splits~. constructors;
+      repeat applys* is_basic_tr;
+      repeat applys* not_is_error_tr.
+      inverts Hwft as Hwfp Hwft1 Hwft2.
+      inverts Hwft1 as Hwft1. 
+      inverts Hwft2 as Hwft2.
+      forwards*: tr_val_inj_cp v1 v2.
       constructors~. } }
   { (* get *)
     inverts Ht as.
@@ -970,7 +980,7 @@ Proof.
       { unfold state. repeat rewrite~ dom_update.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. } }
-    { constructors*. rewrite~ <- HD. applys* tr_typ_valid. } }
+    { constructors*. rewrite~ <- HD. applys* tr_typdefctx_wf_typ. } }
   { (* new_array *)
     inverts Ht as.
     { introv HN. inverts HN. }
@@ -985,7 +995,7 @@ Proof.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. } }
     { inverts Hv. applys~ red_new_array. rewrite~ <- HD. 
-      applys* tr_typ_valid. auto. } }
+      applys* tr_typdefctx_wf_typ. auto. } }
   { (* struct_access *)
     inverts Ht as; inverts Hm1 as HD Htrm.
     { (* struct op *)
@@ -1056,20 +1066,20 @@ Proof.
     rewrite~ <- Hl. }
   { (* TODO: Clean up these cases. *)
     (* args_1 *)
-    inverts Ht; inverts HV;
+    inverts Ht; inverts Hwft;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He.
     { inverts_head tr_struct_op.
       { inverts H8.
         { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-          try solve [ repeat constructors~ ; applys* red_valid HR1 ].
+          try solve [ repeat constructors~ ; applys* wf_red HR1 ].
           applys* tr_trm_struct_op. constructors*.
           exists v'' m3'; splits*. inverts HR''.
           { applys* red_args_1. applys* red_args_1.
             applys* not_is_val_tr. }
           { forwards*: not_is_error_tr Hv''. } }
         { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-          try solve [ repeat constructors~ ; applys* red_valid HR1 ].          
+          try solve [ repeat constructors~ ; applys* wf_red HR1 ].
           applys* tr_trm_struct_op. constructors*.
           exists v'' m3'; splits*. inverts HR''.
           { applys* red_args_1. applys* red_args_1.
@@ -1077,40 +1087,34 @@ Proof.
           { forwards*: not_is_error_tr Hv''. } } }
       { inverts H8.
         { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-          try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+          try solve [ repeat constructors~ ; applys* wf_red HR1 ];
           try solve [ exists v'' m3'; splits* ;
           applys* red_args_1; applys* not_is_val_tr ].
           applys* tr_trm_struct_op. constructors*. }
         { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-          try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+          try solve [ repeat constructors~ ; applys* wf_red HR1 ];
           try solve [ exists v'' m3'; splits* ;
           applys* red_args_1; applys* not_is_val_tr ].
           applys* tr_trm_struct_op. constructors*.  } } }
     { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-      try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+      try solve [ repeat constructors~ ; applys* wf_red HR1 ];
       try solve [ exists v'' m3'; splits* ;
       applys* red_args_1; applys* not_is_val_tr ]. }
     { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-      try solve [ repeat constructors~ ; applys* red_valid HR1 ];
+      try solve [ repeat constructors~ ; applys* wf_red HR1 ];
       try solve [ exists v'' m3'; splits* ;
       applys* red_args_1; applys* not_is_val_tr ]. } }
   { (* args_2 *)
-    inverts Ht as Ht1 Ht2. inverts HV.
+    inverts Ht as Ht1 Ht2. inverts Hwft.
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
     forwards*: not_is_error_args_2 HR2 He.
     forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
-    applys* red_valid HR1. applys* not_is_error_args_2 HR2 He.
-    constructors~. constructors. applys* red_valid HR1.
-    applys* not_is_error_args_2 HR2 He.
+    applys* wf_red HR1.
+    repeat constructors*.
+    applys* wf_red HR1.
     exists v'' m3'. splits*.
     inverts Ht1. applys* red_args_2.
     applys* not_is_val_tr. }
 Qed.
 
 End TransformationsProofs.
-
-(*
-hint red_args1.
-Hint Extern 1 (valid_val ?v) =>
-   match goal with H: red _ _ _ _ v |- _ => applys red_valid_val' H end.
-*)
