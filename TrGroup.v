@@ -89,7 +89,7 @@ Lemma group_tr_ok_Tt :
 
 (** Transformation of typdefctxs: C ~ |C| *)
 
-Inductive tr_struct_map (gt:group_tr) : map field typ -> map field typ -> 
+Inductive tr_struct_map (gt:group_tr) : map field typ -> map field typ ->
                                         map field typ  -> Prop :=
   | tr_struct_map_intro : forall Tfs Tfs' Tfs'' Tt fs Tg fg,
       gt = make_group_tr Tt fs Tg fg ->
@@ -186,13 +186,6 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
         f \indom s ->
         tr_val gt s[f] s'[f]) ->
       tr_val gt (val_struct T s) (val_struct T s').
-
-Definition is_struct_op (op:prim) :=
-  match op with
-  | prim_struct_access _ _ => True
-  | prim_struct_get _ _ => True
-  | _ => False
-  end.
 
 (* Transformation used in the struct cases to avoid repetition. *)
 

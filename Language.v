@@ -189,7 +189,7 @@ Implicit Types ts : trms.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Auxiliary predicates for the semantics *)
+(** Auxiliary predicates for the semantics and transformations *)
 
 Definition is_val (t:trm) :=
   match t with
@@ -239,6 +239,20 @@ Definition is_array (v:val) :=
   | _ => False
   end.
 
+Definition is_struct_op (op:prim) :=
+  match op with
+  | prim_struct_access _ _ => True
+  | prim_struct_get _ _ => True
+  | _ => False
+  end.
+
+Definition is_array_op (op:prim) :=
+  match op with
+  | prim_array_access _ => True
+  | prim_array_get _ => True
+  | _ => False
+  end.
+
 
 (* ---------------------------------------------------------------------- *)
 (** State and stack *)
@@ -250,3 +264,26 @@ Definition state := map loc val.
 (** Representation of the stack *)
 
 Definition stack := Ctx.ctx val.
+
+(** Type of the state *)
+
+Definition phi := map loc typ.
+
+(** Type of a stack *)
+
+Definition gamma := Ctx.ctx typ.
+
+(** Full typing environment *)
+
+Record env := make_env {
+  env_typdefctx : typdefctx;
+  env_phi : phi;
+  env_gamma : gamma
+}.
+
+Notation "'make_env''" := make_env.
+
+Definition env_add_binding E z X :=
+  match E with
+  | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
+  end.

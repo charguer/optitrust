@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export TLCbuffer Typing.
+Require Export TLCbuffer Language.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -57,65 +57,6 @@ Inductive valid_accesses (C:typdefctx) : accesses -> Prop :=
       valid_accesses C π ->
       valid_accesses C ((access_field T f)::π).
 
-
-(* Lemmas about the connection of validity and typing. *)
-
-Lemma valid_typing_array : forall T os C Ta,
-  typing_array C Ta T os ->
-  valid_typ C Ta ->
-  valid_typ C T.
-Proof.
-  introv HTa HT. induction HTa; inverts~ HT.
-Qed.
-
-Lemma valid_typing_struct : forall Tfs C Ts,
-  typing_struct C Ts Tfs ->
-  valid_typ C Ts ->
-  (forall f, 
-    f \indom Tfs ->
-    valid_typ C Tfs[f]).
-Proof.
-  introv HTs HT. induction HTs; inverts~ HT.
-Qed.
-
-Lemma valid_typing_array_inv : forall T os C Ta,
-  typing_array C Ta T os ->
-  valid_typ C T ->
-  valid_typ C Ta.
-Proof.
-  introv HTa HT. induction HTa; constructors~.
-Qed.
-
-Lemma valid_typing_struct_inv : forall Tfs C Ts,
-  typing_struct C Ts Tfs ->
-  (forall f, 
-    f \indom Tfs ->
-    valid_typ C Tfs[f]) ->
-  valid_typ C Ts.
-Proof.
-  introv HTs HT. induction HTs; constructors~.
-Qed.
-
-Lemma follow_typ_valid_accesses : forall T T' C π,
-  valid_typ C T ->
-  follow_typ C T π T' ->
-  valid_accesses C π .
-Proof.
-  introv HT HF. induction HF; constructors~.
-  { applys IHHF. applys* valid_typing_array. }
-  { applys IHHF. applys* valid_typing_struct. }
-Qed.
-
-Lemma follow_typ_valid_typ : forall T T' C π,
-  valid_typ C T ->
-  follow_typ C T π T' ->
-  valid_typ C T'.
-Proof.
-  introv HT HF. forwards* Hva: follow_typ_valid_accesses. induction HF.
-  { auto. }
-  { inverts Hva. applys~ IHHF. applys* valid_typing_array. }
-  { inverts Hva. applys~ IHHF. applys* valid_typing_struct. }
-Qed.
 
 (* ---------------------------------------------------------------------- *)
 (** Validity of values and terms *)

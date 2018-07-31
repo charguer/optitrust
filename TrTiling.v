@@ -136,13 +136,6 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
         tr_val tt s[f] s'[f]) ->
       tr_val tt (val_struct T s) (val_struct T s').
 
-Definition is_array_access (op:prim) :=
-  match op with
-  | prim_array_access _ => True
-  | prim_array_get _ => True
-  | _ => False
-  end.
-
 
 (* Transformation used in the struct cases to avoid repetition. *)
 
