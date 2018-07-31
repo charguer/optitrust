@@ -371,6 +371,32 @@ Qed.
 Lemma red_complete : forall C S m1 t, 
   exists v m2, red C S m1 t m2 v.
 Proof.
+  intros. gen C S m1. induction t; intros.
+  { (* var *)
+    tests: (exists w, Ctx.lookup v S = Some w).
+    { inverts C0 as (w&HCl). exists x m1. constructors~. }
+    { asserts: (Ctx.lookup v S = None).
+      { induction S.
+        { unfolds*. }
+        { destruct a. unfolds. case_if.
+          { forwards: C0 v1. case_if in H. }
+          { folds Ctx.lookup. applys~ IHS. intros.
+            forwards: C0 x. case_if~ in H. } } }
+      exists val_error m1. applys~ red_var_error. } }
+  { (* val *)
+    exists~ v m1. constructors. }
+  { (* if *)
+    forwards (v1&m2&Ht1): IHt1 C S m1.
+    tests: (is_bool v1).
+    { unfolds is_bool. destruct* v1. destruct* b.
+      destruct b.
+      { forwards (v2&m3&Ht2): IHt2 C S m2. 
+        exists v2 m3. constructors*. }
+      { forwards (v2&m3&Ht2): IHt3 C S m2. 
+        exists v2 m3. constructors*. } }
+    { exists val_error m2. applys* red_if_error_not_a_bool. } }
+  { (* let *)
+    admit. }
 Admitted.
 
 
