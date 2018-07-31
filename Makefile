@@ -34,10 +34,11 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC := util/TLCbuffer util/MyLibVar util/Bind Language Validity Typing Semantics TypeSoundess TrGroup TrGroupFun TrTiling TrLowLevel
+SRC := util/TLCbuffer util/MyLibVar util/Bind Language Wellfoundedness Typing Semantics TypeSoundess TrGroup TrGroupFun TrTiling TrLowLevel
 
 
-# using the variable SRC_CUSTOM, one can modify the compilation targets and/or their order.
+# using the variable SRC_CUSTOM, one can modify the compilation targets 
+# and/or their order.
 
 ifdef SRC_FORCE
 	SRC := $(SRC_FORCE)

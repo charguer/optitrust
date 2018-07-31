@@ -1,6 +1,8 @@
 (**
 
-This file describes transformations of the layout of records and arrays.
+This file describes type inference rules of the language described in
+Language.v. There are also some results connecting typing and 
+well-foundedness.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
@@ -9,7 +11,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export TLCbuffer Validity.
+Require Export TLCbuffer Wellfoundedness.
 
 
 (* ********************************************************************** *)
@@ -21,7 +23,7 @@ Require Export TLCbuffer Validity.
 
 Inductive typing_array (C:typdefctx) : typ -> typ -> option size -> Prop :=
   | typing_array_base : forall T os,
-      valid_typ C T ->
+      wf_typ C T ->
       typing_array C (typ_array T os) T os
   | typing_array_typvar : forall Tv T os,
       Tv \indom C ->
@@ -69,6 +71,7 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 
 Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_uninitialized : forall T,
+      wf_typ C T ->
       typing_val C φ val_uninitialized T
   | typing_val_unit :
       typing_val C φ val_unit typ_unit
@@ -96,7 +99,7 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
         length a = n) ->
       (forall i, 
         index a i -> 
-        typing_val C φ a[i] T) -> 
+        typing_val C φ a[i] T) ->
       typing_val C φ (val_array Ta a) Ta.
 
 
@@ -121,9 +124,22 @@ Inductive typing : env -> trm -> typ -> Prop :=
       typing E t1 typ_int ->
       typing E t2 typ_int ->
       typing E (trm_app binop_sub (t1::t2::nil)) typ_int
-  | typing_binop_eq : forall E t1 t2,
+  | typing_binop_mul : forall E t1 t2,
       typing E t1 typ_int ->
-      typing E t2 typ_int -> (* for some basic type T *)
+      typing E t2 typ_int ->
+      typing E (trm_app binop_mul (t1::t2::nil)) typ_int
+  | typing_binop_div : forall E t1 t2,
+      typing E t1 typ_int ->
+      typing E t2 typ_int ->
+      typing E (trm_app binop_div (t1::t2::nil)) typ_int
+  | typing_binop_mod : forall E t1 t2,
+      typing E t1 typ_int ->
+      typing E t2 typ_int ->
+      typing E (trm_app binop_mod (t1::t2::nil)) typ_int
+  | typing_binop_eq : forall E T t1 t2,
+      wf_typ (env_typdefctx E) T ->
+      typing E t1 T ->
+      typing E t2 T ->
       typing E (trm_app binop_eq (t1::t2::nil)) typ_bool
   (* Abstract heap operations *)
   | typing_get : forall E T t1,
@@ -186,36 +202,6 @@ Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Typdefctx well-foundedness *)
-
-(* typvar appears in the type. *)
-Inductive free_typvar (C:typdefctx) (Tv:typvar) : typ -> Prop :=  
-  | free_typvar_typvar_eq :
-      free_typvar C Tv (typ_var Tv)
-  | free_typvar_typvar_other : forall Tv',
-      Tv <> Tv' ->
-      Tv' \indom C -> 
-      free_typvar C Tv C[Tv'] ->
-      free_typvar C Tv (typ_var Tv')
-  | free_typvar_ptr : forall T,
-      free_typvar C Tv T ->
-      free_typvar C Tv (typ_ptr T)
-  | free_typvar_array : forall T os,
-      free_typvar C Tv T ->
-      free_typvar C Tv (typ_array T os)
-  | free_typvar_struct : forall Tfs,
-      (exists f,
-        f \indom Tfs /\
-        free_typvar C Tv Tfs[f]) ->
-      free_typvar C Tv (typ_struct Tfs).
-
-Definition wf_typdefctx (C:typdefctx) : Prop :=
-  forall Tv,
-    Tv \indom C ->
-    ~ free_typvar C Tv C[Tv].
-
-
-(* ---------------------------------------------------------------------- *)
 (** Functional predicates *)
 
 (* Inferring array types is functional *)
@@ -236,7 +222,7 @@ Proof.
   introv HTs1 HTs2. induction HTs1; inverts* HTs2.
 Qed.
 
-(* Types are well-formed *)
+(* Following accesses in a type is functional *)
 Lemma functional_follow_typ : forall C T π T1 T2,
   follow_typ C T π T1 ->
   follow_typ C T π T2 ->
@@ -250,8 +236,8 @@ Proof.
     forwards* HTfs: functional_typing_struct H HTs. subst~. }
 Qed.
 
-(* φ is well-formed *)
-Lemma read_phi_inj : forall C φ l π T1 T2,
+(* Reading from φ is functional *)
+Lemma functional_read_phi : forall C φ l π T1 T2,
   read_phi C φ l π T1 ->
   read_phi C φ l π T2 ->
   T1 = T2.
@@ -262,62 +248,61 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* Lemmas about the connection of validity and typing. *)
+(* Lemmas about the connection of well-foundedness and typing. *)
 
-Lemma valid_typing_array : forall T os C Ta,
+Lemma wf_typing_array : forall T os C Ta,
   typing_array C Ta T os ->
-  valid_typ C Ta ->
-  valid_typ C T.
+  wf_typ C Ta ->
+  wf_typ C T.
 Proof.
   introv HTa HT. induction HTa; inverts~ HT.
 Qed.
 
-Lemma valid_typing_struct : forall Tfs C Ts,
+Lemma wf_typing_struct : forall Tfs C Ts,
   typing_struct C Ts Tfs ->
-  valid_typ C Ts ->
+  wf_typ C Ts ->
   (forall f, 
     f \indom Tfs ->
-    valid_typ C Tfs[f]).
+    wf_typ C Tfs[f]).
 Proof.
   introv HTs HT. induction HTs; inverts~ HT.
 Qed.
 
-Lemma valid_typing_array_inv : forall T os C Ta,
+Lemma wf_typing_array_inv : forall T os C Ta,
   typing_array C Ta T os ->
-  valid_typ C T ->
-  valid_typ C Ta.
+  wf_typ C T ->
+  wf_typ C Ta.
 Proof.
   introv HTa HT. induction HTa; constructors~.
 Qed.
 
-Lemma valid_typing_struct_inv : forall Tfs C Ts,
+Lemma wf_typing_struct_inv : forall Tfs C Ts,
   typing_struct C Ts Tfs ->
   (forall f, 
     f \indom Tfs ->
-    valid_typ C Tfs[f]) ->
-  valid_typ C Ts.
+    wf_typ C Tfs[f]) ->
+  wf_typ C Ts.
 Proof.
   introv HTs HT. induction HTs; constructors~.
 Qed.
 
-Lemma follow_typ_valid_accesses : forall T T' C π,
-  valid_typ C T ->
+Lemma follow_typ_wf_accesses : forall T T' C π,
+  wf_typ C T ->
   follow_typ C T π T' ->
-  valid_accesses C π .
+  wf_accesses C π .
 Proof.
   introv HT HF. induction HF; constructors~.
-  { applys IHHF. applys* valid_typing_array. }
-  { applys IHHF. applys* valid_typing_struct. }
+  { applys IHHF. applys* wf_typing_array. }
+  { applys IHHF. applys* wf_typing_struct. }
 Qed.
 
-Lemma follow_typ_valid_typ : forall T T' C π,
-  valid_typ C T ->
+Lemma follow_typ_wf_typ : forall T T' C π,
+  wf_typ C T ->
   follow_typ C T π T' ->
-  valid_typ C T'.
+  wf_typ C T'.
 Proof.
-  introv HT HF. forwards* Hva: follow_typ_valid_accesses. induction HF.
+  introv HT HF. forwards* Hva: follow_typ_wf_accesses. induction HF.
   { auto. }
-  { inverts Hva. applys~ IHHF. applys* valid_typing_array. }
-  { inverts Hva. applys~ IHHF. applys* valid_typing_struct. }
+  { inverts Hva. applys~ IHHF. applys* wf_typing_array. }
+  { inverts Hva. applys~ IHHF. applys* wf_typing_struct. }
 Qed.
-

@@ -37,7 +37,7 @@ Definition size := nat.
 
 Definition offset := nat.
 
-Notation typvar := var.
+Definition typvar := var.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -54,7 +54,32 @@ Inductive typ : Type :=
   | typ_fun : list typ -> typ -> typ
   | typ_var : typvar -> typ.
 
+(* Type definitions context *)
+
 Definition typdefctx := map typvar typ.
+
+(** Type of the state *)
+
+Definition phi := map loc typ.
+
+(** Type of a stack *)
+
+Definition gamma := Ctx.ctx typ.
+
+(** Full typing environment *)
+
+Record env := make_env {
+  env_typdefctx : typdefctx;
+  env_phi : phi;
+  env_gamma : gamma
+}.
+
+Notation "'make_env''" := make_env.
+
+Definition env_add_binding E z X :=
+  match E with
+  | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
+  end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -112,16 +137,13 @@ Inductive prim : Type :=
   | prim_struct_get : typ -> field -> prim
   | prim_array_get : typ -> prim.
 
-(** TODO: Change this! Probably use Flocq? *)
-Definition double := int.
-
 Inductive basic_val : Type :=
   | val_error : basic_val
   | val_unit : basic_val
   | val_uninitialized : basic_val
   | val_bool : bool -> basic_val
   | val_int : int -> basic_val
-  | val_double : double -> basic_val
+  | val_double : int -> basic_val
   | val_abstract_ptr : loc -> accesses -> basic_val
   | val_concrete_ptr : loc -> offset -> basic_val.
 
@@ -143,14 +165,21 @@ Inductive trm : Type :=
 
 Notation trm_seq := (trm_let bind_anon).
 
-(** Shorthand [vars], [vals] and [trms] for lists of items. *)
 
-Definition vals : Type := list val.
-Definition trms : Type := list trm.
+(* ---------------------------------------------------------------------- *)
+(** State and stack *)
+
+(** Representation of the state *)
+
+Definition state := map loc val.
+
+(** Representation of the stack *)
+
+Definition stack := Ctx.ctx val.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Inhabited types *)
+(** Inhabited types, values and terms *)
 
 (** The type of values is inhabited *)
 
@@ -190,8 +219,8 @@ Implicit Types l : loc.
 Implicit Types b : bool.
 Implicit Types x : var.
 Implicit Types z : bind.
-Implicit Types vs : vals.
-Implicit Types ts : trms.
+Implicit Types vs : list val.
+Implicit Types ts : list trm.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -257,39 +286,4 @@ Definition is_array_op (op:prim) :=
   | prim_array_access _ => True
   | prim_array_get _ => True
   | _ => False
-  end.
-
-
-(* ---------------------------------------------------------------------- *)
-(** State and stack *)
-
-(** Representation of the state *)
-
-Definition state := map loc val.
-
-(** Representation of the stack *)
-
-Definition stack := Ctx.ctx val.
-
-(** Type of the state *)
-
-Definition phi := map loc typ.
-
-(** Type of a stack *)
-
-Definition gamma := Ctx.ctx typ.
-
-(** Full typing environment *)
-
-Record env := make_env {
-  env_typdefctx : typdefctx;
-  env_phi : phi;
-  env_gamma : gamma
-}.
-
-Notation "'make_env''" := make_env.
-
-Definition env_add_binding E z X :=
-  match E with
-  | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
   end.

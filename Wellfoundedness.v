@@ -177,3 +177,36 @@ Definition wf_phi (C:typdefctx) (φ:phi) : Prop :=
   forall l,
     l \indom φ ->
     wf_typ C φ[l].
+
+
+(* ---------------------------------------------------------------------- *)
+(** Typdefctx well-foundedness *)
+
+(* Type variable appears in the type. *)
+
+Inductive free_typvar (C:typdefctx) (Tv:typvar) : typ -> Prop :=  
+  | free_typvar_typvar_eq :
+      free_typvar C Tv (typ_var Tv)
+  | free_typvar_typvar_other : forall Tv',
+      Tv <> Tv' ->
+      Tv' \indom C -> 
+      free_typvar C Tv C[Tv'] ->
+      free_typvar C Tv (typ_var Tv')
+  | free_typvar_ptr : forall T,
+      free_typvar C Tv T ->
+      free_typvar C Tv (typ_ptr T)
+  | free_typvar_array : forall T os,
+      free_typvar C Tv T ->
+      free_typvar C Tv (typ_array T os)
+  | free_typvar_struct : forall Tfs,
+      (exists f,
+        f \indom Tfs /\
+        free_typvar C Tv Tfs[f]) ->
+      free_typvar C Tv (typ_struct Tfs).
+
+Definition wf_typdefctx (C:typdefctx) : Prop :=
+  forall Tv,
+    Tv \indom C ->
+    ~ free_typvar C Tv C[Tv].
+
+
