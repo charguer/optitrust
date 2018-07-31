@@ -139,15 +139,14 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
 
 (* Transformation used in the struct cases to avoid repetition. *)
 
-Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
-  | tr_array_op_tiling : forall Tt k op1 op2 ta1 ta2 tlk tlj tli pr Ta t1 t2 tlt,
-      pr = prim_array_access \/ pr = prim_array_get ->
+(* let t = t1 in
+   let i = t2 in
+   let j = i / k in
+   let k = i % k in
+     t[j][k] *)
+Inductive tr_access (tt:tiling_tr) (pr:typ->prim) (t1:trm) (t2:trm) (tlt:trm) : Prop :=
+  | tr_access_intro : forall op1 Ta op2 Tt ta1 ta2 k tlk tlj tli,
       tt = make_tiling_tr Ta Tt k ->
-      (* let t = t1 in
-         let i = t2 in
-         let j = i / k in
-         let k = i % k in
-           t[j][k] TODO: Name this *)
       op1 = pr (typ_var Ta) ->
       op2 = pr (typ_var Tt) ->
       ta1 = trm_app op1 ((trm_var "t")::(trm_var "j")::nil) ->
@@ -156,7 +155,13 @@ Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
       tlj = trm_let "j" (trm_app binop_div ((trm_var "i")::(trm_val (val_int k))::nil)) tlk ->
       tli = trm_let "i" t2 tlj ->
       tlt = trm_let "t" t1 tli ->
-      tr_array_op tt (trm_app (pr (typ_var Ta)) (t1::t2::nil)) tlt
+      tr_access tt pr t1 t2 tlt.
+
+Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
+  | tr_array_op_tiling : forall pr t1 t2 tlt,
+      pr = prim_array_access \/ pr = prim_array_get ->
+      tr_access tt pr t1 t2 tlt ->
+      tr_array_op tt (trm_app (pr (typ_var (tiling_tr_array_name tt))) (t1::t2::nil)) tlt
   | tr_array_op_other : forall Ta pr T ts,
       pr = prim_array_access \/ pr = prim_array_get ->
       Ta = tiling_tr_array_name tt ->
@@ -180,7 +185,7 @@ Inductive tr_trm (tt:tiling_tr) : trm -> trm -> Prop :=
       tr_trm tt t1 t1' ->
       tr_trm tt t2 t2' ->
       tr_trm tt (trm_let x t1 t2) (trm_let x t1' t2')
-  (* new *)  
+  (* new *)
   | tr_trm_new : forall T,
       tr_trm tt (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
   (* Special case: array access *)
@@ -213,6 +218,7 @@ Inductive tr_stack (tt:tiling_tr) : stack -> stack -> Prop :=
       LibList.Forall2 (tr_stack_item tt) S S' ->
       tr_stack tt S S'.
 
+
 (** Transformation of states: m ~ |m| *)
 
 Inductive tr_state (tt:tiling_tr) : state -> state -> Prop :=
@@ -226,9 +232,6 @@ Inductive tr_state (tt:tiling_tr) : state -> state -> Prop :=
 
 (* ********************************************************************** *)
 (* * Preservation of semantics proof. *)
-
-(* These lemmas are common with all transformations. *)
-Section CommonResults.
 
 Lemma stack_lookup_tr : forall tt S S' x v,
   tr_stack tt S S' ->
@@ -286,15 +289,24 @@ Lemma tr_preserves_is_val : forall R,
 
  *)
 
+Lemma not_is_val_tr_access : forall tt pr t1 t2 tlt,
+  tr_access tt pr t1 t2 tlt ->
+  ~ is_val tlt.
+Proof.
+  introv Htra HN. inverts Htra. inverts HN.
+Qed.
+
 Lemma not_is_val_tr : forall tt t1 t2,
   tr_trm tt t1 t2 ->
   ~ is_val t1 ->
   ~ is_val t2.
 Proof.
   introv Htr Hv. induction Htr; introv HN;
-  try solve [ subst ; inverts HN ]. 
+  try solve [ subst ; inverts HN ].
   forwards*: Hv.
-  inverts H0; inverts HN. (* Changes here. *)
+  inverts H0 as.
+  { introv Hor Htra. applys* not_is_val_tr_access. }
+  { introv Hor Hneq. inverts HN. }
 Qed.
 
 Lemma not_is_uninitialized_tr : forall tt v v',
@@ -305,9 +317,6 @@ Proof.
   introv Htr Hu. induction Htr; introv HN;
   subst; inverts HN. forwards~: Hu.
 Qed.
-
-End CommonResults.
-
 
 Theorem functional_tr_accesses : forall tt π π1 π2,
   tr_accesses tt π π1 ->
@@ -331,16 +340,16 @@ Proof using.
   { fequals. applys* functional_tr_accesses. }
   { asserts Hl: (length a' = length a'0).
     { inverts_head make_tiling_tr'.
-      rewrite H1. rewrite H10. applys eq_int_of_eq_nat.
+      rewrite H1. rewrite H9. apply eq_int_of_eq_nat.
       rewrite length_eq in *.
       forwards Heq1: eq_nat_of_eq_int H0.
-      forwards Heq2: eq_nat_of_eq_int H9.
+      forwards Heq2: eq_nat_of_eq_int H8.
       rewrite <- Heq1. rewrite~ <- Heq2. }
     applys* eq_of_extens. inverts_head make_tiling_tr'.
     introv Hi.
     asserts Hi': (index a'0 i).
     { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
-    forwards* (a1''&Ha1''i&Hla1''): H11 i.
+    forwards* (a1''&Ha1''i&Hla1''): H10 i.
     forwards* (a2''&Ha2''i&Hla2''): H2 i.
     rewrite Ha1''i. rewrite Ha2''i. fequals.
     asserts Hl': (length a1'' = length a2'').
