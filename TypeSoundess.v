@@ -164,23 +164,23 @@ Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
     /\  state_typing C φ m'.
 Proof.
   introv R He. gen φ T Γ. induction R; introv HT HM HS;
-  try solve [ forwards*: He ; unfolds~ ]. 
+  try solve [ forwards*: He ; unfolds~ ].
   { (* val *)
     inverts* HT. }
   { (* val *)
     inverts* HT. }
   { (* if *)
-    inverts HT. 
+    inverts HT.
     forwards* (HT1&HM1): IHR1.
-    forwards* (HT2&HM2): IHR2. 
+    forwards* (HT2&HM2): IHR2.
     case_if*. }
-  { (* let *) 
+  { (* let *)
     inverts HT. forwards* (HT1&HM1): IHR1. forwards* (HT2&HM2): IHR2.
     applys* stack_typing_ctx_add. }
   { (* binop *) 
-    rename H1 into R. inverts HT; inverts* R. }
-  { (* get *) 
-    splits*. 
+    rename H3 into R. inverts HT; inverts* R. }
+  { (* get *)
+    splits*.
     { subst. inverts HT as HT. inverts HT as HT; simpls.  
       inverts HT. applys* typing_val_get. } }
   { (* set *) 
@@ -193,7 +193,7 @@ Proof.
     admit. }
   { (* struct_access *) 
     subst. inverts HT as HTs HTfs HT.
-    splits~. 
+    splits~.
     inverts HT as HT.
     simpls.
     inverts HT as Hφ.
@@ -209,7 +209,7 @@ Proof.
     repeat constructors~.
     applys* follow_typ_access_array. }
   { (* struct_get *) 
-    subst. inverts HT as HTs Hfin HT. 
+    subst. inverts HT as HTs Hfin HT.
     splits~.
     inverts HT as HT. simpls.
     inverts HT as HTs0 HD HT.

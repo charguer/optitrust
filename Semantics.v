@@ -396,6 +396,17 @@ Proof.
         exists v2 m3. constructors*. } }
     { exists val_error m2. applys* red_if_error_not_a_bool. } }
   { (* let *)
+    forwards (v1&m2&Ht1): IHt1 C S m1.
+    tests: (is_error v1).
+    { unfolds is_error. destruct* v1. destruct* b0.
+      exists val_error m2. applys~ red_let_error_let. }
+    { forwards (v2&m3&Ht2): IHt2 C (Ctx.add b v1 S) m2.
+      exists v2 m3. constructors*. } }
+  { (* app *)
+    admit. }
+  { (* while. NOTE: Won't be provable. *)
+    admit. }
+  { (* for. NOTE: Won't be provable. *)
     admit. }
 Admitted.
 
