@@ -700,12 +700,12 @@ Proof using.
             rewrite Ha'i'. applys uninitialized_array (Some n).
             { constructors.
               { rewrite HD. rew_set~. }
-              { rewrite HC'Tt. constructors~. 
+              { rewrite HC'Tt. constructors~.
                 applys* tr_typdefctx_wf_typ. constructors*. } }
             { introv Heq. inverts~ Heq. }
             { introv Hi0. forwards* Htra'': Htra i a'' i0.
               applys* H2.
-              { admit. (*index. not true without assuming perfect tiling. *) }
+              { admit. (*index. NOTE: not true without assuming perfect tiling. *) }
               { constructors*. }
               { constructors*. } } }
         { constructors.
@@ -717,7 +717,27 @@ Proof using.
               { rewrite HC'Tt. constructors. 
                 applys* tr_typdefctx_wf_typ. constructors*. } } } }
         { introv Hn0. inverts~ Hn0. } }
-      { admit. (* variable length array..... *) } }
+      { (* variable length array..... *)
+        applys uninitialized_array.
+        { constructors.
+          { rewrite HD. rew_set~. }
+          { rewrite HC'Ta. repeat constructors~.
+            { rewrite HD. rew_set~. }
+            { rewrite HC'Tt. constructors~. 
+              applys* tr_typdefctx_wf_typ. constructors*. } } }
+        { introv HN. inverts HN. }
+        { introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.
+          rewrite Ha'i'. constructors.
+          { constructors.
+            { rewrite HD. rew_set~. }
+            { rewrite HC'Tt. constructors~.
+              applys* tr_typdefctx_wf_typ. constructors*. } }
+          { introv Hn. inverts~ Hn. }
+          { introv Hi0. forwards* Htra': Htra i a'' i0.
+            applys* H2. 
+            { admit. (*index. NOTE: not true without assuming perfect tiling. *) }
+            { constructors*. }
+            { constructors*. } } } } }
     { (* other array *)
       introv Hneq Hla Htra. simpls. constructors.
       2:{ rewrite <- Hla. eapply H0. }
