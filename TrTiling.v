@@ -763,6 +763,18 @@ Proof.
   exists v'. splits~. applys* tr_uninitialized_val_aux.
 Qed.
 
+(* ---------------------------------------------------------------------- *)
+(** Path surgery *)
+
+Lemma tr_accesses_app : forall tt π1 π2 π1' π2',
+  tr_accesses tt π1 π1' ->
+  tr_accesses tt π2 π2' ->
+  tr_accesses tt (π1 ++ π2) (π1' ++ π2').
+Proof.
+  introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
+  rew_list in *; eauto. 
+Qed.
+
 
 (* Main lemma *)
 
@@ -880,6 +892,24 @@ Proof.
         constructors*. introv HN. inverts HN. } }
     { inverts Hv. applys~ red_new_array. rewrite~ <- HD. 
       applys* tr_typdefctx_wf_typ. auto. } }
+  { (* struct access *)
+    inverts Ht as Ht. subst.
+    inverts Ht as Ht.
+    inverts Ht as Hπ.
+    exists (val_abstract_ptr l (π' & access_field T f)) m1'. 
+    splits~.
+    { constructors. applys~ tr_accesses_app. }
+    { constructors~. } }
+  { (* array access *) admit. }
+  { (* struct get *)
+    inverts Ht as Ht. subst.
+    inverts Ht as Hv.
+    inverts Hv as HD Hsf.
+    exists s'[f] m1'. splits~.
+    constructors~. rewrite~ <- HD. }
+  { (* array get *) admit. }
+  { (* args 1 *) admit. }
+  { (* args 2 *) }
 Admitted.
 
 End TransformationProofs.
