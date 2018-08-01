@@ -1011,8 +1011,27 @@ Proof.
         constructors~. admit. (*index*) } }
     { (* absurd case *)
       introv HN. false. applys HN. unfolds~. } }
-  { (* args 1 *) admit. }
-  { (* args 2 *) }
+  { (* args 1 *)
+    inverts Ht as.
+    { introv Hop Ht1' Ht2' Htaop. inverts Hwft.
+      forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
+      forwards*: not_is_error_args_1 HR2 He.
+      (* inverts Htaop; inverts_head Logic.or.
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+      repeat constructors*.
+      applys* wf_red HR1.
+      applys* wf_red HR1.
+      applys* tr_trm_array.
+      {  
+        { constructors*. inverts_head tr_access. }
+        { admit. }
+        { constructors*. }
+        { constructors*. } }
+      exists v'' m3'. splits*. *) admit. }
+    { admit. }
+    { admit. } }
+  { (* args 2 *)
+    admit. }
 Admitted.
 
 End TransformationProofs.
