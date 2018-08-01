@@ -900,7 +900,49 @@ Proof.
     splits~.
     { constructors. applys~ tr_accesses_app. }
     { constructors~. } }
-  { (* array access *) admit. }
+  { (* array access *) 
+    subst. inverts Ht as.
+    { introv Hop Ht1' Ht2' Haop.
+      inverts Haop as.
+      { (* tiling array *)
+        introv Hor Htra Hpr. inverts Hor; inverts Hpr.
+        inverts Ht1' as Htp.
+        inverts Ht2' as Htv.
+        inverts Htp as Hπ.
+        inverts Htv.
+        inverts Htra. simpls.
+        remember (access_array (typ_var Ta) ((i/k)%Z)) as a1.
+        remember (access_array (typ_var Tt) ((i mod k)%Z)) as a2.
+        exists (val_abstract_ptr l (π'++(a1::a2::nil))) m1'. 
+        subst. splits~.
+        { constructors~. applys~ tr_accesses_app. constructors~. }
+        { do 2 constructors~. unfolds Ctx.add. simpls.
+          applys red_let m1' (val_int ((i/k)%Z)).
+          { repeat constructors~. admit. (*TODO: Assume k <> 0*) }
+          { introv HN. unfolds~ is_error. }
+          { unfolds Ctx.add. simpls.
+            applys red_let m1' (val_int ((i mod k)%Z)).
+            { repeat constructors~. admit. (*TODO: Assume k <> 0*) }
+            { introv HN. unfolds~ is_error. }
+            { unfolds Ctx.add. simpls. applys~ red_args_1.
+              { applys red_args_1. auto. constructors. simpls. eauto.
+                applys red_args_2. auto. constructors. simpls. eauto.
+                applys~ red_array_access. }
+              { applys~ red_args_2.
+                { constructors. simpls. eauto. }
+                { constructors*. rew_list~. } } } } } }
+      { (* other array *)
+        introv Hor Hneq Hpr. inverts Hor; inverts Hpr.
+        inverts Ht1' as Htp.
+        inverts Ht2' as Htv.
+        inverts Htp as Hπ.
+        inverts Htv.
+        exists (val_abstract_ptr l (π'++(access_array T i::nil))) m1'.
+        splits~.
+        { constructors~. applys~ tr_accesses_app. }
+        { constructors~. } } }
+    { (* absurd case *)
+      introv HN. false. applys HN. unfolds~. } }
   { (* struct get *)
     inverts Ht as Ht. subst.
     inverts Ht as Hv.
