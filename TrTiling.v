@@ -113,14 +113,14 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
       (forall i,
         index a' i ->
         exists a'',
-            tr_val tt a'[i] (val_array (typ_var Tt) a'')
+            a'[i] = (val_array (typ_var Tt) a'')
         /\  length a'' = k) ->
       (forall i a'',
         index a' i ->
+        a'[i] = (val_array (typ_var Tt) a'') ->
         (forall j,
           index a'' j ->
-              tr_val tt a'[i] (val_array (typ_var Tt) a'')
-          /\  tr_val tt a[i*k+j] a''[j])) ->
+              tr_val tt a[i*k+j] a''[j])) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->
@@ -340,16 +340,16 @@ Proof using.
   { fequals. applys* functional_tr_accesses. }
   { asserts Hl: (length a' = length a'0).
     { inverts_head make_tiling_tr'.
-      rewrite H1. rewrite H9. apply eq_int_of_eq_nat.
+      rewrite H1. rewrite H10. apply eq_int_of_eq_nat.
       rewrite length_eq in *.
       forwards Heq1: eq_nat_of_eq_int H0.
-      forwards Heq2: eq_nat_of_eq_int H8.
+      forwards Heq2: eq_nat_of_eq_int H9.
       rewrite <- Heq1. rewrite~ <- Heq2. }
     applys* eq_of_extens. inverts_head make_tiling_tr'.
     introv Hi.
     asserts Hi': (index a'0 i).
     { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
-    forwards* (a1''&Ha1''i&Hla1''): H10 i.
+    forwards* (a1''&Ha1''i&Hla1''): H11 i.
     forwards* (a2''&Ha2''i&Hla2''): H2 i.
     rewrite Ha1''i. rewrite Ha2''i. fequals.
     asserts Hl': (length a1'' = length a2'').
@@ -527,7 +527,8 @@ Proof.
     inverts Hπ. exists~ w'. }
   { (* array_access *)
     inverts Hπ as; inverts Hv1 as.
-    { introv Htt Hla1 Hla' Ha'i1 Htra1 Hπ Heq.
+    { (* tiling *)
+      introv Htt Hla1 Hla' Ha'i1 Htra1 Hπ Heq.
       inverts Htt. inverts Heq. subst.
       forwards (a''&Ha'i&Hla''): Ha'i1 ((i0/k)%Z).
       { rewrite index_eq_index_length in *. 
@@ -539,14 +540,16 @@ Proof.
         applys* index_div. }
       { rewrite index_eq_index_length in *.
         rewrite Hla''. applys* index_mod. }
-      remember (val_array (typ_var Tt0) a''[((i0 mod k)%Z):=v]) as a'''.
+      rewrite <- div_plus_mod_eq in Htra''.
+      forwards* (v2'&Hv2'&HW'): IHHW.
+      remember (val_array (typ_var Tt0) a''[((i0 mod k)%Z):=v2']) as a'''.
       exists (val_array (typ_var Ta0) a'[((i0/k)%Z):=a''']). subst.
       splits.
       { asserts Hex:
           (forall i : int,
-            index a'[(i0 / k)%Z:=val_array (typ_var Tt0) a''[(i0 mod k)%Z:=v]] i ->
+            index a'[(i0 / k)%Z:=val_array (typ_var Tt0) a''[(i0 mod k)%Z:=v2']] i ->
             exists a''0,
-               a'[(i0 / k)%Z:=val_array (typ_var Tt0) a''[(i0 mod k)%Z:=v]][i] 
+               a'[(i0 / k)%Z:=val_array (typ_var Tt0) a''[(i0 mod k)%Z:=v2']][i] 
                = val_array (typ_var Tt0) a''0 
             /\ length a''0 = k).
         { introv Hi. 
@@ -554,7 +557,7 @@ Proof.
           { rewrite index_eq_index_length in *.
             rewrite~ length_update in Hi. }
           rew_reads*. intros. subst.
-          exists (a''[(i0 mod k)%Z:=v]). splits*.
+          exists (a''[(i0 mod k)%Z:=v2']). splits*.
           rewrite~ length_update. }
         applys~ tr_val_array_tiling l0.
         { rewrite~ length_update. }
@@ -568,17 +571,47 @@ Proof.
             rewrite Hla''1 in Hi''.
             rewrite Hla1. rewrite Hla' in Hi'.
             applys~ index_mul_plus. }
-          asserts Hi'''': (index a' i).
+          asserts Hai': (index a' i).
+          { admit. }
+          asserts Ha''i: (index a'' j).
           { admit. }
           rew_reads~ in Hup.
-          { introv Heq. subst. inverts Hup. }
-          {  }
-          
-          rew_reads*.
-          { introv Heq. subst. rewrite <- div_plus_mod_eq in Htra''. 
-            forwards* (v2'&Hv2'&HW'): IHHW. rewrite Ha'i in HW'. }
-          {  } } }
-      {  } } }
+          { introv Heq. subst. inverts Hup. rew_reads*.
+            { admit. (*contradiction*) }
+            { admit. (*contradiction*) } }
+          { introv Hneq.
+            forwards* Htra1': Htra1.
+            asserts Hneq': (i*k+j <> i0).
+            { admit. }
+            rew_reads~. } } }
+        { constructors~. admit.
+          rewrite Ha'i. constructors~. admit. auto. } }
+      { (* absurd case *)
+        introv Hneq Hla1 Htra1i1 Hπ Heq. inverts Heq. simpls. false. }
+      { (* absurd case *) 
+        intros. simpls. false. }
+      { (* other array *) 
+        introv _ Hla1 Htra1i0 Hneq Hπ. subst.
+        forwards* (v2'&Hv2'&HW'): IHHW.
+        exists (val_array T a'[i:=v2']). splits.
+        { constructors~.
+          { repeat rewrite~ length_update. }
+          { introv Hi0. rewrite index_update_eq in Hi0. rew_reads*.
+            admit. (*index*) } }
+        { constructors~. admit. auto. } } }
+  { (* struct *) 
+    inverts Hπ as; inverts Hv1 as. 
+    { (* absurd case *)
+      introv _ _ _ HN. inverts HN. }
+    { (* any struct *) 
+      introv HDs1 Hs1f0 Hπ. subst.
+      forwards* (v2'&Hv2'&HW'): IHHW.
+      exists (val_struct T s'[f:=v2']). splits.
+      { constructors~.
+        { repeat rewrite dom_update. congruence. }
+        { introv Hf0. Search dom. rewrite* dom_update_at_indom in Hf0.
+          rew_reads*. } }
+      { constructors~. rewrite~ <- HDs1. auto. } } }
 Qed.
 
 
@@ -673,6 +706,7 @@ Proof.
         applys~ indom_update_inv_neq Hi'. } }
     { constructors~. applys* not_tr_val_error.
       constructors*. rewrite~ <- HD. } }
+  { (* new *) }
 Admitted.
 
 End TransformationProofs.
