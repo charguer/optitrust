@@ -684,14 +684,46 @@ Lemma tr_uninitialized_val_aux : forall tt v v' T C C',
 Proof using.
   introv HC Hok Hwf Hv Hu. gen tt C' v'. induction Hu; intros;
   try solve [ inverts Hv ; constructors~ ].
-  { (* array *) 
-    admit. }
-  { (* struct *) 
+  { (* array *)
+    inverts HC as HD HCTa HC'Ta HC'Tt HC'Tv Hos.
+    inverts Hv as.
+    { (* tiling array *)
+      introv Htt Hla Hla' Ha'i Htra. inverts Htt. admit. }
+    { (* other array *)
+      introv Hneq Hla Htra. simpls. destruct* os0; destruct* os'.
+      { constructors.
+        2:{ rewrite <- Hla. eapply H0. }
+        admit. admit. }
+      { admit. } } }
+  { (* struct *)
     inverts Hv as HD Hvfsf. constructors.
-    2:{ rewrite~ H0. } }
+    2:{ rewrite~ H0. }
+    { applys* tr_typing_struct. }
+    { introv Hfin. applys* H2. applys Hvfsf.
+      rewrite~ <- H0. } }
+Unshelve. typeclass.
+Qed.
+
+(* This will be proved when the relation is translated to a function. 
+   See TrTilingFun.v. *)
+Lemma total_tr_val_aux : forall gt v,
+  exists v', tr_val gt v v'.
+Proof.
 Admitted.
 
-
+(* Lemma for the new case. *)
+Lemma tr_uninitialized_val : forall tt v T C C',
+  tr_typdefctx tt C C' ->
+  tiling_tr_ok tt C ->
+  wf_typdefctx C ->
+  uninitialized C T v ->
+  exists v',
+        tr_val tt v v'
+    /\  uninitialized C' T v'.
+Proof.
+  introv HC Hok Hwf Hu. forwards* (v'&Hv'): total_tr_val_aux tt v.
+  exists v'. splits~. applys* tr_uninitialized_val_aux.
+Qed.
 
 
 (* Main lemma *)
@@ -795,6 +827,21 @@ Proof.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. } }
     { constructors*. rewrite~ <- HD. applys* tr_typdefctx_wf_typ. } }
+  { (* new_array *)
+    inverts Ht as.
+    introv Ht.
+    inverts Ht as Hv.
+    inverts Hm1 as HD Htrm. subst.
+    forwards* (v''&Hv''&Hu): tr_uninitialized_val.
+    inverts Hv''.
+    exists (val_abstract_ptr l nil) m1'[l:=(val_array (typ_array T None) a')]. splits~.
+    { constructors.
+      { unfold state. repeat rewrite~ dom_update.
+        fold state. rewrite~ HD. }
+      { introv Hin. unfolds state. rew_reads; intros; eauto. 
+        constructors*. introv HN. inverts HN. } }
+    { inverts Hv. applys~ red_new_array. rewrite~ <- HD. 
+      applys* tr_typdefctx_wf_typ. auto. } }
 Admitted.
 
 End TransformationProofs.
