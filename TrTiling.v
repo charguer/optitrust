@@ -38,7 +38,7 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
       (forall Tv,
         Tv \indom C ->
         Tv <> Ta ->
-        ~ free_typvar C Tt C[Tv]) ->
+        ~ free_typvar C Ta C[Tv]) ->
       tiling_tr_ok tt C.
 
 
@@ -688,20 +688,58 @@ Proof using.
     inverts HC as HD HCTa HC'Ta HC'Tt HC'Tv Hos.
     inverts Hv as.
     { (* tiling array *)
-      introv Htt Hla Hla' Ha'i Htra. inverts Htt. admit. }
+      introv Htt Hla Hla' Ha'i Htra. inverts Htt.
+      inverts Hok as Htt HTain HCTa' HTt0nin Hfv.
+      inverts Htt. unfolds wf_typdefctx.
+      rewrite HCTa in HCTa'. inverts HCTa'.
+      inverts H as _ HTCTa.
+      rewrite HCTa in HTCTa. inverts HTCTa.
+      destruct* os; destruct* os'.
+      { applys uninitialized_array (Some (l0/n)).
+        3:{ introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.
+            rewrite Ha'i'. applys uninitialized_array (Some n).
+            { constructors.
+              { rewrite HD. rew_set~. }
+              { rewrite HC'Tt. constructors~. 
+                applys* tr_typdefctx_wf_typ. constructors*. } }
+            { introv Heq. inverts~ Heq. }
+            { introv Hi0. forwards* Htra'': Htra i a'' i0.
+              applys* H2.
+              { admit. (*index. not true without assuming perfect tiling. *) }
+              { constructors*. }
+              { constructors*. } } }
+        { constructors.
+          { rewrite HD. rew_set~. }
+          { rewrite HC'Ta. 
+            { asserts_rewrite (s0=l0/n). { admit. (*comes from nbtiles*) }
+              constructors. constructors.
+              { rewrite HD. rew_set~. }
+              { rewrite HC'Tt. constructors. 
+                applys* tr_typdefctx_wf_typ. constructors*. } } } }
+        { introv Hn0. inverts~ Hn0. } }
+      { admit. (* variable length array..... *) } }
     { (* other array *)
-      introv Hneq Hla Htra. simpls. destruct* os0; destruct* os'.
-      { constructors.
-        2:{ rewrite <- Hla. eapply H0. }
-        admit. admit. }
-      { admit. } } }
+      introv Hneq Hla Htra. simpls. constructors.
+      2:{ rewrite <- Hla. eapply H0. }
+      { inverts H as.
+        { introv HwfT. constructors*. 
+          applys* tr_typdefctx_wf_typ. constructors*. }
+        { introv HTvin HTCTv.
+          inverts Hok as Htt HTain HCTa' HTt0nin Hfv.
+          inverts Htt. unfolds wf_typdefctx. constructors*.
+          { rewrite HD. rew_set~. }
+          { rewrite~ HC'Tv. applys~ tr_typing_array Ta Tt0 n C.
+            { rewrite HCTa in HCTa'. inverts HCTa'. constructors*. }
+            { applys~ Hfv. introv HN. subst. applys~ Hneq. }
+            { introv HN. subst. applys~ Hneq. } } } }
+       { introv Hi. forwards* Htra': Htra i. admit. (*index*)
+        applys* H2. admit. (*index*) constructors*. } } }
   { (* struct *)
     inverts Hv as HD Hvfsf. constructors.
     2:{ rewrite~ H0. }
     { applys* tr_typing_struct. }
     { introv Hfin. applys* H2. applys Hvfsf.
       rewrite~ <- H0. } }
-Unshelve. typeclass.
 Qed.
 
 (* This will be proved when the relation is translated to a function. 
