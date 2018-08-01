@@ -614,6 +614,85 @@ Proof.
       { constructors~. rewrite~ <- HDs1. auto. } } }
 Qed.
 
+(* ---------------------------------------------------------------------- *)
+(** The transformation preserves well-founded types. *)
+
+Lemma tr_typdefctx_wf_typ : forall tt C C' T,
+  tr_typdefctx tt C C' ->
+  wf_typ C T ->
+  wf_typ C' T.
+Proof.
+  introv HC HT. induction HT; try solve [ constructors* ].
+  inverts HC as HDC' HCTa HC'Ta HC'Tt HC'Tv Hos.
+  constructors.
+  { rewrite HDC'. rew_set~. }
+  { tests: (Tv=Ta).
+    { rewrite HC'Ta. repeat constructors~.
+      { rewrite HDC'. rew_set~. }
+      { rewrite HC'Tt. constructors~. 
+        rewrite HCTa in IHHT.
+        inverts~ IHHT. } }
+    { rewrite~ HC'Tv. } }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** uninitialized is coherent with the transformation *)
+
+Lemma tr_typing_struct : forall tt C C' Ts Tfs,
+  tr_typdefctx tt C C' ->
+  typing_struct C Ts Tfs ->
+  typing_struct C' Ts Tfs.
+Proof.
+  introv HC HTs. induction HTs; intros.
+  { constructors~. }
+  { inverts HC as HD HCTa HC'Ta HC'Tt HC'Tv _.
+    constructors~.
+    { rewrite HD. rew_set~. }
+    { tests: (Tv=Ta).
+      { rewrite HCTa in HTs. inverts HTs. }
+      { rewrite~ HC'Tv. } } }
+Qed.
+
+Lemma tr_typing_array : forall Tat Tt k C C' Ta T os,
+  tr_typdefctx (make_tiling_tr Tat Tt k) C C' ->
+  wf_typdefctx C ->
+  ~ free_typvar C Tat Ta ->
+  typing_array C Ta T os ->
+  typing_array C' Ta T os.
+Proof.
+  introv HC Hwf Hfv HTa. gen Tt Tat k C'. induction HTa; intros.
+  { constructors~. applys* tr_typdefctx_wf_typ. }
+  { inverts HC as Htt HD HCTa HC'Ta HC'Tt HC'Tv Hos.
+    inverts Htt. constructors.
+    { rewrite HD. rew_set~. }
+    { tests: (Tv=Ta).
+      { false. applys~ Hfv. constructors~. }
+      { rewrite~ HC'Tv. applys* IHHTa Tt0 Ta k0.
+        { introv HN. applys~ Hfv. constructors~. }
+        { constructors*. } } } }
+Qed.
+
+
+Lemma tr_uninitialized_val_aux : forall tt v v' T C C',
+  tr_typdefctx tt C C' ->
+  tiling_tr_ok tt C ->
+  wf_typdefctx C ->
+  tr_val tt v v' ->
+  uninitialized C T v ->
+  uninitialized C' T v'.
+Proof using.
+  introv HC Hok Hwf Hv Hu. gen tt C' v'. induction Hu; intros;
+  try solve [ inverts Hv ; constructors~ ].
+  { (* array *) 
+    admit. }
+  { (* struct *) 
+    inverts Hv as HD Hvfsf. constructors.
+    2:{ rewrite~ H0. } }
+Admitted.
+
+
+
 
 (* Main lemma *)
 
@@ -706,7 +785,16 @@ Proof.
         applys~ indom_update_inv_neq Hi'. } }
     { constructors~. applys* not_tr_val_error.
       constructors*. rewrite~ <- HD. } }
-  { (* new *) }
+  { (* new *)
+    inverts Ht. subst.
+    inverts Hm1 as HD Htrm.
+    forwards* (v'&Hv'&Hu): tr_uninitialized_val.
+    exists (val_abstract_ptr l nil) m1'[l:=v']. splits~.
+    { constructors.
+      { unfold state. repeat rewrite~ dom_update.
+        fold state. rewrite~ HD. }
+      { introv Hin. unfolds state. rew_reads; intros; eauto. } }
+    { constructors*. rewrite~ <- HD. applys* tr_typdefctx_wf_typ. } }
 Admitted.
 
 End TransformationProofs.
