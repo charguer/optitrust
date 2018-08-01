@@ -949,7 +949,48 @@ Proof.
     inverts Hv as HD Hsf.
     exists s'[f] m1'. splits~.
     constructors~. rewrite~ <- HD. }
-  { (* array get *) admit. }
+  { (* array get *)
+    subst. inverts Ht as.
+    { (* array get *)
+      introv Hop Ht1' Ht2' Haop.
+      inverts Haop as.
+      { (* tiling array *)
+        introv Hor Htracc Hpr. inverts Hor; inverts Hpr.
+        inverts Ht1' as Hva.
+        inverts Ht2' as Hvi.
+        inverts Hva as; try solve [ intros ; false ].
+        introv Htt Hla Hla' Ha'' Ha'.
+        inverts Hvi.
+        forwards* (a''&Ha'i&Hla''): Ha'' ((i/k)%Z). admit. (*index*)
+        forwards* Htra: Ha' ((i/k)%Z) a'' ((i mod k)%Z). admit. admit. (*index*)
+        rewrite <- div_plus_mod_eq in Htra.
+        exists a''[(i mod k)%Z] m1'. splits~.
+        inverts Htracc. inverts Htt.
+        do 2 constructors~. unfolds Ctx.add. simpls.
+          applys red_let m1' (val_int ((i/k)%Z)).
+          { repeat constructors~. admit. (*TODO: Assume k <> 0*) }
+          { introv HN. unfolds~ is_error. }
+          { unfolds Ctx.add. simpls.
+            applys red_let m1' (val_int ((i mod k)%Z)).
+            { repeat constructors~. admit. (*TODO: Assume k <> 0*) }
+            { introv HN. unfolds~ is_error. }
+            { unfolds Ctx.add. simpls. applys~ red_args_1.
+              { applys red_args_1. auto. constructors. simpls. eauto.
+                applys red_args_2. auto. constructors. simpls. eauto.
+                applys~ red_array_get. admit. (*index*) }
+              { applys~ red_args_2.
+                { constructors. simpls. eauto. }
+                { constructors*. admit. (*index*) } } } } }
+      { (* another array *) 
+        introv Hor Hneq Hpr. inverts Hor; inverts Hpr.
+        inverts Ht1' as Hva.
+        inverts Ht2' as Hvi.
+        inverts Hva as _ Hla Htrai; simpls; tryfalse.
+        inverts Hvi.
+        exists a'[i] m1'. splits~.
+        constructors~. admit. (*index*) } }
+    { (* absurd case *)
+      introv HN. false. applys HN. unfolds~. } }
   { (* args 1 *) admit. }
   { (* args 2 *) }
 Admitted.
