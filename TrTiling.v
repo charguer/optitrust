@@ -30,11 +30,12 @@ Notation make_tiling_tr' := make_tiling_tr.
 (** Checking if the transformation is acceptable *)
 
 Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
-  | tiling_tr_ok_intros : forall Ta Tt n T os tt C,
-      tt = make_tiling_tr Ta Tt n ->
+  | tiling_tr_ok_intros : forall Ta Tt k T os tt C,
+      tt = make_tiling_tr Ta Tt k ->
       Ta \indom C ->
       C[Ta] = typ_array T os ->
       Tt \notindom C ->
+      k <> 0 ->
       (forall Tv,
         Tv \indom C ->
         Tv <> Ta ->
@@ -89,8 +90,6 @@ Inductive tr_accesses (tt:tiling_tr) : accesses -> accesses -> Prop :=
       tr_accesses tt ((access_field T f)::π) ((access_field T f)::π').
 
 (** Transformation of values: v ~ |v| *)
-
-(* TODO: tr_index *)
 
 Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
   | tr_val_uninitialized :
@@ -391,6 +390,47 @@ Axiom index_mul_plus : forall (l k:size) (i j:int),
   index (nat_to_Z k) j ->
   index (nat_to_Z l) (i * k + j)%Z.
 
+Lemma div_mod_enforce_mod : forall i (k:size) j,
+  i = i / k * k + j ->
+  j = (i mod k)%Z.
+Proof.
+  introv Heq. forwards H: div_plus_mod_eq i k.
+  remember (i/k * k) as n. rewrite H in Heq.
+  forwards*: Z.add_reg_l Heq.
+Qed.
+
+Lemma div_mod_enforce_mod_inv : forall i (k:size) j,
+  j = (i mod k)%Z ->
+  i = i / k * k + j.
+Proof.
+  introv Heq. rewrite Heq. apply div_plus_mod_eq.
+Qed.
+
+Lemma div_mod_enforce_div : forall i (k:size) j,
+  k <> 0 ->
+  i = j * k + (i mod k)%Z ->
+  j = (i / k)%Z.
+Proof.
+  introv Hnz Heq. forwards H: div_plus_mod_eq i k.
+  remember ((i mod k)%Z) as n. rewrite H in Heq.
+  rewrite Z.add_comm in Heq.
+  rewrite Z.add_comm with (n:=j*k) (m:=n) in Heq.
+  forwards H0: Z.add_reg_l Heq.
+  forwards*: Z.mul_reg_r H0.
+  introv HN.
+  rewrite <- Z_of_nat_O in HN.
+  rewrite <- nat_to_Z_eq_Z_of_nat in HN.
+  forwards*: eq_nat_of_eq_int HN.
+Qed.
+
+Lemma div_mod_enforce_div_inv : forall i (k:size) j,
+  k <> 0 ->
+  j = (i / k)%Z ->
+  i = j * k + (i mod k)%Z.
+Proof.
+  introv Hnz Heq. rewrite Heq. apply div_plus_mod_eq.
+Qed.
+
 End DivModResults.
 
 
@@ -512,29 +552,32 @@ Proof.
     constructors~. rewrite~ <- HD. }
 Qed.
 
+(* Interesting: Z.quot_rem'. *)
 
-Lemma tr_write_accesses : forall v1 w gt π v1' π' w' v2,
-  tr_val gt v1 v1' ->
-  tr_val gt w w' ->
-  tr_accesses gt π π' ->
+Lemma tr_write_accesses : forall tt Ta Tt k v1 w π v1' π' w' v2,
+  tt = make_tiling_tr' Ta Tt k ->
+  k <> 0 ->
+  tr_val tt v1 v1' ->
+  tr_val tt w w' ->
+  tr_accesses tt π π' ->
   write_accesses v1 π w v2 ->
   (exists v2',
-        tr_val gt v2 v2'
+        tr_val tt v2 v2'
     /\  write_accesses v1' π' w' v2').
 Proof.
-  introv Hv1 Hw Hπ HW. gen gt v1' w' π'. induction HW; intros.
+  introv Htt Hk Hv1 Hw Hπ HW. gen v1' w' π'. induction HW; intros.
   { (* nil *)
     inverts Hπ. exists~ w'. }
   { (* array_access *)
-    inverts Hπ as; inverts Hv1 as.
+    inverts Hπ as; inverts Hv1 as; inverts_head make_tiling_tr'.
     { (* tiling *)
       introv Htt Hla1 Hla' Ha'i1 Htra1 Hπ Heq.
       inverts Htt. inverts Heq. subst.
-      forwards (a''&Ha'i&Hla''): Ha'i1 ((i0/k)%Z).
+      forwards (a''&Ha'i&Hla''): Ha'i1 ((i0/k0)%Z).
       { rewrite index_eq_index_length in *. 
         rewrite Hla'. rewrite Hla1 in H.
         applys* index_div. }
-      forwards* Htra'': Htra1 ((i0/k)%Z) a'' ((i0 mod k)%Z).
+      forwards* Htra'': Htra1 ((i0/k0)%Z) a'' ((i0 mod k0)%Z).
       { rewrite index_eq_index_length in *.
         rewrite Hla'. rewrite Hla1 in H.
         applys* index_div. }
@@ -542,46 +585,53 @@ Proof.
         rewrite Hla''. applys* index_mod. }
       rewrite <- div_plus_mod_eq in Htra''.
       forwards* (v2'&Hv2'&HW'): IHHW.
-      remember (val_array (typ_var Tt0) a''[((i0 mod k)%Z):=v2']) as a'''.
-      exists (val_array (typ_var Ta0) a'[((i0/k)%Z):=a''']). subst.
+      remember (val_array (typ_var Tt1) a''[((i0 mod k0)%Z):=v2']) as a'''.
+      exists (val_array (typ_var Ta1) a'[((i0/k0)%Z):=a''']). subst.
       splits.
-      { asserts Hex:
+      { remember a''[(i0 mod k0)%Z:=v2'] as ua''.
+        remember a'[(i0/k0)%Z:=val_array (typ_var Tt1) ua''] as ua'.
+        asserts Hex:
           (forall i : int,
-            index a'[(i0 / k)%Z:=val_array (typ_var Tt0) a''[(i0 mod k)%Z:=v2']] i ->
-            exists a''0,
-               a'[(i0 / k)%Z:=val_array (typ_var Tt0) a''[(i0 mod k)%Z:=v2']][i] 
-               = val_array (typ_var Tt0) a''0 
-            /\ length a''0 = k).
-        { introv Hi. 
+            index ua' i ->
+            exists a'',
+               ua'[i] = val_array (typ_var Tt1) a'' 
+            /\ length a'' = k0).
+        { subst. introv Hi.
           asserts Hi': (index a' i).
           { rewrite index_eq_index_length in *.
             rewrite~ length_update in Hi. }
           rew_reads*. intros. subst.
-          exists (a''[(i0 mod k)%Z:=v2']). splits*.
+          exists (a''[(i0 mod k0)%Z:=v2']). splits*.
           rewrite~ length_update. }
-        applys~ tr_val_array_tiling l0.
+        subst. applys* tr_val_array_tiling l0.
         { rewrite~ length_update. }
         { rewrite~ length_update. }
         { introv Hi' Hup Hi''.
           forwards* (a''1&Heq&Hla''1): Hex. rewrite Hup in Heq.
           inverts Heq.
-          asserts Hi''': (index a1 (i * k + j)%Z).
+          asserts Hi''': (index a1 (i * k0 + j)%Z).
           { rewrite index_eq_index_length in *.
             rewrite length_update in *. 
             rewrite Hla''1 in Hi''.
             rewrite Hla1. rewrite Hla' in Hi'.
             applys~ index_mul_plus. }
           asserts Hai': (index a' i).
-          { admit. }
+          { rewrite index_eq_index_length in *.
+            rewrite Hla'. rewrite length_update in Hi'.
+            rewrite~ Hla' in Hi'. }
           asserts Ha''i: (index a'' j).
-          { admit. }
+          { rewrite index_eq_index_length in *.
+            rewrite Hla''1 in Hi''.
+            rewrite~ Hla''. }
           rew_reads~ in Hup.
           { introv Heq. subst. inverts Hup. rew_reads*.
-            { admit. (*contradiction*) }
-            { admit. (*contradiction*) } }
+            { introv Hneq Heq.
+              forwards*: div_mod_enforce_mod Heq. false. }
+            { introv Heq Hneq. symmetry in Heq.
+              forwards*: div_mod_enforce_mod_inv Heq. } }
           { introv Hneq.
             forwards* Htra1': Htra1.
-            asserts Hneq': (i*k+j <> i0).
+            asserts Hneq': (i*k0+j <> i0).
             { admit. }
             rew_reads~. } } }
         { constructors~. admit.
