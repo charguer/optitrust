@@ -497,7 +497,7 @@ Proof.
   forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
 
-Section TransformationsProofs.
+Section TransformationProofs.
 
 (* ********************************************************************** *)
 (* * Hints and tactics *)
@@ -508,6 +508,19 @@ Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
 Hint Constructors wf_trm wf_prim wf_val.
 
 Hint Resolve wf_red.
+
+Ltac rew_index_length_val :=
+  match goal with
+    Hl: length ?a = ?n
+    |- index (length ?a) ?i =>
+      rewrite~ Hl end.
+
+Ltac rew_index_length_val_hyp :=
+  match goal with
+    Hl: length ?a = ?n,
+    Hi: index (length ?a) ?i
+    |- ?G =>
+      rewrite~ Hl in Hi end.
 
 Ltac rew_index_length :=
   match goal with 
@@ -529,10 +542,25 @@ Ltac rew_index_update :=
     |- ?G =>
       rewrite~ length_update in Hi end.
 
-Hint Extern 1 (index ?a ?i) => 
+Ltac rew_index_update_subst :=
   rewrite index_eq_index_length in *;
   repeat rew_index_update;
   try rew_index_length;
+  try rew_index_length_rev.
+
+Hint Extern 1 (index ?a (?i mod ?k)%Z) => 
+  rew_index_update_subst;
+  try rew_index_length_val;
+  try applys~ index_mod.
+
+Hint Extern 1 (index ?a (?i/?k)%Z) => 
+  rew_index_update_subst;
+  try rew_index_length_val;
+  try rew_index_length_val_hyp;
+  try applys~ index_div.
+
+Hint Extern 1 (index ?a ?i) => 
+  rew_index_update_subst;
   try rew_index_length_rev.
 
 Hint Extern 1 (length ?a[?i:=?v] = ?l) =>
@@ -562,18 +590,9 @@ Proof.
       2:{ introv HN. simpls. false. }
       introv Heq Hla Hla' Ha'' Htrv.
       inverts Heq.
-      asserts Hia': (index a' (i0 / k)%Z).
-      { rewrite index_eq_index_length in *.
-        rewrite Hla'. rewrite Hla in H.
-        applys~ index_div. }
-      forwards~ (a''&Ha'i&Hla''): Ha'' ((i0/k)%Z).
-      asserts Hia'': (index a'' (i0 mod k)%Z).
-      { rewrite index_eq_index_length. rewrite Hla''.
-        applys~ index_mod. }
+      forwards* (a''&Ha'i&Hla''): Ha'' ((i0/k)%Z).
       forwards* Hai0: Htrv ((i0/k)%Z) a'' ((i0 mod k)%Z).
-      asserts Heq: (i0 = (i0 / k * k + i0 mod k)%Z).
-      { applys~ div_plus_mod_eq. }
-      rewrite <- Heq in Hai0.
+      rewrite <- div_plus_mod_eq in Hai0.
       forwards* (w'&Hvw'&HR'): IHHR.
       exists w'. splits~.
       constructors~. rewrite Ha'i.
@@ -614,16 +633,8 @@ Proof.
     { (* tiling *)
       introv Htt Hla1 Hla' Ha'i1 Htra1 Hπ Heq.
       inverts Htt. inverts Heq. subst.
-      forwards (a''&Ha'i&Hla''): Ha'i1 ((i0/k0)%Z).
-      { rewrite index_eq_index_length in *. 
-        rewrite Hla'. rewrite Hla1 in H.
-        applys* index_div. }
+      forwards* (a''&Ha'i&Hla''): Ha'i1 ((i0/k0)%Z).
       forwards* Htra'': Htra1 ((i0/k0)%Z) a'' ((i0 mod k0)%Z).
-      { rewrite index_eq_index_length in *.
-        rewrite Hla'. rewrite Hla1 in H.
-        applys* index_div. }
-      { rewrite index_eq_index_length in *.
-        rewrite Hla''. applys* index_mod. }
       rewrite <- div_plus_mod_eq in Htra''.
       forwards* (v2'&Hv2'&HW'): IHHW.
       remember (val_array (typ_var Tt1) a''[((i0 mod k0)%Z):=v2']) as a'''.
@@ -637,8 +648,7 @@ Proof.
             exists a'',
                ua'[i] = val_array (typ_var Tt1) a'' 
             /\ length a'' = k0).
-        { subst. introv Hi.
-          rew_reads*. }
+        { subst. introv Hi. rew_reads*. }
         subst. applys* tr_val_array_tiling l0.
         introv Hi' Hup Hi''.
         forwards* (a''1&Heq&Hla''1): Hex. rewrite Hup in Heq.
@@ -663,15 +673,7 @@ Proof.
             rewrite int_index_eq in Hi''.
             applys~ div_quotient_neq. }
           rew_reads~. } } 
-        { constructors~.
-          { rewrite index_eq_index_length in *. 
-            rewrite Hla'. rewrite Hla1 in H.
-            applys~ index_div. }
-          rewrite Ha'i. constructors~. 
-          { rewrite index_eq_index_length in *. 
-            rewrite Hla''.
-            applys~ index_mod. }
-          auto. } }
+        { constructors~. rewrite Ha'i. constructors*. } } }
       { (* absurd case *)
         introv Hneq Hla1 Htra1i1 Hπ Heq. inverts Heq. simpls. false. }
       { (* absurd case *) 
@@ -780,7 +782,8 @@ Proof using.
       inverts H as _ HTCTa.
       rewrite HCTa in HTCTa. inverts HTCTa.
       destruct* os; destruct* os'.
-      { applys uninitialized_array (Some (l0/k)).
+      { (* Fixed-size array. *)
+        applys uninitialized_array (Some (l0/k)).
         3:{ introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.
             rewrite Ha'i'. applys uninitialized_array (Some k).
             { constructors.
@@ -808,7 +811,7 @@ Proof using.
               { rewrite HC'Tt. constructors. 
                 applys* tr_typdefctx_wf_typ. constructors*. } } } }
         { introv Hn0. inverts~ Hn0. } }
-      { (* variable length array..... *)
+      { (* Variable length array. *)
         applys uninitialized_array.
         { constructors.
           { rewrite HD. rew_set~. }
@@ -1078,26 +1081,26 @@ Proof.
         inverts Hva as; try solve [ intros ; false ].
         introv Htt Hla Hla' Ha'' Ha'.
         inverts Hvi.
-        forwards* (a''&Ha'i&Hla''): Ha'' ((i/k)%Z). admit. (*index*)
-        forwards* Htra: Ha' ((i/k)%Z) a'' ((i mod k)%Z). admit. admit. (*index*)
+        forwards* (a''&Ha'i&Hla''): Ha'' ((i/k)%Z).
+        forwards* Htra: Ha' ((i/k)%Z) a'' ((i mod k)%Z).
         rewrite <- div_plus_mod_eq in Htra.
         exists a''[(i mod k)%Z] m1'. splits~.
         inverts Htracc. inverts Htt.
         do 2 constructors~. unfolds Ctx.add. simpls.
           applys red_let m1' (val_int ((i/k)%Z)).
-          { repeat constructors~. admit. (*TODO: Assume k <> 0*) }
+          { repeat constructors~. inverts Hok as Htt. inverts~ Htt. }
           { introv HN. unfolds~ is_error. }
           { unfolds Ctx.add. simpls.
             applys red_let m1' (val_int ((i mod k)%Z)).
-            { repeat constructors~. admit. (*TODO: Assume k <> 0*) }
+            { repeat constructors~. inverts Hok as Htt. inverts~ Htt. }
             { introv HN. unfolds~ is_error. }
             { unfolds Ctx.add. simpls. applys~ red_args_1.
               { applys red_args_1. auto. constructors. simpls. eauto.
                 applys red_args_2. auto. constructors. simpls. eauto.
-                applys~ red_array_get. admit. (*index*) }
+                applys~ red_array_get. }
               { applys~ red_args_2.
                 { constructors. simpls. eauto. }
-                { constructors*. admit. (*index*) } } } } }
+                { constructors*. } } } } }
       { (* another array *) 
         introv Hor Hneq Hpr. inverts Hor; inverts Hpr.
         inverts Ht1' as Hva.
@@ -1105,7 +1108,7 @@ Proof.
         inverts Hva as _ Hla Htrai; simpls; tryfalse.
         inverts Hvi.
         exists a'[i] m1'. splits~.
-        constructors~. admit. (*index*) } }
+        constructors~. } }
     { (* absurd case *)
       introv HN. false. applys HN. unfolds~. } }
   { (* args 1 *)
