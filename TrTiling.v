@@ -431,6 +431,15 @@ Proof.
   introv Hnz Heq. rewrite Heq. apply div_plus_mod_eq.
 Qed.
 
+Lemma div_quotient_neq : forall i k j r,
+  k <> 0 ->
+  (r / k)%Z <> i ->
+  0%Z <= j < k ->
+  (i * k + j)%Z <> r.
+Proof.
+  introv Hnz Hneq Hineq. introv HN.
+Admitted.
+
 End DivModResults.
 
 
@@ -632,7 +641,10 @@ Proof.
           { introv Hneq.
             forwards* Htra1': Htra1.
             asserts Hneq': (i*k0+j <> i0).
-            { admit. }
+            { rewrite index_eq_index_length in Hi''. 
+              rewrite Hla''1 in Hi''.
+              rewrite int_index_eq in Hi''.
+              applys~ div_quotient_neq. }
             rew_reads~. } } }
         { constructors~. admit.
           rewrite Ha'i. constructors~. admit. auto. } }
@@ -647,8 +659,10 @@ Proof.
         { constructors~.
           { repeat rewrite~ length_update. }
           { introv Hi0. rewrite index_update_eq in Hi0. rew_reads*.
-            admit. (*index*) } }
-        { constructors~. admit. auto. } } }
+            rewrite index_eq_index_length in *. rewrite~ <- Hla1. } }
+        { constructors~. 
+          { rewrite index_eq_index_length in *. rewrite~ <- Hla1. }
+          auto. } } }
   { (* struct *) 
     inverts Hπ as; inverts Hv1 as. 
     { (* absurd case *)
@@ -659,7 +673,7 @@ Proof.
       exists (val_struct T s'[f:=v2']). splits.
       { constructors~.
         { repeat rewrite dom_update. congruence. }
-        { introv Hf0. Search dom. rewrite* dom_update_at_indom in Hf0.
+        { introv Hf0. rewrite* dom_update_at_indom in Hf0.
           rew_reads*. } }
       { constructors~. rewrite~ <- HDs1. auto. } } }
 Qed.
@@ -739,15 +753,15 @@ Proof using.
     inverts Hv as.
     { (* tiling array *)
       introv Htt Hla Hla' Ha'i Htra. inverts Htt.
-      inverts Hok as Htt HTain HCTa' HTt0nin Hfv.
+      inverts Hok as Htt HTain HCTa' HTt0nin Hnz Hfv.
       inverts Htt. unfolds wf_typdefctx.
       rewrite HCTa in HCTa'. inverts HCTa'.
       inverts H as _ HTCTa.
       rewrite HCTa in HTCTa. inverts HTCTa.
       destruct* os; destruct* os'.
-      { applys uninitialized_array (Some (l0/n)).
+      { applys uninitialized_array (Some (l0/k)).
         3:{ introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.
-            rewrite Ha'i'. applys uninitialized_array (Some n).
+            rewrite Ha'i'. applys uninitialized_array (Some k).
             { constructors.
               { rewrite HD. rew_set~. }
               { rewrite HC'Tt. constructors~.
@@ -761,7 +775,13 @@ Proof using.
         { constructors.
           { rewrite HD. rew_set~. }
           { rewrite HC'Ta. 
-            { asserts_rewrite (s0=l0/n). { admit. (*comes from nbtiles*) }
+            { asserts_rewrite (s0=l0/k). 
+              { unfolds nbtiles. forwards* Hla1: H0.
+                rewrite length_eq in *.
+                forwards Hlanat: eq_nat_of_eq_int Hla.
+                forwards Hla1nat: eq_nat_of_eq_int Hla1.
+                rewrite <- Hlanat. rewrite Hla1nat.
+                admit. (*index. NOTE: not true without assuming perfect tiling. *)  }
               constructors. constructors.
               { rewrite HD. rew_set~. }
               { rewrite HC'Tt. constructors. 
@@ -795,15 +815,18 @@ Proof using.
         { introv HwfT. constructors*. 
           applys* tr_typdefctx_wf_typ. constructors*. }
         { introv HTvin HTCTv.
-          inverts Hok as Htt HTain HCTa' HTt0nin Hfv.
+          inverts Hok as Htt HTain HCTa' HTt0nin Hnz Hfv.
           inverts Htt. unfolds wf_typdefctx. constructors*.
           { rewrite HD. rew_set~. }
-          { rewrite~ HC'Tv. applys~ tr_typing_array Ta Tt0 n C.
+          { rewrite~ HC'Tv. applys~ tr_typing_array Ta Tt0 k0 C.
             { rewrite HCTa in HCTa'. inverts HCTa'. constructors*. }
             { applys~ Hfv. introv HN. subst. applys~ Hneq. }
             { introv HN. subst. applys~ Hneq. } } } }
-       { introv Hi. forwards* Htra': Htra i. admit. (*index*)
-        applys* H2. admit. (*index*) constructors*. } } }
+      { introv Hi.
+        asserts: (index a i).
+        { rewrite index_eq_index_length in *. rewrite~ Hla. }
+        forwards* Htra': Htra i.
+        applys* H2. constructors*. } } }
   { (* struct *)
     inverts Hv as HD Hvfsf. constructors.
     2:{ rewrite~ H0. }
@@ -928,7 +951,8 @@ Proof.
     inverts Htrt1' as Hp.
     inverts Hp as Hπ.
     inverts Htrt2' as Hv.
-    forwards (w'&Hw'&HW'): tr_write_accesses Htrml Hv Hπ HW.
+    inverts Hok as HTain HCTa HTtnin Hnz Hfv.
+    forwards* (w'&Hw'&HW'): tr_write_accesses Htrml Hv Hπ HW.
     exists val_unit m1'[l:=w']. splits~.
     { constructors.
       { unfold state. repeat rewrite~ dom_update.
@@ -970,7 +994,8 @@ Proof.
     splits~.
     { constructors. applys~ tr_accesses_app. }
     { constructors~. } }
-  { (* array access *) 
+  { (* array access *)
+    inverts Hok as HTain HCTa HTtnin Hnz Hfv.
     subst. inverts Ht as.
     { introv Hop Ht1' Ht2' Haop.
       inverts Haop as.
@@ -980,19 +1005,20 @@ Proof.
         inverts Ht2' as Htv.
         inverts Htp as Hπ.
         inverts Htv.
-        inverts Htra. simpls.
-        remember (access_array (typ_var Ta) ((i/k)%Z)) as a1.
-        remember (access_array (typ_var Tt) ((i mod k)%Z)) as a2.
+        inverts Htra.
+        inverts_head make_tiling_tr'. simpls.
+        remember (access_array (typ_var Ta0) ((i/k0)%Z)) as a1.
+        remember (access_array (typ_var Tt0) ((i mod k0)%Z)) as a2.
         exists (val_abstract_ptr l (π'++(a1::a2::nil))) m1'. 
         subst. splits~.
         { constructors~. applys~ tr_accesses_app. constructors~. }
         { do 2 constructors~. unfolds Ctx.add. simpls.
-          applys red_let m1' (val_int ((i/k)%Z)).
-          { repeat constructors~. admit. (*TODO: Assume k <> 0*) }
+          applys red_let m1' (val_int ((i/k0)%Z)).
+          { repeat constructors~. }
           { introv HN. unfolds~ is_error. }
           { unfolds Ctx.add. simpls.
-            applys red_let m1' (val_int ((i mod k)%Z)).
-            { repeat constructors~. admit. (*TODO: Assume k <> 0*) }
+            applys red_let m1' (val_int ((i mod k0)%Z)).
+            { repeat constructors~. }
             { introv HN. unfolds~ is_error. }
             { unfolds Ctx.add. simpls. applys~ red_args_1.
               { applys red_args_1. auto. constructors. simpls. eauto.
