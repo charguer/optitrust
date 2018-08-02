@@ -673,7 +673,7 @@ Proof.
             rewrite int_index_eq in Hi''.
             applys~ div_quotient_neq. }
           rew_reads~. } } 
-        { constructors~. rewrite Ha'i. constructors*. } } }
+        { constructors~. rewrite Ha'i. constructors*. } }
       { (* absurd case *)
         introv Hneq Hla1 Htra1i1 Hπ Heq. inverts Heq. simpls. false. }
       { (* absurd case *) 
