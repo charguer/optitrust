@@ -35,7 +35,7 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
       Ta \indom C ->
       C[Ta] = typ_array T os ->
       Tt \notindom C ->
-      k <> 0 ->
+      k <> 0%Z ->
       (forall Tv,
         Tv \indom C ->
         Tv <> Ta ->
@@ -48,8 +48,8 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
 
 (** Transformation of typdefctxs: C ~ |C| *)
 
-Definition nbtiles (n k m:size) : Prop :=
-  m = n/k.
+Definition nbtiles (n k m:int) : Prop :=
+  m = (n/k)%Z.
 
 Inductive tr_typdefctx (tt:tiling_tr) : typdefctx -> typdefctx -> Prop :=
   | tr_typdefctx_intro : forall T Tt Ta k os os' C C',
@@ -105,7 +105,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
   | tr_val_abstract_ptr : forall l π π',
       tr_accesses tt π π' ->
       tr_val tt (val_abstract_ptr l π) (val_abstract_ptr l π')
-  | tr_val_array_tiling : forall (l:nat) k m Tt Ta a a',
+  | tr_val_array_tiling : forall l k m Tt Ta a a',
       tt = make_tiling_tr Ta Tt k ->
       nbtiles l k m ->
       length a = l ->
@@ -333,7 +333,7 @@ Proof.
 Qed.
 
 Lemma functional_nbtiles : forall n k m1 m2,
-  k <> 0 ->
+  k <> 0%Z ->
   nbtiles n k m1 ->
   nbtiles n k m2 ->
   m1 = m2.
@@ -354,7 +354,7 @@ Qed.
 Hint Resolve TLCbuffer.index_of_index_length.
 
 Theorem functional_tr_val : forall tt v v1 v2,
-  tiling_tr_tile_size tt <> 0 ->
+  tiling_tr_tile_size tt <> 0%Z ->
   tr_val tt v v1 ->
   tr_val tt v v2 ->
   v1 = v2.
@@ -364,12 +364,7 @@ Proof using.
   { fequals. applys* functional_tr_accesses. }
   { asserts Hl: (length a' = length a'0).
     { inverts_head make_tiling_tr'.
-      rewrite H2. rewrite H12. 
-      apply eq_int_of_eq_nat.
-      rewrite H11 in H1.
-      forwards Heq1: eq_nat_of_eq_int H1.
-      rewrite Heq1 in H10.
-      forwards*: functional_nbtiles H0 H10. }
+      forwards*: functional_nbtiles Hnz H0 H10. }
     applys* eq_of_extens. inverts_head make_tiling_tr'.
     introv Hi.
     asserts Hi': (index a'0 i).

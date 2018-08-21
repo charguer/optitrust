@@ -13,7 +13,7 @@ Set Implicit Arguments.
 Require Export Bind TLCbuffer.
 Require Export LibString LibCore LibLogic LibReflect 
   LibOption LibRelation LibLogic LibOperation LibEpsilon 
-  LibMonoid LibSet LibContainer LibList LibListZ LibMap.
+  LibMonoid LibSet LibContainer LibListZ LibMap.
 
 Open Scope set_scope.
 Open Scope container_scope.
