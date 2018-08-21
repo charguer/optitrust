@@ -143,7 +143,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
    let j = i / k in
    let k = i % k in
      t[j][k] *)
-Inductive tr_access (tt:tiling_tr) (pr:typ->prim) (t1:trm) (t2:trm) (tlt:trm) : Prop :=
+Inductive tr_prim (tt:tiling_tr) (pr:typ->prim) (t1:trm) (t2:trm) (tlt:trm) : Prop :=
   | tr_access_intro : forall op1 Ta op2 Tt ta1 ta2 k tlk tlj tli,
       tt = make_tiling_tr Ta Tt k ->
       op1 = pr (typ_var Ta) ->
@@ -154,12 +154,12 @@ Inductive tr_access (tt:tiling_tr) (pr:typ->prim) (t1:trm) (t2:trm) (tlt:trm) : 
       tlj = trm_let "j" (trm_app binop_div ((trm_var "i")::(trm_val (val_int k))::nil)) tlk ->
       tli = trm_let "i" t2 tlj ->
       tlt = trm_let "t" t1 tli ->
-      tr_access tt pr t1 t2 tlt.
+      tr_prim tt pr t1 t2 tlt.
 
 Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
   | tr_array_op_tiling : forall pr t1 t2 tlt,
       pr = prim_array_access \/ pr = prim_array_get ->
-      tr_access tt pr t1 t2 tlt ->
+      tr_prim tt pr t1 t2 tlt ->
       tr_array_op tt (trm_app (pr (typ_var (tiling_tr_array_name tt))) (t1::t2::nil)) tlt
   | tr_array_op_other : forall Ta pr T ts,
       pr = prim_array_access \/ pr = prim_array_get ->

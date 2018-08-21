@@ -476,16 +476,18 @@ Proof.
       { inverts_head make_group_tr'. fequals. }
       { inverts_head wf_accesses. inverts_head wf_typ. 
         false*. } } }
-  { inverts Hπ2; inverts Hva1; inverts Hva2.
-    { inverts Hok as Hgt. inverts Hgt. inverts_head access_field.
-      subst. simpls. inverts_head Logic.or; tryfalse.
-      inverts_head wf_typ. inverts Hπ1.
-      { inverts H7. inverts_head make_group_tr'. 
-        inverts H18. inverts H3; fequals. }
-      { simpls. inverts_head Logic.or.
-        { inverts H7. inverts H16. false*. }
+  { inverts Hπ2 as; inverts Hva1 as; inverts Hva2 as.
+    { introv HTt0 Hπ0 HT Hπ Htrπ Hin Heq. inverts Heq.
+      subst. simpls.
+      inverts_head Logic.or; tryfalse.
+      inverts HT as HT. inverts Hπ1 as.
+      { introv Htrπ' Hgt Hin' Heq.
+        inverts Hgt. inverts Heq. fequals. }
+      { introv Htrπ' Hneq. simpls. inverts_head Logic.or.
+        { inverts Hπ as HTg. inverts HTg. inverts Hok.
+          inverts_head make_group_tr'. false*. }
         { false*. } } }
-    { fequals. applys* IHHπ1. } }
+    { intros. fequals. applys* IHHπ1. } }
 Qed.
 
 Lemma tr_val_inj : forall C gt v v1 v2,
