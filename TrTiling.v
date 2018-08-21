@@ -48,7 +48,7 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
 
 (** Transformation of typdefctxs: C ~ |C| *)
 
-Definition nbtiles (n:size) (k:size) (m:size) : Prop :=
+Definition nbtiles (n k m:size) : Prop :=
   if isTrue(n mod k = 0) then
     n = (m*k)%nat
   else
@@ -122,7 +122,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
         index a' i ->
         a'[i] = (val_array (typ_var Tt) a'') ->
         (forall j,
-          index a (i*k+j) -> (*index a'' j ->*)
+          index a'' j ->
           tr_val tt a[i*k+j] a''[j])) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
@@ -390,8 +390,8 @@ Proof using.
     rewrite Ha1''i. rewrite Ha2''i. fequals.
     asserts Hl': (length a1'' = length a2'').
     { congruence. }
-    applys~ eq_of_extens. introv Hi0. applys~ H5 i.
-    applys~ H13.
+    applys~ eq_of_extens. introv Hi0. applys* H5 i.
+    applys~ H15.
     { rewrite index_eq_index_length in *. rewrite~ Hl'. } }
   { applys eq_of_extens. 
     { congruence. }
@@ -407,42 +407,49 @@ Qed.
 (** Results about division and modulo operation. *)
 Section DivModResults.
 
-
-
-Axiom div_mod_eq : forall i j k:Z, 
+Axiom div_mod_eq : forall i j k:Z,
+  k <> 0 ->
   (i / k)%Z = (j / k)%Z ->
   (i mod k)%Z = (j mod k)%Z ->
   i = j.
 
 Axiom index_div : forall (l:nat) (k:size) (i:int),
+  k <> 0 ->
   index (nat_to_Z l) i ->
   index (nat_to_Z (l/k)) ((i/k)%Z).
 
 Axiom div_plus_mod_eq : forall (i:int) (k:size),
+  k <> 0 ->
   i = (i/k)*k + (i mod k).
 
 Axiom index_mod : forall (k:nat) (i:int),
+  k <> 0 ->
   index (nat_to_Z k) ((i mod k)%Z).
 
 Axiom index_mul_plus : forall (l k:size) (i j:int),
+  k <> 0 ->
   index (nat_to_Z (l / k)) i ->
   index (nat_to_Z k) j ->
   index (nat_to_Z l) (i * k + j)%Z.
 
+
+
 Lemma div_mod_enforce_mod : forall i (k:size) j,
+  k <> 0 ->
   i = i / k * k + j ->
   j = (i mod k)%Z.
 Proof.
-  introv Heq. forwards H: div_plus_mod_eq i k.
+  introv Hnz Heq. forwards~ H: div_plus_mod_eq i k.
   remember (i/k * k) as n. rewrite H in Heq.
   forwards*: Z.add_reg_l Heq.
 Qed.
 
 Lemma div_mod_enforce_mod_inv : forall i (k:size) j,
+  k <> 0 ->
   j = (i mod k)%Z ->
   i = i / k * k + j.
 Proof.
-  introv Heq. rewrite Heq. apply div_plus_mod_eq.
+  introv Hnz Heq. rewrite Heq. apply~ div_plus_mod_eq.
 Qed.
 
 Lemma div_mod_enforce_div : forall i (k:size) j,
@@ -450,7 +457,7 @@ Lemma div_mod_enforce_div : forall i (k:size) j,
   i = j * k + (i mod k)%Z ->
   j = (i / k)%Z.
 Proof.
-  introv Hnz Heq. forwards H: div_plus_mod_eq i k.
+  introv Hnz Heq. forwards~ H: div_plus_mod_eq i k.
   remember ((i mod k)%Z) as n. rewrite H in Heq.
   rewrite Z.add_comm in Heq.
   rewrite Z.add_comm with (n:=j*k) (m:=n) in Heq.
@@ -467,8 +474,13 @@ Lemma div_mod_enforce_div_inv : forall i (k:size) j,
   j = (i / k)%Z ->
   i = j * k + (i mod k)%Z.
 Proof.
-  introv Hnz Heq. rewrite Heq. apply div_plus_mod_eq.
+  introv Hnz Heq. rewrite Heq. apply~ div_plus_mod_eq.
 Qed.
+
+Axiom residual_div : forall (x i:int) (k:size),
+  k <> 0 ->
+  0%Z <= i < nat_to_Z k ->
+  ((x * nat_to_Z k + i) / nat_to_Z k)%Z = x.
 
 Lemma div_quotient_neq : forall i k j r,
   k <> 0 ->
@@ -477,7 +489,9 @@ Lemma div_quotient_neq : forall i k j r,
   (i * k + j)%Z <> r.
 Proof.
   introv Hnz Hneq Hineq. introv HN.
-Admitted.
+  rewrite <- HN in Hneq.
+  forwards* Heq: residual_div Hnz Hineq.
+Qed.
 
 End DivModResults.
 
@@ -494,7 +508,9 @@ Proof.
   { inverts Hπ2. auto. }
   { subst. inverts Hπ2; inverts Hva1; inverts Hva2.
     { inverts_head make_tiling_tr'. repeat inverts_head access_array.
-      repeat fequals*. applys* div_mod_eq. }
+      repeat fequals*. applys* div_mod_eq. introv Hz.
+      forwards Hz': eq_nat_of_eq_int Hz. inverts Hok.
+      inverts_head make_tiling_tr'. false*. }
     { simpls. false. } }
   { inverts Hπ2; inverts Hva1; inverts Hva2.
     { inverts_head access_array. fequals*. }
