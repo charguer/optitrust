@@ -49,7 +49,7 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
 (** Transformation of typdefctxs: C ~ |C| *)
 
 Definition nbtiles (n k m:int) : Prop :=
-  m = (n/k)%Z.
+  m = ((n - 1) / k + 1)%Z.
 
 Inductive tr_typdefctx (tt:tiling_tr) : typdefctx -> typdefctx -> Prop :=
   | tr_typdefctx_intro : forall T Tt Ta k os os' C C',
@@ -105,7 +105,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
   | tr_val_abstract_ptr : forall l π π',
       tr_accesses tt π π' ->
       tr_val tt (val_abstract_ptr l π) (val_abstract_ptr l π')
-  | tr_val_array_tiling : forall l k m Tt Ta a a',
+  | tr_val_array_tiling : forall l k m Tt Ta a a' a'',
       tt = make_tiling_tr Ta Tt k ->
       nbtiles l k m ->
       length a = l ->
@@ -116,11 +116,15 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
             a'[i] = (val_array (typ_var Tt) a'')
         /\  length a'' = k) ->
       (forall i a'',
-        index a' i ->
+        index (m - 1) i ->
         a'[i] = (val_array (typ_var Tt) a'') ->
         (forall j,
-          index a'' j ->
+          index a (i*k+j) ->
           tr_val tt a[i*k+j] a''[j])) ->
+      (*a'[m - 1] = (val_array (typ_var Tt) a'') ->
+      (forall j, 
+        index (l mod k)%Z j ->
+        tr_val tt a[(m - 1) * k + j] a''[j])*) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->
@@ -135,6 +139,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
         f \indom s ->
         tr_val tt s[f] s'[f]) ->
       tr_val tt (val_struct T s) (val_struct T s').
+
 
 
 (* Transformation used in the struct cases to avoid repetition. *)
@@ -318,27 +323,12 @@ Proof.
   subst; inverts HN. forwards~: Hu.
 Qed.
 
-Lemma mul_eq : forall k m1 m2,
-  k <> 0 ->
-  (m1*k)%nat = (m2*k)%nat ->
-  m1 = m2.
-Proof.
-  introv Hnz Heq.
-  remember (m1*k)%nat as n1.
-  remember (m2*k)%nat as n2.
-  rewrite Nat.mul_comm in *.
-  forwards Hm1: Nat.div_unique_exact Hnz Heqn1.
-  forwards Hm2: Nat.div_unique_exact Hnz Heqn2.
-  rewrite Hm1. rewrite Hm2. rewrite~ Heq.
-Qed.
-
 Lemma functional_nbtiles : forall n k m1 m2,
-  k <> 0%Z ->
   nbtiles n k m1 ->
   nbtiles n k m2 ->
   m1 = m2.
 Proof.
-  introv Hnz Hm1 Hm2. unfolds nbtiles. subst*.
+  introv Hm1 Hm2. unfolds nbtiles. subst*.
 Qed.
 
 Theorem functional_tr_accesses : forall tt π π1 π2,
@@ -351,42 +341,6 @@ Proof.
   inverts_head access_array; subst; simpls; tryfalse.
 Qed.
 
-Hint Resolve TLCbuffer.index_of_index_length.
-
-Theorem functional_tr_val : forall tt v v1 v2,
-  tiling_tr_tile_size tt <> 0%Z ->
-  tr_val tt v v1 ->
-  tr_val tt v v2 ->
-  v1 = v2.
-Proof using.
-  introv Hnz H1 H2. gen v2. induction H1; intros;
-  inverts_head tr_val; fequals*; subst; simpls; tryfalse.
-  { fequals. applys* functional_tr_accesses. }
-  { asserts Hl: (length a' = length a'0).
-    { inverts_head make_tiling_tr'.
-      forwards*: functional_nbtiles Hnz H0 H10. }
-    applys* eq_of_extens. inverts_head make_tiling_tr'.
-    introv Hi.
-    asserts Hi': (index a'0 i).
-    { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
-    forwards* (a1''&Ha1''i&Hla1''): H13 i.
-    forwards* (a2''&Ha2''i&Hla2''): H3 i.
-    rewrite Ha1''i. rewrite Ha2''i. fequals.
-    asserts Hl': (length a1'' = length a2'').
-    { congruence. }
-    applys~ eq_of_extens. introv Hi0. applys* H5 i.
-    applys~ H15.
-    { rewrite index_eq_index_length in *. rewrite~ Hl'. } }
-  { applys eq_of_extens. 
-    { congruence. }
-    { introv Hi. asserts: (index a i).
-      { rewrite index_eq_index_length in *. rewrite~ H0. }
-      applys* H2. } }
-  { applys read_extens.
-    { congruence. }
-    { introv Hin. 
-      asserts_rewrite* (dom s' = dom s) in *. } }
-Qed.
 
 (** Results about division and modulo operation. *)
 Section DivModResults.
@@ -474,6 +428,47 @@ Qed.
 
 End DivModResults.
 
+
+Hint Resolve TLCbuffer.index_of_index_length.
+
+Theorem functional_tr_val : forall tt v v1 v2,
+  tiling_tr_tile_size tt > 0%Z ->
+  tr_val tt v v1 ->
+  tr_val tt v v2 ->
+  v1 = v2.
+Proof using.
+  introv Hnz H1 H2. gen v2. induction H1; intros;
+  inverts_head tr_val; fequals*; subst; simpls; tryfalse.
+  { fequals. applys* functional_tr_accesses. }
+  { asserts Hl: (length a' = length a'0).
+    { inverts_head make_tiling_tr'.
+      forwards*: functional_nbtiles H0 H13. }
+    applys* eq_of_extens. inverts_head make_tiling_tr'.
+    introv Hi.
+    asserts Hi': (index a'0 i).
+    { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
+    forwards* (a1''&Ha1''i&Hla1''): H16 i.
+    forwards* (a2''&Ha2''i&Hla2''): H3 i.
+    rewrite Ha1''i. rewrite Ha2''i. fequals.
+    asserts Hl': (length a1'' = length a2'').
+    { congruence. }
+    applys~ eq_of_extens. introv Hi0. applys* H5 i.
+    { admit. }
+    { rewrite index_eq_index_length. applys~ index_mul_plus.
+      { unfolds nbtiles. }
+      {  } }
+    applys~ H15.
+    { rewrite index_eq_index_length in *. rewrite~ Hl'. } }
+  { applys eq_of_extens. 
+    { congruence. }
+    { introv Hi. asserts: (index a i).
+      { rewrite index_eq_index_length in *. rewrite~ H0. }
+      applys* H2. } }
+  { applys read_extens.
+    { congruence. }
+    { introv Hin. 
+      asserts_rewrite* (dom s' = dom s) in *. } }
+Qed.
 
 Lemma tr_accesses_inj : forall C tt π π1 π2,
   tiling_tr_ok tt C ->
