@@ -531,7 +531,7 @@ Proof.
     { introv Hneq HDs0 Hs'f. fequals. asserts HD: (dom s = dom s0).
       { congruence. }
       applys~ read_extens.
-      { introv Hi. inverts HV1 as HV1 HV1sf. inverts HV2 as HV2 HV2sf. 
+      { introv Hi. inverts HV1 as HV1 HV1sf. inverts HV2 as HV2 HV2sf.
         rewrite <- HD in HV2sf. applys* H3. applys Hs'f.
         rewrite~ <- HD. } } }
 Qed.
@@ -1066,13 +1066,12 @@ Proof.
     splits~. constructors*.
     rewrite index_eq_index_length in *.
     rewrite~ <- Hl. }
-  { (* TODO: Clean up these cases. *)
-    (* args_1 *)
+  { (* args_1 *)
     inverts Ht; inverts Hwft;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He.
     { inverts_head tr_struct_op.
-      { inverts H8.
+      { inverts_head Logic.or.
         { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
           try solve [ repeat constructors~ ; applys* wf_red HR1 ].
           applys* tr_trm_struct_op. constructors*.
@@ -1087,7 +1086,7 @@ Proof.
           { applys* red_args_1. applys* red_args_1.
             applys* not_is_val_tr. }
           { forwards*: not_is_error_tr Hv''. } } }
-      { inverts H8.
+      { inverts_head Logic.or.
         { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
           try solve [ repeat constructors~ ; applys* wf_red HR1 ];
           try solve [ exists v'' m3'; splits* ;
