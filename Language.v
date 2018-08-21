@@ -27,15 +27,15 @@ Open Scope container_scope.
 
 (** [loc] describes base pointers to an allocated block. *)
 
-Definition loc := nat. 
+Definition loc := int.
 
-Definition null : loc := 0%nat.
+Definition null : loc := 0%Z.
 
 Definition field := var.
 
-Definition size := nat.
+Definition size := int.
 
-Definition offset := nat.
+Definition offset := int.
 
 Definition typvar := var.
 

@@ -42,11 +42,6 @@ Inductive redbinop : binop -> val -> val -> val -> Prop :=
       v1 <> v2 ->
       redbinop binop_eq v1 v2 (val_bool false).
 
-(*
-  | redbinop_eq_false : forall v1 v2,
-      basic_value v1
-      redbinop binop_eq v1 v2 (val_bool (isTrue(v1 = v2))).
-*)
 
 (* ---------------------------------------------------------------------- *)
 (** Uninitialized values construction *)
@@ -178,14 +173,13 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
       uninitialized C T v -> 
       m2 = m1[l:=v] ->
       red C S m1 (trm_app (prim_new T) nil) m2 vr
-  | red_new_array : forall l (n:int) (k:nat) a S m1 T v1 m2 vr,
+  | red_new_array : forall l n a S m1 T v1 m2 vr,
       v1 = val_int n ->
       vr = val_abstract_ptr l nil ->
       l <> null ->
       l \notindom m1 ->
-      n = k ->
       wf_typ C T ->
-      uninitialized C (typ_array T (Some k)) (val_array (typ_array T (Some k)) a) -> 
+      uninitialized C (typ_array T (Some n)) (val_array (typ_array T (Some n)) a) -> 
       m2 = m1[l:=(val_array (typ_array T None) a)] ->
       red C S m1 (trm_app (prim_new_array T) ((trm_val v1)::nil)) m2 vr
   | red_struct_access : forall l π S T f v1 m vr,
@@ -251,10 +245,9 @@ Inductive red (C:typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
   | red_new_error : forall S T m,
       ~ (exists v, uninitialized C T v) ->
       red C S m (trm_app (prim_new T) nil) m val_error
-  | red_new_array_error : forall (n:int) (k:nat) S m T v1,
+  | red_new_array_error : forall n S m T v1,
       v1 = val_int n ->
-      n = k ->
-      ~ (exists a, uninitialized C (typ_array T (Some k)) (val_array (typ_array T (Some k)) a)) -> 
+      ~ (exists a, uninitialized C (typ_array T (Some n)) (val_array (typ_array T (Some n)) a)) -> 
       red C S m (trm_app (prim_new_array T) ((trm_val v1)::nil)) m val_error
   | red_struct_access_error_not_a_ptr : forall S T f v1 m,
       ~ is_ptr v1 ->
@@ -540,7 +533,7 @@ Proof.
   { (* new_array *)
     subst. splits.
     { unfolds wf_state. introv Hl0. rew_reads; intros; subst.
-      { forwards* HV: wf_uninitialized H5. 
+      { forwards* HV: wf_uninitialized H4.
         { constructors~. }
         inverts HV as HV HVai. repeat constructors~. }
       { applys~ Hm1. applys* indom_update_inv_neq l l0. } }

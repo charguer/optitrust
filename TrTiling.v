@@ -49,10 +49,7 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
 (** Transformation of typdefctxs: C ~ |C| *)
 
 Definition nbtiles (n k m:size) : Prop :=
-  if isTrue(n mod k = 0) then
-    n = (m*k)%nat
-  else
-    n = (m*k + 1)%nat.
+  m = n/k.
 
 Inductive tr_typdefctx (tt:tiling_tr) : typdefctx -> typdefctx -> Prop :=
   | tr_typdefctx_intro : forall T Tt Ta k os os' C C',
@@ -341,15 +338,7 @@ Lemma functional_nbtiles : forall n k m1 m2,
   nbtiles n k m2 ->
   m1 = m2.
 Proof.
-  introv Hnz Hm1 Hm2. unfolds nbtiles. case_if*.
-  { rewrite Hm1 in Hm2. forwards*: mul_eq Hnz Hm2. }
-  { lets Heq: Hm1.
-    rewrite Hm2 in Heq.
-    rewrite Nat.add_comm in Heq.
-    symmetry in Heq.
-    rewrite Nat.add_comm in Heq.
-    apply plus_reg_l in Heq.
-    forwards*: mul_eq Hnz Heq. }
+  introv Hnz Hm1 Hm2. unfolds nbtiles. subst*.
 Qed.
 
 Theorem functional_tr_accesses : forall tt π π1 π2,
@@ -643,8 +632,8 @@ Proof.
       introv Hπ Heq. inverts Heq.
       inverts Hv as.
       2:{ introv HN. simpls. false. }
-      introv Heq Hla Hla' Ha'' Htrv.
-      inverts Heq.
+      introv Heq Hnb Hla Hla' Ha'' Htrv.
+      unfolds nbtiles. subst. inverts Heq.
       forwards* (a''&Ha'i&Hla''): Ha'' ((i0/k)%Z).
       forwards* Hai0: Htrv ((i0/k)%Z) a'' ((i0 mod k)%Z).
       rewrite <- div_plus_mod_eq in Hai0.
