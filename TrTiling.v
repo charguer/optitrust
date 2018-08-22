@@ -55,10 +55,10 @@ Axiom div_mod_eq : forall i j k:Z,
   (i mod k)%Z = (j mod k)%Z ->
   i = j.
 
-Axiom index_div : forall l k i:Z,
-  k > 0%Z ->
-  index l i ->
-  index ((l/k)%Z) ((i/k)%Z).
+Axiom index_div : forall I K i:Z,
+  K > 0%Z ->
+  index I i ->
+  index ((I/K + if isTrue(I mod K = 0) then 0 else 1)%Z) ((i/K)%Z).
 
 Axiom div_plus_mod_eq : forall i k:Z,
   k > 0%Z ->
@@ -583,7 +583,7 @@ Ltac rew_index_update :=
       rewrite~ length_update in Hi end.
 
 Ltac rew_index_update_subst :=
-  unfolds nbtiles;
+  unfolds nb_tiles;
   rewrite index_eq_index_length in *;
   repeat rew_index_update;
   try rew_index_length;
@@ -630,11 +630,11 @@ Proof.
       introv Hπ Heq. inverts Heq.
       inverts Hv as.
       2:{ introv HN. simpls. false. }
-      introv Heq Hnb Ha'' Htrv.
-      unfolds nbtiles. subst. inverts Heq. simpls.
-      forwards* (a''&Ha'i&Hla''): Ha'' ((i0/k)%Z).
-      forwards* Hai0: Htrv ((i0/k)%Z) a'' ((i0 mod k)%Z).
-      rewrite~ <- div_plus_mod_eq in Hai0.
+      introv Heq Hnb Ha'' Htrv. inverts Heq.
+      unfolds nb_tiles.
+      forwards* (a''&Ha'i&Hla''): Ha'' ((i0/K)%Z).
+      forwards* Hai0: Htrv ((i0/K)*K + i0 mod K)%Z (i0/K)%Z (i0 mod K)%Z a''.
+      unfolds*. rewrite~ <- div_plus_mod_eq in Hai0.
       forwards* (w'&Hvw'&HR'): IHHR.
       simpls~.
       exists w'. splits~.
