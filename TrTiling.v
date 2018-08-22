@@ -953,6 +953,16 @@ Qed.
 
 (* Main lemma *)
 
+Ltac inverts_Hok :=
+  match goal with 
+    Hok: tiling_tr_ok ?C ?tt
+    |- ?G =>
+      inverts Hok end.
+
+Hint Extern 1 (?K > 0%Z) => 
+  inverts_Hok;
+  simpls*.
+
 Theorem red_tr: forall tt C C' t t' v S S' m1 m1' m2,
   red C S m1 t m2 v ->
   tiling_tr_ok tt C ->
@@ -1019,7 +1029,7 @@ Proof.
     inverts Hm1 as HD Htrm.
     inverts H0 as Hi Ha.
     forwards Htrml: Htrm Hi.
-    forwards (w'&Hw'&Ha'): tr_read_accesses Htrml Hπ Ha.
+    forwards~ (w'&Hw'&Ha'): tr_read_accesses Htrml Hπ Ha.
     exists w' m1'. splits*.
     repeat constructors~. rewrite~ <- HD.
     applys* not_is_uninitialized_tr. }
@@ -1089,18 +1099,18 @@ Proof.
         inverts Htv.
         inverts Htra.
         inverts_head make_tiling_tr'. simpls.
-        remember (access_array (typ_var Ta0) ((i/k0)%Z)) as a1.
-        remember (access_array (typ_var Tt0) ((i mod k0)%Z)) as a2.
+        remember (access_array (typ_var Ta0) ((i/k)%Z)) as a1.
+        remember (access_array (typ_var Tt0) ((i mod k)%Z)) as a2.
         exists (val_abstract_ptr l (π'++(a1::a2::nil))) m1'. 
         subst. splits~.
         { constructors~. applys~ tr_accesses_app. constructors~. }
         { do 2 constructors~. unfolds Ctx.add. simpls.
-          applys red_let m1' (val_int ((i/k0)%Z)).
-          { repeat constructors~. }
+          applys red_let m1' (val_int ((i/k)%Z)).
+          { repeat constructors*. inverts~ Hnz. }
           { introv HN. unfolds~ is_error. }
           { unfolds Ctx.add. simpls.
-            applys red_let m1' (val_int ((i mod k0)%Z)).
-            { repeat constructors~. }
+            applys red_let m1' (val_int ((i mod k)%Z)).
+            { repeat constructors~. inverts~ Hnz. }
             { introv HN. unfolds~ is_error. }
             { unfolds Ctx.add. simpls. applys~ red_args_1.
               { applys red_args_1. auto. constructors. simpls. eauto.
@@ -1137,28 +1147,38 @@ Proof.
         inverts Ht1' as Hva.
         inverts Ht2' as Hvi.
         inverts Hva as; try solve [ intros ; false ].
-        introv Htt Hla Hla' Ha'' Ha'.
+        introv Htt Hnb Ha' Ha''.
         inverts Hvi.
-        forwards* (a''&Ha'i&Hla''): Ha'' ((i/k)%Z).
-        forwards* Htra: Ha' ((i/k)%Z) a'' ((i mod k)%Z).
-        rewrite <- div_plus_mod_eq in Htra.
-        exists a''[(i mod k)%Z] m1'. splits~.
+        forwards* (a''&Ha'i&Hla''): Ha' ((i/K)%Z).
+        { unfolds nb_tiles. rewrite index_eq_index_length in *. 
+          rewrite~ Hnb. applys* index_div. inverts Hok. inverts~ Htt. }
+        forwards* Htra: Ha'' i ((i/K)%Z) ((i mod K)%Z) a''.
+        { inverts Hok. inverts Htt. unfolds. splits*.
+          applys~ div_plus_mod_eq. }
+        exists a''[(i mod K)%Z] m1'. splits~.
         inverts Htracc. inverts Htt.
         do 2 constructors~. unfolds Ctx.add. simpls.
-          applys red_let m1' (val_int ((i/k)%Z)).
-          { repeat constructors~. inverts Hok as Htt. inverts~ Htt. }
+          applys red_let m1' (val_int ((i/K)%Z)).
+          { repeat constructors~. inverts Hok as Htt. 
+            inverts Htt. inverts~ H4. }
           { introv HN. unfolds~ is_error. }
           { unfolds Ctx.add. simpls.
-            applys red_let m1' (val_int ((i mod k)%Z)).
-            { repeat constructors~. inverts Hok as Htt. inverts~ Htt. }
+            applys red_let m1' (val_int ((i mod K)%Z)).
+            { repeat constructors~. inverts Hok as Htt. inverts~ Htt.
+              inverts~ H4. }
             { introv HN. unfolds~ is_error. }
             { unfolds Ctx.add. simpls. applys~ red_args_1.
               { applys red_args_1. auto. constructors. simpls. eauto.
                 applys red_args_2. auto. constructors. simpls. eauto.
-                applys~ red_array_get. }
+                applys~ red_array_get. unfolds nb_tiles.
+                rewrite index_eq_index_length. rewrite Hnb.
+                applys~ index_div. inverts Hok.
+                inverts_head make_tiling_tr. auto. }
               { applys~ red_args_2.
                 { constructors. simpls. eauto. }
-                { constructors*. } } } } }
+                { constructors*. rewrite index_eq_index_length. 
+                  rewrite Hla''. applys~ index_mod. inverts Hok.
+                  inverts_head make_tiling_tr. auto. } } } } }
       { (* another array *) 
         introv Hor Hneq Hpr. inverts Hor; inverts Hpr.
         inverts Ht1' as Hva.
