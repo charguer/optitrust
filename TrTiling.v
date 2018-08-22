@@ -30,12 +30,12 @@ Notation make_tiling_tr' := make_tiling_tr.
 (** Checking if the transformation is acceptable *)
 
 Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
-  | tiling_tr_ok_intros : forall Ta Tt k T os tt C,
-      tt = make_tiling_tr Ta Tt k ->
+  | tiling_tr_ok_intros : forall Ta Tt K T os tt C,
+      tt = make_tiling_tr Ta Tt K ->
       Ta \indom C ->
       C[Ta] = typ_array T os ->
       Tt \notindom C ->
-      k > 0%Z ->
+      K > 0%Z ->
       (forall Tv,
         Tv \indom C ->
         Tv <> Ta ->
@@ -48,22 +48,34 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
 
 (** Transformation of typdefctxs: C ~ |C| *)
 
-Definition nbtiles (n k m:int) : Prop :=
-  m = ((n - 1) / k + 1)%Z.
+Definition nb_tiles (K I J:int) : Prop :=
+  J = (I / K + if isTrue(I mod K = 0) then 0 else 1)%Z.
+
+Definition tiled_indices (K i j k:int) : Prop :=
+      i = (j * K + k)%Z
+  /\  (0 <= k < K)%Z.
+
+Lemma tiled_index_range : forall k K i I j J,
+  nb_tiles K I J ->
+  tiled_indices K i j k ->
+  (0 <= i < I)%Z ->
+  (0 <= j < J)%Z.
+Proof.
+Admitted.
 
 Inductive tr_typdefctx (tt:tiling_tr) : typdefctx -> typdefctx -> Prop :=
-  | tr_typdefctx_intro : forall T Tt Ta k os os' C C',
-      tt = make_tiling_tr Ta Tt k ->
+  | tr_typdefctx_intro : forall T Tt Ta K os os' C C',
+      tt = make_tiling_tr Ta Tt K ->
       dom C' = dom C \u \{Tt} ->
       C[Ta] = typ_array T os ->
       C'[Ta] = typ_array (typ_var Tt) os' ->
-      C'[Tt] = typ_array T (Some k) ->
+      C'[Tt] = typ_array T (Some K) ->
       (forall Tv,
         Tv \indom C ->
         Tv <> Ta ->
         C'[Tv] = C[Tv]) ->
       (match os, os' with
-      | Some n, Some m => nbtiles n k m
+      | Some Ii, Some Jj => nb_tiles K Ii Jj
       | None, None => True
       | _,_ => False
       end) ->
@@ -105,26 +117,20 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
   | tr_val_abstract_ptr : forall l π π',
       tr_accesses tt π π' ->
       tr_val tt (val_abstract_ptr l π) (val_abstract_ptr l π')
-  | tr_val_array_tiling : forall l k m Tt Ta a a' a'',
-      tt = make_tiling_tr Ta Tt k ->
-      nbtiles l k m ->
-      length a = l ->
-      length a' = m ->
-      (forall i,
-        index a' i ->
+  | tr_val_array_tiling : forall K I J Tt Ta a a',
+      tt = make_tiling_tr Ta Tt K ->
+      nb_tiles K I J ->
+      length a = I ->
+      length a' = J ->
+      (forall j,
+        index a' j ->
         exists a'',
-            a'[i] = (val_array (typ_var Tt) a'')
-        /\  length a'' = k) ->
-      (forall i a'',
-        index (m - 1) i ->
-        a'[i] = (val_array (typ_var Tt) a'') ->
-        (forall j,
-          index a (i*k+j) ->
-          tr_val tt a[i*k+j] a''[j])) ->
-      (*a'[m - 1] = (val_array (typ_var Tt) a'') ->
-      (forall j, 
-        index (l mod k)%Z j ->
-        tr_val tt a[(m - 1) * k + j] a''[j])*) ->
+            a'[j] = (val_array (typ_var Tt) a'')
+        /\  length a'' = K) ->
+      (forall i j k a'',
+        tiled_indices K i j k ->
+        a'[j] = (val_array (typ_var Tt) a'') ->
+        tr_val tt a[i] a''[k]) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->
@@ -139,7 +145,6 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
         f \indom s ->
         tr_val tt s[f] s'[f]) ->
       tr_val tt (val_struct T s) (val_struct T s').
-
 
 
 (* Transformation used in the struct cases to avoid repetition. *)
