@@ -1246,11 +1246,61 @@ Proof.
           exists v'' m3'. splits*. constructors*.
           applys* not_is_val_tr. } } }
     { (* ops with 1 argument *) 
-       }
-    { (* ops with 2 arguments but not array *) } }
+      introv Ht1. inverts Hwft.
+      forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
+      { forwards*: not_is_error_args_1 HR2 He. }
+      forwards*: wf_red HR1.
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+      exists v'' m3'. splits*. constructors*.
+      applys* not_is_val_tr. }
+    { (* ops with 2 arguments but not array *) 
+      introv Hnop Ht1 Ht2. inverts Hwft.
+      forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
+      { forwards*: not_is_error_args_1 HR2 He. }
+      forwards*: wf_red HR1.
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+      exists v'' m3'. splits*. constructors*.
+      applys* not_is_val_tr. } }
   { (* args 2 *)
-    inverts Ht as. }
-Admitted.
+    inverts Ht as.
+    { (* array op *) 
+      introv Hop Hv1 Ht2 Htrop. inverts Hwft.
+      forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
+      { forwards*: not_is_error_args_2 HR2 He. }
+      forwards*: wf_red HR1.
+      unfolds is_array_op. destruct* op. (* TODO: avoid repetition *)
+      { inverts Htrop; inverts_head Logic.or; tryfalse; inverts H1.
+        { inverts H9. simpls.
+          forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+          { applys* tr_trm_array. repeat constructors*. }
+          exists v'' m3'. splits*.
+          inverts HR'' as; try solve [ inverts Hv'' ].
+          introv HRv0 Hev0 HR''.
+          inverts HR'' as; try solve [ inverts Hv'' ].
+          inverts Hv1. inverts HRv0.
+          introv HRv2 Hev2 HR''.
+          inverts HR'' as; try solve [ inverts Hv'' ].
+          introv HRv3 Hev3 HR''.
+          inverts HR'' as; try solve [ inverts Hv'' ].
+          introv HRv4 Hev4 HR''.
+          unfolds Ctx.add; simpls. constructors*.
+          admit. (* TODO: Need to assume vars are not free... *)  }
+        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+          { applys* tr_trm_array. repeat constructors*. }
+          exists v'' m3'. splits*. inverts Hv1.
+          applys* red_args_2.
+          applys* not_is_val_tr. } }
+      { admit. (* should be the same as the case above. *) } }
+    { (* not array op *)
+      introv Hnop Hv1 Ht2. inverts Hwft.
+      forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
+      { forwards*: not_is_error_args_2 HR2 He. }
+      forwards*: wf_red HR1.
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+      exists v'' m3'. splits*.
+      inverts Hv1. applys* red_args_2.
+      applys* not_is_val_tr. }
+Qed.
 
 End TransformationProofs.
 
