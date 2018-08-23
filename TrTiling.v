@@ -259,21 +259,23 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
 
 (* let t = t1 in
    let i = t2 in
-   let j = i / k in
-   let k = i % k in
+   let j = i / K in
+   let k = i % K in
      t[j][k] *)
 Inductive tr_prim (tt:tiling_tr) (pr:typ->prim) (t1:trm) (t2:trm) (tlt:trm) : Prop :=
-  | tr_access_intro : forall op1 Ta op2 Tt ta1 ta2 k tlk tlj tli,
-      tt = make_tiling_tr Ta Tt k ->
+  | tr_access_intro : forall op1 Ta op2 Tt ta1 ta2 K tlk tlj tli,
+      tt = make_tiling_tr Ta Tt K ->
       op1 = pr (typ_var Ta) ->
       op2 = pr (typ_var Tt) ->
       ta1 = trm_app op1 ((trm_var "t")::(trm_var "j")::nil) ->
       ta2 = trm_app op2 (ta1::(trm_var "k")::nil) ->
-      tlk = trm_let "k" (trm_app binop_mod ((trm_var "i")::(trm_val (val_int k))::nil)) ta2 ->
-      tlj = trm_let "j" (trm_app binop_div ((trm_var "i")::(trm_val (val_int k))::nil)) tlk ->
+      tlk = trm_let "k" (trm_app binop_mod ((trm_var "i")::(trm_val (val_int K))::nil)) ta2 ->
+      tlj = trm_let "j" (trm_app binop_div ((trm_var "i")::(trm_val (val_int K))::nil)) tlk ->
       tli = trm_let "i" t2 tlj ->
       tlt = trm_let "t" t1 tli ->
       tr_prim tt pr t1 t2 tlt.
+
+(* v1[v2 / K][v2 % K] *)
 
 Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
   | tr_array_op_tiling : forall pr t1 t2 tlt,
@@ -1388,7 +1390,15 @@ Proof.
     { auto. } }
   { applys~ red_let_error_let. applys~ IHHR.
     introv HN. applys~ Hnf. constructors~. }
-  {  }
+  { applys* red_get_error_bad_address. }
+  { applys* red_set_error_bad_address. }
+  { applys* red_new_array_error. }
+  { applys* red_struct_get_error_invalid_field. }
+  { applys* red_array_get_error_out_of_bounds. }
+  { applys* red_args_1_error. applys~ IHHR.
+    introv HN. applys Hnf. constructors~. }
+  { applys* red_args_2_error. applys~ IHHR.
+    introv HN. applys Hnf. applys~ free_var_app_2. }
 Qed.
 
 
