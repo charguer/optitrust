@@ -58,31 +58,33 @@ Inductive access : Type :=
 
 (* Trying out some stuff *)
 
-Inductive typ_size (C:typdefctx) : typ -> size -> Prop :=
+Definition typdefctx_sizes := map typvar size.
+
+Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
   | typ_size_unit :
-      typ_size C (typ_unit) 1
+      typ_size CS (typ_unit) 1
   | typ_size_int :
-      typ_size C (typ_int) 1
+      typ_size CS (typ_int) 1
   | typ_size_double :
-      typ_size C (typ_double) 2
+      typ_size CS (typ_double) 2
   | typ_size_bool :
-      typ_size C (typ_bool) 1
+      typ_size CS (typ_bool) 1
   | typ_size_ptr : forall T',
-      typ_size C (typ_ptr T') 1
+      typ_size CS (typ_ptr T') 1
   | typ_size_array : forall n T' k,
-      typ_size C T' n ->
-      typ_size C (typ_array T' (Some k)) (n*k)
+      typ_size CS T' n ->
+      typ_size CS (typ_array T' (Some k)) (n*k)
   | typ_size_struct : forall s n (m:monoid_op int) (g:field->size->size),
       dom s = dom n ->
       (forall f,
         f \indom s ->
-        typ_size C s[f] n[f]) ->
+        typ_size CS s[f] n[f]) ->
       m = monoid_make (fun a b => a + b) 0 ->
       g = (fun k v => v) ->
-      typ_size C (typ_struct s) (fold m g n).
-  (*| typ_size_var : forall T n,
-      typ_size C C[T] n ->
-      typ_size C T n.*)
+      typ_size CS (typ_struct s) (fold m g n)
+  | typ_size_var : forall Tv,
+      Tv \indom CS ->
+      typ_size CS (typ_var Tv) CS[Tv].
 
 Definition fields_offset := map typvar (map field offset).
 Definition fields_order := map typvar (list field).
