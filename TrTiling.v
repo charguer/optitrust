@@ -427,6 +427,14 @@ Proof.
   { introv Hor Hneq. inverts HN. }
 Qed.
 
+Lemma not_is_error_tr : forall gt v1 v2,
+  tr_val gt v1 v2 ->
+  ~ is_error v2.
+Proof.
+  introv Htr. induction Htr; introv HN;
+  try solve [ subst ; inverts HN ].
+Qed.
+
 Lemma not_is_uninitialized_tr : forall tt v v',
   tr_val tt v v' -> 
   ~ is_uninitialized v ->
@@ -1191,9 +1199,55 @@ Proof.
       introv HN. false. applys HN. unfolds~. } }
   { (* args 1 *)
     inverts Ht as.
-    { admit. }
-    { admit. }
-    { admit. } }
+    { (* array op *)
+      introv Hop Ht1 Ht2 Htrop. inverts Hwft.
+      forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
+      { forwards*: not_is_error_args_1 HR2 He. }
+      forwards*: wf_red HR1.
+      unfolds is_array_op. destruct* op. (* TODO: aviud repetition. *)
+      { inverts Htrop; inverts_head Logic.or; tryfalse; inverts H1.
+        { inverts H9. simpls.
+          forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+          { applys* tr_trm_array. repeat constructors*. }
+          exists v'' m3'. splits*. constructors*.
+          { applys* not_is_error_tr. }
+          { inverts HR'' as; try solve [ inverts Hv'' ].
+            introv HRv0 Hev0 HR''.
+            inverts HR'' as; try solve [ inverts Hv'' ].
+            inverts HRv0.
+            introv HRv2 Hev2 HR''.
+            inverts HR'' as; try solve [ inverts Hv'' ].
+            introv HRv3 Hev3 HR''.
+            inverts HR'' as; try solve [ inverts Hv'' ].
+            introv HRv4 Hev4 HR''.
+            unfolds Ctx.add; simpls. constructors*. } }
+        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+          { applys* tr_trm_array. repeat constructors*. }
+          exists v'' m3'. splits*. constructors*.
+          applys* not_is_val_tr. } }
+      { inverts Htrop; inverts_head Logic.or; tryfalse; inverts H1.
+        { inverts H9. simpls.
+          forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+          { applys* tr_trm_array. repeat constructors*. }
+          exists v'' m3'. splits*. constructors*.
+          { applys* not_is_error_tr. }
+          { inverts HR'' as; try solve [ inverts Hv'' ].
+            introv HRv0 Hev0 HR''.
+            inverts HR'' as; try solve [ inverts Hv'' ].
+            inverts HRv0.
+            introv HRv2 Hev2 HR''.
+            inverts HR'' as; try solve [ inverts Hv'' ].
+            introv HRv3 Hev3 HR''.
+            inverts HR'' as; try solve [ inverts Hv'' ].
+            introv HRv4 Hev4 HR''.
+            unfolds Ctx.add; simpls. constructors*. } }
+        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
+          { applys* tr_trm_array. repeat constructors*. }
+          exists v'' m3'. splits*. constructors*.
+          applys* not_is_val_tr. } } }
+    { (* ops with 1 argument *) 
+       }
+    { (* ops with 2 arguments but not array *) } }
   { (* args 2 *)
     inverts Ht as. }
 Admitted.
