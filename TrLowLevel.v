@@ -105,7 +105,8 @@ Inductive accesses_offset (C:typdefctx) (FO:fields_offset) : accesses -> offset 
       accesses_offset C FO πs o ->
       accesses_offset C FO ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
-Inductive val_words (C:typdefctx) (FO:fields_offset) (FO':fields_order) : val -> list word -> Prop :=
+Inductive val_words (C:typdefctx) (FO:fields_offset) (FO':fields_order) : 
+                    val -> list word -> Prop :=
   | val_words_unit :
       val_words C FO FO' (val_basic val_unit) (0%Z::nil)
   | val_words_bool : forall b,

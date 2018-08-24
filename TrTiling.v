@@ -262,18 +262,16 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
    let j = i / K in
    let k = i % K in
      t[j][k] *)
-Inductive tr_prim (tt:tiling_tr) (pr:typ->prim) (t1:trm) (t2:trm) (tlt:trm) : Prop :=
-  | tr_access_intro : forall op1 Ta op2 Tt ta1 ta2 K tlk tlj tli,
+Inductive tr_prim (tt:tiling_tr) (pr:typ->prim) : trm -> trm -> trm -> Prop :=
+  | tr_access_intro : forall op1 Ta op2 Tt ta1 ta2 K tlk tlj v1 v2,
       tt = make_tiling_tr Ta Tt K ->
       op1 = pr (typ_var Ta) ->
       op2 = pr (typ_var Tt) ->
-      ta1 = trm_app op1 ((trm_var "t")::(trm_var "j")::nil) ->
-      ta2 = trm_app op2 (ta1::(trm_var "k")::nil) ->
-      tlk = trm_let "k" (trm_app binop_mod ((trm_var "i")::(trm_val (val_int K))::nil)) ta2 ->
-      tlj = trm_let "j" (trm_app binop_div ((trm_var "i")::(trm_val (val_int K))::nil)) tlk ->
-      tli = trm_let "i" t2 tlj ->
-      tlt = trm_let "t" t1 tli ->
-      tr_prim tt pr t1 t2 tlt.
+      tlk = trm_app binop_mod ((trm_val v2)::(trm_val (val_int K))::nil) ->
+      tlj = trm_app binop_div ((trm_val v2)::(trm_val (val_int K))::nil) ->
+      ta1 = trm_app op1 ((trm_val v1)::tlj::nil) ->
+      ta2 = trm_app op2 (ta1::tlk::nil) ->
+      tr_prim tt pr (trm_val v1) (trm_val v2) ta2.
 
 (* v1[v2 / K][v2 % K] *)
 
