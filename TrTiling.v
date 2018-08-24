@@ -1233,13 +1233,19 @@ Proof.
                   { introv _ Hmod Haccess. inverts Haccess; tryfalse*;
                     inverts Hv''. }
                   { inverts Hv''. } } } }
-              { introv HR. exists v'' m3'. splits~. constructors~.
-                {  }
-                {  } }
-              {  } }
-          {}
-          
-          {}
+              { introv HR. inverts HR. exists v'' m3'. splits~. constructors~.
+                { applys~ red_args_2. }
+                { admit. } }
+              { introv _ HN. inverts HN. } }
+          { introv HR. inverts HR. 
+            inverts Hmod as; try solve [ intros ; false* ].
+            { introv _ Hmod Haccess. exists v'' m3'. splits~.
+              inverts Haccess as; try solve [ intros ; false* ];
+              inverts Hv''. }
+            { inverts Hv''. } }
+          { introv Hne HR. inverts HR as. 
+            { introv _ _ _ _ HN. inverts HN. }
+            {  } }
 
           exists v'' m3'. splits*. constructors*.
           applys~ red_args_2.
