@@ -173,15 +173,14 @@ Inductive tr_trm (C:typdefctx) (LLC:low_level_ctx) : trm -> trm -> Prop :=
       val_to_words C LLC v lw ->
       tr_trm C LLC (trm_val v) (trm_val (val_words lw)).
 
+tr_state
+tr_stack
 
-(* Some definitions *)
-
-
-
-
-Theorem red_tr :
+Theorem red_tr : forall lw
   red C S m1 t m2 v ->
   tr_trm t t' ->
-  exists lw,
-        val_words TC FC v lw
-    /\  red C S m1 t' m2 (val_words lw)
+  tr_state m1 m1' ->
+  tr_stack S S' ->
+  exists m2' lw,
+        val_to_words TC FC v lw
+    /\  red C S' m1' t' m2' (val_words lw).
