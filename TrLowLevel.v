@@ -19,60 +19,39 @@ Require Export Semantics LibSet LibMap TLCbuffer.
     It can be included in the general semantics and just check that no
     concrete pointers are used in the other transformations. *)
 
-(*
-Inductive typ : Type :=
-  | typ_unit : typ
-  | typ_int : typ
-  | typ_double : typ
-  | typ_bool : typ
-  | typ_ptr : typ -> typ
-  | typ_array : typ -> option size -> typ
-  | typ_struct : map field typ -> typ
-  | typ_fun : list typ -> typ -> typ
-  | typ_var : typvar -> typ.
-*)
 
-(*
-Inductive basic_val : Type :=
-  | val_error : basic_val
-  | val_unit : basic_val
-  | val_uninitialized : basic_val
-  | val_bool : bool -> basic_val
-  | val_int : int -> basic_val
-  | val_double : int -> basic_val
-  | val_abstract_ptr : loc -> accesses -> basic_val
-  | val_concrete_ptr : loc -> offset -> basic_val.
-
-Inductive val : Type :=
-  | val_basic : basic_val -> val
-  | val_array : typ -> list val -> val
-  | val_struct : typ -> map field val -> val.
-*)
-
-
-(*
-Inductive access : Type :=
-  | access_array : typ -> int -> access
-  | access_field : typ -> field -> access.
-*)
-
-(* Trying out some stuff *)
-
-
-(* Contex holding information about structs and their fields. *)
+(* ********************************************************************** *)
+(* Contex holding low-level information about structs and their fields. *)
 
 Definition typdefctx_sizes := map typvar size.
 Definition typdefctx_fields_offsets := map typvar (map field offset).
 Definition typdefctx_fields_order := map typvar (list field).
 
-Record low_level_ctx := make_fields_ctx {
+Record low_level_ctx := make_low_level_ctx {
   sizes : typdefctx_sizes;
   fields_offsets : typdefctx_fields_offsets;
   fields_order : typdefctx_fields_order }.
 
+(* Ensures that the low-level context is correctly defined with respect to
+   the type definitions context. *)
+
+Inductive typdefctx_low_level (C:typdefctx) (LLC:low_level_ctx) : Prop :=
+  typdefctx_low_level_intros : forall CS CFOff CFOrd,
+    LLC = make_low_level_ctx CS CFOff CFOrd ->
+    dom C = dom CS ->
+    dom C = dom CFOff ->
+    dom C = dom CFOrd ->
+    (forall Tv Tfs,
+      Tv \indom C ->
+      C[Tv] = typ_struct Tfs ->
+          dom Tfs = dom CFOff[Tv]
+      /\  dom Tfs = to_set CFOrd[Tv]) -> 
+    typdefctx_low_level C LLC.
 
 
-Definition typdefctx_sizes := map typvar size.
+(* ********************************************************************** *)
+(* Computing the size of a type. Assuming the size of type variables
+   are known. Used to transform array accesses. *)
 
 Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
   | typ_size_unit :
@@ -100,24 +79,50 @@ Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
       Tv \indom CS ->
       typ_size CS (typ_var Tv) CS[Tv].
 
-Definition word := int.
+(* Coherency between the offsets and the sizes. TODO: Find a better way. *)
 
-Inductive accesses_offset (CS:typdefctx_sizes) (FO:fields_offset) : accesses -> offset -> Prop :=
+Axiom special_map : list size -> map field offset.
+
+Inductive low_level_ctx_ok (C:typdefctx) (LLC:low_level_ctx) : Prop :=
+  | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
+      LLC = make_low_level_ctx CS CFOff CFOrd ->
+      (forall Tv Tfs,
+        Tv \indom C ->
+        C[Tv] = typ_struct Tfs ->
+        (exists CFT CFS,
+            CFT = List.map (fun f => Tfs[f]) CFOrd[Tv]
+        /\  List.Forall2 (typ_size CS) CFT CFS
+        /\  CS[Tv] = fold_right Z.add 0 CFS
+        /\  CFOff[Tv] = special_map CFS)) ->
+      low_level_ctx_ok C LLC.
+
+
+(* ********************************************************************** *)
+(* Given a list of accesses, computes the offset. Used to translate
+   pointer values. *)
+
+Inductive accesses_offset (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> Prop :=
   | accesses_offset_nil :
-      accesses_offset CS FO nil 0
+      accesses_offset C LLC nil 0
   | accesses_offset_access_array : forall T T' os πs i n o,
       typing_array C T T' os ->
-      typ_size C T' n ->
-      accesses_offset C FO πs o ->
-      accesses_offset C FO ((access_array T i)::πs) ((i * n) + o)
-  | accesses_offset_access_field : forall πs Tv f o,
+      typ_size (sizes LLC) T' n ->
+      accesses_offset C LLC πs o ->
+      accesses_offset C LLC ((access_array T i)::πs) ((i * n) + o)
+  | accesses_offset_access_field : forall FO πs Tv f o,
+      FO = fields_offsets LLC ->
       Tv \indom FO ->
       f \indom FO[Tv] ->
-      accesses_offset C FO πs o ->
-      accesses_offset C FO ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
+      accesses_offset C LLC πs o ->
+      accesses_offset C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
-Inductive val_to_words (C:typdefctx) (FC:fields_ctx) : 
-                    val -> list word -> Prop :=
+
+(* ********************************************************************** *)
+(* Relates values with a list of words. *)
+
+Definition word := int.
+
+Inductive val_to_words (C:typdefctx) (FC:fields_ctx) : val -> list word -> Prop :=
   | val_to_words_unit :
       val_to_words C FC (val_basic val_unit) (0%Z::nil)
   | val_to_words_bool : forall b,
@@ -138,6 +143,37 @@ Inductive val_to_words (C:typdefctx) (FC:fields_ctx) :
       Tv \indom FCOrd ->
       List.Forall2 (val_words C FC) (List.map (fun f => s[f]) FCOrd[Tv]) s' ->
       val_to_words C FC (val_struct (typ_var Tv) s) (List.concat s').
+
+
+(* ********************************************************************** *)
+(* Transformation of a term from high-level to low-level. *)
+
+(*
+Inductive prim : Type :=
+  | prim_binop : binop -> prim
+  | prim_get : typ -> prim
+  | prim_set : typ -> prim
+  | prim_new : typ -> prim
+  | prim_new_array : typ -> prim
+  | prim_struct_access : typ -> field -> prim
+  | prim_array_access : typ -> prim
+  | prim_struct_get : typ -> field -> prim
+  | prim_array_get : typ -> prim.
+
+Inductive trm : Type :=
+  | trm_var : var -> trm
+  | trm_val : val -> trm
+  | trm_if : trm -> trm -> trm -> trm
+  | trm_let : bind -> trm -> trm -> trm
+  | trm_app : prim -> list trm -> trm
+  | trm_while : trm -> trm -> trm
+  | trm_for : var -> val -> val -> trm -> trm.
+
+*)
+
+Inductive tr_trm (C:typdefctx) (LLC:low_level_ctx) : trm -> trm -> Prop :=
+  | 
+
 
 (* Some definitions *)
 

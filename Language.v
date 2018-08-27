@@ -117,6 +117,22 @@ Inductive access : Type :=
 
 Definition accesses := list access. 
 
+Inductive basic_val : Type :=
+  | val_error : basic_val
+  | val_unit : basic_val
+  | val_uninitialized : basic_val
+  | val_bool : bool -> basic_val
+  | val_int : int -> basic_val
+  | val_double : int -> basic_val
+  | val_abstract_ptr : loc -> accesses -> basic_val
+  | val_concrete_ptr : loc -> offset -> basic_val.
+
+Inductive val : Type :=
+  | val_basic : basic_val -> val
+  | val_array : typ -> list val -> val
+  | val_struct : typ -> map field val -> val.
+(*| val_words : list_words -> val *)
+
 Inductive binop : Type :=
   | binop_eq : binop
   | binop_sub : binop
@@ -136,21 +152,6 @@ Inductive prim : Type :=
   | prim_array_access : typ -> prim
   | prim_struct_get : typ -> field -> prim
   | prim_array_get : typ -> prim.
-
-Inductive basic_val : Type :=
-  | val_error : basic_val
-  | val_unit : basic_val
-  | val_uninitialized : basic_val
-  | val_bool : bool -> basic_val
-  | val_int : int -> basic_val
-  | val_double : int -> basic_val
-  | val_abstract_ptr : loc -> accesses -> basic_val
-  | val_concrete_ptr : loc -> offset -> basic_val.
-
-Inductive val : Type :=
-  | val_basic : basic_val -> val
-  | val_array : typ -> list val -> val
-  | val_struct : typ -> map field val -> val.
 
 Inductive trm : Type :=
   | trm_var : var -> trm
