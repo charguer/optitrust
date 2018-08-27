@@ -58,6 +58,20 @@ Inductive access : Type :=
 
 (* Trying out some stuff *)
 
+
+(* Contex holding information about structs and their fields. *)
+
+Definition typdefctx_sizes := map typvar size.
+Definition typdefctx_fields_offsets := map typvar (map field offset).
+Definition typdefctx_fields_order := map typvar (list field).
+
+Record low_level_ctx := make_fields_ctx {
+  sizes : typdefctx_sizes;
+  fields_offsets : typdefctx_fields_offsets;
+  fields_order : typdefctx_fields_order }.
+
+
+
 Definition typdefctx_sizes := map typvar size.
 
 Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
@@ -86,14 +100,11 @@ Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
       Tv \indom CS ->
       typ_size CS (typ_var Tv) CS[Tv].
 
-Definition fields_offset := map typvar (map field offset).
-Definition fields_order := map typvar (list field).
-
 Definition word := int.
 
-Inductive accesses_offset (C:typdefctx) (FO:fields_offset) : accesses -> offset -> Prop :=
+Inductive accesses_offset (CS:typdefctx_sizes) (FO:fields_offset) : accesses -> offset -> Prop :=
   | accesses_offset_nil :
-      accesses_offset C FO nil 0
+      accesses_offset CS FO nil 0
   | accesses_offset_access_array : forall T T' os πs i n o,
       typing_array C T T' os ->
       typ_size C T' n ->
@@ -105,43 +116,37 @@ Inductive accesses_offset (C:typdefctx) (FO:fields_offset) : accesses -> offset 
       accesses_offset C FO πs o ->
       accesses_offset C FO ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
-Inductive val_words (C:typdefctx) (FO:fields_offset) (FO':fields_order) : 
+Inductive val_to_words (C:typdefctx) (FC:fields_ctx) : 
                     val -> list word -> Prop :=
-  | val_words_unit :
-      val_words C FO FO' (val_basic val_unit) (0%Z::nil)
-  | val_words_bool : forall b,
-      val_words C FO FO' (val_basic (val_bool b)) ((if b then 1%Z else 0%Z)::nil)
-  | val_words_int : forall i,
-      val_words C FO FO' (val_basic (val_int i)) (i::nil)
-  | val_words_double : forall d,
-      val_words C FO FO' (val_basic (val_double d)) (d::d::nil)
-  | val_words_abstract_ptr : forall π l o,
-      accesses_offset C FO π o ->
-      val_words C FO FO' (val_basic (val_abstract_ptr l π)) (l::o::nil)
-  | val_words_array : forall T a a',
-      List.Forall2 (val_words C FO FO') a a' ->
-      val_words C FO FO' (val_array T a) (List.concat a')
-  | val_words_struct : forall Tv s s',
-      Tv \indom FO' ->
-      List.Forall2 (val_words C FO FO') (List.map (fun f => s[f]) FO'[Tv]) s' ->
-      val_words C FO FO' (val_struct (typ_var Tv) s) (List.concat s').
+  | val_to_words_unit :
+      val_to_words C FC (val_basic val_unit) (0%Z::nil)
+  | val_to_words_bool : forall b,
+      val_to_words C FC (val_basic (val_bool b)) ((if b then 1 else 0)%Z::nil)
+  | val_to_words_int : forall i,
+      val_to_words C FC (val_basic (val_int i)) (i::nil)
+  | val_to_words_double : forall d,
+      val_to_words C FC (val_basic (val_double d)) (d::d::nil)
+  | val_to_words_abstract_ptr : forall FCOff π l o,
+      FCOff = fields_ctx_offset FC ->
+      accesses_offset C FCOff π o ->
+      val_to_words C FC (val_basic (val_abstract_ptr l π)) (l::o::nil)
+  | val_to_words_array : forall T a a',
+      List.Forall2 (val_words C FC) a a' ->
+      val_to_words C FC (val_array T a) (List.concat a')
+  | val_to_words_struct : forall FCOrd Tv s s',
+      FCOrd = fields_ctx_order FC ->
+      Tv \indom FCOrd ->
+      List.Forall2 (val_words C FC) (List.map (fun f => s[f]) FCOrd[Tv]) s' ->
+      val_to_words C FC (val_struct (typ_var Tv) s) (List.concat s').
+
+(* Some definitions *)
 
 
-Fixpoint typ_size' (C:typdefctx) (T:typ) {struct T} : size :=
-  let aux := typ_size' C in
-  match T with
-  | typ_unit => 1
-  | typ_int => 1
-  | typ_double => 2
-  | typ_bool => 1
-  | typ_ptr T' => 1
-  | typ_array T' (Some k) => k * typ_size C T'
-  | typ_array T' None => 0
-  | typ_struct s =>
-      (*let m : monoid_op size := monoid_make (fun a b => a + b) 0 in
-      let g : field -> typ -> size := fun f T' => aux T' in
-      fold m g s*)
-      fold (monoid_make (fun a b => a + b) 0) (fun f T' => aux T') s
-  | typ_fun Ts Tr => 0
-  | typ_var Tv => 1 (*typ_size C C[Tv]*)
-  end.
+
+
+Theorem red_tr :
+  red C S m1 t m2 v ->
+  tr_trm t t' ->
+  exists lw,
+        val_words TC FC v lw
+    /\  red C S m1 t' m2 (val_words lw)
