@@ -120,29 +120,26 @@ Inductive accesses_offset (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset
 (* ********************************************************************** *)
 (* Relates values with a list of words. *)
 
-Definition word := int.
-
-Inductive val_to_words (C:typdefctx) (FC:fields_ctx) : val -> list word -> Prop :=
+Inductive val_to_words (C:typdefctx) (LLC:low_level_ctx) : val -> list word -> Prop :=
   | val_to_words_unit :
-      val_to_words C FC (val_basic val_unit) (0%Z::nil)
+      val_to_words C LLC (val_basic val_unit) (0%Z::nil)
   | val_to_words_bool : forall b,
-      val_to_words C FC (val_basic (val_bool b)) ((if b then 1 else 0)%Z::nil)
+      val_to_words C LLC (val_basic (val_bool b)) ((if b then 1 else 0)%Z::nil)
   | val_to_words_int : forall i,
-      val_to_words C FC (val_basic (val_int i)) (i::nil)
+      val_to_words C LLC (val_basic (val_int i)) (i::nil)
   | val_to_words_double : forall d,
-      val_to_words C FC (val_basic (val_double d)) (d::d::nil)
-  | val_to_words_abstract_ptr : forall FCOff π l o,
-      FCOff = fields_ctx_offset FC ->
-      accesses_offset C FCOff π o ->
-      val_to_words C FC (val_basic (val_abstract_ptr l π)) (l::o::nil)
+      val_to_words C LLC (val_basic (val_double d)) (d::d::nil)
+  | val_to_words_abstract_ptr : forall π l o,
+      accesses_offset C LLC π o ->
+      val_to_words C LLC (val_basic (val_abstract_ptr l π)) (l::o::nil)
   | val_to_words_array : forall T a a',
-      List.Forall2 (val_words C FC) a a' ->
-      val_to_words C FC (val_array T a) (List.concat a')
+      List.Forall2 (val_to_words C LLC) a a' ->
+      val_to_words C LLC (val_array T a) (List.concat a')
   | val_to_words_struct : forall FCOrd Tv s s',
-      FCOrd = fields_ctx_order FC ->
+      FCOrd = fields_order LLC ->
       Tv \indom FCOrd ->
-      List.Forall2 (val_words C FC) (List.map (fun f => s[f]) FCOrd[Tv]) s' ->
-      val_to_words C FC (val_struct (typ_var Tv) s) (List.concat s').
+      List.Forall2 (val_to_words C LLC) (List.map (fun f => s[f]) FCOrd[Tv]) s' ->
+      val_to_words C LLC (val_struct (typ_var Tv) s) (List.concat s').
 
 
 (* ********************************************************************** *)
@@ -172,7 +169,9 @@ Inductive trm : Type :=
 *)
 
 Inductive tr_trm (C:typdefctx) (LLC:low_level_ctx) : trm -> trm -> Prop :=
-  | 
+  | tr_trm_val : forall v lw,
+      val_to_words C LLC v lw ->
+      tr_trm C LLC (trm_val v) (trm_val (val_words lw)).
 
 
 (* Some definitions *)

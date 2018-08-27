@@ -65,6 +65,7 @@ Fixpoint fun_tr_val_depth (depth:nat) (gt:group_tr) (v:val) : val :=
             val_struct T (s1'[fg:=(val_struct Tg s2')])
           else
             val_struct T (fold m g s)
+        | val_words lw => val_words lw (* TODO: Not correct either. *)
       end
    end.
 

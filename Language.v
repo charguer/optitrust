@@ -39,6 +39,10 @@ Definition offset := int.
 
 Definition typvar := var.
 
+(* Representation of low level memory blocks. *)
+
+Definition word := int.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Grammar of types *)
@@ -130,8 +134,8 @@ Inductive basic_val : Type :=
 Inductive val : Type :=
   | val_basic : basic_val -> val
   | val_array : typ -> list val -> val
-  | val_struct : typ -> map field val -> val.
-(*| val_words : list_words -> val *)
+  | val_struct : typ -> map field val -> val
+  | val_words : list word -> val.
 
 Inductive binop : Type :=
   | binop_eq : binop

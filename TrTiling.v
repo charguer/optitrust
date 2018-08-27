@@ -1179,12 +1179,13 @@ Proof.
     { (* absurd case *)
       introv HN. false. applys HN. unfolds~. } }
   { (* args 1 *)
-    inverts Ht as.
+    admit.
+    (*inverts Ht as.
     { (* array op *)
       introv Hop Ht1 Ht2 Htrop. inverts Hwft.
       forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
       { forwards*: not_is_error_args_1 HR2 He. }
-      forwards*: wf_red HR1.
+      forwards*: wf_red HR1. admit.
       unfolds is_array_op. destruct* op.
       { inverts Htrop; inverts_head Logic.or; tryfalse; inverts H1.
         { inverts H9. simpls.
@@ -1243,14 +1244,8 @@ Proof.
               inverts Haccess as; try solve [ intros ; false* ];
               inverts Hv''. }
             { inverts Hv''. } }
-          { introv Hne HR. inverts HR as. 
-            { introv _ _ _ _ HN. inverts HN. }
-            {  } }
-
-          exists v'' m3'. splits*. constructors*.
-          applys~ red_args_2.
-          { applys~ red_binop. }
-           }
+          { introv Hne HR. admit. } }
+        }
         { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
           { applys* tr_trm_array. repeat constructors*. }
           exists v'' m3'. splits*. constructors*.
@@ -1290,9 +1285,10 @@ Proof.
       forwards*: wf_red HR1.
       forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
       exists v'' m3'. splits*. constructors*.
-      applys* not_is_val_tr. } }
+      applys* not_is_val_tr. }*) }
   { (* args 2 *)
-    inverts Ht as.
+    admit.
+    (*inverts Ht as.
     { (* array op *) 
       introv Hop Hv1 Ht2 Htrop. inverts Hwft.
       forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
@@ -1330,128 +1326,7 @@ Proof.
       forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
       exists v'' m3'. splits*.
       inverts Hv1. applys* red_args_2.
-      applys* not_is_val_tr. } }
+      applys* not_is_val_tr. }*) }
 Qed.
 
 End TransformationProofs.
-
-(*
-Inductive trm : Type :=
-  | trm_var : var -> trm
-  | trm_val : val -> trm
-  | trm_if : trm -> trm -> trm -> trm
-  | trm_let : bind -> trm -> trm -> trm
-  | trm_app : prim -> list trm -> trm
-  | trm_while : trm -> trm -> trm
-  | trm_for : var -> val -> val -> trm -> trm.
-*)
-
-Inductive free_var (x:var) : trm -> Prop :=
-  | free_var_var :
-      free_var x (trm_var x)
-  | free_var_if : forall t0 t1 t2,
-      free_var x t0 \/ free_var x t1 \/ free_var x t2 ->
-      free_var x (trm_if t0 t1 t2)
-  | free_var_let : forall y t0 t1,
-      free_var x t0 \/ free_var x t1 ->
-      free_var x (trm_let y t0 t1)
-  | free_var_app_1 : forall op t ts,
-      free_var x t ->
-      free_var x (trm_app op (t::ts))
-  | free_var_app_2 : forall op t1 t2 ts,
-      free_var x t1 \/ free_var x t2 ->
-      free_var x (trm_app op (t1::t2::ts))
-  | free_var_while : forall t0 t1,
-      free_var x t0 \/ free_var x t1 ->
-      free_var x (trm_while t0 t1)
-  | free_var_for : forall y a b t,
-      free_var x t ->
-      free_var x (trm_for y a b t).
-
-Theorem not_free_commute_stack : forall C y w2 x w1 S m1 t m2 v,
-  ~ free_var x t ->
-  red C ((x,w1)::(y,w2)::S) m1 t m2 v ->
-  red C ((y,w2)::(x,w1)::S) m1 t m2 v.
-Proof.
-Admitted.
-
-Theorem not_free_red_same : forall C x w S m1 t m2 v,
-  ~ free_var x t ->
-  red C S m1 t m2 v ->
-  red C (Ctx.add x w S) m1 t m2 v.
-Proof.
-  introv Hnf HR. gen x w. induction HR; unfolds Ctx.add;
-  try solve [ constructors* ]; intros.
-  { tests: (x = x0).
-    { forwards*: Hnf. constructors~. }
-    { applys~ red_var. unfolds Ctx.lookup. case_if*.
-      rewrite var_eq_spec in C1. rewrite istrue_isTrue_eq in C1.
-      false*. } }
-  { constructors*.
-    { applys* IHHR1. introv HN. applys Hnf. constructors~. }
-    { applys* IHHR2. introv HN. applys Hnf. constructors. case_if*. } }
-  { constructors*.
-    { applys* IHHR1. introv HN. applys Hnf. constructors~. }
-    { destruct z.
-      { unfolds Ctx.add. applys~ IHHR2. introv HN. 
-        applys Hnf. constructors~. }
-      { unfolds Ctx.add.
-        asserts: (~ free_var x t2).
-        { introv HN. applys~ Hnf. constructors~. }
-        applys~ not_free_commute_stack. } } }
-  { applys~ red_args_1.
-    { applys~ IHHR1. introv HN. applys Hnf. constructors~. }
-    { applys~ IHHR2. introv HN. inverts HN as HN.
-      { inverts HN. }
-      { inverts HN as HN; try solve [ inverts HN ].
-      applys~ Hnf. applys~ free_var_app_2. } } }
-  { applys~ red_args_2.
-    { applys~ IHHR1. introv HN. applys Hnf. applys~ free_var_app_2. }
-    { applys~ IHHR2. introv HN. inverts HN as HN.
-      { inverts HN. }
-      { inverts HN as HN; inverts HN. } } }
-  { applys~ red_var_error. unfolds Ctx.lookup. case_if*.
-    false. applys~ Hnf. rewrite var_eq_spec in C0.
-    rewrite istrue_isTrue_eq in C0. subst. constructors~. }
-  { applys~ red_if_error_not_a_bool.
-    { applys~ IHHR. introv HN. applys~ Hnf. constructors~. }
-    { auto. } }
-  { applys~ red_let_error_let. applys~ IHHR.
-    introv HN. applys~ Hnf. constructors~. }
-  { applys* red_get_error_bad_address. }
-  { applys* red_set_error_bad_address. }
-  { applys* red_new_array_error. }
-  { applys* red_struct_get_error_invalid_field. }
-  { applys* red_array_get_error_out_of_bounds. }
-  { applys* red_args_1_error. applys~ IHHR.
-    introv HN. applys Hnf. constructors~. }
-  { applys* red_args_2_error. applys~ IHHR.
-    introv HN. applys Hnf. applys~ free_var_app_2. }
-Qed.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
