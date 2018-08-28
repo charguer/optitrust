@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics LibSet LibMap TLCbuffer.
+Require Export Semantics LibSet LibMap LibList TLCbuffer Typing.
 
 (* ********************************************************************** *)
 (* * Definition of the transformation *)
@@ -251,46 +251,76 @@ Theorem red_tr : forall m2 t m1 S LLC v C S' m1' t',
 
 Axiom list_splice : forall A, list A -> int -> int -> list A -> Prop.
 
-Inductive read_ll_state (m:state) (l:loc) (o:offset) (s:size) (v:val) : Prop :=
-  | read_state_intro : forall lw lw',
+Inductive read_ll_state (m:state) (l:loc) (o:offset) (n:size) (v:val) : Prop :=
+  | read_state_intro : forall ws ws',
       l \indom m ->
-      m[l] = val_words lw ->
-      v = val_words lw' ->
-      list_splice lw o s lw' ->
-      read_ll_state m l o s v.
-
-(** v[π := w] = v' *)
-
-Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
-  | write_accesses_nil : forall v w,
-      write_accesses v nil w w
-  | write_accesses_array : forall v a1 i T π w a2,
-      index a1 i -> 
-      write_accesses a1[i] π w v ->
-      a2 = a1[i:=v] ->
-      write_accesses (val_array T a1) ((access_array T i)::π) w (val_array T a2)
-  | write_accesses_struct : forall T s1 s2 f π w v,
-      f \indom s1 ->
-      write_accesses s1[f] π w v ->
-      s2 = s1[f := v] ->
-      write_accesses (val_struct T s1) ((access_field T f)::π) w (val_struct T s2).
+      m[l] = val_words ws ->
+      v = val_words ws' ->
+      list_splice ws o n ws' ->
+      read_ll_state m l o n v.
 
 (** m[l := m(l)[π := w]] = m' *)
 
-Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
-  | write_mem_intro : forall v2,
+Axiom list_splice_update : forall A, list A -> int -> int -> list A -> list A -> Prop.
+
+Inductive write_ll_state (m:state) (l:loc) (o:offset) (n:size) (w:val) (m':state) : Prop :=
+  | write_mem_intro : forall ws ws' ws'',
       l \indom m ->
-      write_accesses m[l] π w v2 ->
-      m' = m[l := v2] ->
-      write_state m l π w m'.
+      m[l] = val_words ws ->
+      w = val_words ws' ->
+      list_splice_update ws o n ws' ws'' ->
+      m' = m[l := (val_words ws'')] ->
+      write_ll_state m l o n w m'.
 
 (* New reduction rules *)
-  | red_ll_get : forall l π S T v1 m vr,
-      v1 = val_words (l::o::nil) ->
-      read_ll_state m l o vr ->
+Inductive red' (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> state -> val -> Prop :=
+  | red_ll_get : forall l n o S T v1 m vr,
+      v1 = val_words (word_int l::word_int o::nil) ->
+      read_ll_state m l n o vr ->
+      typ_size (sizes LLC) T n ->
       ~ is_uninitialized vr ->
-      red C S m (trm_app (prim_get T) ((trm_val v1)::nil)) m vr
+      red' C LLC S m (trm_app (prim_ll_get T) ((trm_val v1)::nil)) m vr
+  | red_ll_set : forall l o n S m1 T v1 v2 m2 vr,
+      v1 = val_words (word_int l::word_int o::nil) ->
+      vr = val_unit ->
+      typ_size (sizes LLC) T n ->
+      write_ll_state m1 l o n v2 m2 ->
+      red' C LLC S m1 (trm_app (prim_ll_set T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr
+  | red_ll_new : forall l n ws S m1 T m2 vr,
+      vr = val_words (word_int l::word_int 0::nil) ->
+      l <> null ->
+      l \notindom m1 ->
+      wf_typ C T ->
+      typ_size (sizes LLC) T n ->
+      ws = LibListZ.make n word_undef ->
+      m2 = m1[l := (val_words ws)] ->
+      red' C LLC S m1 (trm_app (prim_ll_new T) nil) m2 vr
+  | red_ll_access : forall l o o' S m1 T v1 v2 m2 vr,
+      vr = val_words (word_int l::word_int (o+o')::nil) ->
+      v1 = val_words (word_int l::word_int o::nil) ->
+      v2 = val_words (word_int o'::nil) ->
+      red' C LLC S m1 (trm_app (prim_ll_access T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr
+  | red_ll_val_get : forall ws o n ws' S m1 T v1 v2 m2 vr,
+      vr = val_words ws' ->
+      v1 = val_words ws ->
+      v2 = val_words (word_int o::nil) ->
+      typ_size (sizes LLC) T n ->
+      list_splice ws o n ws' ->
+      red' C LLC S m1 (trm_app (prim_ll_val_get T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr.
 
 
 
-    /\  red C S' m1' t' m2' (val_words lw).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
