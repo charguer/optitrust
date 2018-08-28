@@ -88,31 +88,12 @@ Definition env_add_binding E z X :=
   | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
   end.
 
+(** Extended typdefctx *)
 
-(* ---------------------------------------------------------------------- *)
-(** Size of types *)
-
-Section TypeSizes.
-Open Scope nat_scope.
-
-Definition typdefctx_size := (map typvar size).
-
-Definition typdefctx_offset := (map typvar (map field offset)).
-
-(*Fixpoint sizeof (T:typ) : size := 
-  match T with
-  | typ_unit => 0
-  | typ_bool => 1
-  | typ_int => 1
-  | typ_double => 2
-  | typ_ptr _ => 1
-  | typ_array T' (Some n) => (n * (sizeof T'))
-  | typ_struct m => fold (monoid_make plus 0) (fun f T' => sizeof T') m
-  | typ_fun _ _ => 1
-  | _ => 0
-  end.*)
-
-End TypeSizes.
+Record ctx := make_ctx {
+  hl_ctx : typdefctx;
+  ll_ctx : low_level_ctx
+}.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -196,6 +177,9 @@ Definition stack := Ctx.ctx val.
 
 (** The type of values is inhabited *)
 
+Global Instance Inhab_word : Inhab word.
+Proof using. apply (Inhab_of_val word_undef). Qed.
+
 Global Instance Inhab_basic_val : Inhab basic_val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
@@ -260,6 +244,12 @@ Definition is_error (v:val) :=
 Definition is_uninitialized (v:val) :=
   match v with
   | val_basic val_uninitialized => True
+  | _ => False
+  end.
+
+Definition is_undef (v:val) :=
+  match v with
+  | val_words ws => exists i, index ws i /\ ws[i] = word_undef
   | _ => False
   end.
 

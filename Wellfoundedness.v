@@ -9,6 +9,7 @@ License: MIT.
 
 *)
 
+Print Acc.
 Set Implicit Arguments.
 Require Export TLCbuffer Language.
 

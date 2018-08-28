@@ -122,8 +122,8 @@ Inductive accesses_offset (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset
 (* ********************************************************************** *)
 (* Relates values with a list of words. *)
 
-(* tr_val *)
-Inductive val_to_words (C:typdefctx) (LLC:low_level_ctx) : val -> list word -> Prop :=
+(* tr_val TODO: add type *)
+Inductive tr_val (C:typdefctx) (LLC:low_level_ctx) : val -> list word -> Prop :=
   | val_to_words_unit :
       val_to_words C LLC (val_basic val_unit) (word_int 0%Z::nil)
   | val_to_words_bool : forall b,
@@ -241,6 +241,8 @@ Theorem red_tr : forall m2 t m1 S LLC v C S' m1' t',
       val_to_words C LLC v lw
   /\  tr_state C LLC m2 m2'
   /\  red C S' m1' t' m2' (val_words lw).
+Proof.
+Admitted.
 
 (* This goes in Semantics. *)
 
@@ -275,10 +277,10 @@ Inductive write_ll_state (m:state) (l:loc) (o:offset) (n:size) (w:val) (m':state
 (* New reduction rules *)
 Inductive red' (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> state -> val -> Prop :=
   | red_ll_get : forall l n o S T v1 m vr,
-      v1 = val_words (word_int l::word_int o::nil) ->
-      read_ll_state m l n o vr ->
+      v1 = val_concrete_ptr l o ->
+      read_ll_state m l o n vr ->
       typ_size (sizes LLC) T n ->
-      ~ is_uninitialized vr ->
+      ~ is_undef vr ->
       red' C LLC S m (trm_app (prim_ll_get T) ((trm_val v1)::nil)) m vr
   | red_ll_set : forall l o n S m1 T v1 v2 m2 vr,
       v1 = val_words (word_int l::word_int o::nil) ->

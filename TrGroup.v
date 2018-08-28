@@ -1066,7 +1066,7 @@ Proof.
     splits~. constructors*.
     rewrite index_eq_index_length in *.
     rewrite~ <- Hl. }
-  { (* args_1 *)
+  { (* args_1 *) (* TODO for Arthur: Factorise this. *)
     inverts Ht; inverts Hwft;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He.

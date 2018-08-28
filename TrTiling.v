@@ -11,6 +11,10 @@ License: MIT.
 Set Implicit Arguments.
 Require Export Semantics LibSet LibMap LibList TLCbuffer Typing.
 
+Implicit Types i j k I J K : int.
+
+Open Scope Z_scope.
+
 (* ********************************************************************** *)
 (* * Definition of the transformation *)
 
@@ -151,17 +155,30 @@ Qed.
 End DivModResults.
 
 Definition nb_tiles (K I J:int) : Prop :=
-  J = (I / K + if isTrue(I mod K = 0) then 0 else 1)%Z.
+  J = (I / K + If (I mod K = 0) then 0 else 1)%Z.
 
-Definition tiled_indices (J K i j k:int) : Prop :=
+Definition tiled_indices (I J K i j k:int) : Prop :=
       i = (j * K + k)%Z
-  /\  index K k
-  /\  index J j.
+  /\  index I i
+  /\  index J j
+  /\  index K k.
+
+tile_indices -> index I i
+Hint REsolve 
+
+Lemma tiled_indices_intro : forall I J K i j k,
+  nb_tiles K I J ->
+  index I i ->
+  j = i / K ->
+  k = i mod K ->
+  tiled_indices I J K i j k.
+Proof.
+Admitted.
 
 Lemma tiled_index_range : forall k K i I j J,
   nb_tiles K I J ->
-  tiled_indices J K i j k ->
-  index I i.
+  tiled_indices I J K i j k ->
+  index K k.
 Proof.
 Admitted.
 
@@ -236,7 +253,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
             a'[j] = (val_array (typ_var Tt) a'')
         /\  length a'' = K) ->
       (forall i j k a'',
-        tiled_indices J K i j k ->
+        tiled_indices I J K i j k ->
         a'[j] = (val_array (typ_var Tt) a'') ->
         tr_val tt a[i] a''[k]) ->
       tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
@@ -471,7 +488,7 @@ Theorem functional_tr_val : forall tt v v1 v2,
   tr_val tt v v2 ->
   v1 = v2.
 Proof using.
-  introv Hnz H1 H2. gen v2. induction H1; intros;
+  (*introv Hnz H1 H2. gen v2. induction H1; intros;
   try solve [ inverts_head tr_val; fequals*; subst; simpls; tryfalse ].
   { inverts H2 as Hπ. forwards*: functional_tr_accesses H Hπ.
     subst. fequals. }
@@ -494,7 +511,7 @@ Proof using.
       asserts Hij: (index J i).
       { rewrite index_eq_index_length in Hi. rewrite~ H2 in Hi. }
       applys* H5 (i * K0 + i0).
-      { unfolds. splits~. }
+      { unfolds. splits~.  }
       applys~ Ha'' i. unfolds. splits~. }
     { simpls. introv HN. false. } }
   { (* Another array *)
@@ -507,8 +524,8 @@ Proof using.
   { (* Structs *)
     inverts H2 as HD Htr. fequals. applys read_extens.
     { congruence. }
-    { introv Hin. asserts_rewrite* (dom s' = dom s) in *. } }
-Qed.
+    { introv Hin. asserts_rewrite* (dom s' = dom s) in *. } }*)
+Admitted.
 
 Lemma tr_accesses_inj : forall C tt π π1 π2,
   tiling_tr_ok tt C ->
@@ -577,63 +594,52 @@ Hint Constructors wf_trm wf_prim wf_val.
 
 Hint Resolve wf_red.
 
-Ltac rew_index_length_val :=
-  match goal with
+Ltac rew_index_length_val_goal :=
+  repeat match goal with
     Hl: length ?a = ?n
     |- index (length ?a) ?i =>
-      rewrite~ Hl end.
+      rewrite Hl; clear Hl end.
 
 Ltac rew_index_length_val_hyp :=
-  match goal with
+  repeat match goal with
     Hl: length ?a = ?n,
     Hi: index (length ?a) ?i
     |- ?G =>
-      rewrite~ Hl in Hi end.
+      rewrite Hl in Hi end.
 
-Ltac rew_index_length :=
-  match goal with 
-    Hi: index ?l' ?i,
-    Hl: ?l = ?l'
-    |- index ?l ?i =>
-      solve [ rewrite~ Hl ] end.
+Ltac rew_index_length_val :=
+  rew_index_length_val_goal;
+  rew_index_length_val_hyp.
 
-Ltac rew_index_length_rev :=
-  match goal with 
-    Hi: index ?l' ?i,
-    Hl: ?l' = ?l
-    |- index ?l ?i =>
-      solve [ rewrite~ <- Hl ] end.
+Hint Rewrite length_update rew_index_length_rev 
+  rew_index_length_val index_eq_index_length : rew_int.
 
-Ltac rew_index_update :=
-  match goal with 
-    Hi: index (length ?a[?j:=?v]) ?i
-    |- ?G =>
-      rewrite~ length_update in Hi end.
-
-Ltac rew_index_update_subst :=
+Ltac solve_index :=
   unfolds nb_tiles;
-  rewrite index_eq_index_length in *;
-  repeat rew_index_update;
-  try rew_index_length;
-  try rew_index_length_rev.
+  rew_index_length_val;
+  rew_int in *;
+  try solve [ congruence ];
+  first [ applys index_div
+    | applys index_mod ].
 
+(*
 Hint Extern 1 (index ?a (?i mod ?k)%Z) => 
   rew_index_update_subst;
   try rew_index_length_val;
-  try applys~ index_mod.
+  try applys index_mod.
 
 Hint Extern 1 (index ?a (?i/?k)%Z) => 
   rew_index_update_subst;
   try rew_index_length_val;
   try rew_index_length_val_hyp;
-  try applys~ index_div.
+  try applys index_div.
 
 Hint Extern 1 (index ?a ?i) => 
   rew_index_update_subst;
   try rew_index_length_rev.
 
 Hint Extern 1 (length ?a[?i:=?v] = ?l) =>
-  try rewrite~ length_update.
+  try rewrite length_update.*)
 
 (* Interesting: Z.quot_rem'. *)
 
