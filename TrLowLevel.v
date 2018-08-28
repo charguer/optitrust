@@ -101,6 +101,7 @@ Inductive low_level_ctx_ok (C:typdefctx) (LLC:low_level_ctx) : Prop :=
 (* Given a list of accesses, computes the offset. Used to translate
    pointer values. *)
 
+(* tr_accesses *)
 Inductive accesses_offset (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> Prop :=
   | accesses_offset_nil :
       accesses_offset C LLC nil 0
@@ -120,6 +121,7 @@ Inductive accesses_offset (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset
 (* ********************************************************************** *)
 (* Relates values with a list of words. *)
 
+(* tr_val *)
 Inductive val_to_words (C:typdefctx) (LLC:low_level_ctx) : val -> list word -> Prop :=
   | val_to_words_unit :
       val_to_words C LLC (val_basic val_unit) (0%Z::nil)
@@ -141,6 +143,28 @@ Inductive val_to_words (C:typdefctx) (LLC:low_level_ctx) : val -> list word -> P
       List.Forall2 (val_to_words C LLC) (List.map (fun f => s[f]) FCOrd[Tv]) s' ->
       val_to_words C LLC (val_struct (typ_var Tv) s) (List.concat s').
 
+(** Transformation of stacks: S ~ |S| *)
+
+Inductive tr_stack_item (C:typdefctx) (LLC:low_level_ctx) : (var * val) -> (var * val) -> Prop :=
+  | tr_stack_item_intro : forall x v lw,
+      val_to_words C LLC v lw -> 
+      tr_stack_item C LLC (x, v) (x, (val_words lw)).
+
+Inductive tr_stack (C:typdefctx) (LLC:low_level_ctx) : stack -> stack -> Prop :=
+  | tr_stack_intro : forall S S',
+      LibList.Forall2 (tr_stack_item C LLC) S S' ->
+      tr_stack C LLC S S'.
+
+(** Transformation of states: m ~ |m| *)
+
+Inductive tr_state (C:typdefctx) (LLC:low_level_ctx) : state -> state -> Prop :=
+  | tr_state_intro : forall m m',
+      dom m = dom m' ->
+      (forall l lw,
+        l \indom m ->
+            val_to_words C LLC m[l] lw
+        /\  m'[l] = val_words lw) ->
+      tr_state C LLC m m'.
 
 (* ********************************************************************** *)
 (* Transformation of a term from high-level to low-level. *)
