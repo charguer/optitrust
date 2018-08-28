@@ -41,8 +41,11 @@ Definition typvar := var.
 
 (* Representation of low level memory blocks. *)
 
-Definition word := int.
+Inductive word : Type :=
+  | word_undef : word
+  | word_int : int -> word.
 
+Definition words := list word.
 
 (* ---------------------------------------------------------------------- *)
 (** Grammar of types *)
@@ -155,7 +158,12 @@ Inductive prim : Type :=
   | prim_struct_access : typ -> field -> prim
   | prim_array_access : typ -> prim
   | prim_struct_get : typ -> field -> prim
-  | prim_array_get : typ -> prim.
+  | prim_array_get : typ -> prim
+  | prim_ll_get : typ -> prim
+  | prim_ll_set : typ -> prim
+  | prim_ll_new : typ -> prim
+  | prim_ll_access : typ -> prim
+  | prim_ll_val_get : typ -> prim.
 
 Inductive trm : Type :=
   | trm_var : var -> trm

@@ -86,6 +86,7 @@ Axiom special_map : list size -> map field offset.
 Inductive low_level_ctx_ok (C:typdefctx) (LLC:low_level_ctx) : Prop :=
   | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
       LLC = make_low_level_ctx CS CFOff CFOrd ->
+      typdefctx_low_level C LLC ->
       (forall Tv Tfs,
         Tv \indom C ->
         C[Tv] = typ_struct Tfs ->
@@ -124,16 +125,16 @@ Inductive accesses_offset (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset
 (* tr_val *)
 Inductive val_to_words (C:typdefctx) (LLC:low_level_ctx) : val -> list word -> Prop :=
   | val_to_words_unit :
-      val_to_words C LLC (val_basic val_unit) (0%Z::nil)
+      val_to_words C LLC (val_basic val_unit) (word_int 0%Z::nil)
   | val_to_words_bool : forall b,
-      val_to_words C LLC (val_basic (val_bool b)) ((if b then 1 else 0)%Z::nil)
+      val_to_words C LLC (val_basic (val_bool b)) (word_int (if b then 1 else 0)%Z::nil)
   | val_to_words_int : forall i,
-      val_to_words C LLC (val_basic (val_int i)) (i::nil)
+      val_to_words C LLC (val_basic (val_int i)) (word_int i::nil)
   | val_to_words_double : forall d,
-      val_to_words C LLC (val_basic (val_double d)) (d::d::nil)
+      val_to_words C LLC (val_basic (val_double d)) (word_int d::word_int d::nil)
   | val_to_words_abstract_ptr : forall π l o,
       accesses_offset C LLC π o ->
-      val_to_words C LLC (val_basic (val_abstract_ptr l π)) (l::o::nil)
+      val_to_words C LLC (val_basic (val_abstract_ptr l π)) (word_int l::word_int o::nil)
   | val_to_words_array : forall T a a',
       List.Forall2 (val_to_words C LLC) a a' ->
       val_to_words C LLC (val_array T a) (List.concat a')
@@ -181,6 +182,12 @@ Inductive prim : Type :=
   | prim_struct_get : typ -> field -> prim
   | prim_array_get : typ -> prim.
 
+  | prim_ll_get
+  | prim_ll_set
+  | prim_ll_new
+  | prim_ll_access
+  | prim_ll_val_get
+
 Inductive trm : Type :=
   | trm_var : var -> trm
   | trm_val : val -> trm
@@ -195,16 +202,95 @@ Inductive trm : Type :=
 Inductive tr_trm (C:typdefctx) (LLC:low_level_ctx) : trm -> trm -> Prop :=
   | tr_trm_val : forall v lw,
       val_to_words C LLC v lw ->
-      tr_trm C LLC (trm_val v) (trm_val (val_words lw)).
+      tr_trm C LLC (trm_val v) (trm_val (val_words lw))
+  | tr_trm_var : forall x,
+      tr_trm C LLC (trm_var x) (trm_var x)
+  | tr_trm_if : forall t0 t1 t2 t0' t1' t2',
+      tr_trm C LLC t0 t0' ->
+      tr_trm C LLC t1 t1' ->
+      tr_trm C LLC t2 t2' ->
+      tr_trm C LLC (trm_if t0 t1 t2) (trm_if t0' t1' t2')
+  | tr_trm_let : forall t0 t1 z t0' t1',
+      tr_trm C LLC t0 t0' ->
+      tr_trm C LLC t1 t1' ->
+      tr_trm C LLC (trm_let z t0 t1) (trm_let z t0' t1')
+  | tr_trm_binop : forall t1 t2 op t1' t2', 
+      tr_trm C LLC t1 t1' ->
+      tr_trm C LLC t2 t2' ->
+      tr_trm C LLC (trm_app (prim_binop op) (t1::t2::nil)) (trm_app (prim_binop op) (t1'::t2'::nil))
+  | tr_trm_get : forall t1 T t1',
+      tr_trm C LLC t1 t1' ->
+      tr_trm C LLC (trm_app (prim_get T) (t1::nil)) (trm_app (prim_ll_get T) (t1'::nil))
+  | tr_trm_set : forall t1 t2 T t1' t2',
+      tr_trm C LLC t1 t1' ->
+      tr_trm C LLC (trm_app (prim_set T) (t1::t2::nil)) (trm_app (prim_ll_set T) (t1'::t2'::nil)).
+(*| tr_trm_new : 
+  | tr_trm_new_array :
+  | tr_trm_struct_access :
+  | tr_trm_array_access :
+  | tr_trm_struct_get :
+  | tr_trm_array_get :*)
 
-tr_state
-tr_stack
-
-Theorem red_tr : forall lw
+Theorem red_tr : forall m2 t m1 S LLC v C S' m1' t',
   red C S m1 t m2 v ->
-  tr_trm t t' ->
-  tr_state m1 m1' ->
-  tr_stack S S' ->
+  low_level_ctx_ok C LLC ->
+  tr_trm C LLC t t' ->
+  tr_state C LLC m1 m1' ->
+  tr_stack C LLC S S' ->
   exists m2' lw,
-        val_to_words TC FC v lw
+      val_to_words C LLC v lw
+  /\  tr_state C LLC m2 m2'
+  /\  red C S' m1' t' m2' (val_words lw).
+
+(* This goes in Semantics. *)
+
+(* ---------------------------------------------------------------------- *)
+(** Semantics of low_level memory accesses *)
+
+(** m(l)[o] = v *)
+
+Axiom list_splice : forall A, list A -> int -> int -> list A -> Prop.
+
+Inductive read_ll_state (m:state) (l:loc) (o:offset) (s:size) (v:val) : Prop :=
+  | read_state_intro : forall lw lw',
+      l \indom m ->
+      m[l] = val_words lw ->
+      v = val_words lw' ->
+      list_splice lw o s lw' ->
+      read_ll_state m l o s v.
+
+(** v[π := w] = v' *)
+
+Inductive write_accesses : val -> accesses -> val -> val -> Prop :=
+  | write_accesses_nil : forall v w,
+      write_accesses v nil w w
+  | write_accesses_array : forall v a1 i T π w a2,
+      index a1 i -> 
+      write_accesses a1[i] π w v ->
+      a2 = a1[i:=v] ->
+      write_accesses (val_array T a1) ((access_array T i)::π) w (val_array T a2)
+  | write_accesses_struct : forall T s1 s2 f π w v,
+      f \indom s1 ->
+      write_accesses s1[f] π w v ->
+      s2 = s1[f := v] ->
+      write_accesses (val_struct T s1) ((access_field T f)::π) w (val_struct T s2).
+
+(** m[l := m(l)[π := w]] = m' *)
+
+Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop :=
+  | write_mem_intro : forall v2,
+      l \indom m ->
+      write_accesses m[l] π w v2 ->
+      m' = m[l := v2] ->
+      write_state m l π w m'.
+
+(* New reduction rules *)
+  | red_ll_get : forall l π S T v1 m vr,
+      v1 = val_words (l::o::nil) ->
+      read_ll_state m l o vr ->
+      ~ is_uninitialized vr ->
+      red C S m (trm_app (prim_get T) ((trm_val v1)::nil)) m vr
+
+
+
     /\  red C S' m1' t' m2' (val_words lw).
