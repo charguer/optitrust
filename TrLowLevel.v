@@ -21,55 +21,9 @@ Require Export Semantics LibSet LibMap LibList TLCbuffer Typing.
 
 
 (* ---------------------------------------------------------------------- *)
-(* Given a list of accesses, computes the offset. Used to translate
-   pointer values. *)
-
-Inductive tr_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> Prop :=
-  | tr_accesses_nil :
-      tr_accesses C LLC nil 0
-  | tr_accesses_access_array : forall T T' os πs i n o,
-      typing_array C T T' os ->
-      typ_size (sizes LLC) T' n ->
-      tr_accesses C LLC πs o ->
-      tr_accesses C LLC ((access_array T i)::πs) ((i * n) + o)
-  | tr_accesses_access_field : forall FO πs Tv f o,
-      FO = fields_offsets LLC ->
-      Tv \indom FO ->
-      f \indom FO[Tv] ->
-      tr_accesses C LLC πs o ->
-      tr_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
 
-(* ---------------------------------------------------------------------- *)
-(* Relates values with a list of words. This is how the memory is transformed. *)
 
-Inductive tr_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> Prop :=
-  | tr_val_unit :
-      tr_val C LLC typ_unit (val_basic val_unit) (word_int 0%Z::nil)
-  | tr_val_bool : forall b,
-      tr_val C LLC typ_bool (val_basic (val_bool b)) (word_int (if b then 1 else 0)%Z::nil)
-  | tr_val_int : forall i,
-      tr_val C LLC typ_int (val_basic (val_int i)) (word_int i::nil)
-  | tr_val_double : forall d,
-      tr_val C LLC typ_double (val_basic (val_double d)) (word_int d::word_int d::nil)
-  | tr_val_abstract_ptr : forall T π l o,
-      tr_accesses C LLC π o ->
-      tr_val C LLC (typ_ptr T) (val_basic (val_abstract_ptr l π)) (word_int l::word_int o::nil)
-  | tr_val_array : forall os T a a',
-      List.Forall2 (tr_val C LLC T) a a' ->
-      tr_val C LLC (typ_array T os) (val_array T a) (List.concat a')
-  | tr_val_struct : forall FCOrd Tv Tfs sc st s s',
-      FCOrd = fields_order LLC ->
-      Tv \indom FCOrd ->
-      Tv \indom C ->
-      typing_struct C (typ_var Tv) Tfs ->
-      sc = List.map (fun f => s[f]) FCOrd[Tv] ->
-      st = List.map (fun f => Tfs[f]) FCOrd[Tv] ->
-      length s' = length FCOrd[Tv] ->
-      (forall i,
-        index s' i ->
-        tr_val C LLC st[i] sc[i] s'[i]) ->
-      tr_val C LLC (typ_var Tv) (val_struct (typ_var Tv) s) (List.concat s').
 
 (** Transformation of states: m ~ |m| *)
 
@@ -79,7 +33,7 @@ Inductive tr_state (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : state -> state -
       (forall l lw T,
         l \indom m ->
             typing_val C φ m[l] T
-        /\  tr_val C LLC T m[l] lw
+        /\  tr_ll_val C LLC T m[l] lw
         /\  m'[l] = val_words lw) ->
       tr_state C LLC φ m m'.
 
@@ -96,7 +50,7 @@ Inductive tr_ptrs (C:typdefctx) (LLC:low_level_ctx) : val -> val -> Prop :=
   | tr_ptrs_double : forall d,
       tr_ptrs C LLC (val_basic (val_double d)) (val_basic (val_double d))
   | tr_ptrs_abstract_ptr : forall π l o,
-      tr_accesses C LLC π o ->
+      tr_ll_accesses C LLC π o ->
       tr_ptrs C LLC (val_basic (val_abstract_ptr l π)) (val_basic (val_concrete_ptr l o))
   | tr_ptrs_array : forall T a a',
       List.Forall2 (tr_ptrs C LLC) a a' ->
@@ -167,66 +121,6 @@ Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
   /\  red C S' m1' t' m2' v'.
 Proof.
 Admitted.
-
-(* This goes in Semantics. *)
-
-(* ---------------------------------------------------------------------- *)
-(** Semantics of low_level memory accesses *)
-
-(** m(l)[o] = v *)
-
-Axiom list_splice : forall A, list A -> int -> int -> list A -> Prop.
-
-Inductive read_ll_state (m:state) (l:loc) (o:offset) (n:size) (ws':words) : Prop :=
-  | read_state_intro : forall ws,
-      l \indom m ->
-      m[l] = val_words ws ->
-      list_splice ws o n ws' ->
-      read_ll_state m l o n ws'.
-
-(** m[l := m(l)[π := w]] = m' *)
-
-Axiom list_splice_update : forall A, list A -> int -> int -> list A -> list A -> Prop.
-
-Inductive write_ll_state (m:state) (l:loc) (o:offset) (n:size) (w:val) (m':state) : Prop :=
-  | write_mem_intro : forall ws ws' ws'',
-      l \indom m ->
-      m[l] = val_words ws ->
-      w = val_words ws' ->
-      list_splice_update ws o n ws' ws'' ->
-      m' = m[l := (val_words ws'')] ->
-      write_ll_state m l o n w m'.
-
-(* New reduction rules *)
-Inductive red' (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> state -> val -> Prop :=
-  | red_ll_get : forall l n o S T v1 m ws vr,
-      v1 = val_concrete_ptr l o ->
-      read_ll_state m l o n ws ->
-      tr_val C LLC T vr ws ->
-      typ_size (sizes LLC) T n ->
-      ~ is_undef vr ->
-      red' C LLC S m (trm_app (prim_ll_get T) ((trm_val v1)::nil)) m vr
-  | red_ll_set : forall l o n S m1 T v1 v2 m2 vr,
-      v1 = val_concrete_ptr l o ->
-      vr = val_unit ->
-      typ_size (sizes LLC) T n ->
-      write_ll_state m1 l o n v2 m2 ->
-      red' C LLC S m1 (trm_app (prim_ll_set T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr
-  | red_ll_new : forall l n ws S m1 T m2 vr,
-      vr = val_concrete_ptr l 0 ->
-      l <> null ->
-      l \notindom m1 ->
-      wf_typ C T ->
-      typ_size (sizes LLC) T n ->
-      ws = LibListZ.make n word_undef ->
-      m2 = m1[l := (val_words ws)] ->
-      red' C LLC S m1 (trm_app (prim_ll_new T) nil) m2 vr
-  | red_ll_access : forall l o o' S m1 T v1 v2 m2 vr,
-      vr = val_concrete_ptr l (o+o') ->
-      v1 = val_concrete_ptr l o ->
-      v2 = val_int o' ->
-      red' C LLC S m1 (trm_app (prim_ll_access T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr.
-
 
 
 

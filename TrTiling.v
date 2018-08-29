@@ -163,8 +163,8 @@ Definition tiled_indices (I J K i j k:int) : Prop :=
   /\  index J j
   /\  index K k.
 
-tile_indices -> index I i
-Hint REsolve 
+(*tile_indices -> index I i
+Hint REsolve *)
 
 Lemma tiled_indices_intro : forall I J K i j k,
   nb_tiles K I J ->
@@ -611,8 +611,7 @@ Ltac rew_index_length_val :=
   rew_index_length_val_goal;
   rew_index_length_val_hyp.
 
-Hint Rewrite length_update rew_index_length_rev 
-  rew_index_length_val index_eq_index_length : rew_int.
+Hint Rewrite length_update index_eq_index_length : rew_int.
 
 Ltac solve_index :=
   unfolds nb_tiles;
