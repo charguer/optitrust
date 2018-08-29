@@ -11,7 +11,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export TLCbuffer Wellfoundedness.
+Require Export TLCbuffer Wellformedness.
 
 
 (* ********************************************************************** *)
@@ -145,21 +145,6 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
       follow_typ C φ[l] π T -> 
       read_phi C φ l π T.
 
-(* ---------------------------------------------------------------------- *)
-(** Typing of low-level access paths (offsets). *)
-
-Inductive follow_ll_typ (C:typdefctx) (LLC:low_level_ctx) : typ -> offset -> typ -> Prop :=
-  | follow_ll_typ_intro : forall π T o T',
-      tr_ll_accesses C LLC π o ->
-      follow_typ C T π T' ->
-      follow_ll_typ C LLC T o T'.
-
-Inductive read_ll_phi (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (l:loc) (o:offset) (T:typ) : Prop :=
-  | read_ll_phi_intro :
-      l \indom φ ->
-      follow_ll_typ C LLC φ[l] o T -> 
-      read_ll_phi C LLC φ l o T.
-
 
 (* ---------------------------------------------------------------------- *)
 (** Type-directed transformation to low-level *)
@@ -181,6 +166,20 @@ Inductive tr_ll_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset 
       f \indom FO[Tv] ->
       tr_ll_accesses C LLC πs o ->
       tr_ll_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
+
+(** Typing of low-level access paths (offsets). *)
+
+Inductive follow_ll_typ (C:typdefctx) (LLC:low_level_ctx) : typ -> offset -> typ -> Prop :=
+  | follow_ll_typ_intro : forall π T o T',
+      tr_ll_accesses C LLC π o ->
+      follow_typ C T π T' ->
+      follow_ll_typ C LLC T o T'.
+
+Inductive read_ll_phi (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (l:loc) (o:offset) (T:typ) : Prop :=
+  | read_ll_phi_intro :
+      l \indom φ ->
+      follow_ll_typ C LLC φ[l] o T -> 
+      read_ll_phi C LLC φ l o T.
 
 (* Relates values with a list of words. This is how the memory is transformed. *)
 
