@@ -24,10 +24,10 @@ Hint Constructors typing_val redbinop.
 
 (** Lemma for typing preservation of [let] *)
 
-Lemma stack_typing_ctx_add : forall C φ z T Γ v S,
-  stack_typing C φ Γ S ->
-  typing_val C φ v T ->
-  stack_typing C φ (Ctx.add z T Γ) (Ctx.add z v S).
+Lemma stack_typing_ctx_add : forall C LLC φ z T Γ v S,
+  stack_typing C LLC φ Γ S ->
+  typing_val C LLC φ v T ->
+  stack_typing C LLC φ (Ctx.add z T Γ) (Ctx.add z v S).
 Proof.
   introv HS HT. unfolds* stack_typing. introv HS1 HT1.
   destruct z.
@@ -39,11 +39,11 @@ Qed.
 
 (** Auxiliary lemma for typing preservation of [get] *)
 
-Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
-  typing_val C φ w1 T1 ->
+Lemma typing_val_follow : forall T1 w1 π C LLC φ w2 T2,
+  typing_val C LLC φ w1 T1 ->
   follow_typ C T1 π T2 ->
   read_accesses w1 π w2 ->
-  typing_val C φ w2 T2.
+  typing_val C LLC φ w2 T2.
 Proof.
   introv HT HF HR. gen π. induction HT; intros;
    try solve [ intros ; inverts HR; inverts HF; constructors* ].
@@ -57,11 +57,11 @@ Qed.
 
 (** Lemma for typing preservation of [get] *)
 
-Lemma typing_val_get : forall m l π C φ w T,
-  state_typing C φ m ->
+Lemma typing_val_get : forall m l π C LLC φ w T,
+  state_typing C LLC φ m ->
   read_state m l π w ->
   read_phi C φ l π T ->
-  typing_val C φ w T.
+  typing_val C LLC φ w T.
 Proof.
   introv (HD&HT) HS HP. inverts HS as Hlin HR.
   inverts HP as Hlin' HF. forwards~ HTl: HT l.
@@ -70,12 +70,12 @@ Qed.
 
 (** Auxiliary lemma for typing preservation of [set] *)
 
-Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
+Lemma typing_val_after_write : forall v1 w π T2 C LLC φ v2 T1,
   write_accesses v1 π w v2 ->
-  typing_val C φ v1 T1 ->
+  typing_val C LLC φ v1 T1 ->
   follow_typ C T1 π T2 ->
-  typing_val C φ w T2 ->
-  typing_val C φ v2 T1.
+  typing_val C LLC φ w T2 ->
+  typing_val C LLC φ v2 T1.
 Proof.
   introv HW HT1 HF HT2. gen T1. induction HW; intros.
   { subst. inverts* HF. }
@@ -96,17 +96,17 @@ Qed.
 
 (** Lemma for typing preservation of [set] *)
 
-Lemma state_typing_set : forall T m1 l π v C φ m2,
-  state_typing C φ m1 ->
+Lemma state_typing_set : forall T m1 l π v C LLC φ m2,
+  state_typing C LLC φ m1 ->
   write_state m1 l π v m2 ->
-  typing_val C φ (val_abstract_ptr l π) (typ_ptr T) ->
-  typing_val C φ v T ->
-  state_typing C φ m2.
+  typing_val C LLC φ (val_abstract_ptr l π) (typ_ptr T) ->
+  typing_val C LLC φ v T ->
+  state_typing C LLC φ m2.
 Proof.
-  introv HS HW HTp HTv. 
-  inverts HS as HD HT. 
-  inverts HW as Hv1 HWA.   
-  inverts HTp as HP. 
+  introv HS HW HTp HTv.
+  inverts HS as HD HT.
+  inverts HW as Hv1 HWA.
+  inverts HTp as HP.
   unfolds. split.
   { unfold state. rewrite* dom_update_at_index. }
   { introv Hl0. forwards HT': HT l0. unfolds state.
@@ -140,14 +140,28 @@ Qed.
 
 (** Lemma for typing preservation of [new] *)
 
-Lemma uninitialized_val_typ : forall C T v φ,
+Lemma uninitialized_val_typ : forall C LLC T v φ,
   uninitialized C T v ->
   wf_typ C T ->
-  typing_val C φ v T.
+  typing_val C LLC φ v T.
 Proof.
   introv Hu Hwf. induction Hu; subst; try repeat constructors*.
   { introv Hi. applys~ H2. applys* wf_typing_array. }
   { introv Hf Hf'. forwards*: wf_typing_struct. }
+Qed.
+
+(** Lemma for the preservation of low-level types. *)
+
+(* TODO: Think about this. *)
+Lemma tr_ll_typing_val : forall C LLC ws φ v T,
+  tr_ll_val C LLC T v ws ->
+  typing_val C LLC φ v T.
+Proof.
+  introv Htrval. gen φ. induction Htrval; intros;
+  try solve [ constructors~ ].
+  { admit. }
+  { admit. }
+  { admit. }
 Qed.
 
 
@@ -157,11 +171,11 @@ Qed.
 Theorem type_soundess_warmup : forall C LLC φ m t v T Γ S m',
   red C LLC S m t m' v -> 
   ~ is_error v ->
-  typing (make_env C φ Γ) t T ->
-  state_typing C φ m ->
-  stack_typing C φ Γ S ->
-        typing_val C φ v T
-    /\  state_typing C φ m'.
+  typing LLC (make_env C φ Γ) t T ->
+  state_typing C LLC φ m ->
+  stack_typing C LLC φ Γ S ->
+        typing_val C LLC φ v T
+    /\  state_typing C LLC φ m'.
 Proof.
   introv R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ].
@@ -225,7 +239,9 @@ Proof.
     subst.
     applys~ HT. }
   { (* ll_get *) 
-    admit. }
+    subst. splits~.
+    inverts HT as HT. inverts HT as HT. simpls.
+    inverts HT as Hφ. admit. }
   { (* ll_set *)
     admit. }
   { (* ll_new *)
@@ -248,9 +264,18 @@ Definition extends (φ:phi) (φ':phi) :=
       dom φ \c dom φ'
   /\  forall l, l \indom φ -> φ'[l] = φ[l].
 
-Axiom refl_extends : refl extends.
+Lemma refl_extends : refl extends.
+Proof.
+  unfolds. intros. unfolds. splits~. applys~ incl_refl.
+Qed.
 
-Axiom trans_extends : trans extends.
+Lemma trans_extends : trans extends.
+Proof.
+  unfolds. introv H1 H2. unfolds extends. 
+  destruct H1 as (HD1&H1). destruct H2 as (HD2&H2). splits~.
+  { admit. (*TODO: applys~ incl_trans. fails... *) }
+  { introv Hl. rewrite~ <- H1. rewrite~ H2. rew_set in *. auto. }
+Qed.
 
 Hint Extern 1 (extends ?φ1 ?φ3) => 
   match goal with
@@ -264,22 +289,26 @@ Lemma extends_transitivity_demo : forall φ1 φ2 φ3,
   extends φ1 φ3.
 Proof using. intros. auto. Qed.
 
-Lemma extended_typing_val : forall C φ φ' v T,
+Lemma extended_typing_val : forall C LLC φ φ' v T,
   extends φ φ' ->
-  typing_val C φ v T ->
-  typing_val C φ' v T.
+  typing_val C LLC φ v T ->
+  typing_val C LLC φ' v T.
 Proof.
   introv Hφ HT. gen φ'. induction HT; intros;
   try solve [ constructors* ].
   { inverts H. inverts Hφ. repeat constructors.
     { rew_set in *. auto. }
     { rewrite~ H2. } }
+  { inverts H. inverts Hφ. inverts H1. repeat constructors*.
+    { rew_set in *. auto. }
+    { rewrite~ H2. } }
+(* TODO: Both branches look quite similar. *)
 Qed.
 
-Lemma extended_typing : forall C φ φ' Γ t T,
-  typing (make_env C φ Γ ) t T ->
+Lemma extended_typing : forall LLC C φ φ' Γ t T,
+  typing LLC (make_env C φ Γ ) t T ->
   extends φ φ' ->
-  typing (make_env C φ' Γ ) t T.
+  typing LLC (make_env C φ' Γ ) t T.
 Proof.
   introv HT Hφ. gen_eq E: (make_env C φ Γ ). gen φ φ' Γ C. 
   induction HT; intros; subst; try solve [ constructors* ].
@@ -288,10 +317,10 @@ Proof.
   { constructors*. unfolds* env_add_binding. }
 Qed.
 
-Lemma extended_stack_typing : forall C φ φ' Γ S,
-  stack_typing C φ Γ S ->
+Lemma extended_stack_typing : forall C LLC φ φ' Γ S,
+  stack_typing C LLC φ Γ S ->
   extends φ φ' ->
-  stack_typing C φ' Γ S.
+  stack_typing C LLC φ' Γ S.
 Proof.
   introv HS Hφ. unfolds stack_typing.
   introv HxS HxΓ. forwards HT: HS HxS HxΓ.
@@ -302,16 +331,16 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Type preservation proof *)
 
-Theorem type_soundess : forall C φ m t v T Γ S m',
-  red C S m t m' v ->
+Theorem type_soundess : forall C LLC φ m t v T Γ S m',
+  red C LLC S m t m' v ->
   ~ is_error v ->
-  typing (make_env C φ Γ) t T ->
-  state_typing C φ m ->
-  stack_typing C φ Γ S ->
+  typing LLC (make_env C φ Γ) t T ->
+  state_typing C LLC φ m ->
+  stack_typing C LLC φ Γ S ->
   exists φ',
         extends φ φ'
-    /\  typing_val C φ' v T
-    /\  state_typing C φ' m'.
+    /\  typing_val C LLC φ' v T
+    /\  state_typing C LLC φ' m'.
 Proof.
   introv R He. gen φ T Γ. induction R; introv HT HM HS;
   try solve [ forwards*: He ; unfolds~ ]. 
@@ -433,6 +462,14 @@ Proof.
       inverts HT as HTa' Hl HT.
       forwards* (Heq1&Heq2): functional_typing_array HTa HTa'.
       subst. applys* HT. } }
+  { (* ll_get *)
+    admit. }
+  { (* ll_set *)
+    admit. }
+  { (* ll_new *)
+    admit. }
+  { (* ll_access *)
+    admit. }
   { (* args_1 *)
     inverts HT;
     forwards* (φ'&Hφ'&HTv1&Hm2): IHR1 φ Γ;
@@ -461,7 +498,8 @@ Proof.
       forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ.
       { constructors*. applys* extended_typing.
         constructors*. }
-      { applys* extended_stack_typing. } } }
+      { applys* extended_stack_typing. } } 
+    { admit. (* TODO *) } }
 Unshelve. typeclass.
 Qed.
 
