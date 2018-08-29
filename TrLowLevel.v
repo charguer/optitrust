@@ -102,53 +102,58 @@ Inductive low_level_ctx_ok (C:typdefctx) (LLC:low_level_ctx) : Prop :=
 (* Given a list of accesses, computes the offset. Used to translate
    pointer values. *)
 
-(* tr_accesses *)
-Inductive accesses_offset (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> Prop :=
-  | accesses_offset_nil :
-      accesses_offset C LLC nil 0
-  | accesses_offset_access_array : forall T T' os πs i n o,
+Inductive tr_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> Prop :=
+  | tr_accesses_nil :
+      tr_accesses C LLC nil 0
+  | tr_accesses_access_array : forall T T' os πs i n o,
       typing_array C T T' os ->
       typ_size (sizes LLC) T' n ->
-      accesses_offset C LLC πs o ->
-      accesses_offset C LLC ((access_array T i)::πs) ((i * n) + o)
-  | accesses_offset_access_field : forall FO πs Tv f o,
+      tr_accesses C LLC πs o ->
+      tr_accesses C LLC ((access_array T i)::πs) ((i * n) + o)
+  | tr_accesses_access_field : forall FO πs Tv f o,
       FO = fields_offsets LLC ->
       Tv \indom FO ->
       f \indom FO[Tv] ->
-      accesses_offset C LLC πs o ->
-      accesses_offset C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
+      tr_accesses C LLC πs o ->
+      tr_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
 
 (* ********************************************************************** *)
 (* Relates values with a list of words. *)
 
-(* tr_val TODO: add type *)
-Inductive tr_val (C:typdefctx) (LLC:low_level_ctx) : val -> list word -> Prop :=
-  | val_to_words_unit :
-      val_to_words C LLC (val_basic val_unit) (word_int 0%Z::nil)
-  | val_to_words_bool : forall b,
-      val_to_words C LLC (val_basic (val_bool b)) (word_int (if b then 1 else 0)%Z::nil)
-  | val_to_words_int : forall i,
-      val_to_words C LLC (val_basic (val_int i)) (word_int i::nil)
-  | val_to_words_double : forall d,
-      val_to_words C LLC (val_basic (val_double d)) (word_int d::word_int d::nil)
-  | val_to_words_abstract_ptr : forall π l o,
-      accesses_offset C LLC π o ->
-      val_to_words C LLC (val_basic (val_abstract_ptr l π)) (word_int l::word_int o::nil)
-  | val_to_words_array : forall T a a',
-      List.Forall2 (val_to_words C LLC) a a' ->
-      val_to_words C LLC (val_array T a) (List.concat a')
-  | val_to_words_struct : forall FCOrd Tv s s',
+Inductive tr_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> Prop :=
+  | tr_val_unit :
+      tr_val C LLC typ_unit (val_basic val_unit) (word_int 0%Z::nil)
+  | tr_val_bool : forall b,
+      tr_val C LLC typ_bool (val_basic (val_bool b)) (word_int (if b then 1 else 0)%Z::nil)
+  | tr_val_int : forall i,
+      tr_val C LLC typ_int (val_basic (val_int i)) (word_int i::nil)
+  | tr_val_double : forall d,
+      tr_val C LLC typ_double (val_basic (val_double d)) (word_int d::word_int d::nil)
+  | tr_val_abstract_ptr : forall T π l o,
+      tr_accesses C LLC π o ->
+      tr_val C LLC (typ_ptr T) (val_basic (val_abstract_ptr l π)) (word_int l::word_int o::nil)
+  | tr_val_array : forall os T a a',
+      List.Forall2 (tr_val C LLC T) a a' ->
+      tr_val C LLC (typ_array T os) (val_array T a) (List.concat a')
+  | tr_val_struct : forall FCOrd Tv Tfs sc st s s',
       FCOrd = fields_order LLC ->
       Tv \indom FCOrd ->
-      List.Forall2 (val_to_words C LLC) (List.map (fun f => s[f]) FCOrd[Tv]) s' ->
-      val_to_words C LLC (val_struct (typ_var Tv) s) (List.concat s').
+      Tv \indom C ->
+      typing_struct C (typ_var Tv) Tfs ->
+      sc = List.map (fun f => s[f]) FCOrd[Tv] ->
+      st = List.map (fun f => Tfs[f]) FCOrd[Tv] ->
+      length s' = length FCOrd[Tv] ->
+      (forall i,
+        index s' i ->
+        tr_val C LLC st[i] sc[i] s'[i]) ->
+      tr_val C LLC (typ_var Tv) (val_struct (typ_var Tv) s) (List.concat s').
 
 (** Transformation of stacks: S ~ |S| *)
 
 Inductive tr_stack_item (C:typdefctx) (LLC:low_level_ctx) : (var * val) -> (var * val) -> Prop :=
   | tr_stack_item_intro : forall x v lw,
-      val_to_words C LLC v lw -> 
+      tr_val C LLC v lw -> 
       tr_stack_item C LLC (x, v) (x, (val_words lw)).
 
 Inductive tr_stack (C:typdefctx) (LLC:low_level_ctx) : stack -> stack -> Prop :=
@@ -163,7 +168,7 @@ Inductive tr_state (C:typdefctx) (LLC:low_level_ctx) : state -> state -> Prop :=
       dom m = dom m' ->
       (forall l lw,
         l \indom m ->
-            val_to_words C LLC m[l] lw
+            tr_val C LLC m[l] lw
         /\  m'[l] = val_words lw) ->
       tr_state C LLC m m'.
 
@@ -201,7 +206,7 @@ Inductive trm : Type :=
 
 Inductive tr_trm (C:typdefctx) (LLC:low_level_ctx) : trm -> trm -> Prop :=
   | tr_trm_val : forall v lw,
-      val_to_words C LLC v lw ->
+      tr_val C LLC v lw ->
       tr_trm C LLC (trm_val v) (trm_val (val_words lw))
   | tr_trm_var : forall x,
       tr_trm C LLC (trm_var x) (trm_var x)
@@ -238,7 +243,7 @@ Theorem red_tr : forall m2 t m1 S LLC v C S' m1' t',
   tr_state C LLC m1 m1' ->
   tr_stack C LLC S S' ->
   exists m2' lw,
-      val_to_words C LLC v lw
+      tr_val C LLC v lw
   /\  tr_state C LLC m2 m2'
   /\  red C S' m1' t' m2' (val_words lw).
 Proof.
