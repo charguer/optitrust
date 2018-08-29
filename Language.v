@@ -18,7 +18,6 @@ Require Export LibString LibCore LibLogic LibReflect
 Open Scope set_scope.
 Open Scope container_scope.
 
-
 (* ********************************************************************** *)
 (* * Syntax *)
 
@@ -88,12 +87,18 @@ Definition env_add_binding E z X :=
   | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
   end.
 
-(** Extended typdefctx *)
+(* Contex holding low-level information about structs and their fields. *)
 
-Record ctx := make_ctx {
-  hl_ctx : typdefctx;
-  ll_ctx : low_level_ctx
-}.
+Definition typdefctx_sizes := map typvar size.
+Definition typdefctx_fields_offsets := map typvar (map field offset).
+Definition typdefctx_fields_order := map typvar (list field).
+
+Record low_level_ctx := make_low_level_ctx {
+  sizes : typdefctx_sizes;
+  fields_offsets : typdefctx_fields_offsets;
+  fields_order : typdefctx_fields_order }.
+
+Notation "'make_low_level_ctx''" := make_low_level_ctx.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -143,8 +148,7 @@ Inductive prim : Type :=
   | prim_ll_get : typ -> prim
   | prim_ll_set : typ -> prim
   | prim_ll_new : typ -> prim
-  | prim_ll_access : typ -> prim
-  | prim_ll_val_get : typ -> prim.
+  | prim_ll_access : typ -> prim.
 
 Inductive trm : Type :=
   | trm_var : var -> trm

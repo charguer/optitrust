@@ -20,85 +20,7 @@ Require Export Semantics LibSet LibMap LibList TLCbuffer Typing.
     concrete pointers are used in the other transformations. *)
 
 
-(* ********************************************************************** *)
-(* Contex holding low-level information about structs and their fields. *)
-
-Definition typdefctx_sizes := map typvar size.
-Definition typdefctx_fields_offsets := map typvar (map field offset).
-Definition typdefctx_fields_order := map typvar (list field).
-
-Record low_level_ctx := make_low_level_ctx {
-  sizes : typdefctx_sizes;
-  fields_offsets : typdefctx_fields_offsets;
-  fields_order : typdefctx_fields_order }.
-
-(* Ensures that the low-level context is correctly defined with respect to
-   the type definitions context. *)
-
-Inductive typdefctx_low_level (C:typdefctx) (LLC:low_level_ctx) : Prop :=
-  typdefctx_low_level_intros : forall CS CFOff CFOrd,
-    LLC = make_low_level_ctx CS CFOff CFOrd ->
-    dom C = dom CS ->
-    dom C = dom CFOff ->
-    dom C = dom CFOrd ->
-    (forall Tv Tfs,
-      Tv \indom C ->
-      C[Tv] = typ_struct Tfs ->
-          dom Tfs = dom CFOff[Tv]
-      /\  dom Tfs = to_set CFOrd[Tv]) -> 
-    typdefctx_low_level C LLC.
-
-
-(* ********************************************************************** *)
-(* Computing the size of a type. Assuming the size of type variables
-   are known. Used to transform array accesses. *)
-
-Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
-  | typ_size_unit :
-      typ_size CS (typ_unit) 1
-  | typ_size_int :
-      typ_size CS (typ_int) 1
-  | typ_size_double :
-      typ_size CS (typ_double) 2
-  | typ_size_bool :
-      typ_size CS (typ_bool) 1
-  | typ_size_ptr : forall T',
-      typ_size CS (typ_ptr T') 2
-  | typ_size_array : forall n T' k,
-      typ_size CS T' n ->
-      typ_size CS (typ_array T' (Some k)) (n*k)
-  | typ_size_struct : forall s n (m:monoid_op int) (g:field->size->size),
-      dom s = dom n ->
-      (forall f,
-        f \indom s ->
-        typ_size CS s[f] n[f]) ->
-      m = monoid_make (fun a b => a + b) 0 ->
-      g = (fun k v => v) ->
-      typ_size CS (typ_struct s) (fold m g n)
-  | typ_size_var : forall Tv,
-      Tv \indom CS ->
-      typ_size CS (typ_var Tv) CS[Tv].
-
-(* Coherency between the offsets and the sizes. TODO: Find a better way. *)
-
-Axiom special_map : list size -> map field offset.
-
-Inductive low_level_ctx_ok (C:typdefctx) (LLC:low_level_ctx) : Prop :=
-  | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
-      LLC = make_low_level_ctx CS CFOff CFOrd ->
-      typdefctx_low_level C LLC ->
-      (forall Tv Tfs,
-        Tv \indom C ->
-        C[Tv] = typ_struct Tfs ->
-        (exists CFT CFS,
-            CFT = List.map (fun f => Tfs[f]) CFOrd[Tv]
-        /\  List.Forall2 (typ_size CS) CFT CFS
-        /\  CS[Tv] = fold_right Z.add 0 CFS
-        /\  CFOff[Tv] = special_map CFS)) ->
-      low_level_ctx_ok C LLC.
-
-
-(* ********************************************************************** *)
+(* ---------------------------------------------------------------------- *)
 (* Given a list of accesses, computes the offset. Used to translate
    pointer values. *)
 
@@ -118,7 +40,7 @@ Inductive tr_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> 
       tr_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
 
-(* ********************************************************************** *)
+(* ---------------------------------------------------------------------- *)
 (* Relates values with a list of words. This is how the memory is transformed. *)
 
 Inductive tr_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> Prop :=
@@ -161,7 +83,7 @@ Inductive tr_state (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : state -> state -
         /\  m'[l] = val_words lw) ->
       tr_state C LLC φ m m'.
 
-(* ********************************************************************** *)
+(* ---------------------------------------------------------------------- *)
 (* Transformation of a term from high-level to low-level. This is how the code is transformed. *)
 
 Inductive tr_ptrs (C:typdefctx) (LLC:low_level_ctx) : val -> val -> Prop :=
@@ -236,7 +158,7 @@ Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
   red C S m1 t m2 v ->
   low_level_ctx_ok C LLC ->
   tr_trm C LLC t t' ->
-  tr_stack C LLC φ S S' ->
+  tr_stack C LLC S S' ->
   tr_state C LLC φ m1 m1' ->
   state_typing C φ m1 ->
   exists m2' v',
@@ -304,13 +226,6 @@ Inductive red' (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> sta
       v1 = val_concrete_ptr l o ->
       v2 = val_int o' ->
       red' C LLC S m1 (trm_app (prim_ll_access T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr.
-  | red_ll_val_get : forall ws o n ws' S m1 T v1 v2 m2 vr,
-      vr ws' ->
-      v1 = val_words ws ->
-      v2 = val_int o ->
-      typ_size (sizes LLC) T n ->
-      list_splice ws o n ws' ->
-      red' C LLC S m1 (trm_app (prim_ll_val_get T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr.
 
 
 

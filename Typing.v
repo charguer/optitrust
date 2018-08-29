@@ -17,6 +17,70 @@ Require Export TLCbuffer Wellfoundedness.
 (* ********************************************************************** *)
 (* * Typing *)
 
+(* Computing the size of a type. Assuming the size of type variables
+   are known. Used to transform array accesses. *)
+
+Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
+  | typ_size_unit :
+      typ_size CS (typ_unit) 1
+  | typ_size_int :
+      typ_size CS (typ_int) 1
+  | typ_size_double :
+      typ_size CS (typ_double) 2
+  | typ_size_bool :
+      typ_size CS (typ_bool) 1
+  | typ_size_ptr : forall T',
+      typ_size CS (typ_ptr T') 2
+  | typ_size_array : forall n T' k,
+      typ_size CS T' n ->
+      typ_size CS (typ_array T' (Some k)) (n*k)
+  | typ_size_struct : forall Tfs n (m:monoid_op int) (g:field->size->size),
+      dom Tfs = dom n ->
+      (forall (f:field),
+        f \indom Tfs ->
+        typ_size CS Tfs[f] n[f]) ->
+      m = monoid_make (fun a b => a + b) 0 ->
+      g = (fun k v => v) ->
+      typ_size CS (typ_struct Tfs) (fold m g n)
+  | typ_size_var : forall Tv,
+      Tv \indom CS ->
+      typ_size CS (typ_var Tv) CS[Tv].
+
+(* Ensures that the low-level context is correctly defined with respect to
+   the type definitions context. *)
+
+Inductive typdefctx_low_level (C:typdefctx) (LLC:low_level_ctx) : Prop :=
+  typdefctx_low_level_intros : forall CS CFOff CFOrd,
+    LLC = make_low_level_ctx CS CFOff CFOrd ->
+    dom C = dom CS ->
+    dom C = dom CFOff ->
+    dom C = dom CFOrd ->
+    (forall Tv Tfs,
+      Tv \indom C ->
+      C[Tv] = typ_struct Tfs ->
+          dom Tfs = dom CFOff[Tv]
+      /\  dom Tfs = to_set CFOrd[Tv]) -> 
+    typdefctx_low_level C LLC.
+
+(* Coherency between the offsets and the sizes. TODO: Find a better way. *)
+
+Axiom special_map : list size -> map field offset.
+
+Inductive low_level_ctx_ok (C:typdefctx) (LLC:low_level_ctx) : Prop :=
+  | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
+      LLC = make_low_level_ctx CS CFOff CFOrd ->
+      typdefctx_low_level C LLC ->
+      (forall Tv Tfs,
+        Tv \indom C ->
+        C[Tv] = typ_struct Tfs ->
+        (exists CFT CFS,
+            CFT = List.map (fun f => Tfs[f]) CFOrd[Tv]
+        /\  List.Forall2 (typ_size CS) CFT CFS
+        /\  CS[Tv] = fold_right Z.add 0 CFS
+        /\  CFOff[Tv] = special_map CFS)) ->
+      low_level_ctx_ok C LLC.
+
+
 (* ---------------------------------------------------------------------- *)
 (** Basic, or comparable, types *)
 
