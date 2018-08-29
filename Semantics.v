@@ -126,54 +126,6 @@ Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop 
 (* ---------------------------------------------------------------------- *)
 (** Semantics of the low-level memory accesses *)
 
-(* Given a list of accesses, computes the offset. Used to translate
-   pointer values. *)
-
-Inductive tr_ll_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> Prop :=
-  | tr_ll_accesses_nil :
-      tr_ll_accesses C LLC nil 0
-  | tr_ll_accesses_access_array : forall T T' os πs i n o,
-      typing_array C T T' os ->
-      typ_size (sizes LLC) T' n ->
-      tr_ll_accesses C LLC πs o ->
-      tr_ll_accesses C LLC ((access_array T i)::πs) ((i * n) + o)
-  | tr_ll_accesses_access_field : forall FO πs Tv f o,
-      FO = fields_offsets LLC ->
-      Tv \indom FO ->
-      f \indom FO[Tv] ->
-      tr_ll_accesses C LLC πs o ->
-      tr_ll_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
-
-(* Relates values with a list of words. This is how the memory is transformed. *)
-
-Inductive tr_ll_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> Prop :=
-  | tr_ll_val_unit :
-      tr_ll_val C LLC typ_unit (val_basic val_unit) (word_int 0%Z::nil)
-  | tr_ll_val_bool : forall b,
-      tr_ll_val C LLC typ_bool (val_basic (val_bool b)) (word_int (if b then 1 else 0)%Z::nil)
-  | tr_ll_val_int : forall i,
-      tr_ll_val C LLC typ_int (val_basic (val_int i)) (word_int i::nil)
-  | tr_ll_val_double : forall d,
-      tr_ll_val C LLC typ_double (val_basic (val_double d)) (word_int d::word_int d::nil)
-  | tr_ll_val_abstract_ptr : forall T π l o,
-      tr_ll_accesses C LLC π o ->
-      tr_ll_val C LLC (typ_ptr T) (val_basic (val_abstract_ptr l π)) (word_int l::word_int o::nil)
-  | tr_ll_val_array : forall os T a a',
-      List.Forall2 (tr_ll_val C LLC T) a a' ->
-      tr_ll_val C LLC (typ_array T os) (val_array T a) (List.concat a')
-  | tr_ll_val_struct : forall FCOrd Tv Tfs sc st s s',
-      FCOrd = fields_order LLC ->
-      Tv \indom FCOrd ->
-      Tv \indom C ->
-      typing_struct C (typ_var Tv) Tfs ->
-      sc = List.map (fun f => s[f]) FCOrd[Tv] ->
-      st = List.map (fun f => Tfs[f]) FCOrd[Tv] ->
-      length s' = length FCOrd[Tv] ->
-      (forall i,
-        index s' i ->
-        tr_ll_val C LLC st[i] sc[i] s'[i]) ->
-      tr_ll_val C LLC (typ_var Tv) (val_struct (typ_var Tv) s) (List.concat s').
-
 (** m(l)[o] = v *)
 
 Axiom list_splice : forall A, list A -> int -> int -> list A -> Prop.
@@ -657,11 +609,13 @@ Proof.
     subst. inverts Ht as Hop Ha Hi. inverts Ha as Ha.
     inverts Ha as Ha Hai. splits~. }
   { (* ll_get *)
-    subst. inverts Ht as Hop Hp. inverts Hp as Hπ.
-    splits~. inverts H1; try solve [ constructors~ ; inverts Hop ]. }
-  { (*  *) }
-  {  }
-  {  }
+    admit. }
+  { (* ll_set *)
+    admit. }
+  { (* ll_new *)
+    admit. }
+  { (* ll_access *)
+    admit. }
   { (* args_1 *)
     forwards* (Hm2&Hv1): IHHR1.
     { inverts~ Ht. }

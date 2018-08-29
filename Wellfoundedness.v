@@ -75,6 +75,8 @@ Inductive wf_val (C:typdefctx) : val -> Prop :=
   | wf_val_abstract_ptr : forall l π,
       wf_accesses C π ->
       wf_val C (val_abstract_ptr l π)
+  | wf_val_concrete_ptr : forall l o,
+      wf_val C (val_concrete_ptr l o)
   | wf_val_array : forall Ta a,
       wf_typ C Ta ->
       (forall i,

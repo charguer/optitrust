@@ -120,6 +120,58 @@ Inductive typing_struct (C:typdefctx) : typ -> map field typ -> Prop :=
 
 
 (* ---------------------------------------------------------------------- *)
+(** Type-directed transformation to low-level *)
+
+(* Given a list of accesses, computes the offset. Used to translate
+   pointer values. *)
+
+Inductive tr_ll_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> Prop :=
+  | tr_ll_accesses_nil :
+      tr_ll_accesses C LLC nil 0
+  | tr_ll_accesses_access_array : forall T T' os πs i n o,
+      typing_array C T T' os ->
+      typ_size (sizes LLC) T' n ->
+      tr_ll_accesses C LLC πs o ->
+      tr_ll_accesses C LLC ((access_array T i)::πs) ((i * n) + o)
+  | tr_ll_accesses_access_field : forall FO πs Tv f o,
+      FO = fields_offsets LLC ->
+      Tv \indom FO ->
+      f \indom FO[Tv] ->
+      tr_ll_accesses C LLC πs o ->
+      tr_ll_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
+
+(* Relates values with a list of words. This is how the memory is transformed. *)
+
+Inductive tr_ll_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> Prop :=
+  | tr_ll_val_unit :
+      tr_ll_val C LLC typ_unit (val_basic val_unit) (word_int 0%Z::nil)
+  | tr_ll_val_bool : forall b,
+      tr_ll_val C LLC typ_bool (val_basic (val_bool b)) (word_int (if b then 1 else 0)%Z::nil)
+  | tr_ll_val_int : forall i,
+      tr_ll_val C LLC typ_int (val_basic (val_int i)) (word_int i::nil)
+  | tr_ll_val_double : forall d,
+      tr_ll_val C LLC typ_double (val_basic (val_double d)) (word_int d::word_int d::nil)
+  | tr_ll_val_abstract_ptr : forall T π l o,
+      tr_ll_accesses C LLC π o ->
+      tr_ll_val C LLC (typ_ptr T) (val_basic (val_abstract_ptr l π)) (word_int l::word_int o::nil)
+  | tr_ll_val_array : forall os T a a',
+      List.Forall2 (tr_ll_val C LLC T) a a' ->
+      tr_ll_val C LLC (typ_array T os) (val_array T a) (List.concat a')
+  | tr_ll_val_struct : forall FCOrd Tv Tfs sc st s s',
+      FCOrd = fields_order LLC ->
+      Tv \indom FCOrd ->
+      Tv \indom C ->
+      typing_struct C (typ_var Tv) Tfs ->
+      sc = List.map (fun f => s[f]) FCOrd[Tv] ->
+      st = List.map (fun f => Tfs[f]) FCOrd[Tv] ->
+      length s' = length FCOrd[Tv] ->
+      (forall i,
+        index s' i ->
+        tr_ll_val C LLC st[i] sc[i] s'[i]) ->
+      tr_ll_val C LLC (typ_var Tv) (val_struct (typ_var Tv) s) (List.concat s').
+
+
+(* ---------------------------------------------------------------------- *)
 (** Typing of access paths *)
 
 (** T[π] = T1 *)
@@ -145,33 +197,51 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
       follow_typ C φ[l] π T -> 
       read_phi C φ l π T.
 
+(* ---------------------------------------------------------------------- *)
+(** Typing of low-level access paths (offsets). *)
+
+Inductive follow_ll_typ (C:typdefctx) (LLC:low_level_ctx) : typ -> offset -> typ -> Prop :=
+  | follow_ll_typ_intro : forall π T o T',
+      tr_ll_accesses C LLC π o ->
+      follow_typ C T π T' ->
+      follow_ll_typ C LLC T o T'.
+
+Inductive read_ll_phi (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (l:loc) (o:offset) (T:typ) : Prop :=
+  | read_ll_phi_intro :
+      l \indom φ ->
+      follow_ll_typ C LLC φ[l] o T -> 
+      read_ll_phi C LLC φ l o T.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Typing of values *)
 
-Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
+Inductive typing_val (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_uninitialized : forall T,
       wf_typ C T ->
-      typing_val C φ val_uninitialized T
+      typing_val C LLC φ val_uninitialized T
   | typing_val_unit :
-      typing_val C φ val_unit typ_unit
+      typing_val C LLC φ val_unit typ_unit
   | typing_val_bool : forall b,
-      typing_val C φ (val_bool b) typ_bool
+      typing_val C LLC φ (val_bool b) typ_bool
   | typing_val_int : forall i,
-      typing_val C φ (val_int i) typ_int
+      typing_val C LLC φ (val_int i) typ_int
   | typing_val_double : forall d,
-      typing_val C φ (val_double d) typ_double
+      typing_val C LLC φ (val_double d) typ_double
   | typing_val_abstract_ptr : forall l π T,
       read_phi C φ l π T ->
-      typing_val C φ (val_abstract_ptr l π) (typ_ptr T)
+      typing_val C LLC φ (val_abstract_ptr l π) (typ_ptr T)
+  | typing_val_concrete_ptr : forall l o T,
+      read_ll_phi C LLC φ l o T ->
+      typing_val C LLC φ (val_concrete_ptr l o) (typ_ptr T)
   | typing_val_struct : forall Ts vfs Tfs,
       typing_struct C Ts Tfs ->
       dom Tfs = dom vfs ->
       (forall f,
         f \indom Tfs ->
         f \indom vfs ->
-        typing_val C φ vfs[f] Tfs[f]) ->
-      typing_val C φ (val_struct Ts vfs) Ts
+        typing_val C LLC φ vfs[f] Tfs[f]) ->
+      typing_val C LLC φ (val_struct Ts vfs) Ts
   | typing_val_array : forall Ta a T os,
       typing_array C Ta T os ->
       (forall n,
@@ -179,107 +249,121 @@ Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
         length a = n) ->
       (forall i, 
         index a i -> 
-        typing_val C φ a[i] T) ->
-      typing_val C φ (val_array Ta a) Ta.
+        typing_val C LLC φ a[i] T) ->
+      typing_val C LLC φ (val_array Ta a) Ta.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Typing of terms *)
 
-Inductive typing : env -> trm -> typ -> Prop :=
+Inductive typing (LLC:low_level_ctx) : env -> trm -> typ -> Prop :=
   (* Closed values *)
   | typing_trm_val : forall E v T,
-      typing_val (env_typdefctx E) (env_phi E) v T ->
-      typing E (trm_val v) T
+      typing_val (env_typdefctx E) LLC (env_phi E) v T ->
+      typing LLC E (trm_val v) T
   (* Variables *)
   | typing_var : forall E x T,
       Ctx.lookup x (env_gamma E) = Some T ->
-      typing E x T
+      typing LLC E x T
   (* Binary operations *)
   | typing_binop_add : forall E t1 t2,
-      typing E t1 typ_int ->
-      typing E t2 typ_int ->
-      typing E (trm_app binop_add (t1::t2::nil)) typ_int
+      typing LLC E t1 typ_int ->
+      typing LLC E t2 typ_int ->
+      typing LLC E (trm_app binop_add (t1::t2::nil)) typ_int
   | typing_binop_sub : forall E t1 t2,
-      typing E t1 typ_int ->
-      typing E t2 typ_int ->
-      typing E (trm_app binop_sub (t1::t2::nil)) typ_int
+      typing LLC E t1 typ_int ->
+      typing LLC E t2 typ_int ->
+      typing LLC E (trm_app binop_sub (t1::t2::nil)) typ_int
   | typing_binop_mul : forall E t1 t2,
-      typing E t1 typ_int ->
-      typing E t2 typ_int ->
-      typing E (trm_app binop_mul (t1::t2::nil)) typ_int
+      typing LLC E t1 typ_int ->
+      typing LLC E t2 typ_int ->
+      typing LLC E (trm_app binop_mul (t1::t2::nil)) typ_int
   | typing_binop_div : forall E t1 t2,
-      typing E t1 typ_int ->
-      typing E t2 typ_int ->
-      typing E (trm_app binop_div (t1::t2::nil)) typ_int
+      typing LLC E t1 typ_int ->
+      typing LLC E t2 typ_int ->
+      typing LLC E (trm_app binop_div (t1::t2::nil)) typ_int
   | typing_binop_mod : forall E t1 t2,
-      typing E t1 typ_int ->
-      typing E t2 typ_int ->
-      typing E (trm_app binop_mod (t1::t2::nil)) typ_int
+      typing LLC E t1 typ_int ->
+      typing LLC E t2 typ_int ->
+      typing LLC E (trm_app binop_mod (t1::t2::nil)) typ_int
   | typing_binop_eq : forall E T t1 t2,
       wf_typ (env_typdefctx E) T ->
       basic_typ (env_typdefctx E) T ->
-      typing E t1 T ->
-      typing E t2 T ->
-      typing E (trm_app binop_eq (t1::t2::nil)) typ_bool
+      typing LLC E t1 T ->
+      typing LLC E t2 T ->
+      typing LLC E (trm_app binop_eq (t1::t2::nil)) typ_bool
   (* Abstract heap operations *)
   | typing_get : forall E T t1,
-      typing E t1 (typ_ptr T) ->
-      typing E (trm_app (prim_get T) (t1::nil)) T
+      typing LLC E t1 (typ_ptr T) ->
+      typing LLC E (trm_app (prim_get T) (t1::nil)) T
   | typing_set : forall E T t1 t2,
-      typing E t1 (typ_ptr T) ->
-      typing E t2 T ->
-      typing E (trm_app (prim_set T) (t1::t2::nil)) typ_unit
+      typing LLC E t1 (typ_ptr T) ->
+      typing LLC E t2 T ->
+      typing LLC E (trm_app (prim_set T) (t1::t2::nil)) typ_unit
   | typing_new : forall E T, 
-      typing E (trm_app (prim_new T) nil) (typ_ptr T)
+      typing LLC E (trm_app (prim_new T) nil) (typ_ptr T)
   | typing_new_array : forall E t1 T,
-      typing E t1 typ_int ->
-      typing E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T None))
+      typing LLC E t1 typ_int ->
+      typing LLC E (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T None))
   | typing_struct_access : forall E Ts t1 Tfs f,
       typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
-      typing E t1 (typ_ptr Ts) ->
-      typing E (trm_app (prim_struct_access Ts f) (t1::nil)) (typ_ptr Tfs[f])
+      typing LLC E t1 (typ_ptr Ts) ->
+      typing LLC E (trm_app (prim_struct_access Ts f) (t1::nil)) (typ_ptr Tfs[f])
   | typing_array_access : forall os E Ta t1 t2 T,
       typing_array (env_typdefctx E) Ta T os ->
-      typing E t1 (typ_ptr Ta) ->
-      typing E t2 typ_int ->
-      typing E (trm_app (prim_array_access Ta) (t1::t2::nil)) (typ_ptr T)
+      typing LLC E t1 (typ_ptr Ta) ->
+      typing LLC E t2 typ_int ->
+      typing LLC E (trm_app (prim_array_access Ta) (t1::t2::nil)) (typ_ptr T)
   (* Operations on structs and arrays as values *)
   | typing_struct_get : forall E Ts t1 Tfs f,
       typing_struct (env_typdefctx E) Ts Tfs ->
       f \indom Tfs ->
-      typing E t1 (typ_struct Tfs) ->
-      typing E (trm_app (prim_struct_get Ts f) (t1::nil)) Tfs[f]
+      typing LLC E t1 (typ_struct Tfs) ->
+      typing LLC E (trm_app (prim_struct_get Ts f) (t1::nil)) Tfs[f]
   | typing_array_get : forall os E Ta t1 t2 T,
       typing_array (env_typdefctx E) Ta T os ->
-      typing E t1 (typ_array T os) ->
-      typing E t2 typ_int ->
-      typing E (trm_app (prim_array_get Ta) (t1::t2::nil)) T
+      typing LLC E t1 (typ_array T os) ->
+      typing LLC E t2 typ_int ->
+      typing LLC E (trm_app (prim_array_get Ta) (t1::t2::nil)) T
+  (* Low-level operations *)
+  | typing_ll_get : forall E t1 T,
+      typing LLC E t1 (typ_ptr T) ->
+      typing LLC E (trm_app (prim_ll_get T) (t1::nil)) T
+  | typing_ll_set : forall E t1 t2 T,
+      typing LLC E t1 (typ_ptr T) ->
+      typing LLC E t2 T ->
+      typing LLC E (trm_app (prim_ll_set T) (t1::t2::nil)) T
+  | typing_ll_new : forall E T,
+      typing LLC E (trm_app (prim_ll_new T) (nil)) (typ_ptr T)
+  | typing_ll_access : forall E t1 t2 T,
+      typing LLC E t1 (typ_ptr T) ->
+      typing LLC E t2 typ_int ->
+      typing LLC E (trm_app (prim_ll_access T) (t1::t2::nil)) T
   (* Other language constructs *)
   | typing_if : forall E t0 t1 t2 T,
-      typing E t0 typ_bool ->
-      typing E t1 T ->
-      typing E t2 T ->
-      typing E (trm_if t0 t1 t2) T
+      typing LLC E t0 typ_bool ->
+      typing LLC E t1 T ->
+      typing LLC E t2 T ->
+      typing LLC E (trm_if t0 t1 t2) T
   | typing_let : forall T1 T z t1 t2 E,
-      typing E t1 T1 ->
-      typing (env_add_binding E z T1) t2 T ->
-      typing E (trm_let z t1 t2) T.
+      typing LLC E t1 T1 ->
+      typing LLC (env_add_binding E z T1) t2 T ->
+      typing LLC E (trm_let z t1 t2) T.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Typing of the state and the stack *)
 
-Definition state_typing (C:typdefctx) (φ:phi) (m:state) : Prop :=
+Definition state_typing (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (m:state) : Prop :=
       dom m = dom φ
-  /\  (forall l, l \indom m -> typing_val C φ m[l] φ[l]).
+  /\  (forall l, l \indom m -> typing_val C LLC φ m[l] φ[l]).
 
-Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
+Definition stack_typing (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
   forall x v T,
     Ctx.lookup x S = Some v ->
     Ctx.lookup x Γ = Some T ->
-    typing_val C φ v T.
+    typing_val C LLC φ v T.
 
 
 (* ---------------------------------------------------------------------- *)

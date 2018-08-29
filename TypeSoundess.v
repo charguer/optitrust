@@ -154,8 +154,8 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Type preservation proof without changing φ *)
 
-Theorem type_soundess_warmup : forall C φ m t v T Γ S m',
-  red C S m t m' v -> 
+Theorem type_soundess_warmup : forall C LLC φ m t v T Γ S m',
+  red C LLC S m t m' v -> 
   ~ is_error v ->
   typing (make_env C φ Γ) t T ->
   state_typing C φ m ->
@@ -224,6 +224,14 @@ Proof.
     forwards* (HTeq&Hos): functional_typing_array HTa HTa0.
     subst.
     applys~ HT. }
+  { (* ll_get *) 
+    admit. }
+  { (* ll_set *)
+    admit. }
+  { (* ll_new *)
+    admit. }
+  { (* ll_access *)
+    admit. }
   { (* app 1 *) 
     forwards*: IHR2; inverts HT; forwards* (HTv1&Hm2): IHR1;
     try applys* not_is_error_args_1 ; repeat constructors*. }
