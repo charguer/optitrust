@@ -151,26 +151,28 @@ Inductive tr_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> 
 
 (** Transformation of stacks: S ~ |S| *)
 
-Inductive tr_stack_item (C:typdefctx) (LLC:low_level_ctx) : (var * val) -> (var * val) -> Prop :=
-  | tr_stack_item_intro : forall x v lw,
-      tr_val C LLC v lw -> 
-      tr_stack_item C LLC (x, v) (x, (val_words lw)).
+Inductive tr_stack_item (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : (var * val) -> (var * val) -> Prop :=
+  | tr_stack_item_intro : forall x v T lw,
+      typing_val C φ v T ->
+      tr_val C LLC T v lw -> 
+      tr_stack_item C LLC φ (x, v) (x, (val_words lw)).
 
-Inductive tr_stack (C:typdefctx) (LLC:low_level_ctx) : stack -> stack -> Prop :=
+Inductive tr_stack (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : stack -> stack -> Prop :=
   | tr_stack_intro : forall S S',
-      LibList.Forall2 (tr_stack_item C LLC) S S' ->
-      tr_stack C LLC S S'.
+      LibList.Forall2 (tr_stack_item C LLC φ) S S' ->
+      tr_stack C LLC φ S S'.
 
 (** Transformation of states: m ~ |m| *)
 
-Inductive tr_state (C:typdefctx) (LLC:low_level_ctx) : state -> state -> Prop :=
+Inductive tr_state (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : state -> state -> Prop :=
   | tr_state_intro : forall m m',
       dom m = dom m' ->
-      (forall l lw,
+      (forall l lw T,
         l \indom m ->
-            tr_val C LLC m[l] lw
+            typing_val C φ m[l] T
+        /\  tr_val C LLC T m[l] lw
         /\  m'[l] = val_words lw) ->
-      tr_state C LLC m m'.
+      tr_state C LLC φ m m'.
 
 (* ********************************************************************** *)
 (* Transformation of a term from high-level to low-level. *)
