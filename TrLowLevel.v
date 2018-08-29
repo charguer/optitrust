@@ -149,19 +149,6 @@ Inductive tr_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> 
         tr_val C LLC st[i] sc[i] s'[i]) ->
       tr_val C LLC (typ_var Tv) (val_struct (typ_var Tv) s) (List.concat s').
 
-(** Transformation of stacks: S ~ |S| *)
-
-Inductive tr_stack_item (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : (var * val) -> (var * val) -> Prop :=
-  | tr_stack_item_intro : forall x v T lw,
-      typing_val C φ v T ->
-      tr_val C LLC T v lw -> 
-      tr_stack_item C LLC φ (x, v) (x, (val_words lw)).
-
-Inductive tr_stack (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : stack -> stack -> Prop :=
-  | tr_stack_intro : forall S S',
-      LibList.Forall2 (tr_stack_item C LLC φ) S S' ->
-      tr_stack C LLC φ S S'.
-
 (** Transformation of states: m ~ |m| *)
 
 Inductive tr_state (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : state -> state -> Prop :=
@@ -199,6 +186,20 @@ Inductive tr_ptrs (C:typdefctx) (LLC:low_level_ctx) : val -> val -> Prop :=
         tr_ptrs C LLC s[f] s'[f]) ->
       tr_ptrs C LLC (val_struct (typ_var Tv) s) (val_struct (typ_var Tv) s').
 
+(** Transformation of stacks: S ~ |S| *)
+
+Inductive tr_stack_item (C:typdefctx) (LLC:low_level_ctx) : (var * val) -> (var * val) -> Prop :=
+  | tr_stack_item_intro : forall x v v',
+      tr_ptrs C LLC v v' -> 
+      tr_stack_item C LLC (x, v) (x, v').
+
+Inductive tr_stack (C:typdefctx) (LLC:low_level_ctx) : stack -> stack -> Prop :=
+  | tr_stack_intro : forall S S',
+      LibList.Forall2 (tr_stack_item C LLC) S S' ->
+      tr_stack C LLC S S'.
+
+(** Transformation of terms: t ~ |t| *)
+
 Inductive tr_trm (C:typdefctx) (LLC:low_level_ctx) : trm -> trm -> Prop :=
   | tr_trm_val : forall v v',
       tr_ptrs C LLC v v' ->
@@ -231,16 +232,17 @@ Inductive tr_trm (C:typdefctx) (LLC:low_level_ctx) : trm -> trm -> Prop :=
   | tr_trm_struct_get :
   | tr_trm_array_get :*)
 
-Theorem red_tr : forall m2 t m1 S LLC v C S' m1' t',
+Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
   red C S m1 t m2 v ->
   low_level_ctx_ok C LLC ->
   tr_trm C LLC t t' ->
-  tr_state C LLC m1 m1' ->
-  tr_stack C LLC S S' ->
-  exists m2' lw,
-      tr_val C LLC v lw
-  /\  tr_state C LLC m2 m2'
-  /\  red C S' m1' t' m2' (val_words lw).
+  tr_stack C LLC φ S S' ->
+  tr_state C LLC φ m1 m1' ->
+  state_typing C φ m1 ->
+  exists m2' v',
+      tr_ptrs C LLC v v'
+  /\  tr_state C LLC φ m2 m2'
+  /\  red C S' m1' t' m2' v'.
 Proof.
 Admitted.
 
@@ -253,13 +255,12 @@ Admitted.
 
 Axiom list_splice : forall A, list A -> int -> int -> list A -> Prop.
 
-Inductive read_ll_state (m:state) (l:loc) (o:offset) (n:size) (v:val) : Prop :=
-  | read_state_intro : forall ws ws',
+Inductive read_ll_state (m:state) (l:loc) (o:offset) (n:size) (ws':words) : Prop :=
+  | read_state_intro : forall ws,
       l \indom m ->
       m[l] = val_words ws ->
-      v = val_words ws' ->
       list_splice ws o n ws' ->
-      read_ll_state m l o n v.
+      read_ll_state m l o n ws'.
 
 (** m[l := m(l)[π := w]] = m' *)
 
@@ -276,20 +277,21 @@ Inductive write_ll_state (m:state) (l:loc) (o:offset) (n:size) (w:val) (m':state
 
 (* New reduction rules *)
 Inductive red' (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> state -> val -> Prop :=
-  | red_ll_get : forall l n o S T v1 m vr,
+  | red_ll_get : forall l n o S T v1 m ws vr,
       v1 = val_concrete_ptr l o ->
-      read_ll_state m l o n vr ->
+      read_ll_state m l o n ws ->
+      tr_val C LLC T vr ws ->
       typ_size (sizes LLC) T n ->
       ~ is_undef vr ->
       red' C LLC S m (trm_app (prim_ll_get T) ((trm_val v1)::nil)) m vr
   | red_ll_set : forall l o n S m1 T v1 v2 m2 vr,
-      v1 = val_words (word_int l::word_int o::nil) ->
+      v1 = val_concrete_ptr l o ->
       vr = val_unit ->
       typ_size (sizes LLC) T n ->
       write_ll_state m1 l o n v2 m2 ->
       red' C LLC S m1 (trm_app (prim_ll_set T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr
   | red_ll_new : forall l n ws S m1 T m2 vr,
-      vr = val_words (word_int l::word_int 0::nil) ->
+      vr = val_concrete_ptr l 0 ->
       l <> null ->
       l \notindom m1 ->
       wf_typ C T ->
@@ -298,14 +300,14 @@ Inductive red' (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> sta
       m2 = m1[l := (val_words ws)] ->
       red' C LLC S m1 (trm_app (prim_ll_new T) nil) m2 vr
   | red_ll_access : forall l o o' S m1 T v1 v2 m2 vr,
-      vr = val_words (word_int l::word_int (o+o')::nil) ->
-      v1 = val_words (word_int l::word_int o::nil) ->
-      v2 = val_words (word_int o'::nil) ->
-      red' C LLC S m1 (trm_app (prim_ll_access T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr
+      vr = val_concrete_ptr l (o+o') ->
+      v1 = val_concrete_ptr l o ->
+      v2 = val_int o' ->
+      red' C LLC S m1 (trm_app (prim_ll_access T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr.
   | red_ll_val_get : forall ws o n ws' S m1 T v1 v2 m2 vr,
-      vr = val_words ws' ->
+      vr ws' ->
       v1 = val_words ws ->
-      v2 = val_words (word_int o::nil) ->
+      v2 = val_int o ->
       typ_size (sizes LLC) T n ->
       list_splice ws o n ws' ->
       red' C LLC S m1 (trm_app (prim_ll_val_get T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr.
