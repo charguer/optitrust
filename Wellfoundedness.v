@@ -116,7 +116,19 @@ Inductive wf_prim (C:typdefctx) : prim -> Prop :=
       wf_prim C (prim_struct_get T f)
   | wf_prim_array_get : forall T,
       wf_typ C T ->
-      wf_prim C (prim_array_get T).
+      wf_prim C (prim_array_get T)
+  | wf_prim_ll_get : forall T,
+      wf_typ C T ->
+      wf_prim C (prim_ll_get T)
+  | wf_prim_ll_set : forall T,
+      wf_typ C T ->
+      wf_prim C (prim_ll_set T)
+  | wf_prim_ll_access : forall T,
+      wf_typ C T ->
+      wf_prim C (prim_ll_access T)
+  | wf_prim_ll_new : forall T,
+      wf_typ C T ->
+      wf_prim C (prim_ll_new T).
 
 Inductive wf_trm (C:typdefctx) : trm -> Prop :=
   | wf_trm_val : forall v,

@@ -389,7 +389,7 @@ Inductive red (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> stat
 
 (* Derived *)
 
-Lemma red_seq : forall C S m1 m2 m3 t1 t2 r1 r,
+Lemma red_seq : forall C LLC S m1 m2 m3 t1 t2 r1 r,
   red C LLC S m1 t1 m2 r1 ->
   ~ is_error r1 ->
   red C LLC S m2 t2 m3 r ->
@@ -437,7 +437,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Lemmas about the error cases *)
 
-Lemma not_is_error_args_1 : forall C S m op ts m' v w,
+Lemma not_is_error_args_1 : forall C LLC S m op ts m' v w,
   red C LLC S m (trm_app op (trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
@@ -448,7 +448,7 @@ Proof.
   inverts_head red; tryfalse*.
 Qed.
 
-Lemma not_is_error_args_2 : forall C S m op t ts m' v w,
+Lemma not_is_error_args_2 : forall C LLC S m op t ts m' v w,
   red C LLC S m (trm_app op (t :: trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
@@ -456,7 +456,8 @@ Proof.
   introv HR He HN. destruct w; try inverts HN.
   destruct b; inverts HN.
   inverts HR; tryfalse*.
-  inverts_head red; tryfalse*.
+  { inverts_head tr_ll_val. }
+  { inverts_head red; tryfalse*. inverts_head tr_ll_val. }
 Qed.
 
 
@@ -464,7 +465,7 @@ Qed.
 (** Lemmas about the completeness of the reduction rules *)
 
 (* Holds because there's no loop *)
-Lemma red_complete : forall C S m1 t, 
+Lemma red_complete : forall C LLC S m1 t, 
   exists v m2, red C LLC S m1 t m2 v.
 Proof.
   intros. gen C S m1. induction t; intros.
@@ -598,7 +599,7 @@ Qed.
 
 (* Preservation of well-foundedness by the semantics. *)
 
-Lemma wf_red : forall S m1 t C m2 v,
+Lemma wf_red : forall LLC S m1 t C m2 v,
   red C LLC S m1 t m2 v ->
   wf_stack C S ->
   wf_state C m1 ->
@@ -655,6 +656,12 @@ Proof.
   { (* array_get *)
     subst. inverts Ht as Hop Ha Hi. inverts Ha as Ha.
     inverts Ha as Ha Hai. splits~. }
+  { (* ll_get *)
+    subst. inverts Ht as Hop Hp. inverts Hp as Hπ.
+    splits~. inverts H1; try solve [ constructors~ ; inverts Hop ]. }
+  { (*  *) }
+  {  }
+  {  }
   { (* args_1 *)
     forwards* (Hm2&Hv1): IHHR1.
     { inverts~ Ht. }
