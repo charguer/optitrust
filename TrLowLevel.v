@@ -63,7 +63,7 @@ Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
   | typ_size_bool :
       typ_size CS (typ_bool) 1
   | typ_size_ptr : forall T',
-      typ_size CS (typ_ptr T') 1
+      typ_size CS (typ_ptr T') 2
   | typ_size_array : forall n T' k,
       typ_size CS T' n ->
       typ_size CS (typ_array T' (Some k)) (n*k)
@@ -119,7 +119,7 @@ Inductive tr_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> 
 
 
 (* ********************************************************************** *)
-(* Relates values with a list of words. *)
+(* Relates values with a list of words. This is how the memory is transformed. *)
 
 Inductive tr_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> Prop :=
   | tr_val_unit :
@@ -175,41 +175,34 @@ Inductive tr_state (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : state -> state -
       tr_state C LLC φ m m'.
 
 (* ********************************************************************** *)
-(* Transformation of a term from high-level to low-level. *)
+(* Transformation of a term from high-level to low-level. This is how the code is transformed. *)
 
-(*
-Inductive prim : Type :=
-  | prim_binop : binop -> prim
-  | prim_get : typ -> prim
-  | prim_set : typ -> prim
-  | prim_new : typ -> prim
-  | prim_new_array : typ -> prim
-  | prim_struct_access : typ -> field -> prim
-  | prim_array_access : typ -> prim
-  | prim_struct_get : typ -> field -> prim
-  | prim_array_get : typ -> prim.
-
-  | prim_ll_get
-  | prim_ll_set
-  | prim_ll_new
-  | prim_ll_access
-  | prim_ll_val_get
-
-Inductive trm : Type :=
-  | trm_var : var -> trm
-  | trm_val : val -> trm
-  | trm_if : trm -> trm -> trm -> trm
-  | trm_let : bind -> trm -> trm -> trm
-  | trm_app : prim -> list trm -> trm
-  | trm_while : trm -> trm -> trm
-  | trm_for : var -> val -> val -> trm -> trm.
-
-*)
+Inductive tr_ptrs (C:typdefctx) (LLC:low_level_ctx) : val -> val -> Prop :=
+  | tr_ptrs_unit :
+      tr_ptrs C LLC (val_basic val_unit) (val_basic val_unit)
+  | tr_ptrs_bool : forall b,
+      tr_ptrs C LLC (val_basic (val_bool b)) (val_basic (val_bool b))
+  | tr_ptrs_int : forall i,
+      tr_ptrs C LLC (val_basic (val_int i)) (val_basic (val_int i))
+  | tr_ptrs_double : forall d,
+      tr_ptrs C LLC (val_basic (val_double d)) (val_basic (val_double d))
+  | tr_ptrs_abstract_ptr : forall π l o,
+      tr_accesses C LLC π o ->
+      tr_ptrs C LLC (val_basic (val_abstract_ptr l π)) (val_basic (val_concrete_ptr l o))
+  | tr_ptrs_array : forall T a a',
+      List.Forall2 (tr_ptrs C LLC) a a' ->
+      tr_ptrs C LLC (val_array T a) (val_array T a')
+  | tr_ptrs_struct : forall Tv s s',
+      dom s = dom s' ->
+      (forall f,
+        index s f ->
+        tr_ptrs C LLC s[f] s'[f]) ->
+      tr_ptrs C LLC (val_struct (typ_var Tv) s) (val_struct (typ_var Tv) s').
 
 Inductive tr_trm (C:typdefctx) (LLC:low_level_ctx) : trm -> trm -> Prop :=
-  | tr_trm_val : forall v lw,
-      tr_val C LLC v lw ->
-      tr_trm C LLC (trm_val v) (trm_val (val_words lw))
+  | tr_trm_val : forall v v',
+      tr_ptrs C LLC v v' ->
+      tr_trm C LLC (trm_val v) (trm_val v')
   | tr_trm_var : forall x,
       tr_trm C LLC (trm_var x) (trm_var x)
   | tr_trm_if : forall t0 t1 t2 t0' t1' t2',
