@@ -1,4 +1,4 @@
-(**
+ (**
 
 This file describes transformations of the layout of records and arrays.
 
@@ -883,8 +883,8 @@ Hint Extern 1 (wf_val ?v) =>
 Hint Extern 1 (wf_state ?m2) =>
    match goal with H: red _ _ _ m2 _ |- _ => applys wf_red H end.
 
-Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
-  red C S m1 t m2 v ->
+Theorem red_tr: forall gt LLC C C' t t' v S S' m1 m1' m2,
+  red C LLC S m1 t m2 v ->
   group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
   tr_trm gt t t' ->
@@ -898,11 +898,13 @@ Theorem red_tr: forall gt C C' t t' v S S' m1 m1' m2,
   exists v' m2',
       tr_val gt v v'
   /\  tr_state gt m2 m2'
-  /\  red C' S' m1' t' m2' v'.
+  /\  red C' LLC S' m1' t' m2' v'.
 Proof.
   introv HR Hok HC Ht HS Hm1 HwfC Hwft HwfS Hwfm1.
   introv He. gen gt C' t' S' m1'.
-  induction HR; intros; try solve [ forwards*: He; unfolds* ].
+  induction HR; intros; 
+  try solve [ forwards*: He; unfolds* ];
+  try solve [ inverts Ht ].
   { (* val *)
     inverts Ht as Hv. exists* v' m1'. }
   { (* var *)
@@ -1066,6 +1068,14 @@ Proof.
     splits~. constructors*.
     rewrite index_eq_index_length in *.
     rewrite~ <- Hl. }
+  { (* ll_get *)
+    admit. }
+  { (* ll_set *)
+    admit. }
+  { (* ll_new *)
+    admit. }
+  { (* ll_access *)
+    admit. }
   { (* args_1 *) (* TODO for Arthur: Factorise this. *)
     inverts Ht; inverts Hwft;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
