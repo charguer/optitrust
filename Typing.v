@@ -202,9 +202,10 @@ Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) : typ -> val -> list word -
       (*read_phi C φ l π T -> TODO: Think about this.*)
       tr_ll_accesses C LLC π o ->
       tr_ll_val C LLC (typ_ptr T) (val_abstract_ptr l π) (word_int l::word_int o::nil)
-  | tr_ll_val_array : forall os T a a',
+  | tr_ll_val_array : forall k T a a',
+      length a = k ->
       List.Forall2 (tr_ll_val C LLC T) a a' ->
-      tr_ll_val C LLC (typ_array T os) (val_array T a) (List.concat a')
+      tr_ll_val C LLC (typ_array T (Some k)) (val_array T a) (concat a')
   | tr_ll_val_struct : forall FCOrd Tv Tfs sc st s s',
       FCOrd = fields_order LLC ->
       Tv \indom FCOrd ->
@@ -216,7 +217,7 @@ Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) : typ -> val -> list word -
       (forall i,
         index s' i ->
         tr_ll_val C LLC st[i] sc[i] s'[i]) ->
-      tr_ll_val C LLC (typ_var Tv) (val_struct (typ_var Tv) s) (List.concat s').
+      tr_ll_val C LLC (typ_var Tv) (val_struct (typ_var Tv) s) (concat s').
 
 
 (* ---------------------------------------------------------------------- *)
@@ -372,6 +373,29 @@ Definition stack_typing (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (Γ:gamma) (S:
     Ctx.lookup x S = Some v ->
     Ctx.lookup x Γ = Some T ->
     typing_val C LLC φ v T.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Low-level results regarding types and the transformation. *)
+
+Lemma typ_size_words_length : forall C LLC T v ws n,
+  typ_size (typvar_sizes LLC) T n ->
+  tr_ll_val C LLC T v ws ->
+  length ws = n.
+Proof.
+  introv Hs Htr. gen C v ws. induction Hs; intros; 
+  try solve [ inverts Htr ; rew_list* ].
+  { inverts Htr as Htr. induction Htr.
+    { rew_list*. math. }
+    { rew_list*. rewrite Z.mul_add_distr_l.
+      rewrite concat_cons.
+      rewrite length_app.
+      rewrite IHHtr.
+      applys~ Zplus_eq_compat.
+      rewrite Z.mul_1_r.
+      applys* IHHs. } }
+  { admit. (*TODO: Quite technical. *) }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)

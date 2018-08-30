@@ -14,6 +14,7 @@ Require Export Typing.
 
 Open Scope set_scope.
 Open Scope container_scope.
+Open Scope Z_scope.
 
 
 (* ********************************************************************** *)
@@ -128,26 +129,35 @@ Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop 
 
 (** m(l)[o] = v *)
 
-Axiom list_splice : forall A, list A -> int -> int -> list A -> Prop.
+(* TODO: Move to LibList? *)
+Definition list_slice {A:Type} (l:list A) (i:int) (n:int) (lr:list A) : Prop :=
+      lr = take n (drop i l)
+  /\  0 <= n
+  /\  0 <= i
+  /\  i + n <= length l.
 
 Inductive read_ll_state (m:state) (l:loc) (o:offset) (n:size) (ws':words) : Prop :=
   | read_ll_state_intro : forall ws,
       l \indom m ->
       m[l] = val_words ws ->
-      list_splice ws o n ws' ->
+      list_slice ws o n ws' ->
       read_ll_state m l o n ws'.
 
 (** m[l := m(l)[π := w]] = m' *)
 
-Axiom list_splice_update : forall A, list A -> int -> int -> list A -> list A -> Prop.
+(* TODO: Move to LibList? *)
+Definition list_slice_update {A:Type} (l:list A) (i:int) (l':list A) (lr:list A) : Prop :=
+      lr = (take i l) ++ l' ++ (drop (i + length l') l)
+  /\  0 <= i
+  /\  i + length l' <= length l.
 
-Inductive write_ll_state (m:state) (l:loc) (o:offset) (n:size) (ws':words) (m':state) : Prop :=
+Inductive write_ll_state (m:state) (l:loc) (o:offset) (ws':words) (m':state) : Prop :=
   | write_ll_state_intro : forall ws ws'',
       l \indom m ->
       m[l] = val_words ws ->
-      list_splice_update ws o n ws' ws'' ->
+      list_slice_update ws o ws' ws'' ->
       m' = m[l := (val_words ws'')] ->
-      write_ll_state m l o n ws' m'.
+      write_ll_state m l o ws' m'.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -155,7 +165,7 @@ Inductive write_ll_state (m:state) (l:loc) (o:offset) (n:size) (ws':words) (m':s
 
 (** <C, S, m, t> // <m', v> *)
 
-Inductive red (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> state -> val -> Prop :=
+Inductive red (C:typdefctx) (LLC:ll_typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
   (* Basic language constructs *)
   | red_val : forall S m v,
       red C LLC S m (trm_val v) m v
@@ -234,22 +244,23 @@ Inductive red (C:typdefctx) (LLC:low_level_ctx) :  stack -> state -> trm -> stat
       v1 = val_concrete_ptr l o ->
       read_ll_state m l o n ws ->
       tr_ll_val C LLC T vr ws ->
-      typ_size (sizes LLC) T n ->
+      typ_size (typvar_sizes LLC) T n ->
       ~ is_undef vr ->
       red C LLC S m (trm_app (prim_ll_get T) ((trm_val v1)::nil)) m vr
   | red_ll_set : forall l o n S m1 T v1 v2 ws m2 vr,
       v1 = val_concrete_ptr l o ->
       vr = val_unit ->
-      typ_size (sizes LLC) T n ->
-      write_ll_state m1 l o n ws m2 ->
+      typ_size (typvar_sizes LLC) T n ->
       tr_ll_val C LLC T v2 ws ->
+      length ws = n ->
+      write_ll_state m1 l o ws m2 ->
       red C LLC S m1 (trm_app (prim_ll_set T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr
   | red_ll_new : forall l n ws S m1 T m2 vr,
       vr = val_concrete_ptr l 0 ->
       l <> null ->
       l \notindom m1 ->
       wf_typ C T ->
-      typ_size (sizes LLC) T n ->
+      typ_size (typvar_sizes LLC) T n ->
       ws = LibListZ.make n word_undef ->
       m2 = m1[l := (val_words ws)] ->
       red C LLC S m1 (trm_app (prim_ll_new T) nil) m2 vr
@@ -395,7 +406,6 @@ Lemma not_is_error_args_1 : forall C LLC S m op ts m' v w,
   ~ is_error w.
 Proof.
   introv HR He HN. destruct w; try inverts HN.
-  destruct b; inverts HN.
   inverts HR; tryfalse*.
   inverts_head red; tryfalse*.
 Qed.
@@ -406,7 +416,6 @@ Lemma not_is_error_args_2 : forall C LLC S m op t ts m' v w,
   ~ is_error w.
 Proof.
   introv HR He HN. destruct w; try inverts HN.
-  destruct b; inverts HN.
   inverts HR; tryfalse*.
   { inverts_head tr_ll_val. }
   { inverts_head red; tryfalse*. inverts_head tr_ll_val. }
@@ -438,7 +447,6 @@ Proof.
     forwards (v1&m2&Ht1): IHt1 C S m1.
     tests: (is_bool v1).
     { unfolds is_bool. destruct* v1. destruct* b.
-      destruct b.
       { forwards (v2&m3&Ht2): IHt2 C S m2. 
         exists v2 m3. constructors*. }
       { forwards (v2&m3&Ht2): IHt3 C S m2. 
@@ -447,7 +455,7 @@ Proof.
   { (* let *)
     forwards (v1&m2&Ht1): IHt1 C S m1.
     tests: (is_error v1).
-    { unfolds is_error. destruct* v1. destruct* b0.
+    { unfolds is_error. destruct* v1.
       exists val_error m2. applys~ red_let_error_let. }
     { forwards (v2&m3&Ht2): IHt2 C (Ctx.add b v1 S) m2.
       exists v2 m3. constructors*. } }
