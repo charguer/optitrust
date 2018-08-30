@@ -89,16 +89,16 @@ Definition env_add_binding E z X :=
 
 (* Contex holding low-level information about structs and their fields. *)
 
-Definition typdefctx_sizes := map typvar size.
-Definition typdefctx_fields_offsets := map typvar (map field offset).
-Definition typdefctx_fields_order := map typvar (list field).
+Definition ll_typdefctx_typvar_sizes := map typvar size.
+Definition ll_typdefctx_fields_offsets := map typvar (map field offset).
+Definition ll_typdefctx_fields_order := map typvar (list field).
 
-Record low_level_ctx := make_low_level_ctx {
-  sizes : typdefctx_sizes;
-  fields_offsets : typdefctx_fields_offsets;
-  fields_order : typdefctx_fields_order }.
+Record ll_typdefctx := make_ll_typdefctx {
+  typvar_sizes   : ll_typdefctx_typvar_sizes;
+  fields_offsets : ll_typdefctx_fields_offsets;
+  fields_order   : ll_typdefctx_fields_order }.
 
-Notation "'make_low_level_ctx''" := make_low_level_ctx.
+Notation "'make_ll_typdefctx''" := make_ll_typdefctx.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -108,20 +108,17 @@ Inductive access : Type :=
   | access_array : typ -> int -> access
   | access_field : typ -> field -> access.
 
-Definition accesses := list access. 
-
-Inductive basic_val : Type :=
-  | val_error : basic_val
-  | val_unit : basic_val
-  | val_uninitialized : basic_val
-  | val_bool : bool -> basic_val
-  | val_int : int -> basic_val
-  | val_double : int -> basic_val
-  | val_abstract_ptr : loc -> accesses -> basic_val
-  | val_concrete_ptr : loc -> offset -> basic_val.
+Definition accesses := list access.
 
 Inductive val : Type :=
-  | val_basic : basic_val -> val
+  | val_error : val
+  | val_unit : val
+  | val_uninitialized : val
+  | val_bool : bool -> val
+  | val_int : int -> val
+  | val_double : int -> val
+  | val_abstract_ptr : loc -> accesses -> val
+  | val_concrete_ptr : loc -> offset -> val
   | val_array : typ -> list val -> val
   | val_struct : typ -> map field val -> val
   | val_words : list word -> val.
@@ -184,14 +181,11 @@ Definition stack := Ctx.ctx val.
 Global Instance Inhab_word : Inhab word.
 Proof using. apply (Inhab_of_val word_undef). Qed.
 
-Global Instance Inhab_basic_val : Inhab basic_val.
+Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
-Global Instance Inhab_val : Inhab val.
-Proof using. apply (Inhab_of_val (val_basic val_unit)). Qed.
-
 Global Instance Inhab_trm : Inhab trm.
-Proof using. apply (Inhab_of_val (trm_val (val_basic val_unit))). Qed.
+Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
 
 Global Instance Inhab_typ : Inhab typ.
 Proof using. apply (Inhab_of_val typ_unit). Qed.
@@ -205,7 +199,6 @@ Hint Extern 1 (Inhab typ) => apply Inhab_typ.
 (** Coercions *)
 
 Coercion prim_binop : binop >-> prim.
-Coercion val_basic : basic_val >-> val.
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
 Coercion trm_app : prim >-> Funclass.
@@ -229,25 +222,32 @@ Implicit Types ts : list trm.
 
 Definition is_val (t:trm) :=
   match t with
-  | trm_val v => True
+  | trm_val _ => True
   | _ => False
   end.
 
 Definition is_basic (v:val) :=
   match v with
-  | val_basic vb => True
+  | val_error => True
+  | val_unit => True
+  | val_uninitialized => True
+  | val_bool _ => True
+  | val_int _ => True
+  | val_double _ => True
+  | val_abstract_ptr _ _ => True
+  | val_concrete_ptr _ _ => True
   | _ => False
   end.
 
 Definition is_error (v:val) :=
   match v with
-  | val_basic val_error => True
+  | val_error => True
   | _ => False
   end.
 
 Definition is_uninitialized (v:val) :=
   match v with
-  | val_basic val_uninitialized => True
+  | val_uninitialized => True
   | _ => False
   end.
 
@@ -259,31 +259,31 @@ Definition is_undef (v:val) :=
 
 Definition is_bool (v:val) :=
   match v with
-  | val_basic (val_bool b) => True
+  | val_bool _ => True
   | _ => False
   end.
 
 Definition is_ptr (v:val) :=
   match v with
-  | val_basic (val_abstract_ptr l π) => True
+  | val_abstract_ptr _ _ => True
   | _ => False
   end.
 
 Definition is_int (v:val) :=
   match v with
-  | val_basic (val_int i) => True
+  | val_int _ => True
   | _ => False
   end.
 
 Definition is_struct (v:val) :=
   match v with
-  | val_struct T s => True
+  | val_struct _ _ => True
   | _ => False
   end.
 
 Definition is_array (v:val) :=
   match v with
-  | val_array T a => True
+  | val_array _ _ => True
   | _ => False
   end.
 
