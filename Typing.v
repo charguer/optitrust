@@ -20,7 +20,7 @@ Require Export TLCbuffer Wellformedness.
 (* Computing the size of a type. Assuming the size of type variables
    are known. Used to transform array accesses. *)
 
-Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
+Inductive typ_size (CS:ll_typdefctx_typvar_sizes) : typ -> size -> Prop :=
   | typ_size_unit :
       typ_size CS (typ_unit) 1
   | typ_size_int :
@@ -49,9 +49,9 @@ Inductive typ_size (CS:typdefctx_sizes) : typ -> size -> Prop :=
 (* Ensures that the low-level context is correctly defined with respect to
    the type definitions context. *)
 
-Inductive typdefctx_low_level (C:typdefctx) (LLC:low_level_ctx) : Prop :=
+Inductive typdefctx_low_level (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
   typdefctx_low_level_intros : forall CS CFOff CFOrd,
-    LLC = make_low_level_ctx CS CFOff CFOrd ->
+    LLC = make_ll_typdefctx CS CFOff CFOrd ->
     dom C = dom CS ->
     dom C = dom CFOff ->
     dom C = dom CFOrd ->
@@ -64,11 +64,17 @@ Inductive typdefctx_low_level (C:typdefctx) (LLC:low_level_ctx) : Prop :=
 
 (* Coherency between the offsets and the sizes. TODO: Find a better way. *)
 
-Axiom special_map : list size -> map field offset.
+Axiom special_map : list field -> list size -> map field offset.
+(*
+  [ f1, f2, f3, ..., fn ]
+  [ s1, s2, s3, ..., sn ]
 
-Inductive low_level_ctx_ok (C:typdefctx) (LLC:low_level_ctx) : Prop :=
+  [ (f1 -> 0), (f2 -> s1), (f3 -> s1 + s2), ..., (fn -> s1 + s2 + ... sn-1) ]
+*)
+
+Inductive low_level_ctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
   | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
-      LLC = make_low_level_ctx CS CFOff CFOrd ->
+      LLC = make_ll_typdefctx CS CFOff CFOrd ->
       typdefctx_low_level C LLC ->
       (forall Tv Tfs,
         Tv \indom C ->
@@ -77,7 +83,7 @@ Inductive low_level_ctx_ok (C:typdefctx) (LLC:low_level_ctx) : Prop :=
             CFT = List.map (fun f => Tfs[f]) CFOrd[Tv]
         /\  List.Forall2 (typ_size CS) CFT CFS
         /\  CS[Tv] = fold_right Z.add 0 CFS
-        /\  CFOff[Tv] = special_map CFS)) ->
+        /\  CFOff[Tv] = special_map CFOrd[Tv] CFS)) ->
       low_level_ctx_ok C LLC.
 
 
@@ -152,12 +158,12 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 (* Given a list of accesses, computes the offset. Used to translate
    pointer values. *)
 
-Inductive tr_ll_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset -> Prop :=
+Inductive tr_ll_accesses (C:typdefctx) (LLC:ll_typdefctx) : accesses -> offset -> Prop :=
   | tr_ll_accesses_nil :
       tr_ll_accesses C LLC nil 0
   | tr_ll_accesses_access_array : forall T T' os πs i n o,
       typing_array C T T' os ->
-      typ_size (sizes LLC) T' n ->
+      typ_size (typvar_sizes LLC) T' n ->
       tr_ll_accesses C LLC πs o ->
       tr_ll_accesses C LLC ((access_array T i)::πs) ((i * n) + o)
   | tr_ll_accesses_access_field : forall FO πs Tv f o,
@@ -169,13 +175,13 @@ Inductive tr_ll_accesses (C:typdefctx) (LLC:low_level_ctx) : accesses -> offset 
 
 (** Typing of low-level access paths (offsets). *)
 
-Inductive follow_ll_typ (C:typdefctx) (LLC:low_level_ctx) : typ -> offset -> typ -> Prop :=
+Inductive follow_ll_typ (C:typdefctx) (LLC:ll_typdefctx) : typ -> offset -> typ -> Prop :=
   | follow_ll_typ_intro : forall π T o T',
       tr_ll_accesses C LLC π o ->
       follow_typ C T π T' ->
       follow_ll_typ C LLC T o T'.
 
-Inductive read_ll_phi (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (l:loc) (o:offset) (T:typ) : Prop :=
+Inductive read_ll_phi (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (l:loc) (o:offset) (T:typ) : Prop :=
   | read_ll_phi_intro :
       l \indom φ ->
       follow_ll_typ C LLC φ[l] o T -> 
@@ -183,19 +189,19 @@ Inductive read_ll_phi (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (l:loc) (o:offs
 
 (* Relates values with a list of words. This is how the memory is transformed. *)
 
-Inductive tr_ll_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word -> Prop :=
+Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) : typ -> val -> list word -> Prop :=
   | tr_ll_val_unit :
-      tr_ll_val C LLC typ_unit (val_basic val_unit) (word_int 0%Z::nil)
+      tr_ll_val C LLC typ_unit val_unit (word_int 0%Z::nil)
   | tr_ll_val_bool : forall b,
-      tr_ll_val C LLC typ_bool (val_basic (val_bool b)) (word_int (if b then 1 else 0)%Z::nil)
+      tr_ll_val C LLC typ_bool (val_bool b) (word_int (if b then 1 else 0)%Z::nil)
   | tr_ll_val_int : forall i,
-      tr_ll_val C LLC typ_int (val_basic (val_int i)) (word_int i::nil)
+      tr_ll_val C LLC typ_int (val_int i) (word_int i::nil)
   | tr_ll_val_double : forall d,
-      tr_ll_val C LLC typ_double (val_basic (val_double d)) (word_int d::word_int d::nil)
+      tr_ll_val C LLC typ_double (val_double d) (word_int d::word_int d::nil)
   | tr_ll_val_abstract_ptr : forall T π l o,
       (*read_phi C φ l π T -> TODO: Think about this.*)
       tr_ll_accesses C LLC π o ->
-      tr_ll_val C LLC (typ_ptr T) (val_basic (val_abstract_ptr l π)) (word_int l::word_int o::nil)
+      tr_ll_val C LLC (typ_ptr T) (val_abstract_ptr l π) (word_int l::word_int o::nil)
   | tr_ll_val_array : forall os T a a',
       List.Forall2 (tr_ll_val C LLC T) a a' ->
       tr_ll_val C LLC (typ_array T os) (val_array T a) (List.concat a')
@@ -216,7 +222,7 @@ Inductive tr_ll_val (C:typdefctx) (LLC:low_level_ctx) : typ -> val -> list word 
 (* ---------------------------------------------------------------------- *)
 (** Typing of values *)
 
-Inductive typing_val (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : val -> typ -> Prop :=
+Inductive typing_val (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_uninitialized : forall T,
       wf_typ C T ->
       typing_val C LLC φ val_uninitialized T
@@ -256,7 +262,7 @@ Inductive typing_val (C:typdefctx) (LLC:low_level_ctx) (φ:phi) : val -> typ -> 
 (* ---------------------------------------------------------------------- *)
 (** Typing of terms *)
 
-Inductive typing (LLC:low_level_ctx) : env -> trm -> typ -> Prop :=
+Inductive typing (LLC:ll_typdefctx) : env -> trm -> typ -> Prop :=
   (* Closed values *)
   | typing_trm_val : forall E v T,
       typing_val (env_typdefctx E) LLC (env_phi E) v T ->
@@ -355,11 +361,13 @@ Inductive typing (LLC:low_level_ctx) : env -> trm -> typ -> Prop :=
 (* ---------------------------------------------------------------------- *)
 (** Typing of the state and the stack *)
 
-Definition state_typing (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (m:state) : Prop :=
+Definition state_typing (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (m:state) : Prop :=
       dom m = dom φ
-  /\  (forall l, l \indom m -> typing_val C LLC φ m[l] φ[l]).
+  /\  (forall l, 
+        l \indom m -> 
+        typing_val C LLC φ m[l] φ[l]).
 
-Definition stack_typing (C:typdefctx) (LLC:low_level_ctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
+Definition stack_typing (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
   forall x v T,
     Ctx.lookup x S = Some v ->
     Ctx.lookup x Γ = Some T ->
