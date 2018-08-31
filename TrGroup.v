@@ -205,6 +205,12 @@ Inductive tr_struct_op (gt:group_tr) : trm -> trm -> Prop :=
 
 (** Transformation of terms: t ~ |t| *)
 
+(*
+prim_binop : binop -> prim
+  | prim_array_access : typ -> prim 2
+  | prim_array_get : typ -> prim 2
+*)
+
 Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
   | tr_trm_val : forall v v',
       tr_val gt v v' ->
@@ -227,16 +233,31 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       tr_struct_op gt (trm_app op (t1'::nil)) tr ->
       tr_trm gt (trm_app op (t1::nil)) tr
   (* Args *)
-  | tr_trm_args0 : forall op,
-      tr_trm gt (trm_app op nil) (trm_app op nil)
-  | tr_trm_args1 : forall op t1 t1',
-      ~ is_struct_op op ->
-      tr_trm gt t1 t1' ->
-      tr_trm gt (trm_app op (t1::nil)) (trm_app op (t1'::nil))
-  | tr_trm_args2 : forall op t1 t1' t2 t2',
+  | tr_trm_binop : forall op t1 t1' t2 t2',
       tr_trm gt t1 t1' ->
       tr_trm gt t2 t2' ->
-      tr_trm gt (trm_app op (t1::t2::nil)) (trm_app op (t1'::t2'::nil)).
+      tr_trm gt (trm_app (prim_binop op) (t1::t2::nil)) (trm_app (prim_binop op) (t1'::t2'::nil))
+  | tr_trm_get : forall T t1 t1',
+      tr_trm gt t1 t1' ->
+      tr_trm gt (trm_app (prim_get T) (t1::nil)) (trm_app (prim_get T) (t1'::nil))
+  | tr_trm_set : forall T t1 t1' t2 t2',
+      tr_trm gt t1 t1' ->
+      tr_trm gt t2 t2' ->
+      tr_trm gt (trm_app (prim_set T) (t1::t2::nil)) (trm_app (prim_set T) (t1'::t2'::nil))
+  | tr_trm_new : forall T,
+      tr_trm gt (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
+  | tr_trm_new_array : forall T t1 t1',
+      tr_trm gt t1 t1' ->
+      tr_trm gt (trm_app (prim_new_array T) (t1::nil)) (trm_app (prim_new_array T) (t1'::nil))
+  | tr_trm_array_access : forall T t1 t1' t2 t2',
+      tr_trm gt t1 t1' ->
+      tr_trm gt t2 t2' ->
+      tr_trm gt (trm_app (prim_array_access T) (t1::t2::nil)) (trm_app (prim_array_access T) (t1'::t2'::nil))
+  | tr_trm_array_get : forall T t1 t1' t2 t2',
+      tr_trm gt t1 t1' ->
+      tr_trm gt t2 t2' ->
+      tr_trm gt (trm_app (prim_array_get T) (t1::t2::nil)) (trm_app (prim_array_get T) (t1'::t2'::nil)).
+
 
 (** Transformation of stacks: S ~ |S| *)
 
@@ -355,7 +376,12 @@ Proof.
   { inverts_head tr_trm; subst.
     { forwards~: IHtr_trm t1'0. subst.
       applys* functional_tr_struct_op. }
+    { false. }
     { false. } }
+  { inverts_head tr_trm; tryfalse.
+    forwards~: IHtr_trm t1'0. fequals. }
+  { inverts_head tr_trm; tryfalse.
+    forwards~: IHtr_trm t1'0. fequals.  }
 Qed.
 
 Theorem functional_tr_stack_item : forall gt i i1 i2,
@@ -949,7 +975,7 @@ Proof.
   { (* get *)
     inverts Ht as.
     { introv HN. inverts HN. }
-    introv _ Hp. subst.
+    introv Hp. subst.
     inverts Hm1 as HD Htrm.
     inverts H0 as Hi Ha.
     forwards Htrml: Htrm Hi.
@@ -988,7 +1014,7 @@ Proof.
   { (* new_array *)
     inverts Ht as.
     { introv HN. inverts HN. }
-    introv _ Ht.
+    introv Ht.
     inverts Ht as Hv.
     inverts Hm1 as HD Htrm. subst.
     forwards* (v''&Hv''&Hu): tr_uninitialized_val.
@@ -1020,9 +1046,7 @@ Proof.
         introv Hor Hneq Hpr. 
         inverts Hor; tryfalse. inverts Hpr.
         exists (val_abstract_ptr l (π'++(access_field T f :: nil))) m1'.
-        splits; constructors*. applys* tr_accesses_app. } }
-    { (* not struct op *)
-      introv HN. forwards*: HN. } }
+        splits; constructors*. applys* tr_accesses_app. } } }
   { (* array_access *)
     inverts Ht as Ht Hti. subst.
     inverts Ht as Hv. inverts Hv as Ha.
@@ -1055,9 +1079,7 @@ Proof.
             exists s'[f] m1'. splits~. constructors~.
             rewrite HDs'. rew_set~. }
           { introv Hneq HDs Htrsf. exists s'[f] m1'. splits~.
-            constructors~. rewrite~ <- HDs. } } } }
-    { (* not struct op *) 
-      introv HN. forwards*: HN. } }
+            constructors~. rewrite~ <- HDs. } } } } }
   { (* array_get *) 
     inverts Ht as Ht Hti. subst.
     inverts Ht as Hv.
@@ -1068,14 +1090,9 @@ Proof.
     splits~. constructors*.
     rewrite index_eq_index_length in *.
     rewrite~ <- Hl. }
-  { (* ll_get *)
-    admit. }
-  { (* ll_set *)
-    admit. }
-  { (* ll_new *)
-    admit. }
-  { (* ll_access *)
-    admit. }
+  { (* ll_get.. Why is this the only low-level operation if we're doing
+       the induciton on red. *)
+    inverts Ht. false. }
   { (* args_1 *) (* TODO for Arthur: Factorise this. *)
     inverts Ht; inverts Hwft;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
