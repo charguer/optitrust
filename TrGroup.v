@@ -1131,17 +1131,32 @@ Proof.
     { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
       try solve [ repeat constructors~ ; applys* wf_red HR1 ];
       try solve [ exists v'' m3'; splits* ;
+      applys* red_args_1; applys* not_is_val_tr ]. }
+    { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~ ; applys* wf_red HR1 ];
+      try solve [ exists v'' m3'; splits* ;
+      applys* red_args_1; applys* not_is_val_tr ]. }
+    { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~ ; applys* wf_red HR1 ];
+      try solve [ exists v'' m3'; splits* ;
+      applys* red_args_1; applys* not_is_val_tr ]. }
+    { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~ ; applys* wf_red HR1 ];
+      try solve [ exists v'' m3'; splits* ;
+      applys* red_args_1; applys* not_is_val_tr ]. }
+    { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~ ; applys* wf_red HR1 ];
+      try solve [ exists v'' m3'; splits* ;
       applys* red_args_1; applys* not_is_val_tr ]. } }
   { (* args_2 *)
-    inverts Ht as Ht1 Ht2. inverts Hwft.
-    forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1.
-    forwards*: not_is_error_args_2 HR2 He.
-    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2.
-    repeat constructors*.
-    applys* wf_red HR1.
-    applys* wf_red HR1.
-    exists v'' m3'. splits*.
-    inverts Ht1. applys* red_args_2.
+    inverts Ht as Ht1 Ht2; inverts Hwft;
+    forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
+    try forwards*: not_is_error_args_2 HR2 He;
+    forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+    try solve [ applys* wf_red HR1 ];
+    try solve [ do 2 constructors* ; applys* wf_red HR1 ];
+    exists v'' m3'; splits*;
+    inverts Ht1; applys* red_args_2;
     applys* not_is_val_tr. }
 Qed.
 
