@@ -46,46 +46,6 @@ Inductive typ_size (CS:ll_typdefctx_typvar_sizes) : typ -> size -> Prop :=
       Tv \indom CS ->
       typ_size CS (typ_var Tv) CS[Tv].
 
-(* Ensures that the low-level context is correctly defined with respect to
-   the type definitions context. *)
-
-Inductive typdefctx_low_level (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
-  typdefctx_low_level_intros : forall CS CFOff CFOrd,
-    LLC = make_ll_typdefctx CS CFOff CFOrd ->
-    dom C = dom CS ->
-    dom C = dom CFOff ->
-    dom C = dom CFOrd ->
-    (forall Tv Tfs,
-      Tv \indom C ->
-      C[Tv] = typ_struct Tfs ->
-          dom Tfs = dom CFOff[Tv]
-      /\  dom Tfs = to_set CFOrd[Tv]) -> 
-    typdefctx_low_level C LLC.
-
-(* Coherency between the offsets and the sizes. TODO: Find a better way. *)
-
-Axiom special_map : list field -> list size -> map field offset.
-(*
-  [ f1, f2, f3, ..., fn ]
-  [ s1, s2, s3, ..., sn ]
-
-  [ (f1 -> 0), (f2 -> s1), (f3 -> s1 + s2), ..., (fn -> s1 + s2 + ... sn-1) ]
-*)
-
-Inductive low_level_ctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
-  | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
-      LLC = make_ll_typdefctx CS CFOff CFOrd ->
-      typdefctx_low_level C LLC ->
-      (forall Tv Tfs,
-        Tv \indom C ->
-        C[Tv] = typ_struct Tfs ->
-        (exists CFT CFS,
-            CFT = List.map (fun f => Tfs[f]) CFOrd[Tv]
-        /\  List.Forall2 (typ_size CS) CFT CFS
-        /\  CS[Tv] = fold_right Z.add 0 CFS
-        /\  CFOff[Tv] = special_map CFOrd[Tv] CFS)) ->
-      low_level_ctx_ok C LLC.
-
 
 (* ---------------------------------------------------------------------- *)
 (** Basic, or comparable, types *)
@@ -154,6 +114,39 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 
 (* ---------------------------------------------------------------------- *)
 (** Type-directed transformation to low-level *)
+
+(* Ensures that the low-level context is correctly defined with respect to
+   the type definitions context. and coherency between the offsets and the 
+    sizes. TODO: Find a better way, this special map isn't a great approach. *)
+
+Axiom special_map : list field -> list size -> map field offset.
+(*
+  [ f1, f2, f3, ..., fn ]
+  [ s1, s2, s3, ..., sn ]
+
+  [ (f1 -> 0), (f2 -> s1), (f3 -> s1 + s2), ..., (fn -> s1 + s2 + ... sn-1) ]
+*)
+
+Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
+  | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
+      LLC = make_ll_typdefctx CS CFOff CFOrd ->
+      dom C = dom CS ->
+      dom C = dom CFOff ->
+      dom C = dom CFOrd ->
+      (forall Tv Tfs,
+        Tv \indom C ->
+        typing_struct C (typ_var Tv) Tfs ->
+            dom Tfs = dom CFOff[Tv]
+        /\  dom Tfs = to_set CFOrd[Tv]) -> 
+      (forall Tv Tfs,
+        Tv \indom C ->
+        C[Tv] = typ_struct Tfs ->
+        (exists CFT CFS,
+            CFT = List.map (fun f => Tfs[f]) CFOrd[Tv]
+        /\  List.Forall2 (typ_size CS) CFT CFS
+        /\  CS[Tv] = fold_right Z.add 0 CFS
+        /\  CFOff[Tv] = special_map CFOrd[Tv] CFS)) ->
+      ll_typdefctx_ok C LLC.
 
 (* Given a list of accesses, computes the offset. Used to translate
    pointer values. *)
