@@ -299,10 +299,17 @@ Hint Resolve trans_extends.
 Hint Extern 1 (~ is_error ?v) => applys not_is_error_tr.
 Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
 
-Lemma typ_size_total : forall CS T,
-  exists n, typ_size CS T n.
+Lemma typ_size_total : forall C LLC T,
+  ll_typdefctx_ok C LLC ->
+  wf_typ C T ->
+  exists n,
+    typ_size (typvar_sizes LLC) T n.
 Proof.
-  induction T; intros; try solve [ repeat constructors* ].
+  introv Hok HwfT. gen LLC. induction HwfT; intros;
+  try solve [ repeat constructors~ ].
+  { admit. (* Problem with variable size array. *) }
+  { admit. }
+  { admit. }
 Qed.
 
 Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',

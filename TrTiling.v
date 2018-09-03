@@ -408,8 +408,7 @@ Lemma not_tr_val_error : forall tt v1 v2,
   ~ is_error v2.
 Proof.
   introv Hv He. unfolds is_error.
-  destruct* v2. destruct* b.
-  inverts Hv.
+  destruct* v2. inverts Hv.
 Qed.
 
 
