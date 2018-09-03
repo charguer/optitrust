@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics.
+Require Export Semantics TypeSoundness.
 
 (* ********************************************************************** *)
 (* * Definition of the transformation *)
@@ -34,7 +34,7 @@ Definition disjoint_blocks (m:state) : Prop :=
 
 (** Transformation of states: m ~ |m| *)
 
-Inductive tr_state (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (α:alpha) : state -> state -> Prop :=
+Inductive tr_state (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) (φ:phi) : state -> state -> Prop :=
   | tr_state_intro : forall m m',
       dom m = dom m' ->
       disjoint_blocks m' ->
@@ -43,7 +43,7 @@ Inductive tr_state (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (α:alpha) : state 
             typing_val C LLC φ m[l] T
         /\  tr_ll_val C LLC α T m[l] lw
         /\  m'[α[l]] = val_words lw) ->
-      tr_state C LLC φ α m m'.
+      tr_state C LLC α φ m m'.
 
 (* ---------------------------------------------------------------------- *)
 (* Transformation of a term from high-level to low-level. This is how the code is transformed. *)
@@ -155,37 +155,140 @@ Inductive tr_trm (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : trm -> trm -> Pro
       tr_trm C LLC α (trm_app (prim_array_get T) (t1::t2::nil)) (trm_app (prim_array_get T) (t1'::t2'::nil)).
 
 (* ---------------------------------------------------------------------- *)
+(** Lemmas to prove the correctness of the transformation *)
+
+(* Used throughout. Non-error values can't become errors. *)
+
+Lemma not_is_error_tr : forall C LLC α v1 v2,
+  tr_val C LLC α v1 v2 ->
+  ~ is_error v1 ->
+  ~ is_error v2.
+Proof.
+  introv Htr He. induction Htr; introv HN;
+  try solve [ subst ; inverts* HN ]. 
+Qed.
+
+(* The relation typ_size is a function. *)
+
+Lemma functional_typ_size : forall CS T n1 n2,
+  typ_size CS T n1 ->
+  typ_size CS T n2 ->
+  n1 = n2.
+Proof.
+  introv Hn1 Hn2. gen n2. induction Hn1; intros;
+  try solve [ inverts~ Hn2 ].
+  { inverts Hn2 as Hn2. forwards~: IHHn1 Hn2. subst~. }
+  { inverts Hn2. subst. asserts: (n = n0).
+    { applys~ read_extens.
+      { congruence. }
+      { introv Hi. rewrite <- H in Hi. applys~ H1. } }
+    subst~. }
+Qed.
+
+(* The relation tr_ll_accesses (the low-level translation of 
+   accesses into offsets) is a function. *)
+
+Lemma functional_tr_ll_accesses : forall C LLC π o1 o2,
+  tr_ll_accesses C LLC π o1 ->
+  tr_ll_accesses C LLC π o2 ->
+  o1 = o2.
+Proof.
+  introv Ho1 Ho2. gen o2. induction Ho1; intros.
+  { inverts~ Ho2. }
+  { inverts Ho2 as HTa HTn Hπs.
+    forwards~ (HTeq&Hoseq): functional_typing_array H HTa. subst.
+    forwards~: functional_typ_size H0 HTn. subst.
+    forwards~: IHHo1 Hπs. subst~. }
+  { inverts Ho2 as HTvin Hfin Hπs.
+    forwards~: IHHo1 Hπs. subst~. }
+Qed.
+
+(* The relation tr_val is a function. *)
+
+Lemma functional_tr_val : forall C LLC α v v1 v2,
+  is_basic v ->
+  tr_val C LLC α v v1 ->
+  tr_val C LLC α v v2 ->
+  v1 = v2.
+Proof.
+  introv Hv Hv1 Hv2. gen v2. induction Hv1; intros;
+  try solve [ inverts* Hv ];
+  try solve [ inverts* Hv2 ].
+  { inverts Hv2 as Hπ.
+    forwards~: functional_tr_ll_accesses H Hπ. subst~. }
+Qed.
+
+(* For the [let] case. *)
+
+Lemma tr_stack_add : forall C LLC α z v S v' S',
+  tr_stack C LLC α S S' ->
+  tr_val C LLC α v v' ->
+  tr_stack C LLC α (Ctx.add z v S) (Ctx.add z v' S').
+Proof.
+  introv HS Hv. constructors~. inverts HS.
+  unfolds Ctx.add. destruct* z.
+  applys~ Forall2_cons. constructors~.
+Qed.
+
+
+
+
+(* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
+
+(* Hints *)
 
 Hint Constructors red.
 
+Hint Resolve refl_extends.
+Hint Resolve trans_extends.
+
+Hint Extern 1 (~ is_error ?v) => applys not_is_error_tr.
+
+(* The theorem *)
+
 Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
   red C LLC S m1 t m2 v ->
+  ~ is_error v ->
   ll_typdefctx_ok C LLC ->
-  tr_trm C LLC t t' ->
-  tr_stack C LLC S S' ->
-  tr_state C LLC φ m1 m1' ->
-  state_typing C LLC φ m1 ->
+  tr_trm C LLC α t t' ->
+  tr_stack C LLC α S S' ->
+  tr_state C LLC α φ m1 m1' ->
   exists v' m2' φ',
-      extends φ φ' ->
-  /\  tr_state C LLC φ' m2 m2'
-  /\  tr_val C LLC v v'
+      extends φ φ'
+  /\  tr_state C LLC α φ' m2 m2'
+  /\  tr_val C LLC α v v'
   /\  red C LLC S' m1' t' m2' v'.
 Proof.
-  introv HR Hok Ht HS Hm1 Hφ. gen φ t' S' m1'. induction HR; intros.
+  introv HR He Hok Ht HS Hm1. gen φ t' S' m1'. induction HR; intros;
+  try solve [ forwards*: He; unfolds* ];
+  try solve [ inverts Ht ].
   { (* val *)
-    inverts Ht. exists* v' m1'. }
+    inverts Ht. exists* v' m1' φ. }
   { (* var *)
     inverts Ht. forwards~ (v'&HCl&Htr): stack_lookup_tr HS H.
-    exists* v' m1'. }
+    exists* v' m1' φ. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse.
-    forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
+    forwards* (v'&m2'&φ'&Hφ'&Hm2'&Hv'&HR3): IHHR1 Hb HS Hm1.
     inverts* Hv'.
     destruct b;
-    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'.
-    { admit. (* use type soundness. *) }
-    exists* vr' m3'. }
+    forwards* (vr'&m3'&φ''&Hφ''&Hvr'&Hm3'&HR4): IHHR2 HS Hm2';
+    exists* vr' m3' φ''. }
+  { (* let *) 
+    inverts Ht as Ht0 Ht1.
+    forwards* (v'&m2'&φ'&Hφ'&Hm2'&Hv'&HR3): IHHR1 Ht0 HS Hm1.
+    forwards HS': tr_stack_add z HS Hv'.
+    forwards* (vr'&m3'&φ''&Hφ''&Hm3'&Hvr'&HR4): IHHR2 Ht1 HS' Hm2'.
+    exists* vr' m3' φ''. }
+  { (* binop *)
+    inverts Ht as Ht1 Ht2.
+    inverts Ht1 as Hv1. inverts Ht2 as Hv2.
+    inverts H3; try solve [ exists __ m1' φ; splits~;
+    inverts Hv1; inverts Hv2; repeat constructors~ ].
+    { exists (val_bool true) m1' φ. splits*. constructors~.
+       }
+    {  } } }
 Admitted.
 
 
