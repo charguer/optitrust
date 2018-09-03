@@ -159,7 +159,8 @@ Inductive tr_ll_accesses (C:typdefctx) (LLC:ll_typdefctx) : accesses -> offset -
       typ_size (typvar_sizes LLC) T' n ->
       tr_ll_accesses C LLC πs o ->
       tr_ll_accesses C LLC ((access_array T i)::πs) ((i * n) + o)
-  | tr_ll_accesses_access_field : forall FO πs Tv f o,
+  | tr_ll_accesses_access_field : forall Tfs FO πs Tv f o,
+      typing_struct C (typ_var Tv) Tfs ->
       FO = fields_offsets LLC ->
       Tv \indom FO ->
       f \indom FO[Tv] ->

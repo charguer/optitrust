@@ -76,7 +76,7 @@ Inductive tr_val (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : val -> val -> Pro
 
 Inductive tr_stack_item (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : (var * val) -> (var * val) -> Prop :=
   | tr_stack_item_intro : forall x v v',
-      tr_val C LLC α v v' -> 
+      tr_val C LLC α v v' ->
       tr_stack_item C LLC α (x, v) (x, v').
 
 Inductive tr_stack (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : stack -> stack -> Prop :=
@@ -168,6 +168,17 @@ Proof.
   try solve [ subst ; inverts* HN ]. 
 Qed.
 
+(* Basic values are preserved by the transformation. *)
+
+Lemma is_basic_tr : forall C LLC α v1 v2,
+  tr_val C LLC α v1 v2 ->
+  is_basic v1 ->
+  is_basic v2.
+Proof.
+  introv Htr Hb. induction Htr;
+  try solve [ subst ; inverts* Hb ; unfolds~ ].
+Qed.
+
 (* The relation typ_size is a function. *)
 
 Lemma functional_typ_size : forall CS T n1 n2,
@@ -199,11 +210,12 @@ Proof.
     forwards~ (HTeq&Hoseq): functional_typing_array H HTa. subst.
     forwards~: functional_typ_size H0 HTn. subst.
     forwards~: IHHo1 Hπs. subst~. }
-  { inverts Ho2 as HTvin Hfin Hπs.
+  { inverts Ho2 as HTs HTvin Hfin Hπs.
     forwards~: IHHo1 Hπs. subst~. }
 Qed.
 
-(* The relation tr_val is a function. *)
+(* The relation tr_val is a function. Used in general and also in the
+   equality case of the binop. *)
 
 Lemma functional_tr_val : forall C LLC α v v1 v2,
   is_basic v ->
@@ -216,6 +228,47 @@ Proof.
   try solve [ inverts* Hv2 ].
   { inverts Hv2 as Hπ.
     forwards~: functional_tr_ll_accesses H Hπ. subst~. }
+Qed.
+
+(* FALSE. The relation tr_ll_accesses is injective. *)
+
+Lemma tr_ll_accesses_inj : forall C LLC π1 π2 o,
+  tr_ll_accesses C LLC π1 o ->
+  tr_ll_accesses C LLC π2 o ->
+    π1 = π2.
+Proof.
+  admit.
+Qed.
+
+(* FALSE. And tr_val is also injective. At least for sure for basic values. *)
+
+Lemma tr_val_inj : forall C LLC α v v1 v2,
+  is_basic v1 ->
+  is_basic v2 ->
+  tr_val C LLC α v1 v ->
+  tr_val C LLC α v2 v ->
+  v1 = v2.
+Proof.
+  introv Hbv1 Hbv2 Hv1 Hv2. gen v2. induction Hv1; intros;
+  try solve [ inverts~ Hbv1 ];
+  try solve [ inverts~ Hv2 ].
+  { inverts Hv2 as Hπ Hα. tests: (l = l1).
+    { admit. }
+    { admit. (* Find contradiction because alpha is always a bijection. *) } }
+Qed.
+
+(* FALSE. Contrapositive of the previous statement. *)
+
+Lemma tr_val_inj_cp : forall C LLC α v1 v2 v1' v2',
+  is_basic v1 ->
+  is_basic v2 ->
+  tr_val C LLC α v1 v1' ->
+  tr_val C LLC α v2 v2' ->
+  v1 <> v2 ->
+  v1' <> v2'.
+Proof.
+  introv Hbv1 Hbv2 Hv1 Hv2 Hneq HN. subst.
+  forwards*: tr_val_inj Hbv1 Hbv2 Hv1 Hv2.
 Qed.
 
 (* For the [let] case. *)
@@ -231,19 +284,19 @@ Proof.
 Qed.
 
 
-
-
 (* ---------------------------------------------------------------------- *)
 (** Correctness of the transformation *)
 
 (* Hints *)
 
 Hint Constructors red.
+Hint Constructors tr_val.
 
 Hint Resolve refl_extends.
 Hint Resolve trans_extends.
 
 Hint Extern 1 (~ is_error ?v) => applys not_is_error_tr.
+Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
 
 (* The theorem *)
 
@@ -286,9 +339,13 @@ Proof.
     inverts Ht1 as Hv1. inverts Ht2 as Hv2.
     inverts H3; try solve [ exists __ m1' φ; splits~;
     inverts Hv1; inverts Hv2; repeat constructors~ ].
-    { exists (val_bool true) m1' φ. splits*. constructors~.
-       }
-    {  } } }
+    { exists (val_bool true) m1' φ. splits~.
+      forwards~: functional_tr_val Hv1 Hv2. subst.
+      repeat constructors*. }
+    { exists (val_bool false) m1' φ. splits~.
+      admit. (* FALSE. Injectivity results don't hold. *) } }
+  { (* get *)
+     } }
 Admitted.
 
 
