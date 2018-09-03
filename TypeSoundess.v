@@ -150,20 +150,6 @@ Proof.
   { introv Hf Hf'. forwards*: wf_typing_struct. }
 Qed.
 
-(** Lemma for the preservation of low-level types. *)
-
-(* TODO: Think about this. *)
-Lemma tr_ll_typing_val : forall C LLC ws φ v T,
-  tr_ll_val C LLC T v ws ->
-  typing_val C LLC φ v T.
-Proof.
-  introv Htrval. gen φ. induction Htrval; intros;
-  try solve [ constructors~ ].
-  { admit. }
-  { admit. }
-  { admit. }
-Qed.
-
 
 (* ---------------------------------------------------------------------- *)
 (** Type preservation proof without changing φ *)
@@ -239,9 +225,7 @@ Proof.
     subst.
     applys~ HT. }
   { (* ll_get *) 
-    subst. splits~.
-    inverts HT as HT. inverts HT as HT. simpls.
-    inverts HT as Hφ. admit. }
+    admit. }
   { (* ll_set *)
     admit. }
   { (* ll_new *)
@@ -299,10 +283,6 @@ Proof.
   { inverts H. inverts Hφ. repeat constructors.
     { rew_set in *. auto. }
     { rewrite~ H2. } }
-  { inverts H. inverts Hφ. inverts H1. repeat constructors*.
-    { rew_set in *. auto. }
-    { rewrite~ H2. } }
-(* TODO: Both branches look quite similar. *)
 Qed.
 
 Lemma extended_typing : forall LLC C φ φ' Γ t T,
@@ -498,8 +478,7 @@ Proof.
       forwards* (φ''&Hφ''&HTv2&Hm3): IHR2 φ' Γ.
       { constructors*. applys* extended_typing.
         constructors*. }
-      { applys* extended_stack_typing. } } 
-    { admit. (* TODO *) } }
+      { applys* extended_stack_typing. } } }
 Unshelve. typeclass.
 Qed.
 
