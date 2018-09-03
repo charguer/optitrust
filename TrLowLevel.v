@@ -38,11 +38,12 @@ Inductive tr_state (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) (φ:phi) : state 
   | tr_state_intro : forall m m',
       dom m = dom m' ->
       disjoint_blocks m' ->
-      (forall l lw T,
+      (forall l,
         l \indom m ->
-            typing_val C LLC φ m[l] T
-        /\  tr_ll_val C LLC α T m[l] lw
-        /\  m'[α[l]] = val_words lw) ->
+          exists lw T,
+              typing_val C LLC φ m[l] T
+          /\  tr_ll_val C LLC α T m[l] lw
+          /\  m'[α[l]] = val_words lw) ->
       tr_state C LLC α φ m m'.
 
 (* ---------------------------------------------------------------------- *)
@@ -298,6 +299,28 @@ Hint Resolve trans_extends.
 Hint Extern 1 (~ is_error ?v) => applys not_is_error_tr.
 Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
 
+Lemma typ_size_total : forall CS T,
+  exists n, typ_size CS T n.
+Proof.
+  induction T; intros; try solve [ repeat constructors* ].
+Qed.
+
+Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',
+  typing_val C LLC φ m[l] T ->
+  tr_ll_val C LLC α T m[l] lw ->
+  tr_ll_accesses C LLC π o ->
+  tr_state C LLC α φ  m m' ->
+  read_state m l π w ->
+  (exists w' lw' n,
+      typing_val C LLC φ w T'
+  /\  tr_ll_val C LLC α T' w' lw'
+  /\  typ_size (typvar_sizes LLC) T' n
+  /\  read_ll_state m' α[l] o n lw'
+  /\  tr_val C LLC α w w').
+Proof.
+  
+Admitted.
+
 (* The theorem *)
 
 Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
@@ -345,7 +368,20 @@ Proof.
     { exists (val_bool false) m1' φ. splits~.
       admit. (* FALSE. Injectivity results don't hold. *) } }
   { (* get *)
-     } }
+    subst.
+    inverts Ht as Ht.
+    inverts Ht as Hv.
+    inverts Hv as Hπ.
+    inverts Hm1 as HD Hdb Htrm.
+    inverts H0 as Hi Ha.
+    forwards (lw&T'&HT&Hll&Hm1'αl): Htrm Hi.
+    forwards* (w'&lw'&n&HT''&Hvr&Hn&Hlw'&Hw'): tr_read_state m m1' vr T.
+    { constructors*. }
+    { constructors*. }
+    exists w' m1' φ. splits*.
+    { constructors*. }
+    constructors*.
+    { admit. (* Is not undefined. *) } } }
 Admitted.
 
 
