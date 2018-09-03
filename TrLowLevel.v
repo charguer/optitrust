@@ -312,6 +312,16 @@ Proof.
   { admit. }
 Qed.
 
+(* Note: rn it holds trivially because tr_val is not defined on
+   undef. Also, it is necessary to change is_uninitialised to look
+   for uninitialised values inside the value. *)
+Lemma not_is_undef : forall C LLC α v v',
+  tr_val C LLC α v v' ->
+  ~ is_uninitialised v ->
+  ~ is_undef v'.
+Proof.
+Admitted.
+
 Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',
   typing_val C LLC φ m[l] T ->
   tr_ll_val C LLC α T m[l] lw ->
