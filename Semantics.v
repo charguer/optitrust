@@ -159,11 +159,26 @@ Inductive write_ll_state (m:state) (l:loc) (o:offset) (ws':words) (m':state) : P
       m' = m[l := (val_words ws'')] ->
       write_ll_state m l o ws' m'.
 
+(*
+Inductive write_ll_state (m:state) (p:loc) (ws':words) (m':state) : Prop :=
+  | write_ll_state_intro : forall l o ws ws'',
+      l \indom m ->
+      index m[l] o ->
+      p = l + o ->
+      m[l] = val_words ws ->
+      list_slice_update ws o ws' ws'' ->
+      m' = m[l := (val_words ws'')] ->
+      write_ll_state m p ws' m'.
+*)
+
 
 (* ---------------------------------------------------------------------- *)
 (** Big-step evaluation *)
 
 (** <C, S, m, t> // <m', v> *)
+
+(* TMP *)
+Definition α : alpha := (fun l => Some l).
 
 Inductive red (C:typdefctx) (LLC:ll_typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
   (* Basic language constructs *)
@@ -243,7 +258,7 @@ Inductive red (C:typdefctx) (LLC:ll_typdefctx) :  stack -> state -> trm -> state
   | red_ll_get : forall l n o S T v1 m ws vr,
       v1 = val_concrete_ptr l o ->
       read_ll_state m l o n ws ->
-      tr_ll_val C LLC T vr ws ->
+      tr_ll_val C LLC α T vr ws ->
       typ_size (typvar_sizes LLC) T n ->
       ~ is_undef vr ->
       red C LLC S m (trm_app (prim_ll_get T) ((trm_val v1)::nil)) m vr
@@ -251,7 +266,7 @@ Inductive red (C:typdefctx) (LLC:ll_typdefctx) :  stack -> state -> trm -> state
       v1 = val_concrete_ptr l o ->
       vr = val_unit ->
       typ_size (typvar_sizes LLC) T n ->
-      tr_ll_val C LLC T v2 ws ->
+      tr_ll_val C LLC α T v2 ws ->
       length ws = n ->
       write_ll_state m1 l o ws m2 ->
       red C LLC S m1 (trm_app (prim_ll_set T) ((trm_val v1)::(trm_val v2)::nil)) m2 vr
