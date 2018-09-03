@@ -273,7 +273,7 @@ Lemma trans_extends : trans extends.
 Proof.
   unfolds. introv H1 H2. unfolds extends. 
   destruct H1 as (HD1&H1). destruct H2 as (HD2&H2). splits~.
-  { admit. (*TODO: applys~ incl_trans. fails... *) }
+  { applys* @incl_trans. typeclass. }
   { introv Hl. rewrite~ <- H1. rewrite~ H2. rew_set in *. auto. }
 Qed.
 

@@ -100,6 +100,10 @@ Record ll_typdefctx := make_ll_typdefctx {
 
 Notation "'make_ll_typdefctx''" := make_ll_typdefctx.
 
+(* Alpha *)
+
+Definition alpha := map loc loc.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Syntax of the source language *)

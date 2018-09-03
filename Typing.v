@@ -30,7 +30,7 @@ Inductive typ_size (CS:ll_typdefctx_typvar_sizes) : typ -> size -> Prop :=
   | typ_size_bool :
       typ_size CS (typ_bool) 1
   | typ_size_ptr : forall T',
-      typ_size CS (typ_ptr T') 2
+      typ_size CS (typ_ptr T') 1
   | typ_size_array : forall n T' k,
       typ_size CS T' n ->
       typ_size CS (typ_array T' (Some k)) (n*k)
@@ -166,39 +166,24 @@ Inductive tr_ll_accesses (C:typdefctx) (LLC:ll_typdefctx) : accesses -> offset -
       tr_ll_accesses C LLC πs o ->
       tr_ll_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
-(** Typing of low-level access paths (offsets). *)
-
-Inductive follow_ll_typ (C:typdefctx) (LLC:ll_typdefctx) : typ -> offset -> typ -> Prop :=
-  | follow_ll_typ_intro : forall π T o T',
-      tr_ll_accesses C LLC π o ->
-      follow_typ C T π T' ->
-      follow_ll_typ C LLC T o T'.
-
-Inductive read_ll_phi (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (l:loc) (o:offset) (T:typ) : Prop :=
-  | read_ll_phi_intro :
-      l \indom φ ->
-      follow_ll_typ C LLC φ[l] o T -> 
-      read_ll_phi C LLC φ l o T.
-
 (* Relates values with a list of words. This is how the memory is transformed. *)
 
-Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) : typ -> val -> list word -> Prop :=
+Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : typ -> val -> list word -> Prop :=
   | tr_ll_val_unit :
-      tr_ll_val C LLC typ_unit val_unit (word_int 0%Z::nil)
+      tr_ll_val C LLC α typ_unit val_unit (word_int 0%Z::nil)
   | tr_ll_val_bool : forall b,
-      tr_ll_val C LLC typ_bool (val_bool b) (word_int (if b then 1 else 0)%Z::nil)
+      tr_ll_val C LLC α typ_bool (val_bool b) (word_int (if b then 1 else 0)%Z::nil)
   | tr_ll_val_int : forall i,
-      tr_ll_val C LLC typ_int (val_int i) (word_int i::nil)
+      tr_ll_val C LLC α typ_int (val_int i) (word_int i::nil)
   | tr_ll_val_double : forall d,
-      tr_ll_val C LLC typ_double (val_double d) (word_int d::word_int d::nil)
+      tr_ll_val C LLC α typ_double (val_double d) (word_int d::word_int d::nil)
   | tr_ll_val_abstract_ptr : forall T π l o,
-      (*read_phi C φ l π T -> TODO: Think about this.*)
       tr_ll_accesses C LLC π o ->
-      tr_ll_val C LLC (typ_ptr T) (val_abstract_ptr l π) (word_int l::word_int o::nil)
+      tr_ll_val C LLC α (typ_ptr T) (val_abstract_ptr l π) ((word_int (α[l] + o))::nil)
   | tr_ll_val_array : forall k T a a',
       length a = k ->
-      List.Forall2 (tr_ll_val C LLC T) a a' ->
-      tr_ll_val C LLC (typ_array T (Some k)) (val_array T a) (concat a')
+      List.Forall2 (tr_ll_val C LLC α T) a a' ->
+      tr_ll_val C LLC α (typ_array T (Some k)) (val_array T a) (concat a')
   | tr_ll_val_struct : forall FCOrd Tv Tfs sc st s s',
       FCOrd = fields_order LLC ->
       Tv \indom FCOrd ->
@@ -209,8 +194,8 @@ Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) : typ -> val -> list word -
       length s' = length FCOrd[Tv] ->
       (forall i,
         index s' i ->
-        tr_ll_val C LLC st[i] sc[i] s'[i]) ->
-      tr_ll_val C LLC (typ_var Tv) (val_struct (typ_var Tv) s) (concat s').
+        tr_ll_val C LLC α st[i] sc[i] s'[i]) ->
+      tr_ll_val C LLC α (typ_var Tv) (val_struct (typ_var Tv) s) (concat s').
 
 
 (* ---------------------------------------------------------------------- *)
@@ -231,9 +216,6 @@ Inductive typing_val (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) : val -> typ -> P
   | typing_val_abstract_ptr : forall l π T,
       read_phi C φ l π T ->
       typing_val C LLC φ (val_abstract_ptr l π) (typ_ptr T)
-  | typing_val_concrete_ptr : forall l o T,
-      read_ll_phi C LLC φ l o T ->
-      typing_val C LLC φ (val_concrete_ptr l o) (typ_ptr T)
   | typing_val_struct : forall Ts vfs Tfs,
       typing_struct C Ts Tfs ->
       dom Tfs = dom vfs ->
@@ -326,20 +308,6 @@ Inductive typing (LLC:ll_typdefctx) : env -> trm -> typ -> Prop :=
       typing LLC E t1 (typ_array T os) ->
       typing LLC E t2 typ_int ->
       typing LLC E (trm_app (prim_array_get Ta) (t1::t2::nil)) T
-  (* Low-level operations *)
-  | typing_ll_get : forall E t1 T,
-      typing LLC E t1 (typ_ptr T) ->
-      typing LLC E (trm_app (prim_ll_get T) (t1::nil)) T
-  | typing_ll_set : forall E t1 t2 T,
-      typing LLC E t1 (typ_ptr T) ->
-      typing LLC E t2 T ->
-      typing LLC E (trm_app (prim_ll_set T) (t1::t2::nil)) T
-  | typing_ll_new : forall E T,
-      typing LLC E (trm_app (prim_ll_new T) (nil)) (typ_ptr T)
-  | typing_ll_access : forall E t1 t2 T,
-      typing LLC E t1 (typ_ptr T) ->
-      typing LLC E t2 typ_int ->
-      typing LLC E (trm_app (prim_ll_access T) (t1::t2::nil)) T
   (* Other language constructs *)
   | typing_if : forall E t0 t1 t2 T,
       typing LLC E t0 typ_bool ->
@@ -366,29 +334,6 @@ Definition stack_typing (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (Γ:gamma) (S:
     Ctx.lookup x S = Some v ->
     Ctx.lookup x Γ = Some T ->
     typing_val C LLC φ v T.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Low-level results regarding types and the transformation. *)
-
-Lemma typ_size_words_length : forall C LLC T v ws n,
-  typ_size (typvar_sizes LLC) T n ->
-  tr_ll_val C LLC T v ws ->
-  length ws = n.
-Proof.
-  introv Hs Htr. gen C v ws. induction Hs; intros; 
-  try solve [ inverts Htr ; rew_list* ].
-  { inverts Htr as Htr. induction Htr.
-    { rew_list*. math. }
-    { rew_list*. rewrite Z.mul_add_distr_l.
-      rewrite concat_cons.
-      rewrite length_app.
-      rewrite IHHtr.
-      applys~ Zplus_eq_compat.
-      rewrite Z.mul_1_r.
-      applys* IHHs. } }
-  { admit. (*TODO: Quite technical. *) }
-Qed.
 
 
 (* ---------------------------------------------------------------------- *)

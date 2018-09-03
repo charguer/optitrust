@@ -9,7 +9,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Semantics LibSet LibMap LibList TLCbuffer Typing.
+Require Export Semantics.
 
 (* ********************************************************************** *)
 (* * Definition of the transformation *)
@@ -73,6 +73,21 @@ Inductive tr_stack (C:typdefctx) (LLC:ll_typdefctx) : stack -> stack -> Prop :=
       LibList.Forall2 (tr_stack_item C LLC) S S' ->
       tr_stack C LLC S S'.
 
+Lemma stack_lookup_tr : forall C LLC S S' x v,
+  tr_stack C LLC S S' ->
+  Ctx.lookup x S = Some v -> 
+    exists v', 
+       Ctx.lookup x S' = Some v' 
+    /\ tr_val C LLC v v'.
+Proof.
+  introv HS Hx. inverts HS as HS. induction HS.
+  { inverts Hx. }
+  { inverts H as Hv. inverts Hx as Hx. case_if in Hx.
+    { inverts Hx. exists v'. splits*. unfolds. case_if*. }
+    { forwards (v''&Hx'&Hv''): IHHS Hx. exists v''.
+      splits*. unfolds. case_if. fold Ctx.lookup. auto. } }
+Qed.
+
 (** Transformation of terms: t ~ |t| *)
 
 Inductive tr_trm (C:typdefctx) (LLC:ll_typdefctx) : trm -> trm -> Prop :=
@@ -128,6 +143,11 @@ Inductive tr_trm (C:typdefctx) (LLC:ll_typdefctx) : trm -> trm -> Prop :=
       tr_trm C LLC t2 t2' ->
       tr_trm C LLC (trm_app (prim_array_get T) (t1::t2::nil)) (trm_app (prim_array_get T) (t1'::t2'::nil)).
 
+(* ---------------------------------------------------------------------- *)
+(** Correctness of the transformation *)
+
+Hint Constructors red.
+
 Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
   red C LLC S m1 t m2 v ->
   ll_typdefctx_ok C LLC ->
@@ -135,13 +155,26 @@ Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
   tr_stack C LLC S S' ->
   tr_state C LLC φ m1 m1' ->
   state_typing C LLC φ m1 ->
-  exists m2' v',
-      tr_val C LLC v v'
-  /\  tr_state C LLC φ m2 m2'
+  exists v' m2' φ',
+      extends φ φ' ->
+  /\  tr_state C LLC φ' m2 m2'
+  /\  tr_val C LLC v v'
   /\  red C LLC S' m1' t' m2' v'.
 Proof.
-  introv HR Hok Ht HS Hm1 Hφ. gen φ t' S' m1'. induction HR; intros. 
-  20:{ exists m1' val_error. inverts Ht. }
+  introv HR Hok Ht HS Hm1 Hφ. gen φ t' S' m1'. induction HR; intros.
+  { (* val *)
+    inverts Ht. exists* v' m1'. }
+  { (* var *)
+    inverts Ht. forwards~ (v'&HCl&Htr): stack_lookup_tr HS H.
+    exists* v' m1'. }
+  { (* if *)
+    inverts Ht as Hb HTrue HFalse.
+    forwards* (v'&m2'&Hv'&Hm2'&HR3): IHHR1 Hb HS Hm1.
+    inverts* Hv'.
+    destruct b;
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'.
+    { admit. (* use type soundness. *) }
+    exists* vr' m3'. }
 Admitted.
 
 
