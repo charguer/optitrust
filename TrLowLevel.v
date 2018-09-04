@@ -443,15 +443,15 @@ Proof.
   { admit. }
 Qed.
 
-(* Relationship between size of types and the translation
-   of values. *)
+(* Relationship between size of types and the translation of values. *)
 
 Lemma typ_size_length_lw : forall C α v LLC T lw n,
+  ll_typdefctx_ok C LLC ->
   tr_ll_val C LLC α T v lw ->
   typ_size (typvar_sizes LLC) T n ->
   length lw = n.
 Proof.
-  introv Htr Hn. gen C α v lw. induction Hn; intros; 
+  introv HLLC Htr Hn. gen C α v lw. induction Hn; intros; 
   try solve [ inverts Htr; repeat rewrite length_cons; 
   rewrite length_nil ; math ].
   { inverts Htr as Htr. gen n. induction Htr; intros.
@@ -460,7 +460,10 @@ Proof.
       rewrite length_cons. forwards* Heq1: IHHn. rewrite Heq1.
       forwards* Heq2: IHHtr. rewrite Heq2. rewrite Z.mul_add_distr_l.
       math. } }
-  { admit. }
+  { inverts Htr as HTv1 HTv2 HTfs Hls' Htr. admit.
+    (* TODO: technical and ll_typdefctx_ok is not properly defined
+    to make this case work. It should be defined in a way that makes
+    this case true, of course. *) }
 Qed.
 
 (* Connection between unininitialized values and
@@ -486,12 +489,17 @@ Proof.
     applys~ Hnu.
     constructors.
     gen k.
-    inversion H0; intros; 
+    inversion H0; intros.
     { subst. rewrite concat_nil in *.
       rewrite index_eq_index_length in Hi.
       rewrite length_nil in Hi.
       inverts Hi. math. }
-    { subst. } }
+    { subst. admit.
+      (* TODO: Combine size preservation results and probably
+      existence somehow. Or reconsider definition of tr_ll_val
+      for arrays. *) } }
+  { inverts HN as (Hi&Hx). admit.
+    (* TODO: Similar problem as previous case. *) }
 Qed.
 
 Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',
@@ -527,10 +535,14 @@ Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
 
 (* The theorem *)
 
-Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
+(* TODO: There are a few problems with the typing assumption.
+   But they should be dealt with in a similar way as those same problems
+   in type soundness. *)
+
+Theorem red_tr : forall m2 t T Γ m1 φ S LLC v C S' m1' t',
   red C LLC S m1 t m2 v ->
-  (* Typing assumtions *)
-  typing LLC (make_env C Γ φ) t T ->
+  (* Typing assumtions. TODO: More needed. *)
+  typing LLC (make_env C φ Γ) t T ->
   (* Not error. TODO: Remove, this comes from typing. *)
   ~ is_error v ->
   (* The transformation. *)
@@ -544,7 +556,7 @@ Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
   /\  tr_val C LLC α v v'
   /\  red C LLC S' m1' t' m2' v'.
 Proof.
-  introv HR He Hok Ht HS Hm1. gen φ t' S' m1'. induction HR; intros;
+  introv HR HT He Hok Ht HS Hm1. gen φ T t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ];
   try solve [ inverts Ht ].
   { (* val *)
@@ -554,10 +566,11 @@ Proof.
     exists* v' m1' φ. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse.
+    inverts HT as HT0 HT1 HT2.
     forwards* (v'&m2'&φ'&Hφ'&Hm2'&Hv'&HR3): IHHR1 Hb HS Hm1.
     inverts* Hv'.
     destruct b;
-    forwards* (vr'&m3'&φ''&Hφ''&Hvr'&Hm3'&HR4): IHHR2 HS Hm2';
+    forwards* (vr'&m3'&φ''&Hφ''&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'.
     exists* vr' m3' φ''. }
   { (* let *) 
     inverts Ht as Ht0 Ht1.
