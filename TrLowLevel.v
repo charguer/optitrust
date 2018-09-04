@@ -260,18 +260,39 @@ Proof.
   { admit. }
 Qed.
 
-(* FALSE. *)
+(* Very important lemma. Commented below is the failed attempt to prove lemmas
+   to prove this result. *)
 
-Lemma read_phi_length_accesses : forall C T T' π1 π2,
+Lemma follow_typ_ll_accesses_inj : forall C LLC T T' o1 o2 π1 π2,
   follow_typ C T π1 T' ->
   follow_typ C T π2 T' ->
-  length π1 = length π2.
+  tr_ll_accesses C LLC π1 o1 ->
+  tr_ll_accesses C LLC π2 o2 ->
+  o1 = o2 ->
+    π1 = π2.
 Proof.
-Admitted.
+  introv Hπ1 Hπ2 Ho1 Ho2 Heq. subst. gen π2 o2 LLC.
+  induction Hπ1; intros.
+  { admit. }
+  { admit. }
+  { admit. }
+Qed.
+
+Lemma follow_typ_ll_accesses_inj_cp : forall C LLC T T' o1 o2 π1 π2,
+  follow_typ C T π1 T' ->
+  follow_typ C T π2 T' ->
+  tr_ll_accesses C LLC π1 o1 ->
+  tr_ll_accesses C LLC π2 o2 ->
+    π1 <> π2 ->
+  o1 <> o2.
+Proof.
+  introv Hπ1 Hπ2 Ho1 Ho2 Hneq HN. applys~ Hneq.
+  applys* follow_typ_ll_accesses_inj.
+Qed.
 
 (* TODO: Move these to typing? *)
 
-Lemma wf_typ_array_neq : forall C T os,
+(*Lemma wf_typ_array_neq : forall C T os,
   wf_typ C T ->
   T <> typ_array T os.
 Proof.
@@ -318,19 +339,68 @@ Qed.
 
 Lemma typing_follow_typ_one_way : forall π C T T' os,
   wf_typdefctx C ->
+  wf_typ C T ->
   wf_typ C T' ->
-  follow_typ C T π T' ->
+  follow_typ C T' π T ->
   ~ typing_array C T T' os.
 Proof.
-  (*introv HwfC HwfT' Hπ HN. gen T os. induction HwfT'; intros;
-  try solve [ inverts Hπ; inverts_head typing_array; inverts_head typing_struct ].
-  { inverts Hπ. 
-    { forwards*: wf_typ_array_not_rec HN. constructors~. }
-    { inverts H. applys IHHwfT'.
-      {  } } }
-  { inverts H.
-    { inverts HN. } }*) admit.
+  introv HwfC HwfT HwfT' Hπ HN. induction Hπ.
+  { applys* wf_typ_array_not_rec. }
+  { admit. }
+  { admit. }
 Qed.
+
+Lemma typing_array_invalid_cycle : forall C Ta T os1 π T' os2,
+  wf_typ C Ta ->
+  wf_typ C T' ->
+  typing_array C Ta T os1 ->
+  typing_array C T' Ta os2 ->
+  ~ follow_typ C T π T'.
+Proof.
+  introv HwfTa HwfT' HTa HT' Hπ. gen os1 os2 Ta.
+  induction Hπ; intros.
+  { admit. }
+  { admit. }
+  { admit. }
+Qed.
+
+(*
+Inductive typ_contains (C:typdefctx) : typ -> typ -> Prop :=
+  | typ_contains_array : forall os T T',
+      typing_array C T T' os ->
+      typ_contains C T T'
+  | typ_contains_struct : forall T Tfs f,
+      typing_struct C T Tfs ->
+      f \indom Tfs ->
+      typ_contains C T Tfs[f]
+  | typ_contains_accesses : forall T T',
+      (exists π, follow_typ C T π T') ->
+      typ_contains C T T'.
+*)
+
+
+Lemma typing_array_invalid_two_cylce : forall os1 C T Ta os2,
+  typing_array C Ta T os1
+  ~ typing_array C T Ta os2.
+Proof.
+Admitted.
+
+Lemma wf_typ_follow_accesses : forall C T π,
+  wf_typdefctx C ->
+  wf_typ C T ->
+  wf_accesses C π ->
+  follow_typ C T π T ->
+    π = nil.
+Proof.
+  introv HwfC HwfT Hwfπ Hπ. gen T. induction Hwfπ; intros.
+  { auto. }
+  { inverts Hπ as HTa Hπ.
+    forwards~ HwfT1: wf_typing_array HTa HwfT.
+    forwards*: typing_follow_typ_one_way HwfC HwfT1 Hπ HTa. }
+  { inverts Hπ as HTs Hfin Hπ. admit. }
+Qed.*)
+
+
 
 (* FALSE. Contrapositive of the previous statement. *)
 

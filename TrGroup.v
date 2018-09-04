@@ -472,13 +472,27 @@ Proof.
   try solve [ subst ; inverts HN ]. 
 Qed.
 
+Hint Constructors is_uninitialized.
+
 Lemma not_is_uninitialized_tr : forall gt v v',
   tr_val gt v v' -> 
   ~ is_uninitialized v ->
   ~ is_uninitialized v'.
 Proof.
-  introv Htr Hu. induction Htr; introv HN;
-  subst; inverts HN. forwards~: Hu.
+  introv Htr Hu HN. induction Htr; subst; inverts HN as.
+  { applys* Hu. }
+  { introv (i&Hi&Ha'i).
+    asserts: (index a i).
+    { rewrite index_eq_index_length in *. rewrite~ H. }
+    applys* H1. }
+  { introv (f&Hfin&Hs'f). tests: (f=fg).
+    { rewrite H8 in Hs'f. inverts Hs'f as (f'&Hf'&Hsgf').
+      applys* H5. introv HN. applys~ Hu. constructors.
+      exists f'. splits~. rew_set in *. intuition. }
+    { rewrite H2 in Hfin. rew_set in Hfin. inverts~ Hfin.
+      inverts H. applys* H7. } }
+  { introv (f&Hfin&Hs'f). rewrite <- H1 in Hfin. applys~ H3 f.
+    introv HN. applys~ Hu. constructors. exists* f. }
 Qed.
 
 

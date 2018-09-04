@@ -249,11 +249,15 @@ Definition is_error (v:val) :=
   | _ => False
   end.
 
-Definition is_uninitialized (v:val) :=
-  match v with
-  | val_uninitialized => True
-  | _ => False
-  end.
+Inductive is_uninitialized : val -> Prop :=
+  | is_uninitialized_val_uninitialized :
+      is_uninitialized val_uninitialized
+  | is_uninitialized_array : forall T a,
+      (exists i, index a i /\ is_uninitialized a[i]) ->
+      is_uninitialized (val_array T a)
+  | is_uninitialized_struct : forall T s,
+      (exists f, f \indom s /\ is_uninitialized s[f]) ->
+      is_uninitialized (val_struct T s).
 
 Definition is_undef (v:val) :=
   match v with
