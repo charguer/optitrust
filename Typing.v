@@ -410,6 +410,8 @@ Lemma wf_typing_array_inv : forall T os C Ta,
   wf_typ C Ta.
 Proof.
   introv HTa HT. induction HTa; constructors~.
+  inverts HT; 
+  try solve [ introv HN ; tryfalse ; inverts HN ].
 Qed.
 
 Lemma wf_typing_struct_inv : forall Tfs C Ts,

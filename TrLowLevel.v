@@ -243,19 +243,48 @@ Qed.
 
 (* FALSE. And tr_val is also injective. At least for sure for basic values. *)
 
-Lemma tr_val_inj : forall C LLC α v v1 v2,
-  is_basic v1 ->
-  is_basic v2 ->
+Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
+  typing_val C LLC φ v1 T ->
+  typing_val C LLC φ v2 T ->
   tr_val C LLC α v1 v ->
   tr_val C LLC α v2 v ->
   v1 = v2.
 Proof.
-  introv Hbv1 Hbv2 Hv1 Hv2. gen v2. induction Hv1; intros;
+  introv HTv1 HTv2 Hv1 Hv2. gen v2. induction Hv1; intros;
   try solve [ inverts~ Hbv1 ];
   try solve [ inverts~ Hv2 ].
   { inverts Hv2 as Hπ Hα. tests: (l = l1).
-    { admit. }
+    { inverts HTv1. admit. }
     { admit. (* Find contradiction because alpha is always a bijection. *) } }
+  { admit. }
+  { admit. }
+Qed.
+
+Lemma read_phi_length_accesses : forall C T T' π1 π2,
+  follow_typ C T π1 T' ->
+  follow_typ C T π2 T' ->
+  length π1 = length π2.
+Proof.
+  introv Hπ1 Hπ2. gen π2. induction Hπ1; intros.
+  skip. skip. skip.
+Qed.
+
+Lemma wf_typ_not_rec : forall C T os,
+  wf_typ C T ->
+  T <> typ_array T os.
+Proof.
+  introv Hwf HN. rewrite HN in Hwf. inverts Hwf.
+Qed.
+
+Lemma typing_follow_typ_one_way : forall os C T' T,
+  typing_array C T T' os ->
+  ~ (exists π, follow_typ C T' π T).
+Proof.
+  introv HTa (π&HN). gen π. induction HTa; intros.
+  { inverts HN.
+    { inverts H; inverts H2. }
+    {  }
+    {  } }
 Qed.
 
 (* FALSE. Contrapositive of the previous statement. *)
@@ -284,20 +313,7 @@ Proof.
   applys~ Forall2_cons. constructors~.
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Correctness of the transformation *)
-
-(* Hints *)
-
-Hint Constructors red.
-Hint Constructors tr_val.
-
-Hint Resolve refl_extends.
-Hint Resolve trans_extends.
-
-Hint Extern 1 (~ is_error ?v) => applys not_is_error_tr.
-Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
+(*  *)
 
 Lemma typ_size_total : forall C LLC T,
   ll_typdefctx_ok C LLC ->
@@ -338,11 +354,30 @@ Proof.
   
 Admitted.
 
+
+(* ---------------------------------------------------------------------- *)
+(** Correctness of the transformation *)
+
+(* Hints *)
+
+Hint Constructors red.
+Hint Constructors tr_val.
+
+Hint Resolve refl_extends.
+Hint Resolve trans_extends.
+
+Hint Extern 1 (~ is_error ?v) => applys not_is_error_tr.
+Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
+
 (* The theorem *)
 
 Theorem red_tr : forall m2 t m1 φ S LLC v C S' m1' t',
   red C LLC S m1 t m2 v ->
+  (* Typing assumtions *)
+  typing LLC (make_env C Γ φ) t T ->
+  (* Not error. TODO: Remove, this comes from typing. *)
   ~ is_error v ->
+  (* The transformation. *)
   ll_typdefctx_ok C LLC ->
   tr_trm C LLC α t t' ->
   tr_stack C LLC α S S' ->
