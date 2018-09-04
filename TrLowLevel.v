@@ -413,7 +413,7 @@ Lemma tr_val_inj_cp : forall C LLC α v1 v2 v1' v2',
   v1' <> v2'.
 Proof.
   introv Hbv1 Hbv2 Hv1 Hv2 Hneq HN. subst.
-  forwards*: tr_val_inj Hbv1 Hbv2 Hv1 Hv2.
+  admit. (*forwards*: tr_val_inj Hbv1 Hbv2 Hv1 Hv2.*)
 Qed.
 
 (* For the [let] case. *)
@@ -428,7 +428,7 @@ Proof.
   applys~ Forall2_cons. constructors~.
 Qed.
 
-(*  *)
+(* The typ_size function Type -> nat is well-defined. *)
 
 Lemma typ_size_total : forall C LLC T,
   ll_typdefctx_ok C LLC ->
@@ -443,15 +443,56 @@ Proof.
   { admit. }
 Qed.
 
-(* Note: rn it holds trivially because tr_val is not defined on
-   undef. Also, it is necessary to change is_uninitialised to look
-   for uninitialised values inside the value. *)
-Lemma not_is_undef : forall C LLC α v v',
-  tr_val C LLC α v v' ->
-  ~ is_uninitialised v ->
-  ~ is_undef v'.
+(* Relationship between size of types and the translation
+   of values. *)
+
+Lemma typ_size_length_lw : forall C α v LLC T lw n,
+  tr_ll_val C LLC α T v lw ->
+  typ_size (typvar_sizes LLC) T n ->
+  length lw = n.
 Proof.
-Admitted.
+  introv Htr Hn. gen C α v lw. induction Hn; intros; 
+  try solve [ inverts Htr; repeat rewrite length_cons; 
+  rewrite length_nil ; math ].
+  { inverts Htr as Htr. gen n. induction Htr; intros.
+    { rewrite concat_nil. repeat rewrite length_nil in *. math. }
+    { rewrite concat_cons. rewrite length_app.
+      rewrite length_cons. forwards* Heq1: IHHn. rewrite Heq1.
+      forwards* Heq2: IHHtr. rewrite Heq2. rewrite Z.mul_add_distr_l.
+      math. } }
+  { admit. }
+Qed.
+
+(* Connection between unininitialized values and
+   undefined lists of words. *)
+
+Lemma not_is_undef : forall C LLC α T v lw,
+  tr_ll_val C LLC α T v lw ->
+  ~ is_uninitialized v ->
+  ~ is_undef (val_words lw).
+Proof.
+  introv Htr Hnu HN. induction Htr;
+  try solve [ inverts HN as (Hi&Hx); rew_array in Hx;
+  case_if in Hx; rewrite index_eq_index_length in Hi;
+  rewrite length_one in Hi; inverts Hi; math ].
+  { inverts HN as (Hi&Hx).
+    rew_array in Hx.
+    repeat case_if in Hx.
+    rewrite index_eq_index_length in Hi.
+    repeat rewrite length_cons in Hi.
+    rewrite length_nil in Hi.
+    inverts Hi. math. }
+  { inverts HN as (Hi&Hx).
+    applys~ Hnu.
+    constructors.
+    gen k.
+    inversion H0; intros; 
+    { subst. rewrite concat_nil in *.
+      rewrite index_eq_index_length in Hi.
+      rewrite length_nil in Hi.
+      inverts Hi. math. }
+    { subst. } }
+Qed.
 
 Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',
   typing_val C LLC φ m[l] T ->
