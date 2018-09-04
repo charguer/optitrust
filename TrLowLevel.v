@@ -231,7 +231,7 @@ Proof.
     forwards~: functional_tr_ll_accesses H Hπ. subst~. }
 Qed.
 
-(* FALSE. The relation tr_ll_accesses is injective. *)
+(* FALSE? The relation tr_ll_accesses is injective. *)
 
 Lemma tr_ll_accesses_inj : forall C LLC π1 π2 o,
   tr_ll_accesses C LLC π1 o ->
@@ -241,7 +241,7 @@ Proof.
   admit.
 Qed.
 
-(* FALSE. And tr_val is also injective. At least for sure for basic values. *)
+(* FALSE? And tr_val is also injective. At least for sure for basic values. *)
 
 Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
   typing_val C LLC φ v1 T ->
@@ -260,31 +260,76 @@ Proof.
   { admit. }
 Qed.
 
+(* FALSE. *)
+
 Lemma read_phi_length_accesses : forall C T T' π1 π2,
   follow_typ C T π1 T' ->
   follow_typ C T π2 T' ->
   length π1 = length π2.
 Proof.
-  introv Hπ1 Hπ2. gen π2. induction Hπ1; intros.
-  skip. skip. skip.
-Qed.
+Admitted.
 
-Lemma wf_typ_not_rec : forall C T os,
+(* TODO: Move these to typing? *)
+
+Lemma wf_typ_array_neq : forall C T os,
   wf_typ C T ->
   T <> typ_array T os.
 Proof.
-  introv Hwf HN. rewrite HN in Hwf. inverts Hwf.
+  introv Hwf HN. gen os. induction Hwf; intros;
+  try solve [ inverts HN ].
+  { inverts HN. applys* IHHwf. }
 Qed.
 
-Lemma typing_follow_typ_one_way : forall os C T' T,
-  typing_array C T T' os ->
-  ~ (exists π, follow_typ C T' π T).
+Lemma wf_typdefctx_array_neq : forall C Tv os,
+  wf_typdefctx C ->
+  Tv \indom C ->
+  C[Tv] <> typ_array (typ_var Tv) os.
 Proof.
-  introv HTa (π&HN). gen π. induction HTa; intros.
-  { inverts HN.
-    { inverts H; inverts H2. }
-    {  }
-    {  } }
+  introv Hwf HTvin HN. unfolds wf_typdefctx.
+  applys* Hwf. rewrite HN. repeat constructors~.
+Qed.
+
+Lemma wf_typvar_array_free : forall C Tv T os,
+  wf_typdefctx C ->
+  wf_typ C T ->
+  Tv \indom C ->
+  typing_array C T (typ_var Tv) os ->
+  free_typvar C Tv T.
+Proof.
+  introv HwfC HwfTv HTvin HTa. gen Tv os. induction HwfTv; intros;
+  try solve [ inverts HTa ].
+  { constructors. inverts HTa. constructors~. }
+  { tests: (Tv=Tv0); constructors~. inverts HTa.
+    applys* IHHwfTv. }
+Qed.
+
+Lemma wf_typ_array_not_rec : forall C T os,
+  wf_typdefctx C ->
+  wf_typ C T ->
+  ~ typing_array C T T os.
+Proof.
+  introv HwfC HwfT HN. gen os. induction HwfT; intros;
+  try solve [ inverts HN ].
+  { inverts HN as Hwfa Heq. inverts Hwfa.
+    applys* wf_typ_array_neq. }
+  { inverts HN as HTvin HTa. unfolds wf_typdefctx. 
+    applys* HwfC. applys* wf_typvar_array_free. }
+Qed.
+
+Lemma typing_follow_typ_one_way : forall π C T T' os,
+  wf_typdefctx C ->
+  wf_typ C T' ->
+  follow_typ C T π T' ->
+  ~ typing_array C T T' os.
+Proof.
+  (*introv HwfC HwfT' Hπ HN. gen T os. induction HwfT'; intros;
+  try solve [ inverts Hπ; inverts_head typing_array; inverts_head typing_struct ].
+  { inverts Hπ. 
+    { forwards*: wf_typ_array_not_rec HN. constructors~. }
+    { inverts H. applys IHHwfT'.
+      {  } } }
+  { inverts H.
+    { inverts HN. } }*) admit.
 Qed.
 
 (* FALSE. Contrapositive of the previous statement. *)

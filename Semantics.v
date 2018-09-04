@@ -613,8 +613,11 @@ Proof.
     subst. splits.
     { unfolds wf_state. introv Hl0. rew_reads; intros; subst.
       { forwards* HV: wf_uninitialized H4.
-        { constructors~. }
-        inverts HV as HV HVai. repeat constructors~. }
+        { constructors~. inverts_head wf_typ;
+          try solve [ introv HN ; tryfalse ; inverts HN ]. }
+        inverts HV as HV HVai. repeat constructors~.
+        inverts HV as Hneq HVT. inverts HVT;
+        try solve [ introv HN ; tryfalse ; inverts HN ]. }
       { applys~ Hm1. applys* indom_update_inv_neq l l0. } }
     { repeat constructors*. } }
   { (* struct_access *)
