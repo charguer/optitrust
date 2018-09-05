@@ -152,8 +152,6 @@ Proof.
   rewrite~ residual_div in Heq'.
 Qed.
 
-End DivModResults.
-
 Definition nb_tiles (K I J:int) : Prop :=
   J = (I / K + If (I mod K = 0) then 0 else 1)%Z.
 
@@ -163,15 +161,18 @@ Definition tiled_indices (I J K i j k:int) : Prop :=
   /\  index J j
   /\  index K k.
 
-(*tile_indices -> index I i
-Hint REsolve *)
-
-Lemma tiled_indices_intro : forall I J K i j k,
+Lemma tiled_indices_i : forall I J K i,
   nb_tiles K I J ->
   index I i ->
-  j = i / K ->
-  k = i mod K ->
-  tiled_indices I J K i j k.
+  tiled_indices I J K i (i / K) (i mod K).
+Proof.
+Admitted.
+
+Lemma tiled_indices_jk : forall I J K j k,
+  nb_tiles K I J ->
+  index J j ->
+  index K k ->
+  tiled_indices I J K (j * K + k) j k.
 Proof.
 Admitted.
 
@@ -181,6 +182,8 @@ Lemma tiled_index_range : forall k K i I j J,
   index K k.
 Proof.
 Admitted.
+
+End DivModResults.
 
 
 (* ********************************************************************** *)
@@ -242,21 +245,21 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
   | tr_val_abstract_ptr : forall l π π',
       tr_accesses tt π π' ->
       tr_val tt (val_abstract_ptr l π) (val_abstract_ptr l π')
-  | tr_val_array_tiling : forall K I J Tt Ta a a',
+  | tr_val_array_tiling : forall K I J Tt Ta aI aJ,
       tt = make_tiling_tr Ta Tt K ->
       nb_tiles K I J ->
-      length a = I ->
-      length a' = J ->
+      length aI = I ->
+      length aJ = J ->
       (forall j,
-        index a' j ->
-        exists a'',
-            a'[j] = (val_array (typ_var Tt) a'')
-        /\  length a'' = K) ->
-      (forall i j k a'',
+        index aJ j ->
+        exists aK,
+            aJ[j] = (val_array (typ_var Tt) aK)
+        /\  length aK = K) ->
+      (forall i j k aK,
         tiled_indices I J K i j k ->
-        a'[j] = (val_array (typ_var Tt) a'') ->
-        tr_val tt a[i] a''[k]) ->
-      tr_val tt (val_array (typ_var Ta) a) (val_array (typ_var Ta) a')
+        aJ[j] = (val_array (typ_var Tt) aK) ->
+        tr_val tt aI[i] aK[k]) ->
+      tr_val tt (val_array (typ_var Ta) aI) (val_array (typ_var Ta) aJ)
   | tr_val_array_other : forall T a a',
       T <> typ_var (tiling_tr_array_name tt) ->
       length a = length a' ->
@@ -366,6 +369,64 @@ Inductive tr_state (tt:tiling_tr) : state -> state -> Prop :=
 
 
 (* ********************************************************************** *)
+(* * Hints and tactics *)
+
+Hint Constructors red redbinop.
+Hint Constructors read_accesses write_accesses.
+Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
+Hint Constructors wf_trm wf_prim wf_val.
+
+Hint Resolve wf_red.
+
+Ltac rew_index_length_val_goal :=
+  repeat match goal with
+    Hl: length ?a = ?n
+    |- index (length ?a) ?i =>
+      rewrite Hl; clear Hl end.
+
+Ltac rew_index_length_val_hyp :=
+  repeat match goal with
+    Hl: length ?a = ?n,
+    Hi: index (length ?a) ?i
+    |- ?G =>
+      rewrite Hl in Hi end.
+
+Ltac rew_index_length_val :=
+  rew_index_length_val_goal;
+  rew_index_length_val_hyp.
+
+Hint Rewrite length_update index_eq_index_length : rew_int.
+
+Ltac solve_index :=
+  unfolds nb_tiles;
+  rew_index_length_val;
+  rew_int in *;
+  try solve [ congruence ];
+  first [ applys index_div | applys index_mod ].
+
+Hint Extern 1 (index ?a (?i mod ?k)%Z) => 
+  rew_index_length_val;
+  solve_index.
+
+Hint Extern 1 (index ?a (?i/?k)%Z) => 
+  rew_index_length_val;
+  solve_index.
+
+Hint Extern 1 (index ?a ?i) => 
+  rew_index_length_val;
+  solve_index.
+
+Hint Extern 1 (length ?a[?i:=?v] = ?l) =>
+  rewrite length_update.
+
+Hint Extern 1 (tiled_indices ?I ?J ?K ?i (?i / ?K) (?i mod ?K)) =>
+  apply tiled_indices_i.
+
+Hint Extern 1 (tiled_indices ?I ?J ?K (?j * ?K + ?k) ?j ?k) =>
+  apply tiled_indices_jk.
+
+
+(* ********************************************************************** *)
 (* * Preservation of semantics proof. *)
 
 Lemma stack_lookup_tr : forall tt S S' x v,
@@ -411,18 +472,6 @@ Proof.
   destruct* v2. inverts Hv.
 Qed.
 
-
-(* Definition preserves_is_val R := forall t1 t2
-  R t1 t2 ->
-  ~ is_val t1 ->
-  ~ is_val t2.
-
-Lemma tr_preserves_is_val : forall R,  
-  R = tr_trm t \/ R = tr_tiling gt ->
-  preserves_is_val R.
-
- *)
-
 Lemma not_is_val_tr_access : forall tt pr t1 t2 tlt,
   tr_prim tt pr t1 t2 tlt ->
   ~ is_val tlt.
@@ -451,15 +500,6 @@ Proof.
   try solve [ subst ; inverts HN ].
 Qed.
 
-Lemma not_is_uninitialized_tr : forall tt v v',
-  tr_val tt v v' -> 
-  ~ is_uninitialized v ->
-  ~ is_uninitialized v'.
-Proof.
-  introv Htr Hu. induction Htr; introv HN;
-  subst; inverts HN. forwards~: Hu.
-Qed.
-
 Lemma functional_nb_tiles : forall n k m1 m2,
   nb_tiles n k m1 ->
   nb_tiles n k m2 ->
@@ -479,42 +519,40 @@ Proof.
 Qed.
 
 
-Hint Resolve TLCbuffer.index_of_index_length.
-
 Theorem functional_tr_val : forall tt v v1 v2,
   tiling_tr_tile_size tt > 0%Z ->
   tr_val tt v v1 ->
   tr_val tt v v2 ->
   v1 = v2.
 Proof using.
-  (*introv Hnz H1 H2. gen v2. induction H1; intros;
+  introv Hnz H1 H2. gen v2. induction H1; intros;
   try solve [ inverts_head tr_val; fequals*; subst; simpls; tryfalse ].
   { inverts H2 as Hπ. forwards*: functional_tr_accesses H Hπ.
     subst. fequals. }
   { (* Tiled array *)
     inverts H6 as; inverts_head make_tiling_tr'.
     { introv Hnb HE Ha''.
-      asserts Hl: (length a' = length a'0).
+      asserts Hl: (length aJ = length aJ0).
       { subst. forwards*: functional_nb_tiles H0 Hnb. }
       fequals*. applys* eq_of_extens. introv Hi.
-      asserts Hi': (index a'0 i).
+      asserts Hi': (index aJ0 i).
       { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
-      forwards* (a1''&Ha1''i&Hla1''): HE i.
-      forwards* (a2''&Ha2''i&Hla2''): H3 i.
-      rewrite Ha1''i. rewrite Ha2''i. fequals.
-      asserts Hl': (length a1'' = length a2'').
+      forwards* (aK1&HaJ0i&HlaK1): HE i.
+      forwards* (aK2&HaJi&HlaK2): H3 i.
+      rewrite HaJ0i. rewrite HaJi. fequals.
+      asserts HlK: (length aK1 = length aK2).
       { congruence. }
       applys~ eq_of_extens. introv Hi0. 
       asserts Hik: (index K0 i0).
-      { rewrite index_eq_index_length in Hi0. rewrite~ Hla2'' in Hi0. }
+      { rewrite index_eq_index_length in Hi0. rewrite~ HlaK2 in Hi0. }
       asserts Hij: (index J i).
       { rewrite index_eq_index_length in Hi. rewrite~ H2 in Hi. }
       applys* H5 (i * K0 + i0).
-      { unfolds. splits~.  }
-      applys~ Ha'' i. unfolds. splits~. }
+      { admit. (* TODO: Lemma (1) + tactic *) }
+      applys~ Ha'' i. admit. (* TODO: Lemma (1) + tactic *) }
     { simpls. introv HN. false. } }
   { (* Another array *)
-    inverts H3 as; simpls; tryfalse. 
+    inverts H3 as; simpls; tryfalse.
     introv Hneq Hl Htr. fequals. applys eq_of_extens.
     { congruence. }
     { introv Hi. asserts: (index a i).
@@ -523,8 +561,8 @@ Proof using.
   { (* Structs *)
     inverts H2 as HD Htr. fequals. applys read_extens.
     { congruence. }
-    { introv Hin. asserts_rewrite* (dom s' = dom s) in *. } }*)
-Admitted.
+    { introv Hin. asserts_rewrite* (dom s' = dom s) in *. } }
+Qed.
 
 Lemma tr_accesses_inj : forall C tt π π1 π2,
   tiling_tr_ok tt C ->
@@ -581,68 +619,34 @@ Proof.
   forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
 
+(* ********************************************************************** *)
+(* * Correctness proofs *)
+
 Section TransformationProofs.
 
-(* ********************************************************************** *)
-(* * Hints and tactics *)
 
-Hint Constructors red redbinop.
-Hint Constructors read_accesses write_accesses.
-Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
-Hint Constructors wf_trm wf_prim wf_val.
 
-Hint Resolve wf_red.
-
-Ltac rew_index_length_val_goal :=
-  repeat match goal with
-    Hl: length ?a = ?n
-    |- index (length ?a) ?i =>
-      rewrite Hl; clear Hl end.
-
-Ltac rew_index_length_val_hyp :=
-  repeat match goal with
-    Hl: length ?a = ?n,
-    Hi: index (length ?a) ?i
-    |- ?G =>
-      rewrite Hl in Hi end.
-
-Ltac rew_index_length_val :=
-  rew_index_length_val_goal;
-  rew_index_length_val_hyp.
-
-Hint Rewrite length_update index_eq_index_length : rew_int.
-
-Ltac solve_index :=
-  unfolds nb_tiles;
-  rew_index_length_val;
-  rew_int in *;
-  try solve [ congruence ];
-  first [ applys index_div
-    | applys index_mod ].
-
-(*
-Hint Extern 1 (index ?a (?i mod ?k)%Z) => 
-  rew_index_update_subst;
-  try rew_index_length_val;
-  try applys index_mod.
-
-Hint Extern 1 (index ?a (?i/?k)%Z) => 
-  rew_index_update_subst;
-  try rew_index_length_val;
-  try rew_index_length_val_hyp;
-  try applys index_div.
-
-Hint Extern 1 (index ?a ?i) => 
-  rew_index_update_subst;
-  try rew_index_length_rev.
-
-Hint Extern 1 (length ?a[?i:=?v] = ?l) =>
-  try rewrite length_update.*)
-
-(* Interesting: Z.quot_rem'. *)
-
-(* ********************************************************************** *)
-
+Lemma not_is_uninitialized_tr : forall tt v v',
+  tr_val tt v v' -> 
+  ~ is_uninitialized v ->
+  ~ is_uninitialized v'.
+Proof.
+  introv Htr Hu HN. induction Htr; subst; inverts HN as.
+  { applys* Hu. constructors. }
+  { introv (i&Hi&Hua'i).
+    asserts: (index a).
+    { rewrite index_eq_index_length in *. admit. (* TODO: Tactic *) }
+    forwards* (a''&Ha'i&Hl): H3 i.
+    forwards*: H5 i (i / K) (i mod K). }
+  { introv (f&Hfin&Hs'f). tests: (f=fg).
+    { rewrite H8 in Hs'f. inverts Hs'f as (f'&Hf'&Hsgf').
+      applys* H5. introv HN. applys~ Hu. constructors.
+      exists f'. splits~. rew_set in *. intuition. }
+    { rewrite H2 in Hfin. rew_set in Hfin. inverts~ Hfin.
+      inverts H. applys* H7. } }
+  { introv (f&Hfin&Hs'f). rewrite <- H1 in Hfin. applys~ H3 f.
+    introv HN. applys~ Hu. constructors. exists* f. }
+Qed.
 
 Lemma tr_read_accesses : forall tt v π v' π' w,
   tiling_tr_tile_size tt > 0%Z ->
