@@ -384,6 +384,71 @@ Lemma typing_array_invalid_two_cylce : forall os1 C T Ta os2,
   ~ typing_array C T Ta os2.
 Proof.
 Admitted.
+*)
+
+Lemma follow_typ_array_extended_access : forall C T Ta os i π T',
+  typing_array C Ta T' os ->
+  follow_typ C T π Ta ->
+  follow_typ C T (π ++ (access_array Ta i::nil)) T'.
+Proof.
+  introv HTa HF. gen i. induction HF; intros;
+  try solve [ rew_list ; repeat constructors* ].
+Qed.
+
+Lemma follow_typ_struct_extended_access : forall C T Ts Tfs f π,
+  typing_struct C Ts Tfs ->
+  f \indom Tfs ->
+  follow_typ C T π Ts ->
+  follow_typ C T (π ++ (access_field Ts f::nil)) Tfs[f].
+Proof.
+  introv HTs Hfin HF. gen f. induction HF; intros;
+  try solve [ rew_list ; repeat constructors* ].
+Qed.
+
+Lemma follow_typ_typvar_not_free : forall π C Tv T,
+  wf_typdefctx C ->
+  wf_typ C T ->
+  follow_typ C T π (typ_var Tv) ->
+  free_typvar C Tv T.
+Proof.
+  introv HwfC HwfT HF. gen π Tv. induction HwfT; intros; try solve [ inverts HF;
+  try inverts_head typing_array; try inverts_head typing_struct ].
+  { constructors. inverts HF as.
+    { introv HTa HF. inverts HTa. applys* IHHwfT. }
+    { introv HTs Hfin HF. inverts HTs. } }
+  { constructors. inverts HF as.
+    { introv HTa HF. inverts HTa. }
+    { introv HTs Hfin HF. inverts HTs. exists* f. } }
+  { tests: (Tv=Tv0).
+    { constructors~. }
+    { inverts HF as; tryfalse.
+      { introv HTa HF. constructors~. inverts HTa.
+        applys~ IHHwfT (access_array C[Tv] 0::π0).
+        constructors*. }
+      { introv HTs Hfin HF. constructors~. inverts HTs.
+        applys~ IHHwfT (access_field C[Tv] f::π0).
+        constructors*. } } }
+Qed.
+
+Lemma typing_array_keeps_free_var : forall T os C Tv Ta,
+  typing_array C Ta T os ->
+  free_typvar C Tv T ->
+  free_typvar C Tv Ta.
+Proof.
+  introv HTa HT. gen Tv. induction HTa; intros.
+  { constructors~. }
+  { tests: (Tv=Tv0); constructors~. }
+Qed.
+
+Lemma typing_struct_keeps_free_var : forall Ts C Tv Tfs f,
+  typing_struct C Ts Tfs ->
+  free_typvar C Tv Tfs[f] ->
+  free_typvar C Tv Ts.
+Proof.
+  introv HTs HT. gen Tv. induction HTs; intros.
+  { constructors~. }
+  { tests: (Tv=Tv0); constructors~. }
+Qed.
 
 Lemma wf_typ_follow_accesses : forall C T π,
   wf_typdefctx C ->
@@ -392,13 +457,49 @@ Lemma wf_typ_follow_accesses : forall C T π,
   follow_typ C T π T ->
     π = nil.
 Proof.
-  introv HwfC HwfT Hwfπ Hπ. gen T. induction Hwfπ; intros.
+  introv HwfC HwfT Hwfπ Hπ. gen π. induction HwfT; intros;
+  try solve [ inverts~ Hπ; inverts H ].
+  { inverts~ Hπ; inverts H0. }
+  { inverts~ Hπ.
+    { false. inverts H0. 
+      asserts HTa: (typing_array C (typ_array T0 os0) T0 os0).
+      { constructors*. } 
+      forwards* HN: follow_typ_array_extended_access i HTa H1.
+      asserts Hwfapp: (wf_accesses C (π0 & access_array (typ_array T0 os0) i)).
+      { inverts Hwfπ. applys~ wf_accesses_app. repeat constructors~. }
+      apply IHHwfT in HN. applys~ last_eq_nil_inv HN. auto. }
+    { inverts Hwfπ. inverts_head typing_struct. } }
+  { inverts~ Hπ.
+    { inverts Hwfπ. inverts_head typing_array. }
+    { false. inverts H1.
+      asserts HTs: (typing_struct C (typ_struct Tfs0) Tfs0).
+      { constructors*. }
+      forwards* HN: follow_typ_struct_extended_access HTs H2 H3.
+      asserts Hwfapp: (wf_accesses C (π0 & access_field (typ_struct Tfs0) f)).
+      { inverts Hwfπ. applys~ wf_accesses_app. repeat constructors~. }
+      apply H0 in HN. applys~ last_eq_nil_inv HN. auto. auto. } }
+  { inverts~ Hπ.
+    { false. inverts H0.
+      forwards~: wf_typing_array H4 HwfT.
+      forwards*: follow_typ_typvar_not_free H1.
+      unfolds wf_typdefctx. applys* HwfC.
+      applys* typing_array_keeps_free_var. }
+    { false. inverts H0.
+      forwards~: wf_typing_struct H5 HwfT f.
+      forwards*: follow_typ_typvar_not_free H2.
+      unfolds wf_typdefctx. applys* HwfC.
+      applys* typing_struct_keeps_free_var. } }
+
+  (*introv HwfC HwfT Hwfπ Hπ. gen T. induction Hwfπ; intros.
   { auto. }
   { inverts Hπ as HTa Hπ.
     forwards~ HwfT1: wf_typing_array HTa HwfT.
     forwards*: typing_follow_typ_one_way HwfC HwfT1 Hπ HTa. }
-  { inverts Hπ as HTs Hfin Hπ. admit. }
-Qed.*)
+  { inverts Hπ as HTs Hfin Hπ. admit. }*)
+Qed.
+
+
+
 
 
 
