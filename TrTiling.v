@@ -83,7 +83,7 @@ Axiom residual_div : forall (x i:int) (K:size),
 Axiom index_div : forall I K i:Z,
   K > 0%Z ->
   index I i ->
-  index ((I/K + if isTrue(I mod K = 0) then 0 else 1)%Z) ((i/K)%Z).
+  index ((I/K + If (I mod K = 0) then 0 else 1)%Z) ((i/K)%Z).
 
 Axiom index_mod : forall k i:Z,
   k > 0%Z ->
@@ -440,6 +440,14 @@ Hint Extern 1 (tiled_indices ?I ?J ?K ?i (?i / ?K) (?i mod ?K)) =>
 Hint Extern 1 (tiled_indices ?I ?J ?K (?j * ?K + ?k) ?j ?k) =>
   apply tiled_indices_jk; auto.
 
+Ltac inverts_Hok :=
+  match goal with 
+    Hok: tiling_tr_ok ?C ?tt
+    |- ?G =>
+      inverts Hok end.
+
+Hint Extern 1 (?K > 0%Z) => 
+  inverts_Hok; simpls*.
 
 (* ********************************************************************** *)
 (* * Preservation of semantics proof. *)
@@ -686,13 +694,15 @@ Proof.
       introv Heq Hnb Ha'' Htrv. inverts Heq.
       unfolds nb_tiles.
       forwards* (a''&Ha'i&Hla''): Ha'' ((i0/K)%Z).
+      { rewrite index_eq_index_length in *. rewrite* Hnb. }
       forwards* Hai0: Htrv i0 (i0/K)%Z (i0 mod K)%Z a''.
-      { simpls. unfolds. splits~. applys~ div_plus_mod_eq. }
       forwards* (w'&Hvw'&HR'): IHHR.
       simpls~.
       exists w'. splits~.
-      constructors~. rewrite Ha'i.
-      constructors~. }
+      constructors~. 
+      { rewrite index_eq_index_length in *. rewrite* Hnb. }
+      rewrite Ha'i. constructors~.
+      { rewrite index_eq_index_length in *. rewrite* Hla''. } }
     { (* absurd case *)
       introv Hneq Hπ. inverts Hv as.
       { intros. simpls. false. }
@@ -708,7 +718,6 @@ Proof.
     exists w'. splits~.
     constructors~. rewrite~ <- HD. }
 Qed.
-
 
 Lemma tr_write_accesses : forall tt Ta Tt K v1 w π v1' π' w' v2,
   tt = make_tiling_tr' Ta Tt K ->
@@ -729,33 +738,31 @@ Proof.
     { (* tiling *)
       introv Htt Hnb Ha'i1 Htra1 Hπ Heq.
       inverts Htt. inverts Heq. subst.
-      forwards* (a''&Ha'i&Hla''): Ha'i1 ((i0/K0)%Z).
-      forwards* Htra'': Htra1 i0 (i0/K0)%Z (i0 mod K0)%Z a''.
-      { unfolds. splits~. applys~ div_plus_mod_eq. }
+      forwards* (aK&HaJiK&HlK): Ha'i1 ((i0/K0)%Z).
+      { rewrite index_eq_index_length in *. rewrite* Hnb. }
+      forwards* HtraK: Htra1 i0 (i0/K0)%Z (i0 mod K0)%Z aK.
       forwards* (v2'&Hv2'&HW'): IHHW.
-      remember (val_array (typ_var Tt1) a''[((i0 mod K0)%Z):=v2']) as a'''.
-      exists (val_array (typ_var Ta1) a'[((i0/K0)%Z):=a''']).
-      subst_hyp Heqa'''. splits.
-      { remember a''[(i0 mod K0)%Z:=v2'] as ua''.
-        remember a'[(i0/K0)%Z:=val_array (typ_var Tt1) ua''] as ua'.
+      remember (val_array (typ_var Tt1) aK[((i0 mod K0)%Z):=v2']) as aK'.
+      exists (val_array (typ_var Ta1) aJ[((i0/K0)%Z):=aK']).
+      subst_hyp HeqaK'. splits.
+      { remember aK[(i0 mod K0)%Z:=v2'] as aK'.
+        remember aJ[(i0/K0)%Z:=val_array (typ_var Tt1) aK'] as aJ'.
         asserts Hex:
-          (forall i : int,
-            index ua' i ->
-            exists a'',
-                  ua'[i] = val_array (typ_var Tt1) a''
-               /\ length a'' = K0).
+          (forall j : int,
+            index aJ' j ->
+            exists aK,
+                  aJ'[j] = val_array (typ_var Tt1) aK
+               /\ length aK = K0).
         { subst. introv Hi. rew_reads*. }
-        subst_hyp Hequa''. subst_hyp Hequa'.
+        subst_hyp HeqaK'. subst_hyp HeqaJ'.
         applys* tr_val_array_tiling.
         introv Hi' Hup.
-        unfolds tiled_indices. destruct Hi' as (Hi&Hk&Hj).
-        forwards* (a''1&Heq&Hla''1): Hex j.
+        unfolds tiled_indices. destruct Hi' as (Hieq&Hi&Hk&Hj).
+        forwards* (aK1&Heq&HlaK1): Hex j.
         inverts Heq.
         asserts Hi''': (index a1 (j * K0 + k)%Z).
         { rewrite index_eq_index_length in *.
-          unfolds nb_tiles. rewrite Hnb in *.
-          applys* tiled_index_range.
-          unfolds. splits*. rewrite~ Hnb. }
+          unfolds nb_tiles. rewrite Hnb in *. eauto. }
         rew_reads~ in Hup.
         { introv Heq. subst. inverts Hup. rew_reads*.
           { introv Hneq Heq.
@@ -766,8 +773,11 @@ Proof.
           forwards* Htra1': Htra1.
           asserts Hneq': (j*K0+k <> i0).
           { applys~ div_quotient_neq. }
-          rew_reads~. applys* tiled_index_range. splits*. } } 
-        { constructors~. rewrite Ha'i. constructors*. } }
+          rew_reads~. } }
+        { constructors~. 
+          { rewrite index_eq_index_length in *. eauto. }
+          rewrite HaJiK. constructors*.
+          { rewrite index_eq_index_length in *. eauto. } } }
       { (* absurd case *)
         introv Hneq Hla1 Htra1i1 Hπ Heq. inverts Heq. simpls. false. }
       { (* absurd case *) 
@@ -809,8 +819,10 @@ Proof.
   { rewrite HDC'. rew_set~. }
   { tests: (Tv=Ta).
     { rewrite HC'Ta. repeat constructors~.
+      { introv HN. inverts HN. }
       { rewrite HDC'. rew_set~. }
-      { rewrite HC'Tt. constructors~. 
+      { rewrite HC'Tt. constructors~.
+        { admit. (* TODO: Hack to avoid recursive types firing back. *) }
         rewrite HCTa in IHHT.
         inverts~ IHHT. } }
     { rewrite~ HC'Tv. } }
@@ -877,7 +889,7 @@ Proof using.
       rewrite HCTa in HTCTa. inverts HTCTa.
       destruct* os; destruct* os'.
       { (* Fixed-size array. *)
-        applys uninitialized_array (Some (length a')).
+        applys uninitialized_array (Some (length aJ)).
         3:{ introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.
             rewrite Ha'i'. applys uninitialized_array (Some K).
             { constructors.
@@ -886,9 +898,8 @@ Proof using.
                 applys* tr_typdefctx_wf_typ. constructors*. } }
             { introv Heq. inverts~ Heq. }
             { introv Hi0. forwards* Htra'': Htra (i*K + i0)%Z i i0 a''.
-              { splits*. }
               applys* H2.
-              { applys* tiled_index_range. splits*. }
+              { applys* tiled_index_range_i. }
               { constructors*. }
               { constructors*. } } }
         { constructors.
@@ -898,8 +909,9 @@ Proof using.
             forwards* Heq: H0 s. rewrite Heq.
             constructors. constructors.
             { rewrite HD. rew_set~. }
-            { rewrite HC'Tt. constructors. 
-              applys* tr_typdefctx_wf_typ. constructors*. } } } 
+            { rewrite HC'Tt. constructors.
+              { introv HN. rewrite HN in H6. inverts H6. false. }
+              applys* tr_typdefctx_wf_typ. constructors*. } } }
         { introv Hn0. inverts~ Hn0. } }
       { (* Variable length array. *)
         applys uninitialized_array.
@@ -907,7 +919,8 @@ Proof using.
           { rewrite HD. rew_set~. }
           { rewrite HC'Ta. repeat constructors~.
             { rewrite HD. rew_set~. }
-            { rewrite HC'Tt. constructors~. 
+            { rewrite HC'Tt. constructors~.
+              { introv HN. rewrite HN in H6. inverts H6. false. }
               applys* tr_typdefctx_wf_typ. constructors*. } } }
         { introv HN. inverts HN. }
         { introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.
@@ -918,9 +931,8 @@ Proof using.
               applys* tr_typdefctx_wf_typ. constructors*. } }
           { introv Hn. inverts~ Hn. }
           { introv Hi0. forwards* Htra': Htra (i*K + i0)%Z i i0 a''.
-            { splits*. }
-            applys* H2. 
-            {  applys* tiled_index_range. splits*. }
+            applys* H2.
+            { applys* tiled_index_range_i. }
             { constructors*. }
             { constructors*. } } } } }
     { (* other array *)
@@ -971,6 +983,7 @@ Proof.
   exists v'. splits~. applys* tr_uninitialized_val_aux.
 Qed.
 
+
 (* ---------------------------------------------------------------------- *)
 (** Path surgery *)
 
@@ -980,21 +993,12 @@ Lemma tr_accesses_app : forall tt π1 π2 π1' π2',
   tr_accesses tt (π1 ++ π2) (π1' ++ π2').
 Proof.
   introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
-  rew_list in *; eauto. 
+  rew_list in *; eauto.
 Qed.
 
 
+(* ********************************************************************** *)
 (* Main lemma *)
-
-Ltac inverts_Hok :=
-  match goal with 
-    Hok: tiling_tr_ok ?C ?tt
-    |- ?G =>
-      inverts Hok end.
-
-Hint Extern 1 (?K > 0%Z) => 
-  inverts_Hok;
-  simpls*.
 
 Theorem red_tr: forall tt C C' t t' v S S' m1 m1' m2,
   red C S m1 t m2 v ->
