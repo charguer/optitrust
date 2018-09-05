@@ -48,10 +48,22 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
 
 
 (* ********************************************************************** *)
-(* * Results on indices. *)
+(* * Representation of indices. *)
+
+Definition nb_tiles (K I J:int) : Prop :=
+  J = (I / K + If (I mod K = 0) then 0 else 1)%Z.
+
+Definition tiled_indices (I J K i j k:int) : Prop :=
+      i = (j * K + k)%Z
+  /\  index I i
+  /\  index J j
+  /\  index K k.
 
 (** Results about division and modulo operation. *)
+
 Section DivModResults.
+
+(* Axioms. *)
 
 Axiom div_mod_eq : forall i j k:Z,
   k > 0%Z ->
@@ -59,14 +71,19 @@ Axiom div_mod_eq : forall i j k:Z,
   (i mod k)%Z = (j mod k)%Z ->
   i = j.
 
+Axiom div_plus_mod_eq : forall i k:Z,
+  k > 0%Z ->
+  i = (i/k)*k + (i mod k).
+
+Axiom residual_div : forall (x i:int) (K:size),
+  K > 0%Z ->
+  index K i ->
+  ((x * K + i) / K)%Z = x.
+
 Axiom index_div : forall I K i:Z,
   K > 0%Z ->
   index I i ->
   index ((I/K + if isTrue(I mod K = 0) then 0 else 1)%Z) ((i/K)%Z).
-
-Axiom div_plus_mod_eq : forall i k:Z,
-  k > 0%Z ->
-  i = (i/k)*k + (i mod k).
 
 Axiom index_mod : forall k i:Z,
   k > 0%Z ->
@@ -77,6 +94,8 @@ Axiom index_mul_plus : forall l k i j:Z,
   index ((l / k)%Z) i ->
   index k j ->
   index l (i * k + j)%Z.
+
+(* Numerical results. *)
 
 Lemma div_mod_enforce_mod : forall i k j:Z,
   k > 0%Z ->
@@ -118,11 +137,6 @@ Proof.
   introv Hnz Heq. rewrite Heq. apply~ div_plus_mod_eq.
 Qed.
 
-Axiom residual_div : forall (x i:int) (K:size),
-  K > 0%Z ->
-  index K i ->
-  ((x * K + i) / K)%Z = x.
-
 Lemma div_quotient_neq : forall i K j r,
   K > 0%Z ->
   (r / K)%Z <> i ->
@@ -152,14 +166,7 @@ Proof.
   rewrite~ residual_div in Heq'.
 Qed.
 
-Definition nb_tiles (K I J:int) : Prop :=
-  J = (I / K + If (I mod K = 0) then 0 else 1)%Z.
-
-Definition tiled_indices (I J K i j k:int) : Prop :=
-      i = (j * K + k)%Z
-  /\  index I i
-  /\  index J j
-  /\  index K k.
+(* Higher-level results. *)
 
 Lemma tiled_indices_i : forall I J K i,
   nb_tiles K I J ->
@@ -176,7 +183,15 @@ Lemma tiled_indices_jk : forall I J K j k,
 Proof.
 Admitted.
 
-Lemma tiled_index_range : forall k K i I j J,
+Lemma tiled_index_range_i : forall J I j K k,
+  nb_tiles K I J ->
+  index J j ->
+  index K k ->
+  index I (j * K + k).
+Proof.
+Admitted.
+
+Lemma tiled_index_range_k : forall k K i I j J,
   nb_tiles K I J ->
   tiled_indices I J K i j k ->
   index K k.
@@ -274,7 +289,6 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
         tr_val tt s[f] s'[f]) ->
       tr_val tt (val_struct T s) (val_struct T s').
 
-
 (* Transformation used in the struct cases to avoid repetition. *)
 
 (* let t = t1 in
@@ -343,7 +357,6 @@ Inductive tr_trm (tt:tiling_tr) : trm -> trm -> Prop :=
       tr_trm tt t2 t2' ->
       tr_trm tt (trm_app op (t1::t2::nil)) (trm_app op (t1'::t2'::nil)).
 
-
 (** Transformation of stacks: S ~ |S| *)
 
 Inductive tr_stack_item (tt:tiling_tr) : (var * val) -> (var * val) -> Prop :=
@@ -355,7 +368,6 @@ Inductive tr_stack (tt:tiling_tr) : stack -> stack -> Prop :=
   | tr_stack_intro : forall S S',
       LibList.Forall2 (tr_stack_item tt) S S' ->
       tr_stack tt S S'.
-
 
 (** Transformation of states: m ~ |m| *)
 
@@ -412,18 +424,21 @@ Hint Extern 1 (index ?a (?i/?k)%Z) =>
   rew_index_length_val;
   solve_index.
 
-Hint Extern 1 (index ?a ?i) => 
+Hint Extern 1 (index ?a ?i) =>
   rew_index_length_val;
   solve_index.
+
+Hint Extern 1 (index ?I (?j * ?K + ?k)) =>
+  apply tiled_index_range_i; auto.
 
 Hint Extern 1 (length ?a[?i:=?v] = ?l) =>
   rewrite length_update.
 
 Hint Extern 1 (tiled_indices ?I ?J ?K ?i (?i / ?K) (?i mod ?K)) =>
-  apply tiled_indices_i.
+  apply tiled_indices_i; auto.
 
 Hint Extern 1 (tiled_indices ?I ?J ?K (?j * ?K + ?k) ?j ?k) =>
-  apply tiled_indices_jk.
+  apply tiled_indices_jk; auto.
 
 
 (* ********************************************************************** *)
@@ -500,6 +515,33 @@ Proof.
   try solve [ subst ; inverts HN ].
 Qed.
 
+Lemma not_is_uninitialized_tr : forall tt v v',
+  tr_val tt v v' -> 
+  ~ is_uninitialized v ->
+  ~ is_uninitialized v'.
+Proof.
+  introv Htr Hu HN. induction Htr; subst; inverts HN as.
+  { applys* Hu. constructors. }
+  { introv (j&Hj&HuaJj).
+    forwards* (aK&HaJj&HlaK): H3 j.
+    rewrite HaJj in HuaJj.
+    inverts HuaJj as (k&Hk&HuaKk).
+    forwards*: H5 (j * K + k) j k.
+    introv HuaI. applys~ Hu.
+    constructors. exists (j * K + k). splits~. 
+    applys* tiled_index_range_i. }
+  { introv (i&Hi&Hua'i). asserts Hi': (index a i).
+    { rewrite index_eq_index_length in *. rewrite~ H0. }
+    applys* H2. introv Huai. applys~ Hu. constructors.
+    exists* i. }
+  { introv (f&Hfin&Hus'f). asserts Hfin': (f \indom s).
+    { rewrite~ H. }
+    applys* H1. introv Husf. applys~ Hu. constructors.
+    exists* f. }
+Qed.
+
+(* Functional results. *)
+
 Lemma functional_nb_tiles : forall n k m1 m2,
   nb_tiles n k m1 ->
   nb_tiles n k m2 ->
@@ -517,7 +559,6 @@ Proof.
   inverts_head tr_accesses; repeat fequals*;
   inverts_head access_array; subst; simpls; tryfalse.
 Qed.
-
 
 Theorem functional_tr_val : forall tt v v1 v2,
   tiling_tr_tile_size tt > 0%Z ->
@@ -547,9 +588,8 @@ Proof using.
       { rewrite index_eq_index_length in Hi0. rewrite~ HlaK2 in Hi0. }
       asserts Hij: (index J i).
       { rewrite index_eq_index_length in Hi. rewrite~ H2 in Hi. }
-      applys* H5 (i * K0 + i0).
-      { admit. (* TODO: Lemma (1) + tactic *) }
-      applys~ Ha'' i. admit. (* TODO: Lemma (1) + tactic *) }
+      applys* H5 (i * K0 + i0). eauto.
+      applys~ Ha'' i. }
     { simpls. introv HN. false. } }
   { (* Another array *)
     inverts H3 as; simpls; tryfalse.
@@ -619,34 +659,11 @@ Proof.
   forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
 
+
 (* ********************************************************************** *)
 (* * Correctness proofs *)
 
 Section TransformationProofs.
-
-
-
-Lemma not_is_uninitialized_tr : forall tt v v',
-  tr_val tt v v' -> 
-  ~ is_uninitialized v ->
-  ~ is_uninitialized v'.
-Proof.
-  introv Htr Hu HN. induction Htr; subst; inverts HN as.
-  { applys* Hu. constructors. }
-  { introv (i&Hi&Hua'i).
-    asserts: (index a).
-    { rewrite index_eq_index_length in *. admit. (* TODO: Tactic *) }
-    forwards* (a''&Ha'i&Hl): H3 i.
-    forwards*: H5 i (i / K) (i mod K). }
-  { introv (f&Hfin&Hs'f). tests: (f=fg).
-    { rewrite H8 in Hs'f. inverts Hs'f as (f'&Hf'&Hsgf').
-      applys* H5. introv HN. applys~ Hu. constructors.
-      exists f'. splits~. rew_set in *. intuition. }
-    { rewrite H2 in Hfin. rew_set in Hfin. inverts~ Hfin.
-      inverts H. applys* H7. } }
-  { introv (f&Hfin&Hs'f). rewrite <- H1 in Hfin. applys~ H3 f.
-    introv HN. applys~ Hu. constructors. exists* f. }
-Qed.
 
 Lemma tr_read_accesses : forall tt v π v' π' w,
   tiling_tr_tile_size tt > 0%Z ->
