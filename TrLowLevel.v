@@ -442,11 +442,12 @@ Qed.
 
 Lemma typing_struct_keeps_free_var : forall Ts C Tv Tfs f,
   typing_struct C Ts Tfs ->
+  f \indom Tfs ->
   free_typvar C Tv Tfs[f] ->
   free_typvar C Tv Ts.
 Proof.
-  introv HTs HT. gen Tv. induction HTs; intros.
-  { constructors~. }
+  introv HTs Hfin HT. gen Tv. induction HTs; intros.
+  { constructors. exists~ f. }
   { tests: (Tv=Tv0); constructors~. }
 Qed.
 
