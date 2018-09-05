@@ -1000,8 +1000,8 @@ Qed.
 (* ********************************************************************** *)
 (* Main lemma *)
 
-Theorem red_tr: forall tt C C' t t' v S S' m1 m1' m2,
-  red C S m1 t m2 v ->
+Theorem red_tr: forall tt C LLC C' t t' v S S' m1 m1' m2,
+  red C LLC S m1 t m2 v ->
   tiling_tr_ok tt C ->
   tr_typdefctx tt C C' ->
   tr_trm tt t t' ->
@@ -1015,7 +1015,7 @@ Theorem red_tr: forall tt C C' t t' v S S' m1 m1' m2,
   exists v' m2',
       tr_val tt v v'
   /\  tr_state tt m2 m2'
-  /\  red C' S' m1' t' m2' v'.
+  /\  red C' LLC S' m1' t' m2' v'.
 Proof.
   introv HR Hok HC Ht HS Hm1 HwfC Hwft HwfS Hwfm1.
   introv He. gen tt C' t' S' m1'.
@@ -1144,11 +1144,11 @@ Proof.
         { constructors*.
           { applys red_args_2.
             { introv HN. inverts HN. }
-            { applys~ red_binop. constructors~. inverts~ Hnz. }
+            { applys~ red_binop. constructors~. math. }
             applys~ red_array_access. }
           { applys red_args_2.
             { introv HN. inverts HN. }
-            { applys~ red_binop. constructors~. inverts~ Hnz. }
+            { applys~ red_binop. constructors~. math. }
             applys~ red_array_access. fequals. rew_list~. } } }
       { (* other array *)
         introv Hor Hneq Hpr. inverts Hor; inverts Hpr.
@@ -1182,18 +1182,19 @@ Proof.
         introv Htt Hnb Ha' Ha''.
         inverts Hvi. inverts Htt.
         forwards* (a''&Ha'i&Hla''): Ha' ((i/K0)%Z).
+        { rewrite index_eq_index_length in *. eauto. }
         forwards* Htra: Ha'' i ((i/K0)%Z) ((i mod K0)%Z) a''.
-        { unfolds. splits*. applys~ div_plus_mod_eq. }
         exists a''[(i mod K0)%Z] m1'. splits~.
         inverts Htracc as Htt. rewrite <- Hla'' in *. 
         inverts Htt. constructors*.
         { applys red_args_2.
           { introv HN. inverts HN. }
-          { applys~ red_binop. constructors~. inverts~ Hnz. }
-          applys~ red_array_get. }
+          { applys~ red_binop. constructors~. math. }
+          applys~ red_array_get.
+          { rewrite index_eq_index_length. eauto. } }
         { applys red_args_2.
           { introv HN. inverts HN. }
-          { applys~ red_binop. constructors~. inverts~ Hnz. }
+          { applys~ red_binop. constructors~. math. }
           applys* red_array_get. } }
       { (* another array *) 
         introv Hor Hneq Hpr. inverts Hor; inverts Hpr.
@@ -1207,6 +1208,14 @@ Proof.
           constructors~. } } }
     { (* absurd case *)
       introv HN. false. applys HN. unfolds~. } }
+  { (* ll_get *)
+    admit. }
+  { (* ll_set *)
+    admit. }
+  { (* ll_new *)
+    admit. }
+  { (* ll_access *)
+    admit. }
   { (* args 1 *)
     admit.
     (*inverts Ht as.
