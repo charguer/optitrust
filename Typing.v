@@ -13,6 +13,7 @@ License: MIT.
 Set Implicit Arguments.
 Require Export TLCbuffer Wellformedness.
 
+Open Scope Z_scope.
 
 (* ********************************************************************** *)
 (* * Typing *)
@@ -153,11 +154,13 @@ Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
 
 Inductive tr_ll_accesses (C:typdefctx) (LLC:ll_typdefctx) : accesses -> offset -> Prop :=
   | tr_ll_accesses_nil :
-      tr_ll_accesses C LLC nil 0
+      tr_ll_accesses C LLC nil 0%Z
   | tr_ll_accesses_access_array : forall T T' os πs i n o,
       typing_array C T T' os ->
       typ_size (typvar_sizes LLC) T' n ->
       tr_ll_accesses C LLC πs o ->
+      (0 <= i)%Z ->
+      (0 <= n)%Z ->
       tr_ll_accesses C LLC ((access_array T i)::πs) ((i * n) + o)
   | tr_ll_accesses_access_field : forall Tfs FO πs Tv f o,
       typing_struct C (typ_var Tv) Tfs ->
@@ -165,6 +168,7 @@ Inductive tr_ll_accesses (C:typdefctx) (LLC:ll_typdefctx) : accesses -> offset -
       Tv \indom FO ->
       f \indom FO[Tv] ->
       tr_ll_accesses C LLC πs o ->
+      (0 <= FO[Tv][f])%Z ->
       tr_ll_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
 (* Relates values with a list of words. This is how the memory is transformed. *)

@@ -231,64 +231,6 @@ Proof.
     forwards~: functional_tr_ll_accesses H Hπ. subst~. }
 Qed.
 
-(* FALSE? The relation tr_ll_accesses is injective. *)
-
-Lemma tr_ll_accesses_inj : forall C LLC π1 π2 o,
-  tr_ll_accesses C LLC π1 o ->
-  tr_ll_accesses C LLC π2 o ->
-    π1 = π2.
-Proof.
-  admit.
-Qed.
-
-(* FALSE? And tr_val is also injective. At least for sure for basic values. *)
-
-Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
-  typing_val C LLC φ v1 T ->
-  typing_val C LLC φ v2 T ->
-  tr_val C LLC α v1 v ->
-  tr_val C LLC α v2 v ->
-  v1 = v2.
-Proof.
-  introv HTv1 HTv2 Hv1 Hv2. gen v2. induction Hv1; intros;
-  try solve [ inverts~ Hbv1 ];
-  try solve [ inverts~ Hv2 ].
-  { inverts Hv2 as Hπ Hα. tests: (l = l1).
-    { inverts HTv1. admit. }
-    { admit. (* Find contradiction because alpha is always a bijection. *) } }
-  { admit. }
-  { admit. }
-Qed.
-
-(* Very important lemma. Commented below is the failed attempt to prove lemmas
-   to prove this result. *)
-
-Lemma follow_typ_ll_accesses_inj : forall C LLC T T' o1 o2 π1 π2,
-  follow_typ C T π1 T' ->
-  follow_typ C T π2 T' ->
-  tr_ll_accesses C LLC π1 o1 ->
-  tr_ll_accesses C LLC π2 o2 ->
-  o1 = o2 ->
-    π1 = π2.
-Proof.
-  introv Hπ1 Hπ2 Ho1 Ho2 Heq. subst. gen π2 o2 LLC.
-  induction Hπ1; intros.
-  { admit. }
-  { admit. }
-  { admit. }
-Qed.
-
-Lemma follow_typ_ll_accesses_inj_cp : forall C LLC T T' o1 o2 π1 π2,
-  follow_typ C T π1 T' ->
-  follow_typ C T π2 T' ->
-  tr_ll_accesses C LLC π1 o1 ->
-  tr_ll_accesses C LLC π2 o2 ->
-    π1 <> π2 ->
-  o1 <> o2.
-Proof.
-  introv Hπ1 Hπ2 Ho1 Ho2 Hneq HN. applys~ Hneq.
-  applys* follow_typ_ll_accesses_inj.
-Qed.
 
 (* TODO: Move these to typing? *)
 
@@ -490,16 +432,121 @@ Proof.
       forwards*: follow_typ_typvar_not_free H2.
       unfolds wf_typdefctx. applys* HwfC.
       applys* typing_struct_keeps_free_var. } }
-
-  (*introv HwfC HwfT Hwfπ Hπ. gen T. induction Hwfπ; intros.
-  { auto. }
-  { inverts Hπ as HTa Hπ.
-    forwards~ HwfT1: wf_typing_array HTa HwfT.
-    forwards*: typing_follow_typ_one_way HwfC HwfT1 Hπ HTa. }
-  { inverts Hπ as HTs Hfin Hπ. admit. }*)
 Qed.
 
+(* Numerical results about sizes. *)
 
+Lemma accesses_offset_gez : forall C LLC π o,
+  tr_ll_accesses C LLC π o ->
+  0 <= o.
+Proof.
+  introv Hπ. induction Hπ.
+  { math. }
+  { apply Zle_lt_or_eq in H1.
+    apply Zle_lt_or_eq in H2.
+    apply Zle_lt_or_eq in IHHπ.
+    inverts H1; inverts H2; inverts IHHπ; 
+    try solve [ try forwards*: Z.mul_pos_pos i n; math ]. }
+  { apply Zle_lt_or_eq in H3.
+    apply Zle_lt_or_eq in IHHπ.
+    inverts H3; inverts IHHπ; math. }
+Qed.
+
+(* If T --π--> T' then |T| >= |T'|. *)
+
+Lemma follow_typ_size : forall C LLC π T T' n n',
+  ll_typdefctx_ok C LLC ->
+  follow_typ C T π T' ->
+  typ_size (typvar_sizes LLC) T n ->
+  typ_size (typvar_sizes LLC) T' n' ->
+  n' <= n.
+Proof.
+  introv Hok Hπ Hn Hn'. gen n n'. induction Hπ; intros.
+  { forwards~: functional_typ_size Hn Hn'. subst. math. }
+  { inverts Hn; try solve [ inverts H ].
+    { admit. (* TODO: Need index assumptions. *) }
+    { admit. } }
+  { admit. }
+Qed.
+
+(* Very important lemma. *)
+
+Lemma follow_typ_ll_accesses_inj : forall C LLC T T' o1 o2 π1 π2,
+  wf_typdefctx C ->
+  wf_typ C T ->
+  wf_accesses C π1 ->
+  wf_accesses C π2 ->
+  follow_typ C T π1 T' ->
+  follow_typ C T π2 T' ->
+  tr_ll_accesses C LLC π1 o1 ->
+  tr_ll_accesses C LLC π2 o2 ->
+  o1 = o2 ->
+    π1 = π2.
+Proof.
+  introv HwfC HwfT Hwfπ1 Hwfπ2 Hπ1 Hπ2 Ho1 Ho2 Heq.
+  subst. gen π2 o2 LLC. induction Hπ1; intros.
+  { forwards*: wf_typ_follow_accesses. }
+  { asserts HF: (follow_typ C Ta (access_array Ta i :: π) Tr).
+    { constructors*. }
+    inverts Hπ2 as.
+    { (* nil *) admit. }
+    { (* array *) introv HTa Hπ0.
+      forwards~ Heq: functional_typing_array H HTa. inverts Heq.
+      inverts Ho1 as HTa1 HTn1 Ho1 _ _.
+      inverts Ho2 as HTa2 HTn2 Ho2 _ _.
+      forwards~ Heq: functional_typing_array HTa1 HTa2. inverts Heq.
+      forwards~ Heq: functional_typ_size HTn1 HTn2. subst.
+      inverts Hwfπ1. inverts Hwfπ2.
+      
+      forwards~ Heq: IHHπ1 π0 o0.  }
+    { (* struct *) }
+     }
+  (*{ inverts Hπ2 as.
+    { inverts Ho1 as HTa HTn Hπ Hi Hn. lets Ho2': Ho2.
+      inverts Ho2 as Hino. asserts Ho: (o = 0%Z).
+      { forwards* Ho: accesses_offset_gez o.
+        apply Zle_lt_or_eq in Hi.
+        apply Zle_lt_or_eq in Hn.
+        apply Zle_lt_or_eq in Ho.
+        inverts~ Ho. false.
+        inverts Hi; inverts Hn; 
+        admit. (* TODO: Easy math. *) }
+      subst. rewrite <- Hino in Ho2'.
+      inverts Hwfπ1.
+      forwards~: IHHπ1 Hπ Ho2'. }
+  { admit. }*)
+Qed.
+
+(* FALSE? And tr_val is also injective. At least for sure for basic values. *)
+
+Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
+  typing_val C LLC φ v1 T ->
+  typing_val C LLC φ v2 T ->
+  tr_val C LLC α v1 v ->
+  tr_val C LLC α v2 v ->
+  v1 = v2.
+Proof.
+  introv HTv1 HTv2 Hv1 Hv2. gen v2. induction Hv1; intros;
+  try solve [ inverts~ Hbv1 ];
+  try solve [ inverts~ Hv2 ].
+  { inverts Hv2 as Hπ Hα. tests: (l = l1).
+    { inverts HTv1. admit. }
+    { admit. (* Find contradiction because alpha is always a bijection. *) } }
+  { admit. }
+  { admit. }
+Qed.
+
+Lemma follow_typ_ll_accesses_inj_cp : forall C LLC T T' o1 o2 π1 π2,
+  follow_typ C T π1 T' ->
+  follow_typ C T π2 T' ->
+  tr_ll_accesses C LLC π1 o1 ->
+  tr_ll_accesses C LLC π2 o2 ->
+    π1 <> π2 ->
+  o1 <> o2.
+Proof.
+  introv Hπ1 Hπ2 Ho1 Ho2 Hneq HN. applys~ Hneq.
+  applys* follow_typ_ll_accesses_inj.
+Qed.
 
 
 
