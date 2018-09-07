@@ -72,21 +72,6 @@ Definition phi := map loc typ.
 
 Definition gamma := Ctx.ctx typ.
 
-(** Full typing environment *)
-
-Record env := make_env {
-  env_typdefctx : typdefctx;
-  env_phi : phi;
-  env_gamma : gamma
-}.
-
-Notation "'make_env''" := make_env.
-
-Definition env_add_binding E z X :=
-  match E with
-  | make_env C φ Γ => make_env C φ (Ctx.add z X Γ)
-  end.
-
 (* Contex holding low-level information about structs and their fields. *)
 
 Definition ll_typdefctx_typvar_sizes := map typvar size.
@@ -94,9 +79,9 @@ Definition ll_typdefctx_fields_offsets := map typvar (map field offset).
 Definition ll_typdefctx_fields_order := map typvar (list field).
 
 Record ll_typdefctx := make_ll_typdefctx {
-  typvar_sizes   : ll_typdefctx_typvar_sizes;
+  typvar_sizes : ll_typdefctx_typvar_sizes;
   fields_offsets : ll_typdefctx_fields_offsets;
-  fields_order   : ll_typdefctx_fields_order }.
+  fields_order : ll_typdefctx_fields_order }.
 
 Notation "'make_ll_typdefctx''" := make_ll_typdefctx.
 

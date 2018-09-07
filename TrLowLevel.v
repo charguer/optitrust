@@ -562,6 +562,38 @@ Proof.
         forwards~: functional_typing_struct HTs HTs'. subst~. } } }
 Qed.
 
+(* This is a general result. *)
+
+Lemma typing_val_wf_val : forall C LLC φ v T,
+  typing_val C LLC φ v T ->
+  wf_phi C φ ->
+  wf_typ C T ->
+  wf_val C v.
+Proof.
+  introv HTv Hφ HT. induction HTv; try solve [ constructors~ ].
+  { constructors. unfolds wf_phi. inverts H as Hlin HF.
+    forwards HwfT: Hφ Hlin. applys* follow_typ_wf_accesses. }
+  { constructors~. introv Hfin. lets Hfin': Hfin.
+    rewrite <- H0 in Hfin'. applys~ H2.
+    applys* wf_typing_struct. }
+  { constructors~. introv Hi. applys~ H2.
+    applys* wf_typing_array. }
+Qed.
+
+Lemma typing_val_not_is_error : forall C LLC φ v T,
+  typing_val C LLC φ v T ->
+  ~ is_error v.
+Proof.
+  introv HTv HN. inverts HTv; unfolds* is_error.
+Qed.
+
+Lemma red_typing_not_is_error : 
+  red C LLC S m1 t m2 v ->
+  typing C LLC φ Γ t T ->
+  ~ is_error v.
+Proof.
+Qed.
+
 (* FALSE? And tr_val is also injective. At least for sure for basic values. *)
 
 Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
@@ -575,7 +607,7 @@ Proof.
   try solve [ inverts~ Hbv1 ];
   try solve [ inverts~ Hv2 ].
   { inverts Hv2 as Hπ Hα. tests: (l = l1).
-    { inverts HTv1. admit. }
+    { inverts HTv1. forwards~:  }
     { admit. (* Find contradiction because alpha is always a bijection. *) } }
   { admit. }
   { admit. }

@@ -157,7 +157,7 @@ Qed.
 Theorem type_soundess_warmup : forall C LLC φ m t v T Γ S m',
   red C LLC S m t m' v -> 
   ~ is_error v ->
-  typing LLC (make_env C φ Γ) t T ->
+  typing C LLC φ Γ t T ->
   state_typing C LLC φ m ->
   stack_typing C LLC φ Γ S ->
         typing_val C LLC φ v T
@@ -286,15 +286,14 @@ Proof.
 Qed.
 
 Lemma extended_typing : forall LLC C φ φ' Γ t T,
-  typing LLC (make_env C φ Γ ) t T ->
+  typing C LLC φ Γ t T ->
   extends φ φ' ->
-  typing LLC (make_env C φ' Γ ) t T.
+  typing C LLC φ' Γ t T.
 Proof.
-  introv HT Hφ. gen_eq E: (make_env C φ Γ ). gen φ φ' Γ C. 
+  introv HT Hφ. gen φ'.
   induction HT; intros; subst; try solve [ constructors* ].
-  { constructors. simpls. 
+  { constructors.
     forwards*: extended_typing_val Hφ H. }
-  { constructors*. unfolds* env_add_binding. }
 Qed.
 
 Lemma extended_stack_typing : forall C LLC φ φ' Γ S,
@@ -314,7 +313,7 @@ Qed.
 Theorem type_soundess : forall C LLC φ m t v T Γ S m',
   red C LLC S m t m' v ->
   ~ is_error v ->
-  typing LLC (make_env C φ Γ) t T ->
+  typing C LLC φ Γ t T ->
   state_typing C LLC φ m ->
   stack_typing C LLC φ Γ S ->
   exists φ',
@@ -337,7 +336,6 @@ Proof.
   { (* let *)
     inverts HT. 
     forwards* (φ'&Hφ'&HT1&HM1): IHR1.
-    unfolds env_add_binding. 
     forwards* (φ''&Hφ''HT2&HM2): IHR2 He φ' T (Ctx.add z T1 Γ).
     { apply* extended_typing. }
     { applys* stack_typing_ctx_add. apply* extended_stack_typing. } }
