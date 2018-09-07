@@ -483,6 +483,23 @@ Proof.
       false. applys* array_xor_struct. } }
 Qed.
 
+(* Connection between structs and follow_typ allowed paths. *)
+
+Lemma follow_typ_struct_access : forall C Tfs a π Tr Ts,
+  typing_struct C Ts Tfs ->
+  follow_typ C Ts (a::π) Tr ->
+  exists f, a = access_field Ts f.
+Proof.
+  introv HTs HF. gen a π Tr. induction HTs; intros.
+  { inverts HF as.
+    { introv HN. inverts HN. }
+    { introv HTs Hfin HF. exists~ f. } }
+  { inverts HF as.
+    { introv HN. inverts HN as _ HN.
+      false. applys* array_xor_struct. }
+    { introv HTs' Hfin HF. exists~ f. } }
+Qed.
+
 (* Very important lemma. *)
 
 Lemma follow_typ_ll_accesses_inj : forall C LLC T T' o1 o2 π1 π2,
@@ -521,7 +538,28 @@ Proof.
       { clear HTa'. inverts Hπ2 as HTa'.
         forwards~ (HeqT'&Heqos): functional_typing_array HTa HTa'.
         subst~. } } }
-  {  }
+  { asserts HF: (follow_typ C Ts (access_field Ts f :: π) Tr).
+    { constructors*. }
+    inverts Ho1 as HTs HTvin Hfin Hπ Hoffge.
+    remember (fields_offsets LLC) as FOff.
+    forwards~ HeqTfs: functional_typing_struct H HTs. subst.
+    destruct π2.
+    { inverts Hπ2. forwards~ HN: wf_typ_follow_accesses HF. }
+    { forwards~ (f'&Heqa): follow_typ_struct_access H Hπ2. subst.
+      inverts Ho2 as HTs' _ Hfin' Hπ2' Hoffge' Heq.
+      forwards~ HeqTfs: functional_typing_struct H HTs'. subst.
+      asserts: (f=f').
+      { admit. (* TODO: I need more assumptions here to convince myself
+        that the arithmetic works out. But I think that the idea is similar
+        to the one in the previous todo. *) } 
+      subst. asserts: (o=o0).
+      { applys* Z.add_reg_l. }
+      subst. fequals. applys* IHHπ1.
+      { forwards~: wf_typing_struct HTs HwfT f'. }
+      { inverts~ Hwfπ1. }
+      { inverts~ Hwfπ2. }
+      { clear HTs'. inverts Hπ2 as HTs'.
+        forwards~: functional_typing_struct HTs HTs'. subst~. } } }
 Qed.
 
 (* FALSE? And tr_val is also injective. At least for sure for basic values. *)
