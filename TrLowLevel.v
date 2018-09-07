@@ -587,27 +587,27 @@ Proof.
   introv HTv HN. inverts HTv; unfolds* is_error.
 Qed.
 
-Lemma red_typing_not_is_error : 
-  red C LLC S m1 t m2 v ->
-  typing C LLC φ Γ t T ->
-  ~ is_error v.
-Proof.
-Qed.
-
 (* FALSE? And tr_val is also injective. At least for sure for basic values. *)
 
 Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
+  wf_typdefctx C ->
+  wf_phi C φ ->
+  wf_typ C T ->
   typing_val C LLC φ v1 T ->
   typing_val C LLC φ v2 T ->
   tr_val C LLC α v1 v ->
   tr_val C LLC α v2 v ->
   v1 = v2.
 Proof.
-  introv HTv1 HTv2 Hv1 Hv2. gen v2. induction Hv1; intros;
+  introv HC Hφ HT HTv1 HTv2 Hv1 Hv2. gen v2. induction Hv1; intros;
   try solve [ inverts~ Hbv1 ];
   try solve [ inverts~ Hv2 ].
   { inverts Hv2 as Hπ Hα. tests: (l = l1).
-    { inverts HTv1. forwards~:  }
+    { inverts HTv1. fequals. inverts_head read_phi. 
+      forwards~ Hwfv: typing_val_wf_val HTv2 Hφ HT.
+      inverts Hwfv as Hwfπ0.
+      
+      applys* follow_typ_ll_accesses_inj. }
     { admit. (* Find contradiction because alpha is always a bijection. *) } }
   { admit. }
   { admit. }

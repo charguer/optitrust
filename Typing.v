@@ -128,6 +128,20 @@ Axiom special_map : list field -> list size -> map field offset.
   [ (f1 -> 0), (f2 -> s1), (f3 -> s1 + s2), ..., (fn -> s1 + s2 + ... sn-1) ]
 *)
 
+Inductive prefix_sum : list int -> list int -> int -> Prop :=
+  | prefix_sum_nil : forall acc i,
+      prefix_sum (i::nil) (acc::nil) (acc + i)
+  | prefix_sum_cons : forall l l' acc i,
+      prefix_sum l l' acc ->
+      prefix_sum (i::l) (acc::l') (acc + i).
+
+Lemma prefix_sum_example :
+  prefix_sum (1::2::3::nil) (0::1::3::nil) 1.
+Proof.
+  constructors.
+Qed.
+
+
 Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
   | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
       LLC = make_ll_typdefctx CS CFOff CFOrd ->
