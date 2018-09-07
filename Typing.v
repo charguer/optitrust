@@ -116,51 +116,84 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 (* ---------------------------------------------------------------------- *)
 (** Type-directed transformation to low-level *)
 
-(* Ensures that the low-level context is correctly defined with respect to
-   the type definitions context. and coherency between the offsets and the 
-    sizes. TODO: Find a better way, this special map isn't a great approach. *)
-
-Axiom special_map : list field -> list size -> map field offset.
-(*
-  [ f1, f2, f3, ..., fn ]
-  [ s1, s2, s3, ..., sn ]
-
-  [ (f1 -> 0), (f2 -> s1), (f3 -> s1 + s2), ..., (fn -> s1 + s2 + ... sn-1) ]
-*)
-
 Inductive prefix_sum : list int -> list int -> int -> Prop :=
-  | prefix_sum_nil : forall acc i,
-      prefix_sum (i::nil) (acc::nil) (acc + i)
+  | prefix_sum_nil : forall acc,
+      prefix_sum nil nil acc
   | prefix_sum_cons : forall l l' acc i,
-      prefix_sum l l' acc ->
-      prefix_sum (i::l) (acc::l') (acc + i).
+      prefix_sum l l' (i + acc) ->
+      prefix_sum (i::l) (acc::l') acc.
 
 Lemma prefix_sum_example :
-  prefix_sum (1::2::3::nil) (0::1::3::nil) 1.
+  prefix_sum (1::2::3::4::5::6::nil) (0::1::3::6::10::15::nil) 0.
 Proof.
-  constructors.
+  repeat constructors.
 Qed.
 
+Lemma prefix_sum_length : forall l l' n,
+  prefix_sum l l' n ->
+  length l = length l'.
+Proof.
+  introv Hps. induction Hps.
+  { rewrite~ length_nil. }
+  { repeat rewrite length_cons. rewrite~ IHHps. }
+Qed.
+
+Lemma prefix_sum_spec : forall l l' n,
+  prefix_sum l l' n ->
+  (forall i,
+    index l i ->
+    l'[i] = fold_left Z.add n (take i l)).
+Proof.
+  introv Hps. induction Hps.
+  { introv Hi. false. rewrite index_eq_index_length in Hi.
+    rewrite length_nil in Hi. inverts Hi. math. }
+  { introv Hi. rewrite read_cons_case. case_if.
+    { subst. eauto. }
+    { lets Hi': Hi.
+      rewrite index_eq_index_length in Hi.
+      rewrite int_index_eq in Hi.
+      destruct Hi as (Hle&Hlt).
+      rewrite length_cons in Hlt.
+      rewrite take_cons_pos; try solve [ math ].
+      rewrite fold_left_cons.
+      asserts Hl: (index (length l) (i0 - 1)).
+      { rewrite int_index_eq. math. }
+      rewrite <- index_eq_index_length in Hl.
+      forwards*: IHHps Hl. } }
+Qed.
+
+Axiom list_to_map : forall A B, list A -> list B -> map A B.
+
+Axiom list_to_map_spec : forall ks vs m,
+  m = list_to_map ks vs ->
+      length ks = length vs
+  /\  forall i,
+        index ks i ->
+        ks[i] \indom m /\ m[ks[i]] = vs[i].
 
 Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
   | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
       LLC = make_ll_typdefctx CS CFOff CFOrd ->
-      dom C = dom CS ->
-      dom C = dom CFOff ->
-      dom C = dom CFOrd ->
-      (forall Tv Tfs,
-        Tv \indom C ->
-        typing_struct C (typ_var Tv) Tfs ->
-            dom Tfs = dom CFOff[Tv]
-        /\  dom Tfs = to_set CFOrd[Tv]) -> 
+      (* Same fields in C and LLC. *)
       (forall Tv Tfs,
         Tv \indom C ->
         C[Tv] = typ_struct Tfs ->
-        (exists CFT CFS,
-            CFT = List.map (fun f => Tfs[f]) CFOrd[Tv]
-        /\  List.Forall2 (typ_size CS) CFT CFS
-        /\  CS[Tv] = fold_right Z.add 0 CFS
-        /\  CFOff[Tv] = special_map CFOrd[Tv] CFS)) ->
+            dom Tfs = dom CFOff[Tv]
+        /\  dom Tfs = to_set CFOrd[Tv]) ->
+      (* Coherency between the sizes. *)
+      (forall Tv Tfs,
+        Tv \indom C ->
+        C[Tv] = typ_struct Tfs ->
+        (exists FT FS FO,
+            (* Fields types. *)
+            FT = List.map (fun f => Tfs[f]) CFOrd[Tv]
+            (* Fields sizes. *)
+        /\  List.Forall2 (typ_size CS) FT FS
+            (* Fields offsets. *)
+        /\  prefix_sum FS FO 0
+            (* The relationship. *)
+        /\  CS[Tv] = fold_left Z.add 0 FS
+        /\  CFOff[Tv] = list_to_map CFOrd[Tv] FO)) ->
       ll_typdefctx_ok C LLC.
 
 (* Given a list of accesses, computes the offset. Used to translate
