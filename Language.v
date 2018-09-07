@@ -60,7 +60,7 @@ Inductive typ : Type :=
   | typ_fun : list typ -> typ -> typ
   | typ_var : typvar -> typ.
 
-(* Type definitions context *)
+(** Type definitions context *)
 
 Definition typdefctx := map typvar typ.
 

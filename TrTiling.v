@@ -819,10 +819,8 @@ Proof.
   { rewrite HDC'. rew_set~. }
   { tests: (Tv=Ta).
     { rewrite HC'Ta. repeat constructors~.
-      { introv HN. inverts HN. }
       { rewrite HDC'. rew_set~. }
       { rewrite HC'Tt. constructors~.
-        { admit. (* TODO: Hack to avoid recursive types firing back. *) }
         rewrite HCTa in IHHT.
         inverts~ IHHT. } }
     { rewrite~ HC'Tv. } }
@@ -910,9 +908,8 @@ Proof using.
             constructors. constructors.
             { rewrite HD. rew_set~. }
             { rewrite HC'Tt. constructors.
-              { introv HN. rewrite HN in H6. inverts H6. false. }
               applys* tr_typdefctx_wf_typ. constructors*. } } }
-        { introv Hn0. inverts~ Hn0. } }
+        { introv Heq. inverts~ Heq. } }
       { (* Variable length array. *)
         applys uninitialized_array.
         { constructors.
@@ -920,7 +917,6 @@ Proof using.
           { rewrite HC'Ta. repeat constructors~.
             { rewrite HD. rew_set~. }
             { rewrite HC'Tt. constructors~.
-              { introv HN. rewrite HN in H6. inverts H6. false. }
               applys* tr_typdefctx_wf_typ. constructors*. } } }
         { introv HN. inverts HN. }
         { introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.

@@ -26,11 +26,9 @@ Inductive wf_typ (C:typdefctx) : typ -> Prop :=
   | wf_typ_bool :
       wf_typ C typ_bool
   | wf_typ_ptr : forall T,
-      T <> typ_ptr T ->
       wf_typ C T ->
       wf_typ C (typ_ptr T)
   | wf_typ_array : forall T os,
-      T <> typ_array T os ->
       wf_typ C T ->
       wf_typ C (typ_array T os)
   | wf_typ_struct : forall Tfs,
