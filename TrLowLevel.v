@@ -234,7 +234,7 @@ Qed.
 
 (* TODO: Move these to typing? *)
 
-(*Lemma wf_typ_array_neq : forall C T os,
+Lemma wf_typ_array_neq : forall C T os,
   wf_typ C T ->
   T <> typ_array T os.
 Proof.
@@ -279,6 +279,7 @@ Proof.
     applys* HwfC. applys* wf_typvar_array_free. }
 Qed.
 
+(*
 Lemma typing_follow_typ_one_way : forall π C T T' os,
   wf_typdefctx C ->
   wf_typ C T ->
@@ -305,21 +306,6 @@ Proof.
   { admit. }
   { admit. }
 Qed.
-
-(*
-Inductive typ_contains (C:typdefctx) : typ -> typ -> Prop :=
-  | typ_contains_array : forall os T T',
-      typing_array C T T' os ->
-      typ_contains C T T'
-  | typ_contains_struct : forall T Tfs f,
-      typing_struct C T Tfs ->
-      f \indom Tfs ->
-      typ_contains C T Tfs[f]
-  | typ_contains_accesses : forall T T',
-      (exists π, follow_typ C T π T') ->
-      typ_contains C T T'.
-*)
-
 
 Lemma typing_array_invalid_two_cylce : forall os1 C T Ta os2,
   typing_array C Ta T os1
@@ -402,12 +388,11 @@ Lemma wf_typ_follow_accesses : forall C T π,
 Proof.
   introv HwfC HwfT Hwfπ Hπ. gen π. induction HwfT; intros;
   try solve [ inverts~ Hπ; inverts H ].
-  { inverts~ Hπ; inverts H0. }
   { inverts~ Hπ.
-    { false. inverts H0. 
+    { false. inverts H. 
       asserts HTa: (typing_array C (typ_array T0 os0) T0 os0).
       { constructors*. } 
-      forwards* HN: follow_typ_array_extended_access i HTa H1.
+      forwards* HN: follow_typ_array_extended_access i HTa H0.
       asserts Hwfapp: (wf_accesses C (π0 & access_array (typ_array T0 os0) i)).
       { inverts Hwfπ. applys~ wf_accesses_app. repeat constructors~. }
       apply IHHwfT in HN. applys~ last_eq_nil_inv HN. auto. }
@@ -469,6 +454,35 @@ Proof.
   { admit. }
 Qed.
 
+(* A type can't be a struct and an array at the same time. *)
+
+Lemma array_xor_struct : forall C T' os T Tfs,
+  typing_array C T T' os ->
+  typing_struct C T Tfs ->
+  False.
+Proof.
+  introv HTa HTs. gen Tfs. induction HTa; intros.
+  { inverts HTs. }
+  { inverts HTs. applys* IHHTa. }
+Qed.
+
+(* Connection between arrays and follow_typ allowed paths. *)
+
+Lemma follow_typ_array_access : forall C T os a π Tr Ta,
+  typing_array C Ta T os ->
+  follow_typ C Ta (a::π) Tr ->
+  exists i, a = access_array Ta i.
+Proof.
+  introv HTa HF. gen a π Tr. induction HTa; intros.
+  { inverts HF as.
+    { introv HTa HF. inverts HTa. exists~ i. }
+    { introv HN. inverts HN. } }
+  { inverts HF as.
+    { introv HTa' HF. exists~ i. }
+    { introv HN. inverts HN as _ HN.
+      false. applys* array_xor_struct. } }
+Qed.
+
 (* Very important lemma. *)
 
 Lemma follow_typ_ll_accesses_inj : forall C LLC T T' o1 o2 π1 π2,
@@ -488,33 +502,26 @@ Proof.
   { forwards*: wf_typ_follow_accesses. }
   { asserts HF: (follow_typ C Ta (access_array Ta i :: π) Tr).
     { constructors*. }
-    inverts Hπ2 as.
-    { (* nil *) admit. }
-    { (* array *) introv HTa Hπ0.
-      forwards~ Heq: functional_typing_array H HTa. inverts Heq.
-      inverts Ho1 as HTa1 HTn1 Ho1 _ _.
-      inverts Ho2 as HTa2 HTn2 Ho2 _ _.
-      forwards~ Heq: functional_typing_array HTa1 HTa2. inverts Heq.
-      forwards~ Heq: functional_typ_size HTn1 HTn2. subst.
-      inverts Hwfπ1. inverts Hwfπ2.
-      
-      forwards~ Heq: IHHπ1 π0 o0.  }
-    { (* struct *) }
-     }
-  (*{ inverts Hπ2 as.
-    { inverts Ho1 as HTa HTn Hπ Hi Hn. lets Ho2': Ho2.
-      inverts Ho2 as Hino. asserts Ho: (o = 0%Z).
-      { forwards* Ho: accesses_offset_gez o.
-        apply Zle_lt_or_eq in Hi.
-        apply Zle_lt_or_eq in Hn.
-        apply Zle_lt_or_eq in Ho.
-        inverts~ Ho. false.
-        inverts Hi; inverts Hn; 
-        admit. (* TODO: Easy math. *) }
-      subst. rewrite <- Hino in Ho2'.
-      inverts Hwfπ1.
-      forwards~: IHHπ1 Hπ Ho2'. }
-  { admit. }*)
+    inverts Ho1 as HTa Hn Hπ Hige Hnge.
+    forwards~ (HeqT&Heqos): functional_typing_array H HTa. subst.
+    destruct π2.
+    { inverts Hπ2. forwards~ HN: wf_typ_follow_accesses HF. }
+    { forwards~ (i'&Heqa): follow_typ_array_access H Hπ2. subst.
+      inverts Ho2 as HTa' Hn' Hπ2' Hi'ge Hn'ge Heq.
+      forwards~ (HeqT'&Heqos): functional_typing_array HTa HTa'. subst.
+      forwards~: functional_typ_size Hn Hn'. subst.
+      asserts: (i=i').
+      { admit. (* TODO: We need to show that o, o0 < n then it follows. *) }
+      subst. asserts: (o=o0).
+      { applys* Z.add_reg_l. }
+      subst. fequals. applys* IHHπ1.
+      { forwards~: wf_typing_array HTa HwfT. }
+      { inverts~ Hwfπ1. }
+      { inverts~ Hwfπ2. }
+      { clear HTa'. inverts Hπ2 as HTa'.
+        forwards~ (HeqT'&Heqos): functional_typing_array HTa HTa'.
+        subst~. } } }
+  {  }
 Qed.
 
 (* FALSE? And tr_val is also injective. At least for sure for basic values. *)
