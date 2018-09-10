@@ -73,6 +73,15 @@ Axiom list_to_map_spec : forall ks vs m,
 Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
   | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
       LLC = make_ll_typdefctx CS CFOff CFOrd ->
+      (* Assumptions regarding size. For basic types and arrays. *)
+      dom C = dom CS ->
+      (forall Tv,
+        basic_typ C (typ_var Tv) ->
+        typ_size CS (typ_var Tv) CS[Tv]) ->
+      (forall Tv T n k,
+        typing_array C (typ_var Tv) T (Some k) ->
+        typ_size CS T n ->
+        CS[Tv] = n * k) ->
       (* Same fields in C and LLC. *)
       (forall Tv Tfs,
         Tv \indom C ->
@@ -151,6 +160,24 @@ Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : typ -> val -> 
 
 (* ---------------------------------------------------------------------- *)
 (** General results about these predicates. *)
+
+(* If the low-level context is properly defined then the sizes should
+   be positive. *)
+
+Lemma ll_typdefctx_sizes_pos : forall C LLC CS,
+  ll_typdefctx_ok C LLC ->
+  CS = typvar_sizes LLC ->
+  (forall Tv,
+    Tv \indom C ->
+    0 <= CS[Tv]).
+Proof.
+  introv Hok Heq. introv HTvin.
+  inverts Hok as HD HC.
+  (*forwards* (FT&FS&FO&HFT&HFS&HFO&HCSTv&HCFOffTv): HC HTvin HTs.*)
+  induction (C[Tv]).
+  simpls. rewrite Heq.
+  rewrite HCSTv.
+Qed.
 
 (* The relation tr_ll_accesses (the low-level translation of 
    accesses into offsets) is a function. *)
@@ -234,7 +261,13 @@ Proof.
   introv Hok Hπ Hn Hn'. gen n n'. induction Hπ; intros.
   { forwards~: functional_typ_size Hn Hn'. subst. math. }
   { inverts Hn; try solve [ inverts H ].
-    { admit. (* TODO: Need index assumptions. *) }
+    { asserts Hk: (0%Z < k).
+      { admit. }
+      inverts H.
+      forwards* Hn0: IHHπ n0.
+      tests: (n'=n0).
+      { applys* Z.le_mul_diag_r. }
+      {  } }
     { admit. } }
   { admit. }
 Qed.

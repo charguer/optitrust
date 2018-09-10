@@ -560,6 +560,23 @@ Proof.
     subst~. }
 Qed.
 
+(* Type sizes are positive. *)
+
+Lemma typ_size_pos : forall CS T n,
+  (forall Tv,
+    Tv \indom CS ->
+    0 <= CS[Tv]) ->
+  typ_size CS T n ->
+  0 <= n.
+Proof.
+  introv HCS Hn. induction Hn; try solve [ math ].
+  { asserts: (0 <= k). 
+    { admit. (* TODO: Assume that arrays have size >= 0 *) }
+    applys~ Z.mul_nonneg_nonneg. }
+  { admit. (* TODO: Induction on maps *) }
+  { applys~ HCS. }
+Qed.
+
 (* A type can't be a struct and an array at the same time. *)
 
 Lemma array_xor_struct : forall C T' os T Tfs,

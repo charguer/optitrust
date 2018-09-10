@@ -415,7 +415,7 @@ Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
 Theorem red_tr : forall m2 t T Γ m1 φ S LLC v C S' m1' t',
   red C LLC S m1 t m2 v ->
   (* Typing assumtions. TODO: More needed. *)
-  typing LLC (make_env C φ Γ) t T ->
+  typing C LLC φ Γ t T ->
   (* Not error. TODO: Remove, this comes from typing. *)
   ~ is_error v ->
   (* The transformation. *)
