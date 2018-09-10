@@ -493,6 +493,7 @@ Proof.
   (* TODO: Tedious but should be true. *)
 Admitted.
 
+
 (* From initial execution. *)
 
 Theorem type_soundness_nice : forall C LLC m t v T,
