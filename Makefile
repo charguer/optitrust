@@ -34,7 +34,7 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC := util/TLCbuffer util/MyLibVar util/Bind Language Wellformedness Typing Semantics TypeSoundness TrGroup TrGroupFun TrTiling TrTilingFun TrLowLevel
+SRC := util/TLCbuffer util/MyLibVar util/Bind Language Wellformedness Typing SemanticsLL Semantics TypeSoundness TrGroup TrGroupFun TrTiling TrTilingFun TrLowLevel
 
 
 # using the variable SRC_CUSTOM, one can modify the compilation targets 

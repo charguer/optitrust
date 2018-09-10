@@ -10,7 +10,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-Require Export Typing.
+Require Export SemanticsLL.
 
 Open Scope set_scope.
 Open Scope container_scope.
@@ -559,17 +559,6 @@ Proof.
     applys* wf_typing_array. }
   { constructors~. introv Hf. rewrite <- H0 in Hf. applys~ H2.
     applys* wf_typing_struct. }
-Qed.
-
-(* Path surgery of valid accesses *)
-
-Lemma wf_accesses_app : forall C π1 π2,
-  wf_accesses C π1 ->
-  wf_accesses C π2 ->
-  wf_accesses C (π1 ++ π2).
-Proof.
-  introv Ha1 Ha2. gen π2. induction Ha1; intros;
-  rew_list in *; eauto; constructors~.
 Qed.
 
 (* Preservation of well-foundedness by the semantics. *)

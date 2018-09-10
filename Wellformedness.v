@@ -43,7 +43,7 @@ Inductive wf_typ (C:typdefctx) : typ -> Prop :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Well-foundedness  of values and terms *)
+(** Well-formedness of values and terms *)
 
 (* A value is well-founded if all of the types that appear in it are. *)
 
@@ -58,6 +58,17 @@ Inductive wf_accesses (C:typdefctx) : accesses -> Prop :=
       wf_typ C T ->
       wf_accesses C π ->
       wf_accesses C ((access_field T f)::π).
+
+(* Path surgery of valid accesses *)
+
+Lemma wf_accesses_app : forall C π1 π2,
+  wf_accesses C π1 ->
+  wf_accesses C π2 ->
+  wf_accesses C (π1 ++ π2).
+Proof.
+  introv Ha1 Ha2. gen π2. induction Ha1; intros;
+  rew_list in *; eauto; constructors~.
+Qed.
 
 Inductive wf_val (C:typdefctx) : val -> Prop :=
   | wf_val_error :
