@@ -183,40 +183,6 @@ Proof.
   try solve [ subst ; inverts* Hb ; unfolds~ ].
 Qed.
 
-(* The relation typ_size is a function. *)
-
-Lemma functional_typ_size : forall CS T n1 n2,
-  typ_size CS T n1 ->
-  typ_size CS T n2 ->
-  n1 = n2.
-Proof.
-  introv Hn1 Hn2. gen n2. induction Hn1; intros;
-  try solve [ inverts~ Hn2 ].
-  { inverts Hn2 as Hn2. forwards~: IHHn1 Hn2. subst~. }
-  { inverts Hn2. subst. asserts: (n = n0).
-    { applys~ read_extens.
-      { congruence. }
-      { introv Hi. rewrite <- H in Hi. applys~ H1. } }
-    subst~. }
-Qed.
-
-(* The relation tr_ll_accesses (the low-level translation of 
-   accesses into offsets) is a function. *)
-
-Lemma functional_tr_ll_accesses : forall C LLC π o1 o2,
-  tr_ll_accesses C LLC π o1 ->
-  tr_ll_accesses C LLC π o2 ->
-  o1 = o2.
-Proof.
-  introv Ho1 Ho2. gen o2. induction Ho1; intros.
-  { inverts~ Ho2. }
-  { inverts Ho2 as HTa HTn Hπs.
-    forwards~ (HTeq&Hoseq): functional_typing_array H HTa. subst.
-    forwards~: functional_typ_size H0 HTn. subst.
-    forwards~: IHHo1 Hπs. subst~. }
-  { inverts Ho2 as HTs HTvin Hfin Hπs.
-    forwards~: IHHo1 Hπs. subst~. }
-Qed.
 
 (* The relation tr_val is a function. Used in general and also in the
    equality case of the binop. *)
@@ -232,87 +198,6 @@ Proof.
   try solve [ inverts* Hv2 ].
   { inverts Hv2 as Hπ.
     forwards~: functional_tr_ll_accesses H Hπ. subst~. }
-Qed.
-
-(* Numerical results about sizes. *)
-
-Lemma accesses_offset_gez : forall C LLC π o,
-  tr_ll_accesses C LLC π o ->
-  0 <= o.
-Proof.
-  introv Hπ. induction Hπ.
-  { math. }
-  { apply Zle_lt_or_eq in H1.
-    apply Zle_lt_or_eq in H2.
-    apply Zle_lt_or_eq in IHHπ.
-    inverts H1; inverts H2; inverts IHHπ; 
-    try solve [ try forwards*: Z.mul_pos_pos i n; math ]. }
-  { apply Zle_lt_or_eq in H3.
-    apply Zle_lt_or_eq in IHHπ.
-    inverts H3; inverts IHHπ; math. }
-Qed.
-
-(* If T --π--> T' then |T| >= |T'|. *)
-
-Lemma follow_typ_size : forall C LLC π T T' n n',
-  ll_typdefctx_ok C LLC ->
-  follow_typ C T π T' ->
-  typ_size (typvar_sizes LLC) T n ->
-  typ_size (typvar_sizes LLC) T' n' ->
-  n' <= n.
-Proof.
-  introv Hok Hπ Hn Hn'. gen n n'. induction Hπ; intros.
-  { forwards~: functional_typ_size Hn Hn'. subst. math. }
-  { inverts Hn; try solve [ inverts H ].
-    { admit. (* TODO: Need index assumptions. *) }
-    { admit. } }
-  { admit. }
-Qed.
-
-(* A type can't be a struct and an array at the same time. *)
-
-Lemma array_xor_struct : forall C T' os T Tfs,
-  typing_array C T T' os ->
-  typing_struct C T Tfs ->
-  False.
-Proof.
-  introv HTa HTs. gen Tfs. induction HTa; intros.
-  { inverts HTs. }
-  { inverts HTs. applys* IHHTa. }
-Qed.
-
-(* Connection between arrays and follow_typ allowed paths. *)
-
-Lemma follow_typ_array_access : forall C T os a π Tr Ta,
-  typing_array C Ta T os ->
-  follow_typ C Ta (a::π) Tr ->
-  exists i, a = access_array Ta i.
-Proof.
-  introv HTa HF. gen a π Tr. induction HTa; intros.
-  { inverts HF as.
-    { introv HTa HF. inverts HTa. exists~ i. }
-    { introv HN. inverts HN. } }
-  { inverts HF as.
-    { introv HTa' HF. exists~ i. }
-    { introv HN. inverts HN as _ HN.
-      false. applys* array_xor_struct. } }
-Qed.
-
-(* Connection between structs and follow_typ allowed paths. *)
-
-Lemma follow_typ_struct_access : forall C Tfs a π Tr Ts,
-  typing_struct C Ts Tfs ->
-  follow_typ C Ts (a::π) Tr ->
-  exists f, a = access_field Ts f.
-Proof.
-  introv HTs HF. gen a π Tr. induction HTs; intros.
-  { inverts HF as.
-    { introv HN. inverts HN. }
-    { introv HTs Hfin HF. exists~ f. } }
-  { inverts HF as.
-    { introv HN. inverts HN as _ HN.
-      false. applys* array_xor_struct. }
-    { introv HTs' Hfin HF. exists~ f. } }
 Qed.
 
 (* Very important lemma. *)
@@ -452,29 +337,6 @@ Proof.
   { admit. (* Problem with variable size array. *) }
   { admit. }
   { admit. }
-Qed.
-
-(* Relationship between size of types and the translation of values. *)
-
-Lemma typ_size_length_lw : forall C α v LLC T lw n,
-  ll_typdefctx_ok C LLC ->
-  tr_ll_val C LLC α T v lw ->
-  typ_size (typvar_sizes LLC) T n ->
-  length lw = n.
-Proof.
-  introv HLLC Htr Hn. gen C α v lw. induction Hn; intros; 
-  try solve [ inverts Htr; repeat rewrite length_cons; 
-  rewrite length_nil ; math ].
-  { inverts Htr as Htr. gen n. induction Htr; intros.
-    { rewrite concat_nil. repeat rewrite length_nil in *. math. }
-    { rewrite concat_cons. rewrite length_app.
-      rewrite length_cons. forwards* Heq1: IHHn. rewrite Heq1.
-      forwards* Heq2: IHHtr. rewrite Heq2. rewrite Z.mul_add_distr_l.
-      math. } }
-  { inverts Htr as HTv1 HTv2 HTfs Hls' Htr. admit.
-    (* TODO: technical and ll_typdefctx_ok is not properly defined
-    to make this case work. It should be defined in a way that makes
-    this case true, of course. *) }
 Qed.
 
 (* Connection between unininitialized values and

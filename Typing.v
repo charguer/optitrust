@@ -542,3 +542,66 @@ Lemma typing_val_not_is_error : forall C LLC φ v T,
 Proof.
   introv HTv HN. inverts HTv; unfolds* is_error.
 Qed.
+
+(* The relation typ_size is a function. *)
+
+Lemma functional_typ_size : forall CS T n1 n2,
+  typ_size CS T n1 ->
+  typ_size CS T n2 ->
+  n1 = n2.
+Proof.
+  introv Hn1 Hn2. gen n2. induction Hn1; intros;
+  try solve [ inverts~ Hn2 ].
+  { inverts Hn2 as Hn2. forwards~: IHHn1 Hn2. subst~. }
+  { inverts Hn2. subst. asserts: (n = n0).
+    { applys~ read_extens.
+      { congruence. }
+      { introv Hi. rewrite <- H in Hi. applys~ H1. } }
+    subst~. }
+Qed.
+
+(* A type can't be a struct and an array at the same time. *)
+
+Lemma array_xor_struct : forall C T' os T Tfs,
+  typing_array C T T' os ->
+  typing_struct C T Tfs ->
+  False.
+Proof.
+  introv HTa HTs. gen Tfs. induction HTa; intros.
+  { inverts HTs. }
+  { inverts HTs. applys* IHHTa. }
+Qed.
+
+(* Connection between arrays and follow_typ allowed paths. *)
+
+Lemma follow_typ_array_access : forall C T os a π Tr Ta,
+  typing_array C Ta T os ->
+  follow_typ C Ta (a::π) Tr ->
+  exists i, a = access_array Ta i.
+Proof.
+  introv HTa HF. gen a π Tr. induction HTa; intros.
+  { inverts HF as.
+    { introv HTa HF. inverts HTa. exists~ i. }
+    { introv HN. inverts HN. } }
+  { inverts HF as.
+    { introv HTa' HF. exists~ i. }
+    { introv HN. inverts HN as _ HN.
+      false. applys* array_xor_struct. } }
+Qed.
+
+(* Connection between structs and follow_typ allowed paths. *)
+
+Lemma follow_typ_struct_access : forall C Tfs a π Tr Ts,
+  typing_struct C Ts Tfs ->
+  follow_typ C Ts (a::π) Tr ->
+  exists f, a = access_field Ts f.
+Proof.
+  introv HTs HF. gen a π Tr. induction HTs; intros.
+  { inverts HF as.
+    { introv HN. inverts HN. }
+    { introv HTs Hfin HF. exists~ f. } }
+  { inverts HF as.
+    { introv HN. inverts HN as _ HN.
+      false. applys* array_xor_struct. }
+    { introv HTs' Hfin HF. exists~ f. } }
+Qed.

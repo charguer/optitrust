@@ -76,13 +76,13 @@ Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
       (* Same fields in C and LLC. *)
       (forall Tv Tfs,
         Tv \indom C ->
-        C[Tv] = typ_struct Tfs ->
+        typing_struct C (typ_var Tv) Tfs ->
             dom Tfs = dom CFOff[Tv]
         /\  dom Tfs = to_set CFOrd[Tv]) ->
       (* Coherency between the sizes. *)
       (forall Tv Tfs,
         Tv \indom C ->
-        C[Tv] = typ_struct Tfs ->
+        typing_struct C (typ_var Tv) Tfs ->
         (exists FT FS FO,
             (* Fields types. *)
             FT = List.map (fun f => Tfs[f]) CFOrd[Tv]
@@ -151,4 +151,91 @@ Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : typ -> val -> 
 
 (* ---------------------------------------------------------------------- *)
 (** General results about these predicates. *)
+
+(* The relation tr_ll_accesses (the low-level translation of 
+   accesses into offsets) is a function. *)
+
+Lemma functional_tr_ll_accesses : forall C LLC π o1 o2,
+  tr_ll_accesses C LLC π o1 ->
+  tr_ll_accesses C LLC π o2 ->
+  o1 = o2.
+Proof.
+  introv Ho1 Ho2. gen o2. induction Ho1; intros.
+  { inverts~ Ho2. }
+  { inverts Ho2 as HTa HTn Hπs.
+    forwards~ (HTeq&Hoseq): functional_typing_array H HTa. subst.
+    forwards~: functional_typ_size H0 HTn. subst.
+    forwards~: IHHo1 Hπs. subst~. }
+  { inverts Ho2 as HTs HTvin Hfin Hπs.
+    forwards~: IHHo1 Hπs. subst~. }
+Qed.
+
+(* Relationship between size of types and the translation of values. *)
+
+Lemma typ_size_length_lw : forall C α v LLC T lw n,
+  ll_typdefctx_ok C LLC ->
+  tr_ll_val C LLC α T v lw ->
+  typ_size (typvar_sizes LLC) T n ->
+  length lw = n.
+Proof.
+  introv HLLC Htr Hn. gen C α v lw. induction Hn; intros; 
+  try solve [ inverts Htr; repeat rewrite length_cons; 
+  rewrite length_nil ; math ].
+  { inverts Htr as Htr. gen n. induction Htr; intros.
+    { rewrite concat_nil. repeat rewrite length_nil in *. math. }
+    { rewrite concat_cons. rewrite length_app.
+      rewrite length_cons. forwards* Heq1: IHHn. rewrite Heq1.
+      forwards* Heq2: IHHtr. rewrite Heq2. rewrite Z.mul_add_distr_l.
+      math. } }
+  { inverts Htr as HTv1 HTv2 HTfs Hls' Htr.
+    gen C LLC Tv α s Tfs. induction s'; intros.
+    { inverts HLLC as HD HC. simpls.
+      forwards* (FT&FS&FO&HFT&HFS&HFO&HCSTv&HCFOffTv): HC HTv2 HTfs.
+      rewrite HCSTv at 1.
+      rewrite length_nil in Hls'. symmetry in Hls'.
+      rewrite length_zero_eq_eq_nil in Hls'.
+      rewrite Hls' in HFT.
+      unfold List.map in HFT.
+      rewrite HFT in HFS.
+      inverts HFS.
+      rewrite fold_left_nil.
+      rew_list~. }
+    { admit. (* One way to do this would be to explicitly create
+      a new C and a new LLC that make everything work. *) } }
+Qed.
+
+(* Numerical results about sizes. *)
+
+Lemma accesses_offset_gez : forall C LLC π o,
+  tr_ll_accesses C LLC π o ->
+  0 <= o.
+Proof.
+  introv Hπ. induction Hπ.
+  { math. }
+  { apply Zle_lt_or_eq in H1.
+    apply Zle_lt_or_eq in H2.
+    apply Zle_lt_or_eq in IHHπ.
+    inverts H1; inverts H2; inverts IHHπ; 
+    try solve [ try forwards*: Z.mul_pos_pos i n; math ]. }
+  { apply Zle_lt_or_eq in H3.
+    apply Zle_lt_or_eq in IHHπ.
+    inverts H3; inverts IHHπ; math. }
+Qed.
+
+(* If T --π--> T' then |T| >= |T'|. *)
+
+Lemma follow_typ_size : forall C LLC π T T' n n',
+  ll_typdefctx_ok C LLC ->
+  follow_typ C T π T' ->
+  typ_size (typvar_sizes LLC) T n ->
+  typ_size (typvar_sizes LLC) T' n' ->
+  n' <= n.
+Proof.
+  introv Hok Hπ Hn Hn'. gen n n'. induction Hπ; intros.
+  { forwards~: functional_typ_size Hn Hn'. subst. math. }
+  { inverts Hn; try solve [ inverts H ].
+    { admit. (* TODO: Need index assumptions. *) }
+    { admit. } }
+  { admit. }
+Qed.
 
