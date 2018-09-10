@@ -404,7 +404,7 @@ Proof.
       forwards~ Hwfφl1: Hφ Hl1in.
       forwards~ Hwfπ: follow_typ_wf_accesses Hwfφl1 H1.
       applys* follow_typ_ll_accesses_inj. }
-    { admit. (* Find contradiction because alpha is always a bijection. *) } }
+    { admit. (* Find contradiction because alpha is a bijection. *) } }
 Qed.
 
 (* Contrapositive of the previous statement. *)
