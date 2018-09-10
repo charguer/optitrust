@@ -116,29 +116,29 @@ Inductive read_phi (C:typdefctx) (φ:phi) (l:loc) (π:accesses) (T:typ) : Prop :
 (* ---------------------------------------------------------------------- *)
 (** Typing of values *)
 
-Inductive typing_val (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) : val -> typ -> Prop :=
+Inductive typing_val (C:typdefctx) (φ:phi) : val -> typ -> Prop :=
   | typing_val_uninitialized : forall T,
       wf_typ C T ->
-      typing_val C LLC φ val_uninitialized T
+      typing_val C φ val_uninitialized T
   | typing_val_unit :
-      typing_val C LLC φ val_unit typ_unit
+      typing_val C φ val_unit typ_unit
   | typing_val_bool : forall b,
-      typing_val C LLC φ (val_bool b) typ_bool
+      typing_val C φ (val_bool b) typ_bool
   | typing_val_int : forall i,
-      typing_val C LLC φ (val_int i) typ_int
+      typing_val C φ (val_int i) typ_int
   | typing_val_double : forall d,
-      typing_val C LLC φ (val_double d) typ_double
+      typing_val C φ (val_double d) typ_double
   | typing_val_abstract_ptr : forall l π T,
       read_phi C φ l π T ->
-      typing_val C LLC φ (val_abstract_ptr l π) (typ_ptr T)
+      typing_val C φ (val_abstract_ptr l π) (typ_ptr T)
   | typing_val_struct : forall Ts vfs Tfs,
       typing_struct C Ts Tfs ->
       dom Tfs = dom vfs ->
       (forall f,
         f \indom Tfs ->
         f \indom vfs ->
-        typing_val C LLC φ vfs[f] Tfs[f]) ->
-      typing_val C LLC φ (val_struct Ts vfs) Ts
+        typing_val C φ vfs[f] Tfs[f]) ->
+      typing_val C φ (val_struct Ts vfs) Ts
   | typing_val_array : forall Ta a T os,
       typing_array C Ta T os ->
       (forall n,
@@ -146,109 +146,109 @@ Inductive typing_val (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) : val -> typ -> P
         length a = n) ->
       (forall i, 
         index a i -> 
-        typing_val C LLC φ a[i] T) ->
-      typing_val C LLC φ (val_array Ta a) Ta.
+        typing_val C φ a[i] T) ->
+      typing_val C φ (val_array Ta a) Ta.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Typing of terms *)
 
-Inductive typing (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) : gamma -> trm -> typ -> Prop :=
+Inductive typing (C:typdefctx) (φ:phi) : gamma -> trm -> typ -> Prop :=
   (* Closed values *)
   | typing_trm_val : forall Γ v T,
-      typing_val C LLC φ v T ->
-      typing C LLC φ Γ (trm_val v) T
+      typing_val C φ v T ->
+      typing C φ Γ (trm_val v) T
   (* Variables *)
   | typing_var : forall Γ x T,
       Ctx.lookup x Γ = Some T ->
-      typing C LLC φ Γ x T
+      typing C φ Γ x T
   (* Binary operations *)
   | typing_binop_add : forall Γ t1 t2,
-      typing C LLC φ Γ t1 typ_int ->
-      typing C LLC φ Γ t2 typ_int ->
-      typing C LLC φ Γ (trm_app binop_add (t1::t2::nil)) typ_int
+      typing C φ Γ t1 typ_int ->
+      typing C φ Γ t2 typ_int ->
+      typing C φ Γ (trm_app binop_add (t1::t2::nil)) typ_int
   | typing_binop_sub : forall Γ t1 t2,
-      typing C LLC φ Γ t1 typ_int ->
-      typing C LLC φ Γ t2 typ_int ->
-      typing C LLC φ Γ (trm_app binop_sub (t1::t2::nil)) typ_int
+      typing C φ Γ t1 typ_int ->
+      typing C φ Γ t2 typ_int ->
+      typing C φ Γ (trm_app binop_sub (t1::t2::nil)) typ_int
   | typing_binop_mul : forall Γ t1 t2,
-      typing C LLC φ Γ t1 typ_int ->
-      typing C LLC φ Γ t2 typ_int ->
-      typing C LLC φ Γ (trm_app binop_mul (t1::t2::nil)) typ_int
+      typing C φ Γ t1 typ_int ->
+      typing C φ Γ t2 typ_int ->
+      typing C φ Γ (trm_app binop_mul (t1::t2::nil)) typ_int
   | typing_binop_div : forall Γ t1 t2,
-      typing C LLC φ Γ t1 typ_int ->
-      typing C LLC φ Γ t2 typ_int ->
-      typing C LLC φ Γ (trm_app binop_div (t1::t2::nil)) typ_int
+      typing C φ Γ t1 typ_int ->
+      typing C φ Γ t2 typ_int ->
+      typing C φ Γ (trm_app binop_div (t1::t2::nil)) typ_int
   | typing_binop_mod : forall Γ t1 t2,
-      typing C LLC φ Γ t1 typ_int ->
-      typing C LLC φ Γ t2 typ_int ->
-      typing C LLC φ Γ (trm_app binop_mod (t1::t2::nil)) typ_int
+      typing C φ Γ t1 typ_int ->
+      typing C φ Γ t2 typ_int ->
+      typing C φ Γ (trm_app binop_mod (t1::t2::nil)) typ_int
   | typing_binop_eq : forall Γ T t1 t2,
       wf_typ C T ->
       basic_typ C T ->
-      typing C LLC φ Γ t1 T ->
-      typing C LLC φ Γ t2 T ->
-      typing C LLC φ Γ (trm_app binop_eq (t1::t2::nil)) typ_bool
+      typing C φ Γ t1 T ->
+      typing C φ Γ t2 T ->
+      typing C φ Γ (trm_app binop_eq (t1::t2::nil)) typ_bool
   (* Abstract heap operations *)
   | typing_get : forall Γ T t1,
-      typing C LLC φ Γ t1 (typ_ptr T) ->
-      typing C LLC φ Γ (trm_app (prim_get T) (t1::nil)) T
+      typing C φ Γ t1 (typ_ptr T) ->
+      typing C φ Γ (trm_app (prim_get T) (t1::nil)) T
   | typing_set : forall Γ T t1 t2,
-      typing C LLC φ Γ t1 (typ_ptr T) ->
-      typing C LLC φ Γ t2 T ->
-      typing C LLC φ Γ (trm_app (prim_set T) (t1::t2::nil)) typ_unit
+      typing C φ Γ t1 (typ_ptr T) ->
+      typing C φ Γ t2 T ->
+      typing C φ Γ (trm_app (prim_set T) (t1::t2::nil)) typ_unit
   | typing_new : forall Γ T, 
-      typing C LLC φ Γ (trm_app (prim_new T) nil) (typ_ptr T)
+      typing C φ Γ (trm_app (prim_new T) nil) (typ_ptr T)
   | typing_new_array : forall Γ t1 T,
-      typing C LLC φ Γ t1 typ_int ->
-      typing C LLC φ Γ (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T None))
+      typing C φ Γ t1 typ_int ->
+      typing C φ Γ (trm_app (prim_new_array T) (t1::nil)) (typ_ptr (typ_array T None))
   | typing_struct_access : forall Γ Ts t1 Tfs f,
       typing_struct C Ts Tfs ->
       f \indom Tfs ->
-      typing C LLC φ Γ t1 (typ_ptr Ts) ->
-      typing C LLC φ Γ (trm_app (prim_struct_access Ts f) (t1::nil)) (typ_ptr Tfs[f])
+      typing C φ Γ t1 (typ_ptr Ts) ->
+      typing C φ Γ (trm_app (prim_struct_access Ts f) (t1::nil)) (typ_ptr Tfs[f])
   | typing_array_access : forall Γ os Ta t1 t2 T,
       typing_array C Ta T os ->
-      typing C LLC φ Γ t1 (typ_ptr Ta) ->
-      typing C LLC φ Γ t2 typ_int ->
-      typing C LLC φ Γ (trm_app (prim_array_access Ta) (t1::t2::nil)) (typ_ptr T)
+      typing C φ Γ t1 (typ_ptr Ta) ->
+      typing C φ Γ t2 typ_int ->
+      typing C φ Γ (trm_app (prim_array_access Ta) (t1::t2::nil)) (typ_ptr T)
   (* Operations on structs and arrays as values *)
   | typing_struct_get : forall Γ Ts t1 Tfs f,
       typing_struct C Ts Tfs ->
       f \indom Tfs ->
-      typing C LLC φ Γ t1 (typ_struct Tfs) ->
-      typing C LLC φ Γ (trm_app (prim_struct_get Ts f) (t1::nil)) Tfs[f]
+      typing C φ Γ t1 (typ_struct Tfs) ->
+      typing C φ Γ (trm_app (prim_struct_get Ts f) (t1::nil)) Tfs[f]
   | typing_array_get : forall Γ os Ta t1 t2 T,
       typing_array C Ta T os ->
-      typing C LLC φ Γ t1 (typ_array T os) ->
-      typing C LLC φ Γ t2 typ_int ->
-      typing C LLC φ Γ (trm_app (prim_array_get Ta) (t1::t2::nil)) T
+      typing C φ Γ t1 (typ_array T os) ->
+      typing C φ Γ t2 typ_int ->
+      typing C φ Γ (trm_app (prim_array_get Ta) (t1::t2::nil)) T
   (* Other language constructs *)
   | typing_if : forall Γ t0 t1 t2 T,
-      typing C LLC φ Γ t0 typ_bool ->
-      typing C LLC φ Γ t1 T ->
-      typing C LLC φ Γ t2 T ->
-      typing C LLC φ Γ (trm_if t0 t1 t2) T
+      typing C φ Γ t0 typ_bool ->
+      typing C φ Γ t1 T ->
+      typing C φ Γ t2 T ->
+      typing C φ Γ (trm_if t0 t1 t2) T
   | typing_let : forall Γ T1 T z t1 t2,
-      typing C LLC φ Γ t1 T1 ->
-      typing C LLC φ (Ctx.add z T1 Γ) t2 T ->
-      typing C LLC φ Γ (trm_let z t1 t2) T.
+      typing C φ Γ t1 T1 ->
+      typing C φ (Ctx.add z T1 Γ) t2 T ->
+      typing C φ Γ (trm_let z t1 t2) T.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Typing of the state and the stack *)
 
-Definition state_typing (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (m:state) : Prop :=
+Definition state_typing (C:typdefctx) (φ:phi) (m:state) : Prop :=
       dom m = dom φ
   /\  (forall l, 
         l \indom m -> 
-        typing_val C LLC φ m[l] φ[l]).
+        typing_val C φ m[l] φ[l]).
 
-Definition stack_typing (C:typdefctx) (LLC:ll_typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
+Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop := 
   forall x v T,
     Ctx.lookup x S = Some v ->
     Ctx.lookup x Γ = Some T ->
-    typing_val C LLC φ v T.
+    typing_val C φ v T.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -520,8 +520,8 @@ Proof.
       applys* typing_struct_keeps_free_var. } }
 Qed.
 
-Lemma typing_val_wf_val : forall C LLC φ v T,
-  typing_val C LLC φ v T ->
+Lemma typing_val_wf_val : forall C φ v T,
+  typing_val C φ v T ->
   wf_phi C φ ->
   wf_typ C T ->
   wf_val C v.
@@ -536,8 +536,8 @@ Proof.
     applys* wf_typing_array. }
 Qed.
 
-Lemma typing_val_not_is_error : forall C LLC φ v T,
-  typing_val C LLC φ v T ->
+Lemma typing_val_not_is_error : forall C φ v T,
+  typing_val C φ v T ->
   ~ is_error v.
 Proof.
   introv HTv HN. inverts HTv; unfolds* is_error.

@@ -159,6 +159,54 @@ Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : typ -> val -> 
 
 
 (* ---------------------------------------------------------------------- *)
+(** Semantics of the low-level memory accesses *)
+
+(** m(l)[o] = v *)
+
+(* TODO: Move to LibList? *)
+Definition list_slice {A:Type} (l:list A) (i:int) (n:int) (lr:list A) : Prop :=
+      lr = take n (drop i l)
+  /\  0 <= n
+  /\  0 <= i
+  /\  i + n <= length l.
+
+Inductive read_ll_state (m:state) (l:loc) (o:offset) (n:size) (ws':words) : Prop :=
+  | read_ll_state_intro : forall ws,
+      l \indom m ->
+      m[l] = val_words ws ->
+      list_slice ws o n ws' ->
+      read_ll_state m l o n ws'.
+
+(** m[l := m(l)[π := w]] = m' *)
+
+(* TODO: Move to LibList? *)
+Definition list_slice_update {A:Type} (l:list A) (i:int) (l':list A) (lr:list A) : Prop :=
+      lr = (take i l) ++ l' ++ (drop (i + length l') l)
+  /\  0 <= i
+  /\  i + length l' <= length l.
+
+Inductive write_ll_state (m:state) (l:loc) (o:offset) (ws':words) (m':state) : Prop :=
+  | write_ll_state_intro : forall ws ws'',
+      l \indom m ->
+      m[l] = val_words ws ->
+      list_slice_update ws o ws' ws'' ->
+      m' = m[l := (val_words ws'')] ->
+      write_ll_state m l o ws' m'.
+
+(*
+Inductive write_ll_state (m:state) (p:loc) (ws':words) (m':state) : Prop :=
+  | write_ll_state_intro : forall l o ws ws'',
+      l \indom m ->
+      index m[l] o ->
+      p = l + o ->
+      m[l] = val_words ws ->
+      list_slice_update ws o ws' ws'' ->
+      m' = m[l := (val_words ws'')] ->
+      write_ll_state m p ws' m'.
+*)
+
+
+(* ---------------------------------------------------------------------- *)
 (** General results about these predicates. *)
 
 (* If the low-level context is properly defined then the sizes should
