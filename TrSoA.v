@@ -139,71 +139,71 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
 
 (* Transformation used in the struct cases to avoid repetition. *)
 
-(* let t = t1 in
-   let i = t2 in
-   let j = i / K in
-   let k = i % K in
-     t[j][k] *)
-Inductive tr_prim (tt:tiling_tr) (pr:typ->prim) : trm -> trm -> trm -> Prop :=
-  | tr_access_intro : forall op1 Ta op2 Tt ta1 ta2 K tlk tlj v1 v2,
-      tt = make_tiling_tr Ta Tt K ->
-      op1 = pr (typ_var Ta) ->
-      op2 = pr (typ_var Tt) ->
-      tlk = trm_app binop_mod ((trm_val v2)::(trm_val (val_int K))::nil) ->
-      tlj = trm_app binop_div ((trm_val v2)::(trm_val (val_int K))::nil) ->
-      ta1 = trm_app op1 ((trm_val v1)::tlj::nil) ->
-      ta2 = trm_app op2 (ta1::tlk::nil) ->
-      tr_prim tt pr (trm_val v1) (trm_val v2) ta2.
-
-(* v1[v2 / K][v2 % K] *)
-
-Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
-  | tr_array_op_tiling : forall pr t1 t2 tlt,
-      pr = prim_array_access \/ pr = prim_array_get ->
-      tr_prim tt pr t1 t2 tlt ->
-      tr_array_op tt (trm_app (pr (typ_var (tiling_tr_array_name tt))) (t1::t2::nil)) tlt
-  | tr_array_op_other : forall Ta pr T ts,
-      pr = prim_array_access \/ pr = prim_array_get ->
-      Ta = tiling_tr_array_name tt ->
-      T <> (typ_var Ta) ->
-      tr_array_op tt (trm_app (pr T) ts) (trm_app (pr T) ts).
+Inductive tr_array_op (st:soa_tr) : trm -> trm -> Prop :=
+  | tr_array_access_soa : forall Ta Ts fs K T f t ti ts ta ts' ta',
+      st = make_soa_tr Ta Ts fs K ->
+      (* Initial term is ts: &(t[i]->f) *)
+      ta = trm_app (prim_struct_access (typ_var Ts) f) (ts::nil) ->
+      ts = trm_app (prim_array_access T) (t::ti::nil) ->
+      (* Final term is ta': &(t->f[i]) *)
+      ts' = trm_app (prim_array_access (typ_var Ta)) (ta'::ti::nil) ->
+      ta' = trm_app (prim_struct_access T f) (t::nil) ->
+      (* Result. *)
+      tr_array_op st ta ts'
+  | tr_array_get_soa : forall Ta Ts fs K T f t ti ts ta ts' ta',
+      st = make_soa_tr Ta Ts fs K ->
+      (* Initial term is ts: t[i].f *)
+      ta = trm_app (prim_struct_get (typ_var Ts) f) (ts::nil) ->
+      ts = trm_app (prim_array_get T) (t::ti::nil) ->
+      (* Final term is ta': t.f[i] *)
+      ts' = trm_app (prim_array_get (typ_var Ta)) (ta'::ti::nil) ->
+      ta' = trm_app (prim_struct_get T f) (t::nil) ->
+      (* Result. *)
+      tr_array_op st ta ts'
+  | tr_array_access_other : forall Ts T f ts,
+      Ts = soa_tr_struct_name st ->
+      T <> (typ_var Ts) ->
+      tr_array_op st (trm_app (prim_struct_access T f) ts) (trm_app (prim_struct_access T f) ts)
+  | tr_array_get_other : forall Ts T f ts,
+      Ts = soa_tr_struct_name st ->
+      T <> (typ_var Ts) ->
+      tr_array_op st (trm_app (prim_struct_get T f) ts) (trm_app (prim_struct_get T f) ts).
 
 (** Transformation of terms: t ~ |t| *)
 
-Inductive tr_trm (tt:tiling_tr) : trm -> trm -> Prop :=
+Inductive tr_trm (st:soa_tr) : trm -> trm -> Prop :=
   | tr_trm_val : forall v v',
-      tr_val tt v v' ->
-      tr_trm tt (trm_val v) (trm_val v')
+      tr_val st v v' ->
+      tr_trm st (trm_val v) (trm_val v')
   | tr_trm_var : forall x,
-      tr_trm tt (trm_var x) (trm_var x)
+      tr_trm st (trm_var x) (trm_var x)
   | tr_trm_if : forall t1 t2 t3 t1' t2' t3',
-      tr_trm tt t1 t1' ->
-      tr_trm tt t2 t2' ->
-      tr_trm tt t3 t3' ->
-      tr_trm tt (trm_if t1 t2 t3) (trm_if t1' t2' t3')
+      tr_trm st t1 t1' ->
+      tr_trm st t2 t2' ->
+      tr_trm st t3 t3' ->
+      tr_trm st (trm_if t1 t2 t3) (trm_if t1' t2' t3')
   | tr_trm_let : forall x t1 t2 t1' t2',
-      tr_trm tt t1 t1' ->
-      tr_trm tt t2 t2' ->
-      tr_trm tt (trm_let x t1 t2) (trm_let x t1' t2')
+      tr_trm st t1 t1' ->
+      tr_trm st t2 t2' ->
+      tr_trm st (trm_let x t1 t2) (trm_let x t1' t2')
   (* new *)
   | tr_trm_new : forall T,
-      tr_trm tt (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
-  (* Special case: array access *)
-  | tr_trm_array : forall t1' t2' op t1 t2 tr,
-      is_array_op op ->
-      tr_trm tt t1 t1' ->
-      tr_trm tt t2 t2' ->
-      tr_array_op tt (trm_app op (t1'::t2'::nil)) tr ->
-      tr_trm tt (trm_app op (t1::t2::nil)) tr
+      tr_trm st (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
+  (* Special case: struct + array access *)
+  | tr_trm_array : forall t1' op t1 tr,
+      is_struct_op op ->
+      tr_trm st t1 t1' ->
+      tr_array_op st (trm_app op (t1'::nil)) tr ->
+      tr_trm st (trm_app op (t1::nil)) tr
   (* Args *)
   | tr_trm_args1 : forall op t1 t1',
-      tr_trm tt t1 t1' ->
-      tr_trm tt (trm_app op (t1::nil)) (trm_app op (t1'::nil))
+      tr_trm st t1 t1' ->
+      tr_trm st (trm_app op (t1::nil)) (trm_app op (t1'::nil))
   | tr_trm_args2 : forall op t1 t1' t2 t2',
       ~ is_array_op op ->
-      tr_trm tt t1 t1' ->
-      tr_trm tt t2 t2' ->
-      tr_trm tt (trm_app op (t1::t2::nil)) (trm_app op (t1'::t2'::nil)).
+      tr_trm st t1 t1' ->
+      tr_trm st t2 t2' ->
+      tr_trm st (trm_app op (t1::t2::nil)) (trm_app op (t1'::t2'::nil)).
 
 (** Transformation of stacks: S ~ |S| *)
 
