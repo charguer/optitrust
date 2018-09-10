@@ -65,10 +65,10 @@ Axiom list_to_map : forall A B, list A -> list B -> map A B.
 
 Axiom list_to_map_spec : forall ks vs m,
   m = list_to_map ks vs ->
-      length ks = length vs
-  /\  forall i,
-        index ks i ->
-        ks[i] \indom m /\ m[ks[i]] = vs[i].
+  length ks = length vs ->
+  (forall i,
+    index ks i ->
+    ks[i] \indom m /\ m[ks[i]] = vs[i]). (* reciuprocal *)
 
 Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
   | low_level_ctx_ok_intros : forall CS CFOrd CFOff,

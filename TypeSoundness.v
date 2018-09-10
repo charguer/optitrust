@@ -310,7 +310,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Type preservation proof *)
 
-Theorem type_soundess : forall C LLC φ m t v T Γ S m',
+Theorem type_soundness : forall C LLC φ m t v T Γ S m',
   red C LLC S m t m' v ->
   ~ is_error v ->
   typing C LLC φ Γ t T ->
@@ -478,6 +478,42 @@ Proof.
         constructors*. }
       { applys* extended_stack_typing. } } }
 Unshelve. typeclass.
+Qed.
+
+
+(* A well typed term cannot reduce to an error. *)
+
+Theorem typing_not_error : forall C LLC φ m t v T Γ S m',
+  red C LLC S m t m' v ->
+  typing C LLC φ Γ t T ->
+  state_typing C LLC φ m ->
+  stack_typing C LLC φ Γ S ->
+  ~ is_error v.
+Proof.
+  (* TODO: Tedious but should be true. *)
+Admitted.
+
+(* From initial execution. *)
+
+Theorem type_soundness_nice : forall C LLC m t v T,
+  red C LLC nil empty t m v ->
+  typing C LLC empty nil t T ->
+  exists φ,
+        typing_val C LLC φ v T
+    /\  state_typing C LLC φ m.
+Proof.
+  introv HR HT.
+  asserts Hm: (state_typing C LLC \{} \{}). 
+  { unfolds. lets HDe: @dom_empty. unfolds phi. splits.
+    { rew_set; intuition; try solve
+      [ false; forwards: @is_empty_inv x (dom \{});
+        eauto; typeclass ]. }
+    { introv Hl. false. forwards: @is_empty_inv l (dom \{});
+      eauto; typeclass. } }
+  asserts HS: (stack_typing C LLC \{} nil nil).
+  { unfolds. introv Hx1. false. }
+  forwards* (φ&Hφ&HTv&Hm'): type_soundness HR HT.
+  applys* typing_not_error.
 Qed.
 
 End TypeSoundness.
