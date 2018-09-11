@@ -51,10 +51,10 @@ Inductive tiling_tr_ok : tiling_tr -> typdefctx -> Prop :=
 (* * Representation of indices. *)
 
 Definition nb_tiles (K I J:int) : Prop :=
-  J = (I / K + If (I mod K = 0) then 0 else 1)%Z.
+  J = I / K + If (I mod K = 0) then 0 else 1.
 
 Definition tiled_indices (I J K i j k:int) : Prop :=
-      i = (j * K + k)%Z
+      i = j * K + k
   /\  index I i
   /\  index J j
   /\  index K k.
