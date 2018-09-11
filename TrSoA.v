@@ -92,6 +92,7 @@ Inductive tr_accesses (st:soa_tr) : accesses -> accesses -> Prop :=
       tr_accesses st π π' ->
       tr_accesses st ((access_array T i)::π) ((access_array T i)::π')
   | tr_accesses_field : forall T π π' f,
+      T <> typ_var (soa_tr_struct_name st) ->
       tr_accesses st π π' ->
       tr_accesses st ((access_field T f)::π) ((access_field T f)::π').
 
@@ -343,7 +344,37 @@ Theorem functional_tr_val : forall st v v1 v2,
   tr_val st v v2 ->
   v1 = v2.
 Proof using.
-Admitted.
+  introv Hv1 Hv2. gen v2. induction Hv1; intros;
+  try solve [ inverts~ Hv2 ].
+  { inverts Hv2 as Hπ. fequals.
+    forwards~: functional_tr_accesses H Hπ. }
+  { inverts Hv2 as.
+    { introv HD Htr. inverts_head make_soa_tr'.
+      fequals. applys~ read_extens.
+      { congruence. }
+      { intros f Hf. asserts Hf': (f \indom Tfs0).
+        { rewrite~ H0 in Hf. }
+        forwards~ (Hs'f&Htrs'): H1 f.
+        forwards~ (Hs'0f&Htrs'0): Htr f ?TEMP ?TEMP0.
+        congruence. } }
+    { introv HN. subst. simpls. false. } }
+  { inverts Hv2 as.
+    { simpls. false. }
+    { introv HT Hl Htr. fequals.
+      applys~ eq_of_extens.
+      { congruence. }
+      { introv Hi. asserts  Hi': (index a i).
+        { rewrite index_eq_index_length in *.
+          rewrite~ <- H0 in Hi. }
+        applys~ H2. } } }
+  { inverts Hv2 as HDs Htr. fequals.
+    applys~ read_extens.
+    { congruence. }
+    { intros f Hf. asserts Hf': (f \indom s).
+      { rewrite~ <- H in Hf. }
+      applys~ H1. } }
+Unshelve. typeclass. typeclass.
+Qed.
 
 Lemma tr_accesses_inj : forall C st π π1 π2,
   soa_tr_ok st C ->
@@ -353,7 +384,33 @@ Lemma tr_accesses_inj : forall C st π π1 π2,
   tr_accesses st π2 π ->
     π1 = π2.
 Proof.
-Admitted.
+  introv Hok Hwfπ1 Hwfπ2 Hπ1 Hπ2. gen C π2. induction Hπ1; intros.
+  { inverts~ Hπ2. }
+  { inverts Hπ2 as.
+    { introv Hπ0.
+      inverts TEMP.
+      inverts_head access_array.
+      inverts_head access_field. subst.
+      repeat fequals.
+      inverts Hwfπ1 as _ Hwfπ1. inverts Hwfπ1 as _ Hwfπ1.
+      inverts Hwfπ2 as _ Hwfπ2. inverts Hwfπ2 as _ Hwfπ2.
+      applys* IHHπ1. }
+    { inverts_head access_array. }
+    { introv HN. subst. simpls.
+      inverts TEMP. false. } }
+  { inverts Hπ2 as.
+    { introv _ HN. inverts HN. }
+    { introv _ Htr. fequals.
+      inverts Hwfπ1 as _ Hwfπ1.
+      inverts Hwfπ2 as _ Hwfπ2.
+      applys* IHHπ1. } }
+  { inverts Hπ2 as.
+    { introv _ HN. inverts HN. simpls. false. }
+    { introv Hneq Htr. fequals.
+      inverts Hwfπ1 as _ Hwfπ1.
+      inverts Hwfπ2 as _ Hwfπ2.
+      applys* IHHπ1. } }
+Qed.
 
 Lemma tr_val_inj : forall C st v v1 v2,
   soa_tr_ok st C ->
