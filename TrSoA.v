@@ -119,7 +119,7 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
         f \indom Tfs ->
         s'[f] = val_array (typ_array Tfs[f] (Some K)) a' ->
         (forall s i,
-          index a' i ->
+          index a i ->
           a[i] = val_struct (typ_var Ts) s ->
           tr_val st s[f] a'[i])) ->
       (forall f,
@@ -311,10 +311,23 @@ Proof.
 introv Htr Hu HN. induction Htr; subst; inverts HN as.
   { applys* Hu. constructors. }
   { introv (f&Hfin&Hus'f).
-    applys~ Hu. forwards* (Hs'f&Htr): H1 f a.
-    { rewrite~ H0 in Hfin. } 
+    applys~ Hu. 
+    asserts Hfin': (f \indom Tfs).
+    { rewrite~ <- H0. }
+    forwards* (a'&Hs'f&Hl): H3 Hfin'.
     rewrite Hs'f in Hus'f.
-    inverts Hus'f. constructors~. }
+    inverts Hus'f as (i&Hi&Hua'i).
+    asserts Hi': (index a i).
+    { rewrite index_eq_index_length in *. rewrite~ Hl. }
+    forwards* (s&Hai&HDs): H4 i.
+    asserts Hfin'': (f \indom s).
+    { rewrite~ HDs. }
+    constructors~. exists i. splits~.
+    rewrite Hai. constructors.
+    exists f. splits~.
+    forwards~ Htr: H1 f a' s i.
+    tests: (is_uninitialized s[f]); auto.
+    false. applys* H2. }
   { introv (i&Hi&Hua'i).
     asserts Hi': (index a i).
     { rewrite index_eq_index_length in *. rewrite~ H0. }
@@ -365,9 +378,18 @@ Proof using.
       { intros f Hf. asserts Hf': (f \indom Tfs0).
         { rewrite~ H0 in Hf. }
         forwards~ (a'&Hs'0f&Hl): Htr2 f.
-        forwards~ (Hs'f&Htrs'): H1 f a'.
-        forwards~ (Hs'0f'&Htrs'0): Htr1 f a'.
-        congruence. } }
+        forwards~ (a''&Hs'f&Hl'): H3 f.
+        rewrite Hs'0f. rewrite Hs'f.
+        fequals. applys~ eq_of_extens.
+        { congruence. }
+        { introv Hi. asserts Hi': (index a i).
+          { rewrite index_eq_index_length in *. rewrite~ Hl'. }
+          asserts Hi'': (index a' i).
+          { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
+          forwards~ (s&Hai&HDs): Htr3 i.
+          forwards~ Htr: H1 f a'' s i.
+          forwards~ Htr': Htr1 f a' s i.
+          forwards~: H2 f a'' s i (a'[i]). } } }
     { introv HN. subst. simpls. false. } }
   { inverts Hv2 as.
     { simpls. false. }
@@ -482,11 +504,8 @@ Proof.
     forwards~ (a'&Hs'f&Hl): HEa' f.
     { rewrite~ <- HDs0. }
     forwards* (w'&Hw'&HRw'): IHHa (s0[f]) (a'[i]).
-    { forwards (_&Htr'): Htr f a'.
-      { rewrite~ <- HDs0. }
-      forwards~ (_&Htr''): Htr' s0 i.
-      rewrite index_eq_index_length in *.
-      rewrite~ <- Hl. } 
+    { forwards* Htr': Htr f a'.
+      { rewrite~ <- HDs0. } }
     exists w'. splits~. constructors.
     { rewrite HDs'. rewrite~ <- HDs0. }
     rewrite Hs'f. constructors.
@@ -531,19 +550,55 @@ Proof.
     rewrite <- H in Hai. inverts Hai.
     forwards~ (a'&Hs'f&Hl): HEa' f.
     { rewrite~ <- HDs0. }
-    forwards~ (_&Htr'): Htr f a1.
+    forwards* Htr': Htr f a'.
     { rewrite~ <- HDs0. }
-    forwards~ (_&Htr''): Htr' s0 i.
-    forwards~ (v2'&Htrv2'&HWv2'): IHHπ (s0[f]) (a1[i]) w w' v0.
-    exists (val_struct (typ_var Ts0) s'[f:=(val_array Tfs0[f] a'[i:=v2'])]).
+    forwards~ (v2'&Htrv2'&HWv2'): IHHπ (s0[f]) (a'[i]) w w' v0.
+    exists (val_struct (typ_var Ts0) s'[f:=(val_array (typ_array Tfs0[f] (Some K0)) a'[i:=v2'])]).
     splits.
     { constructors*.
-      { }
-      { }
-      { }
-      {} }
-    {  } }
-  { (* access other array *) }
+      { rewrite <- HDs'. applys~ dom_update_at_indom.
+        rewrite HDs'. rewrite~ <- HDs0. }
+      { introv Hf0in Hs'fu Hi0 Ha1iu.
+        tests: (f=f0).
+        { rew_reads in Hs'fu. inverts Hs'fu.
+          tests: (i=i0).
+          { rew_reads~ in Ha1iu. intros. inverts Ha1iu. 
+            asserts Hi0': (index a' i0).
+            { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
+            rew_reads~. }
+          { asserts Hi0': (index a' i0).
+            { rewrite index_update_eq in Hi0. rewrite index_eq_index_length in *.
+              rewrite~ <- Hl. }
+            asserts Hi0'': (index a1 i0).
+            { rewrite index_eq_index_length in *. rewrite~ Hl. }
+            rew_reads~. intros. rew_reads~ in Ha1iu. } }
+        { rew_reads in Hs'fu. intros.
+          tests: (i=i0).
+          { rew_reads~ in Ha1iu. intros. inverts Ha1iu.
+            rew_reads~. }
+          { rewrite index_update_eq in Hi0. 
+            rew_reads~ in Ha1iu. } } }
+        { introv Hf0in. rew_reads~.
+          { introv Heq. subst. exists~ a'[i:=v2']. splits~.
+            repeat rewrites~ length_update. }
+          { introv Hneq. forwards~ (a'0&Hs'f0&Hl'): HEa' f0.
+            exists a'0. splits~. repeat rewrite~ length_update. } }
+        { introv Hi0in.
+          asserts Hi0': (index a1 i0).
+          { rewrite index_eq_index_length in *. 
+            rewrite~ length_update in Hi0in. }
+          rew_reads~. intros. exists~ s0[f:=v0].
+          splits~. rewrite~ dom_update_at_indom. } }
+      { constructors~.
+        { rewrite HDs'. rewrite~ <- HDs0. }
+        rewrite Hs'f. constructors*. 
+        { rewrite index_eq_index_length in *. rewrite~ <- Hl. } } } }
+  { (* access other array *)
+    inverts HW as Hi HW.
+    inverts Hv1 as; try solve [ intros; subst; simpls; false ].
+    introv _ Hl Htr. forwards~ Ha1i: Htr Hi.
+    forwards~ (v2'&Hv2'&HWv2'): IHHπ a1[i] a'[i] w w' v.
+    exists (val_array T a'[i:=v2']). }
   { (* access struct *) }
 Qed.
 
