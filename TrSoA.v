@@ -140,7 +140,8 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
         index a i ->
         tr_val st a[i] a'[i]) ->
       tr_val st (val_array T a) (val_array T a')
-  | tr_val_struct : forall T s s',
+  | tr_val_struct_other : forall T s s',
+      T <> typ_var (soa_tr_struct_name st) ->
       dom s = dom s' ->
       (forall f,
         f \indom s ->
@@ -321,8 +322,8 @@ introv Htr Hu HN. induction Htr; subst; inverts HN as.
     constructors. exists i. splits~. }
   { introv (f&Hfin&Hus'f).
     asserts Hf': (f \indom s).
-    { rewrite~ H. }
-    applys* H1. introv HN. applys~ Hu. constructors.
+    { rewrite~ H0. }
+    applys* H2. introv HN. applys~ Hu. constructors.
     exists f. splits~. }
 Qed.
 
@@ -358,13 +359,14 @@ Proof using.
   { inverts Hv2 as Hπ. fequals.
     forwards~: functional_tr_accesses H Hπ. }
   { inverts Hv2 as.
-    { introv HD Htr1 Htr2. inverts_head make_soa_tr'.
+    { introv HD Htr1 Htr2 Htr3. inverts_head make_soa_tr'.
       fequals. applys~ read_extens.
       { congruence. }
       { intros f Hf. asserts Hf': (f \indom Tfs0).
         { rewrite~ H0 in Hf. }
-        forwards~ (Hs'f&Htrs'): H1 f.
-        forwards~ (Hs'0f&Htrs'0): Htr1 f ?TEMP ?TEMP0.
+        forwards~ (a'&Hs'0f&Hl): Htr2 f.
+        forwards~ (Hs'f&Htrs'): H1 f a'.
+        forwards~ (Hs'0f'&Htrs'0): Htr1 f a'.
         congruence. } }
     { introv HN. subst. simpls. false. } }
   { inverts Hv2 as.
@@ -380,8 +382,8 @@ Proof using.
     applys~ read_extens.
     { congruence. }
     { intros f Hf. asserts Hf': (f \indom s).
-      { rewrite~ <- H in Hf. }
-      applys~ H1. } }
+      { rewrite~ <- H0 in Hf. }
+      applys~ H2. } }
 Qed.
 
 Lemma tr_accesses_inj : forall C st π π1 π2,
@@ -466,49 +468,44 @@ Lemma tr_read_accesses : forall st v π v' π' w,
       tr_val st w w'
   /\  read_accesses v' π' w').
 Proof.
-  introv Hv Ha HR. gen st v' π'. induction HR; intros.
+  introv Hv Ha HR. gen v v' w. induction Ha; intros.
   { (* nil *)
-    inverts Ha. exists* v'. splits*. constructors. }
-  { (* array access *)
-    inverts Hv as.
-    { introv HDs' Htr1 Htr2.
-      inverts Ha;
-      try solve [ simpls; tryfalse ].
-      forwards~ (Hai&HDs): Htr2 H. rewrite Hai in IHHR.
-       }
-    { introv Hneq Hl Htr.
-      forwards~ Htrai: Htr H. inverts Ha;
-      try solve [ simpls; tryfalse ].
-      forwards* (w'&Hw'&HRw'): IHHR Htrai.
-      exists w'. splits*. constructors~.
-      { rewrite index_eq_index_length in *.
-        rewrite~ <- Hl. } }
-
-    inverts Ha as.
-    { introv Htr Heq. inverts Heq. 
-      { (*introv Heq HD Htr1' Htr2'. inverts Heq.
-        inverts HR as Hfin HRsf Hai0.
-        rewrite <- Hai0 in IHHR.
-        forwards~ (_&HDs): Htr2' i0 s.
-        forwards~ (Hs'f&Htr1''): Htr1' f.
-        { rewrite~ <- HDs. }
-        forwards*: IHHR.
-        { constructors.
-          { congruence. }
-          {  } }*) admit. }
-      { introv HN. simpls. false. } }
-
-    { introv Hneq Htr. inverts Hv as.
-      { simpls. false. }
-      { introv _ Hl Htr'.
-        forwards~ Htrai: Htr' H.
-        forwards~ (w'&Htrw'&HRw'): IHHR Htrai Htr.
-        exists w'. splits*. constructors.
-        { rewrite index_eq_index_length in *. 
-          rewrite~ <- Hl. }
-        { auto. } } } }
-  { (* struct access *)
-    admit. }
+    inverts HR. exists v'. splits~. constructors~. }
+  { (* access soa *) 
+    subst. inverts HR as Hi HR.
+    inverts HR as Hf HR.
+    inverts Hv as; try solve [ intros; simpls; false ].
+    introv Heq HDs' Htr HEa' HEs.
+    inverts Heq.
+    forwards~ (s0&Hai&HDs0): HEs i.
+    rewrite <- H in Hai. inverts Hai.
+    forwards~ (a'&Hs'f&Hl): HEa' f.
+    { rewrite~ <- HDs0. }
+    forwards* (w'&Hw'&HRw'): IHHa (s0[f]) (a'[i]).
+    { forwards (_&Htr'): Htr f a'.
+      { rewrite~ <- HDs0. }
+      forwards~ (_&Htr''): Htr' s0 i.
+      rewrite index_eq_index_length in *.
+      rewrite~ <- Hl. } 
+    exists w'. splits~. constructors.
+    { rewrite HDs'. rewrite~ <- HDs0. }
+    rewrite Hs'f. constructors.
+    { rewrite index_eq_index_length in *.
+      rewrite~ <- Hl. }
+    auto. }
+  { (* access other array *)
+    inverts HR. inverts Hv as; try solve [ simpls; false ].
+    introv Hneq Hl Htr.
+    forwards* Htr': Htr.
+    forwards* (w'&Hw'&HRw'): IHHa.
+    exists w'. splits*. constructors~.
+    { rewrite index_eq_index_length in *. rewrite~ <- Hl. } }
+  { (* access struct *)
+    inverts HR. inverts Hv as Hneq HD Htr.
+    forwards* Htr': Htr.
+    forwards* (w'&Hw'&HRw'): IHHa.
+    exists w'. splits*. constructors~.
+    rewrite~ <- HD. }
 Qed.
 
 Lemma tr_write_accesses : forall tt Ta Tt K v1 w π v1' π' w' v2,
