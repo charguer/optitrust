@@ -117,11 +117,11 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
       dom s' = dom Tfs ->
       (forall f a',
         f \indom Tfs ->
-            s'[f] = val_array (typ_array Tfs[f] (Some K)) a'
-        /\  (forall s i,
-              index a' i ->
-                  a[i] = val_struct (typ_var Ts) s
-              /\  tr_val st s[f] a'[i])) ->
+        s'[f] = val_array (typ_array Tfs[f] (Some K)) a' ->
+        (forall s i,
+          index a' i ->
+          a[i] = val_struct (typ_var Ts) s ->
+          tr_val st s[f] a'[i])) ->
       (forall f,
         f \indom Tfs ->
             (exists a', 
@@ -508,90 +508,43 @@ Proof.
     rewrite~ <- HD. }
 Qed.
 
-Lemma tr_write_accesses : forall tt Ta Tt K v1 w π v1' π' w' v2,
-  tt = make_tiling_tr' Ta Tt K ->
-  K > 0%Z ->
-  tr_val tt v1 v1' ->
-  tr_val tt w w' ->
-  tr_accesses tt π π' ->
+Lemma tr_write_accesses : forall st v1 w π v1' π' w' v2,
+  tr_val st v1 v1' ->
+  tr_val st w w' ->
+  tr_accesses st π π' ->
   write_accesses v1 π w v2 ->
   (exists v2',
-        tr_val tt v2 v2'
+        tr_val st v2 v2'
     /\  write_accesses v1' π' w' v2').
 Proof.
-  introv Htt HK Hv1 Hw Hπ HW. gen v1' w' π'. induction HW; intros.
-  { (* nil *)
-    inverts Hπ. exists~ w'. }
-  { (* array_access *)
-    inverts Hπ as; inverts Hv1 as; inverts_head make_tiling_tr'.
-    { (* tiling *)
-      introv Htt Hnb Ha'i1 Htra1 Hπ Heq.
-      inverts Htt. inverts Heq. subst.
-      forwards* (aK&HaJiK&HlK): Ha'i1 ((i0/K0)%Z).
-      { rewrite index_eq_index_length in *. rewrite* Hnb. }
-      forwards* HtraK: Htra1 i0 (i0/K0)%Z (i0 mod K0)%Z aK.
-      forwards* (v2'&Hv2'&HW'): IHHW.
-      remember (val_array (typ_var Tt1) aK[((i0 mod K0)%Z):=v2']) as aK'.
-      exists (val_array (typ_var Ta1) aJ[((i0/K0)%Z):=aK']).
-      subst_hyp HeqaK'. splits.
-      { remember aK[(i0 mod K0)%Z:=v2'] as aK'.
-        remember aJ[(i0/K0)%Z:=val_array (typ_var Tt1) aK'] as aJ'.
-        asserts Hex:
-          (forall j : int,
-            index aJ' j ->
-            exists aK,
-                  aJ'[j] = val_array (typ_var Tt1) aK
-               /\ length aK = K0).
-        { subst. introv Hi. rew_reads*. }
-        subst_hyp HeqaK'. subst_hyp HeqaJ'.
-        applys* tr_val_array_tiling.
-        introv Hi' Hup.
-        unfolds tiled_indices. destruct Hi' as (Hieq&Hi&Hk&Hj).
-        forwards* (aK1&Heq&HlaK1): Hex j.
-        inverts Heq.
-        asserts Hi''': (index a1 (j * K0 + k)%Z).
-        { rewrite index_eq_index_length in *.
-          unfolds nb_tiles. rewrite Hnb in *. eauto. }
-        rew_reads~ in Hup.
-        { introv Heq. subst. inverts Hup. rew_reads*.
-          { introv Hneq Heq.
-            forwards*: div_mod_enforce_mod Heq. false. }
-          { introv Heq Hneq. symmetry in Heq.
-            forwards*: div_mod_enforce_mod_inv Heq. } }
-        { introv Hneq.
-          forwards* Htra1': Htra1.
-          asserts Hneq': (j*K0+k <> i0).
-          { applys~ div_quotient_neq. }
-          rew_reads~. } }
-        { constructors~. 
-          { rewrite index_eq_index_length in *. eauto. }
-          rewrite HaJiK. constructors*.
-          { rewrite index_eq_index_length in *. eauto. } } }
-      { (* absurd case *)
-        introv Hneq Hla1 Htra1i1 Hπ Heq. inverts Heq. simpls. false. }
-      { (* absurd case *) 
-        intros. simpls. false. }
-      { (* other array *) 
-        introv _ Hla1 Htra1i0 Hneq Hπ. subst.
-        forwards* (v2'&Hv2'&HW'): IHHW.
-        exists (val_array T a'[i:=v2']). splits.
-        { constructors~.
-          { repeat rewrite~ length_update. }
-          { introv Hi0. rewrite index_update_eq in Hi0. rew_reads*. } }
-        { constructors~. auto. } } }
-  { (* struct *) 
-    inverts Hπ as; inverts Hv1 as. 
-    { (* absurd case *)
-      introv _ _ _ HN. inverts HN. }
-    { (* any struct *) 
-      introv HDs1 Hs1f0 Hπ. subst.
-      forwards* (v2'&Hv2'&HW'): IHHW.
-      exists (val_struct T s'[f:=v2']). splits.
-      { constructors~.
-        { repeat rewrite dom_update. congruence. }
-        { introv Hf0. rewrite* dom_update_at_indom in Hf0.
-          rew_reads*. } }
-      { constructors~. rewrite~ <- HDs1. auto. } } }
+  introv Hv1 Hw Hπ HW. gen v1 v1' w w' v2. induction Hπ; intros.
+  { (* nil *) 
+    inverts HW. exists w'. splits*. constructors~. }
+  { (* access soa *)
+    subst.
+    inverts HW as Hi HW.
+    inverts HW as Hf HW.
+    inverts Hv1 as; try solve [ intros; simpls; false ].
+    introv Heq HDs' Htr HEa' HEs.
+    inverts Heq.
+    forwards~ (s0&Hai&HDs0): HEs i.
+    rewrite <- H in Hai. inverts Hai.
+    forwards~ (a'&Hs'f&Hl): HEa' f.
+    { rewrite~ <- HDs0. }
+    forwards~ (_&Htr'): Htr f a1.
+    { rewrite~ <- HDs0. }
+    forwards~ (_&Htr''): Htr' s0 i.
+    forwards~ (v2'&Htrv2'&HWv2'): IHHπ (s0[f]) (a1[i]) w w' v0.
+    exists (val_struct (typ_var Ts0) s'[f:=(val_array Tfs0[f] a'[i:=v2'])]).
+    splits.
+    { constructors*.
+      { }
+      { }
+      { }
+      {} }
+    {  } }
+  { (* access other array *) }
+  { (* access struct *) }
 Qed.
 
 (* ---------------------------------------------------------------------- *)
