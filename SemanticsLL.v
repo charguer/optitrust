@@ -327,11 +327,9 @@ Proof.
           rewrite~ read_zero. }
         rewrite read_zero in H. rewrite H.
         asserts Hlc: (length (concat s') = fold_left Z.add 0 (drop 1 FS)).
-        { admit. (* Create new contexts etc to make the numbers work. *) }
-        rewrite Hlc. admit. } }
+        { admit. (* TODO: Create new contexts etc to make the numbers work. *) }
+        rewrite Hlc. admit. (* TODO: Lemma about fold and drop. *) } }
 Qed.
-
-Search fold_left.
 
 (* Numerical results about sizes. *)
 
@@ -364,12 +362,10 @@ Proof.
   { forwards~: functional_typ_size Hn Hn'. subst. math. }
   { inverts Hn; try solve [ inverts H ].
     { asserts Hk: (0%Z < k).
-      { admit. }
+      { admit. (* TODO: More index assumptions needed. *) }
       inverts H.
       forwards* Hn0: IHHπ n0.
-      tests: (n'=n0).
-      { applys* Z.le_mul_diag_r. }
-      {  } }
+      admit. (* TODO: This is maths but can't find the lemma. *) }
     { admit. } }
   { admit. }
 Qed.

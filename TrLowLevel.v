@@ -43,7 +43,7 @@ Inductive tr_state (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) (φ:phi) : state 
       (forall l,
         l \indom m ->
           exists lw T,
-              typing_val C LLC φ m[l] T
+              typing_val C φ m[l] T
           /\  tr_ll_val C LLC α T m[l] lw
           /\  m'[α[l]] = val_words lw) ->
       tr_state C LLC α φ m m'.
@@ -270,8 +270,8 @@ Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
   wf_typ C T ->
   is_basic v1 ->
   is_basic v2 ->
-  typing_val C LLC φ v1 T ->
-  typing_val C LLC φ v2 T ->
+  typing_val C φ v1 T ->
+  typing_val C φ v2 T ->
   tr_val C LLC α v1 v ->
   tr_val C LLC α v2 v ->
   v1 = v2.
@@ -300,8 +300,8 @@ Lemma tr_val_inj_cp : forall C LLC φ α T v1 v2 v1' v2',
   wf_typ C T ->
   is_basic v1 ->
   is_basic v2 ->
-  typing_val C LLC φ v1 T ->
-  typing_val C LLC φ v2 T ->
+  typing_val C φ v1 T ->
+  typing_val C φ v2 T ->
   tr_val C LLC α v1 v1' ->
   tr_val C LLC α v2 v2' ->
   v1 <> v2 ->
@@ -332,11 +332,20 @@ Lemma typ_size_total : forall C LLC T,
   exists n,
     typ_size (typvar_sizes LLC) T n.
 Proof.
-  introv Hok HwfT. gen LLC. induction HwfT; intros;
+  introv Hok HwfT. induction HwfT; intros;
   try solve [ repeat constructors~ ].
-  { admit. (* Problem with variable size array. *) }
-  { admit. }
-  { admit. }
+  { asserts HK: (exists K, os = Some K).
+    { admit. (* TODO: Variable size arrays are problematic. *) }
+    forwards~ (K&Heq): HK.
+    forwards~ (n&Hn): IHHwfT.
+    exists (n * K). subst. constructors~. }
+  { asserts HFS: (exists FS, dom FS = dom Tfs /\ 
+      forall f, f \indom Tfs -> typ_size (typvar_sizes LLC) Tfs[f] FS[f]).
+    { admit. (* TODO: Don't know how to explicitly prove existence. *) }
+    destruct HFS as (FS&HDFS&HFS).
+    exists __. constructors*. }
+  { forwards~ (n&Hn): IHHwfT. exists __. constructors~.
+    inverts Hok. simpls. rewrite~ <- H1. }
 Qed.
 
 (* Connection between unininitialized values and
