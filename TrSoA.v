@@ -23,7 +23,6 @@ Open Scope Z_scope.
 
 Record soa_tr := make_soa_tr {
   soa_tr_array_name : typvar;
-  soa_tr_struct_name : typvar;
   soa_tr_struct_fields : map field typ;
   soa_tr_array_size : size
 }.
@@ -33,21 +32,15 @@ Notation make_soa_tr' := make_soa_tr.
 (** Checking if the transformation is acceptable *)
 
 Inductive soa_tr_ok : soa_tr -> typdefctx -> Prop :=
-  | soa_tr_ok_intros : forall Ta Ts Tfs K st C,
-      st = make_soa_tr Ta Ts Tfs K ->
+  | soa_tr_ok_intros : forall Ta Tfs K st C,
+      st = make_soa_tr Ta Tfs K ->
       Ta \indom C ->
-      Ts \indom C ->
-      C[Ta] = typ_array (typ_var Ts) (Some K) ->
-      C[Ts] = typ_struct Tfs ->
+      C[Ta] = typ_array (typ_struct Tfs) (Some K) ->
       K > 0%Z ->
       (forall Tv,
         Tv \indom C ->
         Tv <> Ta ->
         ~ free_typvar C Ta C[Tv]) ->
-      (forall Tv,
-        Tv \indom C ->
-        Tv <> Ts ->
-        ~ free_typvar C Ts C[Tv]) ->
       soa_tr_ok st C.
 
 
@@ -57,13 +50,11 @@ Inductive soa_tr_ok : soa_tr -> typdefctx -> Prop :=
 (** Transformation of typdefctxs: C ~ |C| *)
 
 Inductive tr_typdefctx (st:soa_tr) : typdefctx -> typdefctx -> Prop :=
-  | tr_typdefctx_intro : forall Ta Ts Tfs K Tfs' C C',
-      st = make_soa_tr Ta Ts Tfs K ->
-      dom C' \u \{Ta} = dom C ->
-      Ta \notindom C' ->
-      C[Ta] = typ_array (typ_var Ts) (Some K) ->
-      C[Ts] = typ_struct Tfs ->
-      C'[Ts] = typ_struct Tfs' ->
+  | tr_typdefctx_intro : forall Ta Tfs K Tfs' C C',
+      st = make_soa_tr Ta Tfs K ->
+      dom C' = dom C ->
+      C[Ta] = typ_array (typ_struct Tfs) (Some K) ->
+      C'[Ta] = typ_struct Tfs' ->
       dom Tfs = dom Tfs' ->
       (forall f,
         f \indom Tfs ->
@@ -79,12 +70,12 @@ Inductive tr_typdefctx (st:soa_tr) : typdefctx -> typdefctx -> Prop :=
 Inductive tr_accesses (st:soa_tr) : accesses -> accesses -> Prop :=
   | tr_accesses_nil :
       tr_accesses st nil nil
-  | tr_accesses_soa : forall Ta Ts Tfs K f i a0 a1 π a0' a1' π',
+  | tr_accesses_soa : forall Ta Tfs K f i a0 a1 π a0' a1' π',
       tr_accesses st π π' ->
-      st = make_soa_tr Ta Ts Tfs K ->
+      st = make_soa_tr Ta Tfs K ->
       a0 = access_array (typ_var Ta) i ->
-      a1 = access_field (typ_var Ts) f ->
-      a0' = access_field (typ_var Ts) f ->
+      a1 = access_field (typ_struct Tfs) f ->
+      a0' = access_field (typ_var Ta) f ->
       a1' = access_array (typ_array Tfs[f] (Some K)) i ->
       tr_accesses st (a0::a1::π) (a0'::a1'::π')
   | tr_accesses_array_other : forall π π' T i,
@@ -92,7 +83,7 @@ Inductive tr_accesses (st:soa_tr) : accesses -> accesses -> Prop :=
       tr_accesses st π π' ->
       tr_accesses st ((access_array T i)::π) ((access_array T i)::π')
   | tr_accesses_field : forall T π π' f,
-      T <> typ_var (soa_tr_struct_name st) ->
+      T <> typ_var (soa_tr_array_name st) ->
       tr_accesses st π π' ->
       tr_accesses st ((access_field T f)::π) ((access_field T f)::π').
 
@@ -112,15 +103,16 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
   | tr_val_abstract_ptr : forall l π π',
       tr_accesses st π π' ->
       tr_val st (val_abstract_ptr l π) (val_abstract_ptr l π')
-  | tr_val_array_tiling : forall Tfs K Ta a Ts s',
-      st = make_soa_tr Ta Ts Tfs K ->
+  | tr_val_array_tiling : forall Tfs K Ta a s',
+      st = make_soa_tr Ta Tfs K ->
+      length a = K ->
       dom s' = dom Tfs ->
       (forall f a',
         f \indom Tfs ->
         s'[f] = val_array (typ_array Tfs[f] (Some K)) a' ->
         (forall s i,
           index a i ->
-          a[i] = val_struct (typ_var Ts) s ->
+          a[i] = val_struct (typ_struct Tfs) s ->
           tr_val st s[f] a'[i])) ->
       (forall f,
         f \indom Tfs ->
@@ -130,9 +122,9 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
       (forall i,
         index a i ->
             exists s,
-                a[i] = val_struct (typ_var Ts) s
+                a[i] = val_struct (typ_struct Tfs) s
             /\  dom s = dom Tfs) ->
-      tr_val st (val_array (typ_var Ta) a) (val_struct (typ_var Ts) s')
+      tr_val st (val_array (typ_var Ta) a) (val_struct (typ_var Ta) s')
   | tr_val_array_other : forall T a a',
       T <> typ_var (soa_tr_array_name st) ->
       length a = length a' ->
@@ -141,7 +133,7 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
         tr_val st a[i] a'[i]) ->
       tr_val st (val_array T a) (val_array T a')
   | tr_val_struct_other : forall T s s',
-      T <> typ_var (soa_tr_struct_name st) ->
+      T <> typ_var (soa_tr_array_name st) ->
       dom s = dom s' ->
       (forall f,
         f \indom s ->
@@ -151,33 +143,33 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
 (* Transformation used in the struct cases to avoid repetition. *)
 
 Inductive tr_struct_op (st:soa_tr) : trm -> trm -> Prop :=
-  | tr_struct_access_soa : forall Ta Ts Tfs K T f t ti ts ta ts' ta',
-      st = make_soa_tr Ta Ts Tfs K ->
+  | tr_struct_access_soa : forall Ta Tfs K T f t ti ts ta ts' ta',
+      st = make_soa_tr Ta Tfs K ->
       (* Initial term is ts: &(t[i]->f) *)
-      ta = trm_app (prim_struct_access (typ_var Ts) f) (ts::nil) ->
+      ta = trm_app (prim_struct_access (typ_struct Tfs) f) (ts::nil) ->
       ts = trm_app (prim_array_access T) (t::ti::nil) ->
       (* Final term is ta': &(t->f[i]) *)
       ts' = trm_app (prim_array_access (typ_var Ta)) (ta'::ti::nil) ->
       ta' = trm_app (prim_struct_access T f) (t::nil) ->
       (* Result. *)
       tr_struct_op st ta ts'
-  | tr_struct_get_soa : forall Ta Ts Tfs K T f t ti ts ta ts' ta',
-      st = make_soa_tr Ta Ts Tfs K ->
+  | tr_struct_get_soa : forall Ta Tfs K T f t ti ts ta ts' ta',
+      st = make_soa_tr Ta Tfs K ->
       (* Initial term is ts: t[i].f *)
-      ta = trm_app (prim_struct_get (typ_var Ts) f) (ts::nil) ->
+      ta = trm_app (prim_struct_get (typ_struct Tfs) f) (ts::nil) ->
       ts = trm_app (prim_array_get T) (t::ti::nil) ->
       (* Final term is ta': t.f[i] *)
       ts' = trm_app (prim_array_get (typ_var Ta)) (ta'::ti::nil) ->
       ta' = trm_app (prim_struct_get T f) (t::nil) ->
       (* Result. *)
       tr_struct_op st ta ts'
-  | tr_struct_access_other : forall Ts T f ts,
-      Ts = soa_tr_struct_name st ->
-      T <> (typ_var Ts) ->
+  | tr_struct_access_other : forall T f ts,
+      (*Ta = soa_tr_array_name st ->
+      T <> (typ_var Ta) ->*)
       tr_struct_op st (trm_app (prim_struct_access T f) ts) (trm_app (prim_struct_access T f) ts)
-  | tr_struct_get_other : forall Ts T f ts,
-      Ts = soa_tr_struct_name st ->
-      T <> (typ_var Ts) ->
+  | tr_struct_get_other : forall T f ts,
+      (*Ta = soa_tr_array_name st ->
+      T <> (typ_var Ta) ->*)
       tr_struct_op st (trm_app (prim_struct_get T f) ts) (trm_app (prim_struct_get T f) ts).
 
 (** Transformation of terms: t ~ |t| *)
@@ -313,21 +305,21 @@ introv Htr Hu HN. induction Htr; subst; inverts HN as.
   { introv (f&Hfin&Hus'f).
     applys~ Hu. 
     asserts Hfin': (f \indom Tfs).
-    { rewrite~ <- H0. }
-    forwards* (a'&Hs'f&Hl): H3 Hfin'.
+    { rewrite~ <- H1. }
+    forwards* (a'&Hs'f&Hl): H4 Hfin'.
     rewrite Hs'f in Hus'f.
     inverts Hus'f as (i&Hi&Hua'i).
     asserts Hi': (index a i).
     { rewrite index_eq_index_length in *. rewrite~ Hl. }
-    forwards* (s&Hai&HDs): H4 i.
+    forwards* (s&Hai&HDs): H5 i.
     asserts Hfin'': (f \indom s).
     { rewrite~ HDs. }
     constructors~. exists i. splits~.
     rewrite Hai. constructors.
     exists f. splits~.
-    forwards~ Htr: H1 f a' s i.
+    forwards~ Htr: H2 f a' s i.
     tests: (is_uninitialized s[f]); auto.
-    false. applys* H2. }
+    false. applys* H3. }
   { introv (i&Hi&Hua'i).
     asserts Hi': (index a i).
     { rewrite index_eq_index_length in *. rewrite~ H0. }
@@ -352,7 +344,7 @@ Proof.
   { inverts_head tr_accesses; tryfalse.
     { inverts_head access_array.
       inverts_head access_field.
-      inverts_head make_soa_tr'.
+      inverts TEMP.
       subst. repeat fequals.
       applys~ IHtr_accesses. }
     { subst. simpls. inverts_head access_array. false. } }
@@ -376,9 +368,9 @@ Proof using.
       fequals. applys~ read_extens.
       { congruence. }
       { intros f Hf. asserts Hf': (f \indom Tfs0).
-        { rewrite~ H0 in Hf. }
+        { rewrite~ H1 in Hf. }
         forwards~ (a'&Hs'0f&Hl): Htr2 f.
-        forwards~ (a''&Hs'f&Hl'): H3 f.
+        forwards~ (a''&Hs'f&Hl'): H4 f.
         rewrite Hs'0f. rewrite Hs'f.
         fequals. applys~ eq_of_extens.
         { congruence. }
@@ -387,9 +379,9 @@ Proof using.
           asserts Hi'': (index a' i).
           { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
           forwards~ (s&Hai&HDs): Htr3 i.
-          forwards~ Htr: H1 f a'' s i.
+          forwards~ Htr: H2 f a'' s i.
           forwards~ Htr': Htr1 f a' s i.
-          forwards~: H2 f a'' s i (a'[i]). } } }
+          forwards~: H3 f a'' s i (a'[i]). } } }
     { introv HN. subst. simpls. false. } }
   { inverts Hv2 as.
     { simpls. false. }
@@ -553,9 +545,10 @@ Proof.
     forwards* Htr': Htr f a'.
     { rewrite~ <- HDs0. }
     forwards~ (v2'&Htrv2'&HWv2'): IHHπ (s0[f]) (a'[i]) w w' v0.
-    exists (val_struct (typ_var Ts0) s'[f:=(val_array (typ_array Tfs0[f] (Some K0)) a'[i:=v2'])]).
+    exists (val_struct (typ_var Ta) s'[f:=(val_array (typ_array Tfs0[f] (Some (length a1))) a'[i:=v2'])]).
     splits.
     { constructors*.
+      { rewrite~ length_update. }
       { rewrite <- HDs'. applys~ dom_update_at_indom.
         rewrite HDs'. rewrite~ <- HDs0. }
       { introv Hf0in Hs'fu Hi0 Ha1iu.
@@ -640,148 +633,96 @@ Lemma tr_typdefctx_wf_typ : forall tt C C' T,
   wf_typ C' T.
 Proof.
   introv HC HT. induction HT; try solve [ constructors* ].
-  inverts HC as HDC' HCTa HC'Ta HC'Tt HC'Tv Hos.
+  inverts HC as HDC' HCTa HC'Ta HDTfs HTfs' HTv.
   constructors.
-  { rewrite HDC'. rew_set~. }
+  { rewrite~ HDC'. }
   { tests: (Tv=Ta).
-    { rewrite HC'Ta. repeat constructors~.
-      { rewrite HDC'. rew_set~. }
-      { rewrite HC'Tt. constructors~.
-        rewrite HCTa in IHHT.
-        inverts~ IHHT. } }
-    { rewrite~ HC'Tv. } }
+    { rewrite HC'Ta. constructors~. introv Hf.
+      asserts Hf': (f \indom Tfs).
+      { rewrite~ HDTfs. }
+      forwards~ HTfs'f: HTfs' Hf'.
+      rewrite HTfs'f. constructors~.
+      rewrite HCTa in IHHT. inverts IHHT as HwfTfs.
+      inverts HwfTfs as HwfTfsf. applys~ HwfTfsf. }
+    { rewrite~ HTv. } }
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (** uninitialized is coherent with the transformation *)
 
-Lemma tr_typing_struct : forall tt C C' Ts Tfs,
-  tr_typdefctx tt C C' ->
+Lemma tr_typing_struct : forall Ta fs K C C' Ts Tfs,
+  tr_typdefctx (make_soa_tr Ta fs K) C C' ->
   typing_struct C Ts Tfs ->
   typing_struct C' Ts Tfs.
 Proof.
   introv HC HTs. induction HTs; intros.
   { constructors~. }
-  { inverts HC as HD HCTa HC'Ta HC'Tt HC'Tv _.
-    constructors~.
-    { rewrite HD. rew_set~. }
-    { tests: (Tv=Ta).
+  { inverts HC as Heq HDC' HCTa HC'Ta HDTfs HTfs' HTv.
+    inverts Heq. constructors~.
+    { rewrite~ HDC'. }
+    { tests: (Tv=Ta0).
       { rewrite HCTa in HTs. inverts HTs. }
-      { rewrite~ HC'Tv. } } }
+      { rewrite~ HTv. } } }
 Qed.
 
-Lemma tr_typing_array : forall Tat Tt k C C' Ta T os,
-  tr_typdefctx (make_tiling_tr Tat Tt k) C C' ->
-  wf_typdefctx C ->
-  ~ free_typvar C Tat Ta ->
+Lemma tr_typing_array : forall Tas fs K C C' Ta T os,
+  tr_typdefctx (make_soa_tr Tas fs K) C C' ->
+  ~ free_typvar C Tas Ta ->
   typing_array C Ta T os ->
   typing_array C' Ta T os.
 Proof.
-  introv HC Hwf Hfv HTa. gen Tt Tat k C'. induction HTa; intros.
+  introv HC Hnfv HTa. induction HTa; intros.
   { constructors~. applys* tr_typdefctx_wf_typ. }
-  { inverts HC as Htt HD HCTa HC'Ta HC'Tt HC'Tv Hos.
-    inverts Htt. constructors.
-    { rewrite HD. rew_set~. }
+  { inverts HC as Heq HDC' HCTa HC'Ta HDTfs HTfs' HTv.
+    inverts Heq. constructors~.
+    { rewrite~ HDC'. }
     { tests: (Tv=Ta).
-      { false. applys~ Hfv. constructors~. }
-      { rewrite~ HC'Tv. applys* IHHTa Tt0 Ta K.
-        { introv HN. applys~ Hfv. constructors~. }
-        { constructors*. } } } }
+      { false. applys~ Hnfv. constructors~. }
+      { rewrite~ HTv. applys~ IHHTa.
+        introv HN. applys~ Hnfv. constructors~. } } }
 Qed.
 
 
-Lemma tr_uninitialized_val_aux : forall tt v v' T C C',
-  tr_typdefctx tt C C' ->
-  tiling_tr_ok tt C ->
+Lemma tr_uninitialized_val_aux : forall st v v' T C C',
+  tr_typdefctx st C C' ->
+  soa_tr_ok st C ->
   wf_typdefctx C ->
-  tr_val tt v v' ->
+  tr_val st v v' ->
   uninitialized C T v ->
   uninitialized C' T v'.
 Proof using.
-  introv HC Hok Hwf Hv Hu. gen tt C' v'. induction Hu; intros;
-  try solve [ inverts Hv ; constructors~ ].
+  introv HC Hok Hwf Hv Hu. gen T. induction Hv; intros;
+  try solve [ inverts~ Hu; constructors~ ].
+  { (* soa array *)
+    inverts Hu as HTa Hl Hu.
+    inverts HC as HDC' HCTa HC'Ta HDTfs HTfs' HTv.
+    inverts Hok as Heq HTain HCTa' HKgz HTanfv. inverts Heq. 
+    inverts_head make_soa_tr'. constructors~.
+    { constructors.
+      { rewrite~ HDC'. }
+      { rewrite HC'Ta. constructors~. } }
+    { rewrite~ <- HDTfs. }
+    { introv Hfin. asserts Hfin': (f \indom Tfs0).
+      { rewrite~ HDTfs. }
+      forwards~ (a'&Ha'&Hla'): H4 Hfin'.
+      forwards~ HTfs'f: HTfs' Hfin'.
+      rewrite Ha'. rewrite HTfs'f.
+      constructors~.
+      { constructors~. admit. (* TODO: wf_typ C' Tfs[f] *) }
+      { introv Heq. inverts~ Heq. }
+      { introv Hi. asserts Hi': (index a i).
+        { rewrite index_eq_index_length in *. rewrite~ Hla'. }
+        forwards~ (s&Hs&HDs): H5 Hi'.
+        applys* H3. inverts HTa as HTain' HTa'.
+        rewrite HCTa' in HTa'. inverts HTa'.
+        forwards~ Hu': Hu Hi'. rewrite Hs in Hu'.
+        inverts Hu' as HTfs0 HDTfs' Hu'. inverts HTfs0.
+        applys~ Hu'. } } }
   { (* array *)
-    inverts HC as HD HCTa HC'Ta HC'Tt HC'Tv Hos.
-    inverts Hv as.
-    { (* tiling array *)
-      introv Htt Hnb Ha'i Htra. inverts Htt.
-      inverts Hok as Htt HTain HCTa' HTt0nin Hnz Hfv.
-      inverts Htt. unfolds wf_typdefctx.
-      rewrite HCTa in HCTa'. inverts HCTa'.
-      inverts H as _ HTCTa.
-      rewrite HCTa in HTCTa. inverts HTCTa.
-      destruct* os; destruct* os'.
-      { (* Fixed-size array. *)
-        applys uninitialized_array (Some (length aJ)).
-        3:{ introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.
-            rewrite Ha'i'. applys uninitialized_array (Some K).
-            { constructors.
-              { rewrite HD. rew_set~. }
-              { rewrite HC'Tt. constructors~.
-                applys* tr_typdefctx_wf_typ. constructors*. } }
-            { introv Heq. inverts~ Heq. }
-            { introv Hi0. forwards* Htra'': Htra (i*K + i0)%Z i i0 a''.
-              applys* H2.
-              { applys* tiled_index_range_i. }
-              { constructors*. }
-              { constructors*. } } }
-        { constructors.
-          { rewrite HD. rew_set~. }
-          { rewrite HC'Ta. unfolds nb_tiles.
-            rewrite Hos. rewrite Hnb.
-            forwards* Heq: H0 s. rewrite Heq.
-            constructors. constructors.
-            { rewrite HD. rew_set~. }
-            { rewrite HC'Tt. constructors.
-              applys* tr_typdefctx_wf_typ. constructors*. } } }
-        { introv Heq. inverts~ Heq. } }
-      { (* Variable length array. *)
-        applys uninitialized_array.
-        { constructors.
-          { rewrite HD. rew_set~. }
-          { rewrite HC'Ta. repeat constructors~.
-            { rewrite HD. rew_set~. }
-            { rewrite HC'Tt. constructors~.
-              applys* tr_typdefctx_wf_typ. constructors*. } } }
-        { introv HN. inverts HN. }
-        { introv Hi. forwards* (a''&Ha'i'&Hla''): Ha'i.
-          rewrite Ha'i'. constructors.
-          { constructors.
-            { rewrite HD. rew_set~. }
-            { rewrite HC'Tt. constructors~.
-              applys* tr_typdefctx_wf_typ. constructors*. } }
-          { introv Hn. inverts~ Hn. }
-          { introv Hi0. forwards* Htra': Htra (i*K + i0)%Z i i0 a''.
-            applys* H2.
-            { applys* tiled_index_range_i. }
-            { constructors*. }
-            { constructors*. } } } } }
-    { (* other array *)
-      introv Hneq Hla Htra. simpls. constructors.
-      2:{ rewrite <- Hla. eapply H0. }
-      { inverts H as.
-        { introv HwfT. constructors*. 
-          applys* tr_typdefctx_wf_typ. constructors*. }
-        { introv HTvin HTCTv.
-          inverts Hok as Htt HTain HCTa' HTt0nin Hnz Hfv.
-          inverts Htt. unfolds wf_typdefctx. constructors*.
-          { rewrite HD. rew_set~. }
-          { rewrite~ HC'Tv. applys~ tr_typing_array Ta Tt0 K0 C.
-            { rewrite HCTa in HCTa'. inverts HCTa'. constructors*. }
-            { applys~ Hfv. introv HN. subst. applys~ Hneq. }
-            { introv HN. subst. applys~ Hneq. } } } }
-      { introv Hi.
-        asserts: (index a i).
-        { rewrite index_eq_index_length in *. rewrite~ Hla. }
-        forwards* Htra': Htra i.
-        applys* H2. constructors*. } } }
+    admit. }
   { (* struct *)
-    inverts Hv as HD Hvfsf. constructors.
-    2:{ rewrite~ H0. }
-    { applys* tr_typing_struct. }
-    { introv Hfin. applys* H2. applys Hvfsf.
-      rewrite~ <- H0. } }
+    admit. }
 Qed.
 
 (* This will be proved when the relation is translated to a function. 
