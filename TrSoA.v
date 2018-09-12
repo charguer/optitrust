@@ -592,14 +592,43 @@ Proof.
       { constructors~.
         { rewrite HDs'. rewrite~ <- HDs0. }
         rewrite Hs'f. constructors*. 
-        { rewrite index_eq_index_length in *. rewrite~ <- Hl. } } } }
+        { rewrite index_eq_index_length in *. rewrite~ <- Hl. } } }
   { (* access other array *)
     inverts HW as Hi HW.
     inverts Hv1 as; try solve [ intros; subst; simpls; false ].
     introv _ Hl Htr. forwards~ Ha1i: Htr Hi.
     forwards~ (v2'&Hv2'&HWv2'): IHHπ a1[i] a'[i] w w' v.
-    exists (val_array T a'[i:=v2']). }
-  { (* access struct *) }
+    exists (val_array T a'[i:=v2']).
+    splits.
+    { constructors~.
+      { repeat rewrite~ length_update. }
+      { introv Hi0.
+        asserts: (index a1 i0).
+        { rewrite index_eq_index_length in *.
+          rewrite~ length_update in Hi0. }
+        asserts: (index a' i0).
+        { rewrite index_eq_index_length in *.
+          rewrite length_update in Hi0.
+          rewrite~ Hl in Hi0. }
+        rew_reads~. } }
+    { asserts: (index a' i).
+      { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
+      constructors*. } }
+  { (* access struct *)
+    inverts HW as Hf HW.
+    inverts Hv1 as; try solve [ intros; subst; simpls; false ].
+    introv _ HDs1 Htr. forwards~ Htrs1f: Htr Hf.
+    forwards~ (v2'&Hv2'&HWv2'): IHHπ s1[f] s'[f] w w' v.
+    exists (val_struct T s'[f:=v2']).
+    splits.
+    { constructors~.
+      { repeat rewrite~ dom_update_at_indom.
+        rewrite~ <- HDs1. }
+      { introv Hf0. rew_reads~. introv Hneq.
+        applys~ Htr. rewrite~ dom_update_at_indom in Hf0. } }
+    { asserts: (f \indom s').
+      { rewrite~ <- HDs1. }
+      constructors*. } }
 Qed.
 
 (* ---------------------------------------------------------------------- *)
