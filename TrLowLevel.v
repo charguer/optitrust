@@ -243,9 +243,11 @@ Proof.
           forwards~ (HTeq&Hoseq): functional_typing_array HTa HTa'. subst.
           clear HTa'. inverts Hπ2 as HTa' HF'.
           forwards~ (HTeq&Hoseq): functional_typing_array HTa HTa'. subst.
-          forwards~: typ_size_gt_offset Hn HF' Hπ2'.
           forwards~: typ_size_gt_offset Hn HF Hπ.
-          admit. (* This is maths. *) } }
+          tests: (π2 = nil).
+          { admit. (* This is maths. *) }
+          { forwards~: typ_size_gt_offset Hn HF' Hπ2'.
+            admit. (* This is maths. *) } } }
       subst. asserts: (o=o0).
       { applys* Z.add_reg_l. }
       subst. fequals. applys* IHHπ1.
@@ -496,8 +498,11 @@ Proof.
     inverts HT as HT1 HT2.
     inverts Hwft as Hwft1 Hwft2.
     forwards* (v'&m2'&Hm2'&Hv'&HR3): IHHR1 Ht0 HS Hm1.
+    { applys* wf_typing_typ. }
     forwards HS': tr_stack_add z HS Hv'.
     forwards*: wf_red HR1.
+    asserts HwfΓ': (wf_gamma C (Ctx.add z T1 Γ)).
+    { applys* wf_gamma_add. applys* wf_typing_typ. }
     forwards* (vr'&m3'&Hm3'&Hvr'&HR4): IHHR2 Ht1 HS' Hm2'.
     { applys* wf_stack_add. }
     exists* vr' m3'. }
@@ -510,8 +515,10 @@ Proof.
       forwards~: functional_tr_val Hv1 Hv2. subst.
       repeat constructors*. }
     { exists (val_bool false) m1'. splits~.
-      forwards*: tr_val_inj_cp Hv1 Hv2.
-      admit. (* FALSE. Injectivity results don't hold. *) } }
+      inverts HT as HwfT0 HbT0 Hv1T0 Hv2T0.
+      inverts Hv1T0 as Hv1T0. inverts Hv2T0 as Hv2T0.
+      forwards*: tr_val_inj_cp Hv1T0 Hv2T0.
+      repeat constructors*. } }
   { (* get *)
     subst.
     inverts Ht as Ht.

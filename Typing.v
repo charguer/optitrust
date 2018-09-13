@@ -301,6 +301,8 @@ Qed.
 (* Lemmas about the connection of well-foundedness and typing, and other
    nice properties about the typing predicates. *)
 
+Section WellformednessLemmas.
+
 Lemma wf_typing_array : forall T os C Ta,
   typing_array C Ta T os ->
   wf_typ C Ta ->
@@ -688,3 +690,5 @@ Proof.
     forwards~: IHHT1. applys~ IHHT2.
     applys~ wf_gamma_add. }
 Qed.
+
+End WellformednessLemmas.
