@@ -430,8 +430,11 @@ Admitted.
 
 (* Hints *)
 
-Hint Constructors red.
-Hint Constructors tr_val.
+Hint Constructors red redbinop.
+Hint Constructors tr_trm tr_val.
+Hint Constructors wf_trm wf_val wf_accesses wf_typ.
+
+Hint Resolve wf_red.
 
 Hint Resolve refl_extends.
 Hint Resolve trans_extends.
@@ -443,56 +446,71 @@ Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
 
 (* TODO: There are a few problems with the typing assumption.
    But they should be dealt with in a similar way as those same problems
-   in type soundness. *)
+   in type soundness. For now, I will prove the version without the
+   extension of φ. *)
 
-Theorem red_tr : forall m2 t T Γ m1 φ S LLC v C S' m1' t',
+Theorem red_tr_warmup : forall m2 t T Γ m1 φ S LLC v C S' m1' t',
   red C LLC S m1 t m2 v ->
-  (* Typing assumtions. TODO: More needed. *)
   typing C φ Γ t T ->
-  (* Not error. TODO: Remove, this comes from typing. *)
   ~ is_error v ->
   (* The transformation. *)
   ll_typdefctx_ok C LLC ->
   tr_trm C LLC α t t' ->
   tr_stack C LLC α S S' ->
   tr_state C LLC α φ m1 m1' ->
-  exists v' m2' φ',
-      extends φ φ'
-  /\  tr_state C LLC α φ' m2 m2'
+  (* Wellformedness. *)
+  wf_typdefctx C ->
+  wf_trm C t ->
+  wf_stack C S ->
+  wf_state C m1 ->
+  wf_typ C T ->
+  wf_gamma C Γ ->
+  wf_phi C φ ->
+  exists v' m2',
+      tr_state C LLC α φ m2 m2'
   /\  tr_val C LLC α v v'
   /\  red C LLC S' m1' t' m2' v'.
 Proof.
-  (*introv HR HT He Hok Ht HS Hm1. gen φ T t' S' m1'. induction HR; intros;
+  introv HR HT He Hok Ht HS Hm1.
+  introv HwfC Hwft HwfS Hwfm1 HwfT HwfΓ Hwfφ.
+  gen φ Γ T t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ];
   try solve [ inverts Ht ].
   { (* val *)
-    inverts Ht. exists* v' m1' φ. }
+    inverts Ht. exists* v' m1'. }
   { (* var *)
     inverts Ht. forwards~ (v'&HCl&Htr): stack_lookup_tr HS H.
-    exists* v' m1' φ. }
+    exists* v' m1'. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse.
     inverts HT as HT0 HT1 HT2.
-    forwards* (v'&m2'&φ'&Hφ'&Hm2'&Hv'&HR3): IHHR1 Hb HS Hm1.
+    inverts Hwft as Hwft0 Hwft1 Hwft1.
+    forwards* (v'&m2'&Hm2'&Hv'&HR3): IHHR1 Hb HS Hm1.
     inverts* Hv'.
     destruct b;
-    forwards* (vr'&m3'&φ''&Hφ''&Hvr'&Hm3'&HR4): IHHR2 HS Hm2'.
-    exists* vr' m3' φ''. }
+    forwards* (vr'&m3'&Hvr'&Hm3'&HR4): IHHR2 HS Hm2';
+    try solve [ forwards*: wf_red HR1 ];
+    exists* vr' m3'. }
   { (* let *) 
     inverts Ht as Ht0 Ht1.
-    forwards* (v'&m2'&φ'&Hφ'&Hm2'&Hv'&HR3): IHHR1 Ht0 HS Hm1.
+    inverts HT as HT1 HT2.
+    inverts Hwft as Hwft1 Hwft2.
+    forwards* (v'&m2'&Hm2'&Hv'&HR3): IHHR1 Ht0 HS Hm1.
     forwards HS': tr_stack_add z HS Hv'.
-    forwards* (vr'&m3'&φ''&Hφ''&Hm3'&Hvr'&HR4): IHHR2 Ht1 HS' Hm2'.
-    exists* vr' m3' φ''. }
+    forwards*: wf_red HR1.
+    forwards* (vr'&m3'&Hm3'&Hvr'&HR4): IHHR2 Ht1 HS' Hm2'.
+    { applys* wf_stack_add. }
+    exists* vr' m3'. }
   { (* binop *)
     inverts Ht as Ht1 Ht2.
     inverts Ht1 as Hv1. inverts Ht2 as Hv2.
-    inverts H3; try solve [ exists __ m1' φ; splits~;
+    inverts H3; try solve [ exists __ m1'; splits~;
     inverts Hv1; inverts Hv2; repeat constructors~ ].
-    { exists (val_bool true) m1' φ. splits~.
+    { exists (val_bool true) m1'. splits~.
       forwards~: functional_tr_val Hv1 Hv2. subst.
       repeat constructors*. }
-    { exists (val_bool false) m1' φ. splits~.
+    { exists (val_bool false) m1'. splits~.
+      forwards*: tr_val_inj_cp Hv1 Hv2.
       admit. (* FALSE. Injectivity results don't hold. *) } }
   { (* get *)
     subst.

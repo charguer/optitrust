@@ -622,3 +622,69 @@ Proof.
       false. applys* array_xor_struct. }
     { introv HTs' Hfin HF. exists~ f. } }
 Qed.
+
+(* Extended gamma context. *)
+
+Lemma wf_gamma_add : forall C z T Γ,
+  wf_gamma C Γ ->
+  wf_typ C T ->
+  wf_gamma C (Ctx.add z T Γ).
+Proof.
+  introv HwfΓ HwfT. unfolds. introv HCl.
+  unfolds Ctx.lookup. unfolds Ctx.add.
+  destruct* z. case_if.
+  { inverts~ HCl. }
+  { folds Ctx.lookup. applys* HwfΓ. }
+Qed.
+
+(* typing_val preserves well-formedness. *)
+
+Lemma wf_typing_val_typ : forall C φ v T,
+  typing_val C φ v T ->
+  wf_typdefctx C ->
+  wf_phi C φ ->
+  wf_val C v ->
+  wf_typ C T.
+Proof.
+  introv HT HwfC Hwfφ Hwfv. induction HT;
+  try solve [ eauto; constructors* ].
+  { constructors. inverts_head read_phi.
+    forwards~ Hφl: follow_typ_wf_typ φ[l] T C π. }
+  { inverts~ Hwfv. }
+  { inverts~ Hwfv. }
+Qed.
+
+(* typing preserves well-formedness. *)
+
+(* TODO: Move these hints up. *)
+Hint Constructors wf_trm wf_val wf_accesses wf_typ.
+
+Lemma wf_typing_typ : forall C φ Γ t T,
+  typing C φ Γ t T ->
+  wf_typdefctx C ->
+  wf_phi C φ ->
+  wf_gamma C Γ ->
+  wf_trm C t ->
+  wf_typ C T.
+Proof.
+  introv HT HwfC Hwfφ HwfΓ Hwft. induction HT;
+  try solve [ constructors* ];
+  try solve [ inverts Hwft as Hwfprim; inverts~ Hwfprim ].
+  { inverts Hwft. forwards~: wf_typing_val_typ H. }
+  { unfolds wf_gamma. applys* HwfΓ. }
+  { constructors. inverts Hwft as Hwfprim. 
+    inverts Hwfprim as HwfTs.
+    forwards~: wf_typing_struct H HwfTs H0. }
+  { constructors. inverts Hwft as Hwfprim.
+    inverts Hwfprim as HwfTa.
+    forwards~: wf_typing_array H HwfTa. }
+  { inverts Hwft as Hwfprim.
+    inverts Hwfprim as HwfTs.
+    forwards~: wf_typing_struct H HwfTs H0. }
+  { inverts Hwft as Hwfprim.
+    inverts Hwfprim as HwfTa.
+    forwards~: wf_typing_array H HwfTa. }
+  { inverts Hwft as Hwft1 Hwft2.
+    forwards~: IHHT1. applys~ IHHT2.
+    applys~ wf_gamma_add. }
+Qed.

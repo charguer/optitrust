@@ -548,25 +548,22 @@ Proof.
   { (* new *)
     subst. splits.
     { unfolds wf_state. introv Hl0. rew_reads; intros; subst.
-      { applys* wf_uninitialized. }
+      { applys wf_uninitialized. eapply H2. auto. }
       { applys~ Hm1. applys~ indom_update_inv_neq l l0 v. } }
     { repeat constructors*. } }
   { (* new_array *)
     subst. splits.
     { unfolds wf_state. introv Hl0. rew_reads; intros; subst.
       { forwards* HV: wf_uninitialized H4.
-        { constructors~. }
         inverts HV as HV HVai. repeat constructors~. }
       { applys~ Hm1. applys* indom_update_inv_neq l l0. } }
     { repeat constructors*. } }
   { (* struct_access *)
     subst. inverts Ht as Hop Hp. inverts Hop. inverts Hp as Hπ.
-    splits~. constructors~. inverts Hπ. applys~ wf_accesses_app.
-    repeat constructors~. }
+    splits~. constructors~. inverts Hπ. applys~ wf_accesses_app. }
   { (* array_access *)
     subst. inverts Ht as Hop Hp Hi. inverts Hop. inverts Hp as Hπ.
-    splits~. constructors~. inverts Hπ. applys~ wf_accesses_app.
-    repeat constructors~. }
+    splits~. constructors~. inverts Hπ. applys~ wf_accesses_app. }
   { (* struct_get *)
     subst. inverts Ht as Hop Hs. inverts Hop. inverts Hs as Hs.
     inverts Hs as Hs Hsf0. splits~. }
