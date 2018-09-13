@@ -203,6 +203,7 @@ Qed.
 (* Very important lemma. *)
 
 Lemma follow_typ_ll_accesses_inj : forall C LLC T T' o1 o2 π1 π2,
+  ll_typdefctx_ok C LLC ->
   wf_typdefctx C ->
   wf_typ C T ->
   wf_accesses C π1 ->
@@ -214,7 +215,7 @@ Lemma follow_typ_ll_accesses_inj : forall C LLC T T' o1 o2 π1 π2,
   o1 = o2 ->
     π1 = π2.
 Proof.
-  introv HwfC HwfT Hwfπ1 Hwfπ2 Hπ1 Hπ2 Ho1 Ho2 Heq.
+  introv Hok HwfC HwfT Hwfπ1 Hwfπ2 Hπ1 Hπ2 Ho1 Ho2 Heq.
   subst. gen π2 o2 LLC. induction Hπ1; intros.
   { forwards*: wf_typ_follow_accesses. }
   { asserts HF: (follow_typ C Ta (access_array Ta i :: π) Tr).
@@ -228,7 +229,23 @@ Proof.
       forwards~ (HeqT'&Heqos): functional_typing_array HTa HTa'. subst.
       forwards~: functional_typ_size Hn Hn'. subst.
       asserts: (i=i').
-      { admit. (* TODO: We need to show that o, o0 < n then it follows. *) }
+      { tests: (π = nil).
+        { inverts HF as HTa'' HF. inverts HF. inverts Hπ.
+          inverts Hπ2 as HTa''' HF.
+          forwards~ (HTeq&Hoseq): functional_typing_array HTa'' HTa'''. subst.
+          asserts Hnil: (π2 = nil).
+          { inverts Hwfπ2. 
+            forwards~: wf_typing_array HTa'' HwfT.
+            forwards*: wf_typ_follow_accesses T. }
+          subst. inverts Hπ2'.
+          admit. (* This is math. *) }
+        { clear HTa'. inverts HF as HTa' HF.
+          forwards~ (HTeq&Hoseq): functional_typing_array HTa HTa'. subst.
+          clear HTa'. inverts Hπ2 as HTa' HF'.
+          forwards~ (HTeq&Hoseq): functional_typing_array HTa HTa'. subst.
+          forwards~: typ_size_gt_offset Hn HF' Hπ2'.
+          forwards~: typ_size_gt_offset Hn HF Hπ.
+          admit. (* This is maths. *) } }
       subst. asserts: (o=o0).
       { applys* Z.add_reg_l. }
       subst. fequals. applys* IHHπ1.
@@ -249,9 +266,7 @@ Proof.
       inverts Ho2 as HTs' _ Hfin' Hπ2' Hoffge' Heq.
       forwards~ HeqTfs: functional_typing_struct H HTs'. subst.
       asserts: (f=f').
-      { admit. (* TODO: I need more assumptions here to convince myself
-        that the arithmetic works out. But I think that the idea is similar
-        to the one in the previous todo. *) } 
+      { admit. (* TODO: Quite technical but the arithmetic should work. *) } 
       subst. asserts: (o=o0).
       { applys* Z.add_reg_l. }
       subst. fequals. applys* IHHπ1.
@@ -262,9 +277,10 @@ Proof.
         forwards~: functional_typing_struct HTs HTs'. subst~. } } }
 Qed.
 
-(* FALSE? And tr_val is also injective. At least for sure for basic values. *)
+(* And tr_val is also injective. At least for sure for basic values. *)
 
 Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
+  ll_typdefctx_ok C LLC ->
   wf_typdefctx C ->
   wf_phi C φ ->
   wf_typ C T ->
@@ -276,7 +292,7 @@ Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
   tr_val C LLC α v2 v ->
   v1 = v2.
 Proof.
-  introv HC Hφ HT Hbv1 Hbv2 HTv1 HTv2 Hv1 Hv2. gen v2.
+  introv Hok HC Hφ HT Hbv1 Hbv2 HTv1 HTv2 Hv1 Hv2. gen v2.
   induction Hv1; intros;
   try solve [ inverts~ Hv2 ];
   try solve [ inverts~ Hbv1 ].
@@ -295,6 +311,7 @@ Qed.
 (* Contrapositive of the previous statement. *)
 
 Lemma tr_val_inj_cp : forall C LLC φ α T v1 v2 v1' v2',
+  ll_typdefctx_ok C LLC ->
   wf_typdefctx C ->
   wf_phi C φ ->
   wf_typ C T ->
@@ -307,8 +324,8 @@ Lemma tr_val_inj_cp : forall C LLC φ α T v1 v2 v1' v2',
   v1 <> v2 ->
   v1' <> v2'.
 Proof.
-  introv HC Hφ HT Hbv1 Hbv2 HTv1 HTv2 Hv1 Hv2 Hneq. 
-  introv HN. subst.
+  introv Hok HC Hφ HT Hbv1 Hbv2 HTv1 HTv2 Hv1 Hv2. 
+  introv Hneq HN. subst.
   forwards*: tr_val_inj HTv1 HTv2 Hv1 Hv2.
 Qed.
 
@@ -351,12 +368,19 @@ Qed.
 (* Connection between unininitialized values and
    undefined lists of words. *)
 
+Lemma is_undef_uninitialized: forall C LLC α T lw v,
+  is_undef (val_words lw) ->
+  tr_ll_val C LLC α T v lw ->
+  is_uninitialized v.
+Proof.
+Admitted.
+
 Lemma not_is_undef : forall C LLC α T v lw,
   tr_ll_val C LLC α T v lw ->
   ~ is_uninitialized v ->
   ~ is_undef (val_words lw).
 Proof.
-  (*introv Htr Hnu HN. induction Htr;
+  introv Htr Hnu HN. induction Htr;
   try solve [ inverts HN as (Hi&Hx); rew_array in Hx;
   case_if in Hx; rewrite index_eq_index_length in Hi;
   rewrite length_one in Hi; inverts Hi; math ].
@@ -368,21 +392,19 @@ Proof.
     rewrite length_nil in Hi.
     inverts Hi. math. }
   { inverts HN as (Hi&Hx).
-    applys~ Hnu.
-    constructors.
-    gen k.
-    inversion H0; intros.
-    { subst. rewrite concat_nil in *.
-      rewrite index_eq_index_length in Hi.
-      rewrite length_nil in Hi.
-      inverts Hi. math. }
-    { subst. admit.
-      (* TODO: Combine size preservation results and probably
-      existence somehow. Or reconsider definition of tr_ll_val
-      for arrays. *) } }
+    applys~ Hnu. constructors.
+    asserts Hundef: (exists i, index a i /\ is_undef (val_words a'[i])).
+    { admit. (* TODO. This is true. An argument about
+      indices, arrays and concatenation is needed. *) }
+    destruct Hundef as (i'&Hi'&Hundef).
+    exists i'. splits~.
+    forwards~ Htr: H1 Hi'.
+    applys* is_undef_uninitialized. }
   { inverts HN as (Hi&Hx). admit.
-    (* TODO: Similar problem as previous case. *) }*)
-Admitted.
+    (* TODO: Similar problem as previous case. *) }
+Qed.
+
+(* Lemma for the [get] case. *)
 
 Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',
   typing_val C φ m[l] T ->
@@ -397,7 +419,9 @@ Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',
   /\  read_ll_state m' α[l] o n lw'
   /\  tr_val C LLC α w w').
 Proof.
-  
+  introv HT Hlw Ho Hm HR. inverts HR as Hlin HR. 
+  gen C LLC α m' T o φ. induction HR; intros.
+  { inverts Ho. admit. }
 Admitted.
 
 

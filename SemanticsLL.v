@@ -305,7 +305,7 @@ Proof.
       induction s'; intros.
       { rewrite length_nil in *. symmetry in H5.
         rewrite length_zero_eq_eq_nil in H5. 
-        rewrite H5 in HFS. Search List.map.
+        rewrite H5 in HFS.
         asserts Hm: (List.map (fun f : field => Tfs[f]) nil = nil).
         { unfolds~. }
         rewrite Hm in HFS. inverts HFS. unfolds~. }
@@ -377,19 +377,24 @@ Lemma typ_size_gt_offset : forall T T' C LLC π o n,
   typ_size (typvar_sizes LLC) T n ->
   follow_typ C T π T' ->
   tr_ll_accesses C LLC π o ->
-  o <= n.
+    π <> nil ->
+  o < n.
 Proof.
-  introv Hok Hn HF Hπ. gen n T T'. induction Hπ; intros.
-  { inverts HF. inverts Hok. forwards*: typ_size_pos. }
+  introv Hok Hn HF Hπ Hneq. gen n T T'. induction Hπ; intros.
+  { false. }
   { inverts HF.
     forwards* (HTeq&Hoseq): functional_typing_array C T T' T1 os.
     subst. induction H.
     { inverts Hn. asserts: (i < k).
       { admit. (* TODO: This should be added in follow_typ. *) }
       forwards*: functional_typ_size T n n1. subst.
-      forwards*: IHHπ n1 T T'0.
-      admit. (* This is maths. *) }
+      tests: (πs = nil).
+      { inverts Hπ.
+        admit. (* This is maths. *) }
+      { forwards*: IHHπ n1 T T'0.
+        admit. (* This is maths. *) } }
     { applys~ IHtyping_array. inverts Hn.
+      { introv HN. inverts HN. }
       admit. (* TODO: this should be true: 
       typ_size (typvar_sizes LLC) C[Tv] (typvar_sizes LLC)[Tv] *) } }
   { inverts HF.
