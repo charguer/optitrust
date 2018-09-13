@@ -406,24 +406,96 @@ Proof.
     (* TODO: Similar problem as previous case. *) }
 Qed.
 
+(* The relation tr_val is well-defined as a function. *)
+
+Lemma tr_val_total : forall C LLC α v,
+  exists v', tr_val C LLC α v v'.
+Proof.
+Admitted.
+
+Lemma functional_tr_ll_val : forall C LLC α T v lw lw',
+  tr_ll_val C LLC α T v lw ->
+  tr_ll_val C LLC α T v lw' ->
+  lw = lw'.
+Proof.
+  introv Htrlw Htrlw'. gen lw'. induction Htrlw; intros;
+  try solve [ inverts~ Htrlw' ].
+  { inverts Htrlw' as Htro.
+    forwards~: functional_tr_ll_accesses Htro H.
+    subst. fequals~. }
+  { inverts Htrlw'. asserts: (a' = a'0).
+    { applys* eq_of_extens.
+      { congruence. }
+      { introv Hi. asserts Hi': (index a i).
+        { rewrite index_eq_index_length in *. rewrite~ <- H0. }
+        forwards* Htra'i: H1 Hi'. } }
+      subst~. }
+  { inverts Htrlw'. asserts: (s' = s'0).
+    { applys* eq_of_extens.
+      { congruence. }
+      { introv Hi. subst. asserts Hi': (index s'0 i).
+        { rewrite index_eq_index_length in *.
+          rewrite H16. rewrite~ <- H5. }
+        forwards*: functional_typing_struct H2 H13. subst.
+        forwards* Htrs'0i: H17 Hi'. } }
+      subst~. }
+Qed.
+
+Lemma equiv_tr_ll_val : forall C LLC φ α T T' v lw lw',
+  typing_val C φ v T ->
+  typing_val C φ v T' ->
+  tr_ll_val C LLC α T v lw ->
+  tr_ll_val C LLC α T' v lw' ->
+  lw = lw'.
+Proof.
+  introv HT HT' HtrT HtrT'. gen LLC α T' lw'.
+  induction HT; intros;
+  try solve [ inverts HtrT; inverts~ HtrT' ].
+  { inverts HtrT as Htro. inverts HtrT' as Htro0.
+    forwards~: functional_tr_ll_accesses Htro Htro0.
+    subst. fequals. }
+  { inverts HtrT. inverts HtrT'.
+    asserts: (s' = s'0).
+    { applys* eq_of_extens.
+      { congruence. }
+      { introv Hi.
+        forwards* Htrs'i: H12 Hi.
+        asserts Hi': (index s'0 i).
+        { rewrite index_eq_index_length in *.
+          rewrite H17. rewrite~ <- H10. }
+        forwards* Htrs'0i: H19 Hi'. } } }
+Qed.
+
+
 (* Lemma for the [get] case. *)
 
 Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',
+  ll_typdefctx_ok C LLC ->
+  wf_typ C T ->
+  follow_typ C T π T' ->
   typing_val C φ m[l] T ->
+  typing_val C φ w T' ->
   tr_ll_val C LLC α T m[l] lw ->
   tr_ll_accesses C LLC π o ->
   tr_state C LLC α φ  m m' ->
   read_state m l π w ->
   (exists w' lw' n,
-      typing_val C φ w T'
-  /\  tr_ll_val C LLC α T' w' lw'
+      tr_ll_val C LLC α T' w' lw'
   /\  typ_size (typvar_sizes LLC) T' n
   /\  read_ll_state m' α[l] o n lw'
   /\  tr_val C LLC α w w').
 Proof.
-  introv HT Hlw Ho Hm HR. inverts HR as Hlin HR. 
-  gen C LLC α m' T o φ. induction HR; intros.
-  { inverts Ho. admit. }
+  introv Hok HwfT HF HT HT' Hlw Ho Hm HR.
+  gen LLC α m' l m o φ. induction HF; intros.
+  { inverts Ho. inverts HR as Hl HR. inverts HR.
+    forwards~ (n&Hn): typ_size_total C LLC T.
+    forwards~ (v'&Hv'): tr_val_total C LLC α m[l].
+    exists v' lw n. splits~.
+    { admit. }
+    { inverts Hm as HDm Hdb Hm.
+      forwards~ (lw'&T''&HT''&Htrlw&Hm'αl): Hm Hl.
+      forwards~: functional_typing_val HT HT''.
+      constructors~. } }
 Admitted.
 
 
@@ -525,15 +597,31 @@ Proof.
     inverts Ht as Hv.
     inverts Hv as Hπ.
     inverts Hm1 as HD Hdb Htrm.
-    inverts H0 as Hi Ha.
-    forwards (lw&T'&HT&Hll&Hm1'αl): Htrm Hi.
+    inverts H0 as Hl Ha.
+    forwards (lw&T'&HT'&Hll&Hm1'αl): Htrm Hl.
     forwards* (w'&lw'&n&HT''&Hvr&Hn&Hlw'&Hw'): tr_read_state m m1' vr T.
     { constructors*. }
     { constructors*. }
-    exists w' m1' φ. splits*.
+    exists w' m1'. splits*.
     { constructors*. }
     constructors*.
-    { admit. (* Is not undefined. *) } } }*)
+    { introv Hu. unfolds is_undef. destruct* w'. inverts Hw'. } }
+  { (* set *)
+    admit. }
+  { (* new *)
+    admit. }
+  { (* struct access *)
+    admit. }
+  { (* array access *)
+    admit. }
+  { (* struct get *)
+    admit. }
+  { (* array get *)
+    admit. }
+  { (* args 1 *)
+    admit. }
+  { (* args 2 *)
+    admit. }
 Admitted.
 
 
