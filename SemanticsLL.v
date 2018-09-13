@@ -370,3 +370,31 @@ Proof.
   { admit. }
 Qed.
 
+(* If |T| = n and T --π--> T' and |π| = o then o < n *)
+
+Lemma typ_size_gt_offset : forall T T' C LLC π o n,
+  ll_typdefctx_ok C LLC ->
+  typ_size (typvar_sizes LLC) T n ->
+  follow_typ C T π T' ->
+  tr_ll_accesses C LLC π o ->
+  o <= n.
+Proof.
+  introv Hok Hn HF Hπ. gen n T T'. induction Hπ; intros.
+  { inverts HF. inverts Hok. forwards*: typ_size_pos. }
+  { inverts HF.
+    forwards* (HTeq&Hoseq): functional_typing_array C T T' T1 os.
+    subst. induction H.
+    { inverts Hn. asserts: (i < k).
+      { admit. (* TODO: This should be added in follow_typ. *) }
+      forwards*: functional_typ_size T n n1. subst.
+      forwards*: IHHπ n1 T T'0.
+      admit. (* This is maths. *) }
+    { applys~ IHtyping_array. inverts Hn.
+      admit. (* TODO: this should be true: 
+      typ_size (typvar_sizes LLC) C[Tv] (typvar_sizes LLC)[Tv] *) } }
+  { inverts HF.
+    forwards* HTfseq: functional_typing_struct C (typ_var Tv) Tfs Tfs0.
+    subst. inverts Hn. admit.
+    (* TODO: (fields_offsets LLC)[Tv][f] + o <= (typvar_sizes LLC)[Tv]*)  }
+Qed.
+
