@@ -481,29 +481,17 @@ Unshelve. typeclass.
 Qed.
 
 
-(* A well typed term cannot reduce to an error. *)
-
-Theorem typing_not_error : forall C LLC φ m t v T Γ S m',
-  red C LLC S m t m' v ->
-  typing C φ Γ t T ->
-  state_typing C φ m ->
-  stack_typing C φ Γ S ->
-  ~ is_error v.
-Proof.
-  (* TODO: Tedious but should be true. *)
-Admitted.
-
-
 (* From initial execution. *)
 
 Theorem type_soundness_nice : forall C LLC m t v T,
-  red C LLC nil empty t m v ->
-  typing C empty nil t T ->
+  red C LLC empty_stack empty_state t m v ->
+  typing C empty_phi empty_gamma t T ->
+  ~ is_error v ->
   exists φ,
         typing_val C φ v T
     /\  state_typing C φ m.
 Proof.
-  introv HR HT.
+  introv HR HT Hne.
   asserts Hm: (state_typing C \{} \{}). 
   { unfolds. lets HDe: @dom_empty. unfolds phi. splits.
     { rew_set; intuition; try solve
@@ -514,7 +502,6 @@ Proof.
   asserts HS: (stack_typing C \{} nil nil).
   { unfolds. introv Hx1. false. }
   forwards* (φ&Hφ&HTv&Hm'): type_soundness HR HT.
-  applys* typing_not_error.
 Qed.
 
 End TypeSoundness.

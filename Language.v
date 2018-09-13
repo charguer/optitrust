@@ -67,10 +67,13 @@ Definition typdefctx := map typvar typ.
 (** Type of the state *)
 
 Definition phi := map loc typ.
+Definition empty_phi : phi := empty.
 
 (** Type of a stack *)
 
 Definition gamma := Ctx.ctx typ.
+Definition empty_gamma : gamma := nil.
+
 
 (* Contex holding low-level information about structs and their fields. *)
 
@@ -156,10 +159,12 @@ Notation trm_seq := (trm_let bind_anon).
 (** Representation of the state *)
 
 Definition state := map loc val.
+Definition empty_state : state := empty.
 
 (** Representation of the stack *)
 
 Definition stack := Ctx.ctx val.
+Definition empty_stack : stack := nil.
 
 
 (* ---------------------------------------------------------------------- *)

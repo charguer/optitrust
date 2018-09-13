@@ -923,7 +923,7 @@ Hint Extern 1 (wf_val ?v) =>
 Hint Extern 1 (wf_state ?m2) =>
    match goal with H: red _ _ _ m2 _ |- _ => applys wf_red H end.
 
-Theorem red_tr: forall gt LLC C C' t t' v S S' m1 m1' m2,
+Theorem red_tr_ind: forall gt LLC C C' t t' v S S' m1 m1' m2,
   red C LLC S m1 t m2 v ->
   group_tr_ok gt C ->
   tr_typdefctx gt C C' ->
@@ -1172,6 +1172,51 @@ Proof.
     exists v'' m3'; splits*;
     inverts Ht1; applys* red_args_2;
     applys* not_is_val_tr. }
+Qed.
+
+
+(* From full execution. *)
+
+(*Theorem red_tr_ind: forall gt LLC C C' t t' v S S' m1 m1' m2,
+  red C LLC S m1 t m2 v ->
+  group_tr_ok gt C ->
+  tr_typdefctx gt C C' ->
+  tr_trm gt t t' ->
+  tr_stack gt S S' ->
+  tr_state gt m1 m1' ->
+  wf_typdefctx C ->
+  wf_trm C t ->
+  wf_stack C S ->
+  wf_state C m1 ->
+  ~ is_error v ->
+  exists v' m2',
+      tr_val gt v v'
+  /\  tr_state gt m2 m2'
+  /\  red C' LLC S' m1' t' m2' v'.*)
+
+Theorem red_tr: forall gt LLC C C' t t' v m2,
+  red C LLC empty_stack empty_state t m2 v ->
+  group_tr_ok gt C ->
+  tr_typdefctx gt C C' ->
+  tr_trm gt t t' ->
+  wf_typdefctx C ->
+  wf_trm C t ->
+  ~ is_error v ->
+  exists v' m2',
+      tr_val gt v v'
+  /\  tr_state gt m2 m2'
+  /\  red C' LLC empty_stack empty_state t' m2' v'.
+Proof.
+  introv HR Hok HC Ht HwfC Hwft Hne.
+  asserts HS: (tr_stack gt empty_stack empty_stack).
+  { constructors. applys~ Forall2_nil. }
+  asserts Hm1: (tr_state gt empty_state empty_state).
+  { constructors~. introv Hl. false. applys* indom_empty_inv. }
+  asserts HwfS: (wf_stack C empty_stack).
+  { unfolds~. introv HN. false. }
+  asserts Hwfm1: (wf_state C empty_state).
+  { unfolds~. introv HN. false. applys* indom_empty_inv. }
+  forwards*: red_tr_ind HR Hok HC Ht HS.
 Qed.
 
 End TransformationsProofs.

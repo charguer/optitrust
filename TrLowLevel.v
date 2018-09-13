@@ -356,7 +356,7 @@ Lemma not_is_undef : forall C LLC α T v lw,
   ~ is_uninitialized v ->
   ~ is_undef (val_words lw).
 Proof.
-  introv Htr Hnu HN. induction Htr;
+  (*introv Htr Hnu HN. induction Htr;
   try solve [ inverts HN as (Hi&Hx); rew_array in Hx;
   case_if in Hx; rewrite index_eq_index_length in Hi;
   rewrite length_one in Hi; inverts Hi; math ].
@@ -381,17 +381,17 @@ Proof.
       existence somehow. Or reconsider definition of tr_ll_val
       for arrays. *) } }
   { inverts HN as (Hi&Hx). admit.
-    (* TODO: Similar problem as previous case. *) }
-Qed.
+    (* TODO: Similar problem as previous case. *) }*)
+Admitted.
 
 Lemma tr_read_state : forall C LLC α φ m m' l T lw o w π T',
-  typing_val C LLC φ m[l] T ->
+  typing_val C φ m[l] T ->
   tr_ll_val C LLC α T m[l] lw ->
   tr_ll_accesses C LLC π o ->
   tr_state C LLC α φ  m m' ->
   read_state m l π w ->
   (exists w' lw' n,
-      typing_val C LLC φ w T'
+      typing_val C φ w T'
   /\  tr_ll_val C LLC α T' w' lw'
   /\  typ_size (typvar_sizes LLC) T' n
   /\  read_ll_state m' α[l] o n lw'
@@ -424,7 +424,7 @@ Hint Extern 1 (is_basic ?v) => applys is_basic_tr.
 Theorem red_tr : forall m2 t T Γ m1 φ S LLC v C S' m1' t',
   red C LLC S m1 t m2 v ->
   (* Typing assumtions. TODO: More needed. *)
-  typing C LLC φ Γ t T ->
+  typing C φ Γ t T ->
   (* Not error. TODO: Remove, this comes from typing. *)
   ~ is_error v ->
   (* The transformation. *)
@@ -438,7 +438,7 @@ Theorem red_tr : forall m2 t T Γ m1 φ S LLC v C S' m1' t',
   /\  tr_val C LLC α v v'
   /\  red C LLC S' m1' t' m2' v'.
 Proof.
-  introv HR HT He Hok Ht HS Hm1. gen φ T t' S' m1'. induction HR; intros;
+  (*introv HR HT He Hok Ht HS Hm1. gen φ T t' S' m1'. induction HR; intros;
   try solve [ forwards*: He; unfolds* ];
   try solve [ inverts Ht ].
   { (* val *)
@@ -484,7 +484,7 @@ Proof.
     exists w' m1' φ. splits*.
     { constructors*. }
     constructors*.
-    { admit. (* Is not undefined. *) } } }
+    { admit. (* Is not undefined. *) } } }*)
 Admitted.
 
 

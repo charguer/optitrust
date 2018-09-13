@@ -979,9 +979,11 @@ Proof.
     admit. }
   { (* ll_access *)
     admit. }
-  { (* args 1 *)
+  { (* args 1. TODO: These will be key because 
+       here is where the transformation is really unfolded. *)
     admit. }
-  { (* args 2 *)
+  { (* args 2. TODO: These will be key because 
+       here is where the transformation is really unfolded. *)
     admit. }
 Qed.
 
