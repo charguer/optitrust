@@ -38,7 +38,7 @@ Definition disjoint_blocks (m:state) : Prop :=
 
 Inductive tr_state (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) (φ:phi) : state -> state -> Prop :=
   | tr_state_intro : forall m m',
-      dom m = dom m' ->
+      (forall l, l \indom m <-> α[l] \indom m') ->
       disjoint_blocks m' ->
       (forall l,
         l \indom m ->
@@ -463,9 +463,30 @@ Proof.
         asserts Hi': (index s'0 i).
         { rewrite index_eq_index_length in *.
           rewrite H17. rewrite~ <- H10. }
-        forwards* Htrs'0i: H19 Hi'. } } }
+        forwards* Htrs'0i: H19 Hi'.
+        forwards*: functional_typing_struct H7 H13. subst.
+        forwards*: functional_tr_ll_val Htrs'i Htrs'0i. } }
+    subst~. }
+  { inverts HtrT. inverts HtrT'. 
+    asserts: (a' = a'0).
+    { applys* eq_of_extens.
+      { congruence. }
+      { introv Hi. asserts Hi': (index a i).
+        { rewrite index_eq_index_length in *. rewrite~ <- H7. }
+        forwards* Htra'i: H9 Hi'.
+        forwards* Htra'0i: H12 Hi'.
+        forwards*: functional_tr_ll_val Htra'i Htra'0i. } }
+    subst~. }
 Qed.
 
+Lemma equiv_typ_size : forall C LLC φ v T T' n n',
+  typing_val C φ v T ->
+  typing_val C φ v T' ->
+  typ_size (typvar_sizes LLC) T n ->
+  typ_size (typvar_sizes LLC) T' n' ->
+  n = n'.
+Proof.
+Admitted.
 
 (* Lemma for the [get] case. *)
 
@@ -493,9 +514,19 @@ Proof.
     exists v' lw n. splits~.
     { admit. }
     { inverts Hm as HDm Hdb Hm.
-      forwards~ (lw'&T''&HT''&Htrlw&Hm'αl): Hm Hl.
-      forwards~: functional_typing_val HT HT''.
-      constructors~. } }
+      forwards~ (lw'&T''&HT''&Hlw'&Hm'αl): Hm Hl.
+      forwards~: equiv_tr_ll_val HT HT'' Hlw Hlw'. subst.
+      constructors~.
+      { apply~ HDm. }
+      { eapply Hm'αl. }
+      { asserts Hllw: (length lw' = n).
+        { applys* typ_size_length_lw.
+          forwards* (n'&Hn'): typ_size_total T''.
+          { admit. (* TODO: wf_typ C T'' *) }
+          forwards~: equiv_typ_size HT HT'' Hn Hn'. 
+          subst~. }
+        unfolds. subst. splits; try math.
+        rewrite drop_zero. rewrite~ take_full_length. } } }
 Admitted.
 
 
