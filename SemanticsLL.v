@@ -9,13 +9,26 @@ License: MIT.
 
 *)
 
+
 Set Implicit Arguments.
 Require Export Typing.
 
-(* ---------------------------------------------------------------------- *)
-(** Type-directed transformation to low-level *)
 
-(* Some definitions. *)
+(* ---------------------------------------------------------------------- *)
+(** Some previous necessary definitions *)
+
+(** Conversion from lists to maps. *)
+
+Axiom list_to_map : forall A B, list A -> list B -> map A B.
+
+Axiom list_to_map_spec : forall ks vs m,
+  m = list_to_map ks vs ->
+  length ks = length vs ->
+  (forall i,
+    index ks i ->
+    ks[i] \indom m /\ m[ks[i]] = vs[i]). (* reciprocal *)
+
+(** Function used to argue about the offsets. *)
 
 Inductive prefix_sum : list int -> list int -> int -> Prop :=
   | prefix_sum_nil : forall acc,
@@ -24,27 +37,25 @@ Inductive prefix_sum : list int -> list int -> int -> Prop :=
       prefix_sum l l' (i + acc) ->
       prefix_sum (i::l) (acc::l') acc.
 
-Lemma prefix_sum_example :
-  prefix_sum (1::2::3::4::5::6::nil) (0::1::3::6::10::15::nil) 0.
-Proof.
-  repeat constructors.
-Qed.
+(** prefix_sum l l' <===> |l| = |l'| *)
 
 Lemma prefix_sum_length : forall l l' n,
   prefix_sum l l' n ->
   length l = length l'.
-Proof.
+Proof using.
   introv Hps. induction Hps.
   { rewrite~ length_nil. }
   { repeat rewrite length_cons. rewrite~ IHHps. }
 Qed.
+
+(** prefix_sum l l' <===> l'[i] = Σ 0<=j<i l[j] *)
 
 Lemma prefix_sum_spec : forall l l' n,
   prefix_sum l l' n ->
   (forall i,
     index l i ->
     l'[i] = fold_left Z.add n (take i l)).
-Proof.
+Proof using.
   introv Hps. induction Hps.
   { introv Hi. false. rewrite index_eq_index_length in Hi.
     rewrite length_nil in Hi. inverts Hi. math. }
@@ -63,16 +74,10 @@ Proof.
       forwards*: IHHps Hl. } }
 Qed.
 
-Axiom list_to_map : forall A B, list A -> list B -> map A B.
+(* ---------------------------------------------------------------------- *)
+(** Type-directed transformation to low-level *)
 
-Axiom list_to_map_spec : forall ks vs m,
-  m = list_to_map ks vs ->
-  length ks = length vs ->
-  (forall i,
-    index ks i ->
-    ks[i] \indom m /\ m[ks[i]] = vs[i]). (* reciprocal *)
-
-(* Check that the LLC and the C are coherent. *)
+(** Check that the LLC and the C are coherent. *)
 
 Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
   | low_level_ctx_ok_intros : forall CS CFOrd CFOff,
@@ -103,8 +108,8 @@ Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
         /\  CFOff[Tv] = list_to_map CFOrd[Tv] FO)) ->
       ll_typdefctx_ok C LLC.
 
-(* Given a list of accesses, computes the offset. Used to translate
-   pointer values. *)
+(** Given a list of accesses, computes the offset. Used to translate
+    pointer values. *)
 
 Inductive tr_ll_accesses (C:typdefctx) (LLC:ll_typdefctx) : accesses -> offset -> Prop :=
   | tr_ll_accesses_nil :
@@ -125,7 +130,8 @@ Inductive tr_ll_accesses (C:typdefctx) (LLC:ll_typdefctx) : accesses -> offset -
       (0 <= FO[Tv][f])%Z ->
       tr_ll_accesses C LLC ((access_field (typ_var Tv) f)::πs) (FO[Tv][f] + o).
 
-(* Relates values with a list of words. This is how the memory is transformed. *)
+(** Relates values with a list of words. This is how the memory is
+    transformed. *)
 
 Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : typ -> val -> list word -> Prop :=
   | tr_ll_val_unit :
@@ -163,14 +169,15 @@ Inductive tr_ll_val (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : typ -> val -> 
 (* ---------------------------------------------------------------------- *)
 (** Semantics of the low-level memory accesses *)
 
-(** m(l)[o] = v *)
+(** l[i:i+n] = l' *)
 
-(* TODO: Move to LibList? *)
-Definition list_slice {A:Type} (l:list A) (i:int) (n:int) (lr:list A) : Prop :=
-      lr = take n (drop i l)
+Definition list_slice {A:Type} (l:list A) (i:int) (n:int) (l':list A) : Prop :=
+      l' = take n (drop i l)
   /\  0 <= n
   /\  0 <= i
   /\  i + n <= length l.
+
+(** m(l)[o:o+n] = ws *)
 
 Inductive read_ll_state (m:state) (l:loc) (o:offset) (n:size) (ws':words) : Prop :=
   | read_ll_state_intro : forall ws,
@@ -179,13 +186,14 @@ Inductive read_ll_state (m:state) (l:loc) (o:offset) (n:size) (ws':words) : Prop
       list_slice ws o n ws' ->
       read_ll_state m l o n ws'.
 
-(** m[l := m(l)[π := w]] = m' *)
+(** l[0:i] ++ l' ++ [i+|l'|:|l|-1] = lr *)
 
-(* TODO: Move to LibList? *)
 Definition list_slice_update {A:Type} (l:list A) (i:int) (l':list A) (lr:list A) : Prop :=
       lr = (take i l) ++ l' ++ (drop (i + length l') l)
   /\  0 <= i
   /\  i + length l' <= length l.
+
+(** m(l)[0:o] ++ ws ++ m(l)[o+|ws|:|m(l)|-1] = m'(l) *)
 
 Inductive write_ll_state (m:state) (l:loc) (o:offset) (ws':words) (m':state) : Prop :=
   | write_ll_state_intro : forall ws ws'',
@@ -195,21 +203,11 @@ Inductive write_ll_state (m:state) (l:loc) (o:offset) (ws':words) (m':state) : P
       m' = m[l := (val_words ws'')] ->
       write_ll_state m l o ws' m'.
 
-(*
-Inductive write_ll_state (m:state) (p:loc) (ws':words) (m':state) : Prop :=
-  | write_ll_state_intro : forall l o ws ws'',
-      l \indom m ->
-      index m[l] o ->
-      p = l + o ->
-      m[l] = val_words ws ->
-      list_slice_update ws o ws' ws'' ->
-      m' = m[l := (val_words ws'')] ->
-      write_ll_state m p ws' m'.
-*)
-
 
 (* ---------------------------------------------------------------------- *)
 (** General results about these predicates. *)
+
+Section LowLevelLemmas.
 
 (** Type sizes are positive. *)
 
@@ -221,15 +219,15 @@ Lemma typ_size_pos : forall CS T n,
   0 <= n.
 Proof using.
   introv HCS Hn. induction Hn; try solve [ math ].
-  { asserts: (0 <= k). 
+  { asserts: (0 <= k).
     { admit. (* TODO: Assume that arrays have size >= 0 *) }
     applys~ Z.mul_nonneg_nonneg. }
   { admit. (* TODO: Induction on maps *) }
   { applys~ HCS. }
 Qed.
 
-(* If the low-level context is properly defined then the sizes should
-   be positive. *)
+(** If the low-level context is properly defined then the sizes should 
+    be positive. *)
 
 Lemma ll_typdefctx_sizes_pos : forall C LLC CS,
   ll_typdefctx_ok C LLC ->
@@ -237,18 +235,18 @@ Lemma ll_typdefctx_sizes_pos : forall C LLC CS,
   (forall Tv,
     Tv \indom C ->
     0 <= CS[Tv]).
-Proof.
+Proof using.
   introv Hok Heq. inverts~ Hok. simpls. subst~.
 Qed.
 
-(* The relation tr_ll_accesses (the low-level translation of 
-   accesses into offsets) is a function. *)
+(** The relation tr_ll_accesses (the low-level translation of accesses 
+    into offsets) is a function. *)
 
 Lemma functional_tr_ll_accesses : forall C LLC π o1 o2,
   tr_ll_accesses C LLC π o1 ->
   tr_ll_accesses C LLC π o2 ->
   o1 = o2.
-Proof.
+Proof using.
   introv Ho1 Ho2. gen o2. induction Ho1; intros.
   { inverts~ Ho2. }
   { inverts Ho2 as HTa HTn Hπs.
@@ -259,14 +257,14 @@ Proof.
     forwards~: IHHo1 Hπs. subst~. }
 Qed.
 
-(* Relationship between size of types and the translation of values. *)
+(** Relationship between size of types and the translation of values. *)
 
 Lemma typ_size_length_lw : forall C α v LLC T lw n,
   ll_typdefctx_ok C LLC ->
   tr_ll_val C LLC α T v lw ->
   typ_size (typvar_sizes LLC) T n ->
   length lw = n.
-Proof.
+Proof using.
   introv HLLC Htr Hn. gen n. induction Htr; intros;
   try solve [ inverts Hn; rewrite~ length_one ].
   { (* double *)
@@ -348,12 +346,12 @@ Proof.
         rewrite Hlc. admit. (* TODO: Lemma about fold and drop. *) } }
 Qed.
 
-(* Numerical results about sizes. *)
+(** Numerical results about sizes. *)
 
 Lemma accesses_offset_gez : forall C LLC π o,
   tr_ll_accesses C LLC π o ->
   0 <= o.
-Proof.
+Proof using.
   introv Hπ. induction Hπ.
   { math. }
   { apply Zle_lt_or_eq in H1.
@@ -366,7 +364,7 @@ Proof.
     inverts H3; inverts IHHπ; math. }
 Qed.
 
-(* If T --π--> T' then |T| >= |T'|. *)
+(** If T --π--> T' then |T| >= |T'|. *)
 
 Lemma follow_typ_size : forall C LLC π T T' n n',
   ll_typdefctx_ok C LLC ->
@@ -374,7 +372,7 @@ Lemma follow_typ_size : forall C LLC π T T' n n',
   typ_size (typvar_sizes LLC) T n ->
   typ_size (typvar_sizes LLC) T' n' ->
   n' <= n.
-Proof.
+Proof using.
   introv Hok Hπ Hn Hn'. gen n n'. induction Hπ; intros.
   { forwards~: functional_typ_size Hn Hn'. subst. math. }
   { inverts Hn; try solve [ inverts H ].
@@ -387,7 +385,7 @@ Proof.
   { admit. }
 Qed.
 
-(* If |T| = n and T --π--> T' and |π| = o then o < n *)
+(** If |T| = n and T --π--> T' and |π| = o then o < n *)
 
 Lemma typ_size_gt_offset : forall T T' C LLC π o n,
   ll_typdefctx_ok C LLC ->
@@ -396,7 +394,7 @@ Lemma typ_size_gt_offset : forall T T' C LLC π o n,
   tr_ll_accesses C LLC π o ->
     π <> nil ->
   o < n.
-Proof.
+Proof using.
   introv Hok Hn HF Hπ Hneq. gen n T T'. induction Hπ; intros.
   { false. }
   { inverts HF.
@@ -420,3 +418,4 @@ Proof.
     (* TODO: (fields_offsets LLC)[Tv][f] + o <= (typvar_sizes LLC)[Tv]*)  }
 Qed.
 
+End LowLevelLemmas.
