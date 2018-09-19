@@ -211,6 +211,23 @@ Inductive write_ll_state (m:state) (p:loc) (ws':words) (m':state) : Prop :=
 (* ---------------------------------------------------------------------- *)
 (** General results about these predicates. *)
 
+(** Type sizes are positive. *)
+
+Lemma typ_size_pos : forall CS T n,
+  (forall Tv,
+    Tv \indom CS ->
+    0 <= CS[Tv]) ->
+  typ_size CS T n ->
+  0 <= n.
+Proof using.
+  introv HCS Hn. induction Hn; try solve [ math ].
+  { asserts: (0 <= k). 
+    { admit. (* TODO: Assume that arrays have size >= 0 *) }
+    applys~ Z.mul_nonneg_nonneg. }
+  { admit. (* TODO: Induction on maps *) }
+  { applys~ HCS. }
+Qed.
+
 (* If the low-level context is properly defined then the sizes should
    be positive. *)
 

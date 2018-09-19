@@ -229,5 +229,3 @@ Definition wf_typdefctx (C:typdefctx) : Prop :=
   forall Tv,
     Tv \indom C ->
     ~ free_typvar C Tv C[Tv].
-
-

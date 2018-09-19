@@ -20,10 +20,6 @@ Open Scope set_scope.
 Open Scope container_scope.
 
 
-(* ********************************************************************** *)
-(* * Syntax *)
-
-
 (* ---------------------------------------------------------------------- *)
 (** Representation of locations and fields *)
 
@@ -242,11 +238,7 @@ Implicit Types ts : list trm.
 (* ---------------------------------------------------------------------- *)
 (** Auxiliary predicates for the semantics and transformations *)
 
-Definition is_val (t:trm) :=
-  match t with
-  | trm_val _ => True
-  | _ => False
-  end.
+(** Predicates for values *)
 
 Definition is_basic (v:val) :=
   match v with
@@ -264,22 +256,6 @@ Definition is_basic (v:val) :=
 Definition is_error (v:val) :=
   match v with
   | val_error => True
-  | _ => False
-  end.
-
-Inductive is_uninitialized : val -> Prop :=
-  | is_uninitialized_val_uninitialized :
-      is_uninitialized val_uninitialized
-  | is_uninitialized_array : forall T a,
-      (exists i, index a i /\ is_uninitialized a[i]) ->
-      is_uninitialized (val_array T a)
-  | is_uninitialized_struct : forall T s,
-      (exists f, f \indom s /\ is_uninitialized s[f]) ->
-      is_uninitialized (val_struct T s).
-
-Definition is_undef (v:val) :=
-  match v with
-  | val_words ws => exists i, index ws i /\ ws[i] = word_undef
   | _ => False
   end.
 
@@ -313,6 +289,8 @@ Definition is_array (v:val) :=
   | _ => False
   end.
 
+(** Predicates on primitive functions. *)
+
 Definition is_struct_op (op:prim) :=
   match op with
   | prim_struct_access _ _ => True
@@ -324,5 +302,35 @@ Definition is_array_op (op:prim) :=
   match op with
   | prim_array_access _ => True
   | prim_array_get _ => True
+  | _ => False
+  end.
+
+(** Predicates on terms. *)
+
+Definition is_val (t:trm) :=
+  match t with
+  | trm_val _ => True
+  | _ => False
+  end.
+
+(** Special predicate: Checking if a value can be get from memory, i.e.
+    checking if it contains any [val_uninitialized] somewhere. *)
+
+Inductive is_uninitialized : val -> Prop :=
+  | is_uninitialized_val_uninitialized :
+      is_uninitialized val_uninitialized
+  | is_uninitialized_array : forall T a,
+      (exists i, index a i /\ is_uninitialized a[i]) ->
+      is_uninitialized (val_array T a)
+  | is_uninitialized_struct : forall T s,
+      (exists f, f \indom s /\ is_uninitialized s[f]) ->
+      is_uninitialized (val_struct T s).
+
+(** Same as above but for the low-level equivalent of undefined, 
+    which is called [word_undef]. *)
+
+Definition is_undef (v:val) :=
+  match v with
+  | val_words ws => exists i, index ws i /\ ws[i] = word_undef
   | _ => False
   end.
