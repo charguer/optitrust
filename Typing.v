@@ -35,6 +35,7 @@ Inductive typ_size (CS:ll_typdefctx_typvar_sizes) : typ -> size -> Prop :=
   | typ_size_ptr : forall T',
       typ_size CS (typ_ptr T') 1
   | typ_size_array : forall n T' k,
+      k >= 0 ->
       typ_size CS T' n ->
       typ_size CS (typ_array T' (Some k)) (n*k)
   | typ_size_struct : forall Tfs n (m:monoid_op int) (g:field->size->size),
@@ -267,7 +268,7 @@ Lemma functional_typ_size : forall CS T n1 n2,
 Proof using.
   introv Hn1 Hn2. gen n2. induction Hn1; intros;
   try solve [ inverts~ Hn2 ].
-  { inverts Hn2 as Hn2. forwards~: IHHn1 Hn2. subst~. }
+  { inverts Hn2 as Hk Hn2. forwards~: IHHn1 Hn2. subst~. }
   { inverts Hn2. subst. asserts: (n = n0).
     { applys~ read_extens.
       { congruence. }

@@ -114,12 +114,11 @@ Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
 Inductive tr_ll_accesses (C:typdefctx) (LLC:ll_typdefctx) : accesses -> offset -> Prop :=
   | tr_ll_accesses_nil :
       tr_ll_accesses C LLC nil 0%Z
-  | tr_ll_accesses_access_array : forall T T' os πs i n o,
-      typing_array C T T' os ->
+  | tr_ll_accesses_access_array : forall T T' K πs i n o,
+      typing_array C T T' (Some K) ->
       typ_size (typvar_sizes LLC) T' n ->
       tr_ll_accesses C LLC πs o ->
-      (0 <= i)%Z ->
-      (0 <= n)%Z ->
+      (0 <= i < K)%Z ->
       tr_ll_accesses C LLC ((access_array T i)::πs) ((i * n) + o)
   | tr_ll_accesses_access_field : forall Tfs FO πs Tv f o,
       typing_struct C (typ_var Tv) Tfs ->
@@ -209,23 +208,6 @@ Inductive write_ll_state (m:state) (l:loc) (o:offset) (ws':words) (m':state) : P
 
 Section LowLevelLemmas.
 
-(** Type sizes are positive. *)
-
-Lemma typ_size_pos : forall CS T n,
-  (forall Tv,
-    Tv \indom CS ->
-    0 <= CS[Tv]) ->
-  typ_size CS T n ->
-  0 <= n.
-Proof using.
-  introv HCS Hn. induction Hn; try solve [ math ].
-  { asserts: (0 <= k).
-    { admit. (* TODO: Assume that arrays have size >= 0 *) }
-    applys~ Z.mul_nonneg_nonneg. }
-  { admit. (* TODO: Induction on maps *) }
-  { applys~ HCS. }
-Qed.
-
 (** If the low-level context is properly defined then the sizes should 
     be positive. *)
 
@@ -237,6 +219,53 @@ Lemma ll_typdefctx_sizes_pos : forall C LLC CS,
     0 <= CS[Tv]).
 Proof using.
   introv Hok Heq. inverts~ Hok. simpls. subst~.
+Qed.
+
+(** If the low-level context is properly defined all type variables
+    should have a size assigned to it. *)
+
+Lemma ll_typdefctx_typvar_sizes_dom : forall C LLC,
+  ll_typdefctx_ok C LLC ->
+  dom C = dom (typvar_sizes LLC).
+Proof using.
+  introv Hok. inverts~ Hok.
+Qed.
+
+(** Type sizes are positive. *)
+
+Lemma typ_size_pos : forall C LLC T n,
+  ll_typdefctx_ok C LLC ->
+  typ_size (typvar_sizes LLC) T n ->
+  0 <= n.
+Proof using.
+  introv Hok Hn. induction Hn; intros; try solve [ math ].
+  { asserts: (0 <= k).
+    { math. }
+    applys~ Z.mul_nonneg_nonneg. }
+  { admit. (* TODO: Some result on fold should do it. *) }
+  { forwards* HCS: ll_typdefctx_sizes_pos Hok.
+    rewrite ll_typdefctx_typvar_sizes_dom at 1; eauto. }
+Qed.
+
+(** Offsets are always positive. *)
+
+Lemma accesses_offset_gez : forall C LLC π o,
+  ll_typdefctx_ok C LLC ->
+  tr_ll_accesses C LLC π o ->
+  0 <= o.
+Proof using.
+  introv Hok Hπ. induction Hπ.
+  { math. }
+  { inverts H1 as Hi HK.
+    forwards* Hn: typ_size_pos.
+    apply Zle_lt_or_eq in Hi.
+    apply Zle_lt_or_eq in Hn.
+    apply Zle_lt_or_eq in IHHπ.
+    inverts Hi; inverts Hn; inverts IHHπ;
+    try solve [ try forwards*: Z.mul_pos_pos i n; math ]. }
+  { apply Zle_lt_or_eq in H3.
+    apply Zle_lt_or_eq in IHHπ.
+    inverts H3; inverts IHHπ; math. }
 Qed.
 
 (** The relation tr_ll_accesses (the low-level translation of accesses 
@@ -265,6 +294,8 @@ Lemma typ_size_length_lw : forall C α v LLC T lw n,
   typ_size (typvar_sizes LLC) T n ->
   length lw = n.
 Proof using.
+  (* TODO : Re-do this proof.
+
   introv HLLC Htr Hn. gen n. induction Htr; intros;
   try solve [ inverts Hn; rewrite~ length_one ].
   { (* double *)
@@ -343,26 +374,8 @@ Proof using.
         rewrite read_zero in H. rewrite H.
         asserts Hlc: (length (concat s') = fold_left Z.add 0 (drop 1 FS)).
         { admit. (* TODO: Create new contexts etc to make the numbers work. *) }
-        rewrite Hlc. admit. (* TODO: Lemma about fold and drop. *) } }
-Qed.
-
-(** Numerical results about sizes. *)
-
-Lemma accesses_offset_gez : forall C LLC π o,
-  tr_ll_accesses C LLC π o ->
-  0 <= o.
-Proof using.
-  introv Hπ. induction Hπ.
-  { math. }
-  { apply Zle_lt_or_eq in H1.
-    apply Zle_lt_or_eq in H2.
-    apply Zle_lt_or_eq in IHHπ.
-    inverts H1; inverts H2; inverts IHHπ; 
-    try solve [ try forwards*: Z.mul_pos_pos i n; math ]. }
-  { apply Zle_lt_or_eq in H3.
-    apply Zle_lt_or_eq in IHHπ.
-    inverts H3; inverts IHHπ; math. }
-Qed.
+        rewrite Hlc. admit. (* TODO: Lemma about fold and drop. *) } }*)
+Admitted.
 
 (** If T --π--> T' then |T| >= |T'|. *)
 
