@@ -1,7 +1,7 @@
 (**
 
-This file describes the syntax of an imperative lambda 
-calculus with records and arrays.
+This file describes the syntax of an imperative lambda calculus with 
+pointers, structs and arrays.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
@@ -9,17 +9,20 @@ License: MIT.
 
 *)
 
+
 Set Implicit Arguments.
 Require Export Bind TLCbuffer.
-Require Export LibString LibCore LibLogic LibReflect 
-  LibOption LibRelation LibLogic LibOperation LibEpsilon 
+Require Export LibString LibCore LibLogic LibReflect
+  LibOption LibRelation LibLogic LibOperation LibEpsilon
   LibMonoid LibSet LibContainer LibListZ LibMap.
 
 Open Scope set_scope.
 Open Scope container_scope.
 
+
 (* ********************************************************************** *)
 (* * Syntax *)
+
 
 (* ---------------------------------------------------------------------- *)
 (** Representation of locations and fields *)
@@ -27,18 +30,25 @@ Open Scope container_scope.
 (** [loc] describes base pointers to an allocated block. *)
 
 Definition loc := int.
-
 Definition null : loc := 0%Z.
+
+(** A struct is a map from [field]s. *)
 
 Definition field := var.
 
+
+(* ---------------------------------------------------------------------- *)
+(** Representation of low-level memory constructs  *)
+
+(** We need [size]s for low-level memory accesses and also for arrays.  *)
+
 Definition size := int.
+
+(** Low-level pointers use [offset]s. *)
 
 Definition offset := int.
 
-Definition typvar := var.
-
-(* Representation of low level memory blocks. *)
+(** A [word] is the basic memory unit. *)
 
 Inductive word : Type :=
   | word_undef : word
@@ -46,8 +56,15 @@ Inductive word : Type :=
 
 Definition words := list word.
 
+(** Bijection between high-level and low-level memory locations. *)
+
+Definition alpha := map loc loc.
+
+
 (* ---------------------------------------------------------------------- *)
 (** Grammar of types *)
+
+Definition typvar := var.
 
 Inductive typ : Type :=
   | typ_unit : typ
@@ -60,10 +77,6 @@ Inductive typ : Type :=
   | typ_fun : list typ -> typ -> typ
   | typ_var : typvar -> typ.
 
-(** Type definitions context *)
-
-Definition typdefctx := map typvar typ.
-
 (** Type of the state *)
 
 Definition phi := map loc typ.
@@ -75,7 +88,14 @@ Definition gamma := Ctx.ctx typ.
 Definition empty_gamma : gamma := nil.
 
 
-(* Contex holding low-level information about structs and their fields. *)
+(* ---------------------------------------------------------------------- *)
+(** Contexts *)
+
+(** Type definitions context *)
+
+Definition typdefctx := map typvar typ.
+
+(** Contex holding low-level information about structs and their fields. *)
 
 Definition ll_typdefctx_typvar_sizes := map typvar size.
 Definition ll_typdefctx_fields_offsets := map typvar (map field offset).
@@ -88,19 +108,19 @@ Record ll_typdefctx := make_ll_typdefctx {
 
 Notation "'make_ll_typdefctx''" := make_ll_typdefctx.
 
-(* Alpha *)
-
-Definition alpha := map loc loc.
-
 
 (* ---------------------------------------------------------------------- *)
 (** Syntax of the source language *)
+
+(** High-level pointers are represented using [accesses]. *)
 
 Inductive access : Type :=
   | access_array : typ -> int -> access
   | access_field : typ -> field -> access.
 
 Definition accesses := list access.
+
+(** Values. *)
 
 Inductive val : Type :=
   | val_error : val
@@ -115,6 +135,8 @@ Inductive val : Type :=
   | val_struct : typ -> map field val -> val
   | val_words : list word -> val.
 
+(** Binary operations. *)
+
 Inductive binop : Type :=
   | binop_eq : binop
   | binop_sub : binop
@@ -123,6 +145,8 @@ Inductive binop : Type :=
   | binop_div : binop
   | binop_mod : binop
   | binop_ptr_add : binop.
+
+(** Primitive functions. *)
 
 Inductive prim : Type :=
   | prim_binop : binop -> prim
@@ -138,6 +162,8 @@ Inductive prim : Type :=
   | prim_ll_set : typ -> prim
   | prim_ll_new : typ -> prim
   | prim_ll_access : typ -> prim.
+
+(** Terms. *)
 
 Inductive trm : Type :=
   | trm_var : var -> trm
@@ -168,9 +194,7 @@ Definition empty_stack : stack := nil.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Inhabited types, values and terms *)
-
-(** The type of values is inhabited *)
+(** Inhabited words, values, types and terms *)
 
 Global Instance Inhab_word : Inhab word.
 Proof using. apply (Inhab_of_val word_undef). Qed.
@@ -184,7 +208,11 @@ Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
 Global Instance Inhab_typ : Inhab typ.
 Proof using. apply (Inhab_of_val typ_unit). Qed.
 
+Hint Extern 1 (Inhab word) => apply Inhab_word.
+
 Hint Extern 1 (Inhab val) => apply Inhab_val.
+
+Hint Extern 1 (Inhab trm) => apply Inhab_trm.
 
 Hint Extern 1 (Inhab typ) => apply Inhab_typ.
 

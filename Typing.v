@@ -10,10 +10,12 @@ License: MIT.
 
 *)
 
+
 Set Implicit Arguments.
 Require Export TLCbuffer Wellformedness.
 
 Open Scope Z_scope.
+
 
 (* ********************************************************************** *)
 (* * Typing *)
@@ -298,10 +300,21 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* Lemmas about the connection of well-foundedness and typing, and other
-   nice properties about the typing predicates. *)
+(** Lemmas about the connection of well-foundedness and typing, and other
+    nice properties about the typing predicates. *)
 
 Section WellformednessLemmas.
+
+(* Path surgery of valid accesses *)
+
+Lemma wf_accesses_app : forall C π1 π2,
+  wf_accesses C π1 ->
+  wf_accesses C π2 ->
+  wf_accesses C (π1 ++ π2).
+Proof.
+  introv Ha1 Ha2. gen π2. induction Ha1; intros;
+  rew_list in *; eauto; constructors~.
+Qed.
 
 Lemma wf_typing_array : forall T os C Ta,
   typing_array C Ta T os ->

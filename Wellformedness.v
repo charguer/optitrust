@@ -1,7 +1,7 @@
 (**
 
 This file describes what it means for the different constructs in the
-language to be well-founded.
+language to be well-formed.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
@@ -9,12 +9,13 @@ License: MIT.
 
 *)
 
+
 Set Implicit Arguments.
 Require Export TLCbuffer Language.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Well-foundedness of types *)
+(** Well-formedness of types *)
 
 Inductive wf_typ (C:typdefctx) : typ -> Prop :=
   | wf_typ_unit :
@@ -45,7 +46,7 @@ Inductive wf_typ (C:typdefctx) : typ -> Prop :=
 (* ---------------------------------------------------------------------- *)
 (** Well-formedness of values and terms *)
 
-(* A value is well-founded if all of the types that appear in it are. *)
+(** Accesses are well-formed if all the types that appear in them are. *)
 
 Inductive wf_accesses (C:typdefctx) : accesses -> Prop :=
   | wf_accesses_nil :
@@ -59,16 +60,7 @@ Inductive wf_accesses (C:typdefctx) : accesses -> Prop :=
       wf_accesses C π ->
       wf_accesses C ((access_field T f)::π).
 
-(* Path surgery of valid accesses *)
-
-Lemma wf_accesses_app : forall C π1 π2,
-  wf_accesses C π1 ->
-  wf_accesses C π2 ->
-  wf_accesses C (π1 ++ π2).
-Proof.
-  introv Ha1 Ha2. gen π2. induction Ha1; intros;
-  rew_list in *; eauto; constructors~.
-Qed.
+(** A [val] is well-formed if all of the types that appear in it are. *)
 
 Inductive wf_val (C:typdefctx) : val -> Prop :=
   | wf_val_error :
@@ -101,7 +93,7 @@ Inductive wf_val (C:typdefctx) : val -> Prop :=
         wf_val C s[f]) ->
       wf_val C (val_struct Ts s).
 
-(* A term is well-founded if all of the types that appear in it are. *)
+(** A [prim] is well-formed if all of the types that appear in it are. *)
 
 Inductive wf_prim (C:typdefctx) : prim -> Prop :=
   | wf_prim_binop : forall bop,
@@ -143,6 +135,8 @@ Inductive wf_prim (C:typdefctx) : prim -> Prop :=
       wf_typ C T ->
       wf_prim C (prim_ll_new T).
 
+(** A [trm] is well-formed if all of the types that appear in it are. *)
+
 Inductive wf_trm (C:typdefctx) : trm -> Prop :=
   | wf_trm_val : forall v,
       wf_val C v ->
@@ -173,30 +167,30 @@ Inductive wf_trm (C:typdefctx) : trm -> Prop :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Well-foundedness of stack and state *)
+(** Well-formedness of stack and state *)
 
-(* Well-founded stack *)
+(** Well-formed [stack]. *)
 
 Definition wf_stack (C:typdefctx) (S:stack) : Prop :=
   forall x v,
     Ctx.lookup x S = Some v ->
     wf_val C v.
 
-(* Well-founded state *)
+(** Well-formed [state]. *)
 
 Definition wf_state (C:typdefctx) (m:state) : Prop :=
   forall l,
     l \indom m ->
     wf_val C m[l].
 
-(* Well-founded gamma *)
+(** Well-formed [gamma]. *)
 
 Definition wf_gamma (C:typdefctx) (Γ:gamma) : Prop :=
   forall x T,
     Ctx.lookup x Γ = Some T ->
     wf_typ C T.
 
-(* Well-founded phi *)
+(** Well-formed [phi]. *)
 
 Definition wf_phi (C:typdefctx) (φ:phi) : Prop :=
   forall l,
@@ -205,9 +199,9 @@ Definition wf_phi (C:typdefctx) (φ:phi) : Prop :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Typdefctx well-foundedness *)
+(** Typdefctx well-formedness *)
 
-(* Type variable appears in the type. *)
+(** Checking if a type variable appears in a type. *)
 
 Inductive free_typvar (C:typdefctx) (Tv:typvar) : typ -> Prop :=  
   | free_typvar_typvar_eq :
@@ -228,6 +222,8 @@ Inductive free_typvar (C:typdefctx) (Tv:typvar) : typ -> Prop :=
         f \indom Tfs /\
         free_typvar C Tv Tfs[f]) ->
       free_typvar C Tv (typ_struct Tfs).
+
+(** A [typdefctx] is well-formed if types are productive. *)
 
 Definition wf_typdefctx (C:typdefctx) : Prop :=
   forall Tv,
