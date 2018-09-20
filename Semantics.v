@@ -1,13 +1,14 @@
 (**
 
-This file describes the syntax and semantics of an imperative lambda 
-calculus with records and arrays.
+This file describes the semantics of an imperative lambda calculus with
+records and arrays.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
 License: MIT.
 
 *)
+
 
 Set Implicit Arguments.
 Require Export SemanticsLL.
@@ -16,9 +17,6 @@ Open Scope set_scope.
 Open Scope container_scope.
 Open Scope Z_scope.
 
-
-(* ********************************************************************** *)
-(* * Semantics *)
 
 (* ---------------------------------------------------------------------- *)
 (** Semantics of binary operations *)
@@ -130,7 +128,7 @@ Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop 
 
 (** <C, S, m, t> // <m', v> *)
 
-(* TMP *)
+(* TODO: Temporary *)
 Definition α : alpha := (fun l => Some l).
 
 Inductive red (C:typdefctx) (LLC:ll_typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
@@ -318,7 +316,7 @@ Inductive red (C:typdefctx) (LLC:ll_typdefctx) :  stack -> state -> trm -> state
       red C LLC S m1 t2 m2 val_error ->
       red C LLC S m1 (trm_app op ((trm_val v1)::t2::ts)) m2 val_error.
 
-(* Derived *)
+(** Derived rule. *)
 
 Lemma red_seq : forall C LLC S m1 m2 m3 t1 t2 r1 r,
   red C LLC S m1 t1 m2 r1 ->
@@ -328,26 +326,22 @@ Lemma red_seq : forall C LLC S m1 m2 m3 t1 t2 r1 r,
 Proof using. intros. applys* red_let. Qed.
 
 
-(* ********************************************************************** *)
-(* * Lemmas about the semantics *)
-
 (* ---------------------------------------------------------------------- *)
 (** Lemmas about accesses *)
 
 Lemma read_write_accesses_same : forall v1 v2 π w,
   write_accesses v1 π w v2 ->
   read_accesses v2 π w.
-Proof.
+Proof using.
   introv H. induction H; subst; constructors*; rew_reads~.
 Qed.
 
 Hint Extern 1 (?j \in dom (?m[?i:=?v])) => applys @indom_update.
 
-
 Lemma read_write_state_same : forall m m' l π w,
   write_state m l π w m' ->
   read_state m' l π w.
-Proof.
+Proof using.
   introv H. induction H. subst. constructors*.
   { applys* read_write_accesses_same. rew_reads*. }
 Qed.
@@ -360,7 +354,7 @@ Lemma ctx_lookup_add_inv {A:Type} : forall C (z1 z2:var) (w1 w2:A),
   Ctx.lookup z1 (Ctx.add z2 w1 C) = Some w2 ->
       (z1 = z2 /\ w1 = w2)
   \/  (z1 <> z2 /\ Ctx.lookup z1 C = Some w2).
-Proof.
+Proof using.
   introv H. simpls. rewrite var_eq_spec in *. case_if*. { inverts* H. }
 Qed.
 
@@ -372,7 +366,7 @@ Lemma not_is_error_args_1 : forall C LLC S m op ts m' v w,
   red C LLC S m (trm_app op (trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
-Proof.
+Proof using.
   introv HR He HN. destruct w; try inverts HN.
   inverts HR; tryfalse*.
   inverts_head red; tryfalse*.
@@ -382,7 +376,7 @@ Lemma not_is_error_args_2 : forall C LLC S m op t ts m' v w,
   red C LLC S m (trm_app op (t :: trm_val w :: ts)) m' v ->
   ~ is_error v ->
   ~ is_error w.
-Proof.
+Proof using.
   introv HR He HN. destruct w; try inverts HN.
   inverts HR; tryfalse*.
   { inverts_head tr_ll_val. }
@@ -393,10 +387,9 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Lemmas about the completeness of the reduction rules *)
 
-(* Holds because there's no loop *)
 Lemma red_complete : forall C LLC S m1 t, 
   exists v m2, red C LLC S m1 t m2 v.
-Proof.
+Proof using.
   intros. gen C S m1. induction t; intros.
   { (* var *)
     tests: (exists w, Ctx.lookup v S = Some w).
@@ -438,41 +431,51 @@ Proof.
 Admitted.
 
 
-(* ********************************************************************** *)
-(* * Results of the connection between semantics and well-foundedness. *)
+(* ---------------------------------------------------------------------- *)
+(* * Results of the connection between semantics and well-foundedness *)
+
+Section SemanticsWellformedLemmas.
+
+(** Binary operations preserve well-formedness. *)
 
 Lemma wf_redbinop : forall op v1 v2 C vr,
   redbinop op v1 v2 vr ->
   wf_val C v1 ->
   wf_val C v2 ->
   wf_val C vr.
-Proof.
+Proof using.
   introv HR Hv1 Hv2. induction HR; constructors*.
 Qed.
+
+(** Reading into a value preserves well-formedness. *)
 
 Lemma wf_read_accesses : forall v1 π C v2,
   read_accesses v1 π v2 ->
   wf_val C v1 ->
   wf_accesses C π ->
   wf_val C v2.
-Proof.
+Proof using.
   introv HR Hv1 Hπ. induction HR.
   { auto. }
-  { inverts Hπ. inverts Hv1 as Hv1 Hai. 
+  { inverts Hπ. inverts Hv1 as Hv1 Hai.
     applys~ IHHR. }
   { inverts Hπ. inverts Hv1 as Hv1 Hsf.
     applys~ IHHR. }
 Qed.
+
+(** Reading into the state preserves well-formedness. *)
 
 Lemma wf_read_state : forall m l π C v,
   read_state m l π v ->
   wf_state C m ->
   wf_accesses C π ->
   wf_val C v.
-Proof.
+Proof using.
   introv HR Hm Hπ. unfolds wf_state. inverts HR.
   forwards*: Hm. applys* wf_read_accesses.
 Qed.
+
+(** Writing into a value preserves well-formedness. *)
 
 Lemma wf_write_accesses : forall v1 w π C v2,
   write_accesses v1 π w v2 ->
@@ -480,7 +483,7 @@ Lemma wf_write_accesses : forall v1 w π C v2,
   wf_val C w ->
   wf_accesses C π ->
   wf_val C v2.
-Proof.
+Proof using.
   introv HW Hv1 Hw Hπ. induction HW.
   { auto. }
   { subst. inverts Hπ. inverts Hv1 as Hv1 Ha0i.
@@ -489,24 +492,28 @@ Proof.
     constructors*. introv Hf. rew_reads*. }
 Qed.
 
+(** Writing into memory preserves well-formedness. *)
+
 Lemma wf_write_state : forall m1 l π v C m2,
   write_state m1 l π v m2 ->
   wf_state C m1 ->
   wf_accesses C π ->
   wf_val C v ->
   wf_state C m2.
-Proof.
+Proof using.
   introv HW Hm1 Hπ Hv. inverts HW. unfolds wf_state.
   forwards*: Hm1. introv Hl0. rew_reads*; intros.
   { applys* wf_write_accesses. }
   { applys~ Hm1. applys~ indom_update_inv_neq l l0 v2. }
 Qed.
 
+(** Creating an uninitialized value preserves well-formedness. *)
+
 Lemma wf_uninitialized : forall v C T,
   wf_typ C T ->
   uninitialized C T v ->
   wf_val C v.
-Proof.
+Proof using.
   introv HT Hu. induction Hu; try solve [ constructors* ].
   { constructors~. introv Hi. applys~ H2.
     applys* wf_typing_array. }
@@ -514,16 +521,16 @@ Proof.
     applys* wf_typing_struct. }
 Qed.
 
-(* Preservation of well-foundedness by the semantics. *)
+(** Main theorem. Preservation of well-foundedness by the semantics. *)
 
-Lemma wf_red : forall LLC S m1 t C m2 v,
+Theorem wf_red : forall LLC S m1 t C m2 v,
   red C LLC S m1 t m2 v ->
   wf_stack C S ->
   wf_state C m1 ->
   wf_trm C t ->
       wf_state C m2
   /\  wf_val C v.
-Proof.
+Proof using.
   introv HR HS Hm1 Ht. induction HR; intros;
   try solve [ inverts Ht ; splits* ; constructors* ].
   { (* if *)
@@ -593,8 +600,4 @@ Proof.
     { inverts~ Ht; repeat constructors~. } }
 Qed.
 
-(* TODO:
-   - rew_reads improve.
-   - dom_prove new tactic. 
-   - map on maps. 
-   - automation for red_complete. *)
+End SemanticsWellformedLemmas.

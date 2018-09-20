@@ -93,47 +93,48 @@ Inductive wf_val (C:typdefctx) : val -> Prop :=
         wf_val C s[f]) ->
       wf_val C (val_struct Ts s).
 
-(** A [prim] is well-formed if all of the types that appear in it are. *)
+(** A [prim] is well-formed if all of the types that appear in it are
+    and the arity is correct. *)
 
-Inductive wf_prim (C:typdefctx) : prim -> Prop :=
+Inductive wf_prim (C:typdefctx) : int -> prim -> Prop :=
   | wf_prim_binop : forall bop,
-      wf_prim C (prim_binop bop)
+      wf_prim C 2 (prim_binop bop)
   | wf_prim_get : forall T,
       wf_typ C T ->
-      wf_prim C (prim_get T)
+      wf_prim C 1 (prim_get T)
   | wf_prim_set : forall T,
       wf_typ C T ->
-      wf_prim C (prim_set T)
+      wf_prim C 2 (prim_set T)
   | wf_prim_new : forall T,
       wf_typ C T ->
-      wf_prim C (prim_new T)
+      wf_prim C 0 (prim_new T)
   | wf_prim_new_array : forall T,
       wf_typ C T ->
-      wf_prim C (prim_new_array T)
+      wf_prim C 1 (prim_new_array T)
   | wf_prim_struct_access : forall T f,
       wf_typ C T ->
-      wf_prim C (prim_struct_access T f)
+      wf_prim C 1 (prim_struct_access T f)
   | wf_prim_array_access : forall T,
       wf_typ C T ->
-      wf_prim C (prim_array_access T)
+      wf_prim C 2 (prim_array_access T)
   | wf_prim_struct_get : forall T f,
       wf_typ C T ->
-      wf_prim C (prim_struct_get T f)
+      wf_prim C 1 (prim_struct_get T f)
   | wf_prim_array_get : forall T,
       wf_typ C T ->
-      wf_prim C (prim_array_get T)
+      wf_prim C 2 (prim_array_get T)
   | wf_prim_ll_get : forall T,
       wf_typ C T ->
-      wf_prim C (prim_ll_get T)
+      wf_prim C 1 (prim_ll_get T)
   | wf_prim_ll_set : forall T,
       wf_typ C T ->
-      wf_prim C (prim_ll_set T)
+      wf_prim C 1 (prim_ll_set T)
   | wf_prim_ll_access : forall T,
       wf_typ C T ->
-      wf_prim C (prim_ll_access T)
+      wf_prim C 2 (prim_ll_access T)
   | wf_prim_ll_new : forall T,
       wf_typ C T ->
-      wf_prim C (prim_ll_new T).
+      wf_prim C 0 (prim_ll_new T).
 
 (** A [trm] is well-formed if all of the types that appear in it are. *)
 
@@ -153,14 +154,14 @@ Inductive wf_trm (C:typdefctx) : trm -> Prop :=
       wf_trm C t1 ->
       wf_trm C (trm_let x t0 t1)
   | wf_trm_app_args_0 : forall op,
-      wf_prim C op ->
+      wf_prim C 0 op ->
       wf_trm C (trm_app op nil)
   | wf_trm_app_args_1 : forall op t1,
-      wf_prim C op ->
+      wf_prim C 1 op ->
       wf_trm C t1 ->
       wf_trm C (trm_app op (t1::nil))
   | wf_trm_app_args_2 : forall op t1 t2,
-      wf_prim C op ->
+      wf_prim C 2 op ->
       wf_trm C t1 ->
       wf_trm C t2 ->
       wf_trm C (trm_app op (t1::t2::nil)).

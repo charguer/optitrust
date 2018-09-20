@@ -1,7 +1,8 @@
 (**
 
 This file describes transformations of the layout of records and arrays on
-the memory.
+the memory. It includes some important definitions and results that are
+used both in Semantics.v and TrLowLevel.v.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
