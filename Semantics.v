@@ -131,7 +131,7 @@ Inductive write_state (m:state) (l:loc) (π:accesses) (w:val) (m':state) : Prop 
 (* TODO: Temporary *)
 Definition α : alpha := (fun l => Some l).
 
-Inductive red (C:typdefctx) (LLC:ll_typdefctx) :  stack -> state -> trm -> state -> val -> Prop :=
+Inductive red (C:typdefctx) (LLC:ll_typdefctx) : stack -> state -> trm -> state -> val -> Prop :=
   (* Basic language constructs *)
   | red_val : forall S m v,
       red C LLC S m (trm_val v) m v
