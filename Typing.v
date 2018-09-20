@@ -18,40 +18,6 @@ Open Scope Z_scope.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Size of types *)
-
-(** Used to compute the size of a type. Assuming the size of type variables
-    are known. Used throughout in the low-level transformation/semantics. *)
-
-Inductive typ_size (CS:ll_typdefctx_typvar_sizes) : typ -> size -> Prop :=
-  | typ_size_unit :
-      typ_size CS (typ_unit) 1
-  | typ_size_int :
-      typ_size CS (typ_int) 1
-  | typ_size_double :
-      typ_size CS (typ_double) 2
-  | typ_size_bool :
-      typ_size CS (typ_bool) 1
-  | typ_size_ptr : forall T',
-      typ_size CS (typ_ptr T') 1
-  | typ_size_array : forall n T' k,
-      k >= 0 ->
-      typ_size CS T' n ->
-      typ_size CS (typ_array T' (Some k)) (n*k)
-  | typ_size_struct : forall Tfs n (m:monoid_op int) (g:field->size->size),
-      dom Tfs = dom n ->
-      (forall (f:field),
-        f \indom Tfs ->
-        typ_size CS Tfs[f] n[f]) ->
-      m = monoid_make (fun a b => a + b) 0 ->
-      g = (fun k v => v) ->
-      typ_size CS (typ_struct Tfs) (fold m g n)
-  | typ_size_var : forall Tv,
-      Tv \indom CS ->
-      typ_size CS (typ_var Tv) CS[Tv].
-
-
-(* ---------------------------------------------------------------------- *)
 (** Basic, or comparable, types *)
 
 Inductive basic_typ (C:typdefctx) : typ -> Type :=
@@ -258,23 +224,6 @@ Definition stack_typing (C:typdefctx) (φ:phi) (Γ:gamma) (S:stack) : Prop :=
 (** Functional predicates *)
 
 Section FunctionalLemmas.
-
-(** The relation typ_size is a function. *)
-
-Lemma functional_typ_size : forall CS T n1 n2,
-  typ_size CS T n1 ->
-  typ_size CS T n2 ->
-  n1 = n2.
-Proof using.
-  introv Hn1 Hn2. gen n2. induction Hn1; intros;
-  try solve [ inverts~ Hn2 ].
-  { inverts Hn2 as Hk Hn2. forwards~: IHHn1 Hn2. subst~. }
-  { inverts Hn2. subst. asserts: (n = n0).
-    { applys~ read_extens.
-      { congruence. }
-      { introv Hi. rewrite <- H in Hi. applys~ H1. } }
-    subst~. }
-Qed.
 
 (** Inferring array types is functional. *)
 

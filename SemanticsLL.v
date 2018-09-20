@@ -15,18 +15,52 @@ Require Export Typing.
 
 
 (* ---------------------------------------------------------------------- *)
+(** Size of types *)
+
+(** Used to compute the size of a type. Assuming the size of type variables
+    are known. Used throughout in the low-level transformation/semantics. *)
+
+Inductive typ_size (CS:ll_typdefctx_typvar_sizes) : typ -> size -> Prop :=
+  | typ_size_unit :
+      typ_size CS (typ_unit) 1
+  | typ_size_int :
+      typ_size CS (typ_int) 1
+  | typ_size_double :
+      typ_size CS (typ_double) 2
+  | typ_size_bool :
+      typ_size CS (typ_bool) 1
+  | typ_size_ptr : forall T',
+      typ_size CS (typ_ptr T') 1
+  | typ_size_array : forall n T' k,
+      k >= 0 ->
+      typ_size CS T' n ->
+      typ_size CS (typ_array T' (Some k)) (n*k)
+  | typ_size_struct : forall Tfs n (m:monoid_op int) (g:field->size->size),
+      dom Tfs = dom n ->
+      (forall (f:field),
+        f \indom Tfs ->
+        typ_size CS Tfs[f] n[f]) ->
+      m = monoid_make (fun a b => a + b) 0 ->
+      g = (fun k v => v) ->
+      typ_size CS (typ_struct Tfs) (fold m g n)
+  | typ_size_typvar : forall Tv,
+      Tv \indom CS ->
+      typ_size CS (typ_var Tv) CS[Tv].
+
+
+(* ---------------------------------------------------------------------- *)
 (** Some previous necessary definitions *)
 
 (** Conversion from lists to maps. *)
 
 Axiom list_to_map : forall A B, list A -> list B -> map A B.
 
-Axiom list_to_map_spec : forall ks vs m,
-  m = list_to_map ks vs ->
-  length ks = length vs ->
-  (forall i,
-    index ks i ->
-    ks[i] \indom m /\ m[ks[i]] = vs[i]). (* reciprocal *)
+Axiom list_to_map_spec : forall (ks:list field) (vs:list offset),
+      length ks = length vs
+  /\  forall (i:int),
+        index ks i ->
+            ks[i] \indom (list_to_map ks vs)
+        /\  (list_to_map ks vs)[ks[i]] = vs[i].
 
 (** Function used to argue about the offsets. *)
 
@@ -74,6 +108,7 @@ Proof using.
       forwards*: IHHps Hl. } }
 Qed.
 
+
 (* ---------------------------------------------------------------------- *)
 (** Type-directed transformation to low-level *)
 
@@ -104,7 +139,7 @@ Inductive ll_typdefctx_ok (C:typdefctx) (LLC:ll_typdefctx) : Prop :=
             (* Fields offsets. *)
         /\  prefix_sum FS FO 0
             (* The relationship. *)
-        /\  CS[Tv] = fold_left Z.add 0 FS
+        /\  CS[Tv] = fold_right Z.add 0 FS
         /\  CFOff[Tv] = list_to_map CFOrd[Tv] FO)) ->
       ll_typdefctx_ok C LLC.
 
@@ -208,6 +243,23 @@ Inductive write_ll_state (m:state) (l:loc) (o:offset) (ws':words) (m':state) : P
 
 Section LowLevelLemmas.
 
+(** The relation typ_size is a function. *)
+
+Lemma functional_typ_size : forall CS T n1 n2,
+  typ_size CS T n1 ->
+  typ_size CS T n2 ->
+  n1 = n2.
+Proof using.
+  introv Hn1 Hn2. gen n2. induction Hn1; intros;
+  try solve [ inverts~ Hn2 ].
+  { inverts Hn2 as Hk Hn2. forwards~: IHHn1 Hn2. subst~. }
+  { inverts Hn2. subst. asserts: (n = n0).
+    { applys~ read_extens.
+      { congruence. }
+      { introv Hi. rewrite <- H in Hi. applys~ H1. } }
+    subst~. }
+Qed.
+
 (** If the low-level context is properly defined then the sizes should 
     be positive. *)
 
@@ -286,6 +338,69 @@ Proof using.
     forwards~: IHHo1 Hπs. subst~. }
 Qed.
 
+(** Lemma about length of concatenation. TODO: Move somewhere else. *)
+
+Lemma length_concat_fixed : forall A (l:list (list A)) n,
+  (forall i,
+    index l i ->
+    length l[i] = n) ->
+  length (concat l) = n * length l.
+Proof using.
+  introv Hl. gen A n. induction l; intros.
+  { rewrite concat_nil. repeat rewrite~ length_nil. math. }
+  { rewrite concat_cons. rewrite length_app.
+    rewrite length_cons. forwards Heq: IHl n.
+    { introv Hi. forwards~: Hl (i+1).
+      { rewrite index_eq_index_length in *.
+        rewrite length_cons. rewrite int_index_eq in *. math. }
+      rewrite read_cons_case in H. case_if.
+      { rewrite index_eq_inbound in Hi. math. }
+      { asserts Heq: (i+1-1 = i). { math. }
+        rewrite Heq in H. auto. } }
+    rewrite Heq. forwards~ Heq': Hl 0.
+    { rewrite index_eq_inbound. rewrite length_cons. math. }
+    rewrite read_zero in Heq'. rewrite Heq'.
+    rewrite Z.mul_add_distr_l. math. }
+Qed.
+
+(** Lemma about length of concatenation. TODO: Move somewhere else. *)
+
+Lemma length_concat_variable : forall A (l:list (list A)) (n:list int),
+  length l = length n ->
+  (forall i,
+    index l i ->
+    length l[i] = n[i]) ->
+  length (concat l) = fold_right Z.add 0 n.
+Proof using.
+  introv Hl Hn. gen A n. induction l; intros.
+  { rewrite concat_nil. rewrite length_nil in *.
+    symmetry in Hl. forwards~ Hl': length_zero_inv Hl.
+    subst. rewrite~ fold_right_nil. }
+  { rewrite concat_cons. rewrite length_app.
+    rewrite length_cons in Hl.
+    forwards~ (a'&l'&Ha'l'): length_pos_inv_cons n.
+    { rewrite <- Hl. math. }
+    subst. rewrite length_cons in Hl.
+    forwards~ Hlc: IHl l'.
+    { math. }
+    { introv Hi.
+      forwards~ Hlli: Hn (i+1).
+      { rewrite index_eq_index_length in *.
+        rewrite length_cons.
+        rewrite int_index_eq in *. math. }
+      { rewrite read_cons_case in Hlli. case_if.
+        { rewrite index_eq_inbound in Hi. math. }
+        { asserts Heq: (i+1-1 = i). { math. }
+          rewrite Heq in Hlli. rewrite Hlli.
+          rewrite read_cons_case. case_if.
+          rewrite~ Heq. } } }
+    rewrite Hlc. forwards~ Hla: Hn 0.
+    { rewrite index_eq_inbound.
+      rewrite length_cons. math. }
+    repeat rewrite read_zero in Hla.
+    rewrite Hla. rewrite~ fold_right_cons. }
+Qed.
+
 (** Relationship between size of types and the translation of values. *)
 
 Lemma typ_size_length_lw : forall C α v LLC T lw n,
@@ -294,88 +409,32 @@ Lemma typ_size_length_lw : forall C α v LLC T lw n,
   typ_size (typvar_sizes LLC) T n ->
   length lw = n.
 Proof using.
-  (* TODO : Re-do this proof.
-
-  introv HLLC Htr Hn. gen n. induction Htr; intros;
-  try solve [ inverts Hn; rewrite~ length_one ].
+  introv HLLC Htr Hn. gen α v lw. induction Hn; intros;
+  try solve [ inverts Htr; rewrite~ length_one ].
   { (* double *)
-    inverts Hn. rewrite length_cons. rewrite~ length_one. }
+    inverts Htr. rewrite length_cons. rewrite~ length_one. }
   { (* array *)
-    gen n k a. induction a'; intros.
-    { rewrite length_nil in *. subst. inverts Hn. math. }
-    { rewrite concat_cons. rewrite length_app.
-      rewrite length_cons in *. asserts Hl: (length a' = k - 1).
-      { math. }
-      inverts Hn. forwards~ Hcl: IHa' (n0*(k-1)) (k-1) (drop 1 a0).
-      { constructors~. }
-      { rewrite~ length_drop_nonneg.
-        { rewrite~ H. }
-        { math. } }
-      { introv Hi. forwards~ Hr: H1 (i+1).
-        { rewrite index_eq_index_length in *.
-          rewrite~ length_drop_nonneg in Hi.
-          { rewrite int_index_eq in *. math. }
-          { math. } }
-        asserts Hge1: (length a0 >= 1).
-        { rewrite H. rewrite <- H0. math. }
-        destruct a0; try solve [ rewrite length_nil in *; math ].
-        asserts H0p1: (1 = 0 + 1). { math. }
-        rewrite H0p1.
-        rewrites* drop_succ; try math.
-        rewrite drop_zero.
-        asserts: (i >= 0).
-        { rewrite index_eq_index_length in *.
-          rewrite int_index_eq in *. math. }
-        repeat rewrite read_cons_case in Hr.
-        case_if; try math.
-        asserts Hipm1: (i + 1 - 1 = i). { math. }
-        rewrite~ Hipm1 in Hr. }
-      { introv Hi Hn. forwards~ Hl': H2 (i+1) n.
-        { rewrite index_eq_index_length in *.
-          rewrite int_index_eq in *.
-          rewrite length_drop_nonneg in *; math. }
-        asserts: (i >= 0).
-        { rewrite index_eq_index_length in *.
-          rewrite int_index_eq in *. math. }
-        rewrite read_cons_case in Hl'. case_if; try math.
-        asserts Hipm1: (i + 1 - 1 = i). { math. }
-        rewrite~ Hipm1 in Hl'. }
-      rewrite Hcl. forwards~: H2 0 n0.
-      { rewrite index_eq_index_length. rewrite int_index_eq. math. }
-      rewrite read_zero in *. rewrite~ H3.
-      rewrite Z.mul_sub_distr_l. math. } }
-    { (* struct *) 
-      inverts Hn. inverts HLLC as HD HTv HD' HC. simpls.
-      forwards* (FT&FS&FO&HFT&HFS&HFO&HCSTv&HCFOff): HC.
-      rewrite HCSTv at 1. subst. gen C FS FO CS CFOff CFOrd. 
-      induction s'; intros.
-      { rewrite length_nil in *. symmetry in H5.
-        rewrite length_zero_eq_eq_nil in H5. 
-        rewrite H5 in HFS.
-        asserts Hm: (List.map (fun f : field => Tfs[f]) nil = nil).
-        { unfolds~. }
-        rewrite Hm in HFS. inverts HFS. unfolds~. }
-      { rewrite concat_cons. rewrite length_app.
-        forwards~: H7 0 FS[0].
-        { rewrite index_eq_index_length in *.
-          rewrite int_index_eq in *.
-          rewrite length_cons. math. }
-        { destruct (CFOrd[Tv]); try solve [ 
-          rewrite length_nil in *; rewrite length_cons in *; math ].
-          rewrite List.map_cons in *.
-          rewrite <- app_cons_one_r in HFS.
-          rewrite <- List_app_eq in HFS.
-          forwards* (l1'&l2'&Hl1'&Hl2'&HFSeq): List.Forall2_app_inv_l HFS.
-          rewrite read_zero.
-          inverts Hl1'. inverts H10.
-          rewrite HFSeq.
-          rewrite List_app_eq. rew_list.
-          rewrite~ read_zero. }
-        rewrite read_zero in H. rewrite H.
-        asserts Hlc: (length (concat s') = fold_left Z.add 0 (drop 1 FS)).
-        { admit. (* TODO: Create new contexts etc to make the numbers work. *) }
-        rewrite Hlc. admit. (* TODO: Lemma about fold and drop. *) } }*)
-Admitted.
+    inverts Htr as Hl Htr. rewrite <- Hl.
+    applys~ length_concat_fixed. introv Hi'. asserts Hi: (index a i).
+    { rewrite index_eq_index_length in *. rewrite~ <- Hl. }
+    forwards~ Htrai: Htr Hi. applys* IHHn. }
+  { (* struct *)
+    inverts Htr as HTvin' HTvin'' HT Hl Htr.
+    inverts HLLC as HDC Hpos HDstr Hfields. simpls.
+    forwards~ (FT&FS&FO&HFT&HFS&Hps&HCSTv&HCFOffTv): Hfields HTvin'' HT.
+    rewrite HCSTv at 1. applys~ length_concat_variable.
+    { asserts HlFS: (length FS = length FO).
+      { applys* prefix_sum_length. }
+      asserts HlFO: (length FO = length CFOrd[Tv]).
+      { forwards~ (HR&_): list_to_map_spec CFOrd[Tv] FO. }
+      rewrite Hl. rewrite HlFS at 1. rewrite~ <- HlFO. }
+    introv Hi. forwards~ Htrs'i: Htr Hi.
+    remember CS as CS'.
+    remember CFOrd as CFOrd'.
+    remember CFOff as CFOff'.
+    remember (make_ll_typdefctx CS' CFOff' CFOrd') as LLC'.
+    admit. (* TODO: Need to change the approach to prove this. *) }
+Qed.
 
 (** If T --π--> T' then |T| >= |T'|. *)
 
@@ -410,21 +469,20 @@ Lemma typ_size_gt_offset : forall T T' C LLC π o n,
 Proof using.
   introv Hok Hn HF Hπ Hneq. gen n T T'. induction Hπ; intros.
   { false. }
-  { inverts HF.
-    forwards* (HTeq&Hoseq): functional_typing_array C T T' T1 os.
-    subst. induction H.
+  { inverts HF. subst. induction H.
     { inverts Hn. asserts: (i < k).
       { admit. (* TODO: This should be added in follow_typ. *) }
       forwards*: functional_typ_size T n n1. subst.
       tests: (πs = nil).
       { inverts Hπ.
         admit. (* This is maths. *) }
-      { forwards*: IHHπ n1 T T'0.
+      { inverts_head typing_array. forwards*: IHHπ n1 T1 T'0.
         admit. (* This is maths. *) } }
-    { applys~ IHtyping_array. inverts Hn.
+    { applys~ IHtyping_array.
       { introv HN. inverts HN. }
-      admit. (* TODO: this should be true: 
-      typ_size (typvar_sizes LLC) C[Tv] (typvar_sizes LLC)[Tv] *) } }
+      { admit. (* TODO: This should come from ll_typdefctx_ok.
+        typ_size (typvar_sizes LLC) C[Tv] (typvar_sizes LLC)[Tv]. *) }
+      { inverts_head typing_array. auto. } } }
   { inverts HF.
     forwards* HTfseq: functional_typing_struct C (typ_var Tv) Tfs Tfs0.
     subst. inverts Hn. admit.
