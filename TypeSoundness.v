@@ -1,6 +1,7 @@
 (**
 
-This file describes transformations of the layout of records and arrays.
+In this file we prove a major property of the language. We show that the
+types are preserved by the semantics.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
@@ -8,21 +9,17 @@ License: MIT.
 
 *)
 
+
 Set Implicit Arguments.
 Require Export TLCbuffer Semantics.
 
-
-(* ********************************************************************** *)
-(* * Type Soundess *)
-
-Section TypeSoundness.
-
 Hint Constructors typing_val redbinop.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Preservation of typing over operations *)
 
-(** Lemma for typing preservation of [let] *)
+(** Lemma for typing preservation of [let]. *)
 
 Lemma stack_typing_ctx_add : forall C φ z T Γ v S,
   stack_typing C φ Γ S ->
@@ -37,7 +34,7 @@ Proof.
     { forwards*: HS. } }
 Qed.
 
-(** Auxiliary lemma for typing preservation of [get] *)
+(** Auxiliary lemma for typing preservation of [get]. *)
 
 Lemma typing_val_follow : forall T1 w1 π C φ w2 T2,
   typing_val C φ w1 T1 ->
@@ -55,7 +52,7 @@ Proof.
     applys* H2. subst~. }
 Qed.
 
-(** Lemma for typing preservation of [get] *)
+(** Lemma for typing preservation of [get]. *)
 
 Lemma typing_val_get : forall m l π C φ w T,
   state_typing C φ m ->
@@ -68,7 +65,7 @@ Proof.
   applys* typing_val_follow HTl HF HR.
 Qed.
 
-(** Auxiliary lemma for typing preservation of [set] *)
+(** Auxiliary lemma for typing preservation of [set]. *)
 
 Lemma typing_val_after_write : forall v1 w π T2 C φ v2 T1,
   write_accesses v1 π w v2 ->
@@ -94,7 +91,7 @@ Proof.
       applys* IHHW. subst~. } }
 Qed.
 
-(** Lemma for typing preservation of [set] *)
+(** Lemma for typing preservation of [set]. *)
 
 Lemma state_typing_set : forall T m1 l π v C φ m2,
   state_typing C φ m1 ->
@@ -115,7 +112,7 @@ Proof.
     subst. inverts HP as HF. applys* typing_val_after_write. }
 Qed.
 
-(** Lemma for typing preservation of [struct_access] *)
+(** Lemma for typing preservation of [struct_access]. *)
 
 Lemma follow_typ_access_field : forall C T1 π T2 Tfs f,
   typing_struct C T2 Tfs ->
@@ -127,7 +124,7 @@ Proof.
   intros; inverts HF as; rew_list; repeat constructors*.
 Qed.
 
-(** Lemma for typing preservation of [array_access] *)
+(** Lemma for typing preservation of [array_access]. *)
 
 Lemma follow_typ_access_array : forall C os T1 π T2 i T,
   typing_array C T2 T os ->
@@ -138,7 +135,7 @@ Proof.
   intros; inverts HF; rew_list; repeat constructors*.
 Qed.
 
-(** Lemma for typing preservation of [new] *)
+(** Lemma for typing preservation of [new]. *)
 
 Lemma uninitialized_val_typ : forall C T v φ,
   uninitialized C T v ->
@@ -248,10 +245,14 @@ Definition extends (φ:phi) (φ':phi) :=
       dom φ \c dom φ'
   /\  forall l, l \indom φ -> φ'[l] = φ[l].
 
+(** φ <= φ *)
+
 Lemma refl_extends : refl extends.
 Proof.
   unfolds. intros. unfolds. splits~. applys~ incl_refl.
 Qed.
+
+(** φ1 <= φ2 /\ φ2 <= φ3 ===> φ1 <= φ3 *)
 
 Lemma trans_extends : trans extends.
 Proof.
@@ -267,11 +268,7 @@ Hint Extern 1 (extends ?φ1 ?φ3) =>
   | H: extends ?φ2 ?φ3 |- _ => applys trans_extends H
   end.
 
-Lemma extends_transitivity_demo : forall φ1 φ2 φ3,
-  extends φ1 φ2 ->
-  extends φ2 φ3 ->
-  extends φ1 φ3.
-Proof using. intros. auto. Qed.
+(** Typing values from an extended φ. *)
 
 Lemma extended_typing_val : forall C φ φ' v T,
   extends φ φ' ->
@@ -285,32 +282,40 @@ Proof.
     { rewrite~ H2. } }
 Qed.
 
+(** Typing terms from an extended φ. *)
+
 Lemma extended_typing : forall C φ φ' Γ t T,
-  typing C φ Γ t T ->
   extends φ φ' ->
+  typing C φ Γ t T ->
   typing C φ' Γ t T.
 Proof.
-  introv HT Hφ. gen φ'.
+  introv Hφ HT. gen φ'.
   induction HT; intros; subst; try solve [ constructors* ].
   { constructors.
     forwards*: extended_typing_val Hφ H. }
 Qed.
 
+(** Typing the stack from an extended φ. *)
+
 Lemma extended_stack_typing : forall C φ φ' Γ S,
-  stack_typing C φ Γ S ->
   extends φ φ' ->
+  stack_typing C φ Γ S ->
   stack_typing C φ' Γ S.
 Proof.
-  introv HS Hφ. unfolds stack_typing.
+  introv Hφ HS. unfolds stack_typing.
   introv HxS HxΓ. forwards HT: HS HxS HxΓ.
   forwards~: extended_typing_val Hφ HT.
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Type preservation proof *)
+(** Type preservation theorem *)
 
-Theorem type_soundness : forall C LLC φ m t v T Γ S m',
+Section TypeSoundness.
+
+(** Theorem to prove by induction. *)
+
+Theorem type_soundness_ind : forall C LLC φ m t v T Γ S m',
   red C LLC S m t m' v ->
   ~ is_error v ->
   typing C φ Γ t T ->
@@ -480,10 +485,9 @@ Proof.
 Unshelve. typeclass.
 Qed.
 
+(** Theorem from initial execution. *)
 
-(* From initial execution. *)
-
-Theorem type_soundness_nice : forall C LLC m t v T,
+Theorem type_soundness : forall C LLC m t v T,
   red C LLC empty_stack empty_state t m v ->
   typing C empty_phi empty_gamma t T ->
   ~ is_error v ->
@@ -501,7 +505,7 @@ Proof.
       eauto; typeclass. } }
   asserts HS: (stack_typing C \{} nil nil).
   { unfolds. introv Hx1. false. }
-  forwards* (φ&Hφ&HTv&Hm'): type_soundness HR HT.
+  forwards* (φ&Hφ&HTv&Hm'): type_soundness_ind HR HT.
 Qed.
 
 End TypeSoundness.
