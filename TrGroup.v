@@ -205,12 +205,6 @@ Inductive tr_struct_op (gt:group_tr) : trm -> trm -> Prop :=
 
 (** Transformation of terms: t ~ |t| *)
 
-(*
-prim_binop : binop -> prim
-  | prim_array_access : typ -> prim 2
-  | prim_array_get : typ -> prim 2
-*)
-
 Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
   | tr_trm_val : forall v v',
       tr_val gt v v' ->

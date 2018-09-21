@@ -1,7 +1,8 @@
 (**
 
-This file describes transformations of the layout of records and arrays
-on the program.
+This file describes a special kind of transformation of the layout of
+records and arrays on the program. We change all the values to a list of
+words and all the heap operations to low-level operations.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
@@ -9,20 +10,13 @@ License: MIT.
 
 *)
 
+
 Set Implicit Arguments.
 Require Export Semantics TypeSoundness.
 
-(* ********************************************************************** *)
-(* * Definition of the transformation *)
-
-(** This is a special kind of transformation. We need to define new 
-    new semantics. Essentially get and set for the concrete pointer.
-    It can be included in the general semantics and just check that no
-    concrete pointers are used in the other transformations. *)
-
 
 (* ---------------------------------------------------------------------- *)
-(** Here starts the transformation that will be applied to the programs. *)
+(** Transformation of the state *)
 
 Definition in_block (m:state) (l1:loc) (l:loc) : Prop :=
   exists ws,
@@ -50,7 +44,9 @@ Inductive tr_state (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) (φ:phi) : state 
 
 
 (* ---------------------------------------------------------------------- *)
-(* Transformation of a term from high-level to low-level. This is how the code is transformed. *)
+(** Transformation of a values and terms. *)
+
+(** Transformation of values: v ~ |v| *)
 
 Inductive tr_val (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : val -> val -> Prop :=
   | tr_val_error :
@@ -158,10 +154,13 @@ Inductive tr_trm (C:typdefctx) (LLC:ll_typdefctx) (α:alpha) : trm -> trm -> Pro
       tr_trm C LLC α t2 t2' ->
       tr_trm C LLC α (trm_app (prim_array_get T) (t1::t2::nil)) (trm_app (prim_array_get T) (t1'::t2'::nil)).
 
+
 (* ---------------------------------------------------------------------- *)
 (** Lemmas to prove the correctness of the transformation *)
 
-(* Used throughout. Non-error values can't become errors. *)
+Section PreservationLemmas.
+
+(** Used throughout. Non-error values can't become errors. *)
 
 Lemma not_is_error_tr : forall C LLC α v1 v2,
   tr_val C LLC α v1 v2 ->
@@ -172,7 +171,7 @@ Proof.
   try solve [ subst ; inverts* HN ]. 
 Qed.
 
-(* Basic values are preserved by the transformation. *)
+(** Basic values are preserved by the transformation. *)
 
 Lemma is_basic_tr : forall C LLC α v1 v2,
   tr_val C LLC α v1 v2 ->
@@ -183,9 +182,8 @@ Proof.
   try solve [ subst ; inverts* Hb ; unfolds~ ].
 Qed.
 
-
-(* The relation tr_val is a function. Used in general and also in the
-   equality case of the binop. *)
+(** The relation tr_val is a (partial) function. Used in general and also
+    in the equality case of the binop. *)
 
 Lemma functional_tr_val : forall C LLC α v v1 v2,
   is_basic v ->
@@ -200,7 +198,7 @@ Proof.
     forwards~: functional_tr_ll_accesses H Hπ. subst~. }
 Qed.
 
-(* Very important lemma. *)
+(** Very important lemma. *)
 
 Lemma follow_typ_ll_accesses_inj : forall C LLC T T' o1 o2 π1 π2,
   ll_typdefctx_ok C LLC ->
@@ -237,24 +235,25 @@ Proof.
           { inverts Hwfπ2. 
             forwards~: wf_typing_array HTa'' HwfT.
             forwards*: wf_typ_follow_accesses T. }
-          subst. inverts Hπ2'.
-          admit. (* This is math. *) }
+          subst. inverts Hπ2'. admit. 
+          (* TODO: This is math. *) }
         { clear HTa'. inverts HF as HTa' HF.
           forwards~ (HTeq&Hoseq): functional_typing_array HTa HTa'. subst.
           clear HTa'. inverts Hπ2 as HTa' HF'.
           forwards~ (HTeq&Hoseq): functional_typing_array HTa HTa'. subst.
           forwards~: typ_size_gt_offset Hn HF Hπ.
           tests: (π2 = nil).
-          { admit. (* This is maths. *) }
-          { forwards~: typ_size_gt_offset Hn HF' Hπ2'.
-            admit. (* This is maths. *) } } }
+          { admit. 
+            (* TODO: This is maths. *) }
+          { forwards~: typ_size_gt_offset Hn HF' Hπ2'. admit.
+            (* TODO: This is maths. *) } } }
       subst. asserts: (o=o0).
       { applys* Z.add_reg_l. }
       subst. fequals. applys* IHHπ1.
       { forwards~: wf_typing_array HTa HwfT. }
       { inverts~ Hwfπ1. }
       { inverts~ Hwfπ2. }
-      { clear HTa'. inverts Hπ2 as HTa'.
+      { clear HTa'. inverts Heqos. inverts Hπ2 as HTa'.
         forwards~ (HeqT'&Heqos): functional_typing_array HTa HTa'.
         subst~. } } }
   { asserts HF: (follow_typ C Ts (access_field Ts f :: π) Tr).
@@ -268,7 +267,8 @@ Proof.
       inverts Ho2 as HTs' _ Hfin' Hπ2' Hoffge' Heq.
       forwards~ HeqTfs: functional_typing_struct H HTs'. subst.
       asserts: (f=f').
-      { admit. (* TODO: Quite technical but the arithmetic should work. *) } 
+      { admit.
+        (* TODO: Quite technical but the arithmetic should work. *) }
       subst. asserts: (o=o0).
       { applys* Z.add_reg_l. }
       subst. fequals. applys* IHHπ1.
@@ -279,7 +279,7 @@ Proof.
         forwards~: functional_typing_struct HTs HTs'. subst~. } } }
 Qed.
 
-(* And tr_val is also injective. At least for sure for basic values. *)
+(** And tr_val is also injective. At least for sure for basic values. *)
 
 Lemma tr_val_inj : forall C LLC φ α T v v1 v2,
   ll_typdefctx_ok C LLC ->
@@ -307,10 +307,11 @@ Proof.
       forwards~ Hwfφl1: Hφ Hl1in.
       forwards~ Hwfπ: follow_typ_wf_accesses Hwfφl1 H1.
       applys* follow_typ_ll_accesses_inj. }
-    { admit. (* Find contradiction because alpha is a bijection. *) } }
+    { admit.
+      (* TODO: Find contradiction because alpha is a bijection. *) } }
 Qed.
 
-(* Contrapositive of the previous statement. *)
+(** Contrapositive of the previous statement. *)
 
 Lemma tr_val_inj_cp : forall C LLC φ α T v1 v2 v1' v2',
   ll_typdefctx_ok C LLC ->
@@ -331,7 +332,7 @@ Proof.
   forwards*: tr_val_inj HTv1 HTv2 Hv1 Hv2.
 Qed.
 
-(* For the [let] case. *)
+(** For the [let] case. *)
 
 Lemma tr_stack_add : forall C LLC α z v S v' S',
   tr_stack C LLC α S S' ->
@@ -343,7 +344,7 @@ Proof.
   applys~ Forall2_cons. constructors~.
 Qed.
 
-(* The typ_size function Type -> nat is well-defined. *)
+(** The typ_size function Type -> nat is total. *)
 
 Lemma typ_size_total : forall C LLC T,
   ll_typdefctx_ok C LLC ->
@@ -353,9 +354,9 @@ Lemma typ_size_total : forall C LLC T,
 Proof.
   introv Hok HwfT. induction HwfT; intros;
   try solve [ repeat constructors~ ].
-  { asserts HK: (exists K, os = Some K).
+  { asserts HK: (exists K, os = Some K /\ K >= 0).
     { admit. (* TODO: Variable size arrays are problematic. *) }
-    forwards~ (K&Heq): HK.
+    forwards~ (K&Heq&HGz): HK.
     forwards~ (n&Hn): IHHwfT.
     exists (n * K). subst. constructors~. }
   { asserts HFS: (exists FS, dom FS = dom Tfs /\ 
@@ -367,51 +368,76 @@ Proof.
     inverts Hok. simpls. rewrite~ <- H1. }
 Qed.
 
-(* Connection between unininitialized values and
-   undefined lists of words. *)
+(** Connection between unininitialized values and undefined 
+    lists of words. *)
 
 Lemma is_undef_uninitialized: forall C LLC α T lw v,
-  is_undef (val_words lw) ->
+  ll_typdefctx_ok C LLC ->
+  wf_typ C T ->
   tr_ll_val C LLC α T v lw ->
+  is_undef (val_words lw) ->
   is_uninitialized v.
 Proof.
-Admitted.
-
-Lemma not_is_undef : forall C LLC α T v lw,
-  tr_ll_val C LLC α T v lw ->
-  ~ is_uninitialized v ->
-  ~ is_undef (val_words lw).
-Proof.
-  introv Htr Hnu HN. induction Htr;
-  try solve [ inverts HN as (Hi&Hx); rew_array in Hx;
+  introv HLLC HwfT Htr Hu. induction Htr;
+  try solve [ inverts Hu as (Hi&Hx); rew_array in Hx;
   case_if in Hx; rewrite index_eq_index_length in Hi;
   rewrite length_one in Hi; inverts Hi; math ].
-  { inverts HN as (Hi&Hx).
+  { inverts Hu as (Hi&Hx).
     rew_array in Hx.
     repeat case_if in Hx.
     rewrite index_eq_index_length in Hi.
     repeat rewrite length_cons in Hi.
     rewrite length_nil in Hi.
     inverts Hi. math. }
-  { inverts HN as (Hi&Hx).
-    applys~ Hnu. constructors.
-    asserts Hundef: (exists i, index a i /\ is_undef (val_words a'[i])).
-    { admit. (* TODO. This is true. An argument about
-      indices, arrays and concatenation is needed. *) }
-    destruct Hundef as (i'&Hi'&Hundef).
-    exists i'. splits~.
-    forwards~ Htr: H1 Hi'.
-    applys* is_undef_uninitialized. }
-  { inverts HN as (Hi&Hx). admit.
-    (* TODO: Similar problem as previous case. *) }
+  { inverts Hu as (Hix&Hx).
+    constructors.
+    asserts (n&Hn): (exists n, typ_size (typvar_sizes LLC) T n).
+    { inverts HwfT. applys* typ_size_total. }
+    asserts Hlca': (length (concat a') = n * k).
+    { rewrite <- H0.
+      applys~ length_concat_fixed. introv Hi'.
+      asserts Hi: (index a i).
+      { rewrite index_eq_index_length in *.
+        rewrite H. rewrite~ <- H0. }
+      forwards~ Htr: H1 Hi.
+      applys* typ_size_length_lw. }
+    exists (x/n). splits.
+    { rewrite index_eq_index_length in *.
+      rewrite Hlca' in Hix. rewrite H.
+      admit.
+      (* TODO: This is maths. A result that we,
+      in fact, have as an axiom in TrTiling.v. *) }
+    { inverts HwfT. applys* H2.
+      { admit. 
+        (* TODO: Same as above. *) }
+      { unfolds. exists (x mod n). admit. 
+        (* TODO: Argument about concatetnation. *) } } }
+  { inverts Hu as (Hix&Hx).
+    constructors. admit.
+    (* TODO: Some complicated argument about indeces. *) }
+Admitted.
+
+(** Contrapositive of the previous statement. *)
+
+Lemma not_is_undef : forall C LLC α T v lw,
+  ll_typdefctx_ok C LLC ->
+  wf_typ C T ->
+  tr_ll_val C LLC α T v lw ->
+  ~ is_uninitialized v ->
+  ~ is_undef (val_words lw).
+Proof.
+  introv HLLC HwfT Htr Hnu HN. applys~ Hnu.
+  applys* is_undef_uninitialized.
 Qed.
 
-(* The relation tr_val is well-defined as a function. *)
+(** The relation tr_val is a total function. *)
 
 Lemma tr_val_total : forall C LLC α v,
   exists v', tr_val C LLC α v v'.
 Proof.
 Admitted.
+
+(** The relation tr_ll_val is functional. *)
 
 Lemma functional_tr_ll_val : forall C LLC α T v lw lw',
   tr_ll_val C LLC α T v lw ->
@@ -441,6 +467,9 @@ Proof.
       subst~. }
 Qed.
 
+(** Kind of functional_tr_ll_val but the hypothesis is relaxed.
+    The types can be just 'equivalent'. *)
+
 Lemma equiv_tr_ll_val : forall C LLC φ α T T' v lw lw',
   typing_val C φ v T ->
   typing_val C φ v T' ->
@@ -454,30 +483,35 @@ Proof.
   { inverts HtrT as Htro. inverts HtrT' as Htro0.
     forwards~: functional_tr_ll_accesses Htro Htro0.
     subst. fequals. }
-  { inverts HtrT. inverts HtrT'.
+  { inverts HtrT as HTvin HTvin' HTsTv Hls' HtrT.
+    inverts HtrT' as _ _ HTsTv' Hls'' HtrT'.
     asserts: (s' = s'0).
     { applys* eq_of_extens.
       { congruence. }
       { introv Hi.
-        forwards* Htrs'i: H12 Hi.
+        forwards* Htrs'i: HtrT Hi.
         asserts Hi': (index s'0 i).
         { rewrite index_eq_index_length in *.
-          rewrite H17. rewrite~ <- H10. }
-        forwards* Htrs'0i: H19 Hi'.
-        forwards*: functional_typing_struct H7 H13. subst.
+          rewrite Hls''. rewrite~ <- Hls'. }
+        forwards* Htrs'0i: HtrT' Hi'.
+        forwards*: functional_typing_struct HTsTv HTsTv'. subst.
         forwards*: functional_tr_ll_val Htrs'i Htrs'0i. } }
     subst~. }
-  { inverts HtrT. inverts HtrT'. 
+  { inverts HtrT as Hla Htr HT0.
+    inverts HtrT' as Hla' Htr'.
     asserts: (a' = a'0).
     { applys* eq_of_extens.
       { congruence. }
       { introv Hi. asserts Hi': (index a i).
-        { rewrite index_eq_index_length in *. rewrite~ <- H7. }
-        forwards* Htra'i: H9 Hi'.
-        forwards* Htra'0i: H12 Hi'.
+        { rewrite index_eq_index_length in *. rewrite~ <- Hla. }
+        forwards* Htra'i: Htr Hi'.
+        forwards* Htra'0i: Htr' Hi'.
         forwards*: functional_tr_ll_val Htra'i Htra'0i. } }
     subst~. }
 Qed.
+
+(** Kind of functional_typ_size but the hypothesis is relaxed.
+    The types can be just 'equivalent'. *)
 
 Lemma equiv_typ_size : forall C LLC φ v T T' n n',
   typing_val C φ v T ->
@@ -487,6 +521,14 @@ Lemma equiv_typ_size : forall C LLC φ v T T' n n',
   n = n'.
 Proof.
 Admitted.
+
+End PreservationLemmas.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Lemmas for the specific cases *)
+
+Section TransformationProof.
 
 (* Lemma for the [get] case. *)
 
@@ -522,7 +564,8 @@ Proof.
       { asserts Hllw: (length lw' = n).
         { applys* typ_size_length_lw.
           forwards* (n'&Hn'): typ_size_total T''.
-          { admit. (* TODO: wf_typ C T'' *) }
+          { admit. 
+            (* TODO: wf_typ C T'' *) }
           forwards~: equiv_typ_size HT HT'' Hn Hn'. 
           subst~. }
         unfolds. subst. splits; try math.
@@ -627,16 +670,25 @@ Proof.
     inverts Ht as Ht.
     inverts Ht as Hv.
     inverts Hv as Hπ.
+    lets Hm1': Hm1.
     inverts Hm1 as HD Hdb Htrm.
     inverts H0 as Hl Ha.
     forwards (lw&T'&HT'&Hll&Hm1'αl): Htrm Hl.
-    forwards* (w'&lw'&n&HT''&Hvr&Hn&Hlw'&Hw'): tr_read_state m m1' vr T.
+    inverts HT as HT.
+    inverts HT as HT.
+    inverts HT as HRφ.
+    inverts HRφ as Hl' HF.
+    asserts: (φ[l] = T').
+    { admit. 
+      (* TODO: Assume typing_state. *) }
+    subst. asserts HR: (read_state m l π vr).
     { constructors*. }
-    { constructors*. }
+    forwards* (w'&lw'&n&HT''&Hn&Hlw'&Hw'): tr_read_state HF HT' Hll Hπ  HR.
+    { admit.
+      (* TODO: Will also come from typing_state. *) }
     exists w' m1'. splits*.
-    { constructors*. }
-    constructors*.
-    { introv Hu. unfolds is_undef. destruct* w'. inverts Hw'. } }
+    { constructors*. introv HN. unfolds is_undef. destruct* w'.
+      inverts Hw'. } }
   { (* set *)
     admit. }
   { (* new *)
@@ -655,18 +707,4 @@ Proof.
     admit. }
 Admitted.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+End TransformationProof.
