@@ -154,18 +154,30 @@ Inductive tr_val (gt:group_tr) : val -> val -> Prop :=
 (* Transformation used in the struct cases to avoid repetition. *)
 
 Inductive tr_struct_op (gt:group_tr) : trm -> trm -> Prop :=
-  | tr_struct_op_group : forall fs Tt fg pr Tg f op1 op2 ts,
-      pr = prim_struct_access \/ pr = prim_struct_get ->
+  | tr_struct_op_group_access : forall fs Tt fg Tg f op0 op1 op2 ts,
       gt = make_group_tr Tt fs Tg fg ->
       f \in fs ->
-      op1 = pr (typ_var Tt) fg ->
-      op2 = pr (typ_var Tg) f ->
-      tr_struct_op gt (trm_app (pr (typ_var Tt) f) ts) (trm_app op2 ((trm_app op1 ts)::nil))
-  | tr_struct_op_other : forall Tt T pr f ts,
-      pr = prim_struct_access \/ pr = prim_struct_get ->
-      Tt = group_tr_struct_name gt ->
-      (T <> (typ_var Tt) \/ f \notin (group_tr_fields gt)) ->
-      tr_struct_op gt (trm_app (pr T f) ts) (trm_app (pr T f) ts).
+      op0 = prim_struct_access (typ_var Tt) f ->
+      op1 = prim_struct_access (typ_var Tt) fg ->
+      op2 = prim_struct_access (typ_var Tg) f ->
+      tr_struct_op gt (trm_app op0 ts) (trm_app op2 ((trm_app op1 ts)::nil))
+  | tr_struct_op_group_get : forall fs Tt fg Tg f op0 op1 op2 ts,
+      gt = make_group_tr Tt fs Tg fg ->
+      f \in fs ->
+      op0 = prim_struct_get (typ_var Tt) f ->
+      op1 = prim_struct_get (typ_var Tt) fg ->
+      op2 = prim_struct_get (typ_var Tg) f ->
+      tr_struct_op gt (trm_app op0 ts) (trm_app op2 ((trm_app op1 ts)::nil))
+  | tr_struct_op_other_access : forall Tt fs Tg fg T f op ts,
+      gt = make_group_tr Tt fs Tg fg ->
+      op = prim_struct_access T f ->
+      T <> (typ_var Tt) \/ f \notin fs ->
+      tr_struct_op gt (trm_app op ts) (trm_app op ts)
+  | tr_struct_op_other_get : forall Tt fs Tg fg T f op ts,
+      gt = make_group_tr Tt fs Tg fg ->
+      op = prim_struct_get T f ->
+      T <> (typ_var Tt) \/ f \notin fs ->
+      tr_struct_op gt (trm_app op ts) (trm_app op ts).
 
 (** Transformation of terms: t ~ |t| *)
 
@@ -216,7 +228,6 @@ Inductive tr_trm (gt:group_tr) : trm -> trm -> Prop :=
       tr_trm gt t2 t2' ->
       tr_trm gt (trm_app (prim_array_get T) (t1::t2::nil)) (trm_app (prim_array_get T) (t1'::t2'::nil)).
 
-
 (** Transformation of stacks: S ~ |S| *)
 
 Inductive tr_stack_item (gt:group_tr) : (var * val) -> (var * val) -> Prop :=
@@ -263,10 +274,12 @@ Hint Resolve TLCbuffer.index_of_index_length.
 Hint Constructors red.
 Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
 Hint Constructors read_accesses write_accesses.
-
+Hint Constructors is_uninitialized.
 
 (* ---------------------------------------------------------------------- *)
 (** Functionality of the relations *)
+
+(** The relation [tr_accesses] is a (partial) function. *)
 
 Theorem functional_tr_accesses : forall gt π π1 π2,
   tr_accesses gt π π1 ->
@@ -277,7 +290,9 @@ Proof.
   inverts_head tr_accesses; repeat fequals*; 
   inverts_head access_field; subst; simpls;
   inverts_head Logic.or; repeat fequals*.
-Qed. 
+Qed.
+
+(** The relation [tr_val] is a (partial) function. *)
 
 Theorem functional_tr_val : forall gt v v1 v2,
   tr_val gt v v1 ->
@@ -297,7 +312,7 @@ Proof using.
       { inverts_head make_group_tr'.
         asserts_rewrite~ (s'0[fg0] = val_struct (typ_var Tg0) sg0).
         asserts_rewrite~ (s'[fg0] = val_struct (typ_var Tg0) sg).
-        fequals. applys~ read_extens. introv Hk. 
+        fequals. applys~ read_extens. introv Hk.
         asserts_rewrite* (dom sg = dom sg0) in *. }
       { inverts_head make_group_tr'.
         asserts_rewrite~ (dom s' = dom s \- dom sg \u '{fg0}) in Hin.
@@ -309,19 +324,24 @@ Proof using.
       asserts_rewrite* (dom s' = dom s) in *. } }
 Qed.
 
+(** The relation [tr_struct_op] is a (partial) function. *)
+
 Lemma functional_tr_struct_op : forall gt op t1 tr1 tr2,
   is_struct_op op ->
   tr_struct_op gt (trm_app op (t1 :: nil)) tr1 ->
   tr_struct_op gt (trm_app op (t1 :: nil)) tr2 ->
   tr1 = tr2.
 Proof.
-  introv Hop Htr1 Htr2. induction Htr1; subst; 
-  inverts H; inverts Htr2; inverts_head Logic.or;
+  introv Hop Htr1 Htr2. induction Htr1; 
+  subst; inverts Htr2;
+  try inverts_head Logic.or;
   try inverts_head make_group_tr'; simpls;
   try inverts_head prim_struct_access;
   try inverts_head prim_struct_get;
   repeat fequals*.
 Qed.
+
+(** The relation [tr_trm] is a (partial) function. *)
 
 Theorem functional_tr_trm : forall gt t t1 t2,
   tr_trm gt t t1 ->
@@ -342,6 +362,8 @@ Proof.
     forwards~: IHtr_trm t1'0. fequals.  }
 Qed.
 
+(** The relation [tr_stack_item] is a (partial) function. *)
+
 Theorem functional_tr_stack_item : forall gt i i1 i2,
   tr_stack_item gt i i1 ->
   tr_stack_item gt i i2 ->
@@ -351,6 +373,8 @@ Proof.
   inverts Hi1 as H. inverts Hi2 as H'. 
   forwards*: functional_tr_val H H'.
 Qed.
+
+(** The relation [tr_stack] is a (partial) function. *)
 
 Theorem functional_tr_stack : forall gt S S1 S2,
   tr_stack gt S S1 ->
@@ -364,6 +388,8 @@ Proof.
     { forwards*: functional_tr_stack_item H HSy0. }
     { applys~ IHHS1. } }
 Qed.
+
+(** The relation [tr_state] is a (partial) function. *)
 
 Theorem functional_tr_state : forall gt m m1 m2,
   tr_state gt m m1 ->
@@ -385,8 +411,7 @@ Qed.
 
 Section TransformationsProofs.
 
-(* ---------------------------------------------------------------------- *)
-(** Path surgery *)
+(** Path surgery. *)
 
 Lemma tr_accesses_app : forall gt π1 π2 π1' π2',
   tr_accesses gt π1 π1' ->
@@ -401,6 +426,8 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Regularity of the transformation with respect to values *)
 
+(** The transformation preserves basic values. *)
+
 Lemma is_basic_tr : forall gt v1 v2,
   tr_val gt v1 v2 ->
   is_basic v1 ->
@@ -410,6 +437,8 @@ Proof.
   try solve [ inverts Hv1 ];
   constructors~.
 Qed.
+
+(** The transformation preserves being a term. *)
 
 Lemma not_is_val_tr : forall gt t1 t2,
   tr_trm gt t1 t2 ->
@@ -421,19 +450,20 @@ Proof.
   inverts_head tr_struct_op; inverts HN.
 Qed.
 
-Lemma not_is_error_tr : forall gt v1 v2,
+(** Errors are not transformed. *)
+
+Lemma not_tr_val_error : forall gt v1 v2,
   tr_val gt v1 v2 ->
-  ~ is_error v1 ->
   ~ is_error v2.
 Proof.
-  introv Htr He. induction Htr; introv HN;
-  try solve [ subst ; inverts HN ]. 
+  introv Hv He. unfolds is_error.
+  destruct* v2. inverts* Hv.
 Qed.
 
-Hint Constructors is_uninitialized.
+(** Initialized values are transformed to initialized values. *)
 
 Lemma not_is_uninitialized_tr : forall gt v v',
-  tr_val gt v v' -> 
+  tr_val gt v v' ->
   ~ is_uninitialized v ->
   ~ is_uninitialized v'.
 Proof.
@@ -453,6 +483,11 @@ Proof.
     introv HN. applys~ Hu. constructors. exists* f. }
 Qed.
 
+
+(* ---------------------------------------------------------------------- *)
+(** Injectivity results *)
+
+(** [tr_accesses] is injective. *)
 
 Lemma tr_accesses_inj : forall C gt π π1 π2,
   group_tr_ok gt C ->
@@ -487,6 +522,8 @@ Proof.
         { false*. } } }
     { intros. fequals. applys* IHHπ1. } }
 Qed.
+
+(** [tr_val] is injective. *)
 
 Lemma tr_val_inj : forall C gt v v1 v2,
   group_tr_ok gt C ->
@@ -534,6 +571,8 @@ Proof.
         rewrite~ <- HD. } } }
 Qed.
 
+(** Contrapositiv of the previous statement. *)
+
 Lemma tr_val_inj_cp : forall C gt v1 v2 v1' v2',
   group_tr_ok gt C ->
   wf_val C v1 ->
@@ -547,26 +586,10 @@ Proof.
   forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
 
-Lemma not_tr_val_error : forall gt v1 v2,
-  tr_val gt v1 v2 ->
-  ~ is_error v2.
-Proof.
-  introv Hv He. unfolds is_error.
-  destruct* v2. inverts* Hv.
-Qed.
-
-Lemma tr_stack_add : forall gt z v S v' S',
-  tr_stack gt S S' ->
-  tr_val gt v v' ->
-  tr_stack gt (Ctx.add z v S) (Ctx.add z v' S').
-Proof.
-  introv HS Hv. constructors~. inverts HS.
-  unfolds Ctx.add. destruct* z.
-  applys~ Forall2_cons. constructors~.
-Qed.
-
 
 (* ---------------------------------------------------------------------- *)
+(** Typing results. *)
+
 (** The transformation preserves well-founded types. *)
 
 Lemma tr_typdefctx_wf_typ : forall gt C C' T,
@@ -603,9 +626,7 @@ Proof.
     { rewrite~ HC'T. } }
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** uninitialized is coherent with the transformation *)
+(** The type of the arrays doesn't change. *)
 
 Lemma tr_typing_array : forall gt C C' Ta T os,
   group_tr_ok gt C ->
@@ -625,6 +646,8 @@ Proof.
       { rewrite HD. rew_set~. }
       { rewrite~ HC'T. applys* IHHTa. constructors*. } } }
 Qed.
+
+(** The type of the the other structs doesn't change. *)
 
 Lemma tr_typing_struct : forall Tt fg Tg fs C C' Ts Tfs,
   tr_typdefctx (make_group_tr Tt fs Tg fg) C C' ->
@@ -646,6 +669,24 @@ Proof.
         { introv HN. applys Hfv. constructors~. eapply HN. }
         { repeat constructors*. } } } }
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Specific results for each case *)
+
+(** Lemma for the [let] case. *)
+
+Lemma tr_stack_add : forall gt z v S v' S',
+  tr_stack gt S S' ->
+  tr_val gt v v' ->
+  tr_stack gt (Ctx.add z v S) (Ctx.add z v' S').
+Proof.
+  introv HS Hv. constructors~. inverts HS.
+  unfolds Ctx.add. destruct* z.
+  applys~ Forall2_cons. constructors~.
+Qed.
+
+(** Lemma for the [new] case. *)
 
 Lemma tr_uninitialized_val_aux : forall gt v v' T C C',
   tr_typdefctx gt C C' ->
@@ -684,7 +725,7 @@ Proof using.
       { constructors~.
         { inverts H as HTt0 HTs. rewrite HDC' at 1. rew_set~. }
         { rewrite HC'Tt0 at 1. constructors*. } }
-      { introv Hfin. rewrite HDTfs' in Hfin. rew_set in Hfin. 
+      { introv Hfin. rewrite HDTfs' in Hfin. rew_set in Hfin.
         inverts Hfin as Hfin.
         { inverts Hfin as Hfin Hfnin. admit. }
         { rewrite Hs'fg. rewrite HTfs'fg0. constructors*.
@@ -699,9 +740,9 @@ Proof using.
               { exact Hok. }
               { repeat constructors*. rewrite~ HD.
                 introv Hf0in Hf0nin. rewrite HD in Hf0nin.
-                applys~ HTfs'f. } 
+                applys~ HTfs'f. }
               { applys~ Htrsgf. rewrite~ HD. } }
-            { introv HDTv HTs HTv. rewrite HCTt0 in HTv at 1. 
+            { introv HDTv HTs HTv. rewrite HCTt0 in HTv at 1.
               inverts HTv. } } } } }
     { (* other struct *)
       introv HDC' HCTt HC'Tt HC'Tg HC'T Htrsm Hneq HDvfs Htrs'f.
@@ -720,7 +761,6 @@ Proof using.
         { applys~ Htrs'f. rewrite~ <- H0. } } } }
 Qed.
 
-
 (** This will be proved when the relation is translated to a function. *)
 
 Lemma total_tr_val_aux : forall gt v,
@@ -728,7 +768,7 @@ Lemma total_tr_val_aux : forall gt v,
 Proof.
 Admitted.
 
-(** Lemma for the [new] case. *)
+(** Lemma for the [new] case usable. *)
 
 Lemma tr_uninitialized_val : forall gt v T C C',
   tr_typdefctx gt C C' ->
@@ -743,9 +783,7 @@ Proof.
   exists v'. splits~. applys* tr_uninitialized_val_aux.
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Correctness of access transformations *)
+(** Lemma for the [get] case. *)
 
 Lemma tr_read_accesses : forall gt v π v' π' w,
   tr_val gt v v' ->
@@ -796,6 +834,7 @@ Proof.
       rewrite~ <- HD. } }
 Qed.
 
+(** Lemma for the [set] case. *)
 
 Lemma tr_write_accesses : forall v1 w gt π v1' π' w' v2,
   tr_val gt v1 v1' ->
@@ -877,10 +916,22 @@ Hint Constructors wf_trm wf_prim wf_val.
 Hint Resolve wf_red.
 
 Hint Extern 1 (wf_val ?v) =>
-   match goal with H: red _ _ _ _ v |- _ => applys wf_red H end.
+  match goal
+  with H: red _ _ _ _ v
+       |- _ => applys wf_red H
+  end.
 
 Hint Extern 1 (wf_state ?m2) =>
-   match goal with H: red _ _ _ m2 _ |- _ => applys wf_red H end.
+  match goal
+  with H: red _ _ _ m2 _ 
+       |- _ => applys wf_red H 
+  end.
+
+Hint Extern 1 False =>
+  match goal
+  with H: tr_val _ _ val_error
+       |- _ => forwards: not_tr_val_error H
+  end.
 
 Theorem red_tr_ind: forall gt LLC C C' t t' v S S' m1 m1' m2,
   red C LLC S m1 t m2 v ->
@@ -903,7 +954,7 @@ Proof.
   introv He. gen gt C' t' S' m1'.
   induction HR; intros; 
   try solve [ forwards*: He; unfolds* ];
-  try solve [ inverts Ht ].
+  try solve [ inverts Ht; tryfalse ].
   { (* val *)
     inverts Ht as Hv. exists* v' m1'. }
   { (* var *)
@@ -935,11 +986,11 @@ Proof.
       forwards: functional_tr_val Ht1 Ht2. subst.
       constructors;
       repeat applys* is_basic_tr;
-      repeat applys* not_is_error_tr.
+      repeat applys* not_tr_val_error.
       constructors~. }
     { exists __ m1'. splits~. constructors;
       repeat applys* is_basic_tr;
-      repeat applys* not_is_error_tr.
+      repeat applys* not_tr_val_error.
       inverts Hwft as Hwfp Hwft1 Hwft2.
       inverts Hwft1 as Hwft1. 
       inverts Hwft2 as Hwft2.
@@ -974,7 +1025,7 @@ Proof.
         applys~ indom_update_inv_neq Hi'. } }
     { constructors~. applys* not_tr_val_error.
       constructors*. rewrite~ <- HD. } }
-  { (* new *) 
+  { (* new *)
     inverts Ht. subst.
     inverts Hm1 as HD Htrm. 
     forwards* (v'&Hv'&Hu): tr_uninitialized_val.
@@ -1003,11 +1054,10 @@ Proof.
     inverts Ht as; inverts Hm1 as HD Htrm.
     { (* struct op *)
       introv _ Ht Hop. subst.
-      inverts Ht as Hv. inverts Hv as Ha.
-      inverts Hop as.
+      inverts Ht as Hv. inverts Hv as Ha. inverts Hop as; 
+      try solve [ intros; inverts_head prim_struct_access ].
       { (* grouped field*)
-        introv Hor Hf0in Hpr.
-        inverts Hor; tryfalse.
+        introv Hf0in Hpr.
         remember (access_field (typ_var Tt) fg) as a1.
         remember (access_field (typ_var Tg) f) as a2.
         exists (val_abstract_ptr l (π'++(a1::a2::nil))) m1'.
@@ -1016,9 +1066,8 @@ Proof.
         { subst. applys* red_args_1. applys* red_struct_access.
           fequals*. rew_list*. } }
       { (* other field *)
-        introv Hor Hneq Hpr. 
-        inverts Hor; tryfalse. inverts Hpr.
-        exists (val_abstract_ptr l (π'++(access_field T f :: nil))) m1'.
+        introv Hpr Hneq. inverts Hpr.
+        exists (val_abstract_ptr l (π'++(access_field T0 f0 :: nil))) m1'.
         splits; constructors*. applys* tr_accesses_app. } } }
   { (* array_access *)
     inverts Ht as Ht Hti. subst.
@@ -1027,76 +1076,72 @@ Proof.
     inverts Hm1 as HD Htrm.
     exists (val_abstract_ptr l (π'++(access_array T i::nil))) m1'.
     splits; constructors*. applys* tr_accesses_app. }
-  { (* struct_get *) 
+  { (* struct_get *)
     inverts Ht as.
     { (* struct op *)
-      introv _ Ht Hop. inverts Hop as.
+      introv _ Ht Hop. inverts Hop as;
+      try solve [ intros; inverts_head prim_struct_get ].
       { (* accessing grouped field *)
-        introv Hor Hf0in Hpr. inverts Hor; tryfalse.
-        inverts Hpr. inverts Ht as Hv. subst. inverts Hv as; 
+        introv Hf0in Hpr. inverts Hpr.
+        inverts Ht as Hv. subst. inverts Hv as;
         try solve [ intros ; contradiction ].
-        introv HDsg Hgt Hfg HDs' Hsf Htrsf Hs'fg. inverts Hgt.
-        exists sg[f] m1'.
-        splits~.
+        introv HDsg Hgt Hfg HDs' Hsf Htrsf Hs'fg.
+        inverts Hgt. exists sg[f0] m1'. splits~.
         { applys~ red_args_1.
           { applys~ red_struct_get. rewrite HDs'. rew_set~. }
           { applys~ red_struct_get. rewrite~ Hs'fg. } } }
       { (* accessing another field *) 
-        introv Hor Hneqor Hpr. inverts Hor; tryfalse. subst.
-        inverts Ht as Hv. inverts Hpr. inverts Hneqor.  
-        { inverts Hv as; try solve [ intros ; contradiction ].
-          introv _ HDs Htrsf. exists s'[f] m1'. splits~. constructors~.
+        introv Hpr Hneqor. subst. inverts Ht as Hv.
+        inverts Hpr. inverts Hneqor.
+        { inverts Hv as;
+          try solve [ intros; inverts_head make_group_tr'; contradiction ].
+          introv _ HDs Htrsf. exists s'[f0] m1'. splits~. constructors~.
           rewrite~ <- HDs. }
-        { inverts Hv as. 
-          { introv HDsg Hfg HDs' Hsf Htrsf Hs'fg. 
-            exists s'[f] m1'. splits~. constructors~.
-            rewrite HDs'. rew_set~. }
-          { introv Hneq HDs Htrsf. exists s'[f] m1'. splits~.
+        { inverts Hv as.
+          { introv HDsg Hgt Hfg HDs' Hsf Htrsf Hs'fg.
+            inverts Hgt. exists s'[f0] m1'. splits~.
+            constructors~. rewrite HDs'. rew_set~. }
+          { introv Hneq HDs Htrsf. exists s'[f0] m1'. splits~.
             constructors~. rewrite~ <- HDs. } } } } }
-  { (* array_get *) 
+  { (* array_get *)
     inverts Ht as Ht Hti. subst.
     inverts Ht as Hv.
     inverts Hti as Hvi.
     inverts Hv as Hl Hai.
-    inverts Hvi. 
-    exists a'[i] m1'. 
+    inverts Hvi.
+    exists a'[i] m1'.
     splits~. constructors*.
     rewrite index_eq_index_length in *.
     rewrite~ <- Hl. }
-  { (* ll_get.. Why is this the only low-level operation if we're doing
-       the induciton on red. *)
-    inverts Ht. false. }
   { (* args_1 *) (* TODO for Arthur: Factorise this. *)
     inverts Ht; inverts Hwft;
     forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
     forwards*: not_is_error_args_1 HR2 He.
     { inverts_head tr_struct_op.
-      { inverts_head Logic.or.
-        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-          try solve [ repeat constructors~ ; applys* wf_red HR1 ].
-          applys* tr_trm_struct_op. constructors*.
-          exists v'' m3'; splits*. inverts HR''.
-          { applys* red_args_1. applys* red_args_1.
-            applys* not_is_val_tr. }
-          { forwards*: not_is_error_tr Hv''. } }
-        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-          try solve [ repeat constructors~ ; applys* wf_red HR1 ].
-          applys* tr_trm_struct_op. constructors*.
-          exists v'' m3'; splits*. inverts HR''.
-          { applys* red_args_1. applys* red_args_1.
-            applys* not_is_val_tr. }
-          { forwards*: not_is_error_tr Hv''. } } }
-      { inverts_head Logic.or.
-        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-          try solve [ repeat constructors~ ; applys* wf_red HR1 ];
-          try solve [ exists v'' m3'; splits* ;
-          applys* red_args_1; applys* not_is_val_tr ].
-          applys* tr_trm_struct_op. constructors*. }
-        { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-          try solve [ repeat constructors~ ; applys* wf_red HR1 ];
-          try solve [ exists v'' m3'; splits* ;
-          applys* red_args_1; applys* not_is_val_tr ].
-          applys* tr_trm_struct_op. constructors*.  } } }
+      { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+        try solve [ repeat constructors~ ; applys* wf_red HR1 ].
+        applys* tr_trm_struct_op. constructors*.
+        exists v'' m3'; splits*. inverts~ HR''; tryfalse*.
+        repeat applys* red_args_1. applys* not_is_val_tr. }
+      { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+        try solve [ repeat constructors~ ; applys* wf_red HR1 ].
+        applys* tr_trm_struct_op.
+        applys* tr_struct_op_group_get.
+        exists v'' m3'; splits*. inverts HR''.
+        { applys* red_args_1. applys* red_args_1.
+          applys* not_is_val_tr. }
+        { forwards*: not_tr_val_error Hv''. } }
+      { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+        try solve [ repeat constructors~ ; applys* wf_red HR1 ];
+        try solve [ exists v'' m3'; splits* ;
+        applys* red_args_1; applys* not_is_val_tr ].
+        applys* tr_trm_struct_op. constructors*. }
+      { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+        try solve [ repeat constructors~ ; applys* wf_red HR1 ];
+        try solve [ exists v'' m3'; splits* ;
+        applys* red_args_1; applys* not_is_val_tr ].
+        applys* tr_trm_struct_op. constructors*. } }
+
     { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
       try solve [ repeat constructors~ ; applys* wf_red HR1 ];
       try solve [ exists v'' m3'; splits* ;
@@ -1132,7 +1177,6 @@ Proof.
     inverts Ht1; applys* red_args_2;
     applys* not_is_val_tr. }
 Qed.
-
 
 (** From full execution. *)
 
