@@ -1,6 +1,6 @@
- (**
+(**
 
-This file describes transformations of the layout of records and arrays.
+This file describes the field grouping transformation.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
@@ -8,30 +8,13 @@ License: MIT.
 
 *)
 
+
 Set Implicit Arguments.
 Require Export Semantics LibSet LibMap Typing TLCbuffer.
 
 
-
-(* ********************************************************************** *)
-(* * Specification of the transformation *)
-
-Module Example.
-
-(* Initial typdefctx *)
-Definition pos : map field typ := (\{})["x" := typ_int]["y" := typ_int]["z" := typ_int].
-Definition C : typdefctx := (\{})["pos" := (typ_struct pos)].
-
-(* Final typdefctx *)
-Definition struct_x : map field typ := (\{})["x" := typ_int].
-Definition pos' : map field typ := (\{})["s" := (typ_var "struct_x")]["y" := typ_int]["z" := typ_int].
-Definition C' : typdefctx := (\{})["pos" := (typ_struct pos')]["struct_x" := (typ_struct struct_x)].
-
-End Example.
-
-
-(* ********************************************************************** *)
-(* * Definition of the transformation *)
+(* ---------------------------------------------------------------------- *)
+(** Definition of the transformation *)
 
 (** Grouping transformation. Specified by:
     - The name of the struct to be modified.
@@ -51,12 +34,6 @@ Notation make_group_tr' := make_group_tr.
 
 (** Checking if the transformation is acceptable *)
 
-(*Record group_tr_ok (C:typdefctx) (gt:group_tr) := group_tr_ok_make {
-  let (Tt,fs,Tg,fg) := gt in 
-  group_tr_ok_Tt : Tt \indom C;
-}.*)
-
-
 Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
   | group_tr_ok_intros : forall Tfs Tt fs fg Tg gt C,
       gt = make_group_tr Tt fs Tg fg ->
@@ -71,26 +48,13 @@ Inductive group_tr_ok : group_tr -> typdefctx -> Prop :=
         ~ free_typvar C Tt C[Tv]) ->
       group_tr_ok gt C.
 
-(*Lemma group_tr_ok_Tt : 
-   forall Tt fs Tg fg,
-   group_tr_ok C gt ->
-   gt = make_group_tr Tt fs Tg fg ->
-   Tt \indom C.
 
-Lemma group_tr_ok_Tt : 
-   forall Tt fs Tg fg,
-   group_tr_ok C (make_group_tr Tt fs Tg fg) ->
-   Tt \indom C.
-*)
-
-
-(* ********************************************************************** *)
-(* * The transformation applied to the different constructs. *)
+(* ---------------------------------------------------------------------- *)
+(** The transformation applied to the different constructs. *)
 
 (** Transformation of typdefctxs: C ~ |C| *)
 
-Inductive tr_struct_map (gt:group_tr) : map field typ -> map field typ ->
-                                        map field typ  -> Prop :=
+Inductive tr_struct_map (gt:group_tr) : map field typ -> map field typ -> map field typ  -> Prop :=
   | tr_struct_map_intro : forall Tfs Tfs' Tfs'' Tt fs Tg fg,
       gt = make_group_tr Tt fs Tg fg ->
       dom Tfs' = (dom Tfs \- fs) \u \{fg} ->
@@ -416,8 +380,8 @@ Proof.
 Qed.
 
 
-(* ********************************************************************** *)
-(* * Correctness of the transformation *)
+(* ---------------------------------------------------------------------- *)
+(** Correctness of the transformation *)
 
 Section TransformationsProofs.
 
@@ -708,15 +672,15 @@ Proof using.
       introv HDsg Hfg HDs' Htrsgf Htrs'f Hs'fg.
       inverts Htrsm as Hgt' HDTfs' HTfs'fg0 HTfs'f HDTfs''f.
       inverts Hgt. inverts Hgt' as HD.
-      constructors; unfolds typdefctx. 
+      constructors; unfolds typdefctx.
       2:{ rewrite HDTfs'. rewrite HDs'. rewrite HD. 
         inverts H as HTt0 HTs. inverts HTs as.
         { introv HTfs. asserts Heq: (typ_struct Tfs = typ_struct Tfs0).
-          { rewrite HTfs. rewrite <- HCTt0. auto. } 
+          { rewrite HTfs. rewrite <- HCTt0. auto. }
           inverts Heq. rewrite~ <- H0. }
         { introv HTv HTs HN. asserts HN': (typ_var Tv = typ_struct Tfs0).
-          { rewrite HN. rewrite <- HCTt0. auto. } 
-          inverts HN'. } } 
+          { rewrite HN. rewrite <- HCTt0. auto. }
+          inverts HN'. } }
       { constructors~.
         { inverts H as HTt0 HTs. rewrite HDC' at 1. rew_set~. }
         { rewrite HC'Tt0 at 1. constructors*. } }
@@ -757,14 +721,15 @@ Proof using.
 Qed.
 
 
-(* This will be proved when the relation is translated to a function. 
-   See TrGroupFun.v. *)
+(** This will be proved when the relation is translated to a function. *)
+
 Lemma total_tr_val_aux : forall gt v,
   exists v', tr_val gt v v'.
 Proof.
 Admitted.
 
-(* Lemma for the new case. *)
+(** Lemma for the [new] case. *)
+
 Lemma tr_uninitialized_val : forall gt v T C C',
   tr_typdefctx gt C C' ->
   group_tr_ok gt C ->
@@ -1169,24 +1134,7 @@ Proof.
 Qed.
 
 
-(* From full execution. *)
-
-(*Theorem red_tr_ind: forall gt LLC C C' t t' v S S' m1 m1' m2,
-  red C LLC S m1 t m2 v ->
-  group_tr_ok gt C ->
-  tr_typdefctx gt C C' ->
-  tr_trm gt t t' ->
-  tr_stack gt S S' ->
-  tr_state gt m1 m1' ->
-  wf_typdefctx C ->
-  wf_trm C t ->
-  wf_stack C S ->
-  wf_state C m1 ->
-  ~ is_error v ->
-  exists v' m2',
-      tr_val gt v v'
-  /\  tr_state gt m2 m2'
-  /\  red C' LLC S' m1' t' m2' v'.*)
+(** From full execution. *)
 
 Theorem red_tr: forall gt LLC C C' t t' v m2,
   red C LLC empty_stack empty_state t m2 v ->
