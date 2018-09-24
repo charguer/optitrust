@@ -1,12 +1,13 @@
 (**
 
-This file describes grouping transformation relations as functions.
+This file describes the grouping transformation relations as a function.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
 License: MIT.
 
 *)
+
 
 Set Implicit Arguments.
 Require Export Semantics LibSet LibMap TLCbuffer TrGroup.
@@ -69,16 +70,6 @@ Fixpoint fun_tr_val_depth (depth:nat) (gt:group_tr) (v:val) : val :=
       end
    end.
 
-(*
-Section P.
-Variables (C:ctx) (gt:group_tr).
-Definition Fun_tr_val_depth fun_tr_val_depth (v:val) : val :=
-  ..
-
-Lemma 
-End P.
-fun_tr_val_depth : 
-*)
 
 (* ---------------------------------------------------------------------- *)
 (** Lemmas outline. Some ideas. *)
@@ -86,17 +77,17 @@ fun_tr_val_depth :
 Lemma tr_val_fun_tr_val : forall gt n v,
   fun_tr_val_depth n gt v = fun_tr_val_depth (S n) gt v ->
   tr_val gt v (fun_tr_val_depth n gt v).
-Proof.
+Proof using.
 Admitted.
 
 Lemma fixpoint_fun_tr_val : forall gt v,
   exists n, fun_tr_val_depth n gt v = fun_tr_val_depth (S n) gt v.
-Proof.
+Proof using.
 Admitted.
 
 Lemma depth_fun_tr_val : forall gt v,
   exists n, tr_val gt v (fun_tr_val_depth n gt v).
-Proof.
+Proof using.
   intros. forwards (n&H): fixpoint_fun_tr_val gt v.
   exists n. applys tr_val_fun_tr_val. 
   unfolds fun_tr_val_depth. auto.
@@ -104,7 +95,7 @@ Qed.
 
 Lemma total_tr_accesses : forall gt π,
   exists π', tr_accesses gt π π'.
-Proof.
+Proof using.
   induction π; eauto. destruct a.  
   { inverts IHπ; exists __. constructors*.  }
   { tests: (t = typ_var (group_tr_struct_name gt)).
@@ -118,27 +109,6 @@ Qed.
 
 Lemma total_tr_val : forall gt v,
   exists v', tr_val gt v v'.
-Proof.
+Proof using.
   intros. forwards* (n&H): depth_fun_tr_val gt v.
 Qed.
-
-(*Lemma tr_array : forall gt (a:list val),
-  exists a', 
-        length a' = length a
-    /\  (forall i, 
-          index a' i -> 
-          tr_val gt a[i] a'[i]).
-Proof.
-  induction a.
-  { exists __. rewrite length_nil in *. splits~. introv Hi.
-    inverts Hi. rewrite LibList.length_nil in *. math. }
-  { inverts IHa as (IHl&IHx). forwards (v'&Hv'): total_tr_val gt a.
-    exists (v'::x). splits.
-    { repeat rewrite length_cons. fequals. }
-    { introv Hi. tests: (i = 0).
-      { repeat rewrite~ read_zero. }
-      { repeat rewrite read_cons_case. case_if*. 
-        inverts Hi. forwards~: IHx (i - 1).
-        applys int_index_prove. math.  
-        rewrite LibList.length_cons in *. math. } } }
-Qed.*)

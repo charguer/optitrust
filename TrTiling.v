@@ -1,12 +1,13 @@
 (**
 
-This file describes transformations of the layout of records and arrays.
+This file describes the array tiling transformation.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
 License: MIT.
 
 *)
+
 
 Set Implicit Arguments.
 Require Export Semantics LibSet LibMap LibList TLCbuffer Typing.
@@ -15,7 +16,8 @@ Implicit Types i j k I J K : int.
 
 Open Scope Z_scope.
 
-(* ********************************************************************** *)
+
+(* ---------------------------------------------------------------------- *)
 (* * Definition of the transformation *)
 
 (** Tiling transformation. Specified by:
