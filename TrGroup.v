@@ -909,29 +909,59 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Correctness of the transformation *)
+(** Hints *)
 
 Hint Constructors wf_trm wf_prim wf_val.
 
-Hint Resolve wf_red.
+(** Well-formed values from reduction. *)
+
+Lemma wf_red_val : forall LLC S m1 t C m2 v,
+  red C LLC S m1 t m2 v ->
+  wf_stack C S ->
+  wf_state C m1 ->
+  wf_trm C t ->
+  wf_val C v.
+Proof using.
+  introv HR HwfS Hwfm1 Hwft.
+  forwards* (_&Hwfv): wf_red HR HwfS Hwfm1 Hwft.
+Qed.
 
 Hint Extern 1 (wf_val ?v) =>
   match goal
   with H: red _ _ _ _ v
-       |- _ => applys wf_red H
+       |- _ => applys wf_red_val H
   end.
+
+(** Well-formed states from reduction. *)
+
+Lemma wf_red_state : forall LLC S m1 t C m2 v,
+  red C LLC S m1 t m2 v ->
+  wf_stack C S ->
+  wf_state C m1 ->
+  wf_trm C t ->
+  wf_state C m2.
+Proof using.
+  introv HR HwfS Hwfm1 Hwft.
+  forwards* (Hwfm2&_): wf_red HR HwfS Hwfm1 Hwft.
+Qed.
 
 Hint Extern 1 (wf_state ?m2) =>
   match goal
-  with H: red _ _ _ m2 _ 
-       |- _ => applys wf_red H 
+  with H: red _ _ _ m2 _
+       |- _ => applys wf_red_state H
   end.
+
+(** Absurd error transformations. *)
 
 Hint Extern 1 False =>
   match goal
   with H: tr_val _ _ val_error
        |- _ => forwards: not_tr_val_error H
   end.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Correctness of the transformation *)
 
 Theorem red_tr_ind: forall gt LLC C C' t t' v S S' m1 m1' m2,
   red C LLC S m1 t m2 v ->
@@ -1120,9 +1150,25 @@ Proof.
     { inverts_head tr_struct_op.
       { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
         try solve [ repeat constructors~ ; applys* wf_red HR1 ].
-        applys* tr_trm_struct_op. constructors*.
+        { applys* tr_trm_struct_op. applys* tr_struct_op_group_access. }
         exists v'' m3'; splits*. inverts~ HR''; tryfalse*.
         repeat applys* red_args_1. applys* not_is_val_tr. }
+      { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+        try solve [ repeat constructors~ ; applys* wf_red HR1 ].
+        { applys* tr_trm_struct_op. applys* tr_struct_op_group_get. }
+        exists v'' m3'; splits*. inverts~ HR''; tryfalse*.
+        repeat applys* red_args_1. applys* not_is_val_tr. }
+      { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+        try solve [ repeat constructors~ ; applys* wf_red HR1 ].
+        { applys* tr_trm_struct_op. applys* tr_struct_op_other_access. }
+        exists v'' m3'; splits*. inverts~ HR''; tryfalse*.
+        repeat applys* red_args_1. applys* not_is_val_tr. }
+      { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+        try solve [ repeat constructors~ ; applys* wf_red HR1 ].
+        { applys* tr_trm_struct_op. applys* tr_struct_op_other_get. }
+        exists v'' m3'; splits*. inverts~ HR''; tryfalse*.
+        repeat applys* red_args_1. applys* not_is_val_tr. }
+
       { forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
         try solve [ repeat constructors~ ; applys* wf_red HR1 ].
         applys* tr_trm_struct_op.
