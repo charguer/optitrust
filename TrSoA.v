@@ -146,25 +146,24 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
 (* Transformation used in the struct cases to avoid repetition. *)
 
 Inductive tr_struct_op (st:soa_tr) : trm -> trm -> Prop :=
-  | tr_struct_op_soa_access : forall Ta s Tfs p l π K T f vi ts ta ts',
+  | tr_struct_op_soa_access : forall Ta Tfs K T f t ti ts ta ts' ta',
       st = make_soa_tr Ta Tfs K ->
-      s = val_abstract_ptr l π ->
       (* Initial term is ts: &(t[i]->f) *)
       ta = trm_app (prim_struct_access (typ_struct Tfs) f) (ts::nil) ->
-      ts = trm_app (prim_array_access T) ((trm_val s)::(trm_val vi)::nil) ->
+      ts = trm_app (prim_array_access T) (t::ti::nil) ->
       (* Final term is ta': &(t->f[i]) *)
-      p = val_abstract_ptr l (π & access_field Tfs[f] f) ->
-      ts' = trm_app (prim_array_access (typ_var Ta)) ((trm_val p)::(trm_val vi)::nil) ->
+      ts' = trm_app (prim_array_access (typ_var Ta)) (ta'::ti::nil) ->
+      ta' = trm_app (prim_struct_access T f) (t::nil) ->
       (* Result. *)
       tr_struct_op st ta ts'
-  | tr_struct_op_soa_get : forall Ta Tfs fs s K T f vi ts ta ts',
+  | tr_struct_op_soa_get : forall Ta Tfs K T f t ti ts ta ts' ta',
       st = make_soa_tr Ta Tfs K ->
-      s = val_struct (typ_struct Tfs) fs ->
-      (* Initial term is ts: &(t[i]->f) *)
+      (* Initial term is ts: t[i].f *)
       ta = trm_app (prim_struct_get (typ_struct Tfs) f) (ts::nil) ->
-      ts = trm_app (prim_array_get T) ((trm_val s)::(trm_val vi)::nil) ->
-      (* Final term is ta': &(t->f[i]) *)
-      ts' = trm_app (prim_array_get (typ_var Ta)) ((trm_val fs[f])::(trm_val vi)::nil) ->
+      ts = trm_app (prim_array_get T) (t::ti::nil) ->
+      (* Final term is ta': t.f[i] *)
+      ts' = trm_app (prim_array_get (typ_var Ta)) (ta'::ti::nil) ->
+      ta' = trm_app (prim_struct_get T f) (t::nil) ->
       (* Result. *)
       tr_struct_op st ta ts'
   | tr_struct_op_other_access : forall Ta T f ts,
@@ -999,26 +998,7 @@ Proof.
     admit. }
   { (* args 1. TODO: These will be key because 
        here is where the transformation is really unfolded. *)
-    inverts Ht; inverts Hwft;
-    forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
-    forwards*: not_is_error_args_1 HR2 He.
-    { (* array op *)
-      inverts_head tr_struct_op;
-      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
-      try solve [ repeat constructors~; applys* wf_red HR1 ].
-      { applys~ tr_trm_struct_op.
-        { constructors~. eapply Hv'. }
-        
-        applys~ tr_struct_op_soa_access. }
-      {}
-      {}
-      {}
-      {}
-      {}
-      {}
-      {} }
-    { (* one argument *) }
-    { (* two arguments but no array op *) } }
+    admit. }
   { (* args 2. TODO: These will be key because 
        here is where the transformation is really unfolded. *)
     admit. }
