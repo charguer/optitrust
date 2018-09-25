@@ -146,31 +146,32 @@ Inductive tr_val (st:soa_tr) : val -> val -> Prop :=
 (* Transformation used in the struct cases to avoid repetition. *)
 
 Inductive tr_struct_op (st:soa_tr) : trm -> trm -> Prop :=
-  | tr_struct_access_soa : forall Ta Tfs K T f t ti ts ta ts' ta',
+  | tr_struct_op_soa_access : forall Ta s Tfs p l π K T f vi ts ta ts',
       st = make_soa_tr Ta Tfs K ->
+      s = val_abstract_ptr l π ->
       (* Initial term is ts: &(t[i]->f) *)
       ta = trm_app (prim_struct_access (typ_struct Tfs) f) (ts::nil) ->
-      ts = trm_app (prim_array_access T) (t::ti::nil) ->
+      ts = trm_app (prim_array_access T) ((trm_val s)::(trm_val vi)::nil) ->
       (* Final term is ta': &(t->f[i]) *)
-      ts' = trm_app (prim_array_access (typ_var Ta)) (ta'::ti::nil) ->
-      ta' = trm_app (prim_struct_access T f) (t::nil) ->
+      p = val_abstract_ptr l (π & access_field Tfs[f] f) ->
+      ts' = trm_app (prim_array_access (typ_var Ta)) ((trm_val p)::(trm_val vi)::nil) ->
       (* Result. *)
       tr_struct_op st ta ts'
-  | tr_struct_get_soa : forall Ta Tfs K T f t ti ts ta ts' ta',
+  | tr_struct_op_soa_get : forall Ta Tfs fs s K T f vi ts ta ts',
       st = make_soa_tr Ta Tfs K ->
-      (* Initial term is ts: t[i].f *)
+      s = val_struct (typ_struct Tfs) fs ->
+      (* Initial term is ts: &(t[i]->f) *)
       ta = trm_app (prim_struct_get (typ_struct Tfs) f) (ts::nil) ->
-      ts = trm_app (prim_array_get T) (t::ti::nil) ->
-      (* Final term is ta': t.f[i] *)
-      ts' = trm_app (prim_array_get (typ_var Ta)) (ta'::ti::nil) ->
-      ta' = trm_app (prim_struct_get T f) (t::nil) ->
+      ts = trm_app (prim_array_get T) ((trm_val s)::(trm_val vi)::nil) ->
+      (* Final term is ta': &(t->f[i]) *)
+      ts' = trm_app (prim_array_get (typ_var Ta)) ((trm_val fs[f])::(trm_val vi)::nil) ->
       (* Result. *)
       tr_struct_op st ta ts'
-  | tr_struct_access_other : forall Ta T f ts,
+  | tr_struct_op_other_access : forall Ta T f ts,
       Ta = soa_tr_array_name st ->
       T <> (typ_var Ta) ->
       tr_struct_op st (trm_app (prim_struct_access T f) ts) (trm_app (prim_struct_access T f) ts)
-  | tr_struct_get_other : forall Ta T f ts,
+  | tr_struct_op_other_get : forall Ta T f ts,
       Ta = soa_tr_array_name st ->
       T <> (typ_var Ta) ->
       tr_struct_op st (trm_app (prim_struct_get T f) ts) (trm_app (prim_struct_get T f) ts).
@@ -203,7 +204,7 @@ Inductive tr_trm (st:soa_tr) : trm -> trm -> Prop :=
   | tr_trm_new : forall T,
       tr_trm st (trm_app (prim_new T) nil) (trm_app (prim_new T) nil)
   (* Special case: struct + array access *)
-  | tr_trm_array : forall t1' op t1 tr,
+  | tr_trm_struct_op : forall t1' op t1 tr,
       is_struct_op op ->
       tr_trm st t1 t1' ->
       tr_struct_op st (trm_app op (t1'::nil)) tr ->
@@ -770,7 +771,8 @@ Proof using.
       { congruence. }
       { introv Hf. asserts Hf': (f \indom s).
         { rewrite~ <- HDs. }
-        applys~ H2. (*TODO: HERE*)} }
+        applys~ H2. inverts Hwft as HwfTfs.
+        applys~ HwfTfs. } }
     { constructors~.
       { constructors~.
         { rewrite~ HDC'. }
@@ -780,7 +782,8 @@ Proof using.
       { congruence. }
       { introv Hf. asserts Hf': (f \indom s).
         { rewrite~ <- HDs. }
-        applys~ H2. } } }
+        applys~ H2. inverts Hwft as _ Hwft.
+        applys* wf_typing_struct. } } }
 Qed.
 
 (* This will be proved when the relation is translated to a function. 
@@ -795,12 +798,13 @@ Lemma tr_uninitialized_val : forall st v T C C',
   tr_typdefctx st C C' ->
   soa_tr_ok st C ->
   wf_typdefctx C ->
+  wf_typ C T ->
   uninitialized C T v ->
   exists v',
         tr_val st v v'
     /\  uninitialized C' T v'.
 Proof.
-  introv HC Hok Hwf Hu. forwards* (v'&Hv'): total_tr_val_aux st v.
+  introv HC Hok HwfC HwfT Hu. forwards* (v'&Hv'): total_tr_val_aux st v.
   exists v'. splits~. applys* tr_uninitialized_val_aux.
 Qed.
 
@@ -848,10 +852,11 @@ Proof.
   introv HR Hok HC Ht HS Hm1 HwfC Hwft HwfS Hwfm1.
   introv He. gen st C' t' S' m1'.
   induction HR; intros; try solve [ forwards*: He; unfolds* ].
-  { (* val *) 
+  { (* val *)
     inverts Ht as Hv. exists* v' m1'. }
-  { (* var *) 
-    inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H. exists* v' m1'. }
+  { (* var *)
+    inverts Ht. forwards* (v'&H'&Hv'): stack_lookup_tr HS H.
+    exists* v' m1'. }
   { (* if *)
     inverts Ht as Hb HTrue HFalse. 
     inverts Hwft as Hwft0 Hwft1 Hwft2.
@@ -930,15 +935,17 @@ Proof.
     introv _ Ht.
     inverts Ht as Hv.
     inverts Hm1 as HD Htrm. subst.
-    forwards* (v''&Hv''&Hu): tr_uninitialized_val.
+    forwards* (v''&Hv''&Hu): tr_uninitialized_val H4.
+    { constructors~. }
     inverts Hv''.
-    exists (val_abstract_ptr l nil) m1'[l:=(val_array (typ_array T None) a')]. splits~.
+    exists (val_abstract_ptr l nil) m1'[l:=(val_array (typ_array T None) a')].
+    splits~.
     { constructors.
       { unfold state. repeat rewrite~ dom_update.
         fold state. rewrite~ HD. }
       { introv Hin. unfolds state. rew_reads; intros; eauto. 
         constructors*. introv HN. inverts HN. } }
-    { inverts Hv. applys~ red_new_array. rewrite~ <- HD. 
+    { inverts Hv. applys~ red_new_array. rewrite~ <- HD.
       applys* tr_typdefctx_wf_typ. auto. } }
   { (* struct access *)
     inverts Ht as; try solve [ intros; unfolds is_struct_op; false* ].
@@ -992,7 +999,26 @@ Proof.
     admit. }
   { (* args 1. TODO: These will be key because 
        here is where the transformation is really unfolded. *)
-    admit. }
+    inverts Ht; inverts Hwft;
+    forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
+    forwards*: not_is_error_args_1 HR2 He.
+    { (* array op *)
+      inverts_head tr_struct_op;
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~; applys* wf_red HR1 ].
+      { applys~ tr_trm_struct_op.
+        { constructors~. eapply Hv'. }
+        
+        applys~ tr_struct_op_soa_access. }
+      {}
+      {}
+      {}
+      {}
+      {}
+      {}
+      {} }
+    { (* one argument *) }
+    { (* two arguments but no array op *) } }
   { (* args 2. TODO: These will be key because 
        here is where the transformation is really unfolded. *)
     admit. }
