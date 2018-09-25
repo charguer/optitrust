@@ -153,7 +153,7 @@ Inductive tr_val (tt:tiling_tr) : val -> val -> Prop :=
 (** Transformation used in the struct cases to avoid repetition. *)
 
 Inductive tr_prim (tt:tiling_tr) (pr:typ->prim) : trm -> trm -> trm -> Prop :=
-  | tr_access_intro : forall op1 Ta op2 Tt ta1 ta2 K tlk tlj v1 v2,
+  | tr_prim_intro : forall op1 Ta op2 Tt ta1 ta2 K tlk tlj v1 v2,
       tt = make_tiling_tr Ta Tt K ->
       op1 = pr (typ_var Ta) ->
       op2 = pr (typ_var Tt) ->
@@ -166,15 +166,24 @@ Inductive tr_prim (tt:tiling_tr) (pr:typ->prim) : trm -> trm -> trm -> Prop :=
 (** v1[v2 / K][v2 % K] *)
 
 Inductive tr_array_op (tt:tiling_tr) : trm -> trm -> Prop :=
-  | tr_array_op_tiling : forall pr t1 t2 tlt,
-      pr = prim_array_access \/ pr = prim_array_get ->
-      tr_prim tt pr t1 t2 tlt ->
-      tr_array_op tt (trm_app (pr (typ_var (tiling_tr_array_name tt))) (t1::t2::nil)) tlt
-  | tr_array_op_other : forall Ta pr T ts,
-      pr = prim_array_access \/ pr = prim_array_get ->
+  | tr_array_op_tiling_access : forall op t1 t2 tlt,
+      op = prim_array_access (typ_var (tiling_tr_array_name tt)) ->
+      tr_prim tt prim_array_access t1 t2 tlt ->
+      tr_array_op tt (trm_app op (t1::t2::nil)) tlt
+  | tr_array_op_tiling_get : forall op t1 t2 tlt,
+      op = prim_array_get (typ_var (tiling_tr_array_name tt)) ->
+      tr_prim tt prim_array_get t1 t2 tlt ->
+      tr_array_op tt (trm_app op (t1::t2::nil)) tlt
+  | tr_array_op_other_access : forall Ta op T ts,
       Ta = tiling_tr_array_name tt ->
       T <> (typ_var Ta) ->
-      tr_array_op tt (trm_app (pr T) ts) (trm_app (pr T) ts).
+      op = prim_array_access T ->
+      tr_array_op tt (trm_app op ts) (trm_app op ts)
+  | tr_array_op_other_get : forall Ta op T ts,
+      Ta = tiling_tr_array_name tt ->
+      T <> (typ_var Ta) ->
+      op = prim_array_get T ->
+      tr_array_op tt (trm_app op ts) (trm_app op ts).
 
 (** Transformation of terms: t ~ |t| *)
 
@@ -279,7 +288,7 @@ Lemma div_mod_enforce_mod : forall i k j:Z,
   k > 0%Z ->
   i = i / k * k + j ->
   j = (i mod k)%Z.
-Proof.
+Proof using.
   introv Hnz Heq. forwards~ H: div_plus_mod_eq i k.
   remember (i/k * k) as n. rewrite H in Heq.
   forwards*: Z.add_reg_l Heq.
@@ -289,7 +298,7 @@ Lemma div_mod_enforce_mod_inv : forall i k j:Z,
   k > 0%Z ->
   j = (i mod k)%Z ->
   i = i / k * k + j.
-Proof.
+Proof using.
   introv Hnz Heq. rewrite Heq. apply~ div_plus_mod_eq.
 Qed.
 
@@ -297,7 +306,7 @@ Lemma div_mod_enforce_div : forall i k j:Z,
   k > 0%Z ->
   i = j * k + (i mod k)%Z ->
   j = (i / k)%Z.
-Proof.
+Proof using.
   introv Hnz Heq. forwards~ H: div_plus_mod_eq i k.
   remember ((i mod k)%Z) as n. rewrite H in Heq.
   rewrite Z.add_comm in Heq.
@@ -311,7 +320,7 @@ Lemma div_mod_enforce_div_inv : forall i (k:size) j,
   k > 0%Z ->
   j = (i / k)%Z ->
   i = j * k + (i mod k)%Z.
-Proof.
+Proof using.
   introv Hnz Heq. rewrite Heq. apply~ div_plus_mod_eq.
 Qed.
 
@@ -320,7 +329,7 @@ Lemma div_quotient_neq : forall i K j r,
   (r / K)%Z <> i ->
   index K j ->
   (i * K + j)%Z <> r.
-Proof.
+Proof using.
   introv Hnz Hneq Hineq. introv HN.
   rewrite <- HN in Hneq.
   forwards* Heq: residual_div Hnz Hineq.
@@ -329,7 +338,7 @@ Qed.
 Lemma div_both_sides : forall a b c,
   a = b ->
   (a/c)%Z = (b/c)%Z.
-Proof.
+Proof using.
   introv Heq. rewrite~ Heq.
 Qed.
 
@@ -338,7 +347,7 @@ Lemma j_value : forall i j k K,
   i = (j * K + k)%Z ->
   index K k ->
   j = (i/K)%Z.
-Proof.
+Proof using.
   introv HK Heq Hi.
   forwards* Heq': div_both_sides i (j * K + k)%Z K.
   rewrite~ residual_div in Heq'.
@@ -351,7 +360,7 @@ Lemma tiled_indices_i : forall I J K i,
   nb_tiles K I J ->
   index I i ->
   tiled_indices I J K i (i / K) (i mod K).
-Proof.
+Proof using.
   introv Hgtz Hnb HI.
   unfolds nb_tiles. unfolds tiled_indices.
   splits~.
@@ -366,7 +375,7 @@ Lemma tiled_indices_jk : forall I J K j k,
   index J j ->
   index K k ->
   tiled_indices I J K (j * K + k) j k.
-Proof.
+Proof using.
   introv Hgtz Hnb HJ HK.
   unfolds nb_tiles. unfolds tiled_indices.
   splits~. subst. applys~ index_mul_plus.
@@ -378,7 +387,7 @@ Lemma tiled_index_range_i : forall J I j K k,
   index J j ->
   index K k ->
   index I (j * K + k).
-Proof.
+Proof using.
   introv Hgtz Hnb HJ HK. unfolds nb_tiles.
   subst. applys~ index_mul_plus.
 Qed.
@@ -388,7 +397,7 @@ Lemma tiled_index_range_k : forall k K i I j J,
   nb_tiles K I J ->
   tiled_indices I J K i j k ->
   index K k.
-Proof.
+Proof using.
   introv Hgtz Hnb Hti. unfolds tiled_indices.
   destructs~ Hti.
 Qed.
@@ -481,7 +490,7 @@ Lemma is_basic_tr : forall tt v1 v2,
   tr_val tt v1 v2 ->
   is_basic v1 ->
   is_basic v2.
-Proof.
+Proof using.
   introv Htr Hv1. induction Htr;
   try solve [ inverts Hv1 ];
   constructors~.
@@ -492,7 +501,7 @@ Qed.
 Lemma not_tr_val_error : forall tt v1 v2,
   tr_val tt v1 v2 ->
   ~ is_error v2.
-Proof.
+Proof using.
   introv Hv He. unfolds is_error.
   destruct* v2. inverts Hv.
 Qed.
@@ -502,7 +511,7 @@ Qed.
 Lemma not_is_val_tr_access : forall tt pr t1 t2 tlt,
   tr_prim tt pr t1 t2 tlt ->
   ~ is_val tlt.
-Proof.
+Proof using.
   introv Htra HN. inverts Htra. inverts HN.
 Qed.
 
@@ -512,13 +521,14 @@ Lemma not_is_val_tr : forall tt t1 t2,
   tr_trm tt t1 t2 ->
   ~ is_val t1 ->
   ~ is_val t2.
-Proof.
+Proof using.
   introv Htr Hv. induction Htr; introv HN;
   try solve [ subst ; inverts HN ].
-  forwards*: Hv.
-  inverts H0 as.
-  { introv Hor Htra. applys* not_is_val_tr_access. }
-  { introv Hor Hneq. inverts HN. }
+  forwards*: Hv. inverts H0 as.
+  { introv Htr. applys* not_is_val_tr_access. }
+  { introv Htr. applys* not_is_val_tr_access. }
+  { introv Hneq. inverts HN. }
+  { introv Hneq. inverts HN. }
 Qed.
 
 (** Initialized values are transformed to initialized values. *)
@@ -528,7 +538,7 @@ Lemma not_is_uninitialized_tr : forall tt v v',
   tr_val tt v v' ->
   ~ is_uninitialized v ->
   ~ is_uninitialized v'.
-Proof.
+Proof using.
   introv Hgtz Htr Hu HN. induction Htr; subst; inverts HN as.
   { applys* Hu. constructors. }
   { introv (j&Hj&HuaJj).
@@ -555,7 +565,7 @@ Lemma functional_nb_tiles : forall n k m1 m2,
   nb_tiles n k m1 ->
   nb_tiles n k m2 ->
   m1 = m2.
-Proof.
+Proof using.
   introv Hm1 Hm2. unfolds nb_tiles. subst*.
 Qed.
 
@@ -565,7 +575,7 @@ Theorem functional_tr_accesses : forall tt π π1 π2,
   tr_accesses tt π π1 ->
   tr_accesses tt π π2 ->
     π1 = π2.
-Proof.
+Proof using.
   introv H1 H2. gen π2. induction H1; intros;
   inverts_head tr_accesses; repeat fequals*;
   inverts_head access_array; subst; simpls; tryfalse.
@@ -577,7 +587,7 @@ Lemma tr_accesses_app : forall tt π1 π2 π1' π2',
   tr_accesses tt π1 π1' ->
   tr_accesses tt π2 π2' ->
   tr_accesses tt (π1 ++ π2) (π1' ++ π2').
-Proof.
+Proof using.
   introv Ha1 Ha2. gen π2 π2'. induction Ha1; intros;
   rew_list in *; eauto.
 Qed.
@@ -607,7 +617,7 @@ Proof using.
       rewrite HaJ0i. rewrite HaJi. fequals.
       asserts HlK: (length aK1 = length aK2).
       { congruence. }
-      applys~ eq_of_extens. introv Hi0. 
+      applys~ eq_of_extens. introv Hi0.
       asserts Hik: (index K0 i0).
       { rewrite index_eq_index_length in Hi0. rewrite~ HlaK2 in Hi0. }
       asserts Hij: (index J i).
@@ -637,7 +647,7 @@ Lemma tr_accesses_inj : forall C tt π π1 π2,
   tr_accesses tt π1 π ->
   tr_accesses tt π2 π ->
     π1 = π2.
-Proof.
+Proof using.
   introv Hok Hva1 Hva2 Hπ1 Hπ2. gen C π2. induction Hπ1; intros.
   { inverts Hπ2. auto. }
   { subst. inverts Hπ2; inverts Hva1; inverts Hva2.
@@ -664,7 +674,7 @@ Lemma tr_val_inj : forall C tt v v1 v2,
   tr_val tt v1 v ->
   tr_val tt v2 v ->
   v1 = v2.
-Proof.
+Proof using.
   introv Hok HBv1 HBv2 Hwfv1 Hwfv2 Hv1 Hv2. gen C v2. induction Hv1; intros;
   try solve [ inverts Hv2; repeat fequals*; subst; simpls; tryfalse* ].
   { inverts Hv2 as Hπ. repeat fequals*.
@@ -684,7 +694,7 @@ Lemma tr_val_inj_cp : forall C tt v1 v2 v1' v2',
   tr_val tt v2 v2' ->
   v1 <> v2 ->
   v1' <> v2'.
-Proof.
+Proof using.
   introv Hok HBv1 HBv2 HTv1 HTv2 Hv1 Hv2 Hneq HN. subst.
   forwards*: tr_val_inj Hok HTv1 HTv2 Hv1.
 Qed.
@@ -699,7 +709,7 @@ Lemma tr_typdefctx_wf_typ : forall tt C C' T,
   tr_typdefctx tt C C' ->
   wf_typ C T ->
   wf_typ C' T.
-Proof.
+Proof using.
   introv HC HT. induction HT; try solve [ constructors* ].
   inverts HC as HDC' HCTa HC'Ta HC'Tt HC'Tv Hos.
   constructors.
@@ -719,7 +729,7 @@ Lemma tr_typing_struct : forall tt C C' Ts Tfs,
   tr_typdefctx tt C C' ->
   typing_struct C Ts Tfs ->
   typing_struct C' Ts Tfs.
-Proof.
+Proof using.
   introv HC HTs. induction HTs; intros.
   { constructors~. }
   { inverts HC as HD HCTa HC'Ta HC'Tt HC'Tv _.
@@ -738,7 +748,7 @@ Lemma tr_typing_array : forall Tat Tt k C C' Ta T os,
   ~ free_typvar C Tat Ta ->
   typing_array C Ta T os ->
   typing_array C' Ta T os.
-Proof.
+Proof using.
   introv HC Hwf Hfv HTa. gen Tt Tat k C'. induction HTa; intros.
   { constructors~. applys* tr_typdefctx_wf_typ. }
   { inverts HC as Htt HD HCTa HC'Ta HC'Tt HC'Tv Hos.
@@ -765,7 +775,7 @@ Lemma stack_lookup_tr : forall tt S S' x v,
     exists v',
        Ctx.lookup x S' = Some v'
     /\ tr_val tt v v'.
-Proof.
+Proof using.
   introv HS Hx. inverts HS as HS. induction HS.
   { inverts Hx. }
   { inverts H as Hv. inverts Hx as Hx. case_if in Hx.
@@ -780,7 +790,7 @@ Lemma tr_stack_add : forall tt z v S v' S',
   tr_stack tt S S' ->
   tr_val tt v v' ->
   tr_stack tt (Ctx.add z v S) (Ctx.add z v' S').
-Proof.
+Proof using.
   introv HS Hv. constructors~. inverts HS.
   unfolds Ctx.add. destruct* z.
   applys~ Forall2_cons. constructors~.
@@ -796,7 +806,7 @@ Lemma tr_read_accesses : forall tt v π v' π' w,
   (exists w',
       tr_val tt w w'
   /\  read_accesses v' π' w').
-Proof.
+Proof using.
   introv Hgt Hv Ha HR. gen tt v' π'. induction HR; intros.
   { (* nil *)
     inverts Ha. exists~ v'. }
@@ -846,7 +856,7 @@ Lemma tr_write_accesses : forall tt Ta Tt K v1 w π v1' π' w' v2,
   (exists v2',
         tr_val tt v2 v2'
     /\  write_accesses v1' π' w' v2').
-Proof.
+Proof using.
   introv Htt HK Hv1 Hw Hπ HW. gen v1' w' π'. induction HW; intros.
   { (* nil *)
     inverts Hπ. exists~ w'. }
@@ -1022,7 +1032,7 @@ Qed.
 
 Lemma total_tr_val_aux : forall gt v,
   exists v', tr_val gt v v'.
-Proof.
+Proof using.
 Admitted.
 
 (** Usable lemma for the [new] case. *)
@@ -1035,7 +1045,7 @@ Lemma tr_uninitialized_val : forall tt v T C C',
   exists v',
         tr_val tt v v'
     /\  uninitialized C' T v'.
-Proof.
+Proof using.
   introv HC Hok Hwf Hu. forwards* (v'&Hv'): total_tr_val_aux tt v.
   exists v'. splits~. applys* tr_uninitialized_val_aux.
 Qed.
@@ -1044,7 +1054,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Main lemma *)
 
-Theorem red_tr_inv: forall tt C LLC C' t t' v S S' m1 m1' m2,
+Theorem red_tr_ind: forall tt C LLC C' t t' v S S' m1 m1' m2,
   red C LLC S m1 t m2 v ->
   tiling_tr_ok tt C ->
   tr_typdefctx tt C C' ->
@@ -1060,7 +1070,7 @@ Theorem red_tr_inv: forall tt C LLC C' t t' v S S' m1 m1' m2,
       tr_val tt v v'
   /\  tr_state tt m2 m2'
   /\  red C' LLC S' m1' t' m2' v'.
-Proof.
+Proof using.
   introv HR Hok HC Ht HS Hm1 HwfC Hwft HwfS Hwfm1.
   introv He. gen tt C' t' S' m1'.
   induction HR; intros; try solve [ forwards*: He; unfolds* ].
@@ -1172,14 +1182,14 @@ Proof.
     inverts Hok as HTain HCTa HTtnin Hnz Hfv.
     subst. inverts Ht as.
     { introv Hop Ht1' Ht2' Haop.
-      inverts Haop as.
+      inverts Haop as; try solve [ intros; simpls; false* ].
       { (* tiling array *)
-        introv Hor Htra Hpr. inverts Hor; inverts Hpr.
+        introv Hpr Htrp. inverts Hpr.
         inverts Ht1' as Htp.
         inverts Ht2' as Htv.
         inverts Htp as Hπ.
         inverts Htv.
-        inverts Htra.
+        inverts Htrp.
         inverts_head make_tiling_tr'. simpls.
         remember (access_array (typ_var Ta0) ((i/K0)%Z)) as a1.
         remember (access_array (typ_var Tt0) ((i mod K0)%Z)) as a2.
@@ -1196,12 +1206,13 @@ Proof.
             { applys~ red_binop. constructors~. math. }
             applys~ red_array_access. fequals. rew_list~. } } }
       { (* other array *)
-        introv Hor Hneq Hpr. inverts Hor; inverts Hpr.
+        introv Hneq Hpr.
+        inverts Hpr. simpls.
         inverts Ht1' as Htp.
         inverts Ht2' as Htv.
         inverts Htp as Hπ.
         inverts Htv.
-        exists (val_abstract_ptr l (π'++(access_array T i::nil))) m1'.
+        exists (val_abstract_ptr l (π'++(access_array T1 i::nil))) m1'.
         splits~.
         { constructors~. applys~ tr_accesses_app. }
         { constructors~. } } }
@@ -1218,9 +1229,10 @@ Proof.
     subst. inverts Ht as.
     { (* array get *)
       introv Hop Ht1' Ht2' Haop.
-      inverts Haop as.
+      inverts Haop as; try solve [ intros; tryfalse* ].
       { (* tiling array *)
-        introv Hor Htracc Hpr. inverts Hor; inverts Hpr.
+        introv Hpr Htrp.
+        inverts Hpr. simpls.
         inverts Ht1' as Hva.
         inverts Ht2' as Hvi.
         inverts Hva as; try solve [ intros ; false* ].
@@ -1230,7 +1242,7 @@ Proof.
         { rewrite index_eq_index_length in *. eauto. }
         forwards* Htra: Ha'' i ((i/K0)%Z) ((i mod K0)%Z) a''.
         exists a''[(i mod K0)%Z] m1'. splits~.
-        inverts Htracc as Htt. rewrite <- Hla'' in *. 
+        inverts Htrp as Htt. rewrite <- Hla'' in *.
         inverts Htt. constructors*.
         { applys red_args_2.
           { introv HN. inverts HN. }
@@ -1241,12 +1253,13 @@ Proof.
           { introv HN. inverts HN. }
           { applys~ red_binop. constructors~. math. }
           applys* red_array_get. } }
-      { (* another array *) 
-        introv Hor Hneq Hpr. inverts Hor; inverts Hpr.
+      { (* another array *)
+        introv Hneq Hpr.
+        inverts Hpr. simpls.
         inverts Ht1' as Hva.
         inverts Ht2' as Hvi.
         inverts Hvi.
-        inverts Hva as. 
+        inverts Hva as.
         { introv Htt. inverts Htt. simpls. false~. }
         { introv _ Hla Htrai.
           exists a'[i] m1'. splits~.
@@ -1262,9 +1275,88 @@ Proof.
   { (* ll_access *)
     admit. }
   { (* args 1 *)
-    admit. }
+    inverts Ht; inverts Hwft;
+    forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
+    forwards*: not_is_error_args_1 HR2 He.
+    { (* array op *)
+      inverts_head tr_array_op;
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~; applys* wf_red HR1 ].
+      { applys* tr_trm_array.
+        applys* tr_array_op_tiling_access.
+        asserts Htv: (t1' = trm_val v').
+        { inverts_head tr_prim. inverts~ HR'. }
+        subst_hyp Htv. eauto. }
+      { exists v'' m3'; splits*.
+        asserts Htv: (t1' = trm_val v').
+        { inverts_head tr_prim. inverts~ HR'. }
+        subst_hyp Htv. inverts~ HR'. }
+      { applys* tr_trm_array.
+        applys* tr_array_op_tiling_get.
+        asserts Htv: (t1' = trm_val v').
+        { inverts_head tr_prim. inverts~ HR'. }
+        subst_hyp Htv. eauto. }
+      { exists v'' m3'; splits*.
+        asserts Htv: (t1' = trm_val v').
+        { inverts_head tr_prim. inverts~ HR'. }
+        subst_hyp Htv. inverts~ HR'. }
+      { applys* tr_trm_array. applys*
+        tr_array_op_other_access. }
+      { exists v'' m3'; splits*. applys* red_args_1.
+        applys* not_is_val_tr. }
+      { applys* tr_trm_array.
+        applys* tr_array_op_other_get. }
+      { exists v'' m3'; splits*. applys* red_args_1.
+        applys* not_is_val_tr. } }
+    { (* ops with just one argument *)
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~; applys* wf_red HR1 ].
+      exists v'' m3'; splits*. applys* red_args_1.
+      applys* not_is_val_tr. }
+    { (* ops with two arguments that are not array ops *)
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~; applys* wf_red HR1 ].
+      exists v'' m3'; splits*. applys* red_args_1.
+      applys* not_is_val_tr. } }
   { (* args 2 *)
-    admit. }
+    inverts Ht; inverts Hwft;
+    forwards* (v'&m2'&Hv'&Hm2'&HR'): IHHR1;
+    forwards*: not_is_error_args_2 HR2 He.
+    { (* array op *)
+      inverts_head tr_array_op;
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~; applys* wf_red HR1 ].
+      { applys* tr_trm_array.
+        applys* tr_array_op_tiling_access.
+        asserts Htv: (t2' = trm_val v').
+        { inverts_head tr_prim. inverts~ HR'. }
+        subst_hyp Htv. eauto. }
+      { exists v'' m3'; splits*.
+        asserts Htv: (t2' = trm_val v').
+        { inverts_head tr_prim. inverts~ HR'. }
+        subst_hyp Htv. inverts~ HR'. }
+      { applys* tr_trm_array.
+        applys* tr_array_op_tiling_get.
+        asserts Htv: (t2' = trm_val v').
+        { inverts_head tr_prim. inverts~ HR'. }
+        subst_hyp Htv. eauto. }
+      { exists v'' m3'; splits*.
+        asserts Htv: (t2' = trm_val v').
+        { inverts_head tr_prim. inverts~ HR'. }
+        subst_hyp Htv. inverts~ HR'. }
+      { applys* tr_trm_array. applys*
+        tr_array_op_other_access. }
+      { exists v'' m3'; splits*. inverts H6. applys* red_args_2.
+        applys* not_is_val_tr. }
+      { applys* tr_trm_array.
+        applys* tr_array_op_other_get. }
+      { exists v'' m3'; splits*. inverts H6. applys* red_args_2.
+        applys* not_is_val_tr. } }
+    { (* not array op *)
+      forwards* (v''&m3'&Hv''&Hm3'&HR''): IHHR2;
+      try solve [ repeat constructors~; applys* wf_red HR1 ].
+      exists v'' m3'; splits*. inverts H6. applys* red_args_2.
+      applys* not_is_val_tr. } }
 Qed.
 
 (** From full execution. *)
@@ -1273,7 +1365,7 @@ Theorem red_tr: forall tt LLC C C' t t' v m2,
   red C LLC empty_stack empty_state t m2 v ->
   tiling_tr_ok tt C ->
   tr_typdefctx tt C C' ->
-  tr_trm gt t t' ->
+  tr_trm tt t t' ->
   wf_typdefctx C ->
   wf_trm C t ->
   ~ is_error v ->
@@ -1283,9 +1375,9 @@ Theorem red_tr: forall tt LLC C C' t t' v m2,
   /\  red C' LLC empty_stack empty_state t' m2' v'.
 Proof using.
   introv HR Hok HC Ht HwfC Hwft Hne.
-  asserts HS: (tr_stack gt empty_stack empty_stack).
+  asserts HS: (tr_stack tt empty_stack empty_stack).
   { constructors. applys~ Forall2_nil. }
-  asserts Hm1: (tr_state gt empty_state empty_state).
+  asserts Hm1: (tr_state tt empty_state empty_state).
   { constructors~. introv Hl. false. applys* indom_empty_inv. }
   asserts HwfS: (wf_stack C empty_stack).
   { unfolds~. introv HN. false. }
