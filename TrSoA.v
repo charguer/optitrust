@@ -1,6 +1,7 @@
 (**
 
-This file describes transformations of the layout of records and arrays.
+This file describes the array-of-structures to structure-of-arrays
+transformation.
 
 Author: Ramon Fernandez I Mir and Arthur Charguéraud.
 
@@ -8,13 +9,15 @@ License: MIT.
 
 *)
 
+
 Set Implicit Arguments.
 Require Export Semantics LibSet LibMap LibList TLCbuffer Typing.
 
 Open Scope Z_scope.
 
-(* ********************************************************************** *)
-(* * Definition of the transformation *)
+
+(* ---------------------------------------------------------------------- *)
+(** Definition of the transformation *)
 
 (** SoA transformation. Specified by:
     - The typvar of the array of structs.
@@ -29,7 +32,7 @@ Record soa_tr := make_soa_tr {
 
 Notation make_soa_tr' := make_soa_tr.
 
-(** Checking if the transformation is acceptable *)
+(** Checking if the transformation is acceptable. *)
 
 Inductive soa_tr_ok : soa_tr -> typdefctx -> Prop :=
   | soa_tr_ok_intros : forall Ta Tfs K st C,
@@ -44,8 +47,8 @@ Inductive soa_tr_ok : soa_tr -> typdefctx -> Prop :=
       soa_tr_ok st C.
 
 
-(* ********************************************************************** *)
-(* * The transformation applied to the different constructs. *)
+(* ---------------------------------------------------------------------- *)
+(** The transformation applied to the different constructs *)
 
 (** Transformation of typdefctxs: C ~ |C| *)
 
@@ -239,8 +242,8 @@ Inductive tr_state (st:soa_tr) : state -> state -> Prop :=
       tr_state st m m'.
 
 
-(* ********************************************************************** *)
-(* * Preservation of semantics proof. *)
+(* ---------------------------------------------------------------------- *)
+(** Preservation of semantics proof. *)
 
 Lemma stack_lookup_tr : forall st S S' x v,
   tr_stack st S S' ->
@@ -477,8 +480,8 @@ Proof.
 Qed.
 
 
-(* ********************************************************************** *)
-(* * Correctness proofs *)
+(* ---------------------------------------------------------------------- *)
+(** Correctness proofs *)
 
 Section TransformationProofs.
 
@@ -635,8 +638,8 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** The transformation preserves well-founded types. *)
 
-Lemma tr_typdefctx_wf_typ : forall tt C C' T,
-  tr_typdefctx tt C C' ->
+Lemma tr_typdefctx_wf_typ : forall st C C' T,
+  tr_typdefctx st C C' ->
   wf_typ C T ->
   wf_typ C' T.
 Proof.
@@ -696,13 +699,15 @@ Lemma tr_uninitialized_val_aux : forall st v v' T C C',
   tr_typdefctx st C C' ->
   soa_tr_ok st C ->
   wf_typdefctx C ->
+  wf_typ C T ->
   tr_val st v v' ->
   uninitialized C T v ->
   uninitialized C' T v'.
 Proof using.
-  introv HC Hok Hwf Hv Hu. gen T. induction Hv; intros;
+  introv HC Hok HwfC Hwft Hv Hu. gen T. induction Hv; intros;
   try solve [ inverts~ Hu; constructors~ ].
   { (* soa array *)
+    lets HC': HC.
     inverts Hu as HTa Hl Hu.
     inverts HC as HDC' HCTa HC'Ta HDTfs HTfs' HTv.
     inverts Hok as Heq HTain HCTa' HKgz HTanfv. inverts Heq. 
@@ -717,12 +722,18 @@ Proof using.
       forwards~ HTfs'f: HTfs' Hfin'.
       rewrite Ha'. rewrite HTfs'f.
       constructors~.
-      { constructors~. admit. (* TODO: wf_typ C' Tfs[f] *) }
+      { constructors~. inverts Hwft as _ Hwft.
+        rewrite HCTa' in Hwft. inverts Hwft as HwfTfs0.
+        inverts HwfTfs0 as HwfTfs0. forwards* Hwff: HwfTfs0 f.
+        applys* tr_typdefctx_wf_typ. }
       { introv Heq. inverts~ Heq. }
       { introv Hi. asserts Hi': (index a i).
         { rewrite index_eq_index_length in *. rewrite~ Hla'. }
-        forwards~ (s&Hs&HDs): H5 Hi'.
-        applys* H3. inverts HTa as HTain' HTa'.
+        forwards~ (s&Hs&HDs): H5 Hi'. applys* H3.
+        { inverts Hwft as _ Hwft. rewrite HCTa' in Hwft.
+          inverts Hwft as HwfTfs0. inverts HwfTfs0 as HwfTfs0.
+          applys* HwfTfs0 f. }
+        inverts HTa as HTain' HTa'.
         rewrite HCTa' in HTa'. inverts HTa'.
         forwards~ Hu': Hu Hi'. rewrite Hs in Hu'.
         inverts Hu' as HTfs0 HDTfs' Hu'. inverts HTfs0.
@@ -748,7 +759,8 @@ Proof using.
       { introv Hos'. forwards~: Hos Hos'. congruence. }
       { introv Hi. asserts: (index a i).
         { rewrite index_eq_index_length in *. rewrite~ H0. }
-        applys~ H2. } } }
+        applys~ H2. inverts Hwft as Hwft.
+        applys* wf_typing_array. } } }
   { (* struct *)
     inverts Hu as HTs HDs Hu. lets HC': HC.
     inverts HC as HDC' HCTa HC'Ta HDTfs HTfs' HTv.
@@ -758,7 +770,7 @@ Proof using.
       { congruence. }
       { introv Hf. asserts Hf': (f \indom s).
         { rewrite~ <- HDs. }
-        applys~ H2. } }
+        applys~ H2. (*TODO: HERE*)} }
     { constructors~.
       { constructors~.
         { rewrite~ HDC'. }
@@ -806,9 +818,8 @@ Proof.
 Qed.
 
 
-(* ********************************************************************** *)
+(* ---------------------------------------------------------------------- *)
 (* Main lemma *)
-
 
 Hint Constructors red redbinop.
 Hint Constructors read_accesses write_accesses.
