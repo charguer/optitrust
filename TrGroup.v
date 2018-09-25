@@ -276,6 +276,7 @@ Hint Constructors tr_trm tr_val tr_accesses tr_state tr_stack.
 Hint Constructors read_accesses write_accesses.
 Hint Constructors is_uninitialized.
 
+
 (* ---------------------------------------------------------------------- *)
 (** Functionality of the relations *)
 
