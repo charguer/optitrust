@@ -1,0 +1,4 @@
+(library
+  (name scriptTools)
+  (public_name optiTrust.scriptTools)
+  (libraries clangml refl pprint str))

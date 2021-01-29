@@ -1,0 +1,4 @@
+(executables
+   (names tests test_parser test_transformations test_path test_aosoa
+   test_switch)
+   (libraries scriptTools))
