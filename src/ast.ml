@@ -45,12 +45,13 @@ and typ_annot =
   | Long
   | Short
 
-and typ = {ty_desc : typ_desc; ty_annot : typ_annot list;
+and typ = {ty_desc : typ_desc;
+           ty_annot : typ_annot list;
            ty_attributes : attribute list}
 
 and typed_var = var * typ
 
-(* accesses in arrays/structures*)
+(* accesses in arrays/structures *)
 and access =
   | Access_array of typ * int
   | Access_field of typ * access
@@ -97,7 +98,7 @@ and prim =
   | Prim_unop of unary_op
   | Prim_binop of binary_op
   | Prim_new of typ (* "new T" *)
-  | Prim_conditional_op
+  | Prim_conditional_op (* "(foo) ? x : y" *)
 
 (* literals *)
 and lit =
@@ -120,8 +121,7 @@ and value =
 
 (* annotations *)
 and trm_annot =
-  (*
-    for declaration and elimination of heap allocated variables
+  (* for declaration and elimination of heap allocated variables
     + dereferencing
    *)
   | Heap_allocated
@@ -160,8 +160,13 @@ and attribute =
   is_instr: true if the trm is an instruction in a seq
  *)
 and trm =
-  {annot : trm_annot option; desc : trm_desc; loc : location; is_instr : bool;
-   add : print_addition list; typ : typ option; attributes : attribute list}
+ { annot : trm_annot option;
+   desc : trm_desc;
+   loc : location;
+   is_instr : bool;
+   add : print_addition list;
+   typ : typ option;
+   attributes : attribute list }
 
 and trm_desc =
   | Trm_val of value

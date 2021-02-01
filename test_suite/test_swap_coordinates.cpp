@@ -5,7 +5,7 @@ int get_0_1 (int t[2][3]) {
 }
 
 int get_1_2 (int t[2][3], int v[2][3]) {
-  return t[1][2] + get_0_1(v);
+  return t[1][2] + get_0_1(v) + get_0_1(t);
 }
 
 int main () {

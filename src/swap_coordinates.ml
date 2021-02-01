@@ -2,7 +2,8 @@ open Ast
 open Transformations
 open Translate_ast
 
-(*
+(*  t[i][k]  t:x   then swap dimentions for t
+
   transformation to swap the two first dimensions of an array
   name is used to name function copies
   assumption: x is a type variable that represents a multidimensional array type
