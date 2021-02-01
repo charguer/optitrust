@@ -22,8 +22,8 @@
    # Installation of vscode: https://code.visualstudio.com/download
    # ...download the .deb package and install it
 
-   # OCaml syntax highlighting for VSCode: https://marketplace.visualstudio.com/items?itemName=hackwaly.ocaml
-   code &
+   # OCaml syntax highlighting 
+   # New plugins to highlight the code  "Ocaml Platform" and "OCaml and Reason IDE"
    # Type CTRL+P, then paste and execute the commande:
    #    ext install hackwaly.ocaml
    # Follow tip1 from the link above to associate *.ml files with OCaml.
