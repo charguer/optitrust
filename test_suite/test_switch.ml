@@ -3,7 +3,7 @@ open ScriptTools
 let _ =
   run
     (fun () ->
-      set_init_source "test_suite/test.cpp";
+      set_init_source "test.cpp";
       switch
         [
           (fun () -> add_label "label1" [cVarDef ~name:"v" ()]);
@@ -16,7 +16,7 @@ let _ =
         ];
       dump ();
       reset ();
-      set_init_source "test_suite/test_accesses.cpp";
+      set_init_source "test_accesses.cpp";
       switch
         [
           (fun () -> add_label "label1" [cVarDef ~name:"p" ()]);

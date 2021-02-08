@@ -3,7 +3,7 @@ open ScriptTools
 let _ =
   run
     (fun _ ->
-      set_init_source "test_suite/testAOSOA/aos.cpp";
+      set_init_source "testAOSOA/aos.cpp";
       let particle_typedef = [cType ~name:"particle" ()] in
       insert_const ~insert_before:particle_typedef ~name:"BLOCK_SIZE" ~value:"1 << 10" ();
       insert_const ~insert_before:particle_typedef ~name:"NB_BLOCKS" ~value:"NUM_PARTICLES / BLOCK_SIZE" ();
