@@ -1,0 +1,27 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Execute transformation script",
+            "type": "shell",
+            "command": "./.vscode/add_exit_and_exec.sh",
+            "args": [
+                "${fileBasenameNoExtension}",
+                "${lineNumber}",
+                ""
+            ]
+        },
+        {
+            "label": "Execute transformation script (dump trace)",
+            "type": "shell",
+            "command": "./.vscode/add_exit_and_exec.sh",
+            "args": [
+                "${fileBasenameNoExtension}",
+                "${lineNumber}",
+                "-dump-trace"
+            ]
+        }
+    ]
+}

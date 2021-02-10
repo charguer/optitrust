@@ -13,6 +13,7 @@ typedef struct{
 
 const int gridSize = 64;
 const int nbCells = gridSize * gridSize;
+
 const int nbColors = 8;
 const int nbCellsPerTile = 8;
 const int nbCellsPerColor = nbCells / nbColors;  // must be exact
@@ -20,9 +21,10 @@ const int nbTiles = nbCells / nbCellsPerTile; // must be exact
 const int nbTilesPerColor = nbTiles / nbColors;  // must be exact
 
 vect fields[nbCells];
-int x[nbCells];
+
 int nbSteps = 100;
-int idCellsOfTile[nbTiles][nbCellsPerTile];
+
+//int idCellsOfTile[nbTiles][nbCellsPerTile];
 int main() {
     for(int step=0; step<nbSteps; step++){
         int cur = step % 2;

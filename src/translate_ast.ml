@@ -409,7 +409,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
   (f : trm) (tl : trm list) : document =
   match f.desc with
   | Trm_var x ->
-     if Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
+     if false || Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
        let (d1, d2) =
          begin match List.map trm_to_doc tl with
          | [d1; d2] -> (d1, d2)

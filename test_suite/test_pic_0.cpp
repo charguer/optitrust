@@ -42,18 +42,32 @@ typedef struct {
   int nb;
   particle items[bagCapacity];
 } bag;
-/*
+
+
 void bag_push(bag* b, particle p) {
-  b->items[b->nb] = p;
-  b->nb++;
+  (*b).items[(*b).nb] = p;
+  (*b).nb++;
+}
+/*
+void bag_clear(bag* b) {
+  (*b).nb = 0;
 }
 */
-
-int sum(int a, int b){
-  int x = a + b;
-  return x;
+void bag_transfer(bag* b1, bag* b2) {
+  //Move all the items from b2 to b1
+  // Note: int the real code, bqgs are linked lists
+  // so this operation only involves a pointer assignment
+  //not a deep copy of an arraw.
+  for(int i = 0; i < (*b2).nb; i++){
+    //bag_push(b1,(*b2).items[i]);
+  }
+  //bag_clear(b2);
 }
 
+// --Data structures
+
+// in the real code, the charge is associated not to each cell, 
+// but to each corner of a cell in the grid
 
 
 vect fields[nbCells];
@@ -61,7 +75,10 @@ double nextCharge[nbCells];
 bag bagsCur[nbCells];
 bag bagsNext[nbCells];
 
+
+
 int idCellOfPos(vect pos){return 0;}
+
 
 
 int main () {
@@ -77,23 +94,19 @@ int main () {
       bag* b = bagsCur;
       int nb = b[nbCells].nb;
       for(int idParticle = 0; idParticle < nb; idParticle++){
-        particle p = b->items[idParticle];
-        
-        //y = sum(1,3);
-        // compute speed and position
-        vect v = vect_mul(charge,field);
-        //vect speed2= vect_add(p.speed,v2);
-        /*
+        particle p = (*b).items[idParticle];
+        vect speed2={0.,0.,0.};
+        // compute speed and poistion
+        speed2 = vect_add(p.speed, vect_mul(charge, field));
         vect pos2 = vect_add(p.pos, vect_mul(step_duration,speed2));
 
         //deposit particle charge
         int idCell2 = idCellOfPos(pos2);
         nextCharge[idCell2] += charge;
 
-        // write particle into target cell
-        particle p2 = { speed2, pos2 };
-        //bag_push(bagsNext[idCell2], p2);
-      */
+        //write particle into the target cell
+        particle p2 ={speed2, pos2};
+        //bag_push(&bagsNext[idCell2], p2);
       }
 
     }
