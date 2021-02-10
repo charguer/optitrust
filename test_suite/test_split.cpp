@@ -1,6 +1,7 @@
 int main () {
   int t[10] = {0,0,0,0,0,0,0,0,0,0};
-
+  
+  #pragma omp parallel
   for (int i = 0; i < 10; i++) {
     int x = i % 2;
     int y = i / 2;

@@ -942,18 +942,20 @@ let translate_ast (t : translation_unit) : trm =
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   print_info None "translate_ast: translating %s's AST...\n" filename;
   let (include_map, file_decls) = filter_out_include filename dl in
-  (* let out_ast = open_out ("/tmp/toto.ml") in
-   * Include_map.iter
-   *   (fun h dl ->
-   *     Printf.fprintf out_ast "(\* Include %s: *\)\n" h;
-   *     List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
-   *       dl
-   *   )
-   *   include_map;
-   * Printf.fprintf out_ast "(\* Main file: *\)\n";
-   * List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
-   *   file_decls;
-   * close_out out_ast; *)
+  if true then begin
+    let out_ast = open_out ("/tmp/toto.ml") in
+    Include_map.iter
+      (fun h dl ->
+        Printf.fprintf out_ast "(* Include %s: *)\n" h;
+        List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
+          dl
+      )
+      include_map;
+    Printf.fprintf out_ast "(* Main file: *)\n";
+    List.iter (fun d -> Printf.fprintf out_ast "%s\n" (Clang.Decl.show d))
+      file_decls;
+    close_out out_ast;
+  end;
   let loc = loc_of_node t in
   (* open a scope for global heap allocated variables *)
   compute_scope Other_scope
