@@ -22,23 +22,23 @@ type label = string
 
 (* array sizes *)
 type size =
-  | Undefined
-  | Const of int
-  | Trm of trm
+  | Undefined (* t[] *)
+  | Const of int (* t[3] *)
+  | Trm of trm (* t[2*nb] *)
 
 (* types of expressions *)
 and typ_desc =
-  | Typ_var of typvar
-  | Typ_unit
+  | Typ_var of typvar (* int x *)
+  | Typ_unit (* void *)
   | Typ_int
   | Typ_float
   | Typ_double
   | Typ_bool
   | Typ_char
-  | Typ_ptr of typ
-  | Typ_array of typ * size
-  | Typ_struct of (typ fmap) * typvar
-  | Typ_fun of (typ list) * typ
+  | Typ_ptr of typ (* "int*" *)
+  | Typ_array of typ * size (* int[3] *)
+  | Typ_struct of (typ fmap) * typvar (* typedef { x: int, y:double } point *)
+  | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
 
 and typ_annot =
   | Unsigned
@@ -49,31 +49,32 @@ and typ = {ty_desc : typ_desc;
            ty_annot : typ_annot list;
            ty_attributes : attribute list}
 
-and typed_var = var * typ
+and typed_var = var * typ 
 
 (* accesses in arrays/structures *)
 and access =
-  | Access_array of typ * int
-  | Access_field of typ * access
+  | Access_array of typ * int  (* the "[i]" operator, with result of type T *)
+  | Access_field of typ * access (* the ".f" operator, with result of type T *)
 
-and accesses = access list
+and accesses = access list (* e.g. the "[i][j].f" operator *)
 
 (* primitives *)
 and unary_op =
-  | Unop_get (* => star *)
+  | Unop_get (* the "*" operator as in *p  *)
   | Unop_bitwise_neg
   | Unop_neg
   | Unop_opp
   | Unop_inc
   | Unop_dec
-  | Unop_struct_access of field
-  | Unop_struct_get of field
-  | Unop_delete of bool (* delete operator, bool = true if array form *)
-  | Unop_cast of typ (* cast operator *)
+  | Unop_struct_access of field (* the ".f" operator TODO CHECK *)
+  | Unop_struct_get of field (* the "->f" operator TODO CHECK *)
+  | Unop_delete of bool (* "Unop_delete false" is "delete",
+                           "Unop_delete true" is "delete[]" TODO CHANGE *)
+  | Unop_cast of typ (* cast operator towards the specified type *)
 
 and binary_op =
   | Binop_set (* type annotation?    lvalue = rvalue *)
-  | Binop_array_access
+  | Binop_array_access (* TODO DOCUMENT *)
   | Binop_array_get
   | Binop_eq
   | Binop_neq
@@ -95,15 +96,15 @@ and binary_op =
   | Binop_xor
 
 and prim =
-  | Prim_unop of unary_op
-  | Prim_binop of binary_op
+  | Prim_unop of unary_op (* e.g. "!b" *)
+  | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_new of typ (* "new T" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
 (* literals *)
 and lit =
-  | Lit_unit
-  | Lit_uninitialized
+  | Lit_unit (* void, e.g. "return;" is represented as "Lit_unit" *)
+  | Lit_uninitialized (* e.g. "int x;" is "int x = Lit_uninitalized" *)
   | Lit_bool of bool
   | Lit_int of int
   | Lit_double of float
@@ -113,13 +114,17 @@ and lit =
 and value =
   | Val_lit of lit
   | Val_prim of prim
-  (* below: not in source *)
+  (* The constructors below never appear in source code;
+     these are values that can only be constructed during the program execution,
+     and thus useful only for carrying out proofs about the program transformations *)
   | Val_ptr of loc * accesses
   | Val_array of value list
   | Val_struct of value list
-  (* todo: add functions *)
+  (* LATER: add functions, which are also values that can be created at execution time *)
 
-(* annotations *)
+(* annotations are used to decorate this AST when it is built from the
+   Clang AST in such a way to be able to print back the AST like the original C code. 
+  TODO: refer to the list of encodings that are applied. *)
 and trm_annot =
   (* for declaration and elimination of heap allocated variables
     + dereferencing
@@ -146,11 +151,12 @@ and trm_annot =
   | Include of string
   | Main_file
 
-(* symbols to add while printing a c++ program *)
+(* symbols to add while printing a C++ program. TODO: document *)
 and print_addition =
   | Add_address_of_operator
   | Add_star_operator
 
+(* We only need to support two specific attributes for the time being *)
 and attribute =
   | Identifier of var
   | Aligned of trm
@@ -163,22 +169,22 @@ and trm =
  { annot : trm_annot option;
    desc : trm_desc;
    loc : location;
-   is_instr : bool;
-   add : print_addition list;
-   typ : typ option;
+   is_instr : bool; (* TODO statement or expression? *)
+   add : print_addition list; (* TODO: find better name *)
+   typ : typ option; (* typ should be available from the AST that comes from Clang *)
    attributes : attribute list }
 
 and trm_desc =
   | Trm_val of value
   | Trm_var of var
-  | Trm_array of trm list
-  | Trm_struct of trm list
-  | Trm_decl of def
+  | Trm_array of trm list (* { 0, 3, 5} as an array *)
+  | Trm_struct of trm list (* { 4, 5.3 } as a record *)
+  | Trm_decl of def (* variable or function or type definition *)
   | Trm_if of trm * trm * trm
   (* question: distinguish toplevel seq for other seqs? *)
-  | Trm_seq of trm list
-  | Trm_apps of trm * (trm list)
-  | Trm_while of trm * trm
+  | Trm_seq of trm list (* { st1; st2; st3 } *)
+  | Trm_apps of trm * (trm list) (* f(t1, t2) *)
+  | Trm_while of trm * trm (* while (t1) { t2 } LATER: other like do-while *)
   | Trm_for of trm * trm * trm * trm
   (*
     Trm_for (e0, e1, e2, e3) =
@@ -202,22 +208,22 @@ and trm_desc =
         break;
     }
    *)
-  | Trm_abort of abort
-  | Trm_labelled of label * trm
+  | Trm_abort of abort (* return or break or continue *)
+  | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
 
 (* declarations *)
 and def =
-  | Def_var of typed_var * trm
-  | Def_fun of var * typ * (typed_var list) * trm
-  | Def_typ of typvar * typ
-  | Def_enum of typvar * ((var * (trm option)) list)
+  | Def_var of typed_var * trm (* int x = t *)
+  | Def_fun of var * typ * (typed_var list) * trm (* int f(int x ,double y) { st } *)
+  | Def_typ of typvar * typ (* type abbreviation e.g. "typedef int** T" *)
+  | Def_enum of typvar * ((var * (trm option)) list) (* typedef enum { X, Y } T  --TODO: check syntax*)
 
 (* ways of aborting *)
 and abort =
-  | Ret of trm option
+  | Ret of trm option (* return;  or return 3; *)
   | Break
-  | Cont
+  | Cont (* TODO: rename to Continue *)
 
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (x : typvar) : typ =
@@ -368,10 +374,10 @@ let filter_out_heap_alloc : trm list -> trm list =
 
 (* concrete accesses in a trm *)
 type trm_access =
-  | Array_access of trm
-  | Struct_access of field
+  | Array_access of trm (* operator [i] *)
+  | Struct_access of field (* operator .f *)
 
-(*
+(* TODO: add documentation  
   compute_accesses t = (base, access list) where the succession of accesses
   applied to base gives t
   the list is nil if t is not a succession of accesses
@@ -398,12 +404,13 @@ let rec compute_accesses (t : trm) : trm * (trm_access list) =
 
 let (++) = List.append
 
-(* fold left with access to the indices *)
+(* fold left with access to the indices 
+  [foldi f a xs] computes  [ f 2 (f 1 (f 0 a x0) x1) x2) ] *)
 let foldi (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
   let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
   res
 
-(* maps on functions *)
+(* maps on functions TODO: find why not reusing maps *)
 module Fun_map = Map.Make(String)
 type 'a funmap = 'a Fun_map.t
 
@@ -523,12 +530,13 @@ let rec var_declarations (tl : trm list) : trm list =
   | t :: tl ->
      begin match t.desc with
      | Trm_decl (Def_var _) -> t :: var_declarations tl
-     (* take into account heap allocated variables *)
+     (* take into account heap allocated variables TODO: document better *)
      | Trm_seq _ when t.annot = Some Heap_allocated -> t :: var_declarations tl
      | _ -> var_declarations tl
      end
 
 (* true if x is used/defined in t *)
+(* LATER: useful generalization is to get the list of variables in t *)
 let is_used_var_in (t : trm) (x : var) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
@@ -559,6 +567,7 @@ let is_used_var_in (t : trm) (x : var) : bool =
   in
   aux t
 
+(* Check if the term t contains a call to function f *)
 let contains_call_to_fun (f : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
@@ -588,7 +597,9 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
   in
   aux t
 
-(* assumption: f is called only once in t *)
+(* assumption: f is called only once in t 
+  TODO check if this is indeed capturing the list of subterms that corresponds
+  to arguments of calls to the function f *)
 let fun_call_args (f : var) (t : trm) : trm list =
   let rec aux (t : trm) : trm list =
     match t.desc with
@@ -706,6 +717,7 @@ let for_loop_init (t : trm) : trm =
      end
   | _ -> fail t.loc "for_loop_init: expected for loop"
 
+(* return the lower bound of the for loop *)
 let for_loop_bound (t : trm) : trm =
   match t.desc with
   | Trm_for (_, cond, _, _) ->
@@ -723,6 +735,7 @@ let for_loop_bound (t : trm) : trm =
      end
   | _ -> fail t.loc "for_loop_bound: expected for loop"
 
+(* return the step increment of the for loop *)
 let for_loop_step (t : trm) : trm =
   match t.desc with
   | Trm_for (_, _, step, _) ->
@@ -797,8 +810,9 @@ let for_loop_nb_iter (t : trm) : trm =
        ]
 
 (*
-  find the type aliased by x if it exists
-  assumption: typedefs are toplevel
+  aliasd_type X takes as argument the description of a file
+  (that is a toplevel sequence), and it returns the type ty
+  associated via a "typedef ty X" if there is one such definition
  *)
 let rec aliased_type (x : typvar) (t : trm) : typ option =
   match t.desc with
@@ -814,6 +828,7 @@ let rec aliased_type (x : typvar) (t : trm) : typ option =
        tl
   | _ -> None
 
+(* Count the number of goto instructions targeting a given label, inside a term t *)
 let nb_goto (l : label) (t : trm) : int =
   let add (n : int) (m : int) : int = n + m in
   let sum (il : int list) : int = List.fold_left add 0 il in
@@ -863,5 +878,5 @@ let nb_goto (l : label) (t : trm) : int =
 
    ~annot:EncodedFor (e0; while (e1) { ebody; e2 })
     (prt<int> i = new int; i = i0); while ...
-
+ TODO :find out if this one is used.
 *)

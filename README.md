@@ -18,19 +18,40 @@
    sudo apt-get install opam
    opam switch create 4.11.0
    opam install dune clangml pprint
+   # (optional but recommended for vscode)
+   opam install merlin ocp-indent user-setup
 
    # Installation of vscode: https://code.visualstudio.com/download
    # ...download the .deb package and install it
 
    # OCaml syntax highlighting 
-   # New plugins to highlight the code  "Ocaml Platform" and "OCaml and Reason IDE"
+   # New plugins to highlight the code "OCaml and Reason IDE"
    # Type CTRL+P, then paste and execute the commande:
-   #    ext install hackwaly.ocaml
-   # Follow tip1 from the link above to associate *.ml files with OCaml.
+   #    ext install ocamllabs.ocaml-platform
+  
+   # As explained in https://www.cosmiccode.blog/blog/vscode-for-ocaml/
+   # for merlin to work well you need to update settings.json (global VS code settings)
+   # go to file/ settings, type "settings.json", then at the very bottom click "edit".
+  # with (make sure to get the path right depending on opam's version)
+```
+       {
+        "reason.path.ocamlmerlin": "bash -ic ~/.opam/4.11.0/bin/ocamlmerlin",
+        "reason.path.ocamlfind": "bash -ic ~/.opam/4.11.0/bin/ocamlfind",
+        "reason.path.ocpindent": "bash -ic ~/.opam/4.11.0/bin/ocp-indent",
+        "reason.diagnostics.tools": [
+          "merlin"
+        ],
+    }
+```
+
+   # 
    # (optional) Disable minimap: menu "View" / uncheck "Show Minimap".
 
    # (optional) Install VSCode C++ extension
    #     ext install ms-vscode.cpptools
+   #
+   # (optional) Install GitLens extension
+   #     ext install eamodio.gitlens
 ```
 
 # Setup
@@ -69,10 +90,8 @@ Execute `make && make install` at the root of the project.
 # Example
 
 ```
-  cp -R .vscode test_suite
-  cd test_suite
   code . &
-  # click on test_aosoa.ml in the list of files
+  # click on test_suite/aosoa.ml in the list of files
   # press F6 to execute the comparison
 ```
 

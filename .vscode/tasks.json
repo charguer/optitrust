@@ -8,6 +8,7 @@
             "type": "shell",
             "command": "./.vscode/add_exit_and_exec.sh",
             "args": [
+                "${fileDirname}",
                 "${fileBasenameNoExtension}",
                 "${lineNumber}",
                 ""
@@ -18,10 +19,20 @@
             "type": "shell",
             "command": "./.vscode/add_exit_and_exec.sh",
             "args": [
+                "${fileDirname}",
                 "${fileBasenameNoExtension}",
                 "${lineNumber}",
                 "-dump-trace"
             ]
+        },
+        {
+            "label": "Run make and make install",
+            "type": "shell",
+            "command": "./.vscode/run_make.sh",
+            "args": [
+                
+            ]
         }
+
     ]
 }

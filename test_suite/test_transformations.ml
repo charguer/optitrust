@@ -4,7 +4,7 @@ open ScriptTools
 let _ =
   run
     (fun () ->
-      set_init_source "test_swap_coordinates.cpp";
+      set_init_source "test_swap_coordinates/test_swap_coordinates.cpp";
       add_label "return_instr" [cInstrSubstr "return"];
       swap_coordinates "T";
       add_label "for_loop" [cFor ()];
@@ -14,7 +14,7 @@ let _ =
       split_loop ~keep_labels:true [cInstrSubstr ~regexp:true "^x ="];
       dump ();
       reset ();
-      set_init_source "test_array_tiling.c";
+      set_init_source "test_array_tiling/test_array_tiling.c";
       tile_array ~block_size:"2" "T";
       tile_array ~name:(fun x -> x ^ "_Stiled") ~block_size:"2" "S";
       let insert_before = [cSet ~rhs:[cStr "(2 * i)"] ()] in

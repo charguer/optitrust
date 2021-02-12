@@ -518,6 +518,7 @@ module Path_constructors =
     (*
       pl matches the instruction, p_next gives the continuation
       the continuation applies to all subsequent instructions
+      TODO: add documentation
      *)
     let (>>) (pl : path list) (p_next : path list) : path =
       (cList pl after_bool) ++ (List.flatten p_next)

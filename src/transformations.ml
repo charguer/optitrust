@@ -145,7 +145,7 @@ let rec list_insert (n : int) (a : 'a) (al : 'a list) : 'a list =
   if n < 0 then a :: al else List.hd al :: list_insert (n - 1) a (List.tl al)
 
 (*
-  insert insert after the subterm pointed at by dl in t
+  insert inert after the subterm pointed at by dl in t
   assumption: dl points at a seq element, thus ends with Dir_nth n
   if the inserted element must be first in the seq, use n < 0
  *)

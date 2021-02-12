@@ -15,7 +15,7 @@ open ScriptTools__Translate_ast
  *)
 let tests : (string * ((path list * (expl_path list)) list)) list =
   [
-    ("test_swap_coordinates.cpp",
+    ("test_swap_coordinates/test_swap_coordinates.cpp",
      [
        ([[cVarDef ~name:"t" ()] >> [cFor ~init:[cVar ~name:"j" ()] ()]],
         [

@@ -5,8 +5,8 @@ let _ =
     (fun () ->
       switch
         [
-          (fun () -> set_init_source "test.cpp");
-          (fun () -> set_init_source "test_accesses.cpp");
+          (fun () -> set_init_source "test/test.cpp");
+          (fun () -> set_init_source "test_accesses/test_accesses.cpp");
           (fun () -> set_init_source "testPIC/picGoal.cpp")
         ];
       dump ();
