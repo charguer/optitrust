@@ -4,14 +4,24 @@
 #    `make foo.out`  to execute the test `foo`
 #    `make foo.chk`  to check the result of the test `foo` against expected result
 #    `make V=`       for more verbose output
+#    `make f`        force rebuilding all (short for "make clean; make")
 #
 # foo.ml         describes a transformation on foo.cpp
 # foo.cpp        the source file for the transformation
 # foo_out.cpp    the output produced by the transformation
 # foo_exp.cpp    the expected output
 # foo.chk        an empty file created if foo_out.cpp match foo_exp.cpp
-
+# 
 #######################################################
+# How to create a new test
+# 
+# gedit foo.{ml,cpp} &
+# make foo.exp
+# git add foo{.ml,.cpp,_exp.cpp}
+# 
+#######################################################
+
+
 
 # verbosity flag
 V?=@
@@ -20,12 +30,14 @@ V?=@
 TESTS=$(wildcard *.ml)
 
 # CHECKS contains the list of targets to be produced
-CHECKS=$(FILES:.ml=.chk)
+CHECKS=$(TESTS:.ml=.chk)
 
 # The build command for compiling a script
-BUILD=ocamlbuild -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
+BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
 
 all: $(CHECKS)
+
+f: clean all
 
 .PRECIOUS: %.byte %_out.cpp %.chk
 
@@ -33,7 +45,7 @@ all: $(CHECKS)
 
 # Rule for executing one given test and comparing it to the expected result
 %.out: %_out.cpp %_exp.cpp
-	$(V)diff -q --ignore-space-change $^ || true
+	$(V)diff -q --ignore-space-change $^ && echo "===> Matches expected output <===" || true
 	$(V)cat $<
 
 # Rule for building .chk: compare the output and the expected output
@@ -49,6 +61,11 @@ all: $(CHECKS)
 %.byte: %.ml
 	$(V)$(BUILD) $@ 
 
+# Rule for producing the expected output file from the result
+%.exp: %_out.cpp
+	$(V)cp $< `basename -s .exp $@`_exp.cpp
+	@echo "Generated `basename -s .exp $@`_exp.cpp from $<"
+
 
 #######################################################
 # cleanup
@@ -56,7 +73,7 @@ all: $(CHECKS)
 clean:
 	$(V)rm -rf *_out.cpp *.byte *.chk
 	$(V)rm -rf _build
-	echo "Clean successful"
+	@echo "Clean successful"
 
 #######################################################
 
@@ -67,6 +84,7 @@ clean:
 # TODO Begatim: it would be nice that the rule for building %.byte has a dependency on
 # the opam library ScriptTools, so that after a "make install" we are not forced to
 # do a "make clean" by hand in this folder.
+
 
 
 
