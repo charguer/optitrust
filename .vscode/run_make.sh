@@ -2,4 +2,4 @@
 #Run make install
 
 
-make && make install
+make install && make clean
