@@ -160,6 +160,7 @@ let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
   in
   trace := List.flatten (List.rev new_trace)
 
+
 (******************************************************************************)
 (*                                   Output                                   *)
 (******************************************************************************)
@@ -172,6 +173,8 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     print_ast (* ~only_desc:true *) out_ast ast;
     output_string out_prog ctx.includes;
     ast_to_doc out_prog ast;
+    output_string out_ast "\n";
+    output_string out_prog "\n";
     close_out out_ast;
     close_out out_prog;
     (*
@@ -226,8 +229,8 @@ let exit_script () : unit =
 
 (*
   outputs code at each step using given prefix for filename
-  out_prefix_input.cpp is the program before transformation
-  out_prefix_output.cpp is the program after transformation
+  out_prefix_in.cpp is the program before transformation
+  out_prefix_out.cpp is the program after transformation
 *)
 let dump_trace ?(out_prefix : string = "") () : unit =
   let dump_stack (ctx : context) (out_prefix : string)
@@ -241,9 +244,9 @@ let dump_trace ?(out_prefix : string = "") () : unit =
     Stack.iter
       (fun ast ->
         if !i = 0 then
-          output_prog ctx (out_prefix ^ "_input") ast
+          output_prog ctx (out_prefix ^ "_in") ast
         else if !i = nbAst - 2 then
-          output_prog ctx (out_prefix ^ "_output") ast
+          output_prog ctx (out_prefix ^ "_out") ast
         else if !i = -1 then
           ()
         else
@@ -270,9 +273,20 @@ let dump ?(out_prefix : string = "") () : unit =
         let out_prefix =
           if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
         in
-        output_prog ctx (out_prefix ^ "_output") (Stack.top astStack)
+        output_prog ctx (out_prefix ^ "_out") (Stack.top astStack)
       )
       !trace
+
+(* Wrapper function for unit tests, assuming "foo.ml" to be a script
+   operating on "foo.cpp" and dumping the result in "foo_out.cpp" *)
+
+let run_unit_test (script : unit -> unit) : unit =
+  let basename = Filename.chop_extension Sys.argv.(0) in
+  run (fun () ->
+    set_init_source (basename ^ ".cpp");
+    script();
+    dump ()
+  )
 
 (******************************************************************************)
 (*                        Smart constructors for paths                        *)
