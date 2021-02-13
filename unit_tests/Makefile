@@ -71,7 +71,7 @@ f: clean all
 # cleanup
 
 clean:
-	$(V)rm -rf *_out.cpp *.byte *.chk
+	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

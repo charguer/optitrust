@@ -16,7 +16,8 @@ LINE=$3
 OPTIONS=$4
 
 cd ${DIRNAME}
-ocaml .vscode/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
+
+ocaml ../.vscode/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 
 # second step: build and execute the script
 ocamlbuild -pkgs clangml,refl,pprint,str,optiTrust.scriptTools "${FILEBASE}_with_exit.byte" || (echo "Cannot compile $1_with_exit.ml"; exit 1)
