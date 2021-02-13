@@ -1,5 +1,5 @@
 #!/bin/bash
-#Run make install
-
+#Run make install and clean after installing
 
 make install && make clean
+

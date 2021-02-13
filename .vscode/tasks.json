@@ -26,11 +26,30 @@
             ]
         },
         {
-            "label": "Run make and make install",
+            "label": "Run make install",
             "type": "shell",
             "command": "./.vscode/run_make.sh",
             "args": [
                 
+            ]
+        },
+        {
+            "label": "Run make foo.out",
+            "type":"shell",
+            "command":"./.vscode/run_make_foo.sh",
+            "args": [
+                "${fileDirname}",
+                "${fileBasenameNoExtension}",   
+            ]
+        },
+        {
+            "label": "Run make foo.chk",
+            "type":"shell",
+            "command":"./.vscode/run_make_foo.sh",
+            "args": [
+                "${fileDirname}",
+                "${fileBasenameNoExtension}",
+                "chk"   
             ]
         }
 
