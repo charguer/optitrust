@@ -1,11 +1,12 @@
 
 const int B = 8;
 
-// case of a variable sized array
+// Case of a variable sized array
 typedef int* T;
 T t;
 
-// case of a fixed sized array
+// Case of a fixed sized array
+// Below is the strange C syntax for saying that U is a shorthand for int[80]
 typedef int U[80];
 U u;
 

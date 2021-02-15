@@ -83,8 +83,8 @@ compile: $(CPP_SOURCES:.cpp=.prog) $(TESTS:.ml=_out.prog)
 .PRECIOUS: %.byte %_out.cpp %.chk
 
 # Rule for executing one given test and comparing it to the expected result
-%.out: %_out.cpp %_exp.cpp
-	$(V)$(DIFF) -q $^ && echo "===> Matches expected output <===" || true
+%.out: %_out.cpp
+	$(V)$(DIFF) -q $< `basename -s _out.cpp $<`_exp.cpp && echo "===> Matches expected output <===" || true
 	$(V)cat $<
 
 # Rule for building .chk: compare the output and the expected output
