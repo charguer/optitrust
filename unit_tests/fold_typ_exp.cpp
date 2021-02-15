@@ -4,11 +4,11 @@ typedef const double cdouble;
 
 typedef struct { uint x; uint y; } vect;
 
-typedef vect vect; // typedef to be removed
+typedef vect vect;
 
 typedef int[2][2] mat2x2;
 
-typedef int*** mat3d; // typedef to be removed
+typedef int*** mat3d;
 
 int main() {
    uint x;
@@ -19,4 +19,5 @@ int main() {
    mat3d M;
    mat3d* T;
 }
+
 

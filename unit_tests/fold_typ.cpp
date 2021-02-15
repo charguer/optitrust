@@ -4,7 +4,11 @@ typedef const double cdouble;
 
 typedef struct { unsigned int x; unsigned int y; } vect;
 
+typedef vect vect;
+
 typedef int[2][2] mat2x2;
+
+typedef int*** mat3d; 
 
 int main() {
    unsigned int x;
@@ -15,4 +19,5 @@ int main() {
    int*** M;
    int**** T;
 }
+
 
