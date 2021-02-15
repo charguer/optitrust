@@ -1,10 +1,22 @@
-/*
-    changes:
-      - replace the definition of x with:
-        + (ty[b])* if x is ty*
-        + ty[n/b][b] if x is ty[n]
-        in both cases: define ty[b] as block_name
-      - add a copy of each function taking an argument of type x and replace the
-        function calls with these copies
-      - replace array accesses a[i] for a of type x with a[i/b][i%b]
-   */
+
+const int B = 8;
+
+// case of a variable sized array
+typedef int* T;
+T t;
+
+// case of a fixed sized array
+typedef int U[80];
+U u;
+
+int main() {
+   int i;
+   int x = t[i];
+   int y = u[i];
+}
+
+
+// LATER: can this be generalized to the case where B is not a const?
+// i.e. making t go from int* to int**
+
+// LATER: can we generalize this to the case where the size is not perfectly divisible by B? not clear.
