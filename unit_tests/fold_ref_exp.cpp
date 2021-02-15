@@ -13,7 +13,7 @@ int main() {
    a = 9;
 
    // inline reference on matrix cell
-   int m[3][3];
+   int m[3][3] ;
    int& b = m[1][1];
    int r3 = b + b;
    b = 9;

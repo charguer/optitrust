@@ -15,12 +15,11 @@
 # 
 
 
-#######################################################
+############################################# stat##########
 # How to create a new test
 # 
 # # If the transformation is already implemented
-#  
-# NAME=testname
+#  r
 # gedit ${NAME}.{ml,cpp} &
 # make ${NAME}.exp
 # git add ${NAME}{.ml,.cpp,_exp.cpp}
@@ -37,12 +36,7 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML=label_add.ml label_rem.ml extract_loop_var.ml
-
-# List of tests that are not ready to check for compilation
-EXCLUDE_CPP=
-
-# verbosity flag
+EXCLUDE_ML=label_add.ml label_rem.ml er
 V?=@
 
 # verbosity of C file checking
