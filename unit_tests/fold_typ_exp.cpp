@@ -6,16 +6,16 @@ typedef struct { uint x; uint y; } vect;
 
 typedef vect vect;
 
-typedef int[2][2] mat2x2;
+typedef int** mat2d;
 
 typedef int*** mat3d;
 
 int main() {
    uint x;
-   uint v[3];
-   cdouble y1, t2;
+   uint t[3];
+   cdouble y1 = 1.0, t2 = 2.0;
    vect v;
-   mat2x2 m;
+   mat2d m;
    mat3d M;
    mat3d* T;
 }

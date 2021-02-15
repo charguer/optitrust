@@ -6,16 +6,16 @@ typedef struct { unsigned int x; unsigned int y; } vect;
 
 typedef vect vect;
 
-typedef int[2][2] mat2x2;
+typedef int** mat2d;
 
-typedef int*** mat3d; 
+typedef int*** mat3d; // to be folded before mat2d, else M would be of type mat2d*
 
 int main() {
    unsigned int x;
-   unsigned int v[3];
-   const double y1, y2;
+   unsigned int t[3];
+   const double y1 = 1.0, y2 = 2.0;
    vect v;
-   int[2][2] m;
+   int** m;
    int*** M;
    int**** T;
 }

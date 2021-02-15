@@ -4,7 +4,8 @@ int f(int a, int b) {
 }
 
 int main() {
-  const int x, y;
+  const int x = 1;
+  const int y = 2;
 
   // folding 's1', which is a constant arithmetic expression
   const int s1 = x*y;

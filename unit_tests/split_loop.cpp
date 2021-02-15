@@ -1,4 +1,5 @@
-int* t,u;
+int* t;
+int* u;
 int n;
 
 int main() {

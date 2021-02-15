@@ -7,19 +7,19 @@ int main() {
    y = 9;
 
    // inline reference on array cell
-   int[2] t = { 4, 5 };
-   int& a = &t[1];
+   int t[2] = { 4, 5 };
+   int& a = t[1];
    int r2 = a + a;
    a = 9;
 
    // inline reference on matrix cell
-   int[3][3] m;
+   int m[3][3];
    int& b = m[1][1];
    int r3 = b + b;
    b = 9;
 
-   // inline reference on matrix row
-   int& v = m[0];
+   // inline reference on matrix row // LATER: could move to a different unit test
+   int* v = m[0];
    int r4 = v[2];
    v[1] = 9;
 }

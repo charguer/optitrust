@@ -12,6 +12,8 @@
 # foo_exp.cpp    the expected output
 # foo.chk        an empty file created if foo_out.cpp match foo_exp.cpp
 # 
+
+
 #######################################################
 # How to create a new test
 # 
@@ -28,15 +30,26 @@
 # gedit ${NAME}{.cpp,_exp.cpp} &
 # git add ${NAME}{.cpp,_exp.cpp}
 # 
+
+
 #######################################################
+# Parameters
 
+# List of tests that are not ready to include in the benchmark
+EXCLUDE_ML=label_add.ml label_rem.ml
 
+# List of tests that are not ready to check for compilation
+EXCLUDE_CPP=
 
 # verbosity flag
 V?=@
 
+
+#######################################################
+# File lists
+
 # TESTS contains the list of ml transformation scripts
-TESTS=$(wildcard *.ml)
+TESTS=$(filter-out $(EXCLUDE_ML), $(wildcard *.ml))
 
 # CHECKS contains the list of targets to be produced
 CHECKS=$(TESTS:.ml=.chk)
@@ -44,13 +57,30 @@ CHECKS=$(TESTS:.ml=.chk)
 # The build command for compiling a script
 BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
 
-all: $(CHECKS)
+# List of cpp files found in the folder
+CPP_SOURCES=$(filter-out $(EXCLUDE_CPP), $(wildcard *.cpp))
 
-f: clean all
-
-.PRECIOUS: %.byte %_out.cpp %.chk
 
 #######################################################
+# Targets
+
+# 'make all' runs each of the unit tests
+all: transfo compile
+
+transfo: $(CHECKS)
+
+# 'make f' forces clean before 'make all'
+f: clean all
+
+# make 'compile' checks that the cpp files commited and generated all compile
+compile: $(CPP_SOURCES:.cpp=.prog) $(TESTS:.ml=_out.prog)
+
+
+#######################################################
+# Rules
+
+# Instruction to keep intermediate files 
+.PRECIOUS: %.byte %_out.cpp %.chk
 
 # Rule for executing one given test and comparing it to the expected result
 %.out: %_out.cpp %_exp.cpp
@@ -75,22 +105,26 @@ f: clean all
 	$(V)cp $< `basename -s .exp $@`_exp.cpp
 	@echo "Generated `basename -s .exp $@`_exp.cpp from $<"
 
+# Rule for checking that a file compiles
+%.prog: %.cpp
+	@gcc -c -std=c++11 $< -o $@
+	@echo "Compiled $< successfully"
+
+# LATER: we might want to activate more warnings, e.g.
+# MOREWARNINGS=-Wall -Wno-unused-variable -Wunused-but-set-variable 
+
 
 #######################################################
-# cleanup
+# Cleanup
 
 clean:
-	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out
+	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
 #######################################################
 
-# TODO Begatim: have a vscode shortcurt so that from either the foo.ml or the foo.cpp file,
-# typing the shortcut would execute the command
-# make foo.out 
-
-# TODO Begatim: it would be nice that the rule for building %.byte has a dependency on
+# LATER: it would be nice that the rule for building %.byte has a dependency on
 # the opam library ScriptTools, so that after a "make install" we are not forced to
 # do a "make clean" by hand in this folder.
 
