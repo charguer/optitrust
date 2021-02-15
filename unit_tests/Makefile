@@ -4,6 +4,7 @@
 #    `make foo.out`  to execute the test `foo`
 #    `make foo.chk`  to check the result of the test `foo` against expected result
 #    `make V=`       for more verbose output
+#    `make VC=`      for more verbose output only for checking C++ compilation
 #    `make f`        force rebuilding all (short for "make clean; make")
 #
 # foo.ml         describes a transformation on foo.cpp
@@ -36,7 +37,7 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML=label_add.ml label_rem.ml
+EXCLUDE_ML=label_add.ml label_rem.ml extract_loop_var.ml
 
 # List of tests that are not ready to check for compilation
 EXCLUDE_CPP=
@@ -44,6 +45,8 @@ EXCLUDE_CPP=
 # verbosity flag
 V?=@
 
+# verbosity of C file checking
+VC?=no
 
 #######################################################
 # File lists
@@ -89,8 +92,8 @@ compile: $(CPP_SOURCES:.cpp=.prog) $(TESTS:.ml=_out.prog)
 
 # Rule for building .chk: compare the output and the expected output
 %.chk: %_out.cpp %_exp.cpp 
-	$(V)   (diff -q --ignore-space-change $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
-	|| (echo "$< does not match the expected result:" && diff --ignore-space-change $^ || true)
+	$(V) (diff -q --ignore-space-change $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
+	|| (echo "$< does not match the expected result:" && diff --ignore-space-change $^)
 
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
 %_out.cpp: %.byte %.cpp
@@ -108,7 +111,9 @@ compile: $(CPP_SOURCES:.cpp=.prog) $(TESTS:.ml=_out.prog)
 # Rule for checking that a file compiles
 %.prog: %.cpp
 	@gcc -c -std=c++11 $< -o $@
-	@echo "Compiled $< successfully"
+ifeq ($(VC),)
+	$(VC)@echo "Compiled $< successfully"
+endif
 
 # LATER: we might want to activate more warnings, e.g.
 # MOREWARNINGS=-Wall -Wno-unused-variable -Wunused-but-set-variable 
