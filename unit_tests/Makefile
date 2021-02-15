@@ -15,9 +15,18 @@
 #######################################################
 # How to create a new test
 # 
-# gedit foo.{ml,cpp} &
-# make foo.exp
-# git add foo{.ml,.cpp,_exp.cpp}
+# # If the transformation is already implemented
+#  
+# NAME=testname
+# gedit ${NAME}.{ml,cpp} &
+# make ${NAME}.exp
+# git add ${NAME}{.ml,.cpp,_exp.cpp}
+#
+# 
+# # If the transformation is not yet implemented
+# NAME=testname
+# gedit ${NAME}{.cpp,_exp.cpp} &
+# git add ${NAME}{.cpp,_exp.cpp}
 # 
 #######################################################
 
