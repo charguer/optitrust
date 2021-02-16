@@ -12,6 +12,7 @@ int f(int n) {
 void stack_var() {
   int r = 3;
   r = r + 1;
+  r += 2;
   r++;
   int s = f(r);
 }
