@@ -39,11 +39,11 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML=label_add.ml label_rem.ml inline_seq.ml fold_ref.ml inline_typ.ml swap_coords_fixed.ml fold_var.ml
+EXCLUDE_ML=label_add.ml label_rem.ml inline_seq.ml fold_ref.ml inline_typ.ml swap_coords_vari.ml swap_coords_fixed.ml fold_var.ml inline_ref.ml fold_typ.ml split_seq.ml inline_fun_vect.ml inline_var.ml inline_fun_vect.ml
 V?=@
 
 # List of CPP files that are not meant to be compiled
-EXCLUDE_CPP=ast_encoding_out.cpp ast_encoding_exp.cpp
+EXCLUDE_CPP=ast_encoding_out.cpp ast_encoding_exp.cpp inline_fun_vect_exp.cpp
 
 # verbosity of C file checking
 VC?=no
