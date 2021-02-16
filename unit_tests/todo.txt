@@ -1,0 +1,15 @@
+
+LATER (nor urgent): add tests for combined transformations:
+- insert_and_fold
+- split_loop
+- insert_and_fold_typedef
+
+TODO BEGATIM: add unit tests for testing insertion of declaration of:
+- type definitions
+- const definitions
+- variable definitions
+- arbitrary code
+ (at a specified location, e.g. just before or after another specific definition)
+// insert_decl, insert_const, insert_typedef
+
+

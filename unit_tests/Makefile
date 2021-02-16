@@ -54,6 +54,9 @@ CHECKS=$(TESTS:.ml=.chk)
 # The build command for compiling a script
 BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
 
+# The command for calling diff
+DIFF=diff --ignore-space-change -I '^//'
+
 # List of cpp files found in the folder
 CPP_SOURCES=$(filter-out $(EXCLUDE_CPP), $(wildcard *.cpp))
 
@@ -86,8 +89,8 @@ compile: $(CPP_SOURCES:.cpp=.prog) $(TESTS:.ml=_out.prog)
 
 # Rule for building .chk: compare the output and the expected output
 %.chk: %_out.cpp %_exp.cpp 
-	$(V) (diff -q --ignore-space-change $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
-	|| (echo "$< does not match the expected result:" && diff --ignore-space-change $^)
+	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
+	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
 
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
 %_out.cpp: %.byte %.cpp
@@ -127,6 +130,10 @@ clean:
 # the opam library ScriptTools, so that after a "make install" we are not forced to
 # do a "make clean" by hand in this folder.
 
+# TRICK: for viewing the encoding associated with an output file
+# NAME=aos_to_soa ; make clean && make ${NAME}.out && echo "--------------" && cat ${NAME}_out_enc.cpp  
+#
+# to view the encoding associated with an input file, make the .ml file perform no transformation.
 
 
 

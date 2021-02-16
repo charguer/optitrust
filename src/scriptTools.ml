@@ -165,30 +165,47 @@ let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
 (*                                   Output                                   *)
 (******************************************************************************)
 
-(* write ast and code in given file *)
+(* clean up a C++ file using clang format *)
+let cleanup_cpp_file_using_clang_format filename =
+   ignore (Sys.command ("clang-format -i " ^ filename))
+
+(* Dump a program in: raw ast format; in undecoded C++ format; in decoded C++ format;
+   The C code are pretty-printed using the clang-format tool. *)
+(* LATER: find a way to remove extra parentheses
+   other possibility: use operator priorities in ast_to_doc to determine when
+   to put parentheses *)
 let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
-  let out_ast = open_out (out_prefix ^ ".ast") in
-  let out_prog = open_out (out_prefix ^ ctx.extension) in
+  let file_ast = out_prefix ^ ".ast" in
+  let file_enc = out_prefix ^ "_enc" ^ ctx.extension in
+  let file_prog = out_prefix ^ ctx.extension in
+  let out_ast = open_out file_ast in
+  let out_enc = open_out file_enc in
+  let out_prog = open_out file_prog in
+  let close_channels() =
+    close_out out_ast;
+    close_out out_enc;
+    close_out out_prog
+    in
   try
+    (* print the raw ast *)
     print_ast (* ~only_desc:true *) out_ast ast;
+    output_string out_ast "\n";
+    (* print C++ code without decoding *)
+    output_string out_enc ctx.includes;
+    ast_to_undecoded_doc out_enc ast;
+    output_string out_enc "\n";
+    (* print C++ code with decoding *)
     output_string out_prog ctx.includes;
     ast_to_doc out_prog ast;
-    output_string out_ast "\n";
     output_string out_prog "\n";
-    close_out out_ast;
-    close_out out_prog;
-    (*
-      clean up the format of the output code
-      todo: find a way to remove extra parentheses
-      other possibility: use operator priorities in ast_to_doc to determine when
-      to put parentheses
-     *)
-    let _ = Sys.command ("clang-format -i " ^ out_prefix ^ ctx.extension) in ()
+    close_channels();
+    (* beautify the C++ code *)
+    cleanup_cpp_file_using_clang_format file_enc;
+    cleanup_cpp_file_using_clang_format file_prog
   with
   | Failure s ->
-     close_out out_ast;
-     close_out out_prog;
-     failwith s
+      close_channels();
+      failwith s
 
 (* print ast in temporary file and parse it again *)
 let reparse (ctx : context) (ast : trm) : trm =
