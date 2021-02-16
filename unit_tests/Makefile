@@ -130,6 +130,10 @@ clean:
 # the opam library ScriptTools, so that after a "make install" we are not forced to
 # do a "make clean" by hand in this folder.
 
+# TRICK: for viewing the encoding associated with an output file
+# NAME=aos_to_soa ; make clean && make ${NAME}.out && echo "--------------" && cat ${NAME}_out_enc.cpp  
+#
+# to view the encoding associated with an input file, make the .ml file perform no transformation.
 
 
 

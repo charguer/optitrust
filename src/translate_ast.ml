@@ -1,6 +1,11 @@
 open PPrint
 open Ast
 
+(* Flag to control whether we should "decode" or not the encodings
+   that were performed when converting from Clang AST to our AST.
+   This global reference is to be accessed only from this file. *)
+let decode = ref true
+
 (* translate an ast to a C/C++ document *)
 (* todo: option to print heap allocation patterns *)
 
@@ -209,8 +214,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         end
      | Trm_seq tl ->
         begin match t.annot with
-        | Some Heap_allocated -> dattr ^^ heap_alloc_to_doc ~semicolon tl
-        | Some Delete_instructions ->
+        | Some Heap_allocated when !decode ->
+           dattr ^^ heap_alloc_to_doc ~semicolon tl
+        | Some Delete_instructions when !decode ->
            (*
              two cases:
              - return instruction preceded by delete instructions
@@ -246,7 +252,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
             *)
            let display_star =
              match t.annot with
-             | Some Heap_allocated | Some Access -> false
+             | (Some Heap_allocated | Some Access) when !decode -> false
              | _ -> true
            in
            dattr ^^ apps_to_doc ~display_star f tl ^^ dsemi
@@ -459,7 +465,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
               | Unop_inc -> d ^^ twice plus
               | Unop_dec -> d ^^ twice minus
               | Unop_struct_get f
-                | Unop_struct_access f ->
+              | Unop_struct_access f ->
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -472,7 +478,10 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)
                     end
                  (* in the other cases, we simply display t.f *)
-                 | _ -> parens (d ^^ dot ^^ string f)
+                 | _ ->
+                    let body = d ^^ dot ^^ string f in
+                    let ebody = if !decode then body else string "&" ^^ parens body in
+                    parens ebody
                  end
               | Unop_delete b ->
                  let arrd = if b then brackets empty else empty in
@@ -573,6 +582,13 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
 
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (trm_to_doc t)
+
+(* To obtain the C++ code without decoding, we temporary set the flag
+   "decode" (defined at the top of this file) to false. *)
+let ast_to_undecoded_doc (out : out_channel) (t : trm) : unit =
+  decode := false;
+  ast_to_doc out t;
+  decode := true
 
 let ast_to_string (t : trm) : string =
   let b = Buffer.create 80 in

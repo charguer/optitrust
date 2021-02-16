@@ -49,7 +49,7 @@ and typ = {ty_desc : typ_desc;
            ty_annot : typ_annot list;
            ty_attributes : attribute list}
 
-and typed_var = var * typ 
+and typed_var = var * typ
 
 (* accesses in arrays/structures *)
 and access =
@@ -123,7 +123,7 @@ and value =
   (* LATER: add functions, which are also values that can be created at execution time *)
 
 (* annotations are used to decorate this AST when it is built from the
-   Clang AST in such a way to be able to print back the AST like the original C code. 
+   Clang AST in such a way to be able to print back the AST like the original C code.
   TODO: refer to the list of encodings that are applied. *)
 and trm_annot =
   (* for declaration and elimination of heap allocated variables
@@ -377,7 +377,7 @@ type trm_access =
   | Array_access of trm (* operator [i] *)
   | Struct_access of field (* operator .f *)
 
-(* TODO: add documentation  
+(* TODO: add documentation
   compute_accesses t = (base, access list) where the succession of accesses
   applied to base gives t
   the list is nil if t is not a succession of accesses
@@ -404,7 +404,7 @@ let rec compute_accesses (t : trm) : trm * (trm_access list) =
 
 let (++) = List.append
 
-(* fold left with access to the indices 
+(* fold left with access to the indices
   [foldi f a xs] computes  [ f 2 (f 1 (f 0 a x0) x1) x2) ] *)
 let foldi (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
   let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
@@ -597,7 +597,7 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
   in
   aux t
 
-(* assumption: f is called only once in t 
+(* assumption: f is called only once in t
   TODO check if this is indeed capturing the list of subterms that corresponds
   to arguments of calls to the function f *)
 let fun_call_args (f : var) (t : trm) : trm list =
