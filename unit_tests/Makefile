@@ -39,7 +39,7 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML=label_add.ml label_rem.ml inline_seq.ml fold_ref.ml inline_typ.ml
+EXCLUDE_ML=label_add.ml label_rem.ml inline_seq.ml fold_ref.ml inline_typ.ml swap_coords_fixed.ml fold_var.ml
 V?=@
 
 # List of CPP files that are not meant to be compiled
