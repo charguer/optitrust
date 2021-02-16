@@ -7,7 +7,3 @@ open ScriptTools
 
 let _ = run_unit_test ~ast_decode:false (fun () -> ())
 
-
-(* TODO: there seems to be a few errors:
-  - when vect v is a function argument, v.x should be displayed as v.x, not as &(v.x).
-  *)

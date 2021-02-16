@@ -180,14 +180,16 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
                    is_instr = t.is_instr; add = addl; typ = t.typ;
                    attributes = []}
      in
-     dattr ^^ parens (ampersand ^^ d) ^^ dsemi
-  | Add_star_operator :: addl ->
+     let body = if !decode then parens (ampersand ^^ d) else d in
+     dattr ^^ body ^^ dsemi
+  | Add_star_operator :: addl when !decode ->
      let d =
        trm_to_doc {desc = t.desc; annot = t.annot; loc = t.loc;
                    is_instr = t.is_instr; add = addl; typ = t.typ;
                    attributes = []}
      in
-     dattr ^^ parens (star ^^ d) ^^ dsemi
+     let body = if !decode then parens (star ^^ d) else d in
+     dattr ^^ body ^^ dsemi
   | _ ->
      begin match t.desc with
      | Trm_val v ->
