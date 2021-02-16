@@ -295,14 +295,18 @@ let dump ?(out_prefix : string = "") () : unit =
       !trace
 
 (* Wrapper function for unit tests, assuming "foo.ml" to be a script
-   operating on "foo.cpp" and dumping the result in "foo_out.cpp" *)
+   operating on "foo.cpp" and dumping the result in "foo_out.cpp".
+   The option ast_decode can be used for tests that want to report on
+   the "undecoded AST", by copying "foo_out_enc.cpp" onto "foo_out.cpp" *)
 
-let run_unit_test (script : unit -> unit) : unit =
+let run_unit_test ?(ast_decode : bool = true) (script : unit -> unit) : unit =
   let basename = Filename.chop_extension Sys.argv.(0) in
   run (fun () ->
     set_init_source (basename ^ ".cpp");
     script();
-    dump ()
+    dump ();
+    if not ast_decode
+      then ignore (Sys.command (Printf.sprintf "cp %s_out_enc.cpp %s_out.cpp" basename basename))
   )
 
 (******************************************************************************)

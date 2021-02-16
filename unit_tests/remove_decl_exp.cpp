@@ -1,6 +1,6 @@
-typedef int* U;
+typedef int *U;
 
-int x; // TODO: remove this when bug is fixed
+int x;
 
 int y;
 

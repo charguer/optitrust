@@ -2,7 +2,7 @@
 
 val run : (unit -> unit) -> unit
 
-val run_unit_test : (unit -> unit) -> unit
+val run_unit_test : ?ast_decode:bool -> (unit -> unit) -> unit
 
 val reset : unit -> unit
 

@@ -36,8 +36,11 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML=label_add.ml label_rem.ml er
+EXCLUDE_ML=label_add.ml label_rem.ml inline_seq.ml
 V?=@
+
+# List of CPP files that are not meant to be compiled
+EXCLUDE_CPP=ast_encoding_out.cpp ast_encoding_exp.cpp
 
 # verbosity of C file checking
 VC?=no
@@ -57,9 +60,9 @@ BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
 # The command for calling diff
 DIFF=diff --ignore-space-change -I '^//'
 
-# List of cpp files found in the folder
-CPP_SOURCES=$(filter-out $(EXCLUDE_CPP), $(wildcard *.cpp))
-
+# List of cpp files found in the folder, exclude *_enc.cpp, and those from EXCLUDE_CPP
+CPP_SOURCES_ALL=$(wildcard *.cpp) $(TESTS:.ml=_out.cpp)
+CPP_SOURCES=$(filter-out $(EXCLUDE_CPP), $(filter-out %_enc.cpp, $(CPP_SOURCES_ALL)))
 
 #######################################################
 # Targets
@@ -73,7 +76,7 @@ transfo: $(CHECKS)
 f: clean all
 
 # make 'compile' checks that the cpp files commited and generated all compile
-compile: $(CPP_SOURCES:.cpp=.prog) $(TESTS:.ml=_out.prog)
+compile: $(CPP_SOURCES:.cpp=.prog)
 
 
 #######################################################
@@ -120,7 +123,7 @@ endif
 # Cleanup
 
 clean:
-	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog
+	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
