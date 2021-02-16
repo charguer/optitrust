@@ -12,6 +12,7 @@ int f(int n) {
 void stack_var() {
   int r = 3;
   r = r + 1;
+  r += 2;
   r++;
   int s = f(r);
 }
@@ -25,14 +26,14 @@ void stack_var() {
 // In the AST, the operation &t[i] is the application of the primitive
 // binary operation "Binop_array_access" to the argument t and i.
 
-// Likewise,  t.x  is decomposed as *(&t.x), which involves the primitive
-// unary operator "Unop_struct_access x" applied to the argument t.
-
 void stack_array() {
   int t[2] = { 5, 6 };
   int a = t[0];
   t[1] = a + 2;
 }
+
+// Likewise,  t.x  is decomposed as *(&t.x), which involves the primitive
+// unary operator "Unop_struct_access x" applied to the argument t.
 
 void stack_struct() {
   vect v = { 5, 6 };
@@ -40,6 +41,36 @@ void stack_struct() {
   v.y = a + 2;
   vect v2 = v;
 }
+
+// References: not yet implemented
+/*
+void references() {
+  int a = 3;
+  int& b = a;
+  b = b + 4;
+}
+*/
+
+void constants() {
+  const int a = 3;
+  const int b = a + 3;
+  int c = b + 4;
+}
+
+typedef int* intstar;
+
+void const_pointers() {
+  int a = 3;
+  const intstar b = &a;
+  const int c = *b + 4;
+}
+
+void nonconst_pointers() {
+  int a = 3;
+  int* b = &a;
+  *b = *b + 4;
+}
+
 
 // When arrays are passed by values, they are not heap allocated.
 // They are values, out of which it is possible to directly read a value

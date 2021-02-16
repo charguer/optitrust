@@ -180,14 +180,16 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
                    is_instr = t.is_instr; add = addl; typ = t.typ;
                    attributes = []}
      in
-     dattr ^^ parens (ampersand ^^ d) ^^ dsemi
-  | Add_star_operator :: addl ->
+     let body = if !decode then parens (ampersand ^^ d) else d in
+     dattr ^^ body ^^ dsemi
+  | Add_star_operator :: addl when !decode ->
      let d =
        trm_to_doc {desc = t.desc; annot = t.annot; loc = t.loc;
                    is_instr = t.is_instr; add = addl; typ = t.typ;
                    attributes = []}
      in
-     dattr ^^ parens (star ^^ d) ^^ dsemi
+     let body = if !decode then parens (star ^^ d) else d in
+     dattr ^^ body ^^ dsemi
   | _ ->
      begin match t.desc with
      | Trm_val v ->
@@ -462,10 +464,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
-              | Unop_inc -> d ^^ twice plus
-              | Unop_dec -> d ^^ twice minus
-              | Unop_struct_get f
-              | Unop_struct_access f ->
+              | Unop_inc when !decode -> d ^^ twice plus
+              | Unop_inc (* when not !decode *) -> string "operator++(" ^^ d ^^ string ")"
+              | Unop_dec when !decode -> d ^^ twice minus
+              | Unop_dec (* when not !decode *) -> string "operator--(" ^^ d ^^ string ")"
+              | (Unop_struct_get f | Unop_struct_access f) when !decode ->
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -479,10 +482,12 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     end
                  (* in the other cases, we simply display t.f *)
                  | _ ->
-                    let body = d ^^ dot ^^ string f in
-                    let ebody = if !decode then body else string "&" ^^ parens body in
-                    parens ebody
+                    parens (d ^^ dot ^^ string f)
                  end
+              | Unop_struct_get f (* when not !decode *) ->
+                  parens (d ^^ dot ^^ string f)
+              | Unop_struct_access f (* when not !decode *) ->
+                  string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
               | Unop_delete b ->
                  let arrd = if b then brackets empty else empty in
                  string "delete" ^^ arrd ^^ blank 1 ^^ d
@@ -500,7 +505,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
               let d2 = trm_to_doc t2 in
               begin match op with
               | Binop_set ->
-                 if not is_app_and_set then
+                 if not !decode then
+                   string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+                 else if not is_app_and_set then
                    separate (blank 1) [d1; equals; d2]
                  else
                    begin match t2.desc with
@@ -551,8 +558,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                  parens (separate (blank 1) [d1; ampersand; d2])
               | Binop_or -> parens (separate (blank 1) [d1; twice bar; d2])
               | Binop_bitwise_or -> parens (separate (blank 1) [d1; bar; d2])
-              | Binop_array_access
-                | Binop_array_get ->
+              | Binop_array_access when !decode ->
+                  d1 ^^ brackets (d2)
+              | Binop_array_access (* when not !decode *) ->
+                  string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+              | Binop_array_get ->
                  d1 ^^ brackets (d2)
               | Binop_shiftl ->
                  parens (separate (blank 1) [d1; twice langle; d2])
