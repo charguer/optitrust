@@ -87,7 +87,7 @@ compile: $(CPP_SOURCES:.cpp=.prog)
 
 # Rule for executing one given test and comparing it to the expected result
 %.out: %_out.cpp
-	$(V)$(DIFF) -q $< `basename -s _out.cpp $<`_exp.cpp && echo "===> Matches expected output <===" || true
+	$(V)diff -q --ignore-space-change $^ `basename -s _out.cpp $<`_exp.cpp && echo "===> Matches expected output <===" || true
 	$(V)cat $<
 
 # Rule for building .chk: compare the output and the expected output

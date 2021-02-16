@@ -3,9 +3,9 @@
 const int N = 10;
 const int M = 20;
 
-typedef int T;
+typedef int T[N][M];
 
-T t[N][M];
+T t;
 
 int main() {
   int i = 0;
