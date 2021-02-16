@@ -6,6 +6,9 @@
 #    `make V=`       for more verbose output
 #    `make VC=`      for more verbose output only for checking C++ compilation
 #    `make f`        force rebuilding all (short for "make clean; make")
+#    `make foo.meld` opens meld to compare the output with the expected output 
+#
+#         tip: in meld, activate: file / preference / text filters / all whitespace
 #
 # foo.ml         describes a transformation on foo.cpp
 # foo.cpp        the source file for the transformation
@@ -19,7 +22,7 @@
 # How to create a new test
 # 
 # # If the transformation is already implemented
-#  r
+#  
 # gedit ${NAME}.{ml,cpp} &
 # make ${NAME}.exp
 # git add ${NAME}{.ml,.cpp,_exp.cpp}
@@ -36,7 +39,7 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML=label_add.ml label_rem.ml inline_seq.ml
+EXCLUDE_ML=label_add.ml label_rem.ml inline_seq.ml fold_ref.ml inline_typ.ml
 V?=@
 
 # List of CPP files that are not meant to be compiled
@@ -58,7 +61,7 @@ CHECKS=$(TESTS:.ml=.chk)
 BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
 
 # The command for calling diff
-DIFF=diff --ignore-space-change -I '^//'
+DIFF=diff --ignore-blank-lines --ignore-space-change -I '^//'
 
 # List of cpp files found in the folder, exclude *_enc.cpp, and those from EXCLUDE_CPP
 CPP_SOURCES_ALL=$(wildcard *.cpp) $(TESTS:.ml=_out.cpp)
@@ -114,6 +117,9 @@ compile: $(CPP_SOURCES:.cpp=.prog)
 ifeq ($(VC),)
 	$(VC)@echo "Compiled $< successfully"
 endif
+
+%.meld: %_out.cpp %_exp.cpp
+	meld $^
 
 # LATER: we might want to activate more warnings, e.g.
 # MOREWARNINGS=-Wall -Wno-unused-variable -Wunused-but-set-variable 
