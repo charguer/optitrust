@@ -20,3 +20,15 @@
    delete_labels ~regexp:true ["incr_.*"; "loop"; "stop"]
 
 *)
+
+open ScriptTools
+
+let _ = 
+   run
+   ( fun _ -> 
+      set_init_source"label_rem.cpp";
+      delete_labels ["loop"; "cond";"incr_1";"incr_2";"stop"];
+      add_label "condincr" [cIf ~then_:[cVar ~name:"x++" ()] ()] ;
+      dump()
+
+   )
