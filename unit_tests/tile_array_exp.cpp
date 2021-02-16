@@ -1,11 +1,15 @@
 const int B = 8;
 
 typedef int X[B];
+
 typedef X *T;
+
 T t;
 
 typedef int Y[B];
+
 typedef Y U[(80 / B)];
+
 U u;
 
 int main() {

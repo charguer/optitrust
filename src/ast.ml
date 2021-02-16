@@ -51,7 +51,7 @@ and typ = {ty_desc : typ_desc;
 
 and typed_var = var * typ
 
-(* accesses in arrays/structures *)
+(* accesses in arrays/structures *) (* TODO: this does not appear to be used *)
 and access =
   | Access_array of typ * int  (* the "[i]" operator, with result of type T *)
   | Access_field of typ * access (* the ".f" operator, with result of type T *)

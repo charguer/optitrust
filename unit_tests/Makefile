@@ -6,6 +6,9 @@
 #    `make V=`       for more verbose output
 #    `make VC=`      for more verbose output only for checking C++ compilation
 #    `make f`        force rebuilding all (short for "make clean; make")
+#    `make foo.meld` opens meld to compare the output with the expected output 
+#
+#         tip: in meld, activate: file / preference / text filters / all whitespace
 #
 # foo.ml         describes a transformation on foo.cpp
 # foo.cpp        the source file for the transformation
@@ -19,7 +22,7 @@
 # How to create a new test
 # 
 # # If the transformation is already implemented
-#  r
+#  
 # gedit ${NAME}.{ml,cpp} &
 # make ${NAME}.exp
 # git add ${NAME}{.ml,.cpp,_exp.cpp}
@@ -36,8 +39,11 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML=label_add.ml label_rem.ml er
+EXCLUDE_ML=label_add.ml label_rem.ml inline_seq.ml fold_ref.ml inline_typ.ml swap_coords_vari.ml swap_coords_fixed.ml fold_var.ml inline_ref.ml fold_typ.ml split_seq.ml inline_fun_vect.ml inline_var.ml inline_fun_vect.ml
 V?=@
+
+# List of CPP files that are not meant to be compiled
+EXCLUDE_CPP=ast_encoding_out.cpp ast_encoding_exp.cpp inline_fun_vect_exp.cpp
 
 # verbosity of C file checking
 VC?=no
@@ -55,11 +61,11 @@ CHECKS=$(TESTS:.ml=.chk)
 BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
 
 # The command for calling diff
-DIFF=diff --ignore-space-change -I '^//'
+DIFF=diff --ignore-blank-lines --ignore-space-change -I '^//'
 
-# List of cpp files found in the folder
-CPP_SOURCES=$(filter-out $(EXCLUDE_CPP), $(wildcard *.cpp))
-
+# List of cpp files found in the folder, exclude *_enc.cpp, and those from EXCLUDE_CPP
+CPP_SOURCES_ALL=$(wildcard *.cpp) $(TESTS:.ml=_out.cpp)
+CPP_SOURCES=$(filter-out $(EXCLUDE_CPP), $(filter-out %_enc.cpp, $(CPP_SOURCES_ALL)))
 
 #######################################################
 # Targets
@@ -73,7 +79,7 @@ transfo: $(CHECKS)
 f: clean all
 
 # make 'compile' checks that the cpp files commited and generated all compile
-compile: $(CPP_SOURCES:.cpp=.prog) $(TESTS:.ml=_out.prog)
+compile: $(CPP_SOURCES:.cpp=.prog)
 
 
 #######################################################
@@ -112,6 +118,9 @@ ifeq ($(VC),)
 	$(VC)@echo "Compiled $< successfully"
 endif
 
+%.meld: %_out.cpp %_exp.cpp
+	meld $^
+
 # LATER: we might want to activate more warnings, e.g.
 # MOREWARNINGS=-Wall -Wno-unused-variable -Wunused-but-set-variable 
 
@@ -120,7 +129,7 @@ endif
 # Cleanup
 
 clean:
-	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog
+	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
