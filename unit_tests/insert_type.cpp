@@ -6,8 +6,6 @@ typedef struct {
 
 const int N = 10;
 const int M = 20;
-// Insert type
-//typedef int T[N][M];
 
 int main(){
     vect v;

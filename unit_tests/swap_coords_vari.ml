@@ -6,6 +6,6 @@ let _ = run
         (**Error
             Fatal error: exception (Failure "swap_type: must be an array")
         *)
-        swap_coordinates "t";
+        swap_coordinates "T";
         dump()
     )

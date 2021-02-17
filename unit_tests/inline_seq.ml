@@ -1,8 +1,12 @@
 open ScriptTools
 
-let _ = run_unit_test (fun () ->
-  (* TODO: this is one command that finds a sequence, however it leaves a bunch of unexpected delete operations *)
-  (* inline_seq  ~seq_path:[[cVarDef ~name:"x" ()] >>! []] ();*)
-  ()
-)
 
+let _ = 
+  run 
+  ( fun _ -> 
+    set_init_source"inline_seq.cpp";
+    (** Does not work correctly *)
+    inline_seq  ~seq_path:[[cVarDef ~name:"x" ()] >>! []] ();
+    
+    dump()
+  )

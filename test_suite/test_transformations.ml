@@ -10,7 +10,7 @@ let _ =
       add_label "for_loop" [cFor ()];
       dump ();
       reset ();
-      set_init_source "test_split.cpp";
+      set_init_source "test_split/test_split.cpp";
       split_loop ~keep_labels:true [cInstrSubstr ~regexp:true "^x ="];
       dump ();
       reset ();

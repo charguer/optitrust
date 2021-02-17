@@ -3,7 +3,7 @@ open ScriptTools
 let _ =
   run
     (fun _ ->
-      set_init_source "test_pic_3.cpp";
+      set_init_source "test_pic_3/test_pic_3.cpp";
       
       (* 
             let main_fun = [cFun ~name:"main" ()] in 

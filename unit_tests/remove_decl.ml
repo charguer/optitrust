@@ -1,6 +1,8 @@
 open ScriptTools
 
-let _ = run_unit_test (fun () ->
+let _ = run
+(fun _ ->
+  set_init_source"remove_decl.cpp";
   remove_decl ~decl_path:[cType ~name:"T" ()] ();
   remove_decl ~decl_path:[cTopFun ~name:"f" ()] ();
   (* TODO: this one does not work

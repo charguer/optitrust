@@ -1,5 +1,4 @@
 open ScriptTools
-
 let _ =
   run
     (fun _ ->
@@ -27,7 +26,7 @@ let _ =
       remove_decl ~decl_path:[cType ~name:"particle" ()] ();
       let i2_loop = [cFor ~init:[cVarDef ~name:"i2" ()] ()] in
       insert_and_fold ~insert_before:i2_loop ~as_reference:true ~fold_at:[i2_loop] ~name:"b" ~value:"data[i1]" ();
-      cinline_seq ~seq_path:[[cVarDef ~strict:true ~name:"b" ()] >>! []] ();
+      inline_seq ~seq_path:[[cVarDef ~strict:true ~name:"b" ()] >>! []] ();
       inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"my_alloc" ()] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"nb_elts" ()] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"size_elt" ()] ();

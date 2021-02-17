@@ -1,12 +1,12 @@
 
 int main() {
+  int x = 3;
   {
-     int x = 3;
-    {
         int y = 2;
-    }
   }
   {
     int z = 5;
   }
+  return 0;
 }
+
