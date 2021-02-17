@@ -1,8 +1,12 @@
 typedef struct {
-    double x;
-    double y;
-    double z;
+  double z;
+  double y;
+  double x;
 } vect;
 
-
 const int NB_VECTS = 100;
+
+typedef struct {
+  vect speed;
+  vect pos;
+} particle;

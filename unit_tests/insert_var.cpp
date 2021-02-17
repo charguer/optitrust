@@ -4,15 +4,12 @@ typedef struct {
     double z;
 } vect;
 
-// insert a variable 
-// int size = 300;
+typedef struct {
+    vect pos;
+    vect speed;
+} particle;
 
 int main(){
-    vect v;
-    v.x = 1.0;
-    v.y = 1.0;
-    v.z = 1.0;
+    int x = 0;
     return 0;
-    
 }
-

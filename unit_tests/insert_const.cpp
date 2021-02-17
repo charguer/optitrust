@@ -6,12 +6,8 @@ typedef struct {
 
 
 
-int main(){
-    vect v;
-    v.x = 1.0;
-    v.y = 1.0;
-    v.z = 1.0;
-    return 0;
-    
-}
-// Insert a constant
+
+typedef struct {
+    vect pos;
+    vect speed;
+} particle;
