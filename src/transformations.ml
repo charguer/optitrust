@@ -185,6 +185,26 @@ let add_label (label : string) (pl : path list) (t : trm) : trm =
                    (trm_labelled (label ^ "_" ^ string_of_int i)))
        t epl
 
+let  show_path (index : int) (pl : path list) (t : trm) : trm =
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in 
+  Flags.verbose := false;
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+  match epl with 
+  | [] ->
+    print_info t.loc "show_path: not matching subterm\n";
+    t
+  | [dl] -> apply_local_transformation (trm_labelled label) t dl
+  | _ ->
+     (*
+         folding works since no path in epl is the prefix of a subsequent path
+      *)
+     foldi
+       (fun i -> apply_local_transformation
+                   (trm_labelled (label ^ "_" ^ string_of_int i)))
+       t epl
+
 let rec delete_label (label : string) (t : trm) : trm =
   match t.desc with
   | Trm_labelled (l, t') when l = label -> t'
@@ -1515,3 +1535,5 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
           )
        )
        t epl
+  
+

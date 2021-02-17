@@ -9,7 +9,7 @@ void stack_var() {
   {
     {
       const int *r = new int;
-      set(r, 3);
+      set(r, 3);  
     }
     set(r, ((*r) + 1));
     set(r, ((*r) + 2));
@@ -27,7 +27,7 @@ void stack_array() {
   {
     {
       const int[2] *t = new int[2];
-      set(t, {5, 6});
+      set(t, {5, 6});  
     }
     {
       const int *a = new int;
@@ -106,7 +106,7 @@ void by_value(int t[2], vect v) {
   {
     {
       const int *b = new int;
-      set(b, t[0]);
+      set(b, t[0]); 
     }
     {
       const int *a = new int;

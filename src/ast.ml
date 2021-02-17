@@ -13,6 +13,9 @@ type typvar = var
 (* struct fields and maps describing struct *)
 type field = string
 
+(* struct fields as a list of fields *)
+type fields = field list
+
 module Field_map = Map.Make(String)
 
 type 'a fmap = 'a Field_map.t
@@ -211,6 +214,7 @@ and trm_desc =
   | Trm_abort of abort (* return or break or continue *)
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
+  | Trm_decoration of string * trm * string
 
 (* declarations *)
 and def =
@@ -310,7 +314,9 @@ let trm_goto ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (l : label) : trm =
   {annot; desc = Trm_goto l; loc; is_instr = true; add;
    typ = Some (typ_unit ()); attributes}
-
+let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+  (left : string) (right : string) (t : trm) : trm =  
+  {annot; desc = Trm_decoration (left,t,right);loc;is_instr = false; add; typ = Some (typ_unit ()); attributes }
 let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
   trm_val ~annot ~loc (Val_ptr (0, []))
 (*

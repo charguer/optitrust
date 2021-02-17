@@ -8,6 +8,16 @@ int f(int n) {
   return n;
 }
 
+/*
+void test_loop() {
+  for (int i = 0; i < 10;i++) {
+      i++;
+     // TODO find out why i++ is not encoded?
+  }
+
+}
+*/
+
 // Stack allocated variables are turned into heap allocated variables
 void stack_var() {
   int r = 3;
@@ -28,7 +38,7 @@ void stack_var() {
 
 void stack_array() {
   int t[2] = { 5, 6 };
-  int a = t[0];
+  int a = t[0]; // int a = *(t + 0)
   t[1] = a + 2;
 }
 
@@ -37,7 +47,7 @@ void stack_array() {
 
 void stack_struct() {
   vect v = { 5, 6 };
-  int a = v.x;
+  int a = v.x; // TODO print quotes in struct_access(v, "x")
   v.y = a + 2;
   vect v2 = v;
 }
@@ -55,6 +65,8 @@ void constants() {
   const int a = 3;
   const int b = a + 3;
   int c = b + 4;
+  // TODO : const vect v = { 0, 1};
+  // int a = v.x
 }
 
 typedef int* intstar;
@@ -69,6 +81,8 @@ void nonconst_pointers() {
   int a = 3;
   int* b = &a;
   *b = *b + 4;
+  // TODO int c = 3;
+  // b = &c;
 }
 
 
@@ -76,7 +90,7 @@ void nonconst_pointers() {
 // They are values, out of which it is possible to directly read a value
 // using the operator Binop_array_get.
 // Likewise a struct passed by value is read using Unop_struct_get.
-void by_value(int t[2], vect v) {
+void by_value(int t[2], vect v) { // implicit const arguments
   int b = t[0];
   int a = v.x;
   // if trying to writing into t or v, should get an error, because they are assumed to be const

@@ -307,6 +307,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let dt = trm_to_doc ~semicolon t in
         dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
+     | Trm_decoration(l,t,r) -> 
+        let dt = trm_to_doc ~semicolon t in
+        dattr ^^ string l ^^ dt ^^ string r
+    
      end
 
 and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
