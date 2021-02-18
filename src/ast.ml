@@ -316,7 +316,8 @@ let trm_goto ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
    typ = Some (typ_unit ()); attributes}
 let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (left : string) (right : string) (t : trm) : trm =  
-  {annot; desc = Trm_decoration (left,t,right);loc;is_instr = false; add; typ = Some (typ_unit ()); attributes }
+  {annot; desc = Trm_decoration (left, t, right); loc; is_instr = false; add; 
+  typ = Some (typ_unit ()); attributes }
 let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
   trm_val ~annot ~loc (Val_ptr (0, []))
 (*
@@ -513,6 +514,8 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
   | Trm_labelled (l, body) ->
      trm_labelled ~annot ~loc ~add l (f body)
   (* val, var *)
+  | Trm_decoration (left, body, right) -> 
+    trm_decoration ~annot ~loc ~add left right (f body)
   | _ -> t
 
 (* same as trm_map for types *)
@@ -569,6 +572,7 @@ let is_used_var_in (t : trm) (x : var) : bool =
     | Trm_abort (Ret (Some t)) -> aux t
     | Trm_labelled (_, t) -> aux t
     (* val, break, continue, return without value *)
+    | Trm_decoration (_,t,_) -> aux t
     | _ -> false
   in
   aux t
@@ -598,6 +602,7 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
        List.exists (fun (tl, body) -> List.exists aux tl || aux body) cases
     | Trm_abort (Ret (Some t)) -> aux t
     | Trm_labelled (_, t) -> aux t
+    | Trm_decoration (_,t,_) -> aux t
     (* val, var, break, continue, return without value, goto *)
     | _ -> false
   in
@@ -634,6 +639,7 @@ let fun_call_args (f : var) (t : trm) : trm list =
          )
     | Trm_abort (Ret (Some t)) -> aux t
     | Trm_labelled (_, t) -> aux t
+    | Trm_decoration (_, t, _) -> aux t
     (* val, var, break, continue, return without value, goto *)
     | _ -> []
   in
@@ -862,6 +868,7 @@ let nb_goto (l : label) (t : trm) : int =
             cases)
     | Trm_abort (Ret (Some t)) -> aux t
     | Trm_labelled (_, t) -> aux t
+    | Trm_decoration (_, t, _) -> aux t
     | Trm_goto l' when l = l' -> 1
     (* val, var, break, continue, return without value, goto other label *)
     | _ -> 0

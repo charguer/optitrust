@@ -149,6 +149,8 @@ val cSet : ?strict:bool -> ?lhs:(path list) -> ?rhs:(path list) -> unit -> path
 
 val add_label : ?replace_top:bool -> string -> path list -> unit
 
+val show_path : ?replace_top:bool -> path list -> unit
+
 val delete_label : ?replace_top:bool -> string -> unit
 
 val delete_labels : ?replace_top:bool -> string list -> unit

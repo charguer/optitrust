@@ -61,6 +61,8 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           trm_abort ~annot ~loc ~add ~attributes (Ret (Some (aux dl body)))
        | Dir_body, Trm_labelled (l, body) ->
           trm_labelled ~annot ~loc ~add ~attributes l (aux dl body)
+       | Dir_body, Trm_decoration(left, body, right) ->
+          trm_decoration ~annot ~loc ~add ~attributes left right (aux dl body) 
        | Dir_for_init, Trm_for (init, cond, step, body) ->
           trm_for ~annot ~loc ~add ~attributes (aux dl init) cond step body
        | Dir_for_step, Trm_for (init, cond, step, body) ->
@@ -119,6 +121,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
              fail loc ("apply_local_transformation: transformation " ^
                          "must preserve names")
           end
+          
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
           trm_switch ~annot ~loc ~add ~attributes cond
             (change_nth
@@ -185,26 +188,34 @@ let add_label (label : string) (pl : path list) (t : trm) : trm =
                    (trm_labelled (label ^ "_" ^ string_of_int i)))
        t epl
 
-let  show_path (index : int) (pl : path list) (t : trm) : trm =
+let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"  
+
+let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
+   
+
+let  show_path (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in 
   let b = !Flags.verbose in 
   Flags.verbose := false;
   let epl = resolve_path p t in 
   Flags.verbose := b;
+  
   match epl with 
   | [] ->
     print_info t.loc "show_path: not matching subterm\n";
     t
-  | [dl] -> apply_local_transformation (trm_labelled label) t dl
+  | [dl] -> apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
+  
   | _ ->
      (*
          folding works since no path in epl is the prefix of a subsequent path
       *)
      foldi
        (fun i -> apply_local_transformation
-                   (trm_labelled (label ^ "_" ^ string_of_int i)))
+                   (trm_decoration (left_decoration i) (right_decoration i )))
        t epl
 
+  
 let rec delete_label (label : string) (t : trm) : trm =
   match t.desc with
   | Trm_labelled (l, t') when l = label -> t'

@@ -349,7 +349,21 @@ let add_label ?(replace_top : bool = false) (label : string)
   (pl : path list) : unit =
   apply_to_top ~replace_top (fun _ -> Transformations.add_label label pl)
 
+
+(*Show path using a decorators on both sides of the path 
+  for example :
+  /*@1<*/ x++; /*>1@*/
+  This comments can also be nested:
+  These comments can be nested, eg if you target for loops
+     /*@1<*/ for (int i=0;i<N;i++) {
+      /*@2<*/ for (int i=0;i<N;i++) {
+        x++;
+      } /*>2@*/
+    } /*>1@*/ *)
 (* delete the label *)
+let show_path ?(replace_top : bool = false) (pl : path list) : unit = 
+    apply_to_top ~replace_top (fun _ -> Transformations.show_path pl)
+  
 let delete_label ?(replace_top : bool = false) (label : string) : unit =
   apply_to_top ~replace_top (fun _ -> Transformations.delete_label label)
 
