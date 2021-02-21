@@ -1412,6 +1412,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
           change_trm (trm_var x') (trm_var x) t
        (* typedef *)
        | Trm_decl (Def_typ (x, dx)) ->
+          (* TODO: Implement special struct in struct inlining*)
           let ty_x = typ_var x in
           change_typ ~change_at:inline_at ty_x dx t
        (* fun decl *)

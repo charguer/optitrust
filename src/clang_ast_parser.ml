@@ -752,9 +752,9 @@ and translate_decl_list (dl : decl list) : trm list =
         dl' ->
      begin match k with
      | Struct ->
-        let m =
+        let (fs,m) =
           List.fold_left
-            (fun m (d : decl) ->
+            (fun (fs,m) (d : decl) ->
               let loc = loc_of_node d in
               match d with
               | {decoration = _; desc = Field {name = fn; qual_type = q;
@@ -762,18 +762,20 @@ and translate_decl_list (dl : decl list) : trm list =
                                                attributes = al}} ->
                  let ft = translate_qual_type ~loc q in
                  let al = List.map (translate_attribute loc) al in
-                 Field_map.add fn {ft with ty_attributes = al} m
+                 let m' = Field_map.add fn {ft with ty_attributes = al} m in
+                 let fs' = fn :: fs in 
+                 (fs',m')
               | _ ->
                  fail loc ("translate_decl_list: only fields are allowed " ^
                              "in struct declaration"))
-            Field_map.empty
+            ([], Field_map.empty)
             fl
         in
         let tq = translate_qual_type ~loc q in
         begin match tq.ty_desc with
         | Typ_var n when n = rn ->
            let tl = translate_decl_list dl' in
-           trm_decl ~loc (Def_typ (tn, typ_struct m rn)) :: tl
+           trm_decl ~loc (Def_typ (tn, typ_struct fs m rn)) :: tl
         | _ ->
            fail loc ("translate_decl_list: a type definition following " ^
                        "a struct declaration must bind this same struct")
