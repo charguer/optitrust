@@ -37,20 +37,18 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
        end
      in
      node "Typ_array" ^^ print_pair dt ds
-   | Typ_struct (fs,tm, x) ->
-     let dtl = List.fold_left
-       (fun (f : field) dl -> let t = Field_map.find f tm in 
-         let dt = print_typ ~only_desc t in
-         print_pair (string f) dt :: dl) [] fs in
+  | Typ_struct (tl, tm, x) -> (* List.fold (fun f acc => let t = Field_map.get f tm in ) fs  *)
+     let get_typ x = Field_map.find x tm in 
+     let get_document_list l = 
+      let rec aux acc = function
+      | [] -> acc
+      | hd :: tl -> let t = get_typ hd in 
+       let dt = print_typ ~only_desc t in 
+       aux(print_pair (string hd) dt :: acc) tl in
+       aux [] l
+     in
+     let dtl = get_document_list tl in
      node "Typ_struct" ^^ print_pair (print_list dtl) (string x)
-      (*
-     let dtm = Field_map.fold
-       (fun (f : field) (t : typ) dl ->
-         let dt = print_typ ~only_desc t in
-         print_pair (string f) dt :: dl) tm [] in
-     node "Typ_struct" ^^ print_pair (print_list dtm) (string x)*)
-
-
   | Typ_fun (tl, t) ->
      let dtl = List.map (print_typ ~only_desc) tl in
      let dt = print_typ ~only_desc t in

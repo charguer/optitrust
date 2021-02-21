@@ -25,10 +25,17 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      | Const n -> d ^^ brackets (string (string_of_int n))
      | Trm t' -> d ^^ brackets (trm_to_doc t')
      end
-  | Typ_struct (_,m, n) ->
-     let dl = Field_map.fold
-       (fun (f : field) (t : typ) docl ->
-         (typed_var_to_doc (f, t) ^^ semi) :: docl) m [] in
+  | Typ_struct (l,m, n) ->
+     let get_typ x = Field_map.find x m in 
+     let get_document_list l =
+      let rec aux acc = function 
+      | [] -> acc
+      | hd :: tl -> let t = get_typ hd in 
+      aux((typed_var_to_doc (hd,t) ^^ semi) :: acc) tl in
+      aux [] l
+     in 
+     let dl = get_document_list l
+     in 
      string "struct" ^^ blank 1 ^^ string n ^^
        surround 2 1 lbrace (separate hardline dl) rbrace
   | Typ_fun (_, _) ->
