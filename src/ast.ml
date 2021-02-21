@@ -40,7 +40,7 @@ and typ_desc =
   | Typ_char
   | Typ_ptr of typ (* "int*" *)
   | Typ_array of typ * size (* int[3] *)
-  | Typ_struct of (typ fmap) * typvar (* typedef { x: int, y:double } point *)
+  | Typ_struct of fields * (typ fmap) * typvar (* typedef { x: int, y:double } point *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
 
 and typ_annot =
@@ -251,8 +251,8 @@ let typ_array ?(annot : typ_annot list = []) ?(ty_attributes = []) (t : typ)
   (s : size) : typ =
   {ty_annot = annot; ty_desc = Typ_array (t, s); ty_attributes}
 let typ_struct ?(annot : typ_annot list = []) ?(ty_attributes = [])
-  (fields : typ fmap) (name : typvar) : typ =
-  {ty_annot = annot; ty_desc = Typ_struct (fields, name); ty_attributes}
+   (fields : fields)(typ_field : typ fmap) (typ_name : typvar) : typ =
+  {ty_annot = annot; ty_desc = Typ_struct (fields,typ_field, typ_name); ty_attributes}
 let typ_fun ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (args : typ list) (res : typ) : typ =
   {ty_annot = annot; ty_desc = Typ_fun (args, res); ty_attributes}
@@ -525,8 +525,8 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   match ty.ty_desc with
   | Typ_ptr ty -> typ_ptr ~annot ~ty_attributes (f ty)
   | Typ_array (ty, n) -> typ_array ~annot ~ty_attributes (f ty) n
-  | Typ_struct (tmap, x) ->
-     typ_struct ~annot ~ty_attributes (Field_map.map f tmap) x
+  | Typ_struct (tlist,tmap, x) ->
+     typ_struct ~annot ~ty_attributes tlist (Field_map.map f tmap) x
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~ty_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)

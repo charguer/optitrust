@@ -47,13 +47,13 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                 in
                 write_log clog log;
                 begin match ty'.ty_desc with
-                | Typ_struct (m, n) ->
+                | Typ_struct (l,m, n) ->
                    let m =
                      Field_map.map
                        (fun ty'' ->
                          typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
                    in
-                   trm_decl (Def_typ (x, typ_struct m n))
+                   trm_decl (Def_typ (x, typ_struct l m n))
                 | _ ->
                    fail t.loc "swap_accesses: expected underlying struct type"
                 end

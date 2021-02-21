@@ -25,7 +25,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      | Const n -> d ^^ brackets (string (string_of_int n))
      | Trm t' -> d ^^ brackets (trm_to_doc t')
      end
-  | Typ_struct (m, n) ->
+  | Typ_struct (_,m, n) ->
      let dl = Field_map.fold
        (fun (f : field) (t : typ) docl ->
          (typed_var_to_doc (f, t) ^^ semi) :: docl) m [] in
