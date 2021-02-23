@@ -16,6 +16,7 @@ typedef struct {
 
 int main() {
   obj a;
+  return 0;
 }
 
 

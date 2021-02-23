@@ -363,7 +363,6 @@ let add_label ?(replace_top : bool = false) (label : string)
 (* delete the label *)
 let show_path ?(replace_top : bool = false) (pl : path list) : unit = 
     apply_to_top ~replace_top (fun _ -> Transformations.show_path pl)
-  
 let delete_label ?(replace_top : bool = false) (label : string) : unit =
   apply_to_top ~replace_top (fun _ -> Transformations.delete_label label)
 
@@ -1130,6 +1129,22 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
     (fun ctx ->
       Transformations.inline_decl ctx.clog ~delete_decl ~inline_at ~fun_result
        ~fun_return_label pl);
+  write_log "\n"
+
+let fields_reorder ?(replace_top : bool = false) (pl : path list) ?(struct_fields : fields = [])?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit = 
+  let log : string =
+    let ps = string_of_path (List.flatten pl) in 
+    Printf.sprintf
+      ("Inline_decl ~decl_path %s:\n" ^^
+       " - %s points at exactly one program point\n"
+      )
+      ps ps 
+  in
+  write_log log;
+  apply_to_top ~replace_top
+    (fun ctx -> 
+      Transformations.fields_reorder ctx.clog  ~struct_fields pl ~move_before ~move_after
+    );
   write_log "\n"
 
 (*

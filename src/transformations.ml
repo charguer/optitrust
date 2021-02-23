@@ -29,8 +29,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
        | Dir_nth n, Trm_array tl ->
           trm_array ~annot ~loc ~add ~typ ~attributes (change_nth (aux dl) tl n)
        | Dir_nth n, Trm_struct tl ->
-          trm_struct ~annot ~loc ~add ~typ ~attributes
-            (change_nth (aux dl) tl n)
+          trm_struct ~annot ~loc ~add ~typ ~attributes(change_nth (aux dl) tl n)
        | Dir_nth _, Trm_val (Val_array _) ->
           fail loc "apply_local_transformation: val_array should not appear"
        | Dir_nth _, Trm_val (Val_struct _) ->
@@ -48,11 +47,9 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes cond then_t (aux dl else_t)
        | Dir_body, Trm_decl (Def_var (tx, body)) ->
-          trm_decl ~annot ~loc ~is_instr ~add ~attributes
-            (Def_var (tx, aux dl body))
+          trm_decl ~annot ~loc ~is_instr ~add ~attributes (Def_var (tx, aux dl body))
        | Dir_body, Trm_decl (Def_fun (x, tx, txl, body)) ->
-          trm_decl ~annot ~loc ~is_instr ~add ~attributes
-            (Def_fun (x, tx, txl, aux dl body))
+          trm_decl ~annot ~loc ~is_instr ~add ~attributes (Def_fun (x, tx, txl, aux dl body))
        | Dir_body, Trm_for (init, cond, step, body) ->
           trm_for ~annot ~loc ~add ~attributes init cond step (aux dl body)
        | Dir_body, Trm_while (cond, body) ->
@@ -187,6 +184,88 @@ let add_label (label : string) (pl : path list) (t : trm) : trm =
        (fun i -> apply_local_transformation
                    (trm_labelled (label ^ "_" ^ string_of_int i)))
        t epl
+
+
+let rec remove x  = function 
+| [] -> []
+| hd :: tl -> if hd = x then tl else hd :: remove x tl
+
+let rec remove_set l = function
+| [] -> l
+| hd :: tl -> remove_set (remove hd l) tl
+
+let move_fields_before x local_l l = 
+let l = remove_set l local_l in 
+let rec aux acc = function 
+| [] -> acc
+| hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl 
+else aux (hd :: acc) tl 
+in aux [] l
+
+
+
+let move_fields_after x local_l l = 
+let l = remove_set l local_l in 
+let rec aux acc = function 
+| [] -> acc
+| hd :: tl -> if hd = x then aux (hd :: local_l @ acc) tl 
+else aux (hd :: acc) tl 
+in aux [] l
+
+(*It supports only putting one field before the first one *)
+let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(pl : path list) (t : trm) : trm  = 
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in
+  Flags.verbose := false;
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+  match epl with 
+  | [dl] -> 
+      let (t_def, _) = resolve_explicit_path dl t in
+       let log : string =
+         let loc : string =
+           match t_def.loc with
+           | None -> ""
+           | Some (_, line) -> Printf.sprintf "at line %d " line
+         in
+         Printf.sprintf
+           ("  - expression\n%s\n" ^^
+            "    %sis a declaration\n"
+           )
+           (ast_to_string t_def) loc
+       in
+       write_log clog log;
+       begin match t_def.desc with
+      |Trm_decl (Def_typ (x,dx)) ->
+        
+        let field_list ,field_map = 
+        match dx.ty_desc with
+          |Typ_struct(l,m,_) -> l,m
+          |_ -> fail t.loc "Struct was not matched correctly"
+        in
+        let reordered_fields = 
+          match move_before, move_after with 
+          | "",_ -> move_fields_after move_after struct_fields field_list
+          | _, "" -> move_fields_before move_before struct_fields field_list
+          | _,_-> fail t.loc "fields_reorder: Can not move field before and after"
+        
+        in
+        
+        let t_yp = {ty_desc = Typ_struct(List.rev reordered_fields,field_map,x); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes}
+        
+        in
+
+        trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
+          ~attributes:t.attributes (Def_typ(x,t_yp) )    
+
+      | _ -> fail t.loc "fields_reorder: expected a definiton"
+      end
+      
+  | _ -> fail t.loc "fields_reorder: the path must point at exactly 1 subterm"
+  
+
+
+ 
 
 let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"  
 
@@ -610,6 +689,7 @@ let change_trm ?(change_at : path list list = [[]]) (t_before : trm)
     t
     change_at
 
+
 (* same as change_trm but for types *)
 let change_typ ?(change_at : path list list = [[]]) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
@@ -673,6 +753,8 @@ let change_typ ?(change_at : path list list = [[]]) (ty_before : typ)
     )
     t
     change_at
+
+
 
 (*
   find the definition x = dx pointed at by pl and replace occurrences of dx with
@@ -1412,7 +1494,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
           change_trm (trm_var x') (trm_var x) t
        (* typedef *)
        | Trm_decl (Def_typ (x, dx)) ->
-          (* TODO: Implement special struct in struct inlining*)
+          (* TODO: Implement special struct in struct *)
           let ty_x = typ_var x in
           change_typ ~change_at:inline_at ty_x dx t
        (* fun decl *)
