@@ -1631,3 +1631,98 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
        t epl
   
 
+  (** TODO: Add the support for the body of the loop *)
+  let rec magic_loop_aux (clog : out_channel) (c : var) (d : int ) (t : trm) : trm =
+    match t.desc with 
+    (* The loop might be labelled, so keep the label *)
+    | Trm_labelled (l, t_loop) ->
+      trm_labelled l (magic_loop_aux clog c d t_loop)
+    | Trm_for (init, cond, step, body) ->
+      let log : string = 
+        let loc : string = 
+          match body.loc with
+          | None -> ""
+          | Some (_, line) -> Printf.sprintf "at line %d " line
+        in 
+        Printf.sprintf
+         ("  - for (%s; %s; %s) is of the form\n" ^^
+          "      for ([int] i = 0; i < N; i++)\n" ^^
+          "  - expression\n%s\n" ^^
+          "    %sis of the form\n" ^^
+          "      {\n" ^^
+          "        int i1 = i / block_size\n" ^^
+          "        int i2 = i %% block_size\n" ^^
+          "        body\n" ^^
+          "      }\n"
+         )
+         (ast_to_string init) (ast_to_string cond) (ast_to_string step)
+         (ast_to_string body) loc      
+      in
+      write_log clog log;
+      
+      let loop ?(top : bool = false) (index : var) (bound : trm) (body : trm) = 
+          let d = match step.desc with 
+          | Trm_val(Val_lit(Lit_int l)) -> l
+          | _ -> fail t.loc "magic_loop_aux: something went wrong"
+          in
+          let start = match top with 
+          | true -> trm_lit(Lit_int 0) 
+          | false -> 
+                begin match d with 
+                | 1 ->  trm_var "c"
+                | _ ->  trm_apps (trm_binop Binop_mul)
+                  [
+                      trm_apps ~annot:(Some Heap_allocated) 
+                      (trm_unop Unop_get) [trm_var "c"];
+                    step
+                  ]
+                end
+          in 
+          trm_seq ~annot:(Some Delete_instructions)
+            [
+              trm_for
+                (*init *)
+                (trm_seq ~annot:(Some Heap_allocated)
+                  [
+                    trm_decl (Def_var ((index, typ_ptr (typ_int())), trm_prim (Prim_new (typ_int ()))));
+                    trm_set ~annot:(Some Initialisation_instruction)
+                    (trm_var index) start
+                  ]
+                )
+                (* cond *)
+                (trm_apps (trm_binop Binop_lt)
+                  [
+                    trm_apps ~annot:(Some Heap_allocated)
+                      (trm_unop Unop_get) [trm_var index];
+                      bound
+                  ]
+                )
+                (* step *)
+                
+                (if top then trm_apps (trm_unop Unop_inc) [trm_var index]
+                else 
+                (trm_apps (trm_binop Binop_add)
+                        [
+                        trm_apps ~annot:(Some Heap_allocated)
+                             (trm_unop Unop_get) [trm_var index];
+                        trm_apps (trm_binop Binop_mul)
+                             [
+                               trm_apps ~annot:(Some Heap_allocated)
+                                 (trm_unop Unop_get) [trm_var c];
+                               step
+                             ]
+                        ]))
+                
+
+                (* body *)
+                body;
+                trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+                  (trm_unop (Unop_delete false)) [trm_var index]
+
+            ]
+          in let index_i = for_loop_index t 
+          in
+          let loop_size = for_loop_bound t 
+          in loop ~top:true"c" (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ]) 
+      | _ -> fail t.loc "magic_loop_aux: bad loop body"
+
