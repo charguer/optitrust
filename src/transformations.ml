@@ -1718,7 +1718,10 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
         
         let start = match top with 
         | true -> trm_lit(Lit_int 0) 
-        | false ->   trm_apps (trm_binop Binop_mul)
+        | false ->  
+          match loop_step.desc with 
+          | Trm_val(Val_lit(Lit_int 1)) -> trm_var "c"
+          | _ -> trm_apps (trm_binop Binop_mul)
               [
                   trm_apps ~annot:(Some Heap_allocated) 
                       (trm_unop Unop_get) [trm_var "c"];
@@ -1749,15 +1752,29 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
                 (* step *)
                 
                 (if top then trm_apps (trm_unop Unop_inc) [trm_var index]
-                else 
-                
+                else  match loop_step.desc with 
+                  | Trm_val(Val_lit(Lit_int 1)) -> trm_set (trm_var index)
+                    (trm_apps (trm_binop Binop_add)
+                      [
+                        trm_var index ;
+                          
+                        trm_var c
+                      ])
+                  | _ -> 
+                    trm_set (trm_var index) (trm_apps (trm_binop Binop_add)
+                      [
+                        trm_var index;
                         trm_apps (trm_binop Binop_mul)
                              [
                                trm_apps ~annot:(Some Heap_allocated)
                                  (trm_unop Unop_get) [trm_var c];
                                loop_step
                              ]
-                      )
+                      
+                      ])
+                )
+                  
+                  
                 
 
                 (* body *)
