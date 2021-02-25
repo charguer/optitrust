@@ -1185,6 +1185,16 @@ let loop_transform ?(replace_top : bool = false) (pl : path list) (c: var): unit
       (fun ctx -> Transformations.loop_transform ctx.clog pl c);
     write_log "\n"
 
+let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var): unit =
+    let log : string =
+      Printf.sprintf "Transform_loop %s:\n" (string_of_path (List.flatten pl))
+    in
+    write_log log;
+    apply_to_top ~replace_top
+      (fun ctx -> Transformations.loop_tile ctx.clog pl b);
+    write_log "\n"
+
+
 
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =

@@ -9,4 +9,9 @@ int main(){
     for(int j = 0; j < 20; j++){
         t[j] = 0;
     }
+    int B = 2;
+    int X = 20;
+    for(int x = 0; x < X; x++){
+        t[x] = 0;
+    }
 }

@@ -217,6 +217,8 @@ val tile_loop : ?replace_top:bool -> path list -> unit
 
 val loop_transform : ?replace_top:bool -> path list -> string -> unit
 
+val loop_tile : ?replace_top:bool -> path list -> string -> unit
+
 val aos_to_soa : ?replace_top:bool -> ?name:(string -> string) -> string -> unit
 
 val eliminate_goto_next : ?replace_top:bool -> unit -> unit
