@@ -363,6 +363,8 @@ let add_label ?(replace_top : bool = false) (label : string)
 (* delete the label *)
 let show_path ?(replace_top : bool = false) (pl : path list) : unit = 
     apply_to_top ~replace_top (fun _ -> Transformations.show_path pl)
+
+
 let delete_label ?(replace_top : bool = false) (label : string) : unit =
   apply_to_top ~replace_top (fun _ -> Transformations.delete_label label)
 
@@ -1173,6 +1175,16 @@ let tile_loop ?(replace_top : bool = false)
   apply_to_top ~replace_top
     (fun ctx -> Loop_tiling.tile_loop ctx.clog pl);
   write_log "\n"
+
+let loop_transform ?(replace_top : bool = false) (pl : path list) (c: var): unit =
+    let log : string =
+      Printf.sprintf "Transform_loop %s:\n" (string_of_path (List.flatten pl))
+    in
+    write_log log;
+    apply_to_top ~replace_top
+      (fun ctx -> Transformations.loop_transform ctx.clog pl c);
+    write_log "\n"
+
 
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
