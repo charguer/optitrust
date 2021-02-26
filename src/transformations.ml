@@ -272,13 +272,12 @@ let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
    
 
-let  show_path (pl : path list) (t : trm) : trm =
+let  show_path(pl : path list)  (t : trm) : trm =
   let p = List.flatten pl in 
   let b = !Flags.verbose in 
   Flags.verbose := false;
   let epl = resolve_path p t in 
   Flags.verbose := b;
-  
   match epl with 
   | [] ->
     print_info t.loc "show_path: not matching subterm\n";
@@ -295,11 +294,17 @@ let  show_path (pl : path list) (t : trm) : trm =
        t epl
 
 
-
 let rec delete_label (label : string) (t : trm) : trm =
   match t.desc with
   | Trm_labelled (l, t') when l = label -> t'
   | _ -> trm_map (delete_label label) t
+
+let rec delete_path_decorators (t : trm) : trm = 
+  match t.desc with 
+  | Trm_decoration (_,t',_) -> t'
+  | _ -> trm_map (delete_path_decorators ) t
+
+
 
 
 (* delete the labels which have a prefix in the list *)
@@ -1680,9 +1685,9 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
                    );
                  t_del1
                ]
-        | _ -> fail body1.loc "tile_loop_aux: expected inner loop"
+        | _ -> fail body1.loc "magic_loop_aux: expected inner loop"
         end
-     | _ -> fail t_transformed.loc "tile_loop_aux: expected outer loop"
+     | _ -> fail t_transformed.loc "magic_loop_aux: expected outer loop"
      end 
   | Trm_for (init, cond, step, body) ->
       let log : string = 
@@ -1863,9 +1868,9 @@ let rec loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
                    );
                  t_del1
                ]
-        | _ -> fail body1.loc "tile_loop_aux: expected inner loop"
+        | _ -> fail body1.loc "loop_tile_aux: expected inner loop"
         end
-     | _ -> fail t_tiled.loc "tile_loop_aux: expected outer loop"
+     | _ -> fail t_tiled.loc "loop_tile_aux: expected outer loop"
      end
   (* otherwise, just tile *)
   | Trm_for (init, cond, step, body) ->
@@ -1875,7 +1880,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
          | None -> ""
          | Some (_, line) -> Printf.sprintf "at line %d " line
        in
-       Printf.sprintf
+        Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
           "      for ([int] x = 0; x < X; x++)\n" ^^
           "  - expression\n%s\n" ^^
@@ -1897,7 +1902,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
             trm_apps (trm_binop Binop_add)
             [ 
              
-              trm_var "bx";
+              trm_var ("b" ^ index_x);
               trm_apps ~annot:(Some Heap_allocated)
                       (trm_unop Unop_get) [trm_var b]
             ]
@@ -1911,7 +1916,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
     let loop ?(top : bool = false) (index : var) (bound : trm) (body : trm) =
         let start = match top with 
         | true -> trm_lit(Lit_int 0)
-        | false -> trm_var "bx"
+        | false -> trm_var( "b" ^ index)
         in 
         trm_seq ~annot:(Some Delete_instructions)
             [
@@ -1951,7 +1956,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
                 (trm_unop (Unop_delete false)) [trm_var index]
             ]
         in
-        loop ~top:true "bx" loop_size (trm_seq [loop ~top:false index_x spec_bound body])
+        loop ~top:true ("b"^index_x) loop_size (trm_seq [loop ~top:false index_x spec_bound body])
      | _ -> fail t.loc "loop_tile_aux: bad loop body"
     
 
@@ -1990,4 +1995,112 @@ let loop_tile (clog : out_channel) (pl : path list)(big_b : var)(t : trm) : trm 
        epl
   
 
+  
+ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm = 
+  match t.desc with 
+  (* the loop might be labelled: kepp the label *)
+  | Trm_labelled (l, t_loop) -> 
+    trm_labelled l (loop_swap_aux clog t_loop)
+  | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
+     let t_swaped = loop_swap_aux clog t_loop in
+     (* swaped loops are expected to declare their index *)
+     begin match t_swaped.desc with
+     | Trm_seq [{desc = Trm_for (init1, cond1, step1,
+                                 {desc = Trm_seq [body1]; _}); _}; t_del1]
+          when t_swaped.annot = Some Delete_instructions ->
+        begin match body1.desc with
+        | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
+             when body1.annot = Some Delete_instructions ->
+           (* if the index is used in body, then add delete instruction *)
+           let i = deleted_var t_del in
+           if not (is_used_var_in body i) then t_swaped
+           else
+             trm_seq ~annot:(Some Delete_instructions)
+               [
+                 trm_for init1 cond1 step1
+                   (trm_seq
+                      [trm_seq ~annot:(Some Delete_instructions)
+                         [
+                           trm_for init2 cond2 step2
+                             (trm_seq ~annot:(Some Delete_instructions)
+                                [body; t_del]);
+                           t_del2
+                         ]
+                      ]
+                   );
+                 t_del1
+               ]
+        | _ -> fail body1.loc "loop_tile_aux: expected inner loop"
+        end
+     | _ -> fail t_swaped.loc "loop_tile_aux: expected outer loop"
+     end
+  (* otherwise, just swap  *)
+  | Trm_for (init1, cond1, step1,{desc = Trm_seq [body1];_}) ->
+    let log : string = 
+      let loc : string = 
+        match body1.loc with 
+        | None -> ""
+        | Some (_, line) -> Printf.sprintf "at line %d " line
+      in 
+      Printf.sprintf
+         ("  - for (%s; %s; %s) is of the form\n" ^^
+          "      for ([int] x = 0; x < X; x++)\n" ^^
+          "  - expression\n%s\n" ^^
+          "    %sis of the form\n" ^^
+          "      {\n" ^^
+          "        body\n" ^^
+          "      }\n"
+         )
+         (ast_to_string init1) (ast_to_string cond1) (ast_to_string step1)
+         (ast_to_string body1) loc
+      in
+      write_log clog log;
+      begin match body1.desc with 
+      | Trm_for(init2, cond2, step2, body2) ->
+        trm_seq 
+          [
+            trm_for init2 cond2 step2 (trm_seq [trm_for init1 cond1 step1 body2])
+          ]
+      
+      | _ -> fail t.loc "loop_swap_aux; expected inner loop"
+      end
+      
+  | _ -> fail t.loc "loop_swap_aux; bad loop body"
+    
+
+
+
+let loop_swap_aux (clog : out_channel) (t : trm) : trm = 
+  let log : string =
+    let loc : string =
+      match t.loc with 
+      | None -> ""
+      | Some (_, line) -> Printf.sprintf "at line %d " line
+    in 
+    Printf.sprintf
+      (" - expression \n%s\n" ^^
+       "  %sis a (labelled) loop\n"
+      )
+      (ast_to_string t) loc
+  in
+  write_log clog log;
+  loop_swap_aux clog t
+
+
+let loop_swap (clog : out_channel) (pl : path list)(t : trm) : trm =
+  let p = List.flatten pl in
+  let b = !Flags.verbose in
+  Flags.verbose := false;
+  let epl = resolve_path p t in
+  Flags.verbose := b;
+  match epl with
+  | [] ->
+     print_info t.loc "loop_swap: no matching subterm\n";
+     t
+  | _ ->
+     List.fold_left
+       (fun t dl ->
+         apply_local_transformation (loop_swap_aux clog) t dl)
+       t
+       epl
   

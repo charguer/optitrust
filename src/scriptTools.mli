@@ -149,7 +149,9 @@ val cSet : ?strict:bool -> ?lhs:(path list) -> ?rhs:(path list) -> unit -> path
 
 val add_label : ?replace_top:bool -> string -> path list -> unit
 
-val show_path : ?replace_top:bool -> path list -> unit
+val show_path : ?replace_top:bool -> ?keep_previous:bool -> path list -> unit
+
+val clean_path_decorators : unit -> unit
 
 val delete_label : ?replace_top:bool -> string -> unit
 
@@ -218,6 +220,8 @@ val tile_loop : ?replace_top:bool -> path list -> unit
 val loop_transform : ?replace_top:bool -> path list -> string -> unit
 
 val loop_tile : ?replace_top:bool -> path list -> string -> unit
+
+val loop_swap : ?replace_top:bool -> path list -> unit
 
 val aos_to_soa : ?replace_top:bool -> ?name:(string -> string) -> string -> unit
 

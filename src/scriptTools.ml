@@ -361,9 +361,16 @@ let add_label ?(replace_top : bool = false) (label : string)
       } /*>2@*/
     } /*>1@*/ *)
 (* delete the label *)
-let show_path ?(replace_top : bool = false) (pl : path list) : unit = 
-    apply_to_top ~replace_top (fun _ -> Transformations.show_path pl)
+let show_path ?(replace_top : bool = false)?(keep_previous : bool = false) (pl : path list) : unit = 
+    apply_to_top ~replace_top (fun _ t -> 
+    let t = 
+    if not keep_previous then Transformations.delete_path_decorators t
+    else t
+    in Transformations.show_path pl t
+    )
 
+let clean_path_decorators () : unit = 
+    apply_to_top ~replace_top:false (fun _ -> Transformations.delete_path_decorators)
 
 let delete_label ?(replace_top : bool = false) (label : string) : unit =
   apply_to_top ~replace_top (fun _ -> Transformations.delete_label label)
@@ -1193,6 +1200,16 @@ let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var): unit =
     apply_to_top ~replace_top
       (fun ctx -> Transformations.loop_tile ctx.clog pl b);
     write_log "\n"
+
+let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
+    let log : string =
+      Printf.sprintf "Swap_loop %s:\n" (string_of_path (List.flatten pl))
+    in
+    write_log log;
+    apply_to_top ~replace_top
+      (fun ctx -> Transformations.loop_swap ctx.clog pl );
+    write_log "\n"
+
 
 
 
