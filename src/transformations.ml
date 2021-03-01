@@ -254,12 +254,13 @@ let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_bef
         let t_yp = {ty_desc = Typ_struct(List.rev reordered_fields,field_map,x); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes}
         
         in
-
+        
         trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
           ~attributes:t.attributes (Def_typ(x,t_yp) )    
 
       | _ -> fail t.loc "fields_reorder: expected a definiton"
       end
+    
       
   | _ -> fail t.loc "fields_reorder: the path must point at exactly 1 subterm"
   
@@ -759,6 +760,7 @@ let change_typ ?(change_at : path list list = [[]]) (ty_before : typ)
       | _ -> List.fold_left (apply_local_transformation apply_change) t' epl
     )
     t
+  
     change_at
 
 
@@ -1650,14 +1652,14 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
   *)
 
  
-  let rec magic_loop_aux (clog : out_channel) (c : var) (t : trm) : trm =
+  let rec magic_loop_aux (clog : out_channel) (c : var) (new_var : var)(t : trm) : trm =
     match t.desc with 
     (* The loop might be labelled, so keep the label *)
     | Trm_labelled (l, t_loop) ->
-      trm_labelled l (magic_loop_aux clog c t_loop)
+      trm_labelled l (magic_loop_aux clog c new_var t_loop)
     
     | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
-     let t_transformed = magic_loop_aux clog c t_loop in
+     let t_transformed = magic_loop_aux clog c new_var t_loop in
      (* transformed loops are expected to declare their index *)
      begin match t_transformed.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
@@ -1725,11 +1727,11 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
         | true -> trm_lit(Lit_int 0) 
         | false ->  
           match loop_step.desc with 
-          | Trm_val(Val_lit(Lit_int 1)) -> trm_var "c"
+          | Trm_val(Val_lit(Lit_int 1)) -> trm_var new_var
           | _ -> trm_apps (trm_binop Binop_mul)
               [
                   trm_apps ~annot:(Some Heap_allocated) 
-                      (trm_unop Unop_get) [trm_var "c"];
+                      (trm_unop Unop_get) [trm_var new_var];
                     loop_step
 
               ]
@@ -1788,13 +1790,13 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
                   (trm_unop (Unop_delete false)) [trm_var index]
 
             ]
-          in loop ~top:true "c" (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ]) 
+          in loop ~top:true new_var (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ]) 
       
 
   | _ -> fail t.loc "magic_loop_aux: not a for loop, check the path "
 
 
-let magic_loop_aux (clog : out_channel)(c : var) (t : trm) : trm = 
+let magic_loop_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : trm = 
   let log : string = 
     let loc : string = 
       match t.loc with 
@@ -1809,10 +1811,10 @@ let magic_loop_aux (clog : out_channel)(c : var) (t : trm) : trm =
       (ast_to_string t) loc 
     in
     write_log clog log;
-    magic_loop_aux clog c t
+    magic_loop_aux clog c new_var t
 
 
-let loop_transform (clog : out_channel) (pl : path list) (c : var)(t : trm) : trm = 
+let loop_transform (clog : out_channel) (pl : path list) (c : var)(new_var : var)(t : trm) : trm = 
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
@@ -1825,22 +1827,22 @@ let loop_transform (clog : out_channel) (pl : path list) (c : var)(t : trm) : tr
   | _ ->
      List.fold_left
        (fun t dl ->
-         apply_local_transformation (magic_loop_aux clog c) t dl)
+         apply_local_transformation (magic_loop_aux clog c new_var) t dl)
        t
        epl
 
-let rec loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
+let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : trm =
   match t.desc with
   (* the loop might be labelled: keep the label *)
   | Trm_labelled (l, t_loop) ->
-     trm_labelled l (loop_tile_aux clog b t_loop)
+     trm_labelled l (loop_tile_aux clog b new_var t_loop)
   (*
     if the loop declares its own index, a seq with a delete instruction occurs
     in this case, put the delete instructions at the end of the inner loop if
     the index is still used
    *)
   | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
-     let t_tiled = loop_tile_aux clog b t_loop in
+     let t_tiled = loop_tile_aux clog b new_var t_loop in
      (* tiled loops are expected to declare their index *)
      begin match t_tiled.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
@@ -1916,7 +1918,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
     let loop ?(top : bool = false) (index : var) (bound : trm) (body : trm) =
         let start = match top with 
         | true -> trm_lit(Lit_int 0)
-        | false -> trm_var( "b" ^ index)
+        | false -> trm_var( new_var)
         in 
         trm_seq ~annot:(Some Delete_instructions)
             [
@@ -1956,12 +1958,12 @@ let rec loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
                 (trm_unop (Unop_delete false)) [trm_var index]
             ]
         in
-        loop ~top:true ("b"^index_x) loop_size (trm_seq [loop ~top:false index_x spec_bound body])
+        loop ~top:true new_var loop_size (trm_seq [loop ~top:false index_x spec_bound body])
      | _ -> fail t.loc "loop_tile_aux: bad loop body"
     
 
 
-let loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
+let loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : trm =
   let log : string =
     let loc : string =
       match t.loc with
@@ -1975,9 +1977,9 @@ let loop_tile_aux (clog : out_channel)(b : var) (t : trm) : trm =
       (ast_to_string t) loc
   in
   write_log clog log;
-  loop_tile_aux clog b t
+  loop_tile_aux clog b new_var t
 
-let loop_tile (clog : out_channel) (pl : path list)(big_b : var)(t : trm) : trm =
+let loop_tile (clog : out_channel) (pl : path list)(tile_width : var)(new_var : var)(t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
@@ -1990,17 +1992,20 @@ let loop_tile (clog : out_channel) (pl : path list)(big_b : var)(t : trm) : trm 
   | _ ->
      List.fold_left
        (fun t dl ->
-         apply_local_transformation (loop_tile_aux clog big_b) t dl)
+         apply_local_transformation (loop_tile_aux clog tile_width new_var) t dl)
        t
        epl
   
 
   
- let rec loop_swap_aux (clog : out_channel) (t : trm) : trm = 
+let rec loop_swap_aux (clog : out_channel) (t : trm) : trm = 
   match t.desc with 
-  (* the loop might be labelled: kepp the label *)
+  (* The loop might be labelled, so keep the label *)
   | Trm_labelled (l, t_loop) -> 
     trm_labelled l (loop_swap_aux clog t_loop)
+  (* If the loop declares its own index; a sew with delete instructions occurs in this case,
+   put the delete instructions at the ened of the inner loop
+  if the index is still used *)
   | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
      let t_swaped = loop_swap_aux clog t_loop in
      (* swaped loops are expected to declare their index *)
@@ -2034,16 +2039,16 @@ let loop_tile (clog : out_channel) (pl : path list)(big_b : var)(t : trm) : trm 
         end
      | _ -> fail t_swaped.loc "loop_tile_aux: expected outer loop"
      end
-  (* otherwise, just swap  *)
-  | Trm_for (init1, cond1, step1,{desc = Trm_seq [body1];_}) ->
-    let log : string = 
+  (* otherwise, just tile *)
+  | Trm_for (init, cond, step, body) ->
+    let log : string =
       let loc : string = 
-        match body1.loc with 
+        match body.loc with 
         | None -> ""
         | Some (_, line) -> Printf.sprintf "at line %d " line
-      in 
+      in
       Printf.sprintf
-         ("  - for (%s; %s; %s) is of the form\n" ^^
+          ("  - for (%s; %s; %s) is of the form\n" ^^
           "      for ([int] x = 0; x < X; x++)\n" ^^
           "  - expression\n%s\n" ^^
           "    %sis of the form\n" ^^
@@ -2051,24 +2056,35 @@ let loop_tile (clog : out_channel) (pl : path list)(big_b : var)(t : trm) : trm 
           "        body\n" ^^
           "      }\n"
          )
-         (ast_to_string init1) (ast_to_string cond1) (ast_to_string step1)
-         (ast_to_string body1) loc
-      in
-      write_log clog log;
-      begin match body1.desc with 
-      | Trm_for(init2, cond2, step2, body2) ->
-        trm_seq 
-          [
-            trm_for init2 cond2 step2 (trm_seq [trm_for init1 cond1 step1 body2])
-          ]
-      
-      | _ -> fail t.loc "loop_swap_aux; expected inner loop"
-      end
-      
-  | _ -> fail t.loc "loop_swap_aux; bad loop body"
+         (ast_to_string init) (ast_to_string cond) (ast_to_string step)
+         (ast_to_string body) loc
+    in
+    write_log clog log;
+    let init2 = match body.desc with 
+    | Trm_seq[{desc = Trm_seq[{desc = Trm_for(init_2,_,_,_);_}];_}] -> init_2  
+    | _ ->fail t.loc "Inner1 loop was not matched"
+    in 
+    let cond2 = match body.desc with 
+    | Trm_seq[{desc = Trm_for(_,cond_2,_,_);_}] -> cond_2  
+    | _ ->fail t.loc "Inner2 loop was not matched"
+    in 
+    let step2 = match body.desc with 
+    | Trm_seq[{desc = Trm_for(_,_,step_2,_);_}] -> step_2  
+    | _ ->fail t.loc "Inner3 loop was not matched"
+    in
+    let body2 = match body.desc with 
+    | Trm_seq[{desc = Trm_for(_,_,_,body_2);_}] -> body_2  
+    | _ ->fail t.loc "Inner4 loop was not matched"
+    in 
+    trm_seq
+      [
+        trm_for init2 cond2 step2 (trm_seq [
+          trm_for init cond step body2
+        ])
+      ]
+  | _ -> fail t.loc "Expected a for loop"
+   
     
-
-
 
 let loop_swap_aux (clog : out_channel) (t : trm) : trm = 
   let log : string =

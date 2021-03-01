@@ -1183,22 +1183,22 @@ let tile_loop ?(replace_top : bool = false)
     (fun ctx -> Loop_tiling.tile_loop ctx.clog pl);
   write_log "\n"
 
-let loop_transform ?(replace_top : bool = false) (pl : path list) (c: var): unit =
+let loop_transform ?(replace_top : bool = false) (pl : path list) (c: var) (new_var : var): unit =
     let log : string =
       Printf.sprintf "Transform_loop %s:\n" (string_of_path (List.flatten pl))
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Transformations.loop_transform ctx.clog pl c);
+      (fun ctx -> Transformations.loop_transform ctx.clog pl c new_var);
     write_log "\n"
 
-let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var): unit =
+let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var) (new_var : var): unit =
     let log : string =
       Printf.sprintf "Transform_loop %s:\n" (string_of_path (List.flatten pl))
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Transformations.loop_tile ctx.clog pl b);
+      (fun ctx -> Transformations.loop_tile ctx.clog pl b new_var);
     write_log "\n"
 
 let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
