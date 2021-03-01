@@ -212,30 +212,21 @@ let rec aux acc = function
 else aux (hd :: acc) tl 
 in aux [] l
 
-(*TODO: Find out why other terms are not shown *)
-let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(pl : path list) (t : trm) : trm  = 
-  let p = List.flatten pl in 
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_path p t in 
-  Flags.verbose := b;
-  match epl with 
-  | [dl] -> 
-      let (t_def, _) = resolve_explicit_path dl t in
-       let log : string =
-         let loc : string =
-           match t_def.loc with
-           | None -> ""
-           | Some (_, line) -> Printf.sprintf "at line %d " line
-         in
-         Printf.sprintf
-           ("  - expression\n%s\n" ^^
-            "    %sis a declaration\n"
-           )
-           (ast_to_string t_def) loc
-       in
-       write_log clog log;
-       begin match t_def.desc with
+
+let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(t : trm) : trm  = 
+    let log : string = 
+      let loc : string = 
+        match t.loc with 
+        | None -> ""
+        | Some (_, line) -> Printf.sprintf "at line %d " line
+      in Printf.sprintf
+          ("  - expression\n%s\n" ^^
+          "    %sis a (labelled) loop\n"
+          )
+      (ast_to_string t) loc 
+    in
+    write_log clog log;
+    begin match t.desc with
       |Trm_decl (Def_typ (x,dx)) ->
         
         let field_list ,field_map = 
@@ -261,11 +252,27 @@ let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_bef
       | _ -> fail t.loc "fields_reorder: expected a definiton"
       end
     
-      
-  | _ -> fail t.loc "fields_reorder: the path must point at exactly 1 subterm"
-  
+ 
+
+let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(pl : path list) (t : trm) : trm  = 
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in
+  Flags.verbose := false;
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+  match epl with 
+  | [] -> print_info t.loc "Struct field reordering\n";
+    t
+  | _ -> List.fold_left 
+      (fun t dl -> 
+        apply_local_transformation (fields_reorder_aux clog ~struct_fields ~move_before ~move_after) t dl )
+      t
+      epl
 
 
+ 
+
+ 
  
 
 let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"  
@@ -341,13 +348,6 @@ let replace_arg_types_with (x : typvar) (il : int list) (tvl : typed_var list)
     t
     il
 
-(*
-  compute a map of the functions that are applied to an argument of type x in t
-  to the indices of the arguments of type x
-  note: we cannot look only at fun declarations because x may be an alias for
-  another type that is also used
-  outer_trm: used for recursive calls for path search
- *)
 let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
   (t : trm) : ilset funmap =
   let rec aux (t : trm) : ilset funmap =
