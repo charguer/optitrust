@@ -8,15 +8,15 @@ int f(int n) {
   return n;
 }
 
-/*
+
 void test_loop() {
-  for (int i = 0; i < 10;i++) {
+  for (int i = 0; i < 10; i++) {
       i++;
      // TODO find out why i++ is not encoded?
   }
 
 }
-*/
+
 
 // Stack allocated variables are turned into heap allocated variables
 void stack_var() {

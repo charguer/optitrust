@@ -186,31 +186,49 @@ let add_label (label : string) (pl : path list) (t : trm) : trm =
        t epl
 
 
-let rec remove x  = function 
+let rec remove (x:'a) (xs:'a list) : 'a list  = match xs with
 | [] -> []
-| hd :: tl -> if hd = x then tl else hd :: remove x tl
+| y :: q -> 
+   let q' = remove x q in
+   if y = x then q' else y :: q'
+
+(* let list_remove x xs = List.filter (fun y -> y <> x) xs *)
 
 let rec remove_set l = function
 | [] -> l
 | hd :: tl -> remove_set (remove hd l) tl
 
+(* let list_removes ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys *)
+
 let move_fields_before x local_l l = 
 let l = remove_set l local_l in 
 let rec aux acc = function 
-| [] -> acc
-| hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl 
+| [] -> acc (* raise an error x not part of the list *)
+| hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl (* local_l @ hd :: acc @ tl *)
 else aux (hd :: acc) tl 
 in aux [] l
 
+(* 
+  - tail recursive approach => more efficient 
+  - non-tail rec => easier to read 
+
+     let rec insert_after x xs l =
+        match l with
+        | [] -> error
+        | y::q -> if x = y then xs@l else y::(insert_after x xs q)
+*)
 
 
 let move_fields_after x local_l l = 
-let l = remove_set l local_l in 
-let rec aux acc = function 
-| [] -> acc
-| hd :: tl -> if hd = x then aux (hd :: local_l @ acc) tl 
-else aux (hd :: acc) tl 
-in aux [] l
+  let l = remove_set l local_l in 
+  let rec aux acc = function 
+    | [] -> acc
+    | hd :: tl -> 
+        if hd = x
+          then aux (hd :: local_l @ acc) tl 
+          else aux (hd :: acc) tl 
+    in
+  aux [] l
 
 
 let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(t : trm) : trm  = 
@@ -227,24 +245,21 @@ let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move
     in
     write_log clog log;
     begin match t.desc with
-      |Trm_decl (Def_typ (x,dx)) ->
+      | Trm_decl (Def_typ (x,dx)) ->
         
-        let field_list ,field_map = 
-        match dx.ty_desc with
-          |Typ_struct(l,m,_) -> l,m
-          |_ -> fail t.loc "Struct was not matched correctly"
-        in
+        let field_list, field_map = 
+          match dx.ty_desc with
+            | Typ_struct(l,m,_) -> l,m
+            |_ -> fail t.loc "fields_reorder: the type should be a typedef struct"
+          in
         let reordered_fields = 
           match move_before, move_after with 
           | "",_ -> move_fields_after move_after struct_fields field_list
           | _, "" -> move_fields_before move_before struct_fields field_list
-          | _,_-> fail t.loc "fields_reorder: Can not move field before and after"
-        
-        in
-        
-        let t_yp = {ty_desc = Typ_struct(List.rev reordered_fields,field_map,x); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes}
-        
-        in
+          | _,_-> fail t.loc "fields_reorder: only one of move_before or move_after should be specified"
+          in
+          (* TODO: field order should match in the AST what works. *)
+        let t_yp = {ty_desc = Typ_struct(List.rev reordered_fields,field_map,x); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes} in
         
         trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
           ~attributes:t.attributes (Def_typ(x,t_yp) )    
@@ -254,20 +269,22 @@ let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move
     
  
 
-let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(pl : path list) (t : trm) : trm  = 
+let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (pl : path list) (t : trm) : trm  = 
   let p = List.flatten pl in 
   let b = !Flags.verbose in
   Flags.verbose := false;
   let epl = resolve_path p t in 
   Flags.verbose := b;
   match epl with 
-  | [] -> print_info t.loc "Struct field reordering\n";
-    t
-  | _ -> List.fold_left 
-      (fun t dl -> 
-        apply_local_transformation (fields_reorder_aux clog ~struct_fields ~move_before ~move_after) t dl )
+  | [] -> 
+      print_info t.loc "Struct field reordering\n";
       t
-      epl
+  | _ -> 
+      List.fold_left 
+        (fun t dl -> 
+          apply_local_transformation (fields_reorder_aux clog ~struct_fields ~move_before ~move_after) t dl )
+        t
+        epl
 
 
  
@@ -1806,6 +1823,7 @@ let magic_loop_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : trm 
     in
     Printf.sprintf
       ("  - expression\n%s\n" ^^
+
        "    %sis a (labelled) loop\n"
       )
       (ast_to_string t) loc 
@@ -1995,17 +2013,12 @@ let loop_tile (clog : out_channel) (pl : path list)(tile_width : var)(new_var : 
          apply_local_transformation (loop_tile_aux clog tile_width new_var) t dl)
        t
        epl
-  
 
-  
 let rec loop_swap_aux (clog : out_channel) (t : trm) : trm = 
   match t.desc with 
-  (* The loop might be labelled, so keep the label *)
+  (* the loop might be labelled: kepp the label *)
   | Trm_labelled (l, t_loop) -> 
     trm_labelled l (loop_swap_aux clog t_loop)
-  (* If the loop declares its own index; a sew with delete instructions occurs in this case,
-   put the delete instructions at the ened of the inner loop
-  if the index is still used *)
   | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
      let t_swaped = loop_swap_aux clog t_loop in
      (* swaped loops are expected to declare their index *)
@@ -2014,6 +2027,7 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
                                  {desc = Trm_seq [body1]; _}); _}; t_del1]
           when t_swaped.annot = Some Delete_instructions ->
         begin match body1.desc with
+        
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
              when body1.annot = Some Delete_instructions ->
            (* if the index is used in body, then add delete instruction *)
@@ -2035,20 +2049,20 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
                    );
                  t_del1
                ]
-        | _ -> fail body1.loc "loop_tile_aux: expected inner loop"
+        | _ -> fail body1.loc "loop_swap_aux: expected inner loop"
         end
-     | _ -> fail t_swaped.loc "loop_tile_aux: expected outer loop"
+     | _ -> fail t_swaped.loc "loop_swap_aux: expected outer loop"
      end
-  (* otherwise, just tile *)
-  | Trm_for (init, cond, step, body) ->
-    let log : string =
+  (* otherwise, just swap  *)
+  | Trm_for (init1, cond1, step1,body1) ->
+    let log : string = 
       let loc : string = 
-        match body.loc with 
+        match body1.loc with 
         | None -> ""
         | Some (_, line) -> Printf.sprintf "at line %d " line
-      in
+      in 
       Printf.sprintf
-          ("  - for (%s; %s; %s) is of the form\n" ^^
+         ("  - for (%s; %s; %s) is of the form\n" ^^
           "      for ([int] x = 0; x < X; x++)\n" ^^
           "  - expression\n%s\n" ^^
           "    %sis of the form\n" ^^
@@ -2056,35 +2070,90 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
           "        body\n" ^^
           "      }\n"
          )
-         (ast_to_string init) (ast_to_string cond) (ast_to_string step)
-         (ast_to_string body) loc
-    in
-    write_log clog log;
-    let init2 = match body.desc with 
-    | Trm_seq[{desc = Trm_seq[{desc = Trm_for(init_2,_,_,_);_}];_}] -> init_2  
-    | _ ->fail t.loc "Inner1 loop was not matched"
-    in 
-    let cond2 = match body.desc with 
-    | Trm_seq[{desc = Trm_for(_,cond_2,_,_);_}] -> cond_2  
-    | _ ->fail t.loc "Inner2 loop was not matched"
-    in 
-    let step2 = match body.desc with 
-    | Trm_seq[{desc = Trm_for(_,_,step_2,_);_}] -> step_2  
-    | _ ->fail t.loc "Inner3 loop was not matched"
-    in
-    let body2 = match body.desc with 
-    | Trm_seq[{desc = Trm_for(_,_,_,body_2);_}] -> body_2  
-    | _ ->fail t.loc "Inner4 loop was not matched"
-    in 
-    trm_seq
-      [
-        trm_for init2 cond2 step2 (trm_seq [
-          trm_for init cond step body2
-        ])
-      ]
-  | _ -> fail t.loc "Expected a for loop"
-   
-    
+         (ast_to_string init1) (ast_to_string cond1) (ast_to_string step1)
+         (ast_to_string body1) loc
+      in
+      write_log clog log;
+      (* TODO: for debugging.
+let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
+  let d = print_trm ~only_desc t in
+  PPrintEngine.ToChannel.pretty 0.9 80 out d
+  
+  | Trm_seq ({desc = Trm_seq({desc = Trm_for(init2,cond2,step2,body2);_} :: _);_} :: _)
+
+ast; *)
+
+      begin match body1.desc with 
+     
+      | Trm_seq ({desc = Trm_seq(f_loop :: _);_} :: _) ->
+        begin match f_loop.desc with 
+        | Trm_for(init2,cond2,step2,body2) -> 
+          let log : string = 
+            let loc : string = 
+            match body1.loc with 
+            | None -> ""
+            | Some (_, line) -> Printf.sprintf "at line %d " line
+          in 
+          Printf.sprintf
+          ("Inner looop " ^^
+           "  - for (%s; %s; %s) is of the form\n" ^^
+           "      for ([int] x = 0; x < X; x++)\n" ^^
+           "  - expression\n%s\n" ^^
+           "    %sis of the form\n" ^^
+           "      {\n" ^^
+           "        body\n" ^^
+           "      }\n"
+          )
+          (ast_to_string init2) (ast_to_string cond2) (ast_to_string step2)
+          (ast_to_string body2) loc
+          in
+          write_log clog log;
+          let index1 = for_loop_index t in 
+          let loop_size1 = for_loop_bound t in 
+          let index_init1 = for_loop_init t in
+          let index2 = for_loop_index f_loop in 
+          let loop_size2 = for_loop_bound f_loop in
+          let index_init2 = for_loop_init f_loop in
+           
+          let loop (index : var) (init : trm) (step : trm) (bound : trm) (body : trm) =
+          trm_seq ~annot:(Some Delete_instructions)
+            [
+              trm_for
+                (* init *)
+                (trm_seq ~annot:(Some Heap_allocated)
+                   [
+                     trm_decl (Def_var ((index, typ_ptr (typ_int ())),
+                                        trm_prim (Prim_new (typ_int ()))));
+                     trm_set ~annot:(Some Initialisation_instruction)
+                       (trm_var index) (init)
+                   ]
+                )
+                (* cond *)
+                (trm_apps (trm_binop Binop_lt)
+                   [
+                     trm_apps ~annot:(Some Heap_allocated)
+                       (trm_unop Unop_get) [trm_var index];
+                     bound
+                   ]
+                )
+                (* step *)
+                (step)
+                (* body *)
+                body;
+              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+                (trm_unop (Unop_delete false)) [trm_var index]
+            ]
+        in
+        loop index2 index_init2 step2 loop_size2 (trm_seq [loop index1 index_init1 step1 loop_size1 body2])
+        | _ -> fail t.loc "loop_swap_aux: inner_loop was not matched"
+        end
+      | _ -> fail t.loc "loop_swap_aux; expected inner loop"
+      end
+
+      
+  | _ -> fail t.loc "loop_swap_aux; bad loop body"
+
+  
 
 let loop_swap_aux (clog : out_channel) (t : trm) : trm = 
   let log : string =

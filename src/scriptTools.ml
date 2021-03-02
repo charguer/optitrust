@@ -364,9 +364,11 @@ let add_label ?(replace_top : bool = false) (label : string)
 let show_path ?(replace_top : bool = false)?(keep_previous : bool = false) (pl : path list) : unit = 
     apply_to_top ~replace_top (fun _ t -> 
     let t = 
-    if not keep_previous then Transformations.delete_path_decorators t
-    else t
-    in Transformations.show_path pl t
+      if not keep_previous 
+        then Transformations.delete_path_decorators t
+        else t 
+      in 
+    Transformations.show_path pl t
     )
 
 let clean_path_decorators () : unit = 
@@ -1140,7 +1142,7 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
        ~fun_return_label pl);
   write_log "\n"
 
-let fields_reorder ?(replace_top : bool = false) (pl : path list) ?(struct_fields : fields = [])?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit = 
+let fields_reorder ?(replace_top : bool = false) (pl : path list) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit = 
   let log : string =
     let ps = string_of_path (List.flatten pl) in 
     Printf.sprintf

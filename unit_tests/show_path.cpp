@@ -8,7 +8,9 @@ int main() {
     if (true) {
       x++;
     } else {
-      i++;
+      if (false) { 
+        i++;
+      }
     }
   }
 
