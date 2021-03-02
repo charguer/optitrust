@@ -2193,6 +2193,8 @@ let rec get_path (clog : out_channel)(t : trm) : 'a list =
   match t.desc with
   | Trm_labelled (_, t_loop) -> 
     get_path clog t_loop
+  | Trm_seq [t_loop; _]  ->
+     get_path clog t_loop
   | Trm_for(init, cond, step, body) -> 
     let log : string = 
       let loc : string = 
