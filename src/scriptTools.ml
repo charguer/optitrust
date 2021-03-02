@@ -1212,7 +1212,14 @@ let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
       (fun ctx -> Transformations.loop_swap ctx.clog pl );
     write_log "\n"
 
-
+let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit = 
+    let log : string =
+      Printf.sprintf "move_loop_before %s:\n" (string_of_path (List.flatten pl))
+    in 
+    write_log log;
+    apply_to_top ~replace_top
+      (fun ctx -> Transformations.move_loop_before ctx.clog pl loop_index);
+    write_log "\n"
 
 
 let aos_to_soa ?(replace_top : bool = false)
