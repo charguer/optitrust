@@ -1832,7 +1832,7 @@ let magic_loop_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : trm 
     magic_loop_aux clog c new_var t
 
 
-let loop_transform (clog : out_channel) (pl : path list) (c : var)(new_var : var)(t : trm) : trm = 
+let loop_coloring (clog : out_channel) (pl : path list) (c : var)(new_var : var)(t : trm) : trm = 
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
@@ -1840,7 +1840,7 @@ let loop_transform (clog : out_channel) (pl : path list) (c : var)(new_var : var
   Flags.verbose := b;
   match epl with
   | [] ->
-     print_info t.loc "loop_transform: no matching subterm\n";
+     print_info t.loc "loop_coloring: no matching subterm\n";
      t
   | _ ->
      List.fold_left
@@ -2005,7 +2005,7 @@ let loop_tile (clog : out_channel) (pl : path list)(tile_width : var)(new_var : 
   Flags.verbose := b;
   match epl with
   | [] ->
-     print_info t.loc "loop_transform: no matching subterm\n";
+     print_info t.loc "loop_tile: no matching subterm\n";
      t
   | _ ->
      List.fold_left

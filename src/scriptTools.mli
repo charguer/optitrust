@@ -217,7 +217,7 @@ val fields_reorder : ?replace_top:bool -> path list -> ?struct_fields:Ast.fields
 
 val tile_loop : ?replace_top:bool -> path list -> unit
 
-val loop_transform : ?replace_top:bool -> path list -> string -> string -> unit
+val loop_coloring : ?replace_top:bool -> path list -> string -> string -> unit
 
 val loop_tile : ?replace_top:bool -> path list -> string -> string -> unit
 
