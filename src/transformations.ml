@@ -2240,11 +2240,16 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
       write_log clog log;
       (* Get the path from the outer loop to the one we want to swap with *)
       let path_list = List.rev (get_path clog t) in 
+    
       let rec clean_path (xl : 'a list) : 'a list = match xl with 
         | [] -> []
-        | hd :: tl -> if hd = loop_index then tl else clean_path tl
+        | hd :: tl -> 
+          if hd = loop_index then tl
+          else clean_path tl
       in 
-      let path_list = clean_path path_list 
+      let check_last = List.mem loop_index path_list in 
+      let path_list = if not check_last then path_list
+          else clean_path path_list 
       in
       let rec multi_swap (xl : 'a list) (t : trm) : trm = match xl with 
       | [] -> t
@@ -2263,7 +2268,7 @@ let move_loop_before (clog : out_channel) (pl : path list)(loop_index : var) (t 
   Flags.verbose := b;
   match epl with 
   | [] -> 
-    print_info t.loc "move_loop_before; no matching subterm";
+    print_info t.loc "move_loop_before: no matching subterm";
     t
   | _ ->
     List.fold_left
@@ -2272,6 +2277,58 @@ let move_loop_before (clog : out_channel) (pl : path list)(loop_index : var) (t 
       t
       epl
 
+let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm = 
+  let log : string =
+    let loc : string =
+      match t.loc with 
+      | None -> ""
+      | Some (_, line) -> Printf.sprintf "at line %d " line
+    in
+    Printf.sprintf
+    ("  - expression\n%s\n" ^^
+          "    %sis a (labelled) loop\n"
+    )
+    (ast_to_string t) loc
+    in
+    write_log clog log;
+    let path_list = get_path clog t in
+    let rec clean_path (xl : 'a list) : 'a list = match xl with 
+      | [] -> []
+      | hd :: tl as t-> 
+        if hd = loop_index then t
+        else clean_path tl  
+      in
+    let l_index = List.hd path_list in
+    let check_last = List.mem loop_index path_list in 
+    let path_list = if not check_last then path_list
+      else clean_path (List.rev path_list) 
+      in
+    let path_length = List.length path_list in
+    
+    let rec multi_swap (count : int) (t : trm) : trm = match count with 
+      | 0 ->  t  
+      | _ -> let pl = [cFor ~init:[cVarDef ~name:l_index ()] ()] in 
+           let t = loop_swap clog pl t in 
+           multi_swap (count-1) t
+      in
+    multi_swap path_length t 
+
+let move_loop_after (clog : out_channel) (pl : path list)(loop_index : var) (t : trm) : trm =
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in
+  Flags.verbose := false;
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+  match epl with 
+  | [] -> 
+    print_info t.loc "move_loop_before: no matching subterm";
+    t
+  | _ ->
+    List.fold_left
+      (fun t dl ->
+        apply_local_transformation (move_loop_after_aux clog loop_index) t dl)
+      t
+      epl
 
 
 
