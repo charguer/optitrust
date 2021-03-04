@@ -12,14 +12,16 @@
 # Installation details
 
 ```
-   sudo apt-get install clang-format meld
+   # Installation of system packages
+   sudo apt-get install clang-format meld libclang-dev llvm-dev
 
    # Installation of opam: https://opam.ocaml.org/doc/Install.html
    sudo apt-get install opam
    opam switch create 4.11.0
    opam install dune clangml pprint
    # (optional but recommended for vscode)
-   opam install merlin ocp-indent user-setup
+   opam install merlin ocp-indent user-setup 
+   # (includes ocaml-lsp-server)
 
    # Installation of vscode: https://code.visualstudio.com/download
    # ...download the .deb package and install it
@@ -31,7 +33,7 @@
   
    # As explained in https://www.cosmiccode.blog/blog/vscode-for-ocaml/
    # for merlin to work well you need to update settings.json (global VS code settings)
-   # go to file/ settings, type "settings.json", then at the very bottom click "edit".
+   # go to file/ preferences / settings, type "settings.json", then at the very bottom click "edit".
   # with (make sure to get the path right depending on opam's version)
 ```
        {
@@ -39,9 +41,9 @@
         "reason.path.ocamlfind": "bash -ic ~/.opam/4.11.0/bin/ocamlfind",
         "reason.path.ocpindent": "bash -ic ~/.opam/4.11.0/bin/ocp-indent",
         "reason.diagnostics.tools": [
-          "merlin"
-        ],
-    }
+            "merlin"
+          ],
+       }
 ```
 
    # 

@@ -4,12 +4,12 @@ int* t;
 int main(){
     int N = 10;
     int x = 0;
-    for(int i = 0; i < N; i++){
-        for(int j = 0; j < N; j++){
-            for(int a = 0; a < N; a++){
-                for(int k = 0; k < N; k++){
-                    for(int t = 0; t < N; t++){
-                        for(int u = 0; u < N; u++){
+    for(int a = 0; a < N; a++){
+        for(int b = 0; b < N; b++){
+            for(int c = 0; c < N; c++){
+                for(int d = 0; d < N; d++){
+                    for(int e = 0; e < N; e++){
+                        for(int f = 0; f < N; f++){
                             x = 1;
                         }
                     }
