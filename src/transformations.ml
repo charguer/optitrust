@@ -1476,7 +1476,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
        let log : string =
          let loc : string =
            match t_def.loc with
-           | None -> ""?(inline_at : path list list = [[]])
+           | None -> ""
            | Some (_, line) -> Printf.sprintf "at line %d " line
          in
          Printf.sprintf
@@ -2294,8 +2294,8 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
     let path_list = get_path clog t in
     let rec clean_path (xl : 'a list) : 'a list = match xl with 
       | [] -> []
-      | hd :: tl as t-> 
-        if hd = loop_index then t
+      | hd :: tl -> 
+        if hd = loop_index then tl
         else clean_path tl  
       in
     let l_index = List.hd path_list in
@@ -2329,58 +2329,20 @@ let move_loop_after (clog : out_channel) (pl : path list)(loop_index : var) (t :
         apply_local_transformation (move_loop_after_aux clog loop_index) t dl)
       t
       epl
+(* A function to find all the fields of the struct which have the same type as the struct we want to inline *)
+let find_keys value m = 
+  Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
+          
+(* A function rename all th elements of a list *)
+let rec change_list (lb : var) (key_list : var list) : var list = match key_list with
+  | [] -> []
+  | hd :: tl -> let x =  lb^"_" ^ hd  in x :: change_list lb tl 
+          
+let rec change_list1 (vl : var list) (pl : var list) : var list = match pl with 
+  | [] -> [] 
+  | hd :: tl -> let y = change_list hd vl in y @ change_list1 vl tl 
 
-
-let inline_struct_aux (clog : out_channel) (t : trm) (t1 : trm) : trm =
-  let log : string = 
-    let loc : string = 
-      match t.loc with
-      | None -> ""
-      | Some (_, line) -> Printf.sprintf "at line %d " line
-    in Printf.sprintf
-      ("  - expression\n%s\n" ^^
-      "    %sis a struct type\n"
-      )
-    (ast_to_string t) loc 
-    in 
-    write_log clog log;
-    begin match t.desc with 
-      | Trm_decl (Def_typ (x,dx)) -> 
-        let field_list = 
-          match dx.ty_dec with 
-            | Typ_struct(l,_, _) -> l
-            | _ -> fail t.loc "inline_struc_aux: the type should be a typedef struct"
-          in 
-        begin match t1.desc with 
-        | Trm_decl (Def_typ(x1,dx1)) -> 
-          (* Get the list and the map of field from the struct we want to inline *)
-          let field_list1, field_map1 = 
-            match dx1.ty_dec with
-            | Typ_struct(l,m,_) -> l,m
-            |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
-          in 
-          (* A function to find all the fields of the struct which have the same type as the struct we want to inline *)
-          let find_keys value m = 
-          Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
-          in 
-          let keys_list = find_keys x field_map1 in 
-          (* A function to remove the keys with value type of struct we want to inline *)
-          let rec remove_keys fl m = match fl with 
-            | [] -> m
-            | hd :: tl -> let m = Field_map.remove hd m in remove_keys tl m;;
-          in 
-          (* Remove those keys from the field map*)
-          let field_map1 = remove_keys keys_list field_map1 in
-          (* Remove those keys from the list of fields*)
-          let field_list1 = remove_set keys_list field_list1 in 
-          (* A function rename all th elements of a list *)
-          let rec change_list (lb : var) (key_list : var list) : var list = match key_list with
-            | [] -> []
-            | hd :: tl -> let x =  lb^"_" ^ hd  in x :: change_list tl 
-          in 
-          let rec change_list1 (vl : var list) (pl : var list) :  = match pl with 
-          | [] -> [] 
-          | hd :: tl -> let y = change_list hd vl in y @ change_list1 vl tl ;;
+          
 
 
 
