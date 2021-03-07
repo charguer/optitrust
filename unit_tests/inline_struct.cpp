@@ -5,6 +5,7 @@ typedef struct {
   vect;
 
 typedef struct {
+    int weight;
     vect pos; // vect to be inlined here
     vect speed;
   } obj;

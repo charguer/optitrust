@@ -215,7 +215,6 @@ and trm_desc =
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
   | Trm_decoration of string * trm * string
-
 (* declarations *)
 and def =
   | Def_var of typed_var * trm (* int x = t *)

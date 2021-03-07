@@ -5,6 +5,7 @@ typedef struct {
   vect;
 
 typedef struct {
+    int weight;
     int pos_x;
     int pos_y;
     vect speed;

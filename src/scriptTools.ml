@@ -1223,13 +1223,21 @@ let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index 
 
 let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit = 
     let log : string =
-      Printf.sprintf "move_loop_before %s:\n" (string_of_path (List.flatten pl))
+      Printf.sprintf "move_loop_after %s:\n" (string_of_path (List.flatten pl))
     in 
     write_log log;
     apply_to_top ~replace_top
       (fun ctx -> Transformations.move_loop_after ctx.clog pl loop_index);
     write_log "\n"
 
+let inline_struct ?(replace_top : bool = false) ?(struct_fields : fields = []) (pl : path list) (struct_name : var) : unit = 
+  let log : string = 
+    Printf.sprintf "inline_struct %S:\n" (string_of_path (List.flatten pl))
+  in
+  write_log log;
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.inline_struct ctx.clog struct_fields pl struct_name);
+  write_log "\n"
 
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =

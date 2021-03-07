@@ -165,6 +165,7 @@ let insert_trm_after (dl : expl_path) (insert : trm) (t : trm) : trm =
        (List.rev (List.tl dl'))
   | _ -> fail t.loc "insert_trm_after: bad path"
 
+
 let add_label (label : string) (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
@@ -1461,7 +1462,7 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
   assumption for function inlining: the function is used at most once per
   instruction
  *)
-let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
+let inlinde_decl (clog : out_channel) ?(delete_decl : bool = false)
   ?(inline_at : path list list = [[]]) ?(fun_result : var = "res")
   ?(fun_return_label : label = "exit") (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in
@@ -1669,14 +1670,14 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
   *)
 
  
-  let rec magic_loop_aux (clog : out_channel) (c : var) (new_var : var)(t : trm) : trm =
+  let rec loop_coloring_aux (clog : out_channel) (c : var) (new_var : var)(t : trm) : trm =
     match t.desc with 
     (* The loop might be labelled, so keep the label *)
     | Trm_labelled (l, t_loop) ->
-      trm_labelled l (magic_loop_aux clog c new_var t_loop)
+      trm_labelled l (loop_coloring_aux clog c new_var t_loop)
     
     | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
-     let t_transformed = magic_loop_aux clog c new_var t_loop in
+     let t_transformed = loop_coloring_aux clog c new_var t_loop in
      (* transformed loops are expected to declare their index *)
      begin match t_transformed.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
@@ -1704,9 +1705,9 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
                    );
                  t_del1
                ]
-        | _ -> fail body1.loc "magic_loop_aux: expected inner loop"
+        | _ -> fail body1.loc "loop_coloring_aux: expected inner loop"
         end
-     | _ -> fail t_transformed.loc "magic_loop_aux: expected outer loop"
+     | _ -> fail t_transformed.loc "loop_coloring_aux: expected outer loop"
      end 
   | Trm_for (init, cond, step, body) ->
       let log : string = 
@@ -1810,10 +1811,10 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
           in loop ~top:true new_var (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ]) 
       
 
-  | _ -> fail t.loc "magic_loop_aux: not a for loop, check the path "
+  | _ -> fail t.loc "loop_coloring_aux: not a for loop, check the path "
 
 
-let magic_loop_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : trm = 
+let loop_coloring_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : trm = 
   let log : string = 
     let loc : string = 
       match t.loc with 
@@ -1829,7 +1830,7 @@ let magic_loop_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : trm 
       (ast_to_string t) loc 
     in
     write_log clog log;
-    magic_loop_aux clog c new_var t
+    loop_coloring_aux clog c new_var t
 
 
 let loop_coloring (clog : out_channel) (pl : path list) (c : var)(new_var : var)(t : trm) : trm = 
@@ -1845,7 +1846,7 @@ let loop_coloring (clog : out_channel) (pl : path list) (c : var)(new_var : var)
   | _ ->
      List.fold_left
        (fun t dl ->
-         apply_local_transformation (magic_loop_aux clog c new_var) t dl)
+         apply_local_transformation (loop_coloring_aux clog c new_var) t dl)
        t
        epl
 
@@ -2074,14 +2075,6 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
          (ast_to_string body1) loc
       in
       write_log clog log;
-      (* TODO: for debugging.
-let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
-  let d = print_trm ~only_desc t in
-  PPrintEngine.ToChannel.pretty 0.9 80 out d
-  
-  | Trm_seq ({desc = Trm_seq({desc = Trm_for(init2,cond2,step2,body2);_} :: _);_} :: _)
-
-ast; *)
 
       begin match body1.desc with 
      
@@ -2188,40 +2181,57 @@ let loop_swap (clog : out_channel) (pl : path list)(t : trm) : trm =
          apply_local_transformation (loop_swap_aux clog) t dl)
        t
        epl
-
-let rec get_path (clog : out_channel)(t : trm) : 'a list =
+(* get_loop_nest_indices -- currently omiting the last one 
+   
+*)
+(* for a { for b {} {  for j {}   ;  for k {} } } -- >  a::b::[]
+  the function should check that it is a loop nest :
+      aux t = 
+          if it is not a loop then  []
+          else  
+             match t with for( ... body )
+                 mattch body with
+                 | for -> i::aux body
+                 | _ -> []
+          
+*)
+let rec get_path (clog : out_channel) (t : trm) : 'a list =
+  (* let aux = get_loop_nest_indices in *)
   match t.desc with
   | Trm_labelled (_, t_loop) -> 
     get_path clog t_loop
   | Trm_seq [t_loop; _]  ->
      get_path clog t_loop
   | Trm_for(init, cond, step, body) -> 
-    let log : string = 
-      let loc : string = 
-        match body.loc with 
-        | None -> ""
-        | Some (_, line) -> Printf.sprintf "at line %d " line
-      in
-      Printf.sprintf
-      ("  - for (%s; %s; %s) is of the form\n" ^^
-          "      for ([int] i = 0; i < N; i++)\n" ^^
-          "  - expression\n%s\n" ^^
-          "    %sis of the form\n" ^^
-          "      {\n" ^^
-          "        body\n" ^^
-          "      }\n"
-         )
-         (ast_to_string init) (ast_to_string cond) (ast_to_string step)
-         (ast_to_string body) loc
-      in
-      write_log clog log;
+    (* TEMPORARY LOGGING ONLY FOR DEV PURPOSE *)
+    if false then begin 
+      let log : string = 
+        let loc : string = 
+          match body.loc with 
+          | None -> ""
+          | Some (_, line) -> Printf.sprintf "at line %d " line
+        in
+        Printf.sprintf
+        ("  - for (%s; %s; %s) is of the form\n" ^^
+            "      for ([int] i = 0; i < N; i++)\n" ^^
+            "  - expression\n%s\n" ^^
+            "    %sis of the form\n" ^^
+            "      {\n" ^^
+            "        body\n" ^^
+            "      }\n"
+          )
+          (ast_to_string init) (ast_to_string cond) (ast_to_string step)
+          (ast_to_string body) loc
+        in
+        write_log clog log;
+      end;
       let loop_init = for_loop_index t in 
       begin match body.desc with 
       | Trm_seq ({desc = Trm_seq (f_loop :: _);_} :: _) -> 
         loop_init :: get_path clog f_loop
       | _ -> []
       end
-  | _ -> fail t.loc "move_loop_before_aux: loop was not matched"
+  | _ -> fail t.loc "get_path: loop was not found"
 
 
 let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm =
@@ -2240,7 +2250,11 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
       write_log clog log;
       (* Get the path from the outer loop to the one we want to swap with *)
       let path_list = List.rev (get_path clog t) in 
-    
+      
+      (* do a list rev at the end of get_loop_nest_indices 
+         let rec chop_list_before x xs =
+            | [] -> error "did not find x"
+            | y::tl -> if y = x then [] else y:: chop_list_before x tl      *)
       let rec clean_path (xl : 'a list) : 'a list = match xl with 
         | [] -> []
         | hd :: tl -> 
@@ -2251,6 +2265,8 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
       let path_list = if not check_last then path_list
           else clean_path path_list 
       in
+      (* List.fold_right (fun i acc  -> loop swap t i) path_list acc t 
+         --checkout the documentation of fold_right *)
       let rec multi_swap (xl : 'a list) (t : trm) : trm = match xl with 
       | [] -> t
       | hd :: tl -> 
@@ -2304,7 +2320,8 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
       else clean_path (List.rev path_list) 
       in
     let path_length = List.length path_list in
-    
+    (*if (path_list = []) then error ---try to check the error in case  move_before "i" "i" *)
+    (* List.fold_left (fun _i acc -> swap l_index) (List.tl path_list) *)
     let rec multi_swap (count : int) (t : trm) : trm = match count with 
       | 0 ->  t  
       | _ -> let pl = [cFor ~init:[cVarDef ~name:l_index ()] ()] in 
@@ -2332,41 +2349,163 @@ let move_loop_after (clog : out_channel) (pl : path list)(loop_index : var) (t :
 (* A function to find all the fields of the struct which have the same type as the struct we want to inline *)
 let find_keys value m = 
   Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
-          
+
+(* A function to insert an element in the list after the given element*)
+let rec insert_after x y list = match list with 
+| [] -> [] 
+| hd :: tl -> if hd = x then hd :: x :: tl else hd :: insert_after x y tl
+
 (* A function rename all th elements of a list *)
-let rec change_list (lb : var) (key_list : var list) : var list = match key_list with
-  | [] -> []
-  | hd :: tl -> let x =  lb^"_" ^ hd  in x :: change_list lb tl 
+let rec apply_labels vl pl = match pl with 
+| [] -> []
+| hd :: tl -> let y = List.map (fun x -> hd ^ "_" ^x) vl in y :: apply_labels vl tl
+
+
+let add_key key value m = Field_map.add key value m 
+
+
+let rec add_keys (lk : var list) (lv : var list) m  = match (lk ,lv) with 
+| [],[] -> m
+| _ :: _, [] -> m
+| [] , _ :: _ -> m
+| hd :: tl, hd1 :: tl1 -> let m = add_key hd hd1 m in add_keys tl tl1 m;;
+
+let rec add_keys_to_map lv llk m = match llk with 
+| [] -> m 
+| hd :: tl -> let m = add_keys  hd lv m in add_keys_to_map lv tl m
+
+let rec insert_list x local_l list = match list with 
+| [] -> []
+| hd :: tl -> if hd = x then hd :: local_l @ tl else insert_list x local_l tl
+
+let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (struct_name : var) (t : trm) : trm =
+  let log : string = 
+    let loc : string = 
+      match t.loc with
+      | None -> ""
+      | Some (_, line) -> Printf.sprintf "at line %d " line
+    in Printf.sprintf
+      ("  - expression\n%s\n" ^^
+      "    %sis a struct type\n"
+      )
+    (ast_to_string t) loc 
+    in 
+    write_log clog log;
+    let pl = [cType ~name:struct_name()] in 
+    let p = List.flatten pl in 
+    let epl = resolve_path p t in 
+    
+    (* Get the struct term from the given path *)
+    let fst = 
+    match epl with 
+    | [dl] -> 
+        let (s_def,_) = resolve_explicit_path dl t in s_def
+    | _ -> fail t.loc "inline_struct_aux: could not match the first struct"
+    in 
+
+    begin match fst.desc with 
+      | Trm_decl (Def_typ (x,dx)) -> 
+        let field_list, field_map = 
+          match dx.ty_desc with 
+            | Typ_struct(l,m, _) -> l,m
+            | _ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
+          in 
+        begin match t.desc with 
+        | Trm_decl (Def_typ(x1,dx1)) -> 
+          let field_list1, field_map1 = 
+            match dx1.ty_desc with
+            | Typ_struct(l,m,_) -> l,m
+            |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
+          in 
           
-let rec change_list1 (vl : var list) (pl : var list) : var list = match pl with 
-  | [] -> [] 
-  | hd :: tl -> let y = change_list hd vl in y @ change_list1 vl tl 
+          (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
+          let keys_list = if struct_fields = [] then find_keys x field_map1
+            else struct_fields 
+            in
+          
+          (* Apply the labels *)
+          let temp_field_list = apply_labels field_list keys_list in 
+          
+          (* The key values from the first struct *)
+          let values = List.map (fun x -> Field_map.find x field_map) field_list in 
 
+          (* Add the new keys with their values to the second  struct field_map *)
+          let field_map1 = add_keys_to_map values temp_field_list field_map1 in 
           
 
-
-
+          let field_list1 = insert_list keys_list temp_field_list field_list1 in 
           
+          
+          let field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 keys_list in
+          
+          let field_list1 = remove_set keys_list field_list1 in 
 
+          (* do removal at the end_*)
+          (* (m',l') = remove_keys_from_list_and_map xs  (m,l) *)
+          (*   insert_bindings_in_list_and_map  field_before_x  new_bindings (m,l) *)
+          (*  List.fold_left (fun (x,t) acc -> Fmap.add x t acc) new_bindings m *)
 
+          (* record_get_typed_fields (fields_list, fields_map) =
+                list (string * typ) : list =
+                 List.combine fields_list (get_values fields_list fields_map) *)
 
+        (* Solution better: 
+              let fmap_of_list xts =  List.fold_left (fun (x,t) acc -> Fmap.add x t acc) new_bindings Fmap.empty 
+              typ_struct typ_fields_list = Typ_struct (List.keys typ_fields_list, Fmap.of_list typ_fields_list)
+        *)
+          (* List documentation 
+          let prefix = here it is "pos"
+          let xts = (record_get_typed_fields .. ) in
+          let yts = List.map (fun (x,t) -> (prefix ^ "_" ^ x, t)) xts in
+          insert_bindings_in_list prefix yts target_bindings
 
+          let insert_bindings_in_list prefix yts xts =
+            match xts with
+            | [] -> error 
+            | x::xts' -> if x = prefix then x::(yts@xts') else x::(insert_bindings_in_list prefix yts xts')
+            
 
+           List;fold left right f
+           List.fold_left2   (List.combine / split)  *)
+
+          let t_yp = {ty_desc = Typ_struct(field_list1,field_map1,x1); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes} in 
+
+          trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~attributes:t.attributes (Def_typ(x1,t_yp))
         
+        | _ -> fail t.loc "inline_struct_aux: expected a definiton"
+        end
+
+      | _ -> fail t.loc "inline_struct_aux: expected a definition"
+    end
 
 
-        
+let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path list) (struct_name : var) (t : trm) : trm =
+    let p = List.flatten pl in
+    let b = !Flags.verbose in
+    Flags.verbose := false;
+    let epl = resolve_path p t in
+    Flags.verbose := b;
+    match epl with 
+    | [] -> 
+      print_info t.loc "inline_struct: no matching subterm"
+    | _ -> 
+      List.fold_left 
+        (fun t dl -> 
+          apply_local_transformation (inline_struct_aux clog struct_fields struct_name) t dl)
+        t
+        epl 
 
 
 
 
-      
-      
 
 
 
 
 
+           
 
 
 
+
+          
