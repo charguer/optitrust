@@ -193,7 +193,7 @@ let rec remove (x:'a) (xs:'a list) : 'a list  = match xs with
    let q' = remove x q in
    if y = x then q' else y :: q'
 
-(* let list_remove x xs = List.filter (fun y -> y <> x) xs *)
+let list_remove x xs = List.filter (fun y -> y <> x) xs 
 
 let rec remove_set l = function
 | [] -> l
@@ -2377,15 +2377,16 @@ let record_get_typed_fields (fields_list, fields_map) =
 *)
 
 
-let rec insert_after x local_l list = match list with 
+let rec insert_before x local_l list = match list with 
 | [] -> []
-| hd :: tl -> if hd = x then hd :: local_l @ tl else hd :: (insert_after x local_l tl)
+| hd :: tl -> if hd = x then local_l @ hd :: tl else hd :: (insert_before x local_l tl)
 
 let rec insert_list keys_list temp_field_list field_list1 = match keys_list with 
 | [] -> field_list1
-| hd :: tl -> let field_list1 = insert_after hd (List.hd temp_field_list) field_list1 in insert_list tl (List.tl temp_field_list ) field_list1
+| hd :: tl -> let field_list1 = insert_before hd (List.hd temp_field_list) field_list1 in insert_list tl (List.tl temp_field_list ) field_list1
 
-let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (struct_name : var) (t : trm) : trm =
+
+let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (t1 : trm) (t : trm) : trm =
   let log : string = 
     let loc : string = 
       match t.loc with
@@ -2398,109 +2399,88 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (struc
     (ast_to_string t) loc 
     in 
     write_log clog log;
-    let pl = [cType ~name:struct_name ()] in 
-    let b = !Flags.verbose in 
-    Flags.verbose := false;
-    
-    let p = List.flatten pl in 
-    let epl = resolve_path p t in 
-    Flags.verbose := b;
-    match epl with 
-    | [] ->
-      print_info t.loc "show_path: not matching subterm\n";
-      t
-    | [dl] -> 
-          let (t_def,_) = resolve_explicit_path dl t in 
-          let log : string = 
-            let loc : string = 
-              match t_def.loc with 
-              | None -> ""
-            | Some (_,line) -> Printf.sprintf "at line %d" line
-            in
-            Printf.sprintf
-              (" matching the first_struct" ^^
-               "- expression\n%s\n" ^^
-               "    %sis a declaration\n"
-              )
-              (ast_to_string t_def) loc
-          in
-          write_log clog log;
-          begin match t_def.desc with 
-          | Trm_decl (Def_typ (_,dx)) -> 
-            let field_list, field_map = 
-            match dx.ty_desc with 
-              | Typ_struct(l,m,_) -> l,m
-              | _ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
-            in 
-            begin match t.desc with 
-            | Trm_decl (Def_typ(x1,dx1)) -> 
-              let field_list1, field_map1,n = 
+    begin match t1.desc with 
+      | Trm_decl (Def_typ(_,dx)) -> 
+        let field_list, field_map =
+          match dx.ty_desc with 
+            | Typ_struct (l,m,_) -> l,m
+            | _ -> fail t.loc "inline_struct_aux: The type shoudl be a typedef struct"
+        in  
+        begin match t.desc with 
+        | Trm_decl (Def_typ(x1,dx1)) -> 
+            let field_list1, field_map1,name = 
               match dx1.ty_desc with
               | Typ_struct(l,m,n) -> l,m,n
               |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
-              in  
+            in 
           
-            (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
-            let keys_list = if struct_fields = [] then find_keys dx1 field_map1
-              else struct_fields 
+          (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
+          let keys_list = if struct_fields = [] then find_keys (typ_var x1) field_map1
+            else struct_fields 
             in
           
-            (* Apply the labels *)
-            let temp_field_list = apply_labels field_list keys_list in 
+          (* Apply the labels *)
+          let temp_field_list = apply_labels field_list keys_list in 
           
-            (* The key values from the first struct *)
-            let values = List.map (fun x -> Field_map.find x field_map) field_list in 
+          (* The key values from the first struct *)
+          let values = List.map (fun x -> Field_map.find x field_map) field_list in 
 
-            (* Add the new keys with their values to the second  struct field_map *)
-            let field_map1 = add_keys_to_map values temp_field_list field_map1 in 
+          (* Add the new keys with their values to the second  struct field_map *)
+          let field_map1 = add_keys_to_map values temp_field_list field_map1 in 
           
 
-            let field_list1 = insert_list keys_list temp_field_list field_list1 in 
+          let field_list1 = insert_list keys_list temp_field_list field_list1 in 
           
           
-            let field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 keys_list in
+          let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 keys_list in
           
-            let field_list1 = remove_set keys_list field_list1 in 
+          let field_list1 = remove_set  field_list1 keys_list in 
 
-            (* do removal at the end_*)
-            (* (m',l') = remove_keys_from_list_and_map xs  (m,l) *)
-            (*   insert_bindings_in_list_and_map  field_before_x  new_bindings (m,l) *)
-            (*  List.fold_left (fun (x,t) acc -> Fmap.add x t acc) new_bindings m *)
+          (* do removal at the end_*)
+          (* (m',l') = remove_keys_from_list_and_map xs  (m,l) *)
+          (*   insert_bindings_in_list_and_map  field_before_x  new_bindings (m,l) *)
+          (*  List.fold_left (fun (x,t) acc -> Fmap.add x t acc) new_bindings m *)
 
-            (* record_get_typed_fields (fields_list, fields_map) =
-                  list (string * typ) : list =
-                   List.combine fields_list (get_values fields_list fields_map) *)
+          (* record_get_typed_fields (fields_list, fields_map) =
+                list (string * typ) : list =
+                 List.combine fields_list (get_values fields_list fields_map) *)
 
-            (* Solution better: 
-                let fmap_of_list xts =  List.fold_left (fun (x,t) acc -> Fmap.add x t acc) new_bindings Fmap.empty 
-                typ_struct typ_fields_list = Typ_struct (List.keys typ_fields_list, Fmap.of_list typ_fields_list)
-          *)
-            (* List documentation 
-            let prefix = here it is "pos"
-            let xts = (record_get_typed_fields .. ) in
-            let yts = List.map (fun (x,t) -> (prefix ^ "_" ^ x, t)) xts in
-            insert_bindings_in_list prefix yts target_bindings
+        (* Solution better: 
+              let fmap_of_list xts =  List.fold_left (fun (x,t) acc -> Fmap.add x t acc) new_bindings Fmap.empty 
+              typ_struct typ_fields_list = Typ_struct (List.keys typ_fields_list, Fmap.of_list typ_fields_list)
+        *)
+          (* List documentation 
+          let prefix = here it is "pos"
+          let xts = (record_get_typed_fields .. ) in
+          let yts = List.map (fun (x,t) -> (prefix ^ "_" ^ x, t)) xts in
+          insert_bindings_in_list prefix yts target_bindings
 
-            let insert_bindings_in_list prefix yts xts =
-              match xts with
-              | [] -> error 
-              | x::xts' -> if x = prefix then x::(yts@xts') else x::(insert_bindings_in_list prefix yts xts')
+          let insert_bindings_in_list prefix yts xts =
+            match xts with
+            | [] -> error 
+            | x::xts' -> if x = prefix then x::(yts@xts') else x::(insert_bindings_in_list prefix yts xts')
             
 
-             List;fold left right f
-            List.fold_left2   (List.combine / split)  *)
+           List;fold left right f
+           List.fold_left2   (List.combine / split)  *)
 
-          trm_decl (Def_typ (x1,typ_struct field_list1 field_map1 n))
+          trm_decl (Def_typ (x1,typ_struct field_list1 field_map1 name))
         
-          | _ -> fail t.loc "inline_struct_aux: expected a definiton"
-          end
-
-        | _ -> fail t.loc "inline_struct_aux: expected a definition"
+        | _ -> fail t.loc "inline_struct_aux: expected a definiton"
+        end
+      | _ -> fail t.loc " inline_struct_aux: expected a definiton"
       end
-    | _ -> fail t.loc "inline_struct_aux: expected a struct definition"
-
 
 let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path list) (struct_name : var) (t : trm) : trm =
+    let  pl_temp = [cType ~name:struct_name()]  in
+    let p_temp = List.flatten pl_temp in
+    let epl_temp = resolve_path p_temp t in 
+    let t1 = 
+    match epl_temp with
+    | [dl] -> 
+      let (t_def,_) = resolve_explicit_path dl t in t_def
+    | _ -> fail t.loc "inline_struct: expected a typedef struct"
+    in
     let p = List.flatten pl in
     let b = !Flags.verbose in
     Flags.verbose := false;
@@ -2513,7 +2493,7 @@ let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path
     | _ -> 
       List.fold_left 
         (fun t dl -> 
-          apply_local_transformation (inline_struct_aux clog ~struct_fields struct_name) t dl)
+          apply_local_transformation (inline_struct_aux clog ~struct_fields t1) t dl)
         t
         epl 
 
