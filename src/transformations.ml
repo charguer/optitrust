@@ -1462,7 +1462,7 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
   assumption for function inlining: the function is used at most once per
   instruction
  *)
-let inlinde_decl (clog : out_channel) ?(delete_decl : bool = false)
+let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
   ?(inline_at : path list list = [[]]) ?(fun_result : var = "res")
   ?(fun_return_label : label = "exit") (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in
@@ -2350,10 +2350,6 @@ let move_loop_after (clog : out_channel) (pl : path list)(loop_index : var) (t :
 let find_keys value m = 
   Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
 
-(* A function to insert an element in the list after the given element*)
-let rec insert_after x y list = match list with 
-| [] -> [] 
-| hd :: tl -> if hd = x then hd :: x :: tl else hd :: insert_after x y tl
 
 (* A function rename all th elements of a list *)
 let rec apply_labels vl pl = match pl with 
@@ -2364,7 +2360,7 @@ let rec apply_labels vl pl = match pl with
 let add_key key value m = Field_map.add key value m 
 
 
-let rec add_keys (lk : var list) (lv : var list) m  = match (lk ,lv) with 
+let rec add_keys (lk : var list) (lv : typ list) m  = match (lk ,lv) with 
 | [],[] -> m
 | _ :: _, [] -> m
 | [] , _ :: _ -> m
@@ -2374,9 +2370,32 @@ let rec add_keys_to_map lv llk m = match llk with
 | [] -> m 
 | hd :: tl -> let m = add_keys  hd lv m in add_keys_to_map lv tl m
 
-let rec insert_list x local_l list = match list with 
+let rec insert_after x local_l list = match list with 
 | [] -> []
-| hd :: tl -> if hd = x then hd :: local_l @ tl else insert_list x local_l tl
+| hd :: tl -> if hd = x then hd :: local_l @ tl else hd :: (insert_after x local_l tl)
+
+let rec insert_list keys_list temp_field_list field_list = match keys_list with 
+| [] -> field_list
+| hd :: tl -> let field_list = insert_after hd (List.hd temp_field_list) field_list in insert_list tl (List.tl temp_field_list ) field_list
+
+
+let get_list_field_map (pl : path list)  (t : trm) : fields * typ fmap = 
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in 
+  Flags.verbose := false;
+  let epl = resolve_path p t in
+  Flags.verbose := b;
+  match epl with 
+  | [dl] ->
+    let (t_def,_) = resolve_explicit_path dl t in
+      match t_def.desc with 
+      | Trm_decl (Def_typ (_,dx)) ->
+        begin match dx.ty_desc with 
+        | Typ_struct(l,m,_) -> l,m
+        |_ -> fail t.loc "get_list_field_map: Expected a struct term"
+        end
+      | _ -> fail t.loc "get_list_field_map: Expected a declaration"
+  | _ -> fail t.loc "get_list_field_map: Expected a struct term"
 
 let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (struct_name : var) (t : trm) : trm =
   let log : string = 
@@ -2392,34 +2411,18 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (struc
     in 
     write_log clog log;
     let pl = [cType ~name:struct_name()] in 
-    let p = List.flatten pl in 
-    let epl = resolve_path p t in 
+    let field_list,field_map = get_list_field_map pl t in 
     
-    (* Get the struct term from the given path *)
-    let fst = 
-    match epl with 
-    | [dl] -> 
-        let (s_def,_) = resolve_explicit_path dl t in s_def
-    | _ -> fail t.loc "inline_struct_aux: could not match the first struct"
-    in 
-
-    begin match fst.desc with 
-      | Trm_decl (Def_typ (x,dx)) -> 
-        let field_list, field_map = 
-          match dx.ty_desc with 
-            | Typ_struct(l,m, _) -> l,m
-            | _ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
-          in 
-        begin match t.desc with 
-        | Trm_decl (Def_typ(x1,dx1)) -> 
-          let field_list1, field_map1 = 
+    begin match t.desc with 
+      | Trm_decl (Def_typ(x1,dx1)) -> 
+          let field_list1, field_map1,name = 
             match dx1.ty_desc with
-            | Typ_struct(l,m,_) -> l,m
+            | Typ_struct(l,m,n) -> l,m,n
             |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
           in 
           
           (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
-          let keys_list = if struct_fields = [] then find_keys x field_map1
+          let keys_list = if struct_fields = [] then find_keys dx1 field_map1
             else struct_fields 
             in
           
@@ -2468,33 +2471,29 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (struc
            List;fold left right f
            List.fold_left2   (List.combine / split)  *)
 
-          let t_yp = {ty_desc = Typ_struct(field_list1,field_map1,x1); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes} in 
-
-          trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~attributes:t.attributes (Def_typ(x1,t_yp))
+          trm_decl (Def_typ (x1,typ_struct field_list1 field_map1 name))
         
         | _ -> fail t.loc "inline_struct_aux: expected a definiton"
         end
 
-      | _ -> fail t.loc "inline_struct_aux: expected a definition"
-    end
-
-
+ 
 let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path list) (struct_name : var) (t : trm) : trm =
-    let p = List.flatten pl in
-    let b = !Flags.verbose in
-    Flags.verbose := false;
-    let epl = resolve_path p t in
-    Flags.verbose := b;
-    match epl with 
-    | [] -> 
-      print_info t.loc "inline_struct: no matching subterm"
-    | _ -> 
-      List.fold_left 
-        (fun t dl -> 
-          apply_local_transformation (inline_struct_aux clog struct_fields struct_name) t dl)
-        t
-        epl 
 
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in
+  Flags.verbose := false;
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+  match epl with 
+  | [] -> 
+    print_info t.loc "move_loop_before: no matching subterm";
+    t
+  | _ ->
+    List.fold_left
+      (fun t dl ->
+        apply_local_transformation (inline_struct_aux clog ~struct_fields struct_name) t dl)
+      t
+      epl
 
 
 
