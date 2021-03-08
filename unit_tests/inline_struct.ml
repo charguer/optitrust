@@ -8,7 +8,7 @@ open ScriptTools
 let _ = 
     run 
     ( fun _ -> 
-        set_init_source"inline_struct.cpp";
-        inline_decl ~decl_path:[cType ~name:"vect" ()] ();
+        set_init_source"demo_inline_struct.cpp";
+        inline_struct [cType ~name:"obj"()] "vect";
         dump()
     )

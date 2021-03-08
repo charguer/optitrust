@@ -1236,7 +1236,7 @@ let inline_struct ?(replace_top : bool = false) ?(struct_fields : fields = []) (
   in
   write_log log;
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.inline_struct ctx.clog struct_fields pl struct_name);
+    (fun ctx -> Transformations.inline_struct ctx.clog ~struct_fields pl struct_name);
   write_log "\n"
 
 let aos_to_soa ?(replace_top : bool = false)
