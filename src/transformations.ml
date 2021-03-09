@@ -2471,34 +2471,31 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (t1 : 
       | _ -> fail t.loc " inline_struct_aux: expected a definiton"
       end
 
+
+let rec last_element list = 
+match list with 
+| [] -> failwith "List is empty"
+| [x] -> x
+| _ :: tl -> last_element tl
+
 let change_struct_access  (x : typvar) (t : trm) : trm = 
   let rec aux (global_trm : trm) (t : trm) : trm = 
     match t.desc with 
     | Trm_apps (f, [base]) ->
        begin match f.desc with 
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
-          | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
         begin match base.desc with 
         | Trm_apps (f',[base']) ->
           begin match f'.desc with 
-          | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
-
-            let y = 
-            begin match f.typ with 
-              | Some {ty_desc = Typ_var y; _} -> y
-              | _ -> fail t.loc "Could not match the last struct access"
-            end
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_access pos)))
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_get pos))) when pos = x -> 
+            let new_var = pos ^"_"^ y
+             in
+            let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
             in
-            let pos = 
-            begin match f'.typ with 
-              | Some {ty_desc = Typ_var pos;_} when pos = x -> pos
-              | _ -> fail t.loc "Could not match the middle struct access"
-            end
-            in 
-            let new_var = pos^y in 
             trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
-                     ~add:t.add ~typ:t.typ (trm_var new_var) [base']
+                     ~add:t.add ~typ:t.typ new_f [base']
             | _ -> trm_map (aux global_trm) t
             end
           | _ -> trm_map (aux global_trm) t
@@ -2510,8 +2507,6 @@ let change_struct_access  (x : typvar) (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t
 in 
 aux t t
-          
-            
 
 
 
@@ -2525,8 +2520,13 @@ let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path
       let (t_def,_) = resolve_explicit_path dl t in t_def
     | _ -> fail t.loc "inline_struct: expected a typedef struct"
     in
-    let t = change_struct_access  (List.hd struct_fields) t
-    in
+    (*TODO: Implement this using list fold *)
+    
+    let rec swap_accesses_fields fields (t : trm) : trm = match fields with 
+    | [] -> t
+    | hd :: tl ->  let t = change_struct_access hd t in swap_accesses_fields tl t
+    in 
+    let t = swap_accesses_fields struct_fields t in 
     let p = List.flatten pl in
     let b = !Flags.verbose in
     Flags.verbose := false;

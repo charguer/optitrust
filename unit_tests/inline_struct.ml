@@ -9,6 +9,6 @@ let _ =
     run 
     ( fun _ -> 
         set_init_source"inline_struct.cpp";
-        inline_struct [cType ~name:"obj"()] "vect" ~struct_fields:["pos"];
+        inline_struct [cType ~name:"obj"()] "vect" ~struct_fields:["pos";"speed"];
         dump()
     )
