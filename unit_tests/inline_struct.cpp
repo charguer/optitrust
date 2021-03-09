@@ -11,7 +11,10 @@ typedef struct {
   } obj;
 
 int main() {
-  obj a = {{0,0},{0,0}};
+  vect p = {0,0};
+  vect s = {0,0};
+  
+  obj a = {0,p,s};
   int nx = a.pos.x + a.speed.x;
   int ny = a.pos.y + a.speed.y;
   // reading of 'a.pos' without a '.x' or '.y' at the end is not accepted by this transformation

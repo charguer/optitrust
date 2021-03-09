@@ -3,7 +3,7 @@ open Transformations
 open Translate_ast
 
 (*
-  Array of Structures to Structure of Arrays:
+  Array of Structures to Structure of Arrays:²²²
   if s is struct {t1 field1; …; tm fieldm} and x is s[n], transforms x into s'
   where s' is struct {t1 field1[n]; …; tm fieldm[n]}
   arguments:

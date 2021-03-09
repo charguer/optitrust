@@ -2471,6 +2471,50 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (t1 : 
       | _ -> fail t.loc " inline_struct_aux: expected a definiton"
       end
 
+let change_struct_access  (x : typvar) (t : trm) : trm = 
+  let rec aux (global_trm : trm) (t : trm) : trm = 
+    match t.desc with 
+    | Trm_apps (f, [base]) ->
+       begin match f.desc with 
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
+        begin match base.desc with 
+        | Trm_apps (f',[base']) ->
+          begin match f'.desc with 
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
+
+            let y = 
+            begin match f.typ with 
+              | Some {ty_desc = Typ_var y; _} -> y
+              | _ -> fail t.loc "Could not match the last struct access"
+            end
+            in
+            let pos = 
+            begin match f'.typ with 
+              | Some {ty_desc = Typ_var pos;_} when pos = x -> pos
+              | _ -> fail t.loc "Could not match the middle struct access"
+            end
+            in 
+            let new_var = pos^y in 
+            trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
+                     ~add:t.add ~typ:t.typ (trm_var new_var) [base']
+            | _ -> trm_map (aux global_trm) t
+            end
+          | _ -> trm_map (aux global_trm) t
+          end
+        | _ -> trm_map (aux global_trm) t
+        end
+    
+      (* other cases: recursive call *)
+    | _ -> trm_map (aux global_trm) t
+in 
+aux t t
+          
+            
+
+
+
 let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path list) (struct_name : var) (t : trm) : trm =
     let  pl_temp = [cType ~name:struct_name()]  in
     let p_temp = List.flatten pl_temp in
@@ -2480,6 +2524,8 @@ let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path
     | [dl] -> 
       let (t_def,_) = resolve_explicit_path dl t in t_def
     | _ -> fail t.loc "inline_struct: expected a typedef struct"
+    in
+    let t = change_struct_access  (List.hd struct_fields) t
     in
     let p = List.flatten pl in
     let b = !Flags.verbose in
