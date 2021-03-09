@@ -582,11 +582,24 @@ module Path_constructors =
       ?(regexp : bool = false) (s : string) : path =
       cRegexp ~strict ~exact ~only_instr:true
         (if regexp then s else Str.quote s)
+    let rexp_opt_of_string ?(exact : bool = true) (s : string) : rexp option =
+      if s = "" then None else Some (rexp_of_string ~only_instr:false ~exact s)
 
+    let cVarDef ?(strict : bool = false) ?(name : string = "")
+      ?(exact : bool = true) ?(body : path list = []) (_ : unit) : path =
+      let ro = rexp_opt_of_string ~exact name in
+      let p_body = List.flatten body in
+      strictify strict [Constr_decl_var (ro, p_body)]
     (* todo: notation for List.flatten *)
     let cFor ?(strict : bool = false) ?(init : path list = [])
-      ?(cond : path list = []) ?(step : path list = []) ?(body : path list = [])
+      ?(cond : path list = []) ?(step : path list = []) ?(body : path list = []) ?(name : string = "")
       (_ : unit) : path =
+      let init =
+         match name, init with
+         | "", _ -> init
+         | _, [] -> [cVarDef ~name ()]
+         | _, _::_ -> failwith "cFor: cannot provide both name and init"
+         in
       let p_init = List.flatten init in
       let p_cond = List.flatten cond in
       let p_step = List.flatten step in
@@ -607,14 +620,7 @@ module Path_constructors =
       strictify strict [Constr_if (p_cond, p_then, p_else)]
 
     (* by default an empty name is no name *)
-    let rexp_opt_of_string ?(exact : bool = true) (s : string) : rexp option =
-      if s = "" then None else Some (rexp_of_string ~only_instr:false ~exact s)
-
-    let cVarDef ?(strict : bool = false) ?(name : string = "")
-      ?(exact : bool = true) ?(body : path list = []) (_ : unit) : path =
-      let ro = rexp_opt_of_string ~exact name in
-      let p_body = List.flatten body in
-      strictify strict [Constr_decl_var (ro, p_body)]
+    
 
     let cFun ?(strict : bool = false) ?(name : string = "")
       ?(exact : bool = true) ?(args : path list = [])

@@ -187,22 +187,14 @@ let add_label (label : string) (pl : path list) (t : trm) : trm =
        t epl
 
 
-let rec remove (x:'a) (xs:'a list) : 'a list  = match xs with
-| [] -> []
-| y :: q -> 
-   let q' = remove x q in
-   if y = x then q' else y :: q'
 
 let list_remove x xs = List.filter (fun y -> y <> x) xs 
 
-let rec remove_set l = function
-| [] -> l
-| hd :: tl -> remove_set (remove hd l) tl
 
-(* let list_removes ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys *)
+let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys 
 
 let move_fields_before x local_l l = 
-let l = remove_set l local_l in 
+let l = list_remove_set l local_l in 
 let rec aux acc = function 
 | [] -> acc (* raise an error x not part of the list *)
 | hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl (* local_l @ hd :: acc @ tl *)
@@ -221,7 +213,7 @@ in aux [] l
 
 
 let move_fields_after x local_l l = 
-  let l = remove_set l local_l in 
+  let l = list_remove_set l local_l in 
   let rec aux acc = function 
     | [] -> acc
     | hd :: tl -> 
@@ -2434,7 +2426,7 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (t1 : 
           
           let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 keys_list in
           
-          let field_list1 = remove_set  field_list1 keys_list in 
+          let field_list1 = list_remove_set  field_list1 keys_list in 
 
           (* do removal at the end_*)
           (* (m',l') = remove_keys_from_list_and_map xs  (m,l) *)

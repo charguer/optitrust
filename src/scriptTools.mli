@@ -76,7 +76,7 @@ val cStr : ?strict:bool -> ?regexp:bool -> string -> path
 val cInstrSubstr : ?strict:bool -> ?exact:bool -> ?regexp:bool -> string -> path
 
 val cFor : ?strict:bool -> ?init:(path list) -> ?cond:(path list) ->
-           ?step:(path list) -> ?body:(path list) -> unit -> path
+           ?step:(path list) -> ?body:(path list) -> ?name:string-> unit -> path
 
 val cWhile : ?strict:bool -> ?cond:(path list) -> ?body:(path list) -> unit ->
              path
