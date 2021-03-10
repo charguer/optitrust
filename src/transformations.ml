@@ -2321,7 +2321,6 @@ let move_loop_after (clog : out_channel) (pl : path list)(loop_index : var) (t :
 let find_keys value m = 
   Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
 
-
 (* A function rename all th elements of a list *)
 let rec apply_labels vl pl = match pl with 
 | [] -> []
@@ -2386,7 +2385,8 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (t1 : 
             in 
           
           (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
-          let keys_list = if struct_fields = [] then find_keys (typ_var x1) field_map1
+          let keys_list = if struct_fields = [] then Field_map.fold(fun k v acc -> if v = (typ_var x1) then k :: acc else acc) field_map1 []
+
             else struct_fields 
             in
           
@@ -2478,6 +2478,49 @@ let change_struct_access  (x : typvar) (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t
 in 
 aux t t
+
+let rec inline_sublist_in_list i xs =
+       match i, xs with
+       | O, e::xs -> 
+           begin match e with
+            | trm_struct sublist -> sublist @ xs
+            | trm_var x -> ?? (* not supported is fine *)
+            end
+
+       | O, [] -> error
+
+(* Get the index for a given field of struct inside its list of fields *)
+let get_index (x : typ_var) (t : trm) : int = 
+  begin match t.desc with 
+  | Trm_decl (Def_typ(_,dx)) -> 
+       let field_list1 = 
+          match dx.ty_desc with
+          | Typ_struct(l,_,_) -> l
+          |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
+        in
+        let rec find x lst = 
+        match lst with 
+        | [] -> raise (Failure "Not Found")
+        | hd :: tl -> if hd = x then 0 else 1 + find x tl
+        in 
+        find x field_list1 
+
+
+
+let change_struct_initialization (struct_name : typvar) (x : typvar) (t : trm ) : trm = 
+  let rec aux (global_trm : trm) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (f, [tl;tr]) -> 
+    begin match f.desc with
+      | Trm_val (Val_prim (Prim_binop Binop_set)) ->
+        begin match tl.typ  with  
+        | Some {ty_desc = Typ_var y;_} when y = struct_name ->
+          begin match tr.desc with 
+          | Trm_struct term_list -> 
+            let pos = get_pos x t in 
+
+
+        
 
 
 

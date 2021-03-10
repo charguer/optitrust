@@ -15,6 +15,16 @@
             ]
         },
         {
+            "label": "Run make install and execute a unit test",
+            "type": "shell",
+            "command": "./.vscode/run_make_and_test.sh",
+            "args":[
+                "${fileDirname}",
+                "${fileBasenameNoExtension}",
+                "${lineNumber}"
+            ]
+        },
+        {
             "label": "Execute transformation script (dump trace)",
             "type": "shell",
             "command": "./.vscode/add_exit_and_exec.sh",

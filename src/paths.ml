@@ -592,8 +592,7 @@ module Path_constructors =
       strictify strict [Constr_decl_var (ro, p_body)]
 
     
-     let (@@) (l:path list) = List.flatten l
-
+     let (@@) (l:path list) = List.flatten l     
     (* todo: notation for List.flatten *)
     let cFor ?(strict : bool = false) ?(init : path list = [])
       ?(cond : path list = []) ?(step : path list = []) ?(body : path list = []) ?(name : string = "")
@@ -605,11 +604,8 @@ module Path_constructors =
          | _, [] -> [cVarDef ~name ()]
          | _, _::_ -> failwith "cFor: cannot provide both name and init"
          in
-      let p_init = List.flatten init in (* TODO: path_flatten *)
-      let p_cond = List.flatten cond in
-      let p_step = List.flatten step in
-      let p_body = List.flatten body in
-      strictify strict [Constr_for (p_init, p_cond, p_step, p_body)]
+      
+      strictify strict [Constr_for ((@@) init, (@@) cond, (@@) step, (@@) body)]
 
     let cWhile ?(strict : bool = false) ?(cond : path list = [])
       ?(body : path list = []) (_ : unit) : path =

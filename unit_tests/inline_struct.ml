@@ -10,6 +10,8 @@ let _ =
     ( fun _ -> 
         set_init_source"inline_struct.cpp";
         inline_struct [cType ~name:"obj"()] "vect" ~struct_fields:["pos"];
+        inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"s" ()] ();
+        
         (* (* internal not in scriptTools.mli *) inline_one_struct_in_struct ~name:"obj" "pos";
         inline_struct_in_struct ~name:"obj" ["pos"];
         inline_struct_in_struct ~name:"obj" ["pos" ;"speed"]; (* List.fold *)*)
@@ -46,8 +48,8 @@ go over places such that   trm_struct el when t.typ = "obj" ->
 
 
   any operation on a record involves:
-  1) typedef        typedef struct { .. } post
-  2) accesss_get    a.pos
+  1) typedef        typedef struct { .. } post :DONE
+  2) accesss_get    a.pos .DONE
   3) access_set     a.pos
   4) initialization    { 0, 0 }
   5) new               new obj //probably no change needed
