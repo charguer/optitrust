@@ -590,17 +590,22 @@ module Path_constructors =
       let ro = rexp_opt_of_string ~exact name in
       let p_body = List.flatten body in
       strictify strict [Constr_decl_var (ro, p_body)]
+
+    
+     let (@@) (l:path list) = List.flatten l
+
     (* todo: notation for List.flatten *)
     let cFor ?(strict : bool = false) ?(init : path list = [])
       ?(cond : path list = []) ?(step : path list = []) ?(body : path list = []) ?(name : string = "")
       (_ : unit) : path =
       let init =
          match name, init with
+         | "",[] -> failwith "cFor: Need to provide the name or init"
          | "", _ -> init
          | _, [] -> [cVarDef ~name ()]
          | _, _::_ -> failwith "cFor: cannot provide both name and init"
          in
-      let p_init = List.flatten init in
+      let p_init = List.flatten init in (* TODO: path_flatten *)
       let p_cond = List.flatten cond in
       let p_step = List.flatten step in
       let p_body = List.flatten body in

@@ -430,6 +430,19 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
      end
   | StringLiteral {byte_width = _; bytes = s; string_kind = _} ->
      trm_lit ~loc (Lit_string s)
+     (* TODO try this
+  | InitList el -> (* {e1,e2,e3} *)
+       (* maybe typ is already the value of tt ---let tt = translate_qual_type ~loc t in *)
+             let tl = List.map translate_expr el in
+             begin match tt.ty_desc with
+             | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
+             | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt) tl
+             | Typ_var _ -> (* assumption: typedefs are only for struct *)
+                trm_struct ~loc ~typ:(Some tt) tl
+             | _ ->
+                fail loc ("translate_decl: initialisation lists only " ^
+                            "allowed for struct and array")
+             end *)     
   | UnaryExpr {kind = k; argument = a} ->
      begin match k with
      | SizeOf ->
@@ -859,9 +872,10 @@ and translate_decl (d : decl) : trm =
        | None ->
           if const then trm_lit ~loc Lit_uninitialized
           else trm_prim ~loc (Prim_new tt)
-       | Some e ->
+       | Some e -> (* var x = f(a)  or var x = { e1, e2 } *)
+          (* TODO: translate_expr e   in all cases *)
           begin match e.desc with
-          | InitList el ->
+          | InitList el -> (* {e1,e2,e3} *)
              let tl = List.map translate_expr el in
              begin match tt.ty_desc with
              | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl

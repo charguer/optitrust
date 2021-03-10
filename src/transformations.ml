@@ -2179,51 +2179,23 @@ let loop_swap (clog : out_channel) (pl : path list)(t : trm) : trm =
 (* for a { for b {} {  for j {}   ;  for k {} } } -- >  a::b::[]
   the function should check that it is a loop nest :
       aux t = 
-          if it is not a loop then  []
-          else  
-             match t with for( ... body )
-                 mattch body with
-                 | for -> i::aux body
-                 | _ -> []
-          
+         if t is a for (i , body) then  i::(aux body)
+         if t is a seq[(for(..)) as t1] and nothing else then  aux t1
+         else []
+         
 *)
-let rec get_path (clog : out_channel) (t : trm) : 'a list =
-  (* let aux = get_loop_nest_indices in *)
-  match t.desc with
-  | Trm_labelled (_, t_loop) -> 
-    get_path clog t_loop
-  | Trm_seq [t_loop; _]  ->
-     get_path clog t_loop
-  | Trm_for(init, cond, step, body) -> 
-    (* TEMPORARY LOGGING ONLY FOR DEV PURPOSE *)
-    if false then begin 
-      let log : string = 
-        let loc : string = 
-          match body.loc with 
-          | None -> ""
-          | Some (_, line) -> Printf.sprintf "at line %d " line
-        in
-        Printf.sprintf
-        ("  - for (%s; %s; %s) is of the form\n" ^^
-            "      for ([int] i = 0; i < N; i++)\n" ^^
-            "  - expression\n%s\n" ^^
-            "    %sis of the form\n" ^^
-            "      {\n" ^^
-            "        body\n" ^^
-            "      }\n"
-          )
-          (ast_to_string init) (ast_to_string cond) (ast_to_string step)
-          (ast_to_string body) loc
-        in
-        write_log clog log;
-      end;
-      let loop_init = for_loop_index t in 
+let rec get_loop_nest_indices (t : trm) : 'a list = 
+    match t.desc with 
+    | Trm_labelled (_, t_loop) -> get_loop_nest_indices t_loop
+    | Trm_seq [t_loop;_] -> get_loop_nest_indices t_loop
+    | Trm_for (_,_,_,body) -> 
+      let loop_index = for_loop_index t in 
       begin match body.desc with 
       | Trm_seq ({desc = Trm_seq (f_loop :: _);_} :: _) -> 
-        loop_init :: get_path clog f_loop
-      | _ -> []
+        loop_index :: get_loop_nest_indices f_loop
+      | _ -> loop_index :: []
       end
-  | _ -> fail t.loc "get_path: loop was not found"
+    | _ -> []
 
 
 let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm =
@@ -2240,9 +2212,13 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
       (ast_to_string t) loc
       in
       write_log clog log;
-      (* Get the path from the outer loop to the one we want to swap with *)
+      (* Get the path from the outer loop to the one we want to swap with 
+
+              
       let path_list = List.rev (get_path clog t) in 
-      
+
+        *)
+      let path_list = List.rev (get_loop_nest_indices t)  in      
       (* do a list rev at the end of get_loop_nest_indices 
          let rec chop_list_before x xs =
             | [] -> error "did not find x"
@@ -2253,9 +2229,12 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
           if hd = loop_index then tl
           else clean_path tl
       in 
-      let check_last = List.mem loop_index path_list in 
+      let _check_last = List.mem loop_index path_list in 
+      (*
       let path_list = if not check_last then path_list
           else clean_path path_list 
+      *)
+      let path_list = clean_path path_list 
       in
       (* List.fold_right (fun i acc  -> loop swap t i) path_list acc t 
          --checkout the documentation of fold_right *)
@@ -2299,7 +2278,7 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
     (ast_to_string t) loc
     in
     write_log clog log;
-    let path_list = get_path clog t in
+    let path_list = get_loop_nest_indices t in
     let rec clean_path (xl : 'a list) : 'a list = match xl with 
       | [] -> []
       | hd :: tl -> 
@@ -2307,8 +2286,8 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
         else clean_path tl  
       in
     let l_index = List.hd path_list in
-    let check_last = List.mem loop_index path_list in 
-    let path_list = if not check_last then path_list
+    let _check_last = List.mem loop_index path_list in 
+    let path_list = if false then path_list
       else clean_path (List.rev path_list) 
       in
     let path_length = List.length path_list in
@@ -2426,7 +2405,7 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (t1 : 
           
           let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 keys_list in
           
-          let field_list1 = list_remove_set  field_list1 keys_list in 
+          let field_list1 = list_remove_set  keys_list field_list1 in 
 
           (* do removal at the end_*)
           (* (m',l') = remove_keys_from_list_and_map xs  (m,l) *)
@@ -2514,11 +2493,15 @@ let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path
     in
     (*TODO: Implement this using list fold *)
     
-    let rec swap_accesses_fields fields (t : trm) : trm = match fields with 
+   let t =  List.fold_left (fun acc_t x -> change_struct_access x acc_t) t struct_fields
+    in
+    let rec _swap_accesses_fields fields (t : trm) : trm = match fields with 
     | [] -> t
-    | hd :: tl ->  let t = change_struct_access hd t in swap_accesses_fields tl t
+    | hd :: tl ->  let t = change_struct_access hd t in _swap_accesses_fields tl t
     in 
+    (* 
     let t = swap_accesses_fields struct_fields t in 
+    *)
     let p = List.flatten pl in
     let b = !Flags.verbose in
     Flags.verbose := false;

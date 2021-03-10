@@ -3,6 +3,8 @@
 
 typedef struct { int x; int y; } vect;
 
+typedef struct { vect pos; vect speed; } particle;
+
 // Function arguments are assumed to be 'const' by default
 int f(int n) {
   return n;
@@ -50,6 +52,10 @@ void stack_struct() {
   int a = v.x; // TODO print quotes in struct_access(v, "x")
   v.y = a + 2;
   vect v2 = v;
+
+  // nested structs//
+  particle p1 = { v, v };
+  particle p2 = { v, { 7,8 } };
 }
 
 // References: not yet implemented
