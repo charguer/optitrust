@@ -212,6 +212,8 @@ in aux [] l
 *)
 
 
+
+
 let move_fields_after x local_l l = 
   let l = list_remove_set l local_l in 
   let rec aux acc = function 
@@ -2479,18 +2481,17 @@ let change_struct_access  (x : typvar) (t : trm) : trm =
 in 
 aux t t
 
-let rec inline_sublist_in_list i xs =
-       match i, xs with
-       | O, e::xs -> 
-           begin match e with
-            | trm_struct sublist -> sublist @ xs
-            | trm_var x -> ?? (* not supported is fine *)
-            end
+let rec inline_sublist_in_list sublist i xs = match xs with 
+| [] -> []
+| h :: t -> if i = 0 then sublist @ t else h :: inline_sublist_in_list sublist (i-1) t
 
-       | O, [] -> error
+let rec copy_list l = match l with 
+| [] -> []
+| hd :: tl -> hd :: hd :: copy_list tl;;
+
 
 (* Get the index for a given field of struct inside its list of fields *)
-let get_index (x : typ_var) (t : trm) : int = 
+let get_pos (x : typvar) (t : trm) : int = 
   begin match t.desc with 
   | Trm_decl (Def_typ(_,dx)) -> 
        let field_list1 = 
@@ -2498,16 +2499,19 @@ let get_index (x : typ_var) (t : trm) : int =
           | Typ_struct(l,_,_) -> l
           |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
         in
+
         let rec find x lst = 
         match lst with 
         | [] -> raise (Failure "Not Found")
         | hd :: tl -> if hd = x then 0 else 1 + find x tl
         in 
         find x field_list1 
+    | _ -> fail t.loc "get_pos_and_element: expected a struct type"
+    end
 
 
-
-let change_struct_initialization (struct_name : typvar) (x : typvar) (t : trm ) : trm = 
+let _change_struct_initialization (clog : out_channel) (struct_name : typvar) (x : typvar) (t : trm ) : trm = 
+  
   let rec aux (global_trm : trm) (t : trm) : trm = 
   match t.desc with 
   | Trm_apps (f, [tl;tr]) -> 
@@ -2516,9 +2520,66 @@ let change_struct_initialization (struct_name : typvar) (x : typvar) (t : trm ) 
         begin match tl.typ  with  
         | Some {ty_desc = Typ_var y;_} when y = struct_name ->
           begin match tr.desc with 
-          | Trm_struct term_list -> 
-            let pos = get_pos x t in 
+          | Trm_struct _term_list ->
+           let pos = get_pos x t in 
+           let p = List.nth _term_list pos in 
+           begin match p.desc with 
+           | Trm_struct local_term_list -> (*trm_struct (inline_sublist_in_list local_term_list pos term_list)*) trm_struct (copy_list local_term_list)
+           | Trm_var _p  -> 
+            let pl_temp = [cVarDef ~name:_p ()] in
+            let global_trm = inline_decl clog pl_temp t in trm_map (aux global_trm) t
+           | _ ->  trm_map (aux global_trm) t
+           end
+          | _ -> trm_map (aux global_trm) t
+          end
+        | _ -> trm_map (aux global_trm) t
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    | _ -> trm_map (aux global_trm) t
+  in 
+  aux t t
 
+
+let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (x : typvar) (t :trm) : trm = 
+  let t1 = t in
+  let struct_path = [cType ~name:struct_name ()] in 
+  let epl_of_struct = resolve_path (List.flatten struct_path) t in 
+  let struct_term = match epl_of_struct with 
+  | [dl] -> 
+    let (t_def,_) = resolve_explicit_path dl t in t_def 
+  | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
+  in 
+  let pos = get_pos x struct_term in 
+  let rec aux (global_trm : trm) (t : trm) = 
+    match t.desc with 
+    | Trm_struct term_list -> 
+      begin match t.typ with 
+      | Some{ ty_desc = Typ_var y;_} when y = struct_name -> 
+        
+        let p = List.nth term_list pos in 
+          let log : string =
+            Printf.sprintf
+              ("  - trm\n%s\n" ^^
+                       "    is a list of trms\n"
+              )
+              (ast_to_string p)
+              in
+              write_log _clog log;
+        begin match p.desc with 
+        | Trm_struct inner_term_list -> trm_struct (inline_sublist_in_list inner_term_list pos term_list) 
+        | Trm_var _p ->  
+        
+          let pl_temp = [cVarDef ~name:_p()] in 
+          let t = inline_decl _clog pl_temp t1 in aux global_trm t 
+        | _ -> trm_map (aux global_trm) t
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+      
+    | _ -> trm_map (aux global_trm) t
+  in 
+  aux t t
 
         
 
@@ -2534,17 +2595,13 @@ let inline_struct (clog : out_channel) ?(struct_fields : fields = []) (pl : path
       let (t_def,_) = resolve_explicit_path dl t in t_def
     | _ -> fail t.loc "inline_struct: expected a typedef struct"
     in
-    (*TODO: Implement this using list fold *)
+    
     
    let t =  List.fold_left (fun acc_t x -> change_struct_access x acc_t) t struct_fields
     in
-    let rec _swap_accesses_fields fields (t : trm) : trm = match fields with 
-    | [] -> t
-    | hd :: tl ->  let t = change_struct_access hd t in _swap_accesses_fields tl t
-    in 
-    (* 
-    let t = swap_accesses_fields struct_fields t in 
-    *)
+   
+    let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  "obj" x acc_t ) t struct_fields
+    in
     let p = List.flatten pl in
     let b = !Flags.verbose in
     Flags.verbose := false;

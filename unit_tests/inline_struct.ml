@@ -50,7 +50,7 @@ go over places such that   trm_struct el when t.typ = "obj" ->
   any operation on a record involves:
   1) typedef        typedef struct { .. } post :DONE
   2) accesss_get    a.pos .DONE
-  3) access_set     a.pos
-  4) initialization    { 0, 0 }
+  3) access_set     a.pos TODO
+  4) initialization    { 0, 0 } TODO
   5) new               new obj //probably no change needed
 *)
