@@ -1772,7 +1772,7 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
                 
                 (if top then trm_apps (trm_unop Unop_inc) [trm_var index]
                 else  match loop_step.desc with 
-                  | Trm_val(Val_lit(Lit_int 1)) -> trm_set (trm_var index)
+                  | Trm_val(Val_lit(Lit_int 1)) -> trm_set (trm_var index) ~annot:(Some App_and_set)
                     (trm_apps (trm_binop Binop_add)
                       [
                         trm_var index ;
@@ -1780,7 +1780,7 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
                         trm_var c
                       ])
                   | _ -> 
-                    trm_set (trm_var index) (trm_apps (trm_binop Binop_add)
+                    trm_set (trm_var index) ~annot:(Some App_and_set) (trm_apps (trm_binop Binop_add)
                       [
                         trm_var index;
                         trm_apps (trm_binop Binop_mul)
@@ -1955,7 +1955,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
                     )
                 (* step *)
                 (if not top then trm_apps (trm_unop Unop_inc) [trm_var index]
-                else trm_set (trm_var index ) (trm_apps (trm_binop Binop_add)
+                else trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
                     [
                       trm_var index;
                       trm_apps ~annot:(Some Heap_allocated)

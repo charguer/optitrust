@@ -10,8 +10,8 @@ let _ =
         loop_tile [cFor ~init:[cVarDef ~name:"y" ()] ()] "2" "by";
         loop_swap [cFor ~init:[cVarDef ~name:"x" ()] ()];
 
-        loop_transform [cFor ~init:[cVarDef ~name:"bx" ()] ()] "2" "cx";
-        loop_transform [cFor ~init:[cVarDef ~name:"by" ()] ()] "2" "cy";
+        loop_coloring [cFor ~init:[cVarDef ~name:"bx" ()] ()] "2" "cx";
+        loop_coloring [cFor ~init:[cVarDef ~name:"by" ()] ()] "2" "cy";
         
         loop_swap [cFor ~init:[cVarDef ~name:"bx" ()] ()];
         dump()
