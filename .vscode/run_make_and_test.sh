@@ -4,7 +4,7 @@
 
 
 
-make install #&& cd DIRNAME  && make ${UNIT_TEST}.out && meld ${UNIT_TEST}.cpp ${UNIT_TEST}.out
+make install || exit 1 #&& cd DIRNAME  && make ${UNIT_TEST}.out && meld ${UNIT_TEST}.cpp ${UNIT_TEST}.out
 
 
 DIRNAME=$1

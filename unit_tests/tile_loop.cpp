@@ -27,4 +27,4 @@ This transformation could reuse some of this example code:
       insert_and_fold ~insert_before ~name:"i2" ~value:"(i % 2)" ();
       tile_loop [cFor ()];
 
-*/
+*

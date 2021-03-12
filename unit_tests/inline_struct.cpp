@@ -14,7 +14,7 @@ int main() {
   vect p = {0,0};
   vect s = {0,0};
   
-  obj a = {0,p,s};
+  obj a = {0,{0,0},s};
   
   int nx = a.pos.x + a.speed.x;
   int ny = a.pos.y + a.speed.y;
