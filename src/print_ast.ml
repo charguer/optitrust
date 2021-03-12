@@ -224,7 +224,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
              node "Ret" ^^ dt
           end
        | Break -> string "Break"
-       | Cont -> string "Cont"
+       | Continue -> string "Continue"
        end
      in
      node "Trm_abort" ^^ parens da

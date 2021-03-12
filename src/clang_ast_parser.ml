@@ -299,7 +299,7 @@ and translate_stmt (s : stmt) : trm =
         return (trm_abort ~loc (Ret (Some t)))
      end
   | Break -> abort ~break:true (trm_abort ~loc Break)
-  | Continue -> abort (trm_abort ~loc Cont)
+  | Continue -> abort (trm_abort ~loc Continue)
   | Decl dl ->
      begin match dl with
      | [] -> fail loc "translate_stmt: empty declaration list"

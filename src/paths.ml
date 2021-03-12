@@ -1023,7 +1023,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_abort Any, Trm_abort _ -> true
      | Constr_abort Return, Trm_abort (Ret _) -> true
      | Constr_abort Break, Trm_abort Break -> true
-     | Constr_abort Continue, Trm_abort Cont -> true
+     | Constr_abort Continue, Trm_abort Continue -> true
      | Constr_access (p_base, ca), _ ->
         let (base, al) = compute_accesses t in
         check_path p_base base &&

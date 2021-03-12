@@ -308,7 +308,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            | Some t -> dattr ^^ string "return " ^^ trm_to_doc t ^^ dsemi
            end
         | Break -> dattr ^^ string "break" ^^ dsemi
-        | Cont -> dattr ^^ string "continue" ^^ dsemi
+        | Continue -> dattr ^^ string "continue" ^^ dsemi
         end
      | Trm_labelled (l, t) ->
         let dt = trm_to_doc ~semicolon t in
