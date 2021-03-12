@@ -2319,7 +2319,27 @@ let move_loop_after (clog : out_channel) (pl : path list)(loop_index : var) (t :
         apply_local_transformation (move_loop_after_aux clog loop_index) t dl)
       t
       epl
-(* A function to find all the fields of the struct which have the same type as the struct we want to inline *)
+
+let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : string = "") (loop_index : string) (t : trm) : trm = 
+  let log : string = 
+      let loc : string = 
+        match t.loc with 
+        | None -> ""
+        | Some (_, line) -> Printf.sprintf "at line %d " line
+      in Printf.sprintf
+          ("  - expression\n%s\n" ^^
+          "    %sis a struct type\n"
+          )
+      (ast_to_string t) loc 
+    in
+  write_log clog log;
+  match move_before, move_after with 
+  | "",_ -> move_loop_after clog [cFor ~name:loop_index ()] move_after t 
+  | _,"" -> move_loop_before clog [cFor ~name:move_before ()] loop_index t
+  | _,_ -> fail t.loc "move_loop: only one of move_before or move_after should be specified"
+  
+
+
 let find_keys value m = 
   Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
 
@@ -2525,6 +2545,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
   
   let pos = get_pos x struct_term in 
   let rec aux (global_trm : trm) (t : trm) = 
+    match t.desc with 
     | Trm_struct term_list -> 
 
       begin match t.typ with 
@@ -2627,57 +2648,3 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
         t
         epl 
 
-
-
-(*
-let inline_struct_aux (clog : out_channel) (field_name) (t : trm) : trm = 
-  let log : string = 
-    let loc : string = 
-     match t.loc with
-      | None -> ""
-      | Some (_, line) -> Printf.sprintf "at line %d " line
-    in Printf.sprintf
-      ("  - expression\n%s\n" ^^
-      "    %sis a struct type\n"
-      )
-    (ast_to_string t) loc 
-    in 
-    write_log clog log;
-
-
-
-inline_one_struct_in_struct (clog : out_channel) ?(name:string = "obj") (field_name : string) (t : trm) : trm = 
-  
-  let pl_of_struct_term  = [cType ~name()] in 
-  let p_of_struct_term = List.flatten pl_of_struct_term in
-  let epl_of_struct_term = resolve_path p_temp in 
-  let struct_term = match epl_of_struct_term with 
-    | [dl] -> 
-      let(t_def,_) = resolve_explicit_path dl in t_def
-    | _ -> fail t.loc "inline_struct: expected a typedef struct"
-    in 
-  (* Get the type of the field_name by going through the field_map of struct obj *)
-  match struct_term.desc with 
-  | Trm_decl (Def_fun_typ(_,dx)) ->
-    let field_map = 
-      match dx.ty_desc with
-      | Typ_struct (_,m,_) -> m
-      | _ -> fail t.loc "inline_one_struct_in_struct: the type should be a typedef struct"
-    in 
-    let inner_struct_name = Field_map.find field_name field_map
-  | _ -> fail t.loc "inline_one_struct_in_struct: expected a definition"
-  in 
-  
-  let b = !Flags.verbose := false;
-  let epl = resolve_path p t in 
-  Flags.verbose := b;
-  match epl with 
-  | [] -> 
-    print_info t.loc "inline_one_struct_in_struct: no matching subterm";
-    t
-  | _ -> 
-    List.fold_left 
-      (fun t dl -> apply_local_transformation (inline_one_struct_in_struct_aux clog ~name field_name) t dl)
-      t
-      epl 
-*)

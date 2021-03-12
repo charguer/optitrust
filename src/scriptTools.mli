@@ -229,6 +229,8 @@ val move_loop_before : ?replace_top:bool -> path list -> string -> unit
 
 val move_loop_after : ?replace_top:bool -> path list -> string -> unit
 
+val move_loop : ?replace_top:bool -> ?move_before:string -> ?move_after:string -> string-> unit 
+
 val aos_to_soa : ?replace_top:bool -> ?name:(string -> string) -> string -> unit
 
 val eliminate_goto_next : ?replace_top:bool -> unit -> unit

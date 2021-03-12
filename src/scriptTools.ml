@@ -1229,16 +1229,12 @@ let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index :
     apply_to_top ~replace_top
       (fun ctx -> Transformations.move_loop_after ctx.clog pl loop_index);
     write_log "\n"
-(*
-let inline_struct ?(replace_top : bool = false) ?(struct_fields : fields = []) (pl : path list) (struct_name : var) : unit = 
-  let log : string = 
-    Printf.sprintf "inline_struct %S:\n" (string_of_path (List.flatten pl))
-  in
-  write_log log;
-  apply_to_top ~replace_top
-    (fun ctx -> Transformations.inline_struct ctx.clog ~struct_fields pl struct_name);
-  write_log "\n"
-*)
+
+let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move_after : string = "" ) (loop_index : string) : unit = 
+    apply_to_top ~replace_top
+      (fun ctx -> Transformations.move_loop ctx.clog  ~move_before ~move_after loop_index);
+    write_log "\n"
+
 let inline_struct ?(replace_top : bool = false) ?(struct_fields : fields = []) (name : string): unit = 
   apply_to_top ~replace_top
     (fun ctx -> Transformations.inline_struct ctx.clog ~struct_fields name );
