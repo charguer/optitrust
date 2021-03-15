@@ -2647,40 +2647,6 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
         t
         epl 
 
-let _make_explicit_record_assignment_aux (clog : out_channel) (t : trm) : trm = 
-  let log : string = 
-    let loc : string = 
-      match t.loc with 
-      | None -> ""
-      | Some (_, line) -> Printf.sprintf "at line %d" line
-    in Printf.sprintf
-      ("  -expression\n%s\n" ^^
-      "    %s is an assigmentd term\n")
-      (ast_to_string t) loc 
-      in 
-      write_log clog log;
-      Print_ast.print_ast ~only_desc:true stdout t;
-      t
-
-   
-
-
-let _make_explicit_record_assignment (clog : out_channel) (pl : path list) (t : trm) : trm = 
-  let p = List.flatten pl in
-    let b = !Flags.verbose in
-    Flags.verbose := false;
-    let epl = resolve_path p t in
-    Flags.verbose := b;
-    match epl with 
-    | [] -> 
-      print_info t.loc "inline_struct: no matching subterm";
-      t
-    | _ -> 
-      List.fold_left 
-        (fun t dl -> 
-          apply_local_transformation (_make_explicit_record_assignment_aux clog) t dl)
-        t
-        epl 
 
   let make_explicit_record_assignment (_clog : out_channel) (x : typvar) (t : trm) : trm =
     let struct_def_path = [cType ~name:x ()] in 
@@ -2709,35 +2675,13 @@ let _make_explicit_record_assignment (clog : out_channel) (pl : path list) (t : 
           | Trm_apps(f1,[lbase]) -> 
             begin match rt.desc with 
             Trm_apps (f2,[rbase]) -> 
-              (*Print_ast.print_ast ~only_desc:true stdout lbase;*)
-              
-              let left_side = 
-               match lbase.desc with 
-              | Trm_var left -> left 
-              | _ -> fail t.loc "make_explicit_assigment: expected the left var trm"
-              in 
-              let right_side = 
-              match rbase.desc with 
-              | Trm_var right -> right 
-              | _ -> fail t.loc "make_explicit_assigment: expected the right var trm"
-              in 
-              (*
-              begin match lbase.typ with 
-              | Some{ty_desc = Typ_var _;_}  -> 
-                
-                begin match rbase.typ with 
-                | Some{ty_desc = Typ_var _;_} ->*)
                   let tl = List.map(fun sf -> 
                     let new_f = {f with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_get sf)))}
                     in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ 
-                    f [trm_apps ~annot:(Some Access) f1  [trm_apps new_f [trm_var left_side]];trm_apps ~annot:(Some Access) f2 [trm_apps new_f [trm_var right_side]]]
+                    f [trm_apps ~annot:(Some Access) f1  [trm_apps new_f [lbase]];trm_apps ~annot:(Some Access) f2 [trm_apps new_f [rbase]]]
                   ) field_list in
                   trm_seq ~annot:(Some No_braces) tl
                   
-                (*| _ -> fail t.loc "make_eplicit_assigment: expected the right var typ" 
-                end
-              | _ -> fail t.loc "make_explicit_assigment: expected the left var typ"
-              end*)
             | _ -> fail t.loc "make_explicit_assigment: right term was not matched"
             end
           | _ -> fail t.loc "make_exmplicit_assigment: left term was not matched"

@@ -493,7 +493,8 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     end
                  (* in the other cases, we simply display t.f *)
                  | _ ->
-                    parens (d ^^ dot ^^ string f)
+                    (* parens (d ^^ dot ^^ string f)*)
+                    d ^^ dot ^^ string f
                  end
               | Unop_struct_get f (* when not !decode *) ->
                   parens (d ^^ dot ^^ string f)

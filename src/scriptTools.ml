@@ -1246,15 +1246,6 @@ let make_explicit_record_assignment ?(replace_top : bool = false) (x : typvar) :
   write_log "\n"
 
 
-let _make_explicit_record_assignment ?(replace_top : bool = false) (pl : path list) : unit = 
-  let log : string =
-      Printf.sprintf "make_explicit_record_assignment %s:\n" (string_of_path (List.flatten pl))
-    in 
-    write_log log;
-    apply_to_top ~replace_top
-      (fun ctx -> Transformations._make_explicit_record_assignment ctx.clog pl);
-    write_log "\n"
-
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
   let log : string =

@@ -215,8 +215,6 @@ val inline_decl : ?replace_top:bool -> ?delete_decl:bool ->
 
 val inline_struct : ?replace_top:bool -> ?struct_fields:string list -> string -> unit
 
-val _make_explicit_record_assignment : ?replace_top:bool -> path list -> unit
-
 val make_explicit_record_assignment : ?replace_top:bool -> string -> unit
 
 val fields_reorder : ?replace_top:bool -> path list -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit
