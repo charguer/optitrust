@@ -226,7 +226,7 @@ and def =
 and abort =
   | Ret of trm option (* return;  or return 3; *)
   | Break
-  | Continue (* TODO: rename to Continue *)
+  | Continue 
 
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (x : typvar) : typ =

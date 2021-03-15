@@ -1,8 +1,5 @@
 open ScriptTools
 
-(*
-    TODO: Implmeent pretty struct into struct inlining
-*)
 
 
 let _ = 

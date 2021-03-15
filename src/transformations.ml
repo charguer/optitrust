@@ -1515,7 +1515,6 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
           change_trm (trm_var x') (trm_var x) t
        (* typedef *)
        | Trm_decl (Def_typ (x, dx)) ->
-          (* TODO: Implement special struct in struct *)
           let ty_x = typ_var x in
           change_typ ~change_at:inline_at ty_x dx t
        (* fun decl *)
@@ -2555,7 +2554,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
         (*let show_trm t = Print_ast.print_ast ~only_desc:true stdout t;
         Dev.ml    Dev.trm t TODO 
         *)
-        
+        Print_ast.print_ast ~only_desc:true stdout el;
         begin match el.desc with 
         | Trm_struct inner_term_list -> trm_struct (inline_sublist_in_list inner_term_list pos term_list)
           
@@ -2647,5 +2646,106 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
           apply_local_transformation (inline_struct_aux clog ~struct_fields t1) t dl)
         t
         epl 
+
+let _make_explicit_record_assignment_aux (clog : out_channel) (t : trm) : trm = 
+  let log : string = 
+    let loc : string = 
+      match t.loc with 
+      | None -> ""
+      | Some (_, line) -> Printf.sprintf "at line %d" line
+    in Printf.sprintf
+      ("  -expression\n%s\n" ^^
+      "    %s is an assigmentd term\n")
+      (ast_to_string t) loc 
+      in 
+      write_log clog log;
+      Print_ast.print_ast ~only_desc:true stdout t;
+      t
+
+   
+
+
+let _make_explicit_record_assignment (clog : out_channel) (pl : path list) (t : trm) : trm = 
+  let p = List.flatten pl in
+    let b = !Flags.verbose in
+    Flags.verbose := false;
+    let epl = resolve_path p t in
+    Flags.verbose := b;
+    match epl with 
+    | [] -> 
+      print_info t.loc "inline_struct: no matching subterm";
+      t
+    | _ -> 
+      List.fold_left 
+        (fun t dl -> 
+          apply_local_transformation (_make_explicit_record_assignment_aux clog) t dl)
+        t
+        epl 
+
+  let make_explicit_record_assignment (_clog : out_channel) (x : typvar) (t : trm) : trm =
+    let struct_def_path = [cType ~name:x ()] in 
+    let epl_of_struct_def_path = resolve_path (List.flatten struct_def_path) t in 
+    let struct_def_term = match epl_of_struct_def_path with
+    | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+    | _ -> fail t.loc "make_explicit_record_assigment: expected a typedef struct"
+    in 
+    let field_list = 
+    
+    match struct_def_term.desc with
+    | Trm_decl (Def_typ (_,dx)) -> 
+      begin match dx.ty_desc with 
+      | Typ_struct (fl,_,_) -> List.rev fl
+      | _ -> fail t.loc "make_explicit_record_assigment: the type should be a struct" 
+      end
+    | _ -> fail t.loc "make_explicit_record_assigment: expected a definition"
+    
+    in
+    let rec aux (global_trm : trm) (t : trm) : trm = 
+      match t.desc with 
+      | Trm_apps (f,[lt;rt]) ->
+        begin match f.desc with 
+        | Trm_var "overloaded=" ->
+          begin match lt.desc with 
+          | Trm_apps(f1,[lbase]) -> 
+            begin match rt.desc with 
+            Trm_apps (f2,[rbase]) -> 
+              (*Print_ast.print_ast ~only_desc:true stdout lbase;*)
+              
+              let left_side = 
+               match lbase.desc with 
+              | Trm_var left -> left 
+              | _ -> fail t.loc "make_explicit_assigment: expected the left var trm"
+              in 
+              let right_side = 
+              match rbase.desc with 
+              | Trm_var right -> right 
+              | _ -> fail t.loc "make_explicit_assigment: expected the right var trm"
+              in 
+              (*
+              begin match lbase.typ with 
+              | Some{ty_desc = Typ_var _;_}  -> 
+                
+                begin match rbase.typ with 
+                | Some{ty_desc = Typ_var _;_} ->*)
+                  let tl = List.map(fun sf -> 
+                    let new_f = {f with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_get sf)))}
+                    in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ 
+                    f [trm_apps ~annot:(Some Access) f1  [trm_apps new_f [trm_var left_side]];trm_apps ~annot:(Some Access) f2 [trm_apps new_f [trm_var right_side]]]
+                  ) field_list in
+                  trm_seq ~annot:(Some No_braces) tl
+                  
+                (*| _ -> fail t.loc "make_eplicit_assigment: expected the right var typ" 
+                end
+              | _ -> fail t.loc "make_explicit_assigment: expected the left var typ"
+              end*)
+            | _ -> fail t.loc "make_explicit_assigment: right term was not matched"
+            end
+          | _ -> fail t.loc "make_exmplicit_assigment: left term was not matched"
+          end
+        | _ -> trm_map (aux global_trm) t
+        end
+      | _ -> trm_map (aux global_trm) t 
+    in aux t t
+
 
 

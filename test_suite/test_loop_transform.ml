@@ -3,7 +3,6 @@ open ScriptTools
 let _ = 
     run(
         fun _ -> 
-        (*TODO: Find out why min is not supported *)
         set_init_source "test_loop_transform/loop_transform.cpp";
        
         loop_tile [cFor ~init:[cVarDef ~name:"x" ()] ()] "2" "bx";

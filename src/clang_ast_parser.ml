@@ -430,7 +430,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
      end
   | StringLiteral {byte_width = _; bytes = s; string_kind = _} ->
      trm_lit ~loc (Lit_string s)
-     (*TODO this *)
+     
   
   | InitList el -> 
        (* maybe typ is already the value of tt ---let tt = translate_qual_type ~loc t in *)
@@ -878,8 +878,7 @@ and translate_decl (d : decl) : trm =
        | None ->
           if const then trm_lit ~loc Lit_uninitialized
           else trm_prim ~loc (Prim_new tt)
-       | Some e -> (* var x = f(a)  or var x = { e1, e2 } *)
-          (* TODO: translate_expr e   in all cases *)
+       | Some e -> 
           begin match e.desc with
           | InitList el -> (* {e1,e2,e3} *)
              let tl = List.map translate_expr el in
@@ -910,7 +909,7 @@ and translate_decl (d : decl) : trm =
             trm_seq ~annot:(Some Heap_allocated) ~loc
               [trm_decl ~loc (Def_var ((n, typ_ptr tt),
                                        trm_prim ~loc (Prim_new tt)));
-               (* TODO: be clever with init instructions, e.g. for struct *)
+               
                trm_set ~annot:(Some Initialisation_instruction) ~loc
                  (trm_var ~loc n) te]
          end
