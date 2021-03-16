@@ -1240,11 +1240,16 @@ let inline_struct ?(replace_top : bool = false) ?(struct_fields : fields = []) (
     (fun ctx -> Transformations.inline_struct ctx.clog ~struct_fields name );
   write_log "\n"
 
+(*
 let make_explicit_record_assignment ?(replace_top : bool = false) (x : typvar) : unit = 
   apply_to_top ~replace_top
     (fun ctx -> Transformations.make_explicit_record_assignment ctx.clog x );
   write_log "\n"
-
+*)
+let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list) : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.make_explicit_record_assigment ctx.clog ~struct_name pl);
+    write_log "\n"
 
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =

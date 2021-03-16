@@ -2648,7 +2648,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
         epl 
 
 
-  let make_explicit_record_assignment (_clog : out_channel) (x : typvar) (t : trm) : trm =
+  let _make_explicit_record_assignment (_clog : out_channel) (x : typvar) (t : trm) : trm =
     let struct_def_path = [cType ~name:x ()] in 
     let epl_of_struct_def_path = resolve_path (List.flatten struct_def_path) t in 
     let struct_def_term = match epl_of_struct_def_path with
@@ -2682,14 +2682,112 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
                   ) field_list in
                   trm_seq ~annot:(Some No_braces) tl
                   
-            | _ -> fail t.loc "make_explicit_assigment: right term was not matched"
+            | _ -> fail t.loc "make_explicit_record_assigment: right term was not matched"
             end
-          | _ -> fail t.loc "make_exmplicit_assigment: left term was not matched"
+          | _ -> fail t.loc "make_exmplicit_record_assigment: left term was not matched"
           end
         | _ -> trm_map (aux global_trm) t
         end
       | _ -> trm_map (aux global_trm) t 
     in aux t t
 
+
+let make_explicit_record_assigment_aux (clog : out_channel) (field_list : fields) (t : trm) : trm = 
+  let log : string = 
+    let loc : string = 
+     match t.loc with 
+     | None -> ""
+     | Some (_, line) -> Printf.sprintf "at line %d" line
+    in Printf.sprintf
+    (" -expression\n%s\n" ^^
+    "   %sis an assigment\n"
+    )
+    (ast_to_string t) loc
+    in write_log clog log;
+    Print_ast.print_ast ~only_desc:true stdout t;
+    begin match t.desc with
+    | Trm_seq [t_decl;t_assign] -> 
+      
+      begin match t_assign.desc with 
+      | Trm_apps(f,[lt;rt]) ->
+        begin match f.desc with 
+        | Trm_val( Val_prim (Prim_binop Binop_set )) -> 
+          begin match rt.desc with 
+          | Trm_apps (f',[rbase]) ->
+            let tl = List.map(fun sf -> 
+            let new_f = { f with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_get sf)))}
+            in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ 
+            f [trm_apps ~annot:(Some Access) new_f [lt] ; trm_apps ~annot:(Some Access) f' [trm_apps new_f [rbase]]]
+
+            ) field_list in 
+            let tl = t_decl :: tl in 
+            trm_seq ~annot:(Some No_braces) tl 
+          | _ -> fail t.loc "make_explicit_record_assignment_aux: right term was not matched for the un-detached assigment case"
+          end
+        | _ -> fail t.loc "make_explicit_record_assignment_aux: function description was not matched "
+        end
+      | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched for the un-detached assignment case"
+      end    
+    
+    | Trm_apps (f,[lt;rt]) ->
+
+      begin match f.desc with 
+      | Trm_var "overloaded=" ->
+        begin match lt.desc with 
+        | Trm_apps(f1,[lbase]) -> 
+          begin match rt.desc with 
+          Trm_apps (f2,[rbase]) -> 
+            let tl = List.map(fun sf -> 
+            let new_f = {f with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_get sf)))}
+            in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ 
+            f [trm_apps ~annot:(Some Access) f1  [trm_apps new_f [lbase]];trm_apps ~annot:(Some Access) f2 [trm_apps new_f [rbase]]]
+              ) field_list in 
+              trm_seq ~annot:(Some No_braces) tl
+                  
+          | _ -> fail t.loc "make_explicit_record_assigment_aux: right term was not matched"
+          end
+        | _ -> fail t.loc "make_explicit_record_assigment_aux: left term was not matched"
+        end
+      | _ -> fail t.loc "make_explicit_record_assigment_aux: function name was not matched" 
+      end
+
+    | _ -> fail t.loc "make_explicit_record_assigment_aux: No variable declaration or assigment was matched"
+    end
+
+
+
+
+let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (pl : path list) (t : trm) : trm = 
+  let struct_def_path = [cType ~name:struct_name ()] in 
+  let epl_of_struct_def_path = resolve_path (List.flatten struct_def_path) t in 
+  let struct_def_term = match epl_of_struct_def_path with
+  | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+  | _ -> fail t.loc "make_explicit_record_assigment: expected a typedef struct"
+  in 
+  let field_list = 
+    
+  match struct_def_term.desc with
+  | Trm_decl (Def_typ (_,dx)) -> 
+    begin match dx.ty_desc with 
+    | Typ_struct (fl,_,_) -> List.rev fl
+    | _ -> fail t.loc "make_explicit_record_assigment: the type should be a struct" 
+    end
+  | _ -> fail t.loc "make_explicit_record_assigment: expected a definition"
+  in   
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in
+  Flags.verbose := false; 
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+  match epl with 
+  | [] -> 
+    print_info t.loc "make_explicit_record_assigment: no matching subterm";
+    t
+  |_ -> 
+    List.fold_left 
+      (fun t dl -> 
+        apply_local_transformation (make_explicit_record_assigment_aux clog field_list) t dl)
+        t 
+        epl
 
 

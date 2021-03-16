@@ -12,10 +12,11 @@ typedef struct {
 
 int main() {
   vect p = {0,0};
-  vect b ;
-  b = p;
+  vect b = p;
+  //b = p;
   obj a = {0,{0,0},0};
 
   a.pos = p;
+
 }
 

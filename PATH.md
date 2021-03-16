@@ -85,7 +85,7 @@ Then, the constraints matching nodes to go through:
 - `cDouble f`: match a double literal against the float `f`.
 - `cString s`: match a string literal against `s`.
 - `cPrim p`: match a primitive against `p`.
-- `cApp ~name ~fun_ ~args ~validate ()`: match a function application. The
+- `cApp ~name ~fun ~args ~validate ()`: match a function application. The
   function may be matched either using its name (if it is a variable) or using
   the path `fun_`.
 - `cLabel ~label ~exact ~body ()`: match a labelled term using `label` and
