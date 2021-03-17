@@ -710,7 +710,7 @@ module Path_constructors =
     let cApp ?(strict : bool = false) ?(name : string = "")
       ?(fun_ : path list = []) ?(args : path list = [])
       ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : path =
-      (*
+      (* TODO: raise an error if both name and fun are provided
         if we provide a name, there is no reason to provide a path describing
         the function, and conversely
        *)

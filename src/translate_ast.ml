@@ -172,7 +172,7 @@ and attr_to_doc (a : attribute) : document =
 (*
   semicolon = true if we need to print a semicolon after the statement
 *)
-and trm_to_doc ?(semicolon=false) (t : trm) : document =
+and trm_to_doc ?(semicolon=false) ?(_avoid_parens=false) (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
   let dattr =
@@ -426,11 +426,12 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
 (* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
   (f : trm) (tl : trm list) : document =
+  let aux t = trm_to_doc ~_avoid_parens:true t in (* use it wherehver possible in this function TODO *)
   match f.desc with
   | Trm_var x ->
      if Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
        let (d1, d2) =
-         begin match List.map trm_to_doc tl with
+         begin match List.map aux tl with
          | [d1; d2] -> (d1, d2)
          | _ ->
             fail f.loc "apps_to_doc: overloaded operators have two arguments"
@@ -480,6 +481,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
               | Unop_dec when !decode -> d ^^ twice minus
               | Unop_dec (* when not !decode *) -> string "operator--(" ^^ d ^^ string ")"
               | (Unop_struct_get f | Unop_struct_access f) when !decode ->
+               
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -492,10 +494,17 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)
                     end
                  (* in the other cases, we simply display t.f *)
-                 | _ ->
+                 | _ -> (* TODO: crossing fingers *)
                     (* parens (d ^^ dot ^^ string f)*)
                     d ^^ dot ^^ string f
-                 end
+                    (* TODO: line above par (d ^^ ... ) 
+                      
+                      and at top of trm_to_doc, define   let par d = optional_parens ~avoid_parens d in
+
+                      where let optional_parens ~avoid_parens d = (* this one is common to the entire file *)
+                         if avoid_parens then d else parens d *)
+                 end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then goold else if   ( *f).x then bad 
+                       *)
               | Unop_struct_get f (* when not !decode *) ->
                   parens (d ^^ dot ^^ string f)
               | Unop_struct_access f (* when not !decode *) ->

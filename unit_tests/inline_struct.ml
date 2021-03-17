@@ -9,7 +9,20 @@ let _ =
         (* Old way to call inline_struct *)
         (*inline_struct [cType ~name:"obj"()] "vect" ~struct_fields:["pos"];*)
         inline_struct "obj" ~struct_fields:["pos"];
-        inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"s" ()] ();
+        inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"s" ()] (); 
+           (* TODO: inline_decl_struct.ml 
+              rename inline_var to inline_decl_var 
+              rename inline_fun to inline_decl_fun 
+              rename inline_typ to inline_decl_typ *)
+              (* inline_decl_struct.ml 
+                  vect s = { 0, 0 };
+                  vect a = { p, s, 1 }; // here should succeed
+                  
+                  vect t = { 0, 0 };
+                  int b = t.x;  // is this going to be supported? ideally, could produce int b = 0.
+              *)
+              (* 
+              *)
         
         (* (* internal not in scriptTools.mli *) inline_one_struct_in_struct ~name:"obj" "pos";
         inline_struct_in_struct ~name:"obj" ["pos"];

@@ -351,11 +351,13 @@ let is_included (t : trm) : bool =
   | _ -> false
 
 (* function that fails with given error message and points location in file *)
+exception TransfoError of string
+
 let fail (loc : location) (err : string) : 'a =
   match loc with
   | None -> failwith err
   | Some (filename, line) ->
-     failwith (filename ^ " line " ^ (string_of_int line) ^ ":  " ^ err)
+     raise (TransfoError (filename ^ " line " ^ (string_of_int line) ^ ":  " ^ err))
 
 (*
   compute a function that prints information related to some location in file

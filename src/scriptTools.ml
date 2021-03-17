@@ -1251,6 +1251,11 @@ let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name :
     (fun ctx -> Transformations.make_explicit_record_assigment ctx.clog ~struct_name pl);
     write_log "\n"
 
+let detach_expression ?(replace_top : bool = false) (pl : path list) : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.detach_expression ctx.clog pl);
+    write_log "\n"
+  
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
   let log : string =
