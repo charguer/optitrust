@@ -193,13 +193,13 @@ let list_remove x xs = List.filter (fun y -> y <> x) xs
 
 let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys 
 
-let move_fields_before x local_l l = 
-let l = list_remove_set l local_l in 
+let move_fields_after x local_l l = 
+let l = list_remove_set local_l  l in 
 let rec aux acc = function 
 | [] -> acc (* raise an error x not part of the list *)
 | hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl (* local_l @ hd :: acc @ tl *)
 else aux (hd :: acc) tl 
-in aux [] l
+in aux [] (List.rev l)
 
 (* 
   - tail recursive approach => more efficient 
@@ -211,11 +211,8 @@ in aux [] l
         | y::q -> if x = y then xs@l else y::(insert_after x xs q)
 *)
 
-
-
-
-let move_fields_after x local_l l = 
-  let l = list_remove_set l local_l in 
+let move_fields_before x local_l l = 
+  let l = list_remove_set local_l l in 
   let rec aux acc = function 
     | [] -> acc
     | hd :: tl -> 
@@ -223,7 +220,7 @@ let move_fields_after x local_l l =
           then aux (hd :: local_l @ acc) tl 
           else aux (hd :: acc) tl 
     in
-  aux [] l
+  aux [] (List.rev l)
 
 
 let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(t : trm) : trm  = 
@@ -253,11 +250,9 @@ let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move
           | _, "" -> move_fields_before move_before struct_fields field_list
           | _,_-> fail t.loc "fields_reorder: only one of move_before or move_after should be specified"
           in
-          (* TODO: field order should match in the AST what works. *)
-        let t_yp = {ty_desc = Typ_struct(List.rev reordered_fields,field_map,x); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes} in
+        let t_yp = {ty_desc = Typ_struct(reordered_fields,field_map,x); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes} in
         
-        trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
-          ~attributes:t.attributes (Def_typ(x,t_yp) )    
+        trm_decl  (Def_typ(x,t_yp) )    
 
       | _ -> fail t.loc "fields_reorder: expected a definiton"
       end
@@ -2466,30 +2461,34 @@ let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (t1 : 
 
 
 
-let change_struct_access  (x : typvar) (t : trm) : trm = 
+let change_struct_access  (outer_struct_fields : fields) (x : typvar) (t : trm) : trm = 
   let rec aux (global_trm : trm) (t : trm) : trm = 
     match t.desc with 
     | Trm_apps (f, [base]) ->
-       begin match f.desc with 
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
-          | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
-        begin match base.desc with 
-        | Trm_apps (f',[base']) ->
-          begin match f'.desc with 
-          | Trm_val (Val_prim (Prim_unop (Unop_struct_access pos)))
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_get pos))) when pos = x -> 
-            let new_var = pos ^"_"^ y
-             in
-            let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
-            in
-            trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
+      begin match f.desc with 
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
+          let outer_struct_fields = List.filter (fun fd -> fd <> y ) outer_struct_fields in 
+          if y = x then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
+          else if (List.mem y outer_struct_fields) then  fail t.loc ("Expected  inline_struct ~struct_fields;[" ^ y ^ "];")
+          else 
+          begin match base.desc with 
+          | Trm_apps (f',[base']) ->
+            begin match f'.desc with 
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_access z)))
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x -> 
+                let new_var = z ^"_"^ y in
+                let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
+              in
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
                      ~add:t.add ~typ:t.typ new_f [base']
             | _ -> trm_map (aux global_trm) t
             end
           | _ -> trm_map (aux global_trm) t
           end
-        | _ -> trm_map (aux global_trm) t
-        end
+
+      | _ -> trm_map (aux global_trm) t
+      end
     
       (* other cases: recursive call *)
     | _ -> trm_map (aux global_trm) t
@@ -2551,9 +2550,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
       | Some{ ty_desc = Typ_var y;_} when y = struct_name -> 
         
         let el = List.nth term_list pos in 
-        (*let show_trm t = Print_ast.print_ast ~only_desc:true stdout t;
-        Dev.ml    Dev.trm t TODO 
-        *)
+        
         Print_ast.print_ast ~only_desc:true stdout el;
         begin match el.desc with 
         | Trm_struct inner_term_list -> trm_struct (inline_sublist_in_list inner_term_list pos term_list)
@@ -2597,23 +2594,24 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     | _ -> fail t.loc "inline_struct: expected a typedef struct"
     in 
   (* Get the type of the field_name by going through the field_map of struct obj *)
-  let inner_struct_name = 
+  let inner_struct_name ,outer_struct_field_types= 
   match struct_term.desc with 
   | Trm_decl (Def_typ(_,dx)) ->
-    let field_map = 
+    let field_list,field_map = 
       match dx.ty_desc with
-      | Typ_struct (_,m,_) -> m
+      | Typ_struct (l,m,_) ->l,m
       | _ -> fail t.loc "inline_struct: the type should be a typedef struct"
     in 
     let field_map_typ = Field_map.find field_name field_map in 
+  
+     
     begin match field_map_typ.ty_desc with 
-    | Typ_var y -> y
+    | Typ_var y -> y,field_list
     | _ -> fail t.loc "inline_struct: expeted a typ var as the value of a key  "
     end
   | _ -> fail t.loc "inline_one_struct: expected a definition"
   in 
-  
-    
+   
     let  pl_temp = [cType ~name:inner_struct_name()]  in
     let p_temp = List.flatten pl_temp in
     let epl_temp = resolve_path p_temp t in 
@@ -2625,7 +2623,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     in
     
     
-   let t =  List.fold_left (fun acc_t x -> change_struct_access x acc_t) t struct_fields
+   let t =  List.fold_left (fun acc_t x -> change_struct_access outer_struct_field_types x acc_t) t struct_fields
     in
     
     let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t struct_fields

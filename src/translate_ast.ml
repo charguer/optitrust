@@ -499,10 +499,10 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     d ^^ dot ^^ string f
                     (* TODO: line above par (d ^^ ... ) 
                       
-                      and at top of trm_to_doc, define   let par d = optional_parens ~avoid_parens d in
+                      and at top of trm_to_doc, define   let par d = optional_parens ~_avoid_parens d in
 
-                      where let optional_parens ~avoid_parens d = (* this one is common to the entire file *)
-                         if avoid_parens then d else parens d *)
+                      where let optional_parens ~_avoid_parens d = (* this one is common to the entire file *)
+                         if _avoid_parens then d else parens d *)
                  end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then goold else if   ( *f).x then bad 
                        *)
               | Unop_struct_get f (* when not !decode *) ->

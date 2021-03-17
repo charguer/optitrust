@@ -710,12 +710,14 @@ module Path_constructors =
     let cApp ?(strict : bool = false) ?(name : string = "")
       ?(fun_ : path list = []) ?(args : path list = [])
       ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : path =
-      (* TODO: raise an error if both name and fun are provided
-        if we provide a name, there is no reason to provide a path describing
-        the function, and conversely
-       *)
+      let exception Argument_Error  of string in  
       let p_fun =
-        if name = "" then List.flatten fun_ else cVar ~strict:true ~name ()
+      match name, fun_ with 
+      | "",_ -> List.flatten fun_ 
+      | _, [] -> cVar ~strict:true ~name ()
+      | _,_ ->  raise (Argument_Error "Can't provide both the path and the name of the function")
+      
+      
       in
       let p_args = List.flatten args in
       strictify strict [Constr_app (p_fun, (p_args, validate))]

@@ -6,8 +6,6 @@ let _ =
     run 
     ( fun _ -> 
         set_init_source"inline_struct.cpp";
-        (* Old way to call inline_struct *)
-        (*inline_struct [cType ~name:"obj"()] "vect" ~struct_fields:["pos"];*)
         inline_struct "obj" ~struct_fields:["pos"];
         inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"s" ()] (); 
            (* TODO: inline_decl_struct.ml 
@@ -24,27 +22,16 @@ let _ =
               (* 
               *)
         
-        (* (* internal not in scriptTools.mli *) inline_one_struct_in_struct ~name:"obj" "pos";
+        (*(* internal not in scriptTools.mli *) inline_one_struct_in_struct ~name:"obj" "pos";
         inline_struct_in_struct ~name:"obj" ["pos"];
-        inline_struct_in_struct ~name:"obj" ["pos" ;"speed"]; (* List.fold *)*)
+        inline_struct_in_struct ~name:"obj" ["pos" ;"speed"]; *) 
         dump()
     )
 
-(* bind F7 to
-   CUR=inline_struct
-    make install && cd unit_tests && make ${CUR}.out && meld ${CUR}.cpp ${CUR}.out *)
 (*
   obj a = {a, {0,0}, s}   let i be the index of where "pos" was in "obj"
   obj a = {a, 0,0, s}    obtained by inlining the sublist at index i into the main list
-    let rec inline_sublist_in_list i xs =
-       match i, xs with
-       | O, e::xs -> 
-           begin match e with
-            | trm_struct sublist -> sublist @ xs
-            | trm_var x -> ?? (* not supported is fine *)
-            end
-       | ..
-       | O, [] -> error
+    
  
   obj p = {0, 0 }
   obj a = { 1, p, s}
@@ -108,7 +95,7 @@ go over places such that   trm_struct el when t.typ = "obj" ->
   any operation on a record involves:
   1) typedef        typedef struct { .. } post :DONE
   2) accesss_get    a.pos .DONE
-  3) access_set     a.pos TODO 
+  3) access_set     a.pos DONE
   4) initialization    { 0, 0 } DONE
   5) new               new obj //probably no change needed
 

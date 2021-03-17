@@ -27,8 +27,6 @@ let _ =
                         move c before a
        *)
 
-       move_loop_before ~outer:path ~inner:string 
-       move_loop_after~outer:path ~inner:string 
 
         move_loop "c" ~move_after:"d";
         move_loop "c" ~move_before:"d";
@@ -40,10 +38,8 @@ let _ =
         
        
         *)
-(* TODO: try first/middle/last *)
-        move_loop "c" ~move_after:"f";
-        move_loop "c" ~move_after:"f";
 
+        
         dump ()
     )
 

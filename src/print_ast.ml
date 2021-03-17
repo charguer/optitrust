@@ -38,6 +38,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
      in
      node "Typ_array" ^^ print_pair dt ds
   | Typ_struct (tl, tm, x) -> (* List.fold (fun f acc => let t = Field_map.get f tm in ) fs  *)
+     let tl = List.rev tl in 
      let get_typ x = Field_map.find x tm in 
      let get_document_list l = 
       let rec aux acc = function

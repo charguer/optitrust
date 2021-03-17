@@ -1,4 +1,3 @@
-
 typedef struct {
     int x;
     int y; }
@@ -23,8 +22,9 @@ int main() {
   a.pos.x = 5;
   p.x = 5; // no change
 
-  
-  a.speed = p; // TODO raise an error; check at the end that no .pos remains
+  //a.pos = p; // raise an error; check at the end that no .pos remains *)
+    
+  //a.speed = p; // TODO raise an error; check at the end that no .pos remains
   //TODO:failure_expected (fun () -> inline_struct ~field["speed"])
   // 
   // let failure_expected f = (* exported in scriptTools.mli *)
@@ -60,6 +60,7 @@ int main() {
   // NOW the inline struct would be ABLE TO HANDLE:
   // a.pos = p
 
+
    // USER RESPONSABILITY to invoke struct_assignement_make_explicit
    // a.pos.x = p.x
    // a.pos.y = p.y
@@ -91,4 +92,3 @@ int main() {
   // target assignement on "v":
   //  { vect v;    vx = v2.x;  vy = v2.y }@"this is actually an initialization"
 }
-
