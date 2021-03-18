@@ -16,7 +16,9 @@ vect f() { // TODO: same issue as function inlining
 int main() {
   vect p = {0,0};
   vect b =p;
-  // b = f(); TODO this should fail with a nice error mesage 
+  
+  vect d;
+  //d =  f(); //TODO this should fail with a nice error mesage 
   // saying that field assignement can be made explicit only when
   // the right hand side is a value (or variable) 
   // TODO LATER: demo of  insert_decl ~name:"x" ~body:"f()"
@@ -24,10 +26,8 @@ int main() {
   obj a = {0,{0,0},0};
 
   a.pos = p;
-
-  vect d;
-  d = p;
-
+  vect c;
+  c = p;
   //vect c = p;
   // encoded as   { const vect* c = new vect;  assign(c, p)@Initialisation_instruction }@Heap_allocated
   // { { const vect c;  }@Heap_allocated;   assign(c, p)  }@No_braces

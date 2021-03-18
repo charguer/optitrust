@@ -127,7 +127,7 @@ and value =
 
 (* annotations are used to decorate this AST when it is built from the
    Clang AST in such a way to be able to print back the AST like the original C code.
-  TODO: refer to the list of encodings that are applied. *)
+   *)
 and trm_annot =
   (* for declaration and elimination of heap allocated variables
     + dereferencing

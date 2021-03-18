@@ -1277,10 +1277,11 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
   (body : trm) (t : trm) : trm =
   (* new names replacing the argument names *)
   let fresh_args = List.map (fun (x, tx) -> (fresh_in t x, tx)) args in
+  Print_ast.print_ast ~only_desc:true stdout t;
   (* name for the result of f, result might be an argument name *)
   let result =
     fresh_in
-      (trm_seq
+      (trm_seq 
          (t ::
             List.map
               (fun x_tx -> trm_decl (Def_var (x_tx, trm_lit Lit_uninitialized)))
@@ -1309,6 +1310,7 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
       args
   in
   (* body where res is used instead of return statements *)
+
   let replace_return (t : trm) : trm =
     let rec aux (t : trm) : trm =
       match t.desc with
@@ -1316,22 +1318,43 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
       | Trm_seq tl when t.annot = Some Delete_instructions ->
          begin match List.rev tl with
          | {desc = Trm_abort (Ret (Some r)); _} :: _ ->
-            trm_seq ~annot:(Some No_braces) ~loc:t.loc
+            begin match tf.ty_desc with 
+            | Typ_var _ -> 
+              
+              trm_seq ~annot:(Some No_braces) ~loc:t.loc 
+              [ trm_apps ~loc:t.loc ~is_instr:true (trm_var "overloaded=") [(trm_var result);r];
+                trm_goto ~loc:t.loc return_label
+              ]
+
+
+            | _ -> trm_seq ~annot:(Some No_braces) ~loc:t.loc
               [trm_set ~loc:t.loc ~is_instr:true (trm_var result) r;
                trm_goto ~loc:t.loc return_label]
+            end
          | {desc = Trm_abort (Ret None); _} :: _ ->
             trm_goto ~loc:t.loc return_label
          | _ -> trm_map aux t
          end
       | Trm_abort (Ret (Some r)) ->
-         trm_seq ~annot:(Some No_braces) ~loc:t.loc
+        begin match tf.ty_desc with 
+        | Typ_var _ -> 
+          trm_seq ~annot:(Some No_braces) ~loc:t.loc 
+          [ trm_apps ~loc:t.loc ~is_instr:true (trm_var "overloaded=") [(trm_var result);r];
+                trm_goto ~loc:t.loc return_label
+              ]
+
+         
+        | _ -> trm_seq ~annot:(Some No_braces) ~loc:t.loc
            [trm_set ~loc:t.loc ~is_instr:true (trm_var result) r;
             trm_goto ~loc:t.loc return_label]
+        end
       | Trm_abort (Ret None) -> trm_goto ~loc:t.loc return_label
       | _ -> trm_map aux t
+
     in
     clean_up_no_brace_seq (aux t)
   in
+  
   let body = replace_return body in
   let bodyl =
     match body.annot with
@@ -1397,7 +1420,8 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
                  arg_dels
                 )
            end
-        | _ ->
+        
+        | _ -> 
            trm_seq ~annot:(Some Delete_instructions) ~loc:t.loc
              ([
                 trm_seq ~loc:t.loc
@@ -2660,6 +2684,8 @@ let make_explicit_record_assigment_aux (clog : out_channel) (field_list : fields
     )
     (ast_to_string t) loc
     in write_log clog log;
+    Print_ast.print_ast ~only_desc:true stdout t;
+    
     begin match t.desc with
     | Trm_apps (f,[lt;rt]) ->
       begin match lt.desc with 

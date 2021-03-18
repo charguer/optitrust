@@ -22,9 +22,12 @@ int main() {
   a.pos.x = 5;
   p.x = 5; // no change
 
+  vect t = {0,0};
+  int z = t.x;
   //a.pos = p; // raise an error; check at the end that no .pos remains *)
     
-  //a.speed = p; // failure_expected (fun () -> inline_struct ~field["speed"])
+  //a.speed = p; // TODO raise an error; check at the end that no .pos remains
+  //TODO:failure_expected (fun () -> inline_struct ~field["speed"])
   // 
   // let failure_expected f = (* exported in scriptTools.mli *)
   //    begin try f(); failwith "should have failed"
@@ -90,4 +93,6 @@ int main() {
 
   // target assignement on "v":
   //  { vect v;    vx = v2.x;  vy = v2.y }@"this is actually an initialization"
+
+
 }

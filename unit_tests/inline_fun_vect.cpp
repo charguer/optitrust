@@ -5,21 +5,32 @@ vect f(int a) {
     vect r = { a, a };
     return r;
 }
-/*
-int g (vect h) { 
-    
-    return h.x; 
+
+vect g (vect h) { 
+    int x = 0;
+    int y = 0;
+    h.x = x;
+    h.y = y;
+    return h; 
 }
-*/
+
+
+
 
 int main() {
 // first test 
-    vect v; // = {1, 2};
+    vect v = {1, 2};
+    
     //int x;
     // x = g(v);
     // int res = ...
     //second test
-    v = f(3);
+    //int x;
+    //x = g(v); 
+    int x = 5;
+    v = g(v);
+    
+    //v = f(3);
     // vect res =
     return 0;
 }
