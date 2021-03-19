@@ -6,16 +6,18 @@ vect f(int a) {
     return r;
 }
 
-vect g (vect h) { 
-    int x = 0;
-    int y = 0;
-    h.x = x;
-    h.y = y;
-    return h; 
+
+int g (vect h) { 
+    
+    return h.x; 
 }
 
-
-
+/*
+int h(vect a, vect b){
+    int x = a.x + b.x;
+    return x;
+}
+*/
 
 int main() {
 // first test 
@@ -25,12 +27,11 @@ int main() {
     // x = g(v);
     // int res = ...
     //second test
-    //int x;
-    //x = g(v); 
-    int x = 5;
-    v = g(v);
+    int x;
+    x = g(v); 
+    //int x = 5;
     
-    //v = f(3);
+    //v = f(x);
     // vect res =
     return 0;
 }

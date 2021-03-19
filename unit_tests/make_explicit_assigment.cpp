@@ -26,8 +26,7 @@ int main() {
   obj a = {0,{0,0},0};
 
   a.pos = p;
-  vect c;
-  c = p;
+ 
   //vect c = p;
   // encoded as   { const vect* c = new vect;  assign(c, p)@Initialisation_instruction }@Heap_allocated
   // { { const vect c;  }@Heap_allocated;   assign(c, p)  }@No_braces

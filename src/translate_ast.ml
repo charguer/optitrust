@@ -437,7 +437,8 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
             fail f.loc "apps_to_doc: overloaded operators have two arguments"
          end
        in
-       let s = Str.string_after x (Str.group_beginning 1) in
+       (*let s = Str.string_after x (Str.group_beginning 1) in *)
+       let s = Str.string_after x 10 in  
        if (s = "+") then
          parens (separate (blank 1) [d1; plus; d2])
        else if (s = "-") then

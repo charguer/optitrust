@@ -9,6 +9,7 @@ let _ =
   run
     (fun () ->
       set_init_source "inline_fun_vect.cpp";
+        
       inline_decl ~delete_decl:false ~decl_path:[cFun ~name:"g" ()] ();
       dump ()
     )
