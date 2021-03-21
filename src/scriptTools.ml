@@ -361,14 +361,14 @@ let add_label ?(replace_top : bool = false) (label : string)
       } /*>2@*/
     } /*>1@*/ *)
 (* delete the label *)
-let show_path ?(replace_top : bool = false)?(keep_previous : bool = false) (pl : path list) : unit = 
+let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previous : bool = false) (pl : path list) : unit = 
     apply_to_top ~replace_top (fun _ t -> 
     let t = 
       if not keep_previous 
         then Transformations.delete_path_decorators t
         else t 
       in 
-    Transformations.show_path pl t
+    Transformations.show_path ~debug_ast pl t
     )
 
 let clean_path_decorators () : unit = 

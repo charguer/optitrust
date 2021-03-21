@@ -149,7 +149,7 @@ val cSet : ?strict:bool -> ?lhs:(path list) -> ?rhs:(path list) -> unit -> path
 
 val add_label : ?replace_top:bool -> string -> path list -> unit
 
-val show_path : ?replace_top:bool -> ?keep_previous:bool -> path list -> unit
+val show_path : ?debug_ast:bool -> ?replace_top:bool -> ?keep_previous:bool -> path list -> unit
 
 val clean_path_decorators : unit -> unit
 

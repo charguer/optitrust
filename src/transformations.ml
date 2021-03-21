@@ -3,6 +3,10 @@ open Paths
 open Path_constructors
 open Translate_ast
 
+let failure_expected f = 
+  begin try f(); failwith "should have failed"
+  with TransfoError _ -> () end
+
 let write_log (clog : out_channel) (log : string) : unit =
   output_string clog log; flush clog
 
@@ -287,8 +291,7 @@ let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
    
 
-let  show_path(pl : path list)  (t : trm) : trm =
-  Print_ast.print_ast ~only_desc:true stdout t;
+let  show_path ?(debug_ast : bool = false)(pl : path list) (t : trm) : trm =
   let p = List.flatten pl in 
   let b = !Flags.verbose in 
   Flags.verbose := false;
@@ -298,7 +301,8 @@ let  show_path(pl : path list)  (t : trm) : trm =
   | [] ->
     print_info t.loc "show_path: not matching subterm\n";
     t
-  | [dl] -> apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
+  | [dl] -> if debug_ast then Print_ast.print_ast ~only_desc:true stdout t;
+            apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
   
   | _ ->
      (*
@@ -306,7 +310,9 @@ let  show_path(pl : path list)  (t : trm) : trm =
       *)
      foldi
        (fun i -> apply_local_transformation
-                   (trm_decoration (left_decoration i) (right_decoration i )))
+                   (fun t -> 
+                      if debug_ast then Print_ast.print_ast ~only_desc:false stdout t;
+                      trm_decoration (left_decoration i) (right_decoration i ) t))
        t epl
 
 
@@ -1377,7 +1383,7 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
            begin match arg_dels with
            (* if no args, no delete instruction *)
            | [] ->
-              trm_seq ~loc:t.loc
+              trm_seq ~loc:t.loc 
                 (bodyl ++
                  [
                    trm_labelled return_label
@@ -1402,7 +1408,7 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
         | _ ->
            trm_seq ~annot:(Some Delete_instructions) ~loc:t.loc
              ([
-                trm_seq ~loc:t.loc
+                trm_seq ~loc:t.loc (*REMOVES the braces ~annot:(Some No_braces)*)
                   (arg_decls ++ (result_decl :: bodyl) ++
                    [
                      trm_labelled return_label
@@ -2554,7 +2560,6 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
         
         let el = List.nth term_list pos in 
         
-        Print_ast.print_ast ~only_desc:true stdout el;
         begin match el.desc with 
         | Trm_struct inner_term_list -> trm_struct (inline_sublist_in_list inner_term_list pos term_list)
           
@@ -2663,7 +2668,6 @@ let make_explicit_record_assigment_aux (clog : out_channel) (field_list : fields
     )
     (ast_to_string t) loc
     in write_log clog log;
-    Print_ast.print_ast ~only_desc:true stdout t;
     
     begin match t.desc with
     | Trm_apps (f,[lt;rt]) ->

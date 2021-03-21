@@ -9,6 +9,7 @@ let decode = ref true
 (* translate an ast to a C/C++ document *)
 (* todo: option to print heap allocation patterns *)
 
+
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_unit -> string "void"
@@ -172,7 +173,7 @@ and attr_to_doc (a : attribute) : document =
 (*
   semicolon = true if we need to print a semicolon after the statement
 *)
-and trm_to_doc ?(semicolon=false) ?(_avoid_parens=false) (t : trm) : document =
+and trm_to_doc ?(semicolon=false) (t : trm) : document =
   let loc = t.loc in
   let dsemi = if semicolon then semi else empty in
   let dattr =
@@ -426,19 +427,18 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
 (* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
   (f : trm) (tl : trm list) : document =
-  let aux t = trm_to_doc ~_avoid_parens:true t in (* use it wherehver possible in this function TODO *)
   match f.desc with
   | Trm_var x ->
      if Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
+        (* Note x is for example "overloaded=" *)
        let (d1, d2) =
-         begin match List.map aux tl with
+         begin match List.map trm_to_doc tl with
          | [d1; d2] -> (d1, d2)
          | _ ->
             fail f.loc "apps_to_doc: overloaded operators have two arguments"
          end
        in
-       (*let s = Str.string_after x (Str.group_beginning 1) in *)
-       let s = Str.string_after x 10 in  
+       let s = Str.string_after x (String.length "overloaded") in
        if (s = "+") then
          parens (separate (blank 1) [d1; plus; d2])
        else if (s = "-") then
@@ -496,7 +496,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     end
                  (* in the other cases, we simply display t.f *)
                  | _ -> (* TODO: crossing fingers *)
-                    (* parens (d ^^ dot ^^ string f)*)
+                     (*parens (d ^^ dot ^^ string f)*)
                     d ^^ dot ^^ string f
                     (* TODO: line above par (d ^^ ... ) 
                       

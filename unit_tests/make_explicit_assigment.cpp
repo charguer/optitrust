@@ -18,6 +18,7 @@ int main() {
   vect b =p;
   
   vect d;
+  d = p;
   //d =  f(); //TODO this should fail with a nice error mesage 
   // saying that field assignement can be made explicit only when
   // the right hand side is a value (or variable) 

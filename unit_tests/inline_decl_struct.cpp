@@ -24,9 +24,16 @@ int main() {
 
   vect t = {0,0};
   int z = t.x;
-  //a.pos = p; // raise an error; check at the end that no .pos remains *)
+  ///a.pos = p; // raise an error; check at the end that no .pos remains *)
+
+  // inline_struct for "d = {field0,field1}" strategy is to match:
+  // 1.   { t1, .., d, t2 } => okto inline
+  // 2.   d.x   => then replace with field0 
+  // 3.   f(d, .. t2)  => replace with f({field0,field1}, t2)
+  // 4.   d  as a variable in another case => raise error
+  // => other legitimate cases?
     
-  //a.speed = p; // TODO raise an error; check at the end that no .pos remains
+  a.speed = p; // raise an error; check at the end that no .pos remains
   //TODO:failure_expected (fun () -> inline_struct ~field["speed"])
   // 
   // let failure_expected f = (* exported in scriptTools.mli *)

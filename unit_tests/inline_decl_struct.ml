@@ -5,13 +5,10 @@ open ScriptTools
 let _ = 
     run 
     ( fun _ -> 
-        set_init_source"inline_struct.cpp";
+        set_init_source"inline_decl_struct.cpp";
         inline_struct "obj" ~struct_fields:["pos"];
         inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"s" ()] (); 
-           (* TODO: inline_decl_struct.ml 
-              rename inline_var to inline_decl_var 
-              rename inline_fun to inline_decl_fun 
-              rename inline_typ to inline_decl_typ *)
+           
               (* inline_decl_struct.ml 
                   vect s = { 0, 0 };
                   vect a = { p, s, 1 }; // here should succeed
