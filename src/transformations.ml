@@ -254,9 +254,8 @@ let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move
           | _, "" -> move_fields_before move_before struct_fields field_list
           | _,_-> fail t.loc "fields_reorder: only one of move_before or move_after should be specified"
           in
-        let t_yp = {ty_desc = Typ_struct(reordered_fields,field_map,x); ty_annot = dx.ty_annot; ty_attributes = dx.ty_attributes} in
+        trm_decl (Def_typ (x, typ_struct reordered_fields field_map x))
         
-        trm_decl  (Def_typ(x,t_yp) )    
 
       | _ -> fail t.loc "fields_reorder: expected a definiton"
       end
@@ -301,8 +300,7 @@ let  show_path ?(debug_ast : bool = false)(pl : path list) (t : trm) : trm =
   | [] ->
     print_info t.loc "show_path: not matching subterm\n";
     t
-  | [dl] -> if debug_ast then Print_ast.print_ast ~only_desc:true stdout t;
-            apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
+  | [dl] -> apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
   
   | _ ->
      (*
@@ -2654,44 +2652,8 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
         epl 
 
 
-
-
-let make_explicit_record_assigment_aux (clog : out_channel) (field_list : fields) (t : trm) : trm = 
-  let log : string = 
-    let loc : string = 
-     match t.loc with 
-     | None -> ""
-     | Some (_, line) -> Printf.sprintf "at line %d" line
-    in Printf.sprintf
-    (" -expression\n%s\n" ^^
-    "   %sis an assigment\n"
-    )
-    (ast_to_string t) loc
-    in write_log clog log;
-    
-    begin match t.desc with
-    | Trm_apps (f,[lt;rt]) ->
-      begin match lt.desc with 
-      | Trm_apps(f1,[lbase]) -> 
-        begin match rt.desc with 
-        Trm_apps (f2,[rbase]) -> 
-          let tl = List.map(fun sf -> 
-          let new_f = {f with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_get sf)))}
-          in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ 
-          f [trm_apps ~annot:(Some Access) f1  [trm_apps new_f [lbase]];trm_apps ~annot:(Some Access) f2 [trm_apps new_f [rbase]]]
-             ) field_list in 
-          trm_seq ~annot:(Some No_braces) tl
-                  
-        | _ -> fail t.loc "make_explicit_record_assigment_aux: right term was not matched"
-        end
-      | _ -> fail t.loc "make_explicit_record_assigment_aux: left term was not matched"
-      end
-      
-    | _ -> fail t.loc "make_explicit_record_assigment_aux: No variable assigment was matched, make sure that the assigment is detached, if not call function detach_expression path:[] to detach first the expression"
-    end
-
-
-let detach_expression_aux (clog : out_channel) (t : trm) : trm = 
+let detach_expression_aux (clog : out_channel) (label : string) (t : trm) : trm = 
+ 
   let log : string = 
     let loc : string = 
       match t.loc with 
@@ -2703,15 +2665,17 @@ let detach_expression_aux (clog : out_channel) (t : trm) : trm =
       )
       (ast_to_string t) loc 
       in write_log clog log;
+      (* Check if there is a detached label *)
       match t.desc with 
       | Trm_seq[t_decl;t_assign] -> 
-          let t1 = {t with desc = Trm_seq [t_decl] } in 
-          let t2 = {t_assign with annot = None} in 
-          trm_seq ~annot:(Some No_braces) [t1;t2] 
-      | _ -> fail t.loc "No trm was matched, please give the correct path "
+          let t_decl = {t with desc = Trm_seq [t_decl] } in 
+          let t_assign = {t_assign with annot = None} in 
+          let t_labelled = trm_labelled label t_assign in 
+          trm_seq ~annot:(Some No_braces) [t_decl;t_labelled] 
+      | _ -> fail t.loc "detach_expression_aux:No trm was matched, please give the correct path "
 
 
-let detach_expression (clog :out_channel) (pl :path list) (t : trm) : trm = 
+let detach_expression (clog :out_channel) ?(label : string = "detached") (pl :path list) (t : trm) : trm = 
   let p = List.flatten pl in 
   let b = !Flags.verbose in
   Flags.verbose := false; 
@@ -2724,12 +2688,65 @@ let detach_expression (clog :out_channel) (pl :path list) (t : trm) : trm =
   |_ -> 
     List.fold_left 
       (fun t dl -> 
-        apply_local_transformation (detach_expression_aux clog ) t dl)
+        apply_local_transformation (detach_expression_aux clog label) t dl)
         t 
         epl
 
 
 
+let make_explicit_record_assignment_aux (clog : out_channel) (field_list : fields) (t : trm) : trm = 
+  let log : string = 
+    let loc : string = 
+     match t.loc with 
+     | None -> ""
+     | Some (_, line) -> Printf.sprintf "at line %d" line
+    in Printf.sprintf
+    (" -expression\n%s\n" ^^
+    "   %sis an assigment\n"
+    )
+    (ast_to_string t) loc
+    in write_log clog log;
+    Print_ast.print_ast ~only_desc:true stdout t;
+    begin match t.desc with
+    | Trm_apps (f,[lt;rt]) ->
+      begin match lt.desc with 
+      | Trm_apps(f1,[lbase]) -> 
+        begin match rt.desc with 
+        | Trm_apps (f2,[rbase]) -> 
+          begin match f2.desc with 
+          | Trm_var _ -> fail t.loc "make_explicit_record_assignment: Function calls are not supported"
+          | Trm_val (Val_prim (Prim_unop Unop_get)) ->
+            let tl = List.map(fun sf -> 
+            let new_f = {f with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_get sf)))}
+            in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ 
+            f [trm_apps ~annot:(Some Access) f1  [trm_apps new_f [lbase]];trm_apps ~annot:(Some Access) f2 [trm_apps new_f [rbase]]]
+              ) field_list in 
+            trm_seq ~annot:(Some No_braces) tl
+          | _ -> fail t.loc "make_explicit_record_assignment: Only variables are supported" 
+          end
+        
+        | _ -> fail t.loc "make_explicit_record_assigment_aux: right term was not matched"
+        end
+      | Trm_var v -> 
+        begin match rt.desc with 
+        | Trm_apps (f2,[rbase]) ->
+          begin match f2.desc with 
+          | Trm_var _ -> fail t.loc "make_explicit_record_assignment: Function calls are not supported"
+          | Trm_val (Val_prim (Prim_unop Unop_get)) ->
+            let tl = List.map(fun sf -> 
+            let new_f = {f with desc = Trm_val(Val_prim(Prim_unop(Unop_struct_get sf)))}
+            in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+            f [trm_apps new_f [trm_var v] ; trm_apps ~annot:(Some Access) f2 [trm_apps new_f [rbase]]]
+            ) field_list in 
+            trm_seq ~annot:(Some No_braces) tl 
+          | _ -> fail t.loc "make_explicit_record_assignment: Only variables are supported" 
+          end
+        | _ -> fail t.loc "make_explicit_record_assigment_aux: right term was not matched"
+        end
+      | _ -> fail t.loc "make_explicit_record_assigment_aux: left term was not matched"
+      end
+    | _ -> fail t.loc "make_explicit_record_assigment_aux: No variable assigment was matched, make sure that the assigment is detached, if not call function detach_expression path:[] to detach first the expression"
+    end
 
 
 let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (pl : path list) (t : trm) : trm = 
@@ -2740,7 +2757,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   | _ -> fail t.loc "make_explicit_record_assigment: expected a typedef struct"
   in 
   let field_list = 
-    
+  
   match struct_def_term.desc with
   | Trm_decl (Def_typ (_,dx)) -> 
     begin match dx.ty_desc with 
@@ -2748,21 +2765,36 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
     | _ -> fail t.loc "make_explicit_record_assigment: the type should be a struct" 
     end
   | _ -> fail t.loc "make_explicit_record_assigment: expected a definition"
-  in   
+  in 
+  
   let p = List.flatten pl in 
-  let b = !Flags.verbose in
-  Flags.verbose := false; 
+  let b = !Flags.verbose in 
+  Flags.verbose := false;
   let epl = resolve_path p t in 
   Flags.verbose := b;
-  match epl with 
+  (* First check if the path points to a variable declaration *)
+  let is_decl = match epl with 
+  | [dl] -> let (t_def,_) = resolve_explicit_path dl t in 
+    begin match t_def.desc with 
+    | Trm_seq[_;_] -> true
+    | _ -> false
+    end   
+  | _ -> fail t.loc "make_explicit_record_assignment: the path should point at one exact term and should not be empty"
+  in 
+  let t, pl = if is_decl then (detach_expression clog pl t,[cLabel ~label:"detached"();cBody()])
+    else t, pl 
+  in 
+  let new_epl = resolve_path (List.flatten pl) t in 
+  
+  match new_epl with 
   | [] -> 
-    print_info t.loc "make_explicit_record_assigment: no matching subterm";
+    print_info t.loc "make_explicit_record_assignment: no matching subterm";
     t
   |_ -> 
     List.fold_left 
       (fun t dl -> 
-        apply_local_transformation (make_explicit_record_assigment_aux clog field_list) t dl)
+        apply_local_transformation (make_explicit_record_assignment_aux clog field_list) t dl)
         t 
-        epl
+        new_epl
 
-
+ 

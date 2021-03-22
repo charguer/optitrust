@@ -95,7 +95,6 @@ int main() {
   // before :  vect v = v2
   // after :   vect v ;   v = v2   // without the decoration
 
-  // before:  cSeq ~body [ cSeq ~body:[cSeq [cVarDef "v" ; cAssign ~name:"v"] ] ] ]
   // after:   ..
 
   // target assignement on "v":

@@ -25,6 +25,11 @@
             ]
         },
         {
+            "label":"Open cpp and ml files",
+            "type" : "shell",
+            "command": "./${fileBasenameNoExtension}.ml",
+        },
+        {
             "label": "Execute transformation script (dump trace)",
             "type": "shell",
             "command": "./.vscode/add_exit_and_exec.sh",

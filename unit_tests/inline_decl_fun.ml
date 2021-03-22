@@ -8,8 +8,11 @@ let _ = run_unit_test (fun () ->
 let _ =
   run
     (fun () ->
-      set_init_source "inline_fun.cpp";
-      inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"f" ()] ();
+      set_init_source "inline_decl_fun.cpp";
+      
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"g" ()] ();
+      
+      show_path [cLabel ~label:"exit" ();cBody()];
       dump ()
     )
 
