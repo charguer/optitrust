@@ -1249,7 +1249,8 @@ let make_explicit_record_assignment ?(replace_top : bool = false) (x : typvar) :
 let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list) : unit = 
   apply_to_top ~replace_top
     (fun ctx -> Transformations.make_explicit_record_assigment ctx.clog ~struct_name pl);
-    write_log "\n"
+  delete_label ~replace_top "detached";
+  write_log "\n"
 
 let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") (pl : path list) : unit = 
   apply_to_top ~replace_top

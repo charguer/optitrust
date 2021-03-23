@@ -2694,7 +2694,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") (pl :pa
 
 
 
-let make_explicit_record_assignment_aux (clog : out_channel) (field_list : fields) (t : trm) : trm = 
+let make_explicit_record_assignment (clog : out_channel) (field_list : fields) (t : trm) : trm = 
   let log : string = 
     let loc : string = 
      match t.loc with 
@@ -2707,45 +2707,32 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     (ast_to_string t) loc
     in write_log clog log;
     Print_ast.print_ast ~only_desc:true stdout t;
-    begin match t.desc with
-    | Trm_apps (f,[lt;rt]) ->
-      begin match lt.desc with 
-      | Trm_apps(f1,[lbase]) -> 
-        begin match rt.desc with 
-        | Trm_apps (f2,[rbase]) -> 
-          begin match f2.desc with 
-          | Trm_var _ -> fail t.loc "make_explicit_record_assignment: Function calls are not supported"
-          | Trm_val (Val_prim (Prim_unop Unop_get)) ->
-            let tl = List.map(fun sf -> 
-            let new_f = {f with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_get sf)))}
-            in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ 
-            f [trm_apps ~annot:(Some Access) f1  [trm_apps new_f [lbase]];trm_apps ~annot:(Some Access) f2 [trm_apps new_f [rbase]]]
-              ) field_list in 
-            trm_seq ~annot:(Some No_braces) tl
-          | _ -> fail t.loc "make_explicit_record_assignment: Only variables are supported" 
-          end
-        
-        | _ -> fail t.loc "make_explicit_record_assigment_aux: right term was not matched"
-        end
-      | Trm_var v -> 
-        begin match rt.desc with 
-        | Trm_apps (f2,[rbase]) ->
-          begin match f2.desc with 
-          | Trm_var _ -> fail t.loc "make_explicit_record_assignment: Function calls are not supported"
-          | Trm_val (Val_prim (Prim_unop Unop_get)) ->
-            let tl = List.map(fun sf -> 
-            let new_f = {f with desc = Trm_val(Val_prim(Prim_unop(Unop_struct_get sf)))}
+    begin match t.desc with 
+    | Trm_apps (f, [lt;rt]) -> 
+      begin match rt.desc with 
+      | Trm_apps (f1,[rbase]) -> 
+        begin match lt.desc with 
+        | Trm_apps (f2,[lbase]) ->
+            let tl = List.map(fun sf ->
+            let new_f = {f with desc = Trm_val(Val_prim(Prim_unop (Unop_struct_get sf)))}
             in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
-            f [trm_apps new_f [trm_var v] ; trm_apps ~annot:(Some Access) f2 [trm_apps new_f [rbase]]]
+            f [trm_apps ~annot:(Some Access) f2 [trm_apps new_f [lbase]]; trm_apps ~annot:(Some Access) f1 [trm_apps new_f [rbase]]]
             ) field_list in 
-            trm_seq ~annot:(Some No_braces) tl 
-          | _ -> fail t.loc "make_explicit_record_assignment: Only variables are supported" 
-          end
-        | _ -> fail t.loc "make_explicit_record_assigment_aux: right term was not matched"
-        end
-      | _ -> fail t.loc "make_explicit_record_assigment_aux: left term was not matched"
-      end
-    | _ -> fail t.loc "make_explicit_record_assigment_aux: No variable assigment was matched, make sure that the assigment is detached, if not call function detach_expression path:[] to detach first the expression"
+            trm_seq ~annot:(Some No_braces) tl
+          
+        | Trm_var v ->
+            let tl = List.map(fun sf ->
+            let new_f = {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get sf)))}
+            in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+            f [trm_apps new_f [trm_var v]; trm_apps ~annot: (Some Access) f1 [trm_apps new_f [rbase]]]
+            ) field_list in 
+            trm_seq ~annot:(Some No_braces) tl
+          
+        | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched"
+        end 
+      | _ -> fail t.loc "make_explicit_record_assignment_aux: right hand side can only be a value or a variable, function calls are not supported"
+      end 
+    | _ -> fail t.loc "make_explicit_record_assignment_aux: This expression is not supported"
     end
 
 
@@ -2784,6 +2771,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   let t, pl = if is_decl then (detach_expression clog pl t,[cLabel ~label:"detached"();cBody()])
     else t, pl 
   in 
+  
   let new_epl = resolve_path (List.flatten pl) t in 
   
   match new_epl with 
@@ -2793,7 +2781,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   |_ -> 
     List.fold_left 
       (fun t dl -> 
-        apply_local_transformation (make_explicit_record_assignment_aux clog field_list) t dl)
+        apply_local_transformation (make_explicit_record_assignment clog field_list) t dl)
         t 
         new_epl
 
