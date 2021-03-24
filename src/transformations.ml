@@ -2379,17 +2379,17 @@ let rec insert_list keys_list temp_field_list field_list1 = match keys_list with
 | hd :: tl -> let field_list1 = insert_before hd (List.hd temp_field_list) field_list1 in insert_list tl (List.tl temp_field_list ) field_list1
 
 
-let inline_struct_aux (clog : out_channel) ?(struct_fields : fields = []) (t1 : trm) (t : trm) : trm =
+let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1 : trm) (t : trm) : trm =
   let log : string = 
     let loc : string = 
       match t.loc with
       | None -> ""
       | Some (_, line) -> Printf.sprintf "at line %d " line
-    in Printf.sprintf
+      in Printf.sprintf
       ("  - expression\n%s\n" ^^
       "    %sis a struct type\n"
       )
-    (ast_to_string t) loc 
+      (ast_to_string t) loc 
     in 
     write_log clog log;
     begin match t1.desc with 
@@ -2588,9 +2588,10 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
 
         
 
-let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : string)(t : trm) : trm =
+let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : string) (t : trm) : trm =
+  if name = "" then fail t.loc "inline_struc: Please enter a struct name which you want to inline, by giving a value to the default parameter ~struct_name";
   let field_name = List.hd struct_fields in 
-
+  
   let struct_term_path  = [cType ~name:name ()] in 
   let p_of_struct_term = List.flatten struct_term_path in
   let epl_of_struct_term = resolve_path p_of_struct_term t in 
@@ -2647,12 +2648,12 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     | _ -> 
       List.fold_left 
         (fun t dl -> 
-          apply_local_transformation (inline_struct_aux clog ~struct_fields t1) t dl)
+          apply_local_transformation (change_struct_fields clog ~struct_fields t1) t dl)
         t
         epl 
 
 
-let detach_expression_aux (clog : out_channel) (label : string) (t : trm) : trm = 
+let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) ?(keep_braces : bool = false) (label : string) (t : trm) : trm = 
  
   let log : string = 
     let loc : string = 
@@ -2670,12 +2671,24 @@ let detach_expression_aux (clog : out_channel) (label : string) (t : trm) : trm 
       | Trm_seq[t_decl;t_assign] -> 
           let t_decl = {t with desc = Trm_seq [t_decl] } in 
           let t_assign = {t_assign with annot = None} in 
-          let t_labelled = trm_labelled label t_assign in 
-          trm_seq ~annot:(Some No_braces) [t_decl;t_labelled] 
+          (*trm_seq ~annot:(Some No_braces) [t_decl;t_labelled]*)
+          
+          if keep_label then 
+            let t_labelled = trm_labelled label t_assign in
+            begin match keep_braces with 
+            | false -> trm_seq ~annot:(Some No_braces) [t_decl;t_labelled]
+            | true -> trm_seq  [t_decl;t_labelled]
+            end
+          else 
+
+            begin match keep_braces with 
+            | false -> trm_seq ~annot:(Some No_braces) [t_decl;t_assign]
+            | true -> trm_seq  [t_decl;t_assign]
+            end
       | _ -> fail t.loc "detach_expression_aux:No trm was matched, please give the correct path "
 
 
-let detach_expression (clog :out_channel) ?(label : string = "detached") (pl :path list) (t : trm) : trm = 
+let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_label : bool = false) ?(keep_braces : bool = false) (pl :path list) (t : trm) : trm = 
   let p = List.flatten pl in 
   let b = !Flags.verbose in
   Flags.verbose := false; 
@@ -2683,18 +2696,18 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") (pl :pa
   Flags.verbose := b;
   match epl with 
   | [] -> 
-    print_info t.loc "make_explicit_record_assigment: no matching subterm";
+    print_info t.loc "detach_expression: no matching subterm";
     t
   |_ -> 
     List.fold_left 
       (fun t dl -> 
-        apply_local_transformation (detach_expression_aux clog label) t dl)
+        apply_local_transformation (detach_expression_aux clog ~keep_label ~keep_braces label) t dl)
         t 
         epl
 
 
 
-let make_explicit_record_assignment (clog : out_channel) (field_list : fields) (t : trm) : trm = 
+let make_explicit_record_assignment_aux (clog : out_channel) (field_list : fields) (t : trm) : trm = 
   let log : string = 
     let loc : string = 
      match t.loc with 
@@ -2706,7 +2719,6 @@ let make_explicit_record_assignment (clog : out_channel) (field_list : fields) (
     )
     (ast_to_string t) loc
     in write_log clog log;
-    Print_ast.print_ast ~only_desc:true stdout t;
     begin match t.desc with 
     | Trm_apps (f, [lt;rt]) -> 
       begin match rt.desc with 
@@ -2781,8 +2793,74 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   |_ -> 
     List.fold_left 
       (fun t dl -> 
-        apply_local_transformation (make_explicit_record_assignment clog field_list) t dl)
+        apply_local_transformation (make_explicit_record_assignment_aux clog field_list) t dl)
         t 
         new_epl
 
- 
+let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : int) (t : trm) : trm = 
+  
+  Print_ast.print_ast ~only_desc:true stdout t;
+  let rec aux (global_trm : trm) (t : trm) : trm = 
+    let log : string = 
+      let loc : string = 
+      match t.loc with 
+      | None -> ""
+      | Some (_,line) -> Printf.sprintf "at line %d" line
+      in Printf.sprintf 
+      (" -expression \n%s\n" ^^
+      "  %sis a list of assignments\n"
+      )
+      (ast_to_string t) loc
+      in write_log clog log;
+
+      begin match t.desc with 
+      | Trm_seq [t_decl;t_assign] ->
+         begin match t_assign.desc with 
+         | Trm_seq tl when List.length tl = trms_list_size -> 
+         let extracted_trms = List.map( fun (sf:trm) -> 
+            match sf.desc with 
+            | Trm_apps(_,[_;rt]) -> rt
+            | _ -> trm_map (aux global_trm) t
+          ) tl in 
+          let var_decl = match t_decl.desc with 
+          | Trm_seq [dc] -> dc 
+          | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
+          in
+          let var_name = match var_decl.desc with 
+          | Trm_decl(Def_var (x,_)) -> fst x
+          | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
+          in  
+           
+          let lhs = var_decl in 
+          let rhs = trm_set ~annot:(Some Initialisation_instruction) (trm_var var_name) (trm_struct extracted_trms) in
+          trm_seq ~annot:(Some Heap_allocated) [lhs;rhs] 
+          
+          | _ -> trm_map (aux global_trm) t
+          end
+        | _ -> trm_map (aux global_trm) t 
+        end
+      
+      in aux t t
+
+ let make_implicit_record_assignment(clog : out_channel) (name : string) (t : trm) : trm = 
+    let struct_term_path = [cType ~name:name ()] in 
+    let p_of_struct_term = List.flatten struct_term_path in 
+    let epl_of_struct_term = resolve_path p_of_struct_term t in 
+    let struct_term = match epl_of_struct_term with 
+    | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+    | _ -> fail t.loc "make_implicit_record_assignment: expected a typedef struct"
+    in 
+    let fields_list = 
+    match struct_term.desc with 
+    | Trm_decl (Def_typ (_,dx)) ->
+      begin 
+      match dx.ty_desc with 
+      | Typ_struct (l,_,_) -> l
+      | _ -> fail t.loc "make_implicit_record_assignment: the type should be a typedef struct"
+      end
+    | _ -> fail t.loc "make_implicit_record_assignment: expected a definition"
+    in 
+
+    make_implicit_record_assignment_aux clog (List.length fields_list) t
+    
+

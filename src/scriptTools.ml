@@ -1235,9 +1235,9 @@ let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move
       (fun ctx -> Transformations.move_loop ctx.clog  ~move_before ~move_after loop_index);
     write_log "\n"
 
-let inline_struct ?(replace_top : bool = false) ?(struct_fields : fields = []) (name : string): unit = 
+let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(struct_fields : fields = []) (): unit = 
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.inline_struct ctx.clog ~struct_fields name );
+    (fun ctx -> Transformations.inline_struct ctx.clog struct_name ~struct_fields);
   write_log "\n"
 
 (*
@@ -1252,11 +1252,16 @@ let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name :
   delete_label ~replace_top "detached";
   write_log "\n"
 
-let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") (pl : path list) : unit = 
+let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) ?(keep_braces : bool = false) (pl : path list) : unit = 
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.detach_expression ctx.clog ~label pl);
+    (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label ~keep_braces pl);
     write_log "\n"
   
+let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") () : unit = 
+  apply_to_top ~replace_top 
+    (fun ctx -> Transformations.make_implicit_record_assignment ctx.clog struct_name);
+    write_log "\n"
+
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
   let log : string =
