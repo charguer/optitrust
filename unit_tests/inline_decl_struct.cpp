@@ -24,6 +24,8 @@ int main() {
 
   vect t = {0,0};
   int z = t.x;
+  vect u;
+  u = {0,0};
   ///a.pos = p; // raise an error; check at the end that no .pos remains *)
 
   // inline_struct for "d = {field0,field1}" strategy is to match:
@@ -33,42 +35,14 @@ int main() {
   // 4.   d  as a variable in another case => raise error
   // => other legitimate cases?
     
-  a.speed = p; // raise an error; check at the end that no .pos remains
-  //TODO:failure_expected (fun () -> inline_struct ~field["speed"])
-  // 
-  // let failure_expected f = (* exported in scriptTools.mli *)
-  //    begin try f(); failwith "should have failed"
-  //      with TransfoError _ -> () end
-
+  //a.pos = p; // raise an error; check at the end that no .pos remains
+  
   // reading of 'a.pos' without a '.x' or '.y' at the end is not accepted by this transformation
  
   // a.pos = { 5, 6 }
   // -> a.pos_x = 5; a.pos_y = 6
 
-  // operation_set(&a.pos, p)
-
-  // implement only this one:
-  // a.pos.x = v
-  // -> a.pos_x = v
-
-
-  //---
-  // operation_get(&a.pos)
-
-
   
-  //  ANOTHER TRANSFORMATION: struct_assignement_make_explicit
-  // vect v2; v2 = v1
-
-  
-
-  // equivalent to
-  // v2.x = v1.x;
-  // v2.y = v1.y
-
-  // NOW the inline struct would be ABLE TO HANDLE:
-  // a.pos = p
-
 
    // USER RESPONSABILITY to invoke struct_assignement_make_explicit
    // a.pos.x = p.x

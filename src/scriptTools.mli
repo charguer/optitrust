@@ -215,9 +215,11 @@ val inline_decl : ?replace_top:bool -> ?delete_decl:bool ->
 
 val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:string list -> unit -> unit
 
+val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit 
+
 val make_explicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> path list -> unit 
 
-val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> unit -> unit 
+val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> string -> unit 
 
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool-> ?keep_braces:bool -> path list -> unit 
 

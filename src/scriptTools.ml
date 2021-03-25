@@ -1240,6 +1240,10 @@ let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(s
     (fun ctx -> Transformations.inline_struct ctx.clog struct_name ~struct_fields);
   write_log "\n"
 
+let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.inline_record_access ctx.clog  field var);
+  write_log "\n"
 (*
 let make_explicit_record_assignment ?(replace_top : bool = false) (x : typvar) : unit = 
   apply_to_top ~replace_top
@@ -1257,9 +1261,9 @@ let detach_expression ?(replace_top : bool = false) ?(label : string = "detached
     (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label ~keep_braces pl);
     write_log "\n"
   
-let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") () : unit = 
+let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (var : string)  : unit = 
   apply_to_top ~replace_top 
-    (fun ctx -> Transformations.make_implicit_record_assignment ctx.clog struct_name);
+    (fun ctx -> Transformations.make_implicit_record_assignment ctx.clog var struct_name);
     write_log "\n"
 
 let aos_to_soa ?(replace_top : bool = false)

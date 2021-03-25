@@ -300,7 +300,8 @@ let  show_path ?(debug_ast : bool = false)(pl : path list) (t : trm) : trm =
   | [] ->
     print_info t.loc "show_path: not matching subterm\n";
     t
-  | [dl] -> apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
+  | [dl] -> Print_ast.print_ast ~only_desc:true stdout t;
+            apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
   
   | _ ->
      (*
@@ -2468,16 +2469,14 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
 
 
 
-let change_struct_access  (outer_struct_fields : fields) (x : typvar) (t : trm) : trm = 
+let change_struct_access  (x : typvar) (t : trm) : trm = 
   let rec aux (global_trm : trm) (t : trm) : trm = 
     match t.desc with 
     | Trm_apps (f, [base]) ->
       begin match f.desc with 
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
-          let outer_struct_fields = List.filter (fun fd -> fd <> y ) outer_struct_fields in 
           if y = x then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
-          else if (List.mem y outer_struct_fields) then  fail t.loc ("Expected  inline_struct ~struct_fields;[" ^ y ^ "];")
           else 
           begin match base.desc with 
           | Trm_apps (f',[base']) ->
@@ -2529,7 +2528,6 @@ let get_pos (x : typvar) (t : trm) : int =
         find x field_list1 
     | _ -> fail t.loc "get_pos_and_element: expected a struct type"
     end
-
 
 
 
@@ -2586,7 +2584,81 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
   in 
   aux t t
 
-        
+let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm = 
+  let log : string = 
+    let loc : string = 
+      match t.loc with 
+      | None -> ""
+      | Some (_,line) -> Printf.sprintf "at line %d" line 
+      in Printf.sprintf
+      (" -expresssion\n%s\n" ^^
+      "  %sis an assignment with record access\n"
+      )
+      (ast_to_string t) loc 
+      in write_log clog log;
+  
+      let pl = [cVarDef ~name:var()] in 
+      let epl = resolve_path (List.flatten pl) t in 
+      let var_decl = match epl with 
+      | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+      | _ -> fail t.loc "inline_record_access: expected a type"
+      in 
+
+      let var_type = match var_decl.desc with 
+        | Trm_seq [{desc=Trm_decl(Def_var ((x,var_typ),_));_};_] when x = var -> 
+          begin match var_typ.ty_desc with 
+          | Typ_ptr {ty_desc=Typ_var y;_} -> y
+          | _ -> fail t.loc "inline_record_access: type was not matched"
+          end
+        | _ -> fail t.loc "inline_record_access: coudl not get the type of variable declaration"
+      in 
+
+      let list_of_trms = match var_decl.desc with 
+        | Trm_seq [_;t_assign] ->
+          begin match t_assign.desc with 
+          | Trm_apps (_,[_;lt]) -> 
+            begin match lt.desc with
+            | Trm_struct tl -> tl 
+            | _ -> fail t.loc "implicit_record_assignment: Expected a record"
+            end
+          |  _ -> fail t.loc "implicit_record_assignment: Expected an assignment"
+          end
+        |  _ -> fail t.loc "implicit_record_assignment: Expected a sequence term"
+      in 
+      let struct_decl_path = [cType ~name:var_type ()] in 
+      let epl_of_struct_decl = resolve_path (List.flatten struct_decl_path) t in 
+      let struct_decl_trm  = match epl_of_struct_decl with 
+        | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+        | _ -> fail t.loc "inline_struct_access: expected a typedef struct"
+      in 
+      
+      let rec aux (global_trm : trm ) (t : trm) : trm = 
+        begin match t.desc with 
+        | Trm_apps (f,[base]) -> 
+          begin match f.desc with 
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field -> 
+            Print_ast.print_ast ~only_desc:true stdout base;
+            begin match base.desc with 
+            | Trm_var v when v = var -> 
+              let index = get_pos field struct_decl_trm in
+              List.nth list_of_trms index
+            | _ -> trm_map (aux global_trm) t 
+            end 
+          | _ -> trm_map (aux global_trm) t
+          end 
+        | _ -> trm_map (aux global_trm) t
+        end 
+      in aux t t 
+
+
+         
+
+
+
+
+    
+
 
 let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : string) (t : trm) : trm =
   if name = "" then fail t.loc "inline_struc: Please enter a struct name which you want to inline, by giving a value to the default parameter ~struct_name";
@@ -2601,22 +2673,22 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     | _ -> fail t.loc "inline_struct: expected a typedef struct"
     in 
   (* Get the type of the field_name by going through the field_map of struct obj *)
-  let inner_struct_name ,outer_struct_field_types= 
+  let inner_struct_name = 
   match struct_term.desc with 
   | Trm_decl (Def_typ(_,dx)) ->
-    let field_list,field_map = 
+    let field_map = 
       match dx.ty_desc with
-      | Typ_struct (l,m,_) ->l,m
+      | Typ_struct (_,m,_) -> m
       | _ -> fail t.loc "inline_struct: the type should be a typedef struct"
     in 
     let field_map_typ = Field_map.find field_name field_map in 
   
      
     begin match field_map_typ.ty_desc with 
-    | Typ_var y -> y,field_list
+    | Typ_var y -> y
     | _ -> fail t.loc "inline_struct: expeted a typ var as the value of a key  "
     end
-  | _ -> fail t.loc "inline_one_struct: expected a definition"
+  | _ -> fail t.loc "inline_struct: expected a definition"
   in 
    
     let  pl_temp = [cType ~name:inner_struct_name()]  in
@@ -2630,7 +2702,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     in
     
     
-   let t =  List.fold_left (fun acc_t x -> change_struct_access outer_struct_field_types x acc_t) t struct_fields
+   let t =  List.fold_left (fun acc_t x -> change_struct_access x acc_t) t struct_fields
     in
     
     let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t struct_fields
@@ -2719,6 +2791,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     )
     (ast_to_string t) loc
     in write_log clog log;
+    
     begin match t.desc with 
     | Trm_apps (f, [lt;rt]) -> 
       begin match rt.desc with 
@@ -2780,7 +2853,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
     end   
   | _ -> fail t.loc "make_explicit_record_assignment: the path should point at one exact term and should not be empty"
   in 
-  let t, pl = if is_decl then (detach_expression clog pl t,[cLabel ~label:"detached"();cBody()])
+  let t, pl = if is_decl then (detach_expression clog ~keep_label:true pl t,[cLabel ~label:"detached"();cBody()])
     else t, pl 
   in 
   
@@ -2797,7 +2870,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
         t 
         new_epl
 
-let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : int) (t : trm) : trm = 
+let make_implicit_record_assignment_aux (clog : out_channel) (_var : string) (trms_list_size : int) (t : trm) : trm = 
   
   Print_ast.print_ast ~only_desc:true stdout t;
   let rec aux (global_trm : trm) (t : trm) : trm = 
@@ -2812,7 +2885,7 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
       )
       (ast_to_string t) loc
       in write_log clog log;
-
+      
       begin match t.desc with 
       | Trm_seq [t_decl;t_assign] ->
          begin match t_assign.desc with 
@@ -2842,7 +2915,7 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
       
       in aux t t
 
- let make_implicit_record_assignment(clog : out_channel) (name : string) (t : trm) : trm = 
+ let make_implicit_record_assignment(clog : out_channel) (var : string) (name : string) (t : trm) : trm = 
     let struct_term_path = [cType ~name:name ()] in 
     let p_of_struct_term = List.flatten struct_term_path in 
     let epl_of_struct_term = resolve_path p_of_struct_term t in 
@@ -2861,6 +2934,6 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
     | _ -> fail t.loc "make_implicit_record_assignment: expected a definition"
     in 
 
-    make_implicit_record_assignment_aux clog (List.length fields_list) t
+    make_implicit_record_assignment_aux clog var (List.length fields_list) t
     
 
