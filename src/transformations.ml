@@ -2501,7 +2501,7 @@ let change_struct_access  (x : typvar) (t : trm) : trm =
 in 
 aux t t
 
-let rec insert_sublist_in_list sublist i xs = match xs with 
+let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
 | [] -> []
 | h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
 
@@ -2540,6 +2540,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     let (t_def,_) = resolve_explicit_path dl t in t_def 
   | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
+  Print_ast.print_ast ~only_desc:true stdout struct_term;
   
   let pos = get_pos x struct_term in 
   let rec aux (global_trm : trm) (t : trm) = 
@@ -2790,7 +2791,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
 
 
 
-let make_explicit_record_assignment_aux (clog : out_channel) (field_list : fields) (t : trm) : trm = 
+let make_explicit_record_assignment_aux (clog : out_channel) (field_list : fields) (trm_index : int) (expression_trm : trm) (t : trm) : trm = 
   let log : string = 
     let loc : string = 
      match t.loc with 
@@ -2800,35 +2801,40 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     (" -expression\n%s\n" ^^
     "   %sis an assigment\n"
     )
-    (ast_to_string t) loc
+    (ast_to_string expression_trm) loc
     in write_log clog log;
-    begin match t.desc with 
-    | Trm_apps (f, [lt;rt]) -> 
-      begin match rt.desc with 
-      | Trm_apps (f1,[rbase]) -> 
-        begin match lt.desc with 
-        | Trm_apps (f2,[lbase]) ->
-            let tl = List.map(fun sf ->
-            let new_f = {f with desc = Trm_val(Val_prim(Prim_unop (Unop_struct_get sf)))}
-            in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
-            f [trm_apps ~annot:(Some Access) f2 [trm_apps new_f [lbase]]; trm_apps ~annot:(Some Access) f1 [trm_apps new_f [rbase]]]
-            ) field_list in 
-            trm_seq ~annot:(Some No_braces) tl
-           (* clean_up_no_brace_seq (trm_seq ~annot:(Some No_braces) tl) *)
-        | Trm_var v ->
-            let tl = List.map(fun sf ->
-            let new_f = {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get sf)))}
-            in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
-            f [trm_apps new_f [trm_var v]; trm_apps ~annot: (Some Access) f1 [trm_apps new_f [rbase]]]
-            ) field_list in 
-            trm_seq ~annot:(Some No_braces) tl
-            (* clean_up_no_brace_seq (trm_seq ~annot:(Some No_braces) tl) *)
-        | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched"
+    Print_ast.print_ast ~only_desc:true stdout expression_trm;
+    (* Print_ast.print_ast ~only_desc:true stdout expression_trm; *)
+    match t.desc with 
+    | Trm_seq tl ->
+      begin match expression_trm.desc with 
+      | Trm_apps (f, [lt;rt]) -> 
+        begin match rt.desc with         
+        | Trm_apps (f1,[rbase]) -> 
+          begin match lt.desc with 
+          | Trm_apps (f2,[lbase]) ->
+              Print_ast.print_ast ~only_desc:true stdout expression_trm;
+
+              let exp_assgn = List.map(fun sf ->
+              let new_f = {f with desc = Trm_val(Val_prim(Prim_unop (Unop_struct_get sf)))}
+              in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+              f [trm_apps ~annot:(Some Access) f2 [trm_apps new_f [lbase]]; trm_apps ~annot:(Some Access) f1 [trm_apps new_f [rbase]]]
+              ) field_list in
+              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
+          | Trm_var v ->
+              let exp_assgn = List.map(fun sf ->
+              let new_f = {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get sf)))}
+              in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+              f [trm_apps new_f [trm_var v]; trm_apps ~annot: (Some Access) f1 [trm_apps new_f [rbase]]]
+              ) field_list in 
+              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
+          | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched"
+          end 
+        | _ -> fail t.loc "make_explicit_record_assignment_aux: right hand side can only be a value or a variable, function calls are not supported"
         end 
-      | _ -> fail t.loc "make_explicit_record_assignment_aux: right hand side can only be a value or a variable, function calls are not supported"
-      end 
-    | _ -> fail t.loc "make_explicit_record_assignment_aux: This expression is not supported"
-    end
+      | _ -> fail t.loc "make_explicit_record_assignment_aux: this expression is not supported"
+      end
+    | _ -> fail t.loc "make_explicit_record_assignment_aux: the outer sequence was not matched"
 
 
 let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (pl : path list) (t : trm) : trm = 
@@ -2853,7 +2859,22 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   let b = !Flags.verbose in 
   Flags.verbose := false;
   let epl = resolve_path p t in 
-  Flags.verbose := b; 
+  Flags.verbose := b;
+  let app_transfo   (t : trm) (dl : expl_path) : trm = 
+    match List.rev dl with 
+    | Dir_nth n :: dl' -> 
+      let (t',_) =  resolve_explicit_path dl t in 
+      
+      let t' = match t'.desc with 
+      | Trm_labelled ("detached",t'') -> t''
+      | _ -> t'
+      in 
+      (* Print_ast.print_ast ~only_desc:true stdout t'; *)
+      
+      let dl = List.rev dl' in 
+      apply_local_transformation (make_explicit_record_assignment_aux clog field_list n t') t dl 
+    | _ -> fail t.loc "app_transfo: expected a dir_nth inisde the sequence" 
+  in 
   (* First check if the path points to a variable declaration *)
   let is_decl = match epl with 
   | [dl] -> let (t_def,_) = resolve_explicit_path dl t in 
@@ -2863,68 +2884,61 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
     end   
   | _ -> fail t.loc "make_explicit_record_assignment: the path should point at one exact term and should not be empty"
   in 
-  let t, pl = if is_decl then (detach_expression clog ~keep_label:true pl t,[cLabel ~label:"detached"();cBody()])
+  let t, pl = if is_decl then (detach_expression ~keep_label:true clog pl t,[cLabel ~label:"detached"()])
     else t, pl 
   in 
   
   let new_epl = resolve_path (List.flatten pl) t in 
   
   match new_epl with 
+              (* clean_up_no_brace_seq (trm_seq ~annot:(Some No_braces) tl) *)
   | [] -> 
     print_info t.loc "make_explicit_record_assignment: no matching subterm";
     t
-  |_ -> 
-    List.fold_left 
-      (fun t dl -> 
-        apply_local_transformation (make_explicit_record_assignment_aux clog field_list) t dl)
-        t 
-        new_epl
-
-let make_implicit_record_assignment_aux (clog : out_channel) (_var : string) (trms_list_size : int) (t : trm) : trm = 
+  | _ -> List.fold_left (fun t dl -> app_transfo t dl) t new_epl
   
-  let rec aux (global_trm : trm) (t : trm) : trm = 
-    let log : string = 
-      let loc : string = 
+
+
+let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : int) (trm_index : int) (t : trm): trm = 
+  let log : string = 
+    let loc : string = 
       match t.loc with 
       | None -> ""
-      | Some (_,line) -> Printf.sprintf "at line %d" line
-      in Printf.sprintf 
-      (" -expression \n%s\n" ^^
-      "  %sis a list of assignments\n"
-      )
-      (ast_to_string t) loc
-      in write_log clog log;
-      
-      begin match t.desc with 
-      | Trm_seq [t_decl;t_assign] ->
-         begin match t_assign.desc with 
-         | Trm_seq tl when List.length tl = trms_list_size -> 
-         let extracted_trms = List.map( fun (sf:trm) -> 
-            match sf.desc with 
-            | Trm_apps(_,[_;rt]) -> rt
-            | _ -> trm_map (aux global_trm) t
-          ) tl in 
-          let var_decl = match t_decl.desc with 
-          | Trm_seq [dc] -> dc 
-          | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
-          in
-          let var_name = match var_decl.desc with 
-          | Trm_decl(Def_var (x,_)) -> fst x
-          | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
-          in  
-           
-          let lhs = var_decl in 
-          let rhs = trm_set ~annot:(Some Initialisation_instruction) (trm_var var_name) (trm_struct extracted_trms) in
-          trm_seq ~annot:(Some Heap_allocated) [lhs;rhs] 
-          
-          | _ -> trm_map (aux global_trm) t
-          end
-        | _ -> trm_map (aux global_trm) t 
-        end
-      
-      in aux t t
+      | Some (_, line) -> Printf.sprintf "at line %d" line 
+    in Printf.sprintf
+    (" -expression\n%s\n" ^^
+    "   %sis a declaration"
+    )
+    (ast_to_string t) loc 
 
- let make_implicit_record_assignment(clog : out_channel) (var : string) (name : string) (t : trm) : trm = 
+    in write_log clog log;
+    match t.desc with 
+    | Trm_seq tl -> 
+      let decl = List.nth tl trm_index in 
+      let assign = List.rev (foldi (fun i acc x -> if i >= trm_index + 1 && i < trm_index + 1 + trms_list_size then x :: acc else acc ) [] tl) in 
+      let extracted_trms = List.map( fun (sf:trm) -> 
+        match sf.desc with 
+        | Trm_apps(_,[_;rt]) -> rt
+        | _ -> fail t.loc "make_implicit_record_assignment_aux: all the trms should be assignments"
+        ) assign
+      in
+      let var_decl = match decl.desc with 
+        | Trm_seq [dc] -> dc 
+        | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
+      in
+      let var_name = match var_decl.desc with 
+        | Trm_decl(Def_var (x,_)) -> fst x
+        | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
+      in
+      let lhs = decl in 
+      let rhs = trm_set ~annot:(Some Initialisation_instruction) (trm_var var_name) (trm_struct extracted_trms) in
+      let new_trm =  [lhs;rhs] in 
+      let tl = list_remove_set assign tl in 
+      trm_seq ~annot:t.annot (insert_sublist_in_list new_trm trm_index tl)
+    | _ -> fail t.loc "make_implicit_record_assignment_aux: the outer sequence was not matched"
+      
+
+ let make_implicit_record_assignment(clog : out_channel) (name : string) (pl : path list) (t : trm) : trm = 
     let struct_term_path = [cType ~name:name ()] in 
     let p_of_struct_term = List.flatten struct_term_path in 
     let epl_of_struct_term = resolve_path p_of_struct_term t in 
@@ -2942,7 +2956,22 @@ let make_implicit_record_assignment_aux (clog : out_channel) (_var : string) (tr
       end
     | _ -> fail t.loc "make_implicit_record_assignment: expected a definition"
     in 
-
-    make_implicit_record_assignment_aux clog var (List.length fields_list) t
-    
+    let num_fields = List.length fields_list in 
+    let p = List.flatten pl in 
+    let b = !Flags.verbose in 
+    Flags.verbose := false;
+    let epl = resolve_path p t in 
+    Flags.verbose := b;
+    let app_transfo (t : trm) (dl : expl_path) : trm = 
+      match List.rev dl with 
+      | Dir_nth n :: dl' ->
+        let dl = List.rev dl' in 
+        apply_local_transformation (make_implicit_record_assignment_aux clog num_fields n ) t dl 
+      | _ -> fail t.loc "app_transfo: expected a dir_nth inisde the sequence"
+    in 
+    match epl with  
+    | [] -> 
+      print_info t.loc "make_implicit_record_assignment: no matching subterm";
+      t
+    | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl
 

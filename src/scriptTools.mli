@@ -219,7 +219,7 @@ val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> 
 
 val make_explicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> path list -> unit 
 
-val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> string -> unit 
+val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> path list -> unit 
 
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  path list -> unit 
 

@@ -9,11 +9,8 @@ let _ =
         
         (* TODO with arthur: see how to use cList to set up a constraint on a list of arguments *)
         (* For initializations which include declarations the following syntax is used *)
-        (* detach_expression [cVarDef ~name:"b"()] ~keep_label:false; *)
-        show_path [cVarDef ~name:"e" ()] ~debug_ast:true;
-        detach_expression [cVarDef ~name:"b"()] ~keep_label:true;
-        show_path [cVarDef ~name:"d" ()] ~debug_ast:true;
-        make_explicit_record_assignment [cVarDef ~name:"b"()] ~struct_name:"vect"; 
+        make_explicit_record_assignment [cVarDef ~name:"b"()] ~struct_name:"vect";
+        show_path [cVarDef ~name:"e"()] ~debug_ast:true; 
         (*An alternative to that is the following one 
           1) First detach the expression by using : detach_expression [cVardef ~name:"b"()]
           2) Then make_explicit_record_assignment [cLabel ~label:"detached"();cBody()] ~struct_name:"vect";
