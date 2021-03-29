@@ -239,7 +239,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            | _ -> fail loc "trm_to_doc: bad delete list"
            end
         | Some Multi_decl -> dattr ^^ multi_decl_to_doc loc tl
-        | Some No_braces ->
+        | Some No_braces -> (* TODO: printf stdout "warning no braces left" *)
+           (* Print  NOBRACES{ t1; t2 }   *)
            let dl = List.map (trm_to_doc ~semicolon:true) tl in
            dattr ^^ separate hardline dl
         | Some Main_file ->

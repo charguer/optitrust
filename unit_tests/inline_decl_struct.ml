@@ -6,6 +6,7 @@ let _ =
     run 
     ( fun _ -> 
         set_init_source"inline_decl_struct.cpp";
+        (* I will try to merge function inline_record_access with inline_struct :TODO *)
         inline_record_access ~field:"x" ~var:"t" ();
         inline_struct ~struct_name:"obj" ~struct_fields:["pos"] ();
         inline_struct ~struct_name:"vect" ~struct_fields:["x"] ();

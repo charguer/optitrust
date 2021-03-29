@@ -22,21 +22,11 @@ int main() {
   a.pos.x = 5;
   p.x = 5; // no change
 
-  vect t = {0,0};
+  vect t = {1,0};
   int z = t.x;
   vect u;
   u = {0,0};
-  ///a.pos = p; // raise an error; check at the end that no .pos remains *)
-
-  // inline_struct for "d = {field0,field1}" strategy is to match:
-  // 1.   { t1, .., d, t2 } => okto inline
-  // 2.   d.x   => then replace with field0 
-  // 3.   f(d, .. t2)  => replace with f({field0,field1}, t2)
-  // 4.   d  as a variable in another case => raise error
-  // => other legitimate cases?
-    
-  //a.pos = p; // raise an error; check at the end that no .pos remains
-  
+ 
   // reading of 'a.pos' without a '.x' or '.y' at the end is not accepted by this transformation
  
   // a.pos = { 5, 6 }

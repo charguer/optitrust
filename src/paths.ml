@@ -934,6 +934,7 @@ let is_equal_lit (l : lit) (l' : lit) =
 let match_regexp (r : rexp) (t : trm) : bool =
   let aux (r : rexp) (t : trm) : bool =
     let ts = ast_to_string t in
+    (* For debug: print on stdout "Considered: %s\n" ts *)
     if r.exact then Str.string_match r.exp ts 0
     else
       try let _ = Str.search_forward r.exp ts 0 in true with
