@@ -30,7 +30,7 @@
    # New plugins to highlight the code "OCaml and Reason IDE"
    # Type CTRL+P, then paste and execute the commande:
    #    ext install ocamllabs.ocaml-platform
-  
+
    # As explained in https://www.cosmiccode.blog/blog/vscode-for-ocaml/
    # for merlin to work well you need to update settings.json (global VS code settings)
    # go to file/ preferences / settings, type "settings.json", then at the very bottom click "edit".
