@@ -32,5 +32,6 @@ int main() {
    res = t;
    exit: y = res;
   */
+  int z = 3 + 3 + 3;
   return 0;
 }

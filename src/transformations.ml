@@ -1535,6 +1535,22 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
      if delete_decl then remove_decl clog pl t else t
   | _ -> fail t.loc "inline_decl: the path must point at exactly 1 subterm"
 
+let inline_literals (clog : out_channel) (pl : path list) (t : trm) : trm = 
+  let rec aux (global : trm) ( t : trm) = 
+    match t.desc with 
+    | Trm_apps (f,[right_;left]) -> 
+      match f.desch with 
+      | Trm_val (Val_prim (Prim_binop Binop_add)) ->
+        begin match right.desc with 
+        | Trm_val (Val_lit ( Lit_int r)) ->
+          begin match left.desc with 
+          | Trm_val (Val_liet (Lit_int l)) ->
+            Trm_val (Val_liet (Lit_int (l+r)))
+
+
+
+
+
 let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
@@ -1594,6 +1610,8 @@ let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
        )
        t
        epl
+
+      
 
 let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
   (t : trm) : trm =
