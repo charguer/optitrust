@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-us"><head>
 <title>
-${INSERT_TITLE}
+{INSERT_TITLE}
 </title>
 <meta charset="utf-8">
    <!--DOCUMENTATION: https://github.com/rtfpessoa/diff2html#features -->
@@ -13,9 +13,9 @@ ${INSERT_TITLE}
    -->
 
    <!--Make sure to load the CSS file in that order-->
-   <link rel="stylesheet" href="${TOOLS_FOLDER}/highlight.js_github.min.css" />
-   <link rel="stylesheet" type="text/css" href="${TOOLS_FOLDER}/diff2html.min.css" />
-   <script type="text/javascript" src="${TOOLS_FOLDER}/diff2html-ui.min.js"></script>
+   <link rel="stylesheet" href="{TOOLS_FOLDER}/highlight.js_github.min.css" />
+   <link rel="stylesheet" type="text/css" href="{TOOLS_FOLDER}/diff2html.min.css" />
+   <script type="text/javascript" src="{TOOLS_FOLDER}/diff2html-ui.min.js"></script>
 
 
 </head>
@@ -31,7 +31,7 @@ ${INSERT_TITLE}
 <script>
    var diffString = "";
 
-   ${INSERT_DIFF}
+   {INSERT_DIFF}
 
    document.addEventListener('DOMContentLoaded', function () {
      var targetElement = document.getElementById('diffDiv');

@@ -11,6 +11,8 @@ FILEBASE=$2
 
 TARGET=${FILEBASE}_diff.html
 
+echo "------------Generating ${TARGET}"
+
 cd ${DIRNAME}
 
 # SELECT BROWSER
@@ -25,23 +27,23 @@ VSCODE_FOLDER=../.vscode
 TOOLS_FOLDER=../tools
 
 # Compute title
-TITLESTR="OptiTrust Diff ${FILEBASE}"
+TITLESTR="OptiTrustDiff" # -${FILEBASE} TODO: adding the file base seems to cause issues
 
 # Compute diff
 DIFFCODE=`git diff --no-index -U10 ${FILEBASE}_before.cpp ${FILEBASE}_after.cpp | base64 -w 0`
 DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
 
-# Take templace and substitute ${TOOLS_FOLDER},  ${INSERT_TITLE}, and ${INSERT_DIFF}
-TEMPLATE=${VSCODE_FOLDER}/../tools/diff_template.html
+# Take templace and substitute ${TOOLS_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
+TEMPLATE="${VSCODE_FOLDER}/../tools/diff_template.html"
 cp ${TEMPLATE} ${TARGET}
-sed -e "s#\${TOOLS_FOLDER}#${TOOLS_FOLDER}#g" -i ${TARGET}
-sed -e "s#\${INSERT_DIFF}#${DIFFSTR}#g" -i ${TARGET}
-sed -e "s#\${INSERT_TITLE}#${TITLESTR}#g" -i ${TARGET}
-
+sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#{TOOLS_FOLDER}#${TOOLS_FOLDER}#g;s#{INSERT_DIFF}#${DIFFSTR}#g" ${TARGET}
+# Note: there seems to be an issue if performing the sed one after the other...
+echo "Generated ${TARGET}"
 
 # Open the browser
 WID=`xdotool search --name "${TITLESTR}" | head -1`
-if [ -n "$WID" ]; then
+echo "------------WID is ${WID}"
+if [ -n "${WID}" ]; then
 
   # Immediately bring the window to the front
   xdotool windowactivate $WID
