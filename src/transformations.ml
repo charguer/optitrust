@@ -1535,7 +1535,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
      if delete_decl then remove_decl clog pl t else t
   | _ -> fail t.loc "inline_decl: the path must point at exactly 1 subterm"
 
-let inline_literals (clog : out_channel) (pl : path list) (t : trm) : trm = 
+(* let inline_literals (clog : out_channel) (pl : path list) (t : trm) : trm = 
   let rec aux (global : trm) ( t : trm) = 
     match t.desc with 
     | Trm_apps (f,[right_;left]) -> 
@@ -1546,13 +1546,62 @@ let inline_literals (clog : out_channel) (pl : path list) (t : trm) : trm =
           begin match left.desc with 
           | Trm_val (Val_liet (Lit_int l)) ->
             Trm_val (Val_liet (Lit_int (l+r)))
+ *)
+let create_subsequence_aux (clog : out_channel) (start_index : int) (path_to_end : path list) (t : trm) : trm = 
+  let log : string = 
+    let loc : string = 
+      match t.loc with 
+      | None -> ""
+      | Some (_, line) -> Printf.sprintf "at line %d " line
+    in Printf.sprintf
+    ("    -expression\n%s\n" ^^
+     " %s is sequence of terms\n"
+    )
+    (ast_to_string t ) loc 
+    in write_log clog log;
+    let p = List.flatten path_to_end in
+    let epl = resolve_path p t in 
+    let last_trm = match epl with 
+    | [dl] -> let (l_t,_) = resolve_explicit_path dl t in l_t
+    | _ -> fail t.loc "create_subsequence_aux: only one exact trm should be matched"
+    in 
+    match t.desc with 
+    | Trm_seq tl -> 
+      let sub_list  = List.rev(foldi (fun i acc  x -> if i >= start_index && x <> last_trm then x :: acc else acc) [] tl) in 
+      let tl = list_remove_set sub_list tl in
+      let sub_seq = trm_seq ~annot:(Some No_braces) sub_list in 
+      (* let tl = insert_sublist_in_list [sub_seq] start_index tl in  *)
+      trm_seq ~annot:t.annot tl 
+    | _ -> fail t.loc "create_subsequence_aux: the sentence which contains the trms was not mached"
 
 
+
+let create_subsequence (clog : out_channel) (path_to_start : path list) (path_to_end : path list) (t : trm) : trm = 
+  let p = List.flatten path_to_start in  
+  let b = !Flags.verbose in 
+  Flags.verbose := false;
+  let epl = resolve_explicit_path p in 
+  Flags.verbose := b;
+  let app_transfo (path_to_end : path list) (t : trm) (dl :expl_path) : trm = 
+    match List.rev dl with 
+    | Dir_nth n :: dl' -> 
+      let dl = List.rev dl' in 
+      apply_local_transformation (create_subsequence_aux clog n path_to_end ) t dl 
+    | _ -> fail t.loc "app_transfo: expected a dir_nth inside the sequence"
+  in match epl with 
+  | [] -> 
+    print_info t.loc "create_subsequence: not matching subterm"
+    t
+  | _ -> List.fold_left (fun t dl -> app_transfo path_to_end t dl)
+    t epl 
+     
+
+  
 
 
 
 let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
-  let p = List.flatten pl in
+  let p = List.flatten path_to_start in
   let b = !Flags.verbose in
   Flags.verbose := false;
   let epl = resolve_path p t in
