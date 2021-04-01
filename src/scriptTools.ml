@@ -1266,9 +1266,9 @@ let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name 
     write_log "\n"
 
 
-let create_subsequence ?(replace_top : bool = false) (start_path : path list) (stop_path : path list)  : unit = 
+let create_subsequence ?(replace_top : bool = true) ?(braces : bool = false) (start_path : path list) (stop_path : path list)  : unit = 
   apply_to_top ~replace_top 
-    (fun ctx -> Transformations.create_subsequence ctx.clog start_path stop_path );
+    (fun ctx -> Transformations.create_subsequence ctx.clog start_path stop_path braces);
     write_log "\n"
 
 let aos_to_soa ?(replace_top : bool = false)

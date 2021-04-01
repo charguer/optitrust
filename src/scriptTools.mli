@@ -221,7 +221,7 @@ val make_explicit_record_assignment : ?replace_top:bool -> ?struct_name:string -
 
 val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> path list -> unit 
 
-val create_subsequence : ?replace_top:bool -> path list -> path list -> unit 
+val create_subsequence : ?replace_top:bool -> ?braces:bool -> path list -> path list -> unit 
 
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  path list -> unit 
 
