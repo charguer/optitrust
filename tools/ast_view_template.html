@@ -3,7 +3,9 @@
 <title>
 {INSERT_TITLE}
 </title>
+
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
    <!-- remote sources
       https://www.w3schools.com/jquery/jquery_get_started.asp
@@ -30,23 +32,51 @@
    <script type="text/javascript" src="{TOOLS_FOLDER}/lib/jquery_scroll/jquery.mousewheel.js"></script>
    <script type="text/javascript" src="{TOOLS_FOLDER}/lib/jquery_scroll/jquery.jscrollpane.min.js"></script>
 
-   <link rel="stylesheet" href="{TOOLS_FOLDER}/ast_view.css" />
+   <link type="text/css" rel="stylesheet" href="{TOOLS_FOLDER}/ast_view.css" />
 
    <script type="text/javascript" src="ast_view.js"></script>
 
    <!--AST DESCRIPTION TO LOAD-->
    <script type="text/javascript" src="{INSERT_TOLOAD}"></script>
 
-   <!--CPP CODE TO LOAD-->
+   <!--CPP CODE TO LOAD (should define variable codeString)-->
    <script>
-   eval("INSERT_"+"CODE = 0")
-      {INSERT_CODE}
+   eval("INSERT_"+"CODE = 0"); // to avoid errors for testing the page
+   {INSERT_CODE}
    </script>
 
 </head>
 <body>
 
-<div id="">test</div>
+<!---contents-->
+<table id="container">
+<tr><td class="pane">
+
+   <!---source code-->
+   <div><textarea id='source_code' class="source col-sm-auto"></textarea></div>
+
+</td><td class="pane">
+   <!---right pane-->
+   <div>
+
+      <!--parameters-->
+      <div id="parameters">
+         <form class="form-inline">
+         Depth:&nbsp;&nbsp;<input type="text" id='parameter_depth' style="width:5em" value="0" class="form-control"/>
+         </form>
+      </div><!--parameters-->
+
+   
+      <!--visualization-->
+      <div id="viewast">
+         showAST
+      </div><!--visualization-->
+
+   </div><!---right pane-->
+
+
+</td></tr></table><!---contents-->
+
 
 </body>
 </html>
