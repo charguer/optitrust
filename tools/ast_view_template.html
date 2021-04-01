@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+<title>
+{INSERT_TITLE}
+</title>
+<meta charset="utf-8">
+
+   <!-- remote sources
+      https://www.w3schools.com/jquery/jquery_get_started.asp
+      https://www.w3schools.com/bootstrap/bootstrap_get_started.asp
+   -->
+
+   <!--jquery and jqueryui-->
+   <script src="{TOOLS_FOLDER}/lib/jquery.min.js"></script>
+   <script src="{TOOLS_FOLDER}/lib/jquery-ui.min.js"></script>
+
+   <!--bootstrap-->
+   <link rel="stylesheet" href="{TOOLS_FOLDER}/lib/bootstrap/css/bootstrap.min.css">
+   <script src="{TOOLS_FOLDER}/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+   <!--code mirror-->
+   <link rel=stylesheet href="{TOOLS_FOLDER}/lib/codemirror/codemirror.css">
+   <script src="{TOOLS_FOLDER}/lib/codemirror/codemirror.js"></script>
+   <script src="{TOOLS_FOLDER}/lib/codemirror/panel.js"></script>
+   <script src="{TOOLS_FOLDER}/lib/codemirror/codemirror-tabs.js"></script>
+   <script src="{TOOLS_FOLDER}/lib/codemirror/javascript.js"></script>
+   <script src="{TOOLS_FOLDER}/lib/codemirror/mllike.js"></script>
+   <!--scroll-->
+   <link type="text/css" href="{TOOLS_FOLDER}/lib/jquery_scroll/jquery.jscrollpane.css" rel="stylesheet" media="all" />
+   <script type="text/javascript" src="{TOOLS_FOLDER}/lib/jquery_scroll/jquery.mousewheel.js"></script>
+   <script type="text/javascript" src="{TOOLS_FOLDER}/lib/jquery_scroll/jquery.jscrollpane.min.js"></script>
+
+   <link rel="stylesheet" href="{TOOLS_FOLDER}/ast_view.css" />
+
+   <script type="text/javascript" src="ast_view.js"></script>
+
+   <!--AST DESCRIPTION TO LOAD-->
+   <script type="text/javascript" src="{INSERT_TOLOAD}"></script>
+
+   <!--CPP CODE TO LOAD-->
+   <script>
+   eval("INSERT_"+"CODE = 0")
+      {INSERT_CODE}
+   </script>
+
+</head>
+<body>
+
+<div id="">test</div>
+
+</body>
+</html>
+
+
