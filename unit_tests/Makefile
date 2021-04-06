@@ -39,7 +39,7 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML= show_path.ml inline_seq.ml fold_ref.ml inline_typ.ml swap_coords_vari.ml  inline_ref.ml fold_typ.ml  inline_fun_vect.ml inline_fun_vect.ml remove_decl.ml ast_encoding.ml  inline_struct_in_struct.ml
+EXCLUDE_ML= show_path.ml inline_seq.ml fold_ref.ml inline_typ.ml swap_coords_vari.ml  inline_ref.ml fold_typ.ml  inline_fun_vect.ml inline_fun_vect.ml remove_decl.ml ast_encoding.ml inline_struct_in_struct.ml move_loop.ml cstr.ml coloring.ml make_implicit_record_assignment.ml
 V?=@
 
 # List of CPP files that are not meant to be compiled
@@ -54,8 +54,11 @@ VC?=no
 # TESTS contains the list of ml transformation scripts
 TESTS=$(filter-out $(EXCLUDE_ML), $(wildcard *.ml))
 
-# CHECKS contains the list of targets to be produced
+# CHECKS contains the list of targets to be produced for comparing output with expected output
 CHECKS=$(TESTS:.ml=.chk)
+
+# CHECKS contains the list of targets to be produced for the documentation
+DIFFJS=$(TESTS:.ml=_diff.js)
 
 # The build command for compiling a script
 BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
@@ -81,6 +84,18 @@ f: clean all
 # make 'compile' checks that the cpp files commited and generated all compile
 compile: $(CPP_SOURCES:.cpp=.prog)
 
+# 'make doc' to build the auxililary files needed by _doc.html
+doc: $(DIFFJS)
+
+# 'make redoc' to force rebuilding all *_diff.js files
+redoc:
+	rm -f *_diff.js
+	$(MAKE) doc
+
+# 'make opendoc' to view the documentation
+opendoc: doc
+	mkdir -p .chromium
+	chromium-browser --new-window --user-data-dir=.chromium --disable-web-security _doc.html
 
 #######################################################
 # Rules
@@ -97,6 +112,12 @@ compile: $(CPP_SOURCES:.cpp=.prog)
 %.chk: %_out.cpp %_exp.cpp 
 	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
 	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
+
+# Rule for producing the diff between the output and the expected output, in a form readable in a browser
+%_diff.js: %.cpp %_exp.cpp %.ml
+	@echo "function get_diff_$*() { return window.atob(\"`git diff --no-index -U10 $*.cpp $*_exp.cpp | base64 -w 0`\"); }" > $@
+	@echo "function get_src_$*() { return window.atob(\"`cat $*.ml | base64 -w 0`\"); }" >> $@
+	@echo Produced $@
 
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
 %_out.cpp: %.byte %.cpp
@@ -129,7 +150,7 @@ endif
 # Cleanup
 
 clean:
-	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp
+	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
