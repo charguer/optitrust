@@ -3,6 +3,10 @@ open Paths
 open Path_constructors
 open Translate_ast
 
+let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
+| [] -> []
+| h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
+
 let failure_expected f = 
   begin try f(); failwith "should have failed"
   with TransfoError _ -> () end
@@ -1611,10 +1615,76 @@ let create_subsequence (clog : out_channel) (start_path : path list) (stop_path 
   | _ -> List.fold_left (fun t dl -> app_transfo stop_path t dl)
     t epl 
      
+let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm : trm) (decl_index : int) (t  : trm) : trm =  
+  (* let rec get_index (x : trm) (lst : trm list) : int =
+    match lst with
+    | [] -> raise (Failure "Not Found")
+    | h :: t -> if x = h then 0 else 1 + get_index x t
+  in *)
+  let log : string = 
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_, line) -> Printf.sprintf "at line %d " line
+    in Printf.sprintf
+    (" - expression\n%s\n" ^^
+    " %s is a declaration\n"
+    )
+    (ast_to_string decl_trm) loc 
+    in write_log clog log;
+    match t.desc with 
+    | Trm_seq tl ->
+       let decl_type = begin match decl_trm.desc with 
+       | Trm_seq[t_decl] -> 
+        begin match t_decl.desc with 
+        | Trm_decl (Def_var ((_,_),dx)) -> 
+          begin match dx.desc with 
+          | Trm_val( Val_prim (Prim_new t_arr)) -> 
+            begin match t_arr.ty_desc with 
+            | Typ_array (t_var,_) -> 
+              begin match t_var.ty_desc with 
+              | Typ_var x -> x 
+              | _ -> fail t.loc "array_to_variables_aux: expected a type variable"
+              end 
+            | _ -> fail t.loc "array_to_variables_aux: expected an array type"
+            end 
+          | _ -> fail t.loc "array_to_variables_aux: something went wrong"
+          end 
+        | _ -> fail t.loc "array_to_variables_aux: expected a variable declaration"
+        end 
+      | _ -> fail t.loc "array_to_variables_aux: expected a sequence which contain the variable declaration"
+      end 
+      in 
+      (* let decl_index = get_index decl_trm tl in *)
+      let new_trms = List.map(fun x -> 
+        trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var((x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type))))]) new_vars 
+      in    
+      trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl) 
+    | _ -> fail t.loc "array_to_variables_aux: only declaration inside sequence are supported"
 
-  
 
+let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : var list) (t : trm) : trm = 
+  let p = List.flatten dcl_path in 
+  let b = !Flags.verbose in
+  Flags.verbose := false;
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+  let app_transfo (t :trm) (dl : expl_path) = 
+    match List.rev dl with 
+    | Dir_nth n :: dl' -> 
+      let (t',_) = resolve_explicit_path dl t in
+      let dl = List.rev dl' in
+      Print_ast.print_ast ~only_desc:true stdout t';
 
+      apply_local_transformation (array_to_variables_aux clog new_vars t' n) t dl 
+    | _ -> fail t.loc "app_transfo: expected a dir_nth inside the sequence"
+  in 
+  match epl with 
+  | [] ->
+    print_info t.loc "array_to_variables: no matching subterm";
+    t
+  | _ -> List.fold_left(fun t dl -> app_transfo t dl)
+    t epl 
 
 let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in
@@ -2584,9 +2654,6 @@ let change_struct_access  (x : typvar) (t : trm) : trm =
 in 
 aux t t
 
-let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
-| [] -> []
-| h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
 
 (* Get the index for a given field of struct inside its list of fields *)
 let get_pos (x : typvar) (t : trm) : int = 

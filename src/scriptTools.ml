@@ -1271,6 +1271,11 @@ let create_subsequence ?(replace_top : bool = true) ?(braces : bool = false) (st
     (fun ctx -> Transformations.create_subsequence ctx.clog start_path stop_path braces);
     write_log "\n"
 
+let array_to_variables ?(replace_top : bool = true) (dcl_path : path list) (new_vars : var list) : unit = 
+  apply_to_top ~replace_top 
+    (fun ctx -> Transformations.array_to_variables ctx.clog dcl_path new_vars);
+    write_log "\n"
+
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
   let log : string =

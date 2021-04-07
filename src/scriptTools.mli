@@ -223,6 +223,8 @@ val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -
 
 val create_subsequence : ?replace_top:bool -> ?braces:bool -> path list -> path list -> unit 
 
+val array_to_variables : ?replace_top:bool -> path list -> string list -> unit 
+
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  path list -> unit 
 
 val fields_reorder : ?replace_top:bool -> path list -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit
