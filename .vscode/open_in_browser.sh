@@ -12,17 +12,18 @@ if [ -z "${BROWSER}" ]; then
 fi
 
 # Open the browser
-WID=`xdotool search --name "${WINDOWTITLE}" | head -1`
+
+#WID=`xdotool search "${WINDOWTITLE}"`
 if [ -n "${WID}" ]; then
 
   # Immediately bring the window to the front
   xdotool windowactivate $WID
   # Refresh the page
-  xdotool key ctrl+r
+  xdotool selectwindow key ctrl+r
 
 else
 
   # Launch fresh browser
-  chromium-browser --new-window ${FILEPATH} > /dev/null &
+  chromium-browser --new-window ${FILEPATH} #> /dev/null &
 
 fi
