@@ -56,15 +56,16 @@ cp ${TEMPLATE} ${TARGET}
 sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#{TOOLS_FOLDER}#${TOOLS_FOLDER}#g;s#{INSERT_DIFF}#${DIFFSTR}#g" ${TARGET}
 # Note: there seems to be an issue if performing the sed one after the other...
 echo "Generated ${TARGET}"
-
-
 # Open the browser
+
+WID=`xdotool search --name "OptiTrust_Diff_${TITLESTR}"`
+if [[ ! -n "${WID}" ]];  then firefox http://127.0.0.1:5500/unit_tests/${TARGET}
+fi
+
+
+#WID=`xdotool search --name "${WINDOWTITLE}" |head -1`
+
 #${VSCODE_FOLDER}/open_in_browser.sh ${TARGET} "${TITLESTR}"
-
-
-# Open the browser
-
-firefox --new-window ${TARGET}
 # third step: clean up and show the diff of the two last states of the program
 ocamlbuild -clean
 rm "${FILEBASE}_with_exit.ml"

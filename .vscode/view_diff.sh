@@ -36,4 +36,6 @@ sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#{TOOLS_FOLDER}#${TOOLS_FOLDER}#g;s#{INS
 echo "Generated ${TARGET}"
 
 # Open the browser
-${VSCODE_FOLDER}/open_in_browser.sh ${TARGET} "${TITLESTR}"
+
+firefox http://127.0.0.1:5500/${TARGET}
+#${VSCODE_FOLDER}/open_in_browser.sh ${TARGET} "${TITLESTR}"
