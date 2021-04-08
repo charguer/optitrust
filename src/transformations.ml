@@ -1743,6 +1743,55 @@ let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : v
   | _ -> List.fold_left(fun t dl -> app_transfo t dl)
     t epl 
 
+(* let local_other_name_aux (clog : out_channel) (T : typvar) (new_var : var) (t : trm) = 
+    let log : string =
+      let loc : string = 
+      match t.loc with 
+      | None -> ""
+      | Some (_, line) -> Printf.sprintf "at line %d " line
+      in Printf.sprintf
+      (" -expression\n%s\n" ^^
+      " %s is a for lopp \n"
+      )
+      (ast_to_string t) loc
+      in write_log clog log;
+      match t.desc with 
+      Trm_seq [f_loop] ->
+        begin match f_loop.desc with 
+        | Trm_for (init, cond, step, body) ->
+          begin match body.desc with 
+          | Trm_seq [var_trm] ->
+            begin match var_trm.desc with 
+            | Trm_apps(f,[base]) ->
+              let old_var = 
+              begin match base.desc with 
+              | Trm_var a -> a 
+              | _ -> fail t.loc "local_other_name_aux: expecte a variable trm"
+              end 
+              in 
+              let decl = trm_decl 
+
+
+      
+let local_other_name (clog : out_channel) (sec_of_int : label) (T : typvar) (new_var : var) (t : trm) = 
+    let pl = [cLabel ~label:"exit" ();cBody()] in 
+    let p = List.flatten pl in 
+    let b = !Flags.verbose in 
+    Flags.verbose := false;
+    let epl = resolve_path p t in
+    Flags.verbose := b;
+    match epl with 
+    | []-> 
+      print_info t.loc "local_other_nam: no matchin subterm";
+      t
+    | _ -> List.fold_left 
+            (fun t dl -> 
+              apply_local_transformation (local_other_name_aux clog T new_var) t dl)
+              t 
+              epl *)
+
+
+
 let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
