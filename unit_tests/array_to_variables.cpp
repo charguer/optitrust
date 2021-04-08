@@ -1,18 +1,22 @@
 
 typedef int T[2];
+typedef struct {
+  int x;
+  int y;
+} vect;
 
-
-// typedef struct {
-//   T t[2];
-//   int g;
-// } particle;
+// Not supported yet
+typedef struct {
+  T t[2];
+  int g;
+} particle;
 
 int main(){
   T t[2];
-  // T ta;
-  // T tb;
-  int y = 2.0;
-
   
+  vect v[2];
+  v[0] = {1,2};
+  v[1] = {3,4};
+
   return 0;
 }

@@ -1662,8 +1662,54 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
       trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl) 
     | _ -> fail t.loc "array_to_variables_aux: only declaration inside sequence are supported"
 
+let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var list) (t : trm) = 
+  let log : string = 
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_, line) -> Printf.sprintf "at line %d " line
+    in Printf.sprintf
+    (" - expression\n%s\n" ^^
+    " %s is the full term\n"
+    )
+    (ast_to_string t) loc 
+    in write_log clog log;
+    let rec aux (global_trm : trm) (t : trm) = 
+    match t.desc with 
+    | Trm_apps (f,[base]) -> 
+      begin match f.desc with 
+       | Trm_val ( Val_prim (Prim_unop Unop_get)) ->
+        begin match base.desc with 
+        | Trm_apps(f1,[arr_var;index]) -> 
+            begin match f1.desc with 
+            | Trm_val (Val_prim (Prim_binop Binop_array_access))
+              | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+               begin match arr_var.desc with
+               | Trm_var x when x = array_var -> 
+                 begin match index.desc with
+                  | Trm_val (Val_lit (Lit_int i)) ->
+                    if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new variables entered"
+                    else 
+                    trm_var (List.nth new_vars i)
+                  | _ -> fail t.loc "inline_array_access: Only integer indexes are allowed"
+                  end
+                | _ -> trm_map (aux global_trm) t
+              end 
+            | _ -> trm_map (aux global_trm) t
+            end
+          | _ -> trm_map (aux global_trm) t
+        end
+        | _ -> trm_map (aux global_trm) t
+      end     
+    | _ -> trm_map (aux global_trm) t
+    in 
+    aux t t
+      
+         
+         
 
 let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : var list) (t : trm) : trm = 
+  
   let p = List.flatten dcl_path in 
   let b = !Flags.verbose in
   Flags.verbose := false;
@@ -1674,12 +1720,23 @@ let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : v
     | Dir_nth n :: dl' -> 
       let (t',_) = resolve_explicit_path dl t in
       let dl = List.rev dl' in
-      Print_ast.print_ast ~only_desc:true stdout t';
 
       apply_local_transformation (array_to_variables_aux clog new_vars t' n) t dl 
     | _ -> fail t.loc "app_transfo: expected a dir_nth inside the sequence"
   in 
+  (* Change all array accessess with the new variables before changing the declaration *)
+  let declaration_trm = match epl with 
+  | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+  | _ -> fail t.loc "array_to_variables: expected only one declaration trm"
+  in 
+  let array_variable = match declaration_trm.desc with
+  | Trm_seq [{desc=Trm_decl (Def_var ((x,_),_));_}] -> x 
+  | _ -> fail t.loc "array_to_variables: expected a sequece which contains the declration"
+  in 
+  let t = inline_array_access clog array_variable new_vars t in 
   match epl with 
+
+
   | [] ->
     print_info t.loc "array_to_variables: no matching subterm";
     t
@@ -2690,7 +2747,6 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     let (t_def,_) = resolve_explicit_path dl t in t_def 
   | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
-  Print_ast.print_ast ~only_desc:true stdout struct_term;
   
   let pos = get_pos x struct_term in 
   let rec aux (global_trm : trm) (t : trm) = 
@@ -2903,7 +2959,6 @@ let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (lab
           
 
 let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_label : bool = false) (pl :path list) (t : trm) : trm = 
-  (* Print_ast.print_ast ~only_desc:true stdout t; *)
   let p = List.flatten pl in 
   let b = !Flags.verbose in
   Flags.verbose := false; 
@@ -2953,8 +3008,6 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     )
     (ast_to_string expression_trm) loc
     in write_log clog log;
-    Print_ast.print_ast ~only_desc:true stdout expression_trm;
-    (* Print_ast.print_ast ~only_desc:true stdout expression_trm; *)
     match t.desc with 
     | Trm_seq tl ->
       begin match expression_trm.desc with 
@@ -2963,8 +3016,6 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
         | Trm_apps (f1,[rbase]) -> 
           begin match lt.desc with 
           | Trm_apps (f2,[lbase]) ->
-              Print_ast.print_ast ~only_desc:true stdout expression_trm;
-
               let exp_assgn = List.map(fun sf ->
               let new_f = {f with desc = Trm_val(Val_prim(Prim_unop (Unop_struct_get sf)))}
               in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
@@ -3019,7 +3070,6 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
       | Trm_labelled ("detached",t'') -> t''
       | _ -> t'
       in 
-      (* Print_ast.print_ast ~only_desc:true stdout t'; *)
       
       let dl = List.rev dl' in 
       apply_local_transformation (make_explicit_record_assignment_aux clog field_list n t') t dl 
