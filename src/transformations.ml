@@ -1551,7 +1551,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
           | Trm_val (Val_liet (Lit_int l)) ->
             Trm_val (Val_liet (Lit_int (l+r)))
  *)
-let create_subsequence_aux (clog : out_channel) (start_index : int) (stop_path : path list) (braces : bool) (t : trm) : trm = 
+let create_subsequence_aux (clog : out_channel) (label : label) (start_index : int) (stop_path : path list) (braces : bool) (t : trm) : trm = 
   let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
 | [] -> []
 | h :: t -> if i = 0 then h :: sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
@@ -1590,13 +1590,17 @@ let create_subsequence_aux (clog : out_channel) (start_index : int) (stop_path :
        | true ->  trm_seq  sub_list 
        | false -> trm_seq  ~annot:(Some No_braces) sub_list
       in 
+      let sub_seq = 
+      if label <> "" then trm_labelled label (sub_seq)
+      else sub_seq
+      in 
       let tl = insert_sublist_in_list [sub_seq] (start_index-1) tl in 
-      trm_seq ~annot:t.annot tl 
+      trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "create_subsequence_aux: the sentence which contains the trms was not mached"
 
 
 
-let create_subsequence (clog : out_channel) (start_path : path list) (stop_path : path list) (braces : bool) (t : trm) : trm = 
+let create_subsequence (clog : out_channel)(label : label) (start_path : path list) (stop_path : path list) (braces : bool) (t : trm) : trm = 
   let p = List.flatten start_path in
   let b = !Flags.verbose in 
   Flags.verbose := false;
@@ -1606,7 +1610,7 @@ let create_subsequence (clog : out_channel) (start_path : path list) (stop_path 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
       let dl = List.rev dl' in 
-      apply_local_transformation (create_subsequence_aux clog n stop_path braces ) t dl 
+      apply_local_transformation (create_subsequence_aux clog label n stop_path braces ) t dl 
     | _ -> fail t.loc "app_transfo: expected a dir_nth inside the sequence"
   in match epl with 
   | [] -> 
@@ -1743,7 +1747,7 @@ let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : v
   | _ -> List.fold_left(fun t dl -> app_transfo t dl)
     t epl 
 
-(* let local_other_name_aux (clog : out_channel) (T : typvar) (new_var : var) (t : trm) = 
+let local_other_name_aux (clog : out_channel) (var_type : typvar) (new_var : var) (t : trm) = 
     let log : string =
       let loc : string = 
       match t.loc with 
@@ -1755,26 +1759,43 @@ let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : v
       )
       (ast_to_string t) loc
       in write_log clog log;
+      Print_ast.print_ast ~only_desc:true stdout t;
       match t.desc with 
-      Trm_seq [f_loop] ->
-        begin match f_loop.desc with 
-        | Trm_for (init, cond, step, body) ->
-          begin match body.desc with 
-          | Trm_seq [var_trm] ->
-            begin match var_trm.desc with 
-            | Trm_apps(f,[base]) ->
-              let old_var = 
-              begin match base.desc with 
-              | Trm_var a -> a 
-              | _ -> fail t.loc "local_other_name_aux: expecte a variable trm"
+      Trm_seq [no_braces] ->        
+        begin match no_braces.desc with 
+          Trm_seq [f_loop;_] -> 
+          begin match f_loop.desc with 
+          | Trm_for (init, cond, step, body) ->
+            begin match body.desc with 
+            | Trm_seq [var_trm] ->
+              begin match var_trm.desc with 
+              | Trm_apps(f,[base]) ->
+                let old_var = 
+                begin match base.desc with 
+                | Trm_var a -> a 
+                | _ -> fail t.loc "local_other_name_aux: expecte a variable trm"
+                end 
+                in 
+                let decl = trm_decl (Def_var ((new_var,typ_ptr (typ_var var_type)),trm_prim (Prim_new (typ_var var_type)))) in 
+                let assgn = trm_set (trm_var new_var) (trm_apps ({f with desc=Trm_val(Val_prim(Prim_binop Binop_set))}) [trm_var old_var])
+                in 
+                let new_decl = trm_seq ~annot:(Some Heap_allocated) [decl;assgn] in
+                let new_loop_body = trm_seq ~annot:body.annot [trm_apps f [trm_var new_var]] in 
+                let new_loop = trm_for ~annot:f_loop.annot init cond step new_loop_body in 
+                trm_seq [new_decl;new_loop]  
+              | _ -> fail t.loc "local_other_name_aux: expected an operation over the inner variable"
               end 
-              in 
-              let decl = trm_decl 
-
+            | _ -> fail t.loc "local_other_name_aux: expected a sequence of trms which form the body of the loop"
+            end
+          | _ -> fail t.loc "local_other_name_aux: expected a for loop"
+          end
+      | _ -> fail t.loc "local_other_name_aux: expected the sequnece which contains the for loop"
+      end 
+    | _ -> fail t.loc "local_other_name_aux: expected the no brace sequence"
 
       
-let local_other_name (clog : out_channel) (sec_of_int : label) (T : typvar) (new_var : var) (t : trm) = 
-    let pl = [cLabel ~label:"exit" ();cBody()] in 
+let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typvar) (new_var : var) (t : trm) = 
+    let pl = [cLabel ~label:sec_of_int ();cBody ()] in 
     let p = List.flatten pl in 
     let b = !Flags.verbose in 
     Flags.verbose := false;
@@ -1786,9 +1807,9 @@ let local_other_name (clog : out_channel) (sec_of_int : label) (T : typvar) (new
       t
     | _ -> List.fold_left 
             (fun t dl -> 
-              apply_local_transformation (local_other_name_aux clog T new_var) t dl)
+              apply_local_transformation (local_other_name_aux clog var_type new_var) t dl)
               t 
-              epl *)
+              epl
 
 
 

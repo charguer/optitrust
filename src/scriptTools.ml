@@ -1266,14 +1266,19 @@ let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name 
     write_log "\n"
 
 
-let create_subsequence ?(replace_top : bool = true) ?(braces : bool = false) (start_path : path list) (stop_path : path list)  : unit = 
+let create_subsequence ?(replace_top : bool = false) ?(braces : bool = false) ?(label : string = "") (start_path : path list) (stop_path : path list)  : unit = 
   apply_to_top ~replace_top 
-    (fun ctx -> Transformations.create_subsequence ctx.clog start_path stop_path braces);
+    (fun ctx -> Transformations.create_subsequence ctx.clog label start_path stop_path braces);
     write_log "\n"
 
-let array_to_variables ?(replace_top : bool = true) (dcl_path : path list) (new_vars : var list) : unit = 
+let array_to_variables ?(replace_top : bool = false) (dcl_path : path list) (new_vars : var list) : unit = 
   apply_to_top ~replace_top 
     (fun ctx -> Transformations.array_to_variables ctx.clog dcl_path new_vars);
+    write_log "\n"
+
+let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(new_var : var = "") () : unit =
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type new_var );
     write_log "\n"
 
 let aos_to_soa ?(replace_top : bool = false)
