@@ -1262,14 +1262,13 @@ let detach_expression ?(replace_top : bool = false) ?(label : string = "detached
   
 let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list)  : unit = 
   apply_to_top ~replace_top 
-    (fun ctx -> Transformations.make_implicit_record_assignment ctx.clog struct_name pl);
-    write_log "\n"
+  (fun ctx -> Transformations.make_implicit_record_assignment ctx.clog struct_name pl);
+  write_log "\n"
 
-
-let create_subsequence ?(replace_top : bool = false) ?(braces : bool = false) ?(label : string = "") (start_path : path list) (stop_path : path list)  : unit = 
-  apply_to_top ~replace_top 
-    (fun ctx -> Transformations.create_subsequence ctx.clog label start_path stop_path braces);
-    write_log "\n"
+let create_subsequence ?(replace_top : bool = false) ?(start : path list = []) ?(stop : path list = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.create_subsequence ctx.clog start stop stop_before stop_after label braces);
+  write_log "\n"
 
 let array_to_variables ?(replace_top : bool = false) (dcl_path : path list) (new_vars : var list) : unit = 
   apply_to_top ~replace_top 
