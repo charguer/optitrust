@@ -1275,9 +1275,9 @@ let array_to_variables ?(replace_top : bool = false) (dcl_path : path list) (new
     (fun ctx -> Transformations.array_to_variables ctx.clog dcl_path new_vars);
     write_log "\n"
 
-let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(new_var : var = "") () : unit =
+let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(old_var : var = "") ?(new_var : var = "") () : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type new_var );
+    (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
     write_log "\n"
 
 let aos_to_soa ?(replace_top : bool = false)
