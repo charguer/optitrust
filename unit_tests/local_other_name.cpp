@@ -4,10 +4,7 @@ int main(){
   T a;
   
   for (int i = 0; i < 10; i++){ 
-    // T x = a;
     a++;
-    // x = a;
-
   }
 
   int y = 0;
