@@ -1603,56 +1603,6 @@ let create_subsequence_aux (clog : out_channel) (label : label) (start_index : i
       | _ -> fail t.loc "create_subsequence_aux: the sequence which contains the trms was not matched"
       
 
-
-
-
-let _create_subsequence_aux (clog : out_channel) (label : label) (start_index : int) (stop_path : path list) (braces : bool) (t : trm) : trm = 
-  let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
-| [] -> []
-| h :: t -> if i = 0 then h :: sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
-  in 
-  let rec get_index x lst =
-    match lst with
-    | [] -> raise (Failure "Not Found")
-    | h :: t -> if x = h then 0 else 1 + get_index x t
-  in
-  let log : string = 
-    let loc : string = 
-      match t.loc with 
-      | None -> ""
-      | Some (_, line) -> Printf.sprintf "at line %d " line
-    in Printf.sprintf
-    ("    -expression\n%s\n" ^^
-     " %s is sequence of terms\n"
-    )
-    (ast_to_string t ) loc 
-    in write_log clog log;
-    let p = List.flatten stop_path in
-    let epl = resolve_path p t in 
-    let last_trm = begin match epl with 
-    | [dl] -> let (l_t,_) = resolve_explicit_path dl t in l_t
-    | _ -> fail t.loc "create_subsequence_aux: only one exact trm should be matched"
-    end 
-    in 
-    match t.desc with 
-    | Trm_seq tl -> 
-      let stop_index = get_index last_trm  tl in 
-      let sub_list  = List.rev(foldi (fun i acc  x -> 
-        if i >= start_index 
-          && i < stop_index+1 then x :: acc else acc) [] tl) in 
-      let tl = list_remove_set sub_list tl in
-      let sub_seq = match braces with 
-       | true ->  trm_seq  sub_list 
-       | false -> trm_seq  ~annot:(Some No_braces) sub_list
-      in 
-      let sub_seq = 
-      if label <> "" then trm_labelled label (sub_seq)
-      else sub_seq
-      in 
-      let tl = insert_sublist_in_list [sub_seq] (start_index-1) tl in 
-      trm_seq ~annot:t.annot tl
-    | _ -> fail t.loc "create_subsequence_aux: the sentence which contains the trms was not mached"
-
 let create_subsequence (clog : out_channel) (start : path list) (stop : path list) (stop_before : bool) (stop_after : bool) (label : label) (braces : bool) (t : trm ) : trm = 
   let p = List.flatten start in 
   let b = !Flags.verbose in
@@ -1672,11 +1622,6 @@ let create_subsequence (clog : out_channel) (start : path list) (stop : path lis
 
      
 let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm : trm) (decl_index : int) (t  : trm) : trm =  
-  (* let rec get_index (x : trm) (lst : trm list) : int =
-    match lst with
-    | [] -> raise (Failure "Not Found")
-    | h :: t -> if x = h then 0 else 1 + get_index x t
-  in *)
   let log : string = 
     let loc : string =
     match t.loc with 
@@ -1764,73 +1709,20 @@ let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var l
         end 
       | _ -> trm_map (aux global_trm) t
     in aux t t
-
-    
-
-           
-
-
-
-
-(* let _inline_array_access (clog : out_channel) (array_var : var) (new_vars : var list) (t : trm) = 
-  let log : string = 
-    let loc : string =
-    match t.loc with 
-    | None -> ""
-    | Some (_, line) -> Printf.sprintf "at line %d " line
-    in Printf.sprintf
-    (" - expression\n%s\n" ^^
-    " %s is the full term\n"
-    )
-    (ast_to_string t) loc 
-    in write_log clog log;
-    let rec aux (global_trm : trm) (t : trm) = 
-    match t.desc with 
-    | Trm_apps (f,[base]) -> 
-      begin match f.desc with 
-       | Trm_val ( Val_prim (Prim_unop Unop_get)) ->
-        begin match base.desc with 
-        | Trm_apps(f1,[arr_var;index]) -> 
-            begin match f1.desc with 
-            | Trm_val (Val_prim (Prim_binop Binop_array_access))
-              | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
-                begin match arr_var.desc with
-                | Trm_var x when x = array_var -> 
-                  begin match index.desc with
-                  | Trm_val (Val_lit (Lit_int i)) ->
-                    if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new variables entered"
-                    else 
-                    trm_var (List.nth new_vars i)
-                  | _ -> fail t.loc "inline_array_access: Only integer indexes are allowed"
-                  end
-                | _ -> trm_map (aux global_trm) t
-                end 
-            | _ -> trm_map (aux global_trm) t
-            end
-        | _ -> trm_map (aux global_trm) t
-        end
-        
-      | Trm_val (Val_prim (Prim_binop Binop))
-      | _ -> trm_map (aux global_trm) t
-      end     
-    | _ -> trm_map (aux global_trm) t
-    in 
-    aux t t *)
       
          
 let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : var list) (t : trm) : trm = 
-  
   let p = List.flatten dcl_path in 
   let b = !Flags.verbose in
   Flags.verbose := false;
   let epl = resolve_path p t in 
   Flags.verbose := b;
-  let app_transfo (t :trm) (dl : expl_path) = 
+  let app_transfo (t :trm) (dl : expl_path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
       let (t',_) = resolve_explicit_path dl t in
       let dl = List.rev dl' in
-
+      
       apply_local_transformation (array_to_variables_aux clog new_vars t' n) t dl 
     | _ -> fail t.loc "app_transfo: expected a dir_nth inside the sequence"
   in 
@@ -1898,7 +1790,7 @@ let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typva
     Flags.verbose := b;
     match epl with 
     | []-> 
-      print_info t.loc "local_other_nam: no matchin subterm";
+      print_info t.loc "local_other_name: no matching subterm";
       t
     | _ -> List.fold_left 
             (fun t dl -> 
@@ -1907,6 +1799,169 @@ let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typva
               epl
 
 
+let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element : int) (fold_operation : string) (t: trm) : trm = 
+  let rec list_remove_at (i : int) (list : 'a list) : 'a list = match list with 
+  | [] -> failwith "Empty list"
+  | x :: xs -> if i = 0 then xs else x :: list_remove_at (i-1) xs in 
+  let list_remove_at_set (ys : int list) (xs : 'a list) : 'a list = List.fold_left (fun acc y -> list_remove_at y acc) xs ys in 
+  let rec insert_sublist_at (sublist : 'a list) (i : int) (xs : 'a list) : 'a list =  match xs with 
+  | [] -> failwith "Empty list"
+  | h :: t -> if i = 0 then sublist @ h :: t else h :: insert_sublist_at sublist (i-1) t in 
+
+  let log : string =
+    let loc : string = 
+    match t.loc with 
+    | None -> ""
+    | Some (_, line) -> Printf.sprintf "at line %d " line
+    in Printf.sprintf
+    ("  - expression\n%s\n" ^^
+    " %s is no_brace sequence" 
+    )
+    (ast_to_string t) loc in 
+    write_log clog log;
+    match t.desc with 
+    | Trm_seq tl -> 
+      let new_var = List.nth tl 0 in 
+      let new_var,old_var = match new_var.desc with 
+        | Trm_seq [_;t_assign] -> 
+          begin match t_assign.desc with
+          | Trm_apps (_,[o_v;n_v]) ->
+            let ov = match o_v.desc with
+            | Trm_var x -> x 
+            | _ -> fail t.loc "delocalize_aux: expected a var"
+            in 
+            let nv = begin match n_v.desc with 
+              | Trm_apps (_,[base]) ->
+                begin match base.desc with 
+                | Trm_var x -> x
+                | _ -> fail t.loc "delocalize_aux: expected a var"
+                end 
+              | _ -> fail t.loc "delocalize_aux: expected a get operation"
+              end 
+            in nv ,ov
+          | _ -> fail t.loc "delocalize_aux: expected a declaration with its initialisaition"
+          end 
+        | _ -> fail t.loc "delocalize_aux"
+        in 
+
+      let new_decl = trm_seq ~annot:(Some No_braces) [
+        trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var ((new_var,typ_ptr (typ_array (typ_var "T") (Trm (trm_var array_size)))),trm_prim (Prim_new (typ_int()))))];
+        trm_set (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_lit (Lit_int 0)]) (trm_apps (trm_unop Unop_get) [trm_var old_var]);
+        (* trm_set (trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_lit (Lit_int 0)]); *)
+        trm_seq ~annot:(Some Delete_instructions)[
+          trm_for
+            (* init *)
+              (trm_seq ~annot:(Some Heap_allocated) [
+                trm_decl (Def_var (("k", typ_ptr (typ_int ()) ),
+                      trm_prim (Prim_new (typ_int()))));
+                trm_set ~annot:(Some Initialisation_instruction) (trm_var "k") (trm_lit (Lit_int 0))
+              ])
+            (* cond *)
+              (trm_apps (trm_binop Binop_lt)
+                [
+                  trm_apps ~annot:(Some Heap_allocated)
+                  (trm_unop Unop_get) [trm_var "k"];
+                  (trm_var array_size)
+                ]
+              )
+            (* step *)
+              ( trm_apps ( trm_unop Unop_inc) [trm_var "k"])
+            (* body *)
+            (trm_seq ~annot:(None)[
+              trm_set (trm_var old_var) (trm_lit (Lit_int 0))
+            ]
+            )
+              
+            ;
+          trm_apps (trm_unop (Unop_delete false)) [trm_var "k"];
+        ]
+      ]
+      in 
+      let for_loop = List.nth tl 1 in
+      let new_for_loop = match for_loop.desc with 
+      | Trm_seq[f_loop;del_inst] ->
+        begin match f_loop.desc with 
+        | Trm_for (init,cond,step,body) -> trm_seq ~annot:(Some Delete_instructions) 
+          [ trm_for init cond step 
+            (change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var;trm_apps (trm_unop Unop_get) [trm_var "my_core_id"]]) body);
+            del_inst
+          
+          ]
+        | _ -> fail t.loc "delocalize_aux: expected a for loop"
+        end 
+      | _ -> fail t.loc "delocalize_aux: expected a sequence which contains the for loop"
+      in 
+      let operation = match fold_operation with 
+              | "+" -> Binop_add
+              | "-" -> Binop_sub
+              | "*" -> Binop_mul 
+              | "/" -> Binop_div 
+              | _ -> fail t.loc "delocalize_aux: this operation is not suported" 
+      in
+      let accum = trm_seq ~annot:(Some No_braces) [
+        trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
+        trm_seq ~annot:(Some Delete_instructions)[
+          trm_for
+            (* init *)
+              (trm_seq ~annot:(Some Heap_allocated) [
+                trm_decl (Def_var (("k", typ_ptr (typ_int ()) ),
+                      trm_prim (Prim_new (typ_int()))));
+                trm_set ~annot:(Some Initialisation_instruction) (trm_var "k") (trm_lit (Lit_int 0))
+              ])
+            (* cond *)
+              (trm_apps (trm_binop Binop_lt)
+                [
+                  trm_apps ~annot:(Some Heap_allocated)
+                  (trm_unop Unop_get) [trm_var "k"];
+                  (trm_var array_size)
+                ]
+              )
+            (* step *)
+              ( trm_apps ( trm_unop Unop_inc) [trm_var "k"])
+            (* body *)
+            (trm_seq ~annot:(None)[
+              
+              trm_set ~annot:(Some App_and_set) (trm_var old_var) 
+               
+              (trm_apps (trm_binop operation)
+                [
+                  trm_apps (trm_unop Unop_get) [trm_var old_var];
+                  trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_apps (trm_unop Unop_get) [trm_var "k"]]
+                ]
+              )            ]
+            )
+              
+            ;
+          trm_apps (trm_unop (Unop_delete false)) [trm_var "k"];
+        ]
+      ]
+      in 
+      let tl = list_remove_at_set [0;1;2] tl in 
+      let tl = insert_sublist_at [new_decl;new_for_loop;accum] 0 tl in 
+      trm_seq ~annot:(Some No_braces) tl 
+
+      | _ -> fail t.loc "delocalize_aux: expected the variables declaration together with its initializaiton value"
+      
+
+let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
+  let pl = [cLabel ~label:sec_of_int();cBody ()] in 
+  let epl = resolve_path (List.flatten pl) t in 
+  let b = !Flags.verbose in 
+  Flags.verbose := false;
+  Flags.verbose := b; 
+  let app_transfo (t : trm) (dl : expl_path) : trm = 
+    match List.rev dl with 
+    | Dir_nth _ :: dl' ->
+      let dl = List.rev dl' in 
+      apply_local_transformation (delocalize_aux clog array_size neutral_element fold_operation ) t dl 
+    | _ -> fail t.loc "delocalize: expected only one declaration trm"
+  in 
+  match epl with 
+  | [] ->
+    print_info t.loc "array_to_variables: no matching subterm";
+    t
+  | _ -> List.fold_left(fun t dl -> app_transfo t dl)
+    t epl 
 
 let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in

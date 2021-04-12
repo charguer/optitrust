@@ -33,7 +33,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
        begin match s with
        | Undefined -> underscore
        | Const n -> string (string_of_int n)
-       | Trm t -> print_trm ~only_desc t
+       | Trm t' -> print_trm ~only_desc t'
        end
      in
      node "Typ_array" ^^ print_pair dt ds

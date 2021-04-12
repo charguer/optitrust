@@ -227,6 +227,8 @@ val array_to_variables : ?replace_top:bool -> path list -> string list -> unit
 
 val local_other_name : ?replace_top:bool -> ?section_of_interest:string -> ?new_var_type:string -> ?old_var:string -> ?new_var:string -> unit -> unit
 
+val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit 
+
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  path list -> unit 
 
 val fields_reorder : ?replace_top:bool -> path list -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit

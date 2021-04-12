@@ -1280,6 +1280,11 @@ let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label
     (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
     write_log "\n"
 
+let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);
+    write_log "\n"
+
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
   let log : string =
