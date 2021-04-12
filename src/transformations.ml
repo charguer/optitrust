@@ -1807,7 +1807,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
   let rec insert_sublist_at (sublist : 'a list) (i : int) (xs : 'a list) : 'a list =  match xs with 
   | [] -> failwith "Empty list"
   | h :: t -> if i = 0 then sublist @ h :: t else h :: insert_sublist_at sublist (i-1) t in 
-
+   
   let log : string =
     let loc : string = 
     match t.loc with 
@@ -1819,6 +1819,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
     )
     (ast_to_string t) loc in 
     write_log clog log;
+    (* Print_ast.print_ast ~only_desc:true stdout t *)
     match t.desc with 
     | Trm_seq tl -> 
       let new_var = List.nth tl 0 in 
@@ -1949,19 +1950,16 @@ let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (
   let b = !Flags.verbose in 
   Flags.verbose := false;
   Flags.verbose := b; 
-  let app_transfo (t : trm) (dl : expl_path) : trm = 
-    match List.rev dl with 
-    | Dir_nth _ :: dl' ->
-      let dl = List.rev dl' in 
-      apply_local_transformation (delocalize_aux clog array_size neutral_element fold_operation ) t dl 
-    | _ -> fail t.loc "delocalize: expected only one declaration trm"
-  in 
+  
   match epl with 
   | [] ->
     print_info t.loc "array_to_variables: no matching subterm";
     t
-  | _ -> List.fold_left(fun t dl -> app_transfo t dl)
-    t epl 
+  | _ -> List.fold_left
+      (fun t dl -> 
+        apply_local_transformation (delocalize_aux clog array_size neutral_element fold_operation) t dl)
+        t 
+        epl 
 
 let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in
