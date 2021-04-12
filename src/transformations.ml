@@ -1718,7 +1718,61 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
       trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl) 
     | _ -> fail t.loc "array_to_variables_aux: only declaration inside sequence are supported"
 
-let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var list) (t : trm) = 
+let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var list) (t: trm) : trm = 
+  let log : string = 
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_, line) -> Printf.sprintf "at line %d " line
+    in Printf.sprintf
+    (" - expression\n%s\n" ^^
+    " %s is the full term\n"
+    )
+    (ast_to_string t) loc 
+    in write_log clog log;
+    let rec aux (global_trm : trm) (t : trm) : trm = 
+      match t.desc with 
+      | Trm_apps(f,[arr_base;arr_index]) -> 
+        begin match f.desc with 
+        | Trm_val (Val_prim (Prim_binop Binop_array_access)) ->
+          begin match arr_base.desc with 
+          | Trm_var x when x = array_var -> 
+            begin match arr_index.desc with 
+            | Trm_val (Val_lit (Lit_int i)) -> 
+              if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
+              else 
+                trm_var (List.nth new_vars i)
+            | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
+            end 
+          | Trm_apps (f1,[base1]) -> 
+            begin match f1.desc with 
+            | Trm_val (Val_prim (Prim_unop Unop_struct_access var)) when var = array_var -> 
+              begin match arr_index.desc with 
+              | Trm_val (Val_lit (Lit_int i)) ->
+                if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
+                else 
+                  let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (List.nth new_vars i))))} in
+                  trm_apps f1 [base1] 
+                  (* trm_var (List.nth new_vars i) *)
+              | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
+              end 
+            | _ -> trm_map (aux global_trm) t
+            end
+          | _ -> trm_map (aux global_trm) t 
+          end
+        | _ -> trm_map (aux global_trm) t
+        end 
+      | _ -> trm_map (aux global_trm) t
+    in aux t t
+
+    
+
+           
+
+
+
+
+(* let _inline_array_access (clog : out_channel) (array_var : var) (new_vars : var list) (t : trm) = 
   let log : string = 
     let loc : string =
     match t.loc with 
@@ -1740,9 +1794,9 @@ let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var l
             begin match f1.desc with 
             | Trm_val (Val_prim (Prim_binop Binop_array_access))
               | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
-               begin match arr_var.desc with
-               | Trm_var x when x = array_var -> 
-                 begin match index.desc with
+                begin match arr_var.desc with
+                | Trm_var x when x = array_var -> 
+                  begin match index.desc with
                   | Trm_val (Val_lit (Lit_int i)) ->
                     if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new variables entered"
                     else 
@@ -1750,20 +1804,20 @@ let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var l
                   | _ -> fail t.loc "inline_array_access: Only integer indexes are allowed"
                   end
                 | _ -> trm_map (aux global_trm) t
-              end 
+                end 
             | _ -> trm_map (aux global_trm) t
             end
-          | _ -> trm_map (aux global_trm) t
-        end
         | _ -> trm_map (aux global_trm) t
+        end
+        
+      | Trm_val (Val_prim (Prim_binop Binop))
+      | _ -> trm_map (aux global_trm) t
       end     
     | _ -> trm_map (aux global_trm) t
     in 
-    aux t t
+    aux t t *)
       
          
-         
-
 let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : var list) (t : trm) : trm = 
   
   let p = List.flatten dcl_path in 
