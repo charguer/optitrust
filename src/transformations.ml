@@ -1757,22 +1757,29 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
       )
       (ast_to_string t) loc
       in write_log clog log;
+      (* Print_ast.print_ast ~only_desc:true stdout t; *)
       match t.desc with 
       | Trm_seq [no_braces] ->        
         begin match no_braces.desc with
-          | Trm_seq [f_loop;_] -> 
+          | Trm_seq [f_loop;del_inst] -> 
             begin match f_loop.desc with 
             | Trm_for (init, cond, step, body) ->
               
               let new_decl = trm_seq ~annot:(Some Heap_allocated) [
                 trm_decl (Def_var ((new_var, typ_ptr (typ_var var_type)), trm_prim (Prim_new (typ_var var_type))));
-                trm_set ~annot:(Some Initialisation_instruction) (trm_var new_var) (trm_var old_var) 
-                
+                trm_set ~annot:(Some Initialisation_instruction) (trm_var new_var) (trm_apps ~annot:(Some Heap_allocated) (trm_unop (Unop_get)) [trm_var old_var] )
               ]
               in 
               let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in 
-              let new_loop = trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body) in 
-              trm_seq [new_decl;new_loop;new_set_old]
+              let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_instr:true (trm_unop (Unop_delete false)) [trm_var new_var] in  
+              
+              
+              let new_loop = trm_seq ~annot:(Some Delete_instructions) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in 
+              trm_seq ~annot:(Some Delete_instructions) [
+                trm_seq ~annot:(Some No_braces) [
+                  new_decl;new_loop;new_set_old
+                ]; new_del_inst
+              ]
               
             | _ -> fail t.loc "local_other_name_aux: expected a for loop"
             end
@@ -1807,7 +1814,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
   let rec insert_sublist_at (sublist : 'a list) (i : int) (xs : 'a list) : 'a list =  match xs with 
   | [] -> failwith "Empty list"
   | h :: t -> if i = 0 then sublist @ h :: t else h :: insert_sublist_at sublist (i-1) t in 
-   
+  Print_ast.print_ast ~only_desc:true stdout t;
   let log : string =
     let loc : string = 
     match t.loc with 
@@ -1819,7 +1826,6 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
     )
     (ast_to_string t) loc in 
     write_log clog log;
-    (* Print_ast.print_ast ~only_desc:true stdout t *)
     match t.desc with 
     | Trm_seq tl -> 
       let new_var = List.nth tl 0 in 
@@ -1946,11 +1952,11 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
 
 let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
   let pl = [cLabel ~label:sec_of_int();cBody ()] in 
-  let epl = resolve_path (List.flatten pl) t in 
+  let p = List.flatten pl in
   let b = !Flags.verbose in 
   Flags.verbose := false;
+  let epl = resolve_path p t in 
   Flags.verbose := b; 
-  
   match epl with 
   | [] ->
     print_info t.loc "array_to_variables: no matching subterm";
