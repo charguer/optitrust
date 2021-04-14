@@ -1,5 +1,5 @@
 (* file locations: filename, line number *)
-type location = (string * int) option
+type location = (string * int * int) option
 
 (* memory locations *)
 type loc = int
@@ -356,8 +356,8 @@ exception TransfoError of string
 let fail (loc : location) (err : string) : 'a =
   match loc with
   | None -> failwith err
-  | Some (filename, line) ->
-     raise (TransfoError (filename ^ " line " ^ (string_of_int line) ^ ":  " ^ err))
+  | Some (filename, line1,line2) ->
+     raise (TransfoError (filename ^ " lines " ^ (string_of_int line1) ^": " ^ (string_of_int line2) ^":  " ^ err))
 
 (*
   compute a function that prints information related to some location in file
@@ -367,8 +367,8 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
   if !Flags.verbose then
     match loc with
     | None -> Printf.printf
-    | Some (filename, line) ->
-       Printf.kfprintf Printf.fprintf stdout ("<%s> line <%d>: ") filename line
+    | Some (filename, line1,line2) ->
+       Printf.kfprintf Printf.fprintf stdout ("<%s> lines <%d>,<%d>: ") filename line1 line2
   else
     Printf.ifprintf stdout
 

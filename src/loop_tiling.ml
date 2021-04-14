@@ -67,7 +67,7 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
        let loc : string =
          match body.loc with
          | None -> ""
-         | Some (_, line) -> Printf.sprintf "at line %d " line
+         | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
        in
        Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
@@ -191,7 +191,7 @@ let tile_loop_aux (clog : out_channel) (t : trm) : trm =
     let loc : string =
       match t.loc with
       | None -> ""
-      | Some (_, line) -> Printf.sprintf "at line %d " line
+      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
     in
     Printf.sprintf
       ("  - expression\n%s\n" ^^

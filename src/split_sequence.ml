@@ -224,7 +224,7 @@ let split_sequence (clog : out_channel) (result_label : string)
       let loc : string =
         match t.loc with
         | None -> ""
-        | Some (_, line) -> Printf.sprintf "at line %d " line
+        | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
       in
       Printf.sprintf
         ("  - %s, %s and %s are fresh labels\n" ^^

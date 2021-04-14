@@ -45,7 +45,7 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
        let loc : string =
          match body.loc with
          | None -> ""
-         | Some (_, line) -> Printf.sprintf "at line %d " line
+         | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
        in
        Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
@@ -215,7 +215,7 @@ let extract_loop_vars_aux (clog : out_channel) ?(only_one : bool = false)
     let loc : string =
       match t.loc with
       | None -> ""
-      | Some (_, line) -> Printf.sprintf "at line %d " line
+      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
     in
     Printf.sprintf
       ("  - expression\n%s\n" ^^
