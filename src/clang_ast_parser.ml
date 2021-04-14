@@ -4,13 +4,6 @@ open Ast
 
 
 (* location of node *)
-(* let loc_of_node (n : 'a node) : location =
-  match location_of_node n with
-  | Clang cxloc ->
-    let (filename, line, _) = Clang.get_presumed_location cxloc in
-    Some (filename, line)
-  | Concrete {filename; line; _} -> Some (filename, line) *)
-
 let loc_of_node (n : 'a node) : location =
   let beg_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
   let end_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
@@ -22,11 +15,7 @@ let loc_of_node (n : 'a node) : location =
 
 
      
-(* let file_of_node (n : 'a node) : string =
-  match loc_of_node n with
-  -  | Some (filename, _) -> filename
-     | _ -> fail None "file_of_node: bad location" *)
-
+(* file which contains the node *)
 let file_of_node (n : 'a node) : string =
   match loc_of_node n with
   | Some (filename,_,_) -> filename
