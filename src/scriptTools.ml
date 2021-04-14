@@ -55,7 +55,8 @@ let run (script : unit -> unit) : unit =
   in
   if !Flags.repeat_io then script ()
   else
-    try script () with
+    (*FANCY
+   try script () with
     | _ ->
        (*
          if an error occurs, restart with printing/parsing at each step to have
@@ -66,6 +67,8 @@ let run (script : unit -> unit) : unit =
        Flags.repeat_io := true;
        reset ();
        script ()
+     *)
+    script()
 
 (* get the sequence of includes at the beginning of the file *)
 let get_includes (filename : string) : string =
@@ -1279,6 +1282,7 @@ let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label
   apply_to_top ~replace_top
     (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
     write_log "\n"
+
 
 let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit = 
   apply_to_top ~replace_top
