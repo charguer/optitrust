@@ -348,11 +348,8 @@ let trm_set ?(annot = None) ?(loc = None) ?(is_instr : bool = false) ?(add = [])
 let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = [])
 (t : trm) : trm =
   {annot = annot; desc = Trm_any t; loc = loc; is_instr=false; add; typ; attributes}
-<<<<<<< HEAD
 
 
-=======
->>>>>>> d3f5430242db06a94be079b84a819111a42d9df2
 let is_included (t : trm) : bool =
   match t.annot with
   | Some (Include _) -> true
