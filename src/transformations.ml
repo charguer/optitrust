@@ -1823,7 +1823,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
       )
       (ast_to_string t) loc
       in write_log clog log;
-      Print_ast.print_ast ~only_desc:true stdout t;
+      (* Print_ast.print_ast ~only_desc:true stdout t; *)
       match t.desc with 
       | Trm_seq [no_brace;del_inst] ->
         begin match no_brace.desc with 

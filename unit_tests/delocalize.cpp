@@ -1,3 +1,4 @@
+int ANY(int maxValue){ return 0;}
 const int N = 10;
 typedef int T;
 int main(){
