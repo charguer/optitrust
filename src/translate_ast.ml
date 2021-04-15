@@ -319,6 +319,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_decoration(l,t,r) -> 
         let dt = trm_to_doc ~semicolon t in
         dattr ^^ string l ^^ dt ^^ string r
+      
+     | Trm_any t -> 
+        let dt = trm_to_doc ~semicolon t in 
+        dattr ^^ string "ANY" ^^ parens (dt)
     
      end
 

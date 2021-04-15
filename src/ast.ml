@@ -215,7 +215,7 @@ and trm_desc =
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
   | Trm_decoration of string * trm * string
-  (* | Trm_any of trm *)
+  | Trm_any of trm
 (* declarations *)
 and def =
   | Def_var of typed_var * trm (* int x = t *)
@@ -345,9 +345,9 @@ let trm_set ?(annot = None) ?(loc = None) ?(is_instr : bool = false) ?(add = [])
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ~loc ~is_instr ~add ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
-(* let trm_any ?(annot = None) ?(loc = None) ?(is_instr : bool = false) ?(add =  []) (t : trm) : trm =
-  {annot = annot; desc = Trm_any t; loc = loc; is_instr = false; add; typ;
-   attributes} *)
+let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = [])
+(t : trm) : trm =
+  {annot = annot; desc = Trm_any t; loc = loc; is_instr=false; add; typ; attributes}
 let is_included (t : trm) : bool =
   match t.annot with
   | Some (Include _) -> true
@@ -520,8 +520,8 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
   (* val, var *)
   | Trm_decoration (left, body, right) -> 
     trm_decoration ~annot ~loc ~add left right (f body)
-  (* | Trm_any t ->  *)
-    (* trm_any ~annot ~loc ~add (f t) *)
+  | Trm_any t -> 
+    trm_any ~annot ~loc ~add (f t)
   | _ -> t
 
 (* same as trm_map for types *)
