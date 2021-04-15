@@ -23,3 +23,6 @@ tests: % : test_suite/%.exe
 
 clean:
 	dune clean
+
+watch:
+	nohup .vscode/watch.sh >/dev/null 2>&1

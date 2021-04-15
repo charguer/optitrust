@@ -32,7 +32,7 @@
         {
           "label": "Start the inotifywait watch",
           "type": "shell",
-          "command": "./.vscode/watch.sh"
+          "command": "./.vscode/watch.sh "
         },
         {
             "label": "Run make install and execute a unit test",
