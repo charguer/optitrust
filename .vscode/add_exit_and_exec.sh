@@ -6,33 +6,42 @@
 #   3. option(s) for execution
 #      currently: only -dump-trace
 
-# first step: add exit_script instruction at the end of the active line
+DIRNAME=$1
+FILEBASE=$2
+LINE=$3
+OPTIONS=$4
 
-# NOTE: if vscode is invoked from the test_suite folder, then no need for test_suite
+# Path to .vscode folder
+VSCODE=`pwd`
 
-#DIRNAME=$1
-#FILEBASE=$2
-#LINE=$3
-#OPTIONS=$4
-
+# Make sure we work in the directory that contains the file
 cd ${DIRNAME}
 
-VSCODE=../.vscode
+# First we create the source code for the transformation program
+ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 
-ocaml ../.vscode/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
-
-# second step: build and execute the script
+# Second, we compile that transformation program
 ocamlbuild -pkgs clangml,refl,pprint,str,optiTrust.scriptTools "${FILEBASE}_with_exit.byte" || (echo "Cannot compile $1_with_exit.ml"; exit 1)
+
+# Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
 ./${FILEBASE}_with_exit.byte ${OPTIONS}
-<<<<<<< HEAD
-=======
-echo ""
->>>>>>> ca97f26a735530de620eec81ffc2a01ad90ffa67
+
+# Fourth, we vizualize the diff between these two files 
+
+cd ${VSCODE}
+${VSCODE}/view_diff.sh ${DIRNAME} ${FILEBASE} &
+
+
+exit
 #echo "===>Executing: ${VSCODE}/view_diff.sh ${DIRNAME} ${FILEBASE}"
 #echo "===>Current folder is: "
-#pwd
-#${VSCODE}/view_diff.sh ${DIRNAME} ${FILEBASE} &
+
+ 
+
 #echo "===>Done with view_diff"
+
+exit
+
 
 TARGET=${FILEBASE}_diff.html
 

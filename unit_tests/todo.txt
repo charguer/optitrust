@@ -1,4 +1,79 @@
 
+
+- inotify-tool
+
+- renaming 
+- new transformations to check
+- start fill the documentation
+- discuss the problem of targeting variables up to shadowing
+- splitting of test_foo_doc and test_foo_ext
+- rust and intern
+- what's left for pic_demo  
+- calendar for presentations
+
+-----
+Actions triggered by shortcuts from the IDE (e.g. VScode) lead to the writing
+of the command to be executed in a file called `.vscode/action.sh`.
+
+Independently, we use a permanentenly-running process called `.vscode/watch.sh`
+to watch over the file `.vscode/action.sh`. Whenever a modification is made,
+the script is executed.
+
+In VSCode, the keybinding.json file associates, e.g., F6 gets bound to the runTask action.
+  {
+    "key": "f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute transformation script"
+  },
+
+and the tasks.json file associates runTask 
+
+      {
+            "label": "Execute transformation script",
+            "type": "shell",
+            "command": "./run_action.sh",
+            "options": {
+              "cwd": "${workspaceFolder}/.vscode"
+            },
+            "args": [
+                "./add_exit_and_exec.sh",
+                "${fileDirname}",
+                "${fileBasenameNoExtension}",
+                "${lineNumber}",
+                ""
+            ]
+        },
+        {
+
+
+The run_action.sh script simply executes `cat $* >> ./action.sh`
+meaning that we will get watch.sh to execute action.sh whose contents
+is the first argument of `args` above applied to all the other arguments.
+
+---------
+
+
+
+
+
+
+-----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+================================================================
 LATER (nor urgent): add tests for combined transformations:
 - insert_and_fold
 - split_loop

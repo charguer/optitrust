@@ -1,25 +1,22 @@
 #!/bin/bash
 
 # How to test this script:
-# cd src/test_suite
-# # assume test_split_before.cpp and test_split_after.cpp exist
-# ../.vscode/view_diff.sh `pwd` test_split
+# cd src/.vscode 
+# assume test_split_before.cpp and test_split_after.cpp exist
+# ./view_diff.sh ../unit_tests test_split
 
+VSCODE=`pwd`
+TOOLS_FOLDER="${VSCODE}/../tools"
 
 DIRNAME=$1
 FILEBASE=$2
 
-TARGET=${FILEBASE}_diff.html
-
-echo "------------Generating ${TARGET}"
-
+# Work in the file directory
 cd ${DIRNAME}
 
-# Relative path to vscode -- TODO: make more general
-VSCODE_FOLDER=../.vscode
+TARGET="${FILEBASE}_diff.html"
 
-# Computer tools folder
-TOOLS_FOLDER=../tools
+#echo "Generating ${TARGET}"
 
 # Compute title
 TITLESTR="OptiTrust_Diff_${FILEBASE}" # TODO: investigate how to make spaces and slash be properly escaped
@@ -30,10 +27,13 @@ DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
 
 # Take templace and substitute ${TOOLS_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
 TEMPLATE="${TOOLS_FOLDER}/diff_template.html"
+
 cp ${TEMPLATE} ${TARGET}
+
 sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#{TOOLS_FOLDER}#${TOOLS_FOLDER}#g;s#{INSERT_DIFF}#${DIFFSTR}#g" ${TARGET}
 # Note: there seems to be an issue if performing the sed one after the other...
-echo "Generated ${TARGET}"
+#echo "Generated ${TARGET}"
 
-# Open the browser
-${VSCODE_FOLDER}/open_in_browser.sh ${TARGET} "${TITLESTR}"
+# Open the browser with the target file
+cd ${VSCODE}
+./open_in_browser.sh ${DIRNAME}/${TARGET} "${TITLESTR}"

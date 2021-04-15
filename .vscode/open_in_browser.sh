@@ -3,6 +3,7 @@
 # with title ${WINDOWTITLE} already exists, in which case this window
 # in brought to the front and its contents is refreshed.
 
+VSCODE=`pwd`
 FILEPATH=$1
 WINDOWTITLE=$2
 
@@ -13,17 +14,22 @@ fi
 
 # Open the browser
 
-#WID=`xdotool search "${WINDOWTITLE}"`
+WID=`xdotool search --name "${WINDOWTITLE}" | head -1`
+# || xdotool search --desktop 3 --name "${WINDOWTITLE}
 if [ -n "${WID}" ]; then
-
-  # Immediately bring the window to the front
+  #echo "found window to reuse"
+  # Immediately brings the window to the front
+  echo ${WID}
   xdotool windowactivate $WID
-  # Refresh the page
-  xdotool selectwindow key ctrl+r
+  #echo "now refreshing"
+  # Refresh the page 
+  xdotool key ctrl+r 
 
 else
-
-  # Launch fresh browser
-  chromium-browser --new-window ${FILEPATH} #> /dev/null &
-
+  echo "launch fresh window"
+  ## Launch fresh browser
+  nohup chromium-browser --new-window ${FILEPATH} >/dev/null 2>&1
+  
 fi
+
+exit

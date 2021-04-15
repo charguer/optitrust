@@ -17,8 +17,12 @@
         {
           "label": "View changes in browser",
           "type": "shell",
-          "command": "./.vscode/run_action.sh",
+          "command": "./run_action.sh",
+          "options": {
+            "cwd": "${workspaceFolder}/.vscode"
+          },
           "args": [
+              "./add_exit_and_exec.sh",
               "${fileDirname}",
               "${fileBasenameNoExtension}",
               "${lineNumber}",
