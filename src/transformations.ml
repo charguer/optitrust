@@ -1803,15 +1803,18 @@ let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typva
               apply_local_transformation (local_other_name_aux clog var_type old_var new_var) t dl)
               t 
               epl
+let rec list_remove_at (i : int) (list : 'a list) : 'a list = match list with 
+  | [] -> failwith "Empty list"
+  | x :: xs -> if i = 0 then xs else x :: list_remove_at (i-1) xs 
 
+let list_remove_at_set (ys : int list) (xs : 'a list) : 'a list = List.fold_left (fun acc y -> list_remove_at y acc) xs ys 
 
-
+let rec insert_sublist_at (sublist : 'a list) (i : int) (xs : 'a list) : 'a list =  match xs with 
+  | [] -> failwith "Empty list"
+  | h :: t -> if i = 0 then sublist @ h :: t else h :: insert_sublist_at sublist (i-1) t 
+  
 
 let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm = 
-  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with 
-| [] -> failwith "Empty list"
-| x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
-  in 
   let log : string =
       let loc : string = 
       match t.loc with 
@@ -1825,11 +1828,11 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
       in write_log clog log;
       (* Print_ast.print_ast ~only_desc:true stdout t; *)
       match t.desc with 
-      | Trm_seq [no_brace;del_inst] ->
+      | Trm_seq [no_brace;_] ->
         begin match no_brace.desc with 
         | Trm_seq tl -> 
           let new_var = List.nth tl 0 in 
-            let old_var,new_var = match new_var.desc with 
+            let new_var,old_var = match new_var.desc with 
             | Trm_seq [_;t_assign] -> 
               begin match t_assign.desc with
               | Trm_apps (_,[o_v;n_v]) ->
@@ -1850,9 +1853,9 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
               end 
             | _ -> fail t.loc "delocalize_aux"
           in
-          let new_decl = [
+          let new_decl = trm_seq ~annot:(Some No_braces)[
             trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var ((new_var,typ_ptr (typ_array (typ_var "T") (Trm (trm_var array_size)))),trm_prim (Prim_new (typ_int()))))];
-            trm_set (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_lit (Lit_int 0)]) (trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var]);
+            trm_set (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_lit (Lit_int 0)]) (trm_apps (trm_unop Unop_get) [trm_var old_var]);
             (* trm_set (trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_lit (Lit_int 0)]); *)
             trm_seq ~annot:(Some Delete_instructions)[
               trm_for
@@ -1879,8 +1882,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
                 )
 
                 ;
-              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit())) 
-                (trm_unop (Unop_delete false)) [trm_var "k"];
+              trm_apps (trm_unop (Unop_delete false)) [trm_var "k"];
             ]
           ]
         in 
@@ -1890,7 +1892,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
           begin match f_loop.desc with 
           | Trm_for (init,cond,step,body) -> trm_seq ~annot:(Some Delete_instructions) 
             [ trm_for init cond step 
-              (change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var "my_core_id"]]) body);
+              (change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var;trm_apps (trm_unop Unop_get) [trm_var "my_core_id"]]) body);
               del_inst_f
             ]
           | _ -> fail t.loc "delocalize_aux: expected a for loop"
@@ -1931,25 +1933,20 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
 
                 (trm_apps (trm_binop operation)
                   [
-                    trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var];
-                    trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var "k"]]
+                    trm_apps (trm_unop Unop_get) [trm_var old_var];
+                    trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_apps (trm_unop Unop_get) [trm_var "k"]]
                   ]
                 )            ]
               )
 
               ;
-            trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                (trm_unop (Unop_delete false)) [trm_var "k"]
+            trm_apps (trm_unop (Unop_delete false)) [trm_var "k"];
           ]
-        ] (* TODO: discuss how to generate this using parsing of C code + substitution
-             TODO: add smarter constructors for for-loops :  for_int_range i a b tbody *)
+        ]
         in 
-        (* let tl = list_replace_el new_decl 0 tl in *)
-        let tl = list_replace_el new_for_loop 1 tl in
-        let tl = list_replace_el accum 2 tl in
-        let tl = insert_sublist_in_list new_decl 0 tl in 
-
-        trm_seq  ~annot:(Some Delete_instructions) [trm_seq ~annot:(Some No_braces) tl; del_inst]
+        let tl = list_remove_at_set [0;1;2] tl in 
+        let tl = insert_sublist_at [new_decl;new_for_loop;accum] 0 tl in 
+        trm_seq  tl
     | _ -> fail t.loc "delocalize_aux: expected the inner sequence which contains all the necessary terms"
     end 
   | _ -> fail t.loc "delocalize_aux: expected the body of the section of interest"
@@ -1968,7 +1965,7 @@ let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (
     t
   | _ -> List.fold_left 
         (fun t dl -> 
-          apply_local_transformation (delocalize_aux clog array_size neutral_element fold_operation ) t dl)
+          apply_local_transformation (delocalize_aux clog array_size neutral_element fold_operation) t dl)
           t
           epl
 
@@ -3404,3 +3401,15 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
       t
     | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl
 
+(* Create an instance of the pattern *)
+(* let pattern_instantiate (t : trm) (p : pat) : instatiation =  *)
+
+(* Check if rule is applicable *)
+(* let is_rule_applicable (t : trm) (p : pat) : bool = 
+ let rec aux (t : trm) : bool = 
+  match t.desc with 
+  | Trm *)
+
+
+(* Rewrite rule transformation  *)
+(* let rewrite (pl : path list) (rule : base)  *)
