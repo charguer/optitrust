@@ -55,11 +55,14 @@ cp ${TEMPLATE} ${TARGET}
 sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#{TOOLS_FOLDER}#${TOOLS_FOLDER}#g;s#{INSERT_DIFF}#${DIFFSTR}#g" ${TARGET}
 # Note: there seems to be an issue if performing the sed one after the other...
 echo "Generated ${TARGET}"
-# Open the browser
 
-WID=`xdotool search --name "OptiTrust_Diff_${TITLESTR}"`
+
+
+# Open the browser
+WID=`xdotool search --name "OptiTrust_Diff_${WINDOWTITLE}"`
+echo "Window id is: $WID"
 if [ -n "${WID}" ]; then
-  echo "Activate previous window"
+
   # Immediately bring the window to the front
   xdotool windowactivate $WID
   # Refresh the page
@@ -68,11 +71,17 @@ if [ -n "${WID}" ]; then
 else
 
   # Launch fresh browser
-  echo "Launched a new one"
-  #chromium-browser --new-window ${TARGET} #> /dev/null &
-  firefox --new-window ${TARGET} #> /dev/null &
+  chromium-browser --new-window ${TARGET} > /dev/null &
 
 fi
+
+# if [ `wmctrl -l | grep -c "$WINDOWTITLE"` != 0 ]
+#   then wmctrl -a "$WINTITLE" #
+#       #xdotool key ctrl+r
+# else
+#   brave --new-window ${TARGET}
+# fi
+# exit 0
 
 
 
