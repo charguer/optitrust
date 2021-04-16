@@ -2540,7 +2540,6 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     let (t_def,_) = resolve_explicit_path dl t in t_def 
   | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
-  Print_ast.print_ast ~only_desc:true stdout struct_term;
   
   let pos = get_pos x struct_term in 
   let rec aux (global_trm : trm) (t : trm) = 
@@ -2753,7 +2752,6 @@ let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (lab
           
 
 let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_label : bool = false) (pl :path list) (t : trm) : trm = 
-  (* Print_ast.print_ast ~only_desc:true stdout t; *)
   let p = List.flatten pl in 
   let b = !Flags.verbose in
   Flags.verbose := false; 
@@ -2803,8 +2801,6 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     )
     (ast_to_string expression_trm) loc
     in write_log clog log;
-    Print_ast.print_ast ~only_desc:true stdout expression_trm;
-    (* Print_ast.print_ast ~only_desc:true stdout expression_trm; *)
     match t.desc with 
     | Trm_seq tl ->
       begin match expression_trm.desc with 
@@ -2813,8 +2809,6 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
         | Trm_apps (f1,[rbase]) -> 
           begin match lt.desc with 
           | Trm_apps (f2,[lbase]) ->
-              Print_ast.print_ast ~only_desc:true stdout expression_trm;
-
               let exp_assgn = List.map(fun sf ->
               let new_f = {f with desc = Trm_val(Val_prim(Prim_unop (Unop_struct_get sf)))}
               in trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
@@ -2869,7 +2863,6 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
       | Trm_labelled ("detached",t'') -> t''
       | _ -> t'
       in 
-      (* Print_ast.print_ast ~only_desc:true stdout t'; *)
       
       let dl = List.rev dl' in 
       apply_local_transformation (make_explicit_record_assignment_aux clog field_list n t') t dl 
