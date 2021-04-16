@@ -4,7 +4,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Execute transformation script",
+            "label": "###Execute transformation script",
             "type": "shell",
             "command": "./.vscode/add_exit_and_exec.sh",
             "args": [
@@ -15,7 +15,7 @@
             ]
         },
         {
-          "label": "View changes in browser",
+          "label": "Execute transformation script",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
