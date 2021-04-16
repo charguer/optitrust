@@ -412,7 +412,7 @@ let swap_coordinates ?(replace_top : bool = false)
       x x
   in
   write_log log;
-  apply_to_top ~replace_top (fun ctx -> Swap_coordinates.swap ctx.clog name x);
+  apply_to_top ~replace_top (fun ctx -> Arrays.swap_coord ctx.clog name x);
   write_log "\n"
 
 (*
@@ -455,7 +455,7 @@ let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
   apply_to_top ~replace_top
     (fun ctx t ->
       let t =
-        Split_sequence.split_sequence ctx.clog result_label block1_label
+        Sequence.split_sequence ctx.clog result_label block1_label
           block2_label split_name pl t
       in
       if keep_labels then t else
@@ -493,7 +493,7 @@ let extract_loop_var ?(replace_top : bool = false) ?(keep_label : bool = false)
   write_log log;
   apply_to_top ~replace_top
     (fun ctx t ->
-      let t = Extract_loop_var.extract_loop_var ctx.clog result_label pl t in
+      let t = Loops.extract_loop_var ctx.clog result_label pl t in
       if keep_label then t else Labels.delete_label result_label t
     );
   write_log "\n"
@@ -507,7 +507,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
   write_log log;
   apply_to_top ~replace_top
     (fun ctx t ->
-      let t = Extract_loop_var.extract_loop_vars ctx.clog result_label pl t in
+      let t = Loops.extract_loop_vars ctx.clog result_label pl t in
       if keep_label then t else Labels.delete_label result_label t
     );
   write_log "\n"
@@ -551,7 +551,7 @@ let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
   apply_to_top ~replace_top
     (fun ctx t ->
       let t =
-        Split_loop.split_loop_nodep ctx.clog result_label loop1_label
+        Loops.split_loop_nodep ctx.clog result_label loop1_label
           loop2_label pl t
       in
       if keep_labels then t else
@@ -688,7 +688,7 @@ let tile_array ?(replace_top : bool = false)
       | None -> fail t.loc ("tile_array: unable to find declaration of " ^ x)
       | Some dl ->
          let context = get_context ctx dl t in
-         Array_tiling.tile ctx.clog name block_name (term ctx ~context b) x t
+         Arrays.tile ctx.clog name block_name (term ctx ~context b) x t
     );
   write_log "\n"
 
@@ -1190,7 +1190,7 @@ let tile_loop ?(replace_top : bool = false)
   in
   write_log log;
   apply_to_top ~replace_top
-    (fun ctx -> Loop_tiling.tile_loop ctx.clog pl);
+    (fun ctx -> Loops.tile_loop ctx.clog pl);
   write_log "\n"
 
 let loop_coloring ?(replace_top : bool = false) (pl : path list) (c: var) (new_var : var): unit =
@@ -1270,7 +1270,7 @@ let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name 
 
 let create_subsequence ?(replace_top : bool = false) ?(start : path list = []) ?(stop : path list = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit = 
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.create_subsequence ctx.clog start stop stop_before stop_after label braces);
+    (fun ctx -> Sequence.create_subsequence ctx.clog start stop stop_before stop_after label braces);
   write_log "\n"
 
 let array_to_variables ?(replace_top : bool = false) (dcl_path : path list) (new_vars : var list) : unit = 
@@ -1300,7 +1300,7 @@ let aos_to_soa ?(replace_top : bool = false)
       x x
   in
   write_log log;
-  apply_to_top ~replace_top (fun ctx -> Aos_to_soa.aos_to_soa ctx.clog name x);
+  apply_to_top ~replace_top (fun ctx -> Arrays.aos_to_soa ctx.clog name x);
   write_log "\n"
 
 
