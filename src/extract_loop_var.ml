@@ -1,7 +1,7 @@
 open Ast
 open Paths
 open Transformations
-open Translate_ast
+open Ast_to_c
 
 (*
   extract a variable from a loop:

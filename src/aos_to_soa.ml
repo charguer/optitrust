@@ -1,6 +1,6 @@
 open Ast
 open Transformations
-open Translate_ast
+open Ast_to_c
 
 (*
   Array of Structures to Structure of Arrays:²²²

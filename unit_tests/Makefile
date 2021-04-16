@@ -61,7 +61,7 @@ CHECKS=$(TESTS:.ml=.chk)
 DIFFJS=$(TESTS:.ml=_diff.js)
 
 # The build command for compiling a script
-BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.scriptTools
+BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.optitrust
 
 # The command for calling diff
 DIFF=diff --ignore-blank-lines --ignore-space-change -I '^//'
@@ -157,7 +157,7 @@ clean:
 #######################################################
 
 # LATER: it would be nice that the rule for building %.byte has a dependency on
-# the opam library ScriptTools, so that after a "make install" we are not forced to
+# the opam library Optitrust, so that after a "make install" we are not forced to
 # do a "make clean" by hand in this folder.
 
 # TRICK: for viewing the encoding associated with an output file

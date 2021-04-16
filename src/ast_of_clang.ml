@@ -467,7 +467,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
             trm_apps ~loc ~typ (trm_var ~loc "sizeof") [t]
           | ArgumentType q ->
             let ty = translate_qual_type q in
-            trm_var ~loc ~typ ("sizeof(" ^ Translate_ast.typ_to_string ty ^ ")")
+            trm_var ~loc ~typ ("sizeof(" ^ Ast_to_c.typ_to_string ty ^ ")")
         end
       | _ -> fail loc "translate_expr: unsupported unary expr"
     end

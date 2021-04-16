@@ -1,6 +1,6 @@
 open Ast
 open Transformations
-open Translate_ast
+open Ast_to_c
 
 (*
   array tiling: transforms an array t[n] into a matrix t[n/b][b] for a fixed
@@ -25,8 +25,8 @@ let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
     if another term is used for size: use b * t_size
    *)
   let new_size (t_size : trm) : trm =
-    if Translate_ast.ast_to_string t_size =
-         "sizeof(" ^ Translate_ast.typ_to_string base_type ^ ")"
+    if Ast_to_c.ast_to_string t_size =
+         "sizeof(" ^ Ast_to_c.typ_to_string base_type ^ ")"
     then trm_var ("sizeof(" ^ block_name ^ ")")
     else trm_apps (trm_binop Binop_mul) [b; t_size]
   in

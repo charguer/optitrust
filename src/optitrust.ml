@@ -1,8 +1,8 @@
 open Clang.Ast
 open Ast
-open Translate_ast
-open Print_ast
-open Clang_ast_parser
+open Ast_to_c
+open Ast_to_text
+open Ast_of_clang
 
 (******************************************************************************)
 (*                             Context management                             *)

@@ -1,7 +1,7 @@
 open Ast
 open Paths
 open Transformations
-open Translate_ast
+open Ast_to_c
 
 (* split the list after its n-th element *)
 let split_list_at (n : int) (al : 'a list) : 'a list * ('a list) =

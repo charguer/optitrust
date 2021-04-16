@@ -1,7 +1,7 @@
 open Ast
 open Paths
 open Transformations
-open Translate_ast
+open Ast_to_c
 
 (*
   transform a pre-tiled loop of the form

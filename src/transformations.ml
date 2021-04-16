@@ -1,7 +1,7 @@
 open Ast
 open Paths
 open Path_constructors
-open Translate_ast
+open Ast_to_c
 
 let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
 | [] -> []
@@ -304,7 +304,7 @@ let  show_path ?(debug_ast : bool = false)(pl : path list) (t : trm) : trm =
   | [] ->
     print_info t.loc "show_path: not matching subterm\n";
     t
-  | [dl] -> Print_ast.print_ast ~only_desc:true stdout t;
+  | [dl] -> Ast_to_text.print_ast ~only_desc:true stdout t;
             apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
   
   | _ ->
@@ -314,7 +314,7 @@ let  show_path ?(debug_ast : bool = false)(pl : path list) (t : trm) : trm =
      foldi
        (fun i -> apply_local_transformation
                    (fun t -> 
-                      if debug_ast then Print_ast.print_ast ~only_desc:false stdout t;
+                      if debug_ast then Ast_to_text.print_ast ~only_desc:false stdout t;
                       trm_decoration (left_decoration i) (right_decoration i ) t))
        t epl
 
@@ -1830,7 +1830,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
       )
       (ast_to_string t) loc
       in write_log clog log;
-      Print_ast.print_ast ~only_desc:true stdout t;
+      Ast_to_text.print_ast ~only_desc:true stdout t;
       match t.desc with 
       | Trm_seq [no_brace;del_inst] ->
         begin match no_brace.desc with 

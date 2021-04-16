@@ -1,6 +1,6 @@
 open Ast
 open Transformations
-open Translate_ast
+open Ast_to_c
 
 (*  t[i][k]  t:x   then swap dimentions for t
 

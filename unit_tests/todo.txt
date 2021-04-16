@@ -1,4 +1,42 @@
 - renaming 
+
+No renaming needed:
+
+
+   dune
+   ast.ml
+   flags.ml
+   paths.ml
+   aos_to_soa.ml
+
+
+Suggested renamings:
+
+   optitrust.ml/mli => optitrust.ml/mli
+
+   print_ast.ml => ast_to_text
+
+   clang_ast_parser.ml => ast_of_clang
+
+   translate_ast.ml => ast_to_c
+
+   transformations.ml => to be split in:
+      - labels.ml : for insert and remove labels
+      - declaration.ml : for insert_decl, remove_decl, fold_decl
+      - inlining.ml : for inline_decl, inline_fun
+      - transformations.ml : only generic helper functions
+      - sequence.ml : for sequence reordering, create subsequence, flattening, split sequence
+      - loop_swap.ml : for loop swapping
+
+   loop_tiling => loop_tile
+
+   array_tiling => array_tile
+
+   swap_coordinates => array_swap_coord
+
+   extract_loop_var.ml => loop_var_extract
+
+
 - splitting of doc/transfo.cpp  unit_tests/transfo.{cpp,ml,_exp.cpp}
 
 
