@@ -1,0 +1,15 @@
+
+#source_code {
+  width: 30em;
+  min-height: 20em;
+}
+
+.highlight {
+  background: #F3F781;
+}
+
+td.pane {
+  vertical-align: top;
+  padding-left: 1em;
+  padding-top: 1em;
+}

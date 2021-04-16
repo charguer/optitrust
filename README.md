@@ -71,12 +71,7 @@ braces with the following contents:
    {
        "key": "f6",
        "command": "workbench.action.tasks.runTask",
-       "args": "Execute transformation script"
-   },
-   {
-       "key": "ctrl+f6",
-       "command": "workbench.action.tasks.runTask",
-       "args": "Execute transformation script (dump trace)"
+       "args": "View changes in browser"
    }
 ]
 ```

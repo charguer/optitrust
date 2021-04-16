@@ -6,23 +6,101 @@
 #   3. option(s) for execution
 #      currently: only -dump-trace
 
-# first step: add exit_script instruction at the end of the active line
-
-# NOTE: if vscode is invoked from the test_suite folder, then no need for test_suite
-
 DIRNAME=$1
 FILEBASE=$2
 LINE=$3
 OPTIONS=$4
 
+# Path to .vscode folder
+VSCODE=`pwd`
+
+# Make sure we work in the directory that contains the file
 cd ${DIRNAME}
 
-ocaml ../.vscode/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
+# First we create the source code for the transformation program
+ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 
-# second step: build and execute the script
+# Second, we compile that transformation program
 ocamlbuild -pkgs clangml,refl,pprint,str,optiTrust.scriptTools "${FILEBASE}_with_exit.byte" || (echo "Cannot compile $1_with_exit.ml"; exit 1)
-./${FILEBASE}_with_exit.byte ${OPTIONS} | tee stdoutput.txt
 
+# Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
+./${FILEBASE}_with_exit.byte ${OPTIONS}
+
+# Fourth, we vizualize the diff between these two files 
+
+cd ${VSCODE}
+${VSCODE}/view_diff.sh ${DIRNAME} ${FILEBASE} &
+
+
+exit
+#echo "===>Executing: ${VSCODE}/view_diff.sh ${DIRNAME} ${FILEBASE}"
+#echo "===>Current folder is: "
+
+ 
+
+#echo "===>Done with view_diff"
+
+exit
+
+
+TARGET=${FILEBASE}_diff.html
+
+echo "------------Generating ${TARGET}"
+
+cd ${DIRNAME}
+
+# Relative path to vscode -- TODO: make more general
+VSCODE_FOLDER=../.vscode
+
+# Computer tools folder
+TOOLS_FOLDER=../tools
+
+# Compute title
+TITLESTR="OptiTrust_Diff_${FILEBASE}" # TODO: investigate how to make spaces and slash be properly escaped
+
+# Compute diff
+DIFFCODE=`git diff --no-index -U10 ${FILEBASE}_before.cpp ${FILEBASE}_after.cpp | base64 -w 0`
+DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
+
+# Take templace and substitute ${TOOLS_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
+TEMPLATE="${TOOLS_FOLDER}/diff_template.html"
+cp ${TEMPLATE} ${TARGET}
+sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#{TOOLS_FOLDER}#${TOOLS_FOLDER}#g;s#{INSERT_DIFF}#${DIFFSTR}#g" ${TARGET}
+# Note: there seems to be an issue if performing the sed one after the other...
+echo "Generated ${TARGET}"
+
+
+
+# Open the browser
+WID=`xdotool search --name "OptiTrust_Diff_${WINDOWTITLE}"`
+echo "Window id is: $WID"
+if [ -n "${WID}" ]; then
+
+  # Immediately bring the window to the front
+  xdotool windowactivate $WID
+  # Refresh the page
+  xdotool key ctrl+r
+
+else
+
+  # Launch fresh browser
+  chromium-browser --new-window ${TARGET} > /dev/null &
+
+fi
+
+# if [ `wmctrl -l | grep -c "$WINDOWTITLE"` != 0 ]
+#   then wmctrl -a "$WINTITLE" #
+#       #xdotool key ctrl+r
+# else
+#   brave --new-window ${TARGET}
+# fi
+# exit 0
+
+
+
+#WID=`xdotool search --name "${WINDOWTITLE}" |head -1`
+
+#${VSCODE_FOLDER}/open_in_browser.sh ${TARGET} "${TITLESTR}"
 # third step: clean up and show the diff of the two last states of the program
 ocamlbuild -clean
 rm "${FILEBASE}_with_exit.ml"

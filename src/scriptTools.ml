@@ -55,7 +55,8 @@ let run (script : unit -> unit) : unit =
   in
   if !Flags.repeat_io then script ()
   else
-    try script () with
+    (*FANCY
+   try script () with
     | _ ->
        (*
          if an error occurs, restart with printing/parsing at each step to have
@@ -66,6 +67,8 @@ let run (script : unit -> unit) : unit =
        Flags.repeat_io := true;
        reset ();
        script ()
+     *)
+    script()
 
 (* get the sequence of includes at the beginning of the file *)
 let get_includes (filename : string) : string =
@@ -232,10 +235,15 @@ let exit_script () : unit =
         output_prog ctx (prefix ^ "_after") astAfter;
         print_info None "Done. Output files: %s_after.ast and %s_after%s.\n"
           prefix prefix ctx.extension;
-        let _ =
-          Sys.command ("meld " ^ prefix ^ "_before" ^ ctx.extension ^ " " ^
-                         prefix ^ "_after" ^ ctx.extension)
-        in
+
+        (* DEPRECATED --but keep for potential future use
+        let file_before = prefix ^  "_before" ^ ctx.extension in
+        let file_after = prefix ^  "_after" ^ ctx.extension in
+        let file_diff =  prefix ^  "_diff.base64" in
+        let _ = Sys.command ("meld " ^ file_before " " ^ file_after) in
+        ...
+        let _ = Sys.command ("git diff --no-index -U10 " ^ file_before " " ^ file_after ^ " | base64 -w 0 > " ^ file_diff) in
+        *)
         ()
       )
       !trace;
@@ -350,7 +358,7 @@ let add_label ?(replace_top : bool = false) (label : string)
   apply_to_top ~replace_top (fun _ -> Transformations.add_label label pl)
 
 
-(*Show path using a decorators on both sides of the path 
+(*Show path using a decorators on both sides of the path
   for example :
   /*@1<*/ x++; /*>1@*/
   This comments can also be nested:
@@ -361,17 +369,17 @@ let add_label ?(replace_top : bool = false) (label : string)
       } /*>2@*/
     } /*>1@*/ *)
 (* delete the label *)
-let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previous : bool = false) (pl : path list) : unit = 
-    apply_to_top ~replace_top (fun _ t -> 
-    let t = 
-      if not keep_previous 
+let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previous : bool = false) (pl : path list) : unit =
+    apply_to_top ~replace_top (fun _ t ->
+    let t =
+      if not keep_previous
         then Transformations.delete_path_decorators t
-        else t 
-      in 
+        else t
+      in
     Transformations.show_path ~debug_ast pl t
     )
 
-let clean_path_decorators () : unit = 
+let clean_path_decorators () : unit =
     apply_to_top ~replace_top:false (fun _ -> Transformations.delete_path_decorators)
 
 let delete_label ?(replace_top : bool = false) (label : string) : unit =
@@ -1142,18 +1150,18 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
        ~fun_return_label pl);
   write_log "\n"
 
-let fields_reorder ?(replace_top : bool = false) (pl : path list) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit = 
+let fields_reorder ?(replace_top : bool = false) (pl : path list) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit =
   let log : string =
-    let ps = string_of_path (List.flatten pl) in 
+    let ps = string_of_path (List.flatten pl) in
     Printf.sprintf
       ("Inline_decl ~decl_path %s:\n" ^^
        " - %s points at exactly one program point\n"
       )
-      ps ps 
+      ps ps
   in
   write_log log;
   apply_to_top ~replace_top
-    (fun ctx -> 
+    (fun ctx ->
       Transformations.fields_reorder ctx.clog  ~struct_fields pl ~move_before ~move_after
     );
   write_log "\n"
@@ -1212,50 +1220,50 @@ let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
       (fun ctx -> Transformations.loop_swap ctx.clog pl );
     write_log "\n"
 
-let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit = 
+let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit =
     let log : string =
       Printf.sprintf "move_loop_before %s:\n" (string_of_path (List.flatten pl))
-    in 
+    in
     write_log log;
     apply_to_top ~replace_top
       (fun ctx -> Transformations.move_loop_before ctx.clog pl loop_index);
     write_log "\n"
 
-let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit = 
+let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit =
     let log : string =
       Printf.sprintf "move_loop_after %s:\n" (string_of_path (List.flatten pl))
-    in 
+    in
     write_log log;
     apply_to_top ~replace_top
       (fun ctx -> Transformations.move_loop_after ctx.clog pl loop_index);
     write_log "\n"
 
-let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move_after : string = "" ) (loop_index : string) : unit = 
+let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move_after : string = "" ) (loop_index : string) : unit =
     apply_to_top ~replace_top
       (fun ctx -> Transformations.move_loop ctx.clog  ~move_before ~move_after loop_index);
     write_log "\n"
 
-let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(struct_fields : fields = []) (): unit = 
+let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(struct_fields : fields = []) (): unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.inline_struct ctx.clog struct_name ~struct_fields);
   write_log "\n"
 
-let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit = 
+let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.inline_record_access ctx.clog  field var);
   write_log "\n"
 (*
-let make_explicit_record_assignment ?(replace_top : bool = false) (x : typvar) : unit = 
+let make_explicit_record_assignment ?(replace_top : bool = false) (x : typvar) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.make_explicit_record_assignment ctx.clog x );
   write_log "\n"
 *)
-let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list) : unit = 
+let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.make_explicit_record_assigment ctx.clog ~struct_name pl);
   write_log "\n"
 
-let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) (pl : path list) : unit = 
+let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) (pl : path list) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label  pl);
     write_log "\n"
@@ -1279,6 +1287,7 @@ let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label
   apply_to_top ~replace_top
     (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
     write_log "\n"
+
 
 let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit = 
   apply_to_top ~replace_top

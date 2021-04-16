@@ -5,6 +5,9 @@ int main(){
 
   for (int i = 0; i < 10; i++){ 
     a++;
+    // TODO: test for :for (int a = 0; a < 2;) {
+    //   a++;
+    // }
   }
 
   int y = 0;

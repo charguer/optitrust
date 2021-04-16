@@ -24,6 +24,26 @@
           "command": "./.vscode/watch.sh "
         },
         {
+          "label": "View changes in browser",
+          "type": "shell",
+          "command": "./run_action.sh",
+          "options": {
+            "cwd": "${workspaceFolder}/.vscode"
+          },
+          "args": [
+              "./add_exit_and_exec.sh",
+              "${fileDirname}",
+              "${fileBasenameNoExtension}",
+              "${lineNumber}",
+              ""
+          ]
+      },
+        {
+          "label": "Start the inotifywait watch",
+          "type": "shell",
+          "command": "./.vscode/watch.sh "
+        },
+        {
             "label": "Run make install and execute a unit test",
             "type": "shell",
             "command": "./.vscode/run_make_and_test.sh",
