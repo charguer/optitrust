@@ -51,7 +51,7 @@ let rec split_loop_nodep_aux (clog : out_channel) (result_label : string)
        let loc : string =
          match body.loc with
          | None -> ""
-         | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
        in
        Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
@@ -100,7 +100,7 @@ let split_loop_nodep_aux (clog : out_channel) (result_label : string)
     let loc : string =
       match t.loc with
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in
     Printf.sprintf
       ("  - %s, %s and %s are fresh labels\n" ^^

@@ -1,5 +1,5 @@
 (* file locations: filename, line number *)
-type location = (string * int * int) option
+type location = (string * int * int * int * int) option
 
 (* memory locations *)
 type loc = int
@@ -356,8 +356,9 @@ exception TransfoError of string
 let fail (loc : location) (err : string) : 'a =
   match loc with
   | None -> failwith err
-  | Some (filename, line1,line2) ->
-     raise (TransfoError (filename ^ " lines " ^ (string_of_int line1) ^": " ^ (string_of_int line2) ^":  " ^ err))
+  | Some (filename, start_row,end_row,start_column,end_column) ->
+     raise (TransfoError (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^ 
+     " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]" ^ " : " ^ err))
 
 (*
   compute a function that prints information related to some location in file
@@ -367,8 +368,8 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
   if !Flags.verbose then
     match loc with
     | None -> Printf.printf
-    | Some (filename, line1,line2) ->
-       Printf.kfprintf Printf.fprintf stdout ("<%s> lines <%d>,<%d>: ") filename line1 line2
+    | Some (filename, start_row,end_row,start_column,end_column) ->
+       Printf.kfprintf Printf.fprintf stdout ("<%s> from <%d>,<%d> to   <%d>,<%d>") filename start_row start_column end_row end_column
   else
     Printf.ifprintf stdout
 

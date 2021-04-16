@@ -236,7 +236,7 @@ let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move
       let loc : string = 
         match t.loc with 
         | None -> ""
-        | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+        | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
           ("  - expression\n%s\n" ^^
           "    %sis a struct type\n"
@@ -1138,7 +1138,7 @@ let remove_decl (clog : out_channel) (pl : path list) (t : trm) : trm =
        let loc : string =
          match t_decl.loc with
          | None -> ""
-         | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
        in
        Printf.sprintf
          ("  - expression\n%s\n" ^^
@@ -1479,7 +1479,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
          let loc : string =
            match t_def.loc with
            | None -> ""
-           | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+           | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
          in
          Printf.sprintf
            ("  - expression\n%s\n" ^^
@@ -1565,7 +1565,7 @@ let create_subsequence_aux (clog : out_channel) (label : label) (start_index : i
     let loc: string = 
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
       ("   - expression\n%s\n" ^^
       " %s is sequence of terms \n"
@@ -1626,7 +1626,7 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
     let loc : string =
     match t.loc with 
     | None -> ""
-    | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in Printf.sprintf
     (" - expression\n%s\n" ^^
     " %s is a declaration\n"
@@ -1668,7 +1668,7 @@ let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var l
     let loc : string =
     match t.loc with 
     | None -> ""
-    | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in Printf.sprintf
     (" - expression\n%s\n" ^^
     " %s is the full term\n"
@@ -1750,7 +1750,7 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
       let loc : string = 
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
       (" -expression\n%s\n" ^^
       " %s is a for lopp \n"
@@ -1819,7 +1819,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
       let loc : string = 
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
       (" -expression\n%s\n" ^^
       " %s section of interest \n"
@@ -1987,7 +1987,7 @@ let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
            let loc : string =
              match t.loc with
              | None -> ""
-             | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+             | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
            in
            Printf.sprintf
              ("  - expression\n%s\n" ^^
@@ -2050,7 +2050,7 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
               let loc : string =
                 match t.loc with
                 | None -> ""
-                | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+                | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
               in
               Printf.sprintf
                 ("  - expression\n%s\n" ^^
@@ -2146,7 +2146,7 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
         let loc : string = 
           match body.loc with
           | None -> ""
-          | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+          | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
         in 
         Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
@@ -2251,8 +2251,7 @@ let loop_coloring_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : t
     let loc : string = 
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
-    
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in
     Printf.sprintf
       ("  - expression\n%s\n" ^^
@@ -2331,8 +2330,8 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
        let loc : string =
          match body.loc with
          | None -> ""
-         | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
-       in
+         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+        in
         Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
           "      for ([int] x = 0; x < X; x++)\n" ^^
@@ -2419,7 +2418,7 @@ let loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : trm =
     let loc : string =
       match t.loc with
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in
     Printf.sprintf
       ("  - expression\n%s\n" ^^
@@ -2492,7 +2491,7 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
       let loc : string = 
         match body1.loc with 
         | None -> ""
-        | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+        | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in 
       Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
@@ -2517,7 +2516,7 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
             let loc : string = 
             match body1.loc with 
             | None -> ""
-            | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+            | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
           in 
           Printf.sprintf
           ("Inner looop " ^^
@@ -2585,7 +2584,7 @@ let loop_swap_aux (clog : out_channel) (t : trm) : trm =
     let loc : string =
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in 
     Printf.sprintf
       (" - expression \n%s\n" ^^
@@ -2643,7 +2642,7 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
       let loc : string = 
         match t.loc with 
         | None -> ""
-        | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+        | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in 
       Printf.sprintf
       ("  - expression\n%s\n" ^^
@@ -2709,7 +2708,7 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
     let loc : string =
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in
     Printf.sprintf
     ("  - expression\n%s\n" ^^
@@ -2763,7 +2762,7 @@ let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : 
       let loc : string = 
         match t.loc with 
         | None -> ""
-        | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+        | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
           ("  - expression\n%s\n" ^^
           "    %sis a struct type\n"
@@ -2821,8 +2820,8 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
     let loc : string = 
       match t.loc with
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
-      in Printf.sprintf
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in Printf.sprintf
       ("  - expression\n%s\n" ^^
       "    %sis a struct type\n"
       )
@@ -3017,8 +3016,8 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
     let loc : string = 
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2 
-      in Printf.sprintf
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in Printf.sprintf
       (" -expresssion\n%s\n" ^^
       "  %sis an assignment with record access\n"
       )
@@ -3157,7 +3156,7 @@ let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (lab
     let loc : string = 
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2 
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
       (" -expresssion\n%s\n" ^^
       "  %sis an assignment \n"
@@ -3227,7 +3226,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     let loc : string = 
      match t.loc with 
      | None -> ""
-     | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+     | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in Printf.sprintf
     (" -expression\n%s\n" ^^
     "   %sis an assigment\n"
@@ -3330,7 +3329,7 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
     let loc : string = 
       match t.loc with 
       | None -> ""
-      | Some (_,line1,line2)  -> Printf.sprintf  "at  lines %d  %d " line1 line2
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in Printf.sprintf
     (" -expression\n%s\n" ^^
     "   %sis a declaration"

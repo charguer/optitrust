@@ -5,11 +5,12 @@ open Ast
 
 (* location of node *)
 let loc_of_node (n : 'a node) : location =
-  let beg_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
-  let end_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
-  let (filename, line1, _) = Clang.get_presumed_location beg_node in 
-  let (_, line2, _) = Clang.get_presumed_location end_node in 
-  Some(filename,line1,line2)
+  let start_location_of_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
+  let end_location_of_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
+  let (filename, start_row,start_column) = Clang.get_presumed_location start_location_of_node in 
+  let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in 
+  Some(filename,start_row,end_row,start_column,end_column)
+
 
 
 
@@ -18,7 +19,7 @@ let loc_of_node (n : 'a node) : location =
 (* file which contains the node *)
 let file_of_node (n : 'a node) : string =
   match loc_of_node n with
-  | Some (filename,_,_) -> filename
+  | Some (filename,_,_,_,_) -> filename
   | _ -> fail None "file_of_node1: bad location"
 
 

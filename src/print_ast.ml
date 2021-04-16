@@ -296,8 +296,9 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     let dloc =
       begin match t.loc with
       | None -> underscore
-      | Some (filename, line1, line2) ->
-         print_pair (string filename) (string (string_of_int line1 ^ " " ^ string_of_int line2))
+      | Some (filename, start_row, end_row, start_column, end_column) ->
+         print_pair (string filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
+         
       end
     in
     let dinstr = string (string_of_bool t.is_instr) in
