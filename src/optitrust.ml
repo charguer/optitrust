@@ -355,7 +355,7 @@ let apply_to_top ?(replace_top : bool = false)
  *)
 let add_label ?(replace_top : bool = false) (label : string)
   (pl : path list) : unit =
-  apply_to_top ~replace_top (fun _ -> Transformations.add_label label pl)
+  apply_to_top ~replace_top (fun _ -> Labels.add_label label pl)
 
 
 (*Show path using a decorators on both sides of the path
@@ -744,7 +744,7 @@ let fold_decl ?(replace_top : bool = false) ?(as_reference : bool = false)
   in
   write_log log;
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.fold_decl ctx.clog ~as_reference ~fold_at pl);
+    (fun ctx -> Declaration.fold_decl ctx.clog ~as_reference ~fold_at pl);
   write_log "\n"
 
 (*
@@ -831,7 +831,7 @@ let insert_decl ?(replace_top : bool = false) ?(insert_before : path list = [])
        in
        let context = get_context ctx dl t in
        let def_x = term ctx ~context dx in
-       Transformations.insert_decl ~insert_before ~insert_after ~const
+       Declaration.insert_decl ~insert_before ~insert_after ~const
          ~as_reference x def_x t
   in
   apply_to_top ~replace_top insert_aux;
@@ -937,7 +937,7 @@ let insert_and_fold ?(replace_top : bool = false)
        in
        let context = get_context ctx dl t in
        let def_x = term ctx ~context dx in
-       Transformations.insert_and_fold ctx.clog ~insert_before ~insert_after
+       Declaration.insert_and_fold ctx.clog ~insert_before ~insert_after
          ~const ~as_reference ~fold_at x def_x t
   in
   apply_to_top ~replace_top insert_aux;
@@ -1031,7 +1031,7 @@ let insert_typedef ?(replace_top : bool = false)
        in
        let context = get_context ctx dl t in
        let def_x = type_ ctx ~context dx in
-       Transformations.insert_typedef ~insert_before ~insert_after x def_x t
+       Declaration.insert_typedef ~insert_before ~insert_after x def_x t
   in
   apply_to_top ~replace_top insert_aux
 
@@ -1109,7 +1109,7 @@ let insert_and_fold_typedef ?(replace_top : bool = false)
        in
        let context = get_context ctx dl t in
        let def_x = type_ ctx ~context dx in
-       Transformations.insert_and_fold_typedef ctx.clog ~insert_before
+       Declaration.insert_and_fold_typedef ctx.clog ~insert_before
          ~insert_after ~fold_at x def_x t
   in
   apply_to_top ~replace_top insert_aux;
@@ -1128,7 +1128,7 @@ let remove_decl ?(replace_top : bool = false) ~decl_path:(pl : path list)
   in
   write_log log;
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.remove_decl ctx.clog pl);
+    (fun ctx -> Declaration.remove_decl ctx.clog pl);
   write_log "\n"
 
 let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
@@ -1146,7 +1146,7 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
   write_log log;
   apply_to_top ~replace_top
     (fun ctx ->
-      Transformations.inline_decl ctx.clog ~delete_decl ~inline_at ~fun_result
+      Inlining.inline_decl ctx.clog ~delete_decl ~inline_at ~fun_result
        ~fun_return_label pl);
   write_log "\n"
 
@@ -1312,12 +1312,12 @@ let aos_to_soa ?(replace_top : bool = false)
 let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
   let log = "Eliminate_goto_next: no assumptions\n\n" in
   write_log log;
-  apply_to_top ~replace_top (fun _ -> Transformations.eliminate_goto_next)
+  apply_to_top ~replace_top (fun _ -> Declaration.eliminate_goto_next)
 
 let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
   let log = "Group_decl_init: no assumptions\n\n" in
   write_log log;
-  apply_to_top ~replace_top (fun _ -> Transformations.group_decl_init)
+  apply_to_top ~replace_top (fun _ -> Declaration.group_decl_init)
 
 let inline_seq ?(replace_top : bool = false) ~seq_path:(pl : path list)
   (_ : unit) : unit =
