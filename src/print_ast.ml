@@ -33,7 +33,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
        begin match s with
        | Undefined -> underscore
        | Const n -> string (string_of_int n)
-       | Trm t -> print_trm ~only_desc t
+       | Trm t' -> print_trm ~only_desc t'
        end
      in
      node "Typ_array" ^^ print_pair dt ds
@@ -237,7 +237,11 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_decoration (l,t,r) ->
       let dt = print_trm ~only_desc t in
       node "Trm_decorated" ^^ parens (string l ^^ comma ^/^ dt ^^ comma ^/^ string r) 
+  | Trm_any t -> 
+    let dt = print_trm ~only_desc t in 
+      node "Trm_any"  ^^ parens (dt)
 
+  
 and print_def ?(only_desc : bool = false) (d : def) : document =
   match d with
   | Def_var ((x, tx), t) ->

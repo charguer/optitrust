@@ -55,7 +55,8 @@ let run (script : unit -> unit) : unit =
   in
   if !Flags.repeat_io then script ()
   else
-    try script () with
+    (*FANCY
+   try script () with
     | _ ->
        (*
          if an error occurs, restart with printing/parsing at each step to have
@@ -66,6 +67,8 @@ let run (script : unit -> unit) : unit =
        Flags.repeat_io := true;
        reset ();
        script ()
+     *)
+    script()
 
 (* get the sequence of includes at the beginning of the file *)
 let get_includes (filename : string) : string =
@@ -1264,10 +1267,31 @@ let detach_expression ?(replace_top : bool = false) ?(label : string = "detached
   apply_to_top ~replace_top
     (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label  pl);
     write_log "\n"
+  
+let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list)  : unit = 
+  apply_to_top ~replace_top 
+  (fun ctx -> Transformations.make_implicit_record_assignment ctx.clog struct_name pl);
+  write_log "\n"
 
-let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list)  : unit =
+let create_subsequence ?(replace_top : bool = false) ?(start : path list = []) ?(stop : path list = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit = 
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.make_implicit_record_assignment ctx.clog struct_name pl);
+    (fun ctx -> Transformations.create_subsequence ctx.clog start stop stop_before stop_after label braces);
+  write_log "\n"
+
+let array_to_variables ?(replace_top : bool = false) (dcl_path : path list) (new_vars : var list) : unit = 
+  apply_to_top ~replace_top 
+    (fun ctx -> Transformations.array_to_variables ctx.clog dcl_path new_vars);
+    write_log "\n"
+
+let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(old_var : var = "") ?(new_var : var = "") () : unit =
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
+    write_log "\n"
+
+
+let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);
     write_log "\n"
 
 let aos_to_soa ?(replace_top : bool = false)

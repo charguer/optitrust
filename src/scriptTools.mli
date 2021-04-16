@@ -221,6 +221,14 @@ val make_explicit_record_assignment : ?replace_top:bool -> ?struct_name:string -
 
 val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> path list -> unit 
 
+val create_subsequence : ?replace_top:bool -> ?start:path list -> ?stop:path list -> ?stop_before:bool -> ?stop_after:bool -> ?label:string -> ?braces:bool -> unit -> unit 
+
+val array_to_variables : ?replace_top:bool -> path list -> string list -> unit 
+
+val local_other_name : ?replace_top:bool -> ?section_of_interest:string -> ?new_var_type:string -> ?old_var:string -> ?new_var:string -> unit -> unit
+
+val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit 
+
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  path list -> unit 
 
 val fields_reorder : ?replace_top:bool -> path list -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit

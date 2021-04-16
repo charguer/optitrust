@@ -18,8 +18,8 @@ int main() {
   vect b = p;
   
   vect d;
-  d.x = p.x;
-  d.y = p.y;
+  d.x = 1;
+  d.y = 2;
 
   vect e;
   e = f();

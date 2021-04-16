@@ -36,7 +36,11 @@ First the constraints giving the next subterm to explore:
 - `cList p next`: same as `cList_int` but `next` outputs a list of booleans
   (`true` for "explore", `false` for "do not explore") instead of a list of
   indices.
-- `cFirst p`: based on `cList`, go to the first element that matches `p`.
+- `cFirst p`: basTyp_struct ( [
+            ( g, Typ_int );
+            ( t, Typ_array ( Typ_var T, Trm_val ( Val_lit ( Lit_int 2 ) ) ) )
+          ],
+           ) ) );ed on `cList`, go to the first element that matches `p`.
 - `p1 >> p2`: based on `cList`, resolve `p2` in all elements after the first one
   that matches `p1`.
 - `p1 >>! p2`: based on `cList`, resolve `p2` in the element just after the
