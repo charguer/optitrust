@@ -4,6 +4,7 @@
     "version": "2.0.0",
     "tasks": [
         {
+<<<<<<< HEAD
             "label": "###Execute transformation script",
             "type": "shell",
             "command": "./.vscode/add_exit_and_exec.sh",
@@ -13,6 +14,26 @@
                 "${lineNumber}",
                 ""
             ]
+=======
+          "label": "Execute transformation script",
+          "type": "shell",
+          "command": "./run_action.sh",
+          "options": {
+            "cwd": "${workspaceFolder}/.vscode"
+          },
+          "args": [
+              "./add_exit_and_exec.sh",
+              "${fileDirname}",
+              "${fileBasenameNoExtension}",
+              "${lineNumber}",
+              ""
+          ]
+      },
+        {
+          "label": "Start the inotifywait watch",
+          "type": "shell",
+          "command": "./.vscode/watch.sh "
+>>>>>>> node_location
         },
         {
           "label": "Execute transformation script",

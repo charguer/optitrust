@@ -45,7 +45,7 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
        let loc : string =
          match body.loc with
          | None -> ""
-         | Some (_, line) -> Printf.sprintf "at line %d " line
+         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
        in
        Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
@@ -215,7 +215,8 @@ let extract_loop_vars_aux (clog : out_channel) ?(only_one : bool = false)
     let loc : string =
       match t.loc with
       | None -> ""
-      | Some (_, line) -> Printf.sprintf "at line %d " line
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+
     in
     Printf.sprintf
       ("  - expression\n%s\n" ^^

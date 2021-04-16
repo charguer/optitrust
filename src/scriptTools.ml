@@ -796,7 +796,7 @@ let insert_decl ?(replace_top : bool = false) ?(insert_before : path list = [])
           let loc : string =
             match t'.loc with
             | None -> ""
-            | Some (_, line) -> Printf.sprintf "at line %d " line
+            | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
           in
           Printf.sprintf
             ("  - expression\n%s\n" ^^
@@ -901,7 +901,7 @@ let insert_and_fold ?(replace_top : bool = false)
           let loc =
             match t'.loc with
             | None -> ""
-            | Some (_, line) -> Printf.sprintf "at line %d " line
+            | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
           in
           Printf.sprintf
             ("  - expression\n%s\n" ^^
@@ -995,7 +995,7 @@ let insert_typedef ?(replace_top : bool = false)
           let loc : string =
             match t'.loc with
             | None -> ""
-            | Some (_, line) -> Printf.sprintf "at line %d " line
+            | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
           in
           Printf.sprintf
             ("  - expression\n%s\n" ^^
@@ -1072,7 +1072,7 @@ let insert_and_fold_typedef ?(replace_top : bool = false)
           let loc : string =
             match t'.loc with
             | None -> ""
-            | Some (_, line) -> Printf.sprintf "at line %d " line
+            | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
           in
           Printf.sprintf
             ("  - expression\n%s\n" ^^
