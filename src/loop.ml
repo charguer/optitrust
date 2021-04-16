@@ -1,6 +1,6 @@
 open Ast
 open Ast_to_c
-open Paths
+open Path
 open Path_constructors
 open Transformations
 

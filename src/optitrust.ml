@@ -321,15 +321,15 @@ let run_unit_test ?(ast_decode : bool = true) (script : unit -> unit) : unit =
 (*                        Smart constructors for paths                        *)
 (******************************************************************************)
 
-open Paths
+open Path
 include Path_constructors
 
-type path = Paths.path
-type case_dir = Paths.case_dir
-type abort_kind = Paths.abort_kind
-type constr_access = Paths.constr_access
-type case_kind = Paths.case_kind
-type enum_const_dir = Paths.enum_const_dir
+type path = Path.path
+type case_dir = Path.case_dir
+type abort_kind = Path.abort_kind
+type constr_access = Path.constr_access
+type case_kind = Path.case_kind
+type enum_const_dir = Path.enum_const_dir
 
 (******************************************************************************)
 (*                              Transformations                               *)
@@ -355,7 +355,7 @@ let apply_to_top ?(replace_top : bool = false)
  *)
 let add_label ?(replace_top : bool = false) (label : string)
   (pl : path list) : unit =
-  apply_to_top ~replace_top (fun _ -> Labels.add_label label pl)
+  apply_to_top ~replace_top (fun _ -> Label.add_label label pl)
 
 
 (*Show path using a decorators on both sides of the path
@@ -383,11 +383,11 @@ let clean_path_decorators () : unit =
     apply_to_top ~replace_top:false (fun _ -> Transformations.delete_path_decorators)
 
 let delete_label ?(replace_top : bool = false) (label : string) : unit =
-  apply_to_top ~replace_top (fun _ -> Labels.delete_label label)
+  apply_to_top ~replace_top (fun _ -> Label.delete_label label)
 
 (* delete the labels which have a prefix in the list *)
 let delete_labels ?(replace_top : bool = false) (sl : string list) : unit =
-  apply_to_top ~replace_top (fun _ -> Labels.delete_labels sl)
+  apply_to_top ~replace_top (fun _ -> Label.delete_labels sl)
 
 (*
   transformation to swap the two first dimensions of an array
@@ -459,7 +459,7 @@ let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
           block2_label split_name pl t
       in
       if keep_labels then t else
-        Labels.delete_labels [result_label; block1_label; block2_label]
+        Label.delete_labels [result_label; block1_label; block2_label]
           t
     );
   write_log "\n"
@@ -493,8 +493,8 @@ let extract_loop_var ?(replace_top : bool = false) ?(keep_label : bool = false)
   write_log log;
   apply_to_top ~replace_top
     (fun ctx t ->
-      let t = Loops.extract_loop_var ctx.clog result_label pl t in
-      if keep_label then t else Labels.delete_label result_label t
+      let t = Loop.extract_loop_var ctx.clog result_label pl t in
+      if keep_label then t else Label.delete_label result_label t
     );
   write_log "\n"
 
@@ -507,8 +507,8 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
   write_log log;
   apply_to_top ~replace_top
     (fun ctx t ->
-      let t = Loops.extract_loop_vars ctx.clog result_label pl t in
-      if keep_label then t else Labels.delete_label result_label t
+      let t = Loop.extract_loop_vars ctx.clog result_label pl t in
+      if keep_label then t else Label.delete_label result_label t
     );
   write_log "\n"
 
@@ -551,11 +551,11 @@ let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
   apply_to_top ~replace_top
     (fun ctx t ->
       let t =
-        Loops.split_loop_nodep ctx.clog result_label loop1_label
+        Loop.split_loop_nodep ctx.clog result_label loop1_label
           loop2_label pl t
       in
       if keep_labels then t else
-        Labels.delete_labels [result_label; loop1_label; loop2_label] t
+        Label.delete_labels [result_label; loop1_label; loop2_label] t
     );
   write_log "\n"
 
@@ -1162,7 +1162,7 @@ let fields_reorder ?(replace_top : bool = false) (pl : path list) ?(struct_field
   write_log log;
   apply_to_top ~replace_top
     (fun ctx ->
-      Transformations.fields_reorder ctx.clog  ~struct_fields pl ~move_before ~move_after
+      Struct.fields_reorder ctx.clog  ~struct_fields pl ~move_before ~move_after
     );
   write_log "\n"
 
@@ -1190,7 +1190,7 @@ let tile_loop ?(replace_top : bool = false)
   in
   write_log log;
   apply_to_top ~replace_top
-    (fun ctx -> Loops.tile_loop ctx.clog pl);
+    (fun ctx -> Loop.tile_loop ctx.clog pl);
   write_log "\n"
 
 let loop_coloring ?(replace_top : bool = false) (pl : path list) (c: var) (new_var : var): unit =
@@ -1199,7 +1199,7 @@ let loop_coloring ?(replace_top : bool = false) (pl : path list) (c: var) (new_v
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Loops.loop_coloring ctx.clog pl c new_var);
+      (fun ctx -> Loop.loop_coloring ctx.clog pl c new_var);
     write_log "\n"
 
 let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var) (new_var : var): unit =
@@ -1208,7 +1208,7 @@ let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var) (new_var :
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Loops.loop_tile ctx.clog pl b new_var);
+      (fun ctx -> Loop.loop_tile ctx.clog pl b new_var);
     write_log "\n"
 
 let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
@@ -1217,7 +1217,7 @@ let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Loops.loop_swap ctx.clog pl );
+      (fun ctx -> Loop.loop_swap ctx.clog pl );
     write_log "\n"
 
 let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit =
@@ -1226,7 +1226,7 @@ let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index 
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Loops.move_loop_before ctx.clog pl loop_index);
+      (fun ctx -> Loop.move_loop_before ctx.clog pl loop_index);
     write_log "\n"
 
 let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit =
@@ -1235,12 +1235,12 @@ let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index :
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Loops.move_loop_after ctx.clog pl loop_index);
+      (fun ctx -> Loop.move_loop_after ctx.clog pl loop_index);
     write_log "\n"
 
 let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move_after : string = "" ) (loop_index : string) : unit =
     apply_to_top ~replace_top
-      (fun ctx -> Loops.move_loop ctx.clog  ~move_before ~move_after loop_index);
+      (fun ctx -> Loop.move_loop ctx.clog  ~move_before ~move_after loop_index);
     write_log "\n"
 
 let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(struct_fields : fields = []) (): unit =
@@ -1255,7 +1255,7 @@ let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(
 
 let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list) : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.make_explicit_record_assigment ctx.clog ~struct_name pl);
+    (fun ctx -> Struct.make_explicit_record_assigment ctx.clog ~struct_name pl);
   write_log "\n"
 
 let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) (pl : path list) : unit =
@@ -1265,7 +1265,7 @@ let detach_expression ?(replace_top : bool = false) ?(label : string = "detached
   
 let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list)  : unit = 
   apply_to_top ~replace_top 
-  (fun ctx -> Transformations.make_implicit_record_assignment ctx.clog struct_name pl);
+  (fun ctx -> Struct.make_implicit_record_assignment ctx.clog struct_name pl);
   write_log "\n"
 
 let create_subsequence ?(replace_top : bool = false) ?(start : path list = []) ?(stop : path list = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit = 
@@ -1275,7 +1275,7 @@ let create_subsequence ?(replace_top : bool = false) ?(start : path list = []) ?
 
 let array_to_variables ?(replace_top : bool = false) (dcl_path : path list) (new_vars : var list) : unit = 
   apply_to_top ~replace_top 
-    (fun ctx -> Transformations.array_to_variables ctx.clog dcl_path new_vars);
+    (fun ctx -> Arrays.array_to_variables ctx.clog dcl_path new_vars);
     write_log "\n"
 
 let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(old_var : var = "") ?(new_var : var = "") () : unit =

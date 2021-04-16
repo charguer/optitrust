@@ -1,5 +1,5 @@
 open Ast
-open Paths
+open Path
 open Transformations
 
 (* delete the label with the given prefix *)

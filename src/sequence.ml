@@ -1,5 +1,5 @@
 open Ast
-open Paths
+open Path
 open Transformations
 open Ast_to_c
 
@@ -298,6 +298,11 @@ let split_sequence (clog : out_channel) (result_label : string)
        )
        t
        epl
+
+let list_remove x xs = List.filter (fun y -> y <> x) xs 
+
+
+let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys 
 
 let create_subsequence_aux (clog : out_channel) (label : label) (start_index : int) (stop_path : path list) (before_stop : bool) (after_stop : bool) (braces : bool) (t : trm) : trm =
   let rec insert_in_list_at  (el : trm) (i : int) (xs : 'a list) = match xs with
