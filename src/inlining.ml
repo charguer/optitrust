@@ -1,6 +1,7 @@
 open Ast
 open Ast_to_c
 open Paths
+open Path_constructors
 open Transformations
 open Declaration
 (*
@@ -284,3 +285,428 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
           | Trm_val (Val_liet (Lit_int l)) ->
             Trm_val (Val_liet (Lit_int (l+r)))
  *)
+
+ let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
+  let p = List.flatten pl in
+  let b = !Flags.verbose in
+  Flags.verbose := false;
+  let epl = resolve_path p t in
+  Flags.verbose := b;
+  match epl with
+  | [] ->
+     print_info t.loc "inline_seq: no matching subterm";
+     t
+  | _ ->
+     List.fold_left
+       (fun t dl ->
+         let log : string =
+           let (t, _) = resolve_explicit_path dl t in
+           let loc : string =
+             match t.loc with
+             | None -> ""
+             | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+           in
+           Printf.sprintf
+             ("  - expression\n%s\n" ^^
+              "    %sis a seq inside another seq\n"
+             )
+             (ast_to_string t) loc
+         in
+         write_log clog log;
+         let dl = List.rev dl in
+         let n =
+           match List.nth_opt dl 0 with
+           | Some (Dir_nth n) -> n
+           | _ -> fail t.loc "inline_seq: the path must point at a seq element"
+         in
+         apply_local_transformation
+           (fun (t : trm) ->
+             match t.desc with
+             | Trm_seq tl ->
+                let tl =
+                  foldi
+                    (fun i tl (t : trm) ->
+                      if i <> n then tl ++ [t]
+                      else
+                        match t.desc with
+                        | Trm_seq tl' -> tl ++ tl'
+                        | _ -> fail t.loc "inline_seq: expected a seq"
+                    )
+                    []
+                    tl
+                in
+                trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add
+                  ~attributes:t.attributes tl
+             | _ -> fail t.loc "inline_seq: expected a seq container"
+           )
+           t
+           (* remove the last direction to point at the seq *)
+           (List.rev (List.tl dl))
+       )
+       t
+       epl
+(* Get the index for a given field of struct inside its list of fields *)
+let get_pos (x : typvar) (t : trm) : int = 
+  begin match t.desc with 
+  | Trm_decl (Def_typ(_,dx)) -> 
+       let field_list1 = 
+          match dx.ty_desc with
+          | Typ_struct(l,_,_) -> l
+          |_ -> fail t.loc "get_pos: the type should be a typedef struct"
+        in
+
+        let rec find x lst = 
+        match lst with 
+        | [] -> raise (Failure "Not Found")
+        | hd :: tl -> if hd = x then 0 else 1 + find x tl
+        in 
+        find x field_list1 
+    | _ -> fail t.loc "get_pos_and_element: expected a struct type"
+    end
+
+
+let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm = 
+  let log : string = 
+    let loc : string = 
+      match t.loc with 
+      | None -> ""
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in Printf.sprintf
+      (" -expresssion\n%s\n" ^^
+      "  %sis an assignment with record access\n"
+      )
+      (ast_to_string t) loc 
+      in write_log clog log;
+  
+      let pl = [cVarDef ~name:var()] in 
+      let epl = resolve_path (List.flatten pl) t in 
+      let var_decl = match epl with 
+      | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+      | _ -> fail t.loc "inline_record_access: expected a type"
+      in 
+
+      let var_type = match var_decl.desc with 
+        | Trm_seq [{desc=Trm_decl(Def_var ((x,var_typ),_));_};_] when x = var -> 
+          begin match var_typ.ty_desc with 
+          | Typ_ptr {ty_desc=Typ_var y;_} -> y
+          | _ -> fail t.loc "inline_record_access: type was not matched"
+          end
+        | _ -> fail t.loc "inline_record_access: coudl not get the type of variable declaration"
+      in 
+
+      let list_of_trms = match var_decl.desc with 
+        | Trm_seq [_;t_assign] ->
+          begin match t_assign.desc with 
+          | Trm_apps (_,[_;lt]) -> 
+            begin match lt.desc with
+            | Trm_struct tl -> tl 
+            | _ -> fail t.loc "implicit_record_assignment: Expected a record"
+            end
+          |  _ -> fail t.loc "implicit_record_assignment: Expected an assignment"
+          end
+        |  _ -> fail t.loc "implicit_record_assignment: Expected a sequence term"
+      in 
+      let struct_decl_path = [cType ~name:var_type ()] in 
+      let epl_of_struct_decl = resolve_path (List.flatten struct_decl_path) t in 
+      let struct_decl_trm  = match epl_of_struct_decl with 
+        | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+        | _ -> fail t.loc "inline_struct_access: expected a typedef struct"
+      in 
+      
+      let rec aux (global_trm : trm ) (t : trm) : trm = 
+        begin match t.desc with 
+        | Trm_apps (f,[base]) -> 
+          begin match f.desc with 
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field -> 
+            begin match base.desc with 
+            | Trm_var v when v = var -> 
+              let index = get_pos field struct_decl_trm in
+              List.nth (List.rev list_of_trms) index
+            | _ -> trm_map (aux global_trm) t 
+            end 
+          | _ -> trm_map (aux global_trm) t
+          end 
+        | _ -> trm_map (aux global_trm) t
+        end 
+      in aux t t 
+
+let find_keys value m = 
+  Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
+
+(* A function rename all th elements of a list *)
+let rec apply_labels vl pl = match pl with 
+| [] -> []
+| hd :: tl -> let y = List.map (fun x -> hd ^ "_" ^x) vl in y :: apply_labels vl tl
+
+
+let add_key key value m = Field_map.add key value m 
+
+
+let rec add_keys (lk : var list) (lv : typ list) m  = match (lk ,lv) with 
+| [],[] -> m
+| _ :: _, [] -> m
+| [] , _ :: _ -> m
+| hd :: tl, hd1 :: tl1 -> let m = add_key hd hd1 m in add_keys tl tl1 m;;
+
+let rec add_keys_to_map lv llk m = match llk with 
+| [] -> m 
+| hd :: tl -> let m = add_keys  hd lv m in add_keys_to_map lv tl m
+
+(*
+let record_get_typed_fields (fields_list, fields_map) =
+                list (string * typ) : list =
+                 List.combine fields_list (get_values fields_list fields_map
+*)
+
+
+let rec insert_before x local_l list = match list with 
+| [] -> []
+| hd :: tl -> if hd = x then local_l @ hd :: tl else hd :: (insert_before x local_l tl)
+
+let rec insert_list keys_list temp_field_list field_list1 = match keys_list with 
+| [] -> field_list1
+| hd :: tl -> let field_list1 = insert_before hd (List.hd temp_field_list) field_list1 in insert_list tl (List.tl temp_field_list ) field_list1
+
+
+let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1 : trm) (t : trm) : trm =
+  let log : string = 
+    let loc : string = 
+      match t.loc with
+      | None -> ""
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in Printf.sprintf
+      ("  - expression\n%s\n" ^^
+      "    %sis a struct type\n"
+      )
+      (ast_to_string t) loc 
+    in 
+    write_log clog log;
+    begin match t1.desc with 
+      | Trm_decl (Def_typ(_,dx)) -> 
+        let field_list, field_map =
+          match dx.ty_desc with 
+            | Typ_struct (l,m,_) -> l,m
+            | _ -> fail t.loc "inline_struct_aux: The type shoudl be a typedef struct"
+        in  
+        begin match t.desc with 
+        | Trm_decl (Def_typ(x1,dx1)) -> 
+            let field_list1, field_map1,name = 
+              match dx1.ty_desc with
+              | Typ_struct(l,m,n) -> l,m,n
+              |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
+            in 
+          
+          (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
+          let keys_list = if struct_fields = [] then Field_map.fold(fun k v acc -> if v = (typ_var x1) then k :: acc else acc) field_map1 []
+
+            else struct_fields 
+            in
+          
+          (* Apply the labels *)
+          let temp_field_list = apply_labels field_list keys_list in 
+          
+          (* The key values from the first struct *)
+          let values = List.map (fun x -> Field_map.find x field_map) field_list in 
+
+          (* Add the new keys with their values to the second  struct field_map *)
+          let field_map1 = add_keys_to_map values temp_field_list field_map1 in 
+          
+
+          let field_list1 = insert_list keys_list temp_field_list field_list1 in 
+          
+          
+          let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 keys_list in
+          
+          let field_list1 = list_remove_set  keys_list field_list1 in 
+
+          (* do removal at the end_*)
+          (* (m',l') = remove_keys_from_list_and_map xs  (m,l) *)
+          (*   insert_bindings_in_list_and_map  field_before_x  new_bindings (m,l) *)
+          (*  List.fold_left (fun (x,t) acc -> Fmap.add x t acc) new_bindings m *)
+
+          (* record_get_typed_fields (fields_list, fields_map) =
+                list (string * typ) : list =
+                 List.combine fields_list (get_values fields_list fields_map) *)
+
+        (* Solution better: 
+              let fmap_of_list xts =  List.fold_left (fun (x,t) acc -> Fmap.add x t acc) new_bindings Fmap.empty 
+              typ_struct typ_fields_list = Typ_struct (List.keys typ_fields_list, Fmap.of_list typ_fields_list)
+        *)
+          (* List documentation 
+          let prefix = here it is "pos"
+          let xts = (record_get_typed_fields .. ) in
+          let yts = List.map (fun (x,t) -> (prefix ^ "_" ^ x, t)) xts in
+          insert_bindings_in_list prefix yts target_bindings
+
+          let insert_bindings_in_list prefix yts xts =
+            match xts with
+            | [] -> error 
+            | x::xts' -> if x = prefix then x::(yts@xts') else x::(insert_bindings_in_list prefix yts xts')
+            
+
+           List;fold left right f
+           List.fold_left2   (List.combine / split)  *)
+
+          trm_decl (Def_typ (x1,typ_struct field_list1 field_map1 name))
+        
+        | _ -> fail t.loc "inline_struct_aux: expected a definiton"
+        end
+      | _ -> fail t.loc " inline_struct_aux: expected a definiton"
+      end
+
+
+
+
+let change_struct_access  (x : typvar) (t : trm) : trm = 
+  let rec aux (global_trm : trm) (t : trm) : trm = 
+    match t.desc with 
+    | Trm_apps (f, [base]) ->
+      begin match f.desc with 
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
+          if y = x then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
+          else 
+          begin match base.desc with 
+          | Trm_apps (f',[base']) ->
+            begin match f'.desc with 
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_access z)))
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x -> 
+                let new_var = z ^"_"^ y in
+                let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
+              in
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
+                     ~add:t.add ~typ:t.typ new_f [base']
+            | _ -> trm_map (aux global_trm) t
+            end
+          | _ -> trm_map (aux global_trm) t
+          end
+
+      | _ -> trm_map (aux global_trm) t
+      end
+    
+      (* other cases: recursive call *)
+    | _ -> trm_map (aux global_trm) t
+in 
+aux t t
+
+
+
+
+
+let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (t :trm) : trm = 
+  let base_struct_path = [cType ~name:base_struct_name()] in 
+  let epl_of_base_struct = resolve_path (List.flatten base_struct_path) t in 
+  let base_struct_term = match epl_of_base_struct with 
+    | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+    | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
+  in 
+  let struct_path = [cType ~name:struct_name ()] in 
+  let epl_of_struct = resolve_path (List.flatten struct_path) t in 
+  let struct_term = match epl_of_struct with 
+  | [dl] -> 
+    let (t_def,_) = resolve_explicit_path dl t in t_def 
+  | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
+  in 
+  
+  let pos = get_pos x struct_term in 
+  let rec aux (global_trm : trm) (t : trm) = 
+    match t.desc with 
+    | Trm_struct term_list -> 
+
+      begin match t.typ with 
+      | Some{ ty_desc = Typ_var y;_} when y = struct_name -> 
+        
+        let el = List.nth term_list pos in 
+        
+        begin match el.desc with 
+        | Trm_struct inner_term_list -> trm_struct (insert_sublist_in_list inner_term_list pos term_list)
+          
+        | Trm_apps(_,[body]) -> 
+          
+          begin match body.desc with 
+          | Trm_var _p ->  (*trm_struct (List.rev term_list)*) 
+              let field_list = 
+              match base_struct_term.desc with 
+                | Trm_decl(Def_typ(_,dx)) ->
+                  begin match dx.ty_desc with 
+                    | Typ_struct (fl,_,_) -> fl 
+                    | _ -> fail t.loc "change_struct_initializaition: expected a struct"
+                  end
+                | _ -> fail t.loc "change_struct_initialization: expected a definition"
+              in 
+              let field_list = List.map (fun el -> trm_var (_p ^ "." ^ el)) field_list
+              in trm_struct (insert_sublist_in_list field_list pos term_list)
+          | _ -> fail t.loc "change_struct_initialization: expected either a record or a variables"
+          end
+        | _ -> fail t.loc "change_struct_initialization: expected either a record or a variables"
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    | _ -> trm_map (aux global_trm) t
+  in 
+  aux t t
+
+let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : string) (t : trm) : trm =
+  
+  let field_name = List.hd struct_fields in 
+  
+  let struct_term_path  = [cType ~name:name ()] in 
+  let p_of_struct_term = List.flatten struct_term_path in
+  let epl_of_struct_term = resolve_path p_of_struct_term t in 
+  let struct_term = match epl_of_struct_term with 
+    | [dl] -> 
+      let(t_def,_) = resolve_explicit_path dl t in t_def
+    | _ -> fail t.loc "inline_struct: expected a typedef struct"
+    in 
+  (* Get the type of the field_name by going through the field_map of struct obj *)
+  let inner_struct_name = 
+  match struct_term.desc with 
+  | Trm_decl (Def_typ(_,dx)) ->
+    let field_map = 
+      match dx.ty_desc with
+      | Typ_struct (_,m,_) -> m
+      | _ -> fail t.loc "inline_struct: the type should be a typedef struct"
+    in 
+    let field_map_typ = Field_map.find field_name field_map in 
+  
+     
+    begin match field_map_typ.ty_desc with 
+    | Typ_var y -> y
+    | _ -> fail t.loc "inline_struct: expeted a typ var as the value of a key  "
+    end
+  | _ -> fail t.loc "inline_struct: expected a definition"
+  in 
+   
+    let  pl_temp = [cType ~name:inner_struct_name()]  in
+    let p_temp = List.flatten pl_temp in
+    let epl_temp = resolve_path p_temp t in 
+    let t1 = 
+    match epl_temp with
+    | [dl] -> 
+      let (t_def,_) = resolve_explicit_path dl t in t_def
+    | _ -> fail t.loc "inline_struct: expected a typedef struct"
+    in
+    
+    
+   let t =  List.fold_left (fun acc_t x -> change_struct_access x acc_t) t struct_fields
+    in
+    
+    let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t struct_fields
+    in
+    
+    let p = List.flatten struct_term_path in
+    let b = !Flags.verbose in
+    Flags.verbose := false;
+    let epl = resolve_path p t in
+    Flags.verbose := b;
+    match epl with 
+    | [] -> 
+      print_info t.loc "inline_struct: no matching subterm";
+      t
+    | _ -> 
+      List.fold_left 
+        (fun t dl -> 
+          apply_local_transformation (change_struct_fields clog ~struct_fields t1) t dl)
+        t
+        epl 

@@ -1245,12 +1245,12 @@ let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move
 
 let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(struct_fields : fields = []) (): unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.inline_struct ctx.clog struct_name ~struct_fields);
+    (fun ctx -> Inlining.inline_struct ctx.clog struct_name ~struct_fields);
   write_log "\n"
 
 let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.inline_record_access ctx.clog  field var);
+    (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n"
 (*
 let make_explicit_record_assignment ?(replace_top : bool = false) (x : typvar) : unit =
@@ -1326,7 +1326,7 @@ let inline_seq ?(replace_top : bool = false) ~seq_path:(pl : path list)
       (string_of_path (List.flatten pl))
   in
   write_log log;
-  apply_to_top ~replace_top (fun ctx -> Transformations.inline_seq ctx.clog pl);
+  apply_to_top ~replace_top (fun ctx -> Inlining.inline_seq ctx.clog pl);
   write_log "\n"
 
 (* todo: generalise to all attributes *)
