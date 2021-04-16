@@ -1199,7 +1199,7 @@ let loop_coloring ?(replace_top : bool = false) (pl : path list) (c: var) (new_v
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Transformations.loop_coloring ctx.clog pl c new_var);
+      (fun ctx -> Loops.loop_coloring ctx.clog pl c new_var);
     write_log "\n"
 
 let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var) (new_var : var): unit =
@@ -1208,7 +1208,7 @@ let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var) (new_var :
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Transformations.loop_tile ctx.clog pl b new_var);
+      (fun ctx -> Loops.loop_tile ctx.clog pl b new_var);
     write_log "\n"
 
 let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
@@ -1217,7 +1217,7 @@ let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Transformations.loop_swap ctx.clog pl );
+      (fun ctx -> Loops.loop_swap ctx.clog pl );
     write_log "\n"
 
 let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit =
@@ -1226,7 +1226,7 @@ let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index 
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Transformations.move_loop_before ctx.clog pl loop_index);
+      (fun ctx -> Loops.move_loop_before ctx.clog pl loop_index);
     write_log "\n"
 
 let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit =
@@ -1235,12 +1235,12 @@ let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index :
     in
     write_log log;
     apply_to_top ~replace_top
-      (fun ctx -> Transformations.move_loop_after ctx.clog pl loop_index);
+      (fun ctx -> Loops.move_loop_after ctx.clog pl loop_index);
     write_log "\n"
 
 let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move_after : string = "" ) (loop_index : string) : unit =
     apply_to_top ~replace_top
-      (fun ctx -> Transformations.move_loop ctx.clog  ~move_before ~move_after loop_index);
+      (fun ctx -> Loops.move_loop ctx.clog  ~move_before ~move_after loop_index);
     write_log "\n"
 
 let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(struct_fields : fields = []) (): unit =
@@ -1252,12 +1252,7 @@ let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(
   apply_to_top ~replace_top
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n"
-(*
-let make_explicit_record_assignment ?(replace_top : bool = false) (x : typvar) : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Transformations.make_explicit_record_assignment ctx.clog x );
-  write_log "\n"
-*)
+
 let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.make_explicit_record_assigment ctx.clog ~struct_name pl);
