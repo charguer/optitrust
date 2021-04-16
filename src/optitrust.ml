@@ -383,11 +383,11 @@ let clean_path_decorators () : unit =
     apply_to_top ~replace_top:false (fun _ -> Transformations.delete_path_decorators)
 
 let delete_label ?(replace_top : bool = false) (label : string) : unit =
-  apply_to_top ~replace_top (fun _ -> Transformations.delete_label label)
+  apply_to_top ~replace_top (fun _ -> Labels.delete_label label)
 
 (* delete the labels which have a prefix in the list *)
 let delete_labels ?(replace_top : bool = false) (sl : string list) : unit =
-  apply_to_top ~replace_top (fun _ -> Transformations.delete_labels sl)
+  apply_to_top ~replace_top (fun _ -> Labels.delete_labels sl)
 
 (*
   transformation to swap the two first dimensions of an array
@@ -459,7 +459,7 @@ let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
           block2_label split_name pl t
       in
       if keep_labels then t else
-        Transformations.delete_labels [result_label; block1_label; block2_label]
+        Labels.delete_labels [result_label; block1_label; block2_label]
           t
     );
   write_log "\n"
@@ -494,7 +494,7 @@ let extract_loop_var ?(replace_top : bool = false) ?(keep_label : bool = false)
   apply_to_top ~replace_top
     (fun ctx t ->
       let t = Extract_loop_var.extract_loop_var ctx.clog result_label pl t in
-      if keep_label then t else Transformations.delete_label result_label t
+      if keep_label then t else Labels.delete_label result_label t
     );
   write_log "\n"
 
@@ -508,7 +508,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
   apply_to_top ~replace_top
     (fun ctx t ->
       let t = Extract_loop_var.extract_loop_vars ctx.clog result_label pl t in
-      if keep_label then t else Transformations.delete_label result_label t
+      if keep_label then t else Labels.delete_label result_label t
     );
   write_log "\n"
 
@@ -555,7 +555,7 @@ let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
           loop2_label pl t
       in
       if keep_labels then t else
-        Transformations.delete_labels [result_label; loop1_label; loop2_label] t
+        Labels.delete_labels [result_label; loop1_label; loop2_label] t
     );
   write_log "\n"
 
