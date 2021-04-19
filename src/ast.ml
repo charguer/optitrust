@@ -23,22 +23,6 @@ type 'a fmap = 'a Field_map.t
 (* labels *)
 type label = string
 
-(* patterns *)
-type pat = trm 
-
-(* rewrite_rule *)
-type rewrite_rule = {name : string; source : pat; target : string}
-
-(* basic rewrite rules *)
-type base = rewrite_rule list 
-
-(* pattern instantiation *)
-module Trm_map = Map.Make(String) 
-
-type 'a tmap = 'a Trm_map.t
-
-type instantiation = trm tmap 
-
 (* array sizes *)
 type size =
   | Undefined (* t[] *)
@@ -244,6 +228,22 @@ and abort =
   | Ret of trm option (* return;  or return 3; *)
   | Break
   | Continue 
+
+(* patterns *)
+type pat = trm 
+
+(* rewrite_rule *)
+type rewrite_rule = {name : string; source : pat; target : string}
+
+(* basic rewrite rules *)
+type base = rewrite_rule list 
+
+(* pattern instantiation *)
+module Trm_map = Map.Make(String) 
+
+type 'a tmap = 'a Trm_map.t
+
+type instantiation = trm tmap 
 
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (x : typvar) : typ =
