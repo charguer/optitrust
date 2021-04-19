@@ -1032,7 +1032,15 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
 
 
 (* Create an instance of the pattern *)
-(* let pattern_instantiate (t : trm) (p : pat) : instatiation =  *)
+let pattern_instantiate (t : trm) (p : pat) : instatiation option =  
+  let rec aux p t = 
+    match p, t with 
+    | var x, _ ->
+      Trm_map.mem x tm 
+
+
+       
+
 
 (* Check if rule is applicable *)
 (* let is_rule_applicable (t : trm) (p : pat) : bool = 

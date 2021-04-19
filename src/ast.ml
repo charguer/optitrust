@@ -23,6 +23,22 @@ type 'a fmap = 'a Field_map.t
 (* labels *)
 type label = string
 
+(* patterns *)
+type pat = trm 
+
+(* rewrite_rule *)
+type rewrite_rule = {name : string; source : pat; target : string}
+
+(* basic rewrite rules *)
+type base = rewrite_rule list 
+
+(* pattern instantiation *)
+module Trm_map = Map.Make(String) 
+
+type 'a tmap = 'a Trm_map.t
+
+type instantiation = trm tmap 
+
 (* array sizes *)
 type size =
   | Undefined (* t[] *)

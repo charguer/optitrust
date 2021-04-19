@@ -1289,6 +1289,12 @@ let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "")
     (fun ctx -> Transformations.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);
     write_log "\n"
 
+(* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : path list = [ ]) : () : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.rewrite ctx.clog rule path );
+  write_log "\n"
+*)
+
 let aos_to_soa ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
   let log : string =
