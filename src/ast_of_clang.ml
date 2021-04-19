@@ -631,13 +631,26 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
              the result of a struct_get/array_get
              question: other cases?
             *)
+            (*
+              case1: b was a function argument
+              case2: b was a stack variable turned into heap variable
+              case3: b was a const  --like in case 1.
+
+              b->f
+              b.f 
+
+              case1: b.f   is struct_get f b,   b->f   is just ( * b).f  meaning (struct_get f (get b))
+              case2: b.f   translates to  b->f 
+                     b->f   translates to ( * b) -> f            
+                     the call to translate base already gives you "b" as "*b"
+              
+            *)
             begin match base.desc with
               | Trm_var x when not (is_heap_var x) ->
-                if b then
-                  fail loc
-                    "translate_expr: arrow field access should be on a pointer"
-                else
-                  trm_apps ~loc ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
+                let base = if b then trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [base] else base in
+                  (* fail loc
+                    "translate_expr: 1arrow field access should be on a pointer" *)
+                trm_apps ~loc ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
               | Trm_apps
                   ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
               | Trm_apps
@@ -645,7 +658,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
                    _) ->
                 if b then
                   fail loc
-                    "translate_expr: arrow field access should be on a pointer"
+                    "translate_expr: 2arrow field access should be on a pointer"
                 else
                   trm_apps ~loc ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
               | _ ->

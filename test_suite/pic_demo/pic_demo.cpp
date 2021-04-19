@@ -27,10 +27,10 @@ vect vect_add(vect v1, vect v2) {
 }
 
 vect vect_mul(double d, vect v) {
-  vect v = { d * v.x,
+  vect r = { d * v.x,
              d * v.y,
              d * v.z };
-  return v;
+  return r;
 }
 
 // --------- Module Particle
@@ -50,23 +50,23 @@ typedef struct {
   particle items[bagCapacity];
 } bag;
 
-void bag_push(bag& b, particle p) {
+void bag_push(bag* b, particle p) {
   // assert(b.nb < bagCapacity);
-  b.items[b.nb] = p;
-  b.nb++;
+  b->items[b->nb] = p;
+  b->nb++;
 }
 
-void bag_clear(bag& b) {
-  b.nb = 0;
+void bag_clear(bag* b) {
+  b->nb = 0;
 }
 
-void bag_transfer(bag& b1, bag& b2) {
+void bag_transfer(bag* b1, bag* b2) {
   // Move all items from b2 into b1
   // Note: in the real code, bags are linked lists,
   // so this operation only involves a pointer assignment,
   // not a deep copy of an array.
-  for (int i = 0; i < b2.nb; i++) {
-    bag_push(b1, b2.items[i]);
+  for (int i = 0; i < b2->nb; i++) {
+    bag_push(b1, b2->items[i]);
   }
   bag_clear(b2);
 }
@@ -108,36 +108,36 @@ int main() {
       // Read the electric field that applies to the cell considered
       vect field = fields[idCell];
 
-      // Foreach particle in that cell
-      bag& b = bagsCur[idCell];
-      int nb = b.nb;
+      // Foreach particle in the cell considered
+      bag* b = &bagsCur[idCell];
+      int nb = b->nb;
       for (int idParticle = 0; idParticle < nb; idParticle++) {
-        // get the particle
-        particle& p = b.items[idParticle];
+        // Read the particle in memory
+        particle p = b->items[idParticle];
 
-        // compute speed and position
+        // Compute the new speed and position for the particle
         vect speed2 = vect_add(p.speed, vect_mul(charge, field));
         vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
-        // deposit particle charge
+        // Deposit the charge of the particle in array "nextCharge"
         int idCell2 = idCellOfPos(pos2);
         nextCharge[idCell2] += charge;
 
-        // write particle into target cell
+        // Write the updated particle in the bag associaetd with its new cell
         particle p2 = { speed2, pos2 };
-        bag_push(bagsNext[idCell2], p2);
+        bag_push(&bagsNext[idCell2], p2);
       }
 
-      // empty the source cell
-      bag_clear(bagsCur[idCell]);
+      // At the end of the time step, clear the contents of the bag
+      bag_clear(&bagsCur[idCell]);
     }
 
-    // update charge field
+    // Update the new field based on the total charge accumulated in each cell
     updateFieldsUsingNextCharge();
 
-    // assign next to current
+    // For the next time step, the contents of bagNext is moved into bagCur
     for (int idCell = 0; idCell < nbCells; idCell++) {
-      bag_transfer(bagsCur[idCell], bagsNext[idCell]);
+      bag_transfer(&bagsCur[idCell], &bagsNext[idCell]);
     }
 
   }
@@ -160,3 +160,4 @@ for (int idCell...)
       }
     }
   */
+ /* LATEr: bag& b = bagsCur[idCell];   put back this in the code */
