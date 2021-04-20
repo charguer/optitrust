@@ -4,6 +4,7 @@ open Ast_to_c
 open Ast_to_text
 open Ast_of_clang
 
+
 (******************************************************************************)
 (*                             Context management                             *)
 (******************************************************************************)
@@ -121,6 +122,10 @@ let set_init_source (filename : string) : unit =
      trace := [({extension; directory; prefix; includes; clog}, astStack)];
      print_info None "Starting script execution...\n"
   | _ -> failwith "set_init_source: context not clean"
+
+(* Change the flag -reapeat-io (default is true)  *)
+let set_repeat_io (b:bool) : unit =
+  Flags.repeat_io := b
 
 (*
   branching function
@@ -325,6 +330,7 @@ open Path
 include Path_constructors
 
 type path = Path.path
+type paths = path list
 type case_dir = Path.case_dir
 type abort_kind = Path.abort_kind
 type constr_access = Path.constr_access
@@ -354,7 +360,7 @@ let apply_to_top ?(replace_top : bool = false)
   if several terms are pointed, then use indices (label_i)
  *)
 let add_label ?(replace_top : bool = false) (label : string)
-  (pl : path list) : unit =
+  (pl : paths) : unit =
   apply_to_top ~replace_top (fun _ -> Label.add_label label pl)
 
 
@@ -369,7 +375,7 @@ let add_label ?(replace_top : bool = false) (label : string)
       } /*>2@*/
     } /*>1@*/ *)
 (* delete the label *)
-let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previous : bool = false) (pl : path list) : unit =
+let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previous : bool = false) (pl : paths) : unit =
     apply_to_top ~replace_top (fun _ t ->
     let t =
       if not keep_previous
@@ -378,6 +384,45 @@ let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previo
       in
     Transformations.show_path ~debug_ast pl t
     )
+
+let show_ast ?(file:string="_ast.txt") ?(stdout:bool=true) (pl : paths) : unit =
+  apply_to_top ~replace_top:false (fun _ t ->
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in  (* TODO : get it of this stupid thing *)
+  Flags.verbose := false;
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+ 
+  match epl with 
+  | [] ->
+    print_info t.loc "show_path: not matching subterm\n";
+  t
+  | _ ->
+     (*
+         folding works since no path in epl is the prefix of a subsequent path
+      *)
+     let out_ast = open_out file in   
+     let t= (foldi
+       (fun i -> Transformations.apply_local_transformation
+         (fun t -> 
+            output_string out_ast (Printf.sprintf "=========================Occurence %i======================\n" i);
+            print_ast ~only_desc:true out_ast t;
+            output_string out_ast "\n\n";
+            output_string out_ast (Printf.sprintf "------------------------Occurence %i details---------------\n" i);
+            print_ast ~only_desc:false out_ast t;
+            output_string out_ast "\n\n";
+            t)  
+                   
+       ) t epl) in
+     
+     close_out out_ast;
+     if stdout then begin
+        let s = Xfile.get_contents file in
+        Printf.printf "%s\n" s
+     end;
+     t)
+       
+
 
 let clean_path_decorators () : unit =
     apply_to_top ~replace_top:false (fun _ -> Transformations.delete_path_decorators)
@@ -434,7 +479,7 @@ let swap_coordinates ?(replace_top : bool = false)
 let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
   ?(labels : string list = [])
   ?(split_name : string -> string = fun x -> x ^ "_split")
-  (pl : path list) : unit =
+  (pl : paths) : unit =
   let (result_label, block1_label, block2_label) =
     match labels with
     | [] -> ("result", "result_block1", "result_block2")
@@ -485,7 +530,7 @@ let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
     + the path points to the loop
  *)
 let extract_loop_var ?(replace_top : bool = false) ?(keep_label : bool = false)
-  ?(label : string = "") (pl : path list) : unit =
+  ?(label : string = "") (pl : paths) : unit =
   let result_label = if label = "" then "result" else label in
   let log : string =
     Printf.sprintf "Extract_loop_var %s:\n" (string_of_path (List.flatten pl))
@@ -499,7 +544,7 @@ let extract_loop_var ?(replace_top : bool = false) ?(keep_label : bool = false)
   write_log "\n"
 
 let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
-  ?(label : string = "") (pl : path list) : unit =
+  ?(label : string = "") (pl : paths) : unit =
   let result_label = if label = "" then "result" else label in
   let log : string =
     Printf.sprintf "Extract_loop_vars %s:\n" (string_of_path (List.flatten pl))
@@ -535,7 +580,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
     - labels = [l1, l2, l3] -> (l1, l2, l3)
  *)
 let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
-  ?(labels : string list = []) (pl : path list) : unit =
+  ?(labels : string list = []) (pl : paths) : unit =
   let (result_label, loop1_label, loop2_label) =
     match labels with
     | [] -> ("result", "result_loop1", "result_loop2")
@@ -566,7 +611,7 @@ let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
 let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
   ?(labels : string list = [])
   ?(split_name : string -> string = fun x -> x ^ "_split")
-  (pl : path list) : unit =
+  (pl : paths) : unit =
   let (result_label, loop1_label, loop2_label) =
     match labels with
     | [] -> ("result", "result_loop1", "result_loop2")
@@ -701,8 +746,8 @@ let tile_array ?(replace_top : bool = false)
   both must be resolved as paths to a seq element
   bonus: check that inserting the given trm gives a valid ast
  *)
-(* let insert_trm ?(replace_top : bool = false) ?(insert_before : path list = [])
- *   ?(insert_after : path list = []) ~term:(t_inserted : trm) (_ : unit) : unit =
+(* let insert_trm ?(replace_top : bool = false) ?(insert_before : paths = [])
+ *   ?(insert_after : paths = []) ~term:(t_inserted : trm) (_ : unit) : unit =
  *   apply_to_top ~replace_top
  *     (fun _ ->
  *       Transformations.insert_trm ~insert_before ~insert_after t_inserted) *)
@@ -715,14 +760,14 @@ let tile_array ?(replace_top : bool = false)
   effects)
  *)
 (* let change_trm ?(replace_top : bool = false)
- *   ?(change_at : path list list = [[]]) ~before:(t_before : trm)
+ *   ?(change_at : paths list = [[]]) ~before:(t_before : trm)
  *   ~after:(t_after : trm) (_ : unit) : unit =
  *   apply_to_top ~replace_top
  *     (fun _ -> Transformations.change_trm ~change_at t_before t_after) *)
 
 (* same as change_trm but for types *)
 (* let change_typ ?(replace_top : bool = false)
- *   ?(change_at : path list list = [[]]) ~before:(ty_before : typ)
+ *   ?(change_at : paths list = [[]]) ~before:(ty_before : typ)
  *   ~after:(ty_after : typ) (_ : unit) : unit =
  *   apply_to_top ~replace_top
  *     (fun _ -> Transformations.change_typ ~change_at ty_before ty_after) *)
@@ -736,7 +781,7 @@ let tile_array ?(replace_top : bool = false)
   *x instead of &dx' with x
  *)
 let fold_decl ?(replace_top : bool = false) ?(as_reference : bool = false)
-  ?(fold_at : path list list = [[]]) ~decl_path:(pl : path list)
+  ?(fold_at : paths list = [[]]) ~decl_path:(pl : paths)
   (_ : unit) : unit =
   let log : string =
     Printf.sprintf "Fold_decl ~decl_path:%s:\n"
@@ -759,8 +804,8 @@ let fold_decl ?(replace_top : bool = false) ?(as_reference : bool = false)
     - if x is a reference, dx denotes a memory cell
   todo: allow for dx of type trm (and use it to implement string version)
  *)
-let insert_decl ?(replace_top : bool = false) ?(insert_before : path list = [])
-  ?(insert_after : path list = []) ?(const : bool = false)
+let insert_decl ?(replace_top : bool = false) ?(insert_before : paths = [])
+  ?(insert_after : paths = []) ?(const : bool = false)
   ?(as_reference : bool = false) ~name:(x : var) ~value:(dx : string)
   (_ : unit) : unit =
   let p =
@@ -838,8 +883,8 @@ let insert_decl ?(replace_top : bool = false) ?(insert_before : path list = [])
   write_log "\n"
 
 (* same as insert_definition but for a constant *)
-let insert_const ?(replace_top : bool = false) ?(insert_before : path list = [])
-  ?(insert_after : path list = []) ~name:(name : var) ~value:(value : string)
+let insert_const ?(replace_top : bool = false) ?(insert_before : paths = [])
+  ?(insert_after : paths = []) ~name:(name : var) ~value:(value : string)
   (_ : unit) : unit =
   let (log_begin, log_end) : string * string =
     (Printf.sprintf "##### Start of insert_const ~name:%s ~value:%s #####\n\n"
@@ -858,9 +903,9 @@ let insert_const ?(replace_top : bool = false) ?(insert_before : path list = [])
   value through all its occurences
  *)
 let insert_and_fold ?(replace_top : bool = false)
-  ?(insert_before : path list = []) ?(insert_after : path list = [])
+  ?(insert_before : paths = []) ?(insert_after : paths = [])
   ?(const : bool = false) ?(as_reference : bool = false)
-  ?(fold_at : path list list = [[]]) ~name:(x : var) ~value:(dx : string)
+  ?(fold_at : paths list = [[]]) ~name:(x : var) ~value:(dx : string)
   (_ : unit) : unit =
   let p =
     match insert_before, insert_after with
@@ -962,7 +1007,7 @@ let type_ (ctx : context) ?(context : string = "") (s : string) : typ =
   todo: allow for dx of type typ
  *)
 let insert_typedef ?(replace_top : bool = false)
-  ?(insert_before : path list = []) ?(insert_after : path list = [])
+  ?(insert_before : paths = []) ?(insert_after : paths = [])
   ~name:(x : typvar) ~value:(dx : string) (_ : unit) : unit =
   let p =
     match insert_before, insert_after with
@@ -1036,8 +1081,8 @@ let insert_typedef ?(replace_top : bool = false)
   apply_to_top ~replace_top insert_aux
 
 let insert_and_fold_typedef ?(replace_top : bool = false)
-  ?(insert_before : path list = []) ?(insert_after : path list = [])
-  ?(fold_at : path list list = [[]]) ~name:(x : typvar) ~value:(dx : string)
+  ?(insert_before : paths = []) ?(insert_after : paths = [])
+  ?(fold_at : paths list = [[]]) ~name:(x : typvar) ~value:(dx : string)
   (_ : unit) : unit =
   let p =
     match insert_before, insert_after with
@@ -1116,7 +1161,7 @@ let insert_and_fold_typedef ?(replace_top : bool = false)
   write_log "\n"
 
 (* todo: inlining with flag "error if occurrence" + flag "delete"? *)
-let remove_decl ?(replace_top : bool = false) ~decl_path:(pl : path list)
+let remove_decl ?(replace_top : bool = false) ~decl_path:(pl : paths)
   (_ : unit) : unit =
   let log : string =
     let ps = string_of_path (List.flatten pl) in
@@ -1132,8 +1177,8 @@ let remove_decl ?(replace_top : bool = false) ~decl_path:(pl : path list)
   write_log "\n"
 
 let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
-  ?(inline_at : path list list = [[]]) ?(fun_result : var = "res")
-  ?(fun_return_label : label = "exit") ~decl_path:(pl : path list)
+  ?(inline_at : paths list = [[]]) ?(fun_result : var = "res")
+  ?(fun_return_label : label = "exit") ~decl_path:(pl : paths)
   (_ : unit) : unit =
   let log : string =
     let ps = string_of_path (List.flatten pl) in
@@ -1150,7 +1195,7 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
        ~fun_return_label pl);
   write_log "\n"
 
-let fields_reorder ?(replace_top : bool = false) (pl : path list) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit =
+let fields_reorder ?(replace_top : bool = false) (pl : paths) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit =
   let log : string =
     let ps = string_of_path (List.flatten pl) in
     Printf.sprintf
@@ -1184,7 +1229,7 @@ let fields_reorder ?(replace_top : bool = false) (pl : path list) ?(struct_field
   "remove all unused generated variables"
  *)
 let tile_loop ?(replace_top : bool = false)
-  (pl : path list) : unit =
+  (pl : paths) : unit =
   let log : string =
     Printf.sprintf "Tile_loop %s:\n" (string_of_path (List.flatten pl))
   in
@@ -1193,7 +1238,7 @@ let tile_loop ?(replace_top : bool = false)
     (fun ctx -> Loop.tile_loop ctx.clog pl);
   write_log "\n"
 
-let loop_coloring ?(replace_top : bool = false) (pl : path list) (c: var) (new_var : var): unit =
+let loop_coloring ?(replace_top : bool = false) (pl : paths) (c: var) (new_var : var): unit =
     let log : string =
       Printf.sprintf "Transform_loop %s:\n" (string_of_path (List.flatten pl))
     in
@@ -1202,7 +1247,7 @@ let loop_coloring ?(replace_top : bool = false) (pl : path list) (c: var) (new_v
       (fun ctx -> Loop.loop_coloring ctx.clog pl c new_var);
     write_log "\n"
 
-let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var) (new_var : var): unit =
+let loop_tile ?(replace_top : bool = false) (pl : paths) (b: var) (new_var : var): unit =
     let log : string =
       Printf.sprintf "Transform_loop %s:\n" (string_of_path (List.flatten pl))
     in
@@ -1211,7 +1256,7 @@ let loop_tile ?(replace_top : bool = false) (pl : path list) (b: var) (new_var :
       (fun ctx -> Loop.loop_tile ctx.clog pl b new_var);
     write_log "\n"
 
-let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
+let loop_swap ?(replace_top : bool = false) (pl : paths) : unit =
     let log : string =
       Printf.sprintf "Swap_loop %s:\n" (string_of_path (List.flatten pl))
     in
@@ -1220,7 +1265,7 @@ let loop_swap ?(replace_top : bool = false) (pl : path list) : unit =
       (fun ctx -> Loop.loop_swap ctx.clog pl );
     write_log "\n"
 
-let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit =
+let move_loop_before ?(replace_top : bool = false) (pl : paths) (loop_index : var) : unit =
     let log : string =
       Printf.sprintf "move_loop_before %s:\n" (string_of_path (List.flatten pl))
     in
@@ -1229,7 +1274,7 @@ let move_loop_before ?(replace_top : bool = false) (pl : path list) (loop_index 
       (fun ctx -> Loop.move_loop_before ctx.clog pl loop_index);
     write_log "\n"
 
-let move_loop_after ?(replace_top : bool = false) (pl : path list) (loop_index : var) : unit =
+let move_loop_after ?(replace_top : bool = false) (pl : paths) (loop_index : var) : unit =
     let log : string =
       Printf.sprintf "move_loop_after %s:\n" (string_of_path (List.flatten pl))
     in
@@ -1253,27 +1298,27 @@ let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n"
 
-let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list) : unit =
+let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (pl : paths) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Struct.make_explicit_record_assigment ctx.clog ~struct_name pl);
   write_log "\n"
 
-let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) (pl : path list) : unit =
+let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) (pl : paths) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label  pl);
     write_log "\n"
   
-let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : path list)  : unit = 
+let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : paths)  : unit = 
   apply_to_top ~replace_top 
   (fun ctx -> Struct.make_implicit_record_assignment ctx.clog struct_name pl);
   write_log "\n"
 
-let create_subsequence ?(replace_top : bool = false) ?(start : path list = []) ?(stop : path list = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit = 
+let create_subsequence ?(replace_top : bool = false) ?(start : paths = []) ?(stop : paths = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit = 
   apply_to_top ~replace_top
     (fun ctx -> Sequence.create_subsequence ctx.clog start stop stop_before stop_after label braces);
   write_log "\n"
 
-let array_to_variables ?(replace_top : bool = false) (dcl_path : path list) (new_vars : var list) : unit = 
+let array_to_variables ?(replace_top : bool = false) (dcl_path : paths) (new_vars : var list) : unit = 
   apply_to_top ~replace_top 
     (fun ctx -> Arrays.array_to_variables ctx.clog dcl_path new_vars);
     write_log "\n"
@@ -1289,7 +1334,7 @@ let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "")
     (fun ctx -> Transformations.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);
     write_log "\n"
 
-(* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : path list = [ ]) : () : unit = 
+(* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : paths = [ ]) : () : unit = 
   apply_to_top ~replace_top
     (fun ctx -> Transformations.rewrite ctx.clog rule path );
   write_log "\n"
@@ -1320,7 +1365,7 @@ let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
   write_log log;
   apply_to_top ~replace_top (fun _ -> Declaration.group_decl_init)
 
-let inline_seq ?(replace_top : bool = false) ~seq_path:(pl : path list)
+let inline_seq ?(replace_top : bool = false) ~seq_path:(pl : paths)
   (_ : unit) : unit =
   let log : string =
     Printf.sprintf "Inline_seq ~seq_path:%s:\n"
@@ -1332,7 +1377,7 @@ let inline_seq ?(replace_top : bool = false) ~seq_path:(pl : path list)
 
 (* todo: generalise to all attributes *)
 let add_attribute ?(replace_top : bool = false) (s : string)
-  (pl : path list) : unit =
+  (pl : paths) : unit =
   let log : string =
     let ps = string_of_path (List.flatten pl) in
     Printf.sprintf

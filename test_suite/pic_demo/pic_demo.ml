@@ -1,30 +1,14 @@
 open Optitrust
 
 
-(* TODO 
-
-addto optistruct.mli/ml
-
-let set_repeat_io b =
-  Flags.repeat_io := b
-
-*)
-
-(* TODO call in this file
-set_repeat_io true:
-*)
-
-
-
-
-
 let _ = 
   run
     ( fun () ->
       set_init_source "pic_demo.cpp";
       (* show_path [cVarDef ~name:"nbSteps"()]; *)
       (*show_path [cTopFun ~name:"vect_mul" ()];*)
-      (* detach_expression [cVarDef ~name:"v3"()] ~keep_label:false;  *)
+      show_ast [cVarDef ~name:"v3"()];
+      detach_expression [cVarDef ~name:"v3"()] ~keep_label:false; 
       (* inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"v_add" ()] (); *)
       (* show_path [cApp ~args:[cVar ~strict:true ~name:"p2" ()] ~validate:(List.mem true) ()] ~debug_ast:true; *)
       inline_decl ~delete_decl:true~decl_path:[cTopFun ~name:"bag_push" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
