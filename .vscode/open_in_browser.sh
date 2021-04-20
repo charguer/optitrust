@@ -20,7 +20,7 @@ WID=`xdotool search --screen 0 --name "${WINDOWTITLE}" | head -1`
 if [ -n "${WID}" ]; then
   #echo "found window to reuse"
   # Immediately brings the window to the front
-  echo ${WID}
+  # echo ${WID}
   # xdotool windowactivate $WID
   xdotool windowactivate --sync $WID
   #echo "now refreshing"

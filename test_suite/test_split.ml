@@ -1,5 +1,5 @@
 (* option: use option to add open at compile time *)
-open ScriptTools
+open Optitrust
 
 let _ =
   run

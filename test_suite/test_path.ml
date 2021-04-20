@@ -1,9 +1,9 @@
 open Clang.Ast
-open ScriptTools__Ast
-open ScriptTools__Paths
+open Optitrust__Ast
+open Optitrust__Paths
 open Path_constructors
-open ScriptTools__Clang_ast_parser
-open ScriptTools__Translate_ast
+open Optitrust__Clang_ast_parser
+open Optitrust__Translate_ast
 
 (*
   tests to be executed:
@@ -209,10 +209,10 @@ let rec compare_explicit_paths (epl : expl_path list)
 
 let test_path (ast : trm) (p : path) (expected_output : expl_path list) : unit =
   print_info None "Resolving path...\n";
-  let flag = !ScriptTools__Flags.verbose in
-  ScriptTools__Flags.verbose := false;
+  let flag = !Optitrust__Flags.verbose in
+  Optitrust__Flags.verbose := false;
   let epl = resolve_path p ast in
-  ScriptTools__Flags.verbose := flag;
+  Optitrust__Flags.verbose := flag;
   print_info None "Path resolution done. Result:\n";
   begin match epl with
   | [] -> print_info None "No subterm matched the path\n"
@@ -260,7 +260,7 @@ let test_file (filename : string)
 
 let _ =
   Arg.parse
-    ScriptTools__Flags.spec
+    Optitrust__Flags.spec
     (fun _ -> raise (Arg.Bad "Error: no argument expected"))
     ("usage: no argument expected, only options");
   List.iteri

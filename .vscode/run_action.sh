@@ -5,8 +5,22 @@
 # echo "in run_action"
 # echo "with args $*"
 
-echo "$*" > ./action.sh
+ACTION_OUT="./action_out.txt"
+ACTION_FILE="./action.sh"
 
-# TODO: rm action_out.txt; have the process wait until action_out.txt is created; 
-# then at this time, cat this file.
-#  can use a while loop with a sleep to wait for the change to exist with if -f.
+# Clear the output log file
+rm -f ${ACTION_OUT}
+touch ${ACTION_OUT}
+
+# Request watch.sh to execute the command by writing the command in action.sh
+echo "$*" > ${ACTION_FILE}
+
+# Watch for a change in the output file
+inotifywait -q -e modify ${ACTION_OUT}
+
+# When we get some change, display the contents of the log file
+sleep 0.01
+cat ${ACTION_OUT}
+
+
+

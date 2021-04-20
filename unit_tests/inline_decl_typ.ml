@@ -1,4 +1,4 @@
-open ScriptTools
+open Optitrust
 (* Not the expected result :
    - missing a "const" in the printing of type double;
    - mat3d typedef seems to vanish, why? *)

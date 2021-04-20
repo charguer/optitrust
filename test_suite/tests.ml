@@ -1,6 +1,6 @@
 let _ =
   Arg.parse
-    ScriptTools__Flags.spec
+    Optitrust__Flags.spec
     (fun s ->
       let prog = "test_suite/" ^ s ^ ".exe" in
       let _ =

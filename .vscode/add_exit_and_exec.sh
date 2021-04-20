@@ -14,6 +14,8 @@ OPTIONS=$4
 # Path to .vscode folder
 VSCODE=`pwd`
 
+# in option, run: make update
+
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
 
@@ -21,10 +23,23 @@ cd ${DIRNAME}
 ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 
 # Second, we compile that transformation program
-ocamlbuild -pkgs clangml,refl,pprint,str,optiTrust.optitrust "${FILEBASE}_with_exit.byte" || (echo "Cannot compile $1_with_exit.ml"; exit 1) 
+ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optiTrust.optitrust "${FILEBASE}_with_exit.byte" 
+
+OUT=$?
+if [ ${OUT} -ne 0 ];then
+  echo "Could not compile file"
+  exit 1
+fi
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
-./${FILEBASE}_with_exit.byte ${OPTIONS} | tee stdoutput.txt
+./${FILEBASE}_with_exit.byte ${OPTIONS} 
+# DEPREACTED | tee stdoutput.txt
+
+OUT=$?
+if [ ${OUT} -ne 0 ];then
+  echo "Could not execute script"
+  exit 1
+fi
 
 # Fourth, we vizualize the diff between these two files 
 

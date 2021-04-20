@@ -1013,6 +1013,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
   in   
   match epl with 
   | [] -> 
+    (* TODO: decide later whether the empty results should be treated as error *)
     print_info t.loc "detach_expression: no matching subterm";
     t
   | _ -> List.fold_left ( fun t dl -> app_transfo ~keep_label label t dl)

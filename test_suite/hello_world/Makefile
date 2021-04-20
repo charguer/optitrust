@@ -1,5 +1,5 @@
 all:
-	ocamlbuild -pkg optiTrust.scriptTools hello_world.native
+	ocamlbuild -pkg optiTrust.Optitrust hello_world.native
 	./hello_world.native
 
 clean:

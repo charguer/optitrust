@@ -385,7 +385,7 @@ let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previo
     Transformations.show_path ~debug_ast pl t
     )
 
-let show_ast ?(file:string="_ast.txt") ?(stdout:bool=true) (pl : paths) : unit =
+let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : paths) : unit =
   apply_to_top ~replace_top:false (fun _ t ->
   let p = List.flatten pl in 
   let b = !Flags.verbose in  (* TODO : get it of this stupid thing *)
@@ -405,6 +405,10 @@ let show_ast ?(file:string="_ast.txt") ?(stdout:bool=true) (pl : paths) : unit =
      let t= (foldi
        (fun i -> Transformations.apply_local_transformation
          (fun t -> 
+            if to_stdout then begin
+              print_ast ~only_desc:true stdout t;
+              output_string stdout "\n\n";
+            end;
             output_string out_ast (Printf.sprintf "=========================Occurence %i======================\n" i);
             print_ast ~only_desc:true out_ast t;
             output_string out_ast "\n\n";
@@ -414,12 +418,7 @@ let show_ast ?(file:string="_ast.txt") ?(stdout:bool=true) (pl : paths) : unit =
             t)  
                    
        ) t epl) in
-     
      close_out out_ast;
-     if stdout then begin
-        let s = Xfile.get_contents file in
-        Printf.printf "%s\n" s
-     end;
      t)
        
 

@@ -52,6 +52,7 @@ void stack_struct() {
   int a = v.x; // TODO print quotes in struct_access(v, "x")
   v.y = a + 2;
   vect v2 = v;
+  v2 = v;
 
   // nested structs//
   particle p1 = { v, v };

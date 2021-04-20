@@ -434,7 +434,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
   (f : trm) (tl : trm list) : document =
   match f.desc with
   | Trm_var x ->
-     if Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
+     if !decode && Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
         (* Note x is for example "overloaded=" *)
        let (d1, d2) =
          begin match List.map trm_to_doc tl with
@@ -461,6 +461,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
        else
          fail f.loc "apps_to_doc: unsupported operator"
      else
+       (* The generic case of a function being applied *)
        let rec aux d = function
          | [] -> d
          | [t] -> d ^^ trm_to_doc t

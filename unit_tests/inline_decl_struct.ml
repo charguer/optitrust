@@ -1,4 +1,4 @@
-open ScriptTools
+open Optitrust
 
 
 
@@ -22,7 +22,7 @@ let _ =
               (* 
               *)
         
-        (*(* internal not in scriptTools.mli *) inline_one_struct_in_struct ~name:"obj" "pos";
+        (*(* internal not in Optitrust.mli *) inline_one_struct_in_struct ~name:"obj" "pos";
         inline_struct_in_struct ~name:"obj" ["pos"];
         inline_struct_in_struct ~name:"obj" ["pos" ;"speed"]; *) 
         dump()

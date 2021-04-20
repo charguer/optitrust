@@ -9,7 +9,7 @@
     - on the return operation, add label 'stop'
 *)
 
-open ScriptTools
+open Optitrust
 
 let _ = 
   run

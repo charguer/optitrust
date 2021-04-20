@@ -7,7 +7,7 @@ let _ =
       set_init_source "pic_demo.cpp";
       (* show_path [cVarDef ~name:"nbSteps"()]; *)
       (*show_path [cTopFun ~name:"vect_mul" ()];*)
-      show_ast [cVarDef ~name:"v3"()];
+      (* show_ast [cVarDef ~name:"cdv3"()]; *)
       detach_expression [cVarDef ~name:"v3"()] ~keep_label:false; 
       (* inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"v_add" ()] (); *)
       (* show_path [cApp ~args:[cVar ~strict:true ~name:"p2" ()] ~validate:(List.mem true) ()] ~debug_ast:true; *)

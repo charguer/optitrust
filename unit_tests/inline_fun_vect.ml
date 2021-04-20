@@ -1,4 +1,4 @@
-open ScriptTools
+open Optitrust
 (*
 let _ = run_unit_test (fun () ->
    inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"f" ()] ();
