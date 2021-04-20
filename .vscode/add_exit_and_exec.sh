@@ -9,12 +9,22 @@
 DIRNAME=$1
 FILEBASE=$2
 LINE=$3
-OPTIONS=$4
+UPDATE=$4 # should be update or noupdated
+OPTIONS=$5
 
 # Path to .vscode folder
 VSCODE=`pwd`
+SRCFOLDER=${VSCODE}/..
 
-# in option, run: make update
+# Run make update in /src folder if requested
+if [ "${RECOMPILE}" -eq "update"]; then
+  make -C ${SRCFOLDER} update
+  OUT=$?
+  if [ ${OUT} -ne 0 ];then
+    echo "Could not compile lib"
+    exit 1
+  fi
+fi
 
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}

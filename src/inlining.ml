@@ -145,7 +145,7 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
         | _ ->
            trm_seq ~annot:(Some Delete_instructions) ~loc:t.loc
              ([
-                trm_seq ~loc:t.loc (*REMOVES the braces ~annot:(Some No_braces)*)
+                trm_seq ~loc:t.loc (*REMOVES the braces TODO: braces needed for scopes *) ~annot:(Some No_braces)
                   (arg_decls ++ (result_decl :: bodyl) ++
                    [
                      trm_labelled return_label

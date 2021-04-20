@@ -19,18 +19,18 @@ typedef struct {
 } vect;
 
 
-vect v_add(vect v1, vect v2) {
+vect vect_add(vect v1, vect v2) {
   vect r = { v1.x + v2.x,
              v1.y + v2.y,
              v1.z + v2.z };
   return r;
 }
 
-vect vect_add(vect v1, vect v2) {
-  vect v = { v1.x + v2.x,
+vect v_add(vect v1, vect v2) {
+  return { v1.x + v2.x,
              v1.y + v2.y,
              v1.z + v2.z };
-  return v;
+  // return v;
 }
 
 vect vect_mul(double d, vect v) {
