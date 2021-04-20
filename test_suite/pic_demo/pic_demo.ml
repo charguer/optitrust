@@ -8,11 +8,21 @@ let _ =
       (* show_path [cVarDef ~name:"nbSteps"()]; *)
       (*show_path [cTopFun ~name:"vect_mul" ()];*)
       (* show_ast [cVarDef ~name:"cdv3"()]; *)
-      detach_expression [cVarDef ~name:"v3"()] ~keep_label:false; 
+      (*detach_expression [cVarDef ~name:"v3"()] ~keep_label:false; 
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"v_add" ()]~fun_result:"myres" (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"myres"()] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v1_0"()] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v2_0"()] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v2_0"()] ();*)
+      detach_expression [cVarDef ~name:"speed2"()] ~keep_label:false; 
+      detach_expression [cVarDef ~name:"pos2"()] ~keep_label:false; 
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] (*~keep_labels:true *) ();
+      detach_expression [cVarDef ~name:"pos2"()] ~keep_label:false; 
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] (*~keep_labels:true *) ();
+
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_mul" ()] (*~keep_labels:true *) ();
+      
+      (* ~fun_result:"myres" *)
+
       (* show_path [cSeq ~args:[cStr "v3 = "] ~validate:(List.mem true) ()]; *)
       (* show_path [cSeq ~args:[cSet ~lhs:["v3 = "] ~validate:(List.mem true) ()]; *)
       (*

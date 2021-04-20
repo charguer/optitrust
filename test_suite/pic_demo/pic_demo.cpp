@@ -20,24 +20,15 @@ typedef struct {
 
 
 vect vect_add(vect v1, vect v2) {
-  vect r = { v1.x + v2.x,
-             v1.y + v2.y,
-             v1.z + v2.z };
-  return r;
-}
-
-vect v_add(vect v1, vect v2) {
   return { v1.x + v2.x,
              v1.y + v2.y,
              v1.z + v2.z };
-  // return v;
 }
 
 vect vect_mul(double d, vect v) {
-  vect r = { d * v.x,
+  return { d * v.x,
              d * v.y,
              d * v.z };
-  return r;
 }
 
 // --------- Module Particle
@@ -124,12 +115,11 @@ int main() {
 
         // Compute the new speed and position for the particle
         // inlining
-        vect v1,v2;
+        //vect v1,v2;
         //---compare with vect v3= vect_add(v1,v2);
-        vect v3 = v_add(v1,v2);
+        //vect v3 = v_add(v1,v2);
         // vect v3;
         // v3 = v_add(v1,v2);
-        
         vect speed2 = vect_add(p.speed, vect_mul(charge, field));
 
         /* goal is to generate:

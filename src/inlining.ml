@@ -20,75 +20,78 @@ open Declaration
 let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
   (return_label : label) (f : var) (tf : typ) (args : typed_var list)
   (body : trm) (t : trm) : trm =
-  (* new names replacing the argument names *)
-  let fresh_args = List.map (fun (x, tx) -> (fresh_in t x, tx)) args in
-  (* name for the result of f, result might be an argument name *)
-  let result =
-    fresh_in
-      (trm_seq
-         (t ::
-            List.map
-              (fun x_tx -> trm_decl (Def_var (x_tx, trm_lit Lit_uninitialized)))
-              fresh_args
-         )
-      )
-      result
-  in
-  (* result is heap allocated *)
-  let result_decl =
-    trm_seq ~annot:(Some Heap_allocated)
-      [trm_decl (Def_var ((result, typ_ptr tf), trm_prim (Prim_new tf)))]
-  in
-  (* body where the argument names are substituted *)
-  let body =
-    List.fold_left
-      (fun body (x, _) ->
-        change_trm
-          (trm_var x)
-          (* arguments will be heap allocated *)
-          (trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get)
-             [trm_var (fresh_in t x)])
-          body
-      )
-      body
-      args
-  in
-  (* body where res is used instead of return statements *)
-  let replace_return (t : trm) : trm =
-    let rec aux (t : trm) : trm =
-      match t.desc with
-      (* remove delete instruction related to return statement if any *)
-      | Trm_seq tl when t.annot = Some Delete_instructions ->
-         begin match List.rev tl with
-         | {desc = Trm_abort (Ret (Some r)); _} :: _ ->
-            trm_seq ~annot:(Some No_braces) ~loc:t.loc
-              [trm_set ~loc:t.loc ~is_instr:true (trm_var result) r;
-               trm_goto ~loc:t.loc return_label]
-         | {desc = Trm_abort (Ret None); _} :: _ ->
-            trm_goto ~loc:t.loc return_label
-         | _ -> trm_map aux t
-         end
-      | Trm_abort (Ret (Some r)) ->
-         trm_seq ~annot:(Some No_braces) ~loc:t.loc
-           [trm_set ~loc:t.loc ~is_instr:true (trm_var result) r;
-            trm_goto ~loc:t.loc return_label]
-      | Trm_abort (Ret None) -> trm_goto ~loc:t.loc return_label
-      | _ -> trm_map aux t
-    in
-    clean_up_no_brace_seq (aux t)
-  in
-  let body = replace_return body in
-  let bodyl =
-    match body.annot with
-    | Some Delete_instructions -> [body]
-    | _ ->
-       begin match body.desc with
-       | Trm_seq tl -> tl
-       | _ -> [body]
-       end
-  in
+  
   (* inline f everywhere in t *)
   let rec apply_change (t : trm) : trm =
+    Ast_to_text.print_ast ~only_desc:true stdout t; (* TODO: make show_ast  accessible from everywhere*)
+    (* new names replacing the argument names *)
+    let fresh_args = List.map (fun (x, tx) -> (fresh_in t x, tx)) args in
+    (* name for the result of f, result might be an argument name *)
+    let result =
+      fresh_in
+        (trm_seq
+          (t ::
+              List.map
+                (fun x_tx -> trm_decl (Def_var (x_tx, trm_lit Lit_uninitialized)))
+                fresh_args
+          )
+        )
+        result
+    in
+    (* result is heap allocated *)
+    let result_decl =
+      trm_seq ~annot:(Some Heap_allocated)
+        [trm_decl (Def_var ((result, typ_ptr tf), trm_prim (Prim_new tf)))]
+    in
+    (* body where the argument names are substituted *)
+    let body =
+      List.fold_left
+        (fun body (x, _) ->
+          change_trm
+            (trm_var x)
+            (* arguments will be heap allocated *)
+            (trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get)
+              [trm_var (fresh_in t x)])
+            body
+        )
+        body
+        args
+    in
+    (* body where res is used instead of return statements *)
+    let replace_return (t : trm) : trm =
+      let rec aux (t : trm) : trm =
+        match t.desc with
+        (* remove delete instruction related to return statement if any *)
+        | Trm_seq tl when t.annot = Some Delete_instructions ->
+          begin match List.rev tl with
+          | {desc = Trm_abort (Ret (Some r)); _} :: _ ->
+              trm_seq ~annot:(Some No_braces) ~loc:t.loc
+                [trm_set ~loc:t.loc ~is_instr:true (trm_var result) r;
+                trm_goto ~loc:t.loc return_label]
+          | {desc = Trm_abort (Ret None); _} :: _ ->
+              trm_goto ~loc:t.loc return_label
+          | _ -> trm_map aux t
+          end
+        | Trm_abort (Ret (Some r)) ->
+          trm_seq ~annot:(Some No_braces) ~loc:t.loc
+            [trm_set ~loc:t.loc ~is_instr:true (trm_var result) r;
+              trm_goto ~loc:t.loc return_label]
+        | Trm_abort (Ret None) -> trm_goto ~loc:t.loc return_label
+        | _ -> trm_map aux t
+      in
+      clean_up_no_brace_seq (aux t)
+    in
+    let body = replace_return body in
+    let bodyl =
+      match body.annot with
+      | Some Delete_instructions -> [body]
+      | _ ->
+        begin match body.desc with
+        | Trm_seq tl -> tl
+        | _ -> [body]
+        end
+    in
+    
     (* we look for instructions that contain a call to f *)
     if not (t.is_instr && contains_call_to_fun f t)
     then trm_map apply_change t

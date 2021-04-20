@@ -12,13 +12,22 @@ LINE=$3
 UPDATE=$4 # should be update or noupdated
 OPTIONS=$5
 
-# Path to .vscode folder
+# Path to .vscode folder and src folder and src/src folder
 VSCODE=`pwd`
-SRCFOLDER=${VSCODE}/..
+SRCFOLDER=`cd .. && pwd`
+SRCSRCFOLDER=`cd ../src && pwd`
+
+# Special treatment of src folder!
+if [ "${DIRNAME}" = "${SRCSRCFOLDER}" ]; then
+  make -C ${SRCFOLDER}
+  echo "Recompiled the lib, done."
+  exit 0
+fi
 
 # Run make update in /src folder if requested
-if [ "${RECOMPILE}" -eq "update"]; then
-  make -C ${SRCFOLDER} update
+if [ "${UPDATE}" = "update" ]; then
+  echo "recompile lib"
+  make -C ${SRCFOLDER}
   OUT=$?
   if [ ${OUT} -ne 0 ];then
     echo "Could not compile lib"
