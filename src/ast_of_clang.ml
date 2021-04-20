@@ -156,7 +156,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
   | _ -> trm_seq ~annot:(Some Delete_instructions) (tl ++ [t])
 
 (* names for overloaded operators (later matched for printing) *)
-let string_of_overloaded_op ?(loc : location = None)
+(* TODO: find the special syntex @-warning 8*) let string_of_overloaded_op ?(loc : location = None)
     (op : clang_ext_overloadedoperatorkind) : string =
   match op with
   | Plus -> "overloaded+"
@@ -589,8 +589,16 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
         end
     end
   | Call {callee = f; args = el} ->
-    let t = translate_expr f in
-    trm_apps ~loc ~is_instr ~typ t (List.map translate_expr el)
+    let tf = translate_expr f in
+    begin match tf.desc with
+    (* TODO: later think about other cases to handle here *)
+    | Trm_var x when Str.string_match (Str.regexp "overloaded=") x 0 ->
+        begin match el with 
+        | [tl;tr] -> trm_set ~loc ~is_instr (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
+        | _ -> fail loc "translate_expr: overloaded= expects two arguments"
+        end
+    | _-> trm_apps ~loc ~is_instr ~typ tf (List.map translate_expr el)
+    end
   | DeclRef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName s ->
