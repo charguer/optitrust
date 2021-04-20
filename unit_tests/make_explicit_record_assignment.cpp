@@ -25,6 +25,15 @@ int main() {
   // TODO LATER: demo of  insert_decl ~name:"x" ~body:"f()"
   //  what would be nice is to  insert_decl ~name:"x" ~body_path:[cVarDef "b"; cExpr ]
   obj a = {0,{0,0},0};
+  
+  vect t[2];
+  vect p2 = p;
+  t[0] = p2;
+  /* TODO; unrestricted
+  LFS = p;
+  ->
+  LFS.x = p.x;
+  */
 
   a.pos = p;
  

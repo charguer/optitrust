@@ -21,10 +21,10 @@ cd ${DIRNAME}
 ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 
 # Second, we compile that transformation program
-ocamlbuild -pkgs clangml,refl,pprint,str,optiTrust.optitrust "${FILEBASE}_with_exit.byte" || (echo "Cannot compile $1_with_exit.ml"; exit 1)
+ocamlbuild -pkgs clangml,refl,pprint,str,optiTrust.optitrust "${FILEBASE}_with_exit.byte" || (echo "Cannot compile $1_with_exit.ml"; exit 1) 
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
-./${FILEBASE}_with_exit.byte ${OPTIONS}
+./${FILEBASE}_with_exit.byte ${OPTIONS} | tee stdoutput.txt
 
 # Fourth, we vizualize the diff between these two files 
 

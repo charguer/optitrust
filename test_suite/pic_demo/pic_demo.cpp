@@ -19,6 +19,13 @@ typedef struct {
 } vect;
 
 
+vect v_add(vect v1, vect v2) {
+  vect r = { v1.x + v2.x,
+             v1.y + v2.y,
+             v1.z + v2.z };
+  return r;
+}
+
 vect vect_add(vect v1, vect v2) {
   vect v = { v1.x + v2.x,
              v1.y + v2.y,
@@ -116,7 +123,20 @@ int main() {
         particle p = b->items[idParticle];
 
         // Compute the new speed and position for the particle
+        // inlining
+        vect v1,v2;
+        //---compare with vect v3= vect_add(v1,v2);
+        vect v3 = v_add(v1,v2);
+        // vect v3;
+        // v3 = v_add(v1,v2);
+        
         vect speed2 = vect_add(p.speed, vect_mul(charge, field));
+
+        /* goal is to generate:
+        speed2.x = p.speed.x + charge * field.x;
+        ..
+        */
+
         vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
         // Deposit the charge of the particle in array "nextCharge"

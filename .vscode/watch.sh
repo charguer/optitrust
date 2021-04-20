@@ -17,6 +17,8 @@ while true; do
        echo "Action to perform:"
        cat ${ACTION_FILE}
        ${ACTION_FILE}
+       # TODO: redirect stdout and stderr to a file called action_out_temp.txt
+       # TODO: then at the end do mv action_out_temp.txt to action_out.txt
     else
        exit
     fi

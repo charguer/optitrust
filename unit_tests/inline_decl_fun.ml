@@ -9,8 +9,9 @@ let _ =
   run
     (fun () ->
       set_init_source "inline_decl_fun.cpp";
-      
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"f" ()] ();
+      (* detach_expression [cVarDef ~name:"v3"()] ~keep_label:false; *)
+      inline_decl ~delete_decl:false ~decl_path:[cFun ~name:"v_add" ()] ();
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"g" ()] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res"()]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"x"()] ~inline_at:[[cFun ~name:"main" ()];[cSet ~lhs:[cVar ~name:"y"()]()]] ();
       show_path [cVarDef ~name:"y"()] ~debug_ast:true;

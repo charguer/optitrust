@@ -1,4 +1,4 @@
-open ScriptTools
+open Optitrust
 
 
 
@@ -10,11 +10,14 @@ let _ =
         (* TODO with arthur: see how to use cList to set up a constraint on a list of arguments *)
         (* For initializations which include declarations the following syntax is used *)
         (* make_explicit_record_assignment [cVarDef ~name:"b"()] ~struct_name:"vect"; *)
-        make_explicit_record_assignment [cVarDef ~name:"p"()] ~struct_name:"vect";
+        (* TODO : infer struct name if easy from LHS *)
+        make_explicit_record_assignment ~struct_name:"vect" [cApp ~args:[cVar ~strict:true ~name:"p2" ()] ~validate:(List.mem true) ()];
+        (* make_explicit_record_assignment [cVarDef ~name:"p"()] ~struct_name:"vect"; *)
+        
 (* p = { 1, 2}  -->   p.x =1; p.y =2 TODO*)
         show_path [cVarDef ~name:"e"()] ~debug_ast:true; 
         (*An alternative to that is the following one 
-          1) First detach the expression by using : detach_expression [cVardef ~name:"b"()]
+          1) First detach the expression  by using : detach_expression [cVardef ~name:"b"()]
           2) Then make_explicit_record_assignment [cLabel ~label:"detached"();cBody()] ~struct_name:"vect";
           However this is done automatically from make_explicit_record_assignment transformation
         *)
@@ -99,4 +102,10 @@ specification of remove_no_braces:
    t22;
    t3
 
+
+
+
+  v1 = v2
+  ->
+  v1.x = v2.x
 *)

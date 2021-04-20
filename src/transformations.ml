@@ -978,7 +978,11 @@ let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (lab
         | Trm_seq[t_decl;t_assign] -> 
           let t_decl = trm_seq ~annot:(Some Heap_allocated) [t_decl] in 
           let t_assign = {t_assign with annot = None} in 
-          if keep_label then 
+          let t_assign = match t_assign.desc with 
+          | Trm_apps (_, [ls;rs]) -> trm_apps (trm_var "overloaded=") [trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get)[ls];rs]
+          | _ -> fail t.loc "detach_expression_aux: expected an assignment"
+          in 
+          if keep_label then
             let trm_labelled = trm_labelled label t_assign in 
             trm_seq ~annot:t.annot (insert_sublist_in_list [t_decl;trm_labelled] trm_index tl)
           
