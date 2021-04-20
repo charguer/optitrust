@@ -21,10 +21,12 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
   (return_label : label) (f : var) (tf : typ) (args : typed_var list)
   (body : trm) (t : trm) : trm =
   
+  (*let counter = ref 0 in  ^ string_of_int !counter *)
   (* inline f everywhere in t *)
   let rec apply_change (t : trm) : trm =
-    Ast_to_text.print_ast ~only_desc:true stdout t; (* TODO: make show_ast  accessible from everywhere*)
+    (*Ast_to_text.print_ast ~only_desc:true stdout t; *) (* TODO: make show_ast  accessible from everywhere*)
     (* new names replacing the argument names *)
+    (* DEPRECATED incr counter; *)
     let fresh_args = List.map (fun (x, tx) -> (fresh_in t x, tx)) args in
     (* name for the result of f, result might be an argument name *)
     let result =

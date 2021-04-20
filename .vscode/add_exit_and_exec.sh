@@ -24,10 +24,10 @@ if [ "${DIRNAME}" = "${SRCSRCFOLDER}" ]; then
   exit 0
 fi
 
-# Run make update in /src folder if requested
+# Run make update in working folder if requested
 if [ "${UPDATE}" = "update" ]; then
   echo "recompile lib"
-  make -C ${SRCFOLDER}
+  make -C ${DIRNAME} update
   OUT=$?
   if [ ${OUT} -ne 0 ];then
     echo "Could not compile lib"
