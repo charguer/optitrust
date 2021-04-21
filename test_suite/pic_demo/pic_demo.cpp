@@ -133,9 +133,19 @@ int main() {
         int idCell2 = idCellOfPos(pos2);
         nextCharge[idCell2] += charge;
 
-        // Write the updated particle in the bag associaetd with its new cell
+        // Write the updated particle in the bag associated with its new cell
         particle p2 = { speed2, pos2 };
-        bag_push(&bagsNext[idCell2], p2);
+        bag_push(&bagsNext[idCell2], p2); TODO:Solve the inlining problem for bag_push function
+        // Copying by hand all the changes in order to test other transformations for pic_demo.
+        // bag* b2 = bagsNext[idCell2];
+        // int k = b.nb;
+        // b2->items[k].pos.x = pos2.x;
+        // b2->items[k].pos.y = pos2.y;
+        // b2->items[k].pos.z = pos2.z;
+        // b2->items[k].speed.x = speed2.x;
+        // b2->items[k].speed.y = speed2.y;
+        // b2->items[k].speed.z = speed2.z;
+        // b2->nb++;
       }
 
       // At the end of the time step, clear the contents of the bag

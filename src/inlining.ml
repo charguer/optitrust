@@ -370,8 +370,8 @@ let get_pos (x : typvar) (t : trm) : int =
     end
 
 
-let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm = 
-  let log : string = 
+let inline_record_access_aux (clog : out_channel) (var : string) (field : string) (struct_decl_trm : trm) (list_of_trms : trm list) (t : trm) : trm =  
+   let log : string = 
     let loc : string = 
       match t.loc with 
       | None -> ""
@@ -382,34 +382,79 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
       )
       (ast_to_string t) loc 
       in write_log clog log;
-  
+      (* search for the declaration of the variable *)
+   let rec aux (global_trm : trm ) (t : trm) : trm = 
+      begin match t.desc with 
+      | Trm_apps (f,[base]) -> 
+        begin match f.desc with 
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field -> 
+          begin match base.desc with 
+          | Trm_var v when v = var -> 
+            let index = get_pos field struct_decl_trm in
+            List.nth (List.rev list_of_trms) index
+          | _ -> trm_map (aux global_trm) t 
+          end 
+        | _ -> trm_map (aux global_trm) t
+        end 
+      | _ -> trm_map (aux global_trm) t
+      end 
+    in aux t t 
+    
+
+let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm = 
+      (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
       let pl = [cVarDef ~name:var()] in 
       let epl = resolve_path (List.flatten pl) t in 
       let var_decl = match epl with 
-      | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
-      | _ -> fail t.loc "inline_record_access: expected a type"
+      | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def  
+            
+      | _ ->  fail t.loc "inline_record_access: expected a type"
       in 
-
-      let var_type = match var_decl.desc with 
-        | Trm_seq [{desc=Trm_decl(Def_var ((x,var_typ),_));_};_] when x = var -> 
+      let var_type ,only_decl = match var_decl.desc with 
+      | Trm_seq tl->
+        let only_decl = if List.length tl = 1 then true else false
+        in
+        let t_decl = List.hd tl in 
+        begin match t_decl.desc with 
+        | Trm_decl (Def_var ((x,var_typ),_)) when x = var ->
           begin match var_typ.ty_desc with 
-          | Typ_ptr {ty_desc=Typ_var y;_} -> y
+          | Typ_ptr {ty_desc=Typ_var y;_} -> y ,only_decl 
           | _ -> fail t.loc "inline_record_access: type was not matched"
-          end
-        | _ -> fail t.loc "inline_record_access: coudl not get the type of variable declaration"
+          end 
+        | _ -> fail t.loc "inline_record_access: expected a declaration"
+        end 
+      | _ -> fail t.loc "inline_record_access: could not match the sequnce which contains the declaration"
       in 
-
-      let list_of_trms = match var_decl.desc with 
+      
+      let list_of_trms = if not only_decl then match var_decl.desc with 
+        
         | Trm_seq [_;t_assign] ->
           begin match t_assign.desc with 
           | Trm_apps (_,[_;lt]) -> 
             begin match lt.desc with
             | Trm_struct tl -> tl 
-            | _ -> fail t.loc "implicit_record_assignment: Expected a record"
+            | _ -> fail t.loc "implicit_record_assignment: expected a record"
             end
-          |  _ -> fail t.loc "implicit_record_assignment: Expected an assignment"
+          |  _ -> fail t.loc "implicit_record_assignment: expected an assignment"
           end
-        |  _ -> fail t.loc "implicit_record_assignment: Expected a sequence term"
+        |  _ -> fail t.loc "implicit_record_assignment: expected a sequence term"
+        
+        else (* search for the trms,
+                assumption the variable is only once assigned*) 
+          let loc_pl = [cSet ~lhs:[cVar ~name:var ()]()] in 
+          let loc_epl = resolve_path (List.flatten loc_pl) t in
+          match loc_epl with 
+          | [dl] -> let (t_assgn,_) = resolve_explicit_path dl t in 
+            begin match t_assgn.desc with 
+            | Trm_apps(_,[_;rs]) -> 
+              begin match rs.desc with 
+              | Trm_struct tl -> tl 
+              | _ -> fail t.loc "inline_struct_access: expected a record"
+              end 
+            | _ -> fail t.loc "inline_struct_access: expected an assignment"
+            end 
+          | _ -> fail t.loc "inline_struct_access: assumed that the variable was assigned only once"
       in 
       let struct_decl_path = [cType ~name:var_type ()] in 
       let epl_of_struct_decl = resolve_path (List.flatten struct_decl_path) t in 
@@ -417,24 +462,20 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
         | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
         | _ -> fail t.loc "inline_struct_access: expected a typedef struct"
       in 
-      
-      let rec aux (global_trm : trm ) (t : trm) : trm = 
-        begin match t.desc with 
-        | Trm_apps (f,[base]) -> 
-          begin match f.desc with 
-          | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field -> 
-            begin match base.desc with 
-            | Trm_var v when v = var -> 
-              let index = get_pos field struct_decl_trm in
-              List.nth (List.rev list_of_trms) index
-            | _ -> trm_map (aux global_trm) t 
-            end 
-          | _ -> trm_map (aux global_trm) t
-          end 
-        | _ -> trm_map (aux global_trm) t
-        end 
-      in aux t t 
+      let app_transfo (t : trm) (dl : expl_path) : trm = 
+        match List.rev dl with 
+        | Dir_nth _ :: dl' ->
+          let dl = List.rev dl' in 
+          apply_local_transformation (inline_record_access_aux clog var field struct_decl_trm list_of_trms) t dl
+        | _ -> fail t.loc "inline_struct_access:expected a dir_nth inside the sequence"
+      in 
+      match epl with 
+      | [] ->
+        print_info t.loc "inline_struct_access: no matching subterm";
+        t
+      | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl 
+      (* Ast_to_text.print_ast ~only_desc:true stdout var_decl; *)
+     
 
 let find_keys value m = 
   Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []

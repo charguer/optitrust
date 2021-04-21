@@ -16,7 +16,6 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     )
     (ast_to_string expression_trm) loc
     in write_log clog log;
-    Ast_to_text.print_ast ~only_desc:true stdout expression_trm;
     match t.desc with 
 
     | Trm_seq tl ->
