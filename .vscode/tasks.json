@@ -96,15 +96,6 @@
                 "${fileBasenameNoExtension}",
                 "chk"   
             ]
-        },
-        {
-            "label": "Run live server",
-            "type": "process",
-            "command": "@extension.liveServer.goOnline",
-            "args":[
-              "${fileDirname}",
-              "${fileBasenameNoExtension}"
-            ]
         }
 
     ]

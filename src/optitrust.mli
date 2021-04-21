@@ -155,7 +155,7 @@ val add_label : ?replace_top:bool -> string -> paths -> unit
 
 val show_path : ?debug_ast:bool -> ?replace_top:bool -> ?keep_previous:bool -> paths -> unit
 
-val show_ast : ?file:string -> ?to_stdout:bool -> paths -> unit
+val show_ast : ?replace_top:bool -> ?file:string -> ?to_stdout:bool -> paths -> unit
 
 val clean_path_decorators : unit -> unit
 

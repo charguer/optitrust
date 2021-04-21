@@ -6,10 +6,9 @@ let _ =
     ( fun () ->
       set_init_source "pic_demo.cpp";
       (* show_path [cVarDef ~name:"nbSteps"()]; *)
-      (*show_path [cTopFun ~name:"vect_mul" ()];*)
       (* show_ast [cVarDef ~name:"cdv3"()]; *)
       (*detach_expression [cVarDef ~name:"v3"()] ~keep_label:false; 
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"v_add" ()]~fun_result:"myres" (*~keep_labels:true *) ();
+      inline_decl ~delete_decl:false ~decl_path:[>cTopFun ~name:"v_add" ()]~fun_result:"myres" (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"myres"()] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v1_0"()] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v2_0"()] ();*)
@@ -19,17 +18,35 @@ let _ =
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] (*~keep_labels:true *) ();
       (*detach_expression [cVarDef ~name:"pos2"()] ~keep_label:false; 
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] (*~keep_labels:true *) (); *)
-inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] (*~keep_labels:true *) ();
-          detach_expression [cVarDef ~name:"v2"()] ~keep_label:false; 
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] (*~keep_labels:true *) ();
+      detach_expression [cVarDef ~name:"v2"()] ~keep_label:false; 
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_mul" ()] (*~fun_result:"myres"*) (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] (*~keep_labels:true *) ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v1" ()] (*~keep_labels:true *) ();
+       (*show_path[cFun ~name:"main" (); cVarDef ~name:"v1" ()] ;
+        TOOD: need to fix paths
+      inline_decl ~delete_decl:true ~decl_path:[cFun ~name:"main" (); cVarDef ~name:"v1" ()] (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"d" ()] (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v" ()] (*~keep_labels:true *) ();
-
+      show_path [cFor ~init:[cVar ~name:"idParticle" ()] ()]; *)
+      
+       (* show_ast [cVarDef ~name:"v2"()] ; *)
+      (* show_path [cSet ~lhs:[cVar ~name:"u"()] ()] ~debug_ast:true; *)
+      (* show_ast [cVarDef ~name:"v1"()] ; *)
+      (* show_ast [cSet ~lhs:[cVar ~name:"speed2"()]()];  *)
+      make_explicit_record_assignment ~struct_name:"vect" [cVarDef ~name:"v1"()];
+      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"speed2"()]  ()]; 
+       (**)
+      
 
       
-      
+      (* for x = 0; x < X;
+          for y = 0; y < Y
+        flattening: assumes rectangular area
+
+          for k = 0; k<X*Y;k++ 
+             x = k / Y
+             y = k % Y
+       *)
 
       (* ~fun_result:"myres" *)
 

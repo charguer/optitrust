@@ -20,6 +20,8 @@ int main() {
   vect d;
   d = p;
 
+  d = { 1, 2 }; // TODO !
+
   vect e;
   e = f();
   // TODO LATER: demo of  insert_decl ~name:"x" ~body:"f()"

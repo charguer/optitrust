@@ -385,7 +385,10 @@ let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previo
     Transformations.show_path ~debug_ast pl t
     )
 
-let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : paths) : unit =
+let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : path list) : unit =
+  apply_to_top ~replace_top(fun _ -> Transformations.show_ast ~file ~to_stdout pl)
+
+(* let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : paths) : unit =
   apply_to_top ~replace_top:false (fun _ t ->
   let p = List.flatten pl in 
   let b = !Flags.verbose in  (* TODO : get it of this stupid thing *)
@@ -419,7 +422,7 @@ let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : paths) : uni
                    
        ) t epl) in
      close_out out_ast;
-     t)
+     t) *)
        
 
 

@@ -126,7 +126,7 @@ int main() {
         speed2.x = p.speed.x + charge * field.x;
         ..
         */
-
+       
         vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
         // Deposit the charge of the particle in array "nextCharge"

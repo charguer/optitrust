@@ -2,7 +2,7 @@ open Ast
 open Path
 open Path_constructors
 open Ast_to_c
-
+open Ast_to_text
 let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
 | [] -> []
 | h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
@@ -177,29 +177,50 @@ let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
    
-let  show_path ?(debug_ast : bool = false)(pl : path list) (t : trm) : trm =
+
+let show_path ?(debug_ast : bool = false) (pl : path list) (t : trm) : trm = 
   let p = List.flatten pl in 
-  let b = !Flags.verbose in 
-  Flags.verbose := false;
   let epl = resolve_path p t in 
-  Flags.verbose := b;
+  match epl with 
+  | [] -> 
+    print_info t.loc "show_path: no matching subterm\n";
+    t
+  | [dl] -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
+            apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0) ) t dl 
+  | _ -> foldi
+          (fun i -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
+                    apply_local_transformation
+                   (trm_decoration (left_decoration i) (right_decoration i )))
+
+          t epl 
+
+let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : path list) (t : trm) : trm = 
+  let p = List.flatten pl in 
+  let epl = resolve_path p t in 
   match epl with 
   | [] ->
-    print_info t.loc "show_path: not matching subterm\n";
+    print_info t.loc "show_ast: no matching subterm\n";
     t
-  | [dl] -> Ast_to_text.print_ast ~only_desc:true stdout t;
-            apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0)) t dl
-      (* TODO: undesrtand why there is a different code for a list of results *)
-  | _ ->
-     (*
-         folding works since no path in epl is the prefix of a subsequent path
-      *)
-     foldi
-       (fun i -> apply_local_transformation
-                   (fun t -> 
-                      if debug_ast then Ast_to_text.print_ast ~only_desc:false stdout t;
-                      trm_decoration (left_decoration i) (right_decoration i ) t))
-       t epl
+  | _ -> 
+    let out_ast = open_out file in 
+    foldi
+      (
+        fun i -> apply_local_transformation(fun t -> 
+            if to_stdout then begin
+              print_ast ~only_desc:true stdout t;
+              output_string stdout "\n\n";
+            end;
+            output_string out_ast (Printf.sprintf "=========================Occurence %i======================\n" i);
+            print_ast ~only_desc:true out_ast t;
+            output_string out_ast "\n\n";
+            output_string out_ast (Printf.sprintf "------------------------Occurence %i details---------------\n" i);
+            print_ast ~only_desc:false out_ast t;
+            output_string out_ast "\n\n";
+            t)  
+      )
+      t epl
+      (* close_out out_ast; *)
+
 
 let rec delete_path_decorators (t : trm) : trm = 
   match t.desc with 

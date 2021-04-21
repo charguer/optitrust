@@ -26,6 +26,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
         | Trm_apps (f1,rbase) -> 
           begin match lt.desc with 
           | Trm_apps (f2,lbase) ->
+              
               let exp_assgn = List.map(fun sf ->
               let new_f = trm_unop (Unop_struct_get sf) in 
               (* let new_f = {f with desc = Trm_val(Val_prim(Prim_unop (Unop_struct_get sf)))} *)
@@ -45,6 +46,34 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
 
           | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched"
           end 
+        
+        | Trm_struct st -> 
+          begin match lt.desc with 
+          | Trm_apps (f2,lbase) ->
+              let exp_assgn = List.mapi(fun i sf->
+                (* let sf = List.nth field_list i in  *)
+                let new_f = trm_unop (Unop_struct_get sf) in 
+                (* let ith_term =  in  *)
+                trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+                    f [trm_apps ~annot:(Some Access) f2 [trm_apps new_f lbase]; List.nth st i]
+              ) field_list in 
+              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
+
+          | Trm_var v ->
+              let exp_assgn = List.mapi(fun i sf -> 
+                (* let sf = List.nth field_list i in  *)
+                let new_f = trm_unop (Unop_struct_get sf) in 
+                (* let ith_term = List.nth st in  *)
+                trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+                f [trm_apps new_f [trm_var v]; List.nth st i]
+              ) field_list in 
+              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
+              
+            
+            
+          | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched"
+          end
+        
         | _ -> fail t.loc "make_explicit_record_assignment_aux: right hand side can only be a value or a variable, function calls are not supported"
         end 
       | _ -> fail t.loc "make_explicit_record_assignment_aux: this expression is not supported"
