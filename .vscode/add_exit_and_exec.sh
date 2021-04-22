@@ -12,7 +12,7 @@ LINE=$3
 UPDATE=$4 # should be update or noupdated
 OPTIONS=$5
 
-UPDATE=noupdate
+#UPDATE=noupdate
 
 # Path to .vscode folder and src folder and src/src folder
 VSCODE=`pwd`

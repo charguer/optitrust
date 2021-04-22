@@ -17,8 +17,8 @@ open Declaration
   }
   if tf is void, result won't be used, but instead the empty statement
  *)
-let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
-  (return_label : label) (f : var) (tf : typ) (args : typed_var list)
+let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)  ?(fun_args : var list = [])
+  (return_label : label) (f : var) (tf : typ) (args : typed_var list) 
   (body : trm) (t : trm) : trm =
   
   (*let counter = ref 0 in  ^ string_of_int !counter *)
@@ -27,9 +27,17 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
     (*Ast_to_text.print_ast ~only_desc:true stdout t; *) (* TODO: make show_ast  accessible from everywhere*)
     (* new names replacing the argument names *)
     (* DEPRECATED incr counter; *)
-    let fresh_args = List.map (fun (x, tx) -> (fresh_in t x, tx)) args in
-    (* name for the result of f, result might be an argument name *)
-    let result =
+  let fresh_args = 
+     match fun_args with
+     | [] -> List.map (fun (x, tx) -> (fresh_in t x, tx)) args 
+     | _ -> 
+      if List.length fun_args <> List.length args 
+        then fail t.loc "inline_fun_decl: incorrect number of names provided for the arguments";
+       List.map2 (fun (_x, tx) nx -> (nx, tx)) args fun_args
+     in
+     
+    (* name for the result of f, result might be an argument name *)  
+  let result =
       fresh_in
         (trm_seq
           (t ::
@@ -47,17 +55,18 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
     in
     (* body where the argument names are substituted *)
     let body =
-      List.fold_left
-        (fun body (x, _) ->
+      List.fold_left2
+        (fun body (x, _) nx ->
           change_trm
             (trm_var x)
-            (* arguments will be heap allocated *)
-            (trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get)
-              [trm_var (fresh_in t x)])
+            (* TODO: NO LONGER arguments will be heap allocated *)
+            (* trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) 
+              [trm_var nx]) *)
+            (trm_var nx) 
             body
         )
         body
-        args
+        args fun_args
     in
     (* body where res is used instead of return statements *)
     let replace_return (t : trm) : trm =
@@ -102,26 +111,36 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
       let arg_decls =
         List.map2
           (fun (x, tx) dx ->
-            trm_seq ~annot:(Some Heap_allocated)
+            (*trm_seq ~annot:(Some Heap_allocated)
               [
                 trm_decl (Def_var ((x, typ_ptr tx), trm_prim (Prim_new tx)));
                 trm_set ~annot:(Some Initialisation_instruction) (trm_var x) dx
-              ]
+              ] *)
+             trm_decl ~is_instr:true (Def_var ((x, tx), dx))
           )
           fresh_args
           arg_vals
       in
-      let arg_dels =
+      (*let arg_dels = 
         List.rev_map
           (fun (x, _) ->
             trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
               (trm_unop (Unop_delete false)) [trm_var x]
           )
           fresh_args
-      in
+      in*)
       let t =
         match tf.ty_desc with
         | Typ_unit ->
+            trm_seq ~loc:t.loc 
+                (bodyl ++
+                 [
+                   trm_labelled return_label
+                     (change_trm (trm_apps (trm_var f) arg_vals)
+                        (trm_lit Lit_unit) t)
+                 ]
+                )
+                (*
            begin match arg_dels with
            (* if no args, no delete instruction *)
            | [] ->
@@ -145,8 +164,8 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
                     )
                  ) ::
                  arg_dels
-                )
-           end
+                ) 
+           end*)
         | _ ->
            trm_seq ~annot:(Some Delete_instructions) ~loc:t.loc
              ([
@@ -165,8 +184,8 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
                 trm_apps ~annot:(Some Heap_allocated) ~loc:t.loc ~is_instr:true
                   ~typ:(Some (typ_unit ())) (trm_unop (Unop_delete false))
                   [trm_var result]
-               ] ++
-               arg_dels
+               ] (*++
+               arg_dels*)
              )
       in
       (* clean up *)
@@ -203,7 +222,7 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)
   instruction
  *)
 let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
-  ?(inline_at : path list list = [[]]) ?(fun_result : var = "res")
+  ?(inline_at : path list list = [[]]) ?(fun_result : var = "res") ?(fun_args : var list = [])
   ?(fun_return_label : label = "exit") (pl : path list) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
@@ -271,7 +290,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
               f
           in
           write_log clog log;
-          inline_fun_decl ~inline_at fun_result fun_return_label f tf args body
+          inline_fun_decl ~inline_at fun_result ~fun_args fun_return_label f tf args body
             t
        | _ -> fail t.loc "inline_decl: expected a definition"
      in

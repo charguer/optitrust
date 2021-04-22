@@ -220,7 +220,8 @@ let reparse (ctx : context) (ast : trm) : trm =
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
   output_prog ctx in_prefix ast;
   let (_, t) = parse (in_prefix ^ ctx.extension) in
-  let _ = Sys.command ("rm " ^ in_prefix ^ "*") in t
+  (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
+  t
 
 (* instruction added to interrupt the script early *)
 let exit_script () : unit =
@@ -1179,7 +1180,7 @@ let remove_decl ?(replace_top : bool = false) ~decl_path:(pl : paths)
   write_log "\n"
 
 let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
-  ?(inline_at : paths list = [[]]) ?(fun_result : var = "res")
+  ?(inline_at : paths list = [[]]) ?(fun_result : var = "res") ?(fun_args : var list = [])
   ?(fun_return_label : label = "exit") ~decl_path:(pl : paths)
   (_ : unit) : unit =
   let log : string =
@@ -1193,7 +1194,7 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
   write_log log;
   apply_to_top ~replace_top
     (fun ctx ->
-      Inlining.inline_decl ctx.clog ~delete_decl ~inline_at ~fun_result
+      Inlining.inline_decl ctx.clog ~delete_decl ~inline_at ~fun_result ~fun_args
        ~fun_return_label pl);
   write_log "\n"
 
@@ -1330,6 +1331,10 @@ let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label
     (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
     write_log "\n"
 
+let const_non_const ?(replace_top : bool = false) (pl : path list) : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.const_non_const ctx.clog pl );
+  write_log "\n"
 
 let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit = 
   apply_to_top ~replace_top
@@ -1392,3 +1397,5 @@ let add_attribute ?(replace_top : bool = false) (s : string)
   apply_to_top ~replace_top
     (fun ctx -> Transformations.add_attribute ctx.clog (Identifier s) pl);
   write_log "\n"
+
+  

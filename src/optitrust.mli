@@ -216,7 +216,7 @@ val insert_and_fold_typedef : ?replace_top:bool -> ?insert_before:(paths) ->
 val remove_decl : ?replace_top:bool -> decl_path:(paths) -> unit -> unit
 
 val inline_decl : ?replace_top:bool -> ?delete_decl:bool ->
-                  ?inline_at:(paths list) -> ?fun_result:string ->
+                  ?inline_at:(paths list) -> ?fun_result:string -> ?fun_args:(string list) ->
                   ?fun_return_label:string -> decl_path:(paths) -> unit ->unit
 
 val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:string list -> unit -> unit
@@ -234,6 +234,8 @@ val array_to_variables : ?replace_top:bool -> paths -> string list -> unit
 val local_other_name : ?replace_top:bool -> ?section_of_interest:string -> ?new_var_type:string -> ?old_var:string -> ?new_var:string -> unit -> unit
 
 val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit 
+
+val const_non_const: ?replace_top:bool -> paths -> unit 
 
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  paths -> unit 
 

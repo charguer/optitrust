@@ -4,7 +4,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-          "label": "Execute transformation script",
+          "label": "Execute transformation script without update",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
@@ -15,6 +15,7 @@
               "${fileDirname}",
               "${fileBasenameNoExtension}",
               "${lineNumber}",
+              "noupdate",
               ""
           ]
       },
@@ -24,7 +25,7 @@
           "command": "./.vscode/watch.sh "
         },
         {
-          "label": "Execute transformation script",
+          "label": "Execute transformation script with update",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {

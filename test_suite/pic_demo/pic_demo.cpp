@@ -116,8 +116,9 @@ int main() {
       int nb = b->nb;
       for (int idParticle = 0; idParticle < nb; idParticle++) {
         // Read the particle in memory
-        particle p ;//= b->items[idParticle];
-
+        // const int y = 5;
+        
+        particle p = b->items[idParticle];
         // Compute the new speed and position for the particle
         // inlining
         //vect v1,v2;
@@ -125,7 +126,8 @@ int main() {
         //vect v3 = v_add(v1,v2);
         // vect v3;
         // v3 = v_add(v1,v2);
-        vect speed2 = vect_add(p.speed, vect_mul(charge, field));
+        vect speed2 = vect_add(p.speed, field); 
+        //TODO:later vect_mul(charge, field));
 
         /* goal is to generate:
         speed2.x = p.speed.x + charge * field.x;
@@ -140,10 +142,10 @@ int main() {
 
         // Write the updated particle in the bag associated with its new cell
         particle p2 = { speed2, pos2 };
-        // bag_push(&bagsNext[idCell2], p2); TODO:Solve the inlining problem for bag_push function
+        bag_push(&bagsNext[idCell2], p2); /* TODO:Solve the inlining problem for bag_push function */
         // Copying by hand all the changes in order to test other transformations for pic_demo.
         bag* b2 = &bagsNext[idCell2];
-        int k = b.nb;
+        int k = b->nb;
         b2->items[k].pos.x = pos2.x;
         b2->items[k].pos.y = pos2.y;
         b2->items[k].pos.z = pos2.z;

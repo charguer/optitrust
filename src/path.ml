@@ -599,7 +599,7 @@ module Path_constructors =
       (_ : unit) : path =
       let init =
          match name, init with
-         | "",[] -> failwith "cFor: Need to provide the name or init"
+         | "",[] -> init (*failwith "cFor: Need to provide the name or init"*)
          | "", _ -> init
          | _, [] -> [cVarDef ~name ()]
          | _, _::_ -> failwith "cFor: cannot provide both name and init"

@@ -5,27 +5,66 @@ let _ =
   run
     ( fun () ->
       set_init_source "pic_demo.cpp";
-      (*
-      inline_decl ~delete_decl:false ~decl_path:[>cTopFun ~name:"v_add" ()]~fun_result:"myres" (*~keep_labels:true *) ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"myres"()] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v1_0"()] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v2_0"()] ();*)
+      inline_decl ~delete_decl:false~decl_path:[cFun ~name:"bag_push" ()] ~inline_at:[[cTopFun ~name:"main"()]] ~fun_args:["myb";"myp"]  ();
+
       detach_expression [cVarDef ~name:"speed2"()] ~keep_label:false; 
-            (* TODO: later: detach all of a given type *)
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
-      (*detach_expression [cVarDef ~name:"pos2"()] ~keep_label:false; 
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] (*~keep_labels:true *) (); *)
+      (* TODO: later: detach all of a given type *)
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] ~inline_at:[[cTopFun ~name:"main"()]] ~fun_args:["mv1";"mv2"] ();
+      
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"mv1" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"mv2" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      detach_expression [cVarDef ~name:"pos2"()] ~keep_label:false;
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] ~inline_at:[[cTopFun ~name:"main"()]] ~fun_args:["nv1";"nv2"] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"nv1" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"nv2" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"speed2"()]  ()]; 
-      detach_expression [cVarDef ~name:"v2"()] ~keep_label:false; 
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_mul" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"pos2"()]  ()]; 
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"p"()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_struct ~struct_name:"particle" ~struct_fields:["speed";"pos"] ();
+      inline_struct ~struct_name:"bag" ~struct_fields:["items"] ();
+      (* split_loop ~keep_labels:false [cInstrSubstr ~regexp:true "^k ="]; *)
+      (* split_loop ~keep_labels:false [cVarDef ~name:"speed2"]; *)
+      
+
+
+
+
+
+      
+      (* TODO
+      inline_record_access ~field:"x" ~var:"nv2" ();     
+      inline_record_access ~field:"y" ~var:"nv2" ();   
+      inline_record_access ~field:"z" ~var:"nv2" ();
+      *)
+      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"pos2"()]  ()]; 
+
+      (* split_loop ~keep_labels:false [cVarDef ~name:"pos2"()]; *)
+
+      make_explicit_record_assignment ~struct_name:"particle" [cFun ~name:"bag_push"(); cSet ~rhs:[cVar ~name:"p"()]()];
+(* inline_struct ~struct_name:"bag" ~struct_fields:["oneitem"] (); *)
+
+
+
+
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"nv2" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+
+      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"nv2"()]  ()]; 
+      show_ast [cVarDef ~name:"p"()] ;
+      (* inline_decl ~delete_decl:false~decl_path:[cFun ~name:"bag_push" ()] ~inline_at:[[cTopFun ~name:"main"()]](); *)
+
+      
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_mul" ()] ~inline_at:[[cTopFun ~name:"main"()]]~fun_args:["rv1";"rv2"] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v1"()] ~inline_at:[[cTopFun ~name:"main"()]]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v"() ] ~inline_at:[[cTopFun ~name:"main"()]] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"d"()]  ~inline_at:[[cTopFun ~name:"main"()]] ();
+      
       
       inline_record_access ~field:"x" ~var:"v2" ();     
-      inline_record_access ~field:"y" ~var:"v2" ();     
+      inline_record_access ~field:"y" ~var:"v2" ();   
       inline_record_access ~field:"z" ~var:"v2" ();
       (* delete_decl  *)
       detach_expression [cVarDef ~name:"pos2"()] ~keep_label:false; 
@@ -34,19 +73,15 @@ let _ =
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"pos2"()]  ()]; 
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v1"()] ~inline_at:[[cTopFun ~name:"main"()]]();
 
-      inline_struct ~struct_name:"particle" ~struct_fields:["speed";"pos"] ();
-      
+     
       (* show_path [cVarDef ~name:"pos2"()] ~debug_ast:true;
       show_ast [cType ~name:"bag"()]; *)
       
       (* show_ast [cType ~name:"bag"()];  *)
       (* show_ast [cFun ~name:"bag_push"(); cSet ~rhs:[cVar ~name:"p"()]()]; *)
-      make_explicit_record_assignment ~struct_name:"particle" [cFun ~name:"bag_push"(); cSet ~rhs:[cVar ~name:"p"()]()];
-(* inline_struct ~struct_name:"bag" ~struct_fields:["oneitem"] (); *)
-      inline_struct ~struct_name:"bag" ~struct_fields:["items"] ();
 
       
-
+(*TODO: in decode=false mode, the op_get should not be printed as star but as "op_get" *)
 
       
       (* show_ast [cVarDef ~name:"v2"()] ; *)
@@ -68,7 +103,6 @@ let _ =
       
       
       (* show_path [cApp ~args:[cVar ~strict:true ~name:"p2" ()] ~validate:(List.mem true) ()] ~debug_ast:true; *)
-      inline_decl ~delete_decl:false~decl_path:[cFun ~name:"bag_push" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
       
       (* TODO: Fix the error with variable bound *)
       

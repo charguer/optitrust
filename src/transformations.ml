@@ -221,6 +221,77 @@ let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : path list) (
       t epl
       (* close_out out_ast; *)
 
+(* Change one declaration form const to heap allocated and vice versa*)
+let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm = 
+  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with 
+    | [] -> failwith "Empty list"
+    | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
+  in 
+  let log : string =
+      let loc : string = 
+      match t.loc with 
+      | None -> ""
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+      in Printf.sprintf
+      (" -expression\n%s\n" ^^
+      " %s section of interest \n"
+      )
+      (ast_to_string t) loc
+    in write_log clog log;
+    match t.desc with 
+    | Trm_seq tl -> 
+      (* Find the declaration trm, using the index inside the sequence *)
+      let t_decl = List.nth tl trm_index in 
+      (*Check if the delcaration is const or non-const  *)
+      begin match t_decl.desc with 
+      | Trm_seq[decl;assgn] -> 
+        let var_name,var_type = begin match decl.desc with 
+        | Trm_decl(Def_var ((x, tx), _)) -> 
+          let y = match tx.ty_desc with 
+          | Typ_ptr vt -> vt
+          | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
+          in x,y
+        | _ -> fail t.loc "const_non_const_aux: exepected a declaration"
+        end 
+        in 
+        let var_value = begin match assgn.desc with 
+        | Trm_apps (_,[_;v]) ->  v
+        | _ -> fail t.loc "const_non_const_aux: expected an assignment"
+        end 
+        in 
+        let new_trm = trm_decl ~is_instr:true (Def_var ((var_name,var_type),var_value)) in 
+        let tl = list_replace_el new_trm trm_index tl in 
+        trm_seq ~annot:t.annot ~loc:t.loc tl
+      | Trm_decl(Def_var ((x, tx),dx)) -> 
+          let new_trm = trm_seq ~annot:(Some Heap_allocated) [
+            trm_decl (Def_var ((x,typ_ptr tx),trm_prim (Prim_new tx)));trm_set ~annot:(Some Initialisation_instruction) (trm_var x) dx] 
+          
+          in 
+          let tl = list_replace_el new_trm trm_index tl in 
+          trm_seq ~annot:t.annot tl 
+      | _ -> fail t.loc "const_non_const_aux: exepected a declaration"
+      end 
+      
+    | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration"
+    
+
+
+let const_non_const (clog : out_channel) (pl : path list) (t : trm) : trm =
+  let p = List.flatten pl in 
+  let epl = resolve_path p t in 
+  let app_transfo (t : trm) (dl : expl_path) : trm = 
+    match List.rev dl with 
+    | Dir_nth n :: dl' -> 
+      let dl = List.rev dl' in 
+      apply_local_transformation (const_non_const_aux clog n )  t dl
+    | _ -> fail t.loc "const_non_const: expected a dir_nth inside the sequence"
+  in
+  match epl with 
+  | [] -> print_info t.loc "const_non_const: no matching subterm";
+    t
+  | _ -> List.fold_left (fun t dl -> app_transfo t dl)
+    t epl 
+
 
 let rec delete_path_decorators (t : trm) : trm = 
   match t.desc with 
