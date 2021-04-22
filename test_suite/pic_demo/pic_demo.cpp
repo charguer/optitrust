@@ -48,11 +48,13 @@ typedef struct {
 
 typedef struct {
   int nb; // 0 <= nb <= bagCapacity
-  particle items[bagCapacity];
+  //TODO: particle oneitem;
+  particle items[bagCapacity]; //TODO: check on unit test hte inlining of type particle in case of multidimensional array
 } bag;
 
 void bag_push(bag* b, particle p) {
   // assert(b.nb < bagCapacity);
+  //TODO: b->oneitem = p;
   b->items[b->nb] = p;
   b->nb++;
 }

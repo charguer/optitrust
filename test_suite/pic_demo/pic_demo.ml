@@ -23,6 +23,7 @@ let _ =
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v1"()] ~inline_at:[[cTopFun ~name:"main"()]]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v"() ] ~inline_at:[[cTopFun ~name:"main"()]] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"d"()]  ~inline_at:[[cTopFun ~name:"main"()]] ();
+      
       inline_record_access ~field:"x" ~var:"v2" ();     
       inline_record_access ~field:"y" ~var:"v2" ();     
       inline_record_access ~field:"z" ~var:"v2" ();
@@ -37,7 +38,11 @@ let _ =
       
       (* show_path [cVarDef ~name:"pos2"()] ~debug_ast:true;
       show_ast [cType ~name:"bag"()]; *)
-      show_ast [cType ~name:"bag"()]; 
+      
+      (* show_ast [cType ~name:"bag"()];  *)
+      (* show_ast [cFun ~name:"bag_push"(); cSet ~rhs:[cVar ~name:"p"()]()]; *)
+      make_explicit_record_assignment ~struct_name:"particle" [cFun ~name:"bag_push"(); cSet ~rhs:[cVar ~name:"p"()]()];
+(* inline_struct ~struct_name:"bag" ~struct_fields:["oneitem"] (); *)
       inline_struct ~struct_name:"bag" ~struct_fields:["items"] ();
 
       

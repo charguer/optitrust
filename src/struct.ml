@@ -20,11 +20,16 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
 
     | Trm_seq tl ->
       begin match expression_trm.desc with 
+      (* TOOD:; check that f is a trm_set *)
       | Trm_apps (f, [lt;rt]) -> 
         begin match rt.desc with         
         | Trm_apps (f1,rbase) -> 
-          begin match lt.desc with 
-          | Trm_apps (f2,lbase) ->
+          (* TODO: it might simpler to allows generate rt.x  and then have a cleanup phase
+            that is able to compress  access (access foo a) x   into access foo [a;x] 
+             + with the extra get on the way *)
+          begin match lt.desc with (* TODO: define a function is_prim_get_or_access *)
+          | Trm_apps ((* ({desc= Trm_val ( Val_prim ( Prim_unop Unop_struct_get _ 
+                             | Prim_unop Unop_struct_access _  )}) as*) f2, lbase) ->
               
               let exp_assgn = List.map(fun sf ->
               let new_f = trm_unop (Unop_struct_get sf) in 
@@ -73,7 +78,18 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
           | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched"
           end
         
-        | _ -> fail t.loc "make_explicit_record_assignment_aux: right hand side can only be a value or a variable, function calls are not supported"
+        | _ ->               
+
+              let exp_assgn = List.map(fun sf ->
+              let new_f = trm_unop (Unop_struct_get sf) in 
+              (* let new_f = {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get sf)))} *)
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+              f [trm_apps new_f [lt]; trm_apps new_f [rt]]
+              ) field_list in 
+              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
+ 
+           
+        (* fail t.loc "make_explicit_record_assignment_aux: right hand side can only be a value or a variable, function calls are not supported" *)
         end 
       | _ -> fail t.loc "make_explicit_record_assignment_aux: this expression is not supported"
       end
