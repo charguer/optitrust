@@ -9,6 +9,11 @@ typedef struct {
     vect speed;
   } obj;
 
+typedef struct {
+   obj items[10];
+} bag; 
+
+
 int main() {
   vect p = {0,0};
   vect s = {0,0};

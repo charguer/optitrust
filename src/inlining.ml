@@ -476,7 +476,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
       | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl 
       (* Ast_to_text.print_ast ~only_desc:true stdout var_decl; *)
      
-
+(* Find all keys which have value = value *)
 let find_keys value m = 
   Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
 
@@ -493,11 +493,13 @@ let rec add_keys (lk : var list) (lv : typ list) m  = match (lk ,lv) with
 | [],[] -> m
 | _ :: _, [] -> m
 | [] , _ :: _ -> m
-| hd :: tl, hd1 :: tl1 -> let m = add_key hd hd1 m in add_keys tl tl1 m;;
+| hd :: tl, hd1 :: tl1 -> let m = add_key hd hd1 m in add_keys tl tl1 m
 
 let rec add_keys_to_map lv llk m = match llk with 
 | [] -> m 
 | hd :: tl -> let m = add_keys  hd lv m in add_keys_to_map lv tl m
+
+
 
 (*
 let record_get_typed_fields (fields_list, fields_map) =
@@ -533,6 +535,26 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
       (ast_to_string t) loc 
     in 
     write_log clog log;
+    
+    let rec add_keys (lv : typ list) (lk : var list) (ov : typ) m  = match (lv ,lk) with 
+      | [],[] -> m
+      | _ :: _, [] -> m
+      | [] , _ :: _ -> m
+      | hd :: tl, hd1 :: tl1 -> 
+
+    let m = match ov.ty_desc with
+      | Typ_ptr _ ->   add_key hd1 (typ_ptr hd) m
+      | Typ_array (_,s) -> add_key hd1 (typ_array hd s ) m 
+      | _ -> add_key hd1 hd m 
+    in add_keys tl tl1 ov m 
+    in 
+    let rec add_keys_to_map lv llk olv  m = match (llk,olv) with 
+    | [], [] -> m
+    | _ :: _, [] -> m
+    | [], _ :: _ -> m 
+    | hd :: tl ,hd1 :: tl1 -> let m = add_keys lv hd hd1 m in add_keys_to_map lv tl tl1 m 
+    in 
+
     begin match t1.desc with 
       | Trm_decl (Def_typ(_,dx)) -> 
         let field_list, field_map =
@@ -549,27 +571,32 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
             in 
           
           (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
-          let keys_list = if struct_fields = [] then Field_map.fold(fun k v acc -> if v = (typ_var x1) then k :: acc else acc) field_map1 []
+          (* let keys_list = if struct_fields = [] then Field_map.fold(fun k v acc -> if v = x then k :: acc else acc) field_map1 []
 
             else struct_fields 
             in
-          
-          (* Apply the labels *)
-          let temp_field_list = apply_labels field_list keys_list in 
+          *)
+          (* keys_list is the list of struct fields which have to be inlined *)
+          let fields_to_inline = struct_fields in 
+          (* value_list is the list of values for each field we want to inline, we need that since we have
+          to check if there are special types like arrays *)
+          let field_types = List.map(fun x -> Field_map.find x field_map1) fields_to_inline in 
+
+          let temp_field_list = apply_labels field_list fields_to_inline in 
           
           (* The key values from the first struct *)
           let values = List.map (fun x -> Field_map.find x field_map) field_list in 
 
           (* Add the new keys with their values to the second  struct field_map *)
-          let field_map1 = add_keys_to_map values temp_field_list field_map1 in 
+          let field_map1 = add_keys_to_map values temp_field_list field_types field_map1 in 
           
 
-          let field_list1 = insert_list keys_list temp_field_list field_list1 in 
+          let field_list1 = insert_list fields_to_inline temp_field_list field_list1 in 
           
           
-          let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 keys_list in
+          let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 fields_to_inline in
           
-          let field_list1 = list_remove_set  keys_list field_list1 in 
+          let field_list1 = list_remove_set  fields_to_inline field_list1 in 
 
           (* do removal at the end_*)
           (* (m',l') = remove_keys_from_list_and_map xs  (m,l) *)
@@ -616,23 +643,45 @@ let change_struct_access  (x : typvar) (t : trm) : trm =
       begin match f.desc with 
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
-          if y = x then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
-          else 
+          (* Removed this if else condition just for debugging purposes *)
+          (* if false then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
+          else  *)
           begin match base.desc with 
-          | Trm_apps (f',[base']) ->
-            begin match f'.desc with 
+          | Trm_apps (f',base') ->
+            begin match f'.desc with
+                        
+            | Trm_val(Val_prim (Prim_binop Binop_array_access))
+              | Trm_val(Val_prim (Prim_binop Binop_array_get)) ->
+                (* THen base caontains another base and also the index  *)
+                let base2 = List.nth base' 0 in 
+                let index = List.nth base' 1 in 
+                begin match base2.desc with 
+                | Trm_apps(f'',base3) ->
+                  begin match f''.desc with 
+                  | Trm_val (Val_prim (Prim_unop Unop_struct_access z))
+                    | Trm_val (Val_prim (Prim_unop (Unop_struct_get z ))) when z = x -> 
+                    let new_var = z ^ "_" ^ y in 
+                    let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))} in 
+                    trm_apps ~annot:t.annot  f' [trm_apps new_f base3;index]
+                  | _ -> trm_map (aux global_trm) t
+                  end 
+                | _ -> fail t.loc "change_struct_access: expected a trm_apps"
+                end 
+ 
             | Trm_val (Val_prim (Prim_unop (Unop_struct_access z)))
               | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x -> 
                 let new_var = z ^"_"^ y in
                 let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
               in
               trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
-                     ~add:t.add ~typ:t.typ new_f [base']
+                     ~add:t.add ~typ:t.typ new_f base'
+
             | _ -> trm_map (aux global_trm) t
             end
+          
           | _ -> trm_map (aux global_trm) t
           end
-
+        
       | _ -> trm_map (aux global_trm) t
       end
     
@@ -720,18 +769,26 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
       | _ -> fail t.loc "inline_struct: the type should be a typedef struct"
     in 
     let field_map_typ = Field_map.find field_name field_map in 
-  
-     
     begin match field_map_typ.ty_desc with 
     | Typ_var y -> y
+    | Typ_array (t_var ,_) -> 
+          begin match t_var.ty_desc with 
+          | Typ_var y -> y
+          | _ -> fail t.loc "inline_struct: expected a typ_var inside the typ_array"
+          end 
+    
+    | Typ_ptr {ty_desc=Typ_var y;_} -> y
+    
     | _ -> fail t.loc "inline_struct: expeted a typ var as the value of a key  "
-    end
+    end 
   | _ -> fail t.loc "inline_struct: expected a definition"
-  in 
+    in 
    
     let  pl_temp = [cType ~name:inner_struct_name()]  in
     let p_temp = List.flatten pl_temp in
     let epl_temp = resolve_path p_temp t in 
+    
+    (* get the list of fields of the inner struct *)
     let t1 = 
     match epl_temp with
     | [dl] -> 

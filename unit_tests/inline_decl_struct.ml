@@ -7,10 +7,11 @@ let _ =
     ( fun _ -> 
         set_init_source"inline_decl_struct.cpp";
         (* I will try to merge function inline_record_access with inline_struct :TODO *)
-        show_ast [cVarDef ~name:"t"()];
+        (* show_ast [cVarDef ~name:"t"()]; *)
+        show_ast [cType ~name:"bag"()];
         inline_record_access ~field:"x" ~var:"t" ();
         inline_struct ~struct_name:"obj" ~struct_fields:["pos"] ();
-        inline_struct ~struct_name:"vect" ~struct_fields:["x"] ();
+        inline_struct ~struct_name:"bag" ~struct_fields:["items"] ();
         inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"s" ()] (); 
            
               (* inline_decl_struct.ml 

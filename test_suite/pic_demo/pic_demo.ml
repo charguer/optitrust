@@ -31,10 +31,16 @@ let _ =
       inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"vect_add" ()] (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] (*~keep_labels:true *) ();
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"pos2"()]  ()]; 
-      
-      inline_struct ~struct_name:"particle" ~struct_fields:["speed"] ();
-      
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"v1"()] ~inline_at:[[cTopFun ~name:"main"()]]();
 
+      inline_struct ~struct_name:"particle" ~struct_fields:["speed";"pos"] ();
+      
+      (* show_path [cVarDef ~name:"pos2"()] ~debug_ast:true;
+      show_ast [cType ~name:"bag"()]; *)
+      show_ast [cType ~name:"bag"()]; 
+      inline_struct ~struct_name:"bag" ~struct_fields:["items"] ();
+
+      
 
 
       
