@@ -5,8 +5,8 @@
 # Requires the `inotify-tools` package.
 # Assumes it is called from the .vscode folder
 
-echo "start watching in folder"
-echo $(pwd)
+echo "Start watching"
+# echo $(pwd)
 
 ACTION_FILE="./action.sh"
 ACTION_OUT_TEMP="./action_out_temp.txt"
@@ -14,7 +14,7 @@ ACTION_OUT="./action_out.txt"
 while true; do
     rm -f ${ACTION_FILE} # optional
     touch ${ACTION_FILE}
-    inotifywait -e modify ${ACTION_FILE}
+    inotifywait -q -e modify ${ACTION_FILE}
     sleep 0.01
     OUT=$?
     if [ $OUT -eq 0 ];then
