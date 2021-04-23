@@ -1,1 +1,1 @@
-XGetWindowProperty[_NET_WM_DESKTOP] failed (code=1)
+./watch.sh: line 23: ./action.sh: No such file or directory
