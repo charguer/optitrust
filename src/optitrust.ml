@@ -1310,7 +1310,12 @@ let detach_expression ?(replace_top : bool = false) ?(label : string = "detached
   apply_to_top ~replace_top
     (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label  pl);
     write_log "\n"
-  
+
+let undetach_expression ?(replace_top : bool = false) (pl : paths) : unit =
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.undetach_expression ctx.clog pl);
+    write_log "\n"
+
 let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : paths)  : unit = 
   apply_to_top ~replace_top 
   (fun ctx -> Struct.make_implicit_record_assignment ctx.clog struct_name pl);

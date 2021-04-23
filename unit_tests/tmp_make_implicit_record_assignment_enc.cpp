@@ -19,7 +19,7 @@ int main() {
     }
     {
       const vect *b = new vect;
-      set(b, {(*struct_access(p, x)), (*struct_access(p, y))});
+      set(b, (*p));
     }
     { const vect *d = new vect; }
     set(struct_access(d, x), 1);

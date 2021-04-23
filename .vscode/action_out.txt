@@ -1,18 +1,1 @@
-./tmp_pic_demo.cpp:20:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:23:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:71:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:71:54: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:72:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:20:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:23:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:75:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:75:50: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:76:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:20:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:23:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:69:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:70:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:71:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:73:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:74:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:75:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+XGetWindowProperty[_NET_WM_DESKTOP] failed (code=1)
