@@ -108,6 +108,9 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)  ?(fun_a
     then trm_map apply_change t
     else
       let arg_vals = fun_call_args f t in
+      if List.length fresh_args <> List.length arg_vals 
+        then fail t.loc "inline_fun_decl: incorrect number";
+
       let arg_decls =
         List.map2
           (fun (x, tx) dx ->
@@ -132,8 +135,8 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)  ?(fun_a
       let t =
         match tf.ty_desc with
         | Typ_unit ->
-            trm_seq ~loc:t.loc 
-                (bodyl ++
+            trm_seq ~loc:t.loc ~annot:(Some No_braces)
+                (arg_decls ++ bodyl ++
                  [
                    trm_labelled return_label
                      (change_trm (trm_apps (trm_var f) arg_vals)

@@ -59,7 +59,9 @@
 # Setup
 
 The transformation script execution is based on a Visual Studio Code task. To
-execute this task, one may use a keyboard shortcut.
+execute this task, one may use a keyboard shortcut. This shortcut triggers a
+task defined in `.vscode/tasks.json`, which is part of the repository, unlike
+`keybindings.json`, which is a user-specific configuration file.
 
 Run `code` to open VSCode. To edit the `keybindings.json` file from Visual Studio
 Code, type `Ctrl + Shift + P` to access the command panel and then choose
@@ -68,7 +70,7 @@ braces with the following contents:
 
 ```
 [
-   
+  {
     "key":"f6",
     "command": "workbench.action.tasks.runTask",
     "args": "Execute transformation script without update"

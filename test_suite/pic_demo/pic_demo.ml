@@ -12,32 +12,94 @@ let _ =
       
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"mv1" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"mv2" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      
+      set_repeat_io false; 
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"speed2"()]  ()]; 
+      set_repeat_io true; 
+
       detach_expression [cVarDef ~name:"pos2"()] ~keep_label:false;
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] ~inline_at:[[cTopFun ~name:"main"()]] ~fun_args:["nv1";"nv2"] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"nv1" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
       (* inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"nv2" ()] ~inline_at:[[cTopFun ~name:"main"()]](); *)
       
+      (* TODO: requires let ast = parse_file ~command_line_args filename in 
+         to include the option for C++ support *)
+      set_repeat_io false; 
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"pos2"()]  ()]; 
+      set_repeat_io true;
       const_non_const [cVarDef ~name:"nv2"()];
       detach_expression [cVarDef ~name:"nv2"()] ~keep_label:false;
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_mul" ()] ~inline_at:[[cTopFun ~name:"main"()]] ~fun_args:["pv1";"pv2"] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"pv1" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"pv2" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
       
+      set_repeat_io false; 
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
-      
       inline_record_access ~field:"x" ~var:"nv2" ();     
       inline_record_access ~field:"y" ~var:"nv2" ();   
       inline_record_access ~field:"z" ~var:"nv2" ();
-      
+      (* TODO missing remove instruction, workaround here *)
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"nv2"()]()];
       make_implicit_record_assignment ~struct_name:"vect" [cVarDef ~name:"nv2"()] ;
       remove_decl ~decl_path:[cVarDef ~name:"nv2"()] ();
-      
-      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"speed2"()]  ()]; 
-      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"pos2"()]  ()]; 
+      set_repeat_io true;
+
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"p"()] ~inline_at:[[cTopFun ~name:"main"()]]();
+
+
+      make_explicit_record_assignment ~struct_name:"particle" [cFun ~name:"bag_push"(); cSet ~rhs:[cVar ~name:"p"()]()];
+
+      make_explicit_record_assignment ~struct_name:"vect" [cFun ~name:"bag_push"(); cStr ~regexp:true ".*= p\\.pos"];
+      make_explicit_record_assignment ~struct_name:"vect" [cFun ~name:"bag_push"(); cStr ~regexp:true ".*= p\\.speed"];
+      
+      (*
+      *)set_repeat_io false;
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"bag_push" ()] ~fun_args:["mb";"mp"] ();
+      const_non_const [cVarDef ~name:"mp"()];
+      const_non_const [cVarDef ~name:"mb"()];
+      set_repeat_io false;
+      
+      
+      
+      (* TODO
+      set_repeat_io true;
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"p2" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      set_repeat_io false;      
+      detach_expression [cVarDef ~name:"mp"()] ~keep_label:false;
+      inline_record_access ~field:"pos" ~var:"mp" ();     
+      inline_record_access ~field:"speed" ~var:"mp" ();   
+      inline_record_access ~field:"z" ~var:"nv2" ();
+      inline_decl ~delete_decl:true ~decl_path:[cFun ~name:"main"(); cVarDef ~name:"mp" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      set_repeat_io true;
+      (*[cFun ~name:"bag_push"(); cSet ~rhs:[cAccesses ~accesses:[cField ~field:"pos" ()] () ]()];*)
+      *)
+
+      (*
+         const particle p = { a, b };
+         search for all occurences of p
+         (1) first test if there is a projection on p
+         f(p.pos.x);
+         ->
+         f(a.x)
+
+         (2) if not, just copy the struct with brackets
+         particle p2 = p;
+         ->
+         particle p2 = { a, b };
+      *)
+      (* LATER
+         particle p;
+         ...
+         p = { a, b };
+         ...
+         f(p.pos.x);
+         ->
+         f(a.x)
+      *)
+      
+      
       inline_struct ~struct_name:"particle" ~struct_fields:["speed";"pos"] ();
       inline_struct ~struct_name:"bag" ~struct_fields:["items"] ();
       (* split_loop ~keep_labels:false [cInstrSubstr ~regexp:true "^k ="]; *)
@@ -58,7 +120,7 @@ let _ =
 
       (* split_loop ~keep_labels:false [cVarDef ~name:"pos2"()]; *)
 
-      make_explicit_record_assignment ~struct_name:"particle" [cFun ~name:"bag_push"(); cSet ~rhs:[cVar ~name:"p"()]()];
+      
 (* inline_struct ~struct_name:"bag" ~struct_fields:["oneitem"] (); *)
 
 
