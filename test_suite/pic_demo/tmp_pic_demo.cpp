@@ -1,14 +1,12 @@
-const double charge = 1.;
+const int nbSteps = 100;
+
+const double step_duration = 0.2;
 
 const int gridSize = 64;
 
 const int nbCells = ((gridSize * gridSize) * gridSize);
 
 const int bagCapacity = 100;
-
-const double step_duration = 0.2;
-
-const int nbSteps = 100;
 
 typedef struct {
   double x;
@@ -87,15 +85,16 @@ int main() {
         pos2.y = ((b->items)[idParticle].pos.y + (step_duration * speed2.y));
         pos2.z = ((b->items)[idParticle].pos.z + (step_duration * speed2.z));
         int idCell2 = idCellOfPos(pos2);
-        nextCharge[idCell2] += charge;
+        nextCharge[idCell2] += 1.;
         bag *b2 = (&bagsNext[idCell2]);
         bag *mb = b2;
-        (mb->items)[(mb->nb)].pos.x = {speed2, pos2}.pos.x;
-        (mb->items)[(mb->nb)].pos.y = {speed2, pos2}.pos.y;
-        (mb->items)[(mb->nb)].pos.z = {speed2, pos2}.pos.z;
-        (mb->items)[(mb->nb)].speed.x = {speed2, pos2}.speed.x;
-        (mb->items)[(mb->nb)].speed.y = {speed2, pos2}.speed.y;
-        (mb->items)[(mb->nb)].speed.z = {speed2, pos2}.speed.z;
+        particle mp = {speed2, pos2};
+        (mb->items)[(mb->nb)].pos.x = mp.pos.x;
+        (mb->items)[(mb->nb)].pos.y = mp.pos.y;
+        (mb->items)[(mb->nb)].pos.z = mp.pos.z;
+        (mb->items)[(mb->nb)].speed.x = mp.speed.x;
+        (mb->items)[(mb->nb)].speed.y = mp.speed.y;
+        (mb->items)[(mb->nb)].speed.z = mp.speed.z;
         (mb->nb)++;
       }
       bag_clear((&bagsCur[idCell]));
