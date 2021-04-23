@@ -4,3 +4,12 @@
 ./tmp_pic_demo.cpp:74:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
 ./tmp_pic_demo.cpp:74:50: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
 ./tmp_pic_demo.cpp:75:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:69:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:70:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:71:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:73:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:74:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:75:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:82:54: error: no viable conversion from 'vect' to 'double'
+./tmp_pic_demo.cpp:45:7: error: no member named 'items' in 'bag'
+./tmp_pic_demo.cpp:53:23: error: no member named 'items' in 'bag'

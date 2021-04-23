@@ -34,6 +34,7 @@ let _ =
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"nv2"()]()];
       make_implicit_record_assignment ~struct_name:"vect" [cVarDef ~name:"nv2"()] ;
       remove_decl ~decl_path:[cVarDef ~name:"nv2"()] ();
+      
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"speed2"()]  ()]; 
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"pos2"()]  ()]; 
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"p"()] ~inline_at:[[cTopFun ~name:"main"()]]();
