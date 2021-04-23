@@ -36,7 +36,12 @@
   } bag;
 
   void bag_push(bag * b, particle p) {
-    set(((*b).items)[((*b).nb)], p);
+    set(((((*b).items)[((*b).nb)].pos).x), ((p.pos).x));
+    set(((((*b).items)[((*b).nb)].pos).y), ((p.pos).y));
+    set(((((*b).items)[((*b).nb)].pos).z), ((p.pos).z));
+    set(((((*b).items)[((*b).nb)].speed).x), ((p.speed).x));
+    set(((((*b).items)[((*b).nb)].speed).y), ((p.speed).y));
+    set(((((*b).items)[((*b).nb)].speed).z), ((p.speed).z));
     operator++(((*b).nb));
   }
 
@@ -101,39 +106,56 @@
                      };
                      ((*idParticle) < (*nb)); operator++(idParticle)) {
                   {
-                    {
-                      const particle *p = new particle;
-                      set(p, (*array_access(struct_access((*b), items),
-                                            (*idParticle))));
-                    }
                     { const vect *speed2 = new vect; }
                     set(struct_access(speed2, x),
-                        ((*struct_access(struct_access(p, speed), x)) +
+                        ((*struct_access(
+                             struct_access(
+                                 array_access(struct_access((*b), items),
+                                              (*idParticle)),
+                                 speed),
+                             x)) +
                          (*struct_access(field, x))));
                     set(struct_access(speed2, y),
-                        ((*struct_access(struct_access(p, speed), y)) +
+                        ((*struct_access(
+                             struct_access(
+                                 array_access(struct_access((*b), items),
+                                              (*idParticle)),
+                                 speed),
+                             y)) +
                          (*struct_access(field, y))));
                     set(struct_access(speed2, z),
-                        ((*struct_access(struct_access(p, speed), z)) +
+                        ((*struct_access(
+                             struct_access(
+                                 array_access(struct_access((*b), items),
+                                              (*idParticle)),
+                                 speed),
+                             z)) +
                          (*struct_access(field, z))));
                     { const vect *pos2 = new vect; }
-                    { const vect *nv2 = new vect; }
-                    {
-                      const vect *res = new vect;
-                      set(res, {(step_duration * ((*speed2).x)),
-                                (step_duration * ((*speed2).y)),
-                                (step_duration * ((*speed2).z))});
-                    }
-                    set(nv2, (*res));
                     set(struct_access(pos2, x),
-                        ((*struct_access(struct_access(p, pos), x)) +
-                         (*struct_access(nv2, x))));
+                        ((*struct_access(
+                             struct_access(
+                                 array_access(struct_access((*b), items),
+                                              (*idParticle)),
+                                 pos),
+                             x)) +
+                         (step_duration * (*struct_access(speed2, x)))));
                     set(struct_access(pos2, y),
-                        ((*struct_access(struct_access(p, pos), y)) +
-                         (*struct_access(nv2, y))));
+                        ((*struct_access(
+                             struct_access(
+                                 array_access(struct_access((*b), items),
+                                              (*idParticle)),
+                                 pos),
+                             y)) +
+                         (step_duration * (*struct_access(speed2, y)))));
                     set(struct_access(pos2, z),
-                        ((*struct_access(struct_access(p, pos), z)) +
-                         (*struct_access(nv2, z))));
+                        ((*struct_access(
+                             struct_access(
+                                 array_access(struct_access((*b), items),
+                                              (*idParticle)),
+                                 pos),
+                             z)) +
+                         (step_duration * (*struct_access(speed2, z)))));
                     {
                       const int *idCell2 = new int;
                       set(idCell2, idCellOfPos((*pos2)));
@@ -152,11 +174,8 @@
                   delete b2;
                   delete p2;
                   delete idCell2;
-                  delete res;
-                  delete nv2;
                   delete pos2;
                   delete speed2;
-                  delete p;
                 }
                 delete idParticle;
               }
