@@ -14,6 +14,7 @@ ACTION_OUT="./action_out.txt"
 while true; do
     rm -f ${ACTION_FILE} # optional
     touch ${ACTION_FILE}
+    chmod +x ${ACTION_FILE}
     inotifywait -q -e modify ${ACTION_FILE}
     sleep 0.01
     OUT=$?

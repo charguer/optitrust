@@ -143,7 +143,8 @@ int main() {
         // Write the updated particle in the bag associated with its new cell
         particle p2 = { speed2, pos2 };
         bag* b2 = &bagsNext[idCell2];
-        // TODO: fix support for this: bag_push(b2, p2); /* TODO:Solve the inlining problem for bag_push function */
+        bag_push(b2, p2);
+        // TODO: fix support for this:  /* TODO:Solve the inlining problem for bag_push function */
         // Copying by hand all the changes in order to test other transformations for pic_demo.
         
         /*bag* b2 = &bagsNext[idCell2];

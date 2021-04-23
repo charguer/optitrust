@@ -46,7 +46,15 @@ void bag_clear(bag *b) { (b->nb) = 0; }
 
 void bag_transfer(bag *b1, bag *b2) {
   for (int i = 0; (i < (b2->nb)); i++) {
-    bag_push(b1, (b2->items)[i]);
+    bag *mb = b1;
+    particle mp = (b2->items)[i];
+    (mb->items)[(mb->nb)].pos.x = mp.pos.x;
+    (mb->items)[(mb->nb)].pos.y = mp.pos.y;
+    (mb->items)[(mb->nb)].pos.z = mp.pos.z;
+    (mb->items)[(mb->nb)].speed.x = mp.speed.x;
+    (mb->items)[(mb->nb)].speed.y = mp.speed.y;
+    (mb->items)[(mb->nb)].speed.z = mp.speed.z;
+    (mb->nb)++;
   }
   bag_clear(b2);
 }
@@ -80,8 +88,15 @@ int main() {
         pos2.z = ((b->items)[idParticle].pos.z + (step_duration * speed2.z));
         int idCell2 = idCellOfPos(pos2);
         nextCharge[idCell2] += charge;
-        particle p2 = {speed2, pos2};
         bag *b2 = (&bagsNext[idCell2]);
+        bag *mb = b2;
+        (mb->items)[(mb->nb)].pos.x = {speed2, pos2}.pos.x;
+        (mb->items)[(mb->nb)].pos.y = {speed2, pos2}.pos.y;
+        (mb->items)[(mb->nb)].pos.z = {speed2, pos2}.pos.z;
+        (mb->items)[(mb->nb)].speed.x = {speed2, pos2}.speed.x;
+        (mb->items)[(mb->nb)].speed.y = {speed2, pos2}.speed.y;
+        (mb->items)[(mb->nb)].speed.z = {speed2, pos2}.speed.z;
+        (mb->nb)++;
       }
       bag_clear((&bagsCur[idCell]));
     }

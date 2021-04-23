@@ -65,10 +65,12 @@ let _ =
       
       
       
-      (* TODO
+      
       set_repeat_io true;
       inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"p2" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cFun ~name:"main"(); cVarDef ~name:"mp" ()] ~inline_at:[[cTopFun ~name:"main"()]]();
       set_repeat_io false;      
+      (* TODO
       detach_expression [cVarDef ~name:"mp"()] ~keep_label:false;
       inline_record_access ~field:"pos" ~var:"mp" ();     
       inline_record_access ~field:"speed" ~var:"mp" ();   

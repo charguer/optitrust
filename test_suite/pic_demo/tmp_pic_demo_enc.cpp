@@ -54,7 +54,55 @@
              set(i, 0);
            };
            ((*i) < ((*b2).nb)); operator++(i)) {
-        bag_push(b1, ((*b2).items)[(*i)]);
+        {
+          {
+            const bag **mb = new bag *;
+            set(mb, b1);
+          }
+          {
+            const particle *mp = new particle;
+            set(mp, ((*b2).items)[(*i)]);
+          }
+          set(struct_access(
+                  struct_access(array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                pos),
+                  x),
+              (*struct_access(struct_access(mp, pos), x)));
+          set(struct_access(
+                  struct_access(array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                pos),
+                  y),
+              (*struct_access(struct_access(mp, pos), y)));
+          set(struct_access(
+                  struct_access(array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                pos),
+                  z),
+              (*struct_access(struct_access(mp, pos), z)));
+          set(struct_access(
+                  struct_access(array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                speed),
+                  x),
+              (*struct_access(struct_access(mp, speed), x)));
+          set(struct_access(
+                  struct_access(array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                speed),
+                  y),
+              (*struct_access(struct_access(mp, speed), y)));
+          set(struct_access(
+                  struct_access(array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                speed),
+                  z),
+              (*struct_access(struct_access(mp, speed), z)));
+          operator++(struct_access((*mb), nb));
+        }
+        delete mp;
+        delete mb;
       }
       delete i;
     }
@@ -163,16 +211,65 @@
                     set(array_access(nextCharge, (*idCell2)),
                         ((*array_access(nextCharge, (*idCell2))) + charge));
                     {
-                      const particle *p2 = new particle;
-                      set(p2, {(*speed2), (*pos2)});
-                    }
-                    {
                       const bag **b2 = new bag *;
                       set(b2, array_access(bagsNext, (*idCell2)));
                     }
+                    {
+                      const bag **mb = new bag *;
+                      set(mb, (*b2));
+                    }
+                    set(struct_access(
+                            struct_access(
+                                array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                pos),
+                            x),
+                        (*struct_access(
+                            struct_access({(*speed2), (*pos2)}, pos), x)));
+                    set(struct_access(
+                            struct_access(
+                                array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                pos),
+                            y),
+                        (*struct_access(
+                            struct_access({(*speed2), (*pos2)}, pos), y)));
+                    set(struct_access(
+                            struct_access(
+                                array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                pos),
+                            z),
+                        (*struct_access(
+                            struct_access({(*speed2), (*pos2)}, pos), z)));
+                    set(struct_access(
+                            struct_access(
+                                array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                speed),
+                            x),
+                        (*struct_access(
+                            struct_access({(*speed2), (*pos2)}, speed), x)));
+                    set(struct_access(
+                            struct_access(
+                                array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                speed),
+                            y),
+                        (*struct_access(
+                            struct_access({(*speed2), (*pos2)}, speed), y)));
+                    set(struct_access(
+                            struct_access(
+                                array_access(struct_access((*mb), items),
+                                             (*struct_access((*mb), nb))),
+                                speed),
+                            z),
+                        (*struct_access(
+                            struct_access({(*speed2), (*pos2)}, speed), z)));
+                    operator++(struct_access((*mb), nb));
                   }
+                  delete mb;
                   delete b2;
-                  delete p2;
                   delete idCell2;
                   delete pos2;
                   delete speed2;

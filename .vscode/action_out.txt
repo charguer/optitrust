@@ -1,1 +1,26 @@
-./watch.sh: line 23: ./action.sh: No such file or directory
+./tmp_pic_demo.cpp:20:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo.cpp:23:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo.cpp:71:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:71:54: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:72:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:20:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo.cpp:23:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo.cpp:75:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:75:50: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:76:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:20:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo.cpp:23:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo.cpp:69:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:70:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:71:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:73:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:74:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:75:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:20:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo.cpp:23:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo.cpp:93:39: error: expected expression
+./tmp_pic_demo.cpp:94:39: error: expected expression
+./tmp_pic_demo.cpp:95:39: error: expected expression
+./tmp_pic_demo.cpp:96:41: error: expected expression
+./tmp_pic_demo.cpp:97:41: error: expected expression
+./tmp_pic_demo.cpp:98:41: error: expected expression
