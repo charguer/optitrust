@@ -1,0 +1,418 @@
+search for "thecontext", get the "env" for that subterm.
+in that environment you can parse "(b || true) = b".
+
+Similar to the technology insertDecl (?). ?????Not so clear????
+
+
+p : path
+
+rewrite p ~rule:"(b || true) = b"
+
+
+unit_test for rewrite of this rule:
+source:     if ((b1 || b2 && (b3 || true)) || true)
+target:     if (b1 || b2 && b3)
+
+
+General pattern:
+
+rewrite p ~rule:"e1 = e2"
+
+
+rewrite p ~rule:"
+   source:
+   if (true) { s1; } else { s2; }
+   target:
+   s1"
+
+----------------------------------
+
+   type pat = trm // with some free variables
+
+   type rewrite_rule = { name : string; source : pat; target : pat }
+
+   type base = rewrite_rule list
+
+   (* LATER
+   type base = // todo check...
+       | Base_one of rewrite_rule
+       | Base_group of base list
+   *)
+
+rewrite p ~base:["simpl_bool"; "simpl_int"]
+
+   here base: rewrite_rules
+
+let all_simpl =
+   rewrite ast_root ~base:["simpl_bool"; "simpl_int"; ....]
+
+// tactic for performing all "obvious" simplifications
+
+----------------------------------
+
+implementation:
+
+
+   is_rule_applicable (t:trm) (p:pat) : bool =
+      pattern_instantiate returns something
+
+if the rule is applicable:
+
+   type instantiation = fmap string trm
+
+   pattern_instantiate (t:trm) (p:pat) : instantiation
+
+      rewrite p ~rule:"(b || true) = b"
+      source:     if ((b1 || b2 && (b3 || true)) || true)
+      result of pattern_instantiate is the singleton map  from b -> ((b1 || b2 && (b3 || true))
+      and for the second call it's b -> (b3 || true)
+
+   pattern_subst (p:pat) (m:instantiation) : trm
+
+     nothing else than substitution function (maybe already implemented?)
+
+----------------------------------
+
+1) typecheck one rule
+
+   "(b || true) = b"
+
+   you have to have b defined
+
+      file "context_for_rewrite.cpp":
+      int main() {
+         bool b,b1,b2,b3;
+         int n,n1,n2,n3;
+         thecontext:
+      }
+
+   what about "type generic" stuff?
+
+2) typecheck the file with many rules
+
+   - pattern is:
+
+        label: source = target;
+
+   gives the component of the rewrite_rule
+
+   load_rewrite_rules "simpl.cpp"
+      a) parses simpl.cpp
+      b) for each line with a label, extends global_rewrite_rule_base
+         with one rewrite rule, say the label is or_true_l
+      c) immediately after this, the user can write
+           rewrite ~name:"or_true_l" p
+
+
+3) database of rules ?
+
+   LATER: we'll add scopes.
+     Simpl.b_or_true
+     OtherSimple.b_or_true
+
+   for now, just one
+      "global_rewrite_rule_base : (name, rewrite_rule) fmap"
+
+   like current_ast = trm ref
+   likewise, current_data_base, also store it in the same stack of states
+
+   load_rewrite_rules just adds stuff to it.
+
+4) Idea is "repeat (try apply the first rule that matches)"
+
+5) application of rules
+
+   (1) terminating:   1+b = b+1     b+1 = 1+b   -- we just assume that it's fine
+   (2) convergent:    in practice it's fine.   0 + (1 * n)    --> n
+   (3) bottom-up --- not top-down
+
+
+     let rewrite (trm_if t0 t1 t2) =
+       let t0' = rewrite t0 in
+       let t1' = rewrite t1 in
+       let t2' = rewrite t2 in
+       let t' = trm_if t0' t1' t2' in
+       repeat
+         if pattern_matches (any rule r) t'
+            then apply_rule r t'
+            else exit with t'
+
+
+
+6) pattern_match (p:pat) (t:trm) : bool
+
+
+   non-linear patterns = same variable can occur several times
+   e.g. rule :  b || b -> b
+   case match:   (f(x) || f(x)) -> f(x)
+   case mismatch:  (f(y) || f(x)) -> Mismatch
+
+
+   exception Mismatch
+
+  pattern_instantiate (p:pat) (t:trm) : instantiation option =
+    try Some (aux p t)
+    with Mismatch -> None
+
+
+   let inst = ref [] in (* or map or a list is fine *)
+
+   let rec aux p t =
+      match p, t with
+      | var x, _ ->
+         if Fmap.mem x !inst then begin
+            if same_trm (Fmap.get x !inst) t
+               then ()
+               else raise Mismatch
+         end else
+            inst := Fmap.add x t !inst
+         end
+      | trm_if p0 p1 p2, trm_if t0 t1 t2 ->
+         aux p0 t0;
+         aux p1 t1;
+         aux p2 t2
+      | trm_for (int i = ..)   | trm_for (int j = ...) => LATER: support this, not now
+      | _, _ -> (* different constructors *)
+         raise Mismatch
+
+   let same_trm is a comparison function for trm (already implemented?)
+
+
+7) Computing with constantssearch for "thecontext", get the "env" for that subterm.
+in that environment you can parse "(b || true) = b".
+
+Similar to the technology insertDecl (?).
+
+
+
+p : path
+
+rewrite p ~rule:"(b || true) = b"
+
+
+unit_test for rewrite of this rule:
+source:     if ((b1 || b2 && (b3 || true)) || true)
+target:     if (b1 || b2 && b3)
+
+
+General pattern:
+
+rewrite p ~rule:"e1 = e2"
+
+
+rewrite p ~rule:"
+   source:
+   if (true) { s1; } else { s2; }
+   target:
+   s1"
+
+----------------------------------
+
+   type pat = trm // with some free variables
+
+   type rewrite_rule = { name : string; source : pat; target : pat }
+
+   type base = rewrite_rule list
+
+   (* LATER
+   type base = // todo check...
+       | Base_one of rewrite_rule
+       | Base_group of base list
+   *)
+
+rewrite p ~base:["simpl_bool"; "simpl_int"]
+
+   here base: rewrite_rules
+
+let all_simpl =
+   rewrite ast_root ~base:["simpl_bool"; "simpl_int"; ....]
+
+// tactic for performing all "obvious" simplifications
+
+----------------------------------
+
+implementation:
+
+
+   is_rule_applicable (t:trm) (p:pat) : bool =
+      pattern_instantiate returns something
+
+if the rule is applicable:
+
+   type instantiation = fmap string trm
+
+   pattern_instantiate (t:trm) (p:pat) : instantiation
+
+      rewrite p ~rule:"(b || true) = b"
+      source:     if ((b1 || b2 && (b3 || true)) || true)
+      result of pattern_instantiate is the singleton map  from b -> ((b1 || b2 && (b3 || true))
+      and for the second call it's b -> (b3 || true)
+
+   pattern_subst (p:pat) (m:instantiation) : trm
+
+     nothing else than substitution function (maybe already implemented?)
+
+----------------------------------
+
+1) typecheck one rule
+
+   "(b || true) = b"
+
+   you have to have b defined
+
+      file "context_for_rewrite.cpp":
+      int main() {
+         bool b,b1,b2,b3;
+         int n,n1,n2,n3;
+         thecontext:
+      }
+
+   what about "type generic" stuff?
+
+2) typecheck the file with many rules
+
+   - pattern is:
+
+        label: source = target;
+
+   gives the component of the rewrite_rule
+
+   load_rewrite_rules "simpl.cpp"
+      a) parses simpl.cpp
+      b) for each line with a label, extends global_rewrite_rule_base
+         with one rewrite rule, say the label is or_true_l
+      c) immediately after this, the user can write
+           rewrite ~name:"or_true_l" p
+
+
+3) database of rules ?
+
+   LATER: we'll add scopes.
+     Simpl.b_or_true
+     OtherSimple.b_or_true
+
+   for now, just one
+      "global_rewrite_rule_base : (name, rewrite_rule) fmap"
+
+   like current_ast = trm ref
+   likewise, current_data_base, also store it in the same stack of states
+
+   load_rewrite_rules just adds stuff to it.
+
+4) Idea is "repeat (try apply the first rule that matches)"
+
+5) application of rules
+
+   (1) terminating:   1+b = b+1     b+1 = 1+b   -- we just assume that it's fine
+   (2) convergent:    in practice it's fine.   0 + (1 * n)    --> n
+   (3) bottom-up --- not top-down
+
+
+     let rewrite (trm_if t0 t1 t2) =
+       let t0' = rewrite t0 in
+       let t1' = rewrite t1 in
+       let t2' = rewrite t2 in
+       let t' = trm_if t0' t1' t2' in
+       repeat
+         if pattern_matches (any rule r) t'
+            then apply_rule r t'
+            else exit with t'
+
+
+
+6) pattern_match (p:pat) (t:trm) : bool
+
+
+   non-linear patterns = same variable can occur several times
+   e.g. rule :  b || b -> b
+   case match:   (f(x) || f(x)) -> f(x)
+   case mismatch:  (f(y) || f(x)) -> Mismatch
+
+
+   exception Mismatch
+
+  pattern_instantiate (p:pat) (t:trm) : instantiation option =
+    try Some (aux p t)
+    with Mismatch -> None
+
+
+   let inst = ref [] in (* or map or a list is fine *)
+
+   let rec aux p t =
+      match p, t with
+      | var x, _ ->
+         if Fmap.mem x !inst then begin
+            if same_trm (Fmap.get x !inst) t
+               then ()
+               else raise Mismatch
+         end else
+            inst := Fmap.add x t !inst
+         end
+      | trm_if p0 p1 p2, trm_if t0 t1 t2 ->
+         aux p0 t0;
+         aux p1 t1;
+         aux p2 t2
+      | trm_for (int i = ..)   | trm_for (int j = ...) => LATER: support this, not now
+      | _, _ -> (* different constructors *)
+         raise Mismatch
+
+   let same_trm is a comparison function for trm (already implemented?)
+
+
+7) Computing with constants
+
+   (1 + (3 + 5)) -> 9
+
+   call(add, [lit_int n; lit_int m])
+
+
+   implement simplification rules in ml
+
+   let simpl_arith (t:trm) =  (* apply simplifications only at the head *)
+     match t with
+     |  call(add, [lit_int n; lit_int m]) -> lit_int (n+m)
+     |  call(div, [lit_int n; lit_int m]) ->
+         if m = 0 then raise error else lit_int (n/m)
+
+
+      warning: need to raise error if division by zero.
+
+     just feed this to the rewrite rule bottom-up strategy
+
+
+
+      type user_rewrite_rule = { name : string; source : pat; target : pat }
+      type builtin_rewrite_rule = { name: string; operation : trm -> trm }
+
+      type rewrite_rule =
+         | RewriteRuleUser of user_rewrite_rule
+         | RewriteRuleBuiltin of builtin_rewrite_rule
+
+
+
+   (1 + (3 + 5)) -> 9
+
+   call(add, [lit_int n; lit_int m])
+
+
+   implement simplification rules in ml
+
+   let simpl_arith (t:trm) =  (* apply simplifications only at the head *)
+     match t with
+     |  call(add, [lit_int n; lit_int m]) -> lit_int (n+m)
+     |  call(div, [lit_int n; lit_int m]) ->
+         if m = 0 then raise error else lit_int (n/m)
+
+
+      warning: need to raise error if division by zero.
+
+     just feed this to the rewrite rule bottom-up strategy
+
+
+
+      type user_rewrite_rule = { name : string; source : pat; target : pat }
+      type builtin_rewrite_rule = { name: string; operation : trm -> trm }
+
+      type rewrite_rule =
+         | RewriteRuleUser of user_rewrite_rule
+         | RewriteRuleBuiltin of builtin_rewrite_rule

@@ -1,0 +1,5 @@
+Trm_apps ( Trm_val ( Val_prim ( Prim_unop Unop_get ) ),
+  [
+    Trm_apps ( Trm_val ( Val_prim ( Prim_binop Binop_array_access ) ),
+      [ Trm_var t; Trm_val ( Val_lit ( Lit_int 0 ) ) ] )
+  ] )

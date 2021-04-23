@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+<title>
+OptiTrust_Diff_make_implicit_record_assignment
+</title>
+<meta charset="utf-8">
+   <!--DOCUMENTATION: https://github.com/rtfpessoa/diff2html#features -->
+
+   <!-- LINKS TO EXTERNAL REFERENCES
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/github.min.css" />
+   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+   -->
+
+   <!--Make sure to load the CSS file in that order-->
+   <link rel="stylesheet" type="text/css" href="/home/begi-inria/Desktop/verified_transfo/src/.vscode/../tools/lib/highlight.js_github.min.css" />
+   <link rel="stylesheet" type="text/css" href="/home/begi-inria/Desktop/verified_transfo/src/.vscode/../tools/lib/diff2html.min.css" />
+   <script type="text/javascript" src="/home/begi-inria/Desktop/verified_transfo/src/.vscode/../tools/lib/diff2html-ui.min.js"></script>
+
+<style>
+/* Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+
+   display: none;
+}
+</style>
+
+<script>
+   var diffString = "";
+
+   var diffString = window.atob("ZGlmZiAtLWdpdCBhL21ha2VfaW1wbGljaXRfcmVjb3JkX2Fzc2lnbm1lbnRfYmVmb3JlLmNwcCBiL21ha2VfaW1wbGljaXRfcmVjb3JkX2Fzc2lnbm1lbnRfYWZ0ZXIuY3BwCmluZGV4IDhjOGI0NDIuLjczNmJkNTkgMTAwNjQ0Ci0tLSBhL21ha2VfaW1wbGljaXRfcmVjb3JkX2Fzc2lnbm1lbnRfYmVmb3JlLmNwcAorKysgYi9tYWtlX2ltcGxpY2l0X3JlY29yZF9hc3NpZ25tZW50X2FmdGVyLmNwcApAQCAtNiwxOSArNiwyMSBAQCB0eXBlZGVmIHN0cnVjdCB7CiB0eXBlZGVmIHN0cnVjdCB7CiAgIGludCB3ZWlnaHQ7CiAgIHZlY3QgcG9zOwogICB2ZWN0IHNwZWVkOwogfSBvYmo7CiAKIHZlY3QgZigpIHsgcmV0dXJuIHsxLCAxfTsgfQogCiBpbnQgbWFpbigpIHsKICAgdmVjdCBwID0gezAsIDB9OwotICB2ZWN0IGIgPSBwOworICB2ZWN0IGI7CisgIGIueCA9IHAueDsKKyAgYi55ID0gcC55OwogICB2ZWN0IGQ7CiAgIGQueCA9IDE7CiAgIGQueSA9IDI7CiAgIHZlY3QgZTsKICAgZSA9IGYoKTsKICAgb2JqIGEgPSB7MCwgezAsIDB9LCAwfTsKICAgYS5wb3MgPSBwOwogfQo=");
+
+   document.addEventListener('DOMContentLoaded', function () {
+     var targetElement = document.getElementById('diffDiv');
+     var configuration = { 
+         inputFormat: 'json', 
+         drawFileList: false,
+         // fileListToggle: false,
+         // fileListStartVisible: false
+         fileContentToggle: false,
+         matching: 'lines', 
+         outputFormat: 'side-by-side',
+         synchronisedScroll: true,
+         highlight: true,
+         renderNothingWhenEmpty: false,
+         // LATER tune?
+         // matchWordsThreshold : similarity threshold for word matching, default is 0.25
+         // matchWordsThresholdmatchingMaxComparisons: perform at most this much comparisons for line matching a block of changes, default is 2500
+         // maxLineSizeInBlockForComparison: maximum number os characters of the bigger line in a block to apply comparison, default is 200
+         // maxLineLengthHighlight: only perform diff changes highlight if lines are smaller than this, default is 10000
+         };
+     var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+     diff2htmlUi.draw();
+     diff2htmlUi.highlightCode();
+   });
+</script>
+
+</head>
+
+<body>
+
+<div id="diffDiv"></div>
+
+</body>
+</html>

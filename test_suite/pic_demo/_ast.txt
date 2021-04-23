@@ -1,0 +1,20 @@
+=========================Occurence 0======================
+Trm_seq [
+  Trm_decl ( Def_var ( ( pos2, Typ_ptr Typ_var vect ),
+      Trm_val ( Val_prim ( Prim_new Typ_var vect ) ) ) )
+]
+
+------------------------Occurence 0 details---------------
+{annot = Heap_allocated; desc = Trm_seq [
+  {annot = _; desc = Trm_decl ( Def_var ( ( pos2,
+        {annot = _; desc = Typ_ptr {annot = _; desc = Typ_var vect; attributes = [
+          
+        ]}; attributes = [  ]} ),
+      {annot = _; desc = Trm_val ( Val_prim ( Prim_new {annot = _; desc = Typ_var vect;
+            attributes = [  ]} ) ); loc = ( ./tmp_pic_demo.cpp, 74,9: 74,18 );
+        is_instr = false; add = []; typ = _; attributes = [  ]} ) ); loc = ( ./tmp_pic_demo.cpp,
+    74,9: 74,18 ); is_instr = false; add = []; typ = {annot = _; desc = Typ_unit;
+    attributes = [  ]}; attributes = [  ]}
+]; loc = ( ./tmp_pic_demo.cpp, 74,9: 74,18 ); is_instr = false; add = [];
+  typ = {annot = _; desc = Typ_unit; attributes = [  ]}; attributes = [  ]}
+

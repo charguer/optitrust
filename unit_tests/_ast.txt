@@ -1,0 +1,21 @@
+=========================Occurence 0======================
+Trm_decl ( Def_typ ( bag,
+    Typ_struct ( [
+        ( items, Typ_array ( Typ_var obj, Trm_val ( Val_lit ( Lit_int 10 ) ) ) )
+      ],
+       ) ) )
+
+------------------------Occurence 0 details---------------
+{annot = _; desc = Trm_decl ( Def_typ ( bag,
+    {annot = _; desc = Typ_struct ( [
+        ( items,
+          {annot = _; desc = Typ_array ( {annot = _; desc = Typ_var obj;
+              attributes = [  ]},
+            {annot = _; desc = Trm_val ( Val_lit ( Lit_int 10 ) ); loc = ( inline_decl_struct.cpp,
+              13,14: 13,16 ); is_instr = false; add = []; typ = {annot = _; desc = Typ_int;
+              attributes = [  ]}; attributes = [  ]} ); attributes = [  ]} )
+      ],
+       ); attributes = [  ]} ) ); loc = ( inline_decl_struct.cpp, 12,9: 14,2 );
+  is_instr = false; add = []; typ = {annot = _; desc = Typ_unit;
+  attributes = [  ]}; attributes = [  ]}
+

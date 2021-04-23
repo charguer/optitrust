@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+<title>
+OptiTrust_Diff_transformations
+</title>
+<meta charset="utf-8">
+   <!--DOCUMENTATION: https://github.com/rtfpessoa/diff2html#features -->
+
+   <!-- LINKS TO EXTERNAL REFERENCES
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/github.min.css" />
+   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+   -->
+
+   <!--Make sure to load the CSS file in that order-->
+   <link rel="stylesheet" type="text/css" href="/home/begi-inria/Desktop/verified_transfo/src/src/../tools/lib/highlight.js_github.min.css" />
+   <link rel="stylesheet" type="text/css" href="/home/begi-inria/Desktop/verified_transfo/src/src/../tools/lib/diff2html.min.css" />
+   <script type="text/javascript" src="/home/begi-inria/Desktop/verified_transfo/src/src/../tools/lib/diff2html-ui.min.js"></script>
+
+<style>
+/* Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+
+   display: none;
+}
+</style>
+
+<script>
+   var diffString = "";
+
+   var diffString = window.atob("");
+
+   document.addEventListener('DOMContentLoaded', function () {
+     var targetElement = document.getElementById('diffDiv');
+     var configuration = { 
+         inputFormat: 'json', 
+         drawFileList: false,
+         // fileListToggle: false,
+         // fileListStartVisible: false
+         fileContentToggle: false,
+         matching: 'lines', 
+         outputFormat: 'side-by-side',
+         synchronisedScroll: true,
+         highlight: true,
+         renderNothingWhenEmpty: false,
+         // LATER tune?
+         // matchWordsThreshold : similarity threshold for word matching, default is 0.25
+         // matchWordsThresholdmatchingMaxComparisons: perform at most this much comparisons for line matching a block of changes, default is 2500
+         // maxLineSizeInBlockForComparison: maximum number os characters of the bigger line in a block to apply comparison, default is 200
+         // maxLineLengthHighlight: only perform diff changes highlight if lines are smaller than this, default is 10000
+         };
+     var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+     diff2htmlUi.draw();
+     diff2htmlUi.highlightCode();
+   });
+</script>
+
+</head>
+
+<body>
+
+<div id="diffDiv"></div>
+
+</body>
+</html>

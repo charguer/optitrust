@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+<title>
+OptiTrust_Diff_pic_demo
+</title>
+<meta charset="utf-8">
+   <!--DOCUMENTATION: https://github.com/rtfpessoa/diff2html#features -->
+
+   <!-- LINKS TO EXTERNAL REFERENCES
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/github.min.css" />
+   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+   -->
+
+   <!--Make sure to load the CSS file in that order-->
+   <link rel="stylesheet" type="text/css" href="/home/begi-inria/Desktop/verified_transfo/src/.vscode/../tools/lib/highlight.js_github.min.css" />
+   <link rel="stylesheet" type="text/css" href="/home/begi-inria/Desktop/verified_transfo/src/.vscode/../tools/lib/diff2html.min.css" />
+   <script type="text/javascript" src="/home/begi-inria/Desktop/verified_transfo/src/.vscode/../tools/lib/diff2html-ui.min.js"></script>
+
+<style>
+/* Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+
+   display: none;
+}
+</style>
+
+<script>
+   var diffString = "";
+
+   var diffString = window.atob("ZGlmZiAtLWdpdCBhL3BpY19kZW1vX2JlZm9yZS5jcHAgYi9waWNfZGVtb19hZnRlci5jcHAKaW5kZXggNGU2NzkyZC4uZTUxOTJkNSAxMDA2NDQKLS0tIGEvcGljX2RlbW9fYmVmb3JlLmNwcAorKysgYi9waWNfZGVtb19hZnRlci5jcHAKQEAgLTY0LDI2ICs2NCwyNSBAQCBpbnQgbWFpbigpIHsKICAgICAgIHZlY3QgZmllbGQgPSBmaWVsZHNbaWRDZWxsXTsKICAgICAgIGJhZyAqYiA9ICgmYmFnc0N1cltpZENlbGxdKTsKICAgICAgIGludCBuYiA9IChiLT5uYik7CiAgICAgICBmb3IgKGludCBpZFBhcnRpY2xlID0gMDsgKGlkUGFydGljbGUgPCBuYik7IGlkUGFydGljbGUrKykgewogICAgICAgICBwYXJ0aWNsZSBwID0gKGItPml0ZW1zKVtpZFBhcnRpY2xlXTsKICAgICAgICAgdmVjdCBzcGVlZDI7CiAgICAgICAgIHNwZWVkMiA9IHsocC5zcGVlZC54ICsgZmllbGQueCksIChwLnNwZWVkLnkgKyBmaWVsZC55KSwKICAgICAgICAgICAgICAgICAgIChwLnNwZWVkLnogKyBmaWVsZC56KX07CiAgICAgICAgIHZlY3QgcG9zMjsKICAgICAgICAgdmVjdCBudjI7Ci0gICAgICAgIGNvbnN0IHZlY3QgcHYyID0gc3BlZWQyOwotICAgICAgICBudjIgPSB7KHN0ZXBfZHVyYXRpb24gKiBwdjIueCksIChzdGVwX2R1cmF0aW9uICogcHYyLnkpLAotICAgICAgICAgICAgICAgKHN0ZXBfZHVyYXRpb24gKiBwdjIueil9OwotICAgICAgICBwb3MyID0geyhwLnBvcy54ICsgKHN0ZXBfZHVyYXRpb24gKiBwdjIueCkpLAotICAgICAgICAgICAgICAgIChwLnBvcy55ICsgKHN0ZXBfZHVyYXRpb24gKiBwdjIueSkpLAotICAgICAgICAgICAgICAgIChwLnBvcy56ICsgKHN0ZXBfZHVyYXRpb24gKiBwdjIueikpfTsKKyAgICAgICAgbnYyID0geyhzdGVwX2R1cmF0aW9uICogc3BlZWQyLngpLCAoc3RlcF9kdXJhdGlvbiAqIHNwZWVkMi55KSwKKyAgICAgICAgICAgICAgIChzdGVwX2R1cmF0aW9uICogc3BlZWQyLnopfTsKKyAgICAgICAgcG9zMiA9IHsocC5wb3MueCArIChzdGVwX2R1cmF0aW9uICogc3BlZWQyLngpKSwKKyAgICAgICAgICAgICAgICAocC5wb3MueSArIChzdGVwX2R1cmF0aW9uICogc3BlZWQyLnkpKSwKKyAgICAgICAgICAgICAgICAocC5wb3MueiArIChzdGVwX2R1cmF0aW9uICogc3BlZWQyLnopKX07CiAgICAgICAgIGludCBpZENlbGwyID0gaWRDZWxsT2ZQb3MocG9zMik7CiAgICAgICAgIG5leHRDaGFyZ2VbaWRDZWxsMl0gKz0gY2hhcmdlOwogICAgICAgICBwYXJ0aWNsZSBwMiA9IHtzcGVlZDIsIHBvczJ9OwogICAgICAgICBiYWdfcHVzaCgoJmJhZ3NOZXh0W2lkQ2VsbDJdKSwgcDIpOwogICAgICAgICBiYWcgKmIyID0gKCZiYWdzTmV4dFtpZENlbGwyXSk7CiAgICAgICAgIGludCBrID0gKGItPm5iKTsKICAgICAgICAgKGIyLT5pdGVtcylba10ucG9zLnggPSBwb3MyLng7CiAgICAgICAgIChiMi0+aXRlbXMpW2tdLnBvcy55ID0gcG9zMi55OwogICAgICAgICAoYjItPml0ZW1zKVtrXS5wb3MueiA9IHBvczIuejsKICAgICAgICAgKGIyLT5pdGVtcylba10uc3BlZWQueCA9IHNwZWVkMi54Owo=");
+
+   document.addEventListener('DOMContentLoaded', function () {
+     var targetElement = document.getElementById('diffDiv');
+     var configuration = { 
+         inputFormat: 'json', 
+         drawFileList: false,
+         // fileListToggle: false,
+         // fileListStartVisible: false
+         fileContentToggle: false,
+         matching: 'lines', 
+         outputFormat: 'side-by-side',
+         synchronisedScroll: true,
+         highlight: true,
+         renderNothingWhenEmpty: false,
+         // LATER tune?
+         // matchWordsThreshold : similarity threshold for word matching, default is 0.25
+         // matchWordsThresholdmatchingMaxComparisons: perform at most this much comparisons for line matching a block of changes, default is 2500
+         // maxLineSizeInBlockForComparison: maximum number os characters of the bigger line in a block to apply comparison, default is 200
+         // maxLineLengthHighlight: only perform diff changes highlight if lines are smaller than this, default is 10000
+         };
+     var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+     diff2htmlUi.draw();
+     diff2htmlUi.highlightCode();
+   });
+</script>
+
+</head>
+
+<body>
+
+<div id="diffDiv"></div>
+
+</body>
+</html>
