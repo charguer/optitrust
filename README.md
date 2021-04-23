@@ -68,11 +68,16 @@ braces with the following contents:
 
 ```
 [
-   {
-       "key": "f6",
-       "command": "workbench.action.tasks.runTask",
-       "args": "View changes in browser"
-   }
+   
+    "key":"f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute transformation script without update"
+  },
+  {
+    "key":"shift+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute transformation script with update"
+  },
 ]
 ```
 
