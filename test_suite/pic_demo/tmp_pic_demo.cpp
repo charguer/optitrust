@@ -31,12 +31,7 @@ typedef struct {
 } bag;
 
 void bag_push(bag *b, particle p) {
-  (b->items)[(b->nb)].pos.x = p.pos.x;
-  (b->items)[(b->nb)].pos.y = p.pos.y;
-  (b->items)[(b->nb)].pos.z = p.pos.z;
-  (b->items)[(b->nb)].speed.x = p.speed.x;
-  (b->items)[(b->nb)].speed.y = p.speed.y;
-  (b->items)[(b->nb)].speed.z = p.speed.z;
+  (b->items)[(b->nb)] = p;
   (b->nb)++;
 }
 
@@ -44,15 +39,7 @@ void bag_clear(bag *b) { (b->nb) = 0; }
 
 void bag_transfer(bag *b1, bag *b2) {
   for (int i = 0; (i < (b2->nb)); i++) {
-    bag *mb = b1;
-    particle mp = (b2->items)[i];
-    (mb->items)[(mb->nb)].pos.x = mp.pos.x;
-    (mb->items)[(mb->nb)].pos.y = mp.pos.y;
-    (mb->items)[(mb->nb)].pos.z = mp.pos.z;
-    (mb->items)[(mb->nb)].speed.x = mp.speed.x;
-    (mb->items)[(mb->nb)].speed.y = mp.speed.y;
-    (mb->items)[(mb->nb)].speed.z = mp.speed.z;
-    (mb->nb)++;
+    bag_push(b1, (b2->items)[i]);
   }
   bag_clear(b2);
 }
@@ -76,26 +63,15 @@ int main() {
       bag *b = (&bagsCur[idCell]);
       int nb = (b->nb);
       for (int idParticle = 0; (idParticle < nb); idParticle++) {
+        particle p = (b->items)[idParticle];
         vect speed2;
-        speed2.x = ((b->items)[idParticle].speed.x + field.x);
-        speed2.y = ((b->items)[idParticle].speed.y + field.y);
-        speed2.z = ((b->items)[idParticle].speed.z + field.z);
-        vect pos2;
-        pos2.x = ((b->items)[idParticle].pos.x + (step_duration * speed2.x));
-        pos2.y = ((b->items)[idParticle].pos.y + (step_duration * speed2.y));
-        pos2.z = ((b->items)[idParticle].pos.z + (step_duration * speed2.z));
+        speed2 = vect_add(p.speed, field);
+        vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
         int idCell2 = idCellOfPos(pos2);
         nextCharge[idCell2] += 1.;
+        particle p2 = {speed2, pos2};
         bag *b2 = (&bagsNext[idCell2]);
-        bag *mb = b2;
-        particle mp = {speed2, pos2};
-        (mb->items)[(mb->nb)].pos.x = mp.pos.x;
-        (mb->items)[(mb->nb)].pos.y = mp.pos.y;
-        (mb->items)[(mb->nb)].pos.z = mp.pos.z;
-        (mb->items)[(mb->nb)].speed.x = mp.speed.x;
-        (mb->items)[(mb->nb)].speed.y = mp.speed.y;
-        (mb->items)[(mb->nb)].speed.z = mp.speed.z;
-        (mb->nb)++;
+        bag_push(b2, p2);
       }
       bag_clear((&bagsCur[idCell]));
     }

@@ -34,12 +34,7 @@
   } bag;
 
   void bag_push(bag * b, particle p) {
-    set(((((*b).items)[((*b).nb)].pos).x), ((p.pos).x));
-    set(((((*b).items)[((*b).nb)].pos).y), ((p.pos).y));
-    set(((((*b).items)[((*b).nb)].pos).z), ((p.pos).z));
-    set(((((*b).items)[((*b).nb)].speed).x), ((p.speed).x));
-    set(((((*b).items)[((*b).nb)].speed).y), ((p.speed).y));
-    set(((((*b).items)[((*b).nb)].speed).z), ((p.speed).z));
+    set(((*b).items)[((*b).nb)], p);
     operator++(((*b).nb));
   }
 
@@ -52,21 +47,7 @@
              set(i, 0);
            };
            ((*i) < ((*b2).nb)); operator++(i)) {
-        {
-          const bag **mb = new bag *;
-          set(mb, b1);
-        }
-        {
-          const particle *mp = new particle;
-          set(mp, ((*b2).items)[(*i)]);
-        }
-        set(((((*mb).items)[((*mb).nb)].pos).x), ((mp.pos).x));
-        set(((((*mb).items)[((*mb).nb)].pos).y), ((mp.pos).y));
-        set(((((*mb).items)[((*mb).nb)].pos).z), ((mp.pos).z));
-        set(((((*mb).items)[((*mb).nb)].speed).x), ((mp.speed).x));
-        set(((((*mb).items)[((*mb).nb)].speed).y), ((mp.speed).y));
-        set(((((*mb).items)[((*mb).nb)].speed).z), ((mp.speed).z));
-        operator++(((*mb).nb));
+        bag_push(b1, ((*b2).items)[(*i)]);
       }
       delete i;
     }
@@ -118,56 +99,18 @@
                      };
                      ((*idParticle) < (*nb)); operator++(idParticle)) {
                   {
+                    {
+                      const particle *p = new particle;
+                      set(p, (*array_access(struct_access((*b), items),
+                                            (*idParticle))));
+                    }
                     { const vect *speed2 = new vect; }
-                    set(struct_access(speed2, x),
-                        ((*struct_access(
-                             struct_access(
-                                 array_access(struct_access((*b), items),
-                                              (*idParticle)),
-                                 speed),
-                             x)) +
-                         (*struct_access(field, x))));
-                    set(struct_access(speed2, y),
-                        ((*struct_access(
-                             struct_access(
-                                 array_access(struct_access((*b), items),
-                                              (*idParticle)),
-                                 speed),
-                             y)) +
-                         (*struct_access(field, y))));
-                    set(struct_access(speed2, z),
-                        ((*struct_access(
-                             struct_access(
-                                 array_access(struct_access((*b), items),
-                                              (*idParticle)),
-                                 speed),
-                             z)) +
-                         (*struct_access(field, z))));
-                    { const vect *pos2 = new vect; }
-                    set(struct_access(pos2, x),
-                        ((*struct_access(
-                             struct_access(
-                                 array_access(struct_access((*b), items),
-                                              (*idParticle)),
-                                 pos),
-                             x)) +
-                         (step_duration * (*struct_access(speed2, x)))));
-                    set(struct_access(pos2, y),
-                        ((*struct_access(
-                             struct_access(
-                                 array_access(struct_access((*b), items),
-                                              (*idParticle)),
-                                 pos),
-                             y)) +
-                         (step_duration * (*struct_access(speed2, y)))));
-                    set(struct_access(pos2, z),
-                        ((*struct_access(
-                             struct_access(
-                                 array_access(struct_access((*b), items),
-                                              (*idParticle)),
-                                 pos),
-                             z)) +
-                         (step_duration * (*struct_access(speed2, z)))));
+                    set(speed2, vect_add((*struct_access(p, speed)), (*field)));
+                    {
+                      const vect *pos2 = new vect;
+                      set(pos2, vect_add((*struct_access(p, pos)),
+                                         vect_mul(step_duration, (*speed2))));
+                    }
                     {
                       const int *idCell2 = new int;
                       set(idCell2, idCellOfPos((*pos2)));
@@ -175,29 +118,21 @@
                     set(array_access(nextCharge, (*idCell2)),
                         ((*array_access(nextCharge, (*idCell2))) + 1.));
                     {
+                      const particle *p2 = new particle;
+                      set(p2, {(*speed2), (*pos2)});
+                    }
+                    {
                       const bag **b2 = new bag *;
                       set(b2, array_access(bagsNext, (*idCell2)));
                     }
-                    {
-                      const bag **mb = new bag *;
-                      set(mb, (*b2));
-                    }
-                    {
-                      const particle *mp = new particle;
-                      set(mp, {(*speed2), (*pos2)});
-                    }
-                    set(((((*mb).items)[((*mb).nb)].pos).x), ((mp.pos).x));
-                    set(((((*mb).items)[((*mb).nb)].pos).y), ((mp.pos).y));
-                    set(((((*mb).items)[((*mb).nb)].pos).z), ((mp.pos).z));
-                    set(((((*mb).items)[((*mb).nb)].speed).x), ((mp.speed).x));
-                    set(((((*mb).items)[((*mb).nb)].speed).y), ((mp.speed).y));
-                    set(((((*mb).items)[((*mb).nb)].speed).z), ((mp.speed).z));
-                    operator++(((*mb).nb));
+                    bag_push((*b2), (*p2));
                   }
                   delete b2;
+                  delete p2;
                   delete idCell2;
                   delete pos2;
                   delete speed2;
+                  delete p;
                 }
                 delete idParticle;
               }

@@ -1,18 +1,29 @@
-./tmp_pic_demo.cpp:18:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:21:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:69:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:69:54: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:70:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:18:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:21:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:73:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:73:50: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:74:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:18:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:21:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
-./tmp_pic_demo.cpp:67:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:68:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:69:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:71:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:72:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
-./tmp_pic_demo.cpp:73:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:18:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo_stable.cpp:21:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo_stable.cpp:69:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:69:54: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:70:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:18:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo_stable.cpp:21:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo_stable.cpp:73:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:73:50: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:74:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:18:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo_stable.cpp:21:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo_stable.cpp:67:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:68:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:69:44: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:71:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:72:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:73:42: error: member reference type 'particle' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo_stable.cpp:18:10: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo_stable.cpp:21:42: warning: generalized initializer lists are a C++11 extension [-Wc++11-extensions]
+./tmp_pic_demo_stable.cpp:91:39: error: expected expression
+./tmp_pic_demo_stable.cpp:92:39: error: expected expression
+./tmp_pic_demo_stable.cpp:93:39: error: expected expression
+./tmp_pic_demo_stable.cpp:94:41: error: expected expression
+./tmp_pic_demo_stable.cpp:95:41: error: expected expression
+./tmp_pic_demo_stable.cpp:96:41: error: expected expression
+Fatal error: exception (Failure
+  "make_explicit_record_assignment: the path should point at one exact term and should not be empty")
+Could not execute script
