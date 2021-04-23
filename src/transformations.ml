@@ -1044,6 +1044,64 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
       for (int i = c*D; i < N; i += C*D)
       body
   *)
+let undetach_expression_aux(clog : out_channel) (trm_index : int) (t : trm) : trm = 
+  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with 
+    | [] -> failwith "Empty list"
+    | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
+  in 
+  
+  let log : string = 
+    let loc : string = 
+      match t.loc with 
+      | None -> ""
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+      in Printf.sprintf
+      (" -expresssion\n%s\n" ^^
+      "  %sis an assignment \n"
+      )
+      (ast_to_string t) loc 
+      in write_log clog log;
+      match t.desc with 
+      | Trm_seq tl -> 
+        let t_decl = List.nth tl trm_index in 
+        let t_assgn = List.nth tl (trm_index + 1) in 
+        let t_assgn = {t_assgn with annot=(Some Initialisation_instruction)} in 
+        let t_decl = begin match t_decl.desc with 
+        | Trm_seq [var_decl] -> var_decl 
+        | _ -> fail t.loc "undelocalize_aux: expected the sequence which contain the declaration"
+        end 
+        in 
+        let new_trm = trm_seq ~annot:(Some Heap_allocated) [t_decl;t_assgn] in 
+        let tl = list_remove_at (trm_index + 1) tl in 
+        let tl = list_replace_el new_trm trm_index tl in
+        trm_seq ~annot:t.annot tl 
+      | _ -> fail t.loc "undelocalize_aux: expected the outer sequence"
+
+        
+
+
+let undetach_expression (clog :out_channel) (pl :path list) (t : trm) : trm = 
+  let p = List.flatten pl in 
+  let b = !Flags.verbose in
+  Flags.verbose := false; 
+  let epl = resolve_path p t in 
+  Flags.verbose := b;
+  let app_transfo  (t : trm) (dl : expl_path) : trm = 
+    match List.rev dl with 
+    | Dir_nth n :: dl' -> 
+      let dl = List.rev dl' in 
+      apply_local_transformation (undetach_expression_aux clog n ) t dl
+    | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"
+    
+  in   
+  match epl with 
+  | [] -> 
+    (* TODO: decide later whether the empty results should be treated as error *)
+    print_info t.loc "detach_expression: no matching subterm";
+    t
+  | _ -> List.fold_left ( fun t dl -> app_transfo t dl)
+    t epl
+
 
 let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (label : string) (trm_index : int) (expression_trm : trm)(t : trm) : trm = 
   let log : string = 

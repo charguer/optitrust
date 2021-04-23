@@ -239,6 +239,8 @@ val const_non_const: ?replace_top:bool -> paths -> unit
 
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  paths -> unit 
 
+val undetach_expression : ?replace_top:bool -> paths -> unit 
+
 val fields_reorder : ?replace_top:bool -> paths -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit
 
 val tile_loop : ?replace_top:bool -> paths -> unit

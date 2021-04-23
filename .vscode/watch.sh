@@ -12,6 +12,8 @@ ACTION_FILE="./action.sh"
 ACTION_OUT_TEMP="./action_out_temp.txt"
 ACTION_OUT="./action_out.txt"
 while true; do
+    rm -f ${ACTION_FILE} # optional
+    touch ${ACTION_FILE}
     inotifywait -e modify ${ACTION_FILE}
     sleep 0.01
     OUT=$?

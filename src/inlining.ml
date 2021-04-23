@@ -716,7 +716,7 @@ aux t t
 
 
 
-let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (t :trm) : trm = 
+let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (i : int) (t :trm) : trm = 
   let base_struct_path = [cType ~name:base_struct_name()] in 
   let epl_of_base_struct = resolve_path (List.flatten base_struct_path) t in 
   let base_struct_term = match epl_of_base_struct with 
@@ -730,8 +730,16 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     let (t_def,_) = resolve_explicit_path dl t in t_def 
   | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
-  
-  let pos = get_pos x struct_term in 
+  let field_list = 
+              match base_struct_term.desc with 
+                | Trm_decl(Def_typ(_,dx)) ->
+                  begin match dx.ty_desc with 
+                    | Typ_struct (fl,_,_) -> fl 
+                    | _ -> fail t.loc "change_struct_initializaition: expected a struct"
+                  end
+                | _ -> fail t.loc "change_struct_initialization: expected a definition"
+      in 
+  let pos = get_pos ((List.length field_list ) * i) x struct_term in 
   let rec aux (global_trm : trm) (t : trm) = 
     match t.desc with 
     | Trm_struct term_list -> 
@@ -748,15 +756,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
           
           begin match body.desc with 
           | Trm_var _p ->  (*trm_struct (List.rev term_list)*) 
-              let field_list = 
-              match base_struct_term.desc with 
-                | Trm_decl(Def_typ(_,dx)) ->
-                  begin match dx.ty_desc with 
-                    | Typ_struct (fl,_,_) -> fl 
-                    | _ -> fail t.loc "change_struct_initializaition: expected a struct"
-                  end
-                | _ -> fail t.loc "change_struct_initialization: expected a definition"
-              in 
+              
               let field_list = List.map (fun el -> trm_var (_p ^ "." ^ el)) field_list
               in trm_struct (insert_sublist_in_list field_list pos term_list)
           | _ -> fail t.loc "change_struct_initialization: expected either a record or a variables"
@@ -822,8 +822,9 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
    let t =  List.fold_left (fun acc_t x -> change_struct_access x acc_t) t struct_fields
     in
     
-    let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t struct_fields
-    in
+   let t = foldi(fun i acc_t x ->change_struct_initialization clog name inner_struct_name x i acc_t ) t struct_fields in 
+    (* let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t struct_fields
+    in *)
     
     let p = List.flatten struct_term_path in
     let b = !Flags.verbose in

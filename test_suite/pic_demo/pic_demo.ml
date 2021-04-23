@@ -41,8 +41,10 @@ let _ =
       inline_record_access ~field:"y" ~var:"nv2" ();   
       inline_record_access ~field:"z" ~var:"nv2" ();
       (* TODO missing remove instruction, workaround here *)
-      make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"nv2"()]()];
-      make_implicit_record_assignment ~struct_name:"vect" [cVarDef ~name:"nv2"()] ;
+      (* Replaced this two lines with undetach_expression *)
+      (* make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"nv2"()]()];
+      make_implicit_record_assignment ~struct_name:"vect" [cVarDef ~name:"nv2"()] ; *)
+      undetach_expression [cVarDef ~name:"nv2"()];
       remove_decl ~decl_path:[cVarDef ~name:"nv2"()] ();
       set_repeat_io true;
 
@@ -100,7 +102,7 @@ let _ =
       *)
       
       
-      inline_struct ~struct_name:"particle" ~struct_fields:["speed";"pos"] ();
+      inline_struct ~struct_name:"particle" ~struct_fields:["pos";"speed"] ();
       inline_struct ~struct_name:"bag" ~struct_fields:["items"] ();
       (* split_loop ~keep_labels:false [cInstrSubstr ~regexp:true "^k ="]; *)
       (* split_loop ~keep_labels:false [cVarDef ~name:"speed2"]; *)
