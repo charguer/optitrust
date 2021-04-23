@@ -162,6 +162,10 @@ let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs y
 
 
 let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : int) (trm_index : int) (t : trm): trm = 
+  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with 
+    | [] -> failwith "Empty list"
+    | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
+  in 
   let log : string = 
     let loc : string = 
       match t.loc with 
@@ -192,11 +196,12 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
         | Trm_decl(Def_var (x,_)) -> fst x
         | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
       in
-      let lhs = decl in 
+      let lhs = var_decl in 
       let rhs = trm_set ~annot:(Some Initialisation_instruction) (trm_var var_name) (trm_struct extracted_trms) in
-      let new_trm =  [lhs;rhs] in 
+      let new_trm = trm_seq ~annot:(Some Heap_allocated)[lhs;rhs] in 
       let tl = list_remove_set assign tl in 
-      trm_seq ~annot:t.annot (insert_sublist_in_list new_trm trm_index tl)
+      let tl = list_replace_el new_trm trm_index tl in  
+      trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "make_implicit_record_assignment_aux: the outer sequence was not matched"
       
 

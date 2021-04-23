@@ -1,1 +1,1 @@
-./add_exit_and_exec.sh /home/begi-inria/Desktop/verified_transfo/src/unit_tests inline_decl_struct 11 noupdate
+./add_exit_and_exec.sh /home/begi-inria/Desktop/verified_transfo/src/test_suite/pic_demo pic_demo 36 noupdate

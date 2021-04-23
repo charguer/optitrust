@@ -1,21 +1,49 @@
 =========================Occurence 0======================
-Trm_decl ( Def_typ ( bag,
-    Typ_struct ( [
-        ( items, Typ_array ( Typ_var obj, Trm_val ( Val_lit ( Lit_int 10 ) ) ) )
-      ],
-       ) ) )
+Trm_seq [
+  Trm_decl ( Def_var ( ( p, Typ_ptr Typ_var vect ),
+      Trm_val ( Val_prim ( Prim_new Typ_var vect ) ) ) );
+  Trm_apps ( Trm_val ( Val_prim ( Prim_binop Binop_set ) ),
+    [
+      Trm_var p;
+      Trm_struct [
+        Trm_val ( Val_lit ( Lit_int 0 ) );
+        Trm_val ( Val_lit ( Lit_int 0 ) )
+      ]
+    ] )
+]
 
 ------------------------Occurence 0 details---------------
-{annot = _; desc = Trm_decl ( Def_typ ( bag,
-    {annot = _; desc = Typ_struct ( [
-        ( items,
-          {annot = _; desc = Typ_array ( {annot = _; desc = Typ_var obj;
-              attributes = [  ]},
-            {annot = _; desc = Trm_val ( Val_lit ( Lit_int 10 ) ); loc = ( inline_decl_struct.cpp,
-              13,14: 13,16 ); is_instr = false; add = []; typ = {annot = _; desc = Typ_int;
-              attributes = [  ]}; attributes = [  ]} ); attributes = [  ]} )
-      ],
-       ); attributes = [  ]} ) ); loc = ( inline_decl_struct.cpp, 12,9: 14,2 );
-  is_instr = false; add = []; typ = {annot = _; desc = Typ_unit;
-  attributes = [  ]}; attributes = [  ]}
+{annot = Heap_allocated; desc = Trm_seq [
+  {annot = _; desc = Trm_decl ( Def_var ( ( p,
+        {annot = _; desc = Typ_ptr {annot = _; desc = Typ_var vect; attributes = [
+          
+        ]}; attributes = [  ]} ),
+      {annot = _; desc = Trm_val ( Val_prim ( Prim_new {annot = _; desc = Typ_var vect;
+            attributes = [  ]} ) ); loc = ( make_implicit_record_assignment.cpp,
+        17,3: 17,17 ); is_instr = false; add = []; typ = _; attributes = [  ]} )
+  ); loc = ( make_implicit_record_assignment.cpp, 17,3: 17,17 ); is_instr = false;
+    add = []; typ = {annot = _; desc = Typ_unit; attributes = [  ]};
+    attributes = [  ]};
+  {annot = Initialisation_instruction; desc = Trm_apps ( {annot = _; desc = Trm_val (
+      Val_prim ( Prim_binop Binop_set ) ); loc = _; is_instr = false; add = [];
+      typ = _; attributes = [  ]},
+    [
+      {annot = _; desc = Trm_var p; loc = ( make_implicit_record_assignment.cpp,
+        17,3: 17,17 ); is_instr = false; add = []; typ = _; attributes = [  ]};
+      {annot = _; desc = Trm_struct [
+        {annot = _; desc = Trm_val ( Val_lit ( Lit_int 0 ) ); loc = ( make_implicit_record_assignment.cpp,
+          17,13: 17,14 ); is_instr = false; add = []; typ = {annot = _; desc = Typ_int;
+          attributes = [  ]}; attributes = [  ]};
+        {annot = _; desc = Trm_val ( Val_lit ( Lit_int 0 ) ); loc = ( make_implicit_record_assignment.cpp,
+          17,15: 17,16 ); is_instr = false; add = []; typ = {annot = _; desc = Typ_int;
+          attributes = [  ]}; attributes = [  ]}
+      ]; loc = ( make_implicit_record_assignment.cpp, 17,3: 17,17 ); is_instr = false;
+        add = []; typ = {annot = _; desc = Typ_var vect; attributes = [  ]};
+        attributes = [  ]}
+    ] ); loc = ( make_implicit_record_assignment.cpp, 17,3: 17,17 );
+    is_instr = false; add = []; typ = {annot = _; desc = Typ_unit;
+    attributes = [  ]}; attributes = [  ]}
+]; loc = ( make_implicit_record_assignment.cpp, 17,3: 17,17 ); is_instr = false;
+  add = []; typ = {annot = _; desc = Typ_unit; attributes = [  ]};
+  attributes = [  ]}
 

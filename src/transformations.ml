@@ -1045,13 +1045,6 @@ let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
       body
   *)
 
- 
-  
-
-
-
-
-
 let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (label : string) (trm_index : int) (expression_trm : trm)(t : trm) : trm = 
   let log : string = 
     let loc : string = 

@@ -7,6 +7,7 @@ let _ =
     ( fun _ -> 
         set_init_source"make_implicit_record_assignment.cpp";
         (* detach_expression [cVarDef ~name:"b"()] ~keep_label:false; *)
+        show_ast [cVarDef ~name:"p"()];
         make_explicit_record_assignment [cVarDef ~name:"b"()] ~struct_name:"vect";
 
         make_implicit_record_assignment [cVarDef ~name:"b"()] ~struct_name:"vect" ; 

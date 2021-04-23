@@ -114,17 +114,13 @@
                                  ((*struct_access(struct_access(p, speed), z)) +
                                   (*struct_access(field, z)))});
                     { const vect *pos2 = new vect; }
-                    { const vect *nv2 = new vect; }
-                    const double pv1 = step_duration;
-                    const vect pv2 = (*speed2);
-                    set(nv2,
-                        {(pv1 * (pv2.x)), (pv1 * (pv2.y)), (pv1 * (pv2.z))});
-                    set(pos2, {((*struct_access(struct_access(p, pos), x)) +
-                                (*struct_access(nv2, x))),
-                               ((*struct_access(struct_access(p, pos), y)) +
-                                (*struct_access(nv2, y))),
-                               ((*struct_access(struct_access(p, pos), z)) +
-                                (*struct_access(nv2, z)))});
+                    set(pos2,
+                        {((*struct_access(struct_access(p, pos), x)) +
+                          (step_duration * (*struct_access(speed2, x)))),
+                         ((*struct_access(struct_access(p, pos), y)) +
+                          (step_duration * (*struct_access(speed2, y)))),
+                         ((*struct_access(struct_access(p, pos), z)) +
+                          (step_duration * (*struct_access(speed2, z))))});
                     {
                       const int *idCell2 = new int;
                       set(idCell2, idCellOfPos((*pos2)));
@@ -186,7 +182,6 @@
                   delete b2;
                   delete p2;
                   delete idCell2;
-                  delete nv2;
                   delete pos2;
                   delete speed2;
                   delete p;

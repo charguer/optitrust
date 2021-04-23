@@ -70,11 +70,9 @@ int main() {
         speed2 = {(p.speed.x + field.x), (p.speed.y + field.y),
                   (p.speed.z + field.z)};
         vect pos2;
-        vect nv2;
-        const double pv1 = step_duration;
-        const vect pv2 = speed2;
-        nv2 = {(pv1 * pv2.x), (pv1 * pv2.y), (pv1 * pv2.z)};
-        pos2 = {(p.pos.x + nv2.x), (p.pos.y + nv2.y), (p.pos.z + nv2.z)};
+        pos2 = {(p.pos.x + (step_duration * speed2.x)),
+                (p.pos.y + (step_duration * speed2.y)),
+                (p.pos.z + (step_duration * speed2.z))};
         int idCell2 = idCellOfPos(pos2);
         nextCharge[idCell2] += charge;
         particle p2 = {speed2, pos2};

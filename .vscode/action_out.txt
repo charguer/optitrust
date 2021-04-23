@@ -1,1 +1,6 @@
-launch fresh window
+./tmp_pic_demo.cpp:71:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:71:54: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:72:30: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:74:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:74:50: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
+./tmp_pic_demo.cpp:75:28: error: member reference type 'vect' is not a pointer; did you mean to use '.'?
