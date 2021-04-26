@@ -16,6 +16,12 @@ OptiTrust Documentation
    <script src="../tools/lib/jquery-ui.min.js"></script>
    <script type="text/javascript" src="../tools/lib/diff2html-ui.min.js"></script>
    <!--TODO: http://underscorejs.org/ ? -->
+
+
+   <!--explicit inclusion of files-->
+   <script src="split_loop_diff.js"></script>
+
+
 <style>
 /* Hide the filename since we're concerned with only one file name */
 .d2h-file-header {
@@ -65,6 +71,13 @@ h2 {
    background: red;
    font-weight: bold;
    font-size: 2em;
+}
+
+.warning {
+   padding: 1em;
+   background: red;
+   font-weight: bold;
+   font-size: 1em;
 }
 </style>
 
@@ -121,37 +134,52 @@ function shrinkSrc(src) {
    return src.substr(0,stop);
 }
 
-function reportError(targetId, targetName) {
-   $('#'+targetId).html("Error loading " + targetName + ". Check that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_diff.js files have been generated using 'make doc'.").addClass("error");
+function reportError(targetId, targetJsFilename) {
+   $('#'+targetId).html("Error loading " + targetJsFilename + ". Check that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_diff.js files have been generated using 'make doc'. Alternatively, the '*_diff.js' file needs to be included explicitly in _doc.html.").addClass("error");
+}
+
+function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
+   // function names
+   var targetJsFunctionDiff = "get_diff_" + targetName;
+   var targetJsFunctionSrc = "get_src_" + targetName;
+   // Fill the test block
+   var srcId = targetName + "_src";
+   var diffId = targetName + "_diff";
+   $('#'+targetId).html("<div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>");
+   // Fill the source part 
+   var srcContents = eval(targetJsFunctionSrc + "()");
+
+   var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
+   var srcWarning = "";
+   if (sWarning) {
+      srcWarning = "<div class='warning'>" + sWarning + "</div>";
+   }
+   $('#'+srcId).html(srcWarning + srcHTML);
+   //hljs.highlightElement(srcId);
+   // Fill the diff part
+   var diffContents = eval(targetJsFunctionDiff + "()");
+   loadDiffFromString(diffId, diffContents);
 }
 
 function loadTestFromFile(targetId) {
    var targetName = targetId.substring(5); // remove the 'test_' prefix
    var targetJsFilename = targetName + "_diff.js";
-   var targetJsFunctionDiff = "get_diff_" + targetName;
-   var targetJsFunctionSrc = "get_src_" + targetName;
 
-   // The dynamic loading of the JS file requires --disable-web-security
-   $.getScript(targetJsFilename, function(data, status) {
-      if (status != "success") {
-         reportError(targetId, targetName);
-         return;
-      }
-      // Fill the test block
-      var srcId = targetName + "_src";
-      var diffId = targetName + "_diff";
-      $('#'+targetId).html("<div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>");
-      // Fill the source part 
-      var srcContents = eval(targetJsFunctionSrc + "()");
-      var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
-      $('#'+srcId).html(srcHTML);
-      //hljs.highlightElement(srcId);
-      // Fill the diff part
-      var diffContents = eval(targetJsFunctionDiff + "()");
-      loadDiffFromString(diffId, diffContents);
-   }).fail(function () {
-      reportError(targetId, targetName);
-   }) ;
+   try { // try loading from an include
+      loadTestFromFileAssumedLoaded(targetId, targetName);
+   } catch (error) {
+      // The dynamic loading of the JS file requires --disable-web-security
+      $.getScript(targetJsFilename, function(data, status) {
+         if (status != "success") {
+            reportError(targetId, targetJsFilename);
+            return;
+         }
+         loadTestFromFileAssumedLoaded(targetId, targetName, "Warning: JS file loaded the unsafe way.");
+      }).fail(function () {
+         reportError(targetId, targetJsFilename);
+      });
+   }
+
 }
 
 function loadAllTestFromFile() {
