@@ -12,6 +12,7 @@ const int nbCells = gridSize * gridSize * gridSize;
 const int bagCapacity = 100;
 
 // --------- Vector 
+
 typedef struct {
   double x, y, z;
 } vect;

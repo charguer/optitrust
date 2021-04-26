@@ -227,23 +227,23 @@ and def =
 and abort =
   | Ret of trm option (* return;  or return 3; *)
   | Break
-  | Continue 
+  | Continue
 
 (* patterns *)
-type pat = trm 
+type pat = trm
 
 (* rewrite_rule *)
 type rewrite_rule = {name : string; source : pat; target : string}
 
 (* basic rewrite rules *)
-type base = rewrite_rule list 
+type base = rewrite_rule list
 
 (* pattern instantiation *)
-module Trm_map = Map.Make(String) 
+module Trm_map = Map.Make(String)
 
 type 'a tmap = 'a Trm_map.t
 
-type instantiation = trm tmap 
+type instantiation = trm tmap
 
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (x : typvar) : typ =
@@ -284,7 +284,7 @@ let trm_var ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
 let trm_array ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (tl : trm list) : trm =
   {annot = annot; desc = Trm_array tl; loc = loc; is_instr = false; add; typ;
-   attributes}                                                                                                                                                                                                                                                           
+   attributes}
 let trm_struct ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (tl : trm list) : trm =
   {annot = annot; desc = Trm_struct tl; loc = loc; is_instr = false; add; typ;
@@ -331,8 +331,8 @@ let trm_goto ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   {annot; desc = Trm_goto l; loc; is_instr = true; add;
    typ = Some (typ_unit ()); attributes}
 let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
-  (left : string) (right : string) (t : trm) : trm =  
-  {annot; desc = Trm_decoration (left, t, right); loc; is_instr = false; add; 
+  (left : string) (right : string) (t : trm) : trm =
+  {annot; desc = Trm_decoration (left, t, right); loc; is_instr = false; add;
   typ = Some (typ_unit ()); attributes }
 let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
   trm_val ~annot ~loc (Val_ptr (0, []))
@@ -378,7 +378,7 @@ let fail (loc : location) (err : string) : 'a =
   match loc with
   | None -> failwith err
   | Some (filename, start_row,end_row,start_column,end_column) ->
-     raise (TransfoError (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^ 
+     raise (TransfoError (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^
      " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]" ^ " : " ^ err))
 
 (*
@@ -537,9 +537,9 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
   | Trm_labelled (l, body) ->
      trm_labelled ~annot ~loc ~add l (f body)
   (* val, var *)
-  | Trm_decoration (left, body, right) -> 
+  | Trm_decoration (left, body, right) ->
     trm_decoration ~annot ~loc ~add left right (f body)
-  | Trm_any t -> 
+  | Trm_any t ->
     trm_any ~annot ~loc ~add (f t)
   | _ -> t
 
