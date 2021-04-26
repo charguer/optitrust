@@ -121,8 +121,8 @@ function shrinkSrc(src) {
    return src.substr(0,stop);
 }
 
-function reportError(targetId) {
-   $('#'+targetId).html("Error loading " + targetId).addClass("error");
+function reportError(targetId, targetName) {
+   $('#'+targetId).html("Error loading " + targetName + ". Check that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_diff.js files have been generated using 'make doc'.").addClass("error");
 }
 
 function loadTestFromFile(targetId) {
@@ -134,7 +134,7 @@ function loadTestFromFile(targetId) {
    // The dynamic loading of the JS file requires --disable-web-security
    $.getScript(targetJsFilename, function(data, status) {
       if (status != "success") {
-         reportError(targetId);
+         reportError(targetId, targetName);
          return;
       }
       // Fill the test block
@@ -150,7 +150,7 @@ function loadTestFromFile(targetId) {
       var diffContents = eval(targetJsFunctionDiff + "()");
       loadDiffFromString(diffId, diffContents);
    }).fail(function () {
-      reportError(targetId);
+      reportError(targetId, targetName);
    }) ;
 }
 
