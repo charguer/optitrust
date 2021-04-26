@@ -172,6 +172,197 @@ let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
 (******************************************************************************)
 (*                                   Output                                   *)
 (******************************************************************************)
+(* 
+module Json = 
+  struct 
+    type t =
+      | Str of string 
+      | List of t list 
+      | Object of (string * t) list 
+    let rec json_to_string (j : t) : string = 
+      match j with 
+      | Str s -> s 
+      | List l -> l
+      | Object o -> o
+    end  
+type json = Json.t 
+
+type nodeid = string 
+
+let lit_to_string (l : lit) : string =
+  match l with
+  | Lit_unit ->  "Lit_unit"
+  | Lit_uninitialized -> "Lit_uninitialized"
+  | Lit_bool b -> "Lit_bool" ^" " ^ (string_of_bool b)
+  | Lit_int n -> "Lit_int" ^ " " ^ (string_of_int n)
+  | Lit_double f -> "Lit_double" ^ " " ^ (string_of_float f)
+  | Lit_string s -> "Lit_string" ^ " " ^ s
+
+
+let unop_to_string (op : unary_op) : string  =
+  match op with
+  | Unop_get ->  "Unop_get"
+  | Unop_neg ->  "Unop_neg"
+  | Unop_bitwise_neg ->  "Unop_bitwise_neg"
+  | Unop_opp ->  "Unop_opp"
+  | Unop_inc ->  "Unop_inc"
+  | Unop_dec ->  "Unop_dec"
+  | Unop_struct_access f -> "Unop_struct_access" ^ f
+  | Unop_struct_get f -> "Unop_struct_get" ^ f
+  | Unop_delete b -> "Unop_delete" ^  (string_of_bool b)
+  | _ -> failwith "casting is going to be suported later"
+
+let binop_to_string (op : binary_op) : string = 
+  match op with
+  | Binop_set ->  "Binop_set"
+  | Binop_array_access ->  "Binop_array_access"
+  | Binop_array_get ->  "Binop_array_get"
+  | Binop_eq ->  "Binop_eq"
+  | Binop_neq ->  "Binop_neq"
+  | Binop_sub ->  "Binop_sub"
+  | Binop_add ->  "Binop_add"
+  | Binop_mul ->  "Binop_mul"
+  | Binop_mod ->  "Binop_mod"
+  | Binop_div ->  "Binop_div"
+  | Binop_le ->  "Binop_le"
+  | Binop_lt ->  "Binop_lt"
+  | Binop_ge ->  "Binop_ge"
+  | Binop_gt ->  "Binop_gt"
+  | Binop_and ->  "Binop_and"
+  | Binop_bitwise_and ->  "Binop_bitwise_and"
+  | Binop_or ->  "Binop_or"
+  | Binop_bitwise_or ->  "Binop_bitwise_or"
+  | Binop_shiftl ->  "Binop_shiftl"
+  | Binop_shiftr ->  "Binop_shiftr"
+  | Binop_xor ->  "Binop_xor"
+
+
+let prim_to_string (p : prim) : string =
+  match p with 
+  | Prim_unop op -> 
+    let dop = unop_to_string op in 
+    "Prim_unop" ^ " " ^ dop
+  | Prim_binop op -> 
+    let dop = print_binop op in 
+  | Prim_new t -> 
+
+let val_to_string (v : value) : string =
+  match v with 
+  | Val_lit l -> "Val_lit" ^ " " ^(lit_to_string) 
+  | Val_prim p -> "Val_lit" ^ " " ^(prim_to_string)
+  | _ -> failwith "Val_ptr, Val_array and Val_struct are never used in the code"
+
+
+let annot_to_string (t : trm) : string =
+  begin match t.annot with
+      | None -> "_"
+      | Some a ->
+         begin match a with
+         | Heap_allocated ->  "Heap_allocated"
+         | Initialisation_instruction ->  "Initialisation_instruction"
+         | Delete_instructions ->  "Delete_instructions"
+         | No_braces ->  "No_braces"
+         | Access ->  "Access"
+         | Multi_decl ->  "Multi_decl"
+         | Empty_cond ->  "Empty_cond"
+         | App_and_set ->  "App_and_set"
+         | Include h ->  "Include" ^ " " ^ h
+         | Main_file -> "Main_file"
+         end
+  end
+
+let loc_to_string (t : trm) : string = 
+  begin match t.loc with
+      | None -> underscore
+      | Some (filename, start_row, end_row, start_column, end_column) ->
+         print_pair (filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
+         
+  end
+let node_to_js (aux : trm -> nodeid) (t : trm) : fields = 
+  Json.(
+    match t.desc with
+    | Trm_val v -> 
+      [
+        ("kind", Str "val");
+        ("value", val_to_string v);
+        ("children", [])
+      ]
+    | Trm_var x -> 
+      [
+        ("kind", Str "var");
+        ("value", Str x);
+        ("children", List [])
+      ]
+    | Trm_struct l -> 
+      let lid = List.map  aux l in 
+      [
+        ("kind", Str "struct")
+      ]
+    
+    | Trm_array l ->
+      let lid = List.map_aux l in 
+      [
+        ("kind", Str "array");
+        ("children", List lid)
+      ] 
+    | Trm_decl d ->
+        match d with 
+        | Def_var ((x,t),_) -> 
+          [
+            ("kind", Str "var-def");
+            ("name", Str x);
+            ("children", obj [("label","body"),("id",aux t)])
+          ]
+        | Def_fun (f,typ,xts,tbody) ->
+          [
+            ("kind", Str "fun-def");
+            ("name", Str f);
+            ("children", obj [("label","body"),("id",aux tbody)]);
+            ("args", []);
+            ("return_type", aux typ)
+          ]
+    | Trm_if (cond, then_, else_) ->
+      [
+        ("kind", Str "if");
+        ("children", [cond;then_;else_])
+      ]
+    | Trm_seq l -> 
+      let lid = List.map aux l in (* includes side effect *)
+      [
+        ("kind", Str "seq");
+        ("children", List lid)
+      ]
+    | Trm_apps (f,args) ->
+      
+
+  )
+
+let ast_to_js (root : trm) : nodeid = 
+  (* node id generator *)
+  let nextid = ref 0 in 
+  let get_nextid () = 
+    incr nextid;
+    "node_" ^ (string_of_int !nextid) in 
+  (* output of the fuction *)
+  let result : ((nodeid * json) list) ref = ref [] in 
+  (* recursive construction *)
+  let rec aux t = 
+    let id = get_nextid() in 
+    let specific_fields = node_to_js aux t in 
+    let json = Json.Object (specific_fields @ [
+      ("typ", Str (string_of_type t.typ)),
+      ("add", List (List.map addition_to_string t.add)
+      ("annot", (annot_to_string t))
+      ("loc", )
+      )
+    ]) in 
+    result := (nodeid,json) :: !result;
+    id in 
+  aux root *)
+  
+  
+
+
 
 (* clean up a C++ file using clang format *)
 let cleanup_cpp_file_using_clang_format filename =
@@ -182,6 +373,7 @@ let cleanup_cpp_file_using_clang_format filename =
 (* LATER: find a way to remove extra parentheses
    other possibility: use operator priorities in ast_to_doc to determine when
    to put parentheses *)
+
 let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
   let file_ast = out_prefix ^ ".ast" in
   let file_enc = out_prefix ^ "_enc" ^ ctx.extension in
