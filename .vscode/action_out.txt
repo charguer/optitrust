@@ -24,6 +24,3 @@
 ./tmp_pic_demo_stable.cpp:94:41: error: expected expression
 ./tmp_pic_demo_stable.cpp:95:41: error: expected expression
 ./tmp_pic_demo_stable.cpp:96:41: error: expected expression
-Fatal error: exception (Failure
-  "make_explicit_record_assignment: the path should point at one exact term and should not be empty")
-Could not execute script

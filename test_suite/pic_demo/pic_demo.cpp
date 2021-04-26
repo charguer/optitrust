@@ -11,7 +11,8 @@ const int nbCells = gridSize * gridSize * gridSize;
 // Maximum number of particles per cell
 const int bagCapacity = 100;
 
-// --------- Vector 
+// --------- Vector
+ 
 typedef struct {
   double x, y, z;
 } vect;
