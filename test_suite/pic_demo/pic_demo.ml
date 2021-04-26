@@ -104,7 +104,7 @@ let _ =
       *)
       
       
-      inline_struct ~struct_name:"particle" ~struct_fields:["pos";"speed"] ();
+      inline_struct ~struct_name:"particle" ~struct_fields:["pos"] ();
       inline_struct ~struct_name:"bag" ~struct_fields:["items"] ();
       (* split_loop ~keep_labels:false [cInstrSubstr ~regexp:true "^k ="]; *)
       (* split_loop ~keep_labels:false [cVarDef ~name:"speed2"]; *)
