@@ -241,6 +241,8 @@ val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->
 
 val remove_instruction : ?replace_top:bool -> paths -> unit 
 
+val remove_instructions : ?replace_top:bool -> paths list -> unit 
+
 val undetach_expression : ?replace_top:bool -> paths -> unit 
 
 val fields_reorder : ?replace_top:bool -> paths -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit

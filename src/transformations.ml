@@ -177,6 +177,7 @@ let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
 
+
 let remove_instruction_aux (clog : out_channel) (t : trm) : trm = 
   let log : string = 
     let loc : string = 
@@ -204,6 +205,11 @@ let remove_instruction (clog : out_channel) (pl : path list) (t : trm) : trm =
         ( fun t dl -> 
           apply_local_transformation (remove_instruction_aux clog ) t dl )
           t epl 
+
+let remove_instructions (clog : out_channel) (instruction_list : (path list) list) (t : trm) : trm = 
+  let t = List.fold_left (fun t instruction -> (remove_instruction clog) instruction t)
+  t instruction_list 
+  in t   
 
 
 let show_path ?(debug_ast : bool = false) (pl : path list) (t : trm) : trm = 

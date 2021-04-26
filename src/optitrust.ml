@@ -1317,6 +1317,11 @@ let remove_instruction ?(replace_top : bool = false) (pl : paths) : unit =
     (fun ctx -> Transformations.remove_instruction ctx.clog pl);
   write_log "\n"
 
+let remove_instructions ?(replace_top : bool = false) (isntruction_list : paths list) : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.remove_instructions ctx.clog isntruction_list );
+  write_log "\n"
+
 let undetach_expression ?(replace_top : bool = false) (pl : paths) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.undetach_expression ctx.clog pl);
