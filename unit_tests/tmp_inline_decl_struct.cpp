@@ -20,7 +20,7 @@ int main() {
   a.pos_x = 5;
   p.x = 5;
   vect t = {1, 0};
-  int z = 1;
+  int z = t.x;
   vect u;
   u = {0, 0};
 }
