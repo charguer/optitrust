@@ -39,7 +39,7 @@
 # Parameters
 
 # List of tests that are not ready to include in the benchmark
-EXCLUDE_ML= show_path.ml inline_seq.ml fold_ref.ml inline_typ.ml swap_coords_vari.ml  inline_ref.ml fold_typ.ml  inline_fun_vect.ml inline_fun_vect.ml remove_decl.ml ast_encoding.ml inline_struct_in_struct.ml move_loop.ml cstr.ml coloring.ml make_implicit_record_assignment.ml
+EXCLUDE_ML= show_path.ml inline_seq.ml fold_ref.ml inline_typ.ml swap_coords_vari.ml  inline_ref.ml fold_typ.ml  inline_fun_vect.ml inline_fun_vect.ml remove_decl.ml ast_encoding.ml inline_struct_in_struct.ml move_loop.ml cstr.ml coloring.ml make_implicit_record_assignment.ml create_subsequence.ml delocalize.ml array_to_variables.ml local_other_name.ml path.ml rewrite_rules.ml
 V?=@
 
 # List of CPP files that are not meant to be compiled
