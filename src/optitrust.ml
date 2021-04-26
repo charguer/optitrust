@@ -386,6 +386,7 @@ let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previo
     Transformations.show_path ~debug_ast pl t
     )
 
+
 let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : path list) : unit =
   apply_to_top ~replace_top(fun _ -> Transformations.show_ast ~file ~to_stdout pl)
 
@@ -1310,6 +1311,11 @@ let detach_expression ?(replace_top : bool = false) ?(label : string = "detached
   apply_to_top ~replace_top
     (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label  pl);
     write_log "\n"
+
+let remove_instruction ?(replace_top : bool = false) (pl : paths) : unit = 
+  apply_to_top ~replace_top
+    (fun ctx -> Transformations.remove_instruction ctx.clog pl);
+  write_log "\n"
 
 let undetach_expression ?(replace_top : bool = false) (pl : paths) : unit =
   apply_to_top ~replace_top

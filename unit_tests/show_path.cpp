@@ -13,6 +13,7 @@ int main() {
       }
     }
   }
+  // dummy comment
 
   return 0;
 }

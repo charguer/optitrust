@@ -176,7 +176,35 @@ let insert_trm_after (dl : expl_path) (insert : trm) (t : trm) : trm =
 let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"  
 
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
-   
+
+let remove_instruction_aux (clog : out_channel) (t : trm) : trm = 
+  let log : string = 
+    let loc : string = 
+    match t.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf "at start_location %d %d end location %d %d" start_row start_column end_row end_column
+    in Printf.sprintf
+    (" -expression\n%s\n" ^^
+    "  %s is an instruction to be deleted \n"
+    )
+    (ast_to_string t) loc
+    in write_log clog log;
+    trm_seq ~annot:(Some No_braces) [] 
+    
+
+
+let remove_instruction (clog : out_channel) (pl : path list) (t : trm) : trm = 
+  let p = List.flatten pl in
+  let epl = resolve_path p t in 
+  match epl with 
+  | [] -> 
+    print_info t.loc "remove_instruction: no matching subterm";
+    t
+  | _ -> List.fold_left
+        ( fun t dl -> 
+          apply_local_transformation (remove_instruction_aux clog ) t dl )
+          t epl 
+
 
 let show_path ?(debug_ast : bool = false) (pl : path list) (t : trm) : trm = 
   let p = List.flatten pl in 
@@ -193,6 +221,7 @@ let show_path ?(debug_ast : bool = false) (pl : path list) (t : trm) : trm =
                    (trm_decoration (left_decoration i) (right_decoration i )))
 
           t epl 
+
 
 let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : path list) (t : trm) : trm = 
   let p = List.flatten pl in 

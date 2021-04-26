@@ -823,7 +823,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     in
     
    (*let t = foldi(fun i acc_t x ->change_struct_initialization clog name inner_struct_name x i acc_t ) t struct_fields in *)
-     let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t (List.rev struct_fields)
+     let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t struct_fields
     in 
     
     let p = List.flatten struct_term_path in
