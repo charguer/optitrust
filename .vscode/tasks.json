@@ -11,7 +11,7 @@
             "cwd": "${workspaceFolder}/.vscode"
           },
           "args": [
-              "./add_exit_and_exec.sh",
+              "./view_result.sh",
               "${fileDirname}",
               "${fileBasenameNoExtension}",
               "${lineNumber}",
@@ -63,7 +63,7 @@
         {
             "label": "Execute transformation script (dump trace)",
             "type": "shell",
-            "command": "./.vscode/add_exit_and_exec.sh",
+            "command": "./.vscode/view_result.sh",
             "args": [
                 "${fileDirname}",
                 "${fileBasenameNoExtension}",
