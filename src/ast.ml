@@ -951,67 +951,133 @@ let loc_to_json (t : trm) : json =
       | None -> Str ""
       | Some (_, start_row, end_row, start_column, end_column) ->
          Object [("start",Object [("line",Int start_row);("col",Int start_column)]);("end", Object[("line",Int end_row);("col",Int end_column)])]
-         (* [("label","body"),("id",aux t)] *)
-         (* print_pair (filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) ) *)
          
   end
+
+(* Get the list of integers with left bound i and right bound j *)
+let (--) i j = 
+    let rec aux n acc =
+      if n < i then acc else aux (n-1) (n :: acc)
+    in aux j []
+
 let node_to_js (aux : trm -> nodeid) (t : trm) : fields = 
   Json.(
     match t.desc with
     | Trm_val v -> 
       [
-        ("kind", Str "val"),
-        ("value", (document_to_string (print_val  v))),
-        ("children", [])
+        ("kind", Str "val");
+        ("value", Str (document_to_string (print_val  v))),
+        ("children", List [])
       ]
     | Trm_var x -> 
       [
-        ("kind", Str "var"),
+        ("kind", Str "var");
         ("value", Str x);
         ("children", List [])
       ]
     | Trm_struct l -> 
-      let lid = List.map  aux l in 
+      let indices = 1--(List.length) l in 
+      let lid = List.map aux l in 
+      let lid = List.map(fun x -> ("id",x)) lid in 
+      let labels = List.map(fun x -> ("label",Int x)) indices in 
+      let children = List.map2 (fun x1 x2 -> Object [x1;x2]) labels lid in 
       [
-        ("kind", Str "struct")
+        ("kind", Str "struct");
+        ("children", children)
       ]
     
     | Trm_array l ->
-      let lid = List.map_aux l in 
+      let indices = 1--(List.length) l in 
+      let lid = List.map aux l in 
+      let lid = List.map(fun x -> ("id",x)) lid in 
+      let labels = List.map(fun x -> ("label",Int x)) indices in 
+      let children = List.map2 (fun x1 x2 -> Object [x1;x2]) labels lid in 
       [
         ("kind", Str "array"),
-        ("children", List lid)
+        ("children", children)
       ] 
     | Trm_decl d ->
         match d with 
         | Def_var ((x,t),_) -> 
           [
-            ("kind", Str "var-def"),
-            ("name", Str x),
-            ("children", obj [("label","body"),("id",aux t)])
+            ("kind", Str "var-def");
+            ("name", Str x);
+            ("children", Object [("label","body"),("id",aux t)])
           ]
         | Def_fun (f,typ,xts,tbody) ->
           [
-            ("kind", Str "fun-def"),
-            ("name", Str f),
-            ("children", obj [("label","body"),("id",aux tbody)]),
-            ("args", []),
-            ("return_type", aux typ)
+            ("kind", Str "fun-def");
+            ("name", Str f);
+            ("children", Object [("label","body");("id",aux tbody)]);
+            ("args", []);
+            ("return_type", document_to_string (print_typ t))
           ]
+        | Def_typ (tv,typ) -> 
+          [
+            ("kind", Str "type-def");
+            ("value", Str tv);
+            ("children", List [])
+          ]
+        | Def_enum (tv,_) ->
+          ("kind", Str "enum-def");
+          ("value", Str tv);
+          ("children", List [])
     | Trm_if (cond, then_, else_) ->
       [
-        ("kind", Str "if"),
-        ("children", [cond;then_;else_])
+        ("kind", Str "if");
+        ("children", List 
+        [ Object[("label","cond");("id",aux cond)];
+          Object[("label","then");("id",aux then_)];
+          Object[("label","cond");("id",aux else_)]
+          ]
       ]
     | Trm_seq l -> 
-      let lid = List.map aux l in (* includes side effect *)
+      let indices = 1--(List.length) l in 
+      let lid = List.map aux l in 
+      let lid = List.map(fun x -> ("id",x)) lid in 
+      let labels = List.map(fun x -> ("label",Int x)) indices in 
+      let children = List.map2 (fun x1 x2 -> Object [x1;x2]) labels lid in       
       [
-        ("kind", Str "seq"),
-        ("children", List lid)
+        ("kind", Str "seq");
+        ("children", children)
       ]
     | Trm_apps (f,args) ->
-      
-
+      [
+        ("kind", Str "apps");
+        ("children", List []);
+      ]
+    | Trm_switch (cond,cases) ->
+      [
+        ("kind", Str "switch");
+        ("children", List [])
+      ]
+    | Trm_abort res ->
+      [
+        ("kind", Str "abort");
+        ("children", List [Object[("label","abort"),("id",aux res)]])
+        
+      ]
+    | Trm_labelled (label,t) -> 
+      [
+        ("kind", Str "labelled");
+        ("children", List [Object[("label","labelled");("id",aux t)]])
+      ]
+    | Trm_goto label -> 
+      [
+        ("kind", Str "goto");
+        ("value", label);
+        ("children", List [])
+      ]
+    | Trm_decoration (_,t,_) ->
+      [
+        ("kind", Str "decoration");
+        ("children", List [Object[("label","decoration"),("id",aux t)]])
+      ]
+    | Trm_any t -> 
+      [
+        ("kind", Str "any");
+        ("children", List [Object[("label","any"),("id",aux t)]])
+      ]
   )
 
 let ast_to_js (root : trm) : nodeid = 
