@@ -176,13 +176,18 @@ let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
 module Json = 
   struct 
     type t =
-      | Str of string 
+      | Str of string
+      | Int of int 
+      | Boolean of bool
       | List of t list 
       | Object of (string * t) list 
+      
     let rec json_to_string (j : t) : string = 
       match j with 
       | Str s -> s 
-      | List l -> l
+      | Int i -> string_of_int i
+      | Boolean b -> string_of_bool b
+      | List  l -> Path.string_of_list(List.map json_to_string l)
       | Object o -> o
     end  
 type json = Json.t 
@@ -283,13 +288,13 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : fields =
     match t.desc with
     | Trm_val v -> 
       [
-        ("kind", Str "val");
-        ("value", val_to_string v);
+        ("kind", Str "val"),
+        ("value", val_to_string v),
         ("children", [])
       ]
     | Trm_var x -> 
       [
-        ("kind", Str "var");
+        ("kind", Str "var"),
         ("value", Str x);
         ("children", List [])
       ]
@@ -302,34 +307,34 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : fields =
     | Trm_array l ->
       let lid = List.map_aux l in 
       [
-        ("kind", Str "array");
+        ("kind", Str "array"),
         ("children", List lid)
       ] 
     | Trm_decl d ->
         match d with 
         | Def_var ((x,t),_) -> 
           [
-            ("kind", Str "var-def");
-            ("name", Str x);
+            ("kind", Str "var-def"),
+            ("name", Str x),
             ("children", obj [("label","body"),("id",aux t)])
           ]
         | Def_fun (f,typ,xts,tbody) ->
           [
-            ("kind", Str "fun-def");
-            ("name", Str f);
-            ("children", obj [("label","body"),("id",aux tbody)]);
-            ("args", []);
+            ("kind", Str "fun-def"),
+            ("name", Str f),
+            ("children", obj [("label","body"),("id",aux tbody)]),
+            ("args", []),
             ("return_type", aux typ)
           ]
     | Trm_if (cond, then_, else_) ->
       [
-        ("kind", Str "if");
+        ("kind", Str "if"),
         ("children", [cond;then_;else_])
       ]
     | Trm_seq l -> 
       let lid = List.map aux l in (* includes side effect *)
       [
-        ("kind", Str "seq");
+        ("kind", Str "seq"),
         ("children", List lid)
       ]
     | Trm_apps (f,args) ->
