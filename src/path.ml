@@ -75,7 +75,11 @@ let string_of_dir (d : dir) : string =
      in
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
 
+<<<<<<< HEAD
 let string_of_list ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : string list) : string =
+=======
+let string_of_list ?(sep:string=";") (l : string list) : string =
+>>>>>>> ast_to_js
   let rec aux = function
     | [] -> ""
     | [s] -> s
