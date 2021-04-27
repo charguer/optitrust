@@ -960,8 +960,7 @@ let (--) i j =
       if n < i then acc else aux (n-1) (n :: acc)
     in aux j []
 
-let node_to_js (aux : trm -> nodeid) (t : trm) : fields = 
-  Json.(
+let node_to_js (aux : trm -> nodeid) (t : trm) : json = 
     match t.desc with
     | Trm_val v -> 
       [
@@ -1079,6 +1078,24 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : fields =
         ("children", List [Object[("label","any"),("id",aux t)]])
       ]
   )
+let annot_to_string (t : trm) : string = 
+  begin match t.annot with
+  | None -> "_"
+  | Some a ->
+     begin match a with
+     | Heap_allocated -> "Heap_allocated"
+     | Initialisation_instruction -> "Initialisation_instruction"
+     | Delete_instructions -> "Delete_instructions"
+     | No_braces -> "No_braces"
+     | Access -> "Access"
+     | Multi_decl -> "Multi_decl"
+     | Empty_cond -> "Empty_cond"
+     | App_and_set -> "App_and_set"
+     | Include h -> "Include" ^ " " ^ h
+     | Main_file -> "Main_file"
+     end
+  end
+
 
 let ast_to_js (root : trm) : nodeid = 
   (* node id generator *)
@@ -1096,8 +1113,10 @@ let ast_to_js (root : trm) : nodeid =
       ("parent", Int parentid);
       ("typ", Str (string_of_type t.typ));
       ("add", List (List.map addition_to_string t.add);
-      ("annot", (annot_to_string t));
-      ("loc", )
+      ("is_instr",(Bool t.is_instr));
+      ("annot", Str (annot_to_string t));
+      ("loc", (loc_to_json t));
+      ("attributes", List (t.attributes))
       )
     ]) in 
     result := (nodeid,json) :: !result;
