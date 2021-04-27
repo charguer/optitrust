@@ -172,7 +172,7 @@ let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
 (******************************************************************************)
 (*                                   Output                                   *)
 (******************************************************************************)
-(* 
+
 module Json = 
   struct 
     type t =
@@ -358,7 +358,7 @@ let ast_to_js (root : trm) : nodeid =
     ]) in 
     result := (nodeid,json) :: !result;
     id in 
-  aux root *)
+  aux root
   
   
 
