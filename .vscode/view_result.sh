@@ -9,7 +9,7 @@
 DIRNAME=$1
 FILEBASE=$2
 LINE=$3
-UPDATE=$4 # should be update or noupdated
+RECOMPILE_OPTITRUST=$4 # should be recompile_optitrust_yes or recompile_optitrust_no
 OPTIONS=$5
 
 #UPDATE=noupdate
@@ -27,9 +27,9 @@ if [ "${DIRNAME}" = "${SRCSRCFOLDER}" ]; then
 fi
 
 # Run make update in working folder if requested
-if [ "${UPDATE}" = "update" ]; then
+if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   echo "recompile lib"
-  make -C ${DIRNAME} update
+  make -C ${DIRNAME} optitrust
   OUT=$?
   if [ ${OUT} -ne 0 ];then
     echo "Could not compile lib"
@@ -65,7 +65,7 @@ fi
 # Fourth, we vizualize the diff between these two files
 
 cd ${VSCODE}
-${VSCODE}/view_diff.sh ${DIRNAME} ${FILEBASE} &
+${VSCODE}/open_diff.sh ${DIRNAME} ${FILEBASE} &
 
 
 exit

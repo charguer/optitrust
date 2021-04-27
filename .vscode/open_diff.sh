@@ -3,7 +3,7 @@
 # How to test this script:
 # cd src/.vscode 
 # assume test_split_before.cpp and test_split_after.cpp exist
-# ./view_diff.sh ../unit_tests test_split
+# ./open_diff.sh ../unit_tests test_split
 
 VSCODE=`pwd`
 TOOLS_FOLDER="${VSCODE}/../tools"

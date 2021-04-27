@@ -4,7 +4,12 @@
     "version": "2.0.0",
     "tasks": [
         {
-          "label": "Execute transformation script without update",
+          "label": "Compile and install the library and compile all unit tests",
+          "type": "shell",
+          "command": "make all"
+        }, 
+        { // TODO: Create a file current_test.sh
+          "label": "Compile and install the library then execute one unit test",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
@@ -15,50 +20,126 @@
               "${fileDirname}",
               "${fileBasenameNoExtension}",
               "${lineNumber}",
-              "noupdate",
+              "recompile_optitrust_no",
               ""
           ]
-      },
-        {
-          "label": "Start the inotifywait watch",
-          "type": "shell",
-          "command": "./.vscode/watch.sh "
         },
         {
-          "label": "Execute transformation script with update",
+          "label": "Compile the library without installation tests",
+          "type": "shell",
+          "command": "make library"
+        },
+        {
+          "label": "Compile the library, compile all unit tests, and build the documuentation",
+          "type": "shell",
+          "command": "make all"
+        },
+        {
+          "label": "View the state at the end of the current line",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
             "cwd": "${workspaceFolder}/.vscode"
           },
           "args": [
-              "./add_exit_and_exec.sh",
+              "./view_result.sh",
               "${fileDirname}",
               "${fileBasenameNoExtension}",
               "${lineNumber}",
-              "update",
+              "view_result",
+              "recompile_optitrust_no",
               ""
           ]
-      },
+        },
+        {
+          "label": "View the diff associated with the application of the last transformation",
+          "type": "shell",
+          "command": "./run_action.sh",
+          "options": {
+            "cwd": "${workspaceFolder}/.vscode"
+          },
+          "args": [
+              "./view_result.sh",
+              "${fileDirname}",
+              "${fileBasenameNoExtension}",
+              "${lineNumber}",
+              "view_diff",
+              "recompile_optitrust_no",
+              ""
+          ]
+        },
+        {
+          "label": "Compile and run the current file in null",
+          "type":"shell",
+          "command":"./.vscode/run_make_foo.sh",
+          "args": [
+              "${fileDirname}",
+              "${fileBasenameNoExtension}",   
+          ]
+        },
+        {
+          "label": "Compile the full current folder",
+          "type": "shell",
+          "command": "make all",
+          "options": {
+            "cwd": "${fileDirname}"
+          },
+        },
+        {
+          "label": "First recompile optitrust then view the state at the end of the current file",
+          "type": "shell",
+          "command": "./run_action.sh",
+          "options": {
+            "cwd": "${workspaceFolder}/.vscode"
+          },
+          "args": [
+              "./view_result.sh",
+              "${fileDirname}",
+              "${fileBasenameNoExtension}",
+              "${lineNumber}",
+              "view_result",
+              "recompile_optitrust_yes",
+              ""
+          ]
+        },
+        {
+          "label": "First recompile optitrust then view the diff associated with the application of the last transformation",
+          "type": "shell",
+          "command": "./run_action.sh",
+          "options": {
+            "cwd": "${workspaceFolder}/.vscode"
+          },
+          "args": [
+              "./view_result.sh",
+              "${fileDirname}",
+              "${fileBasenameNoExtension}",
+              "${lineNumber}",
+              "view_diff",
+              "recompile_optitrust_yes",
+              ""
+          ]
+        },
+        {
+          "label": "First recompile optitrust then compile and run the current file in null",
+          "type":"shell",
+          "command":"make optitrust && ./.vscode/run_make_foo.sh",
+          "args": [
+              "${fileDirname}",
+              "${fileBasenameNoExtension}",   
+          ]
+        },
+        {
+          "label": "Compile the full current folder",
+          "type": "shell",
+          "command": "make reinstall_optitrust && make all",
+          "options": {
+            "cwd": "${fileDirname}"
+          },
+        },
         {
           "label": "Start the inotifywait watch",
           "type": "shell",
           "command": "./.vscode/watch.sh "
-        },
-        {
-            "label": "Run make install and execute a unit test",
-            "type": "shell",
-            "command": "./.vscode/run_make_and_test.sh",
-            "args":[
-                "${fileDirname}",
-                "${fileBasenameNoExtension}",
-                "${lineNumber}"
-            ]
-        },
-        {
-            "label":"Open cpp and ml files",
-            "type" : "shell",
-            "command": "./${fileBasenameNoExtension}.ml",
         },
         {
             "label": "Execute transformation script (dump trace)",
@@ -69,33 +150,6 @@
                 "${fileBasenameNoExtension}",
                 "${lineNumber}",
                 "-dump-trace"
-            ]
-        },
-        {
-            "label": "Run make install",
-            "type": "shell",
-            "command": "./.vscode/run_make.sh",
-            "args": [
-                
-            ]
-        },
-        {
-            "label": "Run make foo.out",
-            "type":"shell",
-            "command":"./.vscode/run_make_foo.sh",
-            "args": [
-                "${fileDirname}",
-                "${fileBasenameNoExtension}",   
-            ]
-        },
-        {
-            "label": "Run make foo.chk",
-            "type":"shell",
-            "command":"./.vscode/run_make_foo.sh",
-            "args": [
-                "${fileDirname}",
-                "${fileBasenameNoExtension}",
-                "chk"   
             ]
         }
 

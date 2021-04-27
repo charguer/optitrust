@@ -96,6 +96,8 @@ update:
 	rm -Rf _build 
 	$(MAKE) -C .. install
 
+
+
 # 'make opendoc' to view the documentation
 opendoc: doc
 	mkdir -p .chromium

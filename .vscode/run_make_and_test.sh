@@ -24,7 +24,7 @@ ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 # second step: build and execute the script
 ocamlbuild -pkgs clangml,refl,pprint,str,optiTrust.Optitrust "${FILEBASE}_with_exit.byte" || (echo "Cannot compile $1_with_exit.ml"; exit 1)
 ./${FILEBASE}_with_exit.byte ${OPTIONS}
-${VSCODE}/view_diff.sh ${DIRNAME} ${FILEBASE}
+${VSCODE}/open_diff.sh ${DIRNAME} ${FILEBASE}
 
 # third step: clean up and show the diff of the two last states of the program
 ocamlbuild -clean
