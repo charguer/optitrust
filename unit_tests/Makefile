@@ -70,7 +70,8 @@ DIFF=diff --ignore-blank-lines --ignore-space-change -I '^//'
 CPP_SOURCES_ALL=$(wildcard *.cpp) $(TESTS:.ml=_out.cpp)
 CPP_SOURCES=$(filter-out $(EXCLUDE_CPP), $(filter-out %_enc.cpp, $(CPP_SOURCES_ALL)))
 
-OPTITRUST ?= ""
+# Path to the folder containing optitrust main Makefile, on which to call make install
+OPTITRUST = ..
 
 #######################################################
 # Targets
@@ -98,7 +99,7 @@ update:
 	rm -Rf _build 
 	$(MAKE) -C .. install
 
-reinstall_optitrust: clean
+optitrust: clean
 	$(MAKE) -C $(OPTITRUST) install
 
 # 'make opendoc' to view the documentation

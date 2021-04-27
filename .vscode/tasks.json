@@ -3,24 +3,26 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-        {
+        // TASKS IN SRC FOLDER
+        { // F5 in src
           "label": "Compile and install the library and compile all unit tests",
           "type": "shell",
           "command": "make all"
         }, 
-        { // TODO: Create a file current_test.sh
+        { // F6 in src 
           "label": "Compile and install the library then execute one unit test",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
             "cwd": "${workspaceFolder}/.vscode"
           },
-          "args": [
-              "./view_result.sh",
+          "args": [ // debug_one_test.sh is customized by the user
+              // example:  cd fileDirName && make install && make -C ../tests/core mytest.out
+              "./debug_one_test.sh", 
               "${fileDirname}",
               "${fileBasenameNoExtension}",
               "${lineNumber}",
-              "recompile_optitrust_no",
+              "recompile_optitrust_yes",
               ""
           ]
         },
@@ -134,7 +136,7 @@
         {
           "label": "Compile the full current folder",
           "type": "shell",
-          "command": "make optitrust  make all",
+          "command": "make optitrust && make all",
           "options": {
             "cwd": "${fileDirname}"
           },
