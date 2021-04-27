@@ -75,11 +75,11 @@ let string_of_dir (d : dir) : string =
      in
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
 
-let string_of_list (l : string list) : string =
+let string_of_list ?(sep:string=";") (l : string list) : string =
   let rec aux = function
     | [] -> ""
     | [s] -> s
-    | s1 :: s2 :: sl -> s1 ^ "; " ^ aux (s2 :: sl)
+    | s1 :: s2 :: sl -> s1 ^ sep ^ " " ^ aux (s2 :: sl)
   in
   "[" ^ aux l ^ "]"
 

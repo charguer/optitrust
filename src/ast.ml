@@ -1,3 +1,4 @@
+open PPrint
 (* file locations: filename, line number *)
 type location = (string * int * int * int * int) option
 
@@ -918,3 +919,121 @@ let nb_goto (l : label) (t : trm) : int =
     (prt<int> i = new int; i = i0); while ...
  TODO :find out if this one is used.
 *)
+
+let document_to_string (d : document) : string =
+  let b = Buffer.create 80 in
+  PPrintEngine.ToBuffer.pretty 0.9 80 b d;
+  Buffer.contents b
+
+module Json = 
+  struct 
+    type t =
+      | Str of string
+      | Int of int 
+      | Boolean of bool
+      | List of t list 
+      | Object of (string * t) list 
+      
+    let rec json_to_string (j : t) : string = 
+      match j with 
+      | Str s -> s 
+      | Int i -> string_of_int i
+      | Boolean b -> string_of_bool b
+      | List  l -> Path.string_of_list ~sep:"," (List.map json_to_string l)
+      | Object o ->  Path.string_of_list ~sep:","  ~bounds:["{";"}"] (List.map (fun s t -> s ^":" ^ json_to_string t) o)
+    end  
+type json = Json.t 
+
+type nodeid = string 
+
+let loc_to_json (t : trm) : json = 
+  begin match t.loc with
+      | None -> Str ""
+      | Some (_, start_row, end_row, start_column, end_column) ->
+         Object [("start",Object [("line",Int start_row);("col",Int start_column)]);("end", Object[("line",Int end_row);("col",Int end_column)])]
+         (* [("label","body"),("id",aux t)] *)
+         (* print_pair (filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) ) *)
+         
+  end
+let node_to_js (aux : trm -> nodeid) (t : trm) : fields = 
+  Json.(
+    match t.desc with
+    | Trm_val v -> 
+      [
+        ("kind", Str "val"),
+        ("value", (document_to_string (print_val  v))),
+        ("children", [])
+      ]
+    | Trm_var x -> 
+      [
+        ("kind", Str "var"),
+        ("value", Str x);
+        ("children", List [])
+      ]
+    | Trm_struct l -> 
+      let lid = List.map  aux l in 
+      [
+        ("kind", Str "struct")
+      ]
+    
+    | Trm_array l ->
+      let lid = List.map_aux l in 
+      [
+        ("kind", Str "array"),
+        ("children", List lid)
+      ] 
+    | Trm_decl d ->
+        match d with 
+        | Def_var ((x,t),_) -> 
+          [
+            ("kind", Str "var-def"),
+            ("name", Str x),
+            ("children", obj [("label","body"),("id",aux t)])
+          ]
+        | Def_fun (f,typ,xts,tbody) ->
+          [
+            ("kind", Str "fun-def"),
+            ("name", Str f),
+            ("children", obj [("label","body"),("id",aux tbody)]),
+            ("args", []),
+            ("return_type", aux typ)
+          ]
+    | Trm_if (cond, then_, else_) ->
+      [
+        ("kind", Str "if"),
+        ("children", [cond;then_;else_])
+      ]
+    | Trm_seq l -> 
+      let lid = List.map aux l in (* includes side effect *)
+      [
+        ("kind", Str "seq"),
+        ("children", List lid)
+      ]
+    | Trm_apps (f,args) ->
+      
+
+  )
+
+let ast_to_js (root : trm) : nodeid = 
+  (* node id generator *)
+  let nextid = ref 0 in 
+  let get_nextid () = 
+    incr nextid;
+    "node_" ^ (string_of_int !nextid) in 
+  (* output of the fuction *)
+  let result : ((nodeid * json) list) ref = ref [] in 
+  (* recursive construction *)
+  let rec aux parentid t = 
+    let id = get_nextid() in 
+    let specific_fields = node_to_js (aux id) t in 
+    let json = Json.Object (specific_fields @ [
+      ("parent", Int parentid);
+      ("typ", Str (string_of_type t.typ));
+      ("add", List (List.map addition_to_string t.add);
+      ("annot", (annot_to_string t));
+      ("loc", )
+      )
+    ]) in 
+    result := (nodeid,json) :: !result;
+    id in 
+  aux (-1) root
