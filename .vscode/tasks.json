@@ -30,9 +30,12 @@
           "command": "make library"
         },
         {
-          "label": "Compile the library, compile all unit tests, and build the documuentation",
+          "label": "Compile and install the library, compile all unit tests, and build the documuentation",
           "type": "shell",
-          "command": "make all"
+          "command": "make doc && make all",
+          "options": {
+            "cwd": "${workspaceFolder}/.vscode"
+          }
         },
         {
           "label": "View the state at the end of the current line",
@@ -131,7 +134,7 @@
         {
           "label": "Compile the full current folder",
           "type": "shell",
-          "command": "make reinstall_optitrust && make all",
+          "command": "make optitrust  make all",
           "options": {
             "cwd": "${fileDirname}"
           },

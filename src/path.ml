@@ -75,13 +75,13 @@ let string_of_dir (d : dir) : string =
      in
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
 
-let string_of_list (l : string list) : string =
+let string_of_list ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : string list) : string =
   let rec aux = function
     | [] -> ""
     | [s] -> s
-    | s1 :: s2 :: sl -> s1 ^ "; " ^ aux (s2 :: sl)
+    | s1 :: s2 :: sl -> s1 ^ sep ^ " " ^ aux (s2 :: sl)
   in
-  "[" ^ aux l ^ "]"
+  (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
 let string_of_explicit_path (dl : expl_path) : string =
   string_of_list (List.map string_of_dir dl)

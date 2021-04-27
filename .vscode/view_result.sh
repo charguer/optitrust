@@ -9,8 +9,9 @@
 DIRNAME=$1
 FILEBASE=$2
 LINE=$3
-RECOMPILE_OPTITRUST=$4 # should be recompile_optitrust_yes or recompile_optitrust_no
-OPTIONS=$5
+VIEW=$4
+RECOMPILE_OPTITRUST=$5 # should be recompile_optitrust_yes or recompile_optitrust_no
+OPTIONS=$6
 
 #UPDATE=noupdate
 

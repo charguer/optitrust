@@ -13,7 +13,8 @@ vect f() { return {1, 1}; }
 
 int main() {
   vect p = {0, 0};
-  vect b = p;
+  vect b;
+  b = p;
   vect d;
   d.x = 1;
   d.y = 2;
