@@ -18,8 +18,7 @@ module Json = struct
     | List of t list 
     | Object of (string * t) list 
   
-  let str x =
-    Json.Str x
+  let str x = Str x
 
   (* TODO: let list_to_json l = 
     Path.string_of_list ~sep:"," l *)
@@ -51,7 +50,12 @@ let loc_to_json (t : trm) : json =
         ("end", Json.Object[("line",Json.Int end_row);("col",Json.Int end_column)])] (* TODO tabs *)
   end
 
-(* TODO let typ_to_string =  (document_to_string (Ast_to_text.print_typ typ)) *)
+(* TODO *)
+
+let typ_to_string typ =  (document_to_string (Ast_to_text.print_typ typ)) 
+
+
+
 
 let typed_var_list_to_json (tv : typed_var list) : json =   
   let tv = List.map (fun (v,typ) -> (v, Json.Str (document_to_string (Ast_to_text.print_typ typ)))) tv in 
@@ -72,12 +76,18 @@ let child_to_json (label:string) (child_id:nodeid) : json =
 let ichild_to_json ?(prefix:string="") (i:int) (child_id:nodeid) : json = 
   child_to_json (prefix ^ string_of_int i) (child_id)
 
-let children_to_json (children:(label*nodeid) list) : json =
-  ("children", List [ List.map child_to_json children ]
+(* let children_to_json(childnred : ()) *)
+let children_to_json (children: json list) : (string * json)= 
+  ("children", Json.List children)
+(* let children_to_json (children:(label*nodeid) list) : json =
+  ("children", Json.List [ List.map child_to_json children ])
+ *)
 
-let kind_to_json (kind:string) : json =
+let kind_to_json (kind:string) : string * json =
   ("kind", Json.Str kind)
 
+let value_to_json (value: string) : string *json = 
+  ("value", Json.Str value)
 
 (* Here, [aux] is to be applied for processing children *)
 
@@ -86,106 +96,84 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     match t.desc with (* TODO: style *)
     | Trm_val v -> 
         [ kind_to_json "val"; (* TODO: use this in all cases *)
-          ("value", Json.Str (document_to_string (print_val v)));
-          ("children", Json.List []) ]
+          value_to_json (document_to_string (print_val v));
+          children_to_json [] ]
     | Trm_var x -> 
-        [ ("kind", Json.Str "var");
-          ("value", Json.Str x);
-          ("children", Json.List []) ]
+        [ kind_to_json "var";
+          value_to_json x;
+          children_to_json [] ]
     | Trm_struct l -> 
         let childrenids = List.map aux l in 
-        [ ("kind", Json.Str "struct");
-          ("children", Json.List (List.mapi ichild_to_json childrenids))) ]
-
+        [ kind_to_json "struct";
+          children_to_json (List.mapi ichild_to_json childrenids)]
     | Trm_array l -> (* TODO: function to factorize *)
         let lid = List.map aux l in 
-        let children = List.mapi (fun i x -> Json.Object 
-          [("label", Json.Int i);("id", Json.Str x)]
-        ) lid in 
-
-        [
-          ("kind", Json.Str "array");
-          ("children", Json.List children)
-        ] 
+        let children = List.mapi (fun i x -> ichild_to_json i x) lid in 
+        [kind_to_json "array";
+          children_to_json children]
     | Trm_decl d ->
         begin match d with 
         | Def_var ((x,typ),body) -> 
           [
-            ("kind", Json.Str "var-def");
+            kind_to_json "var-def";
             ("name", Json.Str x);
-            ("def-type", Json.Str (document_to_string (Ast_to_text.print_typ typ)));
-            ("children", Json.List (Json.Object [("label", Json.Str "body");("id", Json.Str (aux body)))])
-          ]
+            ("def-type", Json.Str (typ_to_string typ));
+            children_to_json ([(child_to_json "body" (aux body))])]
         | Def_fun (f,typ,xts,tbody) ->
           [
-            ("kind", Json.Str "fun-def");
+            kind_to_json "fun-def";
             ("name", Json.Str f);
-            ("children", Json.Object [("label", Json.Str "body");("id", Json.Str (aux tbody))]);
             ("args", typed_var_list_to_json xts);
-            ("return_type", Json.Str (document_to_string (Ast_to_text.print_typ typ))) (*TODO: again string_of_typ *)
+
+            ("return_type", Json.Str (typ_to_string typ));
+            children_to_json ([(child_to_json "body" (aux tbody))])
+
           ]
         | Def_typ (tv,typ) -> 
           [
-            ("kind", Json.Str "type-def");
+            kind_to_json "typ-def";
             ("name", Json.Str tv);
-            ("contents", type_to_json typ)
-            ("children", List [])
-          ]
+            ("contents", Json.Str (typ_to_string typ));
+            children_to_json []]
         | Def_enum (tv,_) -> (*TODO: support enum better--figure out what are the trmoptions * *)
-          [("kind", Json.Str "enum-def");
-            ("value", Json.Str tv);
-            ("children", List [])
-          ]
+          [ kind_to_json "enum-def";
+            value_to_json tv;
+            children_to_json []]
         end 
     | Trm_if (cond, then_, else_) ->
-        [ ("kind", Json.Str "if");
-          children_to_json [ (* TODO: use this pattern *)
+        [ kind_to_json "if";
+          children_to_json [ 
             child_to_json "cond" (aux cond);
             child_to_json "then" (aux then_);
-            child_to_json "else" (aux else_); ]
+            child_to_json "else" (aux else_) ]
       ]
     | Trm_seq l -> 
-        let lid = List.map aux l in 
-        let children = List.mapi (fun i x -> Json.Object 
-          [("label", Json.Int i);("id", Json.Str x)]
-        ) lid in 
-
-        [
-          ("kind", Json.Str "seq");
-          ("children", Json.List children)
-        ]
+        let childrenids = List.map aux l in 
+        [ kind_to_json "seq";
+          children_to_json (List.mapi ichild_to_json childrenids)]
     | Trm_apps (f,args) ->
-        let lid = List.map aux args in 
-        let children = List.mapi (fun i x -> Json.Object 
-          [("label", Json.Int i);("id", Json.Str x)]
-        ) lid in 
-        let children = Json.Object[("label", Json.Str "f");("id", Json.Str (aux f))] :: children in 
-          (* children = [("fun", aux f)] @ [ ichild_to_json ~prefix:"arg_" args ] *)
-        [
-          ("kind", Json.Str "app");
-          ("children", Json.List children)
-        ]
+        let childrenids = List.map aux args in 
+        let children = List.mapi (ichild_to_json ~prefix:"_arg" )childrenids in
+        let children = child_to_json "f" (aux f) :: children in 
+        [ kind_to_json "app";
+          children_to_json children]
     | Trm_for (init, cond, step, body) -> 
-        [
-          ("kind", Json.Str "for");
-          ("children", List 
-          [ Json.Object[("label", Json.Str "init");("id", Json.Str (aux init))];
-            Json.Object[("label", Json.Str "cond");("id", Json.Str (aux cond))];
-            Json.Object[("label", Json.Str "step");("id", Json.Str (aux step))];
-            Json.Object[("label", Json.Str "body");("id", Json.Str (aux body))] ])
-        ]
+        [ kind_to_json "for";
+          children_to_json [
+            child_to_json "init" (aux init);
+            child_to_json "cond" (aux cond);
+            child_to_json "step" (aux step);
+            child_to_json "body" (aux body)
+          ]]
     | Trm_while (cond, body) -> 
-        [
-          ("kind", Json.Str "while");
-          ("children", List 
-          [ Json.Object[("label", Json.Str "cond");("id", Json.Str (aux cond))];
-            Json.Object[("label", Json.Str "body");("id", Json.Str (aux body))] ])
-        ]
+        [ kind_to_json "while";
+          children_to_json [ 
+            child_to_json "cond" (aux cond);
+            child_to_json "then" (aux body)]]
     | Trm_switch (cond,_cases) ->
-        [
-          ("kind", Json.Str "switch");
+        [ kind_to_json "switch";
           (* I will cover cases later on *)
-          ("children", List [ Json.Object[("label", Json.Str "cond");("id", Json.Str (aux cond))]])
+          children_to_json [child_to_json "cond" (aux cond)]]
           (* TODO: support only for now the form:  (not supporting ([p00;p01],t1))
                 Trm_switch (cond, [([p0], t0); ([p1], t1); ([], t2)]) =
              "pat_0", aux p0 
@@ -203,54 +191,42 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
                 | ([tpat],body) -> [(pat_label, aux tpat); (body_label, aux body)]
                 | (_,body) -> fail t.loc "multipattern switch not yet supported in json output"
            *)
-        ]
     | Trm_abort res ->
         begin match res with 
         | Ret res->  
-           let chidren = match res with 
-             | None -> ()
-             | Some ret -> ["value", aux res]
+           let children = match res with 
+             | None -> []
+             | Some ret -> [Object [("value",Str (aux ret))]]
              in
            [
-              ("kind", Json.Str "return");
-              chidren_to_json children children
+              kind_to_json "return";
+              children_to_json children
 
               (*("children",  List [Json.Object[("label", Json.Str "abort");("id", Json.Str (aux ret))]]) *)
             ]
 
         | Break ->
-          [
-              ("kind", Json.Str "break");
-              ("children", List [])
-            ]
+          [   kind_to_json "break";
+              children_to_json []]
         | Continue ->
-          [
-              ("kind", Json.Str "continue");
-              ("children", List [])
-            ]
+          [   kind_to_json "continue";
+              children_to_json []]
         end 
     | Trm_labelled (label,t) -> 
-        [
-          ("kind", Json.Str "labelled");
-          ("val", Json.Str label);
-          ("children", Json.Object[("label", Json.Str "labelled");("id",Json.Str(aux t))])
-        ]
+        [ kind_to_json "labelled";
+          value_to_json label;
+          children_to_json [child_to_json "labelled" (aux t)]]
     | Trm_goto label -> 
-        [
-          ("kind", Json.Str "goto");
+        [ kind_to_json "goto";
           ("target", Json.Str label);
-          ("children", List [])
-        ]
+          children_to_json []]
     | Trm_decoration (_,t,_) ->
-        [
+        [ kind_to_json "decoration";
           ("kind", Json.Str "decoration");
-          ("children", List [Json.Object[("label", Json.Str "decoration");("id", Json.Str (aux t))]])
-        ]
+          children_to_json [child_to_json "decoration" (aux t)]]
     | Trm_any t -> 
-        [
-          ("kind", Json.Str "any");
-          ("children", List [Json.Object[("label", Json.Str "any");("id",Json.Str (aux t))]])
-        ]
+        [ kind_to_json "any";
+          children_to_json [child_to_json "any" (aux t)]]
   )
 
 
@@ -292,10 +268,10 @@ let ast_to_json (root:trm) : json =
     let id = get_nextid() in 
     let specific_fields = node_to_js (aux id) t in 
     let json = Json.Object (specific_fields @ [
-      ("parent", Json.Int parentid);
+      ("parent", Json.Str id_parent);
       ("typ", Json.Str (( match t.typ with 
                           | None -> ""
-                          | Some typ -> document_to_string (print_typ typ))));
+                          | Some typ -> typ_to_string typ)));
       ("add", Json.List (List.map Json.str (List.map add_to_string t.add)));
       ("is_instr",(Json.Boolean t.is_instr));
       ("annot", Json.Str (annot_to_string t));
@@ -304,8 +280,13 @@ let ast_to_json (root:trm) : json =
     ]) in 
     result := (id, json) :: !result;
     id in 
-  let id_of_root = aux (-1) root in
+  let _id_of_root = aux (get_nextid()) root in
   Json.Object (!result)
+
+
+
+(* json_to_document *)
+
   
   
 
