@@ -183,8 +183,10 @@ let cleanup_cpp_file_using_clang_format filename =
 
 let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
   let file_ast = out_prefix ^ ".ast" in
+  let file_json = out_prefix ^ ".json" in
   let file_enc = out_prefix ^ "_enc" ^ ctx.extension in
   let file_prog = out_prefix ^ ctx.extension in
+  let out_json = open_out file_json in 
   let out_ast = open_out file_ast in
   let out_enc = open_out file_enc in
   let out_prog = open_out file_prog in
@@ -195,6 +197,8 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     in
   try
     (* print the raw ast *)
+    (* Output the current ast into json format *)
+    (* ast_to_js  *)
     print_ast (* ~only_desc:true *) out_ast ast;
     output_string out_ast "\n";
     (* print C++ code without decoding *)

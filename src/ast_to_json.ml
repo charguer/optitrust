@@ -43,11 +43,9 @@ let loc_to_json (t : trm) : json =
          
   end
 
-(* Get the list of integers with left bound i and right bound j *)
-let range i j = 
-    let rec aux n acc =
-      if n < i then acc else aux (n-1) (n :: acc)
-    in aux j []
+let typed_var_list_to_json (tv : typed_var list) : json = 
+  let tv = List.map (fun (v,typ) -> (v, Json.Str (document_to_string (Ast_to_text.print_typ typ)))) tv in 
+  Json.Object tv 
 
 
 
@@ -89,21 +87,21 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list=
       ] 
     | Trm_decl d ->
         begin match d with 
-        | Def_var ((x,t),_) -> 
+        | Def_var ((x,typ),_) -> 
           [
             ("kind", Json.Str "var-def");
             ("name", Json.Str x);
-            ("children", Json.Object [("label", Json.Str "body");("id", Str (document_to_string (Ast_to_text.print_typ t)))])
+            ("children", Json.Object [("label", Json.Str "body");("id", Str (document_to_string (Ast_to_text.print_typ typ)))])
           ]
         | Def_fun (f,typ,xts,tbody) ->
           [
             ("kind", Json.Str "fun-def");
             ("name", Json.Str f);
             ("children", Json.Object [("label", Json.Str "body");("id", Json.Str (aux tbody))]);
-            ("args", List []);
+            ("args", (typed_var_list_to_json xts));
             ("return_type", Json.Str (document_to_string (Ast_to_text.print_typ typ)))
           ]
-        | Def_typ (tv,typ) -> 
+        | Def_typ (tv,_typ) -> 
           [
             ("kind", Json.Str "type-def");
             ("value", Json.Str tv);
@@ -135,14 +133,39 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list=
         ("children", Json.List children)
       ]
     | Trm_apps (f,args) ->
+      let lid = List.map aux args in 
+      let children = List.mapi (fun i x -> Json.Object 
+        [("label", Json.Int i);("id", Json.Str x)]
+      ) lid in 
+      let children = Json.Object[("label", Json.Str "f");("id", Json.Str (aux f))] :: children in 
+
       [
-        ("kind", Json.Str "apps");
-        ("children", List []);
+        ("kind", Json.Str "struct");
+        ("children", Json.List children)
       ]
-    | Trm_switch (cond,cases) ->
+    | Trm_for (init, cond, step, body) -> 
+      [
+        ("kind", Json.Str "for");
+        ("children", List 
+        [ Json.Object[("label", Json.Str "init");("id", Json.Str (aux init))];
+          Json.Object[("label", Json.Str "cond");("id", Json.Str (aux cond))];
+          Json.Object[("label", Json.Str "step");("id", Json.Str (aux step))];
+          Json.Object[("label", Json.Str "body");("id", Json.Str (aux body))]
+        ])
+      ]
+    | Trm_while (cond, body) -> 
+      [
+        ("kind", Json.Str "while");
+        ("children", List 
+        [ Json.Object[("label", Json.Str "cond");("id", Json.Str (aux cond))];
+          Json.Object[("label", Json.Str "body");("id", Json.Str (aux body))]
+        ])
+      ]
+    | Trm_switch (cond,_cases) ->
       [
         ("kind", Json.Str "switch");
-        ("children", List [])
+        (* I will cover cases later on *)
+        ("children", List [ Json.Object[("label", Json.Str "cond");("id", Json.Str (aux cond))]])
       ]
     | Trm_abort res ->
       begin match res with 
@@ -173,7 +196,8 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list=
     | Trm_labelled (label,t) -> 
       [
         ("kind", Json.Str "labelled");
-        ("children", List [Json.Object[("label", Json.Str "labelled");("id",Json.Str(aux t))]])
+        ("val", Json.Str label);
+        ("children", Json.Object[("label", Json.Str "labelled");("id",Json.Str(aux t))])
       ]
     | Trm_goto label -> 
       [
@@ -214,7 +238,7 @@ let add_to_string (add : print_addition) =
       | Add_star_operator -> "Add_star_operator"
     
 
-let ast_to_js (root : trm) : nodeid = 
+let ast_to_js root = 
   (* node id generator *)
 
   let nextid = ref 0 in 
@@ -241,4 +265,7 @@ let ast_to_js (root : trm) : nodeid =
     ]) in 
     result := (id,json) :: !result;
     id in 
-  aux root
+  aux root 
+  
+  
+
