@@ -13,6 +13,7 @@ module Json =
     type t =
       | Str of string
       | Int of int 
+      | Boolean of bool
       | List of t list 
       | Object of (string * t) list 
     
@@ -22,6 +23,7 @@ module Json =
       match j with 
       | Str s -> s 
       | Int i -> string_of_int i
+      | Boolean b -> string_of_bool b
       | List  l -> Path.string_of_list ~sep:"," (List.map json_to_string l)
       | Object o ->  Path.string_of_list ~sep:","  ~bounds:["{";"}"] (List.map (fun (s, j) -> s ^ ":" ^ (json_to_string j)) o)
     end  
@@ -42,7 +44,7 @@ let loc_to_json (t : trm) : json =
   end
 
 (* Get the list of integers with left bound i and right bound j *)
-let (--) i j = 
+let range i j = 
     let rec aux n acc =
       if n < i then acc else aux (n-1) (n :: acc)
     in aux j []
@@ -56,50 +58,50 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list=
         [
         ("kind", Json.Str "val");
         ("value", Json.Str (document_to_string (print_val  v)));
-        ("children", List [])
+        ("children", Json.List [])
         ]
     | Trm_var x -> 
       [
         ("kind", Json.Str "var");
         ("value", Json.Str x);
-        ("children", List [])
+        ("children", Json.List [])
       ]
     | Trm_struct l -> 
-      let indices = 1--(List.length) l in 
       let lid = List.map aux l in 
-      let lid = List.map(fun x -> ("id", Json.Str x)) lid in 
-      let labels = List.map(fun x -> ("label", Json.Int x)) indices in 
-      let children = List.map2 (fun x1 x2 -> Json.Object [x1;x2]) labels lid in 
+      let children = List.mapi (fun i x -> Json.Object 
+        [("label", Json.Int i);("id", Json.Str x)]
+      ) lid in 
+
       [
         ("kind", Json.Str "struct");
         ("children", Json.List children)
       ]
     
     | Trm_array l ->
-      let indices = 1--(List.length) l in 
       let lid = List.map aux l in 
-      let lid = List.map(fun x -> ("id",x)) lid in 
-      let labels = List.map(fun x -> ("label",Json.Int x)) indices in 
-      let children = List.map2 (fun x1 x2 -> Json.Object [x1;x2]) labels lid in 
+      let children = List.mapi (fun i x -> Json.Object 
+        [("label", Json.Int i);("id", Json.Str x)]
+      ) lid in 
+
       [
-        ("kind", Json.Str "array"),
-        ("children", children)
+        ("kind", Json.Str "array");
+        ("children", Json.List children)
       ] 
     | Trm_decl d ->
-        match d with 
+        begin match d with 
         | Def_var ((x,t),_) -> 
           [
             ("kind", Json.Str "var-def");
             ("name", Json.Str x);
-            ("children", Json.Object [("label","body"),("id",aux t)])
+            ("children", Json.Object [("label", Json.Str "body");("id", Str (document_to_string (Ast_to_text.print_typ t)))])
           ]
         | Def_fun (f,typ,xts,tbody) ->
           [
             ("kind", Json.Str "fun-def");
             ("name", Json.Str f);
-            ("children", Json.Object [("label","body");("id",aux tbody)]);
-            ("args", []);
-            ("return_type", document_to_string (Ast_to_text.print_typ t))
+            ("children", Json.Object [("label", Json.Str "body");("id", Json.Str (aux tbody))]);
+            ("args", List []);
+            ("return_type", Json.Str (document_to_string (Ast_to_text.print_typ typ)))
           ]
         | Def_typ (tv,typ) -> 
           [
@@ -112,24 +114,25 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list=
             ("value", Json.Str tv);
             ("children", List [])
           ]
+        end 
     | Trm_if (cond, then_, else_) ->
       [
         ("kind", Json.Str "if");
         ("children", List 
-        [ Json.Object[("label","cond");("id",aux cond)];
-          Json.Object[("label","then");("id",aux then_)];
-          Json.Object[("label","cond");("id",aux else_)]
+        [ Json.Object[("label", Json.Str "cond");("id", Json.Str (aux cond))];
+          Json.Object[("label", Json.Str "then");("id", Json.Str (aux then_))];
+          Json.Object[("label", Json.Str "cond");("id", Json.Str (aux else_))]
         ])
       ]
     | Trm_seq l -> 
-      let indices = 1--(List.length) l in 
       let lid = List.map aux l in 
-      let lid = List.map(fun x -> ("id",x)) lid in 
-      let labels = List.map(fun x -> ("label",Json.Int x)) indices in 
-      let children = List.map2 (fun x1 x2 -> Json.Object [x1;x2]) labels lid in       
+      let children = List.mapi (fun i x -> Json.Object 
+        [("label", Json.Int i);("id", Json.Str x)]
+      ) lid in 
+
       [
         ("kind", Json.Str "seq");
-        ("children", children)
+        ("children", Json.List children)
       ]
     | Trm_apps (f,args) ->
       [
@@ -142,15 +145,35 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list=
         ("children", List [])
       ]
     | Trm_abort res ->
-      [
-        ("kind", Json.Str "abort");
-        ("children", List [Json.Object[("label","abort"),("id",aux res)]])
-        
-      ]
+      begin match res with 
+      | Ret (Some ret)->    [
+            ("kind", Json.Str "abort");
+            ("children",  List [Json.Object[("label", Json.Str "abort");("id", Json.Str (aux ret))]]) 
+          ]
+      | Ret None ->
+         [
+            ("kind", Json.Str "abort");
+            ("val", Json.Str "None");
+            ("children", List [])
+          ]
+      
+      | Break ->
+         [
+            ("kind", Json.Str "abort");
+            ("val", Json.Str "Break");
+            ("children", List [])
+          ]
+      | Continue ->
+         [
+            ("kind", Json.Str "abort");
+            ("val", Json.Str "Continue");
+            ("children", List [])
+          ]
+      end 
     | Trm_labelled (label,t) -> 
       [
         ("kind", Json.Str "labelled");
-        ("children", List [Json.Object[("label","labelled");("id",aux t)]])
+        ("children", List [Json.Object[("label", Json.Str "labelled");("id",Json.Str(aux t))]])
       ]
     | Trm_goto label -> 
       [
@@ -161,12 +184,12 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list=
     | Trm_decoration (_,t,_) ->
       [
         ("kind", Json.Str "decoration");
-        ("children", List [Json.Object[("label","decoration"),("id",aux t)]])
+        ("children", List [Json.Object[("label", Json.Str "decoration");("id", Json.Str (aux t))]])
       ]
     | Trm_any t -> 
       [
         ("kind", Json.Str "any");
-        ("children", List [Json.Object[("label","any"),("id",aux t)]])
+        ("children", List [Json.Object[("label", Json.Str "any");("id",Json.Str (aux t))]])
       ]
 let annot_to_string (t : trm) : string = 
   begin match t.annot with
@@ -185,12 +208,16 @@ let annot_to_string (t : trm) : string =
      | Main_file -> "Main_file"
      end
   end
-
+let add_to_string (add : print_addition) =
+      match add with
+      | Add_address_of_operator -> "Add_address_of_operator"
+      | Add_star_operator -> "Add_star_operator"
+    
 
 let ast_to_js (root : trm) : nodeid = 
   (* node id generator *)
+
   let nextid = ref 0 in 
-  
   let get_nextid () = 
     incr nextid;
     "node_" ^ (string_of_int !nextid) in 
@@ -198,18 +225,20 @@ let ast_to_js (root : trm) : nodeid =
   let result : ((nodeid * json) list) ref = ref [] in 
   (* recursive construction *)
   
-  let rec aux parentid t = 
+  let rec aux t = 
     let id = get_nextid() in 
-    let specific_fields = node_to_js (fun ti -> aux id ti) t in 
+    let specific_fields = node_to_js aux  t in 
     let json = Json.Object (specific_fields @ [
-      ("parent", Json.Int parentid);
-      ("typ", Json.Str ((document_to_string (print_typ t.typ))));
-      ("add", List (List.map (document_to_string addition_to_string) t.add));
-      ("is_instr",(Bool t.is_instr));s
+      (* ("parent", Json.Int parentid); *)
+      ("typ", Json.Str (( match t.typ with 
+                          | None -> ""
+                          | Some typ -> document_to_string (print_typ typ))));
+      ("add", Json.List (List.map(fun x -> Json.Str x)(List.map add_to_string t.add)));
+      ("is_instr",(Json.Boolean t.is_instr));
       ("annot", Json.Str (annot_to_string t));
       ("loc", (loc_to_json t));
-      ("attributes", List (t.attributes))
+      ("attributes",Json.List (List.map (fun x -> Json.Str x) (List.map document_to_string (List.map print_attribute t.attributes))))
     ]) in 
-    result := (nodeid,json) :: !result;
+    result := (id,json) :: !result;
     id in 
-  aux (-1) root
+  aux root

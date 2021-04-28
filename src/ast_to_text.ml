@@ -27,7 +27,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_ptr t ->
      let dt = print_typ ~only_desc t in
      node "Typ_ptr" ^^ dt
-  | Typ_array (t, s) ->
+  | Typ_array (t, s) -> 
      let dt = print_typ ~only_desc t in
      let ds =
        begin match s with
