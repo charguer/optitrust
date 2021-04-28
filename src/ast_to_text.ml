@@ -335,3 +335,8 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
 let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in
   PPrintEngine.ToChannel.pretty 0.9 80 out d
+
+let document_to_string (d : document) : string =
+  let b = Buffer.create 80 in
+  PPrintEngine.ToBuffer.pretty 0.9 80 b d;
+  Buffer.contents b

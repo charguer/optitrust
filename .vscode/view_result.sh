@@ -21,16 +21,20 @@ SRCFOLDER=`cd .. && pwd`
 SRCSRCFOLDER=`cd ../src && pwd`
 
 # Special treatment of src folder!
+# DEPRECATED
 if [ "${DIRNAME}" = "${SRCSRCFOLDER}" ]; then
   make -C ${SRCFOLDER}
   echo "Recompiled the lib, done."
   exit 0
 fi
 
+# Make sure we work in the directory that contains the file
+cd ${DIRNAME}
+
 # Run make update in working folder if requested
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   echo "recompile lib"
-  make -C ${DIRNAME} optitrust
+  make optitrust
   OUT=$?
   if [ ${OUT} -ne 0 ];then
     echo "Could not compile lib"
@@ -38,14 +42,14 @@ if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   fi
 fi
 
-# Make sure we work in the directory that contains the file
-cd ${DIRNAME}
-
 # First we create the source code for the transformation program
 ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
+# LATER: add_exit should also introduce special commands for figuring out the line of the command that executes
 
 # Second, we compile that transformation program
 ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optiTrust.optitrust "${FILEBASE}_with_exit.byte"
+# LATER: capture the output error message
+# so we can do the postprocessing on it 
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
