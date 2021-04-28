@@ -25,6 +25,17 @@
 
    # Installation of vscode: https://code.visualstudio.com/download
    # ...download the .deb package and install it
+```
+
+# VScode customization
+
+```
+   # Recommended extensions for VSCode (type CTRL+SHIFT+X)
+     - GitLens
+     - TODO Highlight
+     - OCaml and Reason IDE (see below for details)
+
+     
 
    # OCaml syntax highlighting 
    # New plugins to highlight the code "OCaml and Reason IDE"
@@ -55,6 +66,7 @@
    # (optional) Install GitLens extension
    #     ext install eamodio.gitlens
 ```
+
 
 # Setup
 
