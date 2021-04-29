@@ -67,3 +67,7 @@ td.pane {
   color: red;
   font-size: 22px;
 }
+
+.grayed {
+  color: gray;
+}

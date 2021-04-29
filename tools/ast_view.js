@@ -118,7 +118,7 @@ function html_span(args, contents) {
 var ast;
 
 function get_child_label(node, id_child) {
-  if (! "children" in node) {
+  if (! ("children" in node)) {
     return null;
   }
   var nb = node.children.length;
@@ -130,12 +130,12 @@ function get_child_label(node, id_child) {
   return null;
 }
 
-
 // auxiliary function for viewPath,
 // path should be a list of node ids
 // target should be the name of a div
-function viewPathRec(path, target, label) {
-  console.log("viewing in " + target + " : "   + path);
+function viewPathRec(path, target, label, classExtra) {
+  //console.log("viewing in " + target + " : "   + path);
+
   // get first node in path, and compute remaining path
   var id = path.shift();
   var node = ast[id];
@@ -146,20 +146,31 @@ function viewPathRec(path, target, label) {
   if (k == "var" || k == "fun") {
     txt += " " + node.name;
   }
-  // build buttons
-  var ctrl = html_span({'onclick': "console.log('plus')"}, "&CirclePlus;") +
-             html_span({'onclick': "console.log('minus')"}, "&CircleMinus;");
+  // build buttons, gray them if no valid operation
+  var idchild = (path.length > 0) ? path[0] : "";
+  var ctrlPlus = html_span({id: (id+"_plus"), onclick: "nodePlus('" + id + "', '" + idchild + "')"}, "&CirclePlus;");
+  var ctrlMinus = html_span({id: (id+"_minus"), 'class': 'grayed', onclick: "nodeMinus('" + id + "')"}, "&CircleMinus;");
+  var ctrl = ctrlPlus + ctrlMinus;
+  var ctrlClass = "ast_ctrl";
+  if ((! ("children" in node)) || (node.children.length == 1 && path.length > 0)) {
+    ctrlClass += " grayed";
+  }
 
   // build html
   var descr = html_span({class: "ast_label"}, label) +
-              html_span({class: "ast_ctrl"}, ctrl) +
+              html_span({class: ctrlClass}, ctrl) +
               html_span({class: "ast_txt"}, txt);
 
   // build div for that node
   var div_view = id + "_view";
   var div_descr = id + "_descr";
   var div_children = id + "_children";
-  $("#"+target).append(html_div({ id: div_view, class: "ast_node" }, ""));
+
+  var classNode = "ast_node";
+  if (classExtra != undefined) {
+    classNode += " " + classExtra;
+  }
+  $("#"+target).append(html_div({ id: div_view, class: classNode }, ""));
   $("#"+div_view).append(html_div({ id: div_descr, class: "ast_descr" }, descr));
   $("#"+div_view).append(html_div({ id: div_children, class: "ast_children" }, ""));
 
@@ -178,13 +189,60 @@ function viewPathRec(path, target, label) {
   }
 }
 
-
-
 // Loads the view of a path
 // path should be a list of node ids
 function viewPath(path) {
-   viewPathRec(path, "viewast", "root");
+   viewPathRec(path, "viewast", "root", "");
 }
+
+// Function to display all children of a given node,
+// mark all but idchildKept using class 'ast_expanded'
+// to allow the function nodeMinus to be simple to implement
+function nodePlus(id, idchildKept) {
+  var node = ast[id];
+  // if no children, do nothing
+  if (! ("children" in node)) {
+    return null;
+  }
+
+  // save the one children currently expanded, if there is one
+  var keptChild = null;
+  var div_children = id + "_children";
+  var children = $("#"+div_children).children();
+  if (children.length = 1) {
+    keptChild = children[0];
+  }
+
+  // clear the children
+  var element = $("#"+div_children);
+  element.empty();
+
+  // populate all children
+  for (var ichild in node.children) {
+    var child = node.children[ichild];
+    var idchild = child.id;
+    if (idchild == idchildKept) {
+      element.append(keptChild);
+    } else {
+      var label_child = get_child_label(node, idchild);
+      viewPathRec([idchild], div_children, label_child, 'ast_expanded');
+    }
+  }
+
+  // change gray buttons
+  $("#"+id+"_plus").addClass("grayed");
+  $("#"+id+"_minus").removeClass("grayed");
+}
+
+// Function to revert to the view of a single child of a given node.
+function nodeMinus(id) {
+  var div_children = id + "_children";
+  $("#"+div_children).find(".ast_expanded").remove();
+  // change gray buttons
+  $("#"+id+"_plus").removeClass("grayed");
+  $("#"+id+"_minus").addClass("grayed");
+}
+
 
 //---------------------------------------------------
 // DEMO
@@ -213,10 +271,15 @@ var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
 updateSelection(selection);
 
 ast = {
-   node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } ] },
+   node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" } ] },
    node_1: { kind: "fun", name: "foo", children: [ { label: "body", id: "node_3" } ] },
    node_2: { kind: "var", name: "x" },
-   node_3: { kind: "return" } };
+   node_3: { kind: "return" },
+   node_4: { kind: "seq", children: [ { label: "1", id: "node_5" }, { label: "2", id: "node_6" }, { label: "3", id: "node_6" }, { label: "4", id: "node_8" } ] },
+   node_5: { kind: "return" },
+   node_6: { kind: "return" },
+   node_7: { kind: "return" },
+   node_8: { kind: "return" } };
 
 // action to perform after document is loaded
 document.addEventListener('DOMContentLoaded', function () {
