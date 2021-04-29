@@ -4,6 +4,7 @@
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
 
+// Initialize the editor
 var editor = CodeMirror.fromTextArea(document.getElementById('source_code'), {
   mode: 'text/x-c++src',
   lineNumbers: true,
@@ -14,6 +15,17 @@ var editor = CodeMirror.fromTextArea(document.getElementById('source_code'), {
     'N': function(cm) { console.log("pressed N in editor"); },
   },
 });
+
+// Add a "getSelectedLoc" function
+// Returns a value in the form:
+// { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
+editor.getSelectedLoc = function() {
+  var from = editor.getCursor(true);
+  var to = editor.getCursor(false);
+  // Adding 1 because compilers counts from 1, and Codemirror from 0
+  return { start: { line: from.line + 1, col: from.ch },
+    end: { line: to.line + 1, col: to.ch } };
+};
 
 
 //---------------------------------------------------
@@ -52,6 +64,8 @@ function updateSelection(loc) {
 //---------------------------------------------------
 // Handling parameters
 
+// FOR FUTURE USE
+
 var parameter_depth = 0; // 0 means infinity
 
 // Event listner for the depth parameter
@@ -65,6 +79,16 @@ $("#parameter_depth").change(function(e) {
 // Event listner for the run button
 $("#button_run").click(function (e) {
    console.log("Click on run button");
+});
+
+
+//---------------------------------------------------
+// Handling selection and click events in editor
+
+$(document).on('mouseup', '.CodeMirror', function() {
+   console.log("Mouseup in code mirror");
+   console.log("Selected range: ");
+   console.log(editor.getSelectedLoc());
 });
 
 
@@ -93,6 +117,42 @@ editor.setValue(exampleSource);
 var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
 
 updateSelection(selection);
+
+
+//---------------------------------------------------
+// TODO
+
+/*
+
+NOW:
+
+- Initially, load in the AST view the root node,
+
+- On a mouse up event, find the deepest node in the AST whose range
+fully covers the selection (bigger node ids means deeper node).
+Construct the list of nodes from the AST root to that node.
+Invoke the function that displays the view for those nodes.
+
+- On a click on a node in the AST view, highlight the corresponding
+piece of code in the editor.
+
+
+
+-----
+LATER:
+
+Above code mirror, display a div with the list of versions,
+each version number corresponds to the line from the ml file
+that the version comes from.
+
+Click on a version number should load the corresponding code
+and clear the AST node view.
+
+Place a "diff" button next to it. Click on a diff button, then
+on a version number prints the diff between two versions.
+
+
+*/
 
 
 
