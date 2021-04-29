@@ -6,7 +6,10 @@ all: install tests
 library: 
 	dune build @install
 
-install: library
+install_lib: library
+	dune install
+
+install: install_lib
 	mkdir -p $(INSTALL_TARGET)/tools
 	install -m755 tools/*.* $(INSTALL_TARGET)/tools
 

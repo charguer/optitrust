@@ -2,10 +2,11 @@ open Optitrust
 
 
 
-let _ = 
-    run 
-    ( fun _ -> 
+let _ =
+    run
+    ( fun _ ->
         set_init_source"make_explicit_record_assignment.cpp";
+        ();
         (* TODO : Implement the reverse of detach_expression *)
         (* TODO with arthur: see how to use cList to set up a constraint on a list of arguments *)
         (* For initializations which include declarations the following syntax is used *)
@@ -15,7 +16,7 @@ let _ =
         make_explicit_record_assignment [cVarDef ~name:"p2"()] ~struct_name:"vect";
         (* p = { 1, 2}  -->   p.x =1; p.y =2 TODO *)
         (* show_path [cVarDef ~name:"e"()] ~debug_ast:true;  *)
-        (*An alternative to that is the following one 
+        (*An alternative to that is the following one
           1) First detach the expression  by using : detach_expression [cVardef ~name:"b"()]
           2) Then make_explicit_record_assignment [cLabel ~label:"detached"();cBody()] ~struct_name:"vect";
           However this is done automatically from make_explicit_record_assignment transformation
@@ -25,15 +26,15 @@ let _ =
         (* An alternative to that is the folowing one:
           make_explicit_record_assignment [cApp ~name:"overloaded=" ~args:[cVar ~name:"d" ()] ~validate:(function [true;_] -> true | _ -> false) ()] ~struct_name:"vect";
         *)
-        
-        
-        (* 
-          This returns an error since function calls are not supported 
-      
-        make_explicit_record_assignment [cStr "d = f()"] ~struct_name:"vect"; 
+
+
+        (*
+          This returns an error since function calls are not supported
+
+        make_explicit_record_assignment [cStr "d = f()"] ~struct_name:"vect";
           *)
-        
-        
+
+
         dump()
     )
 
@@ -53,7 +54,7 @@ step1: introduce the block
       v.y = 1;
    }@nobrace
    t2;
- 
+
  step2: eliminate nobrace:
 
    t1;

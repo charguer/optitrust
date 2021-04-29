@@ -282,7 +282,8 @@ let ast_to_json (trm_root : trm) : json =
       ]) in
     result := (id, json) :: !result;
     id in
-  let id_of_root = aux (get_nextid()) trm_root in
+  let parent_of_root = "no_parent" in
+  let id_of_root = aux parent_of_root trm_root in
   assert (id_of_root = "node_0");
   Json.Object (!result)
 
