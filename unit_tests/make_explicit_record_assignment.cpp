@@ -36,6 +36,10 @@ int main() {
   ->
   LFS.x = p.x;
   */
+ for (int i = 0; i < 10; i++){
+   int x = 0;
+   x += i;
+ }
 
   a.pos = p;
  
