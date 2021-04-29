@@ -23,10 +23,8 @@
    <!--code mirror-->
    <link rel=stylesheet href="./lib/codemirror/codemirror.css">
    <script src="./lib/codemirror/codemirror.js"></script>
-   <script src="./lib/codemirror/panel.js"></script>
-   <script src="./lib/codemirror/codemirror-tabs.js"></script>
-   <script src="./lib/codemirror/javascript.js"></script>
-   <script src="./lib/codemirror/mllike.js"></script>
+   <script src="./lib/codemirror/clike.js"></script>
+
    <!--scroll-->
    <link type="text/css" href="./lib/jquery_scroll/jquery.jscrollpane.css" rel="stylesheet" media="all" />
    <script type="text/javascript" src="./lib/jquery_scroll/jquery.mousewheel.js"></script>
@@ -34,7 +32,6 @@
 
    <link type="text/css" rel="stylesheet" href="./ast_view.css" />
 
-   <script type="text/javascript" src="ast_view.js"></script>
 
    <!--AST DESCRIPTION TO LOAD
    <script type="text/javascript" src="{INSERT_TOLOAD}"></script>
@@ -47,16 +44,45 @@
    </script>
    -->
 
+   <!---TEMPORARY
    <script type="text/javascript" src="ast_view_dummy.js"></script>
+   --->
+
 <script>
+/* temporary JS definitions, before moving them ast_view.js */
 
-      document.addEventListener('DOMContentLoaded', function () {
-         $("#viewast").html(contents + "<br>----<br>");
-         obj = JSON.parse(contents);
-         console.log(obj);
+var contents =`
+   { "foo": "bar" }
+`;
+var obj = JSON.parse(contents);
+//console.log(obj);
 
-      });
+
+// actions to perform after the page is loaded
+document.addEventListener('DOMContentLoaded', function () {
+   $("#viewast").html("example printing<br>----<br>");
+});
+
 </script>
+
+<style>
+/* temporary CSS definitions, before moving them ast_view.css */
+
+/* TEMPORARY FOR VIEWING THE BOXES
+div {
+   padding: 1px;
+   border: 1px solid black;
+}
+*/
+
+#viewast {
+   width: 30em;  
+}
+
+# source_code {
+   width: 30em;  
+}
+</style>
 
 
 </head>
@@ -64,10 +90,12 @@
 
 <!---contents-->
 <table id="container">
-<tr><td class="pane">
+<tr><td class="pane" width="500px">
 
    <!---source code-->
-   <div><textarea id='source_code' class="source col-sm-auto"></textarea></div>
+   <div id="source_code_div"><textarea id='source_code' class="source col-sm-auto">
+      empty    
+   </textarea></div>
 
 </td><td class="pane">
    <!---right pane-->
@@ -75,8 +103,10 @@
 
       <!--parameters-->
       <div id="parameters">
-         <form class="form-inline">
+         <form class="form-inline" onsubmit="return false;">
          Depth:&nbsp;&nbsp;<input type="text" id='parameter_depth' style="width:5em" value="0" class="form-control"/>
+         &nbsp;
+         <button id="button_run">run</button>
          </form>
       </div><!--parameters-->
 
@@ -90,6 +120,8 @@
 
 
 </td></tr></table><!---contents-->
+
+   <script type="text/javascript" src="ast_view.js"></script>
 
 
 </body>

@@ -1,7 +1,27 @@
 
+.CodeMirror {
+  font-size: 14px;
+  line-height: 1.2em;
+  /*font-family: monospace;*/
+  height: 100%;
+}
+
+.CodeMirror-scroll {
+  overflow: auto;
+ /* height: 100%;*/
+  max-height: 800px;
+}
+
+
+.source_code_div {
+}
+
+
+
 #source_code {
+  min-height: 10em;
   width: 30em;
-  min-height: 20em;
+
 }
 
 .highlight {
@@ -13,3 +33,7 @@ td.pane {
   padding-left: 1em;
   padding-top: 1em;
 }
+
+#container {
+}
+
