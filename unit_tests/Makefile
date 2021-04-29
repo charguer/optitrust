@@ -105,7 +105,8 @@ optitrust: clean
 # 'make opendoc' to view the documentation
 opendoc: doc
 	mkdir -p .chromium
-	chromium-browser --new-window --user-data-dir=.chromium --disable-web-security _doc.html
+	chromium-browser --new-window --user-data-dir=../.chromium --disable-web-security _doc.html
+
 
 #######################################################
 # Rules
@@ -160,7 +161,7 @@ endif
 # Cleanup
 
 clean:
-	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js
+	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

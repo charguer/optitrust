@@ -68,6 +68,14 @@ In that same file, include:
       "*.mli": "ocaml",
       "*.json": "jsonc"
 	},
+``
+
+Useful entries for `keybindings.json`
+```
+{
+    "key": "ctrl+shift+alt+t",
+    "command": "workbench.action.tasks.terminate"
+}
 ```
 
    #
