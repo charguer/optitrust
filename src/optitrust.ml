@@ -188,7 +188,7 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
   let file_enc = out_prefix ^ "_enc" ^ ctx.extension in
   let file_prog = out_prefix ^ ctx.extension in
   let out_ast = open_out file_ast in
-  let out_json = open_out file_json in 
+  let out_json = open_out file_json in
   let out_enc = open_out file_enc in
   let out_prog = open_out file_prog in
   let close_channels() =
@@ -202,20 +202,20 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     (* Output the current ast into json format *)
     (* ast_to_js  *)
     print_ast (* ~only_desc:true *) out_ast ast;
-    (* print ast in json format *)
     output_string out_ast "\n";
+    (* print ast in json format *)
     ast_json_to_doc out_json ast;
     output_string out_json "\n";
     (* print C++ code without decoding *)
     output_string out_enc ctx.includes;
-    ast_to_undecoded_doc out_enc ast; 
+    ast_to_undecoded_doc out_enc ast;
     output_string out_enc "\n";
     (* print C++ code with decoding *)
     output_string out_prog ctx.includes;
     ast_to_doc out_prog ast;
     output_string out_prog "\n";
     ast_json_to_doc out_json ast;
-    
+
     close_channels();
     (* beautify the C++ code *)
     cleanup_cpp_file_using_clang_format file_enc;
@@ -402,13 +402,13 @@ let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:boo
 
 (* let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : paths) : unit =
   apply_to_top ~replace_top:false (fun _ t ->
-  let p = List.flatten pl in 
+  let p = List.flatten pl in
   let b = !Flags.verbose in  (* TODO : get it of this stupid thing *)
   Flags.verbose := false;
-  let epl = resolve_path p t in 
+  let epl = resolve_path p t in
   Flags.verbose := b;
- 
-  match epl with 
+
+  match epl with
   | [] ->
     print_info t.loc "show_path: not matching subterm\n";
   t
@@ -416,10 +416,10 @@ let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:boo
      (*
          folding works since no path in epl is the prefix of a subsequent path
       *)
-     let out_ast = open_out file in   
+     let out_ast = open_out file in
      let t= (foldi
        (fun i -> Transformations.apply_local_transformation
-         (fun t -> 
+         (fun t ->
             if to_stdout then begin
               print_ast ~only_desc:true stdout t;
               output_string stdout "\n\n";
@@ -430,12 +430,12 @@ let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:boo
             output_string out_ast (Printf.sprintf "------------------------Occurence %i details---------------\n" i);
             print_ast ~only_desc:false out_ast t;
             output_string out_ast "\n\n";
-            t)  
-                   
+            t)
+
        ) t epl) in
      close_out out_ast;
      t) *)
-       
+
 
 
 let clean_path_decorators () : unit =
@@ -1322,12 +1322,12 @@ let detach_expression ?(replace_top : bool = false) ?(label : string = "detached
     (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label  pl);
     write_log "\n"
 
-let remove_instruction ?(replace_top : bool = false) (pl : paths) : unit = 
+let remove_instruction ?(replace_top : bool = false) (pl : paths) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.remove_instruction ctx.clog pl);
   write_log "\n"
 
-let remove_instructions ?(replace_top : bool = false) (isntruction_list : paths list) : unit = 
+let remove_instructions ?(replace_top : bool = false) (isntruction_list : paths list) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.remove_instructions ctx.clog isntruction_list );
   write_log "\n"
@@ -1337,18 +1337,18 @@ let undetach_expression ?(replace_top : bool = false) (pl : paths) : unit =
     (fun ctx -> Transformations.undetach_expression ctx.clog pl);
     write_log "\n"
 
-let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : paths)  : unit = 
-  apply_to_top ~replace_top 
+let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (pl : paths)  : unit =
+  apply_to_top ~replace_top
   (fun ctx -> Struct.make_implicit_record_assignment ctx.clog struct_name pl);
   write_log "\n"
 
-let create_subsequence ?(replace_top : bool = false) ?(start : paths = []) ?(stop : paths = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit = 
+let create_subsequence ?(replace_top : bool = false) ?(start : paths = []) ?(stop : paths = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Sequence.create_subsequence ctx.clog start stop stop_before stop_after label braces);
   write_log "\n"
 
-let array_to_variables ?(replace_top : bool = false) (dcl_path : paths) (new_vars : var list) : unit = 
-  apply_to_top ~replace_top 
+let array_to_variables ?(replace_top : bool = false) (dcl_path : paths) (new_vars : var list) : unit =
+  apply_to_top ~replace_top
     (fun ctx -> Arrays.array_to_variables ctx.clog dcl_path new_vars);
     write_log "\n"
 
@@ -1357,17 +1357,17 @@ let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label
     (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
     write_log "\n"
 
-let const_non_const ?(replace_top : bool = false) (pl : path list) : unit = 
+let const_non_const ?(replace_top : bool = false) (pl : path list) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.const_non_const ctx.clog pl );
   write_log "\n"
 
-let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit = 
+let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);
     write_log "\n"
 
-(* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : paths = [ ]) : () : unit = 
+(* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : paths = [ ]) : () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.rewrite ctx.clog rule path );
   write_log "\n"
@@ -1424,4 +1424,4 @@ let add_attribute ?(replace_top : bool = false) (s : string)
     (fun ctx -> Transformations.add_attribute ctx.clog (Identifier s) pl);
   write_log "\n"
 
-  
+

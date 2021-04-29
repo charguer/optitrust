@@ -8,8 +8,8 @@
           "label": "Compile and install the library and compile all unit tests",
           "type": "shell",
           "command": "make all"
-        }, 
-        { // F6 in src 
+        },
+        { // F6 in src
           "label": "Compile and install the library then execute one unit test",
           "type": "shell",
           "command": "./run_action.sh",
@@ -18,7 +18,7 @@
           },
           "args": [ // debug_one_test.sh is customized by the user
               // example:  cd fileDirName && make install && make -C ../tests/core mytest.out
-              "./debug_one_test.sh", 
+              "./debug_one_test.sh",
               "${fileDirname}",
               "${fileBasenameNoExtension}",
               "${lineNumber}",
@@ -34,7 +34,7 @@
         {
           "label": "Compile and build everything",
           "type": "shell",
-          "command": "make doc && make all",
+          "command": "make all",
           "options": {
             "cwd": "${workspaceFolder}/.vscode"
           }
@@ -79,7 +79,7 @@
           "command":"./.vscode/run_make_foo.sh",
           "args": [
               "${fileDirname}",
-              "${fileBasenameNoExtension}",   
+              "${fileBasenameNoExtension}",
           ]
         },
         {
@@ -130,7 +130,7 @@
           "command":"make optitrust && ./.vscode/run_make_foo.sh",
           "args": [
               "${fileDirname}",
-              "${fileBasenameNoExtension}",   
+              "${fileBasenameNoExtension}",
           ]
         },
         {

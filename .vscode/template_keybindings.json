@@ -78,7 +78,7 @@
     "args": "Compile and build everything",
     "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/src$/"
   },
-  
+
   { /// DEPRECATED
     "key": "ctrl+f6",
     "command": "workbench.action.tasks.runTask",

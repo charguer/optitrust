@@ -20,7 +20,7 @@
    opam switch create 4.11.0
    opam install dune clangml pprint
    # (optional but recommended for vscode)
-   opam install merlin ocp-indent user-setup 
+   opam install merlin ocp-indent user-setup
    # (includes ocaml-lsp-server)
 
    # Installation of vscode: https://code.visualstudio.com/download
@@ -35,9 +35,9 @@
      - TODO Highlight
      - OCaml and Reason IDE (see below for details)
 
-     
 
-   # OCaml syntax highlighting 
+
+   # OCaml syntax highlighting
    # New plugins to highlight the code "OCaml and Reason IDE"
    # Type CTRL+P, then paste and execute the commande:
    #    ext install ocamllabs.ocaml-platform
@@ -48,6 +48,10 @@
   # with (make sure to get the path right depending on opam's version)
 ```
        {
+
+         // ... other stuff
+
+
         "reason.path.ocamlmerlin": "bash -ic ~/.opam/4.11.0/bin/ocamlmerlin",
         "reason.path.ocamlfind": "bash -ic ~/.opam/4.11.0/bin/ocamlfind",
         "reason.path.ocpindent": "bash -ic ~/.opam/4.11.0/bin/ocp-indent",
@@ -57,7 +61,16 @@
        }
 ```
 
-   # 
+In that same file, include:
+```
+    "files.associations": {
+      "*.ml": "ocaml",
+      "*.mli": "ocaml",
+      "*.json": "jsonc"
+	},
+```
+
+   #
    # (optional) Disable minimap: menu "View" / uncheck "Show Minimap".
 
    # (optional) Install VSCode C++ extension
@@ -77,7 +90,7 @@ task defined in `.vscode/tasks.json`, which is part of the repository, unlike
 
 Run `code` to open VSCode. To edit the `keybindings.json` file from Visual Studio
 Code, type `Ctrl + Shift + P` to access the command panel and then choose
-"Preferences: Open Keyboard Shortcuts (JSON)". There, replace the empty square 
+"Preferences: Open Keyboard Shortcuts (JSON)". There, replace the empty square
 braces with the following contents:
 
 ```
@@ -96,7 +109,7 @@ braces with the following contents:
 ```
 
 This sets up `F6` to execute a transformation, and `CTRL+F6` to dump the full
-trace of a transformation script (see `dump` in [SCRIPT.md](SCRIPT.md)). 
+trace of a transformation script (see `dump` in [SCRIPT.md](SCRIPT.md)).
 
 
 # Build and install

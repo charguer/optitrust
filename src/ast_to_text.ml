@@ -3,11 +3,15 @@ open Ast
 
 (* print the ast *)
 
-let node (s : string) : document = string s ^^ blank 1
+let node (s : string) : document =
+   string s ^^ blank 1
 
-let surround : document -> document -> document -> document = surround 2 1
+let surround : document -> document -> document -> document =
+   surround 2 1
+   (* LATER: rename this function *)
 
-let parens (d : document) : document = soft_surround 2 1 lparen d rparen
+let parens (d : document) : document =
+   soft_surround 2 1 lparen d rparen
 
 let print_list (dl : document list) : document =
   surround lbracket (separate (semi ^^ break 1) dl) rbracket
@@ -27,7 +31,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_ptr t ->
      let dt = print_typ ~only_desc t in
      node "Typ_ptr" ^^ dt
-  | Typ_array (t, s) -> 
+  | Typ_array (t, s) ->
      let dt = print_typ ~only_desc t in
      let ds =
        begin match s with
@@ -38,13 +42,13 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
      in
      node "Typ_array" ^^ print_pair dt ds
   | Typ_struct (tl, tm, x) -> (* List.fold (fun f acc => let t = Field_map.get f tm in ) fs  *)
-     let tl = List.rev tl in 
-     let get_typ x = Field_map.find x tm in 
-     let get_document_list l = 
+     let tl = List.rev tl in
+     let get_typ x = Field_map.find x tm in
+     let get_document_list l =
       let rec aux acc = function
       | [] -> acc
-      | hd :: tl -> let t = get_typ hd in 
-       let dt = print_typ ~only_desc t in 
+      | hd :: tl -> let t = get_typ hd in
+       let dt = print_typ ~only_desc t in
        aux(print_pair (string hd) dt :: acc) tl in
        aux [] l
      in
@@ -236,12 +240,12 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_goto" ^^ string l
   | Trm_decoration (l,t,r) ->
       let dt = print_trm ~only_desc t in
-      node "Trm_decorated" ^^ parens (string l ^^ comma ^/^ dt ^^ comma ^/^ string r) 
-  | Trm_any t -> 
-    let dt = print_trm ~only_desc t in 
+      node "Trm_decorated" ^^ parens (string l ^^ comma ^/^ dt ^^ comma ^/^ string r)
+  | Trm_any t ->
+    let dt = print_trm ~only_desc t in
       node "Trm_any"  ^^ parens (dt)
 
-  
+
 and print_def ?(only_desc : bool = false) (d : def) : document =
   match d with
   | Def_var ((x, tx), t) ->
@@ -302,7 +306,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       | None -> underscore
       | Some (filename, start_row, end_row, start_column, end_column) ->
          print_pair (string filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
-         
+
       end
     in
     let dinstr = string (string_of_bool t.is_instr) in
