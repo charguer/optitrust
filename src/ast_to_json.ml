@@ -8,7 +8,7 @@ let document_to_string (d : document) : string =
   PPrintEngine.ToBuffer.pretty 0.9 80 b d;
   Buffer.contents b
 
-
+let braces (d : document) : document = soft_surround 2 1 lbrace d rbrace 
 module Json = struct 
 
   type t =
@@ -22,11 +22,19 @@ module Json = struct
 
   (* TODO: let list_to_json l = 
     Path.string_of_list ~sep:"," l *)
+  let rec json_to_doc (j : t) : document = 
+    match j with 
+    | Str s -> string s
+    | Int i -> string (string_of_int i)
+    | Boolean b-> string (string_of_bool b)
+    | List l -> Ast_to_text.print_list (List.map json_to_doc l)
+    | Object o -> let l = List.map (fun (s,j) -> string s ^^ string ": " ^^ json_to_doc j) o in 
+                  surround lbrace (separate (comma ^^ break 1) l) rbrace
 
- (* TODO: this is very slow, only for debug or test *)
+ (* DEPRECATED *)
   let rec json_to_string (j : t) : string = 
     match j with 
-    | Str s -> s 
+    | Str s ->  s 
     | Int i -> string_of_int i
     | Boolean b -> string_of_bool b
     | List  l -> Path.string_of_list ~sep:"," (List.map json_to_string l)
@@ -285,7 +293,7 @@ let ast_to_json (root:trm) : json =
 
 
 
-(* json_to_document *)
+let json_to_string (js : json) = Json.json_to_string (js) 
 
   
   
