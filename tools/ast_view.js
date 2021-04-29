@@ -205,9 +205,10 @@ function viewPathRec(path, target, label, classExtra) {
   }
 
   // build html
-  var descr = html_span({class: "ast_label"}, label) +
-              html_span({class: ctrlClass}, ctrl) +
-              html_span({class: "ast_txt"}, txt);
+  var descrLabel = html_span({class: "ast_label"}, label);
+  var descrCtrl = html_span({class: ctrlClass}, ctrl);
+  var descrTxt = html_span({class: "ast_txt"}, txt);
+  var descr = descrLabel + descrCtrl + " " + descrTxt;
 
   // build div for that node
   var div_view = id + "_view";
