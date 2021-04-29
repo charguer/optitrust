@@ -115,6 +115,11 @@ function html_span(args, contents) {
 //---------------------------------------------------
 // loading of a node in the AST view
 
+// order in which to display properties
+// properties that are not mentioned are processed at the end in arbitrary order
+var properties = [ "name", "type" ];
+
+
 var ast;
 
 function get_child_label(node, id_child) {
@@ -130,6 +135,52 @@ function get_child_label(node, id_child) {
   return null;
 }
 
+function viewDescription(node) {
+  console.log(node);
+  var k = node.kind;
+  // get all fields in the node description
+  var keys = Object.keys(node);
+
+  // remove special keys
+  keys = keys.filter(item => item !== "kind" && item !== "children");
+
+  // start by processing the generic properties
+  var txt = "<b>" + k + "</b> ";
+
+  // start by processing the known specific properties
+  for (iproperty in properties) {
+    var key = properties[iproperty];
+    if (key in node) {
+      console.log(node);
+            console.log(key);
+      var value = node[key];
+      console.log(value);
+      // some keys have special display
+      if (key == "name") {
+        txt += value;
+      } else if (key == "type") {
+        txt += " : " + value;
+      // others use a generic display
+      } else {
+        txt += " <i>"+key+"</i>: " + value;
+      }
+
+    }
+    // remove the key when processed
+    keys = keys.filter(item => item !== key);
+  }
+
+  // then process unknown properties
+  for (ikey in keys) {
+    var key = keys[ikey];
+    var value = node[key];
+    // use a generic display (again)
+    txt += "; <i>"+key+"</i>: " + value;
+  }
+  return txt;
+}
+
+
 // auxiliary function for viewPath,
 // path should be a list of node ids
 // target should be the name of a div
@@ -141,11 +192,8 @@ function viewPathRec(path, target, label, classExtra) {
   var node = ast[id];
 
   // build description
-  var k = node.kind;
-  var txt = "<b>" + k + "</b>";
-  if (k == "var" || k == "fun") {
-    txt += " " + node.name;
-  }
+  var txt = viewDescription(node);
+
   // build buttons, gray them if no valid operation
   var idchild = (path.length > 0) ? path[0] : "";
   var ctrlPlus = html_span({id: (id+"_plus"), onclick: "nodePlus('" + id + "', '" + idchild + "')"}, "&CirclePlus;");
@@ -271,11 +319,11 @@ var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
 updateSelection(selection);
 
 ast = {
-   node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" } ] },
+   node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
    node_1: { kind: "fun", name: "foo", children: [ { label: "body", id: "node_3" } ] },
-   node_2: { kind: "var", name: "x" },
+   node_2: { kind: "var", name: "x", type: "int" },
    node_3: { kind: "return" },
-   node_4: { kind: "seq", children: [ { label: "1", id: "node_5" }, { label: "2", id: "node_6" }, { label: "3", id: "node_6" }, { label: "4", id: "node_8" } ] },
+   node_4: { kind: "if", children: [ { label: "cond", id: "node_5" }, { label: "else", id: "node_6" }, { label: "else", id: "node_6" } ] },
    node_5: { kind: "return" },
    node_6: { kind: "return" },
    node_7: { kind: "return" },
