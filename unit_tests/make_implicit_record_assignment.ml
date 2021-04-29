@@ -6,7 +6,7 @@ let _ =
     run 
     ( fun _ -> 
         set_init_source"make_implicit_record_assignment.cpp";
-        detach_expression [cVarDef ~name:"b"()] ~keep_label:false; 
+        (* detach_expression [cVarDef ~name:"b"()] ~keep_label:false;  *)
 
         make_explicit_record_assignment [cVarDef ~name:"b"()] ~struct_name:"vect";
 
