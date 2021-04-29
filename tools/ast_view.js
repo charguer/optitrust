@@ -91,6 +91,100 @@ $(document).on('mouseup', '.CodeMirror', function() {
    console.log(editor.getSelectedLoc());
 });
 
+//---------------------------------------------------
+// Auxiliary functions for manipulating html dynamically
+
+// WARNING: don't use double quotes in "args" (they need to be escaped)!
+function html_element(kind, args, contents) {
+  var sargs = "";
+  for (var arg in args) {
+    sargs += ' ' + arg + '="' + args[arg] + '" ';
+  }
+  return '<' + kind + sargs + '>' + contents + '</' + kind + '>';
+}
+
+function html_div(args, contents) {
+  return html_element('div', args, contents);
+}
+
+function html_span(args, contents) {
+  return html_element('span', args, contents);
+}
+
+
+//---------------------------------------------------
+// loading of a node in the AST view
+
+var ast;
+
+function get_child_label(node, id_child) {
+  if (! "children" in node) {
+    return null;
+  }
+  var nb = node.children.length;
+  for (var i = 0; i < nb; i++) {
+    if (node.children[i].id == id_child) {
+      return node.children[i].label;
+    }
+  }
+  return null;
+}
+
+
+// auxiliary function for viewPath,
+// path should be a list of node ids
+// target should be the name of a div
+function viewPathRec(path, target, label) {
+  console.log("viewing in " + target + " : "   + path);
+  // get first node in path, and compute remaining path
+  var id = path.shift();
+  var node = ast[id];
+
+  // build description
+  var k = node.kind;
+  var txt = "<b>" + k + "</b>";
+  if (k == "var" || k == "fun") {
+    txt += " " + node.name;
+  }
+  // build buttons
+  var ctrl = html_span({'onclick': "console.log('plus')"}, "&CirclePlus;") +
+             html_span({'onclick': "console.log('minus')"}, "&CircleMinus;");
+
+  // build html
+  var descr = html_span({class: "ast_label"}, label) +
+              html_span({class: "ast_ctrl"}, ctrl) +
+              html_span({class: "ast_txt"}, txt);
+
+  // build div for that node
+  var div_view = id + "_view";
+  var div_descr = id + "_descr";
+  var div_children = id + "_children";
+  $("#"+target).append(html_div({ id: div_view, class: "ast_node" }, ""));
+  $("#"+div_view).append(html_div({ id: div_descr, class: "ast_descr" }, descr));
+  $("#"+div_view).append(html_div({ id: div_children, class: "ast_children" }, ""));
+
+  // if the path is not empty
+  if (path.length > 0) {
+    var id_child = path[0];
+    // check that the next node is one of the children ids, and gets its label
+    var label_child = get_child_label(node, id_child);
+    if (label_child === null) {
+      console.log("invalid path: " + id + " does not have a child " + id_child);
+      console.log(node);
+      return;
+    }
+    // continue with what remains of the path
+    viewPathRec(path, div_children, label_child);
+  }
+}
+
+
+
+// Loads the view of a path
+// path should be a list of node ids
+function viewPath(path) {
+   viewPathRec(path, "viewast", "root");
+}
 
 //---------------------------------------------------
 // DEMO
@@ -117,6 +211,25 @@ editor.setValue(exampleSource);
 var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
 
 updateSelection(selection);
+
+ast = {
+   node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } ] },
+   node_1: { kind: "fun", name: "foo", children: [ { label: "body", id: "node_3" } ] },
+   node_2: { kind: "var", name: "x" },
+   node_3: { kind: "return" } };
+
+// action to perform after document is loaded
+document.addEventListener('DOMContentLoaded', function () {
+  // reset the contents
+  $("#viewast").html("");
+  // show demo path
+  viewPath(["node_0", "node_1", "node_3" ]);
+
+});
+
+//viewPath(["node_3"]);
+
+   // TODO: if children is empty, no need to include this field in the JSON.
 
 
 //---------------------------------------------------

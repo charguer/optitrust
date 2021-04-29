@@ -40,3 +40,30 @@ td.pane {
 #viewast {
    width: 30em;
 }
+
+.ast_node {
+
+}
+
+.ast_descr {
+}
+
+.ast_children {
+  margin-left: 20px;
+}
+
+.ast_ctrl {
+}
+
+.ast_label {
+  display: inline-block;
+  text-align: left;
+  width: 25px;
+  font-size: 10px;
+}
+
+.ast_ctrl {
+  cursor: pointer;
+  color: red;
+  font-size: 22px;
+}
