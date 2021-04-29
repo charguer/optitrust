@@ -32,7 +32,7 @@
           "command": "make library"
         },
         {
-          "label": "Compile and install the library, compile all unit tests, and build the documuentation",
+          "label": "Compile and build everything",
           "type": "shell",
           "command": "make doc && make all",
           "options": {
@@ -40,7 +40,7 @@
           }
         },
         {
-          "label": "View the state at the end of the current line",
+          "label": "View state ",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
@@ -57,7 +57,7 @@
           ]
         },
         {
-          "label": "View the diff associated with the application of the last transformation",
+          "label": "View diff",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
@@ -74,7 +74,7 @@
           ]
         },
         {
-          "label": "Compile and run the current file in null",
+          "label": "Compile and run current",
           "type":"shell",
           "command":"./.vscode/run_make_foo.sh",
           "args": [
@@ -91,7 +91,7 @@
           },
         },
         {
-          "label": "First recompile optitrust then view the state at the end of the current file",
+          "label": "Recompile and view state",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
@@ -108,7 +108,7 @@
           ]
         },
         {
-          "label": "First recompile optitrust then view the diff associated with the application of the last transformation",
+          "label": "Recompile and view diff",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
@@ -125,7 +125,7 @@
           ]
         },
         {
-          "label": "First recompile optitrust then compile and run the current file in null",
+          "label": "Recompile then compile and run current",
           "type":"shell",
           "command":"make optitrust && ./.vscode/run_make_foo.sh",
           "args": [

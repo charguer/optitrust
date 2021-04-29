@@ -292,9 +292,8 @@ let ast_to_json (root:trm) : json =
   Json.Object (!result)
 
 
-
-let json_to_string (js : json) = Json.json_to_string (js) 
-
+let ast_json_to_doc (out : out_channel) (t : trm) : unit = 
+  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_doc (ast_to_json t))
   
   
 

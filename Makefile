@@ -17,7 +17,7 @@ uninstall:
 #	dune build $@
  
 tests: install 
-	$(MAKE) -C ../unit_tests
+	$(MAKE) -C unit_tests
 
 clean:
 	dune clean

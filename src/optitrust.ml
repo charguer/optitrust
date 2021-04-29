@@ -3,7 +3,7 @@ open Ast
 open Ast_to_c
 open Ast_to_text
 open Ast_of_clang
-(* open Ast_to_json *)
+open Ast_to_json
 (******************************************************************************)
 (*                             Context management                             *)
 (******************************************************************************)
@@ -184,15 +184,16 @@ let cleanup_cpp_file_using_clang_format filename =
 
 let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
   let file_ast = out_prefix ^ ".ast" in
-  (* let file_json = out_prefix ^ ".json" in *)
+  let file_json = out_prefix ^ ".json" in
   let file_enc = out_prefix ^ "_enc" ^ ctx.extension in
   let file_prog = out_prefix ^ ctx.extension in
-  (* let out_json = open_out file_json in  *)
   let out_ast = open_out file_ast in
+  let out_json = open_out file_json in 
   let out_enc = open_out file_enc in
   let out_prog = open_out file_prog in
   let close_channels() =
     close_out out_ast;
+    close_out out_json;
     close_out out_enc;
     close_out out_prog
     in
@@ -201,8 +202,10 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     (* Output the current ast into json format *)
     (* ast_to_js  *)
     print_ast (* ~only_desc:true *) out_ast ast;
-    (* output_string out_json "\n"; *)
+    (* print ast in json format *)
     output_string out_ast "\n";
+    ast_json_to_doc out_json ast;
+    output_string out_json "\n";
     (* print C++ code without decoding *)
     output_string out_enc ctx.includes;
     ast_to_undecoded_doc out_enc ast; 
@@ -211,6 +214,8 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     output_string out_prog ctx.includes;
     ast_to_doc out_prog ast;
     output_string out_prog "\n";
+    ast_json_to_doc out_json ast;
+    
     close_channels();
     (* beautify the C++ code *)
     cleanup_cpp_file_using_clang_format file_enc;
