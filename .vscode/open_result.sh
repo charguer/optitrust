@@ -22,7 +22,7 @@ TARGET="${FILEBASE}_result.html"
 TITLESTR="OptiTrust_Result_${FILEBASE}" # TODO: investigate how to make spaces and slash be properly escaped
 
 # Compute json file name
-FILEJSONJS="${FILEBASE}_json.js"
+FILEJSONJS="./${FILEBASE}_out.js"
 
 # Start from templace, then substitute:
 # -  './' with '${TOOLS_FOLDER}/'

@@ -328,6 +328,10 @@ ast = {
    node_6: { kind: "return" },
    node_7: { kind: "return" },
    node_8: { kind: "return" } };
+path = ["node_0", "node_1", "node_3" ];
+
+ast = contents;
+path = ["node_0"];
 
 // action to perform after document is loaded
 document.addEventListener('DOMContentLoaded', function () {
@@ -345,7 +349,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // reset the contents
   $("#viewast").html("");
   // show demo path
-  viewPath(["node_0", "node_1", "node_3" ]);
+  viewPath(path);
 
 });
 

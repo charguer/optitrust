@@ -27,22 +27,17 @@ let document_to_string (d : document) : string =
 
   (** Printing functions *)
   let typ_to_json(typ : typ) : t =
-    let ddesc = print_typ_desc  ~only_desc:true  typ.ty_desc in 
+    let ddesc = print_typ_desc  ~only_desc:true  typ.ty_desc in
     let dannot =
         List.fold_left (fun d a -> print_typ_annot a ^^ blank 1 ^^ d) underscore
         typ.ty_annot
-    
+
     in
     Object[("\"annot\"",Str ("\"" ^ document_to_string (dannot) ^ "\""));
         ("\"desc\"", Str ("\"" ^ document_to_string ddesc ^ "\""));
 
         ("\"attributes\"", List (List.map str (List.map document_to_string
                                  (List.map print_attribute typ.ty_attributes))))]
-
-
-
-
-
 
   let print_list (dl : document list) : document =
     surround 2 1 lbracket (separate (comma ^^ break 1) dl) rbracket
@@ -92,12 +87,12 @@ let loc_to_json (t : trm) : json =
 
 (* Deprecated *)
 let typ_to_string (typ : typ) : string =
-    let printed_type = document_to_string (Ast_to_text.print_typ typ) in 
+    let printed_type = document_to_string (Ast_to_text.print_typ typ) in
    "\"" ^ printed_type ^ "\""
 
-    
 
-(* 
+
+(*
 print_typ ?(only_desc : bool = false) (t : typ) : document =
   let ddesc = print_typ_desc ~only_desc t.ty_desc in
   if only_desc then ddesc
