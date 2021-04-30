@@ -4,28 +4,33 @@
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
 
-// Initialize the editor
-var editor = CodeMirror.fromTextArea(document.getElementById('source_code'), {
-  mode: 'text/x-c++src',
-  lineNumbers: true,
-  lineWrapping: true,
-  readOnly: true,
-  tabSize: 2,
-  extraKeys: {
-    'N': function(cm) { console.log("pressed N in editor"); },
-  },
-});
+var editor;
 
-// Add a "getSelectedLoc" function
-// Returns a value in the form:
-// { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
-editor.getSelectedLoc = function() {
-  var from = editor.getCursor(true);
-  var to = editor.getCursor(false);
-  // Adding 1 because compilers counts from 1, and Codemirror from 0
-  return { start: { line: from.line + 1, col: from.ch },
-    end: { line: to.line + 1, col: to.ch } };
-};
+// Initialize the editor
+function initEditor() {
+  editor = CodeMirror.fromTextArea(document.getElementById('source_code'), {
+    mode: 'text/x-c++src',
+    lineNumbers: true,
+    lineWrapping: true,
+    readOnly: true,
+    tabSize: 2,
+    extraKeys: {
+      'N': function(cm) { console.log("pressed N in editor"); },
+    },
+  });
+
+  // Add a "getSelectedLoc" function
+  // Returns a value in the form:
+  // { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
+  editor.getSelectedLoc = function() {
+    var from = editor.getCursor(true);
+    var to = editor.getCursor(false);
+    // Adding 1 because compilers counts from 1, and Codemirror from 0
+    return { start: { line: from.line + 1, col: from.ch },
+      end: { line: to.line + 1, col: to.ch } };
+  };
+}
+
 
 
 //---------------------------------------------------
@@ -68,19 +73,22 @@ function updateSelection(loc) {
 
 var parameter_depth = 0; // 0 means infinity
 
-// Event listner for the depth parameter
-$("#parameter_depth").change(function(e) {
-  // get the value as an integer
-  var n = + $("#parameter_depth").val();
-  parameter_depth = n;
-  console.log("Changed parameter depth to: " + n);
-});
+function initHandlers() {
 
-// Event listner for the run button
-$("#button_run").click(function (e) {
-   console.log("Click on run button");
-});
+  // Event listner for the depth parameter
+  $("#parameter_depth").change(function(e) {
+    // get the value as an integer
+    var n = + $("#parameter_depth").val();
+    parameter_depth = n;
+    console.log("Changed parameter depth to: " + n);
+  });
 
+  // Event listner for the run button
+  $("#button_run").click(function (e) {
+     console.log("Click on run button");
+  });
+
+}
 
 //---------------------------------------------------
 // Handling selection and click events in editor
@@ -136,7 +144,7 @@ function get_child_label(node, id_child) {
 }
 
 function viewDescription(node) {
-  console.log(node);
+  //console.log(node);
   var k = node.kind;
   // get all fields in the node description
   var keys = Object.keys(node);
@@ -151,10 +159,7 @@ function viewDescription(node) {
   for (iproperty in properties) {
     var key = properties[iproperty];
     if (key in node) {
-      console.log(node);
-            console.log(key);
       var value = node[key];
-      console.log(value);
       // some keys have special display
       if (key == "name") {
         txt += value;
@@ -313,12 +318,6 @@ var exampleSource = `
    }
 `;
 
-editor.setValue(exampleSource);
-
-var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
-
-updateSelection(selection);
-
 ast = {
    node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
    node_1: { kind: "fun", name: "foo", children: [ { label: "body", id: "node_3" } ] },
@@ -332,6 +331,17 @@ ast = {
 
 // action to perform after document is loaded
 document.addEventListener('DOMContentLoaded', function () {
+  // initialize parameter handlers
+  initHandlers();
+
+  // initialize editor with contents
+  initEditor();
+  editor.setValue(exampleSource);
+
+  // make some selection
+  var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
+  updateSelection(selection);
+
   // reset the contents
   $("#viewast").html("");
   // show demo path

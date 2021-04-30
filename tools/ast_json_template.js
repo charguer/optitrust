@@ -1,4 +1,4 @@
-
+/*
 var contents = window.atob("");
 // put in the string the result of
 //  cat foo.json | base64 -w 0
@@ -19,6 +19,7 @@ source[0] =`
 source[1] =`
  ...
 `;
+*/
 
 /*
 
