@@ -914,7 +914,7 @@ let extract_loop_var (clog : out_channel) (result_label : string)
   match epl with
   | [] ->
      print_info t.loc "extract_loop_var: no matching subterm for path %s\n"
-       (string_of_path p);
+       (path_to_string p);
      t
   | [dl] ->
      apply_local_transformation
@@ -943,7 +943,7 @@ let extract_loop_vars (clog : out_channel) (result_label : string)
   match epl with
   | [] ->
      print_info t.loc "extract_loop_vars: no matching subterm for path %s\n"
-       (string_of_path p);
+       (path_to_string p);
      t
   | [dl] ->
      apply_local_transformation (extract_loop_vars_aux clog result_label) t dl

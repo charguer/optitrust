@@ -5,10 +5,6 @@ open Ast_to_text
 module Json = struct
   open PPrint
 
-(* TODO: delete? *)
-let braces (d : document) : document =
-  soft_surround 2 1 lbrace d rbrace
-
 (* TODO: move to tools.ml *)
 let document_to_string (d : document) : string =
   let b = Buffer.create 80 in
@@ -28,7 +24,25 @@ let document_to_string (d : document) : string =
 
   let str x = Str x
 
+
   (** Printing functions *)
+  let typ_to_json(typ : typ) : t =
+    let ddesc = print_typ_desc  ~only_desc:true  typ.ty_desc in 
+    let dannot =
+        List.fold_left (fun d a -> print_typ_annot a ^^ blank 1 ^^ d) underscore
+        typ.ty_annot
+    
+    in
+    Object[("\"annot\"",Str ("\"" ^ document_to_string (dannot) ^ "\""));
+        ("\"desc\"", Str ("\"" ^ document_to_string ddesc ^ "\""));
+
+        ("\"attributes\"", List (List.map str (List.map document_to_string
+                                 (List.map print_attribute typ.ty_attributes))))]
+
+
+
+
+
 
   let print_list (dl : document list) : document =
     surround 2 1 lbracket (separate (comma ^^ break 1) dl) rbracket
@@ -76,22 +90,41 @@ let loc_to_json (t : trm) : json =
            ("\"col\"", Json.Int end_column)] )]
   end
 
+(* Deprecated *)
 let typ_to_string (typ : typ) : string =
     let printed_type = document_to_string (Ast_to_text.print_typ typ) in 
    "\"" ^ printed_type ^ "\""
 
+    
+
+(* 
+print_typ ?(only_desc : bool = false) (t : typ) : document =
+  let ddesc = print_typ_desc ~only_desc t.ty_desc in
+  if only_desc then ddesc
+  else
+    let dannot =
+      List.fold_left (fun d a -> print_typ_annot a ^^ blank 1 ^^ d) underscore
+        t.ty_annot
+    in
+    let dattr =
+      print_list (List.map (print_attribute ~only_desc) t.ty_attributes)
+    in
+    braces (separate (blank 1) [string "annot"; equals;
+                                dannot ^^ semi ^//^ string "desc"; equals;
+                                ddesc ^^ semi ^//^ string "attributes"; equals;
+                                dattr]) *)
+
+
 (* TODO: Implement a function which does the json convertion directly *)
-let typ_to_json (typ : typ) : json =
-  Json.str (typ_to_string typ)
+(* let typ_to_json (typ : typ) : json =
+  Json.str (typ_to_string typ) *)
 
 let typed_var_list_to_json (tv : typed_var list) : json =
-  Json.Object ( List.map (fun (v,typ) -> (v, typ_to_json typ)) tv)
+  Json.Object ( List.map (fun (v,typ) -> (v, Json.typ_to_json typ)) tv)
 
 
 (* TODO: renamings
-  - ast_of_clang -> clang_to_ast
   - file_of_node
-  - string_of_path -> path_to_string
   - string_of_dir
   - doc_of_add
 *)
@@ -117,7 +150,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "\"val\"";
-          value_to_field (document_to_string (print_val v));
+          value_to_field (document_to_string (print_val ~only_desc:true v));
           children_to_field [] ]
     | Trm_var x ->
         [ kind_to_field "\"var\"";
@@ -134,18 +167,18 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
         | Def_var ((x,typ),body) ->
           [ kind_to_field "\"var-def\"";
             ("\"name\"", Json.Str ("\"" ^ x ^ "\""));
-            ("\"def-type\"", typ_to_json typ);
+            ("\"def-type\"", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux body))])]
         | Def_fun (f,typ,xts,tbody) ->
           [ kind_to_field "\"fun-def\"";
             ("\"name\"", Json.Str ("\"" ^ f ^"\""));
             ("\"args\"", typed_var_list_to_json xts);
-            ("\"return_type\"", typ_to_json typ);
+            ("\"return_type\"", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
         | Def_typ (tv,typ) ->
           [ kind_to_field "\"typ-def\"";
             ("\"name\"", Json.Str ("\"" ^ tv ^"\""));
-            ("\"contents\"", typ_to_json typ);
+            ("\"contents\"", Json.typ_to_json typ);
             children_to_field [] ]
         | Def_enum (tv,_) -> (*TODO: support enum better--figure out what are the trmoptions * *)
           [ kind_to_field "\"enum-def\"";
@@ -233,7 +266,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
 
 let annot_to_string (t : trm) : string =
   begin match t.annot with
-  | None -> "_"
+  | None -> "\"_\""
   | Some a ->
      begin match a with
      | Heap_allocated -> "\"Heap_allocated\""
@@ -271,12 +304,12 @@ let ast_to_json (trm_root : trm) : json =
     let specific_fields = node_to_js (aux id) t in
     let json = Json.Object (specific_fields @ [
       ("\"parent\"", Json.Str id_parent);
-      ("\"typ\"", Json.Str (( match t.typ with
-                          | None -> "\"<no type information>\""
-                          | Some typ -> typ_to_string typ )));
+      ("\"typ\"",  (( match t.typ with
+                          | None -> Json.Str "\"<no type information>\""
+                          | Some typ -> Json.typ_to_json typ )));
       ("\"add\"", Json.List (List.map Json.str (List.map add_to_string t.add)));
       ("\"is_instr\"", Json.Boolean t.is_instr);
-      ("\"annot\"", Json.Str (annot_to_string t));
+      ("\"annot\"", Json.Str (annot_to_string t) );
       ("\"loc\"", loc_to_json t);
       ("\"attributes\"", Json.List (List.map Json.str (List.map document_to_string
                                  (List.map print_attribute t.attributes))))
@@ -290,6 +323,5 @@ let ast_to_json (trm_root : trm) : json =
 
 let ast_json_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_doc (ast_to_json t))
-
 
 
