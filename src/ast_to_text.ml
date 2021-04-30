@@ -9,15 +9,11 @@ let surround : document -> document -> document -> document = surround 2 1
 
 let parens (d : document) : document = soft_surround 2 1 lparen d rparen
 
-(* Old_function *)
-(* let print_list (dl : document list) : document =
-  surround lbracket (separate (semi ^^ break 1) dl) rbracket *)
-
 let print_list (dl : document list) : document =
-  soft_surround 2 1 lbracket (separate semi  dl) rbracket
+  surround lbracket (separate (semi ^^ break 1) dl) rbracket
 
 let print_pair (d1 : document) (d2 : document) : document =
-  parens (d1 ^^ comma ^^ d2)
+  parens (d1 ^^ comma ^/^ d2)
 
 let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   match t with
@@ -31,7 +27,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_ptr t ->
      let dt = print_typ ~only_desc t in
      node "Typ_ptr" ^^ dt
-  | Typ_array (t, s) -> 
+  | Typ_array (t, s) ->
      let dt = print_typ ~only_desc t in
      let ds =
        begin match s with

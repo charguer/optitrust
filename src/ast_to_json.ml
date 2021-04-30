@@ -1,6 +1,6 @@
 open Ast
 open Ast_to_text
-
+open Ast_to_c
 
 module Json = struct
   open PPrint
@@ -27,18 +27,8 @@ let document_to_string (d : document) : string =
 
   (** Printing functions *)
   let typ_to_json(typ : typ) : t =
-    let ddesc = print_typ_desc  ~only_desc:true  typ.ty_desc in
-    let dannot =
-        List.fold_left (fun d a -> print_typ_annot a ^^ blank 1 ^^ d) underscore
-        typ.ty_annot
-
-    in
-    Object[("\"annot\"",Str ("\"" ^ document_to_string (dannot) ^ "\""));
-        ("\"desc\"", Str ("\"" ^ document_to_string ddesc ^ "\""));
-
-        ("\"attributes\"", List (List.map str (List.map document_to_string
-                                 (List.map print_attribute typ.ty_attributes))))]
-
+    Str ("\"" ^ document_to_string (typ_to_doc typ) ^ "\"")
+  
   let print_list (dl : document list) : document =
     surround 2 1 lbracket (separate (comma ^^ break 1) dl) rbracket
 
@@ -85,35 +75,6 @@ let loc_to_json (t : trm) : json =
            ("\"col\"", Json.Int end_column)] )]
   end
 
-(* Deprecated *)
-let typ_to_string (typ : typ) : string =
-    let printed_type = document_to_string (Ast_to_text.print_typ typ) in
-   "\"" ^ printed_type ^ "\""
-
-
-
-(*
-print_typ ?(only_desc : bool = false) (t : typ) : document =
-  let ddesc = print_typ_desc ~only_desc t.ty_desc in
-  if only_desc then ddesc
-  else
-    let dannot =
-      List.fold_left (fun d a -> print_typ_annot a ^^ blank 1 ^^ d) underscore
-        t.ty_annot
-    in
-    let dattr =
-      print_list (List.map (print_attribute ~only_desc) t.ty_attributes)
-    in
-    braces (separate (blank 1) [string "annot"; equals;
-                                dannot ^^ semi ^//^ string "desc"; equals;
-                                ddesc ^^ semi ^//^ string "attributes"; equals;
-                                dattr]) *)
-
-
-(* TODO: Implement a function which does the json convertion directly *)
-(* let typ_to_json (typ : typ) : json =
-  Json.str (typ_to_string typ) *)
-
 let typed_var_list_to_json (tv : typed_var list) : json =
   Json.Object ( List.map (fun (v,typ) -> (v, Json.typ_to_json typ)) tv)
 
@@ -145,7 +106,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "\"val\"";
-          value_to_field (document_to_string (print_val ~only_desc:true v));
+          value_to_field (document_to_string (val_to_doc v));
           children_to_field [] ]
     | Trm_var x ->
         [ kind_to_field "\"var\"";
