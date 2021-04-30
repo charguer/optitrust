@@ -2,7 +2,7 @@ open Clang.Ast
 open Ast
 open Ast_to_c
 open Ast_to_text
-open Ast_of_clang
+open Clang_to_ast
 open Ast_to_json
 (******************************************************************************)
 (*                             Context management                             *)
@@ -503,7 +503,7 @@ let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
     | _ -> fail None "split_sequence: bad labels"
   in
   let log : string =
-    let ps = string_of_path (List.flatten pl) in
+    let ps = path_to_string (List.flatten pl) in
     Printf.sprintf
       ("Split_sequence %s:\n" ^^
        "  - the split_name function outputs fresh names\n"
@@ -547,7 +547,7 @@ let extract_loop_var ?(replace_top : bool = false) ?(keep_label : bool = false)
   ?(label : string = "") (pl : paths) : unit =
   let result_label = if label = "" then "result" else label in
   let log : string =
-    Printf.sprintf "Extract_loop_var %s:\n" (string_of_path (List.flatten pl))
+    Printf.sprintf "Extract_loop_var %s:\n" (path_to_string (List.flatten pl))
   in
   write_log log;
   apply_to_top ~replace_top
@@ -561,7 +561,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
   ?(label : string = "") (pl : paths) : unit =
   let result_label = if label = "" then "result" else label in
   let log : string =
-    Printf.sprintf "Extract_loop_vars %s:\n" (string_of_path (List.flatten pl))
+    Printf.sprintf "Extract_loop_vars %s:\n" (path_to_string (List.flatten pl))
   in
   write_log log;
   apply_to_top ~replace_top
@@ -604,7 +604,7 @@ let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
     | _ -> fail None "split_loop_nodep: bad labels"
   in
   let log : string =
-    Printf.sprintf "Split_loop_nodep %s:\n" (string_of_path (List.flatten pl))
+    Printf.sprintf "Split_loop_nodep %s:\n" (path_to_string (List.flatten pl))
   in
   write_log log;
   apply_to_top ~replace_top
@@ -635,7 +635,7 @@ let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
     | _ -> fail None "split_loop: bad labels"
   in
   let (log_begin, log_end) : string * string =
-    let ps = string_of_path (List.flatten pl) in
+    let ps = path_to_string (List.flatten pl) in
     (Printf.sprintf "##### Start of split_loop %s #####\n\n" ps,
      Printf.sprintf "##### End of split_loop %s #####\n\n" ps)
   in
@@ -799,7 +799,7 @@ let fold_decl ?(replace_top : bool = false) ?(as_reference : bool = false)
   (_ : unit) : unit =
   let log : string =
     Printf.sprintf "Fold_decl ~decl_path:%s:\n"
-      (string_of_path (List.flatten pl))
+      (path_to_string (List.flatten pl))
   in
   write_log log;
   apply_to_top ~replace_top
@@ -830,7 +830,7 @@ let insert_decl ?(replace_top : bool = false) ?(insert_before : paths = [])
     | _ -> fail None "insert_decl: cannot insert both before and after"
   in
   let log : string =
-    let ps = string_of_path p in
+    let ps = path_to_string p in
     Printf.sprintf
       ("Insert_decl ~name:%s ~value:%s:\n" ^^
        "  - %s is fresh\n" ^^
@@ -930,7 +930,7 @@ let insert_and_fold ?(replace_top : bool = false)
     | _ -> fail None "insert_and_fold: cannot insert both before and after"
   in
   let log : string =
-    let ps = string_of_path p in
+    let ps = path_to_string p in
     Printf.sprintf
       ("Insert_and_fold ~name:%s ~value:%s:\n" ^^
        "  - %s is fresh\n" ^^
@@ -1032,7 +1032,7 @@ let insert_typedef ?(replace_top : bool = false)
     | _ -> fail None "insert_typedef: cannot insert both before and after"
   in
   let log : string =
-    let ps = string_of_path p in
+    let ps = path_to_string p in
     Printf.sprintf
       ("Insert_typedef ~name:%s ~value:%s:\n" ^^
        "  - %s is fresh\n" ^^
@@ -1109,7 +1109,7 @@ let insert_and_fold_typedef ?(replace_top : bool = false)
          "insert_and_fold_typedef: cannot insert both before and after"
   in
   let log : string =
-    let ps = string_of_path p in
+    let ps = path_to_string p in
     Printf.sprintf
       ("Insert_and_fold_typedef ~name:%s ~value:%s:\n" ^^
        "  - %s is fresh\n" ^^
@@ -1178,7 +1178,7 @@ let insert_and_fold_typedef ?(replace_top : bool = false)
 let remove_decl ?(replace_top : bool = false) ~decl_path:(pl : paths)
   (_ : unit) : unit =
   let log : string =
-    let ps = string_of_path (List.flatten pl) in
+    let ps = path_to_string (List.flatten pl) in
     Printf.sprintf
       ("Remove_decl ~decl_path:%s\n" ^^
        "  - %s points at exactly one program point\n"
@@ -1195,7 +1195,7 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
   ?(fun_return_label : label = "exit") ~decl_path:(pl : paths)
   (_ : unit) : unit =
   let log : string =
-    let ps = string_of_path (List.flatten pl) in
+    let ps = path_to_string (List.flatten pl) in
     Printf.sprintf
       ("Inline_decl ~decl_path:%s:\n" ^^
        "  - %s points at exactly one program point\n"
@@ -1211,7 +1211,7 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
 
 let fields_reorder ?(replace_top : bool = false) (pl : paths) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit =
   let log : string =
-    let ps = string_of_path (List.flatten pl) in
+    let ps = path_to_string (List.flatten pl) in
     Printf.sprintf
       ("Inline_decl ~decl_path %s:\n" ^^
        " - %s points at exactly one program point\n"
@@ -1245,7 +1245,7 @@ let fields_reorder ?(replace_top : bool = false) (pl : paths) ?(struct_fields : 
 let tile_loop ?(replace_top : bool = false)
   (pl : paths) : unit =
   let log : string =
-    Printf.sprintf "Tile_loop %s:\n" (string_of_path (List.flatten pl))
+    Printf.sprintf "Tile_loop %s:\n" (path_to_string (List.flatten pl))
   in
   write_log log;
   apply_to_top ~replace_top
@@ -1254,7 +1254,7 @@ let tile_loop ?(replace_top : bool = false)
 
 let loop_coloring ?(replace_top : bool = false) (pl : paths) (c: var) (new_var : var): unit =
     let log : string =
-      Printf.sprintf "Transform_loop %s:\n" (string_of_path (List.flatten pl))
+      Printf.sprintf "Transform_loop %s:\n" (path_to_string (List.flatten pl))
     in
     write_log log;
     apply_to_top ~replace_top
@@ -1263,7 +1263,7 @@ let loop_coloring ?(replace_top : bool = false) (pl : paths) (c: var) (new_var :
 
 let loop_tile ?(replace_top : bool = false) (pl : paths) (b: var) (new_var : var): unit =
     let log : string =
-      Printf.sprintf "Transform_loop %s:\n" (string_of_path (List.flatten pl))
+      Printf.sprintf "Transform_loop %s:\n" (path_to_string (List.flatten pl))
     in
     write_log log;
     apply_to_top ~replace_top
@@ -1272,7 +1272,7 @@ let loop_tile ?(replace_top : bool = false) (pl : paths) (b: var) (new_var : var
 
 let loop_swap ?(replace_top : bool = false) (pl : paths) : unit =
     let log : string =
-      Printf.sprintf "Swap_loop %s:\n" (string_of_path (List.flatten pl))
+      Printf.sprintf "Swap_loop %s:\n" (path_to_string (List.flatten pl))
     in
     write_log log;
     apply_to_top ~replace_top
@@ -1281,7 +1281,7 @@ let loop_swap ?(replace_top : bool = false) (pl : paths) : unit =
 
 let move_loop_before ?(replace_top : bool = false) (pl : paths) (loop_index : var) : unit =
     let log : string =
-      Printf.sprintf "move_loop_before %s:\n" (string_of_path (List.flatten pl))
+      Printf.sprintf "move_loop_before %s:\n" (path_to_string (List.flatten pl))
     in
     write_log log;
     apply_to_top ~replace_top
@@ -1290,7 +1290,7 @@ let move_loop_before ?(replace_top : bool = false) (pl : paths) (loop_index : va
 
 let move_loop_after ?(replace_top : bool = false) (pl : paths) (loop_index : var) : unit =
     let log : string =
-      Printf.sprintf "move_loop_after %s:\n" (string_of_path (List.flatten pl))
+      Printf.sprintf "move_loop_after %s:\n" (path_to_string (List.flatten pl))
     in
     write_log log;
     apply_to_top ~replace_top
@@ -1402,7 +1402,7 @@ let inline_seq ?(replace_top : bool = false) ~seq_path:(pl : paths)
   (_ : unit) : unit =
   let log : string =
     Printf.sprintf "Inline_seq ~seq_path:%s:\n"
-      (string_of_path (List.flatten pl))
+      (path_to_string (List.flatten pl))
   in
   write_log log;
   apply_to_top ~replace_top (fun ctx -> Inlining.inline_seq ctx.clog pl);
@@ -1412,7 +1412,7 @@ let inline_seq ?(replace_top : bool = false) ~seq_path:(pl : paths)
 let add_attribute ?(replace_top : bool = false) (s : string)
   (pl : paths) : unit =
   let log : string =
-    let ps = string_of_path (List.flatten pl) in
+    let ps = path_to_string (List.flatten pl) in
     Printf.sprintf
       ("Add_attribute %s %s:\n" ^^
        "  - %s denotes an attribute\n"

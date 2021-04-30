@@ -697,7 +697,7 @@ let change_trm ?(change_at : path list list = [[]]) (t_before : trm)
       match epl with
       | [] ->
          print_info t'.loc "change_trm: no matching subterm for path %s\n"
-           (string_of_path p);
+           (path_to_string p);
          t'
       | _ -> List.fold_left (apply_local_transformation apply_change) t' epl
     )
@@ -763,7 +763,7 @@ let change_typ ?(change_at : path list list = [[]]) (ty_before : typ)
       match epl with
       | [] ->
          print_info t'.loc "change_typ: no matching subterm for path %s\n"
-           (string_of_path p);
+           (path_to_string p);
          t'
       | _ -> List.fold_left (apply_local_transformation apply_change) t' epl
     )

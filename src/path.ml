@@ -274,36 +274,36 @@ let rec string_of_constraint (c : constr) : string =
   match c with
   | Constr_strict -> "Strict"
   | Constr_dir d -> string_of_dir d
-  | Constr_list (p_elt, _) -> "List (" ^ string_of_path p_elt ^ ")"
+  | Constr_list (p_elt, _) -> "List (" ^ path_to_string p_elt ^ ")"
   | Constr_include s -> "Include " ^ s
   | Constr_regexp r -> "Regexp " ^ string_of_regexp r
   | Constr_for (p_init, p_cond, p_step, p_body) ->
-     let s_init = string_of_path p_init in
-     let s_cond = string_of_path p_cond in
-     let s_step = string_of_path p_step in
-     let s_body = string_of_path p_body in
+     let s_init = path_to_string p_init in
+     let s_cond = path_to_string p_cond in
+     let s_step = path_to_string p_step in
+     let s_body = path_to_string p_body in
      "For (" ^ s_init ^ ", " ^ s_cond ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
   | Constr_while (p_cond, p_body) ->
-     let s_cond = string_of_path p_cond in
-     let s_body = string_of_path p_body in
+     let s_cond = path_to_string p_cond in
+     let s_body = path_to_string p_body in
      "While (" ^ s_cond ^ ", " ^ s_body ^ ")"
   | Constr_if (p_cond, p_then, p_else) ->
-     let s_cond = string_of_path p_cond in
-     let s_then = string_of_path p_then in
-     let s_else = string_of_path p_else in
+     let s_cond = path_to_string p_cond in
+     let s_then = path_to_string p_then in
+     let s_else = path_to_string p_else in
      "If (" ^ s_cond ^ ", " ^ s_then ^ ", " ^ s_else ^ ")"
   | Constr_decl_var (name, p_body) ->
      let s_name =
        match name with | None -> "_" | Some r -> string_of_regexp r
      in
-     let s_body = string_of_path p_body in
+     let s_body = path_to_string p_body in
      "Decl_var (" ^ s_name ^ ", " ^ s_body ^ ")"
   | Constr_decl_fun (name, (p_args, _), p_body) ->
      let s_name =
        match name with | None -> "_" | Some r -> string_of_regexp r
      in
-     let s_args = string_of_path p_args in
-     let s_body = string_of_path p_body in
+     let s_args = path_to_string p_args in
+     let s_body = path_to_string p_body in
      "Decl_fun (" ^ s_name ^ ", " ^ s_args ^ ", " ^ s_body ^ ")"
   | Constr_decl_type name ->
      let s_name =
@@ -324,7 +324,7 @@ let rec string_of_constraint (c : constr) : string =
                 let s_n =
                   match n with | None -> "_" | Some r -> string_of_regexp r
                 in
-                let s_p = string_of_path p in
+                let s_p = path_to_string p in
                 "(" ^ s_n ^ ", " ^ s_p ^ ")"
               )
               np_l
@@ -333,7 +333,7 @@ let rec string_of_constraint (c : constr) : string =
      in
      "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
   | Constr_seq (p_elt, _) ->
-     let s = string_of_path p_elt in
+     let s = path_to_string p_elt in
      "Seq (" ^ s ^ ")"
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> string_of_regexp r)
@@ -349,14 +349,14 @@ let rec string_of_constraint (c : constr) : string =
        end
      in "Lit " ^ s
   | Constr_app (p_fun, (p_args, _)) ->
-     let s_fun = string_of_path p_fun in
-     let s_args = string_of_path p_args in
+     let s_fun = path_to_string p_fun in
+     let s_args = path_to_string p_args in
      "App (" ^ s_fun ^ ", " ^ s_args ^ ")"
   | Constr_label (so, p_body) ->
      let s_label =
        match so with | None -> "_" | Some r -> string_of_regexp r
      in
-     let s_body = string_of_path p_body in
+     let s_body = path_to_string p_body in
      "Label (" ^ s_label ^ ", " ^ s_body ^ ")"
   | Constr_goto so ->
      let s_label =
@@ -364,7 +364,7 @@ let rec string_of_constraint (c : constr) : string =
      in
      "Goto " ^ s_label
   | Constr_return p_res ->
-      let s_res = string_of_path p_res in
+      let s_res = path_to_string p_res in
       "Return " ^ s_res
   | Constr_abort kind ->
      let s_kind =
@@ -381,23 +381,23 @@ let rec string_of_constraint (c : constr) : string =
        | None -> "_"
        | Some cal -> string_of_list (List.map string_of_access cal)
      in
-     let s_base = string_of_path p_base in
+     let s_base = path_to_string p_base in
      "Access (" ^ s_accesses ^ ", " ^ s_base ^ ")"
   | Constr_switch (p_cond, cc) ->
-     let s_cond = string_of_path p_cond in
+     let s_cond = path_to_string p_cond in
      let s_cases =
        match cc with
        | None -> "_"
        | Some cl ->
           let string_of_kind = function
-            | Case_val p_val -> "Case_val " ^ string_of_path p_val
+            | Case_val p_val -> "Case_val " ^ path_to_string p_val
             | Case_default -> "Default"
             | Case_any -> "Any"
           in
           let sl =
             List.map
               (fun (k, p_body) ->
-                let s_body = string_of_path p_body in
+                let s_body = path_to_string p_body in
                 "(" ^ string_of_kind k ^ ", " ^ s_body ^ ")"
               )
               cl
@@ -406,13 +406,13 @@ let rec string_of_constraint (c : constr) : string =
      in
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
 
-and string_of_path (p : path) : string =
+and path_to_string (p : path) : string =
   string_of_list (List.map string_of_constraint p)
 
 and string_of_access (ca : constr_access) : string =
   match ca with
   | Array_access p_index ->
-     let s_index = string_of_path p_index in
+     let s_index = path_to_string p_index in
      "Array_access " ^ s_index
   | Struct_access so ->
      let s_field =

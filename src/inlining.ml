@@ -207,7 +207,7 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)  ?(fun_a
       match epl with
       | [] ->
          print_info t.loc "inline_fun_decl: no matching subterm for path %s\n"
-           (string_of_path p);
+           (path_to_string p);
          t
       | _ ->
          List.fold_left (apply_local_transformation apply_change) t epl

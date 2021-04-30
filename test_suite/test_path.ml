@@ -253,7 +253,7 @@ let test_file (filename : string)
   List.iteri
     (fun i (pl, epl) ->
       let p = List.flatten pl in
-      print_info None "\nPath %d: %s\n" i (string_of_path p);
+      print_info None "\nPath %d: %s\n" i (path_to_string p);
       test_path ast p epl
     )
     pl_epl_l
