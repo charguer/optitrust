@@ -4,6 +4,7 @@
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
 
+
 var editor;
 
 // Initialize the editor
@@ -33,6 +34,7 @@ function initEditor() {
 
 
 
+
 //---------------------------------------------------
 // Code Mirror highlight expressions
 
@@ -41,8 +43,6 @@ function scrollToLoc(loc) {
   editor.scrollIntoView(loc, 100);
 }
 
-// Update the highlighted contents
-// The "loc" argument should be of the form:
 //  { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
 
 function updateSelection(loc) {
@@ -52,18 +52,11 @@ function updateSelection(loc) {
     return;
   }
 
-  // Clear old marks
-  editor.getAllMarks().forEach(m => m.clear());
-
   // Substracting 1 because compilers counts from 1, and Codemirror from 0
   var from = { line: loc.start.line-1, ch: loc.start.col };
   var to = { line: loc.end.line-1, ch: loc.end.col };
 
-  // Highlight and scroll to the highlighted place
-  editor.markText(from, to, opts);
-  scrollToLoc({from: from, to: to});
-  // editor.focus();
-}
+
 
 
 //---------------------------------------------------
@@ -71,9 +64,6 @@ function updateSelection(loc) {
 
 // FOR FUTURE USE
 
-var parameter_depth = 0; // 0 means infinity
-
-function initHandlers() {
 
   // Event listner for the depth parameter
   $("#parameter_depth").change(function(e) {
@@ -83,10 +73,8 @@ function initHandlers() {
     console.log("Changed parameter depth to: " + n);
   });
 
-  // Event listner for the run button
-  $("#button_run").click(function (e) {
-     console.log("Click on run button");
-  });
+
+
 
 }
 
@@ -95,6 +83,7 @@ function initHandlers() {
 
 $(document).on('mouseup', '.CodeMirror', function() {
    console.log("Mouseup in code mirror");
+
    console.log("Selected range: ");
    console.log(editor.getSelectedLoc());
 });
@@ -120,9 +109,6 @@ function html_span(args, contents) {
 }
 
 
-//---------------------------------------------------
-// loading of a node in the AST view
-
 // order in which to display properties
 // properties that are not mentioned are processed at the end in arbitrary order
 var properties = [ "name", "type" ];
@@ -134,19 +120,16 @@ function get_child_label(node, id_child) {
   if (! ("children" in node)) {
     return null;
   }
-  var nb = node.children.length;
-  for (var i = 0; i < nb; i++) {
-    if (node.children[i].id == id_child) {
-      return node.children[i].label;
-    }
-  }
+
   return null;
+
 }
 
 function viewDescription(node) {
   //console.log(node);
   var k = node.kind;
   // get all fields in the node description
+
   var keys = Object.keys(node);
 
   // remove special keys
@@ -160,6 +143,7 @@ function viewDescription(node) {
     var key = properties[iproperty];
     if (key in node) {
       var value = node[key];
+
       // some keys have special display
       if (key == "name") {
         txt += value;
@@ -170,6 +154,7 @@ function viewDescription(node) {
         txt += " <i>"+key+"</i>: " + value;
       }
 
+
     }
     // remove the key when processed
     keys = keys.filter(item => item !== key);
@@ -178,9 +163,7 @@ function viewDescription(node) {
   // then process unknown properties
   for (ikey in keys) {
     var key = keys[ikey];
-    var value = node[key];
-    // use a generic display (again)
-    txt += "; <i>"+key+"</i>: " + value;
+
   }
   return txt;
 }
@@ -243,9 +226,12 @@ function viewPathRec(path, target, label, classExtra) {
   }
 }
 
+
+
 // Loads the view of a path
 // path should be a list of node ids
 function viewPath(path) {
+
    viewPathRec(path, "viewast", "root", "");
 }
 
@@ -268,8 +254,10 @@ function nodePlus(id, idchildKept) {
   }
 
   // clear the children
+
   var element = $("#"+div_children);
   element.empty();
+
 
   // populate all children
   for (var ichild in node.children) {
@@ -301,6 +289,13 @@ function nodeMinus(id) {
 //---------------------------------------------------
 // DEMO
 
+// var test_example_source;
+// test_example_source = fetch('file:///home/begi-inria/Desktop/verified_transform/src/unit_tests/make_exmplicit_record_assignment.cpp')
+//   .then ((data) => {
+//     return data;
+//   })
+
+
 var exampleSource = `
    /* C demo code */
    #include <stdio.h>
@@ -308,6 +303,7 @@ var exampleSource = `
       printf("hello f");
       return 0;
    }
+
    int g() {
       printf("hello g");
       return 0;
@@ -330,13 +326,14 @@ ast = {
    node_8: { kind: "return" } };
 path = ["node_0", "node_1", "node_3" ];
 
-ast = contents;
-path = ["node_0"];
+// ast = contents;
+// path = ["node_0"];
 
 // action to perform after document is loaded
 document.addEventListener('DOMContentLoaded', function () {
   // initialize parameter handlers
-  initHandlers();
+  // TODO: Define this function
+  // initHandlers();
 
   // initialize editor with contents
   initEditor();
@@ -394,13 +391,12 @@ on a version number prints the diff between two versions.
 */
 
 
-
+/*
 //---------------------------------------------------
 // FOR LATER: function to scroll between marks
 
-/*
-// Scroll to the first mark in the given CodeMirror or Doc object.
-// No-op if given object not active, or if no marks in the doc.
+Scroll to the first mark in the given CodeMirror or Doc object.
+No-op if given object not active, or if no marks in the doc.
 function scrollToFirstMark() {
   let ms = doc.getAllMarks();
   if (ms.length < 1) return;
@@ -408,4 +404,3 @@ function scrollToFirstMark() {
   scrollToLoc(loc);
 }
 */
-
