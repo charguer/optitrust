@@ -213,8 +213,8 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     (* print C++ code with decoding *)
     output_string out_prog ctx.includes;
     ast_to_doc out_prog ast;
-    output_string out_prog "\n";
-    ast_json_to_doc out_json ast;
+    (* output_string out_prog "\n"; *)
+    (* ast_json_to_doc out_json ast; *)
 
     close_channels();
     (* beautify the C++ code *)
