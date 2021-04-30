@@ -90,7 +90,7 @@ let loc_to_json (t : trm) : json =
            ("\"col\"", Json.Int end_column)] )]
   end
 
-
+(* Deprecated *)
 let typ_to_string (typ : typ) : string =
     let printed_type = document_to_string (Ast_to_text.print_typ typ) in 
    "\"" ^ printed_type ^ "\""
