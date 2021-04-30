@@ -38,36 +38,6 @@
    <script type="text/javascript" src="./ast_view.js"></script>
 
 
-   <!--AST DESCRIPTION TO LOAD
-   <script type="text/javascript" src="{INSERT_TOLOAD}"></script>
-   -->
-
-   <!--CPP CODE TO LOAD (should define variable codeString)
-   <script>
-   eval("INSERT_"+"CODE = 0"); // to avoid errors for testing the page
-   {INSERT_CODE}
-   </script>
-   -->
-
-
-<script>
-/* temporary JS definitions, before moving them ast_view.js */
-/*
-var contents =`
-   { "foo": "bar" }
-`;
-var obj = JSON.parse(contents);
-*/
-//console.log(obj);
-
-// actions to perform after the page is loaded
-/*
-document.addEventListener('DOMContentLoaded', function () {
-   $("#viewast").html("example printing<br>----<br>");
-});
-*/
-
-</script>
 
 <style>
 /* temporary CSS definitions, before moving them ast_view.css */
@@ -101,7 +71,8 @@ div {
       <!--parameters-->
       <div id="parameters">
          <form class="form-inline" onsubmit="return false;">
-         Depth:&nbsp;&nbsp;<input type="text" id='parameter_depth' style="width:5em" value="0" class="form-control"/>
+         Depth:&nbsp;&nbsp;
+         <input type="text" id='parameter_depth' style="width:5em" value="0" class="form-control"/>
          &nbsp;
          <button id="button_run">run</button>
          </form>

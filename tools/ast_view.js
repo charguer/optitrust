@@ -4,7 +4,6 @@
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
 
-
 var editor;
 
 // Initialize the editor
@@ -33,8 +32,6 @@ function initEditor() {
 }
 
 
-
-
 //---------------------------------------------------
 // Code Mirror highlight expressions
 
@@ -43,6 +40,8 @@ function scrollToLoc(loc) {
   editor.scrollIntoView(loc, 100);
 }
 
+// Update the highlighted contents
+// The "loc" argument should be of the form:
 //  { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
 
 function updateSelection(loc) {
@@ -52,11 +51,18 @@ function updateSelection(loc) {
     return;
   }
 
+  // Clear old marks
+  editor.getAllMarks().forEach(m => m.clear());
+
   // Substracting 1 because compilers counts from 1, and Codemirror from 0
   var from = { line: loc.start.line-1, ch: loc.start.col };
   var to = { line: loc.end.line-1, ch: loc.end.col };
 
-
+  // Highlight and scroll to the highlighted place
+  editor.markText(from, to, opts);
+  scrollToLoc({from: from, to: to});
+  // editor.focus();
+}
 
 
 //---------------------------------------------------
@@ -64,6 +70,9 @@ function updateSelection(loc) {
 
 // FOR FUTURE USE
 
+var parameter_depth = 0; // 0 means infinity
+
+function initHandlers() {
 
   // Event listner for the depth parameter
   $("#parameter_depth").change(function(e) {
@@ -73,8 +82,10 @@ function updateSelection(loc) {
     console.log("Changed parameter depth to: " + n);
   });
 
-
-
+  // Event listner for the run button
+  $("#button_run").click(function (e) {
+     console.log("Click on run button");
+  });
 
 }
 
@@ -83,7 +94,6 @@ function updateSelection(loc) {
 
 $(document).on('mouseup', '.CodeMirror', function() {
    console.log("Mouseup in code mirror");
-
    console.log("Selected range: ");
    console.log(editor.getSelectedLoc());
 });
@@ -109,6 +119,9 @@ function html_span(args, contents) {
 }
 
 
+//---------------------------------------------------
+// loading of a node in the AST view
+
 // order in which to display properties
 // properties that are not mentioned are processed at the end in arbitrary order
 var properties = [ "name", "type" ];
@@ -120,16 +133,19 @@ function get_child_label(node, id_child) {
   if (! ("children" in node)) {
     return null;
   }
-
+  var nb = node.children.length;
+  for (var i = 0; i < nb; i++) {
+    if (node.children[i].id == id_child) {
+      return node.children[i].label;
+    }
+  }
   return null;
-
 }
 
 function viewDescription(node) {
   //console.log(node);
   var k = node.kind;
   // get all fields in the node description
-
   var keys = Object.keys(node);
 
   // remove special keys
@@ -143,7 +159,6 @@ function viewDescription(node) {
     var key = properties[iproperty];
     if (key in node) {
       var value = node[key];
-
       // some keys have special display
       if (key == "name") {
         txt += value;
@@ -154,7 +169,6 @@ function viewDescription(node) {
         txt += " <i>"+key+"</i>: " + value;
       }
 
-
     }
     // remove the key when processed
     keys = keys.filter(item => item !== key);
@@ -163,7 +177,9 @@ function viewDescription(node) {
   // then process unknown properties
   for (ikey in keys) {
     var key = keys[ikey];
-
+    var value = node[key];
+    // use a generic display (again)
+    txt += "; <i>"+key+"</i>: " + value;
   }
   return txt;
 }
@@ -176,6 +192,9 @@ function viewPathRec(path, target, label, classExtra) {
   //console.log("viewing in " + target + " : "   + path);
 
   // get first node in path, and compute remaining path
+  if (path.length == 0) { 
+    throw new Error("viewPathRec: empty path");
+  }
   var id = path.shift();
   var node = ast[id];
 
@@ -188,7 +207,8 @@ function viewPathRec(path, target, label, classExtra) {
   var ctrlMinus = html_span({id: (id+"_minus"), 'class': 'grayed', onclick: "nodeMinus('" + id + "')"}, "&CircleMinus;");
   var ctrl = ctrlPlus + ctrlMinus;
   var ctrlClass = "ast_ctrl";
-  if ((! ("children" in node)) || (node.children.length == 1 && path.length > 0)) {
+  if ((! ("children" in node) || node.children.length == 0) // no children 
+     || (node.children.length == 1 && path.length > 0)) { // one child and we explore it in the path
     ctrlClass += " grayed";
   }
 
@@ -217,21 +237,18 @@ function viewPathRec(path, target, label, classExtra) {
     // check that the next node is one of the children ids, and gets its label
     var label_child = get_child_label(node, id_child);
     if (label_child === null) {
-      console.log("invalid path: " + id + " does not have a child " + id_child);
       console.log(node);
-      return;
+      throw new Error("invalid path: " + id + " does not have a child " + id_child);
     }
     // continue with what remains of the path
     viewPathRec(path, div_children, label_child);
   }
 }
 
-
-
 // Loads the view of a path
 // path should be a list of node ids
 function viewPath(path) {
-
+   $("#viewast").clear(); // DEPRECATED html("");
    viewPathRec(path, "viewast", "root", "");
 }
 
@@ -240,24 +257,23 @@ function viewPath(path) {
 // to allow the function nodeMinus to be simple to implement
 function nodePlus(id, idchildKept) {
   var node = ast[id];
-  // if no children, do nothing
-  if (! ("children" in node)) {
-    return null;
+
+  // if no children, do nothing -- this should not happen because button is gray
+  if (! ("children" in node) || node.children.length == 0) {
+    return;
   }
 
   // save the one children currently expanded, if there is one
   var keptChild = null;
   var div_children = id + "_children";
   var children = $("#"+div_children).children();
-  if (children.length = 1) {
+  if (children.length == 1) {
     keptChild = children[0];
   }
 
   // clear the children
-
   var element = $("#"+div_children);
   element.empty();
-
 
   // populate all children
   for (var ichild in node.children) {
@@ -289,13 +305,6 @@ function nodeMinus(id) {
 //---------------------------------------------------
 // DEMO
 
-// var test_example_source;
-// test_example_source = fetch('file:///home/begi-inria/Desktop/verified_transform/src/unit_tests/make_exmplicit_record_assignment.cpp')
-//   .then ((data) => {
-//     return data;
-//   })
-
-
 var exampleSource = `
    /* C demo code */
    #include <stdio.h>
@@ -303,7 +312,6 @@ var exampleSource = `
       printf("hello f");
       return 0;
    }
-
    int g() {
       printf("hello g");
       return 0;
@@ -314,9 +322,11 @@ var exampleSource = `
    }
 `;
 
+var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
+
 ast = {
    node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
-   node_1: { kind: "fun", name: "foo", children: [ { label: "body", id: "node_3" } ] },
+   node_1: { kind: "fun", name: "foo", loc: node_1_loc, children: [ { label: "body", id: "node_3" } ] },
    node_2: { kind: "var", name: "x", type: "int" },
    node_3: { kind: "return" },
    node_4: { kind: "if", children: [ { label: "cond", id: "node_5" }, { label: "else", id: "node_6" }, { label: "else", id: "node_6" } ] },
@@ -326,14 +336,15 @@ ast = {
    node_8: { kind: "return" } };
 path = ["node_0", "node_1", "node_3" ];
 
-// ast = contents;
-// path = ["node_0"];
+if (typeof contents !== 'undefined') {
+  ast = contents;
+  path = ["node_0"];
+}
 
 // action to perform after document is loaded
 document.addEventListener('DOMContentLoaded', function () {
   // initialize parameter handlers
-  // TODO: Define this function
-  // initHandlers();
+  initHandlers();
 
   // initialize editor with contents
   initEditor();
@@ -343,8 +354,6 @@ document.addEventListener('DOMContentLoaded', function () {
   var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
   updateSelection(selection);
 
-  // reset the contents
-  $("#viewast").html("");
   // show demo path
   viewPath(path);
 
@@ -391,16 +400,36 @@ on a version number prints the diff between two versions.
 */
 
 
-/*
+
 //---------------------------------------------------
 // FOR LATER: function to scroll between marks
 
-Scroll to the first mark in the given CodeMirror or Doc object.
-No-op if given object not active, or if no marks in the doc.
+/*
+// Scroll to the first mark in the given CodeMirror or Doc object.
+// No-op if given object not active, or if no marks in the doc.
 function scrollToFirstMark() {
   let ms = doc.getAllMarks();
   if (ms.length < 1) return;
-  let loc = ms[0].find();
-  scrollToLoc(loc);
+  let loc = ms[0].find()
+  editor.scrollIntoView(loc, 100);
+
 }
 */
+
+
+/* TODO
+   - generate cpp code from ocaml (use base64 encoding?) (or assume no backtick or backslash in cpp code )
+    var source_code = `
+      ... (* put the contents like out_prog function is doing *)  
+    `;
+   - load cpp code in the html page
+   - load the ast and customize the display
+   - when user selects a range, construct the "path" and call viewPath on it
+        -- get loc from the event
+        -- first iterate over "ast" and find the deepest node (the one with biggest number) (+ (id.substr(5)))
+           such that node.loc is covering the user selection (comparion function for {line: , col: })
+        -- when node is found, you walk up the .parent fields, all the way to the root (until parent is -1 or no parent)
+        -- at you walk up, fill an array "path" with the id  (use unshift, in your while loop)
+   - when user clicks on a "kind" label, highlight the location in the code
+*/
+
