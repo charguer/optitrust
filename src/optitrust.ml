@@ -184,8 +184,8 @@ let cleanup_cpp_file_using_clang_format filename =
 
 let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
   let file_ast = out_prefix ^ ".ast" in
-  let file_js = out_prefix ^ ".js" in 
-  let out_js = open_out file_js in 
+  (* let file_js = out_prefix ^ ".js" in 
+  let out_js = open_out file_js in  *)
   let file_enc = out_prefix ^ "_enc" ^ ctx.extension in
   let file_prog = out_prefix ^ ctx.extension in
   let out_ast = open_out file_ast in
@@ -195,7 +195,7 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     close_out out_ast;
     close_out out_enc;
     close_out out_prog;
-    close_out out_js;
+    (* close_out out_js; *)
     in
   try
     (* print the raw ast *)
@@ -204,8 +204,8 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     print_ast (* ~only_desc:true *) out_ast ast;
     output_string out_ast "\n";
     (* Print ast and source code in jacascript format *)
-    ast_to_js out_js (-1) ast;
-    code_to_js out_js (-1) ast;
+    (* ast_to_js out_js (-1) ast;
+    code_to_js out_js (-1) ast; *)
     (* print C++ code without decoding *)
     output_string out_enc ctx.includes;
     ast_to_undecoded_doc out_enc ast;
@@ -233,6 +233,29 @@ let reparse (ctx : context) (ast : trm) : trm =
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
 
+(* 
+  outputs a javascript file which contains the ast encoded as json 
+  for each transformation step also the initial source code together 
+  with the transformed versions
+ *)
+
+let output_js (index : int) (out_prefix : string )(ast : trm) : unit = 
+  let file_js = out_prefix ^ ".js" in 
+  let out_js = open_out file_js in 
+  
+  try
+    ast_to_js out_js index ast;
+    output_string out_js "\n";
+    code_to_js out_js index ast;
+    close_out out_js;
+
+  with 
+  | Failure s -> 
+    close_out out_js;
+    failwith s
+
+
+
 (* instruction added to interrupt the script early *)
 let exit_script () : unit =
   print_info None "Exiting script\n";
@@ -247,6 +270,8 @@ let exit_script () : unit =
         output_prog ctx (prefix ^ "_before") astBefore;
         print_info None "Done. Output files: %s_before.ast and %s_before%s.\n"
           prefix prefix ctx.extension;
+        print_info None "Writing ast and code into %s.js " prefix;
+        output_js (-1) prefix astAfter;
         print_info None "Writing ast and code after last transformation...\n";
         output_prog ctx (prefix ^ "_after") astAfter;
         print_info None "Done. Output files: %s_after.ast and %s_after%s.\n"
@@ -268,25 +293,7 @@ let exit_script () : unit =
   | Stack.Empty -> fail None ("exit_script: script must be interrupted after " ^
                                 "the initial source file is set.")
  
-let output_js (index : int) (out_prefix : string )(ast : trm) : unit = 
-  let file_js = out_prefix ^ ".js" in 
-  let out_js = open_out file_js in 
-  
-  try
-    ast_to_js out_js index ast;
-    code_to_js out_js index ast;
-    close_out out_js;
 
-  with 
-  | Failure s -> 
-    close_out out_js;
-    failwith s
-
-(* 
-  outputs a javascript file which contains the ast encoded as json 
-  for each transformation step also the initial source code together 
-  with the transformed versions
- *)
 let dump_trace_to_js ?(out_prefix : string = "") () : unit = 
   (* Initialize var content and source as empty arrays *)
   let () = initialization out_prefix in 

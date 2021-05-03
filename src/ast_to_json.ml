@@ -27,7 +27,7 @@ let document_to_string (d : document) : string =
 
   (** Printing functions *)
   let typ_to_json(typ : typ) : t =
-    Str ("\"" ^ document_to_string (typ_to_doc typ) ^ "\"")
+    Str (document_to_string (bquotes (typ_to_doc typ)) )
   
   let print_list (dl : document list) : document =
     surround 2 1 lbracket (separate (comma ^^ break 1) dl) rbracket
@@ -47,8 +47,8 @@ let document_to_string (d : document) : string =
   let json_to_js ?(index : int = (-1)) (j : t) : document =
    let json_ast = json_to_doc j in 
    match index with 
-   | -1 ->  string "contents" ^^ equals ^^ json_ast
-   | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast
+   | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi
+   | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi
 
 end
 
@@ -96,7 +96,7 @@ let kind_to_field (kind : string) : string * json =
   ("\"kind\"", Json.Str  kind )
 
 let value_to_field (value : string) : string *json =
-  ("\"value\"", Json.Str ("\"" ^ value ^ "\"") )
+  ("\"value\"", Json.Str (value) )
 
 (* Here, [aux] is to be applied for processing children *)
 
@@ -104,11 +104,11 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "\"val\"";
-          value_to_field (document_to_string (val_to_doc v));
+          value_to_field (document_to_string (PPrint.bquotes(val_to_doc v)));
           children_to_field [] ]
     | Trm_var x ->
         [ kind_to_field "\"var\"";
-          value_to_field x;
+          value_to_field ("\"" ^ x ^ "\"");
           children_to_field [] ]
     | Trm_struct l ->
         [ kind_to_field "\"struct\"";

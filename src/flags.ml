@@ -2,7 +2,7 @@
 let verbose : bool ref = ref false
 
 (* interprete dump as dump_trace in transformation scripts *)
-let full_dump : bool ref = ref true
+let full_dump : bool ref = ref false
 
 (*
   force printing/parsing at each transformation step

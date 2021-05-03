@@ -19,6 +19,10 @@ function initEditor() {
     },
   });
 
+  // Dimensions for codemirror window, if the code has more lines that the size of the window
+  // a scrollbar will appear
+  editor.setSize(700, 600);
+
   // Add a "getSelectedLoc" function
   // Returns a value in the form:
   // { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
@@ -317,7 +321,9 @@ function nodeMinus(id) {
 //---------------------------------------------------
 // DEMO
 
-var exampleSource = `
+var exampleSource = source;
+
+var exampleSource1 = `
    /* C demo code */
    #include <stdio.h>
    int f() {
@@ -336,16 +342,17 @@ var exampleSource = `
 
 var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
 
-ast = {
-   node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
-   node_1: { kind: "fun", name: "foo", loc: node_1_loc, children: [ { label: "body", id: "node_3" } ] },
-   node_2: { kind: "var", name: "x", type: "int" },
-   node_3: { kind: "return" },
-   node_4: { kind: "if", children: [ { label: "cond", id: "node_5" }, { label: "else", id: "node_6" }, { label: "else", id: "node_6" } ] },
-   node_5: { kind: "return" },
-   node_6: { kind: "return" },
-   node_7: { kind: "return" },
-   node_8: { kind: "return" } };
+ast = contents;
+// ast = {
+//    node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
+//    node_1: { kind: "fun", name: "foo", loc: node_1_loc, children: [ { label: "body", id: "node_3" } ] },
+//    node_2: { kind: "var", name: "x", type: "int" },
+//    node_3: { kind: "return" },
+//    node_4: { kind: "if", children: [ { label: "cond", id: "node_5" }, { label: "else", id: "node_6" }, { label: "else", id: "node_6" } ] },
+//    node_5: { kind: "return" },
+//    node_6: { kind: "return" },
+//    node_7: { kind: "return" },
+//    node_8: { kind: "return" } };
 path = ["node_0", "node_1", "node_3" ];
 
 if (typeof contents !== 'undefined') {
