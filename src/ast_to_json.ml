@@ -44,9 +44,11 @@ let document_to_string (d : document) : string =
     | Object o -> print_object (List.map (fun (s,j) -> string s ^^ string ": " ^^ json_to_doc j) o)
  
 
-  let json_to_js (j : t) (index : int) : document =
+  let json_to_js ?(index : int = (-1)) (j : t) : document =
    let json_ast = json_to_doc j in 
-   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast
+   match index with 
+   | -1 ->  string "contents" ^^ equals ^^ json_ast
+   | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast
 
 end
 
@@ -278,7 +280,7 @@ let ast_to_json (trm_root : trm) : json =
 *)
 
 let ast_to_js (out : out_channel)(index : int) (t : trm) : unit =
-  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js (ast_to_json t) index )
+  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js (ast_to_json t) ~index )
 
 
 let ast_json_to_doc (out : out_channel) (t : trm) : unit =

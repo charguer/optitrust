@@ -34,7 +34,6 @@ let _ =
         make_explicit_record_assignment [cStr "d = f()"] ~struct_name:"vect";
           *)
 
-
         dump()
     )
 

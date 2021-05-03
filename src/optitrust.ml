@@ -184,18 +184,18 @@ let cleanup_cpp_file_using_clang_format filename =
 
 let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
   let file_ast = out_prefix ^ ".ast" in
-  let file_json = out_prefix ^ ".json" in
+  let file_js = out_prefix ^ ".js" in 
+  let out_js = open_out file_js in 
   let file_enc = out_prefix ^ "_enc" ^ ctx.extension in
   let file_prog = out_prefix ^ ctx.extension in
   let out_ast = open_out file_ast in
-  let out_json = open_out file_json in
   let out_enc = open_out file_enc in
   let out_prog = open_out file_prog in
   let close_channels() =
     close_out out_ast;
-    close_out out_json;
     close_out out_enc;
-    close_out out_prog
+    close_out out_prog;
+    close_out out_js;
     in
   try
     (* print the raw ast *)
@@ -203,9 +203,9 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
     (* ast_to_js  *)
     print_ast (* ~only_desc:true *) out_ast ast;
     output_string out_ast "\n";
-    (* print ast in json format *)
-    ast_json_to_doc out_json ast;
-    output_string out_json "\n";
+    (* Print ast and source code in jacascript format *)
+    ast_to_js out_js (-1) ast;
+    code_to_js out_js (-1) ast;
     (* print C++ code without decoding *)
     output_string out_enc ctx.includes;
     ast_to_undecoded_doc out_enc ast;
@@ -267,24 +267,20 @@ let exit_script () : unit =
   with
   | Stack.Empty -> fail None ("exit_script: script must be interrupted after " ^
                                 "the initial source file is set.")
-
-
-let _output_js (_ctx : context)(index : int) (out_prefix : string ) (ast : trm) : unit = 
+ 
+let output_js (index : int) (out_prefix : string )(ast : trm) : unit = 
   let file_js = out_prefix ^ ".js" in 
   let out_js = open_out file_js in 
+  
   try
-    (* First declare two arrays ast and source *)
     ast_to_js out_js index ast;
+    code_to_js out_js index ast;
     close_out out_js;
+
   with 
   | Failure s -> 
     close_out out_js;
     failwith s
-
-    
-
-    
-
 
 (* 
   outputs a javascript file which contains the ast encoded as json 
@@ -292,11 +288,9 @@ let _output_js (_ctx : context)(index : int) (out_prefix : string ) (ast : trm) 
   with the transformed versions
  *)
 let dump_trace_to_js ?(out_prefix : string = "") () : unit = 
-  let cont = [PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "contents" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty] in
-  let src = [PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "source" ^^PPrint.equals ^^ PPrint.brackets PPrint.empty] in
-  (* PPrintEngine.ToChannel.pretty 0.9 80 out_js cont; *)
-  (* PPrintEngine.ToChannel.pretty 0.9 80 out_js src; *)
-  let dump_stack (ctx: context) (out_prefix : string) 
+  (* Initialize var content and source as empty arrays *)
+  let () = initialization out_prefix in 
+  let dump_stack (out_prefix : string) 
     (astStack : trm Stack.t) : unit = 
     let nbAst = Stack.length astStack in 
     let i = ref(nbAst - 2) in 
@@ -309,7 +303,7 @@ let dump_trace_to_js ?(out_prefix : string = "") () : unit =
       (fun ast ->
         if !i = -1 then ()
         else 
-          _output_js ctx !i out_prefix  ast;
+          output_js !i out_prefix ast;
         i := !i - 1; 
       )
       astStack
@@ -319,7 +313,7 @@ let dump_trace_to_js ?(out_prefix : string = "") () : unit =
         let out_prefix = 
           if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix 
         in 
-        dump_stack ctx out_prefix astStack
+        dump_stack out_prefix astStack
       
       )
       !trace
@@ -329,7 +323,8 @@ let dump_trace_to_js ?(out_prefix : string = "") () : unit =
   out_prefix_in.cpp is the program before transformation
   out_prefix_out.cpp is the program after transformation
 *)
-let dump_trace ?(out_prefix : string = "") () : unit =
+(* ----------------DEPRECATED------------------- *)
+(* let dump_trace ?(out_prefix : string = "") () : unit =
   let dump_stack (ctx : context) (out_prefix : string)
     (astStack : trm Stack.t) : unit =
     let nbAst = Stack.length astStack in
@@ -359,11 +354,13 @@ let dump_trace ?(out_prefix : string = "") () : unit =
       in
       dump_stack ctx out_prefix astStack
     )
-    !trace
+    !trace *)
 
 (* outputs current code in given file *)
 let dump ?(out_prefix : string = "") () : unit =
-  if !Flags.full_dump then dump_trace ~out_prefix ()
+  (* DEPRECATED -- it uses function dump_trace *)
+  (* if !Flags.full_dump then dump_trace ~out_prefix () *)
+  if !Flags.full_dump then dump_trace_to_js ~out_prefix()
   else
     List.iter
       (fun (ctx, astStack) ->

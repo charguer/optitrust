@@ -637,3 +637,17 @@ let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
   PPrintEngine.ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
   Buffer.contents b
+
+let code_to_js (out : out_channel) (_index : int) (ast : trm) : unit = 
+  let src = trm_to_doc ast in 
+  let doc = string "contents" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (src) in  
+  PPrintEngine.ToChannel.pretty 0.9 80 out doc
+
+let initialization (out_prefix : string) : unit =
+    let file_js = out_prefix ^ ".js" in 
+    let out_js = open_out file_js in 
+    let content = PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "contents" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
+    let source =  PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "source" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
+    PPrintEngine.ToChannel.pretty 0.9 80 out_js content;
+    PPrintEngine.ToChannel.pretty 0.9 80 out_js source;
+  
