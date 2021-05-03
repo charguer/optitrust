@@ -268,6 +268,62 @@ let exit_script () : unit =
   | Stack.Empty -> fail None ("exit_script: script must be interrupted after " ^
                                 "the initial source file is set.")
 
+
+let _output_js (_ctx : context)(index : int) (out_prefix : string ) (ast : trm) : unit = 
+  let file_js = out_prefix ^ ".js" in 
+  let out_js = open_out file_js in 
+  try
+    (* First declare two arrays ast and source *)
+    ast_to_js out_js index ast;
+    close_out out_js;
+  with 
+  | Failure s -> 
+    close_out out_js;
+    failwith s
+
+    
+
+    
+
+
+(* 
+  outputs a javascript file which contains the ast encoded as json 
+  for each transformation step also the initial source code together 
+  with the transformed versions
+ *)
+let dump_trace_to_js ?(out_prefix : string = "") () : unit = 
+  let cont = [PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "contents" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty] in
+  let src = [PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "source" ^^PPrint.equals ^^ PPrint.brackets PPrint.empty] in
+  (* PPrintEngine.ToChannel.pretty 0.9 80 out_js cont; *)
+  (* PPrintEngine.ToChannel.pretty 0.9 80 out_js src; *)
+  let dump_stack (ctx: context) (out_prefix : string) 
+    (astStack : trm Stack.t) : unit = 
+    let nbAst = Stack.length astStack in 
+    let i = ref(nbAst - 2) in 
+    (* exceptions:
+     - i = 0 -> program before tranformation -> prefix_input
+     - i = nbAst -2 -> result program -> prefix_input
+     - i = -1 -> empty program -> no output
+    *)
+    Stack.iter
+      (fun ast ->
+        if !i = -1 then ()
+        else 
+          _output_js ctx !i out_prefix  ast;
+        i := !i - 1; 
+      )
+      astStack
+    in 
+    List.iter 
+      (fun (ctx, astStack) ->
+        let out_prefix = 
+          if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix 
+        in 
+        dump_stack ctx out_prefix astStack
+      
+      )
+      !trace
+
 (*
   outputs code at each step using given prefix for filename
   out_prefix_in.cpp is the program before transformation
