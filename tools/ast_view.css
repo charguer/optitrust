@@ -71,3 +71,8 @@ td.pane {
 .grayed {
   color: gray;
 }
+
+.label-kind {
+  cursor: pointer;
+  font-weight: bold;
+}

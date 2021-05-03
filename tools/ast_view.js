@@ -142,9 +142,10 @@ function get_child_label(node, id_child) {
   return null;
 }
 
-function viewDescription(node) {
+function viewDescription(id, node) {
   //console.log(node);
   var k = node.kind;
+  
   // get all fields in the node description
   var keys = Object.keys(node);
 
@@ -152,7 +153,9 @@ function viewDescription(node) {
   keys = keys.filter(item => item !== "kind" && item !== "children");
 
   // start by processing the generic properties
-  var txt = "<b>" + k + "</b> ";
+  var labelKind = html_span({'class': 'label-kind', onclick: "updateSelectedNode('" + id + "')"}, k);
+  
+  var txt = labelKind + " ";
 
   // start by processing the known specific properties
   for (iproperty in properties) {
@@ -199,7 +202,7 @@ function viewPathRec(path, target, label, classExtra) {
   var node = ast[id];
 
   // build description
-  var txt = viewDescription(node);
+  var txt = viewDescription(id, node);
 
   // build buttons, gray them if no valid operation
   var idchild = (path.length > 0) ? path[0] : "";
@@ -248,8 +251,17 @@ function viewPathRec(path, target, label, classExtra) {
 // Loads the view of a path
 // path should be a list of node ids
 function viewPath(path) {
-   $("#viewast").clear(); // DEPRECATED html("");
+   $("#viewast").html("");
    viewPathRec(path, "viewast", "root", "");
+}
+
+
+//---------------------------------------------------
+// Handling events on the AST VIEW
+
+function updateSelectedNode(id) {
+  let node = ast[id];
+  updateSelection(node.loc);
 }
 
 // Function to display all children of a given node,

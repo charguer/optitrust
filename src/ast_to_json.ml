@@ -42,15 +42,11 @@ let document_to_string (d : document) : string =
     | Boolean b-> string (string_of_bool b)
     | List l -> print_list (List.map json_to_doc l)
     | Object o -> print_object (List.map (fun (s,j) -> string s ^^ string ": " ^^ json_to_doc j) o)
+ 
 
- (* DEPRECATED remove when json_to_doc works *)
-  let rec json_to_string (j : t) : string =
-    match j with
-    | Str s ->  s
-    | Int i -> string_of_int i
-    | Boolean b -> string_of_bool b
-    | List  l -> Path.string_of_list ~sep:"," (List.map json_to_string l)
-    | Object o -> Path.string_of_list ~sep:","  ~bounds:["{";"}"] (List.map (fun (s, j) -> s ^ ":" ^ (json_to_string j)) o)
+  let rec json_to_js (j : t) (index : int) : document =
+   let json_ast = json_to_doc j in 
+   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast
 
 end
 
@@ -276,6 +272,17 @@ let ast_to_json (trm_root : trm) : json =
   let id_of_root = aux parent_of_root trm_root in
   assert (id_of_root = "\"node_0\"");
   Json.Object (!result)
+
+(* Convert ast into a json format then print it as a javascript variable inside a javascript file 
+  the index represents the state of the ast after applying i-th transformation
+*)
+
+let ast_to_js (out : out_channel)(index : int) (t : trm) : unit =
+  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js t index )
+
+
+
+
 
 let ast_json_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_doc (ast_to_json t))
