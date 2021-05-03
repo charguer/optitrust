@@ -7,7 +7,10 @@
         { // F5 in src
           "label": "Compile and install the library and compile all unit tests",
           "type": "shell",
-          "command": "make all"
+          "command": "make all",
+          "options": {
+            "cwd": "${workspaceFolder}"
+          },
         },
         { // F6 in src
           "label": "Compile and install the library then execute one unit test",
@@ -29,14 +32,17 @@
         {
           "label": "Compile the library without installation tests",
           "type": "shell",
-          "command": "make library"
+          "command": "make library",
+          "options": {
+            "cwd": "${workspaceFolder}"
+          },
         },
         {
           "label": "Compile and build everything",
           "type": "shell",
           "command": "make all",
           "options": {
-            "cwd": "${workspaceFolder}/.vscode"
+            "cwd": "${workspaceFolder}"
           }
         },
         {
@@ -127,16 +133,25 @@
         {
           "label": "Recompile then compile and run current",
           "type":"shell",
-          "command":"make optitrust && ./.vscode/run_make_foo.sh",
+          "command":"./.vscode/run_make_foo.sh",
           "args": [
               "${fileDirname}",
               "${fileBasenameNoExtension}",
+              "recompile_optitrust_yes"              
           ]
         },
         {
           "label": "Compile the full current folder",
           "type": "shell",
-          "command": "make optitrust && make all",
+          "command": "make all",
+          "options": {
+            "cwd": "${fileDirname}"
+          },
+        },
+        {
+          "label": "First recompile optitrust then compile the full current folder",
+          "type": "shell",
+          "command": "make optitrust; make all",
           "options": {
             "cwd": "${fileDirname}"
           },

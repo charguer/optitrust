@@ -51,7 +51,7 @@ function scrollToLoc(loc) {
 function updateSelection(loc) {
   // for other options, see https://codemirror.net/doc/manual.html#markText
   const opts = { className: "highlight" };
-  if (loc === undefined) {
+  if (loc === void(0)) {
     return;
   }
 
@@ -432,7 +432,7 @@ function scrollToFirstMark() {
   let loc = ms[0].find()
   editor.scrollIntoView(loc, 100);
 
-}
+}G62
 */
 
 
