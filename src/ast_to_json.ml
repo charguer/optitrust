@@ -62,7 +62,7 @@ let void =
 
 let loc_to_json (t : trm) : json =
   begin match t.loc with
-  | None -> void
+  | None -> Json.Str("\"\"")
   | Some (_, start_row, end_row, start_column, end_column) ->
       Json.Object [
         ("\"start\"", Json.Object
