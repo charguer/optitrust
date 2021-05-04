@@ -323,26 +323,28 @@ function nodeMinus(id) {
 
 var exampleSource = source;
 
-var exampleSource1 = `
-   /* C demo code */
-   #include <stdio.h>
-   int f() {
-      printf("hello f");
-      return 0;
-   }
-   int g() {
-      printf("hello g");
-      return 0;
-   }
-   int main() {
-      printf("hello world\n");
-      return 0;
-   }
-`;
+// DEPRECATED NOW THE SCRIPT READS THE CURRENT SOURCE CODE DATA
+// var exampleSource1 = `
+//    /* C demo code */
+//    #include <stdio.h>
+//    int f() {
+//       printf("hello f");
+//       return 0;
+//    }
+//    int g() {
+//       printf("hello g");
+//       return 0;
+//    }
+//    int main() {
+//       printf("hello world\n");
+//       return 0;
+//    }
+// `;
 
 var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
 
 ast = contents;
+// DEPRECATED
 // ast = {
 //    node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
 //    node_1: { kind: "fun", name: "foo", loc: node_1_loc, children: [ { label: "body", id: "node_3" } ] },
@@ -377,7 +379,113 @@ document.addEventListener('DOMContentLoaded', function () {
   viewPath(path);
 
 });
+// Class implementation of a binary heap
+// Code from https://medium.com/swlh/binary-heaps-priority-queues-in-javascript-44d20cf0cb6e
 
+class PriorityQueue {
+  constructor(){
+    this.values = [];
+  }
+  // Swap the places of two priority queue items
+  swap(index1,index2){
+    let temp = this.values[index1];
+    this.values[index1] = this.values[index2];
+    this.values[index2] = temp;
+    return this.values;
+  }
+  bubbleUp(){
+    // get the index of the inserted element
+    let index = this.value.length - 1;
+    // Loop while index is not 0 or element no longer needs to bubble
+    while (index > 0){
+        // get parent index via formula
+      let parentIndex = Math.floor((index - 1)/2);
+      // Swap places with the parent if the value is greater than then value of the parent
+      if(this.values[parentIndex].id.substr(5) > this.values[index].id.substr(5)){
+        // swapt their places
+        this.swap(index, parentIndex);
+        // change the current index to parent index
+      }
+      else{
+        break;
+      }
+    }
+    
+    return 0;
+  }
+  // insert new element into the queue
+  enqueue(value){
+    this.value.push(value)
+    //calculate parent, if parent is greater swap
+    //call bubbleUp to fix the structure of the heap
+    this.bubbleUp();
+    // Return the reordered array
+    return this.values
+  }
+  bubbleDown(){
+    let parentIndex = 0;
+    const length = this.values.length;
+    const elementPriority = this.values[0].id.substr(5);
+    // loop breaks if no swaps are needed
+    while(true){
+      //get indexes of child elements by following formula
+      let leftChildIndex = (2 * parentIndex) + 1;
+      let rightChildIndex = (2 * parentIndex) + 2;
+      let leftChildPriority, rightChildPriority;
+      let indexToSwap = null;
+      // if left index child exists, and is greater than the element plan to swap with the left child index
+      if(leftChildIndex < length){
+        leftChildPriority = this.values[leftChildIndex].id.substr(5);
+        if(leftChildPriority < elementPriority){
+          indexToSwap = leftChildIndex;
+        }
+      }  
+      // if right child exists
+      if(rightChildIndex < length){
+        rightChildPriority = this.values[rightChildIndex].id.substr(5);
+        if(
+          //if right child is greater than element and there are no plans to swap
+          (rightChildPriority < elementPriority && indexToSwap === null) ||
+          //OR if right child is greater than left child and there ARE plans to swap
+          (rightChildPriority < leftChildPriority && indexToSwap !== null))
+          {
+            //plan to swap with the right child
+            indexToSwap = rightChildIndex
+          }
+      }
+      // if there are no plans to swap, break out of the loop
+      if(indexToSwap === null){
+        break;
+      }
+      //swap with planned element
+      this.swap(parenIndex, indexToSwap);
+      // starting index is now index that we sawpped with 
+      parentIndex = indexToSwap;
+    }
+  }
+  dequeue(){
+    //swap  first and last element
+    this.swap(0,this.values.length -1);
+    //pop max value of values
+    let poppedNode = this.values.pop();
+    //re-adjust heap if length is greater than 1
+    if(this.values.length > 1){
+      this.bubbleDown();
+    }
+    return poppedNode;
+    
+  }
+}
+
+// This function returns true if loc2 can be covered with loc1
+function contains(loc1,loc2){
+  if ((loc1.start.line < loc2.start.line) && ((loc1.end.line > loc2.end.line)){
+    return true;
+  }
+  else 
+    return false;
+
+}
 //viewPath(["node_3"]);
 
    // TODO: if children is empty, no need to include this field in the JSON.
@@ -423,13 +531,23 @@ on a version number prints the diff between two versions.
 //---------------------------------------------------
 // FOR LATER: function to scroll between marks
 
-/*
-// Scroll to the first mark in the given CodeMirror or Doc object.
-// No-op if given object not active, or if no marks in the doc.
-function scrollToFirstMark() {
-  let ms = doc.getAllMarks();
-  if (ms.length < 1) return;
-  let loc = ms[0].find()
+/*/* TODO
+   - generate cpp code from ocaml (use base64 encoding?) (or assume no backtick or backslash in cpp code )
+    var source_code = `
+      ... (* put the contents like out_prog function is doing *)  
+    `;
+   - load cpp code in the html page
+   - load the ast and customize the display
+   - when user selects a range, construct the "path" and call viewPath on it
+        -- get loc from the event
+        -- first iterate over "ast" and find the deepest node (the one with biggest number) (+ (id.substr(5)))
+           such that node.loc is covering the user selection (comparion function for {line: , col: })
+        -- when node is found, you walk up the .parent fields, all the way to the root (until parent is -1 or no parent)
+        -- at you walk up, fill an array "path" with the id  (use unshift, in your while loop)
+   - when user clicks on a "kind" label, highlight the location in the code
+*/
+
+
   editor.scrollIntoView(loc, 100);
 
 }G62
