@@ -1,19 +1,7 @@
 open PPrint
 open Ast
+open Tools
 
-(* print the ast *)
-
-let node (s : string) : document = string s ^^ blank 1
-
-let surround : document -> document -> document -> document = surround 2 1
-
-let parens (d : document) : document = soft_surround 2 1 lparen d rparen
-
-let print_list (dl : document list) : document =
-  surround lbracket (separate (semi ^^ break 1) dl) rbracket
-
-let print_pair (d1 : document) (d2 : document) : document =
-  parens (d1 ^^ comma ^/^ d2)
 
 let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   match t with
@@ -306,13 +294,13 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       end
     in
     let dinstr = string (string_of_bool t.is_instr) in
-    let doc_of_add (add : print_addition) =
+    let add_to_doc (add : print_addition) =
       match add with
       | Add_address_of_operator -> string "Add_address_of_operator"
       | Add_star_operator -> string "Add_star_operator"
     in
     let dadd =
-      brackets (List.fold_left (fun d add -> d ^^ semi ^//^ doc_of_add add)
+      brackets (List.fold_left (fun d add -> d ^^ semi ^//^ add_to_doc add)
                   empty t.add)
     in
     let dtyp =
@@ -335,8 +323,3 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
 let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in
   PPrintEngine.ToChannel.pretty 0.9 80 out d
-
-let document_to_string (d : document) : string =
-  let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b d;
-  Buffer.contents b

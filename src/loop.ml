@@ -3,7 +3,7 @@ open Ast_to_c
 open Path
 open Path_constructors
 open Transformations
-
+open Tools
 
  let rec loop_coloring_aux (clog : out_channel) (c : var) (new_var : var)(t : trm) : trm =
     match t.desc with 

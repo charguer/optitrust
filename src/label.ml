@@ -1,7 +1,7 @@
 open Ast
 open Path
 open Transformations
-
+open Tools
 (* delete the label with the given prefix *)
 let rec delete_label (label : string) (t : trm) : trm =
   match t.desc with

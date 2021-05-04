@@ -1,7 +1,7 @@
 open Ast
 open Ast_to_c
 open Str
-
+open Tools
 (******************************************************************************)
 (*                                  Path AST                                  *)
 (******************************************************************************)
@@ -48,7 +48,7 @@ and enum_const_dir =
   | Enum_const_name
   | Enum_const_val
 
-let string_of_dir (d : dir) : string =
+let dir_to_string (d : dir) : string =
   match d with
   | Dir_nth n -> "Dir_nth " ^ (string_of_int n)
   | Dir_cond -> "Dir_cond"
@@ -84,7 +84,7 @@ let string_of_list ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : strin
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
 let string_of_explicit_path (dl : expl_path) : string =
-  string_of_list (List.map string_of_dir dl)
+  string_of_list (List.map dir_to_string dl)
 
 (*
   comparison functions for path sorting
@@ -273,7 +273,7 @@ let string_of_regexp (r : rexp) : string =
 let rec string_of_constraint (c : constr) : string =
   match c with
   | Constr_strict -> "Strict"
-  | Constr_dir d -> string_of_dir d
+  | Constr_dir d -> dir_to_string d
   | Constr_list (p_elt, _) -> "List (" ^ path_to_string p_elt ^ ")"
   | Constr_include s -> "Include " ^ s
   | Constr_regexp r -> "Regexp " ^ string_of_regexp r
@@ -1433,7 +1433,7 @@ and follow_dir (d : dir) (p : path) (t : trm) : expl_path list =
        )
   | _, _ ->
      print_info loc "follow_dir: direction %s does not match"
-       (string_of_dir d);
+       (dir_to_string d);
      []
 
 (*
@@ -1576,7 +1576,7 @@ let resolve_explicit_path (dl : expl_path) (t : trm) : trm * (trm list) =
                   end
              )
        | _, _ ->
-          let s = string_of_dir d in
+          let s = dir_to_string d in
           fail loc ("resolve_explicit_path: direction " ^ s ^ " does not match")
        end
   in

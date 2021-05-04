@@ -3,9 +3,7 @@ open Path
 open Path_constructors
 open Ast_to_c
 open Ast_to_text
-let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
-| [] -> []
-| h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
+open Tools
 
 let failure_expected f = 
   begin try f(); failwith "should have failed"
@@ -140,7 +138,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
                n
             )
         | _, _ ->
-           let s = string_of_dir d in
+           let s = dir_to_string d in
            fail loc ("apply_local_transformation: direction " ^ s ^
                        " does not match")
        end
@@ -148,9 +146,6 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
   in
   aux dl t
 
-(* insert a after rank n in the list *)
-let rec list_insert (n : int) (a : 'a) (al : 'a list) : 'a list =
-  if n < 0 then a :: al else List.hd al :: list_insert (n - 1) a (List.tl al)
 
 (*
   insert inert after the subterm pointed at by dl in t
@@ -832,15 +827,6 @@ let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typva
               apply_local_transformation (local_other_name_aux clog var_type old_var new_var) t dl)
               t 
               epl
-let rec list_remove_at (i : int) (list : 'a list) : 'a list = match list with 
-  | [] -> failwith "Empty list"
-  | x :: xs -> if i = 0 then xs else x :: list_remove_at (i-1) xs 
-
-let list_remove_at_set (ys : int list) (xs : 'a list) : 'a list = List.fold_left (fun acc y -> list_remove_at y acc) xs ys 
-
-let rec insert_sublist_at (sublist : 'a list) (i : int) (xs : 'a list) : 'a list =  match xs with 
-  | [] -> failwith "Empty list"
-  | h :: t -> if i = 0 then sublist @ h :: t else h :: insert_sublist_at sublist (i-1) t 
   
 
 let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm = 

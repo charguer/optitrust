@@ -1,18 +1,10 @@
 open Ast
 open Ast_to_text
 open Ast_to_c
-
+open Tools
 module Json = struct
   open PPrint
-
-(* TODO: move to tools.ml *)
-let document_to_string (d : document) : string =
-  let b = Buffer.create 80 in
-  PPrintEngine.ToBuffer.pretty 0.9 80 b d;
-  Buffer.contents b
-
-  (** Representation of a json object *)
-
+  (* Representation of a json object *)
   type t =
     | Str of string
     | Int of int
@@ -20,12 +12,12 @@ let document_to_string (d : document) : string =
     | List of t list
     | Object of (string * t) list
 
-  (** Smart constructors *)
+  (* Smart constructors *)
 
   let str x = Str x
 
 
-  (** Printing functions *)
+  (* Printing functions *)
   let typ_to_json(typ : typ) : t =
     Str (document_to_string (bquotes (typ_to_doc typ)) )
   
@@ -49,6 +41,13 @@ let document_to_string (d : document) : string =
    match index with 
    | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi
    | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi
+
+  let code_to_js (out : out_channel) (index : int) (ast : trm) : unit = 
+  let src = trm_to_doc ast in 
+  let doc = match index with 
+  | -1 -> string "source"  ^^ equals ^^ bquotes (src) 
+  | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (src)   
+  in PPrintEngine.ToChannel.pretty 0.9 80 out doc
 
 end
 
@@ -75,13 +74,6 @@ let loc_to_json (t : trm) : json =
 
 let typed_var_list_to_json (tv : typed_var list) : json =
   Json.Object ( List.map (fun (v,typ) -> (v, Json.typ_to_json typ)) tv)
-
-
-(* TODO: renamings
-  - file_of_node
-  - string_of_dir
-  - doc_of_add
-*)
 
 let child_to_json (label : string) (child_id : nodeid) : json =
   Json.Object [ ("\"label\"", Json.Str ("\"" ^ label ^"\"")); ("\"id\"", Json.Str child_id ) ]
@@ -275,15 +267,14 @@ let ast_to_json (trm_root : trm) : json =
   assert (id_of_root = "\"node_0\"");
   Json.Object (!result)
 
-(* Convert ast into a json format then print it as a javascript variable inside a javascript file 
-  the index represents the state of the ast after applying i-th transformation
-*)
-
-let ast_to_js (out : out_channel)(index : int) (t : trm) : unit =
-  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js (ast_to_json t) ~index )
-
 
 let ast_json_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_doc (ast_to_json t))
+
+(* Convert ast into a json format then print it as a javascript variable inside a javascript file 
+  the index represents the state of the ast after applying i-th transformation
+*)
+let ast_to_js (out : out_channel)(index : int) (t : trm) : unit =
+  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js (ast_to_json t) ~index )
 
 

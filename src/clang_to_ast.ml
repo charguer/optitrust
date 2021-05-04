@@ -1,7 +1,7 @@
 open Clang.Ast
 open Clang.Bindings
 open Ast
-
+open Tools
 
 (* location of node *)
 let loc_of_node (n : 'a node) : location =
@@ -10,17 +10,12 @@ let loc_of_node (n : 'a node) : location =
   let (filename, start_row,start_column) = Clang.get_presumed_location start_location_of_node in 
   let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in 
   Some(filename,start_row,end_row,start_column,end_column)
-
-
-
-
-
-     
+  
 (* file which contains the node *)
 let file_of_node (n : 'a node) : string =
   match loc_of_node n with
   | Some (filename,_,_,_,_) -> filename
-  | _ -> fail None "file_of_node1: bad location"
+  | _ -> fail None "file_of_node: bad location"
 
 
 

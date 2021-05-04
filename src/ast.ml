@@ -1,4 +1,4 @@
-
+open Tools
 (* file locations: filename, line number *)
 type location = (string * int * int * int * int) option
 
@@ -433,51 +433,7 @@ let rec compute_accesses (t : trm) : trm * (trm_access list) =
      (base, Array_access i :: al)
   | _ -> (t, [])
 
-let (++) = List.append
 
-(* fold left with access to the indices
-  [foldi f a xs] computes  [ f 2 (f 1 (f 0 a x0) x1) x2) ] *)
-let foldi (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
-  let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
-  res
-
-(* maps on functions TODO: find why not reusing maps *)
-module Fun_map = Map.Make(String)
-type 'a funmap = 'a Fun_map.t
-
-(* sets on int lists *)
-module IntList =
-  struct
-    type t = int list
-    let rec compare il il' =
-      match il, il' with
-      | [], [] -> 0
-      | _ :: _, [] -> 1
-      | [], _ :: _ -> -1
-      | i :: il, i' :: il' ->
-         begin match Stdlib.compare i i' with
-         | 0 -> compare il il'
-         | c -> c
-         end
-  end
-module IntListSet = Set.Make(IntList)
-type ilset = IntListSet.t
-
-(* foldi for int list sets *)
-let intl_set_foldi (f : int -> int list -> 'a -> 'a) (ils : ilset)
-  (a : 'a) : 'a =
-  let (_, res) =
-    IntListSet.fold (fun il (i, a) -> (i + 1, f i il a)) ils (0, a)
-  in
-  res
-
-(* helper function for union of maps of int list sets *)
-let ilset_funmap_union_aux (_ : Fun_map.key) (ils : ilset)
-  (ils' : ilset) : ilset option =
-  Some (IntListSet.union ils ils')
-let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
-  Fun_map.union ilset_funmap_union_aux
-let (+@) = ilset_funmap_union
 
 (* map f to t's subterms *)
 let trm_map (f : trm -> trm) (t : trm) : trm =

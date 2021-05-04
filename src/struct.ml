@@ -3,7 +3,7 @@ open Ast_to_c
 open Path
 open Path_constructors
 open Transformations
-
+open Tools
 let make_explicit_record_assignment_aux (clog : out_channel) (field_list : fields) (trm_index : int) (expression_trm : trm) (t : trm) : trm = 
   let log : string = 
     let loc : string = 
@@ -155,11 +155,6 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   | _ -> List.fold_left (fun t dl -> app_transfo t dl) t new_epl
   
 
-let list_remove x xs = List.filter (fun y -> y <> x) xs 
-
-
-let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys 
-
 
 let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : int) (trm_index : int) (t : trm): trm = 
   let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with 
@@ -241,42 +236,6 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
       print_info t.loc "make_implicit_record_assignment: no matching subterm";
       t
     | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl
-
-
-let list_remove x xs = List.filter (fun y -> y <> x) xs 
-
-
-let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys 
-
-let move_fields_after x local_l l = 
-let l = list_remove_set local_l  l in 
-let rec aux acc = function 
-| [] -> acc (* raise an error x not part of the list *)
-| hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl (* local_l @ hd :: acc @ tl *)
-else aux (hd :: acc) tl 
-in aux [] (List.rev l)
-
-(* 
-  - tail recursive approach => more efficient 
-  - non-tail rec => easier to read 
-
-     let rec insert_after x xs l =
-        match l with
-        | [] -> error
-        | y::q -> if x = y then xs@l else y::(insert_after x xs q)
-*)
-
-let move_fields_before x local_l l = 
-  let l = list_remove_set local_l l in 
-  let rec aux acc = function 
-    | [] -> acc
-    | hd :: tl -> 
-        if hd = x
-          then aux (hd :: local_l @ acc) tl 
-          else aux (hd :: acc) tl 
-    in
-  aux [] (List.rev l)
-
 
 let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(t : trm) : trm  = 
     let log : string = 

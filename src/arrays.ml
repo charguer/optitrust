@@ -2,6 +2,7 @@ open Ast
 open Path
 open Ast_to_c
 open Transformations
+open Tools
 (*
   array tiling: transforms an array t[n] into a matrix t[n/b][b] for a fixed
   block size b

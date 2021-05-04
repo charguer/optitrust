@@ -4,6 +4,7 @@ open Path
 open Path_constructors
 open Transformations
 open Declaration
+open Tools
 (*
   instr containing f(arg1, …, argn) is replaced with
   {
@@ -498,6 +499,8 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
       | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl 
       (* Ast_to_text.print_ast ~only_desc:true stdout var_decl; *)
      
+(* ******************************************************* *)
+ (* Auxiliary functions for change_struct_fields function  *)
 (* Find all keys which have value = value *)
 let find_keys value m = 
   Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
@@ -520,7 +523,7 @@ let rec add_keys (lk : var list) (lv : typ list) m  = match (lk ,lv) with
 let rec add_keys_to_map lv llk m = match llk with 
 | [] -> m 
 | hd :: tl -> let m = add_keys  hd lv m in add_keys_to_map lv tl m
-
+(* ******************************************************* *)
 
 
 (*
@@ -530,18 +533,6 @@ let record_get_typed_fields (fields_list, fields_map) =
 *)
 
 
-let rec insert_before x local_l list = match list with 
-| [] -> []
-| hd :: tl -> if hd = x then local_l @ hd :: tl else hd :: (insert_before x local_l tl)
-
-let rec insert_list keys_list temp_field_list field_list1 = match keys_list with 
-| [] -> field_list1
-| hd :: tl -> let field_list1 = insert_before hd (List.hd temp_field_list) field_list1 in insert_list tl (List.tl temp_field_list ) field_list1
-
-let list_remove x xs = List.filter (fun y -> y <> x) xs 
-
-
-let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys 
 
 
 let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1 : trm) (t : trm) : trm =

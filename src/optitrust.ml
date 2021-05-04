@@ -3,7 +3,8 @@ open Ast
 open Ast_to_c
 open Ast_to_text
 open Clang_to_ast
-open Ast_to_json
+open Ast_to_js
+open Tools
 (******************************************************************************)
 (*                             Context management                             *)
 (******************************************************************************)
@@ -246,7 +247,7 @@ let output_js (index : int) (out_prefix : string )(ast : trm) : unit =
   try
     ast_to_js out_js index ast;
     output_string out_js "\n";
-    code_to_js out_js index ast;
+    Json.code_to_js out_js index ast;
     close_out out_js;
 
   with 
