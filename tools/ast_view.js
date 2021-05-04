@@ -101,28 +101,35 @@ function initHandlers() {
 //    console.log("Selected range: ");
 //    console.log(editor.getSelectedLoc());
 // });
-$(document).on('mouseup', '.CodeMirror', function (){
-  // Create a priority queue on which we put all the nodes which contain the selected location
-  let chosen_node = "node_0";
 
-  let selectedLoc = editor.getSelectedLoc();
-  for(const node_id in ast){
-    if(contains(ast[node_id].loc,selectedLoc) && (parseInt(node_id.substring(5)) >= parseInt(chosen_node.substring(5)))){
+function number_of_nodeid(id) { // converts node_243 to 243 as a number
+  return parseInt(id.substring(5));
+}
+
+function loadPathForUserSelection(selectedLoc) {
+  // First, find the deepest node in the AST that fully covers the location
+  let chosen_node = "node_0";
+  for (const node_id in ast) {
+    if(contains(ast[node_id].loc, selectedLoc)
+      && (number_of_nodeid(node_id) >= number_of_nodeid(chosen_node))) {
       chosen_node = node_id;
     }
   }
-  let parentID = ast[chosen_node].parent;
+
+  // Second, we build the path from the root to that node (inclusive)
   let path_to_root = [];
-
-  while (parentID !== "no_parent"){
-    console.log(parentID);
-    path_to_root.unshift(parentID);
-    parentID = ast[parentID].parent;
+  let cur_node = chosen_node;
+  while (cur_node !== "no_parent") {
+    path_to_root.unshift(cur_node);
+    cur_node = ast[cur_node].parent;
   }
-  console.log(path_to_root);
   viewPath(path_to_root);
+}
 
-})
+$(document).on('mouseup', '.CodeMirror', function () {
+  loadPathForUserSelection(editor.getSelectedLoc());
+});
+
 //---------------------------------------------------
 // Auxiliary functions for manipulating html dynamically
 
@@ -169,8 +176,11 @@ function get_child_label(node, id_child) {
 
 function viewDescription(id, node) {
   //console.log(node);
+  if (! ("kind" in node)) {
+    throw new Error("node without kind: " + id);
+  }
   var k = node.kind;
-  
+
   // get all fields in the node description
   var keys = Object.keys(node);
 
@@ -179,7 +189,7 @@ function viewDescription(id, node) {
 
   // start by processing the generic properties
   var labelKind = html_span({'class': 'label-kind', onclick: "updateSelectedNode('" + id + "')"}, k);
-  
+
   var txt = labelKind + " ";
 
   // start by processing the known specific properties
@@ -220,7 +230,7 @@ function viewPathRec(path, target, label, classExtra) {
   //console.log("viewing in " + target + " : "   + path);
 
   // get first node in path, and compute remaining path
-  if (path.length == 0) { 
+  if (path.length == 0) {
     throw new Error("viewPathRec: empty path");
   }
   var id = path.shift();
@@ -235,7 +245,7 @@ function viewPathRec(path, target, label, classExtra) {
   var ctrlMinus = html_span({id: (id+"_minus"), 'class': 'grayed', onclick: "nodeMinus('" + id + "')"}, "&CircleMinus;");
   var ctrl = ctrlPlus + ctrlMinus;
   var ctrlClass = "ast_ctrl";
-  if ((! ("children" in node) || node.children.length == 0) // no children 
+  if ((! ("children" in node) || node.children.length == 0) // no children
      || (node.children.length == 1 && path.length > 0)) { // one child and we explore it in the path
     ctrlClass += " grayed";
   }
@@ -401,6 +411,9 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 
+// TODO: loc_before(pos1,pos2)  // returns whether pos1<=pos2 based on (pos.line, pos.col)
+// TODO: loc_contains(..) { return loc_before(loc1.start , ) ... }
+
 // This function returns true if loc2 can be covered with loc1
 function contains(loc1,loc2){
   if(loc1 === ""){
@@ -467,25 +480,17 @@ function scrollToFirstMark() {
   if (ms.length < 1) return;
   let loc = ms[0].find()
   editor.scrollIntoView(loc, 100);
-
 }
 */
 
-
+//---------------------------------------------------
 
 /* TODO
-   - generate cpp code from ocaml (use base64 encoding?) (or assume no backtick or backslash in cpp code )
-    var source_code = `
-      ... (* put the contents like out_prog function is doing *)  
-    `;
-   - load cpp code in the html page
-   - load the ast and customize the display
-   - when user selects a range, construct the "path" and call viewPath on it
-        -- get loc from the event
-        -- first iterate over "ast" and find the deepest node (the one with biggest number) (+ (id.substr(5)))
-           such that node.loc is covering the user selection (comparion function for {line: , col: })
-        -- when node is found, you walk up the .parent fields, all the way to the root (until parent is -1 or no parent)
-        -- at you walk up, fill an array "path" with the id  (use unshift, in your while loop)
-   - when user clicks on a "kind" label, highlight the location in the code
+   - load the ast and customize the display:
+      - if value is empty, don't show the key
+      - don't show loc, is_instr
+   - fix off by one column
+   - check all locations match well in highlight
+   - check user selection targets the right node each time
 */
 

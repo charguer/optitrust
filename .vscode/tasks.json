@@ -82,11 +82,10 @@
         {
           "label": "Compile and run current",
           "type":"shell",
-          "command":"./.vscode/run_make_foo.sh",
-          "args": [
-              "${fileDirname}",
-              "${fileBasenameNoExtension}",
-          ]
+          "command":"make ${fileBasenameNoExtension}.out",
+          "options": {
+            "cwd": "${fileDirname}"
+          },
         },
         {
           "label": "Compile the full current folder",
@@ -130,15 +129,13 @@
               ""
           ]
         },
-        {
+        { // LATER: if current folder contains exp_out, we could also produce the .chk
           "label": "Recompile then compile and run current",
           "type":"shell",
-          "command":"./.vscode/run_make_foo.sh",
-          "args": [
-              "${fileDirname}",
-              "${fileBasenameNoExtension}",
-              "recompile_optitrust_yes"              
-          ]
+          "command":"make optitrust; make ${fileBasenameNoExtension}.out",
+          "options": {
+            "cwd": "${fileDirname}"
+          },
         },
         {
           "label": "Compile the full current folder",

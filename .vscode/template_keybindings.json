@@ -13,7 +13,7 @@
     "args": "View diff",
   }, // make optitrust && view view_diff
   {
-    // Compile and run the current file in null
+    // Compile and run the current file in full
     "key":"f9",
     "command": "workbench.action.tasks.runTask",
     "args": "Compile and run current",
@@ -38,7 +38,7 @@
     "args": "Recompile and view diff",
   },
   {
-    // First recompile then compile and run the current file in null
+    // First recompile then compile and run the current file in full
     "key":"shift+f9",
     "command": "workbench.action.tasks.runTask",
     "args": "Recompile then compile and run current",

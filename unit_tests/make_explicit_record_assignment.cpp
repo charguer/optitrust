@@ -16,7 +16,7 @@ vect f() { // TODO: same issue as function inlining
 int main() {
   vect p = {0,0};
   vect b = p;
-  
+
   vect d;
   d = p;
 
@@ -27,7 +27,7 @@ int main() {
   // TODO LATER: demo of  insert_decl ~name:"x" ~body:"f()"
   //  what would be nice is to  insert_decl ~name:"x" ~body_path:[cVarDef "b"; cExpr ]
   obj a = {0,{0,0},0};
-  
+
   vect t[2];
   vect p2 = p;
   t[0] = p2;
@@ -42,5 +42,5 @@ int main() {
  }
 
   a.pos = p;
- 
+
 }

@@ -69,7 +69,8 @@ td.pane {
 }
 
 .grayed {
-  color: gray;
+  /*color: gray;*/
+  display:none;
 }
 
 .label-kind {

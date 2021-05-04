@@ -7,10 +7,10 @@ open Tools
 let loc_of_node (n : 'a node) : location =
   let start_location_of_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
   let end_location_of_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
-  let (filename, start_row,start_column) = Clang.get_presumed_location start_location_of_node in 
-  let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in 
+  let (filename, start_row,start_column) = Clang.get_presumed_location start_location_of_node in
+  let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in
   Some(filename,start_row,end_row,start_column,end_column)
-  
+
 (* file which contains the node *)
 let file_of_node (n : 'a node) : string =
   match loc_of_node n with
@@ -61,9 +61,9 @@ let add_var (s : string) : unit =
   Stack.push (kind, (s :: sl)) heap_vars
 
 (* compute the sequence of delete instructions at the end of a scope *)
-let delete_list (sl : string list) : trm list =
+let delete_list ?(loc : location = None) (sl : string list) : trm list =
   List.map
-    (fun s -> trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+    (fun s -> trm_apps ~loc ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
         (trm_unop (Unop_delete false)) [trm_var s])
     sl
 
@@ -71,17 +71,21 @@ let delete_list (sl : string list) : trm list =
   scope closing instruction
   t represents the part of the program in the current scope
  *)
-let close_scope (t : trm) : trm =
+let close_scope ?(loc : location = None) (t : trm) : trm =
+  let loc_end = match loc with
+    | None => None
+    | Some (f,line1,col1,line2,col2) => Some (f,line2,(min 1 (col2-1)),line2,col2)
+    end in
   match Stack.pop heap_vars with
   | (_, []) -> t
   | (_, sl) ->
-    let tl = delete_list sl in
-    trm_seq ~annot:(Some Delete_instructions) (t :: tl)
+    let tl = delete_list ~loc:loc_end sl in
+    trm_seq ~loc:loc_end ~annot:(Some Delete_instructions) (t :: tl)
 
 (* manage a new scope while translating a statement *)
-let compute_scope (kind : scope_kind) (f : unit -> trm) : trm =
+let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm) : trm =
   open_scope kind;
-  close_scope (f ())
+  close_scope ~loc (f ())
 
 (*
   put the appropriate sequence of delete instructions before a return
@@ -253,7 +257,7 @@ and translate_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
   match s.desc with
   | Compound sl ->
-    compute_scope Other_scope
+    compute_scope ~loc Other_scope
       (fun () -> trm_seq ~loc (List.map translate_stmt sl))
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
@@ -436,12 +440,12 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
     trm_lit ~loc (Lit_string s)
 
 
-  | InitList el -> 
+  | InitList el ->
     (* maybe typ is already the value of tt ---let tt = translate_qual_type ~loc t in *)
-    let tt = match typ with 
+    let tt = match typ with
       | None -> fail loc ("unable to obtain type of an initialization list")
-      | Some ty -> ty 
-    in 
+      | Some ty -> ty
+    in
     let tl = List.map translate_expr el in
     begin match tt.ty_desc with
       | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
@@ -451,7 +455,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
       | _ ->
         fail loc ("translate_decl: initialisation lists only " ^
                   "allowed for struct and array")
-    end 
+    end
 
   | UnaryExpr {kind = k; argument = a} ->
     begin match k with
@@ -588,7 +592,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
     begin match tf.desc with
     (* TODO: later think about other cases to handle here *)
     | Trm_var x when Str.string_match (Str.regexp "overloaded=") x 0 ->
-        begin match el with 
+        begin match el with
         | [tl;tr] -> trm_set ~loc ~is_instr (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
         | _ -> fail loc "translate_expr: overloaded= expects two arguments"
         end
@@ -640,13 +644,13 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
               case3: b was a const  --like in case 1.
 
               b->f
-              b.f 
+              b.f
 
               case1: b.f   is struct_get f b,   b->f   is just ( * b).f  meaning (struct_get f (get b))
-              case2: b.f   translates to  b->f 
-                     b->f   translates to ( * b) -> f            
+              case2: b.f   translates to  b->f
+                     b->f   translates to ( * b) -> f
                      the call to translate base already gives you "b" as "*b"
-              
+
             *)
             begin match base.desc with
               | Trm_var x when not (is_heap_var x) ->
@@ -807,7 +811,7 @@ and translate_decl_list (dl : decl list) : trm list =
                  let ft = translate_qual_type ~loc q in
                  let al = List.map (translate_attribute loc) al in
                  let m' = Field_map.add fn {ft with ty_attributes = al} m in
-                 let fs' = fn :: fs in 
+                 let fs' = fn :: fs in
                  (fs',m')
                | _ ->
                  fail loc ("translate_decl_list: only fields are allowed " ^
@@ -903,7 +907,7 @@ and translate_decl (d : decl) : trm =
         | None ->
           if const then trm_lit ~loc Lit_uninitialized
           else trm_prim ~loc (Prim_new tt)
-        | Some e -> 
+        | Some e ->
           begin match e.desc with
             | InitList el -> (* {e1,e2,e3} *)
               let tl = List.map translate_expr el in

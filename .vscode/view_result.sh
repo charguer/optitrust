@@ -13,6 +13,10 @@ VIEW=$4 # should be view_diff or view_result
 RECOMPILE_OPTITRUST=$5 # should be recompile_optitrust_yes or recompile_optitrust_no
 OPTIONS=$6
 
+# LATER: if a ${FILEBASE}_exp.cpp file is present, export it into the JS file,
+# so that the browser can report on the differences between _out.cpp and _exp.cpp.
+
+
 #UPDATE=noupdate
 
 # Path to .vscode folder and src folder and src/src folder
@@ -31,6 +35,7 @@ fi
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
 
+# NOTE: this could be removed if we use the VScode command to run "make optitrust" first.
 # Run make update in working folder if requested
 if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   echo "recompile lib"
