@@ -122,6 +122,17 @@ let move_fields_before x local_l l =
           else aux (hd :: acc) tl 
     in
   aux [] (List.rev l)
+
+(* return the last element of a list together with its index *)
+let last (l : 'a list) : int * 'a =
+  let rec aux n = function
+    | [] -> failwith "last: empty list"
+    | [a] -> (n, a)
+    | _ :: b :: al -> aux (n + 1) (b :: al)
+  in
+  aux 0 l
+
+
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in 
@@ -129,5 +140,13 @@ let initialization (out_prefix : string) : unit =
     let content = PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "contents" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
     let source =  PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "source" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
     PPrintEngine.ToChannel.pretty 0.9 80 out_js content;
-    PPrintEngine.ToChannel.pretty 0.9 80 out_js source;
+    PPrintEngine.ToChannel.pretty 0.9 80 out_js source
 
+(* before operator *)
+    let get_index (a : 'a) (al : 'a list) : int option =
+      let rec aux (n : int) = function
+        | [] -> None
+        | a' :: _ when a = a' -> Some n
+        | _ :: al -> aux (n + 1) al
+      in
+      aux 0 al

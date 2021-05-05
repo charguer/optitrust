@@ -6,6 +6,8 @@ open Tools
 (*                                  Path AST                                  *)
 (******************************************************************************)
 
+
+     
 (* explicit path in trm ast = list of directions *)
 (* todo: find better name (trm_path?) *)
 type expl_path = dir list
@@ -151,7 +153,7 @@ let rec compare_expl_path (dl : expl_path) (dl' : expl_path) : int =
   matching, and the kind of expression to match (any, instruction, or
   subexpression)
  *)
-(* todo: replace exact with standard name *)
+(* TODO: replace exact with standard name *)
 type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool}
 
 (* a path is a list of constraints to identify subterms *)
@@ -266,17 +268,38 @@ and abort_kind =
   | Break
   | Continue
 
-let string_of_regexp (r : rexp) : string =
+(* Relative path to term *)
+type target_relative =
+    | TargetAt (* default value *)
+    | TargetFront
+    | TargetTail
+    | TargetBefore
+    | TargetAfter
+
+(* Number of targets to match *)
+type target_nb =
+    | ExpectedOne  (* = 1 occurence, the default value *)
+    | ExpectedNb of int (* exactly n occurrences *)
+    | ExpectedMulti    (* > 0 number of occurrences *)
+    | ExpectedAnyNb  (* any number of occurrences *)
+
+(* Advanced path search *)
+type target_struct = {
+   target_path: path; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
+   target_relative: target_relative;
+   target_nb: target_nb; }
+
+let regexp_to_string (r : rexp) : string =
   (if r.exact then "Exact " else "Sub ") ^
     (if r.only_instr then "OnlyInstr \"" else "\"") ^ r.desc ^ "\""
 
-let rec string_of_constraint (c : constr) : string =
+let rec constraint_to_string (c : constr) : string =
   match c with
   | Constr_strict -> "Strict"
   | Constr_dir d -> dir_to_string d
   | Constr_list (p_elt, _) -> "List (" ^ path_to_string p_elt ^ ")"
   | Constr_include s -> "Include " ^ s
-  | Constr_regexp r -> "Regexp " ^ string_of_regexp r
+  | Constr_regexp r -> "Regexp " ^ regexp_to_string r
   | Constr_for (p_init, p_cond, p_step, p_body) ->
      let s_init = path_to_string p_init in
      let s_cond = path_to_string p_cond in
@@ -294,25 +317,25 @@ let rec string_of_constraint (c : constr) : string =
      "If (" ^ s_cond ^ ", " ^ s_then ^ ", " ^ s_else ^ ")"
   | Constr_decl_var (name, p_body) ->
      let s_name =
-       match name with | None -> "_" | Some r -> string_of_regexp r
+       match name with | None -> "_" | Some r -> regexp_to_string r
      in
      let s_body = path_to_string p_body in
      "Decl_var (" ^ s_name ^ ", " ^ s_body ^ ")"
   | Constr_decl_fun (name, (p_args, _), p_body) ->
      let s_name =
-       match name with | None -> "_" | Some r -> string_of_regexp r
+       match name with | None -> "_" | Some r -> regexp_to_string r
      in
      let s_args = path_to_string p_args in
      let s_body = path_to_string p_body in
      "Decl_fun (" ^ s_name ^ ", " ^ s_args ^ ", " ^ s_body ^ ")"
   | Constr_decl_type name ->
      let s_name =
-       match name with | None -> "_" | Some r -> string_of_regexp r
+       match name with | None -> "_" | Some r -> regexp_to_string r
      in
      "Decl_type " ^ s_name
   | Constr_decl_enum (name, c_const) ->
      let s_name =
-       match name with | None -> "_" | Some r -> string_of_regexp r
+       match name with | None -> "_" | Some r -> regexp_to_string r
      in
      let s_const =
        match c_const with
@@ -322,7 +345,7 @@ let rec string_of_constraint (c : constr) : string =
             List.map
               (fun (n, p) ->
                 let s_n =
-                  match n with | None -> "_" | Some r -> string_of_regexp r
+                  match n with | None -> "_" | Some r -> regexp_to_string r
                 in
                 let s_p = path_to_string p in
                 "(" ^ s_n ^ ", " ^ s_p ^ ")"
@@ -336,7 +359,7 @@ let rec string_of_constraint (c : constr) : string =
      let s = path_to_string p_elt in
      "Seq (" ^ s ^ ")"
   | Constr_var name ->
-     "Var " ^ (match name with | None -> "_" | Some r -> string_of_regexp r)
+     "Var " ^ (match name with | None -> "_" | Some r -> regexp_to_string r)
   | Constr_lit l ->
      let s =
        begin match l with
@@ -354,13 +377,13 @@ let rec string_of_constraint (c : constr) : string =
      "App (" ^ s_fun ^ ", " ^ s_args ^ ")"
   | Constr_label (so, p_body) ->
      let s_label =
-       match so with | None -> "_" | Some r -> string_of_regexp r
+       match so with | None -> "_" | Some r -> regexp_to_string r
      in
      let s_body = path_to_string p_body in
      "Label (" ^ s_label ^ ", " ^ s_body ^ ")"
   | Constr_goto so ->
      let s_label =
-       match so with | None -> "_" | Some r -> string_of_regexp r
+       match so with | None -> "_" | Some r -> regexp_to_string r
      in
      "Goto " ^ s_label
   | Constr_return p_res ->
@@ -379,7 +402,7 @@ let rec string_of_constraint (c : constr) : string =
      let s_accesses =
        match ca with
        | None -> "_"
-       | Some cal -> string_of_list (List.map string_of_access cal)
+       | Some cal -> string_of_list (List.map access_to_string cal)
      in
      let s_base = path_to_string p_base in
      "Access (" ^ s_accesses ^ ", " ^ s_base ^ ")"
@@ -407,16 +430,16 @@ let rec string_of_constraint (c : constr) : string =
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
 
 and path_to_string (p : path) : string =
-  string_of_list (List.map string_of_constraint p)
+  string_of_list (List.map constraint_to_string p)
 
-and string_of_access (ca : constr_access) : string =
+and access_to_string (ca : constr_access) : string =
   match ca with
   | Array_access p_index ->
      let s_index = path_to_string p_index in
      "Array_access " ^ s_index
   | Struct_access so ->
      let s_field =
-       match so with | None -> "_" | Some r -> string_of_regexp r
+       match so with | None -> "_" | Some r -> regexp_to_string r
      in
      "Struct_access " ^ s_field
   | Any_access -> "Any_access"
@@ -424,6 +447,7 @@ and string_of_access (ca : constr_access) : string =
 (******************************************************************************)
 (*                        Smart constructors for paths                        *)
 (******************************************************************************)
+let (@@) (l:'a list) = List.flatten l     
 
 module Path_constructors =
   struct
@@ -475,7 +499,7 @@ module Path_constructors =
 
     let cList_int ?(strict : bool = false) (pl : path list)
       (next : bool list -> int list) : path =
-      strictify strict [Constr_list (List.flatten pl, next)]
+      strictify strict [Constr_list ((@@) pl, next)]
 
     (* allow to use boolean functions *)
     let cList ?(strict : bool = false) (pl : path list)
@@ -487,7 +511,7 @@ module Path_constructors =
            if b then n :: il else il
       in
       strictify strict
-        [Constr_list (List.flatten pl, fun bl -> int_of_bool_list 0 (next bl))]
+        [Constr_list ((@@) pl, fun bl -> int_of_bool_list 0 (next bl))]
 
     (* continue on the first matching instruction *)
     let cFirst ?(strict : bool = false) (pl : path list) : path =
@@ -521,24 +545,17 @@ module Path_constructors =
       TODO: add documentation
      *)
     let (>>) (pl : path list) (p_next : path list) : path =
-      (cList pl after_bool) ++ (List.flatten p_next)
+      (cList pl after_bool) ++ ((@@) p_next)
     (* idem but only for the instruction just after *)
     let (>>!) (pl : path list) (p_next : path list) : path =
-      (cList pl (after_bool ~strict:true)) ++ (List.flatten p_next)
+      (cList pl (after_bool ~strict:true)) ++ ((@@) p_next)
     (* the next two operators add the strict modifier to cList *)
     let (!>>) (pl : path list) (p_next : path list) : path =
-      (cList ~strict:true pl after_bool) ++ (List.flatten p_next)
+      (cList ~strict:true pl after_bool) ++ ((@@) p_next)
     let (!>>!) (pl : path list) (p_next : path list) : path =
-      (cList ~strict:true pl (after_bool ~strict:true)) ++ (List.flatten p_next)
+      (cList ~strict:true pl (after_bool ~strict:true)) ++ ((@@) p_next)
 
-    (* before operator *)
-    let get_index (a : 'a) (al : 'a list) : int option =
-      let rec aux (n : int) = function
-        | [] -> None
-        | a' :: _ when a = a' -> Some n
-        | _ :: al -> aux (n + 1) al
-      in
-      aux 0 al
+  
     let before_aux ?(strict : bool = false) (bl : bool list) : int list =
       match get_index true bl with
       | None -> []
@@ -546,16 +563,16 @@ module Path_constructors =
       | Some n -> if strict then [n - 1] else List.init n (fun m -> m)
     (* the continuation applies to all previous instructions *)
     let (<<) (pl : path list) (p_next : path list) : path =
-      (cList_int pl before_aux) ++ (List.flatten p_next)
+      (cList_int pl before_aux) ++ ((@@) p_next)
     (* idem but only for the instruction just before *)
     let (<<!) (pl : path list) (p_next : path list) : path =
-      (cList_int pl (before_aux ~strict:true)) ++ (List.flatten p_next)
+      (cList_int pl (before_aux ~strict:true)) ++ ((@@) p_next)
     (* the next two operators add the strict modifier to cList *)
     let (!<<) (pl : path list) (p_next : path list) : path =
-      (cList_int ~strict:true pl before_aux) ++ (List.flatten p_next)
+      (cList_int ~strict:true pl before_aux) ++ ((@@) p_next)
     let (!<<!) (pl : path list) (p_next : path list) : path =
       (cList_int ~strict:true pl (before_aux ~strict:true)) ++
-      (List.flatten p_next)
+      ((@@) p_next)
 
     let cInclude ?(strict : bool = false) (s : string) : path =
       strictify strict [Constr_include s]
@@ -588,12 +605,9 @@ module Path_constructors =
     let cVarDef ?(strict : bool = false) ?(name : string = "")
       ?(exact : bool = true) ?(body : path list = []) (_ : unit) : path =
       let ro = rexp_opt_of_string ~exact name in
-      let p_body = List.flatten body in
+      let p_body = (@@) body in
       strictify strict [Constr_decl_var (ro, p_body)]
 
-    
-     let (@@) (l:path list) = List.flatten l     
-    (* todo: notation for List.flatten *)
     let cFor ?(strict : bool = false) ?(init : path list = [])
       ?(cond : path list = []) ?(step : path list = []) ?(body : path list = []) ?(name : string = "")
       (_ : unit) : path =
@@ -609,15 +623,15 @@ module Path_constructors =
 
     let cWhile ?(strict : bool = false) ?(cond : path list = [])
       ?(body : path list = []) (_ : unit) : path =
-      let p_cond = List.flatten cond in
-      let p_body = List.flatten body in
+      let p_cond = (@@) cond in
+      let p_body = (@@) body in
       strictify strict [Constr_while (p_cond, p_body)]
 
     let cIf ?(strict : bool = false) ?(cond : path list = [])
       ?(then_ : path list = []) ?(else_ : path list = []) (_ : unit) : path =
-      let p_cond = List.flatten cond in
-      let p_then = List.flatten then_ in
-      let p_else = List.flatten else_ in
+      let p_cond = (@@) cond in
+      let p_then = (@@) then_ in
+      let p_else = (@@) else_ in
       strictify strict [Constr_if (p_cond, p_then, p_else)]
 
     (* by default an empty name is no name *)
@@ -628,8 +642,8 @@ module Path_constructors =
       ?(validate : bool list -> bool = fun _ -> true) ?(body : path list = [])
       (_ : unit) : path =
       let ro = rexp_opt_of_string ~exact name in
-      let p_args = List.flatten args in
-      let p_body = List.flatten body in
+      let p_args = (@@) args in
+      let p_body = (@@) body in
       strictify strict [Constr_decl_fun (ro, (p_args, validate), p_body)]
 
     (* toplevel fun declaration *)
@@ -679,7 +693,7 @@ module Path_constructors =
         | _ ->
            let cec =
              List.map
-               (fun (n, pl) -> (rexp_opt_of_string ~exact n, List.flatten pl))
+               (fun (n, pl) -> (rexp_opt_of_string ~exact n, (@@) pl))
                constants
            in
            Some cec
@@ -688,7 +702,7 @@ module Path_constructors =
 
     let cSeq ?(strict : bool = false) ?(args : path list = [])
       ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : path =
-      let p_args = List.flatten args in
+      let p_args = (@@) args in
       strictify strict [Constr_seq (p_args, validate)]
 
     let cVar ?(strict : bool = false) ?(name : string = "")
@@ -713,19 +727,19 @@ module Path_constructors =
       let exception Argument_Error  of string in  
       let p_fun =
       match name, fun_ with 
-      | "",_ -> List.flatten fun_ 
+      | "",_ -> (@@) fun_ 
       | _, [] -> cVar ~strict:true ~name ()
       | _,_ ->  raise (Argument_Error "Can't provide both the path and the name of the function")
       
       
       in
-      let p_args = List.flatten args in
+      let p_args = (@@) args in
       strictify strict [Constr_app (p_fun, (p_args, validate))]
 
     let cLabel ?(strict : bool = false) ?(label : string = "")
       ?(exact : bool = true) ?(body : path list = []) (_ : unit) : path =
       let ro = rexp_opt_of_string ~exact label in
-      let p_body = List.flatten body in
+      let p_body = (@@) body in
       strictify strict [Constr_label (ro, p_body)]
 
     let cGoto ?(strict : bool = false) ?(label : string = "")
@@ -735,7 +749,7 @@ module Path_constructors =
 
     let cReturn ?(strict : bool = false) ?(res : path list = [])
       (_ : unit) : path =
-      let p_res = List.flatten res in
+      let p_res = (@@) res in
       strictify strict [Constr_return p_res]
 
     let cAbort ?(strict : bool = false) ?(kind : abort_kind = Any)
@@ -753,14 +767,14 @@ module Path_constructors =
      *)
     let cAccesses ?(strict : bool = false) ?(base : path list = [])
       ?(accesses : constr_access list = []) (_ : unit) : path =
-      let p_base = List.flatten base in
+      let p_base = (@@) base in
       let accesses =
         match accesses with | [] -> None | cal -> Some (List.rev cal)
       in
       strictify strict [Constr_access (p_base, accesses)]
 
     let cIndex ?(index : path list = []) (_ : unit) : constr_access =
-      let p_index = List.flatten index in
+      let p_index = (@@) index in
       Array_access p_index
 
     let cField ?(field : string = "") ?(exact : bool = true)
@@ -773,24 +787,24 @@ module Path_constructors =
     (* the empty list is interpreted as no constraint on the cases *)
     let cSwitch ?(strict : bool = false) ?(cond : path list = [])
       ?(cases : (case_kind * (path list)) list = []) (_ : unit) : path =
-      let p_cond = List.flatten cond in
+      let p_cond = (@@) cond in
       let c_cases =
         match cases with
         | [] -> None
-        | _ -> Some (List.map (fun (k, pl) -> (k, List.flatten pl)) cases)
+        | _ -> Some (List.map (fun (k, pl) -> (k, (@@) pl)) cases)
       in
       strictify strict [Constr_switch (p_cond, c_cases)]
 
     let cCase ?(value : path list = []) (_ : unit) : case_kind =
       match value with
       | [] -> Case_any
-      | _ -> Case_val (List.flatten value)
+      | _ -> Case_val ((@@) value)
 
     let cDefault : case_kind = Case_default
 
     let cSet ?(strict : bool = false) ?(lhs : path list = [])
       ?(rhs : path list = []) (_ : unit) : path =
-      List.flatten
+      (@@)
         [
           (* first check that lhs is the first of two arguments *)
           cApp ~strict ~args:lhs
@@ -1206,7 +1220,7 @@ and resolve_constraint (c : constr) (p : path) (t : trm) : expl_path list =
   | c when check_constraint c t -> resolve_path p t
   | _ ->
      print_info loc "resolve_constraint: constraint %s does not hold\n"
-       (string_of_constraint c);
+       (constraint_to_string c);
      []
 
 (* call resolve_path on subterms of t if possible *)

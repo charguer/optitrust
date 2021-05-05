@@ -787,6 +787,7 @@ let get_context (ctx : context) (dl : expl_path) (t : trm) : string =
   let (_, decl_l) = resolve_explicit_path dl t in
   ctx.includes ^ ast_to_string (trm_seq ~annot:(Some No_braces) decl_l)
 
+
 let tile_array ?(replace_top : bool = false)
   ?(name : var -> var = fun x -> x ^ "_tiled") ?(block_name : typvar = "")
   ~block_size:(b : string) (x : typvar) : unit =
