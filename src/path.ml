@@ -77,7 +77,8 @@ let dir_to_string (d : dir) : string =
      in
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
 
-let string_of_list ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : string list) : string =
+
+let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : string list) : string =
   let rec aux = function
     | [] -> ""
     | [s] -> s
@@ -85,8 +86,9 @@ let string_of_list ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : strin
   in
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
+
 let string_of_explicit_path (dl : path) : string =
-  string_of_list (List.map dir_to_string dl)
+  list_to_string (List.map dir_to_string dl)
 
 (*
   comparison functions for path sorting
@@ -294,7 +296,7 @@ type target_simple = target (* Without ConstrRelative, ConstrOccurences, ConstrC
 
 (* Advanced path search *)
 type target_struct = {
-   target_path: target; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
+   target_path: target_simple; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
    target_relative: target_relative;
    target_occurences: target_occurences; }
 
@@ -312,7 +314,7 @@ let target_flatten(tg : target) : target =
 let target_to_target_struct(tg : target) : target_struct =
   let tg = target_flatten tg in 
   let relative = ref None in 
-  let occurences = ref 0 in
+  let occurences = ref None in
   let process_constr (c : constr) : unit =
     match c with 
     | ConstrRelative tr ->
@@ -322,7 +324,7 @@ let target_to_target_struct(tg : target) : target_struct =
       end 
     | ConstrOccurences oc -> 
       begin match !occurences with
-      | 0 -> occurences := oc;
+      | None -> occurences := Some oc;
       | _ -> fail None "ConstrOccurences provide twice in path"
       end
     | _ -> ()
@@ -332,7 +334,7 @@ let target_to_target_struct(tg : target) : target_struct =
    (* Return a target_struct *)
    {   target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tg;
        target_relative = begin match !relative with | None -> TargetAt | Some tg -> tg end;
-       target_occurences = begin match !occurences with | 0 -> ExpectedOne | oc -> oc end; 
+       target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; 
    }
 
 let regexp_to_string (r : rexp) : string =
@@ -397,7 +399,7 @@ let rec constraint_to_string (c : constr) : string =
               )
               np_l
           in
-          string_of_list sl
+          list_to_string sl
      in
      "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
   | Constr_seq (p_elt, _) ->
@@ -447,7 +449,7 @@ let rec constraint_to_string (c : constr) : string =
      let s_accesses =
        match ca with
        | None -> "_"
-       | Some cal -> string_of_list (List.map access_to_string cal)
+       | Some cal -> list_to_string (List.map access_to_string cal)
      in
      let s_base = target_to_string p_base in
      "Access (" ^ s_accesses ^ ", " ^ s_base ^ ")"
@@ -470,12 +472,31 @@ let rec constraint_to_string (c : constr) : string =
               )
               cl
           in
-          string_of_list sl
+          list_to_string sl
      in
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
+  | ConstrRelative tr ->
+    begin match tr with 
+    | TargetAt -> "TargetAt"
+    | TargetFirst -> "TargetFirst"
+    | TargetLast -> "TargetLast"
+    | TargetBefore -> "TargetBefore"
+    | TargetAfter -> "TargetAfter"
+    end 
+  | ConstrOccurences oc ->
+    begin match oc with 
+    | ExpectedOne -> "ExpectedOne"
+    | ExpectedNb n-> "ExpectedNb " ^ string_of_int(n)
+    | ExpectedMulti -> "ExpectedMulti"
+    | ExpectedAnyNb -> "ExpectedAnyNb"
+    end
+  | ConstrChain cl ->
+    let string_cl = List.map constraint_to_string cl in 
+    list_to_string string_cl
 
-and target_to_string (p : target) : string =
-  string_of_list (List.map constraint_to_string p)
+
+and target_to_string (tg : target) : string =
+  list_to_string (List.map constraint_to_string tg)
 
 and access_to_string (ca : constr_access) : string =
   match ca with
@@ -492,6 +513,8 @@ and access_to_string (ca : constr_access) : string =
 (******************************************************************************)
 (*                        Smart constructors for targets                        *)
 (******************************************************************************)
+
+(* TODO: Remove all the occurrences of List.flatten they are not needed anymore*)
 let (@@) (l:'a list) = List.flatten l     
 
 module Path_constructors =
@@ -555,12 +578,12 @@ module Path_constructors =
     let cEnumConstVal : enum_const_dir = Enum_const_val
 
     (* constraints *)
-    let cList_int (pl : target list)
+    let cList_int (tgl : target list)
       (next : bool list -> int list) : target =
-       [Constr_list ((@@) pl, next)]
+       [Constr_list ((@@) tgl, next)]
 
     (* allow to use boolean functions *)
-    let cList (pl : target list)
+    let cList (tgl : target list)
       (next : bool list -> bool list) : target =
       let rec int_of_bool_list (n : int) = function
         | [] -> []
@@ -569,16 +592,16 @@ module Path_constructors =
            if b then n :: il else il
       in
       
-        [Constr_list ((@@) pl, fun bl -> int_of_bool_list 0 (next bl))]
+        [Constr_list ((@@) tgl, fun bl -> int_of_bool_list 0 (next bl))]
 
     (* continue on the first matching instruction *)
-    let cFirst (pl : target list) : target =
+    let cFirst (tgl : target list) : target =
       let rec next = function
         | [] -> []
         | true :: bl -> true :: List.map (fun _ -> false) bl
         | false :: bl -> false :: next bl
       in
-      cList pl next
+      cList tgl next
 
     (* after operator *)
     (*
@@ -844,7 +867,7 @@ module Path_constructors =
   end
 
 (******************************************************************************)
-(*                              Path resolution                               *)
+(*                              Target resolution                               *)
 (******************************************************************************)
 
 (*
@@ -1139,8 +1162,8 @@ and check_enum_const (cec : constr_enum_const)
        cnp_l
        xto_l
 
-(* check if target p leads to at least one subterm of t *)
-and check_target (p : target) (t : trm) : bool =
+(* check if target tr leads to at least one subterm of t *)
+and check_target (tr : target) (t : trm) : bool =
   match resolve_target p t with
   | [] -> false
   | _ -> true
@@ -1151,16 +1174,15 @@ and check_target (p : target) (t : trm) : bool =
   another target that appears after it in the list. Guaranteed by the call to
   sort_unique
  *)
-and resolve_target (p : target)
+and resolve_target (tr : target)
   (t : trm) : path list =
   let epl =
-    match p with
-    (* end of the path, we stop *)
+    match tr with
     | [] -> [[]]
     
-    | c :: p ->
-       let dll = resolve_constraint c p t in
-        (explore_in_depth (c :: p) t) ++ dll
+    | c :: tr ->
+       let dll = resolve_constraint c tr t in
+        (explore_in_depth (c :: tr) t) ++ dll
   in
   List.sort_uniq compare_path epl
 

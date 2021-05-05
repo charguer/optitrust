@@ -142,6 +142,13 @@ let last (l : 'a list) : int * 'a =
         | _ :: al -> aux (n + 1) al
       in
       aux 0 al
+let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : string list) : string =
+  let rec aux = function
+    | [] -> ""
+    | [s] -> s
+    | s1 :: s2 :: sl -> s1 ^ sep ^ " " ^ aux (s2 :: sl)
+  in
+  (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
 
 (* Initialize a two arrays for the json ast and source code *)
