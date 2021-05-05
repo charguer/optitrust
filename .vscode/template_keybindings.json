@@ -2,7 +2,7 @@
 [
   {
     // View the state at the end of the current line
-    "key": "f5",
+    "key": "ctrl+f6",
     "command": "workbench.action.tasks.runTask",
     "args": "View state",
   },
@@ -13,7 +13,7 @@
     "args": "View diff",
   }, // make optitrust && view view_diff
   {
-    // Compile and run the current file in full
+    // Compile and run the current file in null
     "key":"f9",
     "command": "workbench.action.tasks.runTask",
     "args": "Compile and run current",
@@ -26,7 +26,7 @@
 
   {
     // First recompile optitrust then view the state at the end of the current line
-    "key": "shift+f5",
+    "key": "ctrl+shift+f6",
     "command": "workbench.action.tasks.runTask",
     "args": "Recompile and view state",
   },
@@ -38,7 +38,7 @@
     "args": "Recompile and view diff",
   },
   {
-    // First recompile then compile and run the current file in full
+    // First recompile then compile and run the current file in null
     "key":"shift+f9",
     "command": "workbench.action.tasks.runTask",
     "args": "Recompile then compile and run current",
@@ -49,7 +49,7 @@
     "command": "workbench.action.tasks.runTask",
     "args": "First recompile optitrust then compile the full current folder",
   },
-  // SRC SPECIFIC BINDINGS
+  // SRC SPECIFIC BINDINGS******************************************************************
    {
     "key": "f5",
     "command": "workbench.action.tasks.runTask",
@@ -78,12 +78,12 @@
     "args": "Compile and build everything",
     "when": "resourceDirname =~ /^.*\/verified_transfo\/src\/src$/"
   },
-
-  { /// DEPRECATED
-    "key": "ctrl+f6",
-    "command": "workbench.action.tasks.runTask",
-    "args": "Execute transformation script (dump trace)"
-  },
+  
+  // { /// DEPRECATED
+  //   "key": "ctrl+f6",
+  //   "command": "workbench.action.tasks.runTask",
+  //   "args": "Execute transformation script (dump trace)"
+  // },
   {
     "key": "ctrl+tab ctrl+up",
     "command": "workbench.action.navigateUp"

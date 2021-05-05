@@ -24,13 +24,6 @@ VSCODE=`pwd`
 SRCFOLDER=`cd .. && pwd`
 SRCSRCFOLDER=`cd ../src && pwd`
 
-# Special treatment of src folder!
-# DEPRECATED TODO: remove
-if [ "${DIRNAME}" = "${SRCSRCFOLDER}" ]; then
-  make -C ${SRCFOLDER}
-  echo "Recompiled the lib, done."
-  exit 0
-fi
 
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}

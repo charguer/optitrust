@@ -37,7 +37,7 @@ sed -i "s#{INSERT_TITLE}#${TITLESTR}#g;s#\./#${TOOLS_FOLDER}/#g;s#ast_json_templ
 # Note: there seems to be an issue if performing the sed one after the other...
 
 echo "Generated ${TARGET}"
-exit
+# exit
 
 # Open the browser with the target file
 cd ${VSCODE}

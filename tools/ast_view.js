@@ -296,7 +296,10 @@ function viewPath(path) {
 
 function updateSelectedNode(id) {
   let node = ast[id];
-  updateSelection(node.loc);
+  // Call updateSelection only in the case whne loc is non empty
+  if (node.loc !== ""){
+    updateSelection(node.loc);
+  }
 }
 
 // Function to display all children of a given node,
@@ -411,19 +414,25 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 
-// TODO: loc_before(pos1,pos2)  // returns whether pos1<=pos2 based on (pos.line, pos.col)
-// TODO: loc_contains(..) { return loc_before(loc1.start , ) ... }
+
+function loc_before(pos1, pos2){
+  if((pos1.start.line < pos2.start.line) && (pos1.start.col < pos2.start.col) 
+    && (pos1.start.line < pos2.start.line) && (pos1.start.col < pos2.start.col)){
+      return true;
+    }
+  else {
+    return false;
+  }
+}
 
 // This function returns true if loc2 can be covered with loc1
 function contains(loc1,loc2){
+  // Check if location is empty
   if(loc1 === ""){
     return false;
   }
-  else if ((loc1.start.line < loc2.start.line) && ((loc1.end.line > loc2.end.line))){
-    return true;
-  }
-  else {
-    return false;
+  else { 
+    return loc_before(loc1,loc2)
   }
 }
 //viewPath(["node_3"]);
