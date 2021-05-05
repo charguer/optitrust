@@ -12,9 +12,11 @@ let _ = run_unit_test (fun () ->
   (* Constants *)
   show [ cInt "8"; ];
 
-  (* Var occurences *)
+  (* Var/fun occurences *)
   show [ cVar "u" ];
   show [ cVar "r2" ];
+  show [ cVar "f" ];
+  show [ cVar "g" ];
 
   (* Loops *)
   show [ cFor "i" ];
@@ -35,14 +37,13 @@ let _ = run_unit_test (fun () ->
   show [ cCall ~args:[[cInt 2]] "" ];
 
   (* Var/Fun definitions *)
-  show [ cVarDef "s" ];
-  show [ cVarDef "p2" ];
-  show [ cFunDef "main" ];
-  show [ cFunDef "f" ];
-  show [ cDef "f" ]; (* cDef matches both cVarDef and cFunDef and cArgDef; but not cTypDef *)
+  show [ cDef "f" ];
   show [ cDef "s" ];
-  show [ cFunDef ~args:[[cTrue]; [cDef "varg"]] "" ];
-  show [ cFunDef ~argspred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ];
+  show [ cDef "p2" ];
+  show [ cFun "main" ];
+  show [ cFun "f" ];
+  show [ cFun ~args:[[cTrue]; [cDef "varg"]] "" ];
+  show [ cFun ~argspred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ];
 
 )
 
