@@ -63,7 +63,7 @@ let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
   Fun_map.union ilset_funmap_union_aux
 let (+@) = ilset_funmap_union
 
-(* Inline a list in another list starting from the given index *)
+(* Inline a list in another list starting from the given index, it removes the elment at the given index *)
 let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
 | [] -> []
 | h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
@@ -78,9 +78,11 @@ let rec list_remove_at (i : int) (list : 'a list) : 'a list = match list with
 
 let list_remove_at_set (ys : int list) (xs : 'a list) : 'a list = List.fold_left (fun acc y -> list_remove_at y acc) xs ys 
 
+(* Inline a list in another list starting from the given index, it doesn't remove the elment at the given index *)
 let rec insert_sublist_at (sublist : 'a list) (i : int) (xs : 'a list) : 'a list =  match xs with 
   | [] -> failwith "Empty list"
   | h :: t -> if i = 0 then sublist @ h :: t else h :: insert_sublist_at sublist (i-1) t 
+
 let rec insert_before x local_l list = match list with 
 | [] -> []
 | hd :: tl -> if hd = x then local_l @ hd :: tl else hd :: (insert_before x local_l tl)
@@ -132,6 +134,15 @@ let last (l : 'a list) : int * 'a =
   in
   aux 0 l
 
+(* before operator *)
+    let get_index (a : 'a) (al : 'a list) : int option =
+      let rec aux (n : int) = function
+        | [] -> None
+        | a' :: _ when a = a' -> Some n
+        | _ :: al -> aux (n + 1) al
+      in
+      aux 0 al
+
 
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
@@ -142,11 +153,3 @@ let initialization (out_prefix : string) : unit =
     PPrintEngine.ToChannel.pretty 0.9 80 out_js content;
     PPrintEngine.ToChannel.pretty 0.9 80 out_js source
 
-(* before operator *)
-    let get_index (a : 'a) (al : 'a list) : int option =
-      let rec aux (n : int) = function
-        | [] -> None
-        | a' :: _ when a = a' -> Some n
-        | _ :: al -> aux (n + 1) al
-      in
-      aux 0 al

@@ -294,44 +294,46 @@ type target_simple = target (* Without ConstrRelative, ConstrOccurences, ConstrC
 
 (* Advanced path search *)
 type target_struct = {
-   target_path: path; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
+   target_path: target; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
    target_relative: target_relative;
-   target_nb: target_occurences; }
+   target_occurences: target_occurences; }
 
-
-(* let target_flatten(tg : target) : target = 
-   a function that "inlines" all ConstrChain, recursively, in the list of constrains;
-   can be implemented using a recursive function that converts a target into
-   a list of target, then calls flatten.
-   Or can be implemented using a function with accumulator, either as a reference 
-   defined outside the function, or as an extra argument to the function
-
- *)
-(* 
-  let target_to_target_struct (tg : target) : target_struct =
-     let tg = target_flatten tg in
-     let relative = ref None in
-     let occurences = ref None in
-     let process_constr (c : constr) : unit =
-       match c with
-       | ConstrRelative tr ->
-            begin match !relative with
-            | None -> relative := tr;
-            | Some _ -> fail "ConstrRelative provided twice in path"
-            end
-       | ConstrOccurences oc ->
-            begin match !occurences with
-            | None -> occurences := oc;
-            | Some _ -> fail "ConstrOccurences provided twice in path"
-            end
-       in
-     List.iter process_constr tg;
-     { target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tg;
+(* Flatten all the constrainst of type ConstrChain *)
+let target_flatten(tg : target) : target =
+    let rec aux cl = match cl with 
+    | [] -> []
+    | x :: xs -> begin match x with 
+                | ConstrChain tr ->  tr @ aux xs
+                | _ -> x :: aux xs 
+                end 
+    in aux tg
+                     
+(* Convert a target into a target struct  *)
+let target_to_target_struct(tg : target) : target_struct =
+  let tg = target_flatten tg in 
+  let relative = ref None in 
+  let occurences = ref 0 in
+  let process_constr (c : constr) : unit =
+    match c with 
+    | ConstrRelative tr ->
+      begin match !relative with 
+      | None -> relative := Some tr;
+      | Some _ -> fail None  "ConstrRelative provided twice in path"
+      end 
+    | ConstrOccurences oc -> 
+      begin match !occurences with
+      | 0 -> occurences := oc;
+      | _ -> fail None "ConstrOccurences provide twice in path"
+      end
+    | _ -> ()
+   (* Check if relative constraint are applied once and the number of occurences is unique *)
+   in List.iter process_constr tg;
+   
+   (* Return a target_struct *)
+   {   target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tg;
        target_relative = begin match !relative with | None -> TargetAt | Some tg -> tg end;
-       target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; }
-
- *)
-
+       target_occurences = begin match !occurences with | 0 -> ExpectedOne | oc -> oc end; 
+   }
 
 let regexp_to_string (r : rexp) : string =
   (if r.exact then "Exact " else "Sub ") ^
