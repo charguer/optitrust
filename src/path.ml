@@ -10,7 +10,7 @@ open Tools
      
 (* explicit path in trm ast = list of directions *)
 (* todo: find better name (trm_path?) *)
-type expl_path = dir list
+type path = dir list
 
 and dir =
   (* nth: go to nth element in seq, array, struct *)
@@ -85,7 +85,7 @@ let string_of_list ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : strin
   in
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
-let string_of_explicit_path (dl : expl_path) : string =
+let string_of_explicit_path (dl : path) : string =
   string_of_list (List.map dir_to_string dl)
 
 (*
@@ -139,14 +139,14 @@ let compare_dir (d : dir) (d' : dir) : int =
   | Dir_case _, _ -> -1
   | _, Dir_case _ -> 1
 
-let rec compare_expl_path (dl : expl_path) (dl' : expl_path) : int =
+let rec compare_path (dl : path) (dl' : path) : int =
   match dl, dl' with
   | [], [] -> 0
   | [], _ -> 1
   | _, [] -> -1
   | d :: dl, d' :: dl' ->
      let cd = compare_dir d d' in
-     if cd = 0 then compare_expl_path dl dl' else cd
+     if cd = 0 then compare_path dl dl' else cd
 
 (*
   regexps with their string description, a boolean for exact/subexpression
@@ -156,12 +156,29 @@ let rec compare_expl_path (dl : expl_path) (dl' : expl_path) : int =
 (* TODO: replace exact with standard name *)
 type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool}
 
-(* a path is a list of constraints to identify subterms *)
-type path = constr list
+type paths = path list
+
+(* Relative target to term *)
+type target_relative =
+    | TargetAt (* default value *)
+    | TargetFirst
+    | TargetLast
+    | TargetBefore
+    | TargetAfter
+
+(* Number of targets to match *)
+type target_occurences =
+    | ExpectedOne  (* = 1 occurence, the default value *)
+    | ExpectedNb of int (* exactly n occurrences *)
+    | ExpectedMulti    (* > 0 number of occurrences *)
+    | ExpectedAnyNb  (* any number of occurrences *)
+
+(* a target is a list of constraints to identify subterms *)
+type target = constr list
 
 and constr =
   (*
-    path constraints:
+    target constraints:
     - strict modifier to block search in depth
     - directions to follow
     - list constraint: a constraint is matched against all elements of the list
@@ -172,7 +189,7 @@ and constr =
    *)
   | Constr_strict
   | Constr_dir of dir
-  | Constr_list of path * (bool list -> int list)
+  | Constr_list of target * (bool list -> int list)
   | Constr_include of string
   (*
     matching constraint: match against regexp
@@ -181,7 +198,7 @@ and constr =
   (* todo: beware of multiline matching *)
   | Constr_regexp of rexp
   (*
-    node related constraints (constraints are expressed using a path):
+    node related constraints (constraints are expressed using a target):
     - for loop: constraints on the initialisation, the condition, the step
     instruction and the body
     - while loop: constraints on the condition and the body
@@ -203,15 +220,15 @@ and constr =
     - switch: constraints on the condition and on the cases
    *)
   (* for: init, cond, step, body *)
-  | Constr_for of path * path * path * path
+  | Constr_for of target * target * target * target
   (* while: cond, body *)
-  | Constr_while of path * path
+  | Constr_while of target * target
   (* if: cond, then, else *)
-  | Constr_if of path * path * path
+  | Constr_if of target * target * target
   (* decl_var: name, body *)
-  | Constr_decl_var of constr_name * path
+  | Constr_decl_var of constr_name * target
   (* decl_fun: name, args, body *)
-  | Constr_decl_fun of constr_name * constr_list * path
+  | Constr_decl_fun of constr_name * constr_list * target
   (* decl_type: name *)
   | Constr_decl_type of constr_name
   (* decl_enum: name, constants *)
@@ -223,42 +240,48 @@ and constr =
   (* lit *)
   | Constr_lit of lit
   (* app: function, arguments *)
-  | Constr_app of path * constr_list
+  | Constr_app of target * constr_list
   (* label *)
-  | Constr_label of constr_name * path
+  | Constr_label of constr_name * target
   (* goto *)
   | Constr_goto of constr_name
   (* return *)
-  | Constr_return of path
+  | Constr_return of target
   (* abort *)
   | Constr_abort of abort_kind
   (* accesses: base, accesses *)
-  | Constr_access of path * constr_accesses
+  | Constr_access of target * constr_accesses
   (* switch: cond, cases *)
-  | Constr_switch of path * constr_cases
-  (* todo: types? *)
+  | Constr_switch of target * constr_cases
+  (* TODO: Constraint for types? *)
+  (* Target relative to another trm *)
+  | ConstrRelative of target_relative
+  (* Number of  occurrences expected  *)
+  | ConstrOccurences of target_occurences
+  (* List of constraints *)
+  | ConstrChain of constr list
 
 and constr_name = rexp option
 
-and constr_list = path * (bool list -> bool)
+and constr_list = target * (bool list -> bool)
 
-and constr_enum_const = ((constr_name * path) list) option
+and constr_enum_const = ((constr_name * target) list) option
 
 and constr_accesses = (constr_access list) option
 
 and constr_access =
   (* array indices may be arbitrary terms *)
-  | Array_access of path
+  | Array_access of target
   (* struct fields are strings *)
   | Struct_access of constr_name
   | Any_access
 
 (* for each case, its kind and a constraint on its body *)
-and constr_cases = ((case_kind * path) list) option
+and constr_cases = ((case_kind * target) list) option
 
 and case_kind =
   (* case: value *)
-  | Case_val of path
+  | Case_val of target
   | Case_default
   | Case_any
 
@@ -268,26 +291,49 @@ and abort_kind =
   | Break
   | Continue
 
-(* Relative path to term *)
-type target_relative =
-    | TargetAt (* default value *)
-    | TargetFront
-    | TargetTail
-    | TargetBefore
-    | TargetAfter
 
-(* Number of targets to match *)
-type target_nb =
-    | ExpectedOne  (* = 1 occurence, the default value *)
-    | ExpectedNb of int (* exactly n occurrences *)
-    | ExpectedMulti    (* > 0 number of occurrences *)
-    | ExpectedAnyNb  (* any number of occurrences *)
+type target_simple = target (* Without ConstrRelative, ConstrOccurences, ConstrChain *)
 
 (* Advanced path search *)
 type target_struct = {
    target_path: path; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
    target_relative: target_relative;
-   target_nb: target_nb; }
+   target_nb: target_occurences; }
+
+
+(* let target_flatten(tg : target) : target = 
+   a function that "inlines" all ConstrChain, recursively, in the list of constrains;
+   can be implemented using a recursive function that converts a target into
+   a list of target, then calls flatten.
+   Or can be implemented using a function with accumulator, either as a reference 
+   defined outside the function, or as an extra argument to the function
+
+ *)
+(* 
+  let target_to_target_struct (tg : target) : target_struct =
+     let tg = target_flatten tg in
+     let relative = ref None in
+     let occurences = ref None in
+     let process_constr (c : constr) : unit =
+       match c with
+       | ConstrRelative tr ->
+            begin match !relative with
+            | None -> relative := tr;
+            | Some _ -> fail "ConstrRelative provided twice in path"
+            end
+       | ConstrOccurences oc ->
+            begin match !occurences with
+            | None -> occurences := oc;
+            | Some _ -> fail "ConstrOccurences provided twice in path"
+            end
+       in
+     List.iter process_constr tg;
+     { target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tg;
+       target_relative = begin match !relative with | None -> TargetAt | Some tg -> tg end;
+       target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; }
+
+ *)
+
 
 let regexp_to_string (r : rexp) : string =
   (if r.exact then "Exact " else "Sub ") ^
@@ -297,36 +343,36 @@ let rec constraint_to_string (c : constr) : string =
   match c with
   | Constr_strict -> "Strict"
   | Constr_dir d -> dir_to_string d
-  | Constr_list (p_elt, _) -> "List (" ^ path_to_string p_elt ^ ")"
+  | Constr_list (p_elt, _) -> "List (" ^ target_to_string p_elt ^ ")"
   | Constr_include s -> "Include " ^ s
   | Constr_regexp r -> "Regexp " ^ regexp_to_string r
   | Constr_for (p_init, p_cond, p_step, p_body) ->
-     let s_init = path_to_string p_init in
-     let s_cond = path_to_string p_cond in
-     let s_step = path_to_string p_step in
-     let s_body = path_to_string p_body in
+     let s_init = target_to_string p_init in
+     let s_cond = target_to_string p_cond in
+     let s_step = target_to_string p_step in
+     let s_body = target_to_string p_body in
      "For (" ^ s_init ^ ", " ^ s_cond ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
   | Constr_while (p_cond, p_body) ->
-     let s_cond = path_to_string p_cond in
-     let s_body = path_to_string p_body in
+     let s_cond = target_to_string p_cond in
+     let s_body = target_to_string p_body in
      "While (" ^ s_cond ^ ", " ^ s_body ^ ")"
   | Constr_if (p_cond, p_then, p_else) ->
-     let s_cond = path_to_string p_cond in
-     let s_then = path_to_string p_then in
-     let s_else = path_to_string p_else in
+     let s_cond = target_to_string p_cond in
+     let s_then = target_to_string p_then in
+     let s_else = target_to_string p_else in
      "If (" ^ s_cond ^ ", " ^ s_then ^ ", " ^ s_else ^ ")"
   | Constr_decl_var (name, p_body) ->
      let s_name =
        match name with | None -> "_" | Some r -> regexp_to_string r
      in
-     let s_body = path_to_string p_body in
+     let s_body = target_to_string p_body in
      "Decl_var (" ^ s_name ^ ", " ^ s_body ^ ")"
   | Constr_decl_fun (name, (p_args, _), p_body) ->
      let s_name =
        match name with | None -> "_" | Some r -> regexp_to_string r
      in
-     let s_args = path_to_string p_args in
-     let s_body = path_to_string p_body in
+     let s_args = target_to_string p_args in
+     let s_body = target_to_string p_body in
      "Decl_fun (" ^ s_name ^ ", " ^ s_args ^ ", " ^ s_body ^ ")"
   | Constr_decl_type name ->
      let s_name =
@@ -347,7 +393,7 @@ let rec constraint_to_string (c : constr) : string =
                 let s_n =
                   match n with | None -> "_" | Some r -> regexp_to_string r
                 in
-                let s_p = path_to_string p in
+                let s_p = target_to_string p in
                 "(" ^ s_n ^ ", " ^ s_p ^ ")"
               )
               np_l
@@ -356,7 +402,7 @@ let rec constraint_to_string (c : constr) : string =
      in
      "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
   | Constr_seq (p_elt, _) ->
-     let s = path_to_string p_elt in
+     let s = target_to_string p_elt in
      "Seq (" ^ s ^ ")"
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> regexp_to_string r)
@@ -372,14 +418,14 @@ let rec constraint_to_string (c : constr) : string =
        end
      in "Lit " ^ s
   | Constr_app (p_fun, (p_args, _)) ->
-     let s_fun = path_to_string p_fun in
-     let s_args = path_to_string p_args in
+     let s_fun = target_to_string p_fun in
+     let s_args = target_to_string p_args in
      "App (" ^ s_fun ^ ", " ^ s_args ^ ")"
   | Constr_label (so, p_body) ->
      let s_label =
        match so with | None -> "_" | Some r -> regexp_to_string r
      in
-     let s_body = path_to_string p_body in
+     let s_body = target_to_string p_body in
      "Label (" ^ s_label ^ ", " ^ s_body ^ ")"
   | Constr_goto so ->
      let s_label =
@@ -387,7 +433,7 @@ let rec constraint_to_string (c : constr) : string =
      in
      "Goto " ^ s_label
   | Constr_return p_res ->
-      let s_res = path_to_string p_res in
+      let s_res = target_to_string p_res in
       "Return " ^ s_res
   | Constr_abort kind ->
      let s_kind =
@@ -404,23 +450,23 @@ let rec constraint_to_string (c : constr) : string =
        | None -> "_"
        | Some cal -> string_of_list (List.map access_to_string cal)
      in
-     let s_base = path_to_string p_base in
+     let s_base = target_to_string p_base in
      "Access (" ^ s_accesses ^ ", " ^ s_base ^ ")"
   | Constr_switch (p_cond, cc) ->
-     let s_cond = path_to_string p_cond in
+     let s_cond = target_to_string p_cond in
      let s_cases =
        match cc with
        | None -> "_"
        | Some cl ->
           let string_of_kind = function
-            | Case_val p_val -> "Case_val " ^ path_to_string p_val
+            | Case_val p_val -> "Case_val " ^ target_to_string p_val
             | Case_default -> "Default"
             | Case_any -> "Any"
           in
           let sl =
             List.map
               (fun (k, p_body) ->
-                let s_body = path_to_string p_body in
+                let s_body = target_to_string p_body in
                 "(" ^ string_of_kind k ^ ", " ^ s_body ^ ")"
               )
               cl
@@ -429,13 +475,13 @@ let rec constraint_to_string (c : constr) : string =
      in
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
 
-and path_to_string (p : path) : string =
+and target_to_string (p : target) : string =
   string_of_list (List.map constraint_to_string p)
 
 and access_to_string (ca : constr_access) : string =
   match ca with
   | Array_access p_index ->
-     let s_index = path_to_string p_index in
+     let s_index = target_to_string p_index in
      "Array_access " ^ s_index
   | Struct_access so ->
      let s_field =
@@ -445,65 +491,85 @@ and access_to_string (ca : constr_access) : string =
   | Any_access -> "Any_access"
 
 (******************************************************************************)
-(*                        Smart constructors for paths                        *)
+(*                        Smart constructors for targets                        *)
 (******************************************************************************)
 let (@@) (l:'a list) = List.flatten l     
 
 module Path_constructors =
   struct
     (*
-      a smart constructor builds a path
-      thus, the user provides a path list using them
-      this list is then flattened to call resolve_path
+      a smart constructor builds a target
+      thus, the user provides a target list using them
+      this list is then flattened to call resolve_target
       unit args are used because of optional arguments
      *)
+    let cBefore : constr = 
+      ConstrRelative TargetBefore
 
+    let cAfter : constr =
+      ConstrRelative TargetAfter
+
+    let cFirst : constr =
+      ConstrRelative TargetFirst
+
+    let cLast : constr = 
+      ConstrRelative TargetLast
+
+    let cMulti : constr =
+      ConstrOccurences ExpectedMulti
+    
+    let cAnyNb : constr =
+       ConstrOccurences ExpectedAnyNb
+    
+    let cNb (nb : int) : constr =
+       ConstrOccurences (ExpectedNb nb)
+    
     (* add strict modifier if strict is true *)
-    let strictify (strict : bool) (p : path) : path =
+    let strictify (strict : bool) (p : target) : target =
       if strict then Constr_strict :: p else p
 
     (* directions *)
-    let cNth ?(strict : bool = false) (n : int) : path =
+    let cNth ?(strict : bool = false) (n : int) : target =
       strictify strict [Constr_dir (Dir_nth n)]
-    let cCond ?(strict : bool = false) (_ : unit) : path =
+    let cCond ?(strict : bool = false) (_ : unit) : target =
       strictify strict [Constr_dir Dir_cond]
-    let cThen ?(strict : bool = false) (_ : unit) : path =
+    let cThen ?(strict : bool = false) (_ : unit) : target =
       strictify strict [Constr_dir Dir_then]
-    let cElse ?(strict : bool = false) (_ : unit) : path =
+    let cElse ?(strict : bool = false) (_ : unit) : target =
       strictify strict [Constr_dir Dir_else]
-    let cBody ?(strict : bool = false) (_ : unit) : path =
+    let cBody ?(strict : bool = false) (_ : unit) : target =
       strictify strict [Constr_dir Dir_body]
-    let cInit ?(strict : bool = false) (_ : unit) : path =
+    let cInit ?(strict : bool = false) (_ : unit) : target =
       strictify strict [Constr_dir Dir_for_init]
-    let cStep ?(strict : bool = false) (_ : unit) : path =
+    let cStep ?(strict : bool = false) (_ : unit) : target =
       strictify strict [Constr_dir Dir_for_step]
-    let cAppFun ?(strict : bool = false) (_ : unit) : path =
+    let cAppFun ?(strict : bool = false) (_ : unit) : target =
       strictify strict [Constr_dir Dir_app_fun]
-    let cArg ?(strict : bool = false) (n : int) : path =
+    let cArg ?(strict : bool = false) (n : int) : target =
       strictify strict [Constr_dir (Dir_arg n)]
-    let cName ?(strict : bool = false) (_ : unit) : path =
+    let cName ?(strict : bool = false) (_ : unit) : target =
       strictify strict [Constr_dir Dir_name]
-    let cDirCase ?(strict : bool = false) (n : int) (cd : case_dir) : path =
+    let cDirCase ?(strict : bool = false) (n : int) (cd : case_dir) : target =
       strictify strict [Constr_dir (Dir_case (n, cd))]
     let cCaseName (n : int) : case_dir = Case_name n
     let cCaseBody : case_dir = Case_body
     let cEnumConst ?(strict : bool = false) (n : int)
-      (ecd : enum_const_dir) : path =
+      (ecd : enum_const_dir) : target =
       strictify strict [Constr_dir (Dir_enum_const (n, ecd))]
     let cEnumConstName : enum_const_dir = Enum_const_name
     let cEnumConstVal : enum_const_dir = Enum_const_val
 
     (* constraints *)
 
-    let cStrict (_ : unit) : path = [Constr_strict]
+    let cStrict (_ : unit) : target = [Constr_strict]
 
-    let cList_int ?(strict : bool = false) (pl : path list)
-      (next : bool list -> int list) : path =
+    let cList_int ?(strict : bool = false) (pl : target list)
+      (next : bool list -> int list) : target =
       strictify strict [Constr_list ((@@) pl, next)]
 
     (* allow to use boolean functions *)
-    let cList ?(strict : bool = false) (pl : path list)
-      (next : bool list -> bool list) : path =
+    let cList ?(strict : bool = false) (pl : target list)
+      (next : bool list -> bool list) : target =
       let rec int_of_bool_list (n : int) = function
         | [] -> []
         | b :: bl ->
@@ -514,7 +580,7 @@ module Path_constructors =
         [Constr_list ((@@) pl, fun bl -> int_of_bool_list 0 (next bl))]
 
     (* continue on the first matching instruction *)
-    let cFirst ?(strict : bool = false) (pl : path list) : path =
+    let cFirst ?(strict : bool = false) (pl : target list) : target =
       let rec next = function
         | [] -> []
         | true :: bl -> true :: List.map (fun _ -> false) bl
@@ -544,15 +610,15 @@ module Path_constructors =
       the continuation applies to all subsequent instructions
       TODO: add documentation
      *)
-    let (>>) (pl : path list) (p_next : path list) : path =
+    let (>>) (pl : target list) (p_next : target list) : target =
       (cList pl after_bool) ++ ((@@) p_next)
     (* idem but only for the instruction just after *)
-    let (>>!) (pl : path list) (p_next : path list) : path =
+    let (>>!) (pl : target list) (p_next : target list) : target =
       (cList pl (after_bool ~strict:true)) ++ ((@@) p_next)
     (* the next two operators add the strict modifier to cList *)
-    let (!>>) (pl : path list) (p_next : path list) : path =
+    let (!>>) (pl : target list) (p_next : target list) : target =
       (cList ~strict:true pl after_bool) ++ ((@@) p_next)
-    let (!>>!) (pl : path list) (p_next : path list) : path =
+    let (!>>!) (pl : target list) (p_next : target list) : target =
       (cList ~strict:true pl (after_bool ~strict:true)) ++ ((@@) p_next)
 
   
@@ -562,19 +628,19 @@ module Path_constructors =
       | Some 0 -> []
       | Some n -> if strict then [n - 1] else List.init n (fun m -> m)
     (* the continuation applies to all previous instructions *)
-    let (<<) (pl : path list) (p_next : path list) : path =
+    let (<<) (pl : target list) (p_next : target list) : target =
       (cList_int pl before_aux) ++ ((@@) p_next)
     (* idem but only for the instruction just before *)
-    let (<<!) (pl : path list) (p_next : path list) : path =
+    let (<<!) (pl : target list) (p_next : target list) : target =
       (cList_int pl (before_aux ~strict:true)) ++ ((@@) p_next)
     (* the next two operators add the strict modifier to cList *)
-    let (!<<) (pl : path list) (p_next : path list) : path =
+    let (!<<) (pl : target list) (p_next : target list) : target =
       (cList_int ~strict:true pl before_aux) ++ ((@@) p_next)
-    let (!<<!) (pl : path list) (p_next : path list) : path =
+    let (!<<!) (pl : target list) (p_next : target list) : target =
       (cList_int ~strict:true pl (before_aux ~strict:true)) ++
       ((@@) p_next)
 
-    let cInclude ?(strict : bool = false) (s : string) : path =
+    let cInclude ?(strict : bool = false) (s : string) : target =
       strictify strict [Constr_include s]
 
     let rexp_of_string ?(only_instr : bool = true) ?(exact : bool = true)
@@ -583,12 +649,12 @@ module Path_constructors =
       {desc = s; exp = Str.regexp exp; exact; only_instr}
 
     let cRegexp ?(strict : bool = false) ?(exact : bool = true)
-      ?(only_instr : bool = true) (s : string) : path =
+      ?(only_instr : bool = true) (s : string) : target =
       strictify strict [Constr_regexp (rexp_of_string ~only_instr ~exact s)]
 
     (* exactly match the string/regexp described by s *)
     let cStr ?(strict : bool = false) ?(regexp : bool = false)
-      (s : string) : path =
+      (s : string) : target =
       cRegexp ~strict ~only_instr:false (if regexp then s else Str.quote s)
 
     (*
@@ -596,21 +662,21 @@ module Path_constructors =
       by default this is not an exact match
      *)
     let cInstrSubstr ?(strict : bool = false) ?(exact : bool = false)
-      ?(regexp : bool = false) (s : string) : path =
+      ?(regexp : bool = false) (s : string) : target =
       cRegexp ~strict ~exact ~only_instr:true
         (if regexp then s else Str.quote s)
     let rexp_opt_of_string ?(exact : bool = true) (s : string) : rexp option =
       if s = "" then None else Some (rexp_of_string ~only_instr:false ~exact s)
 
     let cVarDef ?(strict : bool = false) ?(name : string = "")
-      ?(exact : bool = true) ?(body : path list = []) (_ : unit) : path =
+      ?(exact : bool = true) ?(body : target list = []) (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact name in
       let p_body = (@@) body in
       strictify strict [Constr_decl_var (ro, p_body)]
 
-    let cFor ?(strict : bool = false) ?(init : path list = [])
-      ?(cond : path list = []) ?(step : path list = []) ?(body : path list = []) ?(name : string = "")
-      (_ : unit) : path =
+    let cFor ?(strict : bool = false) ?(init : target list = [])
+      ?(cond : target list = []) ?(step : target list = []) ?(body : target list = []) ?(name : string = "")
+      (_ : unit) : target =
       let init =
          match name, init with
          | "",[] -> init (*failwith "cFor: Need to provide the name or init"*)
@@ -621,14 +687,14 @@ module Path_constructors =
       
       strictify strict [Constr_for ((@@) init, (@@) cond, (@@) step, (@@) body)]
 
-    let cWhile ?(strict : bool = false) ?(cond : path list = [])
-      ?(body : path list = []) (_ : unit) : path =
+    let cWhile ?(strict : bool = false) ?(cond : target list = [])
+      ?(body : target list = []) (_ : unit) : target =
       let p_cond = (@@) cond in
       let p_body = (@@) body in
       strictify strict [Constr_while (p_cond, p_body)]
 
-    let cIf ?(strict : bool = false) ?(cond : path list = [])
-      ?(then_ : path list = []) ?(else_ : path list = []) (_ : unit) : path =
+    let cIf ?(strict : bool = false) ?(cond : target list = [])
+      ?(then_ : target list = []) ?(else_ : target list = []) (_ : unit) : target =
       let p_cond = (@@) cond in
       let p_then = (@@) then_ in
       let p_else = (@@) else_ in
@@ -638,9 +704,9 @@ module Path_constructors =
     
 
     let cFun ?(strict : bool = false) ?(name : string = "")
-      ?(exact : bool = true) ?(args : path list = [])
-      ?(validate : bool list -> bool = fun _ -> true) ?(body : path list = [])
-      (_ : unit) : path =
+      ?(exact : bool = true) ?(args : target list = [])
+      ?(validate : bool list -> bool = fun _ -> true) ?(body : target list = [])
+      (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact name in
       let p_args = (@@) args in
       let p_body = (@@) body in
@@ -648,8 +714,8 @@ module Path_constructors =
 
     (* toplevel fun declaration *)
     let cTopFun ?(name : string = "") ?(exact : bool = true)
-      ?(args : path list = []) ?(validate : bool list -> bool = fun _ -> true)
-      ?(body : path list = []) (_ : unit) : path =
+      ?(args : target list = []) ?(validate : bool list -> bool = fun _ -> true)
+      ?(body : target list = []) (_ : unit) : target =
       (*
         structure of toplevel term:
         seq (del_instr)
@@ -679,13 +745,13 @@ module Path_constructors =
       )
 
     let cType ?(strict : bool = false) ?(name : string = "")
-      ?(exact : bool = true) (_ : unit) : path =
+      ?(exact : bool = true) (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact name in
       strictify strict [Constr_decl_type ro]
 
     let cEnum ?(strict : bool = false) ?(name : string = "")
-      ?(exact : bool = true) ?(constants : (string * (path list)) list = [])
-      (_ : unit) : path =
+      ?(exact : bool = true) ?(constants : (string * (target list)) list = [])
+      (_ : unit) : target =
       let c_n = rexp_opt_of_string ~exact name in
       let cec_o =
         match constants with
@@ -700,36 +766,36 @@ module Path_constructors =
       in
       strictify strict [Constr_decl_enum (c_n, cec_o)]
 
-    let cSeq ?(strict : bool = false) ?(args : path list = [])
-      ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : path =
+    let cSeq ?(strict : bool = false) ?(args : target list = [])
+      ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : target =
       let p_args = (@@) args in
       strictify strict [Constr_seq (p_args, validate)]
 
     let cVar ?(strict : bool = false) ?(name : string = "")
-      ?(exact : bool = true) (_ : unit) : path =
+      ?(exact : bool = true) (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact name in
       strictify strict [Constr_var ro]
 
-    let cBool ?(strict : bool = false) (b : bool) : path =
+    let cBool ?(strict : bool = false) (b : bool) : target =
       strictify strict [Constr_lit (Lit_bool b)]
-    let cInt ?(strict : bool = false) (n : int) : path =
+    let cInt ?(strict : bool = false) (n : int) : target =
       strictify strict [Constr_lit (Lit_int n)]
-    let cDouble ?(strict : bool = false) (f : float) : path =
+    let cDouble ?(strict : bool = false) (f : float) : target =
       strictify strict [Constr_lit (Lit_double f)]
-    let cString ?(strict : bool = false) (s : string) : path =
+    let cString ?(strict : bool = false) (s : string) : target =
       strictify strict [Constr_lit (Lit_string s)]
-    let cPrim ?(strict : bool = false) (p : prim) : path =
+    let cPrim ?(strict : bool = false) (p : prim) : target =
       cStr ~strict (ast_to_string (trm_prim p))
 
     let cApp ?(strict : bool = false) ?(name : string = "")
-      ?(fun_ : path list = []) ?(args : path list = [])
-      ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : path =
+      ?(fun_ : target list = []) ?(args : target list = [])
+      ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : target =
       let exception Argument_Error  of string in  
       let p_fun =
       match name, fun_ with 
       | "",_ -> (@@) fun_ 
       | _, [] -> cVar ~strict:true ~name ()
-      | _,_ ->  raise (Argument_Error "Can't provide both the path and the name of the function")
+      | _,_ ->  raise (Argument_Error "Can't provide both the target and the name of the function")
       
       
       in
@@ -737,23 +803,23 @@ module Path_constructors =
       strictify strict [Constr_app (p_fun, (p_args, validate))]
 
     let cLabel ?(strict : bool = false) ?(label : string = "")
-      ?(exact : bool = true) ?(body : path list = []) (_ : unit) : path =
+      ?(exact : bool = true) ?(body : target list = []) (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact label in
       let p_body = (@@) body in
       strictify strict [Constr_label (ro, p_body)]
 
     let cGoto ?(strict : bool = false) ?(label : string = "")
-      ?(exact : bool = true) (_ : unit) : path =
+      ?(exact : bool = true) (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact label in
       strictify strict [Constr_goto ro]
 
-    let cReturn ?(strict : bool = false) ?(res : path list = [])
-      (_ : unit) : path =
+    let cReturn ?(strict : bool = false) ?(res : target list = [])
+      (_ : unit) : target =
       let p_res = (@@) res in
       strictify strict [Constr_return p_res]
 
     let cAbort ?(strict : bool = false) ?(kind : abort_kind = Any)
-      (_ : unit) : path =
+      (_ : unit) : target =
       strictify strict [Constr_abort kind]
 
     let cAbrtAny : abort_kind = Any
@@ -765,15 +831,15 @@ module Path_constructors =
       the empty list is interpreted as no constraint on the accesses
       accesses are reversed so that users give constraints on what they see
      *)
-    let cAccesses ?(strict : bool = false) ?(base : path list = [])
-      ?(accesses : constr_access list = []) (_ : unit) : path =
+    let cAccesses ?(strict : bool = false) ?(base : target list = [])
+      ?(accesses : constr_access list = []) (_ : unit) : target =
       let p_base = (@@) base in
       let accesses =
         match accesses with | [] -> None | cal -> Some (List.rev cal)
       in
       strictify strict [Constr_access (p_base, accesses)]
 
-    let cIndex ?(index : path list = []) (_ : unit) : constr_access =
+    let cIndex ?(index : target list = []) (_ : unit) : constr_access =
       let p_index = (@@) index in
       Array_access p_index
 
@@ -785,8 +851,8 @@ module Path_constructors =
     let cAccess : constr_access = Any_access
 
     (* the empty list is interpreted as no constraint on the cases *)
-    let cSwitch ?(strict : bool = false) ?(cond : path list = [])
-      ?(cases : (case_kind * (path list)) list = []) (_ : unit) : path =
+    let cSwitch ?(strict : bool = false) ?(cond : target list = [])
+      ?(cases : (case_kind * (target list)) list = []) (_ : unit) : target =
       let p_cond = (@@) cond in
       let c_cases =
         match cases with
@@ -795,15 +861,15 @@ module Path_constructors =
       in
       strictify strict [Constr_switch (p_cond, c_cases)]
 
-    let cCase ?(value : path list = []) (_ : unit) : case_kind =
+    let cCase ?(value : target list = []) (_ : unit) : case_kind =
       match value with
       | [] -> Case_any
       | _ -> Case_val ((@@) value)
 
     let cDefault : case_kind = Case_default
 
-    let cSet ?(strict : bool = false) ?(lhs : path list = [])
-      ?(rhs : path list = []) (_ : unit) : path =
+    let cSet ?(strict : bool = false) ?(lhs : target list = [])
+      ?(rhs : target list = []) (_ : unit) : target =
       (@@)
         [
           (* first check that lhs is the first of two arguments *)
@@ -825,7 +891,7 @@ module Path_constructors =
 (******************************************************************************)
 
 (*
-  Particular case for path resolution: heap allocated variables
+  Particular case for target resolution: heap allocated variables
   Patterns:
     - declaration: seq annotated with Heap_allocated containing decl +
       optional initialisation annotated with Initialisation_instruction
@@ -837,8 +903,8 @@ module Path_constructors =
         delete instructions annotated with Heap_allocated + abort instruction
       + at the end of scopes: seq annotated with Delete_instructions containing
         last instruction of the scope + annotated delete instructions
-  The user expresses paths as if the variables were not heap allocated but path
-  resolution computes the appropriate path
+  The user expresses targets as if the variables were not heap allocated but target
+  resolution computes the appropriate target
  *)
 
 (*
@@ -846,8 +912,8 @@ module Path_constructors =
   Pattern:
     when a Rvalue is expected, there is a star operator at the root of the
     subterm
-  The user should ignore the existence of this star operator but path resolution
-  should compute the appropriate path
+  The user should ignore the existence of this star operator but target resolution
+  should compute the appropriate target
  *)
 
 (*
@@ -931,7 +997,7 @@ let app_to_nth_dflt (loc : location) (l : 'a list) (n : int)
      []
 
 (* extend current explicit paths with a direction *)
-let add_dir (d : dir) (dll : expl_path list) : expl_path list =
+let add_dir (d : dir) (dll : path list) : path list =
   List.map (fun dl -> d :: dl) dll
 
 (* compare literals *)
@@ -989,8 +1055,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      let loc = t.loc in
      begin match c, t.desc with
      (*
-       path constraints never hold since they are checked against nodes before
-       calling check_constraint in resolve_path
+       target constraints never hold since they are checked against nodes before
+       calling check_constraint in resolve_target
       *)
      | Constr_strict, _
        | Constr_dir _, _
@@ -1000,26 +1066,26 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_regexp r, _ -> match_regexp r t
      | Constr_for (p_init, p_cond, p_step, p_body),
        Trm_for (init, cond, step, body) ->
-        check_path p_init init &&
-        check_path p_cond cond &&
-        check_path p_step step &&
-        check_path p_body body
+        check_target p_init init &&
+        check_target p_cond cond &&
+        check_target p_step step &&
+        check_target p_body body
      | Constr_while (p_cond, p_body), Trm_while (cond, body) ->
-        check_path p_cond cond &&
-        check_path p_body body
+        check_target p_cond cond &&
+        check_target p_body body
      | Constr_if (p_cond, p_then, p_else), Trm_if (cond, then_t, else_t) ->
-        check_path p_cond cond &&
-        check_path p_then then_t &&
-        check_path p_else else_t
+        check_target p_cond cond &&
+        check_target p_then then_t &&
+        check_target p_else else_t
      | Constr_decl_var (name, p_body), Trm_decl (Def_var ((x, _), body)) ->
         check_name name x &&
-        check_path p_body body
+        check_target p_body body
      | Constr_decl_fun (name, cl_args, p_body),
        Trm_decl (Def_fun (x, _, args, body)) ->
         let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
         check_name name x &&
         check_list cl_args tl &&
-        check_path p_body body
+        check_target p_body body
      | Constr_decl_type name, Trm_decl (Def_typ (x, _)) ->
         check_name name x
      | Constr_decl_enum (name, cec), Trm_decl (Def_enum (n, xto_l)) ->
@@ -1029,24 +1095,24 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_var name, Trm_var x -> check_name name x
      | Constr_lit l, Trm_val (Val_lit l') -> is_equal_lit l l'
      | Constr_app (p_fun, cl_args), Trm_apps (f, args) ->
-        check_path p_fun f &&
+        check_target p_fun f &&
         check_list cl_args args
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
         check_name so l &&
-        check_path p_body body
+        check_target p_body body
      | Constr_goto so, Trm_goto l -> check_name so l
      | Constr_return p_res, Trm_abort (Ret (Some res)) ->
-        check_path p_res res
+        check_target p_res res
      | Constr_abort Any, Trm_abort _ -> true
      | Constr_abort Return, Trm_abort (Ret _) -> true
      | Constr_abort Break, Trm_abort Break -> true
      | Constr_abort Continue, Trm_abort Continue -> true
      | Constr_access (p_base, ca), _ ->
         let (base, al) = compute_accesses t in
-        check_path p_base base &&
+        check_target p_base base &&
         check_accesses ca al
      | Constr_switch (p_cond, cc), Trm_switch (cond, cases) ->
-        check_path p_cond cond &&
+        check_target p_cond cond &&
         check_cases cc cases
      | _ -> false
      end
@@ -1058,14 +1124,14 @@ and check_name (name : constr_name) (s : string) : bool =
 
 and check_list (cl : constr_list) (tl : trm list) : bool =
   let (p, validate) = cl in
-  validate (List.map (check_path p) tl)
+  validate (List.map (check_target p) tl)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
     | [], [] -> true
     | Array_access p_index :: cal, Array_access index :: al ->
-       check_path p_index index &&
+       check_target p_index index &&
        aux cal al
     | Struct_access so :: cal, Struct_access f :: al ->
        check_name so f &&
@@ -1078,13 +1144,13 @@ and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   | Some cal -> aux cal al
 
 and check_cases (cc : constr_cases) (cases : (trm list * trm) list) : bool =
-  let rec aux (cl : (case_kind * path) list)
+  let rec aux (cl : (case_kind * target) list)
     (cases : (trm list * trm) list) : bool =
     match cl, cases with
     | [], [] -> true
     | (k, p_body) :: cl, (tl, body) :: cases ->
        check_kind k tl &&
-       check_path p_body body &&
+       check_target p_body body &&
        aux cl cases
     | _ -> false
   in
@@ -1097,8 +1163,8 @@ and check_kind (k : case_kind) (tl : trm list) : bool =
   | Case_any, _ -> true
   | Case_default, [] -> true
   | Case_val p_val, _ ->
-     (* check that one of the cases corresponds to the given path *)
-     List.mem true (List.map (check_path p_val) tl)
+     (* check that one of the cases corresponds to the given target *)
+     List.mem true (List.map (check_target p_val) tl)
   | _ -> false
 
 and check_enum_const (cec : constr_enum_const)
@@ -1112,35 +1178,35 @@ and check_enum_const (cec : constr_enum_const)
          match p, t_o with
          | [], None -> true
          | _, None -> false
-         | _, Some t -> check_path p t
+         | _, Some t -> check_target p t
        )
        cnp_l
        xto_l
 
-(* check if path p leads to at least one subterm of t *)
-and check_path (p : path) (t : trm) : bool =
-  match resolve_path p t with
+(* check if target p leads to at least one subterm of t *)
+and check_target (p : target) (t : trm) : bool =
+  match resolve_target p t with
   | [] -> false
   | _ -> true
 
 (*
-  resolve_path computes the directions to matching subterms
+  resolve_target computes the directions to matching subterms
   strict: blocks exploration in depth if true
-  expected invariants: no duplicate path and no path which is prefix of
-  another path that appears after it in the list. Guaranteed by the call to
+  expected invariants: no duplicate target and no target which is prefix of
+  another target that appears after it in the list. Guaranteed by the call to
   sort_unique
  *)
-and resolve_path ?(strict : bool = false) (p : path)
-  (t : trm) : expl_path list =
+and resolve_target ?(strict : bool = false) (p : target)
+  (t : trm) : path list =
   let epl =
     match p with
     (* end of the path, we stop *)
     | [] -> [[]]
     (*
-    if the path is not empty, we first check if the first constraint is a
+    if the target is not empty, we first check if the first constraint is a
     strict modifier
      *)
-    | Constr_strict :: p -> resolve_path ~strict:true p t
+    | Constr_strict :: p -> resolve_target ~strict:true p t
     (*
     otherwise, there are 2 steps:
     - check c against t and continue if it matches
@@ -1152,10 +1218,10 @@ and resolve_path ?(strict : bool = false) (p : path)
        else (* put deeper nodes first *)
          (explore_in_depth (c :: p) t) ++ dll
   in
-  List.sort_uniq compare_expl_path epl
+  List.sort_uniq compare_path epl
 
 (* check c against t and in case of success continue with p *)
-and resolve_constraint (c : constr) (p : path) (t : trm) : expl_path list =
+and resolve_constraint (c : constr) (p : target) (t : trm) : path list =
   let loc = t.loc in
   match c with
   (*
@@ -1163,15 +1229,15 @@ and resolve_constraint (c : constr) (p : path) (t : trm) : expl_path list =
    *)
   | Constr_include h when t.annot = Some (Include h) ->
      (*
-       remove the include annotation for path resolution to proceed in the
+       remove the include annotation for target resolution to proceed in the
        included file
       *)
-     resolve_path p {t with annot = None}
+     resolve_target p {t with annot = None}
   | _ when is_included t ->
      print_info loc "resolve_constraint: not an include constraint\n";
      []
-  (* path constraints first *)
-  (* strict modifier is already checked in resolve_path *)
+  (* target constraints first *)
+  (* strict modifier is already checked in resolve_target *)
   | Constr_strict -> fail loc "resolve_constraint: strict modifier not allowed"
   (* following directions *)
   | Constr_dir d -> follow_dir d p t
@@ -1198,15 +1264,15 @@ and resolve_constraint (c : constr) (p : path) (t : trm) : expl_path list =
      | _ ->
         begin match t.desc with
         | Trm_seq tl ->
-           let il = next (List.map (check_path p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_nth n) il (resolve_path p)
+           let il = next (List.map (check_target p_elt) tl) in
+           explore_list_ind tl (fun n -> Dir_nth n) il (resolve_target p)
         | Trm_apps (_, tl) ->
-           let il = next (List.map (check_path p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_path p)
+           let il = next (List.map (check_target p_elt) tl) in
+           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target p)
         | Trm_decl (Def_fun (_, _, args, _)) ->
            let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
-           let il = next (List.map (check_path p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_path p)
+           let il = next (List.map (check_target p_elt) tl) in
+           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target p)
         | _ ->
            print_info loc
              "resolve_constraint: list constraint applied to a wrong term\n";
@@ -1214,17 +1280,17 @@ and resolve_constraint (c : constr) (p : path) (t : trm) : expl_path list =
         end
      end
   (*
-    if the constraint is a path constraint that does not match the node or
+    if the constraint is a target constraint that does not match the node or
     if it is another kind of constraint, then we check if it holds
    *)
-  | c when check_constraint c t -> resolve_path p t
+  | c when check_constraint c t -> resolve_target p t
   | _ ->
      print_info loc "resolve_constraint: constraint %s does not hold\n"
        (constraint_to_string c);
      []
 
-(* call resolve_path on subterms of t if possible *)
-and explore_in_depth (p : path) (t : trm) : expl_path list =
+(* call resolve_target on subterms of t if possible *)
+and explore_in_depth (p : target) (t : trm) : path list =
   let loc = t.loc in
   match t.annot with
   (* no exploration in depth in included files *)
@@ -1245,21 +1311,21 @@ and explore_in_depth (p : path) (t : trm) : expl_path list =
   | Some Heap_allocated ->
      begin match t.desc with
      (* dereferencing *)
-     | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (resolve_path p t')
+     | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (resolve_target p t')
      (* declaration *)
      | Trm_seq tl ->
         begin match tl with
         (* no initial value (init = uninitialized) *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr _; _}), _)); _}] ->
            add_dir (Dir_nth 0)
-             (add_dir Dir_name (resolve_path p (trm_var ~loc x)))
+             (add_dir Dir_name (resolve_target p (trm_var ~loc x)))
         (* initialisation *)
         | [{desc = Trm_decl (Def_var ((x, _), _)); _} ;
            {desc = Trm_apps (_, [{desc = Trm_var y; _}; init]); _}]
              when y = x ->
            (add_dir (Dir_nth 0)
-             (add_dir Dir_name (resolve_path p (trm_var ~ loc x)))) ++
-           add_dir (Dir_nth 1) (add_dir (Dir_arg 1) (resolve_path p init))
+             (add_dir Dir_name (resolve_target p (trm_var ~ loc x)))) ++
+           add_dir (Dir_nth 1) (add_dir (Dir_arg 1) (resolve_target p init))
         | _ -> fail loc "explore_in_depth: bad heap allocation"
         end
      | _ -> fail loc "explore_in_depth: bad heap_alloc instruction"
@@ -1284,8 +1350,8 @@ and explore_in_depth (p : path) (t : trm) : expl_path list =
      begin match t.desc with
      | Trm_decl (Def_var ((x, _), body))
        | Trm_decl (Def_fun (x, _, _, body)) ->
-        add_dir Dir_name (resolve_path p (trm_var ~loc x)) ++
-        add_dir Dir_body (resolve_path p body)
+        add_dir Dir_name (resolve_target p (trm_var ~loc x)) ++
+        add_dir Dir_body (resolve_target p body)
      | Trm_decl (Def_enum (x, xto_l)) ->
         let (il, tl) =
           foldi
@@ -1297,54 +1363,54 @@ and explore_in_depth (p : path) (t : trm) : expl_path list =
            ([], [])
            xto_l
         in
-        add_dir Dir_name (resolve_path p (trm_var ~loc x)) ++
+        add_dir Dir_name (resolve_target p (trm_var ~loc x)) ++
         (explore_list (List.map (fun (y, _) -> trm_var ~loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
-           (resolve_path p)) ++
+           (resolve_target p)) ++
         (explore_list tl
            (fun n -> Dir_enum_const (List.nth il n, Enum_const_val))
-           (resolve_path p))
+           (resolve_target p))
      | Trm_abort (Ret (Some body)) ->
-        add_dir Dir_body (resolve_path p body)
+        add_dir Dir_body (resolve_target p body)
      | Trm_for (init, cond, step, body) ->
         (* init *)
-        (add_dir Dir_for_init (resolve_path p init)) ++
+        (add_dir Dir_for_init (resolve_target p init)) ++
         (* cond *)
-        (add_dir Dir_cond (resolve_path p cond)) ++
+        (add_dir Dir_cond (resolve_target p cond)) ++
         (* step *)
-        (add_dir Dir_for_step (resolve_path p step)) ++
+        (add_dir Dir_for_step (resolve_target p step)) ++
         (* body *)
-        (add_dir Dir_body (resolve_path p body))
+        (add_dir Dir_body (resolve_target p body))
      | Trm_while (cond, body) ->
         (* cond *)
-        (add_dir Dir_cond (resolve_path p cond)) ++
+        (add_dir Dir_cond (resolve_target p cond)) ++
         (* body *)
-        (add_dir Dir_body (resolve_path p body))
+        (add_dir Dir_body (resolve_target p body))
      | Trm_if (cond, then_t, else_t) ->
         (* cond *)
-        (add_dir Dir_cond (resolve_path p cond)) ++
+        (add_dir Dir_cond (resolve_target p cond)) ++
         (* then *)
-        (add_dir Dir_then (resolve_path p then_t)) ++
+        (add_dir Dir_then (resolve_target p then_t)) ++
         (* else *)
-        (add_dir Dir_else (resolve_path p else_t))
+        (add_dir Dir_else (resolve_target p else_t))
      | Trm_apps (f, args) ->
         (* fun *)
-        (add_dir Dir_app_fun (resolve_path p f)) ++
+        (add_dir Dir_app_fun (resolve_target p f)) ++
         (* args *)
-        (explore_list args (fun n -> Dir_arg n) (resolve_path p))
+        (explore_list args (fun n -> Dir_arg n) (resolve_target p))
      | Trm_seq tl
        | Trm_array tl
        | Trm_struct tl ->
-        explore_list tl (fun n -> Dir_nth n) (resolve_path p)
+        explore_list tl (fun n -> Dir_nth n) (resolve_target p)
      | Trm_val (Val_array vl)
        | Trm_val (Val_struct vl) ->
         explore_list (List.map (trm_val ~loc) vl) (fun n -> Dir_nth n)
-          (resolve_path p)
+          (resolve_target p)
      | Trm_labelled (l, body) ->
-        add_dir Dir_name (resolve_path p (trm_var ~loc l)) ++
-        add_dir Dir_body (resolve_path p body)
+        add_dir Dir_name (resolve_target p (trm_var ~loc l)) ++
+        add_dir Dir_body (resolve_target p body)
      | Trm_switch (cond, cases) ->
-        (add_dir Dir_cond (resolve_path p cond)) ++
+        (add_dir Dir_cond (resolve_target p cond)) ++
         (foldi (fun i epl case -> epl ++ explore_case i case p) [] cases)
      | _ ->
         print_info loc "explore_in_depth: cannot find a subterm to explore\n";
@@ -1352,89 +1418,89 @@ and explore_in_depth (p : path) (t : trm) : expl_path list =
      end
 
 (*
-  call resolve_path on given case name and body
+  call resolve_target on given case name and body
   i is the index of the case in its switch
  *)
-and explore_case (i : int) (case : trm list * trm) (p : path) : expl_path list =
+and explore_case (i : int) (case : trm list * trm) (p : target) : path list =
   let (tl, body) = case in
   match tl with
   (* default case *)
   | [] ->
-     add_dir (Dir_case (i, Case_body)) (resolve_path p body)
+     add_dir (Dir_case (i, Case_body)) (resolve_target p body)
   | _ ->
      (foldi
         (fun j epl t ->
           epl ++
-          (add_dir (Dir_case (i, Case_name j)) (resolve_path p t))
+          (add_dir (Dir_case (i, Case_name j)) (resolve_target p t))
         )
         []
         tl
      ) ++
-     add_dir (Dir_case (i, Case_body)) (resolve_path p body)
+     add_dir (Dir_case (i, Case_body)) (resolve_target p body)
 
-(* follow the direction d in t and call resolve_path on p *)
-and follow_dir (d : dir) (p : path) (t : trm) : expl_path list =
+(* follow the direction d in t and call resolve_target on p *)
+and follow_dir (d : dir) (p : target) (t : trm) : path list =
   let loc = t.loc in
   match d, t.desc with
   | Dir_nth n, Trm_seq tl
     | Dir_nth n, Trm_array tl
     | Dir_nth n, Trm_struct tl ->
      app_to_nth_dflt loc tl n
-       (fun nth_t -> add_dir (Dir_nth n) (resolve_path p nth_t))
+       (fun nth_t -> add_dir (Dir_nth n) (resolve_target p nth_t))
   | Dir_nth n, Trm_val (Val_array vl)
     | Dir_nth n, Trm_val (Val_struct vl) ->
      app_to_nth_dflt loc vl n (fun nth_v ->
-         add_dir (Dir_nth n) (resolve_path p (trm_val ~loc nth_v)))
+         add_dir (Dir_nth n) (resolve_target p (trm_val ~loc nth_v)))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
     | Dir_cond, Trm_for (_, cond, _, _)
     | Dir_cond, Trm_switch (cond, _) ->
-     add_dir Dir_cond (resolve_path p cond)
+     add_dir Dir_cond (resolve_target p cond)
   | Dir_then, Trm_if (_, then_t, _) ->
-     add_dir Dir_then (resolve_path p then_t)
+     add_dir Dir_then (resolve_target p then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
-     add_dir Dir_else (resolve_path p else_t)
+     add_dir Dir_else (resolve_target p else_t)
   | Dir_body, Trm_decl (Def_var (_, body))
     | Dir_body, Trm_decl (Def_fun (_, _, _, body))
     | Dir_body, Trm_for (_, _, _, body)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_abort (Ret (Some body))
     | Dir_body, Trm_labelled (_, body) ->
-     add_dir Dir_body (resolve_path p body)
+     add_dir Dir_body (resolve_target p body)
   | Dir_for_init, Trm_for (init, _, _, _) ->
-     add_dir Dir_for_init (resolve_path p init)
+     add_dir Dir_for_init (resolve_target p init)
   | Dir_for_step, Trm_for (_, _, step, _) ->
-     add_dir Dir_for_step (resolve_path p step)
-  | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (resolve_path p f)
+     add_dir Dir_for_step (resolve_target p step)
+  | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (resolve_target p f)
   | Dir_arg n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (resolve_path p nth_t))
+         add_dir (Dir_arg n) (resolve_target p nth_t))
   | Dir_arg n, Trm_decl (Def_fun (_, _, arg, _)) ->
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (resolve_path p nth_t))
+         add_dir (Dir_arg n) (resolve_target p nth_t))
   | Dir_name, Trm_decl (Def_var ((x, _), _))
     | Dir_name, Trm_decl (Def_fun (x, _, _, _))
     | Dir_name, Trm_decl (Def_enum (x, _))
     | Dir_name, Trm_labelled (x, _)
     | Dir_name, Trm_goto x ->
-     add_dir Dir_name (resolve_path p (trm_var ~loc x))
+     add_dir Dir_name (resolve_target p (trm_var ~loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt loc cases n
        (fun (tl, body) ->
          match cd with
          | Case_body ->
-            add_dir (Dir_case (n, cd)) (resolve_path p body)
+            add_dir (Dir_case (n, cd)) (resolve_target p body)
          | Case_name i ->
             app_to_nth_dflt loc tl i (fun ith_t ->
-                add_dir (Dir_case (n, cd)) (resolve_path p ith_t))
+                add_dir (Dir_case (n, cd)) (resolve_target p ith_t))
        )
   | Dir_enum_const (n, ecd), Trm_decl (Def_enum (_, xto_l)) ->
      app_to_nth_dflt loc xto_l n
        (fun (x, t_o) ->
          match ecd with
          | Enum_const_name ->
-            add_dir (Dir_enum_const (n, ecd)) (resolve_path p (trm_var ~loc x))
+            add_dir (Dir_enum_const (n, ecd)) (resolve_target p (trm_var ~loc x))
          | Enum_const_val ->
             begin match t_o with
             | None ->
@@ -1442,7 +1508,7 @@ and follow_dir (d : dir) (p : path) (t : trm) : expl_path list =
                  n;
                []
             | Some t ->
-               add_dir (Dir_enum_const (n, ecd)) (resolve_path p t)
+               add_dir (Dir_enum_const (n, ecd)) (resolve_target p t)
             end
        )
   | _, _ ->
@@ -1456,7 +1522,7 @@ and follow_dir (d : dir) (p : path) (t : trm) : expl_path list =
   d: function that gives the direction to add depending on the index
  *)
 and explore_list (tl : trm list) (d : int -> dir)
-  (cont : trm -> expl_path list) : expl_path list =
+  (cont : trm -> path list) : path list =
   foldi (fun i epl t -> epl ++ add_dir (d i) (cont t)) [] tl
 
 (*
@@ -1465,7 +1531,7 @@ and explore_list (tl : trm list) (d : int -> dir)
   d: function that gives the direction to add depending on the index
  *)
 and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
-  (cont : trm -> expl_path list) : expl_path list =
+  (cont : trm -> path list) : path list =
   foldi
     (fun i epl t ->
       if List.mem i dom then epl ++ add_dir (d i) (cont t) else epl)
@@ -1473,14 +1539,14 @@ and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
     tl
 
 (******************************************************************************)
-(*                         Explicit path manipulation                         *)
+(*                         Explicit target manipulation                         *)
 (******************************************************************************)
 
 (*
   follow the explicit path and return the corresponding subterm and its context
  *)
-let resolve_explicit_path (dl : expl_path) (t : trm) : trm * (trm list) =
-  let rec aux (dl : expl_path) (t : trm) (ctx : trm list) : trm * (trm list) =
+let resolve_explicit_path (dl : path) (t : trm) : trm * (trm list) =
+  let rec aux (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
     | [] -> (t, List.rev ctx)
     | d :: dl ->
@@ -1601,7 +1667,7 @@ let resolve_explicit_path (dl : expl_path) (t : trm) : trm * (trm list) =
   assumption: x denotes a function or a type
   todo: generalise to other terms
  *)
-let rec path_to_decl (x : var) (t : trm) : expl_path option =
+let rec path_to_decl (x : var) (t : trm) : path option =
   match t.desc with
   | Trm_decl def ->
      begin match def with
