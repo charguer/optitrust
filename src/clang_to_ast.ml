@@ -67,6 +67,14 @@ let delete_list ?(loc : location = None) (sl : string list) : trm list =
         (trm_unop (Unop_delete false)) [trm_var s])
     sl
 
+
+(* Auxiliary function to compute the new location for delete instruction before scope closure *)
+
+let new_location (loc : location) : location = match loc with 
+| None -> None
+| Some (f, _, _,line2,col2) -> Some (f,(max 1 (line2-1)), line2,(max 0 (col2-1)), col2)
+
+
 (*
   scope closing instruction
   t represents the part of the program in the current scope
@@ -76,13 +84,12 @@ let close_scope ?(loc : location = None) (t : trm) : trm =
     | None -> None
     | Some (f,line1,col1,line2,col2) -> Some (f,line1,(min 1 (col1-1)),line2,col2)
     end in *)
+  let loc_end = new_location loc in 
   match Stack.pop heap_vars with
   | (_, []) -> t
   | (_, sl) ->
-    (* let tl = delete_list ~loc:loc_end sl in
-    trm_seq ~loc:loc_end ~annot:(Some Delete_instructions) (t :: tl) *)
-    let tl = delete_list ~loc sl in
-    trm_seq ~loc ~annot:(Some Delete_instructions) (t :: tl)
+    let tl = delete_list ~loc:loc_end sl in
+    trm_seq ~loc:loc_end ~annot:(Some Delete_instructions) (t :: tl)
 
 (* manage a new scope while translating a statement *)
 let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm) : trm =
