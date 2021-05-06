@@ -582,7 +582,7 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
       | [] -> t
       | hd :: tl -> 
         let pl = [cFor ~init:[cVarDef ~name:hd ()] ()] in
-        let t = loop_swap clog pl t in 
+        let t = loop_swap clog (List.flatten pl) t in 
         multi_swap tl t
      in
      multi_swap path_list t 
@@ -634,7 +634,7 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
     (* List.fold_left (fun _i acc -> swap l_index) (List.tl path_list) *)
     let rec multi_swap (count : int) (t : trm) : trm = match count with 
       | 0 ->  t  
-      | _ -> let pl = [cFor ~init:[cVarDef ~name:l_index ()] ()] in 
+      | _ -> let pl = List.flatten([cFor ~init:[cVarDef ~name:l_index ()] ()]) in 
            let t = loop_swap clog pl t in 
            multi_swap (count-1) t
       in
@@ -670,8 +670,8 @@ let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : 
     in
   write_log clog log;
   match move_before, move_after with 
-  | "",_ -> move_loop_after clog [cFor ~name:loop_index ()] move_after t 
-  | _,"" -> move_loop_before clog [cFor ~name:move_before ()] loop_index t
+  | "",_ -> move_loop_after clog (cFor ~name:loop_index ()) move_after t 
+  | _,"" -> move_loop_before clog (cFor ~name:move_before ()) loop_index t
   | _,_ -> fail t.loc "move_loop: only one of move_before or move_after should be specified"
  
 
@@ -908,7 +908,7 @@ let extract_loop_var (clog : out_channel) (result_label : string)
   match epl with
   | [] ->
      print_info t.loc "extract_loop_var: no matching subterm for path %s\n"
-       (target_to_string p);
+       (target_to_string tr);
      t
   | [dl] ->
      apply_local_transformation
@@ -936,7 +936,7 @@ let extract_loop_vars (clog : out_channel) (result_label : string)
   match epl with
   | [] ->
      print_info t.loc "extract_loop_vars: no matching subterm for path %s\n"
-       (target_to_string p);
+       (target_to_string tr);
      t
   | [dl] ->
      apply_local_transformation (extract_loop_vars_aux clog result_label) t dl

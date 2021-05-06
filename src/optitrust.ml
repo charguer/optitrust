@@ -783,7 +783,7 @@ let term (ctx : context) ?(context : string = "") (s : string) : trm =
   get_term t
 
 (* output the code of declarations in t up to the end of the explicit path *)
-let get_context (ctx : context) (dl : expl_path) (t : trm) : string =
+let get_context (ctx : context) (dl : path) (t : trm) : string =
   let (_, decl_l) = resolve_path dl t in
   ctx.includes ^ ast_to_string (trm_seq ~annot:(Some No_braces) decl_l)
 

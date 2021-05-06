@@ -96,9 +96,9 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     | _ -> fail t.loc "make_explicit_record_assignment_aux: the outer sequence was not matched"
 
 
-let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (pl : target) (t : trm) : trm = 
+let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (tr : target) (t : trm) : trm = 
   let struct_def_path = [cType ~name:struct_name ()] in 
-  let epl_of_struct_def_path = resolve_path (List.flatten struct_def_path) t in 
+  let epl_of_struct_def_path = resolve_target (List.flatten struct_def_path) t in 
   let struct_def_term = match epl_of_struct_def_path with
   | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
   | _ -> fail t.loc "make_explicit_record_assigment: expected a typedef struct"
@@ -114,12 +114,11 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   | _ -> fail t.loc "make_explicit_record_assigment: expected a definition"
   in 
   
-  let p = List.flatten pl in 
   let b = !Flags.verbose in 
   Flags.verbose := false;
-  let epl = resolve_path p t in 
+  let epl = resolve_target tr t in 
   Flags.verbose := b;
-  let app_transfo   (t : trm) (dl : expl_path) : trm = 
+  let app_transfo   (t : trm) (dl : path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
       let (t',_) =  resolve_path dl t in 
@@ -135,7 +134,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   in 
   (* First check if the path points to a variable declaration *)
   let is_decl = match epl with 
-  | [dl] -> let (t_def,_) = resolve_path dl t in 
+  | [dl] -> let (t_def,_) = resolve_target dl t in 
     begin match t_def.desc with 
     | Trm_seq[_;_] -> true
     | _ -> false
@@ -203,7 +202,7 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
  let make_implicit_record_assignment(clog : out_channel) (name : string) (pl : target) (t : trm) : trm = 
     let struct_term_path = [cType ~name:name ()] in 
     let p_of_struct_term = List.flatten struct_term_path in 
-    let epl_of_struct_term = resolve_path p_of_struct_term t in 
+    let epl_of_struct_term = resolve_target p_of_struct_term t in 
     let struct_term = match epl_of_struct_term with 
     | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
     | _ -> fail t.loc "make_implicit_record_assignment: expected a typedef struct"
@@ -222,9 +221,9 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
     let p = List.flatten pl in 
     let b = !Flags.verbose in 
     Flags.verbose := false;
-    let epl = resolve_path p t in 
+    let epl = resolve_target p t in 
     Flags.verbose := b;
-    let app_transfo (t : trm) (dl : expl_path) : trm = 
+    let app_transfo (t : trm) (dl : path) : trm = 
       match List.rev dl with 
       | Dir_nth n :: dl' ->
         let dl = List.rev dl' in 
@@ -276,7 +275,7 @@ let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_bef
   let p = List.flatten pl in 
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in 
+  let epl = resolve_target p t in 
   Flags.verbose := b;
   match epl with 
   | [] -> 

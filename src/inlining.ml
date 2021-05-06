@@ -207,7 +207,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
       match epl with
       | [] ->
          print_info t.loc "inline_fun_decl: no matching subterm for path %s\n"
-           (target_to_string p);
+           (target_to_string tr);
          t
       | _ ->
          List.fold_left (apply_local_transformation apply_change) t epl
@@ -296,7 +296,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
             t
        | _ -> fail t.loc "inline_decl: expected a definition"
      in
-     if delete_decl then remove_decl clog pl t else t
+     if delete_decl then remove_decl clog tr t else t
   | _ -> fail t.loc "inline_decl: the path must point at exactly 1 subterm"
 
 (* let inline_literals (clog : out_channel) (pl : target) (t : trm) : trm = 
@@ -427,7 +427,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
       let pl = [cVarDef ~name:var()] in 
       let epl = resolve_target (List.flatten pl) t in 
       let var_decl = match epl with 
-      | [dl] -> let (t_def,_) = resolve_target dl t in t_def  
+      | [dl] -> let (t_def,_) = resolve_path dl t in t_def  
             
       | _ ->  fail t.loc "inline_record_access: expected a type"
       in 
@@ -465,7 +465,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
           let loc_pl = [cSet ~lhs:[cVar ~name:var ()]()] in 
           let loc_epl = resolve_target (List.flatten loc_pl) t in
           match loc_epl with 
-          | [dl] -> let (t_assgn,_) = resolve_target dl t in 
+          | [dl] -> let (t_assgn,_) = resolve_path dl t in 
             begin match t_assgn.desc with 
             | Trm_apps(_,[_;rs]) -> 
               begin match rs.desc with 
@@ -479,10 +479,10 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
       let struct_decl_path = [cType ~name:var_type ()] in 
       let epl_of_struct_decl = resolve_target (List.flatten struct_decl_path) t in 
       let struct_decl_trm  = match epl_of_struct_decl with 
-        | [dl] -> let (t_def,_) = resolve_target dl t in t_def 
+        | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
         | _ -> fail t.loc "inline_struct_access: expected a typedef struct"
       in 
-      let app_transfo (t : trm) (dl : expl_path) : trm = 
+      let app_transfo (t : trm) (dl : path) : trm = 
         match List.rev dl with 
         | Dir_nth _ :: dl' ->
           let dl = List.rev dl' in 
@@ -676,14 +676,14 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
   let base_struct_path = [cType ~name:base_struct_name()] in 
   let epl_of_base_struct = resolve_target (List.flatten base_struct_path) t in 
   let base_struct_term = match epl_of_base_struct with 
-    | [dl] -> let (t_def,_) = resolve_target dl t in t_def 
+    | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
     | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
   let struct_path = [cType ~name:struct_name ()] in 
   let epl_of_struct = resolve_target (List.flatten struct_path) t in 
   let struct_term = match epl_of_struct with 
   | [dl] -> 
-    let (t_def,_) = resolve_target dl t in t_def 
+    let (t_def,_) = resolve_path dl t in t_def 
   | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
   

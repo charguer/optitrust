@@ -211,14 +211,13 @@ let rec split_seq_at (n : int) (result_label : string) (block1_label : string)
  *)
 let split_sequence (clog : out_channel) (result_label : string)
   (block1_label : string) (block2_label : string)
-  (split_name : string -> string) (pl : target) (t : trm) : trm =
-  let p = List.flatten pl in
+  (split_name : string -> string) (tr : target) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   let app_transfo (result_label : string) (block1_label : string)
-    (block2_label : string) (t' : trm) (dl : expl_path) : trm =
+    (block2_label : string) (t' : trm) (dl : path) : trm =
     let log : string =
       let (t, _) = resolve_path dl t' in
       let loc : string =
@@ -325,8 +324,7 @@ let create_subsequence_aux (clog : out_channel) (label : label) (start_index : i
       )
       (ast_to_string t) loc 
       in write_log clog log;
-      let p = List.flatten stop_path in 
-      let epl = resolve_path p t in 
+      let epl = resolve_target stop_path t in 
       let last_trm = begin match epl with 
       | [dl] -> let(l_t,_) = resolve_path dl t in l_t
       | _ -> fail t.loc "create_subsequence_aux: only one exact trm shoudl be matched"
@@ -357,12 +355,11 @@ let create_subsequence_aux (clog : out_channel) (label : label) (start_index : i
       
 
 let create_subsequence (clog : out_channel) (start : target) (stop : target) (stop_before : bool) (stop_after : bool) (label : label) (braces : bool) (t : trm ) : trm = 
-  let p = List.flatten start in 
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in 
+  let epl = resolve_target start t in 
   Flags.verbose := b;
-  let app_transfo (t : trm) (dl : expl_path) : trm = 
+  let app_transfo (t : trm) (dl : path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' ->
       let dl = List.rev dl' in 
