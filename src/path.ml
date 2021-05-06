@@ -533,8 +533,8 @@ module Path_constructors =
     let cAfter : constr =
       ConstrRelative TargetAfter
 
-    (* let cFirst : constr = 
-      ConstrRelative TargetFirst *)
+    let cFirst : constr = 
+      ConstrRelative TargetFirst
 
     let cLast : constr = 
       ConstrRelative TargetLast
@@ -581,12 +581,12 @@ module Path_constructors =
     let cEnumConstVal : enum_const_dir = Enum_const_val
 
     (* constraints *)
-    let cList_int (tgl : target list)
+    let cList_int (tg : target)
       (next : bool list -> int list) : target =
-       [Constr_list ((@@) tgl, next)]
+       [Constr_list (tg, next)]
 
     (* allow to use boolean functions *)
-    let cList (tgl : target list)
+    let cList (tg : target)
       (next : bool list -> bool list) : target =
       let rec int_of_bool_list (n : int) = function
         | [] -> []
@@ -595,16 +595,16 @@ module Path_constructors =
            if b then n :: il else il
       in
       
-        [Constr_list ((@@) tgl, fun bl -> int_of_bool_list 0 (next bl))]
+        (Constr_list (tg, fun bl -> int_of_bool_list 0 (next bl))
 
     (* continue on the first matching instruction *)
-    let cFirst (tgl : target list) : target =
+    (* let cFirst (tg : target) : target =
       let rec next = function
         | [] -> []
         | true :: bl -> true :: List.map (fun _ -> false) bl
         | false :: bl -> false :: next bl
       in
-      cList tgl next
+      cList tg next *)
 
     (* after operator *)
     (*
@@ -720,14 +720,14 @@ module Path_constructors =
           2. find the function
        *)
       (cList 
-         [cList 
-           [cFun  ~name ~exact ~args ~validate ~body ()]
+         (cList 
+           (cFun  ~name ~exact ~args ~validate ~body ())
            (fun l -> l)
-         ]
+         )
          (fun l -> l)
       ) ++
       (cList 
-         [cFun  ~name ~exact ~args ~validate ~body ()]
+         (cFun  ~name ~exact ~args ~validate ~body ()
          (fun l -> l)
       )
 

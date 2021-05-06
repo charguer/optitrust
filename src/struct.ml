@@ -134,18 +134,18 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   in 
   (* First check if the path points to a variable declaration *)
   let is_decl = match epl with 
-  | [dl] -> let (t_def,_) = resolve_target dl t in 
+  | [dl] -> let (t_def,_) = resolve_path dl t in 
     begin match t_def.desc with 
     | Trm_seq[_;_] -> true
     | _ -> false
     end   
   | _ -> fail t.loc "make_explicit_record_assignment: the path should point at one exact term and should not be empty"
   in 
-  let t, pl = if is_decl then (detach_expression ~keep_label:true clog pl t,[cLabel ~label:"detached"()])
-    else t, pl 
+  let t, tr = if is_decl then (detach_expression ~keep_label:true clog tr t,List.flatten([cLabel ~label:"detached"()]))
+    else t, tr
   in 
   
-  let new_epl = resolve_path (List.flatten pl) t in 
+  let new_epl = resolve_target tr t in 
   
   match new_epl with 
   | [] -> 
@@ -199,7 +199,7 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
     | _ -> fail t.loc "make_implicit_record_assignment_aux: the outer sequence was not matched"
       
 
- let make_implicit_record_assignment(clog : out_channel) (name : string) (pl : target) (t : trm) : trm = 
+ let make_implicit_record_assignment(clog : out_channel) (name : string) (tr : target) (t : trm) : trm = 
     let struct_term_path = [cType ~name:name ()] in 
     let p_of_struct_term = List.flatten struct_term_path in 
     let epl_of_struct_term = resolve_target p_of_struct_term t in 
@@ -218,10 +218,9 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
     | _ -> fail t.loc "make_implicit_record_assignment: expected a definition"
     in 
     let num_fields = List.length fields_list in 
-    let p = List.flatten pl in 
     let b = !Flags.verbose in 
     Flags.verbose := false;
-    let epl = resolve_target p t in 
+    let epl = resolve_target tr t in 
     Flags.verbose := b;
     let app_transfo (t : trm) (dl : path) : trm = 
       match List.rev dl with 
@@ -271,11 +270,10 @@ let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move
     
  
 
-let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (pl : target) (t : trm) : trm  = 
-  let p = List.flatten pl in 
+let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (tr : target) (t : trm) : trm  = 
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_target p t in 
+  let epl = resolve_target tr t in 
   Flags.verbose := b;
   match epl with 
   | [] -> 

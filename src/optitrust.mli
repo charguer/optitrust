@@ -29,7 +29,7 @@ val cBefore : constr
 
 val cAfter : constr
 
-(* val cFirst : constr *)
+val cFirst : constr
 
 val cLast : constr
 
@@ -39,127 +39,117 @@ val cAnyNb : constr
 
 val cNb : int -> constr
 
-val cNth : ?strict:bool -> int -> target
+val cNth : int -> target
 
-val cCond : ?strict:bool -> unit -> target
+val cCond : unit -> target
 
-val cThen : ?strict:bool -> unit -> target
+val cThen : unit -> target
 
-val cElse : ?strict:bool -> unit -> target
+val cElse : unit -> target
 
-val cBody : ?strict:bool -> unit -> target
+val cBody : unit -> target
 
-val cInit : ?strict:bool -> unit -> target
+val cInit : unit -> target
 
-val cStep : ?strict:bool -> unit -> target
+val cStep : unit -> target
 
-val cAppFun : ?strict:bool -> unit -> target
+val cAppFun : unit -> target
 
-val cArg : ?strict:bool -> int -> target
+val cArg : int -> target
 
-val cName : ?strict:bool -> unit -> target
+val cName : unit -> target
 
-val cDirCase : ?strict:bool -> int -> case_dir -> target
+val cDirCase : int -> case_dir -> target
 
 val cCaseName : int -> case_dir
 val cCaseBody : case_dir
 
-val cEnumConst : ?strict:bool -> int -> enum_const_dir -> target
+val cEnumConst : int -> enum_const_dir -> target
 
 val cEnumConstName : enum_const_dir
 val cEnumConstVal : enum_const_dir
 
-val cList_int : ?strict:bool -> target -> (bool list -> int list) -> target
+val cList_int : target -> (bool list -> int list) -> target
 
-val cList : ?strict:bool -> target -> (bool list -> bool list) -> target
+val cList : target -> (bool list -> bool list) -> target
 
-val cFirst : ?strict:bool -> target -> target
+(* val cFirst : target -> target *)
 
-val (>>) : target -> target -> target
-val (>>!) : target -> target -> target
-val (!>>) : target -> target -> target
-val (!>>!) : target -> target -> target
+val cInclude : string -> target
 
-val (<<) : target -> target -> target
-val (<<!) : target -> target -> target
-val (!<<) : target -> target -> target
-val (!<<!) : target -> target -> target
+val cStr : ?regexp:bool -> string -> target
 
-val cInclude : ?strict:bool -> string -> target
+val cInstrSubstr : ?exact:bool -> ?regexp:bool -> string -> target
 
-val cStr : ?strict:bool -> ?regexp:bool -> string -> target
-
-val cInstrSubstr : ?strict:bool -> ?exact:bool -> ?regexp:bool -> string -> target
-
-val cFor : ?strict:bool -> ?init:(target) -> ?cond:(target) ->
+val cFor : ?init:(target) -> ?cond:(target) ->
            ?step:(target) -> ?body:(target) -> ?name:string-> unit -> target
 
-val cWhile : ?strict:bool -> ?cond:(target) -> ?body:(target) -> unit ->
+val cWhile : ?cond:(target) -> ?body:(target) -> unit ->
              target
 
-val cIf : ?strict:bool -> ?cond:(target) -> ?then_:(target) ->
+val cIf : ?cond:(target) -> ?then_:(target) ->
           ?else_:(target) -> unit -> target
 
-val cVarDef : ?strict:bool -> ?name:string -> ?exact:bool ->
+val cVarDef : ?name:string -> ?exact:bool ->
               ?body:(target) -> unit -> target
 
-val cFun : ?strict:bool -> ?name:string -> ?exact:bool -> ?args:(target) ->
+val cFun : ?name:string -> ?exact:bool -> ?args:(target) ->
            ?validate:(bool list -> bool) -> ?body:(target) -> unit -> target
 
 val cTopFun : ?name:string -> ?exact:bool -> ?args:(target) ->
            ?validate:(bool list -> bool) -> ?body:(target) -> unit -> target
 
-val cType : ?strict:bool -> ?name:string -> ?exact:bool -> unit -> target
+val cType : ?name:string -> ?exact:bool -> unit -> target
 
-val cEnum : ?strict:bool -> ?name:string -> ?exact:bool ->
+val cEnum : ?name:string -> ?exact:bool ->
             ?constants:((string * (target)) list) -> unit -> target
 
-val cSeq : ?strict:bool -> ?args:(target) -> ?validate:(bool list -> bool) ->
+val cSeq : ?args:(target) -> ?validate:(bool list -> bool) ->
            unit -> target
 
-val cVar : ?strict:bool -> ?name:string -> ?exact:bool -> unit -> target
+val cVar : ?name:string -> ?exact:bool -> unit -> target
 
-val cBool : ?strict:bool -> bool -> target
+val cBool : bool -> target
 
-val cInt : ?strict:bool -> int -> target
+val cInt : int -> target
 
-val cDouble : ?strict:bool -> float -> target
+val cDouble : float -> target
 
-val cString : ?strict:bool -> string -> target
+val cString : string -> target
 
-(* val cPrim : ?strict:bool -> prim -> target *)
+(* val cPrim : prim -> target *)
 
-val cApp : ?strict:bool -> ?name:string -> ?fun_:(target) ->
+val cApp : ?name:string -> ?fun_:(target) ->
            ?args:(target) -> ?validate:(bool list -> bool) -> unit -> target
 
-val cLabel : ?strict:bool -> ?label:string -> ?exact:bool ->
+val cLabel : ?label:string -> ?exact:bool ->
              ?body:(target) -> unit -> target
 
-val cGoto : ?strict:bool -> ?label:string -> ?exact:bool -> unit -> target
+val cGoto : ?label:string -> ?exact:bool -> unit -> target
 
-val cReturn : ?strict:bool -> ?res:(target) -> unit -> target
+val cReturn : ?res:(target) -> unit -> target
 
-val cAbort : ?strict:bool -> ?kind:abort_kind -> unit -> target
+val cAbort : ?kind:abort_kind -> unit -> target
 
 val cAbrtAny : abort_kind
 val cAbrtRet : abort_kind
 val cAbrtBrk : abort_kind
 val cAbrtCtn : abort_kind
 
-val cAccesses : ?strict:bool -> ?base:(target) ->
+val cAccesses : ?base:(target) ->
                 ?accesses:(constr_access list) -> unit -> target
 
 val cIndex : ?index:(target) -> unit -> constr_access
 val cField : ?field:string -> ?exact:bool -> unit -> constr_access
 val cAccess : constr_access
 
-val cSwitch : ?strict:bool -> ?cond:(target) ->
+val cSwitch : ?cond:(target) ->
               ?cases:((case_kind * (target)) list) -> unit -> target
 
 val cCase : ?value:(target) -> unit -> case_kind
 val cDefault : case_kind
 
-val cSet : ?strict:bool -> ?lhs:(target) -> ?rhs:(target) -> unit -> target
+val cSet : ?lhs:(target) -> ?rhs:(target) -> unit -> target
 
 (** Transformations *)
 
