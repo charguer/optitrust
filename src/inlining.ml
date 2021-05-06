@@ -236,7 +236,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
   match epl with
   | [dl] ->
      let t =
-       let (t_def, _) = resolve_explicit_path dl t in
+       let (t_def, _) = resolve_path dl t in
        let log : string =
          let loc : string =
            match t_def.loc with
@@ -328,7 +328,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
      List.fold_left
        (fun t dl ->
          let log : string =
-           let (t, _) = resolve_explicit_path dl t in
+           let (t, _) = resolve_path dl t in
            let loc : string =
              match t.loc with
              | None -> ""
@@ -430,7 +430,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
       let pl = [cVarDef ~name:var()] in 
       let epl = resolve_path (List.flatten pl) t in 
       let var_decl = match epl with 
-      | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def  
+      | [dl] -> let (t_def,_) = resolve_path dl t in t_def  
             
       | _ ->  fail t.loc "inline_record_access: expected a type"
       in 
@@ -468,7 +468,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
           let loc_pl = [cSet ~lhs:[cVar ~name:var ()]()] in 
           let loc_epl = resolve_path (List.flatten loc_pl) t in
           match loc_epl with 
-          | [dl] -> let (t_assgn,_) = resolve_explicit_path dl t in 
+          | [dl] -> let (t_assgn,_) = resolve_path dl t in 
             begin match t_assgn.desc with 
             | Trm_apps(_,[_;rs]) -> 
               begin match rs.desc with 
@@ -482,7 +482,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
       let struct_decl_path = [cType ~name:var_type ()] in 
       let epl_of_struct_decl = resolve_path (List.flatten struct_decl_path) t in 
       let struct_decl_trm  = match epl_of_struct_decl with 
-        | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+        | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
         | _ -> fail t.loc "inline_struct_access: expected a typedef struct"
       in 
       let app_transfo (t : trm) (dl : expl_path) : trm = 
@@ -679,14 +679,14 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
   let base_struct_path = [cType ~name:base_struct_name()] in 
   let epl_of_base_struct = resolve_path (List.flatten base_struct_path) t in 
   let base_struct_term = match epl_of_base_struct with 
-    | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+    | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
     | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
   let struct_path = [cType ~name:struct_name ()] in 
   let epl_of_struct = resolve_path (List.flatten struct_path) t in 
   let struct_term = match epl_of_struct with 
   | [dl] -> 
-    let (t_def,_) = resolve_explicit_path dl t in t_def 
+    let (t_def,_) = resolve_path dl t in t_def 
   | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
   
@@ -735,14 +735,14 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
   let base_struct_path = [cType ~name:base_struct_name()] in 
   let epl_of_base_struct = resolve_path (List.flatten base_struct_path) t in 
   let base_struct_term = match epl_of_base_struct with 
-    | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+    | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
     | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
   let struct_path = [cType ~name:struct_name ()] in 
   let epl_of_struct = resolve_path (List.flatten struct_path) t in 
   let struct_term = match epl_of_struct with 
   | [dl] -> 
-    let (t_def,_) = resolve_explicit_path dl t in t_def 
+    let (t_def,_) = resolve_path dl t in t_def 
   | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
   
@@ -795,7 +795,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
   let epl_of_struct_term = resolve_path p_of_struct_term t in 
   let struct_term = match epl_of_struct_term with 
     | [dl] -> 
-      let(t_def,_) = resolve_explicit_path dl t in t_def
+      let(t_def,_) = resolve_path dl t in t_def
     | _ -> fail t.loc "inline_struct: expected a typedef struct"
     in 
   (* Get the type of the field_name by going through the field_map of struct obj *)
@@ -831,7 +831,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     let t1 = 
     match epl_temp with
     | [dl] -> 
-      let (t_def,_) = resolve_explicit_path dl t in t_def
+      let (t_def,_) = resolve_path dl t in t_def
     | _ -> fail t.loc "inline_struct: expected a typedef struct"
     in
     

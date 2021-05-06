@@ -784,7 +784,7 @@ let term (ctx : context) ?(context : string = "") (s : string) : trm =
 
 (* output the code of declarations in t up to the end of the explicit path *)
 let get_context (ctx : context) (dl : expl_path) (t : trm) : string =
-  let (_, decl_l) = resolve_explicit_path dl t in
+  let (_, decl_l) = resolve_path dl t in
   ctx.includes ^ ast_to_string (trm_seq ~annot:(Some No_braces) decl_l)
 
 
@@ -912,7 +912,7 @@ let insert_decl ?(replace_top : bool = false) ?(insert_before : paths = [])
     Flags.verbose := b;
     List.iter
       (fun dl ->
-        let (t', _) = resolve_explicit_path dl t in
+        let (t', _) = resolve_path dl t in
         let log : string =
           let loc : string =
             match t'.loc with
@@ -1017,7 +1017,7 @@ let insert_and_fold ?(replace_top : bool = false)
     Flags.verbose := b;
     List.iter
       (fun dl ->
-        let (t', _) = resolve_explicit_path dl t in
+        let (t', _) = resolve_path dl t in
         let log : string =
           let loc =
             match t'.loc with
@@ -1111,7 +1111,7 @@ let insert_typedef ?(replace_top : bool = false)
     Flags.verbose := b;
     List.iter
       (fun dl ->
-        let (t', _) = resolve_explicit_path dl t in
+        let (t', _) = resolve_path dl t in
         let log : string =
           let loc : string =
             match t'.loc with
@@ -1188,7 +1188,7 @@ let insert_and_fold_typedef ?(replace_top : bool = false)
     Flags.verbose := b;
     List.iter
       (fun dl ->
-        let (t', _) = resolve_explicit_path dl t in
+        let (t', _) = resolve_path dl t in
         let log : string =
           let loc : string =
             match t'.loc with

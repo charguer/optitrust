@@ -220,7 +220,7 @@ let split_sequence (clog : out_channel) (result_label : string)
   let app_transfo (result_label : string) (block1_label : string)
     (block2_label : string) (t' : trm) (dl : expl_path) : trm =
     let log : string =
-      let (t, _) = resolve_explicit_path dl t' in
+      let (t, _) = resolve_path dl t' in
       let loc : string =
         match t.loc with
         | None -> ""
@@ -248,7 +248,7 @@ let split_sequence (clog : out_channel) (result_label : string)
         *)
        | Dir_nth _ :: dl'' ->
           let dl = List.rev dl'' in
-          let (t'', _) = resolve_explicit_path dl t' in
+          let (t'', _) = resolve_path dl t' in
           begin match t''.annot with
           (* if there are delete instructions, pass them to split_seq_at *)
           | Some Delete_instructions ->
@@ -328,7 +328,7 @@ let create_subsequence_aux (clog : out_channel) (label : label) (start_index : i
       let p = List.flatten stop_path in 
       let epl = resolve_path p t in 
       let last_trm = begin match epl with 
-      | [dl] -> let(l_t,_) = resolve_explicit_path dl t in l_t
+      | [dl] -> let(l_t,_) = resolve_path dl t in l_t
       | _ -> fail t.loc "create_subsequence_aux: only one exact trm shoudl be matched"
       end 
       in match t.desc with 

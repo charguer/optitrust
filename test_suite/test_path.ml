@@ -219,7 +219,7 @@ let test_path (ast : trm) (p : path) (expected_output : expl_path list) : unit =
   | _ ->
      let sl = List.map string_of_explicit_path epl in
      let tl =
-       List.map (fun dl -> let (t, _) = resolve_explicit_path dl ast in t) epl
+       List.map (fun dl -> let (t, _) = resolve_path dl ast in t) epl
      in
      let stl = List.combine sl tl in
      List.iteri

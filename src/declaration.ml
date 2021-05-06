@@ -21,7 +21,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
   Flags.verbose := b;
   match epl with
   | [dl] ->
-     let (t_def, _) = resolve_explicit_path dl t in
+     let (t_def, _) = resolve_path dl t in
      let log : string =
        Printf.sprintf
          ("  - expression\n%s\n" ^^
@@ -269,7 +269,7 @@ let insert_and_fold (clog : out_channel) ?(insert_before : path list = [])
             | _ ->
                fail t.loc "insert_and_fold: cannot insert both before and after"
           in
-          let (t_container, _) = resolve_explicit_path (List.rev dl) t in
+          let (t_container, _) = resolve_path (List.rev dl) t in
           begin match t_container.annot with
           (*
             in case of heap allocation, a seq (for delete instructions) may be
@@ -354,7 +354,7 @@ let remove_decl (clog : out_channel) (pl : path list) (t : trm) : trm =
   match epl with
   | [dl] ->
      (* get the declaration for later use *)
-     let (t_decl, _) = resolve_explicit_path dl t in
+     let (t_decl, _) = resolve_path dl t in
      let log : string =
        let loc : string =
          match t_decl.loc with

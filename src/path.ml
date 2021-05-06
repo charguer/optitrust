@@ -1526,7 +1526,7 @@ and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
 (*
   follow the explicit path and return the corresponding subterm and its context
  *)
-let resolve_explicit_path (dl : path) (t : trm) : trm * (trm list) =
+let resolve_path (dl : path) (t : trm) : trm * (trm list) =
   let rec aux (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
     | [] -> (t, List.rev ctx)
@@ -1631,14 +1631,14 @@ let resolve_explicit_path (dl : path) (t : trm) : trm * (trm list) =
                   begin match t_o with
                   | None ->
                      fail loc
-                       "resolve_explicit_path: no value for enum constant"
+                       "resolve_path: no value for enum constant"
                   | Some t ->
                      aux dl t ctx
                   end
              )
        | _, _ ->
           let s = dir_to_string d in
-          fail loc ("resolve_explicit_path: direction " ^ s ^ " does not match")
+          fail loc ("resolve_path: direction " ^ s ^ " does not match")
        end
   in
   aux dl t []
@@ -1646,7 +1646,7 @@ let resolve_explicit_path (dl : path) (t : trm) : trm * (trm list) =
 let get_arity_of_seq_at (p : path) (t : trm) : int =
   match List.rev p with
   | Dir_nth _ :: dl' ->
-    let (seq_trm,_) = resolve_explicit_path (List.rev dl') t in 
+    let (seq_trm,_) = resolve_path (List.rev dl') t in 
     begin match seq_trm.desc with 
     | Trm_seq tl -> List.length tl
     | _ -> fail None "get_arity_of_seq_at: expected a sequence"

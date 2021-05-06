@@ -605,7 +605,7 @@ let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : v
   let app_transfo (t :trm) (dl : expl_path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
-      let (t',_) = resolve_explicit_path dl t in
+      let (t',_) = resolve_path dl t in
       let dl = List.rev dl' in
       
       apply_local_transformation (array_to_variables_aux clog new_vars t' n) t dl 
@@ -613,7 +613,7 @@ let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : v
   in 
   (* Change all array accessess with the new variables before changing the declaration *)
   let declaration_trm = match epl with 
-  | [dl] -> let (t_def,_) = resolve_explicit_path dl t in t_def 
+  | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
   | _ -> fail t.loc "array_to_variables: expected only one declaration trm"
   in 
   let array_variable = match declaration_trm.desc with

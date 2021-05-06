@@ -435,7 +435,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
                   "function %s, ignoring it.\n") f;
              Fun_map.remove f res
           | Some dl ->
-             let (def, _) = resolve_explicit_path dl global_trm in
+             let (def, _) = resolve_path dl global_trm in
              begin match def.desc with
              | Trm_decl (Def_fun (_, _, args, body)) ->
                 let b = replace_arg_types_with x il args body in
@@ -503,7 +503,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
             fail t'.loc
               ("insert_fun_copies: cannot find declaration of function " ^ f)
          | Some dl ->
-            let (fdecl, _) = resolve_explicit_path dl t' in
+            let (fdecl, _) = resolve_path dl t' in
             begin match fdecl.desc with
             | Trm_decl (Def_fun (f', r, tvl, b)) when f = f' ->
                (* for each element of ils, create a copy *)
@@ -1166,7 +1166,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
   let app_transfo ?(keep_label : bool = false) (label : string) (t : trm) (dl : expl_path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
-      let (t',_) = resolve_explicit_path dl t in 
+      let (t',_) = resolve_path dl t in 
       let dl = List.rev dl' in 
       apply_local_transformation (detach_expression_aux clog ~keep_label label n t') t dl
     | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"
@@ -1186,7 +1186,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
         begin match List.rev dl with 
         | Dir_nth n :: dl' -> 
           let dl = List.rev dl' in 
-          let (t',_) = resolve_explicit_path dl t in n, t'
+          let (t',_) = resolve_path dl t in n, t'
         | _ -> fail t.loc " detach_expression: expected a dir_nth inside the sequence"
         end in 
         apply_local_transformation (detach_expression_aux clog ~keep_label label index prefix_sequence_trm) t dl)
