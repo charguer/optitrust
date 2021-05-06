@@ -1642,6 +1642,7 @@ let resolve_explicit_path (dl : path) (t : trm) : trm * (trm list) =
        end
   in
   aux dl t []
+(* Get the number of instructions a sequence contains *)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
   match List.rev p with
   | Dir_nth _ :: dl' ->
@@ -1651,8 +1652,8 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
     | _ -> fail None "get_arity_of_seq_at: expected a sequence"
     end
   | _ -> fail None "get_arity_of_seq_at"
-  
-let compute_relative_index rel t p =
+
+let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
  match rel with
     | TargetAt -> fail None "compute_relative_index: Didn't expect a TargetAt"
     | TargetFirst -> (p, 0)
@@ -1664,12 +1665,11 @@ let compute_relative_index rel t p =
            | TargetAfter -> 1
            | _ -> assert false
            in
-        begin match extract_last_dir p with
-        | Some (p_to_seq, Dir_nth i) -> (p_to_seq, i + shift)
-        | Some _ -> raise Error "not targeting an element inside a sequence"
+        begin match List.rev p with 
+        | Dir_nth i :: dl' -> (List.rev dl',i +  shift)
+        | _ -> fail None "compute_relative_index: expected a sequence"
         end
-(* Using a similar syntax to app_transfo TODO: Remove this comment after discussion with Arthur *)
-
+        
 let resolve_target_between (tg : target) (t : trm) : (path * int) list = 
   let tgs = target_to_target_struct tg in
   
