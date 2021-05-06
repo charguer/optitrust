@@ -1188,32 +1188,45 @@ and resolve_target_simple (trs : target_simple) (t : trm) : paths =
   List.sort_uniq compare_path epl
 
 and resolve_target_struct(tgs : target_struct) (t : trm) : paths = 
-  let res = resolve_target_simple tgs.target_path in 
+  let res = resolve_target_simple tgs.target_path t in 
   let nb = List.length res in 
   (* Check if nb is equal to the specification of tgs.target_occurences, if not than something went wrong *)
   match tgs.target_occurences with
-  | ExpectedOne -> if nb = 1 then res else fail None "Expected only one match"
-  | ExpectedNb x -> if nb = x then res else fail None "Expected x matches"
-  | ExpectedMulti -> if nb <> 0 then res else fail None "Expected at least one occurrence"
+  | ExpectedOne -> if nb = 1 then res else fail None "resolve_target_struct: expected only one match"
+  | ExpectedNb x -> if nb = x then res else fail None "resolve_target_struct: expected x matches"
+  | ExpectedMulti -> if nb <> 0 then res else fail None "resolve_target_struct: expected at least one occurrence"
   | ExpectedAnyNb -> res 
 
 and resolve_target(tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in 
   if tgs.target_relative <> TargetAt
-    then fail None "This target should not contain a cBefore/cAfter/cFirst/cLast"
-  else resolve_target_struct tgs
+    then fail None "resolve_target: this target should not contain a cBefore/cAfter/cFirst/cLast";
+  resolve_target_struct tgs t
 
-(* and resolve_target (tr : target)
-  (t : trm) : paths =
-  let epl =
-    match tr with
-    | [] -> [[]]
-    
-    | c :: tr ->
-       let dll = resolve_constraint c tr t in
-        (explore_in_depth (c :: tr) t) ++ dll
-  in
-  List.sort_uniq compare_path epl *)
+and resolve_target_between (tg : target) (t : trm) : (path * int) list = 
+  let tgs = target_to_target_struct tg in
+  
+  if tgs.target_relative = TargetAt
+    then fail None "resolve_target_between:this target should contain a cBefore/cAfter/cFirst/cLast";
+  let res = resolve_target_struct tgs t in 
+  List.map (compute_relative_index tgs.target_relative) res
+
+and computre_relative_index rel p =
+ match rel with
+    | TargetAt -> raise Error "compute_relative_index does not expect a TargetAt"
+    | TargetFirst -> (p, 0)
+    | TargetLast -> (p, get_arity_of_seq_at p)
+    | TargetBefore | TargetAfter ->
+        let shift =
+           match rel with
+           | TargetBefore -> 0
+           | TargetAfter -> 1
+           | _ -> assert false
+           in
+        begin match extract_last_dir p with
+        | Some (p_to_seq, Dir_nth i) -> (p_to_seq, i + shift)
+        | Some _ -> raise Error "not targeting an element inside a sequence"
+        end
 
 (* check c against t and in case of success continue with p *)
 and resolve_constraint (c : constr) (p : target) (t : trm) : paths =
