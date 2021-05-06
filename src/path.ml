@@ -591,8 +591,8 @@ module Path_constructors =
       let p_body = List.flatten body in
       strictify strict [Constr_decl_var (ro, p_body)]
 
-    
-     let (@@) (l:path list) = List.flatten l     
+
+     let (@@) (l:path list) = List.flatten l
     (* todo: notation for List.flatten *)
     let cFor ?(strict : bool = false) ?(init : path list = [])
       ?(cond : path list = []) ?(step : path list = []) ?(body : path list = []) ?(name : string = "")
@@ -604,7 +604,7 @@ module Path_constructors =
          | _, [] -> [cVarDef ~name ()]
          | _, _::_ -> failwith "cFor: cannot provide both name and init"
          in
-      
+
       strictify strict [Constr_for ((@@) init, (@@) cond, (@@) step, (@@) body)]
 
     let cWhile ?(strict : bool = false) ?(cond : path list = [])
@@ -621,7 +621,7 @@ module Path_constructors =
       strictify strict [Constr_if (p_cond, p_then, p_else)]
 
     (* by default an empty name is no name *)
-    
+
 
     let cFun ?(strict : bool = false) ?(name : string = "")
       ?(exact : bool = true) ?(args : path list = [])
@@ -710,14 +710,14 @@ module Path_constructors =
     let cApp ?(strict : bool = false) ?(name : string = "")
       ?(fun_ : path list = []) ?(args : path list = [])
       ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : path =
-      let exception Argument_Error  of string in  
+      let exception Argument_Error  of string in
       let p_fun =
-      match name, fun_ with 
-      | "",_ -> List.flatten fun_ 
+      match name, fun_ with
+      | "",_ -> List.flatten fun_
       | _, [] -> cVar ~strict:true ~name ()
       | _,_ ->  raise (Argument_Error "Can't provide both the path and the name of the function")
-      
-      
+
+
       in
       let p_args = List.flatten args in
       strictify strict [Constr_app (p_fun, (p_args, validate))]
