@@ -525,6 +525,7 @@ module Path_constructors =
       this list is then flattened to call resolve_target
       unit args are used because of optional arguments
      *)
+     (* Sued for relative targets *)
     let cBefore : constr = 
       ConstrRelative TargetBefore
 
@@ -536,7 +537,8 @@ module Path_constructors =
 
     let cLast : constr = 
       ConstrRelative TargetLast
-
+    
+    (* Used for checking the number of targets to match *)
     let cMulti : constr =
       ConstrOccurences ExpectedMulti
     
@@ -977,7 +979,7 @@ let app_to_nth_dflt (loc : location) (l : 'a list) (n : int)
      []
 
 (* extend current explicit paths with a direction *)
-let add_dir (d : dir) (dll : path list) : path list =
+let add_dir (d : dir) (dll : paths) : paths =
   List.map (fun dl -> d :: dl) dll
 
 (* compare literals *)
@@ -1164,7 +1166,7 @@ and check_enum_const (cec : constr_enum_const)
 
 (* check if target tr leads to at least one subterm of t *)
 and check_target (tr : target) (t : trm) : bool =
-  match resolve_target p t with
+  match resolve_target tr t with
   | [] -> false
   | _ -> true
 
@@ -1174,8 +1176,35 @@ and check_target (tr : target) (t : trm) : bool =
   another target that appears after it in the list. Guaranteed by the call to
   sort_unique
  *)
-and resolve_target (tr : target)
-  (t : trm) : path list =
+and resolve_target_simple (trs : target_simple) (t : trm) : paths =
+  let epl =
+    match trs with
+    | [] -> [[]]
+    
+    | c :: trs ->
+       let dll = resolve_constraint c trs t in
+        (explore_in_depth (c :: trs) t) ++ dll
+  in
+  List.sort_uniq compare_path epl
+
+and resolve_target_struct(tgs : target_struct) (t : trm) : paths = 
+  let res = resolve_target_simple tgs.target_path in 
+  let nb = List.length res in 
+  (* Check if nb is equal to the specification of tgs.target_occurences, if not than something went wrong *)
+  match tgs.target_occurences with
+  | ExpectedOne -> if nb = 1 then res else fail None "Expected only one match"
+  | ExpectedNb x -> if nb = x then res else fail None "Expected x matches"
+  | ExpectedMulti -> if nb <> 0 then res else fail None "Expected at least one occurrence"
+  | ExpectedAnyNb -> res 
+
+and resolve_target(tg : target) (t : trm) : paths =
+  let tgs = target_to_target_struct tg in 
+  if tgs.target_relative <> TargetAt
+    then fail None "This target should not contain a cBefore/cAfter/cFirst/cLast"
+  else resolve_target_struct tgs
+
+(* and resolve_target (tr : target)
+  (t : trm) : paths =
   let epl =
     match tr with
     | [] -> [[]]
@@ -1184,10 +1213,10 @@ and resolve_target (tr : target)
        let dll = resolve_constraint c tr t in
         (explore_in_depth (c :: tr) t) ++ dll
   in
-  List.sort_uniq compare_path epl
+  List.sort_uniq compare_path epl *)
 
 (* check c against t and in case of success continue with p *)
-and resolve_constraint (c : constr) (p : target) (t : trm) : path list =
+and resolve_constraint (c : constr) (p : target) (t : trm) : paths =
   let loc = t.loc in
   match c with
   (*
@@ -1254,7 +1283,7 @@ and resolve_constraint (c : constr) (p : target) (t : trm) : path list =
      []
 
 (* call resolve_target on subterms of t if possible *)
-and explore_in_depth (p : target) (t : trm) : path list =
+and explore_in_depth (p : target) (t : trm) : paths =
   let loc = t.loc in
   match t.annot with
   (* no exploration in depth in included files *)
@@ -1385,7 +1414,7 @@ and explore_in_depth (p : target) (t : trm) : path list =
   call resolve_target on given case name and body
   i is the index of the case in its switch
  *)
-and explore_case (i : int) (case : trm list * trm) (p : target) : path list =
+and explore_case (i : int) (case : trm list * trm) (p : target) : paths =
   let (tl, body) = case in
   match tl with
   (* default case *)
@@ -1403,7 +1432,7 @@ and explore_case (i : int) (case : trm list * trm) (p : target) : path list =
      add_dir (Dir_case (i, Case_body)) (resolve_target p body)
 
 (* follow the direction d in t and call resolve_target on p *)
-and follow_dir (d : dir) (p : target) (t : trm) : path list =
+and follow_dir (d : dir) (p : target) (t : trm) : paths =
   let loc = t.loc in
   match d, t.desc with
   | Dir_nth n, Trm_seq tl
@@ -1486,7 +1515,7 @@ and follow_dir (d : dir) (p : target) (t : trm) : path list =
   d: function that gives the direction to add depending on the index
  *)
 and explore_list (tl : trm list) (d : int -> dir)
-  (cont : trm -> path list) : path list =
+  (cont : trm -> paths) : paths =
   foldi (fun i epl t -> epl ++ add_dir (d i) (cont t)) [] tl
 
 (*
@@ -1495,7 +1524,7 @@ and explore_list (tl : trm list) (d : int -> dir)
   d: function that gives the direction to add depending on the index
  *)
 and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
-  (cont : trm -> path list) : path list =
+  (cont : trm -> paths) : paths =
   foldi
     (fun i epl t ->
       if List.mem i dom then epl ++ add_dir (d i) (cont t) else epl)
