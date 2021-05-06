@@ -43,21 +43,21 @@ val cNth : int -> target
 
 val cCond : unit -> target
 
-val cThen : unit -> target
+val cThen : target
 
-val cElse : unit -> target
+val cElse : target
 
-val cBody : unit -> target
+val cBody : target
 
-val cInit : unit -> target
+val cInit : target
 
-val cStep : unit -> target
+val cStep : target
 
-val cAppFun : unit -> target
+val cAppFun : target
 
 val cArg : int -> target
 
-val cName : unit -> target
+val cName : target
 
 val cDirCase : int -> case_dir -> target
 
@@ -69,9 +69,9 @@ val cEnumConst : int -> enum_const_dir -> target
 val cEnumConstName : enum_const_dir
 val cEnumConstVal : enum_const_dir
 
-val cList_int : target -> (bool list -> int list) -> target
+(* val cList_int : target -> (bool list -> int list) -> target *)
 
-val cList : target -> (bool list -> bool list) -> target
+(* val cList : target -> (bool list -> bool list) -> target *)
 
 (* val cFirst : target -> target *)
 
@@ -96,8 +96,8 @@ val cVarDef : ?name:string -> ?exact:bool ->
 val cFun : ?name:string -> ?exact:bool -> ?args:(target) ->
            ?validate:(bool list -> bool) -> ?body:(target) -> unit -> target
 
-val cTopFun : ?name:string -> ?exact:bool -> ?args:(target) ->
-           ?validate:(bool list -> bool) -> ?body:(target) -> unit -> target
+(* val cTopFun : ?name:string -> ?exact:bool -> ?args:(target) ->
+           ?validate:(bool list -> bool) -> ?body:(target) -> unit -> target *)
 
 val cType : ?name:string -> ?exact:bool -> unit -> target
 

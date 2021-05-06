@@ -515,7 +515,7 @@ and access_to_string (ca : constr_access) : string =
 (******************************************************************************)
 
 (* TODO: Remove all the occurrences of List.flatten they are not needed anymore*)
-let (@@) (l:'a list) = List.flatten l     
+(* let (@@) (l:'a list) = List.flatten l      *)
 
 module Path_constructors =
   struct
@@ -550,38 +550,38 @@ module Path_constructors =
        ConstrOccurences (ExpectedNb nb)
     
     (* directions *)
-    let cNth (n : int) : target =
-       [Constr_dir (Dir_nth n)]
-    let cCond (_ : unit) : target =
-       [Constr_dir Dir_cond]
-    let cThen (_ : unit) : target =
-       [Constr_dir Dir_then]
-    let cElse (_ : unit) : target =
-       [Constr_dir Dir_else]
-    let cBody (_ : unit) : target =
-       [Constr_dir Dir_body]
-    let cInit (_ : unit) : target =
-       [Constr_dir Dir_for_init]
-    let cStep (_ : unit) : target =
-       [Constr_dir Dir_for_step]
-    let cAppFun (_ : unit) : target =
-       [Constr_dir Dir_app_fun]
-    let cArg (n : int) : target =
-       [Constr_dir (Dir_arg n)]
-    let cName (_ : unit) : target =
-       [Constr_dir Dir_name]
-    let cDirCase (n : int) (cd : case_dir) : target =
-       [Constr_dir (Dir_case (n, cd))]
+    let cNth (n : int) : constr =
+       Constr_dir (Dir_nth n)
+    let cCond : constr =
+       Constr_dir Dir_cond
+    let cThen : constr =
+       Constr_dir Dir_then
+    let cElse : constr =
+       Constr_dir Dir_else
+    let cBody : constr =
+       Constr_dir Dir_body
+    let cInit : constr =
+       Constr_dir Dir_for_init
+    let cStep : constr =
+       Constr_dir Dir_for_step
+    let cAppFun : constr =
+       Constr_dir Dir_app_fun
+    let cArg (n : int) : constr =
+       Constr_dir (Dir_arg n)
+    let cName : constr =
+       Constr_dir Dir_name
+    let cDirCase (n : int) (cd : case_dir) : constr =
+       Constr_dir (Dir_case (n, cd))
     let cCaseName (n : int) : case_dir = Case_name n
     let cCaseBody : case_dir = Case_body
     let cEnumConst (n : int)
-      (ecd : enum_const_dir) : target =
-       [Constr_dir (Dir_enum_const (n, ecd))]
+      (ecd : enum_const_dir) : constr =
+       Constr_dir (Dir_enum_const (n, ecd))
     let cEnumConstName : enum_const_dir = Enum_const_name
     let cEnumConstVal : enum_const_dir = Enum_const_val
 
     (* constraints *)
-    let cList_int (tg : target)
+    (* let cList_int (tg : target)
       (next : bool list -> int list) : target =
        [Constr_list (tg, next)]
 
@@ -595,7 +595,7 @@ module Path_constructors =
            if b then n :: il else il
       in
       
-        (Constr_list (tg, fun bl -> int_of_bool_list 0 (next bl))
+        (Constr_list (tg, fun bl -> int_of_bool_list 0 (next bl)) *)
 
     (* continue on the first matching instruction *)
     (* let cFirst (tg : target) : target =
@@ -656,53 +656,53 @@ module Path_constructors =
       if s = "" then None else Some (rexp_of_string ~only_instr:false ~exact s)
 
     let cVarDef ?(name : string = "")
-      ?(exact : bool = true) ?(body : target list = []) (_ : unit) : target =
+      ?(exact : bool = true) ?(body : target = []) (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact name in
-      let p_body = (@@) body in
+      let p_body =  body in
        [Constr_decl_var (ro, p_body)]
 
-    let cFor ?(init : target list = [])
-      ?(cond : target list = []) ?(step : target list = []) ?(body : target list = []) ?(name : string = "")
+    let cFor ?(init : target = [])
+      ?(cond : target = []) ?(step : target = []) ?(body : target = []) ?(name : string = "")
       (_ : unit) : target =
       let init =
          match name, init with
          | "",[] -> init (*failwith "cFor: Need to provide the name or init"*)
          | "", _ -> init
-         | _, [] -> [cVarDef ~name ()]
+         | _, [] -> (cVarDef ~name ())
          | _, _::_ -> failwith "cFor: cannot provide both name and init"
          in
       
-       [Constr_for ((@@) init, (@@) cond, (@@) step, (@@) body)]
+       [Constr_for ( init,  cond,  step,  body)]
 
-    let cWhile ?(cond : target list = [])
-      ?(body : target list = []) (_ : unit) : target =
-      let p_cond = (@@) cond in
-      let p_body = (@@) body in
+    let cWhile ?(cond : target = [])
+      ?(body : target = []) (_ : unit) : target =
+      let p_cond =  cond in
+      let p_body =  body in
        [Constr_while (p_cond, p_body)]
 
-    let cIf ?(cond : target list = [])
-      ?(then_ : target list = []) ?(else_ : target list = []) (_ : unit) : target =
-      let p_cond = (@@) cond in
-      let p_then = (@@) then_ in
-      let p_else = (@@) else_ in
+    let cIf ?(cond : target = [])
+      ?(then_ : target = []) ?(else_ : target = []) (_ : unit) : target =
+      let p_cond =  cond in
+      let p_then =  then_ in
+      let p_else =  else_ in
        [Constr_if (p_cond, p_then, p_else)]
 
     (* by default an empty name is no name *)
     
 
     let cFun ?(name : string = "")
-      ?(exact : bool = true) ?(args : target list = [])
-      ?(validate : bool list -> bool = fun _ -> true) ?(body : target list = [])
+      ?(exact : bool = true) ?(args : target = [])
+      ?(validate : bool list -> bool = fun _ -> true) ?(body : target = [])
       (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact name in
-      let p_args = (@@) args in
-      let p_body = (@@) body in
+      let p_args =  args in
+      let p_body =  body in
        [Constr_decl_fun (ro, (p_args, validate), p_body)]
 
     (* toplevel fun declaration *)
-    let cTopFun ?(name : string = "") ?(exact : bool = true)
-      ?(args : target list = []) ?(validate : bool list -> bool = fun _ -> true)
-      ?(body : target list = []) (_ : unit) : target =
+    (* let cTopFun ?(name : string = "") ?(exact : bool = true)
+      ?(args : target = []) ?(validate : bool list -> bool = fun _ -> true)
+      ?(body : target = []) (_ : unit) : target =
       (*
         structure of toplevel term:
         seq (del_instr)
@@ -729,7 +729,7 @@ module Path_constructors =
       (cList 
          (cFun  ~name ~exact ~args ~validate ~body ()
          (fun l -> l)
-      )
+      ) *)
 
     let cType ?(name : string = "")
       ?(exact : bool = true) (_ : unit) : target =
@@ -737,7 +737,7 @@ module Path_constructors =
        [Constr_decl_type ro]
 
     let cEnum ?(name : string = "")
-      ?(exact : bool = true) ?(constants : (string * (target list)) list = [])
+      ?(exact : bool = true) ?(constants : (string * (target)) list = [])
       (_ : unit) : target =
       let c_n = rexp_opt_of_string ~exact name in
       let cec_o =
@@ -746,16 +746,16 @@ module Path_constructors =
         | _ ->
            let cec =
              List.map
-               (fun (n, pl) -> (rexp_opt_of_string ~exact n, (@@) pl))
+               (fun (n, pl) -> (rexp_opt_of_string ~exact n,  pl))
                constants
            in
            Some cec
       in
        [Constr_decl_enum (c_n, cec_o)]
 
-    let cSeq ?(args : target list = [])
+    let cSeq ?(args : target = [])
       ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : target =
-      let p_args = (@@) args in
+      let p_args =  args in
        [Constr_seq (p_args, validate)]
 
     let cVar ?(name : string = "")
@@ -775,24 +775,24 @@ module Path_constructors =
       cStr  (ast_to_string (trm_prim p))
 
     let cApp ?(name : string = "")
-      ?(fun_ : target list = []) ?(args : target list = [])
+      ?(fun_ : target = []) ?(args : target = [])
       ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : target =
       let exception Argument_Error  of string in  
       let p_fun =
       match name, fun_ with 
-      | "",_ -> (@@) fun_ 
+      | "",_ ->  fun_ 
       | _, [] -> cVar  ~name ()
       | _,_ ->  raise (Argument_Error "Can't provide both the target and the name of the function")
       
       
       in
-      let p_args = (@@) args in
+      let p_args =  args in
        [Constr_app (p_fun, (p_args, validate))]
 
     let cLabel ?(label : string = "")
-      ?(exact : bool = true) ?(body : target list = []) (_ : unit) : target =
+      ?(exact : bool = true) ?(body : target = []) (_ : unit) : target =
       let ro = rexp_opt_of_string ~exact label in
-      let p_body = (@@) body in
+      let p_body =  body in
        [Constr_label (ro, p_body)]
 
     let cGoto ?(label : string = "")
@@ -800,9 +800,9 @@ module Path_constructors =
       let ro = rexp_opt_of_string ~exact label in
        [Constr_goto ro]
 
-    let cReturn ?(res : target list = [])
+    let cReturn ?(res : target = [])
       (_ : unit) : target =
-      let p_res = (@@) res in
+      let p_res =  res in
        [Constr_return p_res]
 
     let cAbort ?(kind : abort_kind = Any)
@@ -818,16 +818,16 @@ module Path_constructors =
       the empty list is interpreted as no constraint on the accesses
       accesses are reversed so that users give constraints on what they see
      *)
-    let cAccesses ?(base : target list = [])
+    let cAccesses ?(base : target = [])
       ?(accesses : constr_access list = []) (_ : unit) : target =
-      let p_base = (@@) base in
+      let p_base =  base in
       let accesses =
         match accesses with | [] -> None | cal -> Some (List.rev cal)
       in
        [Constr_access (p_base, accesses)]
 
-    let cIndex ?(index : target list = []) (_ : unit) : constr_access =
-      let p_index = (@@) index in
+    let cIndex ?(index : target = []) (_ : unit) : constr_access =
+      let p_index =  index in
       Array_access p_index
 
     let cField ?(field : string = "") ?(exact : bool = true)
@@ -838,35 +838,35 @@ module Path_constructors =
     let cAccess : constr_access = Any_access
 
     (* the empty list is interpreted as no constraint on the cases *)
-    let cSwitch ?(cond : target list = [])
-      ?(cases : (case_kind * (target list)) list = []) (_ : unit) : target =
-      let p_cond = (@@) cond in
+    let cSwitch ?(cond : target = [])
+      ?(cases : (case_kind * (target)) list = []) (_ : unit) : target =
+      let p_cond =  cond in
       let c_cases =
         match cases with
         | [] -> None
-        | _ -> Some (List.map (fun (k, pl) -> (k, (@@) pl)) cases)
+        | _ -> Some (List.map (fun (k, pl) -> (k,  pl)) cases)
       in
        [Constr_switch (p_cond, c_cases)]
 
-    let cCase ?(value : target list = []) (_ : unit) : case_kind =
+    let cCase ?(value : target = []) (_ : unit) : case_kind =
       match value with
       | [] -> Case_any
-      | _ -> Case_val ((@@) value)
+      | _ -> Case_val ( value)
 
     let cDefault : case_kind = Case_default
 
-    let cSet ?(lhs : target list = [])
-      ?(rhs : target list = []) (_ : unit) : target =
-      (@@)
-        [
+    let cSet ?(lhs : target = [])
+      ?(rhs : target = []) (_ : unit) : target =
+      
+        (
           (* first check that lhs is the first of two arguments *)
-          cApp  ~args:lhs
-            ~validate:(function | true :: [_] -> true | _ -> false) ();
+          (cApp  ~args:lhs
+            ~validate:(function | true :: [_] -> true | _ -> false) ());
           cApp  ~args:rhs
             ~validate:(function | _ :: [true] -> true | _ -> false) ();
           (* finally check that the function prints as "=" *)
           cApp  ~fun_:[cStr  "="] ()
-        ]
+        )
   end
 
 (******************************************************************************)
