@@ -162,7 +162,7 @@ type paths = path list
 
 (* Relative target to term *)
 type target_relative =
-    | TargetAt (* default value *)
+    | TargetAt 
     | TargetFirst
     | TargetLast
     | TargetBefore
@@ -526,14 +526,15 @@ module Path_constructors =
       unit args are used because of optional arguments
      *)
      (* Sued for relative targets *)
+
     let cBefore : constr = 
       ConstrRelative TargetBefore
 
     let cAfter : constr =
       ConstrRelative TargetAfter
 
-    let cFirst : constr =
-      ConstrRelative TargetFirst
+    (* let cFirst : constr = 
+      ConstrRelative TargetFirst *)
 
     let cLast : constr = 
       ConstrRelative TargetLast
@@ -1685,7 +1686,7 @@ let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   assumption: x denotes a function or a type
   todo: generalise to other terms
  *)
-let rec path_to_decl (x : var) (t : trm) : path option =
+let rec target_to_decl (x : var) (t : trm) : path option =
   match t.desc with
   | Trm_decl def ->
      begin match def with
@@ -1699,7 +1700,7 @@ let rec path_to_decl (x : var) (t : trm) : path option =
          match dlo with
          | Some _ -> dlo
          | _ ->
-            begin match path_to_decl x t' with
+            begin match target_to_decl x t' with
             | Some dl -> Some (Dir_nth i :: dl)
             | _ -> None
             end

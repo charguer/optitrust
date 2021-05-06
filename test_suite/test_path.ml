@@ -9,11 +9,11 @@ open Optitrust__Translate_ast
   tests to be executed:
   list of (filename, list of (path, expected outputs))
 
-  note: the type contains path list instead of path because lists of smart
-  constructors build path lists. A use of List.flatten in test_file gives back a
+  note: the type contains target instead of path because lists of smart
+  constructors build targets. A use of List.flatten in test_file gives back a
   path.
  *)
-let tests : (string * ((path list * (expl_path list)) list)) list =
+let tests : (string * ((target * (expl_target)) list)) list =
   [
     ("test_swap_coordinates/test_swap_coordinates.cpp",
      [
@@ -191,8 +191,8 @@ let tests : (string * ((path list * (expl_path list)) list)) list =
     )
   ]
 
-let rec compare_explicit_paths (epl : expl_path list)
-  (epl' : expl_path list) : unit =
+let rec compare_explicit_paths (epl : expl_target)
+  (epl' : expl_target) : unit =
   match epl, epl' with
   | [], [] -> print_info None "The result is correct.\n"
   | ep :: epl, ep' :: epl' ->
@@ -207,7 +207,7 @@ let rec compare_explicit_paths (epl : expl_path list)
      end
   | _ -> fail None "The result does not match the expected outcome"
 
-let test_path (ast : trm) (p : path) (expected_output : expl_path list) : unit =
+let test_path (ast : trm) (p : path) (expected_output : expl_target) : unit =
   print_info None "Resolving path...\n";
   let flag = !Optitrust__Flags.verbose in
   Optitrust__Flags.verbose := false;
@@ -238,7 +238,7 @@ let test_path (ast : trm) (p : path) (expected_output : expl_path list) : unit =
   compare_explicit_paths epl expected_output
 
 let test_file (filename : string)
-  (pl_epl_l : (path list * (expl_path list)) list) : unit =
+  (pl_epl_l : (target * (expl_target)) list) : unit =
   print_info None "Parsing file...\n";
   let clang_ast = parse_file filename in
   print_info None "Parsing Done.\n";

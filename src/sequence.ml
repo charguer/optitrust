@@ -211,7 +211,7 @@ let rec split_seq_at (n : int) (result_label : string) (block1_label : string)
  *)
 let split_sequence (clog : out_channel) (result_label : string)
   (block1_label : string) (block2_label : string)
-  (split_name : string -> string) (pl : path list) (t : trm) : trm =
+  (split_name : string -> string) (pl : target) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
@@ -304,7 +304,7 @@ let list_remove x xs = List.filter (fun y -> y <> x) xs
 
 let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys 
 
-let create_subsequence_aux (clog : out_channel) (label : label) (start_index : int) (stop_path : path list) (before_stop : bool) (after_stop : bool) (braces : bool) (t : trm) : trm =
+let create_subsequence_aux (clog : out_channel) (label : label) (start_index : int) (stop_path : target) (before_stop : bool) (after_stop : bool) (braces : bool) (t : trm) : trm =
   let rec insert_in_list_at  (el : trm) (i : int) (xs : 'a list) = match xs with
     | [] -> []
     | h :: t as l -> if i = 0 then el :: l else h :: insert_in_list_at el (i-1) t 
@@ -356,7 +356,7 @@ let create_subsequence_aux (clog : out_channel) (label : label) (start_index : i
       | _ -> fail t.loc "create_subsequence_aux: the sequence which contains the trms was not matched"
       
 
-let create_subsequence (clog : out_channel) (start : path list) (stop : path list) (stop_before : bool) (stop_after : bool) (label : label) (braces : bool) (t : trm ) : trm = 
+let create_subsequence (clog : out_channel) (start : target) (stop : target) (stop_before : bool) (stop_after : bool) (label : label) (braces : bool) (t : trm ) : trm = 
   let p = List.flatten start in 
   let b = !Flags.verbose in
   Flags.verbose := false;

@@ -16,10 +16,10 @@ let write_log (clog : out_channel) (log : string) : unit =
 let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
-(* follow an explicit path to apply a function on the corresponding subterm *)
+(* follow an explicit target to apply a function on the corresponding subterm *)
 let apply_local_transformation (transfo : trm -> trm) (t : trm)
-  (dl : expl_path) : trm =
-  let rec aux (dl : expl_path) (t : trm) : trm =
+  (dl : path) : trm =
+  let rec aux (dl : path) (t : trm) : trm =
     match dl with
     | [] -> transfo t
     | d :: dl ->
@@ -152,7 +152,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
   assumption: dl points at a seq element, thus ends with Dir_nth n
   if the inserted element must be first in the seq, use n < 0
  *)
-let insert_trm_after (dl : expl_path) (insert : trm) (t : trm) : trm =
+let insert_trm_after (dl : path) (insert : trm) (t : trm) : trm =
   let dl' = List.rev dl in
   match List.hd dl' with
   | Dir_nth n ->
@@ -189,9 +189,8 @@ let remove_instruction_aux (clog : out_channel) (t : trm) : trm =
     
 
 
-let remove_instruction (clog : out_channel) (pl : path list) (t : trm) : trm = 
-  let p = List.flatten pl in
-  let epl = resolve_path p t in 
+let remove_instruction (clog : out_channel) (tr : target) (t : trm) : trm = 
+  let epl = resolve_target tr t in 
   match epl with 
   | [] -> 
     print_info t.loc "remove_instruction: no matching subterm";
@@ -201,18 +200,17 @@ let remove_instruction (clog : out_channel) (pl : path list) (t : trm) : trm =
           apply_local_transformation (remove_instruction_aux clog ) t dl )
           t epl 
 
-let remove_instructions (clog : out_channel) (instruction_list : (path list) list) (t : trm) : trm = 
+let remove_instructions (clog : out_channel) (instruction_list : (target) list) (t : trm) : trm = 
   let t = List.fold_left (fun t instruction -> (remove_instruction clog) instruction t)
   t instruction_list 
   in t   
 
 
-let show_path ?(debug_ast : bool = false) (pl : path list) (t : trm) : trm = 
-  let p = List.flatten pl in 
-  let epl = resolve_path p t in 
+let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm = 
+  let epl = resolve_target tr t in 
   match epl with 
   | [] -> 
-    print_info t.loc "show_path: no matching subterm\n";
+    print_info t.loc "show_target: no matching subterm\n";
     t
   | [dl] -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
             apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0) ) t dl 
@@ -224,9 +222,8 @@ let show_path ?(debug_ast : bool = false) (pl : path list) (t : trm) : trm =
           t epl 
 
 
-let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : path list) (t : trm) : trm = 
-  let p = List.flatten pl in 
-  let epl = resolve_path p t in 
+let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) (t : trm) : trm = 
+  let epl = resolve_target tr t in 
   match epl with 
   | [] ->
     print_info t.loc "show_ast: no matching subterm\n";
@@ -306,10 +303,9 @@ let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
     
 
 
-let const_non_const (clog : out_channel) (pl : path list) (t : trm) : trm =
-  let p = List.flatten pl in 
-  let epl = resolve_path p t in 
-  let app_transfo (t : trm) (dl : expl_path) : trm = 
+let const_non_const (clog : out_channel) (tr : target) (t : trm) : trm =
+  let epl = resolve_target tr t in 
+  let app_transfo (t : trm) (dl : path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
       let dl = List.rev dl' in 
@@ -323,10 +319,10 @@ let const_non_const (clog : out_channel) (pl : path list) (t : trm) : trm =
     t epl 
 
 
-let rec delete_path_decorators (t : trm) : trm = 
+let rec delete_target_decorators (t : trm) : trm = 
   match t.desc with 
   | Trm_decoration (_,t',_) -> t'
-  | _ -> trm_map (delete_path_decorators ) t
+  | _ -> trm_map (delete_target_decorators ) t
 
 (* make sure each occurence of y in t is marked with type variable x *)
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
@@ -427,7 +423,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
             | None -> t
             | Some t' -> t'
           in
-          match path_to_decl f global_trm with
+          match target_to_decl f global_trm with
           (* if the declaration cannot be found, ignore this function *)
           | None ->
              print_info global_trm.loc
@@ -435,7 +431,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
                   "function %s, ignoring it.\n") f;
              Fun_map.remove f res
           | Some dl ->
-             let (def, _) = resolve_path dl global_trm in
+             let (def, _) = resolve_target dl global_trm in
              begin match def.desc with
              | Trm_decl (Def_fun (_, _, args, body)) ->
                 let b = replace_arg_types_with x il args body in
@@ -443,7 +439,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
                 res +@ functions_with_arg_type ~outer_trm:(Some global_trm) x b
              | _ ->
                 fail t.loc
-                  ("functions_with_arg_type: wrong path to declaration of " ^ f)
+                  ("functions_with_arg_type: wrong target to declaration of " ^ f)
              end
         )
         ils
@@ -498,12 +494,12 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
   clean_up_no_brace_seq
     (Fun_map.fold
        (fun f ils t' ->
-         match path_to_decl f t' with
+         match target_to_decl f t' with
          | None ->
             fail t'.loc
               ("insert_fun_copies: cannot find declaration of function " ^ f)
          | Some dl ->
-            let (fdecl, _) = resolve_path dl t' in
+            let (fdecl, _) = resolve_target dl t' in
             begin match fdecl.desc with
             | Trm_decl (Def_fun (f', r, tvl, b)) when f = f' ->
                (* for each element of ils, create a copy *)
@@ -534,7 +530,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                (* insert the copies of f *)
                insert_trm_after dl
                  (trm_seq ~annot:(Some No_braces) (List.rev tl)) t'
-            | _ -> fail t'.loc "insert_fun_copies: bad path to fun decl"
+            | _ -> fail t'.loc "insert_fun_copies: bad target to fun decl"
             end
        )
        ilsm
@@ -614,18 +610,18 @@ and replace_fun_names (name : var -> var) (ilsm : ilset funmap) (x : typvar)
   after the position pointed at by insert_after in t
   both must be resolved as paths to a seq element
  *)
-let insert_trm ?(insert_before : path list = [])
-  ?(insert_after : path list = []) (t_inserted : trm) (t : trm) : trm =
+let insert_trm ?(insert_before : target = [])
+  ?(insert_after : target = []) (t_inserted : trm) (t : trm) : trm =
   let p =
     match insert_before, insert_after with
-    | [], _ :: _ -> List.flatten insert_after
-    | _ :: _, [] -> List.flatten insert_before
+    | [], _ :: _ -> insert_after
+    | _ :: _, [] -> insert_before
     | [], [] -> fail t.loc "insert_trm: please specify an insertion point"
     | _ -> fail t.loc "insert_trm: cannot insert both before and after"
   in
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target p t in
   Flags.verbose := b;
   match epl with
   | [] ->
@@ -647,7 +643,7 @@ let insert_trm ?(insert_before : path list = [])
                fail t'.loc "insert_trm: please specify an insertion point"
             | _ -> fail t'.loc "insert_trm: cannot insert both before and after"
             end
-         | _ -> fail t'.loc "insert_trm: bad insertion path"
+         | _ -> fail t'.loc "insert_trm: bad insertion target"
        )
        t
        epl
@@ -659,7 +655,7 @@ let insert_trm ?(insert_before : path list = [])
   assumption: t_before and t_after are equivalent (in terms of value and of side
   effects)
  *)
-let change_trm ?(change_at : path list list = [[]]) (t_before : trm)
+let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   (* change all occurences of t_before in t' *)
   let rec apply_change (t' : trm) =
@@ -683,16 +679,15 @@ let change_trm ?(change_at : path list list = [[]]) (t_before : trm)
       | _ -> trm_map apply_change t'
   in
   List.fold_left
-    (fun t' pl ->
-      let p = List.flatten pl in
+    (fun t' tr ->
       let b = !Flags.verbose in
       Flags.verbose := false;
-      let epl = resolve_path p t' in
+      let epl = resolve_target tr t' in
       Flags.verbose := b;
       match epl with
       | [] ->
-         print_info t'.loc "change_trm: no matching subterm for path %s\n"
-           (path_to_string p);
+         print_info t'.loc "change_trm: no matching subterm for target %s\n"
+           (target_to_string tr);
          t'
       | _ -> List.fold_left (apply_local_transformation apply_change) t' epl
     )
@@ -702,7 +697,7 @@ let change_trm ?(change_at : path list list = [[]]) (t_before : trm)
 
 
 (* same as change_trm but for types *)
-let change_typ ?(change_at : path list list = [[]]) (ty_before : typ)
+let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
   (* change all occurences of ty_before in ty *)
   let rec change_typ (ty : typ) : typ =
@@ -749,16 +744,15 @@ let change_typ ?(change_at : path list list = [[]]) (ty_before : typ)
     replace_type_annot (aux t)
   in
   List.fold_left
-    (fun t' pl ->
-      let p = List.flatten pl in
+    (fun t' tr ->
       let b = !Flags.verbose in
       Flags.verbose := false;
-      let epl = resolve_path p t' in
+      let epl = resolve_target tr t' in
       Flags.verbose := b;
       match epl with
       | [] ->
-         print_info t'.loc "change_typ: no matching subterm for path %s\n"
-           (path_to_string p);
+         print_info t'.loc "change_typ: no matching subterm for target %s\n"
+           (target_to_string tr);
          t'
       | _ -> List.fold_left (apply_local_transformation apply_change) t' epl
     )
@@ -812,11 +806,10 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
 
       
 let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typvar) (old_var) (new_var : var) (t : trm) = 
-    let pl = [cLabel ~label:sec_of_int ();cBody ()] in 
-    let p = List.flatten pl in 
+    let tr = [cLabel ~label:sec_of_int ();cBody ()] in 
     let b = !Flags.verbose in 
     Flags.verbose := false;
-    let epl = resolve_path p t in
+    let epl = resolve_target tr t in
     Flags.verbose := b;
     match epl with 
     | []-> 
@@ -980,10 +973,9 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
       
 
 let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm = 
-  let pl = [cLabel ~label:sec_of_int();cBody () ~strict:true] in 
-  let p = List.flatten pl in
+  let tr = [cLabel ~label:sec_of_int();cBody () ~strict:true] in 
   let b = !Flags.verbose in
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with 
   | [] -> 
@@ -996,12 +988,11 @@ let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (
           epl
 
 
-let add_attribute (clog : out_channel) (a : attribute) (pl : path list)
+let add_attribute (clog : out_channel) (a : attribute) (tr : target)
   (t : trm) : trm =
-  let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [] ->
@@ -1101,13 +1092,12 @@ let undetach_expression_aux(clog : out_channel) (trm_index : int) (t : trm) : tr
         
 
 
-let undetach_expression (clog :out_channel) (pl :path list) (t : trm) : trm = 
-  let p = List.flatten pl in 
+let undetach_expression (clog :out_channel) (tr :target) (t : trm) : trm = 
   let b = !Flags.verbose in
   Flags.verbose := false; 
-  let epl = resolve_path p t in 
+  let epl = resolve_target tr t in 
   Flags.verbose := b;
-  let app_transfo  (t : trm) (dl : expl_path) : trm = 
+  let app_transfo  (t : trm) (dl : path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
       let dl = List.rev dl' in 
@@ -1150,23 +1140,22 @@ let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (lab
           else 
             trm_seq ~annot:t.annot (insert_sublist_in_list [t_decl; t_assign] trm_index tl)
           
-        | _ -> fail t.loc "detach_expression_aux:No trm was matched, please give the correct path "
+        | _ -> fail t.loc "detach_expression_aux:No trm was matched, please give the correct target "
         end 
       | _ -> fail t.loc "detach_expression_aux: the outer sequence was not matched"
 
       
           
 
-let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_label : bool = false) (pl :path list) (t : trm) : trm = 
-  let p = List.flatten pl in 
+let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_label : bool = false) (tr :target) (t : trm) : trm = 
   let b = !Flags.verbose in
   Flags.verbose := false; 
-  let epl = resolve_path p t in 
+  let epl = resolve_target tr t in 
   Flags.verbose := b;
-  let app_transfo ?(keep_label : bool = false) (label : string) (t : trm) (dl : expl_path) : trm = 
+  let app_transfo ?(keep_label : bool = false) (label : string) (t : trm) (dl : path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
-      let (t',_) = resolve_path dl t in 
+      let (t',_) = resolve_target dl t in 
       let dl = List.rev dl' in 
       apply_local_transformation (detach_expression_aux clog ~keep_label label n t') t dl
     | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"
@@ -1186,7 +1175,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
         begin match List.rev dl with 
         | Dir_nth n :: dl' -> 
           let dl = List.rev dl' in 
-          let (t',_) = resolve_path dl t in n, t'
+          let (t',_) = resolve_target dl t in n, t'
         | _ -> fail t.loc " detach_expression: expected a dir_nth inside the sequence"
         end in 
         apply_local_transformation (detach_expression_aux clog ~keep_label label index prefix_sequence_trm) t dl)
@@ -1229,4 +1218,4 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
 
 
 (* Rewrite rule transformation  *)
-(* let rewrite (pl : path list) (rule : base)  *)
+(* let rewrite (pl : target) (rule : base)  *)

@@ -402,7 +402,7 @@ open Path
 include Path_constructors
 
 type path = Path.path
-type paths = path list
+type paths = target
 type case_dir = Path.case_dir
 type abort_kind = Path.abort_kind
 type constr_access = Path.constr_access
@@ -458,7 +458,7 @@ let show_path ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previo
     )
 
 
-let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : path list) : unit =
+let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : target) : unit =
   apply_to_top ~replace_top(fun _ -> Transformations.show_ast ~file ~to_stdout pl)
 
 (* let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (pl : paths) : unit =
@@ -1419,7 +1419,7 @@ let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label
     (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
     write_log "\n"
 
-let const_non_const ?(replace_top : bool = false) (pl : path list) : unit =
+let const_non_const ?(replace_top : bool = false) (pl : target) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.const_non_const ctx.clog pl );
   write_log "\n"

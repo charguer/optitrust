@@ -13,7 +13,7 @@ open Transformations
   *x instead of &dx' with x
  *)
 let fold_decl (clog : out_channel) ?(as_reference : bool = false)
-  ?(fold_at : path list list = [[]]) (pl : path list) (t : trm) : trm =
+  ?(fold_at : target list = [[]]) (pl : target) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
@@ -109,8 +109,8 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
     - for a given seq, the insertion path points to at most one of its elements
     - if x is a reference, dx denotes a memory cell
  *)
-let insert_decl ?(insert_before : path list = [])
-  ?(insert_after : path list = []) ?(const : bool = false)
+let insert_decl ?(insert_before : target = [])
+  ?(insert_after : target = []) ?(const : bool = false)
   ?(as_reference : bool = false) (x : var) (dx : trm) (t : trm) : trm =
   let tx =
     match dx.typ with
@@ -204,8 +204,8 @@ let insert_decl ?(insert_before : path list = [])
       epl
 
 (* same as insert_definition but for a constant *)
-let insert_const ?(insert_before : path list = [])
-  ?(insert_after : path list = []) (x : var) (dx : trm) (t : trm) : trm =
+let insert_const ?(insert_before : target = [])
+  ?(insert_after : target = []) (x : var) (dx : trm) (t : trm) : trm =
   insert_decl ~insert_before ~insert_after ~const:true x dx t
 
 (*
@@ -214,8 +214,8 @@ let insert_const ?(insert_before : path list = [])
   both must be resolved as paths to a seq element
   assumption: no conflicts with the new name x
  *)
-let insert_typedef ?(insert_before : path list = [])
-  ?(insert_after : path list = []) (x : typvar) (dx : typ) (t : trm) : trm =
+let insert_typedef ?(insert_before : target = [])
+  ?(insert_after : target = []) (x : typvar) (dx : typ) (t : trm) : trm =
   insert_trm ~insert_before ~insert_after (trm_decl (Def_typ (x, dx))) t
 
 (*
@@ -223,9 +223,9 @@ let insert_typedef ?(insert_before : path list = [])
   assumption: if x is not a reference, no effects for dx and it has the same
   value through all its occurences
  *)
-let insert_and_fold (clog : out_channel) ?(insert_before : path list = [])
-  ?(insert_after : path list = []) ?(const : bool = false)
-  ?(as_reference : bool = false) ?(fold_at : path list list = [[]]) (x : var)
+let insert_and_fold (clog : out_channel) ?(insert_before : target = [])
+  ?(insert_after : target = []) ?(const : bool = false)
+  ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var)
   (dx : trm) (t : trm) : trm =
   (* compute the explicit path for later use *)
   let p =
@@ -253,7 +253,7 @@ let insert_and_fold (clog : out_channel) ?(insert_before : path list = [])
   | [] -> fail t.loc "insert_and_fold: no insertion point"
   | dl :: _ ->
      let def_pathl =
-       let pathl_of_expl_path (dl : expl_path) : path list =
+       let pathl_of_expl_path (dl : expl_path) : target =
          List.map (fun d -> [Constr_strict; Constr_dir d]) dl
        in
        match List.rev dl with
@@ -287,8 +287,8 @@ let insert_and_fold (clog : out_channel) ?(insert_before : path list = [])
 
 (* same as insert_and_fold but for types *)
 let insert_and_fold_typedef (clog : out_channel)
-  ?(insert_before : path list = []) ?(insert_after : path list = [])
-  ?(fold_at : path list list = [[]]) (x : typvar) (dx : typ) (t : trm) : trm =
+  ?(insert_before : target = []) ?(insert_after : target = [])
+  ?(fold_at : target list = [[]]) (x : typvar) (dx : typ) (t : trm) : trm =
   (* compute the explicit path for later use *)
   let p =
     match insert_before, insert_after with
@@ -345,7 +345,7 @@ let filteri (f : int -> 'a -> bool) (al : 'a list) : 'a list =
   pl must be resolved as a path to a seq element
   assumption: the declared object is not used in t
  *)
-let remove_decl (clog : out_channel) (pl : path list) (t : trm) : trm =
+let remove_decl (clog : out_channel) (pl : target) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;

@@ -20,7 +20,7 @@ let delete_labels (sl : string list) (t : trm) : trm =
   List.fold_left (fun t l -> aux l t) t sl
 
 (* label the given path with the *)
-let add_label (label : string) (pl : path list) (t : trm) : trm =
+let add_label (label : string) (pl : target) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;

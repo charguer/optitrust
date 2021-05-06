@@ -96,7 +96,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
     | _ -> fail t.loc "make_explicit_record_assignment_aux: the outer sequence was not matched"
 
 
-let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (pl : path list) (t : trm) : trm = 
+let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (pl : target) (t : trm) : trm = 
   let struct_def_path = [cType ~name:struct_name ()] in 
   let epl_of_struct_def_path = resolve_path (List.flatten struct_def_path) t in 
   let struct_def_term = match epl_of_struct_def_path with
@@ -200,7 +200,7 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
     | _ -> fail t.loc "make_implicit_record_assignment_aux: the outer sequence was not matched"
       
 
- let make_implicit_record_assignment(clog : out_channel) (name : string) (pl : path list) (t : trm) : trm = 
+ let make_implicit_record_assignment(clog : out_channel) (name : string) (pl : target) (t : trm) : trm = 
     let struct_term_path = [cType ~name:name ()] in 
     let p_of_struct_term = List.flatten struct_term_path in 
     let epl_of_struct_term = resolve_path p_of_struct_term t in 
@@ -272,7 +272,7 @@ let fields_reorder_aux (clog :out_channel) ?(struct_fields : fields = []) ?(move
     
  
 
-let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (pl : path list) (t : trm) : trm  = 
+let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (pl : target) (t : trm) : trm  = 
   let p = List.flatten pl in 
   let b = !Flags.verbose in
   Flags.verbose := false;

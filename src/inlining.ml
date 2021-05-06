@@ -18,7 +18,7 @@ open Tools
   }
   if tf is void, result won't be used, but instead the empty statement
  *)
-let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)  ?(fun_args : var list = [])
+let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args : var list = [])
   (return_label : label) (f : var) (tf : typ) (args : typed_var list) 
   (body : trm) (t : trm) : trm =
   
@@ -226,8 +226,8 @@ let inline_fun_decl ?(inline_at : path list list = [[]]) (result : var)  ?(fun_a
   instruction
  *)
 let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
-  ?(inline_at : path list list = [[]]) ?(fun_result : var = "res") ?(fun_args : var list = [])
-  ?(fun_return_label : label = "exit") (pl : path list) (t : trm) : trm =
+  ?(inline_at : target list = [[]]) ?(fun_result : var = "res") ?(fun_args : var list = [])
+  ?(fun_return_label : label = "exit") (pl : target) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
@@ -301,7 +301,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
      if delete_decl then remove_decl clog pl t else t
   | _ -> fail t.loc "inline_decl: the path must point at exactly 1 subterm"
 
-(* let inline_literals (clog : out_channel) (pl : path list) (t : trm) : trm = 
+(* let inline_literals (clog : out_channel) (pl : target) (t : trm) : trm = 
   let rec aux (global : trm) ( t : trm) = 
     match t.desc with 
     | Trm_apps (f,[right_;left]) -> 
@@ -314,7 +314,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
             Trm_val (Val_liet (Lit_int (l+r)))
  *)
 
- let inline_seq (clog : out_channel) (pl : path list) (t : trm) : trm =
+ let inline_seq (clog : out_channel) (pl : target) (t : trm) : trm =
   let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;

@@ -596,7 +596,7 @@ let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var l
     in aux t t
       
          
-let array_to_variables (clog : out_channel) (dcl_path : path list) (new_vars : var list) (t : trm) : trm = 
+let array_to_variables (clog : out_channel) (dcl_path : target) (new_vars : var list) (t : trm) : trm = 
   let p = List.flatten dcl_path in 
   let b = !Flags.verbose in
   Flags.verbose := false;
