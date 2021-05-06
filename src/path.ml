@@ -1203,31 +1203,6 @@ and resolve_target(tg : target) (t : trm) : paths =
     then fail None "resolve_target: this target should not contain a cBefore/cAfter/cFirst/cLast";
   resolve_target_struct tgs t
 
-and resolve_target_between (tg : target) (t : trm) : (path * int) list = 
-  let tgs = target_to_target_struct tg in
-  
-  if tgs.target_relative = TargetAt
-    then fail None "resolve_target_between:this target should contain a cBefore/cAfter/cFirst/cLast";
-  let res = resolve_target_struct tgs t in 
-  List.map (compute_relative_index tgs.target_relative) res
-
-and computre_relative_index rel p =
- match rel with
-    | TargetAt -> raise Error "compute_relative_index does not expect a TargetAt"
-    | TargetFirst -> (p, 0)
-    | TargetLast -> (p, get_arity_of_seq_at p)
-    | TargetBefore | TargetAfter ->
-        let shift =
-           match rel with
-           | TargetBefore -> 0
-           | TargetAfter -> 1
-           | _ -> assert false
-           in
-        begin match extract_last_dir p with
-        | Some (p_to_seq, Dir_nth i) -> (p_to_seq, i + shift)
-        | Some _ -> raise Error "not targeting an element inside a sequence"
-        end
-
 (* check c against t and in case of success continue with p *)
 and resolve_constraint (c : constr) (p : target) (t : trm) : paths =
   let loc = t.loc in
@@ -1667,6 +1642,43 @@ let resolve_explicit_path (dl : path) (t : trm) : trm * (trm list) =
        end
   in
   aux dl t []
+let get_arity_of_seq_at (p : path) (t : trm) : int =
+  match List.rev p with
+  | Dir_nth _ :: dl' ->
+    let (seq_trm,_) = resolve_explicit_path (List.rev dl') t in 
+    begin match seq_trm.desc with 
+    | Trm_seq tl -> List.length tl
+    | _ -> fail None "get_arity_of_seq_at: expected a sequence"
+    end
+  | _ -> fail None "get_arity_of_seq_at"
+  
+let compute_relative_index rel t p =
+ match rel with
+    | TargetAt -> fail None "compute_relative_index: Didn't expect a TargetAt"
+    | TargetFirst -> (p, 0)
+    | TargetLast -> (p, get_arity_of_seq_at p t)
+    | TargetBefore | TargetAfter ->
+        let shift =
+           match rel with
+           | TargetBefore -> 0
+           | TargetAfter -> 1
+           | _ -> assert false
+           in
+        begin match extract_last_dir p with
+        | Some (p_to_seq, Dir_nth i) -> (p_to_seq, i + shift)
+        | Some _ -> raise Error "not targeting an element inside a sequence"
+        end
+(* Using a similar syntax to app_transfo TODO: Remove this comment after discussion with Arthur *)
+
+let resolve_target_between (tg : target) (t : trm) : (path * int) list = 
+  let tgs = target_to_target_struct tg in
+  
+  if tgs.target_relative = TargetAt
+    then fail None "resolve_target_between:this target should contain a cBefore/cAfter/cFirst/cLast";
+  let res = resolve_target_struct tgs t in 
+  List.map (compute_relative_index tgs.target_relative t) res
+
+
 
 (*
   find the explicit path to the toplevel declaration of x if it exists
