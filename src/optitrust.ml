@@ -712,7 +712,7 @@ let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
   let replace_top = true in
   (* label the loop for later calls to transformations *)
   add_label ~replace_top "split_loop_tmp_loop"
-    [cFor ~body:[cLabel ~strict:true ~label:"split_loop_tmp_result"
+    [cFor ~body:[cLabel target ~label:"split_loop_tmp_result"
                    ~exact:false ()] ()];
   (* remove unnecessary labels *)
   delete_labels ~replace_top ["split_loop_tmp_result"; "split_loop_tmp_block1";

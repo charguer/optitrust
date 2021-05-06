@@ -597,12 +597,11 @@ let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var l
       
          
 let array_to_variables (clog : out_channel) (dcl_path : target) (new_vars : var list) (t : trm) : trm = 
-  let p = List.flatten dcl_path in 
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in 
+  let epl = resolve_target dcl_path t in 
   Flags.verbose := b;
-  let app_transfo (t :trm) (dl : expl_path) : trm = 
+  let app_transfo (t :trm) (dl : path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
       let (t',_) = resolve_path dl t in

@@ -167,11 +167,10 @@ let loop_coloring_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : t
     loop_coloring_aux clog c new_var t
 
 
-let loop_coloring (clog : out_channel) (pl : target) (c : var)(new_var : var)(t : trm) : trm = 
-  let p = List.flatten pl in
+let loop_coloring (clog : out_channel) (tr : target) (c : var)(new_var : var)(t : trm) : trm = 
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [] ->
@@ -333,11 +332,10 @@ let loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : trm =
   write_log clog log;
   loop_tile_aux clog b new_var t
 
-let loop_tile (clog : out_channel) (pl : target)(tile_width : var)(new_var : var)(t : trm) : trm =
-  let p = List.flatten pl in
+let loop_tile (clog : out_channel) (tr : target)(tile_width : var)(new_var : var)(t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [] ->
@@ -500,11 +498,10 @@ let loop_swap_aux (clog : out_channel) (t : trm) : trm =
   loop_swap_aux clog t
 
 
-let loop_swap (clog : out_channel) (pl : target)(t : trm) : trm =
-  let p = List.flatten pl in
+let loop_swap (clog : out_channel) (tr : target)(t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [] ->
@@ -590,11 +587,10 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
      in
      multi_swap path_list t 
 
-let move_loop_before (clog : out_channel) (pl : target)(loop_index : var) (t : trm) : trm =
-  let p = List.flatten pl in 
+let move_loop_before (clog : out_channel) (tr : target)(loop_index : var) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in 
+  let epl = resolve_target tr t in 
   Flags.verbose := b;
   match epl with 
   | [] -> 
@@ -644,11 +640,10 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
       in
     multi_swap path_length t 
 
-let move_loop_after (clog : out_channel) (pl : target)(loop_index : var) (t : trm) : trm =
-  let p = List.flatten pl in 
+let move_loop_after (clog : out_channel) (tr : target)(loop_index : var) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in 
+  let epl = resolve_target tr t in 
   Flags.verbose := b;
   match epl with 
   | [] -> 
@@ -905,16 +900,15 @@ let extract_loop_vars_aux (clog : out_channel) ?(only_one : bool = false)
   extract_loop_vars_aux clog ~only_one ~loop_labels result_label t
 
 let extract_loop_var (clog : out_channel) (result_label : string)
-  (pl : target) (t : trm) : trm =
-  let p = List.flatten pl in
+  (tr : target) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [] ->
      print_info t.loc "extract_loop_var: no matching subterm for path %s\n"
-       (path_to_string p);
+       (target_to_string p);
      t
   | [dl] ->
      apply_local_transformation
@@ -934,16 +928,15 @@ let extract_loop_var (clog : out_channel) (result_label : string)
 
 (* extract all possible vars *)
 let extract_loop_vars (clog : out_channel) (result_label : string)
-  (pl : target) (t : trm) : trm =
-  let p = List.flatten pl in
+  (tr : target) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [] ->
      print_info t.loc "extract_loop_vars: no matching subterm for path %s\n"
-       (path_to_string p);
+       (target_to_string p);
      t
   | [dl] ->
      apply_local_transformation (extract_loop_vars_aux clog result_label) t dl
@@ -1069,12 +1062,11 @@ let split_loop_nodep_aux (clog : out_channel) (result_label : string)
   split_loop_nodep_aux clog result_label loop1_label loop2_label t
 
 let split_loop_nodep (clog : out_channel) (result_label : string)
-  (loop1_label : string) (loop2_label : string) (pl : target)
+  (loop1_label : string) (loop2_label : string) (tr : target)
   (t : trm) : trm =
-  let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [] ->
@@ -1301,12 +1293,11 @@ let tile_loop_aux (clog : out_channel) (t : trm) : trm =
   write_log clog log;
   tile_loop_aux clog t
 
-let tile_loop (clog : out_channel) (pl : target)
+let tile_loop (clog : out_channel) (tr : target)
   (t : trm) : trm =
-  let p = List.flatten pl in
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [] ->

@@ -13,11 +13,10 @@ open Transformations
   *x instead of &dx' with x
  *)
 let fold_decl (clog : out_channel) ?(as_reference : bool = false)
-  ?(fold_at : target list = [[]]) (pl : target) (t : trm) : trm =
-  let p = List.flatten pl in
+  ?(fold_at : target list = [[]]) (tr : target) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [dl] ->
@@ -54,7 +53,8 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
           -> replace it again with def_x
          *)
         let change_at =
-          [[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cBody ~strict:true ()]]
+         (* TODO: Fix later this temporary hack *)
+          List.flatten([[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cBody()]])
         in
         change_trm ~change_at t_x def_x t
      (*
@@ -80,8 +80,8 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
         let t = change_trm ~change_at:fold_at def_x t_x t in
         (* make sure def_x is not replaced in the definition of x here too *)
         let change_at =
-          [[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cNth ~strict:true 1;
-            cArg ~strict:true 1]]
+          List.flatten([[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cNth 1;
+            cArg 1]])
         in
         change_trm ~change_at t_x def_x t
      (* typedef *)
@@ -89,7 +89,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
         let ty_x = typ_var x in
         let t = change_typ ~change_at:fold_at dx ty_x t in
         (* make sure dx is not replaced in the definition of x here too *)
-        let change_at = [[cType ~name:x ()]] in
+        let change_at = List.flatten([[cType ~name:x ()]]) in
         change_typ ~change_at ty_x dx t
      (* fun decl *)
      | Trm_decl (Def_fun _) ->
@@ -132,14 +132,14 @@ let insert_decl ?(insert_before : target = [])
   (* compute the explicit path for later use *)
   let p =
     match insert_before, insert_after with
-    | [], _ :: _ -> List.flatten insert_after
-    | _ :: _, [] -> List.flatten insert_before
+    | [], _ :: _ -> insert_after
+    | _ :: _, [] -> insert_before
     | [], [] -> fail t.loc "insert_decl: please specify an insertion point"
     | _ -> fail t.loc "insert_decl: cannot insert both before and after"
   in
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target p t in
   Flags.verbose := b;
   (* insert the definition *)
   let t = insert_trm ~insert_before ~insert_after t_insert t in
@@ -154,7 +154,7 @@ let insert_decl ?(insert_before : target = [])
       add a seq with delete instruction around the pointed term containing the
       declaration
      *)
-    let create_delete_instr (dl : expl_path) (t : trm) : trm =
+    let create_delete_instr (dl : path) (t : trm) : trm =
       apply_local_transformation
         (fun t ->
           (* t is expected to be a seq *)
@@ -230,14 +230,14 @@ let insert_and_fold (clog : out_channel) ?(insert_before : target = [])
   (* compute the explicit path for later use *)
   let p =
     match insert_before, insert_after with
-    | [], _ :: _ -> List.flatten insert_after
-    | _ :: _, [] -> List.flatten insert_before
+    | [], _ :: _ ->  insert_after
+    | _ :: _, [] ->  insert_before
     | [], [] -> fail t.loc "insert_and_fold: please specify an insertion point"
     | _ -> fail t.loc "insert_and_fold: cannot insert both before and after"
   in
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target p t in
   Flags.verbose := b;
   (* insert the definition *)
   let t =
@@ -253,8 +253,8 @@ let insert_and_fold (clog : out_channel) ?(insert_before : target = [])
   | [] -> fail t.loc "insert_and_fold: no insertion point"
   | dl :: _ ->
      let def_pathl =
-       let pathl_of_expl_path (dl : expl_path) : target =
-         List.map (fun d -> [Constr_strict; Constr_dir d]) dl
+       let pathl_of_expl_path (dl : path) : target =
+         List.map (fun d -> Constr_dir d) dl
        in
        match List.rev dl with
        | Dir_nth n :: dl ->
@@ -292,8 +292,8 @@ let insert_and_fold_typedef (clog : out_channel)
   (* compute the explicit path for later use *)
   let p =
     match insert_before, insert_after with
-    | [], _ :: _ -> List.flatten insert_after
-    | _ :: _, [] -> List.flatten insert_before
+    | [], _ :: _ ->  insert_after
+    | _ :: _, [] ->  insert_before
     | [], [] ->
        fail t.loc "insert_and_fold_typedef: please specify an insertion point"
     | _ ->
@@ -301,7 +301,7 @@ let insert_and_fold_typedef (clog : out_channel)
   in
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target p t in
   Flags.verbose := b;
   (* insert the typedef *)
   let t = insert_typedef ~insert_before ~insert_after x dx t in
@@ -333,7 +333,7 @@ let insert_and_fold_typedef (clog : out_channel)
           List.rev (Dir_nth n :: dl')
        | _ -> fail t.loc "insert_and_fold_typedef: expected a path to a seq"
      in
-     let def_pathl = List.map (fun d -> [Constr_strict; Constr_dir d]) dl in
+     let def_pathl = List.map (fun d -> Constr_dir d) dl in
      fold_decl clog ~fold_at def_pathl t
 
 let filteri (f : int -> 'a -> bool) (al : 'a list) : 'a list =
@@ -345,11 +345,10 @@ let filteri (f : int -> 'a -> bool) (al : 'a list) : 'a list =
   pl must be resolved as a path to a seq element
   assumption: the declared object is not used in t
  *)
-let remove_decl (clog : out_channel) (pl : target) (t : trm) : trm =
-  let p = List.flatten pl in
+let remove_decl (clog : out_channel) (tr : target) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_path p t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
   | [dl] ->

@@ -12,7 +12,7 @@ let _ =
         (* For initializations which include declarations the following syntax is used *)
         make_explicit_record_assignment [cVarDef ~name:"b"()] ~struct_name:"vect";
         (* TODO : infer struct name if easy from LHS *)
-        (* make_explicit_record_assignment ~struct_name:"vect" [cApp ~args:[cVar ~strict:true ~name:"p2" ()] ~validate:(List.mem true) ()]; *)
+        (* make_explicit_record_assignment ~struct_name:"vect" [cApp ~args:[cVar target ~name:"p2" ()] ~validate:(List.mem true) ()]; *)
         make_explicit_record_assignment [cVarDef ~name:"p2"()] ~struct_name:"vect";
         (* p = { 1, 2}  -->   p.x =1; p.y =2 TODO *)
         (* show_path [cVarDef ~name:"e"()] ~debug_ast:true;  *)

@@ -22,7 +22,7 @@ expected c code
 
 ml code
 
-  add_label "label1" [cStr ~strict:true "int a = 5;"];
+  add_label "label1" [cStr target "int a = 5;"];
   add_label "label1bis" [cStr "int a"];
   add_label "label2 [cStr "c = a"];
   add_label "label3 [cStr "if (c)"];

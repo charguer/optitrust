@@ -54,7 +54,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
         ]
        );
        ([cFun ~name:"main" ();
-         cApp ~args:[cVar ~strict:true ~name:"t" ()] ~validate:(List.mem true)
+         cApp ~args:[cVar target ~name:"t" ()] ~validate:(List.mem true)
            ()],
         [
           [Dir_nth 0; Dir_nth 3; Dir_body; Dir_nth 2; Dir_nth 0; Dir_body;

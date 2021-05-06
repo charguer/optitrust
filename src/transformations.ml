@@ -431,7 +431,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
                   "function %s, ignoring it.\n") f;
              Fun_map.remove f res
           | Some dl ->
-             let (def, _) = resolve_target dl global_trm in
+             let (def, _) = resolve_path dl global_trm in
              begin match def.desc with
              | Trm_decl (Def_fun (_, _, args, body)) ->
                 let b = replace_arg_types_with x il args body in
@@ -499,7 +499,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
             fail t'.loc
               ("insert_fun_copies: cannot find declaration of function " ^ f)
          | Some dl ->
-            let (fdecl, _) = resolve_target dl t' in
+            let (fdecl, _) = resolve_path dl t' in
             begin match fdecl.desc with
             | Trm_decl (Def_fun (f', r, tvl, b)) when f = f' ->
                (* for each element of ils, create a copy *)
@@ -809,7 +809,8 @@ let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typva
     let tr = [cLabel ~label:sec_of_int ();cBody ()] in 
     let b = !Flags.verbose in 
     Flags.verbose := false;
-    let epl = resolve_target tr t in
+    (* TODO:Solve the issue with using List.flatten *)
+    let epl = resolve_target (List.flatten tr) t in
     Flags.verbose := b;
     match epl with 
     | []-> 
@@ -973,9 +974,9 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
       
 
 let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm = 
-  let tr = [cLabel ~label:sec_of_int();cBody () ~strict:true] in 
+  let tr = [cLabel ~label:sec_of_int();cBody ()] in 
   let b = !Flags.verbose in
-  let epl = resolve_target tr t in
+  let epl = resolve_target (List.flatten tr) t in
   Flags.verbose := b;
   match epl with 
   | [] -> 
@@ -1155,7 +1156,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
   let app_transfo ?(keep_label : bool = false) (label : string) (t : trm) (dl : path) : trm = 
     match List.rev dl with 
     | Dir_nth n :: dl' -> 
-      let (t',_) = resolve_target dl t in 
+      let (t',_) = resolve_path dl t in 
       let dl = List.rev dl' in 
       apply_local_transformation (detach_expression_aux clog ~keep_label label n t') t dl
     | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"

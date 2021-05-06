@@ -182,11 +182,11 @@ let _ =
       
       
       
-      (* show_path [cApp ~args:[cVar ~strict:true ~name:"p2" ()] ~validate:(List.mem true) ()] ~debug_ast:true; *)
+      (* show_path [cApp ~args:[cVar target ~name:"p2" ()] ~validate:(List.mem true) ()] ~debug_ast:true; *)
       
       (* TODO: Fix the error with variable bound *)
       
-      (* make_explicit_record_assignment ~struct_name:"particle" [cApp ~args:[cVar ~strict:true ~name:"p_0" ()] ~validate:(List.mem true) ()]; *)
+      (* make_explicit_record_assignment ~struct_name:"particle" [cApp ~args:[cVar target ~name:"p_0" ()] ~validate:(List.mem true) ()]; *)
       (* TODO: if struct_name is not provided, it is infered from the type of the LHS or RHS of the assignement *)
       (* LATER: also genertate a show_path on the path involved in the last transformation. *)
 (* make_explicit_record_assignment *)
