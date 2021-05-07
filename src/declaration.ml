@@ -54,7 +54,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
          *)
         let change_at =
          (* TODO: Fix later this temporary hack *)
-          List.flatten([[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cBody()]])
+          [[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cBody]]
         in
         change_trm ~change_at t_x def_x t
      (*
@@ -80,8 +80,8 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
         let t = change_trm ~change_at:fold_at def_x t_x t in
         (* make sure def_x is not replaced in the definition of x here too *)
         let change_at =
-          List.flatten([[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cNth 1;
-            cArg 1]])
+          [[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cNth 1;
+            cArg 1]]
         in
         change_trm ~change_at t_x def_x t
      (* typedef *)
@@ -89,7 +89,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
         let ty_x = typ_var x in
         let t = change_typ ~change_at:fold_at dx ty_x t in
         (* make sure dx is not replaced in the definition of x here too *)
-        let change_at = List.flatten([[cType ~name:x ()]]) in
+        let change_at = [[cType ~name:x ()]] in
         change_typ ~change_at ty_x dx t
      (* fun decl *)
      | Trm_decl (Def_fun _) ->

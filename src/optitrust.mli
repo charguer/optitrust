@@ -69,11 +69,7 @@ val cEnumConst : int -> enum_const_dir -> target
 val cEnumConstName : enum_const_dir
 val cEnumConstVal : enum_const_dir
 
-(* val cList_int : target -> (bool list -> int list) -> target *)
-
 (* val cList : target -> (bool list -> bool list) -> target *)
-
-(* val cFirst : target -> target *)
 
 val cInclude : string -> target
 
@@ -119,8 +115,8 @@ val cString : string -> target
 
 (* val cPrim : prim -> target *)
 
-val cApp : ?name:string -> ?fun_:(target) ->
-           ?args:(target) -> ?validate:(bool list -> bool) -> unit -> target
+(* val cApp : ?name:string -> ?fun_:(target) ->
+           ?args:(target) -> ?validate:(bool list -> bool) -> unit -> target *)
 
 val cLabel : ?label:string -> ?exact:bool ->
              ?body:(target) -> unit -> target
@@ -149,7 +145,7 @@ val cSwitch : ?cond:(target) ->
 val cCase : ?value:(target) -> unit -> case_kind
 val cDefault : case_kind
 
-val cSet : ?lhs:(target) -> ?rhs:(target) -> unit -> target
+(* val cSet : ?lhs:(target) -> ?rhs:(target) -> unit -> target *)
 
 (** Transformations *)
 

@@ -425,7 +425,7 @@ let inline_record_access_aux (clog : out_channel) (var : string) (field : string
 let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm = 
       (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
       let pl = [cVarDef ~name:var()] in 
-      let epl = resolve_target (List.flatten pl) t in 
+      let epl = resolve_target pl t in 
       let var_decl = match epl with 
       | [dl] -> let (t_def,_) = resolve_path dl t in t_def  
             
@@ -463,7 +463,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
         else (* search for the trms,
                 assumption the variable is only once assigned*) 
           let loc_pl = [cSet ~lhs:[cVar ~name:var ()]()] in 
-          let loc_epl = resolve_target (List.flatten loc_pl) t in
+          let loc_epl = resolve_target loc_pl t in
           match loc_epl with 
           | [dl] -> let (t_assgn,_) = resolve_path dl t in 
             begin match t_assgn.desc with 

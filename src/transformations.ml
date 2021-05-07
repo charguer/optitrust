@@ -806,11 +806,10 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
 
       
 let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typvar) (old_var) (new_var : var) (t : trm) = 
-    let tr = [cLabel ~label:sec_of_int ();cBody ()] in 
+    let tr = [cLabel ~label:sec_of_int (); cBody] in 
     let b = !Flags.verbose in 
     Flags.verbose := false;
-    (* TODO:Solve the issue with using List.flatten *)
-    let epl = resolve_target (List.flatten tr) t in
+    let epl = resolve_target tr t in
     Flags.verbose := b;
     match epl with 
     | []-> 
@@ -974,9 +973,9 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
       
 
 let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm = 
-  let tr = [cLabel ~label:sec_of_int();cBody ()] in 
+  let tr = [cLabel ~label:sec_of_int();cBody] in 
   let b = !Flags.verbose in
-  let epl = resolve_target (List.flatten tr) t in
+  let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with 
   | [] -> 
