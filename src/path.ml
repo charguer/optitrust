@@ -264,6 +264,8 @@ and constr =
   | ConstrOccurences of target_occurences
   (* List of constraints *)
   | ConstrChain of constr list
+  (* Constrain used for argument match *)
+  | ConstrBool of bool
 
 and constr_name = rexp option
 
@@ -503,7 +505,7 @@ let rec constraint_to_string (c : constr) : string =
   | ConstrChain cl ->
     let string_cl = List.map constraint_to_string cl in 
     list_to_string string_cl
-
+  | ConstrBool b -> string_of_bool b
 
 and target_to_string (tg : target) : string =
   list_to_string (List.map constraint_to_string tg)
@@ -521,15 +523,7 @@ and access_to_string (ca : constr_access) : string =
   | Any_access -> "Any_access"
 
 
-let target_list_simpl(cstrs: constr list) : target_list_pred = 
-  let list_all_true(bl : bool list) : bool =
-    List.for_all(fun b -> b = true) bl 
-  in 
-  let n = List.length cstrs in 
-  ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-and 
-  list_all_true (bs : bool list) : bool=
-               List.for_all (fun b => b = true) bs
+
 (******************************************************************************)
 (*                        Smart constructors for targets                        *)
 (******************************************************************************)
@@ -538,6 +532,7 @@ and
 
 
 module Path_constructors =
+
   struct
     (*
       a smart constructor builds a target
@@ -546,7 +541,12 @@ module Path_constructors =
       unit args are used because of optional arguments
      *)
      (* Sued for relative targets *)
-
+    let cTrue :constr =
+      ConstrBool true
+    
+    let cFalse :constr =
+      ConstrBool true
+  
     let cBefore : constr = 
       ConstrRelative TargetBefore
 
@@ -778,35 +778,29 @@ module Path_constructors =
        Constr_lit (Lit_string s)
     let cPrim (p : prim) : constr =
       cStr  (ast_to_string (trm_prim p))
-   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ) (name:string) : constr=
-      let exception Argument_Error of string in 
+   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> [cTrue]),(fun _ -> true))) (name:string) : constr=
+      let list_all_true(bl : bool list) : bool =
+          List.for_all(fun b -> b = true) bl
+      in
+      let target_list_simpl(cstrs: constr list) : target_list_pred =  
+        let n = List.length cstrs in 
+        ((fun i -> if i < n then [List.nth cstrs i] else [cFalse]), list_all_true)
+      in 
+       let exception Argument_Error  of string in 
       let p_fun =
       match name, fun_ with 
       | "",_ -> fun_
       | _, [] -> [cVar ~name ()]
-      | _,_ -> rais (Arument_Erro "Can't provide both the target and the name of the function")
+      | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
       in
       let args = 
-      match args,args_pred with 
-      | [],_ -> args_pred
-      | _,[] -> target_list_simpl args
-      | _,_-> fail None "cApp: Can't give both the list of args and the predicted args"
+      match args with 
+      | [] -> args_pred
+      | _ -> (target_list_simpl args)
       in
-      let p_args = args in 
-        Constr_app (p_fun,target_list_pred)
-    (* let cApp ?(name : string = "")
-      ?(fun_ : target = []) ?(args : target = [])
-      ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : target =
-      let exception Argument_Error  of string in  
-      let p_fun =
-      match name, fun_ with 
-      | "",_ ->  fun_ 
-      | _, [] -> cVar  ~name ()
-      | _,_ ->  raise (Argument_Error "Can't provide both the target and the name of the function")
-      in
-      let p_args =  args in
-       [Constr_app (p_fun, (p_args, validate))] *)
-
+      
+        Constr_app (p_fun,args)
+    
     let cLabel ?(label : string = "")
       ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
       let ro = rexp_opt_of_string ~exact label in
@@ -1122,9 +1116,13 @@ and check_name (name : constr_name) (s : string) : bool =
   | None -> true
   | Some r -> match_regexp r (trm_var s)
 
-and check_list (cl : constr_list) (tl : trm list) : bool =
+and check_list (lpred : target_list_pred) (tl : trm list) : bool =
+  let (cstr,valid) = lpred in 
+  valid(List.mapi (fun i t -> check_target (cstr i) t) tl)
+
+(* and check_list (cl : constr_list) (tl : trm list) : bool =
   let (p, validate) = cl in
-  validate (List.map (check_target p) tl)
+  validate (List.map (check_target p) tl) *)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
