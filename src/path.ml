@@ -608,8 +608,9 @@ module Path_constructors =
     let cEnumConstVal : enum_const_dir = Enum_const_val
 
     (* allow to use boolean functions *)
-    (* let cList (tg : target)
-      (next : bool list -> bool list) : target =
+    (* TODO: Remove this function after implementing cTopFun with new convention *)
+    (* let cList (tgl : target list)
+      (next : bool list -> bool list) : constr =
       let rec int_of_bool_list (n : int) = function
         | [] -> []
         | b :: bl ->
@@ -617,7 +618,7 @@ module Path_constructors =
            if b then n :: il else il
       in
       
-        (Constr_list (tg, fun bl -> int_of_bool_list 0 (next bl))  *)
+        Constr_list (List.flatten (tgl), fun bl -> int_of_bool_list 0 (next bl)) *)
 
     (* after operator *)
     (*
@@ -705,8 +706,7 @@ module Path_constructors =
         let n = List.length cstrs in 
         ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
       in 
-       let exception Argument_Error  of string in 
-      let ro = rexp_opt_of_string ~exact name in
+      let ro = rexp_opt_of_string  name in
       let p_args = match args with 
       | [] -> args_pred
       | _ -> (target_list_simpl args)
@@ -722,7 +722,9 @@ module Path_constructors =
       let p_body =  body in
        Constr_decl_fun (ro, (p_args, validate), p_body) *)
 
+    
     (* toplevel fun declaration *)
+    (* TODO: Implement something similar for TopFun *)
     (* let cTopFun ?(name : string = "") ?(exact : bool = true)
       ?(args : target = []) ?(validate : bool list -> bool = fun _ -> true)
       ?(body : target = []) (_ : unit) : target =
@@ -776,11 +778,22 @@ module Path_constructors =
       in
        Constr_decl_enum (c_n, cec_o)
 
-    let cSeq ?(args : target = [])
+
+    (* let cSeq ?(args : target = [])
       ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : constr =
       let p_args =  args in
-       Constr_seq (p_args, validate)
-
+       Constr_seq (p_args, validate) *)
+    let cSeq ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (_ : unit) : constr =  
+      let target_list_simpl(cstrs: constr list) : target_list_pred =  
+        let n = List.length cstrs in 
+        ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
+      in 
+      let p_args =
+      match args with 
+      | [] -> args_pred
+      | _ -> (target_list_simpl args)
+      in 
+      Constr_seq  p_args
     let cVar ?(name : string = "")
       ?(exact : bool = true) (_ : unit) : constr =
       let ro = rexp_opt_of_string ~exact name in
@@ -1132,7 +1145,7 @@ and check_name (name : constr_name) (s : string) : bool =
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
   let (cstr,valid) = lpred in 
-  valid(List.mapi (fun i t -> check_target (cstr i) t) tl)
+  valid(List.mapi (fun i t -> check_target ([cstr i]) t) tl)
 
 (* and check_list (cl : constr_list) (tl : trm list) : bool =
   let (p, validate) = cl in
