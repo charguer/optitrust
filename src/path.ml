@@ -228,13 +228,15 @@ and constr =
   (* decl_var: name, body *)
   | Constr_decl_var of constr_name * target
   (* decl_fun: name, args, body *)
-  | Constr_decl_fun of constr_name * constr_list * target
+  (* | Constr_decl_fun of constr_name * constr_list * target *)
+  | Constr_decl_fun of constr_name * target_list_pred * target
   (* decl_type: name *)
   | Constr_decl_type of constr_name
   (* decl_enum: name, constants *)
   | Constr_decl_enum of constr_name * constr_enum_const
   (* seq *)
-  | Constr_seq of constr_list
+  (* | Constr_seq of constr_list *)
+  | Constr_seq of target_list_pred
   (* var *)
   | Constr_var of constr_name
   (* lit *)
@@ -275,7 +277,7 @@ and constr_enum_const = ((constr_name * target) list) option
 
 and constr_accesses = (constr_access list) option
 
-and target_list_pred = ((int -> target) * (bool list -> bool))
+and target_list_pred = ((int -> constr) * (bool list -> bool))
 and constr_access =
   (* array indices may be arbitrary terms *)
   | Array_access of target
@@ -375,13 +377,15 @@ let rec constraint_to_string (c : constr) : string =
      in
      let s_body = target_to_string p_body in
      "Decl_var (" ^ s_name ^ ", " ^ s_body ^ ")"
-  | Constr_decl_fun (name, (p_args, _), p_body) ->
+  | Constr_decl_fun (name, (_, _), p_body) ->
     let s_name =
        match name with | None -> "_" | Some r -> regexp_to_string r
      in
-     let s_args = target_to_string p_args in
+     (* TODO: Fix this later after talking with Arthur *)
+     (* let s_args = target_to_string p_args in *)
      let s_body = target_to_string p_body in
-     "Decl_fun (" ^ s_name ^ ", " ^ s_args ^ ", " ^ s_body ^ ")"
+     (* "Decl_fun (" ^ s_name ^ ", " ^ s_args ^ ", " ^ s_body ^ ")" *)
+     "Decl_fun (" ^ s_name ^ " " ^ s_body ^ ")"
 
   | Constr_decl_type name ->
      let s_name =
@@ -410,9 +414,12 @@ let rec constraint_to_string (c : constr) : string =
           list_to_string sl
      in
      "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
-  | Constr_seq (p_elt, _) ->
-     let s = target_to_string p_elt in
-     "Seq (" ^ s ^ ")"
+  | Constr_seq (_, _) ->
+    (* TODO: Fix this later after discussing with Arthur *)
+     (* let s = target_to_string p_elt in *)
+     "Seq ( )"
+     (* let s = target_to_string p_elt in *)
+     (* "Seq (" ^ s ^ ")" *)
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> regexp_to_string r)
   | Constr_lit l ->
@@ -693,16 +700,27 @@ module Path_constructors =
        Constr_if (p_cond, p_then, p_else)
 
     (* by default an empty name is no name *)
-    
+    let cFun ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true)))?(body : target = []) (name:string) : constr=
+      let target_list_simpl(cstrs: constr list) : target_list_pred =  
+        let n = List.length cstrs in 
+        ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
+      in 
+       let exception Argument_Error  of string in 
+      let ro = rexp_opt_of_string ~exact name in
+      let p_args = match args with 
+      | [] -> args_pred
+      | _ -> (target_list_simpl args)
+      in
+      Constr_decl_fun(ro, p_args,body)
 
-    let cFun ?(name : string = "")
+    (* let cFun ?(name : string = "")
       ?(exact : bool = true) ?(args : target = [])
       ?(validate : bool list -> bool = fun _ -> true) ?(body : target = [])
       (_ : unit) : constr =
       let ro = rexp_opt_of_string ~exact name in
       let p_args =  args in
       let p_body =  body in
-       Constr_decl_fun (ro, (p_args, validate), p_body)
+       Constr_decl_fun (ro, (p_args, validate), p_body) *)
 
     (* toplevel fun declaration *)
     (* let cTopFun ?(name : string = "") ?(exact : bool = true)
@@ -778,13 +796,10 @@ module Path_constructors =
        Constr_lit (Lit_string s)
     let cPrim (p : prim) : constr =
       cStr  (ast_to_string (trm_prim p))
-   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> [cTrue]),(fun _ -> true))) (name:string) : constr=
-      let list_all_true(bl : bool list) : bool =
-          List.for_all(fun b -> b = true) bl
-      in
+   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (name:string) : constr=      
       let target_list_simpl(cstrs: constr list) : target_list_pred =  
         let n = List.length cstrs in 
-        ((fun i -> if i < n then [List.nth cstrs i] else [cFalse]), list_all_true)
+        ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
       in 
        let exception Argument_Error  of string in 
       let p_fun =
@@ -798,8 +813,7 @@ module Path_constructors =
       | [] -> args_pred
       | _ -> (target_list_simpl args)
       in
-      
-        Constr_app (p_fun,args)
+      Constr_app (p_fun,args)
     
     let cLabel ?(label : string = "")
       ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =

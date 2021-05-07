@@ -150,7 +150,9 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : strin
   in
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
-
+let list_all_true(bl : bool list) : bool =
+          List.for_all(fun b -> b = true) bl
+          
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in 
