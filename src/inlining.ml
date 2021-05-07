@@ -422,7 +422,7 @@ let inline_record_access_aux (clog : out_channel) (var : string) (field : string
     in aux t t 
     
 
-let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm = 
+(* let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm = 
       (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
       let pl = [cVarDef ~name:var()] in 
       let epl = resolve_target pl t in 
@@ -462,7 +462,8 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
         
         else (* search for the trms,
                 assumption the variable is only once assigned*) 
-          let loc_pl = [cSet ~lhs:[cVar ~name:var ()]()] in 
+          (* let loc_pl = [cSet ~lhs:[cVar ~name:var ()]()] in  *)
+          let loc_pl = (cSet ~lhs:[cVar ~name:var ()] ) in 
           let loc_epl = resolve_target loc_pl t in
           match loc_epl with 
           | [dl] -> let (t_assgn,_) = resolve_path dl t in 
@@ -493,7 +494,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
       | [] ->
         print_info t.loc "inline_struct_access: no matching subterm";
         t
-      | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl 
+      | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl  *)
       (* Ast_to_text.print_ast ~only_desc:true stdout var_decl; *)
      
 (* ******************************************************* *)
@@ -674,13 +675,13 @@ aux t t
 
 let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (t :trm) : trm = 
   let base_struct_path = [cType ~name:base_struct_name()] in 
-  let epl_of_base_struct = resolve_target (List.flatten base_struct_path) t in 
+  let epl_of_base_struct = resolve_target base_struct_path t in 
   let base_struct_term = match epl_of_base_struct with 
     | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
     | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in 
   let struct_path = [cType ~name:struct_name ()] in 
-  let epl_of_struct = resolve_target (List.flatten struct_path) t in 
+  let epl_of_struct = resolve_target struct_path t in 
   let struct_term = match epl_of_struct with 
   | [dl] -> 
     let (t_def,_) = resolve_path dl t in t_def 
@@ -730,7 +731,8 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
 
 (* let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (t :trm) : trm = 
   let base_struct_path = [cType ~name:base_struct_name()] in 
-  let epl_of_base_struct = resolve_target (List.flatten base_struct_path) t in 
+  let epl_of_base_struct = resolve_target (
+     base_struct_path) t in 
   let base_struct_term = match epl_of_base_struct with 
     | [dl] -> let (t_def,_) = resolve_target dl t in t_def 
     | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
@@ -788,7 +790,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
   let field_name = List.hd struct_fields in 
   
   let struct_term_path  = [cType ~name:name ()] in 
-  let p_of_struct_term = List.flatten struct_term_path in
+  let p_of_struct_term = struct_term_path in
   let epl_of_struct_term = resolve_target p_of_struct_term t in 
   let struct_term = match epl_of_struct_term with 
     | [dl] -> 
@@ -821,7 +823,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     in 
    
     let  pl_temp = [cType ~name:inner_struct_name()]  in
-    let p_temp = List.flatten pl_temp in
+    let p_temp = pl_temp in
     let epl_temp = resolve_target p_temp t in 
     
     (* get the list of fields of the inner struct *)
@@ -839,7 +841,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
      let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t struct_fields
     in 
     
-    let tr = List.flatten struct_term_path in
+    let tr = struct_term_path in
     let b = !Flags.verbose in
     Flags.verbose := false;
     let epl = resolve_target tr t in

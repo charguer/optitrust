@@ -24,6 +24,11 @@ type case_kind
 type abort_kind
 type constr_access
 type enum_const_dir
+type target_list_pred 
+
+val cTrue : constr
+
+val cFalse : constr
 
 val cBefore : constr
 
@@ -39,93 +44,91 @@ val cAnyNb : constr
 
 val cNb : int -> constr
 
-val cNth : int -> target
+val cNth : int -> constr
 
-val cCond : unit -> target
+val cCond : constr
 
-val cThen : target
+val cThen : constr
 
-val cElse : target
+val cElse : constr
 
-val cBody : target
+val cBody : constr
 
-val cInit : target
+val cInit : constr
 
-val cStep : target
+val cStep : constr
 
-val cAppFun : target
+val cAppFun : constr
 
-val cArg : int -> target
+val cArg : int -> constr
 
-val cName : target
+val cName : constr
 
-val cDirCase : int -> case_dir -> target
+val cDirCase : int -> case_dir -> constr
 
 val cCaseName : int -> case_dir
 val cCaseBody : case_dir
 
-val cEnumConst : int -> enum_const_dir -> target
+val cEnumConst : int -> enum_const_dir -> constr
 
 val cEnumConstName : enum_const_dir
 val cEnumConstVal : enum_const_dir
 
 (* val cList : target -> (bool list -> bool list) -> target *)
 
-val cInclude : string -> target
+val cInclude : string -> constr
 
-val cStr : ?regexp:bool -> string -> target
+val cStr : ?regexp:bool -> string -> constr
 
-val cInstrSubstr : ?exact:bool -> ?regexp:bool -> string -> target
+val cInstrSubstr : ?exact:bool -> ?regexp:bool -> string -> constr
 
 val cFor : ?init:(target) -> ?cond:(target) ->
-           ?step:(target) -> ?body:(target) -> ?name:string-> unit -> target
+           ?step:(target) -> ?body:(target) -> ?name:string-> unit -> constr
 
 val cWhile : ?cond:(target) -> ?body:(target) -> unit ->
-             target
+             constr
 
 val cIf : ?cond:(target) -> ?then_:(target) ->
-          ?else_:(target) -> unit -> target
+          ?else_:(target) -> unit -> constr
 
 val cVarDef : ?name:string -> ?exact:bool ->
-              ?body:(target) -> unit -> target
+              ?body:(target) -> unit -> constr
 
-val cFun : ?name:string -> ?exact:bool -> ?args:(target) ->
-           ?validate:(bool list -> bool) -> ?body:(target) -> unit -> target
+val cFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
 
 (* val cTopFun : ?name:string -> ?exact:bool -> ?args:(target) ->
            ?validate:(bool list -> bool) -> ?body:(target) -> unit -> target *)
 
-val cType : ?name:string -> ?exact:bool -> unit -> target
+val cType : ?name:string -> ?exact:bool -> unit -> constr
 
 val cEnum : ?name:string -> ?exact:bool ->
-            ?constants:((string * (target)) list) -> unit -> target
+            ?constants:((string * (target)) list) -> unit -> constr
+val cSeq : ?args:(target) -> ?args_pred:target_list_pred -> unit -> constr
 
-val cSeq : ?args:(target) -> ?validate:(bool list -> bool) ->
-           unit -> target
+val cVar : ?name:string -> ?exact:bool -> unit -> constr
 
-val cVar : ?name:string -> ?exact:bool -> unit -> target
+val cBool : bool -> constr
 
-val cBool : bool -> target
+val cInt : int -> constr
 
-val cInt : int -> target
+val cDouble : float -> constr
 
-val cDouble : float -> target
-
-val cString : string -> target
+val cString : string -> constr
 
 (* val cPrim : prim -> target *)
 
 (* val cApp : ?name:string -> ?fun_:(target) ->
            ?args:(target) -> ?validate:(bool list -> bool) -> unit -> target *)
+val cApp : ?fun_:target -> ?args:target -> ?args_pred:((int -> constr)*(bool list -> bool)) -> string -> constr
 
 val cLabel : ?label:string -> ?exact:bool ->
-             ?body:(target) -> unit -> target
+             ?body:(target) -> unit -> constr
 
-val cGoto : ?label:string -> ?exact:bool -> unit -> target
+val cGoto : ?label:string -> ?exact:bool -> unit -> constr
 
-val cReturn : ?res:(target) -> unit -> target
+val cReturn : ?res:(target) -> unit -> constr
 
-val cAbort : ?kind:abort_kind -> unit -> target
+val cAbort : ?kind:abort_kind -> unit -> constr
 
 val cAbrtAny : abort_kind
 val cAbrtRet : abort_kind
@@ -133,14 +136,14 @@ val cAbrtBrk : abort_kind
 val cAbrtCtn : abort_kind
 
 val cAccesses : ?base:(target) ->
-                ?accesses:(constr_access list) -> unit -> target
+                ?accesses:(constr_access list) -> unit -> constr
 
 val cIndex : ?index:(target) -> unit -> constr_access
 val cField : ?field:string -> ?exact:bool -> unit -> constr_access
 val cAccess : constr_access
 
 val cSwitch : ?cond:(target) ->
-              ?cases:((case_kind * (target)) list) -> unit -> target
+              ?cases:((case_kind * (target)) list) -> unit -> constr
 
 val cCase : ?value:(target) -> unit -> case_kind
 val cDefault : case_kind
@@ -185,8 +188,7 @@ val tile_array : ?replace_top:bool -> ?name:(string -> string) ->
                  ?block_name:string -> block_size:string -> string -> unit
 
 val fold_decl : ?replace_top:bool -> ?as_reference:bool ->
-                ?fold_at:(target list) -> decl_target:(target) -> unit ->
-                unit
+                ?fold_at:(target list) -> decl_target:(target) -> unit -> unit
 
 val insert_decl : ?replace_top:bool -> ?insert_before:(target) ->
                   ?insert_after:(target) -> ?const:bool ->
@@ -219,7 +221,7 @@ val inline_decl : ?replace_top:bool -> ?delete_decl:bool ->
 
 val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:string list -> unit -> unit
 
-val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit 
+(* val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit  *)
 
 val make_explicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> target -> unit 
 

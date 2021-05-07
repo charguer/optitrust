@@ -894,18 +894,14 @@ module Path_constructors =
 
     let cDefault : case_kind = Case_default
 
-    (* let cSet ?(lhs : target = [])
-      ?(rhs : target = []) (_ : unit) : target =
+    (* TODO: Fix cSet function later *)
+    let cSet ?(lhs : target  = [])
+    
+      ?(_rhs : target  = []) (_ : unit) : target =lhs;
+
+
+
       
-        (
-          (* first check that lhs is the first of two arguments *)
-          (cApp  ~args:lhs
-            ~validate:(function | true :: [_] -> true | _ -> false) ());
-          cApp  ~args:rhs
-            ~validate:(function | _ :: [true] -> true | _ -> false) ();
-          (* finally check that the function prints as "=" *)
-          cApp  ~fun_:[cStr  "="] ()
-        ) *)
   end
 
 (******************************************************************************)

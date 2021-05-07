@@ -408,7 +408,7 @@ type abort_kind = Path.abort_kind
 type constr_access = Path.constr_access
 type case_kind = Path.case_kind
 type enum_const_dir = Path.enum_const_dir
-
+type target_list_pred = Path.target_list_pred
 (******************************************************************************)
 (*                              Transformations                               *)
 (******************************************************************************)
@@ -675,12 +675,12 @@ let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
   let replace_top = true in
   (* label the loop for later calls to transformations *)
   add_label ~replace_top "split_loop_tmp_loop"
-    (cFor ~body:[cLabel ~label:"split_loop_tmp_result"
-                   ~exact:false ()] ());
+    [cFor ~body:[cLabel ~label:"split_loop_tmp_result"
+                   ~exact:false ()] ()];
   (* remove unnecessary labels *)
   delete_labels ~replace_top ["split_loop_tmp_result"; "split_loop_tmp_block1";
                               "split_loop_tmp_block2"];
-  let tr' = (cLabel ~label:"split_loop_tmp_loop" ~exact:false ()) in
+  let tr' = [cLabel ~label:"split_loop_tmp_loop" ~exact:false ()] in
   (* extract loop variables *)
   extract_loop_vars ~replace_top ~keep_label:true ~label:result_label tr';
   (* split the loop *)
@@ -820,10 +820,10 @@ let tile_array ?(replace_top : bool = false)
   *x instead of &dx' with x
  *)
 let fold_decl ?(replace_top : bool = false) ?(as_reference : bool = false)
-  ?(fold_at : target list = [[]]) ~decl_path:(tr : target)
+  ?(fold_at : target list = [[]]) ~decl_target:(tr : target)
   (_ : unit) : unit =
   let log : string =
-    Printf.sprintf "Fold_decl ~decl_path:%s:\n"
+    Printf.sprintf "Fold_decl ~decl_target:%s:\n"
       (target_to_string tr)
   in
   write_log log;
@@ -1200,12 +1200,12 @@ let insert_and_fold_typedef ?(replace_top : bool = false)
   write_log "\n"
 
 (* todo: inlining with flag "error if occurrence" + flag "delete"? *)
-let remove_decl ?(replace_top : bool = false) ~decl_path:(tr : target)
+let remove_decl ?(replace_top : bool = false) ~decl_target:(tr : target)
   (_ : unit) : unit =
   let log : string =
     let ps = target_to_string tr in
     Printf.sprintf
-      ("Remove_decl ~decl_path:%s\n" ^^
+      ("Remove_decl ~decl_target:%s\n" ^^
        "  - %s points at exactly one program point\n"
       )
       ps ps
@@ -1217,12 +1217,12 @@ let remove_decl ?(replace_top : bool = false) ~decl_path:(tr : target)
 
 let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
   ?(inline_at : target list = [[]]) ?(fun_result : var = "res") ?(fun_args : var list = [])
-  ?(fun_return_label : label = "exit") ~decl_path:(tr : target)
+  ?(fun_return_label : label = "exit") ~decl_target:(tr : target)
   (_ : unit) : unit =
   let log : string =
     let ps = target_to_string tr in
     Printf.sprintf
-      ("Inline_decl ~decl_path:%s:\n" ^^
+      ("Inline_decl ~decl_target:%s:\n" ^^
        "  - %s points at exactly one program point\n"
       )
       ps ps
@@ -1238,7 +1238,7 @@ let fields_reorder ?(replace_top : bool = false) (tr : target) ?(struct_fields :
   let log : string =
     let ps = target_to_string tr in
     Printf.sprintf
-      ("Inline_decl ~decl_path %s:\n" ^^
+      ("Inline_decl ~decl_target %s:\n" ^^
        " - %s points at exactly one program point\n"
       )
       ps ps
@@ -1332,10 +1332,10 @@ let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(s
     (fun ctx -> Inlining.inline_struct ctx.clog struct_name ~struct_fields);
   write_log "\n"
 
-let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit =
+(* let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
-  write_log "\n"
+  write_log "\n" *)
 
 let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (tr : target) : unit =
   apply_to_top ~replace_top
@@ -1372,9 +1372,9 @@ let create_subsequence ?(replace_top : bool = false) ?(start : target = []) ?(st
     (fun ctx -> Sequence.create_subsequence ctx.clog start stop stop_before stop_after label braces);
   write_log "\n"
 
-let array_to_variables ?(replace_top : bool = false) (dcl_path : target) (new_vars : var list) : unit =
+let array_to_variables ?(replace_top : bool = false) (dcl_target : target) (new_vars : var list) : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Arrays.array_to_variables ctx.clog dcl_path new_vars);
+    (fun ctx -> Arrays.array_to_variables ctx.clog dcl_target new_vars);
     write_log "\n"
 
 let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(old_var : var = "") ?(new_var : var = "") () : unit =
@@ -1423,10 +1423,10 @@ let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
   write_log log;
   apply_to_top ~replace_top (fun _ -> Declaration.group_decl_init)
 
-let inline_seq ?(replace_top : bool = false) ~seq_path:(tr : target)
+let inline_seq ?(replace_top : bool = false) ~seq_target:(tr : target)
   (_ : unit) : unit =
   let log : string =
-    Printf.sprintf "Inline_seq ~seq_path:%s:\n"
+    Printf.sprintf "Inline_seq ~seq_target:%s:\n"
       (target_to_string tr)
   in
   write_log log;
