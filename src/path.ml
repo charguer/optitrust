@@ -310,8 +310,13 @@ and constr_accesses = (constr_access list) option
    - a function that produces the constraints for the i-th subterm
    - a function that takes a list of booleans indicating which of the subterms
      matched their respective constraint, and returns a boolean indicating whether
-     the full list should be considered as matching or not. *)
+     the full list should be considered as matching or not.
+   - a string that explains what was the user intention *)
 and target_list_pred = ((int -> constr) * (bool list -> bool))
+(* TODO
+  { target_list_pred_ith_constr : int -> constr;
+    target_list_pred_validate : bool list -> bool;
+    target_list_pred_to_to_string : unit -> string; } *)
 
 and constr_access =
   (* array indices may be arbitrary terms *)
@@ -335,7 +340,8 @@ and abort_kind =
   | Break
   | Continue
 
-(* [target_simple] is a [target] without ConstrRelative, ConstrOccurences, ConstrChain *)
+(* [target_simple] is a [target] without ConstrRelative, ConstrOccurences, ConstrChain;
+   It can however, include [cStrict]. *)
 type target_simple = target
 
 (* [target_struct] is the structured representation of a [target] that decomposes the
@@ -351,6 +357,17 @@ let target_to_target_simple (tg : target) : target_simpl =
   fails if the target contains ConstrRelative or ConstrOccurences
   and otherwise returns target_flatten tg
 *)
+
+(* Converts a list of constraints into a [target_list_pred] *)
+let target_list_simpl (cstrs : constr list) : target_list_pred =
+  let n = List.length cstrs in
+  ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
+  (*
+  target_list_pred_to_string = begin fun () ->
+    ..."["  ";" ... List.fold (constraint_to_string cstrs) .. .
+    end
+  *)
+
 
 (* Flatten all the constrainst of type ConstrChain *)
 let target_flatten (tg : target) : target =
@@ -384,14 +401,13 @@ let target_to_target_struct(tg : target) : target_struct =
       | _ -> fail None "ConstrOccurences provide twice in path"
       end
     | _ -> ()
-   (* Check if relative constraint are applied once and the number of occurences is unique *)
-   in List.iter process_constr tg;
-
-   (* Return a target_struct *)
-   {   target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tg;
-       target_relative = begin match !relative with | None -> TargetAt | Some tg -> tg end;
-       target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end;
-   }
+    in
+  (* Check if relative constraint are applied once and the number of occurences is unique *)
+  List.iter process_constr tg;
+  (* Return a target_struct *)
+  { target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tg;
+    target_relative = begin match !relative with | None -> TargetAt | Some tg -> tg end;
+    target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; }
 
 (* ----------------DEPRECATED---------------- *)
 (* let regexp_to_string (r : rexp) : string =
@@ -470,7 +486,7 @@ let rec constraint_to_string (c : constr) : string =
           list_to_string sl
      in
      "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
-  | Constr_seq (_, _) ->
+  | Constr_seq (_, _) -> (* TODO: for the second arg, call it, cargs, use [cargs.constr_list_pred_to_string()] *)
     (* TODO: Fix this later after discussing with Arthur *)
      (* let s = target_to_string p_elt in *)
      "Seq ( )"
@@ -594,393 +610,393 @@ and access_to_string (ca : constr_access) : string =
 (* TODO: Remove all the occurrences of List.flatten they are not needed anymore*)
 
 
-module Path_constructors =
+module Path_constructors = struct
+  (*
+    a smart constructor builds a target
+    thus, the user provides a target using them
+    this list is then flattened to call resolve_target
+    unit args are used because of optional arguments
+   *)
 
-  struct
-    (*
-      a smart constructor builds a target
-      thus, the user provides a target using them
-      this list is then flattened to call resolve_target
-      unit args are used because of optional arguments
-     *)
-     (* Sued for relative targets *)
-    let cTrue : constr =
-      ConstrBool true
+  (* Logic constraints *)
 
-    let cFalse : constr =
-      ConstrBool true
+  let cTrue : constr =
+    ConstrBool true
 
-    let cBefore : constr =
-      ConstrRelative TargetBefore
+  let cFalse : constr =
+    ConstrBool false
 
-    let cAfter : constr =
-      ConstrRelative TargetAfter
+  (* Relative targets *)
 
-    let cFirst : constr =
-      ConstrRelative TargetFirst
+  let cBefore : constr =
+    ConstrRelative TargetBefore
 
-    let cLast : constr =
-      ConstrRelative TargetLast
+  let cAfter : constr =
+    ConstrRelative TargetAfter
 
-    (* Used for checking the number of targets to match *)
-    let cMulti : constr =
-      ConstrOccurences ExpectedMulti
+  let cFirst : constr =
+    ConstrRelative TargetFirst
 
-    let cAnyNb : constr =
-       ConstrOccurences ExpectedAnyNb
+  let cLast : constr =
+    ConstrRelative TargetLast
 
-    let cNb (nb : int) : constr =
-       ConstrOccurences (ExpectedNb nb)
+  (* Used for checking the number of targets to match *)
 
-    (* directions *)
-    let cNth (n : int) : constr =
-       Constr_dir (Dir_nth n)
-    let cCond : constr =
-       Constr_dir Dir_cond
-    let cThen : constr =
-       Constr_dir Dir_then
-    let cElse : constr =
-       Constr_dir Dir_else
-    let cBody : constr =
-       Constr_dir Dir_body
-    let cInit : constr =
-       Constr_dir Dir_for_init
-    let cStep : constr =
-       Constr_dir Dir_for_step
-    let cAppFun : constr =
-       Constr_dir Dir_app_fun
-    let cArg (n : int) : constr =
-       Constr_dir (Dir_arg n)
-    let cName : constr =
-       Constr_dir Dir_name
-    let cDirCase (n : int) (cd : case_dir) : constr =
-       Constr_dir (Dir_case (n, cd))
-    let cCaseName (n : int) : case_dir = Case_name n
-    let cCaseBody : case_dir = Case_body
-    let cEnumConst (n : int)
-      (ecd : enum_const_dir) : constr =
-       Constr_dir (Dir_enum_const (n, ecd))
-    let cEnumConstName : enum_const_dir = Enum_const_name
-    let cEnumConstVal : enum_const_dir = Enum_const_val
-    let cStrict : constr = Constr_strict
-    (* allow to use boolean functions *)
-    (* TODO: Remove this function after implementing cTopFun with new convention *)
-    (* let cList (tgl : target list)
-      (next : bool list -> bool list) : constr =
-      let rec int_of_bool_list (n : int) = function
-        | [] -> []
-        | b :: bl ->
-           let il = int_of_bool_list (n + 1) bl in
-           if b then n :: il else il
+  let cMulti : constr =
+    ConstrOccurences ExpectedMulti
+
+  let cAnyNb : constr =
+     ConstrOccurences ExpectedAnyNb
+
+  let cNb (nb : int) : constr =
+     ConstrOccurences (ExpectedNb nb)
+
+  (* directions *)
+  let cNth (n : int) : constr =
+     Constr_dir (Dir_nth n)
+  let cCond : constr =
+     Constr_dir Dir_cond
+  let cThen : constr =
+     Constr_dir Dir_then
+  let cElse : constr =
+     Constr_dir Dir_else
+  let cBody : constr =
+     Constr_dir Dir_body
+  let cInit : constr =
+     Constr_dir Dir_for_init
+  let cStep : constr =
+     Constr_dir Dir_for_step
+  let cAppFun : constr =
+     Constr_dir Dir_app_fun
+  let cArg (n : int) : constr =
+     Constr_dir (Dir_arg n)
+  let cName : constr =
+     Constr_dir Dir_name
+  let cDirCase (n : int) (cd : case_dir) : constr =
+     Constr_dir (Dir_case (n, cd))
+  let cCaseName (n : int) : case_dir = Case_name n
+  let cCaseBody : case_dir = Case_body
+  let cEnumConst (n : int)
+    (ecd : enum_const_dir) : constr =
+     Constr_dir (Dir_enum_const (n, ecd))
+  let cEnumConstName : enum_const_dir = Enum_const_name
+  let cEnumConstVal : enum_const_dir = Enum_const_val
+  let cStrict : constr = Constr_strict
+  (* allow to use boolean functions *)
+  (* TODO: Remove this function after implementing cTopFun with new convention *)
+  (* let cList (tgl : target list)
+    (next : bool list -> bool list) : constr =
+    let rec int_of_bool_list (n : int) = function
+      | [] -> []
+      | b :: bl ->
+         let il = int_of_bool_list (n + 1) bl in
+         if b then n :: il else il
+    in
+
+      Constr_list (List.flatten (tgl), fun bl -> int_of_bool_list 0 (next bl)) *)
+
+  (* after operator *)
+  (*
+    after*
+   *)
+
+
+  let cInclude (s : string) : constr =
+     Constr_include s
+  (* -------------------------DEPRECATED------------------------------- *)
+  (* let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true)
+        (s : string) : rexp =
+    let exp = if exact then s ^ "$" else s in
+    {desc = s; exp = Str.regexp exp; exact; only_instr} *)
+  let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
+    let exp = if exact then s ^ "$" else s in
+    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Struct in
+    {rexp_desc = s; rexp_exp = Str.regexp exp; rexp_substr = exact; rexp_trm_kind = trmKind}
+
+  let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
+    Constr_regexp {
+      rexp_desc = s;
+      rexp_exp = Str.regexp s;
+      rexp_substr = false;
+      rexp_trm_kind = tk; }
+
+  let cInstr (s : string) : constr =
+    cInstrOrExpr TrmKind_Instr s
+
+  let cExpr (s : string) : constr =
+    cInstrOrExpr TrmKind_Expr s
+
+  let cInstrOrExprRexp (tk : trm_kind) (substr : bool) (s : string) : constr =
+    Constr_regexp {
+      rexp_desc = s;
+      rexp_exp = Str.regexp s;
+      rexp_substr = substr;
+      rexp_trm_kind = tk; }
+
+  let cInstrRegexp ?(substr : bool = true) (s : string) : constr =
+    cInstrOrExprRexp TrmKind_Instr substr s
+
+  let cExprRegexp ?(substr : bool = true) (s : string) : constr =
+    cInstrOrExprRexp TrmKind_Expr substr s
+
+  (* --------------------DEPRECATED-------------------------- *)
+  (* let cRegexp ?(exact : bool = true)
+    ?(only_instr : bool = true) (s : string) : constr =
+     Constr_regexp (string_to_rexp ~only_instr ~exact s) *)
+  let cRegexp ?(only_instr : bool = true) ?(substr : bool = true) (s : string) : constr =
+    if only_instr then cInstrRegexp ~substr s
+      else cExprRegexp ~substr s
+
+  (* --------------------DEPRECATED-------------------------- *)
+  (* exactly match the string/regexp described by s *)
+  let cStr ?(regexp : bool = false)
+    (s : string) : constr =
+    cRegexp ~only_instr:false (if regexp then s else Str.quote s)
+
+  (*
+    match the string/regexp only on instructions
+    by default this is not an exact match
+   *)
+  let cInstrSubstr ?(exact : bool = false)
+    ?(regexp : bool = false) (s : string) : constr =
+    cRegexp  ~substr:exact ~only_instr:true
+      (if regexp then s else Str.quote s)
+  (* -------------------------DEPRECATED---------------------------------- *)
+  (* let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
+    if s = "" then None else Some (string_to_rexp ~only_instr:false ~exact s) *)
+
+  let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
+    if s = ""
+      then None
+      else Some (string_to_rexp ~only_instr:false ~exact s)
+
+  let cVarDef ?(name : string = "")
+    ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
+    let ro = string_to_rexp_opt ~exact name in
+    let p_body =  body in
+     Constr_decl_var (ro, p_body)
+
+  let cFor ?(init : target = [])
+    ?(cond : target = []) ?(step : target = []) ?(body : target = []) ?(name : string = "")
+    (_ : unit) : constr =
+    let init =
+       match name, init with
+       | "",[] -> init (*failwith "cFor: Need to provide the name or init"*)
+       | "", _ -> init
+       | _, [] -> [cVarDef ~name ()]
+       | _, _::_ -> failwith "cFor: cannot provide both name and init"
+       in
+     Constr_for ( init,  cond,  step,  body)
+
+  let cWhile ?(cond : target = [])
+    ?(body : target = []) (_ : unit) : constr =
+    let p_cond = cond in
+    let p_body = body in
+     Constr_while (p_cond, p_body)
+
+  let cIf ?(cond : target = [])
+    ?(then_ : target = []) ?(else_ : target = []) (_ : unit) : constr =
+    let p_cond = cond in
+    let p_then = then_ in
+    let p_else = else_ in
+     Constr_if (p_cond, p_then, p_else)
+
+  (* by default an empty name is no name *) (* TODO: Arthur maybe a datatype for target_list_pred? *)
+  let cFun ?(args : target = []) ?(args_pred : target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) ?(body : target = []) (name : string) : constr =
+    let target_list_simpl(cstrs: constr list) : target_list_pred =
+      let n = List.length cstrs in
+      ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
+    in
+    let ro = string_to_rexp_opt name in
+    (* LATER: maybe an error if both args and args_pred are provided *)
+    let p_args = match args with
+      | [] -> args_pred
+      | _ -> target_list_simpl args
       in
+    Constr_decl_fun (ro, p_args, body)
 
-        Constr_list (List.flatten (tgl), fun bl -> int_of_bool_list 0 (next bl)) *)
+  (* let cFun ?(name : string = "")
+    ?(exact : bool = true) ?(args : target = [])
+    ?(validate : bool list -> bool = fun _ -> true) ?(body : target = [])
+    (_ : unit) : constr =
+    let ro = string_to_rexp_opt ~exact name in
+    let p_args =  args in
+    let p_body =  body in
+     Constr_decl_fun (ro, (p_args, validate), p_body) *)
 
-    (* after operator *)
+
+  (* toplevel fun declaration *)
+  (* TODO: Implement something similar for TopFun *)
+  (* let cTopFun ?(name : string = "") ?(exact : bool = true)
+    ?(args : target = []) ?(validate : bool list -> bool = fun _ -> true)
+    ?(body : target = []) (_ : unit) : target =
     (*
-      after*
+      structure of toplevel term:
+      seq (del_instr)
+        [
+          seq (no_brace)
+            [
+              ... include ...
+              t_top
+            ]
+          ... del_instr ...
+        ]
+      thus:
+        1. find the list that contains the list that contains the function and
+           explore the inner list
+        2. find the function
      *)
+    (cList
+       (cList
+         (cFun  ~name ~exact ~args ~validate ~body ())
+         (fun l -> l)
+       )
+       (fun l -> l)
+    ) ++
+    (cList
+       (cFun  ~name ~exact ~args ~validate ~body ()
+       (fun l -> l)
+    ) *)
 
+  let cType ?(name : string = "")
+    ?(exact : bool = true) (_ : unit) : constr =
+    let ro = string_to_rexp_opt ~exact name in
+     Constr_decl_type ro
 
-    let cInclude (s : string) : constr =
-       Constr_include s
-    (* -------------------------DEPRECATED------------------------------- *)
-    (* let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true)
-          (s : string) : rexp =
-      let exp = if exact then s ^ "$" else s in
-      {desc = s; exp = Str.regexp exp; exact; only_instr} *)
-    let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
-      let exp = if exact then s ^ "$" else s in
-      let trmKind = if only_instr then TrmKind_Instr else TrmKind_Struct in
-      {rexp_desc = s; rexp_exp = Str.regexp exp; rexp_substr = exact; rexp_trm_kind = trmKind}
-
-    let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
-      Constr_regexp{
-        rexp_desc = s;
-        rexp_exp = Str.regexp s;
-        rexp_substr = false;
-        rexp_trm_kind = tk;
-      }
-    let cInstr (s : string) : constr =
-      cInstrOrExpr TrmKind_Instr s
-
-    let cExpr (s : string) : constr =
-      cInstrOrExpr TrmKind_Expr s
-
-    let cInstrOrExprRexp (tk : trm_kind) (substr : bool) (s : string) : constr =
-      Constr_regexp {
-        rexp_desc = s;
-        rexp_exp = Str.regexp s;
-        rexp_substr = substr;
-        rexp_trm_kind = tk
-      }
-    let cInstrRegexp ?(substr : bool = true) (s : string) : constr =
-      cInstrOrExprRexp TrmKind_Instr substr s
-
-    let cExprRegexp ?(substr : bool = true) (s : string) : constr =
-      cInstrOrExprRexp TrmKind_Expr substr s
-
-    (* --------------------DEPRECATED-------------------------- *)
-    (* let cRegexp ?(exact : bool = true)
-      ?(only_instr : bool = true) (s : string) : constr =
-       Constr_regexp (string_to_rexp ~only_instr ~exact s) *)
-    let cRegexp ?(only_instr : bool = true) ?(substr : bool = true) (s : string) : constr =
-      if only_instr then cInstrRegexp ~substr s
-        else cExprRegexp ~substr s
-    (* exactly match the string/regexp described by s *)
-    let cStr ?(regexp : bool = false)
-      (s : string) : constr =
-      cRegexp ~only_instr:false (if regexp then s else Str.quote s)
-
-    (*
-      match the string/regexp only on instructions
-      by default this is not an exact match
-     *)
-    let cInstrSubstr ?(exact : bool = false)
-      ?(regexp : bool = false) (s : string) : constr =
-      cRegexp  ~substr:exact ~only_instr:true
-        (if regexp then s else Str.quote s)
-    (* -------------------------DEPRECATED---------------------------------- *)
-    (* let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
-      if s = "" then None else Some (string_to_rexp ~only_instr:false ~exact s) *)
-
-    let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
-      if s = "" then None else Some (string_to_rexp ~only_instr:false ~exact s)
-
-    let cVarDef ?(name : string = "")
-      ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
-      let ro = string_to_rexp_opt ~exact name in
-      let p_body =  body in
-       Constr_decl_var (ro, p_body)
-
-    let cFor ?(init : target = [])
-      ?(cond : target = []) ?(step : target = []) ?(body : target = []) ?(name : string = "")
-      (_ : unit) : constr =
-      let init =
-         match name, init with
-         | "",[] -> init (*failwith "cFor: Need to provide the name or init"*)
-         | "", _ -> init
-         | _, [] -> [cVarDef ~name ()]
-         | _, _::_ -> failwith "cFor: cannot provide both name and init"
+  let cEnum ?(name : string = "")
+    ?(exact : bool = true) ?(constants : (string * (target)) list = [])
+    (_ : unit) : constr =
+    let c_n = string_to_rexp_opt ~exact name in
+    let cec_o =
+      match constants with
+      | [] -> None
+      | _ ->
+         let cec =
+           List.map
+             (fun (n, pl) -> (string_to_rexp_opt ~exact n, pl))
+             constants
          in
+         Some cec
+    in
+    Constr_decl_enum (c_n, cec_o)
 
-       Constr_for ( init,  cond,  step,  body)
-    let cWhile ?(cond : target = [])
-      ?(body : target = []) (_ : unit) : constr =
-      let p_cond =  cond in
-      let p_body =  body in
-       Constr_while (p_cond, p_body)
+  (* let cSeq ?(args : target = [])
+    ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : constr =
+    let p_args =  args in
+     Constr_seq (p_args, validate) *)
+  let cSeq ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (_ : unit) : constr =
+    let p_args =
+    match args with
+    | [] -> args_pred
+    | _ -> (target_list_simpl args)
+    in
+    Constr_seq  p_args
+  let cVar ?(name : string = "")
+    ?(exact : bool = true) (_ : unit) : constr =
+    let ro = string_to_rexp_opt ~exact name in
+     Constr_var ro
 
-    let cIf ?(cond : target = [])
-      ?(then_ : target = []) ?(else_ : target = []) (_ : unit) : constr =
-      let p_cond =  cond in
-      let p_then =  then_ in
-      let p_else =  else_ in
-       Constr_if (p_cond, p_then, p_else)
+  let cBool (b : bool) : constr =
+     Constr_lit (Lit_bool b)
+  let cInt (n : int) : constr =
+     Constr_lit (Lit_int n)
+  let cDouble (f : float) : constr =
+     Constr_lit (Lit_double f)
+  let cString (s : string) : constr =
+     Constr_lit (Lit_string s)
+  let cPrim (p : prim) : constr =
+     cStr (ast_to_string (trm_prim p))
+  let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (name:string) : constr=
+    let target_list_simpl(cstrs: constr list) : target_list_pred =
+      let n = List.length cstrs in
+      ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
+    in
+     let exception Argument_Error  of string in
+    let p_fun =
+    match name, fun_ with
+    | "",_ -> fun_
+    | _, [] -> [cVar ~name ()]
+    | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
 
-    (* by default an empty name is no name *)
-    let cFun ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true)))?(body : target = []) (name:string) : constr=
-      let target_list_simpl(cstrs: constr list) : target_list_pred =
-        let n = List.length cstrs in
-        ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-      in
-      let ro = string_to_rexp_opt  name in
-      let p_args = match args with
-      | [] -> args_pred
-      | _ -> (target_list_simpl args)
-      in
-      Constr_decl_fun(ro, p_args,body)
+    in
+    let args =
+    match args with
+    | [] -> args_pred
+    | _ -> (target_list_simpl args)
+    in
+    Constr_app (p_fun,args)
 
-    (* let cFun ?(name : string = "")
-      ?(exact : bool = true) ?(args : target = [])
-      ?(validate : bool list -> bool = fun _ -> true) ?(body : target = [])
-      (_ : unit) : constr =
-      let ro = string_to_rexp_opt ~exact name in
-      let p_args =  args in
-      let p_body =  body in
-       Constr_decl_fun (ro, (p_args, validate), p_body) *)
+  let cLabel ?(label : string = "")
+    ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
+    let ro = string_to_rexp_opt ~exact label in
+    let p_body =  body in
+     Constr_label (ro, p_body)
 
+  let cGoto ?(label : string = "")
+    ?(exact : bool = true) (_ : unit) : constr =
+    let ro = string_to_rexp_opt ~exact label in
+     Constr_goto ro
 
-    (* toplevel fun declaration *)
-    (* TODO: Implement something similar for TopFun *)
-    (* let cTopFun ?(name : string = "") ?(exact : bool = true)
-      ?(args : target = []) ?(validate : bool list -> bool = fun _ -> true)
-      ?(body : target = []) (_ : unit) : target =
-      (*
-        structure of toplevel term:
-        seq (del_instr)
-          [
-            seq (no_brace)
-              [
-                ... include ...
-                t_top
-              ]
-            ... del_instr ...
-          ]
-        thus:
-          1. find the list that contains the list that contains the function and
-             explore the inner list
-          2. find the function
-       *)
-      (cList
-         (cList
-           (cFun  ~name ~exact ~args ~validate ~body ())
-           (fun l -> l)
-         )
-         (fun l -> l)
-      ) ++
-      (cList
-         (cFun  ~name ~exact ~args ~validate ~body ()
-         (fun l -> l)
-      ) *)
+  let cReturn ?(res : target = [])
+    (_ : unit) : constr =
+    let p_res =  res in
+     Constr_return p_res
 
-    let cType ?(name : string = "")
-      ?(exact : bool = true) (_ : unit) : constr =
-      let ro = string_to_rexp_opt ~exact name in
-       Constr_decl_type ro
+  let cAbort ?(kind : abort_kind = Any)
+    (_ : unit) : constr =
+     Constr_abort kind
 
-    let cEnum ?(name : string = "")
-      ?(exact : bool = true) ?(constants : (string * (target)) list = [])
-      (_ : unit) : constr =
-      let c_n = string_to_rexp_opt ~exact name in
-      let cec_o =
-        match constants with
-        | [] -> None
-        | _ ->
-           let cec =
-             List.map
-               (fun (n, pl) -> (string_to_rexp_opt ~exact n,  pl))
-               constants
-           in
-           Some cec
-      in
-      Constr_decl_enum (c_n, cec_o)
+  let cAbrtAny : abort_kind = Any
+  let cAbrtRet : abort_kind = Return
+  let cAbrtBrk : abort_kind = Break
+  let cAbrtCtn : abort_kind = Continue
 
-    (* let cSeq ?(args : target = [])
-      ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : constr =
-      let p_args =  args in
-       Constr_seq (p_args, validate) *)
-    let cSeq ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (_ : unit) : constr =
-      let target_list_simpl(cstrs: constr list) : target_list_pred =
-        let n = List.length cstrs in
-        ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-      in
-      let p_args =
-      match args with
-      | [] -> args_pred
-      | _ -> (target_list_simpl args)
-      in
-      Constr_seq  p_args
-    let cVar ?(name : string = "")
-      ?(exact : bool = true) (_ : unit) : constr =
-      let ro = string_to_rexp_opt ~exact name in
-       Constr_var ro
+  (*
+    the empty list is interpreted as no constraint on the accesses
+    accesses are reversed so that users give constraints on what they see
+   *)
+  let cAccesses ?(base : target = [])
+    ?(accesses : constr_access list = []) (_ : unit) : constr =
+    let p_base =  base in
+    let accesses =
+      match accesses with | [] -> None | cal -> Some (List.rev cal)
+    in
+     Constr_access (p_base, accesses)
 
-    let cBool (b : bool) : constr =
-       Constr_lit (Lit_bool b)
-    let cInt (n : int) : constr =
-       Constr_lit (Lit_int n)
-    let cDouble (f : float) : constr =
-       Constr_lit (Lit_double f)
-    let cString (s : string) : constr =
-       Constr_lit (Lit_string s)
-    let cPrim (p : prim) : constr =
-      cStr  (ast_to_string (trm_prim p))
-   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (name:string) : constr=
-      let target_list_simpl(cstrs: constr list) : target_list_pred =
-        let n = List.length cstrs in
-        ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-      in
-       let exception Argument_Error  of string in
-      let p_fun =
-      match name, fun_ with
-      | "",_ -> fun_
-      | _, [] -> [cVar ~name ()]
-      | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
+  let cIndex ?(index : target = []) (_ : unit) : constr_access =
+    let p_index =  index in
+    Array_access p_index
 
-      in
-      let args =
-      match args with
-      | [] -> args_pred
-      | _ -> (target_list_simpl args)
-      in
-      Constr_app (p_fun,args)
+  let cField ?(field : string = "") ?(exact : bool = true)
+    (_ : unit) : constr_access =
+    let ro = string_to_rexp_opt ~exact field in
+    Struct_access ro
 
-    let cLabel ?(label : string = "")
-      ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
-      let ro = string_to_rexp_opt ~exact label in
-      let p_body =  body in
-       Constr_label (ro, p_body)
+  let cAccess : constr_access = Any_access
 
-    let cGoto ?(label : string = "")
-      ?(exact : bool = true) (_ : unit) : constr =
-      let ro = string_to_rexp_opt ~exact label in
-       Constr_goto ro
+  (* the empty list is interpreted as no constraint on the cases *)
+  let cSwitch ?(cond : target = [])
+    ?(cases : (case_kind * (target)) list = []) (_ : unit) : constr =
+    let p_cond =  cond in
+    let c_cases =
+      match cases with
+      | [] -> None
+      | _ -> Some (List.map (fun (k, pl) -> (k,  pl)) cases)
+    in
+     Constr_switch (p_cond, c_cases)
 
-    let cReturn ?(res : target = [])
-      (_ : unit) : constr =
-      let p_res =  res in
-       Constr_return p_res
+  let cCase ?(value : target = []) (_ : unit) : case_kind =
+    match value with
+    | [] -> Case_any
+    | _ -> Case_val ( value)
 
-    let cAbort ?(kind : abort_kind = Any)
-      (_ : unit) : constr =
-       Constr_abort kind
+  let cDefault : case_kind = Case_default
 
-    let cAbrtAny : abort_kind = Any
-    let cAbrtRet : abort_kind = Return
-    let cAbrtBrk : abort_kind = Break
-    let cAbrtCtn : abort_kind = Continue
+  (* TODO: Fix cSet function later *)
+  let cSet ?(lhs : target  = [])
+    ?(_rhs : target  = []) (_ : unit) : target =lhs;
 
-    (*
-      the empty list is interpreted as no constraint on the accesses
-      accesses are reversed so that users give constraints on what they see
-     *)
-    let cAccesses ?(base : target = [])
-      ?(accesses : constr_access list = []) (_ : unit) : constr =
-      let p_base =  base in
-      let accesses =
-        match accesses with | [] -> None | cal -> Some (List.rev cal)
-      in
-       Constr_access (p_base, accesses)
-
-    let cIndex ?(index : target = []) (_ : unit) : constr_access =
-      let p_index =  index in
-      Array_access p_index
-
-    let cField ?(field : string = "") ?(exact : bool = true)
-      (_ : unit) : constr_access =
-      let ro = string_to_rexp_opt ~exact field in
-      Struct_access ro
-
-    let cAccess : constr_access = Any_access
-
-    (* the empty list is interpreted as no constraint on the cases *)
-    let cSwitch ?(cond : target = [])
-      ?(cases : (case_kind * (target)) list = []) (_ : unit) : constr =
-      let p_cond =  cond in
-      let c_cases =
-        match cases with
-        | [] -> None
-        | _ -> Some (List.map (fun (k, pl) -> (k,  pl)) cases)
-      in
-       Constr_switch (p_cond, c_cases)
-
-    let cCase ?(value : target = []) (_ : unit) : case_kind =
-      match value with
-      | [] -> Case_any
-      | _ -> Case_val ( value)
-
-    let cDefault : case_kind = Case_default
-
-    (* TODO: Fix cSet function later *)
-    let cSet ?(lhs : target  = [])
-
-      ?(_rhs : target  = []) (_ : unit) : target =lhs;
-
-
-
-
-  end
+end
 
 (******************************************************************************)
 (*                              Target resolution                               *)
@@ -1124,6 +1140,7 @@ let is_equal_lit (l : lit) (l' : lit) =
        t.is_statement && aux r t
     | _ -> false
   else aux r t *)
+
 let match_regexp (r : rexp) (t : trm) : bool =
   if r.rexp_trm_kind <> get_trm_kind t then false
     else
@@ -1134,6 +1151,10 @@ let match_regexp (r : rexp) (t : trm) : bool =
             try let _ = Str.search_forward r.rexp_exp ts 0 in true
               with Not_found -> false
       end
+
+(* Test whether a constraint is a regexp constraint *)
+let is_constr_regexp (c : constr) : bool =
+  match c with | Constr_regexp _ -> true | _ -> false
 
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
@@ -1230,7 +1251,7 @@ and check_name (name : constr_name) (s : string) : bool =
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
   let (cstr,valid) = lpred in
-  valid(List.mapi (fun i t -> check_target ([cstr i]) t) tl)
+  valid (List.mapi (fun i t -> check_target ([cstr i]) t) tl)
 
 (* and check_list (cl : constr_list) (tl : trm list) : bool =
   let (p, validate) = cl in
@@ -1307,23 +1328,19 @@ and check_target (tr : target) (t : trm) : bool =
  *)
  (*Some dummy comment  *)
 and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
-  let is_constr_regexp (c : constr) : bool =
-    match c with | Constr_regexp _ -> true | _ -> false
-  in
   let epl =
     match trs with
     | [] -> [[]]
-
-     | c :: p ->
-                let res_deep =
-                  if strict
-                     then [] (* in strict mode, must match c here *)
-                     else (resolve_constraint c p t) in
-                let res_here =
-                   if is_constr_regexp c && res_deep <> []
-                     then [] (* if a regexp matches in depth, don't test it here *)
-                     else (explore_in_depth (c :: p) t) in
-                res_deep ++ res_here  (* put deeper nodes first *)
+    | c :: p ->
+      let res_deep =
+        if strict
+           then [] (* in strict mode, must match c here *)
+           else (resolve_constraint c p t) in
+      let res_here =
+         if is_constr_regexp c && res_deep <> []
+           then [] (* if a regexp matches in depth, don't test it here *)
+           else (explore_in_depth (c :: p) t) in
+      res_deep ++ res_here  (* put deeper nodes first *)
   in
   List.sort_uniq compare_path epl
 
@@ -1789,42 +1806,57 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
        end
   in
   aux dl t []
+
+(* Extracts the last direction from a nonempty path *)
+let extract_last_path_item (p : path) : dir * path =
+  match List.rev p with
+  | [] -> raise Not_found
+  | d :: p' -> (d, List.rev p')
+
 (* Get the number of instructions a sequence contains *)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
-  match List.rev p with
-  | Dir_nth _ :: dl' ->
-    let (seq_trm,_) = resolve_path (List.rev dl') t in
-    begin match seq_trm.desc with
-    | Trm_seq tl -> List.length tl
-    | _ -> fail None "get_arity_of_seq_at: expected a sequence"
-    end
-  | _ -> fail None "get_arity_of_seq_at: expected a Dir_nth"
+  let (d,p') =
+    try extract_last_path_item p
+    with Not_found -> fail None "get_arity_of_seq_at: expected a nonempty path"
+    in
+  match d with
+  | Dir_nth _ ->
+      let (seq_trm,_context) = resolve_path p' t in
+      begin match seq_trm.desc with
+      | Trm_seq tl -> List.length tl
+      | _ -> fail None "get_arity_of_seq_at: expected a sequence"
+      end
+  | _ -> fail None "get_arity_of_seq_at: expected a Dir_nth as last direction"
 
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
- match rel with
-    | TargetAt -> fail None "compute_relative_index: Didn't expect a TargetAt"
-    | TargetFirst -> (p, 0)
-    | TargetLast -> (p, get_arity_of_seq_at p t)
-    | TargetBefore | TargetAfter ->
-        let shift =
-           match rel with
-           | TargetBefore -> 0
-           | TargetAfter -> 1
-           | _ -> assert false
-           in
-        begin match List.rev p with
-        | Dir_nth i :: dl' -> (List.rev dl',i +  shift)
-        | _ -> fail None "compute_relative_index: expected a sequence"
-        end
+  match rel with
+  | TargetAt -> fail None "compute_relative_index: Didn't expect a TargetAt"
+  | TargetFirst -> (p, 0)
+  | TargetLast -> (p, get_arity_of_seq_at p t)
+  | TargetBefore | TargetAfter ->
+      let shift =
+         match rel with
+         | TargetBefore -> 0
+         | TargetAfter -> 1
+         | _ -> assert false
+         in
+      let (d,p') =
+        try extract_last_path_item p
+        with Not_found -> fail None "compute_relative_index: expected a nonempty path"
+        in
+      match d with
+      | Dir_nth i -> (p', i + shift)
+      | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
 
+(* TODO: use this function to implement seq_insert , etc. *)
+(* TODO: include a test case for seq_insert that says [cAfter, cStr "x ="] where the index of
+   the instruction "x =" is not the same in different sequences. *)
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in
-
   if tgs.target_relative = TargetAt
-    then fail None "resolve_target_between:this target should contain a cBefore/cAfter/cFirst/cLast";
+    then fail None "resolve_target_between:this target should contain a cBefore, cAfter, cFirst, or cLast";
   let res = resolve_target_struct tgs t in
   List.map (compute_relative_index tgs.target_relative t) res
-
 
 
 (*
