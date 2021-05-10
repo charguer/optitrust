@@ -1285,6 +1285,9 @@ and check_target (tr : target) (t : trm) : bool =
   sort_unique
  *)
 and resolve_target_simple (trs : target_simple) (t : trm) : paths =
+  let is_constr_regexp (c : constr) : bool =
+    match c with | Constr_regexp _ -> true | _ -> false
+  in
   let epl =
     match trs with
     | [] -> [[]]
