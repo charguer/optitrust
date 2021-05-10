@@ -153,6 +153,23 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : strin
 let list_all_true(bl : bool list) : bool =
           List.for_all(fun b -> b = true) bl
           
+let rec after_bool (bl : bool list) : bool list =
+      match bl with
+      | [] -> []
+      | [_] -> [false]
+      | false :: bl -> false :: after_bool  bl
+      | true :: _ :: bl ->
+         let bl' = List.map (fun _ -> true) bl
+         in
+         false :: true :: bl'
+
+
+let before_aux (bl : bool list) : int list =
+  match get_index true bl with
+  | None -> []
+  | Some 0 -> []
+  | Some n -> List.init n (fun m -> m)
+
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in 

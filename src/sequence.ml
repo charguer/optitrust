@@ -274,7 +274,7 @@ let split_sequence (clog : out_channel) (result_label : string)
             dl
        end
     | _ ->
-       fail t.loc ("split_sequence: " ^ (string_of_explicit_path dl) ^
+       fail t.loc ("split_sequence: " ^ (path_to_string dl) ^
                      " does not point to a sequence")
   in
   match epl with

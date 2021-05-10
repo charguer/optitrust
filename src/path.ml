@@ -87,7 +87,7 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : strin
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
 
-let string_of_explicit_path (dl : path) : string =
+let path_to_string (dl : path) : string =
   list_to_string (List.map dir_to_string dl)
 
 (*
@@ -543,15 +543,15 @@ module Path_constructors =
   struct
     (*
       a smart constructor builds a target
-      thus, the user provides a target list using them
+      thus, the user provides a target using them
       this list is then flattened to call resolve_target
       unit args are used because of optional arguments
      *)
      (* Sued for relative targets *)
-    let cTrue :constr =
+    let cTrue : constr =
       ConstrBool true
     
-    let cFalse :constr =
+    let cFalse : constr =
       ConstrBool true
   
     let cBefore : constr = 
@@ -624,22 +624,7 @@ module Path_constructors =
     (*
       after
      *)
-    let rec after_bool (bl : bool list) : bool list =
-      match bl with
-      | [] -> []
-      | [_] -> [false]
-      | false :: bl -> false :: after_bool  bl
-      | true :: _ :: bl ->
-         let bl' = List.map (fun _ -> true) bl
-         in
-         false :: true :: bl'
-
-
-    let before_aux (bl : bool list) : int list =
-      match get_index true bl with
-      | None -> []
-      | Some 0 -> []
-      | Some n -> List.init n (fun m -> m)
+    
 
     let cInclude (s : string) : constr =
        Constr_include s
@@ -1691,7 +1676,7 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
     | Trm_seq tl -> List.length tl
     | _ -> fail None "get_arity_of_seq_at: expected a sequence"
     end
-  | _ -> fail None "get_arity_of_seq_at"
+  | _ -> fail None "get_arity_of_seq_at: expected a Dir_nth"
 
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
  match rel with

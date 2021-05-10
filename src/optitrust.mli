@@ -92,7 +92,7 @@ val cIf : ?cond:(target) -> ?then_:(target) ->
           ?else_:(target) -> unit -> constr
 
 val cVarDef : ?name:string -> ?exact:bool ->
-              ?body:(target) -> unit -> constr
+              ?body:(target) -> unit -> target
 
 val cFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
 

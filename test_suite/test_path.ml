@@ -217,7 +217,7 @@ let test_path (ast : trm) (p : path) (expected_output : expl_target) : unit =
   begin match epl with
   | [] -> print_info None "No subterm matched the path\n"
   | _ ->
-     let sl = List.map string_of_explicit_path epl in
+     let sl = List.map path_to_string epl in
      let tl =
        List.map (fun dl -> let (t, _) = resolve_path dl ast in t) epl
      in

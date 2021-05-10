@@ -10,7 +10,7 @@ let _ =
         (* TODO : Implement the reverse of detach_expression *)
         (* TODO with arthur: see how to use cList to set up a constraint on a list of arguments *)
         (* For initializations which include declarations the following syntax is used *)
-        make_explicit_record_assignment [cVarDef ~name:"b"()] ~struct_name:"vect";
+        make_explicit_record_assignment [[cVarDef ~name:"b"()]] ~struct_name:"vect";
         (* TODO : infer struct name if easy from LHS *)
         (* make_explicit_record_assignment ~struct_name:"vect" [cApp ~args:[cVar target ~name:"p2" ()] ~validate:(List.mem true) ()]; *)
         make_explicit_record_assignment [cVarDef ~name:"p2"()] ~struct_name:"vect";
