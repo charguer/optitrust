@@ -8,8 +8,8 @@ open Tools
 
 
 
-(* explicit path in trm ast = list of directions *)
-(* todo: find better name (trm_path?) *)
+(* A [path] is a "fully explicit path" describing a point in the AST as a list
+    of directions through the nodes from that AST. *)
 type path = dir list
 
 and dir =
@@ -181,8 +181,8 @@ type rexp = {
   rexp_substr : bool;
   rexp_trm_kind : trm_kind }
 
-
-
+(* The resolution of a target produces a list of [path] (explicit list of directions),
+   we let [paths] be a shorthand for such type. *)
 type paths = path list
 
 (* Relative target to term *)
@@ -196,11 +196,12 @@ type target_relative =
 (* Number of targets to match *)
 type target_occurences =
     | ExpectedOne  (* = 1 occurence, the default value *)
-    | ExpectedNb of int (* exactly n occurrences *)
-    | ExpectedMulti    (* > 0 number of occurrences *)
+    | ExpectedNb of int  (* exactly n occurrences *)
+    | ExpectedMulti  (* > 0 number of occurrences *)
     | ExpectedAnyNb  (* any number of occurrences *)
 
-(* a target is a list of constraints to identify subterms *)
+(* A [target] is a list of constraints to identify nodes of the AST
+   that we require the result path to go through. *)
 type target = constr list
 
 and constr =
@@ -215,7 +216,7 @@ and constr =
    *)
   | Constr_strict
   | Constr_dir of dir
-  | Constr_list of target * (bool list -> int list)
+  | Constr_list of target * (bool list -> int list) (* TODO: still needed? *)
   | Constr_include of string
   (*
     matching constraint: match against regexp
@@ -295,15 +296,23 @@ and constr =
   (* Constrain used for argument match *)
   | ConstrBool of bool
 
+(* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
 
+(* DEPRECATED *)
 and constr_list = target * (bool list -> bool)
 
 and constr_enum_const = ((constr_name * target) list) option
 
 and constr_accesses = (constr_access list) option
 
+(* Predicate for expressing constraints over a list of subterms. It consists of:
+   - a function that produces the constraints for the i-th subterm
+   - a function that takes a list of booleans indicating which of the subterms
+     matched their respective constraint, and returns a boolean indicating whether
+     the full list should be considered as matching or not. *)
 and target_list_pred = ((int -> constr) * (bool list -> bool))
+
 and constr_access =
   (* array indices may be arbitrary terms *)
   | Array_access of target
@@ -326,24 +335,36 @@ and abort_kind =
   | Break
   | Continue
 
+(* [target_simple] is a [target] without ConstrRelative, ConstrOccurences, ConstrChain *)
+type target_simple = target
 
-type target_simple = target (* Without ConstrRelative, ConstrOccurences, ConstrChain *)
-
-(* Advanced path search *)
+(* [target_struct] is the structured representation of a [target] that decomposes the
+   special constructors such as ConstrRelative, ConstrOccurences, ConstrChain from the
+   [target_simple]. *)
 type target_struct = {
-   target_path: target_simple; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
-   target_relative: target_relative;
-   target_occurences: target_occurences; }
+   target_path : target_simple; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
+   target_relative : target_relative;
+   target_occurences : target_occurences; }
+
+(* TODO:
+let target_to_target_simple (tg : target) : target_simpl =
+  fails if the target contains ConstrRelative or ConstrOccurences
+  and otherwise returns target_flatten tg
+*)
 
 (* Flatten all the constrainst of type ConstrChain *)
-let target_flatten(tg : target) : target =
-    let rec aux cl = match cl with
-    | [] -> []
-    | x :: xs -> begin match x with
-                | ConstrChain tr ->  tr @ aux xs
-                | _ -> x :: aux xs
-                end
-    in aux tg
+let target_flatten (tg : target) : target =
+    let rec aux (cs : target) : target =
+      match cs with
+      | [] -> []
+      | c::cs2 ->
+          let r = match c with
+            | ConstrChain cs1 -> (aux cs1)
+            | _ -> [c]
+            in
+          r @ (aux cs2)
+      in
+    aux tg
 
 (* Convert a target into a target struct  *)
 let target_to_target_struct(tg : target) : target_struct =
@@ -1292,7 +1313,6 @@ and resolve_target_simple (trs : target_simple) (t : trm) : paths =
   let epl =
     match trs with
     | [] -> [[]]
-
     | c :: trs -> (* TODO: merge form notes *)
        let dll = resolve_constraint c trs t in
        if c = Constr_strict then dll else
@@ -1391,6 +1411,7 @@ and resolve_constraint (c : constr) (p : target) (t : trm) : paths =
 
 (* call resolve_target on subterms of t if possible *)
 and explore_in_depth (p : target) (t : trm) : paths =
+  (* let p = target_to_target_simple p in ---TODO: used for getting rid of ConstrChain that appear in depth *)
   let loc = t.loc in
   match t.annot with
   (* no exploration in depth in included files *)
