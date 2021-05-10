@@ -156,7 +156,32 @@ let rec compare_path (dl : path) (dl' : path) : int =
   subexpression)
  *)
 (* TODO: replace exact with standard name *)
-type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool}
+(* Type to classify trms into three main classes: 1)Structuring statements, 2) Instructions and 3) Expression *)
+type trm_kind = 
+  | TrmKind_Struct
+  | TrmKind_Instr
+  | TrmKind_Expr
+
+let get_trm_kind (t : trm) : trm_kind = 
+  if t.is_statement then
+    match t.desc with 
+    | Trm_struct _ | Trm_array _ | Trm_decl _ | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
+    | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
+    | _ -> TrmKind_Instr
+  else
+    TrmKind_Expr 
+let is_structuring_statement (t : trm) : bool =
+  get_trm_kind t = TrmKind_Struct
+
+(* --------------------------------DEPRECATED------------------------------- *)
+(* type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool} *)
+type rexp = {
+  rexp_desc: string; (* printable version of regexp *)
+  rexp_exp : regexp;
+  rexp_substr : bool;
+  rexp_trm_kind : trm_kind }
+
+
 
 type paths = path list
 
@@ -301,7 +326,7 @@ and abort_kind =
   | Break
   | Continue
 
-
+  
 type target_simple = target (* Without ConstrRelative, ConstrOccurences, ConstrChain *)
 
 (* Advanced path search *)
@@ -347,9 +372,17 @@ let target_to_target_struct(tg : target) : target_struct =
        target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; 
    }
 
-let regexp_to_string (r : rexp) : string =
+(* ----------------DEPRECATED---------------- *)
+(* let regexp_to_string (r : rexp) : string =
   (if r.exact then "Exact " else "Sub ") ^
-    (if r.only_instr then "OnlyInstr \"" else "\"") ^ r.desc ^ "\""
+    (if r.only_instr then "OnlyInstr \"" else "\"") ^ r.desc ^ "\"" *)
+let regexp_to_string (r : rexp) : string =
+  (if r.rexp_substr then "Exact" else "Sub") ^ 
+    (begin match r.rexp_trm_kind with 
+    | TrmKind_Struct | TrmKind_Expr -> r.rexp_desc 
+    | TrmKind_Instr -> "OnlyInstr" 
+    end)
+
 
 let rec constraint_to_string (c : constr) : string =
   match c with
@@ -624,22 +657,55 @@ module Path_constructors =
 
     (* after operator *)
     (*
-      after
+      after*
      *)
     
 
     let cInclude (s : string) : constr =
        Constr_include s
-
-    let rexp_of_string ?(only_instr : bool = true) ?(exact : bool = true)
+    (* -------------------------DEPRECATED------------------------------- *)
+    (* let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true)
           (s : string) : rexp =
       let exp = if exact then s ^ "$" else s in
-      {desc = s; exp = Str.regexp exp; exact; only_instr}
+      {desc = s; exp = Str.regexp exp; exact; only_instr} *)
+    let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
+      let exp = if exact then s ^ "$" else s in 
+      let trmKind = if only_instr then TrmKind_Instr else TrmKind_Struct in
+      {rexp_desc = s; rexp_exp = Str.regexp exp; rexp_substr = exact; rexp_trm_kind = trmKind}
+    
+    let cInstrOrExpr (tk : trm_kind) (s : string) : constr = 
+      Constr_regexp{
+        rexp_desc = s;
+        rexp_exp = Str.regexp s;
+        rexp_substr = false;
+        rexp_trm_kind = tk;
+      }
+    let cInstr (s : string) : constr =
+      cInstrOrExpr TrmKind_Instr s 
+    
+    let cExpr (s : string) : constr =
+      cInstrOrExpr TrmKind_Expr s
+    
+    let cInstrOrExprRexp (tk : trm_kind) (substr : bool) (s : string) : constr =
+      Constr_regexp {
+        rexp_desc = s;
+        rexp_exp = Str.regexp s;
+        rexp_substr = substr;
+        rexp_trm_kind = tk
+      }
+    let cInstrRegexp ?(substr : bool = true) (s : string) : constr =
+      cInstrOrExprRexp TrmKind_Instr substr s
+    
+    let cExprRegexp ?(substr : bool = true) (s : string) : constr =
+      cInstrOrExprRexp TrmKind_Expr substr s
 
-    let cRegexp ?(exact : bool = true)
+    (* --------------------DEPRECATED-------------------------- *)
+    (* let cRegexp ?(exact : bool = true)
       ?(only_instr : bool = true) (s : string) : constr =
-       Constr_regexp (rexp_of_string ~only_instr ~exact s)
-
+       Constr_regexp (string_to_rexp ~only_instr ~exact s) *)
+    let cRegexp ?(only_instr : bool = true) ?(substr : bool = true) (s : string) : constr =
+      if only_instr then cInstrRegexp ~substr s 
+        else cExprRegexp ~substr s   
     (* exactly match the string/regexp described by s *)
     let cStr ?(regexp : bool = false)
       (s : string) : constr =
@@ -651,14 +717,18 @@ module Path_constructors =
      *)
     let cInstrSubstr ?(exact : bool = false)
       ?(regexp : bool = false) (s : string) : constr =
-      cRegexp  ~exact ~only_instr:true
+      cRegexp  ~substr:exact ~only_instr:true
         (if regexp then s else Str.quote s)
-    let rexp_opt_of_string ?(exact : bool = true) (s : string) : rexp option =
-      if s = "" then None else Some (rexp_of_string ~only_instr:false ~exact s)
+    (* -------------------------DEPRECATED---------------------------------- *)
+    (* let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
+      if s = "" then None else Some (string_to_rexp ~only_instr:false ~exact s) *)
+    
+    let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
+      if s = "" then None else Some (string_to_rexp ~only_instr:false ~exact s)
 
     let cVarDef ?(name : string = "")
       ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
-      let ro = rexp_opt_of_string ~exact name in
+      let ro = string_to_rexp_opt ~exact name in
       let p_body =  body in
        Constr_decl_var (ro, p_body)
 
@@ -693,7 +763,7 @@ module Path_constructors =
         let n = List.length cstrs in 
         ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
       in 
-      let ro = rexp_opt_of_string  name in
+      let ro = string_to_rexp_opt  name in
       let p_args = match args with 
       | [] -> args_pred
       | _ -> (target_list_simpl args)
@@ -704,7 +774,7 @@ module Path_constructors =
       ?(exact : bool = true) ?(args : target = [])
       ?(validate : bool list -> bool = fun _ -> true) ?(body : target = [])
       (_ : unit) : constr =
-      let ro = rexp_opt_of_string ~exact name in
+      let ro = string_to_rexp_opt ~exact name in
       let p_args =  args in
       let p_body =  body in
        Constr_decl_fun (ro, (p_args, validate), p_body) *)
@@ -745,20 +815,20 @@ module Path_constructors =
 
     let cType ?(name : string = "")
       ?(exact : bool = true) (_ : unit) : constr =
-      let ro = rexp_opt_of_string ~exact name in
+      let ro = string_to_rexp_opt ~exact name in
        Constr_decl_type ro
 
     let cEnum ?(name : string = "")
       ?(exact : bool = true) ?(constants : (string * (target)) list = [])
       (_ : unit) : constr =
-      let c_n = rexp_opt_of_string ~exact name in
+      let c_n = string_to_rexp_opt ~exact name in
       let cec_o =
         match constants with
         | [] -> None
         | _ ->
            let cec =
              List.map
-               (fun (n, pl) -> (rexp_opt_of_string ~exact n,  pl))
+               (fun (n, pl) -> (string_to_rexp_opt ~exact n,  pl))
                constants
            in
            Some cec
@@ -783,7 +853,7 @@ module Path_constructors =
       Constr_seq  p_args
     let cVar ?(name : string = "")
       ?(exact : bool = true) (_ : unit) : constr =
-      let ro = rexp_opt_of_string ~exact name in
+      let ro = string_to_rexp_opt ~exact name in
        Constr_var ro
 
     let cBool (b : bool) : constr =
@@ -817,13 +887,13 @@ module Path_constructors =
     
     let cLabel ?(label : string = "")
       ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
-      let ro = rexp_opt_of_string ~exact label in
+      let ro = string_to_rexp_opt ~exact label in
       let p_body =  body in
        Constr_label (ro, p_body)
 
     let cGoto ?(label : string = "")
       ?(exact : bool = true) (_ : unit) : constr =
-      let ro = rexp_opt_of_string ~exact label in
+      let ro = string_to_rexp_opt ~exact label in
        Constr_goto ro
 
     let cReturn ?(res : target = [])
@@ -858,7 +928,7 @@ module Path_constructors =
 
     let cField ?(field : string = "") ?(exact : bool = true)
       (_ : unit) : constr_access =
-      let ro = rexp_opt_of_string ~exact field in
+      let ro = string_to_rexp_opt ~exact field in
       Struct_access ro
 
     let cAccess : constr_access = Any_access
@@ -1015,8 +1085,8 @@ let is_equal_lit (l : lit) (l' : lit) =
   | Lit_double d, Lit_double d' when d = d' -> true
   | Lit_string s, Lit_string s' when s = s' -> true
   | _ -> false
-
-let match_regexp (r : rexp) (t : trm) : bool =
+(* ---------------------DEPRECATED----------------------- *)
+(* let match_regexp (r : rexp) (t : trm) : bool =
   let aux (r : rexp) (t : trm) : bool =
     let ts = ast_to_string t in
     (* For debug: print on stdout "Considered: %s\n" ts *)
@@ -1032,7 +1102,17 @@ let match_regexp (r : rexp) (t : trm) : bool =
       | Trm_abort _ ->
        t.is_statement && aux r t
     | _ -> false
-  else aux r t
+  else aux r t *)
+let match_regexp (r : rexp) (t : trm) : bool =
+  if r.rexp_trm_kind <> get_trm_kind t then false 
+    else 
+      begin
+        let ts = ast_to_string t in 
+          if not r.rexp_substr then Str.string_match r.rexp_exp ts 0
+          else
+            try let _ = Str.search_forward r.rexp_exp ts 0 in true
+              with Not_found -> false
+      end
 
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =

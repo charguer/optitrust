@@ -8,22 +8,22 @@ let _ =
         (* set_repeat_io false;  *)
 
         show_target [cVarDef ~name:"x" ()] ~debug_ast:true;
-        clean_path_decorators();
-        show_path  [cVarDef ~name:"i" ()] ;
-        clean_path_decorators();
-        show_path  [cFor ~init:[cVarDef ~name:"i" ()] ()];
-        clean_path_decorators();
-        show_path  [cIf ~then_:[cVar ~name:"x++" ()] ()] ;
-        clean_path_decorators();
-        show_path  [cIf ()] ;
-        clean_path_decorators();
-        show_path  [cIf (); cVar ~name:"x"()];
-        clean_path_decorators();
-        show_path  [cIf ();cVar ~name:"i" ()];    
-        clean_path_decorators();
-        show_path  [cInt 3];    
-        clean_path_decorators();
-        show_path  [cInstrSubstr "return"];
+        clean_target_decorators();
+        show_target  [cVarDef ~name:"i" ()] ;
+        clean_target_decorators();
+        show_target  [cFor ~init:[cVarDef ~name:"i" ()] ()];
+        clean_target_decorators();
+        show_target  [cIf ~then_:[cVar ~name:"x++" ()] ()] ;
+        clean_target_decorators();
+        show_target  [cIf ()] ;
+        clean_target_decorators();
+        show_target  [cIf (); cVar ~name:"x"()];
+        clean_target_decorators();
+        show_target  [cIf ();cVar ~name:"i" ()];    
+        clean_target_decorators();
+        show_target  [cInt 3];    
+        clean_target_decorators();
+        show_target  [cInstrSubstr "return"];
     
         dump()
     )

@@ -18,7 +18,7 @@ val set_repeat_io : bool -> unit
 
 (** Path constructors *)
 type constr
-type target
+type target = constr list
 type case_dir
 type case_kind
 type abort_kind
