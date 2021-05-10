@@ -188,6 +188,7 @@ and constr =
       matching, returns the ranks of the elements to explore next
     - include file to explore
    *)
+  | Constr_strict
   | Constr_dir of dir
   | Constr_list of target * (bool list -> int list)
   | Constr_include of string
@@ -352,6 +353,7 @@ let regexp_to_string (r : rexp) : string =
 
 let rec constraint_to_string (c : constr) : string =
   match c with
+  | Constr_strict -> "Strict"
   | Constr_dir d -> dir_to_string d
   | Constr_list (p_elt, _) -> "List (" ^ target_to_string p_elt ^ ")"
   | Constr_include s -> "Include " ^ s
@@ -606,7 +608,7 @@ module Path_constructors =
        Constr_dir (Dir_enum_const (n, ecd))
     let cEnumConstName : enum_const_dir = Enum_const_name
     let cEnumConstVal : enum_const_dir = Enum_const_val
-
+    let cStrict : constr = Constr_strict
     (* allow to use boolean functions *)
     (* TODO: Remove this function after implementing cTopFun with new convention *)
     (* let cList (tgl : target list)
@@ -1061,7 +1063,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
        target constraints never hold since they are checked against nodes before
        calling check_constraint in resolve_target
       *)
-     | Constr_dir _, _
+      | Constr_strict,_
+       | Constr_dir _, _
        | Constr_list _, _
        | Constr_include _, _ ->
         false
@@ -1208,6 +1211,7 @@ and resolve_target_simple (trs : target_simple) (t : trm) : paths =
     
     | c :: trs ->
        let dll = resolve_constraint c trs t in
+       if c = Constr_strict then dll else
         (explore_in_depth (c :: trs) t) ++ dll
   in
   List.sort_uniq compare_path epl
