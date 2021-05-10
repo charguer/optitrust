@@ -7,7 +7,7 @@ open Tools
 (******************************************************************************)
 
 
-     
+
 (* explicit path in trm ast = list of directions *)
 (* todo: find better name (trm_path?) *)
 type path = dir list
@@ -157,19 +157,19 @@ let rec compare_path (dl : path) (dl' : path) : int =
  *)
 (* TODO: replace exact with standard name *)
 (* Type to classify trms into three main classes: 1)Structuring statements, 2) Instructions and 3) Expression *)
-type trm_kind = 
+type trm_kind =
   | TrmKind_Struct
   | TrmKind_Instr
   | TrmKind_Expr
 
-let get_trm_kind (t : trm) : trm_kind = 
+let get_trm_kind (t : trm) : trm_kind =
   if t.is_statement then
-    match t.desc with 
+    match t.desc with
     | Trm_struct _ | Trm_array _ | Trm_decl _ | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
     | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
     | _ -> TrmKind_Instr
   else
-    TrmKind_Expr 
+    TrmKind_Expr
 let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
 
@@ -187,7 +187,7 @@ type paths = path list
 
 (* Relative target to term *)
 type target_relative =
-    | TargetAt 
+    | TargetAt
     | TargetFirst
     | TargetLast
     | TargetBefore
@@ -272,7 +272,7 @@ and constr =
   (* | Constr_app of target * constr_list *)
   (* -----------------NEW VERSION OF Constr_app *)
   | Constr_app of target * target_list_pred
-  
+
   (* label *)
   | Constr_label of constr_name * target
   (* goto *)
@@ -326,7 +326,7 @@ and abort_kind =
   | Break
   | Continue
 
-  
+
 type target_simple = target (* Without ConstrRelative, ConstrOccurences, ConstrChain *)
 
 (* Advanced path search *)
@@ -337,27 +337,27 @@ type target_struct = {
 
 (* Flatten all the constrainst of type ConstrChain *)
 let target_flatten(tg : target) : target =
-    let rec aux cl = match cl with 
+    let rec aux cl = match cl with
     | [] -> []
-    | x :: xs -> begin match x with 
+    | x :: xs -> begin match x with
                 | ConstrChain tr ->  tr @ aux xs
-                | _ -> x :: aux xs 
-                end 
+                | _ -> x :: aux xs
+                end
     in aux tg
-                     
+
 (* Convert a target into a target struct  *)
 let target_to_target_struct(tg : target) : target_struct =
-  let tg = target_flatten tg in 
-  let relative = ref None in 
+  let tg = target_flatten tg in
+  let relative = ref None in
   let occurences = ref None in
   let process_constr (c : constr) : unit =
-    match c with 
+    match c with
     | ConstrRelative tr ->
-      begin match !relative with 
+      begin match !relative with
       | None -> relative := Some tr;
       | Some _ -> fail None  "ConstrRelative provided twice in path"
-      end 
-    | ConstrOccurences oc -> 
+      end
+    | ConstrOccurences oc ->
       begin match !occurences with
       | None -> occurences := Some oc;
       | _ -> fail None "ConstrOccurences provide twice in path"
@@ -365,11 +365,11 @@ let target_to_target_struct(tg : target) : target_struct =
     | _ -> ()
    (* Check if relative constraint are applied once and the number of occurences is unique *)
    in List.iter process_constr tg;
-   
+
    (* Return a target_struct *)
    {   target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tg;
        target_relative = begin match !relative with | None -> TargetAt | Some tg -> tg end;
-       target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; 
+       target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end;
    }
 
 (* ----------------DEPRECATED---------------- *)
@@ -377,10 +377,10 @@ let target_to_target_struct(tg : target) : target_struct =
   (if r.exact then "Exact " else "Sub ") ^
     (if r.only_instr then "OnlyInstr \"" else "\"") ^ r.desc ^ "\"" *)
 let regexp_to_string (r : rexp) : string =
-  (if r.rexp_substr then "Exact" else "Sub") ^ 
-    (begin match r.rexp_trm_kind with 
-    | TrmKind_Struct | TrmKind_Expr -> r.rexp_desc 
-    | TrmKind_Instr -> "OnlyInstr" 
+  (if r.rexp_substr then "Exact" else "Sub") ^
+    (begin match r.rexp_trm_kind with
+    | TrmKind_Struct | TrmKind_Expr -> r.rexp_desc
+    | TrmKind_Instr -> "OnlyInstr"
     end)
 
 
@@ -473,7 +473,7 @@ let rec constraint_to_string (c : constr) : string =
      let s_args = target_to_string p_args in
      "App (" ^ s_fun ^ ", " ^ s_args ^ ")" *)
   | Constr_app (p_fun,(_,_))  ->
-    let s_fun = target_to_string p_fun in 
+    let s_fun = target_to_string p_fun in
     (* TODO: Fix it later so that the arguments are printed too *)
     "App (" ^ s_fun ^ ", " ^ " " ^ ")"
   | Constr_label (so, p_body) ->
@@ -530,22 +530,22 @@ let rec constraint_to_string (c : constr) : string =
      in
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
   | ConstrRelative tr ->
-    begin match tr with 
+    begin match tr with
     | TargetAt -> "TargetAt"
     | TargetFirst -> "TargetFirst"
     | TargetLast -> "TargetLast"
     | TargetBefore -> "TargetBefore"
     | TargetAfter -> "TargetAfter"
-    end 
+    end
   | ConstrOccurences oc ->
-    begin match oc with 
+    begin match oc with
     | ExpectedOne -> "ExpectedOne"
     | ExpectedNb n-> "ExpectedNb " ^ string_of_int(n)
     | ExpectedMulti -> "ExpectedMulti"
     | ExpectedAnyNb -> "ExpectedAnyNb"
     end
   | ConstrChain cl ->
-    let string_cl = List.map constraint_to_string cl in 
+    let string_cl = List.map constraint_to_string cl in
     list_to_string string_cl
   | ConstrBool b -> string_of_bool b
 
@@ -585,32 +585,32 @@ module Path_constructors =
      (* Sued for relative targets *)
     let cTrue : constr =
       ConstrBool true
-    
+
     let cFalse : constr =
       ConstrBool true
-  
-    let cBefore : constr = 
+
+    let cBefore : constr =
       ConstrRelative TargetBefore
 
     let cAfter : constr =
       ConstrRelative TargetAfter
 
-    let cFirst : constr = 
+    let cFirst : constr =
       ConstrRelative TargetFirst
 
-    let cLast : constr = 
+    let cLast : constr =
       ConstrRelative TargetLast
-    
+
     (* Used for checking the number of targets to match *)
     let cMulti : constr =
       ConstrOccurences ExpectedMulti
-    
+
     let cAnyNb : constr =
        ConstrOccurences ExpectedAnyNb
-    
+
     let cNb (nb : int) : constr =
        ConstrOccurences (ExpectedNb nb)
-    
+
     (* directions *)
     let cNth (n : int) : constr =
        Constr_dir (Dir_nth n)
@@ -652,14 +652,14 @@ module Path_constructors =
            let il = int_of_bool_list (n + 1) bl in
            if b then n :: il else il
       in
-      
+
         Constr_list (List.flatten (tgl), fun bl -> int_of_bool_list 0 (next bl)) *)
 
     (* after operator *)
     (*
       after*
      *)
-    
+
 
     let cInclude (s : string) : constr =
        Constr_include s
@@ -669,11 +669,11 @@ module Path_constructors =
       let exp = if exact then s ^ "$" else s in
       {desc = s; exp = Str.regexp exp; exact; only_instr} *)
     let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
-      let exp = if exact then s ^ "$" else s in 
+      let exp = if exact then s ^ "$" else s in
       let trmKind = if only_instr then TrmKind_Instr else TrmKind_Struct in
       {rexp_desc = s; rexp_exp = Str.regexp exp; rexp_substr = exact; rexp_trm_kind = trmKind}
-    
-    let cInstrOrExpr (tk : trm_kind) (s : string) : constr = 
+
+    let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
       Constr_regexp{
         rexp_desc = s;
         rexp_exp = Str.regexp s;
@@ -681,11 +681,11 @@ module Path_constructors =
         rexp_trm_kind = tk;
       }
     let cInstr (s : string) : constr =
-      cInstrOrExpr TrmKind_Instr s 
-    
+      cInstrOrExpr TrmKind_Instr s
+
     let cExpr (s : string) : constr =
       cInstrOrExpr TrmKind_Expr s
-    
+
     let cInstrOrExprRexp (tk : trm_kind) (substr : bool) (s : string) : constr =
       Constr_regexp {
         rexp_desc = s;
@@ -695,7 +695,7 @@ module Path_constructors =
       }
     let cInstrRegexp ?(substr : bool = true) (s : string) : constr =
       cInstrOrExprRexp TrmKind_Instr substr s
-    
+
     let cExprRegexp ?(substr : bool = true) (s : string) : constr =
       cInstrOrExprRexp TrmKind_Expr substr s
 
@@ -704,8 +704,8 @@ module Path_constructors =
       ?(only_instr : bool = true) (s : string) : constr =
        Constr_regexp (string_to_rexp ~only_instr ~exact s) *)
     let cRegexp ?(only_instr : bool = true) ?(substr : bool = true) (s : string) : constr =
-      if only_instr then cInstrRegexp ~substr s 
-        else cExprRegexp ~substr s   
+      if only_instr then cInstrRegexp ~substr s
+        else cExprRegexp ~substr s
     (* exactly match the string/regexp described by s *)
     let cStr ?(regexp : bool = false)
       (s : string) : constr =
@@ -722,7 +722,7 @@ module Path_constructors =
     (* -------------------------DEPRECATED---------------------------------- *)
     (* let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
       if s = "" then None else Some (string_to_rexp ~only_instr:false ~exact s) *)
-    
+
     let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
       if s = "" then None else Some (string_to_rexp ~only_instr:false ~exact s)
 
@@ -742,7 +742,7 @@ module Path_constructors =
          | _, [] -> [cVarDef ~name ()]
          | _, _::_ -> failwith "cFor: cannot provide both name and init"
          in
-      
+
        Constr_for ( init,  cond,  step,  body)
     let cWhile ?(cond : target = [])
       ?(body : target = []) (_ : unit) : constr =
@@ -759,12 +759,12 @@ module Path_constructors =
 
     (* by default an empty name is no name *)
     let cFun ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true)))?(body : target = []) (name:string) : constr=
-      let target_list_simpl(cstrs: constr list) : target_list_pred =  
-        let n = List.length cstrs in 
+      let target_list_simpl(cstrs: constr list) : target_list_pred =
+        let n = List.length cstrs in
         ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-      in 
+      in
       let ro = string_to_rexp_opt  name in
-      let p_args = match args with 
+      let p_args = match args with
       | [] -> args_pred
       | _ -> (target_list_simpl args)
       in
@@ -779,7 +779,7 @@ module Path_constructors =
       let p_body =  body in
        Constr_decl_fun (ro, (p_args, validate), p_body) *)
 
-    
+
     (* toplevel fun declaration *)
     (* TODO: Implement something similar for TopFun *)
     (* let cTopFun ?(name : string = "") ?(exact : bool = true)
@@ -801,14 +801,14 @@ module Path_constructors =
              explore the inner list
           2. find the function
        *)
-      (cList 
-         (cList 
+      (cList
+         (cList
            (cFun  ~name ~exact ~args ~validate ~body ())
            (fun l -> l)
          )
          (fun l -> l)
       ) ++
-      (cList 
+      (cList
          (cFun  ~name ~exact ~args ~validate ~body ()
          (fun l -> l)
       ) *)
@@ -833,23 +833,22 @@ module Path_constructors =
            in
            Some cec
       in
-       Constr_decl_enum (c_n, cec_o)
-
+      Constr_decl_enum (c_n, cec_o)
 
     (* let cSeq ?(args : target = [])
       ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : constr =
       let p_args =  args in
        Constr_seq (p_args, validate) *)
-    let cSeq ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (_ : unit) : constr =  
-      let target_list_simpl(cstrs: constr list) : target_list_pred =  
-        let n = List.length cstrs in 
+    let cSeq ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (_ : unit) : constr =
+      let target_list_simpl(cstrs: constr list) : target_list_pred =
+        let n = List.length cstrs in
         ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-      in 
+      in
       let p_args =
-      match args with 
+      match args with
       | [] -> args_pred
       | _ -> (target_list_simpl args)
-      in 
+      in
       Constr_seq  p_args
     let cVar ?(name : string = "")
       ?(exact : bool = true) (_ : unit) : constr =
@@ -866,25 +865,26 @@ module Path_constructors =
        Constr_lit (Lit_string s)
     let cPrim (p : prim) : constr =
       cStr  (ast_to_string (trm_prim p))
-   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (name:string) : constr=      
-      let target_list_simpl(cstrs: constr list) : target_list_pred =  
-        let n = List.length cstrs in 
+   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (name:string) : constr=
+      let target_list_simpl(cstrs: constr list) : target_list_pred =
+        let n = List.length cstrs in
         ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-      in 
-       let exception Argument_Error  of string in 
+      in
+       let exception Argument_Error  of string in
       let p_fun =
-      match name, fun_ with 
+      match name, fun_ with
       | "",_ -> fun_
       | _, [] -> [cVar ~name ()]
       | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
+
       in
-      let args = 
-      match args with 
+      let args =
+      match args with
       | [] -> args_pred
       | _ -> (target_list_simpl args)
       in
       Constr_app (p_fun,args)
-    
+
     let cLabel ?(label : string = "")
       ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
       let ro = string_to_rexp_opt ~exact label in
@@ -913,7 +913,7 @@ module Path_constructors =
     (*
       the empty list is interpreted as no constraint on the accesses
       accesses are reversed so that users give constraints on what they see
-     *) 
+     *)
     let cAccesses ?(base : target = [])
       ?(accesses : constr_access list = []) (_ : unit) : constr =
       let p_base =  base in
@@ -953,12 +953,12 @@ module Path_constructors =
 
     (* TODO: Fix cSet function later *)
     let cSet ?(lhs : target  = [])
-    
+
       ?(_rhs : target  = []) (_ : unit) : target =lhs;
 
 
 
-      
+
   end
 
 (******************************************************************************)
@@ -1104,10 +1104,10 @@ let is_equal_lit (l : lit) (l' : lit) =
     | _ -> false
   else aux r t *)
 let match_regexp (r : rexp) (t : trm) : bool =
-  if r.rexp_trm_kind <> get_trm_kind t then false 
-    else 
+  if r.rexp_trm_kind <> get_trm_kind t then false
+    else
       begin
-        let ts = ast_to_string t in 
+        let ts = ast_to_string t in
           if not r.rexp_substr then Str.string_match r.rexp_exp ts 0
           else
             try let _ = Str.search_forward r.rexp_exp ts 0 in true
@@ -1208,7 +1208,7 @@ and check_name (name : constr_name) (s : string) : bool =
   | Some r -> match_regexp r (trm_var s)
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
-  let (cstr,valid) = lpred in 
+  let (cstr,valid) = lpred in
   valid(List.mapi (fun i t -> check_target ([cstr i]) t) tl)
 
 (* and check_list (cl : constr_list) (tl : trm list) : bool =
@@ -1291,7 +1291,7 @@ and resolve_target_simple (trs : target_simple) (t : trm) : paths =
   let epl =
     match trs with
     | [] -> [[]]
-    
+
     | c :: trs ->
        let dll = resolve_constraint c trs t in
        if c = Constr_strict then dll else
@@ -1299,18 +1299,18 @@ and resolve_target_simple (trs : target_simple) (t : trm) : paths =
   in
   List.sort_uniq compare_path epl
 
-and resolve_target_struct(tgs : target_struct) (t : trm) : paths = 
-  let res = resolve_target_simple tgs.target_path t in 
-  let nb = List.length res in 
+and resolve_target_struct(tgs : target_struct) (t : trm) : paths =
+  let res = resolve_target_simple tgs.target_path t in
+  let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurences, if not than something went wrong *)
   match tgs.target_occurences with
   | ExpectedOne -> if nb = 1 then res else fail None "resolve_target_struct: expected only one match"
   | ExpectedNb x -> if nb = x then res else fail None "resolve_target_struct: expected x matches"
   | ExpectedMulti -> if nb <> 0 then res else fail None "resolve_target_struct: expected at least one occurrence"
-  | ExpectedAnyNb -> res 
+  | ExpectedAnyNb -> res
 
 and resolve_target(tg : target) (t : trm) : paths =
-  let tgs = target_to_target_struct tg in 
+  let tgs = target_to_target_struct tg in
   if tgs.target_relative <> TargetAt
     then fail None "resolve_target: this target should not contain a cBefore/cAfter/cFirst/cLast";
   resolve_target_struct tgs t
@@ -1758,8 +1758,8 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
 let get_arity_of_seq_at (p : path) (t : trm) : int =
   match List.rev p with
   | Dir_nth _ :: dl' ->
-    let (seq_trm,_) = resolve_path (List.rev dl') t in 
-    begin match seq_trm.desc with 
+    let (seq_trm,_) = resolve_path (List.rev dl') t in
+    begin match seq_trm.desc with
     | Trm_seq tl -> List.length tl
     | _ -> fail None "get_arity_of_seq_at: expected a sequence"
     end
@@ -1777,17 +1777,17 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
            | TargetAfter -> 1
            | _ -> assert false
            in
-        begin match List.rev p with 
+        begin match List.rev p with
         | Dir_nth i :: dl' -> (List.rev dl',i +  shift)
         | _ -> fail None "compute_relative_index: expected a sequence"
         end
-        
-let resolve_target_between (tg : target) (t : trm) : (path * int) list = 
+
+let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in
-  
+
   if tgs.target_relative = TargetAt
     then fail None "resolve_target_between:this target should contain a cBefore/cAfter/cFirst/cLast";
-  let res = resolve_target_struct tgs t in 
+  let res = resolve_target_struct tgs t in
   List.map (compute_relative_index tgs.target_relative t) res
 
 
