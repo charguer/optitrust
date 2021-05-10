@@ -34,7 +34,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
               let exp_assgn = List.map(fun sf ->
               let new_f = trm_unop (Unop_struct_get sf) in 
               (* let new_f = {f with desc = Trm_val(Val_prim(Prim_unop (Unop_struct_get sf)))} *)
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
               f [trm_apps ~annot:(Some Access) new_f [trm_apps f2 lbase]; trm_apps ~annot:(Some Access) new_f [trm_apps f1 rbase]]
               ) field_list in
               trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
@@ -43,7 +43,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
               let exp_assgn = List.map(fun sf ->
               let new_f = trm_unop (Unop_struct_get sf) in 
               (* let new_f = {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get sf)))} *)
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
               f [trm_apps new_f [trm_var v]; trm_apps ~annot: (Some Access) f1 [trm_apps new_f rbase]]
               ) field_list in 
               trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
@@ -58,7 +58,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
                 (* let sf = List.nth field_list i in  *)
                 let new_f = trm_unop (Unop_struct_get sf) in 
                 (* let ith_term =  in  *)
-                trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+                trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
                     f [trm_apps ~annot:(Some Access) f2 [trm_apps new_f lbase]; List.nth st i]
               ) field_list in 
               trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
@@ -68,7 +68,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
                 (* let sf = List.nth field_list i in  *)
                 let new_f = trm_unop (Unop_struct_get sf) in 
                 (* let ith_term = List.nth st in  *)
-                trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+                trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
                 f [trm_apps new_f [trm_var v]; List.nth st i]
               ) field_list in 
               trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
@@ -83,7 +83,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
               let exp_assgn = List.map(fun sf ->
               let new_f = trm_unop (Unop_struct_get sf) in 
               (* let new_f = {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get sf)))} *)
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add ~typ:t.typ
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
               f [trm_apps new_f [lt]; trm_apps new_f [rt]]
               ) field_list in 
               trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)

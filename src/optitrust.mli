@@ -64,9 +64,12 @@ val cArg : int -> constr
 
 val cName : constr
 
+val cStrict : constr  
+
 val cDirCase : int -> case_dir -> constr
 
 val cCaseName : int -> case_dir
+
 val cCaseBody : case_dir
 
 val cEnumConst : int -> enum_const_dir -> constr
@@ -92,7 +95,7 @@ val cIf : ?cond:(target) -> ?then_:(target) ->
           ?else_:(target) -> unit -> constr
 
 val cVarDef : ?name:string -> ?exact:bool ->
-              ?body:(target) -> unit -> target
+              ?body:(target) -> unit -> constr
 
 val cFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
 

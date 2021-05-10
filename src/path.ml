@@ -959,13 +959,13 @@ let forget_heap_alloc (t : trm) : trm =
         (* first subcase: no initial value (init = new …) *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _));
             _}] ->
-           trm_decl ~loc ~is_instr:true
+           trm_decl ~loc ~is_statement:true
              (Def_var ((x, tx), trm_lit ~loc Lit_uninitialized))
         (* second subcase: initialisation *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _)); _};
            {desc = Trm_apps (_, [{desc = Trm_var y; _}; init]); _}]
              when y = x ->
-           trm_decl ~loc ~is_instr:true (Def_var ((x, tx), init))
+           trm_decl ~loc ~is_statement:true (Def_var ((x, tx), init))
         | _ -> fail loc "forget_heap_alloc: bad heap allocation"
         end
      | _ -> fail loc "forget_heap_alloc: bad heap_alloc instruction"
@@ -1030,7 +1030,7 @@ let match_regexp (r : rexp) (t : trm) : bool =
     | Trm_decl (Def_var _)
       | Trm_apps _
       | Trm_abort _ ->
-       t.is_instr && aux r t
+       t.is_statement && aux r t
     | _ -> false
   else aux r t
 

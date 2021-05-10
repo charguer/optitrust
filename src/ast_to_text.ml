@@ -293,7 +293,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
          
       end
     in
-    let dinstr = string (string_of_bool t.is_instr) in
+    let dinstr = string (string_of_bool t.is_statement) in
     let add_to_doc (add : print_addition) =
       match add with
       | Add_address_of_operator -> string "Add_address_of_operator"
@@ -314,7 +314,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     braces (separate (blank 1) [string "annot"; equals;
                                 dannot ^^ semi ^//^ string "desc"; equals;
                                 ddesc ^^ semi ^//^ string "loc"; equals;
-                                dloc ^^ semi ^//^ string "is_instr"; equals;
+                                dloc ^^ semi ^//^ string "is_statement"; equals;
                                 dinstr ^^ semi ^//^ string "add"; equals;
                                 dadd ^^ semi ^//^ string "typ"; equals;
                                 dtyp ^^ semi ^//^ string "attributes"; equals;

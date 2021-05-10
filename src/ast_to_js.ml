@@ -254,7 +254,7 @@ let ast_to_json (trm_root : trm) : json =
                           | None -> Json.Str "\"<no type information>\""
                           | Some typ -> Json.typ_to_json typ )));
       ("\"add\"", Json.List (List.map Json.str (List.map add_to_string t.add)));
-      ("\"is_instr\"", Json.Boolean t.is_instr);
+      ("\"is_statement\"", Json.Boolean t.is_statement);
       ("\"annot\"", Json.Str (annot_to_string t) );
       ("\"loc\"", loc_to_json t);
       ("\"attributes\"", Json.List (List.map Json.str (List.map document_to_string

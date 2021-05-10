@@ -12,10 +12,10 @@ Trm_decl ( Def_typ ( bag,
           {annot = _; desc = Typ_array ( {annot = _; desc = Typ_var obj;
               attributes = [  ]},
             {annot = _; desc = Trm_val ( Val_lit ( Lit_int 10 ) ); loc = ( ./tmp_inline_decl_struct.cpp,
-              12,36: 12,38 ); is_instr = false; add = []; typ = {annot = _; desc = Typ_int;
+              12,36: 12,38 ); is_statement = false; add = []; typ = {annot = _; desc = Typ_int;
               attributes = [  ]}; attributes = [  ]} ); attributes = [  ]} )
       ],
        ); attributes = [  ]} ) ); loc = ( ./tmp_inline_decl_struct.cpp,
-  12,17: 12,42 ); is_instr = false; add = []; typ = {annot = _; desc = Typ_unit;
+  12,17: 12,42 ); is_statement = false; add = []; typ = {annot = _; desc = Typ_unit;
   attributes = [  ]}; attributes = [  ]}
 

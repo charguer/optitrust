@@ -25,7 +25,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
     | d :: dl ->
        let annot = t.annot in
        let loc = t.loc in
-       let is_instr = t.is_instr in
+       let is_statement = t.is_statement in
        let add = t.add in
        let typ = t.typ in
        let attributes = t.attributes in
@@ -53,9 +53,9 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes cond then_t (aux dl else_t)
        | Dir_body, Trm_decl (Def_var (tx, body)) ->
-          trm_decl ~annot ~loc ~is_instr ~add ~attributes (Def_var (tx, aux dl body))
+          trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_var (tx, aux dl body))
        | Dir_body, Trm_decl (Def_fun (x, tx, txl, body)) ->
-          trm_decl ~annot ~loc ~is_instr ~add ~attributes (Def_fun (x, tx, txl, aux dl body))
+          trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_fun (x, tx, txl, aux dl body))
        | Dir_body, Trm_for (init, cond, step, body) ->
           trm_for ~annot ~loc ~add ~attributes init cond step (aux dl body)
        | Dir_body, Trm_while (cond, body) ->
@@ -75,9 +75,9 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
             warning: the type of f may change
             -> print and reparse to have the right type
            *)
-          trm_apps ~annot ~loc ~is_instr ~add ~typ ~attributes (aux dl f) tl
+          trm_apps ~annot ~loc ~is_statement ~add ~typ ~attributes (aux dl f) tl
        | Dir_arg n, Trm_apps (f, tl) ->
-          trm_apps ~annot ~loc ~is_instr ~add ~typ ~attributes f
+          trm_apps ~annot ~loc ~is_statement ~add ~typ ~attributes f
             (change_nth (aux dl) tl n)
        | Dir_arg n, Trm_decl (Def_fun (x, tx, txl, body)) ->
           let txl' =
@@ -93,13 +93,13 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
               txl
               n
           in
-          trm_decl ~annot ~loc ~is_instr ~add ~attributes
+          trm_decl ~annot ~loc ~is_statement ~add ~attributes
             (Def_fun (x, tx, txl', body))
        | Dir_name, Trm_decl (Def_var ((x, tx), body)) ->
           let t' = aux dl (trm_var ~loc x) in
           begin match t'.desc with
           | Trm_var x' ->
-             trm_decl ~annot ~loc ~is_instr ~add ~attributes
+             trm_decl ~annot ~loc ~is_statement ~add ~attributes
                (Def_var ((x', tx), body))
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
@@ -109,7 +109,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           let t' = aux dl (trm_var ~loc x) in
           begin match t'.desc with
           | Trm_var x' ->
-             trm_decl ~annot ~loc ~is_instr ~add ~attributes
+             trm_decl ~annot ~loc ~is_statement ~add ~attributes
                (Def_fun (x', tx, txl, body))
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
@@ -286,7 +286,7 @@ let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
         | _ -> fail t.loc "const_non_const_aux: expected an assignment"
         end 
         in 
-        let new_trm = trm_decl ~is_instr:true (Def_var ((var_name,var_type),var_value)) in 
+        let new_trm = trm_decl ~is_statement:true (Def_var ((var_name,var_type),var_value)) in 
         let tl = list_replace_el new_trm trm_index tl in 
         trm_seq ~annot:t.annot ~loc:t.loc tl
       | Trm_decl(Def_var ((x, tx),dx)) -> 
@@ -545,7 +545,7 @@ and replace_fun_names (name : var -> var) (ilsm : ilset funmap) (x : typvar)
   (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
-  let is_instr = t.is_instr in
+  let is_statement = t.is_statement in
   let add = t.add in
   let typ = t.typ in
   let attributes = t.attributes in
@@ -596,7 +596,7 @@ and replace_fun_names (name : var -> var) (ilsm : ilset funmap) (x : typvar)
               in
               (* also do a recursive call on args *)
               let args' = List.map (replace_fun_names name ilsm x) args in
-              trm_apps ~annot ~loc ~is_instr ~add ~typ ~attributes
+              trm_apps ~annot ~loc ~is_statement ~add ~typ ~attributes
                 (trm_var ~annot:fun_.annot ~loc:fun_.loc ~add:fun_.add
                    ~attributes:fun_.attributes f') args'
            end
@@ -727,17 +727,17 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
          trm_unop ~annot:t.annot ~loc:t.loc ~add:t.add
            (Unop_cast (change_typ ty))
       | Trm_decl (Def_var ((y, ty), init)) ->
-         trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
+         trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
            ~attributes:t.attributes (Def_var ((y, change_typ ty), aux init))
       | Trm_decl (Def_fun (f, ty, args, body)) ->
-         trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
+         trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
            ~attributes:t.attributes
            (Def_fun (f, change_typ ty,
                      List.map (fun (y, ty) -> (y, change_typ ty)) args,
                      aux body)
            )
       | Trm_decl (Def_typ (y, ty)) ->
-         trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
+         trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
             ~attributes:t.attributes (Def_typ (y, change_typ ty))
       | _ -> trm_map aux t
     in
@@ -788,7 +788,7 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
               ]
               in 
               let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in 
-              let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_instr:true (trm_unop (Unop_delete false)) [trm_var new_var] in  
+              let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in  
               
               
               let new_loop = trm_seq ~annot:(Some Delete_instructions) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in 

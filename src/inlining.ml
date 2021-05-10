@@ -78,7 +78,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
           begin match List.rev tl with
           | {desc = Trm_abort (Ret (Some r)); _} :: _ ->
               trm_seq ~annot:(Some No_braces) ~loc:t.loc
-                [trm_set ~loc:t.loc ~is_instr:true (trm_var result) r;
+                [trm_set ~loc:t.loc ~is_statement:true (trm_var result) r;
                 trm_goto ~loc:t.loc return_label]
           | {desc = Trm_abort (Ret None); _} :: _ ->
               trm_goto ~loc:t.loc return_label
@@ -86,7 +86,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
           end
         | Trm_abort (Ret (Some r)) ->
           trm_seq ~annot:(Some No_braces) ~loc:t.loc
-            [trm_set ~loc:t.loc ~is_instr:true (trm_var result) r;
+            [trm_set ~loc:t.loc ~is_statement:true (trm_var result) r;
               trm_goto ~loc:t.loc return_label]
         | Trm_abort (Ret None) -> trm_goto ~loc:t.loc return_label
         | _ -> trm_map aux t
@@ -105,7 +105,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     in
     
     (* we look for instructions that contain a call to f *)
-    if not (t.is_instr && contains_call_to_fun f t)
+    if not (t.is_statement && contains_call_to_fun f t)
     then trm_map apply_change t
     else
       let arg_vals = fun_call_args f t in
@@ -120,7 +120,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                 trm_decl (Def_var ((x, typ_ptr tx), trm_prim (Prim_new tx)));
                 trm_set ~annot:(Some Initialisation_instruction) (trm_var x) dx
               ] *)
-             trm_decl ~is_instr:true (Def_var ((x, tx), dx))
+             trm_decl ~is_statement:true (Def_var ((x, tx), dx))
           )
           fresh_args
           arg_vals
@@ -185,7 +185,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                        )
                    ]
                   );
-                trm_apps ~annot:(Some Heap_allocated) ~loc:t.loc ~is_instr:true
+                trm_apps ~annot:(Some Heap_allocated) ~loc:t.loc ~is_statement:true
                   ~typ:(Some (typ_unit ())) (trm_unop (Unop_delete false))
                   [trm_var result]
                ] (*++
@@ -656,7 +656,7 @@ let change_struct_access  (x : typvar) (t : trm) : trm =
                 let new_var = z ^"_"^ y in
                 let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
               in
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                      ~add:t.add ~typ:t.typ new_f base'
 
             | _ -> trm_map (aux global_trm) t

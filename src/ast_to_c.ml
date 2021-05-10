@@ -185,7 +185,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   | Add_address_of_operator :: addl ->
      let d =
        trm_to_doc {desc = t.desc; annot = t.annot; loc = t.loc;
-                   is_instr = t.is_instr; add = addl; typ = t.typ;
+                   is_statement = t.is_statement; add = addl; typ = t.typ;
                    attributes = []}
      in
      let body = if !decode then parens (ampersand ^^ d) else d in
@@ -193,7 +193,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   | Add_star_operator :: addl when !decode ->
      let d =
        trm_to_doc {desc = t.desc; annot = t.annot; loc = t.loc;
-                   is_instr = t.is_instr; add = addl; typ = t.typ;
+                   is_statement = t.is_statement; add = addl; typ = t.typ;
                    attributes = []}
      in
      let body = if !decode then parens (star ^^ d) else d in

@@ -323,7 +323,7 @@ and translate_stmt (s : stmt) : trm =
       | [d] -> translate_decl d
       | _ -> trm_seq ~annot:(Some Multi_decl) ~loc (translate_decl_list dl)
     end
-  | Expr e -> translate_expr ~is_instr:true e
+  | Expr e -> translate_expr ~is_statement:true e
   | Label {label = l; body = s} ->
     let t = translate_stmt s in
     trm_labelled ~loc l t
@@ -412,7 +412,7 @@ and compute_body (loc : location) (body_acc : trm list)
         compute_body loc (t :: body_acc) sl
     end
 
-and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
+and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     (e : expr) : trm =
   let loc = loc_of_node e in
   let typ : typ option =
@@ -429,7 +429,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
     let t_cond = translate_expr cond in
     let t_then = translate_expr e_then in
     let t_else = translate_expr e_else in
-    trm_apps ~loc ~is_instr ~typ (trm_prim ~loc Prim_conditional_op)
+    trm_apps ~loc ~is_statement ~typ (trm_prim ~loc Prim_conditional_op)
       [t_cond; t_then; t_else]
   | ConditionalOperator _ ->
     fail loc
@@ -485,22 +485,22 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
         let {desc; annot; loc; add; attributes; _} =
           translate_expr ~val_t:Lvalue e
         in
-        {desc; annot; loc; is_instr; add = Add_address_of_operator :: add; typ;
+        {desc; annot; loc; is_statement; add = Add_address_of_operator :: add; typ;
          attributes}
       | _ ->
         begin match k with
           | PostInc ->
             let t = translate_expr ~val_t:Lvalue e in
-            trm_apps ~loc ~is_instr ~typ (trm_unop ~loc Unop_inc) [t]
+            trm_apps ~loc ~is_statement ~typ (trm_unop ~loc Unop_inc) [t]
           | PostDec ->
             let t = translate_expr ~val_t:Lvalue e in
-            trm_apps ~loc ~is_instr ~typ (trm_unop ~loc Unop_dec) [t]
+            trm_apps ~loc ~is_statement ~typ (trm_unop ~loc Unop_dec) [t]
           | Deref ->
             let t = translate_expr e in
             begin match val_t with
               | Lvalue ->
                 {annot = t.annot; desc = t.desc; loc = t.loc;
-                 is_instr = t.is_instr; add = Add_star_operator :: t.add; typ;
+                 is_statement = t.is_statement; add = Add_star_operator :: t.add; typ;
                  attributes = t.attributes}
               | Rvalue -> trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [t]
             end
@@ -521,56 +521,56 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
     begin match k with
       | Assign ->
         let tl = translate_expr ~val_t:Lvalue le in
-        trm_set ~loc ~is_instr tl tr
+        trm_set ~loc ~is_statement tl tr
       | AddAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_add) [tlr; tr])
       | SubAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_sub) [tlr; tr])
       | MulAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_mul) [tlr; tr])
       | DivAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_div) [tlr; tr])
       | RemAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_mod) [tlr; tr])
       | ShlAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_shiftl) [tlr; tr])
       | ShrAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_shiftr) [tlr; tr])
       | AndAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_and) [tlr; tr])
       | OrAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_or) [tlr; tr])
       | XorAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_instr tll
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
           (trm_apps ~loc ~typ (trm_binop ~loc Binop_xor) [tlr; tr])
       | _ ->
         let tl = translate_expr ~val_t:val_t le in
@@ -602,10 +602,10 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
     (* TODO: later think about other cases to handle here *)
     | Trm_var x when Str.string_match (Str.regexp "overloaded=") x 0 ->
         begin match el with
-        | [tl;tr] -> trm_set ~loc ~is_instr (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
+        | [tl;tr] -> trm_set ~loc ~is_statement (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
         | _ -> fail loc "translate_expr: overloaded= expects two arguments"
         end
-    | _-> trm_apps ~loc ~is_instr ~typ tf (List.map translate_expr el)
+    | _-> trm_apps ~loc ~is_statement ~typ tf (List.map translate_expr el)
     end
   | DeclRef {nested_name_specifier = _; name = n; _} ->
     begin match n with
@@ -737,7 +737,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
     begin match el with
-      | [e] -> translate_expr ~is_instr ~val_t:val_t e
+      | [e] -> translate_expr ~is_statement ~val_t:val_t e
       | _ -> fail loc "translate_expr: unsupported construct"
     end
   | Cast {kind = k; qual_type = q; operand = e'} ->
@@ -771,7 +771,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_instr : bool = false)
     end
   | Delete {global_delete = _; array_form = b; argument = e} ->
     let t = translate_expr e in
-    trm_apps ~loc ~is_instr ~typ (trm_unop ~loc (Unop_delete b)) [t]
+    trm_apps ~loc ~is_statement ~typ (trm_unop ~loc (Unop_delete b)) [t]
   | UnexposedExpr ImplicitValueInitExpr ->
     print_info loc "translate_expr: implicit initial value\n";
     trm_lit ~loc Lit_uninitialized
@@ -935,7 +935,7 @@ and translate_decl (d : decl) : trm =
     in
     typ_map := Type_map.add n tt !typ_map;
     if const then
-      trm_decl ~loc ~is_instr:true (Def_var ((n, tt), te))
+      trm_decl ~loc ~is_statement:true (Def_var ((n, tt), te))
     else
       begin
         add_var n;

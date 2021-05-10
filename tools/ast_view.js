@@ -497,7 +497,7 @@ function scrollToFirstMark() {
 /* TODO
    - load the ast and customize the display:
       - if value is empty, don't show the key
-      - don't show loc, is_instr
+      - don't show loc, is_statement
    - fix off by one column
    - check all locations match well in highlight
    - check user selection targets the right node each time

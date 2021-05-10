@@ -118,7 +118,7 @@ let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
      (* lhs should have type x *)
      begin match lhs.typ with
      | Some {ty_desc = Typ_var y; _} when y = x ->
-        trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
+        trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
           ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
      | _ -> trm_map (tile_aux base_type block_name b x) t
      end
@@ -133,10 +133,10 @@ let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
            (* we only look for arrays of type x *)
            | Some {ty_desc = Typ_var y; _} when y = x ->
               (* replace base[index] with base[index/b][index%b] *)
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
                 ~typ:t.typ f
                 [
-                  trm_apps ~annot:base.annot ~loc:base.loc ~is_instr:false
+                  trm_apps ~annot:base.annot ~loc:base.loc ~is_statement:false
                     ~add:base.add ~typ:base.typ f
                     [
                       {base with typ = match base.typ with
@@ -254,11 +254,11 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                        (* x might also be the type of arrays in indices… *)
                        let swapped_index = swap_accesses clog x index in
                        let swapped_index' = swap_accesses clog x index' in
-                       trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
+                       trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                          ~typ:t.typ f
                          [
                            trm_apps ~annot:base.annot ~loc:base.loc
-                             ~is_instr:base.is_instr ~typ:base.typ f'
+                             ~is_statement:base.is_statement ~typ:base.typ f'
                              [
                                base';
                                swapped_index
@@ -271,7 +271,7 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                      *)
                     | _ ->
                        let swapped_l = List.map (swap_accesses clog x) tl in
-                       trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
+                       trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                          ~typ:t.typ f swapped_l
                     end
                  | _ ->
@@ -284,13 +284,13 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                *)
               | _ ->
                  let swapped_l = List.map (swap_accesses clog x) tl in
-                 trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr f
+                 trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement f
                    ~typ:t.typ swapped_l
               end
            (* again, … *)
            | _ ->
               let swapped_l = List.map (swap_accesses clog x) tl in
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr f
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement f
                 ~typ:t.typ swapped_l
            end
         | _ -> fail f.loc ("swap_coordinates: array accesses should have 2 " ^
@@ -303,7 +303,7 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
      | _ ->
         let swapped_f = swap_accesses clog x f in
         let swapped_l = List.map (swap_accesses clog x) tl in
-        trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~typ:t.typ
+        trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ
           swapped_f swapped_l
      end
   (* declaration… *)
@@ -344,7 +344,7 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
              end
           | _ -> fail None ("swap_type: must be an array")
         in
-        trm_decl ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr ~add:t.add
+        trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
            (Def_typ (y, swap_type ty))
      (*
          all the interesting cases are covered now, we only have to do recursive
@@ -465,7 +465,7 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                    let base' = aux global_trm base' in
                    let index = aux global_trm index in
                    (* keep outer annotations *)
-                   trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
+                   trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                      ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
                 | Some {ty_desc = Typ_ptr {ty_desc = Typ_var y; _}; _}
                      when y = x ->
@@ -473,7 +473,7 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                    let base' = aux global_trm base' in
                    let index = aux global_trm index in
                    (* keep outer annotations *)
-                   trm_apps ~annot:t.annot ~loc:t.loc ~is_instr:t.is_instr
+                   trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                      ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
                 | _ -> trm_map (aux global_trm) t
                 end

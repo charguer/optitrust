@@ -167,13 +167,13 @@ and attribute =
 
 (*
   annotated terms
-  is_instr: true if the trm is an instruction in a seq
+  is_statement: true if the trm is an instruction in a seq
  *)
 and trm =
  { annot : trm_annot option;
    desc : trm_desc;
    loc : location;
-   is_instr : bool; (* TODO statement or expression? *)
+   is_statement : bool; (* TODO statement or expression? *)
    add : print_addition list; (* TODO: find better name *)
    typ : typ option; (* typ should be available from the AST that comes from Clang *)
    attributes : attribute list }
@@ -276,64 +276,64 @@ let typ_fun ?(annot : typ_annot list = []) ?(ty_attributes = [])
 
 let trm_val ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (v : value) : trm =
-  {annot = annot; desc = Trm_val v; loc = loc; is_instr = false; add; typ;
+  {annot = annot; desc = Trm_val v; loc = loc; is_statement = false; add; typ;
    attributes}
 let trm_var ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (x : var) : trm =
-  {annot = annot; desc = Trm_var x; loc = loc; is_instr = false; add; typ;
+  {annot = annot; desc = Trm_var x; loc = loc; is_statement = false; add; typ;
    attributes}
 let trm_array ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (tl : trm list) : trm =
-  {annot = annot; desc = Trm_array tl; loc = loc; is_instr = false; add; typ;
+  {annot = annot; desc = Trm_array tl; loc = loc; is_statement = false; add; typ;
    attributes}
 let trm_struct ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (tl : trm list) : trm =
-  {annot = annot; desc = Trm_struct tl; loc = loc; is_instr = false; add; typ;
+  {annot = annot; desc = Trm_struct tl; loc = loc; is_statement = false; add; typ;
    attributes}
-let trm_decl ?(annot = None) ?(loc = None) ?(is_instr : bool = false)
+let trm_decl ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) (d : def) : trm =
-  {annot = annot; desc = Trm_decl d; loc = loc; is_instr; add;
+  {annot = annot; desc = Trm_decl d; loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes}
 let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (cond : trm) (tb : trm) (eb : trm) : trm =
-  {annot = annot; desc = Trm_if (cond, tb, eb); loc = loc; is_instr = false;
+  {annot = annot; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes}
 let trm_seq ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (tl : trm list) : trm =
-  {annot = annot; desc = Trm_seq tl; loc = loc; is_instr = false; add;
+  {annot = annot; desc = Trm_seq tl; loc = loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes}
-let trm_apps ?(annot = None) ?(loc = None) ?(is_instr : bool = false)
+let trm_apps ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(typ = None) ?(attributes = []) (f : trm)
   (args : trm list) : trm =
-  {annot = annot; desc = Trm_apps (f, args); loc = loc; is_instr; add; typ;
+  {annot = annot; desc = Trm_apps (f, args); loc = loc; is_statement; add; typ;
    attributes}
 let trm_while ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (cond : trm) (body : trm) : trm =
-  {annot = annot; desc = Trm_while (cond, body); loc = loc; is_instr = false;
+  {annot = annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes}
 let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
-  {annot; desc = Trm_for (init, cond, step, body); loc; is_instr = false; add;
+  {annot; desc = Trm_for (init, cond, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes}
 let trm_switch ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (cond : trm) (cases : (trm list * trm) list) : trm =
-  {annot; desc = Trm_switch (cond, cases); loc; is_instr = false; add;
+  {annot; desc = Trm_switch (cond, cases); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes}
 let trm_abort ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (a : abort) : trm =
-  {annot = annot; desc = Trm_abort a; loc = loc; is_instr = true; add;
+  {annot = annot; desc = Trm_abort a; loc = loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes}
 let trm_labelled ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (l : label) (t : trm) : trm =
-  {annot; desc = Trm_labelled (l, t); loc; is_instr = false; add;
+  {annot; desc = Trm_labelled (l, t); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes}
 let trm_goto ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (l : label) : trm =
-  {annot; desc = Trm_goto l; loc; is_instr = true; add;
+  {annot; desc = Trm_goto l; loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes}
 let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (left : string) (right : string) (t : trm) : trm =
-  {annot; desc = Trm_decoration (left, t, right); loc; is_instr = false; add;
+  {annot; desc = Trm_decoration (left, t, right); loc; is_statement = false; add;
   typ = Some (typ_unit ()); attributes }
 let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
   trm_val ~annot ~loc (Val_ptr (0, []))
@@ -358,13 +358,13 @@ let trm_lit ?(annot = None) ?(loc = None) ?(add = []) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~add ~typ:(typ_of_lit l) (Val_lit l)
 let trm_prim ?(annot = None) ?(loc = None) ?(add = []) (p : prim) : trm =
   trm_val ~annot:annot ~loc ~add (Val_prim p)
-let trm_set ?(annot = None) ?(loc = None) ?(is_instr : bool = false) ?(add = [])
+let trm_set ?(annot = None) ?(loc = None) ?(is_statement : bool = false) ?(add = [])
   (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~annot:annot ~loc ~is_instr ~add ~typ:(Some (typ_unit ()))
+  trm_apps ~annot:annot ~loc ~is_statement ~add ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
 let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = [])
 (t : trm) : trm =
-  {annot = annot; desc = Trm_any t; loc = loc; is_instr=false; add; typ; attributes}
+  {annot = annot; desc = Trm_any t; loc = loc; is_statement=false; add; typ; attributes}
 
 
 let is_included (t : trm) : bool =
@@ -440,7 +440,7 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
   let add = t.add in
-  let is_instr = t.is_instr in
+  let is_statement = t.is_statement in
   let typ = t.typ in
   match t.desc with
   | Trm_array tl ->
@@ -450,9 +450,9 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
   | Trm_decl d ->
      begin match d with
      | Def_var (tx, init) ->
-        trm_decl ~annot ~loc ~is_instr ~add (Def_var (tx, f init))
+        trm_decl ~annot ~loc ~is_statement ~add (Def_var (tx, f init))
      | Def_fun (f', res, args, body) ->
-        trm_decl ~annot ~loc ~is_instr ~add (Def_fun (f', res, args, f body))
+        trm_decl ~annot ~loc ~is_statement ~add (Def_fun (f', res, args, f body))
      (* type def *)
      | _ -> t
      end
@@ -470,7 +470,7 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
        warning: f'' may have different type
        -> print and reparse to have the right type
       *)
-     trm_apps ~annot ~loc ~is_instr ~add ~typ f'' args'
+     trm_apps ~annot ~loc ~is_statement ~add ~typ f'' args'
   | Trm_while (cond, body) ->
      let cond' = f cond in
      let body' = f body in
