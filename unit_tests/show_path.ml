@@ -7,7 +7,7 @@ let _ =
         
         (* set_repeat_io false;  *)
 
-        show_target [cVarDef ~name:"x" ()] ~debug_ast:true;
+        show_target [cAnyNb;cVarDef ~name:"x" ()] ~debug_ast:true;
         clean_target_decorators();
         show_target  [cVarDef ~name:"i" ()] ;
         clean_target_decorators();

@@ -380,7 +380,7 @@ let target_to_target_struct(tg : target) : target_struct =
     | ConstrOccurences oc ->
       begin match !occurences with
       | None -> occurences := Some oc;
-      | _ -> fail None "ConstrOccurences provide twice in path"
+      | _ -> fail None "ConstrOccurences provided twice in path"
       end
     | _ -> ()
     in
@@ -747,14 +747,14 @@ module Path_constructors = struct
   (* let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
     if s = "" then None else Some (string_to_rexp ~only_instr:false ~exact s) *)
 
-  let string_to_rexp_opt ?(exact : bool = true) (s : string) : rexp option =
+  let string_to_rexp_opt ?(only_instr : bool = false) ?(exact : bool = true) (s : string) : rexp option =
     if s = ""
       then None
-      else Some (string_to_rexp ~only_instr:false ~exact s)
+      else Some (string_to_rexp ~only_instr ~exact s)
 
   let cVarDef ?(name : string = "")
     ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
-    let ro = string_to_rexp_opt ~exact name in
+    let ro = string_to_rexp_opt ~only_instr:true ~exact name in
     let p_body =  body in
      Constr_decl_var (ro, p_body)
 
@@ -1329,11 +1329,12 @@ and check_target (tr : target) (t : trm) : bool =
   sort_unique
  *)
 and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
+  let constraints_to_string = list_to_string (List.map constraint_to_string trs) in
   let epl =
     match trs with
-    | [] -> [[]]
+    | [] -> []
     | c :: p ->
-      let res_deep =
+      let res_deep = 
         if strict
            then [] (* in strict mode, must match c here *)
            else (resolve_constraint c p t) in
@@ -1341,11 +1342,14 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
          if is_constr_regexp c && res_deep <> []
            then [] (* if a regexp matches in depth, don't test it here *)
            else (explore_in_depth (c :: p) t) in
-      res_deep ++ res_here  (* put deeper nodes first *)
-  in
+      let () = if (res_deep = [] && res_here = []) then fail None ("resolve_target_simple: something went_wrong" ^ constraints_to_string)
+      in
+      res_here ++ res_deep  (* put deeper nodes first *) in     
   List.sort_uniq compare_path epl
 
+
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
+
   let res = resolve_target_simple tgs.target_path t in
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
@@ -1354,7 +1358,7 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   (* TODO: insert to the head of a line
      (ocamlpos:=__LOC__); Tr.transfo [path] *)
   begin match tgs.target_occurences with
-  | ExpectedOne -> if nb <> 1 then fail None "resolve_target_struct: expected only one match"
+  | ExpectedOne ->  if nb <> 0 then fail None "resolve_target_struct: expected only one match"
   | ExpectedNb n -> if nb <> n then fail None "resolve_target_struct: expected x matches"
   | ExpectedMulti -> if nb = 0 then fail None "resolve_target_struct: expected at least one occurrence"
   | ExpectedAnyNb -> ();

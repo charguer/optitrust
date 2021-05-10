@@ -1,6 +1,7 @@
 
 int main() {
 
+  int y = 5;
   int x = 3;
 
   for (int i = 0; i < 3; i++) {
