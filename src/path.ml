@@ -162,16 +162,6 @@ type trm_kind =
   | TrmKind_Instr
   | TrmKind_Expr
 
-let get_trm_kind (t : trm) : trm_kind =
-  if t.is_statement then
-    match t.desc with
-    | Trm_struct _ | Trm_array _ | Trm_decl _ | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
-    | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
-    | _ -> TrmKind_Instr
-  else
-    TrmKind_Expr
-let is_structuring_statement (t : trm) : bool =
-  get_trm_kind t = TrmKind_Struct
 
 (* --------------------------------DEPRECATED------------------------------- *)
 (* type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool} *)
@@ -358,15 +348,7 @@ let target_to_target_simple (tg : target) : target_simpl =
   and otherwise returns target_flatten tg
 *)
 
-(* Converts a list of constraints into a [target_list_pred] *)
-let target_list_simpl (cstrs : constr list) : target_list_pred =
-  let n = List.length cstrs in
-  ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-  (*
-  target_list_pred_to_string = begin fun () ->
-    ..."["  ";" ... List.fold (constraint_to_string cstrs) .. .
-    end
-  *)
+
 
 
 (* Flatten all the constrainst of type ConstrChain *)
@@ -488,7 +470,6 @@ let rec constraint_to_string (c : constr) : string =
      "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
   | Constr_seq (_, _) -> (* TODO: for the second arg, call it, cargs, use [cargs.constr_list_pred_to_string()] *)
     (* TODO: Fix this later after discussing with Arthur *)
-     (* let s = target_to_string p_elt in *)
      "Seq ( )"
      (* let s = target_to_string p_elt in *)
      (* "Seq (" ^ s ^ ")" *)
@@ -543,6 +524,7 @@ let rec constraint_to_string (c : constr) : string =
        | Some cal -> list_to_string (List.map access_to_string cal)
      in
      let s_base = target_to_string p_base in
+     (* let s = target_to_string p_elt in *)
      "Access (" ^ s_accesses ^ ", " ^ s_base ^ ")"
   | Constr_switch (p_cond, cc) ->
      let s_cond = target_to_string p_cond in
@@ -749,9 +731,9 @@ module Path_constructors = struct
 
   (* --------------------DEPRECATED-------------------------- *)
   (* exactly match the string/regexp described by s *)
-  let cStr ?(regexp : bool = false)
+  (* let cStr ?(regexp : bool = false)
     (s : string) : constr =
-    cRegexp ~only_instr:false (if regexp then s else Str.quote s)
+    cRegexp ~only_instr:false (if regexp then s else Str.quote s) *)
 
   (*
     match the string/regexp only on instructions
@@ -800,7 +782,15 @@ module Path_constructors = struct
     let p_then = then_ in
     let p_else = else_ in
      Constr_if (p_cond, p_then, p_else)
-
+    (* Converts a list of constraints into a [target_list_pred] *)
+  let target_list_simpl (cstrs : constr list) : target_list_pred =
+    let n = List.length cstrs in
+    ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
+    (*
+    target_list_pred_to_string = begin fun () ->
+      ..."["  ";" ... List.fold (constraint_to_string cstrs) .. .
+      end
+    *)
   (* by default an empty name is no name *) (* TODO: Arthur maybe a datatype for target_list_pred? *)
   let cFun ?(args : target = []) ?(args_pred : target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) ?(body : target = []) (name : string) : constr =
     let target_list_simpl(cstrs: constr list) : target_list_pred =
@@ -904,8 +894,8 @@ module Path_constructors = struct
      Constr_lit (Lit_double f)
   let cString (s : string) : constr =
      Constr_lit (Lit_string s)
-  let cPrim (p : prim) : constr =
-     cStr (ast_to_string (trm_prim p))
+  (* let cPrim (p : prim) : constr =
+     cStr (ast_to_string (trm_prim p)) *)
   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (name:string) : constr=
     let target_list_simpl(cstrs: constr list) : target_list_pred =
       let n = List.length cstrs in
@@ -1141,6 +1131,18 @@ let is_equal_lit (l : lit) (l' : lit) =
     | _ -> false
   else aux r t *)
 
+let get_trm_kind (t : trm) : trm_kind =
+  if t.is_statement then
+    match t.desc with
+    | Trm_struct _ | Trm_array _ | Trm_decl _ | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
+    | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
+    | _ -> TrmKind_Instr
+  else
+    TrmKind_Expr
+let is_structuring_statement (t : trm) : bool =
+  get_trm_kind t = TrmKind_Struct
+
+
 let match_regexp (r : rexp) (t : trm) : bool =
   if r.rexp_trm_kind <> get_trm_kind t then false
     else
@@ -1326,7 +1328,6 @@ and check_target (tr : target) (t : trm) : bool =
   another target that appears after it in the list. Guaranteed by the call to
   sort_unique
  *)
- (*Some dummy comment  *)
 and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
   let epl =
     match trs with
