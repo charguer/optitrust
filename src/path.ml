@@ -1285,7 +1285,7 @@ and check_target (tr : target) (t : trm) : bool =
   sort_unique
  *)
  (*Some dummy comment  *)
-and resolve_target_simple (trs : target_simple) (t : trm) : paths =
+and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
   let is_constr_regexp (c : constr) : bool =
     match c with | Constr_regexp _ -> true | _ -> false
   in
@@ -1293,10 +1293,16 @@ and resolve_target_simple (trs : target_simple) (t : trm) : paths =
     match trs with
     | [] -> [[]]
 
-    | c :: trs ->
-       let dll = resolve_constraint c trs t in
-       if c = Constr_strict then dll else
-        (explore_in_depth (c :: trs) t) ++ dll
+     | c :: p ->
+                let res_deep =
+                  if strict
+                     then [] (* in strict mode, must match c here *)
+                     else (resolve_constraint c p t) in
+                let res_here =
+                   if is_constr_regexp c && res_deep <> []
+                     then [] (* if a regexp matches in depth, don't test it here *)
+                     else (explore_in_depth (c :: p) t) in
+                res_deep ++ res_here  (* put deeper nodes first *)
   in
   List.sort_uniq compare_path epl
 
