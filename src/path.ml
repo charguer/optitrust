@@ -1293,24 +1293,30 @@ and resolve_target_simple (trs : target_simple) (t : trm) : paths =
     match trs with
     | [] -> [[]]
 
-    | c :: trs ->
+    | c :: trs -> (* TODO: merge form notes *)
        let dll = resolve_constraint c trs t in
        if c = Constr_strict then dll else
         (explore_in_depth (c :: trs) t) ++ dll
   in
   List.sort_uniq compare_path epl
 
-and resolve_target_struct(tgs : target_struct) (t : trm) : paths =
+and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let res = resolve_target_simple tgs.target_path t in
   let nb = List.length res in
-  (* Check if nb is equal to the specification of tgs.target_occurences, if not than something went wrong *)
-  match tgs.target_occurences with
-  | ExpectedOne -> if nb = 1 then res else fail None "resolve_target_struct: expected only one match"
-  | ExpectedNb x -> if nb = x then res else fail None "resolve_target_struct: expected x matches"
-  | ExpectedMulti -> if nb <> 0 then res else fail None "resolve_target_struct: expected at least one occurrence"
-  | ExpectedAnyNb -> res
+  (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
+  (* TODO: one day, report the location from the OCaml file where the target is coming from;
+     the idea would be to track the OCaml line of code form which users write the target *)
+  (* TODO: insert to the head of a line
+     (ocamlpos:=__LOC__); Tr.transfo [path] *)
+  begin match tgs.target_occurences with
+  | ExpectedOne -> if nb <> 1 then fail None "resolve_target_struct: expected only one match"
+  | ExpectedNb n -> if nb <> n then fail None "resolve_target_struct: expected x matches"
+  | ExpectedMulti -> if nb = 0 then fail None "resolve_target_struct: expected at least one occurrence"
+  | ExpectedAnyNb -> ();
+  end;
+  res
 
-and resolve_target(tg : target) (t : trm) : paths =
+and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative <> TargetAt
     then fail None "resolve_target: this target should not contain a cBefore/cAfter/cFirst/cLast";
