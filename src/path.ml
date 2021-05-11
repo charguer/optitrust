@@ -150,11 +150,7 @@ let rec compare_path (dl : path) (dl' : path) : int =
      let cd = compare_dir d d' in
      if cd = 0 then compare_path dl dl' else cd
 
-(*
-  regexps with their string description, a boolean for exact/subexpression
-  matching, and the kind of expression to match (any, instruction, or
-  subexpression)
- *)
+
 (* TODO: replace exact with standard name *)
 (* Type to classify trms into three main classes: 1)Structuring statements, 2) Instructions and 3) Expression *)
 type trm_kind =
@@ -165,6 +161,11 @@ type trm_kind =
 
 (* --------------------------------DEPRECATED------------------------------- *)
 (* type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool} *)
+(*
+  regexps with their string description, a boolean for exact/subexpression
+  matching, and the kind of expression to match (any, instruction, or
+  subexpression)
+ *)
 type rexp = {
   rexp_desc: string; (* printable version of regexp *)
   rexp_exp : regexp;
@@ -399,7 +400,7 @@ let regexp_to_string (r : rexp) : string =
   (if r.rexp_substr then "Exact" else "Sub") ^
     (begin match r.rexp_trm_kind with
     | TrmKind_Struct | TrmKind_Expr -> r.rexp_desc
-    | TrmKind_Instr -> "OnlyInstr"
+    | TrmKind_Instr -> "Instr"
     end)
 
 
@@ -692,13 +693,13 @@ module Path_constructors = struct
     {desc = s; exp = Str.regexp exp; exact; only_instr} *)
   let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
     let exp = if exact then s ^ "$" else s in
-    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Struct in
-    {rexp_desc = s; rexp_exp = Str.regexp exp; rexp_substr = exact; rexp_trm_kind = trmKind}
+    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Expr in
+    {rexp_desc = s; rexp_exp = Str.regexp_string exp; rexp_substr = exact; rexp_trm_kind = trmKind}
 
   let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
     Constr_regexp {
       rexp_desc = s;
-      rexp_exp = Str.regexp s;
+      rexp_exp = Str.regexp_string s;
       rexp_substr = false;
       rexp_trm_kind = tk; }
 
@@ -711,7 +712,7 @@ module Path_constructors = struct
   let cInstrOrExprRexp (tk : trm_kind) (substr : bool) (s : string) : constr =
     Constr_regexp {
       rexp_desc = s;
-      rexp_exp = Str.regexp s;
+      rexp_exp = Str.regexp_string s;
       rexp_substr = substr;
       rexp_trm_kind = tk; }
 
