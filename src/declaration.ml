@@ -1,6 +1,6 @@
 open Ast
 open Ast_to_c
-open Path
+open Target
 open Path_constructors
 open Transformations
 
@@ -391,7 +391,7 @@ let remove_decl (clog : out_channel) (tr : target) (t : trm) : trm =
          (* remove the last direction to point at the seq *)
          (List.rev (List.tl dl))
      in
-     
+
      (* remove delete instruction if the declaration is a heap allocation *)
      begin match t_decl.desc with
      | Trm_seq _ when t_decl.annot = Some Heap_allocated ->

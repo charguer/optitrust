@@ -24,7 +24,7 @@ type case_kind
 type abort_kind
 type constr_access
 type enum_const_dir
-type target_list_pred 
+type target_list_pred
 
 val cTrue : constr
 
@@ -64,7 +64,7 @@ val cArg : int -> constr
 
 val cName : constr
 
-val cStrict : constr  
+val cStrict : constr
 
 val cDirCase : int -> case_dir -> constr
 
@@ -226,27 +226,27 @@ val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:s
 
 (* val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit  *)
 
-val make_explicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> target -> unit 
+val make_explicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> target -> unit
 
-val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> target -> unit 
+val make_implicit_record_assignment : ?replace_top:bool -> ?struct_name:string -> target -> unit
 
-val create_subsequence : ?replace_top:bool -> ?start:target -> ?stop:target -> ?stop_before:bool -> ?stop_after:bool -> ?label:string -> ?braces:bool -> unit -> unit 
+val create_subsequence : ?replace_top:bool -> ?start:target -> ?stop:target -> ?stop_before:bool -> ?stop_after:bool -> ?label:string -> ?braces:bool -> unit -> unit
 
-val array_to_variables : ?replace_top:bool -> target -> string list -> unit 
+val array_to_variables : ?replace_top:bool -> target -> string list -> unit
 
 val local_other_name : ?replace_top:bool -> ?section_of_interest:string -> ?new_var_type:string -> ?old_var:string -> ?new_var:string -> unit -> unit
 
-val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit 
+val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit
 
-val const_non_const: ?replace_top:bool -> target -> unit 
+val const_non_const: ?replace_top:bool -> target -> unit
 
-val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  target -> unit 
+val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  target -> unit
 
-val remove_instruction : ?replace_top:bool -> target -> unit 
+val remove_instruction : ?replace_top:bool -> target -> unit
 
-val remove_instructions : ?replace_top:bool -> target list -> unit 
+val remove_instructions : ?replace_top:bool -> target list -> unit
 
-val undetach_expression : ?replace_top:bool -> target -> unit 
+val undetach_expression : ?replace_top:bool -> target -> unit
 
 val fields_reorder : ?replace_top:bool -> target -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit
 
@@ -262,7 +262,7 @@ val move_loop_before : ?replace_top:bool -> target -> string -> unit
 
 val move_loop_after : ?replace_top:bool -> target -> string -> unit
 
-val move_loop : ?replace_top:bool -> ?move_before:string -> ?move_after:string -> string-> unit 
+val move_loop : ?replace_top:bool -> ?move_before:string -> ?move_after:string -> string-> unit
 
 val aos_to_soa : ?replace_top:bool -> ?name:(string -> string) -> string -> unit
 

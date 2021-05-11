@@ -1,5 +1,5 @@
 open Ast
-open Path
+open Target
 open Ast_to_c
 open Transformations
 open Tools
@@ -506,125 +506,125 @@ let aos_to_soa (clog : out_channel) (name : var -> var) (x : typvar)
   swap_accesses clog x t
 
 
-let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm : trm) (decl_index : int) (t  : trm) : trm =  
-  let log : string = 
+let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm : trm) (decl_index : int) (t  : trm) : trm =
+  let log : string =
     let loc : string =
-    match t.loc with 
+    match t.loc with
     | None -> ""
     | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in Printf.sprintf
     (" - expression\n%s\n" ^^
     " %s is a declaration\n"
     )
-    (ast_to_string decl_trm) loc 
+    (ast_to_string decl_trm) loc
     in write_log clog log;
-    match t.desc with 
+    match t.desc with
     | Trm_seq tl ->
-       let decl_type = begin match decl_trm.desc with 
-       | Trm_seq[t_decl] -> 
-        begin match t_decl.desc with 
-        | Trm_decl (Def_var ((_,_),dx)) -> 
-          begin match dx.desc with 
-          | Trm_val( Val_prim (Prim_new t_arr)) -> 
-            begin match t_arr.ty_desc with 
-            | Typ_array (t_var,_) -> 
-              begin match t_var.ty_desc with 
-              | Typ_var x -> x 
+       let decl_type = begin match decl_trm.desc with
+       | Trm_seq[t_decl] ->
+        begin match t_decl.desc with
+        | Trm_decl (Def_var ((_,_),dx)) ->
+          begin match dx.desc with
+          | Trm_val( Val_prim (Prim_new t_arr)) ->
+            begin match t_arr.ty_desc with
+            | Typ_array (t_var,_) ->
+              begin match t_var.ty_desc with
+              | Typ_var x -> x
               | _ -> fail t.loc "array_to_variables_aux: expected a type variable"
-              end 
+              end
             | _ -> fail t.loc "array_to_variables_aux: expected an array type"
-            end 
+            end
           | _ -> fail t.loc "array_to_variables_aux: something went wrong"
-          end 
+          end
         | _ -> fail t.loc "array_to_variables_aux: expected a variable declaration"
-        end 
+        end
       | _ -> fail t.loc "array_to_variables_aux: expected a sequence which contain the variable declaration"
-      end 
-      in 
+      end
+      in
       (* let decl_index = get_index decl_trm tl in *)
-      let new_trms = List.map(fun x -> 
-        trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var((x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type))))]) new_vars 
-      in    
-      trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl) 
+      let new_trms = List.map(fun x ->
+        trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var((x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type))))]) new_vars
+      in
+      trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl)
     | _ -> fail t.loc "array_to_variables_aux: only declaration inside sequence are supported"
 
-let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var list) (t: trm) : trm = 
-  let log : string = 
+let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var list) (t: trm) : trm =
+  let log : string =
     let loc : string =
-    match t.loc with 
+    match t.loc with
     | None -> ""
     | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in Printf.sprintf
     (" - expression\n%s\n" ^^
     " %s is the full term\n"
     )
-    (ast_to_string t) loc 
+    (ast_to_string t) loc
     in write_log clog log;
-    let rec aux (global_trm : trm) (t : trm) : trm = 
-      match t.desc with 
-      | Trm_apps(f,[arr_base;arr_index]) -> 
-        begin match f.desc with 
+    let rec aux (global_trm : trm) (t : trm) : trm =
+      match t.desc with
+      | Trm_apps(f,[arr_base;arr_index]) ->
+        begin match f.desc with
         | Trm_val (Val_prim (Prim_binop Binop_array_access)) ->
-          begin match arr_base.desc with 
-          | Trm_var x when x = array_var -> 
-            begin match arr_index.desc with 
-            | Trm_val (Val_lit (Lit_int i)) -> 
+          begin match arr_base.desc with
+          | Trm_var x when x = array_var ->
+            begin match arr_index.desc with
+            | Trm_val (Val_lit (Lit_int i)) ->
               if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
-              else 
+              else
                 trm_var (List.nth new_vars i)
             | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
-            end 
-          | Trm_apps (f1,[base1]) -> 
-            begin match f1.desc with 
-            | Trm_val (Val_prim (Prim_unop Unop_struct_access var)) when var = array_var -> 
-              begin match arr_index.desc with 
+            end
+          | Trm_apps (f1,[base1]) ->
+            begin match f1.desc with
+            | Trm_val (Val_prim (Prim_unop Unop_struct_access var)) when var = array_var ->
+              begin match arr_index.desc with
               | Trm_val (Val_lit (Lit_int i)) ->
                 if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
-                else 
+                else
                   let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (List.nth new_vars i))))} in
-                  trm_apps f1 [base1] 
+                  trm_apps f1 [base1]
                   (* trm_var (List.nth new_vars i) *)
               | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
-              end 
+              end
             | _ -> trm_map (aux global_trm) t
             end
-          | _ -> trm_map (aux global_trm) t 
+          | _ -> trm_map (aux global_trm) t
           end
         | _ -> trm_map (aux global_trm) t
-        end 
+        end
       | _ -> trm_map (aux global_trm) t
     in aux t t
-      
-         
-let array_to_variables (clog : out_channel) (dcl_path : target) (new_vars : var list) (t : trm) : trm = 
+
+
+let array_to_variables (clog : out_channel) (dcl_path : target) (new_vars : var list) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_target dcl_path t in 
+  let epl = resolve_target dcl_path t in
   Flags.verbose := b;
-  let app_transfo (t :trm) (dl : path) : trm = 
-    match List.rev dl with 
-    | Dir_nth n :: dl' -> 
+  let app_transfo (t :trm) (dl : path) : trm =
+    match List.rev dl with
+    | Dir_nth n :: dl' ->
       let (t',_) = resolve_path dl t in
       let dl = List.rev dl' in
-      
-      apply_local_transformation (array_to_variables_aux clog new_vars t' n) t dl 
+
+      apply_local_transformation (array_to_variables_aux clog new_vars t' n) t dl
     | _ -> fail t.loc "app_transfo: expected a dir_nth inside the sequence"
-  in 
+  in
   (* Change all array accessess with the new variables before changing the declaration *)
-  let declaration_trm = match epl with 
-  | [dl] -> let (t_def,_) = resolve_path dl t in t_def 
+  let declaration_trm = match epl with
+  | [dl] -> let (t_def,_) = resolve_path dl t in t_def
   | _ -> fail t.loc "array_to_variables: expected only one declaration trm"
-  in 
+  in
   let array_variable = match declaration_trm.desc with
-  | Trm_seq [{desc=Trm_decl (Def_var ((x,_),_));_}] -> x 
+  | Trm_seq [{desc=Trm_decl (Def_var ((x,_),_));_}] -> x
   | _ -> fail t.loc "array_to_variables: expected a sequece which contains the declration"
-  in 
-  let t = inline_array_access clog array_variable new_vars t in 
-  match epl with 
+  in
+  let t = inline_array_access clog array_variable new_vars t in
+  match epl with
 
 
   | [] ->
     print_info t.loc "array_to_variables: no matching subterm";
     t
   | _ -> List.fold_left(fun t dl -> app_transfo t dl)
-    t epl 
+    t epl

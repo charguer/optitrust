@@ -185,7 +185,7 @@ let cleanup_cpp_file_using_clang_format filename =
 
 let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
   let file_ast = out_prefix ^ ".ast" in
-  (* let file_js = out_prefix ^ ".js" in 
+  (* let file_js = out_prefix ^ ".js" in
   let out_js = open_out file_js in  *)
   let file_enc = out_prefix ^ "_enc" ^ ctx.extension in
   let file_prog = out_prefix ^ ctx.extension in
@@ -234,24 +234,24 @@ let reparse (ctx : context) (ast : trm) : trm =
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
 
-(* 
-  outputs a javascript file which contains the ast encoded as json 
-  for each transformation step also the initial source code together 
+(*
+  outputs a javascript file which contains the ast encoded as json
+  for each transformation step also the initial source code together
   with the transformed versions
  *)
 
-let output_js (index : int) (out_prefix : string )(ast : trm) : unit = 
-  let file_js = out_prefix ^ ".js" in 
-  let out_js = open_out file_js in 
-  
+let output_js (index : int) (out_prefix : string )(ast : trm) : unit =
+  let file_js = out_prefix ^ ".js" in
+  let out_js = open_out file_js in
+
   try
     ast_to_js out_js index ast;
     output_string out_js "\n";
     Json.code_to_js out_js index ast;
     close_out out_js;
 
-  with 
-  | Failure s -> 
+  with
+  | Failure s ->
     close_out out_js;
     failwith s
 
@@ -293,15 +293,15 @@ let exit_script () : unit =
   with
   | Stack.Empty -> fail None ("exit_script: script must be interrupted after " ^
                                 "the initial source file is set.")
- 
 
-let dump_trace_to_js ?(out_prefix : string = "") () : unit = 
+
+let dump_trace_to_js ?(out_prefix : string = "") () : unit =
   (* Initialize var content and source as empty arrays *)
-  let () = initialization out_prefix in 
-  let dump_stack (out_prefix : string) 
-    (astStack : trm Stack.t) : unit = 
-    let nbAst = Stack.length astStack in 
-    let i = ref(nbAst - 2) in 
+  let () = initialization out_prefix in
+  let dump_stack (out_prefix : string)
+    (astStack : trm Stack.t) : unit =
+    let nbAst = Stack.length astStack in
+    let i = ref(nbAst - 2) in
     (* exceptions:
      - i = 0 -> program before tranformation -> prefix_input
      - i = nbAst -2 -> result program -> prefix_input
@@ -310,19 +310,19 @@ let dump_trace_to_js ?(out_prefix : string = "") () : unit =
     Stack.iter
       (fun ast ->
         if !i = -1 then ()
-        else 
+        else
           output_js !i out_prefix ast;
-        i := !i - 1; 
+        i := !i - 1;
       )
       astStack
-    in 
-    List.iter 
+    in
+    List.iter
       (fun (ctx, astStack) ->
-        let out_prefix = 
-          if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix 
-        in 
+        let out_prefix =
+          if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
+        in
         dump_stack out_prefix astStack
-      
+
       )
       !trace
 
@@ -398,17 +398,18 @@ let run_unit_test ?(ast_decode : bool = true) (script : unit -> unit) : unit =
 (*                        Smart constructors for targets                        *)
 (******************************************************************************)
 
-open Path
+open Target
 include Path_constructors
 
-type constr = Path.constr
-type target = Path.target
-type case_dir = Path.case_dir
-type abort_kind = Path.abort_kind
-type constr_access = Path.constr_access
-type case_kind = Path.case_kind
-type enum_const_dir = Path.enum_const_dir
-type target_list_pred = Path.target_list_pred
+type constr = Target.constr
+type target = Target.target
+type case_dir = Target.case_dir
+type abort_kind = Target.abort_kind
+type constr_access = Target.constr_access
+type case_kind = Target.case_kind
+type enum_const_dir = Target.enum_const_dir
+type target_list_pred = Target.target_list_pred
+
 (******************************************************************************)
 (*                              Transformations                               *)
 (******************************************************************************)

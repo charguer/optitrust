@@ -1,16 +1,16 @@
 open Ast
 open Ast_to_c
-open Path
+open Target
 open Path_constructors
 open Transformations
 open Tools
 
  let rec loop_coloring_aux (clog : out_channel) (c : var) (new_var : var)(t : trm) : trm =
-    match t.desc with 
+    match t.desc with
     (* The loop might be labelled, so keep the label *)
     | Trm_labelled (l, t_loop) ->
       trm_labelled l (loop_coloring_aux clog c new_var t_loop)
-    
+
     | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
      let t_transformed = loop_coloring_aux clog c new_var t_loop in
      (* transformed loops are expected to declare their index *)
@@ -43,14 +43,14 @@ open Tools
         | _ -> fail body1.loc "loop_coloring_aux: expected inner loop"
         end
      | _ -> fail t_transformed.loc "loop_coloring_aux: expected outer loop"
-     end 
+     end
   | Trm_for (init, cond, step, body) ->
-      let log : string = 
-        let loc : string = 
+      let log : string =
+        let loc : string =
           match body.loc with
           | None -> ""
           | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-        in 
+        in
         Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
           "      for ([int] i = 0; i < N; i++)\n" ^^
@@ -61,35 +61,35 @@ open Tools
           "      }\n"
          )
          (ast_to_string init) (ast_to_string cond) (ast_to_string step)
-         (ast_to_string body) loc    
+         (ast_to_string body) loc
       in
       write_log clog log;
       let index_i = for_loop_index t in
       let loop_size = for_loop_bound t in
       let block_size = trm_var c in
-      let loop_step = for_loop_step t in 
-      let log : string = 
+      let loop_step = for_loop_step t in
+      let log : string =
         Printf.sprintf " - %s is divisible by %S\n" (ast_to_string loop_size) (ast_to_string block_size)
       in
       write_log clog log;
-        
-      let loop ?(top : bool = false) (index : var) (bound : trm) (body : trm) = 
-        
-        
-        let start = match top with 
-        | true -> trm_lit(Lit_int 0) 
-        | false ->  
-          match loop_step.desc with 
+
+      let loop ?(top : bool = false) (index : var) (bound : trm) (body : trm) =
+
+
+        let start = match top with
+        | true -> trm_lit(Lit_int 0)
+        | false ->
+          match loop_step.desc with
           | Trm_val(Val_lit(Lit_int 1)) -> trm_var new_var
           | _ -> trm_apps (trm_binop Binop_mul)
               [
-                  trm_apps ~annot:(Some Heap_allocated) 
+                  trm_apps ~annot:(Some Heap_allocated)
                       (trm_unop Unop_get) [trm_var new_var];
                     loop_step
 
               ]
-              
-          in 
+
+          in
           trm_seq ~annot:(Some Delete_instructions)
             [
               trm_for
@@ -110,17 +110,17 @@ open Tools
                   ]
                 )
                 (* step *)
-                
+
                 (if top then trm_apps (trm_unop Unop_inc) [trm_var index]
-                else  match loop_step.desc with 
+                else  match loop_step.desc with
                   | Trm_val(Val_lit(Lit_int 1)) -> trm_set (trm_var index) ~annot:(Some App_and_set)
                     (trm_apps (trm_binop Binop_add)
                       [
                         trm_var index ;
-                          
+
                         trm_var c
                       ])
-                  | _ -> 
+                  | _ ->
                     trm_set (trm_var index) ~annot:(Some App_and_set) (trm_apps (trm_binop Binop_add)
                       [
                         trm_var index;
@@ -130,12 +130,12 @@ open Tools
                                  (trm_unop Unop_get) [trm_var c];
                                loop_step
                              ]
-                      
+
                       ])
                 )
-                  
-                  
-                
+
+
+
 
                 (* body *)
                 body;
@@ -143,16 +143,16 @@ open Tools
                   (trm_unop (Unop_delete false)) [trm_var index]
 
             ]
-          in loop ~top:true new_var (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ]) 
-      
+          in loop ~top:true new_var (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ])
+
 
   | _ -> fail t.loc "loop_coloring_aux: not a for loop, check the path "
 
 
-let loop_coloring_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : trm = 
-  let log : string = 
-    let loc : string = 
-      match t.loc with 
+let loop_coloring_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : trm =
+  let log : string =
+    let loc : string =
+      match t.loc with
       | None -> ""
       | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in
@@ -161,13 +161,13 @@ let loop_coloring_aux (clog : out_channel)(c : var)(new_var : var) (t : trm) : t
 
        "    %sis a (labelled) loop\n"
       )
-      (ast_to_string t) loc 
+      (ast_to_string t) loc
     in
     write_log clog log;
     loop_coloring_aux clog c new_var t
 
 
-let loop_coloring (clog : out_channel) (tr : target) (c : var)(new_var : var)(t : trm) : trm = 
+let loop_coloring (clog : out_channel) (tr : target) (c : var)(new_var : var)(t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
   let epl = resolve_target tr t in
@@ -247,31 +247,31 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
          (ast_to_string body) loc
     in
     write_log clog log;
-    let index_x = for_loop_index t in 
-    let loop_size = for_loop_bound t in 
-    let block_size =  trm_var b in 
-    let spec_bound = trm_apps (trm_var "min") 
+    let index_x = for_loop_index t in
+    let loop_size = for_loop_bound t in
+    let block_size =  trm_var b in
+    let spec_bound = trm_apps (trm_var "min")
           [
             loop_size;
             trm_apps (trm_binop Binop_add)
-            [ 
-             
+            [
+
               trm_var ("b" ^ index_x);
               trm_apps ~annot:(Some Heap_allocated)
                       (trm_unop Unop_get) [trm_var b]
             ]
           ]
     in
-    let log : string = 
+    let log : string =
       Printf.sprintf "   -%s is divisible by %S\n" (ast_to_string loop_size) (ast_to_string block_size)
-    in 
+    in
     write_log clog log;
-  
+
     let loop ?(top : bool = false) (index : var) (bound : trm) (body : trm) =
-        let start = match top with 
+        let start = match top with
         | true -> trm_lit(Lit_int 0)
         | false -> trm_var( new_var)
-        in 
+        in
         trm_seq ~annot:(Some Delete_instructions)
             [
               trm_for
@@ -302,7 +302,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
 
                     ]
                 )
-                
+
                 )
                 (* body *)
                 body;
@@ -312,10 +312,10 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
         in
         loop ~top:true new_var loop_size (trm_seq [loop ~top:false index_x spec_bound body])
      | _ -> fail t.loc "loop_tile_aux: bad loop body"
-    
 
 
- 
+
+
 let loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : trm =
   let log : string =
     let loc : string =
@@ -348,10 +348,10 @@ let loop_tile (clog : out_channel) (tr : target)(tile_width : var)(new_var : var
        t
        epl
 
-let rec loop_swap_aux (clog : out_channel) (t : trm) : trm = 
-  match t.desc with 
+let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
+  match t.desc with
   (* the loop might be labelled: kepp the label *)
-  | Trm_labelled (l, t_loop) -> 
+  | Trm_labelled (l, t_loop) ->
     trm_labelled l (loop_swap_aux clog t_loop)
   | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
      let t_swaped = loop_swap_aux clog t_loop in
@@ -361,7 +361,7 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
                                  {desc = Trm_seq [body1]; _}); _}; t_del1]
           when t_swaped.annot = Some Delete_instructions ->
         begin match body1.desc with
-        
+
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
              when body1.annot = Some Delete_instructions ->
            (* if the index is used in body, then add delete instruction *)
@@ -389,12 +389,12 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
      end
   (* otherwise, just swap  *)
   | Trm_for (init1, cond1, step1,body1) ->
-    let log : string = 
-      let loc : string = 
-        match body1.loc with 
+    let log : string =
+      let loc : string =
+        match body1.loc with
         | None -> ""
         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-      in 
+      in
       Printf.sprintf
          ("  - for (%s; %s; %s) is of the form\n" ^^
           "      for ([int] x = 0; x < X; x++)\n" ^^
@@ -409,17 +409,17 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
       in
       write_log clog log;
 
-      begin match body1.desc with 
-     
+      begin match body1.desc with
+
       | Trm_seq ({desc = Trm_seq(f_loop :: _);_} :: _) ->
-        begin match f_loop.desc with 
-        | Trm_for(init2,cond2,step2,body2) -> 
-          let log : string = 
-            let loc : string = 
-            match body1.loc with 
+        begin match f_loop.desc with
+        | Trm_for(init2,cond2,step2,body2) ->
+          let log : string =
+            let loc : string =
+            match body1.loc with
             | None -> ""
             | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-          in 
+          in
           Printf.sprintf
           ("Inner looop " ^^
            "  - for (%s; %s; %s) is of the form\n" ^^
@@ -434,13 +434,13 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
           (ast_to_string body2) loc
           in
           write_log clog log;
-          let index1 = for_loop_index t in 
-          let loop_size1 = for_loop_bound t in 
+          let index1 = for_loop_index t in
+          let loop_size1 = for_loop_bound t in
           let index_init1 = for_loop_init t in
-          let index2 = for_loop_index f_loop in 
+          let index2 = for_loop_index f_loop in
           let loop_size2 = for_loop_bound f_loop in
           let index_init2 = for_loop_init f_loop in
-           
+
           let loop (index : var) (init : trm) (step : trm) (bound : trm) (body : trm) =
           trm_seq ~annot:(Some Delete_instructions)
             [
@@ -476,18 +476,18 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
       | _ -> fail t.loc "loop_swap_aux; expected inner loop"
       end
 
-      
+
   | _ -> fail t.loc "loop_swap_aux; bad loop body"
 
-  
 
-let loop_swap_aux (clog : out_channel) (t : trm) : trm = 
+
+let loop_swap_aux (clog : out_channel) (t : trm) : trm =
   let log : string =
     let loc : string =
-      match t.loc with 
+      match t.loc with
       | None -> ""
       | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in 
+    in
     Printf.sprintf
       (" - expression \n%s\n" ^^
        "  %sis a (labelled) loop\n"
@@ -513,25 +513,25 @@ let loop_swap (clog : out_channel) (tr : target)(t : trm) : trm =
          apply_local_transformation (loop_swap_aux clog) t dl)
        t
        epl
-(* get_loop_nest_indices -- currently omiting the last one 
-   
+(* get_loop_nest_indices -- currently omiting the last one
+
 *)
 (* for a { for b {} {  for j {}   ;  for k {} } } -- >  a::b::[]
   the function should check that it is a loop nest :
-      aux t = 
+      aux t =
          if t is a for (i , body) then  i::(aux body)
          if t is a seq[(for(..)) as t1] and nothing else then  aux t1
          else []
-         
+
 *)
-let rec get_loop_nest_indices (t : trm) : 'a list = 
-    match t.desc with 
+let rec get_loop_nest_indices (t : trm) : 'a list =
+    match t.desc with
     | Trm_labelled (_, t_loop) -> get_loop_nest_indices t_loop
     | Trm_seq [t_loop;_] -> get_loop_nest_indices t_loop
-    | Trm_for (_,_,_,body) -> 
-      let loop_index = for_loop_index t in 
-      begin match body.desc with 
-      | Trm_seq ({desc = Trm_seq (f_loop :: _);_} :: _) -> 
+    | Trm_for (_,_,_,body) ->
+      let loop_index = for_loop_index t in
+      begin match body.desc with
+      | Trm_seq ({desc = Trm_seq (f_loop :: _);_} :: _) ->
         loop_index :: get_loop_nest_indices f_loop
       | _ -> loop_index :: []
       end
@@ -539,12 +539,12 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
 
 
 let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm =
-    let log : string = 
-      let loc : string = 
-        match t.loc with 
+    let log : string =
+      let loc : string =
+        match t.loc with
         | None -> ""
         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-      in 
+      in
       Printf.sprintf
       ("  - expression\n%s\n" ^^
           "    %sis a (labelled) loop\n"
@@ -552,48 +552,48 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
       (ast_to_string t) loc
       in
       write_log clog log;
-      (* Get the path from the outer loop to the one we want to swap with 
+      (* Get the path from the outer loop to the one we want to swap with
 
-              
-      let path_list = List.rev (get_path clog t) in 
+
+      let path_list = List.rev (get_path clog t) in
 
         *)
-      let path_list = List.rev (get_loop_nest_indices t)  in      
-      (* do a list rev at the end of get_loop_nest_indices 
+      let path_list = List.rev (get_loop_nest_indices t)  in
+      (* do a list rev at the end of get_loop_nest_indices
          let rec chop_list_before x xs =
             | [] -> error "did not find x"
             | y::tl -> if y = x then [] else y:: chop_list_before x tl      *)
-      let rec clean_path (xl : 'a list) : 'a list = match xl with 
+      let rec clean_path (xl : 'a list) : 'a list = match xl with
         | [] -> []
-        | hd :: tl -> 
+        | hd :: tl ->
           if hd = loop_index then tl
           else clean_path tl
-      in 
-      let _check_last = List.mem loop_index path_list in 
+      in
+      let _check_last = List.mem loop_index path_list in
       (*
       let path_list = if not check_last then path_list
-          else clean_path path_list 
+          else clean_path path_list
       *)
-      let path_list = clean_path path_list 
+      let path_list = clean_path path_list
       in
-      (* List.fold_right (fun i acc  -> loop swap t i) path_list acc t 
+      (* List.fold_right (fun i acc  -> loop swap t i) path_list acc t
          --checkout the documentation of fold_right *)
-      let rec multi_swap (xl : 'a list) (t : trm) : trm = match xl with 
+      let rec multi_swap (xl : 'a list) (t : trm) : trm = match xl with
       | [] -> t
-      | hd :: tl -> 
+      | hd :: tl ->
         let pl = [cFor ~init:[cVarDef ~name:hd ()] ()] in
-        let t = loop_swap clog pl t in 
+        let t = loop_swap clog pl t in
         multi_swap tl t
      in
-     multi_swap path_list t 
+     multi_swap path_list t
 
 let move_loop_before (clog : out_channel) (tr : target)(loop_index : var) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_target tr t in 
+  let epl = resolve_target tr t in
   Flags.verbose := b;
-  match epl with 
-  | [] -> 
+  match epl with
+  | [] ->
     print_info t.loc "move_loop_before: no matching subterm";
     t
   | _ ->
@@ -603,10 +603,10 @@ let move_loop_before (clog : out_channel) (tr : target)(loop_index : var) (t : t
       t
       epl
 
-let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm = 
+let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm =
   let log : string =
     let loc : string =
-      match t.loc with 
+      match t.loc with
       | None -> ""
       | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in
@@ -618,35 +618,35 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
     in
     write_log clog log;
     let path_list = get_loop_nest_indices t in
-    let rec clean_path (xl : 'a list) : 'a list = match xl with 
+    let rec clean_path (xl : 'a list) : 'a list = match xl with
       | [] -> []
-      | hd :: tl -> 
+      | hd :: tl ->
         if hd = loop_index then tl
-        else clean_path tl  
+        else clean_path tl
       in
     let l_index = List.hd path_list in
-    let _check_last = List.mem loop_index path_list in 
+    let _check_last = List.mem loop_index path_list in
     let path_list = if false then path_list
-      else clean_path (List.rev path_list) 
+      else clean_path (List.rev path_list)
       in
     let path_length = List.length path_list in
     (*if (path_list = []) then error ---try to check the error in case  move_before "i" "i" *)
     (* List.fold_left (fun _i acc -> swap l_index) (List.tl path_list) *)
-    let rec multi_swap (count : int) (t : trm) : trm = match count with 
-      | 0 ->  t  
-      | _ -> let pl = [cFor ~init:[cVarDef ~name:l_index ()] ()] in 
-           let t = loop_swap clog pl t in 
+    let rec multi_swap (count : int) (t : trm) : trm = match count with
+      | 0 ->  t
+      | _ -> let pl = [cFor ~init:[cVarDef ~name:l_index ()] ()] in
+           let t = loop_swap clog pl t in
            multi_swap (count-1) t
       in
-    multi_swap path_length t 
+    multi_swap path_length t
 
 let move_loop_after (clog : out_channel) (tr : target)(loop_index : var) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
-  let epl = resolve_target tr t in 
+  let epl = resolve_target tr t in
   Flags.verbose := b;
-  match epl with 
-  | [] -> 
+  match epl with
+  | [] ->
     print_info t.loc "move_loop_before: no matching subterm";
     t
   | _ ->
@@ -656,24 +656,24 @@ let move_loop_after (clog : out_channel) (tr : target)(loop_index : var) (t : tr
       t
       epl
 
-let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : string = "") (loop_index : string) (t : trm) : trm = 
-  let log : string = 
-      let loc : string = 
-        match t.loc with 
+let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : string = "") (loop_index : string) (t : trm) : trm =
+  let log : string =
+      let loc : string =
+        match t.loc with
         | None -> ""
         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
           ("  - expression\n%s\n" ^^
           "    %sis a struct type\n"
           )
-      (ast_to_string t) loc 
+      (ast_to_string t) loc
     in
   write_log clog log;
-  match move_before, move_after with 
-  | "",_ -> move_loop_after clog [cFor ~name:loop_index ()] move_after t 
+  match move_before, move_after with
+  | "",_ -> move_loop_after clog [cFor ~name:loop_index ()] move_after t
   | _,"" -> move_loop_before clog [cFor ~name:move_before ()] loop_index t
   | _,_ -> fail t.loc "move_loop: only one of move_before or move_after should be specified"
- 
+
 
  (*
   extract a variable from a loop:

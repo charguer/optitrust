@@ -1,11 +1,11 @@
 open Ast
-open Path
+open Target
 open Path_constructors
 open Ast_to_c
 open Ast_to_text
 open Tools
 
-let failure_expected f = 
+let failure_expected f =
   begin try f(); failwith "should have failed"
   with TransfoError _ -> () end
 
@@ -65,7 +65,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
        | Dir_body, Trm_labelled (l, body) ->
           trm_labelled ~annot ~loc ~add ~attributes l (aux dl body)
        | Dir_body, Trm_decoration(left, body, right) ->
-          trm_decoration ~annot ~loc ~add ~attributes left right (aux dl body) 
+          trm_decoration ~annot ~loc ~add ~attributes left right (aux dl body)
        | Dir_for_init, Trm_for (init, cond, step, body) ->
           trm_for ~annot ~loc ~add ~attributes (aux dl init) cond step body
        | Dir_for_step, Trm_for (init, cond, step, body) ->
@@ -124,7 +124,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
              fail loc ("apply_local_transformation: transformation " ^
                          "must preserve names")
           end
-          
+
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
           trm_switch ~annot ~loc ~add ~attributes cond
             (change_nth
@@ -168,15 +168,15 @@ let insert_trm_after (dl : path) (insert : trm) (t : trm) : trm =
        (List.rev (List.tl dl'))
   | _ -> fail t.loc "insert_trm_after: bad path"
 
-let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"  
+let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
 
 
-let remove_instruction_aux (clog : out_channel) (t : trm) : trm = 
-  let log : string = 
-    let loc : string = 
-    match t.loc with 
+let remove_instruction_aux (clog : out_channel) (t : trm) : trm =
+  let log : string =
+    let loc : string =
+    match t.loc with
     | None -> ""
     | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf "at start_location %d %d end location %d %d" start_row start_column end_row end_column
     in Printf.sprintf
@@ -185,55 +185,55 @@ let remove_instruction_aux (clog : out_channel) (t : trm) : trm =
     )
     (ast_to_string t) loc
     in write_log clog log;
-    trm_seq ~annot:(Some No_braces) [] 
-    
+    trm_seq ~annot:(Some No_braces) []
 
 
-let remove_instruction (clog : out_channel) (tr : target) (t : trm) : trm = 
-  let epl = resolve_target tr t in 
-  match epl with 
-  | [] -> 
+
+let remove_instruction (clog : out_channel) (tr : target) (t : trm) : trm =
+  let epl = resolve_target tr t in
+  match epl with
+  | [] ->
     print_info t.loc "remove_instruction: no matching subterm";
     t
   | _ -> List.fold_left
-        ( fun t dl -> 
+        ( fun t dl ->
           apply_local_transformation (remove_instruction_aux clog ) t dl )
-          t epl 
+          t epl
 
-let remove_instructions (clog : out_channel) (instruction_list : (target) list) (t : trm) : trm = 
+let remove_instructions (clog : out_channel) (instruction_list : (target) list) (t : trm) : trm =
   let t = List.fold_left (fun t instruction -> (remove_instruction clog) instruction t)
-  t instruction_list 
-  in t   
+  t instruction_list
+  in t
 
 
-let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm = 
-  let epl = resolve_target tr t in 
-  match epl with 
-  | [] -> 
+let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm =
+  let epl = resolve_target tr t in
+  match epl with
+  | [] ->
     print_info t.loc "show_target: no matching subterm\n";
     t
   | [dl] -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
-            apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0) ) t dl 
+            apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0) ) t dl
 
   | _ -> foldi
           (fun i -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
                     apply_local_transformation
                    (trm_decoration (left_decoration i) (right_decoration i )))
 
-          t epl 
+          t epl
 
 
-let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) (t : trm) : trm = 
-  let epl = resolve_target tr t in 
-  match epl with 
+let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) (t : trm) : trm =
+  let epl = resolve_target tr t in
+  match epl with
   | [] ->
     print_info t.loc "show_ast: no matching subterm\n";
     t
-  | _ -> 
-    let out_ast = open_out file in 
+  | _ ->
+    let out_ast = open_out file in
     foldi
       (
-        fun i -> apply_local_transformation(fun t -> 
+        fun i -> apply_local_transformation(fun t ->
             if to_stdout then begin
               print_ast ~only_desc:true stdout t;
               output_string stdout "\n\n";
@@ -244,20 +244,20 @@ let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) (t :
             output_string out_ast (Printf.sprintf "------------------------Occurence %i details---------------\n" i);
             print_ast ~only_desc:false out_ast t;
             output_string out_ast "\n\n";
-            t)  
+            t)
       )
       t epl
       (* close_out out_ast; *)
 
 (* Change one declaration form const to heap allocated and vice versa*)
-let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm = 
-  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with 
+let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
+  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with
     | [] -> failwith "Empty list"
     | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
-  in 
+  in
   let log : string =
-      let loc : string = 
-      match t.loc with 
+      let loc : string =
+      match t.loc with
       | None -> ""
       | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
@@ -266,62 +266,62 @@ let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
       )
       (ast_to_string t) loc
     in write_log clog log;
-    match t.desc with 
-    | Trm_seq tl -> 
+    match t.desc with
+    | Trm_seq tl ->
       (* Find the declaration trm, using the index inside the sequence *)
-      let t_decl = List.nth tl trm_index in 
+      let t_decl = List.nth tl trm_index in
       (*Check if the delcaration is const or non-const  *)
-      begin match t_decl.desc with 
-      | Trm_seq[decl;assgn] -> 
-        let var_name,var_type = begin match decl.desc with 
-        | Trm_decl(Def_var ((x, tx), _)) -> 
-          let y = match tx.ty_desc with 
+      begin match t_decl.desc with
+      | Trm_seq[decl;assgn] ->
+        let var_name,var_type = begin match decl.desc with
+        | Trm_decl(Def_var ((x, tx), _)) ->
+          let y = match tx.ty_desc with
           | Typ_ptr vt -> vt
           | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
           in x,y
         | _ -> fail t.loc "const_non_const_aux: exepected a declaration"
-        end 
-        in 
-        let var_value = begin match assgn.desc with 
+        end
+        in
+        let var_value = begin match assgn.desc with
         | Trm_apps (_,[_;v]) ->  v
         | _ -> fail t.loc "const_non_const_aux: expected an assignment"
-        end 
-        in 
-        let new_trm = trm_decl ~is_statement:true (Def_var ((var_name,var_type),var_value)) in 
-        let tl = list_replace_el new_trm trm_index tl in 
+        end
+        in
+        let new_trm = trm_decl ~is_statement:true (Def_var ((var_name,var_type),var_value)) in
+        let tl = list_replace_el new_trm trm_index tl in
         trm_seq ~annot:t.annot ~loc:t.loc tl
-      | Trm_decl(Def_var ((x, tx),dx)) -> 
+      | Trm_decl(Def_var ((x, tx),dx)) ->
           let new_trm = trm_seq ~annot:(Some Heap_allocated) [
-            trm_decl (Def_var ((x,typ_ptr tx),trm_prim (Prim_new tx)));trm_set ~annot:(Some Initialisation_instruction) (trm_var x) dx] 
-          
-          in 
-          let tl = list_replace_el new_trm trm_index tl in 
-          trm_seq ~annot:t.annot tl 
+            trm_decl (Def_var ((x,typ_ptr tx),trm_prim (Prim_new tx)));trm_set ~annot:(Some Initialisation_instruction) (trm_var x) dx]
+
+          in
+          let tl = list_replace_el new_trm trm_index tl in
+          trm_seq ~annot:t.annot tl
       | _ -> fail t.loc "const_non_const_aux: exepected a declaration"
-      end 
-      
+      end
+
     | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration"
-    
+
 
 
 let const_non_const (clog : out_channel) (tr : target) (t : trm) : trm =
-  let epl = resolve_target tr t in 
-  let app_transfo (t : trm) (dl : path) : trm = 
-    match List.rev dl with 
-    | Dir_nth n :: dl' -> 
-      let dl = List.rev dl' in 
+  let epl = resolve_target tr t in
+  let app_transfo (t : trm) (dl : path) : trm =
+    match List.rev dl with
+    | Dir_nth n :: dl' ->
+      let dl = List.rev dl' in
       apply_local_transformation (const_non_const_aux clog n )  t dl
     | _ -> fail t.loc "const_non_const: expected a dir_nth inside the sequence"
   in
-  match epl with 
+  match epl with
   | [] -> print_info t.loc "const_non_const: no matching subterm";
     t
   | _ -> List.fold_left (fun t dl -> app_transfo t dl)
-    t epl 
+    t epl
 
 
-let rec delete_target_decorators (t : trm) : trm = 
-  match t.desc with 
+let rec delete_target_decorators (t : trm) : trm =
+  match t.desc with
   | Trm_decoration (_,t',_) -> t'
   | _ -> trm_map (delete_target_decorators ) t
 
@@ -758,16 +758,16 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       | _ -> List.fold_left (apply_local_transformation apply_change) t' epl
     )
     t
-  
+
     change_at
 
 
 
 
-let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var) (new_var : var) (t : trm) : trm = 
+let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var) (new_var : var) (t : trm) : trm =
     let log : string =
-      let loc : string = 
-      match t.loc with 
+      let loc : string =
+      match t.loc with
       | None -> ""
       | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
@@ -776,61 +776,61 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
       )
       (ast_to_string t) loc
       in write_log clog log;
-      match t.desc with 
-      | Trm_seq [no_braces] ->        
+      match t.desc with
+      | Trm_seq [no_braces] ->
         begin match no_braces.desc with
-          | Trm_seq [f_loop;del_inst] -> 
-            begin match f_loop.desc with 
+          | Trm_seq [f_loop;del_inst] ->
+            begin match f_loop.desc with
             | Trm_for (init, cond, step, body) ->
-              
+
               let new_decl = trm_seq ~annot:(Some Heap_allocated) [
                 trm_decl (Def_var ((new_var, typ_ptr (typ_var var_type)), trm_prim (Prim_new (typ_var var_type))));
                 trm_set ~annot:(Some Initialisation_instruction) (trm_var new_var) (trm_apps ~annot:(Some Heap_allocated) (trm_unop (Unop_get)) [trm_var old_var] )
               ]
-              in 
-              let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in 
-              let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in  
-              
-              
-              let new_loop = trm_seq ~annot:(Some Delete_instructions) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in 
+              in
+              let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
+              let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in
+
+
+              let new_loop = trm_seq ~annot:(Some Delete_instructions) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in
               trm_seq ~annot:(Some Delete_instructions) [
                 trm_seq ~annot:(Some No_braces) [
                   new_decl;new_loop;new_set_old
                 ]; new_del_inst
               ]
-              
+
             | _ -> fail t.loc "local_other_name_aux: expected a for loop"
             end
         | _ -> fail t.loc "local_other_name_aux: expected the sequnece which contains the for loop"
-        end 
+        end
       | _ -> fail t.loc "local_other_name_aux: expected the no brace sequence"
 
-      
-let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typvar) (old_var) (new_var : var) (t : trm) = 
-    let tr = [cLabel ~label:sec_of_int (); cBody] in 
-    let b = !Flags.verbose in 
+
+let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typvar) (old_var) (new_var : var) (t : trm) =
+    let tr = [cLabel ~label:sec_of_int (); cBody] in
+    let b = !Flags.verbose in
     Flags.verbose := false;
     let epl = resolve_target tr t in
     Flags.verbose := b;
-    match epl with 
-    | []-> 
+    match epl with
+    | []->
       print_info t.loc "local_other_name: no matching subterm";
       t
-    | _ -> List.fold_left 
-            (fun t dl -> 
+    | _ -> List.fold_left
+            (fun t dl ->
               apply_local_transformation (local_other_name_aux clog var_type old_var new_var) t dl)
-              t 
+              t
               epl
-  
 
-let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm = 
-  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with 
+
+let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
+  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with
 | [] -> failwith "Empty list"
 | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
-  in 
+  in
   let log : string =
-      let loc : string = 
-      match t.loc with 
+      let loc : string =
+      match t.loc with
       | None -> ""
       | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
@@ -840,30 +840,30 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
       (ast_to_string t) loc
       in write_log clog log;
       Ast_to_text.print_ast ~only_desc:true stdout t;
-      match t.desc with 
+      match t.desc with
       | Trm_seq [no_brace;del_inst] ->
-        begin match no_brace.desc with 
-        | Trm_seq tl -> 
-          let new_var = List.nth tl 0 in 
-            let old_var,new_var = match new_var.desc with 
-            | Trm_seq [_;t_assign] -> 
+        begin match no_brace.desc with
+        | Trm_seq tl ->
+          let new_var = List.nth tl 0 in
+            let old_var,new_var = match new_var.desc with
+            | Trm_seq [_;t_assign] ->
               begin match t_assign.desc with
               | Trm_apps (_,[o_v;n_v]) ->
                 let ov = match o_v.desc with
-                | Trm_var x -> x 
+                | Trm_var x -> x
                 | _ -> fail t.loc "delocalize_aux: expected a var"
-                in 
-                let nv = begin match n_v.desc with 
+                in
+                let nv = begin match n_v.desc with
                   | Trm_apps (_,[base]) ->
-                    begin match base.desc with 
+                    begin match base.desc with
                     | Trm_var x -> x
                     | _ -> fail t.loc "delocalize_aux: expected a var"
-                    end 
+                    end
                   | _ -> fail t.loc "delocalize_aux: expected a get operation"
-                  end 
+                  end
                 in nv ,ov
               | _ -> fail t.loc "delocalize_aux: expected a declaration with its initialisaition"
-              end 
+              end
             | _ -> fail t.loc "delocalize_aux"
           in
           let new_decl = [
@@ -895,30 +895,30 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
                 )
 
                 ;
-              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit())) 
+              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit()))
                 (trm_unop (Unop_delete false)) [trm_var "k"];
             ]
           ]
-        in 
-        let for_loop = List.nth tl 1 in 
-        let new_for_loop = match for_loop.desc with 
+        in
+        let for_loop = List.nth tl 1 in
+        let new_for_loop = match for_loop.desc with
         | Trm_seq[f_loop;del_inst_f] ->
-          begin match f_loop.desc with 
-          | Trm_for (init,cond,step,body) -> trm_seq ~annot:(Some Delete_instructions) 
-            [ trm_for init cond step 
+          begin match f_loop.desc with
+          | Trm_for (init,cond,step,body) -> trm_seq ~annot:(Some Delete_instructions)
+            [ trm_for init cond step
               (change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_any(trm_var "my_core_id")]]) body);
               del_inst_f
             ]
           | _ -> fail t.loc "delocalize_aux: expected a for loop"
-          end 
-        | _ -> fail t.loc "delocalize_aux: expected a sequence which contains the for loop"  
-        in 
-        let operation = match fold_operation with 
+          end
+        | _ -> fail t.loc "delocalize_aux: expected a sequence which contains the for loop"
+        in
+        let operation = match fold_operation with
                 | "+" -> Binop_add
                 | "-" -> Binop_sub
-                | "*" -> Binop_mul 
-                | "/" -> Binop_div 
-                | _ -> fail t.loc "delocalize_aux: this operation is not suported" 
+                | "*" -> Binop_mul
+                | "/" -> Binop_div
+                | _ -> fail t.loc "delocalize_aux: this operation is not suported"
         in
         let accum = trm_seq ~annot:(Some No_braces) [
           trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
@@ -943,7 +943,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
               (* body *)
               (trm_seq ~annot:(None)[
 
-                trm_set ~annot:(Some App_and_set) (trm_var old_var) 
+                trm_set ~annot:(Some App_and_set) (trm_var old_var)
 
                 (trm_apps (trm_binop operation)
                   [
@@ -959,31 +959,31 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
           ]
         ] (* TODO: discuss how to generate this using parsing of C code + substitution
              TODO: add smarter constructors for for-loops :  for_int_range i a b tbody *)
-        in 
+        in
         (* let tl = list_replace_el new_decl 0 tl in *)
         let tl = list_replace_el new_for_loop 1 tl in
         let tl = list_replace_el accum 2 tl in
-        let tl = insert_sublist_in_list new_decl 0 tl in 
+        let tl = insert_sublist_in_list new_decl 0 tl in
 
         trm_seq  ~annot:(Some Delete_instructions) [trm_seq ~annot:(Some No_braces) tl; del_inst]
     | _ -> fail t.loc "delocalize_aux: expected the inner sequence which contains all the necessary terms"
-    end 
+    end
   | _ -> fail t.loc "delocalize_aux: expected the body of the section of interest"
 
-  
-      
 
-let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm = 
-  let tr = [cLabel ~label:sec_of_int();cBody] in 
+
+
+let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
+  let tr = [cLabel ~label:sec_of_int();cBody] in
   let b = !Flags.verbose in
   let epl = resolve_target tr t in
   Flags.verbose := b;
-  match epl with 
-  | [] -> 
+  match epl with
+  | [] ->
     print_info t.loc "delocalize: no matching subterm";
     t
-  | _ -> List.fold_left 
-        (fun t dl -> 
+  | _ -> List.fold_left
+        (fun t dl ->
           apply_local_transformation (delocalize_aux clog array_size neutral_element fold_operation) t dl)
           t
           epl
@@ -1045,69 +1045,69 @@ let add_attribute (clog : out_channel) (a : attribute) (tr : target)
           )
        )
        t epl
-  
-  (* 
+
+  (*
     transforma loop of the shape
     optional label:
     for(int i = 0; i < N;i += D)
       body
-    into a loop of the form 
+    into a loop of the form
     optional label:
     for (int c = 0; c < C; c++)
       for (int i = c*D; i < N; i += C*D)
       body
   *)
-let undetach_expression_aux(clog : out_channel) (trm_index : int) (t : trm) : trm = 
-  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with 
+let undetach_expression_aux(clog : out_channel) (trm_index : int) (t : trm) : trm =
+  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with
     | [] -> failwith "Empty list"
     | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
-  in 
-  
-  let log : string = 
-    let loc : string = 
-      match t.loc with 
+  in
+
+  let log : string =
+    let loc : string =
+      match t.loc with
       | None -> ""
       | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
       (" -expresssion\n%s\n" ^^
       "  %sis an assignment \n"
       )
-      (ast_to_string t) loc 
+      (ast_to_string t) loc
       in write_log clog log;
-      match t.desc with 
-      | Trm_seq tl -> 
-        let t_decl = List.nth tl trm_index in 
-        let t_assgn = List.nth tl (trm_index + 1) in 
-        let t_assgn = {t_assgn with annot=(Some Initialisation_instruction)} in 
-        let t_decl = begin match t_decl.desc with 
-        | Trm_seq [var_decl] -> var_decl 
+      match t.desc with
+      | Trm_seq tl ->
+        let t_decl = List.nth tl trm_index in
+        let t_assgn = List.nth tl (trm_index + 1) in
+        let t_assgn = {t_assgn with annot=(Some Initialisation_instruction)} in
+        let t_decl = begin match t_decl.desc with
+        | Trm_seq [var_decl] -> var_decl
         | _ -> fail t.loc "undelocalize_aux: expected the sequence which contain the declaration"
-        end 
-        in 
-        let new_trm = trm_seq ~annot:(Some Heap_allocated) [t_decl;t_assgn] in 
-        let tl = list_remove_at (trm_index + 1) tl in 
+        end
+        in
+        let new_trm = trm_seq ~annot:(Some Heap_allocated) [t_decl;t_assgn] in
+        let tl = list_remove_at (trm_index + 1) tl in
         let tl = list_replace_el new_trm trm_index tl in
-        trm_seq ~annot:t.annot tl 
+        trm_seq ~annot:t.annot tl
       | _ -> fail t.loc "undelocalize_aux: expected the outer sequence"
 
-        
 
 
-let undetach_expression (clog :out_channel) (tr :target) (t : trm) : trm = 
+
+let undetach_expression (clog :out_channel) (tr :target) (t : trm) : trm =
   let b = !Flags.verbose in
-  Flags.verbose := false; 
-  let epl = resolve_target tr t in 
+  Flags.verbose := false;
+  let epl = resolve_target tr t in
   Flags.verbose := b;
-  let app_transfo  (t : trm) (dl : path) : trm = 
-    match List.rev dl with 
-    | Dir_nth n :: dl' -> 
-      let dl = List.rev dl' in 
+  let app_transfo  (t : trm) (dl : path) : trm =
+    match List.rev dl with
+    | Dir_nth n :: dl' ->
+      let dl = List.rev dl' in
       apply_local_transformation (undetach_expression_aux clog n ) t dl
     | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"
-    
-  in   
-  match epl with 
-  | [] -> 
+
+  in
+  match epl with
+  | [] ->
     (* TODO: decide later whether the empty results should be treated as error *)
     print_info t.loc "detach_expression: no matching subterm";
     t
@@ -1115,80 +1115,80 @@ let undetach_expression (clog :out_channel) (tr :target) (t : trm) : trm =
     t epl
 
 
-let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (label : string) (trm_index : int) (expression_trm : trm)(t : trm) : trm = 
-  let log : string = 
-    let loc : string = 
-      match t.loc with 
+let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (label : string) (trm_index : int) (expression_trm : trm)(t : trm) : trm =
+  let log : string =
+    let loc : string =
+      match t.loc with
       | None -> ""
       | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
       in Printf.sprintf
       (" -expresssion\n%s\n" ^^
       "  %sis an assignment \n"
       )
-      (ast_to_string t) loc 
+      (ast_to_string t) loc
       in write_log clog log;
-      match t.desc with 
-      | Trm_seq tl -> 
-        begin match expression_trm.desc with 
-        | Trm_seq[t_decl;t_assign] -> 
-          let t_decl = trm_seq ~annot:(Some Heap_allocated) [t_decl] in 
-          let t_assign = {t_assign with annot = None} in 
-          
+      match t.desc with
+      | Trm_seq tl ->
+        begin match expression_trm.desc with
+        | Trm_seq[t_decl;t_assign] ->
+          let t_decl = trm_seq ~annot:(Some Heap_allocated) [t_decl] in
+          let t_assign = {t_assign with annot = None} in
+
           if keep_label then
-            let trm_labelled = trm_labelled label t_assign in 
+            let trm_labelled = trm_labelled label t_assign in
             trm_seq ~annot:t.annot (insert_sublist_in_list [t_decl;trm_labelled] trm_index tl)
-          
-          else 
+
+          else
             trm_seq ~annot:t.annot (insert_sublist_in_list [t_decl; t_assign] trm_index tl)
-          
+
         | _ -> fail t.loc "detach_expression_aux:No trm was matched, please give the correct target "
-        end 
+        end
       | _ -> fail t.loc "detach_expression_aux: the outer sequence was not matched"
 
-      
-          
 
-let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_label : bool = false) (tr :target) (t : trm) : trm = 
+
+
+let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_label : bool = false) (tr :target) (t : trm) : trm =
   let b = !Flags.verbose in
-  Flags.verbose := false; 
-  let epl = resolve_target tr t in 
+  Flags.verbose := false;
+  let epl = resolve_target tr t in
   Flags.verbose := b;
-  let app_transfo ?(keep_label : bool = false) (label : string) (t : trm) (dl : path) : trm = 
-    match List.rev dl with 
-    | Dir_nth n :: dl' -> 
-      let (t',_) = resolve_path dl t in 
-      let dl = List.rev dl' in 
+  let app_transfo ?(keep_label : bool = false) (label : string) (t : trm) (dl : path) : trm =
+    match List.rev dl with
+    | Dir_nth n :: dl' ->
+      let (t',_) = resolve_path dl t in
+      let dl = List.rev dl' in
       apply_local_transformation (detach_expression_aux clog ~keep_label label n t') t dl
     | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"
-    
-  in   
-  match epl with 
-  | [] -> 
+
+  in
+  match epl with
+  | [] ->
     (* TODO: decide later whether the empty results should be treated as error *)
     print_info t.loc "detach_expression: no matching subterm";
     t
   | _ -> List.fold_left ( fun t dl -> app_transfo ~keep_label label t dl)
     t epl
-  (*|_ -> 
-    List.fold_left 
-      (fun t dl -> 
-        let index, prefix_sequence_trm = 
-        begin match List.rev dl with 
-        | Dir_nth n :: dl' -> 
-          let dl = List.rev dl' in 
+  (*|_ ->
+    List.fold_left
+      (fun t dl ->
+        let index, prefix_sequence_trm =
+        begin match List.rev dl with
+        | Dir_nth n :: dl' ->
+          let dl = List.rev dl' in
           let (t',_) = resolve_target dl t in n, t'
         | _ -> fail t.loc " detach_expression: expected a dir_nth inside the sequence"
-        end in 
+        end in
         apply_local_transformation (detach_expression_aux clog ~keep_label label index prefix_sequence_trm) t dl)
-        t 
+        t
         epl  *)
-  
+
 
 
 
 
 (* Create an instance of the pattern *)
-(* let pattern_instantiate (t : trm) (p : pat) : instatiation option =  
+(* let pattern_instantiate (t : trm) (p : pat) : instatiation option =
   let rec aux p t =
       match p, t with
       | var x, _ ->
@@ -1205,16 +1205,16 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
          aux p2 t2
       | trm_for (int i = ..)   | trm_for (int j = ...) => LATER: support this, not now
       | _, _ -> (* different constructors *)
-  in 
+  in
   try Some(aux p t) with Mismatch -> None
  *)
 
 
 
 (* Check if rule is applicable *)
-(* let is_rule_applicable (t : trm) (p : pat) : bool = 
- let rec aux (t : trm) : bool = 
-  match t.desc with 
+(* let is_rule_applicable (t : trm) (p : pat) : bool =
+ let rec aux (t : trm) : bool =
+  match t.desc with
   | Trm *)
 
 
