@@ -367,15 +367,15 @@ let target_flatten (tg : target) : target =
     aux tg
 
 (* Convert a target into a target struct  *)
-let target_to_target_struct(tg : target) : target_struct =
-  let tg = target_flatten tg in
+let target_to_target_struct(tr : target) : target_struct =
+  let tr = target_flatten tr in
   let relative = ref None in
   let occurences = ref None in
   let process_constr (c : constr) : unit =
     match c with
-    | ConstrRelative tr ->
+    | ConstrRelative re ->
       begin match !relative with
-      | None -> relative := Some tr;
+      | None -> relative := Some re;
       | Some _ -> fail None  "ConstrRelative provided twice in path"
       end
     | ConstrOccurences oc ->
@@ -386,10 +386,10 @@ let target_to_target_struct(tg : target) : target_struct =
     | _ -> ()
     in
   (* Check if relative constraint are applied once and the number of occurences is unique *)
-  List.iter process_constr tg;
+  List.iter process_constr tr;
   (* Return a target_struct *)
-  { target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tg;
-    target_relative = begin match !relative with | None -> TargetAt | Some tg -> tg end;
+  { target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tr;
+    target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; }
 
 (* ----------------DEPRECATED---------------- *)
@@ -1343,9 +1343,10 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
          if is_constr_regexp c && res_deep <> []
            then [] (* if a regexp matches in depth, don't test it here *)
            else (explore_in_depth (c :: p) t) in
-      let () = if (res_deep = [] && res_here = []) then fail None ("resolve_target_simple: something went_wrong" ^ constraints_to_string)
-      in
+      
       res_here ++ res_deep  (* put deeper nodes first *) in     
+  let () = if (epl = []) then fail None ("resolve_target_simple: something went_wrong" ^ constraints_to_string)
+  in
   List.sort_uniq compare_path epl
 
 
