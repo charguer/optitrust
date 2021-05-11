@@ -6,5 +6,8 @@ let _ = run_unit_test (fun () ->
   (*show [ cIf() ];
   show [ cMulti; cReturn() ];*)
 
-  show [ cAnyNb; cSeq ~args:[cTrue;cTrue;cTrue]() ];
+  (* show [ cAnyNb; cSeq ~args:[cTrue;cTrue;cTrue]() ]; *)
+  show [ cMulti; cFun "f" ];
+(*  show [ cTopFun "f" ];*)
+(*    show [ cTopFun "main" ];*)
 )

@@ -99,8 +99,7 @@ val cVarDef : ?name:string -> ?exact:bool ->
 
 val cFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
 
-(* val cTopFun : ?name:string -> ?exact:bool -> ?args:(target) ->
-           ?validate:(bool list -> bool) -> ?body:(target) -> unit -> target *)
+val cTopFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
 
 val cType : ?name:string -> ?exact:bool -> unit -> constr
 

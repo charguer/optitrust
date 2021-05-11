@@ -159,6 +159,7 @@ type trm_kind =
   | TrmKind_Struct
   | TrmKind_Instr
   | TrmKind_Expr
+  | TrmKind_Any
 
 (* --------------------------------DEPRECATED------------------------------- *)
 (* type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool} *)
@@ -357,12 +358,17 @@ let make_target_list_pred ith_constr validate to_string =
 (* let  _string (r : rexp) : string =
   (if r.exact then "Exact " else "Sub ") ^
     (if r.only_instr then "OnlyInstr \"" else "\"") ^ r.desc ^ "\"" *)
+let trm_kind_to_string (k : trm_kind) : string =
+  match k with
+  | TrmKind_Instr -> "Instr"
+  | TrmKind_Struct -> "Struct"
+  | TrmKind_Expr -> "Expr"
+  | TrmKind_Any -> "Any"
+
 let regexp_to_string (r : rexp) : string =
-  (if r.rexp_substr then "Exact " else "Sub") ^
-    (begin match r.rexp_trm_kind with
-    | TrmKind_Instr -> "\""
-    | TrmKind_Struct | TrmKind_Expr -> " "
-    end) ^ r.rexp_desc ^ "\""
+  (if r.rexp_substr then "Exact" else "Sub") ^ "-" ^
+  (trm_kind_to_string r.rexp_trm_kind) ^
+  "(" ^ r.rexp_desc ^ ")"
 
 let rec constr_to_string (c : constr) : string =
   match c with
@@ -627,8 +633,8 @@ module Path_constructors = struct
   let cFalse : constr =
     Constr_bool false
 
-  let cChain : list constr -> constr =
-    Constr_chain
+  let cChain (cstrs : constr list) : constr =
+    Constr_chain cstrs
 
   (* Relative targets *)
 
@@ -749,8 +755,10 @@ module Path_constructors = struct
   (* let cRegexp ?(exact : bool = true)
     ?(only_instr : bool = true) (s : string) : constr =
      Constr_regexp (string_to_rexp ~only_instr ~exact s) *)
+  (* TODO: cRegexp should take as argument the kind, which could be TrmKind_Any *)
   let cRegexp ?(only_instr : bool = true) ?(substr : bool = true) (s : string) : constr =
-    if only_instr then cInstrRegexp ~substr s
+    if only_instr
+      then cInstrRegexp ~substr s
       else cExprRegexp ~substr s
 
   (* --------------------DEPRECATED-------------------------- *)
@@ -822,7 +830,7 @@ module Path_constructors = struct
 
   (* by default an empty name is no name *) (* TODO: Arthur maybe a datatype for target_list_pred? *)
   let cFun ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) (name : string) : constr =
-    let ro = string_to_rexp_opt name in
+    let ro = string_to_rexp_opt ~only_instr:true name in
     (* LATER: maybe an error if both args and args_pred are provided *)
     let p_args = match args with
       | [] -> args_pred
@@ -842,9 +850,9 @@ module Path_constructors = struct
 
   (* toplevel fun declaration *)
   (* TODO: change the syntax for names *)
-  let cTopFun?(exact : bool = true)
+  let cTopFun
     ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true)
-    ?(body : target = []) (name : string) : target =
+    ?(body : target = []) (name : string) : constr =
     cChain [ cRoot; cStrict; cFun ~args ~args_pred ~body name ]
 
   (* TODO: Implement something similar for TopFun *)
@@ -1172,6 +1180,7 @@ let is_structuring_statement (t : trm) : bool =
 
 
 let match_regexp (r : rexp) (t : trm) : bool =
+  printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
   if r.rexp_trm_kind <> get_trm_kind t then false
     else
       begin
@@ -1405,7 +1414,7 @@ and resolve_target (tg : target) (t : trm) : paths =
   resolve_target_struct tgs t
 
 and resolve_target_exactly_one (tg : target) (t : trm) : path =
-  match resolve_target tg with
+  match resolve_target tg t with
   | [p] -> p
   | _ -> fail None (* TODO: loc? *) "resolve_target_exactly_one: obtained several targets."
 
