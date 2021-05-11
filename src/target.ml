@@ -285,8 +285,10 @@ and constr =
   | Constr_occurences of target_occurences
   (* List of constraints *)
   | Constr_chain of constr list
-  (* Constrain used for argument match *)
+  (* Constraint used for argument match *)
   | Constr_bool of bool
+  (* Constraint that matches only the root of the AST *)
+  | Constr_root
 
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
@@ -511,6 +513,7 @@ let rec constr_to_string (c : constr) : string =
     let string_cl = List.map constr_to_string cl in
     list_to_string string_cl
   | Constr_bool b -> if b then "True" else "False"
+  | Constr_root -> "Root"
 
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
@@ -624,6 +627,9 @@ module Path_constructors = struct
   let cFalse : constr =
     Constr_bool false
 
+  let cChain : list constr -> constr =
+    Constr_chain
+
   (* Relative targets *)
 
   let cBefore : constr =
@@ -650,6 +656,8 @@ module Path_constructors = struct
      Constr_occurences (ExpectedNb nb)
 
   (* directions *)
+  let cRoot : constr =
+     Constr_root
   let cNth (n : int) : constr =
      Constr_dir (Dir_nth n)
   let cCond : constr =
@@ -833,6 +841,12 @@ module Path_constructors = struct
 
 
   (* toplevel fun declaration *)
+  (* TODO: change the syntax for names *)
+  let cTopFun?(exact : bool = true)
+    ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true)
+    ?(body : target = []) (name : string) : target =
+    cChain [ cRoot; cStrict; cFun ~args ~args_pred ~body name ]
+
   (* TODO: Implement something similar for TopFun *)
   (* let cTopFun ?(name : string = "") ?(exact : bool = true)
     ?(args : target = []) ?(validate : bool list -> bool = fun _ -> true)
@@ -1258,6 +1272,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_cases cc cases
      | Constr_bool b, _ -> b
+     | Constr_root, _ ->
+        begin match t.annot with Some Main_file -> true | _ -> false end
      | _ -> false
      end
 
@@ -1387,6 +1403,11 @@ and resolve_target (tg : target) (t : trm) : paths =
   if tgs.target_relative <> TargetAt
     then fail None "resolve_target: this target should not contain a cBefore/cAfter/cFirst/cLast";
   resolve_target_struct tgs t
+
+and resolve_target_exactly_one (tg : target) (t : trm) : path =
+  match resolve_target tg with
+  | [p] -> p
+  | _ -> fail None (* TODO: loc? *) "resolve_target_exactly_one: obtained several targets."
 
 (* check c against t and in case of success continue with p *)
 and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
