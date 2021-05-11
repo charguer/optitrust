@@ -6,7 +6,6 @@ let _ =
         set_init_source"show_path.cpp";
         
         set_repeat_io false; 
-
         show_target [cVarDef ~name:"x" ()];
         clean_target_decorators();
         show_target  [cVarDef ~name:"i" ()] ;

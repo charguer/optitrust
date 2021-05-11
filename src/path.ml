@@ -158,7 +158,6 @@ type trm_kind =
   | TrmKind_Instr
   | TrmKind_Expr
 
-
 (* --------------------------------DEPRECATED------------------------------- *)
 (* type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool} *)
 (*
@@ -1140,6 +1139,7 @@ let get_trm_kind (t : trm) : trm_kind =
     | _ -> TrmKind_Instr
   else
     TrmKind_Expr
+(* Not used anywherer?? *)
 let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
 
@@ -1329,10 +1329,13 @@ and check_target (tr : target) (t : trm) : bool =
   another target that appears after it in the list. Guaranteed by the call to
   sort_unique
  *)
+(* Problem is comming from this function *)
 and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
+  (* let constraints = list_to_string (List.map constraint_to_string trs) in *)
   let epl =
     match trs with
-    | [] -> []
+    | [] -> [[]]
+    | Constr_strict :: tr -> resolve_target_simple ~strict:true tr t
     | c :: p ->
       let res_deep = 
         if strict
@@ -1344,10 +1347,8 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            else (explore_in_depth (c :: p) t) in
       
       res_deep ++ res_here  (* put deeper nodes first *) in     
-  
+  (* if (List.length epl = 0) then fail None ("Constraints " ^ constraints); *)
   List.sort_uniq compare_path epl
-
-
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
 
   let res = resolve_target_simple tgs.target_path t in
@@ -1372,7 +1373,7 @@ and resolve_target (tg : target) (t : trm) : paths =
   resolve_target_struct tgs t
 
 (* check c against t and in case of success continue with p *)
-and resolve_constraint (c : constr) (p : target) (t : trm) : paths =
+and resolve_constraint (c : constr) (p : target) (t : trm) : paths =  
   let loc = t.loc in
   match c with
   (*
