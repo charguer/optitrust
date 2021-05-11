@@ -154,7 +154,7 @@ let rec compare_path (dl : path) (dl' : path) : int =
 
 
 (* TODO: replace exact with standard name *)
-(* Type to classify trms into three main classes: 1)Structuring statements, 2) Instructions and 3) Expression *)
+(* Type to classify trms into four main classes: 1)Structuring statements, 2) Instructions 3) Expression and others*)
 type trm_kind =
   | TrmKind_Struct
   | TrmKind_Instr
@@ -209,7 +209,7 @@ and constr =
    *)
   | Constr_strict
   | Constr_dir of dir
-  | Constr_list of target * (bool list -> int list) (* TODO: still needed? *)
+  (* | Constr_list of target * (bool list -> int list) *) (* TODO: still needed? *)
   | Constr_include of string
   (*
     matching constraint: match against regexp
@@ -374,7 +374,7 @@ let rec constr_to_string (c : constr) : string =
   match c with
   | Constr_strict -> "Strict"
   | Constr_dir d -> dir_to_string d
-  | Constr_list (p_elt, _) -> "List (" ^ target_to_string p_elt ^ ")"
+  (* | Constr_list (p_elt, _) -> "List (" ^ target_to_string p_elt ^ ")" *)
   | Constr_include s -> "Include " ^ s
   | Constr_regexp r -> "Regexp " ^ regexp_to_string r
   | Constr_for (p_init, p_cond, p_step, p_body) ->
@@ -1227,7 +1227,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
       *)
       | Constr_strict,_
        | Constr_dir _, _
-       | Constr_list _, _
+       (* | Constr_list _, _ *)
        | Constr_include _, _ ->
         false
      | Constr_regexp r, _ -> match_regexp r t
@@ -1374,7 +1374,6 @@ and check_target (tr : target) (t : trm) : bool =
  *)
 (* Problem is comming from this function *)
 and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
-  (* let constraints = list_to_string (List.map constr_to_string trs) in *)
   let epl =
     match trs with
     | [] -> [[]]
@@ -1439,7 +1438,8 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   (* following directions *)
   | Constr_dir d -> follow_dir d p t
   (* list constraint: explore each continuation *)
-  | Constr_list (p_elt, next) ->
+    (* NOT SURE IF THIS IS USED ANYWHERE ANYMORE *)
+  (* | Constr_list (p_elt, next) ->
      (* take into account heap allocation patterns *)
      begin match t.annot with
      | Some Delete_instructions ->
@@ -1475,7 +1475,7 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
              "resolve_constraint: list constraint applied to a wrong term\n";
            []
         end
-     end
+     end *)
   (*
     if the constraint is a target constraint that does not match the node or
     if it is another kind of constraint, then we check if it holds
