@@ -80,7 +80,7 @@ let dir_to_string (d : dir) : string =
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
 
 
-let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : string list) : string =
+let list_to_string ?(sep:string="; ") ?(bounds:string list = ["[";"]"])(l : string list) : string =
   let rec aux = function
     | [] -> ""
     | [s] -> s
@@ -280,13 +280,13 @@ and constr =
   | Constr_switch of target * constr_cases
   (* TODO: Constraint for types? *)
   (* Target relative to another trm *)
-  | ConstrRelative of target_relative
+  | Constr_relative of target_relative
   (* Number of  occurrences expected  *)
-  | ConstrOccurences of target_occurences
+  | Constr_occurences of target_occurences
   (* List of constraints *)
-  | ConstrChain of constr list
+  | Constr_chain of constr list
   (* Constrain used for argument match *)
-  | ConstrBool of bool
+  | Constr_bool of bool
 
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
@@ -304,11 +304,10 @@ and constr_accesses = (constr_access list) option
      matched their respective constraint, and returns a boolean indicating whether
      the full list should be considered as matching or not.
    - a string that explains what was the user intention *)
-and target_list_pred = ((int -> constr) * (bool list -> bool))
-(* TODO
+and target_list_pred =
   { target_list_pred_ith_constr : int -> constr;
     target_list_pred_validate : bool list -> bool;
-    target_list_pred_to_to_string : unit -> string; } *)
+    target_list_pred_to_string : unit -> string; }
 
 and constr_access =
   (* array indices may be arbitrary terms *)
@@ -332,12 +331,12 @@ and abort_kind =
   | Break
   | Continue
 
-(* [target_simple] is a [target] without ConstrRelative, ConstrOccurences, ConstrChain;
+(* [target_simple] is a [target] without Constr_relative, Constr_occurences, Constr_chain;
    It can however, include [cStrict]. *)
 type target_simple = target
 
 (* [target_struct] is the structured representation of a [target] that decomposes the
-   special constructors such as ConstrRelative, ConstrOccurences, ConstrChain from the
+   special constructors such as Constr_relative, Constr_occurences, Constr_chain from the
    [target_simple]. *)
 type target_struct = {
    target_path : target_simple; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
@@ -345,6 +344,11 @@ type target_struct = {
    target_occurences : target_occurences; }
 
 
+(* TODO :export this function in optitrust.mli *)
+let make_target_list_pred ith_constr validate to_string =
+  { target_list_pred_ith_constr = ith_constr;
+    target_list_pred_validate = validate;
+    target_list_pred_to_string = to_string; }
 
 
 (* ----------------DEPRECATED---------------- *)
@@ -358,7 +362,7 @@ let regexp_to_string (r : rexp) : string =
     | TrmKind_Struct | TrmKind_Expr -> " "
     end) ^ r.rexp_desc ^ "\""
 
-let rec constraint_to_string (c : constr) : string =
+let rec constr_to_string (c : constr) : string =
   match c with
   | Constr_strict -> "Strict"
   | Constr_dir d -> dir_to_string d
@@ -386,7 +390,7 @@ let rec constraint_to_string (c : constr) : string =
      in
      let s_body = target_to_string p_body in
      "Decl_var (" ^ s_name ^ ", " ^ s_body ^ ")"
-  | Constr_decl_fun (name, (_, _), p_body) ->
+  | Constr_decl_fun (name, _tgt_list_pred, p_body) ->
     let s_name =
        match name with | None -> "_" | Some r -> regexp_to_string r
      in
@@ -423,11 +427,9 @@ let rec constraint_to_string (c : constr) : string =
           list_to_string sl
      in
      "Decl_enum (" ^ s_name ^ ", " ^ s_const ^ ")"
-  | Constr_seq (_, _) -> (* TODO: for the second arg, call it, cargs, use [cargs.constr_list_pred_to_string()] *)
-    (* TODO: Fix this later after discussing with Arthur *)
-     "Seq ( )"
-     (* let s = target_to_string p_elt in *)
-     (* "Seq (" ^ s ^ ")" *)
+  | Constr_seq tgt_list_pred ->
+     let spred = tgt_list_pred.target_list_pred_to_string() in
+     sprintf "Seq (%s)" spred
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> regexp_to_string r)
   | Constr_lit l ->
@@ -445,10 +447,10 @@ let rec constraint_to_string (c : constr) : string =
      let s_fun = target_to_string p_fun in
      let s_args = target_to_string p_args in
      "App (" ^ s_fun ^ ", " ^ s_args ^ ")" *)
-  | Constr_app (p_fun,(_,_))  ->
+  | Constr_app (p_fun,tgt_list_pred) ->
+    let spred = tgt_list_pred.target_list_pred_to_string() in
     let s_fun = target_to_string p_fun in
-    (* TODO: Fix it later so that the arguments are printed too *)
-    "App (" ^ s_fun ^ ", " ^ " " ^ ")"
+    "App (" ^ s_fun ^ ", " ^ spred ^ ")"
   | Constr_label (so, p_body) ->
      let s_label =
        match so with | None -> "_" | Some r -> regexp_to_string r
@@ -503,15 +505,15 @@ let rec constraint_to_string (c : constr) : string =
           list_to_string sl
      in
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
-  | ConstrRelative tr -> target_relative_to_string tr
-  | ConstrOccurences oc -> target_occurences_to_string oc
-  | ConstrChain cl ->
-    let string_cl = List.map constraint_to_string cl in
+  | Constr_relative tr -> target_relative_to_string tr
+  | Constr_occurences oc -> target_occurences_to_string oc
+  | Constr_chain cl ->
+    let string_cl = List.map constr_to_string cl in
     list_to_string string_cl
-  | ConstrBool b -> string_of_bool b
+  | Constr_bool b -> if b then "True" else "False"
 
 and target_to_string (tg : target) : string =
-  list_to_string (List.map constraint_to_string tg)
+  list_to_string (List.map constr_to_string tg)
 
 (* TODO: later rename the fileds of target_struct *)
 
@@ -552,14 +554,14 @@ and access_to_string (ca : constr_access) : string =
 
 
 
-(* Flatten all the constrainst of type ConstrChain *)
+(* Flatten all the constrainst of type Constr_chain *)
 let target_flatten (tg : target) : target =
     let rec aux (cs : target) : target =
       match cs with
       | [] -> []
       | c::cs2 ->
           let r = match c with
-            | ConstrChain cs1 -> (aux cs1)
+            | Constr_chain cs1 -> (aux cs1)
             | _ -> [c]
             in
           r @ (aux cs2)
@@ -573,15 +575,15 @@ let target_to_target_struct (tr : target) : target_struct =
   let occurences = ref None in
   let process_constr (c : constr) : unit =
     match c with
-    | ConstrRelative re ->
+    | Constr_relative re ->
       begin match !relative with
       | None -> relative := Some re;
-      | Some _ -> fail None  "ConstrRelative provided twice in path"
+      | Some _ -> fail None  "Constr_relative provided twice in path"
       end
-    | ConstrOccurences oc ->
+    | Constr_occurences oc ->
       begin match !occurences with
       | None -> occurences := Some oc;
-      | _ -> fail None "ConstrOccurences provided twice in path"
+      | _ -> fail None "Constr_occurences provided twice in path"
       end
     | _ -> ()
     in
@@ -589,7 +591,7 @@ let target_to_target_struct (tr : target) : target_struct =
   List.iter process_constr tr;
   (* Return a target_struct *)
   let tgs = {
-    target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tr;
+    target_path = List.filter (function | Constr_relative _ | Constr_occurences _ -> false | _ -> true) tr;
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
   (* TODO *)
@@ -617,35 +619,35 @@ module Path_constructors = struct
   (* Logic constraints *)
 
   let cTrue : constr =
-    ConstrBool true
+    Constr_bool true
 
   let cFalse : constr =
-    ConstrBool false
+    Constr_bool false
 
   (* Relative targets *)
 
   let cBefore : constr =
-    ConstrRelative TargetBefore
+    Constr_relative TargetBefore
 
   let cAfter : constr =
-    ConstrRelative TargetAfter
+    Constr_relative TargetAfter
 
   let cFirst : constr =
-    ConstrRelative TargetFirst
+    Constr_relative TargetFirst
 
   let cLast : constr =
-    ConstrRelative TargetLast
+    Constr_relative TargetLast
 
   (* Used for checking the number of targets to match *)
 
   let cMulti : constr =
-    ConstrOccurences ExpectedMulti
+    Constr_occurences ExpectedMulti
 
   let cAnyNb : constr =
-     ConstrOccurences ExpectedAnyNb
+     Constr_occurences ExpectedAnyNb
 
   let cNb (nb : int) : constr =
-     ConstrOccurences (ExpectedNb nb)
+     Constr_occurences (ExpectedNb nb)
 
   (* directions *)
   let cNth (n : int) : constr =
@@ -799,18 +801,19 @@ module Path_constructors = struct
     (* Converts a list of constraints into a [target_list_pred] *)
   let target_list_simpl (cstrs : constr list) : target_list_pred =
     let n = List.length cstrs in
-    ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-    (*
-    target_list_pred_to_string = begin fun () ->
-      ..."["  ";" ... List.fold (constraint_to_string cstrs) .. .
-      end
-    *)
+    make_target_list_pred
+      (fun i -> if i < n then List.nth cstrs i else cFalse)
+      (fun bs -> List.length bs = n && list_all_true bs)
+      (fun () -> "target_list_simpl(" ^ (list_to_string (List.map constr_to_string cstrs) ^ ")"))
+
+  let target_list_pred_always_true : target_list_pred =
+    make_target_list_pred
+      (fun _i -> cTrue)
+      list_all_true
+      (fun () -> "target_list_pred_always_true")
+
   (* by default an empty name is no name *) (* TODO: Arthur maybe a datatype for target_list_pred? *)
-  let cFun ?(args : target = []) ?(args_pred : target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) ?(body : target = []) (name : string) : constr =
-    let target_list_simpl(cstrs: constr list) : target_list_pred =
-      let n = List.length cstrs in
-      ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-    in
+  let cFun ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) (name : string) : constr =
     let ro = string_to_rexp_opt name in
     (* LATER: maybe an error if both args and args_pred are provided *)
     let p_args = match args with
@@ -888,7 +891,7 @@ module Path_constructors = struct
     ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : constr =
     let p_args =  args in
      Constr_seq (p_args, validate) *)
-  let cSeq ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (_ : unit) : constr =
+  let cSeq ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (_ : unit) : constr =
     let p_args =
     match args with
     | [] -> args_pred
@@ -910,12 +913,8 @@ module Path_constructors = struct
      Constr_lit (Lit_string s)
   (* let cPrim (p : prim) : constr =
      cStr (ast_to_string (trm_prim p)) *)
-  let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = ((fun _ -> cTrue),(fun _ -> true))) (name:string) : constr=
-    let target_list_simpl(cstrs: constr list) : target_list_pred =
-      let n = List.length cstrs in
-      ((fun i -> if i < n then List.nth cstrs i else cFalse), list_all_true)
-    in
-     let exception Argument_Error  of string in
+  let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
+    let exception Argument_Error  of string in
     let p_fun =
     match name, fun_ with
     | "",_ -> fun_
@@ -1258,6 +1257,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_switch (p_cond, cc), Trm_switch (cond, cases) ->
         check_target p_cond cond &&
         check_cases cc cases
+     | Constr_bool b, _ -> b
      | _ -> false
      end
 
@@ -1267,8 +1267,11 @@ and check_name (name : constr_name) (s : string) : bool =
   | Some r -> match_regexp r (trm_var s)
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
-  let (cstr,valid) = lpred in
-  valid (List.mapi (fun i t -> check_target ([cstr i]) t) tl)
+  (*printf "%s\n" (lpred.target_list_pred_to_string());*)
+  let cstr = lpred.target_list_pred_ith_constr in
+  let validate = lpred.target_list_pred_validate in
+  validate (List.mapi (fun i t -> check_target ([cstr i]) t) tl)
+  (*printf "%s\n" (if res then "true" else "false");*)
 
 (* and check_list (cl : constr_list) (tl : trm list) : bool =
   let (p, validate) = cl in
@@ -1333,7 +1336,7 @@ and check_enum_const (cec : constr_enum_const)
 
 (* check if target tr leads to at least one subterm of t *)
 and check_target (tr : target) (t : trm) : bool =
-  match resolve_target tr t with
+  match resolve_target_simple tr t with
   | [] -> false
   | _ -> true
 
@@ -1345,7 +1348,7 @@ and check_target (tr : target) (t : trm) : bool =
  *)
 (* Problem is comming from this function *)
 and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
-  (* let constraints = list_to_string (List.map constraint_to_string trs) in *)
+  (* let constraints = list_to_string (List.map constr_to_string trs) in *)
   let epl =
     match trs with
     | [] -> [[]]
@@ -1449,12 +1452,12 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   | c when check_constraint c t -> resolve_target_simple p t
   | _ ->
      print_info loc "resolve_constraint: constraint %s does not hold\n"
-       (constraint_to_string c);
+       (constr_to_string c);
      []
 
 (* call resolve_target_simple on subterms of t if possible *)
 and explore_in_depth (p : target_simple) (t : trm) : paths =
-  (* let p = target_to_target_simple p in ---TODO: used for getting rid of ConstrChain that appear in depth *)
+  (* let p = target_to_target_simple p in ---TODO: used for getting rid of Constr_chain that appear in depth *)
   let loc = t.loc in
   match t.annot with
   (* no exploration in depth in included files *)

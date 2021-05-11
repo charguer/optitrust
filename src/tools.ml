@@ -153,8 +153,8 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : strin
   in
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
-let list_all_true(bl : bool list) : bool =
-          List.for_all(fun b -> b = true) bl
+let list_all_true (bl : bool list) : bool =
+  List.for_all (fun b -> b = true) bl
 
 let rec after_bool (bl : bool list) : bool list =
       match bl with

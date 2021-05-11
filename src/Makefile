@@ -15,7 +15,7 @@ compile: force
 	ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str -I . $(TEST)
 
 run: compile $(TEST)
-	./$(TEST) && cat test_out.cpp
+	./$(TEST) && cat test_out.cpp && echo ""
 
 force:
 

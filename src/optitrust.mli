@@ -122,7 +122,7 @@ val cString : string -> constr
 
 (* val cApp : ?name:string -> ?fun_:(target) ->
            ?args:(target) -> ?validate:(bool list -> bool) -> unit -> target *)
-val cApp : ?fun_:target -> ?args:target -> ?args_pred:((int -> constr)*(bool list -> bool)) -> string -> constr
+val cApp : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
 
 val cLabel : ?label:string -> ?exact:bool ->
              ?body:(target) -> unit -> constr

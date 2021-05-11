@@ -43,7 +43,7 @@ let _ = run_unit_test (fun () ->
   show [ cFun "main" ];
   show [ cFun "f" ];
   show [ cFun ~args:[[cTrue]; [cDef "varg"]] "" ];
-  show [ cFun ~argspred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ];
+  show [ cFun ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ];
 
 
 )
