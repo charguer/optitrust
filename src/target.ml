@@ -2,6 +2,8 @@ open Ast
 open Ast_to_c
 open Str
 open Tools
+
+
 (******************************************************************************)
 (*                                  Path AST                                  *)
 (******************************************************************************)
@@ -342,54 +344,8 @@ type target_struct = {
    target_relative : target_relative;
    target_occurences : target_occurences; }
 
-(* TODO:
-let target_to_target_simple (tg : target) : target_simpl =
-  fails if the target contains ConstrRelative or ConstrOccurences
-  and otherwise returns target_flatten tg
-*)
 
 
-
-
-(* Flatten all the constrainst of type ConstrChain *)
-let target_flatten (tg : target) : target =
-    let rec aux (cs : target) : target =
-      match cs with
-      | [] -> []
-      | c::cs2 ->
-          let r = match c with
-            | ConstrChain cs1 -> (aux cs1)
-            | _ -> [c]
-            in
-          r @ (aux cs2)
-      in
-    aux tg
-
-(* Convert a target into a target struct  *)
-let target_to_target_struct(tr : target) : target_struct =
-  let tr = target_flatten tr in
-  let relative = ref None in
-  let occurences = ref None in
-  let process_constr (c : constr) : unit =
-    match c with
-    | ConstrRelative re ->
-      begin match !relative with
-      | None -> relative := Some re;
-      | Some _ -> fail None  "ConstrRelative provided twice in path"
-      end
-    | ConstrOccurences oc ->
-      begin match !occurences with
-      | None -> occurences := Some oc;
-      | _ -> fail None "ConstrOccurences provided twice in path"
-      end
-    | _ -> ()
-    in
-  (* Check if relative constraint are applied once and the number of occurences is unique *)
-  List.iter process_constr tr;
-  (* Return a target_struct *)
-  { target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tr;
-    target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
-    target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; }
 
 (* ----------------DEPRECATED---------------- *)
 (* let  _string (r : rexp) : string =
@@ -398,10 +354,9 @@ let target_to_target_struct(tr : target) : target_struct =
 let regexp_to_string (r : rexp) : string =
   (if r.rexp_substr then "Exact " else "Sub") ^
     (begin match r.rexp_trm_kind with
-    | TrmKind_Instr -> "\"" 
+    | TrmKind_Instr -> "\""
     | TrmKind_Struct | TrmKind_Expr -> " "
     end) ^ r.rexp_desc ^ "\""
-
 
 let rec constraint_to_string (c : constr) : string =
   match c with
@@ -548,21 +503,8 @@ let rec constraint_to_string (c : constr) : string =
           list_to_string sl
      in
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
-  | ConstrRelative tr ->
-    begin match tr with
-    | TargetAt -> "TargetAt"
-    | TargetFirst -> "TargetFirst"
-    | TargetLast -> "TargetLast"
-    | TargetBefore -> "TargetBefore"
-    | TargetAfter -> "TargetAfter"
-    end
-  | ConstrOccurences oc ->
-    begin match oc with
-    | ExpectedOne -> "ExpectedOne"
-    | ExpectedNb n-> "ExpectedNb " ^ string_of_int(n)
-    | ExpectedMulti -> "ExpectedMulti"
-    | ExpectedAnyNb -> "ExpectedAnyNb"
-    end
+  | ConstrRelative tr -> target_relative_to_string tr
+  | ConstrOccurences oc -> target_occurences_to_string oc
   | ConstrChain cl ->
     let string_cl = List.map constraint_to_string cl in
     list_to_string string_cl
@@ -570,6 +512,29 @@ let rec constraint_to_string (c : constr) : string =
 
 and target_to_string (tg : target) : string =
   list_to_string (List.map constraint_to_string tg)
+
+(* TODO: later rename the fileds of target_struct *)
+
+and target_struct_to_string (tgs : target_struct) : string =
+  "TargetStruct(" ^
+    target_relative_to_string tgs.target_relative ^ ", " ^
+    target_occurences_to_string tgs.target_occurences ^ ", " ^
+    target_to_string tgs.target_path ^ ")"
+
+and target_occurences_to_string (occ : target_occurences) =
+  match occ with
+  | ExpectedOne -> "ExpectedOne"
+  | ExpectedNb n -> sprintf "ExpectedNb(%d)" n
+  | ExpectedMulti -> "ExpectedMulti"
+  | ExpectedAnyNb -> "ExpectedAnyNb"
+
+and target_relative_to_string (rel : target_relative) =
+  match rel with
+  | TargetAt -> "TargetAt"
+  | TargetFirst -> "TargetFirst"
+  | TargetLast -> "TargetLast"
+  | TargetBefore -> "TargetBefore"
+  | TargetAfter -> "TargetAfter"
 
 and access_to_string (ca : constr_access) : string =
   match ca with
@@ -582,6 +547,55 @@ and access_to_string (ca : constr_access) : string =
      in
      "Struct_access " ^ s_field
   | Any_access -> "Any_access"
+
+
+
+
+
+(* Flatten all the constrainst of type ConstrChain *)
+let target_flatten (tg : target) : target =
+    let rec aux (cs : target) : target =
+      match cs with
+      | [] -> []
+      | c::cs2 ->
+          let r = match c with
+            | ConstrChain cs1 -> (aux cs1)
+            | _ -> [c]
+            in
+          r @ (aux cs2)
+      in
+    aux tg
+
+(* Convert a target into a target struct  *)
+let target_to_target_struct (tr : target) : target_struct =
+  let tr = target_flatten tr in
+  let relative = ref None in
+  let occurences = ref None in
+  let process_constr (c : constr) : unit =
+    match c with
+    | ConstrRelative re ->
+      begin match !relative with
+      | None -> relative := Some re;
+      | Some _ -> fail None  "ConstrRelative provided twice in path"
+      end
+    | ConstrOccurences oc ->
+      begin match !occurences with
+      | None -> occurences := Some oc;
+      | _ -> fail None "ConstrOccurences provided twice in path"
+      end
+    | _ -> ()
+    in
+  (* Check if relative constraint are applied once and the number of occurences is unique *)
+  List.iter process_constr tr;
+  (* Return a target_struct *)
+  let tgs = {
+    target_path = List.filter (function | ConstrRelative _ | ConstrOccurences _ -> false | _ -> true) tr;
+    target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
+    target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
+  (* TODO *)
+  printf "%s\n" (target_struct_to_string tgs);
+  tgs
+
 
 
 
@@ -1337,7 +1351,7 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
     | [] -> [[]]
     | Constr_strict :: tr -> resolve_target_simple ~strict:true tr t
     | c :: p ->
-      let res_deep = 
+      let res_deep =
         if strict
            then [] (* in strict mode, must match c here *)
            else (resolve_constraint c p t) in
@@ -1345,12 +1359,11 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
          if is_constr_regexp c && res_deep <> []
            then [] (* if a regexp matches in depth, don't test it here *)
            else (explore_in_depth (c :: p) t) in
-      
-      res_deep ++ res_here  (* put deeper nodes first *) in     
+      res_deep ++ res_here  (* put deeper nodes first *) in
   (* if (List.length epl = 0) then fail None ("Constraints " ^ constraints); *)
   List.sort_uniq compare_path epl
-and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
 
+and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let res = resolve_target_simple tgs.target_path t in
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
@@ -1358,10 +1371,10 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
      the idea would be to track the OCaml line of code form which users write the target *)
   (* TODO: insert to the head of a line
      (ocamlpos:=__LOC__); Tr.transfo [path] *)
-  begin match tgs.target_occurences with
-  | ExpectedOne ->  if nb <> 0 then fail None "resolve_target_struct: expected only one match"
-  | ExpectedNb n -> if nb <> n then fail None "resolve_target_struct: expected x matches"
-  | ExpectedMulti -> if nb = 0 then fail None "resolve_target_struct: expected at least one occurrence"
+  begin match tgs.target_occurences with (* TODO: use sprintf everywhere *)
+  | ExpectedOne -> if nb <> 1 then fail None (sprintf "resolve_target_struct: expected exactly one match, got %d." nb)
+  | ExpectedNb n -> if nb <> n then fail None (sprintf "resolve_target_struct: expected %d matches, got %d." n nb)
+  | ExpectedMulti -> if nb = 0 then fail None (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb)
   | ExpectedAnyNb -> ();
   end;
   res
@@ -1373,7 +1386,7 @@ and resolve_target (tg : target) (t : trm) : paths =
   resolve_target_struct tgs t
 
 (* check c against t and in case of success continue with p *)
-and resolve_constraint (c : constr) (p : target) (t : trm) : paths =  
+and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   let loc = t.loc in
   match c with
   (*
@@ -1384,7 +1397,7 @@ and resolve_constraint (c : constr) (p : target) (t : trm) : paths =
        remove the include annotation for target resolution to proceed in the
        included file
       *)
-     resolve_target p {t with annot = None}
+     resolve_target_simple p {t with annot = None}
   | _ when is_included t ->
      print_info loc "resolve_constraint: not an include constraint\n";
      []
@@ -1415,14 +1428,14 @@ and resolve_constraint (c : constr) (p : target) (t : trm) : paths =
         begin match t.desc with
         | Trm_seq tl ->
            let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_nth n) il (resolve_target p)
+           explore_list_ind tl (fun n -> Dir_nth n) il (resolve_target_simple p)
         | Trm_apps (_, tl) ->
            let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target p)
+           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target_simple p)
         | Trm_decl (Def_fun (_, _, args, _)) ->
            let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
            let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target p)
+           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target_simple p)
         | _ ->
            print_info loc
              "resolve_constraint: list constraint applied to a wrong term\n";
@@ -1433,14 +1446,14 @@ and resolve_constraint (c : constr) (p : target) (t : trm) : paths =
     if the constraint is a target constraint that does not match the node or
     if it is another kind of constraint, then we check if it holds
    *)
-  | c when check_constraint c t -> resolve_target p t
+  | c when check_constraint c t -> resolve_target_simple p t
   | _ ->
      print_info loc "resolve_constraint: constraint %s does not hold\n"
        (constraint_to_string c);
      []
 
-(* call resolve_target on subterms of t if possible *)
-and explore_in_depth (p : target) (t : trm) : paths =
+(* call resolve_target_simple on subterms of t if possible *)
+and explore_in_depth (p : target_simple) (t : trm) : paths =
   (* let p = target_to_target_simple p in ---TODO: used for getting rid of ConstrChain that appear in depth *)
   let loc = t.loc in
   match t.annot with
@@ -1462,21 +1475,21 @@ and explore_in_depth (p : target) (t : trm) : paths =
   | Some Heap_allocated ->
      begin match t.desc with
      (* dereferencing *)
-     | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (resolve_target p t')
+     | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (resolve_target_simple p t')
      (* declaration *)
      | Trm_seq tl ->
         begin match tl with
         (* no initial value (init = uninitialized) *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr _; _}), _)); _}] ->
            add_dir (Dir_nth 0)
-             (add_dir Dir_name (resolve_target p (trm_var ~loc x)))
+             (add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)))
         (* initialisation *)
         | [{desc = Trm_decl (Def_var ((x, _), _)); _} ;
            {desc = Trm_apps (_, [{desc = Trm_var y; _}; init]); _}]
              when y = x ->
            (add_dir (Dir_nth 0)
-             (add_dir Dir_name (resolve_target p (trm_var ~ loc x)))) ++
-           add_dir (Dir_nth 1) (add_dir (Dir_arg 1) (resolve_target p init))
+             (add_dir Dir_name (resolve_target_simple p (trm_var ~ loc x)))) ++
+           add_dir (Dir_nth 1) (add_dir (Dir_arg 1) (resolve_target_simple p init))
         | _ -> fail loc "explore_in_depth: bad heap allocation"
         end
      | _ -> fail loc "explore_in_depth: bad heap_alloc instruction"
@@ -1501,8 +1514,8 @@ and explore_in_depth (p : target) (t : trm) : paths =
      begin match t.desc with
      | Trm_decl (Def_var ((x, _), body))
        | Trm_decl (Def_fun (x, _, _, body)) ->
-        add_dir Dir_name (resolve_target p (trm_var ~loc x)) ++
-        add_dir Dir_body (resolve_target p body)
+        add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
+        add_dir Dir_body (resolve_target_simple p body)
      | Trm_decl (Def_enum (x, xto_l)) ->
         let (il, tl) =
           foldi
@@ -1514,54 +1527,54 @@ and explore_in_depth (p : target) (t : trm) : paths =
            ([], [])
            xto_l
         in
-        add_dir Dir_name (resolve_target p (trm_var ~loc x)) ++
+        add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
         (explore_list (List.map (fun (y, _) -> trm_var ~loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
-           (resolve_target p)) ++
+           (resolve_target_simple p)) ++
         (explore_list tl
            (fun n -> Dir_enum_const (List.nth il n, Enum_const_val))
-           (resolve_target p))
+           (resolve_target_simple p))
      | Trm_abort (Ret (Some body)) ->
-        add_dir Dir_body (resolve_target p body)
+        add_dir Dir_body (resolve_target_simple p body)
      | Trm_for (init, cond, step, body) ->
         (* init *)
-        (add_dir Dir_for_init (resolve_target p init)) ++
+        (add_dir Dir_for_init (resolve_target_simple p init)) ++
         (* cond *)
-        (add_dir Dir_cond (resolve_target p cond)) ++
+        (add_dir Dir_cond (resolve_target_simple p cond)) ++
         (* step *)
-        (add_dir Dir_for_step (resolve_target p step)) ++
+        (add_dir Dir_for_step (resolve_target_simple p step)) ++
         (* body *)
-        (add_dir Dir_body (resolve_target p body))
+        (add_dir Dir_body (resolve_target_simple p body))
      | Trm_while (cond, body) ->
         (* cond *)
-        (add_dir Dir_cond (resolve_target p cond)) ++
+        (add_dir Dir_cond (resolve_target_simple p cond)) ++
         (* body *)
-        (add_dir Dir_body (resolve_target p body))
+        (add_dir Dir_body (resolve_target_simple p body))
      | Trm_if (cond, then_t, else_t) ->
         (* cond *)
-        (add_dir Dir_cond (resolve_target p cond)) ++
+        (add_dir Dir_cond (resolve_target_simple p cond)) ++
         (* then *)
-        (add_dir Dir_then (resolve_target p then_t)) ++
+        (add_dir Dir_then (resolve_target_simple p then_t)) ++
         (* else *)
-        (add_dir Dir_else (resolve_target p else_t))
+        (add_dir Dir_else (resolve_target_simple p else_t))
      | Trm_apps (f, args) ->
         (* fun *)
-        (add_dir Dir_app_fun (resolve_target p f)) ++
+        (add_dir Dir_app_fun (resolve_target_simple p f)) ++
         (* args *)
-        (explore_list args (fun n -> Dir_arg n) (resolve_target p))
+        (explore_list args (fun n -> Dir_arg n) (resolve_target_simple p))
      | Trm_seq tl
        | Trm_array tl
        | Trm_struct tl ->
-        explore_list tl (fun n -> Dir_nth n) (resolve_target p)
+        explore_list tl (fun n -> Dir_nth n) (resolve_target_simple p)
      | Trm_val (Val_array vl)
        | Trm_val (Val_struct vl) ->
         explore_list (List.map (trm_val ~loc) vl) (fun n -> Dir_nth n)
-          (resolve_target p)
+          (resolve_target_simple p)
      | Trm_labelled (l, body) ->
-        add_dir Dir_name (resolve_target p (trm_var ~loc l)) ++
-        add_dir Dir_body (resolve_target p body)
+        add_dir Dir_name (resolve_target_simple p (trm_var ~loc l)) ++
+        add_dir Dir_body (resolve_target_simple p body)
      | Trm_switch (cond, cases) ->
-        (add_dir Dir_cond (resolve_target p cond)) ++
+        (add_dir Dir_cond (resolve_target_simple p cond)) ++
         (foldi (fun i epl case -> epl ++ explore_case i case p) [] cases)
      | _ ->
         print_info loc "explore_in_depth: cannot find a subterm to explore\n";
@@ -1569,89 +1582,89 @@ and explore_in_depth (p : target) (t : trm) : paths =
      end
 
 (*
-  call resolve_target on given case name and body
+  call resolve_target_simple on given case name and body
   i is the index of the case in its switch
  *)
-and explore_case (i : int) (case : trm list * trm) (p : target) : paths =
+and explore_case (i : int) (case : trm list * trm) (p : target_simple) : paths =
   let (tl, body) = case in
   match tl with
   (* default case *)
   | [] ->
-     add_dir (Dir_case (i, Case_body)) (resolve_target p body)
+     add_dir (Dir_case (i, Case_body)) (resolve_target_simple p body)
   | _ ->
      (foldi
         (fun j epl t ->
           epl ++
-          (add_dir (Dir_case (i, Case_name j)) (resolve_target p t))
+          (add_dir (Dir_case (i, Case_name j)) (resolve_target_simple p t))
         )
         []
         tl
      ) ++
-     add_dir (Dir_case (i, Case_body)) (resolve_target p body)
+     add_dir (Dir_case (i, Case_body)) (resolve_target_simple p body)
 
-(* follow the direction d in t and call resolve_target on p *)
-and follow_dir (d : dir) (p : target) (t : trm) : paths =
+(* follow the direction d in t and call resolve_target_simple on p *)
+and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   let loc = t.loc in
   match d, t.desc with
   | Dir_nth n, Trm_seq tl
     | Dir_nth n, Trm_array tl
     | Dir_nth n, Trm_struct tl ->
      app_to_nth_dflt loc tl n
-       (fun nth_t -> add_dir (Dir_nth n) (resolve_target p nth_t))
+       (fun nth_t -> add_dir (Dir_nth n) (resolve_target_simple p nth_t))
   | Dir_nth n, Trm_val (Val_array vl)
     | Dir_nth n, Trm_val (Val_struct vl) ->
      app_to_nth_dflt loc vl n (fun nth_v ->
-         add_dir (Dir_nth n) (resolve_target p (trm_val ~loc nth_v)))
+         add_dir (Dir_nth n) (resolve_target_simple p (trm_val ~loc nth_v)))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
     | Dir_cond, Trm_for (_, cond, _, _)
     | Dir_cond, Trm_switch (cond, _) ->
-     add_dir Dir_cond (resolve_target p cond)
+     add_dir Dir_cond (resolve_target_simple p cond)
   | Dir_then, Trm_if (_, then_t, _) ->
-     add_dir Dir_then (resolve_target p then_t)
+     add_dir Dir_then (resolve_target_simple p then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
-     add_dir Dir_else (resolve_target p else_t)
+     add_dir Dir_else (resolve_target_simple p else_t)
   | Dir_body, Trm_decl (Def_var (_, body))
     | Dir_body, Trm_decl (Def_fun (_, _, _, body))
     | Dir_body, Trm_for (_, _, _, body)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_abort (Ret (Some body))
     | Dir_body, Trm_labelled (_, body) ->
-     add_dir Dir_body (resolve_target p body)
+     add_dir Dir_body (resolve_target_simple p body)
   | Dir_for_init, Trm_for (init, _, _, _) ->
-     add_dir Dir_for_init (resolve_target p init)
+     add_dir Dir_for_init (resolve_target_simple p init)
   | Dir_for_step, Trm_for (_, _, step, _) ->
-     add_dir Dir_for_step (resolve_target p step)
-  | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (resolve_target p f)
+     add_dir Dir_for_step (resolve_target_simple p step)
+  | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (resolve_target_simple p f)
   | Dir_arg n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (resolve_target p nth_t))
+         add_dir (Dir_arg n) (resolve_target_simple p nth_t))
   | Dir_arg n, Trm_decl (Def_fun (_, _, arg, _)) ->
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (resolve_target p nth_t))
+         add_dir (Dir_arg n) (resolve_target_simple p nth_t))
   | Dir_name, Trm_decl (Def_var ((x, _), _))
     | Dir_name, Trm_decl (Def_fun (x, _, _, _))
     | Dir_name, Trm_decl (Def_enum (x, _))
     | Dir_name, Trm_labelled (x, _)
     | Dir_name, Trm_goto x ->
-     add_dir Dir_name (resolve_target p (trm_var ~loc x))
+     add_dir Dir_name (resolve_target_simple p (trm_var ~loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt loc cases n
        (fun (tl, body) ->
          match cd with
          | Case_body ->
-            add_dir (Dir_case (n, cd)) (resolve_target p body)
+            add_dir (Dir_case (n, cd)) (resolve_target_simple p body)
          | Case_name i ->
             app_to_nth_dflt loc tl i (fun ith_t ->
-                add_dir (Dir_case (n, cd)) (resolve_target p ith_t))
+                add_dir (Dir_case (n, cd)) (resolve_target_simple p ith_t))
        )
   | Dir_enum_const (n, ecd), Trm_decl (Def_enum (_, xto_l)) ->
      app_to_nth_dflt loc xto_l n
        (fun (x, t_o) ->
          match ecd with
          | Enum_const_name ->
-            add_dir (Dir_enum_const (n, ecd)) (resolve_target p (trm_var ~loc x))
+            add_dir (Dir_enum_const (n, ecd)) (resolve_target_simple p (trm_var ~loc x))
          | Enum_const_val ->
             begin match t_o with
             | None ->
@@ -1659,7 +1672,7 @@ and follow_dir (d : dir) (p : target) (t : trm) : paths =
                  n;
                []
             | Some t ->
-               add_dir (Dir_enum_const (n, ecd)) (resolve_target p t)
+               add_dir (Dir_enum_const (n, ecd)) (resolve_target_simple p t)
             end
        )
   | _, _ ->

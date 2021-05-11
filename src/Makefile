@@ -15,12 +15,16 @@ compile: force
 	ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str -I . $(TEST)
 
 run: compile $(TEST)
-	./$(TEST)
+	./$(TEST) && cat test_out.cpp
 
 force:
 
 clean:
 	rm -Rf _build
 
-clean_all: clean
-	rm test.ml test.cpp
+clean_res:
+	rm test.byte test.cpp test.log test.ml test_out.ast test_out.cpp test_out_enc.cpp
+
+clean_all: clean clean_res
+	rm test.ml test.cpp 
+

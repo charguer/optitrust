@@ -1,5 +1,8 @@
 open PPrint
 
+let printf = Printf.printf
+let sprintf = Printf.sprintf
+
 (* print the ast *)
 let node (s : string) : document = string s ^^ blank 1
 
@@ -64,7 +67,7 @@ let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
 let (+@) = ilset_funmap_union
 
 (* Inline a list in another list starting from the given index, it removes the elment at the given index *)
-let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with 
+let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with
 | [] -> []
 | h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
 
@@ -72,41 +75,41 @@ let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = ma
 let rec list_insert (n : int) (a : 'a) (al : 'a list) : 'a list =
   if n < 0 then a :: al else List.hd al :: list_insert (n - 1) a (List.tl al)
 (* Removes one list element at given index *)
-let rec list_remove_at (i : int) (list : 'a list) : 'a list = match list with 
+let rec list_remove_at (i : int) (list : 'a list) : 'a list = match list with
   | [] -> failwith "Empty list"
-  | x :: xs -> if i = 0 then xs else x :: list_remove_at (i-1) xs 
+  | x :: xs -> if i = 0 then xs else x :: list_remove_at (i-1) xs
 
-let list_remove_at_set (ys : int list) (xs : 'a list) : 'a list = List.fold_left (fun acc y -> list_remove_at y acc) xs ys 
+let list_remove_at_set (ys : int list) (xs : 'a list) : 'a list = List.fold_left (fun acc y -> list_remove_at y acc) xs ys
 
 (* Inline a list in another list starting from the given index, it doesn't remove the elment at the given index *)
-let rec insert_sublist_at (sublist : 'a list) (i : int) (xs : 'a list) : 'a list =  match xs with 
+let rec insert_sublist_at (sublist : 'a list) (i : int) (xs : 'a list) : 'a list =  match xs with
   | [] -> failwith "Empty list"
-  | h :: t -> if i = 0 then sublist @ h :: t else h :: insert_sublist_at sublist (i-1) t 
+  | h :: t -> if i = 0 then sublist @ h :: t else h :: insert_sublist_at sublist (i-1) t
 
-let rec insert_before x local_l list = match list with 
+let rec insert_before x local_l list = match list with
 | [] -> []
 | hd :: tl -> if hd = x then local_l @ hd :: tl else hd :: (insert_before x local_l tl)
 
-let rec insert_list keys_list temp_field_list field_list1 = match keys_list with 
+let rec insert_list keys_list temp_field_list field_list1 = match keys_list with
 | [] -> field_list1
 | hd :: tl -> let field_list1 = insert_before hd (List.hd temp_field_list) field_list1 in insert_list tl (List.tl temp_field_list ) field_list1
 
-let list_remove x xs = List.filter (fun y -> y <> x) xs 
+let list_remove x xs = List.filter (fun y -> y <> x) xs
 
 
-let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys 
+let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys
 
-let move_fields_after x local_l l = 
-let l = list_remove_set local_l  l in 
-let rec aux acc = function 
+let move_fields_after x local_l l =
+let l = list_remove_set local_l  l in
+let rec aux acc = function
 | [] -> acc (* raise an error x not part of the list *)
 | hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl (* local_l @ hd :: acc @ tl *)
-else aux (hd :: acc) tl 
+else aux (hd :: acc) tl
 in aux [] (List.rev l)
 
-(* 
-  - tail recursive approach => more efficient 
-  - non-tail rec => easier to read 
+(*
+  - tail recursive approach => more efficient
+  - non-tail rec => easier to read
 
      let rec insert_after x xs l =
         match l with
@@ -114,14 +117,14 @@ in aux [] (List.rev l)
         | y::q -> if x = y then xs@l else y::(insert_after x xs q)
 *)
 
-let move_fields_before x local_l l = 
-  let l = list_remove_set local_l l in 
-  let rec aux acc = function 
+let move_fields_before x local_l l =
+  let l = list_remove_set local_l l in
+  let rec aux acc = function
     | [] -> acc
-    | hd :: tl -> 
+    | hd :: tl ->
         if hd = x
-          then aux (hd :: local_l @ acc) tl 
-          else aux (hd :: acc) tl 
+          then aux (hd :: local_l @ acc) tl
+          else aux (hd :: acc) tl
     in
   aux [] (List.rev l)
 
@@ -152,7 +155,7 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : strin
 
 let list_all_true(bl : bool list) : bool =
           List.for_all(fun b -> b = true) bl
-          
+
 let rec after_bool (bl : bool list) : bool list =
       match bl with
       | [] -> []
@@ -172,8 +175,8 @@ let before_aux (bl : bool list) : int list =
 
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
-    let file_js = out_prefix ^ ".js" in 
-    let out_js = open_out file_js in 
+    let file_js = out_prefix ^ ".js" in
+    let out_js = open_out file_js in
     let content = PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "contents" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
     let source =  PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "source" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
     PPrintEngine.ToChannel.pretty 0.9 80 out_js content;
