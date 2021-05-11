@@ -162,7 +162,7 @@ type trm_kind =
 (* --------------------------------DEPRECATED------------------------------- *)
 (* type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool} *)
 (*
-  regexps with their string description, a boolean for exact/subexpression
+  regexp with their string description, a boolean for exact/subexpression
   matching, and the kind of expression to match (any, instruction, or
   subexpression)
  *)
@@ -393,15 +393,15 @@ let target_to_target_struct(tr : target) : target_struct =
     target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; }
 
 (* ----------------DEPRECATED---------------- *)
-(* let regexp_to_string (r : rexp) : string =
+(* let  _string (r : rexp) : string =
   (if r.exact then "Exact " else "Sub ") ^
     (if r.only_instr then "OnlyInstr \"" else "\"") ^ r.desc ^ "\"" *)
 let regexp_to_string (r : rexp) : string =
-  (if r.rexp_substr then "Exact" else "Sub") ^
+  (if r.rexp_substr then "Exact " else "Sub") ^
     (begin match r.rexp_trm_kind with
-    | TrmKind_Struct | TrmKind_Expr -> r.rexp_desc
-    | TrmKind_Instr -> "Instr"
-    end)
+    | TrmKind_Instr -> "\"" 
+    | TrmKind_Struct | TrmKind_Expr -> " "
+    end) ^ r.rexp_desc ^ "\""
 
 
 let rec constraint_to_string (c : constr) : string =
@@ -1330,7 +1330,6 @@ and check_target (tr : target) (t : trm) : bool =
   sort_unique
  *)
 and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
-  let constraints_to_string = list_to_string (List.map constraint_to_string trs) in
   let epl =
     match trs with
     | [] -> []
@@ -1344,9 +1343,8 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            then [] (* if a regexp matches in depth, don't test it here *)
            else (explore_in_depth (c :: p) t) in
       
-      res_here ++ res_deep  (* put deeper nodes first *) in     
-  let () = if (epl = []) then fail None ("resolve_target_simple: something went_wrong" ^ constraints_to_string)
-  in
+      res_deep ++ res_here  (* put deeper nodes first *) in     
+  
   List.sort_uniq compare_path epl
 
 

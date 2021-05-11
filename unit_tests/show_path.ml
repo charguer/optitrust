@@ -5,9 +5,9 @@ let _ =
     ( fun _ ->
         set_init_source"show_path.cpp";
         
-        (* set_repeat_io false;  *)
+        set_repeat_io false; 
 
-        show_target [cVarDef ~name:"x" ()] ~debug_ast:true;
+        show_target [cVarDef ~name:"x" ()];
         clean_target_decorators();
         show_target  [cVarDef ~name:"i" ()] ;
         clean_target_decorators();

@@ -214,6 +214,7 @@ let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm =
     t
   | [dl] -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
             apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0) ) t dl 
+
   | _ -> foldi
           (fun i -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
                     apply_local_transformation
