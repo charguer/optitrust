@@ -1181,6 +1181,7 @@ let is_structuring_statement (t : trm) : bool =
 
 let match_regexp (r : rexp) (t : trm) : bool =
   printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
+  printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
   if r.rexp_trm_kind <> get_trm_kind t then false
     else
       begin
@@ -1292,11 +1293,11 @@ and check_name (name : constr_name) (s : string) : bool =
   | Some r -> match_regexp r (trm_var s)
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
-  (*printf "%s\n" (lpred.target_list_pred_to_string());*)
+  (* DEBUG: printf "%s\n" (lpred.target_list_pred_to_string()); *)
   let cstr = lpred.target_list_pred_ith_constr in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ([cstr i]) t) tl)
-  (*printf "%s\n" (if res then "true" else "false");*)
+  (* DEBUG: printf "%s\n" (if res then "true" else "false"); *)
 
 (* and check_list (cl : constr_list) (tl : trm list) : bool =
   let (p, validate) = cl in
