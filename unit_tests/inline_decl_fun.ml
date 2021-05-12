@@ -15,7 +15,7 @@ let _ =
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "x"] ~inline_at:[[cFunDef ~name:"main" ()];[cSet ~lhs:[cVar "y"]()]] ();
       show_path [cVarDef "y"] ~debug_ast:true;
-      (* show_path [cLabel ~label:"exit" ();cBody()] ~debug_ast:true; *)
+      (* show_path [cLabel "exit";cBody()] ~debug_ast:true; *)
       dump ()
     )
 

@@ -15,7 +15,7 @@ let _ =
         make_implicit_record_assignment [cVarDef "d"] ~struct_name:"vect" ; 
         
         detach_expression [cVarDef "b"] ~keep_label:true; 
-        make_explicit_record_assignment [cLabel ~label:"detached"();cBody()] ~struct_name:"vect";
+        make_explicit_record_assignment [cLabel "detached";cBody()] ~struct_name:"vect";
         
         make_explicit_record_assignment [cVarDef "b"] ~struct_name:"vect";
         

@@ -58,7 +58,7 @@ val cInit : constr
 
 val cStep : constr
 
-val cAppFun : constr
+val cCallFun : constr
 
 val cArg : int -> constr
 
@@ -84,6 +84,10 @@ val cInclude : string -> constr
 (* val cStr : ?regexp:bool -> string -> constr *)
 
 val cInstrSubstr : ?exact:bool -> ?regexp:bool -> string -> constr
+
+val cStr : string -> constr 
+
+val cStrFull : string -> constr 
 
 val cFor : ?init:(target) -> ?cond:(target) ->
            ?step:(target) -> ?body:(target) -> string -> constr
@@ -117,28 +121,23 @@ val cDouble : float -> constr
 
 val cString : string -> constr
 
-val cApp : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
+val cCall : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
 
 val cFun : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
 
-val cLabel : ?label:string -> ?exact:bool ->
-             ?body:(target) -> unit -> constr
+val cLabel : ?exact:bool -> ?body:(target) -> string -> constr
 
 val cGoto : ?label:string -> ?exact:bool -> unit -> constr
 
 val cReturn_target : ?res:(target) -> unit -> constr
 
-val cReturn : unit -> constr 
+val cReturn : constr 
 
 val cAbort : ?kind:abort_kind -> unit -> constr
 
-val cAbrtAny : abort_kind
+val cBreak : constr
 
-val cAbrtRet : abort_kind
-
-val cAbrtBrk : abort_kind
-
-val cAbrtCtn : abort_kind
+val cContinue : constr 
 
 val cAccesses : ?base:(target) ->
                 ?accesses:(constr_access list) -> unit -> constr

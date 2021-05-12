@@ -18,7 +18,7 @@ First the constraints giving the next subterm to explore:
   switch, to the result in a return statement or to the term under a label.
 - `cInit ()`: go to the initialisation instruction of a for loop.
 - `cStep ()`: go to the step statement of a for loop.
-- `cAppFun ()`: in a function application `f args`, go to `f`.
+- `cCallFun ()`: in a function application `f args`, go to `f`.
 - `cArg n`: go to the `n`-th argument of a function in a application or a
   declaration.
 - `cName ()`: go to the name of a declared variable/function or to the label of
@@ -89,7 +89,7 @@ Then, the constraints matching nodes to go through:
 - `cDouble f`: match a double literal against the float `f`.
 - `cString s`: match a string literal against `s`.
 - `cPrim p`: match a primitive against `p`.
-- `cApp ~name ~fun ~args ~validate ()`: match a function application. The
+- `cCall ~name ~fun ~args ~validate ()`: match a function application. The
   function may be matched either using its name (if it is a variable) or using
   the path `fun_`.
 - `cLabel ~label ~exact ~body ()`: match a labelled term using `label` and

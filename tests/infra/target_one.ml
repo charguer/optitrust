@@ -3,14 +3,15 @@ open Optitrust
 let _ = run_unit_test (fun () ->
   (** There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
-  let show = Tr.target_show in
+  (* let show = Tr.target_show in *)
+  let show = show_target in 
 
   (* Types *)
   show [ cTypDef "vect" ];
   show [ cTypDef "intstar" ];
 
   (* Constants *)
-  show [ cInt "8"; ];
+  show [ cInt 8];
 
   (* Var/fun occurences *)
   show [ cVar "u" ];
@@ -34,7 +35,7 @@ let _ = run_unit_test (fun () ->
 
   (* Calls *)
   show [ cCall "f" ];
-  show [ cCall ~args:[[cInt 2]] "" ];
+  show [ cCall ~args:[cInt 2] "" ];
 
   (* Var/Fun definitions *)
   show [ cDef "f" ];
@@ -42,7 +43,7 @@ let _ = run_unit_test (fun () ->
   show [ cDef "p2" ];
   show [ cFunDef "main" ];
   show [ cFunDef "f" ];
-  show [ cFunDef ~args:[[cTrue]; [cDef "varg"]] "" ];
+  show [ cFunDef ~args:[cTrue;cDef "varg"] "" ];
   show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ];
 
 

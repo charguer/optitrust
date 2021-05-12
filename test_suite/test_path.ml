@@ -24,7 +24,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
         ]
        );
        ([cFunDef "main";
-         cApp ~args:[cVar ~name:"t" ()] ~validate:(List.mem true) ()],
+         cCall ~args:[cVar "t"] ~validate:(List.mem true) ()],
         [
           [Dir_nth 0; Dir_nth 3; Dir_body; Dir_nth 2; Dir_nth 0; Dir_body;
            Dir_nth 0; Dir_nth 0; Dir_body; Dir_nth 0; Dir_arg 0; Dir_arg 0];
@@ -54,7 +54,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
         ]
        );
        ([cFunDef "main" ;
-         cApp ~args:[cVar target ~name:"t" ()] ~validate:(List.mem true)
+         cCall ~args:[cVar target ~name:"t" ()] ~validate:(List.mem true)
            ()],
         [
           [Dir_nth 0; Dir_nth 3; Dir_body; Dir_nth 2; Dir_nth 0; Dir_body;
@@ -175,7 +175,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
            Dir_body; Dir_nth 2; Dir_body; Dir_nth 0; Dir_body; Dir_nth 2]
         ]
        );
-       ([cApp ~fun_:[cVar ~name:"bag_push" ~exact:false ()] ()],
+       ([cCall ~fun_:[cVar ~name:"bag_push" ~exact:false ()] ()],
         [
           [Dir_nth 0; Dir_nth 15; Dir_nth 11; Dir_body; Dir_nth 95; Dir_body;
            Dir_nth 9; Dir_nth 1; Dir_body; Dir_nth 0; Dir_body; Dir_nth 0;

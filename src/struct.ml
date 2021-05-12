@@ -141,7 +141,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
     end
   | _ -> fail t.loc "make_explicit_record_assignment: the path should point at one exact term and should not be empty"
   in
-  let t, tr = if is_decl then (detach_expression ~keep_label:true clog tr t,[cLabel ~label:"detached"()])
+  let t, tr = if is_decl then (detach_expression ~keep_label:true clog tr t,[cLabel "detached"])
     else t, tr
   in
 

@@ -649,7 +649,7 @@ module Path_constructors = struct
      Constr_dir Dir_for_init
   let cStep : constr =
      Constr_dir Dir_for_step
-  let cAppFun : constr =
+  let cCallFun : constr =
      Constr_dir Dir_app_fun
   let cArg (n : int) : constr =
      Constr_dir (Dir_arg n)
@@ -833,8 +833,8 @@ module Path_constructors = struct
      Constr_lit (Lit_double f)
   let cString (s : string) : constr =
      Constr_lit (Lit_string s)
-  (* let cPrim (p : prim) : constr =
-     cStr (ast_to_string (trm_prim p)) *)
+  let cPrim (p : prim) : constr =
+     cStr (ast_to_string (trm_prim p))
   
   let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
     let exception Argument_Error  of string in
@@ -852,7 +852,7 @@ module Path_constructors = struct
     in
     Constr_app (p_fun,args)
   
-  let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
+  let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
     let exception Argument_Error  of string in
     let p_fun =
     match name, fun_ with
@@ -868,8 +868,7 @@ module Path_constructors = struct
     in
     Constr_app (p_fun,args)
 
-  let cLabel ?(label : string = "")
-    ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
+  let cLabel ?(exact : bool = true) ?(body : target = []) (label : string) : constr =
     let ro = string_to_rexp_opt ~exact label in
     let p_body =  body in
      Constr_label (ro, p_body)
@@ -893,13 +892,13 @@ module Path_constructors = struct
     (_ : unit) : constr =
      Constr_abort kind
 
-  let cReturn (_ : unit) : constr =
+  let cReturn : constr =
     Constr_abort (cAbrtRet)
   
-  let cBreak (_ : unit) : constr =
+  let cBreak  : constr =
     Constr_abort (cAbrtBrk) 
   
-  let cContinue (_ : unit) : constr =
+  let cContinue : constr =
     Constr_abort (cAbrtCtn)
   (*
     the empty list is interpreted as no constraint on the accesses
@@ -943,9 +942,12 @@ module Path_constructors = struct
   let cDefault : case_kind = Case_default
 
   (* TODO: Fix cSet function later *)
-  let cSet ?(lhs : target  = [])
-    ?(_rhs : target  = []) (_ : unit) : target =lhs;
-
+  let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
+    [
+      cCall ~args:lhs "";
+      cCall ~args:rhs "";
+      cCall ~fun_:[cStrict;cStr "="] ""
+    ]
 end
 
 (******************************************************************************)
