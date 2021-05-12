@@ -126,7 +126,9 @@ val cLabel : ?label:string -> ?exact:bool ->
 
 val cGoto : ?label:string -> ?exact:bool -> unit -> constr
 
-val cReturn : ?res:(target) -> unit -> constr
+val cReturn_target : ?res:(target) -> unit -> constr
+
+val cReturn : unit -> constr 
 
 val cAbort : ?kind:abort_kind -> unit -> constr
 

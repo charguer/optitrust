@@ -704,7 +704,14 @@ module Path_constructors = struct
     if only_instr
       then cInstrRegexp ~substr s
       else cExprRegexp ~substr s
-
+  
+  let cStr  (s : string) : constr =
+    cExprRegexp s
+  
+  let cStrFull  (s : string) : constr =
+    cExprRegexp ~substr:false s
+  
+  
   (*
     match the string/regexp only on instructions
     by default this is not an exact match
@@ -781,7 +788,7 @@ module Path_constructors = struct
     cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
 
   let cTypDef 
-    ?(exact : bool = true) ?(name : string = "") : constr =
+    ?(exact : bool = true) (name : string) : constr =
     let ro = string_to_rexp_opt ~exact name in
      Constr_decl_type ro
 
@@ -872,7 +879,7 @@ module Path_constructors = struct
     let ro = string_to_rexp_opt ~exact label in
      Constr_goto ro
 
-  let cReturn ?(res : target = [])
+  let cReturn_target ?(res : target = [])
     (_ : unit) : constr =
     let p_res =  res in
      Constr_return p_res
