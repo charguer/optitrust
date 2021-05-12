@@ -86,7 +86,7 @@ val cInclude : string -> constr
 val cInstrSubstr : ?exact:bool -> ?regexp:bool -> string -> constr
 
 val cFor : ?init:(target) -> ?cond:(target) ->
-           ?step:(target) -> ?body:(target) -> ?name:string-> unit -> constr
+           ?step:(target) -> ?body:(target) -> string -> constr
 
 val cWhile : ?cond:(target) -> ?body:(target) -> unit ->
              constr

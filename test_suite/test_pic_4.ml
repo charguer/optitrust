@@ -23,12 +23,12 @@ let _ =
       (*Substitute idTile with temp, don't know how name it'*)
       insert_decl ~insert_before ~name:"temp" ~value:"idCell / nbCellsPerTile" ();
       insert_and_fold ~insert_before ~name:"idCellOfTile" ~value:"idCell % nbCellsPerTile" ();
-      tile_loop [cFor ~init:[cVarDef "idCell"] ()];
-      fold_decl ~decl_path:[cVarDef "nbTiles"] ();
+      tile_loop [cFor ~init:[cVarDef "idCell"]];
+      fold_decl ~decl_path:[cVarDef "nbTiles"];
       let insert_before = [cFor ~init:[cVarDef "idCellOfTile"] ()] in 
       insert_and_fold ~insert_before ~name:"color" ~value:"temp / nbTiles"();
       insert_decl ~insert_before ~name:"idTile" ~value:"temp % nbTiles" ();
-      tile_loop [cFor ~init:[cVarDef "temp"] ()];
+      tile_loop [cFor ~init:[cVarDef "temp"]];
       
       dump ()
     )

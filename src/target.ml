@@ -725,9 +725,9 @@ module Path_constructors = struct
     let p_body =  body in
      Constr_decl_var (ro, p_body)
 
+  (* TODO: cFor should not fail if neither init or name are given *)
   let cFor ?(init : target = [])
-    ?(cond : target = []) ?(step : target = []) ?(body : target = []) ?(name : string = "")
-    (_ : unit) : constr =
+    ?(cond : target = []) ?(step : target = []) ?(body : target = []) (name : string) : constr =
     let init =
        match name, init with
        | "",[] -> init (*failwith "cFor: Need to provide the name or init"*)

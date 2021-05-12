@@ -25,6 +25,6 @@ This transformation could reuse some of this example code:
       let insert_before = [cSet ~rhs:[cStr "(2 * i)"] ()] in
       insert_and_fold ~insert_before ~name:"i1" ~value:"(i / 2)" ();
       insert_and_fold ~insert_before ~name:"i2" ~value:"(i % 2)" ();
-      tile_loop [cFor ()];
+      tile_loop [cFor ""];
 
 *

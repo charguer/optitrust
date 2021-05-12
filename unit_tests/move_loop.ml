@@ -31,8 +31,8 @@ let _ =
         move_loop "c" ~move_after:"d";
         move_loop "c" ~move_before:"d";
         (*
-        move_loop ~path:[cFun ~name:"f"; cFor ~index:"c"] ~move_after:"d";
-        move_loop ~move_before:[cFun ~name:"f"; cFor ~index:"c"] ~move_after:"d";
+        move_loop ~path:[cFun ~name:"f"; cFor "c"] ~move_after:"d";
+        move_loop ~move_before:[cFun ~name:"f"; cFor "c"] ~move_after:"d";
         move_loop ~name:"c" ~move_after:"d" ();
         move_loop "c" ~move_before:"d" ();
         

@@ -10,7 +10,7 @@ let _ =
         clean_target_decorators();
         show_target  [cVarDef "i"] ;
         clean_target_decorators();
-        show_target  [cFor ~init:[cVarDef "i"] ()];
+        show_target  [cFor ~init:[cVarDef "i"]];
         clean_target_decorators();
         show_target  [cIf ~then_:[cVar "x++"] ()] ;
         clean_target_decorators();

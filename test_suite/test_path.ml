@@ -17,7 +17,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
   [
     ("test_swap_coordinates/test_swap_coordinates.cpp",
      [
-       ([[cVarDef "t"] >> [cFor ~init:[cVar :"j"] ()]],
+       ([[cVarDef "t"] >> [cFor ~init:[cVar :"j"]]],
         [
           [Dir_nth 0; Dir_nth 3; Dir_body; Dir_nth 2; Dir_nth 0; Dir_body;
            Dir_nth 0]
@@ -131,7 +131,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
        );
        ([cFor
            ~init:[cVar ~name:"i" ()]
-           ~body:[cSet ~lhs:[cVar ~name:"my_chunk" ()] ()]
+           ~body:[cSet ~lhs:[cVar ~name:"my_chunk" ()]]
            ()],
         [
           [Dir_nth 0; Dir_nth 15; Dir_nth 11; Dir_body; Dir_nth 94; Dir_body;
@@ -156,8 +156,8 @@ let tests : (string * ((target * (expl_target)) list)) list =
            Dir_nth 7]
         ]
        );
-       ([cFor ~init:[cSet ~lhs:[cVar ~name:"i_color" ()] ()] ();
-         cFor ~init:[cVar ~name:"my_chunk" ()] ()
+       ([cFor ~init:[cSet ~lhs:[cVar ~name:"i_color" ()] ()];
+         cFor ~init:[cVar ~name:"my_chunk" ()]
         ],
         [
           [Dir_nth 0; Dir_nth 15; Dir_nth 11; Dir_body; Dir_nth 95; Dir_body;
@@ -166,8 +166,8 @@ let tests : (string * ((target * (expl_target)) list)) list =
         ]
        );
        (* path which matches several times the same node *)
-       ([cFor ~init:[cVar ~name:"i_color" ()] ();
-         cFor ~init:[cVar ~name:"my_chunk" ()] ()
+       ([cFor ~init:[cVar ~name:"i_color" ()];
+         cFor ~init:[cVar ~name:"my_chunk" ()]
         ],
         [
           [Dir_nth 0; Dir_nth 15; Dir_nth 11; Dir_body; Dir_nth 95; Dir_body;

@@ -7,7 +7,7 @@ let _ =
       set_init_source "test_swap_coordinates/test_swap_coordinates.cpp";
       add_label "return_instr" [cInstrSubstr "return"];
       swap_coordinates "T";
-      add_label "for_loop" [cFor ()];
+      add_label "for_loop" [cFor ""];
       dump ();
       reset ();
       set_init_source "test_split/test_split.cpp";
@@ -20,6 +20,6 @@ let _ =
       let insert_before = [cSet ~rhs:[cStr "(2 * i)"] ()] in
       insert_and_fold ~insert_before ~name:"i1" ~value:"(i / 2)" ();
       insert_and_fold ~insert_before ~name:"i2" ~value:"(i % 2)" ();
-      tile_loop [cFor ()];
+      tile_loop [cFor ""];
       dump ()
     )
