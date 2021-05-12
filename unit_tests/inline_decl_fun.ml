@@ -10,7 +10,7 @@ let _ =
     (fun () ->
       set_init_source "inline_decl_fun.cpp";
       (* detach_expression [cVarDef :"v3"] ~keep_label:false; *)
-      inline_decl ~delete_decl:false ~decl_path:[cFun ~name:"v_add" ()] ();
+      inline_decl ~delete_decl:false ~decl_path:[cFun "v_add"] ();
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"g" ()] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"]();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "x"] ~inline_at:[[cFun ~name:"main" ()];[cSet ~lhs:[cVar "y"]()]] ();

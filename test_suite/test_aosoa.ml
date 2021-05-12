@@ -12,7 +12,7 @@ let _ =
       let insert_before = [cSet ~lhs:[cAccesses ~accesses:[cAccess; cAccess; cField ~field:"x" ()] ()] ()] in
       insert_and_fold ~insert_before ~name:"i1" ~value:"i / BLOCK_SIZE" ();
       insert_and_fold ~insert_before ~name:"i2" ~value:"i % BLOCK_SIZE" ();
-      tile_loop [cFor ~init:[cVarDef "i"]];
+      tile_loop [cFor "i"];
       fold_decl ~decl_path:[cVarDef "NB_BLOCKS"] ();
       switch
         [
@@ -24,10 +24,10 @@ let _ =
         ];
       aos_to_soa "particle_block";
       remove_decl ~decl_path:[cType ~name:"particle" ()] ();
-      let i2_loop = [cFor ~init:[cVarDef "i2"]] in
+      let i2_loop = [cFor "i2"] in
       insert_and_fold ~insert_before:i2_loop ~as_reference:true ~fold_at:[i2_loop] ~name:"b" ~value:"data[i1]" ();
       inline_seq ~seq_path:[[cVarDef "b"] >>! []] ();
-      inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"my_alloc"] ();
+      inline_decl ~delete_decl:true ~decl_path:[cTopFun "my_alloc"] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "nb_elts"] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "size_elt"] ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ();

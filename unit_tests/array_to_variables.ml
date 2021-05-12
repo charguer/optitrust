@@ -4,7 +4,7 @@ let _ =
   run 
     ( fun _ -> 
       set_init_source"array_to_variables.cpp";
-      show_path [cFun ~name:"f"()];
+      show_path [cFun "f"];
       (* show_path [cVarDef "t" ] ~debug_ast:true; *)
       (* show_path [cType "particle"();cVar "t" ] ~debug_ast:true; *)
       (* show_path [cType "particle" (); cNth 1]: *)

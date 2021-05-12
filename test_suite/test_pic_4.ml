@@ -6,7 +6,7 @@ let _ =
       set_init_source "test_pic_3/test_pic_3.cpp";
       
       (* 
-            let main_fun = [cFun ~name:"main" ()] in 
+            let main_fun = [cFun "main"] in 
       
       insert_const ~insert_before:main_fun ~name:"nbColors" ~value:"8" ();
       insert_const ~insert_before:main_fun ~name:"nbCellsPerTile" ~value:"8" ();
@@ -23,12 +23,12 @@ let _ =
       (*Substitute idTile with temp, don't know how name it'*)
       insert_decl ~insert_before ~name:"temp" ~value:"idCell / nbCellsPerTile" ();
       insert_and_fold ~insert_before ~name:"idCellOfTile" ~value:"idCell % nbCellsPerTile" ();
-      tile_loop [cFor ~init:[cVarDef "idCell"]];
+      tile_loop [cFor "idCell"];
       fold_decl ~decl_path:[cVarDef "nbTiles"];
-      let insert_before = [cFor ~init:[cVarDef "idCellOfTile"] ()] in 
+      let insert_before = [cFor "idCellOfTile"] in 
       insert_and_fold ~insert_before ~name:"color" ~value:"temp / nbTiles"();
       insert_decl ~insert_before ~name:"idTile" ~value:"temp % nbTiles" ();
-      tile_loop [cFor ~init:[cVarDef "temp"]];
+      tile_loop [cFor "temp"];
       
       dump ()
     )

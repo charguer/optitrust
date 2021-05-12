@@ -780,38 +780,6 @@ module Path_constructors = struct
     ?(body : target = []) (name : string) : constr =
     cChain [ cRoot; cStrict; cFun ~args ~args_pred ~body name ]
 
-  (* TODO: Implement something similar for TopFun *)
-  (* let cTopFun ?(name : string = "") ?(exact : bool = true)
-    ?(args : target = []) ?(validate : bool list -> bool = fun _ -> true)
-    ?(body : target = []) (_ : unit) : target =
-    (*
-      structure of toplevel term:
-      seq (del_instr)
-        [
-          seq (no_brace)
-            [
-              ... include ...
-              t_top
-            ]
-          ... del_instr ...
-        ]
-      thus:
-        1. find the list that contains the list that contains the function and
-           explore the inner list
-        2. find the function
-     *)
-    (cList
-       (cList
-         (cFun  ~name ~exact ~args ~validate ~body ())
-         (fun l -> l)
-       )
-       (fun l -> l)
-    ) ++
-    (cList
-       (cFun  ~name ~exact ~args ~validate ~body ()
-       (fun l -> l)
-    ) *)
-
   let cType ?(name : string = "")
     ?(exact : bool = true) (_ : unit) : constr =
     let ro = string_to_rexp_opt ~exact name in

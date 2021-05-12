@@ -8,76 +8,76 @@ let _ =
       
       detach_expression [cVarDef "speed2"] ~keep_label:false; 
       (* TODO: later: detach all of a given type *)
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] ~inline_at:[[cTopFun ~name:"main"()]] ~fun_args:["mv1";"mv2"] ();
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun "vect_add" ] ~inline_at:[[cTopFun "main"]] ~fun_args:["mv1";"mv2"] ();
       
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "mv1"] ~inline_at:[[cTopFun ~name:"main"()]]();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "mv2"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "mv1"] ~inline_at:[[cTopFun "main"]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "mv2"] ~inline_at:[[cTopFun "main"]]();
       
       set_repeat_io false; 
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ~inline_at:[[cTopFun "main"]]();
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar "speed2"]  ()]; 
       set_repeat_io true; 
 
-      detach_expression [cVarDef ~name:"pos2"()] ~keep_label:false;
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_add" ()] ~inline_at:[[cTopFun ~name:"main"()]] ~fun_args:["nv1";"nv2"] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "nv1"] ~inline_at:[[cTopFun ~name:"main"()]]();
-      (* inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"nv2" ()] ~inline_at:[[cTopFun ~name:"main"()]](); *)
+      detach_expression [cVarDef "pos2"] ~keep_label:false;
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun "vect_add" ] ~inline_at:[[cTopFun "main"]] ~fun_args:["nv1";"nv2"] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "nv1"] ~inline_at:[[cTopFun "main"]]();
+      (* inline_decl ~delete_decl:true ~decl_path:[cVarDef "nv2" ] ~inline_at:[[cTopFun "main"]](); *)
       
       (* TODO: requires let ast = parse_file ~command_line_args filename in 
          to include the option for C++ support *)
       set_repeat_io false; 
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ~inline_at:[[cTopFun "main"]]();
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar "pos2"]  ()]; 
       set_repeat_io true;
       const_non_const [cVarDef "nv2"];
       detach_expression [cVarDef "nv2"] ~keep_label:false;
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_mul" ()] ~inline_at:[[cTopFun ~name:"main"()]] ~fun_args:["pv1";"pv2"] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "pv1"] ~inline_at:[[cTopFun ~name:"main"()]]();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "pv2"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun "vect_mul" ] ~inline_at:[[cTopFun "main"]] ~fun_args:["pv1";"pv2"] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "pv1"] ~inline_at:[[cTopFun "main"]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "pv2"] ~inline_at:[[cTopFun "main"]]();
       
       set_repeat_io false; 
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ~inline_at:[[cTopFun "main"]]();
       inline_record_access ~field:"x" ~var:"nv2" ();     
       inline_record_access ~field:"y" ~var:"nv2" ();   
       inline_record_access ~field:"z" ~var:"nv2" ();
       (* TODO missing remove instruction, workaround here *)
       (* Replaced this two lines with undetach_expression *)
-      (* make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar ~name:"nv2"()]()];
-      make_implicit_record_assignment ~struct_name:"vect" [cVarDef ~name:"nv2"()] ; *)
+      (* make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar "nv2"]()];
+      make_implicit_record_assignment ~struct_name:"vect" [cVarDef "nv2"] ; *)
       undetach_expression [cVarDef "nv2"];
       remove_decl ~decl_path:[cVarDef "nv2"] ();
       set_repeat_io true;
 
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "p"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "p"] ~inline_at:[[cTopFun "main"]]();
 
 
-      make_explicit_record_assignment ~struct_name:"particle" [cFun ~name:"bag_push"(); cSet ~rhs:[cVar ~name:"p"()]()];
+      make_explicit_record_assignment ~struct_name:"particle" [cFun "bag_push"; cSet ~rhs:[cVar "p"]()];
 
-      make_explicit_record_assignment ~struct_name:"vect" [cFun ~name:"bag_push"(); cStr ~regexp:true ".*= p\\.pos"];
-      make_explicit_record_assignment ~struct_name:"vect" [cFun ~name:"bag_push"(); cStr ~regexp:true ".*= p\\.speed"];
+      make_explicit_record_assignment ~struct_name:"vect" [cFun "bag_push"; cStr ~regexp:true ".*= p\\.pos"];
+      make_explicit_record_assignment ~struct_name:"vect" [cFun "bag_push"; cStr ~regexp:true ".*= p\\.speed"];
       
       (*
       *)set_repeat_io false;
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"bag_push" ()] ~fun_args:["mb";"mp"] ();
-      const_non_const [cVarDef ~name:"mp"()];
-      const_non_const [cVarDef ~name:"mb"()];
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun "bag_push"] ~fun_args:["mb";"mp"] ();
+      const_non_const [cVarDef "mp"];
+      const_non_const [cVarDef "mb"];
       set_repeat_io false;
       
       
       
       
       set_repeat_io true;
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "p2"] ~inline_at:[[cTopFun ~name:"main"()]]();
-      inline_decl ~delete_decl:true ~decl_path:[cFun ~name:"main"(); cVarDef "mp"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "p2"] ~inline_at:[[cTopFun "main"]]();
+      inline_decl ~delete_decl:true ~decl_path:[cFun "main"; cVarDef "mp"] ~inline_at:[[cTopFun "main"]]();
       set_repeat_io false;      
       (* TODO
       detach_expression [cVarDef "mp"] ~keep_label:false;
       inline_record_access ~field:"pos" ~var:"mp" ();     
       inline_record_access ~field:"speed" ~var:"mp" ();   
       inline_record_access ~field:"z" ~var:"nv2" ();
-      inline_decl ~delete_decl:true ~decl_path:[cFun ~name:"main"(); cVarDef "mp"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cFun "main"; cVarDef "mp"] ~inline_at:[[cTopFun "main"]]();
       set_repeat_io true;
-      (*[cFun ~name:"bag_push"(); cSet ~rhs:[cAccesses ~accesses:[cField ~field:"pos" ()] () ]()];*)
+      (*[cFun "bag_push"; cSet ~rhs:[cAccesses ~accesses:[cField ~field:"pos" ()] () ]()];*)
       *)
 
       (*
@@ -122,7 +122,7 @@ let _ =
       *)
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar "pos2"]  ()]; 
 
-      (* split_loop ~keep_labels:false [cVarDef ~name:"pos2"()]; *)
+      (* split_loop ~keep_labels:false [cVarDef "pos2"]; *)
 
       
 (* inline_struct ~struct_name:"bag" ~struct_fields:["oneitem"] (); *)
@@ -130,17 +130,17 @@ let _ =
 
 
 
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "nv2"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "nv2"] ~inline_at:[[cTopFun "main"]]();
 
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar "nv2"]  ()]; 
       show_ast [cVarDef "p"] ;
-      (* inline_decl ~delete_decl:false~decl_path:[cFun ~name:"bag_push" ()] ~inline_at:[[cTopFun ~name:"main"()]](); *)
+      (* inline_decl ~delete_decl:false~decl_path:[cFun "bag_push"] ~inline_at:[[cTopFun "main"]](); *)
 
       
-      inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"vect_mul" ()] ~inline_at:[[cTopFun ~name:"main"()]]~fun_args:["rv1";"rv2"] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ~inline_at:[[cTopFun ~name:"main"()]]();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "v1"] ~inline_at:[[cTopFun ~name:"main"()]]();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "v"] ~inline_at:[[cTopFun ~name:"main"()]] ();
+      inline_decl ~delete_decl:false ~decl_path:[cTopFun "vect_mul" ] ~inline_at:[[cTopFun "main"]]~fun_args:["rv1";"rv2"] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ~inline_at:[[cTopFun "main"]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "v1"] ~inline_at:[[cTopFun "main"]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "v"] ~inline_at:[[cTopFun "main"]] ();
       
       
       inline_record_access ~field:"x" ~var:"v2" ();     
@@ -148,29 +148,29 @@ let _ =
       inline_record_access ~field:"z" ~var:"v2" ();
       (* delete_decl  *)
       detach_expression [cVarDef "pos2"] ~keep_label:false; 
-      inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"vect_add" ()] (*~keep_labels:true *) ();
+      inline_decl ~delete_decl:true ~decl_path:[cTopFun "vect_add" ] (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] (*~keep_labels:true *) ();
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar "pos2"]  ()]; 
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef "v1"] ~inline_at:[[cTopFun ~name:"main"()]]();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "v1"] ~inline_at:[[cTopFun "main"]]();
 
      
       (* show_path [cVarDef "pos2"] ~debug_ast:true;
       show_ast [cType ~name:"bag"()]; *)
       
       (* show_ast [cType ~name:"bag"()];  *)
-      (* show_ast [cFun ~name:"bag_push"(); cSet ~rhs:[cVar "p"]()]; *)
+      (* show_ast [cFun "bag_push"; cSet ~rhs:[cVar "p"]()]; *)
 
       
 (*TODO: in decode=false mode, the op_get should not be printed as star but as "op_get" *)
 
       
       (* show_ast [cVarDef "v2"] ; *)
-       (*show_path[cFun ~name:"main" (); cVarDef "v1"] ;
+       (*show_path[cFun "main"; cVarDef "v1"] ;
         TOOD: need to fix paths
-      inline_decl ~delete_decl:true ~decl_path:[cFun ~name:"main" (); cVarDef ~name:"v1" ()] (*~keep_labels:true *) ();
+      inline_decl ~delete_decl:true ~decl_path:[cFun "main"; cVarDef "v1" ] (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "d"] (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "v"] (*~keep_labels:true *) ();
-      show_path [cFor ~init:[cVar "idParticle"] ()]; *)
+      show_path [cFor "idParticle"]; *)
       
        (* show_ast [cVarDef "v2"] ; *)
       (* show_path [cSet ~lhs:[cVar "u"] ()] ~debug_ast:true; *)
