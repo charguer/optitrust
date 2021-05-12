@@ -17,7 +17,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
   [
     ("test_swap_coordinates/test_swap_coordinates.cpp",
      [
-       ([[cVarDef ~name:"t" ()] >> [cFor ~init:[cVar ~name:"j" ()] ()]],
+       ([[cVarDef "t"] >> [cFor ~init:[cVar :"j"] ()]],
         [
           [Dir_nth 0; Dir_nth 3; Dir_body; Dir_nth 2; Dir_nth 0; Dir_body;
            Dir_nth 0]
@@ -114,7 +114,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
     );
     ("testPIC/picGoal.cpp",
      [
-       ([cVarDef ~name:"i" ()],
+       ([cVarDef "i"],
         [
           [Dir_nth 0; Dir_nth 15; Dir_nth 11; Dir_body; Dir_nth 48]
         ]

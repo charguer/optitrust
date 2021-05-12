@@ -9,7 +9,7 @@ let _ =
         (* I will try to merge function inline_record_access with inline_struct :TODO *)
         inline_record_access ~field:"x" ~var:"t" ();
         inline_struct ~struct_name:"obj" ~struct_fields:["pos"] ();
-        inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"s" ()] (); 
+        inline_decl ~delete_decl:true ~decl_path:[cVarDef "s"] (); 
            
               (* inline_decl_struct.ml 
                   vect s = { 0, 0 };

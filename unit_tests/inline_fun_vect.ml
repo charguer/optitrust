@@ -14,7 +14,7 @@ let _ =
       (*inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"g" ()] ();*)
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"h" ()] ();
       inline_decl ~delete_decl:false ~decl_path:[cTopFun ~name:"add" ()] ();      
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res" ] ();
       dump ()
     )
 

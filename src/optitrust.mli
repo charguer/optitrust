@@ -94,8 +94,8 @@ val cWhile : ?cond:(target) -> ?body:(target) -> unit ->
 val cIf : ?cond:(target) -> ?then_:(target) ->
           ?else_:(target) -> unit -> constr
 
-val cVarDef : ?name:string -> ?exact:bool ->
-              ?body:(target) -> unit -> constr
+val cVarDef : ?exact:bool ->
+              ?body:(target) -> string -> constr
 
 val cFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
 
@@ -107,7 +107,7 @@ val cEnum : ?name:string -> ?exact:bool ->
             ?constants:((string * (target)) list) -> unit -> constr
 val cSeq : ?args:(target) -> ?args_pred:target_list_pred -> unit -> constr
 
-val cVar : ?name:string -> ?exact:bool -> unit -> constr
+val cVar : ?exact:bool -> string -> constr
 
 val cBool : bool -> constr
 

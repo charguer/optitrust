@@ -161,13 +161,6 @@ type trm_kind =
   | TrmKind_Expr
   | TrmKind_Any
 
-(* --------------------------------DEPRECATED------------------------------- *)
-(* type rexp = {desc : string; exp : regexp; exact : bool; only_instr : bool} *)
-(*
-  regexp with their string description, a boolean for exact/subexpression
-  matching, and the kind of expression to match (any, instruction, or
-  subexpression)
- *)
 type rexp = {
   rexp_desc: string; (* printable version of regexp *)
   rexp_exp : regexp;
@@ -248,14 +241,12 @@ and constr =
   (* decl_var: name, body *)
   | Constr_decl_var of constr_name * target
   (* decl_fun: name, args, body *)
-  (* | Constr_decl_fun of constr_name * constr_list * target *)
   | Constr_decl_fun of constr_name * target_list_pred * target
   (* decl_type: name *)
   | Constr_decl_type of constr_name
   (* decl_enum: name, constants *)
   | Constr_decl_enum of constr_name * constr_enum_const
   (* seq *)
-  (* | Constr_seq of constr_list *)
   | Constr_seq of target_list_pred
   (* var *)
   | Constr_var of constr_name
@@ -289,9 +280,6 @@ and constr =
 
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
-
-(* DEPRECATED *)
-and constr_list = target * (bool list -> bool)
 
 and constr_enum_const = ((constr_name * target) list) option
 
@@ -347,11 +335,6 @@ let make_target_list_pred ith_constr validate to_string =
     target_list_pred_validate = validate;
     target_list_pred_to_string = to_string; }
 
-
-(* ----------------DEPRECATED---------------- *)
-(* let  _string (r : rexp) : string =
-  (if r.exact then "Exact " else "Sub ") ^
-    (if r.only_instr then "OnlyInstr \"" else "\"") ^ r.desc ^ "\"" *)
 let trm_kind_to_string (k : trm_kind) : string =
   match k with
   | TrmKind_Instr -> "Instr"
@@ -592,7 +575,7 @@ let target_to_target_struct (tr : target) : target_struct =
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
   (* TODO *)
-  printf "%s\n" (target_struct_to_string tgs);
+  (* DEBUG: printf "%s\n" (target_struct_to_string tgs); *)
   tgs
 
 
@@ -685,11 +668,7 @@ module Path_constructors = struct
   
   let cInclude (s : string) : constr =
      Constr_include s
-  (* -------------------------DEPRECATED------------------------------- *)
-  (* let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true)
-        (s : string) : rexp =
-    let exp = if exact then s ^ "$" else s in
-    {desc = s; exp = Str.regexp exp; exact; only_instr} *)
+
   let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
     let exp = if exact then s ^ "$" else s in
     let trmKind = if only_instr then TrmKind_Instr else TrmKind_Any in
@@ -726,12 +705,6 @@ module Path_constructors = struct
       then cInstrRegexp ~substr s
       else cExprRegexp ~substr s
 
-  (* --------------------DEPRECATED-------------------------- *)
-  (* exactly match the string/regexp described by s *)
-  (* let cStr ?(regexp : bool = false)
-    (s : string) : constr =
-    cRegexp ~only_instr:false (if regexp then s else Str.quote s) *)
-
   (*
     match the string/regexp only on instructions
     by default this is not an exact match
@@ -746,8 +719,8 @@ module Path_constructors = struct
       then None
       else Some (string_to_rexp ~only_instr ~exact s)
 
-  let cVarDef ?(name : string = "")
-    ?(exact : bool = true) ?(body : target = []) (_ : unit) : constr =
+  let cVarDef 
+    ?(exact : bool = true) ?(body : target = []) (name : string) : constr =
     let ro = string_to_rexp_opt  ~exact name in
     let p_body =  body in
      Constr_decl_var (ro, p_body)
@@ -759,7 +732,7 @@ module Path_constructors = struct
        match name, init with
        | "",[] -> init (*failwith "cFor: Need to provide the name or init"*)
        | "", _ -> init
-       | _, [] -> [cVarDef ~name ()]
+       | _, [] -> [cVarDef name]
        | _, _::_ -> failwith "cFor: cannot provide both name and init"
        in
      Constr_for ( init,  cond,  step,  body)
@@ -872,8 +845,8 @@ module Path_constructors = struct
     | _ -> (target_list_simpl args)
     in
     Constr_seq  p_args
-  let cVar ?(name : string = "")
-    ?(exact : bool = true) (_ : unit) : constr =
+  let cVar 
+    ?(exact : bool = true) (name : string) : constr =
     let ro = string_to_rexp_opt ~exact name in
      Constr_var ro
 
@@ -892,7 +865,7 @@ module Path_constructors = struct
     let p_fun =
     match name, fun_ with
     | "",_ -> fun_
-    | _, [] -> [cVar ~name ()]
+    | _, [] -> [cVar name]
     | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
 
     in
@@ -1112,27 +1085,9 @@ let get_trm_kind (t : trm) : trm_kind =
 let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
 
-(* ---------------------DEPRECATED----------------------- *)
-(* let match_regexp (r : rexp) (t : trm) : bool =
-  let aux (r : rexp) (t : trm) : bool =
-    let ts = ast_to_string t in
-    (* For debug: print on stdout "Considered: %s\n" ts *)
-    if r.rexp_substr then Str.string_match r.rexp_exp ts 0
-    else
-      try let _ = Str.search_forward r.rexp_exp ts 0 in true with
-      | Not_found -> false
-  in
-  if r.only_instr then
-    match t.desc with
-    | Trm_decl (Def_var _)
-      | Trm_apps _
-      | Trm_abort _ ->
-       t.is_statement && aux r t
-    | _ -> false
-  else aux r t *)
 let match_regexp (r : rexp) (t : trm) : bool =
-  printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
-  printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
+  (* DEBUG: printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t); *)
+  (* DEBUG: printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t)); *)
   if r.rexp_trm_kind <> get_trm_kind t then false
     else
       begin let ts = ast_to_string t in 
@@ -1142,21 +1097,6 @@ let match_regexp (r : rexp) (t : trm) : bool =
             | Not_found -> false
       end
   
-
-(* let match_regexp (r : rexp) (t : trm) : bool =
-  printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
-  printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
-  if r.rexp_trm_kind <> get_trm_kind t then false
-    else
-      begin
-        let ts = ast_to_string t in
-          if not r.rexp_substr then Str.string_match r.rexp_exp ts 0
-          else
-            try let _ = Str.search_forward r.rexp_exp ts 0 in true
-              with Not_found -> false
-      end *)
-
-(* Test whether a constraint is a regexp constraint *)
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 

@@ -6,19 +6,19 @@ let _ =
         set_init_source"show_path.cpp";
         
         set_repeat_io false; 
-        show_target [cVarDef ~name:"x" ()];
+        show_target [cVarDef "x"];
         clean_target_decorators();
-        show_target  [cVarDef ~name:"i" ()] ;
+        show_target  [cVarDef "i"] ;
         clean_target_decorators();
-        show_target  [cFor ~init:[cVarDef ~name:"i" ()] ()];
+        show_target  [cFor ~init:[cVarDef "i"] ()];
         clean_target_decorators();
-        show_target  [cIf ~then_:[cVar ~name:"x++" ()] ()] ;
+        show_target  [cIf ~then_:[cVar "x++"] ()] ;
         clean_target_decorators();
         show_target  [cIf ()] ;
         clean_target_decorators();
-        show_target  [cIf (); cVar ~name:"x"()];
+        show_target  [cIf (); cVar "x"];
         clean_target_decorators();
-        show_target  [cIf ();cVar ~name:"i" ()];    
+        show_target  [cIf ();cVar "i"];    
         clean_target_decorators();
         show_target  [cInt 3];    
         clean_target_decorators();

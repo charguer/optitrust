@@ -10,21 +10,21 @@ let _ =
         (* TODO : Implement the reverse of detach_expression *)
         (* TODO with arthur: see how to use cList to set up a constraint on a list of arguments *)
         (* For initializations which include declarations the following syntax is used *)
-        make_explicit_record_assignment [[cVarDef ~name:"b"()]] ~struct_name:"vect";
+        make_explicit_record_assignment [[cVarDef "b"]] ~struct_name:"vect";
         (* TODO : infer struct name if easy from LHS *)
         (* make_explicit_record_assignment ~struct_name:"vect" [cApp ~args:[cVar target ~name:"p2" ()] ~validate:(List.mem true) ()]; *)
-        make_explicit_record_assignment [cVarDef ~name:"p2"()] ~struct_name:"vect";
+        make_explicit_record_assignment [cVarDef "p2"] ~struct_name:"vect";
         (* p = { 1, 2}  -->   p.x =1; p.y =2 TODO *)
-        (* show_path [cVarDef ~name:"e"()] ~debug_ast:true;  *)
+        (* show_path [cVarDef "e"] ~debug_ast:true;  *)
         (*An alternative to that is the following one
-          1) First detach the expression  by using : detach_expression [cVardef ~name:"b"()]
+          1) First detach the expression  by using : detach_expression [cVardef "b"]
           2) Then make_explicit_record_assignment [cLabel ~label:"detached"();cBody()] ~struct_name:"vect";
           However this is done automatically from make_explicit_record_assignment transformation
         *)
         (* For expression which are just assignments *)
         make_explicit_record_assignment [cStr "d = p"] ~struct_name:"vect";
         (* An alternative to that is the folowing one:
-          make_explicit_record_assignment [cApp ~name:"overloaded=" ~args:[cVar ~name:"d" ()] ~validate:(function [true;_] -> true | _ -> false) ()] ~struct_name:"vect";
+          make_explicit_record_assignment [cApp ~name:"overloaded=" ~args:[cVar "d" ()] ~validate:(function [true;_] -> true | _ -> false) ()] ~struct_name:"vect";
         *)
 
 

@@ -6,7 +6,7 @@ let _ =
   ( fun _ ->
     set_init_source"inline_seq.cpp";
     (** Does not work correctly *)
-    inline_seq  ~seq_path:[[cVarDef ~name:"x" ()] >>! []] ();
+    inline_seq  ~seq_path:[[cVarDef "x"] >>! []] ();
 
     dump()
   )

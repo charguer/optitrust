@@ -12,25 +12,25 @@ let _ =
       let insert_before = [cSet ~lhs:[cAccesses ~accesses:[cAccess; cAccess; cField ~field:"x" ()] ()] ()] in
       insert_and_fold ~insert_before ~name:"i1" ~value:"i / BLOCK_SIZE" ();
       insert_and_fold ~insert_before ~name:"i2" ~value:"i % BLOCK_SIZE" ();
-      tile_loop [cFor ~init:[cVarDef ~name:"i" ()] ()];
-      fold_decl ~decl_path:[cVarDef ~name:"NB_BLOCKS" ()] ();
+      tile_loop [cFor ~init:[cVarDef "i"] ()];
+      fold_decl ~decl_path:[cVarDef "NB_BLOCKS"] ();
       switch
         [
           (fun _ -> ());
           (fun _ ->
             add_attribute "ALIGNED" [cType ~name:"particle_block" ()];
-            add_attribute "ALIGNED" [cVarDef ~name:"data" ()]
+            add_attribute "ALIGNED" [cVarDef "data"]
           )
         ];
       aos_to_soa "particle_block";
       remove_decl ~decl_path:[cType ~name:"particle" ()] ();
-      let i2_loop = [cFor ~init:[cVarDef ~name:"i2" ()] ()] in
+      let i2_loop = [cFor ~init:[cVarDef "i2"] ()] in
       insert_and_fold ~insert_before:i2_loop ~as_reference:true ~fold_at:[i2_loop] ~name:"b" ~value:"data[i1]" ();
-      inline_seq ~seq_path:[[cVarDef target ~name:"b" ()] >>! []] ();
-      inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"my_alloc" ()] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"nb_elts" ()] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"size_elt" ()] ();
-      inline_decl ~delete_decl:true ~decl_path:[cVarDef ~name:"res" ()] ();
-      inline_seq ~seq_path:[[cVarDef ~name:"mode" ()] >>! []] ();
+      inline_seq ~seq_path:[[cVarDef "b"] >>! []] ();
+      inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"my_alloc"] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "nb_elts"] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "size_elt"] ();
+      inline_decl ~delete_decl:true ~decl_path:[cVarDef "res"] ();
+      inline_seq ~seq_path:[[cVarDef "mode"] >>! []] ();
       dump ()
     )

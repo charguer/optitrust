@@ -54,7 +54,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
          *)
         let change_at =
          (* TODO: Fix later this temporary hack *)
-          [[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cBody]]
+          [[cVarDef x ~body:[cVar x ]; cBody]]
         in
         change_trm ~change_at t_x def_x t
      (*
@@ -80,7 +80,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
         let t = change_trm ~change_at:fold_at def_x t_x t in
         (* make sure def_x is not replaced in the definition of x here too *)
         let change_at =
-          [[cVarDef ~name:x ~body:[cVar ~name:x ()] (); cNth 1;
+          [[cVarDef x ~body:[cVar x]; cNth 1;
             cArg 1]]
         in
         change_trm ~change_at t_x def_x t

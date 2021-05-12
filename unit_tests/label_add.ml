@@ -15,11 +15,11 @@ let _ =
   run
   ( fun _ ->
     set_init_source"label_add.cpp";
-    add_label "start" [cVarDef ~name:"x" ()] ;
-    add_label "loop" [cFor ~init:[cVarDef ~name:"i" ()] ()];
-    add_label "cond" [cIf ~then_:[cVar ~name:"x++" ()] ()] ;
-    add_label "incr_1" [cIf (); cVar ~name:"x"()];
-    add_label "incr_2" [cIf ();cVar ~name:"i" ()];    
+    add_label "start" [cVarDef "x"] ;
+    add_label "loop" [cFor ~init:[cVarDef "i"] ()];
+    add_label "cond" [cIf ~then_:[cVar "x++"] ()] ;
+    add_label "incr_1" [cIf (); cVar "x"];
+    add_label "incr_2" [cIf ();cVar "i" ];    
     add_label "stop" [cInstrSubstr "return"];
     dump()
   )
