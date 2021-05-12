@@ -575,7 +575,7 @@ let target_to_target_struct (tr : target) : target_struct =
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
   (* TODO *)
-  (* DEBUG: printf "%s\n" (target_struct_to_string tgs); *)
+  printf "%s\n" (target_struct_to_string tgs);
   tgs
 
 
@@ -1294,7 +1294,6 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            then [] (* if a regexp matches in depth, don't test it here *)
            else (explore_in_depth (c :: p) t) in
       res_deep ++ res_here  (* put deeper nodes first *) in
-  (* if (List.length epl = 0) then fail None ("Constraints " ^ constraints); *)
   List.sort_uniq compare_path epl
 
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
