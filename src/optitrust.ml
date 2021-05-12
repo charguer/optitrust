@@ -409,7 +409,7 @@ type constr_access = Target.constr_access
 type case_kind = Target.case_kind
 type enum_const_dir = Target.enum_const_dir
 type target_list_pred = Target.target_list_pred
-
+let make_target_list_pred = Target.make_target_list_pred
 (******************************************************************************)
 (*                              Transformations                               *)
 (******************************************************************************)

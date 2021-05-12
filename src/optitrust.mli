@@ -117,10 +117,6 @@ val cDouble : float -> constr
 
 val cString : string -> constr
 
-(* val cPrim : prim -> target *)
-
-(* val cApp : ?name:string -> ?fun_:(target) ->
-           ?args:(target) -> ?validate:(bool list -> bool) -> unit -> target *)
 val cApp : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
 
 val cLabel : ?label:string -> ?exact:bool ->
@@ -133,22 +129,30 @@ val cReturn : ?res:(target) -> unit -> constr
 val cAbort : ?kind:abort_kind -> unit -> constr
 
 val cAbrtAny : abort_kind
+
 val cAbrtRet : abort_kind
+
 val cAbrtBrk : abort_kind
+
 val cAbrtCtn : abort_kind
 
 val cAccesses : ?base:(target) ->
                 ?accesses:(constr_access list) -> unit -> constr
 
 val cIndex : ?index:(target) -> unit -> constr_access
+
 val cField : ?field:string -> ?exact:bool -> unit -> constr_access
+
 val cAccess : constr_access
 
 val cSwitch : ?cond:(target) ->
               ?cases:((case_kind * (target)) list) -> unit -> constr
 
 val cCase : ?value:(target) -> unit -> case_kind
+
 val cDefault : case_kind
+
+val make_target_list_pred : (int -> constr) -> (bool list -> bool) -> (unit -> string) -> target_list_pred
 
 (* val cSet : ?lhs:(target) -> ?rhs:(target) -> unit -> target *)
 
