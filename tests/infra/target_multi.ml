@@ -11,7 +11,7 @@ let _ = run_unit_test (fun () ->
   show [ cMulti; cFunDef "main"; cFor "i" ];
 
   (* Nb *)
-  show [ cNb 0; cFunDef "main"; cFor "j" ];
+  show [ cNb 0; cFunDef "main"; cFor "j" ]; (* Doesn't work properly! *)
   show [ cNb 1; cFunDef "main"; cFor "i" ];
   show [ cNb 2; cFor "i" ];
 

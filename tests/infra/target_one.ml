@@ -14,15 +14,15 @@ let _ = run_unit_test (fun () ->
   show [ cInt 8];
 
   (* Var/fun occurences *)
-  show [ cVar "u" ];
-  show [ cVar "r2" ];
-  show [ cVar "f" ];
-  show [ cVar "g" ];
+  show [ cVar "u" ]; (* Doesn't work properly*)
+  show [ cVar "r2" ]; (* Doesn't work properly*)
+  show [ cVar "f" ]; (* Doesn't work properly*)
+  show [ cVar "g" ]; (* Doesn't work properly*)
 
   (* Loops *)
   show [ cFor "i" ];
   show [ cFor "j" ];
-  show [ cFor ~cond:[cStr "j < 5"] "" ];
+  show [ cFor ~cond:[cStr "j < 5"] "" ]; (* Doesn't work at all*)
 
   (* Abort *)
   show [ cBreak ];

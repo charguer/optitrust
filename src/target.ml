@@ -772,7 +772,7 @@ module Path_constructors = struct
 
   (* by default an empty name is no name *) (* TODO: Arthur maybe a datatype for target_list_pred? *)
   let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) (name : string) : constr =
-    let ro = string_to_rexp_opt ~only_instr:true name in
+    let ro = string_to_rexp_opt ~only_instr:false name in
     (* LATER: maybe an error if both args and args_pred are provided *)
     let p_args = match args with
       | [] -> args_pred

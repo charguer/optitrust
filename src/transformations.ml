@@ -97,12 +97,11 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
             (Def_fun (x, tx, txl', body))
        | Dir_name, Trm_decl (Def_var ((x, tx), body)) ->
           let t' = aux dl (trm_var ~loc x) in
-          print_ast ~only_desc:true stdout t';
+          (* print_ast  stdout t'; *)
           begin match t'.desc with
           | Trm_var x' ->
              trm_decl ~annot ~loc ~is_statement ~add ~attributes
                (Def_var ((x', tx), body))
-          
           | Trm_decoration(_,{desc=Trm_var x';_},_) -> trm_decl ~annot ~loc ~is_statement ~add ~attributes
                (Def_var ((x', tx), body))
           (* TODO: Solve the problem with trm_decoration *)
