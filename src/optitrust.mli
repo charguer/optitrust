@@ -97,11 +97,11 @@ val cIf : ?cond:(target) -> ?then_:(target) ->
 val cVarDef : ?exact:bool ->
               ?body:(target) -> string -> constr
 
-val cFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
+val cFunDef : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
 
 val cTopFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
 
-val cType : ?name:string -> ?exact:bool -> unit -> constr
+val cTypDef : ?exact:bool -> string -> constr
 
 val cEnum : ?name:string -> ?exact:bool ->
             ?constants:((string * (target)) list) -> unit -> constr
@@ -118,6 +118,8 @@ val cDouble : float -> constr
 val cString : string -> constr
 
 val cApp : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
+
+val cFun : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
 
 val cLabel : ?label:string -> ?exact:bool ->
              ?body:(target) -> unit -> constr

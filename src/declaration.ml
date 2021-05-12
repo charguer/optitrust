@@ -89,7 +89,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
         let ty_x = typ_var x in
         let t = change_typ ~change_at:fold_at dx ty_x t in
         (* make sure dx is not replaced in the definition of x here too *)
-        let change_at = [[cType ~name:x ()]] in
+        let change_at = [[cTypDef x]] in
         change_typ ~change_at ty_x dx t
      (* fun decl *)
      | Trm_decl (Def_fun _) ->

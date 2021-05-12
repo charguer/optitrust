@@ -4,10 +4,10 @@ let _ =
   run 
     ( fun _ -> 
       set_init_source"array_to_variables.cpp";
-      show_path [cFun "f"];
+      show_path [cFunDef "f"];
       (* show_path [cVarDef "t" ] ~debug_ast:true; *)
-      (* show_path [cType "particle"();cVar "t" ] ~debug_ast:true; *)
-      (* show_path [cType "particle" (); cNth 1]: *)
+      (* show_path [cTypDef "particle";cVar "t" ] ~debug_ast:true; *)
+      (* show_path [cTypDef "particle"; cNth 1]: *)
       array_to_variables [cVarDef "u" ] ["ua";"ub"];
 
       (* array_to_variables [cVarDef "t" ] ["ta";"tb"]; *)

@@ -97,7 +97,7 @@ let make_explicit_record_assignment_aux (clog : out_channel) (field_list : field
 
 
 let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (tr : target) (t : trm) : trm =
-  let struct_def_path = [cType ~name:struct_name ()] in
+  let struct_def_path = [cTypDef struct_name] in
   let epl_of_struct_def_path = resolve_target struct_def_path t in
   let struct_def_term = match epl_of_struct_def_path with
   | [dl] -> let (t_def,_) = resolve_path dl t in t_def
@@ -200,7 +200,7 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
 
 
  let make_implicit_record_assignment(clog : out_channel) (name : string) (tr : target) (t : trm) : trm =
-    let struct_term_path = [cType ~name:name ()] in
+    let struct_term_path = [cTypDef name] in
     let p_of_struct_term = struct_term_path in
     let epl_of_struct_term = resolve_target p_of_struct_term t in
     let struct_term = match epl_of_struct_term with

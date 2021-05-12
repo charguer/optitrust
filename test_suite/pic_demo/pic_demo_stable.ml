@@ -42,10 +42,10 @@ let _ =
       (*3*) inline_decl ~delete_decl:true ~decl_path:[cVarDef "p"] ~inline_at:[[cTopFun"main"]]();
 
 
-      make_explicit_record_assignment ~struct_name:"particle" [cFun "bag_push"; cSet ~rhs:[cVar ~name:"p"]()];
+      make_explicit_record_assignment ~struct_name:"particle" [cFunDef "bag_push"; cSet ~rhs:[cVar ~name:"p"]()];
 
-      make_explicit_record_assignment ~struct_name:"vect" [cFun "bag_push"; cStr ~regexp:true ".*= p\\.pos"];
-      make_explicit_record_assignment ~struct_name:"vect" [cFun "bag_push"; cStr ~regexp:true ".*= p\\.speed"];
+      make_explicit_record_assignment ~struct_name:"vect" [cFunDef "bag_push"; cStr ~regexp:true ".*= p\\.pos"];
+      make_explicit_record_assignment ~struct_name:"vect" [cFunDef "bag_push"; cStr ~regexp:true ".*= p\\.speed"];
       
       set_repeat_io false;
       inline_decl ~delete_decl:false ~decl_path:[cTopFun "bag_push"] ~fun_args:["mb";"mp"] ();
@@ -55,7 +55,7 @@ let _ =
 
       set_repeat_io true;
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "p2" ] ~inline_at:[[cTopFun"main"]]();
-      inline_decl ~delete_decl:true ~decl_path:[cFun ~name:"main"; cVarDef "mp" ] ~inline_at:[[cTopFun"main"]]();
+      inline_decl ~delete_decl:true ~decl_path:[cFunDef ~name:"main"; cVarDef "mp" ] ~inline_at:[[cTopFun"main"]]();
       set_repeat_io false; 
       
       (*4*) inline_struct ~struct_name:"particle" ~struct_fields:["pos";"speed"] ();

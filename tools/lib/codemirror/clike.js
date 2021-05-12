@@ -289,26 +289,26 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
   "NS_DESIGNATED_INITIALIZER NS_ENUM NS_OPTIONS NS_REQUIRES_NIL_TERMINATION " +
   "NS_ASSUME_NONNULL_BEGIN NS_ASSUME_NONNULL_END NS_SWIFT_NAME NS_REFINED_FOR_SWIFT"
 
-  // Do not use this. Use the cTypes function below. This is global just to avoid
-  // excessive calls when cTypes is being called multiple times during a parse.
-  var basicCTypes = words("int long char short double float unsigned signed " +
+  // Do not use this. Use the cTypDefs function below. This is global just to avoid
+  // excessive calls when cTypDefs is being called multiple times during a parse.
+  var basiccTypDefs = words("int long char short double float unsigned signed " +
     "void bool");
 
-  // Do not use this. Use the objCTypes function below. This is global just to avoid
-  // excessive calls when objCTypes is being called multiple times during a parse.
-  var basicObjCTypes = words("SEL instancetype id Class Protocol BOOL");
+  // Do not use this. Use the objcTypDefs function below. This is global just to avoid
+  // excessive calls when objcTypDefs is being called multiple times during a parse.
+  var basicObjcTypDefs = words("SEL instancetype id Class Protocol BOOL");
 
   // Returns true if identifier is a "C" type.
-  // C type is defined as those that are reserved by the compiler (basicTypes),
+  // C type is defined as those that are reserved by the compiler (basicTypDefs),
   // and those that end in _t (Reserved by POSIX for types)
   // http://www.gnu.org/software/libc/manual/html_node/Reserved-Names.html
-  function cTypes(identifier) {
-    return contains(basicCTypes, identifier) || /.+_t$/.test(identifier);
+  function cTypDefs(identifier) {
+    return contains(basiccTypDefs, identifier) || /.+_t$/.test(identifier);
   }
 
   // Returns true if identifier is a "Objective C" type.
-  function objCTypes(identifier) {
-    return cTypes(identifier) || contains(basicObjCTypes, identifier);
+  function objcTypDefs(identifier) {
+    return cTypDefs(identifier) || contains(basicObjcTypDefs, identifier);
   }
 
   var cBlockKeywords = "case do else for if switch while struct enum union";
@@ -424,7 +424,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
   def(["text/x-csrc", "text/x-c", "text/x-chdr"], {
     name: "clike",
     keywords: words(cKeywords),
-    types: cTypes,
+    types: cTypDefs,
     blockKeywords: words(cBlockKeywords),
     defKeywords: words(cDefKeywords),
     typeFirstDefinitions: true,
@@ -440,7 +440,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
   def(["text/x-c++src", "text/x-c++hdr"], {
     name: "clike",
     keywords: words(cKeywords + " " + cppKeywords),
-    types: cTypes,
+    types: cTypDefs,
     blockKeywords: words(cBlockKeywords + " class try catch"),
     defKeywords: words(cDefKeywords + " class namespace"),
     typeFirstDefinitions: true,
@@ -773,7 +773,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
     keywords: words(cKeywords + " as atomic async call command component components configuration event generic " +
                     "implementation includes interface module new norace nx_struct nx_union post provides " +
                     "signal task uses abstract extends"),
-    types: cTypes,
+    types: cTypDefs,
     blockKeywords: words(cBlockKeywords),
     atoms: words("null true false"),
     hooks: {"#": cppHook},
@@ -783,7 +783,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
   def("text/x-objectivec", {
     name: "clike",
     keywords: words(cKeywords + " " + objCKeywords),
-    types: objCTypes,
+    types: objcTypDefs,
     builtin: words(objCBuiltins),
     blockKeywords: words(cBlockKeywords + " @synthesize @try @catch @finally @autoreleasepool @synchronized"),
     defKeywords: words(cDefKeywords + " @interface @implementation @protocol @class"),
@@ -801,7 +801,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
   def("text/x-objectivec++", {
     name: "clike",
     keywords: words(cKeywords + " " + objCKeywords + " " + cppKeywords),
-    types: objCTypes,
+    types: objcTypDefs,
     builtin: words(objCBuiltins),
     blockKeywords: words(cBlockKeywords + " @synthesize @try @catch @finally @autoreleasepool @synchronized class try catch"),
     defKeywords: words(cDefKeywords + " @interface @implementation @protocol @class class namespace"),
@@ -842,7 +842,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
     name: "clike",
     keywords: words("base break clone continue const default delete enum extends function in class" +
                     " foreach local resume return this throw typeof yield constructor instanceof static"),
-    types: cTypes,
+    types: cTypDefs,
     blockKeywords: words("case catch class else for foreach if switch try while"),
     defKeywords: words("function local class"),
     typeFirstDefinitions: true,

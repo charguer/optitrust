@@ -72,13 +72,13 @@ Then, the constraints matching nodes to go through:
 - `cVarDef ~name ~exact ~body ()`: match a variable declaration. The string
   `name` may be used to match, exactly by default, the name. The path `body` may
   be used to give constraints on the initialisation.
-- `cFun ~name ~exact ~args ~validate ~body ()`: match a function
+- `cFunDef ~name ~exact ~args ~validate ~body ()`: match a function
   declaration. The `args` path may be used to match arguments. The `validate`
   function takes the result as a list of booleans and returns a boolean that
   indicates if such a result is valid.
-- `cTopFun ~name ~exact ~args ~validate ~body ()`: same as `cFun` but the
+- `cTopFun ~name ~exact ~args ~validate ~body ()`: same as `cFunDef` but the
   declaration must be toplevel (hence, no `strict` argument here).
-- `cType ~name ~exact ()`: match a type declaration by its name.
+- `cTypDef name ~exact ()`: match a type declaration by its name.
 - `cEnum ~name ~exact ~constants ()`: match an enum declaration. `name` and
   `exact` are used to match the name of the enum. `constants` is a list of pairs
   of string and path to respectively match the constant name and value.

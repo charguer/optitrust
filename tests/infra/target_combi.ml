@@ -6,19 +6,19 @@ let _ = run_unit_test (fun () ->
   let show = Tr.target_show in
 
   (* Loop in a function *)
-  show [ cFun "main"; cFor "i" ];
+  show [ cFunDef "main"; cFor "i" ];
 
   (* Loop in a loop *)
   show [ cFor "i"; cFor "i" ];
 
   (* Def in depth *)
-  show [ cFun "f"; cFor "i"; cFor "i"; cDef "k" ];
+  show [ cFunDef "f"; cFor "i"; cFor "i"; cDef "k" ];
 
   (* Top-level functions *)
   show [ cTopFun "f"; cDef "k" ];
 
   (* Loops immediately inside a function *)
-  show [ cFun ""; cStrict; cFor "" ];
+  show [ cFunDef ""; cStrict; cFor "" ];
 )
 
 

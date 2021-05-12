@@ -51,10 +51,10 @@ let _ =
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "p"] ~inline_at:[[cTopFun "main"]]();
 
 
-      make_explicit_record_assignment ~struct_name:"particle" [cFun "bag_push"; cSet ~rhs:[cVar "p"]()];
+      make_explicit_record_assignment ~struct_name:"particle" [cFunDef "bag_push"; cSet ~rhs:[cVar "p"]()];
 
-      make_explicit_record_assignment ~struct_name:"vect" [cFun "bag_push"; cStr ~regexp:true ".*= p\\.pos"];
-      make_explicit_record_assignment ~struct_name:"vect" [cFun "bag_push"; cStr ~regexp:true ".*= p\\.speed"];
+      make_explicit_record_assignment ~struct_name:"vect" [cFunDef "bag_push"; cStr ~regexp:true ".*= p\\.pos"];
+      make_explicit_record_assignment ~struct_name:"vect" [cFunDef "bag_push"; cStr ~regexp:true ".*= p\\.speed"];
       
       (*
       *)set_repeat_io false;
@@ -68,16 +68,16 @@ let _ =
       
       set_repeat_io true;
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "p2"] ~inline_at:[[cTopFun "main"]]();
-      inline_decl ~delete_decl:true ~decl_path:[cFun "main"; cVarDef "mp"] ~inline_at:[[cTopFun "main"]]();
+      inline_decl ~delete_decl:true ~decl_path:[cFunDef "main"; cVarDef "mp"] ~inline_at:[[cTopFun "main"]]();
       set_repeat_io false;      
       (* TODO
       detach_expression [cVarDef "mp"] ~keep_label:false;
       inline_record_access ~field:"pos" ~var:"mp" ();     
       inline_record_access ~field:"speed" ~var:"mp" ();   
       inline_record_access ~field:"z" ~var:"nv2" ();
-      inline_decl ~delete_decl:true ~decl_path:[cFun "main"; cVarDef "mp"] ~inline_at:[[cTopFun "main"]]();
+      inline_decl ~delete_decl:true ~decl_path:[cFunDef "main"; cVarDef "mp"] ~inline_at:[[cTopFun "main"]]();
       set_repeat_io true;
-      (*[cFun "bag_push"; cSet ~rhs:[cAccesses ~accesses:[cField ~field:"pos" ()] () ]()];*)
+      (*[cFunDef "bag_push"; cSet ~rhs:[cAccesses ~accesses:[cField ~field:"pos" ()] () ]()];*)
       *)
 
       (*
@@ -134,7 +134,7 @@ let _ =
 
       make_explicit_record_assignment ~struct_name:"vect" [cSet ~lhs:[cVar "nv2"]  ()]; 
       show_ast [cVarDef "p"] ;
-      (* inline_decl ~delete_decl:false~decl_path:[cFun "bag_push"] ~inline_at:[[cTopFun "main"]](); *)
+      (* inline_decl ~delete_decl:false~decl_path:[cFunDef "bag_push"] ~inline_at:[[cTopFun "main"]](); *)
 
       
       inline_decl ~delete_decl:false ~decl_path:[cTopFun "vect_mul" ] ~inline_at:[[cTopFun "main"]]~fun_args:["rv1";"rv2"] ();
@@ -155,19 +155,19 @@ let _ =
 
      
       (* show_path [cVarDef "pos2"] ~debug_ast:true;
-      show_ast [cType ~name:"bag"()]; *)
+      show_ast [cTypDef "bag"]; *)
       
-      (* show_ast [cType ~name:"bag"()];  *)
-      (* show_ast [cFun "bag_push"; cSet ~rhs:[cVar "p"]()]; *)
+      (* show_ast [cTypDef "bag"];  *)
+      (* show_ast [cFunDef "bag_push"; cSet ~rhs:[cVar "p"]()]; *)
 
       
 (*TODO: in decode=false mode, the op_get should not be printed as star but as "op_get" *)
 
       
       (* show_ast [cVarDef "v2"] ; *)
-       (*show_path[cFun "main"; cVarDef "v1"] ;
+       (*show_path[cFunDef "main"; cVarDef "v1"] ;
         TOOD: need to fix paths
-      inline_decl ~delete_decl:true ~decl_path:[cFun "main"; cVarDef "v1" ] (*~keep_labels:true *) ();
+      inline_decl ~delete_decl:true ~decl_path:[cFunDef "main"; cVarDef "v1" ] (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "d"] (*~keep_labels:true *) ();
       inline_decl ~delete_decl:true ~decl_path:[cVarDef "v"] (*~keep_labels:true *) ();
       show_path [cFor "idParticle"]; *)

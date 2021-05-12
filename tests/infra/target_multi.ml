@@ -8,16 +8,16 @@ let _ = run_unit_test (fun () ->
 
   (* Multi *)
   show [ cMulti; cFor "i" ];
-  show [ cMulti; cFun "main"; cFor "i" ];
+  show [ cMulti; cFunDef "main"; cFor "i" ];
 
   (* Nb *)
-  show [ cNb 0; cFun "main"; cFor "j" ];
-  show [ cNb 1; cFun "main"; cFor "i" ];
+  show [ cNb 0; cFunDef "main"; cFor "j" ];
+  show [ cNb 1; cFunDef "main"; cFor "i" ];
   show [ cNb 2; cFor "i" ];
 
   (* Any *)
-  show [ cAnyNb; cFun "main"; cFor "j" ];
-  show [ cAnyNb; cFun "main"; cFor "i" ];
+  show [ cAnyNb; cFunDef "main"; cFor "j" ];
+  show [ cAnyNb; cFunDef "main"; cFor "i" ];
   show [ cAnyNb; cFor "i" ];
 
 )

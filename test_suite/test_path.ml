@@ -23,7 +23,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
            Dir_nth 0]
         ]
        );
-       ([cFun "main";
+       ([cFunDef "main";
          cApp ~args:[cVar ~name:"t" ()] ~validate:(List.mem true) ()],
         [
           [Dir_nth 0; Dir_nth 3; Dir_body; Dir_nth 2; Dir_nth 0; Dir_body;
@@ -53,7 +53,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
            Dir_arg 1]
         ]
        );
-       ([cFun "main" ;
+       ([cFunDef "main" ;
          cApp ~args:[cVar target ~name:"t" ()] ~validate:(List.mem true)
            ()],
         [
@@ -70,7 +70,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
            Dir_arg 1; Dir_arg 0; Dir_arg 1]
         ]
        );
-       ([cFun "main";
+       ([cFunDef "main";
          cStr ~regexp:true "t\\[.\\]\\[.\\]"],
         [
           [Dir_nth 0; Dir_nth 3; Dir_body; Dir_nth 2; Dir_nth 0; Dir_body;
@@ -88,7 +88,7 @@ let tests : (string * ((target * (expl_target)) list)) list =
            Dir_arg 1]
         ]
        );
-       ([cFun "main";
+       ([cFunDef "main";
          cInstrSubstr ~regexp:true "t\\[.\\]\\[.\\]"],
         [
           [Dir_nth 0; Dir_nth 3; Dir_body; Dir_nth 2; Dir_nth 0; Dir_body;

@@ -6,10 +6,10 @@ let _ =
     ( fun () -> 
       set_init_source "pic_demo_stable.cpp";
 
-      fun_inline [cFun "vect_mul"] ~at:[cStr "pos2 ="] ~res:"accel";      
-      fun_inline [cFun "vect_add"] ~at:[cFun "main"];
-      var_inline [cVar "accel"] ~at:[cFun "main"];
-      var_inline [cFun "main", cVar "p"];
+      fun_inline [cFunDef "vect_mul"] ~at:[cStr "pos2 ="] ~res:"accel";      
+      fun_inline [cFunDef "vect_add"] ~at:[cFunDef "main"];
+      var_inline [cVar "accel"] ~at:[cFunDef "main"];
+      var_inline [cFunDef "main", cVar "p"];
 
       struct_assign_explicit ~typ:[cTyp "particle"];
       struct_assign_explicit ~typ:[cTyp "vect"];

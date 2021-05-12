@@ -7,8 +7,8 @@ let _ =
     run
     ( fun _ ->
         set_init_source"inline_typ.cpp";
-        inline_decl ~delete_decl:false ~decl_path:[cType ~name:"uint" ()] ();
-        inline_decl ~delete_decl:false ~decl_path:[cType ~name:"cdouble" ()] ();
-        inline_decl ~delete_decl:false ~decl_path:[cType ~name:"mat3d" ()] ();
+        inline_decl ~delete_decl:false ~decl_path:[cTypDef "uint"] ();
+        inline_decl ~delete_decl:false ~decl_path:[cTypDef "cdouble"] ();
+        inline_decl ~delete_decl:false ~decl_path:[cTypDef "mat3d"] ();
         dump()
     )

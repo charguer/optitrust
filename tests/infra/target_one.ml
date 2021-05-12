@@ -40,10 +40,10 @@ let _ = run_unit_test (fun () ->
   show [ cDef "f" ];
   show [ cDef "s" ];
   show [ cDef "p2" ];
-  show [ cFun "main" ];
-  show [ cFun "f" ];
-  show [ cFun ~args:[[cTrue]; [cDef "varg"]] "" ];
-  show [ cFun ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ];
+  show [ cFunDef "main" ];
+  show [ cFunDef "f" ];
+  show [ cFunDef ~args:[[cTrue]; [cDef "varg"]] "" ];
+  show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ];
 
 
 )
@@ -52,7 +52,7 @@ let _ = run_unit_test (fun () ->
 
 (* LATER: smart constructors for checking calls to builtin operations such as get/set/compare/incr, etc *)
 
-(* LATER: show [ cFunDef ~args:[[cTrue]; [cOfTyp "vect*"]] "" ]; *)
+(* LATER: show [ cFunDefDef ~args:[[cTrue]; [cOfTyp "vect*"]] "" ]; *)
 
 (* LATER: match typedef using a function over the body of the type definition *)
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)

@@ -6,7 +6,7 @@ let _ =
       set_init_source "test_pic_3/test_pic_3.cpp";
       
       (* 
-            let main_fun = [cFun "main"] in 
+            let main_fun = [cFunDef "main"] in 
       
       insert_const ~insert_before:main_fun ~name:"nbColors" ~value:"8" ();
       insert_const ~insert_before:main_fun ~name:"nbCellsPerTile" ~value:"8" ();

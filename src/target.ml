@@ -764,7 +764,7 @@ module Path_constructors = struct
       (fun () -> "target_list_pred_always_true")
 
   (* by default an empty name is no name *) (* TODO: Arthur maybe a datatype for target_list_pred? *)
-  let cFun ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) (name : string) : constr =
+  let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) (name : string) : constr =
     let ro = string_to_rexp_opt ~only_instr:true name in
     (* LATER: maybe an error if both args and args_pred are provided *)
     let p_args = match args with
@@ -778,10 +778,10 @@ module Path_constructors = struct
   let cTopFun
     ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true)
     ?(body : target = []) (name : string) : constr =
-    cChain [ cRoot; cStrict; cFun ~args ~args_pred ~body name ]
+    cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
 
-  let cType ?(name : string = "")
-    ?(exact : bool = true) (_ : unit) : constr =
+  let cTypDef 
+    ?(exact : bool = true) ?(name : string = "") : constr =
     let ro = string_to_rexp_opt ~exact name in
      Constr_decl_type ro
 
@@ -828,6 +828,23 @@ module Path_constructors = struct
      Constr_lit (Lit_string s)
   (* let cPrim (p : prim) : constr =
      cStr (ast_to_string (trm_prim p)) *)
+  
+  let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
+    let exception Argument_Error  of string in
+    let p_fun =
+    match name, fun_ with
+    | "",_ -> fun_
+    | _, [] -> [cVar name]
+    | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
+
+    in
+    let args =
+    match args with
+    | [] -> args_pred
+    | _ -> (target_list_simpl args)
+    in
+    Constr_app (p_fun,args)
+  
   let cApp ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
     let exception Argument_Error  of string in
     let p_fun =
@@ -860,15 +877,23 @@ module Path_constructors = struct
     let p_res =  res in
      Constr_return p_res
 
-  let cAbort ?(kind : abort_kind = Any)
-    (_ : unit) : constr =
-     Constr_abort kind
-
   let cAbrtAny : abort_kind = Any
   let cAbrtRet : abort_kind = Return
   let cAbrtBrk : abort_kind = Break
   let cAbrtCtn : abort_kind = Continue
 
+  let cAbort ?(kind : abort_kind = Any)
+    (_ : unit) : constr =
+     Constr_abort kind
+
+  let cReturn (_ : unit) : constr =
+    Constr_abort (cAbrtRet)
+  
+  let cBreak (_ : unit) : constr =
+    Constr_abort (cAbrtBrk) 
+  
+  let cContinue (_ : unit) : constr =
+    Constr_abort (cAbrtCtn)
   (*
     the empty list is interpreted as no constraint on the accesses
     accesses are reversed so that users give constraints on what they see

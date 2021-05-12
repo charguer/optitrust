@@ -477,7 +477,7 @@ let inline_record_access_aux (clog : out_channel) (var : string) (field : string
             end
           | _ -> fail t.loc "inline_struct_access: assumed that the variable was assigned only once"
       in
-      let struct_decl_path = [cType ~name:var_type ()] in
+      let struct_decl_path = [cTypDef var_type ] in
       let epl_of_struct_decl = resolve_target (List.flatten struct_decl_path) t in
       let struct_decl_trm  = match epl_of_struct_decl with
         | [dl] -> let (t_def,_) = resolve_path dl t in t_def
@@ -674,13 +674,13 @@ in
 aux t t
 
 let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (t :trm) : trm =
-  let base_struct_path = [cType ~name:base_struct_name()] in
+  let base_struct_path = [cTypDef base_struct_name] in
   let epl_of_base_struct = resolve_target base_struct_path t in
   let base_struct_term = match epl_of_base_struct with
     | [dl] -> let (t_def,_) = resolve_path dl t in t_def
     | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in
-  let struct_path = [cType ~name:struct_name ()] in
+  let struct_path = [cTypDef struct_name ] in
   let epl_of_struct = resolve_target struct_path t in
   let struct_term = match epl_of_struct with
   | [dl] ->
@@ -730,14 +730,14 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
 
 
 (* let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (t :trm) : trm =
-  let base_struct_path = [cType ~name:base_struct_name()] in
+  let base_struct_path = [cTypDef base_struct_name] in
   let epl_of_base_struct = resolve_target (
      base_struct_path) t in
   let base_struct_term = match epl_of_base_struct with
     | [dl] -> let (t_def,_) = resolve_target dl t in t_def
     | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
   in
-  let struct_path = [cType ~name:struct_name ()] in
+  let struct_path = [cTypDef struct_name] in
   let epl_of_struct = resolve_target (List.flatten struct_path) t in
   let struct_term = match epl_of_struct with
   | [dl] ->
@@ -789,7 +789,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
 
   let field_name = List.hd struct_fields in
 
-  let struct_term_path  = [cType ~name:name ()] in
+  let struct_term_path  = [cTypDef name] in
   let p_of_struct_term = struct_term_path in
   let epl_of_struct_term = resolve_target p_of_struct_term t in
   let struct_term = match epl_of_struct_term with
@@ -822,7 +822,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
   | _ -> fail t.loc "inline_struct: expected a definition"
     in
 
-    let  pl_temp = [cType ~name:inner_struct_name()]  in
+    let  pl_temp = [cTypDef inner_struct_name]  in
     let p_temp = pl_temp in
     let epl_temp = resolve_target p_temp t in
 

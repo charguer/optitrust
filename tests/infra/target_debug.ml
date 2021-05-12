@@ -8,7 +8,7 @@ let _ = run_unit_test (fun () ->
   (*show [ cMulti; cReturn() ];*)
 
   (* show [ cAnyNb; cSeq ~args:[cTrue;cTrue;cTrue]() ]; *)
-  (* show [ cMulti; cFun "f" ]; *)
+  (* show [ cMulti; cFunDef "f" ]; *)
 (*  show [ cTopFun "f" ];*)
 (*    show [ cTopFun "main" ];*)
 )
