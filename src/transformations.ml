@@ -97,13 +97,16 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
             (Def_fun (x, tx, txl', body))
        | Dir_name, Trm_decl (Def_var ((x, tx), body)) ->
           let t' = aux dl (trm_var ~loc x) in
+          print_ast ~only_desc:true stdout t';
           begin match t'.desc with
           | Trm_var x' ->
              trm_decl ~annot ~loc ~is_statement ~add ~attributes
                (Def_var ((x', tx), body))
+          
+          (* TODO: Solve the problem with trm_decoration *)
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
-                         "must preserve names")
+                         "must preserve names(var)")
           end
        | Dir_name, Trm_decl (Def_fun (x, tx, txl, body)) ->
           let t' = aux dl (trm_var ~loc x) in
@@ -113,7 +116,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
                (Def_fun (x', tx, txl, body))
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
-                         "must preserve names")
+                         "must preserve names(function)")
           end
        | Dir_name, Trm_labelled (l, body) ->
           let t' = aux dl (trm_var ~loc l) in
@@ -122,7 +125,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
              trm_labelled ~annot ~loc ~add ~attributes l' body
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
-                         "must preserve names")
+                         "must preserve names(label)")
           end
 
        | Dir_case (n, cd), Trm_switch (cond, cases) ->

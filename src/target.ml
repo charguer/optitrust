@@ -820,11 +820,9 @@ module Path_constructors = struct
     | _ -> (target_list_simpl args)
     in
     Constr_seq  p_args
-  let cVar 
-    ?(exact : bool = true) (name : string) : constr =
-    let ro = string_to_rexp_opt ~exact name in
+  let cVar ?(exact : bool = true) (name : string) : constr =
+    let ro = string_to_rexp_opt ~exact ~only_instr:false name in
      Constr_var ro
-
   let cBool (b : bool) : constr =
      Constr_lit (Lit_bool b)
   let cInt (n : int) : constr =
@@ -1088,8 +1086,8 @@ let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
 
 let match_regexp (r : rexp) (t : trm) : bool =
-  (* DEBUG: printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t); *)
-  (* DEBUG: printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t)); *)
+  (* DEBUG: *) printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
+  (* DEBUG: *) printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
   if r.rexp_trm_kind <> get_trm_kind t then false
     else
       begin let ts = ast_to_string t in 
