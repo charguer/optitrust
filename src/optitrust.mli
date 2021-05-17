@@ -87,6 +87,14 @@ val cInstrSubstr : ?exact:bool -> ?regexp:bool -> string -> constr
 
 val cStr : string -> constr 
 
+val cInstr : string -> constr
+
+val cExpr : string -> constr
+
+val cInstrRegexp :?substr:bool -> string -> constr
+
+val cExprRegexp : ?substr:bool -> string -> constr
+
 val cStrFull : string -> constr 
 
 val cFor : ?init:(target) -> ?cond:(target) ->
@@ -97,6 +105,7 @@ val cWhile : ?cond:(target) -> ?body:(target) -> unit ->
 
 val cIf : ?cond:(target) -> ?then_:(target) ->
           ?else_:(target) -> unit -> constr
+val cDef : string -> constr
 
 val cVarDef : ?exact:bool ->
               ?body:(target) -> string -> constr

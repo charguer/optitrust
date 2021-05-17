@@ -159,7 +159,6 @@ type trm_kind =
   | TrmKind_Struct
   | TrmKind_Instr
   | TrmKind_Expr
-  | TrmKind_Any
 
 type rexp = {
   rexp_desc: string; (* printable version of regexp *)
@@ -340,7 +339,6 @@ let trm_kind_to_string (k : trm_kind) : string =
   | TrmKind_Instr -> "Instr"
   | TrmKind_Struct -> "Struct"
   | TrmKind_Expr -> "Expr"
-  | TrmKind_Any -> "Any"
 
 let regexp_to_string (r : rexp) : string =
   (if r.rexp_substr then "Exact" else "Sub") ^ "-" ^
@@ -671,7 +669,7 @@ module Path_constructors = struct
 
   let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
     let exp = if exact then s ^ "$" else s in
-    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Any in
+    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Expr in
     {rexp_desc = s; rexp_exp = Str.regexp exp; rexp_substr = exact; rexp_trm_kind = trmKind}
 
   let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
@@ -850,6 +848,9 @@ module Path_constructors = struct
     in
     Constr_app (p_fun,args)
   
+  let cDef (name : string) : constr =
+    Constr_chain [cStrict;cVarDef name;cFunDef name;cTypDef name]
+
   let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
     let exception Argument_Error  of string in
     let p_fun =
@@ -1080,7 +1081,7 @@ let get_trm_kind (t : trm) : trm_kind =
     | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
     | _ -> TrmKind_Instr
   else
-    TrmKind_Any
+    TrmKind_Expr
 (* Not used anywherer?? *)
 let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
