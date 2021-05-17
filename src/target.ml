@@ -701,25 +701,19 @@ module Path_constructors = struct
   let cExprRegexp ?(substr : bool = true) (s : string) : constr =
     cInstrOrExprRexp TrmKind_Expr substr s
 
-  let cRegexp ?(only_instr : bool = true) ?(substr : bool = true) (s : string) : constr =
+  (* let cRegexp ?(only_instr : bool = true) ?(substr : bool = true) (s : string) : constr =
     if only_instr
       then cInstrRegexp ~substr s
-      else cExprRegexp ~substr s
-  
-  let cStr  (s : string) : constr =
-    cExprRegexp s
-  
-  let cStrFull  (s : string) : constr =
-    cExprRegexp ~substr:false s
-  
-  
+      else cExprRegexp ~substr s *)
+  let cRegexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : constr =
+    Constr_regexp (string_to_rexp ~only_instr ~exact s)
   (*
     match the string/regexp only on instructions
     by default this is not an exact match
    *)
   let cInstrSubstr ?(exact : bool = false)
     ?(regexp : bool = false) (s : string) : constr =
-    cRegexp  ~substr:exact ~only_instr:true
+    cRegexp  ~exact ~only_instr:true
       (if regexp then s else Str.quote s)
   
   let string_to_rexp_opt ?(only_instr : bool = false) ?(exact : bool = true) (s : string) : rexp option =
@@ -832,8 +826,8 @@ module Path_constructors = struct
      Constr_lit (Lit_double f)
   let cString (s : string) : constr =
      Constr_lit (Lit_string s)
-  let cPrim (p : prim) : constr =
-     cStr (ast_to_string (trm_prim p))
+  (* let cPrim (p : prim) : constr =
+     cStr (ast_to_string (trm_prim p)) *)
   
   let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
     let exception Argument_Error  of string in
@@ -948,7 +942,7 @@ module Path_constructors = struct
     [
       cCall ~args:lhs "";
       cCall ~args:rhs "";
-      cCall ~fun_:[cStrict;cStr "="] ""
+      cCall ~fun_:[cStrict;cInstr "="] ""
     ]
 end
 

@@ -81,11 +81,9 @@ val cEnumConstVal : enum_const_dir
 
 val cInclude : string -> constr
 
-(* val cStr : ?regexp:bool -> string -> constr *)
-
 val cInstrSubstr : ?exact:bool -> ?regexp:bool -> string -> constr
 
-val cStr : string -> constr 
+val cRegexp : ?only_instr:bool -> ?exact:bool -> string ->constr
 
 val cInstr : string -> constr
 
@@ -94,8 +92,6 @@ val cExpr : string -> constr
 val cInstrRegexp :?substr:bool -> string -> constr
 
 val cExprRegexp : ?substr:bool -> string -> constr
-
-val cStrFull : string -> constr 
 
 val cFor : ?init:(target) -> ?cond:(target) ->
            ?step:(target) -> ?body:(target) -> string -> constr

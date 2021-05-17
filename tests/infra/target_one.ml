@@ -62,9 +62,9 @@ let _ = run_unit_test (fun () ->
 (* LATER: match types using a function of their list of fields *)
 
 (* LATER: Str/Regexp -- i still not to work on the specification of what is expected to match or not match
-  show [ cStr "+= 2" ];
-  show [ cStr "j <" ];
-  show [ cStr "vect v2" ];
+  show [ cInstr "+= 2" ];
+  show [ cExpr "j <" ]; (* Does not work *)
+  show [ cExpr "vect v2" ]; (* Does not work *)
   show [ cStrFull "int r = 3;" ]; (* with or without the ; ? *)
   show [ cStrFull "i++" ];
   show [ cRegexp "+=" ];
