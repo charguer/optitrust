@@ -159,6 +159,7 @@ type trm_kind =
   | TrmKind_Struct
   | TrmKind_Instr
   | TrmKind_Expr
+  | TrmKind_Any
 
 type rexp = {
   rexp_desc: string; (* printable version of regexp *)
@@ -339,6 +340,7 @@ let trm_kind_to_string (k : trm_kind) : string =
   | TrmKind_Instr -> "Instr"
   | TrmKind_Struct -> "Struct"
   | TrmKind_Expr -> "Expr"
+  | TrmKind_Any -> "Any"
 
 let regexp_to_string (r : rexp) : string =
   (if r.rexp_substr then "Exact" else "Sub") ^ "-" ^
@@ -669,7 +671,7 @@ module Path_constructors = struct
 
   let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
     let exp = if exact then s ^ "$" else s in
-    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Expr in
+    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Any in
     {rexp_desc = s; rexp_exp = Str.regexp exp; rexp_substr = exact; rexp_trm_kind = trmKind}
 
   let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
@@ -1082,14 +1084,15 @@ let get_trm_kind (t : trm) : trm_kind =
     | _ -> TrmKind_Instr
   else
     TrmKind_Expr
-(* Not used anywherer?? *)
+(* Not used anywhere?? *)
 let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
 
 let match_regexp (r : rexp) (t : trm) : bool =
-  (* DEBUG: *) printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
-  (* DEBUG: *) printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
-  if r.rexp_trm_kind <> get_trm_kind t then false
+  (* DEBUG: *) (* printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t); *)
+  (* DEBUG: *) (* printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t)); *)
+  
+  if r.rexp_trm_kind <> get_trm_kind t && r.rexp_trm_kind <> TrmKind_Any then false
     else
       begin let ts = ast_to_string t in 
         if r.rexp_substr then Str.string_match r.rexp_exp ts 0
