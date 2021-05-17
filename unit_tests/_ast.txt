@@ -1,21 +1,27 @@
 =========================Occurence 0======================
-Trm_decl ( Def_typ ( bag,
-    Typ_struct ( [
-        ( items, Typ_array ( Typ_var obj, Trm_val ( Val_lit ( Lit_int 10 ) ) ) )
-      ],
-       ) ) )
+Trm_var y
 
 ------------------------Occurence 0 details---------------
-{annot = _; desc = Trm_decl ( Def_typ ( bag,
-    {annot = _; desc = Typ_struct ( [
-        ( items,
-          {annot = _; desc = Typ_array ( {annot = _; desc = Typ_var obj;
-              attributes = [  ]},
-            {annot = _; desc = Trm_val ( Val_lit ( Lit_int 10 ) ); loc = ( ./tmp_inline_decl_struct.cpp,
-              12,36: 12,38 ); is_statement = false; add = []; typ = {annot = _; desc = Typ_int;
-              attributes = [  ]}; attributes = [  ]} ); attributes = [  ]} )
-      ],
-       ); attributes = [  ]} ) ); loc = ( ./tmp_inline_decl_struct.cpp,
-  12,17: 12,42 ); is_statement = false; add = []; typ = {annot = _; desc = Typ_unit;
-  attributes = [  ]}; attributes = [  ]}
+{annot = _; desc = Trm_var y; loc = ( show_path.cpp, 4,3: 4,12 );
+  is_statement = false; add = []; typ = _; attributes = [  ]}
+
+=========================Occurence 1======================
+Trm_var y
+
+------------------------Occurence 1 details---------------
+{annot = _; desc = Trm_var y; loc = ( show_path.cpp, 5,11: 5,12 );
+  is_statement = false; add = []; typ = _; attributes = [  ]}
+
+=========================Occurence 2======================
+Trm_apps ( Trm_val ( Val_prim ( Prim_unop Unop_get ) ), [ Trm_var y ] )
+
+------------------------Occurence 2 details---------------
+{annot = Heap_allocated; desc = Trm_apps ( {annot = _; desc = Trm_val ( Val_prim (
+      Prim_unop Unop_get ) ); loc = ( show_path.cpp, 5,11: 5,12 );
+    is_statement = false; add = []; typ = _; attributes = [  ]},
+  [
+    {annot = _; desc = Trm_var y; loc = ( show_path.cpp, 5,11: 5,12 );
+      is_statement = false; add = []; typ = _; attributes = [  ]}
+  ] ); loc = ( show_path.cpp, 5,11: 5,12 ); is_statement = false; add = [];
+  typ = {annot = _; desc = Typ_int; attributes = [  ]}; attributes = [  ]}
 
