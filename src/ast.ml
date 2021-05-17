@@ -173,7 +173,7 @@ and trm =
  { annot : trm_annot option;
    desc : trm_desc;
    loc : location;
-   is_statement : bool; (* TODO statement or expression? *)
+   is_statement : bool; (* TODO : generalize to trm_kind *)
    add : print_addition list; (* TODO: find better name *)
    typ : typ option; (* typ should be available from the AST that comes from Clang *)
    attributes : attribute list }

@@ -278,6 +278,7 @@ and constr =
   | Constr_bool of bool
   (* Constraint that matches only the root of the AST *)
   | Constr_root
+  (* LATER: add Constr_or, Constr_and, Constr_not *)
 
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
@@ -531,10 +532,6 @@ and access_to_string (ca : constr_access) : string =
      "Struct_access " ^ s_field
   | Any_access -> "Any_access"
 
-
-
-
-
 (* Flatten all the constrainst of type Constr_chain *)
 let target_flatten (tg : target) : target =
     let rec aux (cs : target) : target =
@@ -580,10 +577,8 @@ let target_to_target_struct (tr : target) : target_struct =
   tgs
 
 
-
-
 (******************************************************************************)
-(*                        Smart constructors for targets                        *)
+(*                        Smart constructors for targets                      *)
 (******************************************************************************)
 
 (* TODO: Remove all the occurrences of List.flatten they are not needed anymore*)
@@ -598,6 +593,8 @@ module Path_constructors = struct
    *)
 
   (* Logic constraints *)
+
+  let cStrict : constr = Constr_strict
 
   let cTrue : constr =
     Constr_bool true
@@ -650,7 +647,7 @@ module Path_constructors = struct
      Constr_dir Dir_for_init
   let cStep : constr =
      Constr_dir Dir_for_step
-  let cCallFun : constr =
+  let cCallFun : constr = (* LATER: see if this is needed (cCallNotBuiltin) *)
      Constr_dir Dir_app_fun
   let cArg (n : int) : constr =
      Constr_dir (Dir_arg n)
@@ -665,20 +662,16 @@ module Path_constructors = struct
      Constr_dir (Dir_enum_const (n, ecd))
   let cEnumConstName : enum_const_dir = Enum_const_name
   let cEnumConstVal : enum_const_dir = Enum_const_val
-  let cStrict : constr = Constr_strict
-  
+
   let cInclude (s : string) : constr =
      Constr_include s
 
-  let string_to_rexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
-    let exp = if exact then s ^ "$" else s in
-    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Any in
-    {rexp_desc = s; rexp_exp = Str.regexp exp; rexp_substr = exact; rexp_trm_kind = trmKind}
+  (* Matching by string *)
 
   let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
     Constr_regexp {
       rexp_desc = s;
-      rexp_exp = Str.regexp s;
+      rexp_exp = Str.quote s; (* builds a regexp that matches exactly s *)
       rexp_substr = false;
       rexp_trm_kind = tk; }
 
@@ -688,42 +681,45 @@ module Path_constructors = struct
   let cExpr (s : string) : constr =
     cInstrOrExpr TrmKind_Expr s
 
-  let cInstrOrExprRexp (tk : trm_kind) (substr : bool) (s : string) : constr =
+  let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
     Constr_regexp {
       rexp_desc = s;
-      rexp_exp = Str.regexp s;
+      rexp_exp = Str.regexp s; (* compiles the regular expression described by s *)
       rexp_substr = substr;
       rexp_trm_kind = tk; }
 
-  let cInstrRegexp ?(substr : bool = true) (s : string) : constr =
-    cInstrOrExprRexp TrmKind_Instr substr s
+  let cInstrRegexp ?(substr : bool = false) (s : string) : constr =
+    cInstrOrExprRegexp TrmKind_Instr substr s
 
-  let cExprRegexp ?(substr : bool = true) (s : string) : constr =
-    cInstrOrExprRexp TrmKind_Expr substr s
+  let cExprRegexp ?(substr : bool = false) (s : string) : constr =
+    cInstrOrExprRegexp TrmKind_Expr substr s
 
-  (* let cRegexp ?(only_instr : bool = true) ?(substr : bool = true) (s : string) : constr =
-    if only_instr
-      then cInstrRegexp ~substr s
-      else cExprRegexp ~substr s *)
-  let cRegexp ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : constr =
-    Constr_regexp (string_to_rexp ~only_instr ~exact s)
-  (*
-    match the string/regexp only on instructions
-    by default this is not an exact match
-   *)
-  let cInstrSubstr ?(exact : bool = false)
-    ?(regexp : bool = false) (s : string) : constr =
-    cRegexp  ~exact ~only_instr:true
-      (if regexp then s else Str.quote s)
-  
+  let string_to_rexp (TODO: ?regexp:bool=false) ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
+    let exp = if exact then s ^ "$" else s in
+    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Any in
+    { rexp_desc = s;
+      rexp_exp = (if regexp then Str.regexp else Str.quote) exp;
+      rexp_substr = exact;
+      rexp_trm_kind = trmKind; }
+
+  (* TODO: string_to_rexp_opt should take a mendatory argument trm_kind *)
   let string_to_rexp_opt ?(only_instr : bool = false) ?(exact : bool = true) (s : string) : rexp option =
-    if s = ""
-      then None
-      else Some (string_to_rexp ~only_instr ~exact s)
+    let res =
+      if s = ""
+        then None
+        else Some (string_to_rexp ~only_instr ~exact s)
+      in
+    (* TODO: printf (rexp_option_to_string res);
+      need to add a field "rexp_exp_to_string : unit -> string"
+      { rexp_exp_to_string = "ExactMatch: " ^ s   if using Str.quote
+        rexp_exp_to_string = "RegexpMatch: " ^ s   if using Str.regexp
+      *)
+    res
 
-  let cVarDef 
+  let cVarDef (* TODO: rename exact to substr=false *)
+  (* TODO: take ~regexp=false as argument, and use quote or regexp based on this flag *)
     ?(exact : bool = true) ?(body : target = []) (name : string) : constr =
-    let ro = string_to_rexp_opt  ~exact name in
+    let ro = string_to_rexp_opt ~exact name in
     let p_body =  body in
      Constr_decl_var (ro, p_body)
 
@@ -732,7 +728,7 @@ module Path_constructors = struct
     ?(cond : target = []) ?(step : target = []) ?(body : target = []) (name : string) : constr =
     let init =
        match name, init with
-       | "",[] -> init (*failwith "cFor: Need to provide the name or init"*)
+       | "", [] -> init (*failwith "cFor: Need to provide the name or init"*)
        | "", _ -> init
        | _, [] -> [cVarDef name]
        | _, _::_ -> failwith "cFor: cannot provide both name and init"
@@ -751,7 +747,8 @@ module Path_constructors = struct
     let p_then = then_ in
     let p_else = else_ in
      Constr_if (p_cond, p_then, p_else)
-    (* Converts a list of constraints into a [target_list_pred] *)
+
+  (* Converts a list of constraints into a [target_list_pred] *)
   let target_list_simpl (cstrs : constr list) : target_list_pred =
     let n = List.length cstrs in
     make_target_list_pred
@@ -759,13 +756,15 @@ module Path_constructors = struct
       (fun bs -> List.length bs = n && list_all_true bs)
       (fun () -> "target_list_simpl(" ^ (list_to_string (List.map constr_to_string cstrs) ^ ")"))
 
+  (* Predicate that matches any list of arguments *)
   let target_list_pred_always_true : target_list_pred =
     make_target_list_pred
       (fun _i -> cTrue)
       list_all_true
       (fun () -> "target_list_pred_always_true")
 
-  (* by default an empty name is no name *) (* TODO: Arthur maybe a datatype for target_list_pred? *)
+  (* by default an empty name is no name *)
+  (* TODO: Arthur maybe a datatype for target_list_pred? *)
   let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) (name : string) : constr =
     let ro = string_to_rexp_opt ~only_instr:false name in
     (* LATER: maybe an error if both args and args_pred are provided *)
@@ -782,10 +781,10 @@ module Path_constructors = struct
     ?(body : target = []) (name : string) : constr =
     cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
 
-  let cTypDef 
+  let cTypDef
     ?(exact : bool = true) (name : string) : constr =
     let ro = string_to_rexp_opt ~exact name in
-     Constr_decl_type ro
+    Constr_decl_type ro
 
   let cEnum ?(name : string = "")
     ?(exact : bool = true) ?(constants : (string * (target)) list = [])
@@ -815,20 +814,28 @@ module Path_constructors = struct
     | _ -> (target_list_simpl args)
     in
     Constr_seq  p_args
+
+  (* LATER:probably don't need exact *)
   let cVar ?(exact : bool = true) (name : string) : constr =
+    (* LATER: ~only_instr:false might not work in other languages *)
     let ro = string_to_rexp_opt ~exact ~only_instr:false name in
-     Constr_var ro
+    Constr_var ro
+
   let cBool (b : bool) : constr =
      Constr_lit (Lit_bool b)
+
   let cInt (n : int) : constr =
      Constr_lit (Lit_int n)
+
   let cDouble (f : float) : constr =
      Constr_lit (Lit_double f)
+
   let cString (s : string) : constr =
      Constr_lit (Lit_string s)
+
   (* let cPrim (p : prim) : constr =
      cStr (ast_to_string (trm_prim p)) *)
-  
+
   let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
     let exception Argument_Error  of string in
     let p_fun =
@@ -844,56 +851,59 @@ module Path_constructors = struct
     | _ -> (target_list_simpl args)
     in
     Constr_app (p_fun,args)
-  
+
   let cDef (name : string) : constr =
     Constr_chain [cStrict;cFunDef name]
-  
+
   let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
     let exception Argument_Error  of string in
     let p_fun =
-    match name, fun_ with
-    | "",_ -> fun_
-    | _, [] -> [cVar name]
-    | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
-
-    in
+      match name, fun_ with
+      | "",_ -> fun_
+      | _, [] -> [cVar name]
+      | _,_ -> (* TODO: invalid_arg "cCall: can't provide both the path and the name of the function" *)
+      raise (Argument_Error "Can't provide both the path and the name of the function")
+      in
     let args =
-    match args with
-    | [] -> args_pred
-    | _ -> (target_list_simpl args)
-    in
+      match args with
+      | [] -> args_pred
+      | _ -> (target_list_simpl args)
+      in
     Constr_app (p_fun,args)
 
   let cLabel ?(exact : bool = true) ?(body : target = []) (label : string) : constr =
     let ro = string_to_rexp_opt ~exact label in
-    let p_body =  body in
-     Constr_label (ro, p_body)
+    let p_body = body in
+    Constr_label (ro, p_body)
 
   let cGoto ?(label : string = "")
     ?(exact : bool = true) (_ : unit) : constr =
     let ro = string_to_rexp_opt ~exact label in
-     Constr_goto ro
+    Constr_goto ro
 
   let cReturn_target ?(res : target = [])
     (_ : unit) : constr =
     let p_res =  res in
-     Constr_return p_res
+    Constr_return p_res
 
   let cAbrtAny : abort_kind = Any
+
   let cAbrtRet : abort_kind = Return
+
   let cAbrtBrk : abort_kind = Break
+
   let cAbrtCtn : abort_kind = Continue
 
   let cAbort ?(kind : abort_kind = Any)
     (_ : unit) : constr =
-     Constr_abort kind
+    Constr_abort kind
 
   let cReturn : constr =
     Constr_abort (cAbrtRet)
-  
-  let cBreak  : constr =
-    Constr_abort (cAbrtBrk) 
-  
+
+  let cBreak : constr =
+    Constr_abort (cAbrtBrk)
+
   let cContinue : constr =
     Constr_abort (cAbrtCtn)
   (*
@@ -1086,16 +1096,16 @@ let is_structuring_statement (t : trm) : bool =
 let match_regexp (r : rexp) (t : trm) : bool =
   (* DEBUG: *) (* printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t); *)
   (* DEBUG: *) (* printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t)); *)
-  
+
   if r.rexp_trm_kind <> get_trm_kind t && r.rexp_trm_kind <> TrmKind_Any then false
     else
-      begin let ts = ast_to_string t in 
+      begin let ts = ast_to_string t in
         if r.rexp_substr then Str.string_match r.rexp_exp ts 0
-          else 
-            try let _ = Str.search_forward r.rexp_exp ts 0 in true with 
+          else
+            try let _ = Str.search_forward r.rexp_exp ts 0 in true with
             | Not_found -> false
       end
-  
+
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 

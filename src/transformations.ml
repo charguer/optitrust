@@ -208,7 +208,10 @@ let remove_instructions (clog : out_channel) (instruction_list : (target) list) 
   t instruction_list
   in t
 
-
+(* TODO: debug_path : bool = false
+  as argument,
+   when turned on, you should do List.iter (fun p -> printf (path_to_string p)) epl
+  *)
 let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm =
   let epl = resolve_target tr t in
   match epl with

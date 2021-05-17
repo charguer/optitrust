@@ -4,7 +4,7 @@ let _ = run_unit_test (fun () ->
   (** There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
   (* let show = Tr.target_show in *)
-  let show = show_target in 
+  let show = show_target in
 
   (* Types *)
   show [ cTypDef "vect" ];
@@ -38,18 +38,18 @@ let _ = run_unit_test (fun () ->
   show [ cCall ~args:[cInt 2] "" ];
 
   (* Var/Fun definitions *)
-  (* TODO: Implement cDef constructor *)
-  (* show [ cDef "f" ]; *)
-  (* show [ cDef "s" ]; *)
-  (* show [ cDef "p2" ]; *)
   show [ cFunDef "main" ];
   show [ cFunDef "f" ];
-  (* show [ cFunDef ~args:[cTrue;cDef "varg"] "" ]; *)
+  (* show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ]; *)
   (* show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; *)
 
 
 )
 
+  (* LATER: Implement cDef constructor *)
+  (* show [ cDef "f" ]; *)
+  (* show [ cDef "s" ]; *)
+  (* show [ cDef "p2" ]; *)
 
 
 (* LATER: smart constructors for checking calls to builtin operations such as get/set/compare/incr, etc *)
