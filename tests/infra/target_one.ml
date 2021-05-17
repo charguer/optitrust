@@ -11,7 +11,7 @@ let _ = run_unit_test (fun () ->
   show [ cTypDef "intstar" ];
 
   (* Constants *)
-  show [ cInt 8];
+  show [ cInt 8 ];
 
   (* Var/fun occurences *)
   show [ cVar "u" ]; (* Doesn't work properly*)

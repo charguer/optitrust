@@ -1,7 +1,7 @@
 open Optitrust
 
 let _ = run_unit_test (fun () ->
-  (** There should be exactly one result to each of the commands;
+  (* There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
   let show = Tr.target_show in
 
@@ -12,10 +12,10 @@ let _ = run_unit_test (fun () ->
   show [ cFor "i"; cFor "i" ];
 
   (* Def in depth *)
-  show [ cFunDef "f"; cFor "i"; cFor "i"; cDef "k" ];
+  show [ cFunDef "f"; cFor "i"; cFor "i"; cVarDef "k" ];
 
   (* Top-level functions *)
-  show [ cTopFun "f"; cDef "k" ];
+  show [ cTopFun "f"; cVarDef "k" ];
 
   (* Loops immediately inside a function *)
   show [ cFunDef ""; cStrict; cFor "" ];

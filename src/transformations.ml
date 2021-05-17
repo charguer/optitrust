@@ -215,7 +215,7 @@ let remove_instructions (clog : out_channel) (instruction_list : (target) list) 
 let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm =
   let epl = resolve_target tr t in
   match epl with
-  | [] ->
+  | [] -> (* TODO: remove this warning *)
     print_info t.loc "show_target: no matching subterm\n";
     t
   | [dl] -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
