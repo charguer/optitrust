@@ -22,7 +22,7 @@ let _ = run_unit_test (fun () ->
   (* Loops *)
   show [ cFor "i" ];
   show [ cFor "j" ];
-  show [ cFor ~cond:[cStr "j < 5"] "" ]; (* Doesn't work at all*)
+  show [ cFor ~cond:[cStr "j < 5"] "" ];
 
   (* Abort *)
   show [ cBreak ];

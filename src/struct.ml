@@ -123,7 +123,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
     | Dir_nth n :: dl' ->
       let (t',_) =  resolve_path dl t in
 
-      let t' = match t'.desc with*
+      let t' = match t'.desc with
       | Trm_labelled ("detached",t'') -> t''
       | _ -> t'
       in

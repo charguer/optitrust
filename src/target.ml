@@ -851,8 +851,8 @@ module Path_constructors = struct
     Constr_app (p_fun,args)
   
   let cDef (name : string) : constr =
-    Constr_chain [cStrict;cVarDef name;cFunDef name;cTypDef name]
-
+    Constr_chain [cStrict;cFunDef name]
+  
   let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
     let exception Argument_Error  of string in
     let p_fun =
@@ -1295,7 +1295,7 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
          if is_constr_regexp c && res_deep <> []
            then [] (* if a regexp matches in depth, don't test it here *)
            else (explore_in_depth (c :: p) t) in
-      res_deep ++ res_here  (* put deeper nodes first *) in
+      res_here ++ res_deep  (* put deeper nodes first *) in
   List.sort_uniq compare_path epl
 
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
