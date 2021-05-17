@@ -16,16 +16,16 @@ origin:
 
 compile: force
 	ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optiTrust.optitrust -I . $(TEST)
-run: compile $(TEST)
-	./$(TEST) && cat test_out.cpp && echo ""
 
 force:
 
 clean:
 	rm -Rf _build
-optitrust: 
+optitrust: clean
 	$(MAKE) -C $(OPTITRUST) install
 	
+run: optitrust compile $(TEST) 
+	./$(TEST) && cat test_out.cpp && echo ""
 
 
 clean_res:
