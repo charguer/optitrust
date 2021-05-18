@@ -66,9 +66,9 @@ let _ = run_unit_test (fun () ->
   show [ cExpr "j <" ]; (* Does not work *)
   show [ cExpr "vect v2" ]; (* Does not work *)
   show [ cStrFull "int r = 3;" ]; (* with or without the ; ? *)
-  show [ cStrFull "i++" ];
-  show [ cRegexp "+=" ];
-  show [ cRegexp ~sub:false "+=" ];
+  show [ cInstr "i++" ];
+  show [ cInstr "+=" ];
+  show [ c ~sub:false "+=" ];
   show [ cRegexp "f\\(.\\)" ];
   *)
 

@@ -75,15 +75,10 @@ val cCaseBody : case_dir
 val cEnumConst : int -> enum_const_dir -> constr
 
 val cEnumConstName : enum_const_dir
+
 val cEnumConstVal : enum_const_dir
 
-(* val cList : target -> (bool list -> bool list) -> target *)
-
 val cInclude : string -> constr
-
-val cInstrSubstr : ?exact:bool -> ?regexp:bool -> string -> constr
-
-val cRegexp : ?only_instr:bool -> ?exact:bool -> string ->constr
 
 val cInstr : string -> constr
 

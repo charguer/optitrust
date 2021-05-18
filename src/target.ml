@@ -345,7 +345,7 @@ let trm_kind_to_string (k : trm_kind) : string =
   | TrmKind_Any -> "Any"
 
 let regexp_to_string (r : rexp) : string =
-  (if r.rexp_substr then "Exact" else "Sub") ^ "-" ^
+  (if r.rexp_substr then "Sub" else "Exact") ^ "-" ^
   (trm_kind_to_string r.rexp_trm_kind) ^
   "(" ^ r.rexp_desc ^ ")"
 
@@ -633,45 +633,60 @@ module Path_constructors = struct
   (* directions *)
   let cRoot : constr =
      Constr_root
+
   let cNth (n : int) : constr =
      Constr_dir (Dir_nth n)
+
   let cCond : constr =
      Constr_dir Dir_cond
+
   let cThen : constr =
      Constr_dir Dir_then
+
   let cElse : constr =
      Constr_dir Dir_else
+
   let cBody : constr =
      Constr_dir Dir_body
+
   let cInit : constr =
      Constr_dir Dir_for_init
+
   let cStep : constr =
      Constr_dir Dir_for_step
+
   let cCallFun : constr = (* LATER: see if this is needed (cCallNotBuiltin) *)
      Constr_dir Dir_app_fun
+
   let cArg (n : int) : constr =
      Constr_dir (Dir_arg n)
+
   let cName : constr =
      Constr_dir Dir_name
+
   let cDirCase (n : int) (cd : case_dir) : constr =
      Constr_dir (Dir_case (n, cd))
+
   let cCaseName (n : int) : case_dir = Case_name n
+
   let cCaseBody : case_dir = Case_body
+
   let cEnumConst (n : int)
     (ecd : enum_const_dir) : constr =
      Constr_dir (Dir_enum_const (n, ecd))
-  let cEnumConstName : enum_const_dir = Enum_const_name
-  let cEnumConstVal : enum_const_dir = Enum_const_val
 
+  let cEnumConstName : enum_const_dir = Enum_const_name
+
+  let cEnumConstVal : enum_const_dir = Enum_const_val
+  
   let cInclude (s : string) : constr =
      Constr_include s
 
   (* Matching by string *)
-
   let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
     Constr_regexp {
       rexp_desc = s;
-      rexp_exp = Str.quote s; (* builds a regexp that matches exactly s *)
+      rexp_exp = Str.regexp_string s; (* builds a regexp that matches exactly s *)
       rexp_substr = false;
       rexp_trm_kind = tk; }
 
@@ -693,12 +708,14 @@ module Path_constructors = struct
 
   let cExprRegexp ?(substr : bool = false) (s : string) : constr =
     cInstrOrExprRegexp TrmKind_Expr substr s
-
-  let string_to_rexp (TODO: ?regexp:bool=false) ?(only_instr : bool = true) ?(exact : bool = true) (s : string) : rexp =
-    let exp = if exact then s ^ "$" else s in
+  (* TODO: Remove optional argujments from internal functions*)
+  let string_to_rexp ?(regexp:bool=false) ?(only_instr : bool = true) ?(substr : bool = false) (s : string) : rexp =
+    let exp = if substr then s else s ^ "$" in
+    (* If we search for exact expression than the string is a regex*)
+    let regexp = if not substr then true else regexp in
     let trmKind = if only_instr then TrmKind_Instr else TrmKind_Any in
-    { rexp_desc = s;
-      rexp_exp = (if regexp then Str.regexp else Str.quote) exp;
+    { rexp_desc = s; 
+      rexp_exp = (if regexp then Str.regexp else Str.regexp_string) exp;
       rexp_substr = exact;
       rexp_trm_kind = trmKind; }
 
@@ -782,7 +799,7 @@ module Path_constructors = struct
     cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
 
   let cTypDef
-    ?(exact : bool = true) (name : string) : constr =
+    ?(exact : bool = false) (name : string) : constr =
     let ro = string_to_rexp_opt ~exact name in
     Constr_decl_type ro
 
@@ -1094,8 +1111,8 @@ let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
 
 let match_regexp (r : rexp) (t : trm) : bool =
-  (* DEBUG: *) (* printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t); *)
-  (* DEBUG: *) (* printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t)); *)
+  (* DEBUG: *) printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
+  (* DEBUG: *) printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
 
   if r.rexp_trm_kind <> get_trm_kind t && r.rexp_trm_kind <> TrmKind_Any then false
     else
@@ -1300,7 +1317,7 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
          if is_constr_regexp c && res_deep <> []
            then [] (* if a regexp matches in depth, don't test it here *)
            else (explore_in_depth (c :: p) t) in
-      res_here ++ res_deep  (* put deeper nodes first *) in
+      res_deep ++ res_here  (* put deeper nodes first *) in
   List.sort_uniq compare_path epl
 
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
