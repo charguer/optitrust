@@ -1,5 +1,4 @@
 open PPrint
-
 let printf = Printf.printf
 let sprintf = Printf.sprintf
 
@@ -173,6 +172,10 @@ let before_aux (bl : bool list) : int list =
   | Some 0 -> []
   | Some n -> List.init n (fun m -> m)
 
+let filteri (f : int -> 'a -> bool) (al : 'a list) : 'a list =
+  let aol = List.mapi (fun i a -> if f i a then Some a else None) al in
+  List.filter_map (fun ao -> ao) aol 
+  
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in

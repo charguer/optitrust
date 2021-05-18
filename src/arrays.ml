@@ -2,8 +2,9 @@ open Ast
 open Target
 open Ast_to_c
 open Transformations
-open Tools
 open Arrays_core
+
+(* TODO: Finish splititng all function into core and basics for this module *)
 
 (*
   array tiling: transforms an array t[n] into a matrix t[n/b][b] for a fixed

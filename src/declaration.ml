@@ -3,6 +3,7 @@ open Ast_to_c
 open Target
 open Path_constructors
 open Transformations
+open Tools
 
 (*
   find the definition x = dx pointed at by pl and replace occurrences of dx with
@@ -335,11 +336,6 @@ let insert_and_fold_typedef (clog : out_channel)
      in
      let def_pathl = List.map (fun d -> Constr_dir d) dl in
      fold_decl clog ~fold_at def_pathl t
-
-let filteri (f : int -> 'a -> bool) (al : 'a list) : 'a list =
-  let aol = List.mapi (fun i a -> if f i a then Some a else None) al in
-  List.filter_map (fun ao -> ao) aol
-
 (*
   remove the declaration pointed at by pl
   pl must be resolved as a path to a seq element
