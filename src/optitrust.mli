@@ -88,30 +88,29 @@ val cInstrRegexp :?substr:bool -> string -> constr
 
 val cExprRegexp : ?substr:bool -> string -> constr
 
-val cFor : ?init:(target) -> ?cond:(target) ->
-           ?step:(target) -> ?body:(target) -> string -> constr
+val cFor : ?init:target -> ?cond:target ->
+           ?step:target -> ?body:target -> string -> constr
 
-val cWhile : ?cond:(target) -> ?body:(target) -> unit ->
+val cWhile : ?cond:target -> ?body:target -> unit ->
              constr
 
-val cIf : ?cond:(target) -> ?then_:(target) ->
-          ?else_:(target) -> unit -> constr
+val cIf : ?cond:target -> ?then_:target ->
+          ?else_:target -> unit -> constr
 val cDef : string -> constr
 
-val cVarDef : ?substr:bool ->
-              ?body:(target) -> string -> constr
+val cVarDef : ?regex:bool -> ?substr:bool -> ?body:target -> string -> constr
 
-val cFunDef : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
+val cFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> ?regex:bool ->string -> constr
 
-val cTopFun : ?args:(target) -> ?args_pred:target_list_pred -> ?body:(target) -> string -> constr
+val cTopFun : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> string -> constr
 
-val cTypDef : ?substr:bool -> string -> constr
+val cTypDef : ?substr:bool -> ?regex:bool -> string -> constr
 
-val cEnum : ?name:string -> ?substr:bool ->
-            ?constants:((string * (target)) list) -> unit -> constr
-val cSeq : ?args:(target) -> ?args_pred:target_list_pred -> unit -> constr
+val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) -> ?regex:bool -> unit -> constr
 
-val cVar : ?substr:bool -> string -> constr
+val cSeq : ?args:target -> ?args_pred:target_list_pred -> unit -> constr
+
+val cVar : ?substr:bool -> ?regex:bool -> string -> constr
 
 val cBool : bool -> constr
 
@@ -125,11 +124,11 @@ val cCall : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> strin
 
 val cFun : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
 
-val cLabel : ?substr:bool -> ?body:(target) -> string -> constr
+val cLabel : ?substr:bool -> ?body:target -> ?regex:bool -> string -> constr
 
-val cGoto : ?label:string -> ?substr:bool -> unit -> constr
+val cGoto : ?label:string -> ?substr:bool -> ?regex:bool -> unit -> constr
 
-val cReturn_target : ?res:(target) -> unit -> constr
+val cReturn_target : ?res:target -> unit -> constr
 
 val cReturn : constr 
 
@@ -139,25 +138,25 @@ val cBreak : constr
 
 val cContinue : constr 
 
-val cAccesses : ?base:(target) ->
+val cAccesses : ?base:target ->
                 ?accesses:(constr_access list) -> unit -> constr
 
-val cIndex : ?index:(target) -> unit -> constr_access
+val cIndex : ?index:target -> unit -> constr_access
 
-val cField : ?field:string -> ?substr:bool -> unit -> constr_access
+val cField : ?field:string -> ?substr:bool -> ?regex:bool -> unit -> constr_access
 
 val cAccess : constr_access
 
-val cSwitch : ?cond:(target) ->
-              ?cases:((case_kind * (target)) list) -> unit -> constr
+val cSwitch : ?cond:target ->
+              ?cases:((case_kind * target) list) -> unit -> constr
 
-val cCase : ?value:(target) -> unit -> case_kind
+val cCase : ?value:target -> unit -> case_kind
 
 val cDefault : case_kind
 
 val make_target_list_pred : (int -> constr) -> (bool list -> bool) -> (unit -> string) -> target_list_pred
 
-(* val cSet : ?lhs:(target) -> ?rhs:(target) -> unit -> target *)
+(* val cSet : ?lhs:target -> ?rhs:target -> unit -> target *)
 
 (** Transformations *)
 
@@ -197,36 +196,36 @@ val tile_array : ?replace_top:bool -> ?name:(string -> string) ->
                  ?block_name:string -> block_size:string -> string -> unit
 
 val fold_decl : ?replace_top:bool -> ?as_reference:bool ->
-                ?fold_at:(target list) -> decl_target:(target) -> unit -> unit
+                ?fold_at:(target list) -> decl_target:target -> unit -> unit
 
-val insert_decl : ?replace_top:bool -> ?insert_before:(target) ->
-                  ?insert_after:(target) -> ?const:bool ->
+val insert_decl : ?replace_top:bool -> ?insert_before:target ->
+                  ?insert_after:target -> ?const:bool ->
                   ?as_reference:bool -> name:string -> value:string -> unit ->
                   unit
 
-val insert_const : ?replace_top:bool -> ?insert_before:(target) ->
-                   ?insert_after:(target) -> name:string -> value:string ->
+val insert_const : ?replace_top:bool -> ?insert_before:target ->
+                   ?insert_after:target -> name:string -> value:string ->
                    unit -> unit
 
-val insert_and_fold : ?replace_top:bool -> ?insert_before:(target) ->
-                      ?insert_after:(target) -> ?const:bool ->
+val insert_and_fold : ?replace_top:bool -> ?insert_before:target ->
+                      ?insert_after:target -> ?const:bool ->
                       ?as_reference:bool -> ?fold_at:(target list) ->
                       name:string -> value:string -> unit -> unit
 
-val insert_typedef : ?replace_top:bool -> ?insert_before:(target) ->
-                     ?insert_after:(target) -> name:string -> value:string ->
+val insert_typedef : ?replace_top:bool -> ?insert_before:target ->
+                     ?insert_after:target -> name:string -> value:string ->
                      unit -> unit
 
-val insert_and_fold_typedef : ?replace_top:bool -> ?insert_before:(target) ->
-                              ?insert_after:(target) ->
+val insert_and_fold_typedef : ?replace_top:bool -> ?insert_before:target ->
+                              ?insert_after:target ->
                               ?fold_at:(target list) -> name:string ->
                               value:string -> unit -> unit
 
-val remove_decl : ?replace_top:bool -> decl_target:(target) -> unit -> unit
+val remove_decl : ?replace_top:bool -> decl_target:target -> unit -> unit
 
 val inline_decl : ?replace_top:bool -> ?delete_decl:bool ->
                   ?inline_at:(target list) -> ?fun_result:string -> ?fun_args:(string list) ->
-                  ?fun_return_label:string -> decl_target:(target) -> unit ->unit
+                  ?fun_return_label:string -> decl_target:target -> unit ->unit
 
 val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:string list -> unit -> unit
 
@@ -276,6 +275,6 @@ val eliminate_goto_next : ?replace_top:bool -> unit -> unit
 
 val group_decl_init : ?replace_top:bool -> unit -> unit
 
-val inline_seq : ?replace_top:bool -> seq_target:(target) -> unit -> unit
+val inline_seq : ?replace_top:bool -> seq_target:target -> unit -> unit
 
 val add_attribute : ?replace_top:bool -> string -> target -> unit

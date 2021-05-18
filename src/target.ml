@@ -153,7 +153,6 @@ let rec compare_path (dl : path) (dl' : path) : int =
      if cd = 0 then compare_path dl dl' else cd
 
 
-(* TODO: replace exact with standard name *)
 (* Type to classify trms into four main classes: 1)Structuring statements, 2) Instructions 3) Expression and others*)
 type trm_kind =
   | TrmKind_Struct
@@ -203,7 +202,6 @@ and constr =
    *)
   | Constr_strict
   | Constr_dir of dir
-  (* | Constr_list of target * (bool list -> int list) *) (* TODO: still needed? *)
   | Constr_include of string
   (*
     matching constraint: match against regexp
@@ -581,9 +579,6 @@ let target_to_target_struct (tr : target) : target_struct =
 (*                        Smart constructors for targets                      *)
 (******************************************************************************)
 
-(* TODO: Remove all the occurrences of List.flatten they are not needed anymore*)
-
-
 module Path_constructors = struct
   (*
     a smart constructor builds a target
@@ -710,22 +705,22 @@ module Path_constructors = struct
     cInstrOrExprRegexp TrmKind_Expr substr s
   (* TODO: Remove optional argujments from internal functions*)
  
-  let string_to_rexp ?(regexp:bool=false) ?(only_instr : bool = true) ?(substr : bool = false) (s : string) : rexp =
+  let string_to_rexp (regex : bool) (substr : bool) (s : string) : rexp =
     let exp = if substr then s else s ^ "$" in
     (* If we search for exact expression than the string is a regex*)
-    let regexp = if not substr then true else regexp in
-    let trmKind = if only_instr then TrmKind_Instr else TrmKind_Any in
+    let regexp = if not substr then true else regex in
+    let trmKind = TrmKind_Any in
     { rexp_desc = s; 
       rexp_exp = (if regexp then Str.regexp else Str.regexp_string) exp;
       rexp_substr = substr;
       rexp_trm_kind = trmKind; }
 
   (* TODO: string_to_rexp_opt should take a mendatory argument trm_kind *)
-  let string_to_rexp_opt ?(only_instr : bool = false) ?(substr : bool = false) (s : string) : rexp option =
+  let string_to_rexp_opt (regex : bool) (substr : bool) (s : string) : rexp option =
     let res =
       if s = ""
         then None
-        else Some (string_to_rexp ~only_instr ~substr s)
+        else Some (string_to_rexp regex substr s)
       in
     (* TODO: printf (rexp_option_to_string res);
       need to add a field "rexp_exp_to_string : unit -> string"
@@ -736,8 +731,8 @@ module Path_constructors = struct
 
   let cVarDef (* TODO: rename exact to substr=false *)
   (* TODO: take ~regexp=false as argument, and use quote or regexp based on this flag *)
-    ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
-    let ro = string_to_rexp_opt ~substr name in
+    ?(regex : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
+    let ro = string_to_rexp_opt regex substr name in
     let p_body =  body in
      Constr_decl_var (ro, p_body)
 
@@ -783,8 +778,8 @@ module Path_constructors = struct
 
   (* by default an empty name is no name *)
   (* TODO: Arthur maybe a datatype for target_list_pred? *)
-  let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) (name : string) : constr =
-    let ro = string_to_rexp_opt ~only_instr:false name in
+  let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) ?(regex : bool = false) (name : string) : constr =
+    let ro = string_to_rexp_opt regex false name in
     (* LATER: maybe an error if both args and args_pred are provided *)
     let p_args = match args with
       | [] -> args_pred
@@ -800,21 +795,21 @@ module Path_constructors = struct
     cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
 
   let cTypDef
-    ?(substr : bool = false) (name : string) : constr =
-    let ro = string_to_rexp_opt ~substr name in
+    ?(substr : bool = false) ?(regex : bool = false)(name : string) : constr =
+    let ro = string_to_rexp_opt regex substr name in
     Constr_decl_type ro
 
   let cEnum ?(name : string = "")
     ?(substr : bool = false) ?(constants : (string * (target)) list = [])
-    (_ : unit) : constr =
-    let c_n = string_to_rexp_opt ~substr name in
+    ?(regex : bool = false) (_ : unit) : constr =
+    let c_n = string_to_rexp_opt regex substr name in
     let cec_o =
       match constants with
       | [] -> None
       | _ ->
          let cec =
            List.map
-             (fun (n, pl) -> (string_to_rexp_opt ~substr n, pl))
+             (fun (n, pl) -> (string_to_rexp_opt regex substr n, pl))
              constants
          in
          Some cec
@@ -834,9 +829,9 @@ module Path_constructors = struct
     Constr_seq  p_args
 
   (* LATER:probably don't need exact *)
-  let cVar ?(substr : bool = false) (name : string) : constr =
+  let cVar ?(substr : bool = false) ?(regex : bool = false) (name : string) : constr =
     (* LATER: ~only_instr:false might not work in other languages *)
-    let ro = string_to_rexp_opt ~substr ~only_instr:false name in
+    let ro = string_to_rexp_opt regex substr name in
     Constr_var ro
 
   let cBool (b : bool) : constr =
@@ -889,14 +884,14 @@ module Path_constructors = struct
       in
     Constr_app (p_fun,args)
 
-  let cLabel ?(substr : bool = false) ?(body : target = []) (label : string) : constr =
-    let ro = string_to_rexp_opt ~substr label in
+  let cLabel ?(substr : bool = false) ?(body : target = []) ?(regex : bool = false) (label : string) : constr =
+    let ro = string_to_rexp_opt regex substr label in
     let p_body = body in
     Constr_label (ro, p_body)
 
   let cGoto ?(label : string = "")
-    ?(substr : bool = false) (_ : unit) : constr =
-    let ro = string_to_rexp_opt ~substr label in
+    ?(substr : bool = false) ?(regex : bool = false) (_ : unit) : constr =
+    let ro = string_to_rexp_opt regex substr label in
     Constr_goto ro
 
   let cReturn_target ?(res : target = [])
@@ -940,9 +935,9 @@ module Path_constructors = struct
     let p_index =  index in
     Array_access p_index
 
-  let cField ?(field : string = "") ?(substr : bool = false)
+  let cField ?(field : string = "") ?(substr : bool = false) ?(regex : bool = false)
     (_ : unit) : constr_access =
-    let ro = string_to_rexp_opt ~substr field in
+    let ro = string_to_rexp_opt regex substr field in
     Struct_access ro
 
   let cAccess : constr_access = Any_access

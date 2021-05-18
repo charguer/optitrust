@@ -214,6 +214,7 @@ let remove_instructions (clog : out_channel) (instruction_list : (target) list) 
   *)
 let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm =
   let epl = resolve_target tr t in
+   (* DEBUG *)(* printf "%s\n" (list_to_string (List.map path_to_string epl)); *)
   match epl with
   | [] -> (* TODO: remove this warning *)
     print_info t.loc "show_target: no matching subterm\n";
