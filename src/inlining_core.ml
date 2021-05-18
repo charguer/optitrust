@@ -5,6 +5,7 @@ open Transformations
 open Declaration
 open Tools
 
+(* TODO: Remove current inline_fun_decl from inline_decl, these two functions should be independent *)
 (*
   instr containing f(arg1, …, argn) is replaced with
   {
@@ -280,3 +281,53 @@ let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result 
        | _ -> fail t.loc "inline_decl: expected a definition"
      
 
+(* Get the index for a given field of struct inside its list of fields *)
+let get_pos (x : typvar) (t : trm) : int =
+  begin match t.desc with
+  | Trm_decl (Def_typ(_,dx)) ->
+       let field_list1 =
+          match dx.ty_desc with
+          | Typ_struct(l,_,_) -> l
+          |_ -> fail t.loc "get_pos: the type should be a typedef struct"
+        in
+
+        let rec find x lst =
+        match lst with
+        | [] -> raise (Failure "Not Found")
+        | hd :: tl -> if hd = x then 0 else 1 + find x tl
+        in
+        find x field_list1
+    | _ -> fail t.loc "get_pos_and_element: expected a struct type"
+    end
+
+
+let inline_record_access_core (clog : out_channel) (var : string) (field : string) (struct_decl_trm : trm) (list_of_trms : trm list) (t : trm) : trm =
+   let log : string =
+    let loc : string =
+      match t.loc with
+      | None -> ""
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in Printf.sprintf
+      (" -expresssion\n%s\n" ^^
+      "  %sis an assignment with record access\n"
+      )
+      (ast_to_string t) loc
+      in write_log clog log;
+      (* search for the declaration of the variable *)
+   let rec aux (global_trm : trm ) (t : trm) : trm =
+      begin match t.desc with
+      | Trm_apps (f,[base]) ->
+        begin match f.desc with
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
+          begin match base.desc with
+          | Trm_var v when v = var ->
+            let index = get_pos field struct_decl_trm in
+            List.nth (List.rev list_of_trms) index
+          | _ -> trm_map (aux global_trm) t
+          end
+        | _ -> trm_map (aux global_trm) t
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    in aux t t
