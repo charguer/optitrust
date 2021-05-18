@@ -709,6 +709,7 @@ module Path_constructors = struct
   let cExprRegexp ?(substr : bool = false) (s : string) : constr =
     cInstrOrExprRegexp TrmKind_Expr substr s
   (* TODO: Remove optional argujments from internal functions*)
+ 
   let string_to_rexp ?(regexp:bool=false) ?(only_instr : bool = true) ?(substr : bool = false) (s : string) : rexp =
     let exp = if substr then s else s ^ "$" in
     (* If we search for exact expression than the string is a regex*)
@@ -716,15 +717,15 @@ module Path_constructors = struct
     let trmKind = if only_instr then TrmKind_Instr else TrmKind_Any in
     { rexp_desc = s; 
       rexp_exp = (if regexp then Str.regexp else Str.regexp_string) exp;
-      rexp_substr = exact;
+      rexp_substr = substr;
       rexp_trm_kind = trmKind; }
 
   (* TODO: string_to_rexp_opt should take a mendatory argument trm_kind *)
-  let string_to_rexp_opt ?(only_instr : bool = false) ?(exact : bool = true) (s : string) : rexp option =
+  let string_to_rexp_opt ?(only_instr : bool = false) ?(substr : bool = false) (s : string) : rexp option =
     let res =
       if s = ""
         then None
-        else Some (string_to_rexp ~only_instr ~exact s)
+        else Some (string_to_rexp ~only_instr ~substr s)
       in
     (* TODO: printf (rexp_option_to_string res);
       need to add a field "rexp_exp_to_string : unit -> string"
@@ -735,8 +736,8 @@ module Path_constructors = struct
 
   let cVarDef (* TODO: rename exact to substr=false *)
   (* TODO: take ~regexp=false as argument, and use quote or regexp based on this flag *)
-    ?(exact : bool = true) ?(body : target = []) (name : string) : constr =
-    let ro = string_to_rexp_opt ~exact name in
+    ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
+    let ro = string_to_rexp_opt ~substr name in
     let p_body =  body in
      Constr_decl_var (ro, p_body)
 
@@ -799,21 +800,21 @@ module Path_constructors = struct
     cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
 
   let cTypDef
-    ?(exact : bool = false) (name : string) : constr =
-    let ro = string_to_rexp_opt ~exact name in
+    ?(substr : bool = false) (name : string) : constr =
+    let ro = string_to_rexp_opt ~substr name in
     Constr_decl_type ro
 
   let cEnum ?(name : string = "")
-    ?(exact : bool = true) ?(constants : (string * (target)) list = [])
+    ?(substr : bool = false) ?(constants : (string * (target)) list = [])
     (_ : unit) : constr =
-    let c_n = string_to_rexp_opt ~exact name in
+    let c_n = string_to_rexp_opt ~substr name in
     let cec_o =
       match constants with
       | [] -> None
       | _ ->
          let cec =
            List.map
-             (fun (n, pl) -> (string_to_rexp_opt ~exact n, pl))
+             (fun (n, pl) -> (string_to_rexp_opt ~substr n, pl))
              constants
          in
          Some cec
@@ -833,9 +834,9 @@ module Path_constructors = struct
     Constr_seq  p_args
 
   (* LATER:probably don't need exact *)
-  let cVar ?(exact : bool = true) (name : string) : constr =
+  let cVar ?(substr : bool = false) (name : string) : constr =
     (* LATER: ~only_instr:false might not work in other languages *)
-    let ro = string_to_rexp_opt ~exact ~only_instr:false name in
+    let ro = string_to_rexp_opt ~substr ~only_instr:false name in
     Constr_var ro
 
   let cBool (b : bool) : constr =
@@ -888,14 +889,14 @@ module Path_constructors = struct
       in
     Constr_app (p_fun,args)
 
-  let cLabel ?(exact : bool = true) ?(body : target = []) (label : string) : constr =
-    let ro = string_to_rexp_opt ~exact label in
+  let cLabel ?(substr : bool = false) ?(body : target = []) (label : string) : constr =
+    let ro = string_to_rexp_opt ~substr label in
     let p_body = body in
     Constr_label (ro, p_body)
 
   let cGoto ?(label : string = "")
-    ?(exact : bool = true) (_ : unit) : constr =
-    let ro = string_to_rexp_opt ~exact label in
+    ?(substr : bool = false) (_ : unit) : constr =
+    let ro = string_to_rexp_opt ~substr label in
     Constr_goto ro
 
   let cReturn_target ?(res : target = [])
@@ -939,9 +940,9 @@ module Path_constructors = struct
     let p_index =  index in
     Array_access p_index
 
-  let cField ?(field : string = "") ?(exact : bool = true)
+  let cField ?(field : string = "") ?(substr : bool = false)
     (_ : unit) : constr_access =
-    let ro = string_to_rexp_opt ~exact field in
+    let ro = string_to_rexp_opt ~substr field in
     Struct_access ro
 
   let cAccess : constr_access = Any_access
