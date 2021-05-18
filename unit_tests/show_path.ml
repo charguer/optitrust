@@ -22,7 +22,7 @@ let _ =
         clean_target_decorators();
         show_target  [cInt 3];    
         clean_target_decorators();
-        show_target  [cInstrSubstr "return"];
+        show_target  [cInstr "return"];
     
         dump()
     )
