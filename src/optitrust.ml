@@ -773,7 +773,7 @@ let tile_array ?(replace_top : bool = false)
       | None -> fail t.loc ("tile_array: unable to find declaration of " ^ x)
       | Some dl ->
          let context = get_context ctx dl t in
-         Arrays.tile ctx.clog name block_name (term ctx ~context b) x t
+         Arrays.tile_array  ctx.clog name block_name (term ctx ~context b) x t
     );
   write_log "\n"
 
