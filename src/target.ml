@@ -736,10 +736,10 @@ module Path_constructors = struct
     ?(cond : target = []) ?(step : target = []) ?(body : target = []) (name : string) : constr =
     let init =
        match name, init with
-       | "", [] -> init (*failwith "cFor: Need to provide the name or init"*)
+       | "", [] -> init 
        | "", _ -> init
        | _, [] -> [cVarDef name]
-       | _, _::_ -> ""
+       | _, _::_ -> init
        in
      Constr_for ( init,  cond,  step,  body)
 
@@ -802,7 +802,7 @@ module Path_constructors = struct
       | _ ->
          let cec =
            List.map
-             (fun (n, pl) -> (string_to_rexp_opt regex substr n t TrmKind_Expr, pl))
+             (fun (n, pl) -> (string_to_rexp_opt regex substr n TrmKind_Expr, pl))
              constants
          in
          Some cec
@@ -862,6 +862,7 @@ module Path_constructors = struct
     Constr_chain [cStrict;cFunDef name]
 
   let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
+    let exception Argument_Error  of string in
     let p_fun =
       match name, fun_ with
       | "",_ -> fun_
