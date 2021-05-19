@@ -1316,7 +1316,7 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            then [] (* if a regexp matches in depth, don't test it here *)
            else (resolve_constraint c p t) in
 
-      (* DEBUG *)
+      (* DEBUG
         printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n  ~ast:%s\n  ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
@@ -1324,6 +1324,7 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
           (*(Ast_to_text.ast_to_string t)*) ""
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here);
+          *)
 
       res_deep ++ res_here  (* put deeper nodes first *) in
   List.sort_uniq compare_path epl

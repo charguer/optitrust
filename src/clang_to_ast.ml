@@ -70,7 +70,7 @@ let delete_list ?(loc : location = None) (sl : string list) : trm list =
 
 (* Auxiliary function to compute the new location for delete instruction before scope closure *)
 
-let new_location (loc : location) : location = match loc with 
+let new_location (loc : location) : location = match loc with
 | None -> None
 | Some (f, _, _,line2,col2) -> Some (f,(max 1 (line2-1)), line2,(max 0 (col2-1)), col2)
 
@@ -84,7 +84,7 @@ let close_scope ?(loc : location = None) (t : trm) : trm =
     | None -> None
     | Some (f,line1,col1,line2,col2) -> Some (f,line1,(min 1 (col1-1)),line2,col2)
     end in *)
-  let loc_end = new_location loc in 
+  let loc_end = new_location loc in
   match Stack.pop heap_vars with
   | (_, []) -> t
   | (_, sl) ->
@@ -500,7 +500,9 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
             begin match val_t with
               | Lvalue ->
                 {annot = t.annot; desc = t.desc; loc = t.loc;
-                 is_statement = t.is_statement; add = Add_star_operator :: t.add; typ;
+                 is_statement = t.is_statement;
+                 add = Add_star_operator :: t.add;
+                 typ;
                  attributes = t.attributes}
               | Rvalue -> trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [t]
             end
