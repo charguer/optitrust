@@ -1323,8 +1323,8 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
           (Ast_to_c.ast_to_string ~ast_decode:false t)
           (*(Ast_to_text.ast_to_string t)*) ""
           (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here);
-          *)
+          (paths_to_string ~sep:"\n   " res_here);*)
+
 
       res_deep ++ res_here  (* put deeper nodes first *) in
   List.sort_uniq compare_path epl
