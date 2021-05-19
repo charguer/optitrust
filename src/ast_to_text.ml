@@ -323,3 +323,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
 let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in
   PPrintEngine.ToChannel.pretty 0.9 80 out d
+
+let ast_to_string ?(only_desc : bool = false) (t : trm) : string =
+  let d = print_trm ~only_desc t in
+  document_to_string d

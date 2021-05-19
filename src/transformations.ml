@@ -102,8 +102,9 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           | Trm_var x' ->
              trm_decl ~annot ~loc ~is_statement ~add ~attributes
                (Def_var ((x', tx), body))
-          | Trm_decoration(ls,{desc=Trm_var x';_},rs) -> trm_decoration ls rs (trm_decl ~annot ~loc ~is_statement ~add ~attributes
-               (Def_var ((x', tx), body)))
+          | Trm_decoration(_ls,{desc=Trm_var x';_},_rs) ->
+              (*trm_decoration ls rs  -- DEBUG: this was for capturing the binding as well *)
+              (trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_var ((x', tx), body)))
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
                          "must preserve names(var)")

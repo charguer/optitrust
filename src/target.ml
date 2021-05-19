@@ -52,6 +52,10 @@ and enum_const_dir =
   | Enum_const_name
   | Enum_const_val
 
+(* The resolution of a target produces a list of [path] (explicit list of directions),
+   we let [paths] be a shorthand for such type. *)
+type paths = path list
+
 let dir_to_string (d : dir) : string =
   match d with
   | Dir_nth n -> "Dir_nth " ^ (string_of_int n)
@@ -91,6 +95,9 @@ let list_to_string ?(sep:string="; ") ?(bounds:string list = ["[";"]"])(l : stri
 
 let path_to_string (dl : path) : string =
   list_to_string (List.map dir_to_string dl)
+
+let paths_to_string ?(sep:string="; ") (dls : paths) : string =
+  list_to_string ~sep (List.map path_to_string dls)
 
 (*
   comparison functions for path sorting
@@ -162,14 +169,10 @@ type trm_kind =
 
 
 type rexp = {
-  rexp_desc: string; (* printable version of regexp *)
+  rexp_desc : string; (* printable version of regexp *)
   rexp_exp : regexp;
   rexp_substr : bool;
   rexp_trm_kind : trm_kind }
-
-(* The resolution of a target produces a list of [path] (explicit list of directions),
-   we let [paths] be a shorthand for such type. *)
-type paths = path list
 
 (* Relative target to term *)
 type target_relative =
@@ -673,7 +676,7 @@ module Path_constructors = struct
   let cEnumConstName : enum_const_dir = Enum_const_name
 
   let cEnumConstVal : enum_const_dir = Enum_const_val
-  
+
   let cInclude (s : string) : constr =
      Constr_include s
 
@@ -703,12 +706,12 @@ module Path_constructors = struct
 
   let cExprRegexp ?(substr : bool = false) (s : string) : constr =
     cInstrOrExprRegexp TrmKind_Expr substr s
- 
+
   let string_to_rexp (regex : bool) (substr : bool) (s : string) (trmKind : trm_kind): rexp =
     let exp = if substr then s else s ^ "$" in
     (* If we search for exact expression than the string is a regex*)
     let regexp = if not substr then true else regex in
-    { rexp_desc = s; 
+    { rexp_desc = s;
       rexp_exp = (if regexp then Str.regexp else Str.regexp_string) exp;
       rexp_substr = substr;
       rexp_trm_kind = trmKind; }
@@ -726,7 +729,7 @@ module Path_constructors = struct
       *)
     res
 
-  let cVarDef 
+  let cVarDef
     ?(regex : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
     let ro = string_to_rexp_opt regex substr name TrmKind_Expr in
     let p_body =  body in
@@ -736,7 +739,7 @@ module Path_constructors = struct
     ?(cond : target = []) ?(step : target = []) ?(body : target = []) (name : string) : constr =
     let init =
        match name, init with
-       | "", [] -> init 
+       | "", [] -> init
        | "", _ -> init
        | _, [] -> [cVarDef name]
        | _, _::_ -> init
@@ -1097,24 +1100,31 @@ let get_trm_kind (t : trm) : trm_kind =
 let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
 
-let match_regexp (r : rexp) (t : trm) : bool =
-  (* DEBUG: *) printf "match_regexp(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
-  (* DEBUG: *) printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
 
-  if r.rexp_trm_kind <> get_trm_kind t && r.rexp_trm_kind <> TrmKind_Any then false
-    else
-      begin let ts = ast_to_string t in
-        if r.rexp_substr then Str.string_match r.rexp_exp ts 0
-          else
-            try let _ = Str.search_forward r.rexp_exp ts 0 in true with
-            | Not_found -> false
-      end
+let match_regexp_str (r : rexp) (s : string) : bool =
+  printf "match_regexp_str(%s, %s)\n" (regexp_to_string r) s;
+  (*if s = "x" then incr Debug.counter;
+  if !Debug.counter = 2 then raise Debug.Breakpoint; *)
+  if r.rexp_substr then
+    Str.string_match r.rexp_exp s 0
+  else begin
+      try let _ = Str.search_forward r.rexp_exp s 0 in true
+      with Not_found -> false
+  end
+
+let match_regexp_trm (r : rexp) (t : trm) : bool =
+  (* DEBUG: *) printf "match_regexp_trm(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
+  (* DEBUG: *) printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
+  if r.rexp_trm_kind <> get_trm_kind t && r.rexp_trm_kind <> TrmKind_Any
+    then false
+    else match_regexp_str r (ast_to_string t)
 
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
+  (* LATER: find if it is find to deactivate these encodings
   match t.annot with
   | Some Heap_allocated | Some Delete_instructions ->
      (* if t is one of the heap allocation patterns, we simplify it before *)
@@ -1136,6 +1146,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | _ -> fail t.loc "check_constraint: bad multi_decl annotation"
      end
   | _ ->
+  *)
      let loc = t.loc in
      begin match c, t.desc with
      (*
@@ -1147,7 +1158,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
        (* | Constr_list _, _ *)
        | Constr_include _, _ ->
         false
-     | Constr_regexp r, _ -> match_regexp r t
+     | Constr_regexp r, _ -> match_regexp_trm r t
      | Constr_for (p_init, p_cond, p_step, p_body),
        Trm_for (init, cond, step, body) ->
         check_target p_init init &&
@@ -1207,7 +1218,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
 and check_name (name : constr_name) (s : string) : bool =
   match name with
   | None -> true
-  | Some r -> match_regexp r (trm_var s)
+  | Some r -> match_regexp_str r s
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
   (* DEBUG: printf "%s\n" (lpred.target_list_pred_to_string()); *)
@@ -1299,11 +1310,22 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
       let res_deep =
         if strict
            then [] (* in strict mode, must match c here *)
-           else (resolve_constraint c p t) in
+           else (explore_in_depth (c :: p) t) in
       let res_here =
          if is_constr_regexp c && res_deep <> []
            then [] (* if a regexp matches in depth, don't test it here *)
-           else (explore_in_depth (c :: p) t) in
+           else (resolve_constraint c p t) in
+
+      (* DEBUG
+        printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n  ~ast:%s\n  ~deep:%s\n  ~here:%s\n"
+          (if strict then "true" else "false")
+          (target_to_string trs)
+          (Ast_to_c.ast_to_string ~ast_decode:false t)
+          (*(Ast_to_text.ast_to_string t)*) ""
+          (paths_to_string ~sep:"\n   " res_deep)
+          (paths_to_string ~sep:"\n   " res_here);
+          *)
+
       res_deep ++ res_here  (* put deeper nodes first *) in
   List.sort_uniq compare_path epl
 
@@ -1463,7 +1485,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
   | _ ->
      begin match t.desc with
      | Trm_decl (Def_var ((x, _), body))
-       | Trm_decl (Def_fun (x, _, _, body)) ->
+     | Trm_decl (Def_fun (x, _, _, body)) ->
         add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
         add_dir Dir_body (resolve_target_simple p body)
      | Trm_decl (Def_enum (x, xto_l)) ->

@@ -130,13 +130,13 @@ val cGoto : ?label:string -> ?substr:bool -> ?regex:bool -> unit -> constr
 
 val cReturn_target : ?res:target -> unit -> constr
 
-val cReturn : constr 
+val cReturn : constr
 
 val cAbort : ?kind:abort_kind -> unit -> constr
 
 val cBreak : constr
 
-val cContinue : constr 
+val cContinue : constr
 
 val cAccesses : ?base:target ->
                 ?accesses:(constr_access list) -> unit -> constr
@@ -278,3 +278,17 @@ val group_decl_init : ?replace_top:bool -> unit -> unit
 val inline_seq : ?replace_top:bool -> seq_target:target -> unit -> unit
 
 val add_attribute : ?replace_top:bool -> string -> target -> unit
+
+
+
+module type DebugSig = sig
+
+  exception Breakpoint
+
+  val counter : int ref
+
+  val backtrace : (unit -> unit) -> unit
+
+end
+
+module Debug : DebugSig

@@ -144,7 +144,8 @@ let last (l : 'a list) : int * 'a =
         | _ :: al -> aux (n + 1) al
       in
       aux 0 al
-let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : string list) : string =
+
+let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : string list) : string =
   let rec aux = function
     | [] -> ""
     | [s] -> s
@@ -206,3 +207,27 @@ let initialization (out_prefix : string) : unit =
     PPrintEngine.ToChannel.pretty 0.9 80 out_js content;
     PPrintEngine.ToChannel.pretty 0.9 80 out_js source
 
+
+
+module type DebugSig = sig
+
+  exception Breakpoint
+
+  val counter : int ref
+
+  val backtrace : (unit -> unit) -> unit
+
+end
+
+module Debug = struct
+
+  exception Breakpoint
+
+  let counter = ref 0
+
+  let backtrace f =
+    try f() with Breakpoint ->
+      flush stdout;
+      let s = Printexc.get_backtrace() in
+      Printf.eprintf "%s\n" s
+end
