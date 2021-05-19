@@ -5,10 +5,6 @@ open Ast_to_c
 open Tools 
 
 let create_subsequence_core (clog : out_channel) (label : label) (start_index : int) (stop_path : target) (before_stop : bool) (after_stop : bool) (braces : bool) (t : trm) : trm =
-  let rec insert_in_list_at  (el : trm) (i : int) (xs : 'a list) = match xs with
-    | [] -> []
-    | h :: t as l -> if i = 0 then el :: l else h :: insert_in_list_at el (i-1) t
-  in
   let log : string =
     let loc: string =
       match t.loc with
@@ -75,6 +71,7 @@ let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : 
     | Trm_seq tl ->
       (* Insert the new sequence with the given instrucitons at index int *)
       let tl = insert_sublist_at instr index tl in 
+      (* Apply the changes *)
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "seq_insert: expected the sequence on which the insertion is performed"
 
@@ -86,7 +83,7 @@ let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : 
     return: the updated ast 
 
 *)
-let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : trm list) (t : trm): trm =
+let seq_delete (clog : out_channel) (path_to_seq : path) (index : int) (instr : trm list) (t : trm): trm =
   let (t,_) = resolve_path path_to_seq t in
   let log : string =
     let loc : string =
@@ -102,9 +99,40 @@ let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : 
     in write_log clog log;
     match t.desc with
     | Trm_seq tl ->
-      (* Remove the trms at those specific indices *)
-      (* TODO: Fix function list_remove_set *)
+      (* Remove trms*)
       let tl = list_remove_set instr tl in 
+      (* Apply the changes *)
       trm_seq ~annot:t.annot tl
-    | _ -> fail t.loc "seq_insert: expected the sequence on which the insertion is performed"
+    | _ -> fail t.loc "seq_delete: expected the sequence on which the trms are deleted"
 
+(* seq_sub: Group the targeted instructions into one nested seq term.
+    params:
+      path_to_seq: explicit path towards the sequence
+      index: an integer in range 0 .. (current number of instrucitons inside the sequence) 
+      instr: a list of instructions(objects of type trm)
+    return: the updated ast 
+*)
+let seq_sub (clog : out_channel) (path_to_seq : path) (index : int) (instr : trm list) (t : trm): trm =
+  let (t,_) = resolve_path path_to_seq t in
+  let log : string =
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in 
+    Printf.sprintf
+    (" -expression\n%s\n" ^^
+    " %s is sequence of terms \n"
+    )
+    (ast_to_string t) loc 
+    in write_log clog log;
+    match t.desc with
+    | Trm_seq tl ->
+      (* First we remove this trms from the sequence *)
+      let tl = list_remove_set instr tl in 
+      (* Create a new sequence with the given trms*)
+      let sub_seq = trm_seq instr in 
+      (* Insert at the given index the new trm *)
+      let tl = insert_in_list_at sub_seq index tl in 
+      trm_seq ~annot:t.annot tl
+    | _ -> fail t.loc "seq_sub: expected the sequence on which the insertion is performed"
