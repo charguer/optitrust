@@ -83,7 +83,7 @@ let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : 
     return: the updated ast 
 
 *)
-let seq_delete (clog : out_channel) (path_to_seq : path) (index : int) (instr : trm list) (t : trm): trm =
+let seq_delete (clog : out_channel) (path_to_seq : path) (instr : trm list) (t : trm): trm =
   let (t,_) = resolve_path path_to_seq t in
   let log : string =
     let loc : string =
@@ -202,7 +202,7 @@ let seq_wrap (clog : out_channel) (path_to_instr : path) (visible : bool) (t : t
       visible: a boolean to decide if the wraped sequence should be visible or not 
     return: the updated ast 
 *)
-let seq_unwrap (clog : out_channel) (path_to_seq : path) (visible : bool) (t : trm): trm =
+let seq_unwrap (clog : out_channel) (path_to_seq : path) (t : trm): trm =
   let (t,_) = resolve_path path_to_seq t in
   let log : string =
     let loc : string =
@@ -212,7 +212,7 @@ let seq_unwrap (clog : out_channel) (path_to_seq : path) (visible : bool) (t : t
     in 
     Printf.sprintf
     (" -expression\n%s\n" ^^
-    " %s is an instruction \n"
+    " %s is a sequence \n"
     )
     (ast_to_string t) loc 
     in write_log clog log;
@@ -220,3 +220,5 @@ let seq_unwrap (clog : out_channel) (path_to_seq : path) (visible : bool) (t : t
     | Trm_seq [el] -> el
     | _ -> fail t.loc "seq_unwrap: expected the sequence wanted to remove, the sequence shoudl contain only one trm"
 
+
+(* TODO: Implement later seq_distrib_ref after references have been implemented *)

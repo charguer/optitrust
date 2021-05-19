@@ -1,9 +1,8 @@
 open Ast
-open Ast_to_c
+open Transformations
+open Struct_core
 open Target
 open Path_constructors
-open Transformations
-open Tools
 
 let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (tr : target) (t : trm) : trm =
   let struct_def_path = [cTypDef struct_name] in
@@ -110,6 +109,6 @@ let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_bef
   | _ ->
       List.fold_left
         (fun t dl ->
-          apply_local_transformation (fields_reorder_aux clog ~struct_fields ~move_before ~move_after) t dl )
+          apply_local_transformation (fields_reorder_core clog ~struct_fields ~move_before ~move_after) t dl )
         t
         epl
