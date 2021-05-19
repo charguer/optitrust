@@ -139,6 +139,7 @@ let make_implicit_record_assignment_core (clog : out_channel) (trms_list_size : 
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "make_implicit_record_assignment_aux: the outer sequence was not matched"
 
+
 let fields_reorder_core (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(t : trm) : trm  =
     let log : string =
       let loc : string =

@@ -227,7 +227,7 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
    *)
   | _ -> trm_map (swap_accesses clog x) t
 (* TODO: Later this is a combi transformation *)
-and swap_coord (clog : out_channel) (name : var -> var) (x : typvar) (t : trm) : trm =
+let swap_coord (clog : out_channel) (name : var -> var) (x : typvar) (t : trm) : trm =
   (*
     3 things to change in t:
     - dimensions in the declaration of x

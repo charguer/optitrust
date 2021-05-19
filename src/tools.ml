@@ -175,7 +175,24 @@ let before_aux (bl : bool list) : int list =
 let filteri (f : int -> 'a -> bool) (al : 'a list) : 'a list =
   let aol = List.mapi (fun i a -> if f i a then Some a else None) al in
   List.filter_map (fun ao -> ao) aol 
-  
+
+(* split the list after its n-th element *)
+let split_list_at (n : int) (al : 'a list) : 'a list * ('a list) =
+  let (before, after) =
+    foldi
+      (fun i (before, after) a ->
+        if i <= n then (a :: before, after) else (before, a :: after)
+      )
+      ([], [])
+      al
+  in
+  (List.rev before, List.rev after)
+
+let rec get_index x lst =
+    match lst with
+    | [] -> raise (Failure "Not Found")
+    | h :: t -> if x = h then 0 else 1 + get_index x t
+
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in
