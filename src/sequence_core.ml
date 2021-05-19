@@ -48,7 +48,7 @@ let create_subsequence_core (clog : out_channel) (label : label) (start_index : 
 (* seq_insert: Insert a list of instructions at the given index as a new sequence
     params:
       path_to_seq: explicit path towards the sequence
-      index: an integer in range 0 .. (current number of instrucitons inside the sequence) 
+      index: an integer in range 0 .. (current number of instructions inside the sequence) 
       instr: a list of instructions(objects of type trm)
     return: the updated ast 
 
@@ -78,7 +78,7 @@ let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : 
 (* seq_delete: Remove a list of instructions at the given index as a new sequence(TODO: Ask Arthur if index is needed here)
     params:
       path_to_seq: explicit path towards the sequence
-      index: an integer in range 0 .. (current number of instrucitons inside the sequence) 
+      index: an integer in range 0 .. (current number of instructions inside the sequence) 
       instr: a list of instructions(objects of type trm)
     return: the updated ast 
 
@@ -130,9 +130,46 @@ let seq_sub (clog : out_channel) (path_to_seq : path) (index : int) (instr : trm
     | Trm_seq tl ->
       (* First we remove this trms from the sequence *)
       let tl = list_remove_set instr tl in 
-      (* Create a new sequence with the given trms*)
+      (* Create the inner sequence*)
       let sub_seq = trm_seq instr in 
       (* Insert at the given index the new trm *)
       let tl = insert_in_list_at sub_seq index tl in 
+      (* Apply changes *)
       trm_seq ~annot:t.annot tl
-    | _ -> fail t.loc "seq_sub: expected the sequence on which the insertion is performed"
+    | _ -> fail t.loc "seq_sub: expected the sequence on which the grouping is performed"
+
+(* seq_inline: Inline the inner sequence into the outer one.
+    params:
+      path_to_seq: explicit path towards the sequence
+      index: an integer in range 0 .. (current number of instrucitons inside the sequence) 
+    return: the updated ast 
+*)
+let seq_inline (clog : out_channel) (path_to_seq : path) (index : int) (t : trm): trm =
+  let (t,_) = resolve_path path_to_seq t in
+  let log : string =
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in 
+    Printf.sprintf
+    (" -expression\n%s\n" ^^
+    " %s is sequence of terms \n"
+    )
+    (ast_to_string t) loc 
+    in write_log clog log;
+    match t.desc with
+    | Trm_seq tl ->
+      (* Get the trms from the inner sequence *)
+      let inner_seq = List.nth tl index in 
+      let inner_seq_trms = begin match inner_seq.desc with 
+      | Trm_seq tl -> tl 
+      | _ -> fail t.loc "seq_inline: inner sequence was not found, make sure the index is correct"
+      end
+      in 
+      (* Insert at the given index the trms from the inner sequence *)
+      let tl = insert_sublist_in_list inner_seq_trms index tl in 
+      (* Apply the changes *)
+      trm_seq ~annot:t.annot tl
+    | _ -> fail t.loc "seq_inline: expected the sequence on which the ilining is performed"
+
