@@ -27,16 +27,16 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      | Trm t' -> d ^^ brackets (trm_to_doc t')
      end
   | Typ_struct (l,m, n) ->
-     let get_typ x = Field_map.find x m in 
+     let get_typ x = Field_map.find x m in
      let get_document_list l =
-      let rec aux acc = function 
+      let rec aux acc = function
       | [] -> acc
-      | hd :: tl -> let t = get_typ hd in 
+      | hd :: tl -> let t = get_typ hd in
       aux((typed_var_to_doc (hd,t) ^^ semi) :: acc) tl in
       aux [] l
-     in 
+     in
      let dl = get_document_list l
-     in 
+     in
      string "struct" ^^ blank 1 ^^ string n ^^
        surround 2 1 lbrace (separate hardline dl) rbrace
   | Typ_fun (_, _) ->
@@ -316,14 +316,14 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let dt = trm_to_doc ~semicolon t in
         dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
-     | Trm_decoration(l,t,r) -> 
+     | Trm_decoration(l,t,r) ->
         let dt = trm_to_doc ~semicolon t in
         dattr ^^ string l ^^ dt ^^ string r
-     | Trm_any t -> 
-        let dt = trm_to_doc ~semicolon t in 
+     | Trm_any t ->
+        let dt = trm_to_doc ~semicolon t in
         dattr ^^ string "ANY" ^^ parens (dt)
 
-    
+
      end
 
 and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
@@ -345,7 +345,7 @@ and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
      | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
      end
   | [{desc = Trm_decoration(ls,{desc = Trm_decl d; loc;_},rs);_}] ->
-    begin match d with 
+    begin match d with
     | Def_var ((x, {ty_desc = Typ_ptr tx; _}), _) ->
         decl_to_doc ~semicolon ~const:false
           (Def_var ((ls ^ x ^ rs, tx), trm_lit ~loc Lit_uninitialized))
@@ -495,7 +495,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
               let d = trm_to_doc t in
               begin match op with
               | Unop_get ->
-                 if display_star then parens (star ^^ d) else d
+                 if not !decode then
+                   string "get(" ^^ d ^^ string ")"
+                 else begin
+                   if display_star then parens (star ^^ d) else d
+                 end
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
@@ -504,7 +508,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
               | Unop_dec when !decode -> d ^^ twice minus
               | Unop_dec (* when not !decode *) -> string "operator--(" ^^ d ^^ string ")"
               | (Unop_struct_get f | Unop_struct_access f) when !decode ->
-               
+
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -520,13 +524,13 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                  | _ -> (* TODO: crossing fingers *)
                      (*parens (d ^^ dot ^^ string f)*)
                     d ^^ dot ^^ string f
-                    (* TODO: line above par (d ^^ ... ) 
-                      
+                    (* TODO: line above par (d ^^ ... )
+
                       and at top of trm_to_doc, define   let par d = optional_parens ~_avoid_parens d in
 
                       where let optional_parens ~_avoid_parens d = (* this one is common to the entire file *)
                          if _avoid_parens then d else parens d *)
-                 end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then goold else if   ( *f).x then bad 
+                 end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then goold else if   ( *f).x then bad
                        *)
               | Unop_struct_get f (* when not !decode *) ->
                   parens (d ^^ dot ^^ string f)
@@ -644,10 +648,14 @@ let ast_to_undecoded_doc (out : out_channel) (t : trm) : unit =
   ast_to_doc out t;
   decode := true
 
-let ast_to_string (t : trm) : string =
+let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
+  let old_decode = !decode in
+  decode := ast_decode;
   let b = Buffer.create 80 in
   PPrintEngine.ToBuffer.pretty 0.9 80 b (trm_to_doc t);
+  decode := old_decode;
   Buffer.contents b
+
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in

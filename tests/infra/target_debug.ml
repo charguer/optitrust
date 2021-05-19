@@ -1,11 +1,17 @@
 open Optitrust
+let _ = Printexc.record_backtrace true
 
-
-let _ = run_unit_test (fun () ->
+let _ = run_unit_test (* FOR DEBUG: *)~ast_decode:false   (fun () ->
   let show = show_target in
   set_repeat_io false;
-  show_ast [cVarDef "r3"];
-  show [cMulti; cVar "r2" ]; (* Doesn't work properly*)
+
+  (* show [cVarDef "x"]; *)
+
+  Debug.backtrace (fun () ->
+    show [cMulti; cVar "x" ];);
+
+  dump();
+
   (* show [ cTypDef "intstar" ]; *)
   (* show [ cMulti; cFunDef "f" ]; *)
   (*  show [ cTopFun "f" ];*)

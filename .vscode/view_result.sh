@@ -6,6 +6,9 @@
 #   3. option(s) for execution
 #      currently: only -dump-trace
 
+# TODO FOR ARTHUR: take as argument FILENAME, then deduce FILEBASE AND FILEEXT
+# AND if we're calling a cpp file, then don't add_exit
+
 DIRNAME=$1
 FILEBASE=$2
 LINE=$3

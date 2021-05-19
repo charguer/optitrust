@@ -389,6 +389,7 @@ let run_unit_test ?(ast_decode : bool = true) (script : unit -> unit) : unit =
   run (fun () ->
     set_init_source (basename ^ ".cpp");
     script();
+    flush stdout;
     dump ();
     if not ast_decode
       then ignore (Sys.command (Printf.sprintf "cp %s_out_enc.cpp %s_out.cpp" basename basename))
@@ -410,6 +411,7 @@ type case_kind = Target.case_kind
 type enum_const_dir = Target.enum_const_dir
 type target_list_pred = Target.target_list_pred
 let make_target_list_pred = Target.make_target_list_pred
+
 (******************************************************************************)
 (*                              Transformations                               *)
 (******************************************************************************)
@@ -1451,3 +1453,9 @@ let add_attribute ?(replace_top : bool = false) (s : string)
   write_log "\n"
 
 
+(******************************************************************************)
+(*                        Debug                                               *)
+(******************************************************************************)
+
+(* include Tools.Debug *)
+include Tools (* TODO: make it better *)
