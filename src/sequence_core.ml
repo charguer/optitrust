@@ -77,4 +77,34 @@ let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : 
       let tl = insert_sublist_at instr index tl in 
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "seq_insert: expected the sequence on which the insertion is performed"
-      
+
+(* seq_delete: Remove a list of instructions at the given index as a new sequence(TODO: Ask Arthur if index is needed here)
+    params:
+      path_to_seq: explicit path towards the sequence
+      index: an integer in range 0 .. (current number of instrucitons inside the sequence) 
+      instr: a list of instructions(objects of type trm)
+    return: the updated ast 
+
+*)
+let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : trm list) (t : trm): trm =
+  let (t,_) = resolve_path path_to_seq t in
+  let log : string =
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in 
+    Printf.sprintf
+    (" -expression\n%s\n" ^^
+    " %s is sequence of terms \n"
+    )
+    (ast_to_string t) loc 
+    in write_log clog log;
+    match t.desc with
+    | Trm_seq tl ->
+      (* Remove the trms at those specific indices *)
+      (* TODO: Fix function list_remove_set *)
+      let tl = list_remove_set instr tl in 
+      trm_seq ~annot:t.annot tl
+    | _ -> fail t.loc "seq_insert: expected the sequence on which the insertion is performed"
+
