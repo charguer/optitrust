@@ -1,9 +1,9 @@
 open Ast
 open Target
 open Ast_to_c
-open Path_constructors
+(* open Path_constructors *)
 open Transformations
-open Tools
+(* open Tools *)
 
 (* loop_swap: Swap the two loop constructs, the loop should contain as least one innet loop
     params:
@@ -12,7 +12,7 @@ open Tools
       the modified ast
 *)
 
-let rec loop_swap_core (clog : out_channel) (path_to_loop : path) (t : trm) =
+let loop_swap_core (clog : out_channel) (path_to_loop : path) (t : trm) =
   let (t,_) = resolve_path path_to_loop t in
   let log : string =
     let loc : string =
@@ -25,9 +25,11 @@ let rec loop_swap_core (clog : out_channel) (path_to_loop : path) (t : trm) =
     " %s  is a loop"
     )(ast_to_string t) loc 
     in write_log clog log;
-    | Trm_labelled (l, t_loop) ->
-    trm_labelled l (loop_swap_core clog t_loop)
-    | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
+    match t.desc with
+    (* TODO: Fix this problem later *)
+    (* | Trm_labelled (l, t_loop) ->
+    trm_labelled l (loop_swap_core clog t_loop) *)
+    (* | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
       let t_swaped = loop_swap_core clog t_loop in
       (* swaped loops are expected to declare their index *)
       begin match t_swaped.desc with
@@ -60,7 +62,7 @@ let rec loop_swap_core (clog : out_channel) (path_to_loop : path) (t : trm) =
           | _ -> fail body1.loc "loop_swap_core: expected inner loop"
           end
       | _ -> fail t_swaped.loc "loop_swap_core: expected outer loop"
-      end
+      end *)
     (* otherwise, just swap  *)
     | Trm_for (init1, cond1, step1,body1) ->
       let log : string =
@@ -165,8 +167,8 @@ let rec loop_swap_core (clog : out_channel) (path_to_loop : path) (t : trm) =
         the modified ast
 *)
 
-let rec loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_color : var) (t : trm) : trm =
-    let (t,_) = resolve_path dl t in
+let loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_color : var) (t : trm) : trm =
+    let (t,_) = resolve_path path_to_loop t  in
     let log : string =
       let loc : string =
         match t.loc with
@@ -183,7 +185,8 @@ let rec loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_
     write_log clog log;
     match t.desc with
     (* The loop might be labelled, so keep the label *)
-    | Trm_labelled (l, t_loop) ->
+    (* TODO: This one too *)
+    (* | Trm_labelled (l, t_loop) ->
       trm_labelled l (loop_color_core clog c i_color t_loop)
 
     | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
@@ -218,7 +221,7 @@ let rec loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_
         | _ -> fail body1.loc "loop_color_core: expected inner loop"
         end
      | _ -> fail t_transformed.loc "loop_color_core: expected outer loop"
-     end
+     end *)
   | Trm_for (init, cond, step, body) ->
       let log : string =
         let loc : string =
@@ -332,7 +335,8 @@ let rec loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_
         updated ast
 
 *)
-let rec loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block : var) (t : trm) : trm =
+let loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block : var) (t : trm) : trm =
+  let (t,_) = resolve_path path_to_loop t in 
   let log : string =
       let loc : string =
         match t.loc with
@@ -349,14 +353,15 @@ let rec loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_bl
     write_log clog log;
     match t.desc with
     (* the loop might be labelled: keep the label *)
-    | Trm_labelled (l, t_loop) ->
-      trm_labelled l (loop_tile_core clog b i_block t_loop)
+    (* TODO: This one too *)
+    (* | Trm_labelled (l, t_loop) ->
+      trm_labelled l (loop_tile_core clog b i_block t_loop) *)
     (*
       if the loop declares its own index, a seq with a delete instruction occurs
       in this case, put the delete instructions at the end of the inner loop if
       the index is still used
     *)
-    | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
+    (* | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
       let t_tiled = loop_tile_core clog b i_block t_loop in
       (* tiled loops are expected to declare their index *)
       begin match t_tiled.desc with
@@ -388,7 +393,7 @@ let rec loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_bl
           | _ -> fail body1.loc "loop_tile_core: expected inner loop"
           end
       | _ -> fail t_tiled.loc "loop_tile_core: expected outer loop"
-      end
+      end *)
     (* otherwise, just tile *)
     | Trm_for (init, cond, step, body) ->
       let log : string =

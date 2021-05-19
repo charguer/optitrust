@@ -34,7 +34,7 @@ let loop_tile (clog : out_channel) (tr : target)(tile_width : var)(new_var : var
      t
   | _ ->
      List.fold_left
-       (fun t dl -> loop_tile_core dl clog tile_width new_var t )
+       (fun t dl -> loop_tile_core clog dl tile_width new_var t )
        t
        epl
 
