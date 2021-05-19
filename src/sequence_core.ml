@@ -173,3 +173,50 @@ let seq_inline (clog : out_channel) (path_to_seq : path) (index : int) (t : trm)
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "seq_inline: expected the sequence on which the ilining is performed"
 
+(* seq_wrap: Turn the given instruction into a sequence containing the given instruction
+    params:
+      path_to_instr: explicit path towards the sequence
+      visible: a boolean to decide if the wraped sequence should be visible or not 
+    return: the updated ast 
+*)
+let seq_wrap (clog : out_channel) (path_to_instr : path) (visible : bool) (t : trm): trm =
+  let (t,_) = resolve_path path_to_instr t in
+  let log : string =
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in 
+    Printf.sprintf
+    (" -expression\n%s\n" ^^
+    " %s is an instruction \n"
+    )
+    (ast_to_string t) loc 
+    in write_log clog log;
+    trm_seq ~annot:(if not visible then Some No_braces else None) [t]
+
+
+(* seq_unwrap: The inverse of seq_wrap , remove the sequence and replace it directly with the trms it contains
+    params:
+      path_to_seq: explicit path towards the sequence
+      visible: a boolean to decide if the wraped sequence should be visible or not 
+    return: the updated ast 
+*)
+let seq_unwrap (clog : out_channel) (path_to_seq : path) (visible : bool) (t : trm): trm =
+  let (t,_) = resolve_path path_to_seq t in
+  let log : string =
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in 
+    Printf.sprintf
+    (" -expression\n%s\n" ^^
+    " %s is an instruction \n"
+    )
+    (ast_to_string t) loc 
+    in write_log clog log;
+    match t.desc with 
+    | Trm_seq [el] -> el
+    | _ -> fail t.loc "seq_unwrap: expected the sequence wanted to remove, the sequence shoudl contain only one trm"
+
