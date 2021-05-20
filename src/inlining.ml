@@ -43,7 +43,8 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
         (trm_seq
           (t ::
               List.map
-                (fun x_tx -> trm_decl (Def_var (x_tx, trm_lit Lit_uninitialized)))
+                (fun x_tx -> trm_let (Var_heap_allocated,x_tx,trm_lit Lit_uninitialized))
+                (* (fun x_tx -> trm_decl (Def_var (x_tx, trm_lit Lit_uninitialized))) *)
                 fresh_args
           )
         )

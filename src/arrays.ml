@@ -544,7 +544,7 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
       in
       (* let decl_index = get_index decl_trm tl in *)
       let new_trms = List.map(fun x ->
-        (trm_seq [trm_let (Var_heap_allocated,(x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type)))])
+       trm_let (Var_heap_allocated,(x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type)))
         (* trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var((x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type))))]) new_vars *)
       in
       trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl)
@@ -618,7 +618,7 @@ let array_to_variables (clog : out_channel) (dcl_path : target) (new_vars : var 
   | _ -> fail t.loc "array_to_variables: expected only one declaration trm"
   in
   let array_variable = match declaration_trm.desc with
-  | Trm_seq [{desc=Trm_let(_,(x,_),_);_}] -> x
+  | Trm_let(_,(x,_),_) -> x
   (* | Trm_seq [{desc=Trm_decl (Def_var ((x,_),_));_}] -> x *)
   | _ -> fail t.loc "array_to_variables: expected a sequece which contains the declration"
   in

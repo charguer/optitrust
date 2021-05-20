@@ -211,6 +211,15 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let dl = List.map trm_to_doc tl in
         dattr ^^ braces (separate (comma ^^ blank 1) dl)
      | Trm_decl d -> dattr ^^ decl_to_doc ~semicolon d
+     | Trm_let (_,tx,t) -> 
+        let d = if const then string "const " ^^ blank 1 else empty in
+        let dtx = typed_var_to_doc tx in 
+        let initialisation =
+          match t.desc with 
+          | Trm_val (Val_lit Lit_uninitialized) -> dsemi
+          | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc t ^^ dsemi
+        in 
+        d ^^ dtx ^^ initialisation
      | Trm_if (b, then_, else_) ->
         let db = trm_to_doc b in
         let dt = trm_to_doc ~semicolon:true then_ in
@@ -328,6 +337,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
 
 and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
   match tl with
+  (* TOOD: Find a way to the same for trm_let *)
   | [{desc = Trm_decl d; loc; _}] ->
      begin match d with
      | Def_var ((x, {ty_desc = Typ_ptr tx; _}), _) ->
@@ -335,6 +345,7 @@ and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
           (Def_var ((x, tx), trm_lit ~loc Lit_uninitialized))
      | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
      end
+
   | [{desc = Trm_decl d; loc; _};
      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                        [{desc = Trm_var x; _}; re]);
@@ -344,6 +355,7 @@ and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
         decl_to_doc ~semicolon ~const:false (Def_var ((y, ty), re))
      | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
      end
+  (* TODO: Remove the two last matches, after changing the current implementation for trm_decl *)
   | [{desc = Trm_decoration(ls,{desc = Trm_decl d; loc;_},rs);_}] ->
     begin match d with
     | Def_var ((x, {ty_desc = Typ_ptr tx; _}), _) ->
@@ -362,7 +374,6 @@ and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
      end
   | _ -> fail None "heap_alloc_to_doc: should not happen"
     (* … not until we do something more clever *)
-
 (*
   temporary hack for heap allocation: optional argument for const modifier
   every var is a const except if it is heap allocated
@@ -421,6 +432,7 @@ and decl_to_doc ?(semicolon : bool = true) ?(const = true)
      dsemi
 
 (* assumption: all declarations are non-initialised variables *)
+(* TODO: Change this function later based on Arthur's idea *)
 and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   let rec get_names = function
     | [] -> []

@@ -172,7 +172,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc t in 
     node "Def_var" ^^
       parens (prin_pair (string x) dtx ^^ comma ^/^ dt)
-      
   | Trm_if (c, t, e) ->
      let dc = print_trm ~only_desc c in
      let dt = print_trm ~only_desc t in
