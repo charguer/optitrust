@@ -1124,7 +1124,7 @@ let is_constr_regexp (c : constr) : bool =
 
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
-  (* LATER: find if it is find to deactivate these encodings
+  (* LATER: find if it is find to deactivate these encodings *)
   match t.annot with
   | Some Heap_allocated | Some Delete_instructions ->
      (* if t is one of the heap allocation patterns, we simplify it before *)
@@ -1146,7 +1146,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | _ -> fail t.loc "check_constraint: bad multi_decl annotation"
      end
   | _ ->
-  *)
+ 
      let loc = t.loc in
      begin match c, t.desc with
      (*

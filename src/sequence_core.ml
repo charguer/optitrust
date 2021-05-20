@@ -4,6 +4,8 @@ open Transformations
 open Ast_to_c
 open Tools 
 
+(* *************************DEPRECATED**************** *)
+(* Current implementation does not satisfy the new convention for core transformations *)
 let create_subsequence_core (clog : out_channel) (label : label) (start_index : int) (stop_path : target) (before_stop : bool) (after_stop : bool) (braces : bool) (t : trm) : trm =
   let log : string =
     let loc: string =
@@ -45,6 +47,36 @@ let create_subsequence_core (clog : out_channel) (label : label) (start_index : 
         trm_seq ~annot:t.annot tl
       | _ -> fail t.loc "create_subsequence_aux: the sequence which contains the trms was not matched"
 
+
+(* seq_insert_here: This function is an auxiliary function for seq_insert
+    params: 
+      index: and integer in range 0 .. (nbinstr-1)
+      ts: a list of trms which the inner sequence will contain
+      subt: the trm do be modified
+    return:
+      the updated ast 
+*)
+let seq_insert_here (clog : out_channel) (index : int) (ts : trm list) (subt : trm): trm =
+  let log : string =
+    let loc : string =
+    match subt.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in 
+    Printf.sprintf
+    (" -expression\n%s\n" ^^
+    " %s is sequence of terms \n"
+    )
+    (ast_to_string subt) loc 
+    in write_log clog log;
+    match subt.desc with
+    | Trm_seq tl ->
+      (* Insert the new sequence with the given instrucitons at index int *)
+      let tl = insert_sublist_at instr index tl in 
+      (* Apply the changes *)
+      trm_seq ~annot:t.annot ~typ:t.typ tl
+    | _ -> fail t.loc "seq_insert: expected the sequence on which the insertion is performed"
+
 (* seq_insert: Insert a list of instructions at the given index as a new sequence
     params:
       path_to_seq: explicit path towards the sequence
@@ -53,27 +85,8 @@ let create_subsequence_core (clog : out_channel) (label : label) (start_index : 
     return: the updated ast 
 
 *)
-let seq_insert (clog : out_channel) (path_to_seq : path) (index : int) (instr : trm list) (t : trm): trm =
-  let (t,_) = resolve_path path_to_seq t in
-  let log : string =
-    let loc : string =
-    match t.loc with 
-    | None -> ""
-    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in 
-    Printf.sprintf
-    (" -expression\n%s\n" ^^
-    " %s is sequence of terms \n"
-    )
-    (ast_to_string t) loc 
-    in write_log clog log;
-    match t.desc with
-    | Trm_seq tl ->
-      (* Insert the new sequence with the given instrucitons at index int *)
-      let tl = insert_sublist_at instr index tl in 
-      (* Apply the changes *)
-      trm_seq ~annot:t.annot tl
-    | _ -> fail t.loc "seq_insert: expected the sequence on which the insertion is performed"
+let seq_insert(clog : out_channel) (index : int) (ts : trm list) (path_to_seq : path)  (t : trm list) : trm = 
+  apply_local_transformation(seq_insert_here clog index ts ) t dl
 
 (* seq_delete: Remove a list of instructions at the given index as a new sequence(TODO: Ask Arthur if index is needed here)
     params:

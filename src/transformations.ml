@@ -102,8 +102,8 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           | Trm_var x' ->
              trm_decl ~annot ~loc ~is_statement ~add ~attributes
                (Def_var ((x', tx), body))
-          | Trm_decoration(ls,{desc=Trm_var x';_},rs) ->
-              trm_decoration ls rs
+          | Trm_decoration(_,{desc=Trm_var x';_},_) ->
+              (* trm_decoration ls rs *)
               (trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_var ((x', tx), body)))
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^

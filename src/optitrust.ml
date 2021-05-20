@@ -416,7 +416,9 @@ let make_target_list_pred = Target.make_target_list_pred
 (*                              Transformations                               *)
 (******************************************************************************)
 
-(* add the given ast to the ast stack *)
+(* apply_to_top: add the given ast to the ast stack 
+
+*)
 let apply_to_top ?(replace_top : bool = false)
   (f : context -> trm -> trm) : unit =
   List.iter
@@ -430,6 +432,51 @@ let apply_to_top ?(replace_top : bool = false)
     )
     !trace
 
+(* apply_to_targets: Apply a specific transformations over a target or a list of targets 
+      params:
+        tg : taget
+        tr : transformation to be applied
+      return: 
+        unit
+*)
+let apply_to_targets ?(replace_top : bool = false) (tg : target) (tr : out_channel -> path -> trm-> trm) : unit =
+  apply_to_top ~replace_top(fun ctx t ->
+    let ps = resolve_target tg t in 
+    List.fold_left(fun t dl -> tr ctx.clog dl t) t ps)
+
+(* apply_to_targets_between: Similar to apply_to_targets, but the function considers the index too
+      params:
+        tg : taget
+        tr : transformation to be applied
+      return: 
+        unit
+*)
+let apply_to_targets_between ?(replace_top : bool = false) (tg : target) (tr : out_channel -> (path*int) -> trm-> trm) : unit =
+  apply_to_top ~replace_top(fun ctx t ->
+    let ps = resolve_target_between tg t in 
+    List.fold_left(fun t dl -> tr ctx.clog dl t) t ps)
+module TrCore = struct
+  include Arrays_core
+  include Declaration_core
+  include Inlining_core
+  include Label_core
+  include Loop_core
+  include Sequence_core
+  include Struct_core
+  include Transformations_core 
+end
+module Tr = struct
+  include Loop
+  include Sequence
+  include Arrays
+  include Declaration
+  include Inlining
+  include Label
+  include Loop
+  include Sequence
+  include Struct
+  include Transformations
+end
 (*
   label the term pointed by the path with label
   if several terms are pointed, then use indices (label_i)
