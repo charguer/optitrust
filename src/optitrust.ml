@@ -455,6 +455,32 @@ let apply_to_targets_between ?(replace_top : bool = false) (tg : target) (tr : o
   apply_to_top ~replace_top(fun ctx t ->
     let ps = resolve_target_between tg t in 
     List.fold_left(fun t dl -> tr ctx.clog dl t) t ps)
+
+
+(* trm_to_log: Generate logging for a given ast node 
+      params: 
+        t: ast 
+      returns: 
+        unit
+*)
+let trm_to_log (clog : out_channel) (t : trm) : unit =
+  let log : string =
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in 
+    Printf.sprintf
+    (" -expression\n%s\n" ^^
+    " %s is sequence of terms \n"
+    )
+    (ast_to_string t) loc 
+    in Transformations.write_log clog log
+
+(* Transformations are grouped into to main modules:
+    1 ) TrCore: All core transformations, can't be called by the useer
+    2) Tr: All transformations that can be called by the user
+*)
 module TrCore = struct
   include Arrays_core
   include Declaration_core
@@ -476,6 +502,17 @@ module Tr = struct
   include Sequence
   include Struct
   include Transformations
+  
+  
+  (* let seq_insert(tg : target) (ts : trm list) : unit =
+    apply_to_targets_between tg (fun _ (p,i) t ->
+      TrCore.seq_insert p i ts t)
+   *)
+  (* let seq_delete(tg : target) (i : int) (ts : trm list) : unit =
+    apply_to_targets_between tg (fun _ (p,i) t ->
+      TrCore.seq_insert i ts p ts) *)
+  
+
 end
 (*
   label the term pointed by the path with label

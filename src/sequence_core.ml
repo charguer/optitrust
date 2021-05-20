@@ -56,37 +56,25 @@ let create_subsequence_core (clog : out_channel) (label : label) (start_index : 
     return:
       the updated ast 
 *)
-let seq_insert_here (clog : out_channel) (index : int) (ts : trm list) (subt : trm): trm =
-  let log : string =
-    let loc : string =
-    match subt.loc with 
-    | None -> ""
-    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in 
-    Printf.sprintf
-    (" -expression\n%s\n" ^^
-    " %s is sequence of terms \n"
-    )
-    (ast_to_string subt) loc 
-    in write_log clog log;
+let seq_insert_here (index : int) (ts : trm list) (subt : trm): trm =
     match subt.desc with
     | Trm_seq tl ->
       (* Insert the new sequence with the given instrucitons at index int *)
-      let tl = insert_sublist_at instr index tl in 
+      let tl = insert_sublist_at ts index tl in 
       (* Apply the changes *)
-      trm_seq ~annot:t.annot ~typ:t.typ tl
-    | _ -> fail t.loc "seq_insert: expected the sequence on which the insertion is performed"
+      trm_seq ~annot:subt.annot  tl
+    | _ -> fail subt.loc "seq_insert: expected the sequence on which the insertion is performed"
 
 (* seq_insert: Insert a list of instructions at the given index as a new sequence
     params:
       path_to_seq: explicit path towards the sequence
       index: an integer in range 0 .. (current number of instructions inside the sequence) 
-      instr: a list of instructions(objects of type trm)
+      ts: a list of instructions(objects of type trm)
     return: the updated ast 
 
 *)
-let seq_insert(clog : out_channel) (index : int) (ts : trm list) (path_to_seq : path)  (t : trm list) : trm = 
-  apply_local_transformation(seq_insert_here clog index ts ) t dl
+let seq_insert (path_to_seq : path) (index : int) (ts : trm list) (t : trm) : trm = 
+  apply_local_transformation(seq_insert_here index ts ) t path_to_seq
 
 (* seq_delete: Remove a list of instructions at the given index as a new sequence(TODO: Ask Arthur if index is needed here)
     params:
