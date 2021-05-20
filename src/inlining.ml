@@ -185,9 +185,9 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                        )
                    ]
                   );
-                trm_apps ~annot:(Some Heap_allocated) ~loc:t.loc ~is_statement:true
+                (* trm_apps ~annot:(Some Heap_allocated) ~loc:t.loc ~is_statement:true
                   ~typ:(Some (typ_unit ())) (trm_unop (Unop_delete false))
-                  [trm_var result]
+                  [trm_var result] *)
                ] (*++
                arg_dels*)
              )
@@ -270,11 +270,11 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
            *)
           let x' = fresh_in t x in
           let t =
-            change_trm
+            (* change_trm
               (trm_apps (trm_unop (Unop_delete false)) [trm_var x])
               (* do not forget annotations *)
               (trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                 (trm_unop (Unop_delete false)) [trm_var x'])
+                 (trm_unop (Unop_delete false)) [trm_var x']) *)
               t
           in
           let t = change_trm ~change_at:inline_at t_x dx t in

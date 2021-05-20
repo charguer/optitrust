@@ -61,11 +61,11 @@ let add_var (s : string) : unit =
   Stack.push (kind, (s :: sl)) heap_vars
 
 (* compute the sequence of delete instructions at the end of a scope *)
-let delete_list ?(loc : location = None) (sl : string list) : trm list =
+(* let delete_list ?(loc : location = None) (sl : string list) : trm list =
   List.map
     (fun s -> trm_apps ~loc ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
         (trm_unop (Unop_delete false)) [trm_var s])
-    sl
+    sl *)
 
 
 (* Auxiliary function to compute the new location for delete instruction before scope closure *)
@@ -84,13 +84,15 @@ let close_scope ?(loc : location = None) (t : trm) : trm =
     | None -> None
     | Some (f,line1,col1,line2,col2) -> Some (f,line1,(min 1 (col1-1)),line2,col2)
     end in *)
-  let loc_end = new_location loc in
+  (* let loc_end = new_location loc in *)
   match Stack.pop heap_vars with
   | (_, []) -> t
-  | (_, sl) ->
+  | _ -> trm_seq ~loc [t]
+  (* | (_, sl) ->
     let tl = delete_list ~loc:loc_end sl in
-    trm_seq ~loc:loc_end (* ~annot:(Some Delete_instructions) *) (t :: tl)
-
+    trm_seq ~loc:loc_end ~annot:(Some Delete_instructions) (t :: tl)
+    trm_seq ~loc:loc_end  [t] *)
+    
 (* manage a new scope while translating a statement *)
 let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm) : trm =
   open_scope kind;
@@ -103,7 +105,8 @@ let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm)
   not closed
  *)
 let return (t : trm) : trm =
-  let tl = Stack.fold (fun tl (_, sl) -> tl ++ (delete_list sl)) [] heap_vars in
+  (* let tl = Stack.fold (fun tl (_, sl) -> tl ++ (delete_list sl)) [] heap_vars in *)
+  let tl = Stack.fold (fun tl (_, _) -> tl) [] heap_vars in
   let (kind, _) = Stack.pop heap_vars in
   open_scope kind;
   match tl with
@@ -154,7 +157,9 @@ let abort ?(break : bool = false) (t : trm) : trm =
   let n = find_scope ~break (scope_list ()) in
   (* put the delete instruction for the n deepest scopes *)
   let tl =
-    List.fold_left (fun tl (_, sl) -> tl ++ (delete_list sl)) []
+    (* List.fold_left (fun tl (_, sl) -> tl ++ (delete_list sl)) []
+      (ntop n heap_vars) *)
+    List.fold_left (fun tl (_,_) -> tl) []
       (ntop n heap_vars)
   in
   let (kind, _) = Stack.pop heap_vars in
@@ -771,9 +776,9 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                       "constant or variable")
         end
     end
-  | Delete {global_delete = _; array_form = b; argument = e} ->
+  (* | Delete {global_delete = _; array_form = b; argument = e} ->
     let t = translate_expr e in
-    trm_apps ~loc ~is_statement ~typ (trm_unop ~loc (Unop_delete b)) [t]
+    trm_apps ~loc ~is_statement ~typ (trm_unop ~loc (Unop_delete b)) [t] *)
   | UnexposedExpr ImplicitValueInitExpr ->
     print_info loc "translate_expr: implicit initial value\n";
     trm_lit ~loc Lit_uninitialized

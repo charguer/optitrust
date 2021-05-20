@@ -22,9 +22,10 @@ open Tools
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
              (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
-           let i = deleted_var t_del in
-           if not (is_used_var_in body i) then t_transformed
-           else
+           (* let i = deleted_var t_del in *)
+           
+           (* if not (is_used_var_in body i) then t_transformed
+           else *)
              trm_seq (* ~annot:(Some Delete_instructions) *)
                [
                  trm_for init1 cond1 step1
@@ -139,8 +140,8 @@ open Tools
 
                 (* body *)
                 body;
-                trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                  (trm_unop (Unop_delete false)) [trm_var index]
+                (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+                  (trm_unop (Unop_delete false)) [trm_var index] *)
 
             ]
           in loop ~top:true new_var (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ])
@@ -204,9 +205,9 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
              (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
-           let i = deleted_var t_del in
+           (* let i = deleted_var t_del in
            if not (is_used_var_in body i) then t_tiled
-           else
+           else *)
              trm_seq (* ~annot:(Some Delete_instructions) *)
                [
                  trm_for init1 cond1 step1
@@ -306,8 +307,8 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
                 )
                 (* body *)
                 body;
-              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                (trm_unop (Unop_delete false)) [trm_var index]
+              (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+                (trm_unop (Unop_delete false)) [trm_var index] *)
             ]
         in
         loop ~top:true new_var loop_size (trm_seq [loop ~top:false index_x spec_bound body])
@@ -365,9 +366,9 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
              (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
-           let i = deleted_var t_del in
+           (* let i = deleted_var t_del in
            if not (is_used_var_in body i) then t_swaped
-           else
+           else *)
              trm_seq (* ~annot:(Some Delete_instructions) *)
                [
                  trm_for init1 cond1 step1
@@ -466,8 +467,8 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
                 (step)
                 (* body *)
                 body;
-              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                (trm_unop (Unop_delete false)) [trm_var index]
+              (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+                (trm_unop (Unop_delete false)) [trm_var index] *)
             ]
         in
         loop index2 index_init2 step2 loop_size2 (trm_seq [loop index1 index_init1 step1 loop_size1 body2])
@@ -1129,9 +1130,9 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
              (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
-           let i = deleted_var t_del in
+           (* let i = deleted_var t_del in
            if not (is_used_var_in body i) then t_tiled
-           else
+           else *)
              trm_seq (* ~annot:(Some Delete_instructions) *)
                [
                  trm_for init1 cond1 step1
@@ -1267,8 +1268,8 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
                 (trm_apps (trm_unop Unop_inc) [trm_var index])
                 (* body *)
                 body;
-              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                (trm_unop (Unop_delete false)) [trm_var index]
+              (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+                (trm_unop (Unop_delete false)) [trm_var index] *)
             ]
         in
         loop i1 nb_blocks (trm_seq [loop i2 block_size body])

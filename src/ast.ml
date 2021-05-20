@@ -72,7 +72,7 @@ and unary_op =
   | Unop_dec
   | Unop_struct_access of field (* the ".f" operator TODO CHECK *)
   | Unop_struct_get of field (* the "->f" operator TODO CHECK *)
-  | Unop_delete of bool (* "Unop_delete false" is "delete",
+  (* | Unop_delete of bool *) (* "Unop_delete false" is "delete",
                            "Unop_delete true" is "delete[]" TODO CHANGE *)
   | Unop_cast of typ (* cast operator towards the specified type *)
 
@@ -664,11 +664,11 @@ let is_heap_alloc (t : trm) : bool =
   | _ -> fail t.loc "is_heap_alloc: expected var declaration"
 
 (* return the name of the deleted variable *)
-let deleted_var (t : trm) : var =
+(* let deleted_var (t : trm) : var =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_delete _))); _},
               [{desc = Trm_var x; _}]) -> x
-  | _ -> fail t.loc "deleted_var: expected var to be deleted"
+  | _ -> fail t.loc "deleted_var: expected var to be deleted" *)
 
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =

@@ -797,15 +797,19 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
               ]
               in
               let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
-              let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in
+              (* let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in *)
 
 
               let new_loop = trm_seq (* ~annot:(Some Delete_instructions) *) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in
+              (* trm_seq ~annot:(Some Delete_instructions) [
+                trm_seq ~annot:(Some No_braces) [
+                  new_decl;new_loop;new_set_old
+                ]; new_del_inst
+              ] *)
               trm_seq (* ~annot:(Some Delete_instructions) *) [
                 trm_seq (* ~annot:(Some No_braces) *) [
                   new_decl;new_loop;new_set_old
-                ]; new_del_inst
-              ]
+                ]]
 
             | _ -> fail t.loc "local_other_name_aux: expected a for loop"
             end
@@ -903,8 +907,8 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
                 )
 
                 ;
-              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit()))
-                (trm_unop (Unop_delete false)) [trm_var "k"];
+              (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit()))
+                (trm_unop (Unop_delete false)) [trm_var "k"] *)
             ]
           ]
         in
@@ -962,8 +966,8 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
               )
 
               ;
-            trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                (trm_unop (Unop_delete false)) [trm_var "k"]
+            (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+                (trm_unop (Unop_delete false)) [trm_var "k"] *)
           ]
         ] (* TODO: discuss how to generate this using parsing of C code + substitution
              TODO: add smarter constructors for for-loops :  for_int_range i a b tbody *)

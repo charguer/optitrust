@@ -181,7 +181,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
             block2
         in
         (* finally delete the copies in reverse order *)
-        let concl =
+        (* let concl =
           List.rev_map
             (fun t ->
               let y = decl_name t in
@@ -189,7 +189,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                 (trm_unop (Unop_delete false)) [trm_var y]
             )
             dl
-        in
+        in *)
         trm_labelled result_label
           (trm_seq (* ~annot:(Some Delete_instructions) *)
              ((trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add
@@ -197,8 +197,9 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                     [trm_labelled block1_label (trm_seq block1);
                      trm_labelled block2_label (trm_seq block2)]
                  )
-              ) ::
-              concl
+              ) :: []
+              (* ::
+              concl *)
              )
           )
      end

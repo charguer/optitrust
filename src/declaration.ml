@@ -160,9 +160,9 @@ let insert_decl ?(insert_before : target = [])
           (* t is expected to be a seq *)
           trm_seq (* ~annot:(Some Delete_instructions) *)
             [t;
-             trm_apps ~annot:(Some Heap_allocated)
+             (* trm_apps ~annot:(Some Heap_allocated)
                ~typ:(Some (typ_unit ()))
-               (trm_unop (Unop_delete false)) [trm_var x]
+               (trm_unop (Unop_delete false)) [trm_var x] *)
             ]
         )
         t
@@ -176,15 +176,15 @@ let insert_decl ?(insert_before : target = [])
           instructions
           -> do not create a seq
          *)
-        | Dir_nth _ :: Dir_nth n :: dl ->
+        (* | Dir_nth _ :: Dir_nth n :: dl ->
            apply_local_transformation
              (fun t ->
                match t.desc with
                | Trm_seq (t' :: del_instr_l)
-                    (* when t.annot = Some Delete_instructions *) ->
-                  trm_seq (* ~annot:(Some Delete_instructions) *)
+                    when t.annot = Some Delete_instructions ->
+                  trm_seq ~annot:(Some Delete_instructions)
                     (t' ::
-                     (trm_apps (* ~annot:(Some Heap_allocated) *)
+                     (trm_apps ~annot:(Some Heap_allocated)
                         ~typ:(Some (typ_unit ()))
                         (trm_unop (Unop_delete false)) [trm_var x]) ::
                      del_instr_l
@@ -196,7 +196,7 @@ let insert_decl ?(insert_before : target = [])
                | _ -> create_delete_instr [Dir_nth n] t
              )
              t
-             (List.rev dl)
+             (List.rev dl) *)
         | Dir_nth _ :: dl -> create_delete_instr (List.rev dl) t
         | _ -> fail t.loc "insert_definition: expected a path to a seq"
       )
