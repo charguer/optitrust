@@ -739,7 +739,7 @@ let term (ctx : context) ?(context : string = "") (s : string) : trm =
       if the context contains heap allocated variables, t contains a deletion
       list
      *)
-    | Trm_seq (t' :: _) when t.annot = Some Delete_instructions -> get_term t'
+    (* | Trm_seq (t' :: _) when t.annot = Some Delete_instructions -> get_term t' *)
     (* otherwise find the declaration of f *)
     | Trm_seq tl -> get_term (List.hd (List.rev tl))
     (* once the declaration is found, look for the term inside *)

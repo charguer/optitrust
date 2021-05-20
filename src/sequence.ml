@@ -36,11 +36,14 @@ let split_list_at (n : int) (al : 'a list) : 'a list * ('a list) =
   they are placed inside the seq around block 1/2, selecting the appropriate
   instructions for each block
  *)
-let rec split_seq_at (n : int) (result_label : string) (block1_label : string)
+(* WARNING: This functioin is recursive but since delete instructions are disabled temporarly
+    there is not inner call hence rec flag was removed.
+ *)
+let split_seq_at (n : int) (result_label : string) (block1_label : string)
   (block2_label : string) (split_name : string -> string) (t : trm) : trm =
   match t.desc with
   (* first case: {seq to split; delete instructions} *)
-  | Trm_seq tl when t.annot = Some Delete_instructions ->
+  (* | Trm_seq tl when t.annot = Some Delete_instructions ->
      begin match tl with
      | t' :: del_instr ->
         (* first split the seq *)
@@ -53,7 +56,7 @@ let rec split_seq_at (n : int) (result_label : string) (block1_label : string)
           match block.desc with
           | Trm_labelled (l, block) ->
              trm_labelled l
-               (trm_seq ~annot:(Some Delete_instructions)
+               (trm_seq (* ~annot:(Some Delete_instructions) *)
                   (block ::
                      List.filter
                        (fun t_del -> is_used_var_in block (deleted_var t_del))
@@ -67,11 +70,11 @@ let rec split_seq_at (n : int) (result_label : string) (block1_label : string)
         | Trm_labelled
           (l,
            {desc = Trm_seq ({desc = Trm_seq tl'; _} :: del_var_copies);
-            annot = Some Delete_instructions; _}) ->
+            (* annot = Some Delete_instructions; *) _}) ->
            begin match List.rev tl' with
            | block2 :: block1 :: rintro ->
               trm_labelled l
-                (trm_seq ~annot:(Some Delete_instructions)
+                (trm_seq (* ~annot:(Some Delete_instructions) *)
                    (trm_seq
                       ((List.rev rintro) ++
                          [add_delete_instr block1; add_delete_instr block2]
@@ -88,7 +91,7 @@ let rec split_seq_at (n : int) (result_label : string) (block1_label : string)
         | _ -> fail t.loc "split_seq_at: bad recursive call"
         end
      | _ -> fail t.loc "split_seq_at: bad delete list"
-     end
+     end *)
   (* second case: seq to split *)
   | Trm_seq tl ->
      let (block1, block2) = split_list_at n tl in
@@ -188,7 +191,7 @@ let rec split_seq_at (n : int) (result_label : string) (block1_label : string)
             dl
         in
         trm_labelled result_label
-          (trm_seq ~annot:(Some Delete_instructions)
+          (trm_seq (* ~annot:(Some Delete_instructions) *)
              ((trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add
                  (intro ++
                     [trm_labelled block1_label (trm_seq block1);
@@ -250,12 +253,12 @@ let split_sequence (clog : out_channel) (result_label : string)
           let (t'', _) = resolve_path dl t' in
           begin match t''.annot with
           (* if there are delete instructions, pass them to split_seq_at *)
-          | Some Delete_instructions ->
+          (* | Some Delete_instructions ->
              apply_local_transformation
                (split_seq_at n result_label block1_label block2_label
                   split_name)
                t'
-               dl
+               dl *)
           (* otherwise, just pass the inner seq *)
           | _ ->
              let dl = List.rev dl' in

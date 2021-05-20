@@ -475,7 +475,7 @@ let clean_up_no_brace_seq (t : trm) : trm =
       allocated variable and hence we can find a no_brace seq inside a
       delete_instructions seq, which we do not want to inline
      *)
-    | Trm_seq tl when t.annot <> Some Delete_instructions ->
+    | Trm_seq tl (* when t.annot <> Some Delete_instructions *) ->
        trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
          (clean_up_in_list (List.map aux tl))
     | _ -> trm_map aux t
@@ -800,9 +800,9 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
               let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in
 
 
-              let new_loop = trm_seq ~annot:(Some Delete_instructions) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in
-              trm_seq ~annot:(Some Delete_instructions) [
-                trm_seq ~annot:(Some No_braces) [
+              let new_loop = trm_seq (* ~annot:(Some Delete_instructions) *) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in
+              trm_seq (* ~annot:(Some Delete_instructions) *) [
+                trm_seq (* ~annot:(Some No_braces) *) [
                   new_decl;new_loop;new_set_old
                 ]; new_del_inst
               ]
@@ -878,7 +878,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
             trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var ((new_var,typ_ptr (typ_array (typ_var "T") (Trm (trm_var array_size)))),trm_prim (Prim_new (typ_int()))))];
             trm_set (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_lit (Lit_int 0)]) (trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var]);
             (* trm_set (trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_lit (Lit_int 0)]); *)
-            trm_seq ~annot:(Some Delete_instructions)[
+            trm_seq (* ~annot:(Some Delete_instructions) *)[
               trm_for
                 (* init *)
                   (trm_seq ~annot:(Some Heap_allocated) [
@@ -912,7 +912,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
         let new_for_loop = match for_loop.desc with
         | Trm_seq[f_loop;del_inst_f] ->
           begin match f_loop.desc with
-          | Trm_for (init,cond,step,body) -> trm_seq ~annot:(Some Delete_instructions)
+          | Trm_for (init,cond,step,body) -> trm_seq (* ~annot:(Some Delete_instructions) *)
             [ trm_for init cond step
               (change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_any(trm_var "my_core_id")]]) body);
               del_inst_f
@@ -930,7 +930,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
         in
         let accum = trm_seq ~annot:(Some No_braces) [
           trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
-          trm_seq ~annot:(Some Delete_instructions)[
+          trm_seq (* ~annot:(Some Delete_instructions) *)[
             trm_for
               (* init *)
                 (trm_seq ~annot:(Some Heap_allocated) [
@@ -973,7 +973,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
         let tl = list_replace_el accum 2 tl in
         let tl = insert_sublist_in_list new_decl 0 tl in
 
-        trm_seq  ~annot:(Some Delete_instructions) [trm_seq ~annot:(Some No_braces) tl; del_inst]
+        trm_seq (*  ~annot:(Some Delete_instructions) *) [trm_seq ~annot:(Some No_braces) tl; del_inst]
     | _ -> fail t.loc "delocalize_aux: expected the inner sequence which contains all the necessary terms"
     end
   | _ -> fail t.loc "delocalize_aux: expected the body of the section of interest"

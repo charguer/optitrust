@@ -1000,7 +1000,7 @@ end
 let forget_heap_alloc (t : trm) : trm =
   let loc = t.loc in
   match t.annot with
-  | Some Delete_instructions ->
+  (* | Some Delete_instructions ->
      (*
           t is either a sequence of delete instructions followed by a return
           or an instruction followed by a sequence of delete instructions
@@ -1014,7 +1014,7 @@ let forget_heap_alloc (t : trm) : trm =
         | _ -> fail loc "forget_heap_alloc: bad delete list"
         end
      | _ -> fail loc "forget_heap_alloc: delete instructions should form a list"
-     end
+     end *)
   | Some Heap_allocated ->
      (*
           t is either a sequence heap allocating a variable
@@ -1434,7 +1434,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
   (* we first deal with heap allocation patterns *)
-  | Some Delete_instructions ->
+  (* | Some Delete_instructions ->
      begin match t.desc with
      (* delete instructions + abort *)
      | Trm_seq ({annot = Some Heap_allocated; _} :: tl) ->
@@ -1443,7 +1443,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      (* instruction + delete instructions *)
      | Trm_seq (t' :: _) -> add_dir (Dir_nth 0) (explore_in_depth p t')
      | _ -> fail loc "explore_in_depth: bad delete instructions"
-     end
+     end *)
   | Some Heap_allocated ->
      begin match t.desc with
      (* dereferencing *)

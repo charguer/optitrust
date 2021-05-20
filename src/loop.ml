@@ -11,28 +11,28 @@ open Tools
     | Trm_labelled (l, t_loop) ->
       trm_labelled l (loop_coloring_aux clog c new_var t_loop)
 
-    | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
+    | Trm_seq [t_loop; t_del] (* when t.annot = Some Delete_instructions *) ->
      let t_transformed = loop_coloring_aux clog c new_var t_loop in
      (* transformed loops are expected to declare their index *)
      begin match t_transformed.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
                                  {desc = Trm_seq [body1]; _}); _}; t_del1]
-          when t_transformed.annot = Some Delete_instructions ->
+         (*  when t_transformed.annot = Some Delete_instructions *) ->
         begin match body1.desc with
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
-             when body1.annot = Some Delete_instructions ->
+             (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
            let i = deleted_var t_del in
            if not (is_used_var_in body i) then t_transformed
            else
-             trm_seq ~annot:(Some Delete_instructions)
+             trm_seq (* ~annot:(Some Delete_instructions) *)
                [
                  trm_for init1 cond1 step1
                    (trm_seq
-                      [trm_seq ~annot:(Some Delete_instructions)
+                      [trm_seq (* ~annot:(Some Delete_instructions) *)
                          [
                            trm_for init2 cond2 step2
-                             (trm_seq ~annot:(Some Delete_instructions)
+                             (trm_seq (* ~annot:(Some Delete_instructions) *)
                                 [body; t_del]);
                            t_del2
                          ]
@@ -90,7 +90,7 @@ open Tools
               ]
 
           in
-          trm_seq ~annot:(Some Delete_instructions)
+          trm_seq (* ~annot:(Some Delete_instructions) *)
             [
               trm_for
                 (*init *)
@@ -193,28 +193,28 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
     in this case, put the delete instructions at the end of the inner loop if
     the index is still used
    *)
-  | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
+  | Trm_seq [t_loop; t_del] (* when t.annot = Some Delete_instructions *) ->
      let t_tiled = loop_tile_aux clog b new_var t_loop in
      (* tiled loops are expected to declare their index *)
      begin match t_tiled.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
                                  {desc = Trm_seq [body1]; _}); _}; t_del1]
-          when t_tiled.annot = Some Delete_instructions ->
+          (* when t_tiled.annot = Some Delete_instructions *) ->
         begin match body1.desc with
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
-             when body1.annot = Some Delete_instructions ->
+             (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
            let i = deleted_var t_del in
            if not (is_used_var_in body i) then t_tiled
            else
-             trm_seq ~annot:(Some Delete_instructions)
+             trm_seq (* ~annot:(Some Delete_instructions) *)
                [
                  trm_for init1 cond1 step1
                    (trm_seq
-                      [trm_seq ~annot:(Some Delete_instructions)
+                      [trm_seq (* ~annot:(Some Delete_instructions) *)
                          [
                            trm_for init2 cond2 step2
-                             (trm_seq ~annot:(Some Delete_instructions)
+                             (trm_seq (* ~annot:(Some Delete_instructions) *)
                                 [body; t_del]);
                            t_del2
                          ]
@@ -272,7 +272,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
         | true -> trm_lit(Lit_int 0)
         | false -> trm_var( new_var)
         in
-        trm_seq ~annot:(Some Delete_instructions)
+        trm_seq (* ~annot:(Some Delete_instructions) *)
             [
               trm_for
                 (* init *)
@@ -353,29 +353,29 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
   (* the loop might be labelled: kepp the label *)
   | Trm_labelled (l, t_loop) ->
     trm_labelled l (loop_swap_aux clog t_loop)
-  | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
+  | Trm_seq [t_loop; t_del] (* when t.annot = Some Delete_instructions *) ->
      let t_swaped = loop_swap_aux clog t_loop in
      (* swaped loops are expected to declare their index *)
      begin match t_swaped.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
                                  {desc = Trm_seq [body1]; _}); _}; t_del1]
-          when t_swaped.annot = Some Delete_instructions ->
+          (* when t_swaped.annot = Some Delete_instructions *) ->
         begin match body1.desc with
 
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
-             when body1.annot = Some Delete_instructions ->
+             (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
            let i = deleted_var t_del in
            if not (is_used_var_in body i) then t_swaped
            else
-             trm_seq ~annot:(Some Delete_instructions)
+             trm_seq (* ~annot:(Some Delete_instructions) *)
                [
                  trm_for init1 cond1 step1
                    (trm_seq
-                      [trm_seq ~annot:(Some Delete_instructions)
+                      [trm_seq (* ~annot:(Some Delete_instructions) *)
                          [
                            trm_for init2 cond2 step2
-                             (trm_seq ~annot:(Some Delete_instructions)
+                             (trm_seq (* ~annot:(Some Delete_instructions) *)
                                 [body; t_del]);
                            t_del2
                          ]
@@ -442,7 +442,7 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
           let index_init2 = for_loop_init f_loop in
 
           let loop (index : var) (init : trm) (step : trm) (bound : trm) (body : trm) =
-          trm_seq ~annot:(Some Delete_instructions)
+          trm_seq (* ~annot:(Some Delete_instructions) *)
             [
               trm_for
                 (* init *)
@@ -733,7 +733,7 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
      in
      write_log clog log;
      begin match body.desc with
-     | Trm_seq tl when body.annot = Some Delete_instructions ->
+     | Trm_seq tl (* when body.annot = Some Delete_instructions *) ->
         (* the variables are expected to be deleted last *)
         let (var_del_l, tl) =
           let (var_del_l, tl) = split_list_at nb_vars (List.rev tl) in
@@ -788,7 +788,7 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
              match tl'' with
              | [] -> trm_seq tl'
              | _ ->
-                trm_seq ~annot:(Some Delete_instructions)
+                trm_seq (* ~annot:(Some Delete_instructions) *)
                   (trm_seq tl' :: tl'')
            in
            (* label the loop if required *)
@@ -800,7 +800,7 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
                 List.fold_left (fun t l -> trm_labelled l t) t_loop
                   loop_labels
            in
-           trm_seq ~annot:(Some Delete_instructions)
+           trm_seq (* ~annot:(Some Delete_instructions) *)
              ((trm_seq (var_decl_l ++ [t_loop])) :: var_del_l)
         | _ -> fail t.loc "extract_vars_from_loop: bad body"
         end
@@ -823,7 +823,7 @@ let nb_decl_vars (t : trm) : int =
   | Trm_for (_, _, _, body) ->
      begin match body.desc with
      | Trm_seq ({desc = Trm_seq tl; _} :: _)
-          when body.annot = Some Delete_instructions ->
+         (*  when body.annot = Some Delete_instructions *) ->
         aux tl
      | Trm_seq tl -> aux tl
      | _ -> fail body.loc "nb_decl_vars: bad loop body"
@@ -837,7 +837,7 @@ let rec extract_loop_vars_aux (clog : out_channel) ?(only_one : bool = false)
     if the loop declares its own index, a seq with a delete instruction occurs
     in this case, put the delete instruction back on the loop
    *)
-  | Trm_seq [t_loop; t_del_index] when t.annot = Some Delete_instructions ->
+  | Trm_seq [t_loop; t_del_index] (* when t.annot = Some Delete_instructions *) ->
      let nb_vars = if only_one then 1 else nb_decl_vars t_loop in
      if nb_vars = 0 then
        trm_labelled result_label
@@ -846,7 +846,7 @@ let rec extract_loop_vars_aux (clog : out_channel) ?(only_one : bool = false)
        let t' = extract_vars_from_loop clog nb_vars loop_labels t_loop in
        begin match t'.desc with
        | Trm_seq ({desc = Trm_seq tl; _} :: var_del_l)
-            when t'.annot = Some Delete_instructions ->
+            (* when t'.annot = Some Delete_instructions *) ->
           let (var_decl_l, t_loop') =
             let (var_decl_l, tl) = split_list_at nb_vars tl in
             match tl with
@@ -858,11 +858,11 @@ let rec extract_loop_vars_aux (clog : out_channel) ?(only_one : bool = false)
             match t_loop.desc with
             | Trm_labelled (l, t_loop) -> trm_labelled l (add_del t_loop)
             | _ ->
-               trm_seq ~annot:(Some Delete_instructions) [t_loop; t_del_index]
+               trm_seq (* ~annot:(Some Delete_instructions) *) [t_loop; t_del_index]
           in
           let t_loop'' = add_del t_loop' in
           trm_labelled result_label
-            (trm_seq ~annot:(Some Delete_instructions)
+            (trm_seq (* ~annot:(Some Delete_instructions) *)
                ((trm_seq (var_decl_l ++ [t_loop''])) :: var_del_l))
      | _ -> fail t.loc "extract_loop_vars_aux: bad loop var extraction"
      end
@@ -977,7 +977,7 @@ let rec split_loop_nodep_aux (clog : out_channel) (result_label : string)
     if the loop declares its own index, a seq with a delete instruction occurs
     in this case, duplicate the delete instruction for the two resulting loops
    *)
-  | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
+  | Trm_seq [t_loop; t_del] (* when t.annot = Some Delete_instructions *) ->
      let t' =
        split_loop_nodep_aux clog result_label loop1_label loop2_label t_loop
      in
@@ -987,7 +987,7 @@ let rec split_loop_nodep_aux (clog : out_channel) (result_label : string)
           match t_loop.desc with
           | Trm_labelled (l', t_loop) ->
              trm_labelled l'
-               (trm_seq ~annot:(Some Delete_instructions) [t_loop; t_del])
+               (trm_seq (* ~annot:(Some Delete_instructions) *) [t_loop; t_del])
           | _ -> fail t_loop.loc "split_loop_nodep_aux: expected labelled loop"
         in
         trm_labelled l (trm_seq [add_del_instr t_loop1; add_del_instr t_loop2])
@@ -1118,28 +1118,28 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
     in this case, put the delete instructions at the end of the inner loop if
     the index is still used
    *)
-  | Trm_seq [t_loop; t_del] when t.annot = Some Delete_instructions ->
+  | Trm_seq [t_loop; t_del] (*when  t.annot = Some Delete_instructions *) ->
      let t_tiled = tile_loop_aux clog t_loop in
      (* tiled loops are expected to declare their index *)
      begin match t_tiled.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
                                  {desc = Trm_seq [body1]; _}); _}; t_del1]
-          when t_tiled.annot = Some Delete_instructions ->
+          (* when t_tiled.annot = Some Delete_instructions *) ->
         begin match body1.desc with
         | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
-             when body1.annot = Some Delete_instructions ->
+             (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
            let i = deleted_var t_del in
            if not (is_used_var_in body i) then t_tiled
            else
-             trm_seq ~annot:(Some Delete_instructions)
+             trm_seq (* ~annot:(Some Delete_instructions) *)
                [
                  trm_for init1 cond1 step1
                    (trm_seq
-                      [trm_seq ~annot:(Some Delete_instructions)
+                      [trm_seq (* ~annot:(Some Delete_instructions) *)
                          [
                            trm_for init2 cond2 step2
-                             (trm_seq ~annot:(Some Delete_instructions)
+                             (trm_seq (* ~annot:(Some Delete_instructions) *)
                                 [body; t_del]);
                            t_del2
                          ]
@@ -1177,7 +1177,7 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
      begin match body.desc with
      (* look for the declaration of i1 and i2 *)
      | Trm_seq ({desc = Trm_seq (t_decl1 :: t_decl2 :: tl); _} :: t_del_l)
-          when body.annot = Some Delete_instructions ->
+          (* when body.annot = Some Delete_instructions *)-> 
         let i = for_loop_index t in
         let i1 = decl_name t_decl1 in
         let i2 = decl_name t_decl2 in
@@ -1237,13 +1237,13 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
           match List.rev t_del_l with
           | [_; _] -> body
           | _ :: _ :: t_del_l' ->
-             trm_seq ~annot:(Some Delete_instructions)
+             trm_seq (* ~annot:(Some Delete_instructions) *)
                (body :: List.rev t_del_l')
           | _ ->
              fail t.loc "tile_loop_aux: bad delete instructions"
         in
         let loop (index : var) (bound : trm) (body : trm) =
-          trm_seq ~annot:(Some Delete_instructions)
+          trm_seq (* ~annot:(Some Delete_instructions) *)
             [
               trm_for
                 (* init *)

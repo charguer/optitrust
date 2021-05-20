@@ -158,7 +158,7 @@ let insert_decl ?(insert_before : target = [])
       apply_local_transformation
         (fun t ->
           (* t is expected to be a seq *)
-          trm_seq ~annot:(Some Delete_instructions)
+          trm_seq (* ~annot:(Some Delete_instructions) *)
             [t;
              trm_apps ~annot:(Some Heap_allocated)
                ~typ:(Some (typ_unit ()))
@@ -181,10 +181,10 @@ let insert_decl ?(insert_before : target = [])
              (fun t ->
                match t.desc with
                | Trm_seq (t' :: del_instr_l)
-                    when t.annot = Some Delete_instructions ->
-                  trm_seq ~annot:(Some Delete_instructions)
+                    (* when t.annot = Some Delete_instructions *) ->
+                  trm_seq (* ~annot:(Some Delete_instructions) *)
                     (t' ::
-                     (trm_apps ~annot:(Some Heap_allocated)
+                     (trm_apps (* ~annot:(Some Heap_allocated) *)
                         ~typ:(Some (typ_unit ()))
                         (trm_unop (Unop_delete false)) [trm_var x]) ::
                      del_instr_l
@@ -276,8 +276,8 @@ let insert_and_fold (clog : out_channel) ?(insert_before : target = [])
             added around the last container
             -> add a nth 0 direction before the last direction if it is the case
            *)
-          | Some Delete_instructions ->
-             pathl_of_expl_path (List.rev (Dir_nth n :: Dir_nth 0 :: dl))
+          (* | Some Delete_instructions ->
+             pathl_of_expl_path (List.rev (Dir_nth n :: Dir_nth 0 :: dl)) *)
           | _ -> pathl_of_expl_path (List.rev (Dir_nth n :: dl))
           end
        | _ -> fail t.loc "insert_and_fold: expected a path to a seq element"
@@ -394,7 +394,7 @@ let remove_decl (clog : out_channel) (tr : target) (t : trm) : trm =
 
      (* remove delete instruction if the declaration is a heap allocation *)
      begin match t_decl.desc with
-     | Trm_seq _ when t_decl.annot = Some Heap_allocated ->
+     (* | Trm_seq _ when t_decl.annot = Some Heap_allocated ->
         let x = decl_name t_decl in
         apply_local_transformation
           (fun (t : trm) ->
@@ -423,7 +423,7 @@ let remove_decl (clog : out_channel) (tr : target) (t : trm) : trm =
             remove the two last directions to point at the seq containing the
             delete instructions
            *)
-          (List.rev (List.tl (List.tl dl)))
+          (List.rev (List.tl (List.tl dl))) *)
      | _ -> t
      end
   | _ -> fail t.loc "remove_decl: the path must point at exactly 1 subterm"

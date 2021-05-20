@@ -226,7 +226,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         begin match t.annot with
         | Some Heap_allocated when !decode ->
            dattr ^^ heap_alloc_to_doc ~semicolon tl
-        | Some Delete_instructions when !decode ->
+        (* | Some Delete_instructions when !decode ->
            (*
              two cases:
              - return instruction preceded by delete instructions
@@ -237,7 +237,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            begin match filter_out_heap_alloc tl with
            | [t] -> dattr ^^ trm_to_doc ~semicolon t
            | _ -> fail loc "trm_to_doc: bad delete list"
-           end
+           end *)
         | Some Multi_decl -> dattr ^^ multi_decl_to_doc loc tl
         | Some No_braces -> (* TODO: printf stdout "warning no braces left" *)
            (* Print  NOBRACES{ t1; t2 }   *)

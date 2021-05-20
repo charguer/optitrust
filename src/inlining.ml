@@ -74,7 +74,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
       let rec aux (t : trm) : trm =
         match t.desc with
         (* remove delete instruction related to return statement if any *)
-        | Trm_seq tl when t.annot = Some Delete_instructions ->
+        (* | Trm_seq tl when t.annot = Some Delete_instructions ->
           begin match List.rev tl with
           | {desc = Trm_abort (Ret (Some r)); _} :: _ ->
               trm_seq ~annot:(Some No_braces) ~loc:t.loc
@@ -83,7 +83,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
           | {desc = Trm_abort (Ret None); _} :: _ ->
               trm_goto ~loc:t.loc return_label
           | _ -> trm_map aux t
-          end
+          end *)
         | Trm_abort (Ret (Some r)) ->
           trm_seq ~annot:(Some No_braces) ~loc:t.loc
             [trm_set ~loc:t.loc ~is_statement:true (trm_var result) r;
@@ -96,7 +96,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     let body = replace_return body in
     let bodyl =
       match body.annot with
-      | Some Delete_instructions -> [body]
+      (* | Some Delete_instructions -> [body] *)
       | _ ->
         begin match body.desc with
         | Trm_seq tl -> tl
@@ -171,7 +171,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                 )
            end*)
         | _ ->
-           trm_seq ~annot:(Some Delete_instructions) ~loc:t.loc
+           trm_seq(*  ~annot:(Some Delete_instructions) *) ~loc:t.loc
              ([
                 trm_seq ~loc:t.loc (*REMOVES the braces TODO: braces needed for scopes *) ~annot:(Some No_braces)
                   (arg_decls ++ (result_decl :: bodyl) ++

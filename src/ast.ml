@@ -137,7 +137,7 @@ and trm_annot =
   (* inside declaration of heap allocated variables *)
   | Initialisation_instruction
   (* for sequences containing elimination of heap allocated variables *)
-  | Delete_instructions
+  (* | Delete_instructions *)
   (* used to print back a c++ program *)
   | No_braces
   (* annotate applications of star operator that should not be printed *)
