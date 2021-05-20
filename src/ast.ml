@@ -183,7 +183,12 @@ and trm_desc =
   | Trm_var of var
   | Trm_array of trm list (* { 0, 3, 5} as an array *)
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
+  | Trm_let of varkind * typed_var * trm
+  | Trm_let_fun of var * typ * (typed_var list) * trm
+  | Trm_typedef of typvar * typdef
+  (* ********************DEPRECATED **************** *)
   | Trm_decl of def (* variable or function or type definition *)
+  (* *********************************************** *)
   | Trm_if of trm * trm * trm
   (* question: distinguish toplevel seq for other seqs? *)
   | Trm_seq of trm list (* { st1; st2; st3 } *)
@@ -217,12 +222,22 @@ and trm_desc =
   | Trm_goto of label
   | Trm_decoration of string * trm * string
   | Trm_any of trm
+
 (* declarations *)
 and def =
   | Def_var of typed_var * trm (* int x = t *)
   | Def_fun of var * typ * (typed_var list) * trm (* int f(int x ,double y) { st } *)
   | Def_typ of typvar * typ (* type abbreviation e.g. "typedef int** T" *)
   | Def_enum of typvar * ((var * (trm option)) list) (* typedef enum { X, Y } T  --TODO: check syntax*)
+
+and varkind =
+  | Var_immutable (* Variable is a const *)
+  | Var_heap_allocated 
+  | Var_stack_allocated 
+
+and typdef = 
+  | Typedef_abbrev of typvar * typ
+  | Typedef_enum of typvar * ((var * (trm option)) list)
 
 (* ways of aborting *)
 and abort =
@@ -290,6 +305,10 @@ let trm_struct ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (tl : trm list) : trm =
   {annot = annot; desc = Trm_struct tl; loc = loc; is_statement = false; add; typ;
    attributes}
+let trm_let ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) (typed_var:typed_var) (kind : varkind) (val : trm): trm =
+  {annot = annot; desc = Trm_let (kind,typed_var,val); loc = loc; is_statement; add;
+   typ = Some (typ_unit ()); attributes}
 let trm_decl ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) (d : def) : trm =
   {annot = annot; desc = Trm_decl d; loc = loc; is_statement; add;
@@ -456,6 +475,9 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
      (* type def *)
      | _ -> t
      end
+  | Trm_let (vk,tv,t) ->
+    trm_let ~annot ~loc ~is_statement ~add (vk,tv,trm_map t)
+
   | Trm_if (cond, then_, else_) ->
      let cond' = f cond in
      let then_' = f then_ in
@@ -520,6 +542,7 @@ let rec var_declarations (tl : trm list) : trm list =
   | [] -> []
   | t :: tl ->
      begin match t.desc with
+     | Trm_let (_,_,_) -> t : var_declarations tl
      | Trm_decl (Def_var _) -> t :: var_declarations tl
      (* take into account heap allocated variables TODO: document better *)
      | Trm_seq _ when t.annot = Some Heap_allocated -> t :: var_declarations tl
@@ -543,6 +566,7 @@ let is_used_var_in (t : trm) (x : var) : bool =
           not (List.mem x (List.map fst args)) && aux body
        | _ -> false
        end
+    | Trm_let (_,(y, _), init) -> y = x || aux init
     | Trm_if (cond, then_, else_) -> aux cond || aux then_ || aux else_
     | Trm_apps (f, args) -> aux f || List.exists aux args
     | Trm_while (cond, body) -> aux cond || aux body
@@ -573,6 +597,7 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
        | Def_fun (_, _, _, body) -> aux body
        | _ -> false
        end
+    | Trm_let (_,(_, _), init) -> aux init
     | Trm_if (cond, then_, else_) -> aux cond || aux then_ || aux else_
     | Trm_apps ({desc = Trm_var x; _}, args) -> x = f || List.exists aux args
     | Trm_apps (f', args) -> aux f' || List.exists aux args
@@ -602,10 +627,11 @@ let fun_call_args (f : var) (t : trm) : trm list =
        List.flatten (List.map aux tl)
     | Trm_decl d ->
        begin match d with
-       | Def_var (_, init) -> aux init
+       (* | Def_var (_, init) -> aux init *)
        | Def_fun (_, _, _, body) -> aux body
        | _ -> []
        end
+    | Trm_let (_,(_, _), init) -> aux init
     | Trm_if (cond, then_, else_) -> aux cond ++ aux then_ ++ aux else_
     | Trm_apps ({desc = Trm_var x; _}, args) when x = f -> args
     | Trm_apps (f', args) -> aux f' ++ (List.flatten (List.map aux args))
@@ -630,9 +656,11 @@ let fun_call_args (f : var) (t : trm) : trm list =
 (* return the name of the declared object *)
 let decl_name (t : trm) : var =
   match t.desc with
-  | Trm_decl (Def_var ((x, _), _)) -> x
+  (* | Trm_decl (Def_var ((x, _), _)) -> x *)
+  | Trm_let (_,(x,_),_) -> x
   (* take into account heap allocated variables *)
-  | Trm_seq ({desc = Trm_decl (Def_var ((x, _), _)); _} :: _) -> x
+  (* | Trm_seq ({desc = Trm_decl (Def_var ((x, _), _)); _} :: _) -> x *)
+  | Trm_let(vk,(x,_),_) when vk = Var_heap_allocated -> x
   | Trm_decl (Def_fun (f, _, _, _)) -> f
   | Trm_decl (Def_typ (ty, _)) -> ty
   | _ -> fail t.loc "decl_name: expected declaration"
@@ -640,27 +668,34 @@ let decl_name (t : trm) : var =
 (* return the initialisation in the declaration *)
 let decl_init_val (t : trm) : trm =
   match t.desc with
-  | Trm_decl (Def_var (_, init)) -> init
+  (* | Trm_decl (Def_var (_, init)) -> init *)
+  | Trm_decl (_,(_,_),init) -> init
   (* take into account heap allocated variables *)
-  | Trm_seq [{desc = Trm_decl _; _};
+  (* | Trm_seq [{desc = Trm_decl _; _};
              {desc = Trm_apps (_, [_; init]);
               annot = Some Initialisation_instruction; _}] ->
-     init
+     init *)
   | _ -> fail t.loc "decl_init_val: expected variable declaration"
 
 (* return the type of the declared var *)
 let var_decl_type (t : trm) : typ =
   match t.desc with
-  | Trm_decl (Def_var ((_, ty), _)) -> ty
+  (* | Trm_decl (Def_var ((_, ty), _)) -> ty *)
+  | Trm_let (_,(_,ty),_) -> ty
   (* take into account heap allocated variables *)
-  | Trm_seq ({desc = Trm_decl (Def_var ((_, ty), _)); _} :: _) -> ty
+  (* | Trm_seq ({desc = Trm_decl (Def_var ((_, ty), _)); _} :: _) -> ty *)
   | _ -> fail t.loc "var_decl_type: expected var declaration"
 
 (* true if t is the declaration of a heap allocated variable *)
 let is_heap_alloc (t : trm) : bool =
   match t.desc with
-  | Trm_decl (Def_var _) -> false
-  | Trm_seq _ when t.annot = Some Heap_allocated -> true
+  | Trm_let (vk,(_,_),_) -> 
+      begin match vk with 
+      | Var_heap_allocated -> true
+      | _ -> false
+      end
+  (* | Trm_decl (Def_var _) -> false
+  | Trm_seq _ when t.annot = Some Heap_allocated -> true *)
   | _ -> fail t.loc "is_heap_alloc: expected var declaration"
 
 (* return the name of the deleted variable *)
@@ -700,13 +735,14 @@ let for_loop_init (t : trm) : trm =
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [_; n]) ->
         n
-     | Trm_decl (Def_var (_, n)) -> n
+     | Trm_let (_,(_, _), init) -> 
+     (* | Trm_decl (Def_var (_, n)) -> n
      (* take into account heap allocated variables *)
      | Trm_seq [{desc = Trm_decl (Def_var _); _};
                 {desc =
                    Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));
                               _}, [_; n]); _}] ->
-        n
+        n *)
      | _ -> fail init.loc "for_loop_init: bad for loop initialisation"
      end
   | _ -> fail t.loc "for_loop_init: expected for loop"
@@ -834,10 +870,11 @@ let nb_goto (l : label) (t : trm) : int =
        sum (List.map aux tl)
     | Trm_decl d ->
        begin match d with
-       | Def_var (_, init) -> aux init
+       (* | Def_var (_, init) -> aux init *)
        | Def_fun (_, _, _, body) -> aux body
        | _ -> 0
        end
+    | Trm_let (_,(_, _), init) -> aux init
     | Trm_if (cond, then_, else_) -> aux cond + aux then_ + aux else_
     | Trm_apps (f, args) -> aux f + sum (List.map aux args)
     | Trm_while (cond, body) -> aux cond + aux body

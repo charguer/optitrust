@@ -167,6 +167,12 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_decl d ->
      let dd = print_def ~only_desc d in
      node "Trm_decl" ^^ parens dd
+  | Trm_let (vk,(x,tx),t) -> 
+    let dtx = print_typ ~only_desc tx in 
+    let dt = print_trm ~only_desc t in 
+    node "Def_var" ^^
+      parens (prin_pair (string x) dtx ^^ comma ^/^ dt)
+      
   | Trm_if (c, t, e) ->
      let dc = print_trm ~only_desc c in
      let dt = print_trm ~only_desc t in
