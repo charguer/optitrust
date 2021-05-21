@@ -508,16 +508,10 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
      trm_array ~annot ~loc ~add ~typ (List.map f tl)
   | Trm_struct tl ->
      trm_struct ~annot ~loc ~add ~typ (List.map f tl)
-  | Trm_decl d ->
-     begin match d with
-     | Def_fun (f', res, args, body) ->
-        trm_decl ~annot ~loc ~is_statement ~add (Def_fun (f', res, args, f body))
-     (* type def *)
-     | _ -> t
-     end
   | Trm_let (vk,tv,init) ->
     trm_let ~annot ~loc ~is_statement ~add  vk tv init
-
+  | Trm_let_fun (f',res,args,body) ->
+    trm_let_fun ~annot ~loc ~is_statement ~add f' res args (f body)
   | Trm_if (cond, then_, else_) ->
      let cond' = f cond in
      let then_' = f then_ in
@@ -583,9 +577,6 @@ let rec var_declarations (tl : trm list) : trm list =
   | t :: tl ->
      begin match t.desc with
      | Trm_let (_,_,_) -> t :: var_declarations tl
-     | Trm_decl (Def_var _) -> t :: var_declarations tl
-     (* take into account heap allocated variables TODO: document better *)
-     | Trm_seq _ when t.annot = Some Heap_allocated -> t :: var_declarations tl
      | _ -> var_declarations tl
      end
 
@@ -599,14 +590,9 @@ let is_used_var_in (t : trm) (x : var) : bool =
       | Trm_struct tl
       | Trm_seq tl ->
        List.exists aux tl
-    | Trm_decl d ->
-       begin match d with
-       | Def_var ((y, _), init) -> y = x || aux init
-       | Def_fun (_, _, args, body) ->
-          not (List.mem x (List.map fst args)) && aux body
-       | _ -> false
-       end
     | Trm_let (_,(y, _), init) -> y = x || aux init
+    | Trm_let_fun (_,_,args,body) ->
+      not (List.mem x (List.map fst args)) && aux body
     | Trm_if (cond, then_, else_) -> aux cond || aux then_ || aux else_
     | Trm_apps (f, args) -> aux f || List.exists aux args
     | Trm_while (cond, body) -> aux cond || aux body
@@ -631,13 +617,14 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
       | Trm_struct tl
       | Trm_seq tl ->
        List.exists aux tl
-    | Trm_decl d ->
+    (* | Trm_decl d ->
        begin match d with
        | Def_var (_, init) -> aux init
        | Def_fun (_, _, _, body) -> aux body
        | _ -> false
-       end
+       end *)
     | Trm_let (_,(_, _), init) -> aux init
+    | Trm_let_fun (_,_,_,body) -> aux body
     | Trm_if (cond, then_, else_) -> aux cond || aux then_ || aux else_
     | Trm_apps ({desc = Trm_var x; _}, args) -> x = f || List.exists aux args
     | Trm_apps (f', args) -> aux f' || List.exists aux args
@@ -665,13 +652,8 @@ let fun_call_args (f : var) (t : trm) : trm list =
       | Trm_struct tl
       | Trm_seq tl ->
        List.flatten (List.map aux tl)
-    | Trm_decl d ->
-       begin match d with
-       (* | Def_var (_, init) -> aux init *)
-       | Def_fun (_, _, _, body) -> aux body
-       | _ -> []
-       end
     | Trm_let (_,(_, _), init) -> aux init
+    | Trm_let_fun (_,_,_,body) -> aux body
     | Trm_if (cond, then_, else_) -> aux cond ++ aux then_ ++ aux else_
     | Trm_apps ({desc = Trm_var x; _}, args) when x = f -> args
     | Trm_apps (f', args) -> aux f' ++ (List.flatten (List.map aux args))
@@ -696,33 +678,22 @@ let fun_call_args (f : var) (t : trm) : trm list =
 (* return the name of the declared object *)
 let decl_name (t : trm) : var =
   match t.desc with
-  (* | Trm_decl (Def_var ((x, _), _)) -> x *)
   | Trm_let (_,(x,_),_) -> x
   (* take into account heap allocated variables *)
-  (* | Trm_seq ({desc = Trm_decl (Def_var ((x, _), _)); _} :: _) -> x *)
-  | Trm_decl (Def_fun (f, _, _, _)) -> f
-  | Trm_decl (Def_typ (ty, _)) -> ty
+  | Trm_let_fun (f, _, _, _) -> f
+  | Trm_typedef (ty, _) -> ty
   | _ -> fail t.loc "decl_name: expected declaration"
 
 (* return the initialisation in the declaration *)
 let decl_init_val (t : trm) : trm =
   match t.desc with
-  (* | Trm_decl (Def_var (_, init)) -> init *)
   | Trm_let (_,(_,_),init) -> init
-  (* take into account heap allocated variables *)
-  (* | Trm_seq [{desc = Trm_decl _; _};
-             {desc = Trm_apps (_, [_; init]);
-              annot = Some Initialisation_instruction; _}] ->
-     init *)
   | _ -> fail t.loc "decl_init_val: expected variable declaration"
 
 (* return the type of the declared var *)
 let var_decl_type (t : trm) : typ =
   match t.desc with
-  (* | Trm_decl (Def_var ((_, ty), _)) -> ty *)
   | Trm_let (_,(_,ty),_) -> ty
-  (* take into account heap allocated variables *)
-  (* | Trm_seq ({desc = Trm_decl (Def_var ((_, ty), _)); _} :: _) -> ty *)
   | _ -> fail t.loc "var_decl_type: expected var declaration"
 
 (* true if t is the declaration of a heap allocated variable *)
@@ -733,9 +704,9 @@ let is_heap_alloc (t : trm) : bool =
       | Var_heap_allocated -> true
       | _ -> false
       end
-  (* | Trm_decl (Def_var _) -> false*)
-  | Trm_seq _ when t.annot = Some Heap_allocated -> true 
   | _ -> fail t.loc "is_heap_alloc: expected var declaration"
+
+(* This will be used later for code verification *)
 
 (* return the name of the deleted variable *)
 (* let deleted_var (t : trm) : var =
@@ -743,6 +714,7 @@ let is_heap_alloc (t : trm) : bool =
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_delete _))); _},
               [{desc = Trm_var x; _}]) -> x
   | _ -> fail t.loc "deleted_var: expected var to be deleted" *)
+
 
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
@@ -775,13 +747,6 @@ let for_loop_init (t : trm) : trm =
                  [_; n]) ->
         n
      | Trm_let (_,(_, _), init) -> init
-     (* | Trm_decl (Def_var (_, n)) -> n*)
-     (* take into account heap allocated variables *)
-     | Trm_seq [{desc = Trm_decl (Def_var _); _};
-                {desc =
-                   Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));
-                              _}, [_; n]); _}] ->
-        n 
      | _ -> fail init.loc "for_loop_init: bad for loop initialisation"
      end
   | _ -> fail t.loc "for_loop_init: expected for loop"
@@ -907,13 +872,8 @@ let nb_goto (l : label) (t : trm) : int =
       | Trm_struct tl
       | Trm_seq tl ->
        sum (List.map aux tl)
-    | Trm_decl d ->
-       begin match d with
-       (* | Def_var (_, init) -> aux init *)
-       | Def_fun (_, _, _, body) -> aux body
-       | _ -> 0
-       end
     | Trm_let (_,(_, _), init) -> aux init
+    | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_if (cond, then_, else_) -> aux cond + aux then_ + aux else_
     | Trm_apps (f, args) -> aux f + sum (List.map aux args)
     | Trm_while (cond, body) -> aux cond + aux body
