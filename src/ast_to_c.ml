@@ -250,10 +250,12 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
             *)
-           let display_star =
+          (* TODO: Fix this later *)
+           (* let display_star =
              match t.annot with
              | (Some Heap_allocated | Some Access) when !decode -> false
-             | _ -> true
+             | _ -> true *)
+           let display_star = false 
            in
            dattr ^^ apps_to_doc ~display_star f tl ^^ dsemi
         end
@@ -489,7 +491,8 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     let d' = trm_to_doc t' in
                     begin match t.annot with
                     (* if t' is heap_allocated, use t'.f *)
-                    | Some Heap_allocated -> parens (d' ^^ dot ^^ string f)
+                    (* TODO: Fix this later *)
+                    (* | Some Heap_allocated -> parens (d' ^^ dot ^^ string f) *)
                     (* otherwise use t'->f instead of *t'.f *)
                     | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)
                     end
@@ -509,7 +512,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                   parens (d ^^ dot ^^ string f)
               | Unop_struct_access f (* when not !decode *) ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
-              (* | Unop_delete b ->
+              (* | Unop_ b ->
                  let arrd = if b then brackets empty else empty in
                  string "delete" ^^ arrd ^^ blank 1 ^^ d *)
               | Unop_cast ty ->
