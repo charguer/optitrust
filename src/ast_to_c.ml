@@ -111,6 +111,7 @@ and unop_to_doc (op : unary_op) : document =
   | Unop_dec -> twice minus
   | Unop_struct_access s -> dot ^^ string s
   | Unop_struct_get s -> dot ^^ string s
+  (* Used for delete instructions, for the moment delete instructions are disabled *)
   (* | Unop_delete b ->
      string "delete" ^^ (if b then lbracket ^^ rbracket else empty) *)
   | Unop_cast t ->
@@ -210,8 +211,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_array tl | Trm_struct tl ->
         let dl = List.map trm_to_doc tl in
         dattr ^^ braces (separate (comma ^^ blank 1) dl)
-     | Trm_decl d -> dattr ^^ decl_to_doc ~semicolon d
      | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
+     | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
+     | Trm_typedef t -> dattr ^^ trm_typedef ~semicolon t
      | Trm_if (b, then_, else_) ->
         let db = trm_to_doc b in
         let dt = trm_to_doc ~semicolon:true then_ in
@@ -225,20 +227,6 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         end
      | Trm_seq tl ->
         begin match t.annot with
-        | Some Heap_allocated when !decode ->
-           dattr ^^ heap_alloc_to_doc ~semicolon tl
-        (* | Some Delete_instructions when !decode ->
-           (*
-             two cases:
-             - return instruction preceded by delete instructions
-             - single instruction followed by delete instructions
-             delete instructions are annotated with Heap_allocated and should
-             not be printed -> we filter them out
-            *)
-           begin match filter_out_heap_alloc tl with
-           | [t] -> dattr ^^ trm_to_doc ~semicolon t
-           | _ -> fail loc "trm_to_doc: bad delete list"
-           end *)
         | Some Multi_decl -> dattr ^^ multi_decl_to_doc loc tl
         | Some No_braces -> (* TODO: printf stdout "warning no braces left" *)
            (* Print  NOBRACES{ t1; t2 }   *)
@@ -323,51 +311,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_any t ->
         let dt = trm_to_doc ~semicolon t in
         dattr ^^ string "ANY" ^^ parens (dt)
-
-
      end
 
-and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
-  match tl with  
-  | [{desc = Trm_decl d; loc; _}] ->
-     begin match d with
-     | Def_var ((x, {ty_desc = Typ_ptr tx; _}), _) ->
-        decl_to_doc ~semicolon ~const:false
-          (Def_var ((x, tx), trm_lit ~loc Lit_uninitialized))
-     | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
-     end
-  (* TODO: Remove this code permanently *)
-  (* | [{desc = Trm_decl d; loc; _};
-     {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                       [{desc = Trm_var x; _}; re]);
-      annot = Some Initialisation_instruction; _}] ->
-     begin match d with
-     | Def_var ((y, {ty_desc = Typ_ptr ty; _}), _) when y = x ->
-        decl_to_doc ~semicolon ~const:false (Def_var ((y, ty), re))
-     | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
-     end
-  | [{desc = Trm_decoration(ls,{desc = Trm_decl d; loc;_},rs);_}] ->
-    begin match d with
-    | Def_var ((x, {ty_desc = Typ_ptr tx; _}), _) ->
-        decl_to_doc ~semicolon ~const:false
-          (Def_var ((ls ^ x ^ rs, tx), trm_lit ~loc Lit_uninitialized))
-    | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated3"
-    end
-  | [{desc = Trm_decoration(ls,{desc = Trm_decl d; loc;_},rs);_};
-     {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                       [{desc = Trm_var x; _}; re]);
-      annot = Some Initialisation_instruction; _}] ->
-    begin match d with
-     | Def_var ((y, {ty_desc = Typ_ptr ty; _}), _) when y = x ->
-        decl_to_doc ~semicolon ~const:false (Def_var ((ls ^ y ^ rs, ty), re))
-     | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated4"
-     end *)
-  | _ -> fail None "heap_alloc_to_doc: should not happen"
-    (* … not until we do something more clever *)
-(*
-  temporary hack for heap allocation: optional argument for const modifier
-  every var is a const except if it is heap allocated
-*)
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in 
   let d = begin match varkind with 
@@ -382,30 +327,22 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   in 
   d ^^ dtx ^^ initialisation
 
-and decl_to_doc ?(semicolon : bool = true) ?(const = true)
-  (d : def) : document =
+and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =  
   let dsemi = if semicolon then semi else empty in
-  match d with
-  | Def_var (tx, t) ->
-     let d = if const then string "const" ^^ blank 1 else empty in
-     let dtx = typed_var_to_doc tx in
-     let initialisation =
-       match t.desc with
-       | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-       | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc t ^^ dsemi
-     in
-     d ^^ dtx ^^ initialisation
-  | Def_fun (f, r, tvl, b) ->
-     let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
-     let argd = separate (comma ^^ blank 1) (List.map typed_var_to_doc tvl) in
-     let dr = typ_to_doc r in
-     begin match b.desc with
-     | Trm_val (Val_lit Lit_uninitialized) ->
-        separate (blank 1) [dr; string f; parens argd] ^^ dsemi
-     | _ -> separate (blank 1) [dr; string f; parens argd; trm_to_doc b]
-     end
-  | Def_typ (x, t) ->
-     begin match t.ty_desc with
+  let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
+  let argd = separate (comma ^^ blank 1) (List.map typed_var_to_doc tvl) in
+  let dr = typ_to_doc r in
+  begin match b.desc with
+  | Trm_val (Val_lit Lit_uninitialized) ->
+     separate (blank 1) [dr; string f; parens argd] ^^ dsemi
+  | _ -> separate (blank 1) [dr; string f; parens argd; trm_to_doc b]
+  end
+
+and typedef_to_doc ?(semicolon : bool = true) (x : typvar)(t : typdef) : document = 
+  let dsemi = if semicolon then semi else empty in
+  match t with 
+  | Typedef_abbrev (x,t) -> 
+    begin match t.ty_desc with
      (* particular case for array types aliases *)
      | Typ_array _ ->
         string "typedef" ^^ blank 1 ^^ typed_var_to_doc (x, t) ^^ dsemi
@@ -421,8 +358,8 @@ and decl_to_doc ?(semicolon : bool = true) ?(const = true)
      | _ ->
         separate (blank 1) [string "typedef"; typ_to_doc t; string x] ^^ dsemi
      end
-  | Def_enum (x, enum_const_l) ->
-     let const_doc_l =
+  | Typedef_enum (x, enum_const_l) ->
+      let const_doc_l =
        List.map
          (fun (y, t_o) ->
            match t_o with
@@ -434,6 +371,7 @@ and decl_to_doc ?(semicolon : bool = true) ?(const = true)
      separate (blank 1) [string "enum"; string x;
                          braces (separate (comma ^^ blank 1) const_doc_l)] ^^
      dsemi
+
 
 (* assumption: all declarations are non-initialised variables *)
 (* TODO: Change this function later based on Arthur's idea *)
