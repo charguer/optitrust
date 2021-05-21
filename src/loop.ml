@@ -98,7 +98,7 @@ open Tools
                 (trm_seq ~annot:(Some Heap_allocated)
                   [
                     trm_decl (Def_var ((index, typ_ptr (typ_int())), trm_prim (Prim_new (typ_int ()))));
-                    trm_set ~annot:(Some Initialisation_instruction)
+                    trm_set (* ~annot:(Some Initialisation_instruction) *)
                     (trm_var index) start
                   ]
                 )
@@ -281,7 +281,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
                                         trm_prim (Prim_new (typ_int ()))));
-                     trm_set ~annot:(Some Initialisation_instruction)
+                     trm_set (* ~annot:(Some Initialisation_instruction) *)
                        (trm_var index) start
                    ]
                 )
@@ -451,7 +451,7 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
                                         trm_prim (Prim_new (typ_int ()))));
-                     trm_set ~annot:(Some Initialisation_instruction)
+                     trm_set (* ~annot:(Some Initialisation_instruction) *)
                        (trm_var index) (init)
                    ]
                 )
@@ -1212,7 +1212,7 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
                   [
                     trm_decl (Def_var ((i, typ_ptr (typ_int ())),
                                        trm_prim (Prim_new (typ_int ()))));
-                    trm_set ~annot:(Some Initialisation_instruction)
+                    trm_set (* ~annot:(Some Initialisation_instruction) *)
                       (trm_var i)
                       (trm_apps (trm_binop Binop_add)
                          [
@@ -1252,7 +1252,7 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
                                         trm_prim (Prim_new (typ_int ()))));
-                     trm_set ~annot:(Some Initialisation_instruction)
+                     trm_set (* ~annot:(Some Initialisation_instruction) *)
                        (trm_var index) (trm_lit (Lit_int 0))
                    ]
                 )

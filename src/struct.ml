@@ -192,7 +192,7 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
         | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
       in
       let lhs = var_decl in
-      let rhs = trm_set ~annot:(Some Initialisation_instruction) (trm_var var_name) (trm_struct extracted_trms) in
+      let rhs = trm_set (* ~annot:(Some Initialisation_instruction) *) (trm_var var_name) (trm_struct extracted_trms) in
       let new_trm = trm_seq ~annot:(Some Heap_allocated)[lhs;rhs] in
       let tl = list_remove_set assign tl in
       let tl = list_replace_el new_trm trm_index tl in

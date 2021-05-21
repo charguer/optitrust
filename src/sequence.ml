@@ -163,7 +163,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                     trm_seq ~annot:(Some Heap_allocated)
                       [
                         trm_decl (Def_var ((y, ty), trm_prim (Prim_new ty')));
-                        trm_set ~annot:(Some Initialisation_instruction)
+                        trm_set (* ~annot:(Some Initialisation_instruction) *)
                           (trm_var y)
                           (trm_apps ~annot:(Some Heap_allocated)
                              (trm_unop Unop_get) [trm_var (split_name y)])

@@ -130,13 +130,8 @@ and value =
    Clang AST in such a way to be able to print back the AST like the original C code.
    *)
 and trm_annot =
-  (* for declaration and elimination of heap allocated variables
-    + dereferencing
-   *)
-  | Heap_allocated
-  (* inside declaration of heap allocated variables *)
-  | Initialisation_instruction
   (* for sequences containing elimination of heap allocated variables *)
+  (* TODO: This will be changed later *)
   (* | Delete_instructions *)
   (* used to print back a c++ program *)
   | No_braces
@@ -154,7 +149,7 @@ and trm_annot =
   (* to avoid printing content of included files *)
   | Include of string
   | Main_file
-
+  | Grouped_binding (* Used for terms of the form int x = 3, y = 4 *)
 (* symbols to add while printing a C++ program. TODO: document *)
 and print_addition =
   | Add_address_of_operator
@@ -184,8 +179,8 @@ and trm_desc =
   | Trm_array of trm list (* { 0, 3, 5} as an array *)
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  (* | Trm_let_fun of var * typ * (typed_var list) * trm *)
-  (* | Trm_typedef of typvar * typdef *)
+  | Trm_let_fun of var * typ * (typed_var list) * trm
+  | Trm_typedef of typvar * typdef
   (* ********************TODO: Remove this later **************** *)
   | Trm_decl of def (* variable or function or type definition *)
   (* *********************************************** *)
@@ -225,7 +220,6 @@ and trm_desc =
 
 (* declarations *)
 and def =
-  | Def_var of typed_var * trm (* int x = t *)
   | Def_fun of var * typ * (typed_var list) * trm (* int f(int x ,double y) { st } *)
   | Def_typ of typvar * typ (* type abbreviation e.g. "typedef int** T" *)
   | Def_enum of typvar * ((var * (trm option)) list) (* typedef enum { X, Y } T  --TODO: check syntax*)
@@ -327,6 +321,16 @@ let trm_let ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   {annot = annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes}
 
+let trm_let_fun ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) (name : var) (ret_typ : typ) (args : typed_var list) (body : trm) : trm =
+  {annot = annot; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; add;
+   typ = Some (typ_unit ()); attributes}
+
+let trm_typedef ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = [])  (typ_name : typvar) (def_typ : typdef): trm =
+  {annot = annot; desc = Trm_typedef (typ_name,def_typ); loc = loc; is_statement; add;
+   typ = Some (typ_unit ()); attributes}
+
 let trm_decl ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) (d : def) : trm =
   {annot = annot; desc = Trm_decl d; loc = loc; is_statement; add;
@@ -406,14 +410,18 @@ let typ_of_lit (l : lit) : typ option =
   | Lit_double _ -> Some (typ_double ())
   (* todo: add type for strings *)
   | Lit_string _ -> None
+
 let trm_lit ?(annot = None) ?(loc = None) ?(add = []) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~add ~typ:(typ_of_lit l) (Val_lit l)
+
 let trm_prim ?(annot = None) ?(loc = None) ?(add = []) (p : prim) : trm =
   trm_val ~annot:annot ~loc ~add (Val_prim p)
+
 let trm_set ?(annot = None) ?(loc = None) ?(is_statement : bool = false) ?(add = [])
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ~loc ~is_statement ~add ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
+
 let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = [])
 (t : trm) : trm =
   {annot = annot; desc = Trm_any t; loc = loc; is_statement=false; add; typ; attributes}
@@ -447,13 +455,14 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
   else
     Printf.ifprintf stdout
 
-let filter_out_heap_alloc : trm list -> trm list =
+(* *****************DEPRECATED*************** *)
+(* let filter_out_heap_alloc : trm list -> trm list =
   List.filter
     (fun ({annot; _} : trm) ->
       match annot with
       | Some Heap_allocated -> false
       | _ -> true
-    )
+    ) *)
 
 (* concrete accesses in a trm *)
 type trm_access =
@@ -501,8 +510,6 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
      trm_struct ~annot ~loc ~add ~typ (List.map f tl)
   | Trm_decl d ->
      begin match d with
-     | Def_var (tx, init) ->
-        trm_decl ~annot ~loc ~is_statement ~add (Def_var (tx, f init))
      | Def_fun (f', res, args, body) ->
         trm_decl ~annot ~loc ~is_statement ~add (Def_fun (f', res, args, f body))
      (* type def *)

@@ -477,7 +477,7 @@ let group_decl_init (t : trm) : trm =
             trm_seq ~annot:(Some Heap_allocated) ~loc:t1.loc
               [
                 trm_decl (Def_var ((x, tx), dx));
-                trm_set ~annot:(Some Initialisation_instruction) (trm_var x)
+                trm_set (* ~annot:(Some Initialisation_instruction) *) (trm_var x)
                   init
               ]
           in

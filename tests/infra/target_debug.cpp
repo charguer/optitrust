@@ -2,8 +2,8 @@
 typedef struct { int x; int y; } vect;
 
 int main() {
-  int x = 3;
+  int * p = new 3;
   int y,z;
-  y = x;
-  z = x;
+  y = 5;
+  z = 6;
 }

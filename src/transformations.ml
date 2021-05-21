@@ -697,7 +697,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
            ~attributes:t'.attributes
            [
              t_decl;
-             trm_set ~annot:(Some Initialisation_instruction) ~loc lhs
+             trm_set (* ~annot:(Some Initialisation_instruction) *) ~loc lhs
                (apply_change init)
            ]
       | _ -> trm_map apply_change t'
@@ -811,7 +811,7 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
               let new_decl = trm_seq ~annot:(Some Heap_allocated) [
 
                 trm_decl (Def_var ((new_var, typ_ptr (typ_var var_type)), trm_prim (Prim_new (typ_var var_type))));
-                trm_set ~annot:(Some Initialisation_instruction) (trm_var new_var) (trm_apps ~annot:(Some Heap_allocated) (trm_unop (Unop_get)) [trm_var old_var] )
+                trm_set (* ~annot:(Some Initialisation_instruction) *) (trm_var new_var) (trm_apps ~annot:(Some Heap_allocated) (trm_unop (Unop_get)) [trm_var old_var] )
               ]
               in
               let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
@@ -906,7 +906,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
                   (trm_seq ~annot:(Some Heap_allocated) [
                     trm_decl (Def_var (("k", typ_ptr (typ_int ()) ),
                           trm_prim (Prim_new (typ_int()))));
-                    trm_set ~annot:(Some Initialisation_instruction) (trm_var "k") (trm_lit (Lit_int 0))
+                    trm_set (* ~annot:(Some Initialisation_instruction) *) (trm_var "k") (trm_lit (Lit_int 0))
                   ])
                 (* cond *)
                   (trm_apps (trm_binop Binop_lt)
@@ -958,7 +958,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
                 (trm_seq ~annot:(Some Heap_allocated) [
                   trm_decl (Def_var (("k", typ_ptr (typ_int ()) ),
                         trm_prim (Prim_new (typ_int()))));
-                  trm_set ~annot:(Some Initialisation_instruction) (trm_var "k") (trm_lit (Lit_int 0))
+                  trm_set (* ~annot:(Some Initialisation_instruction) *) (trm_var "k") (trm_lit (Lit_int 0))
                 ])
               (* cond *)
                 (trm_apps (trm_binop Binop_lt)
@@ -1108,7 +1108,7 @@ let undetach_expression_aux(clog : out_channel) (trm_index : int) (t : trm) : tr
       | Trm_seq tl ->
         let t_decl = List.nth tl trm_index in
         let t_assgn = List.nth tl (trm_index + 1) in
-        let t_assgn = {t_assgn with annot=(Some Initialisation_instruction)} in
+        (* let t_assgn = {t_assgn with annot=(Some Initialisation_instruction)} in *)
         let t_decl = begin match t_decl.desc with
         | Trm_seq [var_decl] -> var_decl
         | _ -> fail t.loc "undelocalize_aux: expected the sequence which contain the declaration"

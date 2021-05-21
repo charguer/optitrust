@@ -336,8 +336,8 @@ and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
           (Def_var ((x, tx), trm_lit ~loc Lit_uninitialized))
      | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
      end
-
-  | [{desc = Trm_decl d; loc; _};
+  (* TODO: Remove this code permanently *)
+  (* | [{desc = Trm_decl d; loc; _};
      {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                        [{desc = Trm_var x; _}; re]);
       annot = Some Initialisation_instruction; _}] ->
@@ -346,7 +346,6 @@ and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
         decl_to_doc ~semicolon ~const:false (Def_var ((y, ty), re))
      | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
      end
-  (* TODO: Remove the two last matches, after changing the current implementation for trm_decl *)
   | [{desc = Trm_decoration(ls,{desc = Trm_decl d; loc;_},rs);_}] ->
     begin match d with
     | Def_var ((x, {ty_desc = Typ_ptr tx; _}), _) ->
@@ -362,7 +361,7 @@ and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
      | Def_var ((y, {ty_desc = Typ_ptr ty; _}), _) when y = x ->
         decl_to_doc ~semicolon ~const:false (Def_var ((ls ^ y ^ rs, ty), re))
      | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated4"
-     end
+     end *)
   | _ -> fail None "heap_alloc_to_doc: should not happen"
     (* … not until we do something more clever *)
 (*

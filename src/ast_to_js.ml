@@ -222,7 +222,7 @@ let annot_to_string (t : trm) : string =
   | Some a ->
      begin match a with
      | Heap_allocated -> "\"Heap_allocated\""
-     | Initialisation_instruction -> "\"Initialisation_instruction\""
+     (* | Initialisation_instruction -> "\"Initialisation_instruction\"" *)
      (* | Delete_instructions -> "\"Delete_instructions\"" *)
      | No_braces -> "\"No_braces\""
      | Access -> "\"Access\""

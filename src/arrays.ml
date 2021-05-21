@@ -18,7 +18,7 @@ open Tools
     - x is not used in function definitions, but only in var declarations
     - for now: in any case, the number of elements is divisible by b
  *)
-
+(* TODO: This transformation uses the old vardef encoding, change it *)
 let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   (t : trm) : trm =
   (*
@@ -107,7 +107,7 @@ let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
      | Typ_ptr {ty_desc = Typ_var y; _} when y = x ->
         trm_seq ~annot:(Some Heap_allocated)
           [t_decl;
-           trm_apps ~annot:(Some Initialisation_instruction)
+           trm_apps (* ~annot:(Some Initialisation_instruction) *)
              (trm_binop Binop_set) [t_var; new_alloc t_alloc]
           ]
      | _ -> trm_map (tile_aux base_type block_name b x) t

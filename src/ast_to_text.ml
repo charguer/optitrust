@@ -283,7 +283,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       | Some a ->
          begin match a with
          | Heap_allocated -> string "Heap_allocated"
-         | Initialisation_instruction -> string "Initialisation_instruction"
+         (* | Initialisation_instruction -> string "Initialisation_instruction" *)
          (* | Delete_instructions -> string "Delete_instructions" *)
          | No_braces -> string "No_braces"
          | Access -> string "Access"
