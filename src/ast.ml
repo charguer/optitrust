@@ -183,10 +183,10 @@ and trm_desc =
   | Trm_var of var
   | Trm_array of trm list (* { 0, 3, 5} as an array *)
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
-  | Trm_let of varkind * typed_var * trm
+  | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_var list) * trm
   | Trm_typedef of typvar * typdef
-  (* ********************DEPRECATED **************** *)
+  (* ********************TODO: Remove this later **************** *)
   | Trm_decl of def (* variable or function or type definition *)
   (* *********************************************** *)
   | Trm_if of trm * trm * trm
@@ -261,109 +261,142 @@ type 'a tmap = 'a Trm_map.t
 
 type instantiation = trm tmap
 
+(* **************************Typ Construcors**************************** *)
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (x : typvar) : typ =
   {ty_annot = annot; ty_desc = Typ_var x; ty_attributes}
+
 let typ_unit ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
   {ty_annot = annot; ty_desc = Typ_unit; ty_attributes}
+
 let typ_int ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
   {ty_annot = annot; ty_desc = Typ_int; ty_attributes}
+
 let typ_float ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
   {ty_annot = annot; ty_desc = Typ_float; ty_attributes}
+
 let typ_double ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
   {ty_annot = annot; ty_desc = Typ_double; ty_attributes}
+
 let typ_bool ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
   {ty_annot = annot; ty_desc = Typ_bool; ty_attributes}
+
 let typ_char ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
   {ty_annot = annot; ty_desc = Typ_char; ty_attributes}
+
 let typ_ptr ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (t : typ) : typ =
   {ty_annot = annot; ty_desc = Typ_ptr t; ty_attributes}
+
 let typ_array ?(annot : typ_annot list = []) ?(ty_attributes = []) (t : typ)
   (s : size) : typ =
   {ty_annot = annot; ty_desc = Typ_array (t, s); ty_attributes}
+
 let typ_struct ?(annot : typ_annot list = []) ?(ty_attributes = [])
    (fields : fields)(typ_field : typ fmap) (typ_name : typvar) : typ =
   {ty_annot = annot; ty_desc = Typ_struct (fields,typ_field, typ_name); ty_attributes}
+
 let typ_fun ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (args : typ list) (res : typ) : typ =
   {ty_annot = annot; ty_desc = Typ_fun (args, res); ty_attributes}
+
+(* ******************* *******Trm constructors *************************** *)
 
 let trm_val ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (v : value) : trm =
   {annot = annot; desc = Trm_val v; loc = loc; is_statement = false; add; typ;
    attributes}
+
 let trm_var ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (x : var) : trm =
   {annot = annot; desc = Trm_var x; loc = loc; is_statement = false; add; typ;
    attributes}
+
 let trm_array ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (tl : trm list) : trm =
   {annot = annot; desc = Trm_array tl; loc = loc; is_statement = false; add; typ;
    attributes}
+
 let trm_struct ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (tl : trm list) : trm =
   {annot = annot; desc = Trm_struct tl; loc = loc; is_statement = false; add; typ;
    attributes}
+
 let trm_let ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) (typed_var:typed_var) (kind : varkind) (val : trm): trm =
-  {annot = annot; desc = Trm_let (kind,typed_var,val); loc = loc; is_statement; add;
+  ?(add = []) ?(attributes = []) (typed_var:typed_var) (kind : varkind) (init : trm): trm =
+  {annot = annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes}
+
 let trm_decl ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) (d : def) : trm =
   {annot = annot; desc = Trm_decl d; loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes}
+
 let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (cond : trm) (tb : trm) (eb : trm) : trm =
   {annot = annot; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes}
+
 let trm_seq ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (tl : trm list) : trm =
   {annot = annot; desc = Trm_seq tl; loc = loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes}
+
 let trm_apps ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(typ = None) ?(attributes = []) (f : trm)
   (args : trm list) : trm =
   {annot = annot; desc = Trm_apps (f, args); loc = loc; is_statement; add; typ;
    attributes}
+
 let trm_while ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (cond : trm) (body : trm) : trm =
   {annot = annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes}
+
 let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
   {annot; desc = Trm_for (init, cond, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes}
+
 let trm_switch ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (cond : trm) (cases : (trm list * trm) list) : trm =
   {annot; desc = Trm_switch (cond, cases); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes}
+
 let trm_abort ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (a : abort) : trm =
   {annot = annot; desc = Trm_abort a; loc = loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes}
+
 let trm_labelled ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (l : label) (t : trm) : trm =
   {annot; desc = Trm_labelled (l, t); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes}
+
 let trm_goto ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (l : label) : trm =
   {annot; desc = Trm_goto l; loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes}
+
 let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
   (left : string) (right : string) (t : trm) : trm =
   {annot; desc = Trm_decoration (left, t, right); loc; is_statement = false; add;
   typ = Some (typ_unit ()); attributes }
+
 let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
   trm_val ~annot ~loc (Val_ptr (0, []))
 (*
    no type for primitives and operators:
    we are only interested in the result of their application
  *)
+
 let trm_unop ?(annot = None) ?(loc = None) ?(add = []) (p : unary_op) : trm =
   trm_val ~annot ~loc ~add (Val_prim (Prim_unop p))
+
 let trm_binop ?(annot = None) ?(loc = None) ?(add = []) (p : binary_op) : trm =
   trm_val ~annot:annot ~loc ~add (Val_prim (Prim_binop p))
+
+(* Get typ of a literal *)
 let typ_of_lit (l : lit) : typ option =
   match l with
   | Lit_unit -> Some (typ_unit ())
@@ -542,7 +575,7 @@ let rec var_declarations (tl : trm list) : trm list =
   | [] -> []
   | t :: tl ->
      begin match t.desc with
-     | Trm_let (_,_,_) -> t : var_declarations tl
+     | Trm_let (_,_,_) -> t :: var_declarations tl
      | Trm_decl (Def_var _) -> t :: var_declarations tl
      (* take into account heap allocated variables TODO: document better *)
      | Trm_seq _ when t.annot = Some Heap_allocated -> t :: var_declarations tl
@@ -660,7 +693,6 @@ let decl_name (t : trm) : var =
   | Trm_let (_,(x,_),_) -> x
   (* take into account heap allocated variables *)
   (* | Trm_seq ({desc = Trm_decl (Def_var ((x, _), _)); _} :: _) -> x *)
-  | Trm_let(vk,(x,_),_) when vk = Var_heap_allocated -> x
   | Trm_decl (Def_fun (f, _, _, _)) -> f
   | Trm_decl (Def_typ (ty, _)) -> ty
   | _ -> fail t.loc "decl_name: expected declaration"
@@ -669,7 +701,7 @@ let decl_name (t : trm) : var =
 let decl_init_val (t : trm) : trm =
   match t.desc with
   (* | Trm_decl (Def_var (_, init)) -> init *)
-  | Trm_decl (_,(_,_),init) -> init
+  | Trm_let (_,(_,_),init) -> init
   (* take into account heap allocated variables *)
   (* | Trm_seq [{desc = Trm_decl _; _};
              {desc = Trm_apps (_, [_; init]);
