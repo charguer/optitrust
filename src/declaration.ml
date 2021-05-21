@@ -124,10 +124,10 @@ let insert_decl ?(insert_before : target = [])
     else dx
   in
   let t_insert =
-    if const then trm_let (Var_immutable,(x,tx),def_x)
+    if const then trm_let Var_immutable (x,tx) def_x
     (* if const then trm_decl (Def_var ((x, tx), def_x)) *)
     else
-      trm_let (Var_heap_allocated,(x,typ_ptr tx), def_x)
+      trm_let Var_heap_allocated (x, (typ_ptr tx)) def_x
       (* trm_seq ~annot:(Some Heap_allocated)
         [trm_decl (Def_var ((x, typ_ptr tx), trm_prim (Prim_new tx)));
          trm_set ~annot:(Some Initialisation_instruction) (trm_var x) def_x

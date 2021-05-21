@@ -136,7 +136,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
         [ kind_to_field "\"var-def\"";
           ("\"name\"", Json.Str ("\"" ^ x ^ "\""));
           ("\"def-type\"", Json.typ_to_json typ);
-          children_to_field ([(child_to_json "init" (aux body))])]
+          children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_if (cond, then_, else_) ->
         [ kind_to_field "\"if\"";
           children_to_field [

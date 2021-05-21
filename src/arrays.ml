@@ -525,7 +525,7 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
         begin match t_decl.desc with
         (* | Trm_decl (Def_var ((_,_),dx)) -> *)
         | Trm_let (_,(_, _), init) ->
-          begin match dx.desc with
+          begin match init.desc with
           | Trm_val( Val_prim (Prim_new t_arr)) ->
             begin match t_arr.ty_desc with
             | Typ_array (t_var,_) ->
@@ -545,7 +545,7 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
       (* let decl_index = get_index decl_trm tl in *)
       (* TODO: Fix this later probably it will show the variable with pointer type *)
       let new_trms = List.map(fun x ->
-       trm_let (Var_heap_allocated,(x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type)))
+        trm_let Var_heap_allocated (x,(typ_ptr (typ_var (decl_type)))) (trm_prim (Prim_new (typ_var decl_type)))) new_vars
         (* trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var((x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type))))]) new_vars *)
       in
       trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl)

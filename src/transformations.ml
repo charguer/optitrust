@@ -52,8 +52,10 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           trm_if ~annot ~loc ~add ~attributes cond (aux dl then_t) else_t
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes cond then_t (aux dl else_t)
-       | Dir_body, Trm_decl (Def_var (tx, body)) ->
-          trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_var (tx, aux dl body))
+       (* | Dir_body, Trm_decl (Def_var (tx, body)) -> 
+          trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_var (tx, aux dl body))*)
+        | Dir_body, Trm_let (vk,tx,body) ->
+          trm_let ~annot ~loc ~is_statement ~add ~attributes vk tx  (aux dl body)
        | Dir_body, Trm_decl (Def_fun (x, tx, txl, body)) ->
           trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_fun (x, tx, txl, aux dl body))
        | Dir_body, Trm_for (init, cond, step, body) ->
@@ -95,7 +97,13 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           in
           trm_decl ~annot ~loc ~is_statement ~add ~attributes
             (Def_fun (x, tx, txl', body))
-       | Dir_name, Trm_decl (Def_var ((x, tx), body)) ->
+        | Dir_name , Trm_let (vk,(x,tx),body) ->
+          let t' = aux dl (trm_var ~loc x) in 
+          begin match t'.desc with 
+          | Trm_var x' -> trm_let ~annot ~loc ~is_statement ~add ~attributes  vk (x',tx) body
+          | _ -> fail loc ("apply_local_transformation: transformation " ^ "must preserve names(function)")
+          end
+       (* | Dir_name, Trm_decl (Def_var ((x, tx), body)) ->
           let t' = aux dl (trm_var ~loc x) in
           (* print_ast  stdout t'; *)
           begin match t'.desc with
@@ -108,7 +116,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
                          "must preserve names(var)")
-          end
+          end *)
        | Dir_name, Trm_decl (Def_fun (x, tx, txl, body)) ->
           let t' = aux dl (trm_var ~loc x) in
           begin match t'.desc with
@@ -258,11 +266,11 @@ let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) (t :
       (* close_out out_ast; *)
 
 (* Change one declaration form const to heap allocated and vice versa*)
-let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
-  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with
+let const_non_const_aux (clog : out_channel) (_trm_index : int) (t : trm) : trm =
+  (* let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with
     | [] -> failwith "Empty list"
     | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
-  in
+  in *)
   let log : string =
       let loc : string =
       match t.loc with
@@ -275,7 +283,14 @@ let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
       (ast_to_string t) loc
     in write_log clog log;
     match t.desc with
-    | Trm_seq tl ->
+    | Trm_let (vk,(x,tx),init) ->
+      begin match vk with 
+      | Var_immutable -> trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add  ~attributes:t.attributes Var_stack_allocated (x, tx) init
+      | _ -> trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add Var_stack_allocated (x, tx) init
+      end
+    | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration" 
+    
+    (* | Trm_seq tl ->
       (* Find the declaration trm, using the index inside the sequence *)
       let t_decl = List.nth tl trm_index in
       (*Check if the delcaration is const or non-const  *)
@@ -307,8 +322,7 @@ let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
           trm_seq ~annot:t.annot tl
       | _ -> fail t.loc "const_non_const_aux: exepected a declaration"
       end
-
-    | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration"
+    | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration" *)
 
 
 
@@ -359,7 +373,8 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
   (t : trm) : ilset funmap =
   let rec aux (t : trm) : ilset funmap =
     match t.desc with
-    | Trm_decl (Def_var (_, body)) -> aux body
+    | Trm_let (_,(_,_),body) -> aux body
+    (* | Trm_decl (Def_var (_, body)) -> aux body *)
     | Trm_decl (Def_fun (_, _, _, body)) -> aux body
     | Trm_if (cond, then_, else_) -> aux cond +@ aux then_ +@ aux else_
     | Trm_seq tl ->
@@ -735,9 +750,11 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
          trm_unop ~annot:t.annot ~loc:t.loc ~add:t.add
            (Unop_cast (change_typ ty))
-      | Trm_decl (Def_var ((y, ty), init)) ->
+      (* | Trm_decl (Def_var ((y, ty), init)) ->
          trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-           ~attributes:t.attributes (Def_var ((y, change_typ ty), aux init))
+           ~attributes:t.attributes (Def_var ((y, change_typ ty), aux init)) *)
+      | Trm_let (vk,(y,ty),init) ->
+        trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add vk (y,change_typ ty) (aux init)
       | Trm_decl (Def_fun (f, ty, args, body)) ->
          trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
            ~attributes:t.attributes
@@ -792,6 +809,7 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
             | Trm_for (init, cond, step, body) ->
 
               let new_decl = trm_seq ~annot:(Some Heap_allocated) [
+
                 trm_decl (Def_var ((new_var, typ_ptr (typ_var var_type)), trm_prim (Prim_new (typ_var var_type))));
                 trm_set ~annot:(Some Initialisation_instruction) (trm_var new_var) (trm_apps ~annot:(Some Heap_allocated) (trm_unop (Unop_get)) [trm_var old_var] )
               ]

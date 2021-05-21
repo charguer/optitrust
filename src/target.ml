@@ -1558,7 +1558,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (resolve_target_simple p then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (resolve_target_simple p else_t)
-  | Dir_body, Trm_decl (Def_var (_, body))
+  | Dir_body, Trm_let (_,(_,_),body) 
+  (* | Dir_body, Trm_decl (Def_var (_, body)) *)
     | Dir_body, Trm_decl (Def_fun (_, _, _, body))
     | Dir_body, Trm_for (_, _, _, body)
     | Dir_body, Trm_while (_, body)
@@ -1577,7 +1578,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg n) (resolve_target_simple p nth_t))
-  | Dir_name, Trm_decl (Def_var ((x, _), _))
+  | Dir_name, Trm_let (_,(x,_),_) 
+    (* | Dir_name, Trm_decl (Def_var ((x, _), _)) *)
     | Dir_name, Trm_decl (Def_fun (x, _, _, _))
     | Dir_name, Trm_decl (Def_enum (x, _))
     | Dir_name, Trm_labelled (x, _)
@@ -1725,7 +1727,8 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
        | Dir_arg n, Trm_decl (Def_fun (_, _, arg, _)) ->
           app_to_nth loc arg n
             (fun (x, _) -> aux dl (trm_var ~loc x) ctx)
-       | Dir_name, Trm_decl (Def_var ((x, _), _))
+       | Dir_name , Trm_let (_,(x,_),_) 
+       (* | Dir_name, Trm_decl (Def_var ((x, _), _)) *)
          | Dir_name, Trm_decl (Def_fun (x, _, _, _))
          | Dir_name, Trm_decl (Def_enum (x, _))
          | Dir_name, Trm_labelled (x, _)

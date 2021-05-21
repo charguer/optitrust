@@ -211,7 +211,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let dl = List.map trm_to_doc tl in
         dattr ^^ braces (separate (comma ^^ blank 1) dl)
      | Trm_decl d -> dattr ^^ decl_to_doc ~semicolon d
-     | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon (vk,tx,t)
+     | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
      | Trm_if (b, then_, else_) ->
         let db = trm_to_doc b in
         let dt = trm_to_doc ~semicolon:true then_ in
@@ -369,17 +369,17 @@ and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
   temporary hack for heap allocation: optional argument for const modifier
   every var is a const except if it is heap allocated
 *)
-and trm_let_to_doc ?(semicolon : bool = true) (varkind : var_kind) (tv :typed_var) (init : trm) : document =
-  let demi = if semicolon then semi else empty in 
+and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
+  let dsemi = if semicolon then semi else empty in 
   let d = begin match varkind with 
   | Var_immutable -> string "const " ^^ blank 1
   | _ -> empty
   end in
-  let dtx = typed_var_to_doc tx in 
+  let dtx = typed_var_to_doc tv in 
   let initialisation = 
-    match t.desc with 
+    match init.desc with 
     | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-    | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc t ^^ dsemi
+    | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc init ^^ dsemi
   in 
   d ^^ dtx ^^ initialisation
 
@@ -471,10 +471,12 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   let dtype =
     match tl with 
     | [] -> fail loc "multi_decl_to_doc: empty multiple declaration"
-    | {desc = Trm_let (vk,(x,_),_);_} :: _ ->
-      match vk with 
+    | {desc = Trm_let (vk,(_,ty),_);_} :: _ ->
+      begin match vk with 
       | Var_immutable -> string "const" ^^ blank 1 ^^ typ_to_doc ty
       | _ -> typ_to_doc ty
+      end
+    | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
   in 
   let dnames = separate (comma ^^ blank 1) (List.map string (get_names tl)) in 
     dtype ^^ blank 1 ^^ dnames ^^ semi 

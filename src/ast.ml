@@ -184,8 +184,8 @@ and trm_desc =
   | Trm_array of trm list (* { 0, 3, 5} as an array *)
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  | Trm_let_fun of var * typ * (typed_var list) * trm
-  | Trm_typedef of typvar * typdef
+  (* | Trm_let_fun of var * typ * (typed_var list) * trm *)
+  (* | Trm_typedef of typvar * typdef *)
   (* ********************TODO: Remove this later **************** *)
   | Trm_decl of def (* variable or function or type definition *)
   (* *********************************************** *)
@@ -323,7 +323,7 @@ let trm_struct ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
    attributes}
 
 let trm_let ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) (typed_var:typed_var) (kind : varkind) (init : trm): trm =
+  ?(add = []) ?(attributes = []) (kind : varkind) (typed_var:typed_var) (init : trm): trm =
   {annot = annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes}
 
@@ -508,8 +508,8 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
      (* type def *)
      | _ -> t
      end
-  | Trm_let (vk,tv,t) ->
-    trm_let ~annot ~loc ~is_statement ~add (vk,tv,trm_map t)
+  | Trm_let (vk,tv,init) ->
+    trm_let ~annot ~loc ~is_statement ~add  vk tv init
 
   | Trm_if (cond, then_, else_) ->
      let cond' = f cond in

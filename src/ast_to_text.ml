@@ -169,14 +169,14 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_decl" ^^ parens dd
   | Trm_let (vk,(x,tx),t) -> 
     let dvk = match vk with 
-    | Var_immutable -> "Var_immutable"
-    | Var_heap_allocated -> "Var_heap_allocated"
-    | Var_stack_allocated -> "Var_stack_allocated"
+    | Var_immutable ->  string "Var_immutable"
+    | Var_heap_allocated -> string "Var_heap_allocated"
+    | Var_stack_allocated -> string "Var_stack_allocated"
     in
     let dtx = print_typ ~only_desc tx in 
     let dt = print_trm ~only_desc t in 
     node "Trm_let" ^^
-      parens (separate (comma ^^ break 1) [dvk;dt;dtx])
+      parens (separate (comma ^^ break 1) [dvk;string x;dt;dtx])
   | Trm_if (c, t, e) ->
      let dc = print_trm ~only_desc c in
      let dt = print_trm ~only_desc t in
