@@ -543,6 +543,7 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
       end
       in
       (* let decl_index = get_index decl_trm tl in *)
+      (* TODO: Fix this later probably it will show the variable with pointer type *)
       let new_trms = List.map(fun x ->
        trm_let (Var_heap_allocated,(x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type)))
         (* trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var((x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type))))]) new_vars *)

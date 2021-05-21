@@ -106,7 +106,7 @@ let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm)
  *)
 let return (t : trm) : trm =
   (* let tl = Stack.fold (fun tl (_, sl) -> tl ++ (delete_list sl)) [] heap_vars in *)
-  let tl = Stack.fold (fun tl (_, _) -> tl) [] heap_vars in
+  let tl = Stack.fold (fun tl (_, ) -> tl) [] heap_vars in
   let (kind, _) = Stack.pop heap_vars in
   open_scope kind;
   match tl with
@@ -914,7 +914,7 @@ and translate_decl (d : decl) : trm =
         end
       |_ -> fail loc "translate_decl: should not happen"
     end
-  | Var {linkage = _; var_name = n; var_type = t; var_init = eo;
+  (* | Var {linkage = _; var_name = n; var_type = t; var_init = eo;
          constexpr = _; _} ->
     let {const; _} = t in
     let tt = translate_qual_type ~loc t in
@@ -958,7 +958,41 @@ and translate_decl (d : decl) : trm =
                trm_set ~annot:(Some Initialisation_instruction) ~loc
                  (trm_var ~loc n) te]
         end
+      end *)
+  | Var {linkage = _; var_name = "x"; var_type = t; var_init = eo; constexpr = _; _} ->
+    let {const;_} = t in 
+    let tt = translate_qual_type ~loc t in 
+    let te = 
+    begin match eo with 
+      | None ->
+        trm_lit ~loc Lit_uninitialized
+      | Some e ->
+        begin match e.desc with 
+        | InitList el -> (* {e1,e2,e3} *)((* Array(struct intstantiation) declaration  with initialization *))
+          let tl = List.map translate_expr el in
+          begin match tt.ty_desc with
+          | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
+          | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt) tl
+          | Typ_var _ -> (* assumption: typedefs are only for struct*)
+            trm_struct ~loc ~typ:(Some tt) tl
+          | _ -> 
+            fail loc ("translate_decl: initialisation lists only " ^ "allowed for struct and array")
+          end
+        | _ -> translate_expr e
+        end
+    end
+    in typ_map := Type_map.add n tt !typ_map;
+    if const then 
+      trm_let ~loc ~is_statement:true (Var_immutable,(n,tt),te)
+    else
+      begin match tt with 
+      | Typ_ptr _ -> trm_let ~loc (Var_heap_allocated,(n,tt),te);
+      | _ -> trm_let ~loc (Var_stack_allocated,(n,tt),te);
       end
+    
+
+
+
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
     trm_decl ~loc (Def_typ (n, tn))

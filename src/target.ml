@@ -1091,7 +1091,7 @@ let is_equal_lit (l : lit) (l' : lit) =
 let get_trm_kind (t : trm) : trm_kind =
   if t.is_statement then
     match t.desc with
-    | Trm_struct _ | Trm_array _ | Trm_decl _ | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
+    | Trm_struct _ | Trm_array _ | Trm_decl _ | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_) | Trm_let (_,_,_) 
     | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
     | _ -> TrmKind_Instr
   else
@@ -1172,7 +1172,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_then then_t &&
         check_target p_else else_t
-     | Constr_decl_var (name, p_body), Trm_decl (Def_var ((x, _), body)) ->
+     (* | Constr_decl_var (name, p_body), Trm_decl (Def_var ((x, _), body)) -> *)
+      | Constr_decl_var (name, p_body) , Trm_let (_,(x,_), body) ->
         check_name name x &&
         check_target p_body body
      | Constr_decl_fun (name, cl_args, p_body),
@@ -1375,45 +1376,6 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   (* target constraints first *)
   (* following directions *)
   | Constr_dir d -> follow_dir d p t
-  (* list constraint: explore each continuation *)
-    (* NOT SURE IF THIS IS USED ANYWHERE ANYMORE *)
-  (* | Constr_list (p_elt, next) ->
-     (* take into account heap allocation patterns *)
-     begin match t.annot with
-     | Some Delete_instructions ->
-        begin match t.desc with
-        (* delete instructions + abort *)
-        | Trm_seq ({annot = Some Heap_allocated; _} :: _) ->
-           print_info loc
-             "resolve_constraint: list constraint applied to a wrong term\n";
-           []
-        (* instruction + delete instructions *)
-        | Trm_seq (t' :: _) -> add_dir (Dir_nth 0) (resolve_constraint c p t')
-        | _ -> fail loc "resolve_constraint: bad delete instructions"
-        end
-     | Some Heap_allocated ->
-        (* t is either a heap allocation or a dereferencing *)
-        print_info loc
-          "resolve_constraint: list constraint applied to a wrong term\n";
-        []
-     | _ ->
-        begin match t.desc with
-        | Trm_seq tl ->
-           let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_nth n) il (resolve_target_simple p)
-        | Trm_apps (_, tl) ->
-           let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target_simple p)
-        | Trm_decl (Def_fun (_, _, args, _)) ->
-           let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
-           let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target_simple p)
-        | _ ->
-           print_info loc
-             "resolve_constraint: list constraint applied to a wrong term\n";
-           []
-        end
-     end *)
   (*
     if the constraint is a target constraint that does not match the node or
     if it is another kind of constraint, then we check if it holds

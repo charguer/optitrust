@@ -187,7 +187,8 @@ let make_implicit_record_assignment_aux (clog : out_channel) (trms_list_size : i
         | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
       in
       let var_name = match var_decl.desc with
-        | Trm_decl(Def_var (x,_)) -> fst x
+        (* | Trm_decl(Def_var (x,_)) -> fst x *)
+        | Trm_let (_,tx,_) -> fst tx
         | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
       in
       let lhs = var_decl in

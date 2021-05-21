@@ -726,8 +726,8 @@ let is_heap_alloc (t : trm) : bool =
       | Var_heap_allocated -> true
       | _ -> false
       end
-  (* | Trm_decl (Def_var _) -> false
-  | Trm_seq _ when t.annot = Some Heap_allocated -> true *)
+  (* | Trm_decl (Def_var _) -> false*)
+  | Trm_seq _ when t.annot = Some Heap_allocated -> true 
   | _ -> fail t.loc "is_heap_alloc: expected var declaration"
 
 (* return the name of the deleted variable *)
@@ -767,14 +767,14 @@ let for_loop_init (t : trm) : trm =
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [_; n]) ->
         n
-     | Trm_let (_,(_, _), init) -> 
-     (* | Trm_decl (Def_var (_, n)) -> n
+     | Trm_let (_,(_, _), init) -> init
+     (* | Trm_decl (Def_var (_, n)) -> n*)
      (* take into account heap allocated variables *)
      | Trm_seq [{desc = Trm_decl (Def_var _); _};
                 {desc =
                    Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));
                               _}, [_; n]); _}] ->
-        n *)
+        n 
      | _ -> fail init.loc "for_loop_init: bad for loop initialisation"
      end
   | _ -> fail t.loc "for_loop_init: expected for loop"
