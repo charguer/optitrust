@@ -49,9 +49,10 @@ and typ_annot =
   | Long
   | Short
 
-and typ = {ty_desc : typ_desc;
-           ty_annot : typ_annot list;
-           ty_attributes : attribute list}
+and typ = {
+  ty_desc : typ_desc;
+  ty_annot : typ_annot list;
+  ty_attributes : attribute list }
 
 and typed_var = var * typ
 
@@ -180,6 +181,8 @@ and trm_desc =
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_var list) * trm
+  (* LATER: trm_fun  for anonymous functions *)
+  (* LATER: mutual recursive functions via mutual recursion *)
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm
   (* question: distinguish toplevel seq for other seqs? *)
@@ -191,6 +194,7 @@ and trm_desc =
     Trm_for (e0, e1, e2, e3) =
     for (e0; e1; e2) {e3;}
    *)
+   (* TODO: trm_for_simple *)
   | Trm_switch of trm * ((trm list * trm) list)
   (* Remark: in the AST, arguments of cases that are enum labels
      appear as variables, hence the use of terms as opposed to
@@ -216,25 +220,32 @@ and trm_desc =
   | Trm_any of trm
 
 and varkind =
-  | Var_immutable (* Variable is a const *)
-  | Var_heap_allocated 
-  | Var_stack_allocated 
+  | Var_immutable (* For base types, immutable is equivalent to 'const', but for pointer types 'const' is stronger because it means that no write can be performed using the pointer. *)
+  | Var_mutable
 
-and typedef = 
-  | Typedef_abbrev of typvar * typ
-  | Typedef_enum of typvar * ((var * (trm option)) list)
+  (* DEPRECATED
+  | Var_stack_allocated
+  | Var_heap_allocated
+  *)
+
+and typedef =
+  | Typedef_abbrev of typvar * typ  (* type x = t , where t could be a struct type *)
+  | Typedef_enum of typvar * ((var * (trm option)) list) (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
 
 (* ways of aborting *)
 and abort =
   | Ret of trm option (* return;  or return 3; *)
-  | Break
-  | Continue
+  | Break (* LATER: could have label option *)
+  | Continue (* LATER: could have label option *)
 
 (* patterns *)
 type pat = trm
 
 (* rewrite_rule *)
-type rewrite_rule = {name : string; source : pat; target : string}
+type rewrite_rule = {
+  name : string;
+  source : pat;
+  target : string }
 
 (* basic rewrite rules *)
 type base = rewrite_rule list
@@ -247,6 +258,7 @@ type 'a tmap = 'a Trm_map.t
 type instantiation = trm tmap
 
 (* **************************Typ Construcors**************************** *)
+
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (x : typvar) : typ =
   {ty_annot = annot; ty_desc = Typ_var x; ty_attributes}
@@ -662,7 +674,11 @@ let decl_name (t : trm) : var =
   (* take into account heap allocated variables *)
   | Trm_let_fun (f, _, _, _) -> f
   | Trm_typedef ty ->
+<<<<<<< HEAD
     begin match ty with 
+=======
+    begin match with
+>>>>>>> 93555a2656fe8bd3b358c7f58b2b7e68df5b43f0
     | Typedef_abbrev (ty,_) -> ty
     | Typedef_enum (ty, _) -> ty
     end
@@ -683,8 +699,8 @@ let var_decl_type (t : trm) : typ =
 (* true if t is the declaration of a heap allocated variable *)
 let is_heap_alloc (t : trm) : bool =
   match t.desc with
-  | Trm_let (vk,(_,_),_) -> 
-      begin match vk with 
+  | Trm_let (vk,(_,_),_) ->
+      begin match vk with
       | Var_heap_allocated -> true
       | _ -> false
       end
@@ -835,8 +851,13 @@ let for_loop_nb_iter (t : trm) : trm =
 let rec aliased_type (x : typvar) (t : trm) : typ option =
   match t.desc with
   | Trm_typedef ty ->
+<<<<<<< HEAD
     begin match ty with 
     | Typedef_abbrev (y,ty) when y = x -> Some ty
+=======
+    begin match ty with
+    | Trm_abbrev (y,ty) -> when y = x -> Some ty
+>>>>>>> 93555a2656fe8bd3b358c7f58b2b7e68df5b43f0
     | _ -> None
     end
   | Trm_seq tl ->

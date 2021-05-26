@@ -92,7 +92,7 @@ let close_scope ?(loc : location = None) (t : trm) : trm =
     let tl = delete_list ~loc:loc_end sl in
     trm_seq ~loc:loc_end ~annot:(Some Delete_instructions) (t :: tl)
     trm_seq ~loc:loc_end  [t] *)
-    
+
 (* manage a new scope while translating a statement *)
 let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm) : trm =
   open_scope kind;
@@ -487,11 +487,19 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
   | UnaryOperator {kind = k; operand = e} ->
     begin match k with
       | AddrOf -> (* expectation: e is not a const variable *)
+        (* We are translating a term of the form that involves [&p],
+           for example, [int p = 3; f(&p)]. In our AST, [p] represents
+           the address of the cell at which [3] is stored, thus the
+           call is actually [f(p)]. In other words we drop the [&] operator. *)
         let {desc; annot; loc; add; attributes; _} =
           translate_expr ~val_t:Lvalue e
         in
-        {desc; annot; loc; is_statement; add = Add_address_of_operator :: add; typ;
-         attributes}
+        { desc;
+          annot;
+          loc; is_statement;
+          add = Add_address_of_operator :: add;
+          typ;
+          attributes }
       | _ ->
         begin match k with
           | PostInc ->
@@ -504,11 +512,17 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
             let t = translate_expr e in
             begin match val_t with
               | Lvalue ->
-                {annot = t.annot; desc = t.desc; loc = t.loc;
-                 is_statement = t.is_statement;
-                 add = Add_star_operator :: t.add;
-                 typ;
-                 attributes = t.attributes}
+                (* We are translating a term t of the form [*p] that occurs
+                   on the left-hand side of an assignment, such as [*p = v].
+                   We want to encode the latter as [set(p, v)], this is why we
+                   want to drop the [*] operator. *)
+                { annot = t.annot;
+                  desc = t.desc;
+                  loc = t.loc;
+                  is_statement = t.is_statement;
+                  add = Add_star_operator :: t.add;
+                  typ;
+                  attributes = t.attributes}
               | Rvalue -> trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [t]
             end
           | Minus ->
@@ -839,7 +853,7 @@ and translate_decl_list (dl : decl list) : trm list =
         begin match tq.ty_desc with
           | Typ_var n when n = rn ->
             let tl = translate_decl_list dl' in
-            let td = Typedef_abbrev(tn,typ_struct fs m rn) in 
+            let td = Typedef_abbrev(tn,typ_struct fs m rn) in
             trm_typedef(tn,td) :: tl
           | _ ->
             fail loc ("translate_decl_list: a type definition following " ^
@@ -916,14 +930,14 @@ and translate_decl (d : decl) : trm =
       |_ -> fail loc "translate_decl: should not happen"
     end
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
-    let {const;_} = t in 
-    let tt = translate_qual_type ~loc t in 
-    let te = 
-    begin match eo with 
+    let {const;_} = t in
+    let tt = translate_qual_type ~loc t in
+    let te =
+    begin match eo with
       | None ->
         trm_lit ~loc Lit_uninitialized
       | Some e ->
-        begin match e.desc with 
+        begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
           begin match tt.ty_desc with
@@ -931,21 +945,21 @@ and translate_decl (d : decl) : trm =
           | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt) tl
           | Typ_var _ -> (* assumption: typedefs are only for struct*)
             trm_struct ~loc ~typ:(Some tt) tl
-          | _ -> 
+          | _ ->
             fail loc ("translate_decl: initialisation lists only " ^ "allowed for struct and array")
           end
         | _ -> translate_expr e
         end
       end
     in typ_map := Type_map.add n tt !typ_map;
-    if const then 
+    if const then
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
     else
-      begin match tt.ty_desc with 
+      begin match tt.ty_desc with
       | Typ_ptr _ -> trm_let ~loc Var_heap_allocated (n,tt) te
       | _ -> trm_let ~loc Var_stack_allocated (n,tt) te;
       end
-  
+
 
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
