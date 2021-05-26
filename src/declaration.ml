@@ -35,7 +35,6 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
      write_log clog log;
      begin match t_def.desc with
      (* const variables *)
-     (* | Trm_decl (Def_var ((x, _), dx)) -> *)
       | Trm_let (_,(x,_),dx) ->
         let t_x =
           if as_reference then trm_apps (trm_unop Unop_get) [trm_var x]
@@ -62,39 +61,18 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
        heap allocated variables
        note: an initialisation must be given
       *)
-      (* TODO: Remove this *)
-     (* | Trm_seq [{desc = Trm_decl (Def_var ((x, _), _)); _};
-                {desc = Trm_apps (_, [_; dx]); _}]
-          when t_def.annot = Some Heap_allocated ->
-        let t_x =
-          trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var x]
-        in
-        let t_x =
-          if as_reference then trm_apps (trm_unop Unop_get) [t_x] else t_x
-        in
-        let def_x =
-          if not as_reference then dx
-          else
-            match dx.add with
-            | Add_address_of_operator :: addl -> {dx with add = addl}
-            | _ -> fail t_def.loc "fold_decl: expected a reference"
-        in
-        let t = change_trm ~change_at:fold_at def_x t_x t in
-        (* make sure def_x is not replaced in the definition of x here too *)
-        let change_at =
-          [[cVarDef x ~body:[cVar x]; cNth 1;
-            cArg 1]]
-        in
-        change_trm ~change_at t_x def_x t *)
      (* typedef *)
-     | Trm_decl (Def_typ (x, dx)) ->
-        let ty_x = typ_var x in
-        let t = change_typ ~change_at:fold_at dx ty_x t in
-        (* make sure dx is not replaced in the definition of x here too *)
+     | Trm_typedef d -> 
+       begin match d with 
+       | Typedef_abbrev (x,dx) -> 
+        let ty_x = typ_var x in 
+        let t = change_typ ~change_at: fold_at dx ty_x t in 
         let change_at = [[cTypDef x]] in
         change_typ ~change_at ty_x dx t
+       | _ -> fail t.loc "fold_decl: expected a typedef"
+       end
      (* fun decl *)
-     | Trm_decl (Def_fun _) ->
+     | Trm_let_fun _ ->
         fail t.loc "fold_decl: fun declaration folding is unsupported"
      | _ -> fail t.loc "fold_decl: expected a definition"
      end
@@ -125,13 +103,9 @@ let insert_decl ?(insert_before : target = [])
   in
   let t_insert =
     if const then trm_let Var_immutable (x,tx) def_x
-    (* if const then trm_decl (Def_var ((x, tx), def_x)) *)
     else
       trm_let Var_heap_allocated (x, (typ_ptr tx)) def_x
-      (* trm_seq ~annot:(Some Heap_allocated)
-        [trm_decl (Def_var ((x, typ_ptr tx), trm_prim (Prim_new tx)));
-         trm_set ~annot:(Some Initialisation_instruction) (trm_var x) def_x
-        ] *)
+      
   in
   (* compute the explicit path for later use *)
   let p =
@@ -220,7 +194,7 @@ let insert_const ?(insert_before : target = [])
  *)
 let insert_typedef ?(insert_before : target = [])
   ?(insert_after : target = []) (x : typvar) (dx : typ) (t : trm) : trm =
-  insert_trm ~insert_before ~insert_after (trm_decl (Def_typ (x, dx))) t
+  insert_trm ~insert_before ~insert_after (trm_typedef (Typedef_abbrev (x, dx))) t
 
 (*
   combine insert_definition and fold_decl
@@ -469,17 +443,12 @@ let group_decl_init (t : trm) : trm =
     match tl with
     | t1 :: t2 :: tl ->
        begin match t1.desc, t2.desc with
-       | Trm_seq [{desc = Trm_decl (Def_var ((x, tx), dx)); _}],
+       | Trm_seq [{desc = Trm_let (Var_heap_allocated,(x, tx), dx); _}],
          Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                    [{desc = Trm_var y; _}; init])
-             when y = x && t1.annot = Some Heap_allocated ->
+             (* when y = x && t1.annot = Some Heap_allocated *) ->
           let t =
-            trm_seq ~annot:(Some Heap_allocated) ~loc:t1.loc
-              [
-                trm_decl (Def_var ((x, tx), dx));
-                trm_set (* ~annot:(Some Initialisation_instruction) *) (trm_var x)
-                  init
-              ]
+            trm_let ~loc:t1.loc Var_heap_allocated (x, tx) dx
           in
           group_in_list (t :: tl)
        | _ -> t1 :: (group_in_list (t2 :: tl))

@@ -374,32 +374,6 @@ and typedef_to_doc ?(semicolon : bool = true) (t : typedef) : document =
                          braces (separate (comma ^^ blank 1) const_doc_l)] ^^
      dsemi
 
-
-(* assumption: all declarations are non-initialised variables *)
-(* TODO: Change this function later based on Arthur's idea *)
-(* and multi_decl_to_doc (loc : location) (tl : trm list) : document =
-  let rec get_names = function
-    | [] -> []
-    (* const variables *)
-    | {desc = Trm_decl (Def_var ((x, _), _)); _} :: tl
-      (* heap allocated variables *)
-      | {desc = Trm_seq ({desc = Trm_decl (Def_var ((x, _), _)); _} :: _); _} ::
-          tl ->
-       x :: get_names tl
-    | _ -> fail loc "multi_decl_to_doc: only variable declarations allowed"
-  in
-  let dtype =
-    match tl with
-    | [] -> fail loc "multi_decl_to_doc: empty multiple declaration"
-    | {desc = Trm_decl (Def_var ((_, ty), _)); _} :: _ ->
-       string "const" ^^ blank 1 ^^ typ_to_doc ty
-    | {desc = Trm_seq ({desc = Trm_decl
-         (Def_var ((_, {ty_desc = Typ_ptr ty; _}), _)); _} :: _); _} :: _ ->
-       typ_to_doc ty
-    | _ -> fail loc "multi_decl_to_doc: only variable declarations allowed"
-  in
-  let dnames = separate (comma ^^ blank 1) (List.map string (get_names tl)) in
-  dtype ^^ blank 1 ^^ dnames ^^ semi *)
 and multi_decl_to_doc (loc : location) (tl : trm list) : document = 
   let rec get_names = function 
     | [] -> []
