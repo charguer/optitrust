@@ -104,7 +104,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           let t' = aux dl (trm_var ~loc x) in
           begin match t'.desc with
           | Trm_var x' ->
-            trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl body
+            trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x' tx txl body
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
                          "must preserve names(function)")
@@ -267,8 +267,8 @@ let const_non_const_aux (clog : out_channel) (_trm_index : int) (t : trm) : trm 
     match t.desc with
     | Trm_let (vk,(x,tx),init) ->
       begin match vk with 
-      | Var_immutable -> trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add  ~attributes:t.attributes Var_stack_allocated (x, tx) init
-      | _ -> trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add Var_stack_allocated (x, tx) init
+      | Var_mutable -> trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add  ~attributes:t.attributes Var_immutable (x, tx) init
+      | _ -> trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add Var_immutable (x, tx) init
       end
     | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration" 
 
@@ -696,11 +696,11 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add vk (y,change_typ ty) (aux init)
       | Trm_let_fun (f, ty, args, body) ->
          trm_let_fun ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-           ~attributes:t.attributes f change_typ ty,
+           ~attributes:t.attributes f (change_typ ty)
                      (List.map (fun (y, ty) -> (y, change_typ ty)) args)
                      (aux body)
       | Trm_typedef (Typedef_abbrev (y, ty)) ->
-         trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement ~add:t.add ~attributes:t.attributes 
+         trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes 
           (Typedef_abbrev (y, change_typ ty))
       | _ -> trm_map aux t
     in
@@ -744,7 +744,7 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
           | Trm_seq [f_loop;del_inst] ->
             begin match f_loop.desc with
             | Trm_for (init, cond, step, body) ->
-              let new_decl = trm_let Var_heap_allocated (new_var, typ_var var_type) (trm_var old_var)
+              let new_decl = trm_let Var_mutable (new_var, typ_var var_type) (trm_var old_var)
           
               in
               let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
@@ -839,7 +839,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
             trm_seq (* ~annot:(Some Delete_instructions) *)[
               trm_for
                 (* init *)
-                  (trm_let Var_heap_allocated ("k",typ_int()) (trm_lit (Lit_int 0)))
+                  (trm_let Var_mutable ("k",typ_int()) (trm_lit (Lit_int 0)))
                   
                 (* cond *)
                   (trm_apps (trm_binop Binop_lt)
@@ -889,7 +889,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
           trm_seq (* ~annot:(Some Delete_instructions) *)[
             trm_for
               (* init *)
-                (trm_let Var_heap_allocated ("k", typ_int()) (trm_lit (Lit_int 0)))
+                (trm_let Var_mutable ("k", typ_int()) (trm_lit (Lit_int 0)))
                 
               (* cond *)
                 (trm_apps (trm_binop Binop_lt)

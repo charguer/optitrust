@@ -322,7 +322,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let d = begin match varkind with
-  | Var_immutable -> string "const " ^^ blank 1
+  | Var_mutable -> string "const " ^^ blank 1
   | _ -> empty
   end in
   let dtx = typed_var_to_doc tv in
@@ -390,7 +390,7 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
     | [] -> fail loc "multi_decl_to_doc: empty multiple declaration"
     | {desc = Trm_let (vk,(_,ty),_);_} :: _ ->
       begin match vk with
-      | Var_immutable -> string "const" ^^ blank 1 ^^ typ_to_doc ty
+      | Var_mutable -> string "const" ^^ blank 1 ^^ typ_to_doc ty
       | _ -> typ_to_doc ty
       end
     | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"

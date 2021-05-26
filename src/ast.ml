@@ -674,11 +674,7 @@ let decl_name (t : trm) : var =
   (* take into account heap allocated variables *)
   | Trm_let_fun (f, _, _, _) -> f
   | Trm_typedef ty ->
-<<<<<<< HEAD
-    begin match ty with 
-=======
-    begin match with
->>>>>>> 93555a2656fe8bd3b358c7f58b2b7e68df5b43f0
+    begin match ty with
     | Typedef_abbrev (ty,_) -> ty
     | Typedef_enum (ty, _) -> ty
     end
@@ -697,14 +693,14 @@ let var_decl_type (t : trm) : typ =
   | _ -> fail t.loc "var_decl_type: expected var declaration"
 
 (* true if t is the declaration of a heap allocated variable *)
-let is_heap_alloc (t : trm) : bool =
+(* let is_heap_alloc (t : trm) : bool =
   match t.desc with
   | Trm_let (vk,(_,_),_) ->
       begin match vk with
-      | Var_heap_allocated -> true
+      | Var_mutable -> true
       | _ -> false
       end
-  | _ -> fail t.loc "is_heap_alloc: expected var declaration"
+  | _ -> fail t.loc "is_heap_alloc: expected var declaration" *)
 
 (* This will be used later for code verification *)
 
@@ -851,13 +847,8 @@ let for_loop_nb_iter (t : trm) : trm =
 let rec aliased_type (x : typvar) (t : trm) : typ option =
   match t.desc with
   | Trm_typedef ty ->
-<<<<<<< HEAD
     begin match ty with 
     | Typedef_abbrev (y,ty) when y = x -> Some ty
-=======
-    begin match ty with
-    | Trm_abbrev (y,ty) -> when y = x -> Some ty
->>>>>>> 93555a2656fe8bd3b358c7f58b2b7e68df5b43f0
     | _ -> None
     end
   | Trm_seq tl ->

@@ -122,13 +122,13 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                 if is_heap_alloc t then
                   begin match ty.ty_desc with
                   | Typ_ptr ty' ->
-                    trm_let Var_heap_allocated (split_name y, ty)
+                    trm_let Var_mutable (split_name y, ty)
                                         (trm_prim (Prim_new ty'))
                      
                   | _ -> fail t.loc "split_seq_at: bad type for heap allocation"
                   end
                 else
-                  trm_let Var_stack_allocated (split_name y, typ_ptr ty)
+                  trm_let Var_immutable (split_name y, typ_ptr ty)
                                      (trm_prim (Prim_new ty))
                   
               in decl
@@ -162,7 +162,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                if is_heap_alloc t then
                  begin match ty.ty_desc with
                  | Typ_ptr ty' ->
-                    trm_let Var_heap_allocated (y,ty) (trm_var (split_name y))
+                    trm_let Var_mutable (y,ty) (trm_var (split_name y))
                     (* trm_seq ~annot:(Some Heap_allocated)
                       [
                         trm_decl (Def_var ((y, ty), trm_prim (Prim_new ty')));
@@ -174,7 +174,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                  | _ -> fail t.loc "split_seq_at: bad type for heap allocation"
                  end
                else
-                 trm_let Var_heap_allocated (y, ty) (trm_var (split_name y))
+                 trm_let Var_mutable (y, ty) (trm_var (split_name y))
                  (* trm_decl
                    (Def_var ((y, ty),
                              trm_apps ~annot:(Some Heap_allocated)

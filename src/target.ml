@@ -1032,13 +1032,13 @@ end
         (* first subcase: no initial value (init = new …) *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _));
             _}] ->
-           trm_let ~loc ~is_statement:true Var_heap_allocated (x, tx) (trm_lit ~loc Lit_uninitialized)
+           trm_let ~loc ~is_statement:true Var_mutable (x, tx) (trm_lit ~loc Lit_uninitialized)
            
         (* second subcase: initialisation *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _)); _};
            {desc = Trm_apps (_, [{desc = Trm_var y; _}; init]); _}]
              when y = x ->
-           trm_let ~loc ~is_statement:true Var_heap_allocated (x, tx) init
+           trm_let ~loc ~is_statement:true Var_mutable (x, tx) init
         | _ -> fail loc "forget_heap_alloc: bad heap allocation"
         end
      | _ -> fail loc "forget_heap_alloc: bad heap_alloc instruction"
@@ -1092,7 +1092,7 @@ let is_equal_lit (l : lit) (l' : lit) =
 let get_trm_kind (t : trm) : trm_kind =
   if t.is_statement then
     match t.desc with
-    | Trm_struct _ | Trm_array _ | Trm_let _ | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_) | Trm_let (_,_,_) 
+    | Trm_struct _ | Trm_array _ | Trm_let _ | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_) 
     | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
     | _ -> TrmKind_Instr
   else
@@ -1450,7 +1450,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      | Trm_let_fun (x, _ ,_ ,body) ->
         add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
         add_dir Dir_body (resolve_target_simple p body)
-     |Trm_typedef (Typedef_abbrev (x, xto_l)) ->
+     |Trm_typedef (Typedef_enum (x, xto_l)) ->
         let (il, tl) =
           foldi
             (fun n (il, tl) (_, t_o) ->
@@ -1593,7 +1593,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
             app_to_nth_dflt loc tl i (fun ith_t ->
                 add_dir (Dir_case (n, cd)) (resolve_target_simple p ith_t))
        )
-  | Dir_enum_const (n, ecd), Trm_typedef (Typedef_abbrev (_, xto_l)) ->
+  | Dir_enum_const (n, ecd), Trm_typedef (Typedef_enum (_, xto_l)) ->
      app_to_nth_dflt loc xto_l n
        (fun (x, t_o) ->
          match ecd with
@@ -1692,7 +1692,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           let args_decl =
             List.rev_map
               (fun (x, tx) ->
-                trm_let Var_heap_allocated (x, typ_ptr tx) (trm_lit Lit_uninitialized)
+                trm_let Var_mutable (x, typ_ptr tx) (trm_lit Lit_uninitialized)
               )
               args
           in
@@ -1704,7 +1704,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
              aux dl body (init :: ctx)
           | _ -> aux dl body ctx
           end
-       | Dir_body, Trm_let (_ (_, _), body) ->
+       | Dir_body, Trm_let (_,(_,_), body) 
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_abort (Ret (Some body))
          | Dir_body, Trm_labelled (_, body) ->
@@ -1725,7 +1725,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           app_to_nth loc arg n
             (fun (x, _) -> aux dl (trm_var ~loc x) ctx)
        | Dir_name , Trm_let (_,(x,_),_) 
-         | Dir_name, Trm_let_fun (x, _, _, _))
+         | Dir_name, Trm_let_fun (x, _, _, _)
          | Dir_name, Trm_typedef (Typedef_abbrev (x, _))
          | Dir_name, Trm_labelled (x, _)
          | Dir_name, Trm_goto x ->
@@ -1738,7 +1738,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
               | Case_name i ->
                  app_to_nth loc tl i (fun ith_t -> aux dl ith_t ctx)
             )
-       | Dir_enum_const (n, ecd), Trm_typedef (Typedef_abbrev (_, xto_l)) ->
+       | Dir_enum_const (n, ecd), Trm_typedef (Typedef_enum (_, xto_l)) ->
           app_to_nth loc xto_l n
              (fun (x, t_o) ->
                match ecd with

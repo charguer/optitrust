@@ -648,7 +648,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         in
         begin match val_t with
           | Rvalue when is_heap_var s ->
-            trm_apps ~annot:(Some Heap_allocated) ~loc ~typ
+            trm_apps (* ~annot:(Some Heap_allocated) *) ~loc ~typ
               (trm_unop ~loc Unop_get) [trm_var ~loc s]
           | _ -> trm_var ~loc ~typ s
         end
@@ -854,7 +854,7 @@ and translate_decl_list (dl : decl list) : trm list =
           | Typ_var n when n = rn ->
             let tl = translate_decl_list dl' in
             let td = Typedef_abbrev(tn,typ_struct fs m rn) in
-            trm_typedef(tn,td) :: tl
+            trm_typedef td :: tl
           | _ ->
             fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
@@ -907,7 +907,7 @@ and translate_decl (d : decl) : trm =
               | None -> trm_lit ~loc Lit_uninitialized
               | Some s -> translate_stmt s
             in
-            trm_let_fun ~loc (s, out_t, [], tb)
+            trm_let_fun ~loc s out_t  [] tb
           | Some {non_variadic = pl; variadic = _} ->
             let args =
               List.combine
@@ -925,7 +925,7 @@ and translate_decl (d : decl) : trm =
               | None -> trm_lit ~loc Lit_uninitialized
               | Some s -> translate_stmt s
             in
-            trm_let_fun ~loc (s, out_t, args, tb)
+            trm_let_fun ~loc s out_t  args tb
         end
       |_ -> fail loc "translate_decl: should not happen"
     end
@@ -953,11 +953,11 @@ and translate_decl (d : decl) : trm =
       end
     in typ_map := Type_map.add n tt !typ_map;
     if const then
-      trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
+      trm_let ~loc ~is_statement:true Var_mutable (n,tt) te
     else
       begin match tt.ty_desc with
-      | Typ_ptr _ -> trm_let ~loc Var_heap_allocated (n,tt) te
-      | _ -> trm_let ~loc Var_stack_allocated (n,tt) te;
+      | Typ_ptr _ -> trm_let ~loc Var_mutable (n,tt) te
+      | _ -> trm_let ~loc Var_immutable (n,tt) te;
       end
 
 

@@ -166,24 +166,25 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_struct" ^^ print_list dtl
   | Trm_let (vk,(x,tx),t) -> 
     let dvk = match vk with 
-    | Var_immutable ->  string "Var_immutable"
-    | Var_heap_allocated -> string "Var_heap_allocated"
-    | Var_stack_allocated -> string "Var_stack_allocated"
+    | Var_immutable -> string "Var_immutable"
+    | Var_mutable ->  string "Var_mutable"
+    
     in
     let dtx = print_typ ~only_desc tx in 
     let dt = print_trm ~only_desc t in 
     node "Trm_let" ^^
       parens (separate (comma ^^ break 1) [dvk;string x;dt;dtx])
+
   | Trm_let_fun (f, r, tvl, b) ->
     let dout = print_typ ~only_desc r in 
     let dtvl = List.map(function (x,tx) -> 
           let dtx = print_typ ~only_desc tx in 
-          print_pari (string x) dtx) tvl in 
-    let dl = print_typ ~only_desc t in 
+          print_pair (string x) dtx) tvl in 
+    let dt = print_trm ~only_desc b in 
     node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
-        [string x; dout; print_list dtvl; dt])
-  | Trm_typdef t -> print_typedef ~only_desc t
+        [string f; dout; print_list dtvl; dt])
+  | Trm_typedef t -> print_typedef ~only_desc t
   | Trm_if (c, t, e) ->
      let dc = print_trm ~only_desc c in
      let dt = print_trm ~only_desc t in
@@ -252,7 +253,6 @@ and print_typedef ?(only_desc : bool = false) (t : typedef) : document =
     let dt = print_typ ~only_desc typ in 
     node "Typedef" ^^ print_pair (string x) dt
   | Typedef_enum (x, enum_const_l) -> 
-    Def_enum (x, enum_const_l) ->
      let denum_const_l =
        print_list
          (List.map

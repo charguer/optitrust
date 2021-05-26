@@ -84,7 +84,7 @@ open Tools
           | Trm_val(Val_lit(Lit_int 1)) -> trm_var new_var
           | _ -> trm_apps (trm_binop Binop_mul)
               [
-                  trm_apps ~annot:(Some Heap_allocated)
+                  trm_apps (* ~annot:(Some Heap_allocated) *)
                       (trm_unop Unop_get) [trm_var new_var];
                     loop_step
 
@@ -95,7 +95,7 @@ open Tools
             [
               trm_for
                 (*init *)
-                (trm_let Var_heap_allocated (index, typ_int()) start)
+                (trm_let Var_mutable (index, typ_int()) start)
 
                 (* (trm_seq ~annot:(Some Heap_allocated)
                   [
@@ -283,7 +283,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
             [
               trm_for
                 (* init *)
-                (trm_let Var_heap_allocated (index, typ_int()) start)
+                (trm_let Var_mutable (index, typ_int()) start)
                 (* (trm_seq ~annot:(Some Heap_allocated)
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
@@ -456,7 +456,7 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
             [
               trm_for
                 (* init *)
-                (trm_let Var_heap_allocated (index, typ_int()) init)
+                (trm_let Var_mutable (index, typ_int()) init)
                 (* (trm_seq ~annot:(Some Heap_allocated)
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
@@ -765,7 +765,7 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
                      "extract_vars_from_loop: expected heap allocated variable"
               in
               let tx' = typ_array tx (Trm n) in
-              trm_let Var_heap_allocated (x, typ_ptr tx') (trm_prim (Prim_new tx'))
+              trm_let Var_mutable (x, typ_ptr tx') (trm_prim (Prim_new tx'))
               (* trm_seq ~annot:(Some Heap_allocated)
                 [
                   trm_decl (Def_var ((x, typ_ptr tx'),
@@ -1261,7 +1261,7 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
             [
               trm_for
                 (* init *)
-                (trm_let Var_heap_allocated (index,typ_int()) (trm_lit (Lit_int 0)))
+                (trm_let Var_mutable (index,typ_int()) (trm_lit (Lit_int 0)))
                 (* (trm_seq ~annot:(Some Heap_allocated)
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),

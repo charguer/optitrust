@@ -43,7 +43,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
         (trm_seq
           (t ::
               List.map
-                (fun x_tx -> trm_let Var_heap_allocated x_tx (trm_lit Lit_uninitialized))
+                (fun x_tx -> trm_let Var_mutable x_tx (trm_lit Lit_uninitialized))
                 fresh_args
           )
         )
@@ -51,7 +51,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     in
     (* result is heap allocated *)
     let result_decl =
-      trm_let Var_heap_allocated (result, typ_ptr tf) (trm_prim (Prim_new tf))
+      trm_let Var_mutable (result, typ_ptr tf) (trm_prim (Prim_new tf))
       
     in
     (* body where the argument names are substituted *)
@@ -115,7 +115,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
       let arg_decls =
         List.map2
           (fun (x, tx) dx ->
-             trm_let ~is_statement:true Var_heap_allocated (x,tx) dx
+             trm_let ~is_statement:true Var_mutable (x,tx) dx
           )
           fresh_args
           arg_vals

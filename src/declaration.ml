@@ -102,9 +102,9 @@ let insert_decl ?(insert_before : target = [])
     else dx
   in
   let t_insert =
-    if const then trm_let Var_immutable (x,tx) def_x
+    if const then trm_let Var_mutable (x,tx) def_x
     else
-      trm_let Var_heap_allocated (x, (typ_ptr tx)) def_x
+      trm_let Var_mutable (x, (typ_ptr tx)) def_x
       
   in
   (* compute the explicit path for later use *)
@@ -443,12 +443,12 @@ let group_decl_init (t : trm) : trm =
     match tl with
     | t1 :: t2 :: tl ->
        begin match t1.desc, t2.desc with
-       | Trm_seq [{desc = Trm_let (Var_heap_allocated,(x, tx), dx); _}],
+       | Trm_seq [{desc = Trm_let (Var_mutable,(x, tx), dx); _}],
          Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                    [{desc = Trm_var y; _}; init])
              (* when y = x && t1.annot = Some Heap_allocated *) ->
           let t =
-            trm_let ~loc:t1.loc Var_heap_allocated (x, tx) dx
+            trm_let ~loc:t1.loc Var_mutable (x, tx) dx
           in
           group_in_list (t :: tl)
        | _ -> t1 :: (group_in_list (t2 :: tl))
