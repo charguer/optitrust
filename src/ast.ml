@@ -180,7 +180,7 @@ and trm_desc =
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_var list) * trm
-  | Trm_typedef of typvar * typdef
+  | Trm_typedef of typedef
   (* ********************TODO: Remove this later **************** *)
   | Trm_decl of def (* variable or function or type definition *)
   (* *********************************************** *)
@@ -229,7 +229,7 @@ and varkind =
   | Var_heap_allocated 
   | Var_stack_allocated 
 
-and typdef = 
+and typedef = 
   | Typedef_abbrev of typvar * typ
   | Typedef_enum of typvar * ((var * (trm option)) list)
 
@@ -327,8 +327,8 @@ let trm_let_fun ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
    typ = Some (typ_unit ()); attributes}
 
 let trm_typedef ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = [])  (typ_name : typvar) (def_typ : typdef): trm =
-  {annot = annot; desc = Trm_typedef (typ_name,def_typ); loc = loc; is_statement; add;
+  ?(add = []) ?(attributes = []) (def_typ : typedef): trm =
+  {annot = annot; desc = Trm_typedef (def_typ); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes}
 
 let trm_decl ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
@@ -681,7 +681,11 @@ let decl_name (t : trm) : var =
   | Trm_let (_,(x,_),_) -> x
   (* take into account heap allocated variables *)
   | Trm_let_fun (f, _, _, _) -> f
-  | Trm_typedef (ty, _) -> ty
+  | Trm_typedef ty ->
+    begin match with 
+    | Typedef_abbrev (ty,_) -> ty
+    | Typedef_enum (ty, _) -> ty
+    end
   | _ -> fail t.loc "decl_name: expected declaration"
 
 (* return the initialisation in the declaration *)

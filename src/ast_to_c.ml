@@ -213,7 +213,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ braces (separate (comma ^^ blank 1) dl)
      | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
      | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
-     | Trm_typedef t -> dattr ^^ trm_typedef ~semicolon t
+     | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
      | Trm_if (b, then_, else_) ->
         let db = trm_to_doc b in
         let dt = trm_to_doc ~semicolon:true then_ in
@@ -340,7 +340,7 @@ and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typ
   | _ -> separate (blank 1) [dr; string f; parens argd; trm_to_doc b]
   end
 
-and typedef_to_doc ?(semicolon : bool = true) (x : typvar)(t : typdef) : document = 
+and typedef_to_doc ?(semicolon : bool = true) (t : typedef) : document = 
   let dsemi = if semicolon then semi else empty in
   match t with 
   | Typedef_abbrev (x,t) -> 
