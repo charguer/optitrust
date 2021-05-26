@@ -44,7 +44,6 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
           (t ::
               List.map
                 (fun x_tx -> trm_let Var_heap_allocated x_tx (trm_lit Lit_uninitialized))
-                (* (fun x_tx -> trm_decl (Def_var (x_tx, trm_lit Lit_uninitialized))) *)
                 fresh_args
           )
         )
@@ -52,8 +51,8 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     in
     (* result is heap allocated *)
     let result_decl =
-      trm_seq ~annot:(Some Heap_allocated)
-        [trm_decl (Def_var ((result, typ_ptr tf), trm_prim (Prim_new tf)))]
+      trm_let Var_heap_allocated (result, typ_ptr tf) (trm_prim (Prim_new tf))
+      
     in
     (* body where the argument names are substituted *)
     let body =
@@ -116,12 +115,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
       let arg_decls =
         List.map2
           (fun (x, tx) dx ->
-            (*trm_seq ~annot:(Some Heap_allocated)
-              [
-                trm_decl (Def_var ((x, typ_ptr tx), trm_prim (Prim_new tx)));
-                trm_set ~annot:(Some Initialisation_instruction) (trm_var x) dx
-              ] *)
-             trm_decl ~is_statement:true (Def_var ((x, tx), dx))
+             trm_let ~is_statement:true Var_heap_allocated (x,tx) dx
           )
           fresh_args
           arg_vals
@@ -180,7 +174,8 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                      trm_labelled return_label
                        (change_trm
                           (trm_apps (trm_var f) arg_vals)
-                          (trm_apps ~annot:(Some Heap_allocated)
+                          (* TODO: Fix this later *)
+                          (trm_apps (* ~annot:(Some Heap_allocated) *)
                              (trm_unop Unop_get) [trm_var result])
                           t
                        )
@@ -251,14 +246,14 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
        write_log clog log;
        match t_def.desc with
        (* const variables *)
-       | Trm_decl (Def_var ((x, _), dx)) ->
+       | Trm_let (_,(x,_), dx) ->
           let t_x = trm_var x in
           change_trm ~change_at:inline_at t_x dx t
        (*
          heap allocated variables
          note: an initialisation must be given
         *)
-       | Trm_seq [{desc = Trm_decl (Def_var ((x, _), _)); _};
+       (* | Trm_seq [{desc = Trm_decl (Def_var ((x, _), _)); _};
                   {desc = Trm_apps (_, [_; dx]); _}]
             when t_def.annot = Some Heap_allocated ->
           let t_x =
@@ -280,13 +275,13 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
           in
           let t = change_trm ~change_at:inline_at t_x dx t in
           (* put back x instead of x' *)
-          change_trm (trm_var x') (trm_var x) t
+          change_trm (trm_var x') (trm_var x) t *)
        (* typedef *)
-       | Trm_decl (Def_typ (x, dx)) ->
+       | Trm_typedef (Typedef_abbrev (x,dx)) ->
           let ty_x = typ_var x in
           change_typ ~change_at:inline_at ty_x dx t
        (* fun decl *)
-       | Trm_decl (Def_fun (f, tf, args, body)) ->
+       | Trm_let_fun (f, tf, args, body) ->
           let log : string =
             Printf.sprintf
               "  - function %s is used at most once per instruction\n"
@@ -374,7 +369,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
 (* Get the index for a given field of struct inside its list of fields *)
 let get_pos (x : typvar) (t : trm) : int =
   begin match t.desc with
-  | Trm_decl (Def_typ(_,dx)) ->
+    | Trm_typedef (Typedef_abbrev(_, dx)) ->
        let field_list1 =
           match dx.ty_desc with
           | Typ_struct(l,_,_) -> l
@@ -423,7 +418,7 @@ let inline_record_access_aux (clog : out_channel) (var : string) (field : string
     in aux t t
 
 
-(* let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm =
+let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm =
       (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
       let pl = [cVarDef ~name:var()] in
       let epl = resolve_target pl t in
@@ -438,7 +433,7 @@ let inline_record_access_aux (clog : out_channel) (var : string) (field : string
         in
         let t_decl = List.hd tl in
         begin match t_decl.desc with
-        | Trm_decl (Def_var ((x,var_typ),_)) when x = var ->
+        | Trm_let (_,(x, var_typ), _) when x = var ->
           begin match var_typ.ty_desc with
           | Typ_ptr {ty_desc=Typ_var y;_} -> y ,only_decl
           | _ -> fail t.loc "inline_record_access: type was not matched"
@@ -495,8 +490,8 @@ let inline_record_access_aux (clog : out_channel) (var : string) (field : string
       | [] ->
         print_info t.loc "inline_struct_access: no matching subterm";
         t
-      | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl  *)
-      (* Ast_to_text.print_ast ~only_desc:true stdout var_decl; *)
+      | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl 
+      (* Ast_to_text.print_ast ~only_desc:true stdout var_decl;*)
 
 (* ******************************************************* *)
  (* Auxiliary functions for change_struct_fields function  *)
@@ -568,14 +563,14 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
     in
 
     begin match t1.desc with
-      | Trm_decl (Def_typ(_,dx)) ->
+      | Trm_typedef (Typedef_abbrev (_, dx)) ->
         let field_list, field_map =
           match dx.ty_desc with
             | Typ_struct (l,m,_) -> l,m
             | _ -> fail t.loc "inline_struct_aux: The type shoudl be a typedef struct"
         in
         begin match t.desc with
-        | Trm_decl (Def_typ(x1,dx1)) ->
+        | Trm_typedef (Typedef_abbrev (x1, dx1)) ->        
             let field_list1, field_map1,name =
               match dx1.ty_desc with
               | Typ_struct(l,m,n) -> l,m,n
@@ -610,8 +605,7 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
 
           let field_list1 = list_remove_set  fields_to_inline field_list1 in
 
-
-          trm_decl (Def_typ (x1,typ_struct field_list1 field_map1 name))
+          trm_typedef (Typedef_abbrev (x1, typ_struct field_list1 field_map1 name))
 
         | _ -> fail t.loc "inline_struct_aux: expected a definiton"
         end
@@ -708,7 +702,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
           | Trm_var _p ->  (*trm_struct (List.rev term_list)*)
               let field_list =
               match base_struct_term.desc with
-                | Trm_decl(Def_typ(_,dx)) ->
+                | Trm_typedef (Typedef_abbrev (_, dx)) ->
                   begin match dx.ty_desc with
                     | Typ_struct (fl,_,_) -> fl
                     | _ -> fail t.loc "change_struct_initializaition: expected a struct"
@@ -765,7 +759,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
           | Trm_var _p ->  (*trm_struct (List.rev term_list)*)
               let field_list =
               match base_struct_term.desc with
-                | Trm_decl(Def_typ(_,dx)) ->
+                | Trm_typedef (Typedef_abbrev (_, dx)) ->
                   begin match dx.ty_desc with
                     | Typ_struct (fl,_,_) -> fl
                     | _ -> fail t.loc "change_struct_initializaition: expected a struct"
@@ -801,7 +795,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
   (* Get the type of the field_name by going through the field_map of struct obj *)
   let inner_struct_name =
   match struct_term.desc with
-  | Trm_decl (Def_typ(_,dx)) ->
+  | Trm_typedef (Typedef_abbrev (_, dx)) ->
     let field_map =
       match dx.ty_desc with
       | Typ_struct (_,m,_) -> m
