@@ -131,6 +131,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
         [ kind_to_field "\"enum-def\"";
             value_to_field tv;
             children_to_field [] ]
+      end
     | Trm_if (cond, then_, else_) ->
         [ kind_to_field "\"if\"";
           children_to_field [

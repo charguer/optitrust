@@ -662,7 +662,7 @@ let decl_name (t : trm) : var =
   (* take into account heap allocated variables *)
   | Trm_let_fun (f, _, _, _) -> f
   | Trm_typedef ty ->
-    begin match with 
+    begin match ty with 
     | Typedef_abbrev (ty,_) -> ty
     | Typedef_enum (ty, _) -> ty
     end
@@ -836,7 +836,7 @@ let rec aliased_type (x : typvar) (t : trm) : typ option =
   match t.desc with
   | Trm_typedef ty ->
     begin match ty with 
-    | Trm_abbrev (y,ty) -> when y = x -> Some ty
+    | Typedef_abbrev (y,ty) when y = x -> Some ty
     | _ -> None
     end
   | Trm_seq tl ->
