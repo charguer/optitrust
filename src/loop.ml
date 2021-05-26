@@ -95,21 +95,26 @@ open Tools
             [
               trm_for
                 (*init *)
-                (trm_seq ~annot:(Some Heap_allocated)
+                (trm_let Var_heap_allocated (index, typ_int()) start)
+                
+                (* (trm_seq ~annot:(Some Heap_allocated)
                   [
+                    
+                    
                     trm_decl (Def_var ((index, typ_ptr (typ_int())), trm_prim (Prim_new (typ_int ()))));
                     trm_set (* ~annot:(Some Initialisation_instruction) *)
                     (trm_var index) start
                   ]
-                )
+                ) *)
                 (* cond *)
-                (trm_apps (trm_binop Binop_lt)
+                (trm_apps (trm_binop Binop_lt) [trm_var index; bound])
+                (* (trm_apps (trm_binop Binop_lt)
                   [
                     trm_apps ~annot:(Some Heap_allocated)
                       (trm_unop Unop_get) [trm_var index];
                       bound
                   ]
-                )
+                ) *)
                 (* step *)
 
                 (if top then trm_apps (trm_unop Unop_inc) [trm_var index]
@@ -125,12 +130,13 @@ open Tools
                     trm_set (trm_var index) ~annot:(Some App_and_set) (trm_apps (trm_binop Binop_add)
                       [
                         trm_var index;
-                        trm_apps (trm_binop Binop_mul)
+                        trm_apps (trm_binop Binop_mul) [trm_var c; loop_step]
+                        (* trm_apps (trm_binop Binop_mul)
                              [
                                trm_apps ~annot:(Some Heap_allocated)
                                  (trm_unop Unop_get) [trm_var c];
                                loop_step
-                             ]
+                             ] *)
 
                       ])
                 )
@@ -277,29 +283,32 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
             [
               trm_for
                 (* init *)
-                (trm_seq ~annot:(Some Heap_allocated)
+                (trm_let Var_heap_allocated (index, typ_int()) start)
+                (* (trm_seq ~annot:(Some Heap_allocated)
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
                                         trm_prim (Prim_new (typ_int ()))));
-                     trm_set (* ~annot:(Some Initialisation_instruction) *)
+                     trm_set ~annot:(Some Initialisation_instruction) 
                        (trm_var index) start
                    ]
-                )
+                ) *)
                 (* cond *)
-                 (trm_apps (trm_binop Binop_lt)
+                (trm_apps (trm_binop Binop_lt) [trm_var index; bound])
+                 (* (trm_apps (trm_binop Binop_lt)
                    [
                      trm_apps ~annot:(Some Heap_allocated)
                        (trm_unop Unop_get) [trm_var index];
                      bound
                    ]
-                    )
+                    ) *)
                 (* step *)
                 (if not top then trm_apps (trm_unop Unop_inc) [trm_var index]
                 else trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
                     [
                       trm_var index;
-                      trm_apps ~annot:(Some Heap_allocated)
-                      (trm_unop Unop_get) [trm_var b]
+                      trm_var b
+                      (* trm_apps ~annot:(Some Heap_allocated)
+                      (trm_unop Unop_get) [trm_var b] *)
 
                     ]
                 )
@@ -447,14 +456,15 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
             [
               trm_for
                 (* init *)
-                (trm_seq ~annot:(Some Heap_allocated)
+                (trm_let Var_heap_allocated (index, typ_int()) init)
+                (* (trm_seq ~annot:(Some Heap_allocated)
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
                                         trm_prim (Prim_new (typ_int ()))));
-                     trm_set (* ~annot:(Some Initialisation_instruction) *)
+                     trm_set ~annot:(Some Initialisation_instruction)
                        (trm_var index) (init)
                    ]
-                )
+                ) *)
                 (* cond *)
                 (trm_apps (trm_binop Binop_lt)
                    [
@@ -755,11 +765,12 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
                      "extract_vars_from_loop: expected heap allocated variable"
               in
               let tx' = typ_array tx (Trm n) in
-              trm_seq ~annot:(Some Heap_allocated)
+              trm_let Var_heap_allocated (x, typ_ptr tx') (trm_prim (Prim_new tx'))
+              (* trm_seq ~annot:(Some Heap_allocated)
                 [
                   trm_decl (Def_var ((x, typ_ptr tx'),
                                      trm_prim (Prim_new tx')))
-                ]
+                ] *)
            in
            let var_decl_l = List.map change_decl var_decl_l in
            let i = for_loop_index t in
@@ -815,8 +826,7 @@ let nb_decl_vars (t : trm) : int =
     | [] -> 0
     | t :: tl ->
        begin match t.desc with
-       | Trm_decl (Def_var _) -> (aux tl) + 1
-       | Trm_seq _ when t.annot = Some Heap_allocated -> (aux tl) + 1
+       | Trm_let _ -> (aux tl) + 1
        | _ -> 0
        end
   in
@@ -1204,7 +1214,8 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
           if i is still used in the loop body, add an instruction
           i = i1 * block_size + i2
          *)
-        let body =
+        (* TODO: Fix this later *)
+        (* let body =
           if not (is_used_var_in (trm_seq tl) i) then trm_seq tl
           else
             trm_seq
@@ -1216,19 +1227,21 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
                       (trm_var i)
                       (trm_apps (trm_binop Binop_add)
                          [
-                           trm_apps (trm_binop Binop_mul)
+                           trm_apps (trm_binop Binop_mul)[trm_var i1; block_size];
+                           trm_var i2;
+                           (* trm_apps (trm_binop Binop_mul)
                              [
                                trm_apps ~annot:(Some Heap_allocated)
                                  (trm_unop Unop_get) [trm_var i1];
                                block_size
                              ];
                            trm_apps ~annot:(Some Heap_allocated)
-                             (trm_unop Unop_get) [trm_var i2]
+                             (trm_unop Unop_get) [trm_var i2] *)
                          ]
                       )
                   ]
                ) :: tl)
-        in
+        in *)
         (*
           look for the deletion of i1 and i2:
           if only i1 and i2 are deleted, the loop body is correct
@@ -1248,22 +1261,24 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
             [
               trm_for
                 (* init *)
-                (trm_seq ~annot:(Some Heap_allocated)
+                (trm_let Var_heap_allocated (index,typ_int()) (trm_lit (Lit_int 0)))
+                (* (trm_seq ~annot:(Some Heap_allocated)
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
                                         trm_prim (Prim_new (typ_int ()))));
-                     trm_set (* ~annot:(Some Initialisation_instruction) *)
+                     trm_set ~annot:(Some Initialisation_instruction)
                        (trm_var index) (trm_lit (Lit_int 0))
                    ]
-                )
+                ) *)
                 (* cond *)
                 (trm_apps (trm_binop Binop_lt)
-                   [
+                   [trm_var index; bound])
+                   (* [
                      trm_apps ~annot:(Some Heap_allocated)
                        (trm_unop Unop_get) [trm_var index];
                      bound
-                   ]
-                )
+                   ] *)
+                
                 (* step *)
                 (trm_apps (trm_unop Unop_inc) [trm_var index])
                 (* body *)
