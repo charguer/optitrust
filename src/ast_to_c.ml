@@ -182,6 +182,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
+  (* For printing C code, we have (see explanations in [clang_to_ast.ml],
+     search for [Add_address_of_operator] and [Add_star_operator].
+     TODO: figure out whether we sometimes need to introduce these
+     annotation during transformations. *)
   match t.add with
   | Add_address_of_operator :: addl ->
      let d =
@@ -255,7 +259,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              match t.annot with
              | (Some Heap_allocated | Some Access) when !decode -> false
              | _ -> true *)
-           let display_star = false 
+           let display_star = false
            in
            dattr ^^ apps_to_doc ~display_star f tl ^^ dsemi
         end
@@ -316,20 +320,20 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      end
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
-  let dsemi = if semicolon then semi else empty in 
-  let d = begin match varkind with 
+  let dsemi = if semicolon then semi else empty in
+  let d = begin match varkind with
   | Var_immutable -> string "const " ^^ blank 1
   | _ -> empty
   end in
-  let dtx = typed_var_to_doc tv in 
-  let initialisation = 
-    match init.desc with 
+  let dtx = typed_var_to_doc tv in
+  let initialisation =
+    match init.desc with
     | Trm_val (Val_lit Lit_uninitialized) -> dsemi
     | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc init ^^ dsemi
-  in 
+  in
   d ^^ dtx ^^ initialisation
 
-and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =  
+and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
   let argd = separate (comma ^^ blank 1) (List.map typed_var_to_doc tvl) in
@@ -340,10 +344,10 @@ and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typ
   | _ -> separate (blank 1) [dr; string f; parens argd; trm_to_doc b]
   end
 
-and typedef_to_doc ?(semicolon : bool = true) (t : typedef) : document = 
+and typedef_to_doc ?(semicolon : bool = true) (t : typedef) : document =
   let dsemi = if semicolon then semi else empty in
-  match t with 
-  | Typedef_abbrev (x,t) -> 
+  match t with
+  | Typedef_abbrev (x,t) ->
     begin match t.ty_desc with
      (* particular case for array types aliases *)
      | Typ_array _ ->
@@ -374,26 +378,26 @@ and typedef_to_doc ?(semicolon : bool = true) (t : typedef) : document =
                          braces (separate (comma ^^ blank 1) const_doc_l)] ^^
      dsemi
 
-and multi_decl_to_doc (loc : location) (tl : trm list) : document = 
-  let rec get_names = function 
+and multi_decl_to_doc (loc : location) (tl : trm list) : document =
+  let rec get_names = function
     | [] -> []
     (* const variables *)
-    | {desc = Trm_let (_,(x,_),_);_} :: tl -> x :: get_names tl 
+    | {desc = Trm_let (_,(x,_),_);_} :: tl -> x :: get_names tl
     | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
-  in 
+  in
   let dtype =
-    match tl with 
+    match tl with
     | [] -> fail loc "multi_decl_to_doc: empty multiple declaration"
     | {desc = Trm_let (vk,(_,ty),_);_} :: _ ->
-      begin match vk with 
+      begin match vk with
       | Var_immutable -> string "const" ^^ blank 1 ^^ typ_to_doc ty
       | _ -> typ_to_doc ty
       end
     | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
-  in 
-  let dnames = separate (comma ^^ blank 1) (List.map string (get_names tl)) in 
-    dtype ^^ blank 1 ^^ dnames ^^ semi 
-  
+  in
+  let dnames = separate (comma ^^ blank 1) (List.map string (get_names tl)) in
+    dtype ^^ blank 1 ^^ dnames ^^ semi
+
 (* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
   (f : trm) (tl : trm list) : document =
@@ -480,7 +484,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
 
                       where let optional_parens ~_avoid_parens d = (* this one is common to the entire file *)
                          if _avoid_parens then d else parens d *)
-                 end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then goold else if   ( *f).x then bad
+                 end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then good else if   ( *f).x then bad
                        *)
               | Unop_struct_get f (* when not !decode *) ->
                   parens (d ^^ dot ^^ string f)
@@ -605,7 +609,6 @@ let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
   PPrintEngine.ToBuffer.pretty 0.9 80 b (trm_to_doc t);
   decode := old_decode;
   Buffer.contents b
-
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in

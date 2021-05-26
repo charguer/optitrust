@@ -23,7 +23,7 @@ open Tools
              (* when body1.annot = Some Delete_instructions *) ->
            (* if the index is used in body, then add delete instruction *)
            (* let i = deleted_var t_del in *)
-           
+
            (* if not (is_used_var_in body i) then t_transformed
            else *)
              trm_seq (* ~annot:(Some Delete_instructions) *)
@@ -96,11 +96,11 @@ open Tools
               trm_for
                 (*init *)
                 (trm_let Var_heap_allocated (index, typ_int()) start)
-                
+
                 (* (trm_seq ~annot:(Some Heap_allocated)
                   [
-                    
-                    
+
+
                     trm_decl (Def_var ((index, typ_ptr (typ_int())), trm_prim (Prim_new (typ_int ()))));
                     trm_set (* ~annot:(Some Initialisation_instruction) *)
                     (trm_var index) start
@@ -288,7 +288,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
                    [
                      trm_decl (Def_var ((index, typ_ptr (typ_int ())),
                                         trm_prim (Prim_new (typ_int ()))));
-                     trm_set ~annot:(Some Initialisation_instruction) 
+                     trm_set ~annot:(Some Initialisation_instruction)
                        (trm_var index) start
                    ]
                 ) *)
@@ -1188,7 +1188,7 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
      begin match body.desc with
      (* look for the declaration of i1 and i2 *)
      | Trm_seq ({desc = Trm_seq (t_decl1 :: t_decl2 :: tl); _} :: t_del_l)
-          (* when body.annot = Some Delete_instructions *)-> 
+          (* when body.annot = Some Delete_instructions *)->
         let i = for_loop_index t in
         let i1 = decl_name t_decl1 in
         let i2 = decl_name t_decl2 in
@@ -1278,7 +1278,7 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
                        (trm_unop Unop_get) [trm_var index];
                      bound
                    ] *)
-                
+
                 (* step *)
                 (trm_apps (trm_unop Unop_inc) [trm_var index])
                 (* body *)
