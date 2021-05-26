@@ -726,7 +726,7 @@ let term (ctx : context) ?(context : string = "") (s : string) : trm =
    * print_ast ~only_desc:true stdout t; print_newline (); *)
   let term_from_f (def_f : trm) : trm =
     match def_f.desc with
-    | Trm_decl (Def_fun (_, _, _, body)) ->
+    | Trm_let_fun (_, _, _, body) ->
        begin match body.desc with
         | Trm_seq [t] -> t
         | _ -> fail def_f.loc "term_from_f: unexpected body"
@@ -743,7 +743,7 @@ let term (ctx : context) ?(context : string = "") (s : string) : trm =
     (* otherwise find the declaration of f *)
     | Trm_seq tl -> get_term (List.hd (List.rev tl))
     (* once the declaration is found, look for the term inside *)
-    | Trm_decl _ -> term_from_f t
+    | Trm_let_fun _ -> term_from_f t
     | _ -> fail t.loc "get_term: unexpected result"
   in
   get_term t
@@ -1038,7 +1038,7 @@ let type_ (ctx : context) ?(context : string = "") (s : string) : typ =
   let context = if context = "" then ctx.includes else context in
   let t = term ctx ~context ("typedef " ^ s ^ " x") in
   match t.desc with
-  | Trm_decl (Def_typ (_, tx)) -> tx
+  | Trm_typ_def (Typdefe_abbrev (_, tx)) -> tx
   | _ -> fail t.loc "type_: unexpected output"
 
 (*
