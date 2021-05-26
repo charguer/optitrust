@@ -50,18 +50,18 @@ let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   in
   match t.desc with
   (* declarations *)
-  | Trm_decl d ->
+  | Trm_typedef d ->
      begin match d with
      (* we have to change the declaration of x *)
-     | Def_typ (y, ty) when y = x ->
+     | Typedef_abbrev (y, ty) when y = x ->
         (* ty must be an array type or a pointer type *)
         begin match ty.ty_desc with
         | Typ_ptr ty ->
            (* ty* becomes (ty[b])* *)
            trm_seq ~annot:(Some No_braces)
               [
-                trm_decl (Def_typ (block_name, typ_array ty (Trm b)));
-                trm_decl (Def_typ (y, typ_ptr (typ_var block_name)))
+                trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name)))
               ]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
@@ -73,16 +73,16 @@ let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
               in
               trm_seq ~annot:(Some No_braces)
                 [
-                  trm_decl (Def_typ (block_name, typ_array ty (Trm b)));
-                  trm_decl (Def_typ (y, typ_array (typ_var block_name)
+                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name)
                                           (Trm n_div_b)))
                 ]
            | Trm t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; b] in
               trm_seq ~annot:(Some No_braces)
                 [
-                  trm_decl (Def_typ (block_name, typ_array ty (Trm b)));
-                  trm_decl (Def_typ (y, typ_array (typ_var block_name)
+                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name)
                                           (Trm t'')))
                 ]
            end
@@ -344,8 +344,8 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
              end
           | _ -> fail None ("swap_type: must be an array")
         in
-        trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-           (Def_typ (y, swap_type ty))
+        trm_typedef ~annot: t.annot ~loc: t.loc ~is_statement:t.is_statement ~add:t.add
+          (Typedef_abbrev (y, swap_type ty))
      (*
          all the interesting cases are covered now, we only have to do recursive
          calls
@@ -395,10 +395,10 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
   let rec aux (global_trm : trm) (t :trm) : trm =
     match t.desc with
     (* declarations *)
-    | Trm_decl d ->
+    | Trm_typedef d ->
        begin match d with
        (* we have to change the declaration of x *)
-       | Def_typ (y, ty) when y = x ->
+       | Typedef_abbrev (y, ty) when y = x ->
         let log : string =
           Printf.sprintf
            ("  - type\n%s\n" ^^
@@ -431,7 +431,7 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                        (fun ty'' ->
                          typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
                    in
-                   trm_decl (Def_typ (x, typ_struct l m n))
+                   trm_typedef (Typedef_abbrev(x, typ_struct l m n))
                 | _ ->
                    fail t.loc "swap_accesses: expected underlying struct type"
                 end
@@ -523,7 +523,6 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
        let decl_type = begin match decl_trm.desc with
        | Trm_seq[t_decl] ->
         begin match t_decl.desc with
-        (* | Trm_decl (Def_var ((_,_),dx)) -> *)
         | Trm_let (_,(_, _), init) ->
           begin match init.desc with
           | Trm_val( Val_prim (Prim_new t_arr)) ->
@@ -546,7 +545,6 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
       (* TODO: Fix this later probably it will show the variable with pointer type *)
       let new_trms = List.map(fun x ->
         trm_let Var_heap_allocated (x,(typ_ptr (typ_var (decl_type)))) (trm_prim (Prim_new (typ_var decl_type)))) new_vars
-        (* trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var((x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type))))]) new_vars *)
       in
       trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl)
     | _ -> fail t.loc "array_to_variables_aux: only declaration inside sequence are supported"
@@ -620,7 +618,6 @@ let array_to_variables (clog : out_channel) (dcl_path : target) (new_vars : var 
   in
   let array_variable = match declaration_trm.desc with
   | Trm_let(_,(x,_),_) -> x
-  (* | Trm_seq [{desc=Trm_decl (Def_var ((x,_),_));_}] -> x *)
   | _ -> fail t.loc "array_to_variables: expected a sequece which contains the declration"
   in
   let t = inline_array_access clog array_variable new_vars t in

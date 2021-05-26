@@ -164,9 +164,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_struct tl ->
      let dtl = List.map (print_trm ~only_desc) tl in
      node "Trm_struct" ^^ print_list dtl
-  | Trm_decl d ->
-     let dd = print_def ~only_desc d in
-     node "Trm_decl" ^^ parens dd
   | Trm_let (vk,(x,tx),t) -> 
     let dvk = match vk with 
     | Var_immutable ->  string "Var_immutable"

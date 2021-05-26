@@ -839,7 +839,8 @@ and translate_decl_list (dl : decl list) : trm list =
         begin match tq.ty_desc with
           | Typ_var n when n = rn ->
             let tl = translate_decl_list dl' in
-            trm_decl ~loc (Def_typ (tn, typ_struct fs m rn)) :: tl
+            let td = Typedef_abbrev(tn,typ_struct fs m rn) in 
+            trm_typedef(tn,td) :: tl
           | _ ->
             fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
@@ -866,7 +867,7 @@ and translate_decl (d : decl) : trm =
         )
         constants
     in
-    trm_decl ~loc (Def_enum (name, enum_constant_l))
+    trm_typedef ~loc (Typedef_enum (name, enum_constant_l))
   | Function {linkage = _; function_type = t; nested_name_specifier = _;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
     let s =
@@ -892,7 +893,7 @@ and translate_decl (d : decl) : trm =
               | None -> trm_lit ~loc Lit_uninitialized
               | Some s -> translate_stmt s
             in
-            trm_decl ~loc (Def_fun (s, out_t, [], tb))
+            trm_let_fun ~loc (s, out_t, [], tb)
           | Some {non_variadic = pl; variadic = _} ->
             let args =
               List.combine
@@ -910,55 +911,10 @@ and translate_decl (d : decl) : trm =
               | None -> trm_lit ~loc Lit_uninitialized
               | Some s -> translate_stmt s
             in
-            trm_decl ~loc (Def_fun (s, out_t, args, tb))
+            trm_let_fun ~loc (s, out_t, args, tb)
         end
       |_ -> fail loc "translate_decl: should not happen"
     end
-  (* | Var {linkage = _; var_name = n; var_type = t; var_init = eo;
-         constexpr = _; _} ->
-    let {const; _} = t in
-    let tt = translate_qual_type ~loc t in
-    let te =
-      begin match eo with
-        | None ->
-          if const then trm_lit ~loc Lit_uninitialized
-          else trm_prim ~loc (Prim_new tt)
-        | Some e ->
-          begin match e.desc with
-            | InitList el -> (* {e1,e2,e3} *)
-              let tl = List.map translate_expr el in
-              begin match tt.ty_desc with
-                | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
-                | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt) tl
-                | Typ_var _ -> (* assumption: typedefs are only for struct *)
-                  trm_struct ~loc ~typ:(Some tt) tl
-                | _ ->
-                  fail loc ("translate_decl: initialisation lists only " ^
-                            "allowed for struct and array")
-              end
-            | _ -> translate_expr e
-          end
-      end
-    in
-    typ_map := Type_map.add n tt !typ_map;
-    if const then
-      trm_decl ~loc ~is_statement:true (Def_var ((n, tt), te))
-    else
-      begin
-        add_var n;
-        begin match eo with
-          | None -> (* using seq to factor code with the other case *)
-            trm_seq ~annot:(Some Heap_allocated) ~loc
-              [trm_decl ~loc (Def_var ((n, typ_ptr tt), te))]
-          | Some _ ->
-            trm_seq ~annot:(Some Heap_allocated) ~loc
-              [trm_decl ~loc (Def_var ((n, typ_ptr tt),
-                                       trm_prim ~loc (Prim_new tt)));
-
-               trm_set ~annot:(Some Initialisation_instruction) ~loc
-                 (trm_var ~loc n) te]
-        end
-      end *)
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let {const;_} = t in 
     let tt = translate_qual_type ~loc t in 
@@ -993,12 +949,12 @@ and translate_decl (d : decl) : trm =
 
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
-    trm_decl ~loc (Def_typ (n, tn))
+    trm_typedef ~loc (Typedef_abbrev (n, tn) )
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName n ->
         let tn = translate_qual_type ~loc q in
-        trm_decl ~loc (Def_typ (n, tn))
+        trm_typedef ~loc (Typedef_abbrev (n, tn) )
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
   | RecordDecl _ ->

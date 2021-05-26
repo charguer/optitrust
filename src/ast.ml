@@ -181,9 +181,6 @@ and trm_desc =
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_var list) * trm
   | Trm_typedef of typedef
-  (* ********************TODO: Remove this later **************** *)
-  | Trm_decl of def (* variable or function or type definition *)
-  (* *********************************************** *)
   | Trm_if of trm * trm * trm
   (* question: distinguish toplevel seq for other seqs? *)
   | Trm_seq of trm list (* { st1; st2; st3 } *)
@@ -217,12 +214,6 @@ and trm_desc =
   | Trm_goto of label
   | Trm_decoration of string * trm * string
   | Trm_any of trm
-
-(* declarations *)
-and def =
-  | Def_fun of var * typ * (typed_var list) * trm (* int f(int x ,double y) { st } *)
-  | Def_typ of typvar * typ (* type abbreviation e.g. "typedef int** T" *)
-  | Def_enum of typvar * ((var * (trm option)) list) (* typedef enum { X, Y } T  --TODO: check syntax*)
 
 and varkind =
   | Var_immutable (* Variable is a const *)
@@ -329,11 +320,6 @@ let trm_let_fun ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
 let trm_typedef ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) (def_typ : typedef): trm =
   {annot = annot; desc = Trm_typedef (def_typ); loc = loc; is_statement; add;
-   typ = Some (typ_unit ()); attributes}
-
-let trm_decl ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) (d : def) : trm =
-  {annot = annot; desc = Trm_decl d; loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes}
 
 let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
@@ -617,12 +603,6 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
       | Trm_struct tl
       | Trm_seq tl ->
        List.exists aux tl
-    (* | Trm_decl d ->
-       begin match d with
-       | Def_var (_, init) -> aux init
-       | Def_fun (_, _, _, body) -> aux body
-       | _ -> false
-       end *)
     | Trm_let (_,(_, _), init) -> aux init
     | Trm_let_fun (_,_,_,body) -> aux body
     | Trm_if (cond, then_, else_) -> aux cond || aux then_ || aux else_
@@ -854,7 +834,11 @@ let for_loop_nb_iter (t : trm) : trm =
  *)
 let rec aliased_type (x : typvar) (t : trm) : typ option =
   match t.desc with
-  | Trm_decl (Def_typ (y, ty)) when y = x -> Some ty
+  | Trm_typedef ty ->
+    begin match ty with 
+    | Trm_abbrev (y,ty) -> when y = x -> Some ty
+    | _ -> None
+    end
   | Trm_seq tl ->
      List.fold_left
        (fun tyo t ->
