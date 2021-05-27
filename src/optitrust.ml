@@ -28,66 +28,7 @@ let make_target_list_pred = Target.make_target_list_pred
 (*                              Transformations                               *)
 (******************************************************************************)
 
-(* apply_to_top: add the given ast to the ast stack 
 
-*)
-let apply_to_top ?(replace_top : bool = false)
-  (f : context -> trm -> trm) : unit =
-  List.iter
-    (fun (ctx, astStack) ->
-      let ast =
-        if replace_top then Stack.pop astStack else Stack.top astStack
-      in
-      let ast = f ctx ast in
-      let ast = if !Flags.repeat_io then reparse ctx ast else ast in
-      Stack.push ast astStack
-    )
-    !trace
-
-(* apply_to_targets: Apply a specific transformations over a target or a list of targets 
-      params:
-        tg : taget
-        tr : transformation to be applied
-      return: 
-        unit
-*)
-let apply_to_targets ?(replace_top : bool = false) (tg : target) (tr : out_channel -> path -> trm-> trm) : unit =
-  apply_to_top ~replace_top(fun ctx t ->
-    let ps = resolve_target tg t in 
-    List.fold_left(fun t dl -> tr ctx.clog dl t) t ps)
-
-(* apply_to_targets_between: Similar to apply_to_targets, but the function considers the index too
-      params:
-        tg : taget
-        tr : transformation to be applied
-      return: 
-        unit
-*)
-let apply_to_targets_between ?(replace_top : bool = false) (tg : target) (tr : out_channel -> (path*int) -> trm-> trm) : unit =
-  apply_to_top ~replace_top(fun ctx t ->
-    let ps = resolve_target_between tg t in 
-    List.fold_left(fun t dl -> tr ctx.clog dl t) t ps)
-
-
-(* trm_to_log: Generate logging for a given ast node 
-      params:  
-        t: ast 
-      returns: 
-        unit
-*)
-let trm_to_log (clog : out_channel) (t : trm) : unit =
-  let log : string =
-    let loc : string =
-    match t.loc with 
-    | None -> ""
-    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in 
-    Printf.sprintf
-    (" -expression\n%s\n" ^^
-    " %s is sequence of terms \n"
-    )
-    (ast_to_string t) loc 
-    in Transformations.write_log clog log
 
 (* Transformations are grouped into to main modules:
     1 ) TrCore: All core transformations, can't be called by the useer

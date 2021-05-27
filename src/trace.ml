@@ -1,5 +1,7 @@
 open Ast
-
+open Clang.Ast
+open Clang_to_ast
+open Tools
 (******************************************************************************)
 (*                             Context management                             *)
 (******************************************************************************)
@@ -16,6 +18,14 @@ let init_ctx : context =
 let trace : (context * (trm Stack.t)) list ref =
   ref [(init_ctx, Stack.create ())]
 
+(* Return the current state of the trace *)
+let get_trace () : (context * (trm Stack.t)) list = 
+  !trace
+
+(* Modify the current trace  *)
+let set_trace (ctx : context) (astStack : trm Stack.t) : unit =
+  trace := [ctx, astStack]
+
 (*
   list of log channels
   not in trace because close_logs may be called at a point where it may be
@@ -26,8 +36,8 @@ let logs : (out_channel list) ref = ref []
 let close_logs () : unit =
   List.iter (fun clog -> close_out clog) !logs
 
-let write_log (log : string) : unit =
-  List.iter (fun (ctx, _) -> Transformations.write_log ctx.clog log) !trace
+(* let write_log (log : string) : unit =
+  List.iter (fun (ctx, _) -> Transformations.write_log ctx.clog log) !trace *)
 
 (* restore the initial state *)
 let reset () : unit =
@@ -162,3 +172,7 @@ let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
       cases
   in
   trace := List.flatten (List.rev new_trace)
+
+
+
+

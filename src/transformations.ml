@@ -4,13 +4,8 @@ open Path_constructors
 open Ast_to_c
 open Ast_to_text
 open Tools
+open Output
 
-let failure_expected f =
-  begin try f(); failwith "should have failed"
-  with TransfoError _ -> () end
-
-let write_log (clog : out_channel) (log : string) : unit =
-  output_string clog log; flush clog
 
 (* return the list where the nth element is transformed *)
 let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =

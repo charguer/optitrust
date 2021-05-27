@@ -1,8 +1,40 @@
+open Ast
+open Ast_to_c
 open Trace
+open Ast_to_text
+open Ast_to_js
 
 (******************************************************************************)
 (*                                   Output                                   *)
 (******************************************************************************)
+
+let failure_expected f =
+  begin try f(); failwith "should have failed"
+  with TransfoError _ -> () end
+
+let write_log (clog : out_channel) (log : string) : unit =
+  output_string clog log; flush clog
+
+(* trm_to_log: Generate logging for a given ast node 
+      params:  
+        t: ast 
+      returns: 
+        unit
+*)
+(* TODO: Replace looggin everywhere with a simple call to this function *)
+let trm_to_log (clog : out_channel) (t : trm) : unit =
+  let log : string =
+    let loc : string =
+    match t.loc with 
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in 
+    Printf.sprintf
+    (" -expression\n%s\n" ^^
+    " %s is sequence of terms \n"
+    )
+    (ast_to_string t) loc 
+    in write_log clog log
 
 (* clean up a C++ file using clang format *)
 let cleanup_cpp_file_using_clang_format filename =
@@ -64,6 +96,24 @@ let reparse (ctx : context) (ast : trm) : trm =
   let (_, t) = parse (in_prefix ^ ctx.extension) in
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
+
+(* TODO: Move apply_to_top to a better place *)
+  (* apply_to_top: add the given ast to the ast stack 
+
+*)
+let apply_to_top ?(replace_top : bool = false)
+  (f : context -> trm -> trm) : unit =
+  List.iter
+    (fun (ctx, astStack) ->
+      let ast =
+        if replace_top then Stack.pop astStack else Stack.top astStack
+      in
+      let ast = f ctx ast in
+      let ast = if !Flags.repeat_io then reparse ctx ast else ast in
+      Stack.push ast astStack
+    )
+    (get_trace())
+
 
 (*
   outputs a javascript file which contains the ast encoded as json
