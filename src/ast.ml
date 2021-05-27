@@ -297,7 +297,7 @@ let typ_fun ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (args : typ list) (res : typ) : typ =
   {ty_annot = annot; ty_desc = Typ_fun (args, res); ty_attributes}
 
-(* ******************* *******Trm constructors *************************** *)
+(* *************************** Trm constructors *************************** *)
 
 let trm_val ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) (v : value) : trm =

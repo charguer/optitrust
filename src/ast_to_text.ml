@@ -173,7 +173,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dtx = print_typ ~only_desc tx in 
     let dt = print_trm ~only_desc t in 
     node "Trm_let" ^^
-      parens (separate (comma ^^ break 1) [dvk;string x;dt;dtx])
+      parens (separate (comma ^^ break 1) [dvk;string x;dtx;dt])
 
   | Trm_let_fun (f, r, tvl, b) ->
     let dout = print_typ ~only_desc r in 
