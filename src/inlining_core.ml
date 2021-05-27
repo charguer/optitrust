@@ -4,6 +4,7 @@ open Target
 open Transformations
 open Declaration
 open Tools
+open Output
 
 (* TODO: Remove current inline_fun_decl from inline_decl, these two functions should be independent *)
 (*
@@ -44,7 +45,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
         (trm_seq
           (t ::
               List.map
-                (fun x_tx -> trm_decl (Def_var (x_tx, trm_lit Lit_uninitialized)))
+                (fun x_tx -> trm_let Var_mutable x_tx (trm_lit Lit_uninitialized))
                 fresh_args
           )
         )
@@ -52,8 +53,8 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     in
     (* result is heap allocated *)
     let result_decl =
-      trm_seq ~annot:(Some Heap_allocated)
-        [trm_decl (Def_var ((result, typ_ptr tf), trm_prim (Prim_new tf)))]
+      trm_let Var_mutable (result, typ_ptr tf) (trm_prim (Prim_new tf))
+      
     in
     (* body where the argument names are substituted *)
     let body =
@@ -75,7 +76,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
       let rec aux (t : trm) : trm =
         match t.desc with
         (* remove delete instruction related to return statement if any *)
-        | Trm_seq tl when t.annot = Some Delete_instructions ->
+        (* | Trm_seq tl when t.annot = Some Delete_instructions ->
           begin match List.rev tl with
           | {desc = Trm_abort (Ret (Some r)); _} :: _ ->
               trm_seq ~annot:(Some No_braces) ~loc:t.loc
@@ -84,7 +85,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
           | {desc = Trm_abort (Ret None); _} :: _ ->
               trm_goto ~loc:t.loc return_label
           | _ -> trm_map aux t
-          end
+          end *)
         | Trm_abort (Ret (Some r)) ->
           trm_seq ~annot:(Some No_braces) ~loc:t.loc
             [trm_set ~loc:t.loc ~is_statement:true (trm_var result) r;
@@ -97,7 +98,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     let body = replace_return body in
     let bodyl =
       match body.annot with
-      | Some Delete_instructions -> [body]
+      (* | Some Delete_instructions -> [body] *)
       | _ ->
         begin match body.desc with
         | Trm_seq tl -> tl
@@ -116,12 +117,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
       let arg_decls =
         List.map2
           (fun (x, tx) dx ->
-            (*trm_seq ~annot:(Some Heap_allocated)
-              [
-                trm_decl (Def_var ((x, typ_ptr tx), trm_prim (Prim_new tx)));
-                trm_set ~annot:(Some Initialisation_instruction) (trm_var x) dx
-              ] *)
-             trm_decl ~is_statement:true (Def_var ((x, tx), dx))
+             trm_let ~is_statement:true Var_mutable (x,tx) dx
           )
           fresh_args
           arg_vals
@@ -172,7 +168,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                 )
            end*)
         | _ ->
-           trm_seq ~annot:(Some Delete_instructions) ~loc:t.loc
+           trm_seq(*  ~annot:(Some Delete_instructions) *) ~loc:t.loc
              ([
                 trm_seq ~loc:t.loc (*REMOVES the braces TODO: braces needed for scopes *) ~annot:(Some No_braces)
                   (arg_decls ++ (result_decl :: bodyl) ++
@@ -180,15 +176,16 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                      trm_labelled return_label
                        (change_trm
                           (trm_apps (trm_var f) arg_vals)
-                          (trm_apps ~annot:(Some Heap_allocated)
+                          (* TODO: Fix this later *)
+                          (trm_apps (* ~annot:(Some Heap_allocated) *)
                              (trm_unop Unop_get) [trm_var result])
                           t
                        )
                    ]
                   );
-                trm_apps ~annot:(Some Heap_allocated) ~loc:t.loc ~is_statement:true
+                (* trm_apps ~annot:(Some Heap_allocated) ~loc:t.loc ~is_statement:true
                   ~typ:(Some (typ_unit ())) (trm_unop (Unop_delete false))
-                  [trm_var result]
+                  [trm_var result] *)
                ] (*++
                arg_dels*)
              )
@@ -215,7 +212,6 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     )
     t
     inline_at
-
 
 let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result : var)
     (fun_args : var list) (fun_return_label : label)(t : trm) : trm =

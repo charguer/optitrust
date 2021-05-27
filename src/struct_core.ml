@@ -1,7 +1,7 @@
 open Ast
 open Ast_to_c
-open Transformations
 open Tools
+open Output
 
 let make_explicit_record_assignment_core (clog : out_channel) (field_list : fields) (trm_index : int) (expression_trm : trm) (t : trm) : trm =
   let log : string =

@@ -5,7 +5,7 @@ open Path_constructors
 open Transformations
 open Tools
 open Loop_core
-
+open Output
 
 
 let loop_coloring (clog : out_channel) (tr : target) (c : var)(new_var : var)(t : trm) : trm =

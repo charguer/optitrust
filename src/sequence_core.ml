@@ -3,6 +3,7 @@ open Target
 open Transformations
 open Ast_to_c
 open Tools 
+open Output
 
 (* *************************DEPRECATED**************** *)
 (* Current implementation does not satisfy the new convention for core transformations *)

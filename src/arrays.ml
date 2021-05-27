@@ -3,7 +3,7 @@ open Target
 open Ast_to_c
 open Transformations
 open Arrays_core
-
+open Output
 (* TODO: Finish splititng all function into core and basics for this module *)
 
 (*

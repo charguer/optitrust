@@ -6,7 +6,7 @@ open Transformations
 open Declaration
 open Tools
 open Inlining_core
-
+open Output
 
 (*
   inline the definition pointed at by pl

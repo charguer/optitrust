@@ -1,8 +1,7 @@
 open Ast
 open Target
 open Ast_to_c
-(* open Path_constructors *)
-open Transformations
+open Output
 (* open Tools *)
 
 (* loop_swap: Swap the two loop constructs, the loop should contain as least one innet loop
@@ -27,10 +26,10 @@ let loop_swap_core (clog : out_channel) (path_to_loop : path) (t : trm) =
     in write_log clog log;
     match t.desc with
     (* TODO: Fix this problem later *)
-    | Trm_labelled (l, t_loop) ->
-    trm_labelled l (loop_swap_aux clog t_loop)
+  (* | Trm_labelled (l, t_loop) ->
+    trm_labelled l (loop_swap_core clog t_loop)
   | Trm_seq [t_loop; t_del] (* when t.annot = Some Delete_instructions *) ->
-     let t_swaped = loop_swap_aux clog t_loop in
+     let t_swaped = loop_swap_core clog t_loop in
      (* swaped loops are expected to declare their index *)
      begin match t_swaped.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
@@ -59,10 +58,10 @@ let loop_swap_core (clog : out_channel) (path_to_loop : path) (t : trm) =
                    );
                  t_del1
                ]
-        | _ -> fail body1.loc "loop_swap_aux: expected inner loop"
+        | _ -> fail body1.loc "loop_swap_core: expected inner loop"
         end
-     | _ -> fail t_swaped.loc "loop_swap_aux: expected outer loop"
-     end
+     | _ -> fail t_swaped.loc "loop_swap_core: expected outer loop"
+     end *)
   (* otherwise, just swap  *)
   | Trm_for (init1, cond1, step1,body1) ->
     let log : string =
@@ -148,13 +147,13 @@ let loop_swap_core (clog : out_channel) (path_to_loop : path) (t : trm) =
             ]
         in
         loop index2 index_init2 step2 loop_size2 (trm_seq [loop index1 index_init1 step1 loop_size1 body2])
-        | _ -> fail t.loc "loop_swap_aux: inner_loop was not matched"
+        | _ -> fail t.loc "loop_swap_core: inner_loop was not matched"
         end
-      | _ -> fail t.loc "loop_swap_aux; expected inner loop"
+      | _ -> fail t.loc "loop_swap_core; expected inner loop"
       end
 
 
-  | _ -> fail t.loc "loop_swap_aux; bad loop body"
+  | _ -> fail t.loc "loop_swap_core; bad loop body"
 
     
 (* loop_color: Replace the original loop with two nested loops:
@@ -186,11 +185,11 @@ let loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_colo
     write_log clog log;
     match t.desc with
     (* The loop might be labelled, so keep the label *)
-    | Trm_labelled (l, t_loop) ->
-      trm_labelled l (loop_coloring_aux clog c new_var t_loop)
+    (* | Trm_labelled (l, t_loop) ->
+      trm_labelled l (loop_coloring_core clog c new_var t_loop)
 
     | Trm_seq [t_loop; t_del] (* when t.annot = Some Delete_instructions *) ->
-     let t_transformed = loop_coloring_aux clog c new_var t_loop in
+     let t_transformed = loop_coloring_core clog c new_var t_loop in
      (* transformed loops are expected to declare their index *)
      begin match t_transformed.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
@@ -219,10 +218,10 @@ let loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_colo
                    );
                  t_del1
                ]
-        | _ -> fail body1.loc "loop_coloring_aux: expected inner loop"
+        | _ -> fail body1.loc "loop_coloring_core: expected inner loop"
         end
-     | _ -> fail t_transformed.loc "loop_coloring_aux: expected outer loop"
-     end
+     | _ -> fail t_transformed.loc "loop_coloring_core: expected outer loop"
+     end *)
   | Trm_for (init, cond, step, body) ->
       let log : string =
         let loc : string =
@@ -259,11 +258,11 @@ let loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_colo
         | true -> trm_lit(Lit_int 0)
         | false ->
           match loop_step.desc with
-          | Trm_val(Val_lit(Lit_int 1)) -> trm_var new_var
+          | Trm_val(Val_lit(Lit_int 1)) -> trm_var i_color
           | _ -> trm_apps (trm_binop Binop_mul)
               [
                   trm_apps (* ~annot:(Some Heap_allocated) *)
-                      (trm_unop Unop_get) [trm_var new_var];
+                      (trm_unop Unop_get) [trm_var i_color];
                     loop_step
 
               ]
@@ -328,10 +327,10 @@ let loop_color_core (clog : out_channel) (path_to_loop : path) (c : var) (i_colo
                   (trm_unop (Unop_delete false)) [trm_var index] *)
 
             ]
-          in loop ~top:true new_var (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ])
+          in loop ~top:true i_color (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ])
 
 
-  | _ -> fail t.loc "loop_coloring_aux: not a for loop, check the path "
+  | _ -> fail t.loc "loop_coloring_core: not a for loop, check the path "
 
 (* loop_tile: Replace the original loop with two nested loops 
       params: 
@@ -361,15 +360,15 @@ let loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block 
     match t.desc with
     (* the loop might be labelled: keep the label *)
     (* TODO: This one too *)
-    | Trm_labelled (l, t_loop) ->
-     trm_labelled l (loop_tile_aux clog b new_var t_loop)
+    (* | Trm_labelled (l, t_loop) ->
+     trm_labelled l (loop_tile_core clog b i_block t_loop)
   (*
     if the loop declares its own index, a seq with a delete instruction occurs
     in this case, put the delete instructions at the end of the inner loop if
     the index is still used
    *)
   | Trm_seq [t_loop; t_del] (* when t.annot = Some Delete_instructions *) ->
-     let t_tiled = loop_tile_aux clog b new_var t_loop in
+     let t_tiled = loop_tile_core clog b i_block t_loop in
      (* tiled loops are expected to declare their index *)
      begin match t_tiled.desc with
      | Trm_seq [{desc = Trm_for (init1, cond1, step1,
@@ -397,10 +396,10 @@ let loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block 
                    );
                  t_del1
                ]
-        | _ -> fail body1.loc "loop_tile_aux: expected inner loop"
+        | _ -> fail body1.loc "loop_tile_core: expected inner loop"
         end
-     | _ -> fail t_tiled.loc "loop_tile_aux: expected outer loop"
-     end
+     | _ -> fail t_tiled.loc "loop_tile_core: expected outer loop"
+     end *)
   (* otherwise, just tile *)
   | Trm_for (init, cond, step, body) ->
      let log : string =
@@ -445,7 +444,7 @@ let loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block 
     let loop ?(top : bool = false) (index : var) (bound : trm) (body : trm) =
         let start = match top with
         | true -> trm_lit(Lit_int 0)
-        | false -> trm_var( new_var)
+        | false -> trm_var( i_block)
         in
         trm_seq (* ~annot:(Some Delete_instructions) *)
             [
@@ -488,6 +487,6 @@ let loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block 
                 (trm_unop (Unop_delete false)) [trm_var index] *)
             ]
         in
-        loop ~top:true new_var loop_size (trm_seq [loop ~top:false index_x spec_bound body])
-     | _ -> fail t.loc "loop_tile_aux: bad loop body"
+        loop ~top:true i_block loop_size (trm_seq [loop ~top:false index_x spec_bound body])
+     | _ -> fail t.loc "loop_tile_core: bad loop body"
 

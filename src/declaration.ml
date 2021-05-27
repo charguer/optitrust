@@ -4,6 +4,7 @@ open Target
 open Path_constructors
 open Transformations
 open Tools
+open Output
 
 (*
   find the definition x = dx pointed at by pl and replace occurrences of dx with

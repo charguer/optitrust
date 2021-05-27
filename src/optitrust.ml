@@ -1,11 +1,250 @@
 open Clang.Ast
 open Ast
-open Ast_to_c
 open Ast_to_text
 open Clang_to_ast
-open Ast_to_js
 open Tools
+open Output
 open Trace
+
+let write_log (log : string) : unit =
+  List.iter (fun (ctx, _) -> write_log ctx.clog log) (get_trace())
+
+(* instruction added to interrupt the script early *)
+let exit_script () : unit =
+  print_info None "Exiting script\n";
+  try
+    close_logs ();
+    List.iter
+      (fun (ctx, astStack) ->
+        let prefix = ctx.directory ^ ctx.prefix in
+        let astAfter = Stack.pop astStack in
+        let astBefore = Stack.pop astStack in
+        print_info None "Writing ast and code before last transformation...\n";
+        output_prog ctx (prefix ^ "_before") astBefore;
+        print_info None "Done. Output files: %s_before.ast and %s_before%s.\n"
+          prefix prefix ctx.extension;
+        print_info None "Writing ast and code into %s.js " prefix;
+        output_js (-1) prefix astAfter;
+        print_info None "Writing ast and code after last transformation...\n";
+        output_prog ctx (prefix ^ "_after") astAfter;
+        print_info None "Done. Output files: %s_after.ast and %s_after%s.\n"
+          prefix prefix ctx.extension;
+
+        (* DEPRECATED --but keep for potential future use
+        let file_before = prefix ^  "_before" ^ ctx.extension in
+        let file_after = prefix ^  "_after" ^ ctx.extension in
+        let file_diff =  prefix ^  "_diff.base64" in
+        let _ = Sys.command ("meld " ^ file_before " " ^ file_after) in
+        ...
+        let _ = Sys.command ("git diff --no-index -U10 " ^ file_before " " ^ file_after ^ " | base64 -w 0 > " ^ file_diff) in
+        *)
+        ()
+      )
+      (get_trace());
+    exit 0
+  with
+  | Stack.Empty -> fail None ("exit_script: script must be interrupted after " ^
+                                "the initial source file is set.")
+
+
+let dump_trace_to_js ?(out_prefix : string = "") () : unit =
+  (* Initialize var content and source as empty arrays *)
+  (* let () = initialization out_prefix in *)
+  let dump_stack (out_prefix : string)
+    (astStack : trm Stack.t) : unit =
+    let nbAst = Stack.length astStack in
+    let i = ref(nbAst - 2) in
+    (* exceptions:
+     - i = 0 -> program before tranformation -> prefix_input
+     - i = nbAst -2 -> result program -> prefix_input
+     - i = -1 -> empty program -> no output
+    *)
+    Stack.iter
+      (fun ast ->
+        if !i = -1 then ()
+        else
+          output_js !i out_prefix ast;
+        i := !i - 1;
+      )
+      astStack
+    in
+    List.iter
+      (fun (ctx, astStack) ->
+        let out_prefix =
+          if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
+        in
+        dump_stack out_prefix astStack
+
+      )
+      (get_trace())
+
+(*
+  outputs code at each step using given prefix for filename
+  out_prefix_in.cpp is the program before transformation
+  out_prefix_out.cpp is the program after transformation
+*)
+(* ----------------DEPRECATED------------------- *)
+(* let dump_trace ?(out_prefix : string = "") () : unit =
+  let dump_stack (ctx : context) (out_prefix : string)
+    (astStack : trm Stack.t) : unit =
+    let nbAst = Stack.length astStack in
+    let i = ref (nbAst - 2) in
+    (* exceptions:
+     - i = 0 -> program before transformation -> prefix_input
+     - i = nbAst -2 -> result program -> prefix_output
+     - i = -1 -> empty program -> no output *)
+    Stack.iter
+      (fun ast ->
+        if !i = 0 then
+          output_prog ctx (out_prefix ^ "_in") ast
+        else if !i = nbAst - 2 then
+          output_prog ctx (out_prefix ^ "_out") ast
+        else if !i = -1 then
+          ()
+        else
+          output_prog ctx (out_prefix ^ "_" ^ string_of_int !i) ast;
+        i := !i - 1
+      )
+      astStack
+  in
+  List.iter
+    (fun (ctx, astStack) ->
+      let out_prefix =
+        if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
+      in
+      dump_stack ctx out_prefix astStack
+    )
+    (get_trace()) *)
+(* function that executes the script to deal with errors *)
+let run (script : unit -> unit) : unit =
+  Arg.parse
+    Flags.spec
+    (fun _ -> raise (Arg.Bad "Error: no argument expected"))
+    ("usage: no argument expected, only options");
+  let script : unit -> unit =
+    (fun () ->
+      try script (); close_logs () with
+      | Failure s ->
+         close_logs ();
+         failwith s
+    )
+  in
+  if !Flags.repeat_io then script ()
+  else
+    (*FANCY
+   try script () with
+    | _ ->
+       (*
+         if an error occurs, restart with printing/parsing at each step to have
+         appropriate location computation and error messages
+        *)
+       print_info None "Error while executing the transformation script.\n";
+       print_info None "Restarting with printing/parsing at each step...\n";
+       Flags.repeat_io := true;
+       reset ();
+       script ()
+     *)
+    script()
+
+(* outputs current code in given file *)
+let dump ?(out_prefix : string = "") () : unit =
+  (* DEPRECATED -- it uses function dump_trace *)
+  (* if !Flags.full_dump then dump_trace ~out_prefix () *)
+  if !Flags.full_dump then dump_trace_to_js ~out_prefix()
+  else
+    List.iter
+      (fun (ctx, astStack) ->
+        let out_prefix =
+          if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
+        in
+        output_prog ctx (out_prefix ^ "_out") (Stack.top astStack)
+      )
+      (get_trace())
+
+(*
+  mandatory first instruction of a transformation script
+  set environment for script execution on given program file
+  expect a clean context
+*)
+let set_init_source (filename : string) : unit =
+  match (get_trace()) with
+  | [(_, astStack)] when Stack.is_empty astStack ->
+     Stack.push (trm_lit Lit_unit) astStack;
+     let basename = Filename.basename filename in
+     let extension = Filename.extension basename in
+     let directory = (Filename.dirname filename) ^ "/" in
+     let prefix = Filename.remove_extension basename in
+     let clog = open_out (directory ^ prefix ^ ".log") in
+     logs := clog :: !logs;
+     let (includes, t) = parse filename in
+     Stack.push t astStack;
+     set_trace {extension; directory; prefix; includes; clog} astStack;
+     (* trace := [({extension; directory; prefix; includes; clog}, astStack)]; *)
+     print_info None "Starting script execution...\n"
+  | _ -> failwith "set_init_source: context not clean"
+
+(* Wrapper function for unit tests, assuming "foo.ml" to be a script
+   operating on "foo.cpp" and dumping the result in "foo_out.cpp".
+   The option ast_decode can be used for tests that want to report on
+   the "undecoded AST", by copying "foo_out_enc.cpp" onto "foo_out.cpp" *)
+
+let run_unit_test ?(ast_decode : bool = true) (script : unit -> unit) : unit =
+  let basename = Filename.chop_extension Sys.argv.(0) in
+  run (fun () ->
+    set_init_source (basename ^ ".cpp");
+    script();
+    flush stdout;
+    dump ();
+    if not ast_decode
+      then ignore (Sys.command (Printf.sprintf "cp %s_out_enc.cpp %s_out.cpp" basename basename))
+  )
+
+(* Change the flag -reapeat-io (default is true)  *)
+let set_repeat_io (b:bool) : unit =
+  Flags.repeat_io := b
+
+(*
+  branching function
+  optional argument to choose one branch (-1 to choose none)
+ *)
+let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
+  (* close logs: new ones will be opened for each branch *)
+  close_logs ();
+  logs := [];
+  let new_trace =
+    foldi
+      (fun i tr f ->
+        if only_branch = -1 || i = only_branch then
+          begin
+            let old_trace = get_trace() in
+            let new_trace =
+              List.fold_right
+                (fun (ctx, astStack) tr ->
+                  let prefix = ctx.prefix ^ "_" ^ (string_of_int i) in
+                  let clog = open_out (ctx.directory ^ prefix ^ ".log") in
+                  (* store new log channel *)
+                  logs := clog :: !logs;
+                  (*
+                    execute each branch in a single context and store the result
+                   *)
+                  set_trace {ctx with prefix; clog} (Stack.copy astStack);
+                  (* trace := [({ctx with prefix; clog}, Stack.copy astStack)]; *)
+                  f ();
+                  !trace :: tr;
+                )
+                old_trace
+                []
+            in
+            trace := old_trace;
+            (List.flatten new_trace) :: tr
+          end
+        else tr
+      )
+      []
+      cases
+  in
+  trace := List.flatten (List.rev new_trace)
+
 
 (******************************************************************************)
 (*                        Smart constructors for targets                        *)
@@ -28,45 +267,20 @@ let make_target_list_pred = Target.make_target_list_pred
 (*                              Transformations                               *)
 (******************************************************************************)
 
+(* add the given ast to the ast stack *)
+let apply_to_top ?(replace_top : bool = false)
+  (f : context -> trm -> trm) : unit =
+  List.iter
+    (fun (ctx, astStack) ->
+      let ast =
+        if replace_top then Stack.pop astStack else Stack.top astStack
+      in
+      let ast = f ctx ast in
+      let ast = if !Flags.repeat_io then reparse ctx ast else ast in
+      Stack.push ast astStack
+    )
+    (get_trace())
 
-
-(* Transformations are grouped into to main modules:
-    1 ) TrCore: All core transformations, can't be called by the useer
-    2) Tr: All transformations that can be called by the user
-*)
-module TrCore = struct
-  include Arrays_core
-  include Declaration_core
-  include Inlining_core
-  include Label_core
-  include Loop_core
-  include Sequence_core
-  include Struct_core
-  include Transformations_core 
-end
-module Tr = struct
-  include Loop
-  include Sequence
-  include Arrays
-  include Declaration
-  include Inlining
-  include Label
-  include Loop
-  include Sequence
-  include Struct
-  include Transformations
-  
-  
-  (* let seq_insert(tg : target) (ts : trm list) : unit =
-    apply_to_targets_between tg (fun _ (p,i) t ->
-      TrCore.seq_insert p i ts t)
-   *)
-  (* let seq_delete(tg : target) (i : int) (ts : trm list) : unit =
-    apply_to_targets_between tg (fun _ (p,i) t ->
-      TrCore.seq_insert i ts p ts) *)
-  
-
-end
 (*
   label the term pointed by the path with label
   if several terms are pointed, then use indices (label_i)
@@ -376,7 +590,6 @@ let term (ctx : context) ?(context : string = "") (s : string) : trm =
       if the context contains heap allocated variables, t contains a deletion
       list
      *)
-    (* | Trm_seq (t' :: _) when t.annot = Some Delete_instructions -> get_term t' *)
     (* otherwise find the declaration of f *)
     | Trm_seq tl -> get_term (List.hd (List.rev tl))
     (* once the declaration is found, look for the term inside *)
@@ -412,7 +625,7 @@ let tile_array ?(replace_top : bool = false)
       | None -> fail t.loc ("tile_array: unable to find declaration of " ^ x)
       | Some dl ->
          let context = get_context ctx dl t in
-         Arrays.tile_array  ctx.clog name block_name (term ctx ~context b) x t
+         Arrays.tile_array ctx.clog name block_name (term ctx ~context b) x t
     );
   write_log "\n"
 
