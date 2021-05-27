@@ -953,14 +953,10 @@ and translate_decl (d : decl) : trm =
       end
     in typ_map := Type_map.add n tt !typ_map;
     if const then
-      trm_let ~loc ~is_statement:true Var_mutable (n,tt) te
+      trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
     else
-      begin match tt.ty_desc with
-      | Typ_ptr _ -> trm_let ~loc Var_mutable (n,tt) te
-      | _ -> trm_let ~loc Var_immutable (n,tt) te;
-      end
-
-
+      trm_let ~loc ~is_statement:false Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim(Prim_new tt)) [te])
+      
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
     trm_typedef ~loc (Typedef_abbrev (n, tn) )

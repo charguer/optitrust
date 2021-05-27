@@ -321,20 +321,25 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
-  let d,dtx = match varkind with
-  | Var_immutable -> string "const " ^^ blank 1, typed_var_to_doc tv 
+  let d,dtx,d_init = match varkind with
+  | Var_immutable -> string "const " ^^ blank 1, typed_var_to_doc tv,init 
   | Var_mutable -> 
     let (x, typ) = tv in
     let tv = begin match typ.ty_desc with 
     | Typ_ptr tx -> (x, { typ with ty_desc = tx.ty_desc})
     | _ -> fail None "trm_let_to_doc: expected a type ptr"
-    end 
-    in string "const " ^^ blank 1, (typed_var_to_doc tv)
+    end
+    in 
+    let init = begin match init.desc with 
+    | Trm_apps(_, [value]) -> value
+    | _ -> init
+    end
+    in string "const " ^^ blank 1, (typed_var_to_doc tv),init
   in
   let initialisation =
     match init.desc with
     | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-    | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc init ^^ dsemi
+    | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi
   in
   d ^^ dtx ^^ initialisation
 
