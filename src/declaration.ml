@@ -445,7 +445,7 @@ let group_decl_init (t : trm) : trm =
        begin match t1.desc, t2.desc with
        | Trm_seq [{desc = Trm_let (Var_mutable,(x, tx), dx); _}],
          Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                   [{desc = Trm_var y; _}; init])
+                   [{desc = Trm_var _; _}; _])
              (* when y = x && t1.annot = Some Heap_allocated *) ->
           let t =
             trm_let ~loc:t1.loc Var_mutable (x, tx) dx

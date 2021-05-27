@@ -307,10 +307,10 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
           swapped_f swapped_l
      end
   (* declaration… *)
-  | Trm_decl d ->
+  | Trm_typedef d ->
      begin match d with
      (* we look for the declaration of x *)
-     | Def_typ (y, ty) when y = x ->
+     | Typedef_abbrev (y, ty) when y = x ->
         let log : string =
           Printf.sprintf
            ("  - type\n%s\n" ^^

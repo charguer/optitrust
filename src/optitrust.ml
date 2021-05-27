@@ -1038,7 +1038,7 @@ let type_ (ctx : context) ?(context : string = "") (s : string) : typ =
   let context = if context = "" then ctx.includes else context in
   let t = term ctx ~context ("typedef " ^ s ^ " x") in
   match t.desc with
-  | Trm_typ_def (Typdefe_abbrev (_, tx)) -> tx
+  | Trm_typedef (Typedef_abbrev (_, tx)) -> tx
   | _ -> fail t.loc "type_: unexpected output"
 
 (*

@@ -693,14 +693,14 @@ let var_decl_type (t : trm) : typ =
   | _ -> fail t.loc "var_decl_type: expected var declaration"
 
 (* true if t is the declaration of a heap allocated variable *)
-(* let is_heap_alloc (t : trm) : bool =
+let is_heap_alloc (t : trm) : bool =
   match t.desc with
   | Trm_let (vk,(_,_),_) ->
       begin match vk with
       | Var_mutable -> true
       | _ -> false
       end
-  | _ -> fail t.loc "is_heap_alloc: expected var declaration" *)
+  | _ -> fail t.loc "is_heap_alloc: expected var declaration"
 
 (* This will be used later for code verification *)
 

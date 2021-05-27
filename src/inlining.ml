@@ -420,7 +420,7 @@ let inline_record_access_aux (clog : out_channel) (var : string) (field : string
 
 let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm =
       (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
-      let pl = [cVarDef ~name:var()] in
+      let pl = [cVarDef var ] in
       let epl = resolve_target pl t in
       let var_decl = match epl with
       | [dl] -> let (t_def,_) = resolve_path dl t in t_def
@@ -459,7 +459,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
         else (* search for the trms,
                 assumption the variable is only once assigned*)
           (* let loc_pl = [cSet ~lhs:[cVar ~name:var ()]()] in  *)
-          let loc_pl = (cSet ~lhs:[cVar ~name:var ()] ) in
+          let loc_pl = cSet ~lhs:[cVar var]  () in
           let loc_epl = resolve_target loc_pl t in
           match loc_epl with
           | [dl] -> let (t_assgn,_) = resolve_path dl t in
@@ -474,7 +474,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
           | _ -> fail t.loc "inline_struct_access: assumed that the variable was assigned only once"
       in
       let struct_decl_path = [cTypDef var_type ] in
-      let epl_of_struct_decl = resolve_target (List.flatten struct_decl_path) t in
+      let epl_of_struct_decl = resolve_target struct_decl_path t in
       let struct_decl_trm  = match epl_of_struct_decl with
         | [dl] -> let (t_def,_) = resolve_path dl t in t_def
         | _ -> fail t.loc "inline_struct_access: expected a typedef struct"

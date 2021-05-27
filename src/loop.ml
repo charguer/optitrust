@@ -264,7 +264,7 @@ let rec loop_tile_aux (clog : out_channel)(b : var)(new_var : var) (t : trm) : t
             [
 
               trm_var ("b" ^ index_x);
-              trm_apps ~annot:(Some Heap_allocated)
+              trm_apps (* ~annot:(Some Heap_allocated) *)
                       (trm_unop Unop_get) [trm_var b]
             ]
           ]
@@ -468,7 +468,7 @@ let rec loop_swap_aux (clog : out_channel) (t : trm) : trm =
                 (* cond *)
                 (trm_apps (trm_binop Binop_lt)
                    [
-                     trm_apps ~annot:(Some Heap_allocated)
+                     trm_apps (* ~annot:(Some Heap_allocated) *)
                        (trm_unop Unop_get) [trm_var index];
                      bound
                    ]
@@ -788,8 +788,8 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
                 match t'.desc with
                 | Trm_var y when y = x -> x_i
                 | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _},
-                            [{desc = Trm_var y; _}])
-                     when t'.annot = Some Heap_allocated && y = x ->
+                            [{desc = Trm_var _; _}])
+                     (* when t'.annot = Some Heap_allocated && y = x *) ->
                    trm_apps ~annot:(Some Access) (trm_unop Unop_get) [x_i]
                 | _ -> trm_map x_to_xi t'
               in
@@ -1215,33 +1215,33 @@ let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
           i = i1 * block_size + i2
          *)
         (* TODO: Fix this later *)
-        (* let body =
+        let body =
           if not (is_used_var_in (trm_seq tl) i) then trm_seq tl
           else
             trm_seq
-              ((trm_seq ~annot:(Some Heap_allocated)
+              ((trm_seq (* ~annot:(Some Heap_allocated) *)
                   [
-                    trm_decl (Def_var ((i, typ_ptr (typ_int ())),
-                                       trm_prim (Prim_new (typ_int ()))));
+                    
+                    trm_let Var_mutable (i,typ_ptr (typ_int ())) (trm_prim (Prim_new (typ_int ())));
+                    
                     trm_set (* ~annot:(Some Initialisation_instruction) *)
                       (trm_var i)
                       (trm_apps (trm_binop Binop_add)
                          [
-                           trm_apps (trm_binop Binop_mul)[trm_var i1; block_size];
-                           trm_var i2;
-                           (* trm_apps (trm_binop Binop_mul)
+                           trm_apps (trm_binop Binop_mul)
                              [
-                               trm_apps ~annot:(Some Heap_allocated)
+                               trm_apps (* ~annot:(Some Heap_allocated) *)
                                  (trm_unop Unop_get) [trm_var i1];
                                block_size
                              ];
-                           trm_apps ~annot:(Some Heap_allocated)
-                             (trm_unop Unop_get) [trm_var i2] *)
+                           trm_apps (* ~annot:(Some Heap_allocated) *)
+                             (trm_unop Unop_get) [trm_var i2]
                          ]
                       )
                   ]
                ) :: tl)
-        in *)
+        in
+
         (*
           look for the deletion of i1 and i2:
           if only i1 and i2 are deleted, the loop body is correct
