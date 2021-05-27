@@ -997,10 +997,11 @@ end
   translate t into the trm the user sees by removing heap allocation
   should be locally applied to the patterns described above
  *)
-let forget_heap_alloc (t : trm) : trm =
+(* TODO: Remove this function later *)
+(* let forget_heap_alloc (t : trm) : trm =
   let loc = t.loc in
   match t.annot with
-  | Some Delete_instructions ->
+  (* | Some Delete_instructions ->
      (*
           t is either a sequence of delete instructions followed by a return
           or an instruction followed by a sequence of delete instructions
@@ -1014,7 +1015,7 @@ let forget_heap_alloc (t : trm) : trm =
         | _ -> fail loc "forget_heap_alloc: bad delete list"
         end
      | _ -> fail loc "forget_heap_alloc: delete instructions should form a list"
-     end
+     end *)
   | Some Heap_allocated ->
      (*
           t is either a sequence heap allocating a variable
@@ -1031,18 +1032,18 @@ let forget_heap_alloc (t : trm) : trm =
         (* first subcase: no initial value (init = new …) *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _));
             _}] ->
-           trm_decl ~loc ~is_statement:true
-             (Def_var ((x, tx), trm_lit ~loc Lit_uninitialized))
+           trm_let ~loc ~is_statement:true Var_mutable (x, tx) (trm_lit ~loc Lit_uninitialized)
+           
         (* second subcase: initialisation *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _)); _};
            {desc = Trm_apps (_, [{desc = Trm_var y; _}; init]); _}]
              when y = x ->
-           trm_decl ~loc ~is_statement:true (Def_var ((x, tx), init))
+           trm_let ~loc ~is_statement:true Var_mutable (x, tx) init
         | _ -> fail loc "forget_heap_alloc: bad heap allocation"
         end
      | _ -> fail loc "forget_heap_alloc: bad heap_alloc instruction"
      end
-  | _ -> fail loc "forget_heap_alloc: no heap_alloc in term"
+  | _ -> fail loc "forget_heap_alloc: no heap_alloc in term" *)
 
 (* return the last element of a list together with its index *)
 let last (l : 'a list) : int * 'a =
@@ -1091,7 +1092,7 @@ let is_equal_lit (l : lit) (l' : lit) =
 let get_trm_kind (t : trm) : trm_kind =
   if t.is_statement then
     match t.desc with
-    | Trm_struct _ | Trm_array _ | Trm_decl _ | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
+    | Trm_struct _ | Trm_array _ | Trm_let _ | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_) 
     | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
     | _ -> TrmKind_Instr
   else
@@ -1126,9 +1127,9 @@ let is_constr_regexp (c : constr) : bool =
 let rec check_constraint (c : constr) (t : trm) : bool =
   (* LATER: find if it is find to deactivate these encodings *)
   match t.annot with
-  | Some Heap_allocated | Some Delete_instructions ->
+  (* | Some Heap_allocated | Some Delete_instructions -> *)
      (* if t is one of the heap allocation patterns, we simplify it before *)
-     check_constraint c (forget_heap_alloc t)
+     (* check_constraint c (forget_heap_alloc t) *)
   | Some Access ->
      (* forget the star operator at the root before checking the constraint *)
      begin match t.desc with
@@ -1172,18 +1173,18 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_then then_t &&
         check_target p_else else_t
-     | Constr_decl_var (name, p_body), Trm_decl (Def_var ((x, _), body)) ->
+      | Constr_decl_var (name, p_body) , Trm_let (_,(x,_), body) ->
         check_name name x &&
         check_target p_body body
      | Constr_decl_fun (name, cl_args, p_body),
-       Trm_decl (Def_fun (x, _, args, body)) ->
+       Trm_let_fun (x, _, args, body) ->
         let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
         check_name name x &&
         check_list cl_args tl &&
         check_target p_body body
-     | Constr_decl_type name, Trm_decl (Def_typ (x, _)) ->
+     | Constr_decl_type name, Trm_typedef (Typedef_abbrev (x, _)) ->
         check_name name x
-     | Constr_decl_enum (name, cec), Trm_decl (Def_enum (n, xto_l)) ->
+     | Constr_decl_enum (name, cec), Trm_typedef (Typedef_enum (n, xto_l)) ->
         check_name name n &&
         check_enum_const cec xto_l
      | Constr_seq cl, Trm_seq tl -> check_list cl tl
@@ -1375,45 +1376,6 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   (* target constraints first *)
   (* following directions *)
   | Constr_dir d -> follow_dir d p t
-  (* list constraint: explore each continuation *)
-    (* NOT SURE IF THIS IS USED ANYWHERE ANYMORE *)
-  (* | Constr_list (p_elt, next) ->
-     (* take into account heap allocation patterns *)
-     begin match t.annot with
-     | Some Delete_instructions ->
-        begin match t.desc with
-        (* delete instructions + abort *)
-        | Trm_seq ({annot = Some Heap_allocated; _} :: _) ->
-           print_info loc
-             "resolve_constraint: list constraint applied to a wrong term\n";
-           []
-        (* instruction + delete instructions *)
-        | Trm_seq (t' :: _) -> add_dir (Dir_nth 0) (resolve_constraint c p t')
-        | _ -> fail loc "resolve_constraint: bad delete instructions"
-        end
-     | Some Heap_allocated ->
-        (* t is either a heap allocation or a dereferencing *)
-        print_info loc
-          "resolve_constraint: list constraint applied to a wrong term\n";
-        []
-     | _ ->
-        begin match t.desc with
-        | Trm_seq tl ->
-           let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_nth n) il (resolve_target_simple p)
-        | Trm_apps (_, tl) ->
-           let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target_simple p)
-        | Trm_decl (Def_fun (_, _, args, _)) ->
-           let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
-           let il = next (List.map (check_target p_elt) tl) in
-           explore_list_ind tl (fun n -> Dir_arg n) il (resolve_target_simple p)
-        | _ ->
-           print_info loc
-             "resolve_constraint: list constraint applied to a wrong term\n";
-           []
-        end
-     end *)
   (*
     if the constraint is a target constraint that does not match the node or
     if it is another kind of constraint, then we check if it holds
@@ -1434,7 +1396,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
   (* we first deal with heap allocation patterns *)
-  | Some Delete_instructions ->
+  (* | Some Delete_instructions ->
      begin match t.desc with
      (* delete instructions + abort *)
      | Trm_seq ({annot = Some Heap_allocated; _} :: tl) ->
@@ -1443,8 +1405,8 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      (* instruction + delete instructions *)
      | Trm_seq (t' :: _) -> add_dir (Dir_nth 0) (explore_in_depth p t')
      | _ -> fail loc "explore_in_depth: bad delete instructions"
-     end
-  | Some Heap_allocated ->
+     end *)
+  (* | Some Heap_allocated ->
      begin match t.desc with
      (* dereferencing *)
      | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (resolve_target_simple p t')
@@ -1465,7 +1427,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
         | _ -> fail loc "explore_in_depth: bad heap allocation"
         end
      | _ -> fail loc "explore_in_depth: bad heap_alloc instruction"
-     end
+     end *)
   | Some Access ->
      begin match t.desc with
        (*
@@ -1484,11 +1446,11 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      end
   | _ ->
      begin match t.desc with
-     | Trm_decl (Def_var ((x, _), body))
-     | Trm_decl (Def_fun (x, _, _, body)) ->
+     | Trm_let (_ ,(x, _), body) 
+     | Trm_let_fun (x, _ ,_ ,body) ->
         add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
         add_dir Dir_body (resolve_target_simple p body)
-     | Trm_decl (Def_enum (x, xto_l)) ->
+     |Trm_typedef (Typedef_enum (x, xto_l)) ->
         let (il, tl) =
           foldi
             (fun n (il, tl) (_, t_o) ->
@@ -1596,8 +1558,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (resolve_target_simple p then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (resolve_target_simple p else_t)
-  | Dir_body, Trm_decl (Def_var (_, body))
-    | Dir_body, Trm_decl (Def_fun (_, _, _, body))
+  | Dir_body, Trm_let (_,(_,_),body) 
+    | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for (_, _, _, body)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_abort (Ret (Some body))
@@ -1611,13 +1573,13 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_arg n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg n) (resolve_target_simple p nth_t))
-  | Dir_arg n, Trm_decl (Def_fun (_, _, arg, _)) ->
+  | Dir_arg n, Trm_let_fun (_, _, arg, _) ->
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg n) (resolve_target_simple p nth_t))
-  | Dir_name, Trm_decl (Def_var ((x, _), _))
-    | Dir_name, Trm_decl (Def_fun (x, _, _, _))
-    | Dir_name, Trm_decl (Def_enum (x, _))
+  | Dir_name, Trm_let (_,(x,_),_) 
+    | Dir_name, Trm_let_fun (x, _, _, _)
+    | Dir_name, Trm_typedef (Typedef_abbrev (x, _))
     | Dir_name, Trm_labelled (x, _)
     | Dir_name, Trm_goto x ->
      add_dir Dir_name (resolve_target_simple p (trm_var ~loc x))
@@ -1631,7 +1593,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
             app_to_nth_dflt loc tl i (fun ith_t ->
                 add_dir (Dir_case (n, cd)) (resolve_target_simple p ith_t))
        )
-  | Dir_enum_const (n, ecd), Trm_decl (Def_enum (_, xto_l)) ->
+  | Dir_enum_const (n, ecd), Trm_typedef (Typedef_enum (_, xto_l)) ->
      app_to_nth_dflt loc xto_l n
        (fun (x, t_o) ->
          match ecd with
@@ -1695,8 +1657,9 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
                 if i >= n then acc
                 else
                   match t.desc with
-                  | Trm_decl _ -> t :: acc
-                  | Trm_seq _ when t.annot = Some Heap_allocated -> t :: acc
+                  | Trm_let _ -> t :: acc
+                  | Trm_let_fun _ -> t :: acc
+                  | Trm_typedef _ -> t :: acc
                   | _ -> acc
               )
               []
@@ -1717,34 +1680,31 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           aux dl cond ctx
        | Dir_cond, Trm_for (init, cond, _, _) ->
           begin match init.desc with
-          (* loop indices are heap allocated *)
-          | Trm_seq _ when init.annot = Some Heap_allocated ->
-             aux dl cond (init :: ctx)
+          | Trm_let _  -> aux dl cond (init :: ctx)
           | _ -> aux dl cond ctx
           end
        | Dir_then, Trm_if (_, then_t, _) ->
           aux dl then_t ctx
        | Dir_else, Trm_if (_, _, else_t) ->
           aux dl else_t ctx
-       | Dir_body, Trm_decl (Def_fun (_, _, args, body)) ->
+       | Dir_body, Trm_let_fun (_, _, args, body) ->
           (* do as if fun args were heap allocated *)
           let args_decl =
             List.rev_map
               (fun (x, tx) ->
-                trm_seq ~annot:(Some Heap_allocated)
-                  [trm_decl (Def_var ((x, typ_ptr tx),
-                                      trm_lit Lit_uninitialized))]
+                trm_let Var_mutable (x, typ_ptr tx) (trm_lit Lit_uninitialized)
               )
               args
           in
           aux dl body (args_decl ++ ctx)
        | Dir_body, Trm_for (init, _, _, body) ->
           begin match init.desc with
-          | Trm_seq _ when init.annot = Some Heap_allocated ->
+          (* | Trm_seq _ when init.annot = Some Heap_allocated -> *)
+          | Trm_let _ ->
              aux dl body (init :: ctx)
           | _ -> aux dl body ctx
           end
-       | Dir_body, Trm_decl (Def_var (_, body))
+       | Dir_body, Trm_let (_,(_,_), body) 
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_abort (Ret (Some body))
          | Dir_body, Trm_labelled (_, body) ->
@@ -1753,19 +1713,20 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           aux dl init ctx
        | Dir_for_step, Trm_for (init, _, step, _) ->
           begin match init.desc with
-          | Trm_seq _ when init.annot = Some Heap_allocated ->
+          | Trm_let _ ->
+          (* | Trm_seq _ when init.annot = Some Heap_allocated -> *)
              aux dl step (init :: ctx)
           | _ -> aux dl step ctx
           end
        | Dir_app_fun, Trm_apps (f, _) -> aux dl f ctx
        | Dir_arg n, Trm_apps (_, tl) ->
           app_to_nth loc tl n (fun nth_t -> aux dl nth_t ctx)
-       | Dir_arg n, Trm_decl (Def_fun (_, _, arg, _)) ->
+       | Dir_arg n, Trm_let_fun (_, _, arg, _) ->
           app_to_nth loc arg n
             (fun (x, _) -> aux dl (trm_var ~loc x) ctx)
-       | Dir_name, Trm_decl (Def_var ((x, _), _))
-         | Dir_name, Trm_decl (Def_fun (x, _, _, _))
-         | Dir_name, Trm_decl (Def_enum (x, _))
+       | Dir_name , Trm_let (_,(x,_),_) 
+         | Dir_name, Trm_let_fun (x, _, _, _)
+         | Dir_name, Trm_typedef (Typedef_abbrev (x, _))
          | Dir_name, Trm_labelled (x, _)
          | Dir_name, Trm_goto x ->
           aux dl (trm_var ~loc x) ctx
@@ -1777,7 +1738,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
               | Case_name i ->
                  app_to_nth loc tl i (fun ith_t -> aux dl ith_t ctx)
             )
-       | Dir_enum_const (n, ecd), Trm_decl (Def_enum (_, xto_l)) ->
+       | Dir_enum_const (n, ecd), Trm_typedef (Typedef_enum (_, xto_l)) ->
           app_to_nth loc xto_l n
              (fun (x, t_o) ->
                match ecd with
@@ -1857,12 +1818,8 @@ let resolve_target_between (tg : target) (t : trm) : (path * int) list =
  *)
 let rec target_to_decl (x : var) (t : trm) : path option =
   match t.desc with
-  | Trm_decl def ->
-     begin match def with
-     | Def_fun (f, _, _, _) when f = x -> Some []
-     | Def_typ (y, _) when y = x -> Some []
-     | _ -> None
-     end
+  | Trm_let_fun (f, _, _, _) when f = x -> Some []
+  | Trm_typedef (Typedef_abbrev (y, _)) when y = x -> Some []
   | Trm_seq tl ->
      foldi
        (fun i dlo t' ->

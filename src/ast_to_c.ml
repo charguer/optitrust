@@ -111,8 +111,6 @@ and unop_to_doc (op : unary_op) : document =
   | Unop_dec -> twice minus
   | Unop_struct_access s -> dot ^^ string s
   | Unop_struct_get s -> dot ^^ string s
-  | Unop_delete b ->
-     string "delete" ^^ (if b then lbracket ^^ rbracket else empty)
   | Unop_cast t ->
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
@@ -181,6 +179,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
+  (* For printing C code, we have (see explanations in [clang_to_ast.ml],
+     search for [Add_address_of_operator] and [Add_star_operator].
+     TODO: figure out whether we sometimes need to introduce these
+     annotation during transformations. *)
   match t.add with
   | Add_address_of_operator :: addl ->
      let d =
@@ -210,7 +212,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_array tl | Trm_struct tl ->
         let dl = List.map trm_to_doc tl in
         dattr ^^ braces (separate (comma ^^ blank 1) dl)
-     | Trm_decl d -> dattr ^^ decl_to_doc ~semicolon d
+     | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
+     | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
+     | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
      | Trm_if (b, then_, else_) ->
         let db = trm_to_doc b in
         let dt = trm_to_doc ~semicolon:true then_ in
@@ -224,20 +228,6 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         end
      | Trm_seq tl ->
         begin match t.annot with
-        | Some Heap_allocated when !decode ->
-           dattr ^^ heap_alloc_to_doc ~semicolon tl
-        | Some Delete_instructions when !decode ->
-           (*
-             two cases:
-             - return instruction preceded by delete instructions
-             - single instruction followed by delete instructions
-             delete instructions are annotated with Heap_allocated and should
-             not be printed -> we filter them out
-            *)
-           begin match filter_out_heap_alloc tl with
-           | [t] -> dattr ^^ trm_to_doc ~semicolon t
-           | _ -> fail loc "trm_to_doc: bad delete list"
-           end
         | Some Multi_decl -> dattr ^^ multi_decl_to_doc loc tl
         | Some No_braces -> (* TODO: printf stdout "warning no braces left" *)
            (* Print  NOBRACES{ t1; t2 }   *)
@@ -261,10 +251,12 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
             *)
-           let display_star =
+          (* TODO: Fix this later *)
+           (* let display_star =
              match t.annot with
              | (Some Heap_allocated | Some Access) when !decode -> false
-             | _ -> true
+             | _ -> true *)
+           let display_star = false
            in
            dattr ^^ apps_to_doc ~display_star f tl ^^ dsemi
         end
@@ -322,75 +314,48 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_any t ->
         let dt = trm_to_doc ~semicolon t in
         dattr ^^ string "ANY" ^^ parens (dt)
-
-
      end
 
-and heap_alloc_to_doc ?(semicolon : bool = true) (tl : trm list) : document =
-  match tl with
-  | [{desc = Trm_decl d; loc; _}] ->
-     begin match d with
-     | Def_var ((x, {ty_desc = Typ_ptr tx; _}), _) ->
-        decl_to_doc ~semicolon ~const:false
-          (Def_var ((x, tx), trm_lit ~loc Lit_uninitialized))
-     | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
-     end
-  | [{desc = Trm_decl d; loc; _};
-     {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                       [{desc = Trm_var x; _}; re]);
-      annot = Some Initialisation_instruction; _}] ->
-     begin match d with
-     | Def_var ((y, {ty_desc = Typ_ptr ty; _}), _) when y = x ->
-        decl_to_doc ~semicolon ~const:false (Def_var ((y, ty), re))
-     | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated"
-     end
-  | [{desc = Trm_decoration(ls,{desc = Trm_decl d; loc;_},rs);_}] ->
-    begin match d with
-    | Def_var ((x, {ty_desc = Typ_ptr tx; _}), _) ->
-        decl_to_doc ~semicolon ~const:false
-          (Def_var ((ls ^ x ^ rs, tx), trm_lit ~loc Lit_uninitialized))
-    | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated3"
-    end
-  | [{desc = Trm_decoration(ls,{desc = Trm_decl d; loc;_},rs);_};
-     {desc = Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                       [{desc = Trm_var x; _}; re]);
-      annot = Some Initialisation_instruction; _}] ->
-    begin match d with
-     | Def_var ((y, {ty_desc = Typ_ptr ty; _}), _) when y = x ->
-        decl_to_doc ~semicolon ~const:false (Def_var ((ls ^ y ^ rs, ty), re))
-     | _ -> fail loc "heap_alloc_to_doc: only variables are heap allocated4"
-     end
-  | _ -> fail None "heap_alloc_to_doc: should not happen"
-    (* … not until we do something more clever *)
-
-(*
-  temporary hack for heap allocation: optional argument for const modifier
-  every var is a const except if it is heap allocated
-*)
-and decl_to_doc ?(semicolon : bool = true) ?(const = true)
-  (d : def) : document =
+and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
-  match d with
-  | Def_var (tx, t) ->
-     let d = if const then string "const" ^^ blank 1 else empty in
-     let dtx = typed_var_to_doc tx in
-     let initialisation =
-       match t.desc with
-       | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-       | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc t ^^ dsemi
-     in
-     d ^^ dtx ^^ initialisation
-  | Def_fun (f, r, tvl, b) ->
-     let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
-     let argd = separate (comma ^^ blank 1) (List.map typed_var_to_doc tvl) in
-     let dr = typ_to_doc r in
-     begin match b.desc with
-     | Trm_val (Val_lit Lit_uninitialized) ->
-        separate (blank 1) [dr; string f; parens argd] ^^ dsemi
-     | _ -> separate (blank 1) [dr; string f; parens argd; trm_to_doc b]
-     end
-  | Def_typ (x, t) ->
-     begin match t.ty_desc with
+  let d,dtx,d_init = match varkind with
+  | Var_immutable -> string "const " ^^ blank 1, typed_var_to_doc tv,init 
+  | Var_mutable -> 
+    let (x, typ) = tv in
+    let tv = begin match typ.ty_desc with 
+    | Typ_ptr tx -> (x, { typ with ty_desc = tx.ty_desc})
+    | _ -> fail None "trm_let_to_doc: expected a type ptr"
+    end
+    in 
+    let init = begin match init.desc with 
+    | Trm_apps(_, [value]) -> value
+    | _ -> init
+    end
+    in string "const " ^^ blank 1, (typed_var_to_doc tv),init
+  in
+  let initialisation =
+    match init.desc with
+    | Trm_val (Val_lit Lit_uninitialized) -> dsemi
+    | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi
+  in
+  d ^^ dtx ^^ initialisation
+
+and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
+  let dsemi = if semicolon then semi else empty in
+  let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
+  let argd = separate (comma ^^ blank 1) (List.map typed_var_to_doc tvl) in
+  let dr = typ_to_doc r in
+  begin match b.desc with
+  | Trm_val (Val_lit Lit_uninitialized) ->
+     separate (blank 1) [dr; string f; parens argd] ^^ dsemi
+  | _ -> separate (blank 1) [dr; string f; parens argd; trm_to_doc b]
+  end
+
+and typedef_to_doc ?(semicolon : bool = true) (t : typedef) : document =
+  let dsemi = if semicolon then semi else empty in
+  match t with
+  | Typedef_abbrev (x,t) ->
+    begin match t.ty_desc with
      (* particular case for array types aliases *)
      | Typ_array _ ->
         string "typedef" ^^ blank 1 ^^ typed_var_to_doc (x, t) ^^ dsemi
@@ -406,8 +371,8 @@ and decl_to_doc ?(semicolon : bool = true) ?(const = true)
      | _ ->
         separate (blank 1) [string "typedef"; typ_to_doc t; string x] ^^ dsemi
      end
-  | Def_enum (x, enum_const_l) ->
-     let const_doc_l =
+  | Typedef_enum (x, enum_const_l) ->
+      let const_doc_l =
        List.map
          (fun (y, t_o) ->
            match t_o with
@@ -420,30 +385,25 @@ and decl_to_doc ?(semicolon : bool = true) ?(const = true)
                          braces (separate (comma ^^ blank 1) const_doc_l)] ^^
      dsemi
 
-(* assumption: all declarations are non-initialised variables *)
 and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   let rec get_names = function
     | [] -> []
     (* const variables *)
-    | {desc = Trm_decl (Def_var ((x, _), _)); _} :: tl
-      (* heap allocated variables *)
-      | {desc = Trm_seq ({desc = Trm_decl (Def_var ((x, _), _)); _} :: _); _} ::
-          tl ->
-       x :: get_names tl
-    | _ -> fail loc "multi_decl_to_doc: only variable declarations allowed"
+    | {desc = Trm_let (_,(x,_),_);_} :: tl -> x :: get_names tl
+    | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
   in
   let dtype =
     match tl with
     | [] -> fail loc "multi_decl_to_doc: empty multiple declaration"
-    | {desc = Trm_decl (Def_var ((_, ty), _)); _} :: _ ->
-       string "const" ^^ blank 1 ^^ typ_to_doc ty
-    | {desc = Trm_seq ({desc = Trm_decl
-         (Def_var ((_, {ty_desc = Typ_ptr ty; _}), _)); _} :: _); _} :: _ ->
-       typ_to_doc ty
-    | _ -> fail loc "multi_decl_to_doc: only variable declarations allowed"
+    | {desc = Trm_let (vk,(_,ty),_);_} :: _ ->
+      begin match vk with
+      | Var_mutable -> string "const" ^^ blank 1 ^^ typ_to_doc ty
+      | _ -> typ_to_doc ty
+      end
+    | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
   in
   let dnames = separate (comma ^^ blank 1) (List.map string (get_names tl)) in
-  dtype ^^ blank 1 ^^ dnames ^^ semi
+    dtype ^^ blank 1 ^^ dnames ^^ semi
 
 (* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
@@ -516,7 +476,8 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     let d' = trm_to_doc t' in
                     begin match t.annot with
                     (* if t' is heap_allocated, use t'.f *)
-                    | Some Heap_allocated -> parens (d' ^^ dot ^^ string f)
+                    (* TODO: Fix this later *)
+                    (* | Some Heap_allocated -> parens (d' ^^ dot ^^ string f) *)
                     (* otherwise use t'->f instead of *t'.f *)
                     | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)
                     end
@@ -530,15 +491,12 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
 
                       where let optional_parens ~_avoid_parens d = (* this one is common to the entire file *)
                          if _avoid_parens then d else parens d *)
-                 end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then goold else if   ( *f).x then bad
+                 end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then good else if   ( *f).x then bad
                        *)
               | Unop_struct_get f (* when not !decode *) ->
                   parens (d ^^ dot ^^ string f)
               | Unop_struct_access f (* when not !decode *) ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
-              | Unop_delete b ->
-                 let arrd = if b then brackets empty else empty in
-                 string "delete" ^^ arrd ^^ blank 1 ^^ d
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d
@@ -655,7 +613,6 @@ let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
   PPrintEngine.ToBuffer.pretty 0.9 80 b (trm_to_doc t);
   decode := old_decode;
   Buffer.contents b
-
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in

@@ -75,7 +75,7 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   | Unop_dec -> string "Unop_dec"
   | Unop_struct_access f -> node "Unop_struct_access" ^^ string f
   | Unop_struct_get f -> node "Unop_struct_get" ^^ string f
-  | Unop_delete b -> node "Unop_delete" ^^ string (string_of_bool b)
+  (* | Unop_delete b -> node "Unop_delete" ^^ string (string_of_bool b) *)
   | Unop_cast t ->
      let dt = print_typ ~only_desc t in
      node "Unop_cast" ^^ dt
@@ -164,9 +164,27 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_struct tl ->
      let dtl = List.map (print_trm ~only_desc) tl in
      node "Trm_struct" ^^ print_list dtl
-  | Trm_decl d ->
-     let dd = print_def ~only_desc d in
-     node "Trm_decl" ^^ parens dd
+  | Trm_let (vk,(x,tx),t) -> 
+    let dvk = match vk with 
+    | Var_immutable -> string "Var_immutable"
+    | Var_mutable ->  string "Var_mutable"
+    
+    in
+    let dtx = print_typ ~only_desc tx in 
+    let dt = print_trm ~only_desc t in 
+    node "Trm_let" ^^
+      parens (separate (comma ^^ break 1) [dvk;string x;dtx;dt])
+
+  | Trm_let_fun (f, r, tvl, b) ->
+    let dout = print_typ ~only_desc r in 
+    let dtvl = List.map(function (x,tx) -> 
+          let dtx = print_typ ~only_desc tx in 
+          print_pair (string x) dtx) tvl in 
+    let dt = print_trm ~only_desc b in 
+    node "Trm_let_fun" ^^
+      parens (separate (comma ^^ break 1)
+        [string f; dout; print_list dtvl; dt])
+  | Trm_typedef t -> print_typedef ~only_desc t
   | Trm_if (c, t, e) ->
      let dc = print_trm ~only_desc c in
      let dt = print_trm ~only_desc t in
@@ -229,27 +247,12 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc t in
       node "Trm_any"  ^^ parens (dt)
 
-
-and print_def ?(only_desc : bool = false) (d : def) : document =
-  match d with
-  | Def_var ((x, tx), t) ->
-     let dtx = print_typ ~only_desc tx in
-     let dt = print_trm ~only_desc t in
-     node "Def_var" ^^
-       parens (print_pair (string x) dtx ^^ comma ^/^ dt)
-  | Def_fun (x, out, tvl, t) ->
-     let dout = print_typ ~only_desc out in
-     let dtvl = List.map (function (x, tx) ->
-                                    let dtx = print_typ ~only_desc tx in
-                                    print_pair (string x) dtx) tvl in
-     let dt = print_trm ~only_desc t in
-     node "Def_fun" ^^
-       parens (separate (comma ^^ break 1)
-                          [string x; dout; print_list dtvl; dt])
-  | Def_typ (x, t) ->
-     let dt = print_typ ~only_desc t in
-     node "Def_typ" ^^ print_pair (string x) dt
-  | Def_enum (x, enum_const_l) ->
+and print_typedef ?(only_desc : bool = false) (t : typedef) : document =
+  match t with 
+  | Typedef_abbrev (x,typ) ->
+    let dt = print_typ ~only_desc typ in 
+    node "Typedef" ^^ print_pair (string x) dt
+  | Typedef_enum (x, enum_const_l) -> 
      let denum_const_l =
        print_list
          (List.map
@@ -261,7 +264,7 @@ and print_def ?(only_desc : bool = false) (d : def) : document =
             enum_const_l
          )
      in
-     node "Def_enum" ^^ print_pair (string x) denum_const_l
+     node "Typedef_enum" ^^ print_pair (string x) denum_const_l
 
 and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
@@ -272,9 +275,6 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       | None -> underscore
       | Some a ->
          begin match a with
-         | Heap_allocated -> string "Heap_allocated"
-         | Initialisation_instruction -> string "Initialisation_instruction"
-         | Delete_instructions -> string "Delete_instructions"
          | No_braces -> string "No_braces"
          | Access -> string "Access"
          | Multi_decl -> string "Multi_decl"
@@ -282,6 +282,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
          | App_and_set -> string "App_and_set"
          | Include h -> string "Include" ^^ blank 1 ^^ string h
          | Main_file -> string "Main_file"
+         | Grouped_binding -> string "Grouped_binding"
          end
       end
     in

@@ -121,17 +121,12 @@ let make_implicit_record_assignment_core (clog : out_channel) (trms_list_size : 
         | _ -> fail t.loc "make_implicit_record_assignment_aux: all the trms should be assignments"
         ) assign
       in
-      let var_decl = match decl.desc with
-        | Trm_seq [dc] -> dc
+      
+      let var_kind, var_name, var_type = match decl.desc with
+        | Trm_let (vk,tx,_) -> vk, fst tx, snd tx
         | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
       in
-      let var_name = match var_decl.desc with
-        | Trm_decl(Def_var (x,_)) -> fst x
-        | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
-      in
-      let lhs = var_decl in
-      let rhs = trm_set ~annot:(Some Initialisation_instruction) (trm_var var_name) (trm_struct extracted_trms) in
-      let new_trm = trm_seq ~annot:(Some Heap_allocated)[lhs;rhs] in
+      let new_trm = trm_let var_kind (var_name, var_type) (trm_struct extracted_trms) in
       let tl = list_remove_set assign tl in
       let tl = list_replace_el new_trm trm_index tl in
       trm_seq ~annot:t.annot tl
@@ -152,7 +147,7 @@ let fields_reorder_core (clog :out_channel) ?(struct_fields : fields = []) ?(mov
     in
     write_log clog log;
     begin match t.desc with
-      | Trm_decl (Def_typ (x,dx)) ->
+      | Trm_typedef (Typedef_abbrev (x, dx)) ->
 
         let field_list, field_map =
           match dx.ty_desc with
@@ -165,7 +160,7 @@ let fields_reorder_core (clog :out_channel) ?(struct_fields : fields = []) ?(mov
           | _, "" -> move_fields_before move_before struct_fields field_list
           | _,_-> fail t.loc "fields_reorder: only one of move_before or move_after should be specified"
           in
-        trm_decl (Def_typ (x, typ_struct reordered_fields field_map x))
+        trm_typedef (Typedef_abbrev (x, typ_struct reordered_fields field_map x))
 
 
       | _ -> fail t.loc "fields_reorder: expected a definiton"

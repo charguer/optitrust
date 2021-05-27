@@ -173,10 +173,10 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
           swapped_f swapped_l
      end
   (* declaration… *)
-  | Trm_decl d ->
+  | Trm_typedef d ->
      begin match d with
      (* we look for the declaration of x *)
-     | Def_typ (y, ty) when y = x ->
+     | Typedef_abbrev (y, ty) when y = x ->
         let log : string =
           Printf.sprintf
            ("  - type\n%s\n" ^^
@@ -210,8 +210,8 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
              end
           | _ -> fail None ("swap_type: must be an array")
         in
-        trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-           (Def_typ (y, swap_type ty))
+        trm_typedef ~annot: t.annot ~loc: t.loc ~is_statement:t.is_statement ~add:t.add
+          (Typedef_abbrev (y, swap_type ty))
      (*
          all the interesting cases are covered now, we only have to do recursive
          calls
@@ -261,10 +261,10 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
   let rec aux (global_trm : trm) (t :trm) : trm =
     match t.desc with
     (* declarations *)
-    | Trm_decl d ->
+    | Trm_typedef d ->
        begin match d with
        (* we have to change the declaration of x *)
-       | Def_typ (y, ty) when y = x ->
+       | Typedef_abbrev (y, ty) when y = x ->
         let log : string =
           Printf.sprintf
            ("  - type\n%s\n" ^^
@@ -297,7 +297,7 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                        (fun ty'' ->
                          typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
                    in
-                   trm_decl (Def_typ (x, typ_struct l m n))
+                   trm_typedef (Typedef_abbrev(x, typ_struct l m n))
                 | _ ->
                    fail t.loc "swap_accesses: expected underlying struct type"
                 end
@@ -440,7 +440,7 @@ let array_to_variables (clog : out_channel) (dcl_path : target) (new_vars : var 
   | _ -> fail t.loc "array_to_variables: expected only one declaration trm"
   in
   let array_variable = match declaration_trm.desc with
-  | Trm_seq [{desc=Trm_decl (Def_var ((x,_),_));_}] -> x
+  | Trm_let(_,(x,_),_) -> x
   | _ -> fail t.loc "array_to_variables: expected a sequece which contains the declration"
   in
   let t = inline_array_access clog array_variable new_vars t in

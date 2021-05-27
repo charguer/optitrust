@@ -52,10 +52,10 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           trm_if ~annot ~loc ~add ~attributes cond (aux dl then_t) else_t
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes cond then_t (aux dl else_t)
-       | Dir_body, Trm_decl (Def_var (tx, body)) ->
-          trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_var (tx, aux dl body))
-       | Dir_body, Trm_decl (Def_fun (x, tx, txl, body)) ->
-          trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_fun (x, tx, txl, aux dl body))
+        | Dir_body, Trm_let (vk,tx,body) ->
+          trm_let ~annot ~loc ~is_statement ~add ~attributes vk tx  (aux dl body)
+       | Dir_body, Trm_let_fun (x, tx, txl, body) ->
+          trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl (aux dl body)
        | Dir_body, Trm_for (init, cond, step, body) ->
           trm_for ~annot ~loc ~add ~attributes init cond step (aux dl body)
        | Dir_body, Trm_while (cond, body) ->
@@ -79,7 +79,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
        | Dir_arg n, Trm_apps (f, tl) ->
           trm_apps ~annot ~loc ~is_statement ~add ~typ ~attributes f
             (change_nth (aux dl) tl n)
-       | Dir_arg n, Trm_decl (Def_fun (x, tx, txl, body)) ->
+       | Dir_arg n, Trm_let_fun (x, tx, txl, body) ->
           let txl' =
             change_nth
               (fun (x, tx) ->
@@ -93,28 +93,18 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
               txl
               n
           in
-          trm_decl ~annot ~loc ~is_statement ~add ~attributes
-            (Def_fun (x, tx, txl', body))
-       | Dir_name, Trm_decl (Def_var ((x, tx), body)) ->
-          let t' = aux dl (trm_var ~loc x) in
-          (* print_ast  stdout t'; *)
-          begin match t'.desc with
-          | Trm_var x' ->
-             trm_decl ~annot ~loc ~is_statement ~add ~attributes
-               (Def_var ((x', tx), body))
-          | Trm_decoration(_,{desc=Trm_var x';_},_) ->
-              (* trm_decoration ls rs *)
-              (trm_decl ~annot ~loc ~is_statement ~add ~attributes (Def_var ((x', tx), body)))
-          | _ ->
-             fail loc ("apply_local_transformation: transformation " ^
-                         "must preserve names(var)")
+          trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl' body
+        | Dir_name , Trm_let (vk,(x,tx),body) ->
+          let t' = aux dl (trm_var ~loc x) in 
+          begin match t'.desc with 
+          | Trm_var x' -> trm_let ~annot ~loc ~is_statement ~add ~attributes  vk (x',tx) body
+          | _ -> fail loc ("apply_local_transformation: transformation " ^ "must preserve names(function)")
           end
-       | Dir_name, Trm_decl (Def_fun (x, tx, txl, body)) ->
+       | Dir_name, Trm_let_fun (x, tx, txl, body) ->
           let t' = aux dl (trm_var ~loc x) in
           begin match t'.desc with
           | Trm_var x' ->
-             trm_decl ~annot ~loc ~is_statement ~add ~attributes
-               (Def_fun (x', tx, txl, body))
+            trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x' tx txl body
           | _ ->
              fail loc ("apply_local_transformation: transformation " ^
                          "must preserve names(function)")
@@ -258,11 +248,11 @@ let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) (t :
       (* close_out out_ast; *)
 
 (* Change one declaration form const to heap allocated and vice versa*)
-let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
-  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with
+let const_non_const_aux (clog : out_channel) (_trm_index : int) (t : trm) : trm =
+  (* let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with
     | [] -> failwith "Empty list"
     | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
-  in
+  in *)
   let log : string =
       let loc : string =
       match t.loc with
@@ -275,42 +265,12 @@ let const_non_const_aux (clog : out_channel) (trm_index : int) (t : trm) : trm =
       (ast_to_string t) loc
     in write_log clog log;
     match t.desc with
-    | Trm_seq tl ->
-      (* Find the declaration trm, using the index inside the sequence *)
-      let t_decl = List.nth tl trm_index in
-      (*Check if the delcaration is const or non-const  *)
-      begin match t_decl.desc with
-      | Trm_seq[decl;assgn] ->
-        let var_name,var_type = begin match decl.desc with
-        | Trm_decl(Def_var ((x, tx), _)) ->
-          let y = match tx.ty_desc with
-          | Typ_ptr vt -> vt
-          | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
-          in x,y
-        | _ -> fail t.loc "const_non_const_aux: exepected a declaration"
-        end
-        in
-        let var_value = begin match assgn.desc with
-        | Trm_apps (_,[_;v]) ->  v
-        | _ -> fail t.loc "const_non_const_aux: expected an assignment"
-        end
-        in
-        let new_trm = trm_decl ~is_statement:true (Def_var ((var_name,var_type),var_value)) in
-        let tl = list_replace_el new_trm trm_index tl in
-        trm_seq ~annot:t.annot ~loc:t.loc tl
-      | Trm_decl(Def_var ((x, tx),dx)) ->
-          let new_trm = trm_seq ~annot:(Some Heap_allocated) [
-            trm_decl (Def_var ((x,typ_ptr tx),trm_prim (Prim_new tx)));trm_set ~annot:(Some Initialisation_instruction) (trm_var x) dx]
-
-          in
-          let tl = list_replace_el new_trm trm_index tl in
-          trm_seq ~annot:t.annot tl
-      | _ -> fail t.loc "const_non_const_aux: exepected a declaration"
+    | Trm_let (vk,(x,tx),init) ->
+      begin match vk with 
+      | Var_mutable -> trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add  ~attributes:t.attributes Var_immutable (x, tx) init
+      | _ -> trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add Var_immutable (x, tx) init
       end
-
-    | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration"
-
-
+    | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration" 
 
 let const_non_const (clog : out_channel) (tr : target) (t : trm) : trm =
   let epl = resolve_target tr t in
@@ -359,8 +319,8 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
   (t : trm) : ilset funmap =
   let rec aux (t : trm) : ilset funmap =
     match t.desc with
-    | Trm_decl (Def_var (_, body)) -> aux body
-    | Trm_decl (Def_fun (_, _, _, body)) -> aux body
+    | Trm_let (_,(_,_),body) -> aux body
+    | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_if (cond, then_, else_) -> aux cond +@ aux then_ +@ aux else_
     | Trm_seq tl ->
        List.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty tl
@@ -442,7 +402,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
           | Some dl ->
              let (def, _) = resolve_path dl global_trm in
              begin match def.desc with
-             | Trm_decl (Def_fun (_, _, args, body)) ->
+             | Trm_let_fun (_, _, args, body) ->
                 let b = replace_arg_types_with x il args body in
                 (* then do a recursive call on the new body *)
                 res +@ functions_with_arg_type ~outer_trm:(Some global_trm) x b
@@ -475,7 +435,7 @@ let clean_up_no_brace_seq (t : trm) : trm =
       allocated variable and hence we can find a no_brace seq inside a
       delete_instructions seq, which we do not want to inline
      *)
-    | Trm_seq tl when t.annot <> Some Delete_instructions ->
+    | Trm_seq tl (* when t.annot <> Some Delete_instructions *) ->
        trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
          (clean_up_in_list (List.map aux tl))
     | _ -> trm_map aux t
@@ -510,7 +470,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
          | Some dl ->
             let (fdecl, _) = resolve_path dl t' in
             begin match fdecl.desc with
-            | Trm_decl (Def_fun (f', r, tvl, b)) when f = f' ->
+            | Trm_let_fun (f', r, tvl, b) when f = f' ->
                (* for each element of ils, create a copy *)
                let tl =
                  intl_set_foldi
@@ -528,10 +488,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                        label_aux i (replace_arg_types_with x il tvl' b)
                      in
                      (* create the copy of f corresponding to il *)
-                     (trm_decl
-                        (Def_fun (name f ^ "_" ^ string_of_int i, r, tvl', b'))
-                     ) ::
-                     tl
+                     trm_let_fun (name f ^ "_" ^ string_of_int i) r tvl' b' :: tl
                    )
                    ils
                    []
@@ -677,12 +634,12 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
         initialisation
        *)
       | Trm_seq [t_decl; {desc = Trm_apps (_, [lhs; init]); loc; _}]
-           when t'.annot = Some Heap_allocated ->
+           (* when t'.annot = Some Heap_allocated *) ->
          trm_seq ~annot:t'.annot ~loc:t'.loc ~add:t'.add
            ~attributes:t'.attributes
            [
              t_decl;
-             trm_set ~annot:(Some Initialisation_instruction) ~loc lhs
+             trm_set (* ~annot:(Some Initialisation_instruction) *) ~loc lhs
                (apply_change init)
            ]
       | _ -> trm_map apply_change t'
@@ -735,19 +692,16 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
       | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
          trm_unop ~annot:t.annot ~loc:t.loc ~add:t.add
            (Unop_cast (change_typ ty))
-      | Trm_decl (Def_var ((y, ty), init)) ->
-         trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-           ~attributes:t.attributes (Def_var ((y, change_typ ty), aux init))
-      | Trm_decl (Def_fun (f, ty, args, body)) ->
-         trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-           ~attributes:t.attributes
-           (Def_fun (f, change_typ ty,
-                     List.map (fun (y, ty) -> (y, change_typ ty)) args,
-                     aux body)
-           )
-      | Trm_decl (Def_typ (y, ty)) ->
-         trm_decl ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-            ~attributes:t.attributes (Def_typ (y, change_typ ty))
+      | Trm_let (vk,(y,ty),init) ->
+        trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add vk (y,change_typ ty) (aux init)
+      | Trm_let_fun (f, ty, args, body) ->
+         trm_let_fun ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
+           ~attributes:t.attributes f (change_typ ty)
+                     (List.map (fun (y, ty) -> (y, change_typ ty)) args)
+                     (aux body)
+      | Trm_typedef (Typedef_abbrev (y, ty)) ->
+         trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes 
+          (Typedef_abbrev (y, change_typ ty))
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -790,22 +744,23 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
           | Trm_seq [f_loop;del_inst] ->
             begin match f_loop.desc with
             | Trm_for (init, cond, step, body) ->
-
-              let new_decl = trm_seq ~annot:(Some Heap_allocated) [
-                trm_decl (Def_var ((new_var, typ_ptr (typ_var var_type)), trm_prim (Prim_new (typ_var var_type))));
-                trm_set ~annot:(Some Initialisation_instruction) (trm_var new_var) (trm_apps ~annot:(Some Heap_allocated) (trm_unop (Unop_get)) [trm_var old_var] )
-              ]
+              let new_decl = trm_let Var_mutable (new_var, typ_var var_type) (trm_var old_var)
+          
               in
               let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
-              let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in
+              (* let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in *)
 
 
-              let new_loop = trm_seq ~annot:(Some Delete_instructions) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in
-              trm_seq ~annot:(Some Delete_instructions) [
+              let new_loop = trm_seq (* ~annot:(Some Delete_instructions) *) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in
+              (* trm_seq ~annot:(Some Delete_instructions) [
                 trm_seq ~annot:(Some No_braces) [
                   new_decl;new_loop;new_set_old
                 ]; new_del_inst
-              ]
+              ] *)
+              trm_seq (* ~annot:(Some Delete_instructions) *) [
+                trm_seq (* ~annot:(Some No_braces) *) [
+                  new_decl;new_loop;new_set_old
+                ]]
 
             | _ -> fail t.loc "local_other_name_aux: expected a for loop"
             end
@@ -875,22 +830,23 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
             | _ -> fail t.loc "delocalize_aux"
           in
           let new_decl = [
-            trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var ((new_var,typ_ptr (typ_array (typ_var "T") (Trm (trm_var array_size)))),trm_prim (Prim_new (typ_int()))))];
-            trm_set (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_lit (Lit_int 0)]) (trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var]);
+            
+            (* TODO: Fix this later *)
+            
+            (* trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var ((new_var,typ_ptr (typ_array (typ_var "T") (Trm (trm_var array_size)))),trm_prim (Prim_new (typ_int()))))]; *)
+            (* trm_set (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_lit (Lit_int 0)]) (trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var]); *)
             (* trm_set (trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_lit (Lit_int 0)]); *)
-            trm_seq ~annot:(Some Delete_instructions)[
+            trm_seq (* ~annot:(Some Delete_instructions) *)[
               trm_for
                 (* init *)
-                  (trm_seq ~annot:(Some Heap_allocated) [
-                    trm_decl (Def_var (("k", typ_ptr (typ_int ()) ),
-                          trm_prim (Prim_new (typ_int()))));
-                    trm_set ~annot:(Some Initialisation_instruction) (trm_var "k") (trm_lit (Lit_int 0))
-                  ])
+                  (trm_let Var_mutable ("k",typ_int()) (trm_lit (Lit_int 0)))
+                  
                 (* cond *)
                   (trm_apps (trm_binop Binop_lt)
                     [
-                      trm_apps ~annot:(Some Heap_allocated)
-                      (trm_unop Unop_get) [trm_var "k"];
+                      (* trm_apps ~annot:(Some Heap_allocated)
+                      (trm_unop Unop_get) [trm_var "k"]; *)
+                      trm_var "k";
                       (trm_var array_size)
                     ]
                   )
@@ -903,8 +859,8 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
                 )
 
                 ;
-              trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit()))
-                (trm_unop (Unop_delete false)) [trm_var "k"];
+              (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit()))
+                (trm_unop (Unop_delete false)) [trm_var "k"] *)
             ]
           ]
         in
@@ -912,9 +868,9 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
         let new_for_loop = match for_loop.desc with
         | Trm_seq[f_loop;del_inst_f] ->
           begin match f_loop.desc with
-          | Trm_for (init,cond,step,body) -> trm_seq ~annot:(Some Delete_instructions)
+          | Trm_for (init,cond,step,body) -> trm_seq (* ~annot:(Some Delete_instructions) *)
             [ trm_for init cond step
-              (change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_any(trm_var "my_core_id")]]) body);
+              (change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var;trm_apps (* ~annot:(Some Heap_allocated) *) (trm_unop Unop_get) [trm_any(trm_var "my_core_id")]]) body);
               del_inst_f
             ]
           | _ -> fail t.loc "delocalize_aux: expected a for loop"
@@ -930,19 +886,17 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
         in
         let accum = trm_seq ~annot:(Some No_braces) [
           trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
-          trm_seq ~annot:(Some Delete_instructions)[
+          trm_seq (* ~annot:(Some Delete_instructions) *)[
             trm_for
               (* init *)
-                (trm_seq ~annot:(Some Heap_allocated) [
-                  trm_decl (Def_var (("k", typ_ptr (typ_int ()) ),
-                        trm_prim (Prim_new (typ_int()))));
-                  trm_set ~annot:(Some Initialisation_instruction) (trm_var "k") (trm_lit (Lit_int 0))
-                ])
+                (trm_let Var_mutable ("k", typ_int()) (trm_lit (Lit_int 0)))
+                
               (* cond *)
                 (trm_apps (trm_binop Binop_lt)
                   [
-                    trm_apps ~annot:(Some Heap_allocated)
-                    (trm_unop Unop_get) [trm_var "k"];
+                    (* trm_apps ~annot:(Some Heap_allocated)
+                    (trm_unop Unop_get) [trm_var "k"]; *)
+                    trm_var "k";
                     (trm_var array_size)
                   ]
                 )
@@ -955,15 +909,17 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
 
                 (trm_apps (trm_binop operation)
                   [
-                    trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var];
-                    trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var "k"]]
+                    (* trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var]; *)
+                    trm_var old_var;
+                    (* trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var "k"]] *)
+                    trm_apps (trm_binop Binop_array_access)[trm_var new_var; trm_var "k"]
                   ]
                 )            ]
               )
 
               ;
-            trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                (trm_unop (Unop_delete false)) [trm_var "k"]
+            (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
+                (trm_unop (Unop_delete false)) [trm_var "k"] *)
           ]
         ] (* TODO: discuss how to generate this using parsing of C code + substitution
              TODO: add smarter constructors for for-loops :  for_int_range i a b tbody *)
@@ -973,7 +929,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
         let tl = list_replace_el accum 2 tl in
         let tl = insert_sublist_in_list new_decl 0 tl in
 
-        trm_seq  ~annot:(Some Delete_instructions) [trm_seq ~annot:(Some No_braces) tl; del_inst]
+        trm_seq (*  ~annot:(Some Delete_instructions) *) [trm_seq ~annot:(Some No_braces) tl; del_inst]
     | _ -> fail t.loc "delocalize_aux: expected the inner sequence which contains all the necessary terms"
     end
   | _ -> fail t.loc "delocalize_aux: expected the body of the section of interest"
@@ -1025,14 +981,14 @@ let add_attribute (clog : out_channel) (a : attribute) (tr : target)
             in
             write_log clog log;
             match t.desc with
-            | Trm_decl (Def_var ((x, tx), init)) ->
+             | Trm_let (vk, (x, tx), init) ->
                let ty_attributes = a :: tx.ty_attributes in
                {t with
-                 desc = Trm_decl (Def_var ((x, {tx with ty_attributes}), init))}
-            | Trm_decl (Def_typ (x, tx)) ->
+                 desc = Trm_let (vk,(x, {tx with ty_attributes}), init)}
+            | Trm_typedef (Typedef_abbrev (x, tx)) ->
                let ty_attributes = a :: tx.ty_attributes in
-               {t with desc = Trm_decl (Def_typ (x, {tx with ty_attributes}))}
-            | Trm_seq (t_decl :: tl) when t.annot = Some Heap_allocated ->
+               {t with desc = Trm_typedef (Typedef_abbrev (x, {tx with ty_attributes}))}
+            (* | Trm_seq (t_decl :: tl) when t.annot = Some Heap_allocated ->
                begin match t_decl.desc with
                | Trm_decl (Def_var ((x, tx), init)) ->
                   begin match tx.ty_desc with
@@ -1048,7 +1004,7 @@ let add_attribute (clog : out_channel) (a : attribute) (tr : target)
                   | _ -> assert false
                   end
                | _ -> assert false
-               end
+               end *)
             | _ -> {t with attributes = a :: t.attributes}
           )
        )
@@ -1070,7 +1026,7 @@ let undetach_expression_aux(clog : out_channel) (trm_index : int) (t : trm) : tr
     | [] -> failwith "Empty list"
     | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
   in
-
+  (* TODO: Fix this later *)
   let log : string =
     let loc : string =
       match t.loc with
@@ -1086,13 +1042,13 @@ let undetach_expression_aux(clog : out_channel) (trm_index : int) (t : trm) : tr
       | Trm_seq tl ->
         let t_decl = List.nth tl trm_index in
         let t_assgn = List.nth tl (trm_index + 1) in
-        let t_assgn = {t_assgn with annot=(Some Initialisation_instruction)} in
+        (* let t_assgn = {t_assgn with annot=(Some Initialisation_instruction)} in *)
         let t_decl = begin match t_decl.desc with
         | Trm_seq [var_decl] -> var_decl
         | _ -> fail t.loc "undelocalize_aux: expected the sequence which contain the declaration"
         end
         in
-        let new_trm = trm_seq ~annot:(Some Heap_allocated) [t_decl;t_assgn] in
+        let new_trm = trm_seq (* ~annot:(Some Heap_allocated) *) [t_decl;t_assgn] in
         let tl = list_remove_at (trm_index + 1) tl in
         let tl = list_replace_el new_trm trm_index tl in
         trm_seq ~annot:t.annot tl
@@ -1135,11 +1091,12 @@ let detach_expression_aux (clog : out_channel) ?(keep_label : bool = false) (lab
       )
       (ast_to_string t) loc
       in write_log clog log;
+      (* TODO: Fix this later *)
       match t.desc with
       | Trm_seq tl ->
         begin match expression_trm.desc with
         | Trm_seq[t_decl;t_assign] ->
-          let t_decl = trm_seq ~annot:(Some Heap_allocated) [t_decl] in
+          let t_decl = trm_seq (* ~annot:(Some Heap_allocated) *) [t_decl] in
           let t_assign = {t_assign with annot = None} in
 
           if keep_label then

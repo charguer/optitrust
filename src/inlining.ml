@@ -105,7 +105,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
         in
         let t_decl = List.hd tl in
         begin match t_decl.desc with
-        | Trm_decl (Def_var ((x,var_typ),_)) when x = var ->
+        | Trm_let (_,(x, var_typ), _) when x = var ->
           begin match var_typ.ty_desc with
           | Typ_ptr {ty_desc=Typ_var y;_} -> y ,only_decl
           | _ -> fail t.loc "inline_record_access: type was not matched"
@@ -231,14 +231,14 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
     in
 
     begin match t1.desc with
-      | Trm_decl (Def_typ(_,dx)) ->
+      | Trm_typedef (Typedef_abbrev (_, dx)) ->
         let field_list, field_map =
           match dx.ty_desc with
             | Typ_struct (l,m,_) -> l,m
             | _ -> fail t.loc "inline_struct_aux: The type shoudl be a typedef struct"
         in
         begin match t.desc with
-        | Trm_decl (Def_typ(x1,dx1)) ->
+        | Trm_typedef (Typedef_abbrev (x1, dx1)) ->        
             let field_list1, field_map1,name =
               match dx1.ty_desc with
               | Typ_struct(l,m,n) -> l,m,n
@@ -273,8 +273,7 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
 
           let field_list1 = list_remove_set  fields_to_inline field_list1 in
 
-
-          trm_decl (Def_typ (x1,typ_struct field_list1 field_map1 name))
+          trm_typedef (Typedef_abbrev (x1, typ_struct field_list1 field_map1 name))
 
         | _ -> fail t.loc "inline_struct_aux: expected a definiton"
         end
@@ -371,7 +370,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
           | Trm_var _p ->  (*trm_struct (List.rev term_list)*)
               let field_list =
               match base_struct_term.desc with
-                | Trm_decl(Def_typ(_,dx)) ->
+                | Trm_typedef (Typedef_abbrev (_, dx)) ->
                   begin match dx.ty_desc with
                     | Typ_struct (fl,_,_) -> fl
                     | _ -> fail t.loc "change_struct_initializaition: expected a struct"
@@ -428,7 +427,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
           | Trm_var _p ->  (*trm_struct (List.rev term_list)*)
               let field_list =
               match base_struct_term.desc with
-                | Trm_decl(Def_typ(_,dx)) ->
+                | Trm_typedef (Typedef_abbrev (_, dx)) ->
                   begin match dx.ty_desc with
                     | Typ_struct (fl,_,_) -> fl
                     | _ -> fail t.loc "change_struct_initializaition: expected a struct"
@@ -463,7 +462,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
   (* Get the type of the field_name by going through the field_map of struct obj *)
   let inner_struct_name =
   match struct_term.desc with
-  | Trm_decl (Def_typ(_,dx)) ->
+  | Trm_typedef (Typedef_abbrev (_, dx)) ->
     let field_map =
       match dx.ty_desc with
       | Typ_struct (_,m,_) -> m

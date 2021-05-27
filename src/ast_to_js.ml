@@ -108,29 +108,30 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     | Trm_array l ->
         [ kind_to_field "\"array\"";
           children_to_field (List.mapi ichild_to_json (List.map aux l)) ]
-    | Trm_decl d ->
-        begin match d with
-        | Def_var ((x,typ),body) ->
-          [ kind_to_field "\"var-def\"";
-            ("\"name\"", Json.Str ("\"" ^ x ^ "\""));
-            ("\"def-type\"", Json.typ_to_json typ);
-            children_to_field ([(child_to_json "body" (aux body))])]
-        | Def_fun (f,typ,xts,tbody) ->
-          [ kind_to_field "\"fun-def\"";
+    (* TODO: Ask Arthur if Var_kind is needed *)
+    | Trm_let (_,(x,typ),init) ->
+        [ kind_to_field "\"var-def\"";
+          ("\"name\"", Json.Str ("\"" ^ x ^ "\""));
+          ("\"def-type\"", Json.typ_to_json typ);
+          children_to_field ([(child_to_json "init" (aux init))])]
+    | Trm_let_fun (f, typ, xts, tbody) ->
+      [ kind_to_field "\"fun-def\"";
             ("\"name\"", Json.Str ("\"" ^ f ^"\""));
             ("\"args\"", typed_var_list_to_json xts);
             ("\"return_type\"", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
-        | Def_typ (tv,typ) ->
-          [ kind_to_field "\"typ-def\"";
+    | Trm_typedef t -> 
+      begin match t with 
+      | Typedef_abbrev(tv, typ) ->
+        [ kind_to_field "\"typ-def-abbrev\"";
             ("\"name\"", Json.Str ("\"" ^ tv ^"\""));
             ("\"contents\"", Json.typ_to_json typ);
             children_to_field [] ]
-        | Def_enum (tv,_) -> (*TODO: support enum better--figure out what are the trmoptions * *)
-          [ kind_to_field "\"enum-def\"";
+      | Typedef_enum (tv,_) ->  (*TODO: support enum better--figure out what are the trmoptions * *)
+        [ kind_to_field "\"enum-def\"";
             value_to_field tv;
             children_to_field [] ]
-        end
+      end
     | Trm_if (cond, then_, else_) ->
         [ kind_to_field "\"if\"";
           children_to_field [
@@ -215,9 +216,8 @@ let annot_to_string (t : trm) : string =
   | None -> "\"_\""
   | Some a ->
      begin match a with
-     | Heap_allocated -> "\"Heap_allocated\""
-     | Initialisation_instruction -> "\"Initialisation_instruction\""
-     | Delete_instructions -> "\"Delete_instructions\""
+     (* | Delete_instructions -> "\"Delete_instructions\"" *)
+     | Grouped_binding -> "\"Grouped_binding\""
      | No_braces -> "\"No_braces\""
      | Access -> "\"Access\""
      | Multi_decl -> "\"Multi_decl\""

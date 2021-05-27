@@ -34,68 +34,58 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
   in
   match t.desc with
   (* declarations *)
-  | Trm_decl d ->
+  | Trm_typedef d ->
      begin match d with
      (* we have to change the declaration of x *)
-     | Def_typ (y, ty) when y = x ->
+     | Typedef_abbrev (y, ty) when y = x ->
         (* ty must be an array type or a pointer type *)
         begin match ty.ty_desc with
         | Typ_ptr ty ->
            (* ty* becomes (ty[b])* *)
            trm_seq ~annot:(Some No_braces)
               [
-                trm_decl (Def_typ (block_name, typ_array ty (Trm b)));
-                trm_decl (Def_typ (y, typ_ptr (typ_var block_name)))
+                trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name)))
               ]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
            begin match s with
-           | Undefined -> fail t.loc "tile_array_core: array size must be provided"
+           | Undefined -> fail t.loc "tile_aux: array size must be provided"
            | Const n ->
               let n_div_b =
                 trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); b]
               in
               trm_seq ~annot:(Some No_braces)
                 [
-                  trm_decl (Def_typ (block_name, typ_array ty (Trm b)));
-                  trm_decl (Def_typ (y, typ_array (typ_var block_name)
+                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name)
                                           (Trm n_div_b)))
                 ]
            | Trm t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; b] in
               trm_seq ~annot:(Some No_braces)
                 [
-                  trm_decl (Def_typ (block_name, typ_array ty (Trm b)));
-                  trm_decl (Def_typ (y, typ_array (typ_var block_name)
+                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name)
                                           (Trm t'')))
                 ]
            end
-        | _ -> fail t.loc "tile_array_core: expected array or pointer type declaration"
+        | _ -> fail t.loc "tile_aux: expected array or pointer type declaration"
         end
      (*
        other cases: type declarations (not x), fun declarations, var
        declarations (not of type x)
        arrays of type x are heap allocated
       *)
-     | _ -> trm_map (tile_array_core base_type block_name b x) t
+     | _ -> trm_map (tile_aux base_type block_name b x) t
      end
   (* heap allocations *)
-  | Trm_seq [t_decl;
-             {desc = Trm_apps
-                       ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                        [t_var; t_alloc]); _}]
-       when t.annot = Some Heap_allocated ->
-     let ty = var_decl_type t_decl in
-     begin match ty.ty_desc with
-     (* we look for arrays of type x *)
-     | Typ_ptr {ty_desc = Typ_var y; _} when y = x ->
-        trm_seq ~annot:(Some Heap_allocated)
-          [t_decl;
-           trm_apps ~annot:(Some Initialisation_instruction)
-             (trm_binop Binop_set) [t_var; new_alloc t_alloc]
-          ]
-     | _ -> trm_map (tile_array_core base_type block_name b x) t
-     end
+  | Trm_let (Var_mutable, (y,ty), init) when y = x ->
+    begin match ty.ty_desc with
+    | Typ_ptr {ty_desc = Typ_var y; _} when y = x ->
+        trm_let Var_mutable (y,ty) init
+    | _ -> trm_map (tile_aux base_type block_name b x) t
+    end
   (* set with alloc *)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
               [lhs; rhs]) ->
@@ -104,7 +94,7 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
      | Some {ty_desc = Typ_var y; _} when y = x ->
         trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
           ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
-     | _ -> trm_map (tile_array_core base_type block_name b x) t
+     | _ -> trm_map (tile_aux base_type block_name b x) t
      end
   (* array accesses *)
   | Trm_apps (f, tl) ->
@@ -131,13 +121,13 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
                     ];
                   trm_apps (trm_binop Binop_mod) [index; b]
                 ]
-           | _ -> trm_map (tile_array_core base_type block_name b x) t
+           | _ -> trm_map (tile_aux base_type block_name b x) t
            end
-        | _ -> fail t.loc "tile_array_core: array accesses must have two arguments"
+        | _ -> fail t.loc "tile_aux: array accesses must have two arguments"
         end
-     | _ -> trm_map (tile_array_core base_type block_name b x) t
+     | _ -> trm_map (tile_aux base_type block_name b x) t
      end
-  | _ -> trm_map (tile_array_core base_type block_name b x) t
+  | _ -> trm_map (tile_aux base_type block_name b x) t
 
 let array_to_variables_core (clog : out_channel) (new_vars : var list) (decl_trm : trm) (decl_index : int) (t  : trm) : trm =
   let log : string =
@@ -156,27 +146,27 @@ let array_to_variables_core (clog : out_channel) (new_vars : var list) (decl_trm
        let decl_type = begin match decl_trm.desc with
        | Trm_seq[t_decl] ->
         begin match t_decl.desc with
-        | Trm_decl (Def_var ((_,_),dx)) ->
-          begin match dx.desc with
+        | Trm_let (_,(_, _), init) ->
+          begin match init.desc with
           | Trm_val( Val_prim (Prim_new t_arr)) ->
             begin match t_arr.ty_desc with
             | Typ_array (t_var,_) ->
               begin match t_var.ty_desc with
               | Typ_var x -> x
-              | _ -> fail t.loc "array_to_variables_core: expected a type variable"
+              | _ -> fail t.loc "array_to_variables_aux: expected a type variable"
               end
-            | _ -> fail t.loc "array_to_variables_core: expected an array type"
+            | _ -> fail t.loc "array_to_variables_aux: expected an array type"
             end
-          | _ -> fail t.loc "array_to_variables_core: something went wrong"
+          | _ -> fail t.loc "array_to_variables_aux: something went wrong"
           end
-        | _ -> fail t.loc "array_to_variables_core: expected a variable declaration"
+        | _ -> fail t.loc "array_to_variables_aux: expected a variable declaration"
         end
-      | _ -> fail t.loc "array_to_variables_core: expected a sequence which contain the variable declaration"
+      | _ -> fail t.loc "array_to_variables_aux: expected a sequence which contain the variable declaration"
       end
       in
       (* let decl_index = get_index decl_trm tl in *)
       let new_trms = List.map(fun x ->
-        trm_seq ~annot:(Some Heap_allocated) [trm_decl (Def_var((x,typ_ptr (typ_var decl_type)),trm_prim (Prim_new (typ_var decl_type))))]) new_vars
+        trm_let Var_mutable (x,(typ_ptr (typ_var (decl_type)))) (trm_lit (Lit_uninitialized))) new_vars
       in
       trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl)
-    | _ -> fail t.loc "array_to_variables_core: only declaration inside sequence are supported"
+    | _ -> fail t.loc "array_to_variables_aux: only declaration inside sequence are supported"

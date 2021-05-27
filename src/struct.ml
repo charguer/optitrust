@@ -14,7 +14,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
   let field_list =
 
   match struct_def_term.desc with
-  | Trm_decl (Def_typ (_,dx)) ->
+  | Trm_typedef (Typedef_abbrev (_, dx)) ->
     begin match dx.ty_desc with
     | Typ_struct (fl,_,_) -> List.rev fl
     | _ -> fail t.loc "make_explicit_record_assigment: the type should be a struct"
@@ -71,7 +71,7 @@ let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string =
     in
     let fields_list =
     match struct_term.desc with
-    | Trm_decl (Def_typ (_,dx)) ->
+    | Trm_typedef (Typedef_abbrev (_, dx)) ->
       begin
       match dx.ty_desc with
       | Typ_struct (l,_,_) -> l

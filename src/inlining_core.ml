@@ -234,16 +234,16 @@ let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result 
        write_log clog log;
        match t.desc with
        (* const variables *)
-       | Trm_decl (Def_var ((x, _), dx)) ->
+       | Trm_let (_,(x,_), dx) ->
           let t_x = trm_var x in
           change_trm ~change_at:inline_at t_x dx t
        (*
          heap allocated variables
          note: an initialisation must be given
         *)
-       | Trm_seq [{desc = Trm_decl (Def_var ((x, _), _)); _};
+       (* | Trm_seq [{desc = Trm_decl (Def_var ((x, _), _)); _};
                   {desc = Trm_apps (_, [_; dx]); _}]
-            when t.annot = Some Heap_allocated ->
+            when t_def.annot = Some Heap_allocated ->
           let t_x =
             trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get)
               [trm_var x]
@@ -254,22 +254,22 @@ let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result 
            *)
           let x' = fresh_in t x in
           let t =
-            change_trm
+            (* change_trm
               (trm_apps (trm_unop (Unop_delete false)) [trm_var x])
               (* do not forget annotations *)
               (trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                 (trm_unop (Unop_delete false)) [trm_var x'])
+                 (trm_unop (Unop_delete false)) [trm_var x']) *)
               t
           in
           let t = change_trm ~change_at:inline_at t_x dx t in
           (* put back x instead of x' *)
-          change_trm (trm_var x') (trm_var x) t
+          change_trm (trm_var x') (trm_var x) t *)
        (* typedef *)
-       | Trm_decl (Def_typ (x, dx)) ->
+       | Trm_typedef (Typedef_abbrev (x,dx)) ->
           let ty_x = typ_var x in
           change_typ ~change_at:inline_at ty_x dx t
        (* fun decl *)
-       | Trm_decl (Def_fun (f, tf, args, body)) ->
+       | Trm_let_fun (f, tf, args, body) ->
           let log : string =
             Printf.sprintf
               "  - function %s is used at most once per instruction\n"
@@ -284,7 +284,7 @@ let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result 
 (* Get the index for a given field of struct inside its list of fields *)
 let get_pos (x : typvar) (t : trm) : int =
   begin match t.desc with
-  | Trm_decl (Def_typ(_,dx)) ->
+    | Trm_typedef (Typedef_abbrev(_, dx)) ->
        let field_list1 =
           match dx.ty_desc with
           | Typ_struct(l,_,_) -> l
@@ -302,19 +302,19 @@ let get_pos (x : typvar) (t : trm) : int =
 
 
 let inline_record_access_core (clog : out_channel) (var : string) (field : string) (struct_decl_trm : trm) (list_of_trms : trm list) (t : trm) : trm =
-   let log : string =
-    let loc : string =
-      match t.loc with
-      | None -> ""
-      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in Printf.sprintf
-      (" -expresssion\n%s\n" ^^
-      "  %sis an assignment with record access\n"
-      )
-      (ast_to_string t) loc
-      in write_log clog log;
-      (* search for the declaration of the variable *)
-   let rec aux (global_trm : trm ) (t : trm) : trm =
+  let log : string =
+  let loc : string =
+    match t.loc with
+    | None -> ""
+    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+  in Printf.sprintf
+    (" -expresssion\n%s\n" ^^
+    "  %sis an assignment with record access\n"
+    )
+    (ast_to_string t) loc
+    in write_log clog log;
+    (* search for the declaration of the variable *)
+  let rec aux (global_trm : trm ) (t : trm) : trm =
       begin match t.desc with
       | Trm_apps (f,[base]) ->
         begin match f.desc with
