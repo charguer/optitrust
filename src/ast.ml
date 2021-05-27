@@ -73,8 +73,6 @@ and unary_op =
   | Unop_dec
   | Unop_struct_access of field (* the ".f" operator TODO CHECK *)
   | Unop_struct_get of field (* the "->f" operator TODO CHECK *)
-  (* | Unop_delete of bool *) (* "Unop_delete false" is "delete",
-                           "Unop_delete true" is "delete[]" TODO CHANGE *)
   | Unop_cast of typ (* cast operator towards the specified type *)
 
 and binary_op =
@@ -131,9 +129,6 @@ and value =
    Clang AST in such a way to be able to print back the AST like the original C code.
    *)
 and trm_annot =
-  (* for sequences containing elimination of heap allocated variables *)
-  (* TODO: This will be changed later *)
-  (* | Delete_instructions *)
   (* used to print back a c++ program *)
   | No_braces
   (* annotate applications of star operator that should not be printed *)
@@ -453,15 +448,6 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
   else
     Printf.ifprintf stdout
 
-(* *****************DEPRECATED*************** *)
-(* let filter_out_heap_alloc : trm list -> trm list =
-  List.filter
-    (fun ({annot; _} : trm) ->
-      match annot with
-      | Some Heap_allocated -> false
-      | _ -> true
-    ) *)
-
 (* concrete accesses in a trm *)
 type trm_access =
   | Array_access of trm (* operator [i] *)
@@ -701,16 +687,6 @@ let is_heap_alloc (t : trm) : bool =
       | _ -> false
       end
   | _ -> fail t.loc "is_heap_alloc: expected var declaration"
-
-(* This will be used later for code verification *)
-
-(* return the name of the deleted variable *)
-(* let deleted_var (t : trm) : var =
-  match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_delete _))); _},
-              [{desc = Trm_var x; _}]) -> x
-  | _ -> fail t.loc "deleted_var: expected var to be deleted" *)
-
 
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =

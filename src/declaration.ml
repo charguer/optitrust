@@ -57,10 +57,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
           [[cVarDef x ~body:[cVar x ]; cBody]]
         in
         change_trm ~change_at t_x def_x t
-     (*
-       heap allocated variables
-       note: an initialisation must be given
-      *)
+     
      (* typedef *)
      | Trm_typedef d -> 
        begin match d with 
@@ -132,6 +129,7 @@ let insert_decl ?(insert_before : target = [])
       add a seq with delete instruction around the pointed term containing the
       declaration
      *)
+    (* TODO: Remove this, delete instructions not needed anymore*)
     let create_delete_instr (dl : path) (t : trm) : trm =
       apply_local_transformation
         (fun t ->

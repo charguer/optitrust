@@ -18,7 +18,6 @@ open Tools
     - x is not used in function definitions, but only in var declarations
     - for now: in any case, the number of elements is divisible by b
  *)
-(* TODO: This transformation uses the old vardef encoding, change it *)
 let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   (t : trm) : trm =
   (*
@@ -96,22 +95,12 @@ let rec tile_aux (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
      | _ -> trm_map (tile_aux base_type block_name b x) t
      end
   (* heap allocations *)
-  | Trm_seq [t_decl;
-             {desc = Trm_apps
-                       ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                        [t_var; t_alloc]); _}]
-       (* when t.annot = Some Heap_allocated *) ->
-     let ty = var_decl_type t_decl in
-     begin match ty.ty_desc with
-     (* we look for arrays of type x *)
-     | Typ_ptr {ty_desc = Typ_var y; _} when y = x ->
-        trm_seq (* ~annot:(Some Heap_allocated) *)
-          [t_decl;
-           trm_apps (* ~annot:(Some Initialisation_instruction) *)
-             (trm_binop Binop_set) [t_var; new_alloc t_alloc]
-          ]
-     | _ -> trm_map (tile_aux base_type block_name b x) t
-     end
+  | Trm_let (Var_mutable, (y,ty), init) when y = x ->
+    begin match ty.ty_desc with
+    | Typ_ptr {ty_desc = Typ_var y; _} when y = x ->
+        trm_let Var_mutable (y,ty) init
+    | _ -> trm_map (tile_aux base_type block_name b x) t
+    end
   (* set with alloc *)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
               [lhs; rhs]) ->
@@ -542,9 +531,8 @@ let array_to_variables_aux (clog : out_channel) (new_vars : var list) (decl_trm 
       end
       in
       (* let decl_index = get_index decl_trm tl in *)
-      (* TODO: Fix this later probably it will show the variable with pointer type *)
       let new_trms = List.map(fun x ->
-        trm_let Var_mutable (x,(typ_ptr (typ_var (decl_type)))) (trm_prim (Prim_new (typ_var decl_type)))) new_vars
+        trm_let Var_mutable (x,(typ_ptr (typ_var (decl_type)))) (trm_lit (Lit_uninitialized))) new_vars
       in
       trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl)
     | _ -> fail t.loc "array_to_variables_aux: only declaration inside sequence are supported"

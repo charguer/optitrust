@@ -60,14 +60,6 @@ let add_var (s : string) : unit =
   let (kind, sl) = Stack.pop heap_vars in
   Stack.push (kind, (s :: sl)) heap_vars
 
-(* compute the sequence of delete instructions at the end of a scope *)
-(* let delete_list ?(loc : location = None) (sl : string list) : trm list =
-  List.map
-    (fun s -> trm_apps ~loc ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-        (trm_unop (Unop_delete false)) [trm_var s])
-    sl *)
-
-
 (* Auxiliary function to compute the new location for delete instruction before scope closure *)
 
 let new_location (loc : location) : location = match loc with
@@ -955,7 +947,8 @@ and translate_decl (d : decl) : trm =
     if const then
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
     else
-      trm_let ~loc ~is_statement:false Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim(Prim_new tt)) [te])
+      let () = add_var n in
+      trm_let ~loc ~is_statement:false Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim(Prim_new tt)) [te]);
       
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in

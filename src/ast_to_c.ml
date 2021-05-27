@@ -111,9 +111,6 @@ and unop_to_doc (op : unary_op) : document =
   | Unop_dec -> twice minus
   | Unop_struct_access s -> dot ^^ string s
   | Unop_struct_get s -> dot ^^ string s
-  (* Used for delete instructions, for the moment delete instructions are disabled *)
-  (* | Unop_delete b ->
-     string "delete" ^^ (if b then lbracket ^^ rbracket else empty) *)
   | Unop_cast t ->
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
@@ -500,9 +497,6 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                   parens (d ^^ dot ^^ string f)
               | Unop_struct_access f (* when not !decode *) ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
-              (* | Unop_ b ->
-                 let arrd = if b then brackets empty else empty in
-                 string "delete" ^^ arrd ^^ blank 1 ^^ d *)
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d
