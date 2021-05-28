@@ -252,6 +252,9 @@ type 'a tmap = 'a Trm_map.t
 type instantiation = trm tmap
 
 (* **************************Typ Construcors**************************** *)
+let typ_const ?(annot : typ_annot list = []) ?(ty_attributes = [])
+  (t : typ) : typ =
+  {ty_annot = annot; ty_desc = Typ_const t; ty_attributes}
 
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
   (x : typvar) : typ =

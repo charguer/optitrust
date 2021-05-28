@@ -175,14 +175,22 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   match d with
   | Pointer q ->
     let t = translate_qual_type ~loc q in
+    let {const;_} = q in 
+    if const then 
+      typ_const (typ_ptr t)
+    else
     typ_ptr t
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = translate_qual_type ~loc q in
+    let {const;_} = q in 
     begin match eo with
       | None -> typ_array t (Const n)
       | Some e ->
         let s = translate_expr e in
-        typ_array t (Trm s)
+        if const then
+          typ_const (typ_array t (Trm s)) 
+        else 
+          typ_array t (Trm s)
     end
   | IncompleteArray q ->
     let t = translate_qual_type ~loc q in

@@ -7,13 +7,23 @@ int immutable_stack_ptr() {
   p = &y;
   *q = 5;
   return *p + *q + *r;
-}
+}j
 
 int immutable_stack_array() {
   int x = 3;
   int y = 4;
-  const int * const t[2] = {&x,&y}; (* TODO: ask Anton *)
-  return *(t[0]);
+  int* const t[2] = { &x, &y };
+  // t[0] = &y; // disallowed
+  *(t[0]) = 3; // allowed, because t[0] is not const
+
+  const int* u[2] = { &x, &y };
+  u[0] = &y; // allowed, because u itself is not const
+  // *(u[0]) = 3; disallowed
+
+  const int* const v[2] = { &x, &y };
+  // v[0] = &y; // disallowed
+  //*(v[0]) = 3; // disallowed
+  return *(t[0])
 }
 
 int immutable_stack_var() {
@@ -28,6 +38,15 @@ int mutable_stack_var() {
   r = r + 1;
   r++;
   return r;
+}
+
+int mutable_stack_array (){
+  int x = 3;
+  int y = 4;
+   int* w[2] = { &x, &y };
+   w[0] = &y; // allowed
+   *(w[0]) = 3; // allowed
+   return *(w[0]);
 }
 
 /*  ENCODED VERSION

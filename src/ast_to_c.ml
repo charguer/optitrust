@@ -12,6 +12,7 @@ let decode = ref true
 
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
+  | Typ_const t -> string "const" ^^ typ_to_doc t 
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
   | Typ_float -> string "float"
@@ -64,7 +65,7 @@ and typ_to_doc (t : typ) : document =
   dattr ^^ dannot ^^ d
 
 and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
-  let const_string = if const then blank 1 ^^ string "const" ^^ blank 1 else empty in
+  let const_string = if const then blank 1 ^^ string "const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
       match s with
@@ -326,15 +327,14 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     | _ -> fail None "trm_let_to_doc: expected a type ptr"
     end
     in
-    (* Printf.printf "Ast of the init term %s" (Ast_to_text.ast_to_string init); *)
     let init = if not !decode then init  else begin match init.desc with
     | Trm_apps(_, [value]) -> value
     | _ -> init
     end
     in
     if not !decode
-      then empty, typed_var_to_doc ~const:true tv, init (* LATER: factorize with Var_immutable *)
-      else empty, (typed_var_to_doc tv),init
+      then empty, typed_var_to_doc  tv, init (* LATER: factorize with Var_immutable *)
+      else empty, typed_var_to_doc  tv,init
     in
   let initialisation =
     match init.desc with
