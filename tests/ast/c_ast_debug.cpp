@@ -42,6 +42,19 @@ int mutable_stack_var() {
 
 
 
+/*
+  t[3].f
+  t[3]->f
+  t->f[3]
+  t.f[3]
+
+  both in case t a stack allocated
+  or t in a const
+  or t is a function argument passed by pointer
+  or t is a  function argument passed by value
+
+
+*/
 
 
 
