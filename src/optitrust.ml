@@ -1116,15 +1116,6 @@ let tile_loop ?(replace_top : bool = false)
     (fun ctx -> Loop.tile_loop ctx.clog tr);
   write_log "\n"
 
-let loop_coloring ?(replace_top : bool = false) (tr : target) (c: var) (new_var : var): unit =
-    let log : string =
-      Printf.sprintf "Transform_loop %s:\n" (target_to_string tr)
-    in
-    write_log log;
-    apply_to_top ~replace_top
-      (fun ctx -> Loop.loop_coloring ctx.clog tr c new_var);
-    write_log "\n"
-
 let loop_tile ?(replace_top : bool = false) (tr : target) (b: var) (new_var : var): unit =
     let log : string =
       Printf.sprintf "Transform_loop %s:\n" (target_to_string tr)
@@ -1134,16 +1125,7 @@ let loop_tile ?(replace_top : bool = false) (tr : target) (b: var) (new_var : va
       (fun ctx -> Loop.loop_tile ctx.clog tr b new_var);
     write_log "\n"
 
-let loop_swap ?(replace_top : bool = false) (tr : target) : unit =
-    let log : string =
-      Printf.sprintf "Swap_loop %s:\n" (target_to_string tr)
-    in
-    write_log log;
-    apply_to_top ~replace_top
-      (fun ctx -> Loop.loop_swap ctx.clog tr );
-    write_log "\n"
-
-let move_loop_before ?(replace_top : bool = false) (tr : target) (loop_index : var) : unit =
+(* let move_loop_before ?(replace_top : bool = false) (tr : target) (loop_index : var) : unit =
     let log : string =
       Printf.sprintf "move_loop_before %s:\n" (target_to_string tr)
     in
@@ -1164,7 +1146,7 @@ let move_loop_after ?(replace_top : bool = false) (tr : target) (loop_index : va
 let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move_after : string = "" ) (loop_index : string) : unit =
     apply_to_top ~replace_top
       (fun ctx -> Loop.move_loop ctx.clog  ~move_before ~move_after loop_index);
-    write_log "\n"
+    write_log "\n" *)
 
 let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(struct_fields : fields = []) (): unit =
   apply_to_top ~replace_top

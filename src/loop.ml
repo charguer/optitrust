@@ -1,27 +1,19 @@
 open Ast
 open Ast_to_c
 open Target
-open Path_constructors
+(* open Path_constructors *)
 open Transformations
 open Tools
 open Loop_core
 open Output
 
+let loop_swap (tg : target) : unit =
+  apply_to_targets tg (fun p t ->
+    Loop_core.loop_swap p t)
 
-let loop_coloring (clog : out_channel) (tr : target) (c : var)(new_var : var)(t : trm) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target tr t in
-  Flags.verbose := b;
-  match epl with
-  | [] ->
-     print_info t.loc "loop_coloring: no matching subterm\n";
-     t
-  | _ ->
-     List.fold_left
-       (fun t dl -> loop_color_core clog dl c new_var t)
-       t
-       epl
+let loop_color (tg : target) (c : var) (i_color : var) : unit =
+  apply_to_targets tg (fun p t ->
+    Loop_core.loop_color p c i_color t)
 
 let loop_tile (clog : out_channel) (tr : target)(tile_width : var)(new_var : var)(t : trm) : trm =
   let b = !Flags.verbose in
@@ -40,20 +32,7 @@ let loop_tile (clog : out_channel) (tr : target)(tile_width : var)(new_var : var
 
 
 
-let loop_swap (clog : out_channel) (tr : target)(t : trm) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target tr t in
-  Flags.verbose := b;
-  match epl with
-  | [] ->
-     print_info t.loc "loop_swap: no matching subterm\n";
-     t
-  | _ ->
-     List.fold_left
-       (fun t dl -> loop_swap_core clog dl t )
-       t
-       epl
+
 (* get_loop_nest_indices -- currently omiting the last one
 
 *)
@@ -80,7 +59,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
     | _ -> []
 
 
-let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm =
+(* let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm =
     let log : string =
       let loc : string =
         match t.loc with
@@ -123,12 +102,13 @@ let move_loop_before_aux (clog : out_channel) (loop_index : var) (t : trm) : trm
       let rec multi_swap (xl : 'a list) (t : trm) : trm = match xl with
       | [] -> t
       | hd :: tl ->
-        let t = loop_swap clog [cFor hd] t in
+        let t = loop_swap  [cFor hd] in
+        
         multi_swap tl t
-     in
-     multi_swap path_list t
+     (* in *)
+     multi_swap path_list t *)
 
-let move_loop_before (clog : out_channel) (tr : target)(loop_index : var) (t : trm) : trm =
+(* let move_loop_before (clog : out_channel) (tr : target)(loop_index : var) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
   let epl = resolve_target tr t in
@@ -142,9 +122,9 @@ let move_loop_before (clog : out_channel) (tr : target)(loop_index : var) (t : t
       (fun t dl ->
         apply_local_transformation (move_loop_before_aux clog loop_index) t dl)
       t
-      epl
+      epl *)
 
-let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm =
+(* let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm =
   let log : string =
     let loc : string =
       match t.loc with
@@ -179,9 +159,9 @@ let move_loop_after_aux (clog : out_channel) (loop_index : var) (t : trm) : trm 
            let t = loop_swap clog pl t in
            multi_swap (count-1) t
       in
-    multi_swap path_length t
+    multi_swap path_length t *)
 
-let move_loop_after (clog : out_channel) (tr : target)(loop_index : var) (t : trm) : trm =
+(* let move_loop_after (clog : out_channel) (tr : target)(loop_index : var) (t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
   let epl = resolve_target tr t in
@@ -213,7 +193,7 @@ let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : 
   match move_before, move_after with
   | "",_ -> move_loop_after clog [cFor loop_index] move_after t
   | _,"" -> move_loop_before clog [cFor move_before] loop_index t
-  | _,_ -> fail t.loc "move_loop: only one of move_before or move_after should be specified"
+  | _,_ -> fail t.loc "move_loop: only one of move_before or move_after should be specified" *)
 
 
  (*
