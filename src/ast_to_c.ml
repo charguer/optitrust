@@ -327,11 +327,13 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     | _ -> fail None "trm_let_to_doc: expected a type ptr"
     end
     in
-    let init = begin match init.desc with
+    (* Printf.printf "Ast of the init term %s" (Ast_to_text.ast_to_string init); *)
+    let init = if not !decode then init  else begin match init.desc with
     | Trm_apps(_, [value]) -> value
     | _ -> init
     end
-    in string "const " ^^ blank 1, (typed_var_to_doc tv),init
+    in if !decode then string "const " ^^ blank 1, (typed_var_to_doc tv),init
+      else empty, (typed_var_to_doc tv),init
   in
   let initialisation =
     match init.desc with

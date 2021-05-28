@@ -15,6 +15,7 @@ let loop_color (tg : target) (c : var) (i_color : var) : unit =
   apply_to_targets tg (fun p t ->
     Loop_core.loop_color p c i_color t)
 
+
 let loop_tile (clog : out_channel) (tr : target)(tile_width : var)(new_var : var)(t : trm) : trm =
   let b = !Flags.verbose in
   Flags.verbose := false;
