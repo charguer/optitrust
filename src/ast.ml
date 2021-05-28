@@ -823,7 +823,7 @@ let for_loop_nb_iter (t : trm) : trm =
 let rec aliased_type (x : typvar) (t : trm) : typ option =
   match t.desc with
   | Trm_typedef ty ->
-    begin match ty with 
+    begin match ty with
     | Typedef_abbrev (y,ty) when y = x -> Some ty
     | _ -> None
     end

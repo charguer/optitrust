@@ -40,7 +40,7 @@
         {
           "label": "Compile and build everything",
           "type": "shell",
-          "command": "make all",
+          "command": "make all", // was make all
           "options": {
             "cwd": "${workspaceFolder}"
           }

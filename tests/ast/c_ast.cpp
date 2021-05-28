@@ -44,7 +44,7 @@ void stack_array() {
   t[1] = a + 2;
 }
 
-// Likewise,  t.x  is decomposed as *(&t.x), which involves the primitive
+// Likewise,  t.x  is decomposed  as *(&t.x), which involves the primitive
 // unary operator "Unop_struct_access x" applied to the argument t.
 
 void stack_struct() {

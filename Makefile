@@ -3,7 +3,7 @@ INSTALL_TARGET=`opam config var prefix`/lib/optiTrust
 
 all: install tests
 
-library: 
+library:
 	dune build @install
 
 install_lib: library
@@ -18,9 +18,10 @@ uninstall:
 
 #%.exe: all
 #	dune build $@
- 
-tests: install 
-	$(MAKE) -C unit_tests
+
+tests: install
+	$(MAKE) -C tests/ast debug
+# temporary: we only aim for executing debug
 
 clean:
 	dune clean
