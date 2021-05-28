@@ -1842,10 +1842,10 @@ let rec target_to_decl (x : var) (t : trm) : path option =
       return: 
         unit
 *)
-let apply_to_targets ?(replace_top : bool = false) (tg : target) (tr : out_channel -> path -> trm-> trm) : unit =
-  apply_to_top ~replace_top(fun ctx t ->
+let apply_to_targets ?(replace_top : bool = false) (tg : target) (tr :  path -> trm-> trm) : unit =
+  apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target tg t in 
-    List.fold_left(fun t dl -> tr ctx.clog dl t) t ps)
+    List.fold_left(fun t dl -> tr  dl t) t ps)
 
 (* apply_to_targets_between: Similar to apply_to_targets, but the function considers the index too
       params:
@@ -1854,7 +1854,7 @@ let apply_to_targets ?(replace_top : bool = false) (tg : target) (tr : out_chann
       return: 
         unit
 *)
-let apply_to_targets_between ?(replace_top : bool = false) (tg : target) (tr : out_channel -> (path*int) -> trm-> trm) : unit =
-  apply_to_top ~replace_top(fun ctx t ->
+let apply_to_targets_between ?(replace_top : bool = false) (tg : target) (tr : (path*int) -> trm-> trm) : unit =
+  apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target_between tg t in 
-    List.fold_left(fun t dl -> tr ctx.clog dl t) t ps)
+    List.fold_left(fun t dl -> tr  dl t) t ps)

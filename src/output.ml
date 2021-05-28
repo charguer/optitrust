@@ -22,7 +22,7 @@ let write_log (clog : out_channel) (log : string) : unit =
         unit
 *)
 (* TODO: Replace looggin everywhere with a simple call to this function *)
-let trm_to_log (clog : out_channel) (t : trm) : unit =
+let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
   let log : string =
     let loc : string =
     match t.loc with 
@@ -31,9 +31,9 @@ let trm_to_log (clog : out_channel) (t : trm) : unit =
     in 
     Printf.sprintf
     (" -expression\n%s\n" ^^
-    " %s is sequence of terms \n"
+    " %s is a %s\n"
     )
-    (ast_to_string t) loc 
+    (ast_to_string t) loc exp_type 
     in write_log clog log
 
 (* clean up a C++ file using clang format *)

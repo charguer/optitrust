@@ -3,8 +3,40 @@ open Target
 open Transformations
 open Ast_to_c
 open Tools
-open Sequence_core
 open Output
+
+
+let seq_insert (tg : target) (ts : trm list) : unit =
+  apply_to_targets_between tg (fun (p,i) t ->
+    Sequence_core.seq_insert p i ts t)
+
+
+let seq_delete (tg : target) (ts : trm list) : unit = 
+  apply_to_targets tg (fun p t ->
+    Sequence_core.seq_delete p ts t)
+
+
+let seq_sub (tg : target) (i : int) (ts : trm list) : unit =
+  apply_to_targets tg (fun p t ->
+   Sequence_core.seq_sub p i ts t)
+
+let seq_inline (tg : target) (i : int) : unit =
+  apply_to_targets tg (fun p t ->
+   Sequence_core.seq_inline p i t)
+
+let seq_wrap (tg : target) (visible : bool) : unit =
+  apply_to_targets tg (fun p t ->
+   Sequence_core.seq_wrap p visible t)
+
+let seq_unwrap (tg : target) : unit =
+  apply_to_targets tg (fun p t ->
+   Sequence_core.seq_unwrap p t)
+
+
+
+
+
+
 
 
 (*
@@ -300,20 +332,3 @@ let split_sequence (clog : out_channel) (result_label : string)
        epl
 
 
-
-
-let create_subsequence (clog : out_channel) (start : target) (stop : target) (stop_before : bool) (stop_after : bool) (label : label) (braces : bool) (t : trm ) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target start t in
-  Flags.verbose := b;
-  let app_transfo (t : trm) (dl : path) : trm =
-    match List.rev dl with
-    | Dir_nth n :: dl' ->
-      let dl = List.rev dl' in
-      apply_local_transformation (create_subsequence_core clog label n stop stop_before stop_after braces) t dl
-    | _ -> fail t.loc "app_transfo: expected a dir_nth inside the sequence "
-  in match epl with
-  | [dl] -> app_transfo t dl
-  | _ -> print_info t.loc "array_to_variables: no matching subterm or more then one trms were matched";
-    t

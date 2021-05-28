@@ -267,20 +267,6 @@ let make_target_list_pred = Target.make_target_list_pred
 (*                              Transformations                               *)
 (******************************************************************************)
 
-(* add the given ast to the ast stack *)
-let apply_to_top ?(replace_top : bool = false)
-  (f : context -> trm -> trm) : unit =
-  List.iter
-    (fun (ctx, astStack) ->
-      let ast =
-        if replace_top then Stack.pop astStack else Stack.top astStack
-      in
-      let ast = f ctx ast in
-      let ast = if !Flags.repeat_io then reparse ctx ast else ast in
-      Stack.push ast astStack
-    )
-    (get_trace())
-
 (*
   label the term pointed by the path with label
   if several terms are pointed, then use indices (label_i)
@@ -1218,11 +1204,6 @@ let undetach_expression ?(replace_top : bool = false) (tr : target) : unit =
 let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (tr : target)  : unit =
   apply_to_top ~replace_top
   (fun ctx -> Struct.make_implicit_record_assignment ctx.clog struct_name tr);
-  write_log "\n"
-
-let create_subsequence ?(replace_top : bool = false) ?(start : target = []) ?(stop : target = []) ?(stop_before : bool = false) ?(stop_after : bool = false) ?(label : string = "") ?(braces : bool = false) () : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Sequence.create_subsequence ctx.clog start stop stop_before stop_after label braces);
   write_log "\n"
 
 let array_to_variables ?(replace_top : bool = false) (dcl_target : target) (new_vars : var list) : unit =
