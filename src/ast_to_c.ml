@@ -63,7 +63,8 @@ and typ_to_doc (t : typ) : document =
   in
   dattr ^^ dannot ^^ d
 
-and typed_var_to_doc (tx : typed_var) : document =
+and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
+  let const_string = if const then blank 1 ^^ string "const" ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
       match s with
@@ -87,8 +88,8 @@ and typed_var_to_doc (tx : typed_var) : document =
   match t.ty_desc with
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
-     dattr ^^ base ^^ blank 1 ^^ string x ^^ concat bracketl
-  | _ -> typ_to_doc t ^^ blank 1 ^^ string x
+     dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
+  | _ -> typ_to_doc t ^^ blank 1 ^^ const_string ^^ string x
 
 and lit_to_doc (l : lit) : document =
   match l with
@@ -251,12 +252,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
             *)
-          (* TODO: Fix this later *)
-           (* let display_star =
+          let display_star =
              match t.annot with
-             | (Some Heap_allocated | Some Access) when !decode -> false
-             | _ -> true *)
-           let display_star = false
+             | (Some Mutable_var_get | Some Access) when !decode -> false
+             | _ -> true
            in
            dattr ^^ apps_to_doc ~display_star f tl ^^ dsemi
         end
@@ -319,7 +318,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let d,dtx,d_init = match varkind with
-  | Var_immutable -> string "const " ^^ blank 1, typed_var_to_doc tv,init
+  | Var_immutable -> empty, typed_var_to_doc ~const:true tv, init
   | Var_mutable ->
     let (x, typ) = tv in
     let tv = if not !decode then (x,typ) else begin match typ.ty_desc with
@@ -332,9 +331,11 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     | Trm_apps(_, [value]) -> value
     | _ -> init
     end
-    in if !decode then string "const " ^^ blank 1, (typed_var_to_doc tv),init
+    in
+    if not !decode
+      then empty, typed_var_to_doc ~const:true tv, init (* LATER: factorize with Var_immutable *)
       else empty, (typed_var_to_doc tv),init
-  in
+    in
   let initialisation =
     match init.desc with
     | Trm_val (Val_lit Lit_uninitialized) -> dsemi
@@ -477,9 +478,8 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                               _}, [t']) ->
                     let d' = trm_to_doc t' in
                     begin match t.annot with
-                    (* if t' is heap_allocated, use t'.f *)
-                    (* TODO: Fix this later *)
-                    (* | Some Heap_allocated -> parens (d' ^^ dot ^^ string f) *)
+                    (* if t' was a stack-allocated variable, use t'.f *)
+                    | Some Mutable_var_get -> parens (d' ^^ dot ^^ string f)
                     (* otherwise use t'->f instead of *t'.f *)
                     | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)
                     end

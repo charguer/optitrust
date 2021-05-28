@@ -81,13 +81,13 @@ typedef int* intstar;
 void const_pointers() {
   int a = 3;
   const intstar b = &a;
-  const int c = *b + 4;
+  const int c = *b + 4; // TODO: missing star
 }
 
 void nonconst_pointers() {
   int a = 3;
   int* b = &a;
-  *b = *b + 4;
+  *b = *b + 4; // TODO: missing star
   // TODO int c = 3;
   // b = &c;
 }

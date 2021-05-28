@@ -164,23 +164,23 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_struct tl ->
      let dtl = List.map (print_trm ~only_desc) tl in
      node "Trm_struct" ^^ print_list dtl
-  | Trm_let (vk,(x,tx),t) -> 
-    let dvk = match vk with 
+  | Trm_let (vk,(x,tx),t) ->
+    let dvk = match vk with
     | Var_immutable -> string "Var_immutable"
     | Var_mutable ->  string "Var_mutable"
-    
+
     in
-    let dtx = print_typ ~only_desc tx in 
-    let dt = print_trm ~only_desc t in 
+    let dtx = print_typ ~only_desc tx in
+    let dt = print_trm ~only_desc t in
     node "Trm_let" ^^
       parens (separate (comma ^^ break 1) [dvk;string x;dtx;dt])
 
   | Trm_let_fun (f, r, tvl, b) ->
-    let dout = print_typ ~only_desc r in 
-    let dtvl = List.map(function (x,tx) -> 
-          let dtx = print_typ ~only_desc tx in 
-          print_pair (string x) dtx) tvl in 
-    let dt = print_trm ~only_desc b in 
+    let dout = print_typ ~only_desc r in
+    let dtvl = List.map(function (x,tx) ->
+          let dtx = print_typ ~only_desc tx in
+          print_pair (string x) dtx) tvl in
+    let dt = print_trm ~only_desc b in
     node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
         [string f; dout; print_list dtvl; dt])
@@ -248,11 +248,11 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
       node "Trm_any"  ^^ parens (dt)
 
 and print_typedef ?(only_desc : bool = false) (t : typedef) : document =
-  match t with 
+  match t with
   | Typedef_abbrev (x,typ) ->
-    let dt = print_typ ~only_desc typ in 
+    let dt = print_typ ~only_desc typ in
     node "Typedef" ^^ print_pair (string x) dt
-  | Typedef_enum (x, enum_const_l) -> 
+  | Typedef_enum (x, enum_const_l) ->
      let denum_const_l =
        print_list
          (List.map
@@ -283,6 +283,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
          | Include h -> string "Include" ^^ blank 1 ^^ string h
          | Main_file -> string "Main_file"
          | Grouped_binding -> string "Grouped_binding"
+         | Mutable_var_get -> string "Mutable_var_get"
          end
       end
     in

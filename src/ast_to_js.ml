@@ -16,11 +16,13 @@ module Json = struct
 
   let str x = Str x
 
+  let quote x = (* TODO: use it everywhere *)
+    "\"" ^ x ^ "\""
 
   (* Printing functions *)
   let typ_to_json(typ : typ) : t =
     Str (document_to_string (bquotes (typ_to_doc typ)) )
-  
+
   let print_list (dl : document list) : document =
     surround 2 1 lbracket (separate (comma ^^ break 1) dl) rbracket
 
@@ -34,19 +36,19 @@ module Json = struct
     | Boolean b-> string (string_of_bool b)
     | List l -> print_list (List.map json_to_doc l)
     | Object o -> print_object (List.map (fun (s,j) -> string s ^^ string ": " ^^ json_to_doc j) o)
- 
+
 
   let json_to_js ?(index : int = (-1)) (j : t) : document =
-   let json_ast = json_to_doc j in 
-   match index with 
+   let json_ast = json_to_doc j in
+   match index with
    | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi
    | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi
 
-  let code_to_js (out : out_channel) (index : int) (ast : trm) : unit = 
-  let src = trm_to_doc ast in 
-  let doc = match index with 
-  | -1 -> string "source"  ^^ equals ^^ bquotes (src) 
-  | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (src)   
+  let code_to_js (out : out_channel) (index : int) (ast : trm) : unit =
+  let src = trm_to_doc ast in
+  let doc = match index with
+  | -1 -> string "source"  ^^ equals ^^ bquotes (src)
+  | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (src)
   in PPrintEngine.ToChannel.pretty 0.9 80 out doc
 
 end
@@ -120,8 +122,8 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
             ("\"args\"", typed_var_list_to_json xts);
             ("\"return_type\"", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
-    | Trm_typedef t -> 
-      begin match t with 
+    | Trm_typedef t ->
+      begin match t with
       | Typedef_abbrev(tv, typ) ->
         [ kind_to_field "\"typ-def-abbrev\"";
             ("\"name\"", Json.Str ("\"" ^ tv ^"\""));
@@ -225,6 +227,7 @@ let annot_to_string (t : trm) : string =
      | App_and_set -> "\"App_and_set\""
      | Include h -> "\"Include\"" ^ " " ^ h
      | Main_file -> "\"Main_file\""
+     | Mutable_var_get -> "\"Mutable_var_get\""
      end
   end
 
@@ -271,7 +274,7 @@ let ast_to_json (trm_root : trm) : json =
 let ast_json_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_doc (ast_to_json t))
 
-(* Convert ast into a json format then print it as a javascript variable inside a javascript file 
+(* Convert ast into a json format then print it as a javascript variable inside a javascript file
   the index represents the state of the ast after applying i-th transformation
 *)
 let ast_to_js (out : out_channel)(index : int) (t : trm) : unit =

@@ -32,6 +32,7 @@ type size =
 
 (* types of expressions *)
 and typ_desc =
+  | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar (* int x *)
   | Typ_unit (* void *)
   | Typ_int
@@ -146,6 +147,8 @@ and trm_annot =
   | Include of string
   | Main_file
   | Grouped_binding (* Used for terms of the form int x = 3, y = 4 *)
+  | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
+
 (* symbols to add while printing a C++ program. TODO: document *)
 and print_addition =
   | Add_address_of_operator
@@ -171,7 +174,7 @@ and trm =
 
 and trm_desc =
   | Trm_val of value
-  | Trm_var of var
+  | Trm_var of var (* LATER: varkind * var *)
   | Trm_array of trm list (* { 0, 3, 5} as an array *)
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
@@ -215,13 +218,9 @@ and trm_desc =
   | Trm_any of trm
 
 and varkind =
-  | Var_immutable (* For base types, immutable is equivalent to 'const', but for pointer types 'const' is stronger because it means that no write can be performed using the pointer. *)
-  | Var_mutable
+  | Var_immutable
+  | Var_mutable (* [Var_mutable] means that we had a declaration of a non-const stack-allocated variable. *)
 
-  (* DEPRECATED
-  | Var_stack_allocated
-  | Var_heap_allocated
-  *)
 
 and typedef =
   | Typedef_abbrev of typvar * typ  (* type x = t , where t could be a struct type *)

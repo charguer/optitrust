@@ -17,8 +17,6 @@ let file_of_node (n : 'a node) : string =
   | Some (filename,_,_,_,_) -> filename
   | _ -> fail None "file_of_node: bad location"
 
-
-
 (* type to control the way nodes are translated *)
 type val_type =
   | Lvalue
@@ -42,7 +40,7 @@ module Type_map = Map.Make(String)
 type 'a tmap = 'a Type_map.t
 let typ_map : typ Type_map.t ref = ref Type_map.empty
 
-(*
+(* TODO: rename: heap_vars contains the information on which variables are [Var_mutable]
   stack of lists of heap allocated variables
   each list corresponds to a new scope
   when a scope is closed, the corresponding variables must be deleted
@@ -409,6 +407,11 @@ and compute_body (loc : location) (body_acc : trm list)
         compute_body loc (t :: body_acc) sl
     end
 
+(* To translate the address of operator (&t), we translate just t
+   as if it was a Lvalue, with [~val_t=Lvalue].
+   When we translate a Lvalue of the form [*t], we translate just
+   [t] as if it was a Rvalue. *)
+
 and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     (e : expr) : trm =
   let loc = loc_of_node e in
@@ -620,7 +623,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         end
     | _-> trm_apps ~loc ~is_statement ~typ tf (List.map translate_expr el)
     end
-  | DeclRef {nested_name_specifier = _; name = n; _} ->
+  | DeclRef {nested_name_specifier = _; name = n; _} -> (* Occurrence of a variable *)
     begin match n with
       | IdentifierName s ->
         (*
@@ -640,14 +643,16 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         in
         begin match val_t with
           | Rvalue when is_heap_var s ->
-            trm_apps (* ~annot:(Some Heap_allocated) *) ~loc ~typ
+            (* LATER: the Heap_allocated annotation on get should be replaced with
+               a Var_mutable argument passed to trm_var *)
+            trm_apps ~annot:(Some Mutable_var_get) ~loc ~typ
               (trm_unop ~loc Unop_get) [trm_var ~loc s]
           | _ -> trm_var ~loc ~typ s
         end
       | OperatorName op -> trm_var ~loc ~typ (string_of_overloaded_op ~loc op)
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
-  | Member {base = eo; arrow = b; field = f} ->
+  | Member {base = eo; arrow = b; field = f} -> (* TODO: ARTHUR relire bien *)
     begin match eo with
       | None -> fail loc "translate_expr: field accesses should have a base"
       | Some e ->
@@ -676,9 +681,13 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
             *)
             begin match base.desc with
               | Trm_var x when not (is_heap_var x) ->
-                let base = if b then trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [base] else base in
-                  (* fail loc
-                    "translate_expr: 1arrow field access should be on a pointer" *)
+                let base =
+                  if b (* if arrow instead of dot *)
+                    then trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [base]   (* Code is [b->f], we encode it as [( *b ).f] *)
+                    else base (* code is [b.f] *)
+                  in
+                    (* fail loc
+                      "translate_expr: 1arrow field access should be on a pointer" *)
                 trm_apps ~loc ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
               | Trm_apps
                   ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
@@ -949,7 +958,7 @@ and translate_decl (d : decl) : trm =
     else
       let () = add_var n in
       trm_let ~loc ~is_statement:false Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim(Prim_new tt)) [te]);
-      
+
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
     trm_typedef ~loc (Typedef_abbrev (n, tn) )
@@ -990,7 +999,7 @@ let filter_out_include (filename : string)
            )
            include_map,
          file_decls
-         
+
         )
       else (include_map, d :: file_decls)
   in
