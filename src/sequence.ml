@@ -166,12 +166,12 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
             List.map
               (fun t ->
                 let y = decl_name t in
-                let init = trm_var y
-                  (* if is_heap_alloc t then
-                    trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get)
+                let init = 
+                  if is_heap_alloc t then
+                    trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get)
                       [trm_var y]
                   else
-                    trm_var y *)
+                    trm_var y
                 in
                 trm_set (trm_var (split_name y)) init
               )

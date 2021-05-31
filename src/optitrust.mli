@@ -255,8 +255,6 @@ val undetach_expression : ?replace_top:bool -> target -> unit
 
 val fields_reorder : ?replace_top:bool -> target -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit
 
-val tile_loop : ?replace_top:bool -> target -> unit
-
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit
 
 val move_loop_after : ?replace_top:bool -> target -> string -> unit

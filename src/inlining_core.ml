@@ -62,10 +62,8 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
         (fun body (x, _) nx ->
           change_trm
             (trm_var x)
-            (* TODO: NO LONGER arguments will be heap allocated *)
-            (* trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get)
-              [trm_var nx]) *)
-            (trm_var nx)
+            (trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get)
+              [trm_var nx])
             body
         )
         body
@@ -122,14 +120,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
           fresh_args
           arg_vals
       in
-      (*let arg_dels =
-        List.rev_map
-          (fun (x, _) ->
-            trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-              (trm_unop (Unop_delete false)) [trm_var x]
-          )
-          fresh_args
-      in*)
+     
       let t =
         match tf.ty_desc with
         | Typ_unit ->
@@ -177,17 +168,13 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                        (change_trm
                           (trm_apps (trm_var f) arg_vals)
                           (* TODO: Fix this later *)
-                          (trm_apps (* ~annot:(Some Heap_allocated) *)
+                          (trm_apps ~annot:(Some Mutable_var_get)
                              (trm_unop Unop_get) [trm_var result])
                           t
                        )
                    ]
                   );
-                (* trm_apps ~annot:(Some Heap_allocated) ~loc:t.loc ~is_statement:true
-                  ~typ:(Some (typ_unit ())) (trm_unop (Unop_delete false))
-                  [trm_var result] *)
-               ] (*++
-               arg_dels*)
+               ] 
              )
       in
       (* clean up *)

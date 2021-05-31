@@ -54,6 +54,15 @@ int mutable_stack_array (){
    *(w[0]) = 3; // allowed
    return *(w[0]);
 }
+// void advanced_stuff () {
+//     int* x;
+//     int ** p;
+//     int ** const q = &x;
+//     int * const * r = &
+//     int const ** s;
+//     int * const * const u;
+
+// }
 
 /*  ENCODED VERSION
 int mutable_stack_var() {

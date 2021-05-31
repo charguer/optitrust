@@ -14,27 +14,14 @@ let loop_color (tg : target) (c : var) (i_color : var) : unit =
   apply_to_targets tg (fun p t ->
     Loop_core.loop_color p c i_color t)
 
-(* TODO: This is for the old version of loop tiling, not sure if we should stil keep it *)
-(*
-  transform a pre-tiled loop of the form
-    optional_label:
-    for i = 0; i < N; i++
-      int i1 = i / block_size
-      int i2 = i % block_size
-      body
-  into a loop of the form
-    optional_label:
-    for i1 = 0; i1 < N / block_size; i1++
-      for i2 = 0; i2 < block_size; i2++
-        i = i1 * block_size + i2 // only if i is used in body
-        body
-  assumption: N is divisible by block_size
-  todo: label i as "generated variable" + implement clean up transformation
-  "remove all unused generated variables"
- *)
+
 let loop_tile (tg : target) (b : var)(i_block : var) : unit =
   apply_to_targets tg (fun p t ->
     Loop_core.loop_tile p b i_block t)
+
+let loop_tile_old (tg : target) : unit =
+  apply_to_targets tg (fun p t ->
+    Loop_core.loop_tile_old p  t)
 
 
 
@@ -222,15 +209,6 @@ let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : 
     + the path points to the loop
  *)
 
-let rec split_list_at (n : int) (al : 'a list) : 'a list * ('a list) =
-  if n <= 0 then ([], al)
-  else
-    match al with
-    | [] -> failwith "split_list_at: not enough elements"
-    | a :: al ->
-       let (al, al') = split_list_at (n - 1) al in
-       (a :: al, al')
-
 (*
   extract nb_vars var declarations from the loop
   they are expected to be heap allocated and at the beginning of the loop body
@@ -263,12 +241,12 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
      | Trm_seq tl (* when body.annot = Some Delete_instructions *) ->
         (* the variables are expected to be deleted last *)
         let (var_del_l, tl) =
-          let (var_del_l, tl) = split_list_at nb_vars (List.rev tl) in
+          let (var_del_l, tl) = split_list_at_1 nb_vars (List.rev tl) in
           (List.rev var_del_l, List.rev tl)
         in
         begin match tl with
         | {desc = Trm_seq tl'; _} :: tl'' ->
-           let (var_decl_l, tl') = split_list_at nb_vars tl' in
+           let (var_decl_l, tl') = split_list_at_1 nb_vars tl' in
            let n = for_loop_nb_iter t in
            let change_decl (t_decl : trm) : trm =
               let x = decl_name t_decl in
@@ -282,11 +260,7 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
               in
               let tx' = typ_array tx (Trm n) in
               trm_let Var_mutable (x, typ_ptr tx') (trm_prim (Prim_new tx'))
-              (* trm_seq ~annot:(Some Heap_allocated)
-                [
-                  trm_decl (Def_var ((x, typ_ptr tx'),
-                                     trm_prim (Prim_new tx')))
-                ] *)
+              
            in
            let var_decl_l = List.map change_decl var_decl_l in
            let i = for_loop_index t in
@@ -304,8 +278,8 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
                 match t'.desc with
                 | Trm_var y when y = x -> x_i
                 | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _},
-                            [{desc = Trm_var _; _}])
-                     (* when t'.annot = Some Heap_allocated && y = x *) ->
+                            [{desc = Trm_var y; _}])
+                     when t'.annot = Some Mutable_var_get && y = x ->
                    trm_apps ~annot:(Some Access) (trm_unop Unop_get) [x_i]
                 | _ -> trm_map x_to_xi t'
               in
@@ -375,7 +349,7 @@ let rec extract_loop_vars_aux (clog : out_channel) ?(only_one : bool = false)
        | Trm_seq ({desc = Trm_seq tl; _} :: var_del_l)
             (* when t'.annot = Some Delete_instructions *) ->
           let (var_decl_l, t_loop') =
-            let (var_decl_l, tl) = split_list_at nb_vars tl in
+            let (var_decl_l, tl) = split_list_at_1 nb_vars tl in
             match tl with
             | [t_loop] -> (var_decl_l, t_loop)
             | _ -> fail t'.loc "extract_loop_vars_aux: expected a loop"
@@ -619,6 +593,7 @@ let split_loop_nodep (clog : out_channel) (result_label : string)
        t
        epl
 
+(* TODO: Ask Arthur, if this should still be used or not *)
 (*
   -----------DEPRECATED-----------------
   transform a pre-tiled loop of the form
@@ -635,208 +610,3 @@ let split_loop_nodep (clog : out_channel) (result_label : string)
       body
  *)
 
-let rec tile_loop_aux (clog : out_channel) (t : trm) : trm =
-  match t.desc with
-  (* the loop might be labelled: keep the label *)
-  | Trm_labelled (l, t_loop) ->
-     trm_labelled l (tile_loop_aux clog t_loop)
-  (*
-    if the loop declares its own index, a seq with a delete instruction occurs
-    in this case, put the delete instructions at the end of the inner loop if
-    the index is still used
-   *)
-  | Trm_seq [t_loop; t_del] (*when  t.annot = Some Delete_instructions *) ->
-     let t_tiled = tile_loop_aux clog t_loop in
-     (* tiled loops are expected to declare their index *)
-     begin match t_tiled.desc with
-     | Trm_seq [{desc = Trm_for (init1, cond1, step1,
-                                 {desc = Trm_seq [body1]; _}); _}; t_del1]
-          (* when t_tiled.annot = Some Delete_instructions *) ->
-        begin match body1.desc with
-        | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
-             (* when body1.annot = Some Delete_instructions *) ->
-           (* if the index is used in body, then add delete instruction *)
-           (* let i = deleted_var t_del in
-           if not (is_used_var_in body i) then t_tiled
-           else *)
-             trm_seq (* ~annot:(Some Delete_instructions) *)
-               [
-                 trm_for init1 cond1 step1
-                   (trm_seq
-                      [trm_seq (* ~annot:(Some Delete_instructions) *)
-                         [
-                           trm_for init2 cond2 step2
-                             (trm_seq (* ~annot:(Some Delete_instructions) *)
-                                [body; t_del]);
-                           t_del2
-                         ]
-                      ]
-                   );
-                 t_del1
-               ]
-        | _ -> fail body1.loc "tile_loop_aux: expected inner loop"
-        end
-     | _ -> fail t_tiled.loc "tile_loop_aux: expected outer loop"
-     end
-  (* otherwise, just tile *)
-  | Trm_for (init, cond, step, body) ->
-     let log : string =
-       let loc : string =
-         match body.loc with
-         | None -> ""
-         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-       in
-       Printf.sprintf
-         ("  - for (%s; %s; %s) is of the form\n" ^^
-          "      for ([int] i = 0; i < N; i++)\n" ^^
-          "  - expression\n%s\n" ^^
-          "    %sis of the form\n" ^^
-          "      {\n" ^^
-          "        int i1 = i / block_size\n" ^^
-          "        int i2 = i %% block_size\n" ^^
-          "        body\n" ^^
-          "      }\n"
-         )
-         (ast_to_string init) (ast_to_string cond) (ast_to_string step)
-         (ast_to_string body) loc
-     in
-     write_log clog log;
-     begin match body.desc with
-     (* look for the declaration of i1 and i2 *)
-     | Trm_seq ({desc = Trm_seq (t_decl1 :: t_decl2 :: tl); _} :: t_del_l)
-          (* when body.annot = Some Delete_instructions *)->
-        let i = for_loop_index t in
-        let i1 = decl_name t_decl1 in
-        let i2 = decl_name t_decl2 in
-        let block_size =
-          let init = decl_init_val t_decl1 in
-          match init.desc with
-          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_div)); _},
-                      [_; block_size]) ->
-             block_size
-          | _ ->
-             fail t_decl1.loc "tile_loop_aux: bad initialisation"
-        in
-        let loop_size = for_loop_bound t in
-        let log : string =
-          Printf.sprintf "  - %s is divisible by %s\n" (ast_to_string loop_size)
-            (ast_to_string block_size)
-        in
-        write_log clog log;
-        let nb_blocks =
-          trm_apps (trm_binop Binop_div) [loop_size; block_size]
-        in
-        (*
-          if i is still used in the loop body, add an instruction
-          i = i1 * block_size + i2
-         *)
-        (* TODO: Fix this later *)
-        let body =
-          if not (is_used_var_in (trm_seq tl) i) then trm_seq tl
-          else
-            trm_seq
-              ((trm_seq (* ~annot:(Some Heap_allocated) *)
-                  [
-                    
-                    trm_let Var_mutable (i,typ_ptr (typ_int ())) (trm_prim (Prim_new (typ_int ())));
-                    
-                    trm_set (* ~annot:(Some Initialisation_instruction) *)
-                      (trm_var i)
-                      (trm_apps (trm_binop Binop_add)
-                         [
-                           trm_apps (trm_binop Binop_mul)
-                             [
-                               trm_apps (* ~annot:(Some Heap_allocated) *)
-                                 (trm_unop Unop_get) [trm_var i1];
-                               block_size
-                             ];
-                           trm_apps (* ~annot:(Some Heap_allocated) *)
-                             (trm_unop Unop_get) [trm_var i2]
-                         ]
-                      )
-                  ]
-               ) :: tl)
-        in
-
-        (*
-          look for the deletion of i1 and i2:
-          if only i1 and i2 are deleted, the loop body is correct
-          otherwise, add the remaining delete instructions
-         *)
-        let body =
-          match List.rev t_del_l with
-          | [_; _] -> body
-          | _ :: _ :: t_del_l' ->
-             trm_seq (* ~annot:(Some Delete_instructions) *)
-               (body :: List.rev t_del_l')
-          | _ ->
-             fail t.loc "tile_loop_aux: bad delete instructions"
-        in
-        let loop (index : var) (bound : trm) (body : trm) =
-          trm_seq (* ~annot:(Some Delete_instructions) *)
-            [
-              trm_for
-                (* init *)
-                (trm_let Var_mutable (index,typ_int()) (trm_lit (Lit_int 0)))
-                (* (trm_seq ~annot:(Some Heap_allocated)
-                   [
-                     trm_decl (Def_var ((index, typ_ptr (typ_int ())),
-                                        trm_prim (Prim_new (typ_int ()))));
-                     trm_set ~annot:(Some Initialisation_instruction)
-                       (trm_var index) (trm_lit (Lit_int 0))
-                   ]
-                ) *)
-                (* cond *)
-                (trm_apps (trm_binop Binop_lt)
-                   [trm_var index; bound])
-                   (* [
-                     trm_apps ~annot:(Some Heap_allocated)
-                       (trm_unop Unop_get) [trm_var index];
-                     bound
-                   ] *)
-
-                (* step *)
-                (trm_apps (trm_unop Unop_inc) [trm_var index])
-                (* body *)
-                body;
-              (* trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
-                (trm_unop (Unop_delete false)) [trm_var index] *)
-            ]
-        in
-        loop i1 nb_blocks (trm_seq [loop i2 block_size body])
-     | _ -> fail t.loc "tile_loop_aux: bad loop body"
-     end
-  | _ -> fail t.loc "tile_loop_aux: not a for loop"
-
-let tile_loop_aux (clog : out_channel) (t : trm) : trm =
-  let log : string =
-    let loc : string =
-      match t.loc with
-      | None -> ""
-      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in
-    Printf.sprintf
-      ("  - expression\n%s\n" ^^
-       "    %sis a (labelled) loop\n"
-      )
-      (ast_to_string t) loc
-  in
-  write_log clog log;
-  tile_loop_aux clog t
-
-let tile_loop (clog : out_channel) (tr : target)
-  (t : trm) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target tr t in
-  Flags.verbose := b;
-  match epl with
-  | [] ->
-     print_info t.loc "tile_loop: no matching subterm\n";
-     t
-  | _ ->
-     List.fold_left
-       (fun t dl ->
-         apply_local_transformation (tile_loop_aux clog) t dl)
-       t
-       epl

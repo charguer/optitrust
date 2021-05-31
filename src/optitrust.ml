@@ -1093,32 +1093,6 @@ let fields_reorder ?(replace_top : bool = false) (tr : target) ?(struct_fields :
     );
   write_log "\n"
 
-(*
-  transform a pre-tiled loop of the form
-    optional_label:
-    for i = 0; i < N; i++
-      int i1 = i / block_size
-      int i2 = i % block_size
-      body
-  into a loop of the form
-    optional_label:
-    for i1 = 0; i1 < N / block_size; i1++
-      for i2 = 0; i2 < block_size; i2++
-        i = i1 * block_size + i2 // only if i is used in body
-        body
-  assumption: N is divisible by block_size
-  todo: label i as "generated variable" + implement clean up transformation
-  "remove all unused generated variables"
- *)
-let tile_loop ?(replace_top : bool = false)
-  (tr : target) : unit =
-  let log : string =
-    Printf.sprintf "Tile_loop %s:\n" (target_to_string tr)
-  in
-  write_log log;
-  apply_to_top ~replace_top
-    (fun ctx -> Loop.tile_loop ctx.clog tr);
-  write_log "\n"
 
 (* let move_loop_before ?(replace_top : bool = false) (tr : target) (loop_index : var) : unit =
     let log : string =

@@ -198,6 +198,15 @@ let rec insert_in_list_at  (el : 'a) (i : int) (xs : 'a list) = match xs with
     | [] -> []
     | h :: t as l -> if i = 0 then el :: l else h :: insert_in_list_at el (i-1) t
 
+let rec split_list_at_1 (n : int) (al : 'a list) : 'a list * ('a list) =
+  if n <= 0 then ([], al)
+  else
+    match al with
+    | [] -> failwith "split_list_at: not enough elements"
+    | a :: al ->
+       let (al, al') = split_list_at_1 (n - 1) al in
+       (a :: al, al')
+
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in
