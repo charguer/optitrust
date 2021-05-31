@@ -12,7 +12,7 @@ let decode = ref true
 
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
-  | Typ_const t -> string "const" ^^ typ_to_doc t 
+  | Typ_const t -> typ_to_doc t ^^ string " " 
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
   | Typ_float -> string "float"
@@ -90,7 +90,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
-  | _ -> typ_to_doc t ^^ blank 1 ^^ const_string ^^ string x
+  | _ -> const_string ^^ typ_to_doc t ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =
   match l with
@@ -318,30 +318,35 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
-  let d,dtx,d_init = match varkind with
-  | Var_immutable -> empty, typed_var_to_doc ~const:true tv, init
+  let dtx,d_init = match varkind with
+  | Var_immutable -> typed_var_to_doc ~const:true tv, init
   | Var_mutable ->
     let (x, typ) = tv in
-    let tv = if not !decode then (x,typ) else begin match typ.ty_desc with
-    | Typ_ptr tx -> (x, { typ with ty_desc = tx.ty_desc})
-    | _ -> fail None "trm_let_to_doc: expected a type ptr"
-    end
+    let tv = 
+      if not !decode then (x,typ) 
+      else 
+        begin match typ.ty_desc with
+          | Typ_ptr tx -> (x, tx)
+          | _ -> fail None "trm_let_to_doc: expected a type ptr"
+        end
     in
-    let init = if not !decode then init  else begin match init.desc with
-    | Trm_apps(_, [value]) -> value
-    | _ -> init
-    end
+    let init = 
+      if not !decode then init  
+      else begin match init.desc with
+        | Trm_apps(_, [value]) -> value
+        | _ -> init
+      end
     in
     if not !decode
-      then empty, typed_var_to_doc  tv, init (* LATER: factorize with Var_immutable *)
-      else empty, typed_var_to_doc  tv,init
+      then typed_var_to_doc tv, init (* LATER: factorize with Var_immutable *)
+    else typed_var_to_doc  ~const:true tv, init
     in
   let initialisation =
     match init.desc with
     | Trm_val (Val_lit Lit_uninitialized) -> dsemi
     | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi
   in
-  d ^^ dtx ^^ initialisation
+  dtx ^^ initialisation
 
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
@@ -400,7 +405,7 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
     | [] -> fail loc "multi_decl_to_doc: empty multiple declaration"
     | {desc = Trm_let (vk,(_,ty),_);_} :: _ ->
       begin match vk with
-      | Var_mutable -> string "const" ^^ blank 1 ^^ typ_to_doc ty
+      | Var_immutable -> string "const " ^^ blank 1 ^^ typ_to_doc ty
       | _ -> typ_to_doc ty
       end
     | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
@@ -592,7 +597,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
               fail f.loc
                 "apps_to_doc: conditional operator must have three arguments"
            end
-        | _ -> fail f.loc "apps_to_doc: only op primitives may be applied"
+        | Prim_new t ->
+          (* Here we assume that trm_apps has only one trm as argument *)
+          let value = List.hd tl in
+          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (trm_to_doc value)
+        (* | _ -> fail f.loc "apps_to_doc: only op primitives may be applied" *)
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end

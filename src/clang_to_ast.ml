@@ -177,7 +177,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     let t = translate_qual_type ~loc q in
     let {const;_} = q in 
     if const then 
-      typ_const (typ_ptr t)
+      (typ_ptr (typ_const t))
     else
     typ_ptr t
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
@@ -188,7 +188,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
       | Some e ->
         let s = translate_expr e in
         if const then
-          typ_const (typ_array t (Trm s)) 
+           typ_array (typ_const t) (Trm s)
         else 
           typ_array t (Trm s)
     end
@@ -944,7 +944,8 @@ and translate_decl (d : decl) : trm =
     let te =
     begin match eo with
       | None ->
-        trm_lit ~loc Lit_uninitialized
+        if const then trm_lit ~loc Lit_uninitialized
+        else trm_prim ~loc (Prim_new tt)
       | Some e ->
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
@@ -964,9 +965,16 @@ and translate_decl (d : decl) : trm =
     if const then
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
     else
-      let () = add_var n in
-      trm_let ~loc ~is_statement:false Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim(Prim_new tt)) [te]);
-
+      begin 
+        add_var n;
+        begin match eo with 
+        | None -> 
+          trm_let ~loc  Var_mutable (n,typ_ptr tt) te
+        | Some _ ->
+          trm_let ~loc Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
+        end
+      (* trm_let ~loc ~is_statement:false Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim(Prim_new tt)) [te]); *)
+      end
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
     trm_typedef ~loc (Typedef_abbrev (n, tn) )
