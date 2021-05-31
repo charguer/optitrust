@@ -1,12 +1,13 @@
 open Ast
 open Target
 open Transformations
-(* loop_swap_here: This is an auxiliary function for loop_swap
+open Tools
+(* loop_swap_aux: This is an auxiliary function for loop_swap
     params:  
       subt: an ast subterm
     return: the updated ast
  *)
- let loop_swap_here (subt : trm) : trm = 
+ let loop_swap_aux (subt : trm) : trm = 
   match subt.desc with
   | Trm_for (_, _, step1,body1) ->
       begin match body1.desc with
@@ -59,10 +60,10 @@ open Transformations
       the modified ast
 *)
 let loop_swap (path_to_loop : path) (t : trm) =
-  apply_local_transformation (loop_swap_here) t path_to_loop
+  apply_local_transformation (loop_swap_aux) t path_to_loop
 
 
-(*  loop_color_here: This function is an auxiliary function for loop_color
+(*  loop_color_aux: This function is an auxiliary function for loop_color
       params:
         c: a variable used to represent the number of colors
         i_color: string used to represent the index used of the new outer loop
@@ -71,7 +72,7 @@ let loop_swap (path_to_loop : path) (t : trm) =
         the updated ast
 *)
 
-let loop_color_here (c : var) (i_color : var) (subt : trm) : trm =
+let loop_color_aux (c : var) (i_color : var) (subt : trm) : trm =
   match subt.desc with 
   | Trm_for (_ , _, _, body) ->
     let index_i = for_loop_index subt in
@@ -144,9 +145,9 @@ let loop_color_here (c : var) (i_color : var) (subt : trm) : trm =
         the modified ast
 *)
 let loop_color (path_to_loop : path) (c : var) (i_color : var) (t : trm) : trm =
-    apply_local_transformation (loop_color_here c i_color) t path_to_loop
+    apply_local_transformation (loop_color_aux c i_color) t path_to_loop
 
-(*  loop_tile_here: This function is an auxiliary function for loop_tile
+(*  loop_tile_aux: This function is an auxiliary function for loop_tile
       params:
         b: a variable used to represent the block size
         i_block: string used to represent the index used for the new outer loop
@@ -154,7 +155,7 @@ let loop_color (path_to_loop : path) (c : var) (i_color : var) (t : trm) : trm =
       return: 
         the updated ast
 *)
-let loop_tile_here (b : var) (i_block : var) (subt : trm) : trm =
+let loop_tile_aux (b : var) (i_block : var) (subt : trm) : trm =
   match subt.desc with
   | Trm_for (_, _, _, body) ->
     let index_x = for_loop_index subt in
@@ -221,9 +222,9 @@ let loop_tile_here (b : var) (i_block : var) (subt : trm) : trm =
 
 *)
 let loop_tile (path_to_loop : path) (b : var)(i_block : var) (t : trm) : trm =
-   apply_local_transformation (loop_tile_here b i_block) t path_to_loop
+   apply_local_transformation (loop_tile_aux b i_block) t path_to_loop
 
-(*  loop_tile_old_here: This function is an auxiliary function for loop_tile_old
+(*  loop_tile_old_aux: This function is an auxiliary function for loop_tile_old
       params:
         b: a variable used to represent the block size
         i_block: string used to represent the index used for the new outer loop
@@ -231,7 +232,7 @@ let loop_tile (path_to_loop : path) (b : var)(i_block : var) (t : trm) : trm =
       return: 
         the updated ast
 *)
-let loop_tile_old_here (subt : trm) : trm =
+let loop_tile_old_aux (subt : trm) : trm =
   match subt.desc with
   | Trm_for (_ , _, _, body) ->
      begin match body.desc with
@@ -318,17 +319,17 @@ let loop_tile_old_here (subt : trm) : trm =
 
 *)
 let loop_tile_old (path_to_loop : path) (t : trm) : trm =
-   apply_local_transformation (loop_tile_old_here ) t path_to_loop
+   apply_local_transformation (loop_tile_old_aux ) t path_to_loop
 
 
-(* loop_hoist_here: This is an auxiliary function for loop_hoist
+(* loop_hoist_aux: This is an auxiliary function for loop_hoist
     params:
       x_step: a new_variable name
       subt: an ast subterm
     return: 
       the updated ast
 *)
-let loop_hoist_here (x_step : var) (subt : trm) : trm =
+let loop_hoist_aux (x_step : var) (subt : trm) : trm =
   match subt.desc with 
   | Trm_for (init, cond, step,body) ->
     begin match body.desc with 
@@ -337,7 +338,7 @@ let loop_hoist_here (x_step : var) (subt : trm) : trm =
       let var_decl = List.nth tl 0 in
       let var_name, var_typ = match var_decl.desc with
       | Trm_let (_,(x, tx),_) -> x, tx
-      | _ -> fail subt.loc "loop_hoist_here: first loop body trm should be a variable declaration"
+      | _ -> fail subt.loc "loop_hoist_aux: first loop body trm should be a variable declaration"
       in
 
       (* Get the loop index *)
@@ -356,9 +357,9 @@ let loop_hoist_here (x_step : var) (subt : trm) : trm =
         trm_let Var_mutable (x_step, typ_ptr (typ_array (typ_var "T") (Trm (bound)))) (trm_prim (Prim_new var_typ));
         trm_for init cond step new_body
       ]
-    | _ -> fail subt.loc "loop_hoist_here: expected the sequence inside the body of the loop"
+    | _ -> fail subt.loc "loop_hoist_aux: expected the sequence inside the body of the loop"
     end
-  | _ -> fail subt.loc "loop_hoist_here: the given path does not resolve to a for loop"
+  | _ -> fail subt.loc "loop_hoist_aux: the given path does not resolve to a for loop"
     
 (* loop_hoist:  Extract a variable from loop
     params:
@@ -367,6 +368,44 @@ let loop_hoist_here (x_step : var) (subt : trm) : trm =
     return:
       the updated ast
  *)
-
 let loop_hoist (path_to_loop : path) (x_step : var) (t : trm) : trm =
-   apply_local_transformation (loop_hoist_here x_step) t path_to_loop
+   apply_local_transformation (loop_hoist_aux x_step) t path_to_loop
+
+
+(* loop_split_aux: This is an auxiliary function for loop_split
+    params:
+      index: int
+      subt: an ast subterm
+    return
+      the updated ast
+ *)
+ let loop_split_aux (index : int) (subt : trm) : trm = 
+  match subt.desc with 
+  | Trm_for (init, cond, step, body) ->
+    begin match body.desc with 
+    | Trm_seq tl ->
+      let first_part, last_part = split_list_at index tl in
+      let first_body = trm_seq first_part in
+      let second_body = trm_seq last_part in
+      trm_seq ~annot:(Some No_braces) [
+        trm_for init cond step first_body;
+        trm_for init cond step second_body;
+      ]  
+    | _ -> fail subt.loc "loop_split_aux: expected the sequence inside the loop body"
+    end
+  | _ -> fail subt.loc "loop_split_aux: the given path does not resolve to a for loop"
+
+
+(* loop_split: Split the loop into two loops, the spliting point is defined as the index of the n-th trm in the loop body
+    params:
+      path_to_loop: an explicit path to the loop
+      index: an index in the range 0 .. N (though in practice only 1 .. N-1 is useful)
+    return: 
+      the updated ast
+ *)
+
+ let loop_split (path_to_loop : path) (index : int) (t : trm ) : trm =
+  apply_local_transformation (loop_split_aux index) t path_to_loop
+
+
+

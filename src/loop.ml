@@ -45,6 +45,13 @@ let loop_tile_old (tg : target) : unit =
 let loop_hoist (tg : target) (x_step : var) : unit =
   apply_to_targets tg (fun p t ->
     Loop_core.loop_hoist p x_step t)
+
+
+let loop_split (tg : target) : unit = 
+  apply_to_targets_between tg (fun (p,i) t ->
+    Loop_core.loop_split p i t)
+
+
 (* get_loop_nest_indices -- currently omiting the last one
 
 *)
