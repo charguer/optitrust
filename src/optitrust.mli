@@ -257,8 +257,6 @@ val fields_reorder : ?replace_top:bool -> target -> ?struct_fields:Ast.fields ->
 
 val tile_loop : ?replace_top:bool -> target -> unit
 
-val loop_tile : ?replace_top:bool -> target -> string -> string -> unit
-
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit
 
 val move_loop_after : ?replace_top:bool -> target -> string -> unit

@@ -1120,15 +1120,6 @@ let tile_loop ?(replace_top : bool = false)
     (fun ctx -> Loop.tile_loop ctx.clog tr);
   write_log "\n"
 
-let loop_tile ?(replace_top : bool = false) (tr : target) (b: var) (new_var : var): unit =
-    let log : string =
-      Printf.sprintf "Transform_loop %s:\n" (target_to_string tr)
-    in
-    write_log log;
-    apply_to_top ~replace_top
-      (fun ctx -> Loop.loop_tile ctx.clog tr b new_var);
-    write_log "\n"
-
 (* let move_loop_before ?(replace_top : bool = false) (tr : target) (loop_index : var) : unit =
     let log : string =
       Printf.sprintf "move_loop_before %s:\n" (target_to_string tr)

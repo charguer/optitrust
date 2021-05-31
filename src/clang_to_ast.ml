@@ -159,7 +159,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
   | _ -> trm_seq (* ~annot:(Some Delete_instructions) *) (tl ++ [t])
 
 (* names for overloaded operators (later matched for printing) *)
-(* TODO: find the special syntex @-warning 8*) let string_of_overloaded_op ?(loc : location = None)
+ let string_of_overloaded_op ?(loc : location = None)
     (op : clang_ext_overloadedoperatorkind) : string =
   match op with
   | Plus -> "overloaded+"

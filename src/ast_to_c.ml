@@ -12,7 +12,8 @@ let decode = ref true
 
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
-  | Typ_const t -> typ_to_doc t ^^ string " const" 
+  | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const" 
+  | Typ_const t -> string " const"  ^^ typ_to_doc t  
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
   | Typ_float -> string "float"
@@ -44,6 +45,11 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      print_info None "typ_desc_to_doc: typ_fun not implemented\n";
      at
   | Typ_var t -> string t
+
+and is_atomic_typ (t : typ) : bool =
+  match t.ty_desc with 
+  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
+  | _ -> false
 
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with

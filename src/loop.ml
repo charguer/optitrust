@@ -4,7 +4,6 @@ open Target
 (* open Path_constructors *)
 open Transformations
 open Tools
-open Loop_core
 open Output
 
 let loop_swap (tg : target) : unit =
@@ -15,22 +14,27 @@ let loop_color (tg : target) (c : var) (i_color : var) : unit =
   apply_to_targets tg (fun p t ->
     Loop_core.loop_color p c i_color t)
 
-
-let loop_tile (clog : out_channel) (tr : target)(tile_width : var)(new_var : var)(t : trm) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target tr t in
-  Flags.verbose := b;
-  match epl with
-  | [] ->
-     print_info t.loc "loop_tile: no matching subterm\n";
-     t
-  | _ ->
-     List.fold_left
-       (fun t dl -> loop_tile_core clog dl tile_width new_var t )
-       t
-       epl
-
+(* TODO: This is for the old version of loop tiling, not sure if we should stil keep it *)
+(*
+  transform a pre-tiled loop of the form
+    optional_label:
+    for i = 0; i < N; i++
+      int i1 = i / block_size
+      int i2 = i % block_size
+      body
+  into a loop of the form
+    optional_label:
+    for i1 = 0; i1 < N / block_size; i1++
+      for i2 = 0; i2 < block_size; i2++
+        i = i1 * block_size + i2 // only if i is used in body
+        body
+  assumption: N is divisible by block_size
+  todo: label i as "generated variable" + implement clean up transformation
+  "remove all unused generated variables"
+ *)
+let loop_tile (tg : target) (b : var)(i_block : var) : unit =
+  apply_to_targets tg (fun p t ->
+    Loop_core.loop_tile p b i_block t)
 
 
 

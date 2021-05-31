@@ -1,6 +1,4 @@
 open Ast
-open Ast_to_c
-open Output
 open Target
 open Transformations
 (* loop_swap_here: This is an auxiliary function for loop_swap
@@ -169,100 +167,21 @@ let loop_color_here (c : var) (i_color : var) (subt : trm) : trm =
 
 let loop_color (path_to_loop : path) (c : var) (i_color : var) (t : trm) : trm =
     apply_local_transformation (loop_color_here c i_color) t path_to_loop
-  
 
-(* loop_tile: Replace the original loop with two nested loops 
-      params: 
-        path_to_loop: an explicit path to the loop
+(*  loop_color_here: This function is an auxiliary function for loop_color
+      params:
         b: a variable used to represent the block size
-        i_block: index used for the new outer loop
+        i_block: string used to represent the index used for the new outer loop
+        subt: an ast subterm
       return: 
-        updated ast
-
+        the updated ast
 *)
-let loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block : var) (t : trm) : trm =
-  let (t,_) = resolve_path path_to_loop t in 
-  let log : string =
-      let loc : string =
-        match t.loc with
-        | None -> ""
-        | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-      in
-      Printf.sprintf
-        ("  - expression\n%s\n" ^^
-
-         "    %sis a (labelled) loop\n"
-        )
-        (ast_to_string t) loc
-      in
-    write_log clog log;
-    match t.desc with
-    (* the loop might be labelled: keep the label *)
-    (* TODO: This one too *)
-    (* | Trm_labelled (l, t_loop) ->
-     trm_labelled l (loop_tile_core clog b i_block t_loop)
-  (*
-    if the loop declares its own index, a seq with a delete instruction occurs
-    in this case, put the delete instructions at the end of the inner loop if
-    the index is still used
-   *)
-  | Trm_seq [t_loop; t_del] (* when t.annot = Some Delete_instructions *) ->
-     let t_tiled = loop_tile_core clog b i_block t_loop in
-     (* tiled loops are expected to declare their index *)
-     begin match t_tiled.desc with
-     | Trm_seq [{desc = Trm_for (init1, cond1, step1,
-                                 {desc = Trm_seq [body1]; _}); _}; t_del1]
-          (* when t_tiled.annot = Some Delete_instructions *) ->
-        begin match body1.desc with
-        | Trm_seq [{desc = Trm_for (init2, cond2, step2, body); _}; t_del2]
-             (* when body1.annot = Some Delete_instructions *) ->
-           (* if the index is used in body, then add delete instruction *)
-           (* let i = deleted_var t_del in
-           if not (is_used_var_in body i) then t_tiled
-           else *)
-             trm_seq (* ~annot:(Some Delete_instructions) *)
-               [
-                 trm_for init1 cond1 step1
-                   (trm_seq
-                      [trm_seq (* ~annot:(Some Delete_instructions) *)
-                         [
-                           trm_for init2 cond2 step2
-                             (trm_seq (* ~annot:(Some Delete_instructions) *)
-                                [body; t_del]);
-                           t_del2
-                         ]
-                      ]
-                   );
-                 t_del1
-               ]
-        | _ -> fail body1.loc "loop_tile_core: expected inner loop"
-        end
-     | _ -> fail t_tiled.loc "loop_tile_core: expected outer loop"
-     end *)
-  (* otherwise, just tile *)
-  | Trm_for (init, cond, step, body) ->
-     let log : string =
-       let loc : string =
-         match body.loc with
-         | None -> ""
-         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-        in
-        Printf.sprintf
-         ("  - for (%s; %s; %s) is of the form\n" ^^
-          "      for ([int] x = 0; x < X; x++)\n" ^^
-          "  - expression\n%s\n" ^^
-          "    %sis of the form\n" ^^
-          "      {\n" ^^
-          "        body\n" ^^
-          "      }\n"
-         )
-         (ast_to_string init) (ast_to_string cond) (ast_to_string step)
-         (ast_to_string body) loc
-    in
-    write_log clog log;
-    let index_x = for_loop_index t in
-    let loop_size = for_loop_bound t in
-    let block_size =  trm_var b in
+let loop_tile_here (b : var) (i_block : var) (subt : trm) : trm =
+  match subt.desc with
+  | Trm_for (_, _, _, body) ->
+    let index_x = for_loop_index subt in
+    let loop_size = for_loop_bound subt in
+    (* let block_size =  trm_var b in *)
     let spec_bound = trm_apps (trm_var "min")
           [
             loop_size;
@@ -275,11 +194,6 @@ let loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block 
             ]
           ]
     in
-    let log : string =
-      Printf.sprintf "   -%s is divisible by %S\n" (ast_to_string loop_size) (ast_to_string block_size)
-    in
-    write_log clog log;
-
     let loop ?(top : bool = false) (index : var) (bound : trm) (body : trm) =
         let start = match top with
         | true -> trm_lit(Lit_int 0)
@@ -327,5 +241,18 @@ let loop_tile_core (clog : out_channel) (path_to_loop : path) (b : var)(i_block 
             ]
         in
         loop ~top:true i_block loop_size (trm_seq [loop ~top:false index_x spec_bound body])
-     | _ -> fail t.loc "loop_tile_core: bad loop body"
+     | _ -> fail subt.loc "loop_tile_core: bad loop body"
+
+
+(* loop_tile: Replace the original loop with two nested loops 
+      params: 
+        path_to_loop: an explicit path to the loop
+        b: a variable used to represent the block size
+        i_block: index used for the new outer loop
+      return: 
+        updated ast
+
+*)
+let loop_tile (path_to_loop : path) (b : var)(i_block : var) (t : trm) : trm =
+   apply_local_transformation (loop_color_here b i_block) t path_to_loop
 
