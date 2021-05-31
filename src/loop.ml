@@ -51,7 +51,9 @@ let loop_split (tg : target) : unit =
   apply_to_targets_between tg (fun (p,i) t ->
     Loop_core.loop_split p i t)
 
-
+let loop_fusion (tg : target) : unit =
+  apply_to_targets tg (fun p t ->
+    Loop_core.loop_fusion p t)
 (* get_loop_nest_indices -- currently omiting the last one
 
 *)

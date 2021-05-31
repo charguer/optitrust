@@ -56,6 +56,7 @@ open Tools
 (* loop_swap: Swap the two loop constructs, the loop should contain as least one innet loop
     params:
       path_to_loop an explicit path toward the loop
+      t: ast
     return: 
       the modified ast
 *)
@@ -141,6 +142,7 @@ let loop_color_aux (c : var) (i_color : var) (subt : trm) : trm =
         path_to_loop: explicit path toward the loop
         c: a variable used to represent the number of colors
         i_color: index used for the new outer loop 
+        t: ast
       return:
         the modified ast
 *)
@@ -217,6 +219,7 @@ let loop_tile_aux (b : var) (i_block : var) (subt : trm) : trm =
         path_to_loop: an explicit path to the loop
         b: a variable used to represent the block size
         i_block: index used for the new outer loop
+        t: ast
       return: 
         updated ast
 
@@ -314,6 +317,7 @@ let loop_tile_old_aux (subt : trm) : trm =
         path_to_loop: an explicit path to the loop
         b: a variable used to represent the block size
         i_block: index used for the new outer loop
+        t: ast
       return: 
         updated ast
 
@@ -365,6 +369,7 @@ let loop_hoist_aux (x_step : var) (subt : trm) : trm =
     params:
       path_to_loop: an explicit path to the loop
       x_step: a fresh name for the new_variable
+      t: ast
     return:
       the updated ast
  *)
@@ -400,6 +405,7 @@ let loop_hoist (path_to_loop : path) (x_step : var) (t : trm) : trm =
     params:
       path_to_loop: an explicit path to the loop
       index: an index in the range 0 .. N (though in practice only 1 .. N-1 is useful)
+      t: ast
     return: 
       the updated ast
  *)
@@ -408,4 +414,56 @@ let loop_hoist (path_to_loop : path) (x_step : var) (t : trm) : trm =
   apply_local_transformation (loop_split_aux index) t path_to_loop
 
 
+(* loop_fusion_aux: This function is an auxiliary function for loop_fusion
+    params:
+      subt: an ast subterm
+    return
+      the updated ast
+ *)
 
+let loop_fusion_aux (subt : trm) : trm = 
+  match subt.desc with 
+  | Trm_seq tl ->
+    (* Assumption the sequence contains only two trms, the first one is the first loop *)
+    let first_loop = List.nth tl 0  in
+    (* The second one is the second loop *)
+    let second_loop = List.nth tl 1  in
+    
+    (* Get the list of trms for the first loop, other parts of the loop are not needed since the assumtion is that the loop 
+      have the same index, bound and step *)
+    let first_loop_trms = 
+    begin match first_loop.desc with
+    | Trm_for(_, _, _, body) ->
+      begin match body.desc with 
+      | Trm_seq tl -> tl
+      | _ -> fail subt.loc "loop_fusion_aux: expected the first loop body sequence"
+      end
+    | _ -> fail subt.loc "loop_fusion_aux: expected the first for loop"
+    end in
+
+    begin match second_loop.desc with 
+    | Trm_for (init, cond, step, body) ->
+      (* Extracting the body trms from the second loop *)
+      let new_body = begin match body.desc with 
+      | Trm_seq tl -> trm_seq (first_loop_trms @ tl )
+      | _ -> fail subt.loc "loop_fusion_aux: expected the second loop body sequence"
+      end
+      in
+      (* The fusioned loop *)
+      trm_for init cond step new_body
+    | _ -> fail subt.loc "loop_fusion_aux: expected the second loop"
+    end
+  | _ -> fail subt.loc "loop_fusion_aux: expected the sequence which contains the two loops to be merged"
+
+
+(* loop_fusion: Merge to loops with  the same range
+    params:
+      path_to_seq: Path to the sequence which contains the two loops
+      t: ast
+    returns
+      the updated ast
+*)
+let loop_fusion (path_to_seq : path) (t : trm) : trm =
+  apply_local_transformation(loop_fusion_aux) t path_to_seq
+
+  
