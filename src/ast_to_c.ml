@@ -12,7 +12,7 @@ let decode = ref true
 
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
-  | Typ_const t -> typ_to_doc t ^^ string " " 
+  | Typ_const t -> typ_to_doc t ^^ string " const" 
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
   | Typ_float -> string "float"
@@ -338,8 +338,8 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       end
     in
     if not !decode
-      then typed_var_to_doc tv, init (* LATER: factorize with Var_immutable *)
-    else typed_var_to_doc  ~const:true tv, init
+      then typed_var_to_doc ~const:true tv, init (* LATER: factorize with Var_immutable *)
+    else typed_var_to_doc  ~const:false tv, init
     in
   let initialisation =
     match init.desc with
