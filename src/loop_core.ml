@@ -319,3 +319,35 @@ let loop_tile_old_here (subt : trm) : trm =
 *)
 let loop_tile_old (path_to_loop : path) (t : trm) : trm =
    apply_local_transformation (loop_tile_old_here ) t path_to_loop
+
+
+(* loop_hoist_here: This is an auxlib function for loop_hoist
+    params:
+      x_step: a new_variable name
+      subt: an ast subterm
+    return: 
+      the updated ast
+*)
+let loop_hoist_here (x_step : var) (subt : trm) : trm =
+  match subt.desc with 
+  | Trm_for (_init,_const,_step,body) ->
+    begin match body.desc with 
+    | Trm_seq tl ->
+      (* We assume that the first element in the body is a variable *)
+      let var_decl = List.nth tl 0 in
+      let var_name = match var_decl.desc with
+      | Trm_let (_,(x,_)_) -> x
+      | _ -> fail subt.loc "loop_hoist_here: first loop body trm should be a variable declaration"
+      in
+
+      (* Get the loop index *)
+      let index = for_loop_index (subt) in
+      let remaining_body_trms = List.tl tl in
+      
+      
+
+
+    | _ -> fail subt.loc "loop_hoist_here: expected the sequence inside the body of the loop"
+    end
+  | _ -> fail subt.loc "loop_hoist_here: the given path does not resolve to a for loop"
+    

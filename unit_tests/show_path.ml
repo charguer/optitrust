@@ -6,7 +6,7 @@ let _ =
         set_init_source"show_path.cpp";
         
         set_repeat_io false;
-        show_target [cVarDef "y"];
+        show_target [cMulti;cVar "x_step"];
         clean_target_decorators();
         show_target  [cVarDef "i"] ;
         clean_target_decorators();

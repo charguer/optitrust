@@ -19,6 +19,24 @@ let loop_tile (tg : target) (b : var)(i_block : var) : unit =
   apply_to_targets tg (fun p t ->
     Loop_core.loop_tile p b i_block t)
 
+(* TODO: Ask Arthur, if this should still be used or not *)
+(*
+  -----------DEPRECATED-----------------
+  transform a pre-tiled loop of the form
+  optional_label:
+  for i = 0; i < N; i++
+    int i1 = i / block_size
+    int i2 = i % block_size
+    body
+  into a loop of the form
+  optional_label:
+  for i1 = 0; i1 < N / block_size; i1++
+    for i2 = 0; i2 < block_size; i2++
+      i = i1 * block_size + i2 // only if i is used in body
+      body
+ *)
+
+
 let loop_tile_old (tg : target) : unit =
   apply_to_targets tg (fun p t ->
     Loop_core.loop_tile_old p  t)
@@ -592,21 +610,4 @@ let split_loop_nodep (clog : out_channel) (result_label : string)
        )
        t
        epl
-
-(* TODO: Ask Arthur, if this should still be used or not *)
-(*
-  -----------DEPRECATED-----------------
-  transform a pre-tiled loop of the form
-  optional_label:
-  for i = 0; i < N; i++
-    int i1 = i / block_size
-    int i2 = i % block_size
-    body
-  into a loop of the form
-  optional_label:
-  for i1 = 0; i1 < N / block_size; i1++
-    for i2 = 0; i2 < block_size; i2++
-      i = i1 * block_size + i2 // only if i is used in body
-      body
- *)
 
