@@ -321,7 +321,7 @@ let loop_tile_old (path_to_loop : path) (t : trm) : trm =
    apply_local_transformation (loop_tile_old_here ) t path_to_loop
 
 
-(* loop_hoist_here: This is an auxlib function for loop_hoist
+(* loop_hoist_here: This is an auxiliary function for loop_hoist
     params:
       x_step: a new_variable name
       subt: an ast subterm
@@ -330,24 +330,43 @@ let loop_tile_old (path_to_loop : path) (t : trm) : trm =
 *)
 let loop_hoist_here (x_step : var) (subt : trm) : trm =
   match subt.desc with 
-  | Trm_for (_init,_const,_step,body) ->
+  | Trm_for (init, cond, step,body) ->
     begin match body.desc with 
     | Trm_seq tl ->
       (* We assume that the first element in the body is a variable *)
       let var_decl = List.nth tl 0 in
-      let var_name = match var_decl.desc with
-      | Trm_let (_,(x,_)_) -> x
+      let var_name, var_typ = match var_decl.desc with
+      | Trm_let (_,(x, tx),_) -> x, tx
       | _ -> fail subt.loc "loop_hoist_here: first loop body trm should be a variable declaration"
       in
 
       (* Get the loop index *)
       let index = for_loop_index (subt) in
+      let bound = for_loop_bound (subt) in
       let remaining_body_trms = List.tl tl in
+      let remaining_body_trms = List.map(fun t -> (change_trm t (trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
+      
+      (* (trm_apps (trm_prim ~loc (Prim_new tt)) [te]) *)
       
       
-
-
+      let new_body = trm_seq ([
+        trm_let Var_mutable (var_name, typ_ptr var_typ) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
+      ] @ remaining_body_trms) in
+      trm_seq ~annot:(Some No_braces) [
+        trm_let Var_mutable (x_step, typ_ptr (typ_array (typ_var "T") (Trm (bound)))) (trm_prim (Prim_new var_typ));
+        trm_for init cond step new_body
+      ]
     | _ -> fail subt.loc "loop_hoist_here: expected the sequence inside the body of the loop"
     end
   | _ -> fail subt.loc "loop_hoist_here: the given path does not resolve to a for loop"
     
+(* loop_hoist:  Extract a variable from loop
+    params:
+      path_to_loop: an explicit path to the loop
+      x_step: a fresh name for the new_variable
+    return:
+      the updated ast
+ *)
+
+let loop_hoist (path_to_loop : path) (x_step : var) (t : trm) : trm =
+   apply_local_transformation (loop_hoist_here x_step) t path_to_loop

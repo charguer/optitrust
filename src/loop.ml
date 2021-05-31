@@ -42,7 +42,9 @@ let loop_tile_old (tg : target) : unit =
     Loop_core.loop_tile_old p  t)
 
 
-
+let loop_hoist (tg : target) (x_step : var) : unit =
+  apply_to_targets tg (fun p t ->
+    Loop_core.loop_hoist p x_step t)
 (* get_loop_nest_indices -- currently omiting the last one
 
 *)
