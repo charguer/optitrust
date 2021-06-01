@@ -72,139 +72,56 @@ let struct_set_explicit_aux (field_list : var list) (subt : trm) : trm =
         Path to the set instruction
       t: ast
     return:
-      the update ast
+      the updated ast
  *)
 let struct_set_explicit (field_list : var list) (path_to_set : path) (t : trm) : trm =
   apply_local_transformation(struct_set_explicit_aux field_list) t path_to_set
 
-let make_explicit_record_assignment_core (clog : out_channel) (field_list : fields) (trm_index : int) (expression_trm : trm) (t : trm) : trm =
-  let log : string =
-    let loc : string =
-     match t.loc with
-     | None -> ""
-     | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in Printf.sprintf
-    (" -expression\n%s\n" ^^
-    "   %sis an assigment\n"
-    )
-    (ast_to_string expression_trm) loc
-    in write_log clog log;
-    match t.desc with
 
-    | Trm_seq tl ->
-      begin match expression_trm.desc with
-      (* TOOD:; check that f is a trm_set *)
-      | Trm_apps (f, [lt;rt]) ->
-        begin match rt.desc with
-        | Trm_apps (f1,rbase) ->
-          (* TODO: it might simpler to allows generate rt.x  and then have a cleanup phase
-            that is able to compress  access (access foo a) x   into access foo [a;x]
-             + with the extra get on the way *)
-          begin match lt.desc with (* TODO: define a function is_prim_get_or_access *)
-          | Trm_apps ((* ({desc= Trm_val ( Val_prim ( Prim_unop Unop_struct_get _
-                             | Prim_unop Unop_struct_access _  )}) as*) f2, lbase) ->
-
-              let exp_assgn = List.map(fun sf ->
-              let new_f = trm_unop (Unop_struct_get sf) in
-              (* let new_f = {f with desc = Trm_val(Val_prim(Prim_unop (Unop_struct_get sf)))} *)
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
-              f [trm_apps ~annot:(Some Access) new_f [trm_apps f2 lbase]; trm_apps ~annot:(Some Access) new_f [trm_apps f1 rbase]]
-              ) field_list in
-              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
-
-          | Trm_var v ->
-              let exp_assgn = List.map(fun sf ->
-              let new_f = trm_unop (Unop_struct_get sf) in
-              (* let new_f = {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get sf)))} *)
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
-              f [trm_apps new_f [trm_var v]; trm_apps ~annot: (Some Access) f1 [trm_apps new_f rbase]]
-              ) field_list in
-              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
-
-          | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched"
-          end
-
-        | Trm_struct st ->
-          begin match lt.desc with
-          | Trm_apps (f2,lbase) ->
-              let exp_assgn = List.mapi(fun i sf->
-                (* let sf = List.nth field_list i in  *)
-                let new_f = trm_unop (Unop_struct_get sf) in
-                (* let ith_term =  in  *)
-                trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
-                    f [trm_apps ~annot:(Some Access) f2 [trm_apps new_f lbase]; List.nth st i]
-              ) field_list in
-              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
-
-          | Trm_var v ->
-              let exp_assgn = List.mapi(fun i sf ->
-                (* let sf = List.nth field_list i in  *)
-                let new_f = trm_unop (Unop_struct_get sf) in
-                (* let ith_term = List.nth st in  *)
-                trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
-                f [trm_apps new_f [trm_var v]; List.nth st i]
-              ) field_list in
-              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
-
-
-
-          | _ -> fail t.loc "make_explicit_record_assignment_aux: left term was not matched"
-          end
-
-        | _ ->
-
-              let exp_assgn = List.map(fun sf ->
-              let new_f = trm_unop (Unop_struct_get sf) in
-              (* let new_f = {f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get sf)))} *)
-              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~typ:t.typ
-              f [trm_apps new_f [lt]; trm_apps new_f [rt]]
-              ) field_list in
-              trm_seq ~annot:t.annot (insert_sublist_in_list exp_assgn trm_index tl)
-
-
-        (* fail t.loc "make_explicit_record_assignment_aux: right hand side can only be a value or a variable, function calls are not supported" *)
+(* struct_set_implicit: This is an auxiliary function for struct_set_implicit
+    pararms:
+      subt: an ast subterm
+    return:
+      the updated as
+ *)
+let struct_set_implicit_aux (subt : trm) : trm =
+  match subt.desc with 
+  | Trm_seq tl ->
+    (* To find out the variables of the structs whe just conside the first set instruction.
+      Assumption: The sequence contains only the struct field set instructions.
+     *)
+    let first_instruction = List.hd tl in
+    begin match first_instruction.desc with
+    | Trm_apps(_,[ls;rs]) ->
+      (* Find left variable, seach for expression of the form v1.x  *)
+      let l_var = 
+        begin match  ls.desc with 
+          | Trm_apps(_,[base]) -> base
+          | Trm_var x -> trm_var x
+          | _ -> fail subt.loc "struct_set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
         end
-      | _ -> fail t.loc "make_explicit_record_assignment_aux: this expression is not supported"
+      in
+      let r_var = begin match  rs.desc with 
+      | Trm_apps(_,[base]) -> base
+      | Trm_var x -> trm_var x
+      | _ -> fail subt.loc "struct_set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
       end
-    | _ -> fail t.loc "make_explicit_record_assignment_aux: the outer sequence was not matched"
-
-let make_implicit_record_assignment_core (clog : out_channel) (trms_list_size : int) (trm_index : int) (t : trm): trm =
-  let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with
-    | [] -> failwith "Empty list"
-    | x :: xs -> if i = 0 then el :: xs else x :: list_replace_el el (i-1) xs
-  in
-  let log : string =
-    let loc : string =
-      match t.loc with
-      | None -> ""
-      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in Printf.sprintf
-    (" -expression\n%s\n" ^^
-    "   %sis a declaration"
-    )
-    (ast_to_string t) loc
-
-    in write_log clog log;
-    match t.desc with
-    | Trm_seq tl ->
-      let decl = List.nth tl trm_index in
-      let assign = List.rev (foldi (fun i acc x -> if i >= trm_index + 1 && i < trm_index + 1 + trms_list_size then x :: acc else acc ) [] tl) in
-      let extracted_trms = List.map( fun (sf:trm) ->
-        match sf.desc with
-        | Trm_apps(_,[_;rt]) -> rt
-        | _ -> fail t.loc "make_implicit_record_assignment_aux: all the trms should be assignments"
-        ) assign
       in
-      
-      let var_kind, var_name, var_type = match decl.desc with
-        | Trm_let (vk,tx,_) -> vk, fst tx, snd tx
-        | _ -> fail t.loc "make_implicit_record_assignment_aux: expected a declaration"
-      in
-      let new_trm = trm_let var_kind (var_name, var_type) (trm_struct extracted_trms) in
-      let tl = list_remove_set assign tl in
-      let tl = list_replace_el new_trm trm_index tl in
-      trm_seq ~annot:t.annot tl
-    | _ -> fail t.loc "make_implicit_record_assignment_aux: the outer sequence was not matched"
+      trm_set l_var r_var
+    | _ -> fail subt.loc "struct_set_implicit_aux: expected a set instruction"
+    end
+  | _ -> fail subt.loc "struct_set_implicit_aux: sequence which contains the set instructions was not matched"
+
+(* struct_set_implicit: Transoform a sequence of set instructions into a single set instruction   
+    params:
+      path_to_seq: 
+        Path to the sequence containing the set instructions
+      t: ast
+    return:
+      the updated ast
+ *)
+let struct_set_implicit (path_to_set : path) (t : trm) : trm =
+  apply_local_transformation(struct_set_implicit_aux ) t path_to_set
 
 
 let fields_reorder_core (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(t : trm) : trm  =

@@ -1127,11 +1127,6 @@ let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(s
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n" *)
 
-let make_explicit_record_assignment?(replace_top : bool = false) ?(struct_name : string = "") (tr : target) : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Struct.make_explicit_record_assigment ctx.clog ~struct_name tr);
-  write_log "\n"
-
 let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) (tr : target) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label  tr);
@@ -1151,11 +1146,6 @@ let undetach_expression ?(replace_top : bool = false) (tr : target) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.undetach_expression ctx.clog tr);
     write_log "\n"
-
-let make_implicit_record_assignment ?(replace_top : bool = false) ?(struct_name : string = "") (tr : target)  : unit =
-  apply_to_top ~replace_top
-  (fun ctx -> Struct.make_implicit_record_assignment ctx.clog struct_name tr);
-  write_log "\n"
 
 let array_to_variables ?(replace_top : bool = false) (dcl_target : target) (new_vars : var list) : unit =
   apply_to_top ~replace_top
