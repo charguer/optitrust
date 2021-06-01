@@ -124,6 +124,40 @@ let struct_set_implicit (path_to_set : path) (t : trm) : trm =
   apply_local_transformation(struct_set_implicit_aux ) t path_to_set
 
 
+(* struct_reorder_aux: This function is an auxiliary function for struct_reorder
+    params:
+      field_list: a list of fields given on a specific order
+      subt: an ast subterm
+    return: 
+      the updated ast
+ *)
+let struct_reorder_aux (field_list : var list) (subt : trm) : trm =
+  match subt.desc with 
+      | Trm_typedef (Typedef_abbrev (x, dx)) ->
+
+        let field_map =
+          match dx.ty_desc with
+            | Typ_struct(_,m,_) -> m
+            |_ -> fail subt.loc "fields_reorder: the type should be a typedef struct"
+          in
+        
+        trm_typedef (Typedef_abbrev (x, typ_struct field_list field_map x))
+      | _ -> fail subt.loc "fields_reorder: expected a typedef definiton"
+
+
+(* struct_reorder: Reorder fields of a typedef struct
+    params:
+      field_list: a list of fields given on a specific order
+      path_to_struct: path to the typdef struct 
+      t: ast
+    return:
+      the updated ast
+ *)
+let struct_reorder (field_list : var list) (path_to_struct : path) (t : trm): trm = 
+  apply_local_transformation(struct_reorder_aux field_list) t path_to_struct
+
+
+  
 let fields_reorder_core (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(t : trm) : trm  =
     let log : string =
       let loc : string =
