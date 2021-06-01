@@ -1,5 +1,6 @@
 open Ast 
 open Ast_to_c
+open Clang_to_ast
 open Tools 
 open Output
 
@@ -45,7 +46,7 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
            trm_seq ~annot:(Some No_braces)
               [
                 trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name)))
+                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name (get_typedef block_name))))
               ]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
@@ -58,7 +59,7 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
               trm_seq ~annot:(Some No_braces)
                 [
                   trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name)
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (get_typedef block_name))
                                           (Trm n_div_b)))
                 ]
            | Trm t' ->
@@ -66,7 +67,7 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
               trm_seq ~annot:(Some No_braces)
                 [
                   trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name)
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (get_typedef block_name))
                                           (Trm t'')))
                 ]
            end
@@ -82,7 +83,7 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
   (* heap allocations *)
   | Trm_let (Var_mutable, (y,ty), init) when y = x ->
     begin match ty.ty_desc with
-    | Typ_ptr {ty_desc = Typ_var y; _} when y = x ->
+    | Typ_ptr {ty_desc = Typ_var (y,_); _} when y = x ->
         trm_let Var_mutable (y,ty) init
     | _ -> trm_map (tile_array_core base_type block_name b x) t
     end
@@ -91,7 +92,7 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
               [lhs; rhs]) ->
      (* lhs should have type x *)
      begin match lhs.typ with
-     | Some {ty_desc = Typ_var y; _} when y = x ->
+     | Some {ty_desc = Typ_var (y, _); _} when y = x ->
         trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
           ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
      | _ -> trm_map (tile_array_core base_type block_name b x) t
@@ -105,7 +106,7 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
         | [base; index] ->
            begin match base.typ with
            (* we only look for arrays of type x *)
-           | Some {ty_desc = Typ_var y; _} when y = x ->
+           | Some {ty_desc = Typ_var (y, _); _} when y = x ->
               (* replace base[index] with base[index/b][index%b] *)
               trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
                 ~typ:t.typ f
@@ -152,7 +153,7 @@ let array_to_variables_core (clog : out_channel) (new_vars : var list) (decl_trm
             begin match t_arr.ty_desc with
             | Typ_array (t_var,_) ->
               begin match t_var.ty_desc with
-              | Typ_var x -> x
+              | Typ_var (x, _) -> x
               | _ -> fail t.loc "array_to_variables_core: expected a type variable"
               end
             | _ -> fail t.loc "array_to_variables_core: expected an array type"
@@ -166,7 +167,7 @@ let array_to_variables_core (clog : out_channel) (new_vars : var list) (decl_trm
       in
       (* let decl_index = get_index decl_trm tl in *)
       let new_trms = List.map(fun x ->
-        trm_let Var_mutable (x,(typ_ptr (typ_var (decl_type)))) (trm_lit (Lit_uninitialized))) new_vars
+        trm_let Var_mutable (x,(typ_ptr (typ_var decl_type (get_typedef decl_type)))) (trm_lit (Lit_uninitialized))) new_vars
       in
       trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl)
     | _ -> fail t.loc "array_to_variables_core: only declaration inside sequence are supported"

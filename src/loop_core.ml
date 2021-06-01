@@ -1,7 +1,8 @@
 open Ast
+open Clang_to_ast
 open Target
-open Transformations
 open Tools
+open Transformations
 (* loop_swap_aux: This is an auxiliary function for loop_swap
     params:  
       subt: an ast subterm
@@ -358,7 +359,7 @@ let loop_hoist_aux (x_step : var) (subt : trm) : trm =
         trm_let Var_mutable (var_name, typ_ptr var_typ) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
       ] @ remaining_body_trms) in
       trm_seq ~annot:(Some No_braces) [
-        trm_let Var_mutable (x_step, typ_ptr (typ_array (typ_var "T") (Trm (bound)))) (trm_prim (Prim_new var_typ));
+        trm_let Var_mutable (x_step, typ_ptr (typ_array (typ_var "T" (get_typedef "T")) (Trm (bound)))) (trm_prim (Prim_new var_typ));
         trm_for init cond step new_body
       ]
     | _ -> fail subt.loc "loop_hoist_aux: expected the sequence inside the body of the loop"

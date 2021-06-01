@@ -1,10 +1,11 @@
 open Ast
-open Target
-open Path_constructors
 open Ast_to_c
 open Ast_to_text
-open Tools
+open Clang_to_ast
 open Output
+open Target
+open Tools
+open Path_constructors
 
 
 (* return the list where the nth element is transformed *)
@@ -292,7 +293,7 @@ let rec delete_target_decorators (t : trm) : trm =
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
   | Trm_var y' when y' = y ->
-     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_var x))
+     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_var x (get_typedef x)))
        ~attributes:t.attributes y
   | _ -> trm_map (replace_type_with x y) t
 
@@ -335,7 +336,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
               (fun i il (t' : trm) ->
                 match t'.typ with
                 (* note: also works for heap allocated variables *)
-                | Some {ty_desc = Typ_var x'; _} when x' = x -> i :: il
+                | Some {ty_desc = Typ_var (x', _); _} when x' = x -> i :: il
                 | _ -> il
               )
               []
@@ -476,7 +477,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                       *)
                      let tvl' =
                        List.fold_left
-                         (change_nth (fun (y, _) -> (y, typ_var x))) tvl il
+                         (change_nth (fun (y, _) -> (y, typ_var x (get_typedef x)))) tvl il
                      in
                      (* add index to labels in the body of the function *)
                      let b' =
@@ -528,7 +529,7 @@ and replace_fun_names (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                   (fun i il (ti : trm) ->
                     match ti.typ with
                     (* note: also works for heap allocated variables *)
-                    | Some {ty_desc = Typ_var x'; _} when x' = x -> i :: il
+                    | Some {ty_desc = Typ_var (x', _); _} when x' = x -> i :: il
                     | _ -> il
                   )
                   []
@@ -664,7 +665,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   let rec change_typ (ty : typ) : typ =
     (* necessary because of annotations in trms that may be different *)
     if typ_to_string ty = typ_to_string ty_before then ty_after
-    else typ_map change_typ ty
+    else Ast.typ_map change_typ ty
   in
   (* change all occurrences of ty_before in type annotations in t *)
   let rec replace_type_annot (t : trm) : trm =
@@ -739,7 +740,7 @@ let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var
           | Trm_seq [f_loop;del_inst] ->
             begin match f_loop.desc with
             | Trm_for (init, cond, step, body) ->
-              let new_decl = trm_let Var_mutable (new_var, typ_var var_type) (trm_var old_var)
+              let new_decl = trm_let Var_mutable (new_var, typ_var var_type (get_typedef var_type)) (trm_var old_var)
           
               in
               let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
@@ -834,8 +835,7 @@ let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element :
             trm_seq (* ~annot:(Some Delete_instructions) *)[
               trm_for
                 (* init *)
-                  (trm_let Var_mutable ("k",typ_int()) (trm_lit (Lit_int 0)))
-                  
+                  (trm_let Var_mutable ("k",typ_ptr (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
                 (* cond *)
                   (trm_apps (trm_binop Binop_lt)
                     [

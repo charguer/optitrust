@@ -8,7 +8,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_const t ->
     let dt = print_typ ~only_desc t in 
     node "Typ_const" ^^ dt
-  | Typ_var x -> node "Typ_var" ^^ string x
+  | Typ_var (x, _) -> node "Typ_var" ^^ string x
   | Typ_unit -> string "Typ_unit"
   | Typ_int -> string "Typ_int"
   | Typ_float -> string "Typ_float"

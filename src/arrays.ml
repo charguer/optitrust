@@ -116,7 +116,7 @@ let rec swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                  | [base'; index'] ->
                     begin match base'.typ with
                     (* if we find such accesses, we swap the two indices *)
-                    | Some {ty_desc = Typ_var x'; _} when x' = x ->
+                    | Some {ty_desc = Typ_var (x', _); _} when x' = x ->
                        (* x might also be the type of arrays in indices… *)
                        let swapped_index = swap_accesses clog x index in
                        let swapped_index' = swap_accesses clog x index' in
@@ -277,7 +277,7 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
             ty must be an array type over a struct type denoted by a type var
            *)
           begin match ty.ty_desc with
-          | Typ_array ({ty_desc = Typ_var y; _}, s) ->
+          | Typ_array ({ty_desc = Typ_var (y, _); _}, s) ->
              begin match aliased_type y global_trm with
              | None ->
                 fail t.loc "swap_accesses: cannot find underlying struct type"
@@ -326,14 +326,14 @@ let swap_accesses (clog : out_channel) (x : typvar) (t : trm) : trm =
                   an access on a heap allocated variable)
                  *)
                 begin match base'.typ with
-                | Some {ty_desc = Typ_var y; _} when y = x ->
+                | Some {ty_desc = Typ_var (y, _); _} when y = x ->
                    (* x might appear both in index and in base' *)
                    let base' = aux global_trm base' in
                    let index = aux global_trm index in
                    (* keep outer annotations *)
                    trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                      ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
-                | Some {ty_desc = Typ_ptr {ty_desc = Typ_var y; _}; _}
+                | Some {ty_desc = Typ_ptr {ty_desc = Typ_var (y, _); _}; _}
                      when y = x ->
                    (* x might appear both in index and in base' *)
                    let base' = aux global_trm base' in

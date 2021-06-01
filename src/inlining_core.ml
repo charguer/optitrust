@@ -1,5 +1,6 @@
 open Ast
 open Ast_to_c
+open Clang_to_ast
 open Target
 open Transformations
 open Declaration
@@ -249,7 +250,7 @@ let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result 
           change_trm (trm_var x') (trm_var x) t *)
        (* typedef *)
        | Trm_typedef (Typedef_abbrev (x,dx)) ->
-          let ty_x = typ_var x in
+          let ty_x = typ_var x (get_typedef x) in
           change_typ ~change_at:inline_at ty_x dx t
        (* fun decl *)
        | Trm_let_fun (f, tf, args, body) ->

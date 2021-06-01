@@ -44,7 +44,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_fun (_, _) ->
      print_info None "typ_desc_to_doc: typ_fun not implemented\n";
      at
-  | Typ_var t -> string t
+  | Typ_var (t, _) -> string t
 
 and is_atomic_typ (t : typ) : bool =
   match t.ty_desc with 

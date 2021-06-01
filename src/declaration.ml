@@ -1,5 +1,6 @@
 open Ast
 open Ast_to_c
+open Clang_to_ast
 open Target
 open Path_constructors
 open Transformations
@@ -64,7 +65,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
      | Trm_typedef d -> 
        begin match d with 
        | Typedef_abbrev (x,dx) -> 
-        let ty_x = typ_var x in 
+        let ty_x = typ_var x (get_typedef x) in 
         let t = change_typ ~change_at: fold_at dx ty_x t in 
         let change_at = [[cTypDef x]] in
         change_typ ~change_at ty_x dx t
