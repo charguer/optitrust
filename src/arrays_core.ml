@@ -1,8 +1,85 @@
 open Ast 
-open Ast_to_c
 open Clang_to_ast
-open Tools 
-open Output
+open Target
+open Transformations
+
+(* This is an auxiliary function for array to variables to modify the ast globally *)
+let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    match t.desc with
+    | Trm_apps(f,[arr_base;arr_index]) ->
+      begin match f.desc with
+      | Trm_val (Val_prim (Prim_binop Binop_array_access)) ->
+        begin match arr_base.desc with
+        | Trm_var x when x = array_var ->
+          begin match arr_index.desc with
+          | Trm_val (Val_lit (Lit_int i)) ->
+            if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
+            else
+              trm_var (List.nth new_vars i)
+          | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
+          end
+        | Trm_apps (f1,[base1]) ->
+          begin match f1.desc with
+          | Trm_val (Val_prim (Prim_unop Unop_struct_access var)) when var = array_var ->
+            begin match arr_index.desc with
+            | Trm_val (Val_lit (Lit_int i)) ->
+              if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
+              else
+                let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (List.nth new_vars i))))} in
+                trm_apps f1 [base1]
+                (* trm_var (List.nth new_vars i) *)
+            | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
+            end
+          | _ -> trm_map (aux global_trm) t
+          end
+        | _ -> trm_map (aux global_trm) t
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    | _ -> trm_map (aux global_trm) t
+  in aux t t
+
+(* array_to_variables_aux: This is an auxiliary function for array_to_variables 
+    params:
+      new_vars: a list of strings of length equal to the size of the array
+      subt: an ast subterm
+    return
+      the updated ast
+*)
+let array_to_variables_aux  (new_vars : var list) (subt  : trm) : trm =
+  match subt.desc with 
+  | Trm_let (_,(_, _), init) ->
+    begin match init.desc with
+    | Trm_val( Val_prim (Prim_new t_arr)) ->
+      begin match t_arr.ty_desc with
+      | Typ_array (t_var,_) ->
+        begin match t_var.ty_desc with
+        | Typ_var (y, _) -> 
+          let new_trms = List.map(fun x ->
+          trm_let Var_mutable (x,(typ_ptr (typ_var y (get_typedef y)))) (trm_lit (Lit_uninitialized))) new_vars
+          in
+          trm_seq ~annot:subt.annot new_trms 
+
+        | _ -> fail subt.loc "array_to_variables_core: expected a type variable"
+        end
+      | _ -> fail subt.loc "array_to_variables_core: expected an array type"
+      end
+    | _ -> fail subt.loc "array_to_variables_core: something went wrong"
+    end
+  | _ -> fail subt.loc "array_to_variables_core: expected a variable declaration"
+
+
+(* array_to_variables: Transofrm an array declaration into multiple variables declarations
+    params:
+      new_vars: a list of strings of length equal ot the size of the array
+      path_to_decl: path to the array declaration
+      t: ast
+    return:
+      the updated ast
+ *)
+let array_to_variables (new_vars : var list) (path_to_decl : path) (t : trm) : trm =
+  apply_local_transformation (array_to_variables_aux new_vars) t path_to_decl
 
 let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   (t : trm) : trm =
@@ -124,50 +201,10 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
                 ]
            | _ -> trm_map (tile_array_core base_type block_name b x) t
            end
+
         | _ -> fail t.loc "tile_array_core: array accesses must have two arguments"
         end
      | _ -> trm_map (tile_array_core base_type block_name b x) t
      end
   | _ -> trm_map (tile_array_core base_type block_name b x) t
 
-let array_to_variables_core (clog : out_channel) (new_vars : var list) (decl_trm : trm) (decl_index : int) (t  : trm) : trm =
-  let log : string =
-    let loc : string =
-    match t.loc with
-    | None -> ""
-    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in Printf.sprintf
-    (" - expression\n%s\n" ^^
-    " %s is a declaration\n"
-    )
-    (ast_to_string decl_trm) loc
-    in write_log clog log;
-    match t.desc with
-    | Trm_seq tl ->
-       let decl_type = begin match decl_trm.desc with
-       | Trm_seq[t_decl] ->
-        begin match t_decl.desc with
-        | Trm_let (_,(_, _), init) ->
-          begin match init.desc with
-          | Trm_val( Val_prim (Prim_new t_arr)) ->
-            begin match t_arr.ty_desc with
-            | Typ_array (t_var,_) ->
-              begin match t_var.ty_desc with
-              | Typ_var (x, _) -> x
-              | _ -> fail t.loc "array_to_variables_core: expected a type variable"
-              end
-            | _ -> fail t.loc "array_to_variables_core: expected an array type"
-            end
-          | _ -> fail t.loc "array_to_variables_core: something went wrong"
-          end
-        | _ -> fail t.loc "array_to_variables_core: expected a variable declaration"
-        end
-      | _ -> fail t.loc "array_to_variables_core: expected a sequence which contain the variable declaration"
-      end
-      in
-      (* let decl_index = get_index decl_trm tl in *)
-      let new_trms = List.map(fun x ->
-        trm_let Var_mutable (x,(typ_ptr (typ_var decl_type (get_typedef decl_type)))) (trm_lit (Lit_uninitialized))) new_vars
-      in
-      trm_seq ~annot:t.annot (insert_sublist_in_list new_trms decl_index tl)
-    | _ -> fail t.loc "array_to_variables_core: only declaration inside sequence are supported"

@@ -1130,11 +1130,6 @@ let undetach_expression ?(replace_top : bool = false) (tr : target) : unit =
     (fun ctx -> Transformations.undetach_expression ctx.clog tr);
     write_log "\n"
 
-let array_to_variables ?(replace_top : bool = false) (dcl_target : target) (new_vars : var list) : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Arrays.array_to_variables ctx.clog dcl_target new_vars);
-    write_log "\n"
-
 let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(old_var : var = "") ?(new_var : var = "") () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );

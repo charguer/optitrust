@@ -4,6 +4,16 @@ open Ast_to_c
 open Transformations
 open Arrays_core
 open Output
+
+
+
+let array_to_variables (tg : target) (new_vars : var list) : unit =
+  apply_to_targets tg (fun p t ->
+    (* TODO: Fix this later *)
+    (* let t = inline_array_access array_variable new_vars t in *)
+    Arrays_core.array_to_variables new_vars p t)
+
+
 (* TODO: Finish splititng all function into core and basics for this module *)
 
 (*
@@ -372,83 +382,3 @@ let aos_to_soa (clog : out_channel) (name : var -> var) (x : typvar)
   swap_accesses clog x t
 
 
-let inline_array_access (clog : out_channel) (array_var : var) (new_vars : var list) (t: trm) : trm =
-  let log : string =
-    let loc : string =
-    match t.loc with
-    | None -> ""
-    | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in Printf.sprintf
-    (" - expression\n%s\n" ^^
-    " %s is the full term\n"
-    )
-    (ast_to_string t) loc
-    in write_log clog log;
-    let rec aux (global_trm : trm) (t : trm) : trm =
-      match t.desc with
-      | Trm_apps(f,[arr_base;arr_index]) ->
-        begin match f.desc with
-        | Trm_val (Val_prim (Prim_binop Binop_array_access)) ->
-          begin match arr_base.desc with
-          | Trm_var x when x = array_var ->
-            begin match arr_index.desc with
-            | Trm_val (Val_lit (Lit_int i)) ->
-              if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
-              else
-                trm_var (List.nth new_vars i)
-            | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
-            end
-          | Trm_apps (f1,[base1]) ->
-            begin match f1.desc with
-            | Trm_val (Val_prim (Prim_unop Unop_struct_access var)) when var = array_var ->
-              begin match arr_index.desc with
-              | Trm_val (Val_lit (Lit_int i)) ->
-                if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
-                else
-                  let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (List.nth new_vars i))))} in
-                  trm_apps f1 [base1]
-                  (* trm_var (List.nth new_vars i) *)
-              | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
-              end
-            | _ -> trm_map (aux global_trm) t
-            end
-          | _ -> trm_map (aux global_trm) t
-          end
-        | _ -> trm_map (aux global_trm) t
-        end
-      | _ -> trm_map (aux global_trm) t
-    in aux t t
-
-
-let array_to_variables (clog : out_channel) (dcl_path : target) (new_vars : var list) (t : trm) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target dcl_path t in
-  Flags.verbose := b;
-  let app_transfo (t :trm) (dl : path) : trm =
-    match List.rev dl with
-    | Dir_nth n :: dl' ->
-      let (t',_) = resolve_path dl t in
-      let dl = List.rev dl' in
-
-      apply_local_transformation (array_to_variables_core clog new_vars t' n) t dl
-    | _ -> fail t.loc "app_transfo: expected a dir_nth inside the sequence"
-  in
-  (* Change all array accessess with the new variables before changing the declaration *)
-  let declaration_trm = match epl with
-  | [dl] -> let (t_def,_) = resolve_path dl t in t_def
-  | _ -> fail t.loc "array_to_variables: expected only one declaration trm"
-  in
-  let array_variable = match declaration_trm.desc with
-  | Trm_let(_,(x,_),_) -> x
-  | _ -> fail t.loc "array_to_variables: expected a sequece which contains the declration"
-  in
-  let t = inline_array_access clog array_variable new_vars t in
-  match epl with
-
-
-  | [] ->
-    print_info t.loc "array_to_variables: no matching subterm";
-    t
-  | _ -> List.fold_left(fun t dl -> app_transfo t dl)
-    t epl
