@@ -1077,23 +1077,6 @@ let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
        ~fun_return_label tr);
   write_log "\n"
 
-let fields_reorder ?(replace_top : bool = false) (tr : target) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(_ : unit) : unit =
-  let log : string =
-    let ps = target_to_string tr in
-    Printf.sprintf
-      ("Inline_decl ~decl_target %s:\n" ^^
-       " - %s points at exactly one program point\n"
-      )
-      ps ps
-  in
-  write_log log;
-  apply_to_top ~replace_top
-    (fun ctx ->
-      Struct.fields_reorder ctx.clog  ~struct_fields tr ~move_before ~move_after
-    );
-  write_log "\n"
-
-
 (* let move_loop_before ?(replace_top : bool = false) (tr : target) (loop_index : var) : unit =
     let log : string =
       Printf.sprintf "move_loop_before %s:\n" (target_to_string tr)

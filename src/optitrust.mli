@@ -249,8 +249,6 @@ val remove_instructions : ?replace_top:bool -> target list -> unit
 
 val undetach_expression : ?replace_top:bool -> target -> unit
 
-val fields_reorder : ?replace_top:bool -> target -> ?struct_fields:Ast.fields -> ?move_before:string -> ?move_after:string -> unit -> unit
-
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit
 
 val move_loop_after : ?replace_top:bool -> target -> string -> unit

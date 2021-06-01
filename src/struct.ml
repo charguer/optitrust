@@ -1,6 +1,4 @@
 open Ast
-open Transformations
-open Struct_core
 open Target
 open Tools
 
@@ -37,19 +35,3 @@ let struct_reorder ?(struct_fields : fields = []) ?(move_before : field = "") ?(
     end
     in
     Struct_core.struct_reorder field_list p t)
-
-let fields_reorder (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (tr : target) (t : trm) : trm  =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target tr t in
-  Flags.verbose := b;
-  match epl with
-  | [] ->
-      print_info t.loc "Struct field reordering\n";
-      t
-  | _ ->
-      List.fold_left
-        (fun t dl ->
-          apply_local_transformation (fields_reorder_core clog ~struct_fields ~move_before ~move_after) t dl )
-        t
-        epl

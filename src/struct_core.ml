@@ -1,9 +1,6 @@
 open Ast
-open Ast_to_c
 open Target
-open Tools
 open Transformations
-open Output
 
 
 (* struct_set_explicit_aux: This is an auxiliary function for struct_set_explicit 
@@ -157,36 +154,3 @@ let struct_reorder (field_list : var list) (path_to_struct : path) (t : trm): tr
   apply_local_transformation(struct_reorder_aux field_list) t path_to_struct
 
 
-  
-let fields_reorder_core (clog :out_channel) ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "")(t : trm) : trm  =
-    let log : string =
-      let loc : string =
-        match t.loc with
-        | None -> ""
-        | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-      in Printf.sprintf
-          ("  - expression\n%s\n" ^^
-          "    %sis a struct type\n"
-          )
-      (ast_to_string t) loc
-    in
-    write_log clog log;
-    begin match t.desc with
-      | Trm_typedef (Typedef_abbrev (x, dx)) ->
-
-        let field_list, field_map =
-          match dx.ty_desc with
-            | Typ_struct(l,m,_) -> l,m
-            |_ -> fail t.loc "fields_reorder: the type should be a typedef struct"
-          in
-        let reordered_fields =
-          match move_before, move_after with
-          | "",_ -> move_fields_after move_after struct_fields field_list
-          | _, "" -> move_fields_before move_before struct_fields field_list
-          | _,_-> fail t.loc "fields_reorder: only one of move_before or move_after should be specified"
-          in
-        trm_typedef (Typedef_abbrev (x, typ_struct reordered_fields field_map x))
-
-
-      | _ -> fail t.loc "fields_reorder: expected a definiton"
-      end
