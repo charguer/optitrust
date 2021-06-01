@@ -33,7 +33,7 @@ type size =
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar (* int x *)
+  | Typ_var of typvar * typedef(* int x *)
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
@@ -257,8 +257,8 @@ let typ_const ?(annot : typ_annot list = []) ?(ty_attributes = [])
   {ty_annot = annot; ty_desc = Typ_const t; ty_attributes}
 
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
-  (x : typvar) : typ =
-  {ty_annot = annot; ty_desc = Typ_var x; ty_attributes}
+  (x : typvar) (t : typedef): typ =
+  {ty_annot = annot; ty_desc = Typ_var (x, t); ty_attributes}
 
 let typ_unit ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
   {ty_annot = annot; ty_desc = Typ_unit; ty_attributes}

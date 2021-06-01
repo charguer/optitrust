@@ -40,6 +40,19 @@ module Type_map = Map.Make(String)
 type 'a tmap = 'a Type_map.t
 let typ_map : typ Type_map.t ref = ref Type_map.empty
 
+
+
+(* A map to keep track of typedefs.
+*)
+let typedef_env : typedef Type_map.t ref = ref Type_map.empty 
+
+(* A function to check if there is any key with the given value,
+  used for finding if the typedef is in typedef_env or not *)
+let value_exists value m =
+  let list_of_keys = Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m [] in
+  if list_of_keys != [] then true else false
+
+
 (* TODO: rename: heap_vars contains the information on which variables are [Var_mutable]
   stack of lists of heap allocated variables
   each list corresponds to a new scope
@@ -229,7 +242,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     end
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> typ_var n
+      | IdentifierName n -> typ_var n (Type_map.find n !typedef_env)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
     end
@@ -241,13 +254,13 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     end
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> typ_var n
+      | IdentifierName n -> typ_var n (Type_map.find n !typedef_env)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> typ_var n
+      | IdentifierName n -> typ_var n (Type_map.find n !typedef_env)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end
@@ -977,11 +990,13 @@ and translate_decl (d : decl) : trm =
       end
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
-    trm_typedef ~loc (Typedef_abbrev (n, tn) )
+    typedef_env := Type_map.add n (Typedef_abbrev(n, tn)) !typedef_env;
+    trm_typedef ~loc (Typedef_abbrev (n, tn) ) 
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName n ->
         let tn = translate_qual_type ~loc q in
+        typedef_env := Type_map.add n (Typedef_abbrev(n, tn)) !typedef_env;
         trm_typedef ~loc (Typedef_abbrev (n, tn) )
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
@@ -1062,3 +1077,9 @@ let translate_ast (t : translation_unit) : trm =
          ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) ++ [t])
     )
 
+let get_typedef (tv : typvar) : typedef =
+  let td = Type_map.find_opt tv !typedef_env  in
+  begin match td with 
+  | Some td -> td
+  | None -> fail None "could not find a typedef for the given typvar"
+  end
