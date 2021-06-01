@@ -4,6 +4,13 @@ open Struct_core
 open Target
 open Path_constructors
 
+let struct_set_explicit (tg : target) (field_list : var list) : unit =
+  apply_to_targets tg (fun p t ->
+    Struct_core.struct_set_explicit field_list p t)
+
+
+
+
 let make_explicit_record_assigment (clog : out_channel) ?(struct_name : string = "") (tr : target) (t : trm) : trm =
   let struct_def_path = [cTypDef struct_name] in
   let epl_of_struct_def_path = resolve_target struct_def_path t in
