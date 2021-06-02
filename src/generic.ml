@@ -8,9 +8,19 @@ open Tools
 open Path_constructors
 
 
+
+
 let var_init_detach (tg : target) : unit =
   apply_to_targets tg (fun p t ->
     Generic_core.var_init_detach p t)
+
+let var_init_atttach (tg : target) : unit =
+  apply_to_targets tg (fun p t ->
+    Generic_core.var_init_attach p t)
+
+
+
+
 (*
   insert inert after the subterm pointed at by dl in t
   assumption: dl points at a seq element, thus ends with Dir_nth n
