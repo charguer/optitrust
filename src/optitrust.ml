@@ -1115,16 +1115,6 @@ let detach_expression ?(replace_top : bool = false) ?(label : string = "detached
     (fun ctx -> Generic.detach_expression ctx.clog ~label ~keep_label  tr);
     write_log "\n"
 
-let remove_instruction ?(replace_top : bool = false) (tr : target) : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Generic.remove_instruction ctx.clog tr);
-  write_log "\n"
-
-let remove_instructions ?(replace_top : bool = false) (isntruction_list : target list) : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Generic.remove_instructions ctx.clog isntruction_list );
-  write_log "\n"
-
 let undetach_expression ?(replace_top : bool = false) (tr : target) : unit =
   apply_to_top ~replace_top
     (fun ctx -> Generic.undetach_expression ctx.clog tr);

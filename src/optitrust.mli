@@ -239,10 +239,6 @@ val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size
 
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  target -> unit
 
-val remove_instruction : ?replace_top:bool -> target -> unit
-
-val remove_instructions : ?replace_top:bool -> target list -> unit
-
 val undetach_expression : ?replace_top:bool -> target -> unit
 
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit

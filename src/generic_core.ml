@@ -117,3 +117,24 @@ let const_non_const_aux (subt : trm) : trm =
 let const_non_const (path_to_decl : path) (t : trm) : trm =
   apply_local_transformation(const_non_const_aux ) t path_to_decl
 
+
+(* remove_instruction_aux: This is an auxiliary function for remove_instruction
+    params:
+      subt: an ast subterm
+    return:
+      the updated ast
+*)
+let remove_instruction_aux (_subt : trm) : trm =
+  (* Replace the current subt with an empty sequence *)
+  trm_seq ~annot:(Some No_braces) []
+
+(* remove_instructon: delete an instruction
+    params: 
+      path_to_instr: path to the targeted instruction
+      t: ast
+    return
+      the updated ast
+*)
+let remove_instruction (path_to_inst : path) (t : trm) : trm =
+  apply_local_transformation(remove_instruction_aux ) t path_to_inst
+
