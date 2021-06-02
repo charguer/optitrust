@@ -1835,7 +1835,7 @@ let rec target_to_decl (x : var) (t : trm) : path option =
   (* val, var, array, struct, if, apps, while, for, switch, abort, label *)
   | _ -> None
 
-(* apply_to_targets: Apply a specific transformations over a target or a list of targets 
+(* apply_to_targets: Apply a specific Generic over a target or a list of targets 
       params:
         tg : taget
         tr : transformation to be applied

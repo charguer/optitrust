@@ -1,6 +1,6 @@
 open Ast
 open Target
-open Transformations
+open Generic
 open Tools
 
 let label_add (tg : target) (label : string) : unit =
@@ -12,7 +12,7 @@ let label_rem (tg : target) : unit =
     Label_core.label_rem p t)
 
 
-(* TODO: Remove these later after fixing all other transformations which depend on this one *)
+(* TODO: Remove these later after fixing all other Generic which depend on this one *)
 
 (* delete the label with the given prefix *)
 let rec delete_label (label : string) (t : trm) : trm =

@@ -1,6 +1,6 @@
 open Ast
 open Target
-open Transformations
+open Generic
 open Ast_to_c
 open Tools
 open Output

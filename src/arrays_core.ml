@@ -1,7 +1,7 @@
 open Ast 
 open Clang_to_ast
 open Target
-open Transformations
+open Generic
 
 (* This is an auxiliary function for array to variables to modify the ast globally *)
 let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =

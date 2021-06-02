@@ -1,7 +1,7 @@
 open Ast
 open Target
 open Ast_to_c
-open Transformations
+open Generic
 open Arrays_core
 open Output
 

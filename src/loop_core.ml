@@ -2,7 +2,7 @@ open Ast
 open Clang_to_ast
 open Target
 open Tools
-open Transformations
+open Generic
 (* loop_swap_aux: This is an auxiliary function for loop_swap
     params:  
       subt: an ast subterm

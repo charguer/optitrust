@@ -3,7 +3,7 @@ open Ast_to_c
 open Clang_to_ast
 open Target
 open Path_constructors
-open Transformations
+open Generic
 open Tools
 open Output
 

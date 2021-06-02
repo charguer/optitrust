@@ -120,7 +120,7 @@ and value =
   | Val_prim of prim
   (* The constructors below never appear in source code;
      these are values that can only be constructed during the program execution,
-     and thus useful only for carrying out proofs about the program transformations *)
+     and thus useful only for carrying out proofs about the program Generic *)
   | Val_ptr of loc * accesses
   | Val_array of value list
   | Val_struct of value list

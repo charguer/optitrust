@@ -268,7 +268,7 @@ type target_list_pred = Target.target_list_pred
 let make_target_list_pred = Target.make_target_list_pred
 
 (******************************************************************************)
-(*                              Transformations                               *)
+(*                              Generic                               *)
 (******************************************************************************)
 
 (*
@@ -295,19 +295,19 @@ let show_target ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_prev
     apply_to_top ~replace_top (fun _ t ->
     let t =
       if not keep_previous
-        then Transformations.delete_target_decorators t
+        then Generic.delete_target_decorators t
         else t
       in
-    Transformations.show_target ~debug_ast tr t
+    Generic.show_target ~debug_ast tr t
     )
 
 
 let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) : unit =
-  apply_to_top ~replace_top(fun _ -> Transformations.show_ast ~file ~to_stdout tr)
+  apply_to_top ~replace_top(fun _ -> Generic.show_ast ~file ~to_stdout tr)
 
 
 let clean_target_decorators () : unit =
-    apply_to_top ~replace_top:false (fun _ -> Transformations.delete_target_decorators)
+    apply_to_top ~replace_top:false (fun _ -> Generic.delete_target_decorators)
 
 let delete_label ?(replace_top : bool = false) (label : string) : unit =
   apply_to_top ~replace_top (fun _ -> Label.delete_label label)
@@ -517,7 +517,7 @@ let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
     tr;
   (* make sure at most one ast is added to the stack *)
   let replace_top = true in
-  (* label the loop for later calls to transformations *)
+  (* label the loop for later calls to Generic *)
   add_label ~replace_top "split_loop_tmp_loop"
     [cFor ~body:[cLabel "split_loop_tmp_result"
                    ~substr:true ] ""];
@@ -632,7 +632,7 @@ let tile_array ?(replace_top : bool = false)
  *   ?(insert_after : target = []) ~term:(t_inserted : trm) (_ : unit) : unit =
  *   apply_to_top ~replace_top
  *     (fun _ ->
- *       Transformations.insert_trm ~insert_before ~insert_after t_inserted) *)
+ *       Generic.insert_trm ~insert_before ~insert_after t_inserted) *)
 
 (*
   replace occurrences of t_before with t_after
@@ -645,14 +645,14 @@ let tile_array ?(replace_top : bool = false)
  *   ?(change_at : target list = [[]]) ~before:(t_before : trm)
  *   ~after:(t_after : trm) (_ : unit) : unit =
  *   apply_to_top ~replace_top
- *     (fun _ -> Transformations.change_trm ~change_at t_before t_after) *)
+ *     (fun _ -> Generic.change_trm ~change_at t_before t_after) *)
 
 (* same as change_trm but for types *)
 (* let change_typ ?(replace_top : bool = false)
  *   ?(change_at : target list = [[]]) ~before:(ty_before : typ)
  *   ~after:(ty_after : typ) (_ : unit) : unit =
  *   apply_to_top ~replace_top
- *     (fun _ -> Transformations.change_typ ~change_at ty_before ty_after) *)
+ *     (fun _ -> Generic.change_typ ~change_at ty_before ty_after) *)
 
 (*
   find the definition x = dx pointed at by tr and replace occurrences of dx with
@@ -1112,42 +1112,42 @@ let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(s
 
 let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) (tr : target) : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.detach_expression ctx.clog ~label ~keep_label  tr);
+    (fun ctx -> Generic.detach_expression ctx.clog ~label ~keep_label  tr);
     write_log "\n"
 
 let remove_instruction ?(replace_top : bool = false) (tr : target) : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.remove_instruction ctx.clog tr);
+    (fun ctx -> Generic.remove_instruction ctx.clog tr);
   write_log "\n"
 
 let remove_instructions ?(replace_top : bool = false) (isntruction_list : target list) : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.remove_instructions ctx.clog isntruction_list );
+    (fun ctx -> Generic.remove_instructions ctx.clog isntruction_list );
   write_log "\n"
 
 let undetach_expression ?(replace_top : bool = false) (tr : target) : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.undetach_expression ctx.clog tr);
+    (fun ctx -> Generic.undetach_expression ctx.clog tr);
     write_log "\n"
 
 let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(old_var : var = "") ?(new_var : var = "") () : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
+    (fun ctx -> Generic.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
     write_log "\n"
 
 let const_non_const ?(replace_top : bool = false) (tr : target) : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.const_non_const ctx.clog tr );
+    (fun ctx -> Generic.const_non_const ctx.clog tr );
   write_log "\n"
 
 let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);
+    (fun ctx -> Generic.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);
     write_log "\n"
 
 (* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : target = [ ]) : () : unit =
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.rewrite ctx.clog rule path );
+    (fun ctx -> Generic.rewrite ctx.clog rule path );
   write_log "\n"
 *)
 
@@ -1199,7 +1199,7 @@ let add_attribute ?(replace_top : bool = false) (s : string)
   in
   write_log log;
   apply_to_top ~replace_top
-    (fun ctx -> Transformations.add_attribute ctx.clog (Identifier s) tr);
+    (fun ctx -> Generic.add_attribute ctx.clog (Identifier s) tr);
   write_log "\n"
 
 

@@ -36,7 +36,7 @@ let close_logs () : unit =
   List.iter (fun clog -> close_out clog) !logs
 
 (* let write_log (log : string) : unit =
-  List.iter (fun (ctx, _) -> Transformations.write_log ctx.clog log) !trace *)
+  List.iter (fun (ctx, _) -> Generic.write_log ctx.clog log) !trace *)
 
 (* restore the initial state *)
 let reset () : unit =

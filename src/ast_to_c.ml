@@ -190,7 +190,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   (* For printing C code, we have (see explanations in [clang_to_ast.ml],
      search for [Add_address_of_operator] and [Add_star_operator].
      TODO: figure out whether we sometimes need to introduce these
-     annotation during transformations. *)
+     annotation during Generic. *)
   match t.add with
   | Add_address_of_operator :: addl ->
      let d =

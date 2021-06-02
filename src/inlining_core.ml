@@ -2,7 +2,7 @@ open Ast
 open Ast_to_c
 open Clang_to_ast
 open Target
-open Transformations
+open Generic
 open Declaration
 open Tools
 open Output
