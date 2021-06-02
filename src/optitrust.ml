@@ -339,7 +339,7 @@ let swap_coordinates ?(replace_top : bool = false)
       x x
   in
   write_log log;
-  apply_to_top ~replace_top (fun ctx -> Arrays.swap_coord ctx.clog name x);
+  apply_to_top ~replace_top (fun _ -> Arrays.array_swap name x);
   write_log "\n"
 
 (*
