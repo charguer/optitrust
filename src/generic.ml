@@ -152,22 +152,6 @@ let const_non_const_aux (clog : out_channel) (_trm_index : int) (t : trm) : trm 
       end
     | _ -> fail t.loc "const_non_const_aux: expected the sequence which contains the declaration" 
 
-let const_non_const (clog : out_channel) (tr : target) (t : trm) : trm =
-  let epl = resolve_target tr t in
-  let app_transfo (t : trm) (dl : path) : trm =
-    match List.rev dl with
-    | Dir_nth n :: dl' ->
-      let dl = List.rev dl' in
-      apply_local_transformation (const_non_const_aux clog n )  t dl
-    | _ -> fail t.loc "const_non_const: expected a dir_nth inside the sequence"
-  in
-  match epl with
-  | [] -> print_info t.loc "const_non_const: no matching subterm";
-    t
-  | _ -> List.fold_left (fun t dl -> app_transfo t dl)
-    t epl
-
-
 let rec delete_target_decorators (t : trm) : trm =
   match t.desc with
   | Trm_decoration (_,t',_) -> t'

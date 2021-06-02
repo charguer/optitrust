@@ -237,8 +237,6 @@ val local_other_name : ?replace_top:bool -> ?section_of_interest:string -> ?new_
 
 val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit
 
-val const_non_const: ?replace_top:bool -> target -> unit
-
 val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  target -> unit
 
 val remove_instruction : ?replace_top:bool -> target -> unit

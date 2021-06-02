@@ -76,3 +76,44 @@ let var_init_attach_aux (subt : trm) : trm =
 *)
 let var_init_attach (path_to_seq : path) (t : trm) : trm =
   apply_local_transformation(var_init_attach_aux) t path_to_seq
+
+
+(* const_non_const_aux: This is an auxiliary function for const_non_const
+    params:
+      subt: an ast subterm
+    return:
+      the updated ast
+*)
+let const_non_const_aux (subt : trm) : trm =
+  match subt.desc with 
+  | Trm_let (vk, (x,tx), init) ->
+    begin match vk with
+     (* If variable is a constant than whe remove the const and we perform the heap allocation  *)
+    | Var_immutable ->  
+      trm_let Var_mutable (x, typ_ptr tx) (trm_apps (trm_prim ~loc: subt.loc (Prim_new tx)) [init])
+    | _ ->
+      let var_type = begin match tx.ty_desc with 
+      | Typ_ptr t -> t
+      | _ -> fail subt.loc "const_non_const_aux: expected a pointer type"
+      end
+      in
+      let var_init = begin match init.desc with 
+      | Trm_apps(_, [_; init]) -> init
+      | _ -> fail subt.loc "const_non_const_aux: expected a something of the form 'new ()'"
+      end
+      in
+      trm_let Var_immutable (x,var_type) var_init 
+    end
+  | _ -> fail subt.loc "const_non_const_aux: variable declaration was not matched, make sure the path is correct"
+
+
+(* const_non_const: change a const declaration to a non const declaration and vice_versa
+    params:
+      path_to_decl: path to the declaration
+      t: ast
+    return: 
+      the updated ast
+*)
+let const_non_const (path_to_decl : path) (t : trm) : trm =
+  apply_local_transformation(const_non_const_aux ) t path_to_decl
+
