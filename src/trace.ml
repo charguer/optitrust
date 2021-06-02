@@ -6,8 +6,11 @@ open Clang_to_ast
 (******************************************************************************)
 
 type context =
-  {extension : string; directory : string; prefix : string; includes : string;
-   clog : out_channel}
+  { extension : string;
+    directory : string;
+    prefix : string;
+    includes : string;
+    clog : out_channel; }
 
 let init_ctx : context =
   {extension = ".cpp"; directory = ""; prefix = ""; includes = "";
@@ -18,7 +21,7 @@ let trace : (context * (trm Stack.t)) list ref =
   ref [(init_ctx, Stack.create ())]
 
 (* Return the current state of the trace *)
-let get_trace () : (context * (trm Stack.t)) list = 
+let get_trace () : (context * (trm Stack.t)) list =
   !trace
 
 (* Modify the current trace  *)

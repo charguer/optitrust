@@ -33,7 +33,7 @@ type size =
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar * typedef(* int x *)
+  | Typ_var of typvar * typedef (* int x *)
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
@@ -54,6 +54,9 @@ and typ = {
   ty_desc : typ_desc;
   ty_annot : typ_annot list;
   ty_attributes : attribute list }
+  (* IN THE FUTURE
+  ty_env : env; --> tells you for every type what is its definition
+  *)
 
 and typed_var = var * typ
 
@@ -172,6 +175,16 @@ and trm =
    typ : typ option; (* typ should be available from the AST that comes from Clang *)
    attributes : attribute list }
 
+ (* IN THE FUTURE
+and trm =
+ { desc : trm_desc;
+   loc : location;
+   kind : trm_kind;
+   typ : typ option:
+   env : env option; (can be used)
+   annot : trm_annot list; }
+*)
+
 and trm_desc =
   | Trm_val of value
   | Trm_var of var (* LATER: varkind * var *)
@@ -192,6 +205,17 @@ and trm_desc =
     Trm_for (e0, e1, e2, e3) =
     for (e0; e1; e2) {e3;}
    *)
+   (*
+    TODO:
+       Trm_for    (var, lo, hi, step, body)
+          => if step > 0 then print as "for (int var = lo; var < hi; var += step)" // could be var++ if step=+1
+          => if step < 0 then print as "for (int var = lo; var >= hi; var -= (ABS(step))" // could be var-- if step=-1
+       Trm_for_c => same as current trm_for
+
+       Define a function "simplify_trm_for" in ast.ml, that takes a "Trm_for_c" and, if possible, turn it into trm_for, else leave it unchanged
+       In clang_to_ast, just call "simplify_trm_for" where a for_loop is generated.
+       All our optitrust transformation will operate on the simple trm_for
+  *)
    (* TODO: trm_for_simple *)
   | Trm_switch of trm * ((trm list * trm) list)
   (* Remark: in the AST, arguments of cases that are enum labels
@@ -690,6 +714,7 @@ let is_heap_alloc (t : trm) : bool =
       end
   | _ -> fail t.loc "is_heap_alloc: expected var declaration"
 
+(* LATER: move these functions to for_c.ml specialized for handling the complex for loops *)
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
   match t.desc with
@@ -818,9 +843,10 @@ let for_loop_nb_iter (t : trm) : trm =
        ]
 
 (*
-  aliasd_type X takes as argument the description of a file
+  aliased_type X takes as argument the description of a file
   (that is a toplevel sequence), and it returns the type ty
   associated via a "typedef ty X" if there is one such definition
+  LATER: check if this is subsumed by the environments carried by type variables
  *)
 let rec aliased_type (x : typvar) (t : trm) : typ option =
   match t.desc with

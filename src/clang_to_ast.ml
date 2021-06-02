@@ -42,18 +42,24 @@ let typ_map : typ Type_map.t ref = ref Type_map.empty
 
 
 
-(* A map to keep track of typedefs.
-*)
-let typedef_env : typedef Type_map.t ref = ref Type_map.empty 
+(* A map to keep track of the typedefs seen so far in the file.
+   Note: there is no notion of scope, typedefs are all global. *)
+   (* LATER: it could be perhaps a map from typvar to typ, instead of to typedef *)
+let typedef_env : typedef Type_map.t ref = ref Type_map.empty
 
-(* A function to find the typedef corresponed to a typvar *)
+(* [get_typedef tv] returns the typedef that corresponds to the typvar [tv].
+   Raise an error if it is not bound  *)
 let get_typedef (tv : typvar) : typedef =
-  let td = Type_map.find_opt tv !typedef_env  in
-  begin match td with 
+  let td = Type_map.find_opt tv !typedef_env in
+  begin match td with
   | Some td -> td
-  | None -> fail None "could not find a typedef for the given typvar"
+  | None -> fail None (sprintf "could not find a typedef for the typvar %s" tv)
   end
 
+(* [typedef_env_add tv tdef] extends the environment for typedefs with a binding
+   from type variable [tv] to the type definition [tdef]. *)
+let typedef_env_add (tv : typvar) (tdef : typ) : unit =
+  typedef_env := Type_map.add tv (Typedef_abbrev(tv, tdef)) !typedef_env
 
 
 (* TODO: rename: heap_vars contains the information on which variables are [Var_mutable]
@@ -191,21 +197,21 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   match d with
   | Pointer q ->
     let t = translate_qual_type ~loc q in
-    let {const;_} = q in 
-    if const then 
+    let {const;_} = q in
+    if const then
       (typ_ptr (typ_const t))
     else
     typ_ptr t
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = translate_qual_type ~loc q in
-    let {const;_} = q in 
+    let {const;_} = q in
     begin match eo with
       | None -> typ_array t (Const n)
       | Some e ->
         let s = translate_expr e in
         if const then
            typ_array (typ_const t) (Trm s)
-        else 
+        else
           typ_array t (Trm s)
     end
   | IncompleteArray q ->
@@ -981,10 +987,10 @@ and translate_decl (d : decl) : trm =
     if const then
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
     else
-      begin 
+      begin
         add_var n;
-        begin match eo with 
-        | None -> 
+        begin match eo with
+        | None ->
           trm_let ~loc  Var_mutable (n,typ_ptr tt) te
         | Some _ ->
           trm_let ~loc Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
@@ -993,13 +999,13 @@ and translate_decl (d : decl) : trm =
       end
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
-    typedef_env := Type_map.add n (Typedef_abbrev(n, tn)) !typedef_env;
-    trm_typedef ~loc (Typedef_abbrev (n, tn) ) 
+    typedef_env_add n tn;
+    trm_typedef ~loc (Typedef_abbrev (n, tn) )
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName n ->
         let tn = translate_qual_type ~loc q in
-        typedef_env := Type_map.add n (Typedef_abbrev(n, tn)) !typedef_env;
+        typedef_env_add n tn;
         trm_typedef ~loc (Typedef_abbrev (n, tn) )
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
@@ -1082,7 +1088,7 @@ let translate_ast (t : translation_unit) : trm =
 
 let get_typedef (tv : typvar) : typedef =
   let td = Type_map.find_opt tv !typedef_env  in
-  begin match td with 
+  begin match td with
   | Some td -> td
   | None -> fail None "could not find a typedef for the given typvar"
   end
