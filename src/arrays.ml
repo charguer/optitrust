@@ -6,15 +6,45 @@ open Arrays_core
 open Output
 
 
+(*
+
+
+Same as [apply_to_transformed_targets] except that there is some processing performed on each of the explicit path.
+This processing is done by the [transformer] function, which takes an explicit path, and returns some information
+that the transformation can take as input.
+
+Note: technically [apply_to_targets]  could be defined as [apply_to_transformed_targets (fun p -> p)],
+ but for simplicity for keep the specialized code.
+
+let apply_to_transformed_targets ?(replace_top : bool = false) (tg : target) (transformer : path -> 'a) (tr : 'a -> trm -> trm) : unit =
+  apply_to_top ~replace_top(fun _ t ->
+    let ps = resolve_target tg t in
+    let descrs = List.map transformer ps in
+    List.fold_left (fun t descr -> tr descr t) t descrs)
+
+
+      Example:   Arrays.to_variables ["ta","tb"] [cVarDef "t"]
+
+  let isolate_last_dir_in_a_seq (error_message : string)  (dl: explicit_path) =
+     same as app_transfo, which you can factorize
+     raise error_message if cannot find a Dir_nth at the end of dl
+
+  let to_variables (new_vars : vars) (tg : target) : unit =
+    apply_to_transformed_targets tg (isolate_last_dir_in_a_seq "cannot isolate the definition in a sequence")
+      (fun (path_to_seq, index_of_the_def_in_the_sequence) t ->
+         Arrays_core.to_variables new_vars path_to_seq index_of_the_def_in_the_sequence t)
+
+ *)
+
 
 let array_to_variables (tg : target) (new_vars : var list) : unit =
   apply_to_targets tg (fun p t ->
     (* TODO: Check together with Arthur, this particular solution *)
-    let epl = resolve_target tg t in 
-    let array_variable = 
-    begin match epl with 
-    | [dl] -> let (t_def, _) =  resolve_path dl t in 
-      decl_name t_def 
+    let epl = resolve_target tg t in
+    let array_variable =
+    begin match epl with
+    | [dl] -> let (t_def, _) =  resolve_path dl t in
+      decl_name t_def
     | _ -> fail t.loc "expected only one explicit path"
     end
     in

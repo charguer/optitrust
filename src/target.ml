@@ -1032,7 +1032,7 @@ end
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _));
             _}] ->
            trm_let ~loc ~is_statement:true Var_mutable (x, tx) (trm_lit ~loc Lit_uninitialized)
-           
+
         (* second subcase: initialisation *)
         | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _)); _};
            {desc = Trm_apps (_, [{desc = Trm_var y; _}; init]); _}]
@@ -1091,7 +1091,7 @@ let is_equal_lit (l : lit) (l' : lit) =
 let get_trm_kind (t : trm) : trm_kind =
   if t.is_statement then
     match t.desc with
-    | Trm_struct _ | Trm_array _ | Trm_let _ | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_) 
+    | Trm_struct _ | Trm_array _ | Trm_let _ | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
     | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
     | _ -> TrmKind_Instr
   else
@@ -1146,7 +1146,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | _ -> fail t.loc "check_constraint: bad multi_decl annotation"
      end
   | _ ->
- 
+
      let loc = t.loc in
      begin match c, t.desc with
      (*
@@ -1445,7 +1445,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      end
   | _ ->
      begin match t.desc with
-     | Trm_let (_ ,(x, _), body) 
+     | Trm_let (_ ,(x, _), body)
      | Trm_let_fun (x, _ ,_ ,body) ->
         add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
         add_dir Dir_body (resolve_target_simple p body)
@@ -1557,7 +1557,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (resolve_target_simple p then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (resolve_target_simple p else_t)
-  | Dir_body, Trm_let (_,(_,_),body) 
+  | Dir_body, Trm_let (_,(_,_),body)
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for (_, _, _, body)
     | Dir_body, Trm_while (_, body)
@@ -1576,7 +1576,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg n) (resolve_target_simple p nth_t))
-  | Dir_name, Trm_let (_,(x,_),_) 
+  | Dir_name, Trm_let (_,(x,_),_)
     | Dir_name, Trm_let_fun (x, _, _, _)
     | Dir_name, Trm_typedef (Typedef_abbrev (x, _))
     | Dir_name, Trm_labelled (x, _)
@@ -1703,7 +1703,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
              aux dl body (init :: ctx)
           | _ -> aux dl body ctx
           end
-       | Dir_body, Trm_let (_,(_,_), body) 
+       | Dir_body, Trm_let (_,(_,_), body)
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_abort (Ret (Some body))
          | Dir_body, Trm_labelled (_, body) ->
@@ -1723,7 +1723,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
        | Dir_arg n, Trm_let_fun (_, _, arg, _) ->
           app_to_nth loc arg n
             (fun (x, _) -> aux dl (trm_var ~loc x) ctx)
-       | Dir_name , Trm_let (_,(x,_),_) 
+       | Dir_name , Trm_let (_,(x,_),_)
          | Dir_name, Trm_let_fun (x, _, _, _)
          | Dir_name, Trm_typedef (Typedef_abbrev (x, _))
          | Dir_name, Trm_labelled (x, _)
@@ -1835,29 +1835,30 @@ let rec target_to_decl (x : var) (t : trm) : path option =
   (* val, var, array, struct, if, apps, while, for, switch, abort, label *)
   | _ -> None
 
-(* apply_to_targets: Apply a specific Generic over a target or a list of targets 
+(* apply_to_targets: Apply a specific Generic over a target or a list of targets
       params:
         tg : taget
         tr : transformation to be applied
-      return: 
+      return:
         unit
 *)
 let apply_to_targets ?(replace_top : bool = false) (tg : target) (tr :  path -> trm-> trm) : unit =
   apply_to_top ~replace_top(fun _ t ->
-    let ps = resolve_target tg t in 
+    let ps = resolve_target tg t in
     List.fold_left(fun t dl -> tr  dl t) t ps)
 
 (* apply_to_targets_between: Similar to apply_to_targets, but the function considers the index too
       params:
         tg : taget
         tr : transformation to be applied
-      return: 
+      return:
         unit
 *)
 let apply_to_targets_between ?(replace_top : bool = false) (tg : target) (tr : (path*int) -> trm-> trm) : unit =
   apply_to_top ~replace_top(fun _ t ->
-    let ps = resolve_target_between tg t in 
-    List.fold_left(fun t dl -> tr  dl t) t ps)
+    let ps = resolve_target_between tg t in
+    List.fold_left(fun t dl -> tr dl t) t ps)
+
 (* return the list where the nth element is transformed *)
 let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
@@ -1941,8 +1942,8 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           in
           trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl' body
         | Dir_name , Trm_let (vk,(x,tx),body) ->
-          let t' = aux dl (trm_var ~loc x) in 
-          begin match t'.desc with 
+          let t' = aux dl (trm_var ~loc x) in
+          begin match t'.desc with
           | Trm_var x' -> trm_let ~annot ~loc ~is_statement ~add ~attributes  vk (x',tx) body
           | _ -> fail loc ("apply_local_transformation: transformation " ^ "must preserve names(function)")
           end

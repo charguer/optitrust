@@ -1,7 +1,20 @@
-open Ast 
+open Ast
 open Clang_to_ast
 open Target
 
+(*
+  1) change the declaration at the given index in the sequence
+  2) for every remaining item in the sequence, apply a function to update occurences of the array
+  hint: use takedrop :)
+
+  Arrays.to_variable_aux
+
+    tl decomposes as  tlfront @ thedef :: tlrest
+    then
+    newtlrest = List.map to_variable_change_occurrences tlrest
+    and rebuild
+    tlfront @ thenewdef :: newtlrest
+*)
 (* This is an auxiliary function for array to variables to modify the ast globally *)
 let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
@@ -39,7 +52,7 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t
 
-(* array_to_variables_aux: This is an auxiliary function for array_to_variables 
+(* array_to_variables_aux: This is an auxiliary function for array_to_variables
     params:
       new_vars: a list of strings of length equal to the size of the array
       subt: an ast subterm
@@ -47,18 +60,18 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
       the updated ast
 *)
 let array_to_variables_aux  (new_vars : var list) (subt  : trm) : trm =
-  match subt.desc with 
+  match subt.desc with
   | Trm_let (_,(_, _), init) ->
     begin match init.desc with
     | Trm_val( Val_prim (Prim_new t_arr)) ->
       begin match t_arr.ty_desc with
       | Typ_array (t_var,_) ->
         begin match t_var.ty_desc with
-        | Typ_var (y, _) -> 
+        | Typ_var (y, _) ->
           let new_trms = List.map(fun x ->
           trm_let Var_mutable (x,(typ_ptr (typ_var y (get_typedef y)))) (trm_lit (Lit_uninitialized))) new_vars
           in
-          trm_seq ~annot:subt.annot new_trms 
+          trm_seq ~annot:subt.annot new_trms
 
         | _ -> fail subt.loc "array_to_variables_core: expected a type variable"
         end
@@ -212,7 +225,7 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
     params:
       x: typvar
       t: global ast
-    return: 
+    return:
       the updated ast
  *)
  let rec array_swap_aux (x : typvar) (t : trm) : trm =
