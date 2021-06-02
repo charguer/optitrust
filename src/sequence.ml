@@ -5,12 +5,17 @@ open Tools
 open Output
 
 
+(* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="]
+TODO: tg as last arg *)
+
 let seq_insert (tg : target) (ts : trm list) : unit =
   apply_to_targets_between tg (fun (p,i) t ->
     Sequence_core.seq_insert p i ts t)
 
+(* TODO: Target.apply_on_target_between (fun (p,i) t ->
+            Sequence_core.insert i ts p t t) tg *)
 
-let seq_delete (tg : target) (ts : trm list) : unit = 
+let seq_delete (tg : target) (ts : trm list) : unit =
   apply_to_targets tg (fun p t ->
     Sequence_core.seq_delete p ts t)
 
@@ -147,13 +152,13 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                   | Typ_ptr ty' ->
                     trm_let Var_mutable (split_name y, ty)
                                         (trm_prim (Prim_new ty'))
-                     
+
                   | _ -> fail t.loc "split_seq_at: bad type for heap allocation"
                   end
                 else
                   trm_let Var_immutable (split_name y, typ_ptr ty)
                                      (trm_prim (Prim_new ty))
-                  
+
               in decl
               (* trm_seq ~annot:(Some Heap_allocated) [decl] *)
             )
@@ -165,7 +170,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
             List.map
               (fun t ->
                 let y = decl_name t in
-                let init = 
+                let init =
                   if is_heap_alloc t then
                     trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get)
                       [trm_var y]
@@ -186,7 +191,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                  begin match ty.ty_desc with
                  | Typ_ptr ty' ->
                     trm_let Var_mutable (y,ty') (trm_var (split_name y))
-                    
+
                     (* trm_seq ~annot:(Some Heap_allocated)
                       [
                         trm_decl (Def_var ((y, ty), trm_prim (Prim_new ty')));
