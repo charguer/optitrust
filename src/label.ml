@@ -2,6 +2,18 @@ open Ast
 open Target
 open Transformations
 open Tools
+
+let label_add (tg : target) (label : string) : unit =
+  apply_to_targets tg (fun p t ->
+    Label_core.label_add p label t)
+
+let label_rem (tg : target) : unit =
+  apply_to_targets tg (fun p t ->
+    Label_core.label_rem p t)
+
+
+(* TODO: Remove these later after fixing all other transformations which depend on this one *)
+
 (* delete the label with the given prefix *)
 let rec delete_label (label : string) (t : trm) : trm =
   match t.desc with
@@ -18,6 +30,7 @@ let delete_labels (sl : string list) (t : trm) : trm =
     | _ -> trm_map (aux s) t
   in
   List.fold_left (fun t l -> aux l t) t sl
+
 
 (* label the given path with the *)
 let add_label (label : string) (tr : target) (t : trm) : trm =
