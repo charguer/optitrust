@@ -6,16 +6,16 @@ open Tools
 open Output
 
 let loop_swap (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Loop_core.loop_swap p t)
 
 let loop_color (tg : target) (c : var) (i_color : var) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Loop_core.loop_color p c i_color t)
 
 
 let loop_tile (tg : target) (b : var)(i_block : var) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Loop_core.loop_tile p b i_block t)
 
 (* TODO: Ask Arthur, if this should still be used or not *)
@@ -37,21 +37,21 @@ let loop_tile (tg : target) (b : var)(i_block : var) : unit =
 
 
 let loop_tile_old (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Loop_core.loop_tile_old p  t)
 
 
 let loop_hoist (tg : target) (x_step : var) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Loop_core.loop_hoist p x_step t)
 
 
 let loop_split (tg : target) : unit = 
-  apply_to_targets_between tg (fun (p,i) t ->
+  apply_on_target_between tg (fun (p,i) t ->
     Loop_core.loop_split p i t)
 
 let loop_fusion (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Loop_core.loop_fusion p t)
 (* get_loop_nest_indices -- currently omiting the last one
 

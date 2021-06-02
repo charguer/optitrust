@@ -8,7 +8,7 @@ open Target
       p: path to the instruction which is going to be labeled
     return:
       the updated ast
- *)
+*)
 
  let label_add (path_to_instr : path) (label : string) (t : trm) : trm =
   apply_local_transformation (fun (subt : trm) -> trm_labelled label subt)

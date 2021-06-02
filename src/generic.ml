@@ -11,19 +11,19 @@ open Path_constructors
 
 
 let var_init_detach (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Generic_core.var_init_detach p t)
 
 let var_init_atttach (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Generic_core.var_init_attach p t)
 
 let const_non_const (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Generic_core.const_non_const p t)
 
 let remove_instruction (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Generic_core.remove_instruction p t)
 
 let remove_instructions (tgs : target list) : unit =

@@ -13,7 +13,7 @@ Same as [apply_to_transformed_targets] except that there is some processing perf
 This processing is done by the [transformer] function, which takes an explicit path, and returns some information
 that the transformation can take as input.
 
-Note: technically [apply_to_targets]  could be defined as [apply_to_transformed_targets (fun p -> p)],
+Note: technically [apply_on_target]  could be defined as [apply_to_transformed_targets (fun p -> p)],
  but for simplicity for keep the specialized code.
 
 let apply_to_transformed_targets ?(replace_top : bool = false) (tg : target) (transformer : path -> 'a) (tr : 'a -> trm -> trm) : unit =
@@ -38,7 +38,7 @@ let apply_to_transformed_targets ?(replace_top : bool = false) (tg : target) (tr
 
 
 let array_to_variables (tg : target) (new_vars : var list) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     (* TODO: Check together with Arthur, this particular solution *)
     let epl = resolve_target tg t in
     let array_variable =

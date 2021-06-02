@@ -3,16 +3,16 @@ open Target
 open Tools
 
 let struct_set_explicit (tg : target) (field_list : var list) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Struct_core.struct_set_explicit field_list p t)
 
 let struct_set_implicit (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Struct_core.struct_set_implicit  p t)
 
 let struct_reorder ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (tg : target) : unit = 
   (* TODO: Ask Arthur about this way of solving the problem *)
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     let epl = resolve_target tg t in 
     let field_list = begin match epl with 
     | [dl] -> let (t_def,_) = resolve_path dl t in

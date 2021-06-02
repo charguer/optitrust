@@ -9,31 +9,31 @@ open Output
 TODO: tg as last arg *)
 
 let seq_insert (tg : target) (ts : trm list) : unit =
-  apply_to_targets_between tg (fun (p,i) t ->
+  apply_on_target_between tg (fun (p,i) t ->
     Sequence_core.seq_insert p i ts t)
 
 (* TODO: Target.apply_on_target_between (fun (p,i) t ->
             Sequence_core.insert i ts p t t) tg *)
 
 let seq_delete (tg : target) (ts : trm list) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Sequence_core.seq_delete p ts t)
 
 
 let seq_sub (tg : target) (i : int) (ts : trm list) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
    Sequence_core.seq_sub p i ts t)
 
 let seq_inline (tg : target) (i : int) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
    Sequence_core.seq_inline p i t)
 
 let seq_wrap (tg : target) (visible : bool) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
    Sequence_core.seq_wrap p visible t)
 
 let seq_unwrap (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
    Sequence_core.seq_unwrap p t)
 
 

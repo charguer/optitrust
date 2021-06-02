@@ -5,7 +5,7 @@ open Tools
 
 (* TODO: rename to [add] because [Label.add "foo" [path]] *)
 let label_add (tg : target) (label : string) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Label_core.label_add p label t)
 
 (* TODO:
@@ -23,7 +23,7 @@ let add (label : string) : Transfo.t =
 *)
 
 let label_rem (tg : target) : unit =
-  apply_to_targets tg (fun p t ->
+  apply_on_target tg (fun p t ->
     Label_core.label_rem p t)
 
 

@@ -1835,26 +1835,26 @@ let rec target_to_decl (x : var) (t : trm) : path option =
   (* val, var, array, struct, if, apps, while, for, switch, abort, label *)
   | _ -> None
 
-(* apply_to_targets: Apply a specific Generic over a target or a list of targets
+(* apply_on_target: Apply a specific Generic over a target or a list of targets
       params:
         tg : taget
         tr : transformation to be applied
       return:
         unit
 *)
-let apply_to_targets ?(replace_top : bool = false) (tg : target) (tr :  path -> trm-> trm) : unit =
+let apply_on_target ?(replace_top : bool = false) (tg : target) (tr :  path -> trm-> trm) : unit =
   apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target tg t in
     List.fold_left(fun t dl -> tr  dl t) t ps)
 
-(* apply_to_targets_between: Similar to apply_to_targets, but the function considers the index too
+(* apply_on_target_between: Similar to apply_on_target, but the function considers the index too
       params:
         tg : taget
         tr : transformation to be applied
       return:
         unit
 *)
-let apply_to_targets_between ?(replace_top : bool = false) (tg : target) (tr : (path*int) -> trm-> trm) : unit =
+let apply_on_target_between ?(replace_top : bool = false) (tg : target) (tr : (path*int) -> trm-> trm) : unit =
   apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target_between tg t in
     List.fold_left(fun t dl -> tr dl t) t ps)
