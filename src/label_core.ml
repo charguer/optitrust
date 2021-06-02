@@ -1,6 +1,5 @@
 open Ast
 open Target
-open Generic
 
 (* label_add: This function is an auxiliary function for label_add
     params: 

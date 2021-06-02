@@ -1,6 +1,5 @@
 open Ast
 open Target
-open Generic
 open Tools 
 
 

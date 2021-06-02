@@ -1,6 +1,5 @@
 open Ast
 open Target
-open Generic
 open Tools
 
 let label_add (tg : target) (label : string) : unit =

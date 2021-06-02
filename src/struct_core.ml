@@ -1,6 +1,5 @@
 open Ast
 open Target
-open Generic
 
 
 (* struct_set_explicit_aux: This is an auxiliary function for struct_set_explicit 

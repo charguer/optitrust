@@ -2,7 +2,6 @@ open Ast
 open Ast_to_c
 open Target
 (* open Path_constructors *)
-open Generic
 open Tools
 open Output
 
