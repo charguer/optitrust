@@ -194,6 +194,14 @@ let reset () =
 
 let run_unit_test ?(out_prefix : string = "") ?(ast_decode : bool = true) (script : unit -> unit) : unit =
   let basename = Filename.chop_extension Sys.argv.(0) in
+  let basename = (* remove "_with_exit" suffix if it ends the basename *)
+    let suffix = "_with_exit" in
+    let nsuffix = String.length suffix in
+    let nbasename = String.length basename in
+    if nbasename >= nsuffix && (String.sub basename (nbasename - nsuffix) nsuffix) = suffix
+      then String.sub basename 0 (nbasename - nsuffix)
+      else basename
+      in
   run (fun () ->
     set_init_source (basename ^ ".cpp");
     script();

@@ -6,12 +6,12 @@ let _ = run_unit_test (fun () ->
   (* let show = Tr.target_show in *)
   let show = show_target in
 
+  (* Constants *)
+  show [ cInt 8 ];
+
   (* Types *)
   show [ cTypDef "vect" ];
   show [ cTypDef "intstar" ];
-
-  (* Constants *)
-  show [ cInt 8 ];
 
   (* Var/fun occurences *)
   show [ cVar "u" ]; (* Doesn't work properly*)
@@ -22,7 +22,7 @@ let _ = run_unit_test (fun () ->
   (* Loops *)
   show [ cFor "i" ];
   show [ cFor "j" ];
-  show [ cFor ~cond:[cStr "j < 5"] "" ];
+  show [ cFor ~cond:[cInstr "j < 5"] "" ];
 
   (* Abort *)
   show [ cBreak ];
@@ -42,7 +42,6 @@ let _ = run_unit_test (fun () ->
   show [ cFunDef "f" ];
   (* show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ]; *)
   (* show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; *)
-
 
 )
 

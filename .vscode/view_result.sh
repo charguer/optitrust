@@ -64,7 +64,8 @@ fi
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
-  echo "Could not execute script"
+  echo "Error executing the script:"
+  echo "  cd ${DIRNAME}; ./${FILEBASE}_with_exit.byte ${OPTIONS}"
   exit 1
 fi
 
