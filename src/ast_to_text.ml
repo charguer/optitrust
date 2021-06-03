@@ -245,7 +245,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_goto" ^^ string l
   | Trm_decoration (l,t,r) ->
       let dt = print_trm ~only_desc t in
-      node "Trm_decorated" ^^ parens (string l ^^ comma ^/^ dt ^^ comma ^/^ string r)
+      node "Trm_decoration" ^^ parens (string l ^^ comma ^/^ dt ^^ comma ^/^ string r)
   | Trm_any t ->
     let dt = print_trm ~only_desc t in
       node "Trm_any"  ^^ parens (dt)

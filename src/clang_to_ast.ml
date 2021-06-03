@@ -204,16 +204,23 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     typ_ptr t
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = translate_qual_type ~loc q in
-    let {const;_} = q in
+    (* let {const;_} = q in *)
     begin match eo with
       | None -> typ_array t (Const n)
       | Some e ->
         let s = translate_expr e in
-        if const then
+        (* if const then
            typ_array (typ_const t) (Trm s)
-        else
+        else *)
           typ_array t (Trm s)
     end
+  (* Just for debugging purposes*) 
+  | VariableArray {element = q; size = eo} ->
+    let t = translate_qual_type ~loc q in 
+    let s = translate_expr eo in
+    typ_array t (Trm s)
+    (* ***************** *)
+  
   | IncompleteArray q ->
     let t = translate_qual_type ~loc q in
     typ_array t Undefined
