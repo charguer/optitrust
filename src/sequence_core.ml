@@ -32,30 +32,24 @@ let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
 
 (* delete_aux: This function is an auxiliary function for delete
     params:
-      ts: a trm list
+      nb: number of instructions to delete
       t: an ast subterm
     return: the updated ast
 
 *)
-let delete_aux (ts : trm list) (t : trm) : trm =
+let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
+      let lfront,lback = split_list_at index tl in
+      let _,lback = split_list_at (index + nb_instr) lback in
       (* Remove trms*)
-      let tl = list_remove_set ts tl in
+      let tl = lfront @ lback in
       (* Apply the changes *)
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
-(* delete: Remove a list of instructions at the given index as a new sequence(TODO: Ask Arthur if index is needed here)
-    params:
-      path_to_seq: explicit path towards the sequence
-      index: an integer in range 0 .. (current number of instructions inside the sequence)
-      instr: a list of instructions(objects of type trm)
-    return: the updated ast
-
-*)
-let delete (instr : trm list) : Target.Transfo.local=
-  Target.apply_on_path(delete_aux instr)
+let delete (index : int) (nb_instr : int) : Target.Transfo.local=
+  Target.apply_on_path(delete_aux index nb_instr)
 
 
 (* sub_aux: This function is an auxiliary function for sub
@@ -66,37 +60,16 @@ let delete (instr : trm list) : Target.Transfo.local=
     return: the updated ast
 
 *)
-(* TODO: takedrop : int -> 'a list -> 'a list * 'a list
-  splits a list in two at a given index
 
-  t0 t1 t2 t3 t4 t5 t6 t7 t8
-  sub at index 2 with nb 3
-
-  tlfront,tlrest = takedrop 2 tl
-  tsub,tback = takedrop 3 trest
-
-  tlfront = t0 t1
-  tlsub = t2 t3 t4
-  tlback = t5 t6 t7 t8
-
-  trm_seq (tlfront @ (trm_seq tlsub) :: tlback)
-
-  --
-  Note: that insert i ts tl =
-    let tlfront,tlback = takedrop i tl in
-    tlfornt ++ ts ++ tlback
-
-  let update i v l =   // or replace
-  *)
-let sub_aux (index : int) (ts : trm list) (t : trm) : trm =
+let sub_aux (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      (* First we remove this trms from the sequence *)
-      let tl = list_remove_set ts tl in
+      let lfront,lback = split_list_at index tl in
+      let l_sub,lback = split_list_at (index + nb) lback in
       (* Create the inner sequence*)
-      let sub_seq = trm_seq ts in
-      (* Insert at the given index the new trm *)
-      let tl = insert_in_list_at sub_seq index tl in
+      let sub_seq = trm_seq l_sub in
+      let tl = lfront @ [sub_seq] @ lback in
+      
       (* Apply changes *)
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
@@ -108,8 +81,8 @@ let sub_aux (index : int) (ts : trm list) (t : trm) : trm =
       instr: a list of instructions(objects of type trm)
     return: the updated ast
 *)
-let sub (index : int) (instr : trm list)  =
-  Target.apply_on_path(sub_aux index instr) 
+let sub (index : int) (nb_instr : int)  =
+  Target.apply_on_path(sub_aux index nb_instr) 
 
 (* inline_aux: This function is an auxiliary function for inline
     params:
