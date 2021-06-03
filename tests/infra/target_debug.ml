@@ -6,7 +6,7 @@ let _ = run_unit_test (* FOR DEBUG:~ast_decode:false *)   (fun () ->
   set_repeat_io false;
 
 
-  show [cMulti; cVarDef "p" ];
+  show [cMulti; cVarDef "x" ];
 
   (*show [ cExpr "j <" ]; (* Does not work *)*)
   (* show [ cExpr "vect v2" ]; (* Does not work *) *)
