@@ -35,13 +35,7 @@ let apply_to_transformed_targets ?(replace_top : bool = false) (tg : target) (tr
          Arrays_core.to_variables new_vars path_to_seq index_of_the_def_in_the_sequence t)
 
 
-  let app_transfo  (t : trm) (dl : path) : trm =
-    match List.rev dl with
-    | Dir_nth n :: dl' ->
-      let dl = List.rev dl' in
-      apply_on_path (undetach_expression_aux clog n ) t dl
-    | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"
-
+  
  *)
 
 

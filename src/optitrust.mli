@@ -171,18 +171,11 @@ val clean_target_decorators : unit -> unit
 val swap_coordinates : ?replace_top:bool -> ?name:(string -> string) ->
                        string -> unit
 
-val split_sequence : ?replace_top:bool -> ?keep_labels:bool ->
-                     ?labels:(string list) -> ?split_name:(string -> string) ->
-                     target -> unit
-
 val extract_loop_var : ?replace_top:bool -> ?keep_label:bool -> ?label:string ->
                        target -> unit
 
 val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
                         ?label:string -> target -> unit
-
-val split_loop_nodep : ?replace_top:bool -> ?keep_labels:bool ->
-                       ?labels:(string list) -> target -> unit
 
 val tile_array : ?replace_top:bool -> ?name:(string -> string) ->
                  ?block_name:string -> block_size:string -> string -> unit
@@ -226,10 +219,6 @@ val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:s
 val local_other_name : ?replace_top:bool -> ?section_of_interest:string -> ?new_var_type:string -> ?old_var:string -> ?new_var:string -> unit -> unit
 
 val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit
-
-val detach_expression : ?replace_top:bool -> ?label:string -> ?keep_label:bool->  target -> unit
-
-val undetach_expression : ?replace_top:bool -> target -> unit
 
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit
 

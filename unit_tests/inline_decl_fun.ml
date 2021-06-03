@@ -9,7 +9,6 @@ let _ =
   run
     (fun () ->
       set_init_source "inline_decl_fun.cpp";
-      (* detach_expression [cVarDef :"v3"] ~keep_label:false; *)
       inline_decl ~delete_decl:false ~decl_target:[cFunDef "v_add"] ();
       inline_decl ~delete_decl:false ~decl_target:[cTopFun "g"] ();
       inline_decl ~delete_decl:true ~decl_target:[cVarDef "res"]();

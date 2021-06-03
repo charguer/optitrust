@@ -350,7 +350,8 @@ let swap_coordinates ?(replace_top : bool = false)
     - labels = [s] -> (s, s_block1, s_block2)
     - labels = [l1, l2, l3] -> (l1, l2, l3)
  *)
-let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
+ (* TODO: Remove this later *)
+(* let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
   ?(labels : string list = [])
   ?(split_name : string -> string = fun x -> x ^ "_split")
   (tr : target) : unit =
@@ -381,7 +382,7 @@ let split_sequence ?(replace_top : bool = false) ?(keep_labels : bool = false)
         Label.delete_labels [result_label; block1_label; block2_label]
           t
     );
-  write_log "\n"
+  write_log "\n" *)
 
 (*
   extract a variable from a loop:
@@ -453,7 +454,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
     - labels = [s] -> (s, s_loop1, s_loop2)
     - labels = [l1, l2, l3] -> (l1, l2, l3)
  *)
-let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
+(* let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
   ?(labels : string list = []) (tr : target) : unit =
   let (result_label, loop1_label, loop2_label) =
     match labels with
@@ -476,7 +477,7 @@ let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
       if keep_labels then t else
         Label.delete_labels [result_label; loop1_label; loop2_label] t
     );
-  write_log "\n"
+  write_log "\n" *)
 
 (* TODO: When implemented in combi, remove it *)
 (*
@@ -1102,16 +1103,6 @@ let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(s
   apply_to_top ~replace_top
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n" *)
-
-let detach_expression ?(replace_top : bool = false) ?(label : string = "detached") ?(keep_label : bool = false) (tr : target) : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Generic.detach_expression ctx.clog ~label ~keep_label  tr);
-    write_log "\n"
-
-let undetach_expression ?(replace_top : bool = false) (tr : target) : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Generic.undetach_expression ctx.clog tr);
-    write_log "\n"
 
 let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(old_var : var = "") ?(new_var : var = "") () : unit =
   apply_to_top ~replace_top
