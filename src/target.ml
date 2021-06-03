@@ -1837,7 +1837,7 @@ let rec target_to_decl (x : var) (t : trm) : path option =
 
 (* [apply_on_target ~replace tr tg]: Apply a specific Generic over a target or a list of targets
       params:
-        tg : taget
+        tg : target
         tr : transformation to be applied
       return:
         unit
@@ -1849,8 +1849,8 @@ let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg :
 
 (* [apply_on_target_between ~replace_top tr tg]: Similar to apply_on_target, but the function considers the index too
       params:
-        tg : taget
         tr : transformation to be applied
+        tg : target
       return:
         unit
 *)
@@ -1858,7 +1858,17 @@ let apply_on_target_between ?(replace_top : bool = false) (tr : (path*int) -> tr
   apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target_between tg t in
     List.fold_left (fun t (pi:path*int) -> tr pi t) t ps)
-
+(* [apply_on_transformed_targets ~replace_top transformer tr tg]: 
+   Same as [apply_to_transformed_targets] except that there is some processing performed on each of the explicit path.
+   This processing is done by the [transformer] function, which takes an explicit path, and returns some information
+   that the transformation can take as input.
+    params:
+      transformer: ..
+      tr: transformation to be applied
+      tg: target
+    return:
+      unit
+*)
 let apply_on_transformed_targets ?(replace_top : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
   apply_to_top ~replace_top (fun _ t ->
     let ps = resolve_target tg t in

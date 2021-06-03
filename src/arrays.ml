@@ -6,47 +6,6 @@ open Arrays_core
 open Output
 
 
-(*
-
-
-Same as [apply_to_transformed_targets] except that there is some processing performed on each of the explicit path.
-This processing is done by the [transformer] function, which takes an explicit path, and returns some information
-that the transformation can take as input.
-
-Note: technically [apply_on_target]  could be defined as [apply_to_transformed_targets (fun p -> p)],
- but for simplicity for keep the specialized code.
-
-let apply_to_transformed_targets ?(replace_top : bool = false) (tg : target) (transformer : path -> 'a) (tr : 'a -> trm -> trm) : unit =
-  apply_to_top ~replace_top(fun _ t ->
-    let ps = resolve_target tg t in
-    let descrs = List.map transformer ps in
-    List.fold_left (fun t descr -> tr descr t) t descrs)
-
-
-      Example:   Arrays.to_variables ["ta","tb"] [cVarDef "t"]
-
-  (* [isolate_last_dir_in_a_seq m l] is taking an explicit path to an item inside a sequence,
-     and it returns the path to the sequence, and the index in the sequence.
-     If the path does not point inside a sequence, fail with message m. *)
-
-  let isolate_last_dir_in_a_seq (error_message : string) (dl : explicit_path) : path*int =
-     same as app_transfo, which you can factorize
-     raise error_message if cannot find a Dir_nth at the end of dl
-
-  let to_variables (new_vars : vars) (tg : target) : unit =
-    apply_to_transformed_targets tg (isolate_last_dir_in_a_seq "cannot isolate the definition in a sequence")
-      (fun (path_to_seq, index_of_the_def_in_the_sequence) t ->
-         Arrays_core.to_variables new_vars index_of_the_def_in_the_sequence t path_to_seq)
-
-
-   transformer function is:
-     (fun dl -> isolate_last_dir_in_a_seq "cannot isolate the definition in a sequence" dl)
-
-
-
-
-
- *)
 (* [isolate_last_dir_in_seq dl]:  
     params: 
       dl: explicit path to the targeted trm
