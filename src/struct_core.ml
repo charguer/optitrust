@@ -1,7 +1,7 @@
 open Ast
 
 
-(* set_explicit_aux: This is an auxiliary function for set_explicit 
+(* [set_explicit_aux field_list t]: This is an auxiliary function for set_explicit 
     params: 
       field_list: A string list, each string represents one 
       t: an ast subterm
@@ -58,22 +58,12 @@ let set_explicit_aux (field_list : var list) (t: trm) : trm =
     end
   | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
   
-(* TODO: Ask Arthur if the user should give the list of fields or we should try to find it automatically *)
-(* set_explicit: Transoform a struct set instruction to multiple struct set field instructions   
-    params:
-      field_list:
-        A list of struct field names, used for the explicit assignments
-      path_to_set: 
-        Path to the set instruction
-      t: ast
-    return:
-      the updated ast
- *)
+
 let set_explicit (field_list : var list) : Target.Transfo.local =
   Target.apply_on_path(set_explicit_aux field_list)
 
 
-(* set_implicit: This is an auxiliary function for set_implicit
+(* [set_implicit t]: This is an auxiliary function for set_implicit
     pararms:
       subt: an ast subterm
     return:
@@ -107,48 +97,37 @@ let set_implicit_aux (t: trm) : trm =
     end
   | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
 
-(* set_implicit: Transoform a sequence of set instructions into a single set instruction   
-    params:
-      path_to_seq: 
-        Path to the sequence containing the set instructions
-      t: ast
-    return:
-      the updated ast
- *)
+
 let set_implicit : Target.Transfo.local =
   Target.apply_on_path(set_implicit_aux)
 
 
-(* reorder_aux: This function is an auxiliary function for reorder
+(* [reorder_aux field_list: This function is an auxiliary function for reorder
     params:
       field_list: a list of fields given on a specific order
       subt: an ast subterm
     return: 
       the updated ast
  *)
-let reorder_aux (field_list : var list) (t: trm) : trm =
+let reorder_aux (struct_fields: var list) (move_where : string) (around : string) (t: trm) : trm =
   match t.desc with 
-      | Trm_typedef (Typedef_abbrev (x, dx)) ->
+  | Trm_typedef (Typedef_abbrev (x, dx)) ->
+    let field_list,field_map =
+      match dx.ty_desc with
+        | Typ_struct(l, m,_) -> l, m
+        |_ -> fail t.loc "reorder_aux: the type should be a typedef struct"
+      in
+    let field_list = 
+    if move_where = "move_after" then
+      Tools.move_fields_after around struct_fields field_list 
+    else
+      Tools.move_fields_before around struct_fields field_list 
+    in
+    trm_typedef (Typedef_abbrev (x, typ_struct field_list field_map x))
+  | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
 
-        let field_map =
-          match dx.ty_desc with
-            | Typ_struct(_,m,_) -> m
-            |_ -> fail t.loc "reorder_aux: the type should be a typedef struct"
-          in
-        
-        trm_typedef (Typedef_abbrev (x, typ_struct field_list field_map x))
-      | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
 
-
-(* reorder: Reorder fields of a typedef struct
-    params:
-      field_list: a list of fields given on a specific order
-      path_to_struct: path to the typdef struct 
-      t: ast
-    return:
-      the updated ast
- *)
-let reorder (field_list : var list) : Target.Transfo.local = 
-  Target.apply_on_path(reorder_aux field_list)
+let reorder (struct_fields : var list) (move_where : string) (around : string): Target.Transfo.local = 
+  Target.apply_on_path(reorder_aux struct_fields move_where around)
 
 
