@@ -51,6 +51,18 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t
 
+ (* TODO:
+      match t with
+       trm_seq tl ->
+           frotn rest  Tools.takedrop index_of_the_def tl
+           def, back = decompose rest
+           in def you can the array name
+
+           only apply subst in back
+
+
+    *)
+
 (* array_to_variables_aux: This is an auxiliary function for array_to_variables
     params:
       new_vars: a list of strings of length equal to the size of the array
@@ -89,8 +101,13 @@ let array_to_variables_aux  (new_vars : var list) (t  : trm) : trm =
     return:
       the updated ast
  *)
+ (* TODO:
+   Arrays_core.to_variables new_vars (index_of_the_array_def_in_the_sequence:int) t path_to_seq
+  Target.apply_on_path (array_to_variables_aux new_vars index_of_the_array_def_in_the_sequence)
+
+    *)
 let array_to_variables (new_vars : var list) : Target.Transfo.local =
-  Target.apply_on_path (array_to_variables_aux new_vars) 
+  Target.apply_on_path (array_to_variables_aux new_vars)
 
 
 let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)

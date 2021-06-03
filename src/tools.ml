@@ -175,7 +175,7 @@ let before_aux (bl : bool list) : int list =
 
 let filteri (f : int -> 'a -> bool) (al : 'a list) : 'a list =
   let aol = List.mapi (fun i a -> if f i a then Some a else None) al in
-  List.filter_map (fun ao -> ao) aol 
+  List.filter_map (fun ao -> ao) aol
 
 (* split the list after its n-th element *)
 let split_list_at (n : int) (al : 'a list) : 'a list * ('a list) =
@@ -188,6 +188,14 @@ let split_list_at (n : int) (al : 'a list) : 'a list * ('a list) =
       al
   in
   (List.rev before, List.rev after)
+
+(* LATER: ARTHUR will simplify implementation
+
+let split_list_at (n : int) (al : 'a list) : ('a list) * ('a list) =
+  let rec aux acc n al =
+    match n, al with
+*)
+
 
 let rec get_index x lst =
     match lst with

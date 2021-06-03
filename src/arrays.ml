@@ -25,17 +25,27 @@ let apply_to_transformed_targets ?(replace_top : bool = false) (tg : target) (tr
 
       Example:   Arrays.to_variables ["ta","tb"] [cVarDef "t"]
 
-  let isolate_last_dir_in_a_seq (error_message : string)  (dl: explicit_path) =
+  (* [isolate_last_dir_in_a_seq m l] is taking an explicit path to an item inside a sequence,
+     and it returns the path to the sequence, and the index in the sequence.
+     If the path does not point inside a sequence, fail with message m. *)
+
+  let isolate_last_dir_in_a_seq (error_message : string) (dl : explicit_path) : path*int =
      same as app_transfo, which you can factorize
      raise error_message if cannot find a Dir_nth at the end of dl
 
   let to_variables (new_vars : vars) (tg : target) : unit =
     apply_to_transformed_targets tg (isolate_last_dir_in_a_seq "cannot isolate the definition in a sequence")
       (fun (path_to_seq, index_of_the_def_in_the_sequence) t ->
-         Arrays_core.to_variables new_vars path_to_seq index_of_the_def_in_the_sequence t)
+         Arrays_core.to_variables new_vars index_of_the_def_in_the_sequence t path_to_seq)
 
 
-  
+   transformer function is:
+     (fun dl -> isolate_last_dir_in_a_seq "cannot isolate the definition in a sequence" dl)
+
+
+
+
+
  *)
 
 
