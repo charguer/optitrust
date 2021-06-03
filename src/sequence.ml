@@ -14,7 +14,6 @@ let seq_insert (tg : target) (ts : trm list) : unit =
 let seq_delete (index : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.delete index nb)
 
-
 let seq_sub (i : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target( Sequence_core.sub i nb )
 

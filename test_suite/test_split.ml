@@ -6,7 +6,7 @@ let _ =
     (fun () ->
 
       set_init_source "test_split.cpp";
-      add_label "return_instr" [cInstrSubstr "return"];
+      Label.add "return_instr" [cInstrSubstr "return"];
 
       split_loop ~keep_labels:false [cInstrSubstr ~regexp:true "^x ="];
       

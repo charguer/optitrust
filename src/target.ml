@@ -1835,7 +1835,7 @@ let rec target_to_decl (x : var) (t : trm) : path option =
   (* val, var, array, struct, if, apps, while, for, switch, abort, label *)
   | _ -> None
 
-(* apply_on_target: Apply a specific Generic over a target or a list of targets
+(* [apply_on_target ~replace tr tg]: Apply a specific Generic over a target or a list of targets
       params:
         tg : taget
         tr : transformation to be applied
@@ -1847,7 +1847,7 @@ let apply_on_target ?(replace_top : bool = false) (tr :  trm -> path-> trm) (tg 
     let ps = resolve_target tg t in
     List.fold_left(fun t dl -> tr  t dl) t ps)
 
-(* apply_on_target_between: Similar to apply_on_target, but the function considers the index too
+(* [apply_on_target_between ~replace_top tr tg]: Similar to apply_on_target, but the function considers the index too
       params:
         tg : taget
         tr : transformation to be applied
@@ -1858,6 +1858,13 @@ let apply_on_target_between ?(replace_top : bool = false) (tr : (path*int) -> tr
   apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target_between tg t in
     List.fold_left(fun t dl -> tr dl t) t ps)
+
+let apply_to_transformed_targets ?(replace_top : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target): unit =
+  apply_to_top ~replace_top(fun _ t ->
+    let ps = resolve_target tg t in
+    let descrs = List.map transformer ps in 
+    List.fold_left (fun t descr -> tr descr t) t descrs
+    )
 
 (* return the list where the nth element is transformed *)
 let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =

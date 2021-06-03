@@ -22,10 +22,10 @@ expected c code
 
 ml code
 
-  add_label "label1" [cStr target "int a = 5;"];
-  add_label "label1bis" [cStr "int a"];
-  add_label "label2 [cStr "c = a"];
-  add_label "label3 [cStr "if (c)"];
+  Label.add "label1" [cStr target "int a = 5;"];
+  Label.add "label1bis" [cStr "int a"];
+  Label.add "label2 [cStr "c = a"];
+  Label.add "label3 [cStr "if (c)"];
 *)
 (*
 TRICK for

@@ -3,7 +3,7 @@ open Target
 open Tools (* TODO: use Tools. *)
 
 
-(* insert_aux: This function is an auxiliary function for insert
+(* [insert_aux index ts t]: This function is an auxiliary function for insert
     params:
       index: and integer in range 0 .. (nbinstr-1)
       ts: a list of trms which the inner sequence will contain
@@ -19,18 +19,11 @@ let insert_aux (index : int) (ts : trm list) (t : trm): trm =
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
-(* insert: Insert a list of instructions at the given index as a new sequence
-    params:
-      path_to_seq: explicit path towards the sequence
-      index: an integer in range 0 .. (current number of instructions inside the sequence)
-      ts: a list of instructions(objects of type trm)
-    return: the updated ast
 
-*)
 let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
   Target.apply_on_path (insert_aux index ts) t path_to_seq
 
-(* delete_aux: This function is an auxiliary function for delete
+(* [delete_aux index nb_instr t]: This function is an auxiliary function for delete
     params:
       nb: number of instructions to delete
       t: an ast subterm
@@ -48,11 +41,12 @@ let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
+
 let delete (index : int) (nb_instr : int) : Target.Transfo.local=
   Target.apply_on_path(delete_aux index nb_instr)
 
 
-(* sub_aux: This function is an auxiliary function for sub
+(* [sub_aux index nb t]: This function is an auxiliary function for sub
     params:
       index: index where the grouping is performed
       ts: a trm list
@@ -74,17 +68,10 @@ let sub_aux (index : int) (nb : int) (t : trm) : trm =
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
 
-(* sub: Group the targeted instructions into one nested seq term.
-    params:
-      path_to_seq: explicit path towards the sequence
-      index: an integer in range 0 .. (current number of instrucitons inside the sequence)
-      instr: a list of instructions(objects of type trm)
-    return: the updated ast
-*)
 let sub (index : int) (nb_instr : int)  =
   Target.apply_on_path(sub_aux index nb_instr) 
 
-(* inline_aux: This function is an auxiliary function for inline
+(* [inline_aux index t]: This function is an auxiliary function for inline
     params:
       index: index of the sequence
       t: an ast subterm
@@ -115,17 +102,11 @@ let inline_aux (index : int) (t : trm) : trm =
     | _ -> fail t.loc "inline_aux: expected the sequence on which the ilining is performed"
 
 
-(* inline: Inline the inner sequence into the outer one.
-    params:
-      path_to_seq: explicit path towards the sequence
-      index: an integer in range 0 .. (current number of instrucitons inside the sequence)
-    return: the updated ast
-*)
 let inline (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index)
 
 
-(* wrap_aux: This is an auxiliary function for wrap
+(* [wrap_aux vosobme t]: This is an auxiliary function for wrap
    params:
     t: an ast subterm
     visible: turn on(off) curly braces of the sequence
@@ -133,17 +114,12 @@ let inline (index : int) : Target.Transfo.local =
 let wrap_aux (visible : bool) (t : trm) : trm =
   trm_seq ~annot:(if not visible then Some No_braces else None) [t]
 
-(* wrap: Turn the an instruction into a sequence containing only that instruction
-    params:
-      path_to_instr: explicit path towards the sequence
-      visible: a boolean to decide if the wraped sequence should be visible or not
-    return: the updated ast
-*)
+
 let wrap (visible : bool) : Target.Transfo.local=
   Target.apply_on_path (wrap_aux visible)
 
 
-(* unrwap_aux: This function is an auxiliary function for unwrap
+(* [unrwap_aux t]: This function is an auxiliary function for unwrap
    params:
     t: an ast subterm
    return: the updated ast
@@ -157,12 +133,7 @@ let unwrap_aux (t : trm) : trm =
        end
     | _ -> fail t.loc "unwrap_aux: expected to operate on a sequence"
 
-(* unwrap: The inverse of wrap , remove the sequence and replace it directly with the trms it contains
-    params:
-      path_to_seq: explicit path towards the sequence
-      visible: a boolean to decide if the wraped sequence should be visible or not
-    return: the updated ast
-*)
+
 let unwrap : Target.Transfo.local =
   Target.apply_on_path (unwrap_aux) 
 

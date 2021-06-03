@@ -6,26 +6,26 @@ let _ =
       set_init_source "test.cpp";
       switch
         [
-          (fun () -> add_label "label1" [cVarDef "v" ]);
-          (fun () -> add_label "label1" [cVarDef "w" ])
+          (fun () -> Label.add "label1" [cVarDef "v" ]);
+          (fun () -> Label.add "label1" [cVarDef "w" ])
         ];
       switch
         [
-          (fun () -> add_label "label2" [cVarDef "n" ]);
-          (fun () -> add_label "label2" [cVarDef "m" ])
+          (fun () -> Label.add "label2" [cVarDef "n" ]);
+          (fun () -> Label.add "label2" [cVarDef "m" ])
         ];
       dump ();
       reset ();
       set_init_source "test_accesses.cpp";
       switch
         [
-          (fun () -> add_label "label1" [cVarDef "p" ]);
+          (fun () -> Label.add "label1" [cVarDef "p" ]);
           (fun () ->
-            add_label "label1" [cVarDef "q" ];
+            Label.add "label1" [cVarDef "q" ];
             switch
               [
-                (fun () -> add_label "label2" [cVarDef "r" ]);
-                (fun () -> add_label "label2" [cVarDef "s" ]);
+                (fun () -> Label.add "label2" [cVarDef "r" ]);
+                (fun () -> Label.add "label2" [cVarDef "s" ]);
               ]
           )
         ];

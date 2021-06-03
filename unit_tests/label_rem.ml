@@ -28,7 +28,7 @@ let _ =
    ( fun _ -> 
       set_init_source"label_rem.cpp";
       delete_labels ["loop"; "cond";"incr_1";"incr_2";"stop"];
-      add_label "condincr" [cIf ~then_:[cVar ~name:"x++" ()] ()] ;
+      Label.add "condincr" [cIf ~then_:[cVar ~name:"x++" ()] ()] ;
       dump()
 
    )

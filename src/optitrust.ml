@@ -279,15 +279,6 @@ let make_target_list_pred = Target.make_target_list_pred
 (*                              Generic                               *)
 (******************************************************************************)
 
-(*
-  label the term pointed by the path with label
-  if several terms are pointed, then use indices (label_i)
- *)
-let add_label ?(replace_top : bool = false) (label : string)
-  (tr : target) : unit =
-  apply_to_top ~replace_top (fun _ -> Label.add_label label tr)
-
-
 (*Show path using a decorators on both sides of the path
   for example :
   /*@1<*/ x++; /*>1@*/
@@ -316,13 +307,6 @@ let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:boo
 
 let clean_target_decorators () : unit =
     apply_to_top ~replace_top:false (fun _ -> Generic.delete_target_decorators)
-
-let delete_label ?(replace_top : bool = false) (label : string) : unit =
-  apply_to_top ~replace_top (fun _ -> Label.delete_label label)
-
-(* delete the labels which have a prefix in the list *)
-let delete_labels ?(replace_top : bool = false) (sl : string list) : unit =
-  apply_to_top ~replace_top (fun _ -> Label.delete_labels sl)
 
 (*
   transformation to swap the two first dimensions of an array
@@ -494,11 +478,12 @@ let split_loop_nodep ?(replace_top : bool = false) ?(keep_labels : bool = false)
     );
   write_log "\n"
 
+(* TODO: When implemented in combi, remove it *)
 (*
   combine split_sequence, extract_loop_var and split_loop_nodep to split the for
   loop after the instruction pointed by tr in t
  *)
-let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
+(* let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
   ?(labels : string list = [])
   ?(split_name : string -> string = fun x -> x ^ "_split")
   (tr : target) : unit =
@@ -526,7 +511,7 @@ let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
   (* make sure at most one ast is added to the stack *)
   let replace_top = true in
   (* label the loop for later calls to Generic *)
-  add_label ~replace_top "split_loop_tmp_loop"
+  Label.add "split_loop_tmp_loop"
     [cFor ~body:[cLabel "split_loop_tmp_result"
                    ~substr:true ] ""];
   (* remove unnecessary labels *)
@@ -542,7 +527,7 @@ let split_loop ?(replace_top : bool = false) ?(keep_labels : bool = false)
   delete_labels ~replace_top ["split_loop_tmp_result"; "split_loop_tmp_loop"];
   if not keep_labels then
     delete_labels ~replace_top [result_label; loop1_label; loop2_label];
-  write_log log_end
+  write_log log_end *)
 
 (*
   context must contain the declaration of variables that are used in s

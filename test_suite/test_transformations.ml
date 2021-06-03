@@ -5,9 +5,9 @@ let _ =
   run
     (fun () ->
       set_init_source "test_swap_coordinates/test_swap_coordinates.cpp";
-      add_label "return_instr" [cInstrSubstr "return"];
+      Label.add "return_instr" [cInstrSubstr "return"];
       swap_coordinates "T";
-      add_label "for_loop" [cFor ""];
+      Label.add "for_loop" [cFor ""];
       dump ();
       reset ();
       set_init_source "test_split/test_split.cpp";

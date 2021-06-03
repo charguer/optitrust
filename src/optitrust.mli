@@ -162,17 +162,11 @@ val make_target_list_pred : (int -> constr) -> (bool list -> bool) -> (unit -> s
 
 (** Transformations *)
 
-val add_label : ?replace_top:bool -> string -> target -> unit
-
 val show_target : ?debug_ast:bool -> ?replace_top:bool -> ?keep_previous:bool -> target -> unit
 
 val show_ast : ?replace_top:bool -> ?file:string -> ?to_stdout:bool -> target -> unit
 
 val clean_target_decorators : unit -> unit
-
-val delete_label : ?replace_top:bool -> string -> unit
-
-val delete_labels : ?replace_top:bool -> string list -> unit
 
 val swap_coordinates : ?replace_top:bool -> ?name:(string -> string) ->
                        string -> unit
@@ -189,10 +183,6 @@ val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
 
 val split_loop_nodep : ?replace_top:bool -> ?keep_labels:bool ->
                        ?labels:(string list) -> target -> unit
-
-val split_loop : ?replace_top:bool -> ?keep_labels:bool ->
-                 ?labels:(string list) -> ?split_name:(string -> string) ->
-                 target -> unit
 
 val tile_array : ?replace_top:bool -> ?name:(string -> string) ->
                  ?block_name:string -> block_size:string -> string -> unit
