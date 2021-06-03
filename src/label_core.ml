@@ -1,6 +1,5 @@
 open Ast
 
-
 (* [label_add label t p]: This function is an auxiliary function for label_add
     params:
       label: a string representing the label to be added
@@ -58,7 +57,7 @@ let add_aux (label : string) (t : trm) : trm =
 let add (label : string) : Target.Transfo.local =
   Target.apply_on_path (add_aux label)
 
-(* label_rem_aux: This function is an auxiliary function for label_rem
+(* remove_aux: This function is an auxiliary function for label_rem
     params:
       t: an ast subterm
     return:
@@ -70,7 +69,7 @@ let remove_aux (t : trm) : trm =
   | _ -> fail t.loc "label_rem_aux: label was not matched, make sure the path is correct"
 
 
-(* label_rem: extract the trm inside the labelled trm
+(* remove: extract the trm inside the labelled trm
     params:
       path_to_label: path to the instruction which is going to be labeled after
       t: ast
