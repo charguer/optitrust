@@ -5,36 +5,27 @@ open Tools
 open Output
 
 
-(* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="]
-TODO: tg as last arg *)
+(* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)
 
 let seq_insert (tg : target) (ts : trm list) : unit =
-  apply_on_target_between tg (fun (p,i) t ->
-    Sequence_core.seq_insert p i ts t)
+  Target.apply_on_target_between (fun (p,i) t ->
+    Sequence_core.insert i ts p t) tg
 
-(* TODO: Target.apply_on_target_between (fun (p,i) t ->
-            Sequence_core.insert i ts p t t) tg *)
-
-let seq_delete (tg : target) (ts : trm list) : unit =
-  apply_on_target tg (fun p t ->
-    Sequence_core.seq_delete p ts t)
+let seq_delete (ts : trm list) : Transfo.t =
+  Target.apply_on_target(Sequence_core.delete ts)
 
 
-let seq_sub (tg : target) (i : int) (ts : trm list) : unit =
-  apply_on_target tg (fun p t ->
-   Sequence_core.seq_sub p i ts t)
+let seq_sub (i : int) (ts : trm list) : Transfo.t =
+  Target.apply_on_target( Sequence_core.sub i ts )
 
-let seq_inline (tg : target) (i : int) : unit =
-  apply_on_target tg (fun p t ->
-   Sequence_core.seq_inline p i t)
+let seq_inline (i : int) : Transfo.t =
+  Target.apply_on_target(Sequence_core.inline i)
 
-let seq_wrap (tg : target) (visible : bool) : unit =
-  apply_on_target tg (fun p t ->
-   Sequence_core.seq_wrap p visible t)
+let seq_wrap (visible : bool) : Transfo.t =
+  Target.apply_on_target (Sequence_core.wrap visible)
 
-let seq_unwrap (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-   Sequence_core.seq_unwrap p t)
+let seq_unwrap : Transfo.t =
+  Target.apply_on_target(Sequence_core.unwrap)
 
 
 
@@ -288,7 +279,7 @@ let split_sequence (clog : out_channel) (result_label : string)
           begin match t''.annot with
           (* if there are delete instructions, pass them to split_seq_at *)
           (* | Some Delete_instructions ->
-             apply_local_transformation
+             apply_on_path
                (split_seq_at n result_label block1_label block2_label
                   split_name)
                t'
@@ -296,7 +287,7 @@ let split_sequence (clog : out_channel) (result_label : string)
           (* otherwise, just pass the inner seq *)
           | _ ->
              let dl = List.rev dl' in
-             apply_local_transformation
+             apply_on_path
                (split_seq_at n result_label block1_label block2_label
                   split_name)
                t'
@@ -304,7 +295,7 @@ let split_sequence (clog : out_channel) (result_label : string)
           end
        | _ ->
           let dl = List.rev dl' in
-          apply_local_transformation
+          apply_on_path
             (split_seq_at n result_label block1_label block2_label
                split_name)
             t'

@@ -10,9 +10,9 @@ open Target
       the updated ast
 *)
 
- let label_add (path_to_instr : path) (label : string) (t : trm) : trm =
-  apply_local_transformation (fun (subt : trm) -> trm_labelled label subt)
-    t path_to_instr
+ (* let label_add (path_to_instr : path) (label : string) (t : trm) : trm =
+  apply_on_path (fun (subt : trm) -> trm_labelled label subt)
+    t path_to_instr *)
 
 (* TODO: THINK ABOUT
 let label_add (label : string) (t : trm) (p : path) : trm =
@@ -38,25 +38,45 @@ let add (label : string) : Transfo.local =
 
 *)
 
-(* label_rem_aux: This function is an auxiliary function for label_rem
+(* add_aux : The function is an auxiliary function for add
     params:
-      t: an ast subter
+      t: an ast subterm
     return:
       the updated ast
 *)
-let label_rem_aux (t : trm) : trm =
+let add_aux (label : string) (t : trm) : trm = 
+  trm_labelled label t
+
+
+(* add : label a targeted ast trm
+    params:
+      t: ast
+      path_to_instr: path to the instruction we want to label
+    return: 
+      the updated ast 
+*)
+let add (label : string) : Transfo.local =
+  Target.apply_on_path (add_aux label)
+
+(* label_rem_aux: This function is an auxiliary function for label_rem
+    params:
+      t: an ast subterm
+    return:
+      the updated ast
+*)
+let remove_aux (t : trm) : trm =
   match t.desc with
   | Trm_labelled (_, tbody) -> tbody
   | _ -> fail t.loc "label_rem_aux: label was not matched, make sure the path is correct"
 
 
-(* label_rem: This function is an auxiliary function for label_rem
+(* label_rem: extract the trm inside the labelled trm
     params:
       path_to_label: path to the instruction which is going to be labeled after
       t: ast
     return:
       the updated ast
  *)
-let label_rem (p : path) (t : trm) : trm =
-  apply_local_transformation label_rem_aux t p
+let remove : Transfo.local =
+  Target.apply_on_path (remove_aux)
 

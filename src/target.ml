@@ -1842,10 +1842,10 @@ let rec target_to_decl (x : var) (t : trm) : path option =
       return:
         unit
 *)
-let apply_on_target ?(replace_top : bool = false) (tg : target) (tr :  path -> trm-> trm) : unit =
+let apply_on_target ?(replace_top : bool = false) (tr :  trm -> path-> trm) (tg : target) : unit =
   apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target tg t in
-    List.fold_left(fun t dl -> tr  dl t) t ps)
+    List.fold_left(fun t dl -> tr  t dl) t ps)
 
 (* apply_on_target_between: Similar to apply_on_target, but the function considers the index too
       params:
@@ -1854,7 +1854,7 @@ let apply_on_target ?(replace_top : bool = false) (tg : target) (tr :  path -> t
       return:
         unit
 *)
-let apply_on_target_between ?(replace_top : bool = false) (tg : target) (tr : (path*int) -> trm-> trm) : unit =
+let apply_on_target_between ?(replace_top : bool = false) (tr : (path*int) -> trm-> trm) (tg : target) : unit =
   apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target_between tg t in
     List.fold_left(fun t dl -> tr dl t) t ps)
@@ -1864,7 +1864,7 @@ let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
 (* follow an explicit target to apply a function on the corresponding subterm *)
-let apply_local_transformation (transfo : trm -> trm) (t : trm)
+let apply_on_path (transfo : trm -> trm) (t : trm)
   (dl : path) : trm =
   let rec aux (dl : path) (t : trm) : trm =
     match dl with
@@ -1884,9 +1884,9 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
        | Dir_nth n, Trm_struct tl ->
           trm_struct ~annot ~loc ~add ~typ ~attributes(change_nth (aux dl) tl n)
        | Dir_nth _, Trm_val (Val_array _) ->
-          fail loc "apply_local_transformation: val_array should not appear"
+          fail loc "apply_on_path: val_array should not appear"
        | Dir_nth _, Trm_val (Val_struct _) ->
-          fail loc "apply_local_transformation: val_struct should not appear"
+          fail loc "apply_on_path: val_struct should not appear"
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes (aux dl cond) then_t else_t
        | Dir_cond, Trm_while (cond, body) ->
@@ -1934,7 +1934,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
                 match t'.desc with
                 | Trm_var x' -> (x', tx)
                 | _ ->
-                   fail loc ("apply_local_transformation: transformation " ^
+                   fail loc ("apply_on_path: transformation " ^
                                "must preserve fun arguments")
               )
               txl
@@ -1945,7 +1945,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           let t' = aux dl (trm_var ~loc x) in
           begin match t'.desc with
           | Trm_var x' -> trm_let ~annot ~loc ~is_statement ~add ~attributes  vk (x',tx) body
-          | _ -> fail loc ("apply_local_transformation: transformation " ^ "must preserve names(function)")
+          | _ -> fail loc ("apply_on_path: transformation " ^ "must preserve names(function)")
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
           let t' = aux dl (trm_var ~loc x) in
@@ -1953,7 +1953,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           | Trm_var x' ->
             trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x' tx txl body
           | _ ->
-             fail loc ("apply_local_transformation: transformation " ^
+             fail loc ("apply_on_path: transformation " ^
                          "must preserve names(function)")
           end
        | Dir_name, Trm_labelled (l, body) ->
@@ -1962,7 +1962,7 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
           | Trm_var l' ->
              trm_labelled ~annot ~loc ~add ~attributes l' body
           | _ ->
-             fail loc ("apply_local_transformation: transformation " ^
+             fail loc ("apply_on_path: transformation " ^
                          "must preserve names(label)")
           end
 
@@ -1980,9 +1980,14 @@ let apply_local_transformation (transfo : trm -> trm) (t : trm)
             )
         | _, _ ->
            let s = dir_to_string d in
-           fail loc ("apply_local_transformation: direction " ^ s ^
+           fail loc ("apply_on_path: direction " ^ s ^
                        " does not match")
        end
 
   in
   aux dl t
+
+module Transfo = struct
+  type t = target -> unit 
+  type local = trm -> path -> trm
+end 

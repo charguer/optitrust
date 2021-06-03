@@ -134,7 +134,7 @@ let insert_decl ?(insert_before : target = [])
      *)
     (* TODO: Remove this, delete instructions not needed anymore*)
     let create_delete_instr (dl : path) (t : trm) : trm =
-      apply_local_transformation
+      apply_on_path
         (fun t ->
           (* t is expected to be a seq *)
           trm_seq (* ~annot:(Some Delete_instructions) *)
@@ -156,7 +156,7 @@ let insert_decl ?(insert_before : target = [])
           -> do not create a seq
          *)
         (* | Dir_nth _ :: Dir_nth n :: dl ->
-           apply_local_transformation
+           apply_on_path
              (fun t ->
                match t.desc with
                | Trm_seq (t' :: del_instr_l)
@@ -353,7 +353,7 @@ let remove_decl (clog : out_channel) (tr : target) (t : trm) : trm =
        | _ -> fail t.loc "remove_decl: the path must point at a seq element"
      in
      let t =
-       apply_local_transformation
+       apply_on_path
          (fun (t : trm) ->
            match t.desc with
            | Trm_seq tl ->
@@ -370,7 +370,7 @@ let remove_decl (clog : out_channel) (tr : target) (t : trm) : trm =
      begin match t_decl.desc with
      (* | Trm_seq _ when t_decl.annot = Some Heap_allocated ->
         let x = decl_name t_decl in
-        apply_local_transformation
+        apply_on_path
           (fun (t : trm) ->
             match t.desc with
             | Trm_seq (t_body :: del_instr_l)

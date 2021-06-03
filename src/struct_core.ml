@@ -2,15 +2,15 @@ open Ast
 open Target
 
 
-(* struct_set_explicit_aux: This is an auxiliary function for struct_set_explicit 
+(* set_explicit_aux: This is an auxiliary function for set_explicit 
     params: 
       field_list: A string list, each string represents one 
-      subt: an ast subterm
+      t: an ast subterm
     return: 
       the updated ast
  *)
-let struct_set_explicit_aux (field_list : var list) (subt : trm) : trm =
-  match subt.desc with 
+let set_explicit_aux (field_list : var list) (t: trm) : trm =
+  match t.desc with 
   | Trm_apps(_, [lt;rt]) ->
     begin match rt.desc with
     (* If the right hand side is a get *)
@@ -22,15 +22,15 @@ let struct_set_explicit_aux (field_list : var list) (subt : trm) : trm =
         let new_f = trm_unop (Unop_struct_get sf) in
          trm_set (trm_apps ~annot:(Some Access) new_f [trm_apps f2 lbase]) (trm_apps ~annot:(Some Access) new_f [trm_apps f1 rbase])
         ) field_list in
-       trm_seq ~annot: subt.annot exp_assgn
+       trm_seq ~annot: t.annot exp_assgn
       (* If the variable at the left hand side is not heap allocated *)
       | Trm_var v ->
         let exp_assgn = List.map(fun sf ->
         let new_f = trm_unop (Unop_struct_get sf) in
         trm_set (trm_apps new_f [trm_var v]) (trm_apps ~annot: (Some Access) f1 [trm_apps new_f rbase])
         ) field_list in
-        trm_seq ~annot:subt.annot exp_assgn
-      | _ -> fail subt.loc "struct_set_explicit_aux: left term was not matched"
+        trm_seq ~annot:t.annot exp_assgn
+      | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
     (* If the right hand side is a struct initialization *)
     | Trm_struct st ->
@@ -40,14 +40,14 @@ let struct_set_explicit_aux (field_list : var list) (subt : trm) : trm =
         let new_f = trm_unop (Unop_struct_get sf) in
         trm_set (trm_apps ~annot:(Some Access) f2 [trm_apps new_f lbase]) (List.nth st i)
         ) field_list in
-        trm_seq ~annot:subt.annot exp_assgn
+        trm_seq ~annot:t.annot exp_assgn
       | Trm_var v ->
         let exp_assgn = List.mapi(fun i sf ->
         let new_f = trm_unop (Unop_struct_get sf) in
         trm_set (trm_apps new_f [trm_var v]) (List.nth st i)
         ) field_list in
-        trm_seq ~annot:subt.annot exp_assgn
-      | _ -> fail subt.loc "struct_set_explicit_aux: left term was not matched"
+        trm_seq ~annot:t.annot exp_assgn
+      | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
     (* Any othe expression *)
     | _ -> 
@@ -57,10 +57,10 @@ let struct_set_explicit_aux (field_list : var list) (subt : trm) : trm =
       ) field_list in
       trm_seq exp_assgn
     end
-  | _ -> fail subt.loc "make_explicit_record_assignment_aux: this expression is not supported"
+  | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
   
 (* TODO: Ask Arthur if the user should give the list of fields or we should try to find it automatically *)
-(* struct_set_explicit: Transoform a struct set instruction to multiple struct set field instructions   
+(* set_explicit: Transoform a struct set instruction to multiple struct set field instructions   
     params:
       field_list:
         A list of struct field names, used for the explicit assignments
@@ -70,18 +70,18 @@ let struct_set_explicit_aux (field_list : var list) (subt : trm) : trm =
     return:
       the updated ast
  *)
-let struct_set_explicit (field_list : var list) (path_to_set : path) (t : trm) : trm =
-  apply_local_transformation(struct_set_explicit_aux field_list) t path_to_set
+let set_explicit (field_list : var list) : Transfo.local =
+  Target.apply_on_path(set_explicit_aux field_list)
 
 
-(* struct_set_implicit: This is an auxiliary function for struct_set_implicit
+(* set_implicit: This is an auxiliary function for set_implicit
     pararms:
       subt: an ast subterm
     return:
       the updated as
  *)
-let struct_set_implicit_aux (subt : trm) : trm =
-  match subt.desc with 
+let set_implicit_aux (t: trm) : trm =
+  match t.desc with 
   | Trm_seq tl ->
     (* To find out the variables of the structs whe just conside the first set instruction.
       Assumption: The sequence contains only the struct field set instructions.
@@ -94,21 +94,21 @@ let struct_set_implicit_aux (subt : trm) : trm =
         begin match  ls.desc with 
           | Trm_apps(_,[base]) -> base
           | Trm_var x -> trm_var x
-          | _ -> fail subt.loc "struct_set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
+          | _ -> fail t.loc "set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
         end
       in
       let r_var = begin match  rs.desc with 
       | Trm_apps(_,[base]) -> base
       | Trm_var x -> trm_var x
-      | _ -> fail subt.loc "struct_set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
+      | _ -> fail t.loc "set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
       end
       in
       trm_set l_var r_var
-    | _ -> fail subt.loc "struct_set_implicit_aux: expected a set instruction"
+    | _ -> fail t.loc "set_implicit_aux: expected a set instruction"
     end
-  | _ -> fail subt.loc "struct_set_implicit_aux: sequence which contains the set instructions was not matched"
+  | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
 
-(* struct_set_implicit: Transoform a sequence of set instructions into a single set instruction   
+(* set_implicit: Transoform a sequence of set instructions into a single set instruction   
     params:
       path_to_seq: 
         Path to the sequence containing the set instructions
@@ -116,32 +116,32 @@ let struct_set_implicit_aux (subt : trm) : trm =
     return:
       the updated ast
  *)
-let struct_set_implicit (path_to_set : path) (t : trm) : trm =
-  apply_local_transformation(struct_set_implicit_aux ) t path_to_set
+let set_implicit : Transfo.local =
+  Target.apply_on_path(set_implicit_aux)
 
 
-(* struct_reorder_aux: This function is an auxiliary function for struct_reorder
+(* reorder_aux: This function is an auxiliary function for reorder
     params:
       field_list: a list of fields given on a specific order
       subt: an ast subterm
     return: 
       the updated ast
  *)
-let struct_reorder_aux (field_list : var list) (subt : trm) : trm =
-  match subt.desc with 
+let reorder_aux (field_list : var list) (t: trm) : trm =
+  match t.desc with 
       | Trm_typedef (Typedef_abbrev (x, dx)) ->
 
         let field_map =
           match dx.ty_desc with
             | Typ_struct(_,m,_) -> m
-            |_ -> fail subt.loc "fields_reorder: the type should be a typedef struct"
+            |_ -> fail t.loc "reorder_aux: the type should be a typedef struct"
           in
         
         trm_typedef (Typedef_abbrev (x, typ_struct field_list field_map x))
-      | _ -> fail subt.loc "fields_reorder: expected a typedef definiton"
+      | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
 
 
-(* struct_reorder: Reorder fields of a typedef struct
+(* reorder: Reorder fields of a typedef struct
     params:
       field_list: a list of fields given on a specific order
       path_to_struct: path to the typdef struct 
@@ -149,7 +149,7 @@ let struct_reorder_aux (field_list : var list) (subt : trm) : trm =
     return:
       the updated ast
  *)
-let struct_reorder (field_list : var list) (path_to_struct : path) (t : trm): trm = 
-  apply_local_transformation(struct_reorder_aux field_list) t path_to_struct
+let reorder (field_list : var list) : Transfo.local = 
+  Target.apply_on_path(reorder_aux field_list)
 
 

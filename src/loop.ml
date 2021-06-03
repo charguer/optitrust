@@ -5,18 +5,14 @@ open Target
 open Tools
 open Output
 
-let loop_swap (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-    Loop_core.loop_swap p t)
+let loop_swap : Transfo.t =
+  Target.apply_on_target (Loop_core.swap)
 
-let loop_color (tg : target) (c : var) (i_color : var) : unit =
-  apply_on_target tg (fun p t ->
-    Loop_core.loop_color p c i_color t)
+let loop_color (c : var) (i_color : var) : Transfo.t =
+  Target.apply_on_target (Loop_core.color c i_color )
 
-
-let loop_tile (tg : target) (b : var)(i_block : var) : unit =
-  apply_on_target tg (fun p t ->
-    Loop_core.loop_tile p b i_block t)
+let loop_tile (b : var)(i_block : var) : Transfo.t =
+  Target.apply_on_target (Loop_core.tile b i_block)
 
 (* TODO: Ask Arthur, if this should still be used or not *)
 (*
@@ -36,23 +32,22 @@ let loop_tile (tg : target) (b : var)(i_block : var) : unit =
  *)
 
 
-let loop_tile_old (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-    Loop_core.loop_tile_old p  t)
+let loop_tile_old : Transfo.t =
+  Target.apply_on_target(Loop_core.tile_old )
 
 
-let loop_hoist (tg : target) (x_step : var) : unit =
-  apply_on_target tg (fun p t ->
-    Loop_core.loop_hoist p x_step t)
+let loop_hoist (x_step : var) : Transfo.t =
+  Target.apply_on_target (Loop_core.hoist x_step)
 
 
+(* TODO: Do the same for apply_on_target_between *)
 let loop_split (tg : target) : unit = 
-  apply_on_target_between tg (fun (p,i) t ->
-    Loop_core.loop_split p i t)
+  Target.apply_on_target_between (fun (p,i) t ->
+    Loop_core.split i p t) tg
 
-let loop_fusion (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-    Loop_core.loop_fusion p t)
+
+let loop_fusion : Transfo.t =
+  Target.apply_on_target (Loop_core.fusion )
 (* get_loop_nest_indices -- currently omiting the last one
 
 *)
@@ -140,7 +135,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
   | _ ->
     List.fold_left
       (fun t dl ->
-        apply_local_transformation (move_loop_before_aux clog loop_index) t dl)
+        apply_on_path (move_loop_before_aux clog loop_index) t dl)
       t
       epl *)
 
@@ -193,7 +188,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
   | _ ->
     List.fold_left
       (fun t dl ->
-        apply_local_transformation (move_loop_after_aux clog loop_index) t dl)
+        apply_on_path (move_loop_after_aux clog loop_index) t dl)
       t
       epl
 
@@ -439,7 +434,7 @@ let extract_loop_var (clog : out_channel) (result_label : string)
        (target_to_string tr);
      t
   | [dl] ->
-     apply_local_transformation
+     apply_on_path
        (extract_loop_vars_aux clog ~only_one:true result_label) t dl
   | _ ->
      (*
@@ -447,7 +442,7 @@ let extract_loop_var (clog : out_channel) (result_label : string)
       *)
      foldi
        (fun i ->
-         apply_local_transformation
+         apply_on_path
            (extract_loop_vars_aux clog ~only_one:true
               (result_label ^ "_" ^ string_of_int i))
        )
@@ -467,14 +462,14 @@ let extract_loop_vars (clog : out_channel) (result_label : string)
        (target_to_string tr);
      t
   | [dl] ->
-     apply_local_transformation (extract_loop_vars_aux clog result_label) t dl
+     apply_on_path (extract_loop_vars_aux clog result_label) t dl
   | _ ->
      (*
        folding works since no path in epl is the prefix of a subsequent path
       *)
      foldi
        (fun i ->
-         apply_local_transformation
+         apply_on_path
            (extract_loop_vars_aux clog (result_label ^ "_" ^ string_of_int i))
        )
        t
@@ -601,7 +596,7 @@ let split_loop_nodep (clog : out_channel) (result_label : string)
      print_info t.loc "split_loop_nodep: no matching subterm\n";
      t
   | [dl] ->
-     apply_local_transformation
+     apply_on_path
        (split_loop_nodep_aux clog result_label loop1_label loop2_label)
        t
        dl
@@ -615,7 +610,7 @@ let split_loop_nodep (clog : out_channel) (result_label : string)
            let index = string_of_int i in
            (result_label ^ index, loop1_label ^ index, loop2_label ^ index)
          in
-         apply_local_transformation
+         apply_on_path
            (split_loop_nodep_aux clog result_label loop1_label loop2_label)
        )
        t

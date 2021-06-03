@@ -38,7 +38,7 @@ let apply_to_transformed_targets ?(replace_top : bool = false) (tg : target) (tr
 
 
 let array_to_variables (tg : target) (new_vars : var list) : unit =
-  apply_on_target tg (fun p t ->
+  apply_on_target (fun t p ->
     (* TODO: Check together with Arthur, this particular solution *)
     let epl = resolve_target tg t in
     let array_variable =
@@ -49,7 +49,7 @@ let array_to_variables (tg : target) (new_vars : var list) : unit =
     end
     in
     let t = inline_array_access array_variable new_vars t in
-    Arrays_core.array_to_variables new_vars p t)
+    Arrays_core.array_to_variables new_vars t p) tg
 
 (* TODO: Finish splititng all function into core and basics for this module *)
 

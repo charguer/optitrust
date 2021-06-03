@@ -10,21 +10,17 @@ open Path_constructors
 
 
 
-let var_init_detach (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-    Generic_core.var_init_detach p t)
+let var_init_detach : Transfo.t =
+  apply_on_target ( Generic_core.var_init_detach)
 
-let var_init_atttach (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-    Generic_core.var_init_attach p t)
+let var_init_atttach : Transfo.t =
+  apply_on_target (Generic_core.var_init_attach)
 
-let const_non_const (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-    Generic_core.const_non_const p t)
+let const_non_const : Transfo.t =
+  apply_on_target (Generic_core.const_non_const)
 
-let remove_instruction (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-    Generic_core.remove_instruction p t)
+let remove_instruction : Transfo.t =
+  apply_on_target (Generic_core.remove_instruction)
 
 let remove_instructions (tgs : target list) : unit =
   List.fold_left(fun () x ->
@@ -40,7 +36,7 @@ let insert_trm_after (dl : path) (insert : trm) (t : trm) : trm =
   let dl' = List.rev dl in
   match List.hd dl' with
   | Dir_nth n ->
-     apply_local_transformation
+     apply_on_path
        (fun t' ->
          match t'.desc with
          | Trm_seq tl ->
@@ -69,11 +65,11 @@ let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm =
     print_info t.loc "show_target: no matching subterm\n";
     t
   | [dl] -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
-            apply_local_transformation (trm_decoration (left_decoration 0) (right_decoration 0) ) t dl
+            apply_on_path (trm_decoration (left_decoration 0) (right_decoration 0) ) t dl
 
   | _ -> foldi
           (fun i -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
-                    apply_local_transformation
+                    apply_on_path
                    (trm_decoration (left_decoration i) (right_decoration i )))
 
           t epl
@@ -89,7 +85,7 @@ let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) (t :
     let out_ast = open_out file in
     foldi
       (
-        fun i -> apply_local_transformation(fun t ->
+        fun i -> apply_on_path(fun t ->
             if to_stdout then begin
               print_ast ~only_desc:true stdout t;
               output_string stdout "\n\n";
@@ -497,7 +493,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
          print_info t'.loc "change_trm: no matching subterm for target %s\n"
            (target_to_string tr);
          t'
-      | _ -> List.fold_left (apply_local_transformation apply_change) t' epl
+      | _ -> List.fold_left (apply_on_path apply_change) t' epl
     )
     t
     change_at
@@ -559,7 +555,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
          print_info t'.loc "change_typ: no matching subterm for target %s\n"
            (target_to_string tr);
          t'
-      | _ -> List.fold_left (apply_local_transformation apply_change) t' epl
+      | _ -> List.fold_left (apply_on_path apply_change) t' epl
     )
     t
 
@@ -623,7 +619,7 @@ let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typva
       t
     | _ -> List.fold_left
             (fun t dl ->
-              apply_local_transformation (local_other_name_aux clog var_type old_var new_var) t dl)
+              apply_on_path (local_other_name_aux clog var_type old_var new_var) t dl)
               t
               epl
 
@@ -789,7 +785,7 @@ let delocalize (clog : out_channel) (sec_of_int : label) (array_size : string) (
     t
   | _ -> List.fold_left
         (fun t dl ->
-          apply_local_transformation (delocalize_aux clog array_size neutral_element fold_operation) t dl)
+          apply_on_path (delocalize_aux clog array_size neutral_element fold_operation) t dl)
           t
           epl
 
@@ -806,7 +802,7 @@ let add_attribute (clog : out_channel) (a : attribute) (tr : target)
      t
   | _ ->
      List.fold_left
-       (apply_local_transformation
+       (apply_on_path
           (fun t ->
             let log : string =
               let loc : string =
@@ -907,7 +903,7 @@ let undetach_expression (clog :out_channel) (tr :target) (t : trm) : trm =
     match List.rev dl with
     | Dir_nth n :: dl' ->
       let dl = List.rev dl' in
-      apply_local_transformation (undetach_expression_aux clog n ) t dl
+      apply_on_path (undetach_expression_aux clog n ) t dl
     | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"
 
   in
@@ -964,7 +960,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
     | Dir_nth n :: dl' ->
       let (t',_) = resolve_path dl t in
       let dl = List.rev dl' in
-      apply_local_transformation (detach_expression_aux clog ~keep_label label n t') t dl
+      apply_on_path (detach_expression_aux clog ~keep_label label n t') t dl
     | _ -> fail t.loc "app_transfo: expected a dir_th inside the sequence"
 
   in
@@ -985,7 +981,7 @@ let detach_expression (clog :out_channel) ?(label : string = "detached") ?(keep_
           let (t',_) = resolve_target dl t in n, t'
         | _ -> fail t.loc " detach_expression: expected a dir_nth inside the sequence"
         end in
-        apply_local_transformation (detach_expression_aux clog ~keep_label label index prefix_sequence_trm) t dl)
+        apply_on_path (detach_expression_aux clog ~keep_label label index prefix_sequence_trm) t dl)
         t
         epl  *)
 

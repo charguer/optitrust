@@ -2,17 +2,15 @@ open Ast
 open Target
 open Tools
 
-let struct_set_explicit (tg : target) (field_list : var list) : unit =
-  apply_on_target tg (fun p t ->
-    Struct_core.struct_set_explicit field_list p t)
+let struct_set_explicit (field_list : var list) : Transfo.t =
+  Target.apply_on_target (Struct_core.set_explicit field_list)
 
-let struct_set_implicit (tg : target) : unit =
-  apply_on_target tg (fun p t ->
-    Struct_core.struct_set_implicit  p t)
+let struct_set_implicit : Transfo.t =
+  Target.apply_on_target(Struct_core.set_implicit)
 
 let struct_reorder ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (tg : target) : unit = 
   (* TODO: Ask Arthur about this way of solving the problem *)
-  apply_on_target tg (fun p t ->
+  Target.apply_on_target (fun t p ->
     let epl = resolve_target tg t in 
     let field_list = begin match epl with 
     | [dl] -> let (t_def,_) = resolve_path dl t in
@@ -34,4 +32,4 @@ let struct_reorder ?(struct_fields : fields = []) ?(move_before : field = "") ?(
     | _ -> fail t.loc "struct_reorder: no target or multiple targets were resolved"
     end
     in
-    Struct_core.struct_reorder field_list p t)
+    Struct_core.reorder field_list t p) tg

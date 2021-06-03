@@ -55,12 +55,12 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
 (* array_to_variables_aux: This is an auxiliary function for array_to_variables
     params:
       new_vars: a list of strings of length equal to the size of the array
-      subt: an ast subterm
+      t: an ast subterm
     return
       the updated ast
 *)
-let array_to_variables_aux  (new_vars : var list) (subt  : trm) : trm =
-  match subt.desc with
+let array_to_variables_aux  (new_vars : var list) (t  : trm) : trm =
+  match t.desc with
   | Trm_let (_,(_, _), init) ->
     begin match init.desc with
     | Trm_val( Val_prim (Prim_new t_arr)) ->
@@ -71,15 +71,15 @@ let array_to_variables_aux  (new_vars : var list) (subt  : trm) : trm =
           let new_trms = List.map(fun x ->
           trm_let Var_mutable (x,(typ_ptr (typ_var y (get_typedef y)))) (trm_lit (Lit_uninitialized))) new_vars
           in
-          trm_seq ~annot:subt.annot new_trms
+          trm_seq ~annot:t.annot new_trms
 
-        | _ -> fail subt.loc "array_to_variables_core: expected a type variable"
+        | _ -> fail t.loc "array_to_variables_core: expected a type variable"
         end
-      | _ -> fail subt.loc "array_to_variables_core: expected an array type"
+      | _ -> fail t.loc "array_to_variables_core: expected an array type"
       end
-    | _ -> fail subt.loc "array_to_variables_core: something went wrong"
+    | _ -> fail t.loc "array_to_variables_core: something went wrong"
     end
-  | _ -> fail subt.loc "array_to_variables_core: expected a variable declaration"
+  | _ -> fail t.loc "array_to_variables_core: expected a variable declaration"
 
 
 (* array_to_variables: Transofrm an array declaration into multiple variables declarations
@@ -90,8 +90,8 @@ let array_to_variables_aux  (new_vars : var list) (subt  : trm) : trm =
     return:
       the updated ast
  *)
-let array_to_variables (new_vars : var list) (path_to_decl : path) (t : trm) : trm =
-  apply_local_transformation (array_to_variables_aux new_vars) t path_to_decl
+let array_to_variables (new_vars : var list) : Transfo.local =
+  Target.apply_on_path (array_to_variables_aux new_vars) 
 
 
 let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)

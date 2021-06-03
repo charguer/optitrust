@@ -196,7 +196,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
            (target_to_string tr);
          t
       | _ ->
-         List.fold_left (apply_local_transformation apply_change) t epl
+         List.fold_left (apply_on_path apply_change) t epl
     )
     t
     inline_at

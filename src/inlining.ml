@@ -23,7 +23,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
   let epl = resolve_target tr t in
   Flags.verbose := b;
   match epl with
-  | [dl] -> let t = apply_local_transformation (inline_decl_core  clog inline_at fun_result
+  | [dl] -> let t = apply_on_path (inline_decl_core  clog inline_at fun_result
             fun_args fun_return_label) t dl in 
             if delete_decl then remove_decl clog tr t else t
 
@@ -62,7 +62,7 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
            | Some (Dir_nth n) -> n
            | _ -> fail t.loc "inline_seq: the path must point at a seq element"
          in
-         apply_local_transformation
+         apply_on_path
            (fun (t : trm) ->
              match t.desc with
              | Trm_seq tl ->
@@ -154,7 +154,7 @@ let inline_record_access (clog : out_channel) (field : string) (var : string ) (
         match List.rev dl with
         | Dir_nth _ :: dl' ->
           let dl = List.rev dl' in
-          apply_local_transformation (inline_record_access_core clog var field struct_decl_trm list_of_trms) t dl
+          apply_on_path (inline_record_access_core clog var field struct_decl_trm list_of_trms) t dl
         | _ -> fail t.loc "inline_struct_access:expected a dir_nth inside the sequence"
       in
       match epl with
@@ -514,6 +514,6 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     | _ ->
       List.fold_left
         (fun t dl ->
-          apply_local_transformation (change_struct_fields clog ~struct_fields t1) t dl)
+          apply_on_path (change_struct_fields clog ~struct_fields t1) t dl)
         t
         epl
