@@ -62,52 +62,47 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
 
 
     *)
-
-(* array_to_variables_aux: This is an auxiliary function for array_to_variables
+(* to_variables_aux: This is an auxiliary function for to_variables
     params:
       new_vars: a list of strings of length equal to the size of the array
       t: an ast subterm
     return
       the updated ast
 *)
-let array_to_variables_aux  (new_vars : var list) (t  : trm) : trm =
-  match t.desc with
-  | Trm_let (_,(_, _), init) ->
-    begin match init.desc with
-    | Trm_val( Val_prim (Prim_new t_arr)) ->
-      begin match t_arr.ty_desc with
+let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let d,lback = Tools.split_list_at 0 lback in
+    let d = List.hd d in
+    let array_name = decl_name d in
+    let var_decls = begin match d.desc with 
+    | Trm_let (_, (_ , __), init) -> 
+      begin match init.desc with
+      | Trm_val(Val_prim (Prim_new t_arr)) ->
+        begin match t_arr.ty_desc with
       | Typ_array (t_var,_) ->
         begin match t_var.ty_desc with
         | Typ_var (y, _) ->
-          let new_trms = List.map(fun x ->
+          List.map(fun x ->
           trm_let Var_mutable (x,(typ_ptr (typ_var y (get_typedef y)))) (trm_lit (Lit_uninitialized))) new_vars
-          in
-          trm_seq ~annot:t.annot new_trms
-
-        | _ -> fail t.loc "array_to_variables_core: expected a type variable"
+    
+        | _ -> fail t.loc "to_variables_aux: expected a type variable"
         end
-      | _ -> fail t.loc "array_to_variables_core: expected an array type"
+      | _ -> fail t.loc "to_variables_aux: expected an array type"
       end
-    | _ -> fail t.loc "array_to_variables_core: something went wrong"
+      | _ -> fail t.loc "to_variables_aux: expected a new_operation"
+      end
+    | _ -> fail t.loc "to_variables_aux: expected a variable declaration"
     end
-  | _ -> fail t.loc "array_to_variables_core: expected a variable declaration"
+    in
+    let lback = List.map (inline_array_access array_name new_vars) lback in
+    trm_seq ~annot:t.annot ~loc:t.loc (lfront @ var_decls @ lback)
+  | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
 
 
-(* array_to_variables: Transofrm an array declaration into multiple variables declarations
-    params:
-      new_vars: a list of strings of length equal ot the size of the array
-      path_to_decl: path to the array declaration
-      t: ast
-    return:
-      the updated ast
- *)
- (* TODO:
-   Arrays_core.to_variables new_vars (index_of_the_array_def_in_the_sequence:int) t path_to_seq
-  Target.apply_on_path (array_to_variables_aux new_vars index_of_the_array_def_in_the_sequence)
-
-    *)
-let array_to_variables (new_vars : var list) : Target.Transfo.local =
-  Target.apply_on_path (array_to_variables_aux new_vars)
+let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
+  Target.apply_on_path (to_variables_aux new_vars index)
 
 
 let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)

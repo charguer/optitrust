@@ -47,21 +47,22 @@ let apply_to_transformed_targets ?(replace_top : bool = false) (tg : target) (tr
 
 
  *)
+(* [isolate_last_dir_in_seq dl]:  
+    params: 
+      dl: explicit path to the targeted trm
+    return:
+      a pair of the explicit path to the outer sequence and the index of the term inside that sequence
+*)
+let isolate_last_dir_in_seq (dl : path) : path * int = 
+  match List.rev dl with
+  | Dir_nth i :: dl' -> (List.rev dl',i)
+  | _ -> fail None "isolate_last_dir_in_seq: cannot isolate the definition in a sequence"
 
+let to_variables (new_vars : var list) (tg : target) : unit = 
+  Target.apply_on_transformed_targets (isolate_last_dir_in_seq)
+    (fun (p,i) t -> Arrays_core.to_variables new_vars i t p 
+  ) tg
 
-let array_to_variables (tg : target) (new_vars : var list) : unit =
-  apply_on_target (fun t p ->
-    (* TODO: Check together with Arthur, this particular solution *)
-    let epl = resolve_target tg t in
-    let array_variable =
-    begin match epl with
-    | [dl] -> let (t_def, _) =  resolve_path dl t in
-      decl_name t_def
-    | _ -> fail t.loc "expected only one explicit path"
-    end
-    in
-    let t = inline_array_access array_variable new_vars t in
-    Arrays_core.array_to_variables new_vars t p) tg
 
 (* TODO: Finish splititng all function into core and basics for this module *)
 

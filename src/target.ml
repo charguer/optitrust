@@ -1859,7 +1859,7 @@ let apply_on_target_between ?(replace_top : bool = false) (tr : (path*int) -> tr
     let ps = resolve_target_between tg t in
     List.fold_left (fun t (pi:path*int) -> tr pi t) t ps)
 
-let apply_to_transformed_targets ?(replace_top : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
+let apply_on_transformed_targets ?(replace_top : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
   apply_to_top ~replace_top (fun _ t ->
     let ps = resolve_target tg t in
     let descrs = List.map transformer ps in
