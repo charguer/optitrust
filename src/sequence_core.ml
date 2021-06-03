@@ -32,22 +32,24 @@ let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
 
 (* delete_aux: This function is an auxiliary function for delete
     params:
-      ts: a trm list
+      nb: number of instructions to delete
       t: an ast subterm
     return: the updated ast
 
 *)
-let delete_aux (ts : trm list) (t : trm) : trm =
+let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
+      let lfront,lback = split_list_at index tl in
+      let _,lback = split_list_at (index + nb_instr) lback in
       (* Remove trms*)
-      let tl = list_remove_set ts tl in
+      let tl = lfront @ lback in
       (* Apply the changes *)
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
-let delete (instr : trm list) : Target.Transfo.local=
-  Target.apply_on_path(delete_aux instr)
+let delete (index : int) (nb_instr : int) : Target.Transfo.local=
+  Target.apply_on_path(delete_aux index nb_instr)
 
 
 (* sub_aux: This function is an auxiliary function for sub
@@ -79,8 +81,8 @@ let sub_aux (index : int) (nb : int) (t : trm) : trm =
       instr: a list of instructions(objects of type trm)
     return: the updated ast
 *)
-let sub (index : int) (instr : trm list)  =
-  Target.apply_on_path(sub_aux index instr) 
+let sub (index : int) (nb_instr : int)  =
+  Target.apply_on_path(sub_aux index nb_instr) 
 
 (* inline_aux: This function is an auxiliary function for inline
     params:

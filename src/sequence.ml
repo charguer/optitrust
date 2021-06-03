@@ -11,8 +11,8 @@ let seq_insert (tg : target) (ts : trm list) : unit =
   Target.apply_on_target_between (fun (p,i) t ->
     Sequence_core.insert i ts p t) tg
 
-let seq_delete (ts : trm list) : Target.Transfo.t =
-  Target.apply_on_target(Sequence_core.delete ts)
+let seq_delete (index : int) (nb : int) : Target.Transfo.t =
+  Target.apply_on_target(Sequence_core.delete index nb)
 
 
 let seq_sub (i : int) (nb : int) : Target.Transfo.t =
