@@ -17,15 +17,15 @@ CURRENT PROPOSAL:
 
 --module Transfo    type t = target -> unit
 
-let add (label : string) : Transfo.t =
+let add (label : string) : Target.Transfo.t =
   Target.apply_on_target (Label_core.add label)
 
 *)
 
-let add (label : string) : Transfo.t = 
+let add (label : string) : Target.Transfo.t = 
   Target.apply_on_target (Label_core.add label)
 
-let remove : Transfo.t =
+let remove : Target.Transfo.t =
   Target.apply_on_target (Label_core.remove)
 
 

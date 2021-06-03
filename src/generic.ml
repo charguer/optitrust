@@ -10,16 +10,16 @@ open Path_constructors
 
 
 
-let var_init_detach : Transfo.t =
+let var_init_detach : Target.Transfo.t =
   apply_on_target ( Generic_core.var_init_detach)
 
-let var_init_atttach : Transfo.t =
+let var_init_atttach : Target.Transfo.t =
   apply_on_target (Generic_core.var_init_attach)
 
-let const_non_const : Transfo.t =
+let const_non_const : Target.Transfo.t =
   apply_on_target (Generic_core.const_non_const)
 
-let remove_instruction : Transfo.t =
+let remove_instruction : Target.Transfo.t =
   apply_on_target (Generic_core.remove_instruction)
 
 let remove_instructions (tgs : target list) : unit =

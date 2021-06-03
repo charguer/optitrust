@@ -11,20 +11,20 @@ let seq_insert (tg : target) (ts : trm list) : unit =
   Target.apply_on_target_between (fun (p,i) t ->
     Sequence_core.insert i ts p t) tg
 
-let seq_delete (ts : trm list) : Transfo.t =
+let seq_delete (ts : trm list) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.delete ts)
 
 
-let seq_sub (i : int) (ts : trm list) : Transfo.t =
+let seq_sub (i : int) (ts : trm list) : Target.Transfo.t =
   Target.apply_on_target( Sequence_core.sub i ts )
 
-let seq_inline (i : int) : Transfo.t =
+let seq_inline (i : int) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.inline i)
 
-let seq_wrap (visible : bool) : Transfo.t =
+let seq_wrap (visible : bool) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.wrap visible)
 
-let seq_unwrap : Transfo.t =
+let seq_unwrap : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.unwrap)
 
 

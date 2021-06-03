@@ -54,7 +54,7 @@ let delete_aux (ts : trm list) (t : trm) : trm =
     return: the updated ast
 
 *)
-let delete (instr : trm list) : Transfo.local=
+let delete (instr : trm list) : Target.Transfo.local=
   Target.apply_on_path(delete_aux instr)
 
 
@@ -148,7 +148,7 @@ let inline_aux (index : int) (t : trm) : trm =
       index: an integer in range 0 .. (current number of instrucitons inside the sequence)
     return: the updated ast
 *)
-let inline (index : int) : Transfo.local =
+let inline (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index)
 
 
@@ -166,7 +166,7 @@ let wrap_aux (visible : bool) (t : trm) : trm =
       visible: a boolean to decide if the wraped sequence should be visible or not
     return: the updated ast
 *)
-let wrap (visible : bool) : Transfo.local=
+let wrap (visible : bool) : Target.Transfo.local=
   Target.apply_on_path (wrap_aux visible)
 
 
@@ -190,7 +190,7 @@ let unwrap_aux (t : trm) : trm =
       visible: a boolean to decide if the wraped sequence should be visible or not
     return: the updated ast
 *)
-let unwrap : Transfo.local =
+let unwrap : Target.Transfo.local =
   Target.apply_on_path (unwrap_aux) 
 
 (* TODO: Implement later distrib_ref after references have been implemented *)

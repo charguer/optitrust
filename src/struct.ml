@@ -2,10 +2,10 @@ open Ast
 open Target
 open Tools
 
-let struct_set_explicit (field_list : var list) : Transfo.t =
+let struct_set_explicit (field_list : var list) : Target.Transfo.t =
   Target.apply_on_target (Struct_core.set_explicit field_list)
 
-let struct_set_implicit : Transfo.t =
+let struct_set_implicit : Target.Transfo.t =
   Target.apply_on_target(Struct_core.set_implicit)
 
 let struct_reorder ?(struct_fields : fields = []) ?(move_before : field = "") ?(move_after : field = "") (tg : target) : unit = 

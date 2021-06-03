@@ -1,5 +1,4 @@
 open Ast
-open Target
 
 
 (* set_explicit_aux: This is an auxiliary function for set_explicit 
@@ -70,7 +69,7 @@ let set_explicit_aux (field_list : var list) (t: trm) : trm =
     return:
       the updated ast
  *)
-let set_explicit (field_list : var list) : Transfo.local =
+let set_explicit (field_list : var list) : Target.Transfo.local =
   Target.apply_on_path(set_explicit_aux field_list)
 
 
@@ -116,7 +115,7 @@ let set_implicit_aux (t: trm) : trm =
     return:
       the updated ast
  *)
-let set_implicit : Transfo.local =
+let set_implicit : Target.Transfo.local =
   Target.apply_on_path(set_implicit_aux)
 
 
@@ -149,7 +148,7 @@ let reorder_aux (field_list : var list) (t: trm) : trm =
     return:
       the updated ast
  *)
-let reorder (field_list : var list) : Transfo.local = 
+let reorder (field_list : var list) : Target.Transfo.local = 
   Target.apply_on_path(reorder_aux field_list)
 
 

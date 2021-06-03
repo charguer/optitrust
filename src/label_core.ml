@@ -1,5 +1,5 @@
 open Ast
-open Target
+
 
 (* [label_add label t p]: This function is an auxiliary function for label_add
     params:
@@ -31,9 +31,9 @@ CURRENT PROPOSAL:
 
 --module Transfo    type local = trm -> path -> trm
   Target.local_transfo
-  Transfo.local
+  Target.Transfo.local
 
-let add (label : string) : Transfo.local =
+let add (label : string) : Target.Transfo.local =
   Target.apply_on_path (add_aux label)
 
 *)
@@ -55,7 +55,7 @@ let add_aux (label : string) (t : trm) : trm =
     return: 
       the updated ast 
 *)
-let add (label : string) : Transfo.local =
+let add (label : string) : Target.Transfo.local =
   Target.apply_on_path (add_aux label)
 
 (* label_rem_aux: This function is an auxiliary function for label_rem
@@ -77,6 +77,6 @@ let remove_aux (t : trm) : trm =
     return:
       the updated ast
  *)
-let remove : Transfo.local =
+let remove : Target.Transfo.local =
   Target.apply_on_path (remove_aux)
 

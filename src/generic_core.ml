@@ -34,7 +34,7 @@ let var_init_detach_aux (t : trm) : trm =
       the updated ast
 *)
 
-let var_init_detach : Transfo.local =
+let var_init_detach : Target.Transfo.local =
   Target.apply_on_path(var_init_detach_aux ) 
 
 (* var_init_attach_aux: This is an auxiliary function for var_init_attach
@@ -74,7 +74,7 @@ let var_init_attach_aux (t : trm) : trm =
     return
       the updated ast
 *)
-let var_init_attach : Transfo.local =
+let var_init_attach : Target.Transfo.local =
   Target.apply_on_path(var_init_attach_aux)
 
 
@@ -114,7 +114,7 @@ let const_non_const_aux (t : trm) : trm =
     return: 
       the updated ast
 *)
-let const_non_const : Transfo.local =
+let const_non_const : Target.Transfo.local =
   apply_on_path(const_non_const_aux)
 
 
@@ -135,6 +135,6 @@ let remove_instruction_aux (_t : trm) : trm =
     return
       the updated ast
 *)
-let remove_instruction : Transfo.local=
+let remove_instruction : Target.Transfo.local=
   apply_on_path(remove_instruction_aux)
 

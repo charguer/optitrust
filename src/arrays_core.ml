@@ -1,6 +1,5 @@
 open Ast
 open Clang_to_ast
-open Target
 
 (*
   1) change the declaration at the given index in the sequence
@@ -90,7 +89,7 @@ let array_to_variables_aux  (new_vars : var list) (t  : trm) : trm =
     return:
       the updated ast
  *)
-let array_to_variables (new_vars : var list) : Transfo.local =
+let array_to_variables (new_vars : var list) : Target.Transfo.local =
   Target.apply_on_path (array_to_variables_aux new_vars) 
 
 

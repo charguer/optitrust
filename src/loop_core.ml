@@ -61,7 +61,7 @@ open Generic
     return: 
       the modified ast
 *)
-let swap : Transfo.local =
+let swap : Target.Transfo.local =
   Target.apply_on_path (swap_aux) 
 
 
@@ -147,7 +147,7 @@ let color_aux (c : var) (i_color : var) (t : trm) : trm =
       return:
         the modified ast
 *)
-let color (c : var) (i_color : var) : Transfo.local =
+let color (c : var) (i_color : var) : Target.Transfo.local =
     Target.apply_on_path (color_aux c i_color) 
 
 (*  tile_aux: This function is an auxiliary function for loop
@@ -225,7 +225,7 @@ let tile_aux (b : var) (i_block : var) (t : trm) : trm =
         updated ast
 
 *)
-let tile (b : var)(i_block : var) : Transfo.local = 
+let tile (b : var)(i_block : var) : Target.Transfo.local = 
    Target.apply_on_path (tile_aux b i_block) 
 
 (*  tile_old_aux: This function is an auxiliary function for tile_old
@@ -323,7 +323,7 @@ let tile_old_aux (t : trm) : trm =
         updated ast
 
 *)
-let tile_old : Transfo.local =
+let tile_old : Target.Transfo.local =
    Target.apply_on_path (tile_old_aux) 
 
 
@@ -374,7 +374,7 @@ let hoist_aux (x_step : var) (t : trm) : trm =
     return:
       the updated ast
  *)
-let hoist (x_step : var) : Transfo.local =
+let hoist (x_step : var) : Target.Transfo.local =
    Target.apply_on_path (hoist_aux x_step)
 
 
@@ -464,7 +464,7 @@ let fusion_aux (t : trm) : trm =
     returns
       the updated ast
 *)
-let fusion : Transfo.local =
+let fusion : Target.Transfo.local =
   Target.apply_on_path(fusion_aux)
 
   
