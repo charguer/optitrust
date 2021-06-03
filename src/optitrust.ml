@@ -1103,12 +1103,7 @@ let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(s
   apply_to_top ~replace_top
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n" *)
-
-let local_other_name ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(new_var_type : typvar = "") ?(old_var : var = "") ?(new_var : var = "") () : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Generic.local_other_name ctx.clog section_of_interest new_var_type old_var new_var );
-    write_log "\n"
-
+  
 let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Generic.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);

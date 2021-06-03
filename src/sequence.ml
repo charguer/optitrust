@@ -7,23 +7,23 @@ open Output
 
 (* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)
 
-let seq_insert (tg : target) (ts : trm list) : unit =
+let insert (tg : target) (ts : trm list) : unit =
   Target.apply_on_target_between (fun (p,i) t ->
     Sequence_core.insert i ts p t) tg
 
-let seq_delete (index : int) (nb : int) : Target.Transfo.t =
+let delete (index : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.delete index nb)
 
-let seq_sub (i : int) (nb : int) : Target.Transfo.t =
+let sub (i : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target( Sequence_core.sub i nb )
 
-let seq_inline (i : int) : Target.Transfo.t =
+let inline (i : int) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.inline i)
 
-let seq_wrap (visible : bool) : Target.Transfo.t =
+let wrap (visible : bool) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.wrap visible)
 
-let seq_unwrap : Target.Transfo.t =
+let unwrap : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.unwrap)
 
 

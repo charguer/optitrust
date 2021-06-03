@@ -256,7 +256,7 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
     begin match t.desc with
     | Trm_seq [no_braces] ->
       begin match no_braces.desc with
-        | Trm_seq [f_loop;del_inst] ->
+        | Trm_seq [f_loop] ->
           begin match f_loop.desc with
           | Trm_for (init, cond, step, body) ->
             let new_type = typ_var var_type (get_typedef var_type) in
@@ -265,16 +265,12 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
             in
             let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
             (* let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in *)
-            let new_loop = trm_seq (* ~annot:(Some Delete_instructions) *) [trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in
-            (* trm_seq ~annot:(Some Delete_instructions) [
-              trm_seq ~annot:(Some No_braces) [
-                new_decl;new_loop;new_set_old
-              ]; new_del_inst
-            ] *)
-            trm_seq (* ~annot:(Some Delete_instructions) *) [
+            let new_loop = trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body) in
+           
+           
               trm_seq (* ~annot:(Some No_braces) *) [
                 new_decl;new_loop;new_set_old
-              ]]
+              ]
           | _ -> fail t.loc "local_other_name_aux: expected a for loop"
           end
       | _ -> fail t.loc "local_other_name_aux: expected the sequnece which contains the for loop"
@@ -282,9 +278,16 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
     | _ -> fail t.loc "local_other_name_aux: expected the no brace sequence"
     end
 
+let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.local = 
+  Target.apply_on_path(local_other_name_aux var_type old_var new_var)
 
-
-
-
-
+(* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for deloclize
+    params:
+      array_size: the size of the array we want to create
+      neutral_element: nutral element for reduction phase
+      fold_operation: fold_operation for reduction phase
+      t: ast subterm
+    return:
+      the updated ast
+*)
 

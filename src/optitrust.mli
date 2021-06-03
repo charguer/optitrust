@@ -216,8 +216,6 @@ val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:s
 
 (* val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit  *)
 
-val local_other_name : ?replace_top:bool -> ?section_of_interest:string -> ?new_var_type:string -> ?old_var:string -> ?new_var:string -> unit -> unit
-
 val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit
 
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit

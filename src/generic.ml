@@ -10,22 +10,26 @@ open Path_constructors
 
 
 let var_init_detach : Target.Transfo.t =
-  apply_on_target ( Generic_core.var_init_detach)
+  Target.apply_on_target ( Generic_core.var_init_detach)
 
 let var_init_atttach : Target.Transfo.t =
-  apply_on_target (Generic_core.var_init_attach)
+  Target.apply_on_target (Generic_core.var_init_attach)
 
 let const_non_const : Target.Transfo.t =
-  apply_on_target (Generic_core.const_non_const)
+  Target.apply_on_target (Generic_core.const_non_const)
 
 let remove_instruction : Target.Transfo.t =
-  apply_on_target (Generic_core.remove_instruction)
+  Target.apply_on_target (Generic_core.remove_instruction)
 
 let remove_instructions (tgs : target list) : unit =
   List.fold_left(fun () x ->
       remove_instruction x
     ) () tgs
   
+let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t = 
+  Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
+
+
 (*
   insert inert after the subterm pointed at by dl in t
   assumption: dl points at a seq element, thus ends with Dir_nth n
@@ -425,66 +429,6 @@ let insert_trm ?(insert_before : target = [])
        )
        t
        epl
-
-let local_other_name_aux (clog : out_channel) (var_type : typvar) (old_var : var) (new_var : var) (t : trm) : trm =
-    let log : string =
-      let loc : string =
-      match t.loc with
-      | None -> ""
-      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-      in Printf.sprintf
-      (" -expression\n%s\n" ^^
-      " %s is a for lopp \n"
-      )
-      (ast_to_string t) loc
-      in write_log clog log;
-      match t.desc with
-      | Trm_seq [no_braces] ->
-        begin match no_braces.desc with
-          | Trm_seq [f_loop;del_inst] ->
-            begin match f_loop.desc with
-            | Trm_for (init, cond, step, body) ->
-              let new_decl = trm_let Var_mutable (new_var, typ_var var_type (get_typedef var_type)) (trm_var old_var)
-          
-              in
-              let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
-              (* let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in *)
-
-
-              let new_loop = trm_seq (* ~annot:(Some Delete_instructions) *) [trm_for init cond step (Generic_core.change_trm (trm_var old_var)(trm_var new_var) body);del_inst] in
-              (* trm_seq ~annot:(Some Delete_instructions) [
-                trm_seq ~annot:(Some No_braces) [
-                  new_decl;new_loop;new_set_old
-                ]; new_del_inst
-              ] *)
-              trm_seq (* ~annot:(Some Delete_instructions) *) [
-                trm_seq (* ~annot:(Some No_braces) *) [
-                  new_decl;new_loop;new_set_old
-                ]]
-
-            | _ -> fail t.loc "local_other_name_aux: expected a for loop"
-            end
-        | _ -> fail t.loc "local_other_name_aux: expected the sequnece which contains the for loop"
-        end
-      | _ -> fail t.loc "local_other_name_aux: expected the no brace sequence"
-
-
-let local_other_name (clog : out_channel) (sec_of_int : label) (var_type : typvar) (old_var) (new_var : var) (t : trm) =
-    let tr = [cLabel sec_of_int; cBody] in
-    let b = !Flags.verbose in
-    Flags.verbose := false;
-    let epl = resolve_target tr t in
-    Flags.verbose := b;
-    match epl with
-    | []->
-      print_info t.loc "local_other_name: no matching subterm";
-      t
-    | _ -> List.fold_left
-            (fun t dl ->
-              apply_on_path (local_other_name_aux clog var_type old_var new_var) t dl)
-              t
-              epl
-
 
 let delocalize_aux (clog : out_channel) (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
   let rec list_replace_el (el : trm) (i : int) (list : trm list) : 'a list = match list with

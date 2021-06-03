@@ -207,8 +207,6 @@ let rec split_list_at_1 (n : int) (al : 'a list) : 'a list * ('a list) =
        let (al, al') = split_list_at_1 (n - 1) al in
        (a :: al, al')
 
-
-
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in
