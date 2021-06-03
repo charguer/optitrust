@@ -2,7 +2,6 @@ open Ast
 open Clang_to_ast
 open Target
 open Tools
-open Generic
 (* swap_aux: This is an auxiliary function for swap
     params:  
       t: an ast subterm
@@ -350,7 +349,7 @@ let hoist_aux (x_step : var) (t : trm) : trm =
       let index = for_loop_index (t) in
       let bound = for_loop_bound (t) in
       let remaining_body_trms = List.tl tl in
-      let remaining_body_trms = List.map(fun t -> (change_trm t (trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
+      let remaining_body_trms = List.map(fun t -> (Generic_core.change_trm t (trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
       
       (* (trm_apps (trm_prim ~loc (Prim_new tt)) [te]) *)
       

@@ -61,7 +61,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     let body =
       List.fold_left2
         (fun body (x, _) nx ->
-          change_trm
+          Generic_core.change_trm
             (trm_var x)
             (trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get)
               [trm_var nx])
@@ -129,7 +129,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                 (arg_decls ++ bodyl ++
                  [
                    trm_labelled return_label
-                     (change_trm (trm_apps (trm_var f) arg_vals)
+                     (Generic_core.change_trm (trm_apps (trm_var f) arg_vals)
                         (trm_lit Lit_unit) t)
                  ]
                 )
@@ -141,7 +141,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                 (bodyl ++
                  [
                    trm_labelled return_label
-                     (change_trm (trm_apps (trm_var f) arg_vals)
+                     (Generic_core.change_trm (trm_apps (trm_var f) arg_vals)
                         (trm_lit Lit_unit) t)
                  ]
                 )
@@ -151,7 +151,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                     (bodyl ++
                      [
                        trm_labelled return_label
-                         (change_trm (trm_apps (trm_var f) arg_vals)
+                         (Generic_core. (trm_apps (trm_var f) arg_vals)
                             (trm_lit Lit_unit) t)
                      ]
                     )
@@ -166,7 +166,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                   (arg_decls ++ (result_decl :: bodyl) ++
                    [
                      trm_labelled return_label
-                       (change_trm
+                       (Generic_core.change_trm
                           (trm_apps (trm_var f) arg_vals)
                           (* TODO: Fix this later *)
                           (trm_apps ~annot:(Some Mutable_var_get)
@@ -220,7 +220,7 @@ let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result 
        (* const variables *)
        | Trm_let (_,(x,_), dx) ->
           let t_x = trm_var x in
-          change_trm ~change_at:inline_at t_x dx t
+          Generic_core.change_trm ~change_at:inline_at t_x dx t
        (*
          heap allocated variables
          note: an initialisation must be given
@@ -238,20 +238,20 @@ let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result 
            *)
           let x' = fresh_in t x in
           let t =
-            (* change_trm
+            (* Generic_core.change_trm
               (trm_apps (trm_unop (Unop_delete false)) [trm_var x])
               (* do not forget annotations *)
               (trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ()))
                  (trm_unop (Unop_delete false)) [trm_var x']) *)
               t
           in
-          let t = change_trm ~change_at:inline_at t_x dx t in
+          let t = Generic_core.change_trm ~change_at:inline_at t_x dx t in
           (* put back x instead of x' *)
           change_trm (trm_var x') (trm_var x) t *)
        (* typedef *)
        | Trm_typedef (Typedef_abbrev (x,dx)) ->
           let ty_x = typ_var x (get_typedef x) in
-          change_typ ~change_at:inline_at ty_x dx t
+          Generic_core.change_typ ~change_at:inline_at ty_x dx t
        (* fun decl *)
        | Trm_let_fun (f, tf, args, body) ->
           let log : string =

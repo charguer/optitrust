@@ -50,7 +50,7 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
             | Add_address_of_operator :: addl -> {dx with add = addl}
             | _ -> fail t_def.loc "fold_decl: expected a reference"
         in
-        let t = change_trm ~change_at:fold_at def_x t_x t in
+        let t = Generic_core.change_trm ~change_at:fold_at def_x t_x t in
         (*
           def_x might have been replaced with x in the definition of x
           -> replace it again with def_x
@@ -59,16 +59,16 @@ let fold_decl (clog : out_channel) ?(as_reference : bool = false)
          (* TODO: Fix later this temporary hack *)
           [[cVarDef x ~body:[cVar x ]; cBody]]
         in
-        change_trm ~change_at t_x def_x t
+        Generic_core.change_trm ~change_at t_x def_x t
      
      (* typedef *)
      | Trm_typedef d -> 
        begin match d with 
        | Typedef_abbrev (x,dx) -> 
         let ty_x = typ_var x (get_typedef x) in 
-        let t = change_typ ~change_at: fold_at dx ty_x t in 
+        let t = Generic_core.change_typ ~change_at: fold_at dx ty_x t in 
         let change_at = [[cTypDef x]] in
-        change_typ ~change_at ty_x dx t
+        Generic_core.change_typ ~change_at ty_x dx t
        | _ -> fail t.loc "fold_decl: expected a typedef"
        end
      (* fun decl *)
