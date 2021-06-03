@@ -89,7 +89,7 @@ DIFF := diff --ignore-blank-lines --ignore-space-change -I '^//'
 	$(V)./$<
 	
 # The build command for compiling a script
-BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optiTrust.optitrust
+BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Rule for building the binary associated with a test
 %.byte: %.ml

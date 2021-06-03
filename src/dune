@@ -1,4 +1,4 @@
 (library
   (name optitrust)
-  (public_name optiTrust.optitrust)
+  (public_name optitrust)
   (libraries clangml refl pprint str))

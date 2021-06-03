@@ -19,7 +19,7 @@ val reset : unit -> unit
 val set_repeat_io : bool -> unit
 
 (** Path constructors *)
-type constr
+type constr = Target.constr
 type target = constr list
 type case_dir
 type case_kind

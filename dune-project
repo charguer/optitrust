@@ -3,7 +3,7 @@
 (generate_opam_files true)
 
 (package
-  (name optiTrust)
+  (name optitrust)
   (depends
     (dune (>= 2.4.0))
     (ocaml (>= 4.08.0))

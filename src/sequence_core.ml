@@ -58,18 +58,17 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local=
 let sub_aux (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      let lfront,lback = split_list_at index tl in
-      let l_sub,lback = split_list_at (index + nb) lback in
+      let lfront,lrest = split_list_at index tl in
+      let l_sub,lback = split_list_at nb lrest in
       (* Create the inner sequence*)
       let sub_seq = trm_seq l_sub in
       let tl = lfront @ [sub_seq] @ lback in
-      
       (* Apply changes *)
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
 
 let sub (index : int) (nb_instr : int)  =
-  Target.apply_on_path(sub_aux index nb_instr) 
+  Target.apply_on_path(sub_aux index nb_instr)
 
 (* [inline_aux index t]: This function is an auxiliary function for inline
     params:
@@ -135,6 +134,6 @@ let unwrap_aux (t : trm) : trm =
 
 
 let unwrap : Target.Transfo.local =
-  Target.apply_on_path (unwrap_aux) 
+  Target.apply_on_path (unwrap_aux)
 
 (* TODO: Implement later distrib_ref after references have been implemented *)
