@@ -2,7 +2,6 @@ open Ast
 open Ast_to_c
 open Clang_to_ast
 open Target
-open Generic
 open Declaration
 open Tools
 open Output
@@ -92,7 +91,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
         | Trm_abort (Ret None) -> trm_goto ~loc:t.loc return_label
         | _ -> trm_map aux t
       in
-      clean_up_no_brace_seq (aux t)
+      Generic_core.clean_up_no_brace_seq (aux t)
     in
     let body = replace_return body in
     let bodyl =

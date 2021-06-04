@@ -3,7 +3,6 @@ open Ast_to_c
 open Clang_to_ast
 open Target
 open Path_constructors
-open Generic
 open Tools
 open Output
 
@@ -120,7 +119,7 @@ let insert_decl ?(insert_before : target = [])
   let epl = resolve_target p t in
   Flags.verbose := b;
   (* insert the definition *)
-  let t = insert_trm ~insert_before ~insert_after t_insert t in
+  let t = Generic.insert_trm ~insert_before ~insert_after t_insert t in
   (*
     don't forget the delete instruction if x is heap allocated
     use explicit path because p will not be resolved as the position of the
@@ -195,7 +194,7 @@ let insert_const ?(insert_before : target = [])
  *)
 let insert_typedef ?(insert_before : target = [])
   ?(insert_after : target = []) (x : typvar) (dx : typ) (t : trm) : trm =
-  insert_trm ~insert_before ~insert_after (trm_typedef (Typedef_abbrev (x, dx))) t
+  Generic.insert_trm ~insert_before ~insert_after (trm_typedef (Typedef_abbrev (x, dx))) t
 
 (*
   combine insert_definition and fold_decl

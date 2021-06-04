@@ -2,19 +2,9 @@ open Ast
 open Target
 
 
-(* [isolate_last_dir_in_seq dl]:  
-    params: 
-      dl: explicit path to the targeted trm
-    return:
-      a pair of the explicit path to the outer sequence and the index of the term inside that sequence
-*)
-let isolate_last_dir_in_seq (dl : path) : path * int = 
-  match List.rev dl with
-  | Dir_nth i :: dl' -> (List.rev dl',i)
-  | _ -> fail None "isolate_last_dir_in_seq: cannot isolate the definition in a sequence"
 
 let to_variables (new_vars : var list) (tg : target) : unit = 
-  Target.apply_on_transformed_targets (isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.to_variables new_vars i t p 
   ) tg
 
@@ -36,7 +26,7 @@ let to_variables (new_vars : var list) (tg : target) : unit =
  *)
 
 let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (tg : target) : unit =
-  Target.apply_on_transformed_targets(isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.tile name block_name b x i t p) tg
 
 (*
@@ -68,7 +58,7 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (tg : 
  *)
 
 let swap (name : var -> var) (x : typvar) (tg : target) : unit =
-  Target.apply_on_transformed_targets (isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.swap name x i t p) tg
 
 
@@ -86,7 +76,7 @@ let swap (name : var -> var) (x : typvar) (tg : target) : unit =
  *)
 
 let aos_to_soa (name : var -> var) (x : typvar) (tg : target) : unit =
-  Target.apply_on_transformed_targets (isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t ->  Arrays_core.aos_to_soa name x i t p) tg
 
 

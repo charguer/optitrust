@@ -234,9 +234,9 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
       end
      
     in
-    let ilsm = Generic.functions_with_arg_type x array_decl in
-    let lback = List.map (Generic.insert_fun_copies name ilsm x) lback in
-    let lback = List.map (Generic.replace_fun_names name ilsm x) lback in
+    let ilsm = Generic_core.functions_with_arg_type x array_decl in
+    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in
+    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
     let lback = List.map (apply_tiling base_type block_name b x) lback in
     trm_seq ~annot:t.annot (lfront @ [array_decl] @ lback)
 
@@ -386,9 +386,9 @@ let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
       | _ -> fail t.loc "swap_aux: expected the typedef"
     end
     in
-    let ilsm =  Generic.functions_with_arg_type x new_decl in
-    let lback = List.map (Generic.insert_fun_copies name ilsm x) lback in 
-    let lback = List.map (Generic.replace_fun_names name ilsm x) lback in
+    let ilsm =  Generic_core.functions_with_arg_type x new_decl in
+    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in 
+    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
     let lback = List.map (apply_swapping x ) lback
     in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
   | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
@@ -531,9 +531,9 @@ let aos_to_soa_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : tr
     | _ -> fail t.loc "aos_to_soa_aux: expected a typedef"
     end 
     in
-    let ilsm =  Generic.functions_with_arg_type x new_decl in
-    let lback = List.map (Generic.insert_fun_copies name ilsm x) lback in 
-    let lback = List.map (Generic.replace_fun_names name ilsm x) lback in
+    let ilsm =  Generic_core.functions_with_arg_type x new_decl in
+    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in 
+    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
     let lback = List.map (swap_accesses x ) lback
     in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
     
