@@ -1053,11 +1053,6 @@ let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(s
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n" *)
   
-let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "") ?(array_size : string = "") ?(neutral_element : int = 0) ?(fold_operation : string = "") () : unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Generic.delocalize ctx.clog section_of_interest array_size neutral_element fold_operation);
-    write_log "\n"
-
 (* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : target = [ ]) : () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Generic.rewrite ctx.clog rule path );
