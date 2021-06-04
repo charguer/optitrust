@@ -5,7 +5,7 @@
 
 (* Usage: make ast_encoding.out,  then read stdout or open ast_encoding_out.cpp *)
 open Optitrust
-
+open Run
 (*
 let _= run (fun () ->
    show_target [cMulti; ];
@@ -13,5 +13,9 @@ let _= run (fun () ->
    )
 *)
 
-let _= run_unit_test (*~ast_decode:false*) (fun () ->
-   ())
+(* let _= run_unit_test ~ast_decode:false (fun _ ->
+   ();) *)
+
+let _ = run_unit_test (fun _ ->
+  show_target [cMulti;cVarDef "x"];
+)

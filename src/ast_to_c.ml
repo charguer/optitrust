@@ -12,8 +12,8 @@ let decode = ref true
 
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
-  | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const" 
-  | Typ_const t -> string " const"  ^^ typ_to_doc t  
+  | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const " 
+  | Typ_const t -> string " const "  ^^ typ_to_doc t  
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
   | Typ_float -> string "float"
@@ -71,7 +71,7 @@ and typ_to_doc (t : typ) : document =
   dattr ^^ dannot ^^ d
 
 and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
-  let const_string = if const then blank 1 ^^ string "const " ^^ blank 1 else empty in
+  let const_string = if const then blank 1 ^^ string " const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
       match s with

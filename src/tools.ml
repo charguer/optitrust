@@ -177,19 +177,7 @@ let filteri (f : int -> 'a -> bool) (al : 'a list) : 'a list =
   let aol = List.mapi (fun i a -> if f i a then Some a else None) al in
   List.filter_map (fun ao -> ao) aol
 
-(* split the list after its n-th element
-DEPRECATED
-let split_list_at (n : int) (al : 'a list) : 'a list * ('a list) =
-  let (before, after) =
-    foldi
-      (fun i (before, after) a ->
-        if i <= n then (a :: before, after) else (before, a :: after)
-      )
-      ([], [])
-      al
-  in
-  (List.rev before, List.rev after)
-*)
+
 
 let split_list_at (n : int) (al : 'a list) : ('a list) * ('a list) =
   if n < 0 then failwith "split_list_at: negative index";
