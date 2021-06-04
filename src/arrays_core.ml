@@ -1,5 +1,4 @@
 open Ast
-open Clang_to_ast
 
 
 (* This is an auxiliary function for array to variables to modify the ast globally *)
@@ -62,7 +61,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
         begin match t_var.ty_desc with
         | Typ_var (y, _) ->
           List.map(fun x ->
-          trm_let Var_mutable (x,(typ_ptr (typ_var y (get_typedef y)))) (trm_lit (Lit_uninitialized))) new_vars
+          trm_let Var_mutable (x,(typ_ptr (typ_var y (Clang_to_ast.get_typedef y)))) (trm_lit (Lit_uninitialized))) new_vars
     
         | _ -> fail t.loc "to_variables_aux: expected a type variable"
         end
@@ -185,7 +184,7 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
            trm_seq ~annot:(Some No_braces)
               [
                 trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name (get_typedef block_name))))
+                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name (Clang_to_ast.get_typedef block_name))))
               ]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
@@ -198,7 +197,7 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
               trm_seq ~annot:(Some No_braces)
                 [
                   trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (get_typedef block_name))
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (Clang_to_ast.get_typedef block_name))
                                           (Trm n_div_b)))
                 ]
            | Trm t' ->
@@ -206,7 +205,7 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
               trm_seq ~annot:(Some No_braces)
                 [
                   trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (get_typedef block_name))
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (Clang_to_ast.get_typedef block_name))
                                           (Trm t'')))
                 ]
            end

@@ -1,7 +1,5 @@
 open Ast
 open Target
-open Clang_to_ast
-open Ast_to_c
 open Tools
 (* INTERNAL FUNCTIONS *)
 (* *********************************************** *)
@@ -16,7 +14,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (* change all occurences of t_before in t' *)
   let rec apply_change (t' : trm) =
     (* necessary because of annotations that may be different *)
-    if ast_to_string t' = ast_to_string t_before then t_after
+    if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
     else
       match t'.desc with
       (*
@@ -58,7 +56,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   (* change all occurences of ty_before in ty *)
   let rec change_typ (ty : typ) : typ =
     (* necessary because of annotations in trms that may be different *)
-    if typ_to_string ty = typ_to_string ty_before then ty_after
+    if Ast_to_c.typ_to_string ty = Ast_to_c.typ_to_string ty_before then ty_after
     else Ast.typ_map change_typ ty
   in
   (* change all occurrences of ty_before in type annotations in t *)
@@ -138,7 +136,7 @@ let insert_trm_after (dl : path) (insert : trm) (t : trm) : trm =
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
   | Trm_var y' when y' = y ->
-     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_var x (get_typedef x)))
+     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_var x (Clang_to_ast.get_typedef x)))
        ~attributes:t.attributes y
   | _ -> trm_map (replace_type_with x y) t
 
@@ -325,7 +323,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                       *)
                      let tvl' =
                        List.fold_left
-                         (change_nth (fun (y, _) -> (y, typ_var x (get_typedef x)))) tvl il
+                         (change_nth (fun (y, _) -> (y, typ_var x (Clang_to_ast.get_typedef x)))) tvl il
                      in
                      (* add index to labels in the body of the function *)
                      let b' =
@@ -565,7 +563,7 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
         | Trm_seq [f_loop] ->
           begin match f_loop.desc with
           | Trm_for (init, cond, step, body) ->
-            let new_type = typ_var var_type (get_typedef var_type) in
+            let new_type = typ_var var_type (Clang_to_ast.get_typedef var_type) in
             let new_decl = trm_let Var_mutable (new_var, new_type) (trm_apps (trm_prim (Prim_new new_type)) [trm_var old_var])
         
             in

@@ -1,7 +1,6 @@
 open Ast
-open Clang_to_ast
 open Target
-open Tools
+
 (* swap_aux: This is an auxiliary function for swap
     params:  
       t: an ast subterm
@@ -358,7 +357,7 @@ let hoist_aux (x_step : var) (t : trm) : trm =
         trm_let Var_mutable (var_name, typ_ptr var_typ) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
       ] @ remaining_body_trms) in
       trm_seq ~annot:(Some No_braces) [
-        trm_let Var_mutable (x_step, typ_ptr (typ_array (typ_var "T" (get_typedef "T")) (Trm (bound)))) (trm_prim (Prim_new var_typ));
+        trm_let Var_mutable (x_step, typ_ptr (typ_array (typ_var "T" (Clang_to_ast.get_typedef "T")) (Trm (bound)))) (trm_prim (Prim_new var_typ));
         trm_for init cond step new_body
       ]
     | _ -> fail t.loc "hoist_aux: expected the sequence inside the body of the loop"
@@ -389,7 +388,7 @@ let hoist (x_step : var) : Target.Transfo.local =
   | Trm_for (init, cond, step, body) ->
     begin match body.desc with 
     | Trm_seq tl ->
-      let first_part, last_part = split_list_at index tl in
+      let first_part, last_part = Tools.split_list_at index tl in
       let first_body = trm_seq first_part in
       let second_body = trm_seq last_part in
       trm_seq ~annot:(Some No_braces) [

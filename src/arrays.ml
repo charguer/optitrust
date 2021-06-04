@@ -1,8 +1,6 @@
 open Ast
 open Target
 
-
-
 let to_variables (new_vars : var list) (tg : target) : unit = 
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.to_variables new_vars i t p 

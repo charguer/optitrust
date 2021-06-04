@@ -1,9 +1,7 @@
 open Ast
 open Target
-open Ast_to_c
-open Tools
 open Output
-
+open Tools
 
 (* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)
 
@@ -257,7 +255,7 @@ let split_sequence (clog : out_channel) (result_label : string)
          "  - expression\n%s\n" ^^
          "    %sis located inside a sequence\n"
         )
-        result_label block1_label block2_label (ast_to_string t) loc
+        result_label block1_label block2_label (Ast_to_c.ast_to_string t) loc
     in
     write_log clog log;
     match List.rev dl with

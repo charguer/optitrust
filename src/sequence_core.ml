@@ -1,6 +1,5 @@
 open Ast
 open Target
-open Tools (* TODO: use Tools. *)
 
 
 (* [insert_aux index ts t]: This function is an auxiliary function for insert
@@ -15,7 +14,7 @@ open Tools (* TODO: use Tools. *)
 let insert_aux (index : int) (ts : trm list) (t : trm): trm =
     match t.desc with
     | Trm_seq tl ->
-      let tl = insert_sublist_at ts index tl in
+      let tl = Tools.insert_sublist_at ts index tl in
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
@@ -33,8 +32,8 @@ let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      let lfront,lback = split_list_at index tl in
-      let _,lback = split_list_at (index + nb_instr) lback in
+      let lfront,lback = Tools.split_list_at index tl in
+      let _,lback = Tools.split_list_at (index + nb_instr) lback in
       (* Remove trms*)
       let tl = lfront @ lback in
       (* Apply the changes *)
@@ -58,8 +57,8 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local=
 let sub_aux (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      let lfront,lrest = split_list_at index tl in
-      let l_sub,lback = split_list_at nb lrest in
+      let lfront,lrest = Tools.split_list_at index tl in
+      let l_sub,lback = Tools.split_list_at nb lrest in
       (* Create the inner sequence*)
       let sub_seq = trm_seq l_sub in
       let tl = lfront @ [sub_seq] @ lback in
@@ -93,7 +92,7 @@ let inline_aux (index : int) (t : trm) : trm =
       end
       in
       (* Insert at the given index the trms from the inner sequence *)
-      let tl = insert_sublist_in_list inner_seq_trms index tl in
+      let tl = Tools.insert_sublist_in_list inner_seq_trms index tl in
       (*  list_insert index inner_seq (list_remove index tl)
           list_remove_and_insert_several index inner_seq tl *)
       (* Apply the changes *)
