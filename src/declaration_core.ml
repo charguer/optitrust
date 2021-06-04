@@ -66,6 +66,7 @@ let fold (as_reference : bool) (fold_at : target list) (index) : Target.Transfo.
       as_reference: boolean about the type of allocation
       x: name of the variable
       dx: value of the variable
+      index: the index where we want to insert the declaration
     return:
       the updated ast
 *)
@@ -92,3 +93,21 @@ let insert_aux (const : bool) (as_reference : bool) (x : var) (dx : trm) (index 
 
 let insert(const : bool) (as_reference : bool) (x : var) (dx : trm) (index : int) : Target.Transfo.local =
   Target.apply_on_path (insert_aux const as_reference x dx index)
+
+(* [insert_typedef_aux x dx t]: This function is an auxiliary function for insert_typedef
+      params:
+        x: typvar representing the type variable for the new typedef
+        dx: value of the typedef
+        index: where the new typedef is going to be inserted
+        t: ast subterm
+*)
+let insert_typedef_aux (x : typvar) (dx : typ) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let t_insert = trm_typedef (Typedef_abbrev (x, dx)) in
+    let tl = Tools.list_insert (index) t_insert tl in
+    trm_seq ~annot:t.annot tl
+  | _ -> fail t.loc "insert_typedef_aux: expected the surrounding sequence"
+
+let insert_typedef (x : typvar) (dx : typ) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (insert_typedef_aux x dx index)

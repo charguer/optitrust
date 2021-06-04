@@ -1,8 +1,6 @@
 open Ast
 open Ast_to_c
-open Clang_to_ast
 open Target
-open Path_constructors
 open Tools
 open Output
 
@@ -11,214 +9,23 @@ let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (tg : ta
     (fun (p,i) t -> Declaration_core.fold as_reference fold_at i t p) tg
 
 let insert ?(const : bool = false) ?(as_reference : bool = false)  (x : var) (dx : trm) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_target_between 
     (fun (p,i) t -> Declaration_core.insert const as_reference x dx i t p) tg
-(* let insert_decl ?(insert_before : target = [])
-  ?(insert_after : target = []) ?(const : bool = false)
-  ?(as_reference : bool = false) (x : var) (dx : trm) (t : trm) : trm =
-  let tx = *)
-
-
-
-
-
-
-(*
-  find the definition x = dx pointed at by pl and replace occurrences of dx with
-  x
-  paths point at subterms in which all occurences will be replaced
-  the empty path means all occurences will be replaced (default behaviour)
-  as_reference option for variable declarations: if dx = &dx' replace dx' with
-  *x instead of &dx' with x
- *)
-let fold_decl (clog : out_channel) ?(as_reference : bool = false)
-  ?(fold_at : target list = [[]]) (tr : target) (t : trm) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target tr t in
-  Flags.verbose := b;
-  match epl with
-  | [dl] ->
-     let (t_def, _) = resolve_path dl t in
-     let log : string =
-       Printf.sprintf
-         ("  - expression\n%s\n" ^^
-          if as_reference then
-          "    is a variable declaration of the form\n" ^^
-          "      type* x = &dx\n"
-          else
-          "    is a variable/type declaration\n"
-         )
-         (ast_to_string t_def)
-     in
-     write_log clog log;
-     begin match t_def.desc with
-     (* const variables *)
-      | Trm_let (_,(x,_),dx) ->
-        let t_x =
-          if as_reference then trm_apps (trm_unop Unop_get) [trm_var x]
-          else trm_var x
-        in
-        let def_x =
-          if not as_reference then dx
-          else
-            match dx.add with
-            | Add_address_of_operator :: addl -> {dx with add = addl}
-            | _ -> fail t_def.loc "fold_decl: expected a reference"
-        in
-        let t = Generic_core.change_trm ~change_at:fold_at def_x t_x t in
-        (*
-          def_x might have been replaced with x in the definition of x
-          -> replace it again with def_x
-         *)
-        let change_at =
-         (* TODO: Fix later this temporary hack *)
-          [[cVarDef x ~body:[cVar x ]; cBody]]
-        in
-        Generic_core.change_trm ~change_at t_x def_x t
-     
-     (* typedef *)
-     | Trm_typedef d -> 
-       begin match d with 
-       | Typedef_abbrev (x,dx) -> 
-        let ty_x = typ_var x (get_typedef x) in 
-        let t = Generic_core.change_typ ~change_at: fold_at dx ty_x t in 
-        let change_at = [[cTypDef x]] in
-        Generic_core.change_typ ~change_at ty_x dx t
-       | _ -> fail t.loc "fold_decl: expected a typedef"
-       end
-     (* fun decl *)
-     | Trm_let_fun _ ->
-        fail t.loc "fold_decl: fun declaration folding is unsupported"
-     | _ -> fail t.loc "fold_decl: expected a definition"
-     end
-  | _ -> fail t.loc "fold_decl: the path must point to exactly 1 subterm"
-
-(*
-  insert a definition x = dx either before the position pointed at by
-  insert_before or after the position pointed at by insert_after
-  both must be resolved as paths to a seq element
-  x may be a const variable or not (not const by default)
-  option: make x a reference (x = &dx)
-  assumptions:
-    - no conflicts with the new name x
-    - for a given seq, the insertion path points to at most one of its elements
-    - if x is a reference, dx denotes a memory cell
- *)
-let insert_decl ?(insert_before : target = [])
-  ?(insert_after : target = []) ?(const : bool = false)
-  ?(as_reference : bool = false) (x : var) (dx : trm) (t : trm) : trm =
-  let tx =
-    match dx.typ with
-    | None -> fail dx.loc "insert_decl: cannot find definition type"
-    | Some tx -> if as_reference then typ_ptr tx else tx
-  in
-  let def_x =
-    if as_reference then {dx with add = Add_address_of_operator :: dx.add}
-    else dx
-  in
-  let t_insert =
-    if const then trm_let Var_immutable (x,tx) def_x
-    else
-      trm_let Var_mutable (x, (typ_ptr tx)) def_x
-      
-  in
-  (* compute the explicit path for later use *)
-  let p =
-    match insert_before, insert_after with
-    | [], _ :: _ -> insert_after
-    | _ :: _, [] -> insert_before
-    | [], [] -> fail t.loc "insert_decl: please specify an insertion point"
-    | _ -> fail t.loc "insert_decl: cannot insert both before and after"
-  in
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target p t in
-  Flags.verbose := b;
-  (* insert the definition *)
-  let t = Generic.insert_trm ~insert_before ~insert_after t_insert t in
-  (*
-    don't forget the delete instruction if x is heap allocated
-    use explicit path because p will not be resolved as the position of the
-    definition
-   *)
-  if const then t
-  else
-    (*
-      add a seq with delete instruction around the pointed term containing the
-      declaration
-     *)
-    (* TODO: Remove this, delete instructions not needed anymore*)
-    let create_delete_instr (dl : path) (t : trm) : trm =
-      apply_on_path
-        (fun t ->
-          (* t is expected to be a seq *)
-          trm_seq (* ~annot:(Some Delete_instructions) *)
-            [t;
-             (* trm_apps ~annot:(Some Heap_allocated)
-               ~typ:(Some (typ_unit ()))
-               (trm_unop (Unop_delete false)) [trm_var x] *)
-            ]
-        )
-        t
-        dl
-    in
-    List.fold_left
-      (fun t dl ->
-        match List.rev dl with
-        (*
-          the seq containing the definition might be inside a seq with delete
-          instructions
-          -> do not create a seq
-         *)
-        (* | Dir_nth _ :: Dir_nth n :: dl ->
-           apply_on_path
-             (fun t ->
-               match t.desc with
-               | Trm_seq (t' :: del_instr_l)
-                    when t.annot = Some Delete_instructions ->
-                  trm_seq ~annot:(Some Delete_instructions)
-                    (t' ::
-                     (trm_apps ~annot:(Some Heap_allocated)
-                        ~typ:(Some (typ_unit ()))
-                        (trm_unop (Unop_delete false)) [trm_var x]) ::
-                     del_instr_l
-                    )
-               (*
-                 if we do not find a seq of delete instructions, go deeper to
-                 create the seq
-                *)
-               | _ -> create_delete_instr [Dir_nth n] t
-             )
-             t
-             (List.rev dl) *)
-        | Dir_nth _ :: dl -> create_delete_instr (List.rev dl) t
-        | _ -> fail t.loc "insert_definition: expected a path to a seq"
-      )
-      t
-      epl
 
 (* same as insert_definition but for a constant *)
-let insert_const ?(insert_before : target = [])
-  ?(insert_after : target = []) (x : var) (dx : trm) (t : trm) : trm =
-  insert_decl ~insert_before ~insert_after ~const:true x dx t
+let insert_const (x : var) (dx : trm) (tg : target) : unit =
+  insert ~const:true x dx tg
 
-(*
-  insert a type declaration x = dx either before the position pointed at by
-  insert_before or after the position pointed at by insert_after
-  both must be resolved as paths to a seq element
-  assumption: no conflicts with the new name x
- *)
-let insert_typedef ?(insert_before : target = [])
-  ?(insert_after : target = []) (x : typvar) (dx : typ) (t : trm) : trm =
-  Generic.insert_trm ~insert_before ~insert_after (trm_typedef (Typedef_abbrev (x, dx))) t
+let insert_typedef (x : typvar) (dx : typ) (tg : target) : unit =
+  Target.apply_on_target_between 
+    (fun (p,i) t -> Declaration_core.insert_typedef x dx i t p) tg
 
 (*
   combine insert_definition and fold_decl
   assumption: if x is not a reference, no effects for dx and it has the same
   value through all its occurences
  *)
-let insert_and_fold (clog : out_channel) ?(insert_before : target = [])
+(* let insert_and_fold (clog : out_channel) ?(insert_before : target = [])
   ?(insert_after : target = []) ?(const : bool = false)
   ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var)
   (dx : trm) (t : trm) : trm =
@@ -329,7 +136,7 @@ let insert_and_fold_typedef (clog : out_channel)
        | _ -> fail t.loc "insert_and_fold_typedef: expected a path to a seq"
      in
      let def_pathl = List.map (fun d -> Constr_dir d) dl in
-     fold_decl clog ~fold_at def_pathl t
+     fold_decl clog ~fold_at def_pathl t *)
 (*
   remove the declaration pointed at by pl
   pl must be resolved as a path to a seq element

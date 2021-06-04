@@ -174,33 +174,6 @@ val extract_loop_var : ?replace_top:bool -> ?keep_label:bool -> ?label:string ->
 val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
                         ?label:string -> target -> unit
 
-
-val fold_decl : ?replace_top:bool -> ?as_reference:bool ->
-                ?fold_at:(target list) -> decl_target:target -> unit -> unit
-
-val insert_decl : ?replace_top:bool -> ?insert_before:target ->
-                  ?insert_after:target -> ?const:bool ->
-                  ?as_reference:bool -> name:string -> value:string -> unit ->
-                  unit
-
-val insert_const : ?replace_top:bool -> ?insert_before:target ->
-                   ?insert_after:target -> name:string -> value:string ->
-                   unit -> unit
-
-val insert_and_fold : ?replace_top:bool -> ?insert_before:target ->
-                      ?insert_after:target -> ?const:bool ->
-                      ?as_reference:bool -> ?fold_at:(target list) ->
-                      name:string -> value:string -> unit -> unit
-
-val insert_typedef : ?replace_top:bool -> ?insert_before:target ->
-                     ?insert_after:target -> name:string -> value:string ->
-                     unit -> unit
-
-val insert_and_fold_typedef : ?replace_top:bool -> ?insert_before:target ->
-                              ?insert_after:target ->
-                              ?fold_at:(target list) -> name:string ->
-                              value:string -> unit -> unit
-
 val remove_decl : ?replace_top:bool -> decl_target:target -> unit -> unit
 
 val inline_decl : ?replace_top:bool -> ?delete_decl:bool ->
