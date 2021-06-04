@@ -2,7 +2,6 @@ open Ast
 open Ast_to_c
 open Target
 open Path_constructors
-open Declaration
 open Tools
 open Inlining_core
 open Output
@@ -15,7 +14,7 @@ open Output
   assumption for function inlining: the function is used at most once per
   instruction
  *)
-let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
+let inline_decl (clog : out_channel) ?(_delete_decl : bool = false)
   ?(inline_at : target list = [[]]) ?(fun_result : var = "res") ?(fun_args : var list = [])
   ?(fun_return_label : label = "exit") (tr : target) (t : trm) : trm =
   let b = !Flags.verbose in
@@ -25,7 +24,8 @@ let inline_decl (clog : out_channel) ?(delete_decl : bool = false)
   match epl with
   | [dl] -> let t = apply_on_path (inline_decl_core  clog inline_at fun_result
             fun_args fun_return_label) t dl in 
-            if delete_decl then remove_decl clog tr t else t
+            (* TODO: Reimplement this functon from scratch *)
+            (* if delete_decl then remove_decl clog tr t else *) t
 
   | _ -> fail t.loc "inline_decl: the path must point at exactly 1 subterm"
 

@@ -502,42 +502,6 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
   write_log log_end *)
 
 
-
-(* todo: inlining with flag "error if occurrence" + flag "delete"? *)
-let remove_decl ?(replace_top : bool = false) ~decl_target:(tr : target)
-  (_ : unit) : unit =
-  let log : string =
-    let ps = target_to_string tr in
-    Printf.sprintf
-      ("Remove_decl ~decl_target:%s\n" ^^
-       "  - %s points at exactly one program point\n"
-      )
-      ps ps
-  in
-  write_log log;
-  apply_to_top ~replace_top
-    (fun ctx -> Declaration.remove_decl ctx.clog tr);
-  write_log "\n"
-
-let inline_decl ?(replace_top : bool = false) ?(delete_decl : bool = false)
-  ?(inline_at : target list = [[]]) ?(fun_result : var = "res") ?(fun_args : var list = [])
-  ?(fun_return_label : label = "exit") ~decl_target:(tr : target)
-  (_ : unit) : unit =
-  let log : string =
-    let ps = target_to_string tr in
-    Printf.sprintf
-      ("Inline_decl ~decl_target:%s:\n" ^^
-       "  - %s points at exactly one program point\n"
-      )
-      ps ps
-  in
-  write_log log;
-  apply_to_top ~replace_top
-    (fun ctx ->
-      Inlining.inline_decl ctx.clog ~delete_decl ~inline_at ~fun_result ~fun_args
-       ~fun_return_label tr);
-  write_log "\n"
-
 (* let move_loop_before ?(replace_top : bool = false) (tr : target) (loop_index : var) : unit =
     let log : string =
       Printf.sprintf "move_loop_before %s:\n" (target_to_string tr)
@@ -580,12 +544,12 @@ let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(s
 let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
   let log = "Eliminate_goto_next: no assumptions\n\n" in
   write_log log;
-  apply_to_top ~replace_top (fun _ -> Declaration.eliminate_goto_next)
+  apply_to_top ~replace_top (fun _ -> Generic_core.eliminate_goto_next)
 
 let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
   let log = "Group_decl_init: no assumptions\n\n" in
   write_log log;
-  apply_to_top ~replace_top (fun _ -> Declaration.group_decl_init)
+  apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
 
 let inline_seq ?(replace_top : bool = false) ~seq_target:(tr : target)
   (_ : unit) : unit =

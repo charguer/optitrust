@@ -174,12 +174,6 @@ val extract_loop_var : ?replace_top:bool -> ?keep_label:bool -> ?label:string ->
 val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
                         ?label:string -> target -> unit
 
-val remove_decl : ?replace_top:bool -> decl_target:target -> unit -> unit
-
-val inline_decl : ?replace_top:bool -> ?delete_decl:bool ->
-                  ?inline_at:(target list) -> ?fun_result:string -> ?fun_args:(string list) ->
-                  ?fun_return_label:string -> decl_target:target -> unit ->unit
-
 val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:string list -> unit -> unit
 
 (* val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit  *)

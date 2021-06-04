@@ -2,7 +2,6 @@ open Ast
 open Ast_to_c
 open Clang_to_ast
 open Target
-open Declaration
 open Tools
 open Output
 
@@ -33,7 +32,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     (* DEPRECATED incr counter; *)
   let fresh_args =
      match fun_args with
-     | [] -> List.map (fun (x, tx) -> (fresh_in t x, tx)) args
+     | [] -> List.map (fun (x, tx) -> (Generic_core.fresh_in t x, tx)) args
      | _ ->
       if List.length fun_args <> List.length args
         then fail t.loc "inline_fun_decl: incorrect number of names provided for the arguments";
@@ -42,7 +41,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
 
     (* name for the result of f, result might be an argument name *)
   let result =
-      fresh_in
+      Generic_core.fresh_in
         (trm_seq
           (t ::
               List.map
@@ -179,8 +178,8 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
              )
       in
       (* clean up *)
-      let t = group_decl_init t in
-      let t = eliminate_goto_next t in
+      let t = Generic_core.group_decl_init t in
+      let t = Generic_core.eliminate_goto_next t in
       let n = nb_goto return_label t in
       if n = 0 then Label.delete_label return_label t else t
   in
@@ -236,7 +235,7 @@ let inline_decl_core (clog : out_channel) (inline_at : target list) (fun_result 
              make sure x is not replaced in delete instructions by replacing it
              with a fresh variable
            *)
-          let x' = fresh_in t x in
+          let x' = Generic_core.fresh_in t x in
           let t =
             (* Generic_core.change_trm
               (trm_apps (trm_unop (Unop_delete false)) [trm_var x])

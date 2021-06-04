@@ -425,6 +425,64 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
   | _ -> fail None "isolate_last_dir_in_seq: cannot isolate the definition in a sequence"
 
 
+(* compute a fresh variable (w.r.t. t) based on x *)
+let fresh_in (t : trm) (x : var) : var =
+  if not (is_used_var_in t x) then x
+  else
+    begin
+      let n = ref 0 in
+      while is_used_var_in t (x ^ "_" ^ string_of_int !n) do
+        incr n
+      done;
+      x ^ "_" ^ string_of_int !n
+    end
+
+let eliminate_goto_next (t : trm) : trm =
+  let rec elim_in_list (tl : trm list) : trm list =
+    match tl with
+    | t1 :: t2 :: tl ->
+       begin match t1.desc, t2.desc with
+       | Trm_goto l1, Trm_labelled (l2, _) when l1 = l2 ->
+          elim_in_list (t2 :: tl)
+       | _ -> t1 :: (elim_in_list (t2 :: tl))
+       end
+    | _ -> tl
+  in
+  let rec aux (t : trm) : trm =
+    match t.desc with
+    | Trm_seq tl ->
+       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
+         (elim_in_list (List.map aux tl))
+    | _ -> trm_map aux t
+  in
+  aux t
+(* TODO: Change this based on Arthurs'idea *)
+let group_decl_init (t : trm) : trm =
+  let rec group_in_list (tl : trm list) : trm list =
+    match tl with
+    | t1 :: t2 :: tl ->
+       begin match t1.desc, t2.desc with
+       | Trm_seq [{desc = Trm_let (Var_mutable,(x, tx), dx); _}],
+         Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
+                   [{desc = Trm_var _; _}; _])
+             (* when y = x && t1.annot = Some Heap_allocated *) ->
+          let t =
+            trm_let ~loc:t1.loc Var_mutable (x, tx) dx
+          in
+          group_in_list (t :: tl)
+       | _ -> t1 :: (group_in_list (t2 :: tl))
+       end
+    | _ -> tl
+  in
+  let rec aux (t : trm) : trm =
+    match t.desc with
+    | Trm_seq tl ->
+       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
+         (group_in_list (List.map aux tl))
+    | _ -> trm_map aux t
+  in
+  aux t
+
 
 (* ********************************************** *)
 
