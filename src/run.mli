@@ -177,8 +177,6 @@ val extract_loop_var : ?replace_top:bool -> ?keep_label:bool -> ?label:string ->
 val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
                         ?label:string -> target -> unit
 
-val tile_array : ?replace_top:bool -> ?name:(string -> string) ->
-                 ?block_name:string -> block_size:string -> string -> unit
 
 val fold_decl : ?replace_top:bool -> ?as_reference:bool ->
                 ?fold_at:(target list) -> decl_target:target -> unit -> unit

@@ -588,31 +588,6 @@ let get_context (ctx : context) (dl : path) (t : trm) : string =
   ctx.includes ^ ast_to_string (trm_seq ~annot:(Some No_braces) decl_l)
 
 
-let tile_array ?(replace_top : bool = false)
-  ?(name : var -> var = fun x -> x ^ "_tiled") ?(block_name : typvar = "")
-  ~block_size:(b : string) (x : typvar) : unit =
-  let block_name = if block_name = "" then x ^ "_block" else block_name in
-  let log : string =
-    Printf.sprintf
-      ("Tile_array ~block_size:%s %s:\n" ^^
-       "  - %s is not used in functions declarations\n" ^^
-       "  - %s is a valid expression at the declaration of %s\n" ^^
-       "  - %s is a fresh name\n" ^^
-       "  - the name function outputs fresh names\n"
-      )
-      b x x b x block_name
-  in
-  write_log log;
-  apply_to_top ~replace_top
-    (fun ctx t ->
-      match target_to_decl x t with
-      | None -> fail t.loc ("tile_array: unable to find declaration of " ^ x)
-      | Some dl ->
-         let context = get_context ctx dl t in
-         Arrays.tile_array ctx.clog name block_name (term ctx ~context b) x t
-    );
-  write_log "\n"
-
 (*
   todo: uncomment the 3 following functions once users have access to the ast
  *)

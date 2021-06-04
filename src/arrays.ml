@@ -2,7 +2,6 @@ open Ast
 open Target
 open Ast_to_c
 open Generic
-open Arrays_core
 open Output
 
 
@@ -23,8 +22,6 @@ let to_variables (new_vars : var list) (tg : target) : unit =
   ) tg
 
 
-(* TODO: Finish splititng all function into core and basics for this module *)
-
 (*
   array tiling: transforms an array t[n] into a matrix t[n/b][b] for a fixed
   block size b
@@ -40,66 +37,11 @@ let to_variables (new_vars : var list) (tg : target) : unit =
     - x is not used in function definitions, but only in var declarations
     - for now: in any case, the number of elements is divisible by b
  *)
-let tile_array (clog : out_channel) (name : var -> var) (block_name : typvar)
-  (b : trm) (x : typvar) (t : trm) : trm =
-  (*
-    changes:
-      - replace the definition of x with:
-        + (ty[b])* if x is ty*
-        + ty[n/b][b] if x is ty[n]
-        in both cases: define ty[b] as block_name
-      - add a copy of each function taking an argument of type x and replace the
-        function calls with these copies
-      - replace array accesses a[i] for a of type x with a[i/b][i%b]
-   *)
-  let ilsm = functions_with_arg_type x t in
-  (* first add copies of the functions *)
-  let t = insert_fun_copies name ilsm x t in
-  (* then replace function calls *)
-  let t = replace_fun_names name ilsm x t in
-  (* finally adapt the declaration and accesses *)
-  let base_type =
-    match aliased_type x t with
-    | None -> fail t.loc "tile_array: unable to find array type"
-    | Some ty ->
-       let log : string =
-         Printf.sprintf
-           ("  - type\n%s\n" ^^
-            "    represents a one-dimensional array type or a pointer type\n"
-           )
-           (typ_to_string ty)
-       in
-       write_log clog log;
-       begin match ty.ty_desc with
-       | Typ_ptr ty ->
-          let log : string =
-            Printf.sprintf
-              ("  - each array of type %s is declared using the following " ^^
-                 "pattern:\n" ^^
-               "      %s array_name = my_alloc(nb_elements, size_element)\n" ^^
-               "  where nb_elements is divisible by %s\n"
-              )
-              x x (ast_to_string b)
-          in
-          write_log clog log;
-          ty
-       | Typ_array (ty, s) ->
-          let log : string =
-            let n : string =
-              match s with
-              | Undefined ->  fail t.loc "tile_array: array size must be provided"
-              | Const n -> string_of_int n
-              | Trm t -> ast_to_string t
-            in
-            Printf.sprintf "  - size %s is divisible by %s\n" n
-              (ast_to_string b)
-          in
-          write_log clog log;
-          ty
-       | _ -> fail t.loc "tile_array: expected array or pointer type"
-       end
-  in
-  clean_up_no_brace_seq (tile_array_core base_type block_name b x t)
+
+let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (tg : target) : unit =
+  Target.apply_on_transformed_targets(isolate_last_dir_in_seq)
+    (fun (p,i) t -> Arrays_core.tile name block_name b x i t p) tg
+
 
 
 (*  t[i][k]  t:x   then swap dimentions for t
