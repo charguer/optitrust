@@ -10,9 +10,13 @@ let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (tg : ta
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Declaration_core.fold as_reference fold_at i t p) tg
 
-
-
-
+let insert ?(const : bool = false) ?(as_reference : bool = false)  (x : var) (dx : trm) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.insert const as_reference x dx i t p) tg
+(* let insert_decl ?(insert_before : target = [])
+  ?(insert_after : target = []) ?(const : bool = false)
+  ?(as_reference : bool = false) (x : var) (dx : trm) (t : trm) : trm =
+  let tx = *)
 
 
 
@@ -114,7 +118,7 @@ let insert_decl ?(insert_before : target = [])
     else dx
   in
   let t_insert =
-    if const then trm_let Var_mutable (x,tx) def_x
+    if const then trm_let Var_immutable (x,tx) def_x
     else
       trm_let Var_mutable (x, (typ_ptr tx)) def_x
       
