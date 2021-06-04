@@ -245,14 +245,14 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
 let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index : int): Target.Transfo.local =
   Target.apply_on_path(tile_aux name block_name b x index)
 
-(* array_swap_aux: This is an auxiliary function for array_swap
+(* apply_swapping: This is an auxiliary function for array_swap
     params:
       x: typvar
       t: global ast
     return:
       the updated ast
  *)
- let rec array_swap_aux (x : typvar) (t : trm) : trm =
+ let rec apply_swapping (x : typvar) (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, tl) ->
      begin match f.desc with
@@ -269,12 +269,13 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index
                 | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
                  begin match tl' with
                  | [base'; index'] ->
+  
                     begin match base'.typ with
                     (* if we find such accesses, we swap the two indices *)
                     | Some {ty_desc = Typ_var (x', _); _} when x' = x ->
                        (* x might also be the type of arrays in indices… *)
-                       let swapped_index = array_swap_aux x index in
-                       let swapped_index' = array_swap_aux x index' in
+                       let swapped_index = apply_swapping x index in
+                       let swapped_index' = apply_swapping x index' in
                        trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                          ~typ:t.typ f
                          [
@@ -287,11 +288,11 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index
                            swapped_index'
                          ]
                     (*
-                      otherwise we recursively call array_swap_aux after removing
+                      otherwise we recursively call apply_swapping after removing
                       one dimension
                      *)
                     | _ ->
-                       let swapped_l = List.map (array_swap_aux x) tl in
+                       let swapped_l = List.map (apply_swapping x) tl in
                        trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                          ~typ:t.typ f swapped_l
                     end
@@ -301,16 +302,16 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index
                  end
               (*
                 again, if we do not find two successive accesses, we
-                recursively call array_swap_aux
+                recursively call apply_swapping
                *)
               | _ ->
-                 let swapped_l = List.map (array_swap_aux x) tl in
+                 let swapped_l = List.map (apply_swapping x) tl in
                  trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement f
                    ~typ:t.typ swapped_l
               end
            (* again, … *)
            | _ ->
-              let swapped_l = List.map (array_swap_aux x) tl in
+              let swapped_l = List.map (apply_swapping x) tl in
               trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement f
                 ~typ:t.typ swapped_l
            end
@@ -318,24 +319,45 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index
                              "arguments");
         end
      (*
-         for most other terms we only recursively call array_swap_aux
+         for most other terms we only recursively call apply_swapping
          note: arrays of type x might appear in f now
       *)
      | _ ->
-        let swapped_f = array_swap_aux x f in
-        let swapped_l = List.map (array_swap_aux x) tl in
+        let swapped_f = apply_swapping x f in
+        let swapped_l = List.map (apply_swapping x) tl in
         trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ
           swapped_f swapped_l
      end
-  (* declaration… *)
-  | Trm_typedef d ->
-     begin match d with
-     (* we look for the declaration of x *)
-     | Typedef_abbrev (y, ty) when y = x ->
-        (*
-          swap the two first coordinates of the multidimensional array type ty
-         *)
-        let rec swap_type (ty : typ) : typ =
+
+  (*
+     remaining cases: val, var, array, struct, if, seq, while, for, switch,
+     abort, labelled
+     inside values, array accesses may only happen in array sizes in types
+     todo: currently ignored, is it reasonable to expect such things to happen?
+   *)
+  | _ -> trm_map (apply_swapping x) t
+
+
+(* [swap_aux name x t]: This is an auxiliary function for swap
+    params:
+      name: a function to change the name of the array
+      x: typ of the array
+      t: ast 
+    return:
+      the updated ast
+*)
+let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let d,lback = Tools.split_list_at 0 lback in
+    let d = List.hd d in
+    let new_decl = 
+    begin match d.desc with
+      | Trm_typedef td ->
+        begin match td with 
+        | Typedef_abbrev (y, ty) when y = x ->
+           let rec swap_type (ty : typ) : typ =
           match ty.ty_desc with
           | Typ_array ({ty_desc = Typ_array (ty', s'); ty_annot; ty_attributes},
                        s) ->
@@ -359,17 +381,17 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index
         in
         trm_typedef ~annot: t.annot ~loc: t.loc ~is_statement:t.is_statement ~add:t.add
           (Typedef_abbrev (y, swap_type ty))
-     (*
-         all the interesting cases are covered now, we only have to do recursive
-         calls
-         var and fun decl first
-      *)
-     | _ -> trm_map (array_swap_aux x) t
-     end
-  (*
-     remaining cases: val, var, array, struct, if, seq, while, for, switch,
-     abort, labelled
-     inside values, array accesses may only happen in array sizes in types
-     todo: currently ignored, is it reasonable to expect such things to happen?
-   *)
-  | _ -> trm_map (array_swap_aux x) t
+        | _ -> fail t.loc "swap_aux: expected a declaration"
+        end
+      | _ -> fail t.loc "swap_aux: expected the typedef"
+    end
+    in
+    let ilsm =  Generic.functions_with_arg_type x new_decl in
+    let lback = List.map (Generic.insert_fun_copies name ilsm x) lback in 
+    let lback = List.map (Generic.replace_fun_names name ilsm x) lback in
+    let lback = List.map (apply_swapping x ) lback
+    in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
+  | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
+
+  let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
+    Target.apply_on_path (swap_aux name x index )

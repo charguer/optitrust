@@ -168,9 +168,6 @@ val show_ast : ?replace_top:bool -> ?file:string -> ?to_stdout:bool -> target ->
 
 val clean_target_decorators : unit -> unit
 
-val swap_coordinates : ?replace_top:bool -> ?name:(string -> string) ->
-                       string -> unit
-
 val extract_loop_var : ?replace_top:bool -> ?keep_label:bool -> ?label:string ->
                        target -> unit
 

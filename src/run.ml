@@ -309,32 +309,6 @@ let clean_target_decorators () : unit =
     apply_to_top ~replace_top:false (fun _ -> Generic.delete_target_decorators)
 
 (*
-  transformation to swap the two first dimensions of an array
-  assumption: x is a type variable that represents a multidimensional array type
-  with >= 2 dimensions
-  all variables of type x will be swapped
-  assumption: x is not used in fun declarations
-    -> to swap the first dimensions of a function argument, use swap_coordinates
-    on the array on which the function is called: a new function with the
-    appropriate type is generated
-  function copies are named with name
-  possibility: add label on new functions
-*)
-let swap_coordinates ?(replace_top : bool = false)
-  ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
-  let log : string =
-    Printf.sprintf
-      ("Swap_coordinates %s:\n" ^^
-       "  - %s is not used in functions declarations\n" ^^
-       "  - the name function outputs fresh names\n"
-      )
-      x x
-  in
-  write_log log;
-  apply_to_top ~replace_top (fun _ -> Arrays.array_swap name x);
-  write_log "\n"
-
-(*
   split the sequence(s) around the instruction(s) pointed by tr
   property: the result sequence is of the form
     result_label:

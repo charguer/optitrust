@@ -42,7 +42,18 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (tg : 
   Target.apply_on_transformed_targets(isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.tile name block_name b x i t p) tg
 
-
+(*
+  transformation to swap the two first dimensions of an array
+  assumption: x is a type variable that represents a multidimensional array type
+  with >= 2 dimensions
+  all variables of type x will be swapped
+  assumption: x is not used in fun declarations
+    -> to swap the first dimensions of a function argument, use swap_coordinates
+    on the array on which the function is called: a new function with the
+    appropriate type is generated
+  function copies are named with name
+  possibility: add label on new functions
+*)
 
 (*  t[i][k]  t:x   then swap dimentions for t
 
@@ -59,23 +70,11 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (tg : 
   swap all the accesses to arrays of type x
  *)
 
-let array_swap (name : var -> var) (x : typvar) (t : trm) : trm =
-  (*
-    3 things to change in t:
-    - dimensions in the declaration of x
-    - add a copy of each function taking an argument of type x and replace the
-    function calls with these copies
-    - array accesses on variables of type x
-      includes initialisation (through loop)
-      --> no initialisation by list for multidimensional arrays
-   *)
-  let ilsm = functions_with_arg_type x t in
-  (* first add copies of the functions *)
-  let t = insert_fun_copies name ilsm x t in
-  (* then replace function calls *)
-  let t = replace_fun_names name ilsm x t in
-  (* finally adapt the declaration and accesses *)
-  Arrays_core.array_swap_aux x t
+let swap (name : var -> var) (x : typvar) (tg : target) : unit =
+  Target.apply_on_transformed_targets (isolate_last_dir_in_seq)
+    (fun (p,i) t -> Arrays_core.swap name x i t p) tg
+
+
 
 
 (*
