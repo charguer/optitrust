@@ -6,6 +6,19 @@ open Path_constructors
 open Tools
 open Output
 
+let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.fold as_reference fold_at i t p) tg
+
+
+
+
+
+
+
+
+
+
 (*
   find the definition x = dx pointed at by pl and replace occurrences of dx with
   x

@@ -6,6 +6,7 @@ open Declaration
 open Tools
 open Output
 
+
 (* TODO: Remove current inline_fun_decl from inline_decl, these two functions should be independent *)
 (*
   instr containing f(arg1, …, argn) is replaced with
