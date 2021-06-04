@@ -223,10 +223,6 @@ val group_decl_init : ?replace_top:bool -> unit -> unit
 
 val inline_seq : ?replace_top:bool -> seq_target:target -> unit -> unit
 
-val add_attribute : ?replace_top:bool -> string -> target -> unit
-
-
-
 module type DebugSig = sig
 
   exception Breakpoint

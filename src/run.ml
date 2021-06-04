@@ -1079,21 +1079,7 @@ let inline_seq ?(replace_top : bool = false) ~seq_target:(tr : target)
   apply_to_top ~replace_top (fun ctx -> Inlining.inline_seq ctx.clog tr);
   write_log "\n"
 
-(* todo: generalise to all attributes *)
-let add_attribute ?(replace_top : bool = false) (s : string)
-  (tr : target) : unit =
-  let log : string =
-    let trs = target_to_string tr in
-    Printf.sprintf
-      ("Add_attribute %s %s:\n" ^^
-       "  - %s denotes an attribute\n"
-      )
-      s trs s
-  in
-  write_log log;
-  apply_to_top ~replace_top
-    (fun ctx -> Generic.add_attribute ctx.clog (Identifier s) tr);
-  write_log "\n"
+
 
 
 (******************************************************************************)

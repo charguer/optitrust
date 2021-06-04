@@ -720,3 +720,26 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
 
   let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.local =
     Target.apply_on_path (delocalize_aux array_size neutral_element fold_operation)
+
+
+
+(* [add_attribute_aux a t]: This is an auxiliary function for add_attribute
+    params: 
+      a: attribute  which is going to be added
+      t: an ast subterm
+    return: 
+      the updated ast 
+*)
+let add_attribute_aux (a : attribute) (t : trm) : trm =
+  match t.desc with 
+  | Trm_let (vk, (x, tx), init) ->
+    let ty_attributes = a :: tx.ty_attributes in
+    trm_let vk (x, {tx with ty_attributes}) init
+  | Trm_typedef (Typedef_abbrev (x, tx)) -> 
+    let ty_attributes = a :: tx.ty_attributes in
+    trm_typedef (Typedef_abbrev (x, {tx with ty_attributes}))
+  | _ ->  {t with attributes = a :: t.attributes}
+
+
+let add_attribute (a : attribute) : Target.Transfo.local =
+  Target.apply_on_path(add_attribute_aux a)

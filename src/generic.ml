@@ -38,6 +38,9 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
   Target.apply_on_target (Generic_core.delocalize array_size neutral_element fold_operation)
 
 
+let add_atribute(a : attribute) : Transfo.t =
+  Target.apply_on_target (Generic_core.add_attribute a)
+
 let add_attribute (clog : out_channel) (a : attribute) (tr : target)
   (t : trm) : trm =
   let b = !Flags.verbose in
