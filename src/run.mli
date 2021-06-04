@@ -219,8 +219,6 @@ val move_loop_after : ?replace_top:bool -> target -> string -> unit
 
 val move_loop : ?replace_top:bool -> ?move_before:string -> ?move_after:string -> string-> unit *)
 
-val aos_to_soa : ?replace_top:bool -> ?name:(string -> string) -> string -> unit
-
 val eliminate_goto_next : ?replace_top:bool -> unit -> unit
 
 val group_decl_init : ?replace_top:bool -> unit -> unit

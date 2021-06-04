@@ -395,3 +395,149 @@ let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
 
   let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
     Target.apply_on_path (swap_aux name x index )
+
+
+  (* swap_accesses: This is an auxiliary function for aos_to_soa_aux
+    params:
+      x: typvar
+      t: global ast
+    return:
+      the updated ast
+ *)
+ let swap_accesses (x : typvar) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t :trm) : trm =
+    match t.desc with
+    (* declarations *)
+    | Trm_typedef d ->
+       begin match d with
+       (* we have to change the declaration of x *)
+       | Typedef_abbrev (y, ty) when y = x ->
+
+          (*
+            ty must be an array type over a struct type denoted by a type var
+           *)
+          begin match ty.ty_desc with
+          | Typ_array ({ty_desc = Typ_var (y, _); _}, s) ->
+             begin match aliased_type y global_trm with
+             | None ->
+                fail t.loc "swap_accesses: cannot find underlying struct type"
+             | Some ty' ->
+                begin match ty'.ty_desc with
+                | Typ_struct (l,m, n) ->
+                   let m =
+                     Field_map.map
+                       (fun ty'' ->
+                         typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
+                   in
+                   trm_typedef (Typedef_abbrev(x, typ_struct l m n))
+                | _ ->
+                   fail t.loc "swap_accesses: expected underlying struct type"
+                end
+             end
+          | _ -> fail t.loc "swap_accesses: expected array type declaration"
+          end
+       (*
+         other cases: type declarations (not x), fun declarations, var
+         declarations (not of type x)
+         arrays of type x are heap allocated
+        *)
+       | _ -> trm_map (aux global_trm) t
+       end
+    (* accesses: y[i].f becomes (y.f)[i] *)
+    | Trm_apps (f, [base]) ->
+       begin match f.desc with
+       | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
+         | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
+          begin match base.desc with
+          | Trm_apps (f', [base'; index]) ->
+             begin match f'.desc with
+             | Trm_val (Val_prim (Prim_binop Binop_array_access))
+               | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+                (*
+                  swap accesses only if the type of base' is x (or x* in case of
+                  an access on a heap allocated variable)
+                 *)
+                begin match base'.typ with
+                | Some {ty_desc = Typ_var (y, _); _} when y = x ->
+                   (* x might appear both in index and in base' *)
+                   let base' = aux global_trm base' in
+                   let index = aux global_trm index in
+                   (* keep outer annotations *)
+                   trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                     ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
+                | Some {ty_desc = Typ_ptr {ty_desc = Typ_var (y, _); _}; _}
+                     when y = x ->
+                   (* x might appear both in index and in base' *)
+                   let base' = aux global_trm base' in
+                   let index = aux global_trm index in
+                   (* keep outer annotations *)
+                   trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                     ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
+                | _ -> trm_map (aux global_trm) t
+                end
+             | _ -> trm_map (aux global_trm) t
+             end
+          | _ -> trm_map (aux global_trm) t
+          end
+       | _ -> trm_map (aux global_trm) t
+       end
+    (* other cases: recursive call *)
+    | _ -> trm_map (aux global_trm) t
+  in
+  aux t t
+
+(* [aos_to_soa_aux name x t]: This is an auxiliary function for aos_to_soa
+    params:
+      name: a functons to change the current name of the array
+      x: type of the array
+      t: an ast subterm
+    return: 
+      the updated ast
+*)
+
+let aos_to_soa_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let d,lback = Tools.split_list_at 0 lback in
+    let d = List.hd d in
+    let new_decl = 
+    begin match d.desc with
+    | Trm_typedef td ->  
+      begin match td with 
+      | Typedef_abbrev (y, ty) when y = x ->
+        begin match ty.ty_desc with
+          | Typ_array ({ty_desc = Typ_var (y, _); _}, s) ->
+             begin match aliased_type y d with
+             | None ->
+                fail t.loc "swap_accesses: cannot find underlying struct type"
+             | Some ty' ->
+                begin match ty'.ty_desc with
+                | Typ_struct (l,m, n) ->
+                   let m =
+                     Field_map.map
+                       (fun ty'' ->
+                         typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
+                   in
+                   trm_typedef (Typedef_abbrev(x, typ_struct l m n))
+                | _ ->
+                   fail t.loc "swap_accesses: expected underlying struct type"
+                end
+             end
+          | _ -> fail t.loc "swap_accesses: expected array type declaration"
+          end
+      | _ ->  fail t.loc "aos_to_soa_aux: enms are not supported"
+      end
+    | _ -> fail t.loc "aos_to_soa_aux: expected a typedef"
+    end 
+    in
+    let ilsm =  Generic.functions_with_arg_type x new_decl in
+    let lback = List.map (Generic.insert_fun_copies name ilsm x) lback in 
+    let lback = List.map (Generic.replace_fun_names name ilsm x) lback in
+    let lback = List.map (swap_accesses x ) lback
+    in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
+    
+  | _ -> fail t.loc "aos_to_soa_aux: expected the surrounding sequence of the targeted trm"
+
+let aos_to_soa (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(swap_aux name x index)

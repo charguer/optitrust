@@ -1064,21 +1064,6 @@ let delocalize ?(replace_top : bool = false) ?(section_of_interest : label = "")
   write_log "\n"
 *)
 
-let aos_to_soa ?(replace_top : bool = false)
-  ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) : unit =
-  let log : string =
-    Printf.sprintf
-      ("Aos_to_soa %s:\n" ^^
-       "  - %s is not used in functions declarations\n" ^^
-       "  - the name function outputs fresh names\n"
-      )
-      x x
-  in
-  write_log log;
-  apply_to_top ~replace_top (fun ctx -> Arrays.aos_to_soa ctx.clog name x);
-  write_log "\n"
-
-
 let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
   let log = "Eliminate_goto_next: no assumptions\n\n" in
   write_log log;
