@@ -45,13 +45,8 @@ let unwrap : Target.Transfo.t =
     var (split_name xn) decl
     block1_label: {block 1; split_name x0 = x0; …; split_name xn = xn}
     block2 label:
-    {var x0 decl = split_name x0; …; var xn decl = split_name xn; block 2}}
-  where x0, …, xn are the vars declared in block1 that are used in block 2
-  we call them split variables below
-  split_name x0, …, split_name xn are heap allocated
+    {var x0 decl = split_name x0; …; var xn decl = split_ _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
 
-  WARNING: the sequence is probably inside another one:
-    {seq to split; delete instructions}
   the delete instructions correspond to variables declared in seq (either in
   block 1 or in block 2)
   they are placed inside the seq around block 1/2, selecting the appropriate

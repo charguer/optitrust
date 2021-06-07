@@ -188,7 +188,7 @@ let insert_and_fold_aux (const : bool) (as_reference : bool) (x : var) (dx : trm
       x: name of the variable
       dx: value of the typedef
       index: the index where we want to insert the declaration
-
+      t: ast subterm
     return:
       the updated ast
 *)
@@ -207,3 +207,69 @@ let insert_and_fold_typedef_aux (x : var) (dx : typ) (index : int) (fold_at : ta
   (* [insert_and_fold x dx index fodl_at] *)
   let insert_and_fold_typedef (x : var) (dx : typ) (index : int) (fold_at : target list) : Target.Transfo.local =
     Target.apply_on_path(insert_and_fold_typedef_aux x dx index fold_at)
+
+
+(* [inline_aux inline_at]: This is an auxiliary function for inline
+    params:
+      delete_decl: delete or don't delete the declaration of the variable
+      inline_at: targets where inlining should be performed, if empty inlining is applied everywhere
+      t: ast subterm
+    return:
+      the updated ast
+*)
+let inline_aux  (delete_decl : bool) (inline_at : target list) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let dl, lback = Tools.split_list_at 0 lback in
+    let dl = List.hd dl in
+    begin match dl.desc with 
+    | Trm_let (_,(x,_), dx) ->
+      let t_x = trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_var x] in
+      let lback = List.map(Generic_core.change_trm ~change_at:inline_at t_x dx) lback in
+      let tl = 
+        if delete_decl then lfront @ lback 
+        else lfront @ [dl] @ lback 
+      in
+      trm_seq ~annot:t.annot tl
+    | _ -> fail t.loc "inline_aux: expected a variable declaration"
+    end
+  | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
+
+
+(* [inline delete_decl inline_at index t p] *)
+let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(inline_aux delete_decl inline_at index)
+
+(* [inline_typedef_aux inline_at]: This is an auxiliary function for inline_typedef
+    params:
+      delete_decl: delete or don't delete the declaration of the variable
+      inline_at: targets where inlining should be performed, if empty inlining is applied everywhere
+      t: ast subterm
+    return:
+      the updated ast
+*)
+let inline__typedef_aux  (delete_decl : bool) (inline_at : target list) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let dl, lback = Tools.split_list_at 0 lback in
+    let dl = List.hd dl in
+    begin match dl.desc with 
+    | Trm_typedef (Typedef_abbrev (x, dx)) ->
+      let ty_x = typ_var x (Clang_to_ast.get_typedef x) in
+      let lback = List.map(Generic_core.change_typ ~change_at:inline_at ty_x dx) lback in
+      let tl = 
+        if delete_decl then lfront @ lback 
+        else lfront @ [dl] @ lback 
+      in
+      trm_seq ~annot:t.annot tl
+    | _ -> fail t.loc "inline_aux: expected a typedef declaration"
+    end
+  | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
+
+
+(* [inline delete_decl inline_at index t p] *)
+let inline_typedef (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(inline__typedef_aux delete_decl inline_at index)
+

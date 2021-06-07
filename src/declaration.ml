@@ -35,6 +35,14 @@ let insert_and_fold_typedef ?(fold_at : target list = [[]]) (x : var) (dx : typ)
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Declaration_core.insert_and_fold_typedef x dx i fold_at t p) tg
 
+(* [inline ~delete_decl ~inline_at tg] *)
+let inline ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.inline delete_decl inline_at i t p) tg
 
+(* [inline_typedef ~delete_decl ~inline_at tg] *)
+let inline_typedef ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.inline_typedef delete_decl inline_at i t p) tg
 
 
