@@ -1,4 +1,4 @@
-open Optitrust
+open Optitrust open Run
 
 let _ = run_unit_test (fun () ->
   let show = Tr.target_show in

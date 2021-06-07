@@ -1,4 +1,5 @@
-open Optitrust
+open Optitrust open Run
+
 let _ = Printexc.record_backtrace true
 
 let _ = run_unit_test (* FOR DEBUG:~ast_decode:false *)   (fun () ->

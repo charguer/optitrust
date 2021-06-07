@@ -30,7 +30,7 @@ optitrust: clean
 
 # Target to build the test program
 $(PROG): force
-	ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optiTrust.optitrust -I . $(PROG)
+	ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust -I . $(PROG)
 
 # Target to execute the test program
 exec: $(PROG)

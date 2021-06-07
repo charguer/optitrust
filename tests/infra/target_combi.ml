@@ -1,4 +1,4 @@
-open Optitrust
+open Optitrust open Run
 
 let _ = run_unit_test (fun () ->
   (* There should be exactly one result to each of the commands;
