@@ -9,13 +9,13 @@ open Path_constructors
     return:
       the update ast
 *)
-let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : trm) : trm= 
-  match t.desc with 
+let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : trm) : trm=
+  match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
     let d, lback = Tools.split_list_at 0 lback in
     let d = List.hd d in
-    begin match d.desc with 
+    begin match d.desc with
     | Trm_let (_,(x,_),dx) ->
         let t_x =
           if as_reference then trm_apps (trm_unop Unop_get) [trm_var x]
@@ -34,15 +34,15 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
           -> replace it again with def_x
          *)
         in
-        
+
         trm_seq (lfront @ [d] @ lback)
-     
+
      (* typedef *)
-     | Trm_typedef td -> 
-       begin match td with 
-       | Typedef_abbrev (x,dx) -> 
-        let ty_x = typ_var x (Clang_to_ast.get_typedef x) in 
-        let lback = List.map(Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in        
+     | Trm_typedef td ->
+       begin match td with
+       | Typedef_abbrev (x,dx) ->
+        let ty_x = typ_var x (Clang_to_ast.get_typedef x) in
+        let lback = List.map(Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in
         let change_at = [[cTypDef x]] in
         let lback = List.map(Generic_core.change_typ ~change_at ty_x dx) lback in
         trm_seq (lfront @ [d] @ lback)
@@ -53,8 +53,8 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
         fail t.loc "fold_decl: fun declaration folding is unsupported"
      | _ -> fail t.loc "fold_decl: expected a definition"
      end
-      
-    
+
+
   | _ -> fail t.loc "fold_aux: expected the surrounding sequence"
 
 (* [fodl as_reference fold_at index p t] *)
@@ -72,14 +72,14 @@ let fold (as_reference : bool) (fold_at : target list) (index) : Target.Transfo.
       the updated ast
 *)
 let insert_aux (const : bool) (as_reference : bool) (x : var) (dx : trm) (index : int) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
-    let tx = match dx.typ with 
+    let tx = match dx.typ with
     | None -> fail t.loc "insert_aux: cannot find definition type"
     | Some tx -> if as_reference then typ_ptr tx else tx
     in
-    let def_x = 
-      if as_reference then {dx with add = Add_address_of_operator :: dx .add} 
+    let def_x =
+      if as_reference then {dx with add = Add_address_of_operator :: dx .add}
       else dx
     in
     let t_insert =
@@ -104,7 +104,7 @@ let insert(const : bool) (as_reference : bool) (x : var) (dx : trm) (index : int
         t: ast subterm
 *)
 let insert_typedef_aux (x : typvar) (dx : typ) (index : int) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let t_insert = trm_typedef (Typedef_abbrev (x, dx)) in
     let tl = Tools.list_insert (index) t_insert tl in
@@ -119,11 +119,11 @@ let insert_typedef (x : typvar) (dx : typ) (index : int) : Target.Transfo.local 
 (* [remove_aux t]: This function is an auxiliary function for remove
    params:
     t: ast subterm to be removed
-   return: 
+   return:
     the updated ast
  *)
  let remove_aux (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_let _ -> trm_seq ~annot:(Some No_braces) []
   | _ -> fail t.loc "remove_aux: expected the declaration to remove"
 
@@ -145,10 +145,10 @@ let remove : Target.Transfo.local =
       the updated ast
 *)
 let insert_and_fold_aux (const : bool) (as_reference : bool) (x : var) (dx : trm) (index : int) (fold_at : target list) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let tx = match dx.typ with 
+    let tx = match dx.typ with
     | None -> fail t.loc "insert_and_fold_aux: cannot find definition type"
     | Some tx -> if as_reference then typ_ptr tx else tx
     in
@@ -156,19 +156,19 @@ let insert_and_fold_aux (const : bool) (as_reference : bool) (x : var) (dx : trm
       if as_reference then {dx with add = Add_address_of_operator :: dx.add}
       else dx
     in
-    let t_insert = 
+    let t_insert =
       if const  then trm_let Var_immutable (x,tx) def_x
-      else 
+      else
         trm_let Var_mutable (x, tx) (trm_apps (trm_prim (Prim_new tx)) [def_x])
     in
-    let t_x = 
+    let t_x =
       if as_reference then trm_apps (trm_unop Unop_get) [trm_var x]
       else trm_var x
     in
-    let def_1_x = 
+    let def_1_x =
       if not as_reference then dx
       else
-        match dx.add with 
+        match dx.add with
         | Add_address_of_operator :: addl -> {dx with add = addl}
         | _ -> fail t.loc "insert_and_fold_aux: expected a reference"
     in
@@ -182,7 +182,7 @@ let insert_and_fold_aux (const : bool) (as_reference : bool) (x : var) (dx : trm
   let insert_and_fold (const : bool) (as_reference : bool) (x : var) (dx : trm) (index : int) (fold_at : target list) : Target.Transfo.local =
     Target.apply_on_path(insert_and_fold_aux const as_reference x dx index fold_at)
 
-  
+
   (* [insert_and_fold_typedef_aux const as_reference fold_at x dx index t]: This is an auxiliary function for insert_and_fold_typedef
     params:
       x: name of the variable
@@ -193,14 +193,14 @@ let insert_and_fold_aux (const : bool) (as_reference : bool) (x : var) (dx : trm
       the updated ast
 *)
 let insert_and_fold_typedef_aux (x : var) (dx : typ) (index : int) (fold_at : target list) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
     let t_insert = trm_typedef (Typedef_abbrev (x, dx)) in
 
     let ty_x = typ_var x (Clang_to_ast.get_typedef x) in
     let lback = List.map(Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in
-    trm_seq (lfront @ [t_insert] @ lback)  
+    trm_seq (lfront @ [t_insert] @ lback)
   | _ -> fail t.loc "insert_and_fold_aux: expected the surrounding sequence"
 
 
@@ -217,19 +217,19 @@ let insert_and_fold_typedef_aux (x : var) (dx : typ) (index : int) (fold_at : ta
     return:
       the updated ast
 *)
-let inline_aux  (delete_decl : bool) (inline_at : target list) (index : int) (t : trm) : trm =
-  match t.desc with 
+let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t : trm) : trm =
+  match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
     let dl, lback = Tools.split_list_at 0 lback in
     let dl = List.hd dl in
-    begin match dl.desc with 
+    begin match dl.desc with
     | Trm_let (_,(x,_), dx) ->
       let t_x = trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_var x] in
-      let lback = List.map(Generic_core.change_trm ~change_at:inline_at t_x dx) lback in
-      let tl = 
-        if delete_decl then lfront @ lback 
-        else lfront @ [dl] @ lback 
+      let lback = List.map (Generic_core.change_trm ~change_at:inline_at t_x dx) lback in
+      let tl =
+        if delete_decl then lfront @ lback
+        else lfront @ [dl] @ lback
       in
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "inline_aux: expected a variable declaration"
@@ -249,27 +249,42 @@ let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target
     return:
       the updated ast
 *)
-let inline__typedef_aux  (delete_decl : bool) (inline_at : target list) (index : int) (t : trm) : trm =
-  match t.desc with 
+let inline_typedef_aux (delete_decl : bool) (inline_at : target list) (index : int) (t : trm) : trm =
+(*
+    let dl = list_nth index tl
+    let dx,ty_x = begin match dl.desc with
+     | Trm_typedef (Typedef_abbrev (x, dx)) ->
+      let ty_x = typ_var x (Clang_to_ast.get_typedef x) in
+      dx,ty_x
+     | _ -> error
+     in
+    let tl' = List.map(Generic_core.change_typ ~change_at:inline_at ty_x dx) tl in
+    trm_seq ~annot:... tl'
+*)
+  match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
     let dl, lback = Tools.split_list_at 0 lback in
     let dl = List.hd dl in
-    begin match dl.desc with 
+    begin match dl.desc with
     | Trm_typedef (Typedef_abbrev (x, dx)) ->
       let ty_x = typ_var x (Clang_to_ast.get_typedef x) in
       let lback = List.map(Generic_core.change_typ ~change_at:inline_at ty_x dx) lback in
-      let tl = 
-        if delete_decl then lfront @ lback 
-        else lfront @ [dl] @ lback 
+      let tl =
+        if delete_decl then lfront @ lback
+        else lfront @ [dl] @ lback
       in
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "inline_aux: expected a typedef declaration"
     end
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
-
 (* [inline delete_decl inline_at index t p] *)
 let inline_typedef (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path(inline__typedef_aux delete_decl inline_at index)
+  Target.apply_on_path (inline_typedef_aux delete_decl inline_at index)
+
+(*
+
+
+*)
 

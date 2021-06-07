@@ -1,32 +1,45 @@
 open Ast
 open Target
 open Tools
+
+(* POSSIBLY at SOME POINT: split this file in typedef.ml and var.ml
+   Var.insert   Var.insert_const  Typdef.insert
+
+  int x = 3;
+
+  insert_and_fold_typedef t int
+    typedef int x
+    t x = 3
+
+  insert_and_fold y 3
+    int y = 3
+    int x = y
+*)
+
 (* [fold ~as_reference ~fold_at tg] *)
 let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Declaration_core.fold as_reference fold_at i t p) tg
 
 (* [insert ~const ~as_reference x dx tg] *)
-let insert ?(const : bool = false) ?(as_reference : bool = false)  (x : var) (dx : trm) (tg : target) : unit =
-  Target.apply_on_target_between 
+let insert ?(const : bool = false) ?(as_reference : bool = false) (x : var) (dx : trm) (tg : target) : unit =
+  Target.apply_on_target_between
     (fun (p,i) t -> Declaration_core.insert const as_reference x dx i t p) tg
-
-(* [insert_const x dx tg] *)
-let insert_const (x : var) (dx : trm) (tg : target) : unit =
-  insert ~const:true x dx tg
 
 (* [inert_typedef x dx tg] *)
 let insert_typedef (x : typvar) (dx : typ) (tg : target) : unit =
-  Target.apply_on_target_between 
+  Target.apply_on_target_between
     (fun (p,i) t -> Declaration_core.insert_typedef x dx i t p) tg
 
 (* [remove tg] *)
+(* TODO: just call Generic.remove
+   AND (LATER) check that there are no remaining occurences to this declaration *)
 let remove : Transfo.t =
-  Target.apply_on_target(Declaration_core.remove)
-
+  Target.apply_on_target (Declaration_core.remove)
 
 (* [insert_and_fold ~const ~as_reference ~fold_at x dx tg] *)
 let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : trm) (tg : target) : unit =
+  (* TODO: apply_on_target_between *)
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Declaration_core.insert_and_fold const as_reference x dx i fold_at t p) tg
 
@@ -40,10 +53,13 @@ let inline ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : t
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Declaration_core.inline delete_decl inline_at i t p) tg
 
-(* [inline_typedef ~delete_decl ~inline_at tg] *)
+(* [inline_typedef ~delete_decl ~inline_at tg]
+  TODO: document the fact that inline_at contains target that are relative to the sequence containing the typedef *)
 let inline_typedef ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Declaration_core.inline_typedef delete_decl inline_at i t p) tg
+    (fun (p,i) t ->
+      (* TODO: here do the resolution of the inline_at  using List.map *)
+      Declaration_core.inline_typedef delete_decl inline_at i t p) tg
 
 
 
@@ -97,7 +113,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
     (* result is heap allocated *)
     let result_decl =
       trm_let Var_mutable (result, typ_ptr tf) (trm_prim (Prim_new tf))
-      
+
     in
     (* body where the argument names are substituted *)
     let body =
@@ -163,7 +179,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
           fresh_args
           arg_vals
       in
-     
+
       let t =
         match tf.ty_desc with
         | Typ_unit ->
@@ -263,7 +279,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
       | [] ->
         print_info t.loc "inline_struct_access: no matching subterm";
         t
-      | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl 
+      | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl
       (* Ast_to_text.print_ast ~only_desc:true stdout var_decl; *)
 
 (* ******************************************************* *)
@@ -339,7 +355,7 @@ let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1
             | _ -> fail t.loc "inline_struct_aux: The type shoudl be a typedef struct"
         in
         begin match t.desc with
-        | Trm_typedef (Typedef_abbrev (x1, dx1)) ->        
+        | Trm_typedef (Typedef_abbrev (x1, dx1)) ->
             let field_list1, field_map1,name =
               match dx1.ty_desc with
               | Typ_struct(l,m,n) -> l,m,n
@@ -644,7 +660,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
                        )
                    ]
                   );
-               ] 
+               ]
              )
       in
       (* clean up *)

@@ -3,12 +3,15 @@ open Target
 open Tools
 (* INTERNAL FUNCTIONS *)
 (* *********************************************** *)
-(*replace occurrences of t_before with t_after in t
-  paths point at subterms in which all occurences will be replaced
-  the empty path means all occurences will be replaced (default behaviour)
+(*replace occurrences of t_before with t_after in t.
+  paths point at subterms in which all occurences will be replaced.
+  the empty path means all occurences will be replaced (default behaviour).
   assumption: t_before and t_after are equivalent (in terms of value and of side
   effects)
  *)
+
+(* LATER: reimplement a function change_trm that operations on explicit paths
+   and thus does not need to do resolution again. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   (* change all occurences of t_before in t' *)
@@ -88,7 +91,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
                      (List.map (fun (y, ty) -> (y, change_typ ty)) args)
                      (aux body)
       | Trm_typedef (Typedef_abbrev (y, ty)) ->
-         trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes 
+         trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
           (Typedef_abbrev (y, change_typ ty))
       | _ -> trm_map aux t
     in
@@ -413,13 +416,13 @@ and replace_fun_names (name : var -> var) (ilsm : ilset funmap) (x : typvar)
      end
   | _ -> trm_map (replace_fun_names name ilsm x) t
 
-(* [isolate_last_dir_in_seq dl]:  
-    params: 
+(* [isolate_last_dir_in_seq dl]:
+    params:
       dl: explicit path to the targeted trm
     return:
       a pair of the explicit path to the outer sequence and the index of the term inside that sequence
 *)
-let isolate_last_dir_in_seq (dl : path) : path * int = 
+let isolate_last_dir_in_seq (dl : path) : path * int =
   match List.rev dl with
   | Dir_nth i :: dl' -> (List.rev dl',i)
   | _ -> fail None "isolate_last_dir_in_seq: cannot isolate the definition in a sequence"
@@ -498,13 +501,13 @@ let group_decl_init (t : trm) : trm =
       a sequence which contains the declaration of the variable and a set operations for that variable
 *)
 let var_init_detach_aux (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_let(vk,(x, tx), init) ->
-    begin match vk with 
+    begin match vk with
     | Var_immutable -> fail t.loc "var_init_detach_aux: const declarations cannot be detached"
     | _ ->
-      let init = 
-        begin match init.desc with 
+      let init =
+        begin match init.desc with
         | Trm_apps(_,[init]) -> init
         | _ -> fail t.loc "var_init_detach_aux: expected a heap allocated variable declaration"
         end in
@@ -517,7 +520,7 @@ let var_init_detach_aux (t : trm) : trm =
 
 
 let var_init_detach : Target.Transfo.local =
-  Target.apply_on_path(var_init_detach_aux ) 
+  Target.apply_on_path(var_init_detach_aux )
 
 (* [var_init_attach_aux t]: This is an auxiliary function for var_init_attach
     params:
@@ -526,8 +529,8 @@ let var_init_detach : Target.Transfo.local =
       the updated
 *)
 let var_init_attach_aux (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl -> 
+  match t.desc with
+  | Trm_seq tl ->
     (* Assumption: The sequence is of the form
       {
         int x;
@@ -536,12 +539,12 @@ let var_init_attach_aux (t : trm) : trm =
     *)
     let var_decl = List.nth tl 0 in
     let var_set = List.nth tl 1 in
-    let var_kind, var_name, var_type = begin match var_decl.desc with 
+    let var_kind, var_name, var_type = begin match var_decl.desc with
     | Trm_let (vk,(x,tx),_) -> vk, x, tx
     | _ -> fail t.loc "var_init_attach_aux: sequence does not satisfy the assumption described above"
     end
     in
-    let var_init = begin match var_set.desc with 
+    let var_init = begin match var_set.desc with
     | Trm_apps(_, [_;init]) -> init
     | _ -> fail t.loc "var_init_attach_aux: sequence does not satisfy the assumtion that the second term of the sequence is the set operations"
     end
@@ -549,10 +552,10 @@ let var_init_attach_aux (t : trm) : trm =
     trm_let ~loc:t.loc var_kind (var_name, var_type) (trm_apps (trm_prim ~loc:t.loc (Prim_new var_type)) [var_init])
   | _ -> fail t.loc "var_init_attach_aux: sequence was not matched, make sure the path is correct"
 
-(* [var_init_attach t]: Change a sequence of the form {int x; x = 5;} to int x = 5 
+(* [var_init_attach t]: Change a sequence of the form {int x; x = 5;} to int x = 5
     params:
       path_to_seq: path to the sequence which satisfy the assumtion above
-      t: ast 
+      t: ast
     return
       the updated ast
 *)
@@ -567,24 +570,24 @@ let var_init_attach : Target.Transfo.local =
       the updated ast
 *)
 let const_non_const_aux (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_let (vk, (x,tx), init) ->
     begin match vk with
      (* If variable is a constant than whe remove the const and we perform the heap allocation  *)
-    | Var_immutable ->  
+    | Var_immutable ->
       trm_let Var_mutable (x, typ_ptr tx) (trm_apps (trm_prim ~loc: t.loc (Prim_new tx)) [init])
     | _ ->
-      let var_type = begin match tx.ty_desc with 
+      let var_type = begin match tx.ty_desc with
       | Typ_ptr t -> t
       | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
       end
       in
-      let var_init = begin match init.desc with 
+      let var_init = begin match init.desc with
       | Trm_apps(_, [_; init]) -> init
       | _ -> fail t.loc "const_non_const_aux: expected a something of the form 'new ()'"
       end
       in
-      trm_let Var_immutable (x,var_type) var_init 
+      trm_let Var_immutable (x,var_type) var_init
     end
   | _ -> fail t.loc "const_non_const_aux: variable declaration was not matched, make sure the path is correct"
 
@@ -609,7 +612,7 @@ let remove_instruction : Target.Transfo.local=
     params:
       var_type: type of the var
       old_var: old variable for which we want to chang the local name
-      new_var: new_variable 
+      new_var: new_variable
       t: an ast subterm
     return:
       the updated ast
@@ -623,13 +626,13 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
           | Trm_for (init, cond, step, body) ->
             let new_type = typ_var var_type (Clang_to_ast.get_typedef var_type) in
             let new_decl = trm_let Var_mutable (new_var, new_type) (trm_apps (trm_prim (Prim_new new_type)) [trm_var old_var])
-        
+
             in
             let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
             (* let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in *)
             let new_loop = trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body) in
-           
-           
+
+
               trm_seq (* ~annot:(Some No_braces) *) [
                 new_decl;new_loop;new_set_old
               ]
@@ -640,7 +643,7 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
     | _ -> fail t.loc "local_other_name_aux: expected the no brace sequence"
     end
 
-let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.local = 
+let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.local =
   Target.apply_on_path(local_other_name_aux var_type old_var new_var)
 
 (* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for deloclize
@@ -674,24 +677,24 @@ let insert_trm (t_insert : trm) (index : int) : Target.Transfo.local =
 
 (* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for delocalize
     params:
-      array_size: size of the array 
+      array_size: size of the array
       neutral_element: neutral element needed for the final reduction
       fold_operation: a string representing the fold operation needed for the final reduction
     return:
       the updated ast
 *)
 let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
-    let def = List.hd tl in 
-    let vk,new_var,old_var = 
-    begin match def.desc with 
+    let def = List.hd tl in
+    let vk,new_var,old_var =
+    begin match def.desc with
     | Trm_let (vk,(x, _),init) ->
-      begin match init.desc with 
+      begin match init.desc with
       | Trm_apps(_, [base]) ->
-        begin match base.desc with 
+        begin match base.desc with
         | Trm_apps (_, [base1]) ->
-          begin match base1.desc with 
+          begin match base1.desc with
           | Trm_var y -> (vk,y, x)
           | _ -> fail t.loc "delocalize_aux: expected a variable"
           end
@@ -713,7 +716,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
       (* cond *)
         (trm_apps (trm_binop Binop_lt)
           [
-            
+
             trm_var "k";
             trm_apps ~annot:(Some Mutable_var_get)
             (trm_unop Unop_get) [trm_var "k"]
@@ -730,10 +733,10 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     let for_loop = List.nth tl 1 in
     let parallel_for =  begin match for_loop.desc  with
     | Trm_for(init, cond, step, body) ->
-      trm_for init cond step 
+      trm_for init cond step
         (
           change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_any (trm_var "my_core_id")]]) body
-        ) 
+        )
     | _ -> fail t.loc "delocalize_aux: expected a for loop"
     end
     in
@@ -767,9 +770,9 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
               (* trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var "k"]] *)
               trm_apps (trm_binop Binop_array_access)[trm_var new_var; trm_var "k"]
             ]
-          ) ])           
+          ) ])
 
-    ] 
+    ]
     in trm_seq ([new_decl] @ [parallel_for] @ [accum])
 
   | _ -> fail t.loc "delocalize_aux: expected the nobrace sequence"
@@ -780,18 +783,18 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
 
 
 (* [add_attribute_aux a t]: This is an auxiliary function for add_attribute
-    params: 
+    params:
       a: attribute  which is going to be added
       t: an ast subterm
-    return: 
-      the updated ast 
+    return:
+      the updated ast
 *)
 let add_attribute_aux (a : attribute) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_let (vk, (x, tx), init) ->
     let ty_attributes = a :: tx.ty_attributes in
     trm_let vk (x, {tx with ty_attributes}) init
-  | Trm_typedef (Typedef_abbrev (x, tx)) -> 
+  | Trm_typedef (Typedef_abbrev (x, tx)) ->
     let ty_attributes = a :: tx.ty_attributes in
     trm_typedef (Typedef_abbrev (x, {tx with ty_attributes}))
   | _ ->  {t with attributes = a :: t.attributes}

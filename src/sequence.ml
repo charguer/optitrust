@@ -12,6 +12,9 @@ let insert (tg : target) (ts : trm list) : unit =
 
 (* [delete index nb tg] *)
 let delete (index : int) (nb : int) : Target.Transfo.t =
+  (* TODO: apply_on_transformed_target
+       ()
+  *)
   Target.apply_on_target (Sequence_core.delete index nb)
 
 (* [sub i nb tg] *)

@@ -10,7 +10,7 @@ open Target
     return:
       the updated ast
 *)
-(* TODO: Sequence_core.insert_aux  and [Sequence_core.insert i [t1;t2] p] *)
+
 let insert_aux (index : int) (ts : trm list) (t : trm): trm =
     match t.desc with
     | Trm_seq tl ->
@@ -28,7 +28,6 @@ let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
       nb: number of instructions to delete
       t: an ast subterm
     return: the updated ast
-
 *)
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
@@ -43,7 +42,7 @@ let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
 
 (* [delete index nb_instr t p] *)
 let delete (index : int) (nb_instr : int) : Target.Transfo.local =
-  Target.apply_on_path(delete_aux index nb_instr)
+  Target.apply_on_path (delete_aux index nb_instr)
 
 
 (* [sub_aux index nb t]: This function is an auxiliary function for sub
@@ -71,12 +70,13 @@ let sub_aux (index : int) (nb : int) (t : trm) : trm =
 let sub (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path (sub_aux index nb_instr)
 
-
-(* [inline_aux index t]: This function is an auxiliary function for inline
+(* [inline_aux index t]: inline an inner sequence into an outer sequence.
     params:
-      index: index of the sequence
-      t: an ast subterm
-    return: the updated ast
+      index: a valid index in the outer sequence; at that index, the subterm
+         should correspond to the inner sequence
+      t: a term that corresponds to the outer sequence.
+    return: the updated outer sequence, where the elements from the inner
+     sequence are directly laid out there.
 *)
 let inline_aux (index : int) (t : trm) : trm =
   match t.desc with
@@ -107,23 +107,24 @@ let inline (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index)
 
 
-(* [wrap_aux vosobme t]: This is an auxiliary function for wrap
+(* [wrap_aux vosobme t]: replacing t with a sequence that contains t as single item.
    params:
-    t: an ast subterm
-    visible: turn on(off) curly braces of the sequence
+    t: any term
+    visible: a flag to turn on(off) curly braces of the sequence
+   return: the outer sequence containing t
  *)
 let wrap_aux (visible : bool) (t : trm) : trm =
   trm_seq ~annot:(if not visible then Some No_braces else None) [t]
 
-(*  [wrao visible t p] *)
+(* [wrap visible t p] *)
 let wrap (visible : bool) : Target.Transfo.local=
   Target.apply_on_path (wrap_aux visible)
 
 
-(* [unrwap_aux t]: This function is an auxiliary function for unwrap
+(* [unrwap_aux t]: replacing a sequence that contains a single item t with t.
    params:
-    t: an ast subterm
-   return: the updated ast
+    t: a term that corresponds to a sequence with a single item in t
+   return: the sole term inside the sequence.
  *)
 let unwrap_aux (t : trm) : trm =
   match t.desc with
@@ -133,7 +134,6 @@ let unwrap_aux (t : trm) : trm =
        | _ -> fail t.loc "unwrap_aux: can only unwrap a sequence with exactly one item"
        end
     | _ -> fail t.loc "unwrap_aux: expected to operate on a sequence"
-
 
 (* [unwrap t p] *)
 let unwrap : Target.Transfo.local =
