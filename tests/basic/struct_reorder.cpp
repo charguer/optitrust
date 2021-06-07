@@ -7,6 +7,8 @@ typedef struct {
 
 int main() {
   obj a;
+  int x;
+  x = 5;
   return 0;
 }
 

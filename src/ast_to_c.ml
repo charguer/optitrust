@@ -350,6 +350,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   let initialisation =
     match init.desc with
     | Trm_val (Val_lit Lit_uninitialized) -> dsemi
+    | Trm_val(Val_prim(Prim_new _)) -> dsemi
     | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi
   in
   dtx ^^ initialisation
