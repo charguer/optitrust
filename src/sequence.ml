@@ -1,28 +1,32 @@
 open Ast
 open Target
-open Ast_to_c
-open Tools
 open Output
-
+open Tools
 
 (* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)
 
+(* [insert tg ts] *)
 let insert (tg : target) (ts : trm list) : unit =
   Target.apply_on_target_between (fun (p,i) t ->
     Sequence_core.insert i ts p t) tg
 
+(* [delete index nb tg] *)
 let delete (index : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.delete index nb)
 
+(* [sub i nb tg] *)
 let sub (i : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target( Sequence_core.sub i nb )
 
+(* [inline i tg] *)
 let inline (i : int) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.inline i)
 
+(* [wrao visible tg] *)
 let wrap (visible : bool) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.wrap visible)
 
+(* [unwrap tg] *)
 let unwrap : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.unwrap)
 
@@ -30,8 +34,7 @@ let unwrap : Target.Transfo.t =
 
 
 
-
-
+(* TODO: Remove function split_seq after implemented the new one *)
 
 (*
   split the sequence t at its n-th instruction
@@ -42,13 +45,8 @@ let unwrap : Target.Transfo.t =
     var (split_name xn) decl
     block1_label: {block 1; split_name x0 = x0; …; split_name xn = xn}
     block2 label:
-    {var x0 decl = split_name x0; …; var xn decl = split_name xn; block 2}}
-  where x0, …, xn are the vars declared in block1 that are used in block 2
-  we call them split variables below
-  split_name x0, …, split_name xn are heap allocated
+    {var x0 decl = split_name x0; …; var xn decl = split_ _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
 
-  WARNING: the sequence is probably inside another one:
-    {seq to split; delete instructions}
   the delete instructions correspond to variables declared in seq (either in
   block 1 or in block 2)
   they are placed inside the seq around block 1/2, selecting the appropriate
@@ -257,7 +255,7 @@ let split_sequence (clog : out_channel) (result_label : string)
          "  - expression\n%s\n" ^^
          "    %sis located inside a sequence\n"
         )
-        result_label block1_label block2_label (ast_to_string t) loc
+        result_label block1_label block2_label (Ast_to_c.ast_to_string t) loc
     in
     write_log clog log;
     match List.rev dl with

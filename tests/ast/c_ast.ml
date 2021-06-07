@@ -4,7 +4,8 @@
    When executing this test, make sure to also read the ast_encoding.ast output file *)
 
 (* Usage: make ast_encoding.out,  then read stdout or open ast_encoding_out.cpp *)
-open Optitrust open Run
+open Optitrust
+open Run
 
-let _ = run_unit_test (*~ast_decode:true*) (fun () -> ())
+let _ = run_unit_test (*~ast_decode:true*) (fun () -> ();)
 

@@ -168,55 +168,13 @@ val show_ast : ?replace_top:bool -> ?file:string -> ?to_stdout:bool -> target ->
 
 val clean_target_decorators : unit -> unit
 
-val swap_coordinates : ?replace_top:bool -> ?name:(string -> string) ->
-                       string -> unit
-
 val extract_loop_var : ?replace_top:bool -> ?keep_label:bool -> ?label:string ->
                        target -> unit
 
 val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
                         ?label:string -> target -> unit
 
-val tile_array : ?replace_top:bool -> ?name:(string -> string) ->
-                 ?block_name:string -> block_size:string -> string -> unit
-
-val fold_decl : ?replace_top:bool -> ?as_reference:bool ->
-                ?fold_at:(target list) -> decl_target:target -> unit -> unit
-
-val insert_decl : ?replace_top:bool -> ?insert_before:target ->
-                  ?insert_after:target -> ?const:bool ->
-                  ?as_reference:bool -> name:string -> value:string -> unit ->
-                  unit
-
-val insert_const : ?replace_top:bool -> ?insert_before:target ->
-                   ?insert_after:target -> name:string -> value:string ->
-                   unit -> unit
-
-val insert_and_fold : ?replace_top:bool -> ?insert_before:target ->
-                      ?insert_after:target -> ?const:bool ->
-                      ?as_reference:bool -> ?fold_at:(target list) ->
-                      name:string -> value:string -> unit -> unit
-
-val insert_typedef : ?replace_top:bool -> ?insert_before:target ->
-                     ?insert_after:target -> name:string -> value:string ->
-                     unit -> unit
-
-val insert_and_fold_typedef : ?replace_top:bool -> ?insert_before:target ->
-                              ?insert_after:target ->
-                              ?fold_at:(target list) -> name:string ->
-                              value:string -> unit -> unit
-
-val remove_decl : ?replace_top:bool -> decl_target:target -> unit -> unit
-
-val inline_decl : ?replace_top:bool -> ?delete_decl:bool ->
-                  ?inline_at:(target list) -> ?fun_result:string -> ?fun_args:(string list) ->
-                  ?fun_return_label:string -> decl_target:target -> unit ->unit
-
-val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:string list -> unit -> unit
-
 (* val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit  *)
-
-val delocalize : ?replace_top:bool -> ?section_of_interest:string -> ?array_size:string -> ?neutral_element:int -> ?fold_operation:string -> unit -> unit
 
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit
 
@@ -224,17 +182,9 @@ val move_loop_after : ?replace_top:bool -> target -> string -> unit
 
 val move_loop : ?replace_top:bool -> ?move_before:string -> ?move_after:string -> string-> unit *)
 
-val aos_to_soa : ?replace_top:bool -> ?name:(string -> string) -> string -> unit
-
 val eliminate_goto_next : ?replace_top:bool -> unit -> unit
 
 val group_decl_init : ?replace_top:bool -> unit -> unit
-
-val inline_seq : ?replace_top:bool -> seq_target:target -> unit -> unit
-
-val add_attribute : ?replace_top:bool -> string -> target -> unit
-
-
 
 module type DebugSig = sig
 

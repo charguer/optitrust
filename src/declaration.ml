@@ -1,462 +1,671 @@
 open Ast
-open Ast_to_c
-open Clang_to_ast
 open Target
-open Path_constructors
-open Generic
 open Tools
-open Output
+(* [fold ~as_reference ~fold_at tg] *)
+let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.fold as_reference fold_at i t p) tg
 
+(* [insert ~const ~as_reference x dx tg] *)
+let insert ?(const : bool = false) ?(as_reference : bool = false)  (x : var) (dx : trm) (tg : target) : unit =
+  Target.apply_on_target_between 
+    (fun (p,i) t -> Declaration_core.insert const as_reference x dx i t p) tg
+
+(* [insert_const x dx tg] *)
+let insert_const (x : var) (dx : trm) (tg : target) : unit =
+  insert ~const:true x dx tg
+
+(* [inert_typedef x dx tg] *)
+let insert_typedef (x : typvar) (dx : typ) (tg : target) : unit =
+  Target.apply_on_target_between 
+    (fun (p,i) t -> Declaration_core.insert_typedef x dx i t p) tg
+
+(* [remove tg] *)
+let remove : Transfo.t =
+  Target.apply_on_target(Declaration_core.remove)
+
+
+(* [insert_and_fold ~const ~as_reference ~fold_at x dx tg] *)
+let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : trm) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.insert_and_fold const as_reference x dx i fold_at t p) tg
+
+(* [insert_and_fold_typedef ~fold_at x dx tg] *)
+let insert_and_fold_typedef ?(fold_at : target list = [[]]) (x : var) (dx : typ) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.insert_and_fold_typedef x dx i fold_at t p) tg
+
+(* [inline ~delete_decl ~inline_at tg] *)
+let inline ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.inline delete_decl inline_at i t p) tg
+
+(* [inline_typedef ~delete_decl ~inline_at tg] *)
+let inline_typedef ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Declaration_core.inline_typedef delete_decl inline_at i t p) tg
+
+
+
+
+
+(* TODO: Remove current inline_fun_decl from inline_decl, these two functions should be independent *)
 (*
-  find the definition x = dx pointed at by pl and replace occurrences of dx with
-  x
-  paths point at subterms in which all occurences will be replaced
-  the empty path means all occurences will be replaced (default behaviour)
-  as_reference option for variable declarations: if dx = &dx' replace dx' with
-  *x instead of &dx' with x
+  instr containing f(arg1, …, argn) is replaced with
+  {
+    x1 = arg1
+    …
+    xn = argn
+    decl result
+    body[x1, …, xn][return r := {result = r; goto return_label}]
+    return_label:
+      instr[f(arg1, …, argn) := result]
+  }
+  if tf is void, result won't be used, but instead the empty statement
  *)
-let fold_decl (clog : out_channel) ?(as_reference : bool = false)
-  ?(fold_at : target list = [[]]) (tr : target) (t : trm) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target tr t in
-  Flags.verbose := b;
-  match epl with
-  | [dl] ->
-     let (t_def, _) = resolve_path dl t in
-     let log : string =
-       Printf.sprintf
-         ("  - expression\n%s\n" ^^
-          if as_reference then
-          "    is a variable declaration of the form\n" ^^
-          "      type* x = &dx\n"
-          else
-          "    is a variable/type declaration\n"
-         )
-         (ast_to_string t_def)
-     in
-     write_log clog log;
-     begin match t_def.desc with
-     (* const variables *)
-      | Trm_let (_,(x,_),dx) ->
-        let t_x =
-          if as_reference then trm_apps (trm_unop Unop_get) [trm_var x]
-          else trm_var x
-        in
-        let def_x =
-          if not as_reference then dx
-          else
-            match dx.add with
-            | Add_address_of_operator :: addl -> {dx with add = addl}
-            | _ -> fail t_def.loc "fold_decl: expected a reference"
-        in
-        let t = Generic_core.change_trm ~change_at:fold_at def_x t_x t in
-        (*
-          def_x might have been replaced with x in the definition of x
-          -> replace it again with def_x
-         *)
-        let change_at =
-         (* TODO: Fix later this temporary hack *)
-          [[cVarDef x ~body:[cVar x ]; cBody]]
-        in
-        Generic_core.change_trm ~change_at t_x def_x t
-     
-     (* typedef *)
-     | Trm_typedef d -> 
-       begin match d with 
-       | Typedef_abbrev (x,dx) -> 
-        let ty_x = typ_var x (get_typedef x) in 
-        let t = Generic_core.change_typ ~change_at: fold_at dx ty_x t in 
-        let change_at = [[cTypDef x]] in
-        Generic_core.change_typ ~change_at ty_x dx t
-       | _ -> fail t.loc "fold_decl: expected a typedef"
-       end
-     (* fun decl *)
-     | Trm_let_fun _ ->
-        fail t.loc "fold_decl: fun declaration folding is unsupported"
-     | _ -> fail t.loc "fold_decl: expected a definition"
-     end
-  | _ -> fail t.loc "fold_decl: the path must point to exactly 1 subterm"
+let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args : var list = [])
+  (return_label : label) (f : var) (tf : typ) (args : typed_var list)
+  (body : trm) (t : trm) : trm =
 
-(*
-  insert a definition x = dx either before the position pointed at by
-  insert_before or after the position pointed at by insert_after
-  both must be resolved as paths to a seq element
-  x may be a const variable or not (not const by default)
-  option: make x a reference (x = &dx)
-  assumptions:
-    - no conflicts with the new name x
-    - for a given seq, the insertion path points to at most one of its elements
-    - if x is a reference, dx denotes a memory cell
- *)
-let insert_decl ?(insert_before : target = [])
-  ?(insert_after : target = []) ?(const : bool = false)
-  ?(as_reference : bool = false) (x : var) (dx : trm) (t : trm) : trm =
-  let tx =
-    match dx.typ with
-    | None -> fail dx.loc "insert_decl: cannot find definition type"
-    | Some tx -> if as_reference then typ_ptr tx else tx
-  in
-  let def_x =
-    if as_reference then {dx with add = Add_address_of_operator :: dx.add}
-    else dx
-  in
-  let t_insert =
-    if const then trm_let Var_mutable (x,tx) def_x
-    else
-      trm_let Var_mutable (x, (typ_ptr tx)) def_x
-      
-  in
-  (* compute the explicit path for later use *)
-  let p =
-    match insert_before, insert_after with
-    | [], _ :: _ -> insert_after
-    | _ :: _, [] -> insert_before
-    | [], [] -> fail t.loc "insert_decl: please specify an insertion point"
-    | _ -> fail t.loc "insert_decl: cannot insert both before and after"
-  in
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target p t in
-  Flags.verbose := b;
-  (* insert the definition *)
-  let t = insert_trm ~insert_before ~insert_after t_insert t in
-  (*
-    don't forget the delete instruction if x is heap allocated
-    use explicit path because p will not be resolved as the position of the
-    definition
-   *)
-  if const then t
-  else
-    (*
-      add a seq with delete instruction around the pointed term containing the
-      declaration
-     *)
-    (* TODO: Remove this, delete instructions not needed anymore*)
-    let create_delete_instr (dl : path) (t : trm) : trm =
-      apply_on_path
-        (fun t ->
-          (* t is expected to be a seq *)
-          trm_seq (* ~annot:(Some Delete_instructions) *)
-            [t;
-             (* trm_apps ~annot:(Some Heap_allocated)
-               ~typ:(Some (typ_unit ()))
-               (trm_unop (Unop_delete false)) [trm_var x] *)
-            ]
-        )
-        t
-        dl
-    in
-    List.fold_left
-      (fun t dl ->
-        match List.rev dl with
-        (*
-          the seq containing the definition might be inside a seq with delete
-          instructions
-          -> do not create a seq
-         *)
-        (* | Dir_nth _ :: Dir_nth n :: dl ->
-           apply_on_path
-             (fun t ->
-               match t.desc with
-               | Trm_seq (t' :: del_instr_l)
-                    when t.annot = Some Delete_instructions ->
-                  trm_seq ~annot:(Some Delete_instructions)
-                    (t' ::
-                     (trm_apps ~annot:(Some Heap_allocated)
-                        ~typ:(Some (typ_unit ()))
-                        (trm_unop (Unop_delete false)) [trm_var x]) ::
-                     del_instr_l
-                    )
-               (*
-                 if we do not find a seq of delete instructions, go deeper to
-                 create the seq
-                *)
-               | _ -> create_delete_instr [Dir_nth n] t
-             )
-             t
-             (List.rev dl) *)
-        | Dir_nth _ :: dl -> create_delete_instr (List.rev dl) t
-        | _ -> fail t.loc "insert_definition: expected a path to a seq"
-      )
-      t
-      epl
-
-(* same as insert_definition but for a constant *)
-let insert_const ?(insert_before : target = [])
-  ?(insert_after : target = []) (x : var) (dx : trm) (t : trm) : trm =
-  insert_decl ~insert_before ~insert_after ~const:true x dx t
-
-(*
-  insert a type declaration x = dx either before the position pointed at by
-  insert_before or after the position pointed at by insert_after
-  both must be resolved as paths to a seq element
-  assumption: no conflicts with the new name x
- *)
-let insert_typedef ?(insert_before : target = [])
-  ?(insert_after : target = []) (x : typvar) (dx : typ) (t : trm) : trm =
-  insert_trm ~insert_before ~insert_after (trm_typedef (Typedef_abbrev (x, dx))) t
-
-(*
-  combine insert_definition and fold_decl
-  assumption: if x is not a reference, no effects for dx and it has the same
-  value through all its occurences
- *)
-let insert_and_fold (clog : out_channel) ?(insert_before : target = [])
-  ?(insert_after : target = []) ?(const : bool = false)
-  ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var)
-  (dx : trm) (t : trm) : trm =
-  (* compute the explicit path for later use *)
-  let p =
-    match insert_before, insert_after with
-    | [], _ :: _ ->  insert_after
-    | _ :: _, [] ->  insert_before
-    | [], [] -> fail t.loc "insert_and_fold: please specify an insertion point"
-    | _ -> fail t.loc "insert_and_fold: cannot insert both before and after"
-  in
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target p t in
-  Flags.verbose := b;
-  (* insert the definition *)
-  let t =
-    insert_decl ~insert_before ~insert_after ~const ~as_reference x dx t
-  in
-  (*
-    fold the definition
-    use explicit path because p will not be resolved as the position of the
-    definition
-    any path in epl is ok to do so
-   *)
-  match epl with
-  | [] -> fail t.loc "insert_and_fold: no insertion point"
-  | dl :: _ ->
-     let def_pathl =
-       let pathl_of_expl_path (dl : path) : target =
-         List.map (fun d -> Constr_dir d) dl
-       in
-       match List.rev dl with
-       | Dir_nth n :: dl ->
-          let n =
-            match insert_before, insert_after with
-            (* insert after: add 1 to n *)
-            | [], _ :: _ -> n + 1
-            (* insert before: n is the position of the definition *)
-            | _ :: _, [] -> n
-            | [], [] ->
-               fail t.loc "insert_and_fold: please specify an insertion point"
-            | _ ->
-               fail t.loc "insert_and_fold: cannot insert both before and after"
-          in
-          let (t_container, _) = resolve_path (List.rev dl) t in
-          begin match t_container.annot with
-          (*
-            in case of heap allocation, a seq (for delete instructions) may be
-            added around the last container
-            -> add a nth 0 direction before the last direction if it is the case
-           *)
-          (* | Some Delete_instructions ->
-             pathl_of_expl_path (List.rev (Dir_nth n :: Dir_nth 0 :: dl)) *)
-          | _ -> pathl_of_expl_path (List.rev (Dir_nth n :: dl))
-          end
-       | _ -> fail t.loc "insert_and_fold: expected a path to a seq element"
-     in
-     (* replace dx with &dx before folding if we have a reference *)
-     fold_decl clog ~as_reference ~fold_at def_pathl t
-
-(* same as insert_and_fold but for types *)
-let insert_and_fold_typedef (clog : out_channel)
-  ?(insert_before : target = []) ?(insert_after : target = [])
-  ?(fold_at : target list = [[]]) (x : typvar) (dx : typ) (t : trm) : trm =
-  (* compute the explicit path for later use *)
-  let p =
-    match insert_before, insert_after with
-    | [], _ :: _ ->  insert_after
-    | _ :: _, [] ->  insert_before
-    | [], [] ->
-       fail t.loc "insert_and_fold_typedef: please specify an insertion point"
-    | _ ->
-       fail t.loc "insert_and_fold_typedef: cannot insert both before and after"
-  in
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target p t in
-  Flags.verbose := b;
-  (* insert the typedef *)
-  let t = insert_typedef ~insert_before ~insert_after x dx t in
-  (*
-    fold the typedef
-    use explicit path because p will not be resolved as the position of the
-    definition
-    any path in epl is ok to do so
-   *)
-  match epl with
-  | [] -> fail t.loc "insert_and_fold_typedef: no insertion point"
-  | dl :: _ ->
-     let dl =
-       match List.rev dl with
-       | Dir_nth n :: dl' ->
-          let n =
-            match insert_before, insert_after with
-            (* insert after: add 1 to n *)
-            | [], _ :: _ -> n + 1
-            (* insert before: n is the position of the definition *)
-            | _ :: _, [] -> n
-            | [], [] ->
-               fail t.loc
-                 "insert_and_fold_typedef: please specify an insertion point"
-            | _ ->
-               fail t.loc
-                 "insert_and_fold_typedef: cannot insert both before and after"
-          in
-          List.rev (Dir_nth n :: dl')
-       | _ -> fail t.loc "insert_and_fold_typedef: expected a path to a seq"
-     in
-     let def_pathl = List.map (fun d -> Constr_dir d) dl in
-     fold_decl clog ~fold_at def_pathl t
-(*
-  remove the declaration pointed at by pl
-  pl must be resolved as a path to a seq element
-  assumption: the declared object is not used in t
- *)
-let remove_decl (clog : out_channel) (tr : target) (t : trm) : trm =
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target tr t in
-  Flags.verbose := b;
-  match epl with
-  | [dl] ->
-     (* get the declaration for later use *)
-     let (t_decl, _) = resolve_path dl t in
-     let log : string =
-       let loc : string =
-         match t_decl.loc with
-         | None -> ""
-         | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-       in
-       Printf.sprintf
-         ("  - expression\n%s\n" ^^
-          "    %sis a declaration\n"
-         )
-         (ast_to_string t_decl) loc
-     in
-     write_log clog log;
-     let log : string =
-       let x = decl_name t_decl in
-       Printf.sprintf "  - %s is not used in the remainder of the program\n" x
-     in
-     write_log clog log;
-     let dl = List.rev dl in
-     let n =
-       match List.nth_opt dl 0 with
-       | Some (Dir_nth n) -> n
-       | _ -> fail t.loc "remove_decl: the path must point at a seq element"
-     in
-     let t =
-       apply_on_path
-         (fun (t : trm) ->
-           match t.desc with
-           | Trm_seq tl ->
-              let tl = filteri (fun i _ -> i <> n) tl in
-              trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add tl
-           | _ -> fail t.loc "remove_decl: expected a seq"
-         )
-         t
-         (* remove the last direction to point at the seq *)
-         (List.rev (List.tl dl))
+  (*let counter = ref 0 in  ^ string_of_int !counter *)
+  (* inline f everywhere in t *)
+  let rec apply_change (t : trm) : trm =
+    (*Ast_to_text.print_ast ~only_desc:true stdout t; *) (* TODO: make show_ast  accessible from everywhere*)
+    (* new names replacing the argument names *)
+    (* DEPRECATED incr counter; *)
+  let fresh_args =
+     match fun_args with
+     | [] -> List.map (fun (x, tx) -> (Generic_core.fresh_in t x, tx)) args
+     | _ ->
+      if List.length fun_args <> List.length args
+        then fail t.loc "inline_fun_decl: incorrect number of names provided for the arguments";
+       List.map2 (fun (_x, tx) nx -> (nx, tx)) args fun_args
      in
 
-     (* remove delete instruction if the declaration is a heap allocation *)
-     begin match t_decl.desc with
-     (* | Trm_seq _ when t_decl.annot = Some Heap_allocated ->
-        let x = decl_name t_decl in
-        apply_on_path
-          (fun (t : trm) ->
-            match t.desc with
-            | Trm_seq (t_body :: del_instr_l)
-                 when t.annot = Some Delete_instructions ->
-               let del_instr_l =
-                 List.filter
-                   (fun (t_del : trm) ->
-                     match t_del.desc with
-                     | Trm_apps (_, [{desc = Trm_var y; _}]) when y = x -> false
-                     | _ -> true
-                   )
-                   del_instr_l
-               in
-               begin match del_instr_l with
-               | [] -> t_body
-               | _ ->
-                  trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add
-                    ~attributes:t.attributes (t_body :: del_instr_l)
-               end
-            | _ -> fail t.loc "remove_decl: expected delete instructions"
+    (* name for the result of f, result might be an argument name *)
+  let result =
+      Generic_core.fresh_in
+        (trm_seq
+          (t ::
+              List.map
+                (fun x_tx -> trm_let Var_mutable x_tx (trm_lit Lit_uninitialized))
+                fresh_args
           )
-          t
-          (*
-            remove the two last directions to point at the seq containing the
-            delete instructions
-           *)
-          (List.rev (List.tl (List.tl dl))) *)
-     | _ -> t
-     end
-  | _ -> fail t.loc "remove_decl: the path must point at exactly 1 subterm"
+        )
+        result
+    in
+    (* result is heap allocated *)
+    let result_decl =
+      trm_let Var_mutable (result, typ_ptr tf) (trm_prim (Prim_new tf))
+      
+    in
+    (* body where the argument names are substituted *)
+    let body =
+      List.fold_left2
+        (fun body (x, _) nx ->
+          Generic_core.change_trm
+            (trm_var x)
+            (trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get)
+              [trm_var nx])
+            body
+        )
+        body
+        args fun_args
+    in
+    (* body where res is used instead of return statements *)
+    let replace_return (t : trm) : trm =
+      let rec aux (t : trm) : trm =
+        match t.desc with
+        (* remove delete instruction related to return statement if any *)
+        (* | Trm_seq tl when t.annot = Some Delete_instructions ->
+          begin match List.rev tl with
+          | {desc = Trm_abort (Ret (Some r)); _} :: _ ->
+              trm_seq ~annot:(Some No_braces) ~loc:t.loc
+                [trm_set ~loc:t.loc ~is_statement:true (trm_var result) r;
+                trm_goto ~loc:t.loc return_label]
+          | {desc = Trm_abort (Ret None); _} :: _ ->
+              trm_goto ~loc:t.loc return_label
+          | _ -> trm_map aux t
+          end *)
+        | Trm_abort (Ret (Some r)) ->
+          trm_seq ~annot:(Some No_braces) ~loc:t.loc
+            [trm_set ~loc:t.loc ~is_statement:true (trm_var result) r;
+              trm_goto ~loc:t.loc return_label]
+        | Trm_abort (Ret None) -> trm_goto ~loc:t.loc return_label
+        | _ -> trm_map aux t
+      in
+      Generic_core.clean_up_no_brace_seq (aux t)
+    in
+    let body = replace_return body in
+    let bodyl =
+      match body.annot with
+      (* | Some Delete_instructions -> [body] *)
+      | _ ->
+        begin match body.desc with
+        | Trm_seq tl -> tl
+        | _ -> [body]
+        end
+    in
 
-(* compute a fresh variable (w.r.t. t) based on x *)
-let fresh_in (t : trm) (x : var) : var =
-  if not (is_used_var_in t x) then x
-  else
-    begin
-      let n = ref 0 in
-      while is_used_var_in t (x ^ "_" ^ string_of_int !n) do
-        incr n
-      done;
-      x ^ "_" ^ string_of_int !n
+    (* we look for instructions that contain a call to f *)
+    if not (t.is_statement && contains_call_to_fun f t)
+    then trm_map apply_change t
+    else
+      let arg_vals = fun_call_args f t in
+      if List.length fresh_args <> List.length arg_vals
+        then fail t.loc "inline_fun_decl: incorrect number";
+
+      let arg_decls =
+        List.map2
+          (fun (x, tx) dx ->
+             trm_let ~is_statement:true Var_mutable (x,tx) dx
+          )
+          fresh_args
+          arg_vals
+      in
+     
+      let t =
+        match tf.ty_desc with
+        | Typ_unit ->
+            trm_seq ~loc:t.loc ~annot:(Some No_braces)
+                (arg_decls ++ bodyl ++
+                 [
+                   trm_labelled return_label
+                     (Generic_core.change_trm (trm_apps (trm_var f) arg_vals)
+                        (trm_lit Lit_unit) t)
+                 ]
+                )
+                (*
+           begin match arg_dels with
+           (* if no args, no delete instruction *)
+           | [] ->
+              trm_seq ~loc:t.loc
+                (bodyl ++
+                 [
+                   trm_labelled return_label
+                     (Generic_core.change_trm (trm_apps (trm_var f) arg_vals)
+                        (trm_lit Lit_unit) t)
+                 ]
+                )
+           | _ ->
+              trm_seq ~annot:(Some Delete_instructions)
+                ((trm_seq ~loc:t.loc
+                    (bodyl ++
+                     [let inline_record_access (clog : out_channel) (field : string) (var : string ) (t : trm) : trm =
+      (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
+      let pl = [cVarDef var] in
+      let epl = resolve_target pl t in
+      let var_decl = match epl with
+      | [dl] -> let (t_def,_) = resolve_path dl t in t_def
+
+      | _ ->  fail t.loc "inline_record_access: expected a type"
+      in
+      let var_type ,only_decl = match var_decl.desc with
+      | Trm_seq tl->
+        let only_decl = if List.length tl = 1 then true else false
+        in
+        let t_decl = List.hd tl in
+        begin match t_decl.desc with
+        | Trm_let (_,(x, var_typ), _) when x = var ->
+          begin match var_typ.ty_desc with
+          | Typ_ptr {ty_desc=Typ_var (y, _);_} -> y ,only_decl
+          | _ -> fail t.loc "inline_record_access: type was not matched"
+          end
+        | _ -> fail t.loc "inline_record_access: expected a declaration"
+        end
+      | _ -> fail t.loc "inline_record_access: could not match the sequnce which contains the declaration"
+      in
+
+      let list_of_trms = if not only_decl then match var_decl.desc with
+
+        | Trm_seq [_;t_assign] ->
+          begin match t_assign.desc with
+          | Trm_apps (_,[_;lt]) ->
+            begin match lt.desc with
+            | Trm_struct tl -> tl
+            | _ -> fail t.loc "implicit_record_assignment: expected a record"
+            end
+          |  _ -> fail t.loc "implicit_record_assignment: expected an assignment"
+          end
+        |  _ -> fail t.loc "implicit_record_assignment: expected a sequence term"
+
+        else (* search for the trms,
+                assumption the variable is only once assigned*)
+          (* let loc_pl = [cSet ~lhs:[cVar var ]()] in  *)
+          let loc_pl = cSet ~lhs:[cVar var] ()  in
+          let loc_epl = resolve_target loc_pl t in
+          match loc_epl with
+          | [dl] -> let (t_assgn,_) = resolve_path dl t in
+            begin match t_assgn.desc with
+            | Trm_apps(_,[_;rs]) ->
+              begin match rs.desc with
+              | Trm_struct tl -> tl
+              | _ -> fail t.loc "inline_struct_access: expected a record"
+              end
+            | _ -> fail t.loc "inline_struct_access: expected an assignment"
+            end
+          | _ -> fail t.loc "inline_struct_access: assumed that the variable was assigned only once"
+      in
+      let struct_decl_path = [cTypDef var_type ] in
+      let epl_of_struct_decl = resolve_target struct_decl_path t in
+      let struct_decl_trm  = match epl_of_struct_decl with
+        | [dl] -> let (t_def,_) = resolve_path dl t in t_def
+        | _ -> fail t.loc "inline_struct_access: expected a typedef struct"
+      in
+      let app_transfo (t : trm) (dl : path) : trm =
+        match List.rev dl with
+        | Dir_nth _ :: dl' ->
+          let dl = List.rev dl' in
+          apply_on_path (inline_record_access_core clog var field struct_decl_trm list_of_trms) t dl
+        | _ -> fail t.loc "inline_struct_access:expected a dir_nth inside the sequence"
+      in
+      match epl with
+      | [] ->
+        print_info t.loc "inline_struct_access: no matching subterm";
+        t
+      | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl 
+      (* Ast_to_text.print_ast ~only_desc:true stdout var_decl; *)
+
+(* ******************************************************* *)
+ (* Auxiliary functions for change_struct_fields function  *)
+(* Find all keys which have value = value *)
+let find_keys value m =
+  Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
+
+(* A function rename all th elements of a list *)
+let rec apply_labels vl pl = match pl with
+| [] -> []
+| hd :: tl -> let y = List.map (fun x -> hd ^ "_" ^x) vl in y :: apply_labels vl tl
+
+
+let add_key key value m = Field_map.add key value m
+
+
+let rec add_keys (lk : var list) (lv : typ list) m  = match (lk ,lv) with
+| [],[] -> m
+| _ :: _, [] -> m
+| [] , _ :: _ -> m
+| hd :: tl, hd1 :: tl1 -> let m = add_key hd hd1 m in add_keys tl tl1 m
+
+let rec add_keys_to_map lv llk m = match llk with
+| [] -> m
+| hd :: tl -> let m = add_keys  hd lv m in add_keys_to_map lv tl m
+(* ******************************************************* *)
+
+
+(*
+let record_get_typed_fields (fields_list, fields_map) =
+                list (string * typ) : list =
+                 List.combine fields_list (get_values fields_list fields_map
+*)
+let change_struct_fields (clog : out_channel) ?(struct_fields : fields = []) (t1 : trm) (t : trm) : trm =
+  let log : string =
+    let loc : string =
+      match t.loc with
+      | None -> ""
+      | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
+    in Printf.sprintf
+      ("  - expression\n%s\n" ^^
+      "    %sis a struct type\n"
+      )
+      (ast_to_string t) loc
+    in
+    write_log clog log;
+
+    let rec add_keys (lv : typ list) (lk : var list) (ov : typ) m  = match (lv ,lk) with
+      | [],[] -> m
+      | _ :: _, [] -> m
+      | [] , _ :: _ -> m
+      | hd :: tl, hd1 :: tl1 ->
+
+    let m = match ov.ty_desc with
+      | Typ_ptr _ ->   add_key hd1 (typ_ptr hd) m
+      | Typ_array (_,s) -> add_key hd1 (typ_array hd s ) m
+      | _ -> add_key hd1 hd m
+    in add_keys tl tl1 ov m
+    in
+    let rec add_keys_to_map lv llk olv  m = match (llk,olv) with
+    | [], [] -> m
+    | _ :: _, [] -> m
+    | [], _ :: _ -> m
+    | hd :: tl ,hd1 :: tl1 -> let m = add_keys lv hd hd1 m in add_keys_to_map lv tl tl1 m
+    in
+
+    begin match t1.desc with
+      | Trm_typedef (Typedef_abbrev (_, dx)) ->
+        let field_list, field_map =
+          match dx.ty_desc with
+            | Typ_struct (l,m,_) -> l,m
+            | _ -> fail t.loc "inline_struct_aux: The type shoudl be a typedef struct"
+        in
+        begin match t.desc with
+        | Trm_typedef (Typedef_abbrev (x1, dx1)) ->        
+            let field_list1, field_map1,name =
+              match dx1.ty_desc with
+              | Typ_struct(l,m,n) -> l,m,n
+              |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
+            in
+
+          (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
+          (* let keys_list = if struct_fields = [] then Field_map.fold(fun k v acc -> if v = x then k :: acc else acc) field_map1 []
+
+            else struct_fields
+            in
+          *)
+          (* keys_list is the list of struct fields which have to be inlined *)
+          let fields_to_inline = struct_fields in
+          (* value_list is the list of values for each field we want to inline, we need that since we have
+          to check if there are special types like arrays *)
+          let field_types = List.map(fun x -> Field_map.find x field_map1) fields_to_inline in
+
+          let temp_field_list = apply_labels field_list fields_to_inline in
+
+          (* The key values from the first struct *)
+          let values = List.map (fun x -> Field_map.find x field_map) field_list in
+
+          (* Add the new keys with their values to the second  struct field_map *)
+          let field_map1 = add_keys_to_map values temp_field_list field_types field_map1 in
+
+
+          let field_list1 = insert_list fields_to_inline temp_field_list field_list1 in
+
+
+          let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 fields_to_inline in
+
+          let field_list1 = list_remove_set  fields_to_inline field_list1 in
+
+          trm_typedef (Typedef_abbrev (x1, typ_struct field_list1 field_map1 name))
+
+        | _ -> fail t.loc "inline_struct_aux: expected a definiton"
+        end
+      | _ -> fail t.loc " inline_struct_aux: expected a definiton"
+      end
+
+
+
+let change_struct_access  (x : typvar) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    match t.desc with
+    | Trm_apps (f, [base]) ->
+      begin match f.desc with
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
+          (* Removed this if else condition just for debugging purposes *)
+          (* if false then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
+          else  *)
+          begin match base.desc with
+          | Trm_apps (f',base') ->
+            begin match f'.desc with
+
+            | Trm_val(Val_prim (Prim_binop Binop_array_access))
+              | Trm_val(Val_prim (Prim_binop Binop_array_get)) ->
+                (* THen base caontains another base and also the index  *)
+                let base2 = List.nth base' 0 in
+                let index = List.nth base' 1 in
+                begin match base2.desc with
+                | Trm_apps(f'',base3) ->
+                  begin match f''.desc with
+                  | Trm_val (Val_prim (Prim_unop Unop_struct_access z))
+                    | Trm_val (Val_prim (Prim_unop (Unop_struct_get z ))) when z = x ->
+                    let new_var = z ^ "_" ^ y in
+                    let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))} in
+                    trm_apps ~annot:t.annot  f' [trm_apps new_f base3;index]
+                  | _ -> trm_map (aux global_trm) t
+                  end
+                | _ -> fail t.loc "change_struct_access: expected a trm_apps"
+                end
+
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_access z)))
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x ->
+                let new_var = z ^"_"^ y in
+                let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
+              in
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                     ~add:t.add ~typ:t.typ new_f base'
+
+            | _ -> trm_map (aux global_trm) t
+            end
+
+          | _ -> trm_map (aux global_trm) t
+          end
+
+      | _ -> trm_map (aux global_trm) t
+      end
+
+      (* other cases: recursive call *)
+    | _ -> trm_map (aux global_trm) t
+in
+aux t t
+
+let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (t :trm) : trm =
+  let base_struct_path = [cTypDef base_struct_name] in
+  let epl_of_base_struct = resolve_target base_struct_path t in
+  let base_struct_term = match epl_of_base_struct with
+    | [dl] -> let (t_def,_) = resolve_path dl t in t_def
+    | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
+  in
+  let struct_path = [cTypDef struct_name ] in
+  let epl_of_struct = resolve_target struct_path t in
+  let struct_term = match epl_of_struct with
+  | [dl] ->
+    let (t_def,_) = resolve_path dl t in t_def
+  | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
+  in
+
+  let pos = get_pos x struct_term in
+  let rec aux (global_trm : trm) (t : trm) =
+    match t.desc with
+    | Trm_struct term_list ->
+
+      begin match t.typ with
+      | Some{ ty_desc = Typ_var (y, _); _} when y = struct_name ->
+
+        let el = List.nth term_list pos in
+
+        begin match el.desc with
+        | Trm_struct inner_term_list -> trm_struct (insert_sublist_in_list inner_term_list pos term_list)
+
+        | Trm_apps(_,[body]) ->
+
+          begin match body.desc with
+          | Trm_var _p ->  (*trm_struct (List.rev term_list)*)
+              let field_list =
+              match base_struct_term.desc with
+                | Trm_typedef (Typedef_abbrev (_, dx)) ->
+                  begin match dx.ty_desc with
+                    | Typ_struct (fl,_,_) -> fl
+                    | _ -> fail t.loc "change_struct_initializaition: expected a struct"
+                  end
+                | _ -> fail t.loc "change_struct_initialization: expected a definition"
+              in
+              let field_list = List.map (fun el -> trm_var (_p ^ "." ^ el)) field_list
+              in trm_struct (insert_sublist_in_list field_list pos term_list)
+          | _ -> fail t.loc "change_struct_initialization: expected either a record or a variables"
+          end
+        | _ -> fail t.loc "change_struct_initialization: expected either a record or a variables"
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    | _ -> trm_map (aux global_trm) t
+  in
+  aux t t
+
+
+
+
+(* let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (base_struct_name : typvar) (x : typvar) (t :trm) : trm =
+  let base_struct_path = [cTypDef base_struct_name] in
+  let epl_of_base_struct = resolve_target (
+     base_struct_path) t in
+  let base_struct_term = match epl_of_base_struct with
+    | [dl] -> let (t_def,_) = resolve_target dl t in t_def
+    | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
+  in
+  let struct_path = [cTypDef struct_name] in
+  let epl_of_struct = resolve_target (List.flatten struct_path) t in
+  let struct_term = match epl_of_struct with
+  | [dl] ->
+    let (t_def,_) = resolve_target dl t in t_def
+  | _ -> fail t.loc "change_struct_initialization: expected a typedef struct"
+  in
+
+  let pos = get_pos x struct_term in
+  let rec aux (global_trm : trm) (t : trm) =
+    match t.desc with
+    | Trm_struct term_list ->
+
+      begin match t.typ with
+      | Some{ ty_desc = Typ_var (y, _); _} when y = struct_name ->
+
+        let el = List.nth term_list pos in
+
+        begin match el.desc with
+        | Trm_struct inner_term_list -> trm_struct (insert_sublist_in_list inner_term_list pos term_list)
+
+        | Trm_apps(_,[body]) ->
+
+          begin match body.desc with
+          | Trm_var _p ->  (*trm_struct (List.rev term_list)*)
+              let field_list =
+              match base_struct_term.desc with
+                | Trm_typedef (Typedef_abbrev (_, dx)) ->
+                  begin match dx.ty_desc with
+                    | Typ_struct (fl,_,_) -> fl
+                    | _ -> fail t.loc "change_struct_initializaition: expected a struct"
+                  end
+                | _ -> fail t.loc "change_struct_initialization: expected a definition"
+              in
+              let field_list = List.map (fun el -> trm_var (_p ^ "." ^ el)) field_list
+              in trm_struct (insert_sublist_in_list field_list pos term_list)
+          | _ -> fail t.loc "change_struct_initialization: expected either a record or a variables"
+          end
+        | _ -> fail t.loc "change_struct_initialization: expected either a record or a variables"
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    | _ -> trm_map (aux global_trm) t
+  in
+  aux t t *)
+
+(* TODO: Re-implement from scratch this function *)
+let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : string) (t : trm) : trm =
+
+  let field_name = List.hd struct_fields in
+
+  let struct_term_path  = [cTypDef name] in
+  let p_of_struct_term = struct_term_path in
+  let epl_of_struct_term = resolve_target p_of_struct_term t in
+  let struct_term = match epl_of_struct_term with
+    | [dl] ->
+      let(t_def,_) = resolve_path dl t in t_def
+    | _ -> fail t.loc "inline_struct: expected a typedef struct"
+    in
+  (* Get the type of the field_name by going through the field_map of struct obj *)
+  let inner_struct_name =
+  match struct_term.desc with
+  | Trm_typedef (Typedef_abbrev (_, dx)) ->
+    let field_map =
+      match dx.ty_desc with
+      | Typ_struct (_,m,_) -> m
+      | _ -> fail t.loc "inline_struct: the type should be a typedef struct"
+    in
+    let field_map_typ = Field_map.find field_name field_map in
+    begin match field_map_typ.ty_desc with
+    | Typ_var (y, _) -> y
+    | Typ_array (t_var ,_) ->
+          begin match t_var.ty_desc with
+          | Typ_var (y, _) -> y
+          | _ -> fail t.loc "inline_struct: expected a typ_var inside the typ_array"
+          end
+
+    | Typ_ptr {ty_desc=Typ_var (y, _); _} -> y
+
+    | _ -> fail t.loc "inline_struct: expeted a typ var as the value of a key  "
     end
+  | _ -> fail t.loc "inline_struct: expected a definition"
+    in
 
-let eliminate_goto_next (t : trm) : trm =
-  let rec elim_in_list (tl : trm list) : trm list =
-    match tl with
-    | t1 :: t2 :: tl ->
-       begin match t1.desc, t2.desc with
-       | Trm_goto l1, Trm_labelled (l2, _) when l1 = l2 ->
-          elim_in_list (t2 :: tl)
-       | _ -> t1 :: (elim_in_list (t2 :: tl))
-       end
-    | _ -> tl
-  in
-  let rec aux (t : trm) : trm =
-    match t.desc with
-    | Trm_seq tl ->
-       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
-         (elim_in_list (List.map aux tl))
-    | _ -> trm_map aux t
-  in
-  aux t
-(* TODO: Change this based on Arthurs'idea *)
-let group_decl_init (t : trm) : trm =
-  let rec group_in_list (tl : trm list) : trm list =
-    match tl with
-    | t1 :: t2 :: tl ->
-       begin match t1.desc, t2.desc with
-       | Trm_seq [{desc = Trm_let (Var_mutable,(x, tx), dx); _}],
-         Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                   [{desc = Trm_var _; _}; _])
-             (* when y = x && t1.annot = Some Heap_allocated *) ->
-          let t =
-            trm_let ~loc:t1.loc Var_mutable (x, tx) dx
-          in
-          group_in_list (t :: tl)
-       | _ -> t1 :: (group_in_list (t2 :: tl))
-       end
-    | _ -> tl
-  in
-  let rec aux (t : trm) : trm =
-    match t.desc with
-    | Trm_seq tl ->
-       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
-         (group_in_list (List.map aux tl))
-    | _ -> trm_map aux t
-  in
-  aux t
+    let  pl_temp = [cTypDef inner_struct_name]  in
+    let p_temp = pl_temp in
+    let epl_temp = resolve_target p_temp t in
 
+    (* get the list of fields of the inner struct *)
+    let t1 =
+    match epl_temp with
+    | [dl] ->
+      let (t_def,_) = resolve_path dl t in t_def
+    | _ -> fail t.loc "inline_struct: expected a typedef struct"
+    in
+
+
+   let t =  List.fold_left (fun acc_t x -> change_struct_access x acc_t) t struct_fields
+    in
+
+     let t = List.fold_left (fun acc_t x -> change_struct_initialization  clog  name inner_struct_name x acc_t ) t struct_fields
+    in
+
+    let tr = struct_term_path in
+    let b = !Flags.verbose in
+    Flags.verbose := false;
+    let epl = resolve_target tr t in
+    Flags.verbose := b;
+    match epl with
+    | [] ->
+      print_info t.loc "inline_struct: no matching subterm";
+      t
+    | _ ->
+      List.fold_left
+        (fun t dl ->
+          apply_on_path (change_struct_fields clog ~struct_fields t1) t dl)
+        t
+        epl
+                       trm_labelled return_label
+                         (Generic_core. (trm_apps (trm_var f) arg_vals)
+                            (trm_lit Lit_unit) t)
+                     ]
+                    )
+                 ) ::
+                 arg_dels
+                )
+           end*)
+        | _ ->
+           trm_seq(*  ~annot:(Some Delete_instructions) *) ~loc:t.loc
+             ([
+                trm_seq ~loc:t.loc (*REMOVES the braces TODO: braces needed for scopes *) ~annot:(Some No_braces)
+                  (arg_decls ++ (result_decl :: bodyl) ++
+                   [
+                     trm_labelled return_label
+                       (Generic_core.change_trm
+                          (trm_apps (trm_var f) arg_vals)
+                          (* TODO: Fix this later *)
+                          (trm_apps ~annot:(Some Mutable_var_get)
+                             (trm_unop Unop_get) [trm_var result])
+                          t
+                       )
+                   ]
+                  );
+               ] 
+             )
+      in
+      (* clean up *)
+      let t = Generic_core.group_decl_init t in
+      let t = Generic_core.eliminate_goto_next t in
+      let n = nb_goto return_label t in
+      if n = 0 then Label.delete_label return_label t else t
+  in
+  List.fold_left
+    (fun t tr ->
+      let b = !Flags.verbose in
+      Flags.verbose := false;
+      let epl = resolve_target tr t in
+      Flags.verbose := b;
+      match epl with
+      | [] ->
+         print_info t.loc "inline_fun_decl: no matching subterm for path %s\n"
+           (target_to_string tr);
+         t
+      | _ ->
+         List.fold_left (apply_on_path apply_change) t epl
+    )
+    t
+    inline_at

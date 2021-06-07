@@ -1,13 +1,15 @@
 open Optitrust
+open Run
 
 let _ = run
 (fun _ ->
   set_init_source"remove_decl.cpp";
-  remove_decl ~decl_path:[cTypDef "T"] ();
-  remove_decl ~decl_path:[cTopFun "f"] ();
+  Declaration.remove [cTypDef "T"] ();
+  Declaration.remove [cTopFun "f"] ();
   (* TODO: this one does not work
        remove_decl ~decl_path:[cVarDef "x"] ();
      When it does, update the %_exp.cpp file *)
-  remove_decl ~decl_path:[cVarDef "z"] ();
+  Declaration.remove [cVarDef "z"] ();
+  dump ()
 )
 

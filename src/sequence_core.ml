@@ -1,6 +1,5 @@
 open Ast
 open Target
-open Tools (* TODO: use Tools. *)
 
 
 (* [insert_aux index ts t]: This function is an auxiliary function for insert
@@ -15,13 +14,14 @@ open Tools (* TODO: use Tools. *)
 let insert_aux (index : int) (ts : trm list) (t : trm): trm =
     match t.desc with
     | Trm_seq tl ->
-      let tl = insert_sublist_at ts index tl in
+      let tl = Tools.insert_sublist_at ts index tl in
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
-
+(* [insert index ts path_to_seq t] *)
 let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
   Target.apply_on_path (insert_aux index ts) t path_to_seq
+
 
 (* [delete_aux index nb_instr t]: This function is an auxiliary function for delete
     params:
@@ -33,15 +33,15 @@ let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      let lfront,lback = split_list_at index tl in
-      let _,lback = split_list_at (index + nb_instr) lback in
+      let lfront,lback = Tools.split_list_at index tl in
+      let _,lback = Tools.split_list_at (index + nb_instr) lback in
       (* Remove trms*)
       let tl = lfront @ lback in
       (* Apply the changes *)
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
-
+(* [delete index nb_instr t p] *)
 let delete (index : int) (nb_instr : int) : Target.Transfo.local=
   Target.apply_on_path(delete_aux index nb_instr)
 
@@ -54,12 +54,11 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local=
     return: the updated ast
 
 *)
-
 let sub_aux (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      let lfront,lrest = split_list_at index tl in
-      let l_sub,lback = split_list_at nb lrest in
+      let lfront,lrest = Tools.split_list_at index tl in
+      let l_sub,lback = Tools.split_list_at nb lrest in
       (* Create the inner sequence*)
       let sub_seq = trm_seq l_sub in
       let tl = lfront @ [sub_seq] @ lback in
@@ -67,8 +66,11 @@ let sub_aux (index : int) (nb : int) (t : trm) : trm =
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
 
+
+(* [sub index nb_instr] *)
 let sub (index : int) (nb_instr : int)  =
   Target.apply_on_path(sub_aux index nb_instr)
+
 
 (* [inline_aux index t]: This function is an auxiliary function for inline
     params:
@@ -76,7 +78,6 @@ let sub (index : int) (nb_instr : int)  =
       t: an ast subterm
     return: the updated ast
 *)
-
 let inline_aux (index : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
@@ -93,7 +94,7 @@ let inline_aux (index : int) (t : trm) : trm =
       end
       in
       (* Insert at the given index the trms from the inner sequence *)
-      let tl = insert_sublist_in_list inner_seq_trms index tl in
+      let tl = Tools.insert_sublist_in_list inner_seq_trms index tl in
       (*  list_insert index inner_seq (list_remove index tl)
           list_remove_and_insert_several index inner_seq tl *)
       (* Apply the changes *)
@@ -101,6 +102,7 @@ let inline_aux (index : int) (t : trm) : trm =
     | _ -> fail t.loc "inline_aux: expected the sequence on which the ilining is performed"
 
 
+(* [inline index t p] *)
 let inline (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index)
 
@@ -113,7 +115,7 @@ let inline (index : int) : Target.Transfo.local =
 let wrap_aux (visible : bool) (t : trm) : trm =
   trm_seq ~annot:(if not visible then Some No_braces else None) [t]
 
-
+(*  [wrao visible t p] *)
 let wrap (visible : bool) : Target.Transfo.local=
   Target.apply_on_path (wrap_aux visible)
 
@@ -133,6 +135,7 @@ let unwrap_aux (t : trm) : trm =
     | _ -> fail t.loc "unwrap_aux: expected to operate on a sequence"
 
 
+(* [unwrap t p] *)
 let unwrap : Target.Transfo.local =
   Target.apply_on_path (unwrap_aux)
 

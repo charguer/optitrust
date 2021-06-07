@@ -1,20 +1,11 @@
 open Ast
-open Clang_to_ast
 
-(*
-  1) change the declaration at the given index in the sequence
-  2) for every remaining item in the sequence, apply a function to update occurences of the array
-  hint: use takedrop :)
-
-  Arrays.to_variable_aux
-
-    tl decomposes as  tlfront @ thedef :: tlrest
-    then
-    newtlrest = List.map to_variable_change_occurrences tlrest
-    and rebuild
-    tlfront @ thenewdef :: newtlrest
+(* [inline_array_access array_var new_vars t]: Change all the occurence of the array to variables
+    params:
+      array_var: array_variable  to apply changes on
+      new_vars: a list of variables, the variables at index i replaces and occurence of array_var[i]
+      t: ast subterm
 *)
-(* This is an auxiliary function for array to variables to modify the ast globally *)
 let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
@@ -51,18 +42,9 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t
 
- (* TODO:
-      match t with
-       trm_seq tl ->
-           frotn rest  Tools.takedrop index_of_the_def tl
-           def, back = decompose rest
-           in def you can the array name
-
-           only apply subst in back
 
 
-    *)
-(* to_variables_aux: This is an auxiliary function for to_variables
+(* [to_variables_aux new_vars t]: This is an auxiliary function for to_variables
     params:
       new_vars: a list of strings of length equal to the size of the array
       t: an ast subterm
@@ -85,7 +67,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
         begin match t_var.ty_desc with
         | Typ_var (y, _) ->
           List.map(fun x ->
-          trm_let Var_mutable (x,(typ_ptr (typ_var y (get_typedef y)))) (trm_lit (Lit_uninitialized))) new_vars
+          trm_let Var_mutable (x,(typ_ptr (typ_var y (Clang_to_ast.get_typedef y)))) (trm_lit (Lit_uninitialized))) new_vars
     
         | _ -> fail t.loc "to_variables_aux: expected a type variable"
         end
@@ -100,104 +82,29 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
     trm_seq ~annot:t.annot ~loc:t.loc (lfront @ var_decls @ lback)
   | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
 
-
+(* [to_variables new_vars index t p] *)
 let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
 
-let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
+
+(* [apply_tiling base_type block_name b x]: Change all the occurence of the array to the tiled form
+    params:
+      base_type: type of the array
+      block_name: new name for the array
+      b: the size of the tile
+      x: typvar
+      t: ast subterm
+    assumptions:
+    - if x is ty*, each array of type x is allocated through a custom function:
+      x a = my_alloc(nb_elements, size_element)
+    - x is not used in function definitions, but only in var declarations
+    - for now: in any case, the number of elements is divisible by b
+*)
+let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   (t : trm) : trm =
-  (*
-    replace sizeof(base_type) with sizeof(block_name)
-    if another term is used for size: use b * t_size
-   *)
-  let new_size (t_size : trm) : trm =
-    if Ast_to_c.ast_to_string t_size =
-         "sizeof(" ^ Ast_to_c.typ_to_string base_type ^ ")"
-    then trm_var ("sizeof(" ^ block_name ^ ")")
-    else trm_apps (trm_binop Binop_mul) [b; t_size]
-  in
-  let new_alloc (t_alloc : trm) : trm =
-    match t_alloc.desc with
-    (* expectation: my_alloc(nb_elements, size_element) *)
-    | Trm_apps (t_alloc_fun, [t_nb_elts; t_size_elt]) ->
-       (* goal: my_alloc(nb_elements / b, b * size_element) *)
-       let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; b] in
-       let t_size_elt = new_size t_size_elt in
-       trm_apps t_alloc_fun [t_nb_elts; t_size_elt]
-    (* there's possibly a cast first *)
-    | Trm_apps (t_cast,
-                [{desc = Trm_apps (t_alloc_fun,
-                                   [t_nb_elts; t_size_elt]); _}]) ->
-       let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; b] in
-       let t_size_elt = new_size t_size_elt in
-       trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
-    | _ -> fail t.loc "new_alloc: expected array allocation"
-  in
   match t.desc with
   (* declarations *)
-  | Trm_typedef d ->
-     begin match d with
-     (* we have to change the declaration of x *)
-     | Typedef_abbrev (y, ty) when y = x ->
-        (* ty must be an array type or a pointer type *)
-        begin match ty.ty_desc with
-        | Typ_ptr ty ->
-           (* ty* becomes (ty[b])* *)
-           trm_seq ~annot:(Some No_braces)
-              [
-                trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name (get_typedef block_name))))
-              ]
-        | Typ_array (ty, s) ->
-           (* ty[s] becomes ty[s/b][b] *)
-           begin match s with
-           | Undefined -> fail t.loc "tile_array_core: array size must be provided"
-           | Const n ->
-              let n_div_b =
-                trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); b]
-              in
-              trm_seq ~annot:(Some No_braces)
-                [
-                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (get_typedef block_name))
-                                          (Trm n_div_b)))
-                ]
-           | Trm t' ->
-              let t'' = trm_apps (trm_binop Binop_div) [t'; b] in
-              trm_seq ~annot:(Some No_braces)
-                [
-                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
-                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (get_typedef block_name))
-                                          (Trm t'')))
-                ]
-           end
-        | _ -> fail t.loc "tile_array_core: expected array or pointer type declaration"
-        end
-     (*
-       other cases: type declarations (not x), fun declarations, var
-       declarations (not of type x)
-       arrays of type x are heap allocated
-      *)
-     | _ -> trm_map (tile_array_core base_type block_name b x) t
-     end
-  (* heap allocations *)
-  | Trm_let (Var_mutable, (y,ty), init) when y = x ->
-    begin match ty.ty_desc with
-    | Typ_ptr {ty_desc = Typ_var (y,_); _} when y = x ->
-        trm_let Var_mutable (y,ty) init
-    | _ -> trm_map (tile_array_core base_type block_name b x) t
-    end
-  (* set with alloc *)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-              [lhs; rhs]) ->
-     (* lhs should have type x *)
-     begin match lhs.typ with
-     | Some {ty_desc = Typ_var (y, _); _} when y = x ->
-        trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-          ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
-     | _ -> trm_map (tile_array_core base_type block_name b x) t
-     end
   (* array accesses *)
   | Trm_apps (f, tl) ->
      begin match f.desc with
@@ -223,23 +130,141 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
                     ];
                   trm_apps (trm_binop Binop_mod) [index; b]
                 ]
-           | _ -> trm_map (tile_array_core base_type block_name b x) t
+           | _ -> trm_map (apply_tiling base_type block_name b x) t
            end
 
-        | _ -> fail t.loc "tile_array_core: array accesses must have two arguments"
+        | _ -> fail t.loc "apply_tiling: array accesses must have two arguments"
         end
-     | _ -> trm_map (tile_array_core base_type block_name b x) t
+     | _ -> trm_map (apply_tiling base_type block_name b x) t
      end
-  | _ -> trm_map (tile_array_core base_type block_name b x) t
+  | _ -> trm_map (apply_tiling base_type block_name b x) t
 
-(* array_swap_aux: This is an auxiliary function for array_swap
+
+(* [tile_aux: name block_name b x t] *)
+let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index: int) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let d,lback = Tools.split_list_at 0 lback in
+    let d = List.hd d in
+    let base_type =
+      begin match aliased_type x t with 
+      | None -> fail t.loc "tile_aux: unable to find array type"
+      | Some ty ->
+        begin match ty.ty_desc with 
+        | Typ_ptr ty -> ty
+        | Typ_array (ty, _) -> ty
+        | _ -> fail t.loc "tile_aux: expecte array or pointer type"
+        end
+      end
+    in
+    (*
+    replace sizeof(base_type) with sizeof(block_name)
+    if another term is used for size: use b * t_size
+   *)
+    let new_size (t_size : trm) : trm =
+      if Ast_to_c.ast_to_string t_size =
+         "sizeof(" ^ Ast_to_c.typ_to_string base_type ^ ")"
+      then trm_var ("sizeof(" ^ block_name ^ ")")
+      else trm_apps (trm_binop Binop_mul) [b; t_size]
+    in
+    let new_alloc (t_alloc : trm) : trm =
+      match t_alloc.desc with
+      (* expectation: my_alloc(nb_elements, size_element) *)
+      | Trm_apps (t_alloc_fun, [t_nb_elts; t_size_elt]) ->
+         (* goal: my_alloc(nb_elements / b, b * size_element) *)
+         let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; b] in
+         let t_size_elt = new_size t_size_elt in
+         trm_apps t_alloc_fun [t_nb_elts; t_size_elt]
+      (* there's possibly a cast first *)
+      | Trm_apps (t_cast,
+                  [{desc = Trm_apps (t_alloc_fun,
+                                     [t_nb_elts; t_size_elt]); _}]) ->
+         let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; b] in
+         let t_size_elt = new_size t_size_elt in
+         trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
+      | _ -> fail t.loc "new_alloc: expected array allocation"
+    in
+    let array_decl = begin match d.desc with
+    | Trm_typedef d ->
+      begin match d with 
+      | Typedef_abbrev (y, ty) when y = x ->
+         begin match ty.ty_desc with
+        | Typ_ptr ty -> 
+           (* ty* becomes (ty[])* *)
+           trm_seq ~annot:(Some No_braces)
+              [
+                trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name (Clang_to_ast.get_typedef block_name))))
+              ]
+        | Typ_array (ty, s) ->
+           (* ty[s] becomes ty[s/b][b] *)
+           begin match s with
+           | Undefined -> fail t.loc "tile_aux: array size must be provided"
+           | Const n ->
+              let n_div_b =
+                trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); b]
+              in
+              trm_seq ~annot:(Some No_braces)
+                [
+                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (Clang_to_ast.get_typedef block_name))
+                                          (Trm n_div_b)))
+                ]
+           | Trm t' ->
+              let t'' = trm_apps (trm_binop Binop_div) [t'; b] in
+              trm_seq ~annot:(Some No_braces)
+                [
+                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (Clang_to_ast.get_typedef block_name))
+                                          (Trm t'')))
+                ]
+           end
+        | _ -> fail t.loc "tile_aux: expected array or pointer type declaration"
+        end
+      | _ -> fail t.loc "tile_aux: no enums expected"
+      end
+    | Trm_let (Var_mutable, (y,ty), init) when y = x ->
+        begin match ty.ty_desc with 
+        | Typ_ptr {ty_desc = Typ_var (y, _); _} when y = x ->
+          (* TODO: Fix this code later *)
+          trm_let Var_mutable (y, ty) init
+        | _ -> fail t.loc "tile_aux: expected a pointer because of heap allocation"
+        end
+    | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
+              [lhs; rhs]) ->
+        (* lhs should have type x *)
+        begin match lhs.typ with
+        | Some {ty_desc = Typ_var (y, _); _} when y = x ->
+           trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
+             ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
+        | _ -> trm_map (apply_tiling base_type block_name b x) t
+        end
+    | _-> fail t.loc "tile_aux: expected a declaration"
+      end
+     
+    in
+    let ilsm = Generic_core.functions_with_arg_type x array_decl in
+    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in
+    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
+    let lback = List.map (apply_tiling base_type block_name b x) lback in
+    trm_seq ~annot:t.annot (lfront @ [array_decl] @ lback)
+
+  | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
+
+(* [tile name block_name b x index p t] *)
+let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index : int): Target.Transfo.local =
+  Target.apply_on_path(tile_aux name block_name b x index)
+
+
+(* [apply_swapping x t]: This is an auxiliary function for array_swap
     params:
       x: typvar
       t: global ast
     return:
       the updated ast
  *)
- let rec array_swap_aux (x : typvar) (t : trm) : trm =
+ let rec apply_swapping (x : typvar) (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, tl) ->
      begin match f.desc with
@@ -256,12 +281,13 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
                 | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
                  begin match tl' with
                  | [base'; index'] ->
+  
                     begin match base'.typ with
                     (* if we find such accesses, we swap the two indices *)
                     | Some {ty_desc = Typ_var (x', _); _} when x' = x ->
                        (* x might also be the type of arrays in indices… *)
-                       let swapped_index = array_swap_aux x index in
-                       let swapped_index' = array_swap_aux x index' in
+                       let swapped_index = apply_swapping x index in
+                       let swapped_index' = apply_swapping x index' in
                        trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                          ~typ:t.typ f
                          [
@@ -274,11 +300,11 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
                            swapped_index'
                          ]
                     (*
-                      otherwise we recursively call array_swap_aux after removing
+                      otherwise we recursively call apply_swapping after removing
                       one dimension
                      *)
                     | _ ->
-                       let swapped_l = List.map (array_swap_aux x) tl in
+                       let swapped_l = List.map (apply_swapping x) tl in
                        trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                          ~typ:t.typ f swapped_l
                     end
@@ -288,16 +314,16 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
                  end
               (*
                 again, if we do not find two successive accesses, we
-                recursively call array_swap_aux
+                recursively call apply_swapping
                *)
               | _ ->
-                 let swapped_l = List.map (array_swap_aux x) tl in
+                 let swapped_l = List.map (apply_swapping x) tl in
                  trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement f
                    ~typ:t.typ swapped_l
               end
            (* again, … *)
            | _ ->
-              let swapped_l = List.map (array_swap_aux x) tl in
+              let swapped_l = List.map (apply_swapping x) tl in
               trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement f
                 ~typ:t.typ swapped_l
            end
@@ -305,24 +331,50 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
                              "arguments");
         end
      (*
-         for most other terms we only recursively call array_swap_aux
+         for most other terms we only recursively call apply_swapping
          note: arrays of type x might appear in f now
       *)
      | _ ->
-        let swapped_f = array_swap_aux x f in
-        let swapped_l = List.map (array_swap_aux x) tl in
+        let swapped_f = apply_swapping x f in
+        let swapped_l = List.map (apply_swapping x) tl in
         trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~typ:t.typ
           swapped_f swapped_l
      end
-  (* declaration… *)
-  | Trm_typedef d ->
-     begin match d with
-     (* we look for the declaration of x *)
-     | Typedef_abbrev (y, ty) when y = x ->
-        (*
-          swap the two first coordinates of the multidimensional array type ty
-         *)
-        let rec swap_type (ty : typ) : typ =
+
+  (*
+     remaining cases: val, var, array, struct, if, seq, while, for, switch,
+     abort, labelled
+     inside values, array accesses may only happen in array sizes in types
+     todo: currently ignored, is it reasonable to expect such things to happen?
+   *)
+  | _ -> trm_map (apply_swapping x) t
+
+
+(* [swap_aux name x t]: This is an auxiliary function for swap
+    params:
+      name: a function to change the name of the array
+      x: typ of the array
+      t: ast 
+    assumption: x is not used in fun declarations
+      -> to swap the first dimensions of a function argument, use swap_coordinates
+      on the array on which the function is called: a new function with the
+      appropriate type is generated
+      function copies are named with name
+    return:
+      the updated ast
+*)
+let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let d,lback = Tools.split_list_at 0 lback in
+    let d = List.hd d in
+    let new_decl = 
+    begin match d.desc with
+      | Trm_typedef td ->
+        begin match td with 
+        | Typedef_abbrev (y, ty) when y = x ->
+           let rec swap_type (ty : typ) : typ =
           match ty.ty_desc with
           | Typ_array ({ty_desc = Typ_array (ty', s'); ty_annot; ty_attributes},
                        s) ->
@@ -346,17 +398,166 @@ let rec tile_array_core (base_type : typ) (block_name : typvar) (b : trm) (x : t
         in
         trm_typedef ~annot: t.annot ~loc: t.loc ~is_statement:t.is_statement ~add:t.add
           (Typedef_abbrev (y, swap_type ty))
-     (*
-         all the interesting cases are covered now, we only have to do recursive
-         calls
-         var and fun decl first
-      *)
-     | _ -> trm_map (array_swap_aux x) t
-     end
-  (*
-     remaining cases: val, var, array, struct, if, seq, while, for, switch,
-     abort, labelled
-     inside values, array accesses may only happen in array sizes in types
-     todo: currently ignored, is it reasonable to expect such things to happen?
-   *)
-  | _ -> trm_map (array_swap_aux x) t
+        | _ -> fail t.loc "swap_aux: expected a declaration"
+        end
+      | _ -> fail t.loc "swap_aux: expected the typedef"
+    end
+    in
+    let ilsm =  Generic_core.functions_with_arg_type x new_decl in
+    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in 
+    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
+    let lback = List.map (apply_swapping x ) lback
+    in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
+  | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
+
+(* [swap name x index p t] *)
+let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (swap_aux name x index )
+
+
+(* [swap_accesses x t]: This is an auxiliary function for aos_to_soa_aux
+  params:
+    x: typvar
+    t: global ast
+  return:
+    the updated ast
+*)
+ let swap_accesses (x : typvar) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t :trm) : trm =
+    match t.desc with
+    (* declarations *)
+    | Trm_typedef d ->
+       begin match d with
+       (* we have to change the declaration of x *)
+       | Typedef_abbrev (y, ty) when y = x ->
+
+          (*
+            ty must be an array type over a struct type denoted by a type var
+           *)
+          begin match ty.ty_desc with
+          | Typ_array ({ty_desc = Typ_var (y, _); _}, s) ->
+             begin match aliased_type y global_trm with
+             | None ->
+                fail t.loc "swap_accesses: cannot find underlying struct type"
+             | Some ty' ->
+                begin match ty'.ty_desc with
+                | Typ_struct (l,m, n) ->
+                   let m =
+                     Field_map.map
+                       (fun ty'' ->
+                         typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
+                   in
+                   trm_typedef (Typedef_abbrev(x, typ_struct l m n))
+                | _ ->
+                   fail t.loc "swap_accesses: expected underlying struct type"
+                end
+             end
+          | _ -> fail t.loc "swap_accesses: expected array type declaration"
+          end
+       (*
+         other cases: type declarations (not x), fun declarations, var
+         declarations (not of type x)
+         arrays of type x are heap allocated
+        *)
+       | _ -> trm_map (aux global_trm) t
+       end
+    (* accesses: y[i].f becomes (y.f)[i] *)
+    | Trm_apps (f, [base]) ->
+       begin match f.desc with
+       | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
+         | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
+          begin match base.desc with
+          | Trm_apps (f', [base'; index]) ->
+             begin match f'.desc with
+             | Trm_val (Val_prim (Prim_binop Binop_array_access))
+               | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+                (*
+                  swap accesses only if the type of base' is x (or x* in case of
+                  an access on a heap allocated variable)
+                 *)
+                begin match base'.typ with
+                | Some {ty_desc = Typ_var (y, _); _} when y = x ->
+                   (* x might appear both in index and in base' *)
+                   let base' = aux global_trm base' in
+                   let index = aux global_trm index in
+                   (* keep outer annotations *)
+                   trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                     ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
+                | Some {ty_desc = Typ_ptr {ty_desc = Typ_var (y, _); _}; _}
+                     when y = x ->
+                   (* x might appear both in index and in base' *)
+                   let base' = aux global_trm base' in
+                   let index = aux global_trm index in
+                   (* keep outer annotations *)
+                   trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                     ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
+                | _ -> trm_map (aux global_trm) t
+                end
+             | _ -> trm_map (aux global_trm) t
+             end
+          | _ -> trm_map (aux global_trm) t
+          end
+       | _ -> trm_map (aux global_trm) t
+       end
+    (* other cases: recursive call *)
+    | _ -> trm_map (aux global_trm) t
+  in
+  aux t t
+
+(* [aos_to_soa_aux name x t]: This is an auxiliary function for aos_to_soa
+    params:
+      name: a functons to change the current name of the array
+      x: type of the array
+      t: an ast subterm
+    assumptions:
+      - x is not used in function definitions, but only in var declarations
+    return: 
+      the updated ast
+*)
+let aos_to_soa_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let d,lback = Tools.split_list_at 0 lback in
+    let d = List.hd d in
+    let new_decl = 
+    begin match d.desc with
+    | Trm_typedef td ->  
+      begin match td with 
+      | Typedef_abbrev (y, ty) when y = x ->
+        begin match ty.ty_desc with
+          | Typ_array ({ty_desc = Typ_var (y, _); _}, s) ->
+             begin match aliased_type y d with
+             | None ->
+                fail t.loc "swap_accesses: cannot find underlying struct type"
+             | Some ty' ->
+                begin match ty'.ty_desc with
+                | Typ_struct (l,m, n) ->
+                   let m =
+                     Field_map.map
+                       (fun ty'' ->
+                         typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
+                   in
+                   trm_typedef (Typedef_abbrev(x, typ_struct l m n))
+                | _ ->
+                   fail t.loc "swap_accesses: expected underlying struct type"
+                end
+             end
+          | _ -> fail t.loc "swap_accesses: expected array type declaration"
+          end
+      | _ ->  fail t.loc "aos_to_soa_aux: enms are not supported"
+      end
+    | _ -> fail t.loc "aos_to_soa_aux: expected a typedef"
+    end 
+    in
+    let ilsm =  Generic_core.functions_with_arg_type x new_decl in
+    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in 
+    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
+    let lback = List.map (swap_accesses x ) lback
+    in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
+    
+  | _ -> fail t.loc "aos_to_soa_aux: expected the surrounding sequence of the targeted trm"
+
+(* [aos_to_soa name x index p t] *)
+let aos_to_soa (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(swap_aux name x index)

@@ -1,10 +1,11 @@
 open Optitrust
+open Run
 
 let _ =
     run
     ( fun _ ->
         set_init_source"inline_ref.cpp";
-        inline_decl ~delete_decl:true ~decl_path:[cVarDef "y"] ();
+        Declaration.inline ~delete_decl:true [cVarDef "y"] ();
         (* 
             Does not work for references
         *)

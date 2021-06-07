@@ -33,7 +33,7 @@ type size =
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar * typedef (* int x *)
+  | Typ_var of typvar * (typedef option)(* int x *)
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
@@ -149,7 +149,7 @@ and trm_annot =
   (* to avoid printing content of included files *)
   | Include of string
   | Main_file
-  | Grouped_binding (* Used for terms of the form int x = 3, y = 4 *)
+  | Grouped_binding (* Used for trms of the form int x = 3, y = 4 *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
 
 (* symbols to add while printing a C++ program. TODO: document *)
@@ -281,8 +281,8 @@ let typ_const ?(annot : typ_annot list = []) ?(ty_attributes = [])
   {ty_annot = annot; ty_desc = Typ_const t; ty_attributes}
 
 let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
-  (x : typvar) (t : typedef): typ =
-  {ty_annot = annot; ty_desc = Typ_var (x, t); ty_attributes}
+  (x : typvar) (td : typedef option): typ =
+  {ty_annot = annot; ty_desc = Typ_var (x, td); ty_attributes}
 
 let typ_unit ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
   {ty_annot = annot; ty_desc = Typ_unit; ty_attributes}

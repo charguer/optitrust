@@ -58,7 +58,7 @@ let set_explicit_aux (field_list : var list) (t: trm) : trm =
     end
   | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
   
-
+(* [set_explicit field_list t p] *)
 let set_explicit (field_list : var list) : Target.Transfo.local =
   Target.apply_on_path(set_explicit_aux field_list)
 
@@ -97,7 +97,7 @@ let set_implicit_aux (t: trm) : trm =
     end
   | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
 
-
+(* [set_implicit t p] *)
 let set_implicit : Target.Transfo.local =
   Target.apply_on_path(set_implicit_aux)
 
@@ -126,8 +126,49 @@ let reorder_aux (struct_fields: var list) (move_where : string) (around : string
     trm_typedef (Typedef_abbrev (x, typ_struct field_list field_map x))
   | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
 
-
+(* [reorder struct_fields move_where around t p] *)
 let reorder (struct_fields : var list) (move_where : string) (around : string): Target.Transfo.local = 
   Target.apply_on_path(reorder_aux struct_fields move_where around)
 
 
+
+(* Get the index for a given field of struct inside its list of fields *)
+let get_pos (x : typvar) (t : trm) : int =
+  begin match t.desc with
+    | Trm_typedef (Typedef_abbrev(_, dx)) ->
+       let field_list1 =
+          match dx.ty_desc with
+          | Typ_struct(l,_,_) -> l
+          |_ -> fail t.loc "get_pos: the type should be a typedef struct"
+        in
+
+        let rec find x lst =
+        match lst with
+        | [] -> raise (Failure "Not Found")
+        | hd :: tl -> if hd = x then 0 else 1 + find x tl
+        in
+        find x field_list1
+    | _ -> fail t.loc "get_pos_and_element: expected a struct type"
+    end
+
+
+let inline_record_access_core (var : string) (field : string) (struct_decl_trm : trm) (list_of_trms : trm list) (t : trm) : trm =
+  
+    (* search for the declaration of the variable *)
+  let rec aux (global_trm : trm ) (t : trm) : trm =
+      begin match t.desc with
+      | Trm_apps (f,[base]) ->
+        begin match f.desc with
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
+          begin match base.desc with
+          | Trm_var v when v = var ->
+            let index = get_pos field struct_decl_trm in
+            List.nth (List.rev list_of_trms) index
+          | _ -> trm_map (aux global_trm) t
+          end
+        | _ -> trm_map (aux global_trm) t
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    in aux t t

@@ -1,16 +1,17 @@
 open Ast
-open Ast_to_c
 open Target
-(* open Path_constructors *)
 open Tools
 open Output
 
+(* [swap tg] *)
 let swap : Target.Transfo.t =
   Target.apply_on_target (Loop_core.swap)
 
+(* [color c i_color tg] *)
 let color (c : var) (i_color : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.color c i_color )
 
+(* [tile b i_bloc tg] *)
 let tile (b : var)(i_block : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.tile b i_block)
 
@@ -32,20 +33,20 @@ let tile (b : var)(i_block : var) : Target.Transfo.t =
  *)
 
 
+(* [tile_old tg] *)
 let tile_old : Target.Transfo.t =
   Target.apply_on_target(Loop_core.tile_old )
 
-
+(* [hoist x_step tg] *)
 let hoist (x_step : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.hoist x_step)
 
-
-(* TODO: Do the same for apply_on_target_between *)
+(* [split tg] *)
 let split (tg : target) : unit = 
   Target.apply_on_target_between (fun (p,i) t ->
     Loop_core.split i p t) tg
 
-
+(* [fusion tg] *)
 let fusion : Target.Transfo.t =
   Target.apply_on_target (Loop_core.fusion )
 (* get_loop_nest_indices -- currently omiting the last one
@@ -85,7 +86,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
       ("  - expression\n%s\n" ^^
           "    %sis a (labelled) loop\n"
       )
-      (ast_to_string t) loc
+      (Ast_to_c.ast_to_string t) loc
       in
       write_log clog log;
       (* Get the path from the outer loop to the one we want to swap with
@@ -150,7 +151,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
     ("  - expression\n%s\n" ^^
           "    %sis a (labelled) loop\n"
     )
-    (ast_to_string t) loc
+    (Ast_to_c.ast_to_string t) loc
     in
     write_log clog log;
     let path_list = get_loop_nest_indices t in
@@ -202,7 +203,7 @@ let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : 
           ("  - expression\n%s\n" ^^
           "    %sis a struct type\n"
           )
-      (ast_to_string t) loc
+      (Ast_to_c.ast_to_string t) loc
     in
   write_log clog log;
   match move_before, move_after with
@@ -256,8 +257,8 @@ let extract_vars_from_loop (clog : out_channel) (nb_vars : int)
           "      + is not initialised in its declaration\n" ^^
           "      + is not a const variable\n"
          )
-         (ast_to_string init) (ast_to_string cond) (ast_to_string step)
-         (ast_to_string body) loc nb_vars
+         (Ast_to_c.ast_to_string init) (Ast_to_c.ast_to_string cond) (Ast_to_c.ast_to_string step)
+         (Ast_to_c.ast_to_string body) loc nb_vars
      in
      write_log clog log;
      begin match body.desc with
@@ -417,7 +418,7 @@ let extract_loop_vars_aux (clog : out_channel) ?(only_one : bool = false)
       ("  - expression\n%s\n" ^^
        "    %sis a (labelled) loop\n"
       )
-      (ast_to_string t) loc
+      (Ast_to_c.ast_to_string t) loc
   in
   write_log clog log;
   extract_loop_vars_aux clog ~only_one ~loop_labels result_label t
@@ -536,8 +537,8 @@ let rec split_loop_nodep_aux (clog : out_channel) (result_label : string)
           "        {block2}\n" ^^
           "      }\n"
          )
-         (ast_to_string init) (ast_to_string cond) (ast_to_string step)
-         (ast_to_string body) loc
+         (Ast_to_c.ast_to_string init) (Ast_to_c.ast_to_string cond) (Ast_to_c.ast_to_string step)
+         (Ast_to_c.ast_to_string body) loc
      in
      write_log clog log;
      begin match body.desc with
@@ -548,8 +549,8 @@ let rec split_loop_nodep_aux (clog : out_channel) (result_label : string)
              "    and\n%s\n" ^^
              "    are independent\n"
             )
-            (ast_to_string t_block1)
-            (ast_to_string t_block2)
+            (Ast_to_c.ast_to_string t_block1)
+            (Ast_to_c.ast_to_string t_block2)
         in
         write_log clog log;
         trm_labelled result_label
@@ -579,7 +580,7 @@ let split_loop_nodep_aux (clog : out_channel) (result_label : string)
        "  - expression\n%s\n" ^^
        "    %sis a (labelled) loop\n"
       )
-      result_label loop1_label loop2_label (ast_to_string t) loc
+      result_label loop1_label loop2_label (Ast_to_c.ast_to_string t) loc
   in
   write_log clog log;
   split_loop_nodep_aux clog result_label loop1_label loop2_label t

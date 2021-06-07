@@ -1,12 +1,12 @@
 open Optitrust
-
+open Run
 let _ = 
     run 
     ( fun _-> 
     set_init_source "fold_ref.cpp";
-    fold_decl ~decl_path:[cSet ~lhs:[cVar ~name:"y" ()] ()] ();
-    fold_decl ~decl_path:[cSet ~lhs:[cVar ~name:"a" ()] ()] ();
-    fold_decl ~decl_path:[cSet ~lhs:[cVar ~name:"b" ()] ()] ();
-    fold_decl ~decl_path:[cSet ~lhs:[cVar ~name:"v" ()] ()] ();
+    Declaration.fold [cSet ~lhs:[cVar ~name:"y" ()] ()] ();
+    Declaration.fold [cSet ~lhs:[cVar ~name:"a" ()] ()] ();
+    Declaration.fold [cSet ~lhs:[cVar ~name:"b" ()] ()] ();
+    Declaration.fold [cSet ~lhs:[cVar ~name:"v" ()] ()] ();
     dump()
 )

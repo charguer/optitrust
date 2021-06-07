@@ -26,6 +26,7 @@ type scope_kind =
   | For_scope
   | While_scope
   (* todo later *)
+  (* todo later *)
   (* | Do_scope *)
   | Switch_scope
   | Other_scope
@@ -49,12 +50,10 @@ let typedef_env : typedef Type_map.t ref = ref Type_map.empty
 
 (* [get_typedef tv] returns the typedef that corresponds to the typvar [tv].
    Raise an error if it is not bound  *)
-let get_typedef (tv : typvar) : typedef =
-  let td = Type_map.find_opt tv !typedef_env in
-  begin match td with
-  | Some td -> td
-  | None -> fail None (sprintf "could not find a typedef for the typvar %s" tv)
-  end
+let get_typedef (tv : typvar) : typedef option=
+  Type_map.find_opt tv !typedef_env
+   
+  
 
 (* [typedef_env_add tv tdef] extends the environment for typedefs with a binding
    from type variable [tv] to the type definition [tdef]. *)
@@ -204,14 +203,14 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     typ_ptr t
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = translate_qual_type ~loc q in
-    (* let {const;_} = q in *)
+    let {const;_} = q in
     begin match eo with
       | None -> typ_array t (Const n)
       | Some e ->
         let s = translate_expr e in
-        (* if const then
+        if const then
            typ_array (typ_const t) (Trm s)
-        else *)
+        else
           typ_array t (Trm s)
     end
   (* Just for debugging purposes*) 
@@ -1092,10 +1091,3 @@ let translate_ast (t : translation_unit) : trm =
        trm_seq ~annot:(Some No_braces)
          ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) ++ [t])
     )
-
-let get_typedef (tv : typvar) : typedef =
-  let td = Type_map.find_opt tv !typedef_env  in
-  begin match td with
-  | Some td -> td
-  | None -> fail None "could not find a typedef for the given typvar"
-  end

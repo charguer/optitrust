@@ -1,10 +1,13 @@
 open Optitrust
+open Run
 (*
 let _ = run_unit_test (fun () ->
    inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"f" ()] ();
   )
 
  The above is a shorthand for: *)
+
+(* TODO: This transformations is not yet implemented*)
 let _ =
   run
     (fun () ->
