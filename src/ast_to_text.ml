@@ -261,7 +261,7 @@ and print_typedef ?(only_desc : bool = false) (t : typedef) : document =
   match t with
   | Typedef_abbrev (x,typ) ->
     let dt = print_typ ~only_desc typ in
-    node "Typedef" ^^ print_pair (string x) dt
+    node "Typedef_abbrev" ^^ print_pair (string x) dt
   | Typedef_enum (x, enum_const_l) ->
      let denum_const_l =
        print_list

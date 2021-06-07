@@ -507,57 +507,60 @@ let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
 (* [aos_to_soa_aux name x t]: This is an auxiliary function for aos_to_soa
     params:
       name: a functons to change the current name of the array
-      x: type of the array
       t: an ast subterm
     assumptions:
       - x is not used in function definitions, but only in var declarations
     return: 
       the updated ast
 *)
-let aos_to_soa_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
+let aos_to_soa_aux (name : var -> var)(index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let d,lback = Tools.split_list_at 0 lback in
+    let d,lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
-    let new_decl = 
+    Ast_to_text.print_ast ~only_desc:true stdout d;
     begin match d.desc with
     | Trm_typedef td ->  
       begin match td with 
-      | Typedef_abbrev (y, ty) when y = x ->
+      | Typedef_abbrev (_ , ty) ->
         begin match ty.ty_desc with
-          | Typ_array ({ty_desc = Typ_var (y, _); _}, s) ->
-             begin match aliased_type y d with
+          | Typ_array ({ty_desc = Typ_var (y,td); _}, s) ->
+             begin match td with
              | None ->
-                fail t.loc "swap_accesses: cannot find underlying struct type"
+                fail t.loc "aos_to_soa_aux: cannot find underlying struct type"
              | Some ty' ->
-                begin match ty'.ty_desc with
-                | Typ_struct (l,m, n) ->
+                begin match ty' with
+                |Typedef_abbrev(_,ty'') ->
+                 begin match ty''.ty_desc with 
+                  | Typ_struct (l,m, n) ->
                    let m =
                      Field_map.map
                        (fun ty'' ->
                          typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
                    in
-                   trm_typedef (Typedef_abbrev(x, typ_struct l m n))
-                | _ ->
-                   fail t.loc "swap_accesses: expected underlying struct type"
+                   let new_decl = trm_typedef (Typedef_abbrev(y, typ_struct l m n))
+                   in
+                   let ilsm =  Generic_core.functions_with_arg_type y new_decl in
+                   let lback = List.map (Generic_core.insert_fun_copies name ilsm y) lback in 
+                   let lback = List.map (Generic_core.replace_fun_names name ilsm y) lback in
+                   let lback = List.map (swap_accesses y ) lback
+                   in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
+                  | _ -> fail t.loc "aos_to_soa_aux: expected the typestruct"
+                 end
+                | _ ->fail t.loc "aos_to_soa_aux: didn't expect an enum here"
                 end
              end
-          | _ -> fail t.loc "swap_accesses: expected array type declaration"
+          | _ -> fail t.loc "aos_to_soa_aux: expected array type declaration"
           end
       | _ ->  fail t.loc "aos_to_soa_aux: enms are not supported"
       end
     | _ -> fail t.loc "aos_to_soa_aux: expected a typedef"
     end 
-    in
-    let ilsm =  Generic_core.functions_with_arg_type x new_decl in
-    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in 
-    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
-    let lback = List.map (swap_accesses x ) lback
-    in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
+    
     
   | _ -> fail t.loc "aos_to_soa_aux: expected the surrounding sequence of the targeted trm"
 
 (* [aos_to_soa name x index p t] *)
-let aos_to_soa (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
-  Target.apply_on_path(swap_aux name x index)
+let aos_to_soa (name : var -> var) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(aos_to_soa_aux name index)

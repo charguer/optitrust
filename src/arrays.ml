@@ -21,9 +21,9 @@ let swap ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) (tg : targe
 
 
 (* [aos_to_soa name x tg]*)
-let aos_to_soa ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) (tg : target) : unit =
+let aos_to_soa ?(name : var -> var = fun x -> x ^ "_swapped") (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t ->  Arrays_core.aos_to_soa name x i t p) tg
+    (fun (p,i) t ->  Arrays_core.aos_to_soa name i t p) tg
 
 
 
