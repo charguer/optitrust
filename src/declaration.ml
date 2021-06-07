@@ -9,7 +9,7 @@ let insert ?(const : bool = false) ?(as_reference : bool = false)  (x : var) (dx
   Target.apply_on_target_between 
     (fun (p,i) t -> Declaration_core.insert const as_reference x dx i t p) tg
 
-(* same as insert_definition but for a constant *)
+(* same as insert but for a constant *)
 let insert_const (x : var) (dx : trm) (tg : target) : unit =
   insert ~const:true x dx tg
 
@@ -20,6 +20,7 @@ let insert_typedef (x : typvar) (dx : typ) (tg : target) : unit =
 let remove : Transfo.t =
   Target.apply_on_target(Declaration_core.remove)
 
+(* TODO: Implement insert_and_fold *)
 (*
   combine insert_definition and fold_decl
   assumption: if x is not a reference, no effects for dx and it has the same

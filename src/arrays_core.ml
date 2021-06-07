@@ -1,7 +1,11 @@
 open Ast
 
-
-(* This is an auxiliary function for array to variables to modify the ast globally *)
+(* [inline_array_access array_var new_vars t]: Change all the occurence of the array to variables
+    params:
+      array_var: array_variable  to apply changes on
+      new_vars: a list of variables, the variables at index i replaces and occurence of array_var[i]
+      t: ast subterm
+*)
 let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
@@ -38,7 +42,9 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t
 
-(* to_variables_aux: This is an auxiliary function for to_variables
+
+
+(* [to_variables_aux new_vars t]: This is an auxiliary function for to_variables
     params:
       new_vars: a list of strings of length equal to the size of the array
       t: an ast subterm
@@ -76,7 +82,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
     trm_seq ~annot:t.annot ~loc:t.loc (lfront @ var_decls @ lback)
   | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
 
-
+(* [to_variables new_vars index t p] *)
 let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
@@ -89,6 +95,11 @@ let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
       b: the size of the tile
       x: typvar
       t: ast subterm
+    assumptions:
+    - if x is ty*, each array of type x is allocated through a custom function:
+      x a = my_alloc(nb_elements, size_element)
+    - x is not used in function definitions, but only in var declarations
+    - for now: in any case, the number of elements is divisible by b
 *)
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   (t : trm) : trm =
@@ -241,10 +252,12 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
 
   | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
 
+(* [tile name block_name b x index p t] *)
 let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index : int): Target.Transfo.local =
   Target.apply_on_path(tile_aux name block_name b x index)
 
-(* apply_swapping: This is an auxiliary function for array_swap
+
+(* [apply_swapping x t]: This is an auxiliary function for array_swap
     params:
       x: typvar
       t: global ast
@@ -342,6 +355,11 @@ let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index
       name: a function to change the name of the array
       x: typ of the array
       t: ast 
+    assumption: x is not used in fun declarations
+      -> to swap the first dimensions of a function argument, use swap_coordinates
+      on the array on which the function is called: a new function with the
+      appropriate type is generated
+      function copies are named with name
     return:
       the updated ast
 *)
@@ -392,17 +410,18 @@ let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
     in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
   | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
 
-  let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
-    Target.apply_on_path (swap_aux name x index )
+(* [swap name x index p t] *)
+let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (swap_aux name x index )
 
 
-  (* swap_accesses: This is an auxiliary function for aos_to_soa_aux
-    params:
-      x: typvar
-      t: global ast
-    return:
-      the updated ast
- *)
+(* [swap_accesses x t]: This is an auxiliary function for aos_to_soa_aux
+  params:
+    x: typvar
+    t: global ast
+  return:
+    the updated ast
+*)
  let swap_accesses (x : typvar) (t : trm) : trm =
   let rec aux (global_trm : trm) (t :trm) : trm =
     match t.desc with
@@ -490,10 +509,11 @@ let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
       name: a functons to change the current name of the array
       x: type of the array
       t: an ast subterm
+    assumptions:
+      - x is not used in function definitions, but only in var declarations
     return: 
       the updated ast
 *)
-
 let aos_to_soa_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -538,5 +558,6 @@ let aos_to_soa_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : tr
     
   | _ -> fail t.loc "aos_to_soa_aux: expected the surrounding sequence of the targeted trm"
 
+(* [aos_to_soa name x index p t] *)
 let aos_to_soa (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
   Target.apply_on_path(swap_aux name x index)
