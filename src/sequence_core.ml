@@ -18,9 +18,10 @@ let insert_aux (index : int) (ts : trm list) (t : trm): trm =
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
-
+(* [insert index ts path_to_seq t] *)
 let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
   Target.apply_on_path (insert_aux index ts) t path_to_seq
+
 
 (* [delete_aux index nb_instr t]: This function is an auxiliary function for delete
     params:
@@ -40,7 +41,7 @@ let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
-
+(* [delete index nb_instr t p] *)
 let delete (index : int) (nb_instr : int) : Target.Transfo.local=
   Target.apply_on_path(delete_aux index nb_instr)
 
@@ -53,7 +54,6 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local=
     return: the updated ast
 
 *)
-
 let sub_aux (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
@@ -66,8 +66,11 @@ let sub_aux (index : int) (nb : int) (t : trm) : trm =
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
 
+
+(* [sub index nb_instr] *)
 let sub (index : int) (nb_instr : int)  =
   Target.apply_on_path(sub_aux index nb_instr)
+
 
 (* [inline_aux index t]: This function is an auxiliary function for inline
     params:
@@ -75,7 +78,6 @@ let sub (index : int) (nb_instr : int)  =
       t: an ast subterm
     return: the updated ast
 *)
-
 let inline_aux (index : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
@@ -100,6 +102,7 @@ let inline_aux (index : int) (t : trm) : trm =
     | _ -> fail t.loc "inline_aux: expected the sequence on which the ilining is performed"
 
 
+(* [inline index t p] *)
 let inline (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index)
 
@@ -112,7 +115,7 @@ let inline (index : int) : Target.Transfo.local =
 let wrap_aux (visible : bool) (t : trm) : trm =
   trm_seq ~annot:(if not visible then Some No_braces else None) [t]
 
-
+(*  [wrao visible t p] *)
 let wrap (visible : bool) : Target.Transfo.local=
   Target.apply_on_path (wrap_aux visible)
 
@@ -132,6 +135,7 @@ let unwrap_aux (t : trm) : trm =
     | _ -> fail t.loc "unwrap_aux: expected to operate on a sequence"
 
 
+(* [unwrap t p] *)
 let unwrap : Target.Transfo.local =
   Target.apply_on_path (unwrap_aux)
 

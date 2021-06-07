@@ -5,22 +5,28 @@ open Tools
 
 (* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)
 
+(* [insert tg ts] *)
 let insert (tg : target) (ts : trm list) : unit =
   Target.apply_on_target_between (fun (p,i) t ->
     Sequence_core.insert i ts p t) tg
 
+(* [delete index nb tg] *)
 let delete (index : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.delete index nb)
 
+(* [sub i nb tg] *)
 let sub (i : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target( Sequence_core.sub i nb )
 
+(* [inline i tg] *)
 let inline (i : int) : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.inline i)
 
+(* [wrao visible tg] *)
 let wrap (visible : bool) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.wrap visible)
 
+(* [unwrap tg] *)
 let unwrap : Target.Transfo.t =
   Target.apply_on_target(Sequence_core.unwrap)
 
@@ -28,8 +34,7 @@ let unwrap : Target.Transfo.t =
 
 
 
-
-
+(* TODO: Remove function split_seq after implemented the new one *)
 
 (*
   split the sequence t at its n-th instruction
