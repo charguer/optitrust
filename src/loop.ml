@@ -3,12 +3,15 @@ open Target
 open Tools
 open Output
 
+(* [swap tg] *)
 let swap : Target.Transfo.t =
   Target.apply_on_target (Loop_core.swap)
 
+(* [color c i_color tg] *)
 let color (c : var) (i_color : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.color c i_color )
 
+(* [tile b i_bloc tg] *)
 let tile (b : var)(i_block : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.tile b i_block)
 
@@ -30,20 +33,20 @@ let tile (b : var)(i_block : var) : Target.Transfo.t =
  *)
 
 
+(* [tile_old tg] *)
 let tile_old : Target.Transfo.t =
   Target.apply_on_target(Loop_core.tile_old )
 
-
+(* [hoist x_step tg] *)
 let hoist (x_step : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.hoist x_step)
 
-
-(* TODO: Do the same for apply_on_target_between *)
+(* [split tg] *)
 let split (tg : target) : unit = 
   Target.apply_on_target_between (fun (p,i) t ->
     Loop_core.split i p t) tg
 
-
+(* [fusion tg] *)
 let fusion : Target.Transfo.t =
   Target.apply_on_target (Loop_core.fusion )
 (* get_loop_nest_indices -- currently omiting the last one

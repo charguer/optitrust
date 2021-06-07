@@ -58,7 +58,7 @@ let set_explicit_aux (field_list : var list) (t: trm) : trm =
     end
   | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
   
-
+(* [set_explicit field_list t p] *)
 let set_explicit (field_list : var list) : Target.Transfo.local =
   Target.apply_on_path(set_explicit_aux field_list)
 
@@ -97,7 +97,7 @@ let set_implicit_aux (t: trm) : trm =
     end
   | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
 
-
+(* [set_implicit t p] *)
 let set_implicit : Target.Transfo.local =
   Target.apply_on_path(set_implicit_aux)
 
@@ -126,7 +126,7 @@ let reorder_aux (struct_fields: var list) (move_where : string) (around : string
     trm_typedef (Typedef_abbrev (x, typ_struct field_list field_map x))
   | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
 
-
+(* [reorder struct_fields move_where around t p] *)
 let reorder (struct_fields : var list) (move_where : string) (around : string): Target.Transfo.local = 
   Target.apply_on_path(reorder_aux struct_fields move_where around)
 
