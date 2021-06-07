@@ -1,13 +1,17 @@
 #######################################################
 # Usage:
-#    `make`          attempts to build all the *.chk files
+#    `make`          attempts to build all the *.chk files and compile all code
+#    `make transfo`  only execute the transformations
+#    `make check`    only produce the checks of the output of the transformations
+#    `make compile`  only compiles c code
+#    `make foo.cmp`  to check the result of the test `foo` against expected result
 #    `make foo.out`  to execute the test `foo` and compare with expected result
-#    `make foo.res`  to execute the test `foo` and compared with source file
-#    `make foo.chk`  to check the result of the test `foo` against expected result
+#    `make foo.enc`  to execute the test `foo` and output the encoded AST representation
+#    `make foo.meld` opens meld to compare the output with the expected output
 #    `make V=`       for more verbose output
 #    `make VC=`      for more verbose output only for checking C++ compilation
 #    `make f`        force rebuilding all (short for "make clean; make")
-#    `make foo.meld` opens meld to compare the output with the expected output
+
 #
 #         tip: in meld, activate: file / preference / text filters / all whitespace
 #
@@ -63,25 +67,30 @@ optitrust: clean
 #######################################################
 # Rules
 
-# Instruction to keep intermediate files
-.PRECIOUS: %.byte %_out.cpp %.chk
-
-# Rule for executing one given test
-%.res: %_out.cpp
-	$(V)cat $<
-	@echo "\n============================="
-	$(V)cat $*_out_enc.cpp
-
 # The command for calling diff
 DIFF := diff --ignore-blank-lines --ignore-space-change -I '^//'
 
-# Rule for executing one given test and comparing it to the expected result
-# TODO: should use $(DIFF)? here
+# The build command for compiling a script
+BUILD := ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optitrust
+
+# Instruction to keep intermediate files
+.PRECIOUS: %.byte %_out.cpp %.chk
+
+# Rule for viewing the encoding of an output
+%.enc: %_out.cpp
+	$(V)cat $*_out_enc.cpp
+
+# Rule for viewing the output of a transformation
 %.out: %_out.cpp
+	$(V)cat $<
+
+# Rule for comparing the output with the expected output
+# TODO: should use $(DIFF)? TODO: use $* here
+%.cmp: %_out.cpp
 	$(V)diff -q --ignore-space-change $^ `basename -s _out.cpp $<`_exp.cpp && echo "===> Matches expected output <===" || true
 	$(V)cat $<
 
-# Rule for building .chk: compare the output and the expected output
+# Rule for building .chk, that gives evidence whether the output matches the expected output
 %.chk: %_out.cpp %_exp.cpp
 	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
 	|| (echo "$< does not match the expected result:" && echo "  make $*.meld")
@@ -91,14 +100,12 @@ DIFF := diff --ignore-blank-lines --ignore-space-change -I '^//'
 %_out.cpp: %.byte %.cpp
 	$(V)./$<
 
-# The build command for compiling a script
-BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optitrust
-
 # Rule for building the binary associated with a test
 %.byte: %.ml
 	$(V)$(BUILD) $@
 
 # Rule for producing the expected output file from the result
+# TODO: see if we can use $* instead of basename
 %.exp: %_out.cpp
 	$(V)cp $< `basename -s .exp $@`_exp.cpp
 	@echo "Generated `basename -s .exp $@`_exp.cpp from $<"
