@@ -573,7 +573,7 @@ let target_to_target_struct (tr : target) : target_struct =
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
   (* TODO *)
-  printf "%s\n" (target_struct_to_string tgs);
+  (* printf "%s\n" (target_struct_to_string tgs); *)
   tgs
 
 
@@ -1109,7 +1109,6 @@ let is_structuring_statement (t : trm) : bool =
 
 
 let match_regexp_str (r : rexp) (s : string) : bool =
-  printf "match_regexp_str(%s, %s)\n" (regexp_to_string r) s;
   (*if s = "x" then incr Debug.counter;
   if !Debug.counter = 2 then raise Debug.Breakpoint; *)
   if r.rexp_substr then
@@ -1120,8 +1119,8 @@ let match_regexp_str (r : rexp) (s : string) : bool =
   end
 
 let match_regexp_trm (r : rexp) (t : trm) : bool =
-  (* DEBUG: *) printf "match_regexp_trm(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t);
-  (* DEBUG: *) printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t));
+  (* DEBUG: *) (* printf "match_regexp_trm(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t); *)
+  (* DEBUG: *) (* printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t)); *)
   if r.rexp_trm_kind <> get_trm_kind t && r.rexp_trm_kind <> TrmKind_Any
     then false
     else match_regexp_str r (ast_to_string t)

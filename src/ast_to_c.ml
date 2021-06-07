@@ -28,7 +28,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      | Const n -> d ^^ brackets (string (string_of_int n))
      | Trm t' -> d ^^ brackets (trm_to_doc t')
      end
-  | Typ_struct (l,m, n) ->
+  | Typ_struct (l,m, _) ->
      let get_typ x = Field_map.find x m in
      let get_document_list l =
       let rec aux acc = function
@@ -39,7 +39,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      in
      let dl = get_document_list l
      in
-     string "struct" ^^ blank 1 ^^ string n ^^
+     string "struct" ^^ blank 1 ^^
        surround 2 1 lbrace (separate hardline dl) rbrace
   | Typ_fun (_, _) ->
      print_info None "typ_desc_to_doc: typ_fun not implemented\n";
