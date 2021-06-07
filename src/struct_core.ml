@@ -131,3 +131,44 @@ let reorder (struct_fields : var list) (move_where : string) (around : string): 
   Target.apply_on_path(reorder_aux struct_fields move_where around)
 
 
+
+(* Get the index for a given field of struct inside its list of fields *)
+let get_pos (x : typvar) (t : trm) : int =
+  begin match t.desc with
+    | Trm_typedef (Typedef_abbrev(_, dx)) ->
+       let field_list1 =
+          match dx.ty_desc with
+          | Typ_struct(l,_,_) -> l
+          |_ -> fail t.loc "get_pos: the type should be a typedef struct"
+        in
+
+        let rec find x lst =
+        match lst with
+        | [] -> raise (Failure "Not Found")
+        | hd :: tl -> if hd = x then 0 else 1 + find x tl
+        in
+        find x field_list1
+    | _ -> fail t.loc "get_pos_and_element: expected a struct type"
+    end
+
+
+let inline_record_access_core (var : string) (field : string) (struct_decl_trm : trm) (list_of_trms : trm list) (t : trm) : trm =
+  
+    (* search for the declaration of the variable *)
+  let rec aux (global_trm : trm ) (t : trm) : trm =
+      begin match t.desc with
+      | Trm_apps (f,[base]) ->
+        begin match f.desc with
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
+          begin match base.desc with
+          | Trm_var v when v = var ->
+            let index = get_pos field struct_decl_trm in
+            List.nth (List.rev list_of_trms) index
+          | _ -> trm_map (aux global_trm) t
+          end
+        | _ -> trm_map (aux global_trm) t
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    in aux t t

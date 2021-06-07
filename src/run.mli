@@ -174,8 +174,6 @@ val extract_loop_var : ?replace_top:bool -> ?keep_label:bool -> ?label:string ->
 val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
                         ?label:string -> target -> unit
 
-val inline_struct : ?replace_top:bool -> ?struct_name:string -> ?struct_fields:string list -> unit -> unit
-
 (* val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit  *)
 
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit
@@ -187,8 +185,6 @@ val move_loop : ?replace_top:bool -> ?move_before:string -> ?move_after:string -
 val eliminate_goto_next : ?replace_top:bool -> unit -> unit
 
 val group_decl_init : ?replace_top:bool -> unit -> unit
-
-val inline_seq : ?replace_top:bool -> seq_target:target -> unit -> unit
 
 module type DebugSig = sig
 

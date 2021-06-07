@@ -525,11 +525,6 @@ let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move
       (fun ctx -> Loop.move_loop ctx.clog  ~move_before ~move_after loop_index);
     write_log "\n" *)
 
-let inline_struct ?(replace_top : bool = false) ?(struct_name : string = "") ?(struct_fields : fields = []) (): unit =
-  apply_to_top ~replace_top
-    (fun ctx -> Inlining.inline_struct ctx.clog struct_name ~struct_fields);
-  write_log "\n"
-
 (* let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
@@ -550,19 +545,6 @@ let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
   let log = "Group_decl_init: no assumptions\n\n" in
   write_log log;
   apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
-
-let inline_seq ?(replace_top : bool = false) ~seq_target:(tr : target)
-  (_ : unit) : unit =
-  let log : string =
-    Printf.sprintf "Inline_seq ~seq_target:%s:\n"
-      (target_to_string tr)
-  in
-  write_log log;
-  apply_to_top ~replace_top (fun ctx -> Inlining.inline_seq ctx.clog tr);
-  write_log "\n"
-
-
-
 
 (******************************************************************************)
 (*                        Debug                                               *)
