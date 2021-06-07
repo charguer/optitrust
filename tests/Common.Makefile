@@ -7,7 +7,7 @@
 #    `make V=`       for more verbose output
 #    `make VC=`      for more verbose output only for checking C++ compilation
 #    `make f`        force rebuilding all (short for "make clean; make")
-#    `make foo.meld` opens meld to compare the output with the expected output 
+#    `make foo.meld` opens meld to compare the output with the expected output
 #
 #         tip: in meld, activate: file / preference / text filters / all whitespace
 #
@@ -41,13 +41,16 @@ OPTITRUST ?= ../..
 # Targets
 
 # 'make all' runs each of the unit tests (execute the transformation, and compile all c code)
-all: transfo compile
+all: check compile
 
 # 'make f' forces clean before 'make all'
 f: clean all
 
 # 'make transfo' executes all the transformations
-transfo: $(TESTS:.ml=.chk)
+transfo: $(TESTS:.ml=_out.cpp)
+
+# 'make check' executes all the transformations and check the results against expected results
+check: $(TESTS:.ml=.chk)
 
 # make 'compile' checks that the cpp files commited and generated all compile
 compile: $(TESTS:.ml=.prog)
@@ -60,7 +63,7 @@ optitrust: clean
 #######################################################
 # Rules
 
-# Instruction to keep intermediate files 
+# Instruction to keep intermediate files
 .PRECIOUS: %.byte %_out.cpp %.chk
 
 # Rule for executing one given test
@@ -79,7 +82,7 @@ DIFF := diff --ignore-blank-lines --ignore-space-change -I '^//'
 	$(V)cat $<
 
 # Rule for building .chk: compare the output and the expected output
-%.chk: %_out.cpp %_exp.cpp 
+%.chk: %_out.cpp %_exp.cpp
 	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
 	|| (echo "$< does not match the expected result:" && echo "  make $*.meld")
 #	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
@@ -87,13 +90,13 @@ DIFF := diff --ignore-blank-lines --ignore-space-change -I '^//'
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
 %_out.cpp: %.byte %.cpp
 	$(V)./$<
-	
+
 # The build command for compiling a script
 BUILD=ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Rule for building the binary associated with a test
 %.byte: %.ml
-	$(V)$(BUILD) $@ 
+	$(V)$(BUILD) $@
 
 # Rule for producing the expected output file from the result
 %.exp: %_out.cpp
@@ -112,7 +115,7 @@ endif
 	meld $^
 
 # LATER: we might want to activate more warnings, e.g.
-# MOREWARNINGS=-Wall -Wno-unused-variable -Wunused-but-set-variable 
+# MOREWARNINGS=-Wall -Wno-unused-variable -Wunused-but-set-variable
 
 
 #######################################################
@@ -144,7 +147,7 @@ opendoc: doc
 # Cleanup
 
 clean:
-	$(V)rm -rf *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

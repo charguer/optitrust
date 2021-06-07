@@ -48,7 +48,7 @@ ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 # LATER: add_exit should also introduce special commands for figuring out the line of the command that executes
 
 # Second, we compile that transformation program
-ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optiTrust.optitrust "${FILEBASE}_with_exit.byte"
+ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust "${FILEBASE}_with_exit.byte"
 # LATER: capture the output error message
 # so we can do the postprocessing on it
 

@@ -42,7 +42,7 @@ let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
 (* [delete index nb_instr t p] *)
-let delete (index : int) (nb_instr : int) : Target.Transfo.local=
+let delete (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path(delete_aux index nb_instr)
 
 
@@ -68,8 +68,8 @@ let sub_aux (index : int) (nb : int) (t : trm) : trm =
 
 
 (* [sub index nb_instr] *)
-let sub (index : int) (nb_instr : int)  =
-  Target.apply_on_path(sub_aux index nb_instr)
+let sub (index : int) (nb_instr : int) : Target.Transfo.local =
+  Target.apply_on_path (sub_aux index nb_instr)
 
 
 (* [inline_aux index t]: This function is an auxiliary function for inline

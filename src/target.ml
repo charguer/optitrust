@@ -766,6 +766,13 @@ module Path_constructors = struct
       (fun bs -> List.length bs = n && list_all_true bs)
       (fun () -> "target_list_simpl(" ^ (list_to_string (List.map constr_to_string cstrs) ^ ")"))
 
+  (* Converts a constraint into a [target_list_pred] that checks that at least one of the items in the list satisfies the given constraint *)
+  let target_list_one_st (cstr : constr) : target_list_pred =
+    make_target_list_pred
+      (fun _i -> cstr)
+      (fun bs -> List.mem true bs)
+      (fun () -> "target_list_one_st(" ^ (constr_to_string cstr) ^ ")")
+
   (* Predicate that matches any list of arguments *)
   let target_list_pred_always_true : target_list_pred =
     make_target_list_pred
@@ -1858,7 +1865,7 @@ let apply_on_target_between ?(replace_top : bool = false) (tr : (path*int) -> tr
   apply_to_top ~replace_top(fun _ t ->
     let ps = resolve_target_between tg t in
     List.fold_left (fun t (pi:path*int) -> tr pi t) t ps)
-(* [apply_on_transformed_targets ~replace_top transformer tr tg]: 
+(* [apply_on_transformed_targets ~replace_top transformer tr tg]:
    Same as [apply_to_transformed_targets] except that there is some processing performed on each of the explicit path.
    This processing is done by the [transformer] function, which takes an explicit path, and returns some information
    that the transformation can take as input.

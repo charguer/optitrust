@@ -12,15 +12,15 @@ let insert (tg : target) (ts : trm list) : unit =
 
 (* [delete index nb tg] *)
 let delete (index : int) (nb : int) : Target.Transfo.t =
-  Target.apply_on_target(Sequence_core.delete index nb)
+  Target.apply_on_target (Sequence_core.delete index nb)
 
 (* [sub i nb tg] *)
 let sub (i : int) (nb : int) : Target.Transfo.t =
-  Target.apply_on_target( Sequence_core.sub i nb )
+  Target.apply_on_target (Sequence_core.sub i nb)
 
 (* [inline i tg] *)
 let inline (i : int) : Target.Transfo.t =
-  Target.apply_on_target(Sequence_core.inline i)
+  Target.apply_on_target (Sequence_core.inline i)
 
 (* [wrao visible tg] *)
 let wrap (visible : bool) : Target.Transfo.t =
@@ -28,7 +28,7 @@ let wrap (visible : bool) : Target.Transfo.t =
 
 (* [unwrap tg] *)
 let unwrap : Target.Transfo.t =
-  Target.apply_on_target(Sequence_core.unwrap)
+  Target.apply_on_target (Sequence_core.unwrap)
 
 
 
