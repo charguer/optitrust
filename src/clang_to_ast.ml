@@ -26,6 +26,7 @@ type scope_kind =
   | For_scope
   | While_scope
   (* todo later *)
+  (* todo later *)
   (* | Do_scope *)
   | Switch_scope
   | Other_scope
