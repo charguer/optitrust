@@ -502,7 +502,6 @@ let term (s : string) : trm =
       )
   in
   let t = Clang_to_ast.translate_ast ast in
-  Ast_to_text.print_ast ~only_desc:true stdout t;
   let term_from_f (def_f : trm) : trm =
     match def_f.desc with
     | Trm_let_fun (_, _, _, body) ->
