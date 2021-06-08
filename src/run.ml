@@ -212,6 +212,12 @@ let run_unit_test ?(out_prefix : string = "") ?(ast_decode : bool = true) (scrip
 let set_repeat_io (b:bool) : unit =
   Flags.repeat_io := b
 
+let without_repeat_io (f:unit->unit) : unit =
+  let b = !Flags.repeat_io in
+  Flags.repeat_io := false;
+  f();
+  Flags.repeat_io := b
+
 (*
   branching function
   optional argument to choose one branch (-1 to choose none)
@@ -288,6 +294,7 @@ let make_target_list_pred = Target.make_target_list_pred
     } /*>1@*/ *)
 (* delete the label *)
 let show_target ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previous : bool = false) (tr : target) : unit =
+  without_repeat_io (fun () ->
     apply_to_top ~replace_top (fun _ t ->
     let t =
       if not keep_previous
@@ -295,7 +302,7 @@ let show_target ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_prev
         else t
       in
     Generic.show_target ~debug_ast tr t
-    )
+    ))
 
 
 let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) : unit =
@@ -529,7 +536,7 @@ let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move
   apply_to_top ~replace_top
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n" *)
-  
+
 (* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : target = [ ]) : () : unit =
   apply_to_top ~replace_top
     (fun ctx -> Generic.rewrite ctx.clog rule path );

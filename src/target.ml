@@ -694,6 +694,7 @@ module Path_constructors = struct
     cInstrOrExpr TrmKind_Expr s
 
   let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
+    (* LATER; is this a special case of string_to_rexp? *)
     Constr_regexp {
       rexp_desc = s;
       rexp_exp = Str.regexp s; (* compiles the regular expression described by s *)
@@ -706,16 +707,14 @@ module Path_constructors = struct
   let cExprRegexp ?(substr : bool = false) (s : string) : constr =
     cInstrOrExprRegexp TrmKind_Expr substr s
 
-  let string_to_rexp (regex : bool) (substr : bool) (s : string) (trmKind : trm_kind): rexp =
-    let exp = if substr then s else s ^ "$" in
-    (* If we search for exact expression than the string is a regex*)
-    let regexp = if not substr then true else regex in
+  (* TODO: shouldn't the name be regexp? *)
+  let string_to_rexp (regex : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
     { rexp_desc = s;
-      rexp_exp = (if regexp then Str.regexp else Str.regexp_string) exp;
+      rexp_exp = (if regex then Str.regexp else Str.regexp_string) s;
       rexp_substr = substr;
       rexp_trm_kind = trmKind; }
 
-  let string_to_rexp_opt (regex : bool) (substr : bool) (s : string) (trmKind : trm_kind): rexp option =
+  let string_to_rexp_opt (regex : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp option =
     let res =
       if s = ""
         then None
@@ -797,7 +796,7 @@ module Path_constructors = struct
     cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
 
   let cTypDef
-    ?(substr : bool = false) ?(regex : bool = false)(name : string) : constr =
+    ?(substr : bool = false) ?(regex : bool = false) (name : string) : constr =
     let ro = string_to_rexp_opt regex substr name TrmKind_Expr in
     Constr_decl_type ro
 
@@ -1111,11 +1110,11 @@ let is_structuring_statement (t : trm) : bool =
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
   if !Debug.counter = 2 then raise Debug.Breakpoint; *)
-  if r.rexp_substr then
+  if r.rexp_substr then begin
+    try let _ = Str.search_forward r.rexp_exp s 0 in true
+    with Not_found -> false
+  end else begin
     Str.string_match r.rexp_exp s 0
-  else begin
-      try let _ = Str.search_forward r.rexp_exp s 0 in true
-      with Not_found -> false
   end
 
 let match_regexp_trm (r : rexp) (t : trm) : bool =
@@ -1192,16 +1191,20 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_decl_enum (name, cec), Trm_typedef (Typedef_enum (n, xto_l)) ->
         check_name name n &&
         check_enum_const cec xto_l
-     | Constr_seq cl, Trm_seq tl -> check_list cl tl
-     | Constr_var name, Trm_var x -> check_name name x
-     | Constr_lit l, Trm_val (Val_lit l') -> is_equal_lit l l'
+     | Constr_seq cl, Trm_seq tl ->
+        check_list cl tl
+     | Constr_var name, Trm_var x ->
+        check_name name x
+     | Constr_lit l, Trm_val (Val_lit l') ->
+        is_equal_lit l l'
      | Constr_app (p_fun, cl_args), Trm_apps (f, args) ->
         check_target p_fun f &&
         check_list cl_args args
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
         check_name so l &&
         check_target p_body body
-     | Constr_goto so, Trm_goto l -> check_name so l
+     | Constr_goto so, Trm_goto l ->
+        check_name so l
      | Constr_return p_res, Trm_abort (Ret (Some res)) ->
         check_target p_res res
      | Constr_abort Any, Trm_abort _ -> true
@@ -1849,7 +1852,7 @@ let rec target_to_decl (x : var) (t : trm) : path option =
         unit
 *)
 let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg : target) : unit =
-  apply_to_top ~replace_top(fun _ t ->
+  apply_to_top ~replace_top (fun _ t ->
     let ps = resolve_target tg t in
     List.fold_left (fun t dl -> tr t dl) t ps)
 
@@ -1861,7 +1864,7 @@ let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg :
         unit
 *)
 let apply_on_target_between ?(replace_top : bool = false) (tr : (path*int) -> trm-> trm) (tg : target) : unit =
-  apply_to_top ~replace_top(fun _ t ->
+  apply_to_top ~replace_top (fun _ t ->
     let ps = resolve_target_between tg t in
     List.fold_left (fun t (pi:path*int) -> tr pi t) t ps)
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
@@ -1966,7 +1969,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm)
           trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl' body
         | Dir_name , Trm_let (vk,(x,tx),body) ->
           let t' = aux dl (trm_var ~loc x) in
-          Ast_to_text.print_ast  ~only_desc:true stdout t';
+          (* DEBUG: Ast_to_text.print_ast  ~only_desc:true stdout t'; *)
           begin match t'.desc with
           | Trm_var x' -> trm_let ~annot ~loc ~is_statement ~add ~attributes  vk (x',tx) body
           | Trm_decoration(ls,{desc=Trm_var x';_},rs) ->
