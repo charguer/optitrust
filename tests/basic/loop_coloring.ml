@@ -1,10 +1,8 @@
 open Optitrust
 open Run
-let _ = 
-    run(
-        fun _ -> 
-        set_init_source "loop_coloring.cpp";
-        Loop.color "c" "2" [cFor "i"] ;
-        Loop.color "c" "3" [cFor "j"] ;
-        dump()
-    )
+
+(*  *)
+let _ = run_unit_test (fun _ ->
+        Loop.color "C" "2" [cFor "i"] ;
+        Loop.color "C" "D" [cFor "j"] ;
+)

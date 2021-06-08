@@ -10,7 +10,6 @@ open Target
   match t.desc with
   | Trm_for (_, _, step1,body1) ->
       begin match body1.desc with
-
       | Trm_seq ({desc = Trm_seq(f_loop :: _);_} :: _) ->
         begin match f_loop.desc with
         | Trm_for(_ ,_ ,step2,body2) ->
@@ -43,7 +42,7 @@ open Target
                 body;
             ]
         in
-        loop index2 index_init2 step2 loop_size2 (trm_seq [loop index1 index_init1 step1 loop_size1 body2])
+        loop index2 index_init2 step2 loop_size2 (loop index1 index_init1 step1 loop_size1 body2)
         | _ -> fail t.loc "swap_aux: inner_loop was not matched"
         end
       | _ -> fail t.loc "swap_aux; expected inner loop"
@@ -93,8 +92,7 @@ let color_aux (c : var) (i_color : var) (t : trm) : trm =
                   loop_step
             ]
         in
-        trm_seq (* ~annot:(Some Delete_instructions) *)
-          [
+        
             trm_for
               (*init *)
               (trm_let ~loc:start.loc Var_mutable (index,typ_ptr (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]))
@@ -129,8 +127,8 @@ let color_aux (c : var) (i_color : var) (t : trm) : trm =
               )
               (* body *)
               body;
-          ]
-        in loop ~top:true i_color (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ])
+
+        in loop ~top:true ("c" ^ index_i) (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ])
 
   | _ -> fail t.loc "color_aux: not a for loop, check the path "
 

@@ -90,7 +90,7 @@ let new_location (loc : location) : location = match loc with
   scope closing instruction
   t represents the part of the program in the current scope
  *)
-let close_scope ?(loc : location = None) (t : trm) : trm =
+let close_scope ?(_loc : location = None) (t : trm) : trm =
   (* let loc_end = begin match loc with
     | None -> None
     | Some (f,line1,col1,line2,col2) -> Some (f,line1,(min 1 (col1-1)),line2,col2)
@@ -98,7 +98,8 @@ let close_scope ?(loc : location = None) (t : trm) : trm =
   (* let loc_end = new_location loc in *)
   match Stack.pop heap_vars with
   | (_, []) -> t
-  | _ -> trm_seq ~loc [t]
+  | _ -> t
+  (* | _ -> trm_seq ~loc [t] *)
   (* | (_, sl) ->
     let tl = delete_list ~loc:loc_end sl in
     trm_seq ~loc:loc_end ~annot:(Some Delete_instructions) (t :: tl)
@@ -107,7 +108,7 @@ let close_scope ?(loc : location = None) (t : trm) : trm =
 (* manage a new scope while translating a statement *)
 let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm) : trm =
   open_scope kind;
-  close_scope ~loc (f ())
+  close_scope ~_loc:loc (f ())
 
 (*
   put the appropriate sequence of delete instructions before a return

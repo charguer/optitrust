@@ -55,7 +55,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let d,lback = Tools.split_list_at 0 lback in
+    let d,lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
     let array_name = decl_name d in
     let var_decls = begin match d.desc with 
