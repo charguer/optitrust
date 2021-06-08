@@ -22,8 +22,9 @@ let sub (i : int) (nb : int) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.sub i nb)
 
 (* [inline i tg] *)
-let inline (i : int) : Target.Transfo.t =
-  Target.apply_on_target (Sequence_core.inline i)
+let inline (tg : target) : unit =
+  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Sequence_core.inline i t p) tg
 
 (* [wrao visible tg] *)
 let wrap (visible : bool) : Target.Transfo.t =

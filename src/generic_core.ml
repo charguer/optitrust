@@ -486,37 +486,47 @@ let group_decl_init (t : trm) : trm =
   in
   aux t
 (* Get the sat of a C/C++ trm entered as a string *)
-let term (code : string) : trm = 
-  let ast = Clang.Ast.parse_string
-    (Printf.sprintf
+let term (s : string) : trm =
+  (* parse_string outputs a translation_unit, i.e. a list of declarations *)
+  (* Printf.printf "context: %s\n" context; *)
+  let ast =
+    Clang.Ast.parse_string 
+      (Printf.sprintf
          {|
           void f(void){
             #pragma clang diagnostic ignored "-Wunused-value"
             %s;
           }
           |}
-         code
+         s
       )
-    in
-    let t = Clang_to_ast.translate_ast ast in
-    let term_from_f (def_f : trm) : trm =
-      match def_f.desc with
-      | Trm_let_fun (_, _, _, body) ->
+  in
+  let t = Clang_to_ast.translate_ast ast in
+  Ast_to_text.print_ast ~only_desc:true stdout t;
+  let term_from_f (def_f : trm) : trm =
+    match def_f.desc with
+    | Trm_let_fun (_, _, _, body) ->
        begin match body.desc with
         | Trm_seq [t] -> t
         | _ -> fail def_f.loc "term_from_f: unexpected body"
         end
-      | _ -> fail def_f.loc "term_from_f: expected definition"
-    in
-    let rec get_term (t : trm) : trm =
-      match t.desc with
-      (* otherwise find the declaration of f *)
-      | Trm_seq tl -> get_term (List.hd (List.rev tl))
-      (* once the declaration is found, look for the term inside *)
-      | Trm_let _ -> term_from_f t
-      | _ -> fail t.loc "get_term: unexpected result"
+    | _ -> fail def_f.loc "term_from_f: expected definition"
+  in
+  let rec get_term (t : trm) : trm =
+    match t.desc with
+    (*
+      if the context contains heap allocated variables, t contains a deletion
+      list
+     *)
+    (* otherwise find the declaration of f *)
+    | Trm_seq tl -> get_term (List.hd (List.rev tl))
+    (* once the declaration is found, look for the term inside *)
+    | Trm_let_fun _ -> term_from_f t
+    | _ -> fail t.loc "get_term: unexpected result"
   in
   get_term t
+
+  
 
 (* ********************************************** *)
 

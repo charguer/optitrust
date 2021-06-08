@@ -22,7 +22,7 @@ let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (tg : ta
     (fun (p,i) t -> Declaration_core.fold as_reference fold_at i t p) tg
 
 (* [insert ~const ~as_reference x dx tg] *)
-let insert ?(const : bool = false) ?(as_reference : bool = false) (x : var) (dx : trm) (tg : target) : unit =
+let insert ?(const : bool = false) ?(as_reference : bool = false) (x : var) (dx : var) (tg : target) : unit =
   Target.apply_on_target_between
     (fun (p,i) t -> Declaration_core.insert const as_reference x dx i t p) tg
 
