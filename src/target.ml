@@ -1325,14 +1325,14 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            then [] (* if a regexp matches in depth, don't test it here *)
            else (resolve_constraint c p t) in
 
-      (* DEBUG
+      (* DEBUG *)
         printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n  ~ast:%s\n  ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
           (Ast_to_c.ast_to_string ~ast_decode:false t)
-          (*(Ast_to_text.ast_to_string t)*) ""
+          (Ast_to_text.ast_to_string t) 
           (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here);*)
+          (paths_to_string ~sep:"\n   " res_here);
 
 
       res_deep ++ res_here  (* put deeper nodes first *) in
@@ -1404,16 +1404,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
   (* we first deal with heap allocation patterns *)
-  (* | Some Delete_instructions ->
-     begin match t.desc with
-     (* delete instructions + abort *)
-     | Trm_seq ({annot = Some Heap_allocated; _} :: tl) ->
-        let (n, t') = last tl in
-        add_dir (Dir_nth (n + 1)) (explore_in_depth p t')
-     (* instruction + delete instructions *)
-     | Trm_seq (t' :: _) -> add_dir (Dir_nth 0) (explore_in_depth p t')
-     | _ -> fail loc "explore_in_depth: bad delete instructions"
-     end *)
+  
   (* | Some Heap_allocated ->
      begin match t.desc with
      (* dereferencing *)

@@ -4,26 +4,30 @@ let _ = Printexc.record_backtrace true
 
 let _ = run_unit_test (* FOR DEBUG:~ast_decode:false *)   (fun () ->
   let show = show_target in
-  set_repeat_io false;
+  show [ cMulti;cVar "r2" ]; (* Doesn't work properly*)
+  (* show [ cVar "r2" ]; Doesn't work properly *)
+  (* show [ cVar "f" ]; Doesn't work properly *)
+  (* show [ cVar "g" ]; Doesn't work properly *)
 
+  (* Loops *)
+  (* show [ cFor "i" ]; *)
+  (* show [ cFor "j" ]; *)
+  (* show [ cFor ~cond:[cInstr "j < 5"] "" ]; *)
 
-  show [cMulti; cVarDef "x" ];
+  (* Abort *)
+  (* show [ cBreak ]; *)
+  (* show [ cContinue ]; *)
+  (* show [ cReturn ]; *)
 
-  (*show [ cExpr "j <" ]; (* Does not work *)*)
-  (* show [ cExpr "vect v2" ]; (* Does not work *) *)
+  (* Labels *)
+  (* show [ cLabel "lbl1" ]; *)
+  (* show [ cLabel "lbl2" ]; *)
 
+  (* Calls *)
+  (* show [ cCall "f" ]; *)
+  (* show [ cCall ~args:[cInt 2] "" ]; *)
 
-  (* show [ cStrFull "int r = 3;" ]; (* with or without the ; ? *) *)
-
-  (* show [cVarDef "x"]; *)
-(*
-  Debug.backtrace (fun () ->
-    show [cMulti; cVar "x" ];);
-*)
-  dump();
-
-  (* show [ cTypDef "intstar" ]; *)
-  (* show [ cMulti; cFunDef "f" ]; *)
-  (*  show [ cTopFun "f" ];*)
-  (*    show [ cTopFun "main" ];*)
+  (* Var/Fun definitions *)
+  (* show [ cFunDef "main" ]; *)
+  (* show [ cFunDef "f" ]; *)
 )

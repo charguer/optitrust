@@ -1,14 +1,5 @@
-
-typedef struct { int x; int y; } vect;
-
-int f() {
-  int x = 4;
-  return 4;
-}
-
-int main() {
-  int x = 3;
-  int y;
-  y = x;
-  return 0;
+int main(){
+  int r2 = 0;
+  int r3;
+  r3 = r2;
 }

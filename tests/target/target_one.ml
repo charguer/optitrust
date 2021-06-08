@@ -7,10 +7,10 @@ let _ = run_unit_test (fun () ->
   let show = show_target in
 
   (* Constants *)
-  show [ cInt 8 ];
+  show [ cInt 8 ]; 
 
   (* Types *)
-  show [ cTypDef "vect" ];
+  show [ cTypDef "vect" ]; 
   show [ cTypDef "intstar" ];
 
   (* Var/fun occurences *)
