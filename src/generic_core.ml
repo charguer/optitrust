@@ -485,7 +485,38 @@ let group_decl_init (t : trm) : trm =
     | _ -> trm_map aux t
   in
   aux t
-
+(* Get the sat of a C/C++ trm entered as a string *)
+let term (code : string) : trm = 
+  let ast = Clang.Ast.parse_string
+    (Printf.sprintf
+         {|
+          void f(void){
+            #pragma clang diagnostic ignored "-Wunused-value"
+            %s;
+          }
+          |}
+         code
+      )
+    in
+    let t = Clang_to_ast.translate_ast ast in
+    let term_from_f (def_f : trm) : trm =
+      match def_f.desc with
+      | Trm_let_fun (_, _, _, body) ->
+       begin match body.desc with
+        | Trm_seq [t] -> t
+        | _ -> fail def_f.loc "term_from_f: unexpected body"
+        end
+      | _ -> fail def_f.loc "term_from_f: expected definition"
+    in
+    let rec get_term (t : trm) : trm =
+      match t.desc with
+      (* otherwise find the declaration of f *)
+      | Trm_seq tl -> get_term (List.hd (List.rev tl))
+      (* once the declaration is found, look for the term inside *)
+      | Trm_let _ -> term_from_f t
+      | _ -> fail t.loc "get_term: unexpected result"
+  in
+  get_term t
 
 (* ********************************************** *)
 

@@ -1,10 +1,6 @@
 open Optitrust
 open Run
-let _ =
-    run
+let _ = run_unit_test
     ( fun _ -> 
-        set_init_source"insert_const.cpp";
-        let vect_def= [cTypDef "vect"] in
-        Declaration ~const:true [cAfter;vect_def] ~name:"NB_VECTS" ~value:"100" ();
-        dump()
+        Declaration.insert ~const:true  "NB_VECTS" "100" [cAfter;cTypDef "vect"];
     )

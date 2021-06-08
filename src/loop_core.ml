@@ -8,41 +8,13 @@ open Target
  *)
  let swap_aux (t : trm) : trm = 
   match t.desc with
-  | Trm_for (_, _, step1,body1) ->
+  | Trm_for (init1, cond1, step1,body1) ->
+      (* Ast_to_text.print_ast ~only_desc:true stdout body1; *)
       begin match body1.desc with
-      | Trm_seq ({desc = Trm_seq(f_loop :: _);_} :: _) ->
+      | Trm_seq [f_loop] ->
         begin match f_loop.desc with
-        | Trm_for(_ ,_ ,step2,body2) ->
-          let index1 = for_loop_index t in
-          let loop_size1 = for_loop_bound t in
-          let index_init1 = for_loop_init t in
-          let index2 = for_loop_index f_loop in
-          let loop_size2 = for_loop_bound f_loop in
-          let index_init2 = for_loop_init f_loop in
-
-          (* TODO: Create a smar constructor for loops to avoid repeating the implementation of loop function
-           for every single loop transformation *)
-          let loop (index : var) (init : trm) (step : trm) (bound : trm) (body : trm) =
-          trm_seq (* ~annot:(Some Delete_instructions) *)
-            [
-              trm_for
-                (* init *)
-                (trm_let ~loc:init.loc Var_mutable (index,typ_ptr (typ_int ())) (trm_apps (trm_prim ~loc:init.loc (Prim_new (typ_int ()))) [init]))
-                (* cond *)
-                (trm_apps (trm_binop Binop_lt)
-                   [
-                     trm_apps ~annot:(Some Mutable_var_get)
-                       (trm_unop Unop_get) [trm_var index];
-                     bound
-                   ]
-                )
-                (* step *)
-                (step)
-                (* body *)
-                body;
-            ]
-        in
-        loop index2 index_init2 step2 loop_size2 (loop index1 index_init1 step1 loop_size1 body2)
+        | Trm_for(init2 ,cond2 ,step2, body2) ->
+          trm_for init2 cond2 step2 (trm_seq [trm_for init1 cond1 step1 body2])
         | _ -> fail t.loc "swap_aux: inner_loop was not matched"
         end
       | _ -> fail t.loc "swap_aux; expected inner loop"

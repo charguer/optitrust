@@ -141,11 +141,11 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
 
 
 (* [tile_aux: name block_name b x t] *)
-let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index: int) (t : trm) : trm = 
+let tile_aux (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let d,lback = Tools.split_list_at 0 lback in
+    let d,lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
     let base_type =
       begin match aliased_type x t with 
@@ -166,21 +166,21 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
       if Ast_to_c.ast_to_string t_size =
          "sizeof(" ^ Ast_to_c.typ_to_string base_type ^ ")"
       then trm_var ("sizeof(" ^ block_name ^ ")")
-      else trm_apps (trm_binop Binop_mul) [b; t_size]
+      else trm_apps (trm_binop Binop_mul) [trm_var b; t_size]
     in
     let new_alloc (t_alloc : trm) : trm =
       match t_alloc.desc with
       (* expectation: my_alloc(nb_elements, size_element) *)
       | Trm_apps (t_alloc_fun, [t_nb_elts; t_size_elt]) ->
          (* goal: my_alloc(nb_elements / b, b * size_element) *)
-         let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; b] in
+         let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; trm_var b] in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_alloc_fun [t_nb_elts; t_size_elt]
       (* there's possibly a cast first *)
       | Trm_apps (t_cast,
                   [{desc = Trm_apps (t_alloc_fun,
                                      [t_nb_elts; t_size_elt]); _}]) ->
-         let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; b] in
+         let t_nb_elts = trm_apps (trm_binop Binop_div) [t_nb_elts; trm_var b] in
          let t_size_elt = new_size t_size_elt in
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
       | _ -> fail t.loc "new_alloc: expected array allocation"
@@ -194,7 +194,7 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
            (* ty* becomes (ty[])* *)
            trm_seq ~annot:(Some No_braces)
               [
-                trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm (trm_var b))));
                 trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name (Clang_to_ast.get_typedef block_name))))
               ]
         | Typ_array (ty, s) ->
@@ -203,19 +203,19 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
            | Undefined -> fail t.loc "tile_aux: array size must be provided"
            | Const n ->
               let n_div_b =
-                trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); b]
+                trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); trm_var b]
               in
               trm_seq ~annot:(Some No_braces)
                 [
-                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm (trm_var b))));
                   trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (Clang_to_ast.get_typedef block_name))
                                           (Trm n_div_b)))
                 ]
            | Trm t' ->
-              let t'' = trm_apps (trm_binop Binop_div) [t'; b] in
+              let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var b] in
               trm_seq ~annot:(Some No_braces)
                 [
-                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm b)));
+                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm (trm_var b))));
                   trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (Clang_to_ast.get_typedef block_name))
                                           (Trm t'')))
                 ]
@@ -238,7 +238,7 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
         | Some {ty_desc = Typ_var (y, _); _} when y = x ->
            trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
              ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
-        | _ -> trm_map (apply_tiling base_type block_name b x) t
+        | _ -> trm_map (apply_tiling base_type block_name (trm_var b) x) t
         end
     | _-> fail t.loc "tile_aux: expected a declaration"
       end
@@ -247,13 +247,13 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (i
     let ilsm = Generic_core.functions_with_arg_type x array_decl in
     let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in
     let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
-    let lback = List.map (apply_tiling base_type block_name b x) lback in
+    let lback = List.map (apply_tiling base_type block_name (trm_var b) x) lback in
     trm_seq ~annot:t.annot (lfront @ [array_decl] @ lback)
 
   | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
 
 (* [tile name block_name b x index p t] *)
-let tile (name : var -> var) (block_name : typvar) (b : trm) (x : typvar) (index : int): Target.Transfo.local =
+let tile (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (index : int): Target.Transfo.local =
   Target.apply_on_path(tile_aux name block_name b x index)
 
 

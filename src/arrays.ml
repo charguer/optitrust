@@ -8,7 +8,7 @@ let to_variables (new_vars : var list) (tg : target) : unit =
   ) tg
 
 (*[tile name block_name b x tg]*)
-let tile ?(name : var -> var = fun x -> x ^ "_tiled") (block_name : typvar) (b : trm) (x : typvar) (tg : target) : unit =
+let tile ?(name : var -> var = fun x -> x ^ "_tiled") (block_name : typvar) (b : var) (x : typvar) (tg : target) : unit =
   Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.tile name block_name b x i t p) tg
 
