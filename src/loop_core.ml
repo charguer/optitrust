@@ -149,35 +149,31 @@ let tile_aux (b : var) (i_block : var) (t : trm) : trm =
         | true -> trm_lit(Lit_int 0)
         | false -> trm_var( i_block)
         in
-        trm_seq (* ~annot:(Some Delete_instructions) *)
-            [
-              trm_for
-                (* init *)
-                (trm_let ~loc:start.loc Var_mutable (index,typ_ptr (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]))
+        
+        trm_for
+          (* init *)
+          (trm_let ~loc:start.loc Var_mutable (index,typ_ptr (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]))
                 
-                (* cond *)
-                 (trm_apps (trm_binop Binop_lt)
-                   [
-                     trm_apps ~annot:(Some Mutable_var_get)
-                       (trm_unop Unop_get) [trm_var index];
-                     bound
-                   ]
-                    )
-                (* step *)
-                (if not top then trm_apps (trm_unop Unop_inc) [trm_var index]
-                else trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
-                    [
+          (* cond *)
+          (trm_apps (trm_binop Binop_lt)
+           [
+             trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) 
+             [trm_var index];
+              bound]
+          )
+          (* step *)
+          ( if not top then trm_apps (trm_unop Unop_inc) [trm_var index]
+            else 
+              trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
+                [
                       trm_var index;
-                      trm_apps ~annot:(Some Mutable_var_get)
-                      (trm_unop Unop_get) [trm_var b]
+                      trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_var b]
+                ]
+              )
 
-                    ]
-                )
-
-                )
-                (* body *)
-                body;
-            ]
+          )
+          (* body *)
+          (body)
         in
         loop ~top:true i_block loop_size (trm_seq [loop ~top:false index_x spec_bound body])
      | _ -> fail t.loc "tile_aux: bad loop body"

@@ -125,6 +125,8 @@ let insert_typedef (x : typvar) (dx : typ) (index : int) : Target.Transfo.local 
  let remove_aux (t : trm) : trm =
   match t.desc with
   | Trm_let _ -> trm_seq ~annot:(Some No_braces) []
+  | Trm_let_fun _ -> trm_seq ~annot:(Some No_braces) []
+  | Trm_typedef _ -> trm_seq ~annot:(Some No_braces) []
   | _ -> fail t.loc "remove_aux: expected the declaration to remove"
 
 

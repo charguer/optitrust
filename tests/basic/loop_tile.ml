@@ -1,9 +1,7 @@
 open Optitrust
 open Run
-let _ = 
-    run(
-        fun _ -> 
-        set_init_source "loop_tiling.cpp";
+
+(* Works *)
+let _ = run_unit_test (fun _ -> 
         Loop.tile "2" "bx" [cFor "x"] ;
-        dump()
     )
