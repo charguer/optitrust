@@ -1,11 +1,9 @@
 open Optitrust
+open Run
 
+(* TODO: Adapt to the new syntax of Sequence.sub *)
 let _ = 
-  run
-    ( fun () ->
-      set_init_source"delocalize.cpp";
-      (* set_init_source"temp.cpp"; *)
-      (* show_path [cVarDef "x"] ~debug_ast:true; *)
+  run_unit_test ( fun () ->
       create_subsequence ~label:"sectionofinterest"  ~start:[cFor "i"] ~stop:[cVarDef "y" ] ~stop_before:true ~braces:true ();
       (* show_path [cLabel "sectionofinterest";cBody ()] ~debug_ast:true; *)
       
@@ -14,6 +12,4 @@ let _ =
       
       (* Printf.printf "outercalltodelocalize\n"; *)
       delocalize ~section_of_interest:"sectionofinterest" ~array_size:"N" ~neutral_element:0 ~fold_operation:"+" ();
- 
-      dump()
     )

@@ -1,15 +1,12 @@
 open Optitrust
 open Run
 
+(* TODO: Doesn't work *)
 
-let _ = 
-    run 
-    ( fun _ -> 
-        set_init_source"inline_decl_struct.cpp";
         (* I will try to merge function inline_record_access with inline_struct :TODO *)
-        Struct.inline_record_access ~field:"x" ~var:"t" ();
-        Struct.inline_struct ~struct_name:"obj" ~struct_fields:["pos"] ();
-        Declaration.inline ~delete_decl:true [cVarDef "s"] (); 
+        Struct.inline_record_access "x" "t";
+        (* Struct.inline_struct ~struct_name:"obj" ~struct_fields:["pos"] (); *)
+        (* Declaration.inline ~delete_decl:true [cVarDef "s"] ();  *)
            
               (* inline_decl_struct.ml 
                   vect s = { 0, 0 };
@@ -20,11 +17,7 @@ let _ =
               *)
               (* 
               *)
-        
-        (*(* internal not in Optitrust.mli *) inline_one_struct_in_struct ~name:"obj" "pos";
-        inline_struct_in_struct ~name:"obj" ["pos"];
-        inline_struct_in_struct ~name:"obj" ["pos" ;"speed"]; *) 
-        dump()
+ 
     )
 
 (*

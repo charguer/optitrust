@@ -13,7 +13,7 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let d, lback = Tools.split_list_at 0 lback in
+    let d, lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
     begin match d.desc with
     | Trm_let (_,(x,_),dx) ->
@@ -264,7 +264,7 @@ let inline_typedef_aux (delete_decl : bool) (inline_at : target list) (index : i
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let dl, lback = Tools.split_list_at 0 lback in
+    let dl, lback = Tools.split_list_at 1 lback in
     let dl = List.hd dl in
     begin match dl.desc with
     | Trm_typedef (Typedef_abbrev (x, dx)) ->
