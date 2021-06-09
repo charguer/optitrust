@@ -839,8 +839,8 @@ module Path_constructors = struct
   (* let cPrim (p : prim) : constr =
      cStr (ast_to_string (trm_prim p)) *)
 
-  let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
-    let exception Argument_Error  of string in
+  let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr =
+    let exception Argument_Error of string in
     let p_fun =
     match name, fun_ with
     | "",_ -> fun_
@@ -858,8 +858,9 @@ module Path_constructors = struct
   let cDef (name : string) : constr =
     Constr_chain [cStrict;cFunDef name]
 
-  let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr=
-    let exception Argument_Error  of string in
+  (* TODO: think about this *)
+  let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr =
+    let exception Argument_Error of string in
     let p_fun =
       match name, fun_ with
       | "",_ -> fun_
@@ -1140,7 +1141,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
         is_equal_lit l l'
-     | Constr_app (p_fun, cl_args), Trm_apps (f, args) ->
+     | Constr_app ((*accepted_encoded*) p_fun, cl_args), Trm_apps (f, args) ->
+        (*(accepted_encoded || not (is_encoded_fun f)) && ... *)
+        (*  where [is_encoded_fun f] returns true when [f] is [unop_get] or [unop_new] or similar *)
         check_target p_fun f &&
         check_list cl_args args
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
@@ -1345,7 +1348,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
   | Some (Include _) ->
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
-  
+
   | Some Access ->
      begin match t.desc with
        (*
@@ -1366,8 +1369,9 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      begin match t.desc with
      | Trm_let (_ ,(_, _), body) ->
        add_dir Dir_body (resolve_target_simple p body)
-     | Trm_let_fun (x, _ ,_ ,body) ->
-        add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
+     | Trm_let_fun (_, _ ,_ ,body) ->
+        (* DEPRECATED: the name of the function should not be considered an occurence;
+            add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++ *)
         add_dir Dir_body (resolve_target_simple p body)
      |Trm_typedef (Typedef_enum (x, xto_l)) ->
         let (il, tl) =

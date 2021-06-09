@@ -3,7 +3,7 @@ open Tools
 open Output
 open Trace
 
-let set_exn_backtrace (b : bool) : unit :=
+let set_exn_backtrace (b : bool) : unit =
   Printexc.record_backtrace b
 
 (* By default, we want backtrace for exceptions *)

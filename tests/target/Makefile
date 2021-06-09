@@ -41,6 +41,7 @@ force:
 
 # Target to clean the generated files
 clean:
-	rm -Rf _build
-	rm -f $(TEST).byte $(TEST).log $(TEST)_out.ast $(TEST)_out.cpp $(TEST)_out_enc.cpp
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml 
+	$(V)rm -rf _build
+	@echo "Clean successful"
 

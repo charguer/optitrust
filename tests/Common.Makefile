@@ -98,7 +98,7 @@ BUILD := ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
 %_out.cpp: %.byte %.cpp
-	$(V)./$<
+	$(V)OCAMLRUNPARAM=b ./$<
 
 # Rule for building the binary associated with a test
 %.byte: %.ml
@@ -154,7 +154,7 @@ opendoc: doc
 # Cleanup
 
 clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml 
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

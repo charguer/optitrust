@@ -12,8 +12,8 @@ let decode = ref true
 
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
-  | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const " 
-  | Typ_const t -> string " const "  ^^ typ_to_doc t  
+  | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const "
+  | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
   | Typ_float -> string "float"
@@ -47,7 +47,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_var (t, _) -> string t
 
 and is_atomic_typ (t : typ) : bool =
-  match t.ty_desc with 
+  match t.ty_desc with
   | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
   | _ -> false
 
@@ -328,16 +328,16 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   | Var_immutable -> typed_var_to_doc ~const:true tv, init
   | Var_mutable ->
     let (x, typ) = tv in
-    let tv = 
-      if not !decode then (x,typ) 
-      else 
+    let tv =
+      if not !decode then (x,typ)
+      else
         begin match typ.ty_desc with
           | Typ_ptr tx -> (x, tx)
           | _ -> fail None "trm_let_to_doc: expected a type ptr"
         end
     in
-    let init = 
-      if not !decode then init  
+    let init =
+      if not !decode then init
       else begin match init.desc with
         | Trm_apps(_, [value]) -> value
         | _ -> init
@@ -424,6 +424,8 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
   (f : trm) (tl : trm list) : document =
   match f.desc with
+  (* NOTE: in C, we don't apply arbitrary terms to terms, functions can only
+     be variables or primitive functions. *)
   | Trm_var x ->
      if !decode && Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
         (* Note x is for example "overloaded=" *)
@@ -612,7 +614,10 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
-  | _ -> fail f.loc "apps_to_doc: only functions may be applied"
+   | Trm_decoration(l,f1,r) -> (* TODO: think about how to put a decoration on a function *)
+      let dt = apps_to_doc ~display_star ~is_app_and_set f1 tl in
+      string l ^^ string "/*onlyfun*/" ^^ dt ^^ string r
+   | _ -> fail f.loc "apps_to_doc: only functions may be applied"
 
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (trm_to_doc t)
