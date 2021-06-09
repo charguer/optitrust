@@ -2,7 +2,7 @@ open Ast
 open Ast_to_c
 open Str
 open Tools
-open Output
+open Trace
 (******************************************************************************)
 (*                                  Path AST                                  *)
 (******************************************************************************)
@@ -1759,25 +1759,25 @@ let rec target_to_decl (x : var) (t : trm) : path option =
   (* val, var, array, struct, if, apps, while, for, switch, abort, label *)
   | _ -> None
 
-(* [apply_on_target ~replace tr tg]: Apply a specific Generic over a target or a list of targets
+(* [applyi_on_target ~replace tr tg]: Apply a specific Generic over a target or a list of targets, keep track over the index of the target
       params:
         tg : target
         tr : transformation to be applied
       return:
-        unit
+        unit 
 *)
-(* DEPRECATED
-let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg : target) : unit =
-  apply_to_top ~replace_top (fun _ t ->
-    let ps = resolve_target tg t in
-    List.fold_left (fun t dl -> tr t dl) t ps)
-*)
-
 let applyi_on_target ?(replace_top : bool = false) (tr : int -> trm -> path-> trm) (tg : target) : unit =
   apply_to_top ~replace_top (fun _ t ->
     let ps = resolve_target tg t in
-    List.foldi_left (fun i t dl -> tr t dl) t ps)
+    Tools.foldi (fun i t dl -> tr i t dl) t ps)
 
+(* [apply_on_target ~replace tr tg]: Esentiallt the same as applyi_on_target, but without keeping track over the index of the target
+      params:
+        tg : target
+        tr : transformation to be applied
+      return:
+        unit 
+*)
 let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg : target) : unit =
   applyi_on_target ~replace_top (fun _i t dl -> tr t dl) tg
 

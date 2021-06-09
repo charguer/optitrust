@@ -1,6 +1,6 @@
 open Ast
 open Target
-open Output
+open Trace
 open Tools
 
 (* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)

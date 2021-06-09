@@ -1,28 +1,26 @@
 open Optitrust
 open Run
-let _ =
-    run 
+let _ = run_unit_test 
     ( fun _ ->
-        set_init_source"show_path.cpp";
-        
-        set_repeat_io false;
-        Generic.show_target [cMulti;cVar "x_step"];
-        Generic.clean_target_decorators();
-        Generic.show_target  [cVarDef "i"] ;
-        Generic.clean_target_decorators();
-        Generic.show_target  [cFor "i"];
-        Generic.clean_target_decorators();
-        Generic.show_target  [cIf ~then_:[cVar "x++"] ()] ;
-        Generic.clean_target_decorators();
-        Generic.show_target  [cIf ()] ;
-        Generic.clean_target_decorators();
-        Generic.show_target  [cIf (); cVar "x"];
-        Generic.clean_target_decorators();
-        Generic.show_target  [cIf ();cVar "i"];    
-        Generic.clean_target_decorators();
-        Generic.show_target  [cInt 3];    
-        Generic.clean_target_decorators();
-        Generic.show_target  [cInstr "return"];
+        let show = Generic.target_show in
+        let clean = Generic.clean_target_decorators in
+        show [cMulti;cVar "x_step"];
+        clean;
+        show  [cVarDef "i"] ;
+        clean;
+        show  [cFor "i"];
+        clean;
+        show  [cIf ~then_:[cVar "x++"] ()] ;
+        clean;
+        show  [cIf ()] ;
+        clean;
+        show  [cIf (); cVar "x"];
+        clean;
+        show  [cIf ();cVar "i"];    
+        clean;
+        show  [cInt 3];    
+        clean;
+        show  [cInstr "return"];
     
         dump()
     )

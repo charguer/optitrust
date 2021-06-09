@@ -525,8 +525,22 @@ let term (s : string) : trm =
   in
   get_term t
 
-  
 
+(* Change the flag -reapeat-io (default is true)  *)
+let set_repeat_io (b:bool) : unit =
+  Flags.repeat_io := b
+
+let without_repeat_io (f:unit->unit) : unit =
+  let b = !Flags.repeat_io in
+  Flags.repeat_io := false;
+  f();
+  Flags.repeat_io := b
+
+
+let rec delete_target_decorators (t : trm) : trm =
+  match t.desc with
+  | Trm_decoration (_,t',_) -> t'
+  | _ -> trm_map (delete_target_decorators ) t
 (* ********************************************** *)
 
 
@@ -842,3 +856,34 @@ let add_attribute_aux (a : attribute) (t : trm) : trm =
 
 let add_attribute (a : attribute) : Target.Transfo.local =
   Target.apply_on_path(add_attribute_aux a)
+
+let target_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
+    if debug_ast then 
+      Ast_to_text.print_ast ~only_desc:true stdout t;
+    trm_decoration (Tools.left_decoration index) (Tools.right_decoration index) t
+
+let target_show (debug_ast : bool) (index : int): Target.Transfo.local =
+  Target.apply_on_path (target_show_aux debug_ast index)
+
+
+let ast_show_aux (file : string) (to_stdout:bool) (index : int) (t : trm) : trm =
+  let out_ast = open_out file in
+  if to_stdout then begin 
+    Ast_to_text.print_ast ~only_desc:true stdout t;
+    output_string stdout "\n\n ";
+    end 
+  else
+    output_string out_ast (Printf.sprintf "=========================Occurence %i======================\n" index);
+    Ast_to_text.print_ast ~only_desc:true out_ast t;
+    output_string out_ast "\n\n";
+    output_string out_ast (Printf.sprintf "------------------------Occurence %i details---------------\n" index);
+    Ast_to_text.print_ast ~only_desc:false out_ast t;
+    output_string out_ast "\n\n";
+    t
+    
+
+
+
+
+let ast_show (file : string) (to_stdout : bool) (index : int): Target.Transfo.local =
+  Target.apply_on_path (ast_show_aux file to_stdout index)

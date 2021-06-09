@@ -36,6 +36,36 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
 let add_atribute(a : attribute) : Transfo.t =
   Target.apply_on_target (Generic_core.add_attribute a)
 
+let target_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
+  Generic_core.without_repeat_io (fun () ->
+    Target.applyi_on_target(fun i t p -> 
+    let t = if not keep_previous then Generic_core.delete_target_decorators t
+    else t
+    in 
+    Generic_core.target_show debug_ast i t p) tg
+  )
+
+let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : unit  =
+  Target.applyi_on_target(fun i t p -> Generic_core.ast_show file to_stdout i t p) tg
+
+
+(* TODO: Move apply to top function to trace.ml *)
+let clean_target_decorators () : unit =
+    Output.apply_to_top ~replace_top:false (fun _ -> Generic_core.delete_target_decorators)
+
+
+let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
+  Output.apply_to_top ~replace_top (fun _ -> Generic_core.eliminate_goto_next)
+
+let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
+  Output.apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
+
+
+
+
+
+
+
 
 (* TODO: Remove this function after dealing with all the transformations which use this function *)
 (*
@@ -80,61 +110,7 @@ let insert_trm ?(insert_before : target = [])
        )
        t
        epl
-(* This transformations is used only for debugging purposes *)
-(* ********************************************************* *)
 
-(* TODO: debug_path : bool = false
-  as argument,
-   when turned on, you should do List.iter (fun p -> printf (path_to_string p)) epl
-  *)
-let show_target ?(debug_ast : bool = false) (tr : target) (t : trm) : trm =
-  let epl = resolve_target tr t in
-   (* DEBUG *)(*  printf "%s\n" (list_to_string (List.map path_to_string epl));*)
-  match epl with
-  | [] -> (* TODO: remove this warning *)
-    print_info t.loc "show_target: no matching subterm\n";
-    t
-  | [dl] -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
-            apply_on_path (trm_decoration (Tools.left_decoration 0) (Tools.right_decoration 0) ) t dl
-
-  | _ -> Tools.foldi
-          (fun i -> if debug_ast then Ast_to_text.print_ast ~only_desc:true stdout t;
-                    apply_on_path
-                   (trm_decoration (Tools.left_decoration i) (Tools.right_decoration i )))
-
-          t epl
-
-
-let show_ast ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) (t : trm) : trm =
-  let epl = resolve_target tr t in
-  match epl with
-  | [] ->
-    print_info t.loc "show_ast: no matching subterm\n";
-    t
-  | _ ->
-    let out_ast = open_out file in
-    Tools.foldi
-      (
-        fun i -> apply_on_path(fun t ->
-            if to_stdout then begin
-              Ast_to_text.print_ast ~only_desc:true stdout t;
-              output_string stdout "\n\n";
-            end;
-            output_string out_ast (Printf.sprintf "=========================Occurence %i======================\n" i);
-            Ast_to_text.print_ast ~only_desc:true out_ast t;
-            output_string out_ast "\n\n";
-            output_string out_ast (Printf.sprintf "------------------------Occurence %i details---------------\n" i);
-            Ast_to_text.print_ast ~only_desc:false out_ast t;
-            output_string out_ast "\n\n";
-            t)
-      )
-      t epl
-      (* close_out out_ast; *)
-
-let rec delete_target_decorators (t : trm) : trm =
-  match t.desc with
-  | Trm_decoration (_,t',_) -> t'
-  | _ -> trm_map (delete_target_decorators ) t
 
 (* ********************************************************* *)
 (* Create an instance of the pattern *)

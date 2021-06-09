@@ -1,7 +1,7 @@
 open Ast
 open Target
 open Tools
-open Output
+open Trace
 
 (* [swap tg] *)
 let swap : Target.Transfo.t =
