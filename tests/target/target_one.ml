@@ -16,13 +16,11 @@ let _ = run_unit_test (fun () ->
   (* Var/fun occurences *)
   show [ cVar "u" ]; 
   show [ cVar "r2" ]; 
-  show [ cVar "f" ]; (* No reason to test this*)
-  show [ cVar "g" ]; (* No reason to test this*)
 
   (* Loops *)
   show [ cFor "i" ];
   show [ cFor "j" ];
-  show [ cFor ~cond:[cInstr "j < 5"] "" ]; (* Doesn't work *)
+  show [ cFor ~cond:[cExpr "j < 5"] "" ]; 
 
   (* Abort *)
   show [ cBreak ];
@@ -43,6 +41,15 @@ let _ = run_unit_test (fun () ->
 
   show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ];(* This doesn't work' *)
   show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *)
+  
+  (* Regexp *)
+  show [cExpr "j <"];
+  show [cInstr "+= 2"];
+  show [cExpr "vect v2" ]; 
+  show [cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+  show [cInstr "i++" ]; (*Works, in general but fails here because there are more then one occurrences of i++ *)
+  show [cExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
+  
 
 )
 
@@ -60,17 +67,3 @@ let _ = run_unit_test (fun () ->
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)
 
 (* LATER: match types using a function of their list of fields *)
-
-(* LATER: Str/Regexp -- i still not to work on the specification of what is expected to match or not match
-  show [ cInstr "+= 2" ];
-  show [ cExpr "j <" ]; (* Does not work *)
-  show [ cExpr "vect v2" ]; (* Does not work *)
-  show [ cStrFull "int r = 3;" ]; (* with or without the ; ? *)
-  show [ cInstr "i++" ];
-  show [ cInstr "+=" ];
-  show [ c ~sub:false "+=" ];
-  show [ cRegexp "f\\(.\\)" ];
-  *)
-
-
-

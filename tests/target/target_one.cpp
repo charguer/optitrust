@@ -17,7 +17,7 @@ void g(int t[2], vect* varg) {
 int main() {
   // loops
   for (int i = 0; i < 10; i++) {
-     for (int j = 0; j < 5; j += 2) {
+     for (int j = 0; j < 5; j += 1) {
        i++;
        break;
      }

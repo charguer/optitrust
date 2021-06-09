@@ -1,23 +1,25 @@
 open Optitrust open Run
 
-let _ = Printexc.record_backtrace true
-
-let _ = run_unit_test (* FOR DEBUG:~ast_decode:false *)   (fun () ->
+let _ = run_unit_test (fun () ->
   let show = show_target in
 
-  (* Loops *)
-  (* show [cFor ~body:[cInstr "i <"] "" ]; *)
+  (* One (ExpectedOne is the default) *)
+  show [ cFor "j" ];
 
-  (* Abort *)
+  (* Multi *)
+  show [ cMulti; cFor "i" ];
+  show [ cMulti; cFunDef "main"; cFor "i" ];
 
-  (* Labels *)
+  (* Nb *)
+  show [ cNb 0; cFunDef "main"; cFor "j" ]; (* Doesn't work properly! *)
+  show [ cNb 1; cFunDef "main"; cFor "i" ];
+  show [ cNb 2; cFor "i" ];
 
-  show [ cExpr "j <" ];
-  (* show [ cExpr "j <" ];  *)
-  (* show [ cExpr "vect v2" ]; Does not work *)
-  (* show [ cStrFull "int r = 3;" ]; with or without the ; ? *)
-  (* show [ cInstr "i++" ]; *)
-  (* show [ cInstr "+=" ]; *)
-  (* show [ c ~sub:false "+=" ]; *)
-  (* show [ cRegexp "f\\(.\\)" ]; *)
+  (* Any *)
+  show [ cAnyNb; cFunDef "main"; cFor "j" ];
+  show [ cAnyNb; cFunDef "main"; cFor "i" ];
+  show [ cAnyNb; cFor "i" ];
+
 )
+
+
