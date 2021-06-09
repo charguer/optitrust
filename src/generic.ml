@@ -51,21 +51,14 @@ let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : un
 
 (* TODO: Move apply to top function to trace.ml *)
 let clean_target_decorators () : unit =
-    Output.apply_to_top ~replace_top:false (fun _ -> Generic_core.delete_target_decorators)
+    Trace.apply_to_top ~replace_top:false (fun _ -> Generic_core.delete_target_decorators)
 
 
 let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
-  Output.apply_to_top ~replace_top (fun _ -> Generic_core.eliminate_goto_next)
+  Trace.apply_to_top ~replace_top (fun _ -> Generic_core.eliminate_goto_next)
 
 let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
-  Output.apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
-
-
-
-
-
-
-
+  Trace.apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
 
 (* TODO: Remove this function after dealing with all the transformations which use this function *)
 (*
