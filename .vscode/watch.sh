@@ -1,16 +1,22 @@
-
 #!/bin/bash
+
 # This script watches over for any modification of ACTION_FILE
 # and executes the file when it gets modified.
 # Requires the `inotify-tools` package.
 # Assumes it is called from the .vscode folder
 
-echo "Start watching"
-# echo $(pwd)
 
+echo "Start watching in folder"
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+echo ${SCRIPT_DIR}
+
+
+cd ${SCRIPT_DIR}
 ACTION_FILE="./action.sh"
 ACTION_OUT_TEMP="./action_out_temp.txt"
 ACTION_OUT="./action_out.txt"
+
 while true; do
     rm -f ${ACTION_FILE} # optional
     touch ${ACTION_FILE}
