@@ -14,15 +14,15 @@ let _ = run_unit_test (fun () ->
   show [ cTypDef "intstar" ];
 
   (* Var/fun occurences *)
-  show [ cVar "u" ]; (* Doesn't work properly*)
-  show [ cVar "r2" ]; (* Doesn't work properly*)
-  show [ cVar "f" ]; (* Doesn't work properly*)
-  show [ cVar "g" ]; (* Doesn't work properly*)
+  show [ cVar "u" ]; 
+  show [ cVar "r2" ]; 
+  show [ cVar "f" ]; (* No reason to test this*)
+  show [ cVar "g" ]; (* No reason to test this*)
 
   (* Loops *)
   show [ cFor "i" ];
   show [ cFor "j" ];
-  show [ cFor ~cond:[cInstr "j < 5"] "" ];
+  show [ cFor ~cond:[cInstr "j < 5"] "" ]; (* Doesn't work *)
 
   (* Abort *)
   show [ cBreak ];
@@ -34,14 +34,15 @@ let _ = run_unit_test (fun () ->
   show [ cLabel "lbl2" ];
 
   (* Calls *)
-  show [ cCall "f" ];
-  show [ cCall ~args:[cInt 2] "" ];
+  show [ cCall "f" ]; (* This fails because there are too calls on f *)
+  show [ cCall ~args:[cInt 2] "" ]; (* This fails because it consider also new_int as a function application *)
 
   (* Var/Fun definitions *)
   show [ cFunDef "main" ];
   show [ cFunDef "f" ];
-  (* show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ]; *)
-  (* show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; *)
+
+  show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ];(* This doesn't work' *)
+  show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work'*)
 
 )
 

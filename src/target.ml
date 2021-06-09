@@ -683,7 +683,7 @@ module Path_constructors = struct
   let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
     Constr_regexp {
       rexp_desc = s;
-      rexp_exp = Str.regexp_string s; (* builds a regexp that matches exactly s *)
+      rexp_exp = Str.regexp s; (* builds a regexp that matches exactly s *)
       rexp_substr = false;
       rexp_trm_kind = tk; }
 
@@ -1002,53 +1002,7 @@ end
   translate t into the trm the user sees by removing heap allocation
   should be locally applied to the patterns described above
  *)
-(* TODO: Remove this function later *)
-(* let forget_heap_alloc (t : trm) : trm =
-  let loc = t.loc in
-  match t.annot with
-  (* | Some Delete_instructions ->
-     (*
-          t is either a sequence of delete instructions followed by a return
-          or an instruction followed by a sequence of delete instructions
-          in both case we do as if there was only the single instruction
-      *)
-     begin match t.desc with
-     | Trm_seq tl ->
-        (* all delete instructions are annotated by Heap_allocated *)
-        begin match filter_out_heap_alloc tl with
-        | [t'] -> t'
-        | _ -> fail loc "forget_heap_alloc: bad delete list"
-        end
-     | _ -> fail loc "forget_heap_alloc: delete instructions should form a list"
-     end *)
-  | Some Heap_allocated ->
-     (*
-          t is either a sequence heap allocating a variable
-          or the dereferencing of such a variable
-          in both cases we replace the pointer with the value it points to
-      *)
-     begin match t.desc with
-     (* first case: dereferencing, the user only sees the variable (t') *)
-     | Trm_apps (_, [t']) -> t'
-     (* second case: declaration *)
-     | Trm_seq tl ->
-        (* two subcases: with or without initial value *)
-        begin match tl with
-        (* first subcase: no initial value (init = new …) *)
-        | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _));
-            _}] ->
-           trm_let ~loc ~is_statement:true Var_mutable (x, tx) (trm_lit ~loc Lit_uninitialized)
 
-        (* second subcase: initialisation *)
-        | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr tx; _}), _)); _};
-           {desc = Trm_apps (_, [{desc = Trm_var y; _}; init]); _}]
-             when y = x ->
-           trm_let ~loc ~is_statement:true Var_mutable (x, tx) init
-        | _ -> fail loc "forget_heap_alloc: bad heap allocation"
-        end
-     | _ -> fail loc "forget_heap_alloc: bad heap_alloc instruction"
-     end
-  | _ -> fail loc "forget_heap_alloc: no heap_alloc in term" *)
 
 (* return the last element of a list together with its index *)
 let last (l : 'a list) : int * 'a =
@@ -1326,11 +1280,10 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            else (resolve_constraint c p t) in
 
       (* DEBUG *)
-        (* printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n  ~ast:%s\n  ~deep:%s\n  ~here:%s\n"
+        (* printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
           (Ast_to_c.ast_to_string ~ast_decode:false t)
-          (Ast_to_text.ast_to_string t) 
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here); *)
 
@@ -1403,30 +1356,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
   | Some (Include _) ->
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
-  (* we first deal with heap allocation patterns *)
   
-  (* | Some Heap_allocated ->
-     begin match t.desc with
-     (* dereferencing *)
-     | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (resolve_target_simple p t')
-     (* declaration *)
-     | Trm_seq tl ->
-        begin match tl with
-        (* no initial value (init = uninitialized) *)
-        | [{desc = Trm_decl (Def_var ((x, {ty_desc = Typ_ptr _; _}), _)); _}] ->
-           add_dir (Dir_nth 0)
-             (add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)))
-        (* initialisation *)
-        | [{desc = Trm_decl (Def_var ((x, _), _)); _} ;
-           {desc = Trm_apps (_, [{desc = Trm_var y; _}; init]); _}]
-             when y = x ->
-           (add_dir (Dir_nth 0)
-             (add_dir Dir_name (resolve_target_simple p (trm_var ~ loc x)))) ++
-           add_dir (Dir_nth 1) (add_dir (Dir_arg 1) (resolve_target_simple p init))
-        | _ -> fail loc "explore_in_depth: bad heap allocation"
-        end
-     | _ -> fail loc "explore_in_depth: bad heap_alloc instruction"
-     end *)
   | Some Access ->
      begin match t.desc with
        (*
@@ -1445,7 +1375,8 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      end
   | _ ->
      begin match t.desc with
-     (* | Trm_let (_ ,(x, _), body) *)
+     | Trm_let (_ ,(_, _), body) ->
+       add_dir Dir_body (resolve_target_simple p body)
      | Trm_let_fun (x, _ ,_ ,body) ->
         add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
         add_dir Dir_body (resolve_target_simple p body)
