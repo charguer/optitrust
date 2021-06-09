@@ -1326,13 +1326,13 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            else (resolve_constraint c p t) in
 
       (* DEBUG *)
-        printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n  ~ast:%s\n  ~deep:%s\n  ~here:%s\n"
+        (* printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n  ~ast:%s\n  ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
           (Ast_to_c.ast_to_string ~ast_decode:false t)
           (Ast_to_text.ast_to_string t) 
           (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here);
+          (paths_to_string ~sep:"\n   " res_here); *)
 
 
       res_deep ++ res_here  (* put deeper nodes first *) in
@@ -1445,7 +1445,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      end
   | _ ->
      begin match t.desc with
-     | Trm_let (_ ,(x, _), body)
+     (* | Trm_let (_ ,(x, _), body) *)
      | Trm_let_fun (x, _ ,_ ,body) ->
         add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
         add_dir Dir_body (resolve_target_simple p body)
@@ -1963,9 +1963,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm)
           (* DEBUG: Ast_to_text.print_ast  ~only_desc:true stdout t'; *)
           begin match t'.desc with
           | Trm_var x' -> trm_let ~annot ~loc ~is_statement ~add ~attributes  vk (x',tx) body
-          | Trm_decoration(ls,{desc=Trm_var x';_},rs) ->
+          (* | Trm_decoration(ls,{desc=Trm_var x';_},rs) ->
               trm_decoration ls rs
-              (trm_let ~annot ~loc ~is_statement ~add ~attributes vk (x',tx) body)
+              (trm_let ~annot ~loc ~is_statement ~add ~attributes vk (x',tx) body) *)
 
           | _ -> fail loc ("apply_on_path: transformation " ^ "must preserve names(variable)")
           end

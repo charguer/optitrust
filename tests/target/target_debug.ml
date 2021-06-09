@@ -4,6 +4,7 @@ let _ = Printexc.record_backtrace true
 
 let _ = run_unit_test (* FOR DEBUG:~ast_decode:false *)   (fun () ->
   let show = show_target in
+  show [ cMulti;cVarDef "r2"];
   show [ cMulti;cVar "r2" ]; (* Doesn't work properly*)
   (* show [ cVar "r2" ]; Doesn't work properly *)
   (* show [ cVar "f" ]; Doesn't work properly *)
