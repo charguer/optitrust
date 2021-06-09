@@ -100,19 +100,19 @@ val cIf : ?cond:target -> ?then_:target ->
           ?else_:target -> unit -> constr
 val cDef : string -> constr
 
-val cVarDef : ?regex:bool -> ?substr:bool -> ?body:target -> string -> constr
+val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> string -> constr
 
-val cFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> ?regex:bool ->string -> constr
+val cFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> ?regexp:bool ->string -> constr
 
 val cTopFun : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> string -> constr
 
-val cTypDef : ?substr:bool -> ?regex:bool -> string -> constr
+val cTypDef : ?substr:bool -> ?regexp:bool -> string -> constr
 
-val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) -> ?regex:bool -> unit -> constr
+val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) -> ?regexp:bool -> unit -> constr
 
 val cSeq : ?args:target -> ?args_pred:target_list_pred -> unit -> constr
 
-val cVar : ?substr:bool -> ?regex:bool -> string -> constr
+val cVar : ?substr:bool -> ?regexp:bool -> string -> constr
 
 val cBool : bool -> constr
 
@@ -126,9 +126,9 @@ val cCall : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> strin
 
 val cFun : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
 
-val cLabel : ?substr:bool -> ?body:target -> ?regex:bool -> string -> constr
+val cLabel : ?substr:bool -> ?body:target -> ?regexp:bool -> string -> constr
 
-val cGoto : ?label:string -> ?substr:bool -> ?regex:bool -> unit -> constr
+val cGoto : ?label:string -> ?substr:bool -> ?regexp:bool -> unit -> constr
 
 val cReturn_target : ?res:target -> unit -> constr
 
@@ -145,7 +145,7 @@ val cAccesses : ?base:target ->
 
 val cIndex : ?index:target -> unit -> constr_access
 
-val cField : ?field:string -> ?substr:bool -> ?regex:bool -> unit -> constr_access
+val cField : ?field:string -> ?substr:bool -> ?regexp:bool -> unit -> constr_access
 
 val cAccess : constr_access
 

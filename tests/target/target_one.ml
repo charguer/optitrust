@@ -42,7 +42,7 @@ let _ = run_unit_test (fun () ->
   show [ cFunDef "f" ];
 
   show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ];(* This doesn't work' *)
-  show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work'*)
+  show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *)
 
 )
 

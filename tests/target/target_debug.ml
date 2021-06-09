@@ -12,7 +12,7 @@ let _ = run_unit_test (* FOR DEBUG:~ast_decode:false *)   (fun () ->
 
   (* Labels *)
 
-  show [ cInstr "+= 2" ];
+  show [ cExpr "j <" ];
   (* show [ cExpr "j <" ];  *)
   (* show [ cExpr "vect v2" ]; Does not work *)
   (* show [ cStrFull "int r = 3;" ]; with or without the ; ? *)

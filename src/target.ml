@@ -683,7 +683,7 @@ module Path_constructors = struct
   let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
     Constr_regexp {
       rexp_desc = s;
-      rexp_exp = Str.regexp s; (* builds a regexp that matches exactly s *)
+      rexp_exp = Str.regexp_string s; (* builds a regexp that matches exactly s *)
       rexp_substr = false;
       rexp_trm_kind = tk; }
 
@@ -708,17 +708,17 @@ module Path_constructors = struct
     cInstrOrExprRegexp TrmKind_Expr substr s
 
   (* TODO: shouldn't the name be regexp? *)
-  let string_to_rexp (regex : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
+  let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
     { rexp_desc = s;
-      rexp_exp = (if regex then Str.regexp else Str.regexp_string) s;
+      rexp_exp = (if regexp then Str.regexp else Str.regexp_string) s;
       rexp_substr = substr;
       rexp_trm_kind = trmKind; }
 
-  let string_to_rexp_opt (regex : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp option =
+  let string_to_rexp_opt (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp option =
     let res =
       if s = ""
         then None
-        else Some (string_to_rexp regex substr s trmKind)
+        else Some (string_to_rexp regexp substr s trmKind)
       in
     (* TODO: printf (rexp_option_to_string res);
       need to add a field "rexp_exp_to_string : unit -> string"
@@ -728,8 +728,8 @@ module Path_constructors = struct
     res
 
   let cVarDef
-    ?(regex : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
-    let ro = string_to_rexp_opt regex substr name TrmKind_Expr in
+    ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
+    let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
     let p_body =  body in
      Constr_decl_var (ro, p_body)
 
@@ -780,8 +780,8 @@ module Path_constructors = struct
       (fun () -> "target_list_pred_always_true")
 
   (* by default an empty name is no name *)
-  let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) ?(regex : bool = false) (name : string) : constr =
-    let ro = string_to_rexp_opt regex false name TrmKind_Expr in
+  let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) ?(regexp : bool = false) (name : string) : constr =
+    let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
     (* LATER: maybe an error if both args and args_pred are provided *)
     let p_args = match args with
       | [] -> args_pred
@@ -796,21 +796,21 @@ module Path_constructors = struct
     cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
 
   let cTypDef
-    ?(substr : bool = false) ?(regex : bool = false) (name : string) : constr =
-    let ro = string_to_rexp_opt regex substr name TrmKind_Expr in
+    ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
+    let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
     Constr_decl_type ro
 
   let cEnum ?(name : string = "")
     ?(substr : bool = false) ?(constants : (string * (target)) list = [])
-    ?(regex : bool = false) (_ : unit) : constr =
-    let c_n = string_to_rexp_opt regex substr name TrmKind_Expr in
+    ?(regexp : bool = false) (_ : unit) : constr =
+    let c_n = string_to_rexp_opt regexp substr name TrmKind_Expr in
     let cec_o =
       match constants with
       | [] -> None
       | _ ->
          let cec =
            List.map
-             (fun (n, pl) -> (string_to_rexp_opt regex substr n TrmKind_Expr, pl))
+             (fun (n, pl) -> (string_to_rexp_opt regexp substr n TrmKind_Expr, pl))
              constants
          in
          Some cec
@@ -830,9 +830,9 @@ module Path_constructors = struct
     Constr_seq  p_args
 
   (* LATER:probably don't need exact *)
-  let cVar ?(substr : bool = false) ?(regex : bool = false) (name : string) : constr =
+  let cVar ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
     (* LATER: ~only_instr:false might not work in other languages *)
-    let ro = string_to_rexp_opt regex substr name TrmKind_Expr in
+    let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
     Constr_var ro
 
   let cBool (b : bool) : constr =
@@ -884,14 +884,14 @@ module Path_constructors = struct
       in
     Constr_app (p_fun,args)
 
-  let cLabel ?(substr : bool = false) ?(body : target = []) ?(regex : bool = false) (label : string) : constr =
-    let ro = string_to_rexp_opt regex substr label TrmKind_Expr in
+  let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
+    let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
     let p_body = body in
     Constr_label (ro, p_body)
 
   let cGoto ?(label : string = "")
-    ?(substr : bool = false) ?(regex : bool = false) (_ : unit) : constr =
-    let ro = string_to_rexp_opt regex substr label TrmKind_Expr in
+    ?(substr : bool = false) ?(regexp : bool = false) (_ : unit) : constr =
+    let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
     Constr_goto ro
 
   let cReturn_target ?(res : target = [])
@@ -935,9 +935,9 @@ module Path_constructors = struct
     let p_index =  index in
     Array_access p_index
 
-  let cField ?(field : string = "") ?(substr : bool = false) ?(regex : bool = false)
+  let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = false)
     (_ : unit) : constr_access =
-    let ro = string_to_rexp_opt regex substr field TrmKind_Expr in
+    let ro = string_to_rexp_opt regexp substr field TrmKind_Expr in
     Struct_access ro
 
   let cAccess : constr_access = Any_access
