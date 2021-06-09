@@ -14,10 +14,15 @@ let exit_script () : unit =
   try
     close_logs ();
     List.iter
-      (fun (ctx, astStack) ->
+      (fun trace ->
+        let ctx = trace.context in
         let prefix = ctx.directory ^ ctx.prefix in
-        let astAfter = Stack.pop astStack in
-        let astBefore = Stack.pop astStack in
+        let astBefore =
+          match trace.history with
+          | t::_ -> t
+          | [] -> fail None "No previous transformation to compare against" (* TODO: give a blank AST? i.e, empty seq *)
+          in
+        let astAfter = trace.cur_ast in
         print_info None "Writing ast and code before last transformation...\n";
         output_prog ctx (prefix ^ "_before") astBefore;
         print_info None "Done. Output files: %s_before.ast and %s_before%s.\n"
@@ -39,7 +44,7 @@ let exit_script () : unit =
         *)
         ()
       )
-      (get_trace());
+      (get_traces());
     exit 0
   with
   | Stack.Empty -> fail None ("exit_script: script must be interrupted after " ^
@@ -49,33 +54,34 @@ let exit_script () : unit =
 let dump_trace_to_js ?(out_prefix : string = "") () : unit =
   (* Initialize var content and source as empty arrays *)
   (* let () = initialization out_prefix in *)
-  let dump_stack (out_prefix : string)
-    (astStack : trm Stack.t) : unit =
-    let nbAst = Stack.length astStack in
-    let i = ref(nbAst - 2) in
+  let dump_history (out_prefix : string)
+    (asts : trm list) : unit =
+    let nbAst = List.length asts in
+    let i = ref (nbAst - 2) in
+    (* TODO: BEGATIM: the code does not match the comment, please fix *)
     (* exceptions:
      - i = 0 -> program before tranformation -> prefix_input
      - i = nbAst -2 -> result program -> prefix_input
      - i = -1 -> empty program -> no output
     *)
-    Stack.iter
+    List.iter
       (fun ast ->
         if !i = -1 then ()
         else
           output_js !i out_prefix ast;
-        i := !i - 1;
+        decr i;
       )
-      astStack
+      asts
     in
     List.iter
-      (fun (ctx, astStack) ->
+      (fun trace ->
+        let ctx = trace.context in
         let out_prefix =
           if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
         in
-        dump_stack out_prefix astStack
-
+        dump_history out_prefix (trace.cur_ast :: trace.history)
       )
-      (get_trace())
+      (get_traces())
 
 (*
   outputs code at each step using given prefix for filename
@@ -84,7 +90,7 @@ let dump_trace_to_js ?(out_prefix : string = "") () : unit =
 *)
 (* ----------------DEPRECATED------------------- *)
 (* let dump_trace ?(out_prefix : string = "") () : unit =
-  let dump_stack (ctx : context) (out_prefix : string)
+  let dump_history (ctx : context) (out_prefix : string)
     (astStack : trm Stack.t) : unit =
     let nbAst = Stack.length astStack in
     let i = ref (nbAst - 2) in
@@ -111,7 +117,7 @@ let dump_trace_to_js ?(out_prefix : string = "") () : unit =
       let out_prefix =
         if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
       in
-      dump_stack ctx out_prefix astStack
+      dump_history ctx out_prefix astStack
     )
     (get_trace()) *)
 (* function that executes the script to deal with errors *)
@@ -151,36 +157,36 @@ let dump ?(out_prefix : string = "") () : unit =
   (* if !Flags.full_dump then dump_trace ~out_prefix () *)
   if !Flags.full_dump then dump_trace_to_js ~out_prefix()
   else
-    List.iter
-      (fun (ctx, astStack) ->
+    List.iter (* LATER: use a Trace.iter function? *)
+      (fun trace ->
+        let ctx = trace.context in
         let out_prefix =
           if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
         in
-        output_prog ctx (out_prefix ^ "_out") (Stack.top astStack)
+        output_prog ctx (out_prefix ^ "_out") (trace.cur_ast)
       )
-      (get_trace())
+      (get_traces())
 
 (*
   mandatory first instruction of a transformation script
   set environment for script execution on given program file
-  expect a clean context
+  expect a clean context; one case use [Trace.reset()] to clear
+  the current context.
 *)
 let set_init_source (filename : string) : unit =
-  match (get_trace()) with
-  | [(_, astStack)] when Stack.is_empty astStack ->
-     Stack.push (trm_lit Lit_unit) astStack;
-     let basename = Filename.basename filename in
-     let extension = Filename.extension basename in
-     let directory = (Filename.dirname filename) ^ "/" in
-     let prefix = Filename.remove_extension basename in
-     let clog = open_out (directory ^ prefix ^ ".log") in
-     logs := clog :: !logs;
-     let (includes, t) = parse filename in
-     Stack.push t astStack;
-     set_trace {extension; directory; prefix; includes; clog} astStack;
-     (* trace := [({extension; directory; prefix; includes; clog}, astStack)]; *)
-     print_info None "Starting script execution...\n"
-  | _ -> failwith "set_init_source: context not clean"
+  if (Trace.was_traces_modified())
+    then failwith "set_init_source: context not clean";
+  let basename = Filename.basename filename in
+  let extension = Filename.extension basename in
+  let directory = (Filename.dirname filename) ^ "/" in
+  let prefix = Filename.remove_extension basename in
+  let clog = open_out (directory ^ prefix ^ ".log") in
+  logs := clog :: !logs;
+  let (includes, cur_ast) = parse filename in
+  let context = { extension; directory; prefix; includes; clog } in
+  let trace = { context; cur_ast; history = [] } in
+  Trace.set_trace trace;
+  print_info None "Starting script execution...\n"
 
 (* TODO: comment *)
 let reset () =
@@ -215,6 +221,7 @@ let run_unit_test ?(out_prefix : string = "") ?(ast_decode : bool = true) (scrip
   branching function
   optional argument to choose one branch (-1 to choose none)
  *)
+ (* LATER: the implementation of this function may needs to be refined (?) *)
 let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
   (* close logs: new ones will be opened for each branch *)
   close_logs ();
@@ -224,34 +231,34 @@ let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
       (fun i tr f ->
         if only_branch = -1 || i = only_branch then
           begin
-            let old_trace = get_trace() in
-            let new_trace =
+            let old_traces = get_traces() in
+            let new_traces =
               List.fold_right
-                (fun (ctx, astStack) tr ->
-                  let prefix = ctx.prefix ^ "_" ^ (string_of_int i) in
-                  let clog = open_out (ctx.directory ^ prefix ^ ".log") in
-                  (* store new log channel *)
+                (fun trace acc_traces ->
+                  let context = trace.context in
+                  (* create an extended prefix for this branch *)
+                  let new_prefix = context.prefix ^ "_" ^ (string_of_int i) in
+                  (* create and register new log channel *)
+                  let clog = open_out (context.directory ^ new_prefix ^ ".log") in
                   logs := clog :: !logs;
-                  (*
-                    execute each branch in a single context and store the result
-                   *)
-                  set_trace {ctx with prefix; clog} (Stack.copy astStack);
-                  (* trace := [({ctx with prefix; clog}, Stack.copy astStack)]; *)
+                  (* execute each branch in a single context and store the result *)
+                  set_trace { trace with context = { context with prefix = new_prefix } };
                   f ();
-                  !trace :: tr;
+                  (get_traces()) :: acc_traces;
                 )
-                old_trace
+                old_traces
                 []
             in
-            trace := old_trace;
-            (List.flatten new_trace) :: tr
+            traces := old_traces;
+            (List.flatten new_traces) :: tr
           end
         else tr
       )
       []
       cases
   in
-  trace := List.flatten (List.rev new_trace)
+  traces := List.flatten (List.rev new_trace)
+  (* TODO: switch should be part of the trace.ml file *)
 
 
 (******************************************************************************)
@@ -314,7 +321,7 @@ let make_target_list_pred = Target.make_target_list_pred
       ps
   in
   write_log log;
-  apply_to_top ~replace_top
+  apply_to_top
     (fun ctx t ->
       let t =
         Sequence.split_sequence ctx.clog result_label block1_label
@@ -353,7 +360,7 @@ let make_target_list_pred = Target.make_target_list_pred
     Printf.sprintf "Extract_loop_var %s:\n" (target_to_string tr)
   in
   write_log log;
-  apply_to_top ~replace_top
+  apply_to_top
     (fun ctx t ->
       let t = Loop.extract_loop_var ctx.clog result_label tr t in
       if keep_label then t else Label.delete_label result_label t
@@ -367,7 +374,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
     Printf.sprintf "Extract_loop_vars %s:\n" (target_to_string tr)
   in
   write_log log;
-  apply_to_top ~replace_top
+  apply_to_top
     (fun ctx t ->
       let t = Loop.extract_loop_vars ctx.clog result_label tr t in
       if keep_label then t else Label.delete_label result_label t
@@ -410,7 +417,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
     Printf.sprintf "Split_loop_nodep %s:\n" (target_to_string tr)
   in
   write_log log;
-  apply_to_top ~replace_top
+  apply_to_top
     (fun ctx t ->
       let t =
         Loop.split_loop_nodep ctx.clog result_label loop1_label
@@ -445,7 +452,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
   in
   write_log log_begin;
   (* split the loop body *)
-  split_sequence ~replace_top
+  split_sequence
     ~keep_labels:true
     ~labels:["split_loop_tmp_result"; "split_loop_tmp_block1";
              "split_loop_tmp_block2"]
@@ -458,18 +465,18 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
     [cFor ~body:[cLabel "split_loop_tmp_result"
                    ~substr:true ] ""];
   (* remove unnecessary labels *)
-  delete_labels ~replace_top ["split_loop_tmp_result"; "split_loop_tmp_block1";
+  delete_labels ["split_loop_tmp_result"; "split_loop_tmp_block1";
                               "split_loop_tmp_block2"];
   let tr' = [cLabel "split_loop_tmp_loop" ~substr:true] in
   (* extract loop variables *)
-  extract_loop_vars ~replace_top ~keep_label:true ~label:result_label tr';
+  extract_loop_vars ~keep_label:true ~label:result_label tr';
   (* split the loop *)
-  split_loop_nodep ~replace_top ~keep_labels:true
+  split_loop_nodep ~keep_labels:true
     ~labels:["split_loop_tmp_result"; loop1_label; loop2_label] tr';
   (* clean up *)
-  delete_labels ~replace_top ["split_loop_tmp_result"; "split_loop_tmp_loop"];
+  delete_labels ["split_loop_tmp_result"; "split_loop_tmp_loop"];
   if not keep_labels then
-    delete_labels ~replace_top [result_label; loop1_label; loop2_label];
+    delete_labels [result_label; loop1_label; loop2_label];
   write_log log_end *)
 
 
@@ -478,7 +485,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
       Printf.sprintf "move_loop_before %s:\n" (target_to_string tr)
     in
     write_log log;
-    apply_to_top ~replace_top
+    apply_to_top
       (fun ctx -> Loop.move_loop_before ctx.clog tr loop_index);
     write_log "\n"
 
@@ -487,22 +494,22 @@ let move_loop_after ?(replace_top : bool = false) (tr : target) (loop_index : va
       Printf.sprintf "move_loop_after %s:\n" (target_to_string tr)
     in
     write_log log;
-    apply_to_top ~replace_top
+    apply_to_top
       (fun ctx -> Loop.move_loop_after ctx.clog tr loop_index);
     write_log "\n"
 
 let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move_after : string = "" ) (loop_index : string) : unit =
-    apply_to_top ~replace_top
+    apply_to_top
       (fun ctx -> Loop.move_loop ctx.clog  ~move_before ~move_after loop_index);
     write_log "\n" *)
 
 (* let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit =
-  apply_to_top ~replace_top
+  apply_to_top
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n" *)
 
 (* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : target = [ ]) : () : unit =
-  apply_to_top ~replace_top
+  apply_to_top
     (fun ctx -> Generic.rewrite ctx.clog rule path );
   write_log "\n"
 *)

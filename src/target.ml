@@ -1764,10 +1764,10 @@ let rec target_to_decl (x : var) (t : trm) : path option =
         tg : target
         tr : transformation to be applied
       return:
-        unit 
+        unit
 *)
-let applyi_on_target ?(replace_top : bool = false) (tr : int -> trm -> path-> trm) (tg : target) : unit =
-  apply_to_top ~replace_top (fun _ t ->
+let applyi_on_target (tr : int -> trm -> path-> trm) (tg : target) : unit =
+  apply_to_top (fun _ t ->
     let ps = resolve_target tg t in
     Tools.foldi (fun i t dl -> tr i t dl) t ps)
 
@@ -1776,10 +1776,10 @@ let applyi_on_target ?(replace_top : bool = false) (tr : int -> trm -> path-> tr
         tg : target
         tr : transformation to be applied
       return:
-        unit 
+        unit
 *)
-let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg : target) : unit =
-  applyi_on_target ~replace_top (fun _i t dl -> tr t dl) tg
+let apply_on_target (tr : trm -> path-> trm) (tg : target) : unit =
+  applyi_on_target (fun _i t dl -> tr t dl) tg
 
 
 
@@ -1790,8 +1790,8 @@ let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg :
       return:
         unit
 *)
-let apply_on_target_between ?(replace_top : bool = false) (tr : (path*int) -> trm-> trm) (tg : target) : unit =
-  apply_to_top ~replace_top (fun _ t ->
+let apply_on_target_between (tr : (path*int) -> trm-> trm) (tg : target) : unit =
+  apply_to_top (fun _ t ->
     let ps = resolve_target_between tg t in
     List.fold_left (fun t (pi:path*int) -> tr pi t) t ps)
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
@@ -1805,8 +1805,8 @@ let apply_on_target_between ?(replace_top : bool = false) (tr : (path*int) -> tr
     return:
       unit
 *)
-let apply_on_transformed_targets ?(replace_top : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
-  apply_to_top ~replace_top (fun _ t ->
+let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
+  apply_to_top (fun _ t ->
     let ps = resolve_target tg t in
     let descrs = List.map transformer ps in
     List.fold_left (fun t descr -> tr descr t) t descrs

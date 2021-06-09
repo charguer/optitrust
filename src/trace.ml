@@ -10,6 +10,10 @@ open Clang_to_ast
 (*                             Context management                             *)
 (******************************************************************************)
 
+(* A context contains general information about:
+   - the source code that was loaded initially using [set_init_file],
+   - the prefix of the filenames in which to output the final result using [dump]
+   - the log file to report on the transformation performed. *)
 type context =
   { extension : string;
     directory : string;
@@ -17,21 +21,51 @@ type context =
     includes : string;
     clog : out_channel; }
 
-let init_ctx : context =
-  {extension = ".cpp"; directory = ""; prefix = ""; includes = "";
-   clog = stdout}
+let context_dummy : context =
+  { extension = ".cpp";
+    directory = "";
+    prefix = "";
+    includes = "";
+    clog = stdout; }
 
-(* list of context, AST stack *)
-let trace : (context * (trm Stack.t)) list ref =
-  ref [(init_ctx, Stack.create ())]
+(* A trace is made of a context, a current AST, and a list of ASTs that were
+   saved as "interesting intermediate steps", via the [Trace.save] function. *)
+type trace = {
+  mutable context : context;
+  mutable cur_ast : trm;
+  mutable history : trm list; }
 
-(* Return the current state of the trace *)
-let get_trace () : (context * (trm Stack.t)) list =
-  !trace
+let trm_dummy : trm =
+  trm_val (Val_lit Lit_unit)
 
-(* Modify the current trace  *)
-let set_trace (ctx : context) (astStack : trm Stack.t) : unit =
-  trace := [ctx, astStack]
+let trace_dummy : trace =
+  { context = context_dummy;
+    cur_ast = trm_dummy; (* dummy *)
+    history = []; }
+
+(* Optitrust actually manages list of traces, because it supports a [switch]
+   command that allows branching in the transformation script, to produce
+   several possible output files. *)
+type traces = trace list
+
+(* The internal state of Optitrust thus consists of a reference on a list
+   of traces, of type [traces] *)
+let traces : traces ref =
+  ref [trace_dummy]
+
+(* Return whether the current internal state has never been modified -- only exposed for [Run.ml] *)
+let was_traces_modified () : bool =
+  match !traces with
+  | [tr] -> (tr != trace_dummy)
+  | _ -> true
+
+(* Return the current internal state -- only exposed for [Run.ml] *)
+let get_traces () : traces =
+  !traces
+
+(* Sets the internal state to single trace -- only exposed for [Run.ml] *)
+let set_trace (trace : trace) : unit =
+  traces := [ trace ]
 
 (*
   list of log channels
@@ -46,12 +80,13 @@ let close_logs () : unit =
 (* let write_log (log : string) : unit =
   List.iter (fun (ctx, _) -> Generic.write_log ctx.clog log) !trace *)
 
-(* restore the initial state *)
+(* The [reset] operation restores the global state (object [traces]) in
+   its original form. This operation is useful to perform several
+   independent operations within a same file. *)
 let reset () : unit =
-  trace := [(init_ctx, Stack.create ())];
   close_logs ();
-  logs := []
-
+  logs := [];
+  traces := [trace_dummy]
 
 (* get the sequence of includes at the beginning of the file *)
 let get_includes (filename : string) : string =
@@ -95,25 +130,25 @@ let failure_expected f =
 let write_log (clog : out_channel) (log : string) : unit =
   output_string clog log; flush clog
 
-(* trm_to_log: Generate logging for a given ast node 
-      params:  
-        t: ast 
-      returns: 
+(* trm_to_log: Generate logging for a given ast node
+      params:
+        t: ast
+      returns:
         unit
 *)
 (* TODO: Replace looggin everywhere with a simple call to this function *)
 let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
   let log : string =
     let loc : string =
-    match t.loc with 
+    match t.loc with
     | None -> ""
     | Some (_,start_row,end_row,start_column,end_column) -> Printf.sprintf  "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
-    in 
+    in
     Printf.sprintf
     (" -expression\n%s\n" ^^
     " %s is a %s\n"
     )
-    (ast_to_string t) loc exp_type 
+    (ast_to_string t) loc exp_type
     in write_log clog log
 
 (* clean up a C++ file using clang format *)
@@ -169,31 +204,39 @@ let output_prog (ctx : context) (out_prefix : string) (ast : trm) : unit =
       close_channels();
       failwith s
 
+
+(* TODO: Move apply_to_top to a better place *)
+  (* apply_to_top: add the given ast to the ast stack
+*)
+(* LATER: the context argument of f seems to never be used... *)
+let apply_to_top (f : context -> trm -> trm) : unit =
+  List.iter (fun trace ->
+    trace.cur_ast <- f trace.context trace.cur_ast)
+    !traces
+
+(* The [save] function takes the current AST and adds it to the
+   history (in every branch). *)
+let save () : unit =
+  List.iter (fun trace ->
+    trace.history <- trace.cur_ast::trace.history)
+    !traces
+
 (* print ast in temporary file and parse it again *)
-let reparse (ctx : context) (ast : trm) : trm =
+let reparse_trm (ctx : context) (ast : trm) : trm =
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
   output_prog ctx in_prefix ast;
   let (_, t) = parse (in_prefix ^ ctx.extension) in
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
 
-(* TODO: Move apply_to_top to a better place *)
-  (* apply_to_top: add the given ast to the ast stack 
-
-*)
-let apply_to_top ?(replace_top : bool = false)
-  (f : context -> trm -> trm) : unit =
-  List.iter
-    (fun (ctx, astStack) ->
-      let ast =
-        if replace_top then Stack.pop astStack else Stack.top astStack
-      in
-      let ast = f ctx ast in
-      let ast = if !Flags.repeat_io then reparse ctx ast else ast in
-      Stack.push ast astStack
-    )
-    (get_trace())
-
+(* The [reparse] function takes the current AST (in every branch),
+   prints it to a file, and parses it as if it was a fresh input.
+   Doing so ensures in particular that all the type information is
+   properly set up. *)
+let reparse () : unit =
+ List.iter (fun trace ->
+    trace.cur_ast <- reparse_trm trace.context trace.cur_ast)
+    !traces
 
 (*
   outputs a javascript file which contains the ast encoded as json

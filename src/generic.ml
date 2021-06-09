@@ -18,8 +18,8 @@ let remove_instructions (tgs : target list) : unit =
   List.fold_left(fun () x ->
       remove_instruction x
     ) () tgs
-  
-let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t = 
+
+let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t =
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
 
 
@@ -38,10 +38,10 @@ let add_atribute(a : attribute) : Transfo.t =
 
 let target_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
   Generic_core.without_repeat_io (fun () ->
-    Target.applyi_on_target(fun i t p -> 
+    Target.applyi_on_target(fun i t p ->
     let t = if not keep_previous then Generic_core.delete_target_decorators t
     else t
-    in 
+    in
     Generic_core.target_show debug_ast i t p) tg
   )
 
@@ -51,14 +51,14 @@ let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : un
 
 (* TODO: Move apply to top function to trace.ml *)
 let clean_target_decorators () : unit =
-    Trace.apply_to_top ~replace_top:false (fun _ -> Generic_core.delete_target_decorators)
+    Trace.apply_to_top (fun _ -> Generic_core.delete_target_decorators)
 
 
-let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
-  Trace.apply_to_top ~replace_top (fun _ -> Generic_core.eliminate_goto_next)
+let eliminate_goto_next (_ : unit) : unit =
+  Trace.apply_to_top (fun _ -> Generic_core.eliminate_goto_next)
 
-let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
-  Trace.apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
+let group_decl_init (_ : unit) : unit =
+  Trace.apply_to_top (fun _ -> Generic_core.group_decl_init)
 
 (* TODO: Remove this function after dealing with all the transformations which use this function *)
 (*
