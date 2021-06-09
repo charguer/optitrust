@@ -698,14 +698,14 @@ module Path_constructors = struct
       *)
     res
   (* Matching by string *)
-  let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
-    Constr_regexp (string_to_rexp false true s tk)
+  let cInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =
+    Constr_regexp (string_to_rexp false substr s  tk)
 
-  let cInstr (s : string) : constr =
-    cInstrOrExpr TrmKind_Instr s
+  let cInstr ?(substr : bool = true) (s : string) : constr =
+    cInstrOrExpr ~substr TrmKind_Instr s
 
-  let cExpr (s : string) : constr =
-    cInstrOrExpr TrmKind_Expr s
+  let cExpr ?(substr : bool = true) (s : string)  : constr =
+    cInstrOrExpr ~substr TrmKind_Expr s
 
   let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
     Constr_regexp (string_to_rexp true substr s tk)
@@ -1041,9 +1041,17 @@ let is_equal_lit (l : lit) (l' : lit) =
 let get_trm_kind (t : trm) : trm_kind =
   if t.is_statement then
     match t.desc with
-    | Trm_struct _ | Trm_array _ | Trm_let _ | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
-    | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
-    | _ -> TrmKind_Instr
+    | Trm_apps(f,_) ->
+      begin match f.desc with 
+      | Trm_var _ -> TrmKind_Instr
+      | Trm_val (Val_prim (Prim_unop Unop_inc)) -> TrmKind_Instr
+      | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
+      | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
+      end 
+    |  Trm_let _ | Trm_abort _ | Trm_goto _-> TrmKind_Instr
+    | Trm_struct _ | Trm_array _  | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
+      | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
+    | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
   else
     TrmKind_Expr
 (* Not used anywhere?? *)

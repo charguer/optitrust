@@ -46,11 +46,11 @@ let _ = run_unit_test (fun () ->
   (* Regexp *)
   (* TODO: let's suppose j < 5 in a for loop is an instruction (statement) *)
   (* only one of the two should work *)
-  show [cInstr "j <"];
-  show [cNb 0; cExpr "j <"];
+  show [cExpr "j <"];
+  show [cNb 0; cInstr "j <"];
 
   show [cInstr "+= 2"];
-  show [cNb 0; cExpr "+= 2"];
+  show [cNb 0; cExpr ~substr:false "+= 2"];
   show [cNb 0; cInstr ~substr:false "+= 2"];
   show [cInstr (* default value: ~substr:true *) "r += 2"];
 
