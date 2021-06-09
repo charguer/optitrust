@@ -3,41 +3,38 @@ open Optitrust open Run
 let _ = run_unit_test (fun () ->
   (** There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
-  (* let show = Tr.target_show in *)
-  let show = Generic.target_show in
+  let show = Generic.target_between_show in (* TODO: probably you'll need target_between_show *)
 
-  
-  
-  
-(* only one of the two should work *)
+  (* TODO: the implementation of target_show, when the target_struct features
+     a target_relative that is not "TargetAt", should invoke the transformation
+     "seq_insert" to insert an empty instruction (trm_unit, displayed just a semicolumn).
+     and this empty instruction should be the one highlighted by target_show. *)
 
-   (* is ; part of it or not? *)
+  (* Before *)
+  show [ cBefore; cVarDef "r1" ];
+  show [ cBefore; cVarDef "r2" ];
+  show [ cBefore; cVarDef "m1" ];
+  show [ cBefore; cVarDef "m2" ];
 
-  show [cExprRegexp  "vect v2" ];
-  show [cNb 0; cExpr "vect v2" ];
+  (* After *)
+  show [ cAfter; cVarDef "r1" ];
+  show [ cAfter; cVarDef "r2" ];
+  show [ cAfter; cVarDef "m1" ];
+  show [ cAfter; cVarDef "m2" ];
 
-  show [cNb 0; cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
-  show [cInstr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+  (* First *)
+  show [ cFirst; cFor "i" ]; (* beware, we'd like to interpret the loop as a sequence here (?) *)
+  show [ cFirst; cThen ]; (* beware, we'd like to interpret the then as a sequence here (?) *)
+  show [ cFirst; cElse ];
 
-  show [cInstr "i++" ]; (*Works, in general but fails here because there are more then one occurrences of i++ *)
-  show [cExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
-  
+  (* Last *)
+  show [ cLast; cFor "i" ];
+  show [ cLast; cThen ];
+  show [ cLast; cElse ];
 
-  
+  (* Nested paths *)
+  show [ cLast; cFor "i"; cThen ];
 
 )
 
-  (* LATER: Implement cDef constructor *)
-  (* show [ cDef "f" ]; *)
-  (* show [ cDef "s" ]; *)
-  (* show [ cDef "p2" ]; *)
 
-
-(* LATER: smart constructors for checking calls to builtin operations such as get/set/compare/incr, etc *)
-
-(* LATER: show [ cFunDefDef ~args:[[cTrue]; [cOfTyp "vect*"]] "" ]; *)
-
-(* LATER: match typedef using a function over the body of the type definition *)
-(* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)
-
-(* LATER: match types using a function of their list of fields *)

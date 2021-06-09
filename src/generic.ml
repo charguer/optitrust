@@ -38,12 +38,20 @@ let add_atribute(a : attribute) : Transfo.t =
 
 let target_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
   Generic_core.without_repeat_io (fun () ->
-    Target.applyi_on_target(fun i t p -> 
+    Target.applyi_on_target (fun i t p -> 
     let t = if not keep_previous then Generic_core.delete_target_decorators t
     else t
     in 
     Generic_core.target_show debug_ast i t p) tg
   )
+
+let target_between_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
+  Target.apply_on_target_between (fun (p,i) t ->
+  (* TODO: Talk to Arthur, if we should remove the semicolons after *)
+  let t = if not keep_previous then Generic_core.delete_target_decorators t 
+  else t in
+  Generic_core.target_between_show debug_ast i t p) tg
+  
 
 let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : unit  =
   Target.applyi_on_target(fun i t p -> Generic_core.ast_show file to_stdout i t p) tg
@@ -59,6 +67,8 @@ let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
 
 let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
   Trace.apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
+
+
 
 (* TODO: Remove this function after dealing with all the transformations which use this function *)
 (*
