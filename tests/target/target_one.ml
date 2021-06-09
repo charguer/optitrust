@@ -40,14 +40,31 @@ let _ = run_unit_test (fun () ->
   show [ cFunDef "main" ];
   show [ cFunDef "f" ];
 
-  show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ];(* This doesn't work' *)
+  (*show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ];(* This doesn't work' *)*)
   (* show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
 
   (* Regexp *)
-  show [cExpr "j <"];
+  (* TODO: let's suppose j < 5 in a for loop is an instruction (statement) *)
+  (* only one of the two should work *)
+  show [cInstr "j <"];
+  show [cNb 0; cExpr "j <"];
+
   show [cInstr "+= 2"];
-  show [cExpr "vect v2" ];
-  show [cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+  show [cNb 0; cExpr "+= 2"];
+  show [cNb 0; cInstr ~substr:false "+= 2"];
+  show [cInstr (* default value: ~substr:true *) "r += 2"];
+
+  show [cMulti; cInstrRegexp "int . = ."]; (* is ; part of it or not? *)
+  show [cMulti; cInstrRegexp ~substr:true ". = ."];
+  show [cMulti; cInstrRegexp (* default: ~substr:false*) ". = ."];
+
+  show [cInstr ~substr:true "vect v2" ];
+  show [cInstrRegexp ~substr:true "vect v2" ];
+  show [cNb 0; cExpr "vect v2" ];
+
+  show [cNb 0; cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+  show [cInstr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+
   show [cInstr "i++" ]; (*Works, in general but fails here because there are more then one occurrences of i++ *)
   show [cExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
 

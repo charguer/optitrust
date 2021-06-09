@@ -1766,10 +1766,22 @@ let rec target_to_decl (x : var) (t : trm) : path option =
       return:
         unit
 *)
+(* DEPRECATED
 let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg : target) : unit =
   apply_to_top ~replace_top (fun _ t ->
     let ps = resolve_target tg t in
     List.fold_left (fun t dl -> tr t dl) t ps)
+*)
+
+let applyi_on_target ?(replace_top : bool = false) (tr : int -> trm -> path-> trm) (tg : target) : unit =
+  apply_to_top ~replace_top (fun _ t ->
+    let ps = resolve_target tg t in
+    List.foldi_left (fun i t dl -> tr t dl) t ps)
+
+let apply_on_target ?(replace_top : bool = false) (tr : trm -> path-> trm) (tg : target) : unit =
+  applyi_on_target ~replace_top (fun _i t dl -> tr t dl) tg
+
+
 
 (* [apply_on_target_between ~replace_top tr tg]: Similar to apply_on_target, but the function considers the index too
       params:
