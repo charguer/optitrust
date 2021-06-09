@@ -679,35 +679,6 @@ module Path_constructors = struct
   let cInclude (s : string) : constr =
      Constr_include s
 
-  (* Matching by string *)
-  let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
-    Constr_regexp {
-      rexp_desc = s;
-      rexp_exp = Str.regexp_string s; (* builds a regexp that matches exactly s *)
-      rexp_substr = false;
-      rexp_trm_kind = tk; }
-
-  let cInstr (s : string) : constr =
-    cInstrOrExpr TrmKind_Instr s
-
-  let cExpr (s : string) : constr =
-    cInstrOrExpr TrmKind_Expr s
-
-  let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
-    (* LATER; is this a special case of string_to_rexp? *)
-    Constr_regexp {
-      rexp_desc = s;
-      rexp_exp = Str.regexp s; (* compiles the regular expression described by s *)
-      rexp_substr = substr;
-      rexp_trm_kind = tk; }
-
-  let cInstrRegexp ?(substr : bool = false) (s : string) : constr =
-    cInstrOrExprRegexp TrmKind_Instr substr s
-
-  let cExprRegexp ?(substr : bool = false) (s : string) : constr =
-    cInstrOrExprRegexp TrmKind_Expr substr s
-
-  (* TODO: shouldn't the name be regexp? *)
   let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
     { rexp_desc = s;
       rexp_exp = (if regexp then Str.regexp else Str.regexp_string) s;
@@ -726,6 +697,24 @@ module Path_constructors = struct
         rexp_exp_to_string = "RegexpMatch: " ^ s   if using Str.regexp
       *)
     res
+  (* Matching by string *)
+  let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
+    Constr_regexp (string_to_rexp false true s tk)
+
+  let cInstr (s : string) : constr =
+    cInstrOrExpr TrmKind_Instr s
+
+  let cExpr (s : string) : constr =
+    cInstrOrExpr TrmKind_Expr s
+
+  let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
+    Constr_regexp (string_to_rexp true substr s tk)
+
+  let cInstrRegexp ?(substr : bool = false) (s : string) : constr =
+    cInstrOrExprRegexp TrmKind_Instr substr s
+
+  let cExprRegexp ?(substr : bool = false) (s : string) : constr =
+    cInstrOrExprRegexp TrmKind_Expr substr s
 
   let cVarDef
     ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
