@@ -59,7 +59,8 @@ if [ ${OUT} -ne 0 ];then
 fi
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
-./${FILEBASE}_with_exit.byte ${OPTIONS}
+# Activate the backtrace
+OCAMLRUNPARAM=b ./${FILEBASE}_with_exit.byte ${OPTIONS}
 # DEPREACTED | tee stdoutput.txt
 
 OUT=$?

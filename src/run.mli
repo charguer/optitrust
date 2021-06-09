@@ -6,6 +6,8 @@ val run_unit_test : ?out_prefix:string -> ?ast_decode:bool -> (unit -> unit) -> 
 
 (* val reset : unit -> unit *)
 
+val set_exn_backtrace : bool -> unit
+
 val exit_script : unit -> unit
 
 val dump : ?out_prefix:string -> unit -> unit

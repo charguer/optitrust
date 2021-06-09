@@ -3,6 +3,12 @@ open Tools
 open Output
 open Trace
 
+let set_exn_backtrace (b : bool) : unit :=
+  Printexc.record_backtrace b
+
+(* By default, we want backtrace for exceptions *)
+let _ = set_exn_backtrace true
+
 let write_log (log : string) : unit =
   List.iter (fun (ctx, _) -> write_log ctx.clog log) (get_trace())
 
@@ -189,6 +195,7 @@ let reset () =
    The option ast_decode can be used for tests that want to report on
    the "undecoded AST", by copying "foo_out_enc.cpp" onto "foo_out.cpp" *)
 
+(* TODO: rename to run_cpp *)
 let run_unit_test ?(out_prefix : string = "") ?(ast_decode : bool = true) (script : unit -> unit) : unit =
   let basename = Filename.chop_extension Sys.argv.(0) in
   let basename = (* remove "_with_exit" suffix if it ends the basename *)

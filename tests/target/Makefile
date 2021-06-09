@@ -1,7 +1,7 @@
 # This Makefile is only for debugging purposes of the optitrust library
 #
 # Usage:
-# 1. cd to tests/infra
+# 1. cd to tests/target
 # 2. set "TEST" to the filename without extension (e.g. "target_debug")
 # 3. start the program .vscode/watch.sh
 # 4. in any file from src/, type F6
