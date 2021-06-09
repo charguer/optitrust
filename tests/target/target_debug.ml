@@ -1,9 +1,10 @@
 open Optitrust open Run
 
 let _ = run_unit_test (fun () ->
-  let show = show_target in
+  let show = Generic.target_show in
 
   (* One (ExpectedOne is the default) *)
+  show [ cFor "j" ];
   show [ cFor "j" ];
 
   (* Multi *)

@@ -1,11 +1,8 @@
 open Optitrust
 open Run
 (* TODO: Not yet implemented*)
-let _ =
-  run  
-  (
+let _ = run_unit_test (
     fun () -> 
-    set_init_source"rewrite_rules.cpp";
-    show_path [cVarDef "a"] ~debug_ast:true;
-    dump()
+    let show = Generic.target_show in
+    show [cVarDef "a"] ~debug_ast:true;
   )

@@ -1,6 +1,5 @@
 open Ast
 open Tools
-open Output
 open Trace
 
 let set_exn_backtrace (b : bool) : unit =
@@ -8,9 +7,6 @@ let set_exn_backtrace (b : bool) : unit =
 
 (* By default, we want backtrace for exceptions *)
 let _ = set_exn_backtrace true
-
-let write_log (log : string) : unit =
-  List.iter (fun (ctx, _) -> write_log ctx.clog log) (get_trace())
 
 (* instruction added to interrupt the script early *)
 let exit_script () : unit =
@@ -215,16 +211,6 @@ let run_unit_test ?(out_prefix : string = "") ?(ast_decode : bool = true) (scrip
       then ignore (Sys.command (Printf.sprintf "cp %s_out_enc.cpp %s_out.cpp" basename basename))
   )
 
-(* Change the flag -reapeat-io (default is true)  *)
-let set_repeat_io (b:bool) : unit =
-  Flags.repeat_io := b
-
-let without_repeat_io (f:unit->unit) : unit =
-  let b = !Flags.repeat_io in
-  Flags.repeat_io := false;
-  f();
-  Flags.repeat_io := b
-
 (*
   branching function
   optional argument to choose one branch (-1 to choose none)
@@ -289,35 +275,6 @@ let make_target_list_pred = Target.make_target_list_pred
 (*                              Generic                               *)
 (******************************************************************************)
 
-(*Show path using a decorators on both sides of the path
-  for example :
-  /*@1<*/ x++; /*>1@*/
-  This comments can also be nested:
-  These comments can be nested, eg if you target for loops
-     /*@1<*/ for (int i=0;i<N;i++) {
-      /*@2<*/ for (int i=0;i<N;i++) {
-        x++;
-      } /*>2@*/
-    } /*>1@*/ *)
-(* delete the label *)
-let show_target ?(debug_ast:bool=false) ?(replace_top : bool = false)?(keep_previous : bool = false) (tr : target) : unit =
-  without_repeat_io (fun () ->
-    apply_to_top ~replace_top (fun _ t ->
-    let t =
-      if not keep_previous
-        then Generic.delete_target_decorators t
-        else t
-      in
-    Generic.show_target ~debug_ast tr t
-    ))
-
-
-let show_ast ?(replace_top:bool=false) ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tr : target) : unit =
-  apply_to_top ~replace_top(fun _ -> Generic.show_ast ~file ~to_stdout tr)
-
-
-let clean_target_decorators () : unit =
-    apply_to_top ~replace_top:false (fun _ -> Generic.delete_target_decorators)
 
 (*
   split the sequence(s) around the instruction(s) pointed by tr
@@ -389,7 +346,7 @@ let clean_target_decorators () : unit =
     + x is heap allocated and deleted last in the loop
     + the path points to the loop
  *)
-let extract_loop_var ?(replace_top : bool = false) ?(keep_label : bool = false)
+(* let extract_loop_var ?(replace_top : bool = false) ?(keep_label : bool = false)
   ?(label : string = "") (tr : target) : unit =
   let result_label = if label = "" then "result" else label in
   let log : string =
@@ -415,7 +372,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
       let t = Loop.extract_loop_vars ctx.clog result_label tr t in
       if keep_label then t else Label.delete_label result_label t
     );
-  write_log "\n"
+  write_log "\n" *)
 
 (*
   split the for loop pointed by tr
@@ -550,15 +507,6 @@ let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move
   write_log "\n"
 *)
 
-let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
-  let log = "Eliminate_goto_next: no assumptions\n\n" in
-  write_log log;
-  apply_to_top ~replace_top (fun _ -> Generic_core.eliminate_goto_next)
-
-let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
-  let log = "Group_decl_init: no assumptions\n\n" in
-  write_log log;
-  apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
 
 (******************************************************************************)
 (*                        Debug                                               *)

@@ -18,8 +18,6 @@ val set_init_source : string -> unit
 
 val reset : unit -> unit
 
-val set_repeat_io : bool -> unit
-
 (** Path constructors *)
 type constr = Target.constr
 type target = constr list
@@ -164,18 +162,6 @@ val make_target_list_pred : (int -> constr) -> (bool list -> bool) -> (unit -> s
 
 (** Transformations *)
 
-val show_target : ?debug_ast:bool -> ?replace_top:bool -> ?keep_previous:bool -> target -> unit
-
-val show_ast : ?replace_top:bool -> ?file:string -> ?to_stdout:bool -> target -> unit
-
-val clean_target_decorators : unit -> unit
-
-val extract_loop_var : ?replace_top:bool -> ?keep_label:bool -> ?label:string ->
-                       target -> unit
-
-val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
-                        ?label:string -> target -> unit
-
 (* val inline_record_access : ?replace_top:bool -> ?field:string -> ?var:string -> unit -> unit  *)
 
 (* val move_loop_before : ?replace_top:bool -> target -> string -> unit
@@ -183,11 +169,6 @@ val extract_loop_vars : ?replace_top:bool -> ?keep_label:bool ->
 val move_loop_after : ?replace_top:bool -> target -> string -> unit
 
 val move_loop : ?replace_top:bool -> ?move_before:string -> ?move_after:string -> string-> unit *)
-
-val eliminate_goto_next : ?replace_top:bool -> unit -> unit
-
-val group_decl_init : ?replace_top:bool -> unit -> unit
-
 module type DebugSig = sig
 
   exception Breakpoint
