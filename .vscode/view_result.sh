@@ -43,12 +43,22 @@ if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   fi
 fi
 
+
+PROG="${FILEBASE}_with_lines.byte"
+
 # First we create the source code for the transformation program
-ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
+# ---DEPRECATED: TODO: move add_exit.ml to a deprecated folder, together with these instructions
+# ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
+#sed 's/show/myshow/' "${FILEBASE}.ml" > "${FILEBASE}_with_exit.byte"
+sed 's/\!\!\!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' "${FILEBASE}.ml" > "${FILEBASE}_with_lines.ml"
+# cat "${FILEBASE}_with_exit.byte"
+
 # LATER: add_exit should also introduce special commands for figuring out the line of the command that executes
 
 # Second, we compile that transformation program
-ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust "${FILEBASE}_with_exit.byte"
+# DEPRECATED
+# ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust "${FILEBASE}_with_exit.byte"
+ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
 # LATER: capture the output error message
 # so we can do the postprocessing on it
 
@@ -60,13 +70,13 @@ fi
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
 # Activate the backtrace
-OCAMLRUNPARAM=b ./${FILEBASE}_with_exit.byte ${OPTIONS}
+OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS}
 # DEPREACTED | tee stdoutput.txt
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error executing the script:"
-  echo "  cd ${DIRNAME}; ./${FILEBASE}_with_exit.byte ${OPTIONS}"
+  echo "  cd ${DIRNAME}; ./${PROG} ${OPTIONS}"
   exit 1
 fi
 

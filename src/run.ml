@@ -39,10 +39,10 @@ let script (f : unit -> unit) : unit =
    - automatically invokes [Trace.dump] at the end of the script;
      (the main output file is named "foo_out.cpp"). *)
 let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
-  (* Extract the basename. We remove "_with_exit" suffix if the basename ends with that suffix. *)
+  (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   let basename = Filename.chop_extension Sys.argv.(0) in
   let basename =
-    let suffix = "_with_exit" in
+    let suffix = "_with_lines" in
     let nsuffix = String.length suffix in
     let nbasename = String.length basename in
     if nbasename >= nsuffix && (String.sub basename (nbasename - nsuffix) nsuffix) = suffix

@@ -34,7 +34,7 @@ let add_exit (line : string) : string =
      let sl' = List.rev sl in
      let prefix = String.concat (String.make 1 ';') (List.rev (List.tl sl')) in
      let suffix = List.hd sl' in
-     "(" ^ prefix ^ "; dump_diff_and_exit ());" ^ suffix
+     "(" ^ prefix ^ "; Trace.dump_diff_and_exit ());" ^ suffix
 
 (* replace the n-th element of al with a *)
 let rec update (n : int) (a : 'a) (al : 'a list) : 'a list =

@@ -296,6 +296,9 @@ let output_js (index : int) (prefix : string) (ast : trm) : unit =
     close_out out_js;
     failwith s
 
+(* [dump_trace_to_js] writes into one/several (?) files
+   the contents of the current AST and of all the history,
+   that is, of all the ASTs for which the [step] method was called. *)
 let dump_trace_to_js ?(prefix : string = "") () : unit =
   (* Initialize var content and source as empty arrays *)
   (* let () = initialization prefix in *)
@@ -388,6 +391,8 @@ let reparse () : unit =
     trace.cur_ast <- reparse_trm trace.context trace.cur_ast)
     !traces
 
+(* Work-around for a name clash *)
+let reparse_alias = reparse
 
 (******************************************************************************)
 (*                                   Dump                                     *)
@@ -415,7 +420,7 @@ let dump ?(prefix : string = "") () : unit =
       (!traces)
   end
 
-(* [dump_diff_and_exit()] invokes [output_prog] on the current AST and on the
+(* [dump_diff_and_exit()] invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.
    This function is useful for interactively studying the effect of one particular
    transformation from the script. *)
@@ -446,9 +451,52 @@ let dump_diff_and_exit () : unit =
     (!traces);
   exit 0
 
+(* [get_exit_line()] returns the argument provided exceeds the exit line provided
+  on the command line with [-exit-line], or [max_int] if no such argument was provided. *)
+let get_exit_line () : int =
+  !Flags.exit_line
 
-(* DEPRECATED
+(* [check_exit_and_step()] performs a call to [check_exit], to check whether
+   the program execution should be interrupted based on the command line argument
+   [-exit-line], then it performas a call to [step], to save the current AST
+   in the history, allowing for a visualizing the diff if the next call to
+   [check_exit_and_step] triggers a call to [dump_diff_and_exit].
+   If the optional argument [~reparse:true] is passed to the function,
+   then the [reparse] function is called, replacing the current AST with
+   a freshly parsed and typechecked version of it. *)
+let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
+  if line > get_exit_line() then begin
+     dump_diff_and_exit ()
+  end else begin
+    if reparse
+      then reparse_alias();
+    step();
+ end
+
+(* [!!] is a prefix notation for the operation [check_exit_and_step].
+   By default, it performs only [step]. The preprocessor of the OCaml script file
+   can add the [line] argument to the call to [check_exit_and_step], in order
+   to allow for checking the exit line. Concretely, if the user has the cursor
+   one line N when invoking the Optitrust "view_diff" command, then the tool
+   will display the difference between the state of the AST at the first "!!"
+   that occurs strictly after line N, and the state at the previous "!!",
+   which could be on line N or before (or could correspond to the input AST
+   loaded by [Trace.init] if there is no preceeding '!!'.).
+   Use [!!();] for a step in front of another language construct, e.g., a let-binding. *)
+let (!!) (x:'a) : 'a =
+  check_exit_and_step ();
+  x
+
+(* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
+let (!!!) (x:'a) : 'a =
+  check_exit_and_step ~reparse:true ();
+  x
+
+
+
+(* DEPRECATED---was used for unit tests
 let failure_expected f =
   begin try f(); failwith "should have failed"
   with TransfoError _ -> () end
 *)
+

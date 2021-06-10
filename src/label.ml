@@ -1,5 +1,6 @@
 open Ast
 open Target
+
 let add (label : string) : Target.Transfo.t =
   Target.apply_on_target (Label_core.add label)
 
