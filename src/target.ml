@@ -2,7 +2,7 @@ open Ast
 open Ast_to_c
 open Str
 open Tools
-open Trace
+
 (******************************************************************************)
 (*                                  Path AST                                  *)
 (******************************************************************************)
@@ -1767,7 +1767,7 @@ let rec target_to_decl (x : var) (t : trm) : path option =
         unit
 *)
 let applyi_on_target (tr : int -> trm -> path-> trm) (tg : target) : unit =
-  apply_to_top (fun _ t ->
+  Trace.apply (fun _ t ->
     let ps = resolve_target tg t in
     Tools.foldi (fun i t dl -> tr i t dl) t ps)
 
@@ -1791,7 +1791,7 @@ let apply_on_target (tr : trm -> path-> trm) (tg : target) : unit =
         unit
 *)
 let apply_on_target_between (tr : (path*int) -> trm-> trm) (tg : target) : unit =
-  apply_to_top (fun _ t ->
+  Trace.apply (fun _ t ->
     let ps = resolve_target_between tg t in
     List.fold_left (fun t (pi:path*int) -> tr pi t) t ps)
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
@@ -1806,7 +1806,7 @@ let apply_on_target_between (tr : (path*int) -> trm-> trm) (tg : target) : unit 
       unit
 *)
 let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
-  apply_to_top (fun _ t ->
+  Trace.apply (fun _ t ->
     let ps = resolve_target tg t in
     let descrs = List.map transformer ps in
     List.fold_left (fun t descr -> tr descr t) t descrs

@@ -1,6 +1,11 @@
-open Ast
-open Tools
-open Trace
+
+
+(******************************************************************************)
+(*                        Debug                                               *)
+(******************************************************************************)
+
+(* include Tools.Debug *)
+include Tools (* TODO: make it better *)
 
 let set_exn_backtrace (b : bool) : unit =
   Printexc.record_backtrace b
@@ -8,133 +13,80 @@ let set_exn_backtrace (b : bool) : unit =
 (* By default, we want backtrace for exceptions *)
 let _ = set_exn_backtrace true
 
-(* instruction added to interrupt the script early *)
-let exit_script () : unit =
-  print_info None "Exiting script\n";
-  try
-    close_logs ();
-    List.iter
-      (fun trace ->
-        let ctx = trace.context in
-        let prefix = ctx.directory ^ ctx.prefix in
-        let astBefore =
-          match trace.history with
-          | t::_ -> t
-          | [] -> fail None "No previous transformation to compare against" (* TODO: give a blank AST? i.e, empty seq *)
-          in
-        let astAfter = trace.cur_ast in
-        print_info None "Writing ast and code before last transformation...\n";
-        output_prog ctx (prefix ^ "_before") astBefore;
-        print_info None "Done. Output files: %s_before.ast and %s_before%s.\n"
-          prefix prefix ctx.extension;
-        print_info None "Writing ast and code into %s.js " prefix;
-        output_js (-1) prefix astAfter;
-        print_info None "Writing ast and code after last transformation...\n";
-        output_prog ctx (prefix ^ "_after") astAfter;
-        print_info None "Done. Output files: %s_after.ast and %s_after%s.\n"
-          prefix prefix ctx.extension;
 
-        (* DEPRECATED --but keep for potential future use
-        let file_before = prefix ^  "_before" ^ ctx.extension in
-        let file_after = prefix ^  "_after" ^ ctx.extension in
-        let file_diff =  prefix ^  "_diff.base64" in
-        let _ = Sys.command ("meld " ^ file_before " " ^ file_after) in
-        ...
-        let _ = Sys.command ("git diff --no-index -U10 " ^ file_before " " ^ file_after ^ " | base64 -w 0 > " ^ file_diff) in
-        *)
-        ()
-      )
-      (get_traces());
-    exit 0
-  with
-  | Stack.Empty -> fail None ("exit_script: script must be interrupted after " ^
-                                "the initial source file is set.")
+(******************************************************************************)
+(*                        Smart constructors for targets                      *)
+(******************************************************************************)
+
+open Target
+include Path_constructors
+
+(* TODO: is this needed? do we want an include? *)
+type constr = Target.constr
+type target = Target.target
+type case_dir = Target.case_dir
+type abort_kind = Target.abort_kind
+type constr_access = Target.constr_access
+type case_kind = Target.case_kind
+type enum_const_dir = Target.enum_const_dir
+type target_list_pred = Target.target_list_pred
+let make_target_list_pred = Target.make_target_list_pred
 
 
-let dump_trace_to_js ?(out_prefix : string = "") () : unit =
-  (* Initialize var content and source as empty arrays *)
-  (* let () = initialization out_prefix in *)
-  let dump_history (out_prefix : string)
-    (asts : trm list) : unit =
-    let nbAst = List.length asts in
-    let i = ref (nbAst - 2) in
-    (* TODO: BEGATIM: the code does not match the comment, please fix *)
-    (* exceptions:
-     - i = 0 -> program before tranformation -> prefix_input
-     - i = nbAst -2 -> result program -> prefix_input
-     - i = -1 -> empty program -> no output
-    *)
-    List.iter
-      (fun ast ->
-        if !i = -1 then ()
-        else
-          output_js !i out_prefix ast;
-        decr i;
-      )
-      asts
-    in
-    List.iter
-      (fun trace ->
-        let ctx = trace.context in
-        let out_prefix =
-          if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
-        in
-        dump_history out_prefix (trace.cur_ast :: trace.history)
-      )
-      (get_traces())
+(******************************************************************************)
+(*                              Run                                           *)
+(******************************************************************************)
 
-(*
-  outputs code at each step using given prefix for filename
-  out_prefix_in.cpp is the program before transformation
-  out_prefix_out.cpp is the program after transformation
-*)
-(* ----------------DEPRECATED------------------- *)
-(* let dump_trace ?(out_prefix : string = "") () : unit =
-  let dump_history (ctx : context) (out_prefix : string)
-    (astStack : trm Stack.t) : unit =
-    let nbAst = Stack.length astStack in
-    let i = ref (nbAst - 2) in
-    (* exceptions:
-     - i = 0 -> program before transformation -> prefix_input
-     - i = nbAst -2 -> result program -> prefix_output
-     - i = -1 -> empty program -> no output *)
-    Stack.iter
-      (fun ast ->
-        if !i = 0 then
-          output_prog ctx (out_prefix ^ "_in") ast
-        else if !i = nbAst - 2 then
-          output_prog ctx (out_prefix ^ "_out") ast
-        else if !i = -1 then
-          ()
-        else
-          output_prog ctx (out_prefix ^ "_" ^ string_of_int !i) ast;
-        i := !i - 1
-      )
-      astStack
-  in
-  List.iter
-    (fun (ctx, astStack) ->
-      let out_prefix =
-        if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
-      in
-      dump_history ctx out_prefix astStack
-    )
-    (get_trace()) *)
-(* function that executes the script to deal with errors *)
-let run (script : unit -> unit) : unit =
+(* [script f] serves as "main" function for an Optitrust script. It cakes care
+   of parsing the command line arguments and handling the errors, in addition
+   to running the function [f] provided. *)
+let script (f : unit -> unit) : unit =
   Arg.parse
     Flags.spec
     (fun _ -> raise (Arg.Bad "Error: no argument expected"))
     ("usage: no argument expected, only options");
-  let script : unit -> unit =
+  try
+    f ();
+    Trace.close_logs()
+  with | Failure s ->
+    Trace.close_logs();
+    failwith s
+
+(* [script_cpp f] is a specialized version of [script f] that:
+   - automatically invokes [Trace.init "foo.cpp"] at start,
+     where "foo" is the basename of the current script named "foo.ml";
+   - automatically invokes [Trace.dump] at the end of the script;
+     (the main output file is named "foo_out.cpp"). *)
+let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
+  (* Extract the basename. We remove "_with_exit" suffix if the basename ends with that suffix. *)
+  let basename = Filename.chop_extension Sys.argv.(0) in
+  let basename =
+    let suffix = "_with_exit" in
+    let nsuffix = String.length suffix in
+    let nbasename = String.length basename in
+    if nbasename >= nsuffix && (String.sub basename (nbasename - nsuffix) nsuffix) = suffix
+      then String.sub basename 0 (nbasename - nsuffix)
+      else basename
+      in
+  (* Set the input file, execute the function [f], dump the results. *)
+  script (fun () ->
+    Trace.init (basename ^ ".cpp");
+    f();
+    flush stdout;
+    Trace.dump ~prefix ();
+  )
+
+
+(* DEPRECATED but keep for future use
+  let fwrapper : unit -> unit =
     (fun () ->
-      try script (); close_logs () with
+      try f (); close_logs () with
       | Failure s ->
          close_logs ();
          failwith s
     )
   in
-  if !Flags.repeat_io then script ()
+  if !Flags.repeat_io then fwrapper ()
   else
     (*FANCY
    try script () with
@@ -149,139 +101,13 @@ let run (script : unit -> unit) : unit =
        reset ();
        script ()
      *)
-    script()
-
-(* outputs current code in given file *)
-let dump ?(out_prefix : string = "") () : unit =
-  (* DEPRECATED -- it uses function dump_trace *)
-  (* if !Flags.full_dump then dump_trace ~out_prefix () *)
-  if !Flags.full_dump then dump_trace_to_js ~out_prefix()
-  else
-    List.iter (* LATER: use a Trace.iter function? *)
-      (fun trace ->
-        let ctx = trace.context in
-        let out_prefix =
-          if out_prefix = "" then ctx.directory ^ ctx.prefix else out_prefix
-        in
-        output_prog ctx (out_prefix ^ "_out") (trace.cur_ast)
-      )
-      (get_traces())
-
-(*
-  mandatory first instruction of a transformation script
-  set environment for script execution on given program file
-  expect a clean context; one case use [Trace.reset()] to clear
-  the current context.
+    fwrapper()
 *)
-let set_init_source (filename : string) : unit =
-  if (Trace.was_traces_modified())
-    then failwith "set_init_source: context not clean";
-  let basename = Filename.basename filename in
-  let extension = Filename.extension basename in
-  let directory = (Filename.dirname filename) ^ "/" in
-  let prefix = Filename.remove_extension basename in
-  let clog = open_out (directory ^ prefix ^ ".log") in
-  logs := clog :: !logs;
-  let (includes, cur_ast) = parse filename in
-  let context = { extension; directory; prefix; includes; clog } in
-  let trace = { context; cur_ast; history = [] } in
-  Trace.set_trace trace;
-  print_info None "Starting script execution...\n"
-
-(* TODO: comment *)
-let reset () =
-  Trace.reset()
-
-(* Wrapper function for unit tests, assuming "foo.ml" to be a script
-   operating on "foo.cpp" and dumping the result in "foo_out.cpp".
-   The option ast_decode can be used for tests that want to report on
-   the "undecoded AST", by copying "foo_out_enc.cpp" onto "foo_out.cpp" *)
-
-(* TODO: rename to run_cpp *)
-let run_unit_test ?(out_prefix : string = "") ?(ast_decode : bool = true) (script : unit -> unit) : unit =
-  let basename = Filename.chop_extension Sys.argv.(0) in
-  let basename = (* remove "_with_exit" suffix if it ends the basename *)
-    let suffix = "_with_exit" in
-    let nsuffix = String.length suffix in
-    let nbasename = String.length basename in
-    if nbasename >= nsuffix && (String.sub basename (nbasename - nsuffix) nsuffix) = suffix
-      then String.sub basename 0 (nbasename - nsuffix)
-      else basename
-      in
-  run (fun () ->
-    set_init_source (basename ^ ".cpp");
-    script();
-    flush stdout;
-    dump ~out_prefix ();
-    if not ast_decode
-      then ignore (Sys.command (Printf.sprintf "cp %s_out_enc.cpp %s_out.cpp" basename basename))
-  )
-
-(*
-  branching function
-  optional argument to choose one branch (-1 to choose none)
- *)
- (* LATER: the implementation of this function may needs to be refined (?) *)
-let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
-  (* close logs: new ones will be opened for each branch *)
-  close_logs ();
-  logs := [];
-  let new_trace =
-    foldi
-      (fun i tr f ->
-        if only_branch = -1 || i = only_branch then
-          begin
-            let old_traces = get_traces() in
-            let new_traces =
-              List.fold_right
-                (fun trace acc_traces ->
-                  let context = trace.context in
-                  (* create an extended prefix for this branch *)
-                  let new_prefix = context.prefix ^ "_" ^ (string_of_int i) in
-                  (* create and register new log channel *)
-                  let clog = open_out (context.directory ^ new_prefix ^ ".log") in
-                  logs := clog :: !logs;
-                  (* execute each branch in a single context and store the result *)
-                  set_trace { trace with context = { context with prefix = new_prefix } };
-                  f ();
-                  (get_traces()) :: acc_traces;
-                )
-                old_traces
-                []
-            in
-            traces := old_traces;
-            (List.flatten new_traces) :: tr
-          end
-        else tr
-      )
-      []
-      cases
-  in
-  traces := List.flatten (List.rev new_trace)
-  (* TODO: switch should be part of the trace.ml file *)
 
 
 (******************************************************************************)
-(*                        Smart constructors for targets                        *)
+(*                              DEPRECATED                                    *)
 (******************************************************************************)
-
-open Target
-include Path_constructors
-
-type constr = Target.constr
-type target = Target.target
-type case_dir = Target.case_dir
-type abort_kind = Target.abort_kind
-type constr_access = Target.constr_access
-type case_kind = Target.case_kind
-type enum_const_dir = Target.enum_const_dir
-type target_list_pred = Target.target_list_pred
-let make_target_list_pred = Target.make_target_list_pred
-
-(******************************************************************************)
-(*                              Generic                               *)
-(******************************************************************************)
-
 
 (*
   split the sequence(s) around the instruction(s) pointed by tr
@@ -321,7 +147,7 @@ let make_target_list_pred = Target.make_target_list_pred
       ps
   in
   write_log log;
-  apply_to_top
+  apply
     (fun ctx t ->
       let t =
         Sequence.split_sequence ctx.clog result_label block1_label
@@ -360,7 +186,7 @@ let make_target_list_pred = Target.make_target_list_pred
     Printf.sprintf "Extract_loop_var %s:\n" (target_to_string tr)
   in
   write_log log;
-  apply_to_top
+  apply
     (fun ctx t ->
       let t = Loop.extract_loop_var ctx.clog result_label tr t in
       if keep_label then t else Label.delete_label result_label t
@@ -374,7 +200,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
     Printf.sprintf "Extract_loop_vars %s:\n" (target_to_string tr)
   in
   write_log log;
-  apply_to_top
+  apply
     (fun ctx t ->
       let t = Loop.extract_loop_vars ctx.clog result_label tr t in
       if keep_label then t else Label.delete_label result_label t
@@ -417,7 +243,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
     Printf.sprintf "Split_loop_nodep %s:\n" (target_to_string tr)
   in
   write_log log;
-  apply_to_top
+  apply
     (fun ctx t ->
       let t =
         Loop.split_loop_nodep ctx.clog result_label loop1_label
@@ -485,7 +311,7 @@ let extract_loop_vars ?(replace_top : bool = false) ?(keep_label : bool = false)
       Printf.sprintf "move_loop_before %s:\n" (target_to_string tr)
     in
     write_log log;
-    apply_to_top
+    apply
       (fun ctx -> Loop.move_loop_before ctx.clog tr loop_index);
     write_log "\n"
 
@@ -494,30 +320,23 @@ let move_loop_after ?(replace_top : bool = false) (tr : target) (loop_index : va
       Printf.sprintf "move_loop_after %s:\n" (target_to_string tr)
     in
     write_log log;
-    apply_to_top
+    apply
       (fun ctx -> Loop.move_loop_after ctx.clog tr loop_index);
     write_log "\n"
 
 let move_loop ?(replace_top : bool = false) ?(move_before : string  = "") ?(move_after : string = "" ) (loop_index : string) : unit =
-    apply_to_top
+    apply
       (fun ctx -> Loop.move_loop ctx.clog  ~move_before ~move_after loop_index);
     write_log "\n" *)
 
 (* let inline_record_access ?(replace_top : bool = false) ?(field : string = "") ?(var : string = "") () : unit =
-  apply_to_top
+  apply
     (fun ctx -> Inlining.inline_record_access ctx.clog  field var);
   write_log "\n" *)
 
 (* let rewrite ?(replace_top : bool = false) ?(rule : string = "") ?(path : target = [ ]) : () : unit =
-  apply_to_top
+  apply
     (fun ctx -> Generic.rewrite ctx.clog rule path );
   write_log "\n"
 *)
 
-
-(******************************************************************************)
-(*                        Debug                                               *)
-(******************************************************************************)
-
-(* include Tools.Debug *)
-include Tools (* TODO: make it better *)

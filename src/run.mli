@@ -1,22 +1,13 @@
 (** Context management *)
 
-val run : (unit -> unit) -> unit
+val script : (unit -> unit) -> unit
 
-val run_unit_test : ?out_prefix:string -> ?ast_decode:bool -> (unit -> unit) -> unit
+val script_cpp : ?prefix:string -> (unit -> unit) -> unit
 
 (* val reset : unit -> unit *)
 
 val set_exn_backtrace : bool -> unit
 
-val exit_script : unit -> unit
-
-val dump : ?out_prefix:string -> unit -> unit
-
-val switch : ?only_branch:int -> (unit -> unit) list -> unit
-
-val set_init_source : string -> unit
-
-val reset : unit -> unit
 
 (** Path constructors *)
 type constr = Target.constr
