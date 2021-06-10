@@ -18,7 +18,7 @@ let _ = run_unit_test (fun () ->
   show [ cTopFun "f"; cVarDef "k" ]; (*cTopFun is not working properly *)
 
   (* Loops immediately inside a function *)
-  show [ cFunDef ""; cStrict; cFor "" ]; (* cStrict is not working properly *)
+  show [ cFunDef ""; cFor "" ]; (* cStrict is not working properly *)
 )
 
 

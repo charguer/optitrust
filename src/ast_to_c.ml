@@ -340,6 +340,11 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       if not !decode then init
       else begin match init.desc with
         | Trm_apps(_, [value]) -> value
+        | Trm_decoration(ls, init1, rs) ->
+           begin match init1.desc with 
+           | Trm_apps(_, [value]) -> trm_decoration ls rs value
+           | _ -> init1
+           end
         | _ -> init
       end
     in

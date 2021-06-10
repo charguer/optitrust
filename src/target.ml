@@ -1077,9 +1077,6 @@ let is_constr_regexp (c : constr) : bool =
 let rec check_constraint (c : constr) (t : trm) : bool =
   (* LATER: find if it is find to deactivate these encodings *)
   match t.annot with
-  (* | Some Heap_allocated | Some Delete_instructions -> *)
-     (* if t is one of the heap allocation patterns, we simplify it before *)
-     (* check_constraint c (forget_heap_alloc t) *)
   | Some Access ->
      (* forget the star operator at the root before checking the constraint *)
      begin match t.desc with
@@ -1106,9 +1103,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
       *)
       | Constr_strict,_
        | Constr_dir _, _
-       (* | Constr_list _, _ *)
        | Constr_include _, _ ->
         false
+     
      | Constr_regexp r, _ -> match_regexp_trm r t
      | Constr_for (p_init, p_cond, p_step, p_body),
        Trm_for (init, cond, step, body) ->
@@ -1274,12 +1271,12 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            else (resolve_constraint c p t) in
 
       (* DEBUG *)
-        printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
+        (* printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
           (Ast_to_c.ast_to_string ~ast_decode:false t)
           (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here);
+          (paths_to_string ~sep:"\n   " res_here); *)
 
 
       res_deep ++ res_here  (* put deeper nodes first *) in
@@ -1483,7 +1480,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (resolve_target_simple p then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (resolve_target_simple p else_t)
-  | Dir_body, Trm_let (_,(_,_),body)
+  | Dir_body, Trm_let (_,(_,_),body) 
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for (_, _, _, body)
     | Dir_body, Trm_while (_, body)
@@ -1693,7 +1690,6 @@ let extract_last_path_item (p : path) : dir * path =
 
 (* Get the number of instructions a sequence contains *)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
-  printf "%s\n" (path_to_string p); 
   let (d,p') =
     try extract_last_path_item p
     with Not_found -> fail None "get_arity_of_seq_at: expected a nonempty path"
@@ -1746,8 +1742,6 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
    the instruction "x =" is not the same in different sequences. *)
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in
-  printf "%s\n" (target_struct_to_string tgs);
-  
   if tgs.target_relative = TargetAt
     then fail None "resolve_target_between:this target should contain a cBefore, cAfter, cFirst, or cLast";
   let res = resolve_target_struct tgs t in

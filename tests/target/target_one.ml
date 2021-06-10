@@ -33,7 +33,7 @@ let _ = run_unit_test (fun () ->
   show [ cLabel "lbl2" ];
 
   (* Calls *)
-  show [ cMulti; cCall "f" ]; (* This fails because there are too calls on f *)
+  show [ cMulti; cCall "f" ]; (* This fails because there are two calls on f *)
   show [ cCall ~args:[cInt 2] "" ]; (* This fails because it consider also new_int as a function application *)
 
   (* Var/Fun definitions *)
