@@ -1622,14 +1622,15 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
               args
           in
           aux dl body (args_decl ++ ctx)
-       | Dir_body, Trm_for (init, _, _, body) ->
-          begin match init.desc with
+       (*| Dir_body, Trm_for (init, _, _, body) ->
+           begin match init.desc with
           (* | Trm_seq _ when init.annot = Some Heap_allocated -> *)
           | Trm_let _ ->
              aux dl body (init :: ctx)
           | _ -> aux dl body ctx
-          end
+          end *)
        | Dir_body, Trm_let (_,(_,_), body)
+         | Dir_body, Trm_for (_, _, _, body) 
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_abort (Ret (Some body))
          | Dir_body, Trm_labelled (_, body) ->
@@ -1692,6 +1693,7 @@ let extract_last_path_item (p : path) : dir * path =
 
 (* Get the number of instructions a sequence contains *)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
+  printf "%s\n" (path_to_string p); 
   let (d,p') =
     try extract_last_path_item p
     with Not_found -> fail None "get_arity_of_seq_at: expected a nonempty path"
@@ -1703,6 +1705,15 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
       | Trm_seq tl -> List.length tl
       | _ -> fail None "get_arity_of_seq_at: expected a sequence"
       end
+  | Dir_then | Dir_else | Dir_body  -> 
+      (* TODO: Factorize this code *)
+      let (seq_trm, _) = resolve_path p t in
+      Ast_to_text.print_ast  ~only_desc:true stdout seq_trm;
+      begin match seq_trm.desc with
+      | Trm_seq tl -> List.length tl
+      | _ -> fail None "get_arity_of_seq_at: expected a sequence"
+      end
+      
   | _ -> fail None "get_arity_of_seq_at: expected a Dir_nth as last direction"
 
 
@@ -1710,27 +1721,33 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
 
 
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
-  let (d,p') =
-  try extract_last_path_item p
-  with Not_found -> fail None "get_relative_path: expected a nonempty path"
-  in 
-  let (p1, n) = 
-   match d with 
-  | Dir_nth i -> (p',i)
-  | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
-  in
   match rel with
   | TargetAt -> fail None "compute_relative_index: Didn't expect a TargetAt"
-  | TargetFirst -> (p1,0) 
-  | TargetLast -> (p1, get_arity_of_seq_at p t)
-  | TargetBefore -> (p1, n+0)
-  | TargetAfter -> (p1, n+1)
+  | TargetFirst -> (p,0) 
+  | TargetLast -> (p, get_arity_of_seq_at p t)
+  | TargetBefore | TargetAfter ->
+      let shift =
+         match rel with
+         | TargetBefore -> 0
+         | TargetAfter -> 1
+         | _ -> assert false
+         in
+      let (d,p') =
+        try extract_last_path_item p
+        with Not_found -> fail None "compute_relative_index: expected a nonempty path"
+        in
+      match d with
+      | Dir_nth i -> (p', i + shift)
+      | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
+
 
 (* TODO: use this function to implement seq_insert , etc. *)
 (* TODO: include a test case for seq_insert that says [cAfter, cStr "x ="] where the index of
    the instruction "x =" is not the same in different sequences. *)
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in
+  printf "%s\n" (target_struct_to_string tgs);
+  
   if tgs.target_relative = TargetAt
     then fail None "resolve_target_between:this target should contain a cBefore, cAfter, cFirst, or cLast";
   let res = resolve_target_struct tgs t in

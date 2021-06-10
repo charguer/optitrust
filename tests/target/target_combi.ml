@@ -9,16 +9,16 @@ let _ = run_unit_test (fun () ->
   show [ cFunDef "main"; cFor "i" ];
 
   (* Loop in a loop *)
-  show [ cFor "i"; cFor "i" ];
+  show [ cFor "i"; cFor "j" ];
 
   (* Def in depth *)
-  show [ cFunDef "f"; cFor "i"; cFor "i"; cVarDef "k" ];
+  show [ cFunDef "f"; cFor "i"; cFor "j"; cVarDef "k" ];
 
   (* Top-level functions *)
-  show [ cTopFun "f"; cVarDef "k" ];
+  show [ cTopFun "f"; cVarDef "k" ]; (*cTopFun is not working properly *)
 
   (* Loops immediately inside a function *)
-  show [ cFunDef ""; cStrict; cFor "" ];
+  show [ cFunDef ""; cStrict; cFor "" ]; (* cStrict is not working properly *)
 )
 
 
