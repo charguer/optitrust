@@ -1705,25 +1705,26 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
       end
   | _ -> fail None "get_arity_of_seq_at: expected a Dir_nth as last direction"
 
+
+ 
+
+
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
+  let (d,p') =
+  try extract_last_path_item p
+  with Not_found -> fail None "get_relative_path: expected a nonempty path"
+  in 
+  let (p1, n) = 
+   match d with 
+  | Dir_nth i -> (p',i)
+  | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
+  in
   match rel with
   | TargetAt -> fail None "compute_relative_index: Didn't expect a TargetAt"
-  | TargetFirst -> (p, 0)
-  | TargetLast -> (p, get_arity_of_seq_at p t)
-  | TargetBefore | TargetAfter ->
-      let shift =
-         match rel with
-         | TargetBefore -> 0
-         | TargetAfter -> 1
-         | _ -> assert false
-         in
-      let (d,p') =
-        try extract_last_path_item p
-        with Not_found -> fail None "compute_relative_index: expected a nonempty path"
-        in
-      match d with
-      | Dir_nth i -> (p', i + shift)
-      | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
+  | TargetFirst -> (p1,0) 
+  | TargetLast -> (p1, get_arity_of_seq_at p t)
+  | TargetBefore -> (p1, n+0)
+  | TargetAfter -> (p1, n+1)
 
 (* TODO: use this function to implement seq_insert , etc. *)
 (* TODO: include a test case for seq_insert that says [cAfter, cStr "x ="] where the index of

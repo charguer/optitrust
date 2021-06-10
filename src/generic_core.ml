@@ -880,10 +880,10 @@ let target_show (debug_ast : bool) (index : int): Target.Transfo.local =
       t: term to be decorated 
 *)
 let target_between_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
+    if debug_ast then 
+      Ast_to_text.print_ast ~only_desc:true stdout t;   
     match t.desc with 
     | Trm_seq tl ->
-      if not debug_ast then 
-      Ast_to_text.print_ast ~only_desc:true stdout t;
       let lfront, lback = Tools.split_list_at index tl in
       let new_trm = trm_decoration (Tools.left_decoration index ) (Tools.right_decoration index)  (trm_var ";") in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)

@@ -10,28 +10,12 @@ let _ = run_unit_test (fun () ->
      "seq_insert" to insert an empty instruction (trm_unit, displayed just a semicolumn).
      and this empty instruction should be the one highlighted by target_show. *)
 
-  (* Before *)
-  show [ cBefore; cVarDef "r1" ];
-  (* show [ cBefore; cVarDef "r2" ]; *)
-  (* show [ cBefore; cVarDef "m1" ]; *)
-  (* show [ cBefore; cVarDef "m2" ]; *)
 
-  (* After *)
-  (* show [ cAfter; cVarDef "r1" ]; *)
-  (* show [ cAfter; cVarDef "r2" ]; *)
-  (* show [ cAfter; cVarDef "m1" ]; *)
-  (* show [ cAfter; cVarDef "m2" ]; *)
-
-  (* First *)
-  (* show [ cFirst; cFor "i" ]; beware, we'd like to interpret the loop as a sequence here (?) *)
-  (* show [ cFirst; cThen ]; beware, we'd like to interpret the then as a sequence here (?) *)
-  (* show [ cFirst; cElse ]; *)
+  (* show [ cFirst; cThen ]; *) (* beware, we'd like to interpret the then as a sequence here (?) *)
+  (* show [ cFirst; cElse ]; *) (* Doesn't work *)
 
   (* Last *)
-  (* show [ cLast; cFor "i" ]; *)
-  (* show [ cLast; cThen ]; *)
-  (* show [ cLast; cElse ]; *)
-
+  
   (* Nested paths *)
   (* show [ cLast; cFor "i"; cThen ]; *)
 
