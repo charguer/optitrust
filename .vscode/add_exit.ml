@@ -23,18 +23,18 @@ let get_lines (file : string) : string list =
    List.rev !lines
 
 (*
-  add exit_script instruction to the line:
-  - bla -> (bla; exit_script ())
-  - bla; -> (bla; exit_script ());
+  add [Trace.dump_diff_and_exit] instruction to the line:
+  - bla -> (bla; Trace.dump_diff_and_exit ())
+  - bla; -> (bla; Trace.dump_diff_and_exit ());
  *)
 let add_exit (line : string) : string =
   match String.split_on_char ';' line with
-  | [s] -> "(" ^ s ^ "; exit_script ())"
+  | [s] -> "(" ^ s ^ "; Trace.dump_diff_and_exit ())"
   | sl ->
      let sl' = List.rev sl in
      let prefix = String.concat (String.make 1 ';') (List.rev (List.tl sl')) in
      let suffix = List.hd sl' in
-     "(" ^ prefix ^ "; exit_script ());" ^ suffix
+     "(" ^ prefix ^ "; Trace.dump_diff_and_exit ());" ^ suffix
 
 (* replace the n-th element of al with a *)
 let rec update (n : int) (a : 'a) (al : 'a list) : 'a list =

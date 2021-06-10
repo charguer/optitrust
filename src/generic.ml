@@ -1,4 +1,5 @@
 open Ast
+open Path
 open Target
 
 
@@ -18,14 +19,14 @@ let remove_instructions (tgs : target list) : unit =
   List.fold_left(fun () x ->
       remove_instruction x
     ) () tgs
-  
-let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t = 
+
+let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t =
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
 
 
 (* This one used special smart constructors like cBefore and cAfter instead of giving target_befoer or target_after *)
 let insert_trm_new  (t_insert : trm) (tg : target) : unit =
-  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Generic_core.insert_trm t_insert i t p) tg
 
 
@@ -36,14 +37,38 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
 let add_atribute(a : attribute) : Transfo.t =
   Target.apply_on_target (Generic_core.add_attribute a)
 
-let target_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
+
+let clean_target_decorators () : unit =
+    Trace.apply (fun _ -> Generic_core.delete_target_decorators)
+
+(* [target_show] is a transformation meant for debbuging targets.
+   For this reason, it is possible to provide to it a [line] argument,
+   which allows the script to report the diff for only this transformation
+   in case the command line arguments [exit-line] corresponds to [line].
+   With the mechanism, there is no need write '!!' before and after [target_show]. *)
+let target_show ?(line : int = -1) ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
+  let should_exit_before =
+    match Flags.get_exit_line() with
+    | Some li -> (line > li)
+    | _ -> false
+    in
+  if should_exit_before then
+     Trace.dump_diff_and_exit();
+
+  let is_exit_line = (Flags.get_exit_line() = Some line) in
+  (* DEBUG: if true then failwith (Printf.sprintf "%d %d\n" line !Flags.exit_line); *)
+  if is_exit_line
+    then Trace.step();
   Generic_core.without_repeat_io (fun () ->
-    Target.applyi_on_target (fun i t p -> 
+    Target.applyi_on_target (fun i t p ->
     let t = if not keep_previous then Generic_core.delete_target_decorators t
     else t
-    in 
+    in
     Generic_core.target_show debug_ast i t p) tg
-  )
+  );
+  if is_exit_line
+    then Trace.dump_diff_and_exit()
+    else clean_target_decorators()
 
 let target_between_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
   Generic_core.without_repeat_io (fun () ->
@@ -55,19 +80,14 @@ let target_between_show ?(debug_ast : bool = false) ?(keep_previous : bool = fal
   
 
 let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : unit  =
-  Target.applyi_on_target(fun i t p -> Generic_core.ast_show file to_stdout i t p) tg
+  Target.applyi_on_target (fun i t p -> Generic_core.ast_show file to_stdout i t p) tg
 
 
-(* TODO: Move apply to top function to trace.ml *)
-let clean_target_decorators () : unit =
-    Trace.apply_to_top ~replace_top:false (fun _ -> Generic_core.delete_target_decorators)
+let eliminate_goto_next (_ : unit) : unit =
+  Trace.apply (fun _ -> Generic_core.eliminate_goto_next)
 
-
-let eliminate_goto_next ?(replace_top : bool = false) (_ : unit) : unit =
-  Trace.apply_to_top ~replace_top (fun _ -> Generic_core.eliminate_goto_next)
-
-let group_decl_init ?(replace_top : bool = false) (_ : unit) : unit =
-  Trace.apply_to_top ~replace_top (fun _ -> Generic_core.group_decl_init)
+let group_decl_init (_ : unit) : unit =
+  Trace.apply (fun _ -> Generic_core.group_decl_init)
 
 
 

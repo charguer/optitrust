@@ -1,11 +1,11 @@
 open Optitrust
 
-let _ = 
+let _ =
     run(
         fun () ->
         set_init_source "move_loop.cpp";
-       (* move_loop ~path:() ~move_after:string ~move_before:string 
-          
+       (* move_loop ~path:() ~move_after:string ~move_before:string
+
           if path is pointing to the inner loop, then you need to work
           out the path to the outer loop with corresponding name
 
@@ -35,13 +35,13 @@ let _ =
         move_loop ~move_before:[cFunDef "f"; cFor "c"] ~move_after:"d";
         move_loop ~name:"c" ~move_after:"d" ();
         move_loop "c" ~move_before:"d" ();
-        
-       
+
+
         *)
 
-        
+
         dump ()
     )
 
-    (* nohup meld file1 file2 >/dev/null 2>&1 
+    (* nohup meld file1 file2 >/dev/null 2>&1
        killall meld || echo "nothing todo" > /dev/null *)

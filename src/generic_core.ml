@@ -245,7 +245,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
                   "function %s, ignoring it.\n") f;
              Fun_map.remove f res
           | Some dl ->
-             let (def, _) = resolve_path dl global_trm in
+             let (def, _) = Path.resolve_path dl global_trm in
              begin match def.desc with
              | Trm_let_fun (_, _, args, body) ->
                 let b = replace_arg_types_with x il args body in
@@ -313,7 +313,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
             fail t'.loc
               ("insert_fun_copies: cannot find declaration of function " ^ f)
          | Some dl ->
-            let (fdecl, _) = resolve_path dl t' in
+            let (fdecl, _) = Path.resolve_path dl t' in
             begin match fdecl.desc with
             | Trm_let_fun (f', r, tvl, b) when f = f' ->
                (* for each element of ils, create a copy *)
@@ -326,7 +326,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                       *)
                      let tvl' =
                        List.fold_left
-                         (change_nth (fun (y, _) -> (y, typ_var x (Clang_to_ast.get_typedef x)))) tvl il
+                         (Tools.list_update_nth (fun (y, _) -> (y, typ_var x (Clang_to_ast.get_typedef x)))) tvl il
                      in
                      (* add index to labels in the body of the function *)
                      let b' =
@@ -490,7 +490,7 @@ let term (s : string) : trm =
   (* parse_string outputs a translation_unit, i.e. a list of declarations *)
   (* Printf.printf "context: %s\n" context; *)
   let ast =
-    Clang.Ast.parse_string 
+    Clang.Ast.parse_string
       (Printf.sprintf
          {|
           void f(void){
@@ -864,7 +864,7 @@ let add_attribute (a : attribute) : Target.Transfo.local =
       t: term to be decorated 
 *)
 let target_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
-    if debug_ast then 
+    if debug_ast then
       Ast_to_text.print_ast ~only_desc:true stdout t;
     trm_decoration (Tools.left_decoration index) (Tools.right_decoration index) t
 
@@ -897,10 +897,10 @@ let target_between_show (debug_ast : bool) (index : int) : Target.Transfo.local 
 
 let ast_show_aux (file : string) (to_stdout:bool) (index : int) (t : trm) : trm =
   let out_ast = open_out file in
-  if to_stdout then begin 
+  if to_stdout then begin
     Ast_to_text.print_ast ~only_desc:true stdout t;
     output_string stdout "\n\n ";
-    end 
+    end
   else
     output_string out_ast (Printf.sprintf "=========================Occurence %i======================\n" index);
     Ast_to_text.print_ast ~only_desc:true out_ast t;
@@ -909,6 +909,10 @@ let ast_show_aux (file : string) (to_stdout:bool) (index : int) (t : trm) : trm 
     Ast_to_text.print_ast ~only_desc:false out_ast t;
     output_string out_ast "\n\n";
     t
-    
+
+
+
+
+
 let ast_show (file : string) (to_stdout : bool) (index : int): Target.Transfo.local =
   Target.apply_on_path (ast_show_aux file to_stdout index)

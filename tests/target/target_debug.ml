@@ -1,8 +1,7 @@
-open Optitrust open Run
+open Optitrust
+open Target
 
-let _ = run_unit_test (fun () ->
-  (* There should be exactly one result to each of the commands;
-      if it is not the case, we'll get an error. *)
+let _ = Run.script_cpp (fun () ->
   let show = Generic.target_show in
 
   (* Loop in a function *)

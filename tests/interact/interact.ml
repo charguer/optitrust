@@ -1,19 +1,31 @@
+(* Usage:
+      make optitrust && make interact.out
+   or
+      F6 on a given line
+*)
+
 open Optitrust
-open Run
+open Target
 
-let exit_at_line = ref 16
+let _ = Run.script_cpp (fun () ->
+  let show = Generic.target_show in
+  !! Label.add "m0" [cVarDef "a"];
+  (* The show command are ignored in batch mode,
+     and the execute properly in interactive mode,
+     showing only the result of one show command at a time. *)
+  show [cVarDef "a"];
+  show [cVarDef "b"];
+  Generic.target_show [cVarDef "a"];
 
-(* An identity function that exits the program if the line argument exceeds the
-   value of the global variable [exit_at_line], obtained from the command-line *)
+  (* Showing operation with step at front *)
+  !! Label.add "m1" [cVarDef "b"];
+  (* Showing operation with reparse *)
+  !!! Label.add "m2" [cVarDef "a"];
+  (* Showing two operations at once *)
+  !!! Label.add "m3" [cVarDef "a"];
+      Label.add "m4" [cVarDef "a"];
 
-let (!!) (line : int) : unit =
-  Printf.printf "line %d \n" line;
-  if line > !exit_at_line
-    then (dump(); exit 0);
- Printf.printf "continue\n"
-
-let _ = run_unit_test (fun () ->
-  !! __LINE__; show_target [cVar "a"];
-  !! __LINE__; (let p = [cVar "b"] in
-  show_target p);
+  (* Trace.dump() is called implicitly called at the end of file;
+     this function handles the case where the cursor was after the last '!!'. *)
 )
+

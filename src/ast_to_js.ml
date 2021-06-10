@@ -277,7 +277,7 @@ let ast_json_to_doc (out : out_channel) (t : trm) : unit =
 (* Convert ast into a json format then print it as a javascript variable inside a javascript file
   the index represents the state of the ast after applying i-th transformation
 *)
-let ast_to_js (out : out_channel)(index : int) (t : trm) : unit =
+let ast_to_js (out : out_channel) (index : int) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js (ast_to_json t) ~index )
 
 

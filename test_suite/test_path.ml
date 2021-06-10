@@ -1,7 +1,7 @@
 open Clang.Ast
 open Optitrust__Ast
 open Optitrust__Paths
-open Path_constructors
+open Target
 open Optitrust__Clang_ast_parser
 open Optitrust__Translate_ast
 
@@ -211,7 +211,7 @@ let test_path (ast : trm) (p : path) (expected_output : expl_target) : unit =
   print_info None "Resolving path...\n";
   let flag = !Optitrust__Flags.verbose in
   Optitrust__Flags.verbose := false;
-  let epl = resolve_path p ast in
+  let epl = Path.resolve_path p ast in
   Optitrust__Flags.verbose := flag;
   print_info None "Path resolution done. Result:\n";
   begin match epl with
@@ -219,7 +219,7 @@ let test_path (ast : trm) (p : path) (expected_output : expl_target) : unit =
   | _ ->
      let sl = List.map path_to_string epl in
      let tl =
-       List.map (fun dl -> let (t, _) = resolve_path dl ast in t) epl
+       List.map (fun dl -> let (t, _) = Path.resolve_path dl ast in t) epl
      in
      let stl = List.combine sl tl in
      List.iteri

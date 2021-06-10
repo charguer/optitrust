@@ -42,7 +42,7 @@
           "type": "shell",
           "command": "make all", // was make all
           "options": {
-            "cwd": "${workspaceFolder}"
+            // "cwd": "${workspaceFolder}"
           }
         },
         {

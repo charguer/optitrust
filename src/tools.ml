@@ -208,9 +208,14 @@ let rec split_list_at_1 (n : int) (al : 'a list) : 'a list * ('a list) =
        (a :: al, al')
 
 
+(* return the list where the nth element is transformed *)
+let list_update_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
+  List.mapi (fun i a -> if i = n then transfo a else a) al
+
 let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
+
 
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
@@ -220,6 +225,7 @@ let initialization (out_prefix : string) : unit =
     let source =  PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "source" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
     PPrintEngine.ToChannel.pretty 0.9 80 out_js content;
     PPrintEngine.ToChannel.pretty 0.9 80 out_js source
+
 
 
 
