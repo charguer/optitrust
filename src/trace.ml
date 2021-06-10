@@ -1,13 +1,4 @@
 open Ast
-
-(* TODO: it would be better to not do [open], if only a few functions
-   from the module are called. *)
-open Ast_to_c
-open Ast_to_text
-open Ast_to_js
-open Clang.Ast
-open Clang_to_ast
-
 (******************************************************************************)
 (*                             Logging management                             *)
 (******************************************************************************)
@@ -38,7 +29,7 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
     | Some (_,start_row,end_row,start_column,end_column) ->
        Printf.sprintf "at start_location %d  %d end location %d %d" start_row start_column end_row end_column
     in
-  let msg = Printf.sprintf (" -expression\n%s\n" ^^ " %s is a %s\n") (ast_to_string t) sloc exp_type in
+  let msg = Printf.sprintf (" -expression\n%s\n" ^^ " %s is a %s\n") (Ast_to_c.ast_to_string t) sloc exp_type in
  write_log clog msg
 
 (******************************************************************************)
@@ -68,12 +59,12 @@ let parse (filename : string) : string * trm =
   let command_line_args =
     List.map Clang.Command_line.include_directory
       (Clang.default_include_directories ()) in
-  let ast = parse_file ~command_line_args filename in
+  let ast = Clang.Ast.parse_file ~command_line_args filename in
   (* DEBUG: Format.eprintf "%a@."
        (Clang.Ast.format_diagnostics Clang.not_ignored_diagnostics) ast; *)
   print_info None "Parsing Done.\n";
   print_info None "Translating AST...\n";
-  let t = translate_ast ast in
+  let t = Clang_to_ast.translate_ast ast in
   print_info None "Translation done.\n";
   (includes, t)
 
@@ -259,18 +250,18 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
     (* print the raw ast *)
     (* Output the current ast into json format *)
     (* ast_to_js  *)
-    print_ast (* ~only_desc:true *) out_ast ast;
+    Ast_to_text.print_ast (* ~only_desc:true *) out_ast ast;
     output_string out_ast "\n";
     (* Print ast and source code in jacascript format *)
     (* ast_to_js out_js (-1) ast;
     code_to_js out_js (-1) ast; *)
     (* print C++ code without decoding *)
     output_string out_enc ctx.includes;
-    ast_to_undecoded_doc out_enc ast;
+    Ast_to_c.ast_to_undecoded_doc out_enc ast;
     output_string out_enc "\n";
     (* print C++ code with decoding *)
     output_string out_prog ctx.includes;
-    ast_to_doc out_prog ast;
+    Ast_to_c.ast_to_doc out_prog ast;
     (* output_string out_prog "\n"; *)
     (* ast_json_to_doc out_json ast; *)
     close_channels();
@@ -288,9 +279,9 @@ let output_js (index : int) (prefix : string) (ast : trm) : unit =
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
-    ast_to_js out_js index ast;
+    Ast_to_js.ast_to_js out_js index ast;
     output_string out_js "\n";
-    Json.code_to_js out_js index ast;
+    Ast_to_js.Json.code_to_js out_js index ast;
     close_out out_js;
   with | Failure s ->
     close_out out_js;
