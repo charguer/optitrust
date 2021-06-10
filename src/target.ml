@@ -267,7 +267,6 @@ and constr =
   | Constr_access of target * constr_accesses
   (* switch: cond, cases *)
   | Constr_switch of target * constr_cases
-  (* TODO: Constraint for types? *)
   (* Target relative to another trm *)
   | Constr_relative of target_relative
   (* Number of  occurrences expected  *)
@@ -691,11 +690,6 @@ module Path_constructors = struct
         then None
         else Some (string_to_rexp regexp substr s trmKind)
       in
-    (* TODO: printf (rexp_option_to_string res);
-      need to add a field "rexp_exp_to_string : unit -> string"
-      { rexp_exp_to_string = "ExactMatch: " ^ s   if using Str.quote
-        rexp_exp_to_string = "RegexpMatch: " ^ s   if using Str.regexp
-      *)
     res
   (* Matching by string *)
   let cInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =

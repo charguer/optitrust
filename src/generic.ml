@@ -46,11 +46,12 @@ let target_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg 
   )
 
 let target_between_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
-  Target.apply_on_target_between (fun (p,i) t ->
+  Generic_core.without_repeat_io (fun () ->
+    Target.apply_on_target_between (fun (p,i) t ->
   (* TODO: Talk to Arthur, if we should remove the semicolons after *)
   let t = if not keep_previous then Generic_core.delete_target_decorators t 
   else t in
-  Generic_core.target_between_show debug_ast i t p) tg
+  Generic_core.target_between_show debug_ast i t p) tg)
   
 
 let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : unit  =

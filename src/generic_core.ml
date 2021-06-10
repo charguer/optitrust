@@ -880,18 +880,20 @@ let target_show (debug_ast : bool) (index : int): Target.Transfo.local =
       t: term to be decorated 
 *)
 let target_between_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
-    if debug_ast then 
-      Ast_to_text.print_ast ~only_desc:true stdout t;
     match t.desc with 
     | Trm_seq tl ->
+      if not debug_ast then 
+      Ast_to_text.print_ast ~only_desc:true stdout t;
       let lfront, lback = Tools.split_list_at index tl in
-      let new_trm = trm_seq ~annot:(Some No_braces) [trm_decoration (Tools.left_decoration index ) (Tools.right_decoration index)  (trm_lit(Lit_uninitialized))] in
+      let new_trm = trm_decoration (Tools.left_decoration index ) (Tools.right_decoration index)  (trm_lit (Lit_uninitialized)) in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 
+
+
 (* [target_between_show debug_ast index t p] *)
-let target_between_show (debug_ast : bool) (index : int): Target.Transfo.local =
-  Target.apply_on_path (target_show_aux debug_ast index)
+let target_between_show (debug_ast : bool) (index : int) : Target.Transfo.local  =
+  Target.apply_on_path (target_between_show_aux debug_ast index) 
 
 let ast_show_aux (file : string) (to_stdout:bool) (index : int) (t : trm) : trm =
   let out_ast = open_out file in

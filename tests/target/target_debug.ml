@@ -12,28 +12,28 @@ let _ = run_unit_test (fun () ->
 
   (* Before *)
   show [ cBefore; cVarDef "r1" ];
-  show [ cBefore; cVarDef "r2" ];
-  show [ cBefore; cVarDef "m1" ];
-  show [ cBefore; cVarDef "m2" ];
+  (* show [ cBefore; cVarDef "r2" ]; *)
+  (* show [ cBefore; cVarDef "m1" ]; *)
+  (* show [ cBefore; cVarDef "m2" ]; *)
 
   (* After *)
-  show [ cAfter; cVarDef "r1" ];
-  show [ cAfter; cVarDef "r2" ];
-  show [ cAfter; cVarDef "m1" ];
-  show [ cAfter; cVarDef "m2" ];
+  (* show [ cAfter; cVarDef "r1" ]; *)
+  (* show [ cAfter; cVarDef "r2" ]; *)
+  (* show [ cAfter; cVarDef "m1" ]; *)
+  (* show [ cAfter; cVarDef "m2" ]; *)
 
   (* First *)
-  show [ cFirst; cFor "i" ]; (* beware, we'd like to interpret the loop as a sequence here (?) *)
-  show [ cFirst; cThen ]; (* beware, we'd like to interpret the then as a sequence here (?) *)
-  show [ cFirst; cElse ];
+  (* show [ cFirst; cFor "i" ]; beware, we'd like to interpret the loop as a sequence here (?) *)
+  (* show [ cFirst; cThen ]; beware, we'd like to interpret the then as a sequence here (?) *)
+  (* show [ cFirst; cElse ]; *)
 
   (* Last *)
-  show [ cLast; cFor "i" ];
-  show [ cLast; cThen ];
-  show [ cLast; cElse ];
+  (* show [ cLast; cFor "i" ]; *)
+  (* show [ cLast; cThen ]; *)
+  (* show [ cLast; cElse ]; *)
 
   (* Nested paths *)
-  show [ cLast; cFor "i"; cThen ];
+  (* show [ cLast; cFor "i"; cThen ]; *)
 
 )
 
