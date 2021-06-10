@@ -15,6 +15,9 @@ type constr = Constr.constr
 type target = constr list
 *)
 
+(* Shorthands for Trace functions *)
+include Trace
+
 
 (******************************************************************************)
 (*                        Smart constructors for targets                      *)

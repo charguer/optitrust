@@ -398,28 +398,6 @@ let reparse_alias = reparse
 (*                                   Dump                                     *)
 (******************************************************************************)
 
-(* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.
-   If there are several traces (e.g., due to a [switch]), it writes one file for each.
-   If the prefix is not provided, the input file basename is used as prefix,
-   and in any case "_out" is appended to the prefix.
-
-   WILL BE DEPRECATED: If the command line argument [-dump-trace] was provided, then the
-   function writes all the ASTs from the history into javascript files. *)
-(* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
-let dump ?(prefix : string = "") () : unit =
-  (* if !Flags.full_dump then dump_trace ~prefix () *)
-  if !Flags.full_dump then dump_trace_to_js ~prefix() else begin
-    List.iter
-      (fun trace ->
-        let ctx = trace.context in
-        let prefix =
-          if prefix = "" then ctx.directory ^ ctx.prefix else prefix
-        in
-        output_prog ctx (prefix ^ "_out") (trace.cur_ast)
-      )
-      (!traces)
-  end
-
 (* [dump_diff_and_exit()] invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.
    This function is useful for interactively studying the effect of one particular
@@ -451,11 +429,6 @@ let dump_diff_and_exit () : unit =
     (!traces);
   exit 0
 
-(* [get_exit_line()] returns the argument provided exceeds the exit line provided
-  on the command line with [-exit-line], or [max_int] if no such argument was provided. *)
-let get_exit_line () : int =
-  !Flags.exit_line
-
 (* [check_exit_and_step()] performs a call to [check_exit], to check whether
    the program execution should be interrupted based on the command line argument
    [-exit-line], then it performas a call to [step], to save the current AST
@@ -465,8 +438,13 @@ let get_exit_line () : int =
    then the [reparse] function is called, replacing the current AST with
    a freshly parsed and typechecked version of it. *)
 let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
-  if line > get_exit_line() then begin
-     dump_diff_and_exit ()
+  let should_exit =
+    match Flags.get_exit_line() with
+    | Some li -> (line > li)
+    | _ -> false
+    in
+  if should_exit then begin
+     dump_diff_and_exit();
   end else begin
     if reparse
       then reparse_alias();
@@ -493,6 +471,33 @@ let (!!!) (x:'a) : 'a =
   x
 
 
+
+(* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.
+   If there are several traces (e.g., due to a [switch]), it writes one file for each.
+   If the prefix is not provided, the input file basename is used as prefix,
+   and in any case "_out" is appended to the prefix.
+   If [-exit-line] was provided on the command line, the [dump] operation
+   instead calls [dump_diff_and_exit]; in other word we assume that if the
+   cursor is past the last '!!' symbol, then the user wants to visualize the last
+   transformation in the file.
+
+   WILL BE DEPRECATED: If the command line argument [-dump-trace] was provided, then the
+   function writes all the ASTs from the history into javascript files. *)
+(* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
+let dump ?(prefix : string = "") () : unit =
+  if Flags.get_exit_line() <> None then dump_diff_and_exit ();
+  (* if !Flags.full_dump then dump_trace ~prefix () *)
+  if !Flags.full_dump then dump_trace_to_js ~prefix() else begin
+    List.iter
+      (fun trace ->
+        let ctx = trace.context in
+        let prefix =
+          if prefix = "" then ctx.directory ^ ctx.prefix else prefix
+        in
+        output_prog ctx (prefix ^ "_out") (trace.cur_ast)
+      )
+      (!traces)
+  end
 
 (* DEPRECATED---was used for unit tests
 let failure_expected f =

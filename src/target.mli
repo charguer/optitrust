@@ -202,3 +202,8 @@ module Transfo : sig
   type local = trm -> path -> trm
 end
 
+
+(* Shorthand *)
+
+val (!!) : 'a -> 'a
+val (!!!) : 'a -> 'a

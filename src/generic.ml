@@ -37,17 +37,30 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
 let add_atribute(a : attribute) : Transfo.t =
   Target.apply_on_target (Generic_core.add_attribute a)
 
+
+let clean_target_decorators () : unit =
+    Trace.apply (fun _ -> Generic_core.delete_target_decorators)
+
 (* [target_show] is a transformation meant for debbuging targets.
    For this reason, it is possible to provide to it a [line] argument,
    which allows the script to report the diff for only this transformation
    in case the command line arguments [exit-line] corresponds to [line].
    With the mechanism, there is no need write '!!' before and after [target_show]. *)
 let target_show ?(line : int = -1) ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
-  let is_exit_line = (Trace.get_exit_line() = line) in
+  let should_exit_before =
+    match Flags.get_exit_line() with
+    | Some li -> (line > li)
+    | _ -> false
+    in
+  if should_exit_before then
+     Trace.dump_diff_and_exit();
+
+  let is_exit_line = (Flags.get_exit_line() = Some line) in
+  (* DEBUG: if true then failwith (Printf.sprintf "%d %d\n" line !Flags.exit_line); *)
   if is_exit_line
     then Trace.step();
   Generic_core.without_repeat_io (fun () ->
-    Target.applyi_on_target(fun i t p ->
+    Target.applyi_on_target (fun i t p ->
     let t = if not keep_previous then Generic_core.delete_target_decorators t
     else t
     in
@@ -55,14 +68,10 @@ let target_show ?(line : int = -1) ?(debug_ast : bool = false) ?(keep_previous :
   );
   if is_exit_line
     then Trace.dump_diff_and_exit()
+    else clean_target_decorators()
 
 let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : unit  =
   Target.applyi_on_target (fun i t p -> Generic_core.ast_show file to_stdout i t p) tg
-
-
-(* TODO: Move apply to top function to trace.ml *)
-let clean_target_decorators () : unit =
-    Trace.apply (fun _ -> Generic_core.delete_target_decorators)
 
 
 let eliminate_goto_next (_ : unit) : unit =

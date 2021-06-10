@@ -35,7 +35,7 @@ VC ?= no
 EXCLUDE_TESTS ?=
 
 # List of ml files to include (by default, all *.ml except those in EXCLUDE_TESTS, and the generated *.ml files)
-TESTS ?= $(filter-out $(wildcard *with_exit.ml),$(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
+TESTS ?= $(filter-out $(wildcard *with_lines.ml),$(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
 
 # Path to the folder containing optitrust main Makefile, on which to call make install
 OPTITRUST ?= ../..
