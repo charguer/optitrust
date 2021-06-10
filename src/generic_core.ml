@@ -885,7 +885,7 @@ let target_between_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
       if not debug_ast then 
       Ast_to_text.print_ast ~only_desc:true stdout t;
       let lfront, lback = Tools.split_list_at index tl in
-      let new_trm = trm_decoration (Tools.left_decoration index ) (Tools.right_decoration index)  (trm_lit (Lit_uninitialized)) in
+      let new_trm = trm_decoration (Tools.left_decoration index ) (Tools.right_decoration index)  (trm_var ";") in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 
