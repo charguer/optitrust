@@ -436,6 +436,10 @@ let target_to_target_struct (tr : target) : target_struct =
   (* printf "%s\n" (target_struct_to_string tgs); *)
   tgs
 
+(* extend current explicit paths with a direction *)
+let add_dir (d : dir) (dll : paths) : paths =
+  List.map (fun dl -> d :: dl) dll
+
 
 (******************************************************************************)
 (*                              Target resolution                             *)

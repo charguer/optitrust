@@ -216,6 +216,7 @@ let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
 
+
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in
@@ -224,6 +225,7 @@ let initialization (out_prefix : string) : unit =
     let source =  PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "source" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
     PPrintEngine.ToChannel.pretty 0.9 80 out_js content;
     PPrintEngine.ToChannel.pretty 0.9 80 out_js source
+
 
 
 
