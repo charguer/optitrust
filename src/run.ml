@@ -1,5 +1,4 @@
 
-
 (******************************************************************************)
 (*                        Debug                                               *)
 (******************************************************************************)
@@ -13,24 +12,6 @@ let set_exn_backtrace (b : bool) : unit =
 (* By default, we want backtrace for exceptions *)
 let _ = set_exn_backtrace true
 
-
-(******************************************************************************)
-(*                        Smart constructors for targets                      *)
-(******************************************************************************)
-
-open Target
-include Path_constructors
-
-(* TODO: is this needed? do we want an include? *)
-type constr = Target.constr
-type target = Target.target
-type case_dir = Target.case_dir
-type abort_kind = Target.abort_kind
-type constr_access = Target.constr_access
-type case_kind = Target.case_kind
-type enum_const_dir = Target.enum_const_dir
-type target_list_pred = Target.target_list_pred
-let make_target_list_pred = Target.make_target_list_pred
 
 
 (******************************************************************************)

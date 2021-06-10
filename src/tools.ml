@@ -208,6 +208,10 @@ let rec split_list_at_1 (n : int) (al : 'a list) : 'a list * ('a list) =
        (a :: al, al')
 
 
+(* return the list where the nth element is transformed *)
+let list_update_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
+  List.mapi (fun i a -> if i = n then transfo a else a) al
+
 let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 
 let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"

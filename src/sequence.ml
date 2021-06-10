@@ -248,7 +248,7 @@ let split_sequence (clog : out_channel) (result_label : string)
   let app_transfo (result_label : string) (block1_label : string)
     (block2_label : string) (t' : trm) (dl : path) : trm =
     let log : string =
-      let (t, _) = resolve_path dl t' in
+      let (t, _) = Path.resolve_path dl t' in
       let loc : string =
         match t.loc with
         | None -> ""
@@ -276,7 +276,7 @@ let split_sequence (clog : out_channel) (result_label : string)
         *)
        | Dir_nth _ :: dl'' ->
           let dl = List.rev dl'' in
-          let (t'', _) = resolve_path dl t' in
+          let (t'', _) = Path.resolve_path dl t' in
           begin match t''.annot with
           (* if there are delete instructions, pass them to split_seq_at *)
           (* | Some Delete_instructions ->
@@ -303,7 +303,7 @@ let split_sequence (clog : out_channel) (result_label : string)
             dl
        end
     | _ ->
-       fail t.loc ("split_sequence: " ^ (path_to_string dl) ^
+       fail t.loc ("split_sequence: " ^ (Path.path_to_string dl) ^
                      " does not point to a sequence")
   in
   match epl with

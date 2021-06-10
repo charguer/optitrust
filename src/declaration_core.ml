@@ -1,6 +1,6 @@
 open Ast
 open Target
-open Path_constructors
+
 (* [fold_aux as_reference fold_at]: This is an auxiliary function for fold
     params:
       as_reference: check if the variable inside the declaration is heap allocated or not
