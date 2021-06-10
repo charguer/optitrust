@@ -1274,12 +1274,12 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            else (resolve_constraint c p t) in
 
       (* DEBUG *)
-        (* printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
+        printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
           (Ast_to_c.ast_to_string ~ast_decode:false t)
           (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here); *)
+          (paths_to_string ~sep:"\n   " res_here);
 
 
       res_deep ++ res_here  (* put deeper nodes first *) in
