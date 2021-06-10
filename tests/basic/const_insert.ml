@@ -1,7 +1,7 @@
 open Optitrust
-open Run
+open Target
 (* Works *)
-let _ = run_unit_test
+let _ = Run.script_cpp
     ( fun _ -> 
         Declaration.insert ~const:true  "NB_VECTS" "100" [cAfter;cTypDef "vect"];
     )

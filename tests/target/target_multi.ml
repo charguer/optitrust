@@ -1,6 +1,6 @@
-open Optitrust open Run
+open Optitrust open Target
 
-let _ = run_unit_test (fun () ->
+let _ = Run.script_cpp (fun () ->
   let show = Generic.target_show in
 
   (* One (ExpectedOne is the default) *)

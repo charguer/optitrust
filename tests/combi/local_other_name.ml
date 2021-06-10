@@ -1,8 +1,8 @@
 open Optitrust
-open Run
+open Target
 
 (* TODO: Adapt local_other name to the new Sequence.sub functions *)
-let _ = run_unit_test(
+let _ = Run.script_cpp(
       fun _ -> 
       set_init_source "local_other_name.cpp";
       

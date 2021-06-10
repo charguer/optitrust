@@ -1,9 +1,9 @@
 open Optitrust
-open Run
+open Target
 
 (* TODO: References aren't yet implemented*)
 
-let _ = run_unit_test 
+let _ = Run.script_cpp 
     ( fun _-> 
     Declaration.fold [cSet ~lhs:[cVar ~name:"y" ()] ()] ();
     Declaration.fold [cSet ~lhs:[cVar ~name:"a" ()] ()] ();

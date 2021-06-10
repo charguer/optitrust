@@ -1,10 +1,10 @@
 open Optitrust
-open Run
+open Target
 
 (* TODO: rename this file to sequence_inline.ml *)
 
 let _ =
-  run_unit_test (fun _ ->
+  Run.script_cpp (fun _ ->
     (* TODO: Does not work correctly *)
     Sequence.inline [cSeq ~args:[cVarDef "y"]];
     (* TODO: try this one too:*)

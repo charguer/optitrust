@@ -1,6 +1,6 @@
 open Optitrust
 (*
-let _ = run_unit_test (fun () ->
+let _ = Run.script_cpp (fun () ->
    inline_decl ~delete_decl:true ~decl_path:[cTopFun ~name:"f" ()] ();
   )
 

@@ -154,7 +154,7 @@ opendoc: doc
 # Cleanup
 
 clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml 
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml 
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

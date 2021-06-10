@@ -1,9 +1,9 @@
 open Optitrust
-open Run
+open Target
 
 (* Works *)
 
-let _ = run_unit_test ( fun _ ->
+let _ = Run.script_cpp ( fun _ ->
     Label.add "start" [cVarDef "x"] ;
     Label.add "loop" [cFor "i"];
     Label.add "cond" [cIf ~then_:[cVar "x"] ()] ;

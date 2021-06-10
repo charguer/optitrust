@@ -1,10 +1,12 @@
 open Optitrust
-open Run
+open Target
+open Target
 
 (* TODO: Fix the issue with get_typedef *)
-let _ = run_unit_test (fun () ->
+let _ = Run.script_cpp (fun () ->
   Arrays.aos_to_soa [cTypDef "vects"];
 )
 
 
 
+r

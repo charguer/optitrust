@@ -1,8 +1,8 @@
 open Optitrust
-open Run
+open Target
 
 (* Works *)
-let _ = run_unit_test( fun () ->
+let _ = Run.script_cpp ( fun () ->
   Declaration.remove [cTypDef "T"];
   Declaration.remove [cVarDef "x"];
   Declaration.remove [cFunDef "f"];

@@ -1,8 +1,8 @@
 
 open Optitrust
-open Run
+open Target
 
-let _ = run_unit_test (fun _ ->
+let _ = Run.script_cpp (fun _ ->
 (* TODO: move all to target_one.ml *)
   let show = Generic.target_show in
   show [ cTypDef "vect"];

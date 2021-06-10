@@ -1,7 +1,7 @@
 open Optitrust
-open Run
+open Target
 (* TODO: Not yet implemented*)
-let _ = run_unit_test (
+let _ = Run.script_cpp (
     fun () -> 
     let show = Generic.target_show in
     show [cVarDef "a"] ~debug_ast:true;

@@ -2,7 +2,7 @@
    The c_ast_out_enc.cpp file shows the encoded version. *)
 
 open Optitrust
-open Run
+open Target
 
-let _ = run_unit_test (fun () -> ();)
+let _ = Run.script_cpp (fun () -> ();)
 

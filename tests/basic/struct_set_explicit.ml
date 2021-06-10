@@ -1,5 +1,5 @@
 open Optitrust
-open Run
+open Target
 
 (* TODO: Not yet implemented*)
 let _ =

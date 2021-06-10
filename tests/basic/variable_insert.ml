@@ -1,5 +1,5 @@
 open Optitrust
-open Run
+open Target
 let _ = 
     run
     (fun _ ->

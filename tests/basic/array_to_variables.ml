@@ -1,9 +1,9 @@
 open Optitrust
-open Run 
+open Target 
 
 (* Works *)
 
-let _ = run_unit_test (fun () ->
+let _ = Run.script_cpp (fun () ->
   Arrays.to_variables ["ua";"ub"] [cVarDef "u"];
   Arrays.to_variables ["va";"vb"] [cVarDef "v"];
 )

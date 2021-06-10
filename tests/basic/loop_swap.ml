@@ -1,7 +1,7 @@
 open Optitrust
-open Run
+open Target
 
 (* Works *)
-let _ = run_unit_test ( fun _ -> 
+let _ = Run.script_cpp ( fun _ -> 
         Loop.swap [cFor "a"];
      )

@@ -1,9 +1,7 @@
 open Optitrust
-open Run
-
+open Target
 (* Doesn't work *)
-let _ = run_unit_test(fun _ ->
+let _ = Run.script_cpp(fun _ ->
   Arrays.tile  "X"  "B" "T" [cTypDef "T"];
   Arrays.tile  "Y" "B" "U" [cTypDef "T"];  
   )
-

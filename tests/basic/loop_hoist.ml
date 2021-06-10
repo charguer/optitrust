@@ -1,8 +1,8 @@
 open Optitrust
-open Run
+open Target
 
 (* Doesn't work *)
-let _ = run_unit_test (fun () ->
+let _ = Run.script_cpp (fun () ->
     Loop.hoist "x_step" [cFor "i"];
 )
 

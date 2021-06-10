@@ -168,15 +168,6 @@ let rec compare_path (dl : path) (dl' : path) : int =
 
 (* TODO: some of these should be in target.ml only *)
 
-(* return the last element of a list together with its index *)
-(* TODO: should be called [list_get_last] *)
-let last (l : 'a list) : int * 'a =
-  let rec aux n = function
-    | [] -> failwith "last: empty list"
-    | [a] -> (n, a)
-    | _ :: b :: al -> aux (n + 1) (b :: al)
-  in
-  aux 0 l
 
 (* applies a continuation to the nth element of l if it exists *)
 let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
@@ -198,9 +189,6 @@ let app_to_nth_dflt (loc : location) (l : 'a list) (n : int)
      print_info loc "%s\n" s;
      []
 
-(* extend current explicit paths with a direction *)
-let add_dir (d : dir) (dll : paths) : paths =
-  List.map (fun dl -> d :: dl) dll
 
 
 (******************************************************************************)

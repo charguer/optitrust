@@ -1,9 +1,9 @@
 
 open Optitrust
-open Run
+open Target
 
 (* WORKS *)
-let _ = run_unit_test (fun _ ->
+let _ = Run.script_cpp (fun _ ->
         Struct.reorder ~move_before:"x" ["m";"z"] [cTypDef "obj"];
         Struct.reorder ~move_after:"x" ["m"] [cTypDef "obj"];      
 )

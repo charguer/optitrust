@@ -1,8 +1,8 @@
 open Optitrust
-open Run
+open Target
 
 (* Works *)
-let _ = run_unit_test ( fun _ ->
+let _ = Run.script_cpp ( fun _ ->
 
       Label.remove [cLabel "start"];
       (* List.iter (fun l -> Label.remove [cLabel l]) ["loop";"cond";"incr_1";"incr_2"]; (* TODO: try *) *)

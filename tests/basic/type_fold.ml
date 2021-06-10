@@ -1,8 +1,8 @@
 open Optitrust
-open Run
+open Target
 
 (* TODO: Does not work*)
-let _ = run_unit_test (fun _ ->
+let _ = Run.script_cpp (fun _ ->
         (* Declaration.fold [cTypDef "uint"]; *)
         Generic.target_show [cTypDef "uint"];
         Declaration.fold [cTypDef "cdouble"]; 

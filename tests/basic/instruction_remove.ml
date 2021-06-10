@@ -1,8 +1,8 @@
 open Optitrust
-open Run
+open Target
 
 (* Works *)
-let _ = run_unit_test ( fun _ -> 
+let _ = Run.script_cpp ( fun _ -> 
     Generic.remove_instructions [[cVarDef "a"];[cVarDef "v"]];
  )
  

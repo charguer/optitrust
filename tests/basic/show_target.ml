@@ -1,6 +1,6 @@
 open Optitrust
-open Run
-let _ = run_unit_test 
+open Target
+let _ = Run.script_cpp 
     ( fun _ ->
         let show = Generic.target_show in
         let clean = Generic.clean_target_decorators in
