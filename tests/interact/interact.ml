@@ -1,7 +1,7 @@
 (* Usage:
       make optitrust && make interact.out
    or
-      F6 on a given line
+      F6 on a given line, or shift+F6 to recompile optitrust
 *)
 
 open Optitrust
@@ -30,5 +30,3 @@ let _ = Run.script_cpp (fun () ->
      this function handles the case where the cursor was after the last '!!'. *)
 )
 
-(* TODO: Arthur remove repeat_if feature *)
-(* TODO: ARTHUR test switch *)

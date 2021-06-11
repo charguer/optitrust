@@ -82,7 +82,7 @@ BUILD := ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Rule for viewing the output of a transformation
 %.out: %_out.cpp
-	$(V)cat $<
+	$(V)cat $< 2> /dev/null || echo "Multiple files produced instead of $@."
 
 # Rule for comparing the output with the expected output
 # TODO: should use $(DIFF)? TODO: use $* here
@@ -154,7 +154,7 @@ opendoc: doc
 # Cleanup
 
 clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml 
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
