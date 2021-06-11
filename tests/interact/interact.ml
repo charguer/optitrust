@@ -15,17 +15,19 @@ let _ = Run.script_cpp (fun () ->
      showing only the result of one show command at a time. *)
   show [cVarDef "a"];
   show [cVarDef "b"];
-  Generic.target_show [cVarDef "a"];
 
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];
+
   (* Showing operation with reparse *)
   !!! Label.add "m2" [cVarDef "a"];
   (* Showing two operations at once *)
   !!! Label.add "m3" [cVarDef "a"];
       Label.add "m4" [cVarDef "a"];
-
+  !! Label.add "m5" [cVarDef "a"];
   (* Trace.dump() is called implicitly called at the end of file;
      this function handles the case where the cursor was after the last '!!'. *)
 )
 
+(* TODO: Arthur remove repeat_if feature *)
+(* TODO: ARTHUR test switch *)

@@ -295,9 +295,9 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
           end
         else if !i = nbAst -2 then
           output_prog ctx (prefix ^ "_out") ast
-       
+
         else if !i = -1 then ()
-        else 
+        else
           output_prog ctx (prefix ^ "_" ^ string_of_int !i) ast;
           output_js !i prefix ast;
         i := !i - 1
@@ -313,6 +313,26 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
       dump_history ctx prefix (trace.cur_ast :: trace.history)
     )
     (!traces)
+
+(*
+  filename = prefix ^ "_trace.js"
+  let f = open_out filename
+
+  fprintf  f "var trace = {};";
+  let print_step i ast =
+     fprintf f "traces[%d] = {" i;
+     code_to_js f i ast;
+     fprintf f "};";
+     in
+  List.iteri print_step !traces
+
+
+
+  var trace = {};
+  trace[0] = {`
+  trace[1] = {..};
+  trace[2] = {..};
+ *)
 
 (******************************************************************************)
 (*                                   Reparse                                  *)
@@ -447,4 +467,20 @@ let failure_expected f =
   begin try f(); failwith "should have failed"
   with TransfoError _ -> () end
 *)
-
+(* TODO: document *)
+(* only call f if this is the selected line, else do nothing *)
+let only_interactive_step (line : int) (f : unit -> unit) : unit =
+    let should_exit_before =
+    match Flags.get_exit_line() with
+    | Some li -> (line > li)
+    | _ -> false
+    in
+  if should_exit_before then
+     dump_diff_and_exit();
+  let is_exit_line = (Flags.get_exit_line() = Some line) in
+  (* DEBUG: if true then failwith (Printf.sprintf "%d %d\n" line !Flags.exit_line); *)
+  if is_exit_line then begin
+    step();
+    f();
+    dump_diff_and_exit()
+  end

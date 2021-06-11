@@ -20,7 +20,7 @@ type abort_kind =
   | Break
   | Continue
 
-type constr_name
+type constr_name (* TODO: maybe shouldn't be so opaque *)
 
 type constr_access =
   (* array indices may be arbitrary terms *)
@@ -179,6 +179,8 @@ val target_list_one_st : constr -> target_list_pred
 val target_list_pred_always_true : target_list_pred
 
 
+
+(* TODO: Arthur will move "show" here *)
 
 (* Target resolution *)
 

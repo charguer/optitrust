@@ -13,7 +13,7 @@ let _ = Run.script_cpp (fun () ->
   (* Top-level functions *)
 
   (* Loops immediately inside a function *)
-show [cMulti;cFunDef ""; cFor "" ]; (* cStrict is not working properly *)
+  show [cMulti;cFunDef ""; cFor "" ]; (* cStrict is not working properly *)
 )
 
 

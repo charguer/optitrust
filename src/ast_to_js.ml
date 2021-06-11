@@ -14,12 +14,12 @@ module Json = struct
 
   let str x = Str x
 
-  
+
   (* Printing functions *)
   let typ_to_json(typ : typ) : t =
     Str (Tools.document_to_string (bquotes (Ast_to_c.typ_to_doc typ)) )
 
-  
+
   let print_object (dl : document list) : document =
     surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
 
@@ -39,11 +39,12 @@ module Json = struct
    | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi
 
   let code_to_js (out : out_channel) (index : int) (ast : trm) : unit =
-  let src = Ast_to_c.trm_to_doc ast in
-  let doc = match index with
-  | -1 -> string "source"  ^^ equals ^^ bquotes (src)
-  | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (src)
-  in PPrintEngine.ToChannel.pretty 0.9 80 out doc
+    let src = Ast_to_c.trm_to_doc ast in
+    let doc = match index with
+      | -1 -> string "source"  ^^ equals ^^ bquotes (src)
+      | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (src)
+      in
+    PPrintEngine.ToChannel.pretty 0.9 80 out doc
 
 end
 let quote x = "\"" ^ x ^ "\""

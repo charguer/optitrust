@@ -47,37 +47,22 @@ let clean_target_decorators () : unit =
    in case the command line arguments [exit-line] corresponds to [line].
    With the mechanism, there is no need write '!!' before and after [target_show]. *)
 let target_show ?(line : int = -1) ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
-  let should_exit_before =
-    match Flags.get_exit_line() with
-    | Some li -> (line > li)
-    | _ -> false
-    in
-  if should_exit_before then
-     Trace.dump_diff_and_exit();
-
-  let is_exit_line = (Flags.get_exit_line() = Some line) in
-  (* DEBUG: if true then failwith (Printf.sprintf "%d %d\n" line !Flags.exit_line); *)
-  if is_exit_line
-    then Trace.step();
-  Generic_core.without_repeat_io (fun () ->
+  Trace.only_interactive_step line (fun () ->
     Target.applyi_on_target (fun i t p ->
-    let t = if not keep_previous then Generic_core.delete_target_decorators t
-    else t
-    in
-    Generic_core.target_show debug_ast i t p) tg
-  );
-  if is_exit_line
-    then Trace.dump_diff_and_exit()
-    else clean_target_decorators()
+      let t = if not keep_previous
+        then Generic_core.delete_target_decorators t
+        else t in
+      Generic_core.target_show debug_ast i t p) tg)
 
-let target_between_show ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
-  Generic_core.without_repeat_io (fun () ->
+let target_between_show ?(line : int = -1) ?(debug_ast : bool = false) ?(keep_previous : bool = false) (tg : target) : unit =
+  Trace.only_interactive_step line (fun () ->
     Target.apply_on_target_between (fun (p,i) t ->
-  (* TODO: Talk to Arthur, if we should remove the semicolons after *)
-  let t = if not keep_previous then Generic_core.delete_target_decorators t 
-  else t in
-  Generic_core.target_between_show debug_ast i t p) tg)
-  
+    (* TODO: Talk to Arthur, if we should remove the semicolons after *)
+    let t = if not keep_previous
+      then Generic_core.delete_target_decorators t
+      else t in
+    Generic_core.target_between_show debug_ast i t p) tg)
+
 
 let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : unit  =
   Target.applyi_on_target (fun i t p -> Generic_core.ast_show file to_stdout i t p) tg

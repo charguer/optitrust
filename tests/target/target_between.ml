@@ -1,4 +1,5 @@
-open Optitrust open Target
+open Optitrust
+open Target
 
 let _ = Run.script_cpp (fun () ->
   (** There should be exactly one result to each of the commands;
@@ -18,11 +19,11 @@ let _ = Run.script_cpp (fun () ->
   show [ cAfter; cVarDef "m2" ];
 
   (* First *)
-  show [ cFirst; cFor "i"; cStrict; cBody ]; (* beware, we'd like to interpret the loop as a sequence here (?) *)
-  show [ cFirst; cThen ]; (* beware, we'd like to interpret the then as a sequence here (?) *)
+  show [ cFirst; cFor "i"; cStrict; cBody ];
+  show [ cFirst; cThen ];
   show [ cFirst; cElse ];
 
-  (* Last *)
+  (* Last *) (* TODO: fix *)
   show [ cLast; cFor "i"; cStrict; cBody];
   show [ cLast; cThen ];
   show [ cLast; cElse ];

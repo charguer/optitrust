@@ -50,6 +50,9 @@ PROG="${FILEBASE}_with_lines.byte"
 # ---DEPRECATED: TODO: move add_exit.ml to a deprecated folder, together with these instructions
 # ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 #sed 's/show/myshow/' "${FILEBASE}.ml" > "${FILEBASE}_with_exit.byte"
+
+# From "${FILEBASE}.ml", create ""{FILEBASE}_with_lines.ml" by inserting
+# [~lines:__LINE__]   in the relevant places, and interpreting '!!' and '!!!'
 sed 's/target_show \([^i]\)/target_show ~line:__LINE__ \1/;s/ show \([^=]\)/ show ~line:__LINE__ \1/;s/\!\!\!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' "${FILEBASE}.ml" > "${FILEBASE}_with_lines.ml"
 # cat "${FILEBASE}_with_lines.ml"; exit 0
 
