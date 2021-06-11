@@ -59,9 +59,9 @@ let _ = Run.script_cpp (fun () ->
  (*
   show [cInstr ~substr:true "vect v2" ];
   show [cInstrRegexp ~substr:true "vect v2" ];*)
-  show [cNb 0; cExpr "vect v2" ];
+  show [cNb 1; cExpr "vect v2" ];
 
-  show [cNb 0; cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+  show [cNb 1; cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
   show [cInstr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
 
   show [cMulti; cInstr "i++" ]; (* TODO: i++ in loop should be either an instruction or an expression, not both? *)

@@ -34,8 +34,7 @@ let _ = Run.script_cpp (fun () ->
   show [ cLabel "lbl2" ];
 
   (* Calls *)
-  show [ cMulti; cCall ~args:[cInt 2] "" ]; (* This fails because it consider also new_int as a function application *)
-    (* TODO: have an optional argument for cCall that by defaults rules out the functions introduced by the encoding *)
+  show [ cCall ~args:[cInt 2] "" ]; 
 
   (* Var/Fun definitions *)
   show [ cFunDef "main" ];
@@ -45,24 +44,22 @@ let _ = Run.script_cpp (fun () ->
   (* show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
 
   (* Regexp *)
-  (* TODO: let's suppose j < 5 in a for loop is an instruction (statement) *)
-  (* only one of the two should work *)
   show [cExpr "j <"];
   show [cNb 0; cInstr "j <"];
 
   show [cInstr "+= 2"];
-  (*show [cNb 0; cExpr ~substr:false "+= 2"];
-  show [cNb 0; cInstr ~substr:false "+= 2"];*)
-  show [cInstr (* default value: ~substr:true *) "r += 2"];
+  show [cNb 0; cExpr ~substr:false "+= 2"];
+  show [cNb 0; cInstr ~substr:false "+= 2"];
+  show [cInstr "r += 2"];
 
-  show [cMulti; cInstrRegexp ~substr:true "int . = ."]; (* TODO: should match is ; part of it or not? *)
+  show [cMulti; cExprRegexp ~substr:true "int . = ."]; (* TODO: should match is ; part of it or not? *)
   show [cMulti; cInstrRegexp ~substr:true ". = ."];
   show [cMulti; cInstrRegexp ~substr:false ". = ."]; (* should not match something with several characters TODO:*)
 
  (*
   show [cInstr ~substr:true "vect v2" ];
   show [cInstrRegexp ~substr:true "vect v2" ];*)
-  show [cNb 0; cExpr "vect v2" ];
+  show [cNb 1; cExpr "vect v2" ];
 
   show [cNb 0; cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
   show [cInstr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)

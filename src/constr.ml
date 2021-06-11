@@ -116,7 +116,6 @@ and constr =
   | Constr_access of target * constr_accesses
   (* switch: cond, cases *)
   | Constr_switch of target * constr_cases
-  (* TODO: Constraint for types? *)
   (* Target relative to another trm *)
   | Constr_relative of target_relative
   (* Number of  occurrences expected  *)
@@ -207,7 +206,6 @@ let rec constr_to_string (c : constr) : string =
   match c with
   | Constr_strict -> "Strict"
   | Constr_dir d -> dir_to_string d
-  (* | Constr_list (p_elt, _) -> "List (" ^ target_to_string p_elt ^ ")" *)
   | Constr_include s -> "Include " ^ s
   | Constr_regexp r -> "Regexp " ^ regexp_to_string r
   | Constr_for (p_init, p_cond, p_step, p_body) ->
@@ -489,13 +487,22 @@ let is_equal_lit (l : lit) (l' : lit) =
   | _ -> false
 
 let get_trm_kind (t : trm) : trm_kind =
-  if t.is_statement then
+   if t.is_statement then
     match t.desc with
-    | Trm_struct _ | Trm_array _ | Trm_let _ | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
-    | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
-    | _ -> TrmKind_Instr
+    | Trm_apps(f,_) ->
+      begin match f.desc with 
+      | Trm_var _ -> TrmKind_Instr
+      | Trm_val (Val_prim (Prim_unop Unop_inc)) -> TrmKind_Instr
+      | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
+      | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
+      end 
+    | Trm_abort _ | Trm_goto _-> TrmKind_Instr
+    | Trm_struct _ |  Trm_let _ | Trm_array _  | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
+      | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
+    | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
   else
     TrmKind_Expr
+
 (* Not used anywhere?? *)
 let is_structuring_statement (t : trm) : bool =
   get_trm_kind t = TrmKind_Struct
@@ -598,8 +605,6 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           begin match f.desc with 
           | Trm_val (Val_prim (Prim_new _)) 
           | Trm_val (Val_prim (Prim_unop Unop_get)) -> false
-          (* TODO: Avoid all internal functions *)
-          
           |  _ -> check_target p_fun f &&
                   check_list cl_args args
           end 
@@ -732,12 +737,12 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
            else (resolve_constraint c p t) in
 
       (* DEBUG *)
-        printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
+        (* printf "resolve_target_simple\n  ~strict:%s\n  ~target:%s\n  ~term:%s\n ~deep:%s\n  ~here:%s\n"
           (if strict then "true" else "false")
           (target_to_string trs)
           (Ast_to_c.ast_to_string ~ast_decode:false t)
           (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here);
+          (paths_to_string ~sep:"\n   " res_here); *)
 
 
       res_deep ++ res_here  (* put deeper nodes first *) in

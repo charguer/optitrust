@@ -78,16 +78,6 @@ let dir_to_string (d : dir) : string =
      in
      "Dir_enum_const (" ^ (string_of_int n) ^ ", " ^ s_ecd ^ ")"
 
-
-let list_to_string ?(sep:string="; ") ?(bounds:string list = ["[";"]"])(l : string list) : string =
-  let rec aux = function
-    | [] -> ""
-    | [s] -> s
-    | s1 :: s2 :: sl -> s1 ^ sep ^ " " ^ aux (s2 :: sl)
-  in
-  (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
-
-
 let path_to_string (dl : path) : string =
   list_to_string (List.map dir_to_string dl)
 
@@ -165,9 +155,6 @@ let rec compare_path (dl : path) (dl' : path) : int =
 (******************************************************************************)
 (*                                  Auxiliary functions                       *)
 (******************************************************************************)
-
-(* TODO: some of these should be in target.ml only *)
-
 
 (* applies a continuation to the nth element of l if it exists *)
 let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =

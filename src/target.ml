@@ -33,7 +33,8 @@ include Trace
 
 (* Logic constraints *)
 
-let cStrict : constr = Constr_strict
+let cStrict : constr = 
+  Constr_strict
 
 let cTrue : constr =
   Constr_bool true
@@ -122,42 +123,36 @@ let cInclude (s : string) : constr =
     Constr_include s
 
 let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
-  { rexp_desc = s;
-    rexp_exp = (if regexp then Str.regexp else Str.regexp_string) s;
-    rexp_substr = substr;
-    rexp_trm_kind = trmKind; }
+    { rexp_desc = s;
+      rexp_exp = (if regexp then Str.regexp else Str.regexp_string) s;
+      rexp_substr = substr;
+      rexp_trm_kind = trmKind; }
 
-let string_to_rexp_opt (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp option =
-  let res =
-    if s = ""
-      then None
-      else Some (string_to_rexp regexp substr s trmKind)
-    in
-  (* TODO: printf (rexp_option_to_string res);
-    need to add a field "rexp_exp_to_string : unit -> string"
-    { rexp_exp_to_string = "ExactMatch: " ^ s   if using Str.quote
-      rexp_exp_to_string = "RegexpMatch: " ^ s   if using Str.regexp
-    *)
-  res
-(* Matching by string *)
- let cInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =
+  let string_to_rexp_opt (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp option =
+    let res =
+      if s = ""
+        then None
+        else Some (string_to_rexp regexp substr s trmKind)
+      in
+    res
+  (* Matching by string *)
+  let cInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =
     Constr_regexp (string_to_rexp false substr s  tk)
 
- let cInstr ?(substr : bool = true) (s : string) : constr =
+  let cInstr ?(substr : bool = true) (s : string) : constr =
     cInstrOrExpr ~substr TrmKind_Instr s
 
- let cExpr ?(substr : bool = true) (s : string)  : constr =
+  let cExpr ?(substr : bool = true) (s : string)  : constr =
     cInstrOrExpr ~substr TrmKind_Expr s
 
- let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
+  let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
     Constr_regexp (string_to_rexp true substr s tk)
 
- let cInstrRegexp ?(substr : bool = false) (s : string) : constr =
+  let cInstrRegexp ?(substr : bool = false) (s : string) : constr =
     cInstrOrExprRegexp TrmKind_Instr substr s
 
- let cExprRegexp ?(substr : bool = false) (s : string) : constr =
+  let cExprRegexp ?(substr : bool = false) (s : string) : constr =
     cInstrOrExprRegexp TrmKind_Expr substr s
-
 
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
