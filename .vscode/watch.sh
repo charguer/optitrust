@@ -6,9 +6,9 @@
 # Assumes it is called from the .vscode folder
 
 
-echo "Start watching in folder"
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+echo "Start watching in folder:"
 echo ${SCRIPT_DIR}
 
 

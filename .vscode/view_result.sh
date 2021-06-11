@@ -53,8 +53,8 @@ PROG="${FILEBASE}_with_lines.byte"
 
 # From "${FILEBASE}.ml", create ""{FILEBASE}_with_lines.ml" by inserting
 # [~lines:__LINE__]   in the relevant places, and interpreting '!!' and '!!!'
-sed 's/target_show \([^i]\)/target_show ~line:__LINE__ \1/;s/ show \([^=]\)/ show ~line:__LINE__ \1/;s/\!\!\!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' "${FILEBASE}.ml" > "${FILEBASE}_with_lines.ml"
-# cat "${FILEBASE}_with_lines.ml"; exit 0
+sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' "${FILEBASE}.ml" > "${FILEBASE}_with_lines.ml"
+ # DEBUG: cat "${FILEBASE}_with_lines.ml"; exit 0
 
 # LATER: add_exit should also introduce special commands for figuring out the line of the command that executes
 
@@ -74,12 +74,14 @@ fi
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
 # Activate the backtrace
 OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS}
+
+# DEBUG: echo "cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
 # DEPREACTED | tee stdoutput.txt
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error executing the script:"
-  echo "  cd ${DIRNAME}; ./${PROG} ${OPTIONS}"
+  echo "  cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
   exit 1
 fi
 

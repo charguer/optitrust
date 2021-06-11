@@ -195,6 +195,8 @@ val apply_on_target : (trm -> path -> trm) -> target -> unit
 val apply_on_target_between : ((path*int) -> trm-> trm) -> target -> unit
 val apply_on_transformed_targets : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
+val show : ?line:int -> ?debug_ast:bool -> target -> unit
+
 (* Target debugging *)
 
 val target_to_string : target -> string

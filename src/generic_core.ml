@@ -526,21 +526,12 @@ let term (s : string) : trm =
   get_term t
 
 
-(* Change the flag -reapeat-io (default is true)  *)
-let set_repeat_io (b:bool) : unit =
-  Flags.repeat_io := b
-
-let without_repeat_io (f:unit->unit) : unit =
-  let b = !Flags.repeat_io in
-  Flags.repeat_io := false;
-  f();
-  Flags.repeat_io := b
-
-
+(* DEPRECATED? *)
 let rec delete_target_decorators (t : trm) : trm =
   match t.desc with
   | Trm_decoration (_,t',_) -> t'
   | _ -> trm_map (delete_target_decorators ) t
+
 (* ********************************************** *)
 
 
@@ -857,43 +848,6 @@ let add_attribute_aux (a : attribute) (t : trm) : trm =
 let add_attribute (a : attribute) : Target.Transfo.local =
   Target.apply_on_path(add_attribute_aux a)
 
-(* [target_show_aux debug_ast index t]: Decorate term t
-    params:
-      debug_ast: boolean for printing the ast into console or not
-      index: it can happen that a target resolves to multiple paths, for that we need the index. 
-      t: term to be decorated 
-*)
-let target_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
-    if debug_ast then
-      Ast_to_text.print_ast ~only_desc:true stdout t;
-    trm_decoration (Tools.left_decoration index) (Tools.right_decoration index) t
-
-(* [target_show debug_ast index t p] *)
-let target_show (debug_ast : bool) (index : int): Target.Transfo.local =
-  Target.apply_on_path (target_show_aux debug_ast index)
-
-
-(* [target_between_show_aux debug_ast index t]: Decorate term t
-    params:
-      debug_ast: boolean for printing the ast into console or not
-      index: it can happen that a target resolves to multiple paths, for that we need the index. 
-      t: term to be decorated 
-*)
-let target_between_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
-    if debug_ast then 
-      Ast_to_text.print_ast ~only_desc:true stdout t;   
-    match t.desc with 
-    | Trm_seq tl ->
-      let lfront, lback = Tools.split_list_at index tl in
-      let new_trm = trm_decoration (Tools.left_decoration index ) (Tools.right_decoration index)  (trm_var ";") in
-      trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
-    | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
-
-
-
-(* [target_between_show debug_ast index t p] *)
-let target_between_show (debug_ast : bool) (index : int) : Target.Transfo.local  =
-  Target.apply_on_path (target_between_show_aux debug_ast index) 
 
 let ast_show_aux (file : string) (to_stdout:bool) (index : int) (t : trm) : trm =
   let out_ast = open_out file in
