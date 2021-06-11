@@ -103,7 +103,7 @@ and constr =
   (* lit *)
   | Constr_lit of lit
   (* app: function, arguments *)
-  | Constr_app of target * target_list_pred
+  | Constr_app of target * target_list_pred * bool
   (* label *)
   | Constr_label of constr_name * target
   (* goto *)
@@ -282,10 +282,10 @@ let rec constr_to_string (c : constr) : string =
        | Lit_string s -> s
        end
      in "Lit " ^ s
-  | Constr_app (p_fun,tgt_list_pred) ->
+  | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
     let spred = tgt_list_pred.target_list_pred_to_string() in
     let s_fun = target_to_string p_fun in
-    "App (" ^ s_fun ^ ", " ^ spred ^ ")"
+    "App (" ^ s_fun ^ ", " ^ spred ^ string_of_bool(accept_encoded) ^ ")"
   | Constr_label (so, p_body) ->
      let s_label =
        match so with | None -> "_" | Some r -> regexp_to_string r
@@ -591,11 +591,20 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
         is_equal_lit l l'
-     | Constr_app ((*accepted_encoded*) p_fun, cl_args), Trm_apps (f, args) ->
+     | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->
         (*(accepted_encoded || not (is_encoded_fun f)) && ... *)
         (*  where [is_encoded_fun f] returns true when [f] is [unop_get] or [unop_new] or similar *)
-        check_target p_fun f &&
-        check_list cl_args args
+        if not accept_encoded then
+          begin match f.desc with 
+          | Trm_val(Val_prim (Prim_new _)) 
+          | Trm_val(Val_prim (Prim_unop Unop_get))-> false
+          (* TODO: Avoid all internal functions *)
+          
+          |  _ -> true
+          end 
+        else
+          check_target p_fun f &&
+          check_list cl_args args
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
         check_name so l &&
         check_target p_body body
@@ -1016,7 +1025,7 @@ and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
 
 (* Extracts the last direction from a nonempty path *)
 let extract_last_path_item (p : path) : dir * path =
-  match List.rev p with
+  match List.rev p with 
   | [] -> raise Not_found
   | d :: p' -> (d, List.rev p')
 

@@ -1,21 +1,15 @@
-typedef struct { int x; int y; } vect;
-
 int f(int n) {
-  for (int i = 0; i < 10; i++) {
-    for (int j = 0; j < 12; j++) {
-       i++;
-       j++;
-       int k = j;
-    }
-  }
-  return 3;
+  return n;
 }
 
+
 int main() {
-  for (int i = 0; i < 3; i++) {
-    vect r = { f(2), f(3) };
+  {
+    int r1 = 1;
+    int r2 = 2;
+    int r3 = r2;
   }
-  for (int j = 0; j < 3; j++) {
-    j++;
-  }
+  // calls
+  int y = f(2);
+
 }

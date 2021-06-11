@@ -8,6 +8,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Multi *)
   show [ cMulti; cFor "i" ];
+  show [ cMulti; cCall "f" ]; (* This fails because there are two calls on f *)
   show [ cMulti; cFunDef "main"; cFor "i" ];
 
   (* Nb *)

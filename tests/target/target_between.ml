@@ -23,7 +23,6 @@ let _ = Run.script_cpp (fun () ->
   show [ cFirst; cThen ];
   show [ cFirst; cElse ];
 
-  (* Last *) (* TODO: fix *)
   show [ cLast; cFor "i"; cStrict; cBody];
   show [ cLast; cThen ];
   show [ cLast; cElse ];

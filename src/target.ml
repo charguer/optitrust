@@ -295,13 +295,13 @@ let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pr
   | [] -> args_pred
   | _ -> (target_list_simpl args)
   in
-  Constr_app (p_fun,args)
+  Constr_app (p_fun,args,false)
 
 let cDef (name : string) : constr =
   Constr_chain [cStrict;cFunDef name]
 
 (* TODO: think about this *)
-let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr =
+let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
   let p_fun =
     match name, fun_ with
@@ -314,7 +314,7 @@ let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_p
     | [] -> args_pred
     | _ -> (target_list_simpl args)
     in
-  Constr_app (p_fun,args)
+  Constr_app (p_fun, args, accept_encoded)
 
 let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in

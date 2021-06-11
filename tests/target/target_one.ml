@@ -34,8 +34,6 @@ let _ = Run.script_cpp (fun () ->
   show [ cLabel "lbl2" ];
 
   (* Calls *)
-  (* TODO: should move to target_multi *)
-  show [ cMulti; cCall "f" ]; (* This fails because there are two calls on f *)
   show [ cMulti; cCall ~args:[cInt 2] "" ]; (* This fails because it consider also new_int as a function application *)
     (* TODO: have an optional argument for cCall that by defaults rules out the functions introduced by the encoding *)
 
