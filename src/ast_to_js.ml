@@ -16,9 +16,7 @@ module Json = struct
 
   let str x = Str x
 
-  let quote x = (* TODO: use it everywhere *)
-    "\"" ^ x ^ "\""
-
+  
   (* Printing functions *)
   let typ_to_json(typ : typ) : t =
     Str (document_to_string (bquotes (typ_to_doc typ)) )
@@ -52,6 +50,7 @@ module Json = struct
   in PPrintEngine.ToChannel.pretty 0.9 80 out doc
 
 end
+let quote x = "\"" ^ x ^ "\""
 
 type json = Json.t
 
@@ -66,71 +65,71 @@ let loc_to_json (t : trm) : json =
   | None -> Json.Str("\"\"")
   | Some (_, start_row, end_row, start_column, end_column) ->
       Json.Object [
-        ("\"start\"", Json.Object
-          [ ("\"line\"", Json.Int start_row);
-            ("\"col\"", Json.Int start_column)] );
-        ("\"end\"", Json.Object[
-           ("\"line\"", Json.Int end_row);
-           ("\"col\"", Json.Int end_column)] )]
+        (quote "start", Json.Object
+          [ (quote "line" , Json.Int start_row);
+            (quote "col", Json.Int start_column)] );
+        (quote "end", Json.Object[
+           (quote "line", Json.Int end_row);
+           (quote "col", Json.Int end_column)] )]
   end
 
 let typed_var_list_to_json (tv : typed_var list) : json =
   Json.Object ( List.map (fun (v,typ) -> (v, Json.typ_to_json typ)) tv)
 
 let child_to_json (label : string) (child_id : nodeid) : json =
-  Json.Object [ ("\"label\"", Json.Str ("\"" ^ label ^"\"")); ("\"id\"", Json.Str child_id ) ]
+  Json.Object [ (quote "label"), Json.Str ( quote label); (quote "id", Json.Str child_id ) ]
 
 let ichild_to_json ?(prefix:string="") (i : int) (child_id : nodeid) : json =
   child_to_json (prefix ^ string_of_int i) (child_id)
 
 let children_to_field (children: json list) : (string * json) =
-  ("\"children\"", Json.List children)
+  (quote "children", Json.List children)
 
 let kind_to_field (kind : string) : string * json =
-  ("\"kind\"", Json.Str  kind )
+  (quote "kind", Json.Str  kind )
 
 let value_to_field (value : string) : string *json =
-  ("\"value\"", Json.Str (value) )
+  (quote "value", Json.Str (value) )
 
 (* Here, [aux] is to be applied for processing children *)
 
 let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     match t.desc with
     | Trm_val v ->
-        [ kind_to_field "\"val\"";
+        [ kind_to_field (quote "val");
           value_to_field (document_to_string (PPrint.bquotes(val_to_doc v)));
           children_to_field [] ]
     | Trm_var x ->
-        [ kind_to_field "\"var\"";
-          value_to_field ("\"" ^ x ^ "\"");
+        [ kind_to_field (quote "var");
+          value_to_field (quote x);
           children_to_field [] ]
     | Trm_struct l ->
-        [ kind_to_field "\"struct\"";
+        [ kind_to_field (quote "struct");
           children_to_field (List.mapi ichild_to_json (List.map aux l)) ]
     | Trm_array l ->
-        [ kind_to_field "\"array\"";
+        [ kind_to_field (quote "array");
           children_to_field (List.mapi ichild_to_json (List.map aux l)) ]
     (* TODO: Ask Arthur if Var_kind is needed *)
     | Trm_let (_,(x,typ),init) ->
-        [ kind_to_field "\"var-def\"";
-          ("\"name\"", Json.Str ("\"" ^ x ^ "\""));
-          ("\"def-type\"", Json.typ_to_json typ);
+        [ kind_to_field (quote "var-def");
+          (quote "name", Json.Str (quote x));
+          (quote "def-type", Json.typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_let_fun (f, typ, xts, tbody) ->
-      [ kind_to_field "\"fun-def\"";
-            ("\"name\"", Json.Str ("\"" ^ f ^"\""));
-            ("\"args\"", typed_var_list_to_json xts);
-            ("\"return_type\"", Json.typ_to_json typ);
+      [ kind_to_field (quote "fun-def");
+            (quote "name", Json.Str (quote f));
+            (quote "args", typed_var_list_to_json xts);
+            (quote "return_type", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
     | Trm_typedef t ->
       begin match t with
       | Typedef_abbrev(tv, typ) ->
-        [ kind_to_field "\"typ-def-abbrev\"";
-            ("\"name\"", Json.Str ("\"" ^ tv ^"\""));
-            ("\"contents\"", Json.typ_to_json typ);
+        [ kind_to_field (quote "typ-def-abbrev");
+            (quote "name", Json.Str (quote tv));
+            (quote "contents", Json.typ_to_json typ);
             children_to_field [] ]
       | Typedef_enum (tv,_) ->  (*TODO: support enum better--figure out what are the trmoptions * *)
-        [ kind_to_field "\"enum-def\"";
+        [ kind_to_field (quote "enum-def");
             value_to_field tv;
             children_to_field [] ]
       end
@@ -141,29 +140,29 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
             child_to_json "then" (aux then_);
             child_to_json "else" (aux else_) ] ]
     | Trm_seq l ->
-        [ kind_to_field "\"seq\"";
+        [ kind_to_field (quote "seq");
           children_to_field (List.mapi ichild_to_json (List.map aux l))]
     | Trm_apps (f,args) ->
         let args_children = List.mapi (ichild_to_json ~prefix:"_arg" ) (List.map aux args) in
         let children = (child_to_json "fun" (aux f)) :: args_children in
-        [ kind_to_field "\"app\"";
+        [ kind_to_field (quote "app");
           children_to_field children]
     | Trm_for (init, cond, step, body) ->
-        [ kind_to_field "\"for\"";
+        [ kind_to_field (quote "for");
           children_to_field [
             child_to_json "init" (aux init);
             child_to_json "cond" (aux cond);
             child_to_json "step" (aux step);
             child_to_json "body" (aux body) ] ]
     | Trm_while (cond, body) ->
-        [ kind_to_field "\"while\"";
+        [ kind_to_field (quote "while");
           children_to_field [
             child_to_json "cond" (aux cond);
             child_to_json "then" (aux body)] ]
     | Trm_switch (cond,_cases) ->
-        [ kind_to_field "\"switch\"";
+        [ kind_to_field (quote "switch");
           (* I will cover cases later on *)
-          children_to_field [child_to_json "\"cond\"" (aux cond)] ]
+          children_to_field [child_to_json (quote "cond") (aux cond)] ]
           (* TODO: support only for now the form:  (not supporting ([p00;p01],t1))
                 Trm_switch (cond, [([p0], t0); ([p1], t1); ([], t2)]) =
              "pat_0", aux p0
@@ -186,62 +185,62 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
         | Ret res->
            let children = match res with
              | None -> []
-             | Some ret -> [Json.Object [("\"value\"",Str (aux ret))]]
+             | Some ret -> [Json.Object [(quote "value",Str (aux ret))]]
              in
-           [ kind_to_field "\"return\"";
+           [ kind_to_field (quote "return");
             children_to_field children ]
         | Break ->
-            [ kind_to_field "\"break\"";
+            [ kind_to_field (quote "break");
               children_to_field [] ]
         | Continue ->
-            [ kind_to_field "\"continue\"";
+            [ kind_to_field (quote "continue");
               children_to_field [] ]
         end
     | Trm_labelled (label,t) ->
-        [ kind_to_field "\"labelled\"";
+        [ kind_to_field (quote "labelled");
           value_to_field label;
-          children_to_field [child_to_json "\"labelled\"" (aux t)]]
+          children_to_field [child_to_json (quote "labelled") (aux t)]]
     | Trm_goto label ->
-        [ kind_to_field "\"goto\"";
-          ("\"target\"", Json.Str label);
+        [ kind_to_field (quote "goto");
+          (quote "target", Json.Str label);
           children_to_field []]
     | Trm_decoration (_,t,_) ->
-        [ kind_to_field "\"decoration\"";
-          children_to_field [child_to_json "\"decoration\"" (aux t)]]
+        [ kind_to_field (quote "decoration");
+          children_to_field [child_to_json (quote "decoration") (aux t)]]
     | Trm_any t ->
-        [ kind_to_field "\"any\"";
-          children_to_field [child_to_json "\"any\"" (aux t)]]
+        [ kind_to_field (quote "any");
+          children_to_field [child_to_json (quote "any") (aux t)]]
 
 
 let annot_to_string (t : trm) : string =
   begin match t.annot with
-  | None -> "\"_\""
+  | None -> quote "_"
   | Some a ->
      begin match a with
      (* | Delete_instructions -> "\"Delete_instructions\"" *)
-     | Grouped_binding -> "\"Grouped_binding\""
-     | No_braces -> "\"No_braces\""
-     | Access -> "\"Access\""
-     | Multi_decl -> "\"Multi_decl\""
-     | Empty_cond -> "\"Empty_cond\""
-     | App_and_set -> "\"App_and_set\""
-     | Include h -> "\"Include\"" ^ " " ^ h
-     | Main_file -> "\"Main_file\""
-     | Mutable_var_get -> "\"Mutable_var_get\""
+     | Grouped_binding -> quote "Grouped_binding"
+     | No_braces -> quote "No_braces"
+     | Access -> quote "Access"
+     | Multi_decl -> quote "Multi_decl"
+     | Empty_cond -> quote "Empty_cond"
+     | App_and_set -> quote "App_and_set"
+     | Include h -> quote "Include" ^ " " ^ h
+     | Main_file -> quote "Main_file"
+     | Mutable_var_get -> quote "Mutable_var_get"
      end
   end
 
 let add_to_string (add : print_addition) =
       match add with
-      | Add_address_of_operator -> "\"Add_address_of_operator\""
-      | Add_star_operator -> "\"Add_star_operator\""
+      | Add_address_of_operator -> quote "Add_address_of_operator"
+      | Add_star_operator -> quote "Add_star_operator"
 
 let ast_to_json (trm_root : trm) : json =
   (* node id generator *)
   let nextid = ref (-1) in
   let get_nextid () =
     incr nextid;
-    "\"node_" ^ (string_of_int !nextid) ^ "\"" in
+    quote "node_" ^ (string_of_int !nextid)  in
 
   (* output of the fuction *)
   let result : ((string * json) list) ref = ref [] in
@@ -252,22 +251,22 @@ let ast_to_json (trm_root : trm) : json =
     let id = get_nextid() in
     let specific_fields = node_to_js (aux id) t in
     let json = Json.Object (specific_fields @ [
-      ("\"parent\"", Json.Str id_parent);
-      ("\"typ\"",  (( match t.typ with
-                          | None -> Json.Str "\"<no type information>\""
+      (quote "parent", Json.Str id_parent);
+      (quote "typ",  (( match t.typ with
+                          | None -> Json.Str (quote "<no type information>")
                           | Some typ -> Json.typ_to_json typ )));
-      ("\"add\"", Json.List (List.map Json.str (List.map add_to_string t.add)));
-      ("\"is_statement\"", Json.Boolean t.is_statement);
-      ("\"annot\"", Json.Str (annot_to_string t) );
-      ("\"loc\"", loc_to_json t);
-      ("\"attributes\"", Json.List (List.map Json.str (List.map document_to_string
+      (quote "add", Json.List (List.map Json.str (List.map add_to_string t.add)));
+      (quote "is_statement", Json.Boolean t.is_statement);
+      (quote "annot", Json.Str (annot_to_string t) );
+      (quote "loc", loc_to_json t);
+      (quote "attributes", Json.List (List.map Json.str (List.map document_to_string
                                  (List.map print_attribute t.attributes))))
       ]) in
     result := (id, json) :: !result;
     id in
-  let parent_of_root = "\"no_parent\"" in
+  let parent_of_root = quote "no_parent" in
   let id_of_root = aux parent_of_root trm_root in
-  assert (id_of_root = "\"node_0\"");
+  assert (id_of_root = quote "node_0");
   Json.Object (!result)
 
 
