@@ -153,23 +153,29 @@ let init (filename : string) : unit =
    in parallel on each of the traces, where one trace corresponds to one
    possible path in the script (via the branches).
    The optional argument [only_branch] can be use to temporary disable
-   all branches but one. *)
+   all branches but one. This is currently needed for the interactive mode
+   to work. Branches are numbered from 1 (not from zero). *)
 (* LATER for mli: switch : ?only_branch:int -> (unit -> unit) list -> unit *)
-let switch ?(only_branch : int = -1) (cases : (unit -> unit) list) : unit =
+let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
   (* Close logs: new logs will be opened in every branch. *)
   close_logs ();
   let list_of_traces =
     Tools.foldi
       (fun i tr f ->
-        if only_branch = -1 || i = only_branch then
+        let branch_id = i + 1 in
+        if only_branch = 0 || branch_id = only_branch then
           begin
             let old_traces = !traces in
             let new_traces =
               List.fold_right
                 (fun trace acc_traces ->
                   let context = trace.context in
-                  (* create an extended prefix for this branch *)
-                  let prefix = context.prefix ^ "_" ^ (string_of_int i) in
+                  (* create an extended prefix for this branch, unless there is a single branch *)
+                  let prefix =
+                    if List.length cases <= 1 || only_branch <> 0
+                      then context.prefix
+                      else context.prefix ^ "_" ^ (string_of_int branch_id)
+                    in
                   (* create and register new log channel *)
                   let clog = open_out (context.directory ^ prefix ^ ".log") in
                   logs := clog :: !logs;

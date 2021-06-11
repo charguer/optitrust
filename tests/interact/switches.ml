@@ -1,5 +1,8 @@
-(* Usage: see interact.ml;
-   make switches.out ; ls *_out.cpp *)
+(* make optitrust; make switches.out; ls *_out.cpp
+   each file corresponds to only branch.
+   currently no support for F6, unless
+   setting nonzero values for the [only_branch] argument of every [switch],
+   in order to indicate which branch one is interested in vizualizing. *)
 
 open Optitrust
 open Target
@@ -7,7 +10,7 @@ open Target
 let _ = Run.script_cpp (fun () ->
 
   !! Label.add "r0" [cVarDef "a"];
-  Trace.switch [
+  Trace.switch ~only_branch:0 [
     (fun () ->
         !! Label.add "m1" [cVarDef "b"]);
     (fun () ->
@@ -19,7 +22,7 @@ let _ = Run.script_cpp (fun () ->
 
    show [cVarDef "a"];
    !! Label.add "r1" [cVarDef "c"];
-  Trace.switch [
+  Trace.switch ~only_branch:0 [
     (fun () ->
         !! Label.add "k1" [cVarDef "d"]);
     (fun () ->
