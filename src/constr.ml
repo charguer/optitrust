@@ -1020,6 +1020,11 @@ let extract_last_path_item (p : path) : dir * path =
   | [] -> raise Not_found
   | d :: p' -> (d, List.rev p')
 
+let get_sequence_length (t : trm) : int = 
+  begin match t.desc with 
+  | Trm_seq tl -> List.length tl 
+  | _ -> fail t.loc "get_sequence_lenth: expected a sequence"
+  end
 (* Get the number of instructions a sequence contains *)
 let get_arity_of_seq_at (p : path) (t : trm) : int =
   let (d,p') =
@@ -1029,10 +1034,10 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
   match d with
   | Dir_nth _ ->
       let (seq_trm,_context) = Path.resolve_path p' t in
-      begin match seq_trm.desc with
-      | Trm_seq tl -> List.length tl
-      | _ -> fail None "get_arity_of_seq_at: expected a sequence"
-      end
+      get_sequence_length seq_trm
+  | Dir_then | Dir_else | Dir_body  -> 
+      let (seq_trm, _) = resolve_path p t in
+      get_sequence_length seq_trm
   | _ -> fail None "get_arity_of_seq_at: expected a Dir_nth as last direction"
 
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
