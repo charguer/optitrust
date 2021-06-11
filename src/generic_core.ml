@@ -526,16 +526,6 @@ let term (s : string) : trm =
   get_term t
 
 
-(* Change the flag -reapeat-io (default is true)  *)
-let set_repeat_io (b:bool) : unit =
-  Flags.repeat_io := b
-
-let without_repeat_io (f:unit->unit) : unit =
-  let b = !Flags.repeat_io in
-  Flags.repeat_io := false;
-  f();
-  Flags.repeat_io := b
-
 (* DEPRECATED? *)
 let rec delete_target_decorators (t : trm) : trm =
   match t.desc with

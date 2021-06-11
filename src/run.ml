@@ -58,7 +58,13 @@ let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
   )
 
 
-(* DEPRECATED but keep for future use
+(******************************************************************************)
+(*                              DEPRECATED                                    *)
+(******************************************************************************)
+
+
+
+(* DEPRECATED but keep for future use?
   let fwrapper : unit -> unit =
     (fun () ->
       try f (); close_logs () with
@@ -85,10 +91,6 @@ let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
     fwrapper()
 *)
 
-
-(******************************************************************************)
-(*                              DEPRECATED                                    *)
-(******************************************************************************)
 
 (*
   split the sequence(s) around the instruction(s) pointed by tr
