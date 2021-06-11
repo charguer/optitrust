@@ -74,12 +74,14 @@ fi
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
 # Activate the backtrace
 OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS}
+
+# DEBUG: echo "cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
 # DEPREACTED | tee stdoutput.txt
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error executing the script:"
-  echo "  cd ${DIRNAME}; ./${PROG} ${OPTIONS}"
+  echo "  cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
   exit 1
 fi
 

@@ -447,6 +447,7 @@ let rec target_to_decl (x : var) (t : trm) : path option =
 module Transfo = struct
   type t = target -> unit
   type local = trm -> path -> trm
+  type local_between = int -> local
 end
 
 
@@ -475,6 +476,10 @@ let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_target (fun _i t dl -> tr t dl) tg
 
+(* TODO: begatim: it is not coherent between apply_on_target and
+  apply_on_target_between, because in one [tr] takes the path before
+  the path, but in the other it's the other way around.
+  which one is the most convenient? it should be the same order *)
 
 
 (* [apply_on_target_between ~replace_top tr tg]: Similar to apply_on_target, but the function considers the index too
@@ -484,10 +489,14 @@ let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
       return:
         unit
 *)
-let apply_on_target_between (tr : (path*int) -> trm-> trm) (tg : target) : unit =
+let applyi_on_target_between (tr : int -> (path*int) -> trm-> trm) (tg : target) : unit =
   Trace.apply (fun _ t ->
     let ps = resolve_target_between tg t in
-    List.fold_left (fun t (pi:path*int) -> tr pi t) t ps)
+    Tools.foldi (fun i t (pk:path*int) -> tr i pk t) t ps)
+
+let apply_on_target_between (tr : (path*int) -> trm-> trm) (tg : target) : unit =
+  applyi_on_target_between (fun _i pk t -> tr pk t) tg
+
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
    Same as [apply_to_transformed_targets] except that there is some processing performed on each of the explicit path.
    This processing is done by the [transformer] function, which takes an explicit path, and returns some information
@@ -503,54 +512,53 @@ let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> t
   Trace.apply (fun _ t ->
     let ps = resolve_target tg t in
     let descrs = List.map transformer ps in
-    List.fold_left (fun t descr -> tr descr t) t descrs
-    )
+    List.fold_left (fun t descr -> tr descr t) t descrs)
 
 
 (******************************************************************************)
 (*                                   Show                                     *)
 (******************************************************************************)
 
-(* [target_show_aux index t]: adds an annotation [trm_decoration]
-   carrying the information [index] around the term t.
+(* [target_show_aux id t]: adds an annotation [trm_decoration]
+   carrying the information [id] around the term t.
    If the flag [debug_ast] is set, the ast is printed on [stdout].
    --LATER: remove debug-ast in the future? *)
-let target_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
+let target_show_aux (debug_ast : bool) (id : int) (t : trm) : trm =
     if debug_ast then
       Ast_to_text.print_ast ~only_desc:true stdout t;
-    trm_decoration (Tools.left_decoration index) (Tools.right_decoration index) t
+    trm_decoration (Tools.left_decoration id) (Tools.right_decoration id) t
 
-(* [target_show_transfo index t p]: adds an annotation [trm_decoration]
-   carrying the information [index] around the term at path [p] in the term [t]. *)
-let target_show_transfo (debug_ast : bool) (index : int): Transfo.local =
-  apply_on_path (target_show_aux debug_ast index)
+(* [target_show_transfo id t p]: adds an annotation [trm_decoration]
+   carrying the information [id] around the term at path [p] in the term [t]. *)
+let target_show_transfo (debug_ast : bool) (id : int): Transfo.local =
+  apply_on_path (target_show_aux debug_ast id)
 
-(* [target_between_show_aux index t]: adds a decorated semi-column
-   at position [index] in the sequence described by the term [t]. *)
-let target_between_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
+(* [target_between_show_aux id k t]: adds a decorated semi-column with identifier [id]
+   at position [k] in the sequence described by the term [t]. *)
+let target_between_show_aux (debug_ast : bool) (id : int) (k : int) (t : trm) : trm =
     if debug_ast then
       Ast_to_text.print_ast ~only_desc:true stdout t;
     match t.desc with
     | Trm_seq tl ->
-      let lfront, lback = Tools.split_list_at index tl in
-      let new_trm = trm_decoration (Tools.left_decoration index) (Tools.right_decoration index) (trm_var ";") in
+      let lfront, lback = Tools.split_list_at k tl in
+      let new_trm = trm_decoration (Tools.left_decoration id) (Tools.right_decoration id) (trm_var ";") in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 
-(* [target_between_show_transfo index t p]: adds a decorated semi-column
-   at position [index] in the sequence at path [p] in the term [t]. *)
-let target_between_show_transfo (debug_ast : bool) (index : int) : Transfo.local =
-  apply_on_path (target_between_show_aux debug_ast index)
+(* [target_between_show_transfo id k t p]: adds a decorated semi-column with identifier [id]
+   at position [k] in the sequence at path [p] in the term [t]. *)
+let target_between_show_transfo (debug_ast : bool) (id : int) : Transfo.local_between =
+  fun (k:int) -> apply_on_path (target_between_show_aux debug_ast id k)
 
 (* [show ~line:int tg] is a transformation for visualizing targets.
    The operation only executes if the command line argument [-exit-line]
    matches the [line] argument provided to the function. Otherwise, it is a noop. *)
 let show ?(line : int = -1) ?(debug_ast : bool = false) (tg : target) : unit =
-  let transfo =
-    if Constr.is_target_between tg
-      then target_between_show_transfo
-      else target_show_transfo
-    in
   only_interactive_step line (fun () ->
-    applyi_on_target (fun i t p ->
-      transfo debug_ast i t p) tg)
+    if Constr.is_target_between tg then begin
+      applyi_on_target_between (fun i (p,k) t ->
+        target_between_show_transfo debug_ast i k t p) tg
+    end else begin
+      applyi_on_target (fun i t p ->
+        target_show_transfo debug_ast i t p) tg
+    end)
