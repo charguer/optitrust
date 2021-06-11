@@ -525,13 +525,6 @@ let term (s : string) : trm =
   in
   get_term t
 
-
-(* DEPRECATED? *)
-let rec delete_target_decorators (t : trm) : trm =
-  match t.desc with
-  | Trm_decoration (_,t',_) -> t'
-  | _ -> trm_map (delete_target_decorators ) t
-
 (* ********************************************** *)
 
 

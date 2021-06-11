@@ -48,10 +48,6 @@ let eliminate_goto_next (_ : unit) : unit =
 let group_decl_init (_ : unit) : unit =
   Trace.apply (fun _ -> Generic_core.group_decl_init)
 
-(* DEPRECATED? *)
-let clean_target_decorators () : unit =
-    Trace.apply (fun _ -> Generic_core.delete_target_decorators)
-
 (* TODO: Remove this function after dealing with all the transformations which use this function *)
 (*
   insert t_inserted either before the position pointed at by insert_before or

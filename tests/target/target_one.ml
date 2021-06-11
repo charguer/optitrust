@@ -5,7 +5,7 @@ let _ = Run.script_cpp (fun () ->
   (** There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
   (* let show = Tr.target_show in *)
-  let show = Generic.target_show in
+  (* let show = Generic.target_show in *)
 
   (* Constants *)
   show [ cInt 8 ];
@@ -52,7 +52,7 @@ let _ = Run.script_cpp (fun () ->
   show [cNb 0; cInstr ~substr:false "+= 2"];
   show [cInstr (* default value: ~substr:true *) "r += 2"];
 
-  show [cMulti; cInstrRegexp ~substr:true "int . = ."]; (* TODO: should match is ; part of it or not? *)
+  show [cMulti; cExprRegexp ~substr:false "int . = .."]; (* TODO: should match is ; part of it or not? *)
   show [cMulti; cInstrRegexp ~substr:true ". = ."];
   show [cMulti; cInstrRegexp ~substr:false ". = ."]; (* should not match something with several characters TODO:*)
 
@@ -62,7 +62,7 @@ let _ = Run.script_cpp (fun () ->
   show [cNb 1; cExpr "vect v2" ];
 
   show [cNb 1; cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
-  show [cInstr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
+  show [cNb 0; cInstr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
 
   show [cMulti; cInstr "i++" ]; (* TODO: i++ in loop should be either an instruction or an expression, not both? *)
   (* Works, in general but fails here because there are more then one occurrences of i++ *)

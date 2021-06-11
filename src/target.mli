@@ -50,6 +50,8 @@ val cAnyNb : constr
 
 val cNb : int -> constr
 
+val cRoot : constr 
+
 val cNth : int -> constr
 
 val cCond : constr
@@ -192,7 +194,7 @@ val target_to_decl : var -> trm -> path option
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 val applyi_on_target : (int -> trm -> path -> trm) -> target -> unit
 val apply_on_target : (trm -> path -> trm) -> target -> unit
-val apply_on_target_between : ((path*int) -> trm-> trm) -> target -> unit
+val apply_on_target_between : (trm -> (path*int) -> trm) -> target -> unit
 val apply_on_transformed_targets : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
 val show : ?line:int -> ?debug_ast:bool -> target -> unit

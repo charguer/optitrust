@@ -404,7 +404,7 @@ let target_flatten (tg : target) : target =
       in
     aux tg
 
-(* Convert a target into a target struct *)
+(* Convert a target into a target struct  *)
 let target_to_target_struct (tr : target) : target_struct =
   let tr = target_flatten tr in
   let relative = ref None in
@@ -438,6 +438,8 @@ let target_to_target_struct (tr : target) : target_struct =
 let is_target_between (tr : target) : bool =
    let tgs = target_to_target_struct tr in
    tgs.target_relative <> TargetAt
+
+
 
 
 (******************************************************************************)
@@ -475,10 +477,12 @@ let is_target_between (tr : target) : bool =
   should be locally applied to the patterns described above
  *)
 
-
 (* extend current explicit paths with a direction *)
 let add_dir (d : dir) (dll : paths) : paths =
   List.map (fun dl -> d :: dl) dll
+
+
+
 
 (* compare literals *)
 let is_equal_lit (l : lit) (l' : lit) =
@@ -835,6 +839,11 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
         explore_list tl (fun i -> Dir_nth i) (explore_in_depth p)
      | _ -> fail loc "explore_in_depth: bad multi_decl annotation"
      end
+  (* | Some Main_file ->
+    begin match t.desc with 
+     | Trm_seq tl -> add_dir (Dir_nth 0) ((explore_list tl (fun n -> Dir_nth n) (resolve_target_simple p)))
+     | _ -> fail t.loc "explore_in_depth: the main file starts with a suquence"
+    end *)
   | _ ->
      begin match t.desc with
      | Trm_let (_ ,(_, _), body) ->

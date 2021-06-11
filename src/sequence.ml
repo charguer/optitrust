@@ -7,7 +7,7 @@ open Tools
 
 (* [insert tg ts] *)
 let insert (tg : target) (ts : trm list) : unit =
-  Target.apply_on_target_between (fun (p,i) t ->
+  Target.apply_on_target_between (fun t (p,i) ->
     Sequence_core.insert i ts p t) tg
 
 (* [delete index nb tg] *)

@@ -156,7 +156,7 @@ let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_k
 
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
-  let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Any in
   let p_body =  body in
     Constr_decl_var (ro, p_body)
 
@@ -220,7 +220,7 @@ let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_p
 let cTopFun
   ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true)
   ?(body : target = []) (name : string) : constr =
-  cChain [ cRoot; cStrict; cFunDef ~args ~args_pred ~body name ]
+  cChain [ cRoot; cFunDef ~args ~args_pred ~body name ]
 
 let cTypDef
   ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
@@ -462,7 +462,7 @@ let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
     let ps = resolve_target tg t in
     Tools.foldi (fun i t dl -> tr i t dl) t ps)
 
-(* [apply_on_target ~replace tr tg]: Esentiallt the same as applyi_on_target, but without keeping track over the index of the target
+(* [apply_on_target ~replace tr tg]: Esentially the same as applyi_on_target, but without keeping track over the index of the target
       params:
         tg : target
         tr : transformation to be applied
@@ -485,12 +485,12 @@ let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
       return:
         unit
 *)
-let applyi_on_target_between (tr : int -> (path*int) -> trm-> trm) (tg : target) : unit =
+let applyi_on_target_between (tr : int -> trm -> (path*int)  -> trm) (tg : target) : unit =
   Trace.apply (fun _ t ->
     let ps = resolve_target_between tg t in
-    Tools.foldi (fun i t (pk:path*int) -> tr i pk t) t ps)
+    Tools.foldi (fun i t (pk:path*int) -> tr i t pk) t ps)
 
-let apply_on_target_between (tr : (path*int) -> trm-> trm) (tg : target) : unit =
+let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit =
   applyi_on_target_between (fun _i pk t -> tr pk t) tg
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
@@ -552,7 +552,7 @@ let target_between_show_transfo (debug_ast : bool) (id : int) : Transfo.local_be
 let show ?(line : int = -1) ?(debug_ast : bool = false) (tg : target) : unit =
   only_interactive_step line (fun () ->
     if Constr.is_target_between tg then begin
-      applyi_on_target_between (fun i (p,k) t ->
+      applyi_on_target_between (fun i  t (p,k) ->
         target_between_show_transfo debug_ast i k t p) tg
     end else begin
       applyi_on_target (fun i t p ->

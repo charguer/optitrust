@@ -40,7 +40,7 @@ let hoist (x_step : var) : Target.Transfo.t =
 
 (* [split tg] *)
 let split (tg : target) : unit = 
-  Target.apply_on_target_between (fun (p,i) t ->
+  Target.apply_on_target_between (fun t (p,i) ->
     Loop_core.split i p t) tg
 
 (* [fusion tg] *)
