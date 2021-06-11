@@ -596,11 +596,12 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         (*  where [is_encoded_fun f] returns true when [f] is [unop_get] or [unop_new] or similar *)
         if not accept_encoded then
           begin match f.desc with 
-          | Trm_val(Val_prim (Prim_new _)) 
-          | Trm_val(Val_prim (Prim_unop Unop_get))-> false
+          | Trm_val (Val_prim (Prim_new _)) 
+          | Trm_val (Val_prim (Prim_unop Unop_get)) -> false
           (* TODO: Avoid all internal functions *)
           
-          |  _ -> true
+          |  _ -> check_target p_fun f &&
+                  check_list cl_args args
           end 
         else
           check_target p_fun f &&

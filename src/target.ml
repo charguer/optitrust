@@ -140,23 +140,24 @@ let string_to_rexp_opt (regexp : bool) (substr : bool) (s : string) (trmKind : t
     *)
   res
 (* Matching by string *)
-let cInstrOrExpr (tk : trm_kind) (s : string) : constr =
-  Constr_regexp (string_to_rexp false true s tk)
+ let cInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =
+    Constr_regexp (string_to_rexp false substr s  tk)
 
-let cInstr (s : string) : constr =
-  cInstrOrExpr TrmKind_Instr s
+ let cInstr ?(substr : bool = true) (s : string) : constr =
+    cInstrOrExpr ~substr TrmKind_Instr s
 
-let cExpr (s : string) : constr =
-  cInstrOrExpr TrmKind_Expr s
+ let cExpr ?(substr : bool = true) (s : string)  : constr =
+    cInstrOrExpr ~substr TrmKind_Expr s
 
-let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
-  Constr_regexp (string_to_rexp true substr s tk)
+ let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
+    Constr_regexp (string_to_rexp true substr s tk)
 
-let cInstrRegexp ?(substr : bool = false) (s : string) : constr =
-  cInstrOrExprRegexp TrmKind_Instr substr s
+ let cInstrRegexp ?(substr : bool = false) (s : string) : constr =
+    cInstrOrExprRegexp TrmKind_Instr substr s
 
-let cExprRegexp ?(substr : bool = false) (s : string) : constr =
-  cInstrOrExprRegexp TrmKind_Expr substr s
+ let cExprRegexp ?(substr : bool = false) (s : string) : constr =
+    cInstrOrExprRegexp TrmKind_Expr substr s
+
 
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
