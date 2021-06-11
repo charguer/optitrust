@@ -248,22 +248,14 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
     in
   try
     (* print the raw ast *)
-    (* Output the current ast into json format *)
-    (* ast_to_js  *)
     Ast_to_text.print_ast (* ~only_desc:true *) out_ast ast;
     output_string out_ast "\n";
-    (* Print ast and source code in jacascript format *)
-    (* ast_to_js out_js (-1) ast;
-    code_to_js out_js (-1) ast; *)
-    (* print C++ code without decoding *)
     output_string out_enc ctx.includes;
     Ast_to_c.ast_to_undecoded_doc out_enc ast;
     output_string out_enc "\n";
     (* print C++ code with decoding *)
     output_string out_prog ctx.includes;
     Ast_to_c.ast_to_doc out_prog ast;
-    (* output_string out_prog "\n"; *)
-    (* ast_json_to_doc out_json ast; *)
     close_channels();
     (* beautify the C++ code *)
     cleanup_cpp_file_using_clang_format file_enc;
@@ -291,76 +283,36 @@ let output_js (index : int) (prefix : string) (ast : trm) : unit =
    the contents of the current AST and of all the history,
    that is, of all the ASTs for which the [step] method was called. *)
 let dump_trace_to_js ?(prefix : string = "") () : unit =
-  (* Initialize var content and source as empty arrays *)
-  (* let () = initialization prefix in *)
-  let dump_history (prefix : string)
+  let dump_history (ctx : context) (prefix : string)
     (asts : trm list) : unit =
     let nbAst = List.length asts in
     let i = ref (nbAst - 2) in
-    (* TODO: BEGATIM: the code does not seem to match the comment *)
-    (* exceptions:
-     - i = 0 -> program before tranformation -> prefix_input
-     - i = nbAst -2 -> result program -> prefix_input
-     - i = -1 -> empty program -> no output
-    *)
     List.iter
       (fun ast ->
-        if !i = -1 then ()
-        else
-          output_js !i prefix ast;
-        decr i;
-      )
-      asts
-    in
-    List.iter
-      (fun trace ->
-        let ctx = trace.context in
-        let prefix =
-          if prefix = "" then ctx.directory ^ ctx.prefix else prefix
-        in
-        dump_history prefix (trace.cur_ast :: trace.history)
-      )
-      (!traces)
-
-(* ----------------DEPRECATED------------------- *)
-(*
-  outputs code at each step using given prefix for filename
-  prefix_in.cpp is the program before transformation
-  prefix_out.cpp is the program after transformation
-*)
-(* let dump_trace ?(prefix : string = "") () : unit =
-  let dump_history (ctx : context) (prefix : string)
-    (astStack : trm Stack.t) : unit =
-    let nbAst = Stack.length astStack in
-    let i = ref (nbAst - 2) in
-    (* exceptions:
-     - i = 0 -> program before transformation -> prefix_input
-     - i = nbAst -2 -> result program -> prefix_output
-     - i = -1 -> empty program -> no output *)
-    Stack.iter
-      (fun ast ->
-        if !i = 0 then
-          output_prog ctx (prefix ^ "_in") ast
-        else if !i = nbAst - 2 then
+        if !i = 0 then begin
+          output_prog ctx (prefix ^ "_in") ast;
+          output_js 0 prefix ast
+          end
+        else if !i = nbAst -2 then
           output_prog ctx (prefix ^ "_out") ast
-        else if !i = -1 then
-          ()
-        else
+       
+        else if !i = -1 then ()
+        else 
           output_prog ctx (prefix ^ "_" ^ string_of_int !i) ast;
+          output_js !i prefix ast;
         i := !i - 1
       )
-      astStack
+      asts
   in
   List.iter
-    (fun (ctx, astStack) ->
+    (fun trace ->
+      let ctx = trace.context in
       let prefix =
         if prefix = "" then ctx.directory ^ ctx.prefix else prefix
       in
-      dump_history ctx prefix astStack
+      dump_history ctx prefix (trace.cur_ast :: trace.history)
     )
-    (!traces) *)
-
-
+    (!traces)
 
 (******************************************************************************)
 (*                                   Reparse                                  *)

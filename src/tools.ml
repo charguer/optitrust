@@ -12,6 +12,9 @@ let parens (d : document) : document = soft_surround 2 1 lparen d rparen
 let print_list (dl : document list) : document =
   surround lbracket (separate (semi ^^ break 1) dl) rbracket
 
+let print_object (dl : document list) : document =
+  surround lbrace (separate (comma ^^ break 1) dl) rbrace
+
 let print_pair (d1 : document) (d2 : document) : document =
   parens (d1 ^^ comma ^/^ d2)
 

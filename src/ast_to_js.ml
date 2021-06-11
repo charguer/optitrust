@@ -1,7 +1,5 @@
 open Ast
 open Ast_to_text
-open Ast_to_c
-open Tools
 module Json = struct
   open PPrint
   (* Representation of a json object *)
@@ -19,11 +17,9 @@ module Json = struct
   
   (* Printing functions *)
   let typ_to_json(typ : typ) : t =
-    Str (document_to_string (bquotes (typ_to_doc typ)) )
+    Str (Tools.document_to_string (bquotes (Ast_to_c.typ_to_doc typ)) )
 
-  let print_list (dl : document list) : document =
-    surround 2 1 lbracket (separate (comma ^^ break 1) dl) rbracket
-
+  
   let print_object (dl : document list) : document =
     surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
 
@@ -32,8 +28,8 @@ module Json = struct
     | Str s -> string s
     | Int i -> string (string_of_int i)
     | Boolean b-> string (string_of_bool b)
-    | List l -> print_list (List.map json_to_doc l)
-    | Object o -> print_object (List.map (fun (s,j) -> string s ^^ string ": " ^^ json_to_doc j) o)
+    | List l -> Tools.print_list (List.map json_to_doc l)
+    | Object o -> Tools.print_object (List.map (fun (s,j) -> string s ^^ string ": " ^^ json_to_doc j) o)
 
 
   let json_to_js ?(index : int = (-1)) (j : t) : document =
@@ -43,7 +39,7 @@ module Json = struct
    | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi
 
   let code_to_js (out : out_channel) (index : int) (ast : trm) : unit =
-  let src = trm_to_doc ast in
+  let src = Ast_to_c.trm_to_doc ast in
   let doc = match index with
   | -1 -> string "source"  ^^ equals ^^ bquotes (src)
   | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (src)
@@ -62,7 +58,7 @@ let void =
 
 let loc_to_json (t : trm) : json =
   begin match t.loc with
-  | None -> Json.Str("\"\"")
+  | None -> Json.Str(quote " ")
   | Some (_, start_row, end_row, start_column, end_column) ->
       Json.Object [
         (quote "start", Json.Object
@@ -97,7 +93,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field (quote "val");
-          value_to_field (document_to_string (PPrint.bquotes(val_to_doc v)));
+          value_to_field (Tools.document_to_string (PPrint.bquotes(Ast_to_c.val_to_doc v)));
           children_to_field [] ]
     | Trm_var x ->
         [ kind_to_field (quote "var");
@@ -134,7 +130,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
             children_to_field [] ]
       end
     | Trm_if (cond, then_, else_) ->
-        [ kind_to_field "\"if\"";
+        [ kind_to_field (quote "if");
           children_to_field [
             child_to_json "cond" (aux cond);
             child_to_json "then" (aux then_);
@@ -240,7 +236,7 @@ let ast_to_json (trm_root : trm) : json =
   let nextid = ref (-1) in
   let get_nextid () =
     incr nextid;
-    quote "node_" ^ (string_of_int !nextid)  in
+    quote ("node_" ^ (string_of_int !nextid))  in
 
   (* output of the fuction *)
   let result : ((string * json) list) ref = ref [] in
@@ -259,7 +255,7 @@ let ast_to_json (trm_root : trm) : json =
       (quote "is_statement", Json.Boolean t.is_statement);
       (quote "annot", Json.Str (annot_to_string t) );
       (quote "loc", loc_to_json t);
-      (quote "attributes", Json.List (List.map Json.str (List.map document_to_string
+      (quote "attributes", Json.List (List.map Json.str (List.map Tools.document_to_string
                                  (List.map print_attribute t.attributes))))
       ]) in
     result := (id, json) :: !result;
