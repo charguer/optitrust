@@ -506,3 +506,51 @@ let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> t
     List.fold_left (fun t descr -> tr descr t) t descrs
     )
 
+
+(******************************************************************************)
+(*                                   Show                                     *)
+(******************************************************************************)
+
+(* [target_show_aux index t]: adds an annotation [trm_decoration]
+   carrying the information [index] around the term t.
+   If the flag [debug_ast] is set, the ast is printed on [stdout].
+   --LATER: remove debug-ast in the future? *)
+let target_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
+    if debug_ast then
+      Ast_to_text.print_ast ~only_desc:true stdout t;
+    trm_decoration (Tools.left_decoration index) (Tools.right_decoration index) t
+
+(* [target_show_transfo index t p]: adds an annotation [trm_decoration]
+   carrying the information [index] around the term at path [p] in the term [t]. *)
+let target_show_transfo (debug_ast : bool) (index : int): Transfo.local =
+  apply_on_path (target_show_aux debug_ast index)
+
+(* [target_between_show_aux index t]: adds a decorated semi-column
+   at position [index] in the sequence described by the term [t]. *)
+let target_between_show_aux (debug_ast : bool) (index : int) (t : trm) : trm =
+    if debug_ast then
+      Ast_to_text.print_ast ~only_desc:true stdout t;
+    match t.desc with
+    | Trm_seq tl ->
+      let lfront, lback = Tools.split_list_at index tl in
+      let new_trm = trm_decoration (Tools.left_decoration index) (Tools.right_decoration index) (trm_var ";") in
+      trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
+    | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
+
+(* [target_between_show_transfo index t p]: adds a decorated semi-column
+   at position [index] in the sequence at path [p] in the term [t]. *)
+let target_between_show_transfo (debug_ast : bool) (index : int) : Transfo.local =
+  apply_on_path (target_between_show_aux debug_ast index)
+
+(* [show ~line:int tg] is a transformation for visualizing targets.
+   The operation only executes if the command line argument [-exit-line]
+   matches the [line] argument provided to the function. Otherwise, it is a noop. *)
+let show ?(line : int = -1) ?(debug_ast : bool = false) (tg : target) : unit =
+  let transfo =
+    if Constr.is_target_between tg
+      then target_between_show_transfo
+      else target_show_transfo
+    in
+  only_interactive_step line (fun () ->
+    applyi_on_target (fun i t p ->
+      transfo debug_ast i t p) tg)

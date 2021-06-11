@@ -357,6 +357,7 @@ let reparse () : unit =
 (* Work-around for a name clash *)
 let reparse_alias = reparse
 
+
 (******************************************************************************)
 (*                                   Dump                                     *)
 (******************************************************************************)
@@ -433,8 +434,6 @@ let (!!!) (x:'a) : 'a =
   check_exit_and_step ~reparse:true ();
   x
 
-
-
 (* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.
    If there are several traces (e.g., due to a [switch]), it writes one file for each.
    If the prefix is not provided, the input file basename is used as prefix,
@@ -462,25 +461,23 @@ let dump ?(prefix : string = "") () : unit =
       (!traces)
   end
 
+(* [only_interactive_step line f] invokes [f] only if the argument [line]
+   matches the command line argument [-exit-line]. If so, it calls the
+   [step] function to save the current AST, then calls [f] (for example
+   to add decorators to the AST in the case of function [show]), then
+   calls [dump_diff_and_exit] to visualize the effect of [f]. *)
+
+let only_interactive_step (line : int) (f : unit -> unit) : unit =
+  if (Flags.get_exit_line() = Some line) then begin
+    step();
+    f();
+    dump_diff_and_exit()
+  end
+
+
+
 (* DEPRECATED---was used for unit tests
 let failure_expected f =
   begin try f(); failwith "should have failed"
   with TransfoError _ -> () end
 *)
-(* TODO: document *)
-(* only call f if this is the selected line, else do nothing *)
-let only_interactive_step (line : int) (f : unit -> unit) : unit =
-    let should_exit_before =
-    match Flags.get_exit_line() with
-    | Some li -> (line > li)
-    | _ -> false
-    in
-  if should_exit_before then
-     dump_diff_and_exit();
-  let is_exit_line = (Flags.get_exit_line() = Some line) in
-  (* DEBUG: if true then failwith (Printf.sprintf "%d %d\n" line !Flags.exit_line); *)
-  if is_exit_line then begin
-    step();
-    f();
-    dump_diff_and_exit()
-  end

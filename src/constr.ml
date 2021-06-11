@@ -406,7 +406,7 @@ let target_flatten (tg : target) : target =
       in
     aux tg
 
-(* Convert a target into a target struct  *)
+(* Convert a target into a target struct *)
 let target_to_target_struct (tr : target) : target_struct =
   let tr = target_flatten tr in
   let relative = ref None in
@@ -436,9 +436,10 @@ let target_to_target_struct (tr : target) : target_struct =
   (* printf "%s\n" (target_struct_to_string tgs); *)
   tgs
 
-(* extend current explicit paths with a direction *)
-let add_dir (d : dir) (dll : paths) : paths =
-  List.map (fun dl -> d :: dl) dll
+(* Computes whether a [target] is contains a [Constr_relative] that is not [TargetAt]. *)
+let is_target_between (tr : target) : bool =
+   let tgs = target_to_target_struct tr in
+   tgs.target_relative <> TargetAt
 
 
 (******************************************************************************)
@@ -476,6 +477,10 @@ let add_dir (d : dir) (dll : paths) : paths =
   should be locally applied to the patterns described above
  *)
 
+
+(* extend current explicit paths with a direction *)
+let add_dir (d : dir) (dll : paths) : paths =
+  List.map (fun dl -> d :: dl) dll
 
 (* compare literals *)
 let is_equal_lit (l : lit) (l' : lit) =

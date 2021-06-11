@@ -8,7 +8,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-  let show = Generic.target_show in
+
   !! Label.add "m0" [cVarDef "a"];
   (* The show command are ignored in batch mode,
      and the execute properly in interactive mode,
@@ -18,7 +18,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];
-
+  show [cVarDef "a"];
   (* Showing operation with reparse *)
   !!! Label.add "m2" [cVarDef "a"];
   (* Showing two operations at once *)
