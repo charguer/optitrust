@@ -11,11 +11,9 @@ let insert (tg : target) (ts : trm list) : unit =
     Sequence_core.insert i ts p t) tg
 
 (* [delete index nb tg] *)
-let delete (index : int) (nb : int) : Target.Transfo.t =
-  (* TODO: apply_on_transformed_target
-       ()
-  *)
-  Target.apply_on_target (Sequence_core.delete index nb)
+let delete (nb : int) (tg : target) : unit =
+  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
+  (fun (p, i) t -> Sequence_core.delete i nb t p) tg
 
 (* [sub i nb tg] *)
 let sub (i : int) (nb : int) : Target.Transfo.t =

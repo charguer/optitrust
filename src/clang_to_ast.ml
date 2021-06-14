@@ -52,14 +52,13 @@ let typedef_env : typedef Type_map.t ref = ref Type_map.empty
    Raise an error if it is not bound  *)
 let get_typedef (tv : typvar) : typedef option=
   let td = Type_map.find_opt tv !typedef_env in
-  (* DEBUG *)
-  (* let () = match td with 
-  | Some t -> printf "Found the corresponding typedef %s for typvar %s\n" (Ast_to_text.typedef_to_string t) tv
-  | None -> printf "Correspoding typedef not found for typvar %s\n" tv
-  in td *) td
+  td
+
 (* [typedef_env_add tv tdef] extends the environment for typedefs with a binding
    from type variable [tv] to the type definition [tdef]. *)
 let typedef_env_add (tv : typvar) (tdef : typedef) : unit =
+  (* printf "Adding key %s\n" tv; *)
+  flush stdout;
   typedef_env := Type_map.add tv tdef !typedef_env
 
 
@@ -93,19 +92,9 @@ let new_location (loc : location) : location = match loc with
   t represents the part of the program in the current scope
  *)
 let close_scope ?(_loc : location = None) (t : trm) : trm =
-  (* let loc_end = begin match loc with
-    | None -> None
-    | Some (f,line1,col1,line2,col2) -> Some (f,line1,(min 1 (col1-1)),line2,col2)
-    end in *)
-  (* let loc_end = new_location loc in *)
   match Stack.pop heap_vars with
   | (_, []) -> t
   | _ -> t
-  (* | _ -> trm_seq ~loc [t] *)
-  (* | (_, sl) ->
-    let tl = delete_list ~loc:loc_end sl in
-    trm_seq ~loc:loc_end ~annot:(Some Delete_instructions) (t :: tl)
-    trm_seq ~loc:loc_end  [t] *)
 
 (* manage a new scope while translating a statement *)
 let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm) : trm =
@@ -261,25 +250,25 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n -> 
-        printf "Typedef trying to get is %s\n" n;
-        typ_var n (get_typedef n)
+        let td = get_typedef n in
+        (* let () = match td with 
+        | Some d -> printf "Typedef trying to get is %s, got %s" n (Ast_to_text.typedef_to_string d);
+        | None -> printf "Typedef trying to get is %s, got NONE" n;
+        in *)
+        typ_var n td
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
     end
   | Elaborated {keyword = k; nested_name_specifier = _; named_type = q} ->
     begin match k with
       | Struct -> 
-        let tt = translate_qual_type ~loc q in
-        printf "Elaborated trying to get is %s\n" (Ast_to_text.typ_to_string tt);
-        tt
-
+        translate_qual_type ~loc q
       | _ ->
         fail loc "translate_type_desc: only struct allowed in elaborated type"
     end
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n -> 
-         printf "Record trying to get is %s\n" n;
          typ_var n (get_typedef n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
@@ -287,7 +276,6 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n -> 
-        printf "Record trying to get is %s\n" n;
         typ_var n (get_typedef n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
@@ -904,7 +892,6 @@ and translate_decl_list (dl : decl list) : trm list =
           | Typ_var (n, _) when n = rn ->
             let tl = translate_decl_list dl' in
             let td = Typedef_abbrev(tn,typ_struct fs m rn) in
-            printf ("Typ var is %s and typedef is %s\n") tn (Ast_to_text.typedef_to_string td);
             typedef_env_add tn td;
             trm_typedef td :: tl
           | _ ->
@@ -1016,7 +1003,6 @@ and translate_decl (d : decl) : trm =
         | Some _ ->
           trm_let ~loc Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
         end
-      (* trm_let ~loc ~is_statement:false Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim(Prim_new tt)) [te]); *)
       end
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in

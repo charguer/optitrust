@@ -104,7 +104,6 @@ let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   (t : trm) : trm =
   match t.desc with
-  (* declarations *)
   (* array accesses *)
   | Trm_apps (f, tl) ->
      begin match f.desc with

@@ -1,8 +1,6 @@
 open Optitrust
 open Target
 
-(* TODO: rename this file to sequence_inline.ml *)
-
 let _ =
   Run.script_cpp (fun _ ->
     (* TODO: Does not work correctly *)

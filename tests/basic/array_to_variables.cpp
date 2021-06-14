@@ -1,13 +1,15 @@
-
-typedef int T[2];
 typedef struct {
   int x;
   int y;
 } vect;
 
-typedef vect U[2];
+typedef int T[2];
+
 
 // Not supported yet
+
+typedef vect U[2];
+
 typedef struct {
   T t[2];
   int g;

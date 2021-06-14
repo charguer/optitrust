@@ -12,7 +12,6 @@ let tile ?(name : var -> var = fun x -> x ^ "_tiled") (block_name : typvar) (b :
   Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.tile name block_name b x i t p) tg
 
-
 (* [swap name x tg] *)
 let swap ?(name : var -> var = fun x -> x ^ "_swapped") (x : typvar) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)

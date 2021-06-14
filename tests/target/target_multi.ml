@@ -1,8 +1,8 @@
-open Optitrust open Target
+open Optitrust 
+open Target
 
 let _ = Run.script_cpp (fun () ->
-  let show = Generic.target_show in
-
+  
   (* One (ExpectedOne is the default) *)
   show [ cFor "j" ];
 

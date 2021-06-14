@@ -1,6 +1,16 @@
 typedef struct { int x; int y; } vect;
 
 int f(int n) {
+  int x = 3;
+  {
+    int y = 2;
+  }
+  {
+    int y = 1;
+    int z = 5;
+  }
+  
+  
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 12; j++) {
        i++;

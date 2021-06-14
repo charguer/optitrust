@@ -10,10 +10,17 @@ T t;
 typedef int U[80];
 U u;
 
+
+const int N = 40;
+int v[ N / B ][ B ];
+
 int main() {
    int i;
    int x = t[i];
    int y = u[i];
+   for ( i = 0; i < N ; i ++){
+    v[ i / B ][ i % B ] = 0;
+   }
 }
 
 
