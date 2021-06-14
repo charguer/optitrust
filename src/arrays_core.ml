@@ -564,3 +564,6 @@ let aos_to_soa_aux (name : var -> var)(index : int) (t : trm) : trm =
 (* [aos_to_soa name x index p t] *)
 let aos_to_soa (name : var -> var) (index : int) : Target.Transfo.local =
   Target.apply_on_path(aos_to_soa_aux name index)
+
+
+

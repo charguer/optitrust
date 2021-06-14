@@ -16,8 +16,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Loops immediately inside a function *)
   show [ cMulti; cFunDef ""; cFor "" ]; (* cStrict is not working properly *)
-  (* TODO: see the 4 solutions *)
-
+  
   (* TODO: add tests using cStrict *)
 )
 

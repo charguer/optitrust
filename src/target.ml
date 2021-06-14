@@ -472,12 +472,7 @@ let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_target (fun _i t dl -> tr t dl) tg
 
-(* TODO: begatim: it is not coherent between apply_on_target and
-  apply_on_target_between, because in one [tr] takes the path before
-  the path, but in the other it's the other way around.
-  which one is the most convenient? it should be the same order *)
-
-
+  
 (* [apply_on_target_between ~replace_top tr tg]: Similar to apply_on_target, but the function considers the index too
       params:
         tr : transformation to be applied

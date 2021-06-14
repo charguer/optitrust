@@ -1089,9 +1089,6 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
       | Dir_nth i -> (p', i + shift)
       | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
 
-(* TODO: use this function to implement seq_insert , etc. *)
-(* TODO: include a test case for seq_insert that says [cAfter, cStr "x ="] where the index of
-   the instruction "x =" is not the same in different sequences. *)
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative = TargetAt

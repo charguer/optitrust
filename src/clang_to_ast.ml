@@ -51,14 +51,16 @@ let typedef_env : typedef Type_map.t ref = ref Type_map.empty
 (* [get_typedef tv] returns the typedef that corresponds to the typvar [tv].
    Raise an error if it is not bound  *)
 let get_typedef (tv : typvar) : typedef option=
-  Type_map.find_opt tv !typedef_env
-   
-  
-
+  let td = Type_map.find_opt tv !typedef_env in
+  (* DEBUG *)
+  (* let () = match td with 
+  | Some t -> printf "Found the corresponding typedef %s for typvar %s\n" (Ast_to_text.typedef_to_string t) tv
+  | None -> printf "Correspoding typedef not found for typvar %s\n" tv
+  in td *) td
 (* [typedef_env_add tv tdef] extends the environment for typedefs with a binding
    from type variable [tv] to the type definition [tdef]. *)
-let typedef_env_add (tv : typvar) (tdef : typ) : unit =
-  typedef_env := Type_map.add tv (Typedef_abbrev(tv, tdef)) !typedef_env
+let typedef_env_add (tv : typvar) (tdef : typedef) : unit =
+  typedef_env := Type_map.add tv tdef !typedef_env
 
 
 (* TODO: rename: heap_vars contains the information on which variables are [Var_mutable]
@@ -258,25 +260,35 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     end
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> typ_var n (get_typedef n)
+      | IdentifierName n -> 
+        printf "Typedef trying to get is %s\n" n;
+        typ_var n (get_typedef n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
     end
   | Elaborated {keyword = k; nested_name_specifier = _; named_type = q} ->
     begin match k with
-      | Struct -> translate_qual_type ~loc q
+      | Struct -> 
+        let tt = translate_qual_type ~loc q in
+        printf "Elaborated trying to get is %s\n" (Ast_to_text.typ_to_string tt);
+        tt
+
       | _ ->
         fail loc "translate_type_desc: only struct allowed in elaborated type"
     end
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> typ_var n (get_typedef n)
+      | IdentifierName n -> 
+         printf "Record trying to get is %s\n" n;
+         typ_var n (get_typedef n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> typ_var n (get_typedef n)
+      | IdentifierName n -> 
+        printf "Record trying to get is %s\n" n;
+        typ_var n (get_typedef n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end
@@ -892,6 +904,8 @@ and translate_decl_list (dl : decl list) : trm list =
           | Typ_var (n, _) when n = rn ->
             let tl = translate_decl_list dl' in
             let td = Typedef_abbrev(tn,typ_struct fs m rn) in
+            printf ("Typ var is %s and typedef is %s\n") tn (Ast_to_text.typedef_to_string td);
+            typedef_env_add tn td;
             trm_typedef td :: tl
           | _ ->
             fail loc ("translate_decl_list: a type definition following " ^
@@ -1006,14 +1020,16 @@ and translate_decl (d : decl) : trm =
       end
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
-    typedef_env_add n tn;
-    trm_typedef ~loc (Typedef_abbrev (n, tn) )
+    let td = Typedef_abbrev (n, tn) in
+    typedef_env_add n td;
+    trm_typedef ~loc td
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName n ->
         let tn = translate_qual_type ~loc q in
-        typedef_env_add n tn;
-        trm_typedef ~loc (Typedef_abbrev (n, tn) )
+        let td = Typedef_abbrev (n, tn) in
+        typedef_env_add n td;
+        trm_typedef ~loc td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
   | RecordDecl _ ->

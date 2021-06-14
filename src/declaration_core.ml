@@ -116,26 +116,6 @@ let insert_typedef_aux (x : typvar) (dx : typ) (index : int) (t : trm) : trm =
 let insert_typedef (x : typvar) (dx : typ) (index : int) : Target.Transfo.local =
   Target.apply_on_path (insert_typedef_aux x dx index)
 
-
-(* [remove_aux t]: This function is an auxiliary function for remove
-   params:
-    t: ast subterm to be removed
-   return:
-    the updated ast
- *)
- let remove_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_let _ -> trm_seq ~annot:(Some No_braces) []
-  | Trm_let_fun _ -> trm_seq ~annot:(Some No_braces) []
-  | Trm_typedef _ -> trm_seq ~annot:(Some No_braces) []
-  | _ -> fail t.loc "remove_aux: expected the declaration to remove"
-
-
-(* [remove p t] *)
-let remove : Target.Transfo.local =
-  Target.apply_on_path(remove_aux)
-
-
 (* [insert_and_fold_aux const as_reference fold_at x dx index t]: This is an auxiliary function for insert_and_fold
     params:
       const: boolean for the mutability of the declaration

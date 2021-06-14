@@ -339,3 +339,10 @@ let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
 let ast_to_string ?(only_desc : bool = false) (t : trm) : string =
   let d = print_trm ~only_desc t in
   document_to_string d
+let typedef_to_string ?(only_desc : bool = false) (td : typedef) : string = 
+  let d = print_typedef ~only_desc td in
+  document_to_string d
+
+let typ_to_string ?(only_desc : bool = false) (t : typ) : string =
+  let d = print_typ ~only_desc t in
+  document_to_string d

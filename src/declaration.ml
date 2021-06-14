@@ -32,10 +32,8 @@ let insert_typedef (x : typvar) (dx : typ) (tg : target) : unit =
     (fun t (p,i) -> Declaration_core.insert_typedef x dx i t p) tg
 
 (* [remove tg] *)
-(* TODO: just call Generic.remove
-   AND (LATER) check that there are no remaining occurences to this declaration *)
 let remove : Transfo.t =
-  Target.apply_on_target (Declaration_core.remove)
+  Generic.remove_instruction
 
 (* [insert_and_fold ~const ~as_reference ~fold_at x dx tg] *)
 let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : trm) (tg : target) : unit =
