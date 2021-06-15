@@ -37,8 +37,8 @@ let inline_record_access (field : string) (var : string ) (t : trm) : trm =
         let t_decl = List.hd tl in
         begin match t_decl.desc with
         | Trm_let (_,(x, var_typ), _) when x = var ->
-          begin match var_typ.ty_desc with
-          | Typ_ptr {ty_desc=Typ_var (y, _);_} -> y ,only_decl
+          begin match var_typ.typ_desc with
+          | Typ_ptr {typ_desc=Typ_var (y, _);_} -> y ,only_decl
           | _ -> fail t.loc "inline_record_access: type was not matched"
           end
         | _ -> fail t.loc "inline_record_access: expected a declaration"
@@ -135,7 +135,7 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
       | [] , _ :: _ -> m
       | hd :: tl, hd1 :: tl1 ->
 
-    let m = match ov.ty_desc with
+    let m = match ov.typ_desc with
       | Typ_ptr _ ->   add_key hd1 (typ_ptr hd) m
       | Typ_array (_,s) -> add_key hd1 (typ_array hd s ) m
       | _ -> add_key hd1 hd m
@@ -151,14 +151,14 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
     begin match t1.desc with
       | Trm_typedef (Typedef_abbrev (_, dx)) ->
         let field_list, field_map =
-          match dx.ty_desc with
+          match dx.typ_desc with
             | Typ_struct (l,m,_) -> l,m
             | _ -> fail t.loc "inline_struct_aux: The type shoudl be a typedef struct"
         in
         begin match t.desc with
         | Trm_typedef (Typedef_abbrev (x1, dx1)) ->
             let field_list1, field_map1,name =
-              match dx1.ty_desc with
+              match dx1.typ_desc with
               | Typ_struct(l,m,n) -> l,m,n
               |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
             in
@@ -275,7 +275,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     | Trm_struct term_list ->
 
       begin match t.typ with
-      | Some{ ty_desc = Typ_var (y, _); _} when y = struct_name ->
+      | Some{ typ_desc = Typ_var (y, _); _} when y = struct_name ->
 
         let el = List.nth term_list pos in
 
@@ -289,7 +289,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
               let field_list =
               match base_struct_term.desc with
                 | Trm_typedef (Typedef_abbrev (_, dx)) ->
-                  begin match dx.ty_desc with
+                  begin match dx.typ_desc with
                     | Typ_struct (fl,_,_) -> fl
                     | _ -> fail t.loc "change_struct_initializaition: expected a struct"
                   end
@@ -332,7 +332,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     | Trm_struct term_list ->
 
       begin match t.typ with
-      | Some{ ty_desc = Typ_var (y, _); _} when y = struct_name ->
+      | Some{ typ_desc = Typ_var (y, _); _} when y = struct_name ->
 
         let el = List.nth term_list pos in
 
@@ -346,7 +346,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
               let field_list =
               match base_struct_term.desc with
                 | Trm_typedef (Typedef_abbrev (_, dx)) ->
-                  begin match dx.ty_desc with
+                  begin match dx.typ_desc with
                     | Typ_struct (fl,_,_) -> fl
                     | _ -> fail t.loc "change_struct_initializaition: expected a struct"
                   end
@@ -382,20 +382,20 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
   match struct_term.desc with
   | Trm_typedef (Typedef_abbrev (_, dx)) ->
     let field_map =
-      match dx.ty_desc with
+      match dx.typ_desc with
       | Typ_struct (_,m,_) -> m
       | _ -> fail t.loc "inline_struct: the type should be a typedef struct"
     in
     let field_map_typ = String_map.find field_name field_map in
-    begin match field_map_typ.ty_desc with
+    begin match field_map_typ.typ_desc with
     | Typ_var (y, _) -> y
     | Typ_array (t_var ,_) ->
-          begin match t_var.ty_desc with
+          begin match t_var.typ_desc with
           | Typ_var (y, _) -> y
           | _ -> fail t.loc "inline_struct: expected a typ_var inside the typ_array"
           end
 
-    | Typ_ptr {ty_desc=Typ_var (y, _); _} -> y
+    | Typ_ptr {typ_desc=Typ_var (y, _); _} -> y
 
     | _ -> fail t.loc "inline_struct: expeted a typ var as the value of a key  "
     end

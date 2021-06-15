@@ -531,7 +531,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | Some ty -> ty
     in
     let tl = List.map translate_expr el in
-    begin match tt.ty_desc with
+    begin match tt.typ_desc with
       | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
       | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt)  tl
       | Typ_var _ -> (* assumption: typedefs are only for struct *)
@@ -802,8 +802,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       *)
     let typ =
       match te.typ with
-      | Some {ty_desc = Typ_array (ty, _); _} -> Some ty
-      | Some {ty_desc = Typ_ptr ty; _} -> Some ty
+      | Some {typ_desc = Typ_array (ty, _); _} -> Some ty
+      | Some {typ_desc = Typ_ptr ty; _} -> Some ty
       (* should not happen *)
       | _ -> None
     in
@@ -916,7 +916,7 @@ and translate_decl_list (dl : decl list) : trm list =
                                                 attributes = al}} ->
                  let ft = translate_qual_type ~loc q in
                  let al = List.map (translate_attribute loc) al in
-                 let m' = String_map.add fn {ft with ty_attributes = al} m in
+                 let m' = String_map.add fn {ft with typ_attributes = al} m in
                  let fs' = fn :: fs in
                  (fs',m')
                | _ ->
@@ -926,7 +926,7 @@ and translate_decl_list (dl : decl list) : trm list =
             fl
         in
         let tq = translate_qual_type ~loc q in
-        begin match tq.ty_desc with
+        begin match tq.typ_desc with
           | Typ_var (n, _) when n = rn ->
             let tl = translate_decl_list dl' in
             let td = Typedef_abbrev(tn,typ_struct fs m rn) in
@@ -973,7 +973,7 @@ and translate_decl (d : decl) : trm =
     let {calling_conv = _; result = _; parameters = po;
          exception_spec = _; _} = t in
     let tt = translate_type_desc ~loc (FunctionType t) in
-    begin match tt.ty_desc with
+    begin match tt.typ_desc with
       | Typ_fun (args_t, out_t) ->
         begin match po with
           | None ->
@@ -1018,7 +1018,7 @@ and translate_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
-          begin match tt.ty_desc with
+          begin match tt.typ_desc with
           | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
           | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt) tl
           | Typ_var _ -> (* assumption: typedefs are only for struct*)
@@ -1053,7 +1053,7 @@ and translate_decl (d : decl) : trm =
     }
     in
     add_to_ctx tid n n tn td;
-    trm_typedef td;
+    trm_typedef ~loc ~ctx:(Some get_ctx) td;
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName n ->
@@ -1066,12 +1066,7 @@ and translate_decl (d : decl) : trm =
           typdef_body = Typedef_alias tn;
         } in
         add_to_ctx tid n n tn td;
-        typ_constr tn tid [tn]
-        
-        let td = Typedef_abbrev (n, tn) in
-        typedef_env_add n td;
-       
-        trm_typedef ~loc td
+        trm_typedef ~loc ~ctx:(Some get_ctx) td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
   | RecordDecl _ ->

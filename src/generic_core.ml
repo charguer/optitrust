@@ -185,7 +185,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
               (fun i il (t' : trm) ->
                 match t'.typ with
                 (* note: also works for heap allocated variables *)
-                | Some {ty_desc = Typ_var (x', _); _} when x' = x -> i :: il
+                | Some {typ_desc = Typ_var (x', _); _} when x' = x -> i :: il
                 | _ -> il
               )
               []
@@ -378,7 +378,7 @@ and replace_fun_names (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                   (fun i il (ti : trm) ->
                     match ti.typ with
                     (* note: also works for heap allocated variables *)
-                    | Some {ty_desc = Typ_var (x', _); _} when x' = x -> i :: il
+                    | Some {typ_desc = Typ_var (x', _); _} when x' = x -> i :: il
                     | _ -> il
                   )
                   []
@@ -615,7 +615,7 @@ let const_non_const_aux (t : trm) : trm =
     | Var_immutable ->
       trm_let Var_mutable (x, typ_ptr tx) (trm_apps (trm_prim ~loc: t.loc (Prim_new tx)) [init])
     | _ ->
-      let var_type = begin match tx.ty_desc with
+      let var_type = begin match tx.typ_desc with
       | Typ_ptr t -> t
       | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
       end
@@ -830,11 +830,11 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
 let add_attribute_aux (a : attribute) (t : trm) : trm =
   match t.desc with
   | Trm_let (vk, (x, tx), init) ->
-    let ty_attributes = a :: tx.ty_attributes in
-    trm_let vk (x, {tx with ty_attributes}) init
+    let typ_attributes = a :: tx.typ_attributes in
+    trm_let vk (x, {tx with typ_attributes}) init
   | Trm_typedef (Typedef_abbrev (x, tx)) ->
-    let ty_attributes = a :: tx.ty_attributes in
-    trm_typedef (Typedef_abbrev (x, {tx with ty_attributes}))
+    let typ_attributes = a :: tx.typ_attributes in
+    trm_typedef (Typedef_abbrev (x, {tx with typ_attributes}))
   | _ ->  {t with attributes = a :: t.attributes}
 
 

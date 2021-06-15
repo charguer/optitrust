@@ -60,15 +60,15 @@ and print_typ_annot (a : typ_annot) : document =
   | Short -> string "Short"
 
 and print_typ ?(only_desc : bool = false) (t : typ) : document =
-  let ddesc = print_typ_desc ~only_desc t.ty_desc in
+  let ddesc = print_typ_desc ~only_desc t.typ_desc in
   if only_desc then ddesc
   else
     let dannot =
       List.fold_left (fun d a -> print_typ_annot a ^^ blank 1 ^^ d) underscore
-        t.ty_annot
+        t.typ_annot
     in
     let dattr =
-      print_list (List.map (print_attribute ~only_desc) t.ty_attributes)
+      print_list (List.map (print_attribute ~only_desc) t.typ_attributes)
     in
     braces (separate (blank 1) [string "annot"; equals;
                                 dannot ^^ semi ^//^ string "desc"; equals;
