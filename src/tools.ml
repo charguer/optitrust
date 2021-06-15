@@ -9,8 +9,8 @@ let surround : document -> document -> document -> document = surround 2 1
 
 let parens (d : document) : document = soft_surround 2 1 lparen d rparen
 
-let print_list (dl : document list) : document =
-  surround lbracket (separate (semi ^^ break 1) dl) rbracket
+let print_list ?(sep : string = ";") (dl : document list) : document =
+  surround lbracket (separate (string sep ^^ break 1) dl) rbracket
 
 let print_object (dl : document list) : document =
   surround lbrace (separate (comma ^^ break 1) dl) rbrace
@@ -221,6 +221,7 @@ let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
 
 
 (* Initialize a two arrays for the json ast and source code *)
+(* TODO: improve name, move to a ast_to_js file *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in
     let out_js = open_out file_js in

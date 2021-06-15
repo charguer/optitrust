@@ -1,5 +1,14 @@
 
 
+// the imported JS file provides 'source' and 'contents'
+
+if (typeof source == 'undefined') {
+  // TOOD: report error
+}
+
+var ast = contents;
+
+
 //---------------------------------------------------
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
@@ -107,10 +116,13 @@ function number_of_nodeid(id) { // converts node_243 to 243 as a number
 }
 
 function loadPathForUserSelection(selectedLoc) {
+  // DEBUG:
+  console.log(JSON.stringify(selectedLoc));
+
   // First, find the deepest node in the AST that fully covers the location
   let chosen_node = "node_0";
   for (const node_id in ast) {
-    if(contains(ast[node_id].loc, selectedLoc)
+    if (contains(ast[node_id].loc, selectedLoc)
       && (number_of_nodeid(node_id) >= number_of_nodeid(chosen_node))) {
       chosen_node = node_id;
     }
@@ -156,10 +168,7 @@ function html_span(args, contents) {
 
 // order in which to display properties
 // properties that are not mentioned are processed at the end in arbitrary order
-var properties = [ "name", "type" ];
-
-
-var ast;
+var properties = [ "name", "type", "loc" ];
 
 function get_child_label(node, id_child) {
   if (! ("children" in node)) {
@@ -190,7 +199,11 @@ function viewDescription(id, node) {
   // start by processing the generic properties
   var labelKind = html_span({'class': 'label-kind', onclick: "updateSelectedNode('" + id + "')"}, k);
 
-  var txt = labelKind + " ";
+  var txt = "";
+  // DEBUG:
+  txt += "[" + number_of_nodeid(id) + "] ";
+
+  txt += labelKind + " ";
 
   // start by processing the known specific properties
   for (iproperty in properties) {
@@ -202,9 +215,17 @@ function viewDescription(id, node) {
         txt += value;
       } else if (key == "type") {
         txt += " : " + value;
+      } else if (key == "loc") {
+        if (value != "") {
+          txt += " @ " + JSON.stringify(value);
+          // value.start.line;
+        }
+
       // others use a generic display
       } else {
-        txt += " <i>"+key+"</i>: " + value;
+        if (value !== "") {
+          txt += " <i>"+key+"</i>: " + value;
+        }
       }
 
     }
@@ -353,9 +374,7 @@ function nodeMinus(id) {
 
 
 //---------------------------------------------------
-// DEMO
-
-var exampleSource = source;
+// DEMO -- to debug the html file even if no foo.js is available
 
 // DEPRECATED NOW THE SCRIPT READS THE CURRENT SOURCE CODE DATA
 // var exampleSource1 = `
@@ -375,7 +394,7 @@ var exampleSource = source;
 //    }
 // `;
 
-var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
+// var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
 
 // DEPRECATED
 // ast = {
@@ -388,12 +407,10 @@ var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
 //    node_6: { kind: "return" },
 //    node_7: { kind: "return" },
 //    node_8: { kind: "return" } };
-path = ["node_0", "node_1", "node_3" ];
+//  path = ["node_0", "node_1", "node_3" ];
 
-if (typeof contents !== 'undefined') {
-  ast = contents;
-  path = ["node_0"];
-}
+
+
 
 // action to perform after document is loaded
 document.addEventListener('DOMContentLoaded', function () {
@@ -402,13 +419,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // initialize editor with contents
   initEditor();
-  editor.setValue(exampleSource);
+  editor.setValue(source);
 
   // make some selection
-  var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
-  updateSelection(selection);
+  // var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
+  // updateSelection(selection);
 
-  // show demo path
+  // show initial path
+  var path = ["node_0"];
   viewPath(path);
 
 });
@@ -416,23 +434,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 function loc_before(pos1, pos2){
-  if((pos1.start.line < pos2.start.line) && (pos1.start.col < pos2.start.col) 
-    && (pos1.start.line < pos2.start.line) && (pos1.start.col < pos2.start.col)){
-      return true;
-    }
-  else {
-    return false;
-  }
+  return (pos1.line < pos2.line)
+    || ((pos1.line == pos2.line)
+       && (pos1.col <= pos2.col));
 }
 
-// This function returns true if loc2 can be covered with loc1
-function contains(loc1,loc2){
-  // Check if location is empty
-  if(loc1 === ""){
+// This function returns true if the span of loc1 fully covers the the span of loc2
+function contains(loc1, loc2){
+  // Check if location is undefined; in this case don't consider this node
+  if (loc1 === "") {
     return false;
-  }
-  else { 
-    return loc_before(loc1,loc2)
+  } else {
+    return loc_before(loc1.start, loc2.start)
+        && loc_before(loc2.end, loc1.end);
   }
 }
 //viewPath(["node_3"]);

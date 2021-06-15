@@ -46,7 +46,7 @@
           }
         },
         {
-          "label": "View state ",
+          "label": "View state",
           "type": "shell",
           "command": "./run_action.sh",
           "options": {
