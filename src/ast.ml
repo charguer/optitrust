@@ -8,14 +8,16 @@ type loc = int
 (* variables *)
 type var = string
 
-(* name of type constructors (e.g. [list] in Ocaml's type [int list] *)
+(* name of type constructors (e.g. [list] in Ocaml's type [int list];
+   or [vect] in C type [struct { int x,y }; *)
 type typconstr = string
 
 (* name of type variables (e.g. ['a] in type ['a list] *)
 type typvar = var
 type typvars = typvar list
 
-(* unique identifier for typ variables *)
+(* unique identifier for typ constructors
+   LATER: might rename to typconstrid *)
 type typid = int
 
 let next_typid : (unit -> int) =
@@ -32,7 +34,7 @@ type field = string
 type fields = field list
 
 (* ['a fmap] is a map from string to ['a] *)
-(* LATER: rename [fmap] to [varmap] *)
+(* LATER: rename [fmap] to [varmap], rename Field_map to String_map  *)
 module Field_map = Map.Make(String)
 type 'a fmap = 'a Field_map.t
 
@@ -52,7 +54,7 @@ type size =
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar (* e.g. ['a] in the type ['a -> 'a] *)
-  | Typ_constr of typvar * typid * typ list (* e.g. [int list] *)
+  | Typ_constr of typvar * typid * typ list (* e.g. [int list] or [vect] *)
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
@@ -64,6 +66,8 @@ and typ_desc =
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
   (* Not supported: C struct that are not named at toplevel using a typedef
     | Typ_struct of fields * (typ fmap) * typvar *)
+
+    (* NOT SUPPORTED:   void f (struct { int x,y } v) { } *)
 
 and typ_annot =
   | Unsigned
@@ -87,7 +91,7 @@ and typedef = { (* e.g. [type ('a,'b) t = ...] *)
   typdef_body : typdef_body; } (* the body of the definition, i.e. the description of [...] *)
 
 and typdef_body =
-  | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list)] *)
+  | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list)] or [typdef vect t] *)
   | Typdef_prod of (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
   (* NOTE: we don't need to support the enum from C, for the moment. *)
@@ -218,11 +222,41 @@ and trm =
 (* [ctx_tvar] is useful for interpreting types that are provided in the user scripts *)
 and ctx = {
   ctx_var : typ fmap; (* from [var] to [typ], i.e. giving the type of program variables *)
-  ctx_tconstr : typedef fmap; (* from [typvar] to [typid] *)
+  ctx_tconstr : typedef fmap; (* from [typconstr] to [typid] *)
   ctx_typedef : typedef typmap; (* from [typid] to [typedef] *)
   ctx_label : typid fmap; (* from [label] to [typid] *)
   ctx_constr : typid fmap; (* from [constr] to [typid] *)
-  }
+  } (* NOTE: ctx_label and ctx_constr *)
+
+  (* Example ctx for the type definitions
+
+        type t = { f : u }
+        and u = A | B of t
+
+    ctx_tconstr :
+      "t" --> id0
+      "u" --> id1
+
+    ctx_typdef :
+      id0 -->   Typdef_struct ...
+      id1 -->   ...  (typ_tconstr ("t", id0))
+
+    ctx_label :
+      "f" --> id0
+
+    ctx_constr :
+      "A" --> id1
+      "B" --> id1
+
+  *)
+(* Example recursive type in C
+  typedef struct node { branches : node* } node;
+
+  | trm_typedef of typedef
+  in ctx_typdef add the binding from node to this typdef
+
+  *)
+
 
  (* IN THE FUTURE
 and trm =
