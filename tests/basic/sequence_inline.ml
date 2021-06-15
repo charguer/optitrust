@@ -5,7 +5,7 @@ let _ =
   Run.script_cpp (fun _ ->
     (* TODO: Does not work correctly *)
     
-    show [cMulti; cSeq ~args_pred:(Target.target_list_one_st (cVarDef "a") )()];
+    show [cMulti; cSeq ~args_pred:(Target.target_list_one_st (cVarDef "y") )()];
     (* show [cMulti; cSeq ~args_pred:(Target.target_list_one_st (cVarDef "z")) ()]; *)
     Sequence.inline [cMulti; cSeq ~args_pred:(Target.target_list_one_st (cVarDef "y")) ()];
     

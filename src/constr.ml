@@ -643,7 +643,7 @@ and check_list (lpred : target_list_pred) (tl : trm list) : bool =
   (* DEBUG:*) (* printf "%s\n" (lpred.target_list_pred_to_string());  *)
   let cstr = lpred.target_list_pred_ith_constr in
   let validate = lpred.target_list_pred_validate in
-  validate (List.mapi (fun i t -> check_target ([cstr i]) t) tl)
+  validate (List.mapi (fun i t -> check_target ~strict:true ([cstr i]) t) tl)
   (*DEBUG:*) (* printf "%s\n" (if res then "true" else "false"); res *)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
@@ -704,16 +704,10 @@ and check_enum_const (cec : constr_enum_const)
        xto_l
 
 (* check if target tr leads to at least one subterm of t *)
-and check_target (tr : target) (t : trm) : bool =
-  printf "Check target for target %s and trm " (target_to_string tr);
-  (Ast_to_text.print_ast ~only_desc:true stdout t);
-  let res = match resolve_target_simple tr t with
+and check_target ?(strict : bool = false) (tr : target) (t : trm) : bool =
+  match resolve_target_simple ~strict tr t with
   | [] -> false
   | _ -> true
-  in 
-  flush stdout;
-  printf "\n checked to %s\n" (if res then "true" else "false");
-  res
 
 (*
   resolve_target computes the directions to matching subterms
