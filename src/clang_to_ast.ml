@@ -260,12 +260,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        let td = get_typedef n in
-        (* let () = match td with
-        | Some d -> printf "Typedef trying to get is %s, got %s" n (Ast_to_text.typedef_to_string d);
-        | None -> printf "Typedef trying to get is %s, got NONE" n;
-        in *)
-        typ_var n td
+        typ_var n
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
     end
@@ -279,14 +274,14 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_var n (get_typedef n)
+         typ_var n
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        typ_var n (get_typedef n)
+        typ_var n
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end
