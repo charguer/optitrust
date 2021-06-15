@@ -41,32 +41,69 @@ module Type_map = Map.Make(String)
 type 'a tmap = 'a Type_map.t
 let typ_map : typ Type_map.t ref = ref Type_map.empty
 
-(*
-  TODO:
-    let ctx_tconstr : typedef fmap ref = ref String_map.empty
-    let ctx_typedef ...
+let ctx_tvar : typ varmap ref = ref String_map.empty
 
-    LATER: ctx_label and ctx_constr
-*)
+let ctx_tconstr : typid varmap ref = ref String_map.empty
 
+let ctx_typedef : typedef typmap ref = ref Typ_map.empty
+
+let ctx_label : typid varmap ref = ref String_map.empty
+
+let ctx_constr : typid varmap ref = ref String_map.empty
+
+
+
+let ctx_tvar_add (tv : typvar) (t : typ) : unit =
+    ctx_tvar := String_map.add tv t (!ctx_tvar)
+
+let ctx_tconstr_add (tc : typconstr) (tid : typid) : unit = 
+    ctx_tconstr := String_map.add tc tid (!ctx_tconstr)
+
+let ctx_typedef_add (tid : typid) (td : typedef) : unit = 
+    ctx_tconstr := Typ_map.add tid td (!ctx_typedef)
+
+let ctx_label_add (lb : label) (tid : typid) : nuit =
+    ctx_label := String_map.add lb tid (!ctx_label)
+
+let ctx_constr (c : constr) (tid : typid) : unit =
+    ctx_constr := String_map.add constr tid (!ctx_constr)
+
+let add_to_ctx ?(label : string = "") ?(constr : constr = "") (tid : typid) (v : var) (tc : tconstr) (t : typ) (td : typedef)  : unit =
+   ctx_tvar_add v t;
+   ctx_tconstr_add c tid;
+   ctx_typedef_add tid td;
+   if label = "" then () else ctx_label_add lb tid;
+   if constr = "" then () else ctx_constr_add c tid;
+
+let get_ctx () : ctx = 
+  {
+    ctx_tvar = !ctx_tvar;
+    ctx_tconstr = !ctx_tconstr;
+    ctx_typedef = !ctx_typedef;
+    ctx_label = !ctx_label;
+    ctx_constr = !ctx_constr;
+  }
+
+(* DEPRECATED *)
+(* ************************************************* *)
 (* A map to keep track of the typedefs seen so far in the file.
    Note: there is no notion of scope, typedefs are all global. *)
    (* LATER: it could be perhaps a map from typvar to typ, instead of to typedef *)
-let typedef_env : typedef Type_map.t ref = ref Type_map.empty
+(* let typedef_env : typedef Type_map.t ref = ref Type_map.empty *)
 
 (* [get_typedef tv] returns the typedef that corresponds to the typvar [tv].
    Raise an error if it is not bound  *)
-let get_typedef (tv : typvar) : typedef option=
+(* let get_typedef (tv : typvar) : typedef option=
   let td = Type_map.find_opt tv !typedef_env in
-  td
+  td *)
 
 (* [typedef_env_add tv tdef] extends the environment for typedefs with a binding
    from type variable [tv] to the type definition [tdef]. *)
-let typedef_env_add (tv : typvar) (tdef : typedef) : unit =
+(* let typedef_env_add (tv : typvar) (tdef : typedef) : unit =
   (* printf "Adding key %s\n" tv; *)
   flush stdout;
-  typedef_env := Type_map.add tv tdef !typedef_env
-
+  typedef_env := Type_map.add tv tdef !typedef_env *)
+(* *************************************************** *)
 
 (* TODO: rename: heap_vars contains the information on which variables are [Var_mutable]
   stack of lists of heap allocated variables
@@ -256,12 +293,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        let td = get_typedef n in
-        (* let () = match td with
-        | Some d -> printf "Typedef trying to get is %s, got %s" n (Ast_to_text.typedef_to_string d);
-        | None -> printf "Typedef trying to get is %s, got NONE" n;
-        in *)
-        typ_var n td
+        typ_var n
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
     end
@@ -275,14 +307,14 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_var n (get_typedef n)
+         typ_var n
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        typ_var n (get_typedef n)
+        typ_var n
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end
@@ -499,7 +531,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | Some ty -> ty
     in
     let tl = List.map translate_expr el in
-    begin match tt.ty_desc with
+    begin match tt.typ_desc with
       | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
       | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt)  tl
       | Typ_var _ -> (* assumption: typedefs are only for struct *)
@@ -770,8 +802,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       *)
     let typ =
       match te.typ with
-      | Some {ty_desc = Typ_array (ty, _); _} -> Some ty
-      | Some {ty_desc = Typ_ptr ty; _} -> Some ty
+      | Some {typ_desc = Typ_array (ty, _); _} -> Some ty
+      | Some {typ_desc = Typ_ptr ty; _} -> Some ty
       (* should not happen *)
       | _ -> None
     in
@@ -884,17 +916,17 @@ and translate_decl_list (dl : decl list) : trm list =
                                                 attributes = al}} ->
                  let ft = translate_qual_type ~loc q in
                  let al = List.map (translate_attribute loc) al in
-                 let m' = Field_map.add fn {ft with ty_attributes = al} m in
+                 let m' = String_map.add fn {ft with typ_attributes = al} m in
                  let fs' = fn :: fs in
                  (fs',m')
                | _ ->
                  fail loc ("translate_decl_list: only fields are allowed " ^
                            "in struct declaration"))
-            ([], Field_map.empty)
+            ([], String_map.empty)
             fl
         in
         let tq = translate_qual_type ~loc q in
-        begin match tq.ty_desc with
+        begin match tq.typ_desc with
           | Typ_var (n, _) when n = rn ->
             let tl = translate_decl_list dl' in
             let td = Typedef_abbrev(tn,typ_struct fs m rn) in
@@ -941,7 +973,7 @@ and translate_decl (d : decl) : trm =
     let {calling_conv = _; result = _; parameters = po;
          exception_spec = _; _} = t in
     let tt = translate_type_desc ~loc (FunctionType t) in
-    begin match tt.ty_desc with
+    begin match tt.typ_desc with
       | Typ_fun (args_t, out_t) ->
         begin match po with
           | None ->
@@ -986,7 +1018,7 @@ and translate_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
-          begin match tt.ty_desc with
+          begin match tt.typ_desc with
           | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
           | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt) tl
           | Typ_var _ -> (* assumption: typedefs are only for struct*)
@@ -1012,16 +1044,29 @@ and translate_decl (d : decl) : trm =
       end
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
-    let td = Typedef_abbrev (n, tn) in
-    typedef_env_add n td;
-    trm_typedef ~loc td
+    let tid = next_typid () in
+    let td = {
+      typdef_typid = tid;
+      typdef_tconstr = n;
+      typdef_vars = [];
+      typdef_body = Typedef_alias tn;
+    }
+    in
+    add_to_ctx tid n n tn td;
+    trm_typedef ~loc ~ctx:(Some get_ctx) td;
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName n ->
+        let tid = next_typid () in
         let tn = translate_qual_type ~loc q in
-        let td = Typedef_abbrev (n, tn) in
-        typedef_env_add n td;
-        trm_typedef ~loc td
+        let td = {
+          typdef_typid = tid;
+          typdef_tconstr = n;
+          typdef_vars = [];
+          typdef_body = Typedef_alias tn;
+        } in
+        add_to_ctx tid n n tn td;
+        trm_typedef ~loc ~ctx:(Some get_ctx) td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
   | RecordDecl _ ->
@@ -1030,7 +1075,6 @@ and translate_decl (d : decl) : trm =
 
 module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t
-let typ_map : typ Type_map.t ref = ref Type_map.empty
 
 let filter_out_include (filename : string)
     (dl : decl list) : ((decl list) imap) * (decl list) =

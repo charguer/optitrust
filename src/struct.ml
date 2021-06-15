@@ -37,8 +37,8 @@ let inline_record_access (field : string) (var : string ) (t : trm) : trm =
         let t_decl = List.hd tl in
         begin match t_decl.desc with
         | Trm_let (_,(x, var_typ), _) when x = var ->
-          begin match var_typ.ty_desc with
-          | Typ_ptr {ty_desc=Typ_var (y, _);_} -> y ,only_decl
+          begin match var_typ.typ_desc with
+          | Typ_ptr {typ_desc=Typ_var (y, _);_} -> y ,only_decl
           | _ -> fail t.loc "inline_record_access: type was not matched"
           end
         | _ -> fail t.loc "inline_record_access: expected a declaration"
@@ -100,7 +100,7 @@ let inline_record_access (field : string) (var : string ) (t : trm) : trm =
  (* Auxiliary functions for change_struct_fields function  *)
 (* Find all keys which have value = value *)
 let find_keys value m =
-  Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
+  String_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
 
 (* A function rename all th elements of a list *)
 let rec apply_labels vl pl = match pl with
@@ -108,7 +108,7 @@ let rec apply_labels vl pl = match pl with
 | hd :: tl -> let y = List.map (fun x -> hd ^ "_" ^x) vl in y :: apply_labels vl tl
 
 
-let add_key key value m = Field_map.add key value m
+let add_key key value m = String_map.add key value m
 
 
 let rec add_keys (lk : var list) (lv : typ list) m  = match (lk ,lv) with
@@ -135,7 +135,7 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
       | [] , _ :: _ -> m
       | hd :: tl, hd1 :: tl1 ->
 
-    let m = match ov.ty_desc with
+    let m = match ov.typ_desc with
       | Typ_ptr _ ->   add_key hd1 (typ_ptr hd) m
       | Typ_array (_,s) -> add_key hd1 (typ_array hd s ) m
       | _ -> add_key hd1 hd m
@@ -151,20 +151,20 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
     begin match t1.desc with
       | Trm_typedef (Typedef_abbrev (_, dx)) ->
         let field_list, field_map =
-          match dx.ty_desc with
+          match dx.typ_desc with
             | Typ_struct (l,m,_) -> l,m
             | _ -> fail t.loc "inline_struct_aux: The type shoudl be a typedef struct"
         in
         begin match t.desc with
         | Trm_typedef (Typedef_abbrev (x1, dx1)) ->
             let field_list1, field_map1,name =
-              match dx1.ty_desc with
+              match dx1.typ_desc with
               | Typ_struct(l,m,n) -> l,m,n
               |_ -> fail t.loc "inline_struct_aux: the type should be a typedef struct"
             in
 
           (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
-          (* let keys_list = if struct_fields = [] then Field_map.fold(fun k v acc -> if v = x then k :: acc else acc) field_map1 []
+          (* let keys_list = if struct_fields = [] then String_map.fold(fun k v acc -> if v = x then k :: acc else acc) field_map1 []
 
             else struct_fields
             in
@@ -173,12 +173,12 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
           let fields_to_inline = struct_fields in
           (* value_list is the list of values for each field we want to inline, we need that since we have
           to check if there are special types like arrays *)
-          let field_types = List.map(fun x -> Field_map.find x field_map1) fields_to_inline in
+          let field_types = List.map(fun x -> String_map.find x field_map1) fields_to_inline in
 
           let temp_field_list = apply_labels field_list fields_to_inline in
 
           (* The key values from the first struct *)
-          let values = List.map (fun x -> Field_map.find x field_map) field_list in
+          let values = List.map (fun x -> String_map.find x field_map) field_list in
 
           (* Add the new keys with their values to the second  struct field_map *)
           let field_map1 = add_keys_to_map values temp_field_list field_types field_map1 in
@@ -187,7 +187,7 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
           let field_list1 = insert_list fields_to_inline temp_field_list field_list1 in
 
 
-          let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 fields_to_inline in
+          let _field_map1 = List.fold_left (fun mapPrev key -> String_map.remove key mapPrev) field_map1 fields_to_inline in
 
           let field_list1 = list_remove_set  fields_to_inline field_list1 in
 
@@ -275,7 +275,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     | Trm_struct term_list ->
 
       begin match t.typ with
-      | Some{ ty_desc = Typ_var (y, _); _} when y = struct_name ->
+      | Some{ typ_desc = Typ_var (y, _); _} when y = struct_name ->
 
         let el = List.nth term_list pos in
 
@@ -289,7 +289,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
               let field_list =
               match base_struct_term.desc with
                 | Trm_typedef (Typedef_abbrev (_, dx)) ->
-                  begin match dx.ty_desc with
+                  begin match dx.typ_desc with
                     | Typ_struct (fl,_,_) -> fl
                     | _ -> fail t.loc "change_struct_initializaition: expected a struct"
                   end
@@ -332,7 +332,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     | Trm_struct term_list ->
 
       begin match t.typ with
-      | Some{ ty_desc = Typ_var (y, _); _} when y = struct_name ->
+      | Some{ typ_desc = Typ_var (y, _); _} when y = struct_name ->
 
         let el = List.nth term_list pos in
 
@@ -346,7 +346,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
               let field_list =
               match base_struct_term.desc with
                 | Trm_typedef (Typedef_abbrev (_, dx)) ->
-                  begin match dx.ty_desc with
+                  begin match dx.typ_desc with
                     | Typ_struct (fl,_,_) -> fl
                     | _ -> fail t.loc "change_struct_initializaition: expected a struct"
                   end
@@ -382,20 +382,20 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
   match struct_term.desc with
   | Trm_typedef (Typedef_abbrev (_, dx)) ->
     let field_map =
-      match dx.ty_desc with
+      match dx.typ_desc with
       | Typ_struct (_,m,_) -> m
       | _ -> fail t.loc "inline_struct: the type should be a typedef struct"
     in
-    let field_map_typ = Field_map.find field_name field_map in
-    begin match field_map_typ.ty_desc with
+    let field_map_typ = String_map.find field_name field_map in
+    begin match field_map_typ.typ_desc with
     | Typ_var (y, _) -> y
     | Typ_array (t_var ,_) ->
-          begin match t_var.ty_desc with
+          begin match t_var.typ_desc with
           | Typ_var (y, _) -> y
           | _ -> fail t.loc "inline_struct: expected a typ_var inside the typ_array"
           end
 
-    | Typ_ptr {ty_desc=Typ_var (y, _); _} -> y
+    | Typ_ptr {typ_desc=Typ_var (y, _); _} -> y
 
     | _ -> fail t.loc "inline_struct: expeted a typ var as the value of a key  "
     end

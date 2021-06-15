@@ -1,4 +1,5 @@
 open Tools
+
 (* file locations: filename, line number *)
 type location = (string * int * int * int * int) option
 
@@ -20,8 +21,6 @@ type typvars = typvar list
    LATER: might rename to typconstrid *)
 type typid = int
 
-let next_typid : (unit -> int) =
-  fresh_generator()
 
 (* ['a typmap] is a map from [typeid] to ['a] *)
 module Typ_map = Map.Make(Int)
@@ -33,10 +32,9 @@ type field = string
 (* struct fields as a list of fields *)
 type fields = field list
 
-(* ['a fmap] is a map from string to ['a] *)
-(* LATER: rename [fmap] to [varmap], rename Field_map to String_map  *)
-module Field_map = Map.Make(String)
-type 'a fmap = 'a Field_map.t
+(* ['a varmap] is a map from string to ['a] *)
+module String_map = Map.Make(String)
+type 'a varmap = 'a String_map.t
 
 (* labels (for records) *)
 type label = string
@@ -64,9 +62,8 @@ and typ_desc =
   | Typ_ptr of typ (* "int*" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
-  (* Not supported: C struct that are not named at toplevel using a typedef
-    | Typ_struct of fields * (typ fmap) * typvar *)
-
+  | Typ_struct of fields * (typ varmap) * typvar
+    (* This doesn't appear anywhere *)
     (* NOT SUPPORTED:   void f (struct { int x,y } v) { } *)
 
 and typ_annot =
@@ -75,10 +72,9 @@ and typ_annot =
   | Short
 
 and typ = {
-  (* LATER: rename the [ty_] prefix to [typ_] *)
-  ty_desc : typ_desc;
-  ty_annot : typ_annot list;
-  ty_attributes : attribute list }
+  typ_desc : typ_desc;
+  typ_annot : typ_annot list;
+  typ_attributes : attribute list }
   (* IN THE FUTURE
   ty_env : env; --> tells you for every type what is its definition
   *)
@@ -101,14 +97,6 @@ and typdef_body =
   *)
 
 and typed_var = var * typ
-
-(* accesses in arrays/structures *) (* TODO: this does not appear to be used *)
-and access =
-  | Access_array of typ * int  (* the "[i]" operator, with result of type T *)
-  | Access_field of typ * access (* the ".f" operator, with result of type T *)
-
-and accesses = access list (* e.g. the "[i][j].f" operator *)
-
 (* primitives *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)
@@ -128,7 +116,7 @@ and binary_op =
   | Binop_eq
   | Binop_neq
   | Binop_sub
-  | Binop_add
+  | Binop_addtypedef_env_add
   | Binop_mul
   | Binop_mod
   | Binop_div
@@ -221,11 +209,11 @@ and trm =
 (* A [typ_env] stores all the information about types, labels, constructors, etc. *)
 (* [ctx_tvar] is useful for interpreting types that are provided in the user scripts *)
 and ctx = {
-  ctx_var : typ fmap; (* from [var] to [typ], i.e. giving the type of program variables *)
-  ctx_tconstr : typedef fmap; (* from [typconstr] to [typid] *)
+  ctx_tvar : typ varmap; (* from [var] to [typ], i.e. giving the type of program variables *)
+  ctx_tconstr : typid varmap; (* from [typconstr] to [typid] *)
   ctx_typedef : typedef typmap; (* from [typid] to [typedef] *)
-  ctx_label : typid fmap; (* from [label] to [typid] *)
-  ctx_constr : typid fmap; (* from [constr] to [typid] *)
+  ctx_label : typid varmap; (* from [label] to [typid] *)
+  ctx_constr : typid varmap; (* from [constr] to [typid] *)
   } (* NOTE: ctx_label and ctx_constr *)
 
   (* Example ctx for the type definitions
@@ -354,135 +342,139 @@ type 'a tmap = 'a Trm_map.t
 type instantiation = trm tmap
 
 (* **************************Typ Construcors**************************** *)
-let typ_const ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
-  {ty_annot = annot; ty_desc = Typ_const t; ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_const t; typ_attributes}
 
-let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
-  (x : typvar) (td : typedef option): typ =
-  {ty_annot = annot; ty_desc = Typ_var (x, td); ty_attributes}
+let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (x : typvar) : typ =
+  {typ_annot = annot; typ_desc = Typ_var x; typ_attributes}
 
-let typ_unit ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_unit; ty_attributes}
+let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (x : typvar) (tid : typid) (tl : typ list) : typ =
+  {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
 
-let typ_int ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_int; ty_attributes}
+let typ_unit ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_unit; typ_attributes}
 
-let typ_float ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_float; ty_attributes}
+let typ_int ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_int; typ_attributes}
 
-let typ_double ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_double; ty_attributes}
+let typ_float ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_float; typ_attributes}
 
-let typ_bool ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_bool; ty_attributes}
+let typ_double ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_double; typ_attributes}
 
-let typ_char ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_char; ty_attributes}
+let typ_bool ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_bool; typ_attributes}
 
-let typ_ptr ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_char ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_char; typ_attributes}
+
+let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
-  {ty_annot = annot; ty_desc = Typ_ptr t; ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_ptr t; typ_attributes}
 
-let typ_array ?(annot : typ_annot list = []) ?(ty_attributes = []) (t : typ)
+let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
   (s : size) : typ =
-  {ty_annot = annot; ty_desc = Typ_array (t, s); ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_array (t, s); typ_attributes}
 
-let typ_struct ?(annot : typ_annot list = []) ?(ty_attributes = [])
-   (fields : fields)(typ_field : typ fmap) (typ_name : typvar) : typ =
-  {ty_annot = annot; ty_desc = Typ_struct (fields,typ_field, typ_name); ty_attributes}
+let typ_struct ?(annot : typ_annot list = []) ?(typ_attributes = [])
+   (fields : fields)(typ_field : typ varmap) (typ_name : typvar) : typ =
+  {typ_annot = annot; typ_desc = Typ_struct (fields,typ_field, typ_name); typ_attributes}
 
-let typ_fun ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (args : typ list) (res : typ) : typ =
-  {ty_annot = annot; ty_desc = Typ_fun (args, res); ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_fun (args, res); typ_attributes}
 
 (* *************************** Trm constructors *************************** *)
 
 let trm_val ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
-  ?(attributes = []) (v : value) : trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
   {annot = annot; desc = Trm_val v; loc = loc; is_statement = false; add; typ;
-   attributes}
+   attributes; ctx}
 
 let trm_var ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
-  ?(attributes = []) (x : var) : trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (x : var) : trm =
   {annot = annot; desc = Trm_var x; loc = loc; is_statement = false; add; typ;
-   attributes}
+   attributes; ctx}
 
 let trm_array ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
-  ?(attributes = []) (tl : trm list) : trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (tl : trm list) : trm =
   {annot = annot; desc = Trm_array tl; loc = loc; is_statement = false; add; typ;
-   attributes}
+   attributes; ctx}
 
 let trm_struct ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
-  ?(attributes = []) (tl : trm list) : trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (tl : trm list) : trm =
   {annot = annot; desc = Trm_struct tl; loc = loc; is_statement = false; add; typ;
-   attributes}
+   attributes; ctx}
 
 let trm_let ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) (kind : varkind) (typed_var:typed_var) (init : trm): trm =
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind) (typed_var:typed_var) (init : trm): trm =
   {annot = annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
-   typ = Some (typ_unit ()); attributes}
+   typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_let_fun ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) (name : var) (ret_typ : typ) (args : typed_var list) (body : trm) : trm =
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (name : var) (ret_typ : typ) (args : typed_var list) (body : trm) : trm =
   {annot = annot; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; add;
-   typ = Some (typ_unit ()); attributes}
+   typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_typedef ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) (def_typ : typedef): trm =
-  {annot = annot; desc = Trm_typedef (def_typ); loc = loc; is_statement; add;
-   typ = Some (typ_unit ()); attributes}
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (def_typ : typedef): trm =
+  {annot = annot; desc = Trm_typedef (def_typ.typedef_body); loc = loc; is_statement; add;
+   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (tb : trm) (eb : trm) : trm =
   {annot = annot; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false;
-   add; typ = Some (typ_unit ()); attributes}
+   add; typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_seq ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_seq ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (tl : trm list) : trm =
   {annot = annot; desc = Trm_seq tl; loc = loc; is_statement = false; add;
-   typ = Some (typ_unit ()); attributes}
+   typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_apps ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(typ = None) ?(attributes = []) (f : trm)
+  ?(add = []) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None) (f : trm)
   (args : trm list) : trm =
   {annot = annot; desc = Trm_apps (f, args); loc = loc; is_statement; add; typ;
-   attributes}
+   attributes; ctx}
 
-let trm_while ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_while ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (body : trm) : trm =
   {annot = annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
-   add; typ = Some (typ_unit ()); attributes}
+   add; typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
   {annot; desc = Trm_for (init, cond, step, body); loc; is_statement = false; add;
-   typ = Some (typ_unit ()); attributes}
+   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_switch ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_switch ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (cases : (trm list * trm) list) : trm =
   {annot; desc = Trm_switch (cond, cases); loc; is_statement = false; add;
-   typ = Some (typ_unit ()); attributes}
+   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_abort ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_abort ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (a : abort) : trm =
   {annot = annot; desc = Trm_abort a; loc = loc; is_statement = true; add;
-   typ = Some (typ_unit ()); attributes}
+   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_labelled ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_labelled ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (l : label) (t : trm) : trm =
   {annot; desc = Trm_labelled (l, t); loc; is_statement = false; add;
-   typ = Some (typ_unit ()); attributes}
+   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_goto ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_goto ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (l : label) : trm =
   {annot; desc = Trm_goto l; loc; is_statement = true; add;
-   typ = Some (typ_unit ()); attributes}
+   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = [])
+let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (left : string) (right : string) (t : trm) : trm =
   {annot; desc = Trm_decoration (left, t, right); loc; is_statement = false; add;
-  typ = Some (typ_unit ()); attributes }
+  typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
   trm_val ~annot ~loc (Val_ptr (0, []))
@@ -519,9 +511,9 @@ let trm_set ?(annot = None) ?(loc = None) ?(is_statement : bool = false) ?(add =
   trm_apps ~annot:annot ~loc ~is_statement ~add ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
 
-let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = [])
+let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (t : trm) : trm =
-  {annot = annot; desc = Trm_any t; loc = loc; is_statement=false; add; typ; attributes}
+  {annot = annot; desc = Trm_any t; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
 
 let is_included (t : trm) : bool =
@@ -646,15 +638,15 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
 
 (* same as trm_map for types *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
-  let annot = ty.ty_annot in
-  let ty_attributes = ty.ty_attributes in
-  match ty.ty_desc with
-  | Typ_ptr ty -> typ_ptr ~annot ~ty_attributes (f ty)
-  | Typ_array (ty, n) -> typ_array ~annot ~ty_attributes (f ty) n
+  let annot = ty.typ_annot in
+  let typ_attributes = ty.typ_attributes in
+  match ty.typ_desc with
+  | Typ_ptr ty -> typ_ptr ~annot ~typ_attributes (f ty)
+  | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
   | Typ_struct (tlist,tmap, x) ->
-     typ_struct ~annot ~ty_attributes tlist (Field_map.map f tmap) x
+     typ_struct ~annot ~typ_attributes tlist (String_map.map f tmap) x
   | Typ_fun (tyl, ty) ->
-     typ_fun ~annot ~ty_attributes (List.map f tyl) (f ty)
+     typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
   | _ -> ty
 

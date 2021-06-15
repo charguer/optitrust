@@ -29,7 +29,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      | Trm t' -> d ^^ brackets (trm_to_doc t')
      end
   | Typ_struct (l,m, _) ->
-     let get_typ x = Field_map.find x m in
+     let get_typ x = String_map.find x m in
      let get_document_list l =
       let rec aux acc = function
       | [] -> acc
@@ -47,7 +47,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_var (t, _) -> string t
 
 and is_atomic_typ (t : typ) : bool =
-  match t.ty_desc with
+  match t.typ_desc with
   | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
   | _ -> false
 
@@ -58,13 +58,13 @@ and typ_annot_to_doc (a : typ_annot) : document =
   | Short -> string "short"
 
 and typ_to_doc (t : typ) : document =
-  let d = typ_desc_to_doc t.ty_desc in
+  let d = typ_desc_to_doc t.typ_desc in
   let dannot =
     List.fold_left (fun d' a -> typ_annot_to_doc a ^^ blank 1 ^^ d') empty
-      t.ty_annot
+      t.typ_annot
   in
   let dattr =
-    match t.ty_attributes with
+    match t.typ_attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
@@ -79,7 +79,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
       | Const n -> brackets (string (string_of_int n))
       | Trm t' -> brackets (trm_to_doc t')
     in
-    match t.ty_desc with
+    match t.typ_desc with
     | Typ_array (t, s') ->
        let (base, bracketl) = aux t s' in
        (base, ds :: bracketl)
@@ -88,11 +88,11 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   in
   let (x, t) = tx in
   let dattr =
-    match t.ty_attributes with
+    match t.typ_attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
-  match t.ty_desc with
+  match t.typ_desc with
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
@@ -331,7 +331,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     let tv =
       if not !decode then (x,typ)
       else
-        begin match typ.ty_desc with
+        begin match typ.typ_desc with
           | Typ_ptr tx -> (x, tx)
           | _ -> fail None "trm_let_to_doc: expected a type ptr"
         end
@@ -375,12 +375,12 @@ and typedef_to_doc ?(semicolon : bool = true) (t : typedef) : document =
   let dsemi = if semicolon then semi else empty in
   match t with
   | Typedef_abbrev (x,t) ->
-    begin match t.ty_desc with
+    begin match t.typ_desc with
      (* particular case for array types aliases *)
      | Typ_array _ ->
         string "typedef" ^^ blank 1 ^^ typed_var_to_doc (x, t) ^^ dsemi
      (* particular case for function pointers *)
-     | Typ_ptr {ty_desc = Typ_fun (tyl, r); _} ->
+     | Typ_ptr {typ_desc = Typ_fun (tyl, r); _} ->
         let dl = List.map typ_to_doc tyl in
         let dr = typ_to_doc r in
         separate (blank 1)

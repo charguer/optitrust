@@ -113,7 +113,7 @@ let reorder_aux (struct_fields: var list) (move_where : string) (around : string
   match t.desc with 
   | Trm_typedef (Typedef_abbrev (x, dx)) ->
     let field_list,field_map =
-      match dx.ty_desc with
+      match dx.typ_desc with
         | Typ_struct(l, m,_) -> l, m
         |_ -> fail t.loc "reorder_aux: the type should be a typedef struct"
       in
@@ -137,7 +137,7 @@ let get_pos (x : typvar) (t : trm) : int =
   begin match t.desc with
     | Trm_typedef (Typedef_abbrev(_, dx)) ->
        let field_list1 =
-          match dx.ty_desc with
+          match dx.typ_desc with
           | Typ_struct(l,_,_) -> l
           |_ -> fail t.loc "get_pos: the type should be a typedef struct"
         in
