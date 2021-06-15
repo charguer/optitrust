@@ -52,10 +52,7 @@ type size =
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar (* e.g. ['a] in the type ['a -> 'a] *)
-  | Typ_constr of typvar * typ list (* e.g. [int list] *)
-    (* LATER: for Rust and OCaml, Typ_var will be renamed to Typ_constr, and
-       will take as extra argument a list of types; e.g., to represent [int list] *)
-    (* LATER: in the future, the [typvar] argument might become optional *)
+  | Typ_constr of typvar * typid * typ list (* e.g. [int list] *)
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
