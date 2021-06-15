@@ -41,6 +41,7 @@ module Type_map = Map.Make(String)
 type 'a tmap = 'a Type_map.t
 let typ_map : typ Type_map.t ref = ref Type_map.empty
 
+let ctx_tvar : typ varmap ref = ref String_map.empty
 
 let ctx_tconstr : typid varmap ref = ref String_map.empty
 
@@ -50,6 +51,31 @@ let ctx_label : typid varmap ref = ref String_map.empty
 
 let ctx_constr : typid varmap ref = ref String_map.empty
 
+
+
+let ctx_tvar_add (tv : typvar) (t : typ) : unit =
+    ctx_tvar := String_map.add tv t (!ctx_tvar)
+
+let ctx_tconstr_add (tc : typconstr) (tid : typid) : unit = 
+    ctx_tconstr := String_map.add tc tid (!ctx_tconstr)
+
+let ctx_typedef_add (tid : typid) (td : typedef) : unit = 
+    ctx_tconstr := Typ_map.add tid td (!ctx_typedef)
+
+let ctx_label_add (lb : label) (tid : typid) : nuit =
+    ctx_label := String_map.add lb tid (!ctx_label)
+
+let ctx_constr (constr : string) (tid : typid) : unit =
+    ctx_constr := String_map.add constr tid (!ctx_constr)
+
+let build_ctx () : ctx = 
+  {
+    ctx_tvar = !ctx_tvar;
+    ctx_tconstr = !ctx_tconstr;
+    ctx_typedef = !ctx_typedef;
+    ctx_label = !ctx_label;
+    ctx_constr = !ctx_constr;
+  }
 
 (* DEPRECATED *)
 (* ************************************************* *)
@@ -1012,6 +1038,7 @@ and translate_decl (d : decl) : trm =
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
     let td = Typedef_abbrev (n, tn) in
+
     typedef_env_add n td;
     trm_typedef ~loc td
   | TypeAlias {ident_ref = id; qual_type = q} ->
@@ -1029,7 +1056,6 @@ and translate_decl (d : decl) : trm =
 
 module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t
-let typ_map : typ Type_map.t ref = ref Type_map.empty
 
 let filter_out_include (filename : string)
     (dl : decl list) : ((decl list) imap) * (decl list) =
