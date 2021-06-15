@@ -272,14 +272,24 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
 
 (* TODO: BEGATIM: I think it would be nicer to produce a single JS file
    with all steps. Let's discuss this. *)
+(* LATER: rename to file_out.js  instead of file.js *)
 
-let output_js (index : int) (prefix : string) (ast : trm) : unit =
+(* TODO: document the fact that now cpp_filename is used instead of ast;
+   remove the AST argument. *)
+let output_js (index : int) (cpp_filename : string) (prefix : string) (_ast : trm) : unit =
+  let (_, ast) = parse cpp_filename in
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
+    (* Dump the description of the AST nodes *)
     Ast_to_js.ast_to_js out_js index ast;
     output_string out_js "\n";
-    Ast_to_js.Json.code_to_js out_js index ast;
+
+    (* Dump the raw source code *)
+    (* DEPRECATED  Ast_to_js.Json.code_to_js out_js index ast;  *)
+    let src = Xfile.get_contents cpp_filename in
+    Ast_to_js.Json.code_to_js out_js index src;
+
     close_out out_js;
   with | Failure s ->
     close_out out_js;
@@ -289,6 +299,8 @@ let output_js (index : int) (prefix : string) (ast : trm) : unit =
    the contents of the current AST and of all the history,
    that is, of all the ASTs for which the [step] method was called. *)
 let dump_trace_to_js ?(prefix : string = "") () : unit =
+  assert (prefix = prefix && false)
+  (* TODO: needs to update the call to output_js to go through a cpp file first
   let dump_history (ctx : context) (prefix : string)
     (asts : trm list) : unit =
     let nbAst = List.length asts in
@@ -319,6 +331,7 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
       dump_history ctx prefix (trace.cur_ast :: trace.history)
     )
     (!traces)
+     *)
 
 (*
   filename = prefix ^ "_trace.js"
@@ -389,10 +402,11 @@ let dump_diff_and_exit () : unit =
       print_info None "Writing ast and code before last transformation...\n";
       output_prog ctx (prefix ^ "_before") astBefore;
       print_info None "Done. Output files: %s_before.ast and %s_before%s.\n" prefix prefix ctx.extension;
-      print_info None "Writing ast and code into %s.js " prefix;
-      output_js (-1) prefix astAfter;
       print_info None "Writing ast and code after last transformation...\n";
       output_prog ctx (prefix ^ "_after") astAfter;
+      print_info None "Writing ast and code into %s.js " prefix;
+      let cpp_filename =  (prefix ^ "_after") ^ ".cpp" in
+      output_js (-1) cpp_filename prefix astAfter;
       print_info None "Done. Output files: %s_after.ast and %s_after%s.\n" prefix prefix ctx.extension;
       ()
     )

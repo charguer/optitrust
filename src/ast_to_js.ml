@@ -32,18 +32,17 @@ module Json = struct
     | List l -> Tools.print_list ~sep:"," (List.map json_to_doc l)
     | Object o -> Tools.print_object (List.map (fun (s,j) -> string s ^^ string ": " ^^ json_to_doc j) o)
 
-
   let json_to_js ?(index : int = (-1)) (j : t) : document =
    let json_ast = json_to_doc j in
    match index with
    | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi
    | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi
 
-  let code_to_js (out : out_channel) (index : int) (ast : trm) : unit =
-    let src = Ast_to_c.trm_to_doc ast in
-    let doc = match index with
-      | -1 -> string "source"  ^^ equals ^^ bquotes (src)
-      | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (src)
+  let code_to_js (out : out_channel) (index : int) (* DEPRECATED (ast : trm)*) (src : string) : unit =
+    (* DEPRECATED let src = Ast_to_c.trm_to_doc ast in *)
+    let doc = match index with (* TODO: factorize code better *)
+      | -1 -> string "source"  ^^ equals ^^ bquotes (string src)
+      | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (string src)
       in
     PPrintEngine.ToChannel.pretty 0.9 80 out doc
 
@@ -184,7 +183,8 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
         | Ret res->
            let children = match res with
              | None -> []
-             | Some ret -> [Json.Object [(quote "value",Str (aux ret))]]
+             | Some ret -> (* TODO: boggus? [Json.Object [(quote "value",Str (aux ret))]]*)
+                 [ child_to_json "value" (aux ret) ]
              in
            [ kind_to_field "return";
             children_to_field children ]

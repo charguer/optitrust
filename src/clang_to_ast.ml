@@ -205,13 +205,13 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
         else
           typ_array t (Trm s)
     end
-  (* Just for debugging purposes*) 
+  (* Just for debugging purposes*)
   | VariableArray {element = q; size = eo} ->
-    let t = translate_qual_type ~loc q in 
+    let t = translate_qual_type ~loc q in
     let s = translate_expr eo in
     typ_array t (Trm s)
     (* ***************** *)
-  
+
   | IncompleteArray q ->
     let t = translate_qual_type ~loc q in
     typ_array t Undefined
@@ -249,9 +249,9 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     end
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> 
+      | IdentifierName n ->
         let td = get_typedef n in
-        (* let () = match td with 
+        (* let () = match td with
         | Some d -> printf "Typedef trying to get is %s, got %s" n (Ast_to_text.typedef_to_string d);
         | None -> printf "Typedef trying to get is %s, got NONE" n;
         in *)
@@ -261,21 +261,21 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     end
   | Elaborated {keyword = k; nested_name_specifier = _; named_type = q} ->
     begin match k with
-      | Struct -> 
+      | Struct ->
         translate_qual_type ~loc q
       | _ ->
         fail loc "translate_type_desc: only struct allowed in elaborated type"
     end
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> 
+      | IdentifierName n ->
          typ_var n (get_typedef n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n -> 
+      | IdentifierName n ->
         typ_var n (get_typedef n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
@@ -517,6 +517,12 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | _ -> fail loc "translate_expr: unsupported unary expr"
     end
   | UnaryOperator {kind = k; operand = e} ->
+    let loc = (* deduce location of infix symbol *)
+      match loc, loc_of_node e with
+      | Some (file,line1,col1,_,_), Some (_,line2,col2,_,_) ->
+          Some (file,line1,col1,line2,col2)
+      | _ -> None
+      in
     begin match k with
       | AddrOf -> (* expectation: e is not a const variable *)
         (* We are translating a term of the form that involves [&p],
@@ -570,6 +576,12 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         end
     end
   | BinaryOperator {lhs = le; kind = k; rhs = re} ->
+    let loc = (* deduce location of infix symbol *)
+      match loc_of_node le, loc_of_node re with
+      | Some (file,_,_,line1,col1), Some (_,line2,col2,_,_) ->
+          Some (file,line1,col1,line2,col2)
+      | _ -> None
+      in
     let tr = translate_expr re in
     begin match k with
       | Assign ->

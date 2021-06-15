@@ -1,4 +1,4 @@
-
+var debug_locations = true;
 
 // the imported JS file provides 'source' and 'contents'
 
@@ -39,8 +39,8 @@ function initEditor() {
     var from = editor.getCursor(true);
     var to = editor.getCursor(false);
     // Adding 1 because compilers counts from 1, and Codemirror from 0
-    return { start: { line: from.line + 1, col: from.ch },
-      end: { line: to.line + 1, col: to.ch } };
+    return { start: { line: from.line + 1, col: from.ch + 1 },
+      end: { line: to.line + 1, col: to.ch + 1 } };
   };
 }
 
@@ -68,8 +68,8 @@ function updateSelection(loc) {
   editor.getAllMarks().forEach(m => m.clear());
 
   // Substracting 1 because compilers counts from 1, and Codemirror from 0
-  var from = { line: loc.start.line-1, ch: loc.start.col };
-  var to = { line: loc.end.line-1, ch: loc.end.col };
+  var from = { line: loc.start.line-1, ch: loc.start.col-1 };
+  var to = { line: loc.end.line-1, ch: loc.end.col-1 };
 
   // Highlight and scroll to the highlighted place
   editor.markText(from, to, opts);
@@ -116,8 +116,9 @@ function number_of_nodeid(id) { // converts node_243 to 243 as a number
 }
 
 function loadPathForUserSelection(selectedLoc) {
-  // DEBUG:
-  console.log(JSON.stringify(selectedLoc));
+  if (debug_locations) {
+    console.log(JSON.stringify(selectedLoc));
+  }
 
   // First, find the deepest node in the AST that fully covers the location
   let chosen_node = "node_0";
@@ -168,7 +169,7 @@ function html_span(args, contents) {
 
 // order in which to display properties
 // properties that are not mentioned are processed at the end in arbitrary order
-var properties = [ "name", "type", "loc" ];
+var properties = [ "name", "parent", "type", "loc", "is_statement", "annot" ];
 
 function get_child_label(node, id_child) {
   if (! ("children" in node)) {
@@ -200,8 +201,9 @@ function viewDescription(id, node) {
   var labelKind = html_span({'class': 'label-kind', onclick: "updateSelectedNode('" + id + "')"}, k);
 
   var txt = "";
-  // DEBUG:
-  txt += "[" + number_of_nodeid(id) + "] ";
+  if (debug_locations) {
+    txt += "[" + number_of_nodeid(id) + "] ";
+  }
 
   txt += labelKind + " ";
 
@@ -212,19 +214,33 @@ function viewDescription(id, node) {
       var value = node[key];
       // some keys have special display
       if (key == "name") {
-        txt += value;
+        txt += "\"" + value + "\"" + "; ";
       } else if (key == "type") {
         txt += " : " + value;
+      } else if (key == "parent") {
+        if (debug_locations) {
+          txt += "parent=" + value + "; ";
+        }
       } else if (key == "loc") {
-        if (value != "") {
+        if (debug_locations && value != "") {
           txt += " @ " + JSON.stringify(value);
           // value.start.line;
         }
+      } else if (key == "is_statement") {
+         // TODO: add this once we get the correct kind for each term
+         /*
+        if (value == "false") {
+          txt += "[expr] ";
+        } else {
+          txt += "[stat] ";
+        }
+        */
 
       // others use a generic display
       } else {
-        if (value !== "") {
-          txt += " <i>"+key+"</i>: " + value;
+        // TODO: share code
+        if (value !== "" && ! (Array.isArray(value) && value.length == 0)) {
+          txt += " <i>"+key+"</i>: " + JSON.stringify(value);
         }
       }
 
@@ -238,7 +254,9 @@ function viewDescription(id, node) {
     var key = keys[ikey];
     var value = node[key];
     // use a generic display (again)
-    txt += "; <i>"+key+"</i>: " + value;
+    if (value !== "" && ! (Array.isArray(value) && value.length == 0)) {
+      txt += "; <i>"+key+"</i>: " + JSON.stringify(value);
+    }
   }
   return txt;
 }
@@ -511,7 +529,6 @@ function scrollToFirstMark() {
 /* TODO
    - load the ast and customize the display:
       - if value is empty, don't show the key
-      - don't show loc, is_statement
    - fix off by one column
    - check all locations match well in highlight
    - check user selection targets the right node each time
