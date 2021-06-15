@@ -9,7 +9,7 @@ open Path
 (*                        Data structure for targets                          *)
 (******************************************************************************)
 
-(* Type to classify trms into four main classes: 1)Structuring statements, 2) Instructions 3) Expression and others*)
+(* Type to classify trms into four main classes: 1)Structuring statements, 2) Instructions 3) Expression and 4) others*)
 type trm_kind =
   | TrmKind_Struct
   | TrmKind_Instr
@@ -423,15 +423,11 @@ let target_to_target_struct (tr : target) : target_struct =
       end
     | _ -> ()
     in
-  (* Check if relative constraint are applied once and the number of occurences is unique *)
   List.iter process_constr tr;
-  (* Return a target_struct *)
   let tgs = {
     target_path = List.filter (function | Constr_relative _ | Constr_occurences _ -> false | _ -> true) tr;
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
     target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
-  (* TODO *)
-  (* printf "%s\n" (target_struct_to_string tgs); *)
   tgs
 
 (* Computes whether a [target] is contains a [Constr_relative] that is not [TargetAt]. *)
@@ -449,16 +445,10 @@ let is_target_between (tr : target) : bool =
 (*
   Particular case for target resolution: heap allocated variables
   Patterns:
-    - declaration: seq annotated with Heap_allocated containing decl +
-      optional initialisation annotated with Initialisation_instruction
+    - declaration:A declaration is heap allocated if it is mutable
     - usage: particular use of get/access because variables are pointers
       in practice, only dereferencing has to be taken into account: array and
       struct get/access are better matched with regexp
-    - elimination:
-      + in return instruction: seq annotated with Delete_instructions containing
-        delete instructions annotated with Heap_allocated + abort instruction
-      + at the end of scopes: seq annotated with Delete_instructions containing
-        last instruction of the scope + annotated delete instructions
   The user expresses targets as if the variables were not heap allocated but target
   resolution computes the appropriate target
  *)
@@ -647,18 +637,14 @@ let rec check_constraint (c : constr) (t : trm) : bool =
 and check_name (name : constr_name) (s : string) : bool =
   match name with
   | None -> true
-  | Some r -> match_regexp_str r s
+  | Some r -> match_regexp_str r  s
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
-  (* DEBUG: printf "%s\n" (lpred.target_list_pred_to_string()); *)
+  (* DEBUG:*) (* printf "%s\n" (lpred.target_list_pred_to_string());  *)
   let cstr = lpred.target_list_pred_ith_constr in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ([cstr i]) t) tl)
-  (* DEBUG: printf "%s\n" (if res then "true" else "false"); *)
-
-(* and check_list (cl : constr_list) (tl : trm list) : bool =
-  let (p, validate) = cl in
-  validate (List.map (check_target p) tl) *)
+  (*DEBUG:*) (* printf "%s\n" (if res then "true" else "false"); res *)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
@@ -719,9 +705,15 @@ and check_enum_const (cec : constr_enum_const)
 
 (* check if target tr leads to at least one subterm of t *)
 and check_target (tr : target) (t : trm) : bool =
-  match resolve_target_simple tr t with
+  printf "Check target for target %s and trm " (target_to_string tr);
+  (Ast_to_text.print_ast ~only_desc:true stdout t);
+  let res = match resolve_target_simple tr t with
   | [] -> false
   | _ -> true
+  in 
+  flush stdout;
+  printf "\n checked to %s\n" (if res then "true" else "false");
+  res
 
 (*
   resolve_target computes the directions to matching subterms

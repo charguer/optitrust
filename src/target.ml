@@ -156,7 +156,7 @@ let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_k
 
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
-  let ro = string_to_rexp_opt regexp substr name TrmKind_Any in
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
   let p_body =  body in
     Constr_decl_var (ro, p_body)
 
@@ -244,10 +244,6 @@ let cEnum ?(name : string = "")
   in
   Constr_decl_enum (c_n, cec_o)
 
-(* let cSeq ?(args : target = [])
-  ?(validate : bool list -> bool = fun _ -> true) (_ : unit) : constr =
-  let p_args =  args in
-    Constr_seq (p_args, validate) *)
 let cSeq ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (_ : unit) : constr =
   let p_args =
   match args with
