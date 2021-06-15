@@ -41,32 +41,36 @@ module Type_map = Map.Make(String)
 type 'a tmap = 'a Type_map.t
 let typ_map : typ Type_map.t ref = ref Type_map.empty
 
-(*
-  TODO:
-    let ctx_tconstr : typedef fmap ref = ref String_map.empty
-    let ctx_typedef ...
 
-    LATER: ctx_label and ctx_constr
-*)
+let ctx_tconstr : typid varmap ref = ref String_map.empty
 
+let ctx_typedef : typedef typmap ref = ref Typ_map.empty
+
+let ctx_label : typid varmap ref = ref String_map.empty
+
+let ctx_constr : typid varmap ref = ref String_map.empty
+
+
+(* DEPRECATED *)
+(* ************************************************* *)
 (* A map to keep track of the typedefs seen so far in the file.
    Note: there is no notion of scope, typedefs are all global. *)
    (* LATER: it could be perhaps a map from typvar to typ, instead of to typedef *)
-let typedef_env : typedef Type_map.t ref = ref Type_map.empty
+(* let typedef_env : typedef Type_map.t ref = ref Type_map.empty *)
 
 (* [get_typedef tv] returns the typedef that corresponds to the typvar [tv].
    Raise an error if it is not bound  *)
-let get_typedef (tv : typvar) : typedef option=
+(* let get_typedef (tv : typvar) : typedef option=
   let td = Type_map.find_opt tv !typedef_env in
-  td
+  td *)
 
 (* [typedef_env_add tv tdef] extends the environment for typedefs with a binding
    from type variable [tv] to the type definition [tdef]. *)
-let typedef_env_add (tv : typvar) (tdef : typedef) : unit =
+(* let typedef_env_add (tv : typvar) (tdef : typedef) : unit =
   (* printf "Adding key %s\n" tv; *)
   flush stdout;
-  typedef_env := Type_map.add tv tdef !typedef_env
-
+  typedef_env := Type_map.add tv tdef !typedef_env *)
+(* *************************************************** *)
 
 (* TODO: rename: heap_vars contains the information on which variables are [Var_mutable]
   stack of lists of heap allocated variables
@@ -884,13 +888,13 @@ and translate_decl_list (dl : decl list) : trm list =
                                                 attributes = al}} ->
                  let ft = translate_qual_type ~loc q in
                  let al = List.map (translate_attribute loc) al in
-                 let m' = Field_map.add fn {ft with ty_attributes = al} m in
+                 let m' = String_map.add fn {ft with ty_attributes = al} m in
                  let fs' = fn :: fs in
                  (fs',m')
                | _ ->
                  fail loc ("translate_decl_list: only fields are allowed " ^
                            "in struct declaration"))
-            ([], Field_map.empty)
+            ([], String_map.empty)
             fl
         in
         let tq = translate_qual_type ~loc q in

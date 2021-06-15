@@ -100,7 +100,7 @@ let inline_record_access (field : string) (var : string ) (t : trm) : trm =
  (* Auxiliary functions for change_struct_fields function  *)
 (* Find all keys which have value = value *)
 let find_keys value m =
-  Field_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
+  String_map.fold(fun k v acc -> if v = value then k :: acc else acc) m []
 
 (* A function rename all th elements of a list *)
 let rec apply_labels vl pl = match pl with
@@ -108,7 +108,7 @@ let rec apply_labels vl pl = match pl with
 | hd :: tl -> let y = List.map (fun x -> hd ^ "_" ^x) vl in y :: apply_labels vl tl
 
 
-let add_key key value m = Field_map.add key value m
+let add_key key value m = String_map.add key value m
 
 
 let rec add_keys (lk : var list) (lv : typ list) m  = match (lk ,lv) with
@@ -164,7 +164,7 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
             in
 
           (* If the list of fields is given then do nothing otherwise find all occurrences of typedef first struct*)
-          (* let keys_list = if struct_fields = [] then Field_map.fold(fun k v acc -> if v = x then k :: acc else acc) field_map1 []
+          (* let keys_list = if struct_fields = [] then String_map.fold(fun k v acc -> if v = x then k :: acc else acc) field_map1 []
 
             else struct_fields
             in
@@ -173,12 +173,12 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
           let fields_to_inline = struct_fields in
           (* value_list is the list of values for each field we want to inline, we need that since we have
           to check if there are special types like arrays *)
-          let field_types = List.map(fun x -> Field_map.find x field_map1) fields_to_inline in
+          let field_types = List.map(fun x -> String_map.find x field_map1) fields_to_inline in
 
           let temp_field_list = apply_labels field_list fields_to_inline in
 
           (* The key values from the first struct *)
-          let values = List.map (fun x -> Field_map.find x field_map) field_list in
+          let values = List.map (fun x -> String_map.find x field_map) field_list in
 
           (* Add the new keys with their values to the second  struct field_map *)
           let field_map1 = add_keys_to_map values temp_field_list field_types field_map1 in
@@ -187,7 +187,7 @@ let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : t
           let field_list1 = insert_list fields_to_inline temp_field_list field_list1 in
 
 
-          let _field_map1 = List.fold_left (fun mapPrev key -> Field_map.remove key mapPrev) field_map1 fields_to_inline in
+          let _field_map1 = List.fold_left (fun mapPrev key -> String_map.remove key mapPrev) field_map1 fields_to_inline in
 
           let field_list1 = list_remove_set  fields_to_inline field_list1 in
 
@@ -386,7 +386,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
       | Typ_struct (_,m,_) -> m
       | _ -> fail t.loc "inline_struct: the type should be a typedef struct"
     in
-    let field_map_typ = Field_map.find field_name field_map in
+    let field_map_typ = String_map.find field_name field_map in
     begin match field_map_typ.ty_desc with
     | Typ_var (y, _) -> y
     | Typ_array (t_var ,_) ->

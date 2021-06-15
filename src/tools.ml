@@ -262,3 +262,5 @@ let fresh_generator () : (unit -> int) =
     !n
 
 
+let next_typid : (unit -> int) =
+  fresh_generator()

@@ -1,4 +1,5 @@
 open Tools
+
 (* file locations: filename, line number *)
 type location = (string * int * int * int * int) option
 
@@ -20,8 +21,6 @@ type typvars = typvar list
    LATER: might rename to typconstrid *)
 type typid = int
 
-let next_typid : (unit -> int) =
-  fresh_generator()
 
 (* ['a typmap] is a map from [typeid] to ['a] *)
 module Typ_map = Map.Make(Int)
@@ -33,10 +32,10 @@ type field = string
 (* struct fields as a list of fields *)
 type fields = field list
 
-(* ['a fmap] is a map from string to ['a] *)
-(* LATER: rename [fmap] to [varmap], rename Field_map to String_map  *)
-module Field_map = Map.Make(String)
-type 'a fmap = 'a Field_map.t
+(* ['a varmap] is a map from string to ['a] *)
+(* TODO: LATER: rename [varmap] to [varmap], rename String_map to String_map  *)
+module String_map = Map.Make(String)
+type 'a varmap = 'a String_map.t
 
 (* labels (for records) *)
 type label = string
@@ -64,9 +63,8 @@ and typ_desc =
   | Typ_ptr of typ (* "int*" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
-  (* Not supported: C struct that are not named at toplevel using a typedef
-    | Typ_struct of fields * (typ fmap) * typvar *)
-
+  | Typ_struct of fields * (typ varmap) * typvar
+    (* This doesn't appear anywhere *)
     (* NOT SUPPORTED:   void f (struct { int x,y } v) { } *)
 
 and typ_annot =
@@ -221,11 +219,11 @@ and trm =
 (* A [typ_env] stores all the information about types, labels, constructors, etc. *)
 (* [ctx_tvar] is useful for interpreting types that are provided in the user scripts *)
 and ctx = {
-  ctx_var : typ fmap; (* from [var] to [typ], i.e. giving the type of program variables *)
-  ctx_tconstr : typedef fmap; (* from [typconstr] to [typid] *)
+  ctx_var : typ varmap; (* from [var] to [typ], i.e. giving the type of program variables *)
+  ctx_tconstr : typid varmap; (* from [typconstr] to [typid] *)
   ctx_typedef : typedef typmap; (* from [typid] to [typedef] *)
-  ctx_label : typid fmap; (* from [label] to [typid] *)
-  ctx_constr : typid fmap; (* from [constr] to [typid] *)
+  ctx_label : typid varmap; (* from [label] to [typid] *)
+  ctx_constr : typid varmap; (* from [constr] to [typid] *)
   } (* NOTE: ctx_label and ctx_constr *)
 
   (* Example ctx for the type definitions
@@ -389,7 +387,7 @@ let typ_array ?(annot : typ_annot list = []) ?(ty_attributes = []) (t : typ)
   {ty_annot = annot; ty_desc = Typ_array (t, s); ty_attributes}
 
 let typ_struct ?(annot : typ_annot list = []) ?(ty_attributes = [])
-   (fields : fields)(typ_field : typ fmap) (typ_name : typvar) : typ =
+   (fields : fields)(typ_field : typ varmap) (typ_name : typvar) : typ =
   {ty_annot = annot; ty_desc = Typ_struct (fields,typ_field, typ_name); ty_attributes}
 
 let typ_fun ?(annot : typ_annot list = []) ?(ty_attributes = [])
@@ -652,7 +650,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   | Typ_ptr ty -> typ_ptr ~annot ~ty_attributes (f ty)
   | Typ_array (ty, n) -> typ_array ~annot ~ty_attributes (f ty) n
   | Typ_struct (tlist,tmap, x) ->
-     typ_struct ~annot ~ty_attributes tlist (Field_map.map f tmap) x
+     typ_struct ~annot ~ty_attributes tlist (String_map.map f tmap) x
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~ty_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)

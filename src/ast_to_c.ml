@@ -29,7 +29,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      | Trm t' -> d ^^ brackets (trm_to_doc t')
      end
   | Typ_struct (l,m, _) ->
-     let get_typ x = Field_map.find x m in
+     let get_typ x = String_map.find x m in
      let get_document_list l =
       let rec aux acc = function
       | [] -> acc

@@ -442,7 +442,7 @@ let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
                 begin match ty'.ty_desc with
                 | Typ_struct (l,m, n) ->
                    let m =
-                     Field_map.map
+                     String_map.map
                        (fun ty'' ->
                          typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
                    in
@@ -534,7 +534,7 @@ let aos_to_soa_aux (name : var -> var)(index : int) (t : trm) : trm =
                  begin match ty''.ty_desc with 
                   | Typ_struct (l,m, n) ->
                    let m =
-                     Field_map.map
+                     String_map.map
                        (fun ty'' ->
                          typ_array ~ty_attributes:ty.ty_attributes ty'' s) m
                    in
