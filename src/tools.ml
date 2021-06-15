@@ -254,3 +254,11 @@ module Debug = struct
       let s = Printexc.get_backtrace() in
       Printf.eprintf "%s\n" s
 end
+
+let fresh_generator () : (unit -> int) =
+  let n = ref 0 in
+  fun () ->
+    incr n;
+    !n
+
+

@@ -8,8 +8,22 @@ type loc = int
 (* variables *)
 type var = string
 
-(* type variables *)
+(* name of type constructors (e.g. [list] in Ocaml's type [int list] *)
+type typconstr = string
+
+(* name of type variables (e.g. ['a] in type ['a list] *)
 type typvar = var
+type typvars = typvar list
+
+(* unique identifier for typ variables *)
+type typid = int
+
+let next_typid : (unit -> int) =
+  fresh_generator()
+
+(* ['a typmap] is a map from [typeid] to ['a] *)
+module Typ_map = Map.Make(Int)
+type 'a typmap = 'a Typ_map.t
 
 (* struct fields and maps describing struct *)
 type field = string
@@ -17,12 +31,16 @@ type field = string
 (* struct fields as a list of fields *)
 type fields = field list
 
+(* ['a fmap] is a map from string to ['a] *)
+(* LATER: rename [fmap] to [varmap] *)
 module Field_map = Map.Make(String)
-
 type 'a fmap = 'a Field_map.t
 
-(* labels *)
+(* labels (for records) *)
 type label = string
+
+(* constructor name (for enum and algebraic datatypes) *)
+type constr = string
 
 (* array sizes *)
 type size =
@@ -33,7 +51,11 @@ type size =
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar * (typedef option)(* int x *)
+  | Typ_var of typvar (* e.g. ['a] in the type ['a -> 'a] *)
+  | Typ_constr of typvar * typ list (* e.g. [int list] *)
+    (* LATER: for Rust and OCaml, Typ_var will be renamed to Typ_constr, and
+       will take as extra argument a list of types; e.g., to represent [int list] *)
+    (* LATER: in the future, the [typvar] argument might become optional *)
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
@@ -41,9 +63,10 @@ and typ_desc =
   | Typ_bool
   | Typ_char
   | Typ_ptr of typ (* "int*" *)
-  | Typ_array of typ * size (* int[3] *)
-  | Typ_struct of fields * (typ fmap) * typvar (* typedef { x: int, y:double } point *)
+  | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
+  (* Not supported: C struct that are not named at toplevel using a typedef
+    | Typ_struct of fields * (typ fmap) * typvar *)
 
 and typ_annot =
   | Unsigned
@@ -51,11 +74,29 @@ and typ_annot =
   | Short
 
 and typ = {
+  (* LATER: rename the [ty_] prefix to [typ_] *)
   ty_desc : typ_desc;
   ty_annot : typ_annot list;
   ty_attributes : attribute list }
   (* IN THE FUTURE
   ty_env : env; --> tells you for every type what is its definition
+  *)
+
+and typedef = { (* e.g. [type ('a,'b) t = ...] *)
+  typdef_typid : typid; (* the unique id associated with the type [t] *)
+  typdef_tconstr : typconstr; (* the name [t] *)
+  typdef_vars : typvars; (* the list containing the names ['a] and ['b];
+    [typedef_vars] is always the empty list in C code without templates *)
+  typdef_body : typdef_body; } (* the body of the definition, i.e. the description of [...] *)
+
+and typdef_body =
+  | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list)] *)
+  | Typdef_prod of (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
+  | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
+  (* NOTE: we don't need to support the enum from C, for the moment. *)
+  (* DEPRECATED
+  | Typedef_abbrev of typvar * typ  (* type x = t, where t could be a struct *)
+  | Typedef_enum of typvar * ((var * (trm option)) list) (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
   *)
 
 and typed_var = var * typ
@@ -172,8 +213,19 @@ and trm =
    loc : location;
    is_statement : bool; (* TODO : generalize to trm_kind *)
    add : print_addition list; (* TODO: find better name *)
-   typ : typ option; (* typ should be available from the AST that comes from Clang *)
+   typ : typ option;
+   ctx : ctx option;
    attributes : attribute list }
+
+(* A [typ_env] stores all the information about types, labels, constructors, etc. *)
+(* [ctx_tvar] is useful for interpreting types that are provided in the user scripts *)
+and ctx = {
+  ctx_var : typ fmap; (* from [var] to [typ], i.e. giving the type of program variables *)
+  ctx_tconstr : typedef fmap; (* from [typvar] to [typid] *)
+  ctx_typedef : typedef typmap; (* from [typid] to [typedef] *)
+  ctx_label : typid fmap; (* from [label] to [typid] *)
+  ctx_constr : typid fmap; (* from [constr] to [typid] *)
+  }
 
  (* IN THE FUTURE
 and trm =
@@ -244,11 +296,6 @@ and trm_desc =
 and varkind =
   | Var_immutable
   | Var_mutable (* [Var_mutable] means that we had a declaration of a non-const stack-allocated variable. *)
-
-
-and typedef =
-  | Typedef_abbrev of typvar * typ  (* type x = t , where t could be a struct type *)
-  | Typedef_enum of typvar * ((var * (trm option)) list) (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
 
 (* ways of aborting *)
 and abort =
