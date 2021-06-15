@@ -53,8 +53,8 @@ type size =
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar (* e.g. ['a] in the type ['a -> 'a] *)
-  | Typ_constr of typvar * typid * typ list (* e.g. [int list] or [vect] *)
+  | Typ_var of typvar (* e.g. ['a] in the type ['a -> 'a] -- TODO: maybe add a typid? *)
+  | Typ_constr of typvar * typid * typ list (* e.g. [int list] or [(int,string) map] or [vect] *)
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
@@ -91,7 +91,7 @@ and typedef = { (* e.g. [type ('a,'b) t = ...] *)
   typdef_body : typdef_body; } (* the body of the definition, i.e. the description of [...] *)
 
 and typdef_body =
-  | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list)] or [typdef vect t] *)
+  | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list] or [typdef vect t] *)
   | Typdef_prod of (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
   (* NOTE: we don't need to support the enum from C, for the moment. *)
@@ -238,7 +238,7 @@ and ctx = {
       "u" --> id1
 
     ctx_typdef :
-      id0 -->   Typdef_struct ...
+      id0 --> {  ...; typedef_body = Typdef_struct [ ("f", Typ_tconstr ("u", id1, []) ] }
       id1 -->   ...  (typ_tconstr ("t", id0))
 
     ctx_label :
