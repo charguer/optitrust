@@ -72,10 +72,9 @@ and typ_annot =
   | Short
 
 and typ = {
-  (* LATER: rename the [ty_] prefix to [typ_] *)
-  ty_desc : typ_desc;
-  ty_annot : typ_annot list;
-  ty_attributes : attribute list }
+  typ_desc : typ_desc;
+  typ_annot : typ_annot list;
+  typ_attributes : attribute list }
   (* IN THE FUTURE
   ty_env : env; --> tells you for every type what is its definition
   *)
@@ -98,14 +97,6 @@ and typdef_body =
   *)
 
 and typed_var = var * typ
-
-(* accesses in arrays/structures *) (* TODO: this does not appear to be used *)
-and access =
-  | Access_array of typ * int  (* the "[i]" operator, with result of type T *)
-  | Access_field of typ * access (* the ".f" operator, with result of type T *)
-
-and accesses = access list (* e.g. the "[i][j].f" operator *)
-
 (* primitives *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)
@@ -125,7 +116,7 @@ and binary_op =
   | Binop_eq
   | Binop_neq
   | Binop_sub
-  | Binop_add
+  | Binop_addtypedef_env_add
   | Binop_mul
   | Binop_mod
   | Binop_div
@@ -351,51 +342,51 @@ type 'a tmap = 'a Trm_map.t
 type instantiation = trm tmap
 
 (* **************************Typ Construcors**************************** *)
-let typ_const ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
-  {ty_annot = annot; ty_desc = Typ_const t; ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_const t; typ_attributes}
 
-let typ_var ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (x : typvar) : typ =
-  {ty_annot = annot; ty_desc = Typ_var x; ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_var x; typ_attributes}
 
-let typ_constr ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (x : typvar) (tid : typid) (tl : typ list) : typ =
-  {ty_annot = annot; ty_desc = Typ_constr (x, tid, tl); ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
 
-let typ_unit ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_unit; ty_attributes}
+let typ_unit ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_unit; typ_attributes}
 
-let typ_int ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_int; ty_attributes}
+let typ_int ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_int; typ_attributes}
 
-let typ_float ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_float; ty_attributes}
+let typ_float ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_float; typ_attributes}
 
-let typ_double ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_double; ty_attributes}
+let typ_double ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_double; typ_attributes}
 
-let typ_bool ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_bool; ty_attributes}
+let typ_bool ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_bool; typ_attributes}
 
-let typ_char ?(annot : typ_annot list = []) ?(ty_attributes = []) () : typ =
-  {ty_annot = annot; ty_desc = Typ_char; ty_attributes}
+let typ_char ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_char; typ_attributes}
 
-let typ_ptr ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
-  {ty_annot = annot; ty_desc = Typ_ptr t; ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_ptr t; typ_attributes}
 
-let typ_array ?(annot : typ_annot list = []) ?(ty_attributes = []) (t : typ)
+let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
   (s : size) : typ =
-  {ty_annot = annot; ty_desc = Typ_array (t, s); ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_array (t, s); typ_attributes}
 
-let typ_struct ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_struct ?(annot : typ_annot list = []) ?(typ_attributes = [])
    (fields : fields)(typ_field : typ varmap) (typ_name : typvar) : typ =
-  {ty_annot = annot; ty_desc = Typ_struct (fields,typ_field, typ_name); ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_struct (fields,typ_field, typ_name); typ_attributes}
 
-let typ_fun ?(annot : typ_annot list = []) ?(ty_attributes = [])
+let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (args : typ list) (res : typ) : typ =
-  {ty_annot = annot; ty_desc = Typ_fun (args, res); ty_attributes}
+  {typ_annot = annot; typ_desc = Typ_fun (args, res); typ_attributes}
 
 (* *************************** Trm constructors *************************** *)
 
@@ -431,7 +422,7 @@ let trm_let_fun ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
 
 let trm_typedef ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (def_typ : typedef): trm =
-  {annot = annot; desc = Trm_typedef (def_typ); loc = loc; is_statement; add;
+  {annot = annot; desc = Trm_typedef (def_typ.typedef_body); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
@@ -647,15 +638,15 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
 
 (* same as trm_map for types *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
-  let annot = ty.ty_annot in
-  let ty_attributes = ty.ty_attributes in
-  match ty.ty_desc with
-  | Typ_ptr ty -> typ_ptr ~annot ~ty_attributes (f ty)
-  | Typ_array (ty, n) -> typ_array ~annot ~ty_attributes (f ty) n
+  let annot = ty.typ_annot in
+  let typ_attributes = ty.typ_attributes in
+  match ty.typ_desc with
+  | Typ_ptr ty -> typ_ptr ~annot ~typ_attributes (f ty)
+  | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
   | Typ_struct (tlist,tmap, x) ->
-     typ_struct ~annot ~ty_attributes tlist (String_map.map f tmap) x
+     typ_struct ~annot ~typ_attributes tlist (String_map.map f tmap) x
   | Typ_fun (tyl, ty) ->
-     typ_fun ~annot ~ty_attributes (List.map f tyl) (f ty)
+     typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
   | _ -> ty
 

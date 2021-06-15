@@ -65,10 +65,17 @@ let ctx_typedef_add (tid : typid) (td : typedef) : unit =
 let ctx_label_add (lb : label) (tid : typid) : nuit =
     ctx_label := String_map.add lb tid (!ctx_label)
 
-let ctx_constr (constr : string) (tid : typid) : unit =
+let ctx_constr (c : constr) (tid : typid) : unit =
     ctx_constr := String_map.add constr tid (!ctx_constr)
 
-let build_ctx () : ctx = 
+let add_to_ctx ?(label : string = "") ?(constr : constr = "") (tid : typid) (v : var) (tc : tconstr) (t : typ) (td : typedef)  : unit =
+   ctx_tvar_add v t;
+   ctx_tconstr_add c tid;
+   ctx_typedef_add tid td;
+   if label = "" then () else ctx_label_add lb tid;
+   if constr = "" then () else ctx_constr_add c tid;
+
+let get_ctx () : ctx = 
   {
     ctx_tvar = !ctx_tvar;
     ctx_tconstr = !ctx_tconstr;
@@ -1037,16 +1044,33 @@ and translate_decl (d : decl) : trm =
       end
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
-    let td = Typedef_abbrev (n, tn) in
-
-    typedef_env_add n td;
-    trm_typedef ~loc td
+    let tid = next_typid () in
+    let td = {
+      typdef_typid = tid;
+      typdef_tconstr = n;
+      typdef_vars = [];
+      typdef_body = Typedef_alias tn;
+    }
+    in
+    add_to_ctx tid n n tn td;
+    trm_typedef td;
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName n ->
+        let tid = next_typid () in
         let tn = translate_qual_type ~loc q in
+        let td = {
+          typdef_typid = tid;
+          typdef_tconstr = n;
+          typdef_vars = [];
+          typdef_body = Typedef_alias tn;
+        } in
+        add_to_ctx tid n n tn td;
+        typ_constr tn tid [tn]
+        
         let td = Typedef_abbrev (n, tn) in
         typedef_env_add n td;
+       
         trm_typedef ~loc td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
