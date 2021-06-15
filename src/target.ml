@@ -1,4 +1,3 @@
-(* TODO: remove unnecessary open *)
 open Ast
 open Tools
 open Path

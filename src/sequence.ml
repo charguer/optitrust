@@ -25,7 +25,7 @@ let inline (tg : target) : unit =
     (fun (p,i) t -> Sequence_core.inline i t p) tg
 
 (* [wrao visible tg] *)
-let wrap (visible : bool) : Target.Transfo.t =
+let wrap ?(visible : bool =  true) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.wrap visible)
 
 (* [unwrap tg] *)

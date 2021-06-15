@@ -745,6 +745,7 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
 
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let res = resolve_target_simple tgs.target_path t in
+  printf "Target_simple %s\n" (paths_to_string res);
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
   (* TODO: one day, report the location from the OCaml file where the target is coming from;
