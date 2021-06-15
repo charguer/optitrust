@@ -1,4 +1,4 @@
-var debug_locations = true;
+var debug_locations = false;
 
 // the imported JS file provides 'source' and 'contents'
 
