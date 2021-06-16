@@ -87,10 +87,12 @@ and typdef_body =
   | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list)] or [typdef vect t] *)
   | Typdef_prod of (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
+  (* Not sure if Typedef_enum is a sum type *)
+  | Typedef_enum of (var * (trm option)) list (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
+  
   (* NOTE: we don't need to support the enum from C, for the moment. *)
   (* DEPRECATED
   | Typedef_abbrev of typvar * typ  (* type x = t, where t could be a struct *)
-  | Typedef_enum of typvar * ((var * (trm option)) list) (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
   *)
 
 and typed_var = var * typ
