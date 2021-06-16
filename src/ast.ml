@@ -62,9 +62,6 @@ and typ_desc =
   | Typ_ptr of typ (* "int*" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
-  | Typ_struct of fields * (typ varmap) * typvar
-    (* This doesn't appear anywhere *)
-    (* NOT SUPPORTED:   void f (struct { int x,y } v) { } *)
 
 and typ_annot =
   | Unsigned
@@ -500,15 +497,15 @@ let typ_of_lit (l : lit) : typ option =
   (* todo: add type for strings *)
   | Lit_string _ -> None
 
-let trm_lit ?(annot = None) ?(loc = None) ?(add = []) (l : lit) : trm =
-  trm_val ~annot:annot ~loc ~add ~typ:(typ_of_lit l) (Val_lit l)
+let trm_lit ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (l : lit) : trm =
+  trm_val ~annot:annot ~loc ~add ~ctx ~typ:(typ_of_lit l) (Val_lit l)
 
-let trm_prim ?(annot = None) ?(loc = None) ?(add = []) (p : prim) : trm =
-  trm_val ~annot:annot ~loc ~add (Val_prim p)
+let trm_prim ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : prim) : trm =
+  trm_val ~annot:annot ~loc ~add ~ctx (Val_prim p)
 
-let trm_set ?(annot = None) ?(loc = None) ?(is_statement : bool = false) ?(add = [])
+let trm_set ?(annot = None) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
   (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~annot:annot ~loc ~is_statement ~add ~typ:(Some (typ_unit ()))
+  trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
 
 let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
