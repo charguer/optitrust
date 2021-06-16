@@ -74,7 +74,7 @@ let add_to_ctx ?(v : var = "") ?(constr : constr = "") (tid : typid)  (tc : tcon
    if v = "" then () else ctx_tvar_add v t;
    if constr = "" then () else ctx_constr_add c tid
 
-let get_ctx () : ctx = 
+let get_ctx() : ctx = 
   {
     ctx_tvar = !ctx_tvar;
     ctx_tconstr = !ctx_tconstr;
@@ -307,7 +307,7 @@ and translate_ident (id : ident_ref node) : string =
 
 and translate_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
-  let ctx = Some get_ctx () in
+  let ctx = Some (get_ctx ()) in
   match s.desc with
   | Compound sl ->
     compute_scope ~loc Other_scope
@@ -357,7 +357,7 @@ and translate_stmt (s : stmt) : trm =
       | None -> return (trm_abort ~loc ~ctx (Ret None))
       | Some e ->
         let t = translate_expr e in
-        return (trm_abort ~loc ~ctx Ret (Some t)))
+        return (trm_abort ~loc ~ctx Ret (Some t))
     end
   | Break -> abort ~break:true (trm_abort ~loc ~ctx Break)
   | Continue -> abort (trm_abort ~loc ~ctx Continue)
@@ -383,7 +383,7 @@ and translate_stmt (s : stmt) : trm =
   | Switch _ ->
     fail loc
       "translate_stmt: variable declaration forbidden in switch conditions"
-  | Goto l -> trm_goto ~loc ~ctx:(Some get_ctx()) l
+  | Goto l -> trm_goto ~loc ~ctx l
   | _ ->
     fail loc ("translate_stmt: the following statement is unsupported: " ^
               Clang.Stmt.show s)
@@ -472,7 +472,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         (Clang.Type.show q);
       None
   in
-  let ctx = Some get_ctx() in
+  let ctx = Some (get_ctx()) in
   match e.desc with
   | ConditionalOperator {cond; then_branch = Some e_then;
                          else_branch = e_else} ->
@@ -789,7 +789,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       *)
     begin match te.desc with
       | Trm_var x when not (is_mutable_var x) ->
-        trm_apps ~loc ~ctx ~typ (trm_binop ~ctx:(Some get_ctx()) ~loc Binop_array_get) [te; ti]
+        trm_apps ~loc ~ctx ~typ (trm_binop ~ctx ~loc Binop_array_get) [te; ti]
       | Trm_apps
           ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
       | Trm_apps
@@ -984,7 +984,7 @@ and translate_decl (d : decl) : trm =
     trm_typedef ~loc ~ctx td;
 
 
-    trm_typedef ~loc ~ctx(Some get_ctx()) Typedef_enum (name, enum_constant_l)
+    trm_typedef ~loc ~ctx Typedef_enum (name, enum_constant_l)
   | Function {linkage = _; function_type = t; nested_name_specifier = _;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
     let s =

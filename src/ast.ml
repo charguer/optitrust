@@ -96,6 +96,9 @@ and typdef_body =
   *)
 
 and typed_var = var * typ
+
+
+
 (* primitives *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)
@@ -115,9 +118,10 @@ and binary_op =
   | Binop_eq
   | Binop_neq
   | Binop_sub
-  | Binop_addtypedef_env_add
+  | Binop_add
   | Binop_mul
-  | Binop_mod^ string tv ^ comma ^ st
+  | Binop_mod
+  | Binop_div 
   | Binop_le
   | Binop_lt
   | Binop_ge
@@ -152,7 +156,7 @@ and value =
   (* The constructors below never appear in source code;
      these are values that can only be constructed during the program execution,
      and thus useful only for carrying out proofs about the program Generic *)
-  | Val_ptr of loc * accesses
+  | Val_ptr of loc 
   | Val_array of value list
   | Val_struct of value list
   (* LATER: add functions, which are also values that can be created at execution time *)
@@ -274,7 +278,6 @@ and trm_desc =
     Trm_for (e0, e1, e2, e3) =
     for (e0; e1; e2) {e3;}
    *)
-   (*Trm_typedefrm list * trm) list)
   (* Remark: in the AST, arguments of cases that are enum labels
      appear as variables, hence the use of terms as opposed to
      closed values to represent case arguments.
@@ -292,6 +295,7 @@ and trm_desc =
         break;
     }
    *)
+  | Trm_switch of trm * ((trm list * trm) list)
   | Trm_abort of abort (* return or break or continue *)
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
@@ -365,10 +369,6 @@ let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
 let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
   (s : size) : typ =
   {typ_annot = annot; typ_desc = Typ_array (t, s); typ_attributes}
-
-let typ_struct ?(annot : typ_annot list = []) ?(typ_attributes = [])
-   (fields : fields)(typ_field : typ varmap) (typ_name : typvar) : typ =
-  {typ_annot = annot; typ_desc = Typ_struct (fields,typ_field, typ_name); typ_attributes}
 
 let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (args : typ list) (res : typ) : typ =
@@ -463,7 +463,7 @@ let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) 
   typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
-  trm_val ~annot ~loc (Val_ptr (0, []))
+  trm_val ~annot ~loc (Val_ptr 0)
 (*
    no type for primitives and operators:
    we are only interested in the result of their application
@@ -629,8 +629,6 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   match ty.typ_desc with
   | Typ_ptr ty -> typ_ptr ~annot ~typ_attributes (f ty)
   | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
-  | Typ_struct (tlist,tmap, x) ->
-     typ_struct ~annot ~typ_attributes tlist (String_map.map f tmap) x
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
@@ -741,11 +739,7 @@ let decl_name (t : trm) : var =
   | Trm_let (_,(x,_),_) -> x
   (* take into account heap allocated variables *)
   | Trm_let_fun (f, _, _, _) -> f
-  | Trm_typedef ty ->
-    begin match ty with
-    | Typedef_abbrev (ty,_) -> ty
-    | Typedef_enum (ty, _) -> ty
-    end
+  | Trm_typedef td -> td.typdef_tconstr
   | _ -> fail t.loc "decl_name: expected declaration"
 
 (* return the initialisation in the declaration *)
@@ -898,29 +892,6 @@ let for_loop_nb_iter (t : trm) : trm =
          step
        ]
 
-(*
-  aliased_type X takes as argument the description of a file
-  (that is a toplevel sequence), and it returns the type ty
-  associated via a "typedef ty X" if there is one such definition
-  LATER: check if this is subsumed by the environments carried by type variables
- *)
-let rec aliased_type (x : typvar) (t : trm) : typ option =
-  match t.desc with
-  | Trm_typedef ty ->
-    begin match ty with
-    | Typedef_abbrev (y,ty) when y = x -> Some ty
-    | _ -> None
-    end
-  | Trm_seq tl ->
-     List.fold_left
-       (fun tyo t ->
-         match tyo with
-         | Some _ -> tyo
-         | None -> aliased_type x t
-       )
-       None
-       tl
-  | _ -> None
 
 (* Count the number of goto instructions targeting a given label, inside a term t *)
 let nb_goto (l : label) (t : trm) : int =

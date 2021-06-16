@@ -118,7 +118,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
             (quote "args", typed_var_list_to_json xts);
             (quote "return_type", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
-    | Trm_typedef t ->
+    | Trm_typedef td ->
       begin match t with
       | Typedef_abbrev(tv, typ) ->
         [ kind_to_field (quote "typ-def-abbrev");
