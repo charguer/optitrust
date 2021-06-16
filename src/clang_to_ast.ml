@@ -60,19 +60,19 @@ let ctx_tconstr_add (tc : typconstr) (tid : typid) : unit =
     ctx_tconstr := String_map.add tc tid (!ctx_tconstr)
 
 let ctx_typedef_add (tid : typid) (td : typedef) : unit = 
-    ctx_tconstr := Typ_map.add tid td (!ctx_typedef)
+    ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
-let ctx_label_add (lb : label) (tid : typid) : nuit =
+let ctx_label_add (lb : label) (tid : typid) : unit =
     ctx_label := String_map.add lb tid (!ctx_label)
 
-let ctx_constr (c : constr) (tid : typid) : unit =
-    ctx_constr := String_map.add constr tid (!ctx_constr)
+let ctx_constr_add (c : constr) (tid : typid) : unit =
+    ctx_constr := String_map.add c tid (!ctx_constr)
 
-let add_to_ctx ?(v : var = "") ?(constr : constr = "") (tid : typid)  (tc : tconstr) (t : typ) (td : typedef)  : unit =
-   ctx_tconstr_add c tid;
+let add_to_ctx ?(v : var = "") ?(c : constr = "") (tid : typid)  (tc : typconstr) (t : typ) (td : typedef)  : unit =
+   ctx_tconstr_add tc tid;
    ctx_typedef_add tid td;
    if v = "" then () else ctx_tvar_add v t;
-   if constr = "" then () else ctx_constr_add c tid
+   if c = "" then () else ctx_constr_add c tid
 
 let get_ctx() : ctx = 
   {
@@ -83,8 +83,8 @@ let get_ctx() : ctx =
     ctx_constr = !ctx_constr;
   }
 
-let get_typid (tv : typvar) : int option =
-  String_map.find_opt tv !ctx_tconstr
+let get_typid (tv : typvar) : int  =
+  String_map.find tv !ctx_tconstr
 (* mutable_vars contains the information on which variables are [Var_mutable]
   stack of lists of heap allocated variables
   each list corresponds to a new scope
@@ -327,7 +327,7 @@ and translate_stmt (s : stmt) : trm =
   | While {condition_variable = _; cond = c; body = s} ->
     let tc = translate_expr c in
     let ts = compute_scope While_scope (fun () -> translate_stmt s) in
-    trm_while ~loc ~ctx  ts
+    trm_while ~loc ~ctx  tc ts
   (* todo: use while encoding in semantics *)
   | For {init = inito; condition_variable = None; cond = condo; inc = stepo;
          body} ->
@@ -357,7 +357,7 @@ and translate_stmt (s : stmt) : trm =
       | None -> return (trm_abort ~loc ~ctx (Ret None))
       | Some e ->
         let t = translate_expr e in
-        return (trm_abort ~loc ~ctx Ret (Some t))
+        return (trm_abort ~loc ~ctx (Ret (Some t)))
     end
   | Break -> abort ~break:true (trm_abort ~loc ~ctx Break)
   | Continue -> abort (trm_abort ~loc ~ctx Continue)
@@ -414,7 +414,7 @@ and translate_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
         | _ -> fail loc "translate_switch: case or default expected"
       end
   in
-  trm_switch ~loc t ~ctx (aux loc cases)
+  trm_switch ~loc ~ctx:(Some (get_ctx ())) t  (aux loc cases)
 
 (*
   compute the list of nested cases described by s in reverse order and the first
@@ -449,7 +449,7 @@ and compute_body (loc : location) (body_acc : trm list)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> (trm_seq ~annot:(Some No_braces) ~loc ~ctx tl, sl)
+          | tl -> (trm_seq ~annot:(Some No_braces) ~loc ~ctx:(Some (get_ctx ())) tl, sl)
         end
       | _ ->
         let t = translate_stmt s in
