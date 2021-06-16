@@ -462,18 +462,18 @@ let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) 
   {annot; desc = Trm_decoration (left, t, right); loc; is_statement = false; add;
   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
-  trm_val ~annot ~loc (Val_ptr 0)
+let trm_null ?(annot = None) ?(loc = None)  ?(ctx : ctx option = None) (_ : unit) : trm =
+  trm_val ~annot ~loc ~ctx (Val_ptr 0)
 (*
    no type for primitives and operators:
    we are only interested in the result of their application
  *)
 
-let trm_unop ?(annot = None) ?(loc = None) ?(add = []) (p : unary_op) : trm =
-  trm_val ~annot ~loc ~add (Val_prim (Prim_unop p))
+let trm_unop ?(annot = None) ?(loc = None) ?(add = [])  ?(ctx : ctx option = None) (p : unary_op) : trm =
+  trm_val ~annot ~loc ~add ~ctx (Val_prim (Prim_unop p))
 
-let trm_binop ?(annot = None) ?(loc = None) ?(add = []) (p : binary_op) : trm =
-  trm_val ~annot:annot ~loc ~add (Val_prim (Prim_binop p))
+let trm_binop ?(annot = None) ?(loc = None) ?(add = [])  ?(ctx : ctx option = None) (p : binary_op) : trm =
+  trm_val ~annot:annot ~loc ~ctx ~add (Val_prim (Prim_binop p))
 
 (* Get typ of a literal *)
 let typ_of_lit (l : lit) : typ option =

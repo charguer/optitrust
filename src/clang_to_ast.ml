@@ -507,8 +507,9 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     in
     let tl = List.map translate_expr el in
     begin match tt.typ_desc with
-      | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
-      | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt)  tl
+      | Typ_array _ -> trm_array ~loc ~ctx ~typ:(Some tt) tl
+      (* TODO: Fix this later *)
+      | Typ_constr _ -> trm_struct ~loc ~ctx ~typ:(Some tt)  tl
       | Typ_var _ -> (* assumption: typedefs are only for struct *)
         trm_struct ~ctx ~loc ~typ:(Some tt)  tl
       | _ ->
@@ -543,6 +544,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
           annot;
           loc; is_statement;
           add = Add_address_of_operator :: add;
+          ctx;
           typ;
           attributes }
       | _ ->
@@ -891,7 +893,7 @@ and translate_decl_list (dl : decl list) : trm list =
               ctx_label_add fn tid;
               let ft = translate_qual_type ~loc q in 
               let al = List.map (translate_attribute loc) al in
-              let prod_list = [(fn, {ft with typ_attributes = al})]:: prod_list  
+              let prod_list = (fn, {ft with typ_attributes = al}):: prod_list  
               in prod_list
             | _ -> fail loc ("translate_decl_list: only fields are allowed 
                               in struct declaration")
@@ -899,16 +901,16 @@ and translate_decl_list (dl : decl list) : trm list =
         in
       let tq = translate_qual_type ~loc q in
       begin match tq.typ_desc with
-       | Typ_var (n, _) when n = rn ->
+       | Typ_constr (n, _, _)  when n = rn ->
          let tl = translate_decl_list dl' in
          let td = {
            typdef_typid = tid;
-           typedef_tconstr = tn;
-           typedef_vars = [];
-           typedef_body = Typedef_prod prod_list;
+           typdef_tconstr = tn;
+           typdef_vars = [];
+           typdef_body = Typdef_prod prod_list
          } in
-         add_to_ctx tid tn td;
-         trm_typedef ~loc ~ctx td
+         add_to_ctx tid tn tq td;
+         (trm_typedef ~loc ~ctx:(Some (get_ctx ())) td) :: tl
 
        | _ -> fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
@@ -949,8 +951,8 @@ and translate_decl_list (dl : decl list) : trm list =
           | _ ->
             fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
-        end
-      | _ -> fail loc "translate_decl_list: only struct records are allowed" *)
+        end*)
+      | _ -> fail loc "translate_decl_list: only struct records are allowed" 
     end
   | d :: d' :: dl ->
     let td = translate_decl d in
@@ -959,7 +961,7 @@ and translate_decl_list (dl : decl list) : trm list =
 
 and translate_decl (d : decl) : trm =
   let loc = loc_of_node d in
-  let ctx = get_ctx () in
+  let ctx = Some (get_ctx ()) in
   match d.desc with
   | EnumDecl {name; constants; _} ->
     let enum_constant_l =
@@ -978,13 +980,11 @@ and translate_decl (d : decl) : trm =
       typdef_typid = tid;
       typdef_tconstr = name;
       typdef_vars = [];
-      typdef_body = Typdef_enum enum_constrain_l
+      typdef_body = Typdef_enum enum_constant_l
     } in
-    add_to_ctx tid name td;
-    trm_typedef ~loc ~ctx td;
-
-
-    trm_typedef ~loc ~ctx Typedef_enum (name, enum_constant_l)
+    let typ = typ_unit() in
+    add_to_ctx tid name typ td;
+    trm_typedef ~loc ~ctx td
   | Function {linkage = _; function_type = t; nested_name_specifier = _;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
     let s =
@@ -1046,7 +1046,8 @@ and translate_decl (d : decl) : trm =
           let tl = List.map translate_expr el in
           begin match tt.typ_desc with
           | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
-          | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt) tl
+          (* TODO: Check this one later *)
+          | Typ_constr _ -> trm_struct ~loc ~typ:(Some tt) tl
           | Typ_var _ -> (* assumption: typedefs are only for struct*)
             trm_struct ~loc ~typ:(Some tt) tl
           | _ ->
@@ -1075,10 +1076,10 @@ and translate_decl (d : decl) : trm =
       typdef_typid = tid;
       typdef_tconstr = n;
       typdef_vars = [];
-      typdef_body = Typedef_alias tn;
+      typdef_body = Typdef_alias tn;
     }
     in
-    add_to_ctx tid n n tn td;
+    add_to_ctx tid n tn td;
     trm_typedef ~loc ~ctx td
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
@@ -1089,9 +1090,9 @@ and translate_decl (d : decl) : trm =
           typdef_typid = tid;
           typdef_tconstr = n;
           typdef_vars = [];
-          typdef_body = Typedef_alias tn;
+          typdef_body = Typdef_alias tn;
         } in
-        add_to_ctx tid n n tn td;
+        add_to_ctx tid n tn td;
         trm_typedef ~loc ~ctx td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
