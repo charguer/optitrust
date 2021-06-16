@@ -16,6 +16,10 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     end
     in 
     node "Typ_var" ^^ parens( separate (comma ^^ break 1)[string x; tds] )
+  (* TODO: Fix this later *)
+  | Typ_constr (tv, tid, tl) -> 
+    let tl = List.map (print_typ ~only_desc) tl in
+    node "Typ_constr" ^ parens ( separate (comma ^^ break 1) [string tv; string (string_of_int tid); print_list tl])
   | Typ_unit -> string "Typ_unit"
   | Typ_int -> string "Typ_int"
   | Typ_float -> string "Typ_float"
@@ -35,19 +39,6 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
        end
      in
      node "Typ_array" ^^ print_pair dt ds
-  | Typ_struct (tl, tm, x) ->
-     let tl = List.rev tl in
-     let get_typ x = String_map.find x tm in
-     let get_document_list l =
-      let rec aux acc = function
-      | [] -> acc
-      | hd :: tl -> let t = get_typ hd in
-       let dt = print_typ ~only_desc t in
-       aux(print_pair (string hd) dt :: acc) tl in
-       aux [] l
-     in
-     let dtl = get_document_list tl in
-     node "Typ_struct" ^^ print_pair (print_list dtl) (string x)
   | Typ_fun (tl, t) ->
      let dtl = List.map (print_typ ~only_desc) tl in
      let dt = print_typ ~only_desc t in
@@ -194,7 +185,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     node "Trm_let_fun" ^^
       parens (separate (comma ^^ break 1)
         [string f; dout; print_list dtvl; dt])
-  | Trm_typedef t -> print_typedef ~only_desc t
+  | Trm_typedef td -> print_typedef ~only_desc td
   | Trm_if (c, t, e) ->
      let dc = print_trm ~only_desc c in
      let dt = print_trm ~only_desc t in
@@ -257,12 +248,34 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc t in
       node "Trm_any"  ^^ parens (dt)
 
-and print_typedef ?(only_desc : bool = false) (t : typedef) : document =
-  match t with
+and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
+  let tid = td.typdef_typid in
+  let tname = td.typdef_tconstr in
+  let tvars = td.typdef_tvars in
+  let tbody = td.typdef_body in
+
+  match tbody.desc with
+  | Typdef_alias t ->
+    let dt = print_typ ~only_desc typ in
+    node "Typedef_alias" parens ( separate (comma ^^ break 1)) 
+     [string tname; string (string_of_int tid); dt ]
+  | Typdef_prod s ->
+    let get_dcoument_list l =
+      let rec aux acc = function
+      | [] -> acc
+      | (lb, t) :: tl  ->
+        let dt = print_typ ~only_desc t in
+        aux (print_pair (string lb) dt :: acc) tl in
+      aux [] l
+     in
+    let dtl = get_document_list tl s in
+    node "Typedef_prod" ^^ print_pair (print_list dtl) (string tname)
+  | Typedef_sum ->
+    fail tbody.loc "print_typedef: sum types are not supported in C/C++"
   | Typedef_abbrev (x,typ) ->
     let dt = print_typ ~only_desc typ in
     node "Typedef_abbrev" ^^ print_pair (string x) dt
-  | Typedef_enum (x, enum_const_l) ->
+  | Typedef_enum enum_const_l ->
      let denum_const_l =
        print_list
          (List.map
@@ -274,7 +287,7 @@ and print_typedef ?(only_desc : bool = false) (t : typedef) : document =
             enum_const_l
          )
      in
-     node "Typedef_enum" ^^ print_pair (string x) denum_const_l
+     node "Typedef_enum" ^^ print_pair (string tname) denum_const_l
 
 and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in

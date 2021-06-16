@@ -976,7 +976,7 @@ and translate_decl (d : decl) : trm =
       typdef_typid = tid;
       typdef_tconstr = name;
       typdef_vars = [];
-      typdef_body = Typedef_enum enum_constrain_l
+      typdef_body = Typdef_enum enum_constrain_l
     } in
     add_to_ctx tid name td;
     trm_typedef ~loc ~ctx td;

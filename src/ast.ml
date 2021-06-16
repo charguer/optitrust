@@ -88,7 +88,7 @@ and typdef_body =
   | Typdef_prod of (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
   (* Not sure if Typedef_enum is a sum type *)
-  | Typedef_enum of (var * (trm option)) list (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
+  | Typdef_enum of (var * (trm option)) list (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
   
   (* NOTE: we don't need to support the enum from C, for the moment. *)
   (* DEPRECATED
@@ -117,8 +117,7 @@ and binary_op =
   | Binop_sub
   | Binop_addtypedef_env_add
   | Binop_mul
-  | Binop_mod
-  | Binop_div
+  | Binop_mod^ string tv ^ comma ^ st
   | Binop_le
   | Binop_lt
   | Binop_ge
@@ -275,19 +274,7 @@ and trm_desc =
     Trm_for (e0, e1, e2, e3) =
     for (e0; e1; e2) {e3;}
    *)
-   (*
-    TODO:
-       Trm_for    (var, lo, hi, step, body)
-          => if step > 0 then print as "for (int var = lo; var < hi; var += step)" // could be var++ if step=+1
-          => if step < 0 then print as "for (int var = lo; var >= hi; var -= (ABS(step))" // could be var-- if step=-1
-       Trm_for_c => same as current trm_for
-
-       Define a function "simplify_trm_for" in ast.ml, that takes a "Trm_for_c" and, if possible, turn it into trm_for, else leave it unchanged
-       In clang_to_ast, just call "simplify_trm_for" where a for_loop is generated.
-       All our optitrust transformation will operate on the simple trm_for
-  *)
-   (* TODO: trm_for_simple *)
-  | Trm_switch of trm * ((trm list * trm) list)
+   (*Trm_typedefrm list * trm) list)
   (* Remark: in the AST, arguments of cases that are enum labels
      appear as variables, hence the use of terms as opposed to
      closed values to represent case arguments.
@@ -421,7 +408,7 @@ let trm_let_fun ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
 
 let trm_typedef ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (def_typ : typedef): trm =
-  {annot = annot; desc = Trm_typedef (def_typ.typedef_body); loc = loc; is_statement; add;
+  {annot = annot; desc = Trm_typedef def_typ; loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
