@@ -270,9 +270,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     end
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n ->
-        printf "Managed to come here %s\n" ",hello";
-        
+      | IdentifierName n ->  
         typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
@@ -904,19 +902,19 @@ and translate_decl_list (dl : decl list) : trm list =
                                 in struct declaration")
           
         ) fl in         
-        let tq = translate_qual_type ~loc q in
-        
-        begin match tq.typ_desc with
-        | Typ_constr (n, _, _)  when n = rn ->
-          let tl = translate_decl_list dl' in
+        let tl = translate_decl_list dl' in
           let td = {
             typdef_typid = tid;
             typdef_tconstr = tn;
             typdef_vars = [];
             typdef_body = Typdef_prod prod_list
           } in
-          ctx_tconstr_typedef_add tid tn td;
-          (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) :: tl
+        ctx_tconstr_typedef_add tid tn td;
+        let tq = translate_qual_type ~loc q in
+        
+        begin match tq.typ_desc with
+        | Typ_constr (n, _, _)  when n = rn ->
+              (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) :: tl
 
        | _ -> fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
