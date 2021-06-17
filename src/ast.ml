@@ -92,6 +92,7 @@ and typ = {
   *)
 
 and typedef = { (* e.g. [type ('a,'b) t = ...] *)
+  (* LATER: typdef_loc : location; *)
   typdef_typid : typid; (* the unique id associated with the type [t] *)
   typdef_tconstr : typconstr; (* the name [t] *)
   typdef_vars : typvars; (* the list containing the names ['a] and ['b];
