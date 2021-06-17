@@ -586,11 +586,19 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_name name x &&
         check_list cl_args tl &&
         check_target p_body body
-     | Constr_decl_type name, Trm_typedef (Typedef_abbrev (x, _)) ->
-        check_name name x
-     | Constr_decl_enum (name, cec), Trm_typedef (Typedef_enum (n, xto_l)) ->
-        check_name name n &&
-        check_enum_const cec xto_l
+     | Constr_decl_type name, Trm_typedef td ->
+        let is_new_typ = begin match td.typdef_body with 
+        | Typdef_alias _ -> true
+        | Typdef_prod _ -> true
+        | _ -> false
+        end in
+        let x = td.typdef_tconstr in
+        is_new_typ && check_name name x
+     | Constr_decl_enum (name, cec), Trm_typedef td ->
+        begin match td.typdef_body with
+        | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const cec xto_l
+        | _ -> false
+        end
      | Constr_seq cl, Trm_seq tl ->
         check_list cl tl
      | Constr_var name, Trm_var x ->
@@ -838,7 +846,9 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
         (* DEPRECATED: the name of the function should not be considered an occurence;
             add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++ *)
         add_dir Dir_body (resolve_target_simple p body)
-     |Trm_typedef (Typedef_enum (x, xto_l)) ->
+     | Trm_typedef td  ->
+      begin match td.typdef_body with 
+      | Typdef_enum xto_l ->
         let (il, tl) =
           foldi
             (fun n (il, tl) (_, t_o) ->
@@ -849,13 +859,15 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
            ([], [])
            xto_l
         in
-        add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++
+        add_dir Dir_name (resolve_target_simple p (trm_var ~loc td.typdef_tconstr)) ++
         (explore_list (List.map (fun (y, _) -> trm_var ~loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
            (resolve_target_simple p)) ++
         (explore_list tl
            (fun n -> Dir_enum_const (List.nth il n, Enum_const_val))
            (resolve_target_simple p))
+      | _ -> []
+      end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (resolve_target_simple p body)
      | Trm_for (init, cond, step, body) ->
@@ -965,9 +977,10 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
          add_dir (Dir_arg n) (resolve_target_simple p nth_t))
+  | Dir_name, Trm_typedef td ->
+     add_dir Dir_name (resolve_target_simple p (trm_var ~loc td.typdef_tconstr))
   | Dir_name, Trm_let (_,(x,_),_)
     | Dir_name, Trm_let_fun (x, _, _, _)
-    | Dir_name, Trm_typedef (Typedef_abbrev (x, _))
     | Dir_name, Trm_labelled (x, _)
     | Dir_name, Trm_goto x ->
      add_dir Dir_name (resolve_target_simple p (trm_var ~loc x))
@@ -981,22 +994,26 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
             app_to_nth_dflt loc tl i (fun ith_t ->
                 add_dir (Dir_case (n, cd)) (resolve_target_simple p ith_t))
        )
-  | Dir_enum_const (n, ecd), Trm_typedef (Typedef_enum (_, xto_l)) ->
-     app_to_nth_dflt loc xto_l n
-       (fun (x, t_o) ->
-         match ecd with
-         | Enum_const_name ->
-            add_dir (Dir_enum_const (n, ecd)) (resolve_target_simple p (trm_var ~loc x))
-         | Enum_const_val ->
-            begin match t_o with
-            | None ->
-               print_info loc "follow_dir: no value for constant of index %d\n"
-                 n;
-               []
-            | Some t ->
-               add_dir (Dir_enum_const (n, ecd)) (resolve_target_simple p t)
-            end
-       )
+  | Dir_enum_const (n, ecd), Trm_typedef td ->
+     begin match td.typdef_body with 
+     | Typdef_enum xto_l ->
+          app_to_nth_dflt loc xto_l n
+          (fun (x, t_o) ->
+            match ecd with
+            | Enum_const_name ->
+               add_dir (Dir_enum_const (n, ecd)) (resolve_target_simple p (trm_var ~loc x))
+            | Enum_const_val ->
+               begin match t_o with
+               | None ->
+                  print_info loc "follow_dir: no value for constant of index %d\n"
+                    n;
+                  []
+               | Some t ->
+                  add_dir (Dir_enum_const (n, ecd)) (resolve_target_simple p t)
+               end
+          )
+      | _ -> []
+      end
   | _, _ ->
      print_info loc "follow_dir: direction %s does not match"
        (dir_to_string d);

@@ -403,10 +403,11 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
             (fun (x, _) -> aux dl (trm_var ~loc x) ctx)
        | Dir_name , Trm_let (_,(x,_),_)
          | Dir_name, Trm_let_fun (x, _, _, _)
-         | Dir_name, Trm_typedef (Typedef_abbrev (x, _))
          | Dir_name, Trm_labelled (x, _)
          | Dir_name, Trm_goto x ->
           aux dl (trm_var ~loc x) ctx
+       | Dir_name, Trm_typedef td ->
+        aux dl (trm_var ~loc td.typdef_tconstr) ctx
        | Dir_case (n, cd), Trm_switch (_, cases) ->
           app_to_nth loc cases n
             (fun (tl, body) ->
@@ -415,7 +416,13 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
               | Case_name i ->
                  app_to_nth loc tl i (fun ith_t -> aux dl ith_t ctx)
             )
-       | Dir_enum_const (n, ecd), Trm_typedef (Typedef_enum (_, xto_l)) ->
+       (* TODO: Uncoment this when enabling enums *)
+       (* | Dir_enum_const (n, ecd), Trm_typedef td ->
+        let xto_l = begin match 
+        | T
+        end
+       
+       (Typedef_enum (_, xto_l)) ->
           app_to_nth loc xto_l n
              (fun (x, t_o) ->
                match ecd with
@@ -428,7 +435,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
                   | Some t ->
                      aux dl t ctx
                   end
-             )
+             ) *)
        | _, _ ->
           let s = dir_to_string d in
           fail loc ("resolve_path: direction " ^ s ^ " does not match")

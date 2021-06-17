@@ -111,19 +111,18 @@ let set_implicit : Target.Transfo.local =
  *)
 let reorder_aux (struct_fields: var list) (move_where : string) (around : string) (t: trm) : trm =
   match t.desc with 
-  | Trm_typedef (Typedef_abbrev (x, dx)) ->
-    let field_list,field_map =
-      match dx.typ_desc with
-        | Typ_struct(l, m,_) -> l, m
-        |_ -> fail t.loc "reorder_aux: the type should be a typedef struct"
-      in
+  | Trm_typedef td ->
+   begin match td.typdef_body with 
+   | Typdef_prod fs ->
     let field_list = 
     if move_where = "move_after" then
-      Tools.move_fields_after around struct_fields field_list 
+      Tools.move_fields_after around struct_fields fs
     else
-      Tools.move_fields_before around struct_fields field_list 
+      Tools.move_fields_before around struct_fields fs
     in
-    trm_typedef (Typedef_abbrev (x, typ_struct field_list field_map x))
+   trm_typedef {td with typdef_body = Typdef_prod fields_list}
+  | _ -> fail t.loc "reorder_aux: expected a typdef_prod"
+  end
   | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
 
 (* [reorder struct_fields move_where around t p] *)
@@ -135,19 +134,13 @@ let reorder (struct_fields : var list) (move_where : string) (around : string): 
 (* Get the index for a given field of struct inside its list of fields *)
 let get_pos (x : typvar) (t : trm) : int =
   begin match t.desc with
-    | Trm_typedef (Typedef_abbrev(_, dx)) ->
-       let field_list1 =
-          match dx.typ_desc with
-          | Typ_struct(l,_,_) -> l
-          |_ -> fail t.loc "get_pos: the type should be a typedef struct"
-        in
-
+    | Trm_typedef {typdef_body = Typdef_prod fs; _} ->
         let rec find x lst =
         match lst with
         | [] -> raise (Failure "Not Found")
-        | hd :: tl -> if hd = x then 0 else 1 + find x tl
+        | (hd, _) :: tl -> if hd = x then 0 else 1 + find x tl
         in
-        find x field_list1
+        find x fs
     | _ -> fail t.loc "get_pos_and_element: expected a struct type"
     end
 

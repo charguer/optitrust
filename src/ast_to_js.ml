@@ -18,7 +18,9 @@ module Json = struct
   (* Printing functions *)
   let typ_to_json(typ : typ) : t =
     Str (Tools.document_to_string (bquotes (Ast_to_c.typ_to_doc typ)) )
-
+  
+  let typdef_to_json(td : typedef) : t = 
+    Str (Tools.document_to_string (bquotes (Ast_to_c.typedef_to_doc td)))
 
   let print_object (dl : document list) : document =
     surround 2 1 lbrace (separate (comma ^^ break 1) dl) rbrace
@@ -118,18 +120,11 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
             (quote "args", typed_var_list_to_json xts);
             (quote "return_type", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
-    | Trm_typedef t ->
-      begin match t with
-      | Typedef_abbrev(tv, typ) ->
-        [ kind_to_field (quote "typ-def-abbrev");
-            (quote "name", Json.Str (quote tv));
-            (quote "contents", Json.typ_to_json typ);
-            children_to_field [] ]
-      | Typedef_enum (tv,_) ->  (*TODO: support enum better--figure out what are the trmoptions * *)
-        [ kind_to_field (quote "enum-def");
-            value_to_field tv;
-            children_to_field [] ]
-      end
+    | Trm_typedef td ->
+      [ kind_to_field (quote "typdef");
+        (quote "name", Json.Str (quote td.typdef_tconstr));
+        (quote "contents", Json.typdef_to_json td);
+        children_to_field [] ]
     | Trm_if (cond, then_, else_) ->
         [ kind_to_field (quote "if");
           children_to_field [

@@ -62,9 +62,6 @@ and typ_desc =
   | Typ_ptr of typ (* "int*" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
-  | Typ_struct of fields * (typ varmap) * typvar
-    (* This doesn't appear anywhere *)
-    (* NOT SUPPORTED:   void f (struct { int x,y } v) { } *)
 
 and typ_annot =
   | Unsigned
@@ -90,13 +87,18 @@ and typdef_body =
   | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list] or [typdef vect t] *)
   | Typdef_prod of (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
+  (* Not sure if Typedef_enum is a sum type *)
+  | Typdef_enum of (var * (trm option)) list (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
+  
   (* NOTE: we don't need to support the enum from C, for the moment. *)
   (* DEPRECATED
   | Typedef_abbrev of typvar * typ  (* type x = t, where t could be a struct *)
-  | Typedef_enum of typvar * ((var * (trm option)) list) (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
   *)
 
 and typed_var = var * typ
+
+
+
 (* primitives *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)
@@ -116,10 +118,10 @@ and binary_op =
   | Binop_eq
   | Binop_neq
   | Binop_sub
-  | Binop_addtypedef_env_add
+  | Binop_add
   | Binop_mul
   | Binop_mod
-  | Binop_div
+  | Binop_div 
   | Binop_le
   | Binop_lt
   | Binop_ge
@@ -154,7 +156,7 @@ and value =
   (* The constructors below never appear in source code;
      these are values that can only be constructed during the program execution,
      and thus useful only for carrying out proofs about the program Generic *)
-  | Val_ptr of loc * accesses
+  | Val_ptr of loc 
   | Val_array of value list
   | Val_struct of value list
   (* LATER: add functions, which are also values that can be created at execution time *)
@@ -276,19 +278,6 @@ and trm_desc =
     Trm_for (e0, e1, e2, e3) =
     for (e0; e1; e2) {e3;}
    *)
-   (*
-    TODO:
-       Trm_for    (var, lo, hi, step, body)
-          => if step > 0 then print as "for (int var = lo; var < hi; var += step)" // could be var++ if step=+1
-          => if step < 0 then print as "for (int var = lo; var >= hi; var -= (ABS(step))" // could be var-- if step=-1
-       Trm_for_c => same as current trm_for
-
-       Define a function "simplify_trm_for" in ast.ml, that takes a "Trm_for_c" and, if possible, turn it into trm_for, else leave it unchanged
-       In clang_to_ast, just call "simplify_trm_for" where a for_loop is generated.
-       All our optitrust transformation will operate on the simple trm_for
-  *)
-   (* TODO: trm_for_simple *)
-  | Trm_switch of trm * ((trm list * trm) list)
   (* Remark: in the AST, arguments of cases that are enum labels
      appear as variables, hence the use of terms as opposed to
      closed values to represent case arguments.
@@ -306,6 +295,7 @@ and trm_desc =
         break;
     }
    *)
+  | Trm_switch of trm * ((trm list * trm) list)
   | Trm_abort of abort (* return or break or continue *)
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
@@ -380,10 +370,6 @@ let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
   (s : size) : typ =
   {typ_annot = annot; typ_desc = Typ_array (t, s); typ_attributes}
 
-let typ_struct ?(annot : typ_annot list = []) ?(typ_attributes = [])
-   (fields : fields)(typ_field : typ varmap) (typ_name : typvar) : typ =
-  {typ_annot = annot; typ_desc = Typ_struct (fields,typ_field, typ_name); typ_attributes}
-
 let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (args : typ list) (res : typ) : typ =
   {typ_annot = annot; typ_desc = Typ_fun (args, res); typ_attributes}
@@ -422,7 +408,7 @@ let trm_let_fun ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
 
 let trm_typedef ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (def_typ : typedef): trm =
-  {annot = annot; desc = Trm_typedef (def_typ.typedef_body); loc = loc; is_statement; add;
+  {annot = annot; desc = Trm_typedef def_typ; loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
@@ -476,18 +462,18 @@ let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) 
   {annot; desc = Trm_decoration (left, t, right); loc; is_statement = false; add;
   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_null ?(annot = None) ?(loc = None) (_ : unit) : trm =
-  trm_val ~annot ~loc (Val_ptr (0, []))
+let trm_null ?(annot = None) ?(loc = None)  ?(ctx : ctx option = None) (_ : unit) : trm =
+  trm_val ~annot ~loc ~ctx (Val_ptr 0)
 (*
    no type for primitives and operators:
    we are only interested in the result of their application
  *)
 
-let trm_unop ?(annot = None) ?(loc = None) ?(add = []) (p : unary_op) : trm =
-  trm_val ~annot ~loc ~add (Val_prim (Prim_unop p))
+let trm_unop ?(annot = None) ?(loc = None) ?(add = [])  ?(ctx : ctx option = None) (p : unary_op) : trm =
+  trm_val ~annot ~loc ~add ~ctx (Val_prim (Prim_unop p))
 
-let trm_binop ?(annot = None) ?(loc = None) ?(add = []) (p : binary_op) : trm =
-  trm_val ~annot:annot ~loc ~add (Val_prim (Prim_binop p))
+let trm_binop ?(annot = None) ?(loc = None) ?(add = [])  ?(ctx : ctx option = None) (p : binary_op) : trm =
+  trm_val ~annot:annot ~loc ~ctx ~add (Val_prim (Prim_binop p))
 
 (* Get typ of a literal *)
 let typ_of_lit (l : lit) : typ option =
@@ -500,15 +486,15 @@ let typ_of_lit (l : lit) : typ option =
   (* todo: add type for strings *)
   | Lit_string _ -> None
 
-let trm_lit ?(annot = None) ?(loc = None) ?(add = []) (l : lit) : trm =
-  trm_val ~annot:annot ~loc ~add ~typ:(typ_of_lit l) (Val_lit l)
+let trm_lit ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (l : lit) : trm =
+  trm_val ~annot:annot ~loc ~add ~ctx ~typ:(typ_of_lit l) (Val_lit l)
 
-let trm_prim ?(annot = None) ?(loc = None) ?(add = []) (p : prim) : trm =
-  trm_val ~annot:annot ~loc ~add (Val_prim p)
+let trm_prim ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : prim) : trm =
+  trm_val ~annot:annot ~loc ~add ~ctx (Val_prim p)
 
-let trm_set ?(annot = None) ?(loc = None) ?(is_statement : bool = false) ?(add = [])
+let trm_set ?(annot = None) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
   (t1 : trm) (t2 : trm) : trm =
-  trm_apps ~annot:annot ~loc ~is_statement ~add ~typ:(Some (typ_unit ()))
+  trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
 
 let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
@@ -643,8 +629,6 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   match ty.typ_desc with
   | Typ_ptr ty -> typ_ptr ~annot ~typ_attributes (f ty)
   | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
-  | Typ_struct (tlist,tmap, x) ->
-     typ_struct ~annot ~typ_attributes tlist (String_map.map f tmap) x
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
@@ -755,11 +739,7 @@ let decl_name (t : trm) : var =
   | Trm_let (_,(x,_),_) -> x
   (* take into account heap allocated variables *)
   | Trm_let_fun (f, _, _, _) -> f
-  | Trm_typedef ty ->
-    begin match ty with
-    | Typedef_abbrev (ty,_) -> ty
-    | Typedef_enum (ty, _) -> ty
-    end
+  | Trm_typedef td -> td.typdef_tconstr
   | _ -> fail t.loc "decl_name: expected declaration"
 
 (* return the initialisation in the declaration *)
@@ -912,29 +892,6 @@ let for_loop_nb_iter (t : trm) : trm =
          step
        ]
 
-(*
-  aliased_type X takes as argument the description of a file
-  (that is a toplevel sequence), and it returns the type ty
-  associated via a "typedef ty X" if there is one such definition
-  LATER: check if this is subsumed by the environments carried by type variables
- *)
-let rec aliased_type (x : typvar) (t : trm) : typ option =
-  match t.desc with
-  | Trm_typedef ty ->
-    begin match ty with
-    | Typedef_abbrev (y,ty) when y = x -> Some ty
-    | _ -> None
-    end
-  | Trm_seq tl ->
-     List.fold_left
-       (fun tyo t ->
-         match tyo with
-         | Some _ -> tyo
-         | None -> aliased_type x t
-       )
-       None
-       tl
-  | _ -> None
 
 (* Count the number of goto instructions targeting a given label, inside a term t *)
 let nb_goto (l : label) (t : trm) : int =
