@@ -388,7 +388,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
             aux [] s in
       let dl = get_document_list s in
       let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
-      string "struct" ^^ blank 1 ^^ sbody
+      string "typedef " ^^ string "struct" ^^ blank 1 ^^ sbody ^^ blank 1 ^^ string td.typdef_tconstr ^^ semi
   | Typdef_sum _ ->
       fail None "typedef_to_doc: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
