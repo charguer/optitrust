@@ -98,16 +98,24 @@ let rec insert_list keys_list temp_field_list field_list1 = match keys_list with
 
 let list_remove x xs = List.filter (fun y -> y <> x) xs
 
-
 let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys
 
-let move_fields_after x local_l l =
-let l = list_remove_set local_l  l in
-let rec aux acc = function
-| [] -> acc (* raise an error x not part of the list *)
-| hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl (* local_l @ hd :: acc @ tl *)
-else aux (hd :: acc) tl
-in aux [] (List.rev l)
+let list_remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs
+
+let list_remove_pairs ys xs = List.fold_left (fun acc y -> list_remove_pair y acc) xs ys
+
+
+(* TODO :document *)
+(* let move_fields_after x local_l l =
+  let l = list_remove_pairs local_l l in
+  let rec aux acc = function
+    | [] -> acc (* raise an error x not part of the list *)
+    | (hd,typ) :: tl ->
+      if hd = x
+        then aux (local_l @ (hd,typ) :: acc) tl (* local_l @ hd :: acc @ tl *)
+        else aux ((hd, typ) :: acc) tl
+      in
+    aux [] (List.rev l) *)
 
 (*
   - tail recursive approach => more efficient
@@ -119,16 +127,16 @@ in aux [] (List.rev l)
         | y::q -> if x = y then xs@l else y::(insert_after x xs q)
 *)
 
-let move_fields_before x local_l l =
-  let l = list_remove_set local_l l in
+(* let move_fields_before x local_l l =
+  let l = list_remove_pairs_set local_l l in
   let rec aux acc = function
     | [] -> acc
-    | hd :: tl ->
+    | (hd, typ) :: tl ->
         if hd = x
-          then aux (hd :: local_l @ acc) tl
-          else aux (hd :: acc) tl
+          then aux ((hd, typ) :: local_l @ acc) tl
+          else aux ((hd, typ) :: acc) tl
     in
-  aux [] (List.rev l)
+  aux [] (List.rev l) *)
 
 (* return the last element of a list together with its index *)
 let last (l : 'a list) : int * 'a =
@@ -215,11 +223,8 @@ let rec split_list_at_1 (n : int) (al : 'a list) : 'a list * ('a list) =
 let list_update_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
-let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 
-let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
-
-
+(* TODO: move *)
 (* Initialize a two arrays for the json ast and source code *)
 (* TODO: improve name, move to a ast_to_js file *)
 let initialization (out_prefix : string) : unit =
@@ -255,3 +260,11 @@ module Debug = struct
       let s = Printexc.get_backtrace() in
       Printf.eprintf "%s\n" s
 end
+
+let fresh_generator () : (unit -> int) =
+  let n = ref 0 in
+  fun () ->
+    incr n;
+    !n
+
+

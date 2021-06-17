@@ -32,7 +32,7 @@ include Trace
 
 (* Logic constraints *)
 
-let cStrict : constr = 
+let cStrict : constr =
   Constr_strict
 
 let cTrue : constr =
@@ -411,7 +411,7 @@ let resolve_target_between = Constr.resolve_target_between
 let rec target_to_decl (x : var) (t : trm) : path option =
   match t.desc with
   | Trm_let_fun (f, _, _, _) when f = x -> Some []
-  | Trm_typedef (Typedef_abbrev (y, _)) when y = x -> Some []
+  | Trm_typedef td when td.typdef_tconstr = x -> Some []
   | Trm_seq tl ->
      foldi
        (fun i dlo t' ->
@@ -467,7 +467,7 @@ let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_target (fun _i t dl -> tr t dl) tg
 
-  
+
 (* [apply_on_target_between ~replace_top tr tg]: Similar to apply_on_target, but the function considers the index too
       params:
         tr : transformation to be applied
@@ -510,9 +510,11 @@ let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> t
    If the flag [debug_ast] is set, the ast is printed on [stdout].
    --LATER: remove debug-ast in the future? *)
 let target_show_aux (debug_ast : bool) (id : int) (t : trm) : trm =
-    if debug_ast then
-      Ast_to_text.print_ast ~only_desc:true stdout t;
-    trm_decoration (Tools.left_decoration id) (Tools.right_decoration id) t
+  if debug_ast then
+    Ast_to_text.print_ast ~only_desc:true stdout t;
+  let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
+  let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
+  trm_decoration left_decoration right_decoration t
 
 (* [target_show_transfo id t p]: adds an annotation [trm_decoration]
    carrying the information [id] around the term at path [p] in the term [t]. *)
@@ -522,12 +524,14 @@ let target_show_transfo (debug_ast : bool) (id : int): Transfo.local =
 (* [target_between_show_aux id k t]: adds a decorated semi-column with identifier [id]
    at position [k] in the sequence described by the term [t]. *)
 let target_between_show_aux (debug_ast : bool) (id : int) (k : int) (t : trm) : trm =
+    let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
+    let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
     if debug_ast then
       Ast_to_text.print_ast ~only_desc:true stdout t;
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at k tl in
-      let new_trm = trm_decoration (Tools.left_decoration id) (Tools.right_decoration id) (trm_var ";") in
+      let new_trm = trm_decoration left_decoration right_decoration (trm_var ";") in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 

@@ -3,6 +3,8 @@ open Clang.Bindings
 open Ast
 open Tools
 
+
+
 (* location of node *)
 let loc_of_node (n : 'a node) : location =
   let start_location_of_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
@@ -37,62 +39,81 @@ type scope_kind =
   heap allocated variables are mapped to the type of the variables if they were
   not heap allocated
  *)
-module Type_map = Map.Make(String)
-type 'a tmap = 'a Type_map.t
-let typ_map : typ Type_map.t ref = ref Type_map.empty
+
+(* For the context, see the documentation of type [ctx] in [ast.ml]. *)
+
+(* NOTE at the moment ctx_var is global, meaning that bindings are not
+   removed when we leave a scope; LATER: would be cleaner to have ctx_var
+   as argument to the recursive function. *)
+let ctx_var : typ varmap ref = ref String_map.empty
+
+let ctx_tconstr : typid varmap ref = ref String_map.empty
+
+let ctx_typedef : typedef typmap ref = ref Typ_map.empty
+
+let ctx_label : typid varmap ref = ref String_map.empty
+
+let ctx_constr : typid varmap ref = ref String_map.empty
 
 
+let ctx_var_add (tv : typvar) (t : typ) : unit =
+  ctx_var := String_map.add tv t (!ctx_var)
 
-(* A map to keep track of the typedefs seen so far in the file.
-   Note: there is no notion of scope, typedefs are all global. *)
-   (* LATER: it could be perhaps a map from typvar to typ, instead of to typedef *)
-let typedef_env : typedef Type_map.t ref = ref Type_map.empty
+let ctx_tconstr_add (tc : typconstr) (tid : typid) : unit =
+  ctx_tconstr := String_map.add tc tid (!ctx_tconstr)
 
-(* [get_typedef tv] returns the typedef that corresponds to the typvar [tv].
-   Raise an error if it is not bound  *)
-let get_typedef (tv : typvar) : typedef option=
-  let td = Type_map.find_opt tv !typedef_env in
-  td
+let ctx_typedef_add (tid : typid) (td : typedef) : unit =
+  ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
-(* [typedef_env_add tv tdef] extends the environment for typedefs with a binding
-   from type variable [tv] to the type definition [tdef]. *)
-let typedef_env_add (tv : typvar) (tdef : typedef) : unit =
-  (* printf "Adding key %s\n" tv; *)
-  flush stdout;
-  typedef_env := Type_map.add tv tdef !typedef_env
+let ctx_label_add (lb : label) (tid : typid) : unit =
+  ctx_label := String_map.add lb tid (!ctx_label)
 
+let ctx_constr_add (c : constr) (tid : typid) : unit =
+  ctx_constr := String_map.add c tid (!ctx_constr)
 
-(* TODO: rename: heap_vars contains the information on which variables are [Var_mutable]
+(* Shorthand for generating a context *)
+let ctx_tconstr_typedef_add (tid : typid) (tc : typconstr) (td : typedef) : unit =
+   ctx_tconstr_add tc tid;
+   ctx_typedef_add tid td
+
+(* [get_ctx] returns the current context *)
+let get_ctx () : ctx =
+  { ctx_var = !ctx_var;
+    ctx_tconstr = !ctx_tconstr;
+    ctx_typedef = !ctx_typedef;
+    ctx_label = !ctx_label;
+    ctx_constr = !ctx_constr; }
+
+let get_typid (tv : typvar) : int  =
+   let tid = String_map.find_opt tv !ctx_tconstr in
+   begin match tid with 
+   | Some id -> id
+   | None -> -1
+   end
+(* mutable_vars contains the information on which variables are [Var_mutable]
   stack of lists of heap allocated variables
   each list corresponds to a new scope
   when a scope is closed, the corresponding variables must be deleted
 *)
-let heap_vars : (scope_kind * (string list)) Stack.t = Stack.create ()
+let mutable_vars : (scope_kind * (string list)) Stack.t = Stack.create ()
 
-let is_heap_var (x : string) : bool =
-  Stack.fold (fun b (_, sl) -> b || List.mem x sl) false heap_vars
+let is_mutable_var (x : string) : bool =
+  Stack.fold (fun b (_, sl) -> b || List.mem x sl) false mutable_vars
 
 (* scope opening instruction *)
-let open_scope (kind : scope_kind) : unit = Stack.push (kind, []) heap_vars
+let open_scope (kind : scope_kind) : unit = Stack.push (kind, []) mutable_vars
 
 (* add a heap allocated variable to the current scope *)
 let add_var (s : string) : unit =
-  let (kind, sl) = Stack.pop heap_vars in
-  Stack.push (kind, (s :: sl)) heap_vars
-
-(* Auxiliary function to compute the new location for delete instruction before scope closure *)
-
-let new_location (loc : location) : location = match loc with
-| None -> None
-| Some (f, _, _,line2,col2) -> Some (f,(max 1 (line2-1)), line2,(max 0 (col2-1)), col2)
-
+  let (kind, sl) = Stack.pop mutable_vars in
+  Stack.push (kind, (s :: sl)) mutable_vars
 
 (*
   scope closing instruction
   t represents the part of the program in the current scope
  *)
 let close_scope ?(_loc : location = None) (t : trm) : trm =
-  match Stack.pop heap_vars with
+  match Stack.pop mutable_vars with
   | (_, []) -> t
   | _ -> t
 
@@ -104,13 +125,13 @@ let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm)
 (*
   put the appropriate sequence of delete instructions before a return
   instruction given by t
-  put back an empty list of variables to the heap_vars stack since the scope is
+  put back an empty list of variables to the mutable_vars stack since the scope is
   not closed
  *)
 let return (t : trm) : trm =
-  (* let tl = Stack.fold (fun tl (_, sl) -> tl ++ (delete_list sl)) [] heap_vars in *)
-  let tl = Stack.fold (fun tl (_,_) -> tl) [] heap_vars in
-  let (kind, _) = Stack.pop heap_vars in
+  (* let tl = Stack.fold (fun tl (_, sl) -> tl ++ (delete_list sl)) [] mutable_vars in *)
+  let tl = Stack.fold (fun tl (_,_) -> tl) [] mutable_vars in
+  let (kind, _) = Stack.pop mutable_vars in
   open_scope kind;
   match tl with
   | [] -> t
@@ -136,7 +157,7 @@ let find_scope ?(break : bool = false) (kl : scope_kind list) : int =
 
 (* compute the list of scope kinds (innermost to outermost) from current one *)
 let scope_list () : scope_kind list =
-  List.rev (Stack.fold (fun kl (kind, _) -> kind :: kl) [] heap_vars)
+  List.rev (Stack.fold (fun kl (kind, _) -> kind :: kl) [] mutable_vars)
 
 (* return the list of the n top elements in the stack *)
 let ntop (n : int) (s : 'a Stack.t) : 'a list =
@@ -153,7 +174,7 @@ let ntop (n : int) (s : 'a Stack.t) : 'a list =
 (*
   put the appropriate sequence of delete instructions before a break/continue
   instruction given by t
-  put back an empty list of variables to the heap_vars stack since the scope is
+  put back an empty list of variables to the mutable_vars stack since the scope is
   not closed
  *)
 let abort ?(break : bool = false) (t : trm) : trm =
@@ -161,11 +182,11 @@ let abort ?(break : bool = false) (t : trm) : trm =
   (* put the delete instruction for the n deepest scopes *)
   let tl =
     (* List.fold_left (fun tl (_, sl) -> tl ++ (delete_list sl)) []
-      (ntop n heap_vars) *)
+      (ntop n mutable_vars) *)
     List.fold_left (fun tl (_,_) -> tl) []
-      (ntop n heap_vars)
+      (ntop n mutable_vars)
   in
-  let (kind, _) = Stack.pop heap_vars in
+  let (kind, _) = Stack.pop mutable_vars in
   open_scope kind;
   match tl with
   | [] -> t
@@ -187,7 +208,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
 let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   match d with
   | Pointer q ->
-    let t = translate_qual_type ~loc q in
+    let t = translate_qual_type ~loc q in    
     let {const;_} = q in
     if const then
       (typ_ptr (typ_const t))
@@ -249,13 +270,8 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     end
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n ->
-        let td = get_typedef n in
-        (* let () = match td with
-        | Some d -> printf "Typedef trying to get is %s, got %s" n (Ast_to_text.typedef_to_string d);
-        | None -> printf "Typedef trying to get is %s, got NONE" n;
-        in *)
-        typ_var n td
+      | IdentifierName n ->  
+        typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
     end
@@ -269,14 +285,14 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_var n (get_typedef n)
+         typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        typ_var n (get_typedef n)
+         typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end
@@ -296,32 +312,33 @@ and translate_ident (id : ident_ref node) : string =
 
 and translate_stmt (s : stmt) : trm =
   let loc = loc_of_node s in
+  let ctx = Some (get_ctx ()) in
   match s.desc with
   | Compound sl ->
     compute_scope ~loc Other_scope
-      (fun () -> trm_seq ~loc (List.map translate_stmt sl))
+      (fun () -> trm_seq ~loc ~ctx (List.map translate_stmt sl))
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
     let tc = translate_expr c in
     let tt = compute_scope Other_scope (fun () -> translate_stmt st) in
     begin match seo with
-      | None -> trm_if ~loc tc tt (trm_lit Lit_unit)
+      | None -> trm_if ~loc ~ctx tc tt (trm_lit Lit_unit)
       | Some se ->
         let te = compute_scope Other_scope (fun () -> translate_stmt se) in
-        trm_if ~loc tc tt te
+        trm_if ~loc ~ctx tc tt te
     end
   | If _ ->
     fail loc "translate_stmt: variable declaration forbidden in if conditions"
   | While {condition_variable = _; cond = c; body = s} ->
     let tc = translate_expr c in
     let ts = compute_scope While_scope (fun () -> translate_stmt s) in
-    trm_while ~loc tc ts
+    trm_while ~loc ~ctx  tc ts
   (* todo: use while encoding in semantics *)
   | For {init = inito; condition_variable = None; cond = condo; inc = stepo;
          body} ->
     let translate_stmt_opt (so : stmt option) : trm =
       match so with
-      | None -> trm_lit ~loc Lit_unit
+      | None -> trm_lit ~loc ~ctx  Lit_unit
       | Some s -> translate_stmt s
     in
     (* put a scope around the for loop for the counter declaration *)
@@ -331,35 +348,35 @@ and translate_stmt (s : stmt) : trm =
          let cond =
            match condo with
            (* no condition is equivalent to true *)
-           | None -> trm_lit ~annot:(Some Empty_cond) ~loc (Lit_bool true)
+           | None -> trm_lit ~annot:(Some Empty_cond) ~loc ~ctx (Lit_bool true)
            | Some e -> translate_expr e
          in
          let step = translate_stmt_opt stepo in
          let body = compute_scope For_scope (fun () -> translate_stmt body) in
-         trm_for ~loc init cond step body
+         trm_for ~loc ~ctx init cond step body
       )
   | For _ ->
     fail loc "translate_stmt: variable declaration forbidden in for conditions"
   | Return eo ->
     begin match eo with
-      | None -> return (trm_abort ~loc (Ret None))
+      | None -> return (trm_abort ~loc ~ctx (Ret None))
       | Some e ->
         let t = translate_expr e in
-        return (trm_abort ~loc (Ret (Some t)))
+        return (trm_abort ~loc ~ctx (Ret (Some t)))
     end
-  | Break -> abort ~break:true (trm_abort ~loc Break)
-  | Continue -> abort (trm_abort ~loc Continue)
+  | Break -> abort ~break:true (trm_abort ~loc ~ctx Break)
+  | Continue -> abort (trm_abort ~loc ~ctx Continue)
   | Decl dl ->
     begin match dl with
       | [] -> fail loc "translate_stmt: empty declaration list"
       | [d] -> translate_decl d
-      | _ -> trm_seq ~annot:(Some Multi_decl) ~loc (translate_decl_list dl)
+      | _ -> trm_seq ~annot:(Some Multi_decl) ~loc ~ctx (translate_decl_list dl)
     end
   | Expr e -> translate_expr ~is_statement:true e
   | Label {label = l; body = s} ->
     let t = translate_stmt s in
-    trm_labelled ~loc l t
-  | Null -> trm_lit ~loc Lit_unit
+    trm_labelled ~loc ~ctx l t
+  | Null -> trm_lit ~loc ~ctx Lit_unit
   | Switch {init = None; condition_variable = None; cond = c;
             body = s} ->
     begin match s.desc with
@@ -371,7 +388,7 @@ and translate_stmt (s : stmt) : trm =
   | Switch _ ->
     fail loc
       "translate_stmt: variable declaration forbidden in switch conditions"
-  | Goto l -> trm_goto ~loc l
+  | Goto l -> trm_goto ~loc ~ctx l
   | _ ->
     fail loc ("translate_stmt: the following statement is unsupported: " ^
               Clang.Stmt.show s)
@@ -402,7 +419,7 @@ and translate_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
         | _ -> fail loc "translate_switch: case or default expected"
       end
   in
-  trm_switch ~loc t (aux loc cases)
+  trm_switch ~loc ~ctx:(Some (get_ctx ())) t  (aux loc cases)
 
 (*
   compute the list of nested cases described by s in reverse order and the first
@@ -437,7 +454,7 @@ and compute_body (loc : location) (body_acc : trm list)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> (trm_seq ~annot:(Some No_braces) ~loc tl, sl)
+          | tl -> (trm_seq ~annot:(Some No_braces) ~loc ~ctx:(Some (get_ctx ())) tl, sl)
         end
       | _ ->
         let t = translate_stmt s in
@@ -460,30 +477,31 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         (Clang.Type.show q);
       None
   in
+  let ctx = Some (get_ctx()) in
   match e.desc with
   | ConditionalOperator {cond; then_branch = Some e_then;
                          else_branch = e_else} ->
     let t_cond = translate_expr cond in
     let t_then = translate_expr e_then in
     let t_else = translate_expr e_else in
-    trm_apps ~loc ~is_statement ~typ (trm_prim ~loc Prim_conditional_op)
+    trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op)
       [t_cond; t_then; t_else]
   | ConditionalOperator _ ->
     fail loc
       "translate_expr: conditional operators without then branch unsupported"
   | IntegerLiteral i ->
     begin match i with
-      | Int i -> trm_lit ~loc (Lit_int i)
+      | Int i -> trm_lit ~loc ~ctx (Lit_int i)
       | _ -> fail loc "translate_expr: only int literal allowed"
     end
-  | BoolLiteral b -> trm_lit ~loc (Lit_bool b)
+  | BoolLiteral b -> trm_lit ~loc ~ctx (Lit_bool b)
   | FloatingLiteral f ->
     begin match f with
-      | Float f -> trm_lit ~loc (Lit_double f)
+      | Float f -> trm_lit ~loc ~ctx (Lit_double f)
       | _ -> fail loc "translate_expr: only float literal allowed"
     end
   | StringLiteral {byte_width = _; bytes = s; string_kind = _} ->
-    trm_lit ~loc (Lit_string s)
+    trm_lit ~loc ~ctx (Lit_string s)
 
 
   | InitList el ->
@@ -493,11 +511,12 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | Some ty -> ty
     in
     let tl = List.map translate_expr el in
-    begin match tt.ty_desc with
-      | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
-      | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt)  tl
+    begin match tt.typ_desc with
+      | Typ_array _ -> trm_array ~loc ~ctx ~typ:(Some tt) tl
+      (* TODO: Fix this later *)
+      | Typ_constr _ -> trm_struct ~loc ~ctx ~typ:(Some tt)  tl
       | Typ_var _ -> (* assumption: typedefs are only for struct *)
-        trm_struct ~loc ~typ:(Some tt) tl
+        trm_struct ~ctx ~loc ~typ:(Some tt)  tl
       | _ ->
         fail loc ("translate_decl: initialisation lists only " ^
                   "allowed for struct and array")
@@ -509,10 +528,10 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         begin match a with
           | ArgumentExpr e ->
             let t = translate_expr e in
-            trm_apps ~loc ~typ (trm_var ~loc "sizeof") [t]
+            trm_apps ~loc ~typ ~ctx (trm_var ~loc "sizeof") [t]
           | ArgumentType q ->
             let ty = translate_qual_type q in
-            trm_var ~loc ~typ ("sizeof(" ^ Ast_to_c.typ_to_string ty ^ ")")
+            trm_var ~loc ~typ ~ctx ("sizeof(" ^ Ast_to_c.typ_to_string ty ^ ")")
         end
       | _ -> fail loc "translate_expr: unsupported unary expr"
     end
@@ -536,16 +555,17 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
           annot;
           loc; is_statement;
           add = Add_address_of_operator :: add;
+          ctx;
           typ;
           attributes }
       | _ ->
         begin match k with
           | PostInc ->
             let t = translate_expr ~val_t:Lvalue e in
-            trm_apps ~loc ~is_statement ~typ (trm_unop ~loc Unop_inc) [t]
+            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_inc) [t]
           | PostDec ->
             let t = translate_expr ~val_t:Lvalue e in
-            trm_apps ~loc ~is_statement ~typ (trm_unop ~loc Unop_dec) [t]
+            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_dec) [t]
           | Deref ->
             let t = translate_expr e in
             begin match val_t with
@@ -560,18 +580,19 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   is_statement = t.is_statement;
                   add = Add_star_operator :: t.add;
                   typ;
+                  ctx;
                   attributes = t.attributes}
-              | Rvalue -> trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [t]
+              | Rvalue -> trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
             end
           | Minus ->
             let t = translate_expr e in
-            trm_apps ~loc ~typ (trm_unop ~loc Unop_opp) [t]
+            trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_opp) [t]
           | Not ->
             let t = translate_expr e in
-            trm_apps ~loc ~typ (trm_unop ~loc Unop_bitwise_neg) [t]
+            trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_bitwise_neg) [t]
           | LNot ->
             let t = translate_expr e in
-            trm_apps ~loc ~typ (trm_unop ~loc Unop_neg) [t]
+            trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_neg) [t]
           | _ -> fail loc "translate_expr: unary operator not implemented"
         end
     end
@@ -586,78 +607,78 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     begin match k with
       | Assign ->
         let tl = translate_expr ~val_t:Lvalue le in
-        trm_set ~loc ~is_statement tl tr
+        trm_set ~loc ~ctx ~is_statement tl tr
       | AddAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_add) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement  tll
+          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_add) [tlr; tr])
       | SubAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_sub) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~ctx ~is_statement tll
+          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_sub) [tlr; tr])
       | MulAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_mul) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement ~ctx tll
+          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_mul) [tlr; tr])
       | DivAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_div) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement ~ctx tll
+          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_div) [tlr; tr])
       | RemAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_mod) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~is_statement ~ctx tll
+          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_mod) [tlr; tr])
       | ShlAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_shiftl) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~ctx ~is_statement  tll
+          (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_shiftl) [tlr; tr])
       | ShrAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_shiftr) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~ctx  ~is_statement tll
+          (trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx  Binop_shiftr) [tlr; tr])
       | AndAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_and) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~ctx  ~is_statement tll
+          (trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_and) [tlr; tr])
       | OrAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_or) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~ctx ~is_statement tll
+          (trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_or) [tlr; tr])
       | XorAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement tll
-          (trm_apps ~loc ~typ (trm_binop ~loc Binop_xor) [tlr; tr])
+        trm_set ~annot:(Some App_and_set) ~loc ~ctx ~is_statement tll
+          (trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_xor) [tlr; tr])
       | _ ->
         let tl = translate_expr ~val_t:val_t le in
         begin match k with
-          | Mul -> trm_apps ~loc ~typ (trm_binop ~loc Binop_mul) [tl; tr]
-          | Div -> trm_apps ~loc ~typ (trm_binop ~loc Binop_div) [tl; tr]
-          | Add -> trm_apps ~loc ~typ (trm_binop ~loc Binop_add) [tl; tr]
-          | Sub -> trm_apps ~loc ~typ (trm_binop ~loc Binop_sub) [tl; tr]
-          | LT ->  trm_apps ~loc ~typ (trm_binop ~loc Binop_lt) [tl; tr]
-          | GT ->  trm_apps ~loc ~typ (trm_binop ~loc Binop_gt) [tl; tr]
-          | LE ->  trm_apps ~loc ~typ (trm_binop ~loc Binop_le) [tl; tr]
-          | GE ->  trm_apps ~loc ~typ (trm_binop ~loc Binop_ge) [tl; tr]
-          | EQ ->  trm_apps ~loc ~typ (trm_binop ~loc Binop_eq) [tl; tr]
-          | NE ->  trm_apps ~loc ~typ (trm_binop ~loc Binop_neq) [tl; tr]
-          | And -> trm_apps ~loc ~typ (trm_binop ~loc Binop_bitwise_and) [tl; tr]
-          | LAnd -> trm_apps ~loc ~typ (trm_binop ~loc Binop_and) [tl; tr]
-          | Or -> trm_apps ~loc ~typ (trm_binop ~loc Binop_bitwise_or) [tl; tr]
-          | LOr -> trm_apps ~loc ~typ (trm_binop ~loc Binop_or) [tl; tr]
-          | Shl -> trm_apps ~loc ~typ (trm_binop ~loc Binop_shiftl) [tl; tr]
-          | Shr -> trm_apps ~loc ~typ (trm_binop ~loc Binop_shiftr) [tl; tr]
-          | Rem -> trm_apps ~loc ~typ (trm_binop ~loc Binop_mod) [tl; tr]
-          | Xor -> trm_apps ~loc ~typ (trm_binop ~loc Binop_xor) [tl; tr]
+          | Mul -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mul) [tl; tr]
+          | Div -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_div) [tl; tr]
+          | Add -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_add) [tl; tr]
+          | Sub -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_sub) [tl; tr]
+          | LT ->  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_lt) [tl; tr]
+          | GT ->  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_gt) [tl; tr]
+          | LE ->  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_le) [tl; tr]
+          | GE ->  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_ge) [tl; tr]
+          | EQ ->  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_eq) [tl; tr]
+          | NE ->  trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_neq) [tl; tr]
+          | And -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_and) [tl; tr]
+          | LAnd -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_and) [tl; tr]
+          | Or -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_bitwise_or) [tl; tr]
+          | LOr -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_or) [tl; tr]
+          | Shl -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_shiftl) [tl; tr]
+          | Shr -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_shiftr) [tl; tr]
+          | Rem -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_mod) [tl; tr]
+          | Xor -> trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_xor) [tl; tr]
           | _ -> fail loc "translate_expr: binary operator not implemented"
         end
     end
@@ -667,10 +688,10 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     (* TODO: later think about other cases to handle here *)
     | Trm_var x when Str.string_match (Str.regexp "overloaded=") x 0 ->
         begin match el with
-        | [tl;tr] -> trm_set ~loc ~is_statement (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
+        | [tl;tr] -> trm_set ~loc ~ctx  ~is_statement (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
         | _ -> fail loc "translate_expr: overloaded= expects two arguments"
         end
-    | _-> trm_apps ~loc ~is_statement ~typ tf (List.map translate_expr el)
+    | _-> trm_apps ~loc ~ctx  ~is_statement ~typ tf (List.map translate_expr el)
     end
   | DeclRef {nested_name_specifier = _; name = n; _} -> (* Occurrence of a variable *)
     begin match n with
@@ -687,18 +708,18 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
            *)
           (* let q = Clang.Type.of_cursor (Clang.Expr.get_definition e) in
            * Some (translate_qual_type ~loc q) *)
-          (* hack with typ_map *)
-          Type_map.find_opt s !typ_map
+          (* hack with ctx_var *)
+          String_map.find_opt s !ctx_var
         in
         begin match val_t with
-          | Rvalue when is_heap_var s ->
+          | Rvalue when is_mutable_var s ->
             (* LATER: the Heap_allocated annotation on get should be replaced with
                a Var_mutable argument passed to trm_var *)
-            trm_apps ~annot:(Some Mutable_var_get) ~loc ~typ
-              (trm_unop ~loc Unop_get) [trm_var ~loc s]
+            trm_apps ~annot:(Some Mutable_var_get) ~loc ~ctx  ~typ
+              (trm_unop ~loc ~ctx  Unop_get) [trm_var ~loc ~ctx  s]
           | _ -> trm_var ~loc ~typ s
         end
-      | OperatorName op -> trm_var ~loc ~typ (string_of_overloaded_op ~loc op)
+      | OperatorName op -> trm_var ~loc ~ctx ~typ (string_of_overloaded_op ~loc op)
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
   | Member {base = eo; arrow = b; field = f} -> (* TODO: ARTHUR relire bien *)
@@ -729,15 +750,15 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
 
             *)
             begin match base.desc with
-              | Trm_var x when not (is_heap_var x) ->
+              | Trm_var x when not (is_mutable_var x) ->
                 let base =
                   if b (* if arrow instead of dot *)
-                    then trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [base]   (* Code is [b->f], we encode it as [( *b ).f] *)
+                    then trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get) [base]   (* Code is [b->f], we encode it as [( *b ).f] *)
                     else base (* code is [b.f] *)
                   in
                     (* fail loc
                       "translate_expr: 1arrow field access should be on a pointer" *)
-                trm_apps ~loc ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
+                trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_get f)) [base]
               | Trm_apps
                   ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
               | Trm_apps
@@ -747,20 +768,20 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   fail loc
                     "translate_expr: 2arrow field access should be on a pointer"
                 else
-                  trm_apps ~loc ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
+                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
               | _ ->
                 let t =
-                  if b then trm_apps ~loc ~typ (trm_unop ~loc Unop_get) [base]
+                  if b then trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get) [base]
                   else base
                 in
                 let res =
-                  trm_apps ~loc ~typ (trm_unop ~loc (Unop_struct_access f)) [t]
+                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_access f)) [t]
                 in
                 begin match val_t with
                   | Lvalue -> res
                   | Rvalue ->
-                    trm_apps ~annot:(Some Access) ~typ ~loc
-                      (trm_unop ~loc Unop_get) [res]
+                    trm_apps ~annot:(Some Access) ~typ ~loc ~ctx
+                      (trm_unop ~loc ~ctx Unop_get) [res]
                 end
             end
           | _ -> fail loc "translate_expr: fields must be accessed by name"
@@ -776,8 +797,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       *)
     let typ =
       match te.typ with
-      | Some {ty_desc = Typ_array (ty, _); _} -> Some ty
-      | Some {ty_desc = Typ_ptr ty; _} -> Some ty
+      | Some {typ_desc = Typ_array (ty, _); _} -> Some ty
+      | Some {typ_desc = Typ_ptr ty; _} -> Some ty
       (* should not happen *)
       | _ -> None
     in
@@ -786,22 +807,22 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
        or the result of a struct_get/array_get
       *)
     begin match te.desc with
-      | Trm_var x when not (is_heap_var x) ->
-        trm_apps ~loc ~typ (trm_binop ~loc Binop_array_get) [te; ti]
+      | Trm_var x when not (is_mutable_var x) ->
+        trm_apps ~loc ~ctx ~typ (trm_binop ~ctx ~loc Binop_array_get) [te; ti]
       | Trm_apps
           ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
       | Trm_apps
           ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
            _) ->
-        trm_apps ~loc ~typ (trm_binop ~loc Binop_array_get) [te; ti]
+        trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_get) [te; ti]
       | _ ->
         let res =
-          trm_apps ~loc ~typ (trm_binop ~loc Binop_array_access) [te; ti]
+          trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_access) [te; ti]
         in
         begin match val_t with
           | Lvalue -> res
           | Rvalue ->
-            trm_apps ~annot:(Some Access) ~loc ~typ (trm_unop ~loc Unop_get)
+            trm_apps ~annot:(Some Access) ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get)
               [res]
         end
     end
@@ -816,7 +837,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | CStyle | Static ->
         let t = translate_qual_type ~loc q in
         let te' = translate_expr e' in
-        trm_apps ~loc ~typ (trm_unop ~loc (Unop_cast t)) [te']
+        trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_cast t)) [te']
       | _ -> fail loc "translate_expr: only static casts are allowed"
     end
   | New {placement_args = _; qual_type = q; array_size = seo; init = ieo} ->
@@ -828,27 +849,24 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
           "translate_expr: ignoring initialisation in new statement\n"
     end;
     begin match seo with
-      | None -> trm_prim ~loc (Prim_new tq)
+      | None -> trm_prim ~loc ~ctx (Prim_new tq)
       | Some se ->
         begin match translate_expr se with
           | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
-            trm_prim ~loc (Prim_new (typ_array tq (Const n)))
+            trm_prim ~loc ~ctx (Prim_new (typ_array tq (Const n)))
           | {desc = Trm_var x; loc; _} ->
-            trm_prim ~loc (Prim_new (typ_array tq (Trm (trm_var ~loc x))))
+            trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx x))))
           | _ ->
             fail loc ("translate_expr: new array size must be either " ^
                       "constant or variable")
         end
     end
-  (* | Delete {global_delete = _; array_form = b; argument = e} ->
-    let t = translate_expr e in
-    trm_apps ~loc ~is_statement ~typ (trm_unop ~loc (Unop_delete b)) [t] *)
   | UnexposedExpr ImplicitValueInitExpr ->
     print_info loc "translate_expr: implicit initial value\n";
-    trm_lit ~loc Lit_uninitialized
+    trm_lit ~loc ~ctx Lit_uninitialized
   (* sometimes Null is translated like this *)
-  | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~loc ()
-  | ImplicitValueInit _ -> trm_lit ~loc Lit_uninitialized
+  | UnknownExpr (GNUNullExpr, GNUNullExpr) -> trm_null ~loc ~ctx ()
+  | ImplicitValueInit _ -> trm_lit ~loc ~ctx Lit_uninitialized
   | _ ->
     fail loc
       ("translate_expr: the following expression is unsupported: " ^
@@ -880,36 +898,39 @@ and translate_decl_list (dl : decl list) : trm list =
     dl' ->
     begin match k with
       | Struct ->
-        let (fs,m) =
-          List.fold_left
-            (fun (fs,m) (d : decl) ->
-               let loc = loc_of_node d in
-               match d with
-               | {decoration = _; desc = Field {name = fn; qual_type = q;
-                                                bitwidth = _; init = _;
-                                                attributes = al}} ->
-                 let ft = translate_qual_type ~loc q in
-                 let al = List.map (translate_attribute loc) al in
-                 let m' = Field_map.add fn {ft with ty_attributes = al} m in
-                 let fs' = fn :: fs in
-                 (fs',m')
-               | _ ->
-                 fail loc ("translate_decl_list: only fields are allowed " ^
-                           "in struct declaration"))
-            ([], Field_map.empty)
-            fl
-        in
+        let tid = next_typid () in
+        let prod_list = List.map ( fun (d : decl) ->
+          let loc = loc_of_node d in 
+          match d with 
+          | {decoration = _; desc = Field {name = fn; qual_type = q;
+                                              bitwidth = _; init = _;
+                                              attributes = al}} ->
+            ctx_label_add fn tid;
+            let ft = translate_qual_type ~loc q in 
+            let al = List.map (translate_attribute loc) al in
+            let ty = {ft with typ_attributes = al} in
+            (fn, ty)
+          | _ -> fail loc ("translate_decl_list: only fields are allowed
+                                in struct declaration")
+          
+        ) fl in         
+        let tl = translate_decl_list dl' in
+          let td = {
+            typdef_typid = tid;
+            typdef_tconstr = tn;
+            typdef_vars = [];
+            typdef_body = Typdef_prod prod_list
+          } in
+        ctx_tconstr_typedef_add tid tn td;
         let tq = translate_qual_type ~loc q in
-        begin match tq.ty_desc with
-          | Typ_var (n, _) when n = rn ->
-            let tl = translate_decl_list dl' in
-            let td = Typedef_abbrev(tn,typ_struct fs m rn) in
-            typedef_env_add tn td;
-            trm_typedef td :: tl
-          | _ ->
-            fail loc ("translate_decl_list: a type definition following " ^
+        
+        begin match tq.typ_desc with
+        | Typ_constr (n, _, _)  when n = rn ->
+              (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) :: tl
+
+       | _ -> fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
-        end
+      end
       | _ -> fail loc "translate_decl_list: only struct records are allowed"
     end
   | d :: d' :: dl ->
@@ -919,6 +940,7 @@ and translate_decl_list (dl : decl list) : trm list =
 
 and translate_decl (d : decl) : trm =
   let loc = loc_of_node d in
+  let ctx = Some (get_ctx ()) in
   match d.desc with
   | EnumDecl {name; constants; _} ->
     let enum_constant_l =
@@ -932,7 +954,15 @@ and translate_decl (d : decl) : trm =
         )
         constants
     in
-    trm_typedef ~loc (Typedef_enum (name, enum_constant_l))
+    let tid = next_typid () in
+    let td = {
+      typdef_typid = tid;
+      typdef_tconstr = name;
+      typdef_vars = [];
+      typdef_body = Typdef_enum enum_constant_l
+    } in
+    ctx_tconstr_typedef_add tid name td;
+    trm_typedef ~loc ~ctx td
   | Function {linkage = _; function_type = t; nested_name_specifier = _;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
     let s =
@@ -947,7 +977,7 @@ and translate_decl (d : decl) : trm =
     let {calling_conv = _; result = _; parameters = po;
          exception_spec = _; _} = t in
     let tt = translate_type_desc ~loc (FunctionType t) in
-    begin match tt.ty_desc with
+    begin match tt.typ_desc with
       | Typ_fun (args_t, out_t) ->
         begin match po with
           | None ->
@@ -969,8 +999,7 @@ and translate_decl (d : decl) : trm =
                 )
                 args_t
             in
-            List.iter (fun (y, ty) -> typ_map := Type_map.add y ty !typ_map)
-              args;
+            List.iter (fun (y, ty) -> ctx_var_add y ty) args;
             let tb =
               match bo with
               | None -> trm_lit ~loc Lit_uninitialized
@@ -984,7 +1013,7 @@ and translate_decl (d : decl) : trm =
     let {const;_} = t in
     let tt = translate_qual_type ~loc t in
     let te =
-    begin match eo with
+      begin match eo with
       | None ->
         if const then trm_lit ~loc Lit_uninitialized
         else trm_prim ~loc (Prim_new tt)
@@ -992,9 +1021,40 @@ and translate_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
-          begin match tt.ty_desc with
+          (* TODO: instead of matching on typ_desc, you need to match on
+             [get_typ_kind ctx tt] where is defined in ast.ml
+
+             let rec get_typ_kind ctx (ty : typ) : typ_kind =
+               match ty.typ_desc with
+               | Typ_const ty1 -> get_typ_kind ty1
+               | (Typ_int | Type_float) -> Typ_kind_basic ty
+               | (Typ_ptr | Type_array _) -> Typ_kind_array
+               | Typ_fun -> Typ_kind_fun
+               | Typ_var -> Typ_kind_var
+               | Typ_constr (_,tyid,_) ->
+                   match String_map.find tyid ctx.ctx_tconstr with
+                   | Typedef_alias ty1 -> get_typ_kind ty1
+                   | Typdef_prod -> Typ_kind_prod
+                   | Typdef_sum -> Typ_kind_sum
+
+             type typ_kind =
+               | Typ_kind_array
+               | Typ_kind_sum
+               | Typ_kind_prod
+               | Typ_kind_basic of typ_desc
+               | Typ_kind_fun
+               | Typ_kind_var
+
+          TODO
+            ..
+            show_ctx tg =
+              apply_to_target (fun t ->
+                prints on stdout (ctx_to_text t.trm_ctx))
+          *)
+          begin match tt.typ_desc with
           | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
-          | Typ_struct _ -> trm_struct ~loc ~typ:(Some tt) tl
+          (* TODO: Check this one later *)
+          | Typ_constr _ -> trm_struct ~loc ~typ:(Some tt) tl
           | Typ_var _ -> (* assumption: typedefs are only for struct*)
             trm_struct ~loc ~typ:(Some tt) tl
           | _ ->
@@ -1003,7 +1063,8 @@ and translate_decl (d : decl) : trm =
         | _ -> translate_expr e
         end
       end
-    in typ_map := Type_map.add n tt !typ_map;
+      in
+    ctx_var_add n tt;
     if const then
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
     else
@@ -1018,16 +1079,28 @@ and translate_decl (d : decl) : trm =
       end
   | TypedefDecl {name = n; underlying_type = q} ->
     let tn = translate_qual_type ~loc q in
-    let td = Typedef_abbrev (n, tn) in
-    typedef_env_add n td;
-    trm_typedef ~loc td
+    let tid = next_typid () in
+    let td = {
+      typdef_typid = tid;
+      typdef_tconstr = n;
+      typdef_vars = [];
+      typdef_body = Typdef_alias tn;
+    }
+    in
+    ctx_tconstr_typedef_add tid n td;
+    trm_typedef ~loc ~ctx td
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName n ->
+        let tid = next_typid () in
         let tn = translate_qual_type ~loc q in
-        let td = Typedef_abbrev (n, tn) in
-        typedef_env_add n td;
-        trm_typedef ~loc td
+        let td = {
+          typdef_typid = tid;
+          typdef_tconstr = n;
+          typdef_vars = [];
+          typdef_body = Typdef_alias tn; } in
+        ctx_tconstr_typedef_add tid n td;
+        trm_typedef ~loc ~ctx td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
   | RecordDecl _ ->
@@ -1036,7 +1109,6 @@ and translate_decl (d : decl) : trm =
 
 module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t
-let typ_map : typ Type_map.t ref = ref Type_map.empty
 
 let filter_out_include (filename : string)
     (dl : decl list) : ((decl list) imap) * (decl list) =

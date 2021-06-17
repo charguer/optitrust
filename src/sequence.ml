@@ -136,7 +136,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
               (* use heap allocation to be allowed to modify the variables *)
               let decl =
                 if is_heap_alloc t then
-                  begin match ty.ty_desc with
+                  begin match ty.typ_desc with
                   | Typ_ptr ty' ->
                     trm_let Var_mutable (split_name y, ty)
                                         (trm_prim (Prim_new ty'))
@@ -176,7 +176,7 @@ let split_seq_at (n : int) (result_label : string) (block1_label : string)
                let y = decl_name t in
                let ty = var_decl_type t in
                if is_heap_alloc t then
-                 begin match ty.ty_desc with
+                 begin match ty.typ_desc with
                  | Typ_ptr ty' ->
                     trm_let Var_mutable (y,ty') (trm_var (split_name y))
 

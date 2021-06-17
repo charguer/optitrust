@@ -14,6 +14,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const "
   | Typ_const t -> string " const "  ^^ typ_to_doc t
+  | Typ_constr (tv, _, _) -> string tv
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
   | Typ_float -> string "float"
@@ -28,26 +29,13 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      | Const n -> d ^^ brackets (string (string_of_int n))
      | Trm t' -> d ^^ brackets (trm_to_doc t')
      end
-  | Typ_struct (l,m, _) ->
-     let get_typ x = Field_map.find x m in
-     let get_document_list l =
-      let rec aux acc = function
-      | [] -> acc
-      | hd :: tl -> let t = get_typ hd in
-      aux((typed_var_to_doc (hd,t) ^^ semi) :: acc) tl in
-      aux [] l
-     in
-     let dl = get_document_list l
-     in
-     string "struct" ^^ blank 1 ^^
-       surround 2 1 lbrace (separate hardline dl) rbrace
   | Typ_fun (_, _) ->
      print_info None "typ_desc_to_doc: typ_fun not implemented\n";
      at
-  | Typ_var (t, _) -> string t
+  | Typ_var t -> string t
 
 and is_atomic_typ (t : typ) : bool =
-  match t.ty_desc with
+  match t.typ_desc with
   | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
   | _ -> false
 
@@ -58,13 +46,13 @@ and typ_annot_to_doc (a : typ_annot) : document =
   | Short -> string "short"
 
 and typ_to_doc (t : typ) : document =
-  let d = typ_desc_to_doc t.ty_desc in
+  let d = typ_desc_to_doc t.typ_desc in
   let dannot =
     List.fold_left (fun d' a -> typ_annot_to_doc a ^^ blank 1 ^^ d') empty
-      t.ty_annot
+      t.typ_annot
   in
   let dattr =
-    match t.ty_attributes with
+    match t.typ_attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
@@ -79,7 +67,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
       | Const n -> brackets (string (string_of_int n))
       | Trm t' -> brackets (trm_to_doc t')
     in
-    match t.ty_desc with
+    match t.typ_desc with
     | Typ_array (t, s') ->
        let (base, bracketl) = aux t s' in
        (base, ds :: bracketl)
@@ -88,11 +76,11 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   in
   let (x, t) = tx in
   let dattr =
-    match t.ty_attributes with
+    match t.typ_attributes with
     | [] -> empty
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
-  match t.ty_desc with
+  match t.typ_desc with
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
@@ -159,7 +147,7 @@ and prim_to_doc (p : prim) : document =
 and val_to_doc (v : value) : document =
   match v with
   | Val_lit l -> lit_to_doc l
-  | Val_ptr (l, _) ->
+  | Val_ptr l ->
      if l = 0 then string "NULL"
      else
        begin
@@ -195,7 +183,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   | Add_address_of_operator :: addl ->
      let d =
        trm_to_doc {desc = t.desc; annot = t.annot; loc = t.loc;
-                   is_statement = t.is_statement; add = addl; typ = t.typ;
+                   is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
                    attributes = []}
      in
      let body = if !decode then parens (ampersand ^^ d) else d in
@@ -203,7 +191,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   | Add_star_operator :: addl when !decode ->
      let d =
        trm_to_doc {desc = t.desc; annot = t.annot; loc = t.loc;
-                   is_statement = t.is_statement; add = addl; typ = t.typ;
+                   is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
                    attributes = []}
      in
      let body = if !decode then parens (star ^^ d) else d in
@@ -331,7 +319,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     let tv =
       if not !decode then (x,typ)
       else
-        begin match typ.ty_desc with
+        begin match typ.typ_desc with
           | Typ_ptr tx -> (x, tx)
           | _ -> fail None "trm_let_to_doc: expected a type ptr"
         end
@@ -341,7 +329,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       else begin match init.desc with
         | Trm_apps(_, [value]) -> value
         | Trm_decoration(ls, init1, rs) ->
-           begin match init1.desc with 
+           begin match init1.desc with
            | Trm_apps(_, [value]) -> trm_decoration ls rs value
            | _ -> init1
            end
@@ -371,39 +359,49 @@ and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typ
   | _ -> separate (blank 1) [dr; string f; parens argd; trm_to_doc b]
   end
 
-and typedef_to_doc ?(semicolon : bool = true) (t : typedef) : document =
+and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
   let dsemi = if semicolon then semi else empty in
-  match t with
-  | Typedef_abbrev (x,t) ->
-    begin match t.ty_desc with
-     (* particular case for array types aliases *)
-     | Typ_array _ ->
-        string "typedef" ^^ blank 1 ^^ typed_var_to_doc (x, t) ^^ dsemi
-     (* particular case for function pointers *)
-     | Typ_ptr {ty_desc = Typ_fun (tyl, r); _} ->
-        let dl = List.map typ_to_doc tyl in
-        let dr = typ_to_doc r in
-        separate (blank 1)
-          [string "typedef"; dr;
-           parens (star ^^ string x) ^^
-             parens (separate (comma ^^ blank 1) dl)] ^^
-        dsemi
-     | _ ->
-        separate (blank 1) [string "typedef"; typ_to_doc t; string x] ^^ dsemi
-     end
-  | Typedef_enum (x, enum_const_l) ->
+  let tname = td.typdef_tconstr in
+  let tbody = td.typdef_body in
+
+  match tbody with
+  | Typdef_alias t ->
+      begin match t.typ_desc with
+      | Typ_array _ ->
+         string "typedef" ^^ blank 1 ^^ typed_var_to_doc (tname, t) ^^ dsemi
+      | Typ_ptr {typ_desc = Typ_fun (tyl, r); _} ->
+         let dl = List.map typ_to_doc tyl in
+         let dr = typ_to_doc r in
+         separate (blank 1)
+         [
+            string "typedef"; dr; parens (star ^^ string tname) ^^ parens (separate (comma ^^ blank 1) dl)
+         ] ^^ dsemi
+      | _ ->
+         separate (blank 1) [string "typedef"; typ_to_doc t; string tname] ^^ dsemi
+      end
+  | Typdef_prod s ->
+      let get_document_list s =
+      let rec aux acc = function
+         | [] -> acc
+         | (lb, t) :: tl ->
+            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
+            aux [] s in
+      let dl = get_document_list s in
+      let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
+      string "struct" ^^ blank 1 ^^ sbody
+  | Typdef_sum _ ->
+      fail None "typedef_to_doc: sum types are not supported in C/C++"
+  | Typdef_enum enum_const_l ->
       let const_doc_l =
-       List.map
+        List.map
          (fun (y, t_o) ->
            match t_o with
            | None -> string y
            | Some t -> separate (blank 1) [string y; equals; trm_to_doc t]
          )
-         enum_const_l
-     in
-     separate (blank 1) [string "enum"; string x;
-                         braces (separate (comma ^^ blank 1) const_doc_l)] ^^
-     dsemi
+        enum_const_l in
+      separate (blank 1) [string "enum"; string tname;
+      braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
 and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   let rec get_names = function

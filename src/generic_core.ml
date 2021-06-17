@@ -90,9 +90,14 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
            ~attributes:t.attributes f (change_typ ty)
                      (List.map (fun (y, ty) -> (y, change_typ ty)) args)
                      (aux body)
-      | Trm_typedef (Typedef_abbrev (y, ty)) ->
+      | Trm_typedef td ->
+       begin match td.typdef_body with
+       | Typdef_alias ty ->
          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
-          (Typedef_abbrev (y, change_typ ty))
+          { td with typdef_body = Typdef_alias (change_typ ty)}
+        | _ -> fail t.loc "apply_change: expected a typdef_alias"
+       end
+      
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -139,7 +144,7 @@ let insert_trm_after (dl : path) (insert : trm) (t : trm) : trm =
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
   | Trm_var y' when y' = y ->
-     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_var x (Clang_to_ast.get_typedef x)))
+     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_var x))
        ~attributes:t.attributes y
   | _ -> trm_map (replace_type_with x y) t
 
@@ -185,7 +190,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
               (fun i il (t' : trm) ->
                 match t'.typ with
                 (* note: also works for heap allocated variables *)
-                | Some {ty_desc = Typ_var (x', _); _} when x' = x -> i :: il
+                | Some {typ_desc = Typ_constr (x', _, _); _} when x' = x -> i :: il
                 | _ -> il
               )
               []
@@ -326,7 +331,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                       *)
                      let tvl' =
                        List.fold_left
-                         (Tools.list_update_nth (fun (y, _) -> (y, typ_var x (Clang_to_ast.get_typedef x)))) tvl il
+                         (Tools.list_update_nth (fun (y, _) -> (y, typ_var x))) tvl il
                      in
                      (* add index to labels in the body of the function *)
                      let b' =
@@ -378,7 +383,7 @@ and replace_fun_names (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                   (fun i il (ti : trm) ->
                     match ti.typ with
                     (* note: also works for heap allocated variables *)
-                    | Some {ty_desc = Typ_var (x', _); _} when x' = x -> i :: il
+                    | Some {typ_desc = Typ_constr (x', _, _); _} when x' = x -> i :: il
                     | _ -> il
                   )
                   []
@@ -525,6 +530,32 @@ let term (s : string) : trm =
   in
   get_term t
 
+(*
+  aliased_type X takes as argument the description of a file
+  (that is a toplevel sequence), and it returns the type ty
+  associated via a "typedef ty X" if there is one such definition
+  LATER: check if this is subsumed by the environments carried by type variables
+ *)
+let rec aliased_type (x : typvar) (t : trm) : typ option =
+  match t.desc with
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_alias ty when td.typdef_tconstr = x -> Some ty
+    | _ -> None
+    end
+  | Trm_seq tl ->
+     List.fold_left
+       (fun tyo t ->
+         match tyo with
+         | Some _ -> tyo
+         | None -> aliased_type x t
+       )
+       None
+       tl
+  | _ -> None
+
+
+
 (* ********************************************** *)
 
 
@@ -615,7 +646,7 @@ let const_non_const_aux (t : trm) : trm =
     | Var_immutable ->
       trm_let Var_mutable (x, typ_ptr tx) (trm_apps (trm_prim ~loc: t.loc (Prim_new tx)) [init])
     | _ ->
-      let var_type = begin match tx.ty_desc with
+      let var_type = begin match tx.typ_desc with
       | Typ_ptr t -> t
       | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
       end
@@ -662,7 +693,7 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
         | Trm_seq [f_loop] ->
           begin match f_loop.desc with
           | Trm_for (init, cond, step, body) ->
-            let new_type = typ_var var_type (Clang_to_ast.get_typedef var_type) in
+            let new_type = typ_var var_type  in
             let new_decl = trm_let Var_mutable (new_var, new_type) (trm_apps (trm_prim (Prim_new new_type)) [trm_var old_var])
 
             in
@@ -747,7 +778,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     end
     in
     let new_decl = trm_seq ~annot:(Some No_braces)[
-      trm_let vk (new_var, typ_ptr (typ_array (typ_var "T" (Clang_to_ast.get_typedef "T")) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T" (Clang_to_ast.get_typedef "T")) (Trm (trm_var array_size)))));
+      trm_let vk (new_var, typ_ptr (typ_array (typ_var "T" ) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T") (Trm (trm_var array_size)))));
       trm_for
       (* init *)
         (trm_let Var_mutable ("k",typ_ptr (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
@@ -830,11 +861,16 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
 let add_attribute_aux (a : attribute) (t : trm) : trm =
   match t.desc with
   | Trm_let (vk, (x, tx), init) ->
-    let ty_attributes = a :: tx.ty_attributes in
-    trm_let vk (x, {tx with ty_attributes}) init
-  | Trm_typedef (Typedef_abbrev (x, tx)) ->
-    let ty_attributes = a :: tx.ty_attributes in
-    trm_typedef (Typedef_abbrev (x, {tx with ty_attributes}))
+    let typ_attributes = a :: tx.typ_attributes in
+    trm_let vk (x, {tx with typ_attributes}) init
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_alias tx -> 
+      let typ_attributes = a :: tx.typ_attributes in
+      trm_typedef {td with typdef_body = Typdef_alias {tx with typ_attributes}}
+    | _ -> fail t.loc "add_attribute_aux: expected a typdef_alias"
+    end
+    
   | _ ->  {t with attributes = a :: t.attributes}
 
 

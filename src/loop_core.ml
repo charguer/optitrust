@@ -323,7 +323,7 @@ let hoist_aux (x_step : var) (t : trm) : trm =
         trm_let Var_mutable (var_name, typ_ptr var_typ) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
       ] @ remaining_body_trms) in
       trm_seq ~annot:(Some No_braces) [
-        trm_let Var_mutable (x_step, typ_ptr (typ_array (typ_var "T" (Clang_to_ast.get_typedef "T")) (Trm (bound)))) (trm_prim (Prim_new var_typ));
+        trm_let Var_mutable (x_step, typ_ptr (typ_array (typ_var "T") (Trm (bound)))) (trm_prim (Prim_new var_typ));
         trm_for init cond step new_body
       ]
     | _ -> fail t.loc "hoist_aux: expected the sequence inside the body of the loop"
