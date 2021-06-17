@@ -1,8 +1,8 @@
-open Optitrust 
+open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-  
+
   (* One (ExpectedOne is the default) *)
   show [ cFor "j" ];
 

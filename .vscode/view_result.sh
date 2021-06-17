@@ -53,6 +53,8 @@ PROG="${FILEBASE}_with_lines.byte"
 
 # From "${FILEBASE}.ml", create ""{FILEBASE}_with_lines.ml" by inserting
 # [~lines:__LINE__]   in the relevant places, and interpreting '!!' and '!!!'
+
+# NOTE: could be move
 sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' "${FILEBASE}.ml" > "${FILEBASE}_with_lines.ml"
  # DEBUG: cat "${FILEBASE}_with_lines.ml"; exit 0
 
@@ -61,6 +63,8 @@ sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_
 # Second, we compile that transformation program
 # DEPRECATED
 # ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust "${FILEBASE}_with_exit.byte"
+# TODO(Anton): replace this line with a dune command that uses directly /src/src files instead
+# of the installed package; only consider ${FILEBASE}.ml from local folder
 ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
 # LATER: capture the output error message
 # so we can do the postprocessing on it

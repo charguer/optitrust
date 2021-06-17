@@ -40,6 +40,7 @@ let script (f : unit -> unit) : unit =
      (the main output file is named "foo_out.cpp"). *)
 let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
+  (* TODO: move these lines to a get_basename function *)
   let basename = Filename.chop_extension Sys.argv.(0) in
   let basename =
     let suffix = "_with_lines" in
@@ -56,6 +57,9 @@ let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
     flush stdout;
     Trace.dump ~prefix ();
   )
+
+
+(* TODO Anton :   add  script_rust  following script_cpp *)
 
 
 (******************************************************************************)

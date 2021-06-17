@@ -92,7 +92,8 @@ let context_dummy : context =
     clog = stdout; }
 
 (* A trace is made of a context, a current AST, and a list of ASTs that were
-   saved as "interesting intermediate steps", via the [Trace.save] function. *)
+   saved as "interesting intermediate steps", via the [Trace.save] function.
+   Any call to the [step] function adds a copy of [cur_ast] into [history]. *)
 type trace = {
   mutable context : context;
   mutable cur_ast : trm;
@@ -236,6 +237,9 @@ let cleanup_cpp_file_using_clang_format (filename : string) : unit =
    - one describing the internal AST ("prefix_enc.cpp")
    - one describing the CPP code ("prefix.cpp").
    The CPP code is automatically formatted using clang-format. *)
+(* TODO: Anton: add a parameter for the language
+  type language = | Cpp | Rust | Ocaml
+*)
 let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
   (* LATER: clean up debugging code in this function *)
   let file_ast = prefix ^ ".ast" in

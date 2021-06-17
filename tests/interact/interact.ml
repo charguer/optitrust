@@ -21,9 +21,9 @@ let _ = Run.script_cpp (fun () ->
   !! Label.add "m1" [cVarDef "b"];
   show [cVarDef "a"];
   (* Showing operation with reparse *)
-  !!! Label.add "m2" [cVarDef "a"];
+  !! Label.add "m2" [cVarDef "a"];
   (* Showing two operations at once *)
-  !!! Label.add "m3" [cVarDef "a"];
+  !! Label.add "m3" [cVarDef "a"];
       Label.add "m4" [cVarDef "a"];
   !! Label.add "m5" [cVarDef "a"];
   (* Trace.dump() is called implicitly called at the end of file;

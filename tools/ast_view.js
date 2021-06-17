@@ -1,11 +1,11 @@
+
+// Flag to activate the display of all locations
 var debug_locations = false;
 
-// the imported JS file provides 'source' and 'contents'
-
+// The imported JS file provides 'source' and 'contents' (TODO: 'language')
 if (typeof source == 'undefined') {
   // TOOD: report error
 }
-
 var ast = contents;
 
 
@@ -18,7 +18,7 @@ var editor;
 // Initialize the editor
 function initEditor() {
   editor = CodeMirror.fromTextArea(document.getElementById('source_code'), {
-    mode: 'text/x-c++src',
+    mode: 'text/x-c++src', // or text/x-rustsrc TODO: use "language" from the exported file to select language
     lineNumbers: true,
     lineWrapping: true,
     readOnly: true,
@@ -103,16 +103,33 @@ function initHandlers() {
 }
 
 //---------------------------------------------------
-// Handling selection and click events in editor
-// DEPRECATED, this funciton prints the selected location into the console
-// $(document).on('mouseup', '.CodeMirror', function() {
-//    console.log("Mouseup in code mirror");
-//    console.log("Selected range: ");
-//    console.log(editor.getSelectedLoc());
-// });
+// Handling click events in editor, to load the corresponding path in the AST
+
+// We exploit the invariant that nodes from the AST are labelled in prefix order,
+// meaning that deepest nodes have larger ids.
+
+// TODO: simplify by removing "node_" prefix from AST ids.
 
 function number_of_nodeid(id) { // converts node_243 to 243 as a number
   return parseInt(id.substring(5));
+}
+
+// This function checks whether a location is before another one (or equal)
+function loc_before(pos1, pos2){
+  return (pos1.line < pos2.line)
+    || ((pos1.line == pos2.line)
+       && (pos1.col <= pos2.col));
+}
+
+// This function returns true if the span of loc1 fully covers the the span of loc2
+function contains(loc1, loc2){
+  // Check if location is undefined; in this case don't consider this node
+  if (loc1 === "") {
+    return false;
+  } else {
+    return loc_before(loc1.start, loc2.start)
+        && loc_before(loc2.end, loc1.end);
+  }
 }
 
 function loadPathForUserSelection(selectedLoc) {
@@ -120,7 +137,7 @@ function loadPathForUserSelection(selectedLoc) {
     console.log(JSON.stringify(selectedLoc));
   }
 
-  // First, find the deepest node in the AST that fully covers the location
+  // First, find the deepest node in the AST that fully covers the location selected by the user
   let chosen_node = "node_0";
   for (const node_id in ast) {
     if (contains(ast[node_id].loc, selectedLoc)
@@ -136,6 +153,8 @@ function loadPathForUserSelection(selectedLoc) {
     path_to_root.unshift(cur_node);
     cur_node = ast[cur_node].parent;
   }
+
+  // Last, call the viewPath which updates the view of the AST
   viewPath(path_to_root);
 }
 
@@ -184,11 +203,13 @@ function get_child_label(node, id_child) {
   return null;
 }
 
-function viewDescription(id, node) {
+function viewDescription(id, node) { // node is ast[id]
   //console.log(node);
   if (! ("kind" in node)) {
     throw new Error("node without kind: " + id);
   }
+
+  // The display depends on the kind
   var k = node.kind;
 
   // get all fields in the node description
@@ -279,6 +300,7 @@ function viewPathRec(path, target, label, classExtra) {
   var txt = viewDescription(id, node);
 
   // build buttons, gray them if no valid operation
+  // TODO: explain strategy
   var idchild = (path.length > 0) ? path[0] : "";
   var ctrlPlus = html_span({id: (id+"_plus"), onclick: "nodePlus('" + id + "', '" + idchild + "')"}, "&CirclePlus;");
   var ctrlMinus = html_span({id: (id+"_minus"), 'class': 'grayed', onclick: "nodeMinus('" + id + "')"}, "&CircleMinus;");
@@ -392,43 +414,7 @@ function nodeMinus(id) {
 
 
 //---------------------------------------------------
-// DEMO -- to debug the html file even if no foo.js is available
-
-// DEPRECATED NOW THE SCRIPT READS THE CURRENT SOURCE CODE DATA
-// var exampleSource1 = `
-//    /* C demo code */
-//    #include <stdio.h>
-//    int f() {
-//       printf("hello f");
-//       return 0;
-//    }
-//    int g() {
-//       printf("hello g");
-//       return 0;
-//    }
-//    int main() {
-//       printf("hello world\n");
-//       return 0;
-//    }
-// `;
-
-// var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
-
-// DEPRECATED
-// ast = {
-//    node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
-//    node_1: { kind: "fun", name: "foo", loc: node_1_loc, children: [ { label: "body", id: "node_3" } ] },
-//    node_2: { kind: "var", name: "x", type: "int" },
-//    node_3: { kind: "return" },
-//    node_4: { kind: "if", children: [ { label: "cond", id: "node_5" }, { label: "else", id: "node_6" }, { label: "else", id: "node_6" } ] },
-//    node_5: { kind: "return" },
-//    node_6: { kind: "return" },
-//    node_7: { kind: "return" },
-//    node_8: { kind: "return" } };
-//  path = ["node_0", "node_1", "node_3" ];
-
-
-
+// Main
 
 // action to perform after document is loaded
 document.addEventListener('DOMContentLoaded', function () {
@@ -439,34 +425,12 @@ document.addEventListener('DOMContentLoaded', function () {
   initEditor();
   editor.setValue(source);
 
-  // make some selection
-  // var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
-  // updateSelection(selection);
-
   // show initial path
   var path = ["node_0"];
   viewPath(path);
 
 });
 
-
-
-function loc_before(pos1, pos2){
-  return (pos1.line < pos2.line)
-    || ((pos1.line == pos2.line)
-       && (pos1.col <= pos2.col));
-}
-
-// This function returns true if the span of loc1 fully covers the the span of loc2
-function contains(loc1, loc2){
-  // Check if location is undefined; in this case don't consider this node
-  if (loc1 === "") {
-    return false;
-  } else {
-    return loc_before(loc1.start, loc2.start)
-        && loc_before(loc2.end, loc1.end);
-  }
-}
 //viewPath(["node_3"]);
 
    // TODO: if children is empty, no need to include this field in the JSON.
@@ -534,3 +498,53 @@ function scrollToFirstMark() {
    - check user selection targets the right node each time
 */
 
+
+// DEPRECATED, this function prints the selected location into the console
+// $(document).on('mouseup', '.CodeMirror', function() {
+//    console.log("Mouseup in code mirror");
+//    console.log("Selected range: ");
+//    console.log(editor.getSelectedLoc());
+// });
+
+
+// DEPRECATED NOW THE SCRIPT READS THE CURRENT SOURCE CODE DATA
+// var exampleSource1 = `
+//    /* C demo code */
+//    #include <stdio.h>
+//    int f() {
+//       printf("hello f");
+//       return 0;
+//    }
+//    int g() {
+//       printf("hello g");
+//       return 0;
+//    }
+//    int main() {
+//       printf("hello world\n");
+//       return 0;
+//    }
+// `;
+
+// var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
+
+// DEPRECATED
+// ast = {
+//    node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
+//    node_1: { kind: "fun", name: "foo", loc: node_1_loc, children: [ { label: "body", id: "node_3" } ] },
+//    node_2: { kind: "var", name: "x", type: "int" },
+//    node_3: { kind: "return" },
+//    node_4: { kind: "if", children: [ { label: "cond", id: "node_5" }, { label: "else", id: "node_6" }, { label: "else", id: "node_6" } ] },
+//    node_5: { kind: "return" },
+//    node_6: { kind: "return" },
+//    node_7: { kind: "return" },
+//    node_8: { kind: "return" } };
+//  path = ["node_0", "node_1", "node_3" ];
+
+
+
+
+
+
+  // make some selection
+  // var selection = { start: { line: 5, col: 6 }, end: { line: 6, col: 15 } };
+  // updateSelection(selection);
