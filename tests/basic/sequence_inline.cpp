@@ -2,7 +2,7 @@
 int main() {
   int x = 3;
   {
-    int a = 2;
+    int u = 2;
   }
   {
     int y = 1;
