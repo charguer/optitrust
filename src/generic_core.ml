@@ -530,6 +530,32 @@ let term (s : string) : trm =
   in
   get_term t
 
+(*
+  aliased_type X takes as argument the description of a file
+  (that is a toplevel sequence), and it returns the type ty
+  associated via a "typedef ty X" if there is one such definition
+  LATER: check if this is subsumed by the environments carried by type variables
+ *)
+let rec aliased_type (x : typvar) (t : trm) : typ option =
+  match t.desc with
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_alias ty when td.typdef_tconstr = x -> Some ty
+    | _ -> None
+    end
+  | Trm_seq tl ->
+     List.fold_left
+       (fun tyo t ->
+         match tyo with
+         | Some _ -> tyo
+         | None -> aliased_type x t
+       )
+       None
+       tl
+  | _ -> None
+
+
+
 (* ********************************************** *)
 
 

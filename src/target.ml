@@ -513,8 +513,8 @@ let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> t
 let target_show_aux (debug_ast : bool) (id : int) (t : trm) : trm =
   if debug_ast then
     Ast_to_text.print_ast ~only_desc:true stdout t;
-  let left_decoration = "/*@" ^ string_of_int index ^ "<*/" in
-  let right_decoration = "/*>" ^ string_of_int index ^ "@*/" in
+  let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
+  let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
   trm_decoration left_decoration right_decoration t
 
 (* [target_show_transfo id t p]: adds an annotation [trm_decoration]
@@ -525,12 +525,14 @@ let target_show_transfo (debug_ast : bool) (id : int): Transfo.local =
 (* [target_between_show_aux id k t]: adds a decorated semi-column with identifier [id]
    at position [k] in the sequence described by the term [t]. *)
 let target_between_show_aux (debug_ast : bool) (id : int) (k : int) (t : trm) : trm =
+    let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
+    let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
     if debug_ast then
       Ast_to_text.print_ast ~only_desc:true stdout t;
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at k tl in
-      let new_trm = trm_decoration (Tools.left_decoration id) (Tools.right_decoration id) (trm_var ";") in
+      let new_trm = trm_decoration left_decoration right_decoration (trm_var ";") in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 

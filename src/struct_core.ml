@@ -109,7 +109,7 @@ let set_implicit : Target.Transfo.local =
     return: 
       the updated ast
  *)
-let reorder_aux (struct_fields: var list) (move_where : string) (around : string) (t: trm) : trm =
+(* let reorder_aux (struct_fields: var list) (move_where : string) (around : string) (t: trm) : trm =
   match t.desc with 
   | Trm_typedef td ->
    begin match td.typdef_body with 
@@ -127,7 +127,7 @@ let reorder_aux (struct_fields: var list) (move_where : string) (around : string
 
 (* [reorder struct_fields move_where around t p] *)
 let reorder (struct_fields : var list) (move_where : string) (around : string): Target.Transfo.local = 
-  Target.apply_on_path(reorder_aux struct_fields move_where around)
+  Target.apply_on_path(reorder_aux struct_fields move_where around) *)
 
 
 

@@ -43,7 +43,7 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
        | Typdef_alias dx ->
         let ty_x = typ_var td.typdef_tconstr in
         let lback = List.map(Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in
-        let change_at = [[cTypDef x]] in
+        let change_at = [[cTypDef td.typdef_tconstr]] in
         let lback = List.map(Generic_core.change_typ ~change_at ty_x dx) lback in
         trm_seq (lfront @ [d] @ lback)
        | _ -> fail t.loc "fold_decl: expected a typedef"
@@ -186,7 +186,7 @@ let insert_and_fold_typedef_aux (x : var) (dx : typ) (index : int) (fold_at : ta
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let tid = Tools.next_typid() in
+    let tid = next_typid() in
     let t_insert = trm_typedef {
       typdef_typid = tid;
       typdef_tconstr = x;
@@ -253,7 +253,7 @@ let inline_typedef_aux (delete_decl : bool) (inline_at : target list) (index : i
     begin match dl.desc with
     | Trm_typedef td ->
      begin match td.typdef_body with
-     | Typedef_alias dx ->
+     | Typdef_alias dx ->
       let ty_x = typ_var td.typdef_tconstr in
       let lback = List.map(Generic_core.change_typ ~change_at:inline_at ty_x dx) lback in
       let tl =

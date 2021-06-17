@@ -1,6 +1,6 @@
 open Ast
 open Target
-open Tools
+(* open Tools *)
 
 let set_explicit (field_list : var list) : Target.Transfo.t =
   Target.apply_on_target (Struct_core.set_explicit field_list)
@@ -8,7 +8,7 @@ let set_explicit (field_list : var list) : Target.Transfo.t =
 let set_implicit : Target.Transfo.t =
   Target.apply_on_target(Struct_core.set_implicit)
 
-let reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : var list) (tg : target) : unit =
+(* let reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : var list) (tg : target) : unit =
   (* TODO: Ask Arthur about this way of solving the problem *)
   let move_where,around =
     begin match move_before, move_after with
@@ -18,7 +18,7 @@ let reorder ?(move_before : field = "") ?(move_after : field = "") (struct_field
     end
   in
   Target.apply_on_target (Struct_core.reorder struct_fields move_where  around) tg
-
+ *)
 
 
 let inline_record_access (field : string) (var : string ) (t : trm) : trm =

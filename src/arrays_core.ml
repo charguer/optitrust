@@ -147,7 +147,7 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (i
     let d,lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
     let base_type =
-      begin match aliased_type x t with 
+      begin match Generic_core.aliased_type x t with 
       | None -> fail t.loc "tile_aux: unable to find array type"
       | Some ty ->
         begin match ty.typ_desc with 
