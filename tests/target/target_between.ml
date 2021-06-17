@@ -4,7 +4,6 @@ open Target
 let _ = Run.script_cpp (fun () ->
   (** There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
-  let show = Generic.target_between_show in (* TODO: probably you'll need target_between_show *)
 
   (* Before *)
   show [ cBefore; cVarDef "r1" ];

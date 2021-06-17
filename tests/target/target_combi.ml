@@ -12,11 +12,11 @@ let _ = Run.script_cpp (fun () ->
   show [ cFunDef "f"; cFor "i"; cFor "j"; cVarDef "k" ];
 
   (* Top-level functions *)
-  show [ cTopFun "f"; cVarDef "k" ]; (* TODO: cTopFun is not working properly *)
+  show [ cTopFun "f"; cVarDef "k" ];
 
-  (* Loops immediately inside a function *)
-  show [ cMulti; cFunDef ""; cFor "" ]; (* cStrict is not working properly *)
-  
+  (* Loops immediately inside a function *) (* TODO: ARTHUR: think about how to fix this *)
+  show [ cMulti; cFunDef ""; cStrict; cBody; cStrict; cSeq(); cStrict; Constr_dir (Dir_nth 0); cStrict; cFor "" ];
+
   (* TODO: add tests using cStrict *)
 )
 

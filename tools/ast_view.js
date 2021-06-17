@@ -249,13 +249,13 @@ function viewDescription(id, node) { // node is ast[id]
         }
       } else if (key == "is_statement") {
          // TODO: add this once we get the correct kind for each term
-         /*
-        if (value == "false") {
+
+        if (value == false) {
           txt += "[expr] ";
         } else {
           txt += "[stat] ";
         }
-        */
+        /**/
 
       // others use a generic display
       } else {

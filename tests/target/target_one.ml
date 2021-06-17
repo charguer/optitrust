@@ -34,7 +34,7 @@ let _ = Run.script_cpp (fun () ->
   show [ cLabel "lbl2" ];
 
   (* Calls *)
-  show [ cCall ~args:[cInt 2] "" ]; 
+  show [ cCall ~args:[cInt 2] "" ];
 
   (* Var/Fun definitions *)
   show [ cFunDef "main" ];
@@ -44,6 +44,7 @@ let _ = Run.script_cpp (fun () ->
   (* show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
 
   (* Regexp *)
+  (* TODO: ARTHUR: specify different what should be "instructions" *)
   show [cExpr "j <"];
   show [cNb 0; cInstr "j <"];
 

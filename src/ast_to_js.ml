@@ -245,7 +245,7 @@ let ast_to_json (trm_root : trm) : json =
   let result : ((string * json) list) ref = ref [] in
 
   (* recursive construction *)
-  let rec aux id_parent t =
+  let rec aux id_parent (t : trm) =
     (* LATER: may consider to go through Trm_decoration, not consider it as a node *)
     let id = get_nextid() in
     let specific_fields = node_to_js (aux id) t in

@@ -489,12 +489,12 @@ let get_trm_kind (t : trm) : trm_kind =
    if t.is_statement then
     match t.desc with
     | Trm_apps(f,_) ->
-      begin match f.desc with 
+      begin match f.desc with
       | Trm_var _ -> TrmKind_Instr
       | Trm_val (Val_prim (Prim_unop Unop_inc)) -> TrmKind_Instr
       | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
       | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
-      end 
+      end
     | Trm_abort _ | Trm_goto _-> TrmKind_Instr
     | Trm_struct _ |  Trm_let _ | Trm_array _  | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
       | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
@@ -601,12 +601,12 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         (*(accepted_encoded || not (is_encoded_fun f)) && ... *)
         (*  where [is_encoded_fun f] returns true when [f] is [unop_get] or [unop_new] or similar *)
         if not accept_encoded then
-          begin match f.desc with 
-          | Trm_val (Val_prim (Prim_new _)) 
+          begin match f.desc with
+          | Trm_val (Val_prim (Prim_new _))
           | Trm_val (Val_prim (Prim_unop Unop_get)) -> false
           |  _ -> check_target p_fun f &&
                   check_list cl_args args
-          end 
+          end
         else
           check_target p_fun f &&
           check_list cl_args args
@@ -715,7 +715,8 @@ and check_target ?(strict : bool = false) (tr : target) (t : trm) : bool =
   another target that appears after it in the list. Guaranteed by the call to
   sort_unique
  *)
-(* Problem is comming from this function *)
+(* TODO: ARTHUR: think about how to make "strict" mean "immediate child",
+   because at the moment the direction needs to be specified explicitly. *)
 and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
   let epl =
     match trs with
@@ -827,7 +828,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      | _ -> fail loc "explore_in_depth: bad multi_decl annotation"
      end
   (* | Some Main_file ->
-    begin match t.desc with 
+    begin match t.desc with
      | Trm_seq tl -> add_dir (Dir_nth 0) ((explore_list tl (fun n -> Dir_nth n) (resolve_target_simple p)))
      | _ -> fail t.loc "explore_in_depth: the main file starts with a suquence"
     end *)
@@ -1032,13 +1033,13 @@ and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
 
 (* Extracts the last direction from a nonempty path *)
 let extract_last_path_item (p : path) : dir * path =
-  match List.rev p with 
+  match List.rev p with
   | [] -> raise Not_found
   | d :: p' -> (d, List.rev p')
 
-let get_sequence_length (t : trm) : int = 
-  begin match t.desc with 
-  | Trm_seq tl -> List.length tl 
+let get_sequence_length (t : trm) : int =
+  begin match t.desc with
+  | Trm_seq tl -> List.length tl
   | _ -> fail t.loc "get_sequence_lenth: expected a sequence"
   end
 (* Get the number of instructions a sequence contains *)
@@ -1051,7 +1052,7 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
   | Dir_nth _ ->
       let (seq_trm,_context) = Path.resolve_path p' t in
       get_sequence_length seq_trm
-  | Dir_then | Dir_else | Dir_body  -> 
+  | Dir_then | Dir_else | Dir_body  ->
       let (seq_trm, _) = resolve_path p t in
       get_sequence_length seq_trm
   | _ -> fail None "get_arity_of_seq_at: expected a Dir_nth as last direction"
