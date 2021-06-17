@@ -105,8 +105,8 @@ let move_fields_after x local_l l =
 let l = list_remove_set local_l  l in
 let rec aux acc = function
 | [] -> acc (* raise an error x not part of the list *)
-| hd :: tl -> if hd = x then aux (local_l @ hd :: acc) tl (* local_l @ hd :: acc @ tl *)
-else aux (hd :: acc) tl
+| (hd,typ) :: tl -> if hd = x then aux (local_l @ (hd,typ) :: acc) tl (* local_l @ hd :: acc @ tl *)
+else aux ((hd, typ) :: acc) tl
 in aux [] (List.rev l)
 
 (*
@@ -123,10 +123,10 @@ let move_fields_before x local_l l =
   let l = list_remove_set local_l l in
   let rec aux acc = function
     | [] -> acc
-    | hd :: tl ->
+    | (hd, typ) :: tl ->
         if hd = x
-          then aux (hd :: local_l @ acc) tl
-          else aux (hd :: acc) tl
+          then aux ((hd, typ) :: local_l @ acc) tl
+          else aux ((hd, typ) :: acc) tl
     in
   aux [] (List.rev l)
 

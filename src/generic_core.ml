@@ -90,9 +90,14 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
            ~attributes:t.attributes f (change_typ ty)
                      (List.map (fun (y, ty) -> (y, change_typ ty)) args)
                      (aux body)
-      | Trm_typedef (Typedef_abbrev (y, ty)) ->
+      | Trm_typedef td ->
+       begin match td.typdef_body with
+       | Typdef_alias ty ->
          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
-          (Typedef_abbrev (y, change_typ ty))
+          { td with typdef_body = Typdef_alias (change_typ ty)}
+        | _ -> fail t.loc "apply_change: expected a typdef_alias"
+       end
+      
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -832,9 +837,14 @@ let add_attribute_aux (a : attribute) (t : trm) : trm =
   | Trm_let (vk, (x, tx), init) ->
     let typ_attributes = a :: tx.typ_attributes in
     trm_let vk (x, {tx with typ_attributes}) init
-  | Trm_typedef (Typedef_abbrev (x, tx)) ->
-    let typ_attributes = a :: tx.typ_attributes in
-    trm_typedef (Typedef_abbrev (x, {tx with typ_attributes}))
+  | Trm_typedef td ->
+    begin match td.typdef_body with
+    | Typdef_alias tx -> 
+      let typ_attributes = a :: tx.typ_attributes in
+      trm_typedef {td with typdef_body = Typdef_alias {tx with typ_attributes}}
+    | _ -> fail t.loc "add_attribute_aux: expected a typdef_alias"
+    end
+    
   | _ ->  {t with attributes = a :: t.attributes}
 
 

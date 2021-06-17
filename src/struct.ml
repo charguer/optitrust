@@ -128,6 +128,7 @@ let record_get_typed_fields (fields_list, fields_map) =
                 list (string * typ) : list =
                  List.combine fields_list (get_values fields_list fields_map
 *)
+
 let change_struct_fields ?(struct_fields : fields = []) (t1 : trm) (t : trm) : trm =
       let rec add_keys (lv : typ list) (lk : var list) (ov : typ) m  = match (lv ,lk) with
       | [],[] -> m

@@ -185,17 +185,21 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (i
       | _ -> fail t.loc "new_alloc: expected array allocation"
     in
     let array_decl = begin match d.desc with
-    | Trm_typedef d ->
-      begin match d with 
-      | Typedef_abbrev (y, ty) when y = x ->
+    | Trm_typedef td ->
+      begin match td.typdef_body with 
+      | Typdef_alias ty when td.typdef_tconstr = x ->
          begin match ty.typ_desc with
         | Typ_ptr ty -> 
            (* ty* becomes (ty[])* *)
            trm_seq ~annot:(Some No_braces)
               [
-                trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm (trm_var b))));
-                trm_typedef (Typedef_abbrev(y, typ_ptr (typ_var block_name (Clang_to_ast.get_typedef block_name))))
-              ]
+                trm_typedef {
+                  td with typdef_tconstr = block_name; 
+                  typdef_body = Typdef_alias (typ_array ty (Trm (trm_var b)))};
+                trm_typedef { 
+                  td with typdef_tconstr = td.typdef_tconstr; 
+                  (* TODO:Fix this later *)
+                  typdef_body = Typdef_alias (typ_ptr (typ_constr block_name td.typdef_typid []))}]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
            begin match s with
@@ -206,18 +210,23 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (i
               in
               trm_seq ~annot:(Some No_braces)
                 [
-                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm (trm_var b))));
-                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (Clang_to_ast.get_typedef block_name))
-                                          (Trm n_div_b)))
-                ]
+                  trm_typedef {
+                    td with typdef_tconstr = block_name;
+                    typdef_body = Typdef_alias (typ_array ty (Trm (trm_var b)))};
+                  trm_typedef{
+                    td with typdef_tconstr = td.typdef_tconstr;
+                    typdef_body = Typdef_alias (typ_array (typ_var block_name) (Trm n_div_b))}]
            | Trm t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var b] in
               trm_seq ~annot:(Some No_braces)
                 [
-                  trm_typedef (Typedef_abbrev(block_name, typ_array ty (Trm (trm_var b))));
-                  trm_typedef (Typedef_abbrev(y, typ_array (typ_var block_name (Clang_to_ast.get_typedef block_name))
-                                          (Trm t'')))
-                ]
+                  trm_typedef {
+                    td with typdef_tconstr = block_name;
+                    typdef_body = Typdef_alias (typ_array ty (Trm (trm_var b)))};
+                
+                  trm_typedef {
+                    td with typdef_tconstr = td.typdef_tconstr;
+                    typdef_body = Typdef_alias (typ_array (typ_var block_name) (Trm t''))}]
            end
         | _ -> fail t.loc "tile_aux: expected array or pointer type declaration"
         end
@@ -225,7 +234,7 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (i
       end
     | Trm_let (Var_mutable, (y,ty), init) when y = x ->
         begin match ty.typ_desc with 
-        | Typ_ptr {typ_desc = Typ_var (y, _); _} when y = x ->
+        | Typ_ptr {typ_desc = Typ_var y; _} when y = x ->
           (* TODO: Fix this code later *)
           trm_let Var_mutable (y, ty) init
         | _ -> fail t.loc "tile_aux: expected a pointer because of heap allocation"
@@ -234,7 +243,7 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (i
               [lhs; rhs]) ->
         (* lhs should have type x *)
         begin match lhs.typ with
-        | Some {typ_desc = Typ_var (y, _); _} when y = x ->
+        | Some {typ_desc = Typ_var y; _} when y = x ->
            trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
              ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
         | _ -> trm_map (apply_tiling base_type block_name (trm_var b) x) t
@@ -283,7 +292,7 @@ let tile (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (index
   
                     begin match base'.typ with
                     (* if we find such accesses, we swap the two indices *)
-                    | Some {typ_desc = Typ_var (x', _); _} when x' = x ->
+                    | Some {typ_desc = Typ_constr (x', _, _); _} when x' = x ->
                        (* x might also be the type of arrays in indices… *)
                        let swapped_index = apply_swapping x index in
                        let swapped_index' = apply_swapping x index' in
@@ -371,8 +380,8 @@ let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
     let new_decl = 
     begin match d.desc with
       | Trm_typedef td ->
-        begin match td with 
-        | Typedef_abbrev (y, ty) when y = x ->
+        begin match td.typdef_body with 
+        | Typdef_alias ty when td.typdef_tconstr = x ->
            let rec swap_type (ty : typ) : typ =
           match ty.typ_desc with
           | Typ_array ({typ_desc = Typ_array (ty', s'); typ_annot; typ_attributes},
@@ -396,7 +405,7 @@ let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
           | _ -> fail None ("swap_type: must be an array")
         in
         trm_typedef ~annot: t.annot ~loc: t.loc ~is_statement:t.is_statement ~add:t.add
-          (Typedef_abbrev (y, swap_type ty))
+          {td with typdef_body = Typdef_alias (swap_type ty)}
         | _ -> fail t.loc "swap_aux: expected a declaration"
         end
       | _ -> fail t.loc "swap_aux: expected the typedef"
@@ -425,16 +434,16 @@ let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
   let rec aux (global_trm : trm) (t :trm) : trm =
     match t.desc with
     (* declarations *)
-    | Trm_typedef d ->
-       begin match d with
+    | Trm_typedef td ->
+       begin match td.typdef_body with
        (* we have to change the declaration of x *)
-       | Typedef_abbrev (y, ty) when y = x ->
+       | Typdef_alias ty when td.typdef_tconstr = x ->
 
           (*
             ty must be an array type over a struct type denoted by a type var
            *)
           begin match ty.typ_desc with
-          | Typ_array ({typ_desc = Typ_var (y, _); _}, s) ->
+          | Typ_array ({typ_desc = Typ_var y; _}, s) ->
              begin match aliased_type y global_trm with
              | None ->
                 fail t.loc "swap_accesses: cannot find underlying struct type"
