@@ -5,6 +5,19 @@ typedef struct { int x; int y; } vect;
 
 typedef struct { vect pos; vect speed; } particle;
 
+typedef vect vect2;
+typedef vect2 vect3;
+typedef int int2[2];
+typedef int* intstar;
+
+void initlist() {
+  vect v1 = { 1, 2 };
+  vect3 v2 = { 1, 2 };
+  int2 p = { 1, 2 };
+  intstar n = &p[0];
+}
+
+
 // Function arguments are assumed to be 'const' by default
 int f(int n) {
   return n;
@@ -111,7 +124,7 @@ int main() {
 }
 
 
-int f(int x) {
+int g(int x) {
   x = x + 1;
   return x;
 }

@@ -33,7 +33,7 @@ include Trace
 
 (* Logic constraints *)
 
-let cStrict : constr = 
+let cStrict : constr =
   Constr_strict
 
 let cTrue : constr =
@@ -468,7 +468,7 @@ let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_target (fun _i t dl -> tr t dl) tg
 
-  
+
 (* [apply_on_target_between ~replace_top tr tg]: Similar to apply_on_target, but the function considers the index too
       params:
         tr : transformation to be applied
@@ -511,9 +511,11 @@ let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> t
    If the flag [debug_ast] is set, the ast is printed on [stdout].
    --LATER: remove debug-ast in the future? *)
 let target_show_aux (debug_ast : bool) (id : int) (t : trm) : trm =
-    if debug_ast then
-      Ast_to_text.print_ast ~only_desc:true stdout t;
-    trm_decoration (Tools.left_decoration id) (Tools.right_decoration id) t
+  if debug_ast then
+    Ast_to_text.print_ast ~only_desc:true stdout t;
+  let left_decoration = "/*@" ^ string_of_int index ^ "<*/" in
+  let right_decoration = "/*>" ^ string_of_int index ^ "@*/" in
+  trm_decoration left_decoration right_decoration t
 
 (* [target_show_transfo id t p]: adds an annotation [trm_decoration]
    carrying the information [id] around the term at path [p] in the term [t]. *)

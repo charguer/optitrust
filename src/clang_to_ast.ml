@@ -3,6 +3,8 @@ open Clang.Bindings
 open Ast
 open Tools
 
+
+
 (* location of node *)
 let loc_of_node (n : 'a node) : location =
   let start_location_of_node = Clang.get_range_start (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n))in
@@ -37,11 +39,13 @@ type scope_kind =
   heap allocated variables are mapped to the type of the variables if they were
   not heap allocated
  *)
-module Type_map = Map.Make(String)
-type 'a tmap = 'a Type_map.t
-let typ_map : typ Type_map.t ref = ref Type_map.empty
 
-let ctx_tvar : typ varmap ref = ref String_map.empty
+(* For the context, see the documentation of type [ctx] in [ast.ml]. *)
+
+(* NOTE at the moment ctx_var is global, meaning that bindings are not
+   removed when we leave a scope; LATER: would be cleaner to have ctx_var
+   as argument to the recursive function. *)
+let ctx_var : typ varmap ref = ref String_map.empty
 
 let ctx_tconstr : typid varmap ref = ref String_map.empty
 
@@ -52,36 +56,33 @@ let ctx_label : typid varmap ref = ref String_map.empty
 let ctx_constr : typid varmap ref = ref String_map.empty
 
 
+let ctx_var_add (tv : typvar) (t : typ) : unit =
+  ctx_var := String_map.add tv t (!ctx_var)
 
-let ctx_tvar_add (tv : typvar) (t : typ) : unit =
-    ctx_tvar := String_map.add tv t (!ctx_tvar)
+let ctx_tconstr_add (tc : typconstr) (tid : typid) : unit =
+  ctx_tconstr := String_map.add tc tid (!ctx_tconstr)
 
-let ctx_tconstr_add (tc : typconstr) (tid : typid) : unit = 
-    ctx_tconstr := String_map.add tc tid (!ctx_tconstr)
-
-let ctx_typedef_add (tid : typid) (td : typedef) : unit = 
-    ctx_typedef := Typ_map.add tid td (!ctx_typedef)
+let ctx_typedef_add (tid : typid) (td : typedef) : unit =
+  ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
 let ctx_label_add (lb : label) (tid : typid) : unit =
-    ctx_label := String_map.add lb tid (!ctx_label)
+  ctx_label := String_map.add lb tid (!ctx_label)
 
 let ctx_constr_add (c : constr) (tid : typid) : unit =
-    ctx_constr := String_map.add c tid (!ctx_constr)
+  ctx_constr := String_map.add c tid (!ctx_constr)
 
-let add_to_ctx ?(v : var = "") ?(c : constr = "") (tid : typid)  (tc : typconstr) (t : typ) (td : typedef)  : unit =
+(* Shorthand for generating a context *)
+let ctx_tconstr_typedef_add (tid : typid) (tc : typconstr) (td : typedef) : unit =
    ctx_tconstr_add tc tid;
-   ctx_typedef_add tid td;
-   if v = "" then () else ctx_tvar_add v t;
-   if c = "" then () else ctx_constr_add c tid
+   ctx_typedef_add tid td
 
-let get_ctx() : ctx = 
-  {
-    ctx_tvar = !ctx_tvar;
+(* [get_ctx] returns the current context *)
+let get_ctx () : ctx =
+  { ctx_var = !ctx_var;
     ctx_tconstr = !ctx_tconstr;
     ctx_typedef = !ctx_typedef;
     ctx_label = !ctx_label;
-    ctx_constr = !ctx_constr;
-  }
+    ctx_constr = !ctx_constr; }
 
 let get_typid (tv : typvar) : int  =
   String_map.find tv !ctx_tconstr
@@ -479,7 +480,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     let t_cond = translate_expr cond in
     let t_then = translate_expr e_then in
     let t_else = translate_expr e_else in
-    trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op) 
+    trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim ~loc ~ctx Prim_conditional_op)
       [t_cond; t_then; t_else]
   | ConditionalOperator _ ->
     fail loc
@@ -691,8 +692,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
            *)
           (* let q = Clang.Type.of_cursor (Clang.Expr.get_definition e) in
            * Some (translate_qual_type ~loc q) *)
-          (* hack with typ_map *)
-          Type_map.find_opt s !typ_map
+          (* hack with ctx_var *)
+          String_map.find_opt s !ctx_var
         in
         begin match val_t with
           | Rvalue when is_mutable_var s ->
@@ -882,44 +883,43 @@ and translate_decl_list (dl : decl list) : trm list =
     begin match k with
       | Struct ->
         let tid = next_typid () in
-        let prod_list = 
-          List.fold_left 
-          ( fun prod_list (d : decl) ->
-            let loc = loc_of_node d in
-            match d with 
-            | {decoration = _; desc = Field {name = fn; qual_type = q;
-                                             bitwidth = _; init = _; 
-                                             attributes = al}} ->
-              ctx_label_add fn tid;
-              let ft = translate_qual_type ~loc q in 
-              let al = List.map (translate_attribute loc) al in
-              let prod_list = (fn, {ft with typ_attributes = al}):: prod_list  
-              in prod_list
-            | _ -> fail loc ("translate_decl_list: only fields are allowed 
-                              in struct declaration")
-          ) [] (List.rev fl) 
-        in
-      let tq = translate_qual_type ~loc q in
-      begin match tq.typ_desc with
-       | Typ_constr (n, _, _)  when n = rn ->
-         let tl = translate_decl_list dl' in
-         let td = {
-           typdef_typid = tid;
-           typdef_tconstr = tn;
-           typdef_vars = [];
-           typdef_body = Typdef_prod prod_list
-         } in
-         add_to_ctx tid tn tq td;
-         (trm_typedef ~loc ~ctx:(Some (get_ctx ())) td) :: tl
+        let prod_list = (* TODO: see if List.map would work *)
+          List.fold_left
+            (fun acc (d : decl) ->
+              let loc = loc_of_node d in
+              match d with
+              | {decoration = _; desc = Field {name = fn; qual_type = q;
+                                              bitwidth = _; init = _;
+                                              attributes = al}} ->
+                ctx_label_add fn tid;
+                let ft = translate_qual_type ~loc q in
+                let al = List.map (translate_attribute loc) al in
+                let ty = {ft with typ_attributes = al} in
+                (fn, ty) :: acc
+              | _ -> fail loc ("translate_decl_list: only fields are allowed
+                                in struct declaration")
+           ) [] (List.rev fl) in
+        let tq = translate_qual_type ~loc q in
+        begin match tq.typ_desc with
+        | Typ_constr (n, _, _)  when n = rn ->
+          let tl = translate_decl_list dl' in
+          let td = {
+            typdef_typid = tid;
+            typdef_tconstr = tn;
+            typdef_vars = [];
+            typdef_body = Typdef_prod prod_list
+          } in
+          ctx_tconstr_typedef_add tid tn td;
+          (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) :: tl
 
        | _ -> fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
       end
-      
-      
-      
-      (* 
-       
+
+
+
+      (*
+
        DEPRECATED
        | Struct ->
         let (fs,m) =
@@ -952,7 +952,7 @@ and translate_decl_list (dl : decl list) : trm list =
             fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
         end*)
-      | _ -> fail loc "translate_decl_list: only struct records are allowed" 
+      | _ -> fail loc "translate_decl_list: only struct records are allowed"
     end
   | d :: d' :: dl ->
     let td = translate_decl d in
@@ -982,8 +982,7 @@ and translate_decl (d : decl) : trm =
       typdef_vars = [];
       typdef_body = Typdef_enum enum_constant_l
     } in
-    let typ = typ_unit() in
-    add_to_ctx tid name typ td;
+    ctx_tconstr_typedef_add tid name td;
     trm_typedef ~loc ~ctx td
   | Function {linkage = _; function_type = t; nested_name_specifier = _;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
@@ -1021,8 +1020,7 @@ and translate_decl (d : decl) : trm =
                 )
                 args_t
             in
-            List.iter (fun (y, ty) -> typ_map := Type_map.add y ty !typ_map)
-              args;
+            List.iter (fun (y, ty) -> ctx_var_add y ty) args;
             let tb =
               match bo with
               | None -> trm_lit ~loc Lit_uninitialized
@@ -1036,7 +1034,7 @@ and translate_decl (d : decl) : trm =
     let {const;_} = t in
     let tt = translate_qual_type ~loc t in
     let te =
-    begin match eo with
+      begin match eo with
       | None ->
         if const then trm_lit ~loc Lit_uninitialized
         else trm_prim ~loc (Prim_new tt)
@@ -1044,6 +1042,36 @@ and translate_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
+          (* TODO: instead of matching on typ_desc, you need to match on
+             [get_typ_kind ctx tt] where is defined in ast.ml
+
+             let rec get_typ_kind ctx (ty : typ) : typ_kind =
+               match ty.typ_desc with
+               | Typ_const ty1 -> get_typ_kind ty1
+               | (Typ_int | Type_float) -> Typ_kind_basic ty
+               | (Typ_ptr | Type_array _) -> Typ_kind_array
+               | Typ_fun -> Typ_kind_fun
+               | Typ_var -> Typ_kind_var
+               | Typ_constr (_,tyid,_) ->
+                   match String_map.find tyid ctx.ctx_tconstr with
+                   | Typedef_alias ty1 -> get_typ_kind ty1
+                   | Typdef_prod -> Typ_kind_prod
+                   | Typdef_sum -> Typ_kind_sum
+
+             type typ_kind =
+               | Typ_kind_array
+               | Typ_kind_sum
+               | Typ_kind_prod
+               | Typ_kind_basic of typ_desc
+               | Typ_kind_fun
+               | Typ_kind_var
+
+          TODO
+            ..
+            show_ctx tg =
+              apply_to_target (fun t ->
+                prints on stdout (ctx_to_text t.trm_ctx))
+          *)
           begin match tt.typ_desc with
           | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
           (* TODO: Check this one later *)
@@ -1056,7 +1084,8 @@ and translate_decl (d : decl) : trm =
         | _ -> translate_expr e
         end
       end
-    in typ_map := Type_map.add n tt !typ_map;
+      in
+    ctx_var_add n tt;
     if const then
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
     else
@@ -1079,7 +1108,7 @@ and translate_decl (d : decl) : trm =
       typdef_body = Typdef_alias tn;
     }
     in
-    add_to_ctx tid n tn td;
+    ctx_tconstr_typedef_add tid n td;
     trm_typedef ~loc ~ctx td
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
@@ -1090,9 +1119,8 @@ and translate_decl (d : decl) : trm =
           typdef_typid = tid;
           typdef_tconstr = n;
           typdef_vars = [];
-          typdef_body = Typdef_alias tn;
-        } in
-        add_to_ctx tid n tn td;
+          typdef_body = Typdef_alias tn; } in
+        ctx_tconstr_typedef_add tid n td;
         trm_typedef ~loc ~ctx td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end

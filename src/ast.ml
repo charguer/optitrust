@@ -1,6 +1,19 @@
 open Tools
 
 (* file locations: filename, line number *)
+(* LATER: make this a record
+  (* Positions follow compiler convention of counting from 1 *)
+  type pos = {
+    pos_line : int;
+    pos_col : int; }
+
+  type loc = {
+    loc_file : string;
+    loc_start : pos;
+    loc_end : pos;
+  }
+
+ *)
 type location = (string * int * int * int * int) option
 
 (* memory locations *)
@@ -21,6 +34,8 @@ type typvars = typvar list
    LATER: might rename to typconstrid *)
 type typid = int
 
+let next_typid : (unit -> int) =
+  Tools.fresh_generator()
 
 (* ['a typmap] is a map from [typeid] to ['a] *)
 module Typ_map = Map.Make(Int)
@@ -89,7 +104,7 @@ and typdef_body =
   | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
   (* Not sure if Typedef_enum is a sum type *)
   | Typdef_enum of (var * (trm option)) list (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
-  
+
   (* NOTE: we don't need to support the enum from C, for the moment. *)
   (* DEPRECATED
   | Typedef_abbrev of typvar * typ  (* type x = t, where t could be a struct *)
@@ -121,7 +136,7 @@ and binary_op =
   | Binop_add
   | Binop_mul
   | Binop_mod
-  | Binop_div 
+  | Binop_div
   | Binop_le
   | Binop_lt
   | Binop_ge
@@ -156,7 +171,7 @@ and value =
   (* The constructors below never appear in source code;
      these are values that can only be constructed during the program execution,
      and thus useful only for carrying out proofs about the program Generic *)
-  | Val_ptr of loc 
+  | Val_ptr of loc
   | Val_array of value list
   | Val_struct of value list
   (* LATER: add functions, which are also values that can be created at execution time *)
@@ -209,9 +224,9 @@ and trm =
    attributes : attribute list }
 
 (* A [typ_env] stores all the information about types, labels, constructors, etc. *)
-(* [ctx_tvar] is useful for interpreting types that are provided in the user scripts *)
+(* [ctx_var] is useful for interpreting types that are provided in the user scripts *)
 and ctx = {
-  ctx_tvar : typ varmap; (* from [var] to [typ], i.e. giving the type of program variables *)
+  ctx_var : typ varmap; (* from [var] to [typ], i.e. giving the type of program variables *)
   ctx_tconstr : typid varmap; (* from [typconstr] to [typid] *)
   ctx_typedef : typedef typmap; (* from [typid] to [typedef] *)
   ctx_label : typid varmap; (* from [label] to [typid] *)
@@ -397,7 +412,7 @@ let trm_struct ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
    attributes; ctx}
 
 let trm_let ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind) (typed_var:typed_var) (init : trm): trm =
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind) (typed_var : typed_var) (init : trm): trm =
   {annot = annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
@@ -462,17 +477,17 @@ let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) 
   {annot; desc = Trm_decoration (left, t, right); loc; is_statement = false; add;
   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_null ?(annot = None) ?(loc = None)  ?(ctx : ctx option = None) (_ : unit) : trm =
+let trm_null ?(annot = None) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
   trm_val ~annot ~loc ~ctx (Val_ptr 0)
 (*
    no type for primitives and operators:
    we are only interested in the result of their application
  *)
 
-let trm_unop ?(annot = None) ?(loc = None) ?(add = [])  ?(ctx : ctx option = None) (p : unary_op) : trm =
+let trm_unop ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : unary_op) : trm =
   trm_val ~annot ~loc ~add ~ctx (Val_prim (Prim_unop p))
 
-let trm_binop ?(annot = None) ?(loc = None) ?(add = [])  ?(ctx : ctx option = None) (p : binary_op) : trm =
+let trm_binop ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : binary_op) : trm =
   trm_val ~annot:annot ~loc ~ctx ~add (Val_prim (Prim_binop p))
 
 (* Get typ of a literal *)

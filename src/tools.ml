@@ -104,13 +104,17 @@ let list_remove_pairs_set ys xs = List.fold_left (fun acc y -> list_remove y acc
 
 let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys
 
+(* TODO :document *)
 let move_fields_after x local_l l =
-let l = list_remove_pairs_set local_l  l in
-let rec aux acc = function
-| [] -> acc (* raise an error x not part of the list *)
-| (hd,typ) :: tl -> if hd = x then aux (local_l @ (hd,typ) :: acc) tl (* local_l @ hd :: acc @ tl *)
-else aux ((hd, typ) :: acc) tl
-in aux [] (List.rev l)
+  let l = list_remove_pairs_set local_l l in
+  let rec aux acc = function
+    | [] -> acc (* raise an error x not part of the list *)
+    | (hd,typ) :: tl ->
+      if hd = x
+        then aux (local_l @ (hd,typ) :: acc) tl (* local_l @ hd :: acc @ tl *)
+        else aux ((hd, typ) :: acc) tl
+      in
+    aux [] (List.rev l)
 
 (*
   - tail recursive approach => more efficient
@@ -218,11 +222,8 @@ let rec split_list_at_1 (n : int) (al : 'a list) : 'a list * ('a list) =
 let list_update_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
-let left_decoration (index:int):string  = "/*@" ^ string_of_int index ^ "<*/"
 
-let right_decoration (index:int):string  = "/*>" ^ string_of_int index ^ "@*/"
-
-
+(* TODO: move *)
 (* Initialize a two arrays for the json ast and source code *)
 let initialization (out_prefix : string) : unit =
     let file_js = out_prefix ^ ".js" in
@@ -265,5 +266,3 @@ let fresh_generator () : (unit -> int) =
     !n
 
 
-let next_typid : (unit -> int) =
-  fresh_generator()

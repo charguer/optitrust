@@ -329,7 +329,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       else begin match init.desc with
         | Trm_apps(_, [value]) -> value
         | Trm_decoration(ls, init1, rs) ->
-           begin match init1.desc with 
+           begin match init1.desc with
            | Trm_apps(_, [value]) -> trm_decoration ls rs value
            | _ -> init1
            end
@@ -366,45 +366,42 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
 
   match tbody with
   | Typdef_alias t ->
-    begin match t.typ_desc with 
-    | Typ_array _ ->
-       string "typedef" ^^ blank 1 ^^ typed_var_to_doc (tname, t) ^^ dsemi
-    | Typ_ptr {typ_desc = Typ_fun (tyl, r); _} ->
-      let dl = List.map typ_to_doc tyl in
-      let dr = typ_to_doc r in
-      separate (blank 1)
-        [
-          string "typedef"; dr; parens (star ^^ string tname) ^^ parens (separate (comma ^^ blank 1) dl)
-        ] ^^ dsemi
-    | _ ->
-      separate (blank 1) [string "typedef"; typ_to_doc t; string tname] ^^ dsemi
-    end
+      begin match t.typ_desc with
+      | Typ_array _ ->
+         string "typedef" ^^ blank 1 ^^ typed_var_to_doc (tname, t) ^^ dsemi
+      | Typ_ptr {typ_desc = Typ_fun (tyl, r); _} ->
+         let dl = List.map typ_to_doc tyl in
+         let dr = typ_to_doc r in
+         separate (blank 1)
+         [
+            string "typedef"; dr; parens (star ^^ string tname) ^^ parens (separate (comma ^^ blank 1) dl)
+         ] ^^ dsemi
+      | _ ->
+         separate (blank 1) [string "typedef"; typ_to_doc t; string tname] ^^ dsemi
+      end
   | Typdef_prod s ->
-   let get_document_list s = 
-    let rec aux acc = function
-    | [] -> acc
-    | (lb, t) :: tl ->
-      aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
-      aux [] s
-    in
-    let dl = get_document_list s in
-    string "struct" ^^ blank 1 ^^ 
-      surround 2 1 lbrace (separate hardline dl) rbrace
+      let get_document_list s =
+      let rec aux acc = function
+         | [] -> acc
+         | (lb, t) :: tl ->
+            aux ((typed_var_to_doc (lb, t) ^^ semi) :: acc) tl in
+            aux [] s in
+      let dl = get_document_list s in
+      let sbody = surround 2 1 lbrace (separate hardline dl) rbrace in
+      string "struct" ^^ blank 1 ^^ sbody
   | Typdef_sum _ ->
-    fail None "typedef_to_doc: sum types are not supported in C/C++"
+      fail None "typedef_to_doc: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
       let const_doc_l =
-       List.map
+        List.map
          (fun (y, t_o) ->
            match t_o with
            | None -> string y
            | Some t -> separate (blank 1) [string y; equals; trm_to_doc t]
          )
-         enum_const_l
-     in
-     separate (blank 1) [string "enum"; string tname;
-                         braces (separate (comma ^^ blank 1) const_doc_l)] ^^
-     dsemi
+        enum_const_l in
+      separate (blank 1) [string "enum"; string tname;
+      braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
 and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   let rec get_names = function
