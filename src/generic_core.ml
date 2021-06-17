@@ -144,7 +144,7 @@ let insert_trm_after (dl : path) (insert : trm) (t : trm) : trm =
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
   | Trm_var y' when y' = y ->
-     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_var x (Clang_to_ast.get_typedef x)))
+     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_var x))
        ~attributes:t.attributes y
   | _ -> trm_map (replace_type_with x y) t
 
@@ -190,7 +190,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar)
               (fun i il (t' : trm) ->
                 match t'.typ with
                 (* note: also works for heap allocated variables *)
-                | Some {typ_desc = Typ_var (x', _); _} when x' = x -> i :: il
+                | Some {typ_desc = Typ_constr (x', _, _); _} when x' = x -> i :: il
                 | _ -> il
               )
               []
@@ -331,7 +331,7 @@ let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                       *)
                      let tvl' =
                        List.fold_left
-                         (Tools.list_update_nth (fun (y, _) -> (y, typ_var x (Clang_to_ast.get_typedef x)))) tvl il
+                         (Tools.list_update_nth (fun (y, _) -> (y, typ_var x))) tvl il
                      in
                      (* add index to labels in the body of the function *)
                      let b' =
@@ -383,7 +383,7 @@ and replace_fun_names (name : var -> var) (ilsm : ilset funmap) (x : typvar)
                   (fun i il (ti : trm) ->
                     match ti.typ with
                     (* note: also works for heap allocated variables *)
-                    | Some {typ_desc = Typ_var (x', _); _} when x' = x -> i :: il
+                    | Some {typ_desc = Typ_constr (x', _, _); _} when x' = x -> i :: il
                     | _ -> il
                   )
                   []
@@ -667,7 +667,7 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
         | Trm_seq [f_loop] ->
           begin match f_loop.desc with
           | Trm_for (init, cond, step, body) ->
-            let new_type = typ_var var_type (Clang_to_ast.get_typedef var_type) in
+            let new_type = typ_var var_type  in
             let new_decl = trm_let Var_mutable (new_var, new_type) (trm_apps (trm_prim (Prim_new new_type)) [trm_var old_var])
 
             in
@@ -752,7 +752,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     end
     in
     let new_decl = trm_seq ~annot:(Some No_braces)[
-      trm_let vk (new_var, typ_ptr (typ_array (typ_var "T" (Clang_to_ast.get_typedef "T")) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T" (Clang_to_ast.get_typedef "T")) (Trm (trm_var array_size)))));
+      trm_let vk (new_var, typ_ptr (typ_array (typ_var "T" ) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T") (Trm (trm_var array_size)))));
       trm_for
       (* init *)
         (trm_let Var_mutable ("k",typ_ptr (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))

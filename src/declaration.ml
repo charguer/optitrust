@@ -222,7 +222,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
         begin match t_decl.desc with
         | Trm_let (_,(x, var_typ), _) when x = var ->
           begin match var_typ.typ_desc with
-          | Typ_ptr {typ_desc=Typ_var (y, _);_} -> y ,only_decl
+          | Typ_ptr {typ_desc=Typ_constr (y, _, _);_} -> y ,only_decl
           | _ -> fail t.loc "inline_record_access: type was not matched"
           end
         | _ -> fail t.loc "inline_record_access: expected a declaration"
@@ -472,7 +472,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     | Trm_struct term_list ->
 
       begin match t.typ with
-      | Some{ typ_desc = Typ_var (y, _); _} when y = struct_name ->
+      | Some{ typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
 
         let el = List.nth term_list pos in
 
@@ -529,7 +529,7 @@ let change_struct_initialization (_clog : out_channel) (struct_name : typvar) (b
     | Trm_struct term_list ->
 
       begin match t.typ with
-      | Some{ typ_desc = Typ_var (y, _); _} when y = struct_name ->
+      | Some{ typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
 
         let el = List.nth term_list pos in
 
@@ -585,14 +585,14 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
     in
     let field_map_typ = String_map.find field_name field_map in
     begin match field_map_typ.typ_desc with
-    | Typ_var (y, _) -> y
+    | Typ_constr (y, _, _) -> y
     | Typ_array (t_var ,_) ->
           begin match t_var.typ_desc with
-          | Typ_var (y, _) -> y
+          | Typ_constr (y, _, _) -> y
           | _ -> fail t.loc "inline_struct: expected a typ_var inside the typ_array"
           end
 
-    | Typ_ptr {typ_desc=Typ_var (y, _); _} -> y
+    | Typ_ptr {typ_desc=Typ_constr (y, _, _); _} -> y
 
     | _ -> fail t.loc "inline_struct: expeted a typ var as the value of a key  "
     end

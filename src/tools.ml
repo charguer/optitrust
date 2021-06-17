@@ -98,11 +98,14 @@ let rec insert_list keys_list temp_field_list field_list1 = match keys_list with
 
 let list_remove x xs = List.filter (fun y -> y <> x) xs
 
+let list_remove_pairs x xs = List.filter (fun (y,_) -> y <> x) xs
+
+let list_remove_pairs_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys
 
 let list_remove_set ys xs = List.fold_left (fun acc y -> list_remove y acc) xs ys
 
 let move_fields_after x local_l l =
-let l = list_remove_set local_l  l in
+let l = list_remove_pairs_set local_l  l in
 let rec aux acc = function
 | [] -> acc (* raise an error x not part of the list *)
 | (hd,typ) :: tl -> if hd = x then aux (local_l @ (hd,typ) :: acc) tl (* local_l @ hd :: acc @ tl *)
@@ -120,7 +123,7 @@ in aux [] (List.rev l)
 *)
 
 let move_fields_before x local_l l =
-  let l = list_remove_set local_l l in
+  let l = list_remove_pairs_set local_l l in
   let rec aux acc = function
     | [] -> acc
     | (hd, typ) :: tl ->

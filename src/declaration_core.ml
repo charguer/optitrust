@@ -186,7 +186,7 @@ let insert_and_fold_typedef_aux (x : var) (dx : typ) (index : int) (fold_at : ta
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let tid = Tools.next_typid()
+    let tid = Tools.next_typid() in
     let t_insert = trm_typedef {
       typdef_typid = tid;
       typdef_tconstr = x;

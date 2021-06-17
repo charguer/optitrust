@@ -412,7 +412,7 @@ let resolve_target_between = Constr.resolve_target_between
 let rec target_to_decl (x : var) (t : trm) : path option =
   match t.desc with
   | Trm_let_fun (f, _, _, _) when f = x -> Some []
-  | Trm_typedef (Typedef_abbrev (y, _)) when y = x -> Some []
+  | Trm_typedef td when td.typdef_tconstr = x -> Some []
   | Trm_seq tl ->
      foldi
        (fun i dlo t' ->
