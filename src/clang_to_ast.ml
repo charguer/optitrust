@@ -85,7 +85,11 @@ let get_ctx () : ctx =
     ctx_constr = !ctx_constr; }
 
 let get_typid (tv : typvar) : int  =
-  String_map.find tv !ctx_tconstr
+   let tid = String_map.find_opt tv !ctx_tconstr in
+   begin match tid with 
+   | Some id -> id
+   | None -> -1
+   end
 (* mutable_vars contains the information on which variables are [Var_mutable]
   stack of lists of heap allocated variables
   each list corresponds to a new scope
@@ -204,7 +208,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
 let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   match d with
   | Pointer q ->
-    let t = translate_qual_type ~loc q in
+    let t = translate_qual_type ~loc q in    
     let {const;_} = q in
     if const then
       (typ_ptr (typ_const t))
@@ -267,6 +271,8 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
+        printf "Managed to come here %s\n" ",hello";
+        
         typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
@@ -883,23 +889,23 @@ and translate_decl_list (dl : decl list) : trm list =
     begin match k with
       | Struct ->
         let tid = next_typid () in
-        let prod_list = (* TODO: see if List.map would work *)
-          List.fold_left
-            (fun acc (d : decl) ->
-              let loc = loc_of_node d in
-              match d with
-              | {decoration = _; desc = Field {name = fn; qual_type = q;
+        let prod_list = List.map ( fun (d : decl) ->
+          let loc = loc_of_node d in 
+          match d with 
+          | {decoration = _; desc = Field {name = fn; qual_type = q;
                                               bitwidth = _; init = _;
                                               attributes = al}} ->
-                ctx_label_add fn tid;
-                let ft = translate_qual_type ~loc q in
-                let al = List.map (translate_attribute loc) al in
-                let ty = {ft with typ_attributes = al} in
-                (fn, ty) :: acc
-              | _ -> fail loc ("translate_decl_list: only fields are allowed
+            ctx_label_add fn tid;
+            let ft = translate_qual_type ~loc q in 
+            let al = List.map (translate_attribute loc) al in
+            let ty = {ft with typ_attributes = al} in
+            (fn, ty)
+          | _ -> fail loc ("translate_decl_list: only fields are allowed
                                 in struct declaration")
-           ) [] (List.rev fl) in
+          
+        ) fl in         
         let tq = translate_qual_type ~loc q in
+        
         begin match tq.typ_desc with
         | Typ_constr (n, _, _)  when n = rn ->
           let tl = translate_decl_list dl' in
@@ -915,43 +921,6 @@ and translate_decl_list (dl : decl list) : trm list =
        | _ -> fail loc ("translate_decl_list: a type definition following " ^
                       "a struct declaration must bind this same struct")
       end
-
-
-
-      (*
-
-       DEPRECATED
-       | Struct ->
-        let (fs,m) =
-          List.fold_left
-            (fun (fs,m) (d : decl) ->
-               let loc = loc_of_node d in
-               match d with
-               | {decoration = _; desc = Field {name = fn; qual_type = q;
-                                                bitwidth = _; init = _;
-                                                attributes = al}} ->
-                 let ft = translate_qual_type ~loc q in
-                 let al = List.map (translate_attribute loc) al in
-                 let m' = String_map.add fn {ft with typ_attributes = al} m in
-                 let fs' = fn :: fs in
-                 (fs',m')
-               | _ ->
-                 fail loc ("translate_decl_list: only fields are allowed " ^
-                           "in struct declaration"))
-            ([], String_map.empty)
-            fl
-        in
-        let tq = translate_qual_type ~loc q in
-        begin match tq.typ_desc with
-          | Typ_var (n, _) when n = rn ->
-            let tl = translate_decl_list dl' in
-            let td = Typedef_abbrev(tn,typ_struct fs m rn) in
-            typedef_env_add tn td;
-            trm_typedef td :: tl
-          | _ ->
-            fail loc ("translate_decl_list: a type definition following " ^
-                      "a struct declaration must bind this same struct")
-        end*)
       | _ -> fail loc "translate_decl_list: only struct records are allowed"
     end
   | d :: d' :: dl ->

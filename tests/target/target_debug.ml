@@ -2,19 +2,10 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-
-
-
-  (* Top-level functions *)
-  show [ cTopFun "f"; cVarDef "k" ]; (* TODO: cTopFun is not working properly *)
+  (** There should be exactly one result to each of the commands;
+      if it is not the case, we'll get an error. *)
+    show [cTypDef "vect"];
   
-  show [ cMulti; cFunDef ""; cFor "" ]; (* cStrict is not working properly *)
- 
 
-  (* Loops immediately inside a function *)
-  (* TODO: see the 4 solutions *)
-
-  (* TODO: add tests using cStrict *)
 )
-
 
