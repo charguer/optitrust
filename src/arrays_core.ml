@@ -430,13 +430,13 @@ let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
     return:
      the update ast
 *)
-let swap_accesses (x : typvar) (sz : var) (t : trm) : trm = 
+let swap_accesses (x : typvar) (sz : size) (t : trm) : trm = 
   let rec aux (global_trm : trm) (t : trm) : trm = 
     match t.desc with 
     | Trm_typedef td when td.typdef_tconstr = x ->
       begin match td.typdef_body with
       | Typdef_prod s ->
-        let s = List.map( fun (x, typ) -> (x, typ_array (typ) (Trm(trm_var sz)))) s in
+        let s = List.map( fun (x, typ) -> (x, typ_array (typ) sz)) s in
         trm_typedef {td with typdef_body = Typdef_prod s}
 
       | _ -> fail t.loc "swap_accesses: expected a typedef struct"
@@ -501,7 +501,7 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
        begin match dx.typ_desc with 
        | Typ_ptr ty ->
         begin match ty.typ_desc with 
-        | Typ_array (a, Trm {desc = Trm_var size;_}) ->
+        | Typ_array (a, size) ->
           let struct_name = 
           begin match a.typ_desc with
           | Typ_constr (sn,_, _) -> sn
@@ -514,17 +514,34 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
           trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)
         | _ -> fail t.loc "expected an arrays of structures declaration"
         end
+      
        | _ -> fail t.loc "aos_to_soa: didn't expected a const declaration"
        end
-       
+      | Trm_typedef td ->
+        begin match td.typdef_body with 
+        | Typdef_alias ty ->
+          begin match ty.typ_desc with 
+          | Typ_array (a, size)->
+            let struct_name = 
+            begin match a.typ_desc with 
+            | Typ_constr (sn, _, _) -> sn
+               
+            | _ -> fail d.loc "aos_to_soa_aux: expected a typ_constr"
+            end
+            in
+            let new_decl = trm_typedef {td with typdef_body  = Typdef_alias a} in
+            let lfront = List.map (swap_accesses struct_name size) lfront in
+            let lback = List.map (swap_accesses struct_name size) lback in
+            trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)
+          | _ -> fail d.loc "aos_to_soa_aux: expected a typedef of array of structures"
+          end
+        | _ -> fail t.loc "aos_to_soa_aux: expected a typedef_alias"
+        end 
        
      | _ -> fail d.loc "aos_to_soa_aux: expected the array declaration"
      end 
 
   | _ -> failwith "aos_to_soa_aux: expected the surrounding sequence"
-
-
-
 
 
 (* [aos_to_soa name x index p t] *)
