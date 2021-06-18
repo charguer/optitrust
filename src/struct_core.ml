@@ -1,6 +1,7 @@
 open Ast
 
 
+
 (* [set_explicit_aux field_list t]: This is an auxiliary function for set_explicit 
     params: 
       field_list: A string list, each string represents one 
@@ -8,25 +9,37 @@ open Ast
     return: 
       the updated ast
  *)
-let set_explicit_aux (field_list : var list) (t: trm) : trm =
+let set_explicit_aux (t: trm) : trm =
+  let node_context = t.ctx in
+  let typid_to_typedef_map  = begin match node_context with 
+  | Some c -> c.ctx_typedef
+  | None -> fail t.loc "set_explicit_aux, empty node context"
+  end
+  in  
   match t.desc with 
   | Trm_apps(_, [lt;rt]) ->
+    let tid = Generic_core.get_typid rt  in
+    let struct_def = Typ_map.find tid typid_to_typedef_map in
+    let field_list = Generic_core.get_field_list struct_def in
     begin match rt.desc with
+    (* Get the type of the variables *)
+     
     (* If the right hand side is a get *)
-    | Trm_apps(f1, rbase) ->
+    | Trm_apps(f1, [rbase]) ->
+      
       begin match lt.desc with
       (* If the variable and the left hand side is heap allocated*)
-      | Trm_apps (f2, lbase) ->
+      | Trm_apps (f2, [lbase]) ->
         let exp_assgn = List.map (fun sf ->
         let new_f = trm_unop (Unop_struct_get sf) in
-         trm_set (trm_apps ~annot:(Some Access) new_f [trm_apps f2 lbase]) (trm_apps ~annot:(Some Access) new_f [trm_apps f1 rbase])
+         trm_set (trm_apps ~annot:(Some Access) new_f [trm_apps f2 [lbase]]) (trm_apps ~annot:(Some Access) new_f [trm_apps f1 [rbase]])
         ) field_list in
        trm_seq ~annot: t.annot exp_assgn
       (* If the variable at the left hand side is not heap allocated *)
       | Trm_var v ->
         let exp_assgn = List.map(fun sf ->
         let new_f = trm_unop (Unop_struct_get sf) in
-        trm_set (trm_apps new_f [trm_var v]) (trm_apps ~annot: (Some Access) f1 [trm_apps new_f rbase])
+        trm_set (trm_apps new_f [trm_var v]) (trm_apps ~annot: (Some Access) f1 [trm_apps new_f [rbase]])
         ) field_list in
         trm_seq ~annot:t.annot exp_assgn
       | _ -> fail t.loc "set_explicit_aux: left term was not matched"
@@ -49,18 +62,18 @@ let set_explicit_aux (field_list : var list) (t: trm) : trm =
       | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
     (* Any othe expression *)
-    | _ -> 
-      let exp_assgn = List.map(fun sf ->
+    | _ -> fail t.loc "set_explicit_aux: other expressions are not supported" 
+      (* let exp_assgn = List.map(fun sf ->
       let new_f = trm_unop (Unop_struct_get sf) in
       trm_set (trm_apps new_f [lt]) (trm_apps new_f [rt])
       ) field_list in
-      trm_seq exp_assgn
+      trm_seq exp_assgn *)
     end
   | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
   
 (* [set_explicit field_list t p] *)
-let set_explicit (field_list : var list) : Target.Transfo.local =
-  Target.apply_on_path(set_explicit_aux field_list)
+let set_explicit : Target.Transfo.local =
+  Target.apply_on_path(set_explicit_aux)
 
 
 (* [set_implicit t]: This is an auxiliary function for set_implicit
@@ -69,7 +82,7 @@ let set_explicit (field_list : var list) : Target.Transfo.local =
     return:
       the updated as
  *)
-let set_implicit_aux (t: trm) : trm =
+(* let set_implicit_aux (t: trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     (* To find out the variables of the structs whe just conside the first set instruction.
@@ -80,10 +93,7 @@ let set_implicit_aux (t: trm) : trm =
     | Trm_apps(_,[ls;rs]) ->
       (* Find left variable, seach for expression of the form v1.x  *)
       let l_var = 
-        begin match  ls.desc with 
-          | Trm_apps(_,[base]) -> base
-          | Trm_var x -> trm_var x
-          | _ -> fail t.loc "set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
+        begin match  field_list oc "set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
         end
       in
       let r_var = begin match  rs.desc with 
@@ -99,10 +109,7 @@ let set_implicit_aux (t: trm) : trm =
 
 (* [set_implicit t p] *)
 let set_implicit : Target.Transfo.local =
-  Target.apply_on_path(set_implicit_aux)
-
-(* TODO: Document these two functions *)
-
+  Target.apply_on_path(set_implicit_aux) *)
 
 
 (* Auxiliary functions for reorder transformation *)

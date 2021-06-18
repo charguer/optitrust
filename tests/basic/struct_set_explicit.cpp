@@ -22,12 +22,13 @@ int main() {
 
   d = { 1, 2 }; // TODO !
 
-  vect e;
-  e = f();
+  // vect e;
+  // e = f();
   // TODO LATER: demo of  insert_decl ~name:"x" ~body:"f()"
   //  what would be nice is to  insert_decl ~name:"x" ~body_path:[cVarDef "b"; cExpr ]
-  obj a = {0,{0,0},0};
-
+  obj a = {0,{0,0},{0,0}};
+  vect u;
+  u = a.pos;
   vect t[2];
   vect p2 = p;
   t[0] = p2;

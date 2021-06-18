@@ -309,7 +309,30 @@ let rec aliased_type (x : typvar) (t : trm) : typ option =
   | _ -> None
 
 
+let get_field_list (td : typedef) : var list = 
+  begin match td.typdef_body with
+  | Typdef_prod (_, s) -> fst (List.split s)
+  | _ -> fail None "get_field_lists: expected a Typedef_prod"
+  end
 
+
+
+let rec get_typid (t : trm) : int = 
+  let trm_typ = 
+  begin match t.typ with 
+  | Some typ -> typ
+  | None -> fail t.loc "get_typid: no type was found"
+  end
+  in
+  match t.desc with 
+  | Trm_apps (_,[base]) -> get_typid base
+  | Trm_struct _ |Trm_var _ -> 
+    begin match trm_typ.typ_desc with 
+    | Typ_constr(_,id,_) -> id
+    | _ -> fail t.loc "get_typid: expected a user defined type"
+    end 
+ 
+  | _ -> fail t.loc "get_typid: not id could be found"
 (* ********************************************** *)
 
 
