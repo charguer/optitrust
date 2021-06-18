@@ -2,8 +2,7 @@ open Optitrust
 open Target
 let _ = Run.script_cpp 
     ( fun _ ->
-        Arrays.aos_to_soa [cVarDef "t"];
-        !!show [cMulti;cVarDef "t"];
+        show [cVarDef "t"];
         !!show [cMulti;cVar "x_step"];
         show  [cVarDef "i"] ;
         show  [cFor "i"];

@@ -268,6 +268,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->  
+        printf "Typedef:For key %s got id %d\n" n (get_typid n);
         typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
@@ -282,6 +283,8 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
+         printf "Record:For key %s got id %d\n" n (get_typid n);
+         
          typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
@@ -918,7 +921,10 @@ and translate_decl_list (dl : decl list) : trm list =
             typdef_vars = [];
             typdef_body = Typdef_prod prod_list
           } in
+        
         ctx_tconstr_typedef_add tid tn td;
+        printf "Type %s has been added into map with typid %d\n" tn (get_typid tn);
+
         let tq = translate_qual_type ~loc q in
         
         begin match tq.typ_desc with
