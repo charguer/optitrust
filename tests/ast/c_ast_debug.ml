@@ -4,7 +4,5 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  show [ cTypDef "vect"];
-
-
+  show [cMulti;cTypDef "vect"];
 )

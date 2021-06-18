@@ -97,11 +97,12 @@ and typedef = { (* e.g. [type ('a,'b) t = ...] *)
   typdef_tconstr : typconstr; (* the name [t] *)
   typdef_vars : typvars; (* the list containing the names ['a] and ['b];
     [typedef_vars] is always the empty list in C code without templates *)
-  typdef_body : typdef_body; } (* the body of the definition, i.e. the description of [...] *)
+  typdef_body : typdef_body;
+   } (* the body of the definition, i.e. the description of [...] *)
 
 and typdef_body =
   | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list] or [typdef vect t] *)
-  | Typdef_prod of (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
+  | Typdef_prod of bool * (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
   (* Not sure if Typedef_enum is a sum type *)
   | Typdef_enum of (var * (trm option)) list (* LATER: document this, and understand why it's not just a 'typ' like for struct *)

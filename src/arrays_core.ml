@@ -429,9 +429,9 @@ let swap_accesses (x : typvar) (sz : size) (t : trm) : trm =
     match t.desc with 
     | Trm_typedef td when td.typdef_tconstr = x ->
       begin match td.typdef_body with
-      | Typdef_prod s ->
+      | Typdef_prod (tn, s) ->
         let s = List.map( fun (x, typ) -> (x, typ_array (typ) sz)) s in
-        trm_typedef {td with typdef_body = Typdef_prod s}
+        trm_typedef {td with typdef_body = Typdef_prod (tn,s)}
 
       | _ -> fail t.loc "swap_accesses: expected a typedef struct"
       end

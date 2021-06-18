@@ -59,7 +59,7 @@ let ctx_constr : typid varmap ref = ref String_map.empty
 let ctx_var_add (tv : typvar) (t : typ) : unit =
   ctx_var := String_map.add tv t (!ctx_var)
 
-let debug_typedefs = true
+let debug_typedefs = false
 
 let ctx_tconstr_add (tn : typconstr) (tid : typid) : unit =
   if debug_typedefs then printf "Type %s has been added into map with typid %d\n" tn tid;
@@ -268,7 +268,6 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        printf "Typedef:For key %s got id %d\n" n (get_typid n);
         typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
@@ -283,8 +282,6 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         printf "Record:For key %s got id %d\n" n (get_typid n);
-
          typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
@@ -924,11 +921,13 @@ and translate_decl_list (dl : decl list) : trm list =
 
         ) fl in
         (* Third, add the typedef to the context *)
+        let two_names = if rn = "" then false else true in
         let td = {
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
-          typdef_body = Typdef_prod prod_list } in
+          typdef_body = Typdef_prod (two_names, prod_list)
+          } in
         ctx_typedef_add tn tid td;
         (* TODO: it's not entirely clear to me that we should use the ctx after
            it is extended with the current typedef, or the context from just before... *)
@@ -1092,7 +1091,7 @@ and translate_decl (d : decl) : trm =
       typdef_typid = tid;
       typdef_tconstr = tn;
       typdef_vars = [];
-      typdef_body = Typdef_alias tq;
+      typdef_body = Typdef_alias tq
     }
     in
     ctx_typedef_add tn tid td;
@@ -1107,7 +1106,7 @@ and translate_decl (d : decl) : trm =
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
-          typdef_body = Typdef_alias tq; } in
+          typdef_body = Typdef_alias tq;} in
         ctx_typedef_add tn tid td;
         trm_typedef ~loc ~ctx td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"

@@ -152,14 +152,14 @@ let reorder_aux (struct_fields: var list) (move_where : string) (around : string
   match t.desc with 
   | Trm_typedef td ->
    begin match td.typdef_body with 
-   | Typdef_prod fs ->
+   | Typdef_prod (tn, fs) ->
     let field_list = 
     if move_where = "move_after" then
       move_fields_after around struct_fields fs
     else
       move_fields_before around struct_fields fs
     in
-   trm_typedef {td with typdef_body = Typdef_prod field_list}
+   trm_typedef {td with typdef_body = Typdef_prod (tn, field_list)}
   | _ -> fail t.loc "reorder_aux: expected a typdef_prod"
   end
   | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
@@ -173,7 +173,7 @@ let reorder (struct_fields : var list) (move_where : string) (around : string): 
 (* Get the index for a given field of struct inside its list of fields *)
 let get_pos (x : typvar) (t : trm) : int =
   begin match t.desc with
-    | Trm_typedef {typdef_body = Typdef_prod fs; _} ->
+    | Trm_typedef {typdef_body = Typdef_prod (_, fs); _} ->
         let rec find x lst =
         match lst with
         | [] -> raise (Failure "Not Found")
