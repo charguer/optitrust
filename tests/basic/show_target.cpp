@@ -1,11 +1,17 @@
-
+const int N = 5;
 typedef int T;
+
+typedef struct {
+  int x;
+  int y;
+} vect;
+
+vect t[N];
 
 int main() {
   
   
 
-  const int N = 10;
   // int y = 5;
   // int x = y;
   T x_step[N];

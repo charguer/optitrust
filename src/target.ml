@@ -155,7 +155,7 @@ let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_k
 
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
-  let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
+  let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
   let p_body =  body in
     Constr_decl_var (ro, p_body)
 

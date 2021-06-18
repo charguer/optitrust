@@ -495,8 +495,9 @@ let get_trm_kind (t : trm) : trm_kind =
       | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
       | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
       end
+    | Trm_let _ -> TrmKind_Instr
     | Trm_abort _ | Trm_goto _-> TrmKind_Instr
-    | Trm_struct _ |  Trm_let _ | Trm_array _  | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
+    | Trm_struct _ | Trm_array _  | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
       | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
     | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
   else
