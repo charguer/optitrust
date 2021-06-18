@@ -1,5 +1,5 @@
 
-const int B = 10;
+int B = 10;
 
 typedef struct { int x; int y; } vect;
 

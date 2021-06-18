@@ -1,6 +1,5 @@
 open Ast
 open Target
-open Tools
 
 (* POSSIBLY at SOME POINT: split this file in typedef.ml and var.ml
    Var.insert   Var.insert_const  Typdef.insert
@@ -77,6 +76,7 @@ let inline_typedef ?(delete_decl : bool = false) ?(inline_at : target list = [])
   }
   if tf is void, result won't be used, but instead the empty statement
  *)
+ (*
 let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args : var list = [])
   (return_label : label) (f : var) (tf : typ) (args : typed_var list)
   (body : trm) (t : trm) : trm =
@@ -189,7 +189,7 @@ let inline_fun_decl ?(inline_at : target list = [[]]) (result : var)  ?(fun_args
                         (trm_lit Lit_unit) t)
                  ]
                 )
-                (*
+                
            begin match arg_dels with
            (* if no args, no delete instruction *)
            | [] ->
@@ -641,7 +641,7 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
                  ) ::
                  arg_dels
                 )
-           end*)
+           end
         | _ ->
            trm_seq(*  ~annot:(Some Delete_instructions) *) ~loc:t.loc
              ([
@@ -682,4 +682,4 @@ let inline_struct (clog : out_channel)  ?(struct_fields : fields = []) (name : s
          List.fold_left (apply_on_path apply_change) t epl
     )
     t
-    inline_at
+    inline_at*)

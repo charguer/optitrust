@@ -226,13 +226,10 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
         else
           typ_array t (Trm s)
     end
-  (* Just for debugging purposes*)
   | VariableArray {element = q; size = eo} ->
     let t = translate_qual_type ~loc q in
     let s = translate_expr eo in
     typ_array t (Trm s)
-    (* ***************** *)
-
   | IncompleteArray q ->
     let t = translate_qual_type ~loc q in
     typ_array t Undefined

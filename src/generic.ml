@@ -1,5 +1,4 @@
 open Ast
-open Path
 open Target
 
 
@@ -47,50 +46,6 @@ let eliminate_goto_next (_ : unit) : unit =
 
 let group_decl_init (_ : unit) : unit =
   Trace.apply (fun _ -> Generic_core.group_decl_init)
-
-(* TODO: Remove this function after dealing with all the transformations which use this function *)
-(*
-  insert t_inserted either before the position pointed at by insert_before or
-  after the position pointed at by insert_after in t
-  both must be resolved as paths to a seq element
- *)
-let insert_trm ?(insert_before : target = [])
-  ?(insert_after : target = []) (t_inserted : trm) (t : trm) : trm =
-  let p =
-    match insert_before, insert_after with
-    | [], _ :: _ -> insert_after
-    | _ :: _, [] -> insert_before
-    | [], [] -> fail t.loc "insert_trm: please specify an insertion point"
-    | _ -> fail t.loc "insert_trm: cannot insert both before and after"
-  in
-  let b = !Flags.verbose in
-  Flags.verbose := false;
-  let epl = resolve_target p t in
-  Flags.verbose := b;
-  match epl with
-  | [] ->
-     print_info t.loc "insert_trm: no matching subterm\n";
-     t
-  | _ ->
-     List.fold_left
-       (fun t' dl ->
-         match List.rev dl with
-         | Dir_nth n :: dl' ->
-            begin match insert_before, insert_after with
-            (* insert after *)
-            | [], _ :: _ -> Generic_core.insert_trm_after dl t_inserted t'
-            (* insert before: replace n with n - 1 *)
-            | _ :: _, [] ->
-               Generic_core.insert_trm_after (List.rev (Dir_nth (n - 1) :: dl')) t_inserted
-                 t'
-            | [], [] ->
-               fail t'.loc "insert_trm: please specify an insertion point"
-            | _ -> fail t'.loc "insert_trm: cannot insert both before and after"
-            end
-         | _ -> fail t'.loc "insert_trm: bad insertion target"
-       )
-       t
-       epl
 
 
 (* ********************************************************* *)

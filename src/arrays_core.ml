@@ -140,7 +140,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
 
 
 (* [tile_aux: name block_name b x t] *)
-let tile_aux (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm) : trm = 
+let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -252,17 +252,14 @@ let tile_aux (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (i
       end
      
     in
-    let ilsm = Generic_core.functions_with_arg_type x array_decl in
-    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in
-    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
     let lback = List.map (apply_tiling base_type block_name (trm_var b) x) lback in
     trm_seq ~annot:t.annot (lfront @ [array_decl] @ lback)
 
   | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
 
 (* [tile name block_name b x index p t] *)
-let tile (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (index : int): Target.Transfo.local =
-  Target.apply_on_path(tile_aux name block_name b x index)
+let tile (block_name : typvar) (b : var) (x : typvar) (index : int): Target.Transfo.local =
+  Target.apply_on_path(tile_aux block_name b x index)
 
 
 (* [apply_swapping x t]: This is an auxiliary function for array_swap
@@ -371,7 +368,7 @@ let tile (name : var -> var) (block_name : typvar) (b : var) (x : typvar) (index
     return:
       the updated ast
 *)
-let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
+let swap_aux (x : typvar) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -411,16 +408,13 @@ let swap_aux (name : var -> var) (x : typvar) (index : int) (t : trm) : trm =
       | _ -> fail t.loc "swap_aux: expected the typedef"
     end
     in
-    let ilsm =  Generic_core.functions_with_arg_type x new_decl in
-    let lback = List.map (Generic_core.insert_fun_copies name ilsm x) lback in 
-    let lback = List.map (Generic_core.replace_fun_names name ilsm x) lback in
     let lback = List.map (apply_swapping x ) lback
     in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
   | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
 
 (* [swap name x index p t] *)
-let swap (name : var -> var) (x : typvar) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (swap_aux name x index )
+let swap (x : typvar) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (swap_aux x index )
 
 
 (* [swap_accesses x t]: This is an auxiliary function for aos_to_soa_aux

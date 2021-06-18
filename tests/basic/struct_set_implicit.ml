@@ -20,7 +20,6 @@ let _ =
         make_explicit_record_assignment [cVarDef "b"] ~struct_name:"vect";
         
         make_explicit_record_assignment [cVarDef "b"] ~struct_name:"vect";
-        delete_label "detached";
 
         dump()
     )

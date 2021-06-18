@@ -12,6 +12,21 @@ let color (c : var) (i_color : var) : Target.Transfo.t =
 let tile (b : var)(i_block : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.tile b i_block)
 
+
+(* [hoist x_step tg] *)
+let hoist (x_step : var) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.hoist x_step)
+
+(* [split tg] *)
+let split (tg : target) : unit = 
+  Target.apply_on_target_between (fun t (p,i) ->
+    Loop_core.split i p t) tg
+
+(* [fusion tg] *)
+let fusion : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.fusion )
+
+
 (* TODO: Ask Arthur, if this should still be used or not *)
 (*
   -----------DEPRECATED-----------------
@@ -34,18 +49,6 @@ let tile (b : var)(i_block : var) : Target.Transfo.t =
 let tile_old : Target.Transfo.t =
   Target.apply_on_target(Loop_core.tile_old )
 
-(* [hoist x_step tg] *)
-let hoist (x_step : var) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.hoist x_step)
-
-(* [split tg] *)
-let split (tg : target) : unit = 
-  Target.apply_on_target_between (fun t (p,i) ->
-    Loop_core.split i p t) tg
-
-(* [fusion tg] *)
-let fusion : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.fusion )
 (* get_loop_nest_indices -- currently omiting the last one
 
 *)
