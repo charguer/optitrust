@@ -1,5 +1,4 @@
 open Ast
-open Target
 (* [swap tg] *)
 let swap : Target.Transfo.t =
   Target.apply_on_target (Loop_core.swap)
@@ -18,9 +17,8 @@ let hoist (x_step : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.hoist x_step)
 
 (* [split tg] *)
-let split (tg : target) : unit = 
-  Target.apply_on_target_between (fun t (p,i) ->
-    Loop_core.split i p t) tg
+let split (index : int) : Target.Transfo.t = 
+  Target.apply_on_target(Loop_core.split index)
 
 (* [fusion tg] *)
 let fusion : Target.Transfo.t =

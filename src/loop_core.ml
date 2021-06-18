@@ -1,6 +1,4 @@
 open Ast
-open Target
-
 (* swap_aux: This is an auxiliary function for swap
     params:  
       t: an ast subterm
@@ -380,8 +378,8 @@ let hoist (x_step : var) : Target.Transfo.local =
       the updated ast
  *)
 
- let split (index : int) (path_to_loop : path) (t : trm) : trm =
-  Target.apply_on_path (split_aux index) t path_to_loop
+ let split (index : int) : Target.Transfo.local=
+  Target.apply_on_path (split_aux index)
 
 
 (* fusion_aux: This function is an auxiliary function for fusion
