@@ -418,7 +418,7 @@ let fusion_aux (t : trm) : trm =
       end
       in
       (* The fusioned loop *)
-      trm_for init cond step new_body
+      trm_seq ~annot:t.annot [trm_for init cond step new_body]
     | _ -> fail t.loc "fusion_aux: expected the second loop"
     end
   | _ -> fail t.loc "fusion_aux: expected the sequence which contains the two loops to be merged"

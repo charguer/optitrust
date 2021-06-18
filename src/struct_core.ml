@@ -101,6 +101,44 @@ let set_implicit_aux (t: trm) : trm =
 let set_implicit : Target.Transfo.local =
   Target.apply_on_path(set_implicit_aux)
 
+(* TODO: Document these two functions *)
+
+
+
+(* Auxiliary functions for reorder transformation *)
+
+let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs
+
+let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys
+
+let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs
+
+let remove_pairs ys xs = List.fold_left (fun acc y -> remove_pair y acc) xs ys
+
+
+let move_fields_after (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ ) list=
+  let local_l = List.flatten (get_pairs local_l (List.rev l) )in
+  let l = remove_pairs local_l l in 
+  let rec aux = function
+    | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
+    | (hd, ty) :: tl ->
+      if hd = x
+        then [hd, ty] @ local_l @ tl (* local_l @ hd :: acc @ tl *)
+        else aux tl
+      in
+    aux l
+
+let move_fields_before (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ) list =
+  let local_l = List.flatten (get_pairs local_l (List.rev l)) in
+  let rec aux = function
+    | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
+    | (hd, ty) :: tl ->
+      if hd = x
+        then local_l @ [hd, ty] @ tl (* local_l @ hd :: acc @ tl *)
+        else aux tl
+      in
+    aux l
+
 
 (* [reorder_aux field_list: This function is an auxiliary function for reorder
     params:
@@ -109,25 +147,25 @@ let set_implicit : Target.Transfo.local =
     return: 
       the updated ast
  *)
-(* let reorder_aux (struct_fields: var list) (move_where : string) (around : string) (t: trm) : trm =
+let reorder_aux (struct_fields: var list) (move_where : string) (around : string) (t: trm) : trm =
   match t.desc with 
   | Trm_typedef td ->
    begin match td.typdef_body with 
    | Typdef_prod fs ->
     let field_list = 
     if move_where = "move_after" then
-      Tools.move_fields_after around struct_fields fs
+      move_fields_after around struct_fields fs
     else
-      Tools.move_fields_before around struct_fields fs
+      move_fields_before around struct_fields fs
     in
-   trm_typedef {td with typdef_body = Typdef_prod fields_list}
+   trm_typedef {td with typdef_body = Typdef_prod field_list}
   | _ -> fail t.loc "reorder_aux: expected a typdef_prod"
   end
   | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
 
 (* [reorder struct_fields move_where around t p] *)
 let reorder (struct_fields : var list) (move_where : string) (around : string): Target.Transfo.local = 
-  Target.apply_on_path(reorder_aux struct_fields move_where around) *)
+  Target.apply_on_path(reorder_aux struct_fields move_where around)
 
 
 
