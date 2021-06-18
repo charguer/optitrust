@@ -113,28 +113,29 @@ let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys
 
 let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs
 
-let remove_pairs ys xs = List.fold_left (fun acc y -> remove_pair y acc) xs ys
+let remove_pairs (ys : var list) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys
 
 
 let move_fields_after (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ ) list=
-  let local_l = List.flatten (get_pairs local_l (List.rev l) )in
+  let fins = List.flatten (get_pairs local_l l )in
   let l = remove_pairs local_l l in 
   let rec aux = function
     | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
     | (hd, ty) :: tl ->
       if hd = x
-        then [hd, ty] @ local_l @ tl (* local_l @ hd :: acc @ tl *)
+        then fins @ [hd, ty] @ tl (* local_l @ hd :: acc @ tl *)
         else aux tl
       in
     aux l
 
 let move_fields_before (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ) list =
-  let local_l = List.flatten (get_pairs local_l (List.rev l)) in
+  let fins = List.flatten (get_pairs local_l l) in
+  let l = remove_pairs local_l l in
   let rec aux = function
     | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
     | (hd, ty) :: tl ->
       if hd = x
-        then local_l @ [hd, ty] @ tl (* local_l @ hd :: acc @ tl *)
+        then [hd, ty] @ fins @ tl (* local_l @ hd :: acc @ tl *)
         else aux tl
       in
     aux l
