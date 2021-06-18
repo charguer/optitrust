@@ -59,10 +59,14 @@ let ctx_constr : typid varmap ref = ref String_map.empty
 let ctx_var_add (tv : typvar) (t : typ) : unit =
   ctx_var := String_map.add tv t (!ctx_var)
 
-let ctx_tconstr_add (tc : typconstr) (tid : typid) : unit =
-  ctx_tconstr := String_map.add tc tid (!ctx_tconstr)
+let debug_typedefs = true
 
-let ctx_typedef_add (tid : typid) (td : typedef) : unit =
+let ctx_tconstr_add (tn : typconstr) (tid : typid) : unit =
+  if debug_typedefs then printf "Type %s has been added into map with typid %d\n" tn tid;
+  ctx_tconstr := String_map.add tn tid (!ctx_tconstr)
+
+let ctx_typedef_add (tn : typconstr) (tid : typid) (td : typedef) : unit =
+  if debug_typedefs then printf "Typedef for %s has been registered\n" tn;
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
 let ctx_label_add (lb : label) (tid : typid) : unit =
@@ -71,10 +75,6 @@ let ctx_label_add (lb : label) (tid : typid) : unit =
 let ctx_constr_add (c : constr) (tid : typid) : unit =
   ctx_constr := String_map.add c tid (!ctx_constr)
 
-(* Shorthand for generating a context *)
-let ctx_tconstr_typedef_add (tid : typid) (tc : typconstr) (td : typedef) : unit =
-   ctx_tconstr_add tc tid;
-   ctx_typedef_add tid td
 
 (* [get_ctx] returns the current context *)
 let get_ctx () : ctx =
@@ -86,7 +86,7 @@ let get_ctx () : ctx =
 
 let get_typid (tv : typvar) : int  =
    let tid = String_map.find_opt tv !ctx_tconstr in
-   begin match tid with 
+   begin match tid with
    | Some id -> id
    | None -> -1
    end
@@ -208,7 +208,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
 let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   match d with
   | Pointer q ->
-    let t = translate_qual_type ~loc q in    
+    let t = translate_qual_type ~loc q in
     let {const;_} = q in
     if const then
       (typ_ptr (typ_const t))
@@ -267,7 +267,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     end
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
-      | IdentifierName n ->  
+      | IdentifierName n ->
         printf "Typedef:For key %s got id %d\n" n (get_typid n);
         typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
@@ -284,7 +284,7 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
     begin match n with
       | IdentifierName n ->
          printf "Record:For key %s got id %d\n" n (get_typid n);
-         
+
          typ_constr n (get_typid n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
@@ -894,46 +894,49 @@ and translate_decl_list (dl : decl list) : trm list =
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
                                         complete_definition = _}} ::
-    {decoration = _; desc = TypedefDecl {name = tn; underlying_type = q}} ::
+    {decoration = _; desc = TypedefDecl {name = tn; underlying_type = _q}} ::
     dl' ->
     begin match k with
       | Struct ->
+        (* typedef struct rn { int x,y; } tn;
+           is only allowed if rn is empty or same as tn. *)
+        if rn <> "" && rn <> tn
+          then fail loc (sprintf "Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);
+
+        (* First add the constructor name to the context, needed for recursive types *)
         let tid = next_typid () in
+        ctx_tconstr_add tn tid;
+
+        (* Second, parse the fields names and types *)
         let prod_list = List.map ( fun (d : decl) ->
-          let loc = loc_of_node d in 
-          match d with 
+          let loc = loc_of_node d in
+          match d with
           | {decoration = _; desc = Field {name = fn; qual_type = q;
                                               bitwidth = _; init = _;
                                               attributes = al}} ->
             ctx_label_add fn tid;
-            let ft = translate_qual_type ~loc q in 
+            let ft = translate_qual_type ~loc q in
             let al = List.map (translate_attribute loc) al in
             let ty = {ft with typ_attributes = al} in
             (fn, ty)
           | _ -> fail loc ("translate_decl_list: only fields are allowed
                                 in struct declaration")
-          
-        ) fl in         
-        let tl = translate_decl_list dl' in
-          let td = {
-            typdef_typid = tid;
-            typdef_tconstr = tn;
-            typdef_vars = [];
-            typdef_body = Typdef_prod prod_list
-          } in
-        
-        ctx_tconstr_typedef_add tid tn td;
-        printf "Type %s has been added into map with typid %d\n" tn (get_typid tn);
 
-        let tq = translate_qual_type ~loc q in
-        
-        begin match tq.typ_desc with
-        | Typ_constr (n, _, _)  when n = rn ->
-              (trm_typedef ~loc ~ctx:(Some (get_ctx())) td) :: tl
+        ) fl in
+        (* Third, add the typedef to the context *)
+        let td = {
+          typdef_typid = tid;
+          typdef_tconstr = tn;
+          typdef_vars = [];
+          typdef_body = Typdef_prod prod_list } in
+        ctx_typedef_add tn tid td;
+        (* TODO: it's not entirely clear to me that we should use the ctx after
+           it is extended with the current typedef, or the context from just before... *)
+        let trm_td = trm_typedef ~loc ~ctx:(Some (get_ctx())) td in
+        (* Finally, continue with further type declarations *)
+        let tl' = translate_decl_list dl' in
+        trm_td :: tl'
 
-       | _ -> fail loc ("translate_decl_list: a type definition following " ^
-                      "a struct declaration must bind this same struct")
-      end
       | _ -> fail loc "translate_decl_list: only struct records are allowed"
     end
   | d :: d' :: dl ->
@@ -945,7 +948,7 @@ and translate_decl (d : decl) : trm =
   let loc = loc_of_node d in
   let ctx = Some (get_ctx ()) in
   match d.desc with
-  | EnumDecl {name; constants; _} ->
+  | EnumDecl {name = tn; constants; _} ->
     let enum_constant_l =
       List.map
         (fun ({desc = {constant_name; constant_init}; _} : enum_constant) ->
@@ -958,13 +961,14 @@ and translate_decl (d : decl) : trm =
         constants
     in
     let tid = next_typid () in
+    ctx_tconstr_add tn tid;
     let td = {
       typdef_typid = tid;
-      typdef_tconstr = name;
+      typdef_tconstr = tn;
       typdef_vars = [];
       typdef_body = Typdef_enum enum_constant_l
     } in
-    ctx_tconstr_typedef_add tid name td;
+    ctx_typedef_add tn tid td;
     trm_typedef ~loc ~ctx td
   | Function {linkage = _; function_type = t; nested_name_specifier = _;
               name = n; body = bo; deleted = _; constexpr = _; _} ->
@@ -1080,29 +1084,31 @@ and translate_decl (d : decl) : trm =
           trm_let ~loc Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
         end
       end
-  | TypedefDecl {name = n; underlying_type = q} ->
-    let tn = translate_qual_type ~loc q in
+  | TypedefDecl {name = tn; underlying_type = q} ->
     let tid = next_typid () in
+    ctx_tconstr_add tn tid;
+    let tq = translate_qual_type ~loc q in
     let td = {
       typdef_typid = tid;
-      typdef_tconstr = n;
+      typdef_tconstr = tn;
       typdef_vars = [];
-      typdef_body = Typdef_alias tn;
+      typdef_body = Typdef_alias tq;
     }
     in
-    ctx_tconstr_typedef_add tid n td;
+    ctx_typedef_add tn tid td;
     trm_typedef ~loc ~ctx td
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
-      | IdentifierName n ->
+      | IdentifierName tn ->
         let tid = next_typid () in
-        let tn = translate_qual_type ~loc q in
+        ctx_tconstr_add tn tid;
+        let tq = translate_qual_type ~loc q in
         let td = {
           typdef_typid = tid;
-          typdef_tconstr = n;
+          typdef_tconstr = tn;
           typdef_vars = [];
-          typdef_body = Typdef_alias tn; } in
-        ctx_tconstr_typedef_add tid n td;
+          typdef_body = Typdef_alias tq; } in
+        ctx_typedef_add tn tid td;
         trm_typedef ~loc ~ctx td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end

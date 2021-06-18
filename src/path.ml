@@ -418,10 +418,10 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
             )
        (* TODO: Uncoment this when enabling enums *)
        (* | Dir_enum_const (n, ecd), Trm_typedef td ->
-        let xto_l = begin match 
+        let xto_l = begin match
         | T
         end
-       
+
        (Typedef_enum (_, xto_l)) ->
           app_to_nth loc xto_l n
              (fun (x, t_o) ->
