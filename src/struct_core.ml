@@ -16,6 +16,7 @@ let set_explicit_aux (t: trm) : trm =
   | None -> fail t.loc "set_explicit_aux, empty node context"
   end
   in  
+  Ast_to_text.print_ast ~only_desc:true stdout t;
   match t.desc with 
   | Trm_apps(_, [lt;rt]) ->
     let tid = Generic_core.get_typid rt  in

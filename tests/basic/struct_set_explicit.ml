@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp ( fun _ ->
         
-        show [cTypDef "vect"];
+        Struct.set_explicit [cInstr "d = p"];
         !!(* make_explicit_record_assignment [cVarDef "b"] ~struct_name:"vect"; *)
         (* TODO : infer struct name if easy from LHS *)
         (* make_explicit_record_assignment ~struct_name:"vect" [cCall ~args:[cVar target ~name:"p2" ()] ~validate:(List.mem true) ()]; *)

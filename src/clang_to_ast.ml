@@ -926,7 +926,7 @@ and translate_decl_list (dl : decl list) : trm list =
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
-          typdef_body = Typdef_prod (two_names, prod_list)
+          typdef_body = Typdef_prod (two_names, (List.rev prod_list))
           } in
         ctx_typedef_add tn tid td;
         (* TODO: it's not entirely clear to me that we should use the ctx after
