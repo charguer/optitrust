@@ -647,7 +647,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
 and check_name (name : constr_name) (s : string) : bool =
   match name with
   | None -> true
-  | Some r -> match_regexp_str r  s
+  | Some r -> 
+     printf "Checking name %s with rexp %s,did name match %b\n" s (r.rexp_desc) (match_regexp_str r  s);
+     match_regexp_str r  s
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
   (* DEBUG:*) (* printf "%s\n" (lpred.target_list_pred_to_string());  *)

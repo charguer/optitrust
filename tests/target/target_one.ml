@@ -50,7 +50,7 @@ let _ = Run.script_cpp (fun () ->
 
   show [cInstr "+= 2"];
   show [cNb 0; cExpr ~substr:false "+= 2"];
-  show [cNb 0; cInstr ~substr:false "+= 2"];
+  show [cNb 0; cInstr ~substr:true "+= 2"];
   show [cInstr (* default value: ~substr:true *) "r += 2"];
 
   show [cMulti; cExprRegexp ~substr:true "int . = .."]; (* TODO: should match is ; part of it or not? *)

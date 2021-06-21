@@ -6,8 +6,19 @@ typedef struct {
   int y;
 } vect;
 
-vect t[N];
+typedef struct {
+  vect pos;
+  vect speed;
+} particle;
 
+
+vect t;
+
+vect time;
+
+vect ut;
+
+particle t1;
 // int main() {
   
   
