@@ -122,7 +122,7 @@ let cInclude (s : string) : constr =
     Constr_include s
 
 let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
-    { rexp_desc = s;
+    { rexp_desc = (if regexp then "Regexp" else "String") ^ "(" ^ s ^ ")";
       rexp_exp = (if regexp then Str.regexp else Str.regexp_string) s;
       rexp_substr = substr;
       rexp_trm_kind = trmKind; }

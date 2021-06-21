@@ -50,7 +50,7 @@ val cAnyNb : constr
 
 val cNb : int -> constr
 
-val cRoot : constr 
+val cRoot : constr
 
 val cNth : int -> constr
 
@@ -208,6 +208,7 @@ module Transfo : sig
   type local = trm -> path -> trm
 end
 
+val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 
 (* Shorthand *)
 

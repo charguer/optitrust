@@ -10,7 +10,8 @@
 # 7. which recompiles optitrust, and the test file, and executes it
 
 # Basename of the test case to consider
-TEST=target_debug
+TEST:=target_debug
+TEST:=target_regexp
 
 # Path to the optitrust library
 OPTITRUST = ../..
@@ -34,14 +35,15 @@ $(PROG): force
 
 # Target to execute the test program
 exec: $(PROG)
-	bash -c "OCAMLRUNPARAM=b ./$(PROG) 1> >( sed -u 's/\\]:/\\]-/g') 2> >( sed -u 's/file \\\"\\([^,]*\\)\\\", line \\([0-9]*\\),/\\1:\\2:/g' >&2)" && cat test_out.cpp && echo ""
+	bash -c "OCAMLRUNPARAM=b ./$(PROG) 1> >( sed -u 's/\\]:/\\]-/g') 2> >( sed -u 's/file \\\"\\([^,]*\\)\\\", line \\([0-9]*\\),/\\1:\\2:/g' >&2)"
+# && cat test_out.cpp && echo ""
 
 # Auxiliary target to force the reconstruction of the test program after an update to the library
 force:
 
 # Target to clean the generated files
 clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml 
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
