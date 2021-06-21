@@ -268,6 +268,7 @@ let term (s : string) : trm =
         | Trm_seq [t] -> t
         | _ -> fail def_f.loc "term_from_f: unexpected body"
         end
+    | Trm_seq [t] -> t
     | _ -> fail def_f.loc "term_from_f: expected definition"
   in
   let rec get_term (t : trm) : trm =

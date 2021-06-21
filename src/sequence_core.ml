@@ -11,15 +11,17 @@ open Target
       the updated ast
 *)
 
-let insert_aux (index : int) (ts : trm list) (t : trm): trm =
+let insert_aux (index : int) (ts : string list) (t : trm): trm =
     match t.desc with
     | Trm_seq tl ->
-      let tl = Tools.insert_sublist_at ts index tl in
-      trm_seq ~annot:t.annot tl
+      let ts = List.map Generic_core.term ts in
+      let lfront, lback = Tools.split_list_at index tl in 
+      let new_trm = trm_seq ts in
+      trm_seq ~annot:t.annot  (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
 (* [insert index ts path_to_seq t] *)
-let insert (index : int) (ts : trm list) (path_to_seq : path) (t : trm) : trm =
+let insert (index : int) (ts : string list) (path_to_seq : path) (t : trm) : trm =
   Target.apply_on_path (insert_aux index ts) t path_to_seq
 
 

@@ -6,7 +6,7 @@ open Tools
 (* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)
 
 (* [insert tg ts] *)
-let insert (tg : target) (ts : trm list) : unit =
+let insert (tg : target) (ts : string list) : unit =
   Target.apply_on_target_between (fun t (p,i) ->
     Sequence_core.insert i ts p t) tg
 
