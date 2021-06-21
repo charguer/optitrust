@@ -321,7 +321,7 @@ let get_typid (t : trm) : int =
   let trm_typ = 
   begin match t.typ with 
   | Some typ -> 
-      printf "For trm %s got type %s\n" (Ast_to_text.ast_to_string ~only_desc:false t) (Ast_to_text.typ_to_string typ);
+      (* printf "For trm %s got type %s\n" (Ast_to_text.ast_to_string ~only_desc:false t) (Ast_to_text.typ_to_string typ); *)
       typ
   | None -> printf "For trm %s , failed to find typ \n" (Ast_to_text.ast_to_string ~only_desc:false t);
       fail t.loc "get_typid: no type was found"
@@ -335,7 +335,7 @@ let get_typid (t : trm) : int =
     | _ -> fail t.loc "get_typid: expected a user defined type"
     end 
  
-  | _ -> fail t.loc "get_typid: not id could be found"
+  | _ -> -1
 (* ********************************************** *)
 
 

@@ -6,6 +6,9 @@ let _ = Run.script_cpp ( fun _ ->
 
         (* show [cInstr "d = p"]; *)
         Struct.set_explicit [cInstr "d = p"];
+        Struct.set_explicit [cInstr "u = a.pos"];
+        Struct.set_explicit [cInstr "t[0] = p2"];(* Doesn't work*)
+        
         !!(* make_explicit_record_assignment [cVarDef "b"] ~struct_name:"vect"; *)
         (* TODO : infer struct name if easy from LHS *)
         (* make_explicit_record_assignment ~struct_name:"vect" [cCall ~args:[cVar target ~name:"p2" ()] ~validate:(List.mem true) ()]; *)

@@ -29,9 +29,9 @@ int main() {
   obj a = {0,{0,0},{0,0}};
   vect u;
   u = a.pos;
-  // vect t[2];
-  // vect p2 = p;
-  // t[0] = p2;
+  vect t[2];
+  vect p2 = p;
+  t[0] = p2;
   /* TODO; unrestricted
   LFS = p;
   ->
