@@ -1,5 +1,5 @@
 
-int B = 10;
+const int B = 10;
 
 typedef struct { int x; int y; } vect;
 
@@ -13,14 +13,14 @@ vects t;
 vects* u;
 
 // Case of a fixed-sized array of groups of B vectors
-vects w[100];
+vects w[B];
 
 int main() {
   int i;
   int a = t[i].x;
   int b = u[99][i].x;
   // TODO: this one is not properly translated:
-  // int b2 = (*u)[i].x;
+  int b2 = (*u)[i].x;
   int c = w[99][i].x;
 }
 

@@ -592,7 +592,7 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
   | Trm_struct tl ->
      trm_struct ~annot ~loc ~add ~typ (List.map f tl)
   | Trm_let (vk,tv,init) ->
-    trm_let ~annot ~loc ~is_statement ~add  vk tv init
+    trm_let ~annot ~loc ~is_statement ~add  vk tv (f init)
   | Trm_let_fun (f',res,args,body) ->
     trm_let_fun ~annot ~loc ~is_statement ~add f' res args (f body)
   | Trm_if (cond, then_, else_) ->

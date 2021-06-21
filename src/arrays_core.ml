@@ -426,16 +426,11 @@ let swap (x : typvar) (index : int) : Target.Transfo.local =
 *)
 let swap_accesses (x : typvar) (sz : size) (t : trm) : trm = 
   let rec aux (global_trm : trm) (t : trm) : trm = 
+    Ast_to_text.print_ast ~only_desc:true stdout t;
+    Tools.printf "\n*******************************%s\n" "*******************";
     match t.desc with 
-    | Trm_typedef td when td.typdef_tconstr = x ->
-      begin match td.typdef_body with
-      | Typdef_prod (tn, s) ->
-        let s = List.map( fun (x, typ) -> (x, typ_array (typ) sz)) s in
-        trm_typedef {td with typdef_body = Typdef_prod (tn,s)}
-
-      | _ -> fail t.loc "swap_accesses: expected a typedef struct"
-      end
     | Trm_apps (f, [base]) ->
+      
        begin match f.desc with
        | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
          | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
@@ -473,6 +468,14 @@ let swap_accesses (x : typvar) (sz : size) (t : trm) : trm =
        | _ -> trm_map (aux global_trm) t
        end
     (* other cases: recursive call *)
+    | Trm_typedef td when td.typdef_tconstr = x ->
+      begin match td.typdef_body with
+      | Typdef_prod (tn, s) ->
+        let s = List.map( fun (x, typ) -> (x, typ_array (typ) sz)) s in
+        trm_typedef {td with typdef_body = Typdef_prod (tn,s)}
+
+      | _ -> fail t.loc "swap_accesses: expected a typedef struct"
+      end
     | _ -> trm_map (aux global_trm) t
   in aux t t
 
@@ -489,7 +492,7 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
   | Trm_seq tl ->
      let lfront, lback = Tools.split_list_at index tl in 
      let d,lback = Tools.split_list_at 1 lback in
-     let d = List.hd d in 
+     let d = List.hd d in      
      begin match d.desc with 
      | Trm_let (vk, (n, dx), _) ->
        begin match dx.typ_desc with 

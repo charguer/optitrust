@@ -1,4 +1,4 @@
-const int N = 5;
+int N = 5;
 // typedef int T;
 
 typedef struct {
@@ -12,13 +12,7 @@ typedef struct {
 } particle;
 
 
-vect t;
-
-vect time;
-
-vect ut;
-
-particle t1;
+int x[5][10];
 // int main() {
   
   
