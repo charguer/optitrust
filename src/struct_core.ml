@@ -16,18 +16,18 @@ let set_explicit_aux (t: trm) : trm =
   | None -> fail t.loc "set_explicit_aux, empty node context"
   end
   in  
-  Ast_to_text.print_ast ~only_desc:true stdout t;
   match t.desc with 
   | Trm_apps(_, [lt;rt]) ->
+    (* Ast_to_text.print_ast ~only_desc:true stdout rt; *)
     let tid = Generic_core.get_typid rt  in
+    Tools.printf "Got typid %d\n" tid;
     let struct_def = Typ_map.find tid typid_to_typedef_map in
-    let field_list = Generic_core.get_field_list struct_def in
+    let field_list = List.rev (Generic_core.get_field_list struct_def) in
     begin match rt.desc with
     (* Get the type of the variables *)
      
     (* If the right hand side is a get *)
     | Trm_apps(f1, [rbase]) ->
-      
       begin match lt.desc with
       (* If the variable and the left hand side is heap allocated*)
       | Trm_apps (f2, [lbase]) ->
