@@ -197,10 +197,11 @@ let trm_kind_to_string (k : trm_kind) : string =
   | TrmKind_Expr -> "Expr"
   | TrmKind_Any -> "Any"
 
+(* TODO: rename rexp_to_string *)
 let regexp_to_string (r : rexp) : string =
+  (trm_kind_to_string r.rexp_trm_kind) ^ "-" ^
   (if r.rexp_substr then "Sub" else "Exact") ^ "-" ^
-  (trm_kind_to_string r.rexp_trm_kind) ^
-  "(" ^ r.rexp_desc ^ ")"
+  r.rexp_desc
 
 let rec constr_to_string (c : constr) : string =
   match c with
@@ -588,7 +589,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_list cl_args tl &&
         check_target p_body body
      | Constr_decl_type name, Trm_typedef td ->
-        let is_new_typ = begin match td.typdef_body with 
+        let is_new_typ = begin match td.typdef_body with
         | Typdef_alias _ -> true
         | Typdef_prod _ -> true
         | _ -> false
@@ -849,7 +850,7 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
             add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++ *)
         add_dir Dir_body (resolve_target_simple p body)
      | Trm_typedef td  ->
-      begin match td.typdef_body with 
+      begin match td.typdef_body with
       | Typdef_enum xto_l ->
         let (il, tl) =
           foldi
@@ -997,7 +998,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
                 add_dir (Dir_case (n, cd)) (resolve_target_simple p ith_t))
        )
   | Dir_enum_const (n, ecd), Trm_typedef td ->
-     begin match td.typdef_body with 
+     begin match td.typdef_body with
      | Typdef_enum xto_l ->
           app_to_nth_dflt loc xto_l n
           (fun (x, t_o) ->
