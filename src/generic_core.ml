@@ -317,16 +317,19 @@ let get_field_list (td : typedef) : var list =
 
 
 
-let rec get_typid (t : trm) : int = 
+let get_typid (t : trm) : int = 
   let trm_typ = 
   begin match t.typ with 
-  | Some typ -> typ
-  | None -> fail t.loc "get_typid: no type was found"
+  | Some typ -> 
+      printf "For trm %s got type %s\n" (Ast_to_text.ast_to_string ~only_desc:false t) (Ast_to_text.typ_to_string typ);
+      typ
+  | None -> printf "For trm %s , failed to find typ \n" (Ast_to_text.ast_to_string ~only_desc:false t);
+      fail t.loc "get_typid: no type was found"
   end
   in
   match t.desc with 
-  | Trm_apps (_,[base]) -> get_typid base
-  | Trm_struct _ |Trm_var _ -> 
+  | Trm_apps (_,[_])
+  | Trm_struct _ | Trm_var _ -> 
     begin match trm_typ.typ_desc with 
     | Typ_constr(_,id,_) -> id
     | _ -> fail t.loc "get_typid: expected a user defined type"

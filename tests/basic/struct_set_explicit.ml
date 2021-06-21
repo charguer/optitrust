@@ -3,6 +3,8 @@ open Target
 
 let _ = Run.script_cpp ( fun _ ->
         
+
+        (* show [cInstr "d = p"]; *)
         Struct.set_explicit [cInstr "d = p"];
         !!(* make_explicit_record_assignment [cVarDef "b"] ~struct_name:"vect"; *)
         (* TODO : infer struct name if easy from LHS *)

@@ -20,7 +20,7 @@ int main() {
   vect d;
   d = p;
 
-  d = { 1, 2 }; // TODO !
+  // d = { 1, 2 }; // TODO !
 
   // vect e;
   // e = f();
@@ -29,19 +29,18 @@ int main() {
   obj a = {0,{0,0},{0,0}};
   vect u;
   u = a.pos;
-  vect t[2];
-  vect p2 = p;
-  t[0] = p2;
+  // vect t[2];
+  // vect p2 = p;
+  // t[0] = p2;
   /* TODO; unrestricted
   LFS = p;
   ->
   LFS.x = p.x;
   */
- for (int i = 0; i < 10; i++){
-   int x = 0;
-   x += i;
- }
+//  for (int i = 0; i < 10; i++){
+//    int x = 0;
+//    x += i;
+//  }
 
-  a.pos = p;
 
 }
