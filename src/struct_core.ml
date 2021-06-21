@@ -83,34 +83,56 @@ let set_explicit : Target.Transfo.local =
     return:
       the updated as
  *)
-(* let set_implicit_aux (t: trm) : trm =
+let set_implicit_aux (t: trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    (* To find out the variables of the structs whe just conside the first set instruction.
-      Assumption: The sequence contains only the struct field set instructions.
-     *)
     let first_instruction = List.hd tl in
-    begin match first_instruction.desc with
-    | Trm_apps(_,[ls;rs]) ->
-      (* Find left variable, seach for expression of the form v1.x  *)
-      let l_var = 
-        begin match  field_list oc "set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
-        end
-      in
-      let r_var = begin match  rs.desc with 
-      | Trm_apps(_,[base]) -> base
-      | Trm_var x -> trm_var x
-      | _ -> fail t.loc "set_implicit_aux: expected a heap stack allocated variable access, other expressions for the moment are not supported"
-      end
-      in
-      trm_set l_var r_var
-    | _ -> fail t.loc "set_implicit_aux: expected a set instruction"
+    begin match first_instruction.desc with 
+    | Trm_apps(f,[lhs;rhs]) ->
+          begin match f.desc with 
+          | Trm_val ( Val_prim ( Prim_binop Binop_set) ) -> 
+            let lt = begin match lhs.desc with 
+            | Trm_apps(f', [lt]) ->  
+              begin match f'.desc with 
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_access _))) 
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> lt
+              | _ -> fail f'.loc "set_implicit_aux: expected a struct access on the left hand side of the assignment"
+              end
+            | _ -> fail lhs.loc "set_implicit_aux: expected a struct access"
+            end
+            in 
+            let rt = begin match rhs.desc with 
+            | Trm_apps(f', [rt])  -> 
+              begin match f'.desc with 
+              | Trm_val ( Val_prim ( Prim_unop Unop_get ) ) ->
+                begin match rt.desc with 
+                | Trm_apps(f'',[rt]) ->
+                  begin match f''.desc with 
+                  | Trm_val (Val_prim (Prim_unop (Unop_struct_access _))) 
+                      | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> rt
+                      | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
+                  end
+                | _ -> fail f'.loc "set_implicit_aux: expected a trm_apps" 
+                end
+                      
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_access _))) 
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> rt
+              | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
+              end
+            | _ -> fail rhs.loc "set_implicit_aux: expected a struct access"
+            end
+            in
+            trm_set lt rt;
+          | _ -> fail f.loc "set_explicit_aux: expected an assignment instruction" 
+          end
+      | _ -> fail t.loc "set_implicit_aux: expected a sequence with all explicit assignments"
+        
     end
   | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
 
 (* [set_implicit t p] *)
 let set_implicit : Target.Transfo.local =
-  Target.apply_on_path(set_implicit_aux) *)
+  Target.apply_on_path(set_implicit_aux) 
 
 
 (* Auxiliary functions for reorder transformation *)

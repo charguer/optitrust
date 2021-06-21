@@ -5,8 +5,8 @@ open Target
 let set_explicit : Target.Transfo.t =
   Target.apply_on_target (Struct_core.set_explicit)
 
-(* let set_implicit : Target.Transfo.t =
-  Target.apply_on_target(Struct_core.set_implicit) *)
+let set_implicit : Target.Transfo.t =
+  Target.apply_on_target(Struct_core.set_implicit)
 
 let reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : var list) (tg : target) : unit =
   (* TODO: Ask Arthur about this way of solving the problem *)

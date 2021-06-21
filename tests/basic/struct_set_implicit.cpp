@@ -15,11 +15,16 @@ vect f() {
 }
 int main() {
   vect p = {0,0};
-  vect b = p;
-  
-  vect d;
-  d.x = 1;
-  d.y = 2;
+  vect b;
+  {
+    b.x = p.x;
+    b.y = p.y;
+  }
+
+  // vect d;
+  // { d.x = 1;
+  //   d.y = 2;
+  // }
 
   vect e;
   e = f();
