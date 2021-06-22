@@ -1,34 +1,15 @@
 open Ast
 open Target
 
-(* POSSIBLY at SOME POINT: split this file in typedef.ml and var.ml
-   Var.insert   Var.insert_const  Typdef.insert
-
-  int x = 3;
-
-  insert_and_fold_typedef t int
-    typedef int x
-    t x = 3
-
-  insert_and_fold y 3
-    int y = 3
-    int x = y
-*)
-
 (* [fold ~as_reference ~fold_at tg] *)
 let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Declaration_core.fold as_reference fold_at i t p) tg
+    (fun (p,i) t -> Variable_core.fold as_reference fold_at i t p) tg
 
 (* [insert ~const ~as_reference x dx tg] *)
 let insert ?(const : bool = false) ?(as_reference : bool = false) (x : var) (dx : var) (tg : target) : unit =
   Target.apply_on_target_between
-    (fun t (p,i) -> Declaration_core.insert const as_reference x dx i t p) tg
-
-(* [inert_typedef x dx tg] *)
-let insert_typedef (x : typvar) (dx : typ) (tg : target) : unit =
-  Target.apply_on_target_between
-    (fun t (p,i) -> Declaration_core.insert_typedef x dx i t p) tg
+    (fun t (p,i) -> Variable_core.insert const as_reference x dx i t p) tg
 
 (* [remove tg] *)
 let remove : Transfo.t =
@@ -38,28 +19,12 @@ let remove : Transfo.t =
 let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : trm) (tg : target) : unit =
   (* TODO: apply_on_target_between *)
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Declaration_core.insert_and_fold const as_reference x dx i fold_at t p) tg
-
-(* [insert_and_fold_typedef ~fold_at x dx tg] *)
-let insert_and_fold_typedef ?(fold_at : target list = [[]]) (x : var) (dx : typ) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Declaration_core.insert_and_fold_typedef x dx i fold_at t p) tg
+    (fun (p,i) t -> Variable_core.insert_and_fold const as_reference x dx i fold_at t p) tg
 
 (* [inline ~delete_decl ~inline_at tg] *)
 let inline ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Declaration_core.inline delete_decl inline_at i t p) tg
-
-(* [inline_typedef ~delete_decl ~inline_at tg]
-  TODO: document the fact that inline_at contains target that are relative to the sequence containing the typedef *)
-let inline_typedef ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t ->
-      (* TODO: here do the resolution of the inline_at  using List.map *)
-      Declaration_core.inline_typedef delete_decl inline_at i t p) tg
-
-
-
+    (fun (p,i) t -> Variable_core.inline delete_decl inline_at i t p) tg
 
 
 (* TODO: Remove current inline_fun_decl from inline_decl, these two functions should be independent *)
