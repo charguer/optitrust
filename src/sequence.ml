@@ -23,8 +23,19 @@ let iter_delete (tgl : target list) : unit =
     delete x ) () tgl
 
 (* [sub i nb tg] *)
-let sub (i : int) (nb : int) : Target.Transfo.t =
-  Target.apply_on_target (Sequence_core.sub i nb)
+let sub (nb : int) : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  (fun (p, i) t -> Sequence_core.sub i nb t p) 
+  
+(* [sub_between tg_beg tg_end] *)
+let sub_between (tg_beg : target) (tg_end : target) : unit = 
+  Target.apply_on_target_between(fun t (p,i1) ->
+   let path_to_end = resolve_target_between tg_end t in
+   begin match path_to_end with 
+   | [(_, i2)] -> Sequence_core.sub_between i1 i2 t p
+   | _ -> fail t.loc "sub_between: the begininig target and the end target should point to unique terms"
+   end ) tg_beg
+  
 
 (* [inline i tg] *)
 let inline (tg : target) : unit =

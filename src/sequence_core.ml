@@ -73,6 +73,33 @@ let sub_aux (index : int) (nb : int) (t : trm) : trm =
 let sub (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path (sub_aux index nb_instr)
 
+
+(* [sub_between_aux index1 index2 t]: This function is an auxiliary function for sub_between
+    params:
+      index1: index where the grouping starts
+      index2: index where the grouping ends
+      t: an ast subterm
+    return: the updated ast
+
+*)
+let sub_between_aux (index1 : int) (index2 : int) (t : trm) : trm =
+  match t.desc with
+    | Trm_seq tl ->
+      let lfront, lback = Tools.split_list_at index2 tl in
+      let lfront, l_sub = Tools.split_list_at index1 lfront in
+      (* Create the inner sequence*)
+      let sub_seq = trm_seq  l_sub in
+      let tl = lfront @ [sub_seq] @ lback in
+      (* Apply changes *)
+      trm_seq  tl
+    | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
+
+
+(* [sub index nb_instr] *)
+let sub_between (index1 : int) (index2 : int) : Target.Transfo.local =
+  Target.apply_on_path (sub_aux index1 index2)
+
+
 (* [inline_aux index t]: inline an inner sequence into an outer sequence.
     params:
       index: a valid index in the outer sequence; at that index, the subterm

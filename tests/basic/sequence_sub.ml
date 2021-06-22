@@ -13,7 +13,6 @@ examples:
   Sequence.sub_between [ cBefore; cInstr "int y" ] [ cAfter; cInstr "int z" ]
   Sequence.sub_between [cFunDef "main"; cStrict; cBody] [ cAfter; cInstr "int z" ]
  *)
-  !! Sequence.sub 1 2 [cFunDef "main"; cStrict; cBody];
-  !! Sequence.sub 3 1 [cFunDef "main"; cStrict; cBody];
-  !! Sequence.sub 0 4 [cFunDef "main"; cStrict; cBody];
+  Sequence.sub 1 [cVarDef "x"];
+  Sequence.sub_between [cBefore;cVarDef "y"] [cAfter;cVarDef "t"];
 )
