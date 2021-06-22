@@ -1,10 +1,7 @@
 open Optitrust
 open Target
-let _ = 
-    run
-    (fun _ ->
-        set_init_source"insert_var.cpp";
-        let vect_def= [cTypDef "vect"] in
-        Declaration.insert [cAfter;vect_def]  ~name:"size" ~value:"300" ();
-        dump()
+
+(* Works *)
+let _ = Run.script_cpp (fun _ ->
+        Variable.insert "size" "300" [ cAfter; cTypDef "vect"];
     )

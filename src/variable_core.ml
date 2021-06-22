@@ -15,7 +15,6 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
     let lfront, lback = Tools.split_list_at index tl in
     let d, lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
-    Ast_to_text.print_ast ~only_desc:true stdout d;
     begin match d.desc with
     | Trm_let (vk, (x, _), dx) ->
         let t_x =
@@ -80,7 +79,7 @@ let insert_aux (const : bool) (as_reference : bool) (x : var) (dx : string) (ind
     let t_insert =
       if const then trm_let Var_immutable (x,tx) def_x
       else
-        trm_let Var_mutable (x, tx) (trm_apps (trm_prim (Prim_new tx)) [def_x])
+        trm_let Var_mutable (x, typ_ptr tx) (trm_apps (trm_prim (Prim_new tx)) [def_x])
 
     in
     let tl = Tools.list_insert (index) t_insert tl in
