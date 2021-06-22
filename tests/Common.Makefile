@@ -71,7 +71,7 @@ optitrust: clean
 DIFF := diff --ignore-blank-lines --ignore-space-change -I '^//'
 
 # The build command for compiling a script
-BUILD := ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optitrust
+BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
 .PRECIOUS: %.byte %_out.cpp %.chk

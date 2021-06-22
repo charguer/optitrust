@@ -244,6 +244,43 @@ let group_decl_init (t : trm) : trm =
     | _ -> trm_map aux t
   in
   aux t
+
+(*
+  let parse_cstring (is_expression:bool) (s:string) : trm =
+  let ast =
+    Clang.Ast.parse_string
+      (Printf.sprintf
+         {|
+          void f(void){
+            #pragma clang diagnostic ignored "-Wunused-value"
+            %s
+          }
+          |}
+         (if is_expression then s ^ ";" else s)
+      )
+    in
+    match ast with
+    | trm_seq main
+      | trm_let_fun
+        | trm_seq ts ->
+            if not is_expression then ts else
+            match ts with
+            | [t] -> t
+
+
+  --> [term s] takes a C expression without semi-column at the end,
+      and returns the corresponding term (an expression)
+  let term (s : string) : trm =
+    parse_cstring true s
+
+  --> [stats s] takes a string, e.g. "int x = 5; x++; while(true){x++;}"
+  and it should return a list of terms, each of them being an instruction.
+
+  let stats (s : string) : trm list =
+    parse_cstring false s
+
+*)
+
 (* Get the sat of a C/C++ trm entered as a string *)
 let term (s : string) : trm =
   (* parse_string outputs a translation_unit, i.e. a list of declarations *)
@@ -261,6 +298,7 @@ let term (s : string) : trm =
       )
   in
   let t = Clang_to_ast.translate_ast ast in
+  (* TODO: probably should get rid of these recursive functions *)
   let term_from_f (def_f : trm) : trm =
     match def_f.desc with
     | Trm_let_fun (_, _, _, body) ->

@@ -65,7 +65,7 @@ sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_
 # ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust "${FILEBASE}_with_exit.byte"
 # TODO(Anton): replace this line with a dune command that uses directly /src/src files instead
 # of the installed package; only consider ${FILEBASE}.ml from local folder
-ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
+ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
 # LATER: capture the output error message
 # so we can do the postprocessing on it
 

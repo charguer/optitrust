@@ -9,6 +9,7 @@ open Tools
 let insert (tg : target) (ts : string list) : unit =
   Target.apply_on_target_between (fun t (p,i) ->
     Sequence_core.insert i ts p t) tg
+  (* TODO: call it   ; Trace.reparse() *)
 
 (* [delete index nb tg] *)
 let delete (nb : int) (tg : target) : unit =
