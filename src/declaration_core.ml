@@ -15,14 +15,22 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
     let lfront, lback = Tools.split_list_at index tl in
     let d, lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
+    Ast_to_text.print_ast ~only_desc:true stdout d;
     begin match d.desc with
-    | Trm_let (_,(x,_),dx) ->
+    | Trm_let (vk, (x, _), dx) ->
         let t_x =
           if as_reference then trm_apps (trm_unop Unop_get) [trm_var x]
           else trm_var x
         in
         let def_x =
-          if not as_reference then dx
+          if not as_reference then 
+            begin match vk with 
+            | Var_immutable -> dx
+            | _ -> begin match dx.desc with 
+                   | Trm_apps(_, [init]) -> init
+                   | _ -> fail t.loc "fold_aux: expected a new operation"
+                   end
+            end
           else
             match dx.add with
             | Add_address_of_operator :: addl -> {dx with add = addl}

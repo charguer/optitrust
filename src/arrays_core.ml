@@ -429,55 +429,66 @@ let swap (index : int) : Target.Transfo.local =
     return:
      the update ast
 *)
-let swap_accesses (x : typvar) (sz : size) (t : trm) : trm = 
+let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm = 
   let rec aux (global_trm : trm) (t : trm) : trm = 
-    Ast_to_text.print_ast ~only_desc:true stdout t;
-    Tools.printf "\n*******************************%s\n" "*******************";
-    match t.desc with 
-    | Trm_apps (f, [base]) ->
-      
-       begin match f.desc with
-       | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
-         | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
-          begin match base.desc with
-          | Trm_apps (f', [base'; index]) ->
-             begin match f'.desc with
-             | Trm_val (Val_prim (Prim_binop Binop_array_access))
-               | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
-                (*
-                  swap accesses only if the type of base' is x (or x* in case of
-                  an access on a heap allocated variable)
-                 *)
-                begin match base'.typ with
-                | Some {typ_desc = Typ_constr (y, _, _); _} when y = x ->
-                   (* x might appear both in index and in base' *)
-                   let base' = aux global_trm base' in
-                   let index = aux global_trm index in
-                   (* keep outer annotations *)
-                   trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-                     ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
-                | Some {typ_desc = Typ_ptr {typ_desc = Typ_constr (y, _, _); _}; _}
-                     when y = x ->
-                   (* x might appear both in index and in base' *)
-                   let base' = aux global_trm base' in
-                   let index = aux global_trm index in
-                   (* keep outer annotations *)
-                   trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
-                     ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
-                | _ -> trm_map (aux global_trm) t
-                end
-             | _ -> trm_map (aux global_trm) t
-             end
-          | _ -> trm_map (aux global_trm) t
-          end
-       | _ -> trm_map (aux global_trm) t
-       end
+    match t.desc with     
+    | Trm_apps(_,[get_base]) when t.annot = Some Access ->
+      begin match get_base.desc with 
+      | Trm_apps (f, [base]) ->
+         begin match f.desc with
+         | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
+           | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
+            begin match base.desc with
+            | Trm_apps (f', [base'; index]) ->
+               begin match f'.desc with
+               | Trm_val (Val_prim (Prim_binop Binop_array_access))
+                 | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+                  (*
+                    swap accesses only if the type of base' is x (or x* in case of
+                    an access on a heap allocated variable)
+                   *)
+                  let base'  = match base'.desc with
+                  | Trm_apps (_, [base'']) when base'.annot = Some Mutable_var_get -> base''
+                  | _ -> base'
+                   in
+                  let index  = match index.desc with
+                  | Trm_apps (_, [index']) when index.annot = Some Mutable_var_get -> index'
+                  | _ -> index
+                   in
+                  begin match base'.typ with
+                  | Some {typ_desc = Typ_constr (y, _, _); _} when y = x ->
+                     (* x might appear both in index and in base' *)
+                     let base' = aux global_trm base' in
+                     let index = aux global_trm index in
+                     (* keep outer annotations *)
+                     trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                       ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
+                  | Some {typ_desc = Typ_ptr {typ_desc = Typ_constr (y, _, _); _}; _}
+                       when y = x ->
+                     (* x might appear both in index and in base' *)
+                     let base' = aux global_trm base' in
+                     let index = aux global_trm index in
+                     (* keep outer annotations *)
+                     trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                       ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
+                  | _ -> trm_map (aux global_trm) t
+                  end
+                
+               | _ -> trm_map (aux global_trm) t
+               end
+            | _ -> trm_map (aux global_trm) t
+            end
+         | _ -> trm_map (aux global_trm) t
+         end
+      | _ -> trm_map (aux global_trm) t
+      end
+    
     (* other cases: recursive call *)
-    | Trm_typedef td when td.typdef_tconstr = x ->
+    | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with
       | Typdef_prod (tn, s) ->
         let s = List.map( fun (x, typ) -> (x, typ_array (typ) sz)) s in
-        trm_typedef {td with typdef_body = Typdef_prod (tn,s)}
+        trm_typedef {td with typdef_body = Typdef_prod (tn, s)}
 
       | _ -> fail t.loc "swap_accesses: expected a typedef struct"
       end
@@ -511,8 +522,8 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
           end
           in
           let new_decl = trm_let vk (n,typ_ptr a) (trm_prim ~loc:t.loc (Prim_new a)) in
-          let lfront = List.map (swap_accesses struct_name size) lfront in
-          let lback = List.map (swap_accesses struct_name size) lback in
+          let lfront = List.map (swap_accesses struct_name "" size) lfront in
+          let lback = List.map (swap_accesses struct_name "" size) lback in
           trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)
         | _ -> fail t.loc "expected an arrays of structures declaration"
         end
@@ -532,8 +543,8 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
             end
             in
             let new_decl = trm_typedef {td with typdef_body  = Typdef_alias a} in
-            let lfront = List.map (swap_accesses struct_name size) lfront in
-            let lback = List.map (swap_accesses struct_name size) lback in
+            let lfront = List.map (swap_accesses struct_name td.typdef_tconstr size) lfront in
+            let lback = List.map (swap_accesses struct_name td.typdef_tconstr size) lback in
             trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)
           | _ -> fail d.loc "aos_to_soa_aux: expected a typedef of array of structures"
           end

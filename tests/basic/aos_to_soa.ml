@@ -2,7 +2,9 @@ open Optitrust
 open Target
 open Target
 
-(* TODO: Fix the issue with get_typedef *)
+
+(* No error is produced but it doesn't transform the following expression' *)
 let _ = Run.script_cpp (fun () ->
+  (* show [cTypDef "vects"]; *)
   Arrays.aos_to_soa [cTypDef "vects"];
 )
