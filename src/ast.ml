@@ -317,6 +317,7 @@ and trm_desc =
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
   | Trm_decoration of string * trm * string
+    (* TODO: ARTHUR, make this a flag in [trm] rather than a constructor *)
   | Trm_any of trm
 
 and varkind =

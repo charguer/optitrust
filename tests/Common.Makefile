@@ -99,6 +99,7 @@ BUILD := ocamlbuild -quiet -pkgs clangml,refl,pprint,str,optitrust
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
 %_out.cpp: %.byte %.cpp
 	$(V)OCAMLRUNPARAM=b ./$<
+	$(V)echo "Produced $@"
 
 # Rule for building the binary associated with a test
 %.byte: %.ml
