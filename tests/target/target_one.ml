@@ -2,11 +2,6 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-  (** There should be exactly one result to each of the commands;
-      if it is not the case, we'll get an error. *)
-  (* let show = Tr.target_show in *)
-  (* let show = Generic.target_show in *)
-
   (* Constants *)
   show [ cInt 8 ];
 
@@ -50,7 +45,7 @@ let _ = Run.script_cpp (fun () ->
 
   show [cInstr "+= 2"];
   show [cNb 0; cExpr ~substr:false "+= 2"];
-  show [cNb 0; cInstr ~substr:true "+= 2"];
+  show [cNb 0; cInstr ~substr:true "+= 2"]; (* TODO : false or true ? *)
   show [cInstr (* default value: ~substr:true *) "r += 2"];
 
   show [cMulti; cExprRegexp ~substr:true "int . = .."]; (* TODO: should match is ; part of it or not? *)
