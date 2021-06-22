@@ -146,17 +146,22 @@ let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm)
     let lfront, lback = Tools.split_list_at index tl in
     let d,lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
-    let base_type =
-      begin match Generic_core.aliased_type x t with 
-      | None -> fail t.loc "tile_aux: unable to find array type"
-      | Some ty ->
-        begin match ty.typ_desc with 
+    
+    let base_type = 
+    begin match d.desc with
+    | Trm_typedef td ->
+      begin match td.typdef_body with
+      | Typdef_alias typ ->
+        begin match typ.typ_desc with 
         | Typ_ptr ty -> ty
-        | Typ_array (ty, _) -> ty
-        | _ -> fail t.loc "tile_aux: expecte array or pointer type"
+        | Typ_array(ty, _) -> ty
+        | _ -> fail d.loc "tile_aux: expected array or pointer type"
         end
+      | _ -> fail d.loc "tile_aux: expected a typedef abbrevation"      
       end
-    in
+    | _ -> fail d.loc "tile_aux: expected a trm_typedef"
+    end
+    in    
     (*
     replace sizeof(base_type) with sizeof(block_name)
     if another term is used for size: use b * t_size
@@ -184,6 +189,7 @@ let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm)
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
       | _ -> fail t.loc "new_alloc: expected array allocation"
     in
+    Ast_to_text.print_ast ~only_desc:true stdout d;
     let array_decl = begin match d.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with 
