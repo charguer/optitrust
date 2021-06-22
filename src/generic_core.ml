@@ -97,7 +97,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
           { td with typdef_body = Typdef_alias (change_typ ty)}
         | _ -> fail t.loc "apply_change: expected a typdef_alias"
        end
-      
+
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -310,7 +310,7 @@ let rec aliased_type (x : typvar) (t : trm) : typ option =
   | _ -> None
 
 
-let get_field_list (td : typedef) : var list = 
+let get_field_list (td : typedef) : var list =
   begin match td.typdef_body with
   | Typdef_prod (_, s) -> fst (List.split s)
   | _ -> fail None "get_field_lists: expected a Typedef_prod"
@@ -318,24 +318,24 @@ let get_field_list (td : typedef) : var list =
 
 
 
-let get_typid (t : trm) : int = 
-  let trm_typ = 
-  begin match t.typ with 
-  | Some typ -> 
+let get_typid (t : trm) : int =
+  let trm_typ =
+  begin match t.typ with
+  | Some typ ->
       (* printf "For trm %s got type %s\n" (Ast_to_text.ast_to_string ~only_desc:false t) (Ast_to_text.typ_to_string typ); *)
       typ
   | None -> printf "For trm %s , failed to find typ \n" (Ast_to_text.ast_to_string ~only_desc:false t);
       fail t.loc "get_typid: no type was found"
   end
   in
-  match t.desc with 
+  match t.desc with
   | Trm_apps (_,[_])
-  | Trm_struct _ | Trm_var _ -> 
-    begin match trm_typ.typ_desc with 
+  | Trm_struct _ | Trm_var _ ->
+    begin match trm_typ.typ_desc with
     | Typ_constr(_,id,_) -> id
     | _ -> fail t.loc "get_typid: expected a user defined type"
-    end 
- 
+    end
+
   | _ -> -1
 (* ********************************************** *)
 
@@ -442,7 +442,7 @@ let const_non_const_aux (t : trm) : trm =
   | _ -> fail t.loc "const_non_const_aux: variable declaration was not matched, make sure the path is correct"
 
 let const_non_const : Target.Transfo.local =
-  apply_on_path(const_non_const_aux)
+  apply_on_path (const_non_const_aux)
 
 
 (* [remove_instruction_aux t]: This is an auxiliary function for remove_instruction
@@ -456,7 +456,7 @@ let remove_instruction_aux (_t : trm) : trm =
   trm_seq ~annot:(Some No_braces) []
 
 let remove_instruction : Target.Transfo.local=
-  apply_on_path(remove_instruction_aux)
+  apply_on_path (remove_instruction_aux)
 
 (* [local_other_name var_type old_var new_var t]: This is an auxiliary function for local_other_name
     params:
@@ -646,12 +646,12 @@ let add_attribute_aux (a : attribute) (t : trm) : trm =
     trm_let vk (x, {tx with typ_attributes}) init
   | Trm_typedef td ->
     begin match td.typdef_body with
-    | Typdef_alias tx -> 
+    | Typdef_alias tx ->
       let typ_attributes = a :: tx.typ_attributes in
       trm_typedef {td with typdef_body = Typdef_alias {tx with typ_attributes}}
     | _ -> fail t.loc "add_attribute_aux: expected a typdef_alias"
     end
-    
+
   | _ ->  {t with attributes = a :: t.attributes}
 
 
