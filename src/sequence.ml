@@ -12,9 +12,15 @@ let insert (tg : target) (ts : string list) : unit =
   (* TODO: call it   ; Trace.reparse() *)
 
 (* [delete index nb tg] *)
-let delete (nb : int) (tg : target) : unit =
+let delete ?(nb : int = 1) (tg : target) : unit =
   Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
   (fun (p, i) t -> Sequence_core.delete i nb t p) tg
+
+
+(* [iter_delete tgl] *)
+let iter_delete (tgl : target list) : unit = 
+ List.fold_left (fun () x -> 
+    delete x ) () tgl
 
 (* [sub i nb tg] *)
 let sub (i : int) (nb : int) : Target.Transfo.t =
@@ -32,7 +38,6 @@ let wrap ?(visible : bool =  true) : Target.Transfo.t =
 (* [unwrap tg] *)
 let unwrap : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.unwrap)
-
 
 
 (* TODO: Remove function split_seq after implemented the new one *)

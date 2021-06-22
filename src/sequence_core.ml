@@ -34,8 +34,9 @@ let insert (index : int) (ts : string list) (path_to_seq : path) (t : trm) : trm
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
+      Tools.printf "index of the trm inside the sequence is %d\n" index;
       let lfront,lback = Tools.split_list_at index tl in
-      let _,lback = Tools.split_list_at (index + nb_instr) lback in
+      let _,lback = Tools.split_list_at nb_instr lback in
       (* Remove trms*)
       let tl = lfront @ lback in
       (* Apply the changes *)
@@ -142,3 +143,5 @@ let unwrap : Target.Transfo.local =
   Target.apply_on_path (unwrap_aux)
 
 (* TODO: Implement later distrib_ref after references have been implemented *)
+
+
