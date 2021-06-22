@@ -151,7 +151,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
       | _ -> trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_var x] 
       end
        in
-      Ast_to_text.print_ast ~only_desc:true stdout t_x;
+      Ast_to_text.print_ast ~only_desc:true stdout dl;
       let lback = List.map (Generic_core.change_trm ~change_at:inline_at t_x dx) lback in
       let tl =
         if delete_decl then lfront @ lback

@@ -15,25 +15,14 @@ open Tools
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   (* change all occurences of t_before in t' *)
-  let rec apply_change (t' : trm) =
+  let rec apply_change (t' : trm) : trm=
     (* necessary because of annotations that may be different *)
     if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
-    else trm_map apply_change t'
-      (* match t'.desc with *)
-      (*
-        particular case for heap allocation: do not change the lhs of the
-        initialisation
-       *)
-      (* | Trm_seq [t_decl; {desc = Trm_apps (_, [lhs; init]); loc; _}]
-           (* when t'.annot = Some Heap_allocated *) ->
-         trm_seq ~annot:t'.annot ~loc:t'.loc ~add:t'.add
-           ~attributes:t'.attributes
-           [
-             t_decl;
-             trm_set (* ~annot:(Some Initialisation_instruction) *) ~loc lhs
-               (apply_change init)
-           ]
-      | _ -> trm_map apply_change t' *)
+    else 
+      begin match t'.desc with
+      | Trm_let (vk, (x, tx), init) -> trm_let  vk (x, tx) (apply_change init)
+      | _ -> trm_map apply_change t'
+      end
   in
   List.fold_left
     (fun t' tr ->

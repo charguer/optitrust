@@ -276,7 +276,7 @@ and trm =
 *)
 
 and trm_desc =
-  (* TODO: Trm_arbitrary of string *)
+  (* | Trm_arbitrary of string *)
   | Trm_val of value
   | Trm_var of var (* LATER: varkind * var *)
   | Trm_array of trm list (* { 0, 3, 5} as an array *)
