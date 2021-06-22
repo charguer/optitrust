@@ -189,7 +189,6 @@ let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm)
          trm_apps t_cast [trm_apps t_alloc_fun [t_nb_elts; t_size_elt]]
       | _ -> fail t.loc "new_alloc: expected array allocation"
     in
-    Ast_to_text.print_ast ~only_desc:true stdout d;
     let array_decl = begin match d.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with 
@@ -204,7 +203,6 @@ let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm)
                   typdef_body = Typdef_alias (typ_array ty (Trm (trm_var b)))};
                 trm_typedef { 
                   td with typdef_tconstr = td.typdef_tconstr; 
-                  (* TODO:Fix this later *)
                   typdef_body = Typdef_alias (typ_ptr (typ_constr block_name td.typdef_typid []))}]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
@@ -241,7 +239,6 @@ let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm)
     | Trm_let (Var_mutable, (y,ty), init) when y = x ->
         begin match ty.typ_desc with 
         | Typ_ptr {typ_desc = Typ_constr (y, _, _); _} when y = x ->
-          (* TODO: Fix this code later *)
           trm_let Var_mutable (y, ty) init
         | _ -> fail t.loc "tile_aux: expected a pointer because of heap allocation"
         end
@@ -374,17 +371,17 @@ let tile (block_name : typvar) (b : var) (x : typvar) (index : int): Target.Tran
     return:
       the updated ast
 *)
-let swap_aux (x : typvar) (index : int) (t : trm) : trm =
+let swap_aux (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let d,lback = Tools.split_list_at 0 lback in
+    let d,lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
-    let new_decl = 
+    
     begin match d.desc with
       | Trm_typedef td ->
         begin match td.typdef_body with 
-        | Typdef_alias ty when td.typdef_tconstr = x ->
+        | Typdef_alias ty  ->
            let rec swap_type (ty : typ) : typ =
           match ty.typ_desc with
           | Typ_array ({typ_desc = Typ_array (ty', s'); typ_annot; typ_attributes},
@@ -407,20 +404,22 @@ let swap_aux (x : typvar) (index : int) (t : trm) : trm =
              end
           | _ -> fail None ("swap_type: must be an array")
         in
+        let new_decl = 
         trm_typedef ~annot: t.annot ~loc: t.loc ~is_statement:t.is_statement ~add:t.add
           {td with typdef_body = Typdef_alias (swap_type ty)}
+        in
+        let lback = List.map (apply_swapping td.typdef_tconstr ) lback in 
+        trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
         | _ -> fail t.loc "swap_aux: expected a declaration"
         end
       | _ -> fail t.loc "swap_aux: expected the typedef"
     end
-    in
-    let lback = List.map (apply_swapping x ) lback
-    in trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback) 
+    
   | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
 
 (* [swap name x index p t] *)
-let swap (x : typvar) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (swap_aux x index )
+let swap (index : int) : Target.Transfo.local =
+  Target.apply_on_path (swap_aux index )
 
 
 (* [swap_accesses x t]: This is an auxiliary function for aos_to_soa_aux

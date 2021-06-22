@@ -13,9 +13,9 @@ let tile (block_name : typvar) (b : var) (x : typvar) (tg : target) : unit =
     (fun (p,i) t -> Arrays_core.tile block_name b x i t p) tg
 
 (* [swap name x tg] *)
-let swap (x : typvar) (tg : target) : unit =
+let swap (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Arrays_core.swap x i t p) tg
+    (fun (p,i) t -> Arrays_core.swap i t p) tg
 
 
 
