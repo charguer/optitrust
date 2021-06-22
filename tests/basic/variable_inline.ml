@@ -1,13 +1,10 @@
 open Optitrust
 open Target
 
-let _ = run
-   ( fun _ ->
-   set_init_source"inline_decl_var.cpp";
-   Declaration.inline ~delete_decl:false [cVarDef "a"] ();
-   Declaration.inline ~delete_decl:true [cVarDef "c"] ();
-   Declaration.inline ~delete_decl:false [cVarDef "x"] ();
-   Declaration.inline ~delete_decl:false [cVarDef "z"] ();
-   dump()
+let _ = Run.script_cpp (fun _ ->
+   Variable.inline ~delete_decl:false [cVarDef "a"];
+   !!Variable.inline ~delete_decl:true [cVarDef "c"];
+   Variable.inline ~delete_decl:false [cVarDef "x"];
+   Variable.inline ~delete_decl:false [cVarDef "z"];
   )
 

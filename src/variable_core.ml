@@ -141,11 +141,17 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let dl, lback = Tools.split_list_at 0 lback in
+    let dl, lback = Tools.split_list_at 1 lback in
     let dl = List.hd dl in
     begin match dl.desc with
-    | Trm_let (_,(x,_), dx) ->
-      let t_x = trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_var x] in
+    | Trm_let (vk, (x, _), dx) ->
+      let t_x = 
+      begin match vk with 
+      | Var_immutable -> trm_var x
+      | _ -> trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_var x] 
+      end
+       in
+      Ast_to_text.print_ast ~only_desc:true stdout t_x;
       let lback = List.map (Generic_core.change_trm ~change_at:inline_at t_x dx) lback in
       let tl =
         if delete_decl then lfront @ lback
