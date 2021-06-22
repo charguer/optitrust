@@ -54,6 +54,7 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
 let fold (as_reference : bool) (fold_at : target list) (index) : Target.Transfo.local =
   Target.apply_on_path(fold_aux as_reference fold_at index)
 
+
 (* [insert_aux const as_reference x dx t]: This is an auxiliary function for insert
     params:
       const: boolean for the mutability of the declaration
@@ -151,8 +152,16 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
       | _ -> trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_var x] 
       end
        in
-      Ast_to_text.print_ast ~only_desc:true stdout dl;
-      let lback = List.map (Generic_core.change_trm ~change_at:inline_at t_x dx) lback in
+      let def_x = 
+      begin match vk with 
+            | Var_immutable -> dx
+            | _ -> begin match dx.desc with 
+                   | Trm_apps(_, [init]) -> init
+                   | _ -> fail t.loc "fold_aux: expected a new operation"
+                   end
+      end 
+       in
+      let lback = List.map (Generic_core.change_trm ~change_at:inline_at t_x def_x) lback in
       let tl =
         if delete_decl then lfront @ lback
         else lfront @ [dl] @ lback

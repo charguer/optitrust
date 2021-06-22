@@ -22,7 +22,7 @@ let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fol
     (fun (p,i) t -> Variable_core.insert_and_fold const as_reference x dx i fold_at t p) tg
 
 (* [inline ~delete_decl ~inline_at tg] *)
-let inline ?(delete_decl : bool = false) ?(inline_at : target list = []) (tg : target) : unit =
+let inline ?(delete_decl : bool = false) ?(inline_at : target list = [[]]) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.inline delete_decl inline_at i t p) tg
 

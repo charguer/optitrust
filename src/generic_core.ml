@@ -13,16 +13,14 @@ open Tools
 (* LATER: reimplement a function change_trm that operations on explicit paths
    and thus does not need to do resolution again. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
-  (t_after : trm) (t : trm) : trm =
+  (t_after : trm) (t : trm) : trm =    
   (* change all occurences of t_before in t' *)
   let rec apply_change (t' : trm) : trm=
     (* necessary because of annotations that may be different *)
+    (* Tools.printf "change %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_after); *)
+    
     if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
-    else 
-      begin match t'.desc with
-      | Trm_let (vk, (x, tx), init) -> trm_let  vk (x, tx) (apply_change init)
-      | _ -> trm_map apply_change t'
-      end
+    else trm_map apply_change t'
   in
   List.fold_left
     (fun t' tr ->
@@ -39,6 +37,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
     )
     t
     change_at
+
 
 
 
