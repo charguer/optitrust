@@ -83,10 +83,17 @@ and typ_annot =
   | Long
   | Short
 
+(* LATER
+and typ_flags = {
+    typ_flags_generated_star : bool;
+}
+*)
+
 and typ = {
   typ_desc : typ_desc;
   typ_annot : typ_annot list;
-  typ_attributes : attribute list }
+  typ_attributes : attribute list;
+ (*  typ_flags : typ_flags  *) }
   (* IN THE FUTURE
   ty_env : env; --> tells you for every type what is its definition
   *)
@@ -207,9 +214,10 @@ and print_addition =
   | Add_star_operator
 
 (* We only need to support two specific attributes for the time being *)
-and attribute =
+and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Identifier of var
   | Aligned of trm
+  | GeneratedStar
 
 (*
   annotated terms
@@ -969,3 +977,7 @@ let nb_goto (l : label) (t : trm) : int =
   in
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1) *)
 
+
+
+let is_generated_star (ty : typ) : bool =
+  List.mem GeneratedStar ty.attribute
