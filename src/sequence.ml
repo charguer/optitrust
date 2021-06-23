@@ -6,9 +6,9 @@ open Tools
 (* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)
 
 (* [insert tg ts] *)
-let insert (tg : target) (ts : string list) : unit =
+let insert (tg : target) (s : string) : unit =
   Target.apply_on_target_between (fun t (p,i) ->
-    Sequence_core.insert i ts p t) tg
+    Sequence_core.insert i s p t) tg
   (* TODO: call it   ; Trace.reparse() *)
 
 (* [delete index nb tg] *)

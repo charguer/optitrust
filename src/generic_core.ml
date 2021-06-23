@@ -237,6 +237,38 @@ let group_decl_init (t : trm) : trm =
   in
   aux t
 
+
+let parse_cstring (is_expression : bool) (s : string) : trm list = 
+ let ast =
+    Clang.Ast.parse_string
+      (Printf.sprintf
+         {|
+          void f(void){
+            #pragma clang diagnostic ignored "-Wunused-value"
+            %s
+          }
+          |}
+         (if is_expression then s ^ ";" else s)
+      )
+  in
+  let t = Clang_to_ast.translate_ast ast in
+  Ast_to_text.print_ast ~only_desc:true stdout t;
+  match t.desc with 
+  | Trm_seq [t] -> 
+     begin match t.desc with 
+     | Trm_seq[fun_def] ->
+        begin match fun_def.desc with 
+        | Trm_let_fun (_, _, _, fun_body) ->
+          begin match fun_body.desc with
+          | Trm_seq tl -> tl 
+          | _ -> fail fun_body.loc "parse_cstring: expcted a sequence of terms"
+          end
+        | _ -> fail fun_def.loc "parse_cstring: expected a function definition"
+        end
+     | _ -> fail t.loc "parse_cstring: expected another sequence"
+     end
+  | _-> fail t.loc "parse_cstring: exptected with only one trm"
+
 (*
   let parse_cstring (is_expression:bool) (s:string) : trm =
   let ast =
@@ -275,45 +307,13 @@ let group_decl_init (t : trm) : trm =
 
 (* Get the sat of a C/C++ trm entered as a string *)
 let term (s : string) : trm =
-  (* parse_string outputs a translation_unit, i.e. a list of declarations *)
-  (* Printf.printf "context: %s\n" context; *)
-  let ast =
-    Clang.Ast.parse_string
-      (Printf.sprintf
-         {|
-          void f(void){
-            #pragma clang diagnostic ignored "-Wunused-value"
-            %s;
-          }
-          |}
-         s
-      )
-  in
-  let t = Clang_to_ast.translate_ast ast in
-  (* TODO: probably should get rid of these recursive functions *)
-  let term_from_f (def_f : trm) : trm =
-    match def_f.desc with
-    | Trm_let_fun (_, _, _, body) ->
-       begin match body.desc with
-        | Trm_seq [t] -> t
-        | _ -> fail def_f.loc "term_from_f: unexpected body"
-        end
-    | Trm_seq [t] -> t
-    | _ -> fail def_f.loc "term_from_f: expected definition"
-  in
-  let rec get_term (t : trm) : trm =
-    match t.desc with
-    (*
-      if the context contains heap allocated variables, t contains a deletion
-      list
-     *)
-    (* otherwise find the declaration of f *)
-    | Trm_seq tl -> get_term (List.hd (List.rev tl))
-    (* once the declaration is found, look for the term inside *)
-    | Trm_let_fun _ -> term_from_f t
-    | _ -> fail t.loc "get_term: unexpected result"
-  in
-  get_term t
+  let tl = parse_cstring true s in
+  match tl with 
+  | [expr] -> expr
+  | _ -> fail None "term: expcted a list with only one element"
+
+let stats (s : string) : trm list = 
+  parse_cstring false s
 
 (*
   aliased_type X takes as argument the description of a file

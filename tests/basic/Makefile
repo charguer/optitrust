@@ -16,6 +16,7 @@ TESTS := \
   loop_split \
   loop_swap.ml \
   loop_tile.ml \
+	sequence_delete.ml \
   sequence_inline.ml \
   sequence_sub.ml \
   sequence_wrap.ml \
@@ -28,7 +29,6 @@ TESTS := \
 	variable_inline.ml \
 	variable_insert.ml \
   
-  #sequence_delete.ml \
   #sequence_insert.ml \
 	# "struct_set_explicit.ml \
 	# typedef_insert.ml 
