@@ -7,7 +7,7 @@ open Target
 (* TODO: Doesn't work *)
 
 let _ = Run.script_cpp( fun _ ->
-        Declaration.inline_typedef [cTypDef "uint"];
-        Declaration.inline_typedef [cTypDef "cdouble"];
-        Declaration.inline [cTypDef "mat3d"];
+        Typedef.inline [cTypDef "uint"];
+        !!Typedef.inline [cTypDef "cdouble"];
+        Typedef.inline [cTypDef "mat3d"];
     )
