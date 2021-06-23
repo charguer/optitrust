@@ -123,7 +123,7 @@ let cInclude (s : string) : constr =
 
 let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
     { rexp_desc = (if regexp then "Regexp" else "String") ^ "(" ^ s ^ ")";
-      rexp_exp = (if regexp then Str.regexp s else 
+      rexp_exp = (if regexp then Str.regexp s else
                        if substr then Str.regexp_string s else Str.regexp ("^" ^ s ^ "$"));
       rexp_substr = substr;
       rexp_trm_kind = trmKind; }
@@ -494,17 +494,26 @@ let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit
       tg: target
     return:
       unit
+
+  Note: all transformations that insert or remove instructions in a sequence can invalidate indices
+  computed during target resolution in case the target resolution produces multiple targets.
+  To preserve the validity of the indices, one trick is to process the targets starting with the
+  ones at larger indices, that is, by processing the targets in reverse order. This can be achieved
+  by passing the flag [~rev:true] to the call.
 *)
-let applyi_on_trasformed_targets (transformer: path -> 'a) (tr: int -> 'a -> trm -> trm ) (tg : target) : unit =
- Trace.apply(fun _ t  ->
+let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> 'a -> trm -> trm ) (tg : target) : unit =
+ Trace.apply (fun _ t  ->
   let ps = resolve_target tg t in
   let descrs = List.map transformer ps in
+  let descrs = if rev then List.rev descrs else descrs in
   Tools.foldi (fun i t descr -> tr i descr t) t descrs)
 
- 
-let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
-  applyi_on_trasformed_targets transformer (fun _i descr t -> tr descr t) tg
-  
+let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
+  applyi_on_transformed_targets ~rev transformer (fun _i descr t -> tr descr t) tg
+
+(* LATER: see if [rev]  argument is also needed for [apply_on_targets] *)
+
+
   (* Trace.apply (fun _ t ->
     let ps = resolve_target tg t in
     let descrs = List.map transformer ps in

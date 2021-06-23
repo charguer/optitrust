@@ -200,9 +200,9 @@ val apply_on_target : (trm -> path -> trm) -> target -> unit
 
 val apply_on_target_between : (trm -> (path*int) -> trm) -> target -> unit
 
-val applyi_on_trasformed_targets : (path -> 'a) -> (int -> 'a -> trm -> trm) -> target -> unit
+val applyi_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> 'a -> trm -> trm) -> target -> unit
 
-val apply_on_transformed_targets : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
+val apply_on_transformed_targets : ?rev:bool -> (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
 val show : ?line:int -> ?debug_ast:bool -> target -> unit
 

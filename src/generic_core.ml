@@ -13,12 +13,12 @@ open Tools
 (* LATER: reimplement a function change_trm that operations on explicit paths
    and thus does not need to do resolution again. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
-  (t_after : trm) (t : trm) : trm =    
+  (t_after : trm) (t : trm) : trm =
   (* change all occurences of t_before in t' *)
   let rec apply_change (t' : trm) : trm=
     (* necessary because of annotations that may be different *)
     (* Tools.printf "change %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_after); *)
-    
+
     if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
     else trm_map apply_change t'
   in
@@ -83,7 +83,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
        | Typdef_alias ty ->
          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
           { td with typdef_body = Typdef_alias (change_typ ty)}
-       | Typdef_prod (b, s) -> 
+       | Typdef_prod (b, s) ->
           let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
           trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
           { td with typdef_body = Typdef_prod (b, s)}
@@ -176,8 +176,8 @@ let clean_up_no_brace_seq (t : trm) : trm =
 let isolate_last_dir_in_seq (dl : path) : path * int =
   match List.rev dl with
   | Dir_nth i :: dl' -> (List.rev dl',i)
-  | _ -> fail None "isolate_last_dir_in_seq: cannot isolate the definition in a sequence"
-
+  | _ -> fail None "isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
+  (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
 (* compute a fresh variable (w.r.t. t) based on x *)
 let fresh_in (t : trm) (x : var) : var =
@@ -238,7 +238,7 @@ let group_decl_init (t : trm) : trm =
   aux t
 
 
-let parse_cstring (is_expression : bool) (s : string) : trm list = 
+let parse_cstring (is_expression : bool) (s : string) : trm list =
  let ast =
     Clang.Ast.parse_string
       (Printf.sprintf
@@ -253,14 +253,14 @@ let parse_cstring (is_expression : bool) (s : string) : trm list =
   in
   let t = Clang_to_ast.translate_ast ast in
   Ast_to_text.print_ast ~only_desc:true stdout t;
-  match t.desc with 
-  | Trm_seq [t] -> 
-     begin match t.desc with 
+  match t.desc with
+  | Trm_seq [t] ->
+     begin match t.desc with
      | Trm_seq[fun_def] ->
-        begin match fun_def.desc with 
+        begin match fun_def.desc with
         | Trm_let_fun (_, _, _, fun_body) ->
           begin match fun_body.desc with
-          | Trm_seq tl -> tl 
+          | Trm_seq tl -> tl
           | _ -> fail fun_body.loc "parse_cstring: expcted a sequence of terms"
           end
         | _ -> fail fun_def.loc "parse_cstring: expected a function definition"
@@ -308,11 +308,11 @@ let parse_cstring (is_expression : bool) (s : string) : trm list =
 (* Get the sat of a C/C++ trm entered as a string *)
 let term (s : string) : trm =
   let tl = parse_cstring true s in
-  match tl with 
+  match tl with
   | [expr] -> expr
   | _ -> fail None "term: expcted a list with only one element"
 
-let stats (s : string) : trm list = 
+let stats (s : string) : trm list =
   parse_cstring false s
 
 (*

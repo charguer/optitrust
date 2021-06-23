@@ -229,4 +229,8 @@ let fresh_generator () : (unit -> int) =
     incr n;
     !n
 
+(* used for unit tests *)
+let failure_expected (f : unit -> unit) : unit =
+  try f(); failwith "failure_expected: the operation was supposed to fail but it didn't"
+  with _ -> ()
 

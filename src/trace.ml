@@ -498,10 +498,3 @@ let only_interactive_step (line : int) (f : unit -> unit) : unit =
     dump_diff_and_exit()
   end
 
-
-
-(* DEPRECATED---was used for unit tests
-let failure_expected f =
-  begin try f(); failwith "should have failed"
-  with TransfoError _ -> () end
-*)

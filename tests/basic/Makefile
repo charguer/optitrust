@@ -1,6 +1,10 @@
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
+# Validated: sequence_delete
+
+# Tocheck: sequence_sub
+
 # List of files to consider.
 TESTS := \
   aos_to_soa.ml \
@@ -28,11 +32,11 @@ TESTS := \
 	variable_fold.ml \
 	variable_inline.ml \
 	variable_insert.ml \
-  
+
   #sequence_insert.ml \
 	# "struct_set_explicit.ml \
-	# typedef_insert.ml 
-	
+	# typedef_insert.ml
+
 
 
 # To consider all ml files except specific ones, use EXCLUDE_TESTS (see ../Common.Makefile)
