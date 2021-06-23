@@ -21,12 +21,10 @@ let insert_and_fold ?(fold_at : target list = [[]]) (x : var) (dx : typ) (tg : t
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Typedef_core.insert_and_fold x dx i fold_at t p) tg
 
-(* [inline ~delete_decl ~inline_at tg]
-  TODO: document the fact that inline_at contains target that are relative to the sequence containing the typedef *)
+(* [inline ~delete_decl ~inline_at tg]*)
 let inline ?(delete_decl : bool = false) ?(inline_at : target list = [[]]) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t ->
-      (* TODO: here do the resolution of the inline_at  using List.map *)
       Typedef_core.inline delete_decl inline_at i t p) tg
 
 

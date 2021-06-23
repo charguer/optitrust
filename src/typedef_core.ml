@@ -111,7 +111,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
     | Trm_typedef td ->
      begin match td.typdef_body with
      | Typdef_alias dx ->
-      let ty_x = typ_var td.typdef_tconstr in
+      let ty_x = typ_constr td.typdef_tconstr td.typdef_typid [] in
       let lback = List.map(Generic_core.change_typ ~change_at:inline_at ty_x dx) lback in
       let tl =
         if delete_decl then lfront @ lback
