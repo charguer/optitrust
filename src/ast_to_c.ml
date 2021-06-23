@@ -321,7 +321,9 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       else
         begin match typ.typ_desc with
           | Typ_ptr tx -> (x, tx)
-          | _ -> fail None "trm_let_to_doc: expected a type ptr"
+          | _ -> (x, typ)
+          (* | _ -> Tools.printf "Type is %s\n" (Ast_to_text.typ_to_string typ);
+            fail None "trm_let_to_doc: expected a type ptr" *)
         end
     in
     let init =

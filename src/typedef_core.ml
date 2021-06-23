@@ -14,7 +14,6 @@ let fold_aux (fold_at : target list) (index : int) (t : trm) : trm=
     let lfront, lback = Tools.split_list_at index tl in
     let d, lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
-    Ast_to_text.print_ast ~only_desc:true stdout d;
     begin match d.desc with
      | Trm_typedef td ->
        begin match td.typdef_body with
@@ -127,9 +126,4 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
 (* [inline delete_decl inline_at index t p] *)
 let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux delete_decl inline_at index)
-
-(*
-
-
-*)
 

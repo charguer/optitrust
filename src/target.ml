@@ -495,11 +495,20 @@ let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit
     return:
       unit
 *)
+let applyi_on_trasformed_targets (transformer: path -> 'a) (tr: int -> 'a -> trm -> trm ) (tg : target) : unit =
+ Trace.apply(fun _ t  ->
+  let ps = resolve_target tg t in
+  let descrs = List.map transformer ps in
+  Tools.foldi (fun i t descr -> tr i descr t) t descrs)
+
+ 
 let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
-  Trace.apply (fun _ t ->
+  applyi_on_trasformed_targets transformer (fun _i descr t -> tr descr t) tg
+  
+  (* Trace.apply (fun _ t ->
     let ps = resolve_target tg t in
     let descrs = List.map transformer ps in
-    List.fold_left (fun t descr -> tr descr t) t descrs)
+    List.fold_left (fun t descr -> tr descr t) t descrs) *)
 
 
 (******************************************************************************)

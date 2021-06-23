@@ -34,12 +34,9 @@ let insert (index : int) (ts : string list) (path_to_seq : path) (t : trm) : trm
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      Tools.printf "index of the trm inside the sequence is %d\n" index;
       let lfront,lback = Tools.split_list_at index tl in
       let _,lback = Tools.split_list_at nb_instr lback in
-      (* Remove trms*)
       let tl = lfront @ lback in
-      (* Apply the changes *)
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 

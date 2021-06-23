@@ -22,14 +22,15 @@ TESTS := \
   sequence_unwrap.ml \
   struct_reorder.ml \
   struct_set_implicit.ml \
-  variable_fold.ml \
+  typedef_fold.ml \
+	typedef_inline.ml \
+	variable_fold.ml \
 	variable_inline.ml \
 	variable_insert.ml \
+  
   #sequence_delete.ml \
   #sequence_insert.ml \
 	# "struct_set_explicit.ml \
-	# typedef_fold.ml \
-	# typedef_inline.ml \
 	# typedef_insert.ml 
 	
 

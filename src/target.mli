@@ -187,14 +187,21 @@ val target_list_pred_always_true : target_list_pred
 (* Target resolution *)
 
 val resolve_target : target -> trm -> paths
+
 val resolve_target_between : target -> trm -> (path * int) list
 
 val target_to_decl : var -> trm -> path option
 
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
+
 val applyi_on_target : (int -> trm -> path -> trm) -> target -> unit
+
 val apply_on_target : (trm -> path -> trm) -> target -> unit
+
 val apply_on_target_between : (trm -> (path*int) -> trm) -> target -> unit
+
+val applyi_on_trasformed_targets : (path -> 'a) -> (int -> 'a -> trm -> trm) -> target -> unit
+
 val apply_on_transformed_targets : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
 val show : ?line:int -> ?debug_ast:bool -> target -> unit
