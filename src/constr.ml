@@ -647,7 +647,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
 and check_name (name : constr_name) (s : string) : bool =
   match name with
   | None -> true
-  | Some r -> 
+  | Some r ->
      match_regexp_str r  s
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
@@ -733,7 +733,11 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
     match trs with
     | [] -> [[]]
     | Constr_strict :: tr -> resolve_target_simple ~strict:true tr t
+  (*| Constr_dir d :: tr -> follow_dir d tr t   TODO: either this *)
     | c :: p ->
+   (* TODO/ or  that:
+       let strict = match trs with Constr_dir _d :: _tr -> true | _ -> strict in
+   *)
       let res_deep =
         if strict
            then [] (* in strict mode, must match c here *)
