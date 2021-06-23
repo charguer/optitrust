@@ -19,10 +19,8 @@ let fold_aux (fold_at : target list) (index : int) (t : trm) : trm=
      | Trm_typedef td ->
        begin match td.typdef_body with
        | Typdef_alias dx ->
-        let ty_x = typ_var td.typdef_tconstr in
-        let lback = List.map(Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in
-        let change_at = [[cTypDef td.typdef_tconstr]] in
-        let lback = List.map(Generic_core.change_typ ~change_at ty_x dx) lback in
+        let ty_x = typ_constr td.typdef_tconstr  td.typdef_typid [] in
+        let lback = List.map (Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in
         trm_seq (lfront @ [d] @ lback)
        | _ -> fail t.loc "fold_decl: expected a typedef"
        end

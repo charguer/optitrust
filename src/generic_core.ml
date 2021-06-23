@@ -83,7 +83,11 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
        | Typdef_alias ty ->
          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
           { td with typdef_body = Typdef_alias (change_typ ty)}
-        | _ -> fail t.loc "apply_change: expected a typdef_alias"
+       | Typdef_prod (b, s) -> 
+          let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
+          trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
+          { td with typdef_body = Typdef_prod (b, s)}
+       | _ -> trm_map aux t
        end
 
       | _ -> trm_map aux t
