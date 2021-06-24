@@ -140,21 +140,21 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
 
 
 (* [tile_aux: name block_name b x t] *)
-let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm) : trm = 
+let tile_aux (block_name : typvar) (b : var) (index: int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
     let d,lback = Tools.split_list_at 1 lback in
     let d = List.hd d in
     
-    let base_type = 
+    let base_type_name, base_type = 
     begin match d.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with
       | Typdef_alias typ ->
         begin match typ.typ_desc with 
-        | Typ_ptr ty -> ty
-        | Typ_array(ty, _) -> ty
+        | Typ_ptr ty -> td.typdef_tconstr, ty
+        | Typ_array(ty, _) -> td.typdef_tconstr, ty
         | _ -> fail d.loc "tile_aux: expected array or pointer type"
         end
       | _ -> fail d.loc "tile_aux: expected a typedef abbrevation"      
@@ -192,7 +192,7 @@ let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm)
     let array_decl = begin match d.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with 
-      | Typdef_alias ty when td.typdef_tconstr = x ->
+      | Typdef_alias ty  ->
          begin match ty.typ_desc with
         | Typ_ptr ty -> 
            (* ty* becomes (ty[])* *)
@@ -236,9 +236,9 @@ let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm)
         end
       | _ -> fail t.loc "tile_aux: no enums expected"
       end
-    | Trm_let (Var_mutable, (y,ty), init) when y = x ->
+    | Trm_let (Var_mutable, (y,ty), init) when y = base_type_name ->
         begin match ty.typ_desc with 
-        | Typ_ptr {typ_desc = Typ_constr (y, _, _); _} when y = x ->
+        | Typ_ptr {typ_desc = Typ_constr (y, _, _); _} when y = base_type_name ->
           trm_let Var_mutable (y, ty) init
         | _ -> fail t.loc "tile_aux: expected a pointer because of heap allocation"
         end
@@ -246,23 +246,23 @@ let tile_aux (block_name : typvar) (b : var) (x : typvar) (index: int) (t : trm)
               [lhs; rhs]) ->
         (* lhs should have type x *)
         begin match lhs.typ with
-        | Some {typ_desc = Typ_constr (y, _, _); _} when y = x ->
+        | Some {typ_desc = Typ_constr (y, _, _); _} when y = base_type_name ->
            trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
              ~typ:t.typ (trm_binop Binop_set) [lhs; new_alloc rhs]
-        | _ -> trm_map (apply_tiling base_type block_name (trm_var b) x) t
+        | _ -> trm_map (apply_tiling base_type block_name (trm_var b) base_type_name) t
         end
     | _-> fail t.loc "tile_aux: expected a declaration"
       end
      
     in
-    let lback = List.map (apply_tiling base_type block_name (trm_var b) x) lback in
+    let lback = List.map (apply_tiling base_type block_name (trm_var b) base_type_name) lback in
     trm_seq ~annot:t.annot (lfront @ [array_decl] @ lback)
 
   | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
 
 (* [tile name block_name b x index p t] *)
-let tile (block_name : typvar) (b : var) (x : typvar) (index : int): Target.Transfo.local =
-  Target.apply_on_path(tile_aux block_name b x index)
+let tile (block_name : typvar) (b : var) (index : int): Target.Transfo.local =
+  Target.apply_on_path(tile_aux block_name b index)
 
 
 (* [apply_swapping x t]: This is an auxiliary function for array_swap

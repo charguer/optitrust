@@ -8,9 +8,9 @@ let to_variables (new_vars : var list) (tg : target) : unit =
   ) tg
 
 (*[tile name block_name b x tg]*)
-let tile (block_name : typvar) (b : var) (x : typvar) (tg : target) : unit =
+let tile (block_name : typvar) (b : var) (tg : target) : unit =
   Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Arrays_core.tile block_name b x i t p) tg
+    (fun (p,i) t -> Arrays_core.tile block_name b i t p) tg
 
 (* [swap name x tg] *)
 let swap (tg : target) : unit =
