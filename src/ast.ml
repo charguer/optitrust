@@ -954,3 +954,54 @@ let nb_goto (l : label) (t : trm) : int =
 
 let is_generated_star (ty : typ) : bool =
   List.mem GeneratedStar ty.typ_attributes
+
+(* TODO: replace
+        Ast_to_c.typ_to_string ty = Ast_to_c.typ_to_string ty_before
+      with a call to the comparison funciton --> to move to ast.ml
+        let rec same_types (mustMatchGeneratedStar : bool) (tya : typ) (tyb : typ) : bool =
+          let aux = same_types mustMatchGeneratedStar in
+          (typa.typ_annot = typb.typ_annot) &&
+          match tya, tyb with
+          | Typ_ptr tya1, Typ_ptr tyb1 ->
+              (if mustMatchGeneratedStar
+                then (is_generated_star tya = is_generated_star tyb)
+                else true)
+              && (aux tya1 tyb1)
+          | Typ_int, Typ_int -> true
+          | ...
+          | _,_ -> false (* if different constructors *)
+*)
+
+let same_sizes (sz1 : size) (sz2 : size) : bool =
+ match sz1, sz2 with
+ | Undefined, Undefined -> true
+ | Const i1, Const i2 -> i1 = i2
+ | Trm _, Trm _ -> false
+ | _, _ -> false
+
+let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 : typ) : bool =
+  let aux = same_types ~match_generated_star in
+  (typ_1.typ_annot = typ_2.typ_annot) && 
+  (
+  match typ_1.typ_desc, typ_2.typ_desc with 
+  | Typ_const typ_a1, Typ_const typ_a2 ->
+    (aux typ_a1 typ_a2)
+  | Typ_var a1, Typ_var a2 ->
+    a1 = a2
+  | Typ_constr (typ_var1, typ_id1, typ_list1), Typ_constr (typ_var2, typ_id2, typ_list2) ->
+    (typ_var1 = typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
+  | Typ_unit, Typ_unit -> true
+  | Typ_int, Typ_int -> true
+  | Typ_float, Typ_float -> true
+  | Typ_double, Typ_double -> true
+  | Typ_bool, Typ_bool -> true
+  | Typ_char, Typ_char -> true
+  | Typ_ptr typ_a1, Typ_ptr typ_a2 ->
+   if match_generated_star then (is_generated_star typ_1 = is_generated_star typ_2)
+    else true
+    && (aux typ_a1 typ_a2) 
+  | Typ_array (typa1, size1), Typ_array (typa2, size2) -> (same_types typa1 typa2) && (same_sizes size1 size2)
+
+  | _, _ -> false
+  )
+
