@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
   (* LATER/ sExpr->cINstr *)
-   !! Sequence.sub_between [ tAfter; sExpr "int u" ] [ tLast; cFunDef "main"; cStrict; dBody];
+   !! Sequence.sub_between [ tAfter; sInstr "int u" ] [ tLast; cFunDef "main"; cStrict; dBody];
 
   !! Sequence.sub 1 [cVarDef "x"];
   !! Sequence.sub_between [tBefore;cVarDef "y"] [tAfter;cVarDef "t"];

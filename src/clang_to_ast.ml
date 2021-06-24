@@ -11,12 +11,11 @@ let loc_of_node (n : 'a node) : location =
   let end_location_of_node = Clang.get_range_end (Clang.get_cursor_extent (Clang.Ast.cursor_of_node n )) in
   let (filename, start_row,start_column) = Clang.get_presumed_location start_location_of_node in
   let (_, end_row,end_column) = Clang.get_presumed_location end_location_of_node in
-  Some(filename,start_row,end_row,start_column,end_column)
-
+  Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}}
 (* file which contains the node *)
 let file_of_node (n : 'a node) : string =
   match loc_of_node n with
-  | Some (filename,_,_,_,_) -> filename
+  | Some {loc_file = filename; _} -> filename
   | _ -> fail None "file_of_node: bad location"
 
 (* type to control the way nodes are translated *)
@@ -535,10 +534,10 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
   | UnaryOperator {kind = k; operand = e} ->
     let loc = (* deduce location of infix symbol *)
       match loc, loc_of_node e with
-      | Some (file,line1,col1,_,_), Some (_,line2,col2,_,_) ->
-          Some (file,line1,col1,line2,col2)
+      | Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; _}, Some {loc_start = {pos_line = start_row2; pos_col = start_column2}; _}->
+        Some {loc_file = file; loc_start = {pos_line = start_row1; pos_col = start_column1}; loc_end = {pos_line = start_row2; pos_col = start_column2}}
       | _ -> None
-      in
+     in
     begin match k with
       | AddrOf -> (* expectation: e is not a const variable *)
         (* We are translating a term of the form that involves [&p],
@@ -596,8 +595,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
   | BinaryOperator {lhs = le; kind = k; rhs = re} ->
     let loc = (* deduce location of infix symbol *)
       match loc_of_node le, loc_of_node re with
-      | Some (file,_,_,line1,col1), Some (_,line2,col2,_,_) ->
-          Some (file,line1,col1,line2,col2)
+      | Some {loc_file = file; loc_end = {pos_line = end_row1; pos_col = end_column1}; _}, Some {loc_start = {pos_line = start_row2; pos_col = start_column2}; _}->
+        Some {loc_file = file; loc_start = {pos_line = end_row1; pos_col = end_column1}; loc_end = {pos_line = start_row2; pos_col = start_column2}}
       | _ -> None
       in
     let tr = translate_expr re in

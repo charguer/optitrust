@@ -1,20 +1,15 @@
 open Tools
 
-(* file locations: filename, line number *)
-(* TODO: LATER: make this a record
-  (* Positions follow compiler convention of counting from 1 *)
-  type pos = {
+ type pos = {
     pos_line : int;
     pos_col : int; }
 
-  type loc = {
-    loc_file : string;
-    loc_start : pos;
-    loc_end : pos;
-  }
+type node_loc = {
+  loc_file : string;
+  loc_start : pos;
+  loc_end : pos;}
 
- *)
-type location = (string * int * int * int * int) option
+type location = node_loc option
 
 (* memory locations *)
 type loc = int
@@ -540,7 +535,7 @@ exception TransfoError of string
 let fail (loc : location) (err : string) : 'a =
   match loc with
   | None -> failwith err
-  | Some (filename, start_row,end_row,start_column,end_column) ->
+  | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
      raise (TransfoError (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^
      " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]" ^ " : " ^ err))
 
@@ -552,7 +547,7 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
   if !Flags.verbose then
     match loc with
     | None -> Printf.printf
-    | Some (filename, start_row,end_row,start_column,end_column) ->
+    | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
        Printf.kfprintf Printf.fprintf stdout ("<%s> from <%d>,<%d> to   <%d>,<%d>") filename start_row start_column end_row end_column
   else
     Printf.ifprintf stdout

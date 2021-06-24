@@ -303,7 +303,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     let dloc =
       begin match t.loc with
       | None -> underscore
-      | Some (filename, start_row, end_row, start_column, end_column) ->
+      | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
          print_pair (string filename) (string (string_of_int start_row ^ "," ^ string_of_int start_column ^ ": " ^ string_of_int end_row ^ "," ^ string_of_int end_column) )
 
       end

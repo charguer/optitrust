@@ -62,7 +62,7 @@ let void =
 let loc_to_json (t : trm) : json =
   begin match t.loc with
   | None -> Json.Str (quote "")
-  | Some (_, start_row, end_row, start_column, end_column) ->
+  | Some {loc_file = _; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
       Json.Object [
         (quote "start", Json.Object
           [ (quote "line" , Json.Int start_row);
