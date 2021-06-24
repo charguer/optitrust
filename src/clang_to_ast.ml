@@ -205,7 +205,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
   | StarEqual -> "overloaded*="
   | _ -> fail loc "string_of_overloaded_op: non supported operator"
 
-let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
+let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d : type_desc) : typ =
   match d with
   | Pointer q ->
     let t = translate_qual_type ~loc q in
@@ -236,20 +236,20 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | BuiltinType b ->
     begin match b with
       | Void -> typ_unit ()
-      | Bool -> typ_bool ()
-      | Int -> typ_int ()
-      | UInt -> typ_int ~annot:[Unsigned] ()
-      | Long -> typ_int ~annot:[Long] ()
-      | ULong -> typ_int ~annot:[Unsigned; Long] ()
-      | LongLong -> typ_int ~annot:[Long; Long] ()
-      | ULongLong -> typ_int ~annot:[Unsigned; Long; Long] ()
-      | Float -> typ_float ()
-      | Double -> typ_double ()
-      | LongDouble -> typ_double ~annot:[Long] ()
-      | Char_S -> typ_char ()
-      | UChar -> typ_char ~annot:[Unsigned] ()
-      | Short -> typ_int ~annot:[Short] ()
-      | UShort -> typ_int ~annot:[Unsigned; Short] ()
+      | Bool -> if const then typ_const (typ_bool ()) else typ_bool ()
+      | Int -> if const then typ_const (typ_int ()) else typ_int ()
+      | UInt -> if const then typ_const (typ_int ~annot:[Unsigned] ()) else typ_int ~annot:[Unsigned] ()
+      | Long -> if const then typ_const (typ_int ~annot:[Long] ()) else typ_int ~annot:[Long] ()
+      | ULong -> if const then typ_const (typ_int ~annot:[Unsigned; Long] ()) else typ_int ~annot:[Unsigned; Long] ()
+      | LongLong -> if const then typ_const (typ_int ~annot:[Long; Long] ()) else typ_int ~annot:[Unsigned; Long] ()
+      | ULongLong -> if const then typ_const (typ_int ~annot:[Unsigned; Long; Long] ()) else typ_int ~annot:[Unsigned; Long; Long] ()
+      | Float -> if const then typ_const (typ_float ()) else typ_float ()
+      | Double -> if const then typ_const (typ_double ()) else typ_double ()
+      | LongDouble -> if const then typ_const (typ_double ~annot:[Long] ()) else typ_double ~annot:[Long] ()
+      | Char_S -> if const then typ_const (typ_char ()) else typ_char ()
+      | UChar -> if const then typ_const (typ_char ~annot:[Unsigned] ()) else typ_char ~annot:[Unsigned] ()
+      | Short -> if const then typ_const (typ_int ~annot:[Short] ()) else typ_int ~annot:[Short] ()
+      | UShort -> if const then typ_const (typ_int ~annot:[Unsigned; Short] ()) else typ_int ~annot:[Unsigned; Short] ()
       | _ -> fail loc "translate_type_desc: builtin type not implemented"
     end
   | FunctionType {calling_conv = _; result = qr; parameters = po;
@@ -296,8 +296,8 @@ let rec translate_type_desc ?(loc : location = None) (d : type_desc) : typ =
   | _ -> fail loc "translate_type_desc: not implemented"
 
 and translate_qual_type ?(loc : location = None) (q : qual_type) : typ =
-  let ({desc = d; _} : qual_type) = q in
-  translate_type_desc ~loc d
+  let ({desc = d; const = c; _} : qual_type) = q in
+  translate_type_desc ~loc ~const:c d
 
 and translate_ident (id : ident_ref node) : string =
   let {decoration = _; desc = {nested_name_specifier = _; name = n; _}} = id in
@@ -929,10 +929,7 @@ and translate_decl_list (dl : decl list) : trm list =
           typdef_body = Typdef_prod (two_names, (List.rev prod_list))
           } in
         ctx_typedef_add tn tid td;
-        (* TODO: it's not entirely clear to me that we should use the ctx after
-           it is extended with the current typedef, or the context from just before... *)
         let trm_td = trm_typedef ~loc ~ctx:(Some (get_ctx())) td in
-        (* Finally, continue with further type declarations *)
         let tl' = translate_decl_list dl' in
         trm_td :: tl'
 

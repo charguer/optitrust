@@ -1001,7 +1001,6 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
     else true
     && (aux typ_a1 typ_a2) 
   | Typ_array (typa1, size1), Typ_array (typa2, size2) -> (same_types typa1 typa2) && (same_sizes size1 size2)
-
   | _, _ -> false
   )
 

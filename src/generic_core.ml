@@ -46,26 +46,12 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
   (* change all occurences of ty_before in ty *)
   let rec change_typ (ty : typ) : typ =
-    (* necessary because of annotations in trms that may be different *)
-    (* TODO: replace
-        Ast_to_c.typ_to_string ty = Ast_to_c.typ_to_string ty_before
-      with a call to the comparison funciton --> to move to ast.ml
-        let rec same_types (mustMatchGeneratedStar : bool) (tya : typ) (tyb : typ) : bool =
-          let aux = same_types mustMatchGeneratedStar in
-          (typa.typ_annot = typb.typ_annot) &&
-          match tya, tyb with
-          | Typ_ptr tya1, Typ_ptr tyb1 ->
-              (if mustMatchGeneratedStar
-                then (is_generated_star tya = is_generated_star tyb)
-                else true)
-              && (aux tya1 tyb1)
-          | Typ_int, Typ_int -> true
-          | ...
-          | _,_ -> false (* if different constructors *)
-
-    *)
-    if Ast_to_c.typ_to_string ty = Ast_to_c.typ_to_string ty_before then ty_after
-    else Ast.typ_map change_typ ty
+    
+    if same_types ~match_generated_star:false ty ty_before then ty_after 
+      else typ_map change_typ ty
+        
+    (* if Ast_to_c.typ_to_string ty = Ast_to_c.typ_to_string ty_before then ty_after
+    else Ast.typ_map change_typ ty *)
   in
   (* change all occurrences of ty_before in type annotations in t *)
   let rec replace_type_annot (t : trm) : trm =

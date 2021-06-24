@@ -313,14 +313,14 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let dtx,d_init = match varkind with
-  | Var_immutable -> typed_var_to_doc ~const:true tv, init
+  | Var_immutable -> typed_var_to_doc ~const:false tv, init
   | Var_mutable ->
     let (x, typ) = tv in
     let tv =
       if not !decode then (x,typ)
       else
         begin match typ.typ_desc with
-          | Typ_ptr tx when is_generated_star typ-> (x, tx)
+          | Typ_ptr tx when is_generated_star typ -> (x, tx)
           | _ -> (x, typ)
           (* | _ -> Tools.printf "Type is %s\n" (Ast_to_text.typ_to_string typ);
             fail None "trm_let_to_doc: expected a type ptr" *)
