@@ -240,7 +240,6 @@ let group_decl_init (t : trm) : trm =
   in
   aux t
 
-
 let parse_cstring (is_expression : bool) (s : string) : trm list =
  let ast =
     Clang.Ast.parse_string

@@ -1,7 +1,7 @@
 open Tools
 
 (* file locations: filename, line number *)
-(* LATER: make this a record
+(* TODO: LATER: make this a record
   (* Positions follow compiler convention of counting from 1 *)
   type pos = {
     pos_line : int;
