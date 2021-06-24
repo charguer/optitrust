@@ -7,19 +7,19 @@ let _ = Run.script_cpp (fun () ->
   show [ cFor "j" ];
 
   (* Multi *)
-  show [ cMulti; cFor "i" ];
-  show [ cMulti; cCall "f" ];
-  show [ cMulti; cFunDef "main"; cFor "i" ];
+  show [ nbMulti; cFor "i" ];
+  show [ nbMulti; cCall "f" ];
+  show [ nbMulti; cFunDef "main"; cFor "i" ];
 
   (* Nb *)
-  show [ cNb 0; cFunDef "main"; cFor "j" ]; (* zero match *)
-  show [ cNb 1; cFunDef "main"; cFor "i" ];
-  show [ cNb 2; cFor "i" ];
+  show [ nbEx 0; cFunDef "main"; cFor "j" ]; (* zero match *)
+  show [ nbEx 1; cFunDef "main"; cFor "i" ];
+  show [ nbEx 2; cFor "i" ];
 
   (* Any *)
-  show [ cAnyNb; cFunDef "main"; cFor "j" ]; (* zero match *)
-  show [ cAnyNb; cFunDef "main"; cFor "i" ];
-  show [ cAnyNb; cFor "i" ];
+  show [ nbAny; cFunDef "main"; cFor "j" ]; (* zero match *)
+  show [ nbAny; cFunDef "main"; cFor "i" ];
+  show [ nbAny; cFor "i" ];
 
 )
 

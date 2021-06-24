@@ -4,10 +4,10 @@ open Target
 let _ = Run.script_cpp ( fun _ ->
         
 
-        (* show [cInstr "d = p"]; *)
-        Struct.set_explicit [cInstr "d = p"];
-        Struct.set_explicit [cInstr "u = a.pos"];
-        Struct.set_explicit [cInstr "t[0] = p2"];(* Doesn't work*)
+        (* show [sInstr "d = p"]; *)
+        Struct.set_explicit [sInstr "d = p"];
+        Struct.set_explicit [sInstr "u = a.pos"];
+        Struct.set_explicit [sInstr "t[0] = p2"];(* Doesn't work*)
     )
 
 

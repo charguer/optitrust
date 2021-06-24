@@ -15,29 +15,29 @@ let _ = Run.script_cpp (fun () ->
   show [ cTopFun "f"; cVarDef "k" ];
 
   (* Loops immediately inside a function *) (* TODO: ARTHUR: think about how to fix this *)
-  show [ cMulti; cFunDef ""; cStrict; cBody; cStrict; cSeq(); cStrict; Constr_dir (Dir_nth 0); cStrict; cFor "" ];
+  show [ nbMulti; cFunDef ""; cStrict; dBody; cStrict; cSeq(); cStrict; Constr_dir (Dir_nth 0); cStrict; cFor "" ];
 
 
   (* Directions and strictness *)
 
-  show [ cMulti; cFor "i"; cInstr "i++" ];
-  show [ cMulti; cFor "i"; cStrict; cInstr "i++" ]; (* should not match i++ inside loop on j *)
-  show [ cMulti; cFor "i"; cFor "j" ];
-  show [ cMulti; cFor "i"; cBody; cStrict; cFor "j" ];
-  show [ cMulti; cFor "i"; cStrict; cSeq; cStrict; cFor "j" ];
+  show [ nbMulti; cFor "i"; sInstr "i++" ];
+  show [ nbMulti; cFor "i"; cStrict; sInstr "i++" ]; (* should not match i++ inside loop on j *)
+  show [ nbMulti; cFor "i"; cFor "j" ];
+  show [ nbMulti; cFor "i"; dBody; cStrict; cFor "j" ];
+  show [ nbMulti; cFor "i"; cStrict; cSeq; cStrict; cFor "j" ];
 
-  show [ cNb 0; cMulti; cFor "i"; cStrict; cFor "j" ];
+  show [ nbEx 0; nbMulti; cFor "i"; cStrict; cFor "j" ];
   (* beware that this is not working, due to the intermediate cSeq *)
 
   show [ cTopFun "main"; cStrict; cFor "i" ];
   show [ cTopFun "main"; cStrict; cFor "j" ];
 
-  show [ cTopFun "main"; cThen ];
-  show [ cTopFun "main"; cThen; cStrict; cInstr "j++" ];
+  show [ cTopFun "main"; dThen ];
+  show [ cTopFun "main"; dThen; cStrict; sInstr "j++" ];
   show [ cTopFun "main"; cFor "j"; cStrict; cIf; dThen ];
-  show [ cTopFun "main"; cFor "j"; cStrict; cIf; dThen; cStrict; cInstr "j++" ];
+  show [ cTopFun "main"; cFor "j"; cStrict; cIf; dThen; cStrict; sInstr "j++" ];
 
-  show [ cMulti; cInstr "i++" ]
+  show [ nbMulti; sInstr "i++" ]
 
 
   (* Strictness *)

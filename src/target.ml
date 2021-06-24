@@ -32,91 +32,92 @@ include Trace
 
 (* Logic constraints *)
 
-let cStrict : constr =
-  Constr_strict
 
-let cTrue : constr =
+let bTrue : constr =
   Constr_bool true
 
-let cFalse : constr =
+let bFalse : constr =
   Constr_bool false
+
+let cStrict : constr =
+  Constr_strict
 
 let cChain (cstrs : constr list) : constr =
   Constr_chain cstrs
 
 (* Relative targets *)
 
-let cBefore : constr =
+let tBefore : constr =
   Constr_relative TargetBefore
 
-let cAfter : constr =
+let tAfter : constr =
   Constr_relative TargetAfter
 
-let cFirst : constr =
+let tFirst : constr =
   Constr_relative TargetFirst
 
-let cLast : constr =
+let tLast : constr =
   Constr_relative TargetLast
 
 (* Used for checking the number of targets to match *)
 
-let cMulti : constr =
+let nbMulti : constr =
   Constr_occurences ExpectedMulti
 
-let cAnyNb : constr =
+let nbAny : constr =
     Constr_occurences ExpectedAnyNb
 
-let cNb (nb : int) : constr =
+let nbEx (nb : int) : constr =
     Constr_occurences (ExpectedNb nb)
 
 (* directions *)
-let cRoot : constr =
+let dRoot : constr =
     Constr_root
 
-let cNth (n : int) : constr =
+let dNth (n : int) : constr =
     Constr_dir (Dir_nth n)
 
-let cCond : constr =
+let dCond : constr =
     Constr_dir Dir_cond
 
-let cThen : constr =
+let dThen : constr =
     Constr_dir Dir_then
 
-let cElse : constr =
+let dElse : constr =
     Constr_dir Dir_else
 
-let cBody : constr =
+let dBody : constr =
     Constr_dir Dir_body
 
-let cInit : constr =
+let dInit : constr =
     Constr_dir Dir_for_init
 
-let cStep : constr =
+let dStep : constr =
     Constr_dir Dir_for_step
 
-let cCallFun : constr = (* LATER: see if this is needed (cCallNotBuiltin) *)
+let dCallFun : constr = (* LATER: see if this is needed (cCallNotBuiltin) *)
     Constr_dir Dir_app_fun
 
-let cArg (n : int) : constr =
+let dArg (n : int) : constr =
     Constr_dir (Dir_arg n)
 
-let cName : constr =
+let dName : constr =
     Constr_dir Dir_name
 
-let cDirCase (n : int) (cd : case_dir) : constr =
+let dDirCase (n : int) (cd : case_dir) : constr =
     Constr_dir (Dir_case (n, cd))
 
-let cCaseName (n : int) : case_dir = Case_name n
+let dCaseName (n : int) : case_dir = Case_name n
 
-let cCaseBody : case_dir = Case_body
+let dCaseBody : case_dir = Case_body
 
-let cEnumConst (n : int)
+let dEnumConst (n : int)
   (ecd : enum_const_dir) : constr =
     Constr_dir (Dir_enum_const (n, ecd))
 
-let cEnumConstName : enum_const_dir = Enum_const_name
+let dEnumConstName : enum_const_dir = Enum_const_name
 
-let cEnumConstVal : enum_const_dir = Enum_const_val
+let dEnumConstVal : enum_const_dir = Enum_const_val
 
 let cInclude (s : string) : constr =
     Constr_include s
@@ -136,24 +137,26 @@ let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_k
       in
     res
   (* Matching by string *)
-  let cInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =
-    Constr_regexp (string_to_rexp false substr s  tk)
+let sInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =
+  Constr_regexp (string_to_rexp false substr s  tk)
 
-  let cInstr ?(substr : bool = true) (s : string) : constr =
-    cInstrOrExpr ~substr TrmKind_Instr s
+let sInstr ?(substr : bool = true) (s : string) : constr =
+  sInstrOrExpr ~substr TrmKind_Instr s
 
-  let cExpr ?(substr : bool = true) (s : string)  : constr =
-    cInstrOrExpr ~substr TrmKind_Expr s
+let sExpr ?(substr : bool = true) (s : string)  : constr =
+  sInstrOrExpr ~substr TrmKind_Expr s
 
-  let cInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
-    Constr_regexp (string_to_rexp true substr s tk)
+let sInstrOrExprRegexp (tk : trm_kind) (substr : bool) (s : string) : constr =
+  Constr_regexp (string_to_rexp true substr s tk)
 
-  let cInstrRegexp ?(substr : bool = false) (s : string) : constr =
-    cInstrOrExprRegexp TrmKind_Instr substr s
+let sInstrRegexp ?(substr : bool = false) (s : string) : constr =
+  sInstrOrExprRegexp TrmKind_Instr substr s
 
-  let cExprRegexp ?(substr : bool = false) (s : string) : constr =
-    cInstrOrExprRegexp TrmKind_Expr substr s
+let sExprRegexp ?(substr : bool = false) (s : string) : constr =
+  sInstrOrExprRegexp TrmKind_Expr substr s
 
+
+(* TODO: For all c constructors add their s version *)
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
   let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
@@ -184,11 +187,15 @@ let cIf ?(cond : target = [])
   let p_else = else_ in
     Constr_if (p_cond, p_then, p_else)
 
+let cThen : constr =
+ Constr_chain [cIf(); dThen]
+
+
 (* Converts a list of constraints into a [target_list_pred] *)
 let target_list_simpl (cstrs : constr list) : target_list_pred =
   let n = List.length cstrs in
   make_target_list_pred
-    (fun i -> if i < n then List.nth cstrs i else cFalse)
+    (fun i -> if i < n then List.nth cstrs i else bFalse)
     (fun bs -> List.length bs = n && list_all_true bs)
     (fun () -> "target_list_simpl(" ^ (list_to_string (List.map constr_to_string cstrs) ^ ")"))
 
@@ -202,7 +209,7 @@ let target_list_one_st (cstr : constr) : target_list_pred =
 (* Predicate that matches any list of arguments *)
 let target_list_pred_always_true : target_list_pred =
   make_target_list_pred
-    (fun _i -> cTrue)
+    (fun _i -> bTrue)
     list_all_true
     (fun () -> "target_list_pred_always_true")
 
@@ -220,7 +227,7 @@ let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_p
 let cTopFun
   ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true)
   ?(body : target = []) (name : string) : constr =
-  cChain [ cRoot; cFunDef ~args ~args_pred ~body name ]
+  cChain [ dRoot; cFunDef ~args ~args_pred ~body name ]
 
 let cTypDef
   ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
@@ -388,7 +395,7 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
   [
     cCall ~args:lhs "";
     cCall ~args:rhs "";
-    cCall ~fun_:[cStrict;cInstr "="] ""
+    cCall ~fun_:[cStrict;sInstr "="] ""
   ]
 
 

@@ -6,28 +6,28 @@ let _ = Run.script_cpp (fun () ->
       if it is not the case, we'll get an error. *)
 
   (* Before *)
-  show [ cBefore; cVarDef "r1" ];
-  show [ cBefore; cVarDef "r2" ];
-  show [ cBefore; cVarDef "m1" ];
-  show [ cBefore; cVarDef "m2" ];
+  show [ tBefore; cVarDef "r1" ];
+  show [ tBefore; cVarDef "r2" ];
+  show [ tBefore; cVarDef "m1" ];
+  show [ tBefore; cVarDef "m2" ];
 
   (* After *)
-  show [ cAfter; cVarDef "r1" ];
-  show [ cAfter; cVarDef "r2" ];
-  show [ cAfter; cVarDef "m1" ];
-  show [ cAfter; cVarDef "m2" ];
+  show [ tAfter; cVarDef "r1" ];
+  show [ tAfter; cVarDef "r2" ];
+  show [ tAfter; cVarDef "m1" ];
+  show [ tAfter; cVarDef "m2" ];
 
   (* First *)
-  show [ cFirst; cFor "i"; cStrict; cBody ];
-  show [ cFirst; cThen ];
-  show [ cFirst; cElse ];
+  show [ tFirst; cFor "i"; cStrict; dBody ];
+  show [ tFirst; dThen ];
+  show [ tFirst; dElse ];
 
-  show [ cLast; cFor "i"; cStrict; cBody];
-  show [ cLast; cThen ];
-  show [ cLast; cElse ];
+  show [ tLast; cFor "i"; cStrict; dBody];
+  show [ tLast; dThen ];
+  show [ tLast; dElse ];
 
   (* Nested paths *)
-  show [ cLast; cFor "i"; cBody; cThen ];
+  show [ tLast; cFor "i"; dBody; dThen ];
 
 )
 

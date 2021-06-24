@@ -32,69 +32,69 @@ type constr_access =
 type target_list_pred
 
 
-val cTrue : constr
+val bTrue : constr
 
-val cFalse : constr
+val bFalse : constr
 
-val cBefore : constr
+val tBefore : constr
 
-val cAfter : constr
+val tAfter : constr
 
-val cFirst : constr
+val tFirst : constr
 
-val cLast : constr
+val tLast : constr
 
-val cMulti : constr
+val nbMulti : constr
 
-val cAnyNb : constr
+val nbAny : constr
 
-val cNb : int -> constr
+val nbEx : int -> constr
 
-val cRoot : constr
+val dRoot : constr
 
-val cNth : int -> constr
+val dNth : int -> constr
 
-val cCond : constr
+val dCond : constr
 
-val cThen : constr
+val dThen : constr
 
-val cElse : constr
+val dElse : constr
 
-val cBody : constr
+val dBody : constr
 
-val cInit : constr
+val dInit : constr
 
-val cStep : constr
+val dStep : constr
 
-val cCallFun : constr
+val dCallFun : constr
 
-val cArg : int -> constr
+val dArg : int -> constr
 
-val cName : constr
+val dName : constr
+
+val dDirCase : int -> case_dir -> constr
+
+val dCaseName : int -> case_dir
+
+val dCaseBody : case_dir
+
+val dEnumConst : int -> enum_const_dir -> constr
+
+val dEnumConstName : enum_const_dir
+
+val dEnumConstVal : enum_const_dir
 
 val cStrict : constr
 
-val cDirCase : int -> case_dir -> constr
-
-val cCaseName : int -> case_dir
-
-val cCaseBody : case_dir
-
-val cEnumConst : int -> enum_const_dir -> constr
-
-val cEnumConstName : enum_const_dir
-
-val cEnumConstVal : enum_const_dir
-
 val cInclude : string -> constr
 
-val cInstr : ?substr:bool -> string -> constr
+val sInstr : ?substr:bool -> string -> constr
 
-val cExpr : ?substr:bool -> string -> constr
+val sExpr : ?substr:bool -> string -> constr
 
-val cInstrRegexp : ?substr:bool -> string -> constr
+val sInstrRegexp : ?substr:bool -> string -> constr
 
-val cExprRegexp : ?substr:bool -> string -> constr
+val sExprRegexp : ?substr:bool -> string -> constr
 
 val cFor : ?init:target -> ?cond:target ->
            ?step:target -> ?body:target -> string -> constr
@@ -104,6 +104,9 @@ val cWhile : ?cond:target -> ?body:target -> unit ->
 
 val cIf : ?cond:target -> ?then_:target ->
           ?else_:target -> unit -> constr
+
+val cThen : constr
+
 val cDef : string -> constr
 
 val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> string -> constr

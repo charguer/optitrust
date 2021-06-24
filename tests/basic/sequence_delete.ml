@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
    !! Sequence.iter_delete [[cVarDef "a"]; [cVarDef "v"]];
-   !! Sequence.delete [cMulti; cInstrRegexp "u\\.."];
+   !! Sequence.delete [nbMulti; sInstrRegexp "u\\.."];
    !! Tools.failure_expected (fun () ->
-        Sequence.delete [cMulti; cInt 0]);
+        Sequence.delete [nbMulti; cInt 0]);
 )

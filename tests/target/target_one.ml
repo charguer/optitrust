@@ -17,7 +17,7 @@ let _ = Run.script_cpp (fun () ->
   (* Loops *)
   show [ cFor "i" ];
   show [ cFor "j" ];
-  show [ cFor ~cond:[cExpr "j < 5"] "" ];
+  show [ cFor ~cond:[sExpr "j < 5"] "" ];
 
   (* Abort *)
   show [ cBreak ];
@@ -35,34 +35,34 @@ let _ = Run.script_cpp (fun () ->
   show [ cFunDef "main" ];
   show [ cFunDef "f" ];
 
-  (*show [ cFunDef ~args:[cTrue;cVarDef "varg"] "" ];(* This doesn't work' *)*)
-  (* show [ cFunDef ~args_pred:((fun i -> [cTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
+  (*show [ cFunDef ~args:[bTrue;cVarDef "varg"] "" ];(* This doesn't work' *)*)
+  (* show [ cFunDef ~args_pred:((fun i -> [bTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
 
   (* Regexp *)
   (* TODO: ARTHUR: specify different what should be "instructions" *)
-  show [cExpr "j <"];
-  show [cNb 0; cInstr "j <"];
+  show [sExpr "j <"];
+  show [nbEx 0; sInstr "j <"];
 
-  show [cInstr "+= 2"];
-  show [cNb 0; cExpr ~substr:false "+= 2"];
-  show [cNb 0; cInstr ~substr:true "+= 2"]; (* TODO : false or true ? *)
-  show [cInstr (* default value: ~substr:true *) "r += 2"];
+  show [sInstr "+= 2"];
+  show [nbEx 0; sExpr ~substr:false "+= 2"];
+  show [nbEx 0; sInstr ~substr:true "+= 2"]; (* TODO : false or true ? *)
+  show [sInstr (* default value: ~substr:true *) "r += 2"];
 
-  show [cMulti; cExprRegexp ~substr:true "int . = .."]; (* TODO: should match is ; part of it or not? *)
-  show [cMulti; cInstrRegexp ~substr:true ". = ."];
-  show [cMulti; cInstrRegexp ~substr:false ". = ."]; (* should not match something with several characters TODO:*)
+  show [nbMulti; sExprRegexp ~substr:true "int . = .."]; (* TODO: should match is ; part of it or not? *)
+  show [nbMulti; sInstrRegexp ~substr:true ". = ."];
+  show [nbMulti; sInstrRegexp ~substr:false ". = ."]; (* should not match something with several characters TODO:*)
 
  (*
-  show [cInstr ~substr:true "vect v2" ];
-  show [cInstrRegexp ~substr:true "vect v2" ];*)
-  show [cNb 1; cExpr "vect v2" ];
+  show [sInstr ~substr:true "vect v2" ];
+  show [sInstrRegexp ~substr:true "vect v2" ];*)
+  show [nbEx 1; sExpr "vect v2" ];
 
-  show [cNb 1; cExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
-  show [cNb 0; cInstr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
+  show [nbEx 1; sExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+  show [nbEx 0; sInstr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
 
-  show [cMulti; cInstr "i++" ]; (* TODO: i++ in loop should be either an instruction or an expression, not both? *)
+  show [nbMulti; sInstr "i++" ]; (* TODO: i++ in loop should be either an instruction or an expression, not both? *)
   (* Works, in general but fails here because there are more then one occurrences of i++ *)
-  show [cMulti; cExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
+  show [nbMulti; sExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
   (* TODO: why an hidden match? *)
 
 )
@@ -75,7 +75,7 @@ let _ = Run.script_cpp (fun () ->
 
 (* LATER: smart constructors for checking calls to builtin operations such as get/set/compare/incr, etc *)
 
-(* LATER: show [ cFunDefDef ~args:[[cTrue]; [cOfTyp "vect*"]] "" ]; *)
+(* LATER: show [ cFunDefDef ~args:[[bTrue]; [cOfTyp "vect*"]] "" ]; *)
 
 (* LATER: match typedef using a function over the body of the type definition *)
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)

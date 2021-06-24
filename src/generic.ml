@@ -23,7 +23,7 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
 
 
-(* This one used special smart constructors like cBefore and cAfter instead of giving target_befoer or target_after *)
+(* This one used special smart constructors like tBefore and tAfter instead of giving target_befoer or target_after *)
 let insert_trm_new  (t_insert : trm) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Generic_core.insert_trm t_insert i t p) tg

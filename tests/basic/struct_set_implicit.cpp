@@ -29,7 +29,7 @@ int main() {
   vect e;
   e = f();
   // TODO LATER: demo of  insert_decl ~name:"x" ~body:"f()"
-  //  what would be nice is to  insert_decl ~name:"x" ~body_path:[cVarDef "b"; cExpr ]
+  //  what would be nice is to  insert_decl ~name:"x" ~body_path:[cVarDef "b"; sExpr ]
   obj a = {0,{0,0},0};
 
   a.pos = p;

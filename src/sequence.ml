@@ -3,7 +3,7 @@ open Target
 open Trace
 open Tools
 
-(* Example: [Sequence_core.insert [t1;t2] [cAfter; cFor "i"; cIntr "x ="] *)
+(* Example: [Sequence_core.insert [t1;t2] [tAfter; cFor "i"; cIntr "x ="] *)
 
 (* [insert tg ts] *)
 let insert (tg : target) (s : string) : unit =

@@ -2,14 +2,14 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  (* LATER/ cExpr->cINstr *)
-   !! Sequence.sub_between [ cAfter; cExpr "int u" ] [ cLast; cFunDef "main"; cStrict; cBody];
+  (* LATER/ sExpr->cINstr *)
+   !! Sequence.sub_between [ tAfter; sExpr "int u" ] [ tLast; cFunDef "main"; cStrict; dBody];
 
   !! Sequence.sub 1 [cVarDef "x"];
-  !! Sequence.sub_between [cBefore;cVarDef "y"] [cAfter;cVarDef "t"];
+  !! Sequence.sub_between [tBefore;cVarDef "y"] [tAfter;cVarDef "t"];
 
   !! Tools.failure_expected (fun () ->
-       Sequence.sub_between  [cAfter;cVarDef "z"] [cBefore;cVarDef "z"]);
+       Sequence.sub_between  [tAfter;cVarDef "z"] [tBefore;cVarDef "z"]);
   !! Tools.failure_expected (fun () ->
-       Sequence.sub_between  [cAfter;cVarDef "z"] [cAfter;cVarDef "z"]);
+       Sequence.sub_between  [tAfter;cVarDef "z"] [tAfter;cVarDef "z"]);
 )

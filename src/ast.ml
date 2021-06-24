@@ -217,7 +217,7 @@ and print_addition =
 and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Identifier of var
   | Aligned of trm
-  | GeneratedStar
+  (* | GeneratedStar *) (* TODO: *)
 
 (*
   annotated terms
@@ -978,6 +978,6 @@ let nb_goto (l : label) (t : trm) : int =
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1) *)
 
 
-
-let is_generated_star (ty : typ) : bool =
-  List.mem GeneratedStar ty.attribute
+(* TODO: *)
+(* let is_generated_star (ty : typ) : bool =
+  List.mem GeneratedStar ty.attribute *)

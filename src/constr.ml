@@ -11,7 +11,8 @@ open Path
 
 (* Type to classify trms into four main classes: 1)Structuring statements, 2) Instructions 3) Expression and 4) others*)
 type trm_kind =
-  | TrmKind_Struct
+  | TrmKind_Typedef (* type definition that appears in the AST *)
+  | TrmKind_Ctrl    (* control statement, for loops, while loops and unit-type if statements  *)
   | TrmKind_Instr
   | TrmKind_Expr
   | TrmKind_Any
@@ -176,7 +177,7 @@ type target_simple = target
    special constructors such as Constr_relative, Constr_occurences, Constr_chain from the
    [target_simple]. *)
 type target_struct = {
-   target_path : target_simple; (* this path contains no cMulti/cNb/cBefore/etc.., only cStrict can be there *)
+   target_path : target_simple; (* this path contains no nbMulti/nbEx/tBefore/etc.., only cStrict can be there *)
    target_relative : target_relative;
    target_occurences : target_occurences; }
 
@@ -192,8 +193,9 @@ let make_target_list_pred ith_constr validate to_string =
 
 let trm_kind_to_string (k : trm_kind) : string =
   match k with
+  | TrmKind_Typedef -> "Typedef"
+  | TrmKind_Ctrl -> "Ctrl"
   | TrmKind_Instr -> "Instr"
-  | TrmKind_Struct -> "Struct"
   | TrmKind_Expr -> "Expr"
   | TrmKind_Any -> "Any"
 
@@ -486,8 +488,29 @@ let is_equal_lit (l : lit) (l' : lit) =
   | Lit_string s, Lit_string s' when s = s' -> true
   | _ -> false
 
-let get_trm_kind (t : trm) : trm_kind =
-   if t.is_statement then
+let rec get_trm_kind (t : trm) : trm_kind =
+   let is_unit = begin match t.typ with 
+                 | Some ty ->
+                    begin match ty.typ_desc with 
+                    | Typ_unit -> true
+                    | _ -> false
+                    end
+                 | None -> false
+                 end
+    in
+   match t.desc with 
+   | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+   | Trm_var _ -> TrmKind_Expr
+   | Trm_struct _ | Trm_array _ -> TrmKind_Expr
+   | Trm_let_fun _ | Trm_let _ -> TrmKind_Instr 
+   | Trm_typedef _ -> TrmKind_Typedef
+   | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
+   | Trm_seq _ -> TrmKind_Instr
+   | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+   | Trm_while _ | Trm_for _ | Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
+   | Trm_labelled (_, t) | Trm_decoration (_, t, _) | Trm_any t -> get_trm_kind t
+
+   (* if t.is_statement then
     match t.desc with
     | Trm_apps(f,_) ->
       begin match f.desc with
@@ -502,12 +525,7 @@ let get_trm_kind (t : trm) : trm_kind =
       | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
     | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
   else
-    TrmKind_Expr
-
-(* Not used anywhere?? *)
-let is_structuring_statement (t : trm) : bool =
-  get_trm_kind t = TrmKind_Struct
-
+    TrmKind_Expr *)
 
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
@@ -778,7 +796,7 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
 and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative <> TargetAt
-    then fail None "resolve_target: this target should not contain a cBefore/cAfter/cFirst/cLast";
+    then fail None "resolve_target: this target should not contain a tBefore/tAfter/tFirst/tLast";
   resolve_target_struct tgs t
 
 and resolve_target_exactly_one (tg : target) (t : trm) : path =
@@ -1103,7 +1121,7 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative = TargetAt
-    then fail None "resolve_target_between:this target should contain a cBefore, cAfter, cFirst, or cLast";
+    then fail None "resolve_target_between:this target should contain a tBefore, tAfter, tFirst, or tLast";
   let res = resolve_target_struct tgs t in
   List.map (compute_relative_index tgs.target_relative t) res
 
