@@ -18,7 +18,6 @@ let fold_aux (fold_at : target list) (index : int) (t : trm) : trm=
      | Trm_typedef td ->
        begin match td.typdef_body with
        | Typdef_alias dx ->
-        Tools.printf "%s\n" (Ast_to_c.typ_to_string dx);
         let ty_x = typ_constr td.typdef_tconstr  td.typdef_typid [] in
         let lback = List.map (Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in
         trm_seq ~annot:t.annot (lfront @ [d] @ lback)

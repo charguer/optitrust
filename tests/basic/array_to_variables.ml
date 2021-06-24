@@ -1,9 +1,7 @@
 open Optitrust
 open Target 
 
-(* Works *)
-
 let _ = Run.script_cpp (fun () ->
-  Arrays.to_variables ["ua";"ub"] [cVarDef "u"];
-  Arrays.to_variables ["va";"vb"] [cVarDef "v"];
+  !! Arrays.to_variables ["ua";"ub"] [cVarDef "u"];
+  !! Arrays.to_variables ["va";"vb"] [cVarDef "v"];
 )
