@@ -39,33 +39,28 @@ let _ = Run.script_cpp (fun () ->
   (* show [ cFunDef ~args_pred:((fun i -> [bTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
 
   (* Regexp *)
-  (* TODO: ARTHUR: specify different what should be "instructions" *)
   show [sExpr "j <"];
-  show [nbEx 0; sInstr "j <"];
+  show [nbEx 0; sInstr ~substr:false "j <"];
 
   show [sInstr "+= 2"];
   show [nbEx 0; sExpr ~substr:false "+= 2"];
-  show [nbEx 0; sInstr ~substr:true "+= 2"]; (* TODO : false or true ? *)
-  show [sInstr (* default value: ~substr:true *) "r += 2"];
+  show [nbEx 0; sInstr ~substr:false "+= 2"]; 
+  show [sInstr "r += 2"];
 
-  show [nbMulti; sExprRegexp ~substr:true "int . = .."]; (* TODO: should match is ; part of it or not? *)
+  show [nbMulti; sInstrRegexp "int . = .."]; 
   show [nbMulti; sInstrRegexp ~substr:true ". = ."];
   show [nbMulti; sInstrRegexp ~substr:false ". = ."]; (* should not match something with several characters TODO:*)
-
+)
  (*
-  show [sInstr ~substr:true "vect v2" ];
-  show [sInstrRegexp ~substr:true "vect v2" ];*)
-  show [nbEx 1; sExpr "vect v2" ];
+  show [sInstr ~substr:tru  (* TODO: ARTHUR: specify different what should be "instructions" *)
 
-  show [nbEx 1; sExpr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
-  show [nbEx 0; sInstr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
+  show [nbEx 1; sInstr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+  show [nbEx 0; sExpr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
 
   show [nbMulti; sInstr "i++" ]; (* TODO: i++ in loop should be either an instruction or an expression, not both? *)
   (* Works, in general but fails here because there are more then one occurrences of i++ *)
   show [nbMulti; sExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
-  (* TODO: why an hidden match? *)
 
-)
 
   (* LATER: Implement cDef constructor *)
   (* show [ cDef "f" ]; *)
@@ -81,3 +76,4 @@ let _ = Run.script_cpp (fun () ->
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)
 
 (* LATER: match types using a function of their list of fields *)
+*)

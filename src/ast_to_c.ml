@@ -163,7 +163,7 @@ and attr_to_doc (a : attribute) : document =
   match a with
   | Identifier x -> string x
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (trm_to_doc t)
-
+  | GeneratedStar -> blank 1
 (*
   semicolon = true if we need to print a semicolon after the statement
 *)
@@ -320,7 +320,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       if not !decode then (x,typ)
       else
         begin match typ.typ_desc with
-          | Typ_ptr tx -> (x, tx)
+          | Typ_ptr tx when is_generated_star typ-> (x, tx)
           | _ -> (x, typ)
           (* | _ -> Tools.printf "Type is %s\n" (Ast_to_text.typ_to_string typ);
             fail None "trm_let_to_doc: expected a type ptr" *)

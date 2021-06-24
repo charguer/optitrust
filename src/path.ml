@@ -265,10 +265,6 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           (* DEBUG: Ast_to_text.print_ast  ~only_desc:true stdout t'; *)
           begin match t'.desc with
           | Trm_var x' -> trm_let ~annot ~loc ~is_statement ~add ~attributes  vk (x',tx) body
-          (* | Trm_decoration(ls,{desc=Trm_var x';_},rs) ->
-              trm_decoration ls rs
-              (trm_let ~annot ~loc ~is_statement ~add ~attributes vk (x',tx) body) *)
-
           | _ -> fail loc ("apply_on_path: transformation " ^ "must preserve names(variable)")
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
@@ -369,7 +365,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           let args_decl =
             List.rev_map
               (fun (x, tx) ->
-                trm_let Var_mutable (x, typ_ptr tx) (trm_lit Lit_uninitialized)
+                trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] tx) (trm_lit Lit_uninitialized)
               )
               args
           in

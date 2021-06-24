@@ -1078,9 +1078,9 @@ and translate_decl (d : decl) : trm =
         add_var n;
         begin match eo with
         | None ->
-          trm_let ~loc  Var_mutable (n,typ_ptr tt) te
+          trm_let ~loc  Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] tt) te
         | Some _ ->
-          trm_let ~loc Var_mutable (n,typ_ptr tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
+          trm_let ~loc Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
         end
       end
   | TypedefDecl {name = tn; underlying_type = q} ->

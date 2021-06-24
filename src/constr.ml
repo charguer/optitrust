@@ -498,6 +498,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
                  | None -> false
                  end
     in
+   if t.is_statement = true then TrmKind_Instr else
    match t.desc with 
    | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_var _ -> TrmKind_Expr
@@ -751,10 +752,10 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
     match trs with
     | [] -> [[]]
     | Constr_strict :: tr -> resolve_target_simple ~strict:true tr t
-  (*| Constr_dir d :: tr -> follow_dir d tr t   TODO: either this *)
+    (* | Constr_dir d :: tr -> follow_dir d tr t *)   (* TODO: either this *)
     | c :: p ->
+     
    (* TODO/ or  that:
-       let strict = match trs with Constr_dir _d :: _tr -> true | _ -> strict in
    *)
       let res_deep =
         if strict

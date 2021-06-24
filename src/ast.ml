@@ -217,7 +217,7 @@ and print_addition =
 and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Identifier of var
   | Aligned of trm
-  (* | GeneratedStar *) (* TODO: *)
+  | GeneratedStar 
 
 (*
   annotated terms
@@ -951,33 +951,6 @@ let nb_goto (l : label) (t : trm) : int =
   in
   aux t
 
-(*
-  point p = { 3, 4 }
-->
-  trm_seq ~annot:[init_instr] [
-    point* p = new point;
-    trm_set (p, [access "x"]) 3;
-    trm_set (p, [access "y"]) 4
-    ]
 
-
-   for (e0; e1; e2) { ebody }
-
-   =>
-
-   ~annot:EncodedFor (e0; while (e1) { ebody; e2 })
-    (prt<int> i = new int; i = i0); while ...
- TODO :find out if this one is used.
-*)
-(* let string_of_list ?(sep:string=";") ?(bounds:string list = ["[";"]"])(l : string list) : string =
-  let rec aux = function
-    | [] -> ""
-    | [s] -> s
-    | s1 :: s2 :: sl -> s1 ^ sep ^ " " ^ aux (s2 :: sl)
-  in
-  (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1) *)
-
-
-(* TODO: *)
-(* let is_generated_star (ty : typ) : bool =
-  List.mem GeneratedStar ty.attribute *)
+let is_generated_star (ty : typ) : bool =
+  List.mem GeneratedStar ty.typ_attributes

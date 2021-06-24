@@ -65,7 +65,7 @@ let color_aux (c : var) (i_color : var) (t : trm) : trm =
         
             trm_for
               (*init *)
-              (trm_let ~loc:start.loc Var_mutable (index,typ_ptr (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]))
+              (trm_let ~loc:start.loc Var_mutable (index,typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]))
               (* cond *)
               (trm_apps (trm_binop Binop_lt)
                 [
@@ -150,7 +150,7 @@ let tile_aux (b : var) (i_block : var) (t : trm) : trm =
         
         trm_for
           (* init *)
-          (trm_let ~loc:start.loc Var_mutable (index,typ_ptr (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]))
+          (trm_let ~loc:start.loc Var_mutable (index,typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]))
                 
           (* cond *)
           (trm_apps (trm_binop Binop_lt)
@@ -232,7 +232,7 @@ let tile_old_aux (t : trm) : trm =
             trm_seq
               ((trm_seq ~annot:(Some Mutable_var_get)
                   [
-                    (trm_let  Var_mutable (i,typ_ptr (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [(trm_apps (trm_binop Binop_add)
+                    (trm_let  Var_mutable (i,typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [(trm_apps (trm_binop Binop_add)
                          [
                            trm_apps (trm_binop Binop_mul)
                              [
@@ -254,7 +254,7 @@ let tile_old_aux (t : trm) : trm =
             [
               trm_for
                 (* init *)
-                (trm_let Var_mutable (index,typ_ptr (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
+                (trm_let Var_mutable (index,typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
                 (* cond *)
                 (trm_apps (trm_binop Binop_lt)
                    [
@@ -323,10 +323,10 @@ let hoist_aux (x_step : var) (t : trm) : trm =
       
       
       let new_body = trm_seq ([
-        trm_let Var_mutable (var_name, typ_ptr (var_typ)) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
+        trm_let Var_mutable (var_name, typ_ptr ~typ_attributes:[GeneratedStar] (var_typ)) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
       ] @ remaining_body_trms) in
       trm_seq ~annot:(Some No_braces) [
-        trm_let Var_mutable (x_step, typ_ptr (typ_array var_typ (Trm (bound)))) (trm_prim (Prim_new var_typ));
+        trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] (typ_array var_typ (Trm (bound)))) (trm_prim (Prim_new var_typ));
         trm_for init cond step new_body
       ]
     | _ -> fail t.loc "hoist_aux: expected the sequence inside the body of the loop"

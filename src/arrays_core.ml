@@ -67,7 +67,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
         begin match t_var.typ_desc with
         | Typ_constr (y, _, _) ->
           List.map(fun x ->
-          trm_let Var_mutable (x,(typ_ptr (typ_var y))) (trm_lit (Lit_uninitialized))) new_vars
+          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] (typ_var y))) (trm_lit (Lit_uninitialized))) new_vars
     
         | _ -> fail t.loc "to_variables_aux: expected a type variable"
         end
@@ -521,7 +521,7 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
           | _ -> fail d.loc "aos_to_soa_aux: expected a typ_constr"
           end
           in
-          let new_decl = trm_let vk (n,typ_ptr a) (trm_prim ~loc:t.loc (Prim_new a)) in
+          let new_decl = trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] a) (trm_prim ~loc:t.loc (Prim_new a)) in
           let lfront = List.map (swap_accesses struct_name "" size) lfront in
           let lback = List.map (swap_accesses struct_name "" size) lback in
           trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)

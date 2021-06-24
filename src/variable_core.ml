@@ -80,7 +80,7 @@ let insert_aux (const : bool) (as_reference : bool) (x : var) (dx : string) (ind
     let t_insert =
       if const then trm_let Var_immutable (x,tx) def_x
       else
-        trm_let Var_mutable (x, typ_ptr tx) (trm_apps (trm_prim (Prim_new tx)) [def_x])
+        trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] tx) (trm_apps (trm_prim (Prim_new tx)) [def_x])
 
     in
     let tl = Tools.list_insert (index) t_insert tl in
