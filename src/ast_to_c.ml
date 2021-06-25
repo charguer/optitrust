@@ -398,6 +398,8 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
 and multi_decl_to_doc (loc : location) (tl : trm list) : document = 
+ let test_seq = trm_seq tl in 
+ Ast_to_text.print_ast ~only_desc:true stdout test_seq;
  let dtype = 
   match tl with 
   | [] -> fail loc "multi_deco_to_doc: empty multiple declaration"
@@ -409,7 +411,7 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
           | _ -> typ_to_doc ty
            end 
     end
-  | _ -> fail loc "multi_deco_to_doc: only_variable declaration allowed"
+  | _ -> fail loc "multi_decl_to_doc: only_variable declaration allowed"
   in
  let get_info (t : trm) : document = 
   begin match t.desc with 

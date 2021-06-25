@@ -216,9 +216,7 @@ let eliminate_goto_next (t : trm) : trm =
 
 
 let get_context(ctx : Trace.context) (t : trm) : string =
-  (* t should be the sequence which is going to contain the new inserted trm *)
-  ctx.includes ^ Ast_to_c.ast_to_string t
-
+   ctx.includes ^ Ast_to_c.ast_to_string t
 
 let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : Trace.context): trm list =
  let context = if context = "" then ctx.includes else context in
@@ -241,11 +239,11 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
       )
   in
   let t = Clang_to_ast.translate_ast ast in
-  Ast_to_text.print_ast ~only_desc:true stdout t;
   match t.desc with
   | Trm_seq [t] ->
      begin match t.desc with
-     | Trm_seq[fun_def] ->
+     | Trm_seq tl  ->
+        let fun_def = List.hd (List.rev tl) in
         begin match fun_def.desc with
         | Trm_let_fun (_, _, _, fun_body) ->
           begin match fun_body.desc with
@@ -258,41 +256,6 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
      end
   | _-> fail t.loc "parse_cstring: exptected with only one trm"
 
-(*
-  let parse_cstring (is_expression:bool) (s:string) : trm =
-  let ast =
-    Clang.Ast.parse_string
-      (Printf.sprintf
-         {|
-          void f(void){
-            #pragma clang diagnostic ignored "-Wunused-value"
-            %s
-          }
-          |}
-         (if is_expression then s ^ ";" else s)
-      )
-    in
-    match ast with
-    | trm_seq main
-      | trm_let_fun
-        | trm_seq ts ->
-            if not is_expression then ts else
-            match ts with
-            | [t] -> t
-
-
-  --> [term s] takes a C expression without semi-column at the end,
-      and returns the corresponding term (an expression)
-  let term (s : string) : trm =
-    parse_cstring true s
-
-  --> [stats s] takes a string, e.g. "int x = 5; x++; while(true){x++;}"
-  and it should return a list of terms, each of them being an instruction.
-
-  let stats (s : string) : trm list =
-    parse_cstring false s
-
-*)
 
 (* Get the sat of a C/C++ trm entered as a string *)
 let term ?(context : string = "")(ctx : Trace.context) (s : string) : trm =
