@@ -418,11 +418,21 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   in
  let get_info (t : trm) : document = 
   begin match t.desc with 
-  | Trm_let (_, (x, _), init) -> 
-    begin match init.desc with 
-    | Trm_apps (_, [base])-> string x ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc base
-    | _ -> string x 
+  | Trm_let (vk, (x, _), init) -> 
+    begin match vk with 
+    | Var_immutable ->
+      begin match init.desc with 
+      | Trm_val(Val_lit Lit_uninitialized) -> string x
+      | _ -> string x ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc init
+      end
+    | _ ->
+      begin match init.desc with 
+      | Trm_apps (_, [base])-> string x ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc base
+      | _ -> string x 
+      end
     end
+    
+      
   | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
   end 
  in
