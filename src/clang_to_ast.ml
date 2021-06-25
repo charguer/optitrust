@@ -507,17 +507,13 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | Some ty -> ty
     in
     let tl = List.map translate_expr el in
-    begin match tt.typ_desc with
-      | Typ_array _ -> trm_array ~loc ~ctx ~typ:(Some tt) tl
-      (* TODO: Fix this later *)
-      | Typ_constr _ -> trm_struct ~loc ~ctx ~typ:(Some tt)  tl
-      | Typ_var _ -> (* assumption: typedefs are only for struct *)
-        trm_struct ~ctx ~loc ~typ:(Some tt)  tl
-      | _ ->
+    begin match get_typ_kind (get_ctx()) tt with 
+    | Typ_kind_array -> trm_array ~loc ~ctx ~typ:(Some tt) tl
+    | Typ_kind_prod -> trm_struct ~loc ~ctx ~typ:(Some tt) tl
+    | _ ->
         fail loc ("translate_decl: initialisation lists only " ^
                   "allowed for struct and array")
     end
-
   | UnaryExpr {kind = k; argument = a} ->
     begin match k with
       | SizeOf ->
@@ -1023,45 +1019,19 @@ and translate_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
-          (* TODO: instead of matching on typ_desc, you need to match on
-             [get_typ_kind ctx tt] where is defined in ast.ml
-
-             let rec get_typ_kind ctx (ty : typ) : typ_kind =
-               match ty.typ_desc with
-               | Typ_const ty1 -> get_typ_kind ty1
-               | (Typ_int | Type_float) -> Typ_kind_basic ty
-               | (Typ_ptr | Type_array _) -> Typ_kind_array
-               | Typ_fun -> Typ_kind_fun
-               | Typ_var -> Typ_kind_var
-               | Typ_constr (_,tyid,_) ->
-                   match String_map.find tyid ctx.ctx_tconstr with
-                   | Typedef_alias ty1 -> get_typ_kind ty1
-                   | Typdef_prod -> Typ_kind_prod
-                   | Typdef_sum -> Typ_kind_sum
-
-             type typ_kind =
-               | Typ_kind_array
-               | Typ_kind_sum
-               | Typ_kind_prod
-               | Typ_kind_basic of typ_desc
-               | Typ_kind_fun
-               | Typ_kind_var
-
-          TODO
+          
+          (*TODO:
             ..
             show_ctx tg =
               apply_to_target (fun t ->
                 prints on stdout (ctx_to_text t.trm_ctx))
           *)
-          begin match tt.typ_desc with
-          | Typ_array _ -> trm_array ~loc ~typ:(Some tt) tl
-          (* TODO: Check this one later *)
-          | Typ_constr _ -> trm_struct ~loc ~typ:(Some tt) tl
-          | Typ_var _ -> (* assumption: typedefs are only for struct*)
-            trm_struct ~loc ~typ:(Some tt) tl
-          | _ ->
-            fail loc ("translate_decl: initialisation lists only " ^ "allowed for struct and array")
+          begin match get_typ_kind (get_ctx()) tt with  
+          | Typ_kind_array -> trm_array ~loc ~typ:(Some tt) tl
+          | Typ_kind_prod -> trm_struct ~loc ~typ:(Some tt) tl
+          | _ -> fail loc ("translate_decl: initialisation lists only " ^ "allowed for struct and array")
           end
+          
         | _ -> translate_expr e
         end
       end

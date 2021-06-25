@@ -18,7 +18,6 @@ let swap (tg : target) : unit =
     (fun (p,i) t -> Arrays_core.swap i t p) tg
 
 
-
 (* [aos_to_soa name x tg]*)
 let aos_to_soa (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)

@@ -200,7 +200,7 @@ let trm_kind_to_string (k : trm_kind) : string =
   | TrmKind_Any -> "Any"
 
 (* TODO: rename rexp_to_string *)
-let regexp_to_string (r : rexp) : string =
+let rexp_to_string (r : rexp) : string =
   (trm_kind_to_string r.rexp_trm_kind) ^ "-" ^
   (if r.rexp_substr then "Sub" else "Exact") ^ "-" ^
   r.rexp_desc
@@ -210,7 +210,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_strict -> "Strict"
   | Constr_dir d -> dir_to_string d
   | Constr_include s -> "Include " ^ s
-  | Constr_regexp r -> "Regexp " ^ regexp_to_string r
+  | Constr_regexp r -> "Regexp " ^ rexp_to_string r
   | Constr_for (p_init, p_cond, p_step, p_body) ->
      let s_init = target_to_string p_init in
      let s_cond = target_to_string p_cond in
@@ -228,13 +228,13 @@ let rec constr_to_string (c : constr) : string =
      "If (" ^ s_cond ^ ", " ^ s_then ^ ", " ^ s_else ^ ")"
   | Constr_decl_var (name, p_body) ->
      let s_name =
-       match name with | None -> "_" | Some r -> regexp_to_string r
+       match name with | None -> "_" | Some r -> rexp_to_string r
      in
      let s_body = target_to_string p_body in
      "Decl_var (" ^ s_name ^ ", " ^ s_body ^ ")"
   | Constr_decl_fun (name, _tgt_list_pred, p_body) ->
     let s_name =
-       match name with | None -> "_" | Some r -> regexp_to_string r
+       match name with | None -> "_" | Some r -> rexp_to_string r
      in
      let spred = _tgt_list_pred.target_list_pred_to_string() in
      let s_body = target_to_string p_body in
@@ -242,12 +242,12 @@ let rec constr_to_string (c : constr) : string =
 
   | Constr_decl_type name ->
      let s_name =
-       match name with | None -> "_" | Some r -> regexp_to_string r
+       match name with | None -> "_" | Some r -> rexp_to_string r
      in
      "Decl_type " ^ s_name
   | Constr_decl_enum (name, c_const) ->
      let s_name =
-       match name with | None -> "_" | Some r -> regexp_to_string r
+       match name with | None -> "_" | Some r -> rexp_to_string r
      in
      let s_const =
        match c_const with
@@ -257,7 +257,7 @@ let rec constr_to_string (c : constr) : string =
             List.map
               (fun (n, p) ->
                 let s_n =
-                  match n with | None -> "_" | Some r -> regexp_to_string r
+                  match n with | None -> "_" | Some r -> rexp_to_string r
                 in
                 let s_p = target_to_string p in
                 "(" ^ s_n ^ ", " ^ s_p ^ ")"
@@ -271,7 +271,7 @@ let rec constr_to_string (c : constr) : string =
      let spred = tgt_list_pred.target_list_pred_to_string() in
      sprintf "Seq (%s)" spred
   | Constr_var name ->
-     "Var " ^ (match name with | None -> "_" | Some r -> regexp_to_string r)
+     "Var " ^ (match name with | None -> "_" | Some r -> rexp_to_string r)
   | Constr_lit l ->
      let s =
        begin match l with
@@ -289,13 +289,13 @@ let rec constr_to_string (c : constr) : string =
     "App (" ^ s_fun ^ ", " ^ spred ^ string_of_bool(accept_encoded) ^ ")"
   | Constr_label (so, p_body) ->
      let s_label =
-       match so with | None -> "_" | Some r -> regexp_to_string r
+       match so with | None -> "_" | Some r -> rexp_to_string r
      in
      let s_body = target_to_string p_body in
      "Label (" ^ s_label ^ ", " ^ s_body ^ ")"
   | Constr_goto so ->
      let s_label =
-       match so with | None -> "_" | Some r -> regexp_to_string r
+       match so with | None -> "_" | Some r -> rexp_to_string r
      in
      "Goto " ^ s_label
   | Constr_return p_res ->
@@ -382,7 +382,7 @@ and access_to_string (ca : constr_access) : string =
      "Array_access " ^ s_index
   | Struct_access so ->
      let s_field =
-       match so with | None -> "_" | Some r -> regexp_to_string r
+       match so with | None -> "_" | Some r -> rexp_to_string r
      in
      "Struct_access " ^ s_field
   | Any_access -> "Any_access"
@@ -539,8 +539,6 @@ let match_regexp_str (r : rexp) (s : string) : bool =
   end
 
 let match_regexp_trm (r : rexp) (t : trm) : bool =
-  (* DEBUG: *) (* printf "match_regexp_trm(%s, %s)\n" (regexp_to_string r) (Ast_to_c.ast_to_string t); *)
-  (* DEBUG: *) (* printf "%s vs %s\n" (trm_kind_to_string r.rexp_trm_kind) (trm_kind_to_string (get_trm_kind t)); *)
   if r.rexp_trm_kind <> get_trm_kind t && r.rexp_trm_kind <> TrmKind_Any
     then false
     else match_regexp_str r (ast_to_string t)

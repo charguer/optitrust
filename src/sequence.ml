@@ -4,8 +4,8 @@ open Target
 (* [insert tg ts] *)
 let insert (tg : target) (s : string) : unit =
   Target.apply_on_target_between (fun t (p,i) ->
-    Sequence_core.insert i s p t) tg
-  (* TODO: call it   ; Trace.reparse() *)
+    Sequence_core.insert i s p t) tg;
+  Trace.reparse()
 
 (* [delete index nb tg] *)
 let delete ?(nb : int = 1) (tg : target) : unit =

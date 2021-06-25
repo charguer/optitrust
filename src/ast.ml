@@ -973,23 +973,6 @@ let nb_goto (l : label) (t : trm) : int =
 let is_generated_star (ty : typ) : bool =
   List.mem GeneratedStar ty.typ_attributes
 
-(* TODO: replace
-        Ast_to_c.typ_to_string ty = Ast_to_c.typ_to_string ty_before
-      with a call to the comparison funciton --> to move to ast.ml
-        let rec same_types (mustMatchGeneratedStar : bool) (tya : typ) (tyb : typ) : bool =
-          let aux = same_types mustMatchGeneratedStar in
-          (typa.typ_annot = typb.typ_annot) &&
-          match tya, tyb with
-          | Typ_ptr tya1, Typ_ptr tyb1 ->
-              (if mustMatchGeneratedStar
-                then (is_generated_star tya = is_generated_star tyb)
-                else true)
-              && (aux tya1 tyb1)
-          | Typ_int, Typ_int -> true
-          | ...
-          | _,_ -> false (* if different constructors *)
-*)
-
 let same_sizes (sz1 : size) (sz2 : size) : bool =
  match sz1, sz2 with
  | Undefined, Undefined -> true
@@ -1022,6 +1005,8 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | _, _ -> false
   )
 
+
+
 let trm_for_simple_of_trm_for (t : trm) : simple_loop option = 
   let body = begin match t.desc with 
   | Trm_for (_, _, _, body) -> body
@@ -1033,3 +1018,34 @@ let trm_for_simple_of_trm_for (t : trm) : simple_loop option =
   let stop = for_loop_bound t in
   let step = for_loop_step t in
   Some (index, start, stop, step, body)  
+
+
+type typ_kind = 
+  | Typ_kind_array
+  | Typ_kind_sum
+  | Typ_kind_prod
+  | Typ_kind_basic of typ_desc
+  | Typ_kind_fun
+  | Typ_kind_var
+
+let is_atomic_typ (t : typ) : bool =
+  match t.typ_desc with
+  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
+  | _ -> false
+
+let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
+  if is_atomic_typ ty then Typ_kind_basic ty.typ_desc 
+    else
+  match ty.typ_desc with 
+  | Typ_const ty1 -> get_typ_kind ctx ty1
+  | (Typ_ptr _| Typ_array _) -> Typ_kind_array
+  | Typ_fun _ -> Typ_kind_fun
+  | Typ_var _ -> Typ_kind_var
+  | Typ_constr (_, tyid, _) ->
+     let td = Typ_map.find tyid ctx.ctx_typedef in 
+     begin match td.typdef_body with 
+    | Typdef_alias ty1 -> get_typ_kind ctx ty1
+    | Typdef_prod _ -> Typ_kind_prod
+    | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum  
+    end
+  | _ -> Typ_kind_basic ty.typ_desc

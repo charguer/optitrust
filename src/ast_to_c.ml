@@ -31,11 +31,6 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
      at
   | Typ_var t -> string t
 
-and is_atomic_typ (t : typ) : bool =
-  match t.typ_desc with
-  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
-  | _ -> false
-
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
@@ -657,7 +652,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
-   | Trm_decoration(l,f1,r) -> (* TODO: think about how to put a decoration on a function *)
+   | Trm_decoration(l,f1,r) -> 
       let dt = apps_to_doc ~display_star ~is_app_and_set f1 tl in
       string l ^^ string "/*onlyfun*/" ^^ dt ^^ string r
    | _ -> fail f.loc "apps_to_doc: only functions may be applied"

@@ -59,10 +59,8 @@ let sub_aux (index : int) (nb : int) (t : trm) : trm =
     | Trm_seq tl ->
       let lfront,lrest = Tools.split_list_at index tl in
       let l_sub,lback = Tools.split_list_at nb lrest in
-      (* Create the inner sequence*)
       let sub_seq = trm_seq  l_sub in
       let tl = lfront @ [sub_seq] @ lback in
-      (* Apply changes *)
       trm_seq  tl
     | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
 
@@ -109,24 +107,15 @@ let sub_between (index1 : int) (index2 : int) : Target.Transfo.local =
 let inline_aux (index : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-    (* TODO:
-       let front,rest = takedrop index
-       match rest with
-       | (Trm_set tl)::back -> trm_seq (front ++ tl ++ back)
-    *)
-      (* Get the trms from the inner sequence *)
-      let inner_seq = List.nth tl index in
+      let lfront, lback = Tools.split_list_at index tl in
+      let inner_seq, lback = Tools.split_list_at 1 lback in
+      let inner_seq = List.hd inner_seq in
       let inner_seq_trms = begin match inner_seq.desc with
       | Trm_seq tl1 -> tl1
       | _ -> fail t.loc "inline_aux: inner sequence was not found, make sure the index is correct"
       end
       in
-      (* Insert at the given index the trms from the inner sequence *)
-      let tl = Tools.insert_sublist_in_list inner_seq_trms index tl in
-      (*  list_insert index inner_seq (list_remove index tl)
-          list_remove_and_insert_several index inner_seq tl *)
-      (* Apply the changes *)
-      trm_seq ~annot:t.annot tl
+      trm_seq ~annot:t.annot (lfront @ inner_seq_trms @lback)
     | _ -> fail t.loc "inline_aux: expected the sequence on which the ilining is performed"
 
 

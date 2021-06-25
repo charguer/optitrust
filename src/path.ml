@@ -412,14 +412,10 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
               | Case_name i ->
                  app_to_nth loc tl i (fun ith_t -> aux dl ith_t ctx)
             )
-       (* TODO: Uncoment this when enabling enums *)
-       (* | Dir_enum_const (n, ecd), Trm_typedef td ->
-        let xto_l = begin match
-        | T
-        end
-
-       (Typedef_enum (_, xto_l)) ->
-          app_to_nth loc xto_l n
+       | Dir_enum_const (n, ecd), Trm_typedef td ->
+          begin match td.typdef_body with
+          | Typdef_enum xto_l ->
+            app_to_nth loc xto_l n
              (fun (x, t_o) ->
                match ecd with
                | Enum_const_name -> aux dl (trm_var ~loc x) ctx
@@ -431,7 +427,10 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
                   | Some t ->
                      aux dl t ctx
                   end
-             ) *)
+             )
+          | _ -> fail loc ("resolving_path: direction")
+          end
+          
        | _, _ ->
           let s = dir_to_string d in
           fail loc ("resolve_path: direction " ^ s ^ " does not match")

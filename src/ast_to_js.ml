@@ -109,7 +109,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     | Trm_array l ->
         [ kind_to_field "array";
           children_to_field (List.mapi ichild_to_json (List.map aux l)) ]
-    (* TODO: Ask Arthur if Var_kind is needed *)
     | Trm_let (_,(x,typ),init) ->
         [ kind_to_field "var-def";
           (quote "name", Json.Str (quote x));
