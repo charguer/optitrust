@@ -14,8 +14,8 @@ int main() {
   unsigned int x;
   unsigned int t[3];
   int a = 1, b;
-  const double y1 = 1.0;
-  const double y2 = 2.0;
+  const double y1 = 1.0, y2 = 2.0;
+  // const double y2 = 2.0;
   vect v;
   int** m;
   int*** M;

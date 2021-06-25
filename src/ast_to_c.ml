@@ -408,7 +408,7 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   | [] -> fail loc "multi_deco_to_doc: empty multiple declaration"
   | {desc = Trm_let (vk, (_, ty), _);_} :: _ -> 
     begin match vk with 
-    | Var_immutable -> string "const " ^^ blank 1 ^^ typ_to_doc ty
+    | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty
     | _ -> begin match ty.typ_desc with 
           | Typ_ptr ty1 when is_generated_star ty -> typ_to_doc ty1
           | _ -> typ_to_doc ty
