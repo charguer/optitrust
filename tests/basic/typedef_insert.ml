@@ -1,10 +1,6 @@
 open Optitrust
 open Target
-let _ =
-    run
-    (fun _ ->
-        set_init_source"insert_type.cpp";
-        let main_fun= [cFunDef "main"] in
-        Declaration.insert_typedef [tBefore;main_fun] ~name:"T" ~value:"T[M][N]" ();
-        dump()
-    ) 
+
+let _ = Run.script_cpp (fun _ ->
+    !! Typedef.insert "typedef struct {int x; int y} vect;" [tAfter;cVarDef "N"];
+) 

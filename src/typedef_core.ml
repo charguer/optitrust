@@ -41,24 +41,18 @@ let fold (fold_at : target list) (index) : Target.Transfo.local =
         index: where the new typedef is going to be inserted
         t: ast subterm
 *)
-let insert_aux (x : typvar) (dx : typ) (index : int) (t : trm) : trm =
+let insert_aux (ctx : Trace.context) (s : string) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let td = trm_typedef {
-        typdef_typid = 0;
-        typdef_tconstr = x;
-        typdef_vars = [];
-        typdef_body = Typdef_alias dx}
-      in
-    let t_insert = td 
-      in
+    let context = Generic_core.get_context ctx t in
+    let t_insert = Generic_core.term ~context ctx s in
     let tl = Tools.list_insert (index) t_insert tl in
     trm_seq ~annot:t.annot tl
   | _ -> fail t.loc "insert_aux: expected the surrounding sequence"
 
 (* [insert_typedef x dx index p t] *)
-let insert (x : typvar) (dx : typ) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (insert_aux x dx index)
+let insert (ctx : Trace.context) (s : string) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (insert_aux ctx s index)
 
 
 (* [insert_and_fold_aux const as_reference fold_at x dx index t]: This is an auxiliary function for insert_and_fold_typedef

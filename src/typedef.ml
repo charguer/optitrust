@@ -8,10 +8,12 @@ let fold ?(fold_at : target list = [[]]) (tg : target) : unit =
     (fun (p,i) t -> Typedef_core.fold fold_at i t p) tg
 
 (* [inert x dx tg] *)
-let insert (x : typvar) (dx : typ) (tg : target) : unit =
-  Target.apply_on_target_between
-    (fun t (p,i) -> Typedef_core.insert x dx i t p) tg
-
+let insert (s : string) (tg : target) : unit =
+  Trace.apply( fun ctx t ->
+    let ps = resolve_target_between tg t in
+    List.fold_left (fun t (p, i) -> Typedef_core.insert ctx s i t p) t ps
+  ) 
+  
 (* [remove tg] *)
 let remove : Transfo.t =
   Generic.remove_instruction
