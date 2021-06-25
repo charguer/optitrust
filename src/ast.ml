@@ -353,6 +353,9 @@ type 'a tmap = 'a Trm_map.t
 
 type instantiation = trm tmap
 
+
+type simple_loop = var * trm * trm * trm * trm
+
 (* **************************Typ Construcors**************************** *)
 let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
@@ -395,6 +398,19 @@ let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
 let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (args : typ list) (res : typ) : typ =
   {typ_annot = annot; typ_desc = Typ_fun (args, res); typ_attributes}
+
+
+
+(* function that fails with given error message and points location in file *)
+exception TransfoError of string
+
+let fail (loc : location) (err : string) : 'a =
+  match loc with
+  | None -> failwith err
+  | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
+     raise (TransfoError (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^
+     " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]" ^ " : " ^ err))
+
 
 (* *************************** Trm constructors *************************** *)
 
@@ -523,21 +539,27 @@ let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes 
 (t : trm) : trm =
   {annot = annot; desc = Trm_any t; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
+let trm_for_simple ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+  (index : var) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
+  let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
+  let cond = (trm_apps (trm_binop Binop_lt)
+              [trm_apps ~annot:(Some Mutable_var_get)
+                (trm_unop Unop_get) [trm_var index];stop])
+   in
+  let step = trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
+                [ 
+                  trm_var index;
+                  trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+  in trm_for ~annot ~loc ~add ~attributes ~ctx init cond step body
+
 
 let is_included (t : trm) : bool =
   match t.annot with
   | Some (Include _) -> true
   | _ -> false
 
-(* function that fails with given error message and points location in file *)
-exception TransfoError of string
 
-let fail (loc : location) (err : string) : 'a =
-  match loc with
-  | None -> failwith err
-  | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
-     raise (TransfoError (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^
-     " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]" ^ " : " ^ err))
+
 
 (*
   compute a function that prints information related to some location in file
@@ -796,6 +818,7 @@ let for_loop_index (t : trm) : var =
        - for (i = …; …)
        - for (int i = …; …)
       *)
+     
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [{desc = Trm_var x; _}; _]) ->
@@ -999,3 +1022,14 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | _, _ -> false
   )
 
+let trm_for_simple_of_trm_for (t : trm) : simple_loop option = 
+  let body = begin match t.desc with 
+  | Trm_for (_, _, _, body) -> body
+  | _ -> fail t.loc "trm_for_simple_of_trm_for: expected a loop"
+  end
+  in
+  let index = for_loop_index t in
+  let start = for_loop_init t in
+  let stop = for_loop_bound t in
+  let step = for_loop_step t in
+  Some (index, start, stop, step, body)  
