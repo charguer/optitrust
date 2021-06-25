@@ -28,7 +28,10 @@ let _ = Run.script_cpp (fun () ->
 
   (* Nested paths *)
   show [ tLast; cFor "i"; dBody; dThen ];
-
+  (* Top level paths *)
+  show [tBefore; cTopFun "main"];
+  show [tAfter; cTopFun "main"];
+  
 )
 
 

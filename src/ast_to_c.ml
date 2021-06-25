@@ -398,21 +398,24 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
 and multi_decl_to_doc (loc : location) (tl : trm list) : document = 
- let test_seq = trm_seq tl in 
- Ast_to_text.print_ast ~only_desc:true stdout test_seq;
+ (* TODO: Add support for other cases when multi_decl appears *)
  let dtype = 
   match tl with 
   | [] -> fail loc "multi_deco_to_doc: empty multiple declaration"
-  | {desc = Trm_let (vk, (_, ty), _);_} :: _ -> 
-    begin match vk with 
-    | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty
-    | _ -> begin match ty.typ_desc with 
-          | Typ_ptr ty1 when is_generated_star ty -> typ_to_doc ty1
-          | _ -> typ_to_doc ty
-           end 
-    end
-  | _ -> fail loc "multi_decl_to_doc: only_variable declaration allowed"
-  in
+  | hd :: _ -> 
+    Ast_to_text.print_ast ~only_desc:true stdout hd;
+    begin match hd.desc with 
+    | Trm_let (vk, (_, ty), _) ->
+      begin match vk with 
+      | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty
+      | _ -> begin match ty.typ_desc with 
+            | Typ_ptr ty1 when is_generated_star ty -> typ_to_doc ty1
+            | _ -> typ_to_doc ty
+            end 
+       end
+     | _ -> fail hd.loc "multi_decl_to_doc: expected a trm_let"    
+     end
+   in
  let get_info (t : trm) : document = 
   begin match t.desc with 
   | Trm_let (vk, (x, _), init) -> 

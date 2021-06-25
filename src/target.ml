@@ -554,7 +554,7 @@ let target_between_show_aux (debug_ast : bool) (id : int) (k : int) (t : trm) : 
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at k tl in
-      let new_trm = trm_decoration left_decoration right_decoration (trm_var ";") in
+      let new_trm = trm_decoration left_decoration right_decoration (trm_var "") in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 
