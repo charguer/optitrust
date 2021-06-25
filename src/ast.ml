@@ -1049,3 +1049,5 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
     | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum  
     end
   | _ -> Typ_kind_basic ty.typ_desc
+
+

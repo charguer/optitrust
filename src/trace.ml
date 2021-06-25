@@ -286,13 +286,12 @@ let output_js (index : int) (cpp_filename : string) (prefix : string) (_ast : tr
   let out_js = open_out file_js in
   try
     (* Dump the description of the AST nodes *)
-    Ast_to_js.ast_to_js out_js index ast;
-    output_string out_js "\n";
-
-    (* Dump the raw source code *)
-    (* DEPRECATED  Ast_to_js.Json.code_to_js out_js index ast;  *)
     let src = Xfile.get_contents cpp_filename in
     Ast_to_js.Json.code_to_js out_js index src;
+    
+    Ast_to_js.ast_to_js out_js index ast;
+    output_string out_js "\n";
+    
 
     close_out out_js;
   with | Failure s ->

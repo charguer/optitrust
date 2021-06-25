@@ -65,10 +65,11 @@ let fold (as_reference : bool) (fold_at : target list) (index) : Target.Transfo.
     return:
       the updated ast
 *)
-let insert_aux (const : bool) (as_reference : bool) (x : var) (dx : string) (index : int) (t : trm) : trm =
+let insert_aux (ctx : Trace.context) (const : bool) (as_reference : bool) (x : var) (dx : string) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let dx = Generic_core.term dx in
+    let context = Generic_core.get_context ctx t in
+    let dx = Generic_core.term ~context ctx dx in
     let tx = match dx.typ with
     | None -> fail t.loc "insert_aux: cannot find definition type"
     | Some tx -> if as_reference then typ_ptr tx else tx
@@ -88,8 +89,8 @@ let insert_aux (const : bool) (as_reference : bool) (x : var) (dx : string) (ind
   | _ -> fail t.loc "insert_aux: expected the surrounding sequence"
 
 (* [insert const as_reference x dx index p t] *)
-let insert(const : bool) (as_reference : bool) (x : var) (dx : string) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (insert_aux const as_reference x dx index)
+let insert (ctx : Trace.context )(const : bool) (as_reference : bool) (x : var) (dx : string) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (insert_aux ctx const as_reference x dx index)
 
 
 let insert_and_fold_aux (const : bool) (as_reference : bool) (x : var) (dx : trm) (index : int) (fold_at : target list) (t : trm) : trm =

@@ -6,10 +6,18 @@ let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (tg : ta
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.fold as_reference fold_at i t p) tg
 
+
 (* [insert ~const ~as_reference x dx tg] *)
 let insert ?(const : bool = false) ?(as_reference : bool = false) (x : var) (dx : var) (tg : target) : unit =
+  Trace.apply (fun ctx t ->
+   let ps = resolve_target_between tg t in
+   List.fold_left (fun t (p,i) -> Variable_core.insert ctx const as_reference x dx i t p) t ps
+  )
+
+(* [insert ~const ~as_reference x dx tg] *)
+(* let insert ?(const : bool = false) ?(as_reference : bool = false) (x : var) (dx : var) (tg : target) : unit =
   Target.apply_on_target_between
-    (fun t (p,i) -> Variable_core.insert const as_reference x dx i t p) tg
+    (fun t (p,i) -> Variable_core.insert const as_reference x dx i t p) tg *)
 
 (* [remove tg] *)
 let remove : Transfo.t =

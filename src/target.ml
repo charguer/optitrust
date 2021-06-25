@@ -410,7 +410,6 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
 let resolve_target = Constr.resolve_target
 let resolve_target_between = Constr.resolve_target_between
 *)
-
 (*
   find the explicit path to the toplevel declaration of x if it exists
   assumption: x denotes a function or a type
@@ -435,8 +434,6 @@ let rec target_to_decl (x : var) (t : trm) : path option =
        tl
   (* val, var, array, struct, if, apps, while, for, switch, abort, label *)
   | _ -> None
-
-
 
 (******************************************************************************)
 (*                          Apply on target operations                        *)

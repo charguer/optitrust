@@ -213,43 +213,30 @@ let eliminate_goto_next (t : trm) : trm =
     | _ -> trm_map aux t
   in
   aux t
-(* TODO: Change this based on Arthurs'idea *)
-let group_decl_init (t : trm) : trm =
-  let rec group_in_list (tl : trm list) : trm list =
-    match tl with
-    | t1 :: t2 :: tl ->
-       begin match t1.desc, t2.desc with
-       | Trm_seq [{desc = Trm_let (Var_mutable,(x, tx), dx); _}],
-         Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                   [{desc = Trm_var _; _}; _])
-             (* when y = x && t1.annot = Some Heap_allocated *) ->
-          let t =
-            trm_let ~loc:t1.loc Var_mutable (x, tx) dx
-          in
-          group_in_list (t :: tl)
-       | _ -> t1 :: (group_in_list (t2 :: tl))
-       end
-    | _ -> tl
-  in
-  let rec aux (t : trm) : trm =
-    match t.desc with
-    | Trm_seq tl ->
-       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
-         (group_in_list (List.map aux tl))
-    | _ -> trm_map aux t
-  in
-  aux t
 
-let parse_cstring (is_expression : bool) (s : string) : trm list =
+
+let get_context(ctx : Trace.context) (t : trm) : string =
+  (* t should be the sequence which is going to contain the new inserted trm *)
+  ctx.includes ^ Ast_to_c.ast_to_string t
+
+
+let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : Trace.context): trm list =
+ let context = if context = "" then ctx.includes else context in
+ let command_line_args =
+  List.map Clang.Command_line.include_directory 
+    (ctx.directory :: Clang.default_include_directories())
+  in
  let ast =
-    Clang.Ast.parse_string
+    Clang.Ast.parse_string ~command_line_args
       (Printf.sprintf
          {|
+          %s
           void f(void){
             #pragma clang diagnostic ignored "-Wunused-value"
             %s
           }
           |}
+         context
          (if is_expression then s ^ ";" else s)
       )
   in
@@ -308,14 +295,14 @@ let parse_cstring (is_expression : bool) (s : string) : trm list =
 *)
 
 (* Get the sat of a C/C++ trm entered as a string *)
-let term (s : string) : trm =
-  let tl = parse_cstring true s in
+let term ?(context : string = "")(ctx : Trace.context) (s : string) : trm =
+  let tl = parse_cstring context true s ctx  in
   match tl with
   | [expr] -> expr
   | _ -> fail None "term: expcted a list with only one element"
 
-let stats (s : string) : trm list =
-  parse_cstring false s
+let stats ?(context : string = "") (ctx : Trace.context) (s : string) : trm list =
+  parse_cstring context false s ctx 
 
 (*
   aliased_type X takes as argument the description of a file

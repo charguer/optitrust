@@ -44,8 +44,6 @@ let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : un
 let eliminate_goto_next (_ : unit) : unit =
   Trace.apply (fun _ -> Generic_core.eliminate_goto_next)
 
-let group_decl_init (_ : unit) : unit =
-  Trace.apply (fun _ -> Generic_core.group_decl_init)
 
 
 (* ********************************************************* *)
