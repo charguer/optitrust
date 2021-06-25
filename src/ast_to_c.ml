@@ -7,9 +7,6 @@ open Ast
 let decode = ref true
 
 (* translate an ast to a C/C++ document *)
-(* todo: option to print heap allocation patterns *)
-
-
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const "
@@ -225,8 +222,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_seq tl ->
         begin match t.annot with
         | Some Multi_decl -> dattr ^^ multi_decl_to_doc loc tl
-        | Some No_braces -> (* TODO: printf stdout "warning no braces left" *)
-           (* Print  NOBRACES{ t1; t2 }   *)
+        | Some No_braces -> 
            let dl = List.map (trm_to_doc ~semicolon:true) tl in
            dattr ^^ separate hardline dl
         | Some Main_file ->
@@ -406,7 +402,38 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       separate (blank 1) [string "enum"; string tname;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
-and multi_decl_to_doc (loc : location) (tl : trm list) : document =
+and multi_decl_to_doc (loc : location) (tl : trm list) : document = 
+ let dtype = 
+  match tl with 
+  | [] -> fail loc "multi_deco_to_doc: empty multiple declaration"
+  | {desc = Trm_let (vk, (_, ty), _);_} :: _ -> 
+    begin match vk with 
+    | Var_immutable -> string "const " ^^ blank 1 ^^ typ_to_doc ty
+    | _ -> begin match ty.typ_desc with 
+          | Typ_ptr ty1 when is_generated_star ty -> typ_to_doc ty1
+          | _ -> typ_to_doc ty
+           end 
+    end
+  | _ -> fail loc "multi_deco_to_doc: only_variable declaration allowed"
+  in
+ let get_info (t : trm) : document = 
+  begin match t.desc with 
+  | Trm_let (_, (x, _), init) -> 
+    begin match init.desc with 
+    | Trm_apps (_, [base])-> string x ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc base
+    | _ -> string x 
+    end
+  | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
+  end 
+ in
+ let dnames = separate (comma ^^ blank 1) (List.map get_info tl) in
+  dtype ^^ blank 1 ^^ dnames ^^ semi
+
+
+
+
+
+(* and multi_decl_to_doc1 (loc : location) (tl : trm list) : document =
   let rec get_names = function
     | [] -> []
     (* const variables *)
@@ -424,7 +451,7 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
     | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
   in
   let dnames = separate (comma ^^ blank 1) (List.map string (get_names tl)) in
-    dtype ^^ blank 1 ^^ dnames ^^ semi
+    dtype ^^ blank 1 ^^ dnames ^^ semi *)
 
 (* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
