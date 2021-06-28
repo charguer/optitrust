@@ -85,6 +85,8 @@ and constr =
    *)
   (* for: init, cond, step, body *)
   | Constr_for of target * target * target * target
+  (* for index, start, stop, step, body *)
+  | Constr_for_simple of constr_name * target * target * target * target
   (* while: cond, body *)
   | Constr_while of target * target
   (* if: cond, then, else *)
@@ -217,6 +219,15 @@ let rec constr_to_string (c : constr) : string =
      let s_step = target_to_string p_step in
      let s_body = target_to_string p_body in
      "For (" ^ s_init ^ ", " ^ s_cond ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
+  | Constr_for_simple (p_index, p_start, p_stop, p_step, p_body) ->
+    let s_index = 
+      match p_index with | None -> "_" | Some r -> rexp_to_string r
+    in
+    let s_start = target_to_string p_start in
+    let s_stop = target_to_string p_stop in
+    let s_step = target_to_string p_step in
+    let s_body = target_to_string p_body in
+    "For ("^s_index ^ " ," ^ s_start ^ ", " ^ s_stop ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
   | Constr_while (p_cond, p_body) ->
      let s_cond = target_to_string p_cond in
      let s_body = target_to_string p_body in
@@ -587,6 +598,13 @@ let rec check_constraint (c : constr) (t : trm) : bool =
        Trm_for (init, cond, step, body) ->
         check_target p_init init &&
         check_target p_cond cond &&
+        check_target p_step step &&
+        check_target p_body body
+     | Constr_for_simple (p_index, p_start, p_stop, p_step, p_body),
+        Trm_for_simple(index, start, stop, step, body) ->
+        check_name p_index index &&
+        check_target p_start start &&
+        check_target p_stop stop &&
         check_target p_step step &&
         check_target p_body body
      | Constr_while (p_cond, p_body), Trm_while (cond, body) ->

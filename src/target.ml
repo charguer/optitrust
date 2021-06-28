@@ -163,13 +163,17 @@ let cVarDef
   let p_body =  body in
     Constr_decl_var (ro, p_body)
 
+let cForSimple ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr = 
+  let ro = string_to_rexp_opt false false index TrmKind_Instr in
+  Constr_for_simple (ro, start, stop, step, body)
+
 let cFor ?(init : target = [])
-  ?(cond : target = []) ?(step : target = []) ?(body : target = []) (name : string) : constr =
+  ?(cond : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let init =
-      match name, init with
+      match index, init with
       | "", [] -> init
       | "", _ -> init
-      | _, [] -> [cVarDef name]
+      | _, [] -> [cVarDef index]
       | _, _::_ -> init
       in
     Constr_for ( init,  cond,  step,  body)

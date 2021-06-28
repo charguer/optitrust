@@ -19,8 +19,6 @@ open Ast
       end
   | _ -> fail t.loc "swap_aux; bad loop body"
 
-
-
 (* swap: Swap the two loop constructs, the loop should contain as least one inner loop
     params:
       path_to_loop an explicit path toward the loop
@@ -42,6 +40,17 @@ let swap : Target.Transfo.local =
 *)
 
 let color_aux (c : var) (i_color : var) (t : trm) : trm =
+  (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
+  match t.desc with 
+  | Trm_for_simple (index, start, stop, step, body) ->
+    trm_for_simple ("c"^index) start (trm_var c) step (
+      trm_seq [
+        trm_for_simple index (trm_var i_color) stop (trm_var c) body
+      ]
+    )
+  | _ -> fail t.loc "color_aux: only simple loops are supported"
+
+(* let color_aux1 (c : var) (i_color : var) (t : trm) : trm =
   match t.desc with 
   | Trm_for (_ , _, _, body) ->
     let index_i = for_loop_index t in
@@ -100,7 +109,7 @@ let color_aux (c : var) (i_color : var) (t : trm) : trm =
 
         in loop ~top:true ("c" ^ index_i) (trm_var c) (trm_seq [loop ~top:false index_i loop_size body ])
 
-  | _ -> fail t.loc "color_aux: not a for loop, check the path "
+  | _ -> fail t.loc "color_aux: not a for loop, check the path " *)
 
 (* color: Replace the original loop with two nested loops:
         for (int i_color = 0; i_color < C; i_color++)

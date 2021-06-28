@@ -838,7 +838,11 @@ let for_loop_init (t : trm) : trm =
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [_; n]) ->
         n
-     | Trm_let (_,(_, _), init) -> init
+     | Trm_let (_,(_, _), init) -> 
+        begin match init.desc with 
+        | Trm_apps(_, [init1]) -> init1
+        | _ -> init
+        end
      | _ -> fail init.loc "for_loop_init: bad for loop initialisation"
      end
   | _ -> fail t.loc "for_loop_init: expected for loop"
@@ -1008,6 +1012,7 @@ let is_simple_loop_component (t : trm) : bool =
   match t.desc with 
   | Trm_apps(f,_) when f.desc = Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
   | Trm_var _ -> true
+  | Trm_val (Val_lit (Lit_int _)) -> true
   | _ -> false
   
 
@@ -1022,9 +1027,15 @@ let trm_for_simple_of_trm_for (t : trm) : trm =
   let start = for_loop_init t in
   let stop = for_loop_bound t in
   let step = for_loop_step t in
+  (* DEBUG *)
+  (* printf "is simple loop start %b\n" (is_simple_loop_component start);
+  printf "is simple loop stop %b\n" (is_simple_loop_component stop);
+  printf "is simple loop step %b\n" (is_simple_loop_component step); *)
+  
   let is_simple_loop = (is_simple_loop_component start) &&
   (is_simple_loop_component stop) && (is_simple_loop_component step)
   in
+
   if is_simple_loop then trm_for_simple index start stop step body
     else t
     

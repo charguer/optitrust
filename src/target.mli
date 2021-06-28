@@ -99,6 +99,8 @@ val sExprRegexp : ?substr:bool -> string -> constr
 val cFor : ?init:target -> ?cond:target ->
            ?step:target -> ?body:target -> string -> constr
 
+val cForSimple : ?start:target -> ?stop:target -> ?step:target -> ?body:target -> string -> constr
+
 val cWhile : ?cond:target -> ?body:target -> unit ->
              constr
 

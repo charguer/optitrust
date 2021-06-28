@@ -8,10 +8,10 @@ int main(){
     {
         t[i] = 0;
     }
-    for(int j = 0; j < N; j += 2)
-    {
-        t[j] = 0;
-    }
+    // for(int j = 0; j < N; j += 2)
+    // {
+    //     t[j] = 0;
+    // }
     
     return 0;   
 }
