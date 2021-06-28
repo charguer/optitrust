@@ -257,6 +257,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
+     | Trm_for_simple (index, start, stop, step, body) ->
+       let full_loop = trm_for_simple_to_trm_for index start stop step body in
+       trm_to_doc full_loop
      | Trm_switch (cond, cases) ->
         let dcond = trm_to_doc cond in
         let dcases =

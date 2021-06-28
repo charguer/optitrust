@@ -508,7 +508,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
    | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
-   | Trm_while _ | Trm_for _ | Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
+   | Trm_while _ | Trm_for _ | Trm_for_simple _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) | Trm_decoration (_, t, _) | Trm_any t -> get_trm_kind t
 
    (* if t.is_statement then

@@ -5,6 +5,7 @@ int min(int x, int y) {
 }
 
 int main(){
+    int a = -1;
     int X = 10;
     
     for(int x = 0; x < X; x++)

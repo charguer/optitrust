@@ -203,6 +203,13 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dbody = print_trm ~only_desc body in
      node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
+  | Trm_for_simple (index, start, stop, step, body) ->
+    let dstart = print_trm ~only_desc start in
+    let dstop = print_trm ~only_desc stop in
+    let dstep = print_trm ~only_desc step in
+    let dbody = print_trm ~only_desc body in
+    node "Trm_for_simple" ^^ parens (separate (comma ^^ break 1)
+      [string index; dstart; dstop; dstep; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm ~only_desc cond in
      let dcases =
