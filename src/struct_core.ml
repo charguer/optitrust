@@ -18,7 +18,6 @@ let set_explicit_aux (t: trm) : trm =
   in  
   match t.desc with 
   | Trm_apps(_, [lt;rt]) ->
-    Ast_to_text.print_ast ~only_desc:true stdout lt;
     let tid_r = Generic_core.get_typid rt  in 
     let tid_l = Generic_core.get_typid lt  in
     let tid = match tid_r, tid_l with 
@@ -26,7 +25,6 @@ let set_explicit_aux (t: trm) : trm =
     | _, -1 -> tid_r
     | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
     in
-    Tools.printf "Got typid %d\n" tid;
     let struct_def = Typ_map.find tid typid_to_typedef_map in
     let field_list = List.rev (Generic_core.get_field_list struct_def) in
     begin match rt.desc with
@@ -66,13 +64,8 @@ let set_explicit_aux (t: trm) : trm =
         trm_seq ~annot:t.annot exp_assgn
       | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
-    (* Any othe expression *)
     | _ -> fail t.loc "set_explicit_aux: other expressions are not supported" 
-      (* let exp_assgn = List.map(fun sf ->
-      let new_f = trm_unop (Unop_struct_get sf) in
-      trm_set (trm_apps new_f [lt]) (trm_apps new_f [rt])
-      ) field_list in
-      trm_seq exp_assgn *)
+      
     end
   | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
   
