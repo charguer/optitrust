@@ -15,14 +15,14 @@ let _ = Run.script_cpp (fun () ->
   show [ cVar "g" ];
 
   (* Loops *)
-  show [ cFor "i" ];
-  show [ cFor "j" ];
-  show [ cFor ~cond:[sExpr "j < 5"] "" ];
+  show [ cForSimple "i" ];
+  (* show [ cForSimple "j" ]; *)
+  (* show [ cForSimple ~stop:[cInt 5] "" ]; *)
 
   (* Abort *)
-  show [ cBreak ];
-  show [ cContinue ];
-  show [ cReturn ];
+  (* show [ cBreak ]; *)
+  (* show [ cContinue ]; *)
+  (* show [ cReturn ]; *)
 
   (* Labels *)
   show [ cLabel "lbl1" ];
@@ -39,7 +39,7 @@ let _ = Run.script_cpp (fun () ->
   (* show [ cFunDef ~args_pred:((fun i -> [bTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
 
   (* Regexp *)
-  show [sExpr "j <"];
+  show [sInstr "j <"];
   show [nbEx 0; sInstr ~substr:false "j <"];
 
   show [sInstr "+= 2"];

@@ -509,16 +509,22 @@ let rec get_trm_kind (t : trm) : trm_kind =
                  | None -> false
                  end
     in
-   if t.is_statement = true then TrmKind_Instr else
    match t.desc with 
-   | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+   | Trm_val _ -> (* if is_unit then TrmKind_Instr else *) TrmKind_Expr
    | Trm_var _ -> TrmKind_Expr
    | Trm_struct _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ | Trm_let _ -> TrmKind_Instr 
    | Trm_typedef _ -> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
-   | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
+   (* | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr *)
+   | Trm_apps (f,_) ->
+     begin match f.desc with
+      | Trm_var _ -> TrmKind_Instr
+      | Trm_val (Val_prim (Prim_unop Unop_inc)) -> TrmKind_Instr
+      | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
+      | _ -> TrmKind_Expr
+      end
    | Trm_while _ | Trm_for _ | Trm_for_simple _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) | Trm_decoration (_, t, _) | Trm_any t -> get_trm_kind t
 

@@ -2,6 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp ( fun _ ->
+    show [sExpr ~substr:false "x++"];
     !! Label.add "start" [cVarDef "x"] ;
     !! Label.add "loop" [cForSimple "i"];
     !! Label.add "cond" [cIf (); dThen]  ;
