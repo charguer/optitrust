@@ -41,13 +41,13 @@ let set_explicit_aux (t: trm) : trm =
          trm_set (trm_apps ~annot:(Some Access) new_f [trm_apps f2 [lbase]]) (trm_apps ~annot:(Some Access) new_f [trm_apps f1 [rbase]])
         ) field_list in
        trm_seq ~annot: t.annot exp_assgn
-      | Trm_var v ->
-        let exp_assgn = List.map(fun sf ->
+
+      | _ -> let exp_assgn = List.map(fun sf ->
         let new_f = trm_unop (Unop_struct_get sf) in
-        trm_set (trm_apps new_f [trm_var v]) (trm_apps ~annot: (Some Access) f1 [trm_apps new_f [rbase]])
-        ) field_list in
+        trm_set (trm_apps new_f [lt]) (trm_apps ~annot: (Some Access) f1 [trm_apps new_f [rbase]])
+        ) field_list in 
+        
         trm_seq ~annot:t.annot exp_assgn
-      | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
     (* If the right hand side is a struct initialization *)
     | Trm_struct st ->

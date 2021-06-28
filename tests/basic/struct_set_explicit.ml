@@ -2,13 +2,12 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp ( fun _ ->
-        
-
         (* show [sInstr "d = p"]; *)
-        Struct.set_explicit [sInstr "d = p"];
-        Struct.set_explicit [sInstr "u = a.pos"];
-        Struct.set_explicit [sInstr "t[0] = p2"];(* Doesn't work*)
-    )
+    !!  Struct.set_explicit [sInstr "d = p"];
+    !!  Struct.set_explicit [sInstr "u = a.pos"];
+    !!  Struct.set_explicit [sInstr "t[0] = p2"];
+    (* !!  Struct.set_explicit [sInstr "d = { 1, 2 }"]; *)
+)
 
 
 (* make explicit record assignment

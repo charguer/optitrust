@@ -20,7 +20,7 @@ int main() {
   vect d;
   d = p;
 
-  // d = { 1, 2 }; // TODO !
+  /* d = { 1, 2 }; */ // TODO !
 
   // vect e;
   // e = f();

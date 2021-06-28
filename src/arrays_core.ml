@@ -447,6 +447,7 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
                     swap accesses only if the type of base' is x (or x* in case of
                     an access on a heap allocated variable)
                    *)
+                  
                   let base'  = match base'.desc with
                   | Trm_apps (_, [base'']) when base'.annot = Some Mutable_var_get -> base''
                   | _ -> base'
