@@ -26,7 +26,8 @@ TESTS := \
   sequence_wrap.ml \
   sequence_unwrap.ml \
   struct_reorder.ml \
-  struct_set_implicit.ml \
+	struct_set_explicit.ml \
+	struct_set_implicit.ml \
   typedef_fold.ml \
 	typedef_inline.ml \
 	variable_fold.ml \
@@ -34,7 +35,6 @@ TESTS := \
 	variable_insert.ml \
 
   #sequence_insert.ml \
-	# "struct_set_explicit.ml \
 	# typedef_insert.ml
 
 

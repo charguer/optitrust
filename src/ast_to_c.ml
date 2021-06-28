@@ -402,23 +402,6 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
 
 and multi_decl_to_doc (loc : location) (tl : trm list) : document = 
  (* TODO: Add support for other cases when multi_decl appears *)
- let dtype = 
-  match tl with 
-  | [] -> fail loc "multi_deco_to_doc: empty multiple declaration"
-  | hd :: _ -> 
-    Ast_to_text.print_ast ~only_desc:true stdout hd;
-    begin match hd.desc with 
-    | Trm_let (vk, (_, ty), _) ->
-      begin match vk with 
-      | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty
-      | _ -> begin match ty.typ_desc with 
-            | Typ_ptr ty1 when is_generated_star ty -> typ_to_doc ty1
-            | _ -> typ_to_doc ty
-            end 
-       end
-     | _ -> fail hd.loc "multi_decl_to_doc: expected a trm_let"    
-     end
-   in
  let get_info (t : trm) : document = 
   begin match t.desc with 
   | Trm_let (vk, (x, _), init) -> 
@@ -434,14 +417,29 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
       | _ -> string x 
       end
     end
-    
-      
+  | Trm_typedef _ -> string ""
   | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
-  end 
+  end
  in
  let dnames = separate (comma ^^ blank 1) (List.map get_info tl) in
-  dtype ^^ blank 1 ^^ dnames ^^ semi
-
+  begin match tl with 
+  | [] -> fail loc "multi_deco_to_doc: empty multiple declaration"
+  | [d] -> begin match d.desc with 
+           | Trm_typedef td -> typedef_to_doc td
+           | _ -> fail loc "multi_decl_to_doc: expected a typedef"
+           end   
+  | hd :: _ -> 
+    match hd.desc with 
+    | Trm_let (vk, (_, ty), _) ->
+      begin match vk with 
+      | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
+      | _ -> begin match ty.typ_desc with 
+            | Typ_ptr ty1 when is_generated_star ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
+            | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
+            end 
+       end
+  | _ -> fail loc "multi_decl_to_doc: expected a trm_let"    
+  end
 
 
 
