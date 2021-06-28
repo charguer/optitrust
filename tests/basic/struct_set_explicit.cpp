@@ -20,7 +20,6 @@ int main() {
   vect d;
   d = p;
 
-  /* d = { 1, 2 }; */ // TODO !
 
   // vect e;
   // e = f();
@@ -32,6 +31,9 @@ int main() {
   vect t[2];
   vect p2 = p;
   t[0] = p2;
+  
+  p = { 1, 2 }; // TODO !
+  
   /* TODO; unrestricted
   LFS = p;
   ->

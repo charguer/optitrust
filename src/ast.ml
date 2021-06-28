@@ -1040,6 +1040,7 @@ let trm_for_simple_of_trm_for (t : trm) : trm =
     else t
     
 type typ_kind = 
+  | Typ_kind_undefined
   | Typ_kind_array
   | Typ_kind_sum
   | Typ_kind_prod
@@ -1047,6 +1048,17 @@ type typ_kind =
   | Typ_kind_fun
   | Typ_kind_var
 
+
+let typ_kind_to_string (tpk : typ_kind) : string =
+  begin match tpk with 
+  | Typ_kind_undefined -> "undefined"
+  | Typ_kind_array -> "array"
+  | Typ_kind_sum -> "sum"
+  | Typ_kind_prod -> "prod"
+  | Typ_kind_basic _ -> "basic"
+  | Typ_kind_fun -> "fun"
+  | Typ_kind_var -> "var"
+  end
 let is_atomic_typ (t : typ) : bool =
   match t.typ_desc with
   | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
@@ -1061,12 +1073,17 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
   | Typ_fun _ -> Typ_kind_fun
   | Typ_var _ -> Typ_kind_var
   | Typ_constr (_, tyid, _) ->
-     let td = Typ_map.find tyid ctx.ctx_typedef in 
-     begin match td.typdef_body with 
-    | Typdef_alias ty1 -> get_typ_kind ctx ty1
-    | Typdef_prod _ -> Typ_kind_prod
-    | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum  
-    end
+     let td_opt = Typ_map.find_opt tyid ctx.ctx_typedef in 
+     begin match td_opt with
+     | None -> Typ_kind_undefined
+     | Some td ->
+         begin match td.typdef_body with 
+        | Typdef_alias ty1 -> get_typ_kind ctx ty1
+        | Typdef_prod _ -> Typ_kind_prod
+        | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum  
+        end
+     end
+        
   | _ -> Typ_kind_basic ty.typ_desc
 
 let trm_for_simple_to_trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)

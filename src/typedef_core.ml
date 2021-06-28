@@ -46,7 +46,7 @@ let insert_aux (ctx : Trace.context) (s : string) (index : int) (t : trm) : trm 
   | Trm_seq tl ->
     let context = Generic_core.get_context ctx t in
     let t_insert = Generic_core.term ~context ctx s in
-    let tl = Tools.list_insert (index) t_insert tl in
+    let tl = Tools.list_insert (index-1) t_insert tl in
     trm_seq ~annot:t.annot tl
   | _ -> fail t.loc "insert_aux: expected the surrounding sequence"
 

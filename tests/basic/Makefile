@@ -12,8 +12,6 @@ TESTS := \
   array_tile.ml \
 	array_to_variables.ml \
 	const_insert.ml \
-	label_add.ml \
-  label_remove.ml \
   loop_color.ml \
   loop_fusion.ml \
   loop_hoist.ml \
@@ -30,14 +28,14 @@ TESTS := \
 	struct_set_implicit.ml \
   typedef_fold.ml \
 	typedef_inline.ml \
+	typedef_insert.ml \
 	variable_fold.ml \
 	variable_inline.ml \
 	variable_insert.ml \
-
-  #sequence_insert.ml \
-	# typedef_insert.ml
-
-
+  sequence_insert.ml \
+	# label_add.ml \
+  # label_remove.ml \
+  
 
 # To consider all ml files except specific ones, use EXCLUDE_TESTS (see ../Common.Makefile)
 

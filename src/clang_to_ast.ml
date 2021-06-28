@@ -510,6 +510,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     begin match get_typ_kind (get_ctx()) tt with 
     | Typ_kind_array -> trm_array ~loc ~ctx ~typ:(Some tt) tl
     | Typ_kind_prod -> trm_struct ~loc ~ctx ~typ:(Some tt) tl
+    | Typ_kind_undefined -> trm_struct ~loc ~ctx ~typ:(Some tt) tl
     | _ ->
         fail loc ("translate_decl: initialisation lists only " ^
                   "allowed for struct and array")
@@ -1029,6 +1030,7 @@ and translate_decl (d : decl) : trm =
           begin match get_typ_kind (get_ctx()) tt with  
           | Typ_kind_array -> trm_array ~loc ~typ:(Some tt) tl
           | Typ_kind_prod -> trm_struct ~loc ~typ:(Some tt) tl
+          | Typ_kind_undefined -> trm_struct ~loc ~typ:(Some tt) tl
           | _ -> fail loc ("translate_decl: initialisation lists only " ^ "allowed for struct and array")
           end
           

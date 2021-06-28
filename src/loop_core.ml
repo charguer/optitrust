@@ -7,7 +7,6 @@ open Ast
  let swap_aux (t : trm) : trm = 
   match t.desc with
   | Trm_for (init1, cond1, step1,body1) ->
-      (* Ast_to_text.print_ast ~only_desc:true stdout body1; *)
       begin match body1.desc with
       | Trm_seq [f_loop] ->
         begin match f_loop.desc with
@@ -17,6 +16,17 @@ open Ast
         end
       | _ -> fail t.loc "swap_aux; expected inner loop"
       end
+  | Trm_for_simple (index1, start1, stop1, step1, body1) ->
+    begin match body1.desc with 
+    | Trm_seq [f_loop] ->
+      begin match f_loop.desc with 
+      | Trm_for_simple (index2, start2, stop2, step2, body2) ->
+        trm_for_simple index2 start2 stop2 step2 (trm_seq [
+          trm_for_simple index1 start1 stop1 step1 body2])
+      | _ -> fail f_loop.loc "swap_aux: expected a simple loop here"
+      end
+    | _ -> fail body1.loc "swap_aux: body of the loop should be a sequence "
+    end
   | _ -> fail t.loc "swap_aux; bad loop body"
 
 (* swap: Swap the two loop constructs, the loop should contain as least one inner loop

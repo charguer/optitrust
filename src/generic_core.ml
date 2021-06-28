@@ -247,7 +247,7 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
         let fun_def = List.hd (List.rev tl) in
         begin match fun_def.desc with
         | Trm_let_fun (_, _, _, fun_body) ->
-          (* Ast_to_text.print_ast ~only_desc:true stdout fun_body; *)
+          Ast_to_text.print_ast ~only_desc:true stdout fun_body;
           begin match fun_body.desc with
           | Trm_seq tl -> tl
           | _ -> fail fun_body.loc "parse_cstring: expcted a sequence of terms"

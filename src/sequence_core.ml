@@ -17,7 +17,7 @@ let insert_aux (ctx : Trace.context) (index : int) (s : string) (t : trm): trm =
       let lfront, lback = Tools.split_list_at index tl in 
       let context = Generic_core.get_context ctx (trm_seq ~annot:(Some No_braces) lfront) in
       let ts = Generic_core.stats ~context ctx s in
-      let new_trm = trm_seq ts in
+      let new_trm = trm_seq ~annot:(Some No_braces) ts in
       trm_seq ~annot:t.annot  (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
