@@ -510,7 +510,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
                  end
     in
    match t.desc with 
-   | Trm_val _ -> (* if is_unit then TrmKind_Instr else *) TrmKind_Expr
+   | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_var _ -> TrmKind_Expr
    | Trm_struct _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ | Trm_let _ -> TrmKind_Instr 
@@ -556,7 +556,7 @@ let match_regexp_str (r : rexp) (s : string) : bool =
   end
 
 let match_regexp_trm (r : rexp) (t : trm) : bool =
-  if r.rexp_trm_kind <> get_trm_kind t && r.rexp_trm_kind <> TrmKind_Any
+  if r.rexp_trm_kind <> get_trm_kind t 
     then false
     else match_regexp_str r (ast_to_string t)
 
@@ -919,6 +919,8 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (resolve_target_simple p body)
+     | Trm_for_simple ( _, _, _, _, body) ->
+        add_dir Dir_body (resolve_target_simple p body)
      | Trm_for (init, cond, step, body) ->
         (* init *)
         (add_dir Dir_for_init (resolve_target_simple p init)) ++
@@ -1010,6 +1012,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_body, Trm_let (_,(_,_),body)
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for (_, _, _, body)
+    | Dir_body, Trm_for_simple (_, _, _, _, body)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_abort (Ret (Some body))
     | Dir_body, Trm_labelled (_, body) ->

@@ -218,10 +218,12 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           trm_if ~annot ~loc ~add ~attributes cond (aux dl then_t) else_t
        | Dir_else, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes cond then_t (aux dl else_t)
-        | Dir_body, Trm_let (vk,tx,body) ->
+       | Dir_body, Trm_let (vk,tx,body) ->
           trm_let ~annot ~loc ~is_statement ~add ~attributes vk tx  (aux dl body)
        | Dir_body, Trm_let_fun (x, tx, txl, body) ->
           trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl (aux dl body)
+       | Dir_body, Trm_for_simple (index, start, stop, step, body) ->
+          trm_for_simple ~annot ~loc ~add ~attributes index start stop step (aux dl body)
        | Dir_body, Trm_for (init, cond, step, body) ->
           trm_for ~annot ~loc ~add ~attributes init cond step (aux dl body)
        | Dir_body, Trm_while (cond, body) ->

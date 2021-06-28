@@ -16,13 +16,13 @@ let _ = Run.script_cpp (fun () ->
 
   (* Loops *)
   show [ cForSimple "i" ];
-  (* show [ cForSimple "j" ]; *)
-  (* show [ cForSimple ~stop:[cInt 5] "" ]; *)
+  show [ cForSimple "j" ];
+  show [ cForSimple ~stop:[cInt 5] "" ];
 
   (* Abort *)
-  (* show [ cBreak ]; *)
-  (* show [ cContinue ]; *)
-  (* show [ cReturn ]; *)
+  show [ cBreak ];
+  show [ cContinue ];
+  show [ cReturn ];
 
   (* Labels *)
   show [ cLabel "lbl1" ];
@@ -39,14 +39,14 @@ let _ = Run.script_cpp (fun () ->
   (* show [ cFunDef ~args_pred:((fun i -> [bTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
 
   (* Regexp *)
-  show [sInstr "j <"];
+  (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
   show [nbEx 0; sInstr ~substr:false "j <"];
 
   show [sInstr "+= 2"];
   show [nbEx 0; sExpr ~substr:false "+= 2"];
   show [nbEx 0; sInstr ~substr:false "+= 2"]; 
   show [sInstr "r += 2"];
-
+  show [sInstr "i++"];
   show [nbMulti; sInstrRegexp "int . = .."]; 
   show [nbMulti; sInstrRegexp ~substr:true ". = ."];
   show [nbMulti; sInstrRegexp ~substr:false ". = ."]; (* should not match something with several characters TODO:*)

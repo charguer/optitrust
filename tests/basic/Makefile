@@ -12,7 +12,9 @@ TESTS := \
   array_tile.ml \
 	array_to_variables.ml \
 	const_insert.ml \
-  loop_color.ml \
+  label_add.ml \
+  label_remove.ml \
+	loop_color.ml \
   loop_fusion.ml \
   loop_hoist.ml \
   loop_split \
@@ -33,8 +35,7 @@ TESTS := \
 	variable_inline.ml \
 	variable_insert.ml \
   sequence_insert.ml \
-	# label_add.ml \
-  # label_remove.ml \
+	
   
 
 # To consider all ml files except specific ones, use EXCLUDE_TESTS (see ../Common.Makefile)
