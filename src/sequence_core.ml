@@ -14,10 +14,10 @@ open Target
 let insert_aux (index : int) (s : string) (t : trm): trm =
     match t.desc with
     | Trm_seq tl ->
-      let lfront, lback = Tools.split_list_at index tl in 
+      let lfront, lback = Tools.split_list_at index tl in
       (* let context = Generic_core.get_context ctx (trm_seq ~annot:(Some No_braces) lfront) in *)
       (* let ts = Generic_core.stats ~context ctx s in *)
-      
+
       let new_trm = trm_seq ~annot:(Some No_braces) [trm_arbitray s] in
       trm_seq ~annot:t.annot  (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
@@ -97,7 +97,12 @@ let sub_between (index1 : int) (index2 : int) : Target.Transfo.local =
   Target.apply_on_path (sub_aux index1 index2)
 
 
-(* [inline_aux index t]: inline an inner sequence into an outer sequence.
+(* [inline_aux index t] expects the term [t] to point to a sequence
+   such that at index [index] there is a nested sequence. It then "inlines"
+   the contents of the nested sequence in the outer one.
+
+   ALTERNATIVE
+   [inline_aux index t]: inline an inner sequence into an outer sequence.
     params:
       index: a valid index in the outer sequence; at that index, the subterm
          should correspond to the inner sequence
@@ -119,8 +124,10 @@ let inline_aux (index : int) (t : trm) : trm =
       trm_seq ~annot:t.annot (lfront @ inner_seq_trms @lback)
     | _ -> fail t.loc "inline_aux: expected the sequence on which the ilining is performed"
 
-
-(* [inline index t p] *)
+(* NOTE: redundant documentation.
+   [inline index t p] expects the path [p] in the term [t] to point to a sequence
+   such that at index [index] there is a nested sequence. It then "inlines" the
+   contents of the nested sequence in the outer one. *)
 let inline (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index)
 

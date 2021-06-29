@@ -53,8 +53,8 @@ type label = string
 type constr = string
 
 (* Type used to defin the direction and the size of the step of the *)
-type loop_dir = 
- | DirUp 
+type loop_dir =
+ | DirUp
  | DirDown
 
 
@@ -219,7 +219,7 @@ and print_addition =
 and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Identifier of var
   | Aligned of trm
-  | GeneratedStar 
+  | GeneratedStar
 
 (*
   annotated terms
@@ -827,7 +827,7 @@ let for_loop_index (t : trm) : var =
        - for (i = …; …)
        - for (int i = …; …)
       *)
-     
+
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [{desc = Trm_var x; _}; _]) ->
@@ -836,8 +836,8 @@ let for_loop_index (t : trm) : var =
      end
   | _ -> fail t.loc "for_loop_index: expected for loop"
 
-let for_loop_direction (t : trm) : loop_dir = 
-  match t.desc with 
+let for_loop_direction (t : trm) : loop_dir =
+  match t.desc with
   | Trm_for_c (_, cond, _, _) ->
     begin match cond.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _}, _) -> DirUp
@@ -858,8 +858,8 @@ let for_loop_init (t : trm) : trm =
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [_; n]) ->
         n
-     | Trm_let (_,(_, _), init) -> 
-        begin match init.desc with 
+     | Trm_let (_,(_, _), init) ->
+        begin match init.desc with
         | Trm_apps(_, [init1]) -> init1
         | _ -> init
         end
@@ -1005,9 +1005,9 @@ let same_sizes (sz1 : size) (sz2 : size) : bool =
 
 let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 : typ) : bool =
   let aux = same_types ~match_generated_star in
-  (typ_1.typ_annot = typ_2.typ_annot) && 
+  (typ_1.typ_annot = typ_2.typ_annot) &&
   (
-  match typ_1.typ_desc, typ_2.typ_desc with 
+  match typ_1.typ_desc, typ_2.typ_desc with
   | Typ_const typ_a1, Typ_const typ_a2 ->
     (aux typ_a1 typ_a2)
   | Typ_var a1, Typ_var a2 ->
@@ -1023,22 +1023,22 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | Typ_ptr typ_a1, Typ_ptr typ_a2 ->
    if match_generated_star then (is_generated_star typ_1 = is_generated_star typ_2)
     else true
-    && (aux typ_a1 typ_a2) 
+    && (aux typ_a1 typ_a2)
   | Typ_array (typa1, size1), Typ_array (typa2, size2) -> (same_types typa1 typa2) && (same_sizes size1 size2)
   | _, _ -> false
   )
 
 let is_simple_loop_component (t : trm) : bool =
-  match t.desc with 
+  match t.desc with
   | Trm_apps(f,_) when f.desc = Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
   | Trm_var _ -> true
   | Trm_val (Val_lit (Lit_int _)) -> true
   | _ -> false
-  
+
 
 (* Check if the loop t is simple or not, if is return its simplified ast else return the current ast *)
-let trm_for_of_trm_for_c(t : trm) : trm = 
-  let body = begin match t.desc with 
+let trm_for_of_trm_for_c (t : trm) : trm =
+  let body = begin match t.desc with
   | Trm_for_c (_, _, _, body) -> body
   | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
   end
@@ -1052,15 +1052,15 @@ let trm_for_of_trm_for_c(t : trm) : trm =
   (* printf "is simple loop start %b\n" (is_simple_loop_component start);
   printf "is simple loop stop %b\n" (is_simple_loop_component stop);
   printf "is simple loop step %b\n" (is_simple_loop_component step); *)
-  
+
   let is_simple_loop = (is_simple_loop_component start) &&
   (is_simple_loop_component stop) && (is_simple_loop_component step)
   in
 
   if is_simple_loop then trm_for index direction start stop step body
     else t
-    
-type typ_kind = 
+
+type typ_kind =
   | Typ_kind_undefined
   | Typ_kind_array
   | Typ_kind_sum
@@ -1071,7 +1071,7 @@ type typ_kind =
 
 
 let typ_kind_to_string (tpk : typ_kind) : string =
-  begin match tpk with 
+  begin match tpk with
   | Typ_kind_undefined -> "undefined"
   | Typ_kind_array -> "array"
   | Typ_kind_sum -> "sum"
@@ -1086,47 +1086,69 @@ let is_atomic_typ (t : typ) : bool =
   | _ -> false
 
 let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
-  if is_atomic_typ ty then Typ_kind_basic ty.typ_desc 
+  if is_atomic_typ ty then Typ_kind_basic ty.typ_desc
     else
-  match ty.typ_desc with 
+  match ty.typ_desc with
   | Typ_const ty1 -> get_typ_kind ctx ty1
   | (Typ_ptr _| Typ_array _) -> Typ_kind_array
   | Typ_fun _ -> Typ_kind_fun
   | Typ_var _ -> Typ_kind_var
   | Typ_constr (_, tyid, _) ->
-     let td_opt = Typ_map.find_opt tyid ctx.ctx_typedef in 
+     let td_opt = Typ_map.find_opt tyid ctx.ctx_typedef in
      begin match td_opt with
      | None -> Typ_kind_undefined
      | Some td ->
-         begin match td.typdef_body with 
+         begin match td.typdef_body with
         | Typdef_alias ty1 -> get_typ_kind ctx ty1
         | Typdef_prod _ -> Typ_kind_prod
-        | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum  
+        | Typdef_sum _| Typdef_enum _ -> Typ_kind_sum
         end
      end
-        
+
   | _ -> Typ_kind_basic ty.typ_desc
 
 let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
-  let cond = begin match direction with 
-            | DirUp -> (trm_apps (trm_binop Binop_lt)
-              [trm_apps ~annot:(Some Mutable_var_get)
-                (trm_unop Unop_get) [trm_var index];stop])
-            | DirDown -> (trm_apps (trm_binop Binop_lt)
-              [trm_apps ~annot:(Some Mutable_var_get)
-                (trm_unop Unop_get) [trm_var index];stop])
-            end 
-   in
-  let step = begin match direction with 
-             | DirUp -> trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
-                [ 
-                  trm_var index;
-                  trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
-             | DirDown -> trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_sub)
-                [ 
-                  trm_var index;
-                  trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]]) 
-             end 
-  in trm_for_c~annot ~loc ~add ~attributes ~ctx init cond step body
+  let cond = begin match direction with
+    | DirUp -> (trm_apps (trm_binop Binop_lt)
+      [trm_apps ~annot:(Some Mutable_var_get)
+        (trm_unop Unop_get) [trm_var index];stop])
+    | DirDown -> (trm_apps (trm_binop Binop_lt)
+      [trm_apps ~annot:(Some Mutable_var_get)
+        (trm_unop Unop_get) [trm_var index];stop])
+    end
+    in
+
+  let step =
+    (*
+    begin match step with
+      |Trm_val ( Val_lit ( Lit_int 1 )) ->
+         let op = begin match direction with
+              | DirUp -> Unop_inc
+              | DirDown -> Unop_dec
+            in
+           Trm_apps ({desc = Trm_val (Val_prim (Prim_unop op)) ...
+      | _ ->
+    *)
+    begin match direction with
+    | DirUp -> trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
+      [
+        trm_var index;
+        trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+    | DirDown -> trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_sub)
+      [
+        trm_var index;
+        trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+    end
+    in
+  trm_for_c~annot ~loc ~add ~attributes ~ctx init cond step body
+
+(* TODO:
+  match
+trm_for_to_trm_for_c
+
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_inc)); _}, _) ->
+        trm_lit (Lit_int 1)
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_dec)); _}, _) ->
+*)

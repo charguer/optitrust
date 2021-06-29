@@ -2,6 +2,7 @@ open Ast
 open Target
 
 (* [insert tg ts] *)
+(* TODO: swap args *)
 let insert (tg : target) (s : string) : unit =
   Target.apply_on_target_between (fun t (p,i) ->
     Sequence_core.insert i s p t) tg;
@@ -41,13 +42,16 @@ let sub_between (tg_beg : target) (tg_end : target) : unit =
     List.fold_left (fun t (p,i,nb) -> Sequence_core.sub i nb t p) t pis)
 
 
-(* [inline i tg] *)
-let inline (tg : target) : unit =
-  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Sequence_core.inline i t p) tg
+(* [inline tg] expects the target [tg] to point at a sequence that appears
+   nested inside another sequence, e.g., points at [{t2;t3}] inside
+   [{ t1; { t2; t3 }; t4 }]. It "inlines" the contents of the inner sequence,
+   producing e.g., [{ t1; t2; t3; t3}]. *)
+let inline : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Sequence_core.inline i t p)
 
 (* [wrao visible tg] *)
-let wrap ?(visible : bool =  true) : Target.Transfo.t =
+let wrap ?(visible : bool = true) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.wrap visible)
 
 (* [unwrap tg] *)

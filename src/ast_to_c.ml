@@ -304,7 +304,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let dt = trm_to_doc ~semicolon t in
         dattr ^^ string "ANY" ^^ parens (dt)
       | Trm_arbitrary code ->
-        dattr ^^ string code ^^ hardline 
+        dattr ^^ string code ^^ hardline
      end
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =

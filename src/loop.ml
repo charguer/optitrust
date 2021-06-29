@@ -1,31 +1,49 @@
 open Ast
-(* [swap tg] *)
+
+(* [swap tg] expects the target [tg] to point at a loop that contains an
+   immediately-nested loop. The transformation swaps the two loops. *)
 let swap : Target.Transfo.t =
   Target.apply_on_target (Loop_core.swap)
 
-(* [color c i_color tg] *)
-let color (c : var) (i_color : var) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.color c i_color )
+(* TODO: move *)
+
+(* Description of a term as a string (convenient for the user)
+   LATER: this type might become generalized in the future. *)
+type string_trm = string
+
+(* [color nb_colors i_color tg] expects [tg] to point to a simple loop,
+   say [for (int i = start; i < stop; i += step) { body } ].
+   It's going to reorder the iterations as described further below.
+   It takes as argument:
+   - [nb_colors] denotes the number of colors (e.g., ["2"]),
+   - [i_color] denotes a fresh name to use as index for iterating over colors.
+   In case [step = 1], it transforms the loop into the nested loops.
+   [for (int i_color = 0; i_color < nb_color; i_color++) {
+      for (int i = i_color; i < stop; i += nb_color) { body }].
+   In the general case, it produces:
+   [for (int i_color = 0; i_color < nb_color; i_color++) {
+      for (int i = i_color*step; i < stop; i += step*nb_color) { body }]. *)
+let color (nb_colors : string_trm) (i_color : var) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.color nb_colors i_color)
 
 (* [tile b i_bloc tg] *)
-let tile (b : var)(i_block : var) : Target.Transfo.t =
+let tile (b : var) (i_block : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.tile b i_block)
-
 
 (* [hoist x_step tg] *)
 let hoist (x_step : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.hoist x_step)
 
 (* [split tg] *)
-let split (index : int) : Target.Transfo.t = 
-  Target.apply_on_target(Loop_core.split index)
+let split (index : int) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.split index)
 
 (* [fusion tg] *)
 let fusion : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.fusion )
+  Target.apply_on_target (Loop_core.fusion)
 
 
-(* TODO: Ask Arthur, if this should still be used or not *)
+(* TODO: move to old folder in old_tiling.ml *)
 (*
   -----------DEPRECATED-----------------
   transform a pre-tiled loop of the form
@@ -45,7 +63,7 @@ let fusion : Target.Transfo.t =
 
 (* [tile_old tg] *)
 let tile_old : Target.Transfo.t =
-  Target.apply_on_target(Loop_core.tile_old )
+  Target.apply_on_target (Loop_core.tile_old)
 
 (* get_loop_nest_indices -- currently omiting the last one
 
@@ -117,7 +135,7 @@ let tile_old : Target.Transfo.t =
       | [] -> t
       | hd :: tl ->
         let t = loop_swap  [cFor_chd] in
-        
+
         multi_swap tl t
      (* in *)
      multi_swap path_list t *)
@@ -210,4 +228,4 @@ let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : 
   | _,_ -> fail t.loc "move_loop: only one of move_before or move_after should be specified" *)
 
 
- 
+
