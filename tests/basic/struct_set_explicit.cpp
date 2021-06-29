@@ -10,7 +10,7 @@ typedef struct {
   vect speed;
 } obj;
 
-vect f() { // TODO: same issue as function inlining
+vect f() { 
   return {1,1};
 }
 int main() {

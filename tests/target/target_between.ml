@@ -18,11 +18,11 @@ let _ = Run.script_cpp (fun () ->
   show [ tAfter; cVarDef "m2" ];
 
   (* First *)
-  show [ tFirst; cFor "i"; cStrict; dBody ];
+  show [ tFirst; cForSimple "i"; cStrict; dBody ];
   show [ tFirst; dThen ];
   show [ tFirst; dElse ];
 
-  show [ tLast; cFor "i"; cStrict; dBody];
+  show [ tLast; cForSimple "i"; cStrict; dBody];
   show [ tLast; dThen ];
   show [ tLast; dElse ];
 

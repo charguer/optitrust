@@ -156,7 +156,6 @@ let sExprRegexp ?(substr : bool = false) (s : string) : constr =
   sInstrOrExprRegexp TrmKind_Expr substr s
 
 
-(* TODO: For all c constructors add their s version *)
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
   let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in

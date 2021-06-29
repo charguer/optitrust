@@ -186,9 +186,6 @@ val target_list_one_st : constr -> target_list_pred
 val target_list_pred_always_true : target_list_pred
 
 
-
-(* TODO: Arthur will move "show" here *)
-
 (* Target resolution *)
 
 val resolve_target : target -> trm -> paths

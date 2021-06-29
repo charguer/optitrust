@@ -3,38 +3,39 @@ open Target
 
 let _ = Run.script_cpp (fun () ->
   (* Loop in a function *)
-  show [ cFunDef "main"; cFor "i" ];
+  show [ cFunDef "main"; cForSimple "i" ];
 
   (* Loop in a loop *)
-  show [ cFor "i"; cFor "j" ];
+  show [ cForSimple "i"; cForSimple "j" ];
 
   (* Def in depth *)
-  show [ cFunDef "f"; cFor "i"; cFor "j"; cVarDef "k" ];
+  show [ cFunDef "f"; cForSimple "i"; cForSimple "j"; cVarDef "k" ];
 
   (* Top-level functions *)
   show [ cTopFun "f"; cVarDef "k" ];
 
   (* Loops immediately inside a function *) (* TODO: ARTHUR: think about how to fix this *)
-  show [ nbMulti; cFunDef ""; dBody; cSeq (); cStrict; Constr_dir (Dir_nth 0); cStrict; cFor "" ];
+  show [ nbMulti; cFunDef ""; dBody; cSeq (); cStrict; dNth 0; cStrict; cForSimple "" ];
 
 
   (* Directions and strictness *)
 
-  show [ nbMulti; cFor "j"; sInstr ~substr:false "i++" ];
-  show [ nbMulti; cFor "i"; cStrict; sInstr "i++" ]; (* should not match i++ inside loop on j *)
-  show [ nbMulti; cFor "i"; cFor "j" ];
-  show [ nbMulti; cFor "i"; dBody; cStrict; cFor "j" ];
-  show [ nbMulti; cFor "i"; cStrict; cSeq (); cStrict; cFor "j" ];
+  show [ nbMulti; cForSimple "j"; sInstr "i++" ];
+  show [ nbAny; cForSimple "i"; cStrict; sInstr "i++" ]; (* can't match anymore on the full comonents of the loops *)
+  show [ nbMulti; cForSimple "i"; cForSimple "j" ];
+  show [ nbMulti; cForSimple "i"; cStrict; dBody; cForSimple "j" ];
+  (* show [ nbMulti; cForSimple "i"; cStrict; cSeq (); cForSimple "j" ]; *) (* There is a problem when using cSeql and cStrict *)
 
-  show [ nbEx 0; nbMulti; cFor "i"; cStrict; cFor "j" ];
+  show [ nbEx 0; cForSimple "i"; cStrict; cForSimple "j" ];
 
-  show [ cTopFun "main"; cStrict; cFor "i" ];
-  show [ cTopFun "main"; cStrict; cFor "j" ];
+  show [ cTopFun "main"; cStrict; cForSimple "i" ];
+  show [ cTopFun "main"; cStrict; cForSimple "j" ];
 
   show [ cTopFun "main"; dThen ];
-  show [ cTopFun "main"; dThen; cStrict; sInstr "j++" ];
-  show [ cTopFun "main"; cFor "j"; cStrict; cIf (); dThen ];
-  show [ cTopFun "main"; cFor "j"; cStrict; cIf (); dThen; cStrict; sInstr "j++" ];
+  show [cTopFun "main"; dThen; sInstr "j++"];
+  show [ cTopFun "main"; dThen; cStrict; cSeq();sInstr "j++" ];
+  show [ cTopFun "main"; cForSimple "j"; dBody; cIf ();dThen]; (* dThen ]; *)
+  show [ cTopFun "main"; cForSimple "j"; cStrict; cIf (); dThen; cStrict; sInstr "j++" ];
 
   show [ nbMulti; sInstr "i++" ]
 

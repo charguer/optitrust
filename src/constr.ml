@@ -201,7 +201,6 @@ let trm_kind_to_string (k : trm_kind) : string =
   | TrmKind_Expr -> "Expr"
   | TrmKind_Any -> "Any"
 
-(* TODO: rename rexp_to_string *)
 let rexp_to_string (r : rexp) : string =
   (trm_kind_to_string r.rexp_trm_kind) ^ "-" ^
   (if r.rexp_substr then "Sub" else "Exact") ^ "-" ^
@@ -363,7 +362,6 @@ let rec constr_to_string (c : constr) : string =
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
 
-(* TODO: later rename the fileds of target_struct *)
 
 and target_struct_to_string (tgs : target_struct) : string =
   "TargetStruct(" ^
@@ -527,23 +525,6 @@ let rec get_trm_kind (t : trm) : trm_kind =
       end
    | Trm_while _ | Trm_for _ | Trm_for_simple _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) | Trm_decoration (_, t, _) | Trm_any t -> get_trm_kind t
-
-   (* if t.is_statement then
-    match t.desc with
-    | Trm_apps(f,_) ->
-      begin match f.desc with
-      | Trm_var _ -> TrmKind_Instr
-      | Trm_val (Val_prim (Prim_unop Unop_inc)) -> TrmKind_Instr
-      | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
-      | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
-      end
-    | Trm_let _ -> TrmKind_Instr
-    | Trm_abort _ | Trm_goto _-> TrmKind_Instr
-    | Trm_struct _ | Trm_array _  | Trm_let_fun _ | Trm_typedef _  | Trm_if (_,_,_) | Trm_seq _ | Trm_while (_,_)
-      | Trm_for (_,_,_,_) | Trm_switch (_,_) -> TrmKind_Struct
-    | _ -> fail t.loc "get_trm_kind: this ast node has an unknown type"
-  else
-    TrmKind_Expr *)
 
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
@@ -804,10 +785,6 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let res = resolve_target_simple tgs.target_path t in
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
-  (* TODO: one day, report the location from the OCaml file where the target is coming from;
-     the idea would be to track the OCaml line of code form which users write the target *)
-  (* TODO: insert to the head of a line
-     (ocamlpos:=__LOC__); Tr.transfo [path] *)
   begin match tgs.target_occurences with (* TODO: use sprintf everywhere *)
   | ExpectedOne -> if nb <> 1 then fail None (sprintf "resolve_target_struct: expected exactly one match, got %d." nb)
   | ExpectedNb n -> if nb <> n then fail None (sprintf "resolve_target_struct: expected %d matches, got %d." n nb)
@@ -825,7 +802,7 @@ and resolve_target (tg : target) (t : trm) : paths =
 and resolve_target_exactly_one (tg : target) (t : trm) : path =
   match resolve_target tg t with
   | [p] -> p
-  | _ -> fail None (* TODO: loc? *) "resolve_target_exactly_one: obtained several targets."
+  | _ -> fail t.loc "resolve_target_exactly_one: obtained several targets."
 
 (* check c against t and in case of success continue with p *)
 and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =

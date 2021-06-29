@@ -34,8 +34,6 @@ let inline ?(delete_decl : bool = false) ?(inline_at : target list = [[]]) (tg :
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.inline delete_decl inline_at i t p) tg
 
-
-(* TODO: Remove current inline_fun_decl from inline_decl, these two functions should be independent *)
 (*
   instr containing f(arg1, …, argn) is replaced with
   {

@@ -379,6 +379,8 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
              aux dl body (init :: ctx)
           | _ -> aux dl body ctx
           end
+       | Dir_body, Trm_for_simple (_, _, _, _, body) ->
+          aux dl body ctx
        | Dir_body, Trm_let (_,(_,_), body)
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_abort (Ret (Some body))

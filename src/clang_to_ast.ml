@@ -1020,13 +1020,6 @@ and translate_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
-          
-          (*TODO:
-            ..
-            show_ctx tg =
-              apply_to_target (fun t ->
-                prints on stdout (ctx_to_text t.trm_ctx))
-          *)
           begin match get_typ_kind (get_ctx()) tt with  
           | Typ_kind_array -> trm_array ~loc ~typ:(Some tt) tl
           | Typ_kind_prod -> trm_struct ~loc ~typ:(Some tt) tl
