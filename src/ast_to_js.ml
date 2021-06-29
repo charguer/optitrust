@@ -19,8 +19,8 @@ module Json = struct
   (* Printing functions *)
   let typ_to_json(typ : typ) : t =
     Str (Tools.document_to_string (bquotes (Ast_to_c.typ_to_doc typ)) )
-  
-  let typdef_to_json(td : typedef) : t = 
+
+  let typdef_to_json(td : typedef) : t =
     Str (Tools.document_to_string (bquotes (Ast_to_c.typedef_to_doc td)))
 
   let print_object (dl : document list) : document =
@@ -120,7 +120,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
             (quote "return_type", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
     | Trm_typedef td ->
-      [ kind_to_field (quote "typdef");
+      [ kind_to_field "typdef";
         (quote "name", Json.Str (quote td.typdef_tconstr));
         (quote "contents", Json.typdef_to_json td);
         children_to_field [] ]
@@ -280,3 +280,9 @@ let ast_to_js (out : out_channel) (index : int) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js (ast_to_json t) ~index )
 
 
+(*
+ TODO:
+   - fix the missing new lines after `` in .js
+   - fix the generation of the JSON nodes in   new int....
+   - for every unit test, check the display of all nodes
+*)

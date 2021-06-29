@@ -217,7 +217,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_seq tl ->
         begin match t.annot with
         | Some Multi_decl -> dattr ^^ multi_decl_to_doc loc tl
-        | Some No_braces -> 
+        | Some No_braces ->
            let dl = List.map (trm_to_doc ~semicolon:true) tl in
            dattr ^^ separate hardline dl
         | Some Main_file ->
@@ -257,7 +257,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
-     | Trm_for_simple (index, start, stop, step, body) ->
+     | Trm_for_simple (index,  (* TODO: add dir,  type dir = DirUpTo | DirDownTo;  *)  start, stop, step, body) ->
+           (* for (int i = 10; i >= 0; i--)       dir=dDirDownTo   step=1 *)
        let full_loop = trm_for_simple_to_trm_for index start stop step body in
        trm_to_doc full_loop
      | Trm_switch (cond, cases) ->
@@ -400,21 +401,21 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       separate (blank 1) [string "enum"; string tname;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
-and multi_decl_to_doc (loc : location) (tl : trm list) : document = 
+and multi_decl_to_doc (loc : location) (tl : trm list) : document =
  (* TODO: Add support for other cases when multi_decl appears *)
- let get_info (t : trm) : document = 
-  begin match t.desc with 
-  | Trm_let (vk, (x, _), init) -> 
-    begin match vk with 
+ let get_info (t : trm) : document =
+  begin match t.desc with
+  | Trm_let (vk, (x, _), init) ->
+    begin match vk with
     | Var_immutable ->
-      begin match init.desc with 
+      begin match init.desc with
       | Trm_val(Val_lit Lit_uninitialized) -> string x
       | _ -> string x ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc init
       end
     | _ ->
-      begin match init.desc with 
+      begin match init.desc with
       | Trm_apps (_, [base])-> string x ^^ blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc base
-      | _ -> string x 
+      | _ -> string x
       end
     end
   | Trm_typedef _ -> string ""
@@ -422,23 +423,23 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
   end
  in
  let dnames = separate (comma ^^ blank 1) (List.map get_info tl) in
-  begin match tl with 
+  begin match tl with
   | [] -> fail loc "multi_deco_to_doc: empty multiple declaration"
-  | [d] -> begin match d.desc with 
+  | [d] -> begin match d.desc with
            | Trm_typedef td -> typedef_to_doc td
            | _ -> fail loc "multi_decl_to_doc: expected a typedef"
-           end   
-  | hd :: _ -> 
-    match hd.desc with 
+           end
+  | hd :: _ ->
+    match hd.desc with
     | Trm_let (vk, (_, ty), _) ->
-      begin match vk with 
+      begin match vk with
       | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
-      | _ -> begin match ty.typ_desc with 
+      | _ -> begin match ty.typ_desc with
             | Typ_ptr ty1 when is_generated_star ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
             | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
-            end 
+            end
        end
-  | _ -> fail loc "multi_decl_to_doc: expected a trm_let"    
+  | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
 
@@ -658,7 +659,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
-   | Trm_decoration(l,f1,r) -> 
+   | Trm_decoration(l,f1,r) ->
       let dt = apps_to_doc ~display_star ~is_app_and_set f1 tl in
       string l ^^ string "/*onlyfun*/" ^^ dt ^^ string r
    | _ -> fail f.loc "apps_to_doc: only functions may be applied"

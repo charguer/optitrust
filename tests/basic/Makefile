@@ -3,6 +3,8 @@
 
 # Validated: sequence_delete
 
+# Tolook at: aos_to_soa, sequence_insert
+
 # Tocheck: sequence_sub
 
 # List of files to consider.
@@ -35,8 +37,8 @@ TESTS := \
 	variable_inline.ml \
 	variable_insert.ml \
   sequence_insert.ml \
-	
-  
+
+
 
 # To consider all ml files except specific ones, use EXCLUDE_TESTS (see ../Common.Makefile)
 

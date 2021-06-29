@@ -219,7 +219,7 @@ let rec constr_to_string (c : constr) : string =
      let s_body = target_to_string p_body in
      "For (" ^ s_init ^ ", " ^ s_cond ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
   | Constr_for_simple (p_index, p_start, p_stop, p_step, p_body) ->
-    let s_index = 
+    let s_index =
       match p_index with | None -> "_" | Some r -> rexp_to_string r
     in
     let s_start = target_to_string p_start in
@@ -498,20 +498,20 @@ let is_equal_lit (l : lit) (l' : lit) =
   | _ -> false
 
 let rec get_trm_kind (t : trm) : trm_kind =
-   let is_unit = begin match t.typ with 
+   let is_unit = begin match t.typ with
                  | Some ty ->
-                    begin match ty.typ_desc with 
+                    begin match ty.typ_desc with
                     | Typ_unit -> true
                     | _ -> false
                     end
                  | None -> false
                  end
     in
-   match t.desc with 
+   match t.desc with
    | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_var _ -> TrmKind_Expr
    | Trm_struct _ | Trm_array _ -> TrmKind_Expr
-   | Trm_let_fun _ | Trm_let _ -> TrmKind_Instr 
+   | Trm_let_fun _ | Trm_let _ -> TrmKind_Instr
    | Trm_typedef _ -> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
@@ -537,7 +537,7 @@ let match_regexp_str (r : rexp) (s : string) : bool =
   end
 
 let match_regexp_trm (r : rexp) (t : trm) : bool =
-  if r.rexp_trm_kind <> get_trm_kind t 
+  if r.rexp_trm_kind <> get_trm_kind t
     then false
     else match_regexp_str r (ast_to_string t)
 
@@ -755,11 +755,8 @@ and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : tr
     match trs with
     | [] -> [[]]
     | Constr_strict :: tr -> resolve_target_simple ~strict:true tr t
-    (* | Constr_dir d :: tr -> follow_dir d tr t *)   (* TODO: either this *)
+    (* | Constr_dir d :: tr -> follow_dir d tr t -- TODO ARTHUR *)
     | c :: p ->
-     
-   (* TODO/ or  that:
-   *)
       let res_deep =
         if strict
            then [] (* in strict mode, must match c here *)

@@ -15,7 +15,8 @@ let _ = Run.script_cpp (fun () ->
   show [ cTopFun "f"; cVarDef "k" ];
 
   (* Loops immediately inside a function *) (* TODO: ARTHUR: think about how to fix this *)
-  show [ nbMulti; cFunDef ""; dBody; cSeq (); cStrict; dNth 0; cStrict; cForSimple "" ];
+  show [ nbMulti; cFunDef ""; dBody; ];
+  (*show [ nbMulti; cFunDef ""; dBody; cSeq (); cStrict; dNth 0; cStrict; cForSimple "" ];*)
 
 
   (* Directions and strictness *)
