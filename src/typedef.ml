@@ -19,6 +19,14 @@ let remove : Transfo.t =
   Generic.remove_instruction
 
 (* [insert_and_fold ~fold_at x dx tg] *)
+(* let insert_and_fold ?(fold_at : target list = [[]]) (x : var) (dx : typ) (tg : target) : unit =
+  Trace.apply (fun ctx t ->
+    let ps = resolve_target_between tg t in
+    List.fold_left (fun t (p, i) -> Typedef_core.insert_and_fold ctx x dx i fold_at t p) t ps
+  )
+   *)
+
+(* [insert_and_fold ~fold_at x dx tg] *)
 let insert_and_fold ?(fold_at : target list = [[]]) (x : var) (dx : typ) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Typedef_core.insert_and_fold x dx i fold_at t p) tg
