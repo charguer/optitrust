@@ -67,7 +67,7 @@ let swap : Target.Transfo.local =
       return:
         the updated ast
 *)
-
+(* TODO: nb_colors *)
 let color_aux (c : var) (i_color : var) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
   match t.desc with

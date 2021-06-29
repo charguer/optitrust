@@ -4,15 +4,11 @@ int min(int x, int y) {
   return (x < y) ? x : y;
 }
 
-int main(){
-    int a = -1;
-    int X = 10;
-    
-    for(int x = 0; x < X; x++)
-    {
-        t[x] = 0;
-    }
-    
-    return 0;
-    
+int main() {
+
+  for (int x = 0; x < 10; x += 3) {
+    t[x] = 0;
+  }
+
+  return 0;
 }

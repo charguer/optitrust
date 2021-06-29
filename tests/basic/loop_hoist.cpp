@@ -1,15 +1,29 @@
 int *t;
 int *u;
 
-
 int main() {
-  
   for (int i = 0; i < 10; i++) {
-    int x; // variable to be extracted
+    int x;
     x = t[i];
-    u[i] = x; 
+    u[i] = x;
+  }
+
+  for (int j = 0; j < 10; j++) {
+    int y = t[j];
+    u[j] = y + 1;
+    y = u[j];
   }
 }
 
-
-// NOTE: we currently need the braces around the block
+// detach_split :
+// takes the term  "int y = t[j]"
+// returns the list of terms [ "int y"; "y = t[j]" ].
+//  here call "list_update "index of int y" with "y = t[j]"
+/*
+  for (int j = 0; j < 10; j++) {
+    y = t[j];
+    u[j] = y + 1;
+    y = u[j];
+  }
+  then call replace_trm
+*/

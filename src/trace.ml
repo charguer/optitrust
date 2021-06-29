@@ -136,6 +136,11 @@ let init (filename : string) : unit =
   let clog = open_out (directory ^ prefix ^ ".log") in
   logs := clog :: !logs;
   let (includes, cur_ast) = parse filename in
+  (* TODO:
+    if parse was not totally successful, [exit 1].
+      using the right clangml option/query.
+    alternative: call g++ on the command line on the input file.
+  *)
   let context = { extension; directory; prefix; includes; clog } in
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
