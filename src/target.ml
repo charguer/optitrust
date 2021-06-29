@@ -162,9 +162,9 @@ let cVarDef
   let p_body =  body in
     Constr_decl_var (ro, p_body)
 
-let cFor ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr = 
+let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr = 
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
-  Constr_for_simple (ro, start, stop, step, body)
+  Constr_for (ro, direction, start, stop, step, body)
 
 let cFor_c?(init : target = [])
   ?(cond : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
@@ -175,7 +175,7 @@ let cFor_c?(init : target = [])
       | _, [] -> [cVarDef index]
       | _, _::_ -> init
       in
-    Constr_for ( init,  cond,  step,  body)
+    Constr_for_c ( init,  cond,  step,  body)
 
 let cWhile ?(cond : target = [])
   ?(body : target = []) (_ : unit) : constr =

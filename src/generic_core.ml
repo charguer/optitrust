@@ -464,7 +464,7 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
             in
             let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
             (* let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in *)
-            let new_loop = trm_for init cond step (change_trm (trm_var old_var)(trm_var new_var) body) in
+            let new_loop = trm_for_c init cond step (change_trm (trm_var old_var)(trm_var new_var) body) in
 
 
               trm_seq (* ~annot:(Some No_braces) *) [
@@ -544,7 +544,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     in
     let new_decl = trm_seq ~annot:(Some No_braces)[
       trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] (typ_array (typ_var "T" ) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T") (Trm (trm_var array_size)))));
-      trm_for
+      trm_for_c
       (* init *)
         (trm_let Var_mutable ("k",typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
       (* cond *)
@@ -567,7 +567,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     let for_loop = List.nth tl 1 in
     let parallel_for =  begin match for_loop.desc  with
     | Trm_for_c ( init, cond, step, body) ->
-      trm_for init cond step
+      trm_for_c init cond step
         (
           change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_any (trm_var "my_core_id")]]) body
         )
@@ -583,7 +583,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     in
     let accum = trm_seq ~annot:(Some No_braces) [
       trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
-      trm_for
+      trm_for_c
         (* init *)
         (trm_let Var_mutable ("k", typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
         (* cond *)

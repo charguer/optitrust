@@ -63,7 +63,7 @@ let eliminate_goto_next (_ : unit) : unit =
          aux p0 t0;
          aux p1 t1;
          aux p2 t2
-      | trm_for (int i = ..)   | trm_for (int j = ...) => LATER: support this, not now
+      | trm_for_c(int i = ..)   | trm_for_c(int j = ...) => LATER: support this, not now
       | _, _ -> (* different constructors *)
   in
   try Some(aux p t) with Mismatch -> None

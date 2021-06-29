@@ -52,11 +52,18 @@ type label = string
 (* constructor name (for enum and algebraic datatypes) *)
 type constr = string
 
+(* Type used to defin the direction and the size of the step of the *)
+type loop_dir = 
+ | DirUp 
+ | DirDown
+
+
 (* array sizes *)
 type size =
   | Undefined (* t[] *)
   | Const of int (* t[3] *)
   | Trm of trm (* t[2*nb] *)
+
 
 (* types of expressions *)
 and typ_desc =
@@ -279,7 +286,6 @@ and trm =
 *)
 
 and trm_desc =
-  (* | Trm_arbitrary of string *)
   | Trm_val of value
   | Trm_var of var (* LATER: varkind * var *)
   | Trm_array of trm list (* { 0, 3, 5} as an array *)
@@ -294,7 +300,7 @@ and trm_desc =
   | Trm_seq of trm list (* { st1; st2; st3 } *)
   | Trm_apps of trm * (trm list) (* f(t1, t2) *)
   | Trm_while of trm * trm (* while (t1) { t2 } LATER: other like do-while *)
-  | Trm_for of var * trm * trm * trm  * trm
+  | Trm_for of var * loop_dir * trm * trm * trm  * trm
   | Trm_for_c of trm * trm * trm * trm
   (*
     Trm_for_c (e0, e1, e2, e3) =
@@ -471,7 +477,7 @@ let trm_while ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx
   {annot = annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
   {annot; desc = Trm_for_c (init, cond, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
@@ -541,9 +547,9 @@ let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes 
   {annot = annot; desc = Trm_any t; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
 
-let trm_for_simple ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
-  (index : var) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
-  {annot; desc = Trm_for (index, start, stop, step, body); loc; is_statement = false; add;
+let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+  (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
+  {annot; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let is_included (t : trm) : bool =
@@ -639,9 +645,9 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
      let cond' = f cond in
      let step' = f step in
      let body' = f body in
-     trm_for ~annot ~loc ~add init' cond' step' body'
-  | Trm_for (index, start, stop, step, body) ->
-    trm_for_simple ~annot ~loc ~add index start stop step (f body)
+     trm_for_c~annot ~loc ~add init' cond' step' body'
+  | Trm_for (index, direction, start, stop, step, body) ->
+    trm_for ~annot ~loc ~add index direction start stop step (f body)
   | Trm_switch (cond, cases) ->
      let cond' = f cond in
      let cases' = List.map (fun (tl, body) -> (tl, f body)) cases in
@@ -701,7 +707,7 @@ let is_used_var_in (t : trm) (x : var) : bool =
     | Trm_while (cond, body) -> aux cond || aux body
     | Trm_for_c (init, cond, step, body) ->
        aux init || aux cond || aux step || aux body
-    | Trm_for (_, _, _, _, body) -> aux body
+    | Trm_for (_, _, _, _, _, body) -> aux body
     | Trm_switch (cond, cases) ->
        aux cond ||
        List.exists (fun (tl, body) -> List.exists aux tl || aux body) cases
@@ -729,7 +735,7 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
     | Trm_while (cond, body) -> aux cond || aux body
     | Trm_for_c (init, cond, step, body) ->
        aux init || aux cond || aux step || aux body
-    | Trm_for (_, _, _, _, body) -> aux body
+    | Trm_for (_, _, _, _, _, body) -> aux body
     | Trm_switch (cond, cases) ->
        aux cond ||
        List.exists (fun (tl, body) -> List.exists aux tl || aux body) cases
@@ -759,7 +765,7 @@ let fun_call_args (f : var) (t : trm) : trm list =
     | Trm_while (cond, body) -> aux cond ++ aux body
     | Trm_for_c (init, cond, step, body) ->
        aux init ++ aux cond ++ aux step ++ aux body
-    | Trm_for (_, _, _, _,body) -> aux body
+    | Trm_for (_, _, _, _, _,body) -> aux body
     | Trm_switch (cond, cases) ->
        aux cond ++
        List.flatten
@@ -825,6 +831,15 @@ let for_loop_index (t : trm) : var =
      end
   | _ -> fail t.loc "for_loop_index: expected for loop"
 
+let for_loop_direction (t : trm) : loop_dir = 
+  match t.desc with 
+  | Trm_for_c (_, cond, _, _) ->
+    begin match cond.desc with
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _}, _) -> DirUp
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _}, _) -> DirDown
+     | _ -> fail cond.loc "for_loop_bound: bad for loop condition"
+     end
+  | _ -> fail t.loc "for_loop_direction: expected a for loop"
 (* return the initial value of the loop index *)
 let for_loop_init (t : trm) : trm =
   match t.desc with
@@ -957,7 +972,7 @@ let nb_goto (l : label) (t : trm) : int =
     | Trm_while (cond, body) -> aux cond + aux body
     | Trm_for_c (init, cond, step, body) ->
        aux init + aux cond + aux step + aux body
-    | Trm_for (_, _, _, _, body) -> aux body
+    | Trm_for (_, _, _, _, _, body) -> aux body
     | Trm_switch (cond, cases) ->
        aux cond +
        sum
@@ -1017,13 +1032,14 @@ let is_simple_loop_component (t : trm) : bool =
   
 
 (* Check if the loop t is simple or not, if is return its simplified ast else return the current ast *)
-let trm_for_simple_of_trm_for (t : trm) : trm = 
+let trm_for_of_trm_for_c(t : trm) : trm = 
   let body = begin match t.desc with 
   | Trm_for_c (_, _, _, body) -> body
-  | _ -> fail t.loc "trm_for_simple_of_trm_for: expected a loop"
+  | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
   end
   in
   let index = for_loop_index t in
+  let direction = for_loop_direction t in
   let start = for_loop_init t in
   let stop = for_loop_bound t in
   let step = for_loop_step t in
@@ -1036,7 +1052,7 @@ let trm_for_simple_of_trm_for (t : trm) : trm =
   (is_simple_loop_component stop) && (is_simple_loop_component step)
   in
 
-  if is_simple_loop then trm_for_simple index start stop step body
+  if is_simple_loop then trm_for index direction start stop step body
     else t
     
 type typ_kind = 
@@ -1086,17 +1102,26 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
         
   | _ -> Typ_kind_basic ty.typ_desc
 
-let trm_for_simple_to_trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
-  (index : var) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
+let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+  (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
-  let cond = (trm_apps (trm_binop Binop_lt)
+  let cond = begin match direction with 
+            | DirUp -> (trm_apps (trm_binop Binop_lt)
               [trm_apps ~annot:(Some Mutable_var_get)
                 (trm_unop Unop_get) [trm_var index];stop])
-   
+            | DirDown -> (trm_apps (trm_binop Binop_lt)
+              [trm_apps ~annot:(Some Mutable_var_get)
+                (trm_unop Unop_get) [trm_var index];stop])
+            end 
    in
-  (* TODO: Think how to go the declaration of the step variable *)
-  let step = trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
+  let step = begin match direction with 
+             | DirUp -> trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
                 [ 
                   trm_var index;
                   trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
-  in trm_for ~annot ~loc ~add ~attributes ~ctx init cond step body
+             | DirDown -> trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_sub)
+                [ 
+                  trm_var index;
+                  trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]]) 
+             end 
+  in trm_for_c~annot ~loc ~add ~attributes ~ctx init cond step body

@@ -138,7 +138,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
         let children = (child_to_json "fun" (aux f)) :: args_children in
         [ kind_to_field "app";
           children_to_field children]
-    | Trm_for(index, start, stop, step, body) ->
+    | Trm_for (index, _, start, stop, step, body) ->
       [ kind_to_field "simple_for";
           (quote "index", Json.Str (quote index));
           children_to_field [

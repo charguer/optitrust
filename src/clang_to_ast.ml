@@ -349,7 +349,7 @@ and translate_stmt (s : stmt) : trm =
          in
          let step = translate_stmt_opt stepo in
          let body = compute_scope For_scope (fun () -> translate_stmt body) in
-         trm_for_simple_of_trm_for (trm_for ~loc ~ctx init cond step body)
+         trm_for_of_trm_for_c(trm_for_c~loc ~ctx init cond step body)
       )
   | For _ ->
     fail loc "translate_stmt: variable declaration forbidden in for conditions"

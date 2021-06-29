@@ -211,7 +211,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_cond, Trm_while (cond, body) ->
           trm_while ~annot ~loc ~add ~attributes (aux dl cond) body
        | Dir_cond, Trm_for_c (init, cond, step, body) ->
-          trm_for ~annot ~loc ~add ~attributes init (aux dl cond) step body
+          trm_for_c~annot ~loc ~add ~attributes init (aux dl cond) step body
        | Dir_cond, Trm_switch (cond, cases) ->
           trm_switch ~annot ~loc ~add ~attributes (aux dl cond) cases
        | Dir_then, Trm_if (cond, then_t, else_t) ->
@@ -222,10 +222,10 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           trm_let ~annot ~loc ~is_statement ~add ~attributes vk tx  (aux dl body)
        | Dir_body, Trm_let_fun (x, tx, txl, body) ->
           trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl (aux dl body)
-       | Dir_body, Trm_for (index, start, stop, step, body) ->
-          trm_for_simple ~annot ~loc ~add ~attributes index start stop step (aux dl body)
+       | Dir_body, Trm_for (index, direction, start, stop, step, body) ->
+          trm_for ~annot ~loc ~add ~attributes index direction start stop step (aux dl body)
        | Dir_body, Trm_for_c (init, cond, step, body) ->
-          trm_for ~annot ~loc ~add ~attributes init cond step (aux dl body)
+          trm_for_c~annot ~loc ~add ~attributes init cond step (aux dl body)
        | Dir_body, Trm_while (cond, body) ->
           trm_while ~annot ~loc ~add ~attributes cond (aux dl body)
        | Dir_body, Trm_abort (Ret (Some body)) ->
@@ -235,9 +235,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_body, Trm_decoration(left, body, right) ->
           trm_decoration ~annot ~loc ~add ~attributes left right (aux dl body)
        | Dir_for_init, Trm_for_c (init, cond, step, body) ->
-          trm_for ~annot ~loc ~add ~attributes (aux dl init) cond step body
+          trm_for_c~annot ~loc ~add ~attributes (aux dl init) cond step body
        | Dir_for_step, Trm_for_c (init, cond, step, body) ->
-          trm_for ~annot ~loc ~add ~attributes init cond (aux dl step) body
+          trm_for_c~annot ~loc ~add ~attributes init cond (aux dl step) body
        | Dir_app_fun, Trm_apps (f, tl) ->
           (*
             warning: the type of f may change
@@ -379,7 +379,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
              aux dl body (init :: ctx)
           | _ -> aux dl body ctx
           end
-       | Dir_body, Trm_for (_, _, _, _, body) ->
+       | Dir_body, Trm_for (_, _, _, _, _, body) ->
           aux dl body ctx
        | Dir_body, Trm_let (_,(_,_), body)
          | Dir_body, Trm_while (_, body)
