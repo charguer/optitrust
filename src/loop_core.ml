@@ -1,10 +1,18 @@
 open Ast
 (* swap_aux: This is an auxiliary function for swap
-    params:  
+    params:
       t: an ast subterm
     return: the updated ast
  *)
- let swap_aux (t : trm) : trm = 
+ (* LATER:
+    let extract_loop t : (trm -> trm) * trm = (* decompose loop-constructor and body *)
+      match t with
+      | Trm_for_c (init1, cond1, step1,body1) ->
+          (fun b -> Trm_for_c (init1, cond1, step1,b)), body
+     | Trm_for (index1, direction1, start1, stop1, step1, body1) ->
+         (fun b -> Trm_for (index1, direction1, start1, stop1, step1, b), body1
+ *)
+ let swap_aux (t : trm) : trm =
   match t.desc with
   | Trm_for_c (init1, cond1, step1,body1) ->
       begin match body1.desc with
@@ -17,9 +25,9 @@ open Ast
       | _ -> fail t.loc "swap_aux; expected inner loop"
       end
   | Trm_for (index1, direction1, start1, stop1, step1, body1) ->
-    begin match body1.desc with 
+    begin match body1.desc with
     | Trm_seq [f_loop] ->
-      begin match f_loop.desc with 
+      begin match f_loop.desc with
       | Trm_for (index2, direction2, start2, stop2, step2, body2) ->
         trm_for index2 direction2 start2 stop2 step2 (trm_seq [
           trm_for index1 direction1 start1 stop1 step1 body2])
@@ -33,11 +41,11 @@ open Ast
     params:
       path_to_loop an explicit path toward the loop
       t: ast
-    return: 
+    return:
       the modified ast
 *)
 let swap : Target.Transfo.local =
-  Target.apply_on_path (swap_aux) 
+  Target.apply_on_path (swap_aux)
 
 
 (*  color_aux: This function is an auxiliary function for color
@@ -45,13 +53,13 @@ let swap : Target.Transfo.local =
         c: a variable used to represent the number of colors
         i_color: string used to represent the index used of the new outer loop
         t: an ast subterm
-      return: 
+      return:
         the updated ast
 *)
 
 let color_aux (c : var) (i_color : var) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
-  match t.desc with 
+  match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     trm_for ("c"^index) direction start (trm_var c) step (
       trm_seq [
@@ -63,28 +71,28 @@ let color_aux (c : var) (i_color : var) (t : trm) : trm =
 
 (* color: Replace the original loop with two nested loops:
         for (int i_color = 0; i_color < C; i_color++)
-          for ([int] i = a+i_color; i < b; i += C) 
+          for ([int] i = a+i_color; i < b; i += C)
       params:
         path_to_loop: explicit path toward the loop
         c: a variable used to represent the number of colors
-        i_color: index used for the new outer loop 
+        i_color: index used for the new outer loop
         t: ast
       return:
         the modified ast
 *)
 let color (c : var) (i_color : var) : Target.Transfo.local =
-    Target.apply_on_path (color_aux c i_color) 
+    Target.apply_on_path (color_aux c i_color)
 
 (*  tile_aux: This function is an auxiliary function for loop
       params:
         b: a variable used to represent the block size
         i_block: string used to represent the index used for the new outer loop
         t: an ast subterm
-      return: 
+      return:
         the updated ast
 *)
 let tile_aux (b : var) (i_block : var) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
      let spec_stop = trm_apps (trm_var "min")
           [
@@ -102,18 +110,18 @@ let tile_aux (b : var) (i_block : var) (t : trm) : trm =
      )
   | _ -> fail t.loc "tile_aux: only simple loops are supported"
 
-(* tile: Replace the original loop with two nested loops 
-      params: 
+(* tile: Replace the original loop with two nested loops
+      params:
         path_to_loop: an explicit path to the loop
         b: a variable used to represent the block size
         i_block: index used for the new outer loop
         t: ast
-      return: 
+      return:
         updated ast
 
 *)
-let tile (b : var)(i_block : var) : Target.Transfo.local = 
-   Target.apply_on_path (tile_aux b i_block) 
+let tile (b : var)(i_block : var) : Target.Transfo.local =
+   Target.apply_on_path (tile_aux b i_block)
 
 (* DEPRECATED *)
 (*  tile_old_aux: This function is an auxiliary function for tile_old
@@ -121,7 +129,7 @@ let tile (b : var)(i_block : var) : Target.Transfo.local =
         b: a variable used to represent the block size
         i_block: string used to represent the index used for the new outer loop
         t: an ast subterm
-      return: 
+      return:
         the updated ast
 *)
 let tile_old_aux (t : trm) : trm =
@@ -143,7 +151,7 @@ let tile_old_aux (t : trm) : trm =
              fail t_decl1.loc "tile_old_aux: bad initialisation"
         in
         let loop_size = for_loop_bound t in
-        
+
         let nb_blocks =
           trm_apps (trm_binop Binop_div) [loop_size; block_size]
         in
@@ -174,7 +182,7 @@ let tile_old_aux (t : trm) : trm =
                ) :: tl)
         in
 
-        
+
         let loop (index : var) (bound : trm) (body : trm) =
           trm_seq (* ~annot:(Some Delete_instructions) *)
             [
@@ -201,42 +209,42 @@ let tile_old_aux (t : trm) : trm =
   | _ -> fail t.loc "tile_old__aux: not a for loop"
 
 
-(* tile_old: Replace the original loop with two nested loops 
-      params: 
+(* tile_old: Replace the original loop with two nested loops
+      params:
         path_to_loop: an explicit path to the loop
         b: a variable used to represent the block size
         i_block: index used for the new outer loop
         t: ast
-      return: 
+      return:
         updated ast
 
 *)
 let tile_old : Target.Transfo.local =
-   Target.apply_on_path (tile_old_aux) 
+   Target.apply_on_path (tile_old_aux)
 
 
 (* hoist_aux: This is an auxiliary function for hoist
     params:
       x_step: a new_variable name
       t: an ast subterm
-    return: 
+    return:
       the updated ast
 *)
 let hoist_aux (x_step : var) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
-    begin match body.desc with 
+    begin match body.desc with
     | Trm_seq tl ->
       (* We assume that the first elment in the body is a variable declaration *)
       let var_decl = List.nth tl 0 in
-      let var_name, var_typ = match var_decl.desc with 
+      let var_name, var_typ = match var_decl.desc with
       | Trm_let (_, (x, tx), _) -> x, tx
       | _ -> fail var_decl.loc "hoist_aux: first loop_body trm should be a variable declaration"
       in
       let remaining_body_trms = List.tl tl in
       let remaining_body_trms = List.map(fun t -> (Generic_core.change_trm (trm_var var_name) (trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
       let var_typ =
-      begin match var_typ.typ_desc with 
+      begin match var_typ.typ_desc with
       | Typ_ptr ty -> ty
       | _ -> fail var_decl.loc "hoist_aux: expected a generated pointer type"
       end
@@ -271,10 +279,10 @@ let hoist (x_step : var) : Target.Transfo.local =
     return
       the updated ast
  *)
- let split_aux (index : int) (t : trm) : trm = 
-  match t.desc with 
+ let split_aux (index : int) (t : trm) : trm =
+  match t.desc with
   | Trm_for (loop_index, direction, start, stop, step, body) ->
-    begin match body.desc with 
+    begin match body.desc with
     | Trm_seq tl ->
       let first_part, last_part = Tools.split_list_at index tl in
       let first_body = trm_seq first_part in
@@ -282,7 +290,7 @@ let hoist (x_step : var) : Target.Transfo.local =
       trm_seq ~annot:(Some No_braces) [
         trm_for loop_index direction start stop step first_body;
         trm_for loop_index direction start stop step second_body;
-      ]  
+      ]
     | _ -> fail t.loc "split_aux: expected the sequence inside the loop body"
     end
   | _ -> fail t.loc "split_aux: onl simple loops are supported"
@@ -293,7 +301,7 @@ let hoist (x_step : var) : Target.Transfo.local =
       path_to_loop: an explicit path to the loop
       index: an index in the range 0 .. N (though in practice only 1 .. N-1 is useful)
       t: ast
-    return: 
+    return:
       the updated ast
  *)
 
@@ -308,30 +316,30 @@ let hoist (x_step : var) : Target.Transfo.local =
       the updated ast
  *)
 
-let fusion_aux (t : trm) : trm = 
-  match t.desc with 
+let fusion_aux (t : trm) : trm =
+  match t.desc with
   | Trm_seq tl ->
     (* Assumption the sequence contains only two trms, the first one is the first loop *)
     let first_loop = List.nth tl 0  in
     (* The second one is the second loop *)
     let second_loop = List.nth tl 1  in
-    
-    (* Get the list of trms for the first loop, other parts of the loop are not needed since the assumtion is that the loop 
+
+    (* Get the list of trms for the first loop, other parts of the loop are not needed since the assumtion is that the loop
       have the same index, bound and step *)
-    let first_loop_trms = 
+    let first_loop_trms =
     begin match first_loop.desc with
     | Trm_for (_, _,  _, _, _, body ) ->
-      begin match body.desc with 
+      begin match body.desc with
       | Trm_seq tl -> tl
       | _ -> fail t.loc "fusion_aux: expected the first loop body sequence"
       end
     | _ -> fail t.loc "fusion_aux: expected the first for loop"
     end in
 
-    begin match second_loop.desc with 
+    begin match second_loop.desc with
     | Trm_for (index, direction, start, stop, step, body) ->
       (* Extracting the body trms from the second loop *)
-      let new_body = begin match body.desc with 
+      let new_body = begin match body.desc with
       | Trm_seq tl -> trm_seq (first_loop_trms @ tl )
       | _ -> fail t.loc "fusion_aux: expected the second loop body sequence"
       end
@@ -353,4 +361,3 @@ let fusion_aux (t : trm) : trm =
 let fusion : Target.Transfo.local =
   Target.apply_on_path(fusion_aux)
 
-  
