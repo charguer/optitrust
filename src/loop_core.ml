@@ -6,12 +6,22 @@ open Ast
  *)
  (* LATER:
     let extract_loop t : ((trm -> trm) * trm) option = (* decompose loop-constructor and body *)
-      match t with
-      | Trm_for_c (init1, cond1, step1,body1) ->
-          Some (fun b -> Trm_for_c (init1, cond1, step1,b)), body
-     | Trm_for (index1, direction1, start1, stop1, step1, body1) ->
+      match t.desc with
+      | Trm_for_c (init1, cond1, step1, body1) ->
+          Some (fun b -> Trm_for_c (init1, cond1, step1, b)), body
+      | Trm_for (index1, direction1, start1, stop1, step1, body1) ->
          Some (fun b -> Trm_for (index1, direction1, start1, stop1, step1, b), body1
          | _ -> None
+
+     match extract_loop t with
+     | Some (loop1, body1) ->
+        begin match extract_loop body1 with
+         | Some (loop2, body2) ->
+               loop2 (loop1 body2)
+         | None -> fail body1.loc "swap_aux: should target a loop with a nested loop inside"
+         end
+     | None -> fail t.loc "swap_aux: should target a loop"
+
  *)
  let swap_aux (t : trm) : trm =
   match t.desc with
@@ -160,7 +170,7 @@ let tile_old_aux (t : trm) : trm =
           if i is still used in the loop body, add an instruction
           i = i1 * block_size + i2
          *)
-        
+
         let body =
           if not (is_used_var_in (trm_seq tl) i) then trm_seq tl
           else

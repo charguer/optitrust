@@ -1,9 +1,17 @@
 open Ast
-(* [swap tg] *)
+
+(* [swap tg] expects the target [tg] to point at a loop that contains an
+   immediately-nested loop. The transformation swaps the two loops. *)
 let swap : Target.Transfo.t =
   Target.apply_on_target (Loop_core.swap)
 
-(* [color c i_color tg] *)
+(* [color c i_color tg] expects [tg] to point to a simple loop,
+   say [for (int i = start; i < stop; i += step) { body } ]. It takes as
+   argument a number of color, called [c], and a fresh name to use
+   as index for iterating over colors. It transforms the loop into
+   the nested loops.
+   [for (int i_color = 0; i_color < c; i_color ++) {
+      for (int i = i_color; i < stop; i += step*c) { body }]. *)
 let color (c : var) (i_color : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.color c i_color )
 
@@ -17,7 +25,7 @@ let hoist (x_step : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.hoist x_step)
 
 (* [split tg] *)
-let split (index : int) : Target.Transfo.t = 
+let split (index : int) : Target.Transfo.t =
   Target.apply_on_target(Loop_core.split index)
 
 (* [fusion tg] *)
@@ -117,7 +125,7 @@ let tile_old : Target.Transfo.t =
       | [] -> t
       | hd :: tl ->
         let t = loop_swap  [cFor_chd] in
-        
+
         multi_swap tl t
      (* in *)
      multi_swap path_list t *)
@@ -210,4 +218,4 @@ let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : 
   | _,_ -> fail t.loc "move_loop: only one of move_before or move_after should be specified" *)
 
 
- 
+

@@ -6,16 +6,16 @@ open Ast
     return:
       the updated ast
 *)
-let add_aux (label : string) (t : trm) : trm = 
+let add_aux (label : string) (t : trm) : trm =
   trm_labelled label t
 
 
-(* [add label t p] : label a targeted ast trm
+(* [add label t p] implements [Label.add], to label a targeted ast trm
     params:
       t: ast
       path_to_instr: path to the instruction we want to label
-    return: 
-      the updated ast 
+    return:
+      the updated ast
 *)
 let add (label : string) : Target.Transfo.local =
   Target.apply_on_path (add_aux label)
