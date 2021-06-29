@@ -5,12 +5,13 @@ open Ast
     return: the updated ast
  *)
  (* LATER:
-    let extract_loop t : (trm -> trm) * trm = (* decompose loop-constructor and body *)
+    let extract_loop t : ((trm -> trm) * trm) option = (* decompose loop-constructor and body *)
       match t with
       | Trm_for_c (init1, cond1, step1,body1) ->
-          (fun b -> Trm_for_c (init1, cond1, step1,b)), body
+          Some (fun b -> Trm_for_c (init1, cond1, step1,b)), body
      | Trm_for (index1, direction1, start1, stop1, step1, body1) ->
-         (fun b -> Trm_for (index1, direction1, start1, stop1, step1, b), body1
+         Some (fun b -> Trm_for (index1, direction1, start1, stop1, step1, b), body1
+         | _ -> None
  *)
  let swap_aux (t : trm) : trm =
   match t.desc with
