@@ -302,7 +302,7 @@ let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pr
 let cDef (name : string) : constr =
   Constr_chain [cStrict;cFunDef name]
 
-(* TODO: think about this *)
+(* This function is similart to cFun but it can match aslos internal functions like get and set *)
 let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
   let p_fun =

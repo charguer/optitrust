@@ -40,11 +40,10 @@ module Json = struct
    | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi
    | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi
 
-  let code_to_js (out : out_channel) (index : int) (* DEPRECATED (ast : trm)*) (src : string) : unit =
-    (* DEPRECATED let src = Ast_to_c.trm_to_doc ast in *)
+  let code_to_js (out : out_channel) (index : int) (src : string) : unit =
     let doc = match index with (* TODO: factorize code better *)
       | -1 -> string "source"  ^^ equals ^^ bquotes (string src)
-      | _ -> string "source" ^^ brackets (string (string_of_int 0)) ^^ equals ^^ bquotes (string src)
+      | _ -> string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src)
       in
     PPrintEngine.ToChannel.pretty 0.9 80 out doc
 

@@ -11,10 +11,6 @@ let close_logs () : unit =
   List.iter (fun log -> close_out log) !logs;
   logs := []
 
-(* DEPRECATED
-  let write_log (log : string) : unit =
-    List.iter (fun (ctx, _) -> Generic.write_log ctx.clog log) !trace *)
-
 (* [write_log clog msg] writes the string [msg] to the channel [clog]. *)
 let write_log (clog : out_channel) (msg : string) : unit =
   output_string clog msg;
@@ -243,8 +239,6 @@ let cleanup_cpp_file_using_clang_format (filename : string) : unit =
 let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
   (* LATER: clean up debugging code in this function *)
   let file_ast = prefix ^ ".ast" in
-  (* let file_js = prefix ^ ".js" in
-  let out_js = open_out file_js in  *)
   let file_enc = prefix ^ "_enc" ^ ctx.extension in
   let file_prog = prefix ^ ctx.extension in
   let out_ast = open_out file_ast in
@@ -254,11 +248,10 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
     close_out out_ast;
     close_out out_enc;
     close_out out_prog;
-    (* close_out out_js; *)
     in
   try
     (* print the raw ast *)
-    Ast_to_text.print_ast (* ~only_desc:true *) out_ast ast;
+    Ast_to_text.print_ast out_ast ast;
     output_string out_ast "\n";
     output_string out_enc ctx.includes;
     Ast_to_c.ast_to_undecoded_doc out_enc ast;
@@ -278,9 +271,11 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
    with all steps. Let's discuss this. *)
 (* LATER: rename to file_out.js  instead of file.js *)
 
-(* TODO: document the fact that now cpp_filename is used instead of ast;
-   remove the AST argument. *)
-let output_js (index : int) (cpp_filename : string) (prefix : string) (_ast : trm) : unit =
+(* [output_js index cpp_filename prefix _ast] Produces a javascript file used for viewing the ast in interactive mode
+   This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
+   of the source and ast after applying transformaion i.
+*)
+let output_js (index : int) (cpp_filename : string) (prefix : string) : unit =
   let (_, ast) = parse cpp_filename in
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
@@ -288,11 +283,8 @@ let output_js (index : int) (cpp_filename : string) (prefix : string) (_ast : tr
     (* Dump the description of the AST nodes *)
     let src = Xfile.get_contents cpp_filename in
     Ast_to_js.Json.code_to_js out_js index src;
-    
     Ast_to_js.ast_to_js out_js index ast;
     output_string out_js "\n";
-    
-
     close_out out_js;
   with | Failure s ->
     close_out out_js;
@@ -301,26 +293,28 @@ let output_js (index : int) (cpp_filename : string) (prefix : string) (_ast : tr
 (* [dump_trace_to_js] writes into one/several (?) files
    the contents of the current AST and of all the history,
    that is, of all the ASTs for which the [step] method was called. *)
+
+
 let dump_trace_to_js ?(prefix : string = "") () : unit =
   assert (prefix = prefix && false)
-  (* TODO: needs to update the call to output_js to go through a cpp file first
-  let dump_history (ctx : context) (prefix : string)
-    (asts : trm list) : unit =
+  (* TODO: needs to update the call to output_js to go through a cpp file first *)
+  (* let dump_history (ctx : context) (cpp_filename : string) (prefix : string) (asts : trm list) : unit =
     let nbAst = List.length asts in
     let i = ref (nbAst - 2) in
     List.iter
       (fun ast ->
         if !i = 0 then begin
           output_prog ctx (prefix ^ "_in") ast;
-          output_js 0 prefix ast
+          output_js 0 cpp_filename prefix 
           end
-        else if !i = nbAst -2 then
-          output_prog ctx (prefix ^ "_out") ast
-
+        else if !i = nbAst -2 then begin 
+          output_prog ctx (prefix ^ "out") ast;
+          output_js (-1) cpp_filename (prefix ^ "out")
+          end
         else if !i = -1 then ()
-        else
+        else 
           output_prog ctx (prefix ^ "_" ^ string_of_int !i) ast;
-          output_js !i prefix ast;
+          output_js !i cpp_filename prefix ;
         i := !i - 1
       )
       asts
@@ -333,8 +327,8 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
       in
       dump_history ctx prefix (trace.cur_ast :: trace.history)
     )
-    (!traces)
-     *)
+    (!traces) *)
+     
 
 (*
   filename = prefix ^ "_trace.js"
@@ -409,7 +403,7 @@ let dump_diff_and_exit () : unit =
       output_prog ctx (prefix ^ "_after") astAfter;
       print_info None "Writing ast and code into %s.js " prefix;
       let cpp_filename =  (prefix ^ "_after") ^ ".cpp" in
-      output_js (-1) cpp_filename prefix astAfter;
+      output_js (-1) cpp_filename prefix;
       print_info None "Done. Output files: %s_after.ast and %s_after%s.\n" prefix prefix ctx.extension;
       ()
     )
