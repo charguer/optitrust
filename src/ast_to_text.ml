@@ -253,6 +253,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_any t ->
     let dt = print_trm ~only_desc t in
       node "Trm_any"  ^^ parens (dt)
+  | Trm_arbitrary _ ->  string "" 
 
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   let tid = td.typdef_typid in

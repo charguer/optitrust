@@ -11,19 +11,20 @@ open Target
       the updated ast
 *)
 
-let insert_aux (ctx : Trace.context) (index : int) (s : string) (t : trm): trm =
+let insert_aux (index : int) (s : string) (t : trm): trm =
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at index tl in 
-      let context = Generic_core.get_context ctx (trm_seq ~annot:(Some No_braces) lfront) in
-      let ts = Generic_core.stats ~context ctx s in
-      let new_trm = trm_seq ~annot:(Some No_braces) ts in
+      (* let context = Generic_core.get_context ctx (trm_seq ~annot:(Some No_braces) lfront) in *)
+      (* let ts = Generic_core.stats ~context ctx s in *)
+      
+      let new_trm = trm_seq ~annot:(Some No_braces) [trm_arbitray s] in
       trm_seq ~annot:t.annot  (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
 (* [insert index ts path_to_seq t] *)
-let insert (ctx : Trace.context) (index : int) (s : string) (path_to_seq : path) (t : trm) : trm =
-  Target.apply_on_path (insert_aux ctx index s) t path_to_seq
+let insert (index : int) (s : string) (path_to_seq : path) (t : trm) : trm =
+  Target.apply_on_path (insert_aux  index s) t path_to_seq
 
 
 (* [delete_aux index nb_instr t]: This function is an auxiliary function for delete

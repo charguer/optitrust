@@ -330,6 +330,7 @@ and trm_desc =
   | Trm_decoration of string * trm * string
     (* TODO: ARTHUR, make this a flag in [trm] rather than a constructor *)
   | Trm_any of trm
+  | Trm_arbitrary of string
 
 and varkind =
   | Var_immutable
@@ -551,6 +552,10 @@ let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx :
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
   {annot; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
+
+let trm_arbitray ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+(code : string) : trm =
+  {annot = annot; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
 let is_included (t : trm) : bool =
   match t.annot with

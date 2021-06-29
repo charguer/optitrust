@@ -3,18 +3,9 @@ open Target
 
 (* [insert tg ts] *)
 let insert (tg : target) (s : string) : unit =
-  Trace.apply (fun ctx t ->
-    let ps = resolve_target_between tg t in
-    List.fold_left (fun t (p,i) -> Sequence_core.insert ctx i s p t) t ps
-  )
-
-
-
-(* [insert tg ts] *)
-(* let insert (tg : target) (s : string) : unit =
   Target.apply_on_target_between (fun t (p,i) ->
     Sequence_core.insert i s p t) tg;
-  Trace.reparse() *)
+  Trace.reparse()
 
 (* [delete index nb tg] *)
 let delete ?(nb : int = 1) (tg : target) : unit =

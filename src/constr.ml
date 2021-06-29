@@ -529,7 +529,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
       end
    | Trm_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) | Trm_decoration (_, t, _) | Trm_any t -> get_trm_kind t
-
+   | Trm_arbitrary _ -> fail t.loc "get_trm_kind: trm_arbitrary is removed during parsing"
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
   if !Debug.counter = 2 then raise Debug.Breakpoint; *)

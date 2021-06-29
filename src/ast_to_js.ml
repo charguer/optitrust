@@ -210,7 +210,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     | Trm_any t ->
         [ kind_to_field "any";
           children_to_field [child_to_json "any" (aux t)]]
-
+    | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
 
 let annot_to_string (t : trm) : string =
   begin match t.annot with
