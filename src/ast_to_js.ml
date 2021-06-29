@@ -37,13 +37,13 @@ module Json = struct
   let json_to_js ?(index : int = (-1)) (j : t) : document =
    let json_ast = json_to_doc j in
    match index with
-   | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi
-   | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi
+   | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi ^^ hardline
+   | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline
 
   let code_to_js (out : out_channel) (index : int) (src : string) : unit =
     let doc = match index with (* TODO: factorize code better *)
-      | -1 -> string "source"  ^^ equals ^^ bquotes (string src)
-      | _ -> string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src)
+      | -1 -> string "source"  ^^ equals ^^ bquotes (string src) ^^ hardline
+      | _ -> string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline
       in
     PPrintEngine.ToChannel.pretty 0.9 80 out doc
 
@@ -282,7 +282,6 @@ let ast_to_js (out : out_channel) (index : int) (t : trm) : unit =
 
 (*
  TODO:
-   - fix the missing new lines after `` in .js
    - fix the generation of the JSON nodes in   new int....
    - for every unit test, check the display of all nodes
 *)
