@@ -24,10 +24,18 @@ let remove : Transfo.t =
   Generic.remove_instruction
 
 (* [insert_and_fold ~const ~as_reference ~fold_at x dx tg] *)
-let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : trm) (tg : target) : unit =
+let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : string) (tg : target) : unit =
+  Trace.apply (fun ctx t ->
+   let ps = resolve_target_between tg t in
+   List.fold_left (fun t (p, i) -> Variable_core.insert_and_fold ctx const as_reference x dx i fold_at t p) t ps
+  )
+  
+
+(* [insert_and_fold ~const ~as_reference ~fold_at x dx tg] *)
+(* let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : trm) (tg : target) : unit =
   (* TODO: apply_on_target_between *)
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Variable_core.insert_and_fold const as_reference x dx i fold_at t p) tg
+    (fun (p,i) t -> Variable_core.insert_and_fold const as_reference x dx i fold_at t p) tg *)
 
 (* [inline ~delete_decl ~inline_at tg] *)
 let inline ?(delete_decl : bool = false) ?(inline_at : target list = [[]]) (tg : target) : unit =

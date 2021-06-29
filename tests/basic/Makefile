@@ -13,7 +13,6 @@ TESTS := \
 	array_swap \
   array_tile.ml \
 	array_to_variables.ml \
-	const_insert.ml \
   label_add.ml \
   label_remove.ml \
 	loop_color.ml \
@@ -36,7 +35,8 @@ TESTS := \
 	variable_fold.ml \
 	variable_inline.ml \
 	variable_insert.ml \
-  sequence_insert.ml \
+  variable_insert_and_fold.ml \
+	sequence_insert.ml \
 
 
 

@@ -93,10 +93,12 @@ let insert (ctx : Trace.context )(const : bool) (as_reference : bool) (x : var) 
   Target.apply_on_path (insert_aux ctx const as_reference x dx index)
 
 
-let insert_and_fold_aux (const : bool) (as_reference : bool) (x : var) (dx : trm) (index : int) (fold_at : target list) (t : trm) : trm =
+let insert_and_fold_aux (ctx : Trace.context) (const : bool) (as_reference : bool) (x : var) (dx : string) (index : int) (fold_at : target list) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
+    let context = Generic_core.get_context ctx (trm_seq ~annot:(Some No_braces) lfront) in
+    let dx = Generic_core.term ~context ctx dx in
     let tx = match dx.typ with
     | None -> fail t.loc "insert_and_fold_aux: cannot find definition type"
     | Some tx -> if as_reference then typ_ptr tx else tx
@@ -128,8 +130,8 @@ let insert_and_fold_aux (const : bool) (as_reference : bool) (x : var) (dx : trm
 
 
   (* [insert_and_fold const as_reference x dx index fodl_at] *)
-  let insert_and_fold (const : bool) (as_reference : bool) (x : var) (dx : trm) (index : int) (fold_at : target list) : Target.Transfo.local =
-    Target.apply_on_path(insert_and_fold_aux const as_reference x dx index fold_at)
+  let insert_and_fold (ctx : Trace.context) (const : bool) (as_reference : bool) (x : var) (dx : string) (index : int) (fold_at : target list) : Target.Transfo.local =
+    Target.apply_on_path(insert_and_fold_aux ctx const as_reference x dx index fold_at)
 
 (* [inline_aux inline_at]: This is an auxiliary function for inline
     params:
