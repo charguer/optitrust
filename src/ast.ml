@@ -294,10 +294,10 @@ and trm_desc =
   | Trm_seq of trm list (* { st1; st2; st3 } *)
   | Trm_apps of trm * (trm list) (* f(t1, t2) *)
   | Trm_while of trm * trm (* while (t1) { t2 } LATER: other like do-while *)
-  | Trm_for_simple of var * trm * trm * trm  * trm
-  | Trm_for of trm * trm * trm * trm
+  | Trm_for of var * trm * trm * trm  * trm
+  | Trm_for_c of trm * trm * trm * trm
   (*
-    Trm_for (e0, e1, e2, e3) =
+    Trm_for_c (e0, e1, e2, e3) =
     for (e0; e1; e2) {e3;}
    *)
   (* Remark: in the AST, arguments of cases that are enum labels
@@ -473,7 +473,7 @@ let trm_while ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx
 
 let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
-  {annot; desc = Trm_for (init, cond, step, body); loc; is_statement = false; add;
+  {annot; desc = Trm_for_c (init, cond, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_switch ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
@@ -543,7 +543,7 @@ let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes 
 
 let trm_for_simple ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
-  {annot; desc = Trm_for_simple (index, start, stop, step, body); loc; is_statement = false; add;
+  {annot; desc = Trm_for (index, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let is_included (t : trm) : bool =
@@ -634,13 +634,13 @@ let trm_map (f : trm -> trm) (t : trm) : trm =
      let cond' = f cond in
      let body' = f body in
      trm_while ~annot ~loc ~add cond' body'
-  | Trm_for (init, cond, step, body) ->
+  | Trm_for_c (init, cond, step, body) ->
      let init' = f init in
      let cond' = f cond in
      let step' = f step in
      let body' = f body in
      trm_for ~annot ~loc ~add init' cond' step' body'
-  | Trm_for_simple (index, start, stop, step, body) ->
+  | Trm_for (index, start, stop, step, body) ->
     trm_for_simple ~annot ~loc ~add index start stop step (f body)
   | Trm_switch (cond, cases) ->
      let cond' = f cond in
@@ -699,9 +699,9 @@ let is_used_var_in (t : trm) (x : var) : bool =
     | Trm_if (cond, then_, else_) -> aux cond || aux then_ || aux else_
     | Trm_apps (f, args) -> aux f || List.exists aux args
     | Trm_while (cond, body) -> aux cond || aux body
-    | Trm_for (init, cond, step, body) ->
+    | Trm_for_c (init, cond, step, body) ->
        aux init || aux cond || aux step || aux body
-    | Trm_for_simple (_, _, _, _, body) -> aux body
+    | Trm_for (_, _, _, _, body) -> aux body
     | Trm_switch (cond, cases) ->
        aux cond ||
        List.exists (fun (tl, body) -> List.exists aux tl || aux body) cases
@@ -727,9 +727,9 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
     | Trm_apps ({desc = Trm_var x; _}, args) -> x = f || List.exists aux args
     | Trm_apps (f', args) -> aux f' || List.exists aux args
     | Trm_while (cond, body) -> aux cond || aux body
-    | Trm_for (init, cond, step, body) ->
+    | Trm_for_c (init, cond, step, body) ->
        aux init || aux cond || aux step || aux body
-    | Trm_for_simple (_, _, _, _, body) -> aux body
+    | Trm_for (_, _, _, _, body) -> aux body
     | Trm_switch (cond, cases) ->
        aux cond ||
        List.exists (fun (tl, body) -> List.exists aux tl || aux body) cases
@@ -757,9 +757,9 @@ let fun_call_args (f : var) (t : trm) : trm list =
     | Trm_apps ({desc = Trm_var x; _}, args) when x = f -> args
     | Trm_apps (f', args) -> aux f' ++ (List.flatten (List.map aux args))
     | Trm_while (cond, body) -> aux cond ++ aux body
-    | Trm_for (init, cond, step, body) ->
+    | Trm_for_c (init, cond, step, body) ->
        aux init ++ aux cond ++ aux step ++ aux body
-    | Trm_for_simple (_, _, _, _,body) -> aux body
+    | Trm_for (_, _, _, _,body) -> aux body
     | Trm_switch (cond, cases) ->
        aux cond ++
        List.flatten
@@ -810,7 +810,7 @@ let is_heap_alloc (t : trm) : bool =
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
   match t.desc with
-  | Trm_for (init, _, _, _) ->
+  | Trm_for_c (init, _, _, _) ->
      (*
        covered cases:
        - for (i = …; …)
@@ -828,7 +828,7 @@ let for_loop_index (t : trm) : var =
 (* return the initial value of the loop index *)
 let for_loop_init (t : trm) : trm =
   match t.desc with
-  | Trm_for (init, _, _, _) ->
+  | Trm_for_c (init, _, _, _) ->
      (*
        covered cases:
        - for (i = n; …)
@@ -850,7 +850,7 @@ let for_loop_init (t : trm) : trm =
 (* return the lower bound of the for loop *)
 let for_loop_bound (t : trm) : trm =
   match t.desc with
-  | Trm_for (_, cond, _, _) ->
+  | Trm_for_c (_, cond, _, _) ->
      (*
        covered cases:
        - for (…; i < n; …)
@@ -868,7 +868,7 @@ let for_loop_bound (t : trm) : trm =
 (* return the step increment of the for loop *)
 let for_loop_step (t : trm) : trm =
   match t.desc with
-  | Trm_for (_, _, step, _) ->
+  | Trm_for_c (_, _, step, _) ->
      (*
        covered cases:
        - for (…; …; i++)
@@ -955,9 +955,9 @@ let nb_goto (l : label) (t : trm) : int =
     | Trm_if (cond, then_, else_) -> aux cond + aux then_ + aux else_
     | Trm_apps (f, args) -> aux f + sum (List.map aux args)
     | Trm_while (cond, body) -> aux cond + aux body
-    | Trm_for (init, cond, step, body) ->
+    | Trm_for_c (init, cond, step, body) ->
        aux init + aux cond + aux step + aux body
-    | Trm_for_simple (_, _, _, _, body) -> aux body
+    | Trm_for (_, _, _, _, body) -> aux body
     | Trm_switch (cond, cases) ->
        aux cond +
        sum
@@ -1019,7 +1019,7 @@ let is_simple_loop_component (t : trm) : bool =
 (* Check if the loop t is simple or not, if is return its simplified ast else return the current ast *)
 let trm_for_simple_of_trm_for (t : trm) : trm = 
   let body = begin match t.desc with 
-  | Trm_for (_, _, _, body) -> body
+  | Trm_for_c (_, _, _, body) -> body
   | _ -> fail t.loc "trm_for_simple_of_trm_for: expected a loop"
   end
   in

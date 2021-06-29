@@ -6,21 +6,21 @@ open Ast
  *)
  let swap_aux (t : trm) : trm = 
   match t.desc with
-  | Trm_for (init1, cond1, step1,body1) ->
+  | Trm_for_c (init1, cond1, step1,body1) ->
       begin match body1.desc with
       | Trm_seq [f_loop] ->
         begin match f_loop.desc with
-        | Trm_for(init2 ,cond2 ,step2, body2) ->
+        | Trm_for_c ( init2 ,cond2 ,step2, body2) ->
           trm_for init2 cond2 step2 (trm_seq [trm_for init1 cond1 step1 body2])
         | _ -> fail t.loc "swap_aux: inner_loop was not matched"
         end
       | _ -> fail t.loc "swap_aux; expected inner loop"
       end
-  | Trm_for_simple (index1, start1, stop1, step1, body1) ->
+  | Trm_for (index1, start1, stop1, step1, body1) ->
     begin match body1.desc with 
     | Trm_seq [f_loop] ->
       begin match f_loop.desc with 
-      | Trm_for_simple (index2, start2, stop2, step2, body2) ->
+      | Trm_for (index2, start2, stop2, step2, body2) ->
         trm_for_simple index2 start2 stop2 step2 (trm_seq [
           trm_for_simple index1 start1 stop1 step1 body2])
       | _ -> fail f_loop.loc "swap_aux: expected a simple loop here"
@@ -52,7 +52,7 @@ let swap : Target.Transfo.local =
 let color_aux (c : var) (i_color : var) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
   match t.desc with 
-  | Trm_for_simple (index, start, stop, step, body) ->
+  | Trm_for (index, start, stop, step, body) ->
     trm_for_simple ("c"^index) start (trm_var c) step (
       trm_seq [
         trm_for_simple index (trm_var i_color) stop (trm_var c) body
@@ -85,7 +85,7 @@ let color (c : var) (i_color : var) : Target.Transfo.local =
 *)
 let tile_aux (b : var) (i_block : var) (t : trm) : trm =
   match t.desc with 
-  | Trm_for_simple (index, start, stop, step, body) ->
+  | Trm_for (index, start, stop, step, body) ->
      let spec_stop = trm_apps (trm_var "min")
           [
             stop;
@@ -126,7 +126,7 @@ let tile (b : var)(i_block : var) : Target.Transfo.local =
 *)
 let tile_old_aux (t : trm) : trm =
   match t.desc with
-  | Trm_for (_ , _, _, body) ->
+  | Trm_for_c (_ , _, _, body) ->
      begin match body.desc with
      (* look for the declaration of i1 and i2 *)
      | Trm_seq (t_decl1 :: t_decl2 :: tl) ->
@@ -224,7 +224,7 @@ let tile_old : Target.Transfo.local =
 *)
 let hoist_aux (x_step : var) (t : trm) : trm =
   match t.desc with 
-  | Trm_for_simple (index, start, stop, step, body) ->
+  | Trm_for (index, start, stop, step, body) ->
     begin match body.desc with 
     | Trm_seq tl ->
       (* We assume that the first elment in the body is a variable declaration *)
@@ -273,7 +273,7 @@ let hoist (x_step : var) : Target.Transfo.local =
  *)
  let split_aux (index : int) (t : trm) : trm = 
   match t.desc with 
-  | Trm_for_simple (loop_index, start, stop, step, body) ->
+  | Trm_for (loop_index, start, stop, step, body) ->
     begin match body.desc with 
     | Trm_seq tl ->
       let first_part, last_part = Tools.split_list_at index tl in
@@ -320,7 +320,7 @@ let fusion_aux (t : trm) : trm =
       have the same index, bound and step *)
     let first_loop_trms = 
     begin match first_loop.desc with
-    | Trm_for_simple (_, _, _, _, body) ->
+    | Trm_for (_, _, _, _, body) ->
       begin match body.desc with 
       | Trm_seq tl -> tl
       | _ -> fail t.loc "fusion_aux: expected the first loop body sequence"
@@ -329,7 +329,7 @@ let fusion_aux (t : trm) : trm =
     end in
 
     begin match second_loop.desc with 
-    | Trm_for_simple (index, start, stop, step, body) ->
+    | Trm_for (index, start, stop, step, body) ->
       (* Extracting the body trms from the second loop *)
       let new_body = begin match body.desc with 
       | Trm_seq tl -> trm_seq (first_loop_trms @ tl )

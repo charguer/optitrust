@@ -61,7 +61,7 @@ Then, the constraints matching nodes to go through:
 - `sInstrSubstr ~exact ~regexp s`: match the string/regexp `s` against the
   current node. The boolean `exact`, `false` by default, must be set to `true`
   for an exact match.
-- `cFor ~init ~cond ~step ~body ()`: match a for loop. The `init`, `cond`,
+- `cFor_c~init ~cond ~step ~body ()`: match a for loop. The `init`, `cond`,
   `step` and `body` paths may be used to give constraints on the different parts
   of the loop.
 - `cWhile ~cond ~body ()`: match a while loop. The `cond` and `body` paths may

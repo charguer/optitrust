@@ -523,7 +523,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
       | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
       | _ -> TrmKind_Expr
       end
-   | Trm_while _ | Trm_for _ | Trm_for_simple _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
+   | Trm_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) | Trm_decoration (_, t, _) | Trm_any t -> get_trm_kind t
 
 let match_regexp_str (r : rexp) (s : string) : bool =
@@ -582,13 +582,13 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         false
      | Constr_regexp r, _ -> match_regexp_trm r t
      | Constr_for (p_init, p_cond, p_step, p_body),
-       Trm_for (init, cond, step, body) ->
+       Trm_for_c (init, cond, step, body) ->
         check_target p_init init &&
         check_target p_cond cond &&
         check_target p_step step &&
         check_target p_body body
      | Constr_for_simple (p_index, p_start, p_stop, p_step, p_body),
-        Trm_for_simple(index, start, stop, step, body) ->
+        Trm_for(index, start, stop, step, body) ->
         check_name p_index index &&
         check_target p_start start &&
         check_target p_stop stop &&
@@ -893,9 +893,9 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (resolve_target_simple p body)
-     | Trm_for_simple ( _, _, _, _, body) ->
+     | Trm_for ( _, _, _, _, body) ->
         add_dir Dir_body (resolve_target_simple p body)
-     | Trm_for (init, cond, step, body) ->
+     | Trm_for_c (init, cond, step, body) ->
         (* init *)
         (add_dir Dir_for_init (resolve_target_simple p init)) ++
         (* cond *)
@@ -976,7 +976,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
          add_dir (Dir_nth n) (resolve_target_simple p (trm_val ~loc nth_v)))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
-    | Dir_cond, Trm_for (_, cond, _, _)
+    | Dir_cond, Trm_for_c (_, cond, _, _)
     | Dir_cond, Trm_switch (cond, _) ->
      add_dir Dir_cond (resolve_target_simple p cond)
   | Dir_then, Trm_if (_, then_t, _) ->
@@ -985,15 +985,15 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_else (resolve_target_simple p else_t)
   | Dir_body, Trm_let (_,(_,_),body)
     | Dir_body, Trm_let_fun (_, _, _, body)
-    | Dir_body, Trm_for (_, _, _, body)
-    | Dir_body, Trm_for_simple (_, _, _, _, body)
+    | Dir_body, Trm_for_c (_, _, _, body)
+    | Dir_body, Trm_for (_, _, _, _, body)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_abort (Ret (Some body))
     | Dir_body, Trm_labelled (_, body) ->
      add_dir Dir_body (resolve_target_simple p body)
-  | Dir_for_init, Trm_for (init, _, _, _) ->
+  | Dir_for_init, Trm_for_c (init, _, _, _) ->
      add_dir Dir_for_init (resolve_target_simple p init)
-  | Dir_for_step, Trm_for (_, _, step, _) ->
+  | Dir_for_step, Trm_for_c (_, _, step, _) ->
      add_dir Dir_for_step (resolve_target_simple p step)
   | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (resolve_target_simple p f)
   | Dir_arg n, Trm_apps (_, tl) ->

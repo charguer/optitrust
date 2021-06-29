@@ -63,7 +63,7 @@ let tile_old : Target.Transfo.t =
     match t.desc with
     | Trm_labelled (_, t_loop) -> get_loop_nest_indices t_loop
     | Trm_seq [t_loop;_] -> get_loop_nest_indices t_loop
-    | Trm_for (_,_,_,body) ->
+    | Trm_for_c (_,_,_,body) ->
       let loop_index = for_loop_index t in
       begin match body.desc with
       | Trm_seq ({desc = Trm_seq (f_loop :: _);_} :: _) ->
@@ -116,7 +116,7 @@ let tile_old : Target.Transfo.t =
       let rec multi_swap (xl : 'a list) (t : trm) : trm = match xl with
       | [] -> t
       | hd :: tl ->
-        let t = loop_swap  [cFor hd] in
+        let t = loop_swap  [cFor_chd] in
         
         multi_swap tl t
      (* in *)
@@ -169,7 +169,7 @@ let tile_old : Target.Transfo.t =
     (* List.fold_left (fun _i acc -> swap l_index) (List.tl path_list) *)
     let rec multi_swap (count : int) (t : trm) : trm = match count with
       | 0 ->  t
-      | _ -> let pl = [cFor l_index ] in
+      | _ -> let pl = [cFor_cl_index ] in
            let t = loop_swap clog pl t in
            multi_swap (count-1) t
       in
@@ -205,8 +205,8 @@ let move_loop (clog : out_channel)  ?(move_before : string = "") ?(move_after : 
     in
   write_log clog log;
   match move_before, move_after with
-  | "",_ -> move_loop_after clog [cFor loop_index] move_after t
-  | _,"" -> move_loop_before clog [cFor move_before] loop_index t
+  | "",_ -> move_loop_after clog [cFor_cloop_index] move_after t
+  | _,"" -> move_loop_before clog [cFor_cmove_before] loop_index t
   | _,_ -> fail t.loc "move_loop: only one of move_before or move_after should be specified" *)
 
 

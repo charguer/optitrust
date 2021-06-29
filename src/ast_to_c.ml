@@ -249,7 +249,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let db = trm_to_doc b in
         let dt = trm_to_doc ~semicolon:true t in
         dattr ^^ separate (blank 1) [string "while"; parens db; dt]
-     | Trm_for (init, cond, step, body) ->
+     | Trm_for_c (init, cond, step, body) ->
         let dinit = trm_to_doc init in
         let dcond = trm_to_doc cond in
         let dstep = trm_to_doc step in
@@ -257,7 +257,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
-     | Trm_for_simple (index,  (* TODO: add dir,  type dir = DirUpTo | DirDownTo;  *)  start, stop, step, body) ->
+     | Trm_for (index,  (* TODO: add dir,  type dir = DirUpTo | DirDownTo;  *)  start, stop, step, body) ->
            (* for (int i = 10; i >= 0; i--)       dir=dDirDownTo   step=1 *)
        let full_loop = trm_for_simple_to_trm_for index start stop step body in
        trm_to_doc full_loop

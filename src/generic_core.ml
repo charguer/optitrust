@@ -457,7 +457,7 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
       begin match no_braces.desc with
         | Trm_seq [f_loop] ->
           begin match f_loop.desc with
-          | Trm_for (init, cond, step, body) ->
+          | Trm_for_c (init, cond, step, body) ->
             let new_type = typ_var var_type  in
             let new_decl = trm_let Var_mutable (new_var, new_type) (trm_apps (trm_prim (Prim_new new_type)) [trm_var old_var])
 
@@ -566,7 +566,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     in
     let for_loop = List.nth tl 1 in
     let parallel_for =  begin match for_loop.desc  with
-    | Trm_for(init, cond, step, body) ->
+    | Trm_for_c ( init, cond, step, body) ->
       trm_for init cond step
         (
           change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_any (trm_var "my_core_id")]]) body

@@ -9,7 +9,7 @@ let _ =
           if path is pointing to the inner loop, then you need to work
           out the path to the outer loop with corresponding name
 
-          let outer_loop_path = [cFor ~index:move_before ~body:(path)] in
+          let outer_loop_path = [cFor_c~index:move_before ~body:(path)] in
           check that outer_loop_path resolves to exactly one solution
           let inner_loop_trm = (resolve_path path) in
           let name = get_loop_index inner_loop_trm
@@ -31,8 +31,8 @@ let _ =
         move_loop "c" ~move_after:"d";
         move_loop "c" ~move_before:"d";
         (*
-        move_loop ~path:[cFunDef "f"; cFor "c"] ~move_after:"d";
-        move_loop ~move_before:[cFunDef "f"; cFor "c"] ~move_after:"d";
+        move_loop ~path:[cFunDef "f"; cFor_c"c"] ~move_after:"d";
+        move_loop ~move_before:[cFunDef "f"; cFor_c"c"] ~move_after:"d";
         move_loop ~name:"c" ~move_after:"d" ();
         move_loop "c" ~move_before:"d" ();
 

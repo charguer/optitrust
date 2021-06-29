@@ -18,16 +18,16 @@ let _ = Run.script_cpp (fun () ->
   show [ tAfter; cVarDef "m2" ];
 
   (* First *)
-  show [ tFirst; cForSimple "i"; cStrict; dBody ];
+  show [ tFirst; cFor "i"; cStrict; dBody ];
   show [ tFirst; dThen ];
   show [ tFirst; dElse ];
 
-  show [ tLast; cForSimple "i"; cStrict; dBody];
+  show [ tLast; cFor "i"; cStrict; dBody];
   show [ tLast; dThen ];
   show [ tLast; dElse ];
 
   (* Nested paths *)
-  show [ tLast; cFor "i"; dBody; dThen ];
+  show [ tLast; cFor_c"i"; dBody; dThen ];
   (* Top level paths *)
   show [tBefore; cTopFun "main"];
   show [tAfter; cTopFun "main"];

@@ -15,9 +15,9 @@ let _ = Run.script_cpp (fun () ->
   show [ cVar "g" ];
 
   (* Loops *)
-  show [ cForSimple "i" ];
-  show [ cForSimple "j" ];
-  show [ cForSimple ~stop:[cInt 5] "" ];
+  show [ cFor "i" ];
+  show [ cFor "j" ];
+  show [ cFor ~stop:[cInt 5] "" ];
 
   (* Abort *)
   show [ cBreak ];
