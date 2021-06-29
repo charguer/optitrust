@@ -49,7 +49,7 @@ let _ = Run.script_cpp (fun () ->
   show [sInstr "i++"];
   show [nbMulti; sInstrRegexp "int . = .."]; 
   show [nbMulti; sInstrRegexp ~substr:true ". = ."];
-  show [nbMulti; sInstrRegexp ~substr:false ". = ."]; (* should not match something with several characters TODO:*)
+  show [nbMulti; sInstrRegexp ~substr:false ". = ."]; 
 )
  (*
   show [sInstr ~substr:tru  (* TODO: ARTHUR: specify different what should be "instructions" *)

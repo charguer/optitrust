@@ -123,7 +123,8 @@ function loc_before(pos1, pos2){
 
 // This function returns true if the span of loc1 fully covers the the span of loc2
 function contains(loc1, loc2){
-  // Check if location is undefined; in this case don't consider this node
+  // Check if location is undefined; in this case don't consider this 
+  
   if (loc1 === "") {
     return false;
   } else {
@@ -138,7 +139,7 @@ function loadPathForUserSelection(selectedLoc) {
   }
 
   // First, find the deepest node in the AST that fully covers the location selected by the user
-  let chosen_node = "node_0";
+  let chosen_node = "id_0";
   for (const node_id in ast) {
     if (contains(ast[node_id].loc, selectedLoc)
       && (number_of_nodeid(node_id) >= number_of_nodeid(chosen_node))) {
@@ -426,7 +427,7 @@ document.addEventListener('DOMContentLoaded', function () {
   editor.setValue(source);
 
   // show initial path
-  var path = ["node_0"];
+  var path = ["id_0"];
   viewPath(path);
 
 });
@@ -526,23 +527,6 @@ function scrollToFirstMark() {
 // `;
 
 // var node_1_loc = { start: { line: 7, col: 6 }, end: { line: 9, col: 15 } };
-
-// DEPRECATED
-// ast = {
-//    node_0: { kind: "seq", children: [ { label: "1", id: "node_1" }, { label: "2", id: "node_2" } , { label: "3", id: "node_4" }, { label: "4", id: "node_8" } ] },
-//    node_1: { kind: "fun", name: "foo", loc: node_1_loc, children: [ { label: "body", id: "node_3" } ] },
-//    node_2: { kind: "var", name: "x", type: "int" },
-//    node_3: { kind: "return" },
-//    node_4: { kind: "if", children: [ { label: "cond", id: "node_5" }, { label: "else", id: "node_6" }, { label: "else", id: "node_6" } ] },
-//    node_5: { kind: "return" },
-//    node_6: { kind: "return" },
-//    node_7: { kind: "return" },
-//    node_8: { kind: "return" } };
-//  path = ["node_0", "node_1", "node_3" ];
-
-
-
-
 
 
   // make some selection

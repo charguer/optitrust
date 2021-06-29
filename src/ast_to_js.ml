@@ -240,7 +240,8 @@ let ast_to_json (trm_root : trm) : json =
   let nextid = ref (-1) in
   let get_nextid () =
     incr nextid;
-    quote ("node_" ^ (string_of_int !nextid))  in
+    quote ("id_" ^ (string_of_int !nextid))  in
+    (* quote (string_of_int !nextid)  in *)
 
   (* output of the fuction *)
   let result : ((string * json) list) ref = ref [] in
@@ -266,7 +267,7 @@ let ast_to_json (trm_root : trm) : json =
     id in
   let parent_of_root = quote "no_parent" in
   let id_of_root = aux parent_of_root trm_root in
-  assert (id_of_root = quote "node_0");
+  assert (id_of_root = quote "id_0");
   Json.Object (!result)
 
 
