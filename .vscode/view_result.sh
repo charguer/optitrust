@@ -94,6 +94,7 @@ fi
 
 cd ${VSCODE}
 
+
 if [ "${VIEW}" = "view_diff" ]; then
 
   ./open_diff.sh ${DIRNAME} ${FILEBASE} &

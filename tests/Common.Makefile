@@ -56,7 +56,7 @@ transfo: $(TESTS:.ml=_out.cpp)
 # 'make check' executes all the transformations and check the results against expected results
 check: $(TESTS:.ml=.chk)
 
-# make 'compile' checks that the cpp files commited and generated all compile
+# make 'compile' checks that the source cpp files all compile
 compile: $(TESTS:.ml=.prog)
 
 # 'make optitrust' rebuilds the library, and clean all local files

@@ -20,10 +20,20 @@ int main() {
   int i;
   int a = t[i].x;
   int b = u[9][i].x;
-  // TODO: this one is not properly translated:
-  int b2 = (*u)[i].x;
   int c = w[99][i].x;
+
+  // LATER: this one is not properly translated:
+  // int d = (*u)[i].x;
+  // LATER: stranger error
+  // vects uget = *u;
+  // int d = uget[i].x;
+
 }
 
-// TODO : aos_to_soa_typedef
-// TODO : aos_to_soa_notypdef
+/* TOOD:
+this file rename to  aos_to_sao_sized_array
+
+update current file to using:
+ typedef vect* vects;
+
+*/

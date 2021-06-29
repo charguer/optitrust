@@ -225,7 +225,7 @@ let step () : unit =
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format (filename : string) : unit =
-   ignore (Sys.command ("clang-format -i " ^ filename))
+  ignore (Sys.command ("clang-format -i " ^ filename))
 
 (* [output_prog ctx prefix ast] writes the program described by the term [ast]
    in several files:
@@ -305,14 +305,14 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
       (fun ast ->
         if !i = 0 then begin
           output_prog ctx (prefix ^ "_in") ast;
-          output_js 0 cpp_filename prefix 
+          output_js 0 cpp_filename prefix
           end
-        else if !i = nbAst -2 then begin 
+        else if !i = nbAst -2 then begin
           output_prog ctx (prefix ^ "out") ast;
           output_js (-1) cpp_filename (prefix ^ "out")
           end
         else if !i = -1 then ()
-        else 
+        else
           output_prog ctx (prefix ^ "_" ^ string_of_int !i) ast;
           output_js !i cpp_filename prefix ;
         i := !i - 1
@@ -328,7 +328,7 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
       dump_history ctx prefix (trace.cur_ast :: trace.history)
     )
     (!traces) *)
-     
+
 
 (*
   filename = prefix ^ "_trace.js"
@@ -356,6 +356,7 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
 
 (* [reparse_trm ctx ast] print [ast] in a temporary file and reparses it using Clang. *)
 let reparse_trm (ctx : context) (ast : trm) : trm =
+
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
   output_prog ctx in_prefix ast;
   let (_, t) = parse (in_prefix ^ ctx.extension) in
@@ -463,6 +464,7 @@ let (!!!) (x:'a) : 'a =
    WILL BE DEPRECATED: If the command line argument [-dump-trace] was provided, then the
    function writes all the ASTs from the history into javascript files. *)
 (* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
+
 let dump ?(prefix : string = "") () : unit =
   if Flags.get_exit_line() <> None then dump_diff_and_exit ();
   (* if !Flags.full_dump then dump_trace ~prefix () *)
