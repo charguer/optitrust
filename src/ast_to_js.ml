@@ -278,10 +278,3 @@ let ast_json_to_doc (out : out_channel) (t : trm) : unit =
 *)
 let ast_to_js (out : out_channel) (index : int) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js (ast_to_json t) ~index )
-
-
-(*
- TODO:
-   - fix the generation of the JSON nodes in   new int....
-   - for every unit test, check the display of all nodes
-*)

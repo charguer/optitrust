@@ -160,7 +160,7 @@ let tile_old_aux (t : trm) : trm =
           if i is still used in the loop body, add an instruction
           i = i1 * block_size + i2
          *)
-        (* TODO: Fix this later *)
+        
         let body =
           if not (is_used_var_in (trm_seq tl) i) then trm_seq tl
           else

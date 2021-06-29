@@ -15,7 +15,6 @@ let delete ?(nb : int = 1) (tg : target) : unit =
    Target.applyi_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun id_target (p, i) t -> Sequence_core.delete (i-id_target) nb t p) tg *)
 
-
 (* [iter_delete tgl] *)
 let iter_delete (tgl : target list) : unit =
  List.fold_left (fun () x ->

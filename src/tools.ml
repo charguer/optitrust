@@ -30,7 +30,7 @@ let (++) = List.append
 let foldi (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
   let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
   res
-(* maps on functions TODO: find why not reusing maps *)
+
 module Fun_map = Map.Make(String)
 type 'a funmap = 'a Fun_map.t
 
@@ -184,20 +184,6 @@ let rec split_list_at_1 (n : int) (al : 'a list) : 'a list * ('a list) =
 (* return the list where the nth element is transformed *)
 let list_update_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
-
-
-(* TODO: move *)
-(* Initialize a two arrays for the json ast and source code *)
-(* TODO: improve name, move to a ast_to_js file *)
-let initialization (out_prefix : string) : unit =
-    let file_js = out_prefix ^ ".js" in
-    let out_js = open_out file_js in
-    let content = PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "contents" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
-    let source =  PPrint.string "var" ^^ PPrint.blank 1 ^^ PPrint.string "source" ^^ PPrint.equals ^^ PPrint.brackets PPrint.empty in
-    PPrintEngine.ToChannel.pretty 0.9 80 out_js content;
-    PPrintEngine.ToChannel.pretty 0.9 80 out_js source
-
-
 
 
 module type DebugSig = sig

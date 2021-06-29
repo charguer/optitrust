@@ -265,9 +265,6 @@ let term ?(context : string = "")(ctx : Trace.context) (s : string) : trm =
   | [expr] -> expr
   | _ -> fail None "term: expcted a list with only one element"
 
-let stats ?(context : string = "") (ctx : Trace.context) (s : string) : trm list =
-  parse_cstring context false s ctx 
-
 (*
   aliased_type X takes as argument the description of a file
   (that is a toplevel sequence), and it returns the type ty
