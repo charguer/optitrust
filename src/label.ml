@@ -5,10 +5,11 @@ open Target
 let add (label : string) : Target.Transfo.t =
   Target.apply_on_target (Label_core.add label)
 
+(* [remove label tg] removes a C-label named [label] matched by th target [tg]. *)
 let remove : Target.Transfo.t =
   Target.apply_on_target (Label_core.remove)
 
-
+(* [remove_multiple tgs] removes a list  of C-labels*)
 let remove_multiple (tgs : target list) =
   List.fold_left (fun () x-> remove x )() tgs
 

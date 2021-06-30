@@ -1,6 +1,6 @@
 open Ast
 
-(* All the follwing transformations expect expect target to point to a simple loop,
+(* All the follwing transformations expects target to point to a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ]. 
 *)
 
@@ -16,32 +16,29 @@ let swap : Target.Transfo.t =
    LATER: this type might become generalized in the future. *)
 type string_trm = string
 
-(* [color nb_colors i_color tg] 
+(* [color nb_colors i_color tg]: expects [tg] to point to a simple loop,
+   say [for (int i = start; i < stop; i += step) { body } ].
    It takes as arguments:
    - [nb_colors] denotes the number of colors (e.g., ["2"]),
-   - [i_color] denotes a fresh name to use as index for iterating over colors.
+   - [color_index] denotes a fresh name to use as index for iterating over colors.
    In case [step = 1], it transforms the loop into the nested loops.
-   [for (int i_color = 0; i_color < nb_color; i_color++) {
-      for (int i = i_color; i < stop; i += nb_color) { body }].
+   [for (int color_index = 0; color_index < nb_color; color_index++) {
+      for (int i = color_index; i < stop; i += nb_color) { body }].
    In the general case, it produces:
-   [for (int i_color = 0; i_color < nb_color; i_color++) {
-      for (int i = i_color*step; i < stop; i += step*nb_color) { body }]. *)
-let color (nb_colors : string_trm) (i_color : var) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.color nb_colors i_color)
+   [for (int color_index = 0; color_index < nb_color; color_index++) {
+      for (int i = color_index*step; i < stop; i += step*nb_color) { body }]. *)
+let color (nb_colors : string_trm) (color_index : var) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.color nb_colors color_index)
 
 
-
-
-(* [tile b i_bloc tg] 
+(* [tile b i_bloc tg]: expects [tg] to point to a simple loop,
+   say [for (int i = start; i < stop; i += step) { body } ]. 
    It takes as arguments:
     - [tile_width] denotes the width of the tile (e.g., ["2"])
     - [tile_index] denotes a fresh name to use as index for iterating over tiles.
-   In case [step = 1], it transforms the loop into the nested loops.
+   In produces:
    [for (int tile_index = 0; tile_index < stop; tile_index += tile_width) {
       for (int i = tile_index; i < min(X, bx+B); i++) { body }].
-   In the general case, it produces:
-   [for (int i_color = 0; i_color < nb_color; i_color++) {
-      for (int i = i_color*step; i < stop; i += step*nb_color) { body }]. 
 *)
 let tile (tile_width : string_trm) (tile_index : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.tile tile_width tile_index)
@@ -50,9 +47,8 @@ let tile (tile_width : string_trm) (tile_index : var) : Target.Transfo.t =
 let hoist (x_step : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.hoist x_step)
 
-(* [split tg] 
-  It takes as arguments:
-    []
+(* [split tg]: expects [tg] to point somewhere insie the body ot the simple loop
+   It splits the loop in two loops, the spliting point is trm matched by the relative target.
 *)
 let split : Target.Transfo.t =
   Target.apply_on_target_between (fun t (p,i) -> Loop_core.split i t p )

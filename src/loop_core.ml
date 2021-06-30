@@ -1,4 +1,5 @@
 open Ast
+
 (* swap_aux: This is an auxiliary function for swap
     params:
       t: an ast subterm
@@ -67,14 +68,13 @@ let swap : Target.Transfo.local =
       return:
         the updated ast
 *)
-(* TODO: nb_colors *)
-let color_aux (c : var) (i_color : var) (t : trm) : trm =
+let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
-    trm_for ("c"^index) direction start (trm_var c) step (
+    trm_for ("c"^index) direction start (trm_var nb_colors) step (
       trm_seq [
-        trm_for index direction (trm_var i_color) stop (trm_var c) body
+        trm_for index direction (trm_var i_color) stop (trm_var nb_colors) body
       ]
     )
   | _ -> fail t.loc "color_aux: only simple loops are supported"

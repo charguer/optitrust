@@ -17,7 +17,6 @@ TESTS := \
 	loop_color.ml \
   loop_fusion.ml \
   loop_hoist.ml \
-  loop_split \
   loop_swap.ml \
   loop_tile.ml \
 	sequence_delete.ml \

@@ -3,11 +3,11 @@ open Target
 
 let _ =
   Run.script_cpp (fun _ ->
-    !! Sequence.insert [tBefore; cVarDef "x"] "int a = 5;const float b = 5.0";
-    !! Sequence.insert [tAfter; cVarDef "y"] "y++;";
-    !! Sequence.insert [tAfter; cVarDef "y"] "p++;";
-    !! Sequence.insert [tAfter; cVarDef "y"] "printf(\"%d\", y);";
-    !! Sequence.insert [tAfter; sInstr "y++"] "for (int i = 0; i < 5; i++) { x++; }";
-    !! Sequence.insert [tBefore; cTopFun "main"] "typedef struct { int x; int y; } vect;";
-    !! Sequence.insert [tAfter; cTypDef "vect"] "typedef vect myvect;";
+    !! Sequence.insert "int a = 5;const float b = 5.0" [tBefore; cVarDef "x"];
+    !! Sequence.insert "y++;" [tAfter; cVarDef "y"];
+    !! Sequence.insert "p++;" [tAfter; cVarDef "y"];
+    !! Sequence.insert "printf(\"%d\", y);" [tAfter; cVarDef "y"];
+    !! Sequence.insert "for (int i = 0; i < 5; i++) { x++; }" [tAfter; sInstr "y++"];
+    !! Sequence.insert "typedef struct { int x; int y; } vect;" [tBefore; cTopFun "main"];
+    !! Sequence.insert "typedef vect myvect;" [tAfter; cTypDef "vect"];
   )

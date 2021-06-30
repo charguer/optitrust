@@ -2,8 +2,7 @@ open Ast
 open Target
 
 (* [insert tg ts] *)
-(* TODO: swap args *)
-let insert (tg : target) (s : string) : unit =
+let insert (s : string) (tg : target): unit =
   Target.apply_on_target_between (fun t (p,i) ->
     Sequence_core.insert i s t p) tg;
   Trace.reparse()
@@ -12,6 +11,7 @@ let insert (tg : target) (s : string) : unit =
 let delete ?(nb : int = 1) : Target.Transfo.t =
   Target.apply_on_transformed_targets ~rev:true (Generic_core.isolate_last_dir_in_seq)
     (fun (p, i) t -> Sequence_core.delete i nb t p) 
+
 (* Alternative trick to shift the indices on the way:
    Target.applyi_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun id_target (p, i) t -> Sequence_core.delete (i-id_target) nb t p) tg *)
