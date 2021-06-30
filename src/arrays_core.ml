@@ -463,6 +463,12 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
                   | _ -> index
                    in
                   begin match base'.typ with
+                  | Some {typ_desc = Typ_array({typ_desc = Typ_constr (y, _, _);_}, _);_} when y = x ->
+                     let base' = aux global_trm base' in
+                     let index = aux global_trm index in
+                     (* keep outer annotations *)
+                     trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                       ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_constr (y, _, _); _} when y = x ->
                      (* x might appear both in index and in base' *)
                      let base' = aux global_trm base' in
@@ -530,8 +536,8 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
           end
           in
           let new_decl = trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] a) (trm_prim ~loc:t.loc (Prim_new a)) in
-          let lfront = List.map (swap_accesses struct_name "" size) lfront in
-          let lback = List.map (swap_accesses struct_name "" size) lback in
+          let lfront = List.map (swap_accesses struct_name struct_name size) lfront in
+          let lback = List.map (swap_accesses struct_name struct_name size) lback in
           trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)
         | _ -> fail t.loc "expected an arrays of structures declaration"
         end

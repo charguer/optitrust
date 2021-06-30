@@ -96,7 +96,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (string * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "val";
-          value_to_field (Tools.document_to_string (PPrint.bquotes(Ast_to_c.val_to_doc v)));
+          (quote "value", Json.Str (Tools.document_to_string (PPrint.bquotes(Ast_to_c.val_to_doc v))));
           children_to_field [] ]
     | Trm_var x ->
         [ kind_to_field "var";
