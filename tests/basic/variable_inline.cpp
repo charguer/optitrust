@@ -1,3 +1,18 @@
+#include <iostream>
+
+void printReference (int& x)
+{
+    int y;
+    y = x;
+}
+
+void printReference1 (int&& x)
+{   
+    int y;
+    y = x+1;
+}
+
+
 int main() {
   // inlining without removal of 'a'
   const int a = 2;

@@ -220,14 +220,14 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
       (typ_ref (typ_const t))
     else 
       typ_ref t
-  (* TODO: Test referebces  *)
+  (* TODO: Test references  *)
   | RValueReference  q ->
     let t = translate_qual_type ~loc q in
     let {const;_} = q in
     if const then
-      (typ_ref (typ_const t))
+      typ_ref (typ_ref (typ_const t))
     else 
-      typ_ref t
+      typ_ref (typ_ref t)
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = translate_qual_type ~loc q in
     let {const;_} = q in
