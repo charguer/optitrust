@@ -22,12 +22,12 @@ let iter_delete (tgl : target list) : unit =
     delete x ) () tgl
 
 (* [sub i nb tg] *)
-let sub (nb : int) : Target.Transfo.t =
+let sub ?(label : string = "") (nb : int) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-  (fun (p, i) t -> Sequence_core.sub i nb t p)
+  (fun (p, i) t -> Sequence_core.sub label i nb t p)
 
 (* [sub_between tg_beg tg_end] *)
-let sub_between (tg_beg : target) (tg_end : target) : unit =
+let sub_between ?(label : string = "") (tg_beg : target) (tg_end : target) : unit =
   Trace.apply (fun _ t ->
     let ps_beg : (path * int) list = resolve_target_between tg_beg t in
     let ps_end : (path * int) list = resolve_target_between tg_end t in
@@ -39,7 +39,7 @@ let sub_between (tg_beg : target) (tg_end : target) : unit =
       if i2 <= i1
         then fail t.loc "sub_between: target for end should be past the target for start";
       (p1, i1, i2 - i1)) ps_beg ps_end in
-    List.fold_left (fun t (p,i,nb) -> Sequence_core.sub i nb t p) t pis)
+    List.fold_left (fun t (p,i,nb) -> Sequence_core.sub label i nb t p) t pis)
 
 
 (* [inline tg] expects the target [tg] to point at a sequence that appears
