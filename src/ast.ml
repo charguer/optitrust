@@ -1121,34 +1121,25 @@ let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes =
     in
 
   let step =
-    (*
-    begin match step with
-      |Trm_val ( Val_lit ( Lit_int 1 )) ->
-         let op = begin match direction with
-              | DirUp -> Unop_inc
-              | DirDown -> Unop_dec
-            in
-           Trm_apps ({desc = Trm_val (Val_prim (Prim_unop op)) ...
-      | _ ->
-    *)
     begin match direction with
-    | DirUp -> trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
-      [
-        trm_var index;
-        trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
-    | DirDown -> trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_sub)
-      [
-        trm_var index;
-        trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+    | DirUp -> 
+        begin match step.desc with 
+        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_inc) [trm_var index]
+        | _ ->
+          trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
+          [
+            trm_var index;
+            trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+        end
+    | DirDown -> 
+        begin match step.desc with
+        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_dec) [trm_var index]
+        | _ -> 
+          trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_sub)
+          [
+            trm_var index;
+            trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+        end
     end
     in
   trm_for_c~annot ~loc ~add ~attributes ~ctx init cond step body
-
-(* TODO:
-  match
-trm_for_to_trm_for_c
-
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_inc)); _}, _) ->
-        trm_lit (Lit_int 1)
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_dec)); _}, _) ->
-*)

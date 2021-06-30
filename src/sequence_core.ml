@@ -1,6 +1,4 @@
 open Ast
-open Target
-
 
 (* [insert_aux index ts t]: This function is an auxiliary function for insert
     params:
@@ -23,9 +21,8 @@ let insert_aux (index : int) (s : string) (t : trm): trm =
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
 (* [insert index ts path_to_seq t] *)
-let insert (index : int) (s : string) (path_to_seq : path) (t : trm) : trm =
-  Target.apply_on_path (insert_aux  index s) t path_to_seq
-
+let insert (index : int) (s : string) : Target.Transfo.local =
+  Target.apply_on_path (insert_aux  index s) 
 
 (* [delete_aux index nb_instr t]: This function is an auxiliary function for delete
     params:

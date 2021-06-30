@@ -1,5 +1,10 @@
 open Ast
 
+(* All the follwing transformations expect expect target to point to a simple loop,
+   say [for (int i = start; i < stop; i += step) { body } ]. 
+*)
+
+
 (* [swap tg] expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
 let swap : Target.Transfo.t =
@@ -11,10 +16,8 @@ let swap : Target.Transfo.t =
    LATER: this type might become generalized in the future. *)
 type string_trm = string
 
-(* [color nb_colors i_color tg] expects [tg] to point to a simple loop,
-   say [for (int i = start; i < stop; i += step) { body } ].
-   It's going to reorder the iterations as described further below.
-   It takes as argument:
+(* [color nb_colors i_color tg] 
+   It takes as arguments:
    - [nb_colors] denotes the number of colors (e.g., ["2"]),
    - [i_color] denotes a fresh name to use as index for iterating over colors.
    In case [step = 1], it transforms the loop into the nested loops.
@@ -26,17 +29,33 @@ type string_trm = string
 let color (nb_colors : string_trm) (i_color : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.color nb_colors i_color)
 
-(* [tile b i_bloc tg] *)
-let tile (b : var) (i_block : var) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.tile b i_block)
+
+
+
+(* [tile b i_bloc tg] 
+   It takes as arguments:
+    - [tile_width] denotes the width of the tile (e.g., ["2"])
+    - [tile_index] denotes a fresh name to use as index for iterating over tiles.
+   In case [step = 1], it transforms the loop into the nested loops.
+   [for (int tile_index = 0; tile_index < stop; tile_index += tile_width) {
+      for (int i = tile_index; i < min(X, bx+B); i++) { body }].
+   In the general case, it produces:
+   [for (int i_color = 0; i_color < nb_color; i_color++) {
+      for (int i = i_color*step; i < stop; i += step*nb_color) { body }]. 
+*)
+let tile (tile_width : string_trm) (tile_index : var) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.tile tile_width tile_index)
 
 (* [hoist x_step tg] *)
 let hoist (x_step : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.hoist x_step)
 
-(* [split tg] *)
-let split (index : int) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.split index)
+(* [split tg] 
+  It takes as arguments:
+    []
+*)
+let split : Target.Transfo.t =
+  Target.apply_on_target_between (fun t (p,i) -> Loop_core.split i t p )
 
 (* [fusion tg] *)
 let fusion : Target.Transfo.t =
