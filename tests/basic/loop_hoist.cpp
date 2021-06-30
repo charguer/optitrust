@@ -27,3 +27,30 @@ int main() {
   }
   then call replace_trm
 */
+
+/*
+
+more complex example -> hoist x in
+
+  int total = 0;
+  for (int i = 0; i < 10; i++) {
+    int a = i + 1;
+    int x = a + 1;
+    int y = x + 1;
+    total += y;
+  }
+
+
+hoist v in
+
+  int total = 0;
+  for (int i = 0; i < 10; i++) {
+    int a = i + 1;
+    vect v = { a, a };
+    int y = v.x + 1;
+    total += y;
+  }
+
+
+
+*/
