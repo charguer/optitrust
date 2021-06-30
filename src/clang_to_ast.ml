@@ -213,6 +213,21 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
       (typ_ptr (typ_const t))
     else
     typ_ptr t
+  | LValueReference  q ->
+    let t = translate_qual_type ~loc q in
+    let {const;_} = q in
+    if const then
+      (typ_ref (typ_const t))
+    else 
+      typ_ref t
+  (* TODO: Test referebces  *)
+  | RValueReference  q ->
+    let t = translate_qual_type ~loc q in
+    let {const;_} = q in
+    if const then
+      (typ_ref (typ_const t))
+    else 
+      typ_ref t
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = translate_qual_type ~loc q in
     let {const;_} = q in
