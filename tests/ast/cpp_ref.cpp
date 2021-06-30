@@ -8,7 +8,7 @@ int ref_on_mutable_int() {
 /* Should be represented in optitrust as:
 
     int* x = new_int(3);
-    int rx = y;
+    int rx = x;
     set(rx, 4);
     return get(rx);
 
@@ -27,8 +27,8 @@ int ref_on_immutable_int() {
 
 /* Should be represented in optitrust as:
 
-    int<annotation:"const"> x = 3
-    int<annotation:"const&"> rx = x;
+    let x : const int = 3
+    let rx : const int<annotation:"&"> = x;
     return rx;
 
    To achieve this, when we see a reference on a const type,
@@ -40,6 +40,28 @@ int ref_on_immutable_int() {
    // Either it should return just "x"; or we should process
    // the contents as a r-value. I'm not sure.
 */
+
+
+typedef struct { int x,y; } vect;
+
+int ref_on_field() {
+  vect v = { 2, 3 };
+  int& vx = v.x;
+  vx = 5;
+  return vx;
+}
+/*
+  In optitrust
+
+    int ref_on_field() {
+      vect* v = new vect{ 2, 3 };
+      let vx : int* = struct_access(v,"x");
+      set(vx, 5);
+      return get(vx);
+    }
+*/
+
+
 
 int ref_on_mutable_int_cell() {
   int t[2] = { 4, 5 };
@@ -55,6 +77,7 @@ int ref_on_mutable_int_cell() {
     int[2] t = new_array([4; 5]);
     int* p0 = <annotation="addressof">(array_access(t,0))
     int*<annotation="&"> r0 = array_access(t,0);
+      // here, r0 needs to be registered as "heap_allocated"s
     set(p0, 6)
     set(r0, 6);
     return get(p0) + get(r0);
@@ -64,16 +87,23 @@ int ref_on_mutable_int_cell() {
 int ref_on_immutable_int_cell() {
   int const t[2] = { 4, 5 };
   int const& r0 = t[0];
-  return r0;
+
+  vect const v[2] = { { 2, 3 }, { 4, 5 } };
+  vect const& w = v[0];
+
+  return r0 + w.x;
 }
 /* in OptiTrust:
 
   int ref_on_immutable_int_cell() {
-    let t : int[2] = array{ 4, 5 };
-    let r0 : int<annotation="const&"> = array_get(t,0);
-    return r0;
+    let t : (const int)[2] = array{ 4, 5 };
+    let r0 : (const int)<annotation="&"> = array_get(t,0);
+    let v : (const vect)[2] = ...
+    let w : (const vect)<annotation="&"> = array_get(v,0)
+    return r0 + struct_get(w,"x");
   }
 */
+
 
 int ref_argument(int& x, int const& y, int const& z) {
   x = x + y;
@@ -84,7 +114,7 @@ int ref_argument(int& x, int const& y, int const& z) {
 /*
   in OptiTrust
 
-  int ref_argument(int*<annotation="&"> x, int<annotation="const&"> y, int<annotation="const&"> z) {
+  int ref_argument(int*<annotation="&"> x, (const int)<annotation="&"> y, (const int)<annotation="&"> z) {
     set(x, get(x) + y);
     int*<annotation=&> u = x;
     int<annotation="const&"> v = y;
@@ -105,7 +135,10 @@ int main() {
   int* a = new int 3;
   int* b = new int 4;
   let c : int = 5
-  ref_argument(a, get(b), c);
+  ref_argument(a, virtual_get(b), c);
+
+  // the "virtual_get" operation provides a "constant"
+  representation of a mutable object, over a specific scope
 
   The trickiest part is the implicit conversion of [b] from
   [int] to [const int] during the call, which means that we
@@ -113,3 +146,7 @@ int main() {
   The implementation thus needs to have access to the type
   of the functions for translation the calls to that function.
 */
+
+
+
+//   particle& p = cells[idCell].data[idParticle];
