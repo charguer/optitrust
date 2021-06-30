@@ -42,6 +42,10 @@ type target_occurences =
    that we require the result path to go through. *)
 type target = constr list
 
+and depth =
+  | DepthAny
+  | DepthAt of int
+
 and constr =
   (*
     target constraints:
@@ -52,7 +56,7 @@ and constr =
       matching, returns the ranks of the elements to explore next
     - include file to explore
    *)
-  | Constr_strict
+  | Constr_depth of depth
   | Constr_dir of dir
   | Constr_include of string
   (*
@@ -188,6 +192,12 @@ let make_target_list_pred ith_constr validate to_string =
     target_list_pred_validate = validate;
     target_list_pred_to_string = to_string; }
 
+let depth_pred (d : depth) : depth =
+  match d with
+  | DepthAny -> DepthAny
+  | DepthAt n ->
+      if n <= 0 then fail None "depth_pred: argument of DepthAt is not positive";
+      DepthAt (n-1)
 
 (******************************************************************************)
 (*                        Pretty-printing of targets                          *)
@@ -206,9 +216,14 @@ let rexp_to_string (r : rexp) : string =
   (if r.rexp_substr then "Sub" else "Exact") ^ "-" ^
   r.rexp_desc
 
+let depth_to_string (depth : depth) : string =
+  match depth with
+  | DepthAny -> "DepthAny"
+  | DepthAt n -> "DepthAt " ^ string_of_int n
+
 let rec constr_to_string (c : constr) : string =
   match c with
-  | Constr_strict -> "Strict"
+  | Constr_depth depth -> "Depth " ^ (depth_to_string depth)
   | Constr_dir d -> dir_to_string d
   | Constr_include s -> "Include " ^ s
   | Constr_regexp r -> "Regexp " ^ rexp_to_string r
@@ -222,7 +237,7 @@ let rec constr_to_string (c : constr) : string =
     let s_index =
       match p_index with | None -> "_" | Some r -> rexp_to_string r
     in
-    let s_direction = match p_direction with 
+    let s_direction = match p_direction with
     | DirUp -> "Up"
     | DirDown -> "Down"
     in
@@ -548,6 +563,8 @@ let match_regexp_trm (r : rexp) (t : trm) : bool =
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
+
+
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
   (* LATER: find if it is find to deactivate these encodings *)
@@ -579,7 +596,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
        target constraints never hold since they are checked against nodes before
        calling check_constraint in resolve_target
       *)
-      | Constr_strict,_
+      | Constr_depth _,_
        | Constr_dir _, _
        (* | Constr_list _, _ *)
        | Constr_include _, _ ->
@@ -681,7 +698,7 @@ and check_list (lpred : target_list_pred) (tl : trm list) : bool =
   (* DEBUG:*) (* printf "%s\n" (lpred.target_list_pred_to_string());  *)
   let cstr = lpred.target_list_pred_ith_constr in
   let validate = lpred.target_list_pred_validate in
-  validate (List.mapi (fun i t -> check_target ~strict:true ([cstr i]) t) tl)
+  validate (List.mapi (fun i t -> check_target ~depth:(DepthAt 1) ([cstr i]) t) tl)
   (*DEBUG:*) (* printf "%s\n" (if res then "true" else "false"); res *)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
@@ -742,8 +759,8 @@ and check_enum_const (cec : constr_enum_const)
        xto_l
 
 (* check if target tr leads to at least one subterm of t *)
-and check_target ?(strict : bool = false) (tr : target) (t : trm) : bool =
-  match resolve_target_simple ~strict tr t with
+and check_target ?(depth : depth = DepthAny) (tr : target) (t : trm) : bool =
+  match resolve_target_simple ~depth tr t with
   | [] -> false
   | _ -> true
 
@@ -753,19 +770,22 @@ and check_target ?(strict : bool = false) (tr : target) (t : trm) : bool =
   another target that appears after it in the list. Guaranteed by the call to
   sort_unique
  *)
-(* TODO: ARTHUR: think about how to make "strict" mean "immediate child",
-   because at the moment the direction needs to be specified explicitly. *)
-and resolve_target_simple ?(strict : bool = false) (trs : target_simple) (t : trm) : paths =
+
+and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t : trm) : paths =
   let epl =
     match trs with
     | [] -> [[]]
-    | Constr_strict :: tr -> resolve_target_simple ~strict:true tr t
-    (* | Constr_dir d :: tr -> follow_dir d tr t -- TODO ARTHUR *)
+    | Constr_depth depth :: tr ->
+        (* Force the depth argument for the rest of the target *)
+        resolve_target_simple ~depth tr t
+    | Constr_dir d :: tr ->
+        follow_dir d tr t
     | c :: p ->
+      let strict = match depth with DepthAt 0 -> true | _ -> false in
       let res_deep =
         if strict
            then [] (* in strict mode, must match c here *)
-           else (explore_in_depth (c :: p) t) in
+           else (explore_in_depth ~depth:(depth_pred depth) (c :: p) t) in
       let res_here =
          if is_constr_regexp c && res_deep <> []
            then [] (* if a regexp matches in depth, don't test it here *)
@@ -836,7 +856,8 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
      []
 
 (* call resolve_target_simple on subterms of t if possible *)
-and explore_in_depth (p : target_simple) (t : trm) : paths =
+and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) : paths =
+  let aux = resolve_target_simple ~depth p in
   (* let p = target_to_target_simple p in ---TODO: used for getting rid of Constr_chain that appear in depth *)
   let loc = t.loc in
   match t.annot with
@@ -863,17 +884,17 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
      end
   (* | Some Main_file ->
     begin match t.desc with
-     | Trm_seq tl -> add_dir (Dir_nth 0) ((explore_list tl (fun n -> Dir_nth n) (resolve_target_simple p)))
+     | Trm_seq tl -> add_dir (Dir_nth 0) ((explore_list tl (fun n -> Dir_nth n) (aux)))
      | _ -> fail t.loc "explore_in_depth: the main file starts with a suquence"
     end *)
   | _ ->
      begin match t.desc with
      | Trm_let (_ ,(_, _), body) ->
-       add_dir Dir_body (resolve_target_simple p body)
+       add_dir Dir_body (aux body)
      | Trm_let_fun (_, _ ,_ ,body) ->
         (* DEPRECATED: the name of the function should not be considered an occurence;
-            add_dir Dir_name (resolve_target_simple p (trm_var ~loc x)) ++ *)
-        add_dir Dir_body (resolve_target_simple p body)
+            add_dir Dir_name (aux (trm_var ~loc x)) ++ *)
+        add_dir Dir_body (aux body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
       | Typdef_enum xto_l ->
@@ -887,59 +908,59 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
            ([], [])
            xto_l
         in
-        add_dir Dir_name (resolve_target_simple p (trm_var ~loc td.typdef_tconstr)) ++
+        add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr)) ++
         (explore_list (List.map (fun (y, _) -> trm_var ~loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
-           (resolve_target_simple p)) ++
+           (aux)) ++
         (explore_list tl
            (fun n -> Dir_enum_const (List.nth il n, Enum_const_val))
-           (resolve_target_simple p))
+           (aux))
       | _ -> []
       end
      | Trm_abort (Ret (Some body)) ->
-        add_dir Dir_body (resolve_target_simple p body)
+        add_dir Dir_body (aux body)
      | Trm_for ( _, _, _, _, _, body) ->
-        add_dir Dir_body (resolve_target_simple p body)
+        add_dir Dir_body (aux body)
      | Trm_for_c (init, cond, step, body) ->
         (* init *)
-        (add_dir Dir_for_init (resolve_target_simple p init)) ++
+        (add_dir Dir_for_init (aux init)) ++
         (* cond *)
-        (add_dir Dir_cond (resolve_target_simple p cond)) ++
+        (add_dir Dir_cond (aux cond)) ++
         (* step *)
-        (add_dir Dir_for_step (resolve_target_simple p step)) ++
+        (add_dir Dir_for_step (aux step)) ++
         (* body *)
-        (add_dir Dir_body (resolve_target_simple p body))
+        (add_dir Dir_body (aux body))
      | Trm_while (cond, body) ->
         (* cond *)
-        (add_dir Dir_cond (resolve_target_simple p cond)) ++
+        (add_dir Dir_cond (aux cond)) ++
         (* body *)
-        (add_dir Dir_body (resolve_target_simple p body))
+        (add_dir Dir_body (aux body))
      | Trm_if (cond, then_t, else_t) ->
         (* cond *)
-        (add_dir Dir_cond (resolve_target_simple p cond)) ++
+        (add_dir Dir_cond (aux cond)) ++
         (* then *)
-        (add_dir Dir_then (resolve_target_simple p then_t)) ++
+        (add_dir Dir_then (aux then_t)) ++
         (* else *)
-        (add_dir Dir_else (resolve_target_simple p else_t))
+        (add_dir Dir_else (aux else_t))
      | Trm_apps (f, args) ->
         (* fun *)
-        (add_dir Dir_app_fun (resolve_target_simple p f)) ++
+        (add_dir Dir_app_fun (aux f)) ++
         (* args *)
-        (explore_list args (fun n -> Dir_arg n) (resolve_target_simple p))
+        (explore_list args (fun n -> Dir_arg n) (aux))
      | Trm_seq tl
        | Trm_array tl
        | Trm_struct tl ->
-        explore_list tl (fun n -> Dir_nth n) (resolve_target_simple p)
+        explore_list tl (fun n -> Dir_nth n) (aux)
      | Trm_val (Val_array vl)
        | Trm_val (Val_struct vl) ->
         explore_list (List.map (trm_val ~loc) vl) (fun n -> Dir_nth n)
-          (resolve_target_simple p)
+          (aux)
      | Trm_labelled (l, body) ->
-        add_dir Dir_name (resolve_target_simple p (trm_var ~loc l)) ++
-        add_dir Dir_body (resolve_target_simple p body)
+        add_dir Dir_name (aux (trm_var ~loc l)) ++
+        add_dir Dir_body (aux body)
      | Trm_switch (cond, cases) ->
-        (add_dir Dir_cond (resolve_target_simple p cond)) ++
-        (foldi (fun i epl case -> epl ++ explore_case i case p) [] cases)
+        (add_dir Dir_cond (aux cond)) ++
+        (foldi (fun i epl case -> epl ++ explore_case depth i case p) [] cases)
      | _ ->
         print_info loc "explore_in_depth: cannot find a subterm to explore\n";
         []
@@ -949,45 +970,47 @@ and explore_in_depth (p : target_simple) (t : trm) : paths =
   call resolve_target_simple on given case name and body
   i is the index of the case in its switch
  *)
-and explore_case (i : int) (case : trm list * trm) (p : target_simple) : paths =
+and explore_case (depth : depth) (i : int) (case : trm list * trm) (p : target_simple) : paths =
+  let aux = resolve_target_simple ~depth p in
   let (tl, body) = case in
   match tl with
   (* default case *)
   | [] ->
-     add_dir (Dir_case (i, Case_body)) (resolve_target_simple p body)
+     add_dir (Dir_case (i, Case_body)) (aux body)
   | _ ->
      (foldi
         (fun j epl t ->
           epl ++
-          (add_dir (Dir_case (i, Case_name j)) (resolve_target_simple p t))
+          (add_dir (Dir_case (i, Case_name j)) (aux t))
         )
         []
         tl
      ) ++
-     add_dir (Dir_case (i, Case_body)) (resolve_target_simple p body)
+     add_dir (Dir_case (i, Case_body)) (aux body)
 
 (* follow the direction d in t and call resolve_target_simple on p *)
 and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
+  let aux = resolve_target_simple p in
   let loc = t.loc in
   match d, t.desc with
   | Dir_nth n, Trm_seq tl
     | Dir_nth n, Trm_array tl
     | Dir_nth n, Trm_struct tl ->
      app_to_nth_dflt loc tl n
-       (fun nth_t -> add_dir (Dir_nth n) (resolve_target_simple p nth_t))
+       (fun nth_t -> add_dir (Dir_nth n) (aux nth_t))
   | Dir_nth n, Trm_val (Val_array vl)
     | Dir_nth n, Trm_val (Val_struct vl) ->
      app_to_nth_dflt loc vl n (fun nth_v ->
-         add_dir (Dir_nth n) (resolve_target_simple p (trm_val ~loc nth_v)))
+         add_dir (Dir_nth n) (aux (trm_val ~loc nth_v)))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
     | Dir_cond, Trm_for_c (_, cond, _, _)
     | Dir_cond, Trm_switch (cond, _) ->
-     add_dir Dir_cond (resolve_target_simple p cond)
+     add_dir Dir_cond (aux cond)
   | Dir_then, Trm_if (_, then_t, _) ->
-     add_dir Dir_then (resolve_target_simple p then_t)
+     add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
-     add_dir Dir_else (resolve_target_simple p else_t)
+     add_dir Dir_else (aux else_t)
   | Dir_body, Trm_let (_,(_,_),body)
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for_c (_, _, _, body)
@@ -995,35 +1018,35 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_abort (Ret (Some body))
     | Dir_body, Trm_labelled (_, body) ->
-     add_dir Dir_body (resolve_target_simple p body)
+     add_dir Dir_body (aux body)
   | Dir_for_init, Trm_for_c (init, _, _, _) ->
-     add_dir Dir_for_init (resolve_target_simple p init)
+     add_dir Dir_for_init (aux init)
   | Dir_for_step, Trm_for_c (_, _, step, _) ->
-     add_dir Dir_for_step (resolve_target_simple p step)
-  | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (resolve_target_simple p f)
+     add_dir Dir_for_step (aux step)
+  | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (aux f)
   | Dir_arg n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (resolve_target_simple p nth_t))
+         add_dir (Dir_arg n) (aux nth_t))
   | Dir_arg n, Trm_let_fun (_, _, arg, _) ->
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (resolve_target_simple p nth_t))
+         add_dir (Dir_arg n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
-     add_dir Dir_name (resolve_target_simple p (trm_var ~loc td.typdef_tconstr))
+     add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
   | Dir_name, Trm_let (_,(x,_),_)
     | Dir_name, Trm_let_fun (x, _, _, _)
     | Dir_name, Trm_labelled (x, _)
     | Dir_name, Trm_goto x ->
-     add_dir Dir_name (resolve_target_simple p (trm_var ~loc x))
+     add_dir Dir_name (aux (trm_var ~loc x))
   | Dir_case (n, cd), Trm_switch (_, cases) ->
      app_to_nth_dflt loc cases n
        (fun (tl, body) ->
          match cd with
          | Case_body ->
-            add_dir (Dir_case (n, cd)) (resolve_target_simple p body)
+            add_dir (Dir_case (n, cd)) (aux body)
          | Case_name i ->
             app_to_nth_dflt loc tl i (fun ith_t ->
-                add_dir (Dir_case (n, cd)) (resolve_target_simple p ith_t))
+                add_dir (Dir_case (n, cd)) (aux ith_t))
        )
   | Dir_enum_const (n, ecd), Trm_typedef td ->
      begin match td.typdef_body with
@@ -1032,7 +1055,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
           (fun (x, t_o) ->
             match ecd with
             | Enum_const_name ->
-               add_dir (Dir_enum_const (n, ecd)) (resolve_target_simple p (trm_var ~loc x))
+               add_dir (Dir_enum_const (n, ecd)) (aux (trm_var ~loc x))
             | Enum_const_val ->
                begin match t_o with
                | None ->
@@ -1040,7 +1063,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
                     n;
                   []
                | Some t ->
-                  add_dir (Dir_enum_const (n, ecd)) (resolve_target_simple p t)
+                  add_dir (Dir_enum_const (n, ecd)) (aux t)
                end
           )
       | _ -> []

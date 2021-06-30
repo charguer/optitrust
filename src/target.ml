@@ -40,7 +40,7 @@ let bFalse : constr =
   Constr_bool false
 
 let cStrict : constr =
-  Constr_strict
+  Constr_depth (DepthAt 1)
 
 let cChain (cstrs : constr list) : constr =
   Constr_chain cstrs
@@ -162,7 +162,7 @@ let cVarDef
   let p_body =  body in
     Constr_decl_var (ro, p_body)
 
-let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr = 
+let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
   Constr_for (ro, direction, start, stop, step, body)
 
