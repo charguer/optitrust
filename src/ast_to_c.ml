@@ -19,6 +19,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_bool -> string "bool"
   | Typ_char -> string "char"
   | Typ_ptr t -> typ_to_doc t ^^ star
+  | Typ_ref t -> typ_to_doc t ^^ ampersand
   | Typ_array (t, s) ->
      let d = typ_to_doc t in
      begin match s with

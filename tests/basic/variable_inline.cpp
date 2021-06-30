@@ -12,7 +12,11 @@ int main() {
   int y = x + x;
 
   // inlining in a return expression
+  
+  int &u = y;
+  u = 5;
   int z = 4;
+
   return z;
 }
 

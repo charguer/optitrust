@@ -77,6 +77,7 @@ and typ_desc =
   | Typ_bool
   | Typ_char
   | Typ_ptr of typ (* "int*" *)
+  | Typ_ref of typ (* "&int" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
 
@@ -399,6 +400,10 @@ let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
   {typ_annot = annot; typ_desc = Typ_ptr t; typ_attributes}
 
+let typ_ref ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (t : typ) : typ =
+  {typ_annot = annot; typ_desc = Typ_ref t; typ_attributes}
+
 let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
   (s : size) : typ =
   {typ_annot = annot; typ_desc = Typ_array (t, s); typ_attributes}
@@ -678,6 +683,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   let typ_attributes = ty.typ_attributes in
   match ty.typ_desc with
   | Typ_ptr ty -> typ_ptr ~annot ~typ_attributes (f ty)
+  | Typ_ref ty -> typ_ref ~annot ~typ_attributes (f ty)
   | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
@@ -1024,6 +1030,7 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
    if match_generated_star then (is_generated_star typ_1 = is_generated_star typ_2)
     else true
     && (aux typ_a1 typ_a2)
+  | Typ_ref typ_a1, Typ_ref typ_a2 -> aux typ_a1 typ_a2
   | Typ_array (typa1, size1), Typ_array (typa2, size2) -> (same_types typa1 typa2) && (same_sizes size1 size2)
   | _, _ -> false
   )
@@ -1062,6 +1069,7 @@ let trm_for_of_trm_for_c (t : trm) : trm =
 
 type typ_kind =
   | Typ_kind_undefined
+  | Typ_kind_reference
   | Typ_kind_array
   | Typ_kind_sum
   | Typ_kind_prod
@@ -1073,6 +1081,7 @@ type typ_kind =
 let typ_kind_to_string (tpk : typ_kind) : string =
   begin match tpk with
   | Typ_kind_undefined -> "undefined"
+  | Typ_kind_reference -> "reference"
   | Typ_kind_array -> "array"
   | Typ_kind_sum -> "sum"
   | Typ_kind_prod -> "prod"
@@ -1090,6 +1099,7 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
     else
   match ty.typ_desc with
   | Typ_const ty1 -> get_typ_kind ctx ty1
+  | Typ_ref _ -> Typ_kind_reference
   | (Typ_ptr _| Typ_array _) -> Typ_kind_array
   | Typ_fun _ -> Typ_kind_fun
   | Typ_var _ -> Typ_kind_var

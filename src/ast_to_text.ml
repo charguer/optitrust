@@ -19,6 +19,9 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_double -> string "Typ_double"
   | Typ_bool -> string "Typ_bool"
   | Typ_char -> string "Typ_char"
+  | Typ_ref t -> 
+     let dt = print_typ ~only_desc t in
+     node "Typ_ref" ^^ dt
   | Typ_ptr t ->
      let dt = print_typ ~only_desc t in
      node "Typ_ptr" ^^ dt
