@@ -64,27 +64,30 @@ let insert (ctx : Trace.context) (s : string) (index : int) : Target.Transfo.loc
     return:
       the updated ast
 *)
-let insert_and_fold_aux (x : var) (dx : typ) (index : int) (fold_at : target list) (t : trm) : trm =
+let insert_and_fold_aux (ctx : Trace.context) (td : string) (index : int) (fold_at : target list) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
+    let context = Generic_core.get_context ctx t in
+    let dx = Generic_core.term ~context ctx td in
+    begin match dx.desc with 
+    | Trm_typedef td ->
+      begin match td.typdef_body with
+      | Typdef_alias typ ->
+          let ty_x = typ_constr td.typdef_tconstr td.typdef_typid []  in
+          let lback = List.map(Generic_core.change_typ ~change_at:fold_at typ ty_x) lback in
+          trm_seq (lfront @ [dx] @ lback)
+      | _ -> fail dx.loc "insert_and_fold_aux: this feature is supported only for type aliases"
+      end
+    | _ -> fail t.loc "insert_and_fold_aux: the inserted trm should be a typedef"
+    end
     
-    let tid = next_typid() in
-    let t_insert = trm_typedef {
-      typdef_typid = tid;
-      typdef_tconstr = x;
-      typdef_vars = [];
-      typdef_body = Typdef_alias dx}
-      in
-    let ty_x = typ_constr x tid []  in
-    let lback = List.map(Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in
-    trm_seq (lfront @ [t_insert] @ lback)
   | _ -> fail t.loc "insert_and_fold_aux: expected the surrounding sequence"
 
 
   (* [insert_and_fold x dx index fodl_at] *)
-  let insert_and_fold (x : var) (dx : typ) (index : int) (fold_at : target list) : Target.Transfo.local =
-    Target.apply_on_path(insert_and_fold_aux x dx index fold_at)
+  let insert_and_fold (ctx : Trace.context) (td : string) (index : int) (fold_at : target list) : Target.Transfo.local =
+    Target.apply_on_path(insert_and_fold_aux ctx td index fold_at)
 
 
 (* [inline_aux inline_at]: This is an auxiliary function for inline
