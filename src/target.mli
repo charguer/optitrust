@@ -223,3 +223,5 @@ val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 
 val (!!) : 'a -> 'a
 val (!!!) : 'a -> 'a
+
+val force_reparse_after : Transfo.t -> Transfo.t

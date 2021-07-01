@@ -582,3 +582,11 @@ let show ?(line : int = -1) ?(reparse : bool = true) ?(debug_ast : bool = false)
       applyi_on_target (fun i t p ->
         target_show_transfo debug_ast i t p) tg
     end)
+
+(** [force_reparse_after tr] is a wrapper to invoke for forcing the reparsing
+    after a transformation. For example because it modifies type definitions.
+    See example in [Struct.inline]. *)
+let force_reparse_after (tr : Transfo.t) : Transfo.t =
+  fun (tg : target) ->
+    tr tg;
+    Trace.reparse()

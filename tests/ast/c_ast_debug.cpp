@@ -31,7 +31,7 @@ int ref_on_field() {
 
 int ref_on_mutable_int_cell() {
   int t[2] = { 4, 5 };
-  int* p0 = &t[0];
+  int* const p0 = &t[0];
   int& r0 = t[0];
   *p0 = 6;
   r0 = 7;

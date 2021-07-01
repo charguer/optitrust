@@ -19,8 +19,9 @@ let reorder ?(move_before : field = "") ?(move_after : field = "") (struct_field
   Target.apply_on_target (Struct_core.reorder struct_fields move_where  around) tg
 
 let inline (field_to_inline : field) : Target.Transfo.t =
-  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
-   (fun (p, i) t -> Struct_core.inline field_to_inline i t p)
+  Target.force_reparse_after
+    (Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+      (fun (p, i) t -> Struct_core.inline field_to_inline i t p))
 
 (* let inline_record_access (field : string) (var : string ) (t : trm) : trm =
       (* Ast_to_text.print_ast ~only_desc:true stdout t; *)

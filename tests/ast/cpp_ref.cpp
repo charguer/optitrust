@@ -8,7 +8,7 @@ int ref_on_mutable_int() {
 /* Should be represented in optitrust as:
 
     int* x = new_int(3);
-    int rx = x;
+    @let<annotation:let-ref> int* rx = x;
     set(rx, 4);
     return get(rx);
 
@@ -56,7 +56,7 @@ int ref_on_field() {
 
     int ref_on_field() {
       vect* v = new vect{ 2, 3 };
-      let vx : int* = struct_access(v,"x");
+      <let-ref> vx : int* = struct_access(v,"x");
       set(vx, 5);
       return get(vx);
     }
@@ -66,7 +66,7 @@ int ref_on_field() {
 
 int ref_on_mutable_int_cell() {
   int t[2] = { 4, 5 };
-  int* p0 = &t[0];
+  int* const p0 = &t[0]; // TODO: there should be no double star
   int& r0 = t[0];
   *p0 = 6;
   r0 = 7;
@@ -86,7 +86,7 @@ int ref_on_mutable_int_cell() {
 */
 
 int ref_on_immutable_int_cell() {
-  int const t[2] = { 4, 5 };
+  int const t[2] = { 4, 5 }; // TODO: same here, no double star
   int const& r0 = t[0];
 
   vect const v[2] = { { 2, 3 }, { 4, 5 } };
@@ -111,7 +111,7 @@ int ref_argument(int& x, int const& y, int const& z) {
   int& u = x;
   const int& v = y;
   return u + v + z;
-} 
+}
 /*
   in OptiTrust
 

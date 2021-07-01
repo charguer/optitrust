@@ -80,7 +80,7 @@ and typ_desc =
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
 
-and ptr_kind = 
+and ptr_kind =
   | Ptr_kind_mut
   | Ptr_kind_ref
 and typ_annot =

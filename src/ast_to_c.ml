@@ -19,9 +19,9 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_bool -> string "bool"
   | Typ_char -> string "char"
   | Typ_ptr { ptr_kind = pk; inner_typ = t} ->
-    begin match pk with 
+    begin match pk with
     | Ptr_kind_mut -> typ_to_doc t ^^ star
-    | Ptr_kind_ref -> typ_to_doc t ^^ ampersand
+    | Ptr_kind_ref -> typ_to_doc t ^^ if !decode then ampersand else (string "(" ^^ ampersand ^^ string ")")
     end
   | Typ_array (t, s) ->
      let d = typ_to_doc t in
@@ -318,8 +318,10 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   | Var_mutable ->
     let (x, typ) = tv in
     let tv =
-      if not !decode then  begin match typ.typ_desc with 
-        | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx} -> (x,tx)
+      if not !decode then  begin match typ.typ_desc with
+        | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = _tx} -> (x,typ)
+           (* Trick: we print & to mean that we have to print back a reference in the c code,
+              but it has no semantics meaning *)
         | _ -> (x, typ)
         end
       else
