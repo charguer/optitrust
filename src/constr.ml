@@ -885,7 +885,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      (* explore each declaration in the seq *)
      begin match t.desc with
      | Trm_seq tl ->
-        explore_list tl (fun i -> Dir_nth i) (explore_in_depth p)
+        explore_list tl (fun i -> Dir_seq_nth i) (explore_in_depth p)
      | _ -> fail loc "explore_in_depth: bad multi_decl annotation"
      end
   (* | Some Main_file ->
@@ -953,7 +953,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (add_dir Dir_app_fun (aux f)) ++
         (* args *)
         (explore_list args (fun n -> Dir_arg n) (aux))
-     | Trm_seq tl
+     | Trm_seq tl -> explore_list tl (fun n -> Dir_seq_nth n) (aux)
      | Trm_array tl
      | Trm_struct tl ->
         explore_list tl (fun n -> Dir_nth n) (aux)
@@ -999,8 +999,10 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   let aux = resolve_target_simple p in
   let loc = t.loc in
   match d, t.desc with
-  | Dir_nth n, Trm_seq tl
-    | Dir_nth n, Trm_array tl
+  | Dir_seq_nth n, Trm_seq tl ->
+    app_to_nth_dflt loc tl n
+       (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
+  | Dir_nth n, Trm_array tl
     | Dir_nth n, Trm_struct tl ->
      app_to_nth_dflt loc tl n
        (fun nth_t -> add_dir (Dir_nth n) (aux nth_t))
@@ -1124,13 +1126,13 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
     with Not_found -> fail None "get_arity_of_seq_at: expected a nonempty path"
     in
   match d with
-  | Dir_nth _ ->
+  | Dir_seq_nth _ ->
       let (seq_trm,_context) = Path.resolve_path p' t in
       get_sequence_length seq_trm
   | Dir_then | Dir_else | Dir_body  ->
       let (seq_trm, _) = resolve_path p t in
       get_sequence_length seq_trm
-  | _ -> fail None "get_arity_of_seq_at: expected a Dir_nth as last direction"
+  | _ -> fail None "get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
 
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
   match rel with
@@ -1149,7 +1151,7 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
         with Not_found -> fail None "compute_relative_index: expected a nonempty path"
         in
       match d with
-      | Dir_nth i -> (p', i + shift)
+      | Dir_seq_nth i -> (p', i + shift)
       | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
 
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =

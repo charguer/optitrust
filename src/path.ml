@@ -12,6 +12,7 @@ type path = dir list
 and dir =
   (* nth: go to nth element in seq, array, struct *)
   | Dir_nth of int
+  | Dir_seq_nth of int
   (* cond: used for if, loops and switch *)
   | Dir_cond
   (* if *)
@@ -54,6 +55,7 @@ type paths = path list
 let dir_to_string (d : dir) : string =
   match d with
   | Dir_nth n -> "Dir_nth " ^ (string_of_int n)
+  | Dir_seq_nth n-> "Dir_seq_nth " ^ (string_of_int n)
   | Dir_cond -> "Dir_cond"
   | Dir_then -> "Dir_then"
   | Dir_else -> "Dir_else"
@@ -97,6 +99,7 @@ let paths_to_string ?(sep:string="; ") (dls : paths) : string =
 let compare_dir (d : dir) (d' : dir) : int =
   match d, d' with
   | Dir_nth n, Dir_nth m -> compare n m
+  | Dir_seq_nth n, Dir_seq_nth m -> compare n m
   | Dir_arg n, Dir_arg m -> compare n m
   | Dir_case (n, cd), Dir_case (m, cd') ->
      let cn = compare n m in
@@ -118,6 +121,8 @@ let compare_dir (d : dir) (d' : dir) : int =
   | d, d' when d = d' -> 0
   | Dir_nth _, _ -> -1
   | _, Dir_nth _ -> 1
+  | Dir_seq_nth _, _ -> -1
+  | _, Dir_seq_nth _ -> 1
   | Dir_cond, _ -> -1
   | _, Dir_cond -> 1
   | Dir_then, _ -> -1
@@ -196,7 +201,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        let typ = t.typ in
        let attributes = t.attributes in
        begin match d, t.desc with
-       | Dir_nth n, Trm_seq tl ->
+       | Dir_seq_nth n, Trm_seq tl ->
           trm_seq ~annot ~loc ~add ~attributes (Tools.list_update_nth (aux dl) tl n)
        | Dir_nth n, Trm_array tl ->
           trm_array ~annot ~loc ~add ~typ ~attributes (Tools.list_update_nth (aux dl) tl n)
@@ -325,7 +330,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
     | d :: dl ->
        let loc = t.loc in
        begin match d, t.desc with
-       | Dir_nth n, Trm_seq tl ->
+       | Dir_seq_nth n, Trm_seq tl ->
           let decl_before (n : int) (tl : trm list) =
             foldi
               (fun i acc (t : trm) ->
@@ -374,7 +379,6 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           aux dl body (args_decl ++ ctx)
        | Dir_body, Trm_for_c (init, _, _, body) ->
           begin match init.desc with
-          (* | Trm_seq _ when init.annot = Some Heap_allocated -> *)
           | Trm_let _ ->
              aux dl body (init :: ctx)
           | _ -> aux dl body ctx
@@ -391,7 +395,6 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
        | Dir_for_step, Trm_for_c (init, _, step, _) ->
           begin match init.desc with
           | Trm_let _ ->
-          (* | Trm_seq _ when init.annot = Some Heap_allocated -> *)
              aux dl step (init :: ctx)
           | _ -> aux dl step ctx
           end
@@ -437,7 +440,8 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           
        | _, _ ->
           let s = dir_to_string d in
-          fail loc ("resolve_path: direction " ^ s ^ " does not match")
+          let s_t = Ast_to_c.ast_to_string t in
+          fail loc (Tools.sprintf "resolve_path: direction  %s does not match with the following term %s" s s_t )
        end
   in
   aux dl t []

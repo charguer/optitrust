@@ -192,8 +192,6 @@ val resolve_target : target -> trm -> paths
 
 val resolve_target_between : target -> trm -> (path * int) list
 
-val target_to_decl : var -> trm -> path option
-
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 
 val applyi_on_target : (int -> trm -> path -> trm) -> target -> unit

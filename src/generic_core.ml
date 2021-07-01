@@ -114,27 +114,6 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
 
     change_at
 
-(*
-  insert inert after the subterm pointed at by dl in t
-  assumption: dl points at a seq element, thus ends with Dir_nth n
-  if the inserted element must be first in the seq, use n < 0
- *)
-let insert_trm_after (dl : path) (insert : trm) (t : trm) : trm =
-  let dl' = List.rev dl in
-  match List.hd dl' with
-  | Dir_nth n ->
-     apply_on_path
-       (fun t' ->
-         match t'.desc with
-         | Trm_seq tl ->
-            trm_seq ~annot:t'.annot ~loc:t'.loc ~add:t'.add
-              ~attributes:t'.attributes (Tools.list_insert n insert tl)
-         | _ -> fail t'.loc "insert_trm_after: path points at wrong term"
-       )
-       t
-       (List.rev (List.tl dl'))
-  | _ -> fail t.loc "insert_trm_after: bad path"
-
 (* make sure each occurence of y in t is marked with type variable x *)
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
@@ -178,7 +157,7 @@ let clean_up_no_brace_seq (t : trm) : trm =
 *)
 let isolate_last_dir_in_seq (dl : path) : path * int =
   match List.rev dl with
-  | Dir_nth i :: dl' -> (List.rev dl',i)
+  | Dir_seq_nth i :: dl' -> (List.rev dl',i)
   | _ -> fail None "isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 

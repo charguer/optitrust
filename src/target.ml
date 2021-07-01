@@ -414,30 +414,7 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
 let resolve_target = Constr.resolve_target
 let resolve_target_between = Constr.resolve_target_between
 *)
-(*
-  find the explicit path to the toplevel declaration of x if it exists
-  assumption: x denotes a function or a type
-  todo: generalise to other terms
- *)
-let rec target_to_decl (x : var) (t : trm) : path option =
-  match t.desc with
-  | Trm_let_fun (f, _, _, _) when f = x -> Some []
-  | Trm_typedef td when td.typdef_tconstr = x -> Some []
-  | Trm_seq tl ->
-     foldi
-       (fun i dlo t' ->
-         match dlo with
-         | Some _ -> dlo
-         | _ ->
-            begin match target_to_decl x t' with
-            | Some dl -> Some (Dir_nth i :: dl)
-            | _ -> None
-            end
-       )
-       None
-       tl
-  (* val, var, array, struct, if, apps, while, for, switch, abort, label *)
-  | _ -> None
+
 
 (******************************************************************************)
 (*                          Apply on target operations                        *)
