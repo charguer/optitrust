@@ -1,6 +1,6 @@
 
 // Flag to activate the display of all locations
-var debug_locations = true;
+var debug_locations = false;
 
 // The imported JS file provides 'source' and 'contents' (TODO: 'language')
 if (typeof source == 'undefined') {
@@ -60,7 +60,7 @@ function scrollToLoc(loc) {
 function addToSelection(loc) {
   // for other options, see https://codemirror.net/doc/manual.html#markText
   const opts = { className: "highlight" };
-  if (loc === void(0)) {
+  if (loc === void(0) || loc === "") {
     return;
   }
   // Substracting 1 because compilers counts from 1, and Codemirror from 0
@@ -78,10 +78,14 @@ function addToSelection(loc) {
   // editor.focus();
 }
 
+// Clear existing highlighting
+function resetSelection() {
+  editor.getAllMarks().forEach(m => m.clear());
+}
+
 // Update the highlighted contents, by first removing previous selections
 function updateSelection(loc) {
-  // Clear old marks
-  editor.getAllMarks().forEach(m => m.clear());
+  resetSelection();
   addToSelection(loc);
 }
 
@@ -153,7 +157,7 @@ function loadPathToNodeId(id) {
 
 // This function is called when the user selects a span of code in the editor.
 // It finds the corresponding node then loads it in the AST view.
-function loadPathForUserSelection(selectedLoc) {
+function getNodeCorrespondingToSpan(selectedLoc) {
   if (debug_locations) {
     console.log(JSON.stringify(selectedLoc));
   }
@@ -165,12 +169,7 @@ function loadPathForUserSelection(selectedLoc) {
       chosen_node = node_id;
     }
   }
-  loadPathToNodeId(chosen_node);
 }
-
-$(document).on('mouseup', '.CodeMirror', function () {
-  loadPathForUserSelection(editor.getSelectedLoc());
-});
 
 //---------------------------------------------------
 // Auxiliary functions for manipulating html dynamically
@@ -360,6 +359,15 @@ function viewPath(path) {
    viewPathRec(path, "viewast", "root", "");
 }
 
+//---------------------------------------------------
+// Loading in AST and in editor
+
+// Function to focus on a node in the AST and in the editor view
+function loadViewToNodeId(id) {
+  loadPathToNodeId(id);
+  updateSelectedNode(id);
+}
+
 
 //---------------------------------------------------
 // Handling events on the AST VIEW
@@ -437,28 +445,47 @@ function getDecoratedNodes() {
   return results;
 }
 
-function loadViewToNodeId(id) {
-  loadPathToNodeId(id);
-  updateSelectedNode(id);
-}
+var decoratedNodes = getDecoratedNodes();
 
 // displays the list of links to load decorated nodes, and highlight them
-function initDecoratedNodes(decorateds) {
+function initDecoratedNodes() {
   s = "";
-  for (var label in decorateds) {
-    var id = decorateds[label];
-    s += html_span({onclick: "loadViewToNodeId(" + id + ")"}, "&nbsp;["+label+"]&nbsp;");
-    var node = ast[id];
-    addToSelection(node.loc);
+  if (decoratedNodes.length > 0) {
+    s += html_span({onclick: "selectAllDecoratedNodes()"}, "Highlighted:") + " ";
   }
-  if (s != "") {
-      s = "Highlighted: " + s;
+  for (var label in decoratedNodes) {
+    var id = decoratedNodes[label];
+    s += html_span({onclick: "loadViewToNodeId(" + id + ")"}, "&nbsp;["+label+"]&nbsp;");
   }
   $("#targeted").html(s);
 }
 
+// display all the decorated nodes at once
+function selectAllDecoratedNodes() {
+  resetSelection();
+  for (var label in decoratedNodes) {
+    var id = decoratedNodes[label];
+    var node = ast[id];
+    addToSelection(node.loc);
+    // if only one selection, load it into AST view
+    if (decoratedNodes.length == 1) {
+      loadPathToNodeId(id);
+    }
+  }
+  if (decoratedNodes.length != 1) {
+    loadPathToNodeId(nodeid_root);
+  }
+}
+
+
 //---------------------------------------------------
 // Main
+
+// hook for codemirror
+$(document).on('mouseup', '.CodeMirror', function () {
+  var id = getNodeCorrespondingToSpan(editor.getSelectedLoc());
+  loadViewToNodeId(id);
+});
 
 // action to perform after document is loaded
 document.addEventListener('DOMContentLoaded', function () {
@@ -474,16 +501,8 @@ document.addEventListener('DOMContentLoaded', function () {
   viewPath(path);
 
   // loads the decorated nodes, if any
-  var decorateds = getDecoratedNodes();
-  initDecoratedNodes(decorateds);
-
-  // load if only one
-  if (decorateds.length == 1) {
-    for (var label in decorateds) {
-      var id = decorateds[label];
-      loadViewToNodeId(id);
-    }
-  }
+  initDecoratedNodes();
+  selectAllDecoratedNodes();
 });
 
 //viewPath(["node_3"]);
