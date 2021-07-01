@@ -68,7 +68,7 @@ let nbAny : constr =
     Constr_occurences ExpectedAnyNb
 
 (* TODO: rename to nbExactly, which is less cryptic *)
-let nbEx (nb : int) : constr =
+let nbExact (nb : int) : constr =
     Constr_occurences (ExpectedNb nb)
 
 (* directions *)

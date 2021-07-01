@@ -28,10 +28,10 @@ let _ = Run.script_cpp (fun () ->
   show [ nbMulti; cFor "i"; dBody; cStrict; cFor "j" ];
 
   show [ cFor "i"; cStrict; cFor "k" ];
-  show [ nbEx 3; cTopFun "main"; cFor "" ];
+  show [ nbExact 3; cTopFun "main"; cFor "" ];
 
-  show [ nbEx 2; cTopFun "main"; cStrict; cFor "" ];
-  show [ nbEx 2; cTopFun "main"; dBody; cStrict; cFor "" ];
+  show [ nbExact 2; cTopFun "main"; cStrict; cFor "" ];
+  show [ nbExact 2; cTopFun "main"; dBody; cStrict; cFor "" ];
   show [ cTopFun "main"; dBody; cStrict; cFor "i" ];
   show [ cTopFun "main"; cStrict; cFor "j" ];
 

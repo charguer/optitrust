@@ -12,9 +12,9 @@ let _ = Run.script_cpp (fun () ->
   show [ nbMulti; cFunDef "main"; cFor "i" ];
 
   (* Nb *)
-  show [ nbEx 0; cFunDef "main"; cFor "j" ]; (* zero match *)
-  show [ nbEx 1; cFunDef "main"; cFor "i" ];
-  show [ nbEx 2; cFor "i" ];
+  show [ nbExact 0; cFunDef "main"; cFor "j" ]; (* zero match *)
+  show [ nbExact 1; cFunDef "main"; cFor "i" ];
+  show [ nbExact 2; cFor "i" ];
 
   (* Any *)
   show [ nbAny; cFunDef "main"; cFor "j" ]; (* zero match *)

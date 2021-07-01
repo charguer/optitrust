@@ -40,11 +40,11 @@ let _ = Run.script_cpp (fun () ->
 
   (* Regexp *)
   (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
-  show [nbEx 0; sInstr ~substr:false "j <"];
+  show [nbExact 0; sInstr ~substr:false "j <"];
 
   show [sInstr "+= 2"];
-  show [nbEx 0; sExpr ~substr:false "+= 2"];
-  show [nbEx 0; sInstr ~substr:false "+= 2"]; 
+  show [nbExact 0; sExpr ~substr:false "+= 2"];
+  show [nbExact 0; sInstr ~substr:false "+= 2"]; 
   show [sInstr "r += 2"];
   show [sInstr "i++"];
   show [nbMulti; sInstrRegexp "int . = .."]; 
@@ -54,8 +54,8 @@ let _ = Run.script_cpp (fun () ->
  (*
   show [sInstr ~substr:tru  (* TODO: ARTHUR: specify different what should be "instructions" *)
 
-  show [nbEx 1; sInstr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
-  show [nbEx 0; sExpr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
+  show [nbExact 1; sInstr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
+  show [nbExact 0; sExpr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
 
   show [nbMulti; sInstr "i++" ]; (* TODO: i++ in loop should be either an instruction or an expression, not both? *)
   (* Works, in general but fails here because there are more then one occurrences of i++ *)

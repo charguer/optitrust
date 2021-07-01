@@ -48,7 +48,7 @@ val nbMulti : constr
 
 val nbAny : constr
 
-val nbEx : int -> constr
+val nbExact : int -> constr
 
 val dRoot : constr
 
