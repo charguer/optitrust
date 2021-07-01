@@ -279,7 +279,8 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        typ_constr n (get_typid n) []
+        let typ_to_add = typ_constr n (get_typid n) [] in
+        if const then typ_const typ_to_add else typ_to_add 
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
     end
@@ -1048,14 +1049,22 @@ and translate_decl (d : decl) : trm =
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
     else
       begin
-        add_var n;
         begin match eo with
         | None ->
+          add_var n;
           trm_let ~loc  Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] tt) te
         | Some _ ->
           begin match tt.typ_desc with 
-          | Typ_ref _ -> trm_let ~loc Var_mutable (n, tt) (te)
-          | _ -> trm_let ~loc Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
+          | Typ_ref tt1 -> begin match tt1.typ_desc with 
+                           (* This check is needed because we don't want const regerences to be accessed by using get  *)
+                           | Typ_const _ -> trm_let ~loc Var_mutable (n, tt) (te) 
+                           | _ -> 
+                             add_var n;
+                             trm_let ~loc Var_mutable (n, tt) (te)
+                           end
+          | _ -> 
+            add_var n;
+            trm_let ~loc Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
           end
         end
       end
