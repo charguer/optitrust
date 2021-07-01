@@ -22,6 +22,7 @@ int ref_on_mutable_int() {
 int ref_on_immutable_int() {
   const int x = 3;  // same as [int const x = 3]
   const int& rx = x; // same as [int const& rx = x]
+  // TODO: Fix the issue with appearing two consts in the encoding
   return rx;
 }
 
@@ -110,7 +111,7 @@ int ref_argument(int& x, int const& y, int const& z) {
   int& u = x;
   const int& v = y;
   return u + v + z;
-}
+} 
 /*
   in OptiTrust
 
