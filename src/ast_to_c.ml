@@ -315,7 +315,10 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   | Var_mutable ->
     let (x, typ) = tv in
     let tv =
-      if not !decode then (x,typ)
+      if not !decode then  begin match typ.typ_desc with 
+        | Typ_ref tx -> (x, tx)
+        | _ -> (x, typ)
+        end
       else
         begin match typ.typ_desc with
           | Typ_ptr tx when is_generated_star typ -> (x, tx)
@@ -337,7 +340,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       end
     in
     if not !decode
-      then typed_var_to_doc ~const:true tv, init (* LATER: factorize with Var_immutable *)
+      then typed_var_to_doc ~const:false tv, init (* LATER: factorize with Var_immutable *)
     else typed_var_to_doc  ~const:false tv, init
     in
   let initialisation =

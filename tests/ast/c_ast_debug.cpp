@@ -9,6 +9,13 @@ typedef struct vects { vect head; vects* tail; } vects;
 
 typedef vect myvect;
 
+int ref_on_mutable_int() {
+  int x = 3;
+  int& rx = x;
+  rx = 4;
+  return rx;
+}
+
 int main() {
     vect v = { 1, 2 };
     myvect w = { 3, 4 };
