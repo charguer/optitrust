@@ -18,8 +18,11 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_double -> string "double"
   | Typ_bool -> string "bool"
   | Typ_char -> string "char"
-  | Typ_ptr t -> typ_to_doc t ^^ star
-  | Typ_ref t -> typ_to_doc t ^^ ampersand
+  | Typ_ptr { ptr_kind = pk; inner_typ = t} ->
+    begin match pk with 
+    | Ptr_kind_mut -> typ_to_doc t ^^ star
+    | Ptr_kind_ref -> typ_to_doc t ^^ ampersand
+    end
   | Typ_array (t, s) ->
      let d = typ_to_doc t in
      begin match s with
@@ -316,12 +319,12 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     let (x, typ) = tv in
     let tv =
       if not !decode then  begin match typ.typ_desc with 
-        | Typ_ref tx -> (x, tx)
+        | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx} -> (x,tx)
         | _ -> (x, typ)
         end
       else
         begin match typ.typ_desc with
-          | Typ_ptr tx when is_generated_star typ -> (x, tx)
+          | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = tx}  when is_generated_star typ  -> (x, tx)
           | _ -> (x, typ)
           (* | _ -> Tools.printf "Type is %s\n" (Ast_to_text.typ_to_string typ);
             fail None "trm_let_to_doc: expected a type ptr" *)
@@ -372,7 +375,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       begin match t.typ_desc with
       | Typ_array _ ->
          string "typedef" ^^ blank 1 ^^ typed_var_to_doc (tname, t) ^^ dsemi
-      | Typ_ptr {typ_desc = Typ_fun (tyl, r); _} ->
+      | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = {typ_desc = Typ_fun (tyl, r); _}} ->
          let dl = List.map typ_to_doc tyl in
          let dr = typ_to_doc r in
          separate (blank 1)
@@ -441,7 +444,7 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
       begin match vk with
       | Var_immutable -> string " " ^^ blank 1 ^^ typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
       | _ -> begin match ty.typ_desc with
-            | Typ_ptr ty1 when is_generated_star ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
+            | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty1} when is_generated_star ty -> typ_to_doc ty1 ^^ blank 1 ^^ dnames ^^ semi
             | _ -> typ_to_doc ty ^^ blank 1 ^^ dnames ^^ semi
             end
        end

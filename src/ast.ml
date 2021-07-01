@@ -76,11 +76,13 @@ and typ_desc =
   | Typ_double
   | Typ_bool
   | Typ_char
-  | Typ_ptr of typ (* "int*" *)
-  | Typ_ref of typ (* "&int" *)
+  | Typ_ptr of  {ptr_kind : ptr_kind; inner_typ: typ } (* "int*" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
 
+and ptr_kind = 
+  | Ptr_kind_mut
+  | Ptr_kind_ref
 and typ_annot =
   | Unsigned
   | Long
@@ -397,12 +399,8 @@ let typ_char ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
   {typ_annot = annot; typ_desc = Typ_char; typ_attributes}
 
 let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (t : typ) : typ =
-  {typ_annot = annot; typ_desc = Typ_ptr t; typ_attributes}
-
-let typ_ref ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (t : typ) : typ =
-  {typ_annot = annot; typ_desc = Typ_ref t; typ_attributes}
+  (kind : ptr_kind) (t : typ) : typ =
+  {typ_annot = annot; typ_desc = Typ_ptr {ptr_kind = kind; inner_typ = t}; typ_attributes}
 
 let typ_array ?(annot : typ_annot list = []) ?(typ_attributes = []) (t : typ)
   (s : size) : typ =
@@ -682,8 +680,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
   let typ_attributes = ty.typ_attributes in
   match ty.typ_desc with
-  | Typ_ptr ty -> typ_ptr ~annot ~typ_attributes (f ty)
-  | Typ_ref ty -> typ_ref ~annot ~typ_attributes (f ty)
+  | Typ_ptr {ptr_kind= pk; inner_typ = ty} -> typ_ptr ~annot ~typ_attributes pk (f ty)
   | Typ_array (ty, n) -> typ_array ~annot ~typ_attributes (f ty) n
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
@@ -1026,11 +1023,10 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | Typ_double, Typ_double -> true
   | Typ_bool, Typ_bool -> true
   | Typ_char, Typ_char -> true
-  | Typ_ptr typ_a1, Typ_ptr typ_a2 ->
-   if match_generated_star then (is_generated_star typ_1 = is_generated_star typ_2)
+  | Typ_ptr {ptr_kind = pk1; inner_typ = typ_a1}, Typ_ptr {ptr_kind = pk2; inner_typ = typ_a2} ->
+   if match_generated_star then (pk1 = pk2) && (is_generated_star typ_1 = is_generated_star typ_2)
     else true
     && (aux typ_a1 typ_a2)
-  | Typ_ref typ_a1, Typ_ref typ_a2 -> aux typ_a1 typ_a2
   | Typ_array (typa1, size1), Typ_array (typa2, size2) -> (same_types typa1 typa2) && (same_sizes size1 size2)
   | _, _ -> false
   )
@@ -1099,7 +1095,7 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
     else
   match ty.typ_desc with
   | Typ_const ty1 -> get_typ_kind ctx ty1
-  | Typ_ref _ -> Typ_kind_reference
+  | Typ_ptr rf when rf.ptr_kind = Ptr_kind_ref -> Typ_kind_reference
   | (Typ_ptr _| Typ_array _) -> Typ_kind_array
   | Typ_fun _ -> Typ_kind_fun
   | Typ_var _ -> Typ_kind_var
@@ -1119,7 +1115,7 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
 
 let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
-  let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
+  let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
   let cond = begin match direction with
     | DirUp -> (trm_apps (trm_binop Binop_lt)
       [trm_apps ~annot:(Some Mutable_var_get)

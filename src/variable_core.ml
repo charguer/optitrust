@@ -72,7 +72,7 @@ let insert_aux (ctx : Trace.context) (const : bool) (as_reference : bool) (x : v
     let dx = Generic_core.term ~context ctx dx in
     let tx = match dx.typ with
     | None -> fail t.loc "insert_aux: cannot find definition type"
-    | Some tx -> if as_reference then typ_ptr tx else tx
+    | Some tx -> if as_reference then typ_ptr Ptr_kind_mut tx else tx
     in
     let def_x =
       if as_reference then {dx with add = Add_address_of_operator :: dx .add}
@@ -81,7 +81,7 @@ let insert_aux (ctx : Trace.context) (const : bool) (as_reference : bool) (x : v
     let t_insert =
       if const then trm_let Var_immutable (x,tx) def_x
       else
-        trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] tx) (trm_apps (trm_prim (Prim_new tx)) [def_x])
+        trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tx) (trm_apps (trm_prim (Prim_new tx)) [def_x])
 
     in
     let tl = Tools.list_insert (index) t_insert tl in
@@ -101,7 +101,7 @@ let insert_and_fold_aux (ctx : Trace.context) (const : bool) (as_reference : boo
     let dx = Generic_core.term ~context ctx dx in
     let tx = match dx.typ with
     | None -> fail t.loc "insert_and_fold_aux: cannot find definition type"
-    | Some tx -> if as_reference then typ_ptr tx else tx
+    | Some tx -> if as_reference then typ_ptr Ptr_kind_mut tx else tx
     in
     let def_x =
       if as_reference then {dx with add = Add_address_of_operator :: dx.add}

@@ -177,7 +177,7 @@ let tile_old_aux (t : trm) : trm =
             trm_seq
               ((trm_seq ~annot:(Some Mutable_var_get)
                   [
-                    (trm_let  Var_mutable (i,typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [(trm_apps (trm_binop Binop_add)
+                    (trm_let  Var_mutable (i,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [(trm_apps (trm_binop Binop_add)
                          [
                            trm_apps (trm_binop Binop_mul)
                              [
@@ -199,7 +199,7 @@ let tile_old_aux (t : trm) : trm =
             [
               trm_for_c
                 (* init *)
-                (trm_let Var_mutable (index,typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
+                (trm_let Var_mutable (index,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
                 (* cond *)
                 (trm_apps (trm_binop Binop_lt)
                    [
@@ -256,15 +256,15 @@ let hoist_aux (x_step : var) (t : trm) : trm =
       let remaining_body_trms = List.map(fun t -> (Generic_core.change_trm (trm_var var_name) (trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
       let var_typ =
       begin match var_typ.typ_desc with
-      | Typ_ptr ty -> ty
+      | Typ_ptr {inner_typ = ty; _} -> ty
       | _ -> fail var_decl.loc "hoist_aux: expected a generated pointer type"
       end
       in
       let new_body = trm_seq ([
-        trm_let Var_mutable (var_name, typ_ptr ~typ_attributes:[GeneratedStar] (var_typ)) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
+        trm_let Var_mutable (var_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (var_typ)) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
       ] @ remaining_body_trms) in
       trm_seq ~annot:(Some No_braces)[
-        trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] (typ_array var_typ (Trm stop))) (trm_prim (Prim_new var_typ));
+        trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_typ (Trm stop))) (trm_prim (Prim_new var_typ));
         trm_for index direction start stop step new_body
       ]
     | _ -> fail body.loc "hoist_aux: expected the body of the loop as a sequence"

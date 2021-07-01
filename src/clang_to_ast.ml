@@ -210,22 +210,22 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
     let t = translate_qual_type ~loc q in
     let {const;_} = q in
     if const then
-      typ_const (typ_ptr t)
+      typ_const (typ_ptr Ptr_kind_mut t)
     else
-    typ_ptr t
+    typ_ptr Ptr_kind_mut t
   | LValueReference  q ->
     let t = translate_qual_type ~loc q in
     if const then
-      typ_const (typ_ref t)
-    else 
-      typ_ref t
+      typ_const (typ_ptr Ptr_kind_ref t)
+    else
+    typ_ptr Ptr_kind_ref t
   (* TODO: Test references  *)
   | RValueReference  q ->
     let t = translate_qual_type ~loc q in
     if const then
-      typ_const (typ_ref (typ_ref t))
+      typ_const (typ_ptr Ptr_kind_ref  (typ_ptr Ptr_kind_ref t))
     else 
-      typ_ref (typ_ref t)
+      (typ_ptr Ptr_kind_ref (typ_ptr Ptr_kind_ref t))
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = translate_qual_type ~loc q in
     begin match eo with
@@ -804,7 +804,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     let typ =
       match te.typ with
       | Some {typ_desc = Typ_array (ty, _); _} -> Some ty
-      | Some {typ_desc = Typ_ptr ty; _} -> Some ty
+      | Some {typ_desc = Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = ty}; _} -> Some ty
       (* should not happen *)
       | _ -> None
     in
@@ -1052,10 +1052,10 @@ and translate_decl (d : decl) : trm =
         begin match eo with
         | None ->
           add_var n;
-          trm_let ~loc  Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] tt) te
+          trm_let ~loc  Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) te
         | Some _ ->
           begin match tt.typ_desc with 
-          | Typ_ref tt1 -> begin match tt1.typ_desc with 
+          | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tt1} -> begin match tt1.typ_desc with 
                            (* This check is needed because we don't want const regerences to be accessed by using get  *)
                            | Typ_const _ -> trm_let ~loc Var_mutable (n, tt) (te) 
                            | _ -> 
@@ -1064,7 +1064,7 @@ and translate_decl (d : decl) : trm =
                            end
           | _ -> 
             add_var n;
-            trm_let ~loc Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
+            trm_let ~loc Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
           end
         end
       end
