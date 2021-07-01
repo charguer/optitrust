@@ -7,7 +7,8 @@ if (typeof source == 'undefined') {
   // TOOD: report error
 }
 var ast = contents;
-
+let nodeid_root = 0;
+let nodeid_invalid = -1;
 
 //---------------------------------------------------
 // Code Mirror editor
@@ -108,10 +109,8 @@ function initHandlers() {
 // We exploit the invariant that nodes from the AST are labelled in prefix order,
 // meaning that deepest nodes have larger ids.
 
-// TODO: simplify by removing "node_" prefix from AST ids.
-
-function number_of_nodeid(id) { // converts node_243 to 243 as a number
-  return parseInt(id.substring(5));
+function number_of_nodeid(id) {
+  return parseInt(id);
 }
 
 // This function checks whether a location is before another one (or equal)
@@ -123,8 +122,8 @@ function loc_before(pos1, pos2){
 
 // This function returns true if the span of loc1 fully covers the the span of loc2
 function contains(loc1, loc2){
-  // Check if location is undefined; in this case don't consider this 
-  
+  // Check if location is undefined; in this case don't consider this
+
   if (loc1 === "") {
     return false;
   } else {
@@ -139,7 +138,7 @@ function loadPathForUserSelection(selectedLoc) {
   }
 
   // First, find the deepest node in the AST that fully covers the location selected by the user
-  let chosen_node = "id_0";
+  let chosen_node = nodeid_root;
   for (const node_id in ast) {
     if (contains(ast[node_id].loc, selectedLoc)
       && (number_of_nodeid(node_id) >= number_of_nodeid(chosen_node))) {
@@ -150,7 +149,7 @@ function loadPathForUserSelection(selectedLoc) {
   // Second, we build the path from the root to that node (inclusive)
   let path_to_root = [];
   let cur_node = chosen_node;
-  while (cur_node !== "no_parent") {
+  while (cur_node !== nodeid_invalid) {
     path_to_root.unshift(cur_node);
     cur_node = ast[cur_node].parent;
   }
@@ -426,8 +425,8 @@ document.addEventListener('DOMContentLoaded', function () {
   initEditor();
   editor.setValue(source);
 
-  // show initial path
-  var path = ["id_0"];
+  // show initial path: focused on the root
+  var path = [nodeid_root];
   viewPath(path);
 
 });
