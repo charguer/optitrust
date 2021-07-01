@@ -248,6 +248,11 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let _ ,field_type = List.hd field_to_inline1 in
        let tyid = begin match field_type.typ_desc with 
        | Typ_constr (_, tid , _) -> tid
+       | Typ_array (ty1, _) ->
+        begin match ty1.typ_desc with 
+        | Typ_constr (_, tid, _) -> tid
+        | _ -> fail t.loc "inline_aux: expected a typ_constr"
+        end
        | _ -> fail t.loc  "inline_aux: expected a typ_constr"
        end
        in
@@ -257,7 +262,11 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
         | _ -> fail t.loc "inline_aux: the field wanted to inline should have also a struct typedef"
         end
        in
-       let inner_type_field_list = List.map (fun (x, typ) -> (field_to_inline ^ "_" ^ x, typ)) inner_type_field_list in
+       let inner_type_field_list = List.map (fun (x, typ) -> 
+            match field_type.typ_desc with 
+            | Typ_array (_, size) -> (field_to_inline ^ "_" ^ x, (typ_array typ size))
+            | _ -> (field_to_inline ^ "_" ^ x, typ)) inner_type_field_list in
+            
        let field_list = List.rev (lfront1 @ inner_type_field_list @ lback1) in
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
        let new_trm = trm_typedef new_typedef in

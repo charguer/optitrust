@@ -406,10 +406,10 @@ let const_non_const_aux (t : trm) : trm =
     begin match vk with
      (* If variable is a constant than whe remove the const and we perform the heap allocation  *)
     | Var_immutable ->
-      trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] tx) (trm_apps (trm_prim ~loc: t.loc (Prim_new tx)) [init])
+      trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tx) (trm_apps (trm_prim ~loc: t.loc (Prim_new tx)) [init])
     | _ ->
       let var_type = begin match tx.typ_desc with
-      | Typ_ptr t -> t
+      | Typ_ptr {inner_typ = t; _} -> t
       | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
       end
       in
@@ -540,10 +540,10 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     end
     in
     let new_decl = trm_seq ~annot:(Some No_braces)[
-      trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] (typ_array (typ_var "T" ) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T") (Trm (trm_var array_size)))));
+      trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (typ_var "T" ) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T") (Trm (trm_var array_size)))));
       trm_for_c
       (* init *)
-        (trm_let Var_mutable ("k",typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
+        (trm_let Var_mutable ("k",typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
       (* cond *)
         (trm_apps (trm_binop Binop_lt)
           [
@@ -582,7 +582,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
       trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
       trm_for_c
         (* init *)
-        (trm_let Var_mutable ("k", typ_ptr ~typ_attributes:[GeneratedStar] (typ_int ())) (trm_apps (trm_prim (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
+        (trm_let Var_mutable ("k", typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
         (* cond *)
         (trm_apps (trm_binop Binop_lt) [
           trm_apps ~annot:(Some Mutable_var_get)

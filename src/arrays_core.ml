@@ -67,7 +67,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
         begin match t_var.typ_desc with
         | Typ_constr (y, _, _) ->
           List.map(fun x ->
-          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] (typ_var y))) (trm_lit (Lit_uninitialized))) new_vars
+          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_var y))) (trm_lit (Lit_uninitialized))) new_vars
 
         | _ -> fail t.loc "to_variables_aux: expected a type variable"
         end
@@ -123,7 +123,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
                     [
                       {base with typ = match base.typ with
                                          | None -> None
-                                         | Some ty -> Some (typ_ptr ty)
+                                         | Some ty -> Some (typ_ptr Ptr_kind_mut ty)
                       };
                       trm_apps (trm_binop Binop_div) [index; b]
                     ];
@@ -153,7 +153,7 @@ let tile_aux (block_name : typvar) (b : var) (index: int) (t : trm) : trm =
       begin match td.typdef_body with
       | Typdef_alias typ ->
         begin match typ.typ_desc with
-        | Typ_ptr ty -> td.typdef_tconstr, ty
+        | Typ_ptr {inner_typ = ty;_} -> td.typdef_tconstr, ty
         | Typ_array(ty, _) -> td.typdef_tconstr, ty
         | _ -> fail d.loc "tile_aux: expected array or pointer type"
         end
@@ -194,7 +194,7 @@ let tile_aux (block_name : typvar) (b : var) (index: int) (t : trm) : trm =
       begin match td.typdef_body with
       | Typdef_alias ty  ->
          begin match ty.typ_desc with
-        | Typ_ptr ty ->
+        | Typ_ptr {inner_typ = ty;_} ->
            (* ty* becomes (ty[])* *)
            trm_seq ~annot:(Some No_braces)
               [
@@ -203,7 +203,7 @@ let tile_aux (block_name : typvar) (b : var) (index: int) (t : trm) : trm =
                   typdef_body = Typdef_alias (typ_array ty (Trm (trm_var b)))};
                 trm_typedef {
                   td with typdef_tconstr = td.typdef_tconstr;
-                  typdef_body = Typdef_alias (typ_ptr (typ_constr block_name td.typdef_typid []))}]
+                  typdef_body = Typdef_alias (typ_ptr Ptr_kind_mut (typ_constr block_name td.typdef_typid []))}]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
            begin match s with
@@ -238,7 +238,7 @@ let tile_aux (block_name : typvar) (b : var) (index: int) (t : trm) : trm =
       end
     | Trm_let (Var_mutable, (y,ty), init) when y = base_type_name ->
         begin match ty.typ_desc with
-        | Typ_ptr {typ_desc = Typ_constr (y, _, _); _} when y = base_type_name ->
+        | Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _};_} when y = base_type_name ->
           trm_let Var_mutable (y, ty) init
         | _ -> fail t.loc "tile_aux: expected a pointer because of heap allocation"
         end
@@ -476,7 +476,7 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
                      (* keep outer annotations *)
                      trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                        ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
-                  | Some {typ_desc = Typ_ptr {typ_desc = Typ_constr (y, _, _); _}; _}
+                  | Some {typ_desc = Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _}; _};_}
                        when y = x ->
                      (* x might appear both in index and in base' *)
                      let base' = aux global_trm base' in
@@ -526,7 +526,7 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
      begin match d.desc with
      | Trm_let (vk, (n, dx), _) ->
        begin match dx.typ_desc with
-       | Typ_ptr ty ->
+       | Typ_ptr {inner_typ = ty;_} ->
         begin match ty.typ_desc with
         | Typ_array (a, size) ->
           let struct_name =
@@ -535,7 +535,7 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
           | _ -> fail d.loc "aos_to_soa_aux: expected a typ_constr"
           end
           in
-          let new_decl = trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] a) (trm_prim ~loc:t.loc (Prim_new a)) in
+          let new_decl = trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut a) (trm_prim ~loc:t.loc (Prim_new a)) in
           let lfront = List.map (swap_accesses struct_name struct_name size) lfront in
           let lback = List.map (swap_accesses struct_name struct_name size) lback in
           trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)

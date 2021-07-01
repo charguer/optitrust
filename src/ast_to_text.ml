@@ -19,12 +19,15 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_double -> string "Typ_double"
   | Typ_bool -> string "Typ_bool"
   | Typ_char -> string "Typ_char"
-  | Typ_ref t -> 
-     let dt = print_typ ~only_desc t in
-     node "Typ_ref" ^^ dt
-  | Typ_ptr t ->
-     let dt = print_typ ~only_desc t in
-     node "Typ_ptr" ^^ dt
+  | Typ_ptr {ptr_kind = pk; inner_typ = ty} ->
+     let dpk = begin match pk with 
+               | Ptr_kind_mut -> string "pointer"
+               | Ptr_kind_ref -> string "reference"
+               end
+      in
+     let dt = print_typ ~only_desc ty in
+     (* TODO: Fix this later so that the type of pointer isn't printed in a wierd way *)
+     node "Typ_ptr" ^^ parens (dpk) ^^dt
   | Typ_array (t, s) ->
      let dt = print_typ ~only_desc t in
      let ds =

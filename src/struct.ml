@@ -22,7 +22,7 @@ let inline (field_to_inline : field) : Target.Transfo.t =
   Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
    (fun (p, i) t -> Struct_core.inline field_to_inline i t p)
 
-let inline_record_access (field : string) (var : string ) (t : trm) : trm =
+(* let inline_record_access (field : string) (var : string ) (t : trm) : trm =
       (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
       let pl = [cVarDef var] in
       let epl = resolve_target pl t in
@@ -96,4 +96,4 @@ let inline_record_access (field : string) (var : string ) (t : trm) : trm =
         t
       | _ -> List.fold_left (fun t dl -> app_transfo t dl) t epl
       (* Ast_to_text.print_ast ~only_desc:true stdout var_decl; *)
-
+ *)
