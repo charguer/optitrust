@@ -26,7 +26,7 @@ let set_explicit_aux (t: trm) : trm =
     | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
     in
     let struct_def = Typ_map.find tid typid_to_typedef_map in
-    let field_list = List.rev (Generic_core.get_field_list struct_def) in
+    let field_list = Generic_core.get_field_list struct_def in
     begin match rt.desc with
     (* Get the type of the variables *)
      
@@ -130,6 +130,148 @@ let set_implicit_aux (t: trm) : trm =
 (* [set_implicit t p] *)
 let set_implicit : Target.Transfo.local =
   Target.apply_on_path(set_implicit_aux) 
+
+let get_field_index (field : field) (fields : (var * typ) list) : int =
+  let rec aux field fields c = match fields with 
+    | [] -> failwith "get_field_index: empty list"
+    | (f, _) :: tl -> 
+      if (f = field) then c else aux field tl (c+1)
+    in
+  aux field fields 0
+
+
+let inline_struct_access  (x : typvar) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    match t.desc with
+    | Trm_apps (f, [base]) ->
+      begin match f.desc with
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
+          (* Removed this if else condition just for debugging purposes *)
+          (* if false then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
+          else  *)
+          begin match base.desc with
+          | Trm_apps (f',base') ->
+            begin match f'.desc with
+
+            | Trm_val(Val_prim (Prim_binop Binop_array_access))
+              | Trm_val(Val_prim (Prim_binop Binop_array_get)) ->
+                (* THen base caontains another base and also the index  *)
+                let base2 = List.nth base' 0 in
+                let index = List.nth base' 1 in
+                begin match base2.desc with
+                | Trm_apps(f'',base3) ->
+                  begin match f''.desc with
+                  | Trm_val (Val_prim (Prim_unop Unop_struct_access z))
+                    | Trm_val (Val_prim (Prim_unop (Unop_struct_get z ))) when z = x ->
+                    let new_var = z ^ "_" ^ y in
+                    let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))} in
+                    trm_apps ~annot:t.annot  f' [trm_apps new_f base3;index]
+                  | _ -> trm_map (aux global_trm) t
+                  end
+                | _ -> fail t.loc "inline_struct_access: expected a trm_apps"
+                end
+
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_access z)))
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x ->
+                let new_var = z ^"_"^ y in
+                let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
+              in
+              trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
+                     ~add:t.add ~typ:t.typ new_f base'
+
+            | _ -> trm_map (aux global_trm) t
+            end
+
+          | _ -> trm_map (aux global_trm) t
+          end
+
+      | _ -> trm_map (aux global_trm) t
+      end
+
+      (* other cases: recursive call *)
+    | _ -> trm_map (aux global_trm) t
+in
+aux t t
+
+let inline_struct_initialization (struct_name : string) (field_list : field list) (field_index : int) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    match t.desc with 
+    | Trm_struct term_list ->
+      begin match t.typ with 
+      | Some { typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
+        let trm_to_change = List.nth term_list field_index in
+        begin match trm_to_change.desc with 
+        | Trm_struct term_list_to_inline -> trm_struct (Tools.insert_sublist_in_list term_list_to_inline field_index term_list)
+        | Trm_apps(_, [base]) ->
+          begin match base.desc with 
+          | Trm_var p ->
+            let trm_list_to_inline = List.map(fun x ->
+              trm_apps ~annot: (Some Access) (trm_unop (Unop_get))[
+                trm_apps (trm_unop (Unop_struct_access x)) [
+                  trm_var p
+                ]
+              ]
+            ) field_list
+            in
+            trm_struct (Tools.insert_sublist_in_list trm_list_to_inline field_index term_list)
+          | _ -> fail base.loc "inline_struct_initialization: expected a heap allocated variable"
+          end 
+        | _ -> trm_map (aux global_trm) t
+        end
+      | _ -> trm_map (aux global_trm) t
+      end
+    | _ -> trm_map (aux global_trm) t
+  in
+  aux t t
+
+let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let td, lback = Tools.split_list_at 1 lback in
+    let td = List.hd td in
+    let node_context = td.ctx in
+    let typid_to_typedef_map = begin match node_context with 
+    | Some c ->  c.ctx_typedef
+    | None -> fail t.loc "inline_aux: empty node context" 
+    end
+      in
+    begin match td.desc with
+    | Trm_typedef td ->
+      begin match td.typdef_body with 
+      | Typdef_prod (t_names, field_list) ->
+       let field_index = get_field_index field_to_inline (List.rev field_list) in
+       let lfront1, lback1 = Tools.split_list_at field_index (List.rev field_list) in
+       let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
+        Tools.split_list_at 1 lback1 in
+       let _ ,field_type = List.hd field_to_inline1 in
+       let tyid = begin match field_type.typ_desc with 
+       | Typ_constr (_, tid , _) -> tid
+       | _ -> fail t.loc  "inline_aux: expected a typ_constr"
+       end
+       in
+       let struct_def = Typ_map.find tyid typid_to_typedef_map in
+       let inner_type_field_list = begin match struct_def.typdef_body with
+        | Typdef_prod (_, s) -> s
+        | _ -> fail t.loc "inline_aux: the field wanted to inline should have also a struct typedef"
+        end
+       in
+       let inner_type_field_list = List.map (fun (x, typ) -> (field_to_inline ^ "_" ^ x, typ)) inner_type_field_list in
+       let field_list = List.rev (lfront1 @ inner_type_field_list @ lback1) in
+       let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
+       let new_trm = trm_typedef new_typedef in
+       let lback = List.map (inline_struct_access field_to_inline) lback in
+       let lback = List.map (inline_struct_initialization td.typdef_tconstr (Generic_core.get_field_list struct_def) field_index) lback in
+       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)       
+      | _ -> fail t.loc "inline_aux: expected a struct "
+      end
+    | _ -> fail t.loc "inline_aux: expected a trm_typedef"
+    end
+  | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
+
+let inline (field_to_inline : field) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (inline_aux field_to_inline index)
 
 
 (* Auxiliary functions for reorder transformation *)
