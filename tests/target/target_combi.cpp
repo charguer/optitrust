@@ -13,7 +13,9 @@ int f(int n) {
 
 int main() {
   for (int i = 0; i < 3; i++) {
-    vect r = { f(2), f(3) };
+    for (int k = 0; k < 4; k++) {
+      vect r = { f(i), f(k) };
+    }
   }
   for (int j = 0; j < 3; j++) {
     if (true) {

@@ -530,7 +530,8 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_val _ -> if is_unit then TrmKind_Instr else TrmKind_Expr
    | Trm_var _ -> TrmKind_Expr
    | Trm_struct _ | Trm_array _ -> TrmKind_Expr
-   | Trm_let_fun _ | Trm_let _ -> TrmKind_Instr
+   | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
+   | Trm_let _ -> TrmKind_Instr
    | Trm_typedef _ -> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
@@ -785,7 +786,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
       let res_deep =
         if strict
            then [] (* in strict mode, must match c here *)
-           else (explore_in_depth ~depth:(depth_pred depth) (c :: p) t) in
+           else (explore_in_depth ~depth (c :: p) t) in
       let res_here =
          if is_constr_regexp c && res_deep <> []
            then [] (* if a regexp matches in depth, don't test it here *)
@@ -857,7 +858,12 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
 
 (* call resolve_target_simple on subterms of t if possible *)
 and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) : paths =
-  let aux = resolve_target_simple ~depth p in
+  (* By default, traversing a node decreases the depth *)
+  let aux = resolve_target_simple ~depth:(depth_pred depth) p in
+  (* For bodies of functions/loops/conditials, however, we do decrease the depth
+     because traversing the [Trm_seq] just below will already decrease the depth *)
+  let aux_body = resolve_target_simple ~depth p in
+
   (* let p = target_to_target_simple p in ---TODO: used for getting rid of Constr_chain that appear in depth *)
   let loc = t.loc in
   match t.annot with
@@ -894,7 +900,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_let_fun (_, _ ,_ ,body) ->
         (* DEPRECATED: the name of the function should not be considered an occurence;
             add_dir Dir_name (aux (trm_var ~loc x)) ++ *)
-        add_dir Dir_body (aux body)
+        add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
       | Typdef_enum xto_l ->
@@ -920,7 +926,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
      | Trm_for ( _, _, _, _, _, body) ->
-        add_dir Dir_body (aux body)
+        add_dir Dir_body (aux_body body)
      | Trm_for_c (init, cond, step, body) ->
         (* init *)
         (add_dir Dir_for_init (aux init)) ++
@@ -929,30 +935,30 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (* step *)
         (add_dir Dir_for_step (aux step)) ++
         (* body *)
-        (add_dir Dir_body (aux body))
+        (add_dir Dir_body (aux_body body))
      | Trm_while (cond, body) ->
         (* cond *)
         (add_dir Dir_cond (aux cond)) ++
         (* body *)
-        (add_dir Dir_body (aux body))
+        (add_dir Dir_body (aux_body body))
      | Trm_if (cond, then_t, else_t) ->
         (* cond *)
         (add_dir Dir_cond (aux cond)) ++
         (* then *)
-        (add_dir Dir_then (aux then_t)) ++
+        (add_dir Dir_then (aux_body then_t)) ++
         (* else *)
-        (add_dir Dir_else (aux else_t))
+        (add_dir Dir_else (aux_body else_t))
      | Trm_apps (f, args) ->
         (* fun *)
         (add_dir Dir_app_fun (aux f)) ++
         (* args *)
         (explore_list args (fun n -> Dir_arg n) (aux))
      | Trm_seq tl
-       | Trm_array tl
-       | Trm_struct tl ->
+     | Trm_array tl
+     | Trm_struct tl ->
         explore_list tl (fun n -> Dir_nth n) (aux)
      | Trm_val (Val_array vl)
-       | Trm_val (Val_struct vl) ->
+     | Trm_val (Val_struct vl) ->
         explore_list (List.map (trm_val ~loc) vl) (fun n -> Dir_nth n)
           (aux)
      | Trm_labelled (l, body) ->

@@ -14,32 +14,35 @@ let _ = Run.script_cpp (fun () ->
   (* Top-level functions *)
   show [ cTopFun "f"; cVarDef "k" ];
 
-  (* Loops immediately inside a function *)
+  (* Inside loop bodies *)
+  show [ nbMulti; cFor "j"; sInstr "i++" ];
+  show [ nbMulti; cFor "i"; cFor "j" ];
   show [ nbMulti; cFunDef ""; dBody; cStrict; cFor "" ];
 
-  (* Directions and strictness *)
-
-  show [ nbMulti; cFor "j"; sInstr "i++" ];
-  show [ nbAny; cFor "i"; dBody; cStrict; sInstr "i++" ]; (* TODO: can't match anymore on the full comonents of the loops *)
-  show [ nbMulti; cFor "i"; cFor "j" ];
+  (* LATER: fix string matching for simpl_for_loops
+  show [ nbAny; cFor "i"; sExpr "i++" ];
+  show [ nbAny; cFor "i"; dStep; sInstr "i++" ];
+  *)
+  show [ nbAny; cFor "i"; sInstr "i++" ];
+  show [ nbAny; cFor "i"; dBody; sInstr "i++" ];
   show [ nbMulti; cFor "i"; dBody; cStrict; cFor "j" ];
-  (* show [ nbMulti; cFor "i"; cStrict; cSeq (); cFor "j" ]; *) (* There is a problem when using cSeql and cStrict *)
 
-  show [ nbEx 0; cFor "i"; cStrict; cFor "j" ];
+  show [ cFor "i"; cStrict; cFor "k" ];
+  show [ nbEx 3; cTopFun "main"; cFor "" ];
 
-  show [ cTopFun "main"; dBody; cStrict; cFor "i" ]; (* TODO *)
+  show [ nbEx 2; cTopFun "main"; cStrict; cFor "" ];
+  show [ nbEx 2; cTopFun "main"; dBody; cStrict; cFor "" ];
+  show [ cTopFun "main"; dBody; cStrict; cFor "i" ];
   show [ cTopFun "main"; cStrict; cFor "j" ];
 
-  show [ cTopFun "main"; dThen ];
-  show [cTopFun "main"; dThen; sInstr "j++"];
-  show [ cTopFun "main"; dThen; cStrict; cSeq();sInstr "j++" ];
-  show [ cTopFun "main"; cFor "j"; dBody; cIf ();dThen]; (* dThen ]; *)
+  show [ cTopFun "main"; cThen ];
+  show [ cTopFun "main"; cThen; sInstr "j++"];
+  show [ cTopFun "main"; cThen; cStrict; sInstr "j++" ];
+  show [ cTopFun "main"; cFor "j"; cIf (); dThen ];
   show [ cTopFun "main"; cFor "j"; cStrict; cIf (); dThen; cStrict; sInstr "j++" ];
 
-  show [ nbMulti; sInstr "i++" ]
+  show [ sInstr "i++" ]
 
-
-  (* Strictness *)
 )
 
 
