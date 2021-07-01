@@ -14,6 +14,10 @@ let _ = Run.script_cpp (fun () ->
   (* Top-level functions *)
   show [ cTopFun "f"; cVarDef "k" ];
 
+  (* Mutliple *)
+  show [ nbMulti; cFunDef "f"; sInstr "j++" ];
+  show [ nbMulti; cFun "f" ];
+
   (* Inside loop bodies *)
   show [ nbMulti; cFor "j"; sInstr "i++" ];
   show [ nbMulti; cFor "i"; cFor "j" ];

@@ -329,7 +329,7 @@ and trm_desc =
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
   | Trm_decoration of string * trm * string
-    (* TODO: ARTHUR, make this a flag in [trm] rather than a constructor *)
+    (* LATER: ARTHUR, make this a flag in [trm], carrying an id, rather than a constructor *)
   | Trm_any of trm
   | Trm_arbitrary of string
 
@@ -1060,11 +1060,13 @@ let trm_for_of_trm_for_c (t : trm) : trm =
   printf "is simple loop stop %b\n" (is_simple_loop_component stop);
   printf "is simple loop step %b\n" (is_simple_loop_component step); *)
 
-  let is_simple_loop = (is_simple_loop_component start) &&
-  (is_simple_loop_component stop) && (is_simple_loop_component step)
-  in
+  let is_simple_loop =
+      (is_simple_loop_component start)
+    && (is_simple_loop_component stop)
+    && (is_simple_loop_component step) in
 
-  if is_simple_loop then trm_for index direction start stop step body
+  if is_simple_loop
+    then trm_for ~loc:t.loc index direction start stop step body
     else t
 
 type typ_kind =
@@ -1132,8 +1134,8 @@ let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes =
 
   let step =
     begin match direction with
-    | DirUp -> 
-        begin match step.desc with 
+    | DirUp ->
+        begin match step.desc with
         | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_inc) [trm_var index]
         | _ ->
           trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
@@ -1141,10 +1143,10 @@ let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes =
             trm_var index;
             trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
         end
-    | DirDown -> 
+    | DirDown ->
         begin match step.desc with
         | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_dec) [trm_var index]
-        | _ -> 
+        | _ ->
           trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_sub)
           [
             trm_var index;
@@ -1152,4 +1154,4 @@ let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes =
         end
     end
     in
-  trm_for_c~annot ~loc ~add ~attributes ~ctx init cond step body
+  trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body

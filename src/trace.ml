@@ -280,8 +280,8 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
    This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
    of the source and ast after applying transformaion i.
 *)
-let output_js (index : int) (cpp_filename : string) (prefix : string) : unit =
-  let (_, ast) = parse cpp_filename in
+let output_js (index : int) (cpp_filename : string) (prefix : string) (ast : trm) : unit =
+  (* DEPRECATED let (_, ast) = parse cpp_filename in *)
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
@@ -408,8 +408,8 @@ let dump_diff_and_exit () : unit =
       print_info None "Writing ast and code after last transformation...\n";
       output_prog ctx (prefix ^ "_after") astAfter;
       print_info None "Writing ast and code into %s.js " prefix;
-      let cpp_filename =  (prefix ^ "_after") ^ ".cpp" in
-      output_js (-1) cpp_filename prefix;
+      let cpp_filename_for_js =  (prefix ^ "_before") ^ ".cpp" in
+      output_js (-1) cpp_filename_for_js prefix astAfter;
       print_info None "Done. Output files: %s_after.ast and %s_after%s.\n" prefix prefix ctx.extension;
       ()
     )
@@ -491,8 +491,10 @@ let dump ?(prefix : string = "") () : unit =
    to add decorators to the AST in the case of function [show]), then
    calls [dump_diff_and_exit] to visualize the effect of [f]. *)
 
-let only_interactive_step (line : int) (f : unit -> unit) : unit =
+let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> unit) : unit =
   if (Flags.get_exit_line() = Some line) then begin
+    if reparse
+      then reparse_alias();
     step();
     f();
     dump_diff_and_exit()

@@ -208,9 +208,12 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "goto";
           (strquote "target", Json.Str label);
           children_to_field []]
-    | Trm_decoration (_,t,_) ->
+    | Trm_decoration (left,t,_) ->
+        (*  left = "/*@" ^ string_of_int id ^ "<*/" *)
+        let label = int_of_string (String.sub left 3 (String.length left - 6)) in
         [ kind_to_field "decoration";
-          children_to_field [child_to_json "decoration" (aux t)]]
+          (strquote "label", Json.Int label);
+          children_to_field [child_to_json "body" (aux t)]]
     | Trm_any t ->
         [ kind_to_field "any";
           children_to_field [child_to_json "any" (aux t)]]

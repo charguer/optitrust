@@ -1,6 +1,6 @@
 
 // Flag to activate the display of all locations
-var debug_locations = false;
+var debug_locations = true;
 
 // The imported JS file provides 'source' and 'contents' (TODO: 'language')
 if (typeof source == 'undefined') {
@@ -54,28 +54,35 @@ function scrollToLoc(loc) {
   editor.scrollIntoView(loc, 100);
 }
 
-// Update the highlighted contents
+// Marks a region of source code as highlighted
 // The "loc" argument should be of the form:
 //  { start: { line: 1, col: 4 }, end: { line: 3, col: 8 } }
-
-function updateSelection(loc) {
+function addToSelection(loc) {
   // for other options, see https://codemirror.net/doc/manual.html#markText
   const opts = { className: "highlight" };
   if (loc === void(0)) {
     return;
   }
-
-  // Clear old marks
-  editor.getAllMarks().forEach(m => m.clear());
-
   // Substracting 1 because compilers counts from 1, and Codemirror from 0
   var from = { line: loc.start.line-1, ch: loc.start.col-1 };
   var to = { line: loc.end.line-1, ch: loc.end.col-1 };
+
+  // TODO: update generated locations to avoid empty span
+  if (loc.start.line == loc.end.line && loc.start.col == loc.end.col) {
+    loc.end.col++;
+  }
 
   // Highlight and scroll to the highlighted place
   editor.markText(from, to, opts);
   scrollToLoc({from: from, to: to});
   // editor.focus();
+}
+
+// Update the highlighted contents, by first removing previous selections
+function updateSelection(loc) {
+  // Clear old marks
+  editor.getAllMarks().forEach(m => m.clear());
+  addToSelection(loc);
 }
 
 
@@ -132,12 +139,25 @@ function contains(loc1, loc2){
   }
 }
 
+// Given a nodeid, build the path from the root to that node (inclusive),
+// then load that path in the AST view.
+function loadPathToNodeId(id) {
+  let path_to_root = [];
+  let cur_node = id;
+  while (cur_node !== nodeid_invalid) {
+    path_to_root.unshift(cur_node);
+    cur_node = ast[cur_node].parent;
+  }
+  viewPath(path_to_root);
+}
+
+// This function is called when the user selects a span of code in the editor.
+// It finds the corresponding node then loads it in the AST view.
 function loadPathForUserSelection(selectedLoc) {
   if (debug_locations) {
     console.log(JSON.stringify(selectedLoc));
   }
-
-  // First, find the deepest node in the AST that fully covers the location selected by the user
+  // find the deepest node in the AST that fully covers the location selected by the user
   let chosen_node = nodeid_root;
   for (const node_id in ast) {
     if (contains(ast[node_id].loc, selectedLoc)
@@ -145,17 +165,7 @@ function loadPathForUserSelection(selectedLoc) {
       chosen_node = node_id;
     }
   }
-
-  // Second, we build the path from the root to that node (inclusive)
-  let path_to_root = [];
-  let cur_node = chosen_node;
-  while (cur_node !== nodeid_invalid) {
-    path_to_root.unshift(cur_node);
-    cur_node = ast[cur_node].parent;
-  }
-
-  // Last, call the viewPath which updates the view of the AST
-  viewPath(path_to_root);
+  loadPathToNodeId(chosen_node);
 }
 
 $(document).on('mouseup', '.CodeMirror', function () {
@@ -281,7 +291,6 @@ function viewDescription(id, node) { // node is ast[id]
   }
   return txt;
 }
-
 
 // auxiliary function for viewPath,
 // path should be a list of node ids
@@ -414,6 +423,41 @@ function nodeMinus(id) {
 
 
 //---------------------------------------------------
+// Find decorated nodes
+
+// returns an associative array from labels to nodeids
+function getDecoratedNodes() {
+  var results = [];
+  for (var id in ast) {
+    var node = ast[id];
+    if (node.kind == "decoration") {
+      results[node.label] = node.children[0].id;
+    }
+  }
+  return results;
+}
+
+function loadViewToNodeId(id) {
+  loadPathToNodeId(id);
+  updateSelectedNode(id);
+}
+
+// displays the list of links to load decorated nodes, and highlight them
+function initDecoratedNodes(decorateds) {
+  s = "";
+  for (var label in decorateds) {
+    var id = decorateds[label];
+    s += html_span({onclick: "loadViewToNodeId(" + id + ")"}, "&nbsp;["+label+"]&nbsp;");
+    var node = ast[id];
+    addToSelection(node.loc);
+  }
+  if (s != "") {
+      s = "Highlighted: " + s;
+  }
+  $("#targeted").html(s);
+}
+
+//---------------------------------------------------
 // Main
 
 // action to perform after document is loaded
@@ -429,6 +473,17 @@ document.addEventListener('DOMContentLoaded', function () {
   var path = [nodeid_root];
   viewPath(path);
 
+  // loads the decorated nodes, if any
+  var decorateds = getDecoratedNodes();
+  initDecoratedNodes(decorateds);
+
+  // load if only one
+  if (decorateds.length == 1) {
+    for (var label in decorateds) {
+      var id = decorateds[label];
+      loadViewToNodeId(id);
+    }
+  }
 });
 
 //viewPath(["node_3"]);

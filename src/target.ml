@@ -569,9 +569,12 @@ let target_between_show_transfo (debug_ast : bool) (id : int) : Transfo.local_be
 
 (* [show ~line:int tg] is a transformation for visualizing targets.
    The operation only executes if the command line argument [-exit-line]
-   matches the [line] argument provided to the function. Otherwise, it is a noop. *)
-let show ?(line : int = -1) ?(debug_ast : bool = false) (tg : target) : unit =
-  only_interactive_step line (fun () ->
+   matches the [line] argument provided to the function. Otherwise, it is a noop.
+   There is no need for a prefix [!!] or [!!!] to the front of the [show]
+   function, because it is recognized as a special function by the preprocessor
+   that generates the [foo_with_lines.ml] instrumented source. *)
+let show ?(line : int = -1) ?(reparse : bool = true) ?(debug_ast : bool = false) (tg : target) : unit =
+  only_interactive_step line ~reparse (fun () ->
     if Constr.is_target_between tg then begin
       applyi_on_target_between (fun i  t (p,k) ->
         target_between_show_transfo debug_ast i k t p) tg
