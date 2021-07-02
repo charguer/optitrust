@@ -24,14 +24,14 @@ let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) 
   Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
 
 
-let inline_call_aux (index : int) (name : string) (label : string) (p_local : path )(top_ast : trm) (t : trm) : trm =
+let inline_call_aux (index : int) (name : string) (label : string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let trm_to_change, labck = Tools.split_list_at 1 lback in
+    let trm_to_change, lback = Tools.split_list_at 1 lback in
     let trm_to_change = List.hd trm_to_change in
-    let fun_call, _ = resolve_path p_local trm_to_change in
-    let fun_call_name, fun_call_args  = begin match fun_call.desc with 
+    let fun_call, _= Path.resolve_path p_local trm_to_change in
+    let fun_call_name, fun_call_args = begin match fun_call.desc with 
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
                    | _ -> fail fun_call.loc "inline_call_aux: couldn't resolve the name of the function, target does not resolve to a function call"
                    end in
@@ -54,12 +54,14 @@ let inline_call_aux (index : int) (name : string) (label : string) (p_local : pa
                          | [] -> fail fun_decl_body.loc "inline_call_aux: empty function body"
                          | hd :: tl2 -> 
                           
-                          begin match trm_to_change.desc with 
-                           | Trm_let (_, (r, tx), _) ->
-                            let ty = match tx.typ_desc with 
-                            | Typ_ptr {inner_typ = ty; _} -> ty
-                            | _ -> fail trm_to_change.loc "inline_call_aux: expcted a heap allocated variable"
-                            in
+                          begin match fun_decl_type.typ_desc with 
+                          | Typ_unit   ->
+                              trm_seq ~annot:(Some No_braces) [
+                              trm_labelled label (trm_seq (List.rev tl2 @ [trm_goto "__exit_body"]));
+                              trm_labelled "__exit_body" (trm_var "")
+                              ] 
+                          | _ -> 
+                            
                             let ret = begin match hd.desc with
                                       | Trm_abort (Ret ret) ->
                                         begin match ret with 
@@ -70,17 +72,10 @@ let inline_call_aux (index : int) (name : string) (label : string) (p_local : pa
                                       end
                             in
                             trm_seq ~annot:(Some No_braces) [
-                              trm_let Var_mutable (r, tx) (trm_prim (Prim_new ty));
-                              trm_labelled label (trm_seq (List.rev tl2 @ [trm_set (trm_var r) ret]));
+                              trm_let Var_mutable (name, (typ_ptr Ptr_kind_mut fun_decl_type)) (trm_prim (Prim_new fun_decl_type));
+                              trm_labelled label (trm_seq (List.rev tl2 @ [trm_set (trm_var name) ret]));
                               trm_labelled "__exit_body" (trm_var "")
                             ]
-
-                           | Trm_apps _ -> 
-                              trm_seq ~annot:(Some No_braces) [
-                              trm_labelled label (trm_seq (List.rev tl2 @ [trm_goto "__exit_body"]));
-                              trm_labelled "__exit_body" (trm_var "")
-                              ] 
-                           | _ -> fail trm_to_change.loc "inline_call_aux: expcted a variable declaration or a function call"
                           end
                         end
 
@@ -91,5 +86,5 @@ let inline_call_aux (index : int) (name : string) (label : string) (p_local : pa
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 
 
-let inline_call (index: int) (name : string) (label : string) (p_local : path) (top_ast : trm) : Target.Transfo.local = 
-  Target.apply_on_path (inline_call_aux index name label p_local top_ast)
+let inline_call (index: int) (name : string) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
+  Target.apply_on_path (inline_call_aux index name label top_ast p_local)
