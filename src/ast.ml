@@ -70,6 +70,7 @@ and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar (* e.g. ['a] in the type ['a -> 'a] -- TODO: maybe add a typid? *)
   | Typ_constr of typvar * typid * typ list (* e.g. [int list] or [(int,string) map] or [vect] *)
+  | Typ_auto 
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
@@ -379,6 +380,10 @@ let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
 let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (x : typvar) (tid : typid) (tl : typ list) : typ =
   {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
+
+
+let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
+  {typ_annot = annot; typ_desc = Typ_auto ; typ_attributes}
 
 let typ_unit ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
   {typ_annot = annot; typ_desc = Typ_unit; typ_attributes}

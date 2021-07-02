@@ -12,6 +12,7 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const "
   | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_constr (tv, _, _) -> string tv
+  | Typ_auto  -> string "auto"
   | Typ_unit -> string "void"
   | Typ_int -> string "int"
   | Typ_float -> string "float"

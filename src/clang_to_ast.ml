@@ -244,6 +244,8 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
   | IncompleteArray q ->
     let t = translate_qual_type ~loc q in
     typ_array t Undefined
+  | Auto -> 
+    typ_auto ()
   | BuiltinType b ->
     begin match b with
       | Void -> typ_unit ()
