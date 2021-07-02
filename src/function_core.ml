@@ -13,6 +13,7 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
       if const then
         trm_let Var_immutable (fresh_name, typ_auto()) trm_to_apply_changes 
       else 
+        (* TODO: Fix the issue with the star appearing when using auto with pointer *)
         trm_let Var_mutable (fresh_name, typ_ptr Ptr_kind_mut (typ_auto())) (trm_apps  (trm_prim (Prim_new (typ_auto()))) [trm_to_apply_changes])
       in  
      let decl_to_change = Generic_core.change_trm trm_to_apply_changes (trm_var fresh_name) instr in

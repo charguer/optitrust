@@ -305,6 +305,24 @@ let get_typid (t : trm) : int =
   | _ -> -1
 
 
+let rec toplevel_decl (x : var) (t : trm) : trm option =
+  match t.desc with 
+  | Trm_typedef td when td.typdef_tconstr = x -> Some t
+  | Trm_let (_, (y, _),_ ) when y = x -> Some t
+  | Trm_let_fun (y, _, _, _) when y = x -> Some t
+  | Trm_seq tl ->
+    List.fold_left(
+      fun acc t1 ->
+      match acc with 
+      | Some _ -> acc
+      | _ -> 
+        let t2 = toplevel_decl x t1 in
+        begin match t2 with 
+        | Some _->  t2
+        | _ -> None
+        end
+    ) None tl 
+  | _ -> None
 
 (* ********************************************** *)
 
