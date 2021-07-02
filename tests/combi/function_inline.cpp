@@ -25,6 +25,11 @@ vect v_add(vect v1, vect v2) {
 }
 // function def is preserved, and other calls to it as well
 int main() {
+
+  int x = 3;
+  int y = f(g(x));
+
+
   int y;
   vect v1,v2;
   // vect v3 = v_add(v1,v2);

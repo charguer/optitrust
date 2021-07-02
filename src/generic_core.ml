@@ -161,6 +161,15 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
   | _ -> fail None "isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
+let get_call_in_surrounding_seq (dl : path) : path * path * int = 
+  let rec aux (acc : path) (dl : path) =
+    match dl with 
+    | [] -> fail None "get_call_in_surrounding_seq: empty path"
+    | Dir_seq_nth i :: dl'-> (List.rev dl', acc, i)
+    | dir :: dl' -> aux (dir :: acc) dl'
+  in
+  aux [] (List.rev dl)
+
 (* compute a fresh variable (w.r.t. t) based on x *)
 let fresh_in (t : trm) (x : var) : var =
   if not (is_used_var_in t x) then x
