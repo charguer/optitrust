@@ -23,5 +23,11 @@ let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.targe
 
 
 
-
+let inline_call ?(name : string = "result") ?(label : string = "body") ?(renames: string -> string  = fun s -> s ^ "1" ) : Target.Transfo.t =
+  Target.apply_on_transformed_targets(Generic_core.get_call_in_surrounding_seq)
+   (fun (p, p_local, i) t -> 
+    (* Needed for finding the declaration of the function *)
+    let top_path = Constr.resolve_target [cRoot] t in
+    let top_ast, _ = Path.resolve_path top_path t in
+    Function_core.inline_call i name label renames p_local top_ast t p)
 

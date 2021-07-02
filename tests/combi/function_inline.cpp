@@ -1,4 +1,4 @@
-int g(x, y, z, t) {
+int g(int x, int y, int z, int t) {
     int e = x + y;
     int f = e + z;
     return e + t;
