@@ -27,5 +27,5 @@ let inline_call ?(name_result : var = "res") ?(label : var = "body")  : Target.T
   Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
    (fun (p, p_local, i) t -> 
     (* Needed for finding the declaration of the function *)
-    Function_core.inline_call i name_results label t p_local t p)
+    Function_core.inline_call i name_result label t p_local t p)
 

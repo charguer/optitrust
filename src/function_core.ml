@@ -13,7 +13,7 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
         trm_let Var_immutable (fresh_name, typ_auto()) trm_to_apply_changes 
       else 
         (* TODO: Fix the issue with the star appearing when using auto with pointer *)
-        trm_let Var_mutable (fresh_name, typ_ptr Ptr_kind_mut (typ_auto())) (trm_apps  (trm_prim (Prim_new (typ_auto()))) [trm_to_apply_changes])
+        trm_let Var_mutable (fresh_name, typ_auto()) (trm_apps  (trm_prim (Prim_new (typ_auto()))) [trm_to_apply_changes])
       in  
      let decl_to_change = Generic_core.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      trm_seq ~annot:t.annot (lfront @ [decl_to_insert] @ [decl_to_change] @ lback)
@@ -47,6 +47,7 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
    let fun_decl_arg_vars = List.map trm_var (fst (List.split fun_decl_args)) in
   (* Replace function declaration args with function call args *)
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fun_decl_arg_vars fun_call_args in
+   
    let inlined_body = begin match fun_decl_body.desc with 
                       | Trm_seq tl1 ->
                         
@@ -72,9 +73,8 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                                       end
                             in
                             trm_seq ~annot:(Some No_braces) [
-                              trm_let Var_mutable (name, (typ_ptr Ptr_kind_mut fun_decl_type)) (trm_prim (Prim_new fun_decl_type));
+                              trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
                               trm_labelled label (trm_seq (List.rev tl2 @ [trm_set (trm_var name) ret]));
-                              trm_labelled "__exit_body" (trm_var "")
                             ]
                           end
                         end
