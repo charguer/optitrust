@@ -3,5 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-    show [cFun "g"];
+    !! Function.bind_intro ~fresh_name:"b" [cFun "g"];
+    !!show [cFun "g"];
+
 )
