@@ -20,8 +20,10 @@ let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.targe
   bind_args inner_fresh_names tg;
   bind_intro ~const:false ~fresh_name tg
 
-(* let elim_body ?(rename : string -> string = fun s -> s ^ "i") (tg : Target.target) : unit = *)
 
+let inline_delay_decl ?(const : bool = true) (tg : Target.target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  (fun (p,i) t -> Function_core.inline_delay_decl const i t p) tg 
 
 let inline_call ?(name_result : var = "res") ?(label : var = "body") ?(rename : string -> string = fun s -> s ^ "1")  : Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
