@@ -46,9 +46,28 @@ let replace_return( exit_label : label) (r : var) (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t
 
+(* This function goes through every variable declaration and checks if this variable is already defined somewhere in the top level,
+   if this is the case then this variable will be renamed inside the body of the function, after renaming 
+   all its occurrences are changed *)
+let change_variable_names (t : trm ) (surrounding_seq : trm) (rename : string -> string) : trm =
+  match t. desc with 
+  | Trm_seq tl ->
+    List.fold_left (fun acc t1 ->
+     match t1.desc with 
+     | Trm_let (vk,(x, tx), init) -> 
+       let find_prev_decl = Generic_core.toplevel_decl x surrounding_seq in
+       begin match find_prev_decl with 
+       | Some _ -> let acc = Generic_core.change_trm t1 (trm_let vk ((rename x), tx) init) acc in
+          let acc = Generic_core.change_trm (trm_var x) (trm_var (rename x)) acc in acc
+       | None -> acc 
+       end
+     | _ -> acc
+    ) t tl
+
+  | _ -> fail t.loc "change_variable_names: expected a function body declaration"
 
 
-let inline_call_aux (index : int) (name : string) (label : string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
+let inline_call_aux (index : int) (name : string) (label : string) (rename : string -> string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -79,11 +98,11 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
    
    let inlined_body = begin match fun_decl_type.typ_desc with 
                         | Typ_unit -> trm_seq ~annot:(Some No_braces) [
-                            trm_labelled label (fun_decl_body);
+                            trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename ));
                             trm_labelled "__exit_body" (trm_var "")]
                         | _ -> trm_seq ~annot:(Some No_braces) [
                             trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
-                            trm_labelled label (replace_return "__exit_body" name fun_decl_body);
+                            trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename ));
                             trm_labelled "__exit_body" (trm_var "")]
                       end
                     in
@@ -92,5 +111,5 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 
 
-let inline_call (index: int) (name : string) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
-  Target.apply_on_path (inline_call_aux index name label top_ast p_local)
+let inline_call (index: int) (name : string) (label : string) (rename : string -> string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
+  Target.apply_on_path (inline_call_aux index name label rename top_ast p_local)
