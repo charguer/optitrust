@@ -182,6 +182,13 @@ let fresh_in (t : trm) (x : var) : var =
       x ^ "_" ^ string_of_int !n
     end
 
+let fresh_args (t : trm) : trm = 
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    match t.desc with 
+    | Trm_var x -> trm_var ("_" ^ x)
+    | _ -> trm_map (aux global_trm) t 
+  in aux t t
+
 let eliminate_goto_next (t : trm) : trm =
   let rec elim_in_list (tl : trm list) : trm list =
     match tl with
