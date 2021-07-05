@@ -3,13 +3,14 @@ int f(int x) {
 }
 
 
-int g(int x) {
-  int y = x + x;
-  return y + y;
-}
+ int g(int x) {
+        if (x > 0)
+          return 1;
+        return 2;
+      }
 
 int main(){
   int x = 3;
-  int y = f(g(x));
+  int y = g(x);
   return 0;
 }

@@ -23,35 +23,68 @@ let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) 
   Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
 
 (* Global ref to count the number of returns *)
-let nb_returns = ref 0 
+let nb_returns = ref 0
 
-let replace_return( exit_label : label) (r : var) (t : trm) : trm =
+let rec replace_return (exit_label : label) (r : var) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl -> 
+    List.fold_right (fun t' acc ->
+      match t'.desc with 
+      | Trm_abort ab ->
+        begin match ab with 
+        | Ret t1 ->
+          begin match t1 with 
+          | Some t2 ->
+            begin match t2.typ with 
+            | Some ty -> 
+              let () = nb_returns := !nb_returns + 1 in
+              begin match ty.typ_desc with 
+              | Typ_unit -> let acc = Generic_core.change_trm t' (trm_goto exit_label) t in acc
+              | _ ->  
+                   Tools.printf "nb_returns: %d\n" !nb_returns;
+                    begin match !nb_returns with 
+                    | 1 -> let acc = Generic_core.change_trm t' (trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]) t in acc
+                    | _ -> let acc = Generic_core.change_trm t' (trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]) t in acc
+                    end  
+              end
+            | _ -> acc
+            end
+          | _ -> let acc = Generic_core.change_trm t' (trm_labelled exit_label t') t in acc
+          end 
+        | _ -> acc 
+        end
+      | _ -> let acc = trm_map (replace_return exit_label r ) t in acc  
+    ) tl t
+  | _ -> t
+
+
+(* let replace_return( exit_label : label) (r : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with 
     | Trm_abort ab ->
       begin match ab with 
       | Ret t1 ->
-       begin match t1 with 
-       | Some t2 ->
-        begin match t2.typ with 
-        | Some ty -> 
-          let () = nb_returns := !nb_returns + 1 in
-          begin match ty.typ_desc with 
-          | Typ_unit -> trm_goto exit_label
-          | _ ->  begin match !nb_returns with 
-                  | 1 -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
-                  | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
-                  end  
-
+        begin match t1 with 
+        | Some t2 ->
+          begin match t2.typ with 
+          | Some ty -> 
+            let () = nb_returns := !nb_returns + 1 in
+            begin match ty.typ_desc with 
+            | Typ_unit -> trm_goto exit_label
+            | _ ->  Tools.printf "counter is equal to %d\n" !nb_returns;
+                    begin match !nb_returns with 
+                    | 1 -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
+                    | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
+                    end  
+            end
+          | _ -> fail t.loc "replace_return: something went wrong"
           end
-        | _ -> fail t.loc "replace_return: something went wrong"
-        end
-       | _ -> trm_labelled exit_label t
-       end 
+        | _ -> trm_labelled exit_label t
+        end 
       | _ -> t
       end
     | _ -> trm_map ~rev:true (aux global_trm) t
-  in let t = aux t t in Generic_core.clean_up_no_brace_seq t
+  in let t = aux t t in Generic_core.clean_up_no_brace_seq t *)
 
 (* This function goes through every variable declaration and checks if this variable is already defined somewhere in the top level,
    if this is the case then this variable will be renamed inside the body of the function, after renaming 

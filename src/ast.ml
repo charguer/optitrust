@@ -640,7 +640,7 @@ let trm_map ?(rev : bool = false) (f : trm -> trm) (t : trm) : trm =
      let else_' = f else_ in
      trm_if ~annot ~loc ~add cond' then_' else_'
   | Trm_seq tl ->
-     if rev then trm_seq ~annot ~loc ~add (List.rev (List.map f (List.rev tl)))
+     if rev then trm_seq ~annot ~loc ~add (List.rev (List.rev_map f tl))
       else trm_seq ~annot ~loc ~add (List.map f tl)
   | Trm_apps (f', args) ->
      let f'' = f f' in
