@@ -12,8 +12,7 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
       if const then
         trm_let Var_immutable (fresh_name, typ_auto()) trm_to_apply_changes 
       else 
-        (* TODO: Fix the issue with the star appearing when using auto with pointer *)
-        trm_let Var_mutable (fresh_name, typ_auto()) (trm_apps  (trm_prim (Prim_new (typ_auto()))) [trm_to_apply_changes])
+        trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_auto())) (trm_apps  (trm_prim (Prim_new (typ_auto()))) [trm_to_apply_changes])
       in  
      let decl_to_change = Generic_core.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      trm_seq ~annot:t.annot (lfront @ [decl_to_insert] @ [decl_to_change] @ lback)
@@ -22,6 +21,30 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
 
 let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
+
+(* TODO: Remove goto trm for the last return instruction *)
+let replace_return( exit_label : label) (r : var) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    match t.desc with 
+    | Trm_abort ab ->
+      begin match ab with 
+      | Ret t1 ->
+       begin match t1 with 
+       | Some t2 ->
+        begin match t2.typ with 
+        | Some ty -> 
+          begin match ty.typ_desc with 
+          | Typ_unit -> trm_goto exit_label
+          | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
+          end
+        | _ -> fail t.loc "replace_return: something went wrong"
+        end
+       | _ -> trm_labelled exit_label t
+       end 
+      | _ -> t
+      end
+    | _ -> trm_map (aux global_trm) t
+  in aux t t
 
 
 let inline_call_aux (index : int) (name : string) (label : string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
@@ -48,7 +71,20 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
   (* Replace function declaration args with function call args *)
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fun_decl_arg_vars fun_call_args in
    
-   let inlined_body = begin match fun_decl_body.desc with 
+   let inlined_body = begin match fun_decl_type.typ_desc with 
+                        | Typ_unit -> trm_seq ~annot:(Some No_braces) [
+                            trm_labelled label (fun_decl_body);
+                            trm_labelled "__exit_body" (trm_var "")]
+                        | _ -> trm_seq ~annot:(Some No_braces) [
+                            trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
+                            trm_labelled label (replace_return "__exit_body" name fun_decl_body);
+                            trm_labelled "__exit_body" (trm_var "")]
+                      end
+                    in
+   
+   
+   
+   (* let inlined_body1 = begin match fun_decl_body.desc with 
                       | Trm_seq tl1 ->
                         
                         begin match List.rev tl1 with 
@@ -62,7 +98,6 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                               trm_labelled "__exit_body" (trm_var "")
                               ] 
                           | _ -> 
-                            
                             let ret = begin match hd.desc with
                                       | Trm_abort (Ret ret) ->
                                         begin match ret with 
@@ -71,7 +106,7 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                                         end
                                       | _ -> fail hd.loc "inline_call_aux: expcted a return instruction"
                                       end
-                            in
+                             in
                             trm_seq ~annot:(Some No_braces) [
                               trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
                               trm_labelled label (trm_seq (List.rev tl2 @ [trm_set (trm_var name) ret]));
@@ -80,7 +115,7 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                         end
 
                       | _ -> fail fun_decl_body.loc "inline_call_aux: body of the function declaration should be a sequence"
-                      end in
+                      end in *)
       trm_seq ~annot:t.annot (lfront @ [inlined_body] @ lback)
           
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"

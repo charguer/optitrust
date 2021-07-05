@@ -325,26 +325,6 @@ let rec toplevel_decl (x : var) (t : trm) : trm option =
   | _ -> None
 
 
-let rec replace_return (exit_label : label) (r : var) (t : trm ) : trm =
- let is_last = ref true in
- match t.desc with 
- | Trm_abort ab ->
-   begin match ab with 
-   | Ret t1 ->
-      begin match t1.typ with  
-      | Some ty ->
-        begin match ty.typ_desc with
-        | Typ_unit ->  trm_labelled exit_label t
-        | _ -> trm_set (trm_var r) t1
-        end 
-      | _ -> trm_labelled exit_label t
-      end
-
-    | _ -> t
-    end
-  
- | _ -> trm_map (replace_return exit_label r) t
-
 
 (* ********************************************** *)
 

@@ -26,6 +26,5 @@ let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.targe
 let inline_call ?(name_result : var = "res") ?(label : var = "body")  : Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
    (fun (p, p_local, i) t -> 
-    (* Needed for finding the declaration of the function *)
     Function_core.inline_call i name_result label t p_local t p)
 
