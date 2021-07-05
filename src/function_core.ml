@@ -45,7 +45,7 @@ let inline_delay_decl_aux (const : bool ) (index : int) (t : trm) : trm =
         ) None lback in
         let index1  = match init_index with 
         | Some index -> index
-        | _ -> fail trm_to_change.loc "inline_delay_decl_aux: to assignment was found to the given variable"
+        | _ -> fail trm_to_change.loc "inline_delay_decl_aux: no assignment was found to the given variable"
           in
         let lfront1,lback1 = Tools.split_list_at index1 lback in
         let assgn_to_change,lback1  = Tools.split_list_at 1 lback1 in
@@ -53,7 +53,14 @@ let inline_delay_decl_aux (const : bool ) (index : int) (t : trm) : trm =
         begin match assgn_to_change.desc with 
         | Trm_apps(_, [_; rhs]) ->
           let vk = if const then Var_immutable else Var_mutable in
-          let new_trm = trm_let vk (x, tx) (trm_apps (trm_prim (Prim_new tx)) [rhs]) in
+          let inner_type = 
+          begin match tx.typ_desc with
+          | Typ_ptr {ptr_kind=Ptr_kind_mut; inner_typ = ty} -> ty
+          | _ -> tx
+          end in
+          let tx = if const then typ_const inner_type else typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut inner_type in
+          let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
+          let new_trm = trm_let vk (x, tx)  init in
           trm_seq ~annot:t.annot (lfront @ lfront1 @ [new_trm] @ lback1)
         | _ -> fail assgn_to_change.loc "inline_delay_decl_aux: something wen't wrong"
         end
@@ -66,7 +73,10 @@ let inline_delay_decl (const : bool) (index : int) : Target.Transfo.local =
   Target.apply_on_path(inline_delay_decl_aux const index)
 
 
-(* TODO: Remove goto trm for the last return instruction *)
+
+(* Global ref to count the number of returns *)
+let nb_returns = ref 0 
+
 let replace_return( exit_label : label) (r : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with 
@@ -77,9 +87,14 @@ let replace_return( exit_label : label) (r : var) (t : trm) : trm =
        | Some t2 ->
         begin match t2.typ with 
         | Some ty -> 
+          let () = nb_returns := !nb_returns + 1 in
           begin match ty.typ_desc with 
           | Typ_unit -> trm_goto exit_label
-          | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
+          | _ ->  begin match !nb_returns with 
+                  | 1 -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
+                  | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
+                  end  
+
           end
         | _ -> fail t.loc "replace_return: something went wrong"
         end
@@ -87,7 +102,7 @@ let replace_return( exit_label : label) (r : var) (t : trm) : trm =
        end 
       | _ -> t
       end
-    | _ -> trm_map (aux global_trm) t
+    | _ -> trm_map ~rev:true (aux global_trm) t
   in aux t t
 
 (* This function goes through every variable declaration and checks if this variable is already defined somewhere in the top level,
@@ -140,14 +155,18 @@ let inline_call_aux (index : int) (name : string) (label : string) (rename : str
    
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
    
+   let exit_label : trm = begin match !nb_returns with
+                    | 1 | 0 -> trm_var ""
+                    | _ -> trm_labelled "__exit_body" (trm_var "") 
+                    end in
    let inlined_body = begin match fun_decl_type.typ_desc with 
                         | Typ_unit -> trm_seq ~annot:(Some No_braces) [
                             trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename ));
-                            trm_labelled "__exit_body" (trm_var "")]
+                            exit_label]
                         | _ -> trm_seq ~annot:(Some No_braces) [
                             trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
                             trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename ));
-                            trm_labelled "__exit_body" (trm_var "")]
+                            exit_label]
                       end
                     in
       trm_seq ~annot:t.annot (lfront @ [inlined_body] @ lback)
