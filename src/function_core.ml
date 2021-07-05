@@ -105,7 +105,7 @@ let replace_return( exit_label : label) (r : var) (t : trm) : trm =
       | _ -> t
       end
     | _ -> trm_map ~rev:true (aux global_trm) t
-  in aux t t
+  in let t = aux t t in Generic_core.clean_up_no_brace_seq t
 
 (* This function goes through every variable declaration and checks if this variable is already defined somewhere in the top level,
    if this is the case then this variable will be renamed inside the body of the function, after renaming 
@@ -162,16 +162,16 @@ let inline_call_aux (index : int) (name : string) (label : string) (rename : str
                     | _ -> trm_labelled "__exit_body" (trm_var "") 
                     end in
    let inlined_body = begin match fun_decl_type.typ_desc with 
-                        | Typ_unit -> trm_seq ~annot:(Some No_braces) [
+                        | Typ_unit -> (* trm_seq ~annot:(Some No_braces) *) [
                             trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename ));
                             exit_label]
-                        | _ -> trm_seq ~annot:(Some No_braces) [
+                        | _ -> (* trm_seq ~annot:(Some No_braces) *) [
                             trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
                             trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename ));
                             exit_label]
                       end
                     in
-      trm_seq ~annot:t.annot (lfront @ [inlined_body] @ lback)
+      trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
           
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 

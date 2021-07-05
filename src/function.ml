@@ -34,5 +34,5 @@ let inline ?(name_result : string = "r") ?(label : string = "body") ?(rename : s
   
   inline_call ~name_result ~label ~rename tg;
   elim_body [Target.cLabel label];
-  (* Generic.var_init_attach [Target.cVarDef name_result]; *)
-  (* Variable.inline [Target.cVarDef name_result]; *)
+  Generic.var_init_attach [Target.cVarDef name_result];
+  Variable.inline [Target.cVarDef name_result];
