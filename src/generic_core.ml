@@ -378,7 +378,6 @@ let var_init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
   let counter = ref 0 in
   match t.desc with 
   | Trm_seq tl ->
-    (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
     let lfront, lback = Tools.split_list_at index tl in
     let trm_to_change, lback = Tools.split_list_at 1 lback in
     let trm_to_change = List.hd trm_to_change in

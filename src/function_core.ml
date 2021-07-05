@@ -22,60 +22,6 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
 let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
 
-
-
-
-
-let inline_delay_decl_aux (const : bool ) (index : int) (t : trm) : trm =
-  let counter = ref 0 in
-  match t.desc with 
-  | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let trm_to_change, lback = Tools.split_list_at 1 lback in
-    let trm_to_change = List.hd trm_to_change in
-    begin match trm_to_change.desc with 
-    | Trm_let (_, (x, tx), _) ->
-        let init_index = Tools.foldi (fun i acc t1 -> 
-          match t1.desc with 
-          | Trm_apps(_,[ls;_]) ->
-            begin match ls.desc with 
-            | Trm_var y when y = x -> 
-              if !counter <= 1 then Some i else fail t1.loc "inline_delay_decl_aux: cases with more than one occurence are not supported"
-            | _ -> acc
-            end
-          | _ -> acc
-        ) None lback in
-        let index1  = match init_index with 
-        | Some index -> index
-        | _ -> fail trm_to_change.loc "inline_delay_decl_aux: no assignment was found to the given variable"
-          in
-        let lfront1,lback1 = Tools.split_list_at index1 lback in
-        let assgn_to_change,lback1  = Tools.split_list_at 1 lback1 in
-        let assgn_to_change = List.hd assgn_to_change in
-        begin match assgn_to_change.desc with 
-        | Trm_apps(_, [_; rhs]) ->
-          let vk = if const then Var_immutable else Var_mutable in
-          let inner_type = 
-          begin match tx.typ_desc with
-          | Typ_ptr {ptr_kind=Ptr_kind_mut; inner_typ = ty} -> ty
-          | _ -> tx
-          end in
-          let tx = if const then typ_const inner_type else typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut inner_type in
-          let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
-          let new_trm = trm_let vk (x, tx)  init in
-          trm_seq ~annot:t.annot (lfront @ lfront1 @ [new_trm] @ lback1)
-        | _ -> fail assgn_to_change.loc "inline_delay_decl_aux: something wen't wrong"
-        end
-    | _ -> fail t.loc "inline_delay_decl_aux: target_doesn't point to the right trm, expected a trm_let"
-    end
-  | _ -> fail t.loc "inline_delay_decl_aux: expected the surrounding sequence"
-
-
-let inline_delay_decl (const : bool) (index : int) : Target.Transfo.local =
-  Target.apply_on_path(inline_delay_decl_aux const index)
-
-
-
 (* Global ref to count the number of returns *)
 let nb_returns = ref 0 
 
