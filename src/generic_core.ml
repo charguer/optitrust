@@ -374,30 +374,49 @@ let var_init_detach : Target.Transfo.local =
     return
       the updated
 *)
-let var_init_attach_aux (t : trm) : trm =
-  match t.desc with
+let var_init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
+  let counter = ref 0 in
+  match t.desc with 
   | Trm_seq tl ->
-    (* Assumption: The sequence is of the form
-      {
-        int x;
-        x = 5;
-      }
-    *)
-    let var_decl = List.nth tl 0 in
-    let var_set = List.nth tl 1 in
-    let var_kind, var_name, var_type = begin match var_decl.desc with
-    | Trm_let (vk,(x,tx),_) -> vk, x, tx
-    | _ -> fail t.loc "var_init_attach_aux: sequence does not satisfy the assumption described above"
+    let lfront, lback = Tools.split_list_at index tl in
+    let trm_to_change, lback = Tools.split_list_at 1 lback in
+    let trm_to_change = List.hd trm_to_change in
+    begin match trm_to_change.desc with 
+    | Trm_let (_, (x, tx), _) ->
+        let init_index = Tools.foldi (fun i acc t1 -> 
+          match t1.desc with 
+          | Trm_apps(_,[ls;_]) ->
+            begin match ls.desc with 
+            | Trm_var y when y = x -> 
+              if !counter <= 1 then Some i else fail t1.loc "var_init_attach_aux: cases with more than one occurence are not supported"
+            | _ -> acc
+            end
+          | _ -> acc
+        ) None lback in
+        let index1  = match init_index with 
+        | Some index -> index
+        | _ -> fail trm_to_change.loc "var_init_attach_aux: no assignment was found to the given variable"
+          in
+        let lfront1,lback1 = Tools.split_list_at index1 lback in
+        let assgn_to_change,lback1  = Tools.split_list_at 1 lback1 in
+        let assgn_to_change = List.hd assgn_to_change in
+        begin match assgn_to_change.desc with 
+        | Trm_apps(_, [_; rhs]) ->
+          let vk = if const then Var_immutable else Var_mutable in
+          let inner_type = 
+          begin match tx.typ_desc with
+          | Typ_ptr {ptr_kind=Ptr_kind_mut; inner_typ = ty} -> ty
+          | _ -> tx
+          end in
+          let tx = if const then typ_const inner_type else typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut inner_type in
+          let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
+          let new_trm = trm_let vk (x, tx)  init in
+          trm_seq ~annot:t.annot (lfront @ lfront1 @ [new_trm] @ lback1)
+        | _ -> fail assgn_to_change.loc "var_init_attach: something wen't wrong"
+        end
+    | _ -> fail t.loc "var_init_attach_aux: target_doesn't point to the right trm, expected a trm_let"
     end
-    in
-    let var_init = begin match var_set.desc with
-    | Trm_apps(_, [_;init]) -> init
-    | _ -> fail t.loc "var_init_attach_aux: sequence does not satisfy the assumtion that the second term of the sequence is the set operations"
-    end
-    in
-    trm_let ~loc:t.loc var_kind (var_name, var_type) (trm_apps (trm_prim ~loc:t.loc (Prim_new var_type)) [var_init])
-  | _ -> fail t.loc "var_init_attach_aux: sequence was not matched, make sure the path is correct"
-
+  | _ -> fail t.loc "var_init_attach_axu: expected the surrounding sequence"
 (* [var_init_attach t]: Change a sequence of the form {int x; x = 5;} to int x = 5
     params:
       path_to_seq: path to the sequence which satisfy the assumtion above
@@ -405,8 +424,8 @@ let var_init_attach_aux (t : trm) : trm =
     return
       the updated ast
 *)
-let var_init_attach : Target.Transfo.local =
-  Target.apply_on_path(var_init_attach_aux)
+let var_init_attach (const : bool) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(var_init_attach_aux const index )
 
 
 (* [const_non_const_aux t]: This is an auxiliary function for const_non_const

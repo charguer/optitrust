@@ -27,6 +27,7 @@ let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) 
 
 
 let inline_delay_decl_aux (const : bool ) (index : int) (t : trm) : trm =
+  let counter = ref 0 in
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -38,7 +39,8 @@ let inline_delay_decl_aux (const : bool ) (index : int) (t : trm) : trm =
           match t1.desc with 
           | Trm_apps(_,[ls;_]) ->
             begin match ls.desc with 
-            | Trm_var y when y = x -> Some i
+            | Trm_var y when y = x -> 
+              if !counter <= 1 then Some i else fail t1.loc "inline_delay_decl_aux: cases with more than one occurence are not supported"
             | _ -> acc
             end
           | _ -> acc
@@ -176,3 +178,25 @@ let inline_call_aux (index : int) (name : string) (label : string) (rename : str
 
 let inline_call (index: int) (name : string) (label : string) (rename : string -> string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
   Target.apply_on_path (inline_call_aux index name label rename top_ast p_local)
+
+
+
+let elim_body_aux (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let trm_to_change, lback = Tools.split_list_at 1 lback in
+    let trm_to_change = List.hd trm_to_change in
+    begin match trm_to_change.desc with 
+    | Trm_labelled (_, body) ->
+      begin match body.desc with 
+      | Trm_seq tl1 ->
+        trm_seq ~annot:t.annot (lfront @ tl1 @ lback)
+      | _ -> fail body.loc "elim_body_aux: expected a sequence of terms"
+      end
+    | _ -> fail trm_to_change.loc "elim_body_aux: expcted a labelled block"
+    end
+  | _ -> fail t.loc "elim_body_aux: expected the surrounding sequence"
+
+let elim_body (index : int) : Target.Transfo.local =
+  Target.apply_on_path (elim_body_aux index)

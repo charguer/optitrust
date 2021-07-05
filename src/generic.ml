@@ -5,8 +5,10 @@ open Target
 let var_init_detach : Target.Transfo.t =
   Target.apply_on_target ( Generic_core.var_init_detach)
 
-let var_init_atttach : Target.Transfo.t =
-  Target.apply_on_target (Generic_core.var_init_attach)
+
+let var_init_attach ?(const : bool = false) : Target.Transfo.t = 
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Generic_core.var_init_attach const i t p )
 
 let const_non_const : Target.Transfo.t =
   Target.apply_on_target (Generic_core.const_non_const)
