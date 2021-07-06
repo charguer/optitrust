@@ -76,7 +76,7 @@ let change_variable_names (t : trm ) (surrounding_seq : trm) (rename : string ->
   | _ -> fail t.loc "change_variable_names: expected a function body declaration"
 
 
-let inline_call_aux (index : int) (name : string) (label : string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
+let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -106,6 +106,7 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
    
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
    
+   let name = decl_name trm_to_change in
    
    let labelled_body = trm_labelled label (replace_return "__exit_body" name fun_decl_body) in
    
@@ -113,7 +114,6 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                     | 1 | 0 -> trm_var ""
                     | _ -> trm_labelled "__exit_body" (trm_var "") 
                     end in
-   let save_decl = not (decl_name trm_to_change = name) in
    let inlined_body = begin match fun_decl_type.typ_desc with 
                         | Typ_unit -> (* trm_seq ~annot:(Some No_braces) *) [
                             labelled_body;                         
@@ -123,20 +123,13 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                             labelled_body;
                             exit_label]
                       end in
-      begin match trm_to_change.desc with 
-      | Trm_let (vk, (x, tx) , _) -> 
-        
-        if save_decl then let trm_to_save = trm_let  vk (x, tx) (trm_apps (trm_prim (Prim_new (get_inner_ptr_type tx))) [trm_var name]) in 
-          trm_seq ~annot:t.annot (lfront @ inlined_body @ [trm_to_save] @ lback) 
-        else trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
-      | _ -> trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
-      end
+       trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
           
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 
 
-let inline_call (index: int) (name : string) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
-  Target.apply_on_path (inline_call_aux index name label top_ast p_local)
+let inline_call (index: int) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
+  Target.apply_on_path (inline_call_aux index label top_ast p_local)
 
 let elim_body_aux (rename : string -> string) (index : int) (t : trm) : trm =
   match t.desc with 
