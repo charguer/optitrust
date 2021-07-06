@@ -220,3 +220,5 @@ let failure_expected (f : unit -> unit) : unit =
   try f(); failwith "failure_expected: the operation was supposed to fail but it didn't"
   with _ -> ()
 
+(* A map function implemented by using fold_right to be able to apply the function from the end of the list *)
+let map_rev f l = List.fold_right (fun x acc -> f x :: acc) l []

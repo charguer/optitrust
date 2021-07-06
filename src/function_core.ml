@@ -25,12 +25,9 @@ let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) 
 (* Global ref to count the number of returns *)
 let nb_returns = ref 0
 
-let rec replace_return (exit_label : label) (r : var) (t : trm) : trm =
+(* let rec replace_return (exit_label : label) (r : var) (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl -> 
-    List.fold_right (fun t' acc ->
-      match t'.desc with 
-      | Trm_abort ab ->
+  | Trm_abort ab ->
         begin match ab with 
         | Ret t1 ->
           begin match t1 with 
@@ -39,26 +36,26 @@ let rec replace_return (exit_label : label) (r : var) (t : trm) : trm =
             | Some ty -> 
               let () = nb_returns := !nb_returns + 1 in
               begin match ty.typ_desc with 
-              | Typ_unit -> let acc = Generic_core.change_trm t' (trm_goto exit_label) t in acc
+              | Typ_unit -> trm_goto exit_label 
               | _ ->  
                    Tools.printf "nb_returns: %d\n" !nb_returns;
                     begin match !nb_returns with 
-                    | 1 -> let acc = Generic_core.change_trm t' (trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]) t in acc
-                    | _ -> let acc = Generic_core.change_trm t' (trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]) t in acc
+                    | 1 -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
+                    | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
                     end  
               end
-            | _ -> acc
+            | _ -> t
             end
-          | _ -> let acc = Generic_core.change_trm t' (trm_labelled exit_label t') t in acc
+          | _ -> trm_labelled exit_label (trm_var "")
           end 
-        | _ -> acc 
+        | _ -> t
         end
-      | _ -> let acc = trm_map (replace_return exit_label r ) t in acc  
-    ) tl t
-  | _ -> t
+  | Trm_seq tl -> 
+    List.fold_right (fun t' acc -> let acc = replace_return exit_label r t' in acc) tl t
+  | _ -> t *)
 
 
-(* let replace_return( exit_label : label) (r : var) (t : trm) : trm =
+let replace_return( exit_label : label) (r : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with 
     | Trm_abort ab ->
@@ -84,7 +81,7 @@ let rec replace_return (exit_label : label) (r : var) (t : trm) : trm =
       | _ -> t
       end
     | _ -> trm_map ~rev:true (aux global_trm) t
-  in let t = aux t t in Generic_core.clean_up_no_brace_seq t *)
+  in let t = aux t t in Generic_core.clean_up_no_brace_seq t
 
 (* This function goes through every variable declaration and checks if this variable is already defined somewhere in the top level,
    if this is the case then this variable will be renamed inside the body of the function, after renaming 
@@ -136,17 +133,20 @@ let inline_call_aux (index : int) (name : string) (label : string) (rename : str
    
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
    
+   
+   let labelled_body = trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename )) in
+   
    let exit_label : trm = begin match !nb_returns with
                     | 1 | 0 -> trm_var ""
                     | _ -> trm_labelled "__exit_body" (trm_var "") 
                     end in
    let inlined_body = begin match fun_decl_type.typ_desc with 
                         | Typ_unit -> (* trm_seq ~annot:(Some No_braces) *) [
-                            trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename ));
+                            labelled_body;                         
                             exit_label]
                         | _ -> (* trm_seq ~annot:(Some No_braces) *) [
                             trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
-                            trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename ));
+                            labelled_body;
                             exit_label]
                       end
                     in
