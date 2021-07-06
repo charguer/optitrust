@@ -1157,3 +1157,9 @@ let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes =
     end
     in
   trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
+
+
+let get_inner_ptr_type (ty : typ) : typ =
+  match ty.typ_desc with 
+  | Typ_ptr {inner_typ = ty;_} -> ty
+  | _ -> ty

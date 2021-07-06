@@ -160,7 +160,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
             | Var_immutable -> dx
             | _ -> begin match dx.desc with 
                    | Trm_apps(_, [init]) -> init
-                   | _ -> fail t.loc "fold_aux: expected a new operation"
+                   | _ -> fail t.loc "inline_aux: expected a new operation"
                    end
       end 
        in

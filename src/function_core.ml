@@ -96,6 +96,7 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                    | Trm_let_fun (f, ty, args,body) when f = fun_call_name  -> ty, args, body
                    | _ -> fail fun_decl.loc "inline_call_aux: failed to find the top level declaration of the function"
                    end in
+  
    let fun_decl_arg_vars = List.map trm_var (fst (List.split fun_decl_args)) in
    (* Since there is a chance that there can be arguments which have the same name both on the function call and function definition,
       a replacing of the current args with the function call args with an underscore prefix is needed *)
@@ -112,6 +113,7 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                     | 1 | 0 -> trm_var ""
                     | _ -> trm_labelled "__exit_body" (trm_var "") 
                     end in
+   let save_decl = not (decl_name trm_to_change = name) in
    let inlined_body = begin match fun_decl_type.typ_desc with 
                         | Typ_unit -> (* trm_seq ~annot:(Some No_braces) *) [
                             labelled_body;                         
@@ -121,7 +123,14 @@ let inline_call_aux (index : int) (name : string) (label : string) (top_ast : tr
                             labelled_body;
                             exit_label]
                       end in
-      trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
+      begin match trm_to_change.desc with 
+      | Trm_let (vk, (x, tx) , _) -> 
+        
+        if save_decl then let trm_to_save = trm_let  vk (x, tx) (trm_apps (trm_prim (Prim_new (get_inner_ptr_type tx))) [trm_var name]) in 
+          trm_seq ~annot:t.annot (lfront @ inlined_body @ [trm_to_save] @ lback) 
+        else trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
+      | _ -> trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
+      end
           
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 
