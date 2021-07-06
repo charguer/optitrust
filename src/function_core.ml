@@ -23,37 +23,7 @@ let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) 
   Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
 
 (* Global ref to count the number of returns *)
-let nb_returns = ref 0
-
-(* let rec replace_return (exit_label : label) (r : var) (t : trm) : trm =
-  match t.desc with
-  | Trm_abort ab ->
-        begin match ab with 
-        | Ret t1 ->
-          begin match t1 with 
-          | Some t2 ->
-            begin match t2.typ with 
-            | Some ty -> 
-              let () = nb_returns := !nb_returns + 1 in
-              begin match ty.typ_desc with 
-              | Typ_unit -> trm_goto exit_label 
-              | _ ->  
-                   Tools.printf "nb_returns: %d\n" !nb_returns;
-                    begin match !nb_returns with 
-                    | 1 -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
-                    | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
-                    end  
-              end
-            | _ -> t
-            end
-          | _ -> trm_labelled exit_label (trm_var "")
-          end 
-        | _ -> t
-        end
-  | Trm_seq tl -> 
-    List.fold_right (fun t' acc -> let acc = replace_return exit_label r t' in acc) tl t
-  | _ -> t *)
-
+let nb_seqs = ref 0
 
 let replace_return( exit_label : label) (r : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
@@ -65,11 +35,9 @@ let replace_return( exit_label : label) (r : var) (t : trm) : trm =
         | Some t2 ->
           begin match t2.typ with 
           | Some ty -> 
-            let () = nb_returns := !nb_returns + 1 in
             begin match ty.typ_desc with 
             | Typ_unit -> trm_goto exit_label
-            | _ ->  Tools.printf "counter is equal to %d\n" !nb_returns;
-                    begin match !nb_returns with 
+            | _ ->  begin match !nb_seqs with 
                     | 1 -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
                     | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
                     end  
@@ -80,7 +48,11 @@ let replace_return( exit_label : label) (r : var) (t : trm) : trm =
         end 
       | _ -> t
       end
-    | _ -> trm_map ~rev:true (aux global_trm) t
+    | Trm_seq tl -> 
+            let () = nb_seqs := !nb_seqs + 1 in
+            trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add (Tools.map_rev (aux global_trm) tl)
+    | _ -> trm_map (aux global_trm) t
+    
   in let t = aux t t in Generic_core.clean_up_no_brace_seq t
 
 (* This function goes through every variable declaration and checks if this variable is already defined somewhere in the top level,
@@ -104,7 +76,7 @@ let change_variable_names (t : trm ) (surrounding_seq : trm) (rename : string ->
   | _ -> fail t.loc "change_variable_names: expected a function body declaration"
 
 
-let inline_call_aux (index : int) (name : string) (label : string) (rename : string -> string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
+let inline_call_aux (index : int) (name : string) (label : string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -125,7 +97,7 @@ let inline_call_aux (index : int) (name : string) (label : string) (rename : str
                    | _ -> fail fun_decl.loc "inline_call_aux: failed to find the top level declaration of the function"
                    end in
    let fun_decl_arg_vars = List.map trm_var (fst (List.split fun_decl_args)) in
-   (* Since there is a chance that there can be argument which have the same name both on the function call and function definition,
+   (* Since there is a chance that there can be arguments which have the same name both on the function call and function definition,
       a replacing of the current args with the function call args with an underscore prefix is needed *)
    let fresh_args = List.map Generic_core.fresh_args fun_call_args in
    
@@ -134,9 +106,9 @@ let inline_call_aux (index : int) (name : string) (label : string) (rename : str
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
    
    
-   let labelled_body = trm_labelled label (replace_return "__exit_body" name (change_variable_names fun_decl_body t rename )) in
+   let labelled_body = trm_labelled label (replace_return "__exit_body" name fun_decl_body) in
    
-   let exit_label : trm = begin match !nb_returns with
+   let exit_label = begin match !nb_seqs with
                     | 1 | 0 -> trm_var ""
                     | _ -> trm_labelled "__exit_body" (trm_var "") 
                     end in
@@ -148,19 +120,16 @@ let inline_call_aux (index : int) (name : string) (label : string) (rename : str
                             trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
                             labelled_body;
                             exit_label]
-                      end
-                    in
+                      end in
       trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
           
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 
 
-let inline_call (index: int) (name : string) (label : string) (rename : string -> string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
-  Target.apply_on_path (inline_call_aux index name label rename top_ast p_local)
+let inline_call (index: int) (name : string) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
+  Target.apply_on_path (inline_call_aux index name label top_ast p_local)
 
-
-
-let elim_body_aux (index : int) (t : trm) : trm =
+let elim_body_aux (rename : string -> string) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -168,6 +137,7 @@ let elim_body_aux (index : int) (t : trm) : trm =
     let trm_to_change = List.hd trm_to_change in
     begin match trm_to_change.desc with 
     | Trm_labelled (_, body) ->
+      let body = change_variable_names body t rename in
       begin match body.desc with 
       | Trm_seq tl1 ->
         trm_seq ~annot:t.annot (lfront @ tl1 @ lback)
@@ -177,5 +147,5 @@ let elim_body_aux (index : int) (t : trm) : trm =
     end
   | _ -> fail t.loc "elim_body_aux: expected the surrounding sequence"
 
-let elim_body (index : int) : Target.Transfo.local =
-  Target.apply_on_path (elim_body_aux index)
+let elim_body (rename : string -> string) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (elim_body_aux rename index)
