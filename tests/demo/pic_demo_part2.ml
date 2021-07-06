@@ -2,6 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
+  show [cTopFun "bag_push"; sInstr "= p"];
   !! Struct.inline "pos" [cTypDef "particle"];
   !!! Struct.inline "speed" [cTypDef "particle"];
   !! Struct.set_explicit [cTopFun "bag_push"; sInstr "= p"];

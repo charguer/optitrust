@@ -9,7 +9,7 @@ open Ast
       the updated ast
 *)
 
-let insert_aux (index : int) (s : string) (t : trm): trm =
+let insert_aux (index : int) (s : string) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at index tl in
@@ -22,7 +22,7 @@ let insert_aux (index : int) (s : string) (t : trm): trm =
 
 (* [insert index ts path_to_seq t] *)
 let insert (index : int) (s : string) : Target.Transfo.local =
-  Target.apply_on_path (insert_aux index s) 
+  Target.apply_on_path (insert_aux index s)
 
 (* [delete_aux index nb_instr t]: This function is an auxiliary function for delete
     params:
@@ -58,7 +58,7 @@ let sub_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
       let lfront,lrest = Tools.split_list_at index tl in
       let l_sub,lback = Tools.split_list_at nb lrest in
       let sub_seq = trm_seq  l_sub in
-      let sub_seq = if label <> "" then trm_labelled label sub_seq else sub_seq in 
+      let sub_seq = if label <> "" then trm_labelled label sub_seq else sub_seq in
       let tl = lfront @ [sub_seq] @ lback in
       trm_seq  tl
     | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
@@ -84,7 +84,7 @@ let sub_between_aux (label : string) (index1 : int) (index2 : int) (t : trm) : t
       let lfront, l_sub = Tools.split_list_at index1 lfront in
       (* Create the inner sequence*)
       let sub_seq = trm_seq  l_sub in
-      let sub_seq = if label <> "" then trm_labelled label sub_seq else sub_seq in      
+      let sub_seq = if label <> "" then trm_labelled label sub_seq else sub_seq in
       let tl = lfront @ [sub_seq] @ lback in
       trm_seq  tl
     | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
