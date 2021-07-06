@@ -70,7 +70,7 @@ and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
   | Typ_var of typvar (* e.g. ['a] in the type ['a -> 'a] -- TODO: maybe add a typid? *)
   | Typ_constr of typvar * typid * typ list (* e.g. [int list] or [(int,string) map] or [vect] *)
-  | Typ_auto 
+  | Typ_auto
   | Typ_unit (* void *)
   | Typ_int
   | Typ_float
@@ -634,11 +634,11 @@ let trm_map ?(rev : bool = false) (f : trm -> trm) (t : trm) : trm =
     trm_let ~annot ~loc ~is_statement ~add  vk tv (f init)
   | Trm_let_fun (f',res,args,body) ->
     trm_let_fun ~annot ~loc ~is_statement ~add f' res args (f body)
-  | Trm_if (cond, then_, else_) ->
-     let cond' = f cond in
-     let then_' = f then_ in
-     let else_' = f else_ in
-     trm_if ~annot ~loc ~add cond' then_' else_'
+    | Trm_if (cond, then_, else_) ->
+      let cond' = f cond in
+      let then_' = f then_ in
+      let else_' = f else_ in
+      trm_if ~annot ~loc ~add cond' then_' else_'
   | Trm_seq tl ->
      if rev then trm_seq ~annot ~loc ~add (Tools.map_rev f tl)
       else trm_seq ~annot ~loc ~add (List.map f tl)
@@ -1160,6 +1160,6 @@ let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes =
 
 
 let get_inner_ptr_type (ty : typ) : typ =
-  match ty.typ_desc with 
+  match ty.typ_desc with
   | Typ_ptr {inner_typ = ty;_} -> ty
   | _ -> ty
