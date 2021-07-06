@@ -64,10 +64,15 @@ let set_explicit_aux (t: trm) : trm =
         trm_seq ~annot:t.annot exp_assgn
       | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
-    | _ -> fail t.loc "set_explicit_aux: other expressions are not supported" 
-      
+    | _ -> let exp_assgn = List.map (fun sf ->
+            let new_f = trm_unop (Unop_struct_get sf) in
+              trm_set (trm_apps ~annot:(Some Access) new_f [lt]) (trm_apps ~annot:(Some Access) new_f [rt])
+              ) field_list in
+            trm_seq ~annot: t.annot exp_assgn
     end
-  | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
+  | _ -> 
+    Ast_to_text.print_ast ~only_desc:true stdout t;
+    fail t.loc "set_explicit_aux: this expression is not supported"
   
 (* [set_explicit field_list t p] *)
 let set_explicit : Target.Transfo.local =
@@ -267,7 +272,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
             | Typ_array (_, size) -> (field_to_inline ^ "_" ^ x, (typ_array typ size))
             | _ -> (field_to_inline ^ "_" ^ x, typ)) inner_type_field_list in
             
-       let field_list = List.rev (lfront1 @ inner_type_field_list @ lback1) in
+       let field_list = List.rev  (lfront1 @ (List.rev inner_type_field_list) @ lback1) in
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
        let new_trm = trm_typedef new_typedef in
        let lback = List.map (inline_struct_access field_to_inline) lback in

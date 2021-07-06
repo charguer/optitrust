@@ -11,7 +11,6 @@ const int nbCells = gridSize * gridSize * gridSize;
 // Maximum number of particles per cell
 const int bagCapacity = 100;
 
-const double charge = 1.0;
 // --------- Vector
  
 typedef struct {
@@ -52,13 +51,32 @@ void bag_clear(bag& b) {
 }
 
 
-void bag_transfer(bag& b1, bag& b2) { // transfer from b2 into b1
+void bag_transfer(bag* b1, bag* b2) { // transfer from b2 into b1
+  for (int i = 0; i < b2->nb; i++) {
+    bag_push(b1, b2->items[i]);
+  }
+  bag_clear(b2);
+}
+
+void bag_transfer(bag& b1, bag& b2) {
+  // Move all items from b2 into b1
+  // Note: in the real code, bags are linked lists,
+  // so this operation only involves a pointer assignment,
+  // not a deep copy of an array.
   for (int i = 0; i < b2.nb; i++) {
     bag_push(b1, b2.items[i]);
   }
   bag_clear(b2);
 }
+// --- Data structures
 
+// in the real code, the charge is associated not to each cell,
+// but to each corner of a cell in the grid
+
+vect fields[nbCells];
+double nextCharge[nbCells];
+bag bagsCur[nbCells];
+bag bagsNext[nbCells];
 
 // --------- Grid Representation
 
@@ -93,24 +111,15 @@ int main() {
       vect field = fields[idCell];
 
       // Foreach particle in the cell considered
-      bag& b = bagsCur[idCell];
+      bag& b = &bagsCur[idCell];
       int nb = b.nb;
       for (int idParticle = 0; idParticle < nb; idParticle++) {
         // Read the particle in memory
         particle& p = b.items[idParticle];
         
         // Compute the new speed and position for the particle
-        vect speed2; 
-        speed2.x = p.speed.x + charge * field.x;
-        speed2.y = p.speed.y + charge * field.y;
-        speed2.z = p.speed.z + charge * field.z;
-        
-        vect pos2;
-        pos2.x = p.speed.x + step_duration * field.x;
-        pos2.y = p.speed.y + step_duration * field.y;
-        pos2.z = p.speed.z + step_duration * field.z;
-
-        // vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
+        vect speed2 = vect_add(p.speed, field); 
+        vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
         // Deposit the unit charge of the particle in array "nextCharge"
         int idCell2 = idCellOfPos(pos2);
@@ -118,17 +127,7 @@ int main() {
 
         // Write the updated particle in the bag associated with its new cell
         particle p2 = { speed2, pos2 };
-        bag b2 = bagsNext[idCell2];
-        int k = b.nb;
-        b2.items[k].pos.x = p2.pos.x;
-        b2.items[k].pos.y = p2.pos.y;
-        b2.items[k].pos.z = p2.pos.z;
-        b2.items[k].speed.x = p2.speed.x;
-        b2.items[k].speed.y = p2.speed.y;
-        b2.items[k].speed.z = p2.speed.z;
-        b2.nb++;
-        // bag_push(bagsNext[idCell2], p2);
-
+        bag_push(bagsNext[idCell2], p2);
       }
 
       // At the end of the time step, clear the contents of the bag

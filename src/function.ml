@@ -31,8 +31,7 @@ let elim_body (rename : string -> string): Target.Transfo.t =
     (fun (p, i) t  -> Function_core.elim_body rename i t p)
 
 let inline ?(name_result : string = "r") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") (tg : Target.target) : unit =
-  
   inline_call ~name_result ~label tg;
   elim_body rename [Target.cLabel label];
   Generic.var_init_attach [Target.cVarDef name_result];
-  Variable.inline [Target.cVarDef name_result];
+  Variable.inline ~delete_decl:true [Target.cVarDef name_result];
