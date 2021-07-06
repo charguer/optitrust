@@ -17,7 +17,20 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
      else t) t fresh_names)
 
 (* TODO: Support better the case when the target depends on the context or on the argumetns *)
-let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.target) : unit =
+let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.target) : unit = 
+  let counter = ref (-1) in
+  Target.apply_on_transformed_targets(Generic_core.get_call_in_surrounding_seq)
+    (fun (p, p_local, i) t ->
+     let t = Function_core.bind_intro i fresh_name false p_local t p in
+     Tools.foldi (fun n t fresh_name -> 
+     if fresh_name <> "" then
+     let ()  = counter := !counter+1 in 
+     Function_core.bind_intro (i + !counter)  fresh_name true (p_local @ [Dir_arg n]) t p
+     else t) t inner_fresh_names) tg
+    
+
+
+let bind1 (fresh_name : string) (inner_fresh_names : var list) (tg : Target.target) : unit =
   bind_args inner_fresh_names tg;
   bind_intro ~const:false ~fresh_name tg
 

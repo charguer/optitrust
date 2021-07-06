@@ -25,7 +25,34 @@ let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) 
 (* Global ref to count the number of returns *)
 let nb_seqs = ref 0
 
-let replace_return( exit_label : label) (r : var) (t : trm) : trm =
+let replace_return (exit_label : label) (r : var) (t : trm) : trm =
+  let rec aux (is_terminal : bool) (global_trm : trm) (t : trm) : trm = 
+    match t.desc with 
+    | Trm_abort ab ->
+      begin match ab with 
+      | Ret t1 ->
+        begin match t1 with 
+        | Some t2 ->
+          begin match t2.typ with 
+          | Some ty -> 
+            begin match ty.typ_desc with 
+            | Typ_unit -> trm_goto exit_label
+            | _ ->  begin match is_terminal with 
+                    | true -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
+                    | false -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
+                    end  
+            end
+          | _ -> fail t.loc "replace_return: something went wrong"
+          end
+        | _ -> trm_labelled exit_label t
+        end 
+      | _ -> t
+      end
+      | _ -> trm_map (aux false global_trm) t
+      in aux true t t
+
+
+let replace_return_old( exit_label : label) (r : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with 
     | Trm_abort ab ->
@@ -107,7 +134,7 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
    
    let name = decl_name trm_to_change in
-   
+
    let labelled_body = trm_labelled label (replace_return "__exit_body" name fun_decl_body) in
    
    let exit_label = begin match !nb_seqs with

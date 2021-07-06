@@ -616,8 +616,71 @@ let rec compute_accesses (t : trm) : trm * (trm_access list) =
      (base, Array_access i :: al)
   | _ -> (t, [])
 
-
-
+let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
+  let annot = t.annot in
+  let loc = t.loc in
+  let add = t.add in
+  let is_statement = t.is_statement in
+  let typ = t.typ in
+  match t.desc with 
+  | Trm_array tl -> 
+    trm_array ~annot ~loc ~add ~typ (List.map (f false) tl)
+  | Trm_struct tl ->
+    trm_struct ~annot ~loc ~add ~typ (List.map (f false) tl)
+  | Trm_let (vk, tv, init) ->
+    trm_let ~annot ~loc ~is_statement ~add vk tv (f false init)
+  | Trm_let_fun (f', res, args, body) ->
+    trm_let_fun ~annot ~loc ~is_statement ~add f' res args (f false body) 
+  | Trm_if (cond, then_, else_) ->
+    let cond' = f false cond in
+    let then_' = f is_terminal then_ in
+    let else_' = f is_terminal else_ in
+    trm_if ~annot ~loc ~add cond' then_' else_' 
+  | Trm_seq tl ->
+    let n = List.length tl in
+    let tl' = List.mapi(fun i tsub ->
+      let sub_is_terminal = is_terminal && i == n-1 in
+      f sub_is_terminal tsub  
+    ) tl in
+    trm_seq tl'
+  | Trm_apps (f', args) ->
+    let f'' = f false f' in
+    let args' = List.map (f false) args in
+     (*
+       warning: f'' may have different type
+       -> print and reparse to have the right type
+      *)
+    trm_apps ~annot ~loc ~is_statement ~add ~typ f'' args'
+  | Trm_while (cond, body) ->
+     let cond' = f false cond in
+     let body' = f false body in
+     trm_while ~annot ~loc ~add cond' body'
+  | Trm_for_c (init, cond, step, body) ->
+     let init' = f false init in
+     let cond' = f false cond in
+     let step' = f false step in
+     let body' = f is_terminal body in
+     trm_for_c~annot ~loc ~add init' cond' step' body'
+  | Trm_for (index, direction, start, stop, step, body) ->
+    trm_for ~annot ~loc ~add index direction start stop step (f is_terminal body)
+  | Trm_switch (cond, cases) ->
+     let cond' = f false cond in
+     let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in
+     trm_switch ~annot ~loc ~add cond' cases'
+  | Trm_abort a ->
+     begin match a with
+     | Ret (Some t') -> trm_abort ~annot ~loc ~add (Ret (Some (f false t')))
+     (* return without value, continue, break *)
+     | _ -> t
+     end
+  | Trm_labelled (l, body) ->
+     trm_labelled ~annot ~loc ~add l (f false body)
+  (* val, var *)
+  | Trm_decoration (left, body, right) ->
+    trm_decoration ~annot ~loc ~add left right (f false body)
+  | Trm_any t ->
+    trm_any ~annot ~loc ~add (f false t)
+  | _ -> t
 (* map f to t's subterms *)
 let trm_map ?(rev : bool = false) (f : trm -> trm) (t : trm) : trm =
   let annot = t.annot in

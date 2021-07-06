@@ -8,9 +8,13 @@ let _ = Run.script_cpp (fun () ->
   !! Function.elim_body (fun s -> s ^ "1") [cLabel "body"];
   !! Generic.var_init_attach [cVarDef "r"];
   !! Variable.inline ~delete_decl:true [cVarDef "r"];
-  (* !! Generic.var_init_detach [cVarDef "speed2"]; *)
-  !! Struct.set_explicit [cVarDef "speed2"];
+  !! Generic.var_init_detach [cVarDef "speed2"];
   !!! Struct.set_explicit [sInstrRegexp ~substr:true "speed2 ="];
+
+  !! Sequence.inline [cSeq ~args:[sInstr "speed2.x = "] ()];
+
+  !! Sequence.inline [cSeq ~args_pred:(Target.target_list_one_st (sInstr "speed2.x=")) ()];
+  (* !!! Struct.set_explicit [sInstrRegexp ~substr:true "speed2 ="];
 
   !! Function.bind "r" ["v3";"v4"] [cFun "vect_mul"];
   !! Function.inline_call ~label:"body" [cFun "vect_mul"];
@@ -29,7 +33,7 @@ let _ = Run.script_cpp (fun () ->
 
 
   !! Function.bind "r" [""; "a"] [cVarDef "pos2"; cFun "vect_mul"];
-  !! Function.inline ~name_result:"r" ~label:"body" [cFun ""];
+  !! Function.inline ~name_result:"r" ~label:"body" [cFun ""]; *)
   (* After adding function inline transformations *)
 
 

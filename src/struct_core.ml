@@ -92,7 +92,7 @@ let set_explicit_aux (t: trm) : trm =
           trm_set (trm_apps new_f  [trm_var x]) (List.nth st i)
         ) field_list in
           let var_decl = trm_let vk (x, tx) (trm_apps (trm_prim (Prim_new (get_inner_ptr_type tx))) []) in
-          trm_seq ~annot:t.annot ([var_decl] @ exp_assgn)
+          trm_seq ~annot:(Some No_braces) ([var_decl] @ exp_assgn)
     
       | _ -> fail t.loc "set_explicit_aux:"
       end

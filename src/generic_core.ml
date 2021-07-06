@@ -357,7 +357,7 @@ let var_init_detach_aux (t : trm) : trm =
         | Trm_apps(_,[init]) -> init
         | _ -> fail t.loc "var_init_detach_aux: expected a heap allocated variable declaration"
         end in
-      trm_seq [
+      trm_seq ~annot:(Some No_braces)[
         trm_let vk (x, tx) (trm_prim (Prim_new tx));
         trm_set (trm_var x) init
       ]
