@@ -43,8 +43,8 @@ let elim_body (rename : string -> string): Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p, i) t  -> Function_core.elim_body rename i t p)
 
-let inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") (inner_fresh_names : var list)(tg : Target.target) : unit =
-  bind name_result inner_fresh_names tg;
+let inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(bind_args : bool = false) (inner_fresh_names : var list) (tg : Target.target) : unit =
+  if bind_args then bind name_result inner_fresh_names tg else ();
   inline_call ~label tg;
   elim_body rename [Target.cLabel label];
   if name_result <> "" 
