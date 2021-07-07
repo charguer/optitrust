@@ -11,14 +11,6 @@ open Ast
  *)
 let set_explicit_aux (t: trm) : trm =
   let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
-  
-  (* let node_context = t.ctx in
-  let typid_to_typedef_map  = begin match node_context with 
-  | Some c -> c.ctx_typedef
-  | None -> fail t.loc "set_explicit_aux, empty node context"
-  end
-  in   *)
-
   match t.desc with 
   | Trm_apps(_, [lt;rt]) ->
     let tid_r = Generic_core.get_typid rt  in 
@@ -74,15 +66,14 @@ let set_explicit_aux (t: trm) : trm =
             trm_seq ~annot: t.annot exp_assgn
     end
   | Trm_let (vk, (x, tx), init) ->
-    Ast_to_text.print_ast ~only_desc:true stdout t;
-     
     let inner_type = get_inner_ptr_type tx in
     let tyid = begin match inner_type.typ_desc with
-    | Typ_constr (typ_name, tid, _) -> Tools.printf "name_of the type is %s with id %d\n" typ_name tid;tid
+    | Typ_constr (_, tid, _) -> tid
     | _-> fail t.loc "set_explicit_aux: expected a variable of construct type" 
     end in
     let struct_def = Typ_map.find tyid typid_to_typedef_map in
     let field_list = Generic_core.get_field_list struct_def in
+    
     begin match init.desc with 
     | Trm_apps(_ , [base]) ->
       begin match base.desc with  
@@ -91,9 +82,10 @@ let set_explicit_aux (t: trm) : trm =
          let new_f = trm_unop (Unop_struct_get sf) in
           trm_set (trm_apps new_f  [trm_var x]) (List.nth st i)
         ) field_list in
-          let var_decl = trm_let vk (x, tx) (trm_apps (trm_prim (Prim_new (get_inner_ptr_type tx))) []) in
+         
+          let var_decl = trm_let vk (x, tx) (trm_prim  (Prim_new (get_inner_ptr_type tx))) in
           trm_seq ~annot:(Some No_braces) ([var_decl] @ exp_assgn)
-    
+              
       | _ -> fail t.loc "set_explicit_aux:"
       end
     | _ -> fail t.loc "set_explicit_aux: spliting is no allowing for const variables"

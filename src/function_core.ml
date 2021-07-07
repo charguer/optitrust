@@ -45,10 +45,16 @@ let replace_return (exit_label : label) (r : var) (t : trm) : trm =
           let t_assign = trm_set (trm_var r) t1' in
           if is_terminal 
             then t_assign
-            else trm_seq [t_assign; trm_goto exit_label] 
-        | _ ->  trm_goto exit_label
+            else 
+              let () = nb_gotos := !nb_gotos + 1 in
+              trm_seq [t_assign; trm_goto exit_label] 
+        | _ ->  
+            let () = nb_gotos := !nb_gotos + 1 in
+            trm_goto exit_label
         end
-      | _ -> trm_goto exit_label
+      | _ -> 
+          let () = nb_gotos := !nb_gotos + 1 in
+          trm_goto exit_label
       end
     | _-> trm_map_with_terminal is_terminal aux t 
   in aux true t
