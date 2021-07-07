@@ -321,7 +321,6 @@ let extract_variable (index : int) : Target.Transfo.local =
       the updated ast
  *)
  let split_aux (index : int) (t : trm) : trm =
-  Ast_to_text.print_ast ~only_desc:true stdout t;
   match t.desc with
   | Trm_for (loop_index, direction, start, stop, step, body) ->
     begin match body.desc with

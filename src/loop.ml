@@ -51,7 +51,8 @@ let hoist (x_step : var) : Target.Transfo.t =
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 *)
 let split : Target.Transfo.t =
-  Target.apply_on_target_between (fun t (p,i) -> Loop_core.split i t p )
+  Target.apply_on_transformed_targets (Generic_core.get_decl_in_surrounding_loop)
+    (fun (p,i) t -> Loop_core.split i t p )
 
 (* [fusion tg] *)
 let fusion : Target.Transfo.t =
