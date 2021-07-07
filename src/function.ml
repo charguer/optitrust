@@ -43,8 +43,18 @@ let elim_body (rename : string -> string): Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p, i) t  -> Function_core.elim_body rename i t p)
 
-let inline ?(name_result : string = "r") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") (tg : Target.target) : unit =
-  inline_call  ~label tg;
+let inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") (inner_fresh_names : var list)(tg : Target.target) : unit =
+  bind name_result inner_fresh_names tg;
+  inline_call ~label tg;
   elim_body rename [Target.cLabel label];
-  Generic.var_init_attach [Target.cVarDef name_result];
-  Variable.inline ~delete_decl:true [Target.cVarDef name_result];
+  if name_result <> "" 
+    then begin 
+         Generic.var_init_attach [Target.cVarDef name_result];
+         Variable.inline ~delete_decl:true [Target.cVarDef name_result];
+         List.iter (fun binded_arg -> 
+            if binded_arg <> "" 
+              then (Variable.inline ~delete_decl:true [Target.cVarDef binded_arg])
+              else ()) inner_fresh_names
+         end
+    else ()
+                             

@@ -551,13 +551,13 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
                     begin match t.annot with
                     (* if t' was a stack-allocated variable, use t'.f *)
                     | Some Mutable_var_get -> parens (d' ^^ dot ^^ string f)
-                    (* otherwise use t'->f instead of *t'.f *)
-                    | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)
+                    (* otherwise use t'->f instead of *t'.f *) 
+                    | _ -> (* parens (d' ^^ minus ^^ rangle ^^ string f) *)  parens (d' ^^ dot ^^ string f)
                     end
                  (* in the other cases, we simply display t.f *)
                  | _ -> (* TODO: crossing fingers *)
                      (*parens (d ^^ dot ^^ string f)*)
-                    d ^^ dot ^^ string f
+                    d ^^ dot ^^ string f  
                     (* TODO: line above par (d ^^ ... )
 
                       and at top of trm_to_doc, define   let par d = optional_parens ~_avoid_parens d in

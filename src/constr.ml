@@ -578,9 +578,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      begin match t.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t']) ->
         check_constraint c t'
-     | _ -> 
-        Ast_to_text.print_ast ~only_desc:true stdout t;
-        fail t.loc "check_constraint: bad access annotation"
+     | _ -> false
+        (* Ast_to_text.print_ast ~only_desc:true stdout t;
+        fail t.loc "check_constraint: bad access annotation" *)
      end
   | Some Multi_decl ->
      (*

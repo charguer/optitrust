@@ -31,14 +31,14 @@ let set_explicit_aux (t: trm) : trm =
       begin match lt.desc with
       | Trm_apps (f2, [lbase]) ->
         let exp_assgn = List.map (fun (sf, ty) ->
-        let new_f = trm_unop (Unop_struct_get sf) in
-         trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [trm_apps f2 [lbase]]) (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [trm_apps f1 [rbase]])
+        let new_f = trm_unop (Unop_struct_access sf) in
+         trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [trm_apps ~annot:(Some Mutable_var_get) f2 [lbase]]) (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [trm_apps ~annot:(Some Mutable_var_get) f1 [rbase]])
         ) field_list in
        trm_seq ~annot: (Some No_braces) exp_assgn
 
       | _ -> let exp_assgn = List.map(fun (sf, ty) ->
-        let new_f = trm_unop (Unop_struct_get sf) in
-        trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (trm_apps ~annot: (Some Access) ~typ:(Some ty) f1 [trm_apps new_f [rbase]])
+        let new_f = trm_unop (Unop_struct_access sf) in
+        trm_set (trm_apps ~annot:(Some Mutable_var_get) ~typ:(Some ty) new_f [lt]) (trm_apps ~annot: (Some Access) ~typ:(Some ty) f1 [trm_apps ~annot:(Some Mutable_var_get) new_f [rbase]])
         ) field_list in 
         
         trm_seq ~annot:(Some No_braces) exp_assgn
@@ -48,20 +48,20 @@ let set_explicit_aux (t: trm) : trm =
       begin match lt.desc with 
       | Trm_apps (f2, lbase) ->
         let exp_assgn = List.mapi(fun i (sf, ty) ->
-        let new_f = trm_unop (Unop_struct_get sf) in
-        trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) f2 [trm_apps new_f lbase]) (List.nth st i)
+        let new_f = trm_unop (Unop_struct_access sf) in
+        trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) f2 [trm_apps ~annot:(Some Mutable_var_get) new_f lbase]) (List.nth st i)
         ) field_list in
         trm_seq ~annot: (Some No_braces) exp_assgn
       | Trm_var v ->
         let exp_assgn = List.mapi(fun i (sf, ty) ->
-        let new_f = trm_unop (Unop_struct_get sf) in
+        let new_f = trm_unop (Unop_struct_access sf) in
         trm_set (trm_apps ~typ:(Some ty) new_f [trm_var v]) (List.nth st i)
         ) field_list in
         trm_seq ~annot: (Some No_braces) exp_assgn
       | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
     | _ -> let exp_assgn = List.map (fun (sf, ty) ->
-            let new_f = trm_unop (Unop_struct_get sf) in
+            let new_f = trm_unop (Unop_struct_access sf) in
               trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [rt])
               ) field_list in
             trm_seq ~annot: (Some No_braces) exp_assgn
@@ -80,7 +80,7 @@ let set_explicit_aux (t: trm) : trm =
       begin match base.desc with  
       | Trm_struct st ->
          let exp_assgn = List.mapi(fun i (sf, ty) ->
-         let new_f = trm_unop (Unop_struct_get sf) in
+         let new_f = trm_unop (Unop_struct_access sf) in
           trm_set  (trm_apps ~typ:(Some ty) new_f  [trm_var x]) (List.nth st i)
         ) field_list in
          
