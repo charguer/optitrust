@@ -282,6 +282,36 @@ let hoist_aux (x_step : var) (t : trm) : trm =
 let hoist (x_step : var) : Target.Transfo.local =
    Target.apply_on_path (hoist_aux x_step)
 
+let extract_variable_aux (decl_index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_for (index, direction, start, stop, step, body) ->
+    begin match body.desc with 
+    | Trm_seq tl ->
+      let lfront, lback = Tools.split_list_at decl_index tl in
+      let var_decl, lback = Tools.split_list_at 1 lback in
+      let var_decl = begin match var_decl with 
+                     | [vd] -> vd
+                     | _ -> fail t.loc "extract_variable_aux: wrong index"
+                     end in
+      begin match var_decl.desc with 
+      | Trm_let (_, (x, tx), _) -> 
+        let lback = List.map (
+          Generic_core.change_trm (trm_var x) 
+          (trm_apps (trm_binop Binop_array_access) [trm_var x; trm_var index] )
+        ) lback in
+        trm_seq ~annot:(Some No_braces) [
+          trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (get_inner_ptr_type tx) (Trm stop))) (trm_prim (Prim_new (typ_array (get_inner_ptr_type tx) (Trm stop))));
+          trm_for index direction start stop step (trm_seq ~annot:body.annot (lfront @ lback))
+        ]
+      | _ -> fail var_decl.loc "extract_variable_aux: expected the declaration of the variable to be extracted"
+      end
+    | _ -> fail body.loc "exptract_variable_aux: body of the loop should be a sequence"
+    end
+  | _ -> fail t.loc "extract_variable_aux: expected a for loop"
+
+
+let extract_variable (index : int) : Target.Transfo.local =
+  Target.apply_on_path(extract_variable_aux index)
 
 (* split_aux: This is an auxiliary function for split
     params:

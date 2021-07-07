@@ -170,6 +170,12 @@ let get_call_in_surrounding_seq (dl : path) : path * path * int =
   in
   aux [] (List.rev dl)
 
+let get_decl_in_surrounding_loop(dl : path) : path * int =
+    match List.rev dl with 
+    | Dir_seq_nth i :: Dir_body :: dl' -> (List.rev dl', i)
+    | _ -> fail None "get_decl_in_surrounding_loop: empty path"
+
+
 (* compute a fresh variable (w.r.t. t) based on x *)
 let fresh_in (t : trm) (x : var) : var =
   if not (is_used_var_in t x) then x

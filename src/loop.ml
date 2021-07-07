@@ -57,6 +57,10 @@ let split : Target.Transfo.t =
 let fusion : Target.Transfo.t =
   Target.apply_on_target (Loop_core.fusion)
 
+(* [] *)
+let extract_variable : Target.Transfo.t =
+  Target.apply_on_transformed_targets(Generic_core.get_decl_in_surrounding_loop)
+    (fun (p, i) t -> Loop_core.extract_variable i t p)
 
 (* TODO: move to old folder in old_tiling.ml *)
 (*

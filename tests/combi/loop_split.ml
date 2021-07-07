@@ -5,5 +5,6 @@ open Target
  applying loop hoist
 *)
 let _ = Run.script_cpp ( fun _ ->
+  (* !! Loop.split [cAfter *)
   !! Loop.split [cFor "i"];
 )
