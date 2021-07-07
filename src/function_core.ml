@@ -23,64 +23,37 @@ let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) 
   Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
 
 (* Global ref to count the number of returns *)
-let nb_seqs = ref 0
+(* let nb_seqs = ref 0 *)
+let nb_gotos = ref 0
+
+(* let replace_return (exit_label : label) (r : var) (t : trm) : trm =
+  let rec aux (is_terminal : bool) (t : trm) : trm =
+    match t.desc with 
+    | Trm_abort ab ->
+    | _ -> trm_map *)
+
 
 let replace_return (exit_label : label) (r : var) (t : trm) : trm =
-  let rec aux (is_terminal : bool) (global_trm : trm) (t : trm) : trm = 
+  let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with 
     | Trm_abort ab ->
       begin match ab with 
-      | Ret t1 ->
+      | Ret t1 -> 
         begin match t1 with 
         | Some t2 ->
-          begin match t2.typ with 
-          | Some ty -> 
-            begin match ty.typ_desc with 
-            | Typ_unit -> trm_goto exit_label
-            | _ ->  begin match is_terminal with 
-                    | true -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
-                    | false -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
-                    end  
-            end
-          | _ -> fail t.loc "replace_return: something went wrong"
-          end
-        | _ -> trm_labelled exit_label t
-        end 
-      | _ -> t
+          let t1' = (aux false t2) in
+          let t_assign = trm_set (trm_var r) t1' in
+          if is_terminal 
+            then t_assign
+            else trm_seq [t_assign; trm_goto exit_label] 
+        | _ ->  trm_goto exit_label
+        end
+      | _ -> trm_goto exit_label
       end
-      | _ -> trm_map (aux false global_trm) t
-      in aux true t t
+    | _-> trm_map_with_terminal is_terminal aux t 
+  in aux true t
 
 
-let replace_return_old( exit_label : label) (r : var) (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
-    match t.desc with 
-    | Trm_abort ab ->
-      begin match ab with 
-      | Ret t1 ->
-        begin match t1 with 
-        | Some t2 ->
-          begin match t2.typ with 
-          | Some ty -> 
-            begin match ty.typ_desc with 
-            | Typ_unit -> trm_goto exit_label
-            | _ ->  begin match !nb_seqs with 
-                    | 1 -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2]
-                    | _ -> trm_seq ~annot:(Some No_braces) [trm_set (trm_var r) t2; trm_goto exit_label]
-                    end  
-            end
-          | _ -> fail t.loc "replace_return: something went wrong"
-          end
-        | _ -> trm_labelled exit_label t
-        end 
-      | _ -> t
-      end
-    | Trm_seq tl -> 
-            let () = nb_seqs := !nb_seqs + 1 in
-            trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add (Tools.map_rev (aux global_trm) tl)
-    | _ -> trm_map (aux global_trm) t
-    
-  in let t = aux t t in Generic_core.clean_up_no_brace_seq t
 
 (* This function goes through every variable declaration and checks if this variable is already defined somewhere in the top level,
    if this is the case then this variable will be renamed inside the body of the function, after renaming 
@@ -137,8 +110,8 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
 
    let labelled_body = trm_labelled label (replace_return "__exit_body" name fun_decl_body) in
    
-   let exit_label = begin match !nb_seqs with
-                    | 1 | 0 -> trm_var ""
+   let exit_label = begin match !nb_gotos with
+                    | 0  -> trm_var ""
                     | _ -> trm_labelled "__exit_body" (trm_var "") 
                     end in
    let inlined_body = begin match fun_decl_type.typ_desc with 

@@ -681,8 +681,11 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
   | Trm_any t ->
     trm_any ~annot ~loc ~add (f false t)
   | _ -> t
+
+let trm_map (f : trm -> trm) (t : trm) : trm =
+  trm_map_with_terminal false (fun _is_terminal t -> f t) t
 (* map f to t's subterms *)
-let trm_map ?(rev : bool = false) (f : trm -> trm) (t : trm) : trm =
+(* let trm_map ?(rev : bool = false) (f : trm -> trm) (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
   let add = t.add in
@@ -743,7 +746,7 @@ let trm_map ?(rev : bool = false) (f : trm -> trm) (t : trm) : trm =
   | Trm_any t ->
     trm_any ~annot ~loc ~add (f t)
   | _ -> t
-
+*)
 (* same as trm_map for types *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
@@ -754,7 +757,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
-  | _ -> ty
+  | _ -> ty 
 
 (* return the list of var declarations in the list of instructions *)
 let rec var_declarations (tl : trm list) : trm list =

@@ -8,7 +8,7 @@ let _ = Run.script_cpp (fun () ->
   !! Function.elim_body (fun s -> s ^ "1") [cLabel "body"];
   !! Generic.var_init_attach [cVarDef "r"];
   !! Variable.inline ~delete_decl:true [cVarDef "r"];
-  !! Generic.var_init_detach [cVarDef "speed2"];
+  (* !! Generic.var_init_detach [cVarDef "speed2"]; *)
   !!! Struct.set_explicit [sInstrRegexp ~substr:true "speed2 ="];
 
   !! Sequence.inline [cSeq ~args:[sInstr "speed2.x = "] ()];
