@@ -411,7 +411,7 @@ let inline_struct_access (name : var) (field : var) (t : trm) : trm =
         | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
           begin match base.desc with 
           | Trm_var v when v = name ->
-            trm_var (name ^"_"^ field)
+            trm_var (name ^ "_" ^ field)
           | _ -> trm_map (aux global_trm) t
           end
       | _ -> trm_map (aux global_trm) t
