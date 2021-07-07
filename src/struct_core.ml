@@ -11,6 +11,7 @@ open Ast
  *)
 let set_explicit_aux (t: trm) : trm =
   let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
+  
   match t.desc with 
   | Trm_apps(_, [lt;rt]) ->
     let tid_r = Generic_core.get_typid rt  in 
@@ -29,41 +30,41 @@ let set_explicit_aux (t: trm) : trm =
     | Trm_apps(f1, [rbase]) ->
       begin match lt.desc with
       | Trm_apps (f2, [lbase]) ->
-        let exp_assgn = List.map (fun sf ->
+        let exp_assgn = List.map (fun (sf, ty) ->
         let new_f = trm_unop (Unop_struct_get sf) in
-         trm_set (trm_apps ~annot:(Some Access) new_f [trm_apps f2 [lbase]]) (trm_apps ~annot:(Some Access) new_f [trm_apps f1 [rbase]])
+         trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [trm_apps f2 [lbase]]) (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [trm_apps f1 [rbase]])
         ) field_list in
-       trm_seq ~annot: t.annot exp_assgn
+       trm_seq ~annot: (Some No_braces) exp_assgn
 
-      | _ -> let exp_assgn = List.map(fun sf ->
+      | _ -> let exp_assgn = List.map(fun (sf, ty) ->
         let new_f = trm_unop (Unop_struct_get sf) in
-        trm_set (trm_apps new_f [lt]) (trm_apps ~annot: (Some Access) f1 [trm_apps new_f [rbase]])
+        trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (trm_apps ~annot: (Some Access) ~typ:(Some ty) f1 [trm_apps new_f [rbase]])
         ) field_list in 
         
-        trm_seq ~annot:t.annot exp_assgn
+        trm_seq ~annot:(Some No_braces) exp_assgn
       end
     (* If the right hand side is a struct initialization *)
     | Trm_struct st ->
       begin match lt.desc with 
       | Trm_apps (f2, lbase) ->
-        let exp_assgn = List.mapi(fun i sf ->
+        let exp_assgn = List.mapi(fun i (sf, ty) ->
         let new_f = trm_unop (Unop_struct_get sf) in
-        trm_set (trm_apps ~annot:(Some Access) f2 [trm_apps new_f lbase]) (List.nth st i)
+        trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) f2 [trm_apps new_f lbase]) (List.nth st i)
         ) field_list in
-        trm_seq ~annot:t.annot exp_assgn
+        trm_seq ~annot: (Some No_braces) exp_assgn
       | Trm_var v ->
-        let exp_assgn = List.mapi(fun i sf ->
+        let exp_assgn = List.mapi(fun i (sf, ty) ->
         let new_f = trm_unop (Unop_struct_get sf) in
-        trm_set (trm_apps new_f [trm_var v]) (List.nth st i)
+        trm_set (trm_apps ~typ:(Some ty) new_f [trm_var v]) (List.nth st i)
         ) field_list in
-        trm_seq ~annot:t.annot exp_assgn
+        trm_seq ~annot: (Some No_braces) exp_assgn
       | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
-    | _ -> let exp_assgn = List.map (fun sf ->
+    | _ -> let exp_assgn = List.map (fun (sf, ty) ->
             let new_f = trm_unop (Unop_struct_get sf) in
-              trm_set (trm_apps ~annot:(Some Access) new_f [lt]) (trm_apps ~annot:(Some Access) new_f [rt])
+              trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [rt])
               ) field_list in
-            trm_seq ~annot: t.annot exp_assgn
+            trm_seq ~annot: (Some No_braces) exp_assgn
     end
   | Trm_let (vk, (x, tx), init) ->
     let inner_type = get_inner_ptr_type tx in
@@ -78,9 +79,9 @@ let set_explicit_aux (t: trm) : trm =
     | Trm_apps(_ , [base]) ->
       begin match base.desc with  
       | Trm_struct st ->
-         let exp_assgn = List.mapi(fun i sf ->
+         let exp_assgn = List.mapi(fun i (sf, ty) ->
          let new_f = trm_unop (Unop_struct_get sf) in
-          trm_set (trm_apps new_f  [trm_var x]) (List.nth st i)
+          trm_set  (trm_apps ~typ:(Some ty) new_f  [trm_var x]) (List.nth st i)
         ) field_list in
          
           let var_decl = trm_let vk (x, tx) (trm_prim  (Prim_new (get_inner_ptr_type tx))) in
@@ -296,7 +297,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
        let new_trm = trm_typedef new_typedef in
        let lback = List.map (inline_struct_access field_to_inline) lback in
-       let lback = List.map (inline_struct_initialization td.typdef_tconstr (Generic_core.get_field_list struct_def) field_index) lback in
+       let lback = List.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Generic_core.get_field_list struct_def)))) field_index) lback in
        trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)       
       | _ -> fail t.loc "inline_aux: expected a struct "
       end

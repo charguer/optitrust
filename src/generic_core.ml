@@ -285,9 +285,10 @@ let rec aliased_type (x : typvar) (t : trm) : typ option =
   | _ -> None
 
 
-let get_field_list (td : typedef) : var list =
+let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with
-  | Typdef_prod (_, s) -> List.rev (fst (List.split s))
+  | Typdef_prod (_, s) -> List.rev s
+  (* | Typdef_prod (_, s) -> List.rev (fst (List.split s)) *)
   | _ -> fail None "get_field_lists: expected a Typedef_prod"
   end
 

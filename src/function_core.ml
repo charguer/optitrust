@@ -112,16 +112,21 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
    
-   let name = decl_name trm_to_change in
-
-   let labelled_body = trm_labelled label (replace_return "__exit_body" name fun_decl_body) in
-   
    let exit_label = begin match !nb_gotos with
-                    | 0  -> trm_var ""
-                    | _ -> trm_labelled "__exit_body" (trm_var "") 
-                    end in
+                            | 0  -> trm_var ""
+                            | _ -> trm_labelled "__exit_body" (trm_var "") 
+                            end in
+   let name = begin match trm_to_change.desc with 
+              | Trm_let (_, (x, _), _) -> x
+              | _ -> ""
+              end in
+   let labelled_body = begin match name with 
+                       | "" -> trm_labelled label fun_decl_body 
+                       | _ -> trm_labelled label (replace_return "__exit_body" name fun_decl_body)   
+                       end in
    let inlined_body = begin match fun_decl_type.typ_desc with 
-                        | Typ_unit -> (* trm_seq ~annot:(Some No_braces) *) [
+                        | Typ_unit -> (* trm_seq ~annot:(Some No_braces) *) 
+                            [
                             labelled_body;                         
                             exit_label]
                         | _ -> (* trm_seq ~annot:(Some No_braces) *) [
