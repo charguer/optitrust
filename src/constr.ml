@@ -801,6 +801,10 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           (Ast_to_c.ast_to_string ~ast_decode:false t)
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here); *)
+        
+        printf " ~deep:%s\n  ~here:%s\n"
+          (paths_to_string ~sep:"\n   " res_deep)
+          (paths_to_string ~sep:"\n   " res_here);
 
 
       res_deep ++ res_here  (* put deeper nodes first *) in

@@ -7,7 +7,9 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
      let lfront, lback = Tools.split_list_at index tl in
      let instr, lback = Tools.split_list_at 1 lback in
      let instr = List.hd instr in
+     Tools.printf "%s\n" (Ast_to_c.ast_to_string instr);
      let trm_to_apply_changes, _ = Path.resolve_path p_local instr in
+     Tools.printf "resolved_trm %s\n" (Ast_to_c.ast_to_string instr);
      let decl_to_insert = 
       if const then
         trm_let Var_immutable (fresh_name, typ_auto()) trm_to_apply_changes 
@@ -22,8 +24,7 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
 let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
 
-(* Global ref to count the number of returns *)
-(* let nb_seqs = ref 0 *)
+
 let nb_gotos = ref 0
 
 (* let replace_return (exit_label : label) (r : var) (t : trm) : trm =
