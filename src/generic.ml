@@ -72,13 +72,3 @@ let eliminate_goto_next (_ : unit) : unit =
  *)
 
 
-
-(* Check if rule is applicable *)
-(* let is_rule_applicable (t : trm) (p : pat) : bool =
- let rec aux (t : trm) : bool =
-  match t.desc with
-  | Trm *)
-
-
-(* Rewrite rule transformation  *)
-(* let rewrite (pl : target) (rule : base)  *)

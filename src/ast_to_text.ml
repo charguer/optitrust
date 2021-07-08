@@ -27,7 +27,6 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
                end
       in
      let dt = print_typ ~only_desc ty in
-     (* TODO: Fix this later so that the type of pointer isn't printed in a wierd way *)
      node "Typ_ptr" ^^ parens (dpk) ^^dt
   | Typ_array (t, s) ->
      let dt = print_typ ~only_desc t in

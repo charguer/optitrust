@@ -414,7 +414,6 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
 and multi_decl_to_doc (loc : location) (tl : trm list) : document =
- (* TODO: Add support for other cases when multi_decl appears *)
  let get_info (t : trm) : document =
   begin match t.desc with
   | Trm_let (vk, (x, _), init) ->

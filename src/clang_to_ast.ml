@@ -219,7 +219,6 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
       typ_const (typ_ptr Ptr_kind_ref t)
     else
     typ_ptr Ptr_kind_ref t
-  (* TODO: Test references  *)
   | RValueReference  q ->
     let t = translate_qual_type ~loc q in
     if const then
@@ -693,7 +692,6 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
   | Call {callee = f; args = el} ->
     let tf = translate_expr f in
     begin match tf.desc with
-    (* TODO: later think about other cases to handle here *)
     | Trm_var x when Str.string_match (Str.regexp "overloaded=") x 0 ->
         begin match el with
         | [tl;tr] -> trm_set ~loc ~ctx  ~is_statement (translate_expr ~val_t:Lvalue tl) (translate_expr tr)

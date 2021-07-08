@@ -67,7 +67,6 @@ let nbMulti : constr =
 let nbAny : constr =
     Constr_occurences ExpectedAnyNb
 
-(* TODO: rename to nbExactly, which is less cryptic *)
 let nbExact (nb : int) : constr =
     Constr_occurences (ExpectedNb nb)
 

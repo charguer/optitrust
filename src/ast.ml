@@ -358,6 +358,14 @@ type rewrite_rule = {
 (* basic rewrite rules *)
 type base = rewrite_rule list
 
+(* TODO: 
+  type base = 
+  | Base_one of rewrite_rule
+  | Base_group of base list
+*)
+
+
+
 (* pattern instantiation *)
 module Trm_map = Map.Make(String)
 
@@ -1229,3 +1237,12 @@ let get_inner_ptr_type (ty : typ) : typ =
   match ty.typ_desc with
   | Typ_ptr {inner_typ = ty;_} -> ty
   | _ -> ty
+
+(* type instantiation = trm varmap *)
+
+(* Check if rule is applicable *)
+(* let is_rule_applicable (t : trm) (p : pat) : bool =
+  *)
+
+(* Rewrite rule transformation  *)
+(* let rewrite (pl : target) (rule : base)  *)

@@ -1,13 +1,10 @@
 open Optitrust
+open Target
 
-let _ =
-    run
-    ( fun _ ->
-        set_init_source"inline_ref.cpp";
-        inline_decl ~delete_decl:true ~decl_path:[cVarDef "y"] ();
-        (* 
-            Does not work for references
-        *)
-        dump()
-
-    )
+let _ = Run.script_cpp ( fun _ -> 
+  !! Variable.inline ~delete_decl:true [cVarDef "y"];
+  !! Variable.inline ~delete_decl:true [cVarDef "a"];
+  !! Variable.inline ~delete_decl:true [cVarDef "b"];
+  !! Variable.inline ~delete_decl:true [cVarDef "v"];
+)
+    

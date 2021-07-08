@@ -1,12 +1,11 @@
 open Optitrust
 open Target
 
-(* TODO: References aren't yet implemented*)
 
-let _ = Run.script_cpp 
-    ( fun _-> 
-    Declaration.fold [cSet ~lhs:[cVar ~name:"y" ()] ()] ();
-    Declaration.fold [cSet ~lhs:[cVar ~name:"a" ()] ()] ();
-    Declaration.fold [cSet ~lhs:[cVar ~name:"b" ()] ()] ();
-    Declaration.fold [cSet ~lhs:[cVar ~name:"v" ()] ()] ();
+let _ = Run.script_cpp (  fun _-> 
+  !! Variable.fold [cVarDef "y"];
+  !! Variable.fold [cVarDef "a"];
+  !! Variable.fold [cVarDef "b"];
+  !! Variable.fold [cVarDef "v"];
+
 )

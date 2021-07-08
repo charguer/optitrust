@@ -10,7 +10,6 @@ open Ast
 let swap : Target.Transfo.t =
   Target.apply_on_target (Loop_core.swap)
 
-(* TODO: move *)
 
 (* Description of a term as a string (convenient for the user)
    LATER: this type might become generalized in the future. *)
