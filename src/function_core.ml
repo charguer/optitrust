@@ -110,8 +110,9 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    let fresh_args = List.map Generic_core.fresh_args fun_call_args in
    
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fun_decl_arg_vars fresh_args in
-   
+   Tools.printf ("%s\n") (Ast_to_c.ast_to_string fun_decl_body);
    let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
+   Tools.printf ("%s\n") (Ast_to_c.ast_to_string fun_decl_body);
    
    let exit_label = begin match !nb_gotos with
                             | 0  -> trm_var ""

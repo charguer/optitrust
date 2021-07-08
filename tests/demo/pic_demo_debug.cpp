@@ -77,19 +77,35 @@ int main() {
       vect field = fields[idCell];
       bag &b = bagsCur[idCell];
       int nb = b.nb;
+      double speed2_x[nb];
+      double speed2_y[nb];
+      double speed2_z[nb];
+      double pos2_x[nb];
+      double pos2_y[nb];
+      double pos2_z[nb];
       for (int idParticle = 0; (idParticle < nb); idParticle++) {
-        vect speed2;
-        speed2.x = (b.items_speed_x[idParticle] + (charge * field.x));
-        speed2.y = (b.items_speed_y[idParticle] + (charge * field.y));
-        speed2.z = (b.items_speed_z[idParticle] + (charge * field.z));
-        vect pos2;
-        pos2.x = (b.items_speed_x[idParticle] + (step_duration * speed2.x));
-        pos2.y = (b.items_speed_y[idParticle] + (step_duration * speed2.y));
-        pos2.z = (b.items_speed_z[idParticle] + (step_duration * speed2.z));
+        speed2_x[idParticle] =
+            (b.items_speed_x[idParticle] + (charge * field.x));
+        speed2_y[idParticle] =
+            (b.items_speed_y[idParticle] + (charge * field.y));
+        speed2_z[idParticle] =
+            (b.items_speed_z[idParticle] + (charge * field.z));
+      }
+      for (int idParticle = 0; (idParticle < nb); idParticle++) {
+        pos2_x[idParticle] = (b.items_speed_x[idParticle] +
+                              (step_duration * speed2_x[idParticle]));
+        pos2_y[idParticle] = (b.items_speed_y[idParticle] +
+                              (step_duration * speed2_y[idParticle]));
+        pos2_z[idParticle] = (b.items_speed_z[idParticle] +
+                              (step_duration * speed2_z[idParticle]));
+      }
+      for (int idParticle = 0; (idParticle < nb); idParticle++) {
         int idCell2 = idCellOfPos(pos2);
         nextCharge[idCell2] += 1.;
-        particle p2 = {pos2.z, pos2.y, pos2.x, speed2.z, speed2.y, speed2.x};
-        bag& b2 = bagsNext[idCell2];
+        particle p2 = {pos2_z[idParticle],   pos2_y[idParticle],
+                       pos2_x[idParticle],   speed2_z[idParticle],
+                       speed2_y[idParticle], speed2_x[idParticle]};
+        bag &b2 = bagsNext[idCell2];
         int k = b.nb;
         b2.items_pos_x[k] = p2.pos_x;
         b2.items_pos_y[k] = p2.pos_y;

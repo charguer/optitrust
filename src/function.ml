@@ -17,10 +17,12 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
      else t) t fresh_names)
 
 (* TODO: Support better the case when the target depends on the context or on the argumetns *)
-let bind1 (fresh_name : string) (inner_fresh_names : var list) : Target.Transfo.t  = 
+let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool): Target.Transfo.t  = 
   let counter = ref (-1) in
   Target.apply_on_transformed_targets(Generic_core.get_call_in_surrounding_seq)
     (fun (p, p_local, i) t ->
+     if not bind_args then Function_core.bind_intro i fresh_name false p_local t p 
+     else
      let t = Function_core.bind_intro i fresh_name false p_local t p in
      Tools.foldi (fun n t fresh_name -> 
      if fresh_name <> "" then
@@ -43,15 +45,16 @@ let elim_body (rename : string -> string): Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p, i) t  -> Function_core.elim_body rename i t p)
 
-let inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(bind_args : bool = false) (inner_fresh_names : var list) (tg : Target.target) : unit =
-  if bind_args then bind1 name_result inner_fresh_names tg else ();
+let inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(bind_args : bool = false) ?(inner_fresh_names : var list = []) (tg : Target.target) : unit =  
+  bind1 name_result inner_fresh_names bind_args tg;
   inline_call ~label tg;
   elim_body rename [Target.cLabel label];
   if name_result <> "" 
     then begin 
          Generic.var_init_attach [Target.cVarDef name_result];
          Variable.inline ~delete_decl:true [Target.cVarDef name_result];
-         List.iter (fun binded_arg -> 
+         if List.length inner_fresh_names = 0 
+          then () else List.iter (fun binded_arg -> 
             if binded_arg <> "" 
               then (Variable.inline ~delete_decl:true [Target.cVarDef binded_arg])
               else ()) inner_fresh_names

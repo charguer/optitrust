@@ -72,9 +72,9 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
-    trm_for ("c"^index) direction start (trm_var nb_colors) step (
+    trm_for (i_color) direction start (trm_var nb_colors) step (
       trm_seq [
-        trm_for index direction (trm_var i_color) stop (trm_var nb_colors) body
+        trm_for index direction (trm_apps (trm_binop Binop_mul) [trm_var i_color; step]) stop (trm_apps (trm_binop Binop_mul) [trm_var nb_colors; step]) body
       ]
     )
   | _ -> fail t.loc "color_aux: only simple loops are supported"
