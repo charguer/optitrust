@@ -118,8 +118,8 @@ int main() {
       bag_clear(bagsCur[idCell]);
     }
     updateFieldsUsingNextCharge();
-    for (int idCell = 0; (idCell < nbCells); idCell++) {
-      bag_transfer(bagsCur[idCell], bagsNext[idCell]);
-    }
+    // for (int idCell = 0; (idCell < nbCells); idCell++) {
+    //   bag_transfer(bagsCur[idCell], bagsNext[idCell]);
+    // }
   }
 }
