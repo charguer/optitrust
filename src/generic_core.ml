@@ -402,7 +402,7 @@ let var_init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
         ) None lback in
         let index1  = match init_index with 
         | Some index -> index
-        | _ -> fail trm_to_change.loc "var_init_attach_aux: no assignment was found to the given variable"
+        | _ -> fail trm_to_change.loc (Tools.sprintf("var_init_attach_aux: no assignment was found to the given variable %s") x)
           in
         let lfront1,lback1 = Tools.split_list_at index1 lback in
         let assgn_to_change,lback1  = Tools.split_list_at 1 lback1 in

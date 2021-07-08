@@ -16,9 +16,10 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
      Function_core.bind_intro (i + !counter)  fresh_name true (p_local @ [Dir_arg n]) t p
      else t) t fresh_names)
 
+let counter = ref (-1) 
+
 (* TODO: Support better the case when the target depends on the context or on the argumetns *)
 let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool): Target.Transfo.t  = 
-  let counter = ref (-1) in
   Target.apply_on_transformed_targets(Generic_core.get_call_in_surrounding_seq)
     (fun (p, p_local, i) t ->
      if not bind_args then Function_core.bind_intro i fresh_name false p_local t p 
@@ -60,4 +61,24 @@ let inline ?(name_result : string = "") ?(label : string = "body") ?(rename : st
               else ()) inner_fresh_names
          end
     else ()
-                             
+
+let inline1 ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(bind_args : bool = false) ?(inner_fresh_names : var list = []) (tg : Target.target) : unit =
+  Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
+    (fun (p, p_local, i) t -> 
+      let t = Function_core.bind_intro i name_result false p_local t p in
+      let t = if bind_args then Tools.foldi (fun n t fresh_name ->
+        if fresh_name <> "" then
+        let () = counter := !counter+1 in
+        Function_core.bind_intro (i + !counter) fresh_name true ([Dir_body] @ [Dir_arg 0] @ [Dir_arg n]) t p
+        else t) t inner_fresh_names 
+        else t in
+      let t = Function_core.inline_call (i + !counter+1) label t p_local t p in
+      let t = Function_core.elim_body rename (i + !counter + 2) t p  in 
+      if name_result <> "" then 
+          let t = Generic_core.var_init_attach  false (i+(List.length (List.filter (fun x -> x <> "") inner_fresh_names))) t p in
+          Variable_core.inline true [[]] (i+(List.length (List.filter (fun x -> x <> "") inner_fresh_names))) t p
+          if  (List.length inner_fresh_names) = 0 
+            then t 
+            else Tools.foldi (fun n t1 v ->  Variable_core.inline true [[]] (i + n) t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names) 
+        else t
+    ) tg
