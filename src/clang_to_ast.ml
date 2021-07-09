@@ -1057,10 +1057,10 @@ and translate_decl (d : decl) : trm =
           begin match tt.typ_desc with 
           | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tt1} -> begin match tt1.typ_desc with 
                            (* This check is needed because we don't want const regerences to be accessed by using get  *)
-                           | Typ_const _ -> trm_let ~loc Var_mutable (n, tt) (te) 
+                           | Typ_const _ -> trm_let ~loc Var_immutable (n, tt) (te) 
                            | _ -> 
                              add_var n;
-                             trm_let ~loc Var_mutable (n, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) (trm_apps ~annot:(Some As_left_value) (trm_prim ~loc (Prim_new tt)) [te])
+                             trm_let ~loc Var_mutable (n, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) {te with annot = Some As_left_value}
                            end
           | _ -> 
             add_var n;

@@ -89,7 +89,7 @@ and lit_to_doc (l : lit) : document =
   | Lit_unit -> empty
   | Lit_uninitialized ->
      print_info None "lit_to_doc: uninitialized literal should not occur\n";
-     semi
+     at
   | Lit_bool b -> string (string_of_bool b)
   | Lit_int i -> string (string_of_int i)
   | Lit_double f -> string (string_of_float f)
@@ -240,7 +240,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         | Some App_and_set ->
            dattr ^^ apps_to_doc ~is_app_and_set:true f tl ^^ dsemi
         | Some As_left_value ->
-          dattr ^^ apps_to_doc ~as_left_value:true f tl ^^ semi
+          dattr ^^ apps_to_doc ~as_left_value:true f tl 
         | _ ->
            (*
              do not display * operator if the operand is a heap allocated
@@ -321,7 +321,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   | Var_immutable ->
     let dtx = begin match (snd tv).typ_desc with 
               | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx} ->
-                if not !decode then typed_var_to_doc (fst tv, tx) ^^ string "<annotation:&>"
+                if not !decode then typ_to_doc tx ^^ string "<annotation:&>"
                   else typed_var_to_doc tv     
               | _ -> typed_var_to_doc tv 
               end in
@@ -330,12 +330,17 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
       else dtx ^^ initialisation
   | Var_mutable ->
     let dtx = begin match (snd tv).typ_desc with 
-              | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx} ->
-                if not !decode then typed_var_to_doc (fst tv, tx) ^^ string "<annotation:&>"
-                  else typed_var_to_doc tv
               | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_star (snd tv) ->
-                if not !decode then typed_var_to_doc tv 
-                  else typed_var_to_doc (fst tv, tx)
+                begin match tx.typ_desc with 
+                | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx1} ->
+                  if not !decode then typ_to_doc (typ_ptr Ptr_kind_mut tx1) ^^ string "<annotation:&>"
+                    else typed_var_to_doc (fst tv, tx)
+                | _ ->
+                  if not !decode then typ_to_doc (snd tv) 
+                  else typed_var_to_doc (fst tv, tx) 
+                end
+                
+                
               | _ -> typed_var_to_doc tv
               end in
     let d_init = 
@@ -350,7 +355,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
            | _-> init 
            end in
     let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi in
-    if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ string ":" ^^  blank 1 ^^ dtx ^^ initialisation 
+    if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^  blank 1 ^^ dtx ^^ initialisation 
       else dtx ^^ initialisation      
 
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
@@ -523,11 +528,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
            | [t] ->
               let d = trm_to_doc t in
               begin match op with
-              | Unop_get when as_left_value ->
-                if not !decode then 
-                  d
-                else
-                  if display_star then parens(star ^^ d) else d
+              | Unop_get when as_left_value -> d
               | Unop_get ->
                  if not !decode then
                    string "get(" ^^ d ^^ string ")"
