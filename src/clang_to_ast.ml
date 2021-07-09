@@ -1014,6 +1014,12 @@ and translate_decl (d : decl) : trm =
                 args_t
             in
             List.iter (fun (y, ty) -> ctx_var_add y ty) args;
+            
+            List.iter (fun (y, ty) -> begin match ty.typ_desc with 
+            | Typ_ptr _ when not (is_typ_const ty) -> add_var y
+            | _ -> ()
+            end
+            ) args;
             let tb =
               match bo with
               | None -> trm_lit ~loc Lit_uninitialized

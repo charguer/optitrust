@@ -335,8 +335,17 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   | Var_mutable ->
     let dtx = begin match (snd tv).typ_desc with 
               | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_star (snd tv) ->
-                  if not !decode then typ_to_doc tx 
+                  begin match tx.typ_desc with 
+                  | Typ_ptr {ptr_kind = Ptr_kind_ref; _} ->
+                    if not !decode then (typ_to_doc tx)
+                     else typed_var_to_doc (fst tv,tx)
+
+                  | _-> 
+                    if not !decode then typ_to_doc (snd tv) 
                     else typed_var_to_doc (fst tv, tx)
+                  end
+                  
+                  
               | _ -> typed_var_to_doc tv
               end in
     let d_init = 
