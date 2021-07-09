@@ -23,7 +23,7 @@ TARGET="${FILEBASE}_diff.html"
 TITLESTR="OptiTrust_Diff_${FILEBASE}" # TODO: investigate how to make spaces and slash be properly escaped
 
 # Compute diff
-DIFFCODE=`git diff --no-index -U10 ${FILEBASE}_before.cpp ${FILEBASE}_after.cpp | base64 -w 0`
+DIFFCODE=`git diff --ignore-all-space --no-index -U10 ${FILEBASE}_before.cpp ${FILEBASE}_after.cpp | base64 -w 0`
 DIFFSTR="var diffString = window.atob(\"${DIFFCODE}\");"
 
 # Take templace and substitute ${TOOLS_FOLDER}, ${INSERT_TITLE}, and ${INSERT_DIFF}
