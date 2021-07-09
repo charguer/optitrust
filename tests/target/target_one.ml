@@ -44,12 +44,12 @@ let _ = Run.script_cpp (fun () ->
 
   show [sInstr "+= 2"];
   show [nbExact 0; sExpr ~substr:false "+= 2"];
-  show [nbExact 0; sInstr ~substr:false "+= 2"]; 
+  show [nbExact 0; sInstr ~substr:false "+= 2"];
   show [sInstr "r += 2"];
   show [sInstr "i++"];
-  show [nbMulti; sInstrRegexp "int . = .."]; 
+  show [nbMulti; sInstrRegexp "int . = .."];
   show [nbMulti; sInstrRegexp ~substr:true ". = ."];
-  show [nbMulti; sInstrRegexp ~substr:false ". = ."]; 
+  show [nbMulti; sInstrRegexp ~substr:false ". = ."];
 )
  (*
   show [sInstr ~substr:tru  (* TODO: ARTHUR: specify different what should be "instructions" *)

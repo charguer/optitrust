@@ -1,7 +1,7 @@
 
 int ref_on_mutable_int() {
   int x = 3;
-  int& rx = x;
+  int& rx7 = x;
   rx = 4;
   return rx;
 }
@@ -61,11 +61,58 @@ int ref_on_field() {
     }
 */
 
+/* Discussion on the interpretation of the int[2] type.
+
+  C: int x = 3
+
+  OCaml: let x = ref 3
+
+  OCaml:let x = Array.make 1 3
+
+  Optitrust: int* x = new int(3)
+
+  ---
+
+   C: int x[2] = { 2, 3 }
+
+   OCaml: let x = Array.init 2 (fun i -> List.nth i [2;3])
+
+   // int* x = new int[2](2,3)
+   Optitrust: "int[2]" x = new int[2]({4, 5});
+
+  int[2]  <->  int* const  with the invariant that there are 2 cells
+
+
+  array_access(int* t, int i);
+  array_access(int[n] t, int i);
+
+  ----
+
+  int x = 2;
+  int* p = &x;
+  p = &y
+
+  -->
+
+  int* x = new int 2
+  int **p = < annotation : addressof >new (int*)(x)
+
+  -------
+  int[2] t = { 2 , 3 }
+
+  int t0 = 2;
+  int t1 = 3;
+  int* const t = t0;
+
+
+*/
+
 
 
 int ref_on_mutable_int_cell() {
   int t[2] = { 4, 5 };
-  int* const p0 = &t[0]; // TODO: there should be no double star
+  int* const p0 = &t[0];
+    // TODO:  let p0 : int* const =
   int& r0 = t[0];
   // *p0 = 6; /* Error when parsed:"read-only variable is not assignable" */
   r0 = 7;
@@ -85,7 +132,9 @@ int ref_on_mutable_int_cell() {
 */
 
 int ref_on_immutable_int_cell() {
-  int const t[2] = { 4, 5 }; // TODO: same here, no double star
+    //TODO:check? the interpretation of int const t[2]
+    // to decide how it should be transated
+  int const t[2] = { 4, 5 };
   int const& r0 = t[0];
 
   vect const v[2] = { { 2, 3 }, { 4, 5 } };
@@ -137,6 +186,9 @@ int main() {
   int* b = new int 4;
   let c : int = 5
   ref_argument(a, virtual_get(b), c);
+
+  // because ref_argument takes x as reference,
+  // we have as argument to the call "a" and not "get(a)".
 
   // the "virtual_get" operation provides a "constant"
   representation of a mutable object, over a specific scope

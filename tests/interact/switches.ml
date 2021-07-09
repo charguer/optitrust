@@ -10,7 +10,7 @@ open Target
 let _ = Run.script_cpp (fun () ->
 
   !! Label.add "r0" [cVarDef "a"];
-  Trace.switch [
+  Trace.switch ~only_branch:1 [
     (fun () ->
         !! Label.add "m1" [cVarDef "b"]);
     (fun () ->
