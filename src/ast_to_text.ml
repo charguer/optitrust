@@ -316,6 +316,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
          | Main_file -> string "Main_file"
          | Grouped_binding -> string "Grouped_binding"
          | Mutable_var_get -> string "Mutable_var_get"
+         | As_left_value -> string "As_left_value"
          end
       end
     in

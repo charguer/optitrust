@@ -234,6 +234,7 @@ let annot_to_string (t : trm) : string =
      | Include h -> quote "Include" ^ " " ^ h
      | Main_file -> quote "Main_file"
      | Mutable_var_get -> quote "Mutable_var_get"
+     | As_left_value -> quote "As_left_value"
      end
   end
 

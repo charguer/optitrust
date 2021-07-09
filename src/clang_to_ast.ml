@@ -1060,7 +1060,7 @@ and translate_decl (d : decl) : trm =
                            | Typ_const _ -> trm_let ~loc Var_mutable (n, tt) (te) 
                            | _ -> 
                              add_var n;
-                             trm_let ~loc Var_mutable (n, tt) (te)
+                             trm_let ~loc Var_mutable (n, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) (trm_apps ~annot:(Some As_left_value) (trm_prim ~loc (Prim_new tt)) [te])
                            end
           | _ -> 
             add_var n;

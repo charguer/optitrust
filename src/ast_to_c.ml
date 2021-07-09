@@ -22,7 +22,8 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_ptr { ptr_kind = pk; inner_typ = t} ->
     begin match pk with
     | Ptr_kind_mut -> typ_to_doc t ^^ star
-    | Ptr_kind_ref -> typ_to_doc t ^^ if !decode then ampersand else (string "(" ^^ ampersand ^^ string ")")
+    (* | Ptr_kind_ref -> typ_to_doc t ^^ if !decode then ampersand else (string "(" ^^ ampersand ^^ string ")") *)
+    | Ptr_kind_ref -> typ_to_doc t ^^ ampersand 
     end
   | Typ_array (t, s) ->
      let d = typ_to_doc t in
@@ -88,7 +89,7 @@ and lit_to_doc (l : lit) : document =
   | Lit_unit -> empty
   | Lit_uninitialized ->
      print_info None "lit_to_doc: uninitialized literal should not occur\n";
-     at
+     semi
   | Lit_bool b -> string (string_of_bool b)
   | Lit_int i -> string (string_of_int i)
   | Lit_double f -> string (string_of_float f)
@@ -238,6 +239,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         begin match t.annot with
         | Some App_and_set ->
            dattr ^^ apps_to_doc ~is_app_and_set:true f tl ^^ dsemi
+        | Some As_left_value ->
+          dattr ^^ apps_to_doc ~as_left_value:true f tl ^^ semi
         | _ ->
            (*
              do not display * operator if the operand is a heap allocated
@@ -312,50 +315,43 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string code ^^ hardline
      end
 
-and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
+and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 
   let dsemi = if semicolon then semi else empty in
-  let dtx,d_init = match varkind with
-  | Var_immutable -> typed_var_to_doc ~const:false tv, init
+  match varkind with 
+  | Var_immutable ->
+    let dtx = begin match (snd tv).typ_desc with 
+              | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx} ->
+                if not !decode then typed_var_to_doc (fst tv, tx) ^^ string "<annotation:&>"
+                  else typed_var_to_doc tv     
+              | _ -> typed_var_to_doc tv 
+              end in
+    let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc init ^^ dsemi in 
+    if not !decode then string "let" ^^blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^ blank 1 ^^ dtx ^^ initialisation
+      else dtx ^^ initialisation
   | Var_mutable ->
-    let (x, typ) = tv in
-    let tv =
-      if not !decode then  begin match typ.typ_desc with
-        | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = _tx} -> (x,typ)
-           (* Trick: we print & to mean that we have to print back a reference in the c code,
-              but it has no semantics meaning *)
-        | _ -> (x, typ)
-        end
-      else
-        begin match typ.typ_desc with
-          | Typ_ptr { ptr_kind = Ptr_kind_mut; inner_typ = tx}  when is_generated_star typ  -> (x, tx)
-          | _ -> (x, typ)
-          (* | _ -> Tools.printf "Type is %s\n" (Ast_to_text.typ_to_string typ);
-            fail None "trm_let_to_doc: expected a type ptr" *)
-        end
-    in
-    let init =
-      if not !decode then init
-      else begin match init.desc with
-        | Trm_apps(_, [value]) -> value
-        | Trm_decoration(ls, init1, rs) ->
-           begin match init1.desc with
-           | Trm_apps(_, [value]) -> trm_decoration ls rs value
-           | _ -> init1
-           end
-        | _ -> init
-      end
-    in
-    if not !decode
-      then typed_var_to_doc ~const:false tv, init (* LATER: factorize with Var_immutable *)
-    else typed_var_to_doc  ~const:false tv, init
-    in
-  let initialisation =
-    match init.desc with
-    | Trm_val (Val_lit Lit_uninitialized) -> dsemi
-    | Trm_val(Val_prim(Prim_new _)) -> dsemi
-    | _ -> blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi
-  in
-  dtx ^^ initialisation
+    let dtx = begin match (snd tv).typ_desc with 
+              | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx} ->
+                if not !decode then typed_var_to_doc (fst tv, tx) ^^ string "<annotation:&>"
+                  else typed_var_to_doc tv
+              | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_star (snd tv) ->
+                if not !decode then typed_var_to_doc tv 
+                  else typed_var_to_doc (fst tv, tx)
+              | _ -> typed_var_to_doc tv
+              end in
+    let d_init = 
+    if not !decode  then init
+      else begin match init.desc with 
+           | Trm_apps (_, [value]) -> value
+           | Trm_decoration (ls, init1, rs) ->
+              begin match init1.desc with 
+              | Trm_apps(_, [value])  -> trm_decoration ls rs value
+              | _ -> init1
+              end
+           | _-> init 
+           end in
+    let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi in
+    if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ string ":" ^^  blank 1 ^^ dtx ^^ initialisation 
+      else dtx ^^ initialisation      
 
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
@@ -477,7 +473,7 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
     dtype ^^ blank 1 ^^ dnames ^^ semi *)
 
 (* display_star: true if f is get and we should display it *)
-and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
+and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false)
   (f : trm) (tl : trm list) : document =
   match f.desc with
   (* NOTE: in C, we don't apply arbitrary terms to terms, functions can only
@@ -527,6 +523,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false)
            | [t] ->
               let d = trm_to_doc t in
               begin match op with
+              | Unop_get when as_left_value ->
+                if not !decode then 
+                  d
+                else
+                  if display_star then parens(star ^^ d) else d
               | Unop_get ->
                  if not !decode then
                    string "get(" ^^ d ^^ string ")"

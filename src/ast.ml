@@ -213,7 +213,7 @@ and trm_annot =
   | Main_file
   | Grouped_binding (* Used for trms of the form int x = 3, y = 4 *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
-
+  | As_left_value (* Used for reference encoding *)
 (* symbols to add while printing a C++ program. TODO: document *)
 and print_addition =
   | Add_address_of_operator
