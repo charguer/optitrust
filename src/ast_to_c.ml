@@ -348,18 +348,20 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
                   
               | _ -> typed_var_to_doc tv
               end in
-    let d_init = 
-    if not !decode  then init
+    let d_init, is_initialized  = 
+    
+    if not !decode  then init, true
       else begin match init.desc with 
-           | Trm_apps (_, [value]) -> value
+           | Trm_apps (_, [value]) -> value, true
            | Trm_decoration (ls, init1, rs) ->
               begin match init1.desc with 
-              | Trm_apps(_, [value])  -> trm_decoration ls rs value
-              | _ -> init1
+              | Trm_apps(_, [value])  -> trm_decoration ls rs value, true
+              | _ -> init1, true
               end
-           | _-> init 
+            | Trm_val(Val_prim(Prim_new _)) -> trm_var "", false
+           | _-> init, true 
            end in
-    let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi in
+    let initialisation = blank 1 ^^ (if is_initialized then equals else empty) ^^ blank 1 ^^ trm_to_doc d_init ^^ dsemi in
     if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^  blank 1 ^^ dtx ^^ initialisation 
       else dtx ^^ initialisation      
 
