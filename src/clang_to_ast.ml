@@ -208,7 +208,6 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
   match d with
   | Pointer q ->
     let t = translate_qual_type ~loc q in
-    let {const;_} = q in
     if const then
       typ_const (typ_ptr Ptr_kind_mut t)
     else
@@ -307,6 +306,9 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
                        "enums")
     end
   | _ -> fail loc "translate_type_desc: not implemented"
+
+and is_qual_type_const (q : qual_type) : bool =
+  let {const;_} = q in const 
 
 and translate_qual_type ?(loc : location = None) (q : qual_type) : typ =
   let ({desc = d; const = c; _} : qual_type) = q in
@@ -1022,8 +1024,17 @@ and translate_decl (d : decl) : trm =
       |_ -> fail loc "translate_decl: should not happen"
     end
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
-    let {const;_} = t in
     let tt = translate_qual_type ~loc t in
+    let const = begin match tt.typ_desc with 
+                | Typ_ptr {inner_typ = tx;_} ->
+                  begin match tx.typ_desc with
+                  | Typ_const _ -> true
+                  | _ -> false
+                  end
+                | Typ_const _ -> true
+                | _ -> false
+                end in
+    (* Tools.printf("Is type const: %s, %s\n") (string_of_bool const) (Ast_to_text.typ_to_string ~only_desc:true  tt); *)
     let te =
       begin match eo with
       | None ->
