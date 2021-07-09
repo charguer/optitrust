@@ -7,7 +7,7 @@ open Ast
 let decode = ref true
 
 (* translate an ast to a C/C++ document *)
-let rec typ_desc_to_doc (t : typ_desc) : document =
+let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
   match t with
   | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const "
   | Typ_const t -> string " const "  ^^ typ_to_doc t
@@ -21,9 +21,15 @@ let rec typ_desc_to_doc (t : typ_desc) : document =
   | Typ_char -> string "char"
   | Typ_ptr { ptr_kind = pk; inner_typ = t} ->
     begin match pk with
-    | Ptr_kind_mut -> typ_to_doc t ^^ star
-    (* | Ptr_kind_ref -> typ_to_doc t ^^ if !decode then ampersand else (string "(" ^^ ampersand ^^ string ")") *)
-    | Ptr_kind_ref -> typ_to_doc t ^^ ampersand 
+    | Ptr_kind_mut -> 
+      typ_to_doc t ^^ star
+    | Ptr_kind_ref ->
+      if not !decode then 
+        begin match const with 
+        | true -> typ_to_doc t ^^ string "<annotation:&>"
+        | false -> typ_to_doc t ^^ star ^^ string "<annotation:&>"
+        end
+      else typ_to_doc t ^^ ampersand 
     end
   | Typ_array (t, s) ->
      let d = typ_to_doc t in
@@ -43,8 +49,8 @@ and typ_annot_to_doc (a : typ_annot) : document =
   | Long -> string "long"
   | Short -> string "short"
 
-and typ_to_doc (t : typ) : document =
-  let d = typ_desc_to_doc t.typ_desc in
+and typ_to_doc ?(const : bool = false) (t : typ) : document =
+  let d = typ_desc_to_doc ~const t.typ_desc in
   let dannot =
     List.fold_left (fun d' a -> typ_annot_to_doc a ^^ blank 1 ^^ d') empty
       t.typ_annot
@@ -57,7 +63,7 @@ and typ_to_doc (t : typ) : document =
   dattr ^^ dannot ^^ d
 
 and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
-  let const_string = if const then blank 1 ^^ string " const " ^^ blank 1 else empty in
+  let const_string = if false then blank 1 ^^ string " const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
       match s with
@@ -82,7 +88,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
-  | _ -> const_string ^^ typ_to_doc t ^^ blank 1 ^^ string x
+  | _ -> const_string ^^ typ_to_doc ~const t ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =
   match l with
@@ -184,7 +190,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
                    is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
                    attributes = []}
      in
-     let body = if !decode then parens (ampersand ^^ d) else d in
+     let body = if !decode then parens (ampersand ^^ d) 
+                (* else string "<" ^^ string "annotation" ^^ colon ^^ string "addressof" ^^ string ">" ^^ d in *)
+                else string "<annotation:addressof>" ^^ d in
      dattr ^^ body ^^ dsemi
   | Add_star_operator :: addl when !decode ->
      let d =
@@ -319,28 +327,16 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   let dsemi = if semicolon then semi else empty in
   match varkind with 
   | Var_immutable ->
-    let dtx = begin match (snd tv).typ_desc with 
-              | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx} ->
-                if not !decode then typ_to_doc tx ^^ string "<annotation:&>"
-                  else typed_var_to_doc tv     
-              | _ -> typed_var_to_doc tv 
-              end in
+    let dtx = if not !decode then typ_to_doc ~const:true (snd tv) 
+                else typed_var_to_doc tv in
     let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ trm_to_doc init ^^ dsemi in 
     if not !decode then string "let" ^^blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^ blank 1 ^^ dtx ^^ initialisation
       else dtx ^^ initialisation
   | Var_mutable ->
     let dtx = begin match (snd tv).typ_desc with 
               | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_star (snd tv) ->
-                begin match tx.typ_desc with 
-                | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tx1} ->
-                  if not !decode then typ_to_doc (typ_ptr Ptr_kind_mut tx1) ^^ string "<annotation:&>"
+                  if not !decode then typ_to_doc tx 
                     else typed_var_to_doc (fst tv, tx)
-                | _ ->
-                  if not !decode then typ_to_doc (snd tv) 
-                  else typed_var_to_doc (fst tv, tx) 
-                end
-                
-                
               | _ -> typed_var_to_doc tv
               end in
     let d_init = 
@@ -361,7 +357,8 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
-  let argd = separate (comma ^^ blank 1) (List.map typed_var_to_doc tvl) in
+  let argd = separate (comma ^^ blank 1) (List.map (fun tv -> 
+    if is_typ_const (snd tv) then typed_var_to_doc ~const:true tv else typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   begin match b.desc with
   | Trm_val (Val_lit Lit_uninitialized) ->

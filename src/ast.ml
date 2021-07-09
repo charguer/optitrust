@@ -1238,6 +1238,23 @@ let get_inner_ptr_type (ty : typ) : typ =
   | Typ_ptr {inner_typ = ty;_} -> ty
   | _ -> ty
 
+
+let is_typ_const (t : typ) : bool = 
+  begin match t.typ_desc with 
+  | Typ_ptr {inner_typ = tx;_} ->
+    begin match tx.typ_desc with
+    | Typ_const _ -> true
+    | _ -> false
+    end
+  | Typ_array (tx, _) ->
+    begin match tx.typ_desc with 
+    | Typ_const _ -> true
+    | _ -> false
+    end
+  | Typ_const _ -> true
+  | _ -> false
+  end 
+
 (* type instantiation = trm varmap *)
 
 (* Check if rule is applicable *)
@@ -1246,3 +1263,4 @@ let get_inner_ptr_type (ty : typ) : typ =
 
 (* Rewrite rule transformation  *)
 (* let rewrite (pl : target) (rule : base)  *)
+

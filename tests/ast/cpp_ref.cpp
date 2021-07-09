@@ -22,7 +22,6 @@ int ref_on_mutable_int() {
 int ref_on_immutable_int() {
   const int x = 3;  // same as [int const x = 3]
   const int& rx = x; // same as [int const& rx = x]
-  // TODO: Fix the issue with appearing two consts in the encoding
   return rx;
 }
 
@@ -68,7 +67,7 @@ int ref_on_mutable_int_cell() {
   int t[2] = { 4, 5 };
   int* const p0 = &t[0]; // TODO: there should be no double star
   int& r0 = t[0];
-  *p0 = 6;
+  // *p0 = 6; /* Error when parsed:"read-only variable is not assignable" */
   r0 = 7;
   return *p0 + r0;
 }
@@ -130,6 +129,7 @@ int main() {
   const int c = 5;
   ref_argument(a, b, c);
 }
+// TODO: Implement virtual_get function
 /*
   in OptiTrust
 
