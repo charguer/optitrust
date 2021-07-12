@@ -1,6 +1,7 @@
 int main() {
   int X = 6;
-  int Y = 6;
+  int Y = 6; 
+  
   for (int cx = 0; cx < 2; cx++){
      for (int cy = 0; cy < 2; cy++){
        for (int bx = 2*cx; bx < X; bx += 4){
@@ -14,6 +15,6 @@ int main() {
          }
        }
      }
-  return 0;
   }   
+  return 0;
 }

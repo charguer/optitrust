@@ -1,53 +1,32 @@
 open Ast
 
+let extract_loop (t : trm) : ((trm -> trm) * trm) option = 
+  match t.desc with 
+  | Trm_for_c (init, cond, step, body) ->
+    Some ((fun b -> trm_for_c init cond step b), body)
+  | Trm_for (index, direction, start, stop, step, body) ->
+    Some ((fun b -> trm_for index direction start stop step b), body)
+  | _ -> fail t.loc "extract_loop: expected a loop"
+
+
 (* swap_aux: This is an auxiliary function for swap
     params:
       t: an ast subterm
     return: the updated ast
  *)
- (* LATER:
-    let extract_loop t : ((trm -> trm) * trm) option = (* decompose loop-constructor and body *)
-      match t.desc with
-      | Trm_for_c (init1, cond1, step1, body1) ->
-          Some (fun b -> Trm_for_c (init1, cond1, step1, b)), body
-      | Trm_for (index1, direction1, start1, stop1, step1, body1) ->
-         Some (fun b -> Trm_for (index1, direction1, start1, stop1, step1, b), body1
-         | _ -> None
-
-     match extract_loop t with
-     | Some (loop1, body1) ->
-        begin match extract_loop body1 with
-         | Some (loop2, body2) ->
-               loop2 (loop1 body2)
-         | None -> fail body1.loc "swap_aux: should target a loop with a nested loop inside"
-         end
-     | None -> fail t.loc "swap_aux: should target a loop"
-
- *)
- let swap_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_for_c (init1, cond1, step1,body1) ->
-      begin match body1.desc with
-      | Trm_seq [f_loop] ->
-        begin match f_loop.desc with
-        | Trm_for_c ( init2 ,cond2 ,step2, body2) ->
-          trm_for_c init2 cond2 step2 (trm_seq [trm_for_c init1 cond1 step1 body2])
-        | _ -> fail t.loc "swap_aux: inner_loop was not matched"
-        end
-      | _ -> fail t.loc "swap_aux; expected inner loop"
+let swap_aux (t : trm) : trm = 
+  match extract_loop t with 
+  | Some (loop1, body1) ->
+    begin match body1.desc with 
+    | Trm_seq[loop2] ->
+       begin match extract_loop loop2 with 
+      | Some (loop2, body2) -> loop2 (loop1 body2)
+      | None -> fail body1.loc "swap_aux: should target a loop with nested loop inside"
       end
-  | Trm_for (index1, direction1, start1, stop1, step1, body1) ->
-    begin match body1.desc with
-    | Trm_seq [f_loop] ->
-      begin match f_loop.desc with
-      | Trm_for (index2, direction2, start2, stop2, step2, body2) ->
-        trm_for index2 direction2 start2 stop2 step2 (trm_seq [
-          trm_for index1 direction1 start1 stop1 step1 body2])
-      | _ -> fail f_loop.loc "swap_aux: expected a simple loop here"
-      end
-    | _ -> fail body1.loc "swap_aux: body of the loop should be a sequence "
+    | _ -> fail body1.loc "swap_aux: body of the loop should be a sequence"
     end
-  | _ -> fail t.loc "swap_aux; bad loop body"
+    
+  | None -> fail t.loc "swap_aux: should target a loop"
 
 (* swap: Swap the two loop constructs, the loop should contain as least one inner loop
     params:

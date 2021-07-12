@@ -99,7 +99,6 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
       
     | _ -> 
       (* Ast_to_text.print_ast ~only_desc:true stdout body; *)
-      Tools.printf "%s\n" (Ast_to_c.ast_to_string body);
       index :: []
     
     end
@@ -108,7 +107,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
 
 (* [move before after loop_to_move] *)
 let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit = 
-  let t = Trace.get_ast () in
+  let t = Trace.get_ast() in
   let move_where, target_loop = match before, after with 
   | "", _ -> "after", [Target.cFor loop_to_move]
   | _, "" -> "before", [Target.cFor before]
@@ -118,10 +117,12 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
   let indices_list = get_loop_nest_indices loop in
   Tools.printf "%s\n" (Tools.list_to_string indices_list);
   match move_where with 
-  | "after" -> let indices_list = Tools.chop_list_after after indices_list in
+  | "after" -> 
     let counter = ref (List.length indices_list) in
     while (!counter <> 0) do
-      swap [Target.cFor loop_to_move]
+      counter := !counter - 1;
+      swap [Target.cFor loop_to_move];
+      Tools.printf "%s\n" "Swap done";
     done
   | "before" ->
     let indices_list = Tools.chop_list_after loop_to_move indices_list in
