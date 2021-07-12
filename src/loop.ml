@@ -57,11 +57,15 @@ let split : Target.Transfo.t =
 let fusion : Target.Transfo.t =
   Target.apply_on_target (Loop_core.fusion)
 
-(* [] *)
+(* [extract_variable tg] *)
 let extract_variable : Target.Transfo.t =
   Target.apply_on_transformed_targets(Generic_core.get_decl_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.extract_variable i t p)
 
+(* [grid_enumerate index_and_bounds tg] *)
+let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.grid_enumerate index_and_bounds)
+  
 (* TODO: move to old folder in old_tiling.ml *)
 (*
   -----------DEPRECATED-----------------

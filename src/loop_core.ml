@@ -405,5 +405,34 @@ let fusion_aux (t : trm) : trm =
       the updated ast
 *)
 let fusion : Target.Transfo.local =
-  Target.apply_on_path(fusion_aux)
+  Target.apply_on_path (fusion_aux)
+
+let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : trm =
+  match t.desc with 
+  | Trm_for (index, direction, _start, _stop, _step, body) -> 
+    let new_body = begin match body.desc with 
+                   | Trm_seq tl ->
+                      let old_loop_index_val = Tools.foldi (fun i acc (ind, bnd) ->
+                        if i = 0 then let acc = trm_var ind in acc
+                          else trm_apps (trm_binop Binop_add) [
+                            trm_apps (trm_binop Binop_mul) [
+                              acc; trm_var bnd]
+                              ; trm_var ind] 
+                    )  (trm_var "") index_and_bounds in
+                    let old_loop_index_decl = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) old_loop_index_val in
+                    trm_seq ([old_loop_index_decl] @ tl)
+                   | _ -> fail body.loc "grid_enumerate_aux: the body of the loop should be a sequence"
+                   end in 
+    Tools.foldi (fun i acc (ind, bnd) ->
+      if i = 0 then  trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) acc
+        else  trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) (trm_seq [acc])
+    )new_body (List.rev index_and_bounds)
+    (* List.fold_right (fun (ind, bnd) acc ->
+      trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) acc) index_and_bounds new_body  *)
+  | _ -> fail t.loc "grid_enumerate_aux: expected a simple loop"
+
+
+let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.local =
+  Target.apply_on_path (grid_enumerate_aux index_and_bounds)
+
 

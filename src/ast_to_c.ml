@@ -339,17 +339,13 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
                   | Typ_ptr {ptr_kind = Ptr_kind_ref; _} ->
                     if not !decode then (typ_to_doc tx)
                      else typed_var_to_doc (fst tv,tx)
-
                   | _-> 
                     if not !decode then typ_to_doc (snd tv) 
                     else typed_var_to_doc (fst tv, tx)
                   end
-                  
-                  
               | _ -> typed_var_to_doc tv
               end in
     let d_init, is_initialized  = 
-    
     if not !decode  then init, true
       else begin match init.desc with 
            | Trm_apps (_, [value]) -> value, true
@@ -461,29 +457,6 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
        end
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
-
-
-
-
-(* and multi_decl_to_doc1 (loc : location) (tl : trm list) : document =
-  let rec get_names = function
-    | [] -> []
-    (* const variables *)
-    | {desc = Trm_let (_,(x,_),_);_} :: tl -> x :: get_names tl
-    | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
-  in
-  let dtype =
-    match tl with
-    | [] -> fail loc "multi_decl_to_doc: empty multiple declaration"
-    | {desc = Trm_let (vk,(_,ty),_);_} :: _ ->
-      begin match vk with
-      | Var_immutable -> string "const " ^^ blank 1 ^^ typ_to_doc ty
-      | _ -> typ_to_doc ty
-      end
-    | _ -> fail loc "multi_decl_to_doc: only variables declarations allowed"
-  in
-  let dnames = separate (comma ^^ blank 1) (List.map string (get_names tl)) in
-    dtype ^^ blank 1 ^^ dnames ^^ semi *)
 
 (* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false)

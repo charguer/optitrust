@@ -31,6 +31,8 @@ let foldi (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
   let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
   res
 
+
+
 module Fun_map = Map.Make(String)
 type 'a funmap = 'a Fun_map.t
 
