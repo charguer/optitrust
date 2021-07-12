@@ -1116,6 +1116,7 @@ let is_simple_loop_component (t : trm) : bool =
   | Trm_apps(f,_) when f.desc = Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
   | Trm_var _ -> true
   | Trm_val (Val_lit (Lit_int _)) -> true
+  | Trm_apps _ -> true
   | _ -> false
 
 

@@ -20,7 +20,7 @@ let swap_aux (t : trm) : trm =
     begin match body1.desc with 
     | Trm_seq[loop2] ->
        begin match extract_loop loop2 with 
-      | Some (loop2, body2) -> loop2 (loop1 body2)
+      | Some (loop2, body2) -> loop2 (trm_seq [(loop1 body2)])
       | None -> fail body1.loc "swap_aux: should target a loop with nested loop inside"
       end
     | _ -> fail body1.loc "swap_aux: body of the loop should be a sequence"
@@ -89,7 +89,7 @@ let color (c : var) (i_color : var) : Target.Transfo.local =
 let tile_aux (divides : bool) (b : var) (i_block : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
-     let spec_stop = if divides then trm_apps (trm_var "min")
+     let spec_stop = if not divides then trm_apps (trm_var "min")
                       [ stop;
                         trm_apps (trm_binop Binop_add)[
                           trm_var i_block;
@@ -116,104 +116,6 @@ let tile_aux (divides : bool) (b : var) (i_block : var) (t : trm) : trm =
 let tile (divides : bool) (b : var)(i_block : var) : Target.Transfo.local =
    Target.apply_on_path (tile_aux divides b i_block)
 
-(* DEPRECATED *)
-(*  tile_old_aux: This function is an auxiliary function for tile_old
-      params:
-        b: a variable used to represent the block size
-        i_block: string used to represent the index used for the new outer loop
-        t: an ast subterm
-      return:
-        the updated ast
-*)
-let tile_old_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_for_c (_ , _, _, body) ->
-     begin match body.desc with
-     (* look for the declaration of i1 and i2 *)
-     | Trm_seq (t_decl1 :: t_decl2 :: tl) ->
-        let i = for_loop_index t in
-        let i1 = decl_name t_decl1 in
-        let i2 = decl_name t_decl2 in
-        let block_size =
-          let init = decl_init_val t_decl1 in
-          match init.desc with
-          | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_div)); _},
-                      [_; block_size]) ->
-             block_size
-          | _ ->
-             fail t_decl1.loc "tile_old_aux: bad initialisation"
-        in
-        let loop_size = for_loop_bound t in
-
-        let nb_blocks =
-          trm_apps (trm_binop Binop_div) [loop_size; block_size]
-        in
-        (*
-          if i is still used in the loop body, add an instruction
-          i = i1 * block_size + i2
-         *)
-
-        let body =
-          if not (is_used_var_in (trm_seq tl) i) then trm_seq tl
-          else
-            trm_seq
-              ((trm_seq ~annot:(Some Mutable_var_get)
-                  [
-                    (trm_let  Var_mutable (i,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [(trm_apps (trm_binop Binop_add)
-                         [
-                           trm_apps (trm_binop Binop_mul)
-                             [
-                               trm_apps ~annot:(Some Mutable_var_get)
-                                 (trm_unop Unop_get) [trm_var i1];
-                               block_size
-                             ];
-                           trm_apps ~annot:(Some Mutable_var_get)
-                             (trm_unop Unop_get) [trm_var i2]
-                         ]
-                      )]))
-                  ]
-               ) :: tl)
-        in
-
-
-        let loop (index : var) (bound : trm) (body : trm) =
-          trm_seq (* ~annot:(Some Delete_instructions) *)
-            [
-              trm_for_c
-                (* init *)
-                (trm_let Var_mutable (index,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
-                (* cond *)
-                (trm_apps (trm_binop Binop_lt)
-                   [
-                     trm_apps ~annot:(Some Mutable_var_get)
-                       (trm_unop Unop_get) [trm_var index];
-                     bound
-                   ])
-
-                (* step *)
-                (trm_apps (trm_unop Unop_inc) [trm_var index])
-                (* body *)
-                body;
-            ]
-        in
-        loop i1 nb_blocks (trm_seq [loop i2 block_size body])
-     | _ -> fail t.loc "tile_old__aux: bad loop body"
-     end
-  | _ -> fail t.loc "tile_old__aux: not a for loop"
-
-
-(* tile_old: Replace the original loop with two nested loops
-      params:
-        path_to_loop: an explicit path to the loop
-        b: a variable used to represent the block size
-        i_block: index used for the new outer loop
-        t: ast
-      return:
-        updated ast
-
-*)
-let tile_old : Target.Transfo.local =
-   Target.apply_on_path (tile_old_aux)
 
 
 (* hoist_aux: This is an auxiliary function for hoist
