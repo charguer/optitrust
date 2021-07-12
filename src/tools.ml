@@ -224,3 +224,9 @@ let failure_expected (f : unit -> unit) : unit =
 
 (* A map function implemented by using fold_right to be able to apply the function from the end of the list *)
 let map_rev f l = List.fold_right (fun x acc -> f x :: acc) l []
+
+
+let rec chop_list_after x xs = match xs with 
+  (* | [] -> failwith "did not find x" *)
+  | [] -> []
+  | y::tl -> if y = x then [] else y:: chop_list_after x tl  

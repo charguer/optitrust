@@ -39,8 +39,8 @@ let color (nb_colors : string_trm) (color_index : var) : Target.Transfo.t =
    [for (int tile_index = 0; tile_index < stop; tile_index += tile_width) {
       for (int i = tile_index; i < min(X, bx+B); i++) { body }].
 *)
-let tile (tile_width : string_trm) (tile_index : var) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.tile tile_width tile_index)
+let tile ?(divides : bool = true) (tile_width : string_trm) (tile_index : var) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.tile divides tile_width tile_index)
 
 (* [hoist x_step tg] *)
 let hoist (x_step : var) : Target.Transfo.t =
@@ -87,6 +87,46 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 (* [tile_old tg] *)
 let tile_old : Target.Transfo.t =
   Target.apply_on_target (Loop_core.tile_old)
+
+
+
+let rec get_loop_nest_indices (t : trm) : 'a list = 
+  match t.desc with 
+  | Trm_for (index, _, _, _, _, body) ->
+    begin match body.desc with 
+    | Trm_seq [f_loop] ->
+      index :: get_loop_nest_indices f_loop
+      
+    | _ -> 
+      (* Ast_to_text.print_ast ~only_desc:true stdout body; *)
+      Tools.printf "%s\n" (Ast_to_c.ast_to_string body);
+      index :: []
+    
+    end
+  | _ -> []
+
+
+(* [move before after loop_to_move] *)
+let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit = 
+  let t = Trace.get_ast () in
+  let move_where, target_loop = match before, after with 
+  | "", _ -> "after", [Target.cFor loop_to_move]
+  | _, "" -> "before", [Target.cFor before]
+  | _ -> fail None "move: make sure you specify where to move the loop, don't give both before and after directives" in
+  let exp = Constr.resolve_target_exactly_one target_loop t in
+  let (loop, _) = Path.resolve_path exp t in
+  let indices_list = get_loop_nest_indices loop in
+  Tools.printf "%s\n" (Tools.list_to_string indices_list);
+  match move_where with 
+  | "after" -> let indices_list = Tools.chop_list_after after indices_list in
+    let counter = ref (List.length indices_list) in
+    while (!counter <> 0) do
+      swap [Target.cFor loop_to_move]
+    done
+  | "before" ->
+    let indices_list = Tools.chop_list_after loop_to_move indices_list in
+    List.iter (fun x -> swap [Target.cFor x]) (List.rev indices_list)
+  | _ -> fail t.loc "move: something went wrong"
 
 (* get_loop_nest_indices -- currently omiting the last one
 

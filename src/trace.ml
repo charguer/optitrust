@@ -111,6 +111,7 @@ type traces = trace list
 let traces : traces ref =
   ref [trace_dummy]
 
+
 (* [is_traces_dummy()] returns whether the trace was never initialized. *)
 let is_traces_dummy () : bool =
   match !traces with
@@ -500,3 +501,6 @@ let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> uni
     dump_diff_and_exit()
   end
 
+(* Get the current ast *)
+let get_ast () : trm = 
+  (List.hd (List.rev !traces)).cur_ast 

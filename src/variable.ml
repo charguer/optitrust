@@ -41,3 +41,4 @@ let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fol
 let inline ?(delete_decl : bool = false) ?(inline_at : target list = [[]]) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.inline delete_decl inline_at i t p)
+

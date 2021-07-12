@@ -107,23 +107,21 @@ let color (c : var) (i_color : var) : Target.Transfo.local =
       return:
         the updated ast
 *)
-let tile_aux (b : var) (i_block : var) (t : trm) : trm =
+let tile_aux (divides : bool) (b : var) (i_block : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
-     let spec_stop = trm_apps (trm_var "min")
-          [
-            stop;
-            trm_apps (trm_binop Binop_add)
-            [
-              trm_var i_block;
-              trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var b]]
-          ]
-      in
+     let spec_stop = if divides then trm_apps (trm_var "min")
+                      [ stop;
+                        trm_apps (trm_binop Binop_add)[
+                          trm_var i_block;
+                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var b]]]
+                      else
+                        trm_apps (trm_binop Binop_add)[
+                          trm_var i_block;
+                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var b]] in
      trm_for i_block direction start stop (trm_var b) (
        trm_seq [
-         trm_for index direction (trm_var i_block) spec_stop step body
-       ]
-     )
+         trm_for index direction (trm_var i_block) spec_stop step body])
   | _ -> fail t.loc "tile_aux: only simple loops are supported"
 
 (* tile: Replace the original loop with two nested loops
@@ -136,8 +134,8 @@ let tile_aux (b : var) (i_block : var) (t : trm) : trm =
         updated ast
 
 *)
-let tile (b : var)(i_block : var) : Target.Transfo.local =
-   Target.apply_on_path (tile_aux b i_block)
+let tile (divides : bool) (b : var)(i_block : var) : Target.Transfo.local =
+   Target.apply_on_path (tile_aux divides b i_block)
 
 (* DEPRECATED *)
 (*  tile_old_aux: This function is an auxiliary function for tile_old
@@ -427,8 +425,6 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
       if i = 0 then  trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) acc
         else  trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) (trm_seq [acc])
     )new_body (List.rev index_and_bounds)
-    (* List.fold_right (fun (ind, bnd) acc ->
-      trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) acc) index_and_bounds new_body  *)
   | _ -> fail t.loc "grid_enumerate_aux: expected a simple loop"
 
 
