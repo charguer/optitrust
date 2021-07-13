@@ -62,24 +62,24 @@ let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : s
     else ()
     (**)
 
-let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(inner_fresh_names : var list) (tg : target) : unit = 
+let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(inner_fresh_names : var list = []) (tg : Target.target) : unit = 
   Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
     (fun (p, p_local, i) t ->
       (* Counter needed to keep track on the change of indices *)
-      let counter = ref (-1) in
+      let _ounter = ref (-1) in
       let (tg_trm, _) = Path.resolve_path (p @ [Dir_seq_nth i] @ p_local) t in
       let (tg_out_trm, _) = Path.resolve_path (p @ [Dir_seq_nth i]) t in
       let bind_res_needed = (* Checking the type of the target *)
+      Tools.printf ("%s\n") (Ast_to_c.ast_to_string tg_out_trm);
       begin match tg_trm.desc with 
       (* Instruction of the form int r = f(..) *)
-      | Trm_let (vk, (x, tx), init) -> 
+      | Trm_let (_n ,(x,_), _) -> 
         if name_result <> "" && name_result <> x then fail tg_trm.loc "smart_inline: no need to enter the result name in this case"
           else false
       (* A function call f(..) *)
-      | Trm_apps(f, [base]) -> if name_result <> "" then fail tg_trm.loc "smart_inline: no need to enter the result name for void functions" 
-          else
+      | Trm_apps _ -> 
           begin match tg_out_trm.desc with 
-          | Trm_let (_, (_, _), {desc = Trm_apps(f, [base]);_}) when base = tg_trm-> false
+          | Trm_let (_, (_, _), {desc = Trm_apps(_, [base]);_}) when base = tg_trm-> true
           | Trm_apps _ when tg_trm = tg_out_trm -> false
           | _ -> fail tg_out_trm.loc "smart_inline: expected a variable declaration of a function call, none where provided"
           end
@@ -87,7 +87,7 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
       end in
       let t = begin match bind_res_needed with 
               | true -> if name_result = "" then 
-                          let rnd_nb = Random.int 1000 in let nam_result = "temp" ^ (string_of_int rnd_nb) in
+                          let rnd_nb = Random.int 1000 in let name_result = "temp" ^ (string_of_int rnd_nb) in
                           Function_core.bind_intro i name_result false p_local t p 
                         else 
                           Function_core.bind_intro i name_result false p_local t p
@@ -105,8 +105,8 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
                 else t) t inner_fresh_names
               else t in
       (* TODO: Fix me!!*)
-      let t = Function_core.inline_call (i + !counter + 1) label t (List.tl p_local) t p in
-      let t = Function_core.elim_body reanme (i + !counter + 2) t p in
+      let t = Function_core.inline_call (i + !counter + 1) label t p_local t p in
+      let t = Function_core.elim_body rename (i + !counter + 2) t p in
       if bind_res_needed 
         then let t = Generic_core.var_init_attach false (i + nb_args_to_bind) t p in
             let t = Variable_core.inline true [[]] (i + nb_args_to_bind) t p in
