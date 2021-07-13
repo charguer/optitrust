@@ -148,6 +148,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
     let dl, lback = Tools.split_list_at 1 lback in
     let dl = List.hd dl in
     Tools.printf "%s\n" (Ast_to_c.ast_to_string dl);
+    Tools.printf "%s\n" ("--------------------------------");
     begin match dl.desc with
     | Trm_let (vk, (x, _), dx) ->
       let t_x = 

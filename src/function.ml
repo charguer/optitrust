@@ -69,8 +69,8 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
       let _ounter = ref (-1) in
       let (tg_trm, _) = Path.resolve_path (p @ [Dir_seq_nth i] @ p_local) t in
       let (tg_out_trm, _) = Path.resolve_path (p @ [Dir_seq_nth i]) t in
-      let bind_res_needed = (* Checking the type of the target *)
-      Tools.printf ("%s\n") (Ast_to_c.ast_to_string tg_out_trm);
+      (* Checking the type of the target *)
+      let bind_res_needed = 
       begin match tg_trm.desc with 
       (* Instruction of the form int r = f(..) *)
       | Trm_let (_n ,(x,_), _) -> 
@@ -104,14 +104,14 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
                   Function_core.bind_intro (i + !counter) fresh_name true ([Dir_body] @ [Dir_arg 0] @ [Dir_arg n]) t p
                 else t) t inner_fresh_names
               else t in
-      (* TODO: Fix me!!*)
-      let t = Function_core.inline_call (i + !counter + 1) label t p_local t p in
-      let t = Function_core.elim_body rename (i + !counter + 2) t p in
+      let t = Function_core.inline_call (i + !counter + 1) label t p_local t p in 
+
+      let t = Function_core.elim_body rename (i + !counter + 2) t p in 
       if bind_res_needed 
-        then let t = Generic_core.var_init_attach false (i + nb_args_to_bind) t p in
-            let t = Variable_core.inline true [[]] (i + nb_args_to_bind) t p in
+        then let t = Generic_core.var_init_attach false (i + nb_args_to_bind) t p in 
+             let t = Variable_core.inline true [[]] (i + nb_args_to_bind) t p in 
           if (List.length inner_fresh_names) = 0
             then t 
-            else Tools.foldi (fun n t1 _ -> Variable_core.inline true [[]] (i + n) t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names)
+            else Tools.foldi (fun n t1 _ -> Variable_core.inline true [[]] i t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names)
         else t
     ) tg
