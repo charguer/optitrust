@@ -6,7 +6,6 @@ let _ = Run.script_cpp (fun () ->
   (* !! Function.smart_inline ~name_result:"r" ~bind_args:true ~inner_fresh_names:["v1";"v2"] [cVarDef "speed2"; cFun "vect_add"]; *)
 
   !! Function.bind "r" ["v1";"v2"]  [cVarDef "speed2"; cFun "vect_add"];
-  show [nbMulti; cVarDef "r"; cFun "vect_add" ~args_pred:(Target.target_list_one_st (cVar "v1"))];
   !! Function.inline ~name_result:"r" ~bind_args:false ~inner_fresh_names:["v1";"v2"] [cVarDef "r"; cFun "vect_add" ~args_pred:(Target.target_list_one_st (cVar "v1"))];
 
   !! Struct.set_explicit [sInstrRegexp ~substr:true "speed2 ="];
