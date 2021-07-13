@@ -19,7 +19,6 @@ OPTIONS=$6
 # LATER: if a ${FILEBASE}_exp.cpp file is present, export it into the JS file,
 # so that the browser can report on the differences between _out.cpp and _exp.cpp.
 
-
 #UPDATE=noupdate
 
 # Path to .vscode folder and src folder and src/src folder
@@ -27,6 +26,8 @@ VSCODE=`pwd`
 SRCFOLDER=`cd .. && pwd`
 SRCSRCFOLDER=`cd ../src && pwd`
 
+# This can help with opam switches
+eval $(opam env)
 
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
@@ -65,6 +66,7 @@ sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_
 # ocamlbuild -quiet -r -pkgs clangml,refl,pprint,str,optitrust "${FILEBASE}_with_exit.byte"
 # TODO(Anton): replace this line with a dune command that uses directly /src/src files instead
 # of the installed package; only consider ${FILEBASE}.ml from local folder
+
 ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
 # LATER: capture the output error message
 # so we can do the postprocessing on it
