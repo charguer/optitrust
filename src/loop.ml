@@ -112,3 +112,7 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     let indices_list = Tools.chop_list_after loop_to_move indices_list in
     List.iter (fun x -> swap [Target.cFor x]) (List.rev indices_list)
   | _ -> fail t.loc "move: something went wrong"
+
+let unroll : Target.Transfo.t =
+  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Loop_core.unroll i t p)

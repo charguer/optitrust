@@ -230,3 +230,10 @@ let rec chop_list_after x xs = match xs with
   (* | [] -> failwith "did not find x" *)
   | [] -> []
   | y::tl -> if y = x then [] else y:: chop_list_after x tl  
+
+
+let range a b = 
+  let rec aux a b =
+    if a > b then [] else a :: aux(a + 1) b 
+  in
+    if a > b then List.rev (aux b a) else aux a b

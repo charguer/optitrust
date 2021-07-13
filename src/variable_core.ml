@@ -181,4 +181,23 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
 let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
   Target.apply_on_path(inline_aux delete_decl inline_at index)
 
+let rename_aux (new_name : var) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl -> 
+    let lfront, lback = Tools.split_list_at index tl in
+    let dcl, lback = Tools.split_list_at 1 lback in
+    let dcl = match dcl with 
+              | [dc] -> dc
+              | _ -> fail t.loc "rename_aux: expected a list with a single element" in
+    begin match dcl.desc with 
+    | Trm_let (vk, (x, tx), init) ->
+      let trm_to_change = trm_let vk (new_name, tx) init in
+      let lback = List.map (Generic_core.change_trm (trm_var x) (trm_var new_name)) lback in
+      trm_seq ~annot:t.annot (lfront @ [trm_to_change] @ lback)
+    | _ -> fail dcl.loc "rename_aux: the target should be a variable declaration" 
+    end
 
+  | _-> fail t.loc "rename_aux: expected the surrounding sequence"
+
+let rename (new_name : var) (index : int) : Target.Transfo.local = 
+  Target.apply_on_path(rename_aux new_name index)

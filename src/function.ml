@@ -112,6 +112,6 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
              let t = Variable_core.inline true [[]] (i + nb_args_to_bind) t p in 
           if (List.length inner_fresh_names) = 0
             then t 
-            else Tools.foldi (fun n t1 _ -> Variable_core.inline true [[]] i t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names)
+            else List.fold_left (fun t1 _ -> Variable_core.inline true [[]] i t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names)
         else t
     ) tg
