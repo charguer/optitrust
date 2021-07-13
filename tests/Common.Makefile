@@ -40,12 +40,15 @@ TESTS ?= $(filter-out $(wildcard *with_lines.ml),$(filter-out $(EXCLUDE_TESTS), 
 # Path to the folder containing optitrust main Makefile, on which to call make install
 OPTITRUST ?= ../..
 
+# Default target for 'make all'
+TARGET_MAKE_ALL ?= check compile
+
 
 #######################################################
 # Targets
 
 # 'make all' runs each of the unit tests (execute the transformation, and compile all c code)
-all: check compile
+all: $(TARGET_MAKE_ALL)
 
 # 'make f' forces clean before 'make all'
 f: clean all

@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun () ->
   (* Since there are two vect_add function calls the first one need to an explicit bind *)
-  !! Function.smart_inline ~name_result:"" ~_inner_fresh_names:["v1";"v2"] [cVarDef "speed2"; cFun "vect_add"];
+  !! Function.smart_inline ~name_result:"" ~inner_fresh_names:["v1";"v2"] [cVarDef "speed2"; cFun "vect_add"];
 
   !! Function.bind "r" ["v1";"v2"]  [cVarDef "speed2"; cFun "vect_add"];
   !! Function.inline ~name_result:"r" ~bind_args:false ~inner_fresh_names:["v1";"v2"] [cVarDef "r"; cFun "vect_add" ~args_pred:(Target.target_list_one_st (cVar "v1"))];
