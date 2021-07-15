@@ -569,13 +569,18 @@ let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
 let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (from_one_to_many_aux names index)
 
-let arbitrary_if_aux (ctx : Trace.context) (code : string) (t : trm) : trm =
-  let context = get_context ctx t in
-  let cond = term ~context ctx code in
-  trm_if cond t t
+let arbitrary_if_aux (index : int) (cond : string) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let branches, lback = Tools.split_list_at 2 lback in
+    let new_if = trm_if (trm_arbitray cond) (List.nth branches 0) (List.nth branches 1) in
+    trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
 
-let arbitrary_if (ctx : Trace.context) (code : string) : Target.Transfo.local =
-  Target.apply_on_path (arbitrary_if_aux ctx code)
+  | _ -> fail t.loc "arbitrary_if_aux: expected the surrounding sequence"
+  
+let arbitrary_if (index : int) (cond : string) : Target.Transfo.local =
+  Target.apply_on_path (arbitrary_if_aux index cond)
 
 (* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for delocalize
     params:

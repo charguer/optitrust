@@ -36,10 +36,9 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
 
 
 let arbitrary_if (cond : string) (tg : target) : unit =
-  Trace.apply(fun ctx t ->
-    let ps = resolve_target tg t in 
-    List.fold_left (fun p t -> Generic_core.arbitrary_if ctx cond p t) t ps
-  )
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Generic_core.arbitrary_if i cond t p) tg;
+  Trace.reparse()
 
 (* This one used special smart constructors like tBefore and tAfter instead of giving target_befoer or target_after *)
 let insert_trm_new  (t_insert : trm) (tg : target) : unit =

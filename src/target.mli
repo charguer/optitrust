@@ -190,6 +190,8 @@ val target_list_pred_always_true : target_list_pred
 
 val resolve_target : target -> trm -> paths
 
+val resolve_target_exactly_one : target -> trm -> path
+
 val resolve_target_between : target -> trm -> (path * int) list
 
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
