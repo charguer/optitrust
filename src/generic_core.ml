@@ -552,6 +552,13 @@ let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
 let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (from_one_to_many_aux names index)
 
+let arbitrary_if_aux (ctx : Trace.context) (code : string) (t : trm) : trm =
+  let context = get_context ctx t in
+  let cond = term ~context ctx code in
+  trm_if cond t t
+
+let arbitrary_if (ctx : Trace.context) (code : string) : Target.Transfo.local =
+  Target.apply_on_path (arbitrary_if_aux ctx code)
 
 (* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for delocalize
     params:
