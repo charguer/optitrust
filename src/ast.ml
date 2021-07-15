@@ -692,69 +692,7 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
 
 let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
-(* map f to t's subterms *)
-(* let trm_map ?(rev : bool = false) (f : trm -> trm) (t : trm) : trm =
-  let annot = t.annot in
-  let loc = t.loc in
-  let add = t.add in
-  let is_statement = t.is_statement in
-  let typ = t.typ in
-  match t.desc with
-  | Trm_array tl ->
-     trm_array ~annot ~loc ~add ~typ (List.map f tl)
-  | Trm_struct tl ->
-     trm_struct ~annot ~loc ~add ~typ (List.map f tl)
-  | Trm_let (vk,tv,init) ->
-    trm_let ~annot ~loc ~is_statement ~add  vk tv (f init)
-  | Trm_let_fun (f',res,args,body) ->
-    trm_let_fun ~annot ~loc ~is_statement ~add f' res args (f body)
-    | Trm_if (cond, then_, else_) ->
-      let cond' = f cond in
-      let then_' = f then_ in
-      let else_' = f else_ in
-      trm_if ~annot ~loc ~add cond' then_' else_'
-  | Trm_seq tl ->
-     if rev then trm_seq ~annot ~loc ~add (Tools.map_rev f tl)
-      else trm_seq ~annot ~loc ~add (List.map f tl)
-  | Trm_apps (f', args) ->
-     let f'' = f f' in
-     let args' = List.map f args in
-     (*
-       warning: f'' may have different type
-       -> print and reparse to have the right type
-      *)
-     trm_apps ~annot ~loc ~is_statement ~add ~typ f'' args'
-  | Trm_while (cond, body) ->
-     let cond' = f cond in
-     let body' = f body in
-     trm_while ~annot ~loc ~add cond' body'
-  | Trm_for_c (init, cond, step, body) ->
-     let init' = f init in
-     let cond' = f cond in
-     let step' = f step in
-     let body' = f body in
-     trm_for_c~annot ~loc ~add init' cond' step' body'
-  | Trm_for (index, direction, start, stop, step, body) ->
-    trm_for ~annot ~loc ~add index direction start stop step (f body)
-  | Trm_switch (cond, cases) ->
-     let cond' = f cond in
-     let cases' = List.map (fun (tl, body) -> (tl, f body)) cases in
-     trm_switch ~annot ~loc ~add cond' cases'
-  | Trm_abort a ->
-     begin match a with
-     | Ret (Some t') -> trm_abort ~annot ~loc ~add (Ret (Some (f t')))
-     (* return without value, continue, break *)
-     | _ -> t
-     end
-  | Trm_labelled (l, body) ->
-     trm_labelled ~annot ~loc ~add l (f body)
-  (* val, var *)
-  | Trm_decoration (left, body, right) ->
-    trm_decoration ~annot ~loc ~add left right (f body)
-  | Trm_any t ->
-    trm_any ~annot ~loc ~add (f t)
-  | _ -> t
-*)
+
 (* same as trm_map for types *)
 let typ_map (f : typ -> typ) (ty : typ) : typ =
   let annot = ty.typ_annot in
@@ -806,6 +744,18 @@ let is_used_var_in (t : trm) (x : var) : bool =
     | _ -> false
   in
   aux t
+
+let contains_variable (x : var) (t : trm) : bool =
+  let rec aux (t : trm) : bool =
+    match t.desc with
+    | Trm_var y when y = x -> true
+    | Trm_let (_, (_, _), init) -> aux init 
+    | Trm_apps (_, args) -> List.exists aux args
+    | Trm_seq tl -> List.fold_left (fun acc t -> acc || (aux t)) false tl 
+    | Trm_let_fun (_, _, _, body) -> aux body
+    | Trm_for (_, _, _, _, _, body) -> aux body 
+    | _ -> false
+  in aux t
 
 (* Check if the term t contains a call to function f *)
 let contains_call_to_fun (f : var) (t : trm) : bool =

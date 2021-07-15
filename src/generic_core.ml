@@ -533,6 +533,22 @@ let replace_with_arbitrary_aux (ctx : Trace.context) (code : string)(t : trm) : 
 let replace_with_arbitrary (ctx : Trace.context) (code : string) : Target.Transfo.local =
   Target.apply_on_path (replace_with_arbitrary_aux ctx code )
 
+
+let replace_one_with_many (x : var) (names : var list) (t : trm) : trm = 
+  let rec aux (global_trm : trm) (t : trm) : trm = 
+    match t.desc with 
+    | Trm_let (vk, (y, ty), init) ->
+      if contains_variable x init 
+        then trm_seq ~annot:(Some No_braces) (List.mapi (fun i name ->
+         trm_let vk (y ^ "_" ^(string_of_int i), ty) (change_trm (trm_var x) (trm_var name) init)) names)
+        else t
+    | Trm_apps (_, _) -> 
+      if contains_variable x t then
+        trm_seq ~annot:(Some No_braces) (List.map (fun name -> change_trm (trm_var x) (trm_var name) t) names)
+        else t 
+    | _ -> trm_map (aux global_trm) t
+  in aux t t 
+
 let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -542,9 +558,10 @@ let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
       | [dclt] -> dclt
       | _ -> fail t.loc "from_one_to_many_aux: expected a list with only one trm" in
     begin match decl_to_change.desc with 
-    | Trm_let (vk, (_, tx), init) -> 
+    | Trm_let (vk, (x, tx), init) -> 
       let trms_to_add = List.map (fun name -> trm_let vk (name, tx) init) names in
-      trm_seq (lfront @ trms_to_add @ lback)
+      let lback = List.map (replace_one_with_many x names) lback in
+      trm_seq ~annot:t.annot (lfront @ trms_to_add @ lback)
     | _ -> fail decl_to_change.loc "from_one_to_many_aux: expected a variable declaration"
     end
   | _ -> fail t.loc "from_one_to_many_aux: expected the surrounding sequence"

@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-(* TODO: Fix smart inline function *)
+(* TODO: Fix smart inline function9 *)
 let _ = Run.script_cpp (fun () ->
   (* Since there are two vect_add function calls the first one need to an explicit bind *)
   !! Function.smart_inline ~name_result:"" ~inner_fresh_names:["v1";"v2"] [cVarDef "speed2"; cFun "vect_add"];
