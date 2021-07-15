@@ -24,9 +24,12 @@ let remove_instructions (tgs : target list) : unit =
 let replace_with_arbitrary (code : string) (tg : target) : unit =
   Trace.apply( fun ctx t ->
     let ps = resolve_target tg t in
-    List.fold_left (fun p t -> Generic_core.replace_with_arbitrary ctx code t p) t ps
+    List.fold_left (fun p t -> Generic_core.replace_with_arbitrary ctx code p t) t ps
   )
 
+let from_one_to_many (names : var list) : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Generic_core.from_one_to_many names i t p)
 
 let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t =
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
@@ -49,11 +52,6 @@ let add_atribute(a : attribute) : Transfo.t =
 
 let ast_show ?(file:string="_ast.txt") ?(to_stdout:bool=true) (tg : target) : unit  =
   Target.applyi_on_target (fun i t p -> Generic_core.ast_show file to_stdout i t p) tg
-
-
-let eliminate_goto_next (_ : unit) : unit =
-  Trace.apply (fun _ -> Generic_core.eliminate_goto_next)
-
 
 
 (* ********************************************************* *)

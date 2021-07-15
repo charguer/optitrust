@@ -195,27 +195,6 @@ let fresh_args (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t 
   in aux t t
 
-let eliminate_goto_next (t : trm) : trm =
-  let rec elim_in_list (tl : trm list) : trm list =
-    match tl with
-    | t1 :: t2 :: tl ->
-       begin match t1.desc, t2.desc with
-       | Trm_goto l1, Trm_labelled (l2, _) when l1 = l2 ->
-          elim_in_list (t2 :: tl)
-       | _ -> t1 :: (elim_in_list (t2 :: tl))
-       end
-    | _ -> tl
-  in
-  let rec aux (t : trm) : trm =
-    match t.desc with
-    | Trm_seq tl ->
-       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
-         (elim_in_list (List.map aux tl))
-    | _ -> trm_map aux t
-  in
-  aux t
-
-
 let get_context(ctx : Trace.context) (t : trm) : string =
    ctx.includes ^ Ast_to_c.ast_to_string t
 
@@ -547,13 +526,31 @@ let insert_trm (t_insert : trm) (index : int) : Target.Transfo.local =
   Target.apply_on_path(insert_trm_aux t_insert index)
 
 let replace_with_arbitrary_aux (ctx : Trace.context) (code : string)(t : trm) : trm =
-  let context = Generic_core.get_context ctx t in
-  Generic_core.term ~context ctx code 
+  let context = get_context ctx t in
+  term ~context ctx code 
   
   
 let replace_with_arbitrary (ctx : Trace.context) (code : string) : Target.Transfo.local =
   Target.apply_on_path (replace_with_arbitrary_aux ctx code )
 
+let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let decl_to_change, lback = Tools.split_list_at 1 lback in
+    let decl_to_change = match decl_to_change with 
+      | [dclt] -> dclt
+      | _ -> fail t.loc "from_one_to_many_aux: expected a list with only one trm" in
+    begin match decl_to_change.desc with 
+    | Trm_let (vk, (_, tx), init) -> 
+      let trms_to_add = List.map (fun name -> trm_let vk (name, tx) init) names in
+      trm_seq (lfront @ trms_to_add @ lback)
+    | _ -> fail decl_to_change.loc "from_one_to_many_aux: expected a variable declaration"
+    end
+  | _ -> fail t.loc "from_one_to_many_aux: expected the surrounding sequence"
+
+let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (from_one_to_many_aux names index)
 
 
 (* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for delocalize
