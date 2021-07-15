@@ -81,7 +81,7 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
           begin match tg_out_trm.desc with 
           | Trm_let (_, (_, _), {desc = Trm_apps(_, [base]);_}) when base = tg_trm-> true
           | Trm_apps _ when tg_trm = tg_out_trm -> false
-          | _ -> fail tg_out_trm.loc "smart_inline: expected a variable declaration of a function call, none where provided"
+          | _ -> false
           end
       | _ -> true
       end in

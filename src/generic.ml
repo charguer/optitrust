@@ -21,8 +21,16 @@ let remove_instructions (tgs : target list) : unit =
       remove_instruction x
     ) () tgs
 
+let replace_with_arbitrary (code : string) (tg : target) : unit =
+  Trace.apply( fun ctx t ->
+    let ps = resolve_target tg t in
+    List.fold_left (fun p t -> Generic_core.replace_with_arbitrary ctx code t p) t ps
+  )
+
+
 let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t =
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
+
 
 
 (* This one used special smart constructors like tBefore and tAfter instead of giving target_befoer or target_after *)

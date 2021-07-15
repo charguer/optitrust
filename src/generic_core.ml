@@ -546,6 +546,15 @@ let insert_trm_aux (t_insert : trm) (index : int) (t : trm) : trm =
 let insert_trm (t_insert : trm) (index : int) : Target.Transfo.local =
   Target.apply_on_path(insert_trm_aux t_insert index)
 
+let replace_with_arbitrary_aux (ctx : Trace.context) (code : string)(t : trm) : trm =
+  let context = Generic_core.get_context ctx t in
+  Generic_core.term ~context ctx code 
+  
+  
+let replace_with_arbitrary (ctx : Trace.context) (code : string) : Target.Transfo.local =
+  Target.apply_on_path (replace_with_arbitrary_aux ctx code )
+
+
 
 (* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for delocalize
     params:
@@ -702,3 +711,5 @@ let ast_show_aux (file : string) (to_stdout:bool) (index : int) (t : trm) : trm 
 
 let ast_show (file : string) (to_stdout : bool) (index : int): Target.Transfo.local =
   Target.apply_on_path (ast_show_aux file to_stdout index)
+
+
