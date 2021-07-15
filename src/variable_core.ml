@@ -196,8 +196,16 @@ let rename_aux (new_name : var) (index : int) (t : trm) : trm =
       trm_seq ~annot:t.annot (lfront @ [trm_to_change] @ lback)
     | _ -> fail dcl.loc "rename_aux: the target should be a variable declaration" 
     end
-
+   
   | _-> fail t.loc "rename_aux: expected the surrounding sequence"
 
 let rename (new_name : var) (index : int) : Target.Transfo.local = 
-  Target.apply_on_path(rename_aux new_name index)
+  Target.apply_on_path (rename_aux new_name index)
+
+let change_occurrence_aux (new_name : var) (t : trm) : trm =
+  match t.desc with 
+  | Trm_var _ -> trm_var new_name
+  | _ -> fail t.loc "change_occurrence_aux: expected a variable occurrence"
+
+let change_occurrence (new_name : var) : Target.Transfo.local =
+  Target.apply_on_path (change_occurrence_aux new_name)

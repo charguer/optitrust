@@ -1158,6 +1158,7 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
         in
       match d with
       | Dir_seq_nth i -> (p', i + shift)
+      | Dir_nth i -> (p', i + shift)
       | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
 
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =

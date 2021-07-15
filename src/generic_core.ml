@@ -525,13 +525,12 @@ let insert_trm_aux (t_insert : trm) (index : int) (t : trm) : trm =
 let insert_trm (t_insert : trm) (index : int) : Target.Transfo.local =
   Target.apply_on_path(insert_trm_aux t_insert index)
 
-let replace_with_arbitrary_aux (ctx : Trace.context) (code : string)(t : trm) : trm =
-  let context = get_context ctx t in
-  term ~context ctx code 
+let replace_with_arbitrary_aux (code : string)(_t : trm) : trm =
+  Ast_to_text.print_ast ~only_desc:true stdout _t;
+  trm_seq ~annot:(Some No_braces) [_t;trm_arbitray code]
   
-  
-let replace_with_arbitrary (ctx : Trace.context) (code : string) : Target.Transfo.local =
-  Target.apply_on_path (replace_with_arbitrary_aux ctx code )
+let replace_with_arbitrary (code : string) : Target.Transfo.local =
+  Target.apply_on_path (replace_with_arbitrary_aux code )
 
 
 let replace_one_with_many (x : var) (names : var list) (t : trm) : trm = 

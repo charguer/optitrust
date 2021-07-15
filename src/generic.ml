@@ -22,10 +22,8 @@ let remove_instructions (tgs : target list) : unit =
     ) () tgs
 
 let replace_with_arbitrary (code : string) (tg : target) : unit =
-  Trace.apply( fun ctx t ->
-    let ps = resolve_target tg t in
-    List.fold_left (fun p t -> Generic_core.replace_with_arbitrary ctx code p t) t ps
-  )
+  Target.apply_on_target (fun p t -> Generic_core.replace_with_arbitrary code p t) tg;
+  Trace.reparse()
 
 let from_one_to_many (names : var list) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)

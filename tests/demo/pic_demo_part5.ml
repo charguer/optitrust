@@ -2,10 +2,8 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-  (* show [cVarDef "bagsNext"]; *)
-  show  [cFunDef "main";cFun "bag_push"];
-  (* show [cTopFun "main";cFun "bag_push"]; *)
   !! Generic.from_one_to_many ["bagsNextPrivate"; "begsNextShared"] [cVarDef "bagsNext"];
-  show [cFunDef "main";cFun "bag_push" ~args_pred:(Target.target_list_one_st (cVar "bagsNextPrivate"))];
   !! Generic.arbitrary_if "isNeighbor(idCell2, idCell)" [cFunDef "main";cFun "bag_push" ~args_pred:(Target.target_list_one_st (cVar "bagsNextPrivate"))];
+  !! Variable.change_occurrence "bag_push_atomic" [cIf(); dElse; cFun "bag_push"; cVar "bag_push"];
+  !! Sequence.insert "bag_transfer(bagsCur[idCell], bagsNext[idCell])" [tAfter; cFun "bag_transfer" ~args_pred:(Target.target_list_one_st (cVar "bagsNextPrivate"))];
 )
