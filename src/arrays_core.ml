@@ -1,10 +1,19 @@
 open Ast
 
-(* [inline_array_access array_var new_vars t]: Change all the occurence of the array to variables
+(* *********************************************************************************** 
+ * Note: All the intermediate functions which are called from [sequence.ml] file      *
+ * have only one purpose, and that is targeting the trm in which we want to apply the *
+ * transformation. That's why there is not need to document them.                     *
+ *)
+
+
+(* [inline_array_access array_var new_vars t]: change all the occurence of the array to variables,
+      this function is used when transforming an array to variables. 
     params:
       array_var: array_variable  to apply changes on
       new_vars: a list of variables, the variables at index i replaces and occurence of array_var[i]
-      t: ast subterm
+      t: a trm located in the same sequence as the array declaration
+    returns: the updated ast with replaced array accesses to variable references.
 *)
 let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
@@ -44,12 +53,14 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
 
 
 
-(* [to_variables_aux new_vars t]: This is an auxiliary function for to_variables
+(* [to_variables_aux new_vars t]: tansform an array declaration into a list of variable declarations
+      the list of variables should be entered by the user. And there should be enough variables to cover all
+      the indices of the array.
     params:
       new_vars: a list of strings of length equal to the size of the array
-      t: an ast subterm
-    return
-      the updated ast
+      index: used to find the instruction inside the sequence
+      t: the surrounding sequence of the array declaration
+    return: updated outer sequence with the replaced declarations and all changed accesses.
 *)
 let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
   match t.desc with
@@ -82,11 +93,8 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
     trm_seq ~annot:t.annot ~loc:t.loc (lfront @ var_decls @ lback)
   | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
 
-(* [to_variables new_vars index t p] *)
 let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
-
-
 
 (* [apply_tiling base_type block_name b x]: Change all the occurence of the array to the tiled form
     params:
@@ -100,6 +108,8 @@ let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
       x a = my_alloc(nb_elements, size_element)
     - x is not used in function definitions, but only in var declarations
     - for now: in any case, the number of elements is divisible by b
+   return: 
+    the updated ast nodes which are in the same level with the array declaration or deeper.
 *)
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   (t : trm) : trm =
@@ -116,22 +126,18 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
            | Some {typ_desc = Typ_constr  (y, _, _); _} when y = x ->
               (* replace base[index] with base[index/b][index%b] *)
               trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
-                ~typ:t.typ f
-                [
-                  trm_apps ~annot:base.annot ~loc:base.loc ~is_statement:false
-                    ~add:base.add ~typ:base.typ f
-                    [
-                      {base with typ = match base.typ with
-                                         | None -> None
-                                         | Some ty -> Some (typ_ptr Ptr_kind_mut ty)
-                      };
-                      trm_apps (trm_binop Binop_div) [index; b]
-                    ];
-                  trm_apps (trm_binop Binop_mod) [index; b]
-                ]
+                ~typ:t.typ f [
+                    trm_apps ~annot:base.annot ~loc:base.loc ~is_statement:false
+                      ~add:base.add ~typ:base.typ f [
+                          {base with typ = 
+                            match base.typ with
+                            | None -> None
+                            | Some ty -> Some (typ_ptr Ptr_kind_mut ty)
+                          };
+                      trm_apps (trm_binop Binop_div) [index; b]];
+                      trm_apps (trm_binop Binop_mod) [index; b]]
            | _ -> trm_map (apply_tiling base_type block_name b x) t
            end
-
         | _ -> fail t.loc "apply_tiling: array accesses must have two arguments"
         end
      | _ -> trm_map (apply_tiling base_type block_name b x) t
@@ -139,7 +145,15 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
   | _ -> trm_map (apply_tiling base_type block_name b x) t
 
 
-(* [tile_aux: name block_name b x t] *)
+(* [tile_aux: name block_name b x t]: transform an array declaration from a normal shape into a tiled one.
+    Then call apply_tiling to change all the array occurrences into the correct form.
+    params:
+      block_name: the name of the arrays representing one tile
+      b: the size of the tile
+      index: the index of the instruction inside the sequence
+      t: outer sequence containing the array declaration
+    returns: the updated surrounding sequence with the new tiled declaration and correct array accesses based on the new tiled form.
+*)
 let tile_aux (block_name : typvar) (b : var) (index: int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -260,17 +274,16 @@ let tile_aux (block_name : typvar) (b : var) (index: int) (t : trm) : trm =
 
   | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
 
-(* [tile name block_name b x index p t] *)
 let tile (block_name : typvar) (b : var) (index : int): Target.Transfo.local =
   Target.apply_on_path(tile_aux block_name b index)
 
 
-(* [apply_swapping x t]: This is an auxiliary function for array_swap
+(* [apply_swapping x t]: Change all the occurrences of the array to the swapped form.
     params:
       x: typvar
-      t: global ast
+      t: an ast node which on the same level as the array declaration or deeper.
     return:
-      the updated ast
+      the updated ast nodes which are in the same level with the array declaration or deeper.
  *)
  let rec apply_swapping (x : typvar) (t : trm) : trm =
   match t.desc with
@@ -358,18 +371,18 @@ let tile (block_name : typvar) (b : var) (index : int): Target.Transfo.local =
   | _ -> trm_map (apply_swapping x) t
 
 
-(* [swap_aux name x t]: This is an auxiliary function for swap
+(* [swap_aux name x t]: transform an array declaration to a swaped one, Basically the bounds will swap
+     places in the arary declaration, and the indices will swap places on all the array occurrences.
     params:
-      name: a function to change the name of the array
+      index: used to find the instruction inside the sequence.
       x: typ of the array
-      t: ast
+      t: the surrounding sequence if the array declaration.
     assumption: x is not used in fun declarations
       -> to swap the first dimensions of a function argument, use swap_coordinates
       on the array on which the function is called: a new function with the
       appropriate type is generated
       function copies are named with name
-    return:
-      the updated ast
+    return: updated outer sequence with the replaced declarations and all swapped accesses.
 *)
 let swap_aux (index : int) (t : trm) : trm =
   match t.desc with
@@ -417,7 +430,6 @@ let swap_aux (index : int) (t : trm) : trm =
 
   | _ -> fail t.loc "swap_aux: expected the surrounding sequence of the targeted trm"
 
-(* [swap name x index p t] *)
 let swap (index : int) : Target.Transfo.local =
   Target.apply_on_path (swap_aux index )
 

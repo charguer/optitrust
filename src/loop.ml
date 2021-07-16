@@ -35,7 +35,7 @@ let color (nb_colors : string_trm) (color_index : var) : Target.Transfo.t =
    It takes as arguments:
     - [tile_width] denotes the width of the tile (e.g., ["2"])
     - [tile_index] denotes a fresh name to use as index for iterating over tiles.
-   In produces:
+   It produces:
    [for (int tile_index = 0; tile_index < stop; tile_index += tile_width) {
       for (int i = tile_index; i < min(X, bx+B); i++) { body }].
 *)

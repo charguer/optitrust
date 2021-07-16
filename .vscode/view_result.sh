@@ -48,7 +48,7 @@ fi
 PROG="${FILEBASE}_with_lines.byte"
 
 # First we create the source code for the transformation program
-# ---DEPRECATED: TODO: move add_exit.ml to a deprecated folder, together with these instructions
+# ---DEPRECATED: 
 # ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 #sed 's/show/myshow/' "${FILEBASE}.ml" > "${FILEBASE}_with_exit.byte"
 

@@ -1,25 +1,22 @@
 open Ast
 open Target
 
-(* [insert tg ts] expects the a relative target [tg] pointing before or after an instruction
-  Code to be inserted is entered as a string. This code is added inside the sequence as arbitrary trm 
-  ast-node. Which is then transformed into a proper ast after a reparse.    
+(* [insert tg ts] expects the relative target [tg] pointing before or after an instruction.
+  [s] denotes the trm_to be inserted inside the sequence
 *)
 let insert (s : string) (tg : target): unit =
   Target.apply_on_target_between (fun t (p,i) ->
     Sequence_core.insert i s t p) tg;
   Trace.reparse()
 
+
 (* [delete index nb tg] expects the target [tg] to point to an instruction.
-  It then removes this instruction from the ast.
+     [nb] denotes the number of instructions to delete starting from the targeted trm.
 *)
 let delete ?(nb : int = 1) : Target.Transfo.t =
   Target.apply_on_transformed_targets ~rev:true (Generic_core.isolate_last_dir_in_seq)
     (fun (p, i) t -> Sequence_core.delete i nb t p) 
 
-(* Alternative trick to shift the indices on the way:
-   Target.applyi_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun id_target (p, i) t -> Sequence_core.delete (i-id_target) nb t p) tg *)
 
 (* [iter_delete tgl]: just iterate over the list of targeted trm to be deleted*)
 let iter_delete (tgl : target list) : unit =
@@ -27,10 +24,17 @@ let iter_delete (tgl : target list) : unit =
     delete x ) () tgl
 
 (* [sub i nb tg] expects the target to point to an instruction inside a sequence.
-  A label [label] in case the user want's a labelled sub-sequence and the number of instructions 
-  to be moved inside the sub-sequence. If [nb] = 1 means then this transformation is basically the same as
-  wrap. If [nb] is greater than one then it means that the instructions which come righ after
-  the target instruction will be included in the sub-sequence too.
+    [label] denotes a label which the generated sub-sequence is going to have, in case the user decides to have one.
+                        }
+   [nb] is the number of instructions to be moved inside the sub-sequence. 
+      If [nb] = 1 means then this transformation is basically the same as wrap. 
+      If [nb] is greater than one then it means that the instructions which come right after
+      the target instruction will be included in the sub-sequence too.
+   Ex: int main(){     int main(){
+        int x = 5;      { int x = 5}
+        iny y = 6;      int y = 6;
+        return 0;       return 0;
+      }                }
 *)
 let sub ?(label : string = "") (nb : int) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
@@ -64,8 +68,13 @@ let inline : Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p,i) t -> Sequence_core.inline i t p)
 
-(* [wrao visible tg] expecets the target [tg] to point at any arbitrary trm,
-  it will take this trm and put it inside a sequence*)
+(* [wrap visible tg] expecets the target [tg] to point at any arbitrary trm,
+    it will wrap a sequence around the targeted  trm.
+    [visible] denotes the visibility of a sequence. This means the that the the sequence is
+        used only for internal purposes.
+    [label] denotes the label of the sub-sequence. Targeting sequences can be challanging hence having 
+          them laballed before can make the apllication of the transformations easier.
+*)
 let wrap ?(visible : bool = true) ?(label : string = "") : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.wrap visible label )
 
