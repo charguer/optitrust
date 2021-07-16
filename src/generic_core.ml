@@ -469,7 +469,6 @@ let remove_instruction : Target.Transfo.local=
       the updated ast
 *)
 let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t : trm) : trm =
-    Ast_to_text.print_ast ~only_desc:true stdout t;
      match t.desc with
     | Trm_seq [f_loop] ->
           begin match f_loop.desc with
@@ -478,7 +477,7 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
             let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_var old_var) in
             let lst_instr = trm_set (trm_var old_var) (trm_var new_var) in
             let new_loop = trm_for index direction start stop step (change_trm (trm_var old_var) (trm_var new_var) body) in
-            trm_seq [fst_instr; new_loop;lst_instr]
+            trm_seq ~annot:t.annot [fst_instr; new_loop;lst_instr]
           | _ -> fail t.loc "local_other_name_aux: expected a for loop"
           end
     | _ -> fail t.loc "local_other_name_aux: expected the no brace sequence"
@@ -486,33 +485,6 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
 let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.local =
   Target.apply_on_path(local_other_name_aux var_type old_var new_var)
 
-(* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for deloclize
-    params:
-      array_size: the size of the array we want to create
-      neutral_element: nutral element for reduction phase
-      fold_operation: fold_operation for reduction phase
-      t: ast subterm
-    return:
-      the updated ast
-*)
-
-(* [insert_trm_aux insert_where t_insert t]: This is an auxiliary function for insert_trm
-    params:
-      insert_where: a string equal to before or after describing the location where shoudl we insert the trm
-      t_insert: the trm to be inserted
-      t: the trm around which the trm is going to be inserted
-    return:
-      the updated ast
-*)
-let insert_trm_aux (t_insert : trm) (index : int) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    let tl = Tools.list_insert (index) t_insert tl in
-    trm_seq ~annot:t.annot tl
-  | _ -> fail t.loc "insert_trm_aux: expected the outer sequence"
-
-let insert_trm (t_insert : trm) (index : int) : Target.Transfo.local =
-  Target.apply_on_path(insert_trm_aux t_insert index)
 
 let replace_with_arbitrary_aux (code : string)(_t : trm) : trm =
   Ast_to_text.print_ast ~only_desc:true stdout _t;
@@ -597,20 +569,20 @@ let change_occurrence_aux (new_name : var) (t : trm) : trm =
 let change_occurrence (new_name : var) : Target.Transfo.local =
   Target.apply_on_path (change_occurrence_aux new_name)
 
-
-
-(* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for delocalize
+(* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for deloclize
     params:
-      array_size: size of the array
-      neutral_element: neutral element needed for the final reduction
-      fold_operation: a string representing the fold operation needed for the final reduction
+      array_size: the size of the array we want to create
+      neutral_element: nutral element for reduction phase
+      fold_operation: fold_operation for reduction phase
+      t: ast subterm
     return:
       the updated ast
 *)
+
 let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let def = List.hd tl in
+    let def = List.nth tl 0 in
     let vk,new_var,old_var =
     begin match def.desc with
     | Trm_let (vk,(x, _),init) ->
@@ -630,40 +602,23 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
       | _ -> fail t.loc "delocalize_aux: expected something"
       end
     | _ -> fail t.loc "delocalize_aux: expected a varaible declaration"
-    end
-    in
+    end in
     let new_decl = trm_seq ~annot:(Some No_braces)[
       trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (typ_var "T" ) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T") (Trm (trm_var array_size)))));
-      trm_for_c
-      (* init *)
-        (trm_let Var_mutable ("k",typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim  (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
-      (* cond *)
-        (trm_apps (trm_binop Binop_lt)
-          [
-
-            trm_var "k";
-            trm_apps ~annot:(Some Mutable_var_get)
-            (trm_unop Unop_get) [trm_var "k"]
-          ]
-        )
-      (* step *)
-        ( trm_apps ( trm_unop Unop_inc) [trm_var "k"])
-      (* body *)
+      trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
       (trm_seq ~annot:(None)[
         trm_set (trm_var old_var) (trm_lit (Lit_int 0))
       ]
       )]
     in
     let for_loop = List.nth tl 1 in
-    let parallel_for =  begin match for_loop.desc  with
-    | Trm_for_c ( init, cond, step, body) ->
-      trm_for_c init cond step
-        (
-          change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_var; trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_any (trm_var "my_core_id")]]) body
-        )
-    | _ -> fail t.loc "delocalize_aux: expected a for loop"
-    end
-    in
+    let parallel_for =  
+      begin match for_loop.desc  with
+      | Trm_for ( index, direction, start, stop, step, body) ->
+        trm_for index direction start stop step(
+            change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_var; trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_any (trm_var "my_core_id")]]) body)
+      | _ -> fail t.loc "delocalize_aux: expected a simple for loop"
+      end in
     let operation = match fold_operation with
       | "+" -> Binop_add
       | "-" -> Binop_sub
@@ -673,31 +628,14 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     in
     let accum = trm_seq ~annot:(Some No_braces) [
       trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
-      trm_for_c
-        (* init *)
-        (trm_let Var_mutable ("k", typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim (Prim_new (typ_int ()))) [trm_lit (Lit_int 0)]))
-        (* cond *)
-        (trm_apps (trm_binop Binop_lt) [
-          trm_apps ~annot:(Some Mutable_var_get)
-          (trm_unop Unop_get) [trm_var "k"];
-          (trm_var array_size)
-        ])
-        (* step *)
-        ( trm_apps ( trm_unop Unop_inc) [trm_var "k"])
-        (* body *)
-        (trm_seq [
+      trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
+      (trm_seq [
           trm_set ~annot:(Some App_and_set) (trm_var old_var)
-          (trm_apps (trm_binop operation)
-            [
-              (* trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var]; *)
+          (trm_apps (trm_binop operation)[
               trm_var old_var;
-              (* trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var "k"]] *)
-              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]
-            ]
-          ) ])
-
-    ]
-    in trm_seq ([new_decl] @ [parallel_for] @ [accum])
+              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ])] in 
+      
+      trm_seq ([new_decl] @ [parallel_for] @ [accum])
 
   | _ -> fail t.loc "delocalize_aux: expected the nobrace sequence"
 
