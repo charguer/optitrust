@@ -180,9 +180,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
   (* For printing C code, we have (see explanations in [clang_to_ast.ml],
-     search for [Add_address_of_operator] and [Add_star_operator].
-     TODO: figure out whether we sometimes need to introduce these
-     annotation during Generic. *)
+     search for [Add_address_of_operator] and [Add_star_operator]. *)
   match t.add with
   | Add_address_of_operator :: addl ->
      let d =
@@ -191,7 +189,6 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
                    attributes = []}
      in
      let body = if !decode then parens (ampersand ^^ d) 
-                (* else string "<" ^^ string "annotation" ^^ colon ^^ string "addressof" ^^ string ">" ^^ d in *)
                 else string "<annotation:addressof>" ^^ d in
      dattr ^^ body ^^ dsemi
   | Add_star_operator :: addl when !decode ->

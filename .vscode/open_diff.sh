@@ -20,7 +20,7 @@ TARGET="${FILEBASE}_diff.html"
 #echo "Generating ${TARGET}"
 
 # Compute title
-TITLESTR="OptiTrust_Diff_${FILEBASE}" # TODO: investigate how to make spaces and slash be properly escaped
+TITLESTR="OptiTrust_Diff_${FILEBASE}" 
 
 # Compute diff
 DIFFCODE=`git diff --ignore-all-space --no-index -U10 ${FILEBASE}_before.cpp ${FILEBASE}_after.cpp | base64 -w 0`

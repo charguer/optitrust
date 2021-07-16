@@ -19,7 +19,7 @@ TARGET="${FILEBASE}_result.html"
 #echo "Generating ${TARGET}"
 
 # Compute title
-TITLESTR="OptiTrust_Result_${FILEBASE}" # TODO: investigate how to make spaces and slash be properly escaped
+TITLESTR="OptiTrust_Result_${FILEBASE}" 
 
 # Compute json file name
 FILEJSONJS="./${FILEBASE}.js"

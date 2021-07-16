@@ -25,7 +25,7 @@ TARGET=${FILEBASE}_ast.html
 # File that the target file should include
 TOLOAD=${FILEBASE}_ast.js
 
-TITLESTR="OptiTrust_AST_${FILEBASE}" # TODO: investigate how to make spaces and slash be properly escaped
+TITLESTR="OptiTrust_AST_${FILEBASE}" 
 
 # Compute the base64 encoding of foo.cpp
 CODEVAL=`echo ${FILEBASE}.cpp | base64 -w 0`

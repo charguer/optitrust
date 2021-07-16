@@ -679,7 +679,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_abort Break, Trm_abort Break -> true
      | Constr_abort Continue, Trm_abort Continue -> true
      | Constr_access (p_base, ca), _ ->
-        let (base, al) = compute_accesses t in
+        let (base, al) =get_nested_accesses t in
         check_target p_base base &&
         check_accesses ca al
      | Constr_switch (p_cond, cc), Trm_switch (cond, cases) ->
@@ -814,7 +814,7 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let res = resolve_target_simple tgs.target_path t in
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
-  begin match tgs.target_occurences with (* TODO: use sprintf everywhere *)
+  begin match tgs.target_occurences with 
   | ExpectedOne -> if nb <> 1 then fail None (sprintf "resolve_target_struct: expected exactly one match, got %d." nb)
   | ExpectedNb n -> if nb <> n then fail None (sprintf "resolve_target_struct: expected %d matches, got %d." n nb)
   | ExpectedMulti -> if nb = 0 then fail None (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb)

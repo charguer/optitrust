@@ -214,10 +214,10 @@ and trm_annot =
   | Grouped_binding (* Used for trms of the form int x = 3, y = 4 *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
-(* symbols to add while printing a C++ program. TODO: document *)
+(* symbols to add while printing a C++ program.*)
 and print_addition =
-  | Add_address_of_operator
-  | Add_star_operator
+  | Add_address_of_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
+  | Add_star_operator (* used to print the start operator when dereferencing a pointer , ex int y = *b *)
 
 (* We only need to support two specific attributes for the time being *)
 and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
@@ -357,14 +357,6 @@ type rewrite_rule = {
 
 (* basic rewrite rules *)
 type base = rewrite_rule list
-
-(* TODO: 
-  type base = 
-  | Base_one of rewrite_rule
-  | Base_group of base list
-*)
-
-
 
 (* pattern instantiation *)
 module Trm_map = Map.Make(String)
@@ -596,34 +588,49 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
 
 (* concrete accesses in a trm *)
 type trm_access =
-  | Array_access of trm (* operator [i] *)
-  | Struct_access of field (* operator .f *)
+  | Array_access_get of trm (* operator -> [i] *)
+  | Array_access_addr of trm (* operator [i] *)
+  | Struct_access_get of field (* operator->f *)
+  | Struct_access_addr of field (* operator.f *)
 
-(* TODO: Add the dual of this function for generating nested accesses *)
-(* TODO: add documentation
-  compute_accesses t = (base, access list) where the succession of accesses
+(* This function is used when matching targets over struct or array accesses *)
+(* get_nested_accesses t = (base, access list) where the succession of accesses
   applied to base gives t
   the list is nil if t is not a succession of accesses
  *)
-let rec compute_accesses (t : trm) : trm * (trm_access list) =
+let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
   match t.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr f))); _},
               [t']) ->
-     let (base, al) = compute_accesses t' in
-     (base, Struct_access f :: al)
+     let (base, al) = get_nested_accesses t' in
+     (base, Struct_access_addr f :: al)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get f))); _},
               [t']) ->
-     let (base, al) = compute_accesses t' in
-     (base, Struct_access f :: al)
+     let (base, al) = get_nested_accesses t' in
+     (base, Struct_access_get f :: al)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_addr)); _},
               [t'; i]) ->
-     let (base, al) = compute_accesses t' in
-     (base, Array_access i :: al)
+     let (base, al) = get_nested_accesses t' in
+     (base, Array_access_addr i :: al)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
               [t'; i]) ->
-     let (base, al) = compute_accesses t' in
-     (base, Array_access i :: al)
+     let (base, al) = get_nested_accesses t' in
+     (base, Array_access_get i :: al)
   | _ -> (t, [])
+
+(* From a list of accesses build the original trm *)
+let build_nested_accesses (base : trm) (access_list : trm_access list) : trm = 
+  List.fold_left (fun acc access ->
+    match access with
+    | Struct_access_addr f ->
+      trm_apps (trm_unop (Unop_struct_field_addr f)) [acc]
+    | Struct_access_get f ->
+      trm_apps (trm_unop (Unop_struct_field_get f)) [acc]
+    | Array_access_addr i ->
+      trm_apps (trm_binop (Binop_array_cell_addr)) [acc;i]
+    | Array_access_get i ->
+      trm_apps (trm_binop (Binop_array_cell_get)) [acc;i]
+  ) base access_list 
 
 let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
   let annot = t.annot in
