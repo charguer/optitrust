@@ -55,8 +55,8 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
 let sub_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      let lfront,lrest = Tools.split_list_at index tl in
-      let l_sub,lback = Tools.split_list_at nb lrest in
+      let lfront, lback = Tools.split_list_at index tl in
+      let l_sub,lback = Tools.split_list_at nb lback in
       let sub_seq = trm_seq  l_sub in
       let sub_seq = if label <> "" then trm_labelled label sub_seq else sub_seq in
       let tl = lfront @ [sub_seq] @ lback in
@@ -136,12 +136,13 @@ let inline (index : int) : Target.Transfo.local =
     visible: a flag to turn on(off) curly braces of the sequence
    return: the outer sequence containing t
  *)
-let wrap_aux (visible : bool) (t : trm) : trm =
-  trm_seq ~annot:(if not visible then Some No_braces else None) [t]
-
+let wrap_aux (visible : bool) (label : string) (t : trm) : trm =
+  let wrapped_seq = if visible then trm_seq [t] else trm_seq ~annot:(Some No_braces) [t] in
+  if label <> "" then trm_labelled label wrapped_seq else wrapped_seq 
+ 
 (* [wrap visible t p] *)
-let wrap (visible : bool) : Target.Transfo.local=
-  Target.apply_on_path (wrap_aux visible)
+let wrap (visible : bool) (label : string) : Target.Transfo.local=
+  Target.apply_on_path (wrap_aux visible label)
 
 
 (* [unrwap_aux t]: replacing a sequence that contains a single item t with t.

@@ -3,11 +3,10 @@ typedef int T;
 int main(){
   T a;
 
-  for (int i = 0; i < 10; i++){ 
-    a++;
-    // TODO: test for :for (int a = 0; a < 2;) {
-    //   a++;
-    // }
+  for (int j = 0; j < 10; j++){ 
+    for (int i = 0; i < j; i++) {
+      a++;
+    }
   }
 
   int y = 0;

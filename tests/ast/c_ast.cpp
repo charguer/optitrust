@@ -49,7 +49,7 @@ void stack_var() {
 // then applying the star operator to it, obtaining  "*(&t[i])".
 // The star is the standard dereferencing operator.
 // In the AST, the operation &t[i] is the application of the primitive
-// binary operation "Binop_array_access" to the argument t and i.
+// binary operation "Binop_array_cell_addr" to the argument t and i.
 
 void stack_array() {
   int t[2] = { 5, 6 };
@@ -58,7 +58,7 @@ void stack_array() {
 }
 
 // Likewise,  t.x  is decomposed  as *(&t.x), which involves the primitive
-// unary operator "Unop_struct_access x" applied to the argument t.
+// unary operator "Unop_struct_field_addr x" applied to the argument t.
 
 void stack_struct() {
   vect v = { 5, 6 };
@@ -108,7 +108,7 @@ void nonconst_pointers() {
 
 // When arrays are passed by values, they are not heap allocated.
 // They are values, out of which it is possible to directly read a value
-// using the operator Binop_array_get.
+// using the operator Binop_array_cell_get.
 // Likewise a struct passed by value is read using Unop_struct_get.
 void by_value(int t[2], vect v) { // implicit const arguments
   int b = t[0];

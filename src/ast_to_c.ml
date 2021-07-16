@@ -109,8 +109,8 @@ and unop_to_doc (op : unary_op) : document =
   | Unop_opp -> minus
   | Unop_inc -> twice plus
   | Unop_dec -> twice minus
-  | Unop_struct_access s -> dot ^^ string s
-  | Unop_struct_get s -> dot ^^ string s
+  | Unop_struct_field_addr s -> dot ^^ string s
+  | Unop_struct_field_get s -> dot ^^ string s
   | Unop_cast t ->
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
@@ -118,8 +118,8 @@ and unop_to_doc (op : unary_op) : document =
 and binop_to_doc (op : binary_op) : document =
   match op with
   | Binop_set -> equals
-  | Binop_array_access -> lbracket ^^ rbracket
-  | Binop_array_get -> lbracket ^^ rbracket
+  | Binop_array_cell_addr -> lbracket ^^ rbracket
+  | Binop_array_cell_get -> lbracket ^^ rbracket
   | Binop_eq -> twice equals
   | Binop_neq -> bang ^^ equals
   | Binop_sub -> minus
@@ -512,7 +512,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_get when as_left_value -> d
               | Unop_get ->
                  if not !decode then
-                   string "get(" ^^ d ^^ string ")"
+                   string "read(" ^^ d ^^ string ")"
                  else begin
                    if display_star then parens (star ^^ d) else d
                  end
@@ -523,7 +523,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_inc (* when not !decode *) -> string "operator++(" ^^ d ^^ string ")"
               | Unop_dec when !decode -> d ^^ twice minus
               | Unop_dec (* when not !decode *) -> string "operator--(" ^^ d ^^ string ")"
-              | (Unop_struct_get f | Unop_struct_access f) when !decode ->
+              | (Unop_struct_field_get f | Unop_struct_field_addr f) when !decode ->
 
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
@@ -548,9 +548,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                          if _avoid_parens then d else parens d *)
                  end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then good else if   ( *f).x then bad
                        *)
-              | Unop_struct_get f (* when not !decode *) ->
+              | Unop_struct_field_get f (* when not !decode *) ->
                   parens (d ^^ dot ^^ string f)
-              | Unop_struct_access f (* when not !decode *) ->
+              | Unop_struct_field_addr f (* when not !decode *) ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
@@ -567,7 +567,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               begin match op with
               | Binop_set ->
                  if not !decode then
-                   string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+                   string "write(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
                  else if not is_app_and_set then
                    separate (blank 1) [d1; equals; d2]
                  else
@@ -619,11 +619,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                  parens (separate (blank 1) [d1; ampersand; d2])
               | Binop_or -> parens (separate (blank 1) [d1; twice bar; d2])
               | Binop_bitwise_or -> parens (separate (blank 1) [d1; bar; d2])
-              | Binop_array_access when !decode ->
+              | Binop_array_cell_addr when !decode ->
                   d1 ^^ brackets (d2)
-              | Binop_array_access (* when not !decode *) ->
+              | Binop_array_cell_addr (* when not !decode *) ->
                   string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-              | Binop_array_get ->
+              | Binop_array_cell_get ->
                  d1 ^^ brackets (d2)
               | Binop_shiftl ->
                  parens (separate (blank 1) [d1; twice langle; d2])

@@ -137,7 +137,7 @@ let hoist_aux (x_step : var) (t : trm) : trm =
       | _ -> fail var_decl.loc "hoist_aux: first loop_body trm should be a variable declaration"
       in
       let remaining_body_trms = List.tl tl in
-      let remaining_body_trms = List.map(fun t -> (Generic_core.change_trm (trm_var var_name) (trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
+      let remaining_body_trms = List.map(fun t -> (Generic_core.change_trm (trm_var var_name) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
       let var_typ =
       begin match var_typ.typ_desc with
       | Typ_ptr {inner_typ = ty; _} -> ty
@@ -145,7 +145,7 @@ let hoist_aux (x_step : var) (t : trm) : trm =
       end
       in
       let new_body = trm_seq ([
-        trm_let Var_mutable (var_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (var_typ)) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_access) [trm_var x_step; trm_var index]])
+        trm_let Var_mutable (var_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (var_typ)) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index]])
       ] @ remaining_body_trms) in
       trm_seq ~annot:(Some No_braces)[
         trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_typ (Trm stop))) (trm_prim (Prim_new var_typ));
@@ -181,7 +181,7 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
       | Trm_let (_, (x, tx), _) -> 
         let lback = List.map (
           Generic_core.change_trm (trm_var x) 
-          (trm_apps (trm_binop Binop_array_access) [trm_var x; trm_var index] )
+          (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x; trm_var index] )
         ) lback in
         trm_seq ~annot:(Some No_braces) [
           trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (get_inner_ptr_type tx) (Trm stop))) (trm_prim (Prim_new (typ_array (get_inner_ptr_type tx) (Trm stop))));

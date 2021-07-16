@@ -137,14 +137,14 @@ and unary_op =
   | Unop_opp
   | Unop_inc
   | Unop_dec
-  | Unop_struct_access of field (* the ".f" operator TODO CHECK *)
-  | Unop_struct_get of field (* the "->f" operator TODO CHECK *)
+  | Unop_struct_field_addr of field (* the ".f" operator TODO CHECK *)
+  | Unop_struct_field_get of field (* the "->f" operator TODO CHECK *)
   | Unop_cast of typ (* cast operator towards the specified type *)
 
 and binary_op =
   | Binop_set (* type annotation?    lvalue = rvalue *)
-  | Binop_array_access (* TODO DOCUMENT *)
-  | Binop_array_get
+  | Binop_array_cell_addr (* TODO DOCUMENT *)
+  | Binop_array_cell_get
   | Binop_eq
   | Binop_neq
   | Binop_sub
@@ -599,6 +599,7 @@ type trm_access =
   | Array_access of trm (* operator [i] *)
   | Struct_access of field (* operator .f *)
 
+(* TODO: Add the dual of this function for generating nested accesses *)
 (* TODO: add documentation
   compute_accesses t = (base, access list) where the succession of accesses
   applied to base gives t
@@ -606,19 +607,19 @@ type trm_access =
  *)
 let rec compute_accesses (t : trm) : trm * (trm_access list) =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _},
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr f))); _},
               [t']) ->
      let (base, al) = compute_accesses t' in
      (base, Struct_access f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _},
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get f))); _},
               [t']) ->
      let (base, al) = compute_accesses t' in
      (base, Struct_access f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_addr)); _},
               [t'; i]) ->
      let (base, al) = compute_accesses t' in
      (base, Array_access i :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
               [t'; i]) ->
      let (base, al) = compute_accesses t' in
      (base, Array_access i :: al)

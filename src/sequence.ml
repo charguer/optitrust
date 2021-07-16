@@ -51,8 +51,8 @@ let inline : Target.Transfo.t =
     (fun (p,i) t -> Sequence_core.inline i t p)
 
 (* [wrao visible tg] *)
-let wrap ?(visible : bool = true) : Target.Transfo.t =
-  Target.apply_on_target (Sequence_core.wrap visible)
+let wrap ?(visible : bool = true) ?(label : string = "") : Target.Transfo.t =
+  Target.apply_on_target (Sequence_core.wrap visible label )
 
 (* [unwrap tg] *)
 let unwrap : Target.Transfo.t =

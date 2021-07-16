@@ -2,12 +2,10 @@ open Optitrust
 open Target
 
 (* TODO: Adapt local_other name to the new Sequence.sub functions *)
-let _ = Run.script_cpp(
-      fun _ -> 
-      set_init_source "local_other_name.cpp";
+let _ = Run.script_cpp (fun _ -> 
       
-      create_subsequence ~label:"sectionofinterest"  ~start:[cFor_c"i"] ~stop:[cVarDef "y" ()] ~stop_before:true ~braces:false ();
-
-      local_other_name ~section_of_interest:"sectionofinterest" ~new_var:"x" ~old_var:"a" ~new_var_type:"T" ();
+  !! Sequence.wrap ~label:"section_of_interest" ~visible:false [cFor "i"];
+  !! Generic.local_other_name "T" "a"  "x" [cLabel "section_of_interest";dBody];
+      (* local_other_name ~section_of_interest:"sectionofinterest" ~new_var:"x" ~old_var:"a" ~new_var_type:"T" (); *)
       
     )

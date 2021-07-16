@@ -29,13 +29,13 @@ let set_explicit_aux (t: trm) : trm =
       begin match lt.desc with
       | Trm_apps (f2, [lbase]) ->
         let exp_assgn = List.map (fun (sf, ty) ->
-        let new_f = trm_unop (Unop_struct_access sf) in
+        let new_f = trm_unop (Unop_struct_field_addr sf) in
          trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [trm_apps ~annot:(Some Mutable_var_get) f2 [lbase]]) (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [trm_apps ~annot:(Some Mutable_var_get) f1 [rbase]])
         ) field_list in
        trm_seq ~annot: (Some No_braces) exp_assgn
 
       | _ -> let exp_assgn = List.map(fun (sf, ty) ->
-        let new_f = trm_unop (Unop_struct_access sf) in
+        let new_f = trm_unop (Unop_struct_field_addr sf) in
         trm_set (trm_apps ~annot:(Some Mutable_var_get) ~typ:(Some ty) new_f [lt]) (trm_apps ~annot: (Some Access) ~typ:(Some ty) f1 [trm_apps ~annot:(Some Mutable_var_get) new_f [rbase]])
         ) field_list in 
         
@@ -46,20 +46,20 @@ let set_explicit_aux (t: trm) : trm =
       begin match lt.desc with 
       | Trm_apps (f2, lbase) ->
         let exp_assgn = List.mapi(fun i (sf, ty) ->
-        let new_f = trm_unop (Unop_struct_access sf) in
+        let new_f = trm_unop (Unop_struct_field_addr sf) in
         trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) f2 [trm_apps ~annot:(Some Mutable_var_get) new_f lbase]) (List.nth st i)
         ) field_list in
         trm_seq ~annot: (Some No_braces) exp_assgn
       | Trm_var v ->
         let exp_assgn = List.mapi(fun i (sf, ty) ->
-        let new_f = trm_unop (Unop_struct_access sf) in
+        let new_f = trm_unop (Unop_struct_field_addr sf) in
         trm_set (trm_apps ~typ:(Some ty) new_f [trm_var v]) (List.nth st i)
         ) field_list in
         trm_seq ~annot: (Some No_braces) exp_assgn
       | _ -> fail t.loc "set_explicit_aux: left term was not matched"
       end
     | _ -> let exp_assgn = List.map (fun (sf, ty) ->
-            let new_f = trm_unop (Unop_struct_access sf) in
+            let new_f = trm_unop (Unop_struct_field_addr sf) in
               trm_set (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:(Some Access) ~typ:(Some ty) new_f [rt])
               ) field_list in
             trm_seq ~annot: (Some No_braces) exp_assgn
@@ -78,7 +78,7 @@ let set_explicit_aux (t: trm) : trm =
       begin match base.desc with  
       | Trm_struct st ->
          let exp_assgn = List.mapi(fun i (sf, ty) ->
-         let new_f = trm_unop (Unop_struct_access sf) in
+         let new_f = trm_unop (Unop_struct_field_addr sf) in
           trm_set  (trm_apps ~typ:(Some ty) new_f  [trm_var x]) (List.nth st i)
         ) field_list in
          
@@ -115,8 +115,8 @@ let set_implicit_aux (t: trm) : trm =
             let lt = begin match lhs.desc with 
             | Trm_apps(f', [lt]) ->  
               begin match f'.desc with 
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_access _))) 
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> lt
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> lt
               | _ -> fail f'.loc "set_implicit_aux: expected a struct access on the left hand side of the assignment"
               end
             | _ -> fail lhs.loc "set_implicit_aux: expected a struct access"
@@ -129,15 +129,15 @@ let set_implicit_aux (t: trm) : trm =
                 begin match rt.desc with 
                 | Trm_apps(f'',[rt]) ->
                   begin match f''.desc with 
-                  | Trm_val (Val_prim (Prim_unop (Unop_struct_access _))) 
-                      | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> rt
+                  | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
+                      | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> rt
                       | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
                   end
                 | _ -> fail f'.loc "set_implicit_aux: expected a trm_apps" 
                 end
                       
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_access _))) 
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_get _)))-> rt
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> rt
               | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
               end
             | _ -> fail rhs.loc "set_implicit_aux: expected a struct access"
@@ -169,8 +169,8 @@ let inline_struct_access  (x : typvar) (t : trm) : trm =
     match t.desc with
     | Trm_apps (f, [base]) ->
       begin match f.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr y)))
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get y))) ->
           (* Removed this if else condition just for debugging purposes *)
           (* if false then fail t.loc ("Accessing field " ^ x ^ " is impossible, this field has been deleted during inlining")
           else  *)
@@ -178,28 +178,28 @@ let inline_struct_access  (x : typvar) (t : trm) : trm =
           | Trm_apps (f',base') ->
             begin match f'.desc with
 
-            | Trm_val(Val_prim (Prim_binop Binop_array_access))
-              | Trm_val(Val_prim (Prim_binop Binop_array_get)) ->
+            | Trm_val(Val_prim (Prim_binop Binop_array_cell_addr))
+              | Trm_val(Val_prim (Prim_binop Binop_array_cell_get)) ->
                 (* THen base caontains another base and also the index  *)
                 let base2 = List.nth base' 0 in
                 let index = List.nth base' 1 in
                 begin match base2.desc with
                 | Trm_apps(f'',base3) ->
                   begin match f''.desc with
-                  | Trm_val (Val_prim (Prim_unop Unop_struct_access z))
-                    | Trm_val (Val_prim (Prim_unop (Unop_struct_get z ))) when z = x ->
+                  | Trm_val (Val_prim (Prim_unop Unop_struct_field_addr z))
+                    | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get z ))) when z = x ->
                     let new_var = z ^ "_" ^ y in
-                    let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))} in
+                    let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_field_addr new_var)))} in
                     trm_apps ~annot:t.annot  f' [trm_apps new_f base3;index]
                   | _ -> trm_map (aux global_trm) t
                   end
                 | _ -> fail t.loc "inline_struct_access: expected a trm_apps"
                 end
 
-            | Trm_val (Val_prim (Prim_unop (Unop_struct_access z)))
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_get z))) when z = x ->
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr z)))
+              | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get z))) when z = x ->
                 let new_var = z ^"_"^ y in
-                let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))}
+                let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_field_addr new_var)))}
               in
               trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                      ~add:t.add ~typ:t.typ new_f base'
@@ -232,7 +232,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
           | Trm_var p ->
             let trm_list_to_inline = List.map(fun x ->
               trm_apps ~annot: (Some Access) (trm_unop (Unop_get))[
-                trm_apps (trm_unop (Unop_struct_access x)) [
+                trm_apps (trm_unop (Unop_struct_field_addr x)) [
                   trm_var p
                 ]
               ]
@@ -387,8 +387,8 @@ let inline_record_access_core (var : string) (field : string) (struct_decl_trm :
       begin match t.desc with
       | Trm_apps (f,[base]) ->
         begin match f.desc with
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
-          | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr y)))
+          | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get y))) when y = field ->
           begin match base.desc with
           | Trm_var v when v = var ->
             let index = get_pos field struct_decl_trm in
@@ -407,8 +407,8 @@ let inline_struct_access (name : var) (field : var) (t : trm) : trm =
     begin match t.desc with 
     | Trm_apps (f, [base]) ->
       begin match f.desc with
-      | Trm_val (Val_prim (Prim_unop (Unop_struct_access y)))
-        | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) when y = field ->
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr y)))
+        | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get y))) when y = field ->
           begin match base.desc with 
           | Trm_var v when v = name ->
             trm_var (name ^ "_" ^ field)

@@ -11,7 +11,7 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
     match t.desc with
     | Trm_apps(f,[arr_base;arr_index]) ->
       begin match f.desc with
-      | Trm_val (Val_prim (Prim_binop Binop_array_access)) ->
+      | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr)) ->
         begin match arr_base.desc with
         | Trm_var x when x = array_var ->
           begin match arr_index.desc with
@@ -23,12 +23,12 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
           end
         | Trm_apps (f1,[base1]) ->
           begin match f1.desc with
-          | Trm_val (Val_prim (Prim_unop Unop_struct_access var)) when var = array_var ->
+          | Trm_val (Val_prim (Prim_unop Unop_struct_field_addr var)) when var = array_var ->
             begin match arr_index.desc with
             | Trm_val (Val_lit (Lit_int i)) ->
               if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
               else
-                let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (List.nth new_vars i))))} in
+                let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr (List.nth new_vars i))))} in
                 trm_apps f1 [base1]
                 (* trm_var (List.nth new_vars i) *)
             | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
@@ -107,8 +107,8 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
   (* array accesses *)
   | Trm_apps (f, tl) ->
      begin match f.desc with
-     | Trm_val (Val_prim (Prim_binop Binop_array_access))
-       | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+     | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr))
+       | Trm_val (Val_prim (Prim_binop Binop_array_cell_get)) ->
         begin match tl with
         | [base; index] ->
            begin match base.typ with
@@ -277,16 +277,16 @@ let tile (block_name : typvar) (b : var) (index : int): Target.Transfo.local =
   | Trm_apps (f, tl) ->
      begin match f.desc with
      (* array accesses… *)
-     | Trm_val (Val_prim (Prim_binop Binop_array_access))
-       | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+     | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr))
+       | Trm_val (Val_prim (Prim_binop Binop_array_cell_get)) ->
         begin match tl with
         | [base; index] ->
            begin match base.desc with
            | Trm_apps (f', tl') ->
               begin match f'.desc with
               (* we look for two successive accesses to an array of type x *)
-              | Trm_val (Val_prim (Prim_binop Binop_array_access))
-                | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+              | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr))
+                | Trm_val (Val_prim (Prim_binop Binop_array_cell_get)) ->
                  begin match tl' with
                  | [base'; index'] ->
 
@@ -437,13 +437,13 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
       begin match get_base.desc with
       | Trm_apps (f, [base]) ->
          begin match f.desc with
-         | Trm_val (Val_prim (Prim_unop (Unop_struct_access _)))
-           | Trm_val (Val_prim (Prim_unop (Unop_struct_get _))) ->
+         | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _)))
+           | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))) ->
             begin match base.desc with
             | Trm_apps (f', [base'; index]) ->
                begin match f'.desc with
-               | Trm_val (Val_prim (Prim_binop Binop_array_access))
-                 | Trm_val (Val_prim (Prim_binop Binop_array_get)) ->
+               | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr))
+                 | Trm_val (Val_prim (Prim_binop Binop_array_cell_get)) ->
                   (*
                     swap accesses only if the type of base' is x (or x* in case of
                     an access on a heap allocated variable)

@@ -40,7 +40,7 @@ let arbitrary_if ?(single_branch : bool = false) (cond : string) (tg : target) :
 
 (* Rename a variable occurence *)
 let change_occurrence (new_name : var) : Target.Transfo.t =
-  Target.apply_on_target (fun p t -> Variable_core.change_occurrence new_name p t)
+  Target.apply_on_target (fun p t -> Generic_core.change_occurrence new_name p t)
 
 
 let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.t =

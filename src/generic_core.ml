@@ -469,30 +469,19 @@ let remove_instruction : Target.Transfo.local=
       the updated ast
 *)
 let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t : trm) : trm =
-    begin match t.desc with
-    | Trm_seq [no_braces] ->
-      begin match no_braces.desc with
-        | Trm_seq [f_loop] ->
+    Ast_to_text.print_ast ~only_desc:true stdout t;
+     match t.desc with
+    | Trm_seq [f_loop] ->
           begin match f_loop.desc with
-          | Trm_for_c (init, cond, step, body) ->
-            let new_type = typ_var var_type  in
-            let new_decl = trm_let Var_mutable (new_var, new_type) (trm_apps (trm_prim (Prim_new new_type)) [trm_var old_var])
-
-            in
-            let new_set_old = trm_set (trm_var old_var) (trm_var new_var) in
-            (* let new_del_inst = trm_apps ~annot:(Some Heap_allocated) ~typ:(Some (typ_unit ())) ~is_statement:true (trm_unop (Unop_delete false)) [trm_var new_var] in *)
-            let new_loop = trm_for_c init cond step (change_trm (trm_var old_var)(trm_var new_var) body) in
-
-
-              trm_seq (* ~annot:(Some No_braces) *) [
-                new_decl;new_loop;new_set_old
-              ]
+          | Trm_for (index, direction, start, stop, step, body) ->
+            let ty = typ_var var_type in
+            let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_var old_var) in
+            let lst_instr = trm_set (trm_var old_var) (trm_var new_var) in
+            let new_loop = trm_for index direction start stop step (change_trm (trm_var old_var) (trm_var new_var) body) in
+            trm_seq [fst_instr; new_loop;lst_instr]
           | _ -> fail t.loc "local_other_name_aux: expected a for loop"
           end
-      | _ -> fail t.loc "local_other_name_aux: expected the sequnece which contains the for loop"
-      end
     | _ -> fail t.loc "local_other_name_aux: expected the no brace sequence"
-    end
 
 let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.local =
   Target.apply_on_path(local_other_name_aux var_type old_var new_var)
@@ -670,7 +659,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     | Trm_for_c ( init, cond, step, body) ->
       trm_for_c init cond step
         (
-          change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_access) [trm_var new_var; trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_any (trm_var "my_core_id")]]) body
+          change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_var; trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_any (trm_var "my_core_id")]]) body
         )
     | _ -> fail t.loc "delocalize_aux: expected a for loop"
     end
@@ -702,8 +691,8 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
             [
               (* trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var old_var]; *)
               trm_var old_var;
-              (* trm_apps (trm_binop Binop_array_access)[trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var "k"]] *)
-              trm_apps (trm_binop Binop_array_access)[trm_var new_var; trm_var "k"]
+              (* trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var;trm_apps ~annot:(Some Heap_allocated) (trm_unop Unop_get) [trm_var "k"]] *)
+              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]
             ]
           ) ])
 

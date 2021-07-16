@@ -12,4 +12,3 @@ let remove : Target.Transfo.t =
 (* [remove_multiple tgs] removes a list  of C-labels*)
 let remove_multiple (tgs : target list) =
   List.fold_left (fun () x-> remove x )() tgs
-
