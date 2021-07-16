@@ -33,15 +33,14 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
 
 
-let arbitrary_if (cond : string) (tg : target) : unit =
+let arbitrary_if ?(single_branch : bool = false) (cond : string) (tg : target) : unit =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.arbitrary_if i cond t p) tg;
+    (fun (p, i) t -> Generic_core.arbitrary_if single_branch i cond t p) tg;
   Trace.reparse()
 
-(* This one used special smart constructors like tBefore and tAfter instead of giving target_befoer or target_after *)
-let insert_trm_new  (t_insert : trm) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Generic_core.insert_trm t_insert i t p) tg
+(* Rename a variable occurence *)
+let change_occurrence (new_name : var) : Target.Transfo.t =
+  Target.apply_on_target (fun p t -> Variable_core.change_occurrence new_name p t)
 
 
 let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.t =

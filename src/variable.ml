@@ -47,7 +47,4 @@ let rename (new_name : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
     (fun (p, i) t -> Variable_core.rename new_name i t p)
 
-(* Rename a variable occurence *)
-let change_occurrence (new_name : var) : Target.Transfo.t =
-  Target.apply_on_target (fun p t -> Variable_core.change_occurrence new_name p t)
 

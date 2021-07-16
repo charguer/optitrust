@@ -568,18 +568,47 @@ let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
 let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (from_one_to_many_aux names index)
 
-let arbitrary_if_aux (index : int) (cond : string) (t : trm) : trm =
+let arbitrary_if_aux (single_branch : bool) (index : int) (cond : string) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let branches, lback = Tools.split_list_at 2 lback in
-    let new_if = trm_if (trm_arbitray cond) (List.nth branches 0) (List.nth branches 1) in
-    trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
+    begin match single_branch with 
+    | true ->
+      let branch, lback = Tools.split_list_at 1 lback in
+      let then_branch = begin match branch with 
+                        | [then_] -> then_
+                        | _ -> fail t.loc "arbitrary_if_aux: expected a list with only one element"
+                        end in
+      let new_if = trm_if (trm_arbitray cond) then_branch (trm_lit (Lit_unit)) in
+      trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
+    | false ->
+      let branches, lback = Tools.split_list_at 2 tl in
+      let new_if = trm_if (trm_arbitray cond) (List.nth branches 0) (List.nth branches 1) in
+      trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
+    end
+    (* let branches, lback = 
+    if single_branch 
+      then Tools.split_list_at 1 lback 
+      else Tools.split_list_at 2 lback in
+    let else_branch = if single_branch then trm_lit (Lit_uninitialized) else List.nth branches 1 in
+    let new_if = trm_if (trm_arbitray cond) (List.nth branches 0) else_branch in
+    trm_seq ~annot:t.annot (lfront @ [new_if] @ lback) *)
 
   | _ -> fail t.loc "arbitrary_if_aux: expected the surrounding sequence"
   
-let arbitrary_if (index : int) (cond : string) : Target.Transfo.local =
-  Target.apply_on_path (arbitrary_if_aux index cond)
+let arbitrary_if (single_branch : bool) (index : int) (cond : string) : Target.Transfo.local =
+  Target.apply_on_path (arbitrary_if_aux single_branch index cond)
+
+
+let change_occurrence_aux (new_name : var) (t : trm) : trm =
+  match t.desc with 
+  | Trm_var _ -> trm_var new_name
+  | _ -> fail t.loc "change_occurrence_aux: expected a variable occurrence"
+
+let change_occurrence (new_name : var) : Target.Transfo.local =
+  Target.apply_on_path (change_occurrence_aux new_name)
+
+
 
 (* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for delocalize
     params:
