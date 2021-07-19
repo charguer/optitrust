@@ -5,12 +5,13 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [insert_aux index ts t]: insert an arbitrary trm after or before a targeteted trm
+(* [insert_aux index ts t]: insert an arbitrary trm after or before a targeted trm
     params:
       index: and integer in range 0 .. (nbinstr-1)
       ts: a list of trms which the inner sequence will contain
-      t: a term that corresponds to the outer sequence.
-    return: the updated sequence where the outer sequence with the augmented new trm.
+      t: ast of the outer sequence where the insertion will be performed.
+    return: 
+      the updated ast of the updated outer sequence with the augmented new trm
 *)
 let insert_aux (index : int) (s : string) (t : trm) : trm =
     match t.desc with
@@ -24,11 +25,12 @@ let insert (index : int) (s : string) : Target.Transfo.local =
   Target.apply_on_path (insert_aux index s)
 
 (* [delete_aux index nb_instr t]: delete a number of instruction inside the sequence starting 
-                                  from index [index] and ending at ([index] + [nb])
+      from index [index] and ending at ([index] + [nb])
     params:
       nb: number of instructions to delete
-      t: a term that corresponds to the outer sequence.
-    return: the updated ast
+      t: ast of the outer sequence where the deletion is performed.
+    return: 
+      the updated ast of the surrounding sequence with the deleted nodes
 *)
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
@@ -45,12 +47,12 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
 
 
 (* [sub_aux index nb t]: inside a sequence, move all the trms with findex falling in a rance 
-                         from [index] to [index] + [nb] into a sub-sequence.
+      from [index] to [index] + [nb] into a sub-sequence.
     params:
       index: index where the grouping is performed
-      ts: a trm list
-      t: a term that corresponds to the outer sequence.
-    return: the updated ast
+      ts: a list of ast nodes
+      t: ast of the outer sequence where the insertion is performed
+    return: the updated ast of surrounding sequence with the inserted nodes
 
 *)
 let sub_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
@@ -69,13 +71,12 @@ let sub (label : string) (index : int) (nb_instr : int) : Target.Transfo.local =
 
 
 (* [sub_between_aux index1 index2 t]: inside a sequence get the index of two trms, then move all the 
-                                      trms with index falling in the range of the two trms into a sub-sequence
+      terms(ast nodes) with index falling in the range of the two trms into a sub-sequence
     params:
       index1: index where the grouping starts
       index2: index where the grouping ends
-      t: a term that corresponds to the outer sequence.
-    return: the updated ast
-
+      t: ast of the outer sequence where the innsertions is done
+    return: the updated of the surrounding sequence with the inserted nodes
 *)
 let sub_between_aux (label : string) (index1 : int) (index2 : int) (t : trm) : trm =
   match t.desc with
@@ -91,14 +92,14 @@ let sub_between_aux (label : string) (index1 : int) (index2 : int) (t : trm) : t
 let sub_between (label : string) (index1 : int) (index2 : int) : Target.Transfo.local =
   Target.apply_on_path (sub_aux label index1 index2)
 
-
 (*[inline_aux index t]: inline an inner sequence into an outer sequence.
     params:
       index: a valid index in the outer sequence; at that index, the subterm
          should correspond to the inner sequence
-      t: a term that corresponds to the outer sequence.
-    return: the updated outer sequence, where the elements from the inner
-     sequence are directly laid out there.
+      t: ast of the outer sequence where inlining is done
+    return: 
+      updated ast of the outer sequence, where the elements from the inner
+      sequence are directly laid out there.
 *)
 let inline_aux (index : int) (t : trm) : trm =
   match t.desc with
@@ -124,9 +125,10 @@ let inline (index : int) : Target.Transfo.local =
 
 (* [wrap_aux visible label t]: replacing t with a sequence that contains t as single item.
    params:
-    t: any term
+    t: ast of the instruction 
     visible: a flag to turn on(off) curly braces of the sequence
-   return: the outer sequence containing t
+   return: 
+    updated ast of the outer sequence with wrapped node t
  *)
 let wrap_aux (visible : bool) (label : string) (t : trm) : trm =
   let wrapped_seq = if visible then trm_seq [t] else trm_seq ~annot:(Some No_braces) [t] in
@@ -139,7 +141,8 @@ let wrap (visible : bool) (label : string) : Target.Transfo.local=
 (* [unrwap_aux t]: replacing a sequence that contains a single item t with t.
    params:
     t: a term that corresponds to a sequence with a single item in t
-   return: the sole term inside the sequence.
+   return:
+    the udated the ast where the trm inside the sequence has been extracted
  *)
 let unwrap_aux (t : trm) : trm =
   match t.desc with

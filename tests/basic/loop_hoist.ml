@@ -1,6 +1,7 @@
 open Optitrust
 open Target
 
+(* TODO: The outcome is not correct *)
 let _ = Run.script_cpp (fun () ->
   !! Loop.hoist "x_step" [cFor "i"];
   !! Loop.hoist "y_step" [cFor "j"];

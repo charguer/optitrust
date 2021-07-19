@@ -2,6 +2,7 @@ open Ast
 open Target
 open Tools
 
+(* TODO: Add docs for all the internal functions *)
 (* LATER: reimplement a function change_trm that operations on explicit paths
    and thus does not need to do resolution again. *)
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
@@ -272,3 +273,33 @@ let rec toplevel_decl (x : var) (t : trm) : trm option =
         end
     ) None tl 
   | _ -> None
+
+let rec get_loop_nest_indices (t : trm) : 'a list = 
+  match t.desc with 
+  | Trm_for (index, _, _, _, _, body) ->
+    begin match body.desc with 
+    | Trm_seq [f_loop] ->
+      index :: get_loop_nest_indices f_loop
+      
+    | _ -> 
+      (* Ast_to_text.print_ast ~only_desc:true stdout body; *)
+      index :: []
+    
+    end
+  | Trm_for_c (_, _, _, body) ->
+    let index = for_loop_index t in 
+    begin match body.desc with 
+    | Trm_seq [f_loop] ->
+      index :: get_loop_nest_indices f_loop
+    | _ -> index :: []
+    end
+  | _ -> []
+
+let extract_loop (t : trm) : ((trm -> trm) * trm) option = 
+  match t.desc with 
+  | Trm_for_c (init, cond, step, body) ->
+    Some ((fun b -> trm_for_c init cond step b), body)
+  | Trm_for (index, direction, start, stop, step, body) ->
+    Some ((fun b -> trm_for index direction start stop step b), body)
+  | _ -> fail t.loc "extract_loop: expected a loop"
+

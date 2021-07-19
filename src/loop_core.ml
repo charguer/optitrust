@@ -1,25 +1,19 @@
 open Ast
 
-let extract_loop (t : trm) : ((trm -> trm) * trm) option = 
-  match t.desc with 
-  | Trm_for_c (init, cond, step, body) ->
-    Some ((fun b -> trm_for_c init cond step b), body)
-  | Trm_for (index, direction, start, stop, step, body) ->
-    Some ((fun b -> trm_for index direction start stop step b), body)
-  | _ -> fail t.loc "extract_loop: expected a loop"
 
-
-(* swap_aux: This is an auxiliary function for swap
+(* [swap_aux t]: swap the order of two nested loops, the targeted loop
+      the immediate inner loop
     params:
-      t: an ast subterm
-    return: the updated ast
+      t: ast of the targeted loop
+    return: 
+      updated ast with swapped loops
  *)
 let swap_aux (t : trm) : trm = 
-  match extract_loop t with 
+  match Internal.extract_loop t with 
   | Some (loop1, body1) ->
     begin match body1.desc with 
     | Trm_seq[loop2] ->
-       begin match extract_loop loop2 with 
+       begin match Internal.extract_loop loop2 with 
       | Some (loop2, body2) -> loop2 (trm_seq [(loop1 body2)])
       | None -> fail body1.loc "swap_aux: should target a loop with nested loop inside"
       end
@@ -28,24 +22,19 @@ let swap_aux (t : trm) : trm =
     
   | None -> fail t.loc "swap_aux: should target a loop"
 
-(* swap: Swap the two loop constructs, the loop should contain as least one inner loop
-    params:
-      path_to_loop an explicit path toward the loop
-      t: ast
-    return:
-      the modified ast
-*)
+
 let swap : Target.Transfo.local =
   Target.apply_on_path (swap_aux)
 
 
-(*  color_aux: This function is an auxiliary function for color
+(*  [color_aux nb_colors i_color t]: transform a loop into two nested loops respecting based
+        on coloring pattern
       params:
-        c: a variable used to represent the number of colors
+        nb_colors: a variable used to represent the number of colors
         i_color: string used to represent the index used of the new outer loop
-        t: an ast subterm
+        t: ast of the loop
       return:
-        the updated ast
+        updated ast with the transformed loop
 *)
 let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
@@ -64,27 +53,16 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
   | _ -> fail t.loc "color_aux: only simple loops are supported"
 
 
-(* color: Replace the original loop with two nested loops:
-        for (int i_color = 0; i_color < C; i_color++)
-          for ([int] i = a+i_color; i < b; i += C)
-      params:
-        path_to_loop: explicit path toward the loop
-        c: a variable used to represent the number of colors
-        i_color: index used for the new outer loop
-        t: ast
-      return:
-        the modified ast
-*)
 let color (c : var) (i_color : var) : Target.Transfo.local =
     Target.apply_on_path (color_aux c i_color)
 
-(*  tile_aux: This function is an auxiliary function for loop
+(*  [tile_aux divides b i_block t]: tile loop t
       params:
         b: a variable used to represent the block size
         i_block: string used to represent the index used for the new outer loop
-        t: an ast subterm
+        t: ast of the loop going to be tiled
       return:
-        the updated ast
+        updated ast with the tiled loop
 *)
 let tile_aux (divides : bool) (b : var) (i_block : var) (t : trm) : trm =
   match t.desc with
@@ -103,27 +81,20 @@ let tile_aux (divides : bool) (b : var) (i_block : var) (t : trm) : trm =
          trm_for index direction (trm_var i_block) spec_stop step body])
   | _ -> fail t.loc "tile_aux: only simple loops are supported"
 
-(* tile: Replace the original loop with two nested loops
-      params:
-        path_to_loop: an explicit path to the loop
-        b: a variable used to represent the block size
-        i_block: index used for the new outer loop
-        t: ast
-      return:
-        updated ast
 
-*)
 let tile (divides : bool) (b : var)(i_block : var) : Target.Transfo.local =
    Target.apply_on_path (tile_aux divides b i_block)
 
 
 
-(* hoist_aux: This is an auxiliary function for hoist
+(* [hoist_aux x_step t]: extract a loop variable inside the loop as an array with size equal
+      to (loop_bound - 1), the change all the occurrences of the variable with an array access 
+      with index same as the index of the loop
     params:
-      x_step: a new_variable name
-      t: an ast subterm
+      x_step: a new_variable name going to appear as the extract variable
+      t: ast of the loop 
     return:
-      the updated ast
+      updated ast with the hoisted loop
 *)
 let hoist_aux (x_step : var) (t : trm) : trm =
   match t.desc with
@@ -155,17 +126,11 @@ let hoist_aux (x_step : var) (t : trm) : trm =
     end
   | _ -> fail t.loc "hoist_aux: only simple loops are supported"
 
-(* hoist:  Extract a variable from loop
-    params:
-      path_to_loop: an explicit path to the loop
-      x_step: a fresh name for the new_variable
-      t: ast
-    return:
-      the updated ast
- *)
+
 let hoist (x_step : var) : Target.Transfo.local =
    Target.apply_on_path (hoist_aux x_step)
 
+(* [extract_variable_aux decl_index t] similar to loop hoist *)
 let extract_variable_aux (decl_index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_for (index, direction, start, stop, step, body) ->
@@ -197,12 +162,12 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
 let extract_variable (index : int) : Target.Transfo.local =
   Target.apply_on_path(extract_variable_aux index)
 
-(* split_aux: This is an auxiliary function for split
+(* [split_aux]: split a loop into two loops
     params:
-      index: int
-      t: an ast subterm
+      index: index of the splitting point inside the body of the loop
+      t: ast of the loop
     return
-      the updated ast
+      the updated with the splitted loop
  *)
  let split_aux (index : int) (t : trm) : trm =
   match t.desc with
@@ -220,25 +185,15 @@ let extract_variable (index : int) : Target.Transfo.local =
     end
   | _ -> fail t.loc "split_aux: onl simple loops are supported"
 
-
-(* split: Split the loop into two loops, the spliting point is defined as the index of the n-th trm in the loop body
-    params:
-      path_to_loop: an explicit path to the loop
-      index: an index in the range 0 .. N (though in practice only 1 .. N-1 is useful)
-      t: ast
-    return:
-      the updated ast
- *)
-
  let split (index : int) : Target.Transfo.local=
   Target.apply_on_path (split_aux index)
 
 
-(* fusion_aux: This function is an auxiliary function for fusion
+(* [fusion_aux t]: merge two loops with the same components except the body
     params:
-      t: an ast subterm
+      t: ast of the sequence containing the loops 
     return
-      the updated ast
+      update ast with the merged loops
  *)
 
 let fusion_aux (t : trm) : trm =
@@ -275,17 +230,16 @@ let fusion_aux (t : trm) : trm =
     end
   | _ -> fail t.loc "fusion_aux: expected the sequence which contains the two loops to be merged"
 
-
-(* fusion: Merge to loops with  the same range
-    params:
-      path_to_seq: Path to the sequence which contains the two loops
-      t: ast
-    returns
-      the updated ast
-*)
 let fusion : Target.Transfo.local =
   Target.apply_on_path (fusion_aux)
 
+(* [grid_enumerate_aux index_and_bounds t]: transform a loop over a grid into ndested loops over each dimension
+      of the grid
+    params:
+      [index_and_bounds]: a list of pairs representing the index and the bound of the loop over each dimesnion 
+    return:
+      updated ast with the transformed loop
+*)
 let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : trm =
   match t.desc with 
   | Trm_for (index, direction, _start, _stop, _step, body) -> 
@@ -315,7 +269,12 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 
 
 
-
+(* [unroll_aux index t]: extract the body of the loop as a list of list of instructions 
+    params:
+      index: index of the loop inside the sequence containing the loop 
+    return:
+      updated ast with the unrolled loop
+*)
 let unroll_aux (index : int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
@@ -342,18 +301,12 @@ let unroll_aux (index : int) (t : trm) : trm =
                             List.fold_left( fun acc i1 -> 
                                let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
                                trm_seq ~annot:(Some No_braces) (List.map (Internal.change_trm (trm_var index) new_index) tl1) :: acc
-
                             ) [] (List.rev unrolled_loop_range)
-                            
-
                           | _ -> fail body.loc "unroll_aux: body of the loop should be a sequence"
                           end in
       trm_seq ~annot:t.annot (lfront @ unrolled_body @ lback)
-                              
-
     | _ -> fail loop_to_unroll.loc "unroll_aux: only simple loops supported"
     end
-
   | _ -> fail t.loc "unroll_aux: expected the surrounding sequence"
 
 

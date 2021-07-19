@@ -49,6 +49,11 @@ type 'a varmap = 'a String_map.t
 (* labels (for records) *)
 type label = string
 
+(* Description of a term as a string (convenient for the user)
+   LATER: this type might become generalized in the future. *)
+type string_trm = string
+
+
 (* constructor name (for enum and algebraic datatypes) *)
 type constr = string
 

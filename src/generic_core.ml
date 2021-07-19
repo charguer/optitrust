@@ -175,7 +175,7 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
       code: string representing the code which will appear in place of the targeted trm
       index: index of the trageted trm inside the sequence
       t: ast of the surrounding sequence which contains the trm going to be replaced
-    returns:
+    return:
       updated ast of the urrounding sequence which contains now the replaced trm
  *)
 let replace_with_arbitrary_aux (code : string)(index : int) (t : trm) : trm =
@@ -196,7 +196,7 @@ let replace_with_arbitrary (code : string) (index : int): Target.Transfo.local =
       x: the name of the variable to be whose occurrence is going to be replaced
       names: a list of new variables to replace the current variable
       t: an ast node located in the same level as the variable declaration or deeper
-    returns:
+    return:
       updated ast nodes which are in the same level with the variable declaration or deeper
 *)
 let replace_one_with_many (x : var) (names : var list) (t : trm) : trm = 
@@ -222,7 +222,7 @@ let replace_one_with_many (x : var) (names : var list) (t : trm) : trm =
       names: a list of variable names which are going to replace the curren variable
       index: index of the variable declaration inside the sequence containing it
       t: ast of the outer sequence containing the declaration
-    returns:
+    return:
       updated ast of the surrounding sequence with all the changes performed
 *)
 let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
@@ -253,7 +253,7 @@ let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
       index: index of the instruction inside it's surrounding sequence
       cond: condition of the if statement given as string code
       t: ast of the outer sequence containing the instruction
-    returns:
+    return:
       updated ast of the surrounding sequence with the added if statement
  *)
 let arbitrary_if_aux (single_branch : bool) (index : int) (cond : string) (t : trm) : trm =
@@ -285,7 +285,7 @@ let arbitrary_if (single_branch : bool) (index : int) (cond : string) : Target.T
     params:
       new_name: the name of the variable which is going to replace the current occurrence
       t: ast of the variable occurrence going to be replaced
-    returns:
+    return:
       updated ast of the variable occurrence
 *)
 let change_occurrence_aux (new_name : var) (t : trm) : trm =

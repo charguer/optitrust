@@ -12,8 +12,8 @@ open Ast
     params:
       array_var: array_variable  to apply changes on
       new_vars: a list of variables, the variables at index i replaces and occurence of array_var[i]
-      t: a trm located in the same sequence as the array declaration
-    returns: the updated ast with replaced array accesses to variable references.
+      t: ast node located in the same level or deeper as the array declaration
+    return: the updated ast node  with the replaced array accesses to variable references.
 *)
 let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
@@ -59,8 +59,9 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
     params:
       new_vars: a list of strings of length equal to the size of the array
       index: index of the instruction inside the sequence 
-      t: the surrounding sequence of the array declaration
-    return: updated outer sequence with the replaced declarations and all changed accesses.
+      t: ast of the surrounding sequence of the array declaration
+    return: 
+      updated ast of the outer sequence with the replaced declarations and all changed accesses.
 *)
 let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
   match t.desc with
@@ -102,14 +103,14 @@ let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
       block_name: new name for the array
       b: the size of the tile
       x: typvar
-      t: ast subterm
+      t: ast node located in the same level or deeper as the array declaration
     assumptions:
     - if x is ty*, each array of type x is allocated through a custom function:
       x a = my_alloc(nb_elements, size_element)
     - x is not used in function definitions, but only in var declarations
     - for now: in any case, the number of elements is divisible by b
    return: 
-    the updated ast nodes which are in the same level with the array declaration or deeper.
+      updated ast nodes which are in the same level with the array declaration or deeper.
 *)
 let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typvar)
   (t : trm) : trm =
@@ -151,8 +152,9 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
       block_name: the name of the arrays representing one tile
       b: the size of the tile
       index: the index of the instruction inside the sequence
-      t: outer sequence containing the array declaration
-    returns: the updated surrounding sequence with the new tiled declaration and correct array accesses based on the new tiled form.
+      t: ast of the outer sequence containing the array declaration
+    return: 
+      updated ast of the surrounding sequence with the new tiled declaration and correct array accesses based on the new tiled form.
 *)
 let tile_aux (block_name : typvar) (b : var) (index: int) (t : trm) : trm =
   match t.desc with
@@ -278,12 +280,12 @@ let tile (block_name : typvar) (b : var) (index : int): Target.Transfo.local =
   Target.apply_on_path(tile_aux block_name b index)
 
 
-(* [apply_swapping x t]: Change all the occurrences of the array to the swapped form.
+(* [apply_swapping x t]: change all the occurrences of the array to the swapped form.
     params:
       x: typvar
       t: an ast node which on the same level as the array declaration or deeper.
     return:
-      the updated ast nodes which are in the same level with the array declaration or deeper.
+      updated ast nodes which are in the same level with the array declaration or deeper.
  *)
  let rec apply_swapping (x : typvar) (t : trm) : trm =
   match t.desc with
@@ -374,9 +376,9 @@ let tile (block_name : typvar) (b : var) (index : int): Target.Transfo.local =
 (* [swap_aux name x t]: transform an array declaration to a swaped one, Basically the bounds will swap
      places in the arary declaration, and the indices will swap places on all the array occurrences.
     params:
-      index: used to find the instruction inside the sequence.
+      index: used to find the instruction inside the sequence
       x: typ of the array
-      t: the surrounding sequence if the array declaration.
+      t: ast of the surrounding sequence if the array declaration
     assumption: x is not used in fun declarations
       -> to swap the first dimensions of a function argument, use swap_coordinates
       on the array on which the function is called: a new function with the
@@ -437,9 +439,9 @@ let swap (index : int) : Target.Transfo.local =
 (* [swap_accesses x t]: Change all the occurrences of the struct access from aos to soa.
     params:
       struct_name:  name of the struct whose fields are going to be changed
-      t: a trm located in the same sequence as the aos declaration
+      t: ast node located in the same level or deeper as the aos declaration
     return:
-      the updated ast with all the struct accesses swapped to array acesses.
+      updated node with all the struct accesses swapped to array acesses.
 *)
 let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
@@ -525,9 +527,9 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
 (* [aos_to_soa_aux t ] : Trasnform an array of structures to a structure of arrays
     params:
       index: the index of the array declaration inside the surrounding sequence
-      t: outer sequence containing the array of structures declaration
+      t: ast of the outer sequence containing the array of structures declaration
     return:
-      the updated surrounding sequence wuth the new changed declaration and occurences
+      updated ast of the surrounding sequence wuth the new changed declaration and occurences
 *)
 let aos_to_soa_aux (index : int) (t : trm) : trm =
   match t.desc with
