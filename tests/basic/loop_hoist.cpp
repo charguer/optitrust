@@ -8,6 +8,7 @@ int main() {
     u[i] = x;
   }
 
+  // TODO: this "detach" on the fly could be handled in the "combi" folder
   for (int j = 0; j < 10; j++) {
     int y = t[j];
     u[j] = y + 1;
