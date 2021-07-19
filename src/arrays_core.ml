@@ -58,7 +58,7 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
       the indices of the array.
     params:
       new_vars: a list of strings of length equal to the size of the array
-      index: used to find the instruction inside the sequence
+      index: index of the instruction inside the sequence 
       t: the surrounding sequence of the array declaration
     return: updated outer sequence with the replaced declarations and all changed accesses.
 *)
@@ -145,8 +145,8 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
   | _ -> trm_map (apply_tiling base_type block_name b x) t
 
 
-(* [tile_aux: name block_name b x t]: transform an array declaration from a normal shape into a tiled one.
-    Then call apply_tiling to change all the array occurrences into the correct form.
+(* [tile_aux: name block_name b x t]: transform an array declaration from a normal shape into a tiled one,
+    then call apply_tiling to change all the array occurrences into the correct form.
     params:
       block_name: the name of the arrays representing one tile
       b: the size of the tile
@@ -434,12 +434,12 @@ let swap (index : int) : Target.Transfo.local =
   Target.apply_on_path (swap_aux index )
 
 
-(* [swap_accesses x t]: This is an auxiliary function for aos_to_soa_aux
+(* [swap_accesses x t]: Change all the occurrences of the struct access from aos to soa.
     params:
-      x: typvar
-      t: global ast
+      struct_name:  name of the struct whose fields are going to be changed
+      t: a trm located in the same sequence as the aos declaration
     return:
-     the update ast
+      the updated ast with all the struct accesses swapped to array acesses.
 *)
 let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
@@ -525,9 +525,9 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
 (* [aos_to_soa_aux t ] : Trasnform an array of structures to a structure of arrays
     params:
       index: the index of the array declaration inside the surrounding sequence
-      t: array of structures declaration
+      t: outer sequence containing the array of structures declaration
     return:
-      the updated ast
+      the updated surrounding sequence wuth the new changed declaration and occurences
 *)
 let aos_to_soa_aux (index : int) (t : trm) : trm =
   match t.desc with
@@ -583,6 +583,5 @@ let aos_to_soa_aux (index : int) (t : trm) : trm =
   | _ -> failwith "aos_to_soa_aux: expected the surrounding sequence"
 
 
-(* [aos_to_soa name x index p t] *)
 let aos_to_soa (index : int) : Target.Transfo.local =
   Target.apply_on_path(aos_to_soa_aux index)

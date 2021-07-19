@@ -708,10 +708,16 @@ and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
     | [], [] -> true
-    | Array_access p_index :: cal, Array_access index :: al ->
+    | Array_access p_index :: cal, Array_access_get index :: al ->
        check_target p_index index &&
        aux cal al
-    | Struct_access so :: cal, Struct_access f :: al ->
+    | Array_access p_index :: cal, Array_access_addr index :: al ->
+       check_target p_index index &&
+       aux cal al
+    | Struct_access so :: cal, Struct_access_get f :: al ->
+       check_name so f &&
+       aux cal al
+    | Struct_access so :: cal, Struct_access_addr f :: al ->
        check_name so f &&
        aux cal al
     | Any_access :: cal, _ :: al -> aux cal al

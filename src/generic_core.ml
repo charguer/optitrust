@@ -319,46 +319,58 @@ let rec toplevel_decl (x : var) (t : trm) : trm option =
 
 
 
-(* ********************************************** *)
+(* **********  GENERIC TRANSFORMATIONS ************************************ *)
 
+(* *********************************************************************************** 
+ * Note: All the intermediate functions which are called from [sequence.ml] file      *
+ * have only one purpose, and that is targeting the trm in which we want to apply the *
+ * transformation. That's why there is not need to document them.                     *
+ *)
 
-
-
-
-
-(* [var_init_detach_aux t]: This is an auxiliary function for var_init_detach
+(* [var_init_detach_aux t]: replace an initialized variable declaration with an
+    uninitialized declaration and an assignment.
     params:
-      t: an ast subterm
+      index: 
+      t: ast of the surrounding sequence of the variable declaration
     return:
-      a sequence which contains the declaration of the variable and a set operations for that variable
+      the updated ast of the outer sequence which contains the declaration of the variable 
+      and a set operations for that variable
 *)
-let var_init_detach_aux (t : trm) : trm =
+let var_init_detach_aux (index : int) (t : trm) : trm =
   match t.desc with
-  | Trm_let(vk,(x, tx), init) ->
-    begin match vk with
-    | Var_immutable -> fail t.loc "var_init_detach_aux: const declarations cannot be detached"
-    | _ ->
-      let init =
-        begin match init.desc with
-        | Trm_apps(_,[init]) -> init
-        | _ -> fail t.loc "var_init_detach_aux: expected a heap allocated variable declaration"
-        end in
-      trm_seq ~annot:(Some No_braces)[
-        trm_let vk (x, tx) (trm_prim (Prim_new tx));
-        trm_set (trm_var x) init
-      ]
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let ldecl, lback = Tools.split_list_at 1 lback in
+    let decl = match ldecl with 
+      | [dl] -> dl
+      | _ -> fail t.loc "var_init_detach_aux: wrong target" in
+    begin match decl.desc with 
+    | Trm_let(vk,(x, tx), init) ->
+      begin match vk with
+      | Var_immutable -> fail t.loc "var_init_detach_aux: const declarations cannot be detached"
+      | _ ->
+        let init =
+          begin match init.desc with
+          | Trm_apps(_,[init]) -> init
+          | _ -> fail t.loc "var_init_detach_aux: expected a heap allocated variable declaration"
+          end in
+        let var_decl = trm_let vk (x, tx) (trm_prim (Prim_new tx)) in
+        let var_assgn = trm_set (trm_var x) init in
+        trm_seq ~annot:t.annot (lfront @ [var_decl; var_assgn] @ lback)
+      end
+    | _ -> fail decl.loc "var_init_detach_aux: variable could not be matched, make sure your path is correct"
     end
-  | _ -> fail t.loc "var_init_detach_aux: variable could not be matched, make sure your path is correct"
+  | _ -> fail t.loc "var_init_detach_aux: expected the surrounding sequence"
 
+let var_init_detach (index : int) : Target.Transfo.local =
+  Target.apply_on_path(var_init_detach_aux index )
 
-let var_init_detach : Target.Transfo.local =
-  Target.apply_on_path(var_init_detach_aux )
-
-(* [var_init_attach_aux t]: This is an auxiliary function for var_init_attach
+(* [var_init_attach_aux t]: replace an uninitialized variable declaration with an initialized one.
     params:
-      t: an ast subterm
+      const: a boolean to decide if the attached variable should be mutable or not
+      t: ast of the surrounding sequence of the variable declaration
     return
-      the updated
+      the updated ast of the outer sequence which contains now the initialized variable declaration
 *)
 let var_init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
   let counter = ref 0 in
@@ -403,22 +415,16 @@ let var_init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
     | _ -> fail t.loc "var_init_attach_aux: target_doesn't point to the right trm, expected a trm_let"
     end
   | _ -> fail t.loc "var_init_attach_axu: expected the surrounding sequence"
-(* [var_init_attach t]: Change a sequence of the form {int x; x = 5;} to int x = 5
-    params:
-      path_to_seq: path to the sequence which satisfy the assumtion above
-      t: ast
-    return
-      the updated ast
-*)
+
 let var_init_attach (const : bool) (index : int) : Target.Transfo.local =
   Target.apply_on_path(var_init_attach_aux const index )
 
 
-(* [const_non_const_aux t]: This is an auxiliary function for const_non_const
+(* [const_non_const_aux t]: transform a const declaration to a non-const one or vice-versa
     params:
-      t: an ast subterm
+      t: ast of the variable declaration 
     return:
-      the updated ast
+      the updated ast of the declaration
 *)
 let const_non_const_aux (t : trm) : trm =
   match t.desc with
@@ -446,28 +452,25 @@ let const_non_const : Target.Transfo.local =
   apply_on_path (const_non_const_aux)
 
 
-(* [remove_instruction_aux t]: This is an auxiliary function for remove_instruction
+(* [remove_instruction_aux t]: delete an instruction inside the sequence 
     params:
-      t: an ast subterm
+      index: index of the instruction inside the sequence
+      t: ast of the sequence containing the instruction to remove
     return:
-      the updated ast
+      updated ast of the outer sequence with one less trm
 *)
-let remove_instruction_aux (_t : trm) : trm =
-  (* Replace the current t with an empty sequence *)
-  trm_seq ~annot:(Some No_braces) []
+let remove_instruction_aux (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let _instruction_to_remove, lback = Tools.split_list_at 1 lback in
+    trm_seq ~annot:t.annot (lfront @ lback)
+  | _ -> fail t.loc "remove_instruction_aux: expected the surrounding sequence of the instruciton"
 
-let remove_instruction : Target.Transfo.local=
-  apply_on_path (remove_instruction_aux)
+let remove_instruction (index : int) : Target.Transfo.local=
+  apply_on_path (remove_instruction_aux index)
 
-(* [local_other_name var_type old_var new_var t]: This is an auxiliary function for local_other_name
-    params:
-      var_type: type of the var
-      old_var: old variable for which we want to chang the local name
-      new_var: new_variable
-      t: an ast subterm
-    return:
-      the updated ast
-*)
+(* TODO: Add the docs for this function *)
 let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t : trm) : trm =
      match t.desc with
     | Trm_seq [f_loop] ->
@@ -486,14 +489,36 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
   Target.apply_on_path(local_other_name_aux var_type old_var new_var)
 
 
-let replace_with_arbitrary_aux (code : string)(_t : trm) : trm =
-  Ast_to_text.print_ast ~only_desc:true stdout _t;
-  trm_seq ~annot:(Some No_braces) [_t;trm_arbitray code]
+(* [replace_with_arbitrary_aux code index t]: replace any node of the ast with an arbitrary code
+      tranformed later into an ast subtree
+    params:
+      code: string representing the code which will appear in place of the targeted trm
+      index: index of the trageted trm inside the sequence
+      t: ast of the surrounding sequence which contains the trm going to be replaced
+    returns:
+      updated ast of the urrounding sequence which contains now the replaced trm
+ *)
+let replace_with_arbitrary_aux (code : string)(index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let _, lback = Tools.split_list_at 1 lback in
+    trm_seq ~annot:t.annot (lfront @ [trm_arbitrary code] @ lback)
+  | _ -> fail t.loc "replace_with_arbitrary_aux: expected the surrounding sequence"
   
-let replace_with_arbitrary (code : string) : Target.Transfo.local =
-  Target.apply_on_path (replace_with_arbitrary_aux code )
+let replace_with_arbitrary (code : string) (index : int): Target.Transfo.local =
+  Target.apply_on_path (replace_with_arbitrary_aux code index)
 
-
+(* [replace_one_with_mane]: change all the instructions containing the occurrence of the 
+      variable into a list of instructions, the list of instructions contains one instruction 
+      per variable.
+    params:
+      x: the name of the variable to be whose occurrence is going to be replaced
+      names: a list of new variables to replace the current variable
+      t: an ast node located in the same level as the variable declaration or deeper
+    returns:
+      updated ast nodes which are in the same level with the variable declaration or deeper
+*)
 let replace_one_with_many (x : var) (names : var list) (t : trm) : trm = 
   let rec aux (global_trm : trm) (t : trm) : trm = 
     match t.desc with 
@@ -509,6 +534,17 @@ let replace_one_with_many (x : var) (names : var list) (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t 
 
+(* [from_one_to_many_aux names index t]: transform one variable declaration to a list of variable 
+      declarations, change all the instructions containing an occurrence of the declared variable
+      with a list of instructions with the occurrence replaced by the variable on the list entered by the user.
+      There is a bijective correspondence between the instructionss added and the list of variables.
+    params:
+      names: a list of variable names which are going to replace the curren variable
+      index: index of the variable declaration inside the sequence containing it
+      t: ast of the outer sequence containing the declaration
+    returns:
+      updated ast of the surrounding sequence with all the changes performed
+*)
 let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -529,6 +565,17 @@ let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
 let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (from_one_to_many_aux names index)
 
+
+(* [arbitrary_if single_branch index cond t]: take one or two instructions and create an if statement
+      or an if else statment if [single_brnach] is true.
+    params:
+      single_branch: a boolean indicating whether there is an else branch or not
+      index: index of the instruction inside it's surrounding sequence
+      cond: condition of the if statement given as string code
+      t: ast of the outer sequence containing the instruction
+    returns:
+      updated ast of the surrounding sequence with the added if statement
+ *)
 let arbitrary_if_aux (single_branch : bool) (index : int) (cond : string) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -540,27 +587,27 @@ let arbitrary_if_aux (single_branch : bool) (index : int) (cond : string) (t : t
                         | [then_] -> then_
                         | _ -> fail t.loc "arbitrary_if_aux: expected a list with only one element"
                         end in
-      let new_if = trm_if (trm_arbitray cond) then_branch (trm_lit (Lit_unit)) in
+      let new_if = trm_if (trm_arbitrary cond) then_branch (trm_lit (Lit_unit)) in
       trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
     | false ->
       let branches, lback = Tools.split_list_at 2 tl in
-      let new_if = trm_if (trm_arbitray cond) (List.nth branches 0) (List.nth branches 1) in
+      let new_if = trm_if (trm_arbitrary cond) (List.nth branches 0) (List.nth branches 1) in
       trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
     end
-    (* let branches, lback = 
-    if single_branch 
-      then Tools.split_list_at 1 lback 
-      else Tools.split_list_at 2 lback in
-    let else_branch = if single_branch then trm_lit (Lit_uninitialized) else List.nth branches 1 in
-    let new_if = trm_if (trm_arbitray cond) (List.nth branches 0) else_branch in
-    trm_seq ~annot:t.annot (lfront @ [new_if] @ lback) *)
-
   | _ -> fail t.loc "arbitrary_if_aux: expected the surrounding sequence"
   
 let arbitrary_if (single_branch : bool) (index : int) (cond : string) : Target.Transfo.local =
   Target.apply_on_path (arbitrary_if_aux single_branch index cond)
 
 
+(* [change_occurrence_aux new_name t]: change a variable occurrence or a function call with a new 
+      variable occurrence of another function call.
+    params:
+      new_name: the name of the variable which is going to replace the current occurrence
+      t: ast of the variable occurrence going to be replaced
+    returns:
+      updated ast of the variable occurrence
+*)
 let change_occurrence_aux (new_name : var) (t : trm) : trm =
   match t.desc with 
   | Trm_var _ -> trm_var new_name
@@ -569,16 +616,7 @@ let change_occurrence_aux (new_name : var) (t : trm) : trm =
 let change_occurrence (new_name : var) : Target.Transfo.local =
   Target.apply_on_path (change_occurrence_aux new_name)
 
-(* [delocalize_aux array_size neutral_element fold_operation t]: This is an auxiliary function for deloclize
-    params:
-      array_size: the size of the array we want to create
-      neutral_element: nutral element for reduction phase
-      fold_operation: fold_operation for reduction phase
-      t: ast subterm
-    return:
-      the updated ast
-*)
-
+(* TODO: Add the docs for this function *)
 let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -642,55 +680,5 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
   let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.local =
     Target.apply_on_path (delocalize_aux array_size neutral_element fold_operation)
 
-
-
-(* [add_attribute_aux a t]: This is an auxiliary function for add_attribute
-    params:
-      a: attribute  which is going to be added
-      t: an ast subterm
-    return:
-      the updated ast
-*)
-let add_attribute_aux (a : attribute) (t : trm) : trm =
-  match t.desc with
-  | Trm_let (vk, (x, tx), init) ->
-    let typ_attributes = a :: tx.typ_attributes in
-    trm_let vk (x, {tx with typ_attributes}) init
-  | Trm_typedef td ->
-    begin match td.typdef_body with
-    | Typdef_alias tx ->
-      let typ_attributes = a :: tx.typ_attributes in
-      trm_typedef {td with typdef_body = Typdef_alias {tx with typ_attributes}}
-    | _ -> fail t.loc "add_attribute_aux: expected a typdef_alias"
-    end
-
-  | _ ->  {t with attributes = a :: t.attributes}
-
-
-let add_attribute (a : attribute) : Target.Transfo.local =
-  Target.apply_on_path(add_attribute_aux a)
-
-
-let ast_show_aux (file : string) (to_stdout:bool) (index : int) (t : trm) : trm =
-  let out_ast = open_out file in
-  if to_stdout then begin
-    Ast_to_text.print_ast ~only_desc:true stdout t;
-    output_string stdout "\n\n ";
-    end
-  else
-    output_string out_ast (Printf.sprintf "=========================Occurence %i======================\n" index);
-    Ast_to_text.print_ast ~only_desc:true out_ast t;
-    output_string out_ast "\n\n";
-    output_string out_ast (Printf.sprintf "------------------------Occurence %i details---------------\n" index);
-    Ast_to_text.print_ast ~only_desc:false out_ast t;
-    output_string out_ast "\n\n";
-    t
-
-
-
-
-
-let ast_show (file : string) (to_stdout : bool) (index : int): Target.Transfo.local =
-  Target.apply_on_path (ast_show_aux file to_stdout index)
 
 
