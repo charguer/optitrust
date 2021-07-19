@@ -1,16 +1,26 @@
 typedef int T[2][3];
 
-int get_0_1 (int t[2][3]) {
-  return t[0][1];
+int get_1_x(int a[2][3]) {
+  return a[0][1];
 }
 
-int get_1_2 (int t[2][3], int v[2][3]) {
-  return t[1][2] + get_0_1(v) + get_0_1(t);
+int get_1_y(T a) {
+  return a[0][1];
 }
+
+int get_2_x(int a[2][3], int b[2][3]) {
+  return a[1][2] + b[1][2];
+}
+
+int get_2_y(T a, T b) {
+  return a[1][2] + b[1][2];
+}
+
+
 
 int main () {
   T t;
-  int v[2][3];
+  int v[2][3]; // should not be changed
 
   for (int i = 0; i < 2; i++) {
     for (int j = 0; j < 3; j++) {
@@ -18,9 +28,7 @@ int main () {
     }
   }
 
-  test:
-    int n = t[1][2] + get_1_2(t, v) + get_1_2(v, t) + get_1_2(t, t) +
-      get_1_2(v, v);
+  int n = t[1][2] + get_1_x(t) + get_1_y(t) + get_2_x(v, v) + get_2_y(t, t);
 
   return 0;
 }

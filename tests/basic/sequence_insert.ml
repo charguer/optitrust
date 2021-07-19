@@ -3,7 +3,7 @@ open Target
 
 let _ =
   Run.script_cpp (fun _ ->
-    !! Sequence.insert "int a = 5;const float b = 5.0" [tBefore; cVarDef "x"];
+    !! Sequence.insert "int a = 5; const float b = 5.0;" [tBefore; cVarDef "x"];
     !! Sequence.insert "y++;" [tAfter; cVarDef "y"];
     !! Sequence.insert "p++;" [tAfter; cVarDef "y"];
     !! Sequence.insert "printf(\"%d\", y);" [tAfter; cVarDef "y"];

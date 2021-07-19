@@ -1,9 +1,11 @@
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
-# Validated: sequence_delete loop_tile
+# Validated: sequence_delete loop_tile sequence_insert sequence_sub
 
-# Tolook at: aos_to_soa, sequence_insert  sequence_sub array_swap loop_hoist
+# Need some update: aos_to_soa
+
+# Tolook at: array_swap loop_hoist
 
 
 # List of files to consider.
