@@ -14,7 +14,7 @@ let insert (s : string) (tg : target): unit =
      [nb] denotes the number of instructions to delete starting from the targeted trm.
 *)
 let delete ?(nb : int = 1) : Target.Transfo.t =
-  Target.apply_on_transformed_targets ~rev:true (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets ~rev:true (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Sequence_core.delete i nb t p) 
 
 
@@ -37,7 +37,7 @@ let iter_delete (tgl : target list) : unit =
       }                }
 *)
 let sub ?(label : string = "") (nb : int) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
   (fun (p, i) t -> Sequence_core.sub label i nb t p)
 
 (* [sub_between tg_beg tg_end]: this transformation is an advanced version of sub.
@@ -65,7 +65,7 @@ let sub_between ?(label : string = "") (tg_beg : target) (tg_end : target) : uni
    [{ t1; { t2; t3 }; t4 }]. It "inlines" the contents of the inner sequence,
    producing e.g., [{ t1; t2; t3; t3}]. *)
 let inline : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Sequence_core.inline i t p)
 
 (* [wrap visible tg] expecets the target [tg] to point at any arbitrary trm,

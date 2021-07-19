@@ -35,7 +35,7 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
             | Add_address_of_operator :: addl -> {dx with add = addl}
             | _ -> fail d.loc "fold_decl: expected a reference"
         in
-        let lback = List.map(Generic_core.change_trm ~change_at:fold_at def_x t_x) lback
+        let lback = List.map(Internal.change_trm ~change_at:fold_at def_x t_x) lback
         (*
           def_x might have been replaced with x in the definition of x
           -> replace it again with def_x
@@ -68,8 +68,8 @@ let fold (as_reference : bool) (fold_at : target list) (index) : Target.Transfo.
 let insert_aux (ctx : Trace.context) (const : bool) (as_reference : bool) (x : var) (dx : string) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let context = Generic_core.get_context ctx t in
-    let dx = Generic_core.term ~context ctx dx in
+    let context = Internal.get_context ctx t in
+    let dx = Internal.term ~context ctx dx in
     let tx = match dx.typ with
     | None -> fail t.loc "insert_aux: cannot find definition type"
     | Some tx -> if as_reference then typ_ptr Ptr_kind_mut tx else tx
@@ -97,8 +97,8 @@ let insert_and_fold_aux (ctx : Trace.context) (const : bool) (as_reference : boo
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let context = Generic_core.get_context ctx (trm_seq ~annot:(Some No_braces) lfront) in
-    let dx = Generic_core.term ~context ctx dx in
+    let context = Internal.get_context ctx (trm_seq ~annot:(Some No_braces) lfront) in
+    let dx = Internal.term ~context ctx dx in
     let tx = match dx.typ with
     | None -> fail t.loc "insert_and_fold_aux: cannot find definition type"
     | Some tx -> if as_reference then typ_ptr Ptr_kind_mut tx else tx
@@ -123,7 +123,7 @@ let insert_and_fold_aux (ctx : Trace.context) (const : bool) (as_reference : boo
         | Add_address_of_operator :: addl -> {dx with add = addl}
         | _ -> fail t.loc "insert_and_fold_aux: expected a reference"
     in
-    let lback = List.map (Generic_core.change_trm ~change_at:fold_at def_1_x t_x) lback in
+    let lback = List.map (Internal.change_trm ~change_at:fold_at def_1_x t_x) lback in
     trm_seq (lfront @ [t_insert] @ lback)
 
   | _ -> fail t.loc "insert_and_fold_aux: expected the surrounding sequence"
@@ -166,7 +166,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
                    end
       end 
        in
-      let lback = List.map (Generic_core.change_trm ~change_at:inline_at t_x def_x) lback in
+      let lback = List.map (Internal.change_trm ~change_at:inline_at t_x def_x) lback in
       let tl =
         if delete_decl then lfront @ lback
         else lfront @ [dl] @ lback
@@ -192,7 +192,7 @@ let rename_aux (new_name : var) (index : int) (t : trm) : trm =
     begin match dcl.desc with 
     | Trm_let (vk, (x, tx), init) ->
       let trm_to_change = trm_let vk (new_name, tx) init in
-      let lback = List.map (Generic_core.change_trm (trm_var x) (trm_var new_name)) lback in
+      let lback = List.map (Internal.change_trm (trm_var x) (trm_var new_name)) lback in
       trm_seq ~annot:t.annot (lfront @ [trm_to_change] @ lback)
     | _ -> fail dcl.loc "rename_aux: the target should be a variable declaration" 
     end

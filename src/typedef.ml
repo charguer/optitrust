@@ -4,7 +4,7 @@ open Target
 
 (* [fold ~fold_at tg] *)
 let fold ?(fold_at : target list = [[]]) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Typedef_core.fold fold_at i t p) tg
 
 (* [inert x dx tg] *)
@@ -28,12 +28,12 @@ let insert_and_fold ?(fold_at : target list = [[]]) (td : string) (tg : target) 
 
 (* [insert_and_fold ~fold_at x dx tg] *)
 (* let insert_and_fold ?(fold_at : target list = [[]]) (x : var) (dx : typ) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Typedef_core.insert_and_fold x dx i fold_at t p) tg *)
 
 (* [inline ~delete_decl ~inline_at tg]*)
 let inline ?(delete_decl : bool = false) ?(inline_at : target list = [[]]) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t ->
       Typedef_core.inline delete_decl inline_at i t p) tg
 

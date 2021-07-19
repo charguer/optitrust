@@ -137,7 +137,7 @@ let hoist_aux (x_step : var) (t : trm) : trm =
       | _ -> fail var_decl.loc "hoist_aux: first loop_body trm should be a variable declaration"
       in
       let remaining_body_trms = List.tl tl in
-      let remaining_body_trms = List.map(fun t -> (Generic_core.change_trm (trm_var var_name) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
+      let remaining_body_trms = List.map(fun t -> (Internal.change_trm (trm_var var_name) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
       let var_typ =
       begin match var_typ.typ_desc with
       | Typ_ptr {inner_typ = ty; _} -> ty
@@ -180,7 +180,7 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
       begin match var_decl.desc with 
       | Trm_let (_, (x, tx), _) -> 
         let lback = List.map (
-          Generic_core.change_trm (trm_var x) 
+          Internal.change_trm (trm_var x) 
           (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x; trm_var index] )
         ) lback in
         trm_seq ~annot:(Some No_braces) [
@@ -340,8 +340,8 @@ let unroll_aux (index : int) (t : trm) : trm =
       let unrolled_body = begin match body.desc with 
                           | Trm_seq tl1 ->
                             List.fold_left( fun acc i1 -> 
-                               let new_index = Generic_core.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
-                               trm_seq ~annot:(Some No_braces) (List.map (Generic_core.change_trm (trm_var index) new_index) tl1) :: acc
+                               let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
+                               trm_seq ~annot:(Some No_braces) (List.map (Internal.change_trm (trm_var index) new_index) tl1) :: acc
 
                             ) [] (List.rev unrolled_loop_range)
                             

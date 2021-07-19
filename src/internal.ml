@@ -1,0 +1,274 @@
+open Ast
+open Target
+open Tools
+
+(* LATER: reimplement a function change_trm that operations on explicit paths
+   and thus does not need to do resolution again. *)
+let change_trm ?(change_at : target list = [[]]) (t_before : trm)
+  (t_after : trm) (t : trm) : trm =
+  (* change all occurences of t_before in t' *)
+  let rec apply_change (t' : trm) : trm=
+    (* necessary because of annotations that may be different *)
+    (* Tools.printf "change %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_after); *)
+
+    if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
+    else trm_map apply_change t'
+  in
+  List.fold_left
+    (fun t' tr ->
+      let b = !Flags.verbose in
+      Flags.verbose := false;
+      let epl = resolve_target tr t' in
+      Flags.verbose := b;
+      match epl with
+      | [] ->
+         print_info t'.loc "change_trm: no matching subterm for target %s\n"
+           (target_to_string tr);
+         t'
+      | _ -> List.fold_left (apply_on_path apply_change) t' epl
+    )
+    t
+    change_at
+
+
+
+
+(* same as change_trm but for types *)
+let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
+  (ty_after : typ) (t : trm) : trm =
+  (* change all occurences of ty_before in ty *)
+  let rec change_typ (ty : typ) : typ =
+    
+    if same_types ~match_generated_star:false ty ty_before then ty_after 
+      else typ_map change_typ ty
+        
+    (* if Ast_to_c.typ_to_string ty = Ast_to_c.typ_to_string ty_before then ty_after
+    else Ast.typ_map change_typ ty *)
+  in
+  (* change all occurrences of ty_before in type annotations in t *)
+  let rec replace_type_annot (t : trm) : trm =
+    let t =
+      {t with typ = match t.typ with
+                    | None -> None
+                    | Some ty' -> Some (change_typ ty')
+      }
+    in
+    trm_map replace_type_annot t
+  in
+  (* change all occurences of ty_before in t *)
+  let apply_change (t : trm) : trm =
+    let rec aux (t : trm) : trm =
+      (* only match nodes where typs occur *)
+      match t.desc with
+      | Trm_val (Val_prim (Prim_new ty)) ->
+         trm_prim ~annot:t.annot ~loc:t.loc ~add:t.add
+           (Prim_new (change_typ ty))
+      | Trm_val (Val_prim (Prim_unop (Unop_cast ty))) ->
+         trm_unop ~annot:t.annot ~loc:t.loc ~add:t.add
+           (Unop_cast (change_typ ty))
+      | Trm_let (vk,(y,ty),init) ->
+        trm_let ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add vk (y,change_typ ty) (aux init)
+      | Trm_let_fun (f, ty, args, body) ->
+         trm_let_fun ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add
+           ~attributes:t.attributes f (change_typ ty)
+                     (List.map (fun (y, ty) -> (y, change_typ ty)) args)
+                     (aux body)
+      | Trm_typedef td ->
+       begin match td.typdef_body with
+       | Typdef_alias ty ->
+         trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
+          { td with typdef_body = Typdef_alias (change_typ ty)}
+       | Typdef_prod (b, s) ->
+          let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
+          trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
+          { td with typdef_body = Typdef_prod (b, s)}
+       | _ -> trm_map aux t
+       end
+
+      | _ -> trm_map aux t
+    in
+    replace_type_annot (aux t)
+  in
+  List.fold_left
+    (fun t' tr ->
+      let b = !Flags.verbose in
+      Flags.verbose := false;
+      let epl = resolve_target tr t' in
+      Flags.verbose := b;
+      match epl with
+      | [] ->
+         print_info t'.loc "change_typ: no matching subterm for target %s\n"
+           (target_to_string tr);
+         t'
+      | _ -> List.fold_left (apply_on_path apply_change) t' epl
+    )
+    t
+
+    change_at
+
+let clean_up_no_brace_seq (t : trm) : trm =
+  let rec clean_up_in_list (tl : trm list) : trm list =
+    match tl with
+    | [] -> []
+    | t :: tl ->
+       begin match t.desc with
+       | Trm_seq tl' when t.annot = Some No_braces ->
+          tl' ++ (clean_up_in_list tl)
+       | _ -> t :: (clean_up_in_list tl)
+       end
+  in
+  let rec aux (t : trm) : trm =
+    match t.desc with
+    (*
+      condition on annotation: toplevel insdeclarations might contain a heap
+      allocated variable and hence we can find a no_brace seq inside a
+      delete_instructions seq, which we do not want to inline
+     *)
+    | Trm_seq tl (* when t.annot <> Some Delete_instructions *) ->
+       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
+         (clean_up_in_list (List.map aux tl))
+    | _ -> trm_map aux t
+  in
+  aux t
+
+
+(* [isolate_last_dir_in_seq dl]:
+    params:
+      dl: explicit path to the targeted trm
+    return:
+      a pair of the explicit path to the outer sequence and the index of the term inside that sequence
+*)
+let isolate_last_dir_in_seq (dl : path) : path * int =
+  match List.rev dl with
+  | Dir_seq_nth i :: dl' -> (List.rev dl',i)
+  | _ -> fail None "isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
+  (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
+
+let get_call_in_surrounding_sequence (dl : path) : path * path * int = 
+  let rec aux (acc : path) (dl : path) =
+    match dl with 
+    | [] -> fail None "get_call_in_surrounding_sequence: empty path"
+    | Dir_seq_nth i :: dl'-> (List.rev dl', acc, i)
+    | dir :: dl' -> aux (dir :: acc) dl'
+  in
+  aux [] (List.rev dl)
+
+let get_decl_in_surrounding_loop(dl : path) : path * int =
+    match List.rev dl with 
+    | Dir_seq_nth i :: Dir_body :: dl' -> (List.rev dl', i)
+    | _ -> fail None "get_decl_in_surrounding_loop: empty path"
+
+
+(* compute a fresh variable (w.r.t. t) based on x *)
+let fresh_in (t : trm) (x : var) : var =
+  if not (is_used_var_in t x) then x
+  else
+    begin
+      let n = ref 0 in
+      while is_used_var_in t (x ^ "_" ^ string_of_int !n) do
+        incr n
+      done;
+      x ^ "_" ^ string_of_int !n
+    end
+
+let fresh_args (t : trm) : trm = 
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    match t.desc with 
+    | Trm_var x -> trm_var ("_" ^ x)
+    | _ -> trm_map (aux global_trm) t 
+  in aux t t
+
+let get_context(ctx : Trace.context) (t : trm) : string =
+   ctx.includes ^ Ast_to_c.ast_to_string t
+
+let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : Trace.context): trm list =
+ let context = if context = "" then ctx.includes else context in
+ let command_line_args =
+  List.map Clang.Command_line.include_directory 
+    (ctx.directory :: Clang.default_include_directories())
+  in
+ let ast =
+    Clang.Ast.parse_string ~command_line_args
+      (Printf.sprintf
+         {|
+          %s
+          void f(void){
+            #pragma clang diagnostic ignored "-Wunused-value"
+            %s
+          }
+          |}
+         context
+         (if is_expression then s ^ ";" else s)
+      )
+  in
+
+  let t = Clang_to_ast.translate_ast ast in
+  match t.desc with
+  | Trm_seq [t] ->
+     begin match t.desc with
+     | Trm_seq tl  ->
+        let fun_def = List.hd (List.rev tl) in
+        begin match fun_def.desc with
+        | Trm_let_fun (_, _, _, fun_body) ->
+          begin match fun_body.desc with
+          | Trm_seq tl -> tl
+          | _ -> fail fun_body.loc "parse_cstring: expcted a sequence of terms"
+          end
+        | _ -> fail fun_def.loc "parse_cstring: expected a function definition"
+        end
+     | _ -> fail t.loc "parse_cstring: expected another sequence"
+     end
+  | _-> fail t.loc "parse_cstring: exptected with only one trm"
+
+
+(* Get the sat of a C/C++ trm entered as a string *)
+let term ?(context : string = "")(ctx : Trace.context) (s : string) : trm =
+  let tl = parse_cstring context true s ctx  in
+  match tl with
+  | [expr] -> expr
+  | _ -> fail None "term: expcted a list with only one element"
+
+let get_field_list (td : typedef) : (var * typ) list =
+  begin match td.typdef_body with
+  | Typdef_prod (_, s) -> List.rev s
+  (* | Typdef_prod (_, s) -> List.rev (fst (List.split s)) *)
+  | _ -> fail None "get_field_lists: expected a Typedef_prod"
+  end
+
+let get_typid (t : trm) : int =
+  let trm_typ =
+  begin match t.typ with
+  | Some typ ->
+      typ
+  | None -> fail t.loc "get_typid: no type was found"
+  end
+  in
+  match t.desc with
+  | Trm_apps (_,[_])
+  | Trm_struct _ | Trm_var _ ->
+    begin match trm_typ.typ_desc with
+    | Typ_constr(_,id,_) -> id
+    | _ -> fail t.loc "get_typid: expected a user defined type"
+    end
+
+  | _ -> -1
+
+
+let rec toplevel_decl (x : var) (t : trm) : trm option =
+  match t.desc with 
+  | Trm_typedef td when td.typdef_tconstr = x -> Some t
+  | Trm_let (_, (y, _),_ ) when y = x -> Some t
+  | Trm_let_fun (y, _, _, _) when y = x -> Some t
+  | Trm_seq tl ->
+    List.fold_left(
+      fun acc t1 ->
+      match acc with 
+      | Some _ -> acc
+      | _ -> 
+        let t2 = toplevel_decl x t1 in
+        begin match t2 with 
+        | Some _->  t2
+        | _ -> None
+        end
+    ) None tl 
+  | _ -> None

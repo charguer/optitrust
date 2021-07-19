@@ -5,7 +5,7 @@ open Target
    It then splits the instruction into a variable declaration and an assignment.
 *)
 let var_init_detach : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Generic_core.var_init_detach i t p)
 
 (* [var_init_attach const tg] expects the target to point to a variable declaration, 
@@ -15,7 +15,7 @@ let var_init_detach : Target.Transfo.t =
     [const] -denotes a booleean to decide if the new declaration is constant or not.
 *)
 let var_init_attach ?(const : bool = false) : Target.Transfo.t = 
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Generic_core.var_init_attach const i t p )
 
 (* [const_non_const tg] expects the target to point to an initialized variable declaration.
@@ -29,7 +29,7 @@ let const_non_const : Target.Transfo.t =
     It then removes this instruction from the sequence, basically it is the same as sequence_delete.
 *)
 let remove_instruction : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Generic_core.remove_instruction i t p)
 
 (* [remove_instructions tgs] expects a list of targeted instructions to be removed. Basically it is just a list
@@ -45,7 +45,7 @@ let remove_instructions (tgs : target list) : unit =
     the ast automatically by Optitrust.
 *)
 let replace_with_arbitrary (code : string) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Generic_core.replace_with_arbitrary code i t p) tg;
   Trace.reparse()
 
@@ -57,7 +57,7 @@ let replace_with_arbitrary (code : string) (tg : target) : unit =
     each new variable entered by the user. 
 *)
 let from_one_to_many (names : var list) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Generic_core.from_one_to_many names i t p)
 
 (* [local_other_name var_type old_var new_var tg] TODO: Add the docs for this function
@@ -74,7 +74,7 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
     if statement, then this code is transformed and integrated inside the ast.
 *)
 let arbitrary_if ?(single_branch : bool = false) (cond : string) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Generic_core.arbitrary_if single_branch i cond t p) tg;
   Trace.reparse()
 

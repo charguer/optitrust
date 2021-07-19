@@ -14,7 +14,7 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
       else 
         trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_auto())) (trm_apps  (trm_prim (Prim_new (typ_auto()))) [trm_to_apply_changes])
       in  
-     let decl_to_change = Generic_core.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
+     let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      trm_seq ~annot:t.annot (lfront @ [decl_to_insert] @ [decl_to_change] @ lback)
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
@@ -69,10 +69,10 @@ let change_variable_names (t : trm ) (surrounding_seq : trm) (rename : string ->
     List.fold_left (fun acc t1 ->
      match t1.desc with 
      | Trm_let (vk,(x, tx), init) -> 
-       let find_prev_decl = Generic_core.toplevel_decl x surrounding_seq in
+       let find_prev_decl = Internal.toplevel_decl x surrounding_seq in
        begin match find_prev_decl with 
-       | Some _ -> let acc = Generic_core.change_trm t1 (trm_let vk ((rename x), tx) init) acc in
-          let acc = Generic_core.change_trm (trm_var x) (trm_var (rename x)) acc in acc
+       | Some _ -> let acc = Internal.change_trm t1 (trm_let vk ((rename x), tx) init) acc in
+          let acc = Internal.change_trm (trm_var x) (trm_var (rename x)) acc in acc
        | None -> acc 
        end
      | _ -> acc
@@ -92,7 +92,7 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
                    | _ -> fail fun_call.loc "inline_call_aux: couldn't resolve the name of the function, target does not resolve to a function call"
                    end in
-    let fun_decl = Generic_core.toplevel_decl fun_call_name top_ast in
+    let fun_decl = Internal.toplevel_decl fun_call_name top_ast in
     let fun_decl = begin match fun_decl with 
       | Some decl -> decl
       | None -> fail t.loc "inline_aux: no trm in top level gives the declaration with the given name"
@@ -105,11 +105,11 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    let fun_decl_arg_vars = List.map trm_var (fst (List.split fun_decl_args)) in
    (* Since there is a chance that there can be arguments which have the same name both on the function call and function definition,
       a replacing of the current args with the function call args with an underscore prefix is needed *)
-   let fresh_args = List.map Generic_core.fresh_args fun_call_args in
+   let fresh_args = List.map Internal.fresh_args fun_call_args in
    
-   let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fun_decl_arg_vars fresh_args in
+   let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fun_decl_arg_vars fresh_args in
    Tools.printf ("%s\n") (Ast_to_c.ast_to_string fun_decl_body);
-   let fun_decl_body = List.fold_left2 (fun acc x y -> Generic_core.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
+   let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
    Tools.printf ("%s\n") (Ast_to_c.ast_to_string fun_decl_body);
    
    let exit_label = begin match !nb_gotos with

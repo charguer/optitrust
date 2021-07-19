@@ -19,7 +19,7 @@ let fold_aux (fold_at : target list) (index : int) (t : trm) : trm=
        begin match td.typdef_body with
        | Typdef_alias dx ->
         let ty_x = typ_constr td.typdef_tconstr  td.typdef_typid [] in
-        let lback = List.map (Generic_core.change_typ ~change_at:fold_at dx ty_x) lback in
+        let lback = List.map (Internal.change_typ ~change_at:fold_at dx ty_x) lback in
         trm_seq ~annot:t.annot (lfront @ [d] @ lback)
        | _ -> fail t.loc "fold_decl: expected a typedef"
        end
@@ -44,8 +44,8 @@ let fold (fold_at : target list) (index) : Target.Transfo.local =
 let insert_aux (ctx : Trace.context) (s : string) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let context = Generic_core.get_context ctx t in
-    let t_insert = Generic_core.term ~context ctx s in
+    let context = Internal.get_context ctx t in
+    let t_insert = Internal.term ~context ctx s in
     let tl = Tools.list_insert (index-1) t_insert tl in
     trm_seq ~annot:t.annot tl
   | _ -> fail t.loc "insert_aux: expected the surrounding sequence"
@@ -68,14 +68,14 @@ let insert_and_fold_aux (ctx : Trace.context) (td : string) (index : int) (fold_
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let context = Generic_core.get_context ctx t in
-    let dx = Generic_core.term ~context ctx td in
+    let context = Internal.get_context ctx t in
+    let dx = Internal.term ~context ctx td in
     begin match dx.desc with 
     | Trm_typedef td ->
       begin match td.typdef_body with
       | Typdef_alias typ ->
           let ty_x = typ_constr td.typdef_tconstr td.typdef_typid []  in
-          let lback = List.map(Generic_core.change_typ ~change_at:fold_at typ ty_x) lback in
+          let lback = List.map(Internal.change_typ ~change_at:fold_at typ ty_x) lback in
           trm_seq (lfront @ [dx] @ lback)
       | _ -> fail dx.loc "insert_and_fold_aux: this feature is supported only for type aliases"
       end
@@ -109,7 +109,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
      begin match td.typdef_body with
      | Typdef_alias dx ->
       let ty_x = typ_constr td.typdef_tconstr td.typdef_typid [] in
-      let lback = List.map(Generic_core.change_typ ~change_at:inline_at ty_x dx) lback in
+      let lback = List.map(Internal.change_typ ~change_at:inline_at ty_x dx) lback in
       let tl =
         if delete_decl then lfront @ lback
         else lfront @ [dl] @ lback

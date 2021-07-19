@@ -3,7 +3,7 @@ open Target
 
 (* [fold ~as_reference ~fold_at tg] *)
 let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.fold as_reference fold_at i t p)
 
 
@@ -34,17 +34,17 @@ let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fol
 (* [insert_and_fold ~const ~as_reference ~fold_at x dx tg] *)
 (* let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : trm) : Target.Transfo.t =
   (* TODO: apply_on_target_between *)
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.insert_and_fold const as_reference x dx i fold_at t p) tg *)
 
 (* [inline ~delete_decl ~inline_at tg] *)
 let inline ?(delete_decl : bool = false) ?(inline_at : target list = [[]]) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.inline delete_decl inline_at i t p)
 
 (* Rename a variablea and all its occurrences *)
 let rename (new_name : var) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Variable_core.rename new_name i t p)
 
 

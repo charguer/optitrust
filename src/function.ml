@@ -1,13 +1,13 @@
 open Ast
 open Path
 let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) : Target.Transfo.t =
- Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
+ Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
   (fun (p, p_local, i) t ->  Function_core.bind_intro i fresh_name const p_local t p)
 
 
 let bind_args (fresh_names : var list) : Target.Transfo.t =
  let counter = ref (-1) in
- Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
+ Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
   (fun (p, p_local, i) t ->
   (* Tools.printf "printed path %s\n" (Path.path_to_string p_local); *)
   Tools.foldi (fun n t fresh_name ->
@@ -19,7 +19,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
 let counter = ref (-1)
 
 let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool): Target.Transfo.t  =
-  Target.apply_on_transformed_targets(Generic_core.get_call_in_surrounding_seq)
+  Target.apply_on_transformed_targets(Internal.get_call_in_surrounding_sequence)
     (fun (p, p_local, i) t ->
      if not bind_args then Function_core.bind_intro i fresh_name false p_local t p
      else
@@ -37,12 +37,12 @@ let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.targe
   bind_intro ~const:false ~fresh_name tg
 
 let inline_call  ?(label : var = "body") : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
+  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
    (fun (p, p_local, i) t ->
     Function_core.inline_call i label t p_local t p)
 
 let elim_body (rename : string -> string): Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t  -> Function_core.elim_body rename i t p)
 
 let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(bind_args : bool = false) ?(inner_fresh_names : var list = []) (tg : Target.target) : unit =
@@ -63,7 +63,7 @@ let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : s
     (**)
 
 let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(inner_fresh_names : var list = []) (tg : Target.target) : unit = 
-  Target.apply_on_transformed_targets (Generic_core.get_call_in_surrounding_seq)
+  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
     (fun (p, p_local, i) t ->
       (* Counter needed to keep track on the change of indices *)
       let _ounter = ref (-1) in

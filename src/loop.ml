@@ -50,7 +50,7 @@ let hoist (x_step : var) : Target.Transfo.t =
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 *)
 let split : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.get_decl_in_surrounding_loop)
+  Target.apply_on_transformed_targets (Internal.get_decl_in_surrounding_loop)
     (fun (p,i) t -> Loop_core.split i t p )
 
 (* [fusion tg] *)
@@ -59,7 +59,7 @@ let fusion : Target.Transfo.t =
 
 (* [extract_variable tg] *)
 let extract_variable : Target.Transfo.t =
-  Target.apply_on_transformed_targets(Generic_core.get_decl_in_surrounding_loop)
+  Target.apply_on_transformed_targets(Internal.get_decl_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.extract_variable i t p)
 
 (* [grid_enumerate index_and_bounds tg] *)
@@ -114,5 +114,5 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
   | _ -> fail t.loc "move: something went wrong"
 
 let unroll : Target.Transfo.t =
-  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets(Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Loop_core.unroll i t p)

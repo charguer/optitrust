@@ -12,15 +12,15 @@ let set_explicit_aux (t: trm) : trm =
   
   match t.desc with 
   | Trm_apps(_, [lt;rt]) ->
-    let tid_r = Generic_core.get_typid rt  in 
-    let tid_l = Generic_core.get_typid lt  in
+    let tid_r = Internal.get_typid rt  in 
+    let tid_l = Internal.get_typid lt  in
     let tid = match tid_r, tid_l with 
     | -1, _ -> tid_l
     | _, -1 -> tid_r
     | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
     in
     let struct_def = Typ_map.find tid typid_to_typedef_map in
-    let field_list = Generic_core.get_field_list struct_def in
+    let field_list = Internal.get_field_list struct_def in
     begin match rt.desc with
     (* Get the type of the variables *)
      
@@ -71,7 +71,7 @@ let set_explicit_aux (t: trm) : trm =
     | _-> fail t.loc "set_explicit_aux: expected a variable of construct type" 
     end in
     let struct_def = Typ_map.find tyid typid_to_typedef_map in
-    let field_list = Generic_core.get_field_list struct_def in
+    let field_list = Internal.get_field_list struct_def in
     
     begin match init.desc with 
     | Trm_apps(_ , [base]) ->
@@ -290,7 +290,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
        let new_trm = trm_typedef new_typedef in
        let lback = List.map (inline_struct_access field_to_inline) lback in
-       let lback = List.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Generic_core.get_field_list struct_def)))) field_index) lback in
+       let lback = List.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
        trm_seq ~annot:(Some No_braces) (lfront @ [new_trm] @ lback)       
       | _ -> fail t.loc "inline_aux: expected a struct "
       end
@@ -446,7 +446,7 @@ let to_variables_aux (index : int) (t : trm) : trm =
                                    end
                   end in
       let struct_def = Typ_map.find typid typid_to_typedef_map in
-      let field_list = Generic_core.get_field_list struct_def in
+      let field_list = Internal.get_field_list struct_def in
       let struct_init_list = begin match init.desc with 
                              | Trm_apps(_, [base]) -> 
                               begin match base.desc with 

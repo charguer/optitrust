@@ -20,9 +20,9 @@ let reorder ?(move_before : field = "") ?(move_after : field = "") (struct_field
 
 let inline (field_to_inline : field) : Target.Transfo.t =
   Target.force_reparse_after
-    (Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+    (Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
       (fun (p, i) t -> Struct_core.inline field_to_inline i t p))
 
 let to_variables : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Struct_core.to_variables i t p)

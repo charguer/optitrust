@@ -1,13 +1,13 @@
 open Ast
 open Target
 
-(* [to_variables new_vars tg] exppects the target [tg] pointing to an array declaration.
+(* [to_variables new_vars tg] expects the target [tg] pointing to an array declaration.
     It then transforms this declaration into a list of declarations.
     [new_vars] - denotes the list of variables which is going to replace the initial declaration
       the length of this list is equal to one less than this size of the array.
 *)
 let to_variables (new_vars : var list) (tg : target) : unit = 
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.to_variables new_vars i t p 
   ) tg
 
@@ -27,7 +27,7 @@ let to_variables (new_vars : var list) (tg : target) : unit =
     }                             }
 *)
 let tile (block_name : typvar) (b : var) (tg : target) : unit =
-  Target.apply_on_transformed_targets(Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets(Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.tile block_name b i t p) tg
 
 (* [swap name x tg] expects the target [tg] to point to an array delcaratio.
@@ -35,7 +35,7 @@ let tile (block_name : typvar) (b : var) (tg : target) : unit =
    all the in all the occurrences of the array the accesses are swaped.
 *)
 let swap (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.swap i t p) tg
 
 
@@ -56,7 +56,7 @@ let swap (tg : target) : unit =
       }                     }
 *)
 let aos_to_soa (tg : target) : unit =
-  Target.apply_on_transformed_targets (Generic_core.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t ->  Arrays_core.aos_to_soa i t p) tg
 
 
