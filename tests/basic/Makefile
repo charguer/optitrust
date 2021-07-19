@@ -1,20 +1,22 @@
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
-# Validated: sequence_delete loop_tile sequence_insert sequence_sub array_swap
-
-# Need some update: aos_to_soa
-
-# Tolook at:  loop_hoist
-
-
-# List of files to consider.
-TESTS := \
-  aos_to_soa.ml \
+TESTS_WORKING := \
+  equence_delete \
+	loop_tile \
+	sequence_insert \
+	sequence_sub \
 	array_swap \
-  array_tile.ml \
-	array_to_variables.ml \
-  label_add.ml \
+  label_add \
+
+
+TESTS_TOCHECK := \
+  aos_to_soa.ml \
+	loop_hoist \
+	array_tile \
+	array_to_variables \
+
+TESTS_OTHERS := \
   label_remove.ml \
 	loop_color.ml \
   loop_fusion.ml \
@@ -37,5 +39,7 @@ TESTS := \
 	variable_insert.ml \
   variable_insert_and_fold.ml \
 	sequence_insert.ml \
+
+TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK) $(TESTS_OTHERS)
 
 include ../Common.Makefile

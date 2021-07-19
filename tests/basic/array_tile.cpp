@@ -10,7 +10,7 @@ T t;
 typedef int U[80];
 U u;
 
-
+// LATER: find out what v is useful for
 const int N = 40;
 int v[ N / B ][ B ];
 
