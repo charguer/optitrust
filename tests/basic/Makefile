@@ -2,7 +2,7 @@
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
-  equence_delete \
+  sequence_delete \
 	loop_tile \
 	sequence_insert \
 	sequence_sub \
