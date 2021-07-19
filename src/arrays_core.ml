@@ -13,7 +13,8 @@ open Ast
       array_var: array_variable  to apply changes on
       new_vars: a list of variables, the variables at index i replaces and occurence of array_var[i]
       t: ast node located in the same level or deeper as the array declaration
-    return: the updated ast node  with the replaced array accesses to variable references.
+    return: 
+      updated ast node  with the replaced array accesses to variable references.
 *)
 let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =

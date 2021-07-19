@@ -303,3 +303,60 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
     Some ((fun b -> trm_for index direction start stop step b), body)
   | _ -> fail t.loc "extract_loop: expected a loop"
 
+let get_field_index (field : field) (fields : (var * typ) list) : int =
+  let rec aux field fields c = match fields with 
+    | [] -> failwith "get_field_index: empty list"
+    | (f, _) :: tl -> 
+      if (f = field) then c else aux field tl (c+1)
+    in
+  aux field fields 0
+
+
+(* Auxiliary functions for reorder transformation *)
+
+let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs
+
+let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys
+
+let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs
+
+let remove_pairs (ys : var list) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys
+
+
+let move_fields_after (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ ) list=
+  let fins = List.flatten (get_pairs local_l l )in
+  let l = remove_pairs local_l l in 
+  let rec aux = function
+    | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
+    | (hd, ty) :: tl ->
+      if hd = x
+        then fins @ [hd, ty] @ tl (* local_l @ hd :: acc @ tl *)
+        else aux tl
+      in
+    aux l
+
+let move_fields_before (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ) list =
+  let fins = List.flatten (get_pairs local_l l) in
+  let l = remove_pairs local_l l in
+  let rec aux = function
+    | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
+    | (hd, ty) :: tl ->
+      if hd = x
+        then [hd, ty] @ fins @ tl (* local_l @ hd :: acc @ tl *)
+        else aux tl
+      in
+    aux l
+
+(* Get the index for a given field of struct inside its list of fields *)
+let get_pos (x : typvar) (t : trm) : int =
+  begin match t.desc with
+    | Trm_typedef {typdef_body = Typdef_prod (_, fs); _} ->
+        let rec find x lst =
+        match lst with
+        | [] -> raise (Failure "Not Found")
+        | (hd, _) :: tl -> if hd = x then 0 else 1 + find x tl
+        in
+        find x fs
+    | _ -> fail t.loc "get_pos_and_element: expected a struct type"
+    end
+
