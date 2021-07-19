@@ -1,47 +1,32 @@
 open Ast
 open Target
-
-(* [fold ~as_reference ~fold_at tg] *)
+(* [fold ~as_reference ~fold_at tg] expects [tg] to point to a variable declaration 
+    [as_reference] denotes a flag whether the declaration initialization contains a 
+      variable reference or not.
+    [fold_at] denotes a list of targets,where the folding is done. If empty the 
+      folding operation is performed on all the ast nodes in the same level as the 
+      declaration or deeper
+*)
 let fold ?(as_reference : bool = false) ?(fold_at : target list = [[]]) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.fold as_reference fold_at i t p)
 
-
-(* [insert ~const ~as_reference x dx tg] *)
-let insert ?(const : bool = false) ?(as_reference : bool = false) (x : var) (dx : var) (tg : Target.target) : unit =
-  Trace.apply (fun ctx t ->
-   let ps = resolve_target_between tg t in
-   List.fold_left (fun t (p,i) -> Variable_core.insert ctx const as_reference x dx i t p) t ps
-  )
-
-(* [insert ~const ~as_reference x dx tg] *)
-(* let insert ?(const : bool = false) ?(as_reference : bool = false) (x : var) (dx : var) : Target.Transfo.t =
-  Target.apply_on_target_between
-    (fun t (p,i) -> Variable_core.insert const as_reference x dx i t p) tg *)
-
-(* [remove tg] *)
-let remove : Transfo.t =
-  Generic.remove_instruction
-
-(* [insert_and_fold ~const ~as_reference ~fold_at x dx tg] *)
-let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : string) (tg : Target.target) : unit =
-  Trace.apply (fun ctx t ->
-   let ps = resolve_target_between tg t in
-   List.fold_left (fun t (p, i) -> Variable_core.insert_and_fold ctx const as_reference x dx i fold_at t p) t ps
-  )
-  
-
-(* [insert_and_fold ~const ~as_reference ~fold_at x dx tg] *)
-(* let insert_and_fold ?(const : bool = false) ?(as_reference : bool = false) ?(fold_at : target list = [[]]) (x : var) (dx : trm) : Target.Transfo.t =
-  (* TODO: apply_on_target_between *)
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Variable_core.insert_and_fold const as_reference x dx i fold_at t p) tg *)
-
-(* [inline ~delete_decl ~inline_at tg] *)
+(* [inline ~delete_decl ~inline_at tg] eexpects [tg] to point to a variable declaration 
+    it then find all the occurrences of the variable and replaces them with it's assigned value.
+   [delete_decl] ~denotes a falg whether the declaration should be kept or not
+   [inline_at] denotes a list of targets where inlining should be done, by default empty
+    that means inlining should be performed everywhere(inside the same sequence as the variable) 
+    declaration
+*)
 let inline ?(delete_decl : bool = false) ?(inline_at : target list = [[]]) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.inline delete_decl inline_at i t p)
 
+(* [reanme new_name tg] expects [tg] to point to a variable declaration
+     then it will change the name inside theat declaration and all occurrences
+     of the same variable ar going to be change too.
+    [new_name] denotes the new name for the targeted declaration
+*)
 (* Rename a variablea and all its occurrences *)
 let rename (new_name : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
