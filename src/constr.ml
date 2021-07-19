@@ -128,7 +128,7 @@ and constr =
   (* Number of  occurrences expected  *)
   | Constr_occurences of target_occurences
   (* List of constraints *)
-  | Constr_chain of constr list
+  | Constr_chain of constr list (* i.e., [Constr_chain of target] TODO: rename to Constr_target *)
   (* Constraint used for argument match *)
   | Constr_bool of bool
   (* Constraint that matches only the root of the AST *)
@@ -701,7 +701,7 @@ and check_list (lpred : target_list_pred) (tl : trm list) : bool =
   (* DEBUG:*) (* printf "%s\n" (lpred.target_list_pred_to_string());  *)
   let cstr = lpred.target_list_pred_ith_constr in
   let validate = lpred.target_list_pred_validate in
-  validate (List.mapi (fun i t -> check_target ~depth:(DepthAt 1) ([cstr i]) t) tl)
+  validate (List.mapi (fun i t -> check_target ~depth:(DepthAt 0) ([cstr i]) t) tl)
   (*DEBUG:*) (* printf "%s\n" (if res then "true" else "false"); res *)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
@@ -784,9 +784,9 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
-    | Constr_depth depth :: tr ->
-        (* Force the depth argument for the rest of the target *)
-        resolve_target_simple ~depth tr t
+    | Constr_depth new_depth :: tr ->
+        (* Force the depth argument for the rest of the target, override the current [depth] *)
+        resolve_target_simple ~depth:new_depth tr t
     | Constr_dir d :: tr ->
         follow_dir d tr t
     | c :: p ->
@@ -807,7 +807,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           (Ast_to_c.ast_to_string ~ast_decode:false t)
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here); *)
-        
+
         (* printf " ~deep:%s\n  ~here:%s\n"
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here); *)
@@ -820,7 +820,7 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let res = resolve_target_simple tgs.target_path t in
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
-  begin match tgs.target_occurences with 
+  begin match tgs.target_occurences with
   | ExpectedOne -> if nb <> 1 then fail None (sprintf "resolve_target_struct: expected exactly one match, got %d." nb)
   | ExpectedNb n -> if nb <> n then fail None (sprintf "resolve_target_struct: expected %d matches, got %d." n nb)
   | ExpectedMulti -> if nb = 0 then fail None (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb)

@@ -183,6 +183,8 @@ val target_list_simpl : constr list -> target_list_pred
 
 val target_list_one_st : constr -> target_list_pred
 
+val target_list_all_st : constr -> target_list_pred
+
 val target_list_pred_always_true : target_list_pred
 
 

@@ -209,6 +209,14 @@ let target_list_one_st (cstr : constr) : target_list_pred =
     (fun bs -> List.mem true bs)
     (fun () -> "target_list_one_st(" ^ (constr_to_string cstr) ^ ")")
 
+(* Converts a constraint into a [target_list_pred] that checks that at least all the items in the list satisfies the given constraint *)
+let target_list_all_st (cstr : constr) : target_list_pred =
+  make_target_list_pred
+    (fun _i -> cstr)
+    (fun bs -> List.for_all (fun b -> b = true) bs)
+    (fun () -> "target_list_all_st(" ^ (constr_to_string cstr) ^ ")")
+
+
 (* Predicate that matches any list of arguments *)
 let target_list_pred_always_true : target_list_pred =
   make_target_list_pred

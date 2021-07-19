@@ -36,8 +36,4 @@ TESTS := \
   variable_insert_and_fold.ml \
 	sequence_insert.ml \
 
-
-
-# To consider all ml files except specific ones, use EXCLUDE_TESTS (see ../Common.Makefile)
-
 include ../Common.Makefile

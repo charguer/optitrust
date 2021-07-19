@@ -55,3 +55,4 @@ int main() {
   int y = f(2);
   lbl2: g(t, &v);
 }
+
