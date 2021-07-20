@@ -2,19 +2,19 @@
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
-  sequence_delete \
-	loop_tile \
-	loop_hoist \
-	sequence_insert \
-	sequence_sub \
-	array_swap \
-  label_add \
+  sequence_delete.ml \
+	loop_tile.ml \
+	loop_hoist.ml \
+	sequence_insert.ml \
+	sequence_sub.ml \
+	array_swap.ml \
+  label_add.ml \
   label_remove.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
 	array_tile \
-	array_to_variables \
+	array_to_variables.ml \
   loop_color.ml \
   loop_fusion.ml \
 
