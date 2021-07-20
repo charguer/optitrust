@@ -92,7 +92,7 @@ let tile (divides : bool) (b : var)(i_block : var) : Target.Transfo.local =
 
 
 
-(* [hoist_aux x_step t]: extract a loop variable inside the loop as an array with size equal
+(* [hoist_without_detach_aux x_step t]: extract a loop variable inside the loop as an array with size equal
       to (loop_bound - 1), the change all the occurrences of the variable with an array access 
       with index same as the index of the loop
     params:
@@ -101,7 +101,7 @@ let tile (divides : bool) (b : var)(i_block : var) : Target.Transfo.local =
     return:
       updated ast with the hoisted loop
 *)
-let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
+let hoist_without_detach_aux (x_step : var) (decl_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     begin match body.desc with
@@ -116,8 +116,7 @@ let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
       begin match var_decl.desc with 
       | Trm_let (vk, (x, tx), _) ->
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) in
-        let last_assgn = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) (trm_var x) in
-        let new_body = trm_seq ~annot:body.annot (lfront @ [new_decl] @ lback @ [last_assgn]) in
+        let new_body = trm_seq ~annot:body.annot (lfront @ [new_decl] @ lback) in
         let inner_typ = get_inner_ptr_type tx in
         trm_seq ~annot:(Some No_braces)[
           trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
@@ -132,8 +131,8 @@ let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
   | _ -> fail t.loc "hoist_aux: only simple loops are supported"
 
 
-let hoist (x_step : var) (index : int): Target.Transfo.local =
-   Target.apply_on_path (hoist_aux x_step index) 
+let hoist_without_detach (x_step : var) (index : int): Target.Transfo.local =
+   Target.apply_on_path (hoist_without_detach_aux x_step index) 
 
 (* [extract_variable_aux decl_index t] similar to loop hoist *)
 let extract_variable_aux (decl_index : int) (t : trm) : trm =

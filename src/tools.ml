@@ -237,3 +237,10 @@ let range a b =
     if a > b then [] else a :: aux(a + 1) b 
   in
     if a > b then List.rev (aux b a) else aux a b
+
+let optitrust_label = 
+  let rnd_nb = Random.int 1000 in
+  "__optitrust__" ^ (string_of_int rnd_nb)
+
+let filter_not_selected (indices :int list) (list : 'a list) : 'a list = 
+List.filteri (fun i _ -> List.mem i indices) list

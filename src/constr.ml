@@ -32,11 +32,12 @@ type target_relative =
     | TargetAfter
 
 (* Number of targets to match *)
-type target_occurences =
+type target_occurrences =
     | ExpectedOne  (* = 1 occurence, the default value *)
     | ExpectedNb of int  (* exactly n occurrences *)
     | ExpectedMulti  (* > 0 number of occurrences *)
     | ExpectedAnyNb  (* any number of occurrences *)
+    | ExpectedSelected of int option * int list
     (* TODO: ExpectedSelect of int option * int list
           ExpectedSelect (None, [2;3]) -> select items at index 2 and 3
           ExpectedSelect (Some 4, [2;3]) -> checks that there are exactly 4,
@@ -135,7 +136,7 @@ and constr =
   (* Target relative to another trm *)
   | Constr_relative of target_relative
   (* Number of  occurrences expected  *)
-  | Constr_occurences of target_occurences
+  | Constr_occurrences of target_occurrences
   (* List of constraints *)
   | Constr_chain of constr list (* i.e., [Constr_chain of target] TODO: rename to Constr_target *)
   (* Constraint used for argument match *)
@@ -184,17 +185,17 @@ and abort_kind =
   | Break
   | Continue
 
-(* [target_simple] is a [target] without Constr_relative, Constr_occurences, Constr_chain;
+(* [target_simple] is a [target] without Constr_relative, Constr_occurrences, Constr_chain;
    It can however, include [cStrict]. *)
 type target_simple = target
 
 (* [target_struct] is the structured representation of a [target] that decomposes the
-   special constructors such as Constr_relative, Constr_occurences, Constr_chain from the
+   special constructors such as Constr_relative, Constr_occurrences, Constr_chain from the
    [target_simple]. *)
 type target_struct = {
    target_path : target_simple; (* this path contains no nbMulti/nbEx/tBefore/etc.., only cStrict can be there *)
    target_relative : target_relative;
-   target_occurences : target_occurences; }
+   target_occurrences : target_occurrences; }
 
 let make_target_list_pred ith_constr validate to_string =
   { target_list_pred_ith_constr = ith_constr;
@@ -380,7 +381,7 @@ let rec constr_to_string (c : constr) : string =
      in
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
   | Constr_relative tr -> target_relative_to_string tr
-  | Constr_occurences oc -> target_occurences_to_string oc
+  | Constr_occurrences oc -> target_occurrences_to_string oc
   | Constr_chain cl ->
     let string_cl = List.map constr_to_string cl in
     list_to_string string_cl
@@ -394,15 +395,20 @@ and target_to_string (tg : target) : string =
 and target_struct_to_string (tgs : target_struct) : string =
   "TargetStruct(" ^
     target_relative_to_string tgs.target_relative ^ ", " ^
-    target_occurences_to_string tgs.target_occurences ^ ", " ^
+    target_occurrences_to_string tgs.target_occurrences ^ ", " ^
     target_to_string tgs.target_path ^ ")"
 
-and target_occurences_to_string (occ : target_occurences) =
+and target_occurrences_to_string (occ : target_occurrences) =
   match occ with
   | ExpectedOne -> "ExpectedOne"
   | ExpectedNb n -> sprintf "ExpectedNb(%d)" n
   | ExpectedMulti -> "ExpectedMulti"
   | ExpectedAnyNb -> "ExpectedAnyNb"
+  | ExpectedSelected (ex_opt, il) -> 
+    let exact_nb_s = match ex_opt with 
+    | None -> "None"
+    | Some i -> "Some " ^ (string_of_int i) in
+    sprintf "ExpectedSelect(%s, %s)" exact_nb_s (Tools.list_to_string (List.map (string_of_int) il))
 
 and target_relative_to_string (rel : target_relative) =
   match rel with
@@ -456,18 +462,18 @@ let target_to_target_struct (tr : target) : target_struct =
       | None -> relative := Some re;
       | Some _ -> fail None  "Constr_relative provided twice in path"
       end
-    | Constr_occurences oc ->
+    | Constr_occurrences oc ->
       begin match !occurences with
       | None -> occurences := Some oc;
-      | _ -> fail None "Constr_occurences provided twice in path"
+      | _ -> fail None "Constr_occurrences provided twice in path"
       end
     | _ -> ()
     in
   List.iter process_constr tr;
   let tgs = {
-    target_path = List.filter (function | Constr_relative _ | Constr_occurences _ -> false | _ -> true) tr;
+    target_path = List.filter (function | Constr_relative _ | Constr_occurrences _ -> false | _ -> true) tr;
     target_relative = begin match !relative with | None -> TargetAt | Some re -> re end;
-    target_occurences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
+    target_occurrences = begin match !occurences with | None -> ExpectedOne | Some oc -> oc end; } in
   tgs
 
 (* Computes whether a [target] is contains a [Constr_relative] that is not [TargetAt]. *)
@@ -829,24 +835,24 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let res = resolve_target_simple tgs.target_path t in
   let nb = List.length res in
-  (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
+  (* Check if nb is equal to the specification of tgs.target_occurrences, if not then something went wrong *)
   let error s =
     raise (Resolve_target_failure (None, s)) in
-  begin match tgs.target_occurences with
-  | ExpectedOne -> if nb <> 1 then error (sprintf "resolve_target_struct: expected exactly one match, got %d." nb)
-  | ExpectedNb n -> if nb <> n then error (sprintf "resolve_target_struct: expected %d matches, got %d." n nb)
-  | ExpectedMulti -> if nb = 0 then error (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb)
+  begin match tgs.target_occurrences with
+  | ExpectedOne -> if nb <> 1 then error (sprintf "resolve_target_struct: expected exactly one match, got %d." nb); res
+  | ExpectedNb n -> if nb <> n then error (sprintf "resolve_target_struct: expected %d matches, got %d." n nb); res
+  | ExpectedMulti -> if nb = 0 then error (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb); res
   | ExpectedAnyNb -> res
-  (* TODO:
-      | ExpectedSelected (n_opt, i_selected) ->
-        begin match n_opt with
-        | Some n -> do the check n like in ExpectedNb
-        | None -> if nb = 0 then error like in ExpectedMulti
-        end;
-        List.iter (fun i -> if not (0 <= i && i < nb) then error) i_selected;
-        filter from res the elements at indices i_selected  -- define in tool if needed *)
-  end
-
+  | ExpectedSelected (n_opt, i_selected) ->
+    begin match n_opt with
+    | Some n ->
+      if n <> nb then error (sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
+        else begin
+          (* List.iter (fun i -> if not (0 <= i && i < nb) then error (sprintf "resolve_target_struct: the requested indices are out of range") else ()); *)
+          Tools.filter_not_selected i_selected end res;
+    | None -> if nb = 0 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb); res
+    end
+  end;
 
 and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in

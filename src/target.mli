@@ -44,6 +44,10 @@ val tFirst : constr
 
 val tLast : constr
 
+val tIndices  : ?nb:int -> int list -> constr
+
+val tIndex : ?nb:int -> int -> constr
+
 val nbMulti : constr
 
 val nbAny : constr

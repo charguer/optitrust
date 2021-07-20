@@ -4,6 +4,7 @@
 TESTS_WORKING := \
   sequence_delete \
 	loop_tile \
+	loop_hoist \
 	sequence_insert \
 	sequence_sub \
 	array_swap \
@@ -12,14 +13,12 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
-	loop_hoist \
 	array_tile \
 	array_to_variables \
   loop_color.ml \
   loop_fusion.ml \
 
 TESTS_OTHERS := \
-  loop_hoist.ml \
   loop_swap.ml \
   loop_tile.ml \
 	loop_grid_enumerate.ml \

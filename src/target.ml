@@ -59,16 +59,24 @@ let tFirst : constr =
 let tLast : constr =
   Constr_relative TargetLast
 
+let tIndices ?(nb : int = -1) (indices : int list) : constr =
+  let expected_nb = match nb with 
+    | -1 -> None
+    | _ -> Some nb in
+  Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
+
+let tIndex ?(nb : int = -1) (index : int) : constr =
+  tIndices ~nb [index]
 (* Used for checking the number of targets to match *)
 
 let nbMulti : constr =
-  Constr_occurences ExpectedMulti
+  Constr_occurrences ExpectedMulti
 
 let nbAny : constr =
-    Constr_occurences ExpectedAnyNb
+    Constr_occurrences ExpectedAnyNb
 
 let nbExact (nb : int) : constr =
-    Constr_occurences (ExpectedNb nb)
+    Constr_occurrences (ExpectedNb nb)
 
 (* directions *)
 let dRoot : constr =
@@ -411,6 +419,7 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
 
 let cTargetInDepth (tg : target) : constr =
   Constr_chain (Constr_depth DepthAny :: tg)
+
 
 
 

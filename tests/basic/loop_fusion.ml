@@ -10,6 +10,7 @@ let _ = Run.script_cpp ( fun _ ->
 
   TODO: fusion any number of loops that are in the "tofusion" block.
   *)
+  show [tIndex ~nb:2 1; cFor "i"];
   !! Loop.fusion [cSeq ~args_pred:(target_list_one_st (cFor "i")) ()];
 )
 

@@ -40,7 +40,7 @@ let color (nb_colors : string_trm) (color_index : var) : Target.Transfo.t =
 let tile ?(divides : bool = true) (tile_width : string_trm) (tile_index : var) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.tile divides tile_width tile_index)
 
-(* [hoist x_step tg]: expects [tg] to point to simple loop.
+(* [hoist_without_detach x_step tg]: expects [tg] to point to simple loop.
     [x_step] - denotes the variable going to be hoisted outside the loop
     Ex:
       int *t;                                 int *t; 
@@ -54,9 +54,9 @@ let tile ?(divides : bool = true) (tile_width : string_trm) (tile_index : var) :
         return 0;                               return 0;
       }                                       }
 *)
-let hoist (x_step : var) : Target.Transfo.t =
+let hoist_withou_detach (x_step : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets(Internal.get_decl_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.hoist x_step i t p)
+    (fun (p, i) t -> Loop_core.hoist_without_detach x_step i t p)
 
 (* [split tg]: expects [tg] to point somewhere insie the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
