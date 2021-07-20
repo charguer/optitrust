@@ -16,10 +16,18 @@ int main() {
   t1;
   t2;
   tofusion: {
-     for () { }
-     for () { }
+     for () { c1 }
+     for () { c2 }
   };
   t3
+
+-->
+
+  t1;
+  t2;
+  for () { c1; c2 }
+  t3
+
 
 
 

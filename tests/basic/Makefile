@@ -16,9 +16,9 @@ TESTS_TOCHECK := \
 	array_tile \
 	array_to_variables \
   loop_color.ml \
+  loop_fusion.ml \
 
 TESTS_OTHERS := \
-  loop_fusion.ml \
   loop_hoist.ml \
   loop_swap.ml \
   loop_tile.ml \
@@ -65,3 +65,5 @@ include ../Common.Makefile
 # for i { for j = 0; j < nb[i]; j++)  ...  example: sparse matrix
 #   compute the prefix-sum array first
 
+
+# LATER: target to say "first for loop after instruction foo"

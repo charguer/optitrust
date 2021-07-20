@@ -37,6 +37,15 @@ type target_occurences =
     | ExpectedNb of int  (* exactly n occurrences *)
     | ExpectedMulti  (* > 0 number of occurrences *)
     | ExpectedAnyNb  (* any number of occurrences *)
+    (* TODO: ExpectedSelect of int option * int list
+          ExpectedSelect (None, [2;3]) -> select items at index 2 and 3
+          ExpectedSelect (Some 4, [2;3]) -> checks that there are exactly 4,
+            and select items at indices 2 and 3
+       tIndex 0   = tIndices [0]
+       tIndex ~nb:4 0
+       tIndices [0;1]
+       tIndices ~nb:4 [0;1] = ExpectedSelect (Some nb, [0;1])
+         *)
 
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
@@ -827,9 +836,17 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   | ExpectedOne -> if nb <> 1 then error (sprintf "resolve_target_struct: expected exactly one match, got %d." nb)
   | ExpectedNb n -> if nb <> n then error (sprintf "resolve_target_struct: expected %d matches, got %d." n nb)
   | ExpectedMulti -> if nb = 0 then error (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb)
-  | ExpectedAnyNb -> ();
-  end;
-  res
+  | ExpectedAnyNb -> res
+  (* TODO:
+      | ExpectedSelected (n_opt, i_selected) ->
+        begin match n_opt with
+        | Some n -> do the check n like in ExpectedNb
+        | None -> if nb = 0 then error like in ExpectedMulti
+        end;
+        List.iter (fun i -> if not (0 <= i && i < nb) then error) i_selected;
+        filter from res the elements at indices i_selected  -- define in tool if needed *)
+  end
+
 
 and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
