@@ -123,7 +123,7 @@ let cInclude (s : string) : constr =
     Constr_include s
 
 let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
-    { rexp_desc = (if regexp then "Regexp" else "String") ^ "(" ^ s ^ ")";
+    { rexp_desc = (if regexp then "Regexp" else "String") ^ "(\"" ^ s ^ "\")";
       rexp_exp = (if regexp then Str.regexp s else
                        if substr then Str.regexp_string s else Str.regexp ("^" ^ s ^ "$"));
       rexp_substr = substr;
@@ -505,6 +505,8 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
 
 let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
   applyi_on_transformed_targets ~rev transformer (fun _i descr t -> tr descr t) tg
+
+
 
 (* LATER: see if [rev]  argument is also needed for [apply_on_targets] *)
 

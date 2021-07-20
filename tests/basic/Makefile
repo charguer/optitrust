@@ -46,6 +46,8 @@ TESTS_OTHERS := \
 	reference_fold.ml \
 	reference_inline.ml \
 
+# TODO: script for vscode opening
+
 TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK) $(TESTS_OTHERS)
 
 include ../Common.Makefile

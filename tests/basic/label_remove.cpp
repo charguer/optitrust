@@ -12,6 +12,8 @@ int main() {
     }
   }
 
+  unit:;
+
   stop: return 0;
 }
 

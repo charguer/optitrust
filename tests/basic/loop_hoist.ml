@@ -2,9 +2,10 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-  !! Loop.hoist "x_step" [cVarDef "y"]; (* => rename to hoist_without_detach *)
+  !! Loop.hoist "x_step" [cVarDef "x"]; (* => rename to hoist_without_detach *)
+  !! Loop.hoist "z_step" [cVarDef "z"]; (* => rename to hoist_without_detach *)
   (* !! Loop.hoist "y_step" [cFor "j"]; => move to combi level *)
-)
+) (* TODO: no generation of the update to step *)
 
 (*
   Loop.hoist_without_detach   as core
@@ -12,13 +13,6 @@ let _ = Run.script_cpp (fun () ->
 *)
 
 (*
-
-TODO: we should generate directly this code:
-    int& x = x_step[i];
-    x = t[i];
-    u[i] = x;
-
-
 
 
 if before

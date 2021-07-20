@@ -31,7 +31,10 @@ let script (f : unit -> unit) : unit =
     Trace.close_logs()
   with | Failure s ->
     Trace.close_logs();
-    failwith s
+    (* failwith s *)
+    Printf.eprintf "Failure: %s\n" s;
+    exit 1
+
 
 (* [script_cpp f] is a specialized version of [script f] that:
    - automatically invokes [Trace.init "foo.cpp"] at start,

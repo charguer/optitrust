@@ -5,16 +5,18 @@ int main() {
   for (int i = 0; i < 10; i++) {
     int x;
     x = t[i];
+    int z;
     u[i] = x;
+    z = x;
   }
 
   // TODO: this "detach" on the fly could be handled in the "combi" folder
-  for (int j = 0; j < 10; j++) {
+  /*for (int j = 0; j < 10; j++) {
     int y ;
     y = t[j];
     u[j] = y + 1;
     y = u[j];
-  }
+  }*/
 }
 
 // detach_split :

@@ -565,6 +565,7 @@ let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
 
+exception Resolve_target_failure of location option * string
 
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
@@ -820,10 +821,12 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
   let res = resolve_target_simple tgs.target_path t in
   let nb = List.length res in
   (* Check if nb is equal to the specification of tgs.target_occurences, if not then something went wrong *)
+  let error s =
+    raise (Resolve_target_failure (None, s)) in
   begin match tgs.target_occurences with
-  | ExpectedOne -> if nb <> 1 then fail None (sprintf "resolve_target_struct: expected exactly one match, got %d." nb)
-  | ExpectedNb n -> if nb <> n then fail None (sprintf "resolve_target_struct: expected %d matches, got %d." n nb)
-  | ExpectedMulti -> if nb = 0 then fail None (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb)
+  | ExpectedOne -> if nb <> 1 then error (sprintf "resolve_target_struct: expected exactly one match, got %d." nb)
+  | ExpectedNb n -> if nb <> n then error (sprintf "resolve_target_struct: expected %d matches, got %d." n nb)
+  | ExpectedMulti -> if nb = 0 then error (sprintf "resolve_target_struct: expected at least one occurrence, got %d." nb)
   | ExpectedAnyNb -> ();
   end;
   res
@@ -832,7 +835,9 @@ and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
   if tgs.target_relative <> TargetAt
     then fail None "resolve_target: this target should not contain a tBefore/tAfter/tFirst/tLast";
-  resolve_target_struct tgs t
+  try resolve_target_struct tgs t
+  with Resolve_target_failure (_loc_opt,str) ->
+    fail None (str ^ "\n" ^ (target_to_string tg))
 
 and resolve_target_exactly_one (tg : target) (t : trm) : path =
   match resolve_target tg t with
