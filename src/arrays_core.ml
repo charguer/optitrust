@@ -14,11 +14,12 @@ open Ast
       new_vars: a list of variables, the variables at index i replaces and occurence of array_var[i]
       t: ast node located in the same level or deeper as the array declaration
     return: 
-      updated ast node  with the replaced array accesses to variable references.
+        updated ast node  with the replaced array accesses to variable references.
 *)
 let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
+    | Trm_var y when y = array_var -> fail t.loc "inline_array_access: arrays should be accessed by using indices"
     | Trm_apps(f,[arr_base;arr_index]) ->
       begin match f.desc with
       | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr)) ->
@@ -78,9 +79,9 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
         begin match t_arr.typ_desc with
       | Typ_array (t_var,_) ->
         begin match t_var.typ_desc with
-        | Typ_constr (y, _, _) ->
+        | Typ_constr (y, tid, _) ->
           List.map(fun x ->
-          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_var y))) (trm_lit (Lit_uninitialized))) new_vars
+          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_constr y tid []))) (trm_prim (Prim_new (typ_constr y tid [])))) new_vars
 
         | _ -> fail t.loc "to_variables_aux: expected a type variable"
         end

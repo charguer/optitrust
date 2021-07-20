@@ -79,6 +79,14 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
 let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux delete_decl inline_at index)
 
+(* [alias_aux name index t]: create a copy of a typedef with a new name
+    params:
+      name: new typ name
+      index: index of the original typedef declaration in the sequence it belongs to to
+      t: ast of the surrounding sequence of the original declaration
+    return:
+      updated surrounding sequence with added new copy of the original declaration
+*)
 let alias_aux (name : string) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->

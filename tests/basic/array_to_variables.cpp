@@ -30,7 +30,7 @@ void g(int x, int y, U t[2]){
   y = 1;
 }
 
- main(){
+ int main(){
   // Simple array access
   T t[2];
   t[0][1] = 4;
@@ -44,7 +44,7 @@ void g(int x, int y, U t[2]){
   u[0][1].y = u[0][1].x + 6;
   u[1][1].x = 5;
   u[1][1].y = u[1][1].x + 6;
-  g(0,0,u);
+  // g(0,0,u);
 
   // Struct access with array access
   particle p;
