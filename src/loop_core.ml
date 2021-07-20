@@ -193,16 +193,16 @@ let extract_variable (index : int) : Target.Transfo.local =
   Target.apply_on_path (split_aux index)
 
 
-(* [fusion_aux t]: merge two loops with the same components except the body
+(* [fusion_on_block_aux t]: merge two loops with the same components except the body
     params:
       t: ast of the sequence containing the loops 
     return
       update ast with the merged loops
  *)
 
-let fusion_aux (t : trm) : trm =
+let fusion_on_block_aux (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
+  | Trm_labelled (_, {desc = Trm_seq tl;_}) ->
     (* Assumption the sequence contains only two trms, the first one is the first loop *)
     let first_loop = List.nth tl 0  in
     (* The second one is the second loop *)
@@ -215,9 +215,9 @@ let fusion_aux (t : trm) : trm =
     | Trm_for (_, _,  _, _, _, body ) ->
       begin match body.desc with
       | Trm_seq tl -> tl
-      | _ -> fail t.loc "fusion_aux: expected the first loop body sequence"
+      | _ -> fail t.loc "fusion_on_block_aux: expected the first loop body sequence"
       end
-    | _ -> fail t.loc "fusion_aux: expected the first for loop"
+    | _ -> fail t.loc "fusion_on_block_aux: expected the first for loop"
     end in
 
     begin match second_loop.desc with
@@ -225,17 +225,17 @@ let fusion_aux (t : trm) : trm =
       (* Extracting the body trms from the second loop *)
       let new_body = begin match body.desc with
       | Trm_seq tl -> trm_seq (first_loop_trms @ tl )
-      | _ -> fail t.loc "fusion_aux: expected the second loop body sequence"
+      | _ -> fail t.loc "fusion_on_block_aux: expected the second loop body sequence"
       end
       in
       (* The fusioned loop *)
       trm_seq ~annot:t.annot [trm_for index direction start stop step new_body]
-    | _ -> fail t.loc "fusion_aux: expected the second loop"
+    | _ -> fail t.loc "fusion_on_block_aux: expected the second loop"
     end
-  | _ -> fail t.loc "fusion_aux: expected the sequence which contains the two loops to be merged"
+  | _ -> fail t.loc "fusion_on_block_aux: expected the labelled sequence which contains the two loops to be merged"
 
-let fusion : Target.Transfo.local =
-  Target.apply_on_path (fusion_aux)
+let fusion_on_block : Target.Transfo.local =
+  Target.apply_on_path (fusion_on_block_aux)
 
 (* [grid_enumerate_aux index_and_bounds t]: transform a loop over a grid into ndested loops over each dimension
       of the grid

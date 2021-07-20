@@ -65,13 +65,13 @@ let split : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.get_decl_in_surrounding_loop)
     (fun (p,i) t -> Loop_core.split i t p )
 
-(* [fusion tg] expects [tg] to point to a sequence containing two loops 
+(* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops 
     with the same range, start step and bound but different body.
     Then it's going to take the body of the second loop and append 
     it to the body ot the first loop. 
 *)
-let fusion : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.fusion)
+let fusion_on_block : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.fusion_on_block)
 
 (* [extract_variable tg] expects tg to point to an uninitialized variable  
    declaration inside a for loop. The idea is similar to loop hoist
