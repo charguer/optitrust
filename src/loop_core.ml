@@ -45,6 +45,9 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
+    let i_color = match i_color with
+      | "" -> "c" ^ index 
+      | _ -> i_color in
     let is_step_equal_one = begin match step.desc with 
                             | Trm_val (Val_lit (Lit_int 1)) -> true
                             | _ -> false 

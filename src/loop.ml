@@ -24,7 +24,7 @@ let swap : Target.Transfo.t =
    [for (int color_index = 0; color_index < nb_color; color_index++) {
       for (int i = color_index*step; i < stop; i += step*nb_color) { body }]. 
 *)
-let color (nb_colors : string_trm) (color_index : var) : Target.Transfo.t =
+let color (nb_colors : string_trm) ?(color_index : var = "") : Target.Transfo.t =
   Target.apply_on_target (Loop_core.color nb_colors color_index)
 
 
