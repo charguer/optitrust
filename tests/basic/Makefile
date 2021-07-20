@@ -23,6 +23,8 @@ TESTS_OTHERS := \
   loop_hoist.ml \
   loop_swap.ml \
   loop_tile.ml \
+	loop_grid_enumerate.ml \
+	loop_unroll.ml \
 	sequence_delete.ml \
   sequence_inline.ml \
   sequence_sub.ml \
@@ -37,8 +39,12 @@ TESTS_OTHERS := \
 	variable_fold.ml \
 	variable_inline.ml \
 	variable_insert.ml \
-  variable_insert_and_fold.ml \
 	sequence_insert.ml \
+	arbitrary_if.ml \
+	change_occurrence.ml \
+	from_one_to_many.ml \
+	reference_fold.ml \
+	reference_inline.ml \
 
 TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK) $(TESTS_OTHERS)
 

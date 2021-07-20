@@ -409,6 +409,9 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
     cCall ~fun_:[cStrict;sInstr "="] ""
   ]
 
+let cTargetInDepth (tg : target) : constr =
+  Constr_chain (Constr_depth DepthAny :: tg)
+
 
 
 

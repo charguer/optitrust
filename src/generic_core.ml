@@ -270,7 +270,7 @@ let arbitrary_if_aux (single_branch : bool) (index : int) (cond : string) (t : t
       let new_if = trm_if (trm_arbitrary cond) then_branch (trm_lit (Lit_unit)) in
       trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
     | false ->
-      let branches, lback = Tools.split_list_at 2 tl in
+      let branches, lback = Tools.split_list_at 2 lback in
       let new_if = trm_if (trm_arbitrary cond) (List.nth branches 0) (List.nth branches 1) in
       trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
     end
