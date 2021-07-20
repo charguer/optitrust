@@ -2,15 +2,10 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp ( fun _ ->
-  (* show [nbMulti; cSeq ~args:[cFor "i"]()]; *)
-  !! Sequence.sub 2 ~label:"tofusion" [tIndex ~nb:2 0; cFor "i"];
-  !! Loop.fusion_on_block [cLabel "tofusion"]
-  (* TODO: tIndex for selecting one among multiple
-  !! Loop.fusion_on_block [cLabel "tofusion"]
-
-  TODO: fusion any number of loops that are in the "tofusion" block.
-  *)
-  !! Loop.fusion [cSeq ~args_pred:(target_list_one_st (cFor "i")) ()];
+  !! Loop.fusion [tIndex ~nb:2 0; cFor "i"];
+  (* !! Sequence.sub 2 ~label:"tofusion" [tIndex ~nb:2 0; cFor "i"]; *)
+  (* !! Loop.fusion_on_block [cLabel "tofusion"]; *)
+  
 )
 
 (* TODO: high-level function

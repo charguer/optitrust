@@ -238,7 +238,7 @@ let range a b =
   in
     if a > b then List.rev (aux b a) else aux a b
 
-let optitrust_label = 
+let optitrust_label : string = 
   let rnd_nb = Random.int 1000 in
   "__optitrust__" ^ (string_of_int rnd_nb)
 

@@ -205,33 +205,16 @@ let fusion_on_block_aux (t : trm) : trm =
   | Trm_labelled (_, {desc = Trm_seq tl;_}) ->
     (* Assumption the sequence contains only two trms, the first one is the first loop *)
     let first_loop = List.nth tl 0  in
-    (* The second one is the second loop *)
-    let second_loop = List.nth tl 1  in
-
-    (* Get the list of trms for the first loop, other parts of the loop are not needed since the assumtion is that the loop
-      have the same index, bound and step *)
-    let first_loop_trms =
-    begin match first_loop.desc with
-    | Trm_for (_, _,  _, _, _, body ) ->
-      begin match body.desc with
-      | Trm_seq tl -> tl
-      | _ -> fail t.loc "fusion_on_block_aux: expected the first loop body sequence"
-      end
-    | _ -> fail t.loc "fusion_on_block_aux: expected the first for loop"
-    end in
-
-    begin match second_loop.desc with
-    | Trm_for (index, direction, start, stop, step, body) ->
-      (* Extracting the body trms from the second loop *)
-      let new_body = begin match body.desc with
-      | Trm_seq tl -> trm_seq (first_loop_trms @ tl )
-      | _ -> fail t.loc "fusion_on_block_aux: expected the second loop body sequence"
-      end
-      in
-      (* The fusioned loop *)
-      trm_seq ~annot:t.annot [trm_for index direction start stop step new_body]
-    | _ -> fail t.loc "fusion_on_block_aux: expected the second loop"
+    begin match  first_loop.desc with 
+    | Trm_for (index, direction, start, stop, step, _) ->
+      let fusioned_body = List.fold_left (
+        fun acc loop -> acc @ (for_loop_body_trms loop)  
+      ) [] tl in
+      trm_for index direction start stop step (trm_seq fusioned_body)
+    | _ -> fail t.loc "fusion_on_block_aux: all loops should be simple loops"
     end
+    
+    
   | _ -> fail t.loc "fusion_on_block_aux: expected the labelled sequence which contains the two loops to be merged"
 
 let fusion_on_block : Target.Transfo.local =

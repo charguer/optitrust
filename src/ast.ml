@@ -1006,6 +1006,21 @@ let for_loop_nb_iter (t : trm) : trm =
        ]
 
 
+let for_loop_body_trms (t : trm) = 
+  match t.desc with 
+  | Trm_for (_, _, _, _, _, body) ->
+    begin match body.desc with 
+    | Trm_seq tl -> tl
+    | _ -> fail body.loc "for_loop_body_trms: body of a simple loop should be a sequence"
+    end 
+  | Trm_for_c (_, _, _,  body) ->
+    begin match body.desc with 
+    | Trm_seq tl -> tl
+    | _ -> fail body.loc "for_loop_body_trms: body of a generic loop should be a sequence"
+    end
+  | _ -> fail t.loc "for_loop_body_trms: expected a loop"
+
+
 (* Count the number of goto instructions targeting a given label, inside a term t *)
 let nb_goto (l : label) (t : trm) : int =
   let add (n : int) (m : int) : int = n + m in
