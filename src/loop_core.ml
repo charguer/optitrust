@@ -305,3 +305,29 @@ let unroll_aux (index : int) (t : trm) : trm =
 
 let unroll (index : int) : Target.Transfo.local =
   Target.apply_on_path (unroll_aux index)
+
+let invariant_aux (trm_index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_for (index, direction, start, stop, step, body) ->
+    Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
+    begin match body.desc with 
+    | Trm_seq tl -> 
+      let lfront, lback = Tools.split_list_at trm_index tl in
+      let trm_inv, lback = Tools.split_list_at 1 lback in
+      trm_seq ~annot: (Some No_braces) (trm_inv @ [
+        trm_for index direction start stop step (trm_seq (lfront @ lback))])
+    | _-> fail body.loc "invariant_aux: body of the loop should be a sequence"
+    end
+  | Trm_for_c (init, cond, step, body) ->
+    begin match body.desc with 
+    | Trm_seq tl -> 
+      let lfront, lback = Tools.split_list_at trm_index tl in
+      let trm_inv, lback = Tools.split_list_at trm_index lback in
+      trm_seq ~annot: (Some No_braces) (trm_inv @ [
+        trm_for_c init cond step (trm_seq (lfront @ lback))])
+    | _-> fail body.loc "invariant_aux: body of the loop should be a sequence"
+    end
+  | _ -> fail t.loc "invariant_aux: expected a loop"
+
+let invariant (trm_index : int) : Target.Transfo.local =
+  Target.apply_on_path (invariant_aux trm_index)

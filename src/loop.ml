@@ -55,14 +55,14 @@ let tile ?(divides : bool = true) (tile_size : string_trm) ?(tile_index : var = 
       }                                       }
 *)
 let hoist_withou_detach (x_step : var) : Target.Transfo.t =
-  Target.apply_on_transformed_targets(Internal.get_decl_in_surrounding_loop)
+  Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.hoist_without_detach x_step i t p)
 
 (* [split tg]: expects [tg] to point somewhere insie the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 *)
 let split : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.get_decl_in_surrounding_loop)
+  Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
     (fun (p,i) t -> Loop_core.split i t p )
 
 (* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops 
@@ -87,7 +87,7 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
    declaration inside a for loop. The idea is similar to loop hoist
 *)
 let extract_variable : Target.Transfo.t =
-  Target.apply_on_transformed_targets(Internal.get_decl_in_surrounding_loop)
+  Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.extract_variable i t p)
 
 (* [grid_enumerate index_and_bounds tg] expects tg to point to loop iterating over
@@ -150,3 +150,12 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
 let unroll : Target.Transfo.t =
   Target.apply_on_transformed_targets(Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Loop_core.unroll i t p)
+
+
+(* [invariant] expects the target to point to an instruction inside the loop
+    which is not dependent on the index of the loop or any local variable.
+    Then it will take it outside the loop.
+*)
+let invariant : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
+    (fun (p, i) t -> Loop_core.invariant i t p)
