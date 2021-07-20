@@ -8,7 +8,7 @@ TESTS_WORKING := \
 	sequence_sub \
 	array_swap \
   label_add \
-
+  label_remove.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
@@ -17,7 +17,6 @@ TESTS_TOCHECK := \
 	array_to_variables \
 
 TESTS_OTHERS := \
-  label_remove.ml \
 	loop_color.ml \
   loop_fusion.ml \
   loop_hoist.ml \
