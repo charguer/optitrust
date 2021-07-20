@@ -15,9 +15,9 @@ TESTS_TOCHECK := \
 	loop_hoist \
 	array_tile \
 	array_to_variables \
+  loop_color.ml \
 
 TESTS_OTHERS := \
-	loop_color.ml \
   loop_fusion.ml \
   loop_hoist.ml \
   loop_swap.ml \
@@ -50,3 +50,18 @@ TESTS_OTHERS := \
 TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK) $(TESTS_OTHERS)
 
 include ../Common.Makefile
+
+
+
+# LATER: loop-invariant code motion:
+# - basic level: move one instruction out of one loop
+# - higher-level: figure out the list of constants to move, and move them out of one or more loops
+
+# LATER: Unswitching – moves a conditional from inside a loop to outside
+# for ( if (b) c1 else c2 )
+# if (b) for (c1) else for (c2)
+
+# LATER: flattening:  for i (for j ...)   ->  for k    // reverse of gridify
+# for i { for j = 0; j < nb[i]; j++)  ...  example: sparse matrix
+#   compute the prefix-sum array first
+
