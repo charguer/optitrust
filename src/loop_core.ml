@@ -101,39 +101,39 @@ let tile (divides : bool) (b : var)(i_block : var) : Target.Transfo.local =
     return:
       updated ast with the hoisted loop
 *)
-let hoist_aux (x_step : var) (t : trm) : trm =
+let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     begin match body.desc with
     | Trm_seq tl ->
       (* We assume that the first elment in the body is a variable declaration *)
-      let var_decl = List.nth tl 0 in
-      let var_name, var_typ = match var_decl.desc with
-      | Trm_let (_, (x, tx), _) -> x, tx
-      | _ -> fail var_decl.loc "hoist_aux: first loop_body trm should be a variable declaration"
-      in
-      let remaining_body_trms = List.tl tl in
-      let remaining_body_trms = List.map(fun t -> (Internal.change_trm (trm_var var_name) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) t)) remaining_body_trms in
-      let var_typ =
-      begin match var_typ.typ_desc with
-      | Typ_ptr {inner_typ = ty; _} -> ty
-      | _ -> fail var_decl.loc "hoist_aux: expected a generated pointer type"
+      let lfront, lback = Tools.split_list_at decl_index tl in
+      let var_decl, lback = Tools.split_list_at 1 lback in
+      let var_decl = begin match var_decl with 
+        | [vd] -> vd
+        | _ -> fail t.loc "hoist_aux: expected a loop with a single element"
+        end  in
+      begin match var_decl.desc with 
+      | Trm_let (vk, (x, tx), _) ->
+        let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) in
+        let last_assgn = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) (trm_var x) in
+        let new_body = trm_seq ~annot:body.annot (lfront @ [new_decl] @ lback @ [last_assgn]) in
+        let inner_typ = get_inner_ptr_type tx in
+        trm_seq ~annot:(Some No_braces)[
+          trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
+          trm_for index direction start stop step new_body    
+        ]
+      | _ -> fail var_decl.loc "hoist_aux: expected a variable declaration"
       end
-      in
-      let new_body = trm_seq ([
-        trm_let Var_mutable (var_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (var_typ)) (trm_apps (trm_prim (Prim_new var_typ)) [trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index]])
-      ] @ remaining_body_trms) in
-      trm_seq ~annot:(Some No_braces)[
-        trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_typ (Trm stop))) (trm_prim (Prim_new var_typ));
-        trm_for index direction start stop step new_body
-      ]
-    | _ -> fail body.loc "hoist_aux: expected the body of the loop as a sequence"
+    | _ -> fail t.loc "hoist_aux: body of the loop should be a sequence"    
     end
+      
+     
   | _ -> fail t.loc "hoist_aux: only simple loops are supported"
 
 
-let hoist (x_step : var) : Target.Transfo.local =
-   Target.apply_on_path (hoist_aux x_step)
+let hoist (x_step : var) (index : int): Target.Transfo.local =
+   Target.apply_on_path (hoist_aux x_step index) 
 
 (* [extract_variable_aux decl_index t] similar to loop hoist *)
 let extract_variable_aux (decl_index : int) (t : trm) : trm =

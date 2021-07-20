@@ -55,7 +55,8 @@ let tile ?(divides : bool = true) (tile_width : string_trm) (tile_index : var) :
       }                                       }
 *)
 let hoist (x_step : var) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.hoist x_step)
+  Target.apply_on_transformed_targets(Internal.get_decl_in_surrounding_loop)
+    (fun (p, i) t -> Loop_core.hoist x_step i t p)
 
 (* [split tg]: expects [tg] to point somewhere insie the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.

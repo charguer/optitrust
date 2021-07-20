@@ -3,7 +3,7 @@ open Target
 
 (* TODO: The outcome is not correct *)
 let _ = Run.script_cpp (fun () ->
-  !! Loop.hoist "x_step" [cFor "i"]; (* => rename to hoist_without_detach *)
+  !! Loop.hoist "x_step" [cVarDef "y"]; (* => rename to hoist_without_detach *)
   (* !! Loop.hoist "y_step" [cFor "j"]; => move to combi level *)
 )
 

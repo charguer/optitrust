@@ -79,3 +79,22 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
 let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux delete_decl inline_at index)
 
+let alias_aux (name : string) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let td_l, lback = Tools.split_list_at 1 lback in
+    let td_to_copy = match td_l with 
+      | [td_l] -> td_l
+      | _ -> fail t.loc "alias_aux: expected a list with only one element" in
+    let td_copy = match td_to_copy.desc with 
+    | Trm_typedef td ->
+      trm_typedef {td with typdef_tconstr = name}
+    | _ -> fail t.loc "alias_aux: expected a typedef declaration" 
+     in
+      trm_seq (lfront @ td_l @ [td_copy] @ lback)
+
+  | _-> fail t.loc "alias_aux: expected the surrounding sequence"
+
+let alias (name : string) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (alias_aux name index)
