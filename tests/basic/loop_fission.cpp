@@ -4,8 +4,10 @@ int n;
 
 int main() {
   for (int i = 1; i < n; i++) {
-       t[i] = i;
-       u[i] += i;
+    int a = i;
+    t[i] += a;
+    int b = i;
+    u[i] += b;
   }
   return 0;
 }
