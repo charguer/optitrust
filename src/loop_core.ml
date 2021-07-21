@@ -342,7 +342,14 @@ let invariant_aux (trm_index : int) (t : trm) : trm =
 let invariant (trm_index : int) : Target.Transfo.local =
   Target.apply_on_path (invariant_aux trm_index)
 
-
+(* [unswitch_aux trm_index t]: extract and if statement inside the loop which is not
+        dependent on the index of the loop ofr any local variables outside the loop.
+      params:
+        trm_index: index of the if statement inside the body of the loop
+        t: ast of the for loop to be transformed
+      return:
+        updated ast with the extracted if statement
+*)
 let unswitch_aux (trm_index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_for (index, direction, start, stop, step, _) ->
@@ -390,6 +397,14 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
 let unswitch (trm_index : int) : Target.Transfo.local =
   Target.apply_on_path (unswitch_aux trm_index)
 
+
+(* [to_unit_steps_aux new_index t]: transform a loop into a loop with unit steps 
+     params:
+      new_index: a string representing the new index for the transformed loop
+      t: ast of the loop to be transformed
+     return:
+      updated ast with the transformed loop
+*)
 let to_unit_steps_aux (new_index : var) (t : trm) : trm =
   match t.desc with 
   | Trm_for (index, direction, start, stop, step, _) ->
