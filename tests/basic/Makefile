@@ -24,10 +24,10 @@ TESTS_TOCHECK := \
   loop_color.ml \
   loop_tile.ml \
   loop_unroll.ml \
+  loop_invariant.ml \
+  loop_unswitch.ml \
 
 TESTS_OTHERS := \
-	loop_invariant.ml \
-	loop_unswitch.ml \
 	loop_fission.ml \
 	loop_to_unit_steps.ml \
 	sequence_delete.ml \

@@ -352,6 +352,9 @@ let invariant (trm_index : int) : Target.Transfo.local =
 *)
 let unswitch_aux (trm_index : int) (t : trm) : trm =
   match t.desc with
+  (* TODO: see if code could be factorized *)
+  (* TODO: implement a core transformation called "basic_cleanup":
+      - removes "unit" in trm_seq *)
   | Trm_for (index, direction, start, stop, step, _) ->
     let tl = for_loop_body_trms t in
     let lfront, lback = Tools.split_list_at trm_index tl in
@@ -367,7 +370,9 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
       end in
       let new_else = begin match else_.desc with
       | Trm_seq tl1 -> trm_for index direction start stop step (trm_seq (lfront @ tl1 @ lback))
-      | _ -> trm_for index direction start stop step (trm_seq (lfront @ [else_] @ lback))
+      | _ (* Trm_lit Lit_unit --> remove this optimisation *) ->
+          trm_for index direction start stop step (trm_seq (lfront @ [else_] @ lback))
+      (* TODO: | _ -> assert false *)
       end in
       trm_if cond new_then new_else
     | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
