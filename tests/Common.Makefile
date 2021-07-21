@@ -59,12 +59,15 @@ transfo: $(TESTS:.ml=_out.cpp)
 # 'make check' executes all the transformations and check the results against expected results
 check: $(TESTS:.ml=.chk)
 
-# make 'compile' checks that the source cpp files all compile
+# 'make compile' checks that the source cpp files all compile
 compile: $(TESTS:.ml=.prog)
 
 # 'make optitrust' rebuilds the library, and clean all local files
 optitrust: clean
 	$(MAKE) -C $(OPTITRUST) install
+
+# 'make expected' produces all the '_exp.cpp' files
+expected: $(TESTS:.ml=.exp)
 
 
 #######################################################
@@ -111,8 +114,9 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 # Rule for producing the expected output file from the result
 # TODO: see if we can use $* instead of basename
 %.exp: %_out.cpp
-	$(V)cp $< `basename -s .exp $@`_exp.cpp
-	@echo "Generated `basename -s .exp $@`_exp.cpp from $<"
+	$(V)(ls `basename -s .exp $@`_exp.cpp 2> /dev/null && echo "Skipping $@") \
+  || (cp $< `basename -s .exp $@`_exp.cpp && \
+      echo "Generated `basename -s .exp $@`_exp.cpp from $<")
 
 # Rule for checking that a file compiles
 %.prog: %.cpp

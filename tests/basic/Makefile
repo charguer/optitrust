@@ -7,12 +7,12 @@ TARGET_MAKE_ALL := transfo
 TESTS_WORKING := \
   sequence_delete.ml \
 	loop_tile.ml \
-	loop_hoist.ml \
 	sequence_insert.ml \
 	sequence_sub.ml \
 	array_swap.ml \
   label_add.ml \
   label_remove.ml \
+#loop_hoist.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
