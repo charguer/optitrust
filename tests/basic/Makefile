@@ -1,3 +1,6 @@
+
+TARGET_MAKE_ALL := transfo
+
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
@@ -19,7 +22,7 @@ TESTS_TOCHECK := \
   loop_fusion.ml \
 
 TESTS_OTHERS := \
-  loop_swap.ml \
+  loop_interchange.ml \
   loop_tile.ml \
 	loop_grid_enumerate.ml \
 	loop_unroll.ml \
@@ -47,7 +50,7 @@ TESTS_OTHERS := \
 	from_one_to_many.ml \
 	reference_fold.ml \
 	reference_inline.ml \
-	
+
 
 # TODO: script for vscode opening
 

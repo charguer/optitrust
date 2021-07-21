@@ -226,21 +226,30 @@ let failure_expected (f : unit -> unit) : unit =
 let map_rev f l = List.fold_right (fun x acc -> f x :: acc) l []
 
 
-let rec chop_list_after x xs = match xs with 
+let rec chop_list_after x xs = match xs with
   (* | [] -> failwith "did not find x" *)
   | [] -> []
-  | y::tl -> if y = x then [] else y:: chop_list_after x tl  
+  | y::tl -> if y = x then [] else y:: chop_list_after x tl
 
 
-let range a b = 
+let range a b =
   let rec aux a b =
-    if a > b then [] else a :: aux(a + 1) b 
+    if a > b then [] else a :: aux(a + 1) b
   in
     if a > b then List.rev (aux b a) else aux a b
 
-let optitrust_label : string = 
+let optitrust_label : string =
   let rnd_nb = Random.int 1000 in
   "__optitrust__" ^ (string_of_int rnd_nb)
 
-let filter_not_selected (indices :int list) (list : 'a list) : 'a list = 
-List.filteri (fun i _ -> List.mem i indices) list
+(* LATER: arthur use stdlib *)
+let list_filteri p l =
+  let rec aux i acc = function
+  | [] -> List.rev acc
+  | x::l -> aux (i + 1) (if p i x then x::acc else acc) l
+  in
+  aux 0 [] l
+
+let filter_not_selected (indices :int list) (list : 'a list) : 'a list =
+  (* List.filteri *)
+  list_filteri (fun i _ -> List.mem i indices) list
