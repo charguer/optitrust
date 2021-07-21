@@ -169,7 +169,7 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
   Target.apply_on_path(local_other_name_aux var_type old_var new_var)
 
 
-(* [replace_with_arbitrary_aux code index t]: replace any node of the ast with an arbitrary code
+(* [replace_aux code index t]: replace any node of the ast with an arbitrary code
       tranformed later into an ast subtree
     params:
       code: string representing the code which will appear in place of the targeted trm
@@ -178,16 +178,16 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
     return:
       updated ast of the urrounding sequence which contains now the replaced trm
  *)
-let replace_with_arbitrary_aux (code : string)(index : int) (t : trm) : trm =
+let replace_aux (code : string)(index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
     let _, lback = Tools.split_list_at 1 lback in
     trm_seq ~annot:t.annot (lfront @ [trm_arbitrary code] @ lback)
-  | _ -> fail t.loc "replace_with_arbitrary_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "replace_aux: expected the surrounding sequence"
   
-let replace_with_arbitrary (code : string) (index : int): Target.Transfo.local =
-  Target.apply_on_path (replace_with_arbitrary_aux code index)
+let replace (code : string) (index : int): Target.Transfo.local =
+  Target.apply_on_path (replace_aux code index)
 
 (* [replace_one_with_mane]: change all the instructions containing the occurrence of the 
       variable into a list of instructions, the list of instructions contains one instruction 

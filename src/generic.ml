@@ -40,13 +40,13 @@ let remove_instructions (tgs : target list) : unit =
       remove_instruction x
     ) () tgs
 
-(* [replace_with_arbitrary code tg] expects the target to point at any node of the ast, 
+(* [replace code tg] expects the target to point at any node of the ast, 
     it then removes this node and replaces with the code entered by the user, which is merged into 
     the ast automatically by Optitrust.
 *)
-let replace_with_arbitrary (code : string) (tg : target) : unit =
+let replace (code : string) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.replace_with_arbitrary code i t p) tg;
+    (fun (p, i) t -> Generic_core.replace code i t p) tg;
   Trace.reparse()
 
 (* [from_one_to_many names tg] expects the target to point to a declaration(

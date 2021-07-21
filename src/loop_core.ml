@@ -389,3 +389,27 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
 
 let unswitch (trm_index : int) : Target.Transfo.local =
   Target.apply_on_path (unswitch_aux trm_index)
+
+let to_unit_steps_aux (new_index : var) (t : trm) : trm =
+  match t.desc with 
+  | Trm_for (index, direction, start, stop, step, _) ->
+    let body_trms = for_loop_body_trms t in
+    let new_decl = trm_let Var_mutable (index, (typ_ptr Ptr_kind_mut (typ_int()) ~typ_attributes:[GeneratedStar])) 
+        (trm_apps (trm_prim (Prim_new (typ_int()))) 
+          [trm_apps (trm_binop Binop_add)[
+            start;
+            trm_apps (trm_binop Binop_mul) [trm_var new_index; step]
+          ]]) in
+    trm_for 
+      new_index 
+      direction 
+      (trm_lit (Lit_int 0)) 
+      (trm_apps (trm_binop Binop_div) [
+        trm_apps (trm_binop Binop_sub) [stop; start]; step]) 
+      (trm_lit (Lit_int 1)) 
+      (trm_seq ([new_decl] @ body_trms )) 
+
+  | _ -> fail t.loc "to_unit_steps_aux: expected a simple for loop"
+
+let to_unit_steps (new_index : var) : Target.Transfo.local =
+  Target.apply_on_path (to_unit_steps_aux new_index)

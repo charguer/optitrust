@@ -167,3 +167,18 @@ let invariant : Target.Transfo.t =
 let unswitch : Target.Transfo.t =
   Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.unswitch i t p)
+
+
+(* [to_unit_steps new_index tg] expects target [tg] to point to a for loop 
+    [new_index] - denotes the new index for the transformed loop
+        by default is an empty string. The reason for that is to check if the user
+        gave the name of the new index of not. If not then [new_index] = unit_index
+        where index is the index of the targeted loop.
+    Assumption:
+      The targeted loop should be of the form:
+        for (int i = a; i < b; i+=B){...}, and it assumes that B divides (b-a). It then 
+        transforms the targeted loop into the following form:
+          for (int new_index = 0;)
+*)
+let to_unit_steps ?(new_index : var = "" ) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.to_unit_steps new_index)
