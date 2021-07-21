@@ -39,10 +39,10 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
   (* change all occurences of ty_before in ty *)
   let rec change_typ (ty : typ) : typ =
-    
-    if same_types ~match_generated_star:false ty ty_before then ty_after 
+
+    if same_types ~match_generated_star:false ty ty_before then ty_after
       else typ_map change_typ ty
-        
+
     (* if Ast_to_c.typ_to_string ty = Ast_to_c.typ_to_string ty_before then ty_after
     else Ast.typ_map change_typ ty *)
   in
@@ -107,6 +107,17 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
 
     change_at
 
+(* TODO:
+    let clean_up_no_brace_seq_pred (filter : no_brace_id -> bool) (t:trm) : trm =
+        .... if (No_braces id) and (filter id) then remove else keep
+
+    let clean_up_no_brace_seq id t =
+       clean_up_no_brace_seq_pred (fun id2 -> id2 = id) t
+
+    let clean_up_no_brace_seq_all t =
+      clean_up_no_brace_seq_pred (fun _id2 -> true) t
+*)
+
 let clean_up_no_brace_seq (t : trm) : trm =
   let rec clean_up_in_list (tl : trm list) : trm list =
     match tl with
@@ -145,9 +156,9 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
   | _ -> fail None "isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
-let get_call_in_surrounding_sequence (dl : path) : path * path * int = 
+let get_call_in_surrounding_sequence (dl : path) : path * path * int =
   let rec aux (acc : path) (dl : path) =
-    match dl with 
+    match dl with
     | [] -> fail None "get_call_in_surrounding_sequence: empty path"
     | Dir_seq_nth i :: dl'-> (List.rev dl', acc, i)
     | dir :: dl' -> aux (dir :: acc) dl'
@@ -155,7 +166,7 @@ let get_call_in_surrounding_sequence (dl : path) : path * path * int =
   aux [] (List.rev dl)
 
 let get_trm_in_surrounding_loop(dl : path) : path * int =
-    match List.rev dl with 
+    match List.rev dl with
     | Dir_seq_nth i :: Dir_body :: dl' -> (List.rev dl', i)
     | _ -> fail None "get_trm_in_surrounding_loop: empty path"
 
@@ -172,11 +183,11 @@ let fresh_in (t : trm) (x : var) : var =
       x ^ "_" ^ string_of_int !n
     end
 
-let fresh_args (t : trm) : trm = 
+let fresh_args (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
-    match t.desc with 
+    match t.desc with
     | Trm_var x -> trm_var ("_" ^ x)
-    | _ -> trm_map (aux global_trm) t 
+    | _ -> trm_map (aux global_trm) t
   in aux t t
 
 let get_context(ctx : Trace.context) (t : trm) : string =
@@ -185,7 +196,7 @@ let get_context(ctx : Trace.context) (t : trm) : string =
 let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : Trace.context): trm list =
  let context = if context = "" then ctx.includes else context in
  let command_line_args =
-  List.map Clang.Command_line.include_directory 
+  List.map Clang.Command_line.include_directory
     (ctx.directory :: Clang.default_include_directories())
   in
  let ast =
@@ -256,47 +267,47 @@ let get_typid (t : trm) : int =
 
 
 let rec toplevel_decl (x : var) (t : trm) : trm option =
-  match t.desc with 
+  match t.desc with
   | Trm_typedef td when td.typdef_tconstr = x -> Some t
   | Trm_let (_, (y, _),_ ) when y = x -> Some t
   | Trm_let_fun (y, _, _, _) when y = x -> Some t
   | Trm_seq tl ->
     List.fold_left(
       fun acc t1 ->
-      match acc with 
+      match acc with
       | Some _ -> acc
-      | _ -> 
+      | _ ->
         let t2 = toplevel_decl x t1 in
-        begin match t2 with 
+        begin match t2 with
         | Some _->  t2
         | _ -> None
         end
-    ) None tl 
+    ) None tl
   | _ -> None
 
-let rec get_loop_nest_indices (t : trm) : 'a list = 
-  match t.desc with 
+let rec get_loop_nest_indices (t : trm) : 'a list =
+  match t.desc with
   | Trm_for (index, _, _, _, _, body) ->
-    begin match body.desc with 
+    begin match body.desc with
     | Trm_seq [f_loop] ->
       index :: get_loop_nest_indices f_loop
-      
-    | _ -> 
+
+    | _ ->
       (* Ast_to_text.print_ast ~only_desc:true stdout body; *)
       index :: []
-    
+
     end
   | Trm_for_c (_, _, _, body) ->
-    let index = for_loop_index t in 
-    begin match body.desc with 
+    let index = for_loop_index t in
+    begin match body.desc with
     | Trm_seq [f_loop] ->
       index :: get_loop_nest_indices f_loop
     | _ -> index :: []
     end
   | _ -> []
 
-let extract_loop (t : trm) : ((trm -> trm) * trm) option = 
-  match t.desc with 
+let extract_loop (t : trm) : ((trm -> trm) * trm) option =
+  match t.desc with
   | Trm_for_c (init, cond, step, body) ->
     Some ((fun b -> trm_for_c init cond step b), body)
   | Trm_for (index, direction, start, stop, step, body) ->
@@ -304,9 +315,9 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   | _ -> fail t.loc "extract_loop: expected a loop"
 
 let get_field_index (field : field) (fields : (var * typ) list) : int =
-  let rec aux field fields c = match fields with 
+  let rec aux field fields c = match fields with
     | [] -> failwith "get_field_index: empty list"
-    | (f, _) :: tl -> 
+    | (f, _) :: tl ->
       if (f = field) then c else aux field tl (c+1)
     in
   aux field fields 0
@@ -325,7 +336,7 @@ let remove_pairs (ys : var list) (xs : (var * typ) list) = List.fold_left (fun a
 
 let move_fields_after (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ ) list=
   let fins = List.flatten (get_pairs local_l l )in
-  let l = remove_pairs local_l l in 
+  let l = remove_pairs local_l l in
   let rec aux = function
     | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
     | (hd, ty) :: tl ->

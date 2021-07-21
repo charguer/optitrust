@@ -23,9 +23,9 @@ TESTS_TOCHECK := \
 	array_tile.ml \
   loop_color.ml \
   loop_tile.ml \
+  loop_unroll.ml \
 
 TESTS_OTHERS := \
-	loop_unroll.ml \
 	loop_invariant.ml \
 	loop_unswitch.ml \
 	loop_fission.ml \

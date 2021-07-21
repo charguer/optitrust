@@ -158,7 +158,11 @@ let unroll : Target.Transfo.t =
 *)
 let invariant : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.invariant i t p)
+    (fun (p, i) t ->
+       (* TODO: generate here the id for no_brace and pass it to invariant_aux *)
+       Loop_core.invariant (* TODO: pass the id for no_brace *) i t p
+       (* TODO: call cleanup_no_brace with the id *)
+    )
 
 (* [unswitch tg] expects the target [tg] to point to an if statement inside the loop
      with a constant condition (not dependent on loop index or local variables)

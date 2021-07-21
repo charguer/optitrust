@@ -201,7 +201,7 @@ and value =
    *)
 and trm_annot =
   (* used to print back a c++ program *)
-  | No_braces
+  | No_braces (* TODO: of no_brace_id    where no_brace_id = int   let new_no_brace_id () = .. *)
   (* annotate applications of star operator that should not be printed *)
   | Access
   (* used to print back seqs that contain multiple declarations *)
@@ -624,7 +624,7 @@ let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
   | _ -> (t, [])
 
 (* From a list of accesses build the original trm *)
-let build_nested_accesses (base : trm) (access_list : trm_access list) : trm = 
+let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
   List.fold_left (fun acc access ->
     match access with
     | Struct_access_addr f ->
@@ -635,7 +635,7 @@ let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
       trm_apps (trm_binop (Binop_array_cell_addr)) [acc;i]
     | Array_access_get i ->
       trm_apps (trm_binop (Binop_array_cell_get)) [acc;i]
-  ) base access_list 
+  ) base access_list
 
 let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
   let annot = t.annot in
@@ -643,25 +643,25 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
   let add = t.add in
   let is_statement = t.is_statement in
   let typ = t.typ in
-  match t.desc with 
-  | Trm_array tl -> 
+  match t.desc with
+  | Trm_array tl ->
     trm_array ~annot ~loc ~add ~typ (List.map (f false) tl)
   | Trm_struct tl ->
     trm_struct ~annot ~loc ~add ~typ (List.map (f false) tl)
   | Trm_let (vk, tv, init) ->
     trm_let ~annot ~loc ~is_statement ~add vk tv (f false init)
   | Trm_let_fun (f', res, args, body) ->
-    trm_let_fun ~annot ~loc ~is_statement ~add f' res args (f false body) 
+    trm_let_fun ~annot ~loc ~is_statement ~add f' res args (f false body)
   | Trm_if (cond, then_, else_) ->
     let cond' = f false cond in
     let then_' = f is_terminal then_ in
     let else_' = f is_terminal else_ in
-    trm_if ~annot ~loc ~add cond' then_' else_' 
+    trm_if ~annot ~loc ~add cond' then_' else_'
   | Trm_seq tl ->
     let n = List.length tl in
     let tl' = List.mapi(fun i tsub ->
       let sub_is_terminal = is_terminal && i == n-1 in
-      f sub_is_terminal tsub  
+      f sub_is_terminal tsub
     ) tl in
     trm_seq tl'
   | Trm_apps (f', args) ->
@@ -716,7 +716,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   | Typ_fun (tyl, ty) ->
      typ_fun ~annot ~typ_attributes (List.map f tyl) (f ty)
   (* var, unit, int, float, double, bool, char *)
-  | _ -> ty 
+  | _ -> ty
 
 (* return the list of var declarations in the list of instructions *)
 let rec var_declarations (tl : trm list) : trm list =
@@ -762,11 +762,11 @@ let contains_variable (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
     | Trm_var y when y = x -> true
-    | Trm_let (_, (_, _), init) -> aux init 
+    | Trm_let (_, (_, _), init) -> aux init
     | Trm_apps (_, args) -> List.exists aux args
-    | Trm_seq tl -> List.fold_left (fun acc t -> acc || (aux t)) false tl 
+    | Trm_seq tl -> List.fold_left (fun acc t -> acc || (aux t)) false tl
     | Trm_let_fun (_, _, _, body) -> aux body
-    | Trm_for (_, _, _, _, _, body) -> aux body 
+    | Trm_for (_, _, _, _, _, body) -> aux body
     | _ -> false
   in aux t
 
@@ -1006,15 +1006,15 @@ let for_loop_nb_iter (t : trm) : trm =
        ]
 
 
-let for_loop_body_trms (t : trm) : trm list = 
-  match t.desc with 
+let for_loop_body_trms (t : trm) : trm list =
+  match t.desc with
   | Trm_for (_, _, _, _, _, body) ->
-    begin match body.desc with 
+    begin match body.desc with
     | Trm_seq tl -> tl
     | _ -> fail body.loc "for_loop_body_trms: body of a simple loop should be a sequence"
-    end 
+    end
   | Trm_for_c (_, _, _,  body) ->
-    begin match body.desc with 
+    begin match body.desc with
     | Trm_seq tl -> tl
     | _ -> fail body.loc "for_loop_body_trms: body of a generic loop should be a sequence"
     end
@@ -1218,21 +1218,21 @@ let get_inner_ptr_type (ty : typ) : typ =
   | _ -> ty
 
 
-let is_typ_const (t : typ) : bool = 
-  begin match t.typ_desc with 
+let is_typ_const (t : typ) : bool =
+  begin match t.typ_desc with
   | Typ_ptr {inner_typ = tx;_} ->
     begin match tx.typ_desc with
     | Typ_const _ -> true
     | _ -> false
     end
   | Typ_array (tx, _) ->
-    begin match tx.typ_desc with 
+    begin match tx.typ_desc with
     | Typ_const _ -> true
     | _ -> false
     end
   | Typ_const _ -> true
   | _ -> false
-  end 
+  end
 
 (* type instantiation = trm varmap *)
 
