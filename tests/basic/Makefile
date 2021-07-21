@@ -16,6 +16,7 @@ TESTS_WORKING := \
 	loop_hoist.ml \
   loop_fusion.ml \
   loop_interchange.ml \
+  loop_grid_enumerate.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
@@ -24,7 +25,6 @@ TESTS_TOCHECK := \
   loop_tile.ml \
 
 TESTS_OTHERS := \
-	loop_grid_enumerate.ml \
 	loop_unroll.ml \
 	loop_invariant.ml \
 	loop_unswitch.ml \
