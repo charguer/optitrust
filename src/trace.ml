@@ -11,6 +11,14 @@ let close_logs () : unit =
   List.iter (fun log -> close_out log) !logs;
   logs := []
 
+(* [init_logs] initializes the log files. It closes any existing logs.
+   Returns the one log created. *)
+let init_logs directory prefix =
+  close_logs();
+  let clog = open_out (directory ^ prefix ^ ".log") in
+  logs := clog :: [];
+  clog
+
 (* [write_log clog msg] writes the string [msg] to the channel [clog]. *)
 let write_log (clog : out_channel) (msg : string) : unit =
   output_string clog msg;
@@ -134,8 +142,7 @@ let init (filename : string) : unit =
   let extension = Filename.extension basename in
   let directory = (Filename.dirname filename) ^ "/" in
   let prefix = Filename.remove_extension basename in
-  let clog = open_out (directory ^ prefix ^ ".log") in
-  logs := clog :: !logs;
+  let clog = init_logs directory prefix in
   let (includes, cur_ast) = parse filename in
   (* TODO:
     if parse was not totally successful, [exit 1].
@@ -146,6 +153,34 @@ let init (filename : string) : unit =
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
   print_info None "Starting script execution...\n"
+
+(* [alternative f] executes the script [f] in the original state that
+   was available just after the call to [init].
+   After the call, all the actions performed are discarded.
+
+  Current usage:
+     !! Trace.alternative (fun () ->
+        !! Loop.fusion_on_block [cLabel "tofusion"];
+        !!());
+
+   TODO: figure out if it is possible to avoid "!!" in front and tail of [Trace.restart].
+   TODO: figure out if this implementation could be extended in the presence of [switch]. *)
+let alternative f : unit =
+  let saved_traces = !traces in
+  let trace = match !traces with
+    | [] -> fail None "Trace.restart: the trace is empty"
+    | [trace] -> trace
+    | _ -> fail None "Trace.restart: incompatible with the use of switch"
+    in
+  let init_ast =
+    match List.rev trace.history with
+    | [] -> fail None "Trace.restart: the history is empty"
+    | t::_ -> t
+    in
+  let init_trace = { trace with cur_ast = init_ast; history = [init_ast] } in
+  traces := [init_trace];
+  f();
+  traces := saved_traces
 
 (* [switch cases] allows to introduce a branching point in a script.
    The [cases] argument gives a list of possible continuations (branches).
@@ -502,5 +537,5 @@ let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> uni
   end
 
 (* Get the current ast *)
-let get_ast () : trm = 
-  (List.hd (List.rev !traces)).cur_ast 
+let get_ast () : trm =
+  (List.hd (List.rev !traces)).cur_ast
