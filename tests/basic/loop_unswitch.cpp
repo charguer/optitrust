@@ -1,19 +1,17 @@
 int main(){
-  int i, w;
-  int  x[1000];
-  int  y[1000];
-  for (i = 0; i < 1000; i++) {
-    x[i] += y[i];
+  int x = 0;
+  for (int i = 0; i < 10; i++) {
+    x += 1;
     if (true)
-      y[i] = 0;
+      x += 2;
     else {
       if (false) {
-        y[i] = 1;
+        x += 3;
       } else {
-        y[i] = 2;
+        x += 4;
       }
     }
-    x[i]++;
+    x += 5;
   }
   return 0;
 }
