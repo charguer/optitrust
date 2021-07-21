@@ -230,6 +230,7 @@ let fusion_on_block : Target.Transfo.local =
       of the grid
     params:
       [index_and_bounds]: a list of pairs representing the index and the bound of the loop over each dimesnion 
+      [t]: ast of the loop
     return:
       updated ast with the transformed loop
 *)
@@ -264,7 +265,8 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 
 (* [unroll_aux index t]: extract the body of the loop as a list of list of instructions 
     params:
-      index: index of the loop inside the sequence containing the loop 
+      [index]: index of the loop inside the sequence containing the loop 
+      [t]: ast of the loop
     return:
       updated ast with the unrolled loop
 *)
@@ -279,7 +281,7 @@ let unroll_aux (index : int) (t : trm) : trm =
       | _ -> fail t.loc "unroll_aux: the targeted loop was not matched correctly"
       in
     begin match loop_to_unroll.desc with 
-    | Trm_for (index, _direction, _start, stop, _step, body) ->
+    | Trm_for (index, _direction, _start, stop, _step, _body) ->
       let unroll_bound = begin match stop.desc with 
                          | Trm_apps(_,[_; bnd]) -> 
                             begin match bnd.desc with 
@@ -289,15 +291,24 @@ let unroll_aux (index : int) (t : trm) : trm =
                          | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
                          end in
       let unrolled_loop_range = Tools.range 0 (unroll_bound - 1) in
-      let unrolled_body = begin match body.desc with 
+      let loop_body = for_loop_body_trms loop_to_unroll in
+      let unrolled_body = List.fold_left(
+          fun acc t1 -> 
+            List.fold_left( fun acc1 i1 -> 
+                               let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
+                               (Internal.change_trm (trm_var index) new_index t1) :: acc1
+                            ) [] (List.rev unrolled_loop_range) :: acc
+
+          ) [] (List.rev loop_body) in
+      (* let unrolled_body1 = begin match body.desc with 
                           | Trm_seq tl1 ->
                             List.fold_left( fun acc i1 -> 
                                let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
                                trm_seq ~annot:(Some No_braces) (List.map (Internal.change_trm (trm_var index) new_index) tl1) :: acc
                             ) [] (List.rev unrolled_loop_range)
                           | _ -> fail body.loc "unroll_aux: body of the loop should be a sequence"
-                          end in
-      trm_seq ~annot:t.annot (lfront @ unrolled_body @ lback)
+                          end in *)
+      trm_seq ~annot:t.annot (lfront @ (List.flatten unrolled_body) @ lback)
     | _ -> fail loop_to_unroll.loc "unroll_aux: only simple loops supported"
     end
   | _ -> fail t.loc "unroll_aux: expected the surrounding sequence"
@@ -305,29 +316,77 @@ let unroll_aux (index : int) (t : trm) : trm =
 
 let unroll (index : int) : Target.Transfo.local =
   Target.apply_on_path (unroll_aux index)
-
+(* [invariant_aux trm_index t]: take a constant term inside the body of the loop  
+      in outside the loop.
+    params:
+      [trm_index]: index of the constant trm inside the body of the loop
+      [t]: ast of the loop
+    return:
+      updated ast with the extracted constant trm outside the loop
+*)
 let invariant_aux (trm_index : int) (t : trm) : trm =
   match t.desc with 
-  | Trm_for (index, direction, start, stop, step, body) ->
-    Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
-    begin match body.desc with 
-    | Trm_seq tl -> 
-      let lfront, lback = Tools.split_list_at trm_index tl in
-      let trm_inv, lback = Tools.split_list_at 1 lback in
-      trm_seq ~annot: (Some No_braces) (trm_inv @ [
-        trm_for index direction start stop step (trm_seq (lfront @ lback))])
-    | _-> fail body.loc "invariant_aux: body of the loop should be a sequence"
-    end
-  | Trm_for_c (init, cond, step, body) ->
-    begin match body.desc with 
-    | Trm_seq tl -> 
-      let lfront, lback = Tools.split_list_at trm_index tl in
-      let trm_inv, lback = Tools.split_list_at trm_index lback in
-      trm_seq ~annot: (Some No_braces) (trm_inv @ [
-        trm_for_c init cond step (trm_seq (lfront @ lback))])
-    | _-> fail body.loc "invariant_aux: body of the loop should be a sequence"
-    end
+  | Trm_for (index, direction, start, stop, step, _) ->
+    let tl = for_loop_body_trms t in
+    let lfront, lback = Tools.split_list_at trm_index tl in
+    let trm_inv, lback = Tools.split_list_at 1 lback in
+    trm_seq ~annot: (Some No_braces) (trm_inv @ [
+      trm_for index direction start stop step (trm_seq (lfront @ lback))])
+  | Trm_for_c (init, cond, step, _) ->
+    let tl = for_loop_body_trms t in
+    let lfront, lback = Tools.split_list_at trm_index tl in
+    let trm_inv, lback = Tools.split_list_at trm_index lback in
+    trm_seq ~annot: (Some No_braces) (trm_inv @ [
+      trm_for_c init cond step (trm_seq (lfront @ lback))])
   | _ -> fail t.loc "invariant_aux: expected a loop"
 
 let invariant (trm_index : int) : Target.Transfo.local =
   Target.apply_on_path (invariant_aux trm_index)
+
+
+let unswitch_aux (trm_index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_for (index, direction, start, stop, step, _) ->
+    let tl = for_loop_body_trms t in
+    let lfront, lback = Tools.split_list_at trm_index tl in
+    let if_stmt, lback = Tools.split_list_at 1 lback in
+    let if_stmt = match if_stmt with 
+    | [t_if] -> t_if
+    | _ -> fail t.loc "unswitch_aux: expected a list with a single element" in
+    begin match if_stmt.desc with
+    | Trm_if (cond, then_, else_) ->
+      let new_then = begin match then_.desc with
+      | Trm_seq tl1 -> trm_for index direction start stop step (trm_seq (lfront @ tl1 @ lback))
+      | _ -> trm_for index direction start stop step (trm_seq (lfront @ [then_] @ lback))
+      end in
+      let new_else = begin match else_.desc with
+      | Trm_seq tl1 -> trm_for index direction start stop step (trm_seq (lfront @ tl1 @ lback))
+      | _ -> trm_for index direction start stop step (trm_seq (lfront @ [else_] @ lback))
+      end in
+      trm_if cond new_then new_else
+    | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
+    end
+  | Trm_for_c (init, cond, step, _) ->
+    let tl = for_loop_body_trms t in
+    let lfront, lback = Tools.split_list_at trm_index tl in
+    let if_stmt, lback = Tools.split_list_at 1 lback in
+     let if_stmt = match if_stmt with 
+    | [t_if] -> t_if
+    | _ -> fail t.loc "unswitch_aux: expected a list with a single element" in
+    begin match if_stmt.desc with
+    | Trm_if (cond_, then_, else_) ->
+      let new_then = begin match then_.desc with
+      | Trm_seq tl1 -> trm_for_c init cond step (trm_seq (lfront @ tl1 @ lback))
+      | _ -> trm_for_c init cond step (trm_seq (lfront @ [then_] @ lback))
+      end in
+      let new_else = begin match else_.desc with
+      | Trm_seq tl1 -> trm_for_c init cond step (trm_seq (lfront @ tl1 @ lback))
+      | _ -> trm_for_c init cond   step (trm_seq (lfront @ [else_] @ lback))
+      end in
+      trm_if cond_ new_then new_else
+    | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
+    end
+  | _ -> fail t.loc "invariant_aux:expected a loop"
+
+let unswitch (trm_index : int) : Target.Transfo.local =
+  Target.apply_on_path (unswitch_aux trm_index)

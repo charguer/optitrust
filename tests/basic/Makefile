@@ -23,6 +23,9 @@ TESTS_OTHERS := \
   loop_tile.ml \
 	loop_grid_enumerate.ml \
 	loop_unroll.ml \
+	loop_invariant.ml \
+	loop_unswitch.ml \
+	loop_split.ml \
 	sequence_delete.ml \
   sequence_inline.ml \
   sequence_sub.ml \
@@ -43,6 +46,7 @@ TESTS_OTHERS := \
 	from_one_to_many.ml \
 	reference_fold.ml \
 	reference_inline.ml \
+	
 
 # TODO: script for vscode opening
 

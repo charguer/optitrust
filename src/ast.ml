@@ -1006,7 +1006,7 @@ let for_loop_nb_iter (t : trm) : trm =
        ]
 
 
-let for_loop_body_trms (t : trm) = 
+let for_loop_body_trms (t : trm) : trm list = 
   match t.desc with 
   | Trm_for (_, _, _, _, _, body) ->
     begin match body.desc with 

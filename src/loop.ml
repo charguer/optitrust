@@ -152,10 +152,18 @@ let unroll : Target.Transfo.t =
     (fun (p, i) t -> Loop_core.unroll i t p)
 
 
-(* [invariant] expects the target to point to an instruction inside the loop
+(* [invariant] expects the target [tg] to point to an instruction inside the loop
     which is not dependent on the index of the loop or any local variable.
     Then it will take it outside the loop.
 *)
 let invariant : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.invariant i t p)
+
+(* [unswitch tg] expects the target [tg] to point to an if statement inside the loop
+     with a constant condition (not dependent on loop index or local variables)
+     Then it will take the if statment outside the loop.
+*)
+let unswitch : Target.Transfo.t =
+  Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
+    (fun (p, i) t -> Loop_core.unswitch i t p)
