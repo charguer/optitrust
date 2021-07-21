@@ -14,15 +14,16 @@ TESTS_WORKING := \
   label_remove.ml \
 	array_to_variables.ml \
 	loop_hoist.ml \
+  loop_fusion.ml \
+  loop_interchange.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
 	array_tile.ml \
   loop_color.ml \
-  loop_fusion.ml \
+
 
 TESTS_OTHERS := \
-  loop_interchange.ml \
   loop_tile.ml \
 	loop_grid_enumerate.ml \
 	loop_unroll.ml \

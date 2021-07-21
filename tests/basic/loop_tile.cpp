@@ -6,7 +6,7 @@ int min(int x, int y) {
 
 int main() {
 
-  for (int x = 0; x < 10; x += 3) {
+  for (int x = 0; x < 10; x++) {
     t[x] = 0;
   }
   for (int y = 0; y < 10; y += 3) {
