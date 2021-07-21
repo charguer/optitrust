@@ -9,4 +9,5 @@ let _ = Run.script_cpp (fun _ ->
      the cleanup can be called on the entire ast,
      or on the immediate prefix of the explicit path that goes to the for-loop *)
   !! Loop.invariant [cVarDef "x"];
+  (* FIXED *)
 )

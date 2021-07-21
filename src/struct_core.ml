@@ -44,7 +44,7 @@ let set_explicit_aux (t: trm) : trm =
         trm_set (trm_apps ~annot:(Some Mutable_var_get) ~typ:(Some ty) new_f [lt]) (trm_apps ~annot: (Some Access) ~typ:(Some ty) f1 [trm_apps ~annot:(Some Mutable_var_get) new_f [rbase]])
         ) field_list in 
         
-        trm_seq ~annot:(Some (No_braces (Nobrace.current()))) exp_assgn
+        trm_seq_no_brace exp_assgn
       end
     (* If the right hand side is a struct initialization *)
     | Trm_struct st ->
@@ -88,7 +88,7 @@ let set_explicit_aux (t: trm) : trm =
         ) field_list in
          
           let var_decl = trm_let vk (x, tx) (trm_prim  (Prim_new (get_inner_ptr_type tx))) in
-          trm_seq ~annot:(Some (No_braces (Nobrace.current()))) ([var_decl] @ exp_assgn)
+          trm_seq_no_brace ([var_decl] @ exp_assgn)
               
       | _ -> fail t.loc "set_explicit_aux:"
       end
@@ -304,7 +304,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let new_trm = trm_typedef new_typedef in
        let lback = List.map (inline_struct_accesses field_to_inline) lback in
        let lback = List.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
-       trm_seq ~annot:(Some (No_braces (Nobrace.current()))) (lfront @ [new_trm] @ lback)       
+       trm_seq_no_brace (lfront @ [new_trm] @ lback)       
       | _ -> fail t.loc "inline_aux: expected a struct "
       end
     | _ -> fail t.loc "inline_aux: expected a trm_typedef"

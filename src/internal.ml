@@ -105,41 +105,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
 
     change_at
 
-(* TODO:
-    let clean_up_no_brace_seq_pred (filter : no_brace_id -> bool) (t:trm) : trm =
-        .... if (No_braces id) and (filter id) then remove else keep
 
-    let clean_up_no_brace_seq id t =
-       clean_up_no_brace_seq_pred (fun id2 -> id2 = id) t
-
-    let clean_up_no_brace_seq_all t =
-      clean_up_no_brace_seq_pred (fun _id2 -> true) t
-*)
-
-(* let clean_up_no_brace_seq (t : trm) : trm =
-  let rec clean_up_in_list (tl : trm list) : trm list =
-    match tl with
-    | [] -> []
-    | t :: tl ->
-       begin match t.desc with
-       | Trm_seq tl' when t.annot = Some No_braces ->
-          tl' ++ (clean_up_in_list tl)
-       | _ -> t :: (clean_up_in_list tl)
-       end
-  in
-  let rec aux (t : trm) : trm =
-    match t.desc with
-    (*
-      condition on annotation: toplevel insdeclarations might contain a heap
-      allocated variable and hence we can find a no_brace seq inside a
-      delete_instructions seq, which we do not want to inline
-     *)
-    | Trm_seq tl (* when t.annot <> Some Delete_instructions *) ->
-       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
-         (clean_up_in_list (List.map aux tl))
-    | _ -> trm_map aux t
-  in
-  aux t *)
 
 
 (* [isolate_last_dir_in_seq dl]:
@@ -378,13 +344,48 @@ let get_trm_and_its_relatives (index : int) (trms : trm list) : (trm list * trm 
     in
   (lfront, element, lback)
 
-let trm_seq_no_brace () =
-    trm_seq ~annot:(Some (No_braces (Nobrace.current())))
+
+
+
+(* TODO:
+    let clean_up_no_brace_seq_pred (filter : no_brace_id -> bool) (t:trm) : trm =
+        .... if (No_braces id) and (filter id) then remove else keep
+
+    let clean_up_no_brace_seq id t =
+       clean_up_no_brace_seq_pred (fun id2 -> id2 = id) t
+
+    let clean_up_no_brace_seq_all t =
+      clean_up_no_brace_seq_pred (fun _id2 -> true) t
+*)
+(* let clean_up_no_brace_seq_pred (filter : int -> bool) (t : trm) : trm = *)
+
+let clean_no_brace_seq (id : int) (t : trm) : trm =
+  let rec clean_up_in_list (tl : trm list) : trm list =
+    match tl with 
+    | [] -> []
+    | t :: tl ->
+      begin match t.desc with
+      | Trm_seq tl' ->
+        begin match t.annot with 
+        | Some (No_braces i) when i = id ->
+          tl' @ (clean_up_in_list tl)
+        | _ -> t :: (clean_up_in_list tl)
+        end
+      | _ -> t :: (clean_up_in_list tl)
+      end in
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_seq tl ->
+      trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
+         (clean_up_in_list (List.map aux tl))
+    | _ -> trm_map aux t
+  in aux t
 
 let nobrace_enter () =
   Nobrace.enter()
 
-(* let nobrace_remove_and_exit () =
+
+let nobrace_remove_and_exit () =
     let id = Nobrace.exit () in
-    Trace.apply (fun _ctx ast -> cleannobrace id ast) *)
+    Trace.apply (fun _ctx ast -> clean_no_brace_seq id ast)
 

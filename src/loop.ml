@@ -157,13 +157,13 @@ let unroll : Target.Transfo.t =
     which is not dependent on the index of the loop or any local variable.
     Then it will take it outside the loop.
 *)
-let invariant : Target.Transfo.t =
-  (* TODO: nobrace_enter() *)
+let invariant (tg : Target.target) : unit =
+  Nobrace.enter();
   Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t ->
        Loop_core.invariant i t p
-    )
-  (* TODO: nobrace_remove_and_exit() *)
+    ) tg;
+  Internal.nobrace_remove_and_exit ()
 
 (* [unswitch tg] expects the target [tg] to point to an if statement inside the loop
      with a constant condition (not dependent on loop index or local variables)

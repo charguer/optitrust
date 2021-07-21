@@ -1177,6 +1177,7 @@ let translate_ast (t : translation_unit) : trm =
        let t =
          trm_seq ~loc ~annot:(Some Main_file) (translate_decl_list file_decls)
        in
-       trm_seq ~annot:(Some (No_braces (Nobrace.current())))
+       Nobrace.init();
+       trm_seq_no_brace
          ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) ++ [t])
     )

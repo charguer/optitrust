@@ -1246,31 +1246,38 @@ let get_sequence_trms (t : trm) : trm list =
   | _ -> fail t.loc "get_sequence_trms: expected a sequence"
 
 
-(* TODO: *)
 
 module Nobrace = struct
 
   let ids = ref []
 
   let current_id = ref 0
+  
+  let init () = 
+    ids := !current_id :: !ids
 
   let enter () =
+    Tools.printf "entered here\n";
     current_id := !current_id + 1;
     ids := !current_id :: !ids
 
   let current () =
+    Tools.printf "%s\n" (Tools.list_to_string (List.map (fun x -> string_of_int x) !ids));
     match !ids with
-    | [] ->  failwith "empty list"
+    | [] ->  failwith "current:empty list"
     | id :: _rest -> id
 
   let exit () =
     match !ids with
-    | [] -> failwith "empty list"
+    | [] -> failwith "exit: empty list"
     | id :: rest ->
         ids := rest;
         id
 
 end
+
+let trm_seq_no_brace (tl : trm list) : trm=
+    trm_seq ~annot:(Some (No_braces (Nobrace.current()))) tl
 
 
 
