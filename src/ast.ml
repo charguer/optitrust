@@ -1274,6 +1274,13 @@ let is_typ_const (t : typ) : bool =
   | _ -> false
   end
 
+type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
+
+let get_sequence_trms (t : trm) : trm list =
+  match t.desc with 
+  | Trm_seq tl -> tl
+  | _ -> fail t.loc "get_sequence_trms: expected a sequence"
+
 (* type instantiation = trm varmap *)
 
 (* Check if rule is applicable *)
@@ -1286,4 +1293,3 @@ let is_typ_const (t : typ) : bool =
 (* tile bound type is used  as a parameter to the tile transformation so that the transformation can
     decide what kind of loop bound it should use
 *)
-type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides

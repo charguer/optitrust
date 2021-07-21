@@ -287,15 +287,9 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 let unroll_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let loop_to_unroll, lback = Tools.split_list_at 1 lback in
-    let loop_to_unroll =
-      match loop_to_unroll with
-      | [lt] -> lt
-      | _ -> fail t.loc "unroll_aux: the targeted loop was not matched correctly"
-      in
+    let lfront, loop_to_unroll, lback = Internal.get_trm_and_its_relatives index tl in
     begin match loop_to_unroll.desc with
-    | Trm_for (index, _direction, _start, stop, _step, _body) ->
+    | Trm_for (index, _direction, _start, stop, _step, body) ->
       let unroll_bound = begin match stop.desc with
                          | Trm_apps(_,[_; bnd]) ->
                             begin match bnd.desc with
@@ -305,24 +299,11 @@ let unroll_aux (index : int) (t : trm) : trm =
                          | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
                          end in
       let unrolled_loop_range = Tools.range 0 (unroll_bound - 1) in
-      let loop_body = for_loop_body_trms loop_to_unroll in
-      let unrolled_body = List.fold_left(
-          fun acc t1 ->
-            List.fold_left( fun acc1 i1 ->
-                               let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
-                               (Internal.change_trm (trm_var index) new_index t1) :: acc1
-                            ) [] (List.rev unrolled_loop_range) :: acc
-
-          ) [] (List.rev loop_body) in
-      (* let unrolled_body1 = begin match body.desc with
-                          | Trm_seq tl1 ->
-                            List.fold_left( fun acc i1 ->
-                               let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
-                               trm_seq ~annot:(Some No_braces) (List.map (Internal.change_trm (trm_var index) new_index) tl1) :: acc
-                            ) [] (List.rev unrolled_loop_range)
-                          | _ -> fail body.loc "unroll_aux: body of the loop should be a sequence"
-                          end in *)
-      trm_seq ~annot:t.annot (lfront @ (List.flatten unrolled_body) @ lback)
+      let unrolled_body = List.fold_left ( fun acc i1 ->
+        let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
+        Internal.change_trm (trm_var index) new_index body :: acc 
+         ) [] (List.rev unrolled_loop_range) in
+      trm_seq ~annot:t.annot (lfront @ unrolled_body @ lback)
     | _ -> fail loop_to_unroll.loc "unroll_aux: only simple loops supported"
     end
   | _ -> fail t.loc "unroll_aux: expected the surrounding sequence"
