@@ -71,13 +71,28 @@ let color (c : var) (i_color : var) : Target.Transfo.local =
       return:
         updated ast with the tiled loop
 *)
-let tile_aux (divides : bool) (tile_size : var) (tile_index : var) (t : trm) : trm =
+let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
      let tile_index = match tile_index with
       | "" -> "b" ^ index
       | _ -> tile_index in
-     let spec_stop = if not divides then trm_apps (trm_var "min")
+     let tile_stop = begin match bound with 
+      | TileBoundMin ->
+        trm_apps (trm_var "min")
+                      [ stop;
+                        trm_apps (trm_binop Binop_add)[
+                          trm_var tile_index;
+                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_size]]]
+      | TileBoundAnd ->
+        fail t.loc "tile_aux: only simple loops are supported"
+
+      | TileBoundDivides -> 
+        trm_apps (trm_binop Binop_add)[
+                          trm_var tile_index;
+                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_index]]
+     end in
+     (* let spec_stop = if not divides then trm_apps (trm_var "min")
                       [ stop;
                         trm_apps (trm_binop Binop_add)[
                           trm_var tile_index;
@@ -85,15 +100,15 @@ let tile_aux (divides : bool) (tile_size : var) (tile_index : var) (t : trm) : t
                       else
                         trm_apps (trm_binop Binop_add)[
                           trm_var tile_index;
-                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_index]] in
+                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_index]] in *)
      trm_for tile_index direction start stop (trm_var tile_size) (
        trm_seq [
-         trm_for index direction (trm_var tile_index) spec_stop step body])
+         trm_for index direction (trm_var tile_index) tile_stop step body])
   | _ -> fail t.loc "tile_aux: only simple loops are supported"
 
 
-let tile (divides : bool) (tile_size : var)(tile_index : var) : Target.Transfo.local =
-   Target.apply_on_path (tile_aux divides tile_size tile_index)
+let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Transfo.local =
+   Target.apply_on_path (tile_aux tile_index bound tile_size )
 
 
 

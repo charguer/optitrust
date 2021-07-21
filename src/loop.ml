@@ -16,29 +16,30 @@ let interchange : Target.Transfo.t =
 (* [color nb_colors i_color tg]: expects [tg] to point to a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
    [nb_colors] - denotes the number of colors (e.g., ["2"]),
-   [color_index] - denotes a fresh name to use as index for iterating over colors.
+   [index] - denotes a fresh name to use as index for iterating over colors.
    In case [step = 1]:
-   [for (int color_index = 0; color_index < nb_color; color_index++) {
-      for (int i = color_index; i < stop; i += nb_color) { body }].
+   [for (int index = 0; index < nb_color; index++) {
+      for (int i = index; i < stop; i += nb_color) { body }].
    In the general case, it produces:
-   [for (int color_index = 0; color_index < nb_color; color_index++) {
-      for (int i = color_index*step; i < stop; i += step*nb_color) { body }].
+   [for (int index = 0; index < nb_color; index++) {
+      for (int i = index*step; i < stop; i += step*nb_color) { body }].
 *)
-let color (nb_colors : string_trm) ?(color_index : var = "") : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.color nb_colors color_index)
+let color (nb_colors : string_trm) ?(index : var = "") : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.color nb_colors index)
 
 
-(* [tile tile_size tile_index tg]: expects [tg] to point to a simple loop,
+(* [tile tile_size index tg]: expects [tg] to point to a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
    divides - denotes a flag to know if tile_size divides the size of the array or not
    [tile_size] - denotes the width of the tile (e.g., ["2"])
-   [tile_index] - denotes a fresh name to use as index for iterating over tiles.
+   [index] - denotes a fresh name to use as index for iterating over tiles.
+   [bound] - denotes the bound type for the produced loop
    It produces:
-   [for (int tile_index = 0; tile_index < stop; tile_index += tile_size) {
-      for (int i = tile_index; i < min(X, bx+B); i++) { body }].
+   [for (int index = 0; index < stop; index += tile_size) {
+      for (int i = index; i < min(X, bx+B); i++) { body }].
 *)
-let tile ?(divides : bool = true) (tile_size : string_trm) ?(tile_index : var = "") : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.tile divides tile_size tile_index)
+let tile ?(index : var = "") ?(bound : tile_bound = TileBoundAnd) (tile_size : string_trm) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.tile index bound tile_size)
 
 (* [hoist_without_detach x_step tg]: expects [tg] to point to simple loop.
     [x_step] - denotes the variable going to be hoisted outside the loop

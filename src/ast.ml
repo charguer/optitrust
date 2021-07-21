@@ -1283,3 +1283,7 @@ let is_typ_const (t : typ) : bool =
 (* Rewrite rule transformation  *)
 (* let rewrite (pl : target) (rule : base)  *)
 
+(* tile bound type is used  as a parameter to the tile transformation so that the transformation can
+    decide what kind of loop bound it should use
+*)
+type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
