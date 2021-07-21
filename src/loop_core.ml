@@ -6,30 +6,29 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [swap_aux t]: swap the order of two nested loops, the targeted loop
+(* [interchange_aux t]: swap the order of two nested loops, the targeted loop
       the immediate inner loop
     params:
       t: ast of the targeted loop
     return: 
       updated ast with swapped loops
  *)
-let swap_aux (t : trm) : trm = 
+let interchange_aux (t : trm) : trm = 
   match Internal.extract_loop t with 
   | Some (loop1, body1) ->
     begin match body1.desc with 
     | Trm_seq[loop2] ->
        begin match Internal.extract_loop loop2 with 
       | Some (loop2, body2) -> loop2 (trm_seq [(loop1 body2)])
-      | None -> fail body1.loc "swap_aux: should target a loop with nested loop inside"
+      | None -> fail body1.loc "interchange_aux: should target a loop with nested loop inside"
       end
-    | _ -> fail body1.loc "swap_aux: body of the loop should be a sequence"
+    | _ -> fail body1.loc "interchange_aux: body of the loop should be a sequence"
     end
-    
-  | None -> fail t.loc "swap_aux: should target a loop"
+  | None -> fail t.loc "interchange_aux: should target a loop"
 
 
-let swap : Target.Transfo.local =
-  Target.apply_on_path (swap_aux)
+let interchange : Target.Transfo.local =
+  Target.apply_on_path (interchange_aux)
 
 
 (*  [color_aux nb_colors i_color t]: transform a loop into two nested loops respecting based
@@ -172,14 +171,14 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
 let extract_variable (index : int) : Target.Transfo.local =
   Target.apply_on_path(extract_variable_aux index)
 
-(* [split_aux]: split a loop into two loops
+(* [fission_aux]: split a loop into two loops
     params:
       index: index of the splitting point inside the body of the loop
       t: ast of the loop
     return
-      the updated with the splitted loop
+      updated ast with the splitted loop
  *)
- let split_aux (index : int) (t : trm) : trm =
+ let fission_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (loop_index, direction, start, stop, step, body) ->
     begin match body.desc with
@@ -191,12 +190,12 @@ let extract_variable (index : int) : Target.Transfo.local =
         trm_for loop_index direction start stop step first_body;
         trm_for loop_index direction start stop step second_body;
       ]
-    | _ -> fail t.loc "split_aux: expected the sequence inside the loop body"
+    | _ -> fail t.loc "fission_aux: expected the sequence inside the loop body"
     end
-  | _ -> fail t.loc "split_aux: onl simple loops are supported"
+  | _ -> fail t.loc "fission_aux: onl simple loops are supported"
 
- let split (index : int) : Target.Transfo.local=
-  Target.apply_on_path (split_aux index)
+ let fission (index : int) : Target.Transfo.local=
+  Target.apply_on_path (fission_aux index)
 
 
 (* [fusion_on_block_aux t]: merge two loops with the same components except the body

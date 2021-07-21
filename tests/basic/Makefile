@@ -25,7 +25,7 @@ TESTS_OTHERS := \
 	loop_unroll.ml \
 	loop_invariant.ml \
 	loop_unswitch.ml \
-	loop_split.ml \
+	loop_fission.ml \
 	sequence_delete.ml \
   sequence_inline.ml \
   sequence_sub.ml \

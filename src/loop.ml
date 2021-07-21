@@ -8,10 +8,10 @@ open Ast
  * say [for (int i = start; i < stop; i += step) { body } ]. 
  *)
 
-(* [swap tg] expects the target [tg] to point at a loop that contains an
+(* [interchange tg] expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
-let swap : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.swap)
+let interchange : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.interchange)
 
 (* [color nb_colors i_color tg]: expects [tg] to point to a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
@@ -58,12 +58,12 @@ let hoist_withou_detach (x_step : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.hoist_without_detach x_step i t p)
 
-(* [split tg]: expects [tg] to point somewhere insie the body ot the simple loop
+(* [fission tg]: expects [tg] to point somewhere insie the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 *)
-let split : Target.Transfo.t =
+let fission : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-    (fun (p,i) t -> Loop_core.split i t p )
+    (fun (p,i) t -> Loop_core.fission i t p )
 
 (* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops 
     with the same range, start step and bound but different body.
@@ -134,12 +134,12 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     let counter = ref (List.length indices_list) in
     while (!counter <> 0) do
       counter := !counter - 1;
-      swap [Target.cFor loop_to_move];
+      interchange [Target.cFor loop_to_move];
       Tools.printf "%s\n" "Swap done";
     done
   | "before" ->
     let indices_list = Tools.chop_list_after loop_to_move indices_list in
-    List.iter (fun x -> swap [Target.cFor x]) (List.rev indices_list)
+    List.iter (fun x -> interchange [Target.cFor x]) (List.rev indices_list)
   | _ -> fail t.loc "move: something went wrong"
 
 
