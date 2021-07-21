@@ -339,16 +339,8 @@ let invariant_aux (trm_index : int) (t : trm) : trm =
       trm_for_c init cond step (trm_seq (lfront @ lback))])
   | _ -> fail t.loc "invariant_aux: expected a loop"
 
-let invariant (* TODO: nobraceid as arg *) (trm_index : int) : Target.Transfo.local =
+let invariant (trm_index : int) : Target.Transfo.local =
   Target.apply_on_path (invariant_aux trm_index)
-
-(* LATER: this is too much pain to localize the cleanup of the no-brace,
-          so we do it on the full ast; otherwise, the code pattern could be:
-  (fun p ->
-     let id_for_no_brace = .. in
-     Target.apply_on_path (invariant_aux id_for_no_brace trm_index) p;
-     let p2 = get_sequence_around p in
-     Target.apply_on_path (cleanup_no_brace id_for_no_brace) p2) *)
 
 (* [unswitch_aux trm_index t]: extract and if statement inside the loop which is not
         dependent on the index of the loop ofr any local variables outside the loop.

@@ -1,5 +1,45 @@
 open Tools
 
+(* TODO:
+
+module Nobrace = struct
+
+  let ids = ref []
+
+  let current_id = ref 0
+
+  let enter () =
+    incr current_id;
+    ids := !current_id :: !ids
+
+  let current () =
+    match !ids with
+    | [] -> error
+    | id :: _rest -> id
+
+  let exit () =
+    match !ids with
+    | [] -> error
+    | id :: rest ->
+        ids := rest;
+        id
+
+end
+
+  let trm_seq_no_brace () =
+    trm_seq ~annot:(Some (No_braces Nobrace.current()))
+
+  let nobrace_enter () =
+    Nobrace.enter()
+
+  let nobrace_remove_and_exit () =
+    let id = Nobrace.exit () in
+    Trace.apply (fun ctx ast -> cleannobrace id ast)
+
+*)
+
+
+
  type pos = {
     pos_line : int;
     pos_col : int; }
