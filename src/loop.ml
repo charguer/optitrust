@@ -1,11 +1,11 @@
 open Ast
 
-(* *********************************************************************************** 
+(* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
  * transformation. That's why there is not need to document them.                     *
  * All the follwing transformations expects target to point to a simple loop,         *
- * say [for (int i = start; i < stop; i += step) { body } ]. 
+ * say [for (int i = start; i < stop; i += step) { body } ].
  *)
 
 (* [interchange tg] expects the target [tg] to point at a loop that contains an
@@ -22,15 +22,15 @@ let interchange : Target.Transfo.t =
       for (int i = color_index; i < stop; i += nb_color) { body }].
    In the general case, it produces:
    [for (int color_index = 0; color_index < nb_color; color_index++) {
-      for (int i = color_index*step; i < stop; i += step*nb_color) { body }]. 
+      for (int i = color_index*step; i < stop; i += step*nb_color) { body }].
 *)
 let color (nb_colors : string_trm) ?(color_index : var = "") : Target.Transfo.t =
   Target.apply_on_target (Loop_core.color nb_colors color_index)
 
 
 (* [tile tile_size tile_index tg]: expects [tg] to point to a simple loop,
-   say [for (int i = start; i < stop; i += step) { body } ]. 
-   divides - denotes a flag to know if tile_size divides the size of the array or not 
+   say [for (int i = start; i < stop; i += step) { body } ].
+   divides - denotes a flag to know if tile_size divides the size of the array or not
    [tile_size] - denotes the width of the tile (e.g., ["2"])
    [tile_index] - denotes a fresh name to use as index for iterating over tiles.
    It produces:
@@ -43,7 +43,7 @@ let tile ?(divides : bool = true) (tile_size : string_trm) ?(tile_index : var = 
 (* [hoist_without_detach x_step tg]: expects [tg] to point to simple loop.
     [x_step] - denotes the variable going to be hoisted outside the loop
     Ex:
-      int *t;                                 int *t; 
+      int *t;                                 int *t;
       int *u;                                 int *u;
       int main() {                            int main(){
         for (int i = 0; (i < 10); i++) {        int x_steo[10];
@@ -54,7 +54,7 @@ let tile ?(divides : bool = true) (tile_size : string_trm) ?(tile_index : var = 
         return 0;                               return 0;
       }                                       }
 *)
-let hoist_withou_detach (x_step : var) : Target.Transfo.t =
+let hoist_without_detach (x_step : var) : Target.Transfo.t =
   Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.hoist_without_detach x_step i t p)
 
@@ -65,10 +65,10 @@ let fission : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
     (fun (p,i) t -> Loop_core.fission i t p )
 
-(* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops 
+(* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops
     with the same range, start step and bound but different body.
-    Then it's going to take the body of the second loop and append 
-    it to the body ot the first loop. 
+    Then it's going to take the body of the second loop and append
+    it to the body ot the first loop.
 *)
 let fusion_on_block : Target.Transfo.t =
   Target.apply_on_target (Loop_core.fusion_on_block)
@@ -83,7 +83,7 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   Sequence.sub nb ~label tg;
   fusion_on_block [Target.cLabel label]
 
-(* [extract_variable tg] expects tg to point to an uninitialized variable  
+(* [extract_variable tg] expects tg to point to an uninitialized variable
    declaration inside a for loop. The idea is similar to loop hoist
 *)
 let extract_variable : Target.Transfo.t =
@@ -96,10 +96,10 @@ let extract_variable : Target.Transfo.t =
       [index_and_bounds] - is a list of pairs, where each pair denotes the index and the bound
         of the loop iterating over a specific dimension.
     Ex: Assume A = X * Y * Z, and [index_and_bounds] = [("x","X");("y","y");("z","Z")] and the result is
-      
+
       for (int a = 0; a < A; a++){        for (int x = 0; x < X; x++){
         .......                       =>    for (int y = 0; y < Y; y++){
-      }                                       for (int z = 0; z < Z, z++){   
+      }                                       for (int z = 0; z < Z, z++){
                                                 int a = ((x * Y) + y)*Z + z
                                                 ...
                                               }
@@ -108,27 +108,27 @@ let extract_variable : Target.Transfo.t =
 *)
 let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.grid_enumerate index_and_bounds)
-  
 
-(* [move before after loop_to_move] move one loop before or after another loop in 
+
+(* [move before after loop_to_move] move one loop before or after another loop in
     a "sequence"(not in the context of Optitrust) of nested loops.
-    [before] - a default argument given as empty string, if the user wants to move 
-      [loop_to_move] before another loop then it should use this default argument with the 
+    [before] - a default argument given as empty string, if the user wants to move
+      [loop_to_move] before another loop then it should use this default argument with the
       value the the quoted loop intex
-    [after] - similar to [after] but now is the index of the loop after whom 
+    [after] - similar to [after] but now is the index of the loop after whom
       we want to move [loop_to_move]
 *)
-let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit = 
+let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit =
   let t = Trace.get_ast() in
-  let move_where, target_loop = match before, after with 
+  let move_where, target_loop = match before, after with
   | "", _ -> "after", [Target.cFor loop_to_move]
   | _, "" -> "before", [Target.cFor before]
   | _ -> fail None "move: make sure you specify where to move the loop, don't give both before and after directives" in
   let exp = Constr.resolve_target_exactly_one target_loop t in
   let (loop, _) = Path.resolve_path exp t in
   let indices_list = Internal.get_loop_nest_indices loop in
-  match move_where with 
-  | "after" -> 
+  match move_where with
+  | "after" ->
     let indices_list = Tools.chop_list_after after indices_list in
     Tools.printf "%s\n" (Tools.list_to_string indices_list);
     let counter = ref (List.length indices_list) in
@@ -144,7 +144,7 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
 
 
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
-    is of the form for(int i = a; i < a + C; i++){..} then it will move the 
+    is of the form for(int i = a; i < a + C; i++){..} then it will move the
     the instructions out of the loop and the loop will be removed.
 *)
 let unroll : Target.Transfo.t =
@@ -169,14 +169,14 @@ let unswitch : Target.Transfo.t =
     (fun (p, i) t -> Loop_core.unswitch i t p)
 
 
-(* [to_unit_steps new_index tg] expects target [tg] to point to a for loop 
+(* [to_unit_steps new_index tg] expects target [tg] to point to a for loop
     [new_index] - denotes the new index for the transformed loop
         by default is an empty string. The reason for that is to check if the user
         gave the name of the new index of not. If not then [new_index] = unit_index
         where index is the index of the targeted loop.
     Assumption:
       The targeted loop should be of the form:
-        for (int i = a; i < b; i+=B){...}, and it assumes that B divides (b-a). It then 
+        for (int i = a; i < b; i+=B){...}, and it assumes that B divides (b-a). It then
         transforms the targeted loop into the following form:
           for (int new_index = 0;)
 *)

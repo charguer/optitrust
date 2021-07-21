@@ -12,12 +12,12 @@ TESTS_WORKING := \
 	array_swap.ml \
   label_add.ml \
   label_remove.ml \
-#loop_hoist.ml \
+	array_to_variables.ml \
+	loop_hoist.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
-	array_tile \
-	array_to_variables.ml \
+	array_tile.ml \
   loop_color.ml \
   loop_fusion.ml \
 
