@@ -28,14 +28,17 @@
 # Verbosity for commands
 V ?= @
 
-# verbosity of C file checking
-VC ?= no
-
 # List of ml files to not include in the list of tests to consider (by default all *.ml are considered)
 EXCLUDE_TESTS ?=
 
 # List of ml files to include (by default, all *.ml except those in EXCLUDE_TESTS, and the generated *.ml files)
 TESTS ?= $(filter-out $(wildcard *with_lines.ml),$(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
+
+# List of ml files for which the cpp files should be compiled
+COMPILE ?= $(TESTS)
+
+# List of ml files for which the cpp files should be executed for comparison
+EXECUTE ?= $(COMPILE)
 
 # Path to the folder containing optitrust main Makefile, on which to call make install
 OPTITRUST ?= ../..
@@ -59,8 +62,11 @@ transfo: $(TESTS:.ml=_out.cpp)
 # 'make check' executes all the transformations and check the results against expected results
 check: $(TESTS:.ml=.chk)
 
-# 'make compile' checks that the source cpp files all compile
-compile: $(TESTS:.ml=.prog)
+# 'make compile' checks that the source and output cpp files both compile
+compile: $(COMPILE:.ml=.prog) $(COMPILE:.ml=_out.prog)
+
+# 'make execute" checks that the source and output cpp file both produce similar output
+execute: $(EXECUTE:.ml=.exec)
 
 # 'make optitrust' rebuilds the library, and clean all local files
 optitrust: clean
@@ -105,7 +111,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
 %_out.cpp: %.byte %.cpp
 	$(V)OCAMLRUNPARAM=b ./$<
-	$(V)echo "Produced $@"
+	@echo "Produced $@"
 
 # Rule for building the binary associated with a test
 %.byte: %.ml
@@ -120,10 +126,13 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Rule for checking that a file compiles
 %.prog: %.cpp
-	@gcc -c -std=c++11 $< -o $@
-ifeq ($(VC),)
-	$(VC)@echo "Compiled $< successfully"
-endif
+	$(V)gcc -std=c++11 $< -o $@
+	@chmod +x $@
+	@echo "Compiled $<"
+
+# Rule for comparing output of runs
+%.exec: %.prog %_out.prog
+	$(V)bash -c "$(DIFF) -q <(./$*.prog) <(./$*_out.prog) || echo \"Mismatch ./$*.prog; ./$*_out.prog\""
 
 # Rule for opening meld to compare the output and the expected output
 %.meld: %_out.cpp %_exp.cpp

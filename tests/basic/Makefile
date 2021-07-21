@@ -21,10 +21,9 @@ TESTS_TOCHECK := \
   aos_to_soa.ml \
 	array_tile.ml \
   loop_color.ml \
-
+  loop_tile.ml \
 
 TESTS_OTHERS := \
-  loop_tile.ml \
 	loop_grid_enumerate.ml \
 	loop_unroll.ml \
 	loop_invariant.ml \
@@ -56,6 +55,9 @@ TESTS_OTHERS := \
 # TODO: script for vscode opening
 
 TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK) $(TESTS_OTHERS)
+
+COMPILE := \
+	loop_grid_enumerate.ml \
 
 include ../Common.Makefile
 
