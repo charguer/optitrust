@@ -466,7 +466,7 @@ and compute_body (loc : location) (body_acc : trm list)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> (trm_seq ~annot:(Some No_braces) ~loc ~ctx:(Some (get_ctx ())) tl, sl)
+          | tl -> (trm_seq ~annot:(Some (No_braces (Nobrace.current ()))) ~loc ~ctx:(Some (get_ctx ())) tl, sl)
         end
       | _ ->
         let t = translate_stmt s in
@@ -1177,6 +1177,6 @@ let translate_ast (t : translation_unit) : trm =
        let t =
          trm_seq ~loc ~annot:(Some Main_file) (translate_decl_list file_decls)
        in
-       trm_seq ~annot:(Some No_braces)
+       trm_seq ~annot:(Some (No_braces (Nobrace.current())))
          ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) ++ [t])
     )

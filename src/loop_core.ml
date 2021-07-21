@@ -138,7 +138,7 @@ let hoist_without_detach_aux (x_step : var) (decl_index : int) (t : trm) : trm =
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) in
         let new_body = trm_seq ~annot:body.annot (lfront @ [new_decl] @ lback) in
         let inner_typ = get_inner_ptr_type tx in
-        trm_seq ~annot:(Some No_braces)[
+        trm_seq ~annot:(Some (No_braces (Nobrace.current())))[
           trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
           trm_for index direction start stop step new_body
         ]
@@ -172,7 +172,7 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
           Internal.change_trm (trm_var x)
           (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x; trm_var index] )
         ) lback in
-        trm_seq ~annot:(Some No_braces) [
+        trm_seq ~annot:(Some (No_braces (Nobrace.current()))) [
           trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (get_inner_ptr_type tx) (Trm stop))) (trm_prim (Prim_new (typ_array (get_inner_ptr_type tx) (Trm stop))));
           trm_for index direction start stop step (trm_seq ~annot:body.annot (lfront @ lback))
         ]
@@ -201,7 +201,7 @@ let extract_variable (index : int) : Target.Transfo.local =
       let first_part, last_part = Tools.split_list_at index tl in
       let first_body = trm_seq first_part in
       let second_body = trm_seq last_part in
-      trm_seq ~annot:(Some No_braces) [
+      trm_seq ~annot:(Some (No_braces (Nobrace.current()))) [
         trm_for loop_index direction start stop step first_body;
         trm_for loop_index direction start stop step second_body;
       ]
@@ -325,13 +325,13 @@ let invariant_aux (trm_index : int) (t : trm) : trm =
     let tl = for_loop_body_trms t in
     let lfront, lback = Tools.split_list_at trm_index tl in
     let trm_inv, lback = Tools.split_list_at 1 lback in
-    trm_seq ~annot: (Some No_braces) (trm_inv @ [
+    trm_seq ~annot: (Some (No_braces (Nobrace.current()))) (trm_inv @ [
       trm_for index direction start stop step (trm_seq (lfront @ lback))])
   | Trm_for_c (init, cond, step, _) ->
     let tl = for_loop_body_trms t in
     let lfront, lback = Tools.split_list_at trm_index tl in
     let trm_inv, lback = Tools.split_list_at trm_index lback in
-    trm_seq ~annot: (Some No_braces) (trm_inv @ [
+    trm_seq ~annot: (Some (No_braces (Nobrace.current()))) (trm_inv @ [
       trm_for_c init cond step (trm_seq (lfront @ lback))])
   | _ -> fail t.loc "invariant_aux: expected a loop"
 

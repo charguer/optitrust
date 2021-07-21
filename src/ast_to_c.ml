@@ -228,7 +228,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_seq tl ->
         begin match t.annot with
         | Some Multi_decl -> dattr ^^ multi_decl_to_doc loc tl
-        | Some No_braces ->
+        | Some No_braces _->
            let dl = List.map (trm_to_doc ~semicolon:true) tl in
            dattr ^^ separate hardline dl
         | Some Main_file ->

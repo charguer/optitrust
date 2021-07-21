@@ -215,7 +215,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
          begin match ty.typ_desc with
         | Typ_ptr {inner_typ = ty;_} ->
            (* ty* becomes (ty[])* *)
-           trm_seq ~annot:(Some No_braces)
+           trm_seq ~annot:(Some (No_braces (Nobrace.current())))
               [
                 trm_typedef {
                   td with typdef_tconstr = block_name;
@@ -231,7 +231,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
               let n_div_b =
                 trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); trm_var block_size]
               in
-              trm_seq ~annot:(Some No_braces)
+              trm_seq ~annot:(Some (No_braces (Nobrace.current())))
                 [
                   trm_typedef {
                     td with typdef_tconstr = block_name;
@@ -241,7 +241,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
                     typdef_body = Typdef_alias (typ_array (typ_var block_name) (Trm n_div_b))}]
            | Trm t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var block_size] in
-              trm_seq ~annot:(Some No_braces)
+              trm_seq ~annot:(Some (No_braces (Nobrace.current())))
                 [
                   trm_typedef {
                     td with typdef_tconstr = block_name;

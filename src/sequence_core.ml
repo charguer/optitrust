@@ -17,7 +17,7 @@ let insert_aux (index : int) (s : string) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at index tl in
-      let new_trm = trm_seq ~annot:(Some No_braces) [trm_arbitrary s] in
+      let new_trm = trm_seq ~annot:(Some (No_braces (Nobrace.current()))) [trm_arbitrary s] in
       trm_seq ~annot:t.annot  (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
@@ -131,7 +131,7 @@ let inline (index : int) : Target.Transfo.local =
     updated ast of the outer sequence with wrapped node t
  *)
 let wrap_aux (visible : bool) (label : string) (t : trm) : trm =
-  let wrapped_seq = if visible then trm_seq [t] else trm_seq ~annot:(Some No_braces) [t] in
+  let wrapped_seq = if visible then trm_seq [t] else trm_seq ~annot:(Some (No_braces (Nobrace.current()))) [t] in
   if label <> "" then trm_labelled label wrapped_seq else wrapped_seq 
  
 let wrap (visible : bool) (label : string) : Target.Transfo.local=

@@ -226,7 +226,7 @@ let annot_to_string (t : trm) : string =
      begin match a with
      (* | Delete_instructions -> "\"Delete_instructions\"" *)
      | Grouped_binding -> quote "Grouped_binding"
-     | No_braces -> quote "No_braces"
+     | No_braces _ -> quote "No_braces"
      | Access -> quote "Access"
      | Multi_decl -> quote "Multi_decl"
      | Empty_cond -> quote "Empty_cond"
