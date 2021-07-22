@@ -231,8 +231,7 @@ let extract_variable (index : int) : Target.Transfo.local =
       let second_body = trm_seq last_part in
       trm_seq_no_brace [
         trm_for loop_index direction start stop step first_body;
-        trm_for loop_index direction start stop step second_body;
-      ]
+        trm_for loop_index direction start stop step second_body;]
     | _ -> fail t.loc "fission_aux: expected the sequence inside the loop body"
     end
   | _ -> fail t.loc "fission_aux: onl simple loops are supported"
@@ -373,79 +372,15 @@ let invariant (trm_index : int) : Target.Transfo.local =
         updated ast with the extracted if statement
 *)
 let unswitch_aux (trm_index : int) (t : trm) : trm =
-  match t.desc with
-  (* TODO: see if code could be factorized *)
-  (* TODO: implement a core transformation called "basic_cleanup":
-      - removes "unit" in trm_seq *)
-  | Trm_for (index, direction, start, stop, step, _) ->
-    let tl = for_loop_body_trms t in
-    let lfront, if_stmt, lback = Internal.get_trm_and_its_relatives trm_index tl in
-    begin match if_stmt.desc with
-    | Trm_if (cond, then_, else_) ->
-      (*
-        let process_for_loops (process:(trm->trm)->trm) (t:trm) : trm =
-          match t with
-          | Trm_for (index, direction, start, stop, step, _) ->
-              process (fun t -> trm_for index direction start stop step t)
-          | Trm_for_c (init, cond, step, _) ->
-              process (fun t -> trm_for_c init cond step t)
-
-        let set_nobrace_if_sequence t = ---possibly useful in other transformations
-           match t_.desc with
-            | Trm_seq tl1 -> trm_seq ~annot:nobrace tl1
-            | _ -> t
-           in
-
-        let build_if_with_loops_in_each_branch build_loop t =
-          begin match t.desc with
-          | Trm_if (cond, then_, else_) ->
-            let then_ = set_nobrace_if_sequence then_ in
-            let else_ = set_nobrace_if_sequence else_ in
-            let wrap_branch t = build_loop (trm_seq (lfront @ [t] @ lback)) in
-            trm_if cond (wrap_branch then_) (Internal.clean_lit_unit_seq (wrap_branch else_))
-          | _ -> error
-          in
-        process_for_loops build_if_with_loops_in_each_branch
-
-
-        ----------=> the code expands to
-        match t with
-        | Trm_for (index, direction, start, stop, step, _) ->
-            build_output (fun t -> trm_for index direction start stop step t)
-        | Trm_for_c (init, cond, step, _) ->
-            build_output (fun t -> trm_for_c init cond step t)
-      *)
-
-      let new_then = begin match then_.desc with
-      | Trm_seq tl1 -> trm_for index direction start stop step (trm_seq (lfront @ tl1 @ lback))
-      | _ -> trm_for index direction start stop step (trm_seq (lfront @ [then_] @ lback))
-      end in
-      let new_else = begin match else_.desc with
-      | Trm_seq tl1 -> trm_for index direction start stop step (trm_seq (lfront @ tl1 @ lback))
-      | _ (* Trm_lit Lit_unit --> remove this optimisation *) ->
-          trm_for index direction start stop step (trm_seq (lfront @ [else_] @ lback))
-      (* TODO: | _ -> assert false *)
-      end in
-      trm_if cond new_then (Internal.clean_lit_unit_seq new_else)
-    | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
-    end
-  | Trm_for_c (init, cond, step, _) ->
-    let tl = for_loop_body_trms t in
-    let lfront, if_stmt, lback = Internal.get_trm_and_its_relatives trm_index tl in
-    begin match if_stmt.desc with
-    | Trm_if (cond_, then_, else_) ->
-      let new_then = begin match then_.desc with
-      | Trm_seq tl1 -> trm_for_c init cond step (trm_seq (lfront @ tl1 @ lback))
-      | _ -> trm_for_c init cond step (trm_seq (lfront @ [then_] @ lback))
-      end in
-      let new_else = begin match else_.desc with
-      | Trm_seq tl1 -> trm_for_c init cond step (trm_seq (lfront @ tl1 @ lback))
-      | _ -> trm_for_c init cond   step (trm_seq (lfront @ [else_] @ lback))
-      end in
-      trm_if cond_ new_then (Internal.clean_lit_unit_seq new_else)
-    | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
-    end
-  | _ -> fail t.loc "invariant_aux:expected a loop"
+  let tl = for_loop_body_trms t in
+  let lfront, if_stmt, lback = Internal.get_trm_and_its_relatives trm_index tl in
+  match if_stmt.desc with
+  | Trm_if (cond, then_, else_) ->
+    let then_ = Internal.set_no_brace_if_sequence then_ in
+    let else_ = Internal.set_no_brace_if_sequence else_ in
+    let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (lfront @ [t1] @ lback )) in
+    trm_if cond (wrap_branch then_) (wrap_branch else_) 
+  | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
 
 let unswitch (trm_index : int) : Target.Transfo.local =
   Target.apply_on_path (unswitch_aux trm_index)

@@ -181,9 +181,11 @@ let invariant (tg : Target.target) : unit =
      with a constant condition (not dependent on loop index or local variables)
      Then it will take the if statment outside the loop.
 *)
-let unswitch : Target.Transfo.t =
+let unswitch (tg : Target.target) : unit =
+  Internal.nobrace_enter ();
   Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.unswitch i t p)
+    (fun (p, i) t -> Loop_core.unswitch i t p) tg;
+  Internal.nobrace_remove_and_exit ()
 
 
 (* [to_unit_steps new_index tg] expects target [tg] to point to a for loop

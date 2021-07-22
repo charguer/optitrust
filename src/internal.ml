@@ -412,3 +412,25 @@ let nobrace_remove_and_exit () =
 
 let nobrace_enter () =
   Nobrace.enter()
+
+let set_no_brace_if_sequence (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl1 -> trm_seq_no_brace tl1
+  | _-> t
+
+
+let change_loop_body (loop : trm) (body : trm) : trm = 
+  match loop.desc with 
+  | Trm_for (index , direction, start, stop, step, _) ->
+    trm_for index direction start stop step body
+  | Trm_for_c (init, cond, step, _) ->
+    trm_for_c init cond step body
+  | _-> fail loop.loc "change_loop_body: expected for loop"
+
+let process_for_loops (process : (trm -> trm) -> trm) (t : trm) : trm =
+  match t.desc with
+  | Trm_for (index , direction, start, stop, step, _) ->
+    process (fun t -> trm_for index direction start stop step t)
+  | Trm_for_c (init, cond, step, _) ->
+    process (fun t -> trm_for_c init cond step t)
+  | _ -> fail t.loc "process_for_loops: expected a for loop"
