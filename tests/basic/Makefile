@@ -26,9 +26,9 @@ TESTS_TOCHECK := \
   loop_unroll.ml \
   loop_invariant.ml \
   loop_unswitch.ml \
+  loop_fission.ml \
 
 TESTS_OTHERS := \
-	loop_fission.ml \
 	loop_to_unit_steps.ml \
 	sequence_delete.ml \
   sequence_inline.ml \
