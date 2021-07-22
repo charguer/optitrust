@@ -21,17 +21,16 @@ TESTS_WORKING := \
   loop_color.ml \
   loop_unroll.ml \
   loop_invariant.ml \
-
+  loop_fission.ml \
+  sequence_delete.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
   loop_tile.ml \
   loop_unswitch.ml \
-  loop_fission.ml \
   loop_to_unit_steps.ml \
 
 TESTS_OTHERS := \
-	sequence_delete.ml \
   sequence_inline.ml \
   sequence_sub.ml \
   sequence_wrap.ml \

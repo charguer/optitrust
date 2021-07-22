@@ -24,6 +24,7 @@ int main() {
      continue;
   }
   // local variables
+  int val = 13;
   int r = 3;
   r = r + 1;
   r += 2;

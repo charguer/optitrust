@@ -4,6 +4,7 @@ open Target
 let _ = Run.script_cpp (fun () ->
   (* Constants *)
   show [ cInt 8 ];
+  show [ cInt 13 ];
 
   (* Types *)
   show [ cTypDef "vect" ];
