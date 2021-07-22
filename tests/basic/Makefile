@@ -32,7 +32,7 @@ TESTS_TOCHECK := \
   loop_unswitch.ml \
   loop_to_unit_steps.ml \
   sequence_elim_around_instr.ml \
-  struct_reorder.ml \
+  struct_fields_reorder.ml \
   struct_set_explicit.ml \
 	struct_set_implicit.ml \
   arbitrary_if.ml \

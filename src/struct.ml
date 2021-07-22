@@ -16,14 +16,14 @@ let set_explicit (tg : Target.target) : unit =
 let set_implicit : Target.Transfo.t =
   Target.apply_on_target(Struct_core.set_implicit)
 
-(* [field_reorder move_before move_after struct_fields tg] expects [tg] 
+(* [fields_reorder move_before move_after struct_fields tg] expects [tg] 
     to point to typedef struct. It then switches the order of the fields of 
     the targeted struct.
     [move_before] - field before which all the fields in [struct_fields] will be moved
     [move_after] - field after which all the fields in [struct_fields] will be moved
     [struct_fields] - list of fields to move
 *)
-let field_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : var list) (tg : target) : unit =
+let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : var list) (tg : target) : unit =
   let move_where,around =
     begin match move_before, move_after with
     | "",_ -> "move_after", move_after
@@ -31,7 +31,7 @@ let field_reorder ?(move_before : field = "") ?(move_after : field = "") (struct
     | _,_-> fail None "fields_reorder: only one of move_before or move_after should be specified"
     end
   in
-  Target.apply_on_target (Struct_core.reorder struct_fields move_where  around) tg
+  Target.apply_on_target (Struct_core.fields_reorder struct_fields move_where  around) tg
 
 (* [inline field_to_inline tg] expects [tg] to point to a typedef struct
     it then will find [field_to_inline] and it's underlying type. It will 

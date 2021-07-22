@@ -302,11 +302,11 @@ let move_fields_after (x : var) (local_l : var list) (l : (var * typ) list) : (v
   let fins = List.flatten (get_pairs local_l l )in
   let l = remove_pairs local_l l in
   let rec aux = function
-    | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
+    | [] -> failwith "move_fields_after: empty list" (* raise an error x not part of the list *)
     | (hd, ty) :: tl ->
       if hd = x
         then fins @ [hd, ty] @ tl (* local_l @ hd :: acc @ tl *)
-        else aux tl
+        else (hd,ty) :: aux tl
       in
     aux l
 
@@ -314,11 +314,11 @@ let move_fields_before (x : var) (local_l : var list) (l : (var * typ) list) : (
   let fins = List.flatten (get_pairs local_l l) in
   let l = remove_pairs local_l l in
   let rec aux = function
-    | [] -> failwith "move_fields_after: ecmpty list" (* raise an error x not part of the list *)
+    | [] -> failwith "move_fields_after: empty list" (* raise an error x not part of the list *)
     | (hd, ty) :: tl ->
       if hd = x
         then [hd, ty] @ fins @ tl (* local_l @ hd :: acc @ tl *)
-        else aux tl
+        else (hd,ty) :: aux tl
       in
     aux l
 

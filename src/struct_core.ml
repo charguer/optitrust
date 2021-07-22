@@ -317,7 +317,7 @@ let inline (field_to_inline : field) (index : int) : Target.Transfo.local =
 
 
 
-(* [reorder_aux struct_fields move_where around t]: reorder fields of a struct
+(* [fields_reorder_aux struct_fields move_where around t]: reorder fields of a struct
     params:
       struct_fields: a list of fields to move
       move_where: a string which is equal either to before or after
@@ -326,7 +326,7 @@ let inline (field_to_inline : field) (index : int) : Target.Transfo.local =
     return: 
       updated ast of the typedef struct declaration
  *)
-let reorder_aux (struct_fields: var list) (move_where : string) (around : string) (t: trm) : trm =
+let fields_reorder_aux (struct_fields: var list) (move_where : string) (around : string) (t: trm) : trm =
   match t.desc with 
   | Trm_typedef td ->
    begin match td.typdef_body with 
@@ -338,13 +338,13 @@ let reorder_aux (struct_fields: var list) (move_where : string) (around : string
       Internal.move_fields_before around struct_fields fs
     in
    trm_typedef {td with typdef_body = Typdef_prod (tn, field_list)}
-  | _ -> fail t.loc "reorder_aux: expected a typdef_prod"
+  | _ -> fail t.loc "fields_reorder_aux: expected a typdef_prod"
   end
-  | _ -> fail t.loc "reorder_aux: expected a typedef definiton"
+  | _ -> fail t.loc "fields_reorder_aux: expected a typedef definiton"
 
-(* [reorder struct_fields move_where around t p] *)
-let reorder (struct_fields : var list) (move_where : string) (around : string): Target.Transfo.local = 
-  Target.apply_on_path(reorder_aux struct_fields move_where around)
+(* [fields_reorder struct_fields move_where around t p] *)
+let fields_reorder (struct_fields : var list) (move_where : string) (around : string): Target.Transfo.local = 
+  Target.apply_on_path(fields_reorder_aux struct_fields move_where around)
 
 (* [inline_struct_accesses name field t] transform a specifi struct access into a variable
       occurrence.
