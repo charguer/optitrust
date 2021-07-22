@@ -18,13 +18,14 @@ TESTS_WORKING := \
   loop_interchange.ml \
   loop_grid_enumerate.ml \
   array_tile.ml \
+  loop_color.ml \
+  loop_unroll.ml \
+  loop_invariant.ml \
+
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
-  loop_color.ml \
   loop_tile.ml \
-  loop_unroll.ml \
-  loop_invariant.ml \
   loop_unswitch.ml \
   loop_fission.ml \
   loop_to_unit_steps.ml \

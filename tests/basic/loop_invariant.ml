@@ -3,11 +3,21 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
   !! Loop.invariant [cVarDef "x"];
-  (* TODO: invoke cleanup_no_brace on the specific id introduced
-     at the end of the transformation
-
-     the cleanup can be called on the entire ast,
-     or on the immediate prefix of the explicit path that goes to the for-loop *)
   !! Loop.invariant [cVarDef "x"];
-  (* FIXED *)
+  !! Loop.invariant [cVarDef "s"];
+  !! Loop.invariant [cVarDef "s"];
+
+  (* TODO: rename this to invariant_basic *)
+  (* TODO: develop at combi level Loop.invariant
+        Loop.invariant [cVarDef "s"];
+        --> goes out of one loop
+
+        Loop.invariant ~upto:"i" [cVarDef "s"];
+        --> meaning goes out of loops until passing loop "i"
+        ==> maybe the easiest is to first count the number [nb] of loops
+            in the path to the instruction backwards until the loop on "i",
+            then repeat nb times "Loop.invariant_basic"
+        ==> List.rev on path, walk and count loops until loop "i",
+            raise error if not finding loop "i"
+  *)
 )

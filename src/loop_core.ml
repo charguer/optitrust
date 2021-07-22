@@ -77,7 +77,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
      let tile_index = match tile_index with
       | "" -> "b" ^ index
       | _ -> tile_index in
-     begin match bound with 
+     begin match bound with
       | TileBoundMin ->
         let tile_stop = trm_apps (trm_var "min")[ stop; trm_apps (trm_binop Binop_add)[
           trm_var tile_index;
@@ -88,16 +88,16 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
       | TileBoundAnd ->
           let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [trm_var tile_index]) in
             let cond = begin match direction with
-              | DirUp -> 
+              | DirUp ->
                 trm_apps (trm_binop Binop_and)[
-                  trm_apps (trm_binop (Binop_lt)) [trm_var index; 
+                  trm_apps (trm_binop (Binop_lt)) [trm_var index;
                     trm_apps (trm_binop Binop_add) [
                       trm_var tile_index; trm_var tile_size]];
                   trm_apps (trm_binop Binop_lt)  [trm_var index; stop]
                 ]
-              | DirDown -> 
+              | DirDown ->
                 trm_apps (trm_binop Binop_and)[
-                  trm_apps (trm_binop (Binop_gt)) [trm_var index; 
+                  trm_apps (trm_binop (Binop_gt)) [trm_var index;
                     trm_apps (trm_binop Binop_add) [
                       trm_var tile_index; trm_var tile_size]];
                   trm_apps (trm_binop Binop_gt)  [trm_var index; stop]
@@ -122,17 +122,17 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
                     trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
                 end
             end in
-            trm_for tile_index direction start stop (trm_var tile_size) 
-              (trm_seq [trm_for_c init cond step body]) 
-      | TileBoundDivides -> 
+            trm_for tile_index direction start stop (trm_var tile_size)
+              (trm_seq [trm_for_c init cond step body])
+      | TileBoundDivides ->
         let tile_stop = trm_apps (trm_binop Binop_add)[
                           trm_var tile_index;
                           trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_size]] in
         trm_for tile_index direction start stop (trm_var tile_size) (
               trm_seq [
-                trm_for index direction (trm_var tile_index) tile_stop step body])                          
-     end 
-     
+                trm_for index direction (trm_var tile_index) tile_stop step body])
+     end
+
   | _ -> fail t.loc "tile_aux: only simple loops are supported"
 
 let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Transfo.local =
@@ -329,7 +329,7 @@ let unroll_aux (index : int) (t : trm) : trm =
       let unrolled_loop_range = Tools.range 0 (unroll_bound - 1) in
       let unrolled_body = List.fold_left ( fun acc i1 ->
         let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
-        Internal.change_trm (trm_var index) new_index body :: acc 
+        Internal.change_trm (trm_var index) new_index body :: acc
          ) [] (List.rev unrolled_loop_range) in
       trm_seq ~annot:t.annot (lfront @ unrolled_body @ lback)
     | _ -> fail loop_to_unroll.loc "unroll_aux: only simple loops supported"
@@ -382,6 +382,40 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
     let lfront, if_stmt, lback = Internal.get_trm_and_its_relatives trm_index tl in
     begin match if_stmt.desc with
     | Trm_if (cond, then_, else_) ->
+      (*
+        let process_for_loops (process:(trm->trm)->trm) (t:trm) : trm =
+          match t with
+          | Trm_for (index, direction, start, stop, step, _) ->
+              process (fun t -> trm_for index direction start stop step t)
+          | Trm_for_c (init, cond, step, _) ->
+              process (fun t -> trm_for_c init cond step t)
+
+        let set_nobrace_if_sequence t = ---possibly useful in other transformations
+           match t_.desc with
+            | Trm_seq tl1 -> trm_seq ~annot:nobrace tl1
+            | _ -> t
+           in
+
+        let build_if_with_loops_in_each_branch build_loop t =
+          begin match t.desc with
+          | Trm_if (cond, then_, else_) ->
+            let then_ = set_nobrace_if_sequence then_ in
+            let else_ = set_nobrace_if_sequence else_ in
+            let wrap_branch t = build_loop (trm_seq (lfront @ [t] @ lback)) in
+            trm_if cond (wrap_branch then_) (Internal.clean_lit_unit_seq (wrap_branch else_))
+          | _ -> error
+          in
+        process_for_loops build_if_with_loops_in_each_branch
+
+
+        ----------=> the code expands to
+        match t with
+        | Trm_for (index, direction, start, stop, step, _) ->
+            build_output (fun t -> trm_for index direction start stop step t)
+        | Trm_for_c (init, cond, step, _) ->
+            build_output (fun t -> trm_for_c init cond step t)
+      *)
+
       let new_then = begin match then_.desc with
       | Trm_seq tl1 -> trm_for index direction start stop step (trm_seq (lfront @ tl1 @ lback))
       | _ -> trm_for index direction start stop step (trm_seq (lfront @ [then_] @ lback))
@@ -434,7 +468,7 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
             start;
             trm_apps (trm_binop Binop_mul) [trm_var new_index; step]
           ]]) in
-    trm_for new_index direction (trm_lit (Lit_int 0)) 
+    trm_for new_index direction (trm_lit (Lit_int 0))
       (trm_apps (trm_binop Binop_div) [trm_apps (trm_binop Binop_sub) [stop; start]; step])
       (trm_lit (Lit_int 1))
       (trm_seq ([new_decl] @ body_trms ))
