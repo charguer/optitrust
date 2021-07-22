@@ -17,19 +17,19 @@ TESTS_WORKING := \
   loop_fusion.ml \
   loop_interchange.ml \
   loop_grid_enumerate.ml \
+  array_tile.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
-	array_tile.ml \
   loop_color.ml \
   loop_tile.ml \
   loop_unroll.ml \
   loop_invariant.ml \
   loop_unswitch.ml \
   loop_fission.ml \
+  loop_to_unit_steps.ml \
 
 TESTS_OTHERS := \
-	loop_to_unit_steps.ml \
 	sequence_delete.ml \
   sequence_inline.ml \
   sequence_sub.ml \
@@ -59,6 +59,7 @@ TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK) $(TESTS_OTHERS)
 COMPILE := \
 	loop_grid_enumerate.ml \
 	loop_color.ml \
+	loop_to_unit_steps.cpp \
 	loop_tile.ml \
 
 include ../Common.Makefile

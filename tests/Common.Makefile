@@ -132,7 +132,8 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Rule for comparing output of runs
 %.exec: %.prog %_out.prog
-	$(V)bash -c "$(DIFF) -q <(./$*.prog) <(./$*_out.prog) || echo \"Mismatch ./$*.prog; ./$*_out.prog\""
+	$(V)bash -c "($(DIFF) -q <(./$*.prog) <(./$*_out.prog) && echo \"Checked $@\") \
+                || (./$*.prog; echo \"--\"; ./$*_out.prog)"
 
 # Rule for opening meld to compare the output and the expected output
 %.meld: %_out.cpp %_exp.cpp
