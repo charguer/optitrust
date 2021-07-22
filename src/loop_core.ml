@@ -51,7 +51,7 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
                             | Trm_val (Val_lit (Lit_int 1)) -> true
                             | _ -> false
                             end in
-    trm_for (i_color) direction start (trm_var nb_colors) step (
+    trm_for (i_color) direction start (trm_var nb_colors) (trm_lit (Lit_int 1)) (
       trm_seq [
         trm_for index direction (if is_step_equal_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; step]) stop
          (if is_step_equal_one then  trm_var nb_colors else trm_apps (trm_binop Binop_mul) [trm_var nb_colors; step]) body
@@ -323,15 +323,13 @@ let invariant_aux (trm_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, _) ->
     let tl = for_loop_body_trms t in
-    let lfront, lback = Tools.split_list_at trm_index tl in
-    let trm_inv, lback = Tools.split_list_at 1 lback in
-    trm_seq ~annot: (Some (No_braces (Nobrace.current()))) (trm_inv @ [
+    let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
+    trm_seq ~annot: (Some (No_braces (Nobrace.current()))) ([trm_inv] @ [
       trm_for index direction start stop step (trm_seq (lfront @ lback))])
   | Trm_for_c (init, cond, step, _) ->
     let tl = for_loop_body_trms t in
-    let lfront, lback = Tools.split_list_at trm_index tl in
-    let trm_inv, lback = Tools.split_list_at trm_index lback in
-    trm_seq ~annot: (Some (No_braces (Nobrace.current()))) (trm_inv @ [
+    let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
+    trm_seq ~annot: (Some (No_braces (Nobrace.current()))) ([trm_inv] @ [
       trm_for_c init cond step (trm_seq (lfront @ lback))])
   | _ -> fail t.loc "invariant_aux: expected a loop"
 
@@ -353,11 +351,7 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
       - removes "unit" in trm_seq *)
   | Trm_for (index, direction, start, stop, step, _) ->
     let tl = for_loop_body_trms t in
-    let lfront, lback = Tools.split_list_at trm_index tl in
-    let if_stmt, lback = Tools.split_list_at 1 lback in
-    let if_stmt = match if_stmt with
-    | [t_if] -> t_if
-    | _ -> fail t.loc "unswitch_aux: expected a list with a single element" in
+    let lfront, if_stmt, lback = Internal.get_trm_and_its_relatives trm_index tl in
     begin match if_stmt.desc with
     | Trm_if (cond, then_, else_) ->
       let new_then = begin match then_.desc with
@@ -370,16 +364,12 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
           trm_for index direction start stop step (trm_seq (lfront @ [else_] @ lback))
       (* TODO: | _ -> assert false *)
       end in
-      trm_if cond new_then new_else
+      trm_if cond new_then (Internal.clean_lit_unit_seq new_else)
     | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
     end
   | Trm_for_c (init, cond, step, _) ->
     let tl = for_loop_body_trms t in
-    let lfront, lback = Tools.split_list_at trm_index tl in
-    let if_stmt, lback = Tools.split_list_at 1 lback in
-     let if_stmt = match if_stmt with
-    | [t_if] -> t_if
-    | _ -> fail t.loc "unswitch_aux: expected a list with a single element" in
+    let lfront, if_stmt, lback = Internal.get_trm_and_its_relatives trm_index tl in
     begin match if_stmt.desc with
     | Trm_if (cond_, then_, else_) ->
       let new_then = begin match then_.desc with
@@ -390,7 +380,7 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
       | Trm_seq tl1 -> trm_for_c init cond step (trm_seq (lfront @ tl1 @ lback))
       | _ -> trm_for_c init cond   step (trm_seq (lfront @ [else_] @ lback))
       end in
-      trm_if cond_ new_then new_else
+      trm_if cond_ new_then (Internal.clean_lit_unit_seq new_else)
     | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
     end
   | _ -> fail t.loc "invariant_aux:expected a loop"
@@ -416,12 +406,8 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
             start;
             trm_apps (trm_binop Binop_mul) [trm_var new_index; step]
           ]]) in
-    trm_for
-      new_index
-      direction
-      (trm_lit (Lit_int 0))
-      (trm_apps (trm_binop Binop_div) [
-        trm_apps (trm_binop Binop_sub) [stop; start]; step])
+    trm_for new_index direction (trm_lit (Lit_int 0)) 
+      (trm_apps (trm_binop Binop_div) [trm_apps (trm_binop Binop_sub) [stop; start]; step])
       (trm_lit (Lit_int 1))
       (trm_seq ([new_decl] @ body_trms ))
 

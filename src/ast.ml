@@ -1257,12 +1257,10 @@ module Nobrace = struct
     ids := !current_id :: !ids
 
   let enter () =
-    Tools.printf "entered here\n";
     current_id := !current_id + 1;
     ids := !current_id :: !ids
 
   let current () =
-    Tools.printf "%s\n" (Tools.list_to_string (List.map (fun x -> string_of_int x) !ids));
     match !ids with
     | [] ->  failwith "current:empty list"
     | id :: _rest -> id

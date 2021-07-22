@@ -58,6 +58,7 @@ TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK) $(TESTS_OTHERS)
 
 COMPILE := \
 	loop_grid_enumerate.ml \
+	loop_color.ml
 
 include ../Common.Makefile
 

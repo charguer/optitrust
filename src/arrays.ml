@@ -28,8 +28,10 @@ let to_variables (new_vars : var list) (tg : target) : unit =
     }                             }
 *)
 let tile ?(block_type :typvar = "") (block_size : var) (tg : target) : unit =
+  Internal.nobrace_enter();
   Target.apply_on_transformed_targets(Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Arrays_core.tile block_type block_size i t p) tg
+    (fun (p,i) t -> Arrays_core.tile block_type block_size i t p) tg;
+  Internal.nobrace_remove_and_exit ()
 
 (* [swap name x tg] expects the target [tg] to point to an array delcaratio.
    It changes the declaration so that the bounds of the array ar switched. Also 

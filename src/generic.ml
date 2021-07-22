@@ -56,10 +56,11 @@ let replace (code : string) (tg : target) : unit =
     contains an occurrence of the initial variable will be replace with a list of instructions for
     each new variable entered by the user. 
 *)
-let from_one_to_many (names : var list) : Target.Transfo.t =
+let from_one_to_many (names : var list) (tg : Target.target) : unit =
+  Internal.nobrace_enter();
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.from_one_to_many names i t p)
-
+    (fun (p, i) t -> Generic_core.from_one_to_many names i t p) tg;
+  Internal.nobrace_remove_and_exit ()
 (* [local_other_name var_type old_var new_var tg] TODO: Add the docs for this function
 *)
 let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t =
@@ -86,9 +87,10 @@ let change_occurrence (new_name : var) : Target.Transfo.t =
   Target.apply_on_target (fun p t -> Generic_core.change_occurrence new_name p t)
 
 (* TODO: Add the docs for this function *)
-let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.t =
-  Target.apply_on_target (Generic_core.delocalize array_size neutral_element fold_operation)
-
+let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) (tg : Target.target) : unit =
+  Internal.nobrace_enter ();
+  Target.apply_on_target (Generic_core.delocalize array_size neutral_element fold_operation) tg;
+  Internal.nobrace_remove_and_exit ()
 
 (* ********************************************************* *)
 (* Create an instance of the pattern *)

@@ -359,6 +359,9 @@ let get_trm_and_its_relatives (index : int) (trms : trm list) : (trm list * trm 
 *)
 (* let clean_up_no_brace_seq_pred (filter : int -> bool) (t : trm) : trm = *)
 
+
+
+
 let clean_no_brace_seq (id : int) (t : trm) : trm =
   let rec clean_up_in_list (tl : trm list) : trm list =
     match tl with 
@@ -381,11 +384,31 @@ let clean_no_brace_seq (id : int) (t : trm) : trm =
     | _ -> trm_map aux t
   in aux t
 
-let nobrace_enter () =
-  Nobrace.enter()
+
+let clean_lit_unit_seq (t : trm) : trm =
+  let rec clean_up_in_list (tl : trm list) : trm list =
+    match tl with 
+    | [] -> []
+    | t :: tl ->
+      begin match t.desc with 
+      | Trm_seq tl' ->
+        (clean_up_in_list tl) @ (clean_up_in_list tl')
+      | Trm_val (Val_lit (Lit_unit)) ->
+        clean_up_in_list tl
+      | _ -> t :: (clean_up_in_list tl)
+      end in
+  let rec aux (t : trm) : trm =
+    match t.desc with
+    | Trm_seq tl ->
+      trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
+        (clean_up_in_list (List.map aux tl))
+    | _ -> trm_map aux t
+  in aux t
 
 
 let nobrace_remove_and_exit () =
     let id = Nobrace.exit () in
     Trace.apply (fun _ctx ast -> clean_no_brace_seq id ast)
 
+let nobrace_enter () =
+  Nobrace.enter()
