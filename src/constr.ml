@@ -404,8 +404,8 @@ and target_occurrences_to_string (occ : target_occurrences) =
   | ExpectedNb n -> sprintf "ExpectedNb(%d)" n
   | ExpectedMulti -> "ExpectedMulti"
   | ExpectedAnyNb -> "ExpectedAnyNb"
-  | ExpectedSelected (ex_opt, il) -> 
-    let exact_nb_s = match ex_opt with 
+  | ExpectedSelected (ex_opt, il) ->
+    let exact_nb_s = match ex_opt with
     | None -> "None"
     | Some i -> "Some " ^ (string_of_int i) in
     sprintf "ExpectedSelect(%s, %s)" exact_nb_s (Tools.list_to_string (List.map (string_of_int) il))
@@ -807,12 +807,13 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         follow_dir d tr t
     | c :: p ->
       let strict = match depth with DepthAt 0 -> true | _ -> false in
+      let skip_here = match depth with DepthAt n when n > 0 -> true | _ -> false in
       let res_deep =
         if strict
            then [] (* in strict mode, must match c here *)
            else (explore_in_depth ~depth (c :: p) t) in
       let res_here =
-         if is_constr_regexp c && res_deep <> []
+         if skip_here || (is_constr_regexp c && res_deep <> [])
            then [] (* if a regexp matches in depth, don't test it here *)
            else (resolve_constraint c p t) in
 
@@ -1203,7 +1204,7 @@ let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   List.map (compute_relative_index tgs.target_relative t) res
 
 
-let resolve_target_between_exactly_one (tg : target) (t : trm) : (path * int) = 
+let resolve_target_between_exactly_one (tg : target) (t : trm) : (path * int) =
   match resolve_target_between tg t with
   | [(p,i)] -> (p,i)
   | _ -> fail t.loc "resolve_target_between_exactly_one: obtainer several targets"

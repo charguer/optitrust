@@ -60,7 +60,7 @@ let tLast : constr =
   Constr_relative TargetLast
 
 let tIndices ?(nb : int = -1) (indices : int list) : constr =
-  let expected_nb = match nb with 
+  let expected_nb = match nb with
     | -1 -> None
     | _ -> Some nb in
   Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
@@ -492,7 +492,7 @@ let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit
 let apply_on_transformed_target_between (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
   Trace.apply ( fun _ t ->
   let ps = resolve_target_between_exactly_one tg t in
-  let descr = transformer (fst ps @ [Dir_seq_nth (snd ps)]) in 
+  let descr = transformer (fst ps @ [Dir_seq_nth (snd ps)]) in
   tr descr t
   )
 
@@ -582,6 +582,10 @@ let target_between_show_transfo (debug_ast : bool) (id : int) : Transfo.local_be
    that generates the [foo_with_lines.ml] instrumented source. *)
 let show ?(line : int = -1) ?(reparse : bool = true) ?(debug_ast : bool = false) (tg : target) : unit =
   only_interactive_step line ~reparse (fun () ->
+    (* TODO: start by clearing all previous annotations "Show" in the ast:
+       do a:  List.filter (fun a -> a <> Show_annotation) trm_annot
+       let list_remove x l = List.filter (fun y -> y <> x) l  --in tools, if not in ocaml stdlib
+       *)
     if Constr.is_target_between tg then begin
       applyi_on_target_between (fun i  t (p,k) ->
         target_between_show_transfo debug_ast i k t p) tg

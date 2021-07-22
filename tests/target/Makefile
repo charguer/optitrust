@@ -12,6 +12,7 @@
 # Basename of the test case to consider
 TEST:=target_debug
 TEST:=target_regexp
+TEST:=target_combi
 
 # Path to the optitrust library
 OPTITRUST = ../..
@@ -47,3 +48,4 @@ clean:
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
+# TODO ARTHUR: use the same makefile as in other folders --> maybe it suffices to copy the one for tests/

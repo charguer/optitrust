@@ -535,6 +535,8 @@ let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> uni
     f();
     dump_diff_and_exit()
   end
+  (* TODO: when Show annotations are part of trm_annot,
+      then we can execute [else f()] here *)
 
 (* Get the current ast *)
 let get_ast () : trm =

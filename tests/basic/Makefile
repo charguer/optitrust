@@ -23,31 +23,33 @@ TESTS_WORKING := \
   loop_invariant.ml \
   loop_fission.ml \
   sequence_delete.ml \
+  sequence_inline.ml \
+  sequence_sub.ml \
+  sequence_wrap.ml \
 
 TESTS_TOCHECK := \
   aos_to_soa.ml \
   loop_tile.ml \
   loop_unswitch.ml \
   loop_to_unit_steps.ml \
-
-TESTS_OTHERS := \
-  sequence_inline.ml \
-  sequence_sub.ml \
-  sequence_wrap.ml \
   sequence_unwrap.ml \
   struct_reorder.ml \
-	struct_set_explicit.ml \
+  struct_set_explicit.ml \
 	struct_set_implicit.ml \
-  typedef_fold.ml \
+  arbitrary_if.ml \
+
+ARTHUR_TO_SPEC := \
+	from_one_to_many.ml \
+
+TESTS_OTHERS := \
+	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
 	variable_fold.ml \
 	variable_inline.ml \
 	variable_insert.ml \
 	sequence_insert.ml \
-	arbitrary_if.ml \
 	change_occurrence.ml \
-	from_one_to_many.ml \
 	reference_fold.ml \
 	reference_inline.ml \
 

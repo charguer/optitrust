@@ -33,6 +33,8 @@ let script (f : unit -> unit) : unit =
     Trace.close_logs();
     (* failwith s *)
     Printf.eprintf "Failure: %s\n" s;
+    let s = Printexc.get_backtrace() in
+    Printf.eprintf "%s\n" s;
     exit 1
 
 

@@ -203,7 +203,7 @@ and value =
 (* annotations are used to decorate this AST when it is built from the
    Clang AST in such a way to be able to print back the AST like the original C code.
    *)
-and trm_annot =
+and trm_annot = (* TODO: add Show_annotation to this list *)
   (* used to print back a c++ program *)
   | No_braces of int (* TODO: of no_brace_id    where no_brace_id = int   let new_no_brace_id () = .. *)
   (* annotate applications of star operator that should not be printed *)
@@ -239,7 +239,7 @@ and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   is_statement: true if the trm is an instruction in a seq
  *)
 and trm =
- { annot : trm_annot option;
+ { annot : trm_annot option; (* TODO: make this a list *)
    desc : trm_desc;
    loc : location;
    is_statement : bool; (* TODO : generalize to trm_kind *)
@@ -1241,7 +1241,7 @@ let is_typ_const (t : typ) : bool =
 type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
 
 let get_sequence_trms (t : trm) : trm list =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl -> tl
   | _ -> fail t.loc "get_sequence_trms: expected a sequence"
 
@@ -1252,8 +1252,8 @@ module Nobrace = struct
   let ids = ref []
 
   let current_id = ref 0
-  
-  let init () = 
+
+  let init () =
     ids := !current_id :: !ids
 
   let enter () =
