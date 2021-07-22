@@ -307,7 +307,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       | None -> underscore
       | Some a ->
          begin match a with
-         | No_braces -> string "No_braces"
+         | No_braces _ -> string "No_braces"
          | Access -> string "Access"
          | Multi_decl -> string "Multi_decl"
          | Empty_cond -> string "Empty_cond"

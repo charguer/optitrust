@@ -4,8 +4,10 @@ open Target
 (* [set_explicit tg] expects [tg] to point to a set instruction where one struct 
     instance has been assigned anothe struct instance.
 *)
-let set_explicit : Target.Transfo.t =
-  Target.apply_on_target (Struct_core.set_explicit)
+let set_explicit (tg : Target.target) : unit =
+  Internal.nobrace_enter ();
+  Target.apply_on_target (Struct_core.set_explicit) tg;
+  Internal.nobrace_remove_and_exit ()
 
 (*  [set_implicit tg] expects [tg] to point to a sequence containing
       a list of struct set assignments. And transorms it into a single 

@@ -488,6 +488,15 @@ let applyi_on_target_between (tr : int -> trm -> (path*int)  -> trm) (tg : targe
 let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit =
   applyi_on_target_between (fun _i pk t -> tr pk t) tg
 
+
+let apply_on_transformed_target_between (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
+  Trace.apply ( fun _ t ->
+  let ps = resolve_target_between_exactly_one tg t in
+  let descr = transformer (fst ps @ [Dir_seq_nth (snd ps)]) in 
+  tr descr t
+  )
+
+
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
    Same as [apply_to_transformed_targets] except that there is some processing performed on each of the explicit path.
    This processing is done by the [transformer] function, which takes an explicit path, and returns some information

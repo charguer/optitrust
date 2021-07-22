@@ -204,12 +204,12 @@ let replace_one_with_many (x : var) (names : var list) (t : trm) : trm =
     match t.desc with 
     | Trm_let (vk, (y, ty), init) ->
       if contains_variable x init 
-        then trm_seq ~annot:(Some No_braces) (List.mapi (fun i name ->
+        then trm_seq_no_brace (List.mapi (fun i name ->
          trm_let vk (y ^ "_" ^(string_of_int i), ty) (Internal.change_trm (trm_var x) (trm_var name) init)) names)
         else t
     | Trm_apps (_, _) -> 
       if contains_variable x t then
-        trm_seq ~annot:(Some No_braces) (List.map (fun name -> Internal.change_trm (trm_var x) (trm_var name) t) names)
+        trm_seq_no_brace (List.map (fun name -> Internal.change_trm (trm_var x) (trm_var name) t) names)
         else t 
     | _ -> trm_map (aux global_trm) t
   in aux t t 
@@ -321,7 +321,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
       end
     | _ -> fail t.loc "delocalize_aux: expected a varaible declaration"
     end in
-    let new_decl = trm_seq ~annot:(Some No_braces)[
+    let new_decl = trm_seq_no_brace[
       trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (typ_var "T" ) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T") (Trm (trm_var array_size)))));
       trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
       (trm_seq ~annot:(None)[
@@ -344,7 +344,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
       | "/" -> Binop_div
       | _ -> fail t.loc "delocalize_aux: this operation is not suported"
     in
-    let accum = trm_seq ~annot:(Some No_braces) [
+    let accum = trm_seq_no_brace [
       trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
       trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
       (trm_seq [

@@ -13,8 +13,9 @@ let to_variables (new_vars : var list) (tg : target) : unit =
 
 (*[tile name block_name b x tg] expects the target [tg] to point to an array declaration.
   It then takes this declaration and transforms it into a tiled array.
-  [block_name] the name of the array which is going to represent a tile.
   [block_type] is the size the block.
+  [block_size] the name of the array which is going to represent a tile.
+
   Ex:
      int const N = 40;            int contst B = 8;
      int const B = 8;             typedef int X[B];
@@ -26,9 +27,11 @@ let to_variables (new_vars : var list) (tg : target) : unit =
       return 0;                     return 0;  
     }                             }
 *)
-let tile (block_name : typvar) ?(block_type :var = "T_block") (tg : target) : unit =
+let tile ?(block_type :typvar = "") (block_size : var) (tg : target) : unit =
+  Internal.nobrace_enter();
   Target.apply_on_transformed_targets(Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Arrays_core.tile block_name block_type i t p) tg
+    (fun (p,i) t -> Arrays_core.tile block_type block_size i t p) tg;
+  Internal.nobrace_remove_and_exit ()
 
 (* [swap name x tg] expects the target [tg] to point to an array delcaratio.
    It changes the declaration so that the bounds of the array ar switched. Also 

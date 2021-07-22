@@ -1,7 +1,5 @@
 open Ast
 open Target
-open Tools
-
 (* TODO: Add docs for all the internal functions *)
 (* LATER: reimplement a function change_trm that operations on explicit paths
    and thus does not need to do resolution again. *)
@@ -107,41 +105,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
 
     change_at
 
-(* TODO:
-    let clean_up_no_brace_seq_pred (filter : no_brace_id -> bool) (t:trm) : trm =
-        .... if (No_braces id) and (filter id) then remove else keep
 
-    let clean_up_no_brace_seq id t =
-       clean_up_no_brace_seq_pred (fun id2 -> id2 = id) t
-
-    let clean_up_no_brace_seq_all t =
-      clean_up_no_brace_seq_pred (fun _id2 -> true) t
-*)
-
-let clean_up_no_brace_seq (t : trm) : trm =
-  let rec clean_up_in_list (tl : trm list) : trm list =
-    match tl with
-    | [] -> []
-    | t :: tl ->
-       begin match t.desc with
-       | Trm_seq tl' when t.annot = Some No_braces ->
-          tl' ++ (clean_up_in_list tl)
-       | _ -> t :: (clean_up_in_list tl)
-       end
-  in
-  let rec aux (t : trm) : trm =
-    match t.desc with
-    (*
-      condition on annotation: toplevel insdeclarations might contain a heap
-      allocated variable and hence we can find a no_brace seq inside a
-      delete_instructions seq, which we do not want to inline
-     *)
-    | Trm_seq tl (* when t.annot <> Some Delete_instructions *) ->
-       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
-         (clean_up_in_list (List.map aux tl))
-    | _ -> trm_map aux t
-  in
-  aux t
 
 
 (* [isolate_last_dir_in_seq dl]:
@@ -371,3 +335,80 @@ let get_pos (x : typvar) (t : trm) : int =
     | _ -> fail t.loc "get_pos_and_element: expected a struct type"
     end
 
+let get_trm_and_its_relatives (index : int) (trms : trm list) : (trm list * trm * trm list) =
+  let lfront, lback = Tools.split_list_at index trms in
+  let element, lback = Tools.split_list_at 1 lback in
+  let element = match element with 
+    | [el] -> el
+    | _ -> fail None "get_element_and_its_relatives: expected a list with a single element"
+    in
+  (lfront, element, lback)
+
+
+
+
+(* TODO:
+    let clean_up_no_brace_seq_pred (filter : no_brace_id -> bool) (t:trm) : trm =
+        .... if (No_braces id) and (filter id) then remove else keep
+
+    let clean_up_no_brace_seq id t =
+       clean_up_no_brace_seq_pred (fun id2 -> id2 = id) t
+
+    let clean_up_no_brace_seq_all t =
+      clean_up_no_brace_seq_pred (fun _id2 -> true) t
+*)
+(* let clean_up_no_brace_seq_pred (filter : int -> bool) (t : trm) : trm = *)
+
+
+
+
+let clean_no_brace_seq (id : int) (t : trm) : trm =
+  let rec clean_up_in_list (tl : trm list) : trm list =
+    match tl with 
+    | [] -> []
+    | t :: tl ->
+      begin match t.desc with
+      | Trm_seq tl' ->
+        begin match t.annot with 
+        | Some (No_braces i) when i = id ->
+          tl' @ (clean_up_in_list tl)
+        | _ -> t :: (clean_up_in_list tl)
+        end
+      | _ -> t :: (clean_up_in_list tl)
+      end in
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_seq tl ->
+      trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
+         (clean_up_in_list (List.map aux tl))
+    | _ -> trm_map aux t
+  in aux t
+
+
+let clean_lit_unit_seq (t : trm) : trm =
+  let rec clean_up_in_list (tl : trm list) : trm list =
+    match tl with 
+    | [] -> []
+    | t :: tl ->
+      begin match t.desc with 
+      | Trm_seq tl' ->
+        (clean_up_in_list tl) @ (clean_up_in_list tl')
+      | Trm_val (Val_lit (Lit_unit)) ->
+        clean_up_in_list tl
+      | _ -> t :: (clean_up_in_list tl)
+      end in
+  let rec aux (t : trm) : trm =
+    match t.desc with
+    | Trm_seq tl ->
+      trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
+        (clean_up_in_list (List.map aux tl))
+    | _ -> trm_map aux t
+  in aux t
+
+
+let nobrace_remove_and_exit () =
+    let id = Nobrace.exit () in
+    Trace.apply (fun _ctx ast -> clean_no_brace_seq id ast)
+
+let nobrace_enter () =
+  Nobrace.enter()

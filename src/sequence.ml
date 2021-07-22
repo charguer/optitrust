@@ -75,9 +75,10 @@ let inline : Target.Transfo.t =
     [label] denotes the label of the sub-sequence. Targeting sequences can be challanging hence having 
           them laballed before can make the apllication of the transformations easier.
 *)
-let wrap ?(visible : bool = true) ?(label : string = "") : Target.Transfo.t =
-  Target.apply_on_target (Sequence_core.wrap visible label )
-
+let wrap ?(visible : bool = true) ?(label : string = "") (tg : Target.target) : unit =
+  Internal.nobrace_enter ();
+  Target.apply_on_target (Sequence_core.wrap visible label ) tg;
+  Internal.nobrace_remove_and_exit ()
 
 (* [unwrap tg] expects the target [tg] to point to a sequence with only one trm inside.
  It moves this trm to the outer sequence*)

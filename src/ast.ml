@@ -1,42 +1,6 @@
 open Tools
 
-(* TODO:
 
-module Nobrace = struct
-
-  let ids = ref []
-
-  let current_id = ref 0
-
-  let enter () =
-    incr current_id;
-    ids := !current_id :: !ids
-
-  let current () =
-    match !ids with
-    | [] -> error
-    | id :: _rest -> id
-
-  let exit () =
-    match !ids with
-    | [] -> error
-    | id :: rest ->
-        ids := rest;
-        id
-
-end
-
-  let trm_seq_no_brace () =
-    trm_seq ~annot:(Some (No_braces Nobrace.current()))
-
-  let nobrace_enter () =
-    Nobrace.enter()
-
-  let nobrace_remove_and_exit () =
-    let id = Nobrace.exit () in
-    Trace.apply (fun ctx ast -> cleannobrace id ast)
-
-*)
 
 
 
@@ -241,7 +205,7 @@ and value =
    *)
 and trm_annot =
   (* used to print back a c++ program *)
-  | No_braces (* TODO: of no_brace_id    where no_brace_id = int   let new_no_brace_id () = .. *)
+  | No_braces of int (* TODO: of no_brace_id    where no_brace_id = int   let new_no_brace_id () = .. *)
   (* annotate applications of star operator that should not be printed *)
   | Access
   (* used to print back seqs that contain multiple declarations *)
@@ -1274,6 +1238,49 @@ let is_typ_const (t : typ) : bool =
   | _ -> false
   end
 
+type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
+
+let get_sequence_trms (t : trm) : trm list =
+  match t.desc with 
+  | Trm_seq tl -> tl
+  | _ -> fail t.loc "get_sequence_trms: expected a sequence"
+
+
+
+module Nobrace = struct
+
+  let ids = ref []
+
+  let current_id = ref 0
+  
+  let init () = 
+    ids := !current_id :: !ids
+
+  let enter () =
+    current_id := !current_id + 1;
+    ids := !current_id :: !ids
+
+  let current () =
+    match !ids with
+    | [] ->  failwith "current:empty list"
+    | id :: _rest -> id
+
+  let exit () =
+    match !ids with
+    | [] -> failwith "exit: empty list"
+    | id :: rest ->
+        ids := rest;
+        id
+
+end
+
+let trm_seq_no_brace (tl : trm list) : trm=
+    trm_seq ~annot:(Some (No_braces (Nobrace.current()))) tl
+
+
+
+
+
 (* type instantiation = trm varmap *)
 
 (* Check if rule is applicable *)
@@ -1283,3 +1290,6 @@ let is_typ_const (t : typ) : bool =
 (* Rewrite rule transformation  *)
 (* let rewrite (pl : target) (rule : base)  *)
 
+(* tile bound type is used  as a parameter to the tile transformation so that the transformation can
+    decide what kind of loop bound it should use
+*)
