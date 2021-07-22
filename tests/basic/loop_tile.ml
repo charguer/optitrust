@@ -2,8 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  !! Loop.tile "2" ~index:"bx" [cFor "x"];
-  !! Loop.tile "2" [cFor "y"];
+  !! Loop.tile "2" ~index:"bx" ~bound:TileBoundDivides [cFor "x"];
+  !! Loop.tile "2" ~bound:TileBoundMin [cFor "y"];
+  !! Loop.tile "2" ~bound:TileBoundAnd [cFor "z"];
   (* TODO: rename tile_index to index *)
 
   (*

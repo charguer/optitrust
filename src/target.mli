@@ -214,6 +214,8 @@ val applyi_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> 'a -> t
 
 val apply_on_transformed_targets : ?rev:bool -> (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
+val apply_on_transformed_target_between : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
+
 val show : ?line:int -> ?reparse:bool -> ?debug_ast:bool -> target -> unit
 
 (* Target debugging *)

@@ -17,7 +17,8 @@ let insert_aux (index : int) (s : string) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at index tl in
-      let new_trm = trm_seq_no_brace [trm_arbitrary s] in
+      (* let new_trm = trm_seq_no_brace [trm_arbitrary s] in *)
+      let new_trm = trm_arbitrary s in
       trm_seq ~annot:t.annot  (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 

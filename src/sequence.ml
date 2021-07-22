@@ -5,10 +5,8 @@ open Target
   [s] denotes the trm_to be inserted inside the sequence
 *)
 let insert (s : string) (tg : target): unit =
-  Internal.nobrace_enter ();
   Target.apply_on_target_between (fun t (p,i) ->
     Sequence_core.insert i s t p) tg;
-  Internal.nobrace_remove_and_exit ();
   Trace.reparse()
 
 

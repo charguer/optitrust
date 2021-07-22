@@ -1202,3 +1202,8 @@ let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let res = resolve_target_struct tgs t in
   List.map (compute_relative_index tgs.target_relative t) res
 
+
+let resolve_target_between_exactly_one (tg : target) (t : trm) : (path * int) = 
+  match resolve_target_between tg t with
+  | [(p,i)] -> (p,i)
+  | _ -> fail t.loc "resolve_target_between_exactly_one: obtainer several targets"

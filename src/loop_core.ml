@@ -77,35 +77,63 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
      let tile_index = match tile_index with
       | "" -> "b" ^ index
       | _ -> tile_index in
-     let tile_stop = begin match bound with 
+     begin match bound with 
       | TileBoundMin ->
-        trm_apps (trm_var "min")
-                      [ stop;
-                        trm_apps (trm_binop Binop_add)[
-                          trm_var tile_index;
-                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_size]]]
+        let tile_stop = trm_apps (trm_var "min")[ stop; trm_apps (trm_binop Binop_add)[
+          trm_var tile_index;
+          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_size]]] in
+          trm_for tile_index direction start stop (trm_var tile_size) (
+              trm_seq [
+                trm_for index direction (trm_var tile_index) tile_stop step body])
       | TileBoundAnd ->
-        fail t.loc "tile_aux: only simple loops are supported"
-
+          let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [trm_var tile_index]) in
+            let cond = begin match direction with
+              | DirUp -> 
+                trm_apps (trm_binop Binop_and)[
+                  trm_apps (trm_binop (Binop_lt)) [trm_var index; 
+                    trm_apps (trm_binop Binop_add) [
+                      trm_var tile_index; trm_var tile_size]];
+                  trm_apps (trm_binop Binop_lt)  [trm_var index; stop]
+                ]
+              | DirDown -> 
+                trm_apps (trm_binop Binop_and)[
+                  trm_apps (trm_binop (Binop_gt)) [trm_var index; 
+                    trm_apps (trm_binop Binop_add) [
+                      trm_var tile_index; trm_var tile_size]];
+                  trm_apps (trm_binop Binop_gt)  [trm_var index; stop]
+                ]
+              end in
+          let step =
+            begin match direction with
+            | DirUp ->
+                begin match step.desc with
+                | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_inc) [trm_var index]
+                | _ ->
+                  trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)[
+                    trm_var index;
+                    trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+                end
+            | DirDown ->
+                begin match step.desc with
+                | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_dec) [trm_var index]
+                | _ ->
+                  trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_sub)[
+                    trm_var index;
+                    trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+                end
+            end in
+            trm_for tile_index direction start stop (trm_var tile_size) 
+              (trm_seq [trm_for_c init cond step body]) 
       | TileBoundDivides -> 
-        trm_apps (trm_binop Binop_add)[
+        let tile_stop = trm_apps (trm_binop Binop_add)[
                           trm_var tile_index;
-                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_index]]
-     end in
-     (* let spec_stop = if not divides then trm_apps (trm_var "min")
-                      [ stop;
-                        trm_apps (trm_binop Binop_add)[
-                          trm_var tile_index;
-                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_size]]]
-                      else
-                        trm_apps (trm_binop Binop_add)[
-                          trm_var tile_index;
-                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_index]] in *)
-     trm_for tile_index direction start stop (trm_var tile_size) (
-       trm_seq [
-         trm_for index direction (trm_var tile_index) tile_stop step body])
+                          trm_apps ~annot:(Some Mutable_var_get)(trm_unop Unop_get) [trm_var tile_size]] in
+        trm_for tile_index direction start stop (trm_var tile_size) (
+              trm_seq [
+                trm_for index direction (trm_var tile_index) tile_stop step body])                          
+     end 
+     
   | _ -> fail t.loc "tile_aux: only simple loops are supported"
-
 
 let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Transfo.local =
    Target.apply_on_path (tile_aux tile_index bound tile_size )
