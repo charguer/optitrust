@@ -396,6 +396,9 @@ let unswitch (trm_index : int) : Target.Transfo.local =
 let to_unit_steps_aux (new_index : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, _) ->
+    let new_index = match new_index with
+    | "" -> index ^ "_1"
+    | _ -> new_index in
     let body_trms = for_loop_body_trms t in
     let new_decl = trm_let Var_mutable (index, (typ_ptr Ptr_kind_mut (typ_int()) ~typ_attributes:[GeneratedStar]))
         (trm_apps (trm_prim (Prim_new (typ_int())))
