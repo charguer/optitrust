@@ -2,13 +2,13 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-    !! Sequence.unwrap [cSeq ~args:[cVarDef "x"] ()];
-    !! Sequence.unwrap [cSeq ~args:[cVarDef "y"] ()];
+    !! Sequence.elim_around_instr [cVarDef "x"];
+    !! Sequence.elim_around_instr [cVarDef "y"];
 
-    (* TODO: rename inline to elim
+    (* FIXED: rename inline to elim
              rename unwrap to elim_around_instr
-      TODO: think about better names
-
+      LATER: think about better names
+    FIXED:
     Sequence.elim_around_instr tg =
       resolve tg (fun p ->
          let pseq = get_surrounding_seq p

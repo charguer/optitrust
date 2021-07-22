@@ -47,7 +47,7 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path (delete_aux index nb_instr)
 
 
-(* [sub_aux index nb t]: inside a sequence, move all the trms with findex falling in a rance 
+(* [intro_aux index nb t]: inside a sequence, move all the trms with findex falling in a rance 
       from [index] to [index] + [nb] into a sub-sequence.
     params:
       index: index where the grouping is performed
@@ -56,44 +56,21 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
     return: the updated ast of surrounding sequence with the inserted nodes
 
 *)
-let sub_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
+let intro_aux (label : string) (visible : bool) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at index tl in
-      let l_sub,lback = Tools.split_list_at nb lback in
-      let sub_seq = trm_seq  l_sub in
-      let sub_seq = if label <> "" then trm_labelled label sub_seq else sub_seq in
-        trm_seq (lfront @ [sub_seq] @ lback)
-    | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
+      let l_intro,lback = Tools.split_list_at nb lback in
+      let intro_seq = trm_seq  l_intro in
+      let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
+        if visible then trm_seq (lfront @ [intro_seq] @ lback)
+          else trm_seq (lfront @ [intro_seq] @ lback)
+    | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 
+let intro (label : string) (visible : bool) (index : int) (nb_instr : int) : Target.Transfo.local =
+  Target.apply_on_path (intro_aux label visible index nb_instr)
 
-let sub (label : string) (index : int) (nb_instr : int) : Target.Transfo.local =
-  Target.apply_on_path (sub_aux label index nb_instr)
-
-
-(* [sub_between_aux index1 index2 t]: inside a sequence get the index of two trms, then move all the 
-      terms(ast nodes) with index falling in the range of the two trms into a sub-sequence
-    params:
-      index1: index where the grouping starts
-      index2: index where the grouping ends
-      t: ast of the outer sequence where the innsertions is done
-    return: the updated of the surrounding sequence with the inserted nodes
-*)
-let sub_between_aux (label : string) (index1 : int) (index2 : int) (t : trm) : trm =
-  match t.desc with
-    | Trm_seq tl ->
-      let lfront, lback = Tools.split_list_at index2 tl in
-      let lfront, l_sub = Tools.split_list_at index1 lfront in
-      let sub_seq = trm_seq  l_sub in
-      let sub_seq = if label <> "" then trm_labelled label sub_seq else sub_seq in
-        trm_seq  (lfront @ [sub_seq] @ lback)
-    | _ -> fail t.loc "sub_aux: expected the sequence on which the grouping is performed"
-
-
-let sub_between (label : string) (index1 : int) (index2 : int) : Target.Transfo.local =
-  Target.apply_on_path (sub_aux label index1 index2)
-
-(*[inline_aux index t]: inline an inner sequence into an outer sequence.
+(*[elim_aux index t]: inline an inner sequence into an outer sequence.
     params:
       index: a valid index in the outer sequence; at that index, the subterm
          should correspond to the inner sequence
@@ -102,42 +79,26 @@ let sub_between (label : string) (index1 : int) (index2 : int) : Target.Transfo.
       updated ast of the outer sequence, where the elements from the inner
       sequence are directly laid out there.
 *)
-let inline_aux (index : int) (t : trm) : trm =
+let elim_aux (index : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at index tl in
       let inner_seq, lback = Tools.split_list_at 1 lback in
       let inner_seq = begin match inner_seq with
         | [ins] -> ins
-        | _ -> fail t.loc "inline_aux: exected a list with only one element"
+        | _ -> fail t.loc "elim_aux: exected a list with only one element"
         end in
       let inner_seq_trms = 
         begin match inner_seq.desc with
         | Trm_seq tl1 -> tl1
-        | _ -> fail t.loc "inline_aux: inner sequence was not found, make sure the index is correct"
+        | _ -> fail t.loc "elim_aux: inner sequence was not found, make sure the index is correct"
         end in
       trm_seq ~annot:t.annot (lfront @ inner_seq_trms @ lback)
-    | _ -> fail t.loc "inline_aux: expected the sequence on which the ilining is performed"
+    | _ -> fail t.loc "elim_aux: expected the sequence on which the ilining is performed"
 
 
-let inline (index : int) : Target.Transfo.local =
-  Target.apply_on_path (inline_aux index)
-
-
-(* [wrap_aux visible label t]: replacing t with a sequence that contains t as single item.
-   params:
-    t: ast of the instruction 
-    visible: a flag to turn on(off) curly braces of the sequence
-   return: 
-    updated ast of the outer sequence with wrapped node t
- *)
-let wrap_aux (visible : bool) (label : string) (t : trm) : trm =
-  let wrapped_seq = if visible then trm_seq [t] else trm_seq_no_brace [t] in
-  if label <> "" then trm_labelled label wrapped_seq else wrapped_seq 
- 
-let wrap (visible : bool) (label : string) : Target.Transfo.local=
-  Target.apply_on_path (wrap_aux visible label)
-
+let elim (index : int) : Target.Transfo.local =
+  Target.apply_on_path (elim_aux index)
 
 (* [unrwap_aux t]: replacing a sequence that contains a single item t with t.
    params:

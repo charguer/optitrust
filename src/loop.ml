@@ -91,7 +91,7 @@ let fusion_on_block : Target.Transfo.t =
 *)
 let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   let label = Tools.optitrust_label in
-  Sequence.sub nb ~label tg;
+  Sequence.intro nb ~label tg;
   fusion_on_block [Target.cLabel label]
 
 (* [extract_variable tg] expects tg to point to an uninitialized variable

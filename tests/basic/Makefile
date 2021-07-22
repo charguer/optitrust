@@ -7,10 +7,10 @@ TARGET_MAKE_ALL := transfo
 TESTS_WORKING := \
 	loop_tile.ml \
 	sequence_insert.ml \
-	sequence_sub.ml \
+	sequence_intro.ml \
 	sequence_delete.ml \
   sequence_inline.ml \
-  sequence_wrap.ml \
+  sequence_intro_on_instr.ml \
 	array_swap.ml \
   label_add.ml \
   label_remove.ml \
@@ -31,7 +31,7 @@ TESTS_TOCHECK := \
   loop_tile.ml \
   loop_unswitch.ml \
   loop_to_unit_steps.ml \
-  sequence_unwrap.ml \
+  sequence_elim_around_instr.ml \
   struct_reorder.ml \
   struct_set_explicit.ml \
 	struct_set_implicit.ml \
