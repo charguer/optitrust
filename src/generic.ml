@@ -67,16 +67,16 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
 
 
-(* [arbitrary_if single_branch cond tg] expects the target tg to point to an instruction 
-    inside a sequence. Then it will create an if statement with the condition entered by the user.
-    [single_branch] - denotes a boolean to decide whether there is an else branch or not. If true 
-    it will put the next coming instruction into the else branch.
+(* [arbitrary_if cond tg] expects the target tg to point to an instruction 
+    inside a sequence. Then it will create an if statement with the condition entered by the user
+      and both it's then and else branches will contain the same instruction.
     [cond] - denotes a string representing the code which will appear as teh condition in the 
     if statement, then this code is transformed and integrated inside the ast.
 *)
-let arbitrary_if ?(single_branch : bool = false) (cond : string) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.arbitrary_if single_branch i cond t p) tg;
+let arbitrary_if (cond : string) (tg : target) : unit =
+  Target.apply_on_target (fun t p -> Generic_core.arbitrary_if cond t p) tg;
+  (* Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Generic_core.arbitrary_if single_branch i cond t p) tg; *)
   Trace.reparse()
 
 (* [change_occcurence new_name tg] expects the target tg to point to a variable occurrence.

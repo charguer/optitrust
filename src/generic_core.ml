@@ -249,35 +249,16 @@ let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
 (* [arbitrary_if single_branch index cond t]: take one or two instructions and create an if statement
       or an if else statment if [single_brnach] is true.
     params:
-      single_branch: a boolean indicating whether there is an else branch or not
-      index: index of the instruction inside it's surrounding sequence
       cond: condition of the if statement given as string code
       t: ast of the outer sequence containing the instruction
     return:
       updated ast of the surrounding sequence with the added if statement
  *)
-let arbitrary_if_aux (single_branch : bool) (index : int) (cond : string) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    begin match single_branch with 
-    | true ->
-      let branch, lback = Tools.split_list_at 1 lback in
-      let then_branch = begin match branch with 
-                        | [then_] -> then_
-                        | _ -> fail t.loc "arbitrary_if_aux: expected a list with only one element"
-                        end in
-      let new_if = trm_if (trm_arbitrary cond) then_branch (trm_lit (Lit_unit)) in
-      trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
-    | false ->
-      let branches, lback = Tools.split_list_at 2 lback in
-      let new_if = trm_if (trm_arbitrary cond) (List.nth branches 0) (List.nth branches 1) in
-      trm_seq ~annot:t.annot (lfront @ [new_if] @ lback)
-    end
-  | _ -> fail t.loc "arbitrary_if_aux: expected the surrounding sequence"
-  
-let arbitrary_if (single_branch : bool) (index : int) (cond : string) : Target.Transfo.local =
-  Target.apply_on_path (arbitrary_if_aux single_branch index cond)
+let arbitrary_if_aux (cond : string) (t : trm) : trm =
+  trm_if (trm_arbitrary cond) t t
+   
+let arbitrary_if (cond : string) : Target.Transfo.local =
+  Target.apply_on_path (arbitrary_if_aux cond)
 
 
 (* [change_occurrence_aux new_name t]: change a variable occurrence or a function call with a new 
