@@ -341,7 +341,6 @@ and trm_desc =
   | Trm_abort of abort (* return or break or continue *)
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
-  | Trm_decoration of string * trm * string
     (* LATER: ARTHUR, make this a flag in [trm], carrying an id, rather than a constructor *)
   | Trm_any of trm
   | Trm_arbitrary of string
@@ -521,11 +520,6 @@ let trm_goto ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : 
   {annot; desc = Trm_goto l; loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_decoration ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
-  (left : string) (right : string) (t : trm) : trm =
-  {annot; desc = Trm_decoration (left, t, right); loc; is_statement = false; add;
-  typ = Some (typ_unit ()); attributes; ctx}
-
 let trm_null ?(annot = []) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
   trm_val ~annot ~loc ~ctx (Val_ptr 0)
 (*
@@ -575,13 +569,8 @@ let trm_arbitrary ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribu
 (code : string) : trm =
   {annot = annot; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
-(* TODO: Fix me *)
-(* let is_included (t : trm) : bool =
-  if List.mem (Include h) t.annot then true else false *)
-(*
-  List.exists (function Include _ -> true | _ -> false) t.annot
-  List.exists (fun x -> x = Highlight) t.annot
-*)
+let is_included (t : trm) : bool =
+ List.exists (function Include _ -> true | _ -> false) t.annot
 
 (*
   compute a function that prints information related to some location in file
@@ -701,9 +690,6 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      end
   | Trm_labelled (l, body) ->
      trm_labelled ~annot ~loc ~add l (f false body)
-  (* val, var *)
-  | Trm_decoration (left, body, right) ->
-    trm_decoration ~annot ~loc ~add left right (f false body)
   | Trm_any t ->
     trm_any ~annot ~loc ~add (f false t)
   | _ -> t
@@ -758,7 +744,6 @@ let is_used_var_in (t : trm) (x : var) : bool =
     | Trm_abort (Ret (Some t)) -> aux t
     | Trm_labelled (_, t) -> aux t
     (* val, break, continue, return without value *)
-    | Trm_decoration (_,t,_) -> aux t
     | _ -> false
   in
   aux t
@@ -797,7 +782,6 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
        List.exists (fun (tl, body) -> List.exists aux tl || aux body) cases
     | Trm_abort (Ret (Some t)) -> aux t
     | Trm_labelled (_, t) -> aux t
-    | Trm_decoration (_,t,_) -> aux t
     (* val, var, break, continue, return without value, goto *)
     | _ -> false
   in
@@ -831,7 +815,6 @@ let fun_call_args (f : var) (t : trm) : trm list =
          )
     | Trm_abort (Ret (Some t)) -> aux t
     | Trm_labelled (_, t) -> aux t
-    | Trm_decoration (_, t, _) -> aux t
     (* val, var, break, continue, return without value, goto *)
     | _ -> []
   in
@@ -1051,7 +1034,6 @@ let nb_goto (l : label) (t : trm) : int =
             cases)
     | Trm_abort (Ret (Some t)) -> aux t
     | Trm_labelled (_, t) -> aux t
-    | Trm_decoration (_, t, _) -> aux t
     | Trm_goto l' when l = l' -> 1
     (* val, var, break, continue, return without value, goto other label *)
     | _ -> 0
@@ -1276,13 +1258,18 @@ module Nobrace = struct
 end
 
 
-
-
-
 let trm_seq_no_brace (tl : trm list) : trm=
     trm_seq ~annot:[No_braces (Nobrace.current())] tl
 
-
+let get_decorators (t : trm) : (string * string) =
+  let rec aux l = match l with 
+  | [] -> fail t.loc "get_decorators: empty annotation list"
+  | hd :: tl ->
+    begin match hd with 
+    | Highlight (l, r) -> (l, r)
+    | _ -> aux tl
+    end
+   in aux t.annot
 
 
 

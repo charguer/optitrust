@@ -237,8 +237,6 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           trm_abort ~annot ~loc ~add ~attributes (Ret (Some (aux dl body)))
        | Dir_body, Trm_labelled (l, body) ->
           trm_labelled ~annot ~loc ~add ~attributes l (aux dl body)
-       | Dir_body, Trm_decoration(left, body, right) ->
-          trm_decoration ~annot ~loc ~add ~attributes left right (aux dl body)
        | Dir_for_init, Trm_for_c (init, cond, step, body) ->
           trm_for_c~annot ~loc ~add ~attributes (aux dl init) cond step body
        | Dir_for_step, Trm_for_c (init, cond, step, body) ->

@@ -569,7 +569,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
       | _ -> TrmKind_Expr
       end
    | Trm_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
-   | Trm_labelled (_, t) | Trm_decoration (_, t, _) | Trm_any t -> get_trm_kind t
+   | Trm_labelled (_, t) | Trm_any t -> get_trm_kind t
    | Trm_arbitrary _ -> fail t.loc "get_trm_kind: trm_arbitrary is removed during parsing"
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
@@ -890,10 +890,9 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
        included file
       *)
      resolve_target_simple p {t with annot = []}
-  (* TODO: Fix me *)
-  (* | _ when is_included t ->
+  | _ when is_included t ->
      print_info loc "resolve_constraint: not an include constraint\n";
-     [] *)
+     []
   (* target constraints first *)
   (* following directions *)
   | Constr_dir d -> follow_dir d p t
@@ -918,13 +917,12 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
   (* let p = target_to_target_simple p in ---TODO: used for getting rid of Constr_chain that appear in depth *)
   let loc = t.loc in
   (* no exploration in depth in included files *)
-  (* TODO: Fix me *)
-  (* if List.mem (Include h) t.annot then begin
+  if  (List.exists (function Include _ -> true | _ -> false) t.annot) then begin 
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
-     end *)
+     end
 
-  if List.mem Access t.annot then
+  else if List.mem Access t.annot then
      begin match t.desc with
        (*
          the wildcard is a star operator the user doesn't know about

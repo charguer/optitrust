@@ -253,9 +253,6 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
   | Trm_goto l ->
      node "Trm_goto" ^^ string l
-  | Trm_decoration (l,t,r) ->
-      let dt = print_trm ~only_desc t in
-      node "Trm_decoration" ^^ parens (string l ^^ comma ^/^ dt ^^ comma ^/^ string r)
   | Trm_any t ->
     let dt = print_trm ~only_desc t in
       node "Trm_any"  ^^ parens (dt)
@@ -313,6 +310,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
     | Highlight (l, r) -> string "Highlight" ^^ parens (string l ^^ comma ^^ string r) in
+  
   if only_desc then ddesc
     else 
       let dannot = Tools.doc_list_to_doc (List.map print_annot t.annot)
