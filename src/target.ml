@@ -548,7 +548,7 @@ let target_show_aux (debug_ast : bool) (id : int) (t : trm) : trm =
     Ast_to_text.print_ast ~only_desc:true stdout t;
   let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
   let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
-  trm_decoration left_decoration right_decoration t
+  {t with annot = t.annot @ [Highlight (left_decoration, right_decoration)]}
 
 (* [target_show_transfo id t p]: adds an annotation [trm_decoration]
    carrying the information [id] around the term at path [p] in the term [t]. *)

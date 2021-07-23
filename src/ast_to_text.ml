@@ -312,7 +312,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Grouped_binding -> string "Grouped_binding"
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
-    | Highlight -> string "Highlight" in
+    | Highlight (l, r) -> string "Highlight" ^^ parens (string l ^^ comma ^^ string r) in
   if only_desc then ddesc
     else 
       let dannot = Tools.doc_list_to_doc (List.map print_annot t.annot)
