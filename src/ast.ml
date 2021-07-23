@@ -578,9 +578,10 @@ let trm_arbitrary ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribu
 (* TODO: Fix me *)
 (* let is_included (t : trm) : bool =
   if List.mem (Include h) t.annot then true else false *)
-
-
-
+(*
+  List.exists (function Include _ -> true | _ -> false) t.annot
+  List.exists (fun x -> x = Highlight) t.annot
+*)
 
 (*
   compute a function that prints information related to some location in file
