@@ -77,12 +77,17 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
      let tile_index = match tile_index with
       | "" -> "b" ^ index
       | _ -> tile_index in
+    (* Hack for elminating the appearance of 1 in the case when step is equal to one *)
+    let trm_tile_size =  match step.desc with
+    | Trm_val (Val_lit (Lit_int 1)) ->
+      trm_var (tile_size)
+    | _ -> trm_apps (trm_binop Binop_mul) [trm_var tile_size; step] in
      begin match bound with
       | TileBoundMin ->
         let tile_stop = trm_apps (trm_var "min")[ stop; trm_apps (trm_binop Binop_add)[
           trm_var tile_index;
-          trm_apps ~annot:[Mutable_var_get](trm_unop Unop_get) [trm_var tile_size]]] in
-          trm_for tile_index direction start stop (trm_var tile_size) (
+          trm_apps ~annot:[Mutable_var_get](trm_unop Unop_get) [trm_tile_size]]] in
+          trm_for tile_index direction start stop (trm_tile_size) (
               trm_seq [
                 trm_for index direction (trm_var tile_index) tile_stop step body])
       | TileBoundAnd ->
@@ -92,14 +97,14 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
                 trm_apps (trm_binop Binop_and)[
                   trm_apps (trm_binop (Binop_lt)) [trm_var index;
                     trm_apps (trm_binop Binop_add) [
-                      trm_var tile_index; trm_var tile_size]];
+                      trm_var tile_index; trm_tile_size]];
                   trm_apps (trm_binop Binop_lt)  [trm_var index; stop]
                 ]
               | DirDown ->
                 trm_apps (trm_binop Binop_and)[
                   trm_apps (trm_binop (Binop_gt)) [trm_var index;
                     trm_apps (trm_binop Binop_add) [
-                      trm_var tile_index; trm_var tile_size]];
+                      trm_var tile_index; trm_tile_size]];
                   trm_apps (trm_binop Binop_gt)  [trm_var index; stop]
                 ]
               end in
@@ -122,13 +127,13 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
                     trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
                 end
             end in
-            trm_for tile_index direction start stop (trm_var tile_size)
+            trm_for tile_index direction start stop (trm_tile_size)
               (trm_seq [trm_for_c init cond step body])
       | TileBoundDivides ->
         let tile_stop = trm_apps (trm_binop Binop_add)[
                           trm_var tile_index;
-                          trm_apps ~annot:[Mutable_var_get](trm_unop Unop_get) [trm_var tile_size]] in
-        trm_for tile_index direction start stop (trm_var tile_size) (
+                          trm_apps ~annot:[Mutable_var_get](trm_unop Unop_get) [trm_tile_size]] in
+        trm_for tile_index direction start stop (trm_tile_size) (
               trm_seq [
                 trm_for index direction (trm_var tile_index) tile_stop step body])
      end

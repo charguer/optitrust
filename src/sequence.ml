@@ -81,7 +81,9 @@ let elim : Target.Transfo.t =
           them laballed before can make the apllication of the transformations easier.
 *)
 let intro_on_instr ?(label : string = "") ?(visible : bool = true) (tg : Target.target) : unit =
-  intro ~label ~visible 1 tg
+  Internal.nobrace_enter ();
+  Target.apply_on_target (Sequence_core.intro_on_instr visible label) tg;
+  Internal.nobrace_remove_and_exit ()
 
 (* [unwrap tg] expects the target [tg] to point to a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)
@@ -91,5 +93,3 @@ let elim_around_instr (tg : Target.target) : unit =
     let p, i = Internal.isolate_last_dir_in_seq (fst (Internal.isolate_last_dir_in_seq p)) in
     Sequence_core.elim i t p)
 
-let unwrap : Target.Transfo.t =
-  Target.apply_on_target (Sequence_core.unwrap)

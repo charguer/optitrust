@@ -100,6 +100,21 @@ let elim_aux (index : int) (t : trm) : trm =
 let elim (index : int) : Target.Transfo.local =
   Target.apply_on_path (elim_aux index)
 
+(* [intro_on_instr_aux visible label t]: replacing t with a sequence that contains t as single item.
+   params:
+    label: add a label around the sequence
+    visible: a flag to turn on(off) curly braces of the sequence
+    t: ast of the instruction 
+   return: 
+    updated ast of the outer sequence with wrapped node t
+ *)
+let intro_on_instr_aux (label : string) (visible : bool) (t : trm) : trm =
+  let wrapped_seq = if visible then trm_seq [t] else trm_seq_no_brace [t] in
+  if label <> "" then trm_labelled label wrapped_seq else wrapped_seq 
+ 
+let intro_on_instr (visible : bool) (label : string) : Target.Transfo.local=
+  Target.apply_on_path (intro_on_instr_aux label visible)
+
 (* [unrwap_aux t]: replacing a sequence that contains a single item t with t.
    params:
     t: a term that corresponds to a sequence with a single item in t
