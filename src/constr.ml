@@ -143,7 +143,9 @@ and constr =
   | Constr_bool of bool
   (* Constraint that matches only the root of the AST *)
   | Constr_root
-  (* LATER: add Constr_or, Constr_and, Constr_not *)
+  (* LATER: add Constr_or, Constr_and, Constr_not
+     -> maybe even better "Constr_or of constr list"
+        this is useful for giving a list of targets. *)
 
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
@@ -386,6 +388,14 @@ let rec constr_to_string (c : constr) : string =
     let string_cl = List.map constr_to_string cl in
     list_to_string string_cl
   | Constr_bool b -> if b then "True" else "False"
+  (* TODO: Constr_or cs ->
+       evaluate each of the cs using a recursive call;
+       use a custom recursive function (not List.map or fold)
+       so that you can return as soon as one constraint matches
+       --- especially for Constr_and
+
+       maybe you'll like to use: Constr_logic logic_operator cs
+       but it's not sure *)
   | Constr_root -> "Root"
 
 and target_to_string (tg : target) : string =
@@ -606,7 +616,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Trm_seq tl -> List.mem true (List.map (check_constraint c) tl)
      | _ -> fail t.loc "check_constraint: bad multi_decl annotation"
      end
-  else 
+  else
 
      let loc = t.loc in
      begin match c, t.desc with
@@ -702,7 +712,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_cases cc cases
      | Constr_bool b, _ -> b
      | Constr_root, _ ->
-        if List.mem Main_file t.annot then true else false 
+        if List.mem Main_file t.annot then true else false
      | _ -> false
      end
 
@@ -914,7 +924,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      []
      end *)
 
-  if List.mem Access t.annot then 
+  if List.mem Access t.annot then
      begin match t.desc with
        (*
          the wildcard is a star operator the user doesn't know about
@@ -923,7 +933,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (explore_in_depth p t')
      | _ -> fail loc "explore_in_depth: bad access annotation"
      end
-  else if List.mem Multi_decl t.annot then 
+  else if List.mem Multi_decl t.annot then
      (* explore each declaration in the seq *)
      begin match t.desc with
      | Trm_seq tl ->
@@ -935,7 +945,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_seq tl -> add_dir (Dir_nth 0) ((explore_list tl (fun n -> Dir_nth n) (aux)))
      | _ -> fail t.loc "explore_in_depth: the main file starts with a suquence"
     end *)
-  else 
+  else
      begin match t.desc with
      | Trm_let (_ ,(_, _), body) ->
        add_dir Dir_body (aux body)

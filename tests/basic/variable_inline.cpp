@@ -1,17 +1,12 @@
-#include <iostream>
-
-void printReference (int& x)
-{
-    int y;
-    y = x;
+void printReference (int& x) {
+  int y;
+  y = x;
 }
 
-void printReference1 (int&& x)
-{   
-    int y;
-    y = x+1;
+void printReference1 (int&& x) {
+  int y;
+  y = x+1;
 }
-
 
 int main() {
   // inlining without removal of 'a'
@@ -27,7 +22,6 @@ int main() {
   int y = x + x;
 
   // inlining in a return expression
-  
   int &u = y;
   u = 5;
   int z = 4;
