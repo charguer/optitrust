@@ -450,7 +450,7 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
     (* TODO: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
-    | Trm_apps(_,[get_base]) when t.annot = Some Access ->
+    | Trm_apps(_,[get_base]) when (List.mem Access t.annot)  ->
       begin match get_base.desc with
       | Trm_apps (f, [base]) ->
          begin match f.desc with
@@ -472,11 +472,11 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
                    *)
 
                   let base'  = match base'.desc with
-                  | Trm_apps (_, [base'']) when base'.annot = Some Mutable_var_get -> base''
+                  | Trm_apps (_, [base'']) when List.mem Mutable_var_get base'.annot  -> base''
                   | _ -> base'
                    in
                   let index  = match index.desc with
-                  | Trm_apps (_, [index']) when index.annot = Some Mutable_var_get -> index'
+                  | Trm_apps (_, [index']) when List.mem Mutable_var_get index.annot -> index'
                   | _ -> index
                    in
                   begin match base'.typ with

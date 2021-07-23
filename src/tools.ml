@@ -128,6 +128,16 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : stri
   in
   (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
 
+let doc_list_to_doc ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =
+  let rec aux = function
+    | [] -> underscore
+    | [s] -> s
+    | s1 :: s2 :: sl -> s1 ^^ sep ^^ string " " ^^ aux (s2 :: sl)
+  in
+  (List.nth bounds 0) ^^ aux l ^^ (List.nth bounds 1)
+
+
+
 let list_all_true (bl : bool list) : bool =
   List.for_all (fun b -> b = true) bl
 

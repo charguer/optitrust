@@ -585,11 +585,10 @@ exception Resolve_target_failure of location option * string
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
   (* LATER: find if it is find to deactivate these encodings *)
-  match t.annot with
   (* | Some Heap_allocated | Some Delete_instructions -> *)
      (* if t is one of the heap allocation patterns, we simplify it before *)
      (* check_constraint c (forget_heap_alloc t) *)
-  | Some Access ->
+  if List.mem Access t.annot  then
      (* forget the star operator at the root before checking the constraint *)
      begin match t.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t']) ->
@@ -598,7 +597,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         (* Ast_to_text.print_ast ~only_desc:true stdout t;
         fail t.loc "check_constraint: bad access annotation" *)
      end
-  | Some Multi_decl ->
+  else if List.mem Multi_decl t.annot then
      (*
        check the constraint on each element of the seq and return true if one
        is true
@@ -607,7 +606,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Trm_seq tl -> List.mem true (List.map (check_constraint c) tl)
      | _ -> fail t.loc "check_constraint: bad multi_decl annotation"
      end
-  | _ ->
+  else 
 
      let loc = t.loc in
      begin match c, t.desc with
@@ -703,7 +702,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_cases cc cases
      | Constr_bool b, _ -> b
      | Constr_root, _ ->
-        begin match t.annot with Some Main_file -> true | _ -> false end
+        if List.mem Main_file t.annot then true else false 
      | _ -> false
      end
 
@@ -875,15 +874,16 @@ and resolve_constraint (c : constr) (p : target_simple) (t : trm) : paths =
   (*
     do not resolve in included files, except if the constraint is Constr_include
    *)
-  | Constr_include h when t.annot = Some (Include h) ->
+  | Constr_include h when List.mem (Include h) t.annot ->
      (*
        remove the include annotation for target resolution to proceed in the
        included file
       *)
-     resolve_target_simple p {t with annot = None}
-  | _ when is_included t ->
+     resolve_target_simple p {t with annot = []}
+  (* TODO: Fix me *)
+  (* | _ when is_included t ->
      print_info loc "resolve_constraint: not an include constraint\n";
-     []
+     [] *)
   (* target constraints first *)
   (* following directions *)
   | Constr_dir d -> follow_dir d p t
@@ -907,13 +907,14 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
 
   (* let p = target_to_target_simple p in ---TODO: used for getting rid of Constr_chain that appear in depth *)
   let loc = t.loc in
-  match t.annot with
   (* no exploration in depth in included files *)
-  | Some (Include _) ->
+  (* TODO: Fix me *)
+  (* if List.mem (Include h) t.annot then begin
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
+     end *)
 
-  | Some Access ->
+  if List.mem Access t.annot then 
      begin match t.desc with
        (*
          the wildcard is a star operator the user doesn't know about
@@ -922,7 +923,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (explore_in_depth p t')
      | _ -> fail loc "explore_in_depth: bad access annotation"
      end
-  | Some Multi_decl ->
+  else if List.mem Multi_decl t.annot then 
      (* explore each declaration in the seq *)
      begin match t.desc with
      | Trm_seq tl ->
@@ -934,7 +935,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_seq tl -> add_dir (Dir_nth 0) ((explore_list tl (fun n -> Dir_nth n) (aux)))
      | _ -> fail t.loc "explore_in_depth: the main file starts with a suquence"
     end *)
-  | _ ->
+  else 
      begin match t.desc with
      | Trm_let (_ ,(_, _), body) ->
        add_dir Dir_body (aux body)

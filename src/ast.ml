@@ -240,7 +240,7 @@ and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   is_statement: true if the trm is an instruction in a seq
  *)
 and trm =
- { annot : trm_annot option; (* TODO: make this a list *)
+ { annot : trm_annot list; (* TODO: make this a list *)
    desc : trm_desc;
    loc : location;
    is_statement : bool; (* TODO : generalize to trm_kind *)
@@ -440,103 +440,103 @@ let fail (loc : location) (err : string) : 'a =
 
 (* *************************** Trm constructors *************************** *)
 
-let trm_val ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
+let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
   {annot = annot; desc = Trm_val v; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
-let trm_var ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
+let trm_var ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (x : var) : trm =
   {annot = annot; desc = Trm_var x; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
-let trm_array ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
+let trm_array ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (tl : trm list) : trm =
   {annot = annot; desc = Trm_array tl; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
-let trm_struct ?(annot = None) ?(loc = None) ?(add = []) ?(typ = None)
+let trm_struct ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (tl : trm list) : trm =
   {annot = annot; desc = Trm_struct tl; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
-let trm_let ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
+let trm_let ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind) (typed_var : typed_var) (init : trm): trm =
   {annot = annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_let_fun ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
+let trm_let_fun ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (name : var) (ret_typ : typ) (args : typed_var list) (body : trm) : trm =
   {annot = annot; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_typedef ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
+let trm_typedef ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (def_typ : typedef): trm =
   {annot = annot; desc = Trm_typedef def_typ; loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_if ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_if ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (tb : trm) (eb : trm) : trm =
   {annot = annot; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_seq ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_seq ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (tl : trm list) : trm =
   {annot = annot; desc = Trm_seq tl; loc = loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_apps ?(annot = None) ?(loc = None) ?(is_statement : bool = false)
+let trm_apps ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None) (f : trm)
   (args : trm list) : trm =
   {annot = annot; desc = Trm_apps (f, args); loc = loc; is_statement; add; typ;
    attributes; ctx}
 
-let trm_while ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_while ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (body : trm) : trm =
   {annot = annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_for_c?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
   {annot; desc = Trm_for_c (init, cond, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_switch ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_switch ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (cases : (trm list * trm) list) : trm =
   {annot; desc = Trm_switch (cond, cases); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_abort ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_abort ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (a : abort) : trm =
   {annot = annot; desc = Trm_abort a; loc = loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_labelled ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_labelled ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (l : label) (t : trm) : trm =
   {annot; desc = Trm_labelled (l, t); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_goto ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_goto ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (l : label) : trm =
   {annot; desc = Trm_goto l; loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_decoration ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_decoration ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (left : string) (right : string) (t : trm) : trm =
   {annot; desc = Trm_decoration (left, t, right); loc; is_statement = false; add;
   typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_null ?(annot = None) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
+let trm_null ?(annot = []) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
   trm_val ~annot ~loc ~ctx (Val_ptr 0)
 (*
    no type for primitives and operators:
    we are only interested in the result of their application
  *)
 
-let trm_unop ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : unary_op) : trm =
+let trm_unop ?(annot = []) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : unary_op) : trm =
   trm_val ~annot ~loc ~add ~ctx (Val_prim (Prim_unop p))
 
-let trm_binop ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : binary_op) : trm =
+let trm_binop ?(annot = []) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : binary_op) : trm =
   trm_val ~annot:annot ~loc ~ctx ~add (Val_prim (Prim_binop p))
 
 (* Get typ of a literal *)
@@ -550,35 +550,34 @@ let typ_of_lit (l : lit) : typ option =
   (* todo: add type for strings *)
   | Lit_string _ -> None
 
-let trm_lit ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (l : lit) : trm =
+let trm_lit ?(annot = []) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~add ~ctx ~typ:(typ_of_lit l) (Val_lit l)
 
-let trm_prim ?(annot = None) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : prim) : trm =
+let trm_prim ?(annot = []) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (p : prim) : trm =
   trm_val ~annot:annot ~loc ~add ~ctx (Val_prim p)
 
-let trm_set ?(annot = None) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
+let trm_set ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = []) ?(ctx : ctx option = None)
   (t1 : trm) (t2 : trm) : trm =
   trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
 
-let trm_any ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_any ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (t : trm) : trm =
   {annot = annot; desc = Trm_any t; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
 
-let trm_for ?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
   {annot; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_arbitrary ?(annot = None) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_arbitrary ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (code : string) : trm =
   {annot = annot; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
-let is_included (t : trm) : bool =
-  match t.annot with
-  | Some (Include _) -> true
-  | _ -> false
+(* TODO: Fix me *)
+(* let is_included (t : trm) : bool =
+  if List.mem (Include h) t.annot then true else false *)
 
 
 
@@ -1179,15 +1178,15 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
 
   | _ -> Typ_kind_basic ty.typ_desc
 
-let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_for_to_trm_for_c?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
   let cond = begin match direction with
     | DirUp -> (trm_apps (trm_binop Binop_lt)
-      [trm_apps ~annot:(Some Mutable_var_get)
+      [trm_apps ~annot:[Mutable_var_get]
         (trm_unop Unop_get) [trm_var index];stop])
     | DirDown -> (trm_apps (trm_binop Binop_lt)
-      [trm_apps ~annot:(Some Mutable_var_get)
+      [trm_apps ~annot:[Mutable_var_get]
         (trm_unop Unop_get) [trm_var index];stop])
     end
     in
@@ -1198,19 +1197,19 @@ let trm_for_to_trm_for_c?(annot = None) ?(loc = None) ?(add = []) ?(attributes =
         begin match step.desc with
         | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_inc) [trm_var index]
         | _ ->
-          trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_add)
+          trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_add)
           [
             trm_var index;
-            trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+            trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
         end
     | DirDown ->
         begin match step.desc with
         | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_dec) [trm_var index]
         | _ ->
-          trm_set (trm_var index ) ~annot:(Some App_and_set)(trm_apps (trm_binop Binop_sub)
+          trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_sub)
           [
             trm_var index;
-            trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [step]])
+            trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
         end
     end
     in
@@ -1275,8 +1274,12 @@ module Nobrace = struct
 
 end
 
+
+
+
+
 let trm_seq_no_brace (tl : trm list) : trm=
-    trm_seq ~annot:(Some (No_braces (Nobrace.current()))) tl
+    trm_seq ~annot:[No_braces (Nobrace.current())] tl
 
 
 

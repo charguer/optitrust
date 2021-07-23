@@ -81,7 +81,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
       let t_x = 
       begin match vk with 
       | Var_immutable -> trm_var x
-      | _ -> trm_apps ~annot:(Some Mutable_var_get) (trm_unop Unop_get) [trm_var x] 
+      | _ -> trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var x] 
       end
        in
       let def_x = 

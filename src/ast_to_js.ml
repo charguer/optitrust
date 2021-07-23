@@ -219,12 +219,8 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [child_to_json "any" (aux t)]]
     | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
 
-let annot_to_string (t : trm) : string =
-  begin match t.annot with
-  | None -> quote ""
-  | Some a ->
-     begin match a with
-     (* | Delete_instructions -> "\"Delete_instructions\"" *)
+let annot_to_string (t_ann : trm_annot) : string =
+  match t_ann with
      | Grouped_binding -> quote "Grouped_binding"
      | No_braces _ -> quote "No_braces"
      | Access -> quote "Access"
@@ -235,9 +231,12 @@ let annot_to_string (t : trm) : string =
      | Main_file -> quote "Main_file"
      | Mutable_var_get -> quote "Mutable_var_get"
      | As_left_value -> quote "As_left_value"
-     | Highlight -> quote "Hightlight"
-     end
-  end
+     | Highlight -> quote "Hightlight" 
+  
+
+  let annot_list_to_string (t : trm) : string =
+    Tools.list_to_string ((List.map annot_to_string) t.annot)
+
 
 let add_to_string (add : print_addition) =
       match add with
@@ -266,7 +265,7 @@ let ast_to_json (trm_root : trm) : json =
                           | Some typ -> Json.typ_to_json typ )));
       (strquote "add", Json.List (List.map Json.str (List.map add_to_string t.add)));
       (strquote "is_statement", Json.Boolean t.is_statement);
-      (strquote "annot", Json.Str (annot_to_string t) );
+      (strquote "annot", Json.Str (annot_list_to_string t) );
       (strquote "loc", loc_to_json t);
       (strquote "attributes", Json.List (List.map Json.str (List.map Tools.document_to_string
                                  (List.map print_attribute t.attributes))))

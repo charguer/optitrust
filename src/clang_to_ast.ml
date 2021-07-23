@@ -189,7 +189,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
   open_scope kind;
   match tl with
   | [] -> t
-  | _ -> trm_seq (* ~annot:(Some Delete_instructions) *) (tl ++ [t])
+  | _ -> trm_seq  (tl ++ [t])
 
 (* names for overloaded operators (later matched for printing) *)
  let string_of_overloaded_op ?(loc : location = None)
@@ -360,7 +360,7 @@ and translate_stmt (s : stmt) : trm =
          let cond =
            match condo with
            (* no condition is equivalent to true *)
-           | None -> trm_lit ~annot:(Some Empty_cond) ~loc ~ctx (Lit_bool true)
+           | None -> trm_lit ~annot:[Empty_cond] ~loc ~ctx (Lit_bool true)
            | Some e -> translate_expr e
          in
          let step = translate_stmt_opt stepo in
@@ -382,7 +382,7 @@ and translate_stmt (s : stmt) : trm =
     begin match dl with
       | [] -> fail loc "translate_stmt: empty declaration list"
       | [d] -> translate_decl d
-      | _ -> trm_seq ~annot:(Some Multi_decl) ~loc ~ctx (translate_decl_list dl)
+      | _ -> trm_seq ~annot:[Multi_decl] ~loc ~ctx (translate_decl_list dl)
     end
   | Expr e -> translate_expr ~is_statement:true e
   | Label {label = l; body = s} ->
@@ -466,7 +466,7 @@ and compute_body (loc : location) (body_acc : trm list)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> (trm_seq ~annot:(Some (No_braces (Nobrace.current ()))) ~loc ~ctx:(Some (get_ctx ())) tl, sl)
+          | tl -> (trm_seq ~annot:[No_braces (Nobrace.current ())] ~loc ~ctx:(Some (get_ctx ())) tl, sl)
         end
       | _ ->
         let t = translate_stmt s in
@@ -620,52 +620,52 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | AddAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement  tll
+        trm_set ~annot:[App_and_set] ~loc ~is_statement  tll
           (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_add) [tlr; tr])
       | SubAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~ctx ~is_statement tll
+        trm_set ~annot:[App_and_set] ~loc ~ctx ~is_statement tll
           (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_sub) [tlr; tr])
       | MulAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement ~ctx tll
+        trm_set ~annot:[App_and_set] ~loc ~is_statement ~ctx tll
           (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_mul) [tlr; tr])
       | DivAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement ~ctx tll
+        trm_set ~annot:[App_and_set] ~loc ~is_statement ~ctx tll
           (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_div) [tlr; tr])
       | RemAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~is_statement ~ctx tll
+        trm_set ~annot:[App_and_set] ~loc ~is_statement ~ctx tll
           (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_mod) [tlr; tr])
       | ShlAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~ctx ~is_statement  tll
+        trm_set ~annot:[App_and_set] ~loc ~ctx ~is_statement  tll
           (trm_apps ~loc ~typ ~ctx (trm_binop ~loc ~ctx Binop_shiftl) [tlr; tr])
       | ShrAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~ctx  ~is_statement tll
+        trm_set ~annot:[App_and_set] ~loc ~ctx  ~is_statement tll
           (trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx  Binop_shiftr) [tlr; tr])
       | AndAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~ctx  ~is_statement tll
+        trm_set ~annot:[App_and_set] ~loc ~ctx  ~is_statement tll
           (trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_and) [tlr; tr])
       | OrAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~ctx ~is_statement tll
+        trm_set ~annot:[App_and_set] ~loc ~ctx ~is_statement tll
           (trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_or) [tlr; tr])
       | XorAssign ->
         let tll = translate_expr ~val_t:Lvalue le in
         let tlr = translate_expr ~val_t:val_t le in
-        trm_set ~annot:(Some App_and_set) ~loc ~ctx ~is_statement tll
+        trm_set ~annot:[App_and_set] ~loc ~ctx ~is_statement tll
           (trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_xor) [tlr; tr])
       | _ ->
         let tl = translate_expr ~val_t:val_t le in
@@ -723,7 +723,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
           | Rvalue when is_mutable_var s ->
             (* LATER: the Heap_allocated annotation on get should be replaced with
                a Var_mutable argument passed to trm_var *)
-            trm_apps ~annot:(Some Mutable_var_get) ~loc ~ctx  ~typ
+            trm_apps ~annot:[Mutable_var_get] ~loc ~ctx  ~typ
               (trm_unop ~loc ~ctx  Unop_get) [trm_var ~loc ~ctx  s]
           | _ -> trm_var ~loc ~typ s
         end
@@ -788,7 +788,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                 begin match val_t with
                   | Lvalue -> res
                   | Rvalue ->
-                    trm_apps ~annot:(Some Access) ~typ ~loc ~ctx
+                    trm_apps ~annot:[Access] ~typ ~loc ~ctx
                       (trm_unop ~loc ~ctx Unop_get) [res]
                 end
             end
@@ -830,7 +830,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         begin match val_t with
           | Lvalue -> res
           | Rvalue ->
-            trm_apps ~annot:(Some Access) ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get)
+            trm_apps ~annot:[Access] ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get)
               [res]
         end
     end
@@ -1069,7 +1069,7 @@ and translate_decl (d : decl) : trm =
                            | Typ_const _ -> trm_let ~loc Var_immutable (n, tt) (te) 
                            | _ -> 
                              add_var n;
-                             trm_let ~loc Var_mutable (n, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) {te with annot = Some As_left_value}
+                             trm_let ~loc Var_mutable (n, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) {te with annot = [As_left_value]}
                            end
           | _ -> 
             add_var n;
@@ -1171,11 +1171,11 @@ let translate_ast (t : translation_unit) : trm =
        let tinclude_map =
          Include_map.mapi
            (fun h dl ->
-              trm_seq ~annot:(Some (Include h)) (translate_decl_list dl))
+              trm_seq ~annot:[Include h] (translate_decl_list dl))
            include_map
        in
        let t =
-         trm_seq ~loc ~annot:(Some Main_file) (translate_decl_list file_decls)
+         trm_seq ~loc ~annot:[Main_file] (translate_decl_list file_decls)
        in
        Nobrace.init();
        trm_seq_no_brace

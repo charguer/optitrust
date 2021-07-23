@@ -300,26 +300,22 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
 
 and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
+  let print_annot (t_ann : trm_annot) : document = 
+    match t_ann with 
+    | No_braces _ -> string "No_braces"
+    | Access -> string "Access"
+    | Multi_decl -> string "Multi_decl"
+    | Empty_cond -> string "Empty_cond"
+    | App_and_set -> string "App_and_set"
+    | Include h -> string "Include" ^^ blank 1 ^^ string h
+    | Main_file -> string "Main_file"
+    | Grouped_binding -> string "Grouped_binding"
+    | Mutable_var_get -> string "Mutable_var_get"
+    | As_left_value -> string "As_left_value"
+    | Highlight -> string "Highlight" in
   if only_desc then ddesc
-  else
-    let dannot =
-      begin match t.annot with
-      | None -> underscore
-      | Some a ->
-         begin match a with
-         | No_braces _ -> string "No_braces"
-         | Access -> string "Access"
-         | Multi_decl -> string "Multi_decl"
-         | Empty_cond -> string "Empty_cond"
-         | App_and_set -> string "App_and_set"
-         | Include h -> string "Include" ^^ blank 1 ^^ string h
-         | Main_file -> string "Main_file"
-         | Grouped_binding -> string "Grouped_binding"
-         | Mutable_var_get -> string "Mutable_var_get"
-         | As_left_value -> string "As_left_value"
-         | Highlight -> string "Highlight"
-         end
-      end
+    else 
+      let dannot = Tools.doc_list_to_doc (List.map print_annot t.annot)
     in
     let dloc =
       begin match t.loc with

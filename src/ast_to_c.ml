@@ -202,11 +202,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   | _ ->
      begin match t.desc with
      | Trm_val v ->
-        begin match t.annot with
-        (* empty condition in for loop is the value true *)
-        | Some Empty_cond -> empty
-        | _ -> dattr ^^ val_to_doc v
-        end
+        if List.mem Empty_cond t.annot then empty
+          else dattr ^^ val_to_doc v
+        
      | Trm_var x -> dattr ^^ string x
      | Trm_array tl | Trm_struct tl ->
         let dl = List.map trm_to_doc tl in
@@ -226,38 +224,36 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              hardline ^^ string "else" ^^ blank 1 ^^ de
         end
      | Trm_seq tl ->
-        begin match t.annot with
-        | Some Multi_decl -> dattr ^^ multi_decl_to_doc loc tl
-        | Some No_braces _->
+        if List.mem Multi_decl t.annot 
+          then dattr ^^ multi_decl_to_doc loc tl
+        else if List.mem (No_braces (Nobrace.current())) t.annot
+          then 
            let dl = List.map (trm_to_doc ~semicolon:true) tl in
            dattr ^^ separate hardline dl
-        | Some Main_file ->
+        else if List.mem Main_file t.annot then
            let dl = List.map (trm_to_doc ~semicolon:true) tl in
            dattr ^^ separate (twice hardline) dl
-        (* do not print content of included files *)
-        | Some (Include _) -> empty
-        | _ ->
+        (* TODO: Fix me *)
+        (* else if List.mem (Include h) t.annot then empty *)
+        else 
            let dl = List.map (trm_to_doc ~semicolon:true) tl in
            dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
-        end
      | Trm_apps (f, tl) ->
-        begin match t.annot with
-        | Some App_and_set ->
+        if List.mem App_and_set t.annot then
            dattr ^^ apps_to_doc ~is_app_and_set:true f tl ^^ dsemi
-        | Some As_left_value ->
+        else if  List.mem As_left_value t.annot then
           dattr ^^ apps_to_doc ~as_left_value:true f tl 
-        | _ ->
+        else 
            (*
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
             *)
           let display_star =
-             match t.annot with
-             | (Some Mutable_var_get | Some Access) when !decode -> false
-             | _ -> true
+
+             if (List.mem Mutable_var_get t.annot || List.mem Access t.annot) && !decode then false
+             else true
            in
            dattr ^^ apps_to_doc ~display_star f tl ^^ dsemi
-        end
      | Trm_while (b, t) ->
         let db = trm_to_doc b in
         let dt = trm_to_doc ~semicolon:true t in
@@ -527,12 +523,10 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
                               _}, [t']) ->
                     let d' = trm_to_doc t' in
-                    begin match t.annot with
                     (* if t' was a stack-allocated variable, use t'.f *)
-                    | Some Mutable_var_get -> parens (d' ^^ dot ^^ string f)
+                    if List.mem  Mutable_var_get t.annot then parens (d' ^^ dot ^^ string f)
                     (* otherwise use t'->f instead of *t'.f *) 
-                    | _ -> (* parens (d' ^^ minus ^^ rangle ^^ string f) *)  parens (d' ^^ dot ^^ string f)
-                    end
+                    else  (* parens (d' ^^ minus ^^ rangle ^^ string f) *)  parens (d' ^^ dot ^^ string f)
                  (* in the other cases, we simply display t.f *)
                  | _ -> (* TODO: crossing fingers *)
                      (*parens (d ^^ dot ^^ string f)*)
