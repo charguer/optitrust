@@ -2,8 +2,8 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-  !! Loop.hoist_without_detach "x_step" [cVarDef "x"];
-  !! Loop.hoist_without_detach "z_step" [cVarDef "z"];
+  !! Loop.hoist "x_step" [cVarDef "x"];
+  !! Loop.hoist "z_step" [cVarDef "z"];
 )
 
 (* LATER: in combi level, add

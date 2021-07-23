@@ -6,13 +6,12 @@ let _ = Run.script_cpp (fun _ ->
   !! Loop.tile "2" ~bound:TileBoundMin [cFor "y"];
   !! Loop.tile "2" ~bound:TileBoundAnd [cFor "z"];
 
-  !! Loop.tile "2" ~index:"ba" ~bound:TileBoundDivides [cFor "a"];
-  !! Loop.tile "2" ~bound:TileBoundMin [cFor "b"];
-  !! Loop.tile "2" ~bound:TileBoundAnd [cFor "c"];
-  (* TODO: fix *)
+  !! Loop.tile "2" ~index:"ba" ~bound:TileBoundDivides [cFor "i"];
+  !! Loop.tile "2" ~bound:TileBoundMin [cFor "j"];
+  !! Loop.tile "2" ~bound:TileBoundAnd [cFor "k"];
 
 
-  (* TODO: rename to i,j,k *)
+  (* FIXED rename to i,j,k *)
 
 
   (*

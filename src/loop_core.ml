@@ -145,7 +145,7 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Tran
 
 
 
-(* [hoist_without_detach_aux x_step t]: extract a loop variable inside the loop as an array with size equal
+(* [hoist_aux x_step t]: extract a loop variable inside the loop as an array with size equal
       to (loop_bound - 1), the change all the occurrences of the variable with an array access
       with index same as the index of the loop
     params:
@@ -154,7 +154,7 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Tran
     return:
       updated ast with the hoisted loop
 *)
-let hoist_without_detach_aux (x_step : var) (decl_index : int) (t : trm) : trm =
+let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     begin match body.desc with
@@ -184,8 +184,8 @@ let hoist_without_detach_aux (x_step : var) (decl_index : int) (t : trm) : trm =
   | _ -> fail t.loc "hoist_aux: only simple loops are supported"
 
 
-let hoist_without_detach (x_step : var) (index : int): Target.Transfo.local =
-   Target.apply_on_path (hoist_without_detach_aux x_step index)
+let hoist (x_step : var) (index : int): Target.Transfo.local =
+   Target.apply_on_path (hoist_aux x_step index)
 
 (* [extract_variable_aux decl_index t] similar to loop hoist *)
 let extract_variable_aux (decl_index : int) (t : trm) : trm =

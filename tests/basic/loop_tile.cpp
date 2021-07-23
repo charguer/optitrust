@@ -17,14 +17,14 @@ int main() {
   printf ("%d %d %d\n", s1, s2, s3);
 
   int t1 = 0, t2 = 0, t3 = 0;
-  for (int a = 0; a < 12; a+=3) {
-    t1 += a;
+  for (int i = 0; i < 12; i+=3) {
+    t1 += i;
   }
-  for (int b = 0; b < 13; b+=3) {
-    t2 += b;
+  for (int j = 0; j < 13; j+=3) {
+    t2 += j;
   }
-  for (int c = 0; c < 13; c+=3) {
-    t3 += c;
+  for (int k = 0; k < 13; k+=3) {
+    t3 += k;
   }
   printf ("%d %d %d\n", t1, t2, t3);
   return 0;
