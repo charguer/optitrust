@@ -47,7 +47,6 @@ TESTS_OTHERS := \
 	variable_fold.ml \
 	variable_inline.ml \
 	variable_insert.ml \
-	sequence_insert.ml \
 	change_occurrence.ml \
 	reference_fold.ml \
 	reference_inline.ml \

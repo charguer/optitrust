@@ -223,6 +223,7 @@ and trm_annot = (* TODO: add Show_annotation to this list *)
   | Grouped_binding (* Used for trms of the form int x = 3, y = 4 *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
+  | Highlight (* Used in show transformations to hightlight a targeted trm*)
 (* symbols to add while printing a C++ program.*)
 and print_addition =
   | Add_address_of_operator (* used to print the ampersand operator for declarations of the form int x = &b*)

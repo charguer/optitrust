@@ -317,6 +317,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
          | Grouped_binding -> string "Grouped_binding"
          | Mutable_var_get -> string "Mutable_var_get"
          | As_left_value -> string "As_left_value"
+         | Highlight -> string "Highlight"
          end
       end
     in
