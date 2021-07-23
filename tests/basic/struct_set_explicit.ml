@@ -2,10 +2,10 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp ( fun _ ->
-    !!  Struct.set_explicit [sInstr "d = p"];
-    !!  Struct.set_explicit [sInstr "u = a.pos"];
-    !!  Struct.set_explicit [sInstr "t[0] = p2"];
-    !!  Struct.set_explicit [sInstrRegexp ~substr:false "p = ."];
+    !!  Struct_basic.set_explicit [sInstr "d = p"];
+    !!  Struct_basic.set_explicit [sInstr "u = a.pos"];
+    !!  Struct_basic.set_explicit [sInstr "t[0] = p2"];
+    !!  Struct_basic.set_explicit [sInstrRegexp ~substr:false "p = ."];
 )
 (*
     TODO: clean up the cpp file to keep only what is strictly needed

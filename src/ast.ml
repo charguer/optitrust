@@ -1271,6 +1271,17 @@ let get_decorators (t : trm) : (string * string) =
     end
    in aux t.annot
 
+let get_nobrace_id (t : trm) : int = 
+  let rec aux l = match l with
+  | [] -> -1
+  | hd :: tl ->
+    begin match hd with 
+    | No_braces i -> i
+    | _ -> aux tl
+    end in 
+    aux t.annot
+
+
 
 
 (* type instantiation = trm varmap *)

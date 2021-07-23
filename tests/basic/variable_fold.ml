@@ -2,9 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp( fun _ ->
-  !! Variable.fold [cVarDef "s1" ];
-  !! Variable.fold [cVarDef "s2" ];
-  !! Variable.fold [cVarDef "a" ];
+  !! Variable_basic.fold [cVarDef "s1" ];
+  !! Variable_basic.fold [cVarDef "s2" ];
+  !! Variable_basic.fold [cVarDef "a" ];
   (* TODO: demo with ~at: *)
   (* LATER:
      at the basic level,

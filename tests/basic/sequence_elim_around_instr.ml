@@ -2,8 +2,8 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-    !! Sequence.elim_around_instr [cVarDef "x"];
-    !! Sequence.elim_around_instr [cVarDef "y"];
+    !! Sequence_basic.elim_around_instr [cVarDef "x"];
+    !! Sequence_basic.elim_around_instr [cVarDef "y"];
 
     (* FIXED: rename inline to elim
              rename unwrap to elim_around_instr

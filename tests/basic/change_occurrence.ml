@@ -6,8 +6,8 @@ let _ = Run.script_cpp (fun _ ->
      not necessarily instructions
         !! Generic.replace "b" [nbMulti; cVar "a"];
      implem does not need to look at surrounding sequence. *)
-  !! Generic.change_occurrence "b" [nbMulti; cVar "a"];
-  !! Generic.change_occurrence "f1" [cFun "f"; cVar "f"];
+  !! Generic_basic.change_occurrence "b" [nbMulti; cVar "a"];
+  !! Generic_basic.change_occurrence "f1" [cFun "f"; cVar "f"];
 )
 (* TODO: try
       !! Generic.replace "z" [nbMulti; cFunDef "f"; cArg "x"];

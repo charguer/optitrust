@@ -4,10 +4,10 @@ open Target
 let _ = Run.script_cpp (fun _ ->
   (* TODO :  show [cTypDef "vect"];
       !! Typedef.fold ~fold_at:[[cTypDef "vect"]] [cTypDef "uint"]; *)
-  !! Typedef.fold [cTypDef "uint"];
-  !! Typedef.fold [cTypDef "cdouble"];
-  !! Typedef.fold [cTypDef "mat2d"] ;
-  !! Typedef.fold [cTypDef "mat3d"]
+  !! Typedef_basic.fold [cTypDef "uint"];
+  !! Typedef_basic.fold [cTypDef "cdouble"];
+  !! Typedef_basic.fold [cTypDef "mat2d"] ;
+  !! Typedef_basic.fold [cTypDef "mat3d"]
   )
 
 (* TODO: rename fold_at to at

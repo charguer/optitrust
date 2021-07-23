@@ -369,7 +369,8 @@ let clean_no_brace_seq (id : int) (t : trm) : trm =
     | t :: tl ->
       begin match t.desc with
       | Trm_seq tl' ->
-        if List.mem (No_braces (Nobrace.current())) t.annot && Nobrace.current() = id then
+        let current_seq_id = get_nobrace_id t in
+        if  current_seq_id = id then
           tl' @ (clean_up_in_list tl)
         else t :: (clean_up_in_list tl)
       | _ -> t :: (clean_up_in_list tl)

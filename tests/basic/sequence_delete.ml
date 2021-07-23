@@ -2,9 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-   !! Sequence.delete [sInstr "a++"];
-   !! Sequence.iter_delete [[cVarDef "a"]; [cVarDef "v"]];
-   !! Sequence.delete [nbMulti; sInstrRegexp "u\\.."];
+   !! Sequence_basic.delete [sInstr "a++"];
+   !! Sequence_basic.iter_delete [[cVarDef "a"]; [cVarDef "v"]];
+   !! Sequence_basic.delete [nbMulti; sInstrRegexp "u\\.."];
    !! Tools.failure_expected (fun () ->
-       Sequence.delete [nbMulti; cInt 8]);
+       Sequence_basic.delete [nbMulti; cInt 8]);
 )
