@@ -4,8 +4,6 @@ typedef double const cdouble;
 
 typedef struct { unsigned int x; unsigned int y; } vect;
 
-typedef vect vect;
-
 typedef int** mat2d;
 
 typedef int*** mat3d; // to be folded before mat2d, else M would be of type mat2d*
