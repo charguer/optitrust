@@ -84,16 +84,6 @@ let  fission (tg : Target.target) : unit =
 let fusion_on_block : Target.Transfo.t =
   Target.apply_on_target (Loop_core.fusion_on_block)
 
-
-(* [fusion nb tg] expects [tg] to point to a for loop followed by two or more
-    loops with the same range, start step and bound but different body.
-    Then it's going to merge bodies of all those loops into a single loop.
-*)
-let fusion ?(nb : int = 2) (tg : Target.target) : unit =
-  let label = Tools.optitrust_label in
-  Sequence_basic.intro nb ~label tg;
-  fusion_on_block [Target.cLabel label]
-
 (* [extract_variable tg] expects tg to point to an uninitialized variable
    declaration inside a for loop. The idea is similar to loop hoist
 *)

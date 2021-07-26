@@ -1,5 +1,11 @@
 open Ast
-
+(* [hoist x_step tg] - expects target to point inside the declaration of the variable
+    [x_step] - denotes the variable going to be hoisted outside the loop.
+    This transformation is similar to the basic one except that it supports also
+      undetached declarations contrary to the basic one. This is done by first checking if
+      the declaration is detached or not. If it is not detached then we call another
+      transformation which does that for us. Otherwise just apply the basic hoist transformation.
+*)
 let hoist (x_step : var) (tg : Target.target) : unit =
   Internal.nobrace_enter ();
   Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
@@ -22,3 +28,14 @@ let hoist (x_step : var) (tg : Target.target) : unit =
         let t = Loop_core.hoist x_step i t p in t
       | false -> let t = Loop_core.hoist x_step i t p in t) tg;
   Internal.nobrace_remove_and_exit ()
+
+
+(* [fusion nb tg] expects [tg] to point to a for loop followed by two or more
+    loops with the same range, start step and bound but different body.
+    Then it's going to merge bodies of all those loops into a single loop.
+    [nb] - denotes the number of loops to consider.
+*)
+let fusion ?(nb : int = 2) (tg : Target.target) : unit =
+  let label = Tools.optitrust_label in
+  Sequence_basic.intro nb ~label tg;
+  Loop_basic.fusion_on_block [Target.cLabel label]
