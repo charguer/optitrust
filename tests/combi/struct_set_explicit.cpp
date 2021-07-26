@@ -16,13 +16,8 @@ vect f() {
 
 int main() {
   vect p = {0,0};
-  vect b; 
-  b = p;
+  vect b = p;
+  
   obj a = {0,{0,0},{0,0}};
-  vect u;
-  u = a.pos;
-  vect t[2];
-  vect p2 = p;
-  t[0] = p2;
-  return 0;  
+  vect u = a.pos;
 }

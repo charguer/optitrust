@@ -35,7 +35,7 @@ let var_init_detach_aux (index : int) (t : trm) : trm =
           | _ -> fail t.loc "var_init_detach_aux: expected a heap allocated variable declaration"
           end in
         let var_decl = trm_let vk (x, tx) (trm_prim (Prim_new tx)) in
-        let var_assgn = trm_set (trm_var x) init in
+        let var_assgn = trm_set (trm_var ~typ:(Some (get_inner_ptr_type tx)) x) {init with typ = (Some (get_inner_ptr_type tx))} in
         trm_seq ~annot:t.annot (lfront @ [var_decl; var_assgn] @ lback)
       end
     | _ -> fail decl.loc "var_init_detach_aux: variable could not be matched, make sure your path is correct"

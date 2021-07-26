@@ -5,9 +5,8 @@ open Target
     instance has been assigned anothe struct instance.
 *)
 let set_explicit (tg : Target.target) : unit =
-  Internal.nobrace_enter ();
-  Target.apply_on_target (Struct_core.set_explicit) tg;
-  Internal.nobrace_remove_and_exit ()
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Struct_core.set_explicit i t p) tg
 
 (*  [set_implicit tg] expects [tg] to point to a sequence containing
       a list of struct set assignments. And transorms it into a single 
