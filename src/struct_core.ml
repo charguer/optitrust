@@ -87,9 +87,35 @@ let set_explicit (index : int) : Target.Transfo.local =
 let set_implicit_aux (t: trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
+     let rhs_trms = List.fold_left ( fun acc instr ->
+      match instr.desc with 
+      | Trm_apps (_, [_;rhs]) ->
+        begin match rhs.desc with 
+        | Trm_apps(f', [rt])  -> 
+          begin match f'.desc with 
+          | Trm_val ( Val_prim ( Prim_unop Unop_get ) ) ->
+            begin match rt.desc with 
+              | Trm_apps(f'',[rt]) ->
+               begin match f''.desc with 
+               | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
+               | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> 
+                  if List.mem rt acc then acc else acc @ [rt]
+               | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
+               end
+              | _ -> fail f'.loc "set_implicit_aux: expected a trm_apps" 
+            end
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
+            | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> 
+              if List.mem rt acc then acc else acc @ [rt]
+            | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
+           end
+          | _ -> fail rhs.loc "set_implicit_aux: expected a struct access"
+          end
+      | _ -> instr :: acc 
+    ) [] tl in
     let first_instruction = List.hd tl in
     begin match first_instruction.desc with 
-    | Trm_apps(f,[lhs;rhs]) ->
+    | Trm_apps(f,[lhs;_]) ->
           begin match f.desc with 
           | Trm_val ( Val_prim ( Prim_binop Binop_set) ) -> 
             let lt = begin match lhs.desc with 
@@ -102,28 +128,10 @@ let set_implicit_aux (t: trm) : trm =
             | _ -> fail lhs.loc "set_implicit_aux: expected a struct access"
             end
             in 
-            let rt = begin match rhs.desc with 
-            | Trm_apps(f', [rt])  -> 
-              begin match f'.desc with 
-              | Trm_val ( Val_prim ( Prim_unop Unop_get ) ) ->
-                begin match rt.desc with 
-                | Trm_apps(f'',[rt]) ->
-                  begin match f''.desc with 
-                  | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
-                      | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> rt
-                      | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
-                  end
-                | _ -> fail f'.loc "set_implicit_aux: expected a trm_apps" 
-                end
-                      
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
-              | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> rt
-              | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
-              end
-            | _ -> fail rhs.loc "set_implicit_aux: expected a struct access"
+            begin match rhs_trms with 
+            | [rhs1] -> trm_set lt rhs1 
+            | _ -> trm_set lt (trm_struct rhs_trms)
             end
-            in
-            trm_set lt rt;
           | _ -> fail f.loc "set_explicit_aux: expected an assignment instruction" 
           end
       | _ -> fail t.loc "set_implicit_aux: expected a sequence with all explicit assignments"

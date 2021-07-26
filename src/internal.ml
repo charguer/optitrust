@@ -434,3 +434,8 @@ let process_for_loops (process : (trm -> trm) -> trm) (t : trm) : trm =
   | Trm_for_c (init, cond, step, _) ->
     process (fun t -> trm_for_c init cond step t)
   | _ -> fail t.loc "process_for_loops: expected a for loop"
+
+let get_constr_from_target (tg : target) : constr =
+  match tg with 
+  | [cnst] -> cnst
+  | _ -> cChain tg

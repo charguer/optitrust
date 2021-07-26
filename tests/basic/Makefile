@@ -29,13 +29,13 @@ TESTS_WORKING := \
   sequence_elim.ml \
   sequence_intro_on_instr.ml \
 	struct_fields_reorder.ml \
+	struct_set_explicit.ml \
 	typedef_inline.ml \
 	variable_inline.ml \
 	variable_fold.ml \
 
 TESTS_TOCHECK := \
 	aos_to_soa.ml \
-  struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	typedef_fold.ml \
   change_occurrence.ml \
