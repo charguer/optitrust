@@ -54,11 +54,11 @@ let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : s
   if name_result <> ""
     then begin
          Generic_basic.var_init_attach [Target.cVarDef name_result];
-         Variable_basic.inline ~delete_decl:true [Target.cVarDef name_result];
+         Variable_basic.inline ~delete:true [Target.cVarDef name_result];
          if List.length inner_fresh_names = 0
           then () else List.iter (fun binded_arg ->
             if binded_arg <> ""
-              then (Variable_basic.inline ~delete_decl:true [Target.cVarDef binded_arg])
+              then (Variable_basic.inline ~delete:true [Target.cVarDef binded_arg])
               else ()) inner_fresh_names
          end
     else ()

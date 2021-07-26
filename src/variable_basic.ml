@@ -12,16 +12,16 @@ let fold ?(as_reference : bool = false) ?(at : target list = [[]]) : Target.Tran
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.fold as_reference at i t p) 
 
-(* [inline ~delete_decl ~at tg] eexpects [tg] to point to a variable declaration 
+(* [inline ~delete ~at tg] expects [tg] to point to a variable declaration 
     it then find all the occurrences of the variable and replaces them with it's assigned value.
-   [delete_decl] ~ denotes a falg whether the declaration should be kept or not
+   [delete] ~ denotes a falg whether the declaration should be kept or not
    [at] - denotes a list of targets where inlining is done. If empty the
     inlining operation is performed on all the ast nodes in the same level as the declaration 
     or deeper, by default [at] = []
 *)
-let inline ?(delete_decl : bool = false) ?(at : target list = [[]]) : Target.Transfo.t =
+let inline ?(delete : bool = false) ?(at : target list = [[]]) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Variable_core.inline delete_decl at i t p)
+    (fun (p,i) t -> Variable_core.inline delete at i t p)
 
 (* [reanme new_name tg] expects [tg] to point to a variable declaration
      then it will change the name inside theat declaration and all occurrences

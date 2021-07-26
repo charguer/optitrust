@@ -10,16 +10,16 @@ let fold ?(at : target list = [[]]) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Typedef_core.fold at i t p) tg
   
-(* [inline ~delete_decl ~at tg] expects [tg] to point to a typedef declaration
-    [delete_decl] - denotes a flag for telling if the declaration should be kept or no
+(* [inline ~delete ~at tg] expects [tg] to point to a typedef declaration
+    [delete] - denotes a flag for telling if the declaration should be kept or no
     [at] - denotes a list of targets where inlining is done, if empty 
       the inlining operation is performed on all the ast nodes in the same level as 
       the declaration or deeper, by default [at] = []
 *)
-let inline ?(delete_decl : bool = false) ?(at : target list = [[]]) (tg : target) : unit =
+let inline ?(delete : bool = false) ?(at : target list = [[]]) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t ->
-      Typedef_core.inline delete_decl at i t p) tg
+      Typedef_core.inline delete at i t p) tg
 
 
 (* [alias name tg] expects [tg] to point to a typedef declaration in then copies the content 

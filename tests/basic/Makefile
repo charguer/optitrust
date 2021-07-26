@@ -5,20 +5,16 @@ TARGET_MAKE_ALL := transfo
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
+	arbitrary_if.ml \
 	array_swap.ml \
-	sequence_insert.ml \
-	sequence_intro.ml \
-	sequence_delete.ml \
-  sequence_elim.ml \
-  sequence_intro_on_instr.ml \
+  array_tile.ml \
+	array_to_variables.ml \
   label_add.ml \
   label_remove.ml \
-	array_to_variables.ml \
 	loop_hoist.ml \
   loop_fusion.ml \
   loop_interchange.ml \
   loop_grid_enumerate.ml \
-  array_tile.ml \
   loop_color.ml \
   loop_unroll.ml \
   loop_invariant.ml \
@@ -27,15 +23,20 @@ TESTS_WORKING := \
 	loop_unswitch.ml \
 	loop_to_unit_steps.ml \
 	sequence_elim_around_instr.ml \
-
+	sequence_insert.ml \
+	sequence_intro.ml \
+	sequence_delete.ml \
+  sequence_elim.ml \
+  sequence_intro_on_instr.ml \
+	struct_fields_reorder.ml \
+	typedef_inline.ml \
+	
 TESTS_TOCHECK := \
 	aos_to_soa.ml \
-  struct_fields_reorder.ml \
   struct_set_explicit.ml \
 	struct_set_implicit.ml \
-  arbitrary_if.ml \
 	typedef_fold.ml \
-	typedef_inline.ml \
+	
   variable_fold.ml \
 	variable_inline.ml \
   change_occurrence.ml \

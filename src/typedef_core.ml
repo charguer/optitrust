@@ -44,7 +44,7 @@ let fold (fold_at : target list) (index) : Target.Transfo.local =
 (* [inline_aux inline_at]: replace all the occurrences of the defined type with
       its underlying type
     params:
-      delete_decl: a flag for deciding if we should delete or not the typedef 
+      delete: a flag for deciding if we should delete or not the typedef 
         declaration
       inline_at: targets where inlining should be performed, if empty inlining is applied
         on all the ast nodes in the same level as the typedef declaration
@@ -52,7 +52,7 @@ let fold (fold_at : target list) (index) : Target.Transfo.local =
     return:
       updated ast
 *)
-let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t : trm) : trm =
+let inline_aux (delete : bool) (inline_at : target list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -65,7 +65,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
       let ty_x = typ_constr td.typdef_tconstr td.typdef_typid [] in
       let lback = List.map(Internal.change_typ ~change_at:inline_at ty_x dx) lback in
       let tl =
-        if delete_decl then lfront @ lback
+        if delete then lfront @ lback
         else lfront @ [dl] @ lback
       in
       trm_seq ~annot:t.annot tl
@@ -75,9 +75,9 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
     end
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
-(* [inline delete_decl inline_at index t p] *)
-let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (inline_aux delete_decl inline_at index)
+(* [inline delete inline_at index t p] *)
+let inline (delete : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (inline_aux delete inline_at index)
 
 (* [alias_aux name index t]: create a copy of a typedef with a new name
     params:
