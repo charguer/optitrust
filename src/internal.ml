@@ -15,10 +15,10 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   in
   List.fold_left
     (fun t' tr ->
-      let b = !Flags.verbose in
-      Flags.verbose := false;
+      let tr = if not (List.mem nbAny tr) 
+        then [nbAny] @ tr 
+        else tr in
       let epl = resolve_target tr t' in
-      Flags.verbose := b;
       match epl with
       | [] ->
          print_info t'.loc "change_trm: no matching subterm for target %s\n"
@@ -91,7 +91,9 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   List.fold_left
     (fun t' tr ->
       Flags.verbose := false;
-      let tr = [nbAny] @ tr in
+      let tr = if not (List.mem nbAny tr) 
+        then [nbAny] @ tr 
+        else tr in
       let epl = resolve_target tr t' in
       match epl with
       | [] ->
