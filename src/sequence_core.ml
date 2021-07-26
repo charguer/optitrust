@@ -56,19 +56,24 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
     return: the updated ast of surrounding sequence with the inserted nodes
 
 *)
-let intro_aux (label : string) (visible : bool) (index : int) (nb : int) (t : trm) : trm =
+let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at index tl in
-      let l_intro,lback = Tools.split_list_at nb lback in
-      let intro_seq = trm_seq  l_intro in
-      let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
-        if visible then trm_seq (lfront @ [intro_seq] @ lback)
-          else trm_seq (lfront @ [intro_seq] @ lback)
+      if nb > 0 then 
+        let l_intro,lback = Tools.split_list_at nb lback in
+        let intro_seq = trm_seq  l_intro in
+        let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
+          trm_seq (lfront @ [intro_seq] @ lback)
+      else 
+        let l_intro,lfront = Tools.split_list_at (List.length lfront + nb) lback in
+        let intro_seq = trm_seq  l_intro in
+        let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
+          trm_seq (lfront @ [intro_seq] @ lback)
     | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 
-let intro (label : string) (visible : bool) (index : int) (nb_instr : int) : Target.Transfo.local =
-  Target.apply_on_path (intro_aux label visible index nb_instr)
+let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local =
+  Target.apply_on_path (intro_aux label index nb_instr)
 
 (*[elim_aux index t]: inline an inner sequence into an outer sequence.
     params:

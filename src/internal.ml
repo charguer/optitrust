@@ -339,10 +339,11 @@ let get_trm_and_its_relatives (index : int) (trms : trm list) : (trm list * trm 
   let lfront, lback = Tools.split_list_at index trms in
   let element, lback = Tools.split_list_at 1 lback in
   let element = match element with 
-    | [el] -> el
-    | _ -> fail None "get_element_and_its_relatives: expected a list with a single element"
-    in
+  | [el] -> el
+  | _ -> fail None "get_element_and_its_relatives: expected a list with a single element"
+  in
   (lfront, element, lback)
+  
 
 
 

@@ -29,7 +29,7 @@ int main() {
 
   // LATER: this one is not properly translated:
   // int d = (*u)[i].x;
-  // LATER: stranger error
+  // LATER: strange error
   // vects uget = *u;
   // int d = uget[i].x;
 
