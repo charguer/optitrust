@@ -64,17 +64,11 @@ let hoist (x_step : var) (tg : Target.target) : unit =
 (* [fission tg]: expects [tg] to point somewhere inside the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 *)
-(* TODO: Clean this mess *)
-let  fission (tg : Target.target) : unit =
+let fission (tg : Target.target) : unit =
   Internal.nobrace_enter ();
   Target.apply_on_transformed_target_between (Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.fission i t p) tg;
   Internal.nobrace_remove_and_exit ()
-(* let fission (tg : Target.target) : unit  =
-  Internal.nobrace_enter ();
-  Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-    (fun (p,i) t -> Loop_core.fission i t p ) tg;
-  Internal.nobrace_remove_and_exit () *)
 
 (* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops
     with the same range, start step and bound but different body.

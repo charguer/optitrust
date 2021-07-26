@@ -855,6 +855,7 @@ let is_heap_alloc (t : trm) : bool =
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
   match t.desc with
+  | Trm_for(index, _, _, _, _, _) -> index
   | Trm_for_c (init, _, _, _) ->
      (*
        covered cases:

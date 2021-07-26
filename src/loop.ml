@@ -39,3 +39,37 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   let label = Tools.optitrust_label in
   Sequence_basic.intro nb ~label tg;
   Loop_basic.fusion_on_block [Target.cLabel label]
+
+
+let invariant ?(upto : string = "") (tg : Target.target) : unit =
+  Internal.nobrace_enter();
+  Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
+    (fun (p, i) t ->
+       match upto with 
+       | "" -> Loop_core.invariant i t p
+       | _ -> 
+              let nb = ref 0 in
+              let quit_loop = ref false in
+              let tmp_p = ref [] in
+              Tools.printf "%d\n" !nb;
+              tmp_p := List.rev(List.tl (List.rev p));
+              while not !quit_loop do
+                let (tg_trm, _) = Path.resolve_path !tmp_p t in
+                Tools.printf "%d\n" !nb;
+                match  tg_trm.desc with 
+                | Trm_for _ -> 
+                  let index = for_loop_index tg_trm in
+                  if index = upto then quit_loop := true
+                    else 
+                      nb := !nb + 1;
+                      Tools.printf "%d\n" !nb;
+                      tmp_p := List.rev(List.tl (List.rev !tmp_p))
+                | _ -> 
+                  Tools.printf "%d\n" !nb;
+                  nb := !nb + 1;
+                  tmp_p := List.rev(List.tl (List.rev !tmp_p))
+              done; 
+              let nb_list = Tools.range 1 !nb in
+              List.fold_left (fun t _ind -> Loop_core.invariant i t p ) t nb_list              
+    ) tg;
+  Internal.nobrace_remove_and_exit ()
