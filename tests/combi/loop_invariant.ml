@@ -1,15 +1,14 @@
 open Optitrust
 open Target
 
-(* TODO: Fix me *)
 let _ = Run.script_cpp (fun _ ->
-  !! Loop.invariant [cVarDef "x"];
+  !! Loop.invariant ~upto:"i" [cVarDef "x"];
   !! Loop.invariant [cVarDef "x"];
   !! Loop.invariant [cVarDef "s"];
   !! Loop.invariant [cVarDef "s"];
 
-  (* TODO: rename this to invariant_basic *)
-  (* TODO: develop at combi level Loop_basic.invariant
+  
+  (* FIXED: develop at combi level Loop_basic.invariant
         Loop.invariant [cVarDef "s"];
         --> goes out of one loop
 

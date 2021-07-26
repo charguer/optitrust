@@ -43,33 +43,62 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
 
 let invariant ?(upto : string = "") (tg : Target.target) : unit =
   Internal.nobrace_enter();
-  Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t ->
-       match upto with 
-       | "" -> Loop_core.invariant i t p
-       | _ -> 
-              let nb = ref 0 in
-              let quit_loop = ref false in
-              let tmp_p = ref [] in
-              Tools.printf "%d\n" !nb;
-              tmp_p := List.rev(List.tl (List.rev p));
-              while not !quit_loop do
-                let (tg_trm, _) = Path.resolve_path !tmp_p t in
-                Tools.printf "%d\n" !nb;
-                match  tg_trm.desc with 
-                | Trm_for _ -> 
-                  let index = for_loop_index tg_trm in
-                  if index = upto then quit_loop := true
-                    else 
-                      nb := !nb + 1;
-                      Tools.printf "%d\n" !nb;
-                      tmp_p := List.rev(List.tl (List.rev !tmp_p))
-                | _ -> 
-                  Tools.printf "%d\n" !nb;
-                  nb := !nb + 1;
+  let t = Trace.get_ast() in
+  let exp =  Constr.resolve_target_exactly_one tg t in
+  let (p, _) = Internal.get_trm_in_surrounding_loop exp in 
+  match upto with
+  | "" -> Loop_basic.invariant tg
+  | _ -> 
+          let quit_loop = ref false in
+          let tmp_p = ref [] in
+          tmp_p := List.rev(List.tl (List.rev p));
+          while not !quit_loop do
+            let (tg_trm, _) = Path.resolve_path !tmp_p t in
+            match  tg_trm.desc with 
+            | Trm_for _ -> 
+              let index = for_loop_index tg_trm in
+              if index = upto then 
+                  begin 
+                  Loop_basic.invariant tg;
+                  quit_loop := true;
+                  end
+                else 
+                  Loop_basic.invariant tg;
                   tmp_p := List.rev(List.tl (List.rev !tmp_p))
-              done; 
-              let nb_list = Tools.range 1 !nb in
-              List.fold_left (fun t _ind -> Loop_core.invariant i t p ) t nb_list              
-    ) tg;
+            | _ -> 
+              Loop_basic.invariant tg;
+              tmp_p := List.rev(List.tl (List.rev !tmp_p))
+            done;
   Internal.nobrace_remove_and_exit ()
+
+(* [move before after loop_to_move] move one loop before or after another loop in
+    a "sequence"(not in the context of Optitrust) of nested loops.
+    [before] - a default argument given as empty string, if the user wants to move
+      [loop_to_move] before another loop then it should use this default argument with the
+      value the the quoted loop intex
+    [after] - similar to [after] but now is the index of the loop after whom
+      we want to move [loop_to_move]
+*)
+let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit =
+  let t = Trace.get_ast() in
+  let move_where, target_loop = match before, after with
+  | "", _ -> "after", [Target.cFor loop_to_move]
+  | _, "" -> "before", [Target.cFor before]
+  | _ -> fail None "move: make sure you specify where to move the loop, don't give both before and after directives" in
+  let exp = Constr.resolve_target_exactly_one target_loop t in
+  let (loop, _) = Path.resolve_path exp t in
+  let indices_list = Internal.get_loop_nest_indices loop in
+  match move_where with
+  | "after" ->
+    let indices_list = Tools.chop_list_after after indices_list in
+    Tools.printf "%s\n" (Tools.list_to_string indices_list);
+    let counter = ref (List.length indices_list) in
+    while (!counter <> 0) do
+      counter := !counter - 1;
+      Loop_basic.interchange [Target.cFor loop_to_move];
+      Tools.printf "%s\n" "Swap done";
+    done
+  | "before" ->
+    let indices_list = Tools.chop_list_after loop_to_move indices_list in
+    List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev indices_list)
+  | _ -> fail t.loc "move: something went wrong"

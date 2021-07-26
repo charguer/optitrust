@@ -107,39 +107,6 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
   Target.apply_on_target (Loop_core.grid_enumerate index_and_bounds)
 
 
-(* [move before after loop_to_move] move one loop before or after another loop in
-    a "sequence"(not in the context of Optitrust) of nested loops.
-    [before] - a default argument given as empty string, if the user wants to move
-      [loop_to_move] before another loop then it should use this default argument with the
-      value the the quoted loop intex
-    [after] - similar to [after] but now is the index of the loop after whom
-      we want to move [loop_to_move]
-*)
-let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit =
-  let t = Trace.get_ast() in
-  let move_where, target_loop = match before, after with
-  | "", _ -> "after", [Target.cFor loop_to_move]
-  | _, "" -> "before", [Target.cFor before]
-  | _ -> fail None "move: make sure you specify where to move the loop, don't give both before and after directives" in
-  let exp = Constr.resolve_target_exactly_one target_loop t in
-  let (loop, _) = Path.resolve_path exp t in
-  let indices_list = Internal.get_loop_nest_indices loop in
-  match move_where with
-  | "after" ->
-    let indices_list = Tools.chop_list_after after indices_list in
-    Tools.printf "%s\n" (Tools.list_to_string indices_list);
-    let counter = ref (List.length indices_list) in
-    while (!counter <> 0) do
-      counter := !counter - 1;
-      interchange [Target.cFor loop_to_move];
-      Tools.printf "%s\n" "Swap done";
-    done
-  | "before" ->
-    let indices_list = Tools.chop_list_after loop_to_move indices_list in
-    List.iter (fun x -> interchange [Target.cFor x]) (List.rev indices_list)
-  | _ -> fail t.loc "move: something went wrong"
-
-
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
     is of the form for(int i = a; i < a + C; i++){..} then it will move the
     the instructions out of the loop and the loop will be removed.

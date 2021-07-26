@@ -3,7 +3,7 @@
 int main(){
   int s = 0;
   int a = 6;
-  int b = 11;
+  int b = 10;
   const int B = 2;
   for (int i = a; i < b; i += B) {
     s += i;
