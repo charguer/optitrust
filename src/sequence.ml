@@ -10,7 +10,6 @@ open Ast
       of [nb] should be poistive otherwise it should be negative.
     [on] - denotes a single target to be isolated inside the sub-sequence. When [on] i used all the other
       except label and visible shoold be left empty
-
 *)
 let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int = 0) 
   ?(on : Target.target = []) ?(label : string = "") ?(visible : bool = true) () : unit =
