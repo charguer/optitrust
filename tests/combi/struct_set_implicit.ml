@@ -1,9 +1,11 @@
 open Optitrust
 open Target
 
-
+(* TODO:FIX ME *)
 let _ = Run.script_cpp (fun _ ->
-  !! Struct.set_explicit [sInstr ~substr:false "b.x = p.x"];
+  !! Struct.set_implicit [sInstr ~substr:false "b.x = p.x"];
+  !! Struct.set_implicit [sInstr ~substr:false "d.x = 1"];
+  
 )
 
 (*

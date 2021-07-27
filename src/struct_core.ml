@@ -99,19 +99,20 @@ let set_implicit_aux (t: trm) : trm =
                begin match f''.desc with 
                | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
                | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> 
-                  if List.mem rt acc then acc else acc @ [rt]
+                  [rt]
+
                | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
                end
               | _ -> fail f'.loc "set_implicit_aux: expected a trm_apps" 
             end
             | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr _))) 
             | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _)))-> 
-              if List.mem rt acc then acc else acc @ [rt]
+                  [rt]
             | _ -> fail f'.loc "set_implicit_aux: expected a struct acces on the right hand side of the assignment"
            end
-          | _ -> fail rhs.loc "set_implicit_aux: expected a struct access"
+          | _ -> acc @ [rhs]
           end
-      | _ -> instr :: acc 
+      | _ -> fail t.loc "set_implicit_aux: expected a set operation"
     ) [] tl in
     let first_instruction = List.hd tl in
     begin match first_instruction.desc with 

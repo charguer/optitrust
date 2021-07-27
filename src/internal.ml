@@ -211,24 +211,28 @@ let get_field_list (td : typedef) : (var * typ) list =
   | _ -> fail None "get_field_lists: expected a Typedef_prod"
   end
 
-let get_typid (t : trm) : int =
-  let trm_typ =
-  begin match t.typ with
-  | Some typ ->
-      typ
-  | None -> fail t.loc "get_typid: no type was found"
-  end
-  in
-  match t.desc with
-  | Trm_apps (_,[_])
-  | Trm_struct _ | Trm_var _ ->
-    begin match trm_typ.typ_desc with
-    | Typ_constr(_,id,_) -> id
-    | _ -> fail t.loc "get_typid: expected a user defined type"
+let rec get_typid (t : trm) : int = 
+  match t.desc with 
+  | Trm_apps (_,[base]) ->
+    begin match t.typ with
+    | Some typ ->
+      begin match typ.typ_desc with
+      | Typ_constr (_,id,_) -> id
+      | _ -> get_typid base
+      end
+    | None -> get_typid base
     end
-
+  | Trm_struct _ | Trm_var _ ->
+    begin match t.typ with 
+    | Some typ -> 
+      begin match typ.typ_desc with 
+      | Typ_constr(_,id,_) -> id
+      | _ -> -1
+      end
+    | None -> -1
+    end
   | _ -> -1
-
+  
 
 let rec toplevel_decl (x : var) (t : trm) : trm option =
   match t.desc with
