@@ -38,15 +38,6 @@ type target_occurrences =
     | ExpectedMulti  (* > 0 number of occurrences *)
     | ExpectedAnyNb  (* any number of occurrences *)
     | ExpectedSelected of int option * int list
-    (* TODO: ExpectedSelect of int option * int list
-          ExpectedSelect (None, [2;3]) -> select items at index 2 and 3
-          ExpectedSelect (Some 4, [2;3]) -> checks that there are exactly 4,
-            and select items at indices 2 and 3
-       tIndex 0   = tIndices [0]
-       tIndex ~nb:4 0
-       tIndices [0;1]
-       tIndices ~nb:4 [0;1] = ExpectedSelect (Some nb, [0;1])
-         *)
 
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
@@ -138,7 +129,7 @@ and constr =
   (* Number of  occurrences expected  *)
   | Constr_occurrences of target_occurrences
   (* List of constraints *)
-  | Constr_chain of constr list (* i.e., [Constr_chain of target] TODO: rename to Constr_target *)
+  | Constr_target of constr list 
   (* Constraint used for argument match *)
   | Constr_bool of bool
   (* Constraint that matches only the root of the AST *)
@@ -187,12 +178,12 @@ and abort_kind =
   | Break
   | Continue
 
-(* [target_simple] is a [target] without Constr_relative, Constr_occurrences, Constr_chain;
+(* [target_simple] is a [target] without Constr_relative, Constr_occurrences, Constr_target;
    It can however, include [cStrict]. *)
 type target_simple = target
 
 (* [target_struct] is the structured representation of a [target] that decomposes the
-   special constructors such as Constr_relative, Constr_occurrences, Constr_chain from the
+   special constructors such as Constr_relative, Constr_occurrences, Constr_target from the
    [target_simple]. *)
 type target_struct = {
    target_path : target_simple; (* this path contains no nbMulti/nbEx/tBefore/etc.., only cStrict can be there *)
@@ -384,7 +375,7 @@ let rec constr_to_string (c : constr) : string =
      "Switch (" ^ s_cond ^ ", " ^ s_cases ^ ")"
   | Constr_relative tr -> target_relative_to_string tr
   | Constr_occurrences oc -> target_occurrences_to_string oc
-  | Constr_chain cl ->
+  | Constr_target cl ->
     let string_cl = List.map constr_to_string cl in
     list_to_string string_cl
   | Constr_bool b -> if b then "True" else "False"
@@ -446,14 +437,14 @@ and access_to_string (ca : constr_access) : string =
 (*                        Preprocessing of targets before resolution          *)
 (******************************************************************************)
 
-(* Flatten all the constrainst of type Constr_chain *)
+(* Flatten all the constrainst of type Constr_target *)
 let target_flatten (tg : target) : target =
     let rec aux (cs : target) : target =
       match cs with
       | [] -> []
       | c::cs2 ->
           let r = match c with
-            | Constr_chain cs1 -> (aux cs1)
+            | Constr_target cs1 -> (aux cs1)
             | _ -> [c]
             in
           r @ (aux cs2)
@@ -914,7 +905,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      because traversing the [Trm_seq] just below will already decrease the depth *)
   let aux_body = resolve_target_simple ~depth p in
 
-  (* let p = target_to_target_simple p in ---TODO: used for getting rid of Constr_chain that appear in depth *)
+  (* let p = target_to_target_simple p in ---TODO: used for getting rid of Constr_target that appear in depth *)
   let loc = t.loc in
   (* no exploration in depth in included files *)
   if  (List.exists (function Include _ -> true | _ -> false) t.annot) then begin 

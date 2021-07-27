@@ -43,7 +43,7 @@ let cStrict : constr =
   Constr_depth (DepthAt 1)
 
 let cChain (cstrs : constr list) : constr =
-  Constr_chain cstrs
+  Constr_target cstrs
 
 (* Relative targets *)
 
@@ -199,7 +199,7 @@ let cIf ?(cond : target = [])
     Constr_if (p_cond, p_then, p_else)
 
 let cThen : constr =
- Constr_chain [cIf(); dThen]
+ Constr_target [cIf(); dThen]
 
 
 (* Converts a list of constraints into a [target_list_pred] *)
@@ -316,7 +316,7 @@ let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pr
   Constr_app (p_fun,args,false)
 
 let cDef (name : string) : constr =
-  Constr_chain [cStrict;cFunDef name]
+  Constr_target [cStrict;cFunDef name]
 
 (* This function is similart to cFun but it can match aslos internal functions like get and set *)
 let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =
@@ -418,7 +418,7 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
   ]
 
 let cTargetInDepth (tg : target) : constr =
-  Constr_chain (Constr_depth DepthAny :: tg)
+  Constr_target (Constr_depth DepthAny :: tg)
 
 
 

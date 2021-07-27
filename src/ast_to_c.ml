@@ -240,7 +240,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         else if List.mem Main_file t.annot then
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate (twice hardline) dl
-        (* TODO: Fix me *)
+        else if List.exists (function Include _ -> true | _ -> false) t.annot then empty 
         (* else if List.mem (Include h) t.annot then empty *)
         else 
            let dl = List.map (decorate_trm ~semicolon:true) tl in

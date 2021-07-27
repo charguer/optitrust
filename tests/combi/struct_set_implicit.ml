@@ -1,17 +1,13 @@
 open Optitrust
 open Target
 
-(* TODO:FIX ME *)
 let _ = Run.script_cpp (fun _ ->
   !! Struct.set_implicit [sInstr ~substr:false "b.x = p.x"];
   !! Struct.set_implicit [sInstr ~substr:false "d.x = 1"];
 )
 
 (*
-  TODO: document that we assume the block
-  TODO: rename to set_implicit_basic
-
-  TODO: implement set_implicit which call Sequence.sub with the right arguments
+  DONE: implement set_implicit which call Sequence.sub with the right arguments
   then calls set_implicit_basic
 
    t1;

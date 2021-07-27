@@ -349,24 +349,6 @@ let get_trm_and_its_relatives (index : int) (trms : trm list) : (trm list * trm 
   (lfront, element, lback)
   
 
-
-
-
-(* TODO:
-    let clean_up_no_brace_seq_pred (filter : no_brace_id -> bool) (t:trm) : trm =
-        .... if (No_braces id) and (filter id) then remove else keep
-
-    let clean_up_no_brace_seq id t =
-       clean_up_no_brace_seq_pred (fun id2 -> id2 = id) t
-
-    let clean_up_no_brace_seq_all t =
-      clean_up_no_brace_seq_pred (fun _id2 -> true) t
-*)
-(* let clean_up_no_brace_seq_pred (filter : int -> bool) (t : trm) : trm = *)
-
-
-
-
 let clean_no_brace_seq (id : int) (t : trm) : trm =
   let rec clean_up_in_list (tl : trm list) : trm list =
     match tl with 

@@ -203,9 +203,9 @@ and value =
 (* annotations are used to decorate this AST when it is built from the
    Clang AST in such a way to be able to print back the AST like the original C code.
    *)
-and trm_annot = (* TODO: add Show_annotation to this list *)
+and trm_annot = 
   (* used to print back a c++ program *)
-  | No_braces of int (* TODO: of no_brace_id    where no_brace_id = int   let new_no_brace_id () = .. *)
+  | No_braces of int 
   (* annotate applications of star operator that should not be printed *)
   | Access
   (* used to print back seqs that contain multiple declarations *)
@@ -240,7 +240,7 @@ and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   is_statement: true if the trm is an instruction in a seq
  *)
 and trm =
- { annot : trm_annot list; (* TODO: make this a list *)
+ { annot : trm_annot list; 
    desc : trm_desc;
    loc : location;
    is_statement : bool; (* TODO : generalize to trm_kind *)
