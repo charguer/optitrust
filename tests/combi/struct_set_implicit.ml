@@ -5,7 +5,6 @@ open Target
 let _ = Run.script_cpp (fun _ ->
   !! Struct.set_implicit [sInstr ~substr:false "b.x = p.x"];
   !! Struct.set_implicit [sInstr ~substr:false "d.x = 1"];
-  
 )
 
 (*
