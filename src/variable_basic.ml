@@ -1,4 +1,3 @@
-open Ast
 open Target
 
 (* [fold ~as_reference ~at tg] expects [tg] to point to a variable declaration 
@@ -23,14 +22,15 @@ let inline ?(delete : bool = false) ?(at : target list = [[]]) : Target.Transfo.
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.inline delete at i t p)
 
-(* [reanme new_name tg] expects [tg] to point to a variable declaration
-     then it will change the name inside theat declaration and all occurrences
-     of the same variable ar going to be change too.
-    [new_name] denotes the new name for the targeted declaration
+(* [reanme ~list ~func tg] expects [tg] to point to a sequence.
+    [list] - denotes a list of pairs where each pair has the 
+      current variable and the one which is going to replace it.
+      By default this list is empty.
+    [func] - a function which is going to replace all the variables 
+      inside the targeted sequence. By default this function is the one
+      which adds "_1" to each declared variable inside the sequence.
 *)
-(* Rename a variablea and all its occurrences *)
-let rename (new_name : var) : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Variable_core.rename new_name i t p)
-
+let rename ?(list : (string * string) list = []) ?(func : string -> string = fun x -> x ^ "_1") : Target.Transfo.t =
+  Target.apply_on_target (Variable_core.rename list func) 
+  
 

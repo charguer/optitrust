@@ -45,8 +45,7 @@ let remove_instructions (tgs : target list) : unit =
     the ast automatically by Optitrust.
 *)
 let replace (code : string) (tg : target) : unit =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.replace code i t p) tg;
+  Target.apply_on_target (Generic_core.replace code) tg;
   Trace.reparse()
 
 (* [from_one_to_many names tg] expects the target to point to a declaration(

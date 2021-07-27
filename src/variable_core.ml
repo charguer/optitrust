@@ -115,24 +115,30 @@ let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target
    return:
     updated ast 
 *)
-let rename_aux (new_name : var) (index : int) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl -> 
-    let lfront, lback = Tools.split_list_at index tl in
-    let dcl, lback = Tools.split_list_at 1 lback in
-    let dcl = match dcl with 
-              | [dc] -> dc
-              | _ -> fail t.loc "rename_aux: expected a list with a single element" in
-    begin match dcl.desc with 
-    | Trm_let (vk, (x, tx), init) ->
-      let trm_to_change = trm_let vk (new_name, tx) init in
-      let lback = List.map (Internal.change_trm (trm_var x) (trm_var new_name)) lback in
-      trm_seq ~annot:t.annot (lfront @ [trm_to_change] @ lback)
-    | _ -> fail dcl.loc "rename_aux: the target should be a variable declaration" 
-    end
-   
-  | _-> fail t.loc "rename_aux: expected the surrounding sequence"
+let rename_aux (list : (string * string) list) (func : string -> string) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    List.fold_left (fun acc t1 ->
+        match t1.desc with
+        | Trm_let (vk,(x, tx), init) ->
+          begin match list with 
+          | [] -> 
+            let acc = Internal.change_trm t1 (trm_let vk ((func x), tx) init) acc in
+            Internal.change_trm (trm_var x) (trm_var (func x)) acc
+          | _ -> 
+            if List.mem_assoc x list then
+            begin 
+            let new_var = List.assoc x list in
+            let acc = Internal.change_trm t1 (trm_let vk (new_var, tx) init) acc in
+             Internal.change_trm (trm_var x) (trm_var new_var) acc
+            end
+            else
+              acc 
+          end
+        | _ -> acc
+      ) t tl
+  | _ -> fail t.loc "rename_aux: expected the sequence block"
 
-let rename (new_name : var) (index : int) : Target.Transfo.local = 
-  Target.apply_on_path (rename_aux new_name index)
+let rename (list : (string * string) list) (func : string -> string) : Target.Transfo.local =
+  Target.apply_on_path (rename_aux list func)
 

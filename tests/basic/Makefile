@@ -24,6 +24,7 @@ TESTS_WORKING := \
 	loop_to_unit_steps.ml \
 	reference_fold.ml \
 	reference_inline.ml \
+	replace.ml
 	sequence_elim_around_instr.ml \
 	sequence_insert.ml \
 	sequence_intro.ml \
@@ -37,12 +38,10 @@ TESTS_WORKING := \
 	typedef_fold.ml \
 	variable_inline.ml \
 	variable_fold.ml \
+	variable_rename\
 
 TESTS_TOCHECK := \
 	aos_to_soa.ml \
-	
-  change_occurrence.ml \
-	
 
 ARTHUR_TO_SPEC := \
 	from_one_to_many.ml \

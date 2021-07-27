@@ -12,6 +12,7 @@ int main(){
   int a = 5;
   int b = 6;
   a = f(a);
+  int x = 6;
+  int c = f1(4);
   return 0;
-
 }

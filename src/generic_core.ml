@@ -173,21 +173,17 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
       tranformed later into an ast subtree
     params:
       code: string representing the code which will appear in place of the targeted trm
-      index: index of the trageted trm inside the sequence
-      t: ast of the surrounding sequence which contains the trm going to be replaced
+      t: ast of the trm going to be replaced
     return:
-      updated ast of the urrounding sequence which contains now the replaced trm
+      updated ast with the replaced trm
  *)
-let replace_aux (code : string)(index : int) (t : trm) : trm =
+let replace_aux (code : string) (t : trm) : trm =
   match t.desc with 
-  | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let _, lback = Tools.split_list_at 1 lback in
-    trm_seq ~annot:t.annot (lfront @ [trm_arbitrary code] @ lback)
-  | _ -> fail t.loc "replace_aux: expected the surrounding sequence"
+  | Trm_var _ -> trm_var code
+  | _ ->  trm_arbitrary code
   
-let replace (code : string) (index : int): Target.Transfo.local =
-  Target.apply_on_path (replace_aux code index)
+let replace (code : string) : Target.Transfo.local =
+  Target.apply_on_path (replace_aux code)
 
 (* [replace_one_with_mane]: change all the instructions containing the occurrence of the 
       variable into a list of instructions, the list of instructions contains one instruction 
