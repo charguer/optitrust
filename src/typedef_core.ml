@@ -16,7 +16,7 @@ open Target
     return:
       update ast
 *)
-let fold_aux (fold_at : target list) (index : int) (t : trm) : trm=
+let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -27,7 +27,7 @@ let fold_aux (fold_at : target list) (index : int) (t : trm) : trm=
        begin match td.typdef_body with
        | Typdef_alias dx ->
         let ty_x = typ_constr td.typdef_tconstr  td.typdef_typid [] in
-        let lback = List.map (Internal.change_typ ~change_at:fold_at dx ty_x) lback in
+        let lback = List.map (Internal.change_typ ~change_at:[fold_at] dx ty_x) lback in
         trm_seq ~annot:t.annot (lfront @ [d] @ lback)
        | _ -> fail t.loc "fold_decl: expected a typedef"
        end
@@ -37,7 +37,7 @@ let fold_aux (fold_at : target list) (index : int) (t : trm) : trm=
 
   | _ -> fail t.loc "fold_aux: expected the surrounding sequence"
 
-let fold (fold_at : target list) (index) : Target.Transfo.local =
+let fold (fold_at : target) (index) : Target.Transfo.local =
   Target.apply_on_path(fold_aux fold_at index)
 
 
@@ -52,7 +52,7 @@ let fold (fold_at : target list) (index) : Target.Transfo.local =
     return:
       updated ast
 *)
-let inline_aux (delete : bool) (inline_at : target list) (index : int) (t : trm) : trm =
+let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -63,7 +63,7 @@ let inline_aux (delete : bool) (inline_at : target list) (index : int) (t : trm)
      begin match td.typdef_body with
      | Typdef_alias dx ->
       let ty_x = typ_constr td.typdef_tconstr td.typdef_typid [] in
-      let lback = List.map(Internal.change_typ ~change_at:inline_at ty_x dx) lback in
+      let lback = List.map(Internal.change_typ ~change_at:[inline_at] ty_x dx) lback in
       let tl =
         if delete then lfront @ lback
         else lfront @ [dl] @ lback
@@ -76,7 +76,7 @@ let inline_aux (delete : bool) (inline_at : target list) (index : int) (t : trm)
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
 (* [inline delete inline_at index t p] *)
-let inline (delete : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
+let inline (delete : bool) (inline_at : target) (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux delete inline_at index)
 
 (* [alias_aux name index t]: create a copy of a typedef with a new name

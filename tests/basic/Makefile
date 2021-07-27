@@ -34,12 +34,13 @@ TESTS_WORKING := \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	typedef_inline.ml \
+	typedef_fold.ml \
 	variable_inline.ml \
 	variable_fold.ml \
 
 TESTS_TOCHECK := \
 	aos_to_soa.ml \
-	typedef_fold.ml \
+	
   change_occurrence.ml \
 	
 

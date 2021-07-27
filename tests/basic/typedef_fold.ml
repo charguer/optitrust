@@ -2,12 +2,10 @@ open Optitrust
 open Target
 (* TODO: Fix the issue when folding mat3d *)
 let _ = Run.script_cpp (fun _ ->
-  (* TODO :  show [cTypDef "vect"];
-      !! Typedef.fold ~fold_at:[[cTypDef "vect"]] [cTypDef "uint"]; *)
-  !! Typedef_basic.fold [cTypDef "uint"];
-  !! Typedef_basic.fold [cTypDef "cdouble"];
+  !! Typedef_basic.fold ~at:[cTypDef "vect"] [cTypDef "uint"]; 
+  !! Typedef_basic.fold ~at:[cVarDef "y1"] [cTypDef "cdouble"];
   !! Typedef_basic.fold [cTypDef "mat2d"] ;
-  !! Typedef_basic.fold [cTypDef "mat3d"]
+  !! Typedef_basic.fold [cTypDef "mat3d"];
   )
 
 (* TODO: rename fold_at to at

@@ -2,21 +2,21 @@
 open Target
 
 (* [fold ~at tg] expects [tg] to point to a typedef declaration.
-    [at] - denotes a list of targets where folding is done. If empty
+    [at] - denotes a target where folding is done. If empty
       the folding operation is performed on all the ast nodes in the same 
       level as the declaration or deeper
 *)
-let fold ?(at : target list = [[]]) (tg : target) : unit =
+let fold ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Typedef_core.fold at i t p) tg
   
 (* [inline ~delete ~at tg] expects [tg] to point to a typedef declaration
     [delete] - denotes a flag for telling if the declaration should be kept or no
-    [at] - denotes a list of targets where inlining is done, if empty 
+    [at] - denotes a target where inlining is done, if empty 
       the inlining operation is performed on all the ast nodes in the same level as 
       the declaration or deeper, by default [at] = []
 *)
-let inline ?(delete : bool = false) ?(at : target list = [[]]) (tg : target) : unit =
+let inline ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t ->
       Typedef_core.inline delete at i t p) tg
