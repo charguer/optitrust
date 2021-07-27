@@ -11,13 +11,13 @@ open Target
     params:
       as_reference: a flag for telling if the variable on the assignment 
         has the address operator or not
-      fold_at: targets where folding should be performed, if left empty 
+      fold_at: target where folding should be performed, if left empty 
         then folding is applied everywhere
       t: ast of the variable declaration
     return:
       updated ast 
 *)
-let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : trm) : trm=
+let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -43,7 +43,7 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
             | Add_address_of_operator :: addl -> {dx with add = addl}
             | _ -> fail d.loc "fold_decl: expected a reference"
         in
-        let lback = List.map(Internal.change_trm ~change_at:fold_at def_x t_x) lback
+        let lback = List.map(Internal.change_trm ~change_at:[fold_at] def_x t_x) lback
         (*
           def_x might have been replaced with x in the definition of x
           -> replace it again with def_x
@@ -58,19 +58,19 @@ let fold_aux (as_reference : bool) (fold_at : target list) (index : int) (t : tr
 
   | _ -> fail t.loc "fold_aux: expected the surrounding sequence"
 
-let fold (as_reference : bool) (fold_at : target list) (index) : Target.Transfo.local =
+let fold (as_reference : bool) (fold_at : target) (index) : Target.Transfo.local =
   Target.apply_on_path(fold_aux as_reference fold_at index)
 
 
 (* [inline_aux inline_at]: inline variable defined in term t
     params:
       delete_decl: delete or don't delete the declaration of the variable after inlining
-      inline_at: targets where inlining should be performed, if empty inlining is applied everywhere
+      inline_at: target where inlining should be performed, if empty inlining is applied everywhere
       t: ast of the variable declaration
     return:
       updated ast
 *)
-let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t : trm) : trm =
+let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -93,7 +93,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
                    end
       end 
        in
-      let lback = List.map (Internal.change_trm ~change_at:inline_at t_x def_x) lback in
+      let lback = List.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback in
       let tl =
         if delete_decl then lfront @ lback
         else lfront @ [dl] @ lback
@@ -104,7 +104,7 @@ let inline_aux (delete_decl : bool) (inline_at : target list) (index : int) (t :
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
 
-let inline (delete_decl : bool) (inline_at : target list) (index : int) : Target.Transfo.local =
+let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Transfo.local =
   Target.apply_on_path(inline_aux delete_decl inline_at index)
 
 (* [rename_aux new_name index t] rename a variable, change its declaration

@@ -420,3 +420,4 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
 
 let to_unit_steps (new_index : var) : Target.Transfo.local =
   Target.apply_on_path (to_unit_steps_aux new_index)
+

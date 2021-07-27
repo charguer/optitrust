@@ -91,12 +91,10 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
   match move_where with
   | "after" ->
     let indices_list = Tools.chop_list_after after indices_list in
-    Tools.printf "%s\n" (Tools.list_to_string indices_list);
     let counter = ref (List.length indices_list) in
     while (!counter <> 0) do
       counter := !counter - 1;
       Loop_basic.interchange [Target.cFor loop_to_move];
-      Tools.printf "%s\n" "Swap done";
     done
   | "before" ->
     let indices_list = Tools.chop_list_after loop_to_move indices_list in

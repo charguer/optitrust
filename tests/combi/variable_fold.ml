@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp( fun _ ->
-  !! Variable.fold ~at:[[cVarDef "r1"]] [cVarDef "s1" ];
+  !! Variable.fold ~at:[cVarDef "r1"] [cVarDef "s1" ];
   !! Variable.fold ~nonconst:true [cVarDef "s2" ];
   !! Tools.failure_expected (fun () ->
         Variable.fold [cVarDef "a"])

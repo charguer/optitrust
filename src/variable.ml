@@ -12,7 +12,7 @@ open Ast
         also for mutable variables.
     This transformation
 *)
-let fold ?(as_reference : bool = false) ?(at : Target.target list = [[]]) ?(nonconst : bool = false) (tg : Target.target) : unit =
+let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
   let t = Trace.get_ast() in
   let exp =  Constr.resolve_target_exactly_one tg t in
   let (tg_trm, _) = Path.resolve_path exp t in

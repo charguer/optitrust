@@ -111,9 +111,9 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
       let t = Function_core.elim_body rename (i + !counter + 2) t p in 
       if bind_res_needed 
         then let t = Generic_core.var_init_attach false (i + nb_args_to_bind) t p in 
-             let t = Variable_core.inline true [[]] (i + nb_args_to_bind) t p in 
+             let t = Variable_core.inline true [] (i + nb_args_to_bind) t p in 
           if (List.length inner_fresh_names) = 0
             then t 
-            else List.fold_left (fun t1 _ -> Variable_core.inline true [[]] i t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names)
+            else List.fold_left (fun t1 _ -> Variable_core.inline true [] i t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names)
         else t
     ) tg
