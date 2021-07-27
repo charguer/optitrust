@@ -53,7 +53,7 @@ let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : s
   elim_body rename [Target.cLabel label];
   if name_result <> ""
     then begin
-         Generic_basic.var_init_attach [Target.cVarDef name_result];
+         Variable_basic.init_attach [Target.cVarDef name_result];
          Variable_basic.inline ~delete:true [Target.cVarDef name_result];
          if List.length inner_fresh_names = 0
           then () else List.iter (fun binded_arg ->
@@ -110,7 +110,7 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
 
       let t = Function_core.elim_body rename (i + !counter + 2) t p in 
       if bind_res_needed 
-        then let t = Generic_core.var_init_attach false (i + nb_args_to_bind) t p in 
+        then let t = Variable_core.init_attach false (i + nb_args_to_bind) t p in 
              let t = Variable_core.inline true [] (i + nb_args_to_bind) t p in 
           if (List.length inner_fresh_names) = 0
             then t 

@@ -24,7 +24,7 @@ let hoist (x_step : var) (tg : Target.target) : unit =
       in
       match detach_first with 
       | true -> 
-        let t = Generic_core.var_init_detach i t (p @ [Dir_body]) in
+        let t = Variable_core.init_detach i t (p @ [Dir_body]) in
         let t = Loop_core.hoist x_step i t p in t
       | false -> let t = Loop_core.hoist x_step i t p in t) tg;
   Internal.nobrace_remove_and_exit ()

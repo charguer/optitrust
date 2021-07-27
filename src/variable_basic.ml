@@ -33,4 +33,19 @@ let inline ?(delete : bool = false) ?(at : target = []) : Target.Transfo.t =
 let rename ?(list : (string * string) list = []) ?(func : string -> string = fun x -> x ^ "_1") : Target.Transfo.t =
   Target.apply_on_target (Variable_core.rename list func) 
   
+(* [init_detach tg] expects the target to point to a variable initialization.
+   It then splits the instruction into a variable declaration and a set operation.
+*)
+let init_detach : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Variable_core.init_detach i t p)
 
+(* [init_attach const tg] expects the target to point to a variable declaration, 
+    Then it will search inside the sequence which contains the variable declaration. 
+    For an unique assigment. The it will replace that assignment with a new initialized
+    variable declaration.
+    [const] -denotes a booleean to decide if the new declaration is constant or not.
+*)
+let init_attach ?(const : bool = false) : Target.Transfo.t = 
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p,i) t -> Variable_core.init_attach const i t p )

@@ -10,7 +10,7 @@ let set_explicit (tg : Target.target) : unit =
       let (tg_trm, _) = Path.resolve_path (p @ [Dir_seq_nth i]) t in
       match tg_trm.desc with 
       | Trm_let _ ->
-        let t = Generic_core.var_init_detach i t p in
+        let t = Variable_core.init_detach i t p in
                 Struct_core.set_explicit (i + 1) t p
       | _ -> Struct_core.set_explicit i t p
     ) tg

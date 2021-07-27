@@ -1,23 +1,6 @@
 open Ast
 open Target
 
-(* [var_init_detach tg] expects the target to point to a variable initialization.
-   It then splits the instruction into a variable declaration and an assignment.
-*)
-let var_init_detach : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.var_init_detach i t p)
-
-(* [var_init_attach const tg] expects the target to point to a variable declaration, 
-    Then it will search inside the sequence which contains the variable declaration. 
-    For an unique assigment. The it will replace that assignment with a new initialized
-    variable declaration.
-    [const] -denotes a booleean to decide if the new declaration is constant or not.
-*)
-let var_init_attach ?(const : bool = false) : Target.Transfo.t = 
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Generic_core.var_init_attach const i t p )
-
 (* [const_non_const tg] expects the target to point to an initialized variable declaration.
     It then checks the variable mutability. It it is mutable then make it un-mutable by adding 
     a const in front. Otherwise make it mutable by removing the const.

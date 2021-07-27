@@ -163,6 +163,9 @@ let sInstrRegexp ?(substr : bool = false) (s : string) : constr =
 let sExprRegexp ?(substr : bool = false) (s : string) : constr =
   sInstrOrExprRegexp TrmKind_Expr substr s
 
+let cSetVar (x : var) : constr =
+  sInstr (x ^ " " ^ "=")
+
 let cArg (n : int) : constr =
   Constr_dir (Dir_arg n)
 
