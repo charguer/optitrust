@@ -230,3 +230,35 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
 
 let init_attach (const : bool) (index : int) : Target.Transfo.local =
   Target.apply_on_path(init_attach_aux const index )
+
+
+(* [const_non_const_aux t]: transform a const declaration to a non-const one or vice-versa
+    params:
+      t: ast of the variable declaration 
+    return:
+      the updated ast of the declaration
+*)
+let const_non_const_aux (t : trm) : trm =
+  match t.desc with
+  | Trm_let (vk, (x,tx), init) ->
+    begin match vk with
+     (* If variable is a constant than whe remove the const and we perform the heap allocation  *)
+    | Var_immutable ->
+      trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tx) (trm_apps (trm_prim ~loc: t.loc (Prim_new tx)) [init])
+    | _ ->
+      let var_type = begin match tx.typ_desc with
+      | Typ_ptr {inner_typ = t; _} -> t
+      | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
+      end
+      in
+      let var_init = begin match init.desc with
+      | Trm_apps(_, [_; init]) -> init
+      | _ -> fail t.loc "const_non_const_aux: expected a something of the form 'new ()'"
+      end
+      in
+      trm_let Var_immutable (x,var_type) var_init
+    end
+  | _ -> fail t.loc "const_non_const_aux: variable declaration was not matched, make sure the path is correct"
+
+let const_non_const : Target.Transfo.local =
+  apply_on_path (const_non_const_aux)

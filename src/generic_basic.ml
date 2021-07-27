@@ -1,28 +1,6 @@
 open Ast
 open Target
 
-(* [const_non_const tg] expects the target to point to an initialized variable declaration.
-    It then checks the variable mutability. It it is mutable then make it un-mutable by adding 
-    a const in front. Otherwise make it mutable by removing the const.
-*)
-let const_non_const : Target.Transfo.t =
-  Target.apply_on_target (Generic_core.const_non_const)
-
-(* [remove_instruction tg] expects the target to point to an instruction inside a sequence. 
-    It then removes this instruction from the sequence, basically it is the same as sequence_delete.
-*)
-let remove_instruction : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.remove_instruction i t p)
-
-(* [remove_instructions tgs] expects a list of targeted instructions to be removed. Basically it is just a list
-    fold over the target list by applying remove insruction transformation.
-*)
-let remove_instructions (tgs : target list) : unit =
-  List.fold_left(fun () x ->
-      remove_instruction x
-    ) () tgs
-
 (* [replace code tg] expects the target to point at any node of the ast, 
     it then removes this node and replaces with the code entered by the user, which is merged into 
     the ast automatically by Optitrust.
@@ -61,12 +39,6 @@ let arbitrary_if (cond : string) (tg : target) : unit =
     (fun (p, i) t -> Generic_core.arbitrary_if single_branch i cond t p) tg; *)
   Trace.reparse()
 
-(* [change_occcurence new_name tg] expects the target tg to point to a variable occurrence.
-    [new_name] - denotes the new name which is going replace the variable occurrence.
-    Assumption: [new_name] is the name of an already defined function or variable.
- *)
-let change_occurrence (new_name : var) : Target.Transfo.t =
-  Target.apply_on_target (fun p t -> Generic_core.change_occurrence new_name p t)
 
 (* TODO: Add the docs for this function *)
 let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) (tg : Target.target) : unit =

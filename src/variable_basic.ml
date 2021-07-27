@@ -49,3 +49,9 @@ let init_detach : Target.Transfo.t =
 let init_attach ?(const : bool = false) : Target.Transfo.t = 
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.init_attach const i t p )
+(* [const_non_const tg] expects the target to point to an initialized variable declaration.
+    It then checks the variable mutability. It it is mutable then make it un-mutable by adding 
+    a const in front. Otherwise make it mutable by removing the const.
+*)
+let const_non_const : Target.Transfo.t =
+  Target.apply_on_target (Variable_core.const_non_const)
