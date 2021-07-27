@@ -94,6 +94,8 @@ val cChain : constr list -> constr
 
 val cInclude : string -> constr
 
+val cArg : int -> constr
+
 val sInstr : ?substr:bool -> string -> constr
 
 val sExpr : ?substr:bool -> string -> constr
