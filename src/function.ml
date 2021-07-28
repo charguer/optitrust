@@ -15,9 +15,9 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
       else t) t fresh_names)
 
 
-let elim_body ?(rename : rename = Postfix "") (tg : Target.target) : unit =
+let elim_body ?(renames : rename = Postfix "") (tg : Target.target) : unit =
   let tg_body = if List.mem Target.dBody tg then tg else (tg @ [Target.dBody]) in
-  Variable_basic.rename rename tg_body;
+  Variable_basic.rename renames tg_body;
   Sequence_basic.elim tg
 
 
@@ -38,73 +38,39 @@ let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool
      Function_core.bind_intro (i + !counter)  fresh_name true ([Dir_body] @ [Dir_arg 0 ] @ [Dir_arg n]) t p
      else t) t inner_fresh_names)
 
-(* let inline_call ?(name_result = "r") ~label:"body" ~renames:() *)
-(* let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(inner_fresh_names : var list = []) (tg : Target.target) : unit = 
-  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
-    (fun (p, p_local, i) t ->
-      (* Counter needed to keep track on the change of indices *)
-      let _ounter = ref (-1) in
-      let (tg_trm, _) = Path.resolve_path (p @ [Dir_seq_nth i] @ p_local) t in
-      let (tg_out_trm, _) = Path.resolve_path (p @ [Dir_seq_nth i]) t in
-      (* Checking the type of the target *)
-      let bind_res_needed = 
-      begin match tg_trm.desc with 
-      (* Instruction of the form int r = f(..) *)
-      | Trm_let (_n ,(x,_), _) -> 
-        if name_result <> "" && name_result <> x then fail tg_trm.loc "smart_inline: no need to enter the result name in this case"
-          else false
-      (* A function call f(..) *)
-      | Trm_apps _ -> 
-          begin match tg_out_trm.desc with 
-          | Trm_let (_, (_, _), {desc = Trm_apps(_, [base]);_}) when base = tg_trm-> true
-          | Trm_apps _ when tg_trm = tg_out_trm -> false
-          | _ -> false
-          end
-      | _ -> true
-      end in
-      let t = begin match bind_res_needed with 
-              | true -> if name_result = "" then 
-                          let rnd_nb = Random.int 1000 in let name_result = "temp" ^ (string_of_int rnd_nb) in
-                          Function_core.bind_intro i name_result false p_local t p 
-                        else 
-                          Function_core.bind_intro i name_result false p_local t p
-
-              | false -> t 
-              end in
-      let nb_args_to_bind = (List.length (List.filter (fun x -> x <> "") inner_fresh_names)) in
-      let bind_args = match nb_args_to_bind with
-                      | 0 -> false
-                      | _ -> true  in
-      let t = if bind_args then Tools.foldi (fun n t fresh_name ->
-                if fresh_name <> "" then
-                  let () = counter := !counter+1 in
-                  Function_core.bind_intro (i + !counter) fresh_name true ([Dir_body] @ [Dir_arg 0] @ [Dir_arg n]) t p
-                else t) t inner_fresh_names
-              else t in
-      let t = Function_core.inline_call (i + !counter + 1) label t p_local t p in 
-
-      let t = Function_core.elim_body rename (i + !counter + 2) t p in 
-      if bind_res_needed 
-        then let t = Variable_core.init_attach false (i + nb_args_to_bind) t p in 
-             let t = Variable_core.inline true [] (i + nb_args_to_bind) t p in 
-          if (List.length inner_fresh_names) = 0
-            then t 
-            else List.fold_left (fun t1 _ -> Variable_core.inline true [] i t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names)
-        else t
-    ) tg *)
-
-  (* let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : rename = Rename "1") ?(bind_args : bool = false) ?(inner_fresh_names : var list = []) (tg : Target.target) : unit =
-  bind1 name_result inner_fresh_names bind_args tg;
+let inline_call ?(name_result = "") ?(label:var = "body") ?(renames : rename = Postfix "") ?(inner_fresh_names : var list = []) ?(no_control_structures : bool = true) (tg : Target.target) : unit =
+  let t = Trace.get_ast() in
+  let tg_path = Target.resolve_target_exactly_one tg t in
+  let (path_to_seq,local_path, i) = Internal.get_call_in_surrounding_sequence tg_path in
+  let (tg_trm, _) = Path.resolve_path (path_to_seq @ [Dir_seq_nth i] @ local_path) t in
+  let (tg_out_trm, _) = Path.resolve_path (path_to_seq @ [Dir_seq_nth i]) t in
+  begin match tg_out_trm.desc with 
+  | Trm_let _ -> 
+    let init1 = get_initializatin_trm tg_out_trm in
+    if name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline_call: no need to enter the result name in this case"
+      else if init1 = tg_trm then () 
+      else
+           let name_result = 
+           begin match name_result with 
+           | "" ->  
+            let rnd_nb = Random.int 1000 in ("temp" ^ (string_of_int rnd_nb))
+           | _ -> name_result
+           end
+           in
+          Function_basic.bind_intro ~fresh_name:name_result tg
+  | Trm_apps _ -> ()
+  | _ -> fail None "inline_call: expected a variable declaration or a function call"
+  end;
+  if List.length inner_fresh_names <> 0 then bind_args inner_fresh_names tg else ();
   Function_basic.inline_call ~label tg;
-  elim_body ~rename [Target.cLabel label];
-  if name_result <> ""
-    then begin
-         Variable_basic.init_attach [Target.cVarDef name_result];
-         Variable_basic.inline ~delete:true [Target.cVarDef name_result];
-         if List.length inner_fresh_names = 0
-          then () else List.iter (fun binded_arg ->
-            if binded_arg <> ""
-              then (Variable_basic.inline ~delete:true [Target.cVarDef binded_arg])
-              else ()) inner_fresh_names
-         end
-    else () *)
+  elim_body ~renames [Target.cLabel label];
+  if List.length inner_fresh_names <> 0 
+    then List.iter (fun x -> Variable_basic.inline ~delete:true [Target.cVarDef x]) (List.filter (fun x -> x <> "")inner_fresh_names) 
+    else ();
+  if no_control_structures 
+    then 
+      begin 
+      Variable_basic.init_attach [Target.cVarDef name_result];
+      Variable_basic.inline ~delete:true [Target.cVarDef name_result]
+      end
+    else () 

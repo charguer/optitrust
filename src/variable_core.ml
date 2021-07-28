@@ -189,9 +189,7 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
   let counter = ref 0 in
   match t.desc with 
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let trm_to_change, lback = Tools.split_list_at 1 lback in
-    let trm_to_change = List.hd trm_to_change in
+    let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with 
     | Trm_let (_, (x, tx), _) ->
         let init_index = Tools.foldi (fun i acc t1 -> 
@@ -206,11 +204,11 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
         ) None lback in
         let index1  = match init_index with 
         | Some index -> index
-        | _ -> fail trm_to_change.loc (Tools.sprintf("init_attach_aux: no assignment was found to the given variable %s") x)
+        | _ -> fail trm_to_change.loc (Tools.sprintf("init_attach_aux: no assignment was found to the given variable %s
+                    befor trying to do the attachment be sure that there is only one occurence of the variable set operation
+                    and the set operation does not belong to a control structure") x)
           in
-        let lfront1,lback1 = Tools.split_list_at index1 lback in
-        let assgn_to_change,lback1  = Tools.split_list_at 1 lback1 in
-        let assgn_to_change = List.hd assgn_to_change in
+        let lfront1, assgn_to_change, lback1 = Internal.get_trm_and_its_relatives index1 tl in
         begin match assgn_to_change.desc with 
         | Trm_apps(_, [_; rhs]) ->
           let vk = if const then Var_immutable else Var_mutable in

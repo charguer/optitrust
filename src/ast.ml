@@ -1281,12 +1281,24 @@ let get_nobrace_id (t : trm) : int =
     end in 
     aux t.annot
 
-(* This is used for variable renaming, the uer can choose between renaming all the variables 
+(* This type is used for variable renaming, the uer can choose between renaming all the variables 
     on one block, by giving the prefix to add or he can also  give the list of variable to 
     be renamed together with their new name.
 *)
 type rename = | Postfix of string | Rename_list of (var * var) list
 
+let get_initializatin_trm (t : trm) : trm = 
+  match t.desc with 
+  | Trm_let (_, (_, _), init) -> 
+      begin match init.desc with 
+      | Trm_apps(f,[base]) ->
+        begin match f.desc with 
+        | Trm_val (Val_prim (Prim_new _)) -> base
+        | _ -> init
+        end
+      | _-> init
+      end
+  | _ -> fail t.loc "get_initialization_trm: expected a variable declaration"
 
 (* type instantiation = trm varmap *)
 
