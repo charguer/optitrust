@@ -84,14 +84,14 @@ let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local
 let elim_aux (t : trm) : trm =
   match t.desc with
    | Trm_labelled (_ , t1) ->
-    begin match t1.desc with 
-    | Trm_seq tl1 -> 
-      trm_seq_no_brace tl1
-    | _ -> fail t.loc "elim_aux: expected a sequence of terms"
-    end
+      begin match t1.desc with 
+      | Trm_seq tl1 -> 
+        trm_seq_no_brace tl1
+      | _ -> fail t.loc "elim_aux: expected a sequence of terms"
+     end
    | Trm_seq tl ->
       trm_seq_no_brace tl
-   | _ -> fail t.loc "elim_aux: expected the sequence to be deleted"
+   | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
 
 
 let elim : Target.Transfo.local =

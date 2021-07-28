@@ -1281,7 +1281,11 @@ let get_nobrace_id (t : trm) : int =
     end in 
     aux t.annot
 
-
+(* This is used for variable renaming, the uer can choose between renaming all the variables 
+    on one block, by giving the prefix to add or he can also  give the list of variable to 
+    be renamed together with their new name.
+*)
+type rename = | Postfix of string | Rename_list of (var * var) list
 
 
 (* type instantiation = trm varmap *)

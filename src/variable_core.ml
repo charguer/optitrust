@@ -110,26 +110,23 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
 (* [rename_aux new_name index t] rename a variable, change its declaration
       and all its occurrences
    params:
-    new_name: string used to replace current name and occurrences
-    index: index of the declaration inside the sequence it belongs to
+    rename: a type covering both the case when a prefix is given or the list of variables to change
+      together with their new name
    return:
     updated ast 
 *)
-let rename_aux (list : (string * string) list) (func : string -> string) (t : trm) : trm =
-  
-  let t,label = match t.desc with 
-    | Trm_labelled (lb, t1) -> t1, lb
-    | _ -> t, "" in 
+let rename_aux (rename : rename) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let final_trm = List.fold_left (fun acc t1 ->
+    List.fold_left (fun acc t1 ->
         match t1.desc with
         | Trm_let (vk,(x, tx), init) ->
-          begin match list with 
-          | [] -> 
+          begin match rename with 
+          | Postfix post_fix ->
+            let func = fun x -> x ^ post_fix in 
             let acc = Internal.change_trm t1 (trm_let vk ((func x), tx) init) acc in
             Internal.change_trm (trm_var x) (trm_var (func x)) acc
-          | _ -> 
+          | Rename_list list -> 
             if List.mem_assoc x list then
             begin 
             let new_var = List.assoc x list in
@@ -140,12 +137,11 @@ let rename_aux (list : (string * string) list) (func : string -> string) (t : tr
               acc 
           end
         | _ -> acc
-      ) t tl in
-      if label = ""  then final_trm else trm_labelled label final_trm
+      ) t tl 
   | _ -> fail t.loc "rename_aux: expected the sequence block"
 
-let rename (list : (string * string) list) (func : string -> string) : Target.Transfo.local =
-  Target.apply_on_path (rename_aux list func)
+let rename (rename : rename) : Target.Transfo.local =
+  Target.apply_on_path (rename_aux rename)
 
 (* [init_detach_aux t]: replace an initialized variable declaration with an
     uninitialized declaration and an assignment.

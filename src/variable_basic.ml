@@ -1,3 +1,4 @@
+open Ast
 open Target
 
 (* [fold ~as_reference ~at tg] expects [tg] to point to a variable declaration 
@@ -30,8 +31,8 @@ let inline ?(delete : bool = false) ?(at : target = []) : Target.Transfo.t =
       inside the targeted sequence. By default this function is the one
       which adds "_1" to each declared variable inside the sequence.
 *)
-let rename ?(list : (string * string) list = []) ?(func : string -> string = fun x -> x ^ "_1") : Target.Transfo.t =
-  Target.apply_on_target (Variable_core.rename list func) 
+let rename (rename : rename) : Target.Transfo.t =
+  Target.apply_on_target (Variable_core.rename rename) 
   
 (* [init_detach tg] expects the target to point to a variable initialization.
    It then splits the instruction into a variable declaration and a set operation.

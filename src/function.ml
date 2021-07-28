@@ -15,8 +15,9 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
       else t) t fresh_names)
 
 
-let elim_body ?(rename : string -> string = fun x -> x) ?(names_list : (string * string) list = []) (tg : Target.target) : unit =
-  Variable_basic.rename ~func:rename ~list:names_list tg;
+let elim_body ?(rename : rename = Postfix "") (tg : Target.target) : unit =
+  let tg_body = if List.mem Target.dBody tg then tg else (tg @ [Target.dBody]) in
+  Variable_basic.rename rename tg_body;
   Sequence_basic.elim tg
 
 
@@ -37,7 +38,7 @@ let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool
      Function_core.bind_intro (i + !counter)  fresh_name true ([Dir_body] @ [Dir_arg 0 ] @ [Dir_arg n]) t p
      else t) t inner_fresh_names)
 
-
+(* let inline_call ?(name_result = "r") ~label:"body" ~renames:() *)
 (* let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(inner_fresh_names : var list = []) (tg : Target.target) : unit = 
   Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
     (fun (p, p_local, i) t ->
@@ -92,7 +93,7 @@ let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool
         else t
     ) tg *)
 
-  let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(bind_args : bool = false) ?(inner_fresh_names : var list = []) (tg : Target.target) : unit =
+  (* let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : rename = Rename "1") ?(bind_args : bool = false) ?(inner_fresh_names : var list = []) (tg : Target.target) : unit =
   bind1 name_result inner_fresh_names bind_args tg;
   Function_basic.inline_call ~label tg;
   elim_body ~rename [Target.cLabel label];
@@ -106,4 +107,4 @@ let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool
               then (Variable_basic.inline ~delete:true [Target.cVarDef binded_arg])
               else ()) inner_fresh_names
          end
-    else ()
+    else () *)
