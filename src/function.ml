@@ -18,7 +18,6 @@ let elim_body ?(rename : string -> string = fun x -> x) ?(names_list : (string *
   Sequence_basic.elim tg
 
 
-
 let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.target) : unit =
   bind_args inner_fresh_names tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
