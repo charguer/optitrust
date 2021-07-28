@@ -110,7 +110,8 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
               end in
    nb_gotos := 0;
    let labelled_body = begin match name with 
-                       | "" -> trm_labelled label fun_decl_body 
+                       | "" -> 
+                          trm_labelled label fun_decl_body 
                        | _ -> trm_labelled label (replace_return "__exit_body" name fun_decl_body)   
                        end in
    let exit_label = begin match !nb_gotos with

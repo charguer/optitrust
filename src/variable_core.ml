@@ -204,11 +204,9 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
         ) None lback in
         let index1  = match init_index with 
         | Some index -> index
-        | _ -> fail trm_to_change.loc (Tools.sprintf("init_attach_aux: no assignment was found to the given variable %s
-                    befor trying to do the attachment be sure that there is only one occurence of the variable set operation
-                    and the set operation does not belong to a control structure") x)
+        | _ -> fail trm_to_change.loc (Tools.sprintf("init_attach_aux: no assignment was found to the given variable %s") x)
           in
-        let lfront1, assgn_to_change, lback1 = Internal.get_trm_and_its_relatives index1 tl in
+        let lfront1, assgn_to_change, lback1 = Internal.get_trm_and_its_relatives index1 lback in
         begin match assgn_to_change.desc with 
         | Trm_apps(_, [_; rhs]) ->
           let vk = if const then Var_immutable else Var_mutable in
@@ -226,6 +224,7 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
     | _ -> fail t.loc "init_attach_aux: target_doesn't point to the right trm, expected a trm_let"
     end
   | _ -> fail t.loc "init_attach_axu: expected the surrounding sequence"
+
 
 let init_attach (const : bool) (index : int) : Target.Transfo.local =
   Target.apply_on_path(init_attach_aux const index )

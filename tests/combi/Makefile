@@ -8,6 +8,7 @@ TESTS_WORKING := \
 	functino_elim_body.ml \
 	function_bind.ml \
 	function_inline_complex.ml \
+	function_inline_simple.ml \
 	loop_hoist.ml \
   loop_fusion.ml \
   loop_invariant.ml \

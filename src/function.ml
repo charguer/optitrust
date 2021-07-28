@@ -38,39 +38,39 @@ let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool
      Function_core.bind_intro (i + !counter)  fresh_name true ([Dir_body] @ [Dir_arg 0 ] @ [Dir_arg n]) t p
      else t) t inner_fresh_names)
 
-let inline_call ?(name_result = "") ?(label:var = "body") ?(renames : rename = Postfix "") ?(inner_fresh_names : var list = []) ?(no_control_structures : bool = true) (tg : Target.target) : unit =
+let inline_call ?(name_result = "") ?(label:var = "body") ?(renames : rename = Postfix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
   let t = Trace.get_ast() in
+  let name_result = ref name_result in
   let tg_path = Target.resolve_target_exactly_one tg t in
   let (path_to_seq,local_path, i) = Internal.get_call_in_surrounding_sequence tg_path in
   let (tg_trm, _) = Path.resolve_path (path_to_seq @ [Dir_seq_nth i] @ local_path) t in
   let (tg_out_trm, _) = Path.resolve_path (path_to_seq @ [Dir_seq_nth i]) t in
+  let inlining_needed = 
   begin match tg_out_trm.desc with 
-  | Trm_let _ -> 
+  | Trm_let (_, (x, _), _) -> 
     let init1 = get_initializatin_trm tg_out_trm in
-    if name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline_call: no need to enter the result name in this case"
-      else if init1 = tg_trm then () 
+    if !name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline_call: no need to enter the result name in this case"
+      else if init1 = tg_trm then begin name_result := x; false end
       else
-           let name_result = 
-           begin match name_result with 
+           begin match !name_result with 
            | "" ->  
-            let rnd_nb = Random.int 1000 in ("temp" ^ (string_of_int rnd_nb))
-           | _ -> name_result
+              let rnd_nb = Random.int 1000 in 
+              name_result := ("temp" ^ (string_of_int rnd_nb));true
+           | _ -> Function_basic.bind_intro ~fresh_name:!name_result tg;true
            end
-           in
-          Function_basic.bind_intro ~fresh_name:name_result tg
-  | Trm_apps _ -> ()
+  | Trm_apps _ -> ();false
   | _ -> fail None "inline_call: expected a variable declaration or a function call"
-  end;
-  if List.length inner_fresh_names <> 0 then bind_args inner_fresh_names tg else ();
+  end in
+  if List.length inner_fresh_names <> 0 then bind_args inner_fresh_names tg else (); 
   Function_basic.inline_call ~label tg;
   elim_body ~renames [Target.cLabel label];
-  if List.length inner_fresh_names <> 0 
+   if List.length inner_fresh_names <> 0 
     then List.iter (fun x -> Variable_basic.inline ~delete:true [Target.cVarDef x]) (List.filter (fun x -> x <> "")inner_fresh_names) 
     else ();
-  if no_control_structures 
+  if _no_control_structures && (!name_result <> "") 
     then 
       begin 
-      Variable_basic.init_attach [Target.cVarDef name_result];
-      Variable_basic.inline ~delete:true [Target.cVarDef name_result]
+      Variable_basic.init_attach [Target.cVarDef !name_result];
+      if inlining_needed then Variable_basic.inline ~delete:true [Target.cVarDef !name_result] else ()
       end
     else () 
