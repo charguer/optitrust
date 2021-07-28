@@ -10,7 +10,7 @@ TESTS_WORKING := \
   array_tile.ml \
 	array_to_variables.ml \
   function_bind_intro.ml \
-	functino_inline_call.ml \
+	function_inline_call.ml \
 	label_add.ml \
   label_remove.ml \
 	loop_hoist.ml \
@@ -54,7 +54,7 @@ TESTS_OTHERS := \
 # TODO: remove? typedef_insert.ml \
 # TODO: script for vscode opening
 
-TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK) $(TESTS_OTHERS)
+TESTS := $(TESTS_WORKING) 
 
 COMPILE := \
 	loop_grid_enumerate.ml \
