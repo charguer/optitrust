@@ -6,12 +6,18 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
  let counter = ref (-1) in
  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
   (fun (p, p_local, i) t ->
-  (* Tools.printf "printed path %s\n" (Path.path_to_string p_local); *)
   Tools.foldi (fun n t fresh_name ->
      if fresh_name <> "" then
      let ()  = counter := !counter+1 in
      Function_core.bind_intro (i + !counter)  fresh_name true (p_local @ [Dir_arg n]) t p
      else t) t fresh_names)
+
+
+let elim_body ?(rename : string -> string = fun x -> x) ?(names_list : (string * string) list = []) (tg : Target.target) : unit =
+  Variable_basic.rename ~func:rename ~list:names_list tg;
+  Sequence_basic.elim tg
+
+
 
 let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.target) : unit =
   bind_args inner_fresh_names tg;
@@ -31,7 +37,7 @@ let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool
      else t) t inner_fresh_names)
 
 
-let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(inner_fresh_names : var list = []) (tg : Target.target) : unit = 
+(* let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(inner_fresh_names : var list = []) (tg : Target.target) : unit = 
   Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
     (fun (p, p_local, i) t ->
       (* Counter needed to keep track on the change of indices *)
@@ -83,12 +89,12 @@ let smart_inline ?(name_result : string = "") ?(label : string = "body") ?(renam
             then t 
             else List.fold_left (fun t1 _ -> Variable_core.inline true [] i t1 p) t (List.filter (fun x -> x <> "") inner_fresh_names)
         else t
-    ) tg
+    ) tg *)
 
   let  inline ?(name_result : string = "") ?(label : string = "body") ?(rename : string -> string = fun s -> s ^ "1") ?(bind_args : bool = false) ?(inner_fresh_names : var list = []) (tg : Target.target) : unit =
   bind1 name_result inner_fresh_names bind_args tg;
   Function_basic.inline_call ~label tg;
-  Function_basic.elim_body rename [Target.cLabel label];
+  elim_body ~rename [Target.cLabel label];
   if name_result <> ""
     then begin
          Variable_basic.init_attach [Target.cVarDef name_result];

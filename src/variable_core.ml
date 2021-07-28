@@ -116,9 +116,13 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
     updated ast 
 *)
 let rename_aux (list : (string * string) list) (func : string -> string) (t : trm) : trm =
+  
+  let t,label = match t.desc with 
+    | Trm_labelled (lb, t1) -> t1, lb
+    | _ -> t, "" in 
   match t.desc with
   | Trm_seq tl ->
-    List.fold_left (fun acc t1 ->
+    let final_trm = List.fold_left (fun acc t1 ->
         match t1.desc with
         | Trm_let (vk,(x, tx), init) ->
           begin match list with 
@@ -136,7 +140,8 @@ let rename_aux (list : (string * string) list) (func : string -> string) (t : tr
               acc 
           end
         | _ -> acc
-      ) t tl
+      ) t tl in
+      if label = ""  then final_trm else trm_labelled label final_trm
   | _ -> fail t.loc "rename_aux: expected the sequence block"
 
 let rename (list : (string * string) list) (func : string -> string) : Target.Transfo.local =

@@ -77,33 +77,25 @@ let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local
 
 (*[elim_aux index t]: inline an inner sequence into an outer sequence.
     params:
-      index: a valid index in the outer sequence; at that index, the subterm
-         should correspond to the inner sequence
-      t: ast of the outer sequence where inlining is done
+      t: ast of the sequence wanted to remove
     return: 
-      updated ast of the outer sequence, where the elements from the inner
-      sequence are directly laid out there.
+      a hiden sequence which is going to be merged witht the outer sequence on the next step
 *)
-let elim_aux (index : int) (t : trm) : trm =
+let elim_aux (t : trm) : trm =
   match t.desc with
-    | Trm_seq tl ->
-      let lfront, lback = Tools.split_list_at index tl in
-      let inner_seq, lback = Tools.split_list_at 1 lback in
-      let inner_seq = begin match inner_seq with
-        | [ins] -> ins
-        | _ -> fail t.loc "elim_aux: exected a list with only one element"
-        end in
-      let inner_seq_trms = 
-        begin match inner_seq.desc with
-        | Trm_seq tl1 -> tl1
-        | _ -> fail t.loc "elim_aux: inner sequence was not found, make sure the index is correct"
-        end in
-      trm_seq ~annot:t.annot (lfront @ inner_seq_trms @ lback)
-    | _ -> fail t.loc "elim_aux: expected the sequence on which the ilining is performed"
+   | Trm_labelled (_ , t1) ->
+    begin match t1.desc with 
+    | Trm_seq tl1 -> 
+      trm_seq_no_brace tl1
+    | _ -> fail t.loc "elim_aux: expected a sequence of terms"
+    end
+   | Trm_seq tl ->
+      trm_seq_no_brace tl
+   | _ -> fail t.loc "elim_aux: expected the sequence to be deleted"
 
 
-let elim (index : int) : Target.Transfo.local =
-  Target.apply_on_path (elim_aux index)
+let elim : Target.Transfo.local =
+  Target.apply_on_path (elim_aux)
 
 (* [intro_on_instr_aux visible label t]: replacing t with a sequence that contains t as single item.
    params:

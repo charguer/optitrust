@@ -9,7 +9,9 @@ TESTS_WORKING := \
 	array_swap.ml \
   array_tile.ml \
 	array_to_variables.ml \
-  label_add.ml \
+  function_bind_intro.ml \
+	functino_inline_call.ml \
+	label_add.ml \
   label_remove.ml \
 	loop_hoist.ml \
   loop_fusion.ml \

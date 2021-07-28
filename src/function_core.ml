@@ -129,22 +129,3 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
 
 let inline_call (index: int) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local = 
   Target.apply_on_path (inline_call_aux index label top_ast p_local)
-
-let elim_body_aux (rename : string -> string) (index : int) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl ->
-    let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
-    begin match trm_to_change.desc with 
-    | Trm_labelled (_, body) ->
-      let body = change_variable_names body t rename in
-      begin match body.desc with 
-      | Trm_seq tl1 ->
-        trm_seq ~annot:t.annot (lfront @ tl1 @ lback)
-      | _ -> fail body.loc "elim_body_aux: expected a sequence of terms"
-      end
-    | _ -> fail trm_to_change.loc "elim_body_aux: expcted a labelled block"
-    end
-  | _ -> fail t.loc "elim_body_aux: expected the surrounding sequence"
-
-let elim_body (rename : string -> string) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (elim_body_aux rename index)

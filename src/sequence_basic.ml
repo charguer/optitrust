@@ -69,10 +69,11 @@ let intro_between ?(label : string = "") (tg_beg : target) (tg_end : target) : u
    nested inside another sequence, e.g., points at [{t2;t3}] inside
    [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
    producing e.g., [{ t1; t2; t3; t3}]. *)
-let elim : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Sequence_core.elim i t p)
-
+let elim (tg : Target.target) : unit =
+  Internal.nobrace_enter();
+  Target.apply_on_target (Sequence_core.elim) tg;
+  Internal.nobrace_remove_and_exit ()
+  
 (* [intro_on_instr visible tg] expecets the target [tg] to point at any arbitrary trm,
     it will wrap a sequence around the targeted  trm.
     [visible] denotes the visibility of a sequence. This means the that the the sequence is
@@ -87,9 +88,6 @@ let intro_on_instr ?(label : string = "") ?(visible : bool = true) (tg : Target.
 
 (* [unwrap tg] expects the target [tg] to point to a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)
-let elim_around_instr (tg : Target.target) : unit =
-   Trace.apply (fun _ t ->
-    let p = resolve_target_exactly_one tg t in
-    let p, i = Internal.isolate_last_dir_in_seq (fst (Internal.isolate_last_dir_in_seq p)) in
-    Sequence_core.elim i t p)
-
+let elim_around_instr : Target.Transfo.t =
+   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p, _) t -> Sequence_core.elim t p)
