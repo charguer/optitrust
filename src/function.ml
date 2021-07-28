@@ -6,11 +6,13 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
  let counter = ref (-1) in
  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
   (fun (p, p_local, i) t ->
-  Tools.foldi (fun n t fresh_name ->
-     if fresh_name <> "" then
-     let ()  = counter := !counter+1 in
-     Function_core.bind_intro (i + !counter)  fresh_name true (p_local @ [Dir_arg n]) t p
-     else t) t fresh_names)
+   if List.length fresh_names = 0 then t 
+    else 
+      Tools.foldi (fun n t fresh_name ->
+      if fresh_name <> "" then
+        let ()  = counter := !counter+1 in
+        Function_core.bind_intro (i + !counter)  fresh_name true (p_local @ [Dir_arg n]) t p
+      else t) t fresh_names)
 
 
 let elim_body ?(rename : string -> string = fun x -> x) ?(names_list : (string * string) list = []) (tg : Target.target) : unit =
@@ -18,7 +20,7 @@ let elim_body ?(rename : string -> string = fun x -> x) ?(names_list : (string *
   Sequence_basic.elim tg
 
 
-let bind (fresh_name : string) (inner_fresh_names : var list) (tg : Target.target) : unit =
+let bind ?(fresh_name : string = "res") ?(inner_fresh_names : var list =  []) (tg : Target.target) : unit =
   bind_args inner_fresh_names tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 

@@ -6,6 +6,7 @@ TARGET_MAKE_ALL := transfo
 
 TESTS_WORKING := \
 	functino_elim_body.ml \
+	function_bind.ml \
 	loop_hoist.ml \
   loop_fusion.ml \
   loop_invariant.ml \
