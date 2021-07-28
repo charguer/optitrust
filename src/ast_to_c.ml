@@ -220,7 +220,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
      | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
      | Trm_if (b, then_, else_) ->
-        let db = decorate_trm ~semicolon b in
+        let db = decorate_trm ~semicolon:false b in
         let dt = decorate_trm ~semicolon:true then_ in
         begin match else_.desc with
         | Trm_val (Val_lit Lit_unit) ->
