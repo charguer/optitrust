@@ -346,6 +346,7 @@ and trm_desc =
     (* LATER: ARTHUR, make this a flag in [trm], carrying an id, rather than a constructor *)
   | Trm_any of trm
   | Trm_arbitrary of string
+  | Trm_omp of directive
 
 and varkind =
   | Var_immutable
@@ -356,6 +357,113 @@ and abort =
   | Ret of trm option (* return;  or return 3; *)
   | Break (* LATER: could have label option *)
   | Continue (* LATER: could have label option *)
+
+
+and mode = 
+  | Shared
+  | None
+
+and expression = string
+
+and sched_type = 
+  | Static
+  | Dynamic
+  | Guided
+  | Runtime
+
+and reduction_identifier =
+  | Plus
+  | Minus
+  | Prod
+  | And
+  | Or
+  | Power
+  | BitAnd
+  | BitOr
+
+and clause = 
+  (* Data sharing clauses *)
+  | Default of mode
+  | Shared_c of var list
+  | Private of var list
+  | FirstPrivate of var list
+  | LastPrivate of var list
+  | Linear of (var list) * int list
+  | Reduction of reduction_identifier * (var list)
+  (* Data copying clasuses *)
+  | Copyin of var list
+  | CopyPrivate of var list
+  (* Map clause TODO:*)
+  (* SIMD clauses *)
+  | Safelen of int
+  | Collapse of int
+  | Simdlen of int
+  | Aligned_c of var list * int
+  | Uniform of var list
+  | Inbranch
+  | Notinbranch
+  (* General clauses *)
+  | Nowait
+  | Ordered_c
+  | If of expression
+  | Device of int
+  | NumThreads of int
+  | Schedule of sched_type * int
+
+and atomic_operation = 
+  | Read
+  | Write
+  | Update
+  | Capture
+
+(* TODO: Simplify directive *)
+and directive =
+  | Parallel of clause list
+  | For of clause list
+  | Section 
+  | Sections of (directive * trm) list
+  | Single of clause list
+  | Simd of clause list
+  | Declare_simd of clause list
+  | For_simd of clause list
+  | Target of clause list
+  | Target_data of clause list
+  | Target_update of clause list
+  | Declare_target 
+  | End_declare_target 
+  | Teams of clause list
+  | Distribute of clause list
+  | Distribute_simd of clause list
+  | Distribute_parallel_for of clause list
+  | Distribute_paralle_for_simd of clause list
+  | Parallel_for
+  | Prallel_sections of (directive * trm) list
+  | Parallel_for_simd of clause list
+  | Target_teams of clause list
+  | Teams_distribute of clause list
+  | Teams_distribute_end of clause list
+  | Target_teams_distribute of clause list
+  | Target_teams_distribute_simd of clause list
+  | Teams_distribute_paralle_for of clause list
+  | Teams_distribute_parallel_for_simd of clause list
+  | Target_teams_distribute_parallel_for of clause list
+  | Target_teams_distribute_parallel_for_simd of clause list
+  | Task of clause list
+  | Taskyield 
+  | Master 
+  | Critical
+  | Barrier
+  | Taskwait
+  | Taskgroup
+  | Atomic of atomic_operation
+  | Atomic_capture 
+  | Flush of var list
+  | Ordered 
+  | Cancel of clause * clause
+  | Cancellation_point of clause * clause
+  | Threadprivate of var list
+  | Declare_reduction of reduction_identifier * typvar list * expression * clause
+
 
 (* patterns *)
 type pat = trm
