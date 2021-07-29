@@ -232,9 +232,15 @@ let rec get_typid (t : trm) : int =
     | None -> -1
     end
   | Trm_let (_,(_,tx),_) ->
+    (* TODO: Enable get_typid to be able to find the id even if there are multiple pointers *)
     let typ = get_inner_ptr_type tx in
     begin match typ.typ_desc with 
     | Typ_constr (_,id ,_) -> id
+    | Typ_ptr {inner_typ = ty;_} ->
+      begin match ty.typ_desc with 
+      | Typ_constr (_, id, _) -> id
+      | _ -> -1
+      end
     | _ -> -1
     end
     

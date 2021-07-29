@@ -1032,7 +1032,6 @@ and translate_decl (d : decl) : trm =
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     let tt = translate_qual_type ~loc t in
     let const = is_typ_const tt in
-    (* Tools.printf("Is type const: %s, %s\n") (string_of_bool const) (Ast_to_text.typ_to_string ~only_desc:true  tt); *)
     let te =
       begin match eo with
       | None ->
