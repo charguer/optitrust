@@ -149,6 +149,10 @@ and prim_to_doc (p : prim) : document =
      separate (blank 1) [underscore; qmark; underscore; colon; underscore]
   | Prim_fetch_and_add ->
     string "fetch_and_add"
+  | Prim_atomic_get _ -> string "atomic_get"
+  | Prim_atomic_set _ -> string "atomic_set"
+  | Prim_compare_and_swap -> string "compare_and_swap"
+
 and val_to_doc (v : value) : document =
   match v with
   | Val_lit l -> lit_to_doc l
@@ -646,6 +650,10 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
             string "fetch_and_add" ^^ parens ((decorate_trm d1) ^^ comma ^^ blank 1 ^^ decorate_trm d2)
           | _ -> fail f.loc "apps_to_doc: fetch_and_add expects two arguments"
           end
+        (* TODO: FIX ME! *)
+        | Prim_atomic_get _cm -> string "atomic_get"
+        | Prim_atomic_set _cm -> string "atomic_set"
+        | Prim_compare_and_swap -> string "compare_and_swap"
         (* | _ -> fail f.loc "apps_to_doc: only op primitives may be applied" *)
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"

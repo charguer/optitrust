@@ -104,6 +104,12 @@ and print_binop (op : binary_op) : document =
   | Binop_shiftr -> string "Binop_shiftr"
   | Binop_xor -> string "Binop_xor"
 
+and print_consistency (cm : consistency_mode) : document = 
+  match cm with 
+  | Sequentially_consistent -> string "Sequentially_consistent"
+  | Release -> string "Release"
+  | Acquire -> string "Acquire"
+
 and print_prim ?(only_desc : bool = false) (p : prim) : document =
   match p with
   | Prim_unop op ->
@@ -117,6 +123,9 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
      node "Prim_new" ^^ dt
   | Prim_conditional_op -> node "Prim_conditional_op"
   | Prim_fetch_and_add -> node "Prim_fetch_and_add"
+  | Prim_atomic_get cm -> node "Prim_atomic_get" ^^ print_consistency cm
+  | Prim_atomic_set cm -> node "Prim_atomic_set" ^^ print_consistency cm
+  | Prim_compare_and_swap -> node "Prim_compare_and_swap"
 
 and print_lit (l : lit) : document =
   match l with

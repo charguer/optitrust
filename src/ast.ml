@@ -166,13 +166,21 @@ and binary_op =
   | Binop_shiftr
   | Binop_xor
 
+
+and consistency_mode = 
+  | Sequentially_consistent
+  | Release
+  | Acquire
 and prim =
   | Prim_unop of unary_op (* e.g. "!b" *)
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_new of typ (* "new T" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
   | Prim_fetch_and_add
-  
+  | Prim_atomic_get of consistency_mode
+  | Prim_atomic_set of consistency_mode
+  | Prim_compare_and_swap 
+
 (* literals *)
 and lit =
   | Lit_unit (* void, e.g. "return;" is represented as "Lit_unit" *)
