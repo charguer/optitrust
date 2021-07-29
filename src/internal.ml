@@ -231,6 +231,13 @@ let rec get_typid (t : trm) : int =
       end
     | None -> -1
     end
+  | Trm_let (_,(_,tx),_) ->
+    let typ = get_inner_ptr_type tx in
+    begin match typ.typ_desc with 
+    | Typ_constr (_,id ,_) -> id
+    | _ -> -1
+    end
+    
   | _ -> -1
   
 

@@ -643,7 +643,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
-   | _ -> fail f.loc "apps_to_doc: only functions may be applied"
+   | _ -> 
+      Ast_to_text.print_ast ~only_desc:true stdout f;
+      fail f.loc "apps_to_doc: only functions may be applied"
 
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)

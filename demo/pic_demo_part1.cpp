@@ -101,7 +101,7 @@ int main() {
         particle& p = b.items[idParticle];
         
         // Compute the new speed and position for the particle
-        vect speed2 = vect_add(p.speed, field); 
+        vect speed2 = vect_add(p.speed, vect_mul(charge, field)); 
         vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
         // Deposit the unit charge of the particle in array "nextCharge"
