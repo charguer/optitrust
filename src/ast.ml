@@ -347,6 +347,7 @@ and trm_desc =
   | Trm_any of trm
   | Trm_arbitrary of string
   | Trm_omp of directive
+  | Trm_routine of omp_routine
 
 and varkind =
   | Var_immutable
@@ -361,7 +362,7 @@ and abort =
 
 and mode = 
   | Shared
-  | None
+  | None_
 
 and expression = string
 
@@ -463,6 +464,45 @@ and directive =
   | Cancellation_point of clause * clause
   | Threadprivate of var list
   | Declare_reduction of reduction_identifier * typvar list * expression * clause
+
+(* OpenMP Routines *)
+and omp_routine = 
+  | Set_num_threads of int
+  | Get_num_threads of var
+  | Get_max_threads of var
+  | Get_thread_num of var
+  | Get_num_procs of var
+  | In_parallel of var
+  | Set_dynamic of int
+  | Get_dynamic of var
+  | Get_cancellation of var
+  | Set_nested of int
+  | Get_nested of var
+  | Set_schedule of sched_type * int
+  | Get_schedule 
+  | Get_thread_limit 
+  | Set_max_active_levels of int
+  | Get_max_active_levels of var
+  | Get_level of var
+  | Get_ancestor_thread_num of var
+  | Get_team_size of var
+  | Get_active_level of var
+  | In_final of var
+  | Get_proc_bind of var
+  | Set_default_device of int
+  | Get_default_device of var
+  | Get_num_devices of var
+  | Get_num_teams of var
+  | Get_team_num of var
+  | Is_initial_device of var
+  | Set_lock of var
+  | Set_nest_lock of var
+  | Unset_lock 
+  | Unset_nest_lock
+  | Test_lock of var
+  | Test_nest_lock of var
+  | Get_wtime of var
+  | Get_wtick of var
 
 
 (* patterns *)
@@ -678,6 +718,10 @@ let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
 let trm_arbitrary ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (code : string) : trm =
   {annot = annot; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
+
+let trm_routine ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+(omp_routine : omp_routine) : trm =
+  {annot = annot; desc = Trm_routine omp_routine; loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let is_included (t : trm) : bool =
  List.exists (function Include _ -> true | _ -> false) t.annot

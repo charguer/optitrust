@@ -321,8 +321,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_any t ->
         let dt = decorate_trm ~semicolon t in
         dattr ^^ string "ANY" ^^ parens (dt)
-      | Trm_arbitrary code ->
+     | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
+     | Trm_omp _ | Trm_routine _-> fail None "trm_to_doc: still on development" 
      end
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 
