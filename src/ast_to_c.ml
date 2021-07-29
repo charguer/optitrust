@@ -147,7 +147,8 @@ and prim_to_doc (p : prim) : document =
   | Prim_conditional_op ->
      (* put holes to display the operator *)
      separate (blank 1) [underscore; qmark; underscore; colon; underscore]
-
+  | Prim_fetch_and_add ->
+    string "fetch_and_add"
 and val_to_doc (v : value) : document =
   match v with
   | Val_lit l -> lit_to_doc l
@@ -639,6 +640,12 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
           string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
+        | Prim_fetch_and_add ->
+          begin match tl with 
+          | [d1;d2] ->
+            string "fetch_and_add" ^^ parens ((decorate_trm d1) ^^ comma ^^ blank 1 ^^ decorate_trm d2)
+          | _ -> fail f.loc "apps_to_doc: fetch_and_add expects two arguments"
+          end
         (* | _ -> fail f.loc "apps_to_doc: only op primitives may be applied" *)
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"

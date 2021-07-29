@@ -116,6 +116,7 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
      let dt = print_typ ~only_desc t in
      node "Prim_new" ^^ dt
   | Prim_conditional_op -> node "Prim_conditional_op"
+  | Prim_fetch_and_add -> node "Prim_fetch_and_add"
 
 and print_lit (l : lit) : document =
   match l with

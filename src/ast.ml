@@ -1,9 +1,4 @@
 open Tools
-
-
-
-
-
  type pos = {
     pos_line : int;
     pos_col : int; }
@@ -136,8 +131,6 @@ and typdef_body =
 
 and typed_var = var * typ
 
-
-
 (* primitives *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)
@@ -178,7 +171,8 @@ and prim =
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_new of typ (* "new T" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
-
+  | Prim_fetch_and_add
+  
 (* literals *)
 and lit =
   | Lit_unit (* void, e.g. "return;" is represented as "Lit_unit" *)
