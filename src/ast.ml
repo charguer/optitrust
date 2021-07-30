@@ -346,8 +346,8 @@ and trm_desc =
     (* LATER: ARTHUR, make this a flag in [trm], carrying an id, rather than a constructor *)
   | Trm_any of trm
   | Trm_arbitrary of string
-  | Trm_omp of directive
-  | Trm_routine of omp_routine
+  | Trm_omp_directive of directive
+  | Trm_omp_routine of omp_routine
 
 and varkind =
   | Var_immutable
@@ -410,6 +410,10 @@ and clause =
   | Device of int
   | NumThreads of int
   | Schedule of sched_type * int
+  | Parallel_c
+  | Sections_c
+  | For_c
+  | Taskgroup_c
 
 and atomic_operation = 
   | Read
@@ -419,51 +423,55 @@ and atomic_operation =
 
 (* TODO: Simplify directive *)
 and directive =
-  | Parallel of clause list
-  | For of clause list
-  | Section 
-  | Sections of (directive * trm) list
-  | Single of clause list
-  | Simd of clause list
-  | Declare_simd of clause list
-  | For_simd of clause list
-  | Target of clause list
-  | Target_data of clause list
-  | Target_update of clause list
-  | Declare_target 
-  | End_declare_target 
-  | Teams of clause list
-  | Distribute of clause list
-  | Distribute_simd of clause list
-  | Distribute_parallel_for of clause list
-  | Distribute_paralle_for_simd of clause list
-  | Parallel_for
-  | Prallel_sections of (directive * trm) list
-  | Parallel_for_simd of clause list
-  | Target_teams of clause list
-  | Teams_distribute of clause list
-  | Teams_distribute_end of clause list
-  | Target_teams_distribute of clause list
-  | Target_teams_distribute_simd of clause list
-  | Teams_distribute_paralle_for of clause list
-  | Teams_distribute_parallel_for_simd of clause list
-  | Target_teams_distribute_parallel_for of clause list
-  | Target_teams_distribute_parallel_for_simd of clause list
-  | Task of clause list
-  | Taskyield 
-  | Master 
-  | Critical
-  | Barrier
-  | Taskwait
-  | Taskgroup
   | Atomic of atomic_operation
   | Atomic_capture 
-  | Flush of var list
-  | Ordered 
-  | Cancel of clause * clause
-  | Cancellation_point of clause * clause
-  | Threadprivate of var list
+  | Barrier
+  | Cancel of clause * clause list
+  | Cancellation_point of clause * clause list
+  | Critical
+  | Declare_simd of clause list
   | Declare_reduction of reduction_identifier * typvar list * expression * clause
+  | Declare_target 
+  | Distribute of clause list
+  | Distribute_parallel_for of clause list
+  | Distribute_parallel_for_simd of clause list
+  | Distribute_simd
+  | End_declare_target 
+  | Flush of var list
+  | For of clause list
+  | For_simd of clause list
+  | Master 
+  | Ordered 
+  | Parallel of clause list
+  | Parallel_for
+  | Parallel_for_simd of clause list
+  | Parallel_sections of clause list
+  | Section 
+  | Sections of clause list
+  | Simd of clause list
+  | Single of clause list
+  | Target of clause list
+  | Target_data of clause list
+  | Target_enter_data of clause list
+  | Target_exit_data of clause list
+  | Target_teams of clause list
+  | Target_teams_distribute of clause list
+  | Target_teams_distribute_parallel_for of clause list
+  | Target_teams_distribute_parallel_for_simd of clause list
+  | Target_teams_distribute_simd of clause list
+  | Target_update of clause list
+  | Task of clause list
+  | Taskgroup
+  | Taskloop of clause list
+  | Taskloop_simd of clause list
+  | Taskwait
+  | Taskyield 
+  | Teams of clause list
+  | Teams_distribute of clause list
+  | Teams_distribute_end of clause list
+  | Teams_distribute_parallel_for of clause list
+  | Teams_distribute_parallel_for_simd of clause list
+  | Threadprivate of var list
 
 (* OpenMP Routines *)
 and omp_routine = 
@@ -719,9 +727,15 @@ let trm_arbitrary ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribu
 (code : string) : trm =
   {annot = annot; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
-let trm_routine ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+
+
+let trm_omp_directive ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+(directive : directive) : trm =
+  {annot = annot; desc = Trm_omp_directive directive; loc = loc; is_statement = true; add ; typ; attributes; ctx}
+
+let trm_omp_routine ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (omp_routine : omp_routine) : trm =
-  {annot = annot; desc = Trm_routine omp_routine; loc = loc; is_statement = true; add ; typ; attributes; ctx}
+  {annot = annot; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let is_included (t : trm) : bool =
  List.exists (function Include _ -> true | _ -> false) t.annot

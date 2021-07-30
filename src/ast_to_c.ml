@@ -323,7 +323,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "ANY" ^^ parens (dt)
      | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
-     | Trm_omp _ | Trm_routine _-> fail None "trm_to_doc: still on development" 
+     | Trm_omp_directive _ | Trm_omp_routine _-> fail None "trm_to_doc: still on development" 
      end
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 

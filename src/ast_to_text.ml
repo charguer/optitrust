@@ -267,7 +267,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc t in
       node "Trm_any"  ^^ parens (dt)
   | Trm_arbitrary _ ->  string "" 
-  | Trm_omp _| Trm_routine _ -> fail None "print_trm_desc: still on development"
+  | Trm_omp_directive _ | Trm_omp_routine _ -> fail None "print_trm_desc: still on development"
 
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   let tid = td.typdef_typid in
