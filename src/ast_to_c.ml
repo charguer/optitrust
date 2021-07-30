@@ -225,12 +225,68 @@ and clause_to_doc (cl : clause) : document =
   | Sections_c -> string "sections"
   | For_c -> string "for"
   | Taskgroup -> string "taskgroup"
-  
-and args_to_doc d = function
-    | [] -> d
-    | [t] -> d ^^ decorate_trm t
-    | t1 :: t2 :: tl ->
-       args_to_doc (d ^^ decorate_trm t1 ^^ comma ^^ blank 1) (t2 :: tl)
+
+and atomic_operation_to_doc (ao : atomic_operation) : document = 
+  match ao with 
+  | Read -> string "read"
+  | Write -> string "write"
+  | Update -> string "update"
+  | Capture -> string "capture"
+
+
+and directive_to_doc (d : directive) : document =
+  match d with 
+  | Atomic ao -> string "atomic" ^^ parens (atomic_operation_to_doc ao)
+  | Atomic_capture -> string "atomic" ^^ blank 1 ^^ string "capture"
+  | Barrier -> string "barrier"
+  | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
+  | Cancellation_point (c, cl) -> string "cancellation" ^^ blank 1 ^^ string "point" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
+  | Critical -> string "critical"
+  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd" ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
+    reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (Tools.list_to_string ~sep:comma ~bounds:["";""] tvl) ^^
+    string e ^^ clause_to_doc c)
+  | Declare_target -> string "declare" ^^ blank 1 ^^ string "target"  
+  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Distribute_parallel_for cl -> string "distribute" ^^ string "parallel" ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
+  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
+  | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
+  | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare" ^^ string "target"
+  | Flush vl -> string "flush" ^^ string (Tools.list_to_string ~sep:"," vl)
+  | For cl -> string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Master -> string "master"
+  | Ordered -> string "ordered"
+  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Parallel_for -> string "parallel" ^^ blank 1 ^^ string "for"
+  | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Section -> string "section"
+  | Sections cl -> string "sections" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Simd cl -> string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Single cl -> string "single" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target cl -> string "target" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
+  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Task cl -> string "task" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Taskgroup -> string "taskgroup"
+  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Taskwait -> string "taskwait"
+  | Taskyield -> string "taskyield"
+  | Teams cl -> string "teams" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_end cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "end" ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_parallel_for cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_parallel_for_simd cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^(Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Threadprivate vl -> string "threadprivate" ^^ string (Tools.list_to_string vl)
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document = 
   if (List.exists (function Highlight _-> true | _ -> false) t.annot) then

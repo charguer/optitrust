@@ -423,6 +423,7 @@ and atomic_operation =
 
 (* TODO: Simplify directive *)
 and directive =
+  (* TODO: Fix ME! *)
   | Atomic of atomic_operation
   | Atomic_capture 
   | Barrier
