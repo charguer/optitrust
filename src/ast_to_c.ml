@@ -173,9 +173,65 @@ and attr_to_doc (a : attribute) : document =
   | Identifier x -> string x
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
   | GeneratedStar -> blank 1
-(*
-  semicolon = true if we need to print a semicolon after the statement
-*)
+
+and mode_to_doc (m : mode) : document = 
+  match m with 
+  | Shared -> string "shared"
+  | None_ -> string "none"
+
+and sched_type_to_doc (st : sched_type) : document =
+  match st with 
+  | Static -> string "static"
+  | Dynamic -> string "dynamic"
+  | Guided -> string "guided"
+  | Runtime -> string "runtime"
+
+and reduction_identifier_to_doc (ri : reduction_identifier) : document = 
+  match ri with 
+  | Plus -> plus
+  | Minus -> minus
+  | Prod -> star
+  | And -> ampersand ^^ ampersand
+  | Or -> bar ^^ bar
+  | Power -> caret
+  | BitAnd -> ampersand
+  | BitOr -> bar
+
+and clause_to_doc (cl : clause) : document =
+  match cl with
+  | Default m -> string "default" ^^ parens (mode_to_doc m)
+  | Shared_c vl -> string "shared" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
+  | FirstPrivate vl -> string "firstprivate" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
+  | LastPrivate vl -> string "lastprivate" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
+  (* TODO: Fix ME! *)
+  | Linear (vl, _) -> string "linear" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
+  | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ Tools.list_to_string ~sep:comma ~bounds:["";""])
+  | Copyin vl -> string "copyin" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
+  | CopyPrivate vl -> string "copyprivate" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
+  | Safelen i -> string "safelen" ^^ parens (string (string_of_int i))
+  | Collapse i -> string "collapse" ^^ parens (string (string_of_int i))
+  | Simdlen i -> string "simdlen" ^^ parens (string (string_of_int i))
+  | Aligned_c (vl, i) -> string "aligned" ^^ parens ((Tools.list_to_string ~sep:comma ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
+  | Uniform vl -> string "uniform" ^^ Tools.list_to_string ~sep:comma ~bounds:["(";")"] vl
+  | Inbranch -> string "inbranch"
+  | NotInbranch -> string "notinbranch"
+  | Nowait -> string "nowait"
+  | Ordered -> string "ordered"
+  | If e-> string "if" ^^ parens (string e)
+  | Device i -> string "device" ^^ parens (string (string _of_int i))
+  | NumThreads i -> string "numthreads" ^^ parens (string (string _of_int i))
+  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ blank 1 ^^ colon ^ blank 1 ^^ string (string_of_int (i)))
+  | Parallel_c -> string "parallel"
+  | Sections_c -> string "sections"
+  | For_c -> string "for"
+  | Taskgroup -> string "taskgroup"
+  
+and args_to_doc d = function
+    | [] -> d
+    | [t] -> d ^^ decorate_trm t
+    | t1 :: t2 :: tl ->
+       args_to_doc (d ^^ decorate_trm t1 ^^ comma ^^ blank 1) (t2 :: tl)
+
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document = 
   if (List.exists (function Highlight _-> true | _ -> false) t.annot) then
       let (l, r) = get_decorators t in

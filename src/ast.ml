@@ -389,7 +389,7 @@ and clause =
   | Private of var list
   | FirstPrivate of var list
   | LastPrivate of var list
-  | Linear of (var list) * int list
+  | Linear of (var list) * var
   | Reduction of reduction_identifier * (var list)
   (* Data copying clasuses *)
   | Copyin of var list
@@ -402,7 +402,7 @@ and clause =
   | Aligned_c of var list * int
   | Uniform of var list
   | Inbranch
-  | Notinbranch
+  | NotInbranch
   (* General clauses *)
   | Nowait
   | Ordered_c
