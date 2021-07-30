@@ -174,120 +174,6 @@ and attr_to_doc (a : attribute) : document =
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
   | GeneratedStar -> blank 1
 
-and mode_to_doc (m : mode) : document = 
-  match m with 
-  | Shared -> string "shared"
-  | None_ -> string "none"
-
-and sched_type_to_doc (st : sched_type) : document =
-  match st with 
-  | Static -> string "static"
-  | Dynamic -> string "dynamic"
-  | Guided -> string "guided"
-  | Runtime -> string "runtime"
-
-and reduction_identifier_to_doc (ri : reduction_identifier) : document = 
-  match ri with 
-  | Plus -> plus
-  | Minus -> minus
-  | Prod -> star
-  | And -> ampersand ^^ ampersand
-  | Or -> bar ^^ bar
-  | Power -> caret
-  | BitAnd -> ampersand
-  | BitOr -> bar
-
-and clause_to_doc (cl : clause) : document =
-  match cl with
-  | Default m -> string "default" ^^ parens (mode_to_doc m)
-  | Shared_c vl -> string "shared" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
-  | FirstPrivate vl -> string "firstprivate" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
-  | LastPrivate vl -> string "lastprivate" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
-  (* TODO: Fix ME! *)
-  | Linear (vl, _) -> string "linear" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
-  | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ Tools.list_to_string ~sep:comma ~bounds:["";""])
-  | Copyin vl -> string "copyin" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
-  | CopyPrivate vl -> string "copyprivate" ^^ Tools.list_to_string ~sep:comma ~bounds: ["(";")"] vl
-  | Safelen i -> string "safelen" ^^ parens (string (string_of_int i))
-  | Collapse i -> string "collapse" ^^ parens (string (string_of_int i))
-  | Simdlen i -> string "simdlen" ^^ parens (string (string_of_int i))
-  | Aligned_c (vl, i) -> string "aligned" ^^ parens ((Tools.list_to_string ~sep:comma ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
-  | Uniform vl -> string "uniform" ^^ Tools.list_to_string ~sep:comma ~bounds:["(";")"] vl
-  | Inbranch -> string "inbranch"
-  | NotInbranch -> string "notinbranch"
-  | Nowait -> string "nowait"
-  | Ordered -> string "ordered"
-  | If e-> string "if" ^^ parens (string e)
-  | Device i -> string "device" ^^ parens (string (string _of_int i))
-  | NumThreads i -> string "numthreads" ^^ parens (string (string _of_int i))
-  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ blank 1 ^^ colon ^ blank 1 ^^ string (string_of_int (i)))
-  | Parallel_c -> string "parallel"
-  | Sections_c -> string "sections"
-  | For_c -> string "for"
-  | Taskgroup -> string "taskgroup"
-
-and atomic_operation_to_doc (ao : atomic_operation) : document = 
-  match ao with 
-  | Read -> string "read"
-  | Write -> string "write"
-  | Update -> string "update"
-  | Capture -> string "capture"
-
-
-and directive_to_doc (d : directive) : document =
-  match d with 
-  | Atomic ao -> string "atomic" ^^ parens (atomic_operation_to_doc ao)
-  | Atomic_capture -> string "atomic" ^^ blank 1 ^^ string "capture"
-  | Barrier -> string "barrier"
-  | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
-  | Cancellation_point (c, cl) -> string "cancellation" ^^ blank 1 ^^ string "point" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
-  | Critical -> string "critical"
-  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd" ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
-    reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (Tools.list_to_string ~sep:comma ~bounds:["";""] tvl) ^^
-    string e ^^ clause_to_doc c)
-  | Declare_target -> string "declare" ^^ blank 1 ^^ string "target"  
-  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Distribute_parallel_for cl -> string "distribute" ^^ string "parallel" ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
-  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
-  | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
-  | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare" ^^ string "target"
-  | Flush vl -> string "flush" ^^ string (Tools.list_to_string ~sep:"," vl)
-  | For cl -> string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Master -> string "master"
-  | Ordered -> string "ordered"
-  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Parallel_for -> string "parallel" ^^ blank 1 ^^ string "for"
-  | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Section -> string "section"
-  | Sections cl -> string "sections" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Simd cl -> string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Single cl -> string "single" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target cl -> string "target" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
-  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Task cl -> string "task" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Taskgroup -> string "taskgroup"
-  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Taskwait -> string "taskwait"
-  | Taskyield -> string "taskyield"
-  | Teams cl -> string "teams" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Teams_distribute cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Teams_distribute_end cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "end" ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Teams_distribute_parallel_for cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Teams_distribute_parallel_for_simd cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^(Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Threadprivate vl -> string "threadprivate" ^^ string (Tools.list_to_string vl)
-
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document = 
   if (List.exists (function Highlight _-> true | _ -> false) t.annot) then
       let (l, r) = get_decorators t in
@@ -435,7 +321,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "ANY" ^^ parens (dt)
      | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
-     | Trm_omp_directive _ | Trm_omp_routine _-> fail None "trm_to_doc: still on development" 
+     | Trm_omp_directive d -> sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ directive_to_doc d 
+     | Trm_omp_routine _-> fail None "trm_to_doc: still on development" 
      end
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 
@@ -774,6 +661,162 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
    | _ -> 
       Ast_to_text.print_ast ~only_desc:true stdout f;
       fail f.loc "apps_to_doc: only functions may be applied"
+and mode_to_doc (m : mode) : document = 
+  match m with 
+  | Shared -> string "shared"
+  | None_ -> string "none"
+
+and sched_type_to_doc (st : sched_type) : document =
+  match st with 
+  | Static -> string "static"
+  | Dynamic -> string "dynamic"
+  | Guided -> string "guided"
+  | Runtime -> string "runtime"
+
+and reduction_identifier_to_doc (ri : reduction_identifier) : document = 
+  match ri with 
+  | Plus -> plus
+  | Minus -> minus
+  | Prod -> star
+  | And -> ampersand ^^ ampersand
+  | Or -> bar ^^ bar
+  | Power -> caret
+  | BitAnd -> ampersand
+  | BitOr -> bar
+
+and clause_to_doc (cl : clause) : document =
+  match cl with
+  | Default m -> string "default" ^^ parens (mode_to_doc m)
+  | Shared_c vl -> string "shared" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | Private vl -> string "private" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | FirstPrivate vl -> string "firstprivate" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | LastPrivate vl -> string "lastprivate" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  (* TODO: Fix ME! *)
+  | Linear (vl, _) -> string "linear" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl))
+  | Copyin vl -> string "copyin" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | CopyPrivate vl -> string "copyprivate" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | Safelen i -> string "safelen" ^^ parens (string (string_of_int i))
+  | Collapse i -> string "collapse" ^^ parens (string (string_of_int i))
+  | Simdlen i -> string "simdlen" ^^ parens (string (string_of_int i))
+  | Aligned_c (vl, i) -> string "aligned" ^^ parens (string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl) ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int i))
+  | Uniform vl -> string "uniform" ^^ string (Tools.list_to_string ~sep:"," ~bounds:["(";")"] vl)
+  | Inbranch -> string "inbranch"
+  | NotInbranch -> string "notinbranch"
+  | Nowait -> string "nowait"
+  | Ordered_c -> string "ordered"
+  | If e-> string "if" ^^ parens (string e)
+  | Device i -> string "device" ^^ parens (string (string_of_int i))
+  | NumThreads i -> string "numthreads" ^^ parens (string (string_of_int i))
+  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int (i)))
+  | Parallel_c -> string "parallel"
+  | Sections_c -> string "sections"
+  | For_c -> string "for"
+  | Taskgroup_c -> string "taskgroup"
+
+and atomic_operation_to_doc (ao : atomic_operation) : document = 
+  match ao with 
+  | Read -> string "read"
+  | Write -> string "write"
+  | Update -> string "update"
+  | Capture -> string "capture"
+
+
+and directive_to_doc (d : directive) : document =
+  match d with 
+  | Atomic ao -> string "atomic" ^^ parens (atomic_operation_to_doc ao)
+  | Atomic_capture -> string "atomic" ^^ blank 1 ^^ string "capture"
+  | Barrier -> string "barrier"
+  | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
+  | Cancellation_point (c, cl) -> string "cancellation" ^^ blank 1 ^^ string "point" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
+  | Critical -> string "critical"
+  | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd" ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
+    reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (Tools.list_to_string ~sep:"," ~bounds:["";""] tvl) ^^
+    string e ^^ clause_to_doc c)
+  | Declare_target -> string "declare" ^^ blank 1 ^^ string "target"  
+  | Distribute cl -> string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Distribute_parallel_for cl -> string "distribute" ^^ string "parallel" ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
+  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
+  | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
+  | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare" ^^ string "target"
+  | Flush vl -> string "flush" ^^ string (Tools.list_to_string ~sep:"," vl)
+  | For cl -> string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Master -> string "master"
+  | Ordered -> string "ordered"
+  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Parallel_for -> string "parallel" ^^ blank 1 ^^ string "for"
+  | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Section -> string "section"
+  | Sections cl -> string "sections" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Simd cl -> string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Single cl -> string "single" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target cl -> string "target" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
+  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Task cl -> string "task" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Taskgroup -> string "taskgroup"
+  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Taskwait -> string "taskwait"
+  | Taskyield -> string "taskyield"
+  | Teams cl -> string "teams" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_end cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "end" ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_parallel_for cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Teams_distribute_parallel_for_simd cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^(Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Threadprivate vl -> string "threadprivate" ^^ string (Tools.list_to_string vl)
+
+and routine_to_doc (r : omp_routine) : document = 
+  match r with 
+  | Set_num_threads i -> string "omp_set_num_threads" ^^ parens (string (string_of_int i))
+  | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_max_threads -> string "omp_get_max_threads" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_num_procs  -> string "omp_get_num_procs" ^^ lparen ^^ blank 1 ^^ rparen
+  | In_parallel  -> string "omp_in_parallel" ^^ lparen ^^ blank 1 ^^ rparen
+  | Set_dynamic i -> string "omp_set_dynamic" ^^ parens (string (string_of_int i)) 
+  | Get_dynamic  -> string "omp_get_dynamic" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_cancellation  -> string "omp_get_cancellation"
+  | Set_nested i -> string "omp_set_nested" ^^ parens (string (string_of_int i))  
+  | Get_nested  -> string "omp_get_nested" ^^ lparen ^^ blank 1 ^^ rparen
+  (* TODO: FIX ME! *)
+  | Set_schedule (_, md) -> string "omp_set_schedule" ^^ parens (string (string_of_int md))  
+  | Get_schedule -> string "omp_get_schedule" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_thread_limit  -> string "omp_get_thread_limit" ^^ lparen ^^ blank 1 ^^ rparen
+  | Set_max_active_levels i -> string "omp_set_max_active_levels" ^^ parens (string (string_of_int i))
+  | Get_max_active_levels -> string "omp_get_max_active_levels" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_level -> string "omp_get_level" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_ancestor_thread_num -> string "omp_get_ancestor_thread_num" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_team_size  -> string "omp_get_team_size" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_active_level  -> string "omp_get_active_level" ^^ lparen ^^ blank 1 ^^ rparen
+  | In_final  -> string "omp_in_final" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_proc_bind  -> string "omp_get_proc_bind" ^^ lparen ^^ blank 1 ^^ rparen
+  | Set_default_device i -> string "omp_set_default_device" ^^ parens (string (string_of_int i))  
+  | Get_default_device -> string "omp_get_default_device" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_num_devices  -> string "omp_get_num_devices" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_num_teams -> string "omp_get_num_teams" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_team_num  -> string "omp_team_num" ^^ lparen ^^ blank 1 ^^ rparen
+  | Is_initial_device -> string "omp_is_initial_device" ^^ lparen ^^ blank 1 ^^ rparen
+  | Initialize_lock lck -> string "omp_initialize_lock" ^^ parens (ampersand ^^ string lck)
+  | Destroy_lock lck -> string "omp_destroy_lock" ^^ parens (ampersand ^^ string lck)
+  | Set_lock lck-> string "omp_set_lock" ^^ parens (ampersand ^^ string lck)
+  | Set_nest_lock lck -> string "omp_set_nest_lock" ^^ parens (ampersand ^^ string lck)
+  | Unset_lock lck ->  string "omp_unset_lock" ^^ parens (ampersand ^^ string lck)
+  | Unset_nest_lock lck -> string "omp_unset_nest_lock" ^^ parens (ampersand ^^ string lck)
+  | Test_lock lck -> string "omp_test_lock" ^^ parens (ampersand ^^ string lck)
+  | Test_nest_lock lck -> string "omp_test_nest_lock" ^^ parens (ampersand ^^ string lck)
+  | Get_wtime -> string "get_wtime" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
 
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)

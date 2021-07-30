@@ -477,41 +477,43 @@ and directive =
 (* OpenMP Routines *)
 and omp_routine = 
   | Set_num_threads of int
-  | Get_num_threads of var
-  | Get_max_threads of var
-  | Get_thread_num of var
-  | Get_num_procs of var
-  | In_parallel of var
+  | Get_num_threads 
+  | Get_max_threads 
+  | Get_thread_num 
+  | Get_num_procs 
+  | In_parallel
   | Set_dynamic of int
-  | Get_dynamic of var
-  | Get_cancellation of var
+  | Get_dynamic 
+  | Get_cancellation
   | Set_nested of int
-  | Get_nested of var
+  | Get_nested 
   | Set_schedule of sched_type * int
   | Get_schedule 
   | Get_thread_limit 
   | Set_max_active_levels of int
-  | Get_max_active_levels of var
-  | Get_level of var
-  | Get_ancestor_thread_num of var
-  | Get_team_size of var
-  | Get_active_level of var
-  | In_final of var
-  | Get_proc_bind of var
+  | Get_max_active_levels 
+  | Get_level 
+  | Get_ancestor_thread_num 
+  | Get_team_size 
+  | Get_active_level 
+  | In_final 
+  | Get_proc_bind 
   | Set_default_device of int
-  | Get_default_device of var
-  | Get_num_devices of var
-  | Get_num_teams of var
-  | Get_team_num of var
-  | Is_initial_device of var
+  | Get_default_device 
+  | Get_num_devices 
+  | Get_num_teams 
+  | Get_team_num 
+  | Is_initial_device 
+  | Initialize_lock of var
+  | Destroy_lock of var
   | Set_lock of var
   | Set_nest_lock of var
-  | Unset_lock 
-  | Unset_nest_lock
+  | Unset_lock of var
+  | Unset_nest_lock of var
   | Test_lock of var
   | Test_nest_lock of var
-  | Get_wtime of var
-  | Get_wtick of var
+  | Get_wtime 
+  | Get_wtick 
 
 
 (* patterns *)
