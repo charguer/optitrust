@@ -220,9 +220,9 @@ let get_num_procs (num_procs : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.get_num_procs num_procs i t p)
 
-let in_parallel (in_paralllel : int) : Target.Transfo.t =
+let in_parallel (in_parallel : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.in_paralllel in_paralllel i t p)
+    Omp_core.in_parallel in_parallel i t p)
 
 let set_dynamic (thread_id : int) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
@@ -254,7 +254,7 @@ let get_schedule (sched_kind : sched_type) (modifier : int) : Target.Transfo.t =
 
 let get_thread_limit (limit : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.get_thread_limit limit i limit i t p)
+    Omp_core.get_thread_limit limit i t p)
 
 let set_max_active_levels (max_levels : int) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
@@ -270,7 +270,7 @@ let get_level (level : var) : Target.Transfo.t =
 
 let get_ancestor_thread_num (thread_num : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) -> 
-    Omp_core.get_ancestor_thread_num i t p)
+    Omp_core.get_ancestor_thread_num thread_num i t p)
 
 let get_team_size (level : int) (size : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
@@ -280,7 +280,7 @@ let get_active_level (active_level : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.get_active_level active_level i t p)
 
-let in_final (in_final : int) : Target.Transfo.t =
+let in_final (in_final : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.in_final in_final i t p)
 
@@ -301,7 +301,7 @@ let get_num_devices (num_devices : var) : Target.Transfo.t =
     Omp_core.get_num_devices num_devices i t p)
 
 let get_num_teams (num_teams : var) : Target.Transfo.t =
-  Targe.apply_on_target_between (fun t (p, i) ->
+  Target.apply_on_target_between (fun t (p, i) ->
     Omp_core.get_num_teams num_teams i t p)
 
 let get_team_num (team_num : var) : Target.Transfo.t =

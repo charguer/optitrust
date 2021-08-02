@@ -321,7 +321,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "ANY" ^^ parens (dt)
      | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
-     | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ ²directive_to_doc d 
+     | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d 
      | Trm_omp_routine _-> fail None "trm_to_doc: still on development" 
      end
 
@@ -791,13 +791,13 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_nested  -> string "omp_get_nested" ^^ lparen ^^ blank 1 ^^ rparen
   (* TODO: FIX ME! *)
   | Set_schedule (_, md) -> string "omp_set_schedule" ^^ parens (string (string_of_int md))  
-  | Get_schedule -> string "omp_get_schedule" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_schedule (_, md) -> string "omp_get_schedule" ^^ parens (string (string_of_int md))  
   | Get_thread_limit  -> string "omp_get_thread_limit" ^^ lparen ^^ blank 1 ^^ rparen
   | Set_max_active_levels i -> string "omp_set_max_active_levels" ^^ parens (string (string_of_int i))
   | Get_max_active_levels -> string "omp_get_max_active_levels" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_level -> string "omp_get_level" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_ancestor_thread_num -> string "omp_get_ancestor_thread_num" ^^ lparen ^^ blank 1 ^^ rparen
-  | Get_team_size  -> string "omp_get_team_size" ^^ lparen ^^ blank 1 ^^ rparen
+  | Get_team_size level -> string "omp_get_team_size" ^^ lparen ^^ string (string_of_int level) ^^ rparen
   | Get_active_level  -> string "omp_get_active_level" ^^ lparen ^^ blank 1 ^^ rparen
   | In_final  -> string "omp_in_final" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_proc_bind  -> string "omp_get_proc_bind" ^^ lparen ^^ blank 1 ^^ rparen
@@ -807,8 +807,10 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_num_teams -> string "omp_get_num_teams" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_team_num  -> string "omp_team_num" ^^ lparen ^^ blank 1 ^^ rparen
   | Is_initial_device -> string "omp_is_initial_device" ^^ lparen ^^ blank 1 ^^ rparen
-  | Initialize_lock lck -> string "omp_initialize_lock" ^^ parens (ampersand ^^ string lck)
+  | Init_lock lck -> string "omp_init_lock" ^^ parens (ampersand ^^ string lck)
+  | Init_nest_lock lck -> string "omp_init_nest_lock" ^^ parens (ampersand ^^ string lck)
   | Destroy_lock lck -> string "omp_destroy_lock" ^^ parens (ampersand ^^ string lck)
+  | Destroy_nest_lock lck -> string "omp_destroy_nest_lock" ^^ parens (ampersand ^^ string lck)
   | Set_lock lck-> string "omp_set_lock" ^^ parens (ampersand ^^ string lck)
   | Set_nest_lock lck -> string "omp_set_nest_lock" ^^ parens (ampersand ^^ string lck)
   | Unset_lock lck ->  string "omp_unset_lock" ^^ parens (ampersand ^^ string lck)

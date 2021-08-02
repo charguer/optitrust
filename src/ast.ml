@@ -488,7 +488,7 @@ and omp_routine =
   | Set_nested of int
   | Get_nested 
   | Set_schedule of sched_type * int
-  | Get_schedule 
+  | Get_schedule of sched_type * int
   | Get_thread_limit 
   | Set_max_active_levels of int
   | Get_max_active_levels 
@@ -507,7 +507,7 @@ and omp_routine =
   | Init_lock of var
   | Init_nest_lock of var
   | Destroy_lock of var
-  | Destroy_nest_lock
+  | Destroy_nest_lock of var
   | Set_lock of var
   | Set_nest_lock of var
   | Unset_lock of var

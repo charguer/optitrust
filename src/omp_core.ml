@@ -691,6 +691,18 @@ let set_schedule_aux (sched_kind : sched_type) (modifier : int) (index : int) (t
 let set_schedule (sched_kind : sched_type) (modifier : int) (index : int) : Target.Transfo.local = 
   Target.apply_on_path (set_schedule_aux sched_kind modifier index)
 
+
+let get_schedule_aux (sched_kind : sched_type) (modifier : int) (index : int) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    trm_seq ~annot:t.annot (lfront @ [trm_omp_routine (Get_schedule (sched_kind, modifier))] @ lback)
+
+  | _ -> fail t.loc "set_nested_aux: expected the sequence where the call to the routine is going to be added"
+
+let get_schedule (sched_kind : sched_type) (modifier : int) (index : int) : Target.Transfo.local = 
+  Target.apply_on_path (get_schedule_aux sched_kind modifier index)
+
 let get_thread_limit_aux (limit : var) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -811,24 +823,6 @@ let get_active_level_aux (active_level : var) (index : int) (t : trm) : trm =
 let get_active_level (active_level : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (get_active_level_aux active_level index)
 
-let get_ancestor_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let find_prev_decl = Internal.toplevel_decl thread_num t in
-    let new_trm = 
-    begin match find_prev_decl with 
-    | Some _ -> 
-      trm_set (trm_var thread_num) (trm_omp_routine (Get_ancestor_thread_num))
-    | None ->  
-      trm_let Var_mutable (thread_num, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_ancestor_thread_num)])
-    end in
-    trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
-  | _ -> fail t.loc "get_ancestor_thread_num_aux: expected the sequence where the call to the routine is going to be added"
-
-let get_ancestor_thread_num (thread_num : var) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (get_ancestor_thread_num_aux thread_num index)
-
 let in_final_aux (in_final : var) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -875,6 +869,24 @@ let set_default_device_aux (device_num : int) (index : int) (t : trm) : trm =
 
 let set_default_device (device_num : int) (index : int) : Target.Transfo.local = 
   Target.apply_on_path (set_default_device_aux device_num index)
+
+let get_default_device_aux (default_device : var) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, lback = Tools.split_list_at index tl in
+    let find_prev_decl = Internal.toplevel_decl default_device t in
+    let new_trm = 
+    begin match find_prev_decl with 
+    | Some _ -> 
+      trm_set (trm_var default_device) (trm_omp_routine (Get_default_device))
+    | None ->  
+      trm_let Var_mutable (default_device, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_default_device)])
+    end in
+    trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
+  | _ -> fail t.loc "get_default_device_aux: expected the sequence where the call to the routine is going to be added"
+
+let get_default_device (default_device : var) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (get_default_device_aux default_device index)
 
 
 let get_num_devices_aux (num_devices : var) (index : int) (t : trm) : trm =
