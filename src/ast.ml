@@ -494,7 +494,7 @@ and omp_routine =
   | Get_max_active_levels 
   | Get_level 
   | Get_ancestor_thread_num 
-  | Get_team_size 
+  | Get_team_size of int
   | Get_active_level 
   | In_final 
   | Get_proc_bind 

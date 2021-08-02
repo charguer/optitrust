@@ -220,7 +220,7 @@ let get_num_procs (num_procs : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.get_num_procs num_procs i t p)
 
-let in_parallel (in_paralllel : bool) : Target.Transfo.t =
+let in_parallel (in_paralllel : int) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.in_paralllel in_paralllel i t p)
 
@@ -236,7 +236,7 @@ let get_cancellation (is_cancellation : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.get_cancellation is_cancellation i t p)
 
-let set_nested (nested : var) : Target.Transfo.t =
+let set_nested (nested : int) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.set_nested nested i t p)
 
@@ -292,7 +292,11 @@ let get_default_device (default_device : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.get_default_device default_device i t p)
 
-let get_num_devices (num_device : var) : Target.Transfo.t =
+let get_proc_bind (proc_bind : var) : Target.Transfo.t = 
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_proc_bind  proc_bind i t p)
+
+let get_num_devices (num_devices : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.get_num_devices num_devices i t p)
 
