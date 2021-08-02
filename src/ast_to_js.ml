@@ -94,8 +94,106 @@ let kind_to_field (kind : string) : json * json =
 let value_to_field (value : string) : json * json =
   (strquote "value", Json.Str (quote value))
 
-(* Here, [aux] is to be applied for processing children *)
+let directive_to_json (directive : directive) : json * json = 
+  let directive_js =
+  match directive with
+  | Atomic _-> Json.Str  "Atomic"
+  | Atomic_capture -> Json.Str  "Atomic_capture"
+  | Barrier -> Json.Str  "Barrier"
+  | Cancel _ -> Json.Str  "Cancel"
+  | Cancellation_point _-> Json.Str  "Cancellation_point"
+  | Critical -> Json.Str  "Critical"
+  | Declare_simd _ -> Json.Str  "Declare_simd"
+  | Declare_reduction _ -> Json.Str  "Declare_reduction"
+  | Declare_target -> Json.Str  "Declare_target"
+  | Distribute _ -> Json.Str  "Distribute"
+  | Distribute_parallel_for _ -> Json.Str  "Distribute_parallel_for"
+  | Distribute_parallel_for_simd _ -> Json.Str  "Distribute_parallel_for_simd"
+  | Distribute_simd -> Json.Str  "Distribute_simd"
+  | End_declare_target -> Json.Str  "End_declare_target"
+  | Flush _ -> Json.Str  "Flush"
+  | For _ -> Json.Str  "For"
+  | For_simd _ -> Json.Str  "For_simd"
+  | Master -> Json.Str  "Master"
+  | Ordered -> Json.Str  "Ordered"
+  | Parallel _ -> Json.Str  "Parallel"
+  | Parallel_for -> Json.Str  "Parallel_for"
+  | Parallel_for_simd _ -> Json.Str  "Parallel_for_simd"
+  | Parallel_sections _ -> Json.Str  "Parallel_sections"
+  | Section -> Json.Str  "Section"
+  | Sections _ -> Json.Str  "Sections"
+  | Simd _ -> Json.Str  "Simd"
+  | Single _ -> Json.Str  "Single"
+  | Target _ -> Json.Str  "Target"
+  | Target_data _ -> Json.Str  "Target_data"
+  | Target_enter_data _ -> Json.Str  "Target_enter_data"
+  | Target_exit_data _ -> Json.Str  "Target_exit_data"
+  | Target_teams _ -> Json.Str  "Target_teams"
+  | Target_teams_distribute _ -> Json.Str  "Target_teams_distribute"
+  | Target_teams_distribute_parallel_for _ -> Json.Str  "Target_teams_distribute_parallel_for"
+  | Target_teams_distribute_parallel_for_simd _ -> Json.Str  "Target_teams_distribute_parallel_for_simd"
+  | Target_teams_distribute_simd _ -> Json.Str  "Target_teams_distribute_simd"
+  | Target_update _ -> Json.Str  "Target_update"
+  | Task _ -> Json.Str  "Task"
+  | Taskgroup -> Json.Str  "Taskgroup"
+  | Taskloop _ -> Json.Str  "Taskloop"
+  | Taskloop_simd _ -> Json.Str  "Taskloop_simd"
+  | Taskwait -> Json.Str  "Taskwait"
+  | Taskyield -> Json.Str  "Taskyield"
+  | Teams _ -> Json.Str  "Teams"
+  | Teams_distribute _ -> Json.Str  "Teams_distribute"
+  | Teams_distribute_end _ -> Json.Str  "Teams_distribute_end"
+  | Teams_distribute_parallel_for _ -> Json.Str  "Teams_distribute_parallel_for"
+  | Teams_distribute_parallel_for_simd _ -> Json.Str  "Teams_distribute_parallel_for_simd"
+  | Threadprivate _ -> Json.Str  "Threadprivate"
+  in (strquote "directive", directive_js)
 
+let routine_to_json (routine : omp_routine) : json * json = 
+  let routine_js = 
+  match routine with 
+  | Set_num_threads _ -> Json.Str  "Set_num_threads"
+  | Get_num_threads -> Json.Str  "Get_num_threads"
+  | Get_max_threads -> Json.Str  "Get_max_threads"
+  | Get_thread_num -> Json.Str  "Get_thread_num"
+  | Get_num_procs -> Json.Str  "Get_num_procs"
+  | In_parallel -> Json.Str  "In_parallel"
+  | Set_dynamic _ -> Json.Str  "Set_dynamic"
+  | Get_dynamic -> Json.Str  "Get_dynamic"
+  | Get_cancellation -> Json.Str  "Get_cancellation"
+  | Set_nested _ -> Json.Str  "Set_nested"
+  | Get_nested -> Json.Str  "Get_nested"
+  | Set_schedule _ -> Json.Str  "Set_schedule"
+  | Get_schedule _ -> Json.Str  "Get_schedule"
+  | Get_thread_limit -> Json.Str  "Get_thread_limit"
+  | Set_max_active_levels _ -> Json.Str  "Set_max_active_levels"
+  | Get_max_active_levels -> Json.Str  "Get_max_active_levels"
+  | Get_level -> Json.Str  "Get_level"
+  | Get_ancestor_thread_num -> Json.Str  "Get_ancestor_thread_num"
+  | Get_team_size _ -> Json.Str  "Get_team_size"
+  | Get_active_level -> Json.Str  "Get_active_level"
+  | In_final -> Json.Str  "In_final"
+  | Get_proc_bind -> Json.Str  "Get_proc_bind"
+  | Set_default_device _ -> Json.Str  "Set_default_device"
+  | Get_default_device -> Json.Str  "Get_default_device"
+  | Get_num_devices -> Json.Str  "Get_num_devices"
+  | Get_num_teams -> Json.Str  "Get_num_teams"
+  | Get_team_num -> Json.Str  "Get_team_num"
+  | Is_initial_device -> Json.Str  "Is_initial_device"
+  | Init_lock _ -> Json.Str  "Init_lock"
+  | Init_nest_lock _ -> Json.Str  "Init_nest_lock"
+  | Destroy_lock _ -> Json.Str  "Destroy_lock"
+  | Destroy_nest_lock _ -> Json.Str  "Destroy_nest_lock"
+  | Set_lock _ -> Json.Str  "Set_lock"
+  | Set_nest_lock _ -> Json.Str  "Set_nest_lock"
+  | Unset_lock _ -> Json.Str  "Unset_lock"
+  | Unset_nest_lock _ -> Json.Str  "Unset_nest_lock"
+  | Test_lock _ -> Json.Str  "Test_lock"
+  | Test_nest_lock _ -> Json.Str  "Test_nest_lock"
+  | Get_wtime -> Json.Str  "Get_wtime"
+  | Get_wtick -> Json.Str  "Get_wtick"
+  in  (strquote "routine", routine_js)
+
+(* Here, [aux] is to be applied for processing children *)
 let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_val v ->
@@ -212,7 +310,9 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "any";
           children_to_field [child_to_json "any" (aux t)]]
     | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
-    | Trm_omp_directive _ | Trm_omp_routine _ ->  [ kind_to_field "omp"]
+    | Trm_omp_directive d -> [directive_to_json d]
+    | Trm_omp_routine r -> [routine_to_json r] 
+    
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
      | Grouped_binding -> quote "Grouped_binding"

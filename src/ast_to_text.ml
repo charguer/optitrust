@@ -267,7 +267,10 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc t in
       node "Trm_any"  ^^ parens (dt)
   | Trm_arbitrary _ ->  string "" 
-  | Trm_omp_directive _ | Trm_omp_routine _ -> string ""
+  | Trm_omp_directive directive -> 
+    node "Trm_omp_directive" ^^ parens (print_directive directive)
+  | Trm_omp_routine routine-> 
+    node "Trm_omp_routine" ^^ parens (print_routine routine)
 
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   let tid = td.typdef_typid in
@@ -360,6 +363,102 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
                                 dadd ^^ semi ^//^ string "typ"; equals;
                                 dtyp ^^ semi ^//^ string "attributes"; equals;
                                 dattr])
+
+and print_directive (directive : directive) : document = 
+  match directive with
+  (* TODO: Fix ME! *)
+  | Atomic _-> string "Atomic"
+  | Atomic_capture -> string "Atomic_capture"
+  | Barrier -> string "Barrier"
+  | Cancel _ -> string "Cancel"
+  | Cancellation_point _-> string "Cancellation_point"
+  | Critical -> string "Critical"
+  | Declare_simd _ -> string "Declare_simd"
+  | Declare_reduction _ -> string "Declare_reduction"
+  | Declare_target -> string "Declare_target"
+  | Distribute _ -> string "Distribute"
+  | Distribute_parallel_for _ -> string "Distribute_parallel_for"
+  | Distribute_parallel_for_simd _ -> string "Distribute_parallel_for_simd"
+  | Distribute_simd -> string "Distribute_simd"
+  | End_declare_target -> string "End_declare_target"
+  | Flush _ -> string "Flush"
+  | For _ -> string "For"
+  | For_simd _ -> string "For_simd"
+  | Master -> string "Master"
+  | Ordered -> string "Ordered"
+  | Parallel _ -> string "Parallel"
+  | Parallel_for -> string "Parallel_for"
+  | Parallel_for_simd _ -> string "Parallel_for_simd"
+  | Parallel_sections _ -> string "Parallel_sections"
+  | Section -> string "Section"
+  | Sections _ -> string "Sections"
+  | Simd _ -> string "Simd"
+  | Single _ -> string "Single"
+  | Target _ -> string "Target"
+  | Target_data _ -> string "Target_data"
+  | Target_enter_data _ -> string "Target_enter_data"
+  | Target_exit_data _ -> string "Target_exit_data"
+  | Target_teams _ -> string "Target_teams"
+  | Target_teams_distribute _ -> string "Target_teams_distribute"
+  | Target_teams_distribute_parallel_for _ -> string "Target_teams_distribute_parallel_for"
+  | Target_teams_distribute_parallel_for_simd _ -> string "Target_teams_distribute_parallel_for_simd"
+  | Target_teams_distribute_simd _ -> string "Target_teams_distribute_simd"
+  | Target_update _ -> string "Target_update"
+  | Task _ -> string "Task"
+  | Taskgroup -> string "Taskgroup"
+  | Taskloop _ -> string "Taskloop"
+  | Taskloop_simd _ -> string "Taskloop_simd"
+  | Taskwait -> string "Taskwait"
+  | Taskyield -> string "Taskyield"
+  | Teams _ -> string "Teams"
+  | Teams_distribute _ -> string "Teams_distribute"
+  | Teams_distribute_end _ -> string "Teams_distribute_end"
+  | Teams_distribute_parallel_for _ -> string "Teams_distribute_parallel_for"
+  | Teams_distribute_parallel_for_simd _ -> string "Teams_distribute_parallel_for_simd"
+  | Threadprivate _ -> string "Threadprivate"
+
+and print_routine (routine : omp_routine) : document = 
+  match routine with 
+  | Set_num_threads _ -> string "Set_num_threads"
+  | Get_num_threads -> string "Get_num_threads"
+  | Get_max_threads -> string "Get_max_threads"
+  | Get_thread_num -> string "Get_thread_num"
+  | Get_num_procs -> string "Get_num_procs"
+  | In_parallel -> string "In_parallel"
+  | Set_dynamic _ -> string "Set_dynamic"
+  | Get_dynamic -> string "Get_dynamic"
+  | Get_cancellation -> string "Get_cancellation"
+  | Set_nested _ -> string "Set_nested"
+  | Get_nested -> string "Get_nested"
+  | Set_schedule _ -> string "Set_schedule"
+  | Get_schedule _ -> string "Get_schedule"
+  | Get_thread_limit -> string "Get_thread_limit"
+  | Set_max_active_levels _ -> string "Set_max_active_levels"
+  | Get_max_active_levels -> string "Get_max_active_levels"
+  | Get_level -> string "Get_level"
+  | Get_ancestor_thread_num -> string "Get_ancestor_thread_num"
+  | Get_team_size _ -> string "Get_team_size"
+  | Get_active_level -> string "Get_active_level"
+  | In_final -> string "In_final"
+  | Get_proc_bind -> string "Get_proc_bind"
+  | Set_default_device _ -> string "Set_default_device"
+  | Get_default_device -> string "Get_default_device"
+  | Get_num_devices -> string "Get_num_devices"
+  | Get_num_teams -> string "Get_num_teams"
+  | Get_team_num -> string "Get_team_num"
+  | Is_initial_device -> string "Is_initial_device"
+  | Init_lock _ -> string "Init_lock"
+  | Init_nest_lock _ -> string "Init_nest_lock"
+  | Destroy_lock _ -> string "Destroy_lock"
+  | Destroy_nest_lock _ -> string "Destroy_nest_lock"
+  | Set_lock _ -> string "Set_lock"
+  | Set_nest_lock _ -> string "Set_nest_lock"
+  | Unset_lock _ -> string "Unset_lock"
+  | Unset_nest_lock _ -> string "Unset_nest_lock"
+  | Test_lock _ -> string "Test_lock"
+  | Test_nest_lock _ -> string "Test_nest_lock"
+  | Get_wtime -> string "Get_wtime"
+  | Get_wtick -> string "Get_wtick"
 
 let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in
