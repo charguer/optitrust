@@ -1,6 +1,6 @@
 open Ast
 
-
+(* OpenMP directives *)
 let atomic (ao : atomic_operation) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.atomic ao i t p)
@@ -197,3 +197,155 @@ let teams_distribute_parallel_for_simd (cl : clause list) : Target.Transfo.t =
 let threadprivate (vl : var list) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.threadprivate vl i t p)
+
+
+(* OpenMP routines *)
+let set_num_threads (nb_threads : int) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.set_num_threads nb_threads i t p)
+
+let get_num_threads (nb_threads : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_num_threads nb_threads i t p)
+
+let get_max_threads (max_threads : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_max_threads max_threads i t p)
+
+let get_thread_num (thread_id : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_thread_num thread_id i t p)
+
+let get_num_procs (num_procs : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_num_procs num_procs i t p)
+
+let in_parallel (in_paralllel : bool) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.in_paralllel in_paralllel i t p)
+
+let set_dynamic (thread_id : int) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.set_dynamic thread_id i t p)
+
+let get_dynamic (is_dynamic : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_dynamic is_dynamic i t p)
+
+let get_cancellation (is_cancellation : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_cancellation is_cancellation i t p)
+
+let set_nested (nested : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.set_nested nested i t p)
+
+let get_nested (is_nested : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_nested is_nested i t p)
+
+let set_schedule (sched_kind : sched_type) (modifier : int) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.set_schedule sched_kind modifier i t p)
+
+let get_schedule (sched_kind : sched_type) (modifier : int) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_schedule sched_kind modifier i t p)
+
+let get_thread_limit (limit : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_thread_limit limit i limit i t p)
+
+let set_max_active_levels (max_levels : int) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.set_max_active_levels max_levels i t p)
+
+let get_max_active_levels (max_levels : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_max_active_levels max_levels i t p)
+
+let get_level (level : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_level level i t p)
+
+let get_ancestor_thread_num (thread_num : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) -> 
+    Omp_core.get_ancestor_thread_num i t p)
+
+let get_team_size (level : int) (size : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_team_size level size i t p)
+
+let get_active_level (active_level : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_active_level active_level i t p)
+
+let in_final (in_final : int) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.in_final in_final i t p)
+
+let set_default_device (device_num : int) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.set_default_device device_num i t p)
+
+let get_default_device (default_device : var) : Target.Transfo.t = 
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_default_device default_device i t p)
+
+let get_num_devices (num_device : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_num_devices num_devices i t p)
+
+let get_num_teams (num_teams : var) : Target.Transfo.t =
+  Targe.apply_on_target_between (fun t (p, i) ->
+    Omp_core.get_num_teams num_teams i t p)
+
+let get_team_num (team_num : var) : Target.Transfo.t =
+  Target.apply_on_target_between (fun t (p, i) ->
+    Omp_core.get_team_num team_num i t p)
+
+let is_initial_device (is_initial_device : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.is_initial_device is_initial_device i t p)
+
+let init_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.init_lock lock i t p)
+
+let init_nest_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.init_nest_lock lock i t p)
+
+
+let set_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.set_lock lock i t p)
+
+let set_nest_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.set_nest_lock lock i t p)
+
+let unset_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.unset_lock lock i t p)
+
+let unset_nest_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.unset_nest_lock lock i t p)
+
+let test_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.test_lock lock i t p)
+
+let test_nest_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.test_nest_lock lock i t p)
+
+let get_wtime (wtime : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_wtime wtime i t p)
+
+let get_wtick (wtick : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.get_wtick wtick i t p)
+

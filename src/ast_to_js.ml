@@ -212,7 +212,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "any";
           children_to_field [child_to_json "any" (aux t)]]
     | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
-    | Trm_omp_directive _ | Trm_omp_routine _ -> fail t.loc "node_to_js: still on development"
+    | Trm_omp_directive _ | Trm_omp_routine _ ->  [ kind_to_field "omp"]
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
      | Grouped_binding -> quote "Grouped_binding"

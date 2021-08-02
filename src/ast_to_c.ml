@@ -321,7 +321,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "ANY" ^^ parens (dt)
      | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
-     | Trm_omp_directive d -> sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ directive_to_doc d 
+     | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ ²directive_to_doc d 
      | Trm_omp_routine _-> fail None "trm_to_doc: still on development" 
      end
 

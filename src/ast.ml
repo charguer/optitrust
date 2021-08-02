@@ -504,8 +504,10 @@ and omp_routine =
   | Get_num_teams 
   | Get_team_num 
   | Is_initial_device 
-  | Initialize_lock of var
+  | Init_lock of var
+  | Init_nest_lock of var
   | Destroy_lock of var
+  | Destroy_nest_lock
   | Set_lock of var
   | Set_nest_lock of var
   | Unset_lock of var
