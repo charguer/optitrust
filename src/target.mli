@@ -20,7 +20,7 @@ type abort_kind =
   | Break
   | Continue
 
-type constr_name (* TODO: maybe shouldn't be so opaque *)
+type constr_name 
 
 type constr_access =
   (* array indices may be arbitrary terms *)

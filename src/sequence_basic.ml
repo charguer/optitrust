@@ -91,3 +91,10 @@ let intro_on_instr ?(label : string = "") ?(visible : bool = true) (tg : Target.
 let elim_around_instr : Target.Transfo.t =
    Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, _) t -> Sequence_core.elim t p)
+
+
+let split (tg : Target.target) : unit =
+  Internal.nobrace_enter ();
+  Target.apply_on_transformed_target_between (Internal.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Sequence_core.split i t p) tg;
+  Internal.nobrace_remove_and_exit()

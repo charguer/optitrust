@@ -379,6 +379,7 @@ let rec constr_to_string (c : constr) : string =
     let string_cl = List.map constr_to_string cl in
     list_to_string string_cl
   | Constr_bool b -> if b then "True" else "False"
+  
   (* TODO: Constr_or cs ->
        evaluate each of the cs using a recursive call;
        use a custom recursive function (not List.map or fold)

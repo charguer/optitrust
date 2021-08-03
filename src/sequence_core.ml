@@ -129,3 +129,20 @@ let unwrap_aux (t : trm) : trm =
 
 let unwrap : Target.Transfo.local =
   Target.apply_on_path (unwrap_aux)
+
+(* [split_aux index t ]: splitting a sequence in two parts 
+    params:
+      index: index of the realative target entered by the user
+      t : an ast term that corresponds to the the targeted sequence
+    return:
+      the updated ast with the splitted sequence
+*)
+let split_aux (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let first_part, last_part = Tools.split_list_at index tl in
+    trm_seq_no_brace [trm_seq ~annot:t.annot first_part;trm_seq ~annot:t.annot last_part]
+  | _ -> fail t.loc "split_aux: expected a sequence, containing the location where it is going to be splitted"
+
+let split (index : int) : Target.Transfo.local =
+  Target.apply_on_path (split_aux index)
