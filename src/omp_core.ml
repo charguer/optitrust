@@ -2,14 +2,14 @@ open Ast
 
 (* OpenMP directives *)
 
-let atomic_aux (ao : atomic_operation) (index : int) (t : trm) : trm =   
+let atomic_aux (ao : atomic_operation option) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
     let lfront, lback = Tools.split_list_at index tl in
     trm_seq ~annot:t.annot (lfront @ [trm_omp_directive (Atomic ao)] @ lback)
   | _ -> fail t.loc "atomic_aux: expected the sequence where the directive is going to be added"
 
-let atomic (ao : atomic_operation) (index : int) : Target.Transfo.local =
+let atomic (ao : atomic_operation option) (index : int) : Target.Transfo.local =
   Target.apply_on_path (atomic_aux ao index)
 
 let atomic_capture_aux (index : int) (t : trm) : trm =   

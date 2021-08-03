@@ -147,8 +147,8 @@ and prim_to_doc (p : prim) : document =
   | Prim_conditional_op ->
      (* put holes to display the operator *)
      separate (blank 1) [underscore; qmark; underscore; colon; underscore]
-  | Prim_fetch_and_add ->
-    string "fetch_and_add"
+  | Prim_fetch_add ->
+    string "fetch_add"
   | Prim_atomic_get _ -> string "atomic_get"
   | Prim_atomic_set _ -> string "atomic_set"
   | Prim_compare_and_swap -> string "compare_and_swap"
@@ -322,7 +322,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d 
-     | Trm_omp_routine _-> fail None "trm_to_doc: still on development" 
+     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
      end
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 
@@ -644,11 +644,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
           (* Here we assume that trm_apps has only one trm as argument *)
           let value = List.hd tl in
           string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
-        | Prim_fetch_and_add ->
+        | Prim_fetch_add ->
           begin match tl with 
           | [d1;d2] ->
-            string "fetch_and_add" ^^ parens ((decorate_trm d1) ^^ comma ^^ blank 1 ^^ decorate_trm d2)
-          | _ -> fail f.loc "apps_to_doc: fetch_and_add expects two arguments"
+            string "fetch_add" ^^ parens ((decorate_trm d1) ^^ comma ^^ blank 1 ^^ decorate_trm d2)
+          | _ -> fail f.loc "apps_to_doc: fetch_add expects two arguments"
           end
         (* TODO: FIX ME! *)
         | Prim_atomic_get _cm -> string "atomic_get"
@@ -714,13 +714,16 @@ and clause_to_doc (cl : clause) : document =
   | For_c -> string "for"
   | Taskgroup_c -> string "taskgroup"
 
-and atomic_operation_to_doc (ao : atomic_operation) : document = 
+and atomic_operation_to_doc (ao : atomic_operation option) : document = 
   match ao with 
-  | Read -> string "read"
-  | Write -> string "write"
-  | Update -> string "update"
-  | Capture -> string "capture"
-
+  | None -> empty
+  | Some ao1 ->
+    begin match ao1 with 
+    | Read -> string "read"
+    | Write -> string "write"
+    | Update -> string "update"
+    | Capture -> string "capture"
+    end
 
 and directive_to_doc (d : directive) : document =
   match d with 

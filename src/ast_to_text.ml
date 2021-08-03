@@ -122,7 +122,7 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
      let dt = print_typ ~only_desc t in
      node "Prim_new" ^^ dt
   | Prim_conditional_op -> node "Prim_conditional_op"
-  | Prim_fetch_and_add -> node "Prim_fetch_and_add"
+  | Prim_fetch_add -> node "Prim_fetch_add"
   | Prim_atomic_get cm -> node "Prim_atomic_get" ^^ print_consistency cm
   | Prim_atomic_set cm -> node "Prim_atomic_set" ^^ print_consistency cm
   | Prim_compare_and_swap -> node "Prim_compare_and_swap"
@@ -364,10 +364,19 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
                                 dtyp ^^ semi ^//^ string "attributes"; equals;
                                 dattr])
 
+and print_atomic_operation (ao : atomic_operation option) : document =
+  match ao with 
+  | None -> empty
+  | Some ao1 ->
+    begin match ao1 with 
+    | Read -> string "Read"
+    | Write -> string "Write"
+    | Update -> string "Update"
+    | Capture -> string "Capture"
+    end
 and print_directive (directive : directive) : document = 
   match directive with
-  (* TODO: Fix ME! *)
-  | Atomic _-> string "Atomic"
+  | Atomic ao -> string "Atomic" ^^ blank 1 ^^ print_atomic_operation ao
   | Atomic_capture -> string "Atomic_capture"
   | Barrier -> string "Barrier"
   | Cancel _ -> string "Cancel"

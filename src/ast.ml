@@ -176,7 +176,7 @@ and prim =
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_new of typ (* "new T" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
-  | Prim_fetch_and_add
+  | Prim_fetch_add
   | Prim_atomic_get of consistency_mode
   | Prim_atomic_set of consistency_mode
   | Prim_compare_and_swap 
@@ -421,10 +421,8 @@ and atomic_operation =
   | Update
   | Capture
 
-(* TODO: Simplify directive *)
 and directive =
-  (* TODO: Fix ME! *)
-  | Atomic of atomic_operation
+  | Atomic of atomic_operation option
   | Atomic_capture 
   | Barrier
   | Cancel of clause * clause list
@@ -1453,6 +1451,7 @@ let get_nobrace_id (t : trm) : int =
     | _ -> aux tl
     end in 
     aux t.annot
+
 
 (* This type is used for variable renaming, the uer can choose between renaming all the variables 
     on one block, by giving the prefix to add or he can also  give the list of variable to 
