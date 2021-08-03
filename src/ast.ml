@@ -72,7 +72,7 @@ type size =
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar * typid (* e.g. ['a] in the type ['a -> 'a] -- TODO: maybe add a typid? *)
+  | Typ_var of typvar * typid (* e.g. ['a] in the type ['a -> 'a] -- *)
   | Typ_constr of typvar * typid * typ list (* e.g. [int list] or [(int,string) map] or [vect] *)
   | Typ_auto
   | Typ_unit (* void *)
@@ -227,7 +227,7 @@ and trm_annot =
   | As_left_value (* Used for reference encoding *)
   | Highlight of string * string (* Used in show transformations to hightlight a targeted trm*)
 (* symbols to add while printing a C++ program.*)
-and print_addition =
+and special_operator =
   | Add_address_of_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
   | Add_star_operator (* used to print the start operator when dereferencing a pointer , ex int y = *b *)
 
@@ -245,8 +245,8 @@ and trm =
  { annot : trm_annot list; 
    desc : trm_desc;
    loc : location;
-   is_statement : bool; (* TODO : generalize to trm_kind *)
-   add : print_addition list; (* TODO: find better name *)
+   is_statement : bool; 
+   add : special_operator list; 
    typ : typ option;
    ctx : ctx option;
    attributes : attribute list }
@@ -382,6 +382,12 @@ and reduction_identifier =
   | BitAnd
   | BitOr
 
+and map_type = 
+  | Alloc
+  | To
+  | From
+  | ToFrom
+
 and clause = 
   (* Data sharing clauses *)
   | Default of mode
@@ -394,7 +400,7 @@ and clause =
   (* Data copying clasuses *)
   | Copyin of var list
   | CopyPrivate of var list
-  (* Map clause TODO:*)
+  | Map_c of map_type * var list 
   (* SIMD clauses *)
   | Safelen of int
   | Collapse of int

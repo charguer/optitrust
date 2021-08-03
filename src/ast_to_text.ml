@@ -338,7 +338,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
       end
     in
     let dinstr = string (string_of_bool t.is_statement) in
-    let add_to_doc (add : print_addition) =
+    let add_to_doc (add : special_operator) =
       match add with
       | Add_address_of_operator -> string "Add_address_of_operator"
       | Add_star_operator -> string "Add_star_operator"

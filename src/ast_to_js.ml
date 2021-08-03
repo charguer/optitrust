@@ -332,7 +332,7 @@ let annot_to_string (t_ann : trm_annot) : string =
     Tools.list_to_string ((List.map annot_to_string) t.annot)
 
 
-let add_to_string (add : print_addition) =
+let add_to_string (add : special_operator) =
       match add with
       | Add_address_of_operator -> quote "Add_address_of_operator"
       | Add_star_operator -> quote "Add_star_operator"

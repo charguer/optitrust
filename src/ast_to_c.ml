@@ -683,6 +683,12 @@ and reduction_identifier_to_doc (ri : reduction_identifier) : document =
   | Power -> caret
   | BitAnd -> ampersand
   | BitOr -> bar
+and map_type_to_doc (mt : map_type) : document =
+  match mt with 
+  | Alloc -> string "alloc"
+  | To -> string "to"
+  | From -> string "from"
+  | ToFrom -> string "tofrom"
 
 and clause_to_doc (cl : clause) : document =
   match cl with
@@ -696,6 +702,7 @@ and clause_to_doc (cl : clause) : document =
   | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl))
   | Copyin vl -> string "copyin" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | CopyPrivate vl -> string "copyprivate" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | Map_c (mt, vl) -> string "map" ^^ parens (map_type_to_doc mt ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (Tools.list_to_string ~sep:"," ~bounds: ["";""] vl))
   | Safelen i -> string "safelen" ^^ parens (string (string_of_int i))
   | Collapse i -> string "collapse" ^^ parens (string (string_of_int i))
   | Simdlen i -> string "simdlen" ^^ parens (string (string_of_int i))
