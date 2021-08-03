@@ -8,8 +8,8 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_const t ->
     let dt = print_typ ~only_desc t in 
     node "Typ_const" ^^ dt
-  | Typ_var x-> 
-    node "Typ_var" ^^ parens (string x) 
+  | Typ_var (x, tid) -> 
+    node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
   | Typ_constr (tv, tid, tl) -> 
     let tl = List.map (print_typ ~only_desc) tl in
     node "Typ_constr" ^^ parens ( separate (comma ^^ break 1) [string tv; string (string_of_int tid); print_list tl])

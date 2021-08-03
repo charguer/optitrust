@@ -12,7 +12,8 @@ let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t 
     | Trm_seq [f_loop] ->
           begin match f_loop.desc with
           | Trm_for (index, direction, start, stop, step, body) ->
-            let ty = typ_var var_type in
+            let tid = next_typid () in
+            let ty = typ_var var_type tid in
             let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_var old_var) in
             let lst_instr = trm_set (trm_var old_var) (trm_var new_var) in
             let new_loop = trm_for index direction start stop step (Internal.change_trm (trm_var old_var) (trm_var new_var) body) in
@@ -154,8 +155,9 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
       end
     | _ -> fail t.loc "delocalize_aux: expected a varaible declaration"
     end in
+    let tid = next_typid () in
     let new_decl = trm_seq_no_brace[
-      trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (typ_var "T" ) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T") (Trm (trm_var array_size)))));
+      trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (typ_var "T" tid) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T" tid) (Trm (trm_var array_size)))));
       trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
       (trm_seq ~annot:[] [
         trm_set (trm_var old_var) (trm_lit (Lit_int 0))

@@ -231,6 +231,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
               let n_div_b =
                 trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); trm_var block_size]
               in
+              let tid = next_typid () in
               trm_seq_no_brace
                 [
                   trm_typedef {
@@ -238,9 +239,10 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
                     typdef_body = Typdef_alias (typ_array ty (Trm (trm_var block_size)))};
                   trm_typedef{
                     td with typdef_tconstr = td.typdef_tconstr;
-                    typdef_body = Typdef_alias (typ_array (typ_var block_name) (Trm n_div_b))}]
+                    typdef_body = Typdef_alias (typ_array (typ_var block_name tid) (Trm n_div_b))}]
            | Trm t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var block_size] in
+              let tid = next_typid () in
               trm_seq_no_brace
                 [
                   trm_typedef {
@@ -249,7 +251,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
 
                   trm_typedef {
                     td with typdef_tconstr = td.typdef_tconstr;
-                    typdef_body = Typdef_alias (typ_array (typ_var block_name) (Trm t''))}]
+                    typdef_body = Typdef_alias (typ_array (typ_var block_name tid) (Trm t''))}]
            end
         | _ -> fail t.loc "tile_aux: expected array or pointer type declaration"
         end

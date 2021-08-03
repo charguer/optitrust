@@ -72,7 +72,7 @@ type size =
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar (* e.g. ['a] in the type ['a -> 'a] -- TODO: maybe add a typid? *)
+  | Typ_var of typvar * typid (* e.g. ['a] in the type ['a -> 'a] -- TODO: maybe add a typid? *)
   | Typ_constr of typvar * typid * typ list (* e.g. [int list] or [(int,string) map] or [vect] *)
   | Typ_auto
   | Typ_unit (* void *)
@@ -544,8 +544,8 @@ let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   {typ_annot = annot; typ_desc = Typ_const t; typ_attributes}
 
 let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (x : typvar) : typ =
-  {typ_annot = annot; typ_desc = Typ_var x; typ_attributes}
+  (x : typvar) (tid : typid) : typ =
+  {typ_annot = annot; typ_desc = Typ_var (x, tid); typ_attributes}
 
 let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (x : typvar) (tid : typid) (tl : typ list) : typ =
@@ -1230,7 +1230,7 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   match typ_1.typ_desc, typ_2.typ_desc with
   | Typ_const typ_a1, Typ_const typ_a2 ->
     (aux typ_a1 typ_a2)
-  | Typ_var a1, Typ_var a2 ->
+  | Typ_var (a1, _), Typ_var (a2, _) ->
     a1 = a2
   | Typ_constr (typ_var1, typ_id1, typ_list1), Typ_constr (typ_var2, typ_id2, typ_list2) ->
     (typ_var1 = typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
