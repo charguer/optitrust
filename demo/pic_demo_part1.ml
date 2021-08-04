@@ -1,6 +1,15 @@
 open Optitrust
 open Target
 
+
+let coloring (ds : string list) (tg : target) : unit =
+  let bs = List.map (fun s -> "b" ^ s) ds in
+  let cs = List.map (fun s -> "c" ^ s) ds in
+  List.iter2 (fun d b -> Loop_basic.tile "2" ~index:b (tg @ [cFor d])) ds bs;
+  List.iter2 (fun b c -> Loop_basic.color "2" ~index:c (tg @ [cFor b])) bs cs
+  
+
+
 let _ = Run.script_cpp (fun () ->
   (* PART 1: Inlining *)
   !! Function_basic.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"];
@@ -48,12 +57,14 @@ let _ = Run.script_cpp (fun () ->
    
   (* PART4  Coloring *)
    !! Loop_basic.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-   !! Loop_basic.tile "2" ~index:"bx" [cFor "x"];
+   !! coloring ["x";"y";"z"] [cFor "step"];
+   (* coloring function is replacing the six commented lines below *)
+   (* !! Loop_basic.tile "2" ~index:"bx" [cFor "x"];
    !! Loop_basic.tile "2" ~index:"by" [cFor "y"];
    !! Loop_basic.tile "2" ~index:"bz" [cFor "z"];
    !! Loop_basic.color "2" ~index:"cx" [cFor "bx"];
    !! Loop_basic.color "2" ~index:"cy" [cFor "by"];
-   !! Loop_basic.color "2" ~index:"cz" [cFor "bz"];
+   !! Loop_basic.color "2" ~index:"cz" [cFor "bz"]; *)
    !! Loop.move "x" ~after:"bz";
    !! Loop.move "y" ~after:"x";
    !! Loop.move "cy" ~before:"bx";

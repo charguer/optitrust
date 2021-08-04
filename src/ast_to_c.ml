@@ -214,7 +214,6 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_val v ->
         if List.mem Empty_cond t.annot then empty
           else dattr ^^ val_to_doc v
-        
      | Trm_var x -> 
         if List.mem Any t.annot then dattr ^^ string "ANY (" ^^ string x ^^ string ")"
           else
