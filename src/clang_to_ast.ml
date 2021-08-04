@@ -83,7 +83,7 @@ let get_ctx () : ctx =
     ctx_label = !ctx_label;
     ctx_constr = !ctx_constr; }
 
-let get_typid (tv : typvar) : int  =
+let get_typid_from_trm (tv : typvar) : int  =
    let tid = String_map.find_opt tv !ctx_tconstr in
    begin match tid with
    | Some id -> id
@@ -279,7 +279,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        let typ_to_add = typ_constr n (get_typid n) [] in
+        let typ_to_add = typ_constr n (get_typid_from_trm n) [] in
         if const then typ_const typ_to_add else typ_to_add 
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
@@ -294,14 +294,14 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_constr n (get_typid n) []
+         typ_constr n (get_typid_from_trm n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_constr n (get_typid n) []
+         typ_constr n (get_typid_from_trm n) []
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end

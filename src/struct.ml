@@ -30,8 +30,8 @@ let set_implicit (tg : Target.target) : unit =
   let (tg_trm, _) = Path.resolve_path tg_path t in
   match tg_trm.desc with 
   | Trm_apps (_, [lt;rt]) ->
-    let tid_r = Internal.get_typid rt  in 
-    let tid_l = Internal.get_typid lt  in
+    let tid_r = Internal.get_typid_from_trm rt  in 
+    let tid_l = Internal.get_typid_from_trm lt  in
     let tid = match tid_r, tid_l with 
     | -1, _ -> tid_l
     | _, -1 -> tid_r

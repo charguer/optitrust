@@ -90,7 +90,7 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
                    | _ -> fail t.loc "inline_aux: expected a new operation"
                    end
       end in
-      let tyid = Internal.get_typid dl in
+      let tyid = Internal.get_typid_from_trm dl in
       let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
       let struct_def = Typ_map.find tyid typid_to_typedef_map in
       let field_list = fst (List.split (Internal.get_field_list struct_def)) in

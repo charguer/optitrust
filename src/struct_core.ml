@@ -20,8 +20,8 @@ let set_explicit_aux (index : int) (t: trm) : trm =
     let lfront, instruction_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match instruction_to_change.desc with 
     | Trm_apps(_, [lt;rt]) ->
-      let tid_r = Internal.get_typid rt  in 
-      let tid_l = Internal.get_typid lt  in
+      let tid_r = Internal.get_typid_from_trm rt  in 
+      let tid_l = Internal.get_typid_from_trm lt  in
       let tid = match tid_r, tid_l with 
       | -1, _ -> tid_l
       | _, -1 -> tid_r

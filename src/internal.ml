@@ -211,16 +211,28 @@ let get_field_list (td : typedef) : (var * typ) list =
   | _ -> fail None "get_field_lists: expected a Typedef_prod"
   end
 
-let rec get_typid (t : trm) : int = 
+
+let rec get_typid_from_typ (t : typ) : int =
+  match t.typ_desc with 
+  | Typ_constr (_, id, _) -> id
+  | Typ_const ty -> get_typid_from_typ ty
+  | Typ_var (_, id) -> id
+  | Typ_ptr {inner_typ = ty;_} -> get_typid_from_typ ty
+  | Typ_array (ty, _) -> get_typid_from_typ ty
+  | Typ_fun (_, ty) -> get_typid_from_typ ty
+  | _ -> -1
+
+
+let rec get_typid_from_trm (t : trm) : int = 
   match t.desc with 
   | Trm_apps (_,[base]) ->
     begin match t.typ with
     | Some typ ->
       begin match typ.typ_desc with
       | Typ_constr (_,id,_) -> id
-      | _ -> get_typid base
+      | _ -> get_typid_from_trm base
       end
-    | None -> get_typid base
+    | None -> get_typid_from_trm base
     end
   | Trm_struct _ | Trm_var _ ->
     begin match t.typ with 
@@ -232,18 +244,7 @@ let rec get_typid (t : trm) : int =
     | None -> -1
     end
   | Trm_let (_,(_,tx),_) ->
-    (* TODO: Enable get_typid to be able to find the id even if there are multiple pointers *)
-    let typ = get_inner_ptr_type tx in
-    begin match typ.typ_desc with 
-    | Typ_constr (_,id ,_) -> id
-    | Typ_ptr {inner_typ = ty;_} ->
-      begin match ty.typ_desc with 
-      | Typ_constr (_, id, _) -> id
-      | _ -> -1
-      end
-    | _ -> -1
-    end
-    
+    get_typid_from_typ tx
   | _ -> -1
   
 
