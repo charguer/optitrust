@@ -119,6 +119,8 @@ val cIf : ?cond:target -> ?then_:target ->
 
 val cThen : constr
 
+val cOr : target list -> constr
+
 val cDef : string -> constr
 
 val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> string -> constr

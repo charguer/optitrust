@@ -1478,7 +1478,41 @@ let get_initialization_trm (t : trm) : trm =
       end
   | _ -> fail t.loc "get_initialization_trm: expected a variable declaration"
 
+let remove_highlight (t_annot : trm_annot list) : trm_annot list =
+  let rec aux l = match l with 
+  | [] -> []
+  | x :: xs ->
+    begin match x with 
+    | Highlight _ -> xs
+    | _ -> x :: aux xs
+    end
+  in aux t_annot
 
+
+let rec clean_highlights (t : trm) : trm =
+  match t.desc with 
+  | Trm_val _ -> {t with annot = remove_highlight t.annot}
+  | Trm_var _ -> {t with annot = remove_highlight t.annot}
+  | Trm_array tl -> {t with annot = remove_highlight t.annot; desc = Trm_array (List.map clean_highlights tl)}
+  | Trm_struct tl -> {t with annot = remove_highlight t.annot; desc = Trm_struct (List.map clean_highlights tl)}
+  | Trm_let (vk, (x, tx), init) -> {t with annot = remove_highlight t.annot; desc = Trm_let (vk, (x, tx), (clean_highlights init))}
+  | Trm_let_fun (v, ty, ty_v, body) -> {t with annot = remove_highlight t.annot; desc = Trm_let_fun (v, ty, ty_v, clean_highlights body)}
+  | Trm_typedef _ -> {t with annot = remove_highlight t.annot}
+  | Trm_if (cond, then_, else_) -> {t with annot = remove_highlight t.annot; desc = Trm_if (clean_highlights cond, clean_highlights then_, clean_highlights else_)}
+  | Trm_seq tl -> {t with annot = remove_highlight t.annot; desc = Trm_seq (List.map clean_highlights tl)}
+  | Trm_apps (f, args) -> {t with annot = remove_highlight t.annot; desc = Trm_apps (clean_highlights f, List.map clean_highlights args)}
+  | Trm_while (cond, body) -> {t with annot = remove_highlight t.annot; desc = Trm_while (clean_highlights cond, clean_highlights body)}
+  | Trm_for (index, direction, start, stop, step, body) -> {t with annot = remove_highlight t.annot; desc = Trm_for (index, direction, clean_highlights start, clean_highlights stop, clean_highlights step, clean_highlights body)}
+  | Trm_for_c (init, cond, step, body) -> {t with annot = remove_highlight t.annot; desc = Trm_for_c (clean_highlights init, clean_highlights cond, clean_highlights step, clean_highlights body)}
+  | Trm_switch _-> {t with annot = remove_highlight t.annot}
+  | Trm_abort _ -> {t with annot = remove_highlight t.annot}
+  | Trm_labelled (l, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_labelled (l, clean_highlights t1)}
+  | Trm_goto _ -> {t with annot = remove_highlight t.annot}
+  | Trm_any _ -> {t with annot = remove_highlight t.annot}
+  | Trm_arbitrary _ -> fail t.loc "clean_highlights: trm_arbitrary should never appear on the ast"
+  | Trm_omp_directive _ -> {t with annot = remove_highlight t.annot}
+  | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}
+  
 
 (* type instantiation = trm varmap *)
 

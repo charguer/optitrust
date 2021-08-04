@@ -134,6 +134,7 @@ and constr =
   | Constr_bool of bool
   (* Constraint that matches only the root of the AST *)
   | Constr_root
+  | Constr_or of target list
   (* LATER: add Constr_or, Constr_and, Constr_not
      -> maybe even better "Constr_or of constr list"
         this is useful for giving a list of targets. *)
@@ -379,7 +380,6 @@ let rec constr_to_string (c : constr) : string =
     let string_cl = List.map constr_to_string cl in
     list_to_string string_cl
   | Constr_bool b -> if b then "True" else "False"
-  
   (* TODO: Constr_or cs ->
        evaluate each of the cs using a recursive call;
        use a custom recursive function (not List.map or fold)
@@ -389,6 +389,7 @@ let rec constr_to_string (c : constr) : string =
        maybe you'll like to use: Constr_logic logic_operator cs
        but it's not sure *)
   | Constr_root -> "Root"
+  | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
 
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
@@ -802,6 +803,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
+    | Constr_or tl :: [] -> List.fold_left(fun acc tr -> resolve_target_simple tr t @ acc) [] tl
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t

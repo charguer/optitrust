@@ -206,6 +206,8 @@ let cIf ?(cond : target = [])
 let cThen : constr =
  Constr_target [cIf(); dThen]
 
+let cOr (tgl : target list) : constr =
+  Constr_or tgl
 
 (* Converts a list of constraints into a [target_list_pred] *)
 let target_list_simpl (cstrs : constr list) : target_list_pred =
@@ -587,15 +589,13 @@ let target_between_show_transfo (debug_ast : bool) (id : int) : Transfo.local_be
    that generates the [foo_with_lines.ml] instrumented source. *)
 let show ?(line : int = -1) ?(reparse : bool = true) ?(debug_ast : bool = false) (tg : target) : unit =
   only_interactive_step line ~reparse (fun () ->
-    (* TODO: start by clearing all previous annotations "Show" in the ast:
-       do a:  List.filter (fun a -> a <> Show_annotation) trm_annot
-       let list_remove x l = List.filter (fun y -> y <> x) l  --in tools, if not in ocaml stdlib
-       *)
     if Constr.is_target_between tg then begin
       applyi_on_target_between (fun i  t (p,k) ->
+        let t = clean_highlights t in
         target_between_show_transfo debug_ast i k t p) tg
     end else begin
       applyi_on_target (fun i t p ->
+        let t = clean_highlights t in
         target_show_transfo debug_ast i t p) tg
     end)
 
