@@ -543,9 +543,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                     d ^^ dot ^^ string f  
                  end
               | Unop_struct_field_get f  ->
-                  string "struct_get(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
+                  d ^^ dot ^^ string f
               | Unop_struct_field_addr f ->
-                  string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
+                  string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d

@@ -3,8 +3,6 @@
 
 typedef struct { int x; int y; } vect;
 
-// TODO: report this test in c_ast
-typedef struct vects { vect head; vects* tail; } vects;
 
 typedef vect myvect;
 

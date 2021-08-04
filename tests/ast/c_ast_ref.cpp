@@ -3,8 +3,6 @@
 
 typedef struct { int x; int y; } vect;
 
-// TODO: report this test in c_ast
-// todo: when printing this type, the first "vects" is missing
 typedef struct vects { vect head; vects* tail; } vects;
 
 typedef vect myvect;

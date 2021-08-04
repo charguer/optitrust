@@ -1,7 +1,7 @@
 
 int ref_on_mutable_int() {
   int x = 3;
-  int& rx7 = x;
+  int& rx = x;
   rx = 4;
   return rx;
 }
@@ -112,7 +112,6 @@ int ref_on_field() {
 int ref_on_mutable_int_cell() {
   int t[2] = { 4, 5 };
   int* const p0 = &t[0];
-    // TODO:  let p0 : int* const =
   int& r0 = t[0];
   // *p0 = 6; /* Error when parsed:"read-only variable is not assignable" */
   r0 = 7;

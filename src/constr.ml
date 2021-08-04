@@ -380,14 +380,6 @@ let rec constr_to_string (c : constr) : string =
     let string_cl = List.map constr_to_string cl in
     list_to_string string_cl
   | Constr_bool b -> if b then "True" else "False"
-  (* TODO: Constr_or cs ->
-       evaluate each of the cs using a recursive call;
-       use a custom recursive function (not List.map or fold)
-       so that you can return as soon as one constraint matches
-       --- especially for Constr_and
-
-       maybe you'll like to use: Constr_logic logic_operator cs
-       but it's not sure *)
   | Constr_root -> "Root"
   | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
 
@@ -909,7 +901,6 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      because traversing the [Trm_seq] just below will already decrease the depth *)
   let aux_body = resolve_target_simple ~depth p in
 
-  (* let p = target_to_target_simple p in ---TODO: used for getting rid of Constr_target that appear in depth *)
   let loc = t.loc in
   (* no exploration in depth in included files *)
   if  (List.exists (function Include _ -> true | _ -> false) t.annot) then begin 

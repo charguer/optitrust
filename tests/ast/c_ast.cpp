@@ -5,6 +5,8 @@ typedef struct { int x; int y; } vect;
 
 typedef struct { vect pos; vect speed; } particle;
 
+typedef struct vects { vect head; vects* tail; } vects;
+
 typedef vect vect2;
 typedef vect2 vect3;
 typedef int int2[2];
@@ -27,7 +29,6 @@ int f(int n) {
 void test_loop() {
   for (int i = 0; i < 10; i++) {
       i++;
-     // TODO find out why i++ is not encoded?
   }
 
 }
@@ -85,8 +86,8 @@ void constants() {
   const int a = 3;
   const int b = a + 3;
   int c = b + 4;
-  // TODO : const vect v = { 0, 1};
-  // int a = v.x
+  const vect v = { 0, 1};
+  int d = v.x;
 }
 
 typedef int* intstar;
@@ -101,8 +102,8 @@ void nonconst_pointers() {
   int a = 3;
   int* b = &a;
   *b = *b + 4; // TODO: missing star
-  // TODO int c = 3;
-  // b = &c;
+  int c = 3;
+  b = &c;
 }
 
 
@@ -113,8 +114,6 @@ void nonconst_pointers() {
 void by_value(int t[2], vect v) { // implicit const arguments
   int b = t[0];
   int a = v.x;
-  // if trying to writing into t or v, should get an error, because they are assumed to be const
-  // TODO: check whether we indeed see an error
   vect v2 = v; // this should make a copy of the data
 }
 
