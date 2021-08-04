@@ -35,7 +35,6 @@ int ref_on_immutable_int() {
    here written as [const int&], but equivalently represented
    as [int const&], we
 
-   //TODO: what does our code do if we process "as-left-value"
    // an occurence of a const variable  (here "x")?
    // Either it should return just "x"; or we should process
    // the contents as a r-value. I'm not sure.
@@ -131,8 +130,6 @@ int ref_on_mutable_int_cell() {
 */
 
 int ref_on_immutable_int_cell() {
-    //TODO:check? the interpretation of int const t[2]
-    // to decide how it should be transated
   int const t[2] = { 4, 5 };
   int const& r0 = t[0];
 
