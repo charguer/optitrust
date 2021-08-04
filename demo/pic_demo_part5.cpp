@@ -48,7 +48,7 @@ void bag_push(bag& b, particle p) {
   b.nb++;
 }
 
-// TODO: Check the implementation of bag_push_atomic
+
 void bag_push_atomic(bag& b, particle p) {
   // assert(b.nb < bagCapacity);
   b.items[b.nb] = p;

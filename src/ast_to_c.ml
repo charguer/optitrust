@@ -517,11 +517,12 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
               | Unop_inc when !decode -> d ^^ twice plus
-              | Unop_inc (* when not !decode *) -> string "operator++(" ^^ d ^^ string ")"
+              | Unop_inc  -> string "operator++(" ^^ d ^^ string ")"
               | Unop_dec when !decode -> d ^^ twice minus
-              | Unop_dec (* when not !decode *) -> string "operator--(" ^^ d ^^ string ")"
+              | Unop_dec  -> string "operator--(" ^^ d ^^ string ")"
+              (* | Unop_struct_field_get f  when !decode->
+                parens (d ^^ minus ^^ rangle ^^ string f) *)
               | (Unop_struct_field_get f | Unop_struct_field_addr f) when !decode ->
-
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -530,22 +531,20 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                     (* if t' was a stack-allocated variable, use t'.f *)
                     if List.mem  Mutable_var_get t.annot then parens (d' ^^ dot ^^ string f)
                     (* otherwise use t'->f instead of *t'.f *) 
-                    else  (* parens (d' ^^ minus ^^ rangle ^^ string f) *)  parens (d' ^^ dot ^^ string f)
-                 (* in the other cases, we simply display t.f *)
-                 | _ -> (* TODO: crossing fingers *)
+                    else if List.mem Access t.annot then parens (d ^^ dot ^^ string f)
+                    else  
+                      begin match t'.desc with 
+                      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
+                              _}, _) -> d ^^ dot ^^ string f
+                      | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)  (* parens (d' ^^ dot ^^ string f) *)
+                      end
+                 | _ -> 
                      (*parens (d ^^ dot ^^ string f)*)
                     d ^^ dot ^^ string f  
-                    (* TODO: line above par (d ^^ ... )
-
-                      and at top of decorate_trm, define   let par d = optional_parens ~_avoid_parens d in
-
-                      where let optional_parens ~_avoid_parens d = (* this one is common to the entire file *)
-                         if _avoid_parens then d else parens d *)
-                 end(* TODO ( *f).x  *(f.x)     is C interpreting *f.x  as *(f.x) then good else if   ( *f).x then bad
-                       *)
-              | Unop_struct_field_get f (* when not !decode *) ->
-                  parens (d ^^ dot ^^ string f)
-              | Unop_struct_field_addr f (* when not !decode *) ->
+                 end
+              | Unop_struct_field_get f  ->
+                  string "struct_get(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
+              | Unop_struct_field_addr f ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ string f ^^ string ")"
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in

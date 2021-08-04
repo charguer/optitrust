@@ -98,7 +98,7 @@ int main() {
       int nb = b.nb;
       for (int idParticle = 0; idParticle < nb; idParticle++) {
         // Read the particle in memory
-        particle& p = b.items[idParticle];
+        particle &p = b.items[idParticle];
         
         // Compute the new speed and position for the particle
         vect speed2 = vect_add(p.speed, vect_mul(charge, field)); 
