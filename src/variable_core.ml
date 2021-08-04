@@ -94,7 +94,7 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
       let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
       let struct_def = Typ_map.find tyid typid_to_typedef_map in
       let field_list = fst (List.split (Internal.get_field_list struct_def)) in
-      let init = get_initializatin_trm dl in
+      let init = get_initialization_trm dl in
       let lback = 
       begin match init.desc with 
       | Trm_struct field_init ->

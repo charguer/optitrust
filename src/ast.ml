@@ -1465,7 +1465,7 @@ let get_nobrace_id (t : trm) : int =
 *)
 type rename = | Postfix of string | Rename_list of (var * var) list
 
-let get_initializatin_trm (t : trm) : trm = 
+let get_initialization_trm (t : trm) : trm = 
   match t.desc with 
   | Trm_let (_, (_, _), init) -> 
       begin match init.desc with 
@@ -1477,6 +1477,8 @@ let get_initializatin_trm (t : trm) : trm =
       | _-> init
       end
   | _ -> fail t.loc "get_initialization_trm: expected a variable declaration"
+
+
 
 (* type instantiation = trm varmap *)
 

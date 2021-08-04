@@ -37,6 +37,17 @@ let script (f : unit -> unit) : unit =
     Printf.eprintf "%s\n" s;
     exit 1
 
+(* [get_basename ()] is  function to get the name of the file being executed
+     by chopping the extension.
+*)
+let get_basename () : string = 
+  let basename = Filename.chop_extension Sys.argv.(0) in
+  let suffix = "_with_lines" in
+  let nsuffix = String.length suffix in
+  let nbasename = String.length basename in
+  if nbasename >= nsuffix && (String.sub basename (nbasename - nsuffix) nsuffix) = suffix
+    then String.sub basename 0 (nbasename - nsuffix)
+    else basename
 
 (* [script_cpp f] is a specialized version of [script f] that:
    - automatically invokes [Trace.init "foo.cpp"] at start,
@@ -45,16 +56,7 @@ let script (f : unit -> unit) : unit =
      (the main output file is named "foo_out.cpp"). *)
 let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
-  (* TODO: move these lines to a get_basename function *)
-  let basename = Filename.chop_extension Sys.argv.(0) in
-  let basename =
-    let suffix = "_with_lines" in
-    let nsuffix = String.length suffix in
-    let nbasename = String.length basename in
-    if nbasename >= nsuffix && (String.sub basename (nbasename - nsuffix) nsuffix) = suffix
-      then String.sub basename 0 (nbasename - nsuffix)
-      else basename
-      in
+  let basename = get_basename() in
   (* Set the input file, execute the function [f], dump the results. *)
   script (fun () ->
     Trace.init (basename ^ ".cpp");
