@@ -854,7 +854,7 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      let body' = f is_terminal body in
      trm_for_c~annot ~loc ~add init' cond' step' body'
   | Trm_for (index, direction, start, stop, step, body) ->
-    trm_for ~annot ~loc ~add index direction start stop step (f is_terminal body)
+    trm_for ~annot ~loc ~add index direction (f is_terminal start) (f is_terminal stop) (f is_terminal step) (f is_terminal body)
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in

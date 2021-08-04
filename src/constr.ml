@@ -961,15 +961,18 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
-     | Trm_for ( _, _, _, _, _, body) ->
-        add_dir Dir_body (aux_body body)
+     | Trm_for ( _, _, start, stop, step, body) ->
+        (add_dir Dir_for_start (aux start)) ++
+        (add_dir Dir_for_stop (aux stop)) ++
+        (add_dir Dir_for_step (aux step)) ++
+        (add_dir Dir_body (aux_body body))
      | Trm_for_c (init, cond, step, body) ->
         (* init *)
-        (add_dir Dir_for_init (aux init)) ++
+        (add_dir Dir_for_c_init (aux init)) ++
         (* cond *)
         (add_dir Dir_cond (aux cond)) ++
         (* step *)
-        (add_dir Dir_for_step (aux step)) ++
+        (add_dir Dir_for_c_step (aux step)) ++
         (* body *)
         (add_dir Dir_body (aux_body body))
      | Trm_while (cond, body) ->
@@ -1063,10 +1066,10 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
     | Dir_body, Trm_abort (Ret (Some body))
     | Dir_body, Trm_labelled (_, body) ->
      add_dir Dir_body (aux body)
-  | Dir_for_init, Trm_for_c (init, _, _, _) ->
-     add_dir Dir_for_init (aux init)
-  | Dir_for_step, Trm_for_c (_, _, step, _) ->
-     add_dir Dir_for_step (aux step)
+  | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
+     add_dir Dir_for_c_step (aux init)
+  | Dir_for_c_step, Trm_for_c (_, _, step, _) ->
+     add_dir Dir_for_c_step (aux step)
   | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (aux f)
   | Dir_arg n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->

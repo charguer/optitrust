@@ -98,10 +98,10 @@ let dBody : constr =
     Constr_dir Dir_body
 
 let dInit : constr =
-    Constr_dir Dir_for_init
+    Constr_dir Dir_for_c_init
 
 let dStep : constr =
-    Constr_dir Dir_for_step
+    Constr_dir Dir_for_c_step
 
 let dCallFun : constr = (* LATER: see if this is needed (cCallNotBuiltin) *)
     Constr_dir Dir_app_fun

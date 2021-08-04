@@ -66,7 +66,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* LATER: Implement cDef constructor *)
   (* show [ cDef "f" ]; *)
-  (* show [ cDef "s" ]; *)
+  (* show [ cDef "s" ]; *):
   (* show [ cDef "p2" ]; *)
 
 

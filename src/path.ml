@@ -24,8 +24,12 @@ and dir =
    *)
   | Dir_body
   (* for *)
-  | Dir_for_init
+  | Dir_for_start
+  | Dir_for_stop
   | Dir_for_step
+  (* for_c *)
+  | Dir_for_c_init
+  | Dir_for_c_step
   (* app *)
   | Dir_app_fun
   (* arg for fun application and declaration *)
@@ -60,8 +64,11 @@ let dir_to_string (d : dir) : string =
   | Dir_then -> "Dir_then"
   | Dir_else -> "Dir_else"
   | Dir_body -> "Dir_body"
-  | Dir_for_init -> "Dir_for_init"
+  | Dir_for_start -> "Dir_for_start"
+  | Dir_for_stop -> "Dir_for_stop"
   | Dir_for_step -> "Dir_for_step"
+  | Dir_for_c_init -> "Dir_for_c_init"
+  | Dir_for_c_step -> "Dir_for_c_step"
   | Dir_app_fun -> "Dir_app_fun"
   | Dir_arg n -> "Dir_arg " ^ (string_of_int n)
   | Dir_name -> "Dir_name"
@@ -131,10 +138,16 @@ let compare_dir (d : dir) (d' : dir) : int =
   | _, Dir_else -> 1
   | Dir_body, _ -> -1
   | _, Dir_body -> 1
-  | Dir_for_init, _ -> -1
-  | _, Dir_for_init -> 1
+  | Dir_for_start, _ -> -1
+  | _, Dir_for_start -> 1
+  | Dir_for_stop, _ -> -1
+  | _, Dir_for_stop -> 1
   | Dir_for_step, _ -> -1
   | _, Dir_for_step -> 1
+  | Dir_for_c_init, _ -> -1
+  | _, Dir_for_c_init -> 1
+  | Dir_for_c_step, _ -> -1
+  | _, Dir_for_c_step -> 1
   | Dir_app_fun, _ -> -1
   | _, Dir_app_fun -> 1
   | Dir_arg _, _ -> -1
@@ -237,9 +250,15 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           trm_abort ~annot ~loc ~add ~attributes (Ret (Some (aux dl body)))
        | Dir_body, Trm_labelled (l, body) ->
           trm_labelled ~annot ~loc ~add ~attributes l (aux dl body)
-       | Dir_for_init, Trm_for_c (init, cond, step, body) ->
+       | Dir_for_start, Trm_for (index, direction, start, stop, step, body) ->
+         trm_for ~annot ~loc ~add ~attributes index direction (aux dl start) stop step body
+       | Dir_for_stop, Trm_for (index, direction, start, stop, step, body) ->
+         trm_for ~annot ~loc ~add ~attributes index direction start (aux dl stop) step body
+       | Dir_for_step, Trm_for (index, direction, start, stop, step, body) ->
+         trm_for ~annot ~loc ~add ~attributes index direction start stop (aux dl step) body
+       | Dir_for_c_init, Trm_for_c (init, cond, step, body) ->
           trm_for_c~annot ~loc ~add ~attributes (aux dl init) cond step body
-       | Dir_for_step, Trm_for_c (init, cond, step, body) ->
+       | Dir_for_c_step, Trm_for_c (init, cond, step, body) ->
           trm_for_c~annot ~loc ~add ~attributes init cond (aux dl step) body
        | Dir_app_fun, Trm_apps (f, tl) ->
           (*
@@ -388,9 +407,15 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
          | Dir_body, Trm_abort (Ret (Some body))
          | Dir_body, Trm_labelled (_, body) ->
           aux dl body ctx
-       | Dir_for_init, Trm_for_c (init, _, _, _) ->
+       | Dir_for_start, Trm_for (_, _, start, _, _, _) ->
+          aux dl start ctx 
+       | Dir_for_stop, Trm_for (_, _, _, stop, _, _) ->
+          aux dl stop ctx 
+       | Dir_for_step, Trm_for (_, _, _, step, _, _) ->
+          aux dl step ctx 
+       | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
           aux dl init ctx
-       | Dir_for_step, Trm_for_c (init, _, step, _) ->
+       | Dir_for_c_step, Trm_for_c (init, _, step, _) ->
           begin match init.desc with
           | Trm_let _ ->
              aux dl step (init :: ctx)

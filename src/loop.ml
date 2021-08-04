@@ -112,18 +112,18 @@ let unroll (tg : Target.target) : unit =
   let t = Trace.get_ast () in
   let tg_loop_path =  Constr.resolve_target_exactly_one tg t in
   let (tg_loop_trm,_) = Path.resolve_path tg_loop_path t in
-  let () = match tg_loop_trm.desc with 
+  match tg_loop_trm.desc with 
   | Trm_for (_, _, _, stop, _, _) ->
     begin match stop.desc with 
     | Trm_apps (_,[_;bnd]) ->
       begin match bnd.desc with 
-      | Trm_val (Val_lit (Lit_int _)) -> ()
-      | Trm_var x -> Variable_basic.inline [Target.cVarDef x]
+      | Trm_val (Val_lit (Lit_int _)) -> Loop_basic.unroll tg
+      | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
+                     Loop_basic.unroll tg
       | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
       end
     | _ -> fail t.loc "unroll: expected an addition between two trms"
     end
-  | _ -> fail t.loc "unroll: expected a simple loop" in
-  Loop_basic.unroll tg
+  | _ -> fail t.loc "unroll: expected a simple loop"
   
  
