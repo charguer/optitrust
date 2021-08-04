@@ -59,14 +59,15 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
 let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      let lfront, lback = Tools.split_list_at index tl in
       if nb > 0 then 
+        let lfront, lback = Tools.split_list_at index tl in
         let l_intro,lback = Tools.split_list_at nb lback in
         let intro_seq = trm_seq  l_intro in
         let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
           trm_seq (lfront @ [intro_seq] @ lback)
       else 
-        let l_intro,lfront = Tools.split_list_at (List.length lfront + nb) lback in
+        let lfront, lback = Tools.split_list_at (index+1) tl in
+        let lfront, l_intro = Tools.split_list_at (List.length lfront + nb) lfront in
         let intro_seq = trm_seq  l_intro in
         let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
           trm_seq (lfront @ [intro_seq] @ lback)

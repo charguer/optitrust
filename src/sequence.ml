@@ -19,7 +19,7 @@ let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int 
           | 0 -> Sequence_basic.intro_between ~label start stop
           | _ -> begin match start, stop with
                 | _, [] -> Sequence_basic.intro ~label nb start
-                | [], _ -> Sequence_basic.intro ~label nb stop
+                | [], _ -> Sequence_basic.intro ~label (-nb) stop
                 | _,_ -> fail None "intro: can't enter both the start and stop and the number of instruction to include inside the sequence" 
                 end
           end  

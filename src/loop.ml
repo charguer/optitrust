@@ -100,3 +100,30 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     let indices_list = Tools.chop_list_after loop_to_move indices_list in
     List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev indices_list)
   | _ -> fail t.loc "move: something went wrong"
+
+
+(* [unroll] expects the target to point to a loop. It the checks if teh loop
+    is of the form for(int i = a; i < a + C; i++){..} then it will move the
+    the instructions out of the loop and the loop will be removed.
+    Assumption C should be a literal, this is needed to compute the number 
+    of sequences to generate.
+*)
+let unroll (tg : Target.target) : unit =
+  let t = Trace.get_ast () in
+  let tg_loop_path =  Constr.resolve_target_exactly_one tg t in
+  let (tg_loop_trm,_) = Path.resolve_path tg_loop_path t in
+  let () = match tg_loop_trm.desc with 
+  | Trm_for (_, _, _, stop, _, _) ->
+    begin match stop.desc with 
+    | Trm_apps (_,[_;bnd]) ->
+      begin match bnd.desc with 
+      | Trm_val (Val_lit (Lit_int _)) -> ()
+      | Trm_var x -> Variable_basic.inline [Target.cVarDef x]
+      | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
+      end
+    | _ -> fail t.loc "unroll: expected an addition between two trms"
+    end
+  | _ -> fail t.loc "unroll: expected a simple loop" in
+  Loop_basic.unroll tg
+  
+ 
