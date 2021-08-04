@@ -395,7 +395,7 @@ and clause =
   | Private of var list
   | FirstPrivate of var list
   | LastPrivate of var list
-  | Linear of (var list) * var
+  | Linear of var list * int
   | Reduction of reduction_identifier * (var list)
   (* Data copying clasuses *)
   | Copyin of var list
