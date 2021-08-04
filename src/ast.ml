@@ -226,6 +226,7 @@ and trm_annot =
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
   | Highlight of string * string (* Used in show transformations to hightlight a targeted trm*)
+  | Any (* Used for only one specific transformation called delocalize *)
 (* symbols to add while printing a C++ program.*)
 and special_operator =
   | Add_address_of_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
@@ -343,8 +344,6 @@ and trm_desc =
   | Trm_abort of abort (* return or break or continue *)
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
-    (* LATER: ARTHUR, make this a flag in [trm], carrying an id, rather than a constructor *)
-  | Trm_any of trm
   | Trm_arbitrary of string
   | Trm_omp_directive of directive
   | Trm_omp_routine of omp_routine
@@ -722,11 +721,6 @@ let trm_set ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = [
   trm_apps ~annot:annot ~loc ~is_statement ~add ~ctx ~typ:(Some (typ_unit ()))
     (trm_binop Binop_set) [t1; t2]
 
-let trm_any ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
-(t : trm) : trm =
-  {annot = annot; desc = Trm_any t; loc = loc; is_statement=false; add; typ; attributes; ctx}
-
-
 let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
   {annot; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
@@ -867,8 +861,6 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      end
   | Trm_labelled (l, body) ->
      trm_labelled ~annot ~loc ~add l (f false body)
-  | Trm_any t ->
-    trm_any ~annot ~loc ~add (f false t)
   | _ -> t
 
 let trm_map (f : trm -> trm) (t : trm) : trm =
@@ -1508,7 +1500,6 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_abort _ -> {t with annot = remove_highlight t.annot}
   | Trm_labelled (l, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_labelled (l, clean_highlights t1)}
   | Trm_goto _ -> {t with annot = remove_highlight t.annot}
-  | Trm_any _ -> {t with annot = remove_highlight t.annot}
   | Trm_arbitrary _ -> fail t.loc "clean_highlights: trm_arbitrary should never appear on the ast"
   | Trm_omp_directive _ -> {t with annot = remove_highlight t.annot}
   | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}

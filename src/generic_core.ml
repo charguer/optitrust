@@ -156,6 +156,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
     | _ -> fail t.loc "delocalize_aux: expected a varaible declaration"
     end in
     let tid = next_typid () in
+    
     let new_decl = trm_seq_no_brace[
       trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (typ_var "T" tid) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T" tid) (Trm (trm_var array_size)))));
       trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
@@ -169,7 +170,7 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
       begin match for_loop.desc  with
       | Trm_for ( index, direction, start, stop, step, body) ->
         trm_for index direction start stop step(
-            Internal.change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_var; trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_any (trm_var "my_core_id")]]) body)
+            Internal.change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_var; trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var ~annot:[Any] "my_core_id"]]) body)
       | _ -> fail t.loc "delocalize_aux: expected a simple for loop"
       end in
     let operation = match fold_operation with

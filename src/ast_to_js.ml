@@ -306,9 +306,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "goto";
           (strquote "target", Json.Str label);
           children_to_field []]
-    | Trm_any t ->
-        [ kind_to_field "any";
-          children_to_field [child_to_json "any" (aux t)]]
     | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
     | Trm_omp_directive d -> [directive_to_json d]
     | Trm_omp_routine r -> [routine_to_json r] 
@@ -326,7 +323,7 @@ let annot_to_string (t_ann : trm_annot) : string =
      | Mutable_var_get -> quote "Mutable_var_get"
      | As_left_value -> quote "As_left_value"
      | Highlight _ -> quote "Hightlight" 
-  
+     | Any -> quote "Any"
 
   let annot_list_to_string (t : trm) : string =
     Tools.list_to_string ((List.map annot_to_string) t.annot)

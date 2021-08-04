@@ -215,7 +215,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         if List.mem Empty_cond t.annot then empty
           else dattr ^^ val_to_doc v
         
-     | Trm_var x -> dattr ^^ string x
+     | Trm_var x -> 
+        if List.mem Any t.annot then dattr ^^ string "ANY (" ^^ string x ^^ string ")"
+          else
+            dattr ^^ string x
      | Trm_array tl | Trm_struct tl ->
         let dl = List.map (decorate_trm ~semicolon) tl in
         dattr ^^ braces (separate (comma ^^ blank 1) dl)
@@ -316,9 +319,6 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let dt = decorate_trm ~semicolon t in
         dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
-     | Trm_any t ->
-        let dt = decorate_trm ~semicolon t in
-        dattr ^^ string "ANY" ^^ parens (dt)
      | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d 
