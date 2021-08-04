@@ -797,9 +797,8 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_cancellation  -> string "omp_get_cancellation"
   | Set_nested i -> string "omp_set_nested" ^^ parens (string (string_of_int i))  
   | Get_nested  -> string "omp_get_nested" ^^ lparen ^^ blank 1 ^^ rparen
-  (* TODO: FIX ME! *)
-  | Set_schedule (_, md) -> string "omp_set_schedule" ^^ parens (string (string_of_int md))  
-  | Get_schedule (_, md) -> string "omp_get_schedule" ^^ parens (string (string_of_int md))  
+  | Set_schedule (s_type, md) -> string "omp_set_schedule" ^^ parens (string "omp_sched" ^^ sched_type_to_doc s_type ^^ comma ^^ blank 1 ^^ string (string_of_int md))  
+  | Get_schedule (s_type, md) -> string "omp_get_schedule" ^^ parens (string "omp_sched" ^^ sched_type_to_doc s_type ^^ comma ^^ blank 1 ^^ string (string_of_int md))  
   | Get_thread_limit  -> string "omp_get_thread_limit" ^^ lparen ^^ blank 1 ^^ rparen
   | Set_max_active_levels i -> string "omp_set_max_active_levels" ^^ parens (string (string_of_int i))
   | Get_max_active_levels -> string "omp_get_max_active_levels" ^^ lparen ^^ blank 1 ^^ rparen
