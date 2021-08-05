@@ -9,7 +9,7 @@ if (typeof source == 'undefined') {
 var ast = contents;
 let nodeid_root = 0;
 let nodeid_invalid = -1;
-
+var language_mode = language;
 //---------------------------------------------------
 // Code Mirror editor
 // Documentation: https://codemirror.net/doc/manual.html
@@ -19,7 +19,7 @@ var editor;
 // Initialize the editor
 function initEditor() {
   editor = CodeMirror.fromTextArea(document.getElementById('source_code'), {
-    mode: 'text/x-c++src', // or text/x-rustsrc TODO: use "language" from the exported file to select language
+    mode: language, // or text/x-rustsrc TODO: use "language" from the exported file to select language
     lineNumbers: true,
     lineWrapping: true,
     readOnly: true,

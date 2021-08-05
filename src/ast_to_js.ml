@@ -263,7 +263,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "switch";
           (* I will cover cases later on *)
           children_to_field [child_to_json (quote "cond") (aux cond)] ]
-          (* TODO: support only for now the form:  (not supporting ([p00;p01],t1))
+          (* LATER: support only for now the form:  (not supporting ([p00;p01],t1))
                 Trm_switch (cond, [([p0], t0); ([p1], t1); ([], t2)]) =
              "pat_0", aux p0
              "body_0", aux t0
@@ -285,8 +285,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         | Ret res->
            let children = match res with
              | None -> []
-             | Some ret -> (* TODO: boggus? [Json.Object [(quote "value",Str (aux ret))]]*)
-                 [ child_to_json "value" (aux ret) ]
+             | Some ret -> [ child_to_json "value" (aux ret) ]
              in
            [ kind_to_field "return";
             children_to_field children ]

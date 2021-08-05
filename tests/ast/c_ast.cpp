@@ -63,7 +63,7 @@ void stack_array() {
 
 void stack_struct() {
   vect v = { 5, 6 };
-  int a = v.x; // TODO print quotes in struct_access(v, "x")
+  int a = v.x; 
   v.y = a + 2;
   vect v2 = v;
   v2 = v;

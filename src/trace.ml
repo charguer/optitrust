@@ -277,6 +277,8 @@ let cleanup_cpp_file_using_clang_format (filename : string) : unit =
 (* TODO: Anton: add a parameter for the language
   type language = | Cpp | Rust | Ocaml
 *)
+type language = | Cpp | Rust | Ocaml
+
 let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
   (* LATER: clean up debugging code in this function *)
   let file_ast = prefix ^ ".ast" in
@@ -308,15 +310,11 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
     close_channels();
     failwith s
 
-(* TODO: BEGATIM: I think it would be nicer to produce a single JS file
-   with all steps. Let's discuss this. *)
-(* LATER: rename to file_out.js  instead of file.js *)
-
 (* [output_js index cpp_filename prefix _ast] Produces a javascript file used for viewing the ast in interactive mode
    This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
    of the source and ast after applying transformaion i.
 *)
-let output_js (index : int) (cpp_filename : string) (prefix : string) (ast : trm) : unit =
+let output_js ?(language : language = Cpp) (index : int) (cpp_filename : string) (prefix : string) (ast : trm) : unit =
   (* DEPRECATED let (_, ast) = parse cpp_filename in *)
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
@@ -324,8 +322,14 @@ let output_js (index : int) (cpp_filename : string) (prefix : string) (ast : trm
     (* Dump the description of the AST nodes *)
     let src = Xfile.get_contents cpp_filename in
     Ast_to_js.Json.code_to_js out_js index src;
+    output_string out_js "\n";
     Ast_to_js.ast_to_js out_js index ast;
     output_string out_js "\n";
+    let lang = match language with 
+      | Cpp -> "\'" ^ "text/x-c++src" ^ "\'" 
+      | Rust -> "\'" ^ "text/x-rustsrc" ^ "\'"
+      | Ocaml -> "\'" ^ "text/x-Ocaml" ^ "\'" in
+    output_string out_js (Tools.sprintf "var language = %s\n" lang);
     close_out out_js;
   with | Failure s ->
     close_out out_js;
@@ -535,8 +539,8 @@ let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> uni
     f();
     dump_diff_and_exit()
   end
-  (* TODO: when Show annotations are part of trm_annot,
-      then we can execute [else f()] here *)
+  else 
+    f()
 
 (* Get the current ast *)
 let get_ast () : trm =

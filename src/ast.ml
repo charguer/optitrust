@@ -139,13 +139,13 @@ and unary_op =
   | Unop_opp
   | Unop_inc
   | Unop_dec
-  | Unop_struct_field_addr of field (* the ".f" operator TODO CHECK *)
-  | Unop_struct_field_get of field (* the "->f" operator TODO CHECK *)
+  | Unop_struct_field_addr of field 
+  | Unop_struct_field_get of field 
   | Unop_cast of typ (* cast operator towards the specified type *)
 
 and binary_op =
   | Binop_set (* type annotation?    lvalue = rvalue *)
-  | Binop_array_cell_addr (* TODO DOCUMENT *)
+  | Binop_array_cell_addr 
   | Binop_array_cell_get
   | Binop_eq
   | Binop_neq
@@ -956,9 +956,7 @@ let contains_call_to_fun (f : var) (t : trm) : bool =
   in
   aux t
 
-(* assumption: f is called only once in t
-  TODO check if this is indeed capturing the list of subterms that corresponds
-  to arguments of calls to the function f *)
+(* assumption: f is called only once in t*)
 let fun_call_args (f : var) (t : trm) : trm list =
   let rec aux (t : trm) : trm list =
     match t.desc with
