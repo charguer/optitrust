@@ -2,9 +2,9 @@
 // Flag to activate the display of all locations
 var debug_locations = false;
 
-// The imported JS file provides 'source' and 'contents' (TODO: 'language')
+// The imported JS file provides 'source' and 'contents' 
 if (typeof source == 'undefined') {
-  // TOOD: report error
+  Console.log "couldn't load the source code"
 }
 var ast = contents;
 let nodeid_root = 0;
@@ -19,7 +19,7 @@ var editor;
 // Initialize the editor
 function initEditor() {
   editor = CodeMirror.fromTextArea(document.getElementById('source_code'), {
-    mode: language, // or text/x-rustsrc TODO: use "language" from the exported file to select language
+    mode: language, // or text/x-rustsrc 
     lineNumbers: true,
     lineWrapping: true,
     readOnly: true,

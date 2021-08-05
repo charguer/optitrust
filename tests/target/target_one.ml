@@ -52,14 +52,14 @@ let _ = Run.script_cpp (fun () ->
   show [nbMulti; sInstrRegexp "int . = .."];
   show [nbMulti; sInstrRegexp ~substr:true ". = ."];
   show [nbMulti; sInstrRegexp ~substr:false ". = ."];
+  show [nbExact 1; sInstr "int r = 3"];
+  show [nbExact 0; sExpr "int r = 3"];
+  show [sInstr "i++" ]; 
+  show [nbMulti; sInstrRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
+  show [nbMulti; cOr [[cVarDef "v"];[cVarDef "v2"]]];
 )
  (*
-  show [sInstr ~substr:tru  (* TODO: ARTHUR: specify different what should be "instructions" *)
 
-  show [nbExact 1; sInstr "int r = 3"];(* using int r = 3; resolve to the main function!!!! *)
-  show [nbExact 0; sExpr "int r = 3"];(* TODO:? using int r = 3; resolve to the main function!!!! *)
-
-  show [nbMulti; sInstr "i++" ]; (* TODO: i++ in loop should be either an instruction or an expression, not both? *)
   (* Works, in general but fails here because there are more then one occurrences of i++ *)
   show [nbMulti; sExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
 

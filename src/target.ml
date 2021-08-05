@@ -260,6 +260,9 @@ let cTypDef
   let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
   Constr_decl_type ro
 
+let cDef (name : string) : constr = 
+  cOr [[cFunDef name];[cVarDef name];[cTypDef name]]
+
 let cEnum ?(name : string = "")
   ?(substr : bool = false) ?(constants : (string * (target)) list = [])
   ?(regexp : bool = false) (_ : unit) : constr =
@@ -321,9 +324,6 @@ let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pr
   | _ -> (target_list_simpl args)
   in
   Constr_app (p_fun,args,false)
-
-let cDef (name : string) : constr =
-  Constr_target [cStrict;cFunDef name]
 
 (* This function is similart to cFun but it can match aslos internal functions like get and set *)
 let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =

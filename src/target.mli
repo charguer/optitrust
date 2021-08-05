@@ -121,8 +121,6 @@ val cThen : constr
 
 val cOr : target list -> constr
 
-val cDef : string -> constr
-
 val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> string -> constr
 
 val cFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> ?regexp:bool ->string -> constr
@@ -130,6 +128,8 @@ val cFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> ?re
 val cTopFun : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> string -> constr
 
 val cTypDef : ?substr:bool -> ?regexp:bool -> string -> constr
+
+val cDef : string -> constr 
 
 val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) -> ?regexp:bool -> unit -> constr
 

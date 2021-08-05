@@ -556,7 +556,8 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) -> get_trm_kind t
    | Trm_arbitrary _ -> fail t.loc "get_trm_kind: trm_arbitrary is removed during parsing"
-   | Trm_omp_directive _ | Trm_omp_routine _ -> fail t.loc "get_trm_kind: still on development"
+   | Trm_omp_directive _ | Trm_omp_routine _ -> TrmKind_Any
+
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
   if !Debug.counter = 2 then raise Debug.Breakpoint; *)
@@ -795,7 +796,13 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
-    | Constr_or tl :: [] -> List.fold_left(fun acc tr -> resolve_target_simple tr t @ acc) [] tl
+    | Constr_or tl :: [] -> List.fold_left(fun acc tr -> 
+        let potential_target = resolve_target_simple tr t in
+        if potential_target  = [[]] 
+          then acc 
+          else if potential_target <> [[]] && acc <> [[]] then acc
+          else potential_target @ acc
+          ) [] tl
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t
