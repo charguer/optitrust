@@ -796,6 +796,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
+    (* TODO: Fix me! *)
     | Constr_or tl :: [] -> List.fold_left(fun acc tr -> 
         let potential_target = resolve_target_simple tr t in
         if potential_target  = [[]] 

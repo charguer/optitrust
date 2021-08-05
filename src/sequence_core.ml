@@ -147,3 +147,27 @@ let split_aux (index : int) (t : trm) : trm =
 
 let split (index : int) : Target.Transfo.local =
   Target.apply_on_path (split_aux index)
+
+
+let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl -> 
+    let sum_blocks = List.fold_left (+) 0 blocks in
+    if sum_blocks <> List.length tl 
+      then fail t.loc "partition: the partition entered is not correct"
+      else
+        let current_list = ref tl in
+        let partition = List.fold_left (fun acc x -> 
+            let lfront, lback = Tools.split_list_at x !current_list in
+            current_list := lback;
+            lfront :: acc
+        ) [] blocks in
+        begin match visible with 
+        | true -> trm_seq ~annot:t.annot (List.map (trm_seq) (List.rev partition))
+        | false -> trm_seq ~annot:t.annot (List.map (trm_seq_no_brace) (List.rev partition))
+        end
+        
+  | _ -> fail t.loc "partial_aux: expected a sequence to partition"
+
+let partition (blocks : int list) (visible : bool): Target.Transfo.local =
+  Target.apply_on_path (partition_aux blocks visible)

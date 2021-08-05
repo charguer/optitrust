@@ -39,10 +39,8 @@ let iter_delete (tgl : target list) : unit =
       }                }
 *)
 let intro ?(label : string = "") (nb : int) (tg : Target.target) : unit =
-  Internal.nobrace_enter ();
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-  (fun (p, i) t -> Sequence_core.intro label i nb t p) tg;
-  Internal.nobrace_remove_and_exit ()
+  (fun (p, i) t -> Sequence_core.intro label i nb t p) tg
 (* [intro_between tg_beg tg_end]: this transformation is an advanced version of intro.
    The difference is that instead of giving the number of instructions one want's to put
    inside a sub-sequence, the first and the last trm of the on-coming sub-sequence are given.
@@ -98,3 +96,7 @@ let split (tg : Target.target) : unit =
   Target.apply_on_transformed_target_between (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Sequence_core.split i t p) tg;
   Internal.nobrace_remove_and_exit()
+
+
+let partition ?(visible : bool = false) (blocks : int list) : Target.Transfo.t =
+  Target.apply_on_target (Sequence_core.partition blocks visible)
