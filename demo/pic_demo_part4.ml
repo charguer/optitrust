@@ -14,16 +14,7 @@ let _ = Run.script_cpp (fun () ->
    !! Function.bind_args ["z0"; ""] [sExpr "+ z"];
    
    !! coloring ["x";"y";"z"] [cFor "step"];
-   (* !! Loop_basic.tile "2" ~index:"bx" [cFor "x"];
-   !! Loop_basic.tile "2" ~index:"by" [cFor "y"];
-   !! Loop_basic.tile "2" ~index:"bz" [cFor "z"];
-   !! Loop_basic.color "2" ~index:"cx" [cFor "bx"];
-   !! Loop_basic.color "2" ~index:"cy" [cFor "by"];
-   !! Loop_basic.color "2" ~index:"cz" [cFor "bz"];
-   !! Loop.move "x" ~after:"bz";
-   !! Loop.move "y" ~after:"x";
-   !! Loop.move "cy" ~before:"bx";
-   !! Loop.move "cz" ~before:"bx"; *)
+  
    (*  LATER:
        Loop.reorder_nest ["x"; "y"; "z"; "bx"; "by"; "bz" "cx"; "cy"; "cz" ] [cFor "cx"]
        compute a small number of swaps that achieve the order --like insertion sert
@@ -38,13 +29,10 @@ let _ = Run.script_cpp (fun () ->
         ];
   *)
 
-  (* TODO: show how to write AST-manipulating functions at the user-script level
-    Ast.(Trace.apply (fun
-      resovle_target .. (fun t ->
-          trm_if cond t t
-        )) [cIf])
-  *)
-
+  Ast.(Trace.apply (fun _ t ->
+    let tg_path = Target.resolve_target [cIf ] in
+    Target.apply_on_path (fun t tg_path ->
+      trm_if cond t t
+    )))
 )
-
 

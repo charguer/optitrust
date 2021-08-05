@@ -4,7 +4,6 @@ module Json = struct
   open PPrint
   (* Representation of a json object *)
   type t =
-    (* TODO: perhaps we should quote all strings by default.. *)
     | Str of string
     | Int of int
     | Boolean of bool
@@ -43,7 +42,7 @@ module Json = struct
    | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline
 
   let code_to_js (out : out_channel) (index : int) (src : string) : unit =
-    let doc = match index with (* TODO: factorize code better *)
+    let doc = match index with 
       | -1 -> string "source"  ^^ equals ^^ bquotes (string src) ^^ hardline
       | _ -> string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline
       in
@@ -64,7 +63,7 @@ let void =
 
 let loc_to_json (t : trm) : json =
   begin match t.loc with
-  | None -> Json.Str (quote "")
+  | None -> strquote ""
   | Some {loc_file = _; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
       Json.Object [
         (strquote "start", Json.Object
@@ -79,7 +78,7 @@ let typed_var_list_to_json (tv : typed_var list) : json =
   Json.Object (List.map (fun (v,typ) -> (strquote v, Json.typ_to_json typ)) tv)
 
 let child_to_json (label : string) (child_id : nodeid) : json =
-  Json.Object [ ((strquote "label"), Json.Str (quote label));
+  Json.Object [ ((strquote "label"), strquote label);
                 ((strquote "id", Json.Int child_id)) ]
 
 let ichild_to_json ?(prefix:string="") (i : int) (child_id : nodeid) : json =
@@ -89,116 +88,116 @@ let children_to_field (children: json list) : (json * json) =
   (strquote "children", Json.List children)
 
 let kind_to_field (kind : string) : json * json =
-  (strquote "kind", Json.Str (quote kind))
+  (strquote "kind", strquote kind)
 
 let value_to_field (value : string) : json * json =
-  (strquote "value", Json.Str (quote value))
+  (strquote "value", strquote value)
 
 let directive_to_json (directive : directive) : json * json = 
   let directive_js =
   match directive with
-  | Atomic _-> Json.Str  "Atomic"
-  | Atomic_capture -> Json.Str  "Atomic_capture"
-  | Barrier -> Json.Str  "Barrier"
-  | Cancel _ -> Json.Str  "Cancel"
-  | Cancellation_point _-> Json.Str  "Cancellation_point"
-  | Critical -> Json.Str  "Critical"
-  | Declare_simd _ -> Json.Str  "Declare_simd"
-  | Declare_reduction _ -> Json.Str  "Declare_reduction"
-  | Declare_target -> Json.Str  "Declare_target"
-  | Distribute _ -> Json.Str  "Distribute"
-  | Distribute_parallel_for _ -> Json.Str  "Distribute_parallel_for"
-  | Distribute_parallel_for_simd _ -> Json.Str  "Distribute_parallel_for_simd"
-  | Distribute_simd -> Json.Str  "Distribute_simd"
-  | End_declare_target -> Json.Str  "End_declare_target"
-  | Flush _ -> Json.Str  "Flush"
-  | For _ -> Json.Str  "For"
-  | For_simd _ -> Json.Str  "For_simd"
-  | Master -> Json.Str  "Master"
-  | Ordered -> Json.Str  "Ordered"
-  | Parallel _ -> Json.Str  "Parallel"
-  | Parallel_for -> Json.Str  "Parallel_for"
-  | Parallel_for_simd _ -> Json.Str  "Parallel_for_simd"
-  | Parallel_sections _ -> Json.Str  "Parallel_sections"
-  | Section -> Json.Str  "Section"
-  | Sections _ -> Json.Str  "Sections"
-  | Simd _ -> Json.Str  "Simd"
-  | Single _ -> Json.Str  "Single"
-  | Target _ -> Json.Str  "Target"
-  | Target_data _ -> Json.Str  "Target_data"
-  | Target_enter_data _ -> Json.Str  "Target_enter_data"
-  | Target_exit_data _ -> Json.Str  "Target_exit_data"
-  | Target_teams _ -> Json.Str  "Target_teams"
-  | Target_teams_distribute _ -> Json.Str  "Target_teams_distribute"
-  | Target_teams_distribute_parallel_for _ -> Json.Str  "Target_teams_distribute_parallel_for"
-  | Target_teams_distribute_parallel_for_simd _ -> Json.Str  "Target_teams_distribute_parallel_for_simd"
-  | Target_teams_distribute_simd _ -> Json.Str  "Target_teams_distribute_simd"
-  | Target_update _ -> Json.Str  "Target_update"
-  | Task _ -> Json.Str  "Task"
-  | Taskgroup -> Json.Str  "Taskgroup"
-  | Taskloop _ -> Json.Str  "Taskloop"
-  | Taskloop_simd _ -> Json.Str  "Taskloop_simd"
-  | Taskwait -> Json.Str  "Taskwait"
-  | Taskyield -> Json.Str  "Taskyield"
-  | Teams _ -> Json.Str  "Teams"
-  | Teams_distribute _ -> Json.Str  "Teams_distribute"
-  | Teams_distribute_end _ -> Json.Str  "Teams_distribute_end"
-  | Teams_distribute_parallel_for _ -> Json.Str  "Teams_distribute_parallel_for"
-  | Teams_distribute_parallel_for_simd _ -> Json.Str  "Teams_distribute_parallel_for_simd"
-  | Threadprivate _ -> Json.Str  "Threadprivate"
+  | Atomic _-> strquote "Atomic"
+  | Atomic_capture -> strquote "Atomic_capture"
+  | Barrier -> strquote "Barrier"
+  | Cancel _ -> strquote "Cancel"
+  | Cancellation_point _-> strquote "Cancellation_point"
+  | Critical -> strquote "Critical"
+  | Declare_simd _ -> strquote "Declare_simd"
+  | Declare_reduction _ -> strquote "Declare_reduction"
+  | Declare_target -> strquote "Declare_target"
+  | Distribute _ -> strquote "Distribute"
+  | Distribute_parallel_for _ -> strquote "Distribute_parallel_for"
+  | Distribute_parallel_for_simd _ -> strquote "Distribute_parallel_for_simd"
+  | Distribute_simd -> strquote "Distribute_simd"
+  | End_declare_target -> strquote "End_declare_target"
+  | Flush _ -> strquote "Flush"
+  | For _ -> strquote "For"
+  | For_simd _ -> strquote "For_simd"
+  | Master -> strquote "Master"
+  | Ordered -> strquote "Ordered"
+  | Parallel _ -> strquote "Parallel"
+  | Parallel_for -> strquote "Parallel_for"
+  | Parallel_for_simd _ -> strquote "Parallel_for_simd"
+  | Parallel_sections _ -> strquote "Parallel_sections"
+  | Section -> strquote "Section"
+  | Sections _ -> strquote "Sections"
+  | Simd _ -> strquote "Simd"
+  | Single _ -> strquote "Single"
+  | Target _ -> strquote "Target"
+  | Target_data _ -> strquote "Target_data"
+  | Target_enter_data _ -> strquote "Target_enter_data"
+  | Target_exit_data _ -> strquote "Target_exit_data"
+  | Target_teams _ -> strquote "Target_teams"
+  | Target_teams_distribute _ -> strquote "Target_teams_distribute"
+  | Target_teams_distribute_parallel_for _ -> strquote "Target_teams_distribute_parallel_for"
+  | Target_teams_distribute_parallel_for_simd _ -> strquote "Target_teams_distribute_parallel_for_simd"
+  | Target_teams_distribute_simd _ -> strquote "Target_teams_distribute_simd"
+  | Target_update _ -> strquote "Target_update"
+  | Task _ -> strquote "Task"
+  | Taskgroup -> strquote "Taskgroup"
+  | Taskloop _ -> strquote "Taskloop"
+  | Taskloop_simd _ -> strquote "Taskloop_simd"
+  | Taskwait -> strquote "Taskwait"
+  | Taskyield -> strquote "Taskyield"
+  | Teams _ -> strquote "Teams"
+  | Teams_distribute _ -> strquote "Teams_distribute"
+  | Teams_distribute_end _ -> strquote "Teams_distribute_end"
+  | Teams_distribute_parallel_for _ -> strquote "Teams_distribute_parallel_for"
+  | Teams_distribute_parallel_for_simd _ -> strquote "Teams_distribute_parallel_for_simd"
+  | Threadprivate _ -> strquote "Threadprivate"
   in (strquote "directive", directive_js)
 
 let routine_to_json (routine : omp_routine) : json * json = 
   let routine_js = 
   match routine with 
-  | Set_num_threads _ -> Json.Str  "Set_num_threads"
-  | Get_num_threads -> Json.Str  "Get_num_threads"
-  | Get_max_threads -> Json.Str  "Get_max_threads"
-  | Get_thread_num -> Json.Str  "Get_thread_num"
-  | Get_num_procs -> Json.Str  "Get_num_procs"
-  | In_parallel -> Json.Str  "In_parallel"
-  | Set_dynamic _ -> Json.Str  "Set_dynamic"
-  | Get_dynamic -> Json.Str  "Get_dynamic"
-  | Get_cancellation -> Json.Str  "Get_cancellation"
-  | Set_nested _ -> Json.Str  "Set_nested"
-  | Get_nested -> Json.Str  "Get_nested"
-  | Set_schedule _ -> Json.Str  "Set_schedule"
-  | Get_schedule _ -> Json.Str  "Get_schedule"
-  | Get_thread_limit -> Json.Str  "Get_thread_limit"
-  | Set_max_active_levels _ -> Json.Str  "Set_max_active_levels"
-  | Get_max_active_levels -> Json.Str  "Get_max_active_levels"
-  | Get_level -> Json.Str  "Get_level"
-  | Get_ancestor_thread_num -> Json.Str  "Get_ancestor_thread_num"
-  | Get_team_size _ -> Json.Str  "Get_team_size"
-  | Get_active_level -> Json.Str  "Get_active_level"
-  | In_final -> Json.Str  "In_final"
-  | Get_proc_bind -> Json.Str  "Get_proc_bind"
-  | Set_default_device _ -> Json.Str  "Set_default_device"
-  | Get_default_device -> Json.Str  "Get_default_device"
-  | Get_num_devices -> Json.Str  "Get_num_devices"
-  | Get_num_teams -> Json.Str  "Get_num_teams"
-  | Get_team_num -> Json.Str  "Get_team_num"
-  | Is_initial_device -> Json.Str  "Is_initial_device"
-  | Init_lock _ -> Json.Str  "Init_lock"
-  | Init_nest_lock _ -> Json.Str  "Init_nest_lock"
-  | Destroy_lock _ -> Json.Str  "Destroy_lock"
-  | Destroy_nest_lock _ -> Json.Str  "Destroy_nest_lock"
-  | Set_lock _ -> Json.Str  "Set_lock"
-  | Set_nest_lock _ -> Json.Str  "Set_nest_lock"
-  | Unset_lock _ -> Json.Str  "Unset_lock"
-  | Unset_nest_lock _ -> Json.Str  "Unset_nest_lock"
-  | Test_lock _ -> Json.Str  "Test_lock"
-  | Test_nest_lock _ -> Json.Str  "Test_nest_lock"
-  | Get_wtime -> Json.Str  "Get_wtime"
-  | Get_wtick -> Json.Str  "Get_wtick"
-  in  (strquote "routine", routine_js)
+  | Set_num_threads _ -> strquote "Set_num_threads"
+  | Get_num_threads -> strquote "Get_num_threads"
+  | Get_max_threads -> strquote "Get_max_threads"
+  | Get_thread_num -> strquote "Get_thread_num"
+  | Get_num_procs -> strquote "Get_num_procs"
+  | In_parallel -> strquote "In_parallel"
+  | Set_dynamic _ -> strquote "Set_dynamic"
+  | Get_dynamic -> strquote "Get_dynamic"
+  | Get_cancellation -> strquote "Get_cancellation"
+  | Set_nested _ -> strquote "Set_nested"
+  | Get_nested -> strquote "Get_nested"
+  | Set_schedule _ -> strquote "Set_schedule"
+  | Get_schedule _ -> strquote "Get_schedule"
+  | Get_thread_limit -> strquote "Get_thread_limit"
+  | Set_max_active_levels _ -> strquote "Set_max_active_levels"
+  | Get_max_active_levels -> strquote "Get_max_active_levels"
+  | Get_level -> strquote "Get_level"
+  | Get_ancestor_thread_num -> strquote "Get_ancestor_thread_num"
+  | Get_team_size _ -> strquote "Get_team_size"
+  | Get_active_level -> strquote "Get_active_level"
+  | In_final -> strquote "In_final"
+  | Get_proc_bind -> strquote "Get_proc_bind"
+  | Set_default_device _ -> strquote "Set_default_device"
+  | Get_default_device -> strquote "Get_default_device"
+  | Get_num_devices -> strquote "Get_num_devices"
+  | Get_num_teams -> strquote "Get_num_teams"
+  | Get_team_num -> strquote "Get_team_num"
+  | Is_initial_device -> strquote "Is_initial_device"
+  | Init_lock _ -> strquote "Init_lock"
+  | Init_nest_lock _ -> strquote "Init_nest_lock"
+  | Destroy_lock _ -> strquote "Destroy_lock"
+  | Destroy_nest_lock _ -> strquote "Destroy_nest_lock"
+  | Set_lock _ -> strquote "Set_lock"
+  | Set_nest_lock _ -> strquote "Set_nest_lock"
+  | Unset_lock _ -> strquote "Unset_lock"
+  | Unset_nest_lock _ -> strquote "Unset_nest_lock"
+  | Test_lock _ -> strquote "Test_lock"
+  | Test_nest_lock _ -> strquote "Test_nest_lock"
+  | Get_wtime -> strquote "Get_wtime"
+  | Get_wtick -> strquote "Get_wtick"
+  in (strquote "routine", routine_js)
 
 (* Here, [aux] is to be applied for processing children *)
 let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     match t.desc with
     | Trm_val v ->
         [ kind_to_field "val";
-          (strquote "value", Json.Str (Tools.document_to_string (PPrint.bquotes(Ast_to_c.val_to_doc v))));
+          (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(Ast_to_c.val_to_doc v))));
           children_to_field [] ]
     | Trm_var x ->
         [ kind_to_field "var";
@@ -212,18 +211,18 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field (List.mapi ichild_to_json (List.map aux l)) ]
     | Trm_let (_,(x,typ),init) ->
         [ kind_to_field "var-def";
-          (strquote "name", Json.Str (quote x));
+          (strquote "name", strquote x);
           (strquote "def-type", Json.typ_to_json typ);
           children_to_field ([(child_to_json "init" (aux init))])]
     | Trm_let_fun (f, typ, xts, tbody) ->
       [ kind_to_field "fun-def";
-            (strquote "name", Json.Str (quote f));
+            (strquote "name", strquote f);
             (strquote "args", typed_var_list_to_json xts);
             (strquote "return_type", Json.typ_to_json typ);
             children_to_field ([(child_to_json "body" (aux tbody))]) ]
     | Trm_typedef td ->
       [ kind_to_field "typdef";
-        (strquote "name", Json.Str (quote td.typdef_tconstr));
+        (strquote "name", strquote td.typdef_tconstr);
         (strquote "contents", Json.typdef_to_json td);
         children_to_field [] ]
     | Trm_if (cond, then_, else_) ->
@@ -242,7 +241,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field children]
     | Trm_for (index, _, start, stop, step, body) ->
       [ kind_to_field "simple_for";
-          (strquote "index", Json.Str (quote index));
+          (strquote "index", strquote index);
           children_to_field [
             child_to_json "start" (aux start);
             child_to_json "stop" (aux stop);
@@ -304,7 +303,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [child_to_json "labelled" (aux t)]]
     | Trm_goto label ->
         [ kind_to_field "goto";
-          (strquote "target", Json.Str label);
+          (strquote "target", strquote label);
           children_to_field []]
     | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
     | Trm_omp_directive d -> [directive_to_json d]
@@ -312,18 +311,18 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
-     | Grouped_binding -> quote "Grouped_binding"
-     | No_braces _ -> quote "No_braces"
-     | Access -> quote "Access"
-     | Multi_decl -> quote "Multi_decl"
-     | Empty_cond -> quote "Empty_cond"
-     | App_and_set -> quote "App_and_set"
-     | Include h -> quote "Include" ^ " " ^ h
-     | Main_file -> quote "Main_file"
-     | Mutable_var_get -> quote "Mutable_var_get"
-     | As_left_value -> quote "As_left_value"
-     | Highlight _ -> quote "Hightlight" 
-     | Any -> quote "Any"
+     | Grouped_binding -> "Grouped_binding"
+     | No_braces _ -> "No_braces"
+     | Access -> "Access"
+     | Multi_decl -> "Multi_decl"
+     | Empty_cond -> "Empty_cond"
+     | App_and_set -> "App_and_set"
+     | Include h -> "Include" ^ " " ^ h
+     | Main_file -> "Main_file"
+     | Mutable_var_get -> "Mutable_var_get"
+     | As_left_value -> "As_left_value"
+     | Highlight _ -> "Hightlight" 
+     | Any -> "Any"
 
   let annot_list_to_string (t : trm) : string =
     Tools.list_to_string ((List.map annot_to_string) t.annot)
@@ -352,11 +351,11 @@ let ast_to_json (trm_root : trm) : json =
     let json = Json.Object (specific_fields @ [
       (strquote "parent", Json.Int id_parent);
       (strquote "typ",  (( match t.typ with
-                          | None -> Json.Str (quote "<no type information>")
+                          | None -> strquote "<no type information>"
                           | Some typ -> Json.typ_to_json typ )));
       (strquote "add", Json.List (List.map Json.str (List.map add_to_string t.add)));
       (strquote "is_statement", Json.Boolean t.is_statement);
-      (strquote "annot", Json.Str (annot_list_to_string t) );
+      (strquote "annot", strquote (annot_list_to_string t) );
       (strquote "loc", loc_to_json t);
       (strquote "attributes", Json.List (List.map Json.str (List.map Tools.document_to_string
                                  (List.map print_attribute t.attributes))))
