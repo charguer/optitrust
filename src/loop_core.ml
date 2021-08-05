@@ -316,7 +316,7 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
     return:
       updated ast with the unrolled loop
 *)
-let unroll_aux (index : int) (t : trm) : trm =
+let unroll_aux (label : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, loop_to_unroll, lback = Internal.get_trm_and_its_relatives index tl in
@@ -335,14 +335,17 @@ let unroll_aux (index : int) (t : trm) : trm =
         let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
         Internal.change_trm (trm_var index) new_index body :: acc
          ) [] (List.rev unrolled_loop_range) in
-      trm_seq ~annot:t.annot (lfront @ unrolled_body @ lback)
+      begin match label with 
+      | "" -> trm_seq ~annot:t.annot (lfront @ unrolled_body @ lback)
+      | _ -> trm_seq ~annot:t.annot (lfront @ [trm_labelled label (trm_seq_no_brace unrolled_body)] @ lback)
+      end
     | _ -> fail loop_to_unroll.loc "unroll_aux: only simple loops supported"
     end
   | _ -> fail t.loc "unroll_aux: expected the surrounding sequence"
 
 
-let unroll (index : int) : Target.Transfo.local =
-  Target.apply_on_path (unroll_aux index)
+let unroll (label : var) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (unroll_aux label index)
 (* [invariant_aux trm_index t]: take a constant term inside the body of the loop
       in outside the loop.
     params:

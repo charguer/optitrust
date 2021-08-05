@@ -117,13 +117,25 @@ let unroll (tg : Target.target) : unit =
     begin match stop.desc with 
     | Trm_apps (_,[_;bnd]) ->
       begin match bnd.desc with 
-      | Trm_val (Val_lit (Lit_int _)) -> Loop_basic.unroll tg
+      | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~label:"unroll" tg;
+        let block_list = Tools.range 0 n in
+        List.iter (fun x -> Variable_basic.rename (Postfix (string_of_int x)) ([Target.tIndex ~nb:n x ] @ tg @ [Target.cSeq ()])) block_list
       | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
-                     Loop_basic.unroll tg
+                     Loop_basic.unroll ~label:"unroll" tg;
+        let var_decl = match Internal.toplevel_decl x t with 
+          | Some d -> d
+          | None -> fail t.loc "unroll: could not find the declaration of the variable"
+        in
+        let lit_n = get_initialization_trm var_decl in 
+        let n = match (get_lit_from_trm_lit lit_n)  with
+        | Lit_int n -> n
+        | _ -> fail t.loc "unroll: could not get the size of unrollment" in
+        let block_list = Tools.range 0 n in
+        List.iter (fun x -> Variable_basic.rename (Postfix (string_of_int x)) ([Target.tIndex ~nb:n x ] @ tg @ [Target.cSeq ()])) block_list
       | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
       end
     | _ -> fail t.loc "unroll: expected an addition between two trms"
     end
   | _ -> fail t.loc "unroll: expected a simple loop"
-  
+
  

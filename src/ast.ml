@@ -1503,6 +1503,12 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}
   
 
+
+let get_lit_from_trm_lit (t : trm) : lit = 
+  match t.desc with 
+  | Trm_val (Val_lit l) -> l
+  | _ -> fail t.loc "get_lit_from_trm: this type of literal is not supported"
+
 (* type instantiation = trm varmap *)
 
 (* Check if rule is applicable *)
