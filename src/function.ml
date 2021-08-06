@@ -1,5 +1,6 @@
 open Ast
 open Path
+
 let counter = ref (-1)
 
 let bind_args (fresh_names : var list) : Target.Transfo.t =
@@ -25,18 +26,6 @@ let bind ?(fresh_name : string = "res") ?(inner_fresh_names : var list =  []) (t
   bind_args inner_fresh_names tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
-
-let bind1 (fresh_name : string) (inner_fresh_names : var list) (bind_args : bool): Target.Transfo.t  =
-  Target.apply_on_transformed_targets(Internal.get_call_in_surrounding_sequence)
-    (fun (p, p_local, i) t ->
-     if not bind_args then Function_core.bind_intro i fresh_name false p_local t p
-     else
-     let t = Function_core.bind_intro i fresh_name false p_local t p in
-     Tools.foldi (fun n t fresh_name ->
-     if fresh_name <> "" then
-     let ()  = counter := !counter+1 in
-     Function_core.bind_intro (i + !counter)  fresh_name true ([Dir_body] @ [Dir_arg 0 ] @ [Dir_arg n]) t p
-     else t) t inner_fresh_names)
 
 let inline_call ?(name_result = "") ?(label:var = "body") ?(renames : rename = Postfix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
   let t = Trace.get_ast() in

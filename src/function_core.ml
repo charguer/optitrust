@@ -1,6 +1,7 @@
 open Ast
 open Path
 
+
 let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->

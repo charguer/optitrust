@@ -90,17 +90,13 @@ let inline (delete : bool) (inline_at : target) (index : int) : Target.Transfo.l
 let alias_aux (name : string) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let td_l, lback = Tools.split_list_at 1 lback in
-    let td_to_copy = match td_l with 
-      | [td_l] -> td_l
-      | _ -> fail t.loc "alias_aux: expected a list with only one element" in
-    let td_copy = match td_to_copy.desc with 
+    let lfront, td_l, lback = Internal.get_trm_and_its_relatives index tl in
+    let td_copy = match td_l.desc with 
     | Trm_typedef td ->
       trm_typedef {td with typdef_tconstr = name}
     | _ -> fail t.loc "alias_aux: expected a typedef declaration" 
      in
-      trm_seq ~annot:t.annot (lfront @ td_l @ [td_copy] @ lback)
+      trm_seq ~annot:t.annot (lfront @ [td_l] @ [td_copy] @ lback)
 
   | _-> fail t.loc "alias_aux: expected the surrounding sequence"
 

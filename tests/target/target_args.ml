@@ -17,8 +17,6 @@ let _ = Run.script_cpp (fun () ->
      matching in depth:
       f(a1, ...g(..) ..., a3)
       => cFun ~args_pred:(target_list_one_st (cTargetInDepth [cFun "g"])
-      TODO: define this:
-         let cTargetInDepth (tg : target) : constr =
-            Const_chain (Constr_depth DepthAny :: tg)
+      
     *)
   )
