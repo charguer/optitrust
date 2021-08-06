@@ -1002,10 +1002,6 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_array tl
      | Trm_struct tl ->
         explore_list tl (fun n -> Dir_nth n) (aux)
-     | Trm_val (Val_array vl)
-     | Trm_val (Val_struct vl) ->
-        explore_list (List.map (trm_val ~loc) vl) (fun n -> Dir_nth n)
-          (aux)
      | Trm_labelled (l, body) ->
         add_dir Dir_name (aux (trm_var ~loc l)) ++
         add_dir Dir_body (aux body)
@@ -1051,10 +1047,6 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
     | Dir_nth n, Trm_struct tl ->
      app_to_nth_dflt loc tl n
        (fun nth_t -> add_dir (Dir_nth n) (aux nth_t))
-  | Dir_nth n, Trm_val (Val_array vl)
-    | Dir_nth n, Trm_val (Val_struct vl) ->
-     app_to_nth_dflt loc vl n (fun nth_v ->
-         add_dir (Dir_nth n) (aux (trm_val ~loc nth_v)))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
     | Dir_cond, Trm_for_c (_, cond, _, _)

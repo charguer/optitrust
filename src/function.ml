@@ -55,7 +55,7 @@ let inline_call ?(name_result = "") ?(label:var = "body") ?(renames : rename = P
   let inlining_needed = 
   begin match tg_out_trm.desc with 
   | Trm_let (_, (x, _), _) -> 
-    let init1 = get_initialization_trm tg_out_trm in
+    let init1 = get_init_val tg_out_trm in
     if !name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline_call: no need to enter the result name in this case"
       else if init1 = tg_trm then begin name_result := x; false end
       else

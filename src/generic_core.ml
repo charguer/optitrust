@@ -202,9 +202,9 @@ let change_type_aux (new_type : typvar) (t : trm) : trm =
   | Trm_let (vk, (x, _), _) ->
     begin match vk with 
     | Var_mutable -> 
-      trm_let vk (x, typ_ptr Ptr_kind_mut (typ_var new_type (-1))) (trm_apps (trm_prim(Prim_new (typ_var new_type (-1)))) [get_initialization_trm t]) 
+      trm_let vk (x, typ_ptr Ptr_kind_mut (typ_var new_type (-1))) (trm_apps (trm_prim(Prim_new (typ_var new_type (-1)))) [get_init_val t]) 
     | Var_immutable ->
-      trm_let vk (x, typ_var new_type (-1)) (get_initialization_trm t)
+      trm_let vk (x, typ_var new_type (-1)) (get_init_val t)
     end
   | _ -> fail t.loc "change_type_aux: expected a variable or a function declaration"
 

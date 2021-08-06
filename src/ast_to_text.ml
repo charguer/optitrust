@@ -145,12 +145,6 @@ and print_val ?(only_desc : bool = false) (v : value) : document =
   | Val_ptr l ->
      if l = 0 then string "NULL"
      else fail None "print_val: pointers not implemented"
-  | Val_array vl ->
-     let dvl = List.map (print_val ~only_desc) vl in
-     node "Val_array" ^^ print_list dvl
-  | Val_struct vl ->
-     let dvl = List.map (print_val ~only_desc) vl in
-     node "Val_struct" ^^ print_list dvl
   | Val_prim p ->
      let dp = print_prim ~only_desc p in
      node "Val_prim" ^^ parens dp
@@ -317,7 +311,6 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | App_and_set -> string "App_and_set"
     | Include h -> string "Include" ^^ blank 1 ^^ string h
     | Main_file -> string "Main_file"
-    | Grouped_binding -> string "Grouped_binding"
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
     | Highlight (l, r) -> string "Highlight" ^^ parens (string l ^^ comma ^^ string r) 

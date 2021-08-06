@@ -1,13 +1,22 @@
 open Tools
- type pos = {
+(* a record used to represent a specifi location inside the code*)
+type pos = {
     pos_line : int;
     pos_col : int; }
 
+(* a record used to keep track of the node information like the file it belongs
+    and the start and the end position inside the code.
+*)
 type node_loc = {
   loc_file : string;
   loc_start : pos;
   loc_end : pos;}
 
+
+(* location of a node is given as an option term, that because sometimes for some nodes we
+    cant' have the location. Of when generating new nodes it is hard for the transformations
+    to now the exact location where the term is being added, hence it is left as empty
+*)
 type location = node_loc option
 
 (* memory locations *)
@@ -28,6 +37,7 @@ type typvars = typvar list
    LATER: might rename to typconstrid *)
 type typid = int
 
+(* [next_typid ()] generate and return a new integer *)
 let next_typid : (unit -> int) =
   Tools.fresh_generator()
 
@@ -85,9 +95,12 @@ and typ_desc =
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
 
+(* references are considered as pointers that's why we need to distinguish the kind of the pointer *)
 and ptr_kind =
   | Ptr_kind_mut
   | Ptr_kind_ref
+
+(* annotation for types that can be build from the main ones *)
 and typ_annot =
   | Unsigned
   | Long
@@ -98,7 +111,7 @@ and typ_flags = {
     typ_flags_generated_star : bool;
 }
 *)
-
+(* [typ] is a record containing the description, annotation and some attributes*)
 and typ = {
   typ_desc : typ_desc;
   typ_annot : typ_annot list;
@@ -108,6 +121,9 @@ and typ = {
   ty_env : env; --> tells you for every type what is its definition
   *)
 
+(* [typedef] is a record containing the id of the type, the name of the new defined type
+    for sum types there can be also more then one variable. And finally the body of the type
+*)
 and typedef = { (* e.g. [type ('a,'b) t = ...] *)
   (* LATER: typdef_loc : location; *)
   typdef_typid : typid; (* the unique id associated with the type [t] *)
@@ -117,6 +133,7 @@ and typedef = { (* e.g. [type ('a,'b) t = ...] *)
   typdef_body : typdef_body;
    } (* the body of the definition, i.e. the description of [...] *)
 
+(* constructed types *)
 and typdef_body =
   | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list] or [typdef vect t] *)
   | Typdef_prod of bool * (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
@@ -129,9 +146,10 @@ and typdef_body =
   | Typedef_abbrev of typvar * typ  (* type x = t, where t could be a struct *)
   *)
 
+(* used for function arguments *)
 and typed_var = var * typ
 
-(* primitives *)
+(* unary operators *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)
   | Unop_bitwise_neg
@@ -143,6 +161,7 @@ and unary_op =
   | Unop_struct_field_get of field 
   | Unop_cast of typ (* cast operator towards the specified type *)
 
+(* binary operators *)
 and binary_op =
   | Binop_set (* type annotation?    lvalue = rvalue *)
   | Binop_array_cell_addr 
@@ -166,11 +185,13 @@ and binary_op =
   | Binop_shiftr
   | Binop_xor
 
-
+(* consistency mode for C++ memory model *)
 and consistency_mode = 
   | Sequentially_consistent
   | Release
   | Acquire
+
+(* primitives  *)
 and prim =
   | Prim_unop of unary_op (* e.g. "!b" *)
   | Prim_binop of binary_op (* e.g. "n + m" *)
@@ -194,35 +215,22 @@ and lit =
 and value =
   | Val_lit of lit
   | Val_prim of prim
-  (* The constructors below never appear in source code;
-     these are values that can only be constructed during the program execution,
-     and thus useful only for carrying out proofs about the program Generic *)
   | Val_ptr of loc
-  | Val_array of value list
-  | Val_struct of value list
+  (* These are values that can only be constructed during the program execution,
+     and thus useful only for carrying out proofs about the program Generic *)
   (* LATER: add functions, which are also values that can be created at execution time *)
 
-(* annotations are used to decorate this AST when it is built from the
-   Clang AST in such a way to be able to print back the AST like the original C code.
-   *)
+(* annotations are used to decorate this AST when it is built from the Clang AST 
+   in such a way to be able to print back the AST like the original C code.
+*)
 and trm_annot = 
-  (* used to print back a c++ program *)
-  | No_braces of int 
-  (* annotate applications of star operator that should not be printed *)
-  | Access
-  (* used to print back seqs that contain multiple declarations *)
-  | Multi_decl
-  (*
-    annotate the boolean literal "true" in for loop conditions to print it as no
-    condition
-   *)
-  | Empty_cond
-  (* annotate uses of binop_set that unfold +=, -=, *= *)
-  | App_and_set
-  (* to avoid printing content of included files *)
-  | Include of string
-  | Main_file
-  | Grouped_binding (* Used for trms of the form int x = 3, y = 4 *)
+  | No_braces of int (* some sequences can be visible only internally *)
+  | Access (* annotate applications of star operator that should not be printed *)
+  | Multi_decl (* used to print back sequences that contain multiple declarations *)
+  | Empty_cond (* used for loops with empty condition *)
+  | App_and_set (* annotate uses of binop_set that unfold +=, -=, *= *)
+  | Include of string (* to avoid printing content of included files *)
+  | Main_file (* sequence annotated as the main file is not printed *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
   | Highlight of string * string (* Used in show transformations to hightlight a targeted trm*)
@@ -238,10 +246,7 @@ and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Aligned of trm
   | GeneratedStar
 
-(*
-  annotated terms
-  is_statement: true if the trm is an instruction in a seq
- *)
+(* [trm] is a record representing an ast node *)
 and trm =
  { annot : trm_annot list; 
    desc : trm_desc;
@@ -302,6 +307,7 @@ and trm =
    annot : trm_annot list; }
 *)
 
+(* description of an ast node *)
 and trm_desc =
   | Trm_val of value
   | Trm_var of var (* LATER: varkind * var *)
@@ -348,6 +354,7 @@ and trm_desc =
   | Trm_omp_directive of directive
   | Trm_omp_routine of omp_routine
 
+(* type for the mutability of the varaible*)
 and varkind =
   | Var_immutable
   | Var_mutable (* [Var_mutable] means that we had a declaration of a non-const stack-allocated variable. *)
@@ -359,18 +366,22 @@ and abort =
   | Continue (* LATER: could have label option *)
 
 
+(* mode used for default OpenMP clause *)
 and mode = 
   | Shared
   | None_
 
+(* expression representing the code inside an If OpenMP clause *)
 and expression = string
 
+(* scheduling type for OpenMP *)
 and sched_type = 
   | Static
   | Dynamic
   | Guided
   | Runtime
 
+(* reduction operation for OpenMP reduction clause *)
 and reduction_identifier =
   | Plus
   | Minus
@@ -381,12 +392,14 @@ and reduction_identifier =
   | BitAnd
   | BitOr
 
+(* map type for map OpenMP clause *)
 and map_type = 
   | Alloc
   | To
   | From
   | ToFrom
 
+(* OpenMP clauses *)
 and clause = 
   (* Data sharing clauses *)
   | Default of mode
@@ -420,12 +433,14 @@ and clause =
   | For_c
   | Taskgroup_c
 
+(* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 
   | Read
   | Write
   | Update
   | Capture
 
+(* OpenMP directives *)
 and directive =
   | Atomic of atomic_operation option
   | Atomic_capture 
@@ -540,9 +555,6 @@ type 'a tmap = 'a Trm_map.t
 
 type instantiation = trm tmap
 
-
-type simple_loop = var * trm * trm * trm * trm
-
 (* **************************Typ Construcors**************************** *)
 let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =
@@ -555,7 +567,6 @@ let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
 let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (x : typvar) (tid : typid) (tl : typ list) : typ =
   {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
-
 
 let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
   {typ_annot = annot; typ_desc = Typ_auto ; typ_attributes}
@@ -730,8 +741,6 @@ let trm_arbitrary ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribu
 (code : string) : trm =
   {annot = annot; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
-
-
 let trm_omp_directive ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (directive : directive) : trm =
   {annot = annot; desc = Trm_omp_directive directive; loc = loc; is_statement = true; add ; typ; attributes; ctx}
@@ -739,6 +748,8 @@ let trm_omp_directive ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(att
 let trm_omp_routine ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (omp_routine : omp_routine) : trm =
   {annot = annot; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; add ; typ; attributes; ctx}
+
+(* ********************************************************************************************************************* *)
 
 let is_included (t : trm) : bool =
  List.exists (function Include _ -> true | _ -> false) t.annot
@@ -802,6 +813,9 @@ let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
       trm_apps (trm_binop (Binop_array_cell_get)) [acc;i]
   ) base access_list
 
+(* apply a function over ast nodes, if nodes are terminal nodes than specific treatment is considered
+    depending on the definition of function f
+*)
 let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm) : trm =
   let annot = t.annot in
   let loc = t.loc in
@@ -863,6 +877,7 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      trm_labelled ~annot ~loc ~add l (f false body)
   | _ -> t
 
+(* similart to trm_map_with_terminal but here terminal nodes are not treated differently *)
 let trm_map (f : trm -> trm) (t : trm) : trm =
   trm_map_with_terminal false (fun _is_terminal t -> f t) t
 
@@ -878,45 +893,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
   (* var, unit, int, float, double, bool, char *)
   | _ -> ty
 
-(* return the list of var declarations in the list of instructions *)
-let rec var_declarations (tl : trm list) : trm list =
-  match tl with
-  | [] -> []
-  | t :: tl ->
-     begin match t.desc with
-     | Trm_let (_,_,_) -> t :: var_declarations tl
-     | _ -> var_declarations tl
-     end
-
-(* true if x is used/defined in t *)
-(* LATER: useful generalization is to get the list of variables in t *)
-let is_used_var_in (t : trm) (x : var) : bool =
-  let rec aux (t : trm) : bool =
-    match t.desc with
-    | Trm_var y -> y = x
-    | Trm_array tl
-      | Trm_struct tl
-      | Trm_seq tl ->
-       List.exists aux tl
-    | Trm_let (_,(y, _), init) -> y = x || aux init
-    | Trm_let_fun (_,_,args,body) ->
-      not (List.mem x (List.map fst args)) && aux body
-    | Trm_if (cond, then_, else_) -> aux cond || aux then_ || aux else_
-    | Trm_apps (f, args) -> aux f || List.exists aux args
-    | Trm_while (cond, body) -> aux cond || aux body
-    | Trm_for_c (init, cond, step, body) ->
-       aux init || aux cond || aux step || aux body
-    | Trm_for (_, _, _, _, _, body) -> aux body
-    | Trm_switch (cond, cases) ->
-       aux cond ||
-       List.exists (fun (tl, body) -> List.exists aux tl || aux body) cases
-    | Trm_abort (Ret (Some t)) -> aux t
-    | Trm_labelled (_, t) -> aux t
-    (* val, break, continue, return without value *)
-    | _ -> false
-  in
-  aux t
-
+(* check if a trm contains a variable occurrence or not *)
 let contains_variable (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
@@ -929,63 +906,6 @@ let contains_variable (x : var) (t : trm) : bool =
     | _ -> false
   in aux t
 
-(* Check if the term t contains a call to function f *)
-let contains_call_to_fun (f : var) (t : trm) : bool =
-  let rec aux (t : trm) : bool =
-    match t.desc with
-    | Trm_array tl
-      | Trm_struct tl
-      | Trm_seq tl ->
-       List.exists aux tl
-    | Trm_let (_,(_, _), init) -> aux init
-    | Trm_let_fun (_,_,_,body) -> aux body
-    | Trm_if (cond, then_, else_) -> aux cond || aux then_ || aux else_
-    | Trm_apps ({desc = Trm_var x; _}, args) -> x = f || List.exists aux args
-    | Trm_apps (f', args) -> aux f' || List.exists aux args
-    | Trm_while (cond, body) -> aux cond || aux body
-    | Trm_for_c (init, cond, step, body) ->
-       aux init || aux cond || aux step || aux body
-    | Trm_for (_, _, _, _, _, body) -> aux body
-    | Trm_switch (cond, cases) ->
-       aux cond ||
-       List.exists (fun (tl, body) -> List.exists aux tl || aux body) cases
-    | Trm_abort (Ret (Some t)) -> aux t
-    | Trm_labelled (_, t) -> aux t
-    (* val, var, break, continue, return without value, goto *)
-    | _ -> false
-  in
-  aux t
-
-(* assumption: f is called only once in t*)
-let fun_call_args (f : var) (t : trm) : trm list =
-  let rec aux (t : trm) : trm list =
-    match t.desc with
-    | Trm_array tl
-      | Trm_struct tl
-      | Trm_seq tl ->
-       List.flatten (List.map aux tl)
-    | Trm_let (_,(_, _), init) -> aux init
-    | Trm_let_fun (_,_,_,body) -> aux body
-    | Trm_if (cond, then_, else_) -> aux cond ++ aux then_ ++ aux else_
-    | Trm_apps ({desc = Trm_var x; _}, args) when x = f -> args
-    | Trm_apps (f', args) -> aux f' ++ (List.flatten (List.map aux args))
-    | Trm_while (cond, body) -> aux cond ++ aux body
-    | Trm_for_c (init, cond, step, body) ->
-       aux init ++ aux cond ++ aux step ++ aux body
-    | Trm_for (_, _, _, _, _,body) -> aux body
-    | Trm_switch (cond, cases) ->
-       aux cond ++
-       List.flatten
-         (List.map
-            (fun (tl, body) -> List.flatten (List.map aux tl) ++ aux body)
-            cases
-         )
-    | Trm_abort (Ret (Some t)) -> aux t
-    | Trm_labelled (_, t) -> aux t
-    (* val, var, break, continue, return without value, goto *)
-    | _ -> []
-  in
-  aux t
 
 (* return the name of the declared object *)
 let decl_name (t : trm) : var =
@@ -996,29 +916,7 @@ let decl_name (t : trm) : var =
   | Trm_typedef td -> td.typdef_tconstr
   | _ -> fail t.loc "decl_name: expected declaration"
 
-(* return the initialisation in the declaration *)
-let decl_init_val (t : trm) : trm =
-  match t.desc with
-  | Trm_let (_,(_,_),init) -> init
-  | _ -> fail t.loc "decl_init_val: expected variable declaration"
 
-(* return the type of the declared var *)
-let var_decl_type (t : trm) : typ =
-  match t.desc with
-  | Trm_let (_,(_,ty),_) -> ty
-  | _ -> fail t.loc "var_decl_type: expected var declaration"
-
-(* true if t is the declaration of a heap allocated variable *)
-let is_heap_alloc (t : trm) : bool =
-  match t.desc with
-  | Trm_let (vk,(_,_),_) ->
-      begin match vk with
-      | Var_mutable -> true
-      | _ -> false
-      end
-  | _ -> fail t.loc "is_heap_alloc: expected var declaration"
-
-(* LATER: move these functions to for_c.ml specialized for handling the complex for loops *)
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
   match t.desc with
@@ -1122,9 +1020,7 @@ let for_loop_step (t : trm) : trm =
      end
   | _ -> fail t.loc "for_loop_step: expected for loop"
 
-(*
-  return the number of iterations of a for loop
- *)
+(* get the number of iterations of a for loop *)
 let for_loop_nb_iter (t : trm) : trm =
   let init = for_loop_init t in
   let bound = for_loop_bound t in
@@ -1161,7 +1057,7 @@ let for_loop_nb_iter (t : trm) : trm =
          step
        ]
 
-
+(* get the list of trms from the body of the loop *)
 let for_loop_body_trms (t : trm) : trm list =
   match t.desc with
   | Trm_for (_, _, _, _, _, body) ->
@@ -1176,42 +1072,11 @@ let for_loop_body_trms (t : trm) : trm list =
     end
   | _ -> fail t.loc "for_loop_body_trms: expected a loop"
 
-
-(* Count the number of goto instructions targeting a given label, inside a term t *)
-let nb_goto (l : label) (t : trm) : int =
-  let add (n : int) (m : int) : int = n + m in
-  let sum (il : int list) : int = List.fold_left add 0 il in
-  let rec aux (t : trm) : int =
-    match t.desc with
-    | Trm_array tl
-      | Trm_struct tl
-      | Trm_seq tl ->
-       sum (List.map aux tl)
-    | Trm_let (_,(_, _), init) -> aux init
-    | Trm_let_fun (_, _, _, body) -> aux body
-    | Trm_if (cond, then_, else_) -> aux cond + aux then_ + aux else_
-    | Trm_apps (f, args) -> aux f + sum (List.map aux args)
-    | Trm_while (cond, body) -> aux cond + aux body
-    | Trm_for_c (init, cond, step, body) ->
-       aux init + aux cond + aux step + aux body
-    | Trm_for (_, _, _, _, _, body) -> aux body
-    | Trm_switch (cond, cases) ->
-       aux cond +
-       sum
-         (List.map (fun (tl, body) -> sum (List.map aux tl) + aux body)
-            cases)
-    | Trm_abort (Ret (Some t)) -> aux t
-    | Trm_labelled (_, t) -> aux t
-    | Trm_goto l' when l = l' -> 1
-    (* val, var, break, continue, return without value, goto other label *)
-    | _ -> 0
-  in
-  aux t
-
-
+(* check ia a typ is a type used only for optitrust encoding *)
 let is_generated_star (ty : typ) : bool =
   List.mem GeneratedStar ty.typ_attributes
 
+(* check if two arrays are of the same size *)
 let same_sizes (sz1 : size) (sz2 : size) : bool =
  match sz1, sz2 with
  | Undefined, Undefined -> true
@@ -1219,6 +1084,7 @@ let same_sizes (sz1 : size) (sz2 : size) : bool =
  | Trm _, Trm _ -> false
  | _, _ -> false
 
+(* check if two types are the same *)
 let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 : typ) : bool =
   let aux = same_types ~match_generated_star in
   (typ_1.typ_annot = typ_2.typ_annot) &&
@@ -1243,6 +1109,7 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | _, _ -> false
   )
 
+(* used for distinguishing simple loops from complex ones *)
 let is_simple_loop_component (t : trm) : bool =
   match t.desc with
   | Trm_apps(f,_) when f.desc = Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
@@ -1252,7 +1119,9 @@ let is_simple_loop_component (t : trm) : bool =
   | _ -> false
 
 
-(* Check if the loop t is simple or not, if is return its simplified ast else return the current ast *)
+(* check if the loop t is simple or not, if it is then return its simplified ast
+   else return the current ast 
+*)
 let trm_for_of_trm_for_c (t : trm) : trm =
   let body = begin match t.desc with
   | Trm_for_c (_, _, _, body) -> body
@@ -1264,11 +1133,7 @@ let trm_for_of_trm_for_c (t : trm) : trm =
   let start = for_loop_init t in
   let stop = for_loop_bound t in
   let step = for_loop_step t in
-  (* DEBUG *)
-  (* printf "is simple loop start %b\n" (is_simple_loop_component start);
-  printf "is simple loop stop %b\n" (is_simple_loop_component stop);
-  printf "is simple loop step %b\n" (is_simple_loop_component step); *)
-
+  
   let is_simple_loop =
       (is_simple_loop_component start)
     && (is_simple_loop_component stop)
@@ -1278,6 +1143,7 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     then trm_for ~loc:t.loc index direction start stop step body
     else t
 
+(* kind of the type used when parsing initialization lists*)
 type typ_kind =
   | Typ_kind_undefined
   | Typ_kind_reference
@@ -1288,7 +1154,7 @@ type typ_kind =
   | Typ_kind_fun
   | Typ_kind_var
 
-
+(* convert a type kind to a string *)
 let typ_kind_to_string (tpk : typ_kind) : string =
   begin match tpk with
   | Typ_kind_undefined -> "undefined"
@@ -1304,6 +1170,8 @@ let is_atomic_typ (t : typ) : bool =
   match t.typ_desc with
   | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
   | _ -> false
+
+
 
 let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
   if is_atomic_typ ty then Typ_kind_basic ty.typ_desc
@@ -1328,6 +1196,8 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
 
   | _ -> Typ_kind_basic ty.typ_desc
 
+
+(* before printing a simple loop first it should be converted to complex loop *)
 let trm_for_to_trm_for_c?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
@@ -1365,12 +1235,11 @@ let trm_for_to_trm_for_c?(annot = []) ?(loc = None) ?(add = []) ?(attributes = [
     in
   trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
 
-
+(* bypas the pointer type used only for optitrust encoding *)
 let get_inner_ptr_type (ty : typ) : typ =
   match ty.typ_desc with
   | Typ_ptr {inner_typ = ty;_} -> ty
   | _ -> ty
-
 
 let is_typ_const (t : typ) : bool =
   begin match t.typ_desc with
@@ -1388,15 +1257,10 @@ let is_typ_const (t : typ) : bool =
   | _ -> false
   end
 
+(* some need some special bounds to define tiling correctly *)
 type tile_bound = TileBoundMin | TileBoundAnd | TileBoundDivides
 
-let get_sequence_trms (t : trm) : trm list =
-  match t.desc with
-  | Trm_seq tl -> tl
-  | _ -> fail t.loc "get_sequence_trms: expected a sequence"
-
-
-
+(* used for managing better annotated Noraces sequences *)
 module Nobrace = struct
 
   let ids = ref []
@@ -1424,10 +1288,11 @@ module Nobrace = struct
 
 end
 
-
+(* genereate a no_brace sequence with a fresh id *)
 let trm_seq_no_brace (tl : trm list) : trm=
     trm_seq ~annot:[No_braces (Nobrace.current())] tl
 
+(* used to get the index of decorators when printing decoration *)
 let get_decorators (t : trm) : (string * string) =
   let rec aux l = match l with 
   | [] -> fail t.loc "get_decorators: empty annotation list"
@@ -1438,6 +1303,7 @@ let get_decorators (t : trm) : (string * string) =
     end
    in aux t.annot
 
+(* get the id of the sequence annotated as No_braces *)
 let get_nobrace_id (t : trm) : int = 
   let rec aux l = match l with
   | [] -> -1
@@ -1455,7 +1321,8 @@ let get_nobrace_id (t : trm) : int =
 *)
 type rename = | Postfix of string | Rename_list of (var * var) list
 
-let get_initialization_trm (t : trm) : trm = 
+(* get the value of a variable initialization *)
+let get_init_val (t : trm) : trm = 
   match t.desc with 
   | Trm_let (_, (_, _), init) -> 
       begin match init.desc with 
@@ -1466,8 +1333,9 @@ let get_initialization_trm (t : trm) : trm =
         end
       | _-> init
       end
-  | _ -> fail t.loc "get_initialization_trm: expected a variable declaration"
+  | _ -> fail t.loc "get_init_val: expected a variable declaration"
 
+(* remove Highlight annotation from a trm_annot *)
 let remove_highlight (t_annot : trm_annot list) : trm_annot list =
   let rec aux l = match l with 
   | [] -> []
@@ -1478,7 +1346,7 @@ let remove_highlight (t_annot : trm_annot list) : trm_annot list =
     end
   in aux t_annot
 
-
+(* remove all the Highlight annotations from the ast *)
 let rec clean_highlights (t : trm) : trm =
   match t.desc with 
   | Trm_val _ -> {t with annot = remove_highlight t.annot}
@@ -1503,7 +1371,7 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}
   
 
-
+(* get the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit = 
   match t.desc with 
   | Trm_val (Val_lit l) -> l

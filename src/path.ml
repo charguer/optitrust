@@ -220,10 +220,6 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           trm_array ~annot ~loc ~add ~typ ~attributes (Tools.list_update_nth (aux dl) tl n)
        | Dir_nth n, Trm_struct tl ->
           trm_struct ~annot ~loc ~add ~typ ~attributes(Tools.list_update_nth (aux dl) tl n)
-       | Dir_nth _, Trm_val (Val_array _) ->
-          fail loc "apply_on_path: val_array should not appear"
-       | Dir_nth _, Trm_val (Val_struct _) ->
-          fail loc "apply_on_path: val_struct should not appear"
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes (aux dl cond) then_t else_t
        | Dir_cond, Trm_while (cond, body) ->
@@ -367,10 +363,6 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
        | Dir_nth n, Trm_array tl
          | Dir_nth n, Trm_struct tl ->
           app_to_nth loc tl n (fun nth_t -> aux dl nth_t ctx)
-       | Dir_nth n, Trm_val (Val_array vl)
-         | Dir_nth n, Trm_val (Val_struct vl) ->
-          app_to_nth loc vl n
-            (fun v -> aux dl (trm_val ~loc v) ctx)
        | Dir_cond, Trm_if (cond, _, _)
          | Dir_cond, Trm_while (cond, _)
          | Dir_cond, Trm_switch (cond, _) ->

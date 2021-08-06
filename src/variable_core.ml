@@ -90,7 +90,7 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
                    | _ -> fail t.loc "inline_aux: expected a new operation"
                    end
       end in
-      let init = get_initialization_trm dl in
+      let init = get_init_val dl in
       let lback = 
       begin match init.desc with 
       | Trm_struct field_init ->

@@ -163,9 +163,6 @@ and val_to_doc (v : value) : document =
          print_info None "val_to_doc: pointers not implemented\n";
          at
        end
-  | Val_array vl | Val_struct vl ->
-     let dl = List.map val_to_doc vl in
-     braces (separate (comma ^^ blank 1) dl)
   | Val_prim p -> prim_to_doc p
 
 and attr_to_doc (a : attribute) : document =

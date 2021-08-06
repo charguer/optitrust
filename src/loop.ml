@@ -128,7 +128,7 @@ let unroll ?(_partition : int list = []) (tg : Target.target) : unit =
           | Some d -> d
           | None -> fail t.loc "unroll: could not find the declaration of the variable"
         in
-        let lit_n = get_initialization_trm var_decl in 
+        let lit_n = get_init_val var_decl in 
         let n = match (get_lit_from_trm_lit lit_n)  with
         | Lit_int n -> n
         | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
