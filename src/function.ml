@@ -1,8 +1,14 @@
 open Ast
 open Path
 
-let counter = ref (-1)
-
+(*  [bind_args fresh_names tg] expets the target [tg] to point to a function call.
+      Then it takes [fresh_names] which is a list of strings where the string 
+      at index i represents the variable going to be binded to the argument i 
+      of the function call. If one doesn't want to bind the argument at index i
+      then it just leaves it as an empty string "". Basically this transformation is
+      just an aplication of bind_intro n times. Where n is the numer of string inside
+      [fresh_names] different from "".
+*)
 let bind_args (fresh_names : var list) : Target.Transfo.t =
  let counter = ref (-1) in
  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
@@ -15,18 +21,30 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
         Function_core.bind_intro (i + !counter)  fresh_name true (p_local @ [Dir_arg n]) t p
       else t) t fresh_names)
 
-
+(* [elim_body ~renames tg] expects the target [tg] to point to the labelled sequence.Then it will 
+    remove this sequence and its label and merge the trms inside this sequence with te ones of the
+    sequence containing the labelled sequence. But before doing that, first a change of all the declared
+    variables inside this sequence is performed. [renames] tells for the way the reanming is done.
+    Either the user can give a list of variables together with their new names, or he can give the postfix
+    after which shoudl be assigned to all the declared variables.
+*)
 let elim_body ?(renames : rename = Postfix "") (tg : Target.target) : unit =
   let tg_body = if List.mem Target.dBody tg then tg else (tg @ [Target.dBody]) in
   Variable_basic.rename renames tg_body;
   Sequence_basic.elim tg
 
-
+(* [bind ~fresh_name ~inner_fresh_names tg] expectes the target [tg] to point to a function call, then 
+    it will just call bind args and bind_intro. Basically this function is used to save the user from
+    entering both of them.
+*)
 let bind ?(fresh_name : string = "res") ?(inner_fresh_names : var list =  []) (tg : Target.target) : unit =
   bind_args inner_fresh_names tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
-
+(* [inline_call ~name_result ~label ~renames ~inner_fresh_names ~no_control_structures tg] 
+      expects the target tg to point to point to a function call. And automate completely the process
+      of function call inlining. 
+*)
 let inline_call ?(name_result = "") ?(label:var = "body") ?(renames : rename = Postfix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
   let t = Trace.get_ast() in
   let name_result = ref name_result in
