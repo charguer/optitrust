@@ -1,7 +1,23 @@
 open Ast
 open Path
 
+(* *********************************************************************************** 
+ * Note: All the intermediate functions which are called from [sequence.ml] file      *
+ * have only one purpose, and that is targeting the trm in which we want to apply the *
+ * transformation. That's why there is not need to document them.                     *
+ *)
 
+(* [bind_intro_aux index fresh_name const p_local t]: bind an variable fresh_name to the function_call 
+    params:
+      index: index of the instruction containing the targeted function call
+      fresh_name: name of the variable which going to be binded to the function call
+      const: a flag for the mutability of the binded variable 
+      p_local: the local path from the instruction containing the targeted function call
+        to the targeted function call
+      t: ast of the sequence containing the targeted function call
+    return: 
+      the updated sequence with the new generated binding
+*)
 let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -25,9 +41,19 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
 let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
 
-
+(* variable used for counting the numer of gotos generated during the translation of the body of the function *)
 let nb_gotos = ref 0
 
+
+(* [replace_return exit_label r t] if the founded return statement is not terminal than replace it with an 
+      a variable declaration
+    params:
+      exit_label: this label is generated only if the body contains non terminal return instructions
+      r: the name of the variable replacing the return statement
+      t: the ast of the body of the function
+    returns:
+      the updated ast of the body of the function with the replaced all return statements
+*)
 let replace_return (exit_label : label) (r : var) (t : trm) : trm =
   let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with 
@@ -56,29 +82,16 @@ let replace_return (exit_label : label) (r : var) (t : trm) : trm =
     | _-> trm_map_with_terminal is_terminal aux t 
   in aux true t
 
-
-
-(* This function goes through every variable declaration and checks if this variable is already defined somewhere in the top level,
-   if this is the case then this variable will be renamed inside the body of the function, after renaming 
-   all its occurrences are changed *)
-let change_variable_names (t : trm ) (surrounding_seq : trm) (rename : string -> string) : trm =
-  match t. desc with 
-  | Trm_seq tl ->
-    List.fold_left (fun acc t1 ->
-     match t1.desc with 
-     | Trm_let (vk,(x, tx), init) -> 
-       let find_prev_decl = Internal.toplevel_decl x surrounding_seq in
-       begin match find_prev_decl with 
-       | Some _ -> let acc = Internal.change_trm t1 (trm_let vk ((rename x), tx) init) acc in
-          let acc = Internal.change_trm (trm_var x) (trm_var (rename x)) acc in acc
-       | None -> acc 
-       end
-     | _ -> acc
-    ) t tl
-
-  | _ -> fail t.loc "change_variable_names: expected a function body declaration"
-
-
+(* [inline_call_aux index label top_ast p_local t] replaced a function call with the traslated body of the function called 
+    params:
+      index: index of the instruction containing the function call
+      label: label used for the traslated body of the function
+      top_ast: the main ast of the file, this is used to check is ome variable is define before or not
+      p_local: path from the instruction containing the function call to the call
+      t: ast of the sequence containing the instruction with the function call
+    returns:
+      the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
+*)
 let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
