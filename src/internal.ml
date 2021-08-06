@@ -8,8 +8,6 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (* change all occurences of t_before in t' *)
   let rec apply_change (t' : trm) : trm=
     (* necessary because of annotations that may be different *)
-    (* Tools.printf "change %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_after); *)
-
     if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
     else trm_map apply_change t'
   in
@@ -133,19 +131,6 @@ let get_trm_in_surrounding_loop(dl : path) : path * int =
     match List.rev dl with
     | Dir_seq_nth i :: Dir_body :: dl' -> (List.rev dl', i)
     | _ -> fail None "get_trm_in_surrounding_loop: empty path"
-
-
-(* compute a fresh variable (w.r.t. t) based on x *)
-let fresh_in (t : trm) (x : var) : var =
-  if not (is_used_var_in t x) then x
-  else
-    begin
-      let n = ref 0 in
-      while is_used_var_in t (x ^ "_" ^ string_of_int !n) do
-        incr n
-      done;
-      x ^ "_" ^ string_of_int !n
-    end
 
 let fresh_args (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =

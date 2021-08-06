@@ -832,7 +832,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           (paths_to_string ~sep:"\n   " res_here); *)
 
 
-      res_deep ++ res_here  (* put deeper nodes first *) in
+      res_deep@res_here  (* put deeper nodes first *) in
   List.sort_uniq compare_path epl
 
 and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
@@ -941,7 +941,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
        add_dir Dir_body (aux body)
      | Trm_let_fun (_, _ , _,body) ->
         (* DEPRECATED: the name of the function should not be considered an occurence;
-            add_dir Dir_name (aux (trm_var ~loc x)) ++ *)
+            add_dir Dir_name (aux (trm_var ~loc x))@*)
         add_dir Dir_body (aux_body body) 
      | Trm_typedef td  ->
       begin match td.typdef_body with
@@ -951,15 +951,15 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
             (fun n (il, tl) (_, t_o) ->
               match t_o with
               | None -> (il, tl)
-              | Some t -> (il ++ [n], tl ++ [t])
+              | Some t -> (il@[n], tl@[t])
             )
            ([], [])
            xto_l
         in
-        add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr)) ++
+        add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr)) @
         (explore_list (List.map (fun (y, _) -> trm_var ~loc y) xto_l)
            (fun n -> Dir_enum_const (n, Enum_const_name))
-           (aux)) ++
+           (aux)) @
         (explore_list tl
            (fun n -> Dir_enum_const (List.nth il n, Enum_const_val))
            (aux))
@@ -968,34 +968,34 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
      | Trm_for ( _, _, start, stop, step, body) ->
-        (add_dir Dir_for_start (aux start)) ++
-        (add_dir Dir_for_stop (aux stop)) ++
-        (add_dir Dir_for_step (aux step)) ++
+        (add_dir Dir_for_start (aux start)) @
+        (add_dir Dir_for_stop (aux stop)) @
+        (add_dir Dir_for_step (aux step)) @
         (add_dir Dir_body (aux_body body))
      | Trm_for_c (init, cond, step, body) ->
         (* init *)
-        (add_dir Dir_for_c_init (aux init)) ++
+        (add_dir Dir_for_c_init (aux init)) @
         (* cond *)
-        (add_dir Dir_cond (aux cond)) ++
+        (add_dir Dir_cond (aux cond)) @
         (* step *)
-        (add_dir Dir_for_c_step (aux step)) ++
+        (add_dir Dir_for_c_step (aux step)) @
         (* body *)
         (add_dir Dir_body (aux_body body))
      | Trm_while (cond, body) ->
         (* cond *)
-        (add_dir Dir_cond (aux cond)) ++
+        (add_dir Dir_cond (aux cond)) @
         (* body *)
         (add_dir Dir_body (aux_body body))
      | Trm_if (cond, then_t, else_t) ->
         (* cond *)
-        (add_dir Dir_cond (aux cond)) ++
+        (add_dir Dir_cond (aux cond)) @
         (* then *)
-        (add_dir Dir_then (aux_body then_t)) ++
+        (add_dir Dir_then (aux_body then_t)) @
         (* else *)
         (add_dir Dir_else (aux_body else_t))
      | Trm_apps (f, args) ->
         (* fun *)
-        (add_dir Dir_app_fun (aux f)) ++
+        (add_dir Dir_app_fun (aux f)) @
         (* args *)
         (explore_list args (fun n -> Dir_arg n) (aux))
      | Trm_seq tl -> explore_list tl (fun n -> Dir_seq_nth n) (aux)
@@ -1003,11 +1003,11 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_struct tl ->
         explore_list tl (fun n -> Dir_nth n) (aux)
      | Trm_labelled (l, body) ->
-        add_dir Dir_name (aux (trm_var ~loc l)) ++
+        add_dir Dir_name (aux (trm_var ~loc l)) @
         add_dir Dir_body (aux body)
      | Trm_switch (cond, cases) ->
-        (add_dir Dir_cond (aux cond)) ++
-        (foldi (fun i epl case -> epl ++ explore_case depth i case p) [] cases)
+        (add_dir Dir_cond (aux cond)) @
+        (foldi (fun i epl case -> epl@explore_case depth i case p) [] cases)
      | _ ->
         print_info loc "explore_in_depth: cannot find a subterm to explore\n";
         []
@@ -1027,12 +1027,12 @@ and explore_case (depth : depth) (i : int) (case : trm list * trm) (p : target_s
   | _ ->
      (foldi
         (fun j epl t ->
-          epl ++
+          epl @
           (add_dir (Dir_case (i, Case_name j)) (aux t))
         )
         []
         tl
-     ) ++
+     ) @
      add_dir (Dir_case (i, Case_body)) (aux body)
 
 (* follow the direction d in t and call resolve_target_simple on p *)
@@ -1125,7 +1125,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
  *)
 and explore_list (tl : trm list) (d : int -> dir)
   (cont : trm -> paths) : paths =
-  foldi (fun i epl t -> epl ++ add_dir (d i) (cont t)) [] tl
+  foldi (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
 
 (*
   call cont on each element of the list whose index is in the domain and
@@ -1136,7 +1136,7 @@ and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
   (cont : trm -> paths) : paths =
   foldi
     (fun i epl t ->
-      if List.mem i dom then epl ++ add_dir (d i) (cont t) else epl)
+      if List.mem i dom then epl@add_dir (d i) (cont t) else epl)
     []
     tl
 

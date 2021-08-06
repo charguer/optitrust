@@ -1,4 +1,3 @@
-open Tools
 (* a record used to represent a specifi location inside the code*)
 type pos = {
     pos_line : int;

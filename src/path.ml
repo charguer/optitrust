@@ -359,7 +359,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
               tl
           in
           app_to_nth loc tl n
-            (fun nth_t -> aux dl nth_t ((decl_before n tl) ++ ctx))
+            (fun nth_t -> aux dl nth_t ((decl_before n tl)@ctx))
        | Dir_nth n, Trm_array tl
          | Dir_nth n, Trm_struct tl ->
           app_to_nth loc tl n (fun nth_t -> aux dl nth_t ctx)
@@ -385,7 +385,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
               )
               args
           in
-          aux dl body (args_decl ++ ctx)
+          aux dl body (args_decl@ctx)
        | Dir_body, Trm_for_c (init, _, _, body) ->
           begin match init.desc with
           | Trm_let _ ->

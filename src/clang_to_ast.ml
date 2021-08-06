@@ -128,13 +128,13 @@ let compute_scope ?(loc : location = None) (kind : scope_kind) (f : unit -> trm)
   not closed
  *)
 let return (t : trm) : trm =
-  (* let tl = Stack.fold (fun tl (_, sl) -> tl ++ (delete_list sl)) [] mutable_vars in *)
+  (* let tl = Stack.fold (fun tl (_, sl) -> tl @ (delete_list sl)) [] mutable_vars in *)
   let tl = Stack.fold (fun tl (_,_) -> tl) [] mutable_vars in
   let (kind, _) = Stack.pop mutable_vars in
   open_scope kind;
   match tl with
   | [] -> t
-  | _ -> trm_seq (* ~annot:(Some Delete_instructions) *) (tl ++ [t])
+  | _ -> trm_seq (* ~annot:(Some Delete_instructions) *) (tl @ [t])
 
 (*
   return the number of scopes to exit before a break/continue instruction
@@ -180,7 +180,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
   let n = find_scope ~break (scope_list ()) in
   (* put the delete instruction for the n deepest scopes *)
   let tl =
-    (* List.fold_left (fun tl (_, sl) -> tl ++ (delete_list sl)) []
+    (* List.fold_left (fun tl (_, sl) -> tl@(delete_list sl)) []
       (ntop n mutable_vars) *)
     List.fold_left (fun tl (_,_) -> tl) []
       (ntop n mutable_vars)
@@ -189,7 +189,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
   open_scope kind;
   match tl with
   | [] -> t
-  | _ -> trm_seq  (tl ++ [t])
+  | _ -> trm_seq  (tl@[t])
 
 (* names for overloaded operators (later matched for printing) *)
  let string_of_overloaded_op ?(loc : location = None)
@@ -1178,5 +1178,5 @@ let translate_ast (t : translation_unit) : trm =
        in
        Nobrace.init();
        trm_seq_no_brace
-         ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) ++ [t])
+         ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map [])@[t])
     )
