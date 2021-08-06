@@ -193,6 +193,20 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
 
   | _ -> fail t.loc "delocalize_aux: expected the nobrace sequence"
 
-  let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.local =
-    Target.apply_on_path (delocalize_aux array_size neutral_element fold_operation)
+let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.local =
+  Target.apply_on_path (delocalize_aux array_size neutral_element fold_operation)
 
+
+let change_type_aux (new_type : typvar) (t : trm) : trm =
+  match t.desc with 
+  | Trm_let (vk, (x, _), _) ->
+    begin match vk with 
+    | Var_mutable -> 
+      trm_let vk (x, typ_ptr Ptr_kind_mut (typ_var new_type (-1))) (trm_apps (trm_prim(Prim_new (typ_var new_type (-1)))) [get_initialization_trm t]) 
+    | Var_immutable ->
+      trm_let vk (x, typ_var new_type (-1)) (get_initialization_trm t)
+    end
+  | _ -> fail t.loc "change_type_aux: expected a variable or a function declaration"
+
+let change_type (new_type : typvar) : Target.Transfo.local =
+  Target.apply_on_path (change_type_aux new_type)

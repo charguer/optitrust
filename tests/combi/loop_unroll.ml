@@ -50,7 +50,7 @@ let _ = Run.script_cpp (fun _ ->
 
    SECOND SUBSTEP: make the subgroups
     now with number of instructions in each sublock, e.g. take a list [2;3]
-     Sequence.partition [2;3] p    // TODO test "partition" as a combi transfo
+     Sequence.partition [2;3] p    // DONE: test "partition" as a combi transfo
         // -> check that the sum of the sizes in the list correspond to the nb of items in the seq
        -> implemented as
             Sequence.sub 0 2; Sequence.sub 1 3; Sequence.sub 2 ...

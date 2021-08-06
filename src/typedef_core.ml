@@ -100,7 +100,7 @@ let alias_aux (name : string) (index : int) (t : trm) : trm =
       trm_typedef {td with typdef_tconstr = name}
     | _ -> fail t.loc "alias_aux: expected a typedef declaration" 
      in
-      trm_seq (lfront @ td_l @ [td_copy] @ lback)
+      trm_seq ~annot:t.annot (lfront @ td_l @ [td_copy] @ lback)
 
   | _-> fail t.loc "alias_aux: expected the surrounding sequence"
 
