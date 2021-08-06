@@ -363,17 +363,22 @@ let get_trm_and_its_relatives (index : int) (trms : trm list) : (trm list * trm 
   (lfront, element, lback)
   
 
-let clean_no_brace_seq (id : int) (t : trm) : trm =
+let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
   let rec clean_up_in_list (tl : trm list) : trm list =
     match tl with 
     | [] -> []
     | t :: tl ->
       begin match t.desc with
       | Trm_seq tl' ->
-        let current_seq_id = get_nobrace_id t in
-        if  current_seq_id = id then
+        begin match all with 
+        | false ->
+          let current_seq_id = get_nobrace_id t in
+          if current_seq_id = id 
+            then tl' @ (clean_up_in_list tl)
+            else t :: (clean_up_in_list tl) 
+        | true ->
           tl' @ (clean_up_in_list tl)
-        else t :: (clean_up_in_list tl)
+        end
       | _ -> t :: (clean_up_in_list tl)
       end in
   let rec aux (t : trm) : trm =
@@ -406,9 +411,15 @@ let clean_lit_unit_seq (t : trm) : trm =
   in aux t
 
 
-let nobrace_remove_and_exit () =
-    let id = Nobrace.exit () in
-    Trace.apply (fun _ctx ast -> clean_no_brace_seq id ast)
+let nobrace_remove_and_exit ?(all : bool = false) () =
+    match all with 
+    | true -> 
+      Trace.apply (fun _ctx ast -> clean_no_brace_seq ~all (-1) ast)
+    | false ->
+      let id = Nobrace.exit () in
+      Trace.apply (fun _ctx ast -> clean_no_brace_seq ~all id ast)
+    
+    
 
 let nobrace_enter () =
   Nobrace.enter()

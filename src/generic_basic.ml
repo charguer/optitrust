@@ -46,11 +46,6 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
   Target.apply_on_target (Generic_core.delocalize array_size neutral_element fold_operation) tg;
   Internal.nobrace_remove_and_exit ()
 
-
-let reorder_blocks : Target.Transfo.t = 
-  Target.apply_on_target (Generic_core.reorder_blocks)
-
-
 (* ********************************************************* *)
 (* Create an instance of the pattern *)
 (* let pattern_instantiate (t : trm) (p : pat) : instatiation option =

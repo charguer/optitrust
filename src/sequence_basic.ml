@@ -100,3 +100,6 @@ let split (tg : Target.target) : unit =
 
 let partition ?(visible : bool = false) (blocks : int list) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.partition blocks visible)
+
+let reorder_blocks : Target.Transfo.t = 
+  Target.apply_on_target (Sequence_core.reorder_blocks)

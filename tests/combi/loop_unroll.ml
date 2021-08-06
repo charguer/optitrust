@@ -4,9 +4,9 @@ open Target
 let _ = Run.script_cpp (fun _ ->
   
   !! Loop.unroll ~_partition:[1;1] [cFor "i"];
-  
+
 )
-(* TODO:
+(* DONE:
    in the combi level, [unroll] is matching the code
 
        for (int i = a; i < a + N; i++) {

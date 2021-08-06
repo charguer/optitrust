@@ -150,7 +150,6 @@ let split (index : int) : Target.Transfo.local =
 
 
 let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
-  Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
   match t.desc with 
   | Trm_seq tl -> 
     let sum_blocks = List.fold_left (+) 0 blocks in
@@ -163,7 +162,6 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
             current_list := lback;
             lfront :: acc
         ) [] blocks in
-        Tools.printf "correct\n";
         begin match visible with 
         | true -> trm_seq ~annot:t.annot (List.map (trm_seq) (List.rev partition))
         | false -> trm_seq ~annot:t.annot (List.map (trm_seq_no_brace) (List.rev partition))
@@ -173,3 +171,22 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
 
 let partition (blocks : int list) (visible : bool): Target.Transfo.local =
   Target.apply_on_path (partition_aux blocks visible)
+
+
+let reorder_blocks_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    let transformed_list = List.fold_left (fun acc el -> 
+      match el.desc with 
+      | Trm_seq tl1 ->
+        (Tools.split_list_at 1 tl1) :: acc
+      | _ -> fail t.loc "reorder_blocks_aux: blocks should be sequences"
+      ) [] (List.rev tl) in
+    let first_part, second_part = List.split transformed_list in
+    trm_seq ~annot:t.annot ((List.flatten first_part) @ (List.flatten second_part))
+
+  | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
+
+
+let reorder_blocks : Target.Transfo.local = 
+  Target.apply_on_path (reorder_blocks_aux)
