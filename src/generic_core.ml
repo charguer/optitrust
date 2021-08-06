@@ -6,7 +6,19 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* TODO: Add the docs for this function *)
+
+
+(* [local_other_name_aux var_type old_var new_var t] add a local name and replace all the 
+      occurrences of a variable inside a sequence.
+    params:
+      var_type: the type of the variable
+      old_var: the previous name of the variable, this is used to find all the occurrences
+      new_var: the name of the variable to be declared and replace all the occurrences of old_var
+      t: ast of the labelled sequence.
+    return:
+      the updated ast of the targeted sequence with the new local name
+
+*)
 let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t : trm) : trm =
      match t.desc with
     | Trm_seq [f_loop] ->
@@ -114,22 +126,6 @@ let arbitrary_if (cond : string) : Target.Transfo.local =
   Target.apply_on_path (arbitrary_if_aux cond)
 
 
-(* [change_occurrence_aux new_name t]: change a variable occurrence or a function call with a new 
-      variable occurrence of another function call.
-    params:
-      new_name: the name of the variable which is going to replace the current occurrence
-      t: ast of the variable occurrence going to be replaced
-    return:
-      updated ast of the variable occurrence
-*)
-let change_occurrence_aux (new_name : var) (t : trm) : trm =
-  match t.desc with 
-  | Trm_var _ -> trm_var new_name
-  | _ -> fail t.loc "change_occurrence_aux: expected a variable occurrence"
-
-let change_occurrence (new_name : var) : Target.Transfo.local =
-  Target.apply_on_path (change_occurrence_aux new_name)
-
 (* TODO: Add the docs for this function *)
 let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
   match t.desc with
@@ -196,7 +192,13 @@ let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation
 let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.local =
   Target.apply_on_path (delocalize_aux array_size neutral_element fold_operation)
 
-
+(* [change_type_aux new_type t]  change the current type of the variable to new_type
+    params: 
+      new_type: the new type replacing the old one
+      t: ast of the declaration 
+    return: 
+      the updated ast of the declaration
+*)
 let change_type_aux (new_type : typvar) (t : trm) : trm =
   match t.desc with 
   | Trm_let (vk, (x, _), _) ->
