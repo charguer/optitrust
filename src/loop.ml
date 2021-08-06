@@ -119,8 +119,8 @@ let unroll ?(_partition : int list = []) (tg : Target.target) : unit =
       begin match bnd.desc with 
       | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~label:"unroll" tg;
         let block_list = Tools.range 0 (n-1) in
-        List.iter (fun x -> Variable_basic.rename (Postfix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list
-        (* List.iter (fun x -> Sequence_basic.partition _partition ([Target.tIndex x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list *)
+        List.iter (fun x -> Variable_basic.rename (Postfix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list;
+        Sequence_basic.partition _partition [Target.nbExact n;Target.cLabel "unroll"; Target.dBody;Target.cSeq ()]
         
       | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
                      Loop_basic.unroll ~label:"unroll" tg;

@@ -4,8 +4,7 @@ open Target
 let _ = Run.script_cpp (fun _ ->
   
   !! Loop.unroll ~_partition:[1;1] [cFor "i"];
-  !! Sequence_basic.partition [1;1] [tIndex 0; cLabel "unroll"; dBody;cSeq ()];
-  (* show [Target.tIndex 0; Target.cLabel "unroll"; Target.dBody;cSeq()]; *)
+  
 )
 (* TODO:
    in the combi level, [unroll] is matching the code
