@@ -660,7 +660,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const cec xto_l
         | _ -> false
         end
-     | Constr_seq cl, Trm_seq tl ->
+     | Constr_seq cl, Trm_seq tl when  not (List.mem (No_braces (Nobrace.current())) t.annot) ->
         check_list cl tl
      | Constr_var name, Trm_var x ->
         check_name name x
@@ -710,11 +710,9 @@ and check_name (name : constr_name) (s : string) : bool =
      match_regexp_str r  s
 
 and check_list (lpred : target_list_pred) (tl : trm list) : bool =
-  (* DEBUG:*) (* printf "%s\n" (lpred.target_list_pred_to_string());  *)
   let cstr = lpred.target_list_pred_ith_constr in
   let validate = lpred.target_list_pred_validate in
-  validate (List.mapi (fun i t -> check_target ~depth:(DepthAt 0) ([cstr i]) t) tl)
-  (*DEBUG:*) (* printf "%s\n" (if res then "true" else "false"); res *)
+  validate (List.mapi (fun i t -> check_target ~depth:(DepthAt 1) ([cstr i]) t) tl)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =

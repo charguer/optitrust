@@ -150,11 +150,12 @@ let split (index : int) : Target.Transfo.local =
 
 
 let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
+  Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
   match t.desc with 
   | Trm_seq tl -> 
     let sum_blocks = List.fold_left (+) 0 blocks in
     if sum_blocks <> List.length tl 
-      then fail t.loc "partition: the partition entered is not correct"
+      then fail t.loc (Tools.sprintf "partition: the partition entered is not correct, the list length is %d, while the sum of the block size is %d" (List.length tl) sum_blocks)
       else
         let current_list = ref tl in
         let partition = List.fold_left (fun acc x -> 
@@ -162,6 +163,7 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
             current_list := lback;
             lfront :: acc
         ) [] blocks in
+        Tools.printf "correct\n";
         begin match visible with 
         | true -> trm_seq ~annot:t.annot (List.map (trm_seq) (List.rev partition))
         | false -> trm_seq ~annot:t.annot (List.map (trm_seq_no_brace) (List.rev partition))

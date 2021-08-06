@@ -4,7 +4,7 @@ var debug_locations = false;
 
 // The imported JS file provides 'source' and 'contents' 
 if (typeof source == 'undefined') {
-  Console.log "couldn't load the source code"
+  console.log("couldn't load the source code")
 }
 var ast = contents;
 let nodeid_root = 0;
