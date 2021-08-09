@@ -196,6 +196,12 @@ let cWhile ?(cond : target = [])
   let p_body = body in
     Constr_while (p_cond, p_body)
 
+let cDoWhile ?(body : target = []) 
+  ?(cond : target = [])  (_ : unit) : constr =
+  let p_body = body in
+  let p_cond = cond in
+    Constr_do_while (p_cond, p_body)
+
 let cIf ?(cond : target = [])
   ?(then_ : target = []) ?(else_ : target = []) (_ : unit) : constr =
   let p_cond = cond in

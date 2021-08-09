@@ -94,6 +94,8 @@ and constr =
   | Constr_for of constr_name * loop_dir * target * target * target * target
   (* while: cond, body *)
   | Constr_while of target * target
+  (* do while: body, cond *)
+  | Constr_do_while of target * target
   (* if: cond, then, else *)
   | Constr_if of target * target * target
   (* decl_var: name, body *)
@@ -254,6 +256,10 @@ let rec constr_to_string (c : constr) : string =
      let s_cond = target_to_string p_cond in
      let s_body = target_to_string p_body in
      "While (" ^ s_cond ^ ", " ^ s_body ^ ")"
+  | Constr_do_while (p_body, p_cond) ->
+     let s_body = target_to_string p_body in
+     let s_cond = target_to_string p_cond in
+     "Do_While (" ^ s_body ^ ", " ^ s_cond ^ ")"
   | Constr_if (p_cond, p_then, p_else) ->
      let s_cond = target_to_string p_cond in
      let s_then = target_to_string p_then in
@@ -634,6 +640,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_while (p_cond, p_body), Trm_while (cond, body) ->
         check_target p_cond cond &&
         check_target p_body body
+     | Constr_do_while (p_body, p_cond), Trm_do_while (body, cond) ->
+        check_target p_body body &&
+        check_target p_cond cond
      | Constr_if (p_cond, p_then, p_else), Trm_if (cond, then_t, else_t) ->
         check_target p_cond cond &&
         check_target p_then then_t &&
@@ -984,6 +993,11 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (add_dir Dir_cond (aux cond)) @
         (* body *)
         (add_dir Dir_body (aux_body body))
+     | Trm_do_while (body, cond) ->
+        (* body *)
+        (add_dir Dir_body (aux_body body)) @
+        (* cond *)
+        (add_dir Dir_cond (aux cond))
      | Trm_if (cond, then_t, else_t) ->
         (* cond *)
         (add_dir Dir_cond (aux cond)) @
@@ -1047,6 +1061,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
        (fun nth_t -> add_dir (Dir_nth n) (aux nth_t))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
+    | Dir_cond, Trm_do_while (_, cond)
     | Dir_cond, Trm_for_c (_, cond, _, _)
     | Dir_cond, Trm_switch (cond, _) ->
      add_dir Dir_cond (aux cond)
@@ -1059,6 +1074,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
     | Dir_body, Trm_for_c (_, _, _, body)
     | Dir_body, Trm_for (_, _, _, _, _, body)
     | Dir_body, Trm_while (_, body)
+    | Dir_body, Trm_do_while (body, _)
     | Dir_body, Trm_abort (Ret (Some body))
     | Dir_body, Trm_labelled (_, body) ->
      add_dir Dir_body (aux body)

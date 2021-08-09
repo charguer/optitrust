@@ -224,6 +224,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           trm_if ~annot ~loc ~add ~attributes (aux dl cond) then_t else_t
        | Dir_cond, Trm_while (cond, body) ->
           trm_while ~annot ~loc ~add ~attributes (aux dl cond) body
+       | Dir_cond, Trm_do_while (body, cond) ->
+          trm_do_while ~annot ~loc ~add ~attributes body (aux dl cond) 
        | Dir_cond, Trm_for_c (init, cond, step, body) ->
           trm_for_c~annot ~loc ~add ~attributes init (aux dl cond) step body
        | Dir_cond, Trm_switch (cond, cases) ->
@@ -242,6 +244,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           trm_for_c~annot ~loc ~add ~attributes init cond step (aux dl body)
        | Dir_body, Trm_while (cond, body) ->
           trm_while ~annot ~loc ~add ~attributes cond (aux dl body)
+       | Dir_body, Trm_do_while (body, cond) ->
+          trm_do_while ~annot ~loc ~add ~attributes (aux dl body) cond
        | Dir_body, Trm_abort (Ret (Some body)) ->
           trm_abort ~annot ~loc ~add ~attributes (Ret (Some (aux dl body)))
        | Dir_body, Trm_labelled (l, body) ->
@@ -365,6 +369,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           app_to_nth loc tl n (fun nth_t -> aux dl nth_t ctx)
        | Dir_cond, Trm_if (cond, _, _)
          | Dir_cond, Trm_while (cond, _)
+         | Dir_cond, Trm_do_while (_, cond)
          | Dir_cond, Trm_switch (cond, _) ->
           aux dl cond ctx
        | Dir_cond, Trm_for_c (init, cond, _, _) ->
@@ -396,6 +401,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           aux dl body ctx
        | Dir_body, Trm_let (_,(_,_), body)
          | Dir_body, Trm_while (_, body)
+         | Dir_body, Trm_do_while (body, _)
          | Dir_body, Trm_abort (Ret (Some body))
          | Dir_body, Trm_labelled (_, body) ->
           aux dl body ctx
