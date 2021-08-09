@@ -549,13 +549,13 @@ let get_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let find_prev_decl = Internal.toplevel_decl thread_num t in
+    let find_prev_decl = Internal.toplevel_decl thread_num (Trace.get_ast()) in
     let new_trm = 
     begin match find_prev_decl with 
     | Some _ -> 
       trm_set (trm_var thread_num) (trm_omp_routine (Get_thread_num))
     | None ->  
-      trm_let Var_mutable (thread_num, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_thread_num)])
+      trm_let Var_mutable (thread_num, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_thread_num)])
     end in
     trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
   | _ -> fail t.loc "get_thread_num_aux: expected the sequence where the call to the routine is going to be added"
@@ -567,13 +567,13 @@ let get_num_procs_aux (num_procs : var) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
-    let find_prev_decl = Internal.toplevel_decl num_procs t in
+    let find_prev_decl = Internal.toplevel_decl num_procs (Trace.get_ast()) in
     let new_trm = 
     begin match find_prev_decl with 
     | Some _ -> 
       trm_set (trm_var num_procs) (trm_omp_routine (Get_num_procs))
     | None ->  
-      trm_let Var_mutable (num_procs, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_num_procs)])
+      trm_let Var_mutable (num_procs, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_num_procs)])
     end in
     trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
   | _ -> fail t.loc "get_num_procs_aux: expected the sequence where the call to the routine is going to be added"
