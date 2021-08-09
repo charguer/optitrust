@@ -267,6 +267,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let db = decorate_trm b in
         let dt = decorate_trm ~semicolon:true t in
         dattr ^^ separate (blank 1) [string "while"; parens db; dt]
+     | Trm_do_while (t, b) ->
+      let dt = decorate_trm t in
+      let db = decorate_trm b ~semicolon:true in
+      dattr ^^ string "do " ^^ dt ^^ blank 1 ^^ string "while " ^^ parens db
      | Trm_for_c (init, cond, step, body) ->
         let dinit = decorate_trm init in
         let dcond = decorate_trm cond in

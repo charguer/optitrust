@@ -26,9 +26,7 @@ type val_type =
 type scope_kind =
   | For_scope
   | While_scope
-  (* todo later *)
-  (* todo later *)
-  (* | Do_scope *)
+  | Do_scope
   | Switch_scope
   | Other_scope
 
@@ -146,6 +144,8 @@ let find_scope ?(break : bool = false) (kl : scope_kind list) : int =
     | []
     | For_scope :: _
     | While_scope :: _ ->
+      n
+    | Do_scope :: _ ->
       n
     | Switch_scope :: kl ->
       if break then n else aux (n + 1) kl
@@ -345,6 +345,10 @@ and translate_stmt (s : stmt) : trm =
     let tc = translate_expr c in
     let ts = compute_scope While_scope (fun () -> translate_stmt s) in
     trm_while ~loc ~ctx  tc ts
+  | Do {body = s; cond = c;} ->
+    let tc = translate_expr c in
+    let ts = compute_scope Do_scope (fun () -> translate_stmt s) in
+    trm_do_while ~loc ~ctx ts tc
   (* todo: use while encoding in semantics *)
   | For {init = inito; condition_variable = None; cond = condo; inc = stepo;
          body} ->

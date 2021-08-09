@@ -324,6 +324,7 @@ and trm_desc =
   | Trm_while of trm * trm (* while (t1) { t2 } LATER: other like do-while *)
   | Trm_for of var * loop_dir * trm * trm * trm  * trm
   | Trm_for_c of trm * trm * trm * trm
+  | Trm_do_while of trm * trm
   (*
     Trm_for_c (e0, e1, e2, e3) =
     for (e0; e1; e2) {e3;}
@@ -669,6 +670,11 @@ let trm_apps ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
 let trm_while ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (body : trm) : trm =
   {annot = annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
+   add; typ = Some (typ_unit ()); attributes; ctx}
+
+let trm_do_while ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+  (body : trm) (cond : trm) : trm =
+  {annot = annot; desc = Trm_do_while (body, cond); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_for_c?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
@@ -1366,6 +1372,7 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_seq tl -> {t with annot = remove_highlight t.annot; desc = Trm_seq (List.map clean_highlights tl)}
   | Trm_apps (f, args) -> {t with annot = remove_highlight t.annot; desc = Trm_apps (clean_highlights f, List.map clean_highlights args)}
   | Trm_while (cond, body) -> {t with annot = remove_highlight t.annot; desc = Trm_while (clean_highlights cond, clean_highlights body)}
+  | Trm_do_while (body, cond) -> {t with annot = remove_highlight t.annot; desc = Trm_do_while (clean_highlights body, clean_highlights cond)}
   | Trm_for (index, direction, start, stop, step, body) -> {t with annot = remove_highlight t.annot; desc = Trm_for (index, direction, clean_highlights start, clean_highlights stop, clean_highlights step, clean_highlights body)}
   | Trm_for_c (init, cond, step, body) -> {t with annot = remove_highlight t.annot; desc = Trm_for_c (clean_highlights init, clean_highlights cond, clean_highlights step, clean_highlights body)}
   | Trm_switch _-> {t with annot = remove_highlight t.annot}

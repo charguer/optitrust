@@ -259,6 +259,11 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field [
             child_to_json "cond" (aux cond);
             child_to_json "then" (aux body)] ]
+    | Trm_do_while (body, cond) ->
+        [ kind_to_field "do_while";
+          children_to_field [
+            child_to_json "then" (aux body);
+            child_to_json "cond" (aux cond)] ]
     | Trm_switch (cond,_cases) ->
         [ kind_to_field "switch";
           (* I will cover cases later on *)

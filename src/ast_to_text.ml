@@ -206,6 +206,11 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dc = print_trm ~only_desc c in
      let db = print_trm ~only_desc b in
      node "Trm_while" ^^ parens (dc ^^ comma ^/^ db)
+  | Trm_do_while (b, c) ->
+     let db = print_trm ~only_desc b in
+     let dc = print_trm ~only_desc c in
+     node "Trm_do_while" ^^ parens (db ^^ comma ^/^ dc)
+  
   | Trm_for_c (init, cond, step, body) ->
      let dinit = print_trm ~only_desc init in
      let dcond = print_trm ~only_desc cond in

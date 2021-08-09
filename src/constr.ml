@@ -553,7 +553,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
       | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
       | _ -> TrmKind_Expr
       end
-   | Trm_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
+   | Trm_while _ | Trm_do_while _ | Trm_for_c _ | Trm_for _| Trm_switch _ | Trm_abort _ | Trm_goto _ -> TrmKind_Ctrl
    | Trm_labelled (_, t) -> get_trm_kind t
    | Trm_arbitrary _ -> fail t.loc "get_trm_kind: trm_arbitrary is removed during parsing"
    | Trm_omp_directive _ | Trm_omp_routine _ -> TrmKind_Any
