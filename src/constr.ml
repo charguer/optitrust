@@ -645,7 +645,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
        Trm_let_fun (x, _, args, body) ->
         let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
         check_name name x &&
-        check_list cl_args tl &&
+        check_list ~depth:(DepthAt 0) cl_args tl &&
         check_target p_body body
      | Constr_decl_type name, Trm_typedef td ->
         let is_new_typ = begin match td.typdef_body with
@@ -661,7 +661,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> false
         end
      | Constr_seq cl, Trm_seq tl when  not (List.mem (No_braces (Nobrace.current())) t.annot) ->
-        check_list cl tl
+        check_list ~depth:(DepthAt 0) cl tl
      | Constr_var name, Trm_var x ->
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
@@ -709,10 +709,10 @@ and check_name (name : constr_name) (s : string) : bool =
   | Some r ->
      match_regexp_str r  s
 
-and check_list (lpred : target_list_pred) (tl : trm list) : bool =
+and check_list ?(depth : depth = DepthAt 1) (lpred : target_list_pred) (tl : trm list) : bool =
   let cstr = lpred.target_list_pred_ith_constr in
   let validate = lpred.target_list_pred_validate in
-  validate (List.mapi (fun i t -> check_target ~depth:(DepthAt 1) ([cstr i]) t) tl)
+  validate (List.mapi (fun i t -> check_target ~depth ([cstr i]) t) tl)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =

@@ -687,7 +687,7 @@ and map_type_to_doc (mt : map_type) : document =
 
 and clause_to_doc (cl : clause) : document =
   match cl with
-  | Default m -> string "default" ^^ parens (mode_to_doc m)
+  | Default_c m -> string "default" ^^ parens (mode_to_doc m)
   | Shared_c vl -> string "shared" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Private vl -> string "private" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | FirstPrivate vl -> string "firstprivate" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
@@ -709,7 +709,7 @@ and clause_to_doc (cl : clause) : document =
   | If e-> string "if" ^^ parens (string e)
   | Device i -> string "device" ^^ parens (string (string_of_int i))
   | NumThreads i -> string "numthreads" ^^ parens (string (string_of_int i))
-  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (string_of_int (i)))
+  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = 0 then empty else colon ^^ blank 1 ^^ string (string_of_int (i))))
   | Parallel_c -> string "parallel"
   | Sections_c -> string "sections"
   | For_c -> string "for"
@@ -745,11 +745,11 @@ and directive_to_doc (d : directive) : document =
   | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
   | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare" ^^ string "target"
   | Flush vl -> string "flush" ^^ string (Tools.list_to_string ~sep:"," vl)
-  | For cl -> string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | For cl -> string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
   | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Master -> string "master"
   | Ordered -> string "ordered"
-  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
   | Parallel_for -> string "parallel" ^^ blank 1 ^^ string "for"
   | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))

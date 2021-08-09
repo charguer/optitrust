@@ -401,7 +401,7 @@ and map_type =
 (* OpenMP clauses *)
 and clause = 
   (* Data sharing clauses *)
-  | Default of mode
+  | Default_c of mode
   | Shared_c of var list
   | Private of var list
   | FirstPrivate of var list
@@ -941,7 +941,9 @@ let for_loop_direction (t : trm) : loop_dir =
     begin match cond.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _}, _) -> DirUp
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _}, _) -> DirDown
-     | _ -> fail cond.loc "for_loop_bound: bad for loop condition"
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _}, _) -> DirUp
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _}, _) -> DirDown
+     | _ -> fail cond.loc "for_loop_direction: bad for loop condition"
      end
   | _ -> fail t.loc "for_loop_direction: expected a for loop"
 (* return the initial value of the loop index *)
@@ -979,6 +981,10 @@ let for_loop_bound (t : trm) : trm =
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _},
                  [_; n]) -> n
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _},
+                 [_; n]) -> n
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _},
+                 [_; n]) -> n
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
                  [_; n]) -> n
      | _ -> fail cond.loc "for_loop_bound: bad for loop condition"
      end

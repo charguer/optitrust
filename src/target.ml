@@ -591,11 +591,9 @@ let show ?(line : int = -1) ?(reparse : bool = true) ?(debug_ast : bool = false)
   only_interactive_step line ~reparse (fun () ->
     if Constr.is_target_between tg then begin
       applyi_on_target_between (fun i  t (p,k) ->
-        let t = clean_highlights t in
         target_between_show_transfo debug_ast i k t p) tg
     end else begin
       applyi_on_target (fun i t p ->
-        let t = clean_highlights t in
         target_show_transfo debug_ast i t p) tg
     end)
 
