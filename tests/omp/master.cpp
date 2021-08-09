@@ -9,20 +9,20 @@ void master_example( float* x, float* xold, int n, float tol )
   c = 0;
   {
     do{
-      for( i = 1; i < n-1; i++ ){
+      for( i = 1; i < n-1; ++i){
         xold[i] = x[i];
       }
       {
         toobig = 0;
       }
-      for( i = 1; i < n-1; i++ ){
+      for( i = 1; i < n-1; ++i){
         y = x[i];
         x[i] = average( xold[i-1], x[i], xold[i+1] );
         error = y - x[i];
-        if( error > tol || error < -tol ) toobig++;
+        if( error > tol || error < -tol ) ++toobig;
       }
       {
-        c++;
+        ++c;
         printf( "iteration %d, toobig=%d\n", c, toobig );
       }
     }while( toobig > 0 );

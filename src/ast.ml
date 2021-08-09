@@ -1012,7 +1012,15 @@ let for_loop_step (t : trm) : trm =
      begin match step.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_inc)); _}, _) ->
         trm_lit (Lit_int 1)
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_inc)); _}, _) ->
+        trm_lit (Lit_int 1)
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_dec)); _}, _) ->
+        (*
+          choose this instead of trm_lit (Lit_int (- 1)) for the
+          for_loop_nb_iter function
+         *)
+        trm_apps (trm_unop Unop_opp) [trm_lit (Lit_int 1)]
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_dec)); _}, _) ->
         (*
           choose this instead of trm_lit (Lit_int (- 1)) for the
           for_loop_nb_iter function
@@ -1128,6 +1136,8 @@ let is_simple_loop_component (t : trm) : bool =
   | Trm_apps(f,_) when f.desc = Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
   | Trm_var _ -> true
   | Trm_val (Val_lit (Lit_int _)) -> true
+  | Trm_apps (f, _) when f.desc = Trm_val(Val_prim (Prim_unop (Unop_pre_inc))) -> false
+  (* | Trm_apps (f, _) when ((f.desc = Trm_val(Val_prim (Prim_unop (Unop_pre_inc)))) || (f.desc = Trm_val(Val_prim (Prim_unop (Unop_pre_dec))))) -> false *)
   | Trm_apps _ -> true
   | _ -> false
 
@@ -1136,26 +1146,26 @@ let is_simple_loop_component (t : trm) : bool =
    else return the current ast 
 *)
 let trm_for_of_trm_for_c (t : trm) : trm =
-  let init, body = begin match t.desc with
-  | Trm_for_c (init, _, _, body) -> init, body
-  | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
-  end
-  in
-  let index = for_loop_index t in
-  let direction = for_loop_direction t in
-  let start = for_loop_init t in
-  let stop = for_loop_bound t in
-  let step = for_loop_step t in
+  begin match t.desc with
+  | Trm_for_c (init, _, step, body) -> 
+    let index = for_loop_index t in
+    let direction = for_loop_direction t in
+    let start = for_loop_init t in
+    let stop = for_loop_bound t in
+    let step_size = for_loop_step t in
   
-  let is_simple_loop =
+    let is_simple_loop =
        (is_simple_loop_component init)
     && (is_simple_loop_component start)
     && (is_simple_loop_component stop)
     && (is_simple_loop_component step) in
 
-  if is_simple_loop
-    then trm_for ~loc:t.loc index direction start stop step body
-    else t
+    if is_simple_loop
+      then trm_for ~loc:t.loc index direction start stop step_size body
+      else t
+  | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
+  end
+  
 
 (* kind of the type used when parsing initialization lists*)
 type typ_kind =
