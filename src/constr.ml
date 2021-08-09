@@ -667,8 +667,6 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_lit l, Trm_val (Val_lit l') ->
         is_equal_lit l l'
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->
-        (*(accepted_encoded || not (is_encoded_fun f)) && ... *)
-        (*  where [is_encoded_fun f] returns true when [f] is [unop_get] or [unop_new] or similar *)
         if not accept_encoded then
           begin match f.desc with
           | Trm_val (Val_prim (Prim_new _))

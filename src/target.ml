@@ -310,13 +310,10 @@ let cString (s : string) : constr =
     cStr (ast_to_string (trm_prim p)) *)
 
 let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr =
-  let exception Argument_Error of string in
   let p_fun =
-  match name, fun_ with
-  | "",_ -> fun_
-  | _, [] -> [cVar name]
-  | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
-
+  match fun_ with
+  | [] -> [cVar name]
+  | _ -> fun_
   in
   let args =
   match args with
