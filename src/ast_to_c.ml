@@ -318,7 +318,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d 
-     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r
+     | Trm_omp_routine  r -> dattr ^^ routine_to_doc r ^^ semi
      end
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 
