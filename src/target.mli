@@ -113,6 +113,7 @@ val cFor : ?direction:loop_dir -> ?start:target -> ?stop:target -> ?step:target 
 
 val cWhile : ?cond:target -> ?body:target -> unit ->
              constr
+val cDoWhile : ?body:target -> ?cond:target -> unit -> constr
 
 val cIf : ?cond:target -> ?then_:target ->
           ?else_:target -> unit -> constr

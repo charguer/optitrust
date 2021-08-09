@@ -154,8 +154,10 @@ and unary_op =
   | Unop_bitwise_neg
   | Unop_neg
   | Unop_opp
-  | Unop_inc
-  | Unop_dec
+  | Unop_post_inc
+  | Unop_post_dec
+  | Unop_pre_inc
+  | Unop_pre_dec
   | Unop_struct_field_addr of field 
   | Unop_struct_field_get of field 
   | Unop_cast of typ (* cast operator towards the specified type *)
@@ -1008,9 +1010,9 @@ let for_loop_step (t : trm) : trm =
        - for (…; …; i -= n) for n > 0
       *)
      begin match step.desc with
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_inc)); _}, _) ->
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_inc)); _}, _) ->
         trm_lit (Lit_int 1)
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_dec)); _}, _) ->
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_dec)); _}, _) ->
         (*
           choose this instead of trm_lit (Lit_int (- 1)) for the
           for_loop_nb_iter function
@@ -1227,7 +1229,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
     begin match direction with
     | DirUp ->
         begin match step.desc with
-        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_inc) [trm_var index]
+        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_inc) [trm_var index]
         | _ ->
           trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_add)
           [
@@ -1236,7 +1238,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
         end
     | DirDown ->
         begin match step.desc with
-        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_dec) [trm_var index]
+        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_dec) [trm_var index]
         | _ ->
           trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_sub)
           [

@@ -107,8 +107,8 @@ and unop_to_doc (op : unary_op) : document =
   | Unop_neg -> bang
   | Unop_bitwise_neg -> tilde
   | Unop_opp -> minus
-  | Unop_inc -> twice plus
-  | Unop_dec -> twice minus
+  | Unop_post_inc | Unop_pre_inc -> twice plus
+  | Unop_post_dec | Unop_pre_dec -> twice minus
   | Unop_struct_field_addr s -> dot ^^ string s
   | Unop_struct_field_get s -> dot ^^ string s
   | Unop_cast t ->
@@ -269,8 +269,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ separate (blank 1) [string "while"; parens db; dt]
      | Trm_do_while (t, b) ->
       let dt = decorate_trm t in
-      let db = decorate_trm b ~semicolon:true in
-      dattr ^^ string "do " ^^ dt ^^ blank 1 ^^ string "while " ^^ parens db
+      let db = decorate_trm b in
+      dattr ^^ string "do " ^^ dt ^^ blank 1 ^^ string "while " ^^ parens db ^^ semi
      | Trm_for_c (init, cond, step, body) ->
         let dinit = decorate_trm init in
         let dcond = decorate_trm cond in
@@ -516,10 +516,14 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
-              | Unop_inc when !decode -> d ^^ twice plus
-              | Unop_inc  -> string "operator++(" ^^ d ^^ string ")"
-              | Unop_dec when !decode -> d ^^ twice minus
-              | Unop_dec  -> string "operator--(" ^^ d ^^ string ")"
+              | Unop_post_inc when !decode -> d ^^ twice plus
+              | Unop_post_inc  -> string "operator++(" ^^ d ^^ string ")"
+              | Unop_post_dec when !decode -> d ^^ twice minus
+              | Unop_post_dec  -> string "operator--(" ^^ d ^^ string ")"
+              | Unop_pre_inc when !decode -> twice plus ^^ d
+              | Unop_pre_inc  -> string "operator++(" ^^ d ^^ string ")"
+              | Unop_pre_dec when !decode -> twice minus ^^ d
+              | Unop_pre_dec  -> string "operator--(" ^^ d ^^ string ")"
               (* | Unop_struct_field_get f  when !decode->
                 parens (d ^^ minus ^^ rangle ^^ string f) *)
               | (Unop_struct_field_get f | Unop_struct_field_addr f) when !decode ->

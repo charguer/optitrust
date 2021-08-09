@@ -555,7 +555,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_apps (f,_) ->
      begin match f.desc with
       | Trm_var _ -> TrmKind_Instr
-      | Trm_val (Val_prim (Prim_unop Unop_inc)) -> TrmKind_Instr
+      | Trm_val (Val_prim (Prim_unop Unop_post_inc)) -> TrmKind_Instr
       | Trm_val (Val_prim (Prim_binop Binop_set)) -> TrmKind_Instr
       | _ -> TrmKind_Expr
       end

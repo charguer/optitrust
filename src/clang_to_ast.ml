@@ -575,10 +575,16 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         begin match k with
           | PostInc ->
             let t = translate_expr ~val_t:Lvalue e in
-            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_inc) [t]
+            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_post_inc) [t]
           | PostDec ->
             let t = translate_expr ~val_t:Lvalue e in
-            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_dec) [t]
+            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_post_dec) [t]
+          | PreInc ->
+            let t = translate_expr ~val_t:Lvalue e in
+            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_inc) [t]
+          | PreDec ->
+            let t = translate_expr ~val_t:Lvalue e in
+            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_dec) [t]
           | Deref ->
             let t = translate_expr e in
             begin match val_t with

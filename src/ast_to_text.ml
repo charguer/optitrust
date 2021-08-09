@@ -71,8 +71,10 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   | Unop_neg -> string "Unop_neg"
   | Unop_bitwise_neg -> string "Unop_bitwise_neg"
   | Unop_opp -> string "Unop_opp"
-  | Unop_inc -> string "Unop_inc"
-  | Unop_dec -> string "Unop_dec"
+  | Unop_post_inc -> string "Unop_post_inc"
+  | Unop_post_dec -> string "Unop_post_dec"
+  | Unop_pre_inc -> string "Unop_pre_inc"
+  | Unop_pre_dec -> string "Unop_pre_dec"
   | Unop_struct_field_addr f -> node "Unop_struct_field_addr" ^^ string f
   | Unop_struct_field_get f -> node "Unop_struct_field_get" ^^ string f
   (* | Unop_delete b -> node "Unop_delete" ^^ string (string_of_bool b) *)

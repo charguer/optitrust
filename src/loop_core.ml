@@ -112,7 +112,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
             begin match direction with
             | DirUp ->
                 begin match step.desc with
-                | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_inc) [trm_var index]
+                | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_inc) [trm_var index]
                 | _ ->
                   trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_add)[
                     trm_var index;
@@ -120,7 +120,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
                 end
             | DirDown ->
                 begin match step.desc with
-                | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_dec) [trm_var index]
+                | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_dec) [trm_var index]
                 | _ ->
                   trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_sub)[
                     trm_var index;
