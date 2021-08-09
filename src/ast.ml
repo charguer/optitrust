@@ -919,7 +919,7 @@ let decl_name (t : trm) : var =
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
   match t.desc with
-  | Trm_for(index, _, _, _, _, _) -> index
+  | Trm_for (index, _, _, _, _, _) -> index
   | Trm_for_c (init, _, _, _) ->
      (*
        covered cases:
@@ -1128,8 +1128,8 @@ let is_simple_loop_component (t : trm) : bool =
    else return the current ast 
 *)
 let trm_for_of_trm_for_c (t : trm) : trm =
-  let body = begin match t.desc with
-  | Trm_for_c (_, _, _, body) -> body
+  let init, body = begin match t.desc with
+  | Trm_for_c (init, _, _, body) -> init, body
   | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
   end
   in
@@ -1140,7 +1140,8 @@ let trm_for_of_trm_for_c (t : trm) : trm =
   let step = for_loop_step t in
   
   let is_simple_loop =
-      (is_simple_loop_component start)
+       (is_simple_loop_component init)
+    && (is_simple_loop_component start)
     && (is_simple_loop_component stop)
     && (is_simple_loop_component step) in
 
@@ -1203,7 +1204,7 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
 
 
 (* before printing a simple loop first it should be converted to complex loop *)
-let trm_for_to_trm_for_c?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
   let cond = begin match direction with

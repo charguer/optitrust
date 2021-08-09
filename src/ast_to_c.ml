@@ -709,7 +709,7 @@ and clause_to_doc (cl : clause) : document =
   | If e-> string "if" ^^ parens (string e)
   | Device i -> string "device" ^^ parens (string (string_of_int i))
   | NumThreads i -> string "numthreads" ^^ parens (string (string_of_int i))
-  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = 0 then empty else colon ^^ blank 1 ^^ string (string_of_int (i))))
+  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = 0 then empty else comma ^^ blank 1 ^^ string (string_of_int (i))))
   | Parallel_c -> string "parallel"
   | Sections_c -> string "sections"
   | For_c -> string "for"
