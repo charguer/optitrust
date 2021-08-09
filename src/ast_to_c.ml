@@ -752,7 +752,7 @@ and directive_to_doc (d : directive) : document =
   | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
   | Parallel_for -> string "parallel" ^^ blank 1 ^^ string "for"
   | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.doc_list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Section -> string "section"
   | Sections cl -> string "sections" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Simd cl -> string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
