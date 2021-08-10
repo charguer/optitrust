@@ -738,6 +738,11 @@ and clause_to_doc (cl : clause) : document =
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
   | Priority i -> string "priority" ^^ parens (string i)
   | Depend (dp, x) -> string "depend" ^^ parens (dependece_type_to_doc dp ^^ colon ^^ blank 1 ^^ string x)
+  | Grainsize i -> string "grainsize" ^^ parens (string (string_of_int i))
+  | Mergeable -> string "mergeable"
+  | Nogroup -> string "nogroup"
+  | Num_tasks i -> string "num_tasks" ^^ parens (string (string_of_int i))
+  | Untied -> string "untied"
 
 and atomic_operation_to_doc (ao : atomic_operation option) : document = 
   match ao with 
@@ -793,7 +798,7 @@ and directive_to_doc (d : directive) : document =
   | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Task cl -> string "task" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Taskgroup -> string "taskgroup"
-  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Taskloop_simd cl -> string "taskloop" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Taskwait -> string "taskwait"
   | Taskyield -> string "taskyield"

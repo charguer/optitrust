@@ -158,13 +158,13 @@ let taskgroup : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.taskgroup i t p)
 
-let task_loop (cl : clause list) : Target.Transfo.t = 
+let taskloop (cl : clause list) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.task_loop cl i t p)
+    Omp_core.taskloop cl i t p)
 
-let task_loop_simd (cl : clause list) : Target.Transfo.t = 
+let taskloop_simd (cl : clause list) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.task_loop_simd cl i t p)    
+    Omp_core.taskloop_simd cl i t p)    
 
 let taskwait : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->

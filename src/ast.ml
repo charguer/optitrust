@@ -448,6 +448,11 @@ and clause =
   | Proc_bind of proc_bind
   | Priority of var
   | Depend of dependence_type * var
+  | Grainsize of int
+  | Mergeable
+  | Nogroup
+  | Num_tasks of int
+  | Untied
 
 (* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 

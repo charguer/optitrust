@@ -393,25 +393,25 @@ let taskgroup_aux (index : int) (t : trm) : trm =
 let taskgroup (index : int) : Target.Transfo.local =
   Target.apply_on_path (taskgroup_aux index)
 
-let task_loop_aux (cl : clause list) (index : int) (t : trm) : trm =   
+let taskloop_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
     let lfront, lback = Tools.split_list_at index tl in
     trm_seq ~annot:t.annot (lfront @ [trm_omp_directive (Taskloop cl)] @ lback)
-  | _ -> fail t.loc "task_loop_aux: expected the sequence where the directive is going to be added"
+  | _ -> fail t.loc "taskloop_aux: expected the sequence where the directive is going to be added"
 
-let task_loop (cl : clause list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (task_loop_aux cl index)
+let taskloop (cl : clause list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (taskloop_aux cl index)
 
-let task_loop_simd_aux (cl : clause list) (index : int) (t : trm) : trm =   
+let taskloop_simd_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
     let lfront, lback = Tools.split_list_at index tl in
     trm_seq ~annot:t.annot (lfront @ [trm_omp_directive (Taskloop_simd cl)] @ lback)
-  | _ -> fail t.loc "task_loop_simd_aux: expected the sequence where the directive is going to be added"
+  | _ -> fail t.loc "taskloop_simd_aux: expected the sequence where the directive is going to be added"
 
-let task_loop_simd (cl : clause list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (task_loop_simd_aux cl index)
+let taskloop_simd (cl : clause list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (taskloop_simd_aux cl index)
 
 let taskwait_aux (index : int) (t : trm) : trm =   
   match t.desc with 
@@ -441,7 +441,7 @@ let teams_aux (cl : clause list) (index : int) (t : trm) : trm =
   | _ -> fail t.loc "teams_aux: expected the sequence where the directive is going to be added"
 
 let teams (cl : clause list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (task_loop_aux cl index)
+  Target.apply_on_path (taskloop_aux cl index)
 
 let teams_distribute_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
@@ -451,7 +451,7 @@ let teams_distribute_aux (cl : clause list) (index : int) (t : trm) : trm =
   | _ -> fail t.loc "teams_distribute_aux: expected the sequence where the directive is going to be added"
 
 let teams_distribute (cl : clause list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (task_loop_aux cl index)
+  Target.apply_on_path (taskloop_aux cl index)
 
 let teams_distribute_end_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
@@ -461,7 +461,7 @@ let teams_distribute_end_aux (cl : clause list) (index : int) (t : trm) : trm =
   | _ -> fail t.loc "teams_distribute_end_aux: expected the sequence where the directive is going to be added"
 
 let teams_distribute_end (cl : clause list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (task_loop_aux cl index)
+  Target.apply_on_path (taskloop_aux cl index)
 
 let teams_distribute_parallel_for_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
@@ -471,7 +471,7 @@ let teams_distribute_parallel_for_aux (cl : clause list) (index : int) (t : trm)
   | _ -> fail t.loc "teams_distribute_parallel_for_aux: expected the sequence where the directive is going to be added"
 
 let teams_distribute_parallel_for (cl : clause list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (task_loop_aux cl index)
+  Target.apply_on_path (taskloop_aux cl index)
 
 let teams_distribute_parallel_for_simd_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
@@ -481,7 +481,7 @@ let teams_distribute_parallel_for_simd_aux (cl : clause list) (index : int) (t :
   | _ -> fail t.loc "teams_distribute_parallel_for_simd_aux: expected the sequence where the directive is going to be added"
 
 let teams_distribute_parallel_for_simd (cl : clause list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (task_loop_aux cl index)
+  Target.apply_on_path (taskloop_aux cl index)
 
 
 let threadprivate_aux (vl : var list) (index : int) (t : trm) : trm = 
