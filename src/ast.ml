@@ -401,6 +401,11 @@ and map_type =
   | From
   | ToFrom
 
+and proc_bind = 
+  | Master_pb
+  | Close
+  | Spread
+
 (* OpenMP clauses *)
 and clause = 
   (* Data sharing clauses *)
@@ -428,12 +433,13 @@ and clause =
   | Ordered_c
   | If of expression
   | Device of int
-  | NumThreads of int
+  | Num_threads of int
   | Schedule of sched_type * int
   | Parallel_c
   | Sections_c
   | For_c
   | Taskgroup_c
+  | Proc_bind of proc_bind
 
 (* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 

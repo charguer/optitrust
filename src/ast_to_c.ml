@@ -693,6 +693,12 @@ and map_type_to_doc (mt : map_type) : document =
   | From -> string "from"
   | ToFrom -> string "tofrom"
 
+and proc_bind_to_doc (pb : proc_bind) : document = 
+  match pb with 
+  | Master_pb -> string "master"
+  | Close -> string "close"
+  | Spread -> string "spread"
+
 and clause_to_doc (cl : clause) : document =
   match cl with
   | Default_c m -> string "default" ^^ parens (mode_to_doc m)
@@ -716,12 +722,13 @@ and clause_to_doc (cl : clause) : document =
   | Ordered_c -> string "ordered"
   | If e-> string "if" ^^ parens (string e)
   | Device i -> string "device" ^^ parens (string (string_of_int i))
-  | NumThreads i -> string "numthreads" ^^ parens (string (string_of_int i))
+  | Num_threads i -> string "num_threads" ^^ parens (string (string_of_int i))
   | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = 0 then empty else comma ^^ blank 1 ^^ string (string_of_int (i))))
   | Parallel_c -> string "parallel"
   | Sections_c -> string "sections"
   | For_c -> string "for"
   | Taskgroup_c -> string "taskgroup"
+  | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
 
 and atomic_operation_to_doc (ao : atomic_operation option) : document = 
   match ao with 
