@@ -440,6 +440,7 @@ and clause =
   | For_c
   | Taskgroup_c
   | Proc_bind of proc_bind
+  | Priority of var
 
 (* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 
@@ -1139,12 +1140,16 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
 (* used for distinguishing simple loops from complex ones *)
 let is_simple_loop_component (t : trm) : bool =
   match t.desc with
-  | Trm_apps(f,_) when f.desc = Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
+  | Trm_apps (f,_) -> 
+    begin match f.desc with 
+    | Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
+    | Trm_val(Val_prim (Prim_unop (Unop_pre_inc))) -> false
+    | Trm_val(Val_prim (Prim_unop (Unop_pre_dec))) -> false
+    | Trm_val(Val_prim (Prim_binop (Binop_set))) -> false
+    | _ -> true
+    end
   | Trm_var _ -> true
   | Trm_val (Val_lit (Lit_int _)) -> true
-  | Trm_apps (f, _) when f.desc = Trm_val(Val_prim (Prim_unop (Unop_pre_inc))) -> false
-  (* | Trm_apps (f, _) when ((f.desc = Trm_val(Val_prim (Prim_unop (Unop_pre_inc)))) || (f.desc = Trm_val(Val_prim (Prim_unop (Unop_pre_dec))))) -> false *)
-  | Trm_apps _ -> true
   | _ -> false
 
 

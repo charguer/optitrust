@@ -179,7 +179,7 @@ let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target 
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
   Constr_for (ro, direction, start, stop, step, body)
 
-let cFor_c?(init : target = [])
+let cFor_c ?(init : target = [])
   ?(cond : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let init =
       match index, init with

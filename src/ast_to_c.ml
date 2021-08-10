@@ -729,6 +729,7 @@ and clause_to_doc (cl : clause) : document =
   | For_c -> string "for"
   | Taskgroup_c -> string "taskgroup"
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
+  | Priority i -> string "priority" ^^ parens (string i)
 
 and atomic_operation_to_doc (ao : atomic_operation option) : document = 
   match ao with 
