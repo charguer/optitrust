@@ -312,7 +312,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
     | Trm_omp_directive d -> [directive_to_json d]
     | Trm_omp_routine r -> [routine_to_json r] 
-    
+    | Trm_extern (_, l) -> 
+      [ kind_to_field "extern";
+        children_to_field (List.mapi ichild_to_json (List.map aux l))]
+
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
      | No_braces _ -> "No_braces"

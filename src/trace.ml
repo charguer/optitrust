@@ -274,9 +274,7 @@ let cleanup_cpp_file_using_clang_format (filename : string) : unit =
    - one describing the internal AST ("prefix_enc.cpp")
    - one describing the CPP code ("prefix.cpp").
    The CPP code is automatically formatted using clang-format. *)
-(* TODO: Anton: add a parameter for the language
-  type language = | Cpp | Rust | Ocaml
-*)
+
 type language = | Cpp | Rust | Ocaml
 
 let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =

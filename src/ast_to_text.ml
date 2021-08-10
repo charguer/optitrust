@@ -269,6 +269,9 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     node "Trm_omp_directive" ^^ parens (print_directive directive)
   | Trm_omp_routine routine-> 
     node "Trm_omp_routine" ^^ parens (print_routine routine)
+  | Trm_extern (lang, decls) ->
+    let dtl = List.map (print_trm ~only_desc) decls in
+    node "Trm_extern" ^^ parens (string lang ^^ comma ^^ print_list dtl) 
 
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   let tid = td.typdef_typid in

@@ -1114,6 +1114,14 @@ and translate_decl (d : decl) : trm =
         trm_typedef ~loc ~ctx td
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
+  | LinkageSpec {language = lang;decls = dl} ->
+     let dls = translate_decl_list dl in
+     let lang = match lang with 
+     | C -> "C"
+     | CXX -> "C++" 
+     | _ -> "" in
+     trm_extern lang dls
+
   | RecordDecl _ ->
     fail loc "translate_decl: record declarations should not happen here"
   | _ -> fail loc "translate_decl: not implemented"

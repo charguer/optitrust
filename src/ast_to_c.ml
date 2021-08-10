@@ -323,6 +323,17 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string code ^^ hardline
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d 
      | Trm_omp_routine  r -> dattr ^^ routine_to_doc r ^^ semi
+     | Trm_extern (lang, tl) -> 
+        begin match tl with 
+        | [t1] -> 
+          let dt = decorate_trm ~semicolon:true t1 in
+          dattr ^^ string "extern " ^^ string lang ^^ blank 1 ^^ dt 
+        | _ -> 
+          let dl = List.map (decorate_trm ~semicolon:true) tl in
+          dattr ^^ string "extern " ^^ string lang ^^ blank 1^^surround 2 1 lbrace (separate hardline dl) rbrace 
+        end
+        
+        
      end
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 

@@ -355,6 +355,7 @@ and trm_desc =
   | Trm_arbitrary of string
   | Trm_omp_directive of directive
   | Trm_omp_routine of omp_routine
+  | Trm_extern of string * trm list
 
 (* type for the mutability of the varaible*)
 and varkind =
@@ -774,6 +775,10 @@ let trm_omp_directive ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(att
 let trm_omp_routine ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (omp_routine : omp_routine) : trm =
   {annot = annot; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; add ; typ; attributes; ctx}
+
+let trm_extern ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+(lang : string) (tl : trm list) : trm =
+  {annot = annot; desc = Trm_extern (lang, tl); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 (* ********************************************************************************************************************* *)
 
@@ -1417,7 +1422,7 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_arbitrary _ -> fail t.loc "clean_highlights: trm_arbitrary should never appear on the ast"
   | Trm_omp_directive _ -> {t with annot = remove_highlight t.annot}
   | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}
-  
+  | Trm_extern (lang, tl) -> {t with annot = remove_highlight t.annot; desc = Trm_extern (lang, (List.map clean_highlights tl))}
 
 (* get the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit = 
