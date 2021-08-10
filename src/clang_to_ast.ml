@@ -1115,6 +1115,7 @@ and translate_decl (d : decl) : trm =
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
   | LinkageSpec {language = lang;decls = dl} ->
+     
      let dls = translate_decl_list dl in
      let lang = match lang with 
      | C -> "C"
