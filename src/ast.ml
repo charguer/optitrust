@@ -406,6 +406,12 @@ and proc_bind =
   | Close
   | Spread
 
+and dependence_type =
+  | In
+  | Out
+  | Inout
+  | Outin
+
 (* OpenMP clauses *)
 and clause = 
   (* Data sharing clauses *)
@@ -441,6 +447,7 @@ and clause =
   | Taskgroup_c
   | Proc_bind of proc_bind
   | Priority of var
+  | Depend of dependence_type * var
 
 (* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 
