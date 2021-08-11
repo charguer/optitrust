@@ -469,7 +469,7 @@ and directive =
   | Barrier
   | Cancel of clause * clause list
   | Cancellation_point of clause * clause list
-  | Critical
+  | Critical of var * var
   | Declare_simd of clause list
   | Declare_reduction of reduction_identifier * typvar list * expression * clause
   | Declare_target 

@@ -382,7 +382,7 @@ and print_directive (directive : directive) : document =
   | Barrier -> string "Barrier"
   | Cancel _ -> string "Cancel"
   | Cancellation_point _-> string "Cancellation_point"
-  | Critical -> string "Critical"
+  | Critical _ -> string "Critical"
   | Declare_simd _ -> string "Declare_simd"
   | Declare_reduction _ -> string "Declare_reduction"
   | Declare_target -> string "Declare_target"

@@ -52,15 +52,15 @@ let cancellation_point_aux (ctc : clause) (cl : clause list) (index : int) (t : 
 let cancellation_point (construct_type_clause : clause) (cl : clause list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (cancellation_point_aux construct_type_clause cl index)
 
-let critical_aux (index : int) (t : trm) : trm =   
+let critical_aux (v : var) (hint : var) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
     let lfront, lback = Tools.split_list_at index tl in
-    trm_seq ~annot:t.annot (lfront @ [trm_omp_directive Critical] @ lback)
+    trm_seq ~annot:t.annot (lfront @ [trm_omp_directive (Critical (v, hint))] @ lback)
   | _ -> fail t.loc "critical_aux: expected the sequence where the directive is going to be added"
 
-let critical (index : int) : Target.Transfo.local =
-  Target.apply_on_path (critical_aux index)
+let critical (v : var) (hint : var) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (critical_aux v hint index)
 
 let declare_simd_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 

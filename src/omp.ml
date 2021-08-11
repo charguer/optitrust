@@ -21,9 +21,9 @@ let cancelation_point (construct_type_clause : clause) (cl : clause list) : Targ
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.cancellation_point construct_type_clause cl i t p)
 
-let critical : Target.Transfo.t = 
+let critical ?(hint : var = "") (v : var) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.critical i t p)
+    Omp_core.critical v hint i t p)
 
 let declare_simd (cl : clause list) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->

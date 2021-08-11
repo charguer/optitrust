@@ -101,7 +101,7 @@ let directive_to_json (directive : directive) : json * json =
   | Barrier -> strquote "Barrier"
   | Cancel _ -> strquote "Cancel"
   | Cancellation_point _-> strquote "Cancellation_point"
-  | Critical -> strquote "Critical"
+  | Critical _ -> strquote "Critical"
   | Declare_simd _ -> strquote "Declare_simd"
   | Declare_reduction _ -> strquote "Declare_reduction"
   | Declare_target -> strquote "Declare_target"
