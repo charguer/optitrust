@@ -682,7 +682,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           | Trm_val (Val_prim (Prim_new _))
           | Trm_val (Val_prim (Prim_unop Unop_get)) -> false
           |  _ -> check_target p_fun f &&
-                  check_list cl_args args
+                  check_list ~depth:(DepthAny) cl_args args
           end
         else
           check_target p_fun f &&
