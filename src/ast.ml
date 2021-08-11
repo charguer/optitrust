@@ -484,7 +484,7 @@ and directive =
   | Master 
   | Ordered 
   | Parallel of clause list
-  | Parallel_for
+  | Parallel_for of clause list
   | Parallel_for_simd of clause list
   | Parallel_sections of clause list
   | Section 

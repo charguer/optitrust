@@ -116,7 +116,7 @@ let directive_to_json (directive : directive) : json * json =
   | Master -> strquote "Master"
   | Ordered -> strquote "Ordered"
   | Parallel _ -> strquote "Parallel"
-  | Parallel_for -> strquote "Parallel_for"
+  | Parallel_for _ -> strquote "Parallel_for"
   | Parallel_for_simd _ -> strquote "Parallel_for_simd"
   | Parallel_sections _ -> strquote "Parallel_sections"
   | Section -> strquote "Section"

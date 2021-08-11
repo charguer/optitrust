@@ -768,7 +768,7 @@ and atomic_operation_to_doc (ao : atomic_operation option) : document =
 
 and directive_to_doc (d : directive) : document =
   match d with 
-  | Atomic ao -> string "atomic" ^^ parens (atomic_operation_to_doc ao)
+  | Atomic ao -> string "atomic" ^^ blank 1 ^^ (atomic_operation_to_doc ao)
   | Atomic_capture -> string "atomic" ^^ blank 1 ^^ string "capture"
   | Barrier -> string "barrier"
   | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
@@ -790,7 +790,7 @@ and directive_to_doc (d : directive) : document =
   | Master -> string "master"
   | Ordered -> string "ordered"
   | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
-  | Parallel_for -> string "parallel" ^^ blank 1 ^^ string "for"
+  | Parallel_for cl -> string "parallel" ^^ blank 1 ^^ string "for " ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
   | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Parallel_sections  cl -> string "parallel" ^^ blank 1 ^^ string "sections" ^^ blank 1  ^^ (Tools.doc_list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Section -> string "section"

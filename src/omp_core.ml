@@ -202,15 +202,15 @@ let parallel_aux (cl : clause list) (index : int) (t : trm) : trm =
 let parallel (cl : clause list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (parallel_aux cl index)
 
-let parallel_for_aux (index : int) (t : trm) : trm =   
+let parallel_for_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
     let lfront, lback = Tools.split_list_at index tl in
-    trm_seq ~annot:t.annot (lfront @ [trm_omp_directive Parallel_for] @ lback)
+    trm_seq ~annot:t.annot (lfront @ [trm_omp_directive (Parallel_for cl)] @ lback)
   | _ -> fail t.loc "parallel_for_aux: expected the sequence where the directive is going to be added"
 
-let parallel_for (index : int) : Target.Transfo.local =
-  Target.apply_on_path (parallel_for_aux index)
+let parallel_for (cl : clause list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (parallel_for_aux cl index)
 
 let parallel_for_simd_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 

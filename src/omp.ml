@@ -82,13 +82,13 @@ let parallel (cl : clause list) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.parallel cl i t p)
 
-let parallel_for : Target.Transfo.t = 
+let parallel_for (cl : clause list): Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.parallel_for i t p)
+    Omp_core.parallel_for cl i t p)
 
-let parallel_for_simd : Target.Transfo.t = 
+let parallel_for_simd (cl : clause list): Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.parallel_for i t p)
+    Omp_core.parallel_for_simd cl i t p)
 
 let parallel_sections (cl : clause list) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
