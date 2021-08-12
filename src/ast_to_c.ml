@@ -820,7 +820,7 @@ and directive_to_doc (d : directive) : document =
   | Teams_distribute_end cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "end" ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Teams_distribute_parallel_for cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Teams_distribute_parallel_for_simd cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^(Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Threadprivate vl -> string "threadprivate" ^^ string (Tools.list_to_string vl)
+  | Threadprivate vl -> string "threadprivate" ^^ parens(string (Tools.list_to_string ~bounds:["";""] vl))
 
 and routine_to_doc (r : omp_routine) : document = 
   match r with 
