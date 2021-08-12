@@ -5,6 +5,7 @@ void process(double);
 
 int main()
 {
-  for (int i=0; i<LARGE_NUMBER; i++)
+  for (int i=0; i<LARGE_NUMBER; i++){
     process(item[i]);
+  }
 }

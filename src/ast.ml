@@ -457,6 +457,7 @@ and clause =
   | Nogroup
   | Num_tasks of int
   | Untied
+  | Final of expression
 
 (* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 

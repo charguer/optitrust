@@ -759,6 +759,7 @@ and clause_to_doc (cl : clause) : document =
   | Nogroup -> string "nogroup"
   | Num_tasks i -> string "num_tasks" ^^ parens (string (string_of_int i))
   | Untied -> string "untied"
+  | Final e -> string "final" ^^ parens (string e)
 
 and atomic_operation_to_doc (ao : atomic_operation option) : document = 
   match ao with 

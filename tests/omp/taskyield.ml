@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 
-(* TODO: Check if the lock has been define as a pointer *)
+(* TODO: Check if the lock has been defined as a pointer *)
 let _ = Run.script_cpp (fun _ ->
 
   !! Sequence_basic.insert "while ( !omp_test_lock(lock) ) {

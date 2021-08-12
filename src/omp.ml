@@ -320,6 +320,14 @@ let init_nest_lock (lock : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.init_nest_lock lock i t p)
 
+let destroy_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.destroy_lock lock i t p)
+
+let destroy_nest_lock (lock : var) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Omp_core.destroy_nest_lock lock i t p)
+
 
 let set_lock (lock : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
