@@ -408,10 +408,12 @@ and proc_bind =
   | Spread
 
 and dependence_type =
-  | In
-  | Out
-  | Inout
-  | Outin
+  | In of var list
+  | Out of var list
+  | Inout of var list
+  | Outin of var list
+  | Sink of var list
+  | Source 
 
 (* OpenMP clauses *)
 and clause = 
@@ -437,7 +439,7 @@ and clause =
   | NotInbranch
   (* General clauses *)
   | Nowait
-  | Ordered_c
+  | Ordered_c of int
   | If of expression
   | Device of int
   | Num_threads of int
@@ -448,7 +450,7 @@ and clause =
   | Taskgroup_c
   | Proc_bind of proc_bind
   | Priority of var
-  | Depend of dependence_type * var
+  | Depend of dependence_type 
   | Grainsize of int
   | Mergeable
   | Nogroup
@@ -482,7 +484,7 @@ and directive =
   | For of clause list
   | For_simd of clause list
   | Master 
-  | Ordered 
+  | Ordered of clause list
   | Parallel of clause list
   | Parallel_for of clause list
   | Parallel_for_simd of clause list

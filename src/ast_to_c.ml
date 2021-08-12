@@ -712,10 +712,12 @@ and proc_bind_to_doc (pb : proc_bind) : document =
 
 and dependece_type_to_doc (dp : dependence_type) : document =
   match dp with 
-  | In -> string "in"
-  | Out -> string "out"
-  | Inout -> string "inout"
-  | Outin -> string "outin"
+  | In vl -> string "in" ^^ colon ^^ blank 1 ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["";""] vl)
+  | Out vl -> string "out" ^^ colon ^^ blank 1 ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["";""] vl)
+  | Inout vl -> string "inout" ^^ colon ^^ blank 1 ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["";""] vl)
+  | Outin vl -> string "outin" ^^ colon ^^ blank 1 ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["";""] vl)
+  | Sink vl -> string "sink" ^^ colon ^^ blank 1 ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["";""] vl)
+  | Source -> string "source"
 
 and clause_to_doc (cl : clause) : document =
   match cl with
@@ -737,7 +739,7 @@ and clause_to_doc (cl : clause) : document =
   | Inbranch -> string "inbranch"
   | NotInbranch -> string "notinbranch"
   | Nowait -> string "nowait"
-  | Ordered_c -> string "ordered"
+  | Ordered_c i -> string "ordered" ^^ (if i = 0 then empty else parens (string (string_of_int i)))
   | If e-> string "if" ^^ parens (string e)
   | Device i -> string "device" ^^ parens (string (string_of_int i))
   | Num_threads i -> string "num_threads" ^^ parens (string (string_of_int i))
@@ -748,7 +750,7 @@ and clause_to_doc (cl : clause) : document =
   | Taskgroup_c -> string "taskgroup"
   | Proc_bind pb -> string "proc_bind" ^^ parens (proc_bind_to_doc pb)
   | Priority i -> string "priority" ^^ parens (string i)
-  | Depend (dp, x) -> string "depend" ^^ parens (dependece_type_to_doc dp ^^ colon ^^ blank 1 ^^ string x)
+  | Depend dp -> string "depend" ^^ parens (dependece_type_to_doc dp)
   | Grainsize i -> string "grainsize" ^^ parens (string (string_of_int i))
   | Mergeable -> string "mergeable"
   | Nogroup -> string "nogroup"
@@ -788,7 +790,7 @@ and directive_to_doc (d : directive) : document =
   | For cl -> string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
   | For_simd cl -> string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Master -> string "master"
-  | Ordered -> string "ordered"
+  | Ordered cl -> string "ordered" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
   | Parallel  cl -> string "parallel" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
   | Parallel_for cl -> string "parallel" ^^ blank 1 ^^ string "for " ^^ (Tools.doc_list_to_doc ~empty ~sep:(blank 1) ~bounds:[empty; empty](List.map clause_to_doc cl))
   | Parallel_for_simd  cl -> string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))

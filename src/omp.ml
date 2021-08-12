@@ -74,9 +74,9 @@ let master : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.master i t p)
 
-let ordered : Target.Transfo.t = 
+let ordered (cl : clause list) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.ordered i t p)
+    Omp_core.ordered cl i t p)
 
 let parallel (cl : clause list) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->

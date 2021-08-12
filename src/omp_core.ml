@@ -182,15 +182,15 @@ let master_aux (index : int) (t : trm) : trm =
 let master (index : int) : Target.Transfo.local =
   Target.apply_on_path (master_aux index)
 
-let ordered_aux (index : int) (t : trm) : trm =   
+let ordered_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
     let lfront, lback = Tools.split_list_at index tl in
-    trm_seq ~annot:t.annot (lfront @ [trm_omp_directive Ordered] @ lback)
+    trm_seq ~annot:t.annot (lfront @ [trm_omp_directive (Ordered cl)] @ lback)
   | _ -> fail t.loc "ordered_aux: expected the sequence where the directive is going to be added"
 
-let ordered (index : int) : Target.Transfo.local =
-  Target.apply_on_path (ordered_aux index)
+let ordered (cl : clause list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (ordered_aux cl index)
 
 let parallel_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 

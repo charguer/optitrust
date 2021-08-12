@@ -395,7 +395,7 @@ and print_directive (directive : directive) : document =
   | For _ -> string "For"
   | For_simd _ -> string "For_simd"
   | Master -> string "Master"
-  | Ordered -> string "Ordered"
+  | Ordered _ -> string "Ordered"
   | Parallel _ -> string "Parallel"
   | Parallel_for _ -> string "Parallel_for"
   | Parallel_for_simd _ -> string "Parallel_for_simd"
