@@ -394,7 +394,8 @@ and reduction_identifier =
   | Power
   | BitAnd
   | BitOr
-
+  | Min 
+  | Max
 (* map type for map OpenMP clause *)
 and map_type = 
   | Alloc

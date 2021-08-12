@@ -697,6 +697,9 @@ and reduction_identifier_to_doc (ri : reduction_identifier) : document =
   | Power -> caret
   | BitAnd -> ampersand
   | BitOr -> bar
+  | Min -> string "min"
+  | Max -> string "max"
+  
 and map_type_to_doc (mt : map_type) : document =
   match mt with 
   | Alloc -> string "alloc"
@@ -775,7 +778,7 @@ and directive_to_doc (d : directive) : document =
   | Barrier -> string "barrier"
   | Cancel (c, cl) -> string "cancel" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
   | Cancellation_point (c, cl) -> string "cancellation" ^^ blank 1 ^^ string "point" ^^ parens (clause_to_doc c ^^ comma ^^ blank 1 ^^ Tools.doc_list_to_doc ~sep:comma (List.map clause_to_doc cl))
-  | Critical (name, hint) -> string "critical" ^^ parens (string name) ^^ if hint = "" then empty else (string "hint" ^^ parens (string hint))
+  | Critical (name, hint) -> string "critical" ^^ if name = "" then empty else parens (string name) ^^ if hint = "" then empty else (string "hint" ^^ parens (string hint))
   | Declare_simd cl -> string "declare" ^^ blank 1 ^^ string "simd " ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Declare_reduction (ri, tvl, e, c) ->  string "declare" ^^ blank 1 ^^ string "simd" ^^ parens (
     reduction_identifier_to_doc ri ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (Tools.list_to_string ~sep:"," ~bounds:["";""] tvl) ^^
