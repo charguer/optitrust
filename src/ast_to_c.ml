@@ -677,7 +677,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
       fail f.loc "apps_to_doc: only functions may be applied"
 and mode_to_doc (m : mode) : document = 
   match m with 
-  | Shared -> string "shared"
+  | Shared_m -> string "shared"
   | None_ -> string "none"
 
 and sched_type_to_doc (st : sched_type) : document =
@@ -721,8 +721,8 @@ and dependece_type_to_doc (dp : dependence_type) : document =
 
 and clause_to_doc (cl : clause) : document =
   match cl with
-  | Default_c m -> string "default" ^^ parens (mode_to_doc m)
-  | Shared_c vl -> string "shared" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | Default m -> string "default" ^^ parens (mode_to_doc m)
+  | Shared vl -> string "shared" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Private vl -> string "private" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | FirstPrivate vl -> string "firstprivate" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | LastPrivate vl -> string "lastprivate" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)

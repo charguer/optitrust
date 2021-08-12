@@ -371,7 +371,7 @@ and abort =
 
 (* mode used for default OpenMP clause *)
 and mode = 
-  | Shared
+  | Shared_m
   | None_
 
 (* expression representing the code inside an If OpenMP clause *)
@@ -418,8 +418,8 @@ and dependence_type =
 (* OpenMP clauses *)
 and clause = 
   (* Data sharing clauses *)
-  | Default_c of mode
-  | Shared_c of var list
+  | Default of mode
+  | Shared of var list
   | Private of var list
   | FirstPrivate of var list
   | LastPrivate of var list
