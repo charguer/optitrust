@@ -761,7 +761,8 @@ and clause_to_doc (cl : clause) : document =
   | Num_tasks i -> string "num_tasks" ^^ parens (string (string_of_int i))
   | Untied -> string "untied"
   | Final e -> string "final" ^^ parens (string e)
-
+  | To_c vl -> string "to" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
+  | From_c vl -> string "from" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
 and atomic_operation_to_doc (ao : atomic_operation option) : document = 
   match ao with 
   | None -> empty
@@ -813,7 +814,7 @@ and directive_to_doc (d : directive) : document =
   | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
-  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Task cl -> string "task" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Taskgroup -> string "taskgroup"
   | Taskloop cl -> string "taskloop" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))

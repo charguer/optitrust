@@ -459,6 +459,8 @@ and clause =
   | Num_tasks of int
   | Untied
   | Final of expression
+  | To_c of var list
+  | From_c of var list
 
 (* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 
