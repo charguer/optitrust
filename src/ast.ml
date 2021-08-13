@@ -431,6 +431,7 @@ and clause =
   | Copyin of var list
   | CopyPrivate of var list
   | Map_c of map_type * var list 
+  | Defaultmap of map_type * var list
   (* SIMD clauses *)
   | Safelen of int
   | Collapse of int
@@ -446,6 +447,7 @@ and clause =
   | Device of int
   | Num_threads of int
   | Schedule of sched_type * int
+  | Dist_schedule of sched_type * int
   | Parallel_c
   | Sections_c
   | For_c
@@ -462,6 +464,8 @@ and clause =
   | To_c of var list
   | From_c of var list
   | Link of var list
+  | Num_teams of var
+  | Thread_limit of var
 (* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 
   | Read
