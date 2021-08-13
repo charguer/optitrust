@@ -746,10 +746,10 @@ and clause_to_doc (cl : clause) : document =
   | Nowait -> string "nowait"
   | Ordered_c i -> string "ordered" ^^ (if i = 0 then empty else parens (string (string_of_int i)))
   | If e-> string "if" ^^ parens (string e)
-  | Device i -> string "device" ^^ parens (string (string_of_int i))
+  | Device i -> string "device" ^^ parens (string i)
   | Num_threads i -> string "num_threads" ^^ parens (string (string_of_int i))
-  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = 0 then empty else comma ^^ blank 1 ^^ string (string_of_int (i))))
-  | Dist_schedule (st, i) -> string "dist_schedule" ^^ parens (sched_type_to_doc st ^^ (if i = 0 then empty else comma ^^ blank 1 ^^ string (string_of_int (i))))
+  | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = "" then empty else comma ^^ blank 1 ^^ string i))
+  | Dist_schedule (st, i) -> string "dist_schedule" ^^ parens (sched_type_to_doc st ^^ (if i = "" then empty else comma ^^ blank 1 ^^ string i))
   | Parallel_c -> string "parallel"
   | Sections_c -> string "sections"
   | For_c -> string "for"
@@ -794,7 +794,7 @@ and directive_to_doc (d : directive) : document =
   | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Distribute cl -> string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl)) 
-  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl)) 
+  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl)) 
   | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
   | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare " ^^ string "target"
   | Flush vl -> string "flush" ^^ string (Tools.list_to_string ~sep:"," ~bounds:["(";")"] vl)
@@ -816,7 +816,7 @@ and directive_to_doc (d : directive) : document =
   | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Target_teams cl -> string "target" ^^ blank 1 ^^ string "teams"  ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
   | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))

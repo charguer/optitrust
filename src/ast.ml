@@ -444,10 +444,10 @@ and clause =
   | Nowait
   | Ordered_c of int
   | If of expression
-  | Device of int
+  | Device of var
   | Num_threads of int
-  | Schedule of sched_type * int
-  | Dist_schedule of sched_type * int
+  | Schedule of sched_type * var
+  | Dist_schedule of sched_type * var
   | Parallel_c
   | Sections_c
   | For_c
