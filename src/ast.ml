@@ -445,7 +445,7 @@ and clause =
   | Ordered_c of int
   | If of expression
   | Device of var
-  | Num_threads of int
+  | Num_threads of var
   | Schedule of sched_type * var
   | Dist_schedule of sched_type * var
   | Parallel_c
@@ -549,7 +549,7 @@ and omp_routine =
   | Get_active_level 
   | In_final 
   | Get_proc_bind 
-  | Set_default_device of int
+  | Set_default_device of var
   | Get_default_device 
   | Get_num_devices 
   | Get_num_teams 

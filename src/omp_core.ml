@@ -859,7 +859,7 @@ let get_proc_bind_aux (proc_bind : var) (index : int) (t : trm) : trm =
 let get_proc_bind (proc_bind : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (get_proc_bind_aux proc_bind index)
 
-let set_default_device_aux (device_num : int) (index : int) (t : trm) : trm = 
+let set_default_device_aux (device_num : var) (index : int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
     let lfront, lback = Tools.split_list_at index tl in
@@ -867,7 +867,7 @@ let set_default_device_aux (device_num : int) (index : int) (t : trm) : trm =
 
   | _ -> fail t.loc "set_default_device_aux: expected the sequence where the call to the routine is going to be added"
 
-let set_default_device (device_num : int) (index : int) : Target.Transfo.local = 
+let set_default_device (device_num : var) (index : int) : Target.Transfo.local = 
   Target.apply_on_path (set_default_device_aux device_num index)
 
 let get_default_device_aux (default_device : var) (index : int) (t : trm) : trm =

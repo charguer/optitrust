@@ -284,7 +284,7 @@ let in_final (in_final : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.in_final in_final i t p)
 
-let set_default_device (device_num : int) : Target.Transfo.t =
+let set_default_device (device_num : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.set_default_device device_num i t p)
 

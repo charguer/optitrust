@@ -747,7 +747,7 @@ and clause_to_doc (cl : clause) : document =
   | Ordered_c i -> string "ordered" ^^ (if i = 0 then empty else parens (string (string_of_int i)))
   | If e-> string "if" ^^ parens (string e)
   | Device i -> string "device" ^^ parens (string i)
-  | Num_threads i -> string "num_threads" ^^ parens (string (string_of_int i))
+  | Num_threads i -> string "num_threads" ^^ parens (string i)
   | Schedule (st, i) -> string "schedule" ^^ parens (sched_type_to_doc st ^^ (if i = "" then empty else comma ^^ blank 1 ^^ string i))
   | Dist_schedule (st, i) -> string "dist_schedule" ^^ parens (sched_type_to_doc st ^^ (if i = "" then empty else comma ^^ blank 1 ^^ string i))
   | Parallel_c -> string "parallel"
@@ -857,7 +857,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_active_level  -> string "omp_get_active_level" ^^ lparen ^^ blank 1 ^^ rparen
   | In_final  -> string "omp_in_final" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_proc_bind  -> string "omp_get_proc_bind" ^^ lparen ^^ blank 1 ^^ rparen
-  | Set_default_device i -> string "omp_set_default_device" ^^ parens (string (string_of_int i))  
+  | Set_default_device i -> string "omp_set_default_device" ^^ parens (string i)  
   | Get_default_device -> string "omp_get_default_device" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_num_devices  -> string "omp_get_num_devices" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_num_teams -> string "omp_get_num_teams" ^^ lparen ^^ blank 1 ^^ rparen
