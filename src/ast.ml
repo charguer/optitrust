@@ -402,6 +402,7 @@ and map_type =
   | To
   | From
   | ToFrom
+  | No_map
 
 and proc_bind = 
   | Master_pb

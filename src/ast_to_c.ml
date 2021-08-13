@@ -702,10 +702,11 @@ and reduction_identifier_to_doc (ri : reduction_identifier) : document =
   
 and map_type_to_doc (mt : map_type) : document =
   match mt with 
-  | Alloc -> string "alloc"
-  | To -> string "to"
-  | From -> string "from"
-  | ToFrom -> string "tofrom"
+  | Alloc -> string "alloc" ^^ colon
+  | To -> string "to" ^^ colon
+  | From -> string "from" ^^ colon
+  | ToFrom -> string "tofrom" ^^ colon
+  | No_map -> empty
 
 and proc_bind_to_doc (pb : proc_bind) : document = 
   match pb with 
@@ -733,7 +734,7 @@ and clause_to_doc (cl : clause) : document =
   | Reduction (ri, vl) -> string "reduction" ^^ parens (reduction_identifier_to_doc ri ^^ colon ^^ string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl))
   | Copyin vl -> string "copyin" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | CopyPrivate vl -> string "copyprivate" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
-  | Map_c (mt, vl) -> string "map" ^^ parens (map_type_to_doc mt ^^ blank 1 ^^ colon ^^ blank 1 ^^ string (Tools.list_to_string ~sep:"," ~bounds: ["";""] vl))
+  | Map_c (mt, vl) -> string "map" ^^ parens (map_type_to_doc mt ^^  blank 1 ^^ string (Tools.list_to_string ~sep:"," ~bounds: ["";""] vl))
   | Safelen i -> string "safelen" ^^ parens (string (string_of_int i))
   | Collapse i -> string "collapse" ^^ parens (string (string_of_int i))
   | Simdlen i -> string "simdlen" ^^ parens (string (string_of_int i))
@@ -803,7 +804,7 @@ and directive_to_doc (d : directive) : document =
   | Sections cl -> string "sections" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Simd cl -> string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Single cl -> string "single" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Target cl -> string "target" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
+  | Target cl -> string "target" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Target_data cl -> string "target" ^^ blank 1 ^^ string "data"  ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Target_enter_data  cl -> string "target" ^^ blank 1 ^^ string "enter" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Target_exit_data  cl -> string "target" ^^ blank 1 ^^ string "exit" ^^ blank 1 ^^ string "data" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
