@@ -12,11 +12,12 @@ is
 /*
  * Use fetch_and_add to implement a lock
  */
-struct locktype {
+typedef struct {
     int ticketnumber;
     int turn;
-};
-void do_locked_work(struct locktype *lock)
+} locktype;
+
+void do_locked_work(locktype *lock)
 {
     int atomic_read(const int *p);
     void work();
