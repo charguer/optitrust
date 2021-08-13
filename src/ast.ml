@@ -461,7 +461,7 @@ and clause =
   | Final of expression
   | To_c of var list
   | From_c of var list
-
+  | Link of var list
 (* atomic operations for atomic OpenMP directive *)
 and atomic_operation = 
   | Read
@@ -479,7 +479,7 @@ and directive =
   | Critical of var * var
   | Declare_simd of clause list
   | Declare_reduction of reduction_identifier * typvar list * expression * clause
-  | Declare_target 
+  | Declare_target of clause list 
   | Distribute of clause list
   | Distribute_parallel_for of clause list
   | Distribute_parallel_for_simd of clause list

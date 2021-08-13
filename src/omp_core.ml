@@ -82,15 +82,15 @@ let declare_reduction_aux (ri : reduction_identifier) (tv : typvar list) (e : ex
 let declare_reduction (ri : reduction_identifier) (tv : typvar list) (e : expression) (c : clause) (index : int) : Target.Transfo.local =
   Target.apply_on_path (declare_reduction_aux ri tv e c index)
 
-let declare_target_aux (index : int) (t : trm) : trm =   
+let declare_target_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
     let lfront, lback = Tools.split_list_at index tl in
-    trm_seq ~annot:t.annot (lfront @ [trm_omp_directive Declare_target] @ lback)
+    trm_seq ~annot:t.annot (lfront @ [trm_omp_directive (Declare_target cl)] @ lback)
   | _ -> fail t.loc "declare_target_aux: expected the sequence where the directive is going to be added"
 
-let declare_target (index : int) : Target.Transfo.local =
-  Target.apply_on_path (declare_target_aux index)
+let declare_target (cl : clause list) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (declare_target_aux cl index)
 
 let distribute_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 

@@ -104,7 +104,7 @@ let directive_to_json (directive : directive) : json * json =
   | Critical _ -> strquote "Critical"
   | Declare_simd _ -> strquote "Declare_simd"
   | Declare_reduction _ -> strquote "Declare_reduction"
-  | Declare_target -> strquote "Declare_target"
+  | Declare_target _ -> strquote "Declare_target"
   | Distribute _ -> strquote "Distribute"
   | Distribute_parallel_for _ -> strquote "Distribute_parallel_for"
   | Distribute_parallel_for_simd _ -> strquote "Distribute_parallel_for_simd"

@@ -385,7 +385,7 @@ and print_directive (directive : directive) : document =
   | Critical _ -> string "Critical"
   | Declare_simd _ -> string "Declare_simd"
   | Declare_reduction _ -> string "Declare_reduction"
-  | Declare_target -> string "Declare_target"
+  | Declare_target _ -> string "Declare_target"
   | Distribute _ -> string "Distribute"
   | Distribute_parallel_for _ -> string "Distribute_parallel_for"
   | Distribute_parallel_for_simd _ -> string "Distribute_parallel_for_simd"

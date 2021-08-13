@@ -33,9 +33,9 @@ let declare_reduction (ri : reduction_identifier) (tl : typvar list) (e : expres
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.declare_reduction ri tl e cl i t p)
 
-let declare_target : Target.Transfo.t = 
+let declare_target (cl : clause list): Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
-    Omp_core.declare_target i t p)
+    Omp_core.declare_target cl i t p)
 
 let distribute (cl : clause list) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
