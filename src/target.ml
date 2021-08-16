@@ -30,8 +30,9 @@ include Trace
   unit args are used because of optional arguments
   *)
 
-(* Logic constraints *)
-
+(******************************************************************************)
+(*                             Logic constraints                              *)
+(******************************************************************************)
 
 let bTrue : constr =
   Constr_bool true
@@ -45,7 +46,9 @@ let cStrict : constr =
 let cChain (cstrs : constr list) : constr =
   Constr_target cstrs
 
-(* Relative targets *)
+(******************************************************************************)
+(*                             Relative targets                               *)
+(******************************************************************************)
 
 let tBefore : constr =
   Constr_relative TargetBefore
@@ -67,7 +70,11 @@ let tIndices ?(nb : int = -1) (indices : int list) : constr =
 
 let tIndex ?(nb : int = -1) (index : int) : constr =
   tIndices ~nb [index]
-(* Used for checking the number of targets to match *)
+
+
+(******************************************************************************)
+(*                            Number of targets                               *)
+(******************************************************************************)
 
 let nbMulti : constr =
   Constr_occurrences ExpectedMulti
@@ -78,7 +85,11 @@ let nbAny : constr =
 let nbExact (nb : int) : constr =
     Constr_occurrences (ExpectedNb nb)
 
-(* directions *)
+
+(******************************************************************************)
+(*                                Directions                                  *)
+(******************************************************************************)
+
 let dRoot : constr =
     Constr_root
 
@@ -127,9 +138,13 @@ let dEnumConstName : enum_const_dir = Enum_const_name
 
 let dEnumConstVal : enum_const_dir = Enum_const_val
 
-let cInclude (s : string) : constr =
-    Constr_include s
 
+(* [string_to_rexp regexp substr s trmKind]  transforms a string into a regular expression
+    used to match ast nodes based on their code representation.
+    [string_to_rexp] - denotes a flag to tell if the string entered is a regular epxression or no
+    [substr] - denotes a flag to decide if we should target strings whcih contain string [s] or not
+    [trmKind] - denotes the kind of the ast note represented in code by string [s]
+*)
 let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_kind) : rexp =
     { rexp_desc = (if regexp then "Regexp" else "String") ^ "(\"" ^ s ^ "\")";
       rexp_exp = (if regexp then Str.regexp s else
@@ -144,7 +159,11 @@ let string_to_rexp (regexp : bool) (substr : bool) (s : string) (trmKind : trm_k
         else Some (string_to_rexp regexp substr s trmKind)
       in
     res
-  (* Matching by string *)
+
+(******************************************************************************)
+(*                             String matching                                *)
+(******************************************************************************)
+
 let sInstrOrExpr ?(substr : bool = false) (tk : trm_kind) (s : string) : constr =
   Constr_regexp (string_to_rexp false substr s  tk)
 
@@ -162,6 +181,14 @@ let sInstrRegexp ?(substr : bool = false) (s : string) : constr =
 
 let sExprRegexp ?(substr : bool = false) (s : string) : constr =
   sInstrOrExprRegexp TrmKind_Expr substr s
+
+
+(******************************************************************************)
+(*                                Ast nodes                                   *)
+(******************************************************************************)
+
+let cInclude (s : string) : constr =
+    Constr_include s
 
 let cSetVar (x : var) : constr =
   sInstr (x ^ " " ^ "=")
@@ -328,7 +355,7 @@ let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pr
   in
   Constr_app (p_fun,args,false)
 
-(* This function is similart to cFun but it can match aslos internal functions like get and set *)
+(* This function is similar to cFun but it can match also internal functions like get and set *)
 let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
   let p_fun =
