@@ -55,7 +55,42 @@ let arbitrary_if (cond : string) (tg : target) : unit =
   Trace.reparse()
 
 
-(* TODO: Add docs *)
+(* [delocalize array_size neutral_element fold_operation tg] expects target [tg] to point to
+    a block of code of the following form
+      T a
+
+   { T x = a; // mendatory format for first instruction
+
+      for (int i = ...)
+         x++;
+
+      a = x;  // mendatory format for last instruction
+   }@nobrace then 
+   Then it will transform it into:
+       T a
+
+   {
+      { T x[N];
+         x[0] = a;
+         for (k = 1; k < N; k++)
+            a = 0;
+      }@nobrace
+
+      parallel for (int i = ...)
+         x[my_core_id]++;
+
+      { a = 0;
+         for (k = 0; k < N; k++)
+            a = a + x[k];  // could be a += if exists
+         }@nobrace
+
+   }@nobrace.
+
+   [array_size] - denotes the size of the array inside the block
+   [neutral_element] - denotes the neutral element for the folding operation
+   [fold_operation] - denotes a reduction operation over all the elements 
+    of the array declared inside the block
+*)
 let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) (tg : Target.target) : unit =
   Internal.nobrace_enter ();
   Target.apply_on_target (Generic_core.delocalize array_size neutral_element fold_operation) tg;

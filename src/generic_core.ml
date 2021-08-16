@@ -126,7 +126,16 @@ let arbitrary_if (cond : string) : Target.Transfo.local =
   Target.apply_on_path (arbitrary_if_aux cond)
 
 
-(* TODO: Add the docs for this function *)
+(* [delocalize_aux array_size neutral_element fold_operation t] add local array to apply
+      the operation inside the for loop in parallel.
+    params:
+      array_size: size of the arrays to be declared inside the targeted sequence
+      neutral_element: the neutral element used when applying the [fold_operation]
+      fold_operation: reduction over all the elements of the declared array
+      t: the ast of the @nobrace sequence
+    return:
+      the updated ast of the targeted sequence      
+*)
 let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
