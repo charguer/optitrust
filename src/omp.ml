@@ -1,6 +1,8 @@
 open Ast
 
-(* OpenMP directives *)
+(******************************************************************************)
+(*                            OpenMP directives                               *)
+(******************************************************************************)
 let atomic (ao : atomic_operation option) : Target.Transfo.t = 
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.atomic ao i t p)
@@ -199,7 +201,9 @@ let threadprivate (vl : var list) : Target.Transfo.t =
     Omp_core.threadprivate vl i t p)
 
 
-(* OpenMP routines *)
+(******************************************************************************)
+(*                             OpenMP routines                                *)
+(******************************************************************************)
 let set_num_threads (nb_threads : int) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.set_num_threads nb_threads i t p)
@@ -327,7 +331,6 @@ let destroy_lock (lock : var) : Target.Transfo.t =
 let destroy_nest_lock (lock : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
     Omp_core.destroy_nest_lock lock i t p)
-
 
 let set_lock (lock : var) : Target.Transfo.t =
   Target.apply_on_target_between(fun t (p, i) ->
