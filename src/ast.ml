@@ -1173,11 +1173,11 @@ let is_simple_loop_component (t : trm) : bool =
     | Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
     | Trm_val(Val_prim (Prim_unop (Unop_pre_inc))) -> false
     | Trm_val(Val_prim (Prim_unop (Unop_pre_dec))) -> false
-    | Trm_val(Val_prim (Prim_binop (Binop_set))) -> false
     | _ -> true
     end
   | Trm_var _ -> true
   | Trm_val (Val_lit (Lit_int _)) -> true
+  | Trm_let _ -> true
   | _ -> false
 
 
@@ -1192,7 +1192,6 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     let start = for_loop_init t in
     let stop = for_loop_bound t in
     let step_size = for_loop_step t in
-  
     let is_simple_loop =
        (is_simple_loop_component init)
     && (is_simple_loop_component start)

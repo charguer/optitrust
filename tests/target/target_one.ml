@@ -42,6 +42,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Regexp *)
   (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
+  
   show [nbExact 0; sInstr ~substr:false "j <"];
 
   show [sInstr "+= 2"];
@@ -56,7 +57,6 @@ let _ = Run.script_cpp (fun () ->
   show [nbExact 0; sExpr "int r = 3"];
   show [sInstr "i++" ]; 
   show [nbMulti; sInstrRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
-  show [nbMulti; cOr [[cVarDef "v"];[cVarDef "v2"]]];
 )
  (*
 

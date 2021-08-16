@@ -307,12 +307,11 @@ let get_field_index (field : field) (fields : (var * typ) list) : int =
     in
   aux field fields 0
 
-
-(*********************Auxiliary functions for reorder transformation ****************************************************)
-(**) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (**)
-(**) let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys                                  (**)                  
-(**) let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs                                                      (**)
-(**) let remove_pairs (ys : var list) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (**)
+(*********************Auxiliary functions for reorder transformation ******************************************************)
+(* *) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (* *)
+(* *) let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys                                  (* *)                  
+(* *) let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs                                                      (* *)
+(* *) let remove_pairs (ys : var list) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
 (* ************************************************************************************************************************)
 
 (* Move struct fields with names [local_l] after field [x] *)

@@ -137,9 +137,8 @@ and constr =
   (* Constraint that matches only the root of the AST *)
   | Constr_root
   | Constr_or of target list
-  (* LATER: add Constr_or, Constr_and, Constr_not
-     -> maybe even better "Constr_or of constr list"
-        this is useful for giving a list of targets. *)
+  | Constr_and of target list
+  
 
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
@@ -388,7 +387,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_bool b -> if b then "True" else "False"
   | Constr_root -> "Root"
   | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
-
+  | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
 
@@ -805,11 +804,14 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     (* TODO: Fix me! *)
     | Constr_or tl :: [] -> List.fold_left(fun acc tr -> 
         let potential_target = resolve_target_simple tr t in
-        if potential_target  = [[]] 
-          then acc 
-          else if potential_target <> [[]] && acc <> [[]] then acc
-          else potential_target @ acc
-          ) [] tl
+        begin match potential_target with
+        | [[]] -> acc
+        | _ -> 
+          begin match acc with 
+          | [] -> potential_target
+          | _ -> acc
+          end
+        end ) [] tl
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t
