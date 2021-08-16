@@ -1,7 +1,5 @@
 open Ast
 open Target
-(* TODO: reimplement a function change_trm that operations on explicit paths
-   and thus does not need to do resolution again. *)
 
 (* Replaces all the occurrences of t_before in the ast [t] with t_after.
     If the user does not want to target the full ast but just some specific locations,
