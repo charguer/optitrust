@@ -6,5 +6,5 @@ open Target
 let _ = Run.script_cpp (fun _ ->
 
   !! Omp.parallel [] [tFirst; cFunDef "lastpriv"; dBody];
-  !! Omp.parallel_for [LastPrivate ["a"]] [tBefore; cFor_c "i"];
+  !! Omp.parallel_for [LastPrivate ["a"]] [tBefore; cFor "i"];
 )

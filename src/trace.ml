@@ -543,3 +543,4 @@ let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> uni
 (* Get the current ast *)
 let get_ast () : trm =
   (List.hd (List.rev !traces)).cur_ast
+

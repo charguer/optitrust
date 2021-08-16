@@ -3,5 +3,5 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Omp.simd [] [tBefore;cFor_c "i"] ;
+  !! Omp.simd [] [tBefore;cFor "i"] ;
 )
