@@ -242,6 +242,9 @@ let cThen : constr =
 let cOr (tgl : target list) : constr =
   Constr_or tgl
 
+let cAnd (tgl : target list) : constr =
+  Constr_and tgl
+
 (* Converts a list of constraints into a [target_list_pred] *)
 let target_list_simpl (cstrs : constr list) : target_list_pred =
   let n = List.length cstrs in

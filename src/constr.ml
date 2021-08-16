@@ -801,7 +801,6 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
-    (* TODO: Fix me! *)
     | Constr_or tl :: [] -> List.fold_left(fun acc tr -> 
         let potential_target = resolve_target_simple tr t in
         begin match potential_target with
@@ -812,6 +811,12 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           | _ -> acc
           end
         end ) [] tl
+    | Constr_and tl :: [] -> List.fold_left(fun acc tr -> 
+        let potential_target = resolve_target_simple tr t in
+        begin match potential_target with
+        | [[]] -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+        | _ -> potential_target @ acc
+        end ) [] (List.rev tl)
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t

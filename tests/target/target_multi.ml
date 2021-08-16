@@ -20,6 +20,7 @@ let _ = Run.script_cpp (fun () ->
   show [ nbAny; cFunDef "main"; cFor "j" ]; (* zero match *)
   show [ nbAny; cFunDef "main"; cFor "i" ];
   show [ nbAny; cFor "i" ];
+  show [nbMulti;cAnd [[cReturn];[cTypDef "vect"];[cFunDef "main"; cFor "i"]]];
 
 )
 

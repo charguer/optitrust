@@ -42,6 +42,8 @@ let _ = Run.script_cpp (fun () ->
 
   (* Regexp *)
   (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
+  show [cOr [[cVarDef "v3"];[cVarDef "v4"];[cVarDef "v2"]]];
+  
   
   show [nbExact 0; sInstr ~substr:false "j <"];
 

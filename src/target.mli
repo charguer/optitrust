@@ -122,6 +122,8 @@ val cThen : constr
 
 val cOr : target list -> constr
 
+val cAnd : target list -> constr
+
 val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> string -> constr
 
 val cFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> ?regexp:bool ->string -> constr
