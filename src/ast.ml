@@ -1137,7 +1137,7 @@ let same_sizes (sz1 : size) (sz2 : size) : bool =
  match sz1, sz2 with
  | Undefined, Undefined -> true
  | Const i1, Const i2 -> i1 = i2
- | Trm _, Trm _ -> false
+ | Trm t1, Trm t2->  t1 = t2
  | _, _ -> false
 
 (* check if two types are the same *)
@@ -1161,7 +1161,8 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | Typ_ptr {ptr_kind = pk1; inner_typ = typ_a1}, Typ_ptr {ptr_kind = pk2; inner_typ = typ_a2} ->
    if match_generated_star then (pk1 = pk2) && (is_generated_star typ_1 && is_generated_star typ_2) && (aux typ_a1 typ_a2)
     else (not (is_generated_star typ_1 || is_generated_star typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2) 
-  | Typ_array (typa1, size1), Typ_array (typa2, size2) -> (same_types typa1 typa2) && (same_sizes size1 size2)
+  | Typ_array (typa1, size1), Typ_array (typa2, size2) -> 
+      (same_types typa1 typa2) && (same_sizes size1 size2)
   | _, _ -> false
   )
 

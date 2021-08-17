@@ -37,9 +37,10 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
   (* change all occurences of ty_before in ty *)
   let rec change_typ (ty : typ) : typ =
-
-    if same_types ~match_generated_star:false ty ty_before then ty_after
-      else typ_map change_typ ty
+    if same_types ~match_generated_star:false ty ty_before then 
+      ty_after 
+      else 
+        typ_map change_typ ty
   in
   let rec replace_type_annot (t : trm) : trm =
     let t =
@@ -67,17 +68,22 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
                      (List.map (fun (y, ty) -> (y, change_typ ty)) args)
                      (aux body)
       | Trm_typedef td ->
-       begin match td.typdef_body with
-       | Typdef_alias ty ->
-         trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
-          { td with typdef_body = Typdef_alias (change_typ ty)}
-       | Typdef_prod (b, s) ->
-          let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
-          trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
-          { td with typdef_body = Typdef_prod (b, s)}
-       | _ -> trm_map aux t
-       end
-
+        begin match td.typdef_body with
+        | Typdef_alias ty ->
+          trm_typedef  ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
+           { td with typdef_body = Typdef_alias (change_typ ty)}
+        | Typdef_prod (b, s) ->
+           let s = List.map (fun (lb, x) -> (lb, change_typ x)) s in
+           trm_typedef ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement ~add:t.add ~attributes:t.attributes
+           { td with typdef_body = Typdef_prod (b, s)}
+        | _ -> trm_map aux t
+        end
+       | Trm_var x ->
+          let ty = begin match t.typ with 
+                   | Some ty -> ty
+                   | None -> fail t.loc "apply_change: all variable occurrences should have a type"
+                   end in
+        trm_var ~annot:t.annot ~loc:t.loc ~typ:(Some (change_typ ty)) x
       | _ -> trm_map aux t
     in
     replace_type_annot (aux t)
@@ -89,7 +95,6 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         then [nbAny] @ tr 
         else tr in
       let epl = resolve_target tr t' in
-      Tools.printf "List length: %d\n" (List.length epl);
       match epl with
       | [] ->
          print_info t'.loc "change_typ: no matching subterm for target %s\n"
