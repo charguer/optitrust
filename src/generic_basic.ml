@@ -42,7 +42,7 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
 
 
-(* [arbitrary_if cond tg] expects the target tg to point to an instruction 
+(* [arbitrary_if cond tg] expects the target [tg] to point to an instruction 
     inside a sequence. Then it will create an if statement with the condition entered by the user
       and both it's then and else branches will contain the same instruction.
     [cond] - denotes a string representing the code which will appear as teh condition in the 
@@ -99,9 +99,9 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
 (* [change_type new_type tg] expects [tg] to point to variable declaration
     then it will change the type of that variable with [new_type].
 *)
-let change_type (new_type : typvar) (tg : Target.target) : unit = 
+(* let change_type (new_type : typvar) (tg : Target.target) : unit = 
   Target.apply_on_target (Generic_core.change_type new_type) tg;
-  Trace.reparse()
+  Trace.reparse() *)
 
 (* ********************************************************* *)
 (* Create an instance of the pattern *)

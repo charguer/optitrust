@@ -7,7 +7,7 @@ let _ = Run.script_cpp (fun _ ->
 
     (* FIXED: rename inline to elim
              rename unwrap to elim_around_instr
-      LATER: think about better names
+    
     FIXED:
     Sequence.elim_around_instr tg =
       resolve tg (fun p ->

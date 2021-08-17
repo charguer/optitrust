@@ -25,9 +25,9 @@ let inline ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
 (* [alias name tg] expects [tg] to point to a typedef declaration in then copies the content 
       of the body of typedef at gives to it the name [name]
 *)
-let alias (name : string) : Target.Transfo.t =
+let copy (name : string) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Typedef_core.alias name i t p)
+    (fun (p, i) t -> Typedef_core.copy name i t p)
 
 (* [insert name td_body] expects target [tg] to a relative location inside a sequence
     then it will insert a typedef declaration at that location. [name] is the new type
