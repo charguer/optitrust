@@ -1,4 +1,4 @@
-(* open Ast *)
+open Ast
 open Target
 
 (* [fold ~at tg] expects [tg] to point to a typedef declaration.
@@ -29,3 +29,11 @@ let alias (name : string) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Typedef_core.alias name i t p)
 
+(* [insert name td_body] expects target [tg] to a relative location inside a sequence
+    then it will insert a typedef declaration at that location. [name] is the new type
+    name while [td_body] is the kind of typedef we are going to declare. It can be an alias
+    a product(for struct declarations), a sum type or an enum.
+*)
+let insert (name : string) (td_body : typdef_body) : Target.Transfo.t =
+  Target.apply_on_target_between(fun t (p, i) ->
+    Typedef_core.insert name td_body i t p)

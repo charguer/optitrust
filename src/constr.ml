@@ -587,10 +587,6 @@ exception Resolve_target_failure of location option * string
 
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
-  (* LATER: find if it is find to deactivate these encodings *)
-  (* | Some Heap_allocated | Some Delete_instructions -> *)
-     (* if t is one of the heap allocation patterns, we simplify it before *)
-     (* check_constraint c (forget_heap_alloc t) *)
   if List.mem Access t.annot  then
      (* forget the star operator at the root before checking the constraint *)
      begin match t.desc with

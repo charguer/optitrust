@@ -323,7 +323,7 @@ and trm_desc =
   (* question: distinguish toplevel seq for other seqs? *)
   | Trm_seq of trm list (* { st1; st2; st3 } *)
   | Trm_apps of trm * (trm list) (* f(t1, t2) *)
-  | Trm_while of trm * trm (* while (t1) { t2 } LATER: other like do-while *)
+  | Trm_while of trm * trm (* while (t1) { t2 } *)
   | Trm_for of var * loop_dir * trm * trm * trm  * trm
   | Trm_for_c of trm * trm * trm * trm
   | Trm_do_while of trm * trm

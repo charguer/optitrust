@@ -120,7 +120,7 @@ let change_type (new_type : typvar) (tg : Target.target) : unit =
          aux p0 t0;
          aux p1 t1;
          aux p2 t2
-      | trm_for_c(int i = ..)   | trm_for_c(int j = ...) => LATER: support this, not now
+      | trm_for_c(int i = ..)   | trm_for_c(int j = ...) => 
       | _, _ -> (* different constructors *)
   in
   try Some(aux p t) with Mismatch -> None

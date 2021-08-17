@@ -23,10 +23,9 @@ let _ = Run.script_cpp (fun () ->
   show [ nbMulti; cFor "i"; cFor "j" ];
   show [ nbMulti; cFunDef ""; dBody; cStrict; cFor "" ];
 
-  (* LATER: fix string matching for simpl_for_loops
   show [ nbAny; cFor "i"; sExpr "i++" ];
   show [ nbAny; cFor "i"; dStep; sInstr "i++" ];
-  *)
+ 
   show [ nbAny; cFor "i"; sInstr "i++" ];
   show [ nbAny; cFor "i"; dBody; sInstr "i++" ];
   show [ nbMulti; cFor "i"; dBody; cStrict; cFor "j" ];

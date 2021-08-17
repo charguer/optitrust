@@ -7,8 +7,6 @@ float f1(int x, float y){
   return x+y;
 }
 
-
-
 int main() {
 
   { const int x = 1;

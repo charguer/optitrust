@@ -102,3 +102,23 @@ let alias_aux (name : string) (index : int) (t : trm) : trm =
 
 let alias (name : string) (index : int) : Target.Transfo.local =
   Target.apply_on_path (alias_aux name index)
+
+(* [insert_aux name td_body index]: insert a new type definition
+    params:
+      name: new type name
+      td_body: body of the new type definition
+      index: location where the typedef should be inserted inside a sequence
+    return:
+      updated surrounding sequence with added typedef definition
+*)
+let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+     let lfront, lback = Tools.split_list_at index tl in
+     let tid = next_typid () in
+     let trm_to_insert = trm_typedef {typdef_typid = tid; typdef_tconstr = name; typdef_body = td_body;typdef_vars = []} in
+     trm_seq ~annot:t.annot (lfront @ [trm_to_insert] @ lback)
+  | _ -> fail t.loc "insert_aux: expected the surrounding sequence"
+
+let insert (name : string) (td_body : typdef_body) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (insert_aux name td_body index)

@@ -66,7 +66,7 @@ let _ = Run.script_cpp (fun () ->
   show [nbMulti; sExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
 
 
-  (* LATER: Implement cDef constructor *)
+  
   (* show [ cDef "f" ]; *)
   (* show [ cDef "s" ]; *):
   (* show [ cDef "p2" ]; *)
