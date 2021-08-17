@@ -351,7 +351,6 @@ let ast_to_json (trm_root : trm) : json =
 
   (* recursive construction *)
   let rec aux id_parent (t : trm) : nodeid =
-    (* LATER: may consider to go through Trm_decoration, not consider it as a node *)
     let id = get_nextid() in
     let specific_fields = node_to_js (aux id) t in
     let json = Json.Object (specific_fields @ [

@@ -63,12 +63,25 @@ let parse (filename : string) : string * trm =
   let command_line_args =
     List.map Clang.Command_line.include_directory
       (Clang.default_include_directories ()) in
-  let ast = Clang.Ast.parse_file ~command_line_args filename in
+  let ast = try Some (Clang.Ast.parse_file ~command_line_args filename )
+    with
+    | TransfoError _ -> None
+  in
+
   (* DEBUG: Format.eprintf "%a@."
        (Clang.Ast.format_diagnostics Clang.not_ignored_diagnostics) ast; *)
   print_info None "Parsing Done.\n";
   print_info None "Translating AST...\n";
+
+  let ast = begin match ast with 
+  | Some ast -> ast 
+  | None -> 
+      let status = Sys.command (Printf.sprintf "g++ %s " (filename)) in
+      failwith (Printf.sprintf "%d" status )
+    end in
+  
   let t = Clang_to_ast.translate_ast ast in
+
   print_info None "Translation done.\n";
   (includes, t)
 

@@ -16,7 +16,7 @@ struct tree_node {
   struct tree_node *left;
   struct tree_node *right;
 };
-
+int x
 void initlist() {
   vect v1 = { 1, 2 };
   vect3 v2 = { 1, 2 };
