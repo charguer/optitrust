@@ -89,6 +89,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         then [nbAny] @ tr 
         else tr in
       let epl = resolve_target tr t' in
+      Tools.printf "List length: %d\n" (List.length epl);
       match epl with
       | [] ->
          print_info t'.loc "change_typ: no matching subterm for target %s\n"

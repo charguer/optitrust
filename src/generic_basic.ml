@@ -99,10 +99,9 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
 (* [change_type new_type tg] expects [tg] to point to variable declaration
     then it will change the type of that variable with [new_type].
 *)
-(* let change_type (new_type : typvar) (tg : Target.target) : unit = 
-  Target.apply_on_target (Generic_core.change_type new_type) tg;
-  Trace.reparse() *)
-
+let change_type (new_type : typvar) : Target.Transfo.t = 
+ Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Generic_core.change_type new_type i t p) 
 (* ********************************************************* *)
 (* Create an instance of the pattern *)
 (* let pattern_instantiate (t : trm) (p : pat) : instatiation option =

@@ -208,25 +208,32 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
     return: 
       the updated ast of the declaration
 *)
-let change_type_aux (new_type : typvar) (t : trm) : trm =
+let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
   let tid = next_typid() in
   let constructed_type = typ_constr new_type tid [] in
   match t.desc with 
-  | Trm_let (vk, (x, tx), _) ->
-    let new_type = 
-      begin match (get_inner_ptr_type tx) .typ_desc with 
-      | Typ_const _ -> typ_const constructed_type 
-      | Typ_ptr {ptr_kind = pk; _} -> typ_ptr pk constructed_type
-      | Typ_array (_, sz) -> typ_array constructed_type sz
-      | _ -> constructed_type
+  | Trm_seq tl ->
+    let lfront, decl, lback = Internal.get_trm_and_its_relatives index tl in
+    begin match decl.desc with 
+    | Trm_let (vk, (x, tx), init) ->
+      let new_type = 
+        begin match (get_inner_ptr_type tx) .typ_desc with 
+        | Typ_const _ -> typ_const constructed_type 
+        | Typ_ptr {ptr_kind = pk; _} -> typ_ptr pk constructed_type
+        | Typ_array (_, sz) -> typ_array constructed_type sz
+        | _ -> constructed_type
+        end in
+      let new_decl = begin match vk with 
+      | Var_mutable -> 
+        trm_let vk (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut new_type ) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init) 
+      | Var_immutable ->
+        trm_let vk (x, new_type) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init) 
       end in
-    begin match vk with 
-    | Var_mutable -> 
-      trm_let vk (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut new_type ) (trm_apps (trm_prim(Prim_new new_type)) [get_init_val t]) 
-    | Var_immutable ->
-      trm_let vk (x, new_type) (get_init_val t)
+      let lback = List.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
+      trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback)
+    | _ -> fail t.loc "change_type_aux: expected a variable or a function declaration"
     end
-  | _ -> fail t.loc "change_type_aux: expected a variable or a function declaration"
+  | _ -> fail t.loc "change_type_aux: expected the surrounding sequence"
 
-let change_type (new_type : typvar) : Target.Transfo.local =
-  Target.apply_on_path (change_type_aux new_type)
+let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (change_type_aux new_type index)

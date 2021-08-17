@@ -734,7 +734,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
             (* LATER: the Heap_allocated annotation on get should be replaced with
                a Var_mutable argument passed to trm_var *)
             trm_apps ~annot:[Mutable_var_get] ~loc ~ctx  ~typ
-              (trm_unop ~loc ~ctx  Unop_get) [trm_var ~loc ~ctx  s]
+              (trm_unop ~loc ~ctx  Unop_get) [trm_var ~loc ~ctx  ~typ s]
           | _ -> trm_var ~loc ~typ s
         end
       | OperatorName op -> trm_var ~loc ~ctx ~typ (string_of_overloaded_op ~loc op)

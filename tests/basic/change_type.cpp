@@ -20,9 +20,9 @@ void f(vect r[N]) {
 int main() {
   int i;
   int c = w[i].x;
-  vect w2[N];
-  w2[0] = w[0];
-  f(w2);
+  // vect w2[N];
+  // w2[0] = w[0];
+  f(w);
   int d = u[i].x; 
 
 }
