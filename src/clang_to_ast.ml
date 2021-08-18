@@ -286,7 +286,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
     end
   | Elaborated {keyword = k; nested_name_specifier = _; named_type = q} ->
     begin match k with
-      | Struct ->
+      | Struct | Union ->
         translate_qual_type ~loc q
       | _ ->
         fail loc "translate_type_desc: only struct allowed in elaborated type"
@@ -908,6 +908,31 @@ and translate_decl_list (dl : decl list) : trm list =
     fail loc ("translate_decl_list: record declarations must be followed by " ^
               "type definitions")
   | [d] -> [translate_decl d]
+  | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
+                                        nested_name_specifier = _; name = rn;
+                                        bases = _; fields = fl; final = _;
+                                        complete_definition = _}} ::
+    ({desc = Var _;_} as d1) ::
+    dl' ->
+       let trm_list = List.map (fun (d : decl) ->
+      let loc = loc_of_node d in
+      match d with 
+      | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
+        let ft = translate_qual_type ~loc q in
+        let al = List.map (translate_attribute loc) al in
+        let ty = {ft with typ_attributes = al} in
+        trm_let ~loc  Var_mutable (fn,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim ~loc (Prim_new ty))
+      | _ -> 
+      translate_decl d 
+    ) fl in
+      let kw = match k with 
+      | Struct -> Struct
+      | Union -> Union
+      | Class -> Class
+      | _ -> fail loc "translate_decl_list: special records are not supported" in
+      let tl' = translate_decl_list dl' in
+      trm_let_record rn kw trm_list (translate_decl d1) :: tl'
+  
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;

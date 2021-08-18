@@ -12,9 +12,22 @@ typedef vect2 vect3;
 typedef int int2[2];
 typedef int* intstar;
 
-struct s { int i; float f; };
+union u { int single; struct { int i; float f; };};
 
-union u { int i; float f; };
+struct s { int label; union { int i; float f; };};
+
+struct { int i; float f; } s;
+
+struct  {
+  float weight;
+  int pos_x;
+  int pos_y;
+  int speed_x;
+  int speed_y;
+  vect speed;
+} particles [3];
+
+union { int i; float f; } u;
 
 namespace example {
       int i;
