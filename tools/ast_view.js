@@ -3,7 +3,7 @@
 var debug_locations = false;
 
 // The imported JS file provides 'source' and 'contents' 
-if (typeof source[0] == 'undefined') {
+if (typeof source == 'undefined') {
   console.log("couldn't load the source code")
 }
 var ast = contents[0];
@@ -148,6 +148,7 @@ function contains(loc1, loc2){
 function loadPathToNodeId(id) {
   let path_to_root = [];
   let cur_node = id;
+  console.log (cur_node);
   while (cur_node !== nodeid_invalid) {
     path_to_root.unshift(cur_node);
     cur_node = ast[cur_node].parent;
@@ -494,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // initialize editor with contents
   initEditor();
-  editor.setValue([source[0]]);
+  editor.setValue(source[0]);
 
   // show initial path: focused on the root
   var path = [nodeid_root];

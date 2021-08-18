@@ -332,6 +332,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           let dl = List.map (decorate_trm ~semicolon:true) tl in
           dattr ^^ string "extern " ^^ string lang ^^ blank 1^^surround 2 1 lbrace (separate hardline dl) rbrace 
         end
+     | Trm_namespace (name, t1, inline) ->
+      let inline = if inline then string "inline" else empty in
+      let dt = decorate_trm t1 in
+      dattr ^^ string "namespace " ^^ string name ^^ blank 1 ^^ inline ^^ blank 1 ^^ dt
         
         
      end

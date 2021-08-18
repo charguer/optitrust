@@ -325,7 +325,13 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_extern (_, l) -> 
       [ kind_to_field "extern";
         children_to_field (List.mapi ichild_to_json (List.map aux l))]
+    | Trm_namespace (name, t1, _) ->
+      [ kind_to_field "namespace";
+          value_to_field name;
+          children_to_field [child_to_json "namespace" (aux t1)]]
 
+
+          
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
      | No_braces _ -> "No_braces"

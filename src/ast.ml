@@ -356,6 +356,7 @@ and trm_desc =
   | Trm_omp_directive of directive
   | Trm_omp_routine of omp_routine
   | Trm_extern of string * trm list
+  | Trm_namespace of string * trm * bool
 
 (* type for the mutability of the varaible*)
 and varkind =
@@ -790,6 +791,11 @@ let trm_omp_routine ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attri
 let trm_extern ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (lang : string) (tl : trm list) : trm =
   {annot = annot; desc = Trm_extern (lang, tl); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+
+let trm_namespace ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+(name : string) (t : trm ) (inline : bool) : trm =
+  {annot = annot; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+
 
 (* ********************************************************************************************************************* *)
 
@@ -1434,7 +1440,8 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_omp_directive _ -> {t with annot = remove_highlight t.annot}
   | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}
   | Trm_extern (lang, tl) -> {t with annot = remove_highlight t.annot; desc = Trm_extern (lang, (List.map clean_highlights tl))}
-
+  | Trm_namespace (name, t1, inline) -> {t with annot = remove_highlight t.annot; desc = Trm_namespace (name, clean_highlights t1, inline)}
+  
 (* get the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit = 
   match t.desc with 

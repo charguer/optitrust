@@ -272,7 +272,13 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_extern (lang, decls) ->
     let dtl = List.map (print_trm ~only_desc) decls in
     node "Trm_extern" ^^ parens (string lang ^^ comma ^^ print_list dtl) 
+  | Trm_namespace (name, dcls, inline) ->
+    let dt = print_trm ~only_desc dcls in
+    node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
+      [string name; string (string_of_bool inline); dt])
+    
 
+  
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   let tid = td.typdef_typid in
   let tname = td.typdef_tconstr in
