@@ -305,6 +305,8 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end
+  | TemplateTypeParm name ->
+    typ_template_param name
   | _ -> fail loc "translate_type_desc: not implemented"
 
 and is_qual_type_const (q : qual_type) : bool =
@@ -1065,7 +1067,10 @@ and translate_decl (d : decl) : trm =
       |_ -> fail loc "translate_decl: should not happen"
     end
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
-    let tt = translate_qual_type ~loc t in
+    (* TODO: Fix me! *)
+    let tt = match t.desc with 
+    | Elaborated {named_type = nt;_} -> translate_qual_type ~loc nt
+    | _ -> translate_qual_type ~loc t in
     let const = is_typ_const tt in
     let te =
       begin match eo with

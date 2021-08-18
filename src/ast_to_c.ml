@@ -46,6 +46,8 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
     let d = typ_to_doc n in
     let drt = record_type_to_doc rt in
     drt ^^ blank 1 ^^ d
+  | Typ_template_param n ->
+    string n
 
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with

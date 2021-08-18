@@ -46,6 +46,8 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     let dt = print_typ ~only_desc name in
     let drt = print_record_type rt in
     node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
+  | Typ_template_param name ->
+    node "Typ_template_param" ^^ parens (string name)
 
 
 and print_typ_annot (a : typ_annot) : document =

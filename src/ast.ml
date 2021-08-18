@@ -78,6 +78,8 @@ type size =
   | Trm of trm (* t[2*nb] *)
 
 
+
+
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
@@ -94,6 +96,7 @@ and typ_desc =
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
   | Typ_record of record_type * typ
+  | Typ_template_param of string
 (* references are considered as pointers that's why we need to distinguish the kind of the pointer *)
 and ptr_kind =
   | Ptr_kind_mut
@@ -364,6 +367,14 @@ and trm_desc =
   | Trm_omp_routine of omp_routine
   | Trm_extern of string * trm list
   | Trm_namespace of string * trm * bool
+  | Trm_template of template_parameter_list * trm
+
+and template_param_kind = 
+  | Type_name of typ option
+  | NonType of typ * trm
+  | Template of template_parameter_list
+
+and template_parameter_list = (string * template_param_kind * bool) list
 
 (* type for the mutability of the varaible*)
 and varkind =
@@ -645,6 +656,10 @@ let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
 let typ_record ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (rt : record_type) (name : typ) : typ =
   {typ_annot = annot; typ_desc = Typ_record (rt, name); typ_attributes}
+
+let typ_template_param ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (name : string) : typ =
+  {typ_annot = annot; typ_desc = Typ_template_param name; typ_attributes}
 
 
 (* function that fails with given error message and points location in file *)
