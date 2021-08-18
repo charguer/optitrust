@@ -24,7 +24,11 @@ int main() {
     x++; }
 
   int a;
-  a = f(1,2);
+  int x = 5;
+  a = f(1,x);
   int b = f1(1,2.);
+  int c;
+  c = f(a,a);
+  c = f(1, 2);
 
 }

@@ -239,7 +239,6 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
    and updates the current ast with the result of that transformation.
    If there are several active trace (e.g., after a [switch]),
    then [f] is applied to each of the traces. *)
-(* LATER: check if we ever need the [context] argument for [f]. *)
 let apply (f : trm -> trm) : unit =
   if is_traces_dummy()
     then fail None "Trace.init must be called prior to any transformation.";
@@ -276,7 +275,6 @@ let cleanup_cpp_file_using_clang_format (filename : string) : unit =
 type language = | Cpp | Rust | Ocaml
 
 let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
-  (* LATER: clean up debugging code in this function *)
   let file_ast = prefix ^ ".ast" in
   let file_enc = prefix ^ "_enc" ^ ctx.extension in
   let file_prog = prefix ^ ctx.extension in

@@ -148,6 +148,8 @@ val cDouble : float -> constr
 
 val cString : string -> constr
 
+val cLit : constr
+
 val cCall : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> ?accept_encoded:bool -> string -> constr
 
 val cFun : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr

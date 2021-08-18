@@ -331,16 +331,19 @@ let cVar ?(substr : bool = false) ?(regexp : bool = false) (name : string) : con
   Constr_var ro
 
 let cBool (b : bool) : constr =
-    Constr_lit (Lit_bool b)
+    Constr_lit (Some (Lit_bool b))
 
 let cInt (n : int) : constr =
-    Constr_lit (Lit_int n)
+    Constr_lit (Some (Lit_int n))
 
 let cDouble (f : float) : constr =
-    Constr_lit (Lit_double f)
+    Constr_lit (Some (Lit_double f))
 
 let cString (s : string) : constr =
-    Constr_lit (Lit_string s)
+    Constr_lit (Some (Lit_string s))
+
+let cLit : constr =
+   Constr_lit None
 
 (* let cPrim (p : prim) : constr =
     cStr (ast_to_string (trm_prim p)) *)

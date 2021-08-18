@@ -111,7 +111,7 @@ and constr =
   (* var *)
   | Constr_var of constr_name
   (* lit *)
-  | Constr_lit of lit
+  | Constr_lit of lit option
   (* app: function, arguments *)
   | Constr_app of target * target_list_pred * bool
   (* label *)
@@ -313,12 +313,15 @@ let rec constr_to_string (c : constr) : string =
   | Constr_lit l ->
      let s =
        begin match l with
-       | Lit_unit ->  "()"
-       | Lit_uninitialized -> "?"
-       | Lit_bool b -> string_of_bool b
-       | Lit_int n -> string_of_int n
-       | Lit_double d -> string_of_float d
-       | Lit_string s -> s
+       | Some l1 -> begin match l1 with  
+            | Lit_unit ->  "()"
+            | Lit_uninitialized -> "?"
+            | Lit_bool b -> string_of_bool b
+            | Lit_int n -> string_of_int n
+            | Lit_double d -> string_of_float d
+            | Lit_string s -> s
+            end
+       | None -> "Any"
        end
      in "Lit " ^ s
   | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
@@ -670,7 +673,10 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_var name, Trm_var x ->
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
-        is_equal_lit l l'
+        begin match l with 
+        | Some l1 -> is_equal_lit l1 l'
+        | None -> true
+        end
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->
         if not accept_encoded then
           begin match f.desc with
