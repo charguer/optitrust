@@ -42,6 +42,10 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
      print_info None "typ_desc_to_doc: typ_fun not implemented\n";
      at
   | Typ_var (t, _) -> string t
+  | Typ_record (rt, n) ->
+    let d = typ_to_doc n in
+    let drt = record_type_to_doc rt in
+    drt ^^ blank 1 ^^ d
 
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with

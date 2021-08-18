@@ -27,6 +27,15 @@ struct  {
   vect speed;
 } particles [3];
 
+
+bool check_struct (struct s b)
+{
+    b.label  = 10;
+    b.i = 10;
+    b.f = 10;
+    // etc.
+}
+
 union { int i; float f; } u;
 
 namespace example {

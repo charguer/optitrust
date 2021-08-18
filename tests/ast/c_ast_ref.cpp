@@ -3,7 +3,6 @@
 
 typedef struct { int x; int y; } vect;
 
-typedef struct vects { vect head; vects* tail; } vects;
 
 typedef vect myvect;
 
@@ -31,7 +30,7 @@ int ref_on_mutable_int_cell() {
   int t[2] = { 4, 5 };
   int* const p0 = &t[0];
   int& r0 = t[0];
-  *p0 = 6;
+  // *p0 = 6;
   r0 = 7;
   return *p0 + r0;
 }

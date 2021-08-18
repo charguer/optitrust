@@ -93,7 +93,7 @@ and typ_desc =
   | Typ_ptr of  {ptr_kind : ptr_kind; inner_typ: typ } (* "int*" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
-
+  | Typ_record of record_type * typ
 (* references are considered as pointers that's why we need to distinguish the kind of the pointer *)
 and ptr_kind =
   | Ptr_kind_mut
@@ -642,6 +642,9 @@ let typ_fun ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (args : typ list) (res : typ) : typ =
   {typ_annot = annot; typ_desc = Typ_fun (args, res); typ_attributes}
 
+let typ_record ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (rt : record_type) (name : typ) : typ =
+  {typ_annot = annot; typ_desc = Typ_record (rt, name); typ_attributes}
 
 
 (* function that fails with given error message and points location in file *)

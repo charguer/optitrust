@@ -286,8 +286,8 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
     end
   | Elaborated {keyword = k; nested_name_specifier = _; named_type = q} ->
     begin match k with
-      | Struct | Union ->
-        translate_qual_type ~loc q
+      | Struct -> typ_record Struct (translate_qual_type ~loc q)
+      | Union ->  typ_record Union (translate_qual_type ~loc q)
       | _ ->
         fail loc "translate_type_desc: only struct allowed in elaborated type"
     end

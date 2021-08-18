@@ -42,6 +42,11 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
      let dtl = List.map (print_typ ~only_desc) tl in
      let dt = print_typ ~only_desc t in
      node "Typ_fun" ^^ parens (print_list dtl ^^ comma ^/^ dt)
+  | Typ_record (rt, name) ->
+    let dt = print_typ ~only_desc name in
+    let drt = print_record_type rt in
+    node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
+
 
 and print_typ_annot (a : typ_annot) : document =
   match a with
