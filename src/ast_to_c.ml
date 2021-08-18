@@ -336,9 +336,21 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let inline = if inline then string "inline" else empty in
       let dt = decorate_trm t1 in
       dattr ^^ string "namespace " ^^ string name ^^ blank 1 ^^ inline ^^ blank 1 ^^ dt
-        
+     | Trm_let_record (name, rt, tl, t1) ->
+      let dname = if name = "" then empty else blank 1 ^^ string name in
+      let drt = record_type_to_doc rt in
+      let dt = decorate_trm t1 in
+      let dl = List.map (decorate_trm ~semicolon:true) tl in
+      dattr ^^ drt ^^ dname ^^  blank 1 ^^ Tools.doc_list_to_doc dl ^^ blank 1 ^^ dt
         
      end
+
+and record_type_to_doc (rt : record_type) : document = 
+  match rt with 
+  | Struct -> string "struct"
+  | Union -> string "union"
+  | Class -> string "class"
+
 
 and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 
   let dsemi = if semicolon then semi else empty in

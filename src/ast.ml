@@ -247,6 +247,12 @@ and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | Aligned of trm
   | GeneratedStar
 
+
+and record_type = 
+  | Struct
+  | Union 
+  | Class
+
 (* [trm] is a record representing an ast node *)
 and trm =
  { annot : trm_annot list; 
@@ -316,6 +322,7 @@ and trm_desc =
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_var list) * trm
+  | Trm_let_record of string * record_type * trm list * trm 
   (* LATER: trm_fun  for anonymous functions *)
   (* LATER: mutual recursive functions via mutual recursion *)
   | Trm_typedef of typedef
@@ -795,6 +802,11 @@ let trm_extern ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes
 let trm_namespace ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (name : string) (t : trm ) (inline : bool) : trm =
   {annot = annot; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+
+let trm_let_record ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+(name : string) (rt : record_type ) (tl : trm list) (t : trm) : trm =
+  {annot = annot; desc = Trm_let_record (name, rt, tl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+
 
 
 (* ********************************************************************************************************************* *)
@@ -1441,7 +1453,8 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}
   | Trm_extern (lang, tl) -> {t with annot = remove_highlight t.annot; desc = Trm_extern (lang, (List.map clean_highlights tl))}
   | Trm_namespace (name, t1, inline) -> {t with annot = remove_highlight t.annot; desc = Trm_namespace (name, clean_highlights t1, inline)}
-  
+  | Trm_let_record (name, rt, tl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_let_record (name, rt, List.map clean_highlights tl, clean_highlights t1)}
+
 (* get the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit = 
   match t.desc with 

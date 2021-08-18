@@ -276,8 +276,18 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let dt = print_trm ~only_desc dcls in
     node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
       [string name; string (string_of_bool inline); dt])
-    
-
+  | Trm_let_record (name, rt, tl, t1) ->
+    let dt = print_trm ~only_desc t1 in
+    let dtl = List.map (print_trm ~only_desc) tl in
+    let drt = print_record_type rt in
+    node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
+      [string name; drt; print_list dtl; dt])
+  
+and print_record_type (rt : record_type) : document = 
+  match rt with 
+  | Struct -> string "struct"
+  | Union -> string "union"
+  | Class -> string "class"
   
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   let tid = td.typdef_typid in

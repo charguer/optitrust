@@ -1125,7 +1125,11 @@ and translate_decl (d : decl) : trm =
 
   | RecordDecl _ ->
     fail loc "translate_decl: record declarations should not happen here"
+  | Namespace {name = n; declarations = dl; inline = b} ->
+    let dls = translate_decl_list dl in
+    trm_namespace n (trm_seq dls) b
   | _ -> fail loc "translate_decl: not implemented"
+
 
 module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t

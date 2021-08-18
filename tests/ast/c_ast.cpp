@@ -12,10 +12,14 @@ typedef vect2 vect3;
 typedef int int2[2];
 typedef int* intstar;
 
-struct tree_node {
-  struct tree_node *left;
-  struct tree_node *right;
-};
+namespace example {
+      int i;
+}
+
+// struct tree_node {
+//   struct tree_node *left;
+//   struct tree_node *right;
+// };
 int x
 void initlist() {
   vect v1 = { 1, 2 };

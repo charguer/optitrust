@@ -550,7 +550,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_struct _ | Trm_array _ -> TrmKind_Expr
    | Trm_let_fun _ -> TrmKind_Ctrl (* purposely not an instruction *)
    | Trm_let _ -> TrmKind_Instr
-   | Trm_typedef _ -> TrmKind_Typedef
+   | Trm_typedef _ | Trm_let_record _-> TrmKind_Typedef
    | Trm_if _-> if is_unit then TrmKind_Ctrl else TrmKind_Expr
    | Trm_seq _ -> TrmKind_Ctrl
    (* | Trm_apps _ -> if is_unit then TrmKind_Instr else TrmKind_Expr *)
