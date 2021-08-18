@@ -348,7 +348,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let dt = decorate_trm t1 in
       let dl = List.map (decorate_trm ~semicolon:true) tl in
       dattr ^^ drt ^^ dname ^^  blank 1 ^^ Tools.doc_list_to_doc ~sep:hardline ~bounds:[lbrace; rbrace] dl ^^ blank 1 ^^ dt ^^ semi
-        
+     | Trm_template _ -> string ""
      end
 
 and record_type_to_doc (rt : record_type) : document = 

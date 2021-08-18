@@ -1173,6 +1173,26 @@ and translate_decl (d : decl) : trm =
   | Namespace {name = n; declarations = dl; inline = b} ->
     let dls = translate_decl_list dl in
     trm_namespace n (trm_seq dls) b
+
+  | TemplateDecl {parameters = {list = pl;_}; decl = d} ->
+    let dl = translate_decl d in
+    let pl = List.map (fun {decoration = _;desc = {parameter_name = n; parameter_kind = pk; parameter_pack = b};_} ->
+      let tpk =  begin match pk with 
+        | Class {default = opt_q} ->
+         begin match opt_q with 
+         | Some q -> Type_name (Some (translate_qual_type ~loc q))
+         | None -> Type_name None
+         end
+        | NonType {parameter_type = q; default = opt_expr} ->
+         begin match opt_expr with
+         | Some e -> NonType (translate_qual_type ~loc q, Some (translate_expr e ))
+         | None -> NonType (translate_qual_type ~loc q, None)
+         end
+        | _ -> fail loc "translate_decl: nested templates are not supported" (* TODO: Add support for nested templates *)
+        end in
+        (n, tpk, b)
+    ) pl in
+    trm_template pl dl
   | _ -> fail loc "translate_decl: not implemented"
 
 

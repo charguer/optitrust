@@ -337,7 +337,9 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field rt_str;
           value_to_field name;
           children_to_field (List.mapi ichild_to_json (List.map aux (l @ [t])))]
-
+    | Trm_template (_, t) ->
+      [ kind_to_field "template";
+          children_to_field [child_to_json "template" (aux t)]]
           
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with

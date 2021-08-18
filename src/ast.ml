@@ -371,7 +371,7 @@ and trm_desc =
 
 and template_param_kind = 
   | Type_name of typ option
-  | NonType of typ * trm
+  | NonType of typ * trm option
   | Template of template_parameter_list
 
 and template_parameter_list = (string * template_param_kind * bool) list
@@ -825,7 +825,9 @@ let trm_let_record ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attrib
 (name : string) (rt : record_type ) (tl : trm list) (t : trm) : trm =
   {annot = annot; desc = Trm_let_record (name, rt, tl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
-
+let trm_template ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+(tpl : template_parameter_list) (t : trm ) : trm =
+  {annot = annot; desc = Trm_template (tpl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 (* ********************************************************************************************************************* *)
 
@@ -1472,7 +1474,7 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_extern (lang, tl) -> {t with annot = remove_highlight t.annot; desc = Trm_extern (lang, (List.map clean_highlights tl))}
   | Trm_namespace (name, t1, inline) -> {t with annot = remove_highlight t.annot; desc = Trm_namespace (name, clean_highlights t1, inline)}
   | Trm_let_record (name, rt, tl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_let_record (name, rt, List.map clean_highlights tl, clean_highlights t1)}
-
+  | Trm_template (pl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_template (pl, clean_highlights t1)}
 (* get the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit = 
   match t.desc with 
