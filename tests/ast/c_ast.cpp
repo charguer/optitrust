@@ -36,6 +36,8 @@ bool check_struct (struct s b)
     // etc.
 }
 
+template <class X, int i> int f(X)
+
 union { int i; float f; } u;
 
 namespace example {

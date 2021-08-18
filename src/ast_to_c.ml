@@ -348,7 +348,24 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let dt = decorate_trm t1 in
       let dl = List.map (decorate_trm ~semicolon:true) tl in
       dattr ^^ drt ^^ dname ^^  blank 1 ^^ Tools.doc_list_to_doc ~sep:hardline ~bounds:[lbrace; rbrace] dl ^^ blank 1 ^^ dt ^^ semi
-     | Trm_template _ -> string ""
+     | Trm_template (tpl, t1) -> 
+        let dl = decorate_trm t1 in
+        let dtpl = List.map (fun (n, tpk, _) ->
+          match tpk with 
+          | Type_name typ_opt ->
+            begin match typ_opt with
+            | Some ty -> string "class " ^^ string n ^^ equals ^^ typ_to_doc ty
+            | None -> string "class " ^^ string n 
+            end
+          | NonType (ty, t_opt) ->
+            begin match t_opt with 
+            | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ trm_to_doc t1
+            | None -> typ_to_doc ty ^^ blank 1 ^^ string n
+            end
+          | Template _ -> fail None "template_param_kind_to_doc: nested templates are not supported"        
+        
+        ) tpl in
+        string "template" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
      end
 
 and record_type_to_doc (rt : record_type) : document = 
