@@ -327,7 +327,7 @@ let output_js ?(language : language = Cpp) ?(vars_declared : bool = false)(index
       output_string out_js (Tools.sprintf "var contents = %s\n" "new Array();");
       output_string out_js (Tools.sprintf "var language = %s\n" lang);
       end else ();
-    let src = Xfile.get_contents (prefix ^ extension) in
+    let src = Xfile.get_contents (prefix ^ "_before" ^ extension) in
     Ast_to_js.Json.code_to_js out_js index src;
     output_string out_js "\n";
     Ast_to_js.ast_to_js out_js index ast;
@@ -443,8 +443,7 @@ let dump_diff_and_exit () : unit =
       print_info None "Writing ast and code after last transformation...\n";
       output_prog ctx (prefix ^ "_after") astAfter;
       print_info None "Writing ast and code into %s.js " prefix;
-      let cpp_filename_for_js =  (prefix ^ "_before") ^ ".cpp" in
-      output_js 0 cpp_filename_for_js prefix astAfter;
+      output_js 0  prefix astAfter;
       print_info None "Done. Output files: %s_after.ast and %s_after%s.\n" prefix prefix ctx.extension;
       ()
     )
