@@ -60,25 +60,16 @@ let get_cpp_includes (filename : string) : string =
 let parse (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
+  (* TODO: Catch the error from Clangml, although I am happy with the error from clangml *)
   let command_line_args =
     List.map Clang.Command_line.include_directory
       (Clang.default_include_directories ()) in
-  let ast = try Some (Clang.Ast.parse_file ~command_line_args filename )
-    with
-    | TransfoError _ -> None
-  in
+  let ast = Clang.Ast.parse_file ~command_line_args filename  in
 
   (* DEBUG: Format.eprintf "%a@."
        (Clang.Ast.format_diagnostics Clang.not_ignored_diagnostics) ast; *)
   print_info None "Parsing Done.\n";
   print_info None "Translating AST...\n";
-
-  let ast = begin match ast with 
-  | Some ast -> ast 
-  | None -> 
-      let status = Sys.command (Printf.sprintf "g++ %s " (filename)) in
-      failwith (Printf.sprintf "%d" status )
-    end in
   
   let t = Clang_to_ast.translate_ast ast in
 
@@ -157,11 +148,6 @@ let init (filename : string) : unit =
   let prefix = Filename.remove_extension basename in
   let clog = init_logs directory prefix in
   let (includes, cur_ast) = parse filename in
-  (* TODO:
-    if parse was not totally successful, [exit 1].
-      using the right clangml option/query.
-    alternative: call g++ on the command line on the input file.
-  *)
   let context = { extension; directory; prefix; includes; clog } in
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
@@ -181,13 +167,13 @@ let init (filename : string) : unit =
 let alternative f : unit =
   let saved_traces = !traces in
   let trace = match !traces with
-    | [] -> fail None "Trace.restart: the trace is empty"
+    | [] -> fail None "alternative: the trace is empty"
     | [trace] -> trace
-    | _ -> fail None "Trace.restart: incompatible with the use of switch"
+    | _ -> fail None "alternative: incompatible with the use of switch"
     in
   let init_ast =
     match List.rev trace.history with
-    | [] -> fail None "Trace.restart: the history is empty"
+    | [] -> fail None "alternative: the history is empty"
     | t::_ -> t
     in
   let init_trace = { trace with cur_ast = init_ast; history = [init_ast] } in
@@ -325,22 +311,27 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
    This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
    of the source and ast after applying transformaion i.
 *)
-let output_js ?(language : language = Cpp) (index : int) (cpp_filename : string) (prefix : string) (ast : trm) : unit =
+let output_js ?(language : language = Cpp) ?(vars_declared : bool = false)(index : int) (prefix : string) (ast : trm) : unit =
   (* DEPRECATED let (_, ast) = parse cpp_filename in *)
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
     (* Dump the description of the AST nodes *)
-    let src = Xfile.get_contents cpp_filename in
+    let lang, extension = match language with 
+      | Cpp -> "\'" ^ "text/x-c++src" ^ "\'", ".cpp"
+      | Rust -> "\'" ^ "text/x-rustsrc" ^ "\'", ".rs"
+      | Ocaml -> "\'" ^ "text/x-Ocaml" ^ "\'", ".ml" in
+    if not vars_declared 
+      then begin
+      output_string out_js (Tools.sprintf "var source = %s\n" "new Array();");
+      output_string out_js (Tools.sprintf "var contents = %s\n" "new Array();");
+      output_string out_js (Tools.sprintf "var language = %s\n" lang);
+      end else ();
+    let src = Xfile.get_contents (prefix ^ extension) in
     Ast_to_js.Json.code_to_js out_js index src;
     output_string out_js "\n";
     Ast_to_js.ast_to_js out_js index ast;
     output_string out_js "\n";
-    let lang = match language with 
-      | Cpp -> "\'" ^ "text/x-c++src" ^ "\'" 
-      | Rust -> "\'" ^ "text/x-rustsrc" ^ "\'"
-      | Ocaml -> "\'" ^ "text/x-Ocaml" ^ "\'" in
-    output_string out_js (Tools.sprintf "var language = %s\n" lang);
     close_out out_js;
   with | Failure s ->
     close_out out_js;
@@ -348,43 +339,36 @@ let output_js ?(language : language = Cpp) (index : int) (cpp_filename : string)
 
 (* [dump_trace_to_js] writes into one/several (?) files
    the contents of the current AST and of all the history,
-   that is, of all the ASTs for which the [step] method was called. *)
-
-
-let dump_trace_to_js ?(prefix : string = "") () : unit =
-  assert (prefix = prefix && false)
-  (* TODO: needs to update the call to output_js to go through a cpp file first *)
-  (* let dump_history (ctx : context) (cpp_filename : string) (prefix : string) (asts : trm list) : unit =
+   that is, of all the ASTs for which the [step] method was called. 
+*)
+let dump_trace_to_js ?(prefix : string = "") : unit =
+  assert (prefix = prefix && false);
+  let dump_history (prefix : string) (asts : trm list) : unit =
     let nbAst = List.length asts in
     let i = ref (nbAst - 2) in
     List.iter
       (fun ast ->
-        if !i = 0 then begin
-          output_prog ctx (prefix ^ "_in") ast;
-          output_js 0 cpp_filename prefix
+        if !i = 0 then 
+          output_js 0 prefix ast
+        else if !i = (nbAst - 2) then
+          output_js ~vars_declared:true (nbAst - 2) prefix ast
+        else if !i = (-1) then ()
+        else 
+          begin
+          output_js ~vars_declared:true !i prefix ast;
+          i := !i - 1
           end
-        else if !i = nbAst -2 then begin
-          output_prog ctx (prefix ^ "out") ast;
-          output_js (-1) cpp_filename (prefix ^ "out")
-          end
-        else if !i = -1 then ()
-        else
-          output_prog ctx (prefix ^ "_" ^ string_of_int !i) ast;
-          output_js !i cpp_filename prefix ;
-        i := !i - 1
       )
-      asts
-  in
+      asts in
   List.iter
     (fun trace ->
       let ctx = trace.context in
       let prefix =
         if prefix = "" then ctx.directory ^ ctx.prefix else prefix
       in
-      dump_history ctx prefix (trace.cur_ast :: trace.history)
+      dump_history prefix (trace.cur_ast :: trace.history)
     )
-    (!traces) *)
-
+    (!traces)
 
 (*
   filename = prefix ^ "_trace.js"
@@ -460,7 +444,7 @@ let dump_diff_and_exit () : unit =
       output_prog ctx (prefix ^ "_after") astAfter;
       print_info None "Writing ast and code into %s.js " prefix;
       let cpp_filename_for_js =  (prefix ^ "_before") ^ ".cpp" in
-      output_js (-1) cpp_filename_for_js prefix astAfter;
+      output_js 0 cpp_filename_for_js prefix astAfter;
       print_info None "Done. Output files: %s_after.ast and %s_after%s.\n" prefix prefix ctx.extension;
       ()
     )

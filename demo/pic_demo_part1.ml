@@ -69,7 +69,7 @@ let _ = Run.script_cpp (fun () ->
    !! Loop.move "y" ~after:"x";
    !! Loop.move "cy" ~before:"bx";
    !! Loop.move "cz" ~before:"bx";
-  (* PART 5 Concurrency, TODO:*)
+  (* PART 5 Concurrency, TODO: Arthur*)
 )
 
 

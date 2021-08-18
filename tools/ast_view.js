@@ -3,10 +3,10 @@
 var debug_locations = false;
 
 // The imported JS file provides 'source' and 'contents' 
-if (typeof source == 'undefined') {
+if (typeof source[0] == 'undefined') {
   console.log("couldn't load the source code")
 }
-var ast = contents;
+var ast = contents[0];
 let nodeid_root = 0;
 let nodeid_invalid = -1;
 var language_mode = language;
@@ -494,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // initialize editor with contents
   initEditor();
-  editor.setValue(source);
+  editor.setValue([source[0]]);
 
   // show initial path: focused on the root
   var path = [nodeid_root];

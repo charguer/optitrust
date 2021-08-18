@@ -35,17 +35,27 @@ module Json = struct
     | List l -> Tools.print_list ~sep:"," (List.map json_to_doc l)
     | Object o -> Tools.print_object (List.map (fun (k,j) -> json_to_doc k ^^ string ": " ^^ json_to_doc j) o)
 
-  let json_to_js ?(index : int = (-1)) (j : t) : document =
+  (* let json_to_js_1 ?(index : int = (-1)) (j : t) : document =
    let json_ast = json_to_doc j in
+   
    match index with
    | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi ^^ hardline
-   | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline
+   | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline *)
 
-  let code_to_js (out : out_channel) (index : int) (src : string) : unit =
+  let json_to_js (index : int) (j : t) : document =
+   let json_ast = json_to_doc j in
+   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline
+
+  
+  (* let code_to_js (out : out_channel) (index : int) (src : string) : unit =
     let doc = match index with 
       | -1 -> string "source"  ^^ equals ^^ bquotes (string src) ^^ hardline
       | _ -> string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline
       in
+    PPrintEngine.ToChannel.pretty 0.9 80 out doc
+   *)
+  let code_to_js (out : out_channel) (index : int) (src : string) : unit =
+    let doc = string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline in
     PPrintEngine.ToChannel.pretty 0.9 80 out doc
 
 end
@@ -379,4 +389,4 @@ let ast_json_to_doc (out : out_channel) (t : trm) : unit =
   the index represents the state of the ast after applying i-th transformation
 *)
 let ast_to_js (out : out_channel) (index : int) (t : trm) : unit =
-  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js (ast_to_json t) ~index )
+  PPrintEngine.ToChannel.pretty 0.9 80 out (Json.json_to_js index (ast_to_json t)  )
