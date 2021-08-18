@@ -60,7 +60,6 @@ let get_cpp_includes (filename : string) : string =
 let parse (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
-  (* TODO: Catch the error from Clangml, although I am happy with the error from clangml *)
   let command_line_args =
     List.map Clang.Command_line.include_directory
       (Clang.default_include_directories ()) in
@@ -241,11 +240,11 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
    If there are several active trace (e.g., after a [switch]),
    then [f] is applied to each of the traces. *)
 (* LATER: check if we ever need the [context] argument for [f]. *)
-let apply (f : context -> trm -> trm) : unit =
+let apply (f : trm -> trm) : unit =
   if is_traces_dummy()
     then fail None "Trace.init must be called prior to any transformation.";
   List.iter (fun trace ->
-    trace.cur_ast <- f trace.context trace.cur_ast)
+    trace.cur_ast <- f trace.cur_ast)
     !traces
 
 (* [step()] takes the current AST and adds it to the history.
@@ -341,7 +340,7 @@ let output_js ?(language : language = Cpp) ?(vars_declared : bool = false)(index
    the contents of the current AST and of all the history,
    that is, of all the ASTs for which the [step] method was called. 
 *)
-let dump_trace_to_js ?(prefix : string = "") : unit =
+let dump_trace_to_js ?(prefix : string = "") () : unit =
   assert (prefix = prefix && false);
   let dump_history (prefix : string) (asts : trm list) : unit =
     let nbAst = List.length asts in
@@ -507,7 +506,7 @@ let (!!!) (x:'a) : 'a =
 let dump ?(prefix : string = "") () : unit =
   if Flags.get_exit_line() <> None then dump_diff_and_exit ();
   (* if !Flags.full_dump then dump_trace ~prefix () *)
-  if !Flags.full_dump then dump_trace_to_js ~prefix() else begin
+  if !Flags.full_dump then dump_trace_to_js ~prefix () else begin
     List.iter
       (fun trace ->
         let ctx = trace.context in

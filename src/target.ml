@@ -498,7 +498,7 @@ let apply_on_path = Path.apply_on_path
         unit
 *)
 let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
-  Trace.apply (fun _ t ->
+  Trace.apply (fun t ->
     let ps = resolve_target tg t in
     Tools.foldi (fun i t dl -> tr i t dl) t ps)
 
@@ -521,7 +521,7 @@ let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
         unit
 *)
 let applyi_on_target_between (tr : int -> trm -> (path*int)  -> trm) (tg : target) : unit =
-  Trace.apply (fun _ t ->
+  Trace.apply (fun t ->
     let ps = resolve_target_between tg t in
     Tools.foldi (fun i t (pk:path*int) -> tr i t pk) t ps)
 
@@ -530,7 +530,7 @@ let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit
 
 
 let apply_on_transformed_target_between (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
-  Trace.apply ( fun _ t ->
+  Trace.apply ( fun t ->
   let ps = resolve_target_between_exactly_one tg t in
   let descr = transformer (fst ps @ [Dir_seq_nth (snd ps)]) in
   tr descr t
@@ -555,7 +555,7 @@ let apply_on_transformed_target_between (transformer : path -> 'a) (tr : 'a -> t
   by passing the flag [~rev:true] to the call.
 *)
 let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> 'a -> trm -> trm ) (tg : target) : unit =
- Trace.apply (fun _ t  ->
+ Trace.apply (fun t  ->
   let ps = resolve_target tg t in
   let descrs = List.map transformer ps in
   let descrs = if rev then List.rev descrs else descrs in
@@ -569,7 +569,7 @@ let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
 (* LATER: see if [rev]  argument is also needed for [apply_on_targets] *)
 
 
-  (* Trace.apply (fun _ t ->
+  (* Trace.apply (fun t ->
     let ps = resolve_target tg t in
     let descrs = List.map transformer ps in
     List.fold_left (fun t descr -> tr descr t) t descrs) *)

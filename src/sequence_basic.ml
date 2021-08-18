@@ -48,7 +48,7 @@ let intro ?(label : string = "") (nb : int) (tg : Target.target) : unit =
 *)
 let intro_between ?(label : string = "") (tg_beg : target) (tg_end : target) : unit =
   Internal.nobrace_enter ();
-  Trace.apply (fun _ t ->
+  Trace.apply (fun t ->
     let ps_beg : (path * int) list = resolve_target_between tg_beg t in
     let ps_end : (path * int) list = resolve_target_between tg_end t in
     if List.length ps_beg <> List.length ps_end

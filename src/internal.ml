@@ -389,10 +389,10 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
 let nobrace_remove_and_exit ?(all : bool = false) () =
     match all with 
     | true -> 
-      Trace.apply (fun _ctx ast -> clean_no_brace_seq ~all (-1) ast)
+      Trace.apply (fun ast -> clean_no_brace_seq ~all (-1) ast)
     | false ->
       let id = Nobrace.exit () in
-      Trace.apply (fun _ctx ast -> clean_no_brace_seq ~all id ast)
+      Trace.apply (fun ast -> clean_no_brace_seq ~all id ast)
     
     
 (* Called when there is generated a no brace sequence from a transformation, this is needed
