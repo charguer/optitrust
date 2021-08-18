@@ -37,6 +37,7 @@ TESTS_WORKING := \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	typedef_inline.ml \
+	typedef_insert.ml \
 	typedef_fold.ml \
 	variable_inline.ml \
 	variable_fold.ml \
@@ -51,7 +52,6 @@ ARTHUR_TO_SPEC := \
 TESTS_OTHERS := \
 
 
-# TODO: remove? typedef_insert.ml \
 # TODO: script for vscode opening
 
 TESTS := $(TESTS_WORKING) 

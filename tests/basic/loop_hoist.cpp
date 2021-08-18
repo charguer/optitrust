@@ -9,3 +9,4 @@ int main() {
     u[i] = x;
     z = x;
   }
+}

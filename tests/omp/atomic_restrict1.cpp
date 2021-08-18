@@ -1,6 +1,7 @@
+ union {int n; float x;} u;
+
 void atomic_wrong ()
 {
- union {int n; float x;} u;
 
   {
     u.n++;

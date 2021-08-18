@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Omp.parallel [Num_threads 2] [tBefore; cVarDef "p"];
+  !! Omp.parallel [Num_threads "2"] [tBefore; cVarDef "p"];
   !! Omp.single [] [tBefore; cSeq ~args_pred:(Target.target_list_one_st (cFun "init")) ()];
   !! Omp.task [Depend (Out ["v1"])] [tBefore; tIndex ~nb:2 0; cFun "init"];
   !! Omp.task [Depend (Out ["v2"])] [tBefore; tIndex ~nb:2 1; cFun "init"];

@@ -1,3 +1,4 @@
+
 // --------- Parameters
 
 // Time steps description
@@ -11,6 +12,7 @@ const int nbCells = gridSize * gridSize * gridSize;
 // Maximum number of particles per cell
 const int bagCapacity = 100;
 
+const double charge = 1.0;
 // --------- Vector
  
 typedef struct {
@@ -51,32 +53,13 @@ void bag_clear(bag& b) {
 }
 
 
-void bag_transfer(bag* b1, bag* b2) { // transfer from b2 into b1
-  for (int i = 0; i < b2->nb; i++) {
-    bag_push(b1, b2->items[i]);
-  }
-  bag_clear(b2);
-}
-
-void bag_transfer(bag& b1, bag& b2) {
-  // Move all items from b2 into b1
-  // Note: in the real code, bags are linked lists,
-  // so this operation only involves a pointer assignment,
-  // not a deep copy of an array.
+void bag_transfer(bag& b1, bag& b2) { // transfer from b2 into b1
   for (int i = 0; i < b2.nb; i++) {
     bag_push(b1, b2.items[i]);
   }
   bag_clear(b2);
 }
-// --- Data structures
 
-// in the real code, the charge is associated not to each cell,
-// but to each corner of a cell in the grid
-
-vect fields[nbCells];
-double nextCharge[nbCells];
-bag bagsCur[nbCells];
-bag bagsNext[nbCells];
 
 // --------- Grid Representation
 
@@ -111,14 +94,14 @@ int main() {
       vect field = fields[idCell];
 
       // Foreach particle in the cell considered
-      bag& b = &bagsCur[idCell];
+      bag& b = bagsCur[idCell];
       int nb = b.nb;
       for (int idParticle = 0; idParticle < nb; idParticle++) {
         // Read the particle in memory
-        particle& p = b.items[idParticle];
+        particle &p = b.items[idParticle];
         
         // Compute the new speed and position for the particle
-        vect speed2 = vect_add(p.speed, field); 
+        vect speed2 = vect_add(p.speed, vect_mul(charge, field)); 
         vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
         // Deposit the unit charge of the particle in array "nextCharge"

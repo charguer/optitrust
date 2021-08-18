@@ -12,3 +12,4 @@ void matmul_depend(int N, int BS, float A[N][N], float B[N][N], float C[N][N] )
          }
       }
    }
+}

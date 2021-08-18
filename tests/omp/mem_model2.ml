@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Omp.parallel [Num_threads 2] [tAfter; cVarDef "flag"];
+  !! Omp.parallel [Num_threads "2"] [tAfter; cVarDef "flag"];
   !! Omp.flush ["flag";"data"] [tAfter; sInstr "data ="];
   !! Omp.flush ["flag"] [tAfter; sInstr "flag = 1"];
   !! Omp.flush ["flag";"data"] [tBefore; cWhile ()];

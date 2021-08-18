@@ -253,7 +253,8 @@ let rec toplevel_decl (x : var) (t : trm) : trm option =
   match t.desc with
   | Trm_typedef td when td.typdef_tconstr = x -> Some t
   | Trm_let (_, (y, _),_ ) when y = x -> Some t
-  | Trm_let_fun (y, _, _, _) when y = x -> Some t
+  | Trm_let_fun (y, _, _, body) ->
+    if y = x then Some t else toplevel_decl x body 
   | Trm_seq tl ->
     List.fold_left(
       fun acc t1 ->
