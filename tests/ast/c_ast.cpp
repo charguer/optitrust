@@ -12,6 +12,10 @@ typedef vect2 vect3;
 typedef int int2[2];
 typedef int* intstar;
 
+struct s { int i; float f; };
+
+union u { int i; float f; };
+
 namespace example {
       int i;
 }
@@ -20,7 +24,6 @@ namespace example {
 //   struct tree_node *left;
 //   struct tree_node *right;
 // };
-int x
 void initlist() {
   vect v1 = { 1, 2 };
   vect3 v2 = { 1, 2 };
