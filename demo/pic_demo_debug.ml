@@ -2,18 +2,13 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-   !! Sequence.insert "const int nbColors = 8" [tBefore; cVarDef "charge"];
-   !! Sequence.insert "const int nbCellsPerTile = 8" [tBefore; cVarDef "charge"];
-   !! Sequence.insert "const int nbCellsPerColor = nbCells / nbColors" [tBefore; cVarDef "charge"];
-   !! Sequence.insert "const int nbTiles = nbCells / nbCellsPerTile" [tBefore; cVarDef "charge"];
-   !! Sequence.insert "const int nbTilesPerColor = nbTiles / nbColors"[tBefore; cVarDef "charge"];
-   !! Sequence.insert "int idCellsOfTile[nbTiles][nbCellsPerTile]" [tBefore; cVarDef "charge"];
-   !! Loop.color "nbColors" "color" [cFor "step";cFor "idCell"] ;
-   !! Loop.tile "nbTilesPerColor" "idTileInColor" [cFor "idCell"];
-   !! Loop.tile "idCellOfTile" "nbCellsPerTile" [cFor "idCell"];
-
-
-
+  !! Generic_basic.from_one_to_many ["bagsNextPrivate"; "begsNextShared"] [cVarDef "bagsNext"];
+  !! Generic_basic.arbitrary_if "isNeighbor(idCell2, idCell)" [cFunDef "main";cFun "bag_push" ~args_pred:(Target.target_list_one_st (cVar "bagsNextPrivate"))];
+  !! Generic_basic.replace "bag_push_atomic" [cIf(); dElse; cFun "bag_push"; cVar "bag_push"];
+  !! Sequence_basic.insert "bag_transfer(bagsCur[idCell], bagsNext[idCell])" [tAfter; cFun "bag_transfer" ~args_pred:(Target.target_list_one_st (cVar "bagsNextPrivate"))];
+  (* Ast.(Trace.apply (fun _ t ->
+    let tg_path = Target.resolve_target [cIf ] in
+    Target.apply_on_path (fun t tg_path ->
+      trm_if cond t t
+    ))) *)
 )
-
-
