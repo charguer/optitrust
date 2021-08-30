@@ -204,28 +204,28 @@ let abort ?(break : bool = false) (t : trm) : trm =
   | StarEqual -> "overloaded*="
   | _ -> fail loc "string_of_overloaded_op: non supported operator"
 
-let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d : type_desc) : typ =
+let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(translate_record_types : bool = true) (d : type_desc) : typ =
   match d with
   | Pointer q ->
-    let t = translate_qual_type ~loc q in
+    let t = translate_qual_type ~loc ~translate_record_types q in
     if const then
       typ_const (typ_ptr Ptr_kind_mut t)
     else
     typ_ptr Ptr_kind_mut t
   | LValueReference  q ->
-    let t = translate_qual_type ~loc q in
+    let t = translate_qual_type ~loc ~translate_record_types q in
     if const then
       typ_const (typ_ptr Ptr_kind_ref t)
     else
     typ_ptr Ptr_kind_ref t
   | RValueReference  q ->
-    let t = translate_qual_type ~loc q in
+    let t = translate_qual_type ~loc ~translate_record_types q in
     if const then
       typ_const (typ_ptr Ptr_kind_ref  (typ_ptr Ptr_kind_ref t))
     else 
       (typ_ptr Ptr_kind_ref (typ_ptr Ptr_kind_ref t))
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
-    let t = translate_qual_type ~loc q in
+    let t = translate_qual_type ~loc ~translate_record_types q in
     begin match eo with
       | None -> typ_array t (Const n)
       | Some e ->
@@ -236,11 +236,11 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
           typ_array t (Trm s)
     end
   | VariableArray {element = q; size = eo} ->
-    let t = translate_qual_type ~loc q in
+    let t = translate_qual_type ~loc ~translate_record_types q in
     let s = translate_expr eo in
     typ_array t (Trm s)
   | IncompleteArray q ->
-    let t = translate_qual_type ~loc q in
+    let t = translate_qual_type ~loc ~translate_record_types q in
     typ_array t Undefined
   | Auto -> 
     typ_auto ()
@@ -286,8 +286,8 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
     end
   | Elaborated {keyword = k; nested_name_specifier = _; named_type = q} ->
     begin match k with
-      | Struct -> typ_record Struct (translate_qual_type ~loc q)
-      | Union ->  typ_record Union (translate_qual_type ~loc q)
+      | Struct -> if translate_record_types then typ_record Struct (translate_qual_type ~loc q) else (translate_qual_type ~loc q)
+      | Union ->  if translate_record_types then typ_record Union (translate_qual_type ~loc q) else (translate_qual_type ~loc q)
       | _ ->
         fail loc "translate_type_desc: only struct allowed in elaborated type"
     end
@@ -312,9 +312,9 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) (d 
 and is_qual_type_const (q : qual_type) : bool =
   let {const;_} = q in const 
 
-and translate_qual_type ?(loc : location = None) (q : qual_type) : typ =
+and translate_qual_type ?(loc : location = None) ?(translate_record_types : bool = true) (q : qual_type) : typ =
   let ({desc = d; const = c; _} : qual_type) = q in
-  translate_type_desc ~loc ~const:c d
+  translate_type_desc ~loc ~const:c ~translate_record_types d
 
 and translate_ident (id : ident_ref node) : string =
   let {decoration = _; desc = {nested_name_specifier = _; name = n; _}} = id in
@@ -1068,9 +1068,21 @@ and translate_decl (d : decl) : trm =
     end
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
     (* TODO: Fix me! *)
-    let tt = match t.desc with 
-    | Elaborated {named_type = nt;_} -> translate_qual_type ~loc nt
-    | _ -> translate_qual_type ~loc t in
+    let rec contains_elaborated_type (q : qual_type) : bool = 
+      let {desc = d;const = _;_} = q in
+      match d with 
+      | Pointer q -> contains_elaborated_type q
+      | LValueReference q -> contains_elaborated_type q
+      | RValueReference q -> contains_elaborated_type q
+      | ConstantArray {element = q;_} -> contains_elaborated_type q
+      | VariableArray {element = q; _} -> contains_elaborated_type q
+      | IncompleteArray q -> contains_elaborated_type q
+      | Elaborated _ -> true
+      | _ -> false
+    
+    in
+    let tt = if contains_elaborated_type t then translate_qual_type ~loc ~translate_record_types:false t else translate_qual_type ~loc t in
+    
     let const = is_typ_const tt in
     let te =
       begin match eo with

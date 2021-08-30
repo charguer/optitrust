@@ -365,7 +365,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           | Template _ -> fail None "template_param_kind_to_doc: nested templates are not supported"        
         
         ) tpl in
-        string "template" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl
+        string "template" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
      end
 
 and record_type_to_doc (rt : record_type) : document = 

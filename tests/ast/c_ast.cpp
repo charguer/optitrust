@@ -28,7 +28,7 @@ struct  {
 } particles [3];
 
 
-bool check_struct (struct s b)
+void check_struct (struct s b)
 {
     b.label  = 10;
     b.i = 10;
@@ -36,7 +36,7 @@ bool check_struct (struct s b)
     // etc.
 }
 
-template <class X, int i> int f(X)
+template <class X, int i> int f(X);
 
 union { int i; float f; } u;
 

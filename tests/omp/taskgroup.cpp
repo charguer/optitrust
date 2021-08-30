@@ -1,14 +1,14 @@
-extern void start_background_work(void);
-extern void check_step(void);
-extern void print_results(void);
-struct tree_type
+void start_background_work(void);
+void check_step(void);
+void print_results(void);
+struct tree_node
 {
-   struct tree_type *left;
-   struct tree_type *right;
+   struct tree_node *left;
+   struct tree_node *right;
 };
-typedef struct tree_type* tree_type;
-extern void init_tree(tree_type);
-#define max_steps 100
+typedef struct tree_node* tree_type;
+void init_tree(tree_type);
+int max_steps = 100;
 void compute_something(tree_type tree)
 {
    // some computation
@@ -31,7 +31,7 @@ int main()
   tree_type tree;
   init_tree(tree);
   {
-      start_background_work();
+    start_background_work();
     for (i = 0; i < max_steps; i++)
     {
         {
@@ -43,4 +43,3 @@ int main()
   print_results();
   return 0;
 }
-
