@@ -1,8 +1,8 @@
 
 typedef struct {
-    int x;
-    int y; }
-  vect;
+  int x;
+  int y; }
+vect;
 
 typedef struct {
   int weight;
@@ -16,13 +16,15 @@ vect f() {
 
 int main() {
   vect p = {0,0};
-  vect b; 
+  vect b;
   b = p;
-  obj a = {0,{0,0},{0,0}};
   vect u;
+  obj a = {0,{0,0},{0,0}};
   u = a.pos;
   vect t[2];
   vect p2 = p;
   t[0] = p2;
-  return 0;  
+  obj c;
+  c = a;
+  return 0;
 }

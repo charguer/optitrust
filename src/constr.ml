@@ -131,14 +131,14 @@ and constr =
   (* Number of  occurrences expected  *)
   | Constr_occurrences of target_occurrences
   (* List of constraints *)
-  | Constr_target of constr list 
+  | Constr_target of constr list
   (* Constraint used for argument match *)
   | Constr_bool of bool
   (* Constraint that matches only the root of the AST *)
   | Constr_root
   | Constr_or of target list
   | Constr_and of target list
-  
+
 
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
@@ -313,7 +313,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_lit l ->
      let s =
        begin match l with
-       | Some l1 -> begin match l1 with  
+       | Some l1 -> begin match l1 with
             | Lit_unit ->  "()"
             | Lit_uninitialized -> "?"
             | Lit_bool b -> string_of_bool b
@@ -566,7 +566,7 @@ let rec get_trm_kind (t : trm) : trm_kind =
    | Trm_labelled (_, t) -> get_trm_kind t
    | Trm_arbitrary _ -> fail t.loc "get_trm_kind: trm_arbitrary is removed during parsing"
    | Trm_omp_directive _ | Trm_omp_routine _ | Trm_extern _  | Trm_namespace _ | Trm_template _->TrmKind_Any
-   
+
 let match_regexp_str (r : rexp) (s : string) : bool =
   (*if s = "x" then incr Debug.counter;
   if !Debug.counter = 2 then raise Debug.Breakpoint; *)
@@ -673,7 +673,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_var name, Trm_var x ->
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
-        begin match l with 
+        begin match l with
         | Some l1 -> is_equal_lit l1 l'
         | None -> true
         end
@@ -803,17 +803,30 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
-    | Constr_or tl :: [] -> List.fold_left(fun acc tr -> 
+    | Constr_or tl :: [] -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at list one solution *)
+        let all_target_must_resolve = false in
+        List.fold_left (fun acc tr ->
+          let potential_targets = resolve_target_simple tr t in
+          begin match potential_targets with
+          | [[]] when all_target_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | _ -> acc @ potential_targets  (* LATER: make code more complex to avoid quadratic operation here *)
+          end ) [] tl
+        (* DEPRECATED List.fold_left(fun acc tr ->
         let potential_target = resolve_target_simple tr t in
         begin match potential_target with
         | [[]] -> acc
-        | _ -> 
-          begin match acc with 
+        | _ ->
+          begin match acc with
           | [] -> potential_target
           | _ -> acc
           end
-        end ) [] tl
-    | Constr_and tl :: [] -> List.fold_left(fun acc tr -> 
+        end ) [] tl *)
+    | Constr_and tl :: [] ->
+        (* TODO: naive implementation:
+            - apply resolve_target_simple for each tl elements
+            - take the intersection of the sets of results
+              using a List.fold_left (fun ... -> List.filter ..) *)
+        List.fold_left (fun acc tr ->
         let potential_target = resolve_target_simple tr t in
         begin match potential_target with
         | [[]] -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
@@ -926,7 +939,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
 
   let loc = t.loc in
   (* no exploration in depth in included files *)
-  if  (List.exists (function Include _ -> true | _ -> false) t.annot) then begin 
+  if  (List.exists (function Include _ -> true | _ -> false) t.annot) then begin
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
      end
@@ -959,7 +972,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_let_fun (_, _ , _,body) ->
         (* DEPRECATED: the name of the function should not be considered an occurence;
             add_dir Dir_name (aux (trm_var ~loc x))@*)
-        add_dir Dir_body (aux_body body) 
+        add_dir Dir_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
       | Typdef_enum xto_l ->
