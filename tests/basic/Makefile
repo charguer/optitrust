@@ -41,7 +41,7 @@ TESTS_WORKING := \
 	typedef_fold.ml \
 	variable_inline.ml \
 	variable_fold.ml \
-	variable_rename\
+	variable_rename.ml\
 
 TESTS_TOCHECK := \
 	aos_to_soa.ml \
