@@ -54,7 +54,7 @@ TESTS_OTHERS := \
 
 # TODO: script for vscode opening
 
-TESTS := $(TESTS_WORKING) 
+TESTS := $(TESTS_WORKING)
 
 COMPILE := \
 	loop_grid_enumerate.ml \

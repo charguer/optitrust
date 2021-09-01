@@ -2,27 +2,17 @@ int f(int x) {
   return x+1;
 }
 
-int g(int x, int y, int z, int w) {
-  int p = x + y + z + w;
-  return p + p;
+int g(int x, int y) {
+  return x + y;
 }
 
-int h(int x) {
-  return x-1;
-}
-
-int m(int x, int y) {
-  return x-y;
-}
-
-void n(int x) {
-  x = x + 1;
-  return;
+int h() {
+  return 1;
 }
 
 int main() {
-  int x = 3;
-  int u, v, w;
-  int t = f(g(h(4), u, m(v,2), w+1));
+  int a = 3;
+  int t = f(g(a,4));
+  int z = f(h());
   return 0;
 }

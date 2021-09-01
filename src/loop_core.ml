@@ -48,7 +48,7 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
       | "" -> "c" ^ index
       | _ -> i_color in
     let full_ast = Trace.get_ast () in
-    let i_color = begin match Internal.toplevel_decl i_color full_ast with 
+    let i_color = begin match Internal.toplevel_decl i_color full_ast with
     | Some _ -> let rnd_nb = Random.int 100 in i_color ^ (string_of_int rnd_nb)
     | None -> i_color
     end in
@@ -340,7 +340,7 @@ let unroll_aux (label : var) (index : int) (t : trm) : trm =
         let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
         Internal.change_trm (trm_var index) new_index body :: acc
          ) [] (List.rev unrolled_loop_range) in
-      begin match label with 
+      begin match label with
       | "" -> trm_seq ~annot:t.annot (lfront @ unrolled_body @ lback)
       | _ -> trm_seq ~annot:t.annot (lfront @ [trm_labelled label (trm_seq_no_brace unrolled_body)] @ lback)
       end
@@ -392,7 +392,7 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
     let then_ = Internal.set_no_brace_if_sequence then_ in
     let else_ = Internal.set_no_brace_if_sequence else_ in
     let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (lfront @ [t1] @ lback )) in
-    trm_if cond (wrap_branch then_) (wrap_branch else_) 
+    trm_if cond (wrap_branch then_) (wrap_branch else_)
   | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
 
 let unswitch (trm_index : int) : Target.Transfo.local =
@@ -410,7 +410,7 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, _) ->
     let new_index = match new_index with
-    | "" -> index ^ "_1"
+    | "" -> index ^ "_step"
     | _ -> new_index in
     let body_trms = for_loop_body_trms t in
     let new_decl = trm_let Var_mutable (index, (typ_ptr Ptr_kind_mut (typ_int()) ~typ_attributes:[GeneratedStar]))
