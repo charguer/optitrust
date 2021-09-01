@@ -10,8 +10,4 @@ let _ = Run.script_cpp ( fun _ ->
       !! Tools.failure_expected (fun () ->
             Label_basic.remove [cLabel "foo"];)
 
-      (* LATER:  extend cLabel  with a regexp
-        Label_basic.remove [cLabel ~rexexp:true (regexp_or ["loop";"cond";"incr_1";"incr_2"])];
-        where regexp_or builds the string "(loop)|(cond)|..."
-      *)
 )

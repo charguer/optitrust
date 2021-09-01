@@ -231,7 +231,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
               let n_div_b =
                 trm_apps (trm_binop Binop_div) [trm_lit (Lit_int n); trm_var block_size]
               in
-              let tid = next_typid () in
+              let tid = next_typconstrid () in
               trm_seq_no_brace
                 [
                   trm_typedef {
@@ -242,7 +242,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
                     typdef_body = Typdef_alias (typ_array (typ_var block_name tid) (Trm n_div_b))}]
            | Trm t' ->
               let t'' = trm_apps (trm_binop Binop_div) [t'; trm_var block_size] in
-              let tid = next_typid () in
+              let tid = next_typconstrid () in
               trm_seq_no_brace
                 [
                   trm_typedef {

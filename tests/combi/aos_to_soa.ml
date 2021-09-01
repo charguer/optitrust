@@ -7,11 +7,3 @@ let _ = Run.script_cpp (fun () ->
 )
 
 
-(*
-=> LATER: at the combi level,
-   high-level combinators to automate the process
-   including the feature of "looking whether a copy of the type is needed".
-   (in particular when changing only one variable)
-
-
-*)

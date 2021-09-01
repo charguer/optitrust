@@ -40,17 +40,17 @@ type scope_kind =
 (* For the context, see the documentation of type [ctx] in [ast.ml]. *)
 
 (* NOTE at the moment ctx_var is global, meaning that bindings are not
-   removed when we leave a scope; LATER: would be cleaner to have ctx_var
+   removed when we leave a scope; T: would be cleaner to have ctx_var
    as argument to the recursive function. *)
 let ctx_var : typ varmap ref = ref String_map.empty
 
-let ctx_tconstr : typid varmap ref = ref String_map.empty
+let ctx_tconstr : typconstrid varmap ref = ref String_map.empty
 
 let ctx_typedef : typedef typmap ref = ref Typ_map.empty
 
-let ctx_label : typid varmap ref = ref String_map.empty
+let ctx_label : typconstrid varmap ref = ref String_map.empty
 
-let ctx_constr : typid varmap ref = ref String_map.empty
+let ctx_constr : typconstrid varmap ref = ref String_map.empty
 
 
 let ctx_var_add (tv : typvar) (t : typ) : unit =
@@ -58,18 +58,18 @@ let ctx_var_add (tv : typvar) (t : typ) : unit =
 
 let debug_typedefs = false
 
-let ctx_tconstr_add (tn : typconstr) (tid : typid) : unit =
-  if debug_typedefs then printf "Type %s has been added into map with typid %d\n" tn tid;
+let ctx_tconstr_add (tn : typconstr) (tid : typconstrid) : unit =
+  if debug_typedefs then printf "Type %s has been added into map with typconstrid %d\n" tn tid;
   ctx_tconstr := String_map.add tn tid (!ctx_tconstr)
 
-let ctx_typedef_add (tn : typconstr) (tid : typid) (td : typedef) : unit =
+let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
   if debug_typedefs then printf "Typedef for %s has been registered\n" tn;
   ctx_typedef := Typ_map.add tid td (!ctx_typedef)
 
-let ctx_label_add (lb : label) (tid : typid) : unit =
+let ctx_label_add (lb : label) (tid : typconstrid) : unit =
   ctx_label := String_map.add lb tid (!ctx_label)
 
-let ctx_constr_add (c : constr) (tid : typid) : unit =
+let ctx_constr_add (c : constr) (tid : typconstrid) : unit =
   ctx_constr := String_map.add c tid (!ctx_constr)
 
 
@@ -733,8 +733,6 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         in
         begin match val_t with
           | Rvalue when is_mutable_var s ->
-            (* LATER: the Heap_allocated annotation on get should be replaced with
-               a Var_mutable argument passed to trm_var *)
             trm_apps ~annot:[Mutable_var_get] ~loc ~ctx  ~typ
               (trm_unop ~loc ~ctx  Unop_get) [trm_var ~loc ~ctx  ~typ s]
           | _ -> trm_var ~loc ~typ s
@@ -949,7 +947,7 @@ and translate_decl_list (dl : decl list) : trm list =
           then fail loc (sprintf "Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);
 
         (* First add the constructor name to the context, needed for recursive types *)
-        let tid = next_typid () in
+        let tid = next_typconstrid () in
         ctx_tconstr_add tn tid;
 
         (* Second, parse the fields names and types *)
@@ -1004,7 +1002,7 @@ and translate_decl (d : decl) : trm =
         )
         constants
     in
-    let tid = next_typid () in
+    let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
     let td = {
       typdef_typid = tid;
@@ -1067,7 +1065,7 @@ and translate_decl (d : decl) : trm =
       |_ -> fail loc "translate_decl: should not happen"
     end
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
-    (* TODO: Fix me! *)
+    
     let rec contains_elaborated_type (q : qual_type) : bool = 
       let {desc = d;const = _;_} = q in
       match d with 
@@ -1129,7 +1127,7 @@ and translate_decl (d : decl) : trm =
         end
       end
   | TypedefDecl {name = tn; underlying_type = q} ->
-    let tid = next_typid () in
+    let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
     let tq = translate_qual_type ~loc q in
     let td = {
@@ -1144,7 +1142,7 @@ and translate_decl (d : decl) : trm =
   | TypeAlias {ident_ref = id; qual_type = q} ->
     begin match id.name with
       | IdentifierName tn ->
-        let tid = next_typid () in
+        let tid = next_typconstrid () in
         ctx_tconstr_add tn tid;
         let tq = translate_qual_type ~loc q in
         let td = {
@@ -1206,7 +1204,6 @@ and translate_decl (d : decl) : trm =
     ) pl in
     trm_template pl dl
   | _ -> fail loc "translate_decl: not implemented"
-
 
 module Include_map = Map.Make(String)
 type 'a imap = 'a Include_map.t

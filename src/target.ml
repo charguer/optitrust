@@ -114,9 +114,6 @@ let dInit : constr =
 let dStep : constr =
     Constr_dir Dir_for_c_step
 
-let dCallFun : constr = (* LATER: see if this is needed (cCallNotBuiltin) *)
-    Constr_dir Dir_app_fun
-
 let dArg (n : int) : constr =
     Constr_dir (Dir_arg n)
 
@@ -278,10 +275,11 @@ let target_list_pred_always_true : target_list_pred =
 (* by default an empty name is no name *)
 let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) ?(regexp : bool = false) (name : string) : constr =
   let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
-  (* LATER: maybe an error if both args and args_pred are provided *)
   let p_args = match args with
     | [] -> args_pred
-    | _ -> target_list_simpl args
+    | _ -> if args_pred = target_list_pred_always_true 
+            then target_list_simpl args 
+            else fail None "cFunDef: can't provide both args and args_pred"
     in
   Constr_decl_fun (ro, p_args, body)
 
@@ -324,10 +322,9 @@ let cSeq ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_a
   in
   Constr_seq  p_args
 
-(* LATER:probably don't need exact *)
-let cVar ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
-  (* LATER: ~only_instr:false might not work in other languages *)
-  let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
+
+let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) (name : string) : constr =
+  let ro = string_to_rexp_opt regexp false name trmkind in
   Constr_var ro
 
 let cBool (b : bool) : constr =
@@ -567,11 +564,6 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
 let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
   applyi_on_transformed_targets ~rev transformer (fun _i descr t -> tr descr t) tg
 
-
-
-(* LATER: see if [rev]  argument is also needed for [apply_on_targets] *)
-
-
   (* Trace.apply (fun t ->
     let ps = resolve_target tg t in
     let descrs = List.map transformer ps in
@@ -584,27 +576,22 @@ let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a
 
 (* [target_show_aux id t]: adds an annotation [trm_decoration]
    carrying the information [id] around the term t.
-   If the flag [debug_ast] is set, the ast is printed on [stdout].
-   --LATER: remove debug-ast in the future? *)
-let target_show_aux (debug_ast : bool) (id : int) (t : trm) : trm =
-  if debug_ast then
-    Ast_to_text.print_ast ~only_desc:true stdout t;
+*)
+let target_show_aux (id : int) (t : trm) : trm =
   let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
   let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
   {t with annot = t.annot @ [Highlight (left_decoration, right_decoration)]}
 
 (* [target_show_transfo id t p]: adds an annotation [trm_decoration]
    carrying the information [id] around the term at path [p] in the term [t]. *)
-let target_show_transfo (debug_ast : bool) (id : int): Transfo.local =
-  apply_on_path (target_show_aux debug_ast id)
+let target_show_transfo (id : int): Transfo.local =
+  apply_on_path (target_show_aux id)
 
 (* [target_between_show_aux id k t]: adds a decorated semi-column with identifier [id]
    at position [k] in the sequence described by the term [t]. *)
-let target_between_show_aux (debug_ast : bool) (id : int) (k : int) (t : trm) : trm =
+let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
     let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
     let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
-    if debug_ast then
-      Ast_to_text.print_ast ~only_desc:true stdout t;
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at k tl in
@@ -614,8 +601,8 @@ let target_between_show_aux (debug_ast : bool) (id : int) (k : int) (t : trm) : 
 
 (* [target_between_show_transfo id k t p]: adds a decorated semi-column with identifier [id]
    at position [k] in the sequence at path [p] in the term [t]. *)
-let target_between_show_transfo (debug_ast : bool) (id : int) : Transfo.local_between =
-  fun (k:int) -> apply_on_path (target_between_show_aux debug_ast id k)
+let target_between_show_transfo (id : int) : Transfo.local_between =
+  fun (k:int) -> apply_on_path (target_between_show_aux id k)
 
 (* [show ~line:int tg] is a transformation for visualizing targets.
    The operation only executes if the command line argument [-exit-line]
@@ -623,14 +610,14 @@ let target_between_show_transfo (debug_ast : bool) (id : int) : Transfo.local_be
    There is no need for a prefix [!!] or [!!!] to the front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = true) ?(debug_ast : bool = false) (tg : target) : unit =
+let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
   only_interactive_step line ~reparse (fun () ->
     if Constr.is_target_between tg then begin
       applyi_on_target_between (fun i  t (p,k) ->
-        target_between_show_transfo debug_ast i k t p) tg
+        target_between_show_transfo i k t p) tg
     end else begin
       applyi_on_target (fun i t p ->
-        target_show_transfo debug_ast i t p) tg
+        target_show_transfo i t p) tg
     end)
 
 (** [force_reparse_after tr] is a wrapper to invoke for forcing the reparsing

@@ -31,6 +31,7 @@ type constr_access =
 
 type target_list_pred
 
+type trm_kind = Constr.trm_kind
 
 val bTrue : constr
 
@@ -69,8 +70,6 @@ val dBody : constr
 val dInit : constr
 
 val dStep : constr
-
-val dCallFun : constr
 
 val dArg : int -> constr
 
@@ -138,7 +137,7 @@ val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) 
 
 val cSeq : ?args:target -> ?args_pred:target_list_pred -> unit -> constr
 
-val cVar : ?substr:bool -> ?regexp:bool -> string -> constr
+val cVar : ?regexp:bool -> ?trmkind:trm_kind -> string -> constr
 
 val cBool : bool -> constr
 
@@ -229,7 +228,7 @@ val apply_on_transformed_targets : ?rev:bool -> (path -> 'a) -> ('a -> trm -> tr
 
 val apply_on_transformed_target_between : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
-val show : ?line:int -> ?reparse:bool -> ?debug_ast:bool -> target -> unit
+val show : ?line:int -> ?reparse:bool -> target -> unit
 
 (* Target debugging *)
 

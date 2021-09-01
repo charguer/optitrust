@@ -115,7 +115,7 @@ let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) :
   match t.desc with 
   | Trm_seq tl ->
      let lfront, lback = Tools.split_list_at index tl in
-     let tid = next_typid () in
+     let tid = next_typconstrid () in
      let trm_to_insert = trm_typedef {typdef_typid = tid; typdef_tconstr = name; typdef_body = td_body;typdef_vars = []} in
      trm_seq ~annot:t.annot (lfront @ [trm_to_insert] @ lback)
   | _ -> fail t.loc "insert_aux: expected the surrounding sequence"

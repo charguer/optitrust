@@ -32,12 +32,11 @@ type typconstr = string
 type typvar = var
 type typvars = typvar list
 
-(* unique identifier for typ constructors
-   LATER: might rename to typconstrid *)
-type typid = int
+(* unique identifier for typ constructors*)
+type typconstrid = int
 
-(* [next_typid ()] generate and return a new integer *)
-let next_typid : (unit -> int) =
+(* [next_typconstrid ()] generate and return a new integer *)
+let next_typconstrid : (unit -> int) =
   Tools.fresh_generator()
 
 (* ['a typmap] is a map from [typeid] to ['a] *)
@@ -83,8 +82,8 @@ type size =
 (* types of expressions *)
 and typ_desc =
   | Typ_const of typ (* e.g. [const int *] is a pointer on a [const int] type. *)
-  | Typ_var of typvar * typid (* e.g. ['a] in the type ['a -> 'a] -- *)
-  | Typ_constr of typvar * typid * typ list (* e.g. [int list] or [(int,string) map] or [vect] *)
+  | Typ_var of typvar * typconstrid (* e.g. ['a] in the type ['a -> 'a] -- *)
+  | Typ_constr of typvar * typconstrid * typ list (* e.g. [int list] or [(int,string) map] or [vect] *)
   | Typ_auto
   | Typ_unit (* void *)
   | Typ_int
@@ -128,7 +127,7 @@ and typ = {
 *)
 and typedef = { (* e.g. [type ('a,'b) t = ...] *)
   (* LATER: typdef_loc : location; *)
-  typdef_typid : typid; (* the unique id associated with the type [t] *)
+  typdef_typid : typconstrid; (* the unique id associated with the type [t] *)
   typdef_tconstr : typconstr; (* the name [t] *)
   typdef_vars : typvars; (* the list containing the names ['a] and ['b];
     [typedef_vars] is always the empty list in C code without templates *)
@@ -141,7 +140,7 @@ and typdef_body =
   | Typdef_prod of bool * (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
   | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
   (* Not sure if Typedef_enum is a sum type *)
-  | Typdef_enum of (var * (trm option)) list (* LATER: document this, and understand why it's not just a 'typ' like for struct *)
+  | Typdef_enum of (var * (trm option)) list (* for C/C++ enums *)
 
   (* NOTE: we don't need to support the enum from C, for the moment. *)
   (* DEPRECATED
@@ -271,10 +270,10 @@ and trm =
 (* [ctx_var] is useful for interpreting types that are provided in the user scripts *)
 and ctx = {
   ctx_var : typ varmap; (* from [var] to [typ], i.e. giving the type of program variables *)
-  ctx_tconstr : typid varmap; (* from [typconstr] to [typid] *)
-  ctx_typedef : typedef typmap; (* from [typid] to [typedef] *)
-  ctx_label : typid varmap; (* from [label] to [typid] *)
-  ctx_constr : typid varmap; (* from [constr] to [typid] *)
+  ctx_tconstr : typconstrid varmap; (* from [typconstr] to [typconstrid] *)
+  ctx_typedef : typedef typmap; (* from [typconstrid] to [typedef] *)
+  ctx_label : typconstrid varmap; (* from [label] to [typconstrid] *)
+  ctx_constr : typconstrid varmap; (* from [constr] to [typconstrid] *)
   } (* NOTE: ctx_label and ctx_constr *)
 
   (* Example ctx for the type definitions
@@ -613,11 +612,11 @@ let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   {typ_annot = annot; typ_desc = Typ_const t; typ_attributes}
 
 let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (x : typvar) (tid : typid) : typ =
+  (x : typvar) (tid : typconstrid) : typ =
   {typ_annot = annot; typ_desc = Typ_var (x, tid); typ_attributes}
 
 let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (x : typvar) (tid : typid) (tl : typ list) : typ =
+  (x : typvar) (tid : typconstrid) (tl : typ list) : typ =
   {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
 
 let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
