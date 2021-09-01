@@ -20,7 +20,7 @@ type abort_kind =
   | Break
   | Continue
 
-type constr_name 
+type constr_name
 
 type constr_access =
   (* array indices may be arbitrary terms *)
@@ -131,7 +131,7 @@ val cTopFun : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> str
 
 val cTypDef : ?substr:bool -> ?regexp:bool -> string -> constr
 
-val cDef : string -> constr 
+val cDef : string -> constr
 
 val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) -> ?regexp:bool -> unit -> constr
 
