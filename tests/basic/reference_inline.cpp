@@ -19,7 +19,7 @@ int main() {
    b = 9;
 
    // inline reference on matrix row
-   auto& v = m[0]; // what is the type of v?
+   auto& v = m[0]; // LATER: what is the type of v?
    int r4 = v[2];
    v[1] = 9;
 }
