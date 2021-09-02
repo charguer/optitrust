@@ -29,7 +29,37 @@ let _ = Run.script_cpp (fun () ->
   => LATER: at the combi level,
      high-level combinators to automate the process
     including the feature of "looking whether a copy of the type is needed".
-    (in particular when changing only one variable) *)
+    (in particular when changing only one variable) 
+    
+    
+  (*
+
+EXAMPLE
+
+vect { int x }
+
+
+vect2 { int x[N] }
+
+vect2 t;
+vect u[N];
+
+void f_new(vect2 x) {
+   t[i].x  -->  t.x[i]
+}
+
+void f(vect x) {
+   u[i].x  --> remains
+}
+
+int main() {
+  f(t);
+  f(u);
+}
+
+*)
+    
+    
 )
 
 

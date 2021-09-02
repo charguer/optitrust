@@ -523,7 +523,6 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
       | Typdef_prod (tn, s) ->
         let s = List.map( fun (x, typ) -> (x, typ_array (typ) (Trm (trm_var sz)))) s in
         trm_typedef {td with typdef_body = Typdef_prod (tn, s)}
-
       | _ -> fail t.loc "aos_to_soa_aux: expected a typedef struct"
       end
     | Trm_typedef td ->
@@ -536,7 +535,6 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
 
             | _ -> trm_map(aux global_trm) t
             end
-            
             
           | _ -> trm_map(aux global_trm) t
           end
@@ -551,9 +549,9 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
           begin match a.typ_desc with
           | Typ_constr (sn,_, _) when sn = struct_name -> 
             trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut a) (trm_prim ~loc:t.loc (Prim_new a)) 
-          | _ -> t
+          | _ -> trm_map (aux global_trm) t
           end
-        | _ -> trm_map (aux global_trm) t
+        | _ -> t
         end
        | _ -> trm_map (aux global_trm) t 
        end
