@@ -606,6 +606,12 @@ type 'a tmap = 'a Trm_map.t
 
 type instantiation = trm tmap
 
+(* used for defining the type of reordering for struct fields *)
+type reorder =
+  | Reorder_before of string
+  | Reorder_after of string
+  | Reorder_all 
+
 (* **************************Typ Construcors**************************** *)
 let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (t : typ) : typ =

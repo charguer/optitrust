@@ -25,12 +25,12 @@ let set_implicit : Target.Transfo.t =
 
 let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : var list) (tg : target) : unit =
   let move_where =
-    Struct_core.(begin match move_before, move_after with
+    begin match move_before, move_after with
     | "", "" -> Reorder_all
     | "", _ -> Reorder_after move_after
     | _, "" -> Reorder_before move_before
     | _,_-> fail None "fields_reorder: cannot provide both move_before and move_after"
-    end) in
+    end in
   Target.apply_on_target (Struct_core.fields_reorder struct_fields move_where) tg
 
 (* [inline field_to_inline tg] expects [tg] to point to a typedef struct
