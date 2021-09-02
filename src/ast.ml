@@ -126,7 +126,6 @@ and typ = {
     for sum types there can be also more then one variable. And finally the body of the type
 *)
 and typedef = { (* e.g. [type ('a,'b) t = ...] *)
-  (* LATER: typdef_loc : location; *)
   typdef_loc : location;
   typdef_typid : typconstrid; (* the unique id associated with the type [t] *)
   typdef_tconstr : typconstr; (* the name [t] *)
@@ -384,8 +383,8 @@ and varkind =
 (* ways of aborting *)
 and abort =
   | Ret of trm option (* return;  or return 3; *)
-  | Break (* LATER: could have label option *)
-  | Continue (* LATER: could have label option *)
+  | Break of label option 
+  | Continue of label option 
 
 
 (* mode used for default OpenMP clause *)

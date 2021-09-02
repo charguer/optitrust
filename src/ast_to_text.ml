@@ -261,10 +261,17 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
              let dt = print_trm ~only_desc t in
              node "Ret" ^^ dt
           end
-       | Break -> string "Break"
-       | Continue -> string "Continue"
-       end
-     in
+       | Break lb_opt ->
+          begin match lb_opt with 
+          | Some lb -> string "Break" ^^ blank 1 ^^ string lb
+          | None -> string "Break"
+          end
+       | Continue lb_opt-> 
+          begin match lb_opt with 
+          | Some lb -> string "Continue" ^^ blank 1 ^^ string lb
+          | None -> string "Continue"
+          end
+       end in
      node "Trm_abort" ^^ parens da
   | Trm_labelled (l, t) ->
      let dt = print_trm ~only_desc t in
