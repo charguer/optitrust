@@ -18,7 +18,6 @@ int main() {
   uint x;
   uint t[3];
   cdouble y1 = 1.0;
-  cdouble y2 = 2.0;
   myvect v;
   mat2d m;
   mat3d M;
