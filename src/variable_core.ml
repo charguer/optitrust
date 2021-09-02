@@ -30,19 +30,19 @@ let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : 
           else trm_var x
         in
         let def_x =
-          if not as_reference then 
             begin match vk with 
-            | Var_immutable -> dx
+            | Var_immutable -> 
+              if as_reference 
+                then {dx with add = List.filter (fun x -> x <> Add_address_of_operator) dx.add}
+                else dx
             | _ -> begin match dx.desc with 
-                   | Trm_apps(_, [init]) -> init
+                   | Trm_apps(_, [init]) -> 
+                    if as_reference 
+                      then {init with add = List.filter (fun x -> x <> Add_address_of_operator) init.add}
+                      else init
                    | _ -> fail t.loc "fold_aux: expected a new operation"
                    end
-            end
-          else
-            match dx.add with
-            | Add_address_of_operator :: addl -> {dx with add = addl}
-            | _ -> fail d.loc "fold_decl: expected a reference"
-        in
+            end in
         let lback = List.map(Internal.change_trm ~change_at:[fold_at] def_x t_x) lback
         (*
           def_x might have been replaced with x in the definition of x
