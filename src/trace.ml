@@ -69,7 +69,7 @@ let parse (filename : string) : string * trm =
        (Clang.Ast.format_diagnostics Clang.not_ignored_diagnostics) ast; *)
   print_info None "Parsing Done.\n";
   print_info None "Translating AST...\n";
-  
+
   let t = Clang_to_ast.translate_ast ast in
 
   print_info None "Translation done.\n";
@@ -314,11 +314,11 @@ let output_js ?(language : language = Cpp) ?(vars_declared : bool = false)(index
   let out_js = open_out file_js in
   try
     (* Dump the description of the AST nodes *)
-    let lang, extension = match language with 
+    let lang, extension = match language with
       | Cpp -> "\'" ^ "text/x-c++src" ^ "\'", ".cpp"
       | Rust -> "\'" ^ "text/x-rustsrc" ^ "\'", ".rs"
       | Ocaml -> "\'" ^ "text/x-Ocaml" ^ "\'", ".ml" in
-    if not vars_declared 
+    if not vars_declared
       then begin
       output_string out_js (Tools.sprintf "var source = %s\n" "new Array();");
       output_string out_js (Tools.sprintf "var contents = %s\n" "new Array();");
@@ -336,7 +336,7 @@ let output_js ?(language : language = Cpp) ?(vars_declared : bool = false)(index
 
 (* [dump_trace_to_js] writes into one/several (?) files
    the contents of the current AST and of all the history,
-   that is, of all the ASTs for which the [step] method was called. 
+   that is, of all the ASTs for which the [step] method was called.
 *)
 let dump_trace_to_js ?(prefix : string = "") () : unit =
   assert (prefix = prefix && false);
@@ -345,12 +345,12 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
     let i = ref (nbAst - 2) in
     List.iter
       (fun ast ->
-        if !i = 0 then 
+        if !i = 0 then
           output_js 0 prefix ast
         else if !i = (nbAst - 2) then
           output_js ~vars_declared:true (nbAst - 2) prefix ast
         else if !i = (-1) then ()
-        else 
+        else
           begin
           output_js ~vars_declared:true !i prefix ast;
           i := !i - 1
@@ -393,7 +393,6 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
 
 (* [reparse_trm ctx ast] print [ast] in a temporary file and reparses it using Clang. *)
 let reparse_trm (ctx : context) (ast : trm) : trm =
-
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
   output_prog ctx in_prefix ast;
   let (_, t) = parse (in_prefix ^ ctx.extension) in
@@ -530,7 +529,7 @@ let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> uni
     f();
     dump_diff_and_exit()
   end
-  else 
+  else
     f()
 
 (* Get the current ast *)

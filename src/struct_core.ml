@@ -73,6 +73,7 @@ let set_explicit_aux (index : int) (t: trm) : trm =
     | _ ->  fail t.loc "set_explicit_aux: this expression is not supported"
     end
   | _ -> fail t.loc "set_explicit_aux: expected the surrounding sequence"
+
 let set_explicit (index : int) : Target.Transfo.local =
   Target.apply_on_path(set_explicit_aux index)
 
@@ -141,7 +142,27 @@ let set_implicit_aux (t: trm) : trm =
   | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
 
 let set_implicit : Target.Transfo.local =
-  Target.apply_on_path(set_implicit_aux)
+  Target.apply_on_path (set_implicit_aux)
+
+(* TODO: define and use
+  Target.apply_on_path_targeting_a_sequence (set_implicit_aux)
+
+
+  where
+
+  let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (op_name:string) : trm->trm =
+    fun (t:trm) ->
+      match t with
+      | Trm_seq tl -> tr t
+      | Trm_labelled (l, Trm_seq _ as t1) ->
+          if keep_label
+            then Trm_labelled (l, tr t1)
+            else tr t1
+      | _ -> fail t.loc (op_name ^ " expected a sequence or a labelled sequence")
+
+*)
+
+
 
 (* [inline_struct_accesses x t]: change all the occurrences of the struct accesses to a field into a field
     params:

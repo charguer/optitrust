@@ -1,8 +1,8 @@
 open Ast
 open Target
 
-(* [replace code tg] expects the target to point at any node of the ast, 
-    it then removes this node and replaces with the code entered by the user, which is merged into 
+(* [replace code tg] expects the target to point at any node of the ast,
+    it then removes this node and replaces with the code entered by the user, which is merged into
     the ast automatically by Optitrust.
 *)
 let replace (code : string) (tg : target) : unit =
@@ -11,10 +11,10 @@ let replace (code : string) (tg : target) : unit =
 
 (* [from_one_to_many names tg] expects the target to point to a declaration(
     a variable declaration, array declaration etc.) It the chechs the list of new variables
-    and removes the curren declaration and replaces it with a list of declarations. 
-    [names] - denotes the list of names entered by the user. Furthermore, every instruction which 
+    and removes the curren declaration and replaces it with a list of declarations.
+    [names] - denotes the list of names entered by the user. Furthermore, every instruction which
     contains an occurrence of the initial variable will be replace with a list of instructions for
-    each new variable entered by the user. 
+    each new variable entered by the user.
 *)
 let from_one_to_many (names : var list) (tg : Target.target) : unit =
   Internal.nobrace_enter();
@@ -22,18 +22,33 @@ let from_one_to_many (names : var list) (tg : Target.target) : unit =
     (fun (p, i) t -> Generic_core.from_one_to_many names i t p) tg;
   Internal.nobrace_remove_and_exit ()
 
-(* [local_other_name var_type old_var new_var tg] expectes target [tg] to point to a labelled 
-      sequence. Then it will declare a new variable with name [new_name] and replace all 
-      the occurences of [old_var] with [new_var]. The user needs to give the type of the 
+(* TODO: use a combinator when it is possible
+
+let from_one_to_many (names : var list) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after (fun () ->
+    Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+      (fun (p, i) t -> Generic_core.from_one_to_many names i t p) tg)
+
+in Internal:
+
+   let nobrace_remove_after (f:unit->unit) : unit =
+     Internal.nobrace_enter();
+     f();
+     Internal.nobrace_remove_and_exit ()
+*)
+
+(* [local_other_name var_type old_var new_var tg] expectes target [tg] to point to a labelled
+      sequence. Then it will declare a new variable with name [new_name] and replace all
+      the occurences of [old_var] with [new_var]. The user needs to give the type of the
       variable for which we want to change the name.
 
-      Example: 
+      Example:
         T a                     ->->->    T a
 
        sectionofinterest:{                sectionofinterest:{
           for (int i = 0; i < 10; i++){      T x = a
              a++;                            for(int i = 0; i < 10; i++){
-          }                                     x++; 
+          }                                     x++;
        }@nobrace                              }
                                               a = x;
                                             }@nobrace
@@ -42,10 +57,10 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
   Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
 
 
-(* [arbitrary_if cond tg] expects the target [tg] to point to an instruction 
+(* [arbitrary_if cond tg] expects the target [tg] to point to an instruction
     inside a sequence. Then it will create an if statement with the condition entered by the user
       and both it's then and else branches will contain the same instruction.
-    [cond] - denotes a string representing the code which will appear as teh condition in the 
+    [cond] - denotes a string representing the code which will appear as teh condition in the
     if statement, then this code is transformed and integrated inside the ast.
 *)
 let arbitrary_if (cond : string) (tg : target) : unit =
@@ -65,7 +80,7 @@ let arbitrary_if (cond : string) (tg : target) : unit =
          x++;
 
       a = x;  // mendatory format for last instruction
-   }@nobrace then 
+   }@nobrace then
    Then it will transform it into:
        T a
 
@@ -88,7 +103,7 @@ let arbitrary_if (cond : string) (tg : target) : unit =
 
    [array_size] - denotes the size of the array inside the block
    [neutral_element] - denotes the neutral element for the folding operation
-   [fold_operation] - denotes a reduction operation over all the elements 
+   [fold_operation] - denotes a reduction operation over all the elements
     of the array declared inside the block
 *)
 let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) (tg : Target.target) : unit =
@@ -99,9 +114,9 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
 (* [change_type new_type tg] expects [tg] to point to variable declaration
     then it will change the type of that variable with [new_type].
 *)
-let change_type (new_type : typvar) : Target.Transfo.t = 
+let change_type (new_type : typvar) : Target.Transfo.t =
  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.change_type new_type i t p) 
+    (fun (p, i) t -> Generic_core.change_type new_type i t p)
 
 (* ********************************************************* *)
 (* Create an instance of the pattern *)
@@ -120,7 +135,7 @@ let change_type (new_type : typvar) : Target.Transfo.t =
          aux p0 t0;
          aux p1 t1;
          aux p2 t2
-      | trm_for_c(int i = ..)   | trm_for_c(int j = ...) => 
+      | trm_for_c(int i = ..)   | trm_for_c(int j = ...) =>
       | _, _ -> (* different constructors *)
   in
   try Some(aux p t) with Mismatch -> None

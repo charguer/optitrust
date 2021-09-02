@@ -13,7 +13,7 @@ let set_explicit (tg : Target.target) : unit =
       struct assignment. So it is the inverse of set_explicit.
 *)
 let set_implicit : Target.Transfo.t =
-  Target.apply_on_target(Struct_core.set_implicit)
+  Target.apply_on_target (Struct_core.set_implicit)
 
 (* [fields_reorder ?move_before ?move_after struct_fields tg] expects [tg]
     to point to typedef struct. It then switches the order of the fields of
