@@ -969,6 +969,7 @@ and translate_decl_list (dl : decl list) : trm list =
         (* Third, add the typedef to the context *)
         let two_names = if rn = "" then false else true in
         let td = {
+          typdef_loc = loc;
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
@@ -1005,6 +1006,7 @@ and translate_decl (d : decl) : trm =
     let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
     let td = {
+      typdef_loc = loc;
       typdef_typid = tid;
       typdef_tconstr = tn;
       typdef_vars = [];
@@ -1131,6 +1133,7 @@ and translate_decl (d : decl) : trm =
     ctx_tconstr_add tn tid;
     let tq = translate_qual_type ~loc q in
     let td = {
+      typdef_loc = loc;
       typdef_typid = tid;
       typdef_tconstr = tn;
       typdef_vars = [];
@@ -1146,6 +1149,7 @@ and translate_decl (d : decl) : trm =
         ctx_tconstr_add tn tid;
         let tq = translate_qual_type ~loc q in
         let td = {
+          typdef_loc = loc;
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
