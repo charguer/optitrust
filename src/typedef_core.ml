@@ -1,7 +1,7 @@
 open Ast
 open Target
 
-(* *********************************************************************************** 
+(* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
  * transformation. That's why there is not need to document them.                     *
@@ -10,7 +10,7 @@ open Target
 (* [fold_aux as_reference fold_at]: replace all the occurrences of the typedef underlying type
       with the defined type
     params:
-      fold_at: targets where folding should be performed, if left empty then folding 
+      fold_at: targets where folding should be performed, if left empty then folding
         on all the nodes of the same sequence t belongs to.
       t: ast of the typedef declaration
     return:
@@ -44,7 +44,7 @@ let fold (fold_at : target) (index) : Target.Transfo.local =
 (* [inline_aux inline_at]: replace all the occurrences of the defined type with
       its underlying type
     params:
-      delete: a flag for deciding if we should delete or not the typedef 
+      delete: a flag for deciding if we should delete or not the typedef
         declaration
       inline_at: targets where inlining should be performed, if empty inlining is applied
         on all the ast nodes in the same level as the typedef declaration
@@ -88,13 +88,13 @@ let inline (delete : bool) (inline_at : target) (index : int) : Target.Transfo.l
       updated surrounding sequence with added new copy of the original declaration
 *)
 let copy_aux (name : string) (index : int) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let lfront, td_l, lback = Internal.get_trm_and_its_relatives index tl in
-    let td_copy = match td_l.desc with 
+    let td_copy = match td_l.desc with
     | Trm_typedef td ->
       trm_typedef {td with typdef_tconstr = name}
-    | _ -> fail t.loc "copy_aux: expected a typedef declaration" 
+    | _ -> fail t.loc "copy_aux: expected a typedef declaration"
      in
       trm_seq ~annot:t.annot (lfront @ [td_l] @ [td_copy] @ lback)
 
@@ -112,11 +112,16 @@ let copy (name : string) (index : int) : Target.Transfo.local =
       updated surrounding sequence with added typedef definition
 *)
 let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
      let lfront, lback = Tools.split_list_at index tl in
      let tid = next_typconstrid () in
-     let trm_to_insert = trm_typedef {typdef_typid = tid; typdef_tconstr = name; typdef_body = td_body;typdef_vars = [];typdef_loc = None} in
+     let trm_to_insert = trm_typedef {
+        typdef_typid = tid;
+        typdef_tconstr = name;
+        typdef_body = td_body;
+        typdef_vars = [];
+        typdef_loc = None } in
      trm_seq ~annot:t.annot (lfront @ [trm_to_insert] @ lback)
   | _ -> fail t.loc "insert_aux: expected the surrounding sequence"
 
