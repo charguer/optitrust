@@ -299,11 +299,6 @@ let inline (field_to_inline : field) (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux field_to_inline index)
 
 
-(* LATER: move somewhere else? and document *)
-type reorder =
-  | Reorder_before of string
-  | Reorder_after of string
-  | Reorder_all
 
 (* [fields_reorder_aux struct_fields move_where around t]: reorder fields of a struct
     params:
@@ -320,15 +315,7 @@ let fields_reorder_aux (struct_fields: var list) (move_where : reorder) (t: trm)
   | Trm_typedef td ->
    begin match td.typdef_body with
    | Typdef_prod (tn, fs) ->
-    let field_list =
-      match move_where with
-      | Reorder_all -> assert false (* TODO: implement reorder_fields, make sure to check that each field is contained exactly once in the list *)
-        (* 1. check uniqueness of items in struct_fields (using List.noduplicate)
-           2. check the length of fs matches that of struct_fields
-           3. result is List.map (fun f -> match List.assoc_opt f fs with Some d -> d | None -> error ...) struct_fields *)
-      | Reorder_after around -> Internal.move_fields_after around struct_fields fs
-      | Reorder_before around -> Internal.move_fields_before around struct_fields fs
-      in
+    let field_list = Internal.reorder_fields move_where struct_fields fs in
    trm_typedef {td with typdef_body = Typdef_prod (tn, field_list)}
   | _ -> fail t.loc "fields_reorder_aux: expected a typdef_prod"
   end

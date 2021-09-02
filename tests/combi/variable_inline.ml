@@ -1,14 +1,12 @@
 open Optitrust
 open Target
 
-(* TODO: Very much later *)
 let _ = Run.script_cpp (fun _ ->
    !! Variable_basic.inline ~at:[cVarDef "b"] [cVarDef "a"];
    !! Variable_basic.inline ~delete:true [cVarDef "c"];
    !! Variable_basic.inline ~at:[cVarDef "y"] [cVarDef "x"];
    !! Variable_basic.inline ~delete:true [cVarDef "z"];
 
-   (* FIXED: rename delete_decl to delete or remove *)
    (* VERY MUCH LATER:
        at the basic level: apply inlining
        at the high level:

@@ -318,8 +318,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            | None -> dattr ^^ string "return" ^^ dsemi
            | Some t -> dattr ^^ string "return " ^^ decorate_trm t ^^ dsemi
            end
-        | Break -> dattr ^^ string "break" ^^ dsemi
-        | Continue -> dattr ^^ string "continue" ^^ dsemi
+        | Break _ -> dattr ^^ string "break" ^^ dsemi
+        | Continue _ -> dattr ^^ string "continue" ^^ dsemi
         end
      | Trm_labelled (l, t) ->
         let dt = decorate_trm ~semicolon t in

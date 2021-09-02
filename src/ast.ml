@@ -126,7 +126,7 @@ and typ = {
     for sum types there can be also more then one variable. And finally the body of the type
 *)
 and typedef = { (* e.g. [type ('a,'b) t = ...] *)
-  (* LATER: typdef_loc : location; *)
+  typdef_loc : location;
   typdef_typid : typconstrid; (* the unique id associated with the type [t] *)
   typdef_tconstr : typconstr; (* the name [t] *)
   typdef_vars : typvars; (* the list containing the names ['a] and ['b];
@@ -383,8 +383,8 @@ and varkind =
 (* ways of aborting *)
 and abort =
   | Ret of trm option (* return;  or return 3; *)
-  | Break (* LATER: could have label option *)
-  | Continue (* LATER: could have label option *)
+  | Break of label option 
+  | Continue of label option 
 
 
 (* mode used for default OpenMP clause *)
@@ -605,6 +605,12 @@ module Trm_map = Map.Make(String)
 type 'a tmap = 'a Trm_map.t
 
 type instantiation = trm tmap
+
+(* used for defining the type of reordering for struct fields *)
+type reorder =
+  | Reorder_before of string
+  | Reorder_after of string
+  | Reorder_all 
 
 (* **************************Typ Construcors**************************** *)
 let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
@@ -921,7 +927,7 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
       let sub_is_terminal = is_terminal && i == n-1 in
       f sub_is_terminal tsub
     ) tl in
-    trm_seq tl'
+    trm_seq ~annot tl'
   | Trm_apps (f', args) ->
     let f'' = f false f' in
     let args' = List.map (f false) args in

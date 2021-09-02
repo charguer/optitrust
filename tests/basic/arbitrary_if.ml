@@ -9,8 +9,6 @@ let _ = Run.script_cpp (fun _ ->
   !! Sequence_basic.intro ~label:"foo" 2 [sInstr "b = 4"];
   !! Generic_basic.arbitrary_if "x > 0" [cLabel "foo"];
      Label_basic.remove [cLabel "foo"];
-  (* LATER: investigate why the error shows up saying that foo appears twice,
-     since we don't ask for a reparse *)
 
   (* Another demo with a block *)
   !! Trace.alternative (fun () ->

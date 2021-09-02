@@ -17,10 +17,5 @@ int main() {
    int& b = m[1][1];
    int r3 = m[1][1] + m[1][1];
    m[1][1] = 9;
-
-   // inline pointer on matrix row
-   const int* v = m[0];
-   int r4 = m[0][2];
-   m[0][1] = 9;
 }
 

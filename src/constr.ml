@@ -697,8 +697,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_res res
      | Constr_abort Any, Trm_abort _ -> true
      | Constr_abort Return, Trm_abort (Ret _) -> true
-     | Constr_abort Break, Trm_abort Break -> true
-     | Constr_abort Continue, Trm_abort Continue -> true
+     | Constr_abort Break, Trm_abort (Break _) -> true
+     | Constr_abort Continue, Trm_abort (Continue _) -> true
      | Constr_access (p_base, ca), _ ->
         let (base, al) =get_nested_accesses t in
         check_target p_base base &&
@@ -830,7 +830,14 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         let potential_target = resolve_target_simple tr t in
         begin match potential_target with
         | [[]] -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
-        | _ -> potential_target @ acc
+        | _ -> 
+          begin match acc with 
+          (* First step, initalize the acc *)
+          | [] -> potential_target
+          (* Compute the intersection of all resolved targets *)
+          | _ -> 
+            Tools.list_intersect acc potential_target
+          end
         end ) [] (List.rev tl)
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)

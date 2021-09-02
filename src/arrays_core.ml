@@ -441,14 +441,15 @@ let swap (index : int) : Target.Transfo.local =
   Target.apply_on_path (swap_aux index )
 
 
-(* [swap_accesses x t]: Change all the occurrences of the struct access from aos to soa.
+(* [aos_to_soa_aux t ] : Trasnform an array of structures to a structure of arrays
     params:
-      struct_name:  name of the struct whose fields are going to be changed
-      t: ast node located in the same level or deeper as the aos declaration
+      index: the index of the array declaration inside the surrounding sequence
+      t: ast of the outer sequence containing the array of structures declaration
     return:
-      updated node with all the struct accesses swapped to array acesses.
+      updated ast of the surrounding sequence wuth the new changed declaration and occurences
 *)
-let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
+
+let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
     (* TODO: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
@@ -482,13 +483,13 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
                   | _ -> index
                    in
                   begin match base'.typ with
-                  | Some {typ_desc = Typ_array({typ_desc = Typ_constr (y, _, _);_}, _);_} when y = x ->
+                  | Some {typ_desc = Typ_array({typ_desc = Typ_constr (y, _, _);_}, _);_} when y = struct_name ->
                      let base' = aux global_trm base' in
                      let index = aux global_trm index in
                      (* keep outer annotations *)
                      trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                        ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
-                  | Some {typ_desc = Typ_constr (y, _, _); _} when y = x ->
+                  | Some {typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
                      (* x might appear both in index and in base' *)
                      let base' = aux global_trm base' in
                      let index = aux global_trm index in
@@ -496,7 +497,7 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
                      trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
                        ~add:t.add ~typ:t.typ f' [trm_apps f [base']; index]
                   | Some {typ_desc = Typ_ptr {inner_typ = {typ_desc = Typ_constr (y, _, _); _}; _};_}
-                       when y = x ->
+                       when y = struct_name ->
                      (* x might appear both in index and in base' *)
                      let base' = aux global_trm base' in
                      let index = aux global_trm index in
@@ -520,75 +521,42 @@ let swap_accesses (struct_name : var) (x : typvar) (sz : size) (t : trm) : trm =
     | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with
       | Typdef_prod (tn, s) ->
-        let s = List.map( fun (x, typ) -> (x, typ_array (typ) sz)) s in
+        let s = List.map( fun (x, typ) -> (x, typ_array (typ) (Trm (trm_var sz)))) s in
         trm_typedef {td with typdef_body = Typdef_prod (tn, s)}
-
-      | _ -> fail t.loc "swap_accesses: expected a typedef struct"
+      | _ -> fail t.loc "aos_to_soa_aux: expected a typedef struct"
       end
-    | _ -> trm_map (aux global_trm) t
-  in aux t t
-
-
-(* [aos_to_soa_aux t ] : Trasnform an array of structures to a structure of arrays
-    params:
-      index: the index of the array declaration inside the surrounding sequence
-      t: ast of the outer sequence containing the array of structures declaration
-    return:
-      updated ast of the surrounding sequence wuth the new changed declaration and occurences
-*)
-let aos_to_soa_aux (index : int) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-     let lfront, lback = Tools.split_list_at index tl in
-     let d,lback = Tools.split_list_at 1 lback in
-     let d = List.hd d in
-     begin match d.desc with
-     | Trm_let (vk, (n, dx), _) ->
-       begin match dx.typ_desc with
-       | Typ_ptr {inner_typ = ty;_} ->
-        begin match ty.typ_desc with
-        | Typ_array (a, size) ->
-          let struct_name =
-          begin match a.typ_desc with
-          | Typ_constr (sn,_, _) -> sn
-          | _ -> fail d.loc "aos_to_soa_aux: expected a typ_constr"
-          end
-          in
-          let new_decl = trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut a) (trm_prim ~loc:t.loc (Prim_new a)) in
-          let lfront = List.map (swap_accesses struct_name struct_name size) lfront in
-          let lback = List.map (swap_accesses struct_name struct_name size) lback in
-          trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)
-        | _ -> fail t.loc "expected an arrays of structures declaration"
-        end
-
-       | _ -> fail t.loc "aos_to_soa: didn't expected a const declaration"
-       end
-      | Trm_typedef td ->
+    | Trm_typedef td ->
         begin match td.typdef_body with
         | Typdef_alias ty ->
           begin match ty.typ_desc with
-          | Typ_array (a, size)->
-            let struct_name =
+          | Typ_array (a, _)->
             begin match a.typ_desc with
-            | Typ_constr (sn, _, _) -> sn
+            | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a} 
 
-            | _ -> fail d.loc "aos_to_soa_aux: expected a typ_constr"
+            | _ -> trm_map(aux global_trm) t
             end
-            in
-            let new_decl = trm_typedef {td with typdef_body  = Typdef_alias a} in
-            let lfront = List.map (swap_accesses struct_name td.typdef_tconstr size) lfront in
-            let lback = List.map (swap_accesses struct_name td.typdef_tconstr size) lback in
-            trm_seq ~annot:(t.annot) (lfront @ [new_decl] @ lback)
-          | _ -> fail d.loc "aos_to_soa_aux: expected a typedef of array of structures"
+            
+          | _ -> trm_map(aux global_trm) t
           end
-        | _ -> fail t.loc "aos_to_soa_aux: expected a typedef_alias"
+        | _ -> trm_map(aux global_trm) t
         end
 
-     | _ -> fail d.loc "aos_to_soa_aux: expected the array declaration"
-     end
+    | Trm_let (vk, (n, dx), _) ->
+       begin match dx.typ_desc with
+       | Typ_ptr {inner_typ = ty;_} ->
+        begin match ty.typ_desc with
+        | Typ_array (a, _) ->
+          begin match a.typ_desc with
+          | Typ_constr (sn,_, _) when sn = struct_name -> 
+            trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut a) (trm_prim ~loc:t.loc (Prim_new a)) 
+          | _ -> trm_map (aux global_trm) t
+          end
+        | _ -> t
+        end
+       | _ -> trm_map (aux global_trm) t 
+       end
+    | _ -> trm_map (aux global_trm) t
+  in aux t t
 
-  | _ -> failwith "aos_to_soa_aux: expected the surrounding sequence"
-
-
-let aos_to_soa (index : int) : Target.Transfo.local =
-  Target.apply_on_path(aos_to_soa_aux index)
+let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
+  Target.apply_on_path(aos_to_soa_aux tv sz)

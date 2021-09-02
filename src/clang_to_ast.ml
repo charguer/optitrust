@@ -178,10 +178,7 @@ let ntop (n : int) (s : 'a Stack.t) : 'a list =
  *)
 let abort ?(break : bool = false) (t : trm) : trm =
   let n = find_scope ~break (scope_list ()) in
-  (* put the delete instruction for the n deepest scopes *)
   let tl =
-    (* List.fold_left (fun tl (_, sl) -> tl@(delete_list sl)) []
-      (ntop n mutable_vars) *)
     List.fold_left (fun tl (_,_) -> tl) []
       (ntop n mutable_vars)
   in
@@ -382,8 +379,8 @@ and translate_stmt (s : stmt) : trm =
         let t = translate_expr e in
         return (trm_abort ~loc ~ctx (Ret (Some t)))
     end
-  | Break -> abort ~break:true (trm_abort ~loc ~ctx Break)
-  | Continue -> abort (trm_abort ~loc ~ctx Continue)
+  | Break -> abort ~break:true (trm_abort ~loc ~ctx (Break None))
+  | Continue -> abort (trm_abort ~loc ~ctx (Continue None))
   | Decl dl ->
     begin match dl with
       | [] -> fail loc "translate_stmt: empty declaration list"
@@ -969,6 +966,7 @@ and translate_decl_list (dl : decl list) : trm list =
         (* Third, add the typedef to the context *)
         let two_names = if rn = "" then false else true in
         let td = {
+          typdef_loc = loc;
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];
@@ -1005,6 +1003,7 @@ and translate_decl (d : decl) : trm =
     let tid = next_typconstrid () in
     ctx_tconstr_add tn tid;
     let td = {
+      typdef_loc = loc;
       typdef_typid = tid;
       typdef_tconstr = tn;
       typdef_vars = [];
@@ -1131,6 +1130,7 @@ and translate_decl (d : decl) : trm =
     ctx_tconstr_add tn tid;
     let tq = translate_qual_type ~loc q in
     let td = {
+      typdef_loc = loc;
       typdef_typid = tid;
       typdef_tconstr = tn;
       typdef_vars = [];
@@ -1146,6 +1146,7 @@ and translate_decl (d : decl) : trm =
         ctx_tconstr_add tn tid;
         let tq = translate_qual_type ~loc q in
         let td = {
+          typdef_loc = loc;
           typdef_typid = tid;
           typdef_tconstr = tn;
           typdef_vars = [];

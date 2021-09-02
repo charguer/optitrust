@@ -145,3 +145,10 @@ let filter_not_selected (indices :int list) (list : 'a list) : 'a list =
   (* List.filteri *)
   list_filteri (fun i _ -> List.mem i indices) list
 
+
+let list_remove_duplicate xs x = if List.mem x xs then xs else x :: xs
+
+let list_remove_duplicates xs = List.rev (List.fold_left list_remove_duplicate [] xs)
+
+let list_intersect xs1 xs2 = List.filter (fun x -> List.mem x xs1) xs2
+

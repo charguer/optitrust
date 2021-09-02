@@ -304,10 +304,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
              in
            [ kind_to_field "return";
             children_to_field children ]
-        | Break ->
+        | Break _ ->
             [ kind_to_field "break";
               children_to_field [] ]
-        | Continue ->
+        | Continue _ ->
             [ kind_to_field "continue";
               children_to_field [] ]
         end

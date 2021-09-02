@@ -42,9 +42,9 @@ let swap (tg : target) : unit =
     (fun (p,i) t -> Arrays_core.swap i t p) tg
 
 
-(* [aos_to_soa name x tg] expects the target [tg] to point to an array of structures declaration.
-    then it will change this declaration into a single variable and the underlying struct type will 
-    become a structure of arrays. All the accesse will be swapped.
+(* [aos_to_soa tv sz] finds the definition of type [tv] which should be a typedef struct.
+    Then it will change its struct fields type to arrys of size [sz] with type their current type.
+    All the accesses will be swapped.
     Ex:
       int const N = 100;    int const N = 100;
       typedef struct {      typedef struct {
@@ -58,9 +58,10 @@ let swap (tg : target) : unit =
         return 0;             return 0;
       }                     }
 *)
-let aos_to_soa (tg : target) : unit =
+let aos_to_soa (tv : typvar) (sz : var) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t ->  Arrays_core.aos_to_soa i t p) tg
-
+    (fun (p,_) t ->  Arrays_core.aos_to_soa tv sz t p) [Target.cFunDef "main"]
+  (* Target.apply_on_target(Arrays_core.aos_to_soa tv sz) [Target.dRoot] *)
+  
 
 
