@@ -78,8 +78,8 @@ let elim (tg : Target.target) : unit =
           them laballed before can make the apllication of the transformations easier.
 *)
 let intro_on_instr ?(label : string = "") ?(visible : bool = true) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after ( fun _ ->
-  Target.apply_on_target (Sequence_core.intro_on_instr visible label) tg)
+  Internal.nobrace_enter();
+  Target.apply_on_target (Sequence_core.intro_on_instr visible label) tg
 
 (* [unwrap tg] expects the target [tg] to point to a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)

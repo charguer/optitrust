@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-    !! Function.inline_call ~name_result:"r" ~inner_fresh_names:["a";"";"b";""] [cFun "g"];
+    !! Function.inline_call ~name_result:"r" ~args:["a";"";"b";""] [cFun "g"];
     !! Trace.alternative (fun () ->
       !! Function_basic.bind_intro ~fresh_name:"r" [cFun "g"];
       !! Function.bind_args ["a";"";"b";""] [cFun "g"];
@@ -16,9 +16,9 @@ let _ = Run.script_cpp (fun _ ->
 
     (* Demo without a result name *)
     !! Trace.alternative (fun () ->
-(* TODO: rename arguments
-   !! Function.inline_call ~label:"body1" ~args:["a";"";"b";""] ~vars:(Suffix "_1")  [cFun "g"]; *)
-      !! Function.inline_call ~label:"body1" ~inner_fresh_names:["a";"";"b";""] [cFun "g"];
+    (* DONE: rename arguments
+    !! Function.inline_call ~label:"body1" ~args:["a";"";"b";""] ~vars:(Suffix "_1")  [cFun "g"]; *)
+      !! Function.inline_call ~label:"body1" ~args:["a";"";"b";""] [cFun "g"];
       !!());
     !! Trace.alternative (fun () ->
       let r = "res_temp" in
