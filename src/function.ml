@@ -50,6 +50,9 @@ let bind ?(fresh_name : string = "res") ?(inner_fresh_names : var list = []) (tg
       of function call inlining.
 *)
 let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = AddSuffix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
+(* TODO: use Target.apply_on_targets
+   TODO: work with the explicit path converted to a target
+   TODO: generate a nobrace sequence for producing the output *)
   let t = Trace.get_ast() in
   let name_result = ref name_result in
   let tg_path = Target.resolve_target_exactly_one tg t in

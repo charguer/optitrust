@@ -90,6 +90,9 @@ let nbExact (nb : int) : constr =
 (*                                Directions                                  *)
 (******************************************************************************)
 
+let target_of_path (p : path) : target =
+  List.map (fun d -> Constr_dir d) p
+
 let dRoot : constr =
     Constr_root
 
@@ -220,7 +223,7 @@ let cWhile ?(cond : target = [])
   let p_body = body in
     Constr_while (p_cond, p_body)
 
-let cDoWhile ?(body : target = []) 
+let cDoWhile ?(body : target = [])
   ?(cond : target = [])  (_ : unit) : constr =
   let p_body = body in
   let p_cond = cond in
@@ -277,8 +280,8 @@ let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_p
   let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
   let p_args = match args with
     | [] -> args_pred
-    | _ -> if args_pred = target_list_pred_always_true 
-            then target_list_simpl args 
+    | _ -> if args_pred = target_list_pred_always_true
+            then target_list_simpl args
             else fail None "cFunDef: can't provide both args and args_pred"
     in
   Constr_decl_fun (ro, p_args, body)
@@ -294,7 +297,7 @@ let cTypDef
   let ro = string_to_rexp_opt regexp substr name TrmKind_Expr in
   Constr_decl_type ro
 
-let cDef (name : string) : constr = 
+let cDef (name : string) : constr =
   cOr [[cFunDef name];[cVarDef name];[cTypDef name]]
 
 let cEnum ?(name : string = "")

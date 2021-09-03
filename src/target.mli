@@ -55,6 +55,8 @@ val nbAny : constr
 
 val nbExact : int -> constr
 
+val target_of_path : path -> target
+
 val dRoot : constr
 
 val dNth : int -> constr

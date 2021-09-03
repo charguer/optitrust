@@ -20,3 +20,11 @@ int main() {
   int t = f(g(h(4), u, m(v,2), w+1));
   return 0;
 }
+
+/* TODO: uncomment to test
+int conflicts() {
+  int a = 1;
+  int r = 2;
+  a = r;
+  r = a;
+}*/
