@@ -8,15 +8,15 @@ let _ = Run.script_cpp (fun _ ->
       !! Function.bind_args ["a";"";"b";""] [cFun "g"];
       !! Function_basic.inline_call ~label:"body" [cFun "g"];
       !! Function.elim_body [cLabel "body"];
-      (* TOOD: skip this ! List.iter (fun x -> Variable_basic.inline ~delete:true [cVarDef x]) (List.filter (fun x -> x <> "") ["a";"";"b";""]);*)
+      (* DONE: skip this ! List.iter (fun x -> Variable_basic.inline ~delete:true [cVarDef x]) (List.filter (fun x -> x <> "") ["a";"";"b";""]);*)
       !! Variable_basic.init_attach [cVarDef "r"];
-      (* TOOD: this step should only be done if name_result was not provided
+      (* DONE: this step should only be done if name_result was not provided
          !! Variable_basic.inline ~delete:true [cVarDef "r"]; *)
       !!());
 
     (* Demo without a result name *)
     (*!! Trace.alternative (fun () ->
-        (* TODO: fix this so that it works without the name_result *)
+        (* DONE: fix this so that it works without the name_result *)
       !! Function.inline_call ~label:"body1" ~inner_fresh_names:["a";"";"b";""] [cFun "g"];
       !!()); *)
     !! Trace.alternative (fun () ->

@@ -45,18 +45,14 @@ let bind ?(fresh_name : string = "res") ?(inner_fresh_names : var list = []) (tg
       expects the target tg to point to point to a function call. And automates completely the process
       of function call inlining.
 *)
-let inline_call1 ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = Postfix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
+let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = Postfix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
   let t = Trace.get_ast() in
-  (* TODO:
-  let name_result_provided = (name_result = "") in
-  let name_result = if name_result_provided then name_result else "__TEMP" in
-  *)
   let name_result = ref name_result in
   let tg_path = Target.resolve_target_exactly_one tg t in
   let (path_to_seq,local_path, i) = Internal.get_call_in_surrounding_sequence tg_path in
   let (tg_trm, _) = Path.resolve_path (path_to_seq @ [Dir_seq_nth i] @ local_path) t in
   let (tg_out_trm, _) = Path.resolve_path (path_to_seq @ [Dir_seq_nth i]) t in
-  let inlining_needed =
+  let res_inlining_needed =
     begin match tg_out_trm.desc with
     | Trm_let (_, (x, _), _) ->
       let init1 = get_init_val tg_out_trm in
@@ -64,8 +60,9 @@ let inline_call1 ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : re
         else if init1 = tg_trm then begin name_result := x; false end
         else
             begin match !name_result with
-            | ""  ->  name_result := "__TEMP_Optitrust"; true
-            | _ -> Function_basic.bind_intro ~fresh_name:!name_result tg;true
+            | ""  ->  name_result := "__TEMP_Optitrust";
+                      Function_basic.bind_intro ~fresh_name:!name_result tg;true
+            | _ -> Function_basic.bind_intro ~fresh_name:!name_result tg;false
             end
     | Trm_apps _ -> false
     | _ -> fail None "inline_call: expected a variable declaration or a function call"
@@ -73,14 +70,11 @@ let inline_call1 ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : re
   if inner_fresh_names <> [] then bind_args inner_fresh_names tg else ();
   Function_basic.inline_call ~label tg;
   elim_body ~renames [Target.cLabel label];
-   if inner_fresh_names <> []
-    then List.iter (fun x -> Variable_basic.inline ~delete:true [Target.cVarDef x]) (List.filter (fun x -> x <> "")inner_fresh_names)
-    else ();
   if _no_control_structures && (!name_result <> "")
     then
       begin
       Variable_basic.init_attach [Target.cVarDef !name_result];
-      if inlining_needed then Variable_basic.inline ~delete:true [Target.cVarDef !name_result] else ()
+      if res_inlining_needed then Variable_basic.inline ~delete:true [Target.cVarDef !name_result] else ()
       end
     else ()
 

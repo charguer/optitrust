@@ -437,8 +437,25 @@ let get_constr_from_target (tg : target) : constr =
   | [cnst] -> cnst
   | _ -> cChain tg
 
-
+(* A wrapper for creating and deleting a nobrace sequence *)
 let nobrace_remove_after (f : unit -> unit) : unit =
   nobrace_enter();
   f();
   nobrace_remove_and_exit()
+
+(* TODO: Fix me!*)
+let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (op_name:string) : trm->trm =
+  fun (t:trm) ->
+    match t.desc with
+    | Trm_seq _ -> tr t
+    | Trm_labelled (l, t1) ->
+        begin match t1.desc with 
+        | Trm_seq _ -> 
+          if keep_label
+          then trm_labelled l (tr t1)
+          else tr t1
+        | _ -> fail t.loc (op_name ^ " expected a labelled sequence")
+        end
+        
+    | _ -> fail t.loc (op_name ^ " expected a sequence or a labelled sequence")
+
