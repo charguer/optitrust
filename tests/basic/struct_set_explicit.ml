@@ -15,7 +15,7 @@ let _ = Run.script_cpp ( fun _ ->
 
   (* TODO: this one should raise an error saying that only struct type can be updated *)
   !!! Struct_basic.set_explicit [sInstr "c.weight ="];
-
+  
 
   (* LATER: arthur think about this one, the explicit path are modified in between...
     !! Struct_basic.set_explicit [nbMulti; cOr [[sInstr "c.pos ="]; [sInstr "c.speed ="]]]; *)

@@ -31,6 +31,6 @@ let _ = Run.script_cpp (fun _ ->
 
     (* Demo without naming the arguments, observe the duplicated call to h *)
     !! Trace.alternative (fun () ->
-       !! Function.inline_call ~name_result:"r" (* TODO: remove name_result *) [cFun "g"];
+       !! Function.inline_call ~name_result:"r" (* DONE: remove name_result *) [cFun "g"];
       !!());
 )

@@ -141,27 +141,8 @@ let set_implicit_aux (t: trm) : trm =
     end
   | _ -> fail t.loc "set_implicit_aux: sequence which contains the set instructions was not matched"
 
-let set_implicit : Target.Transfo.local =
-  Target.apply_on_path (set_implicit_aux)
-
-(* TODO: define and use
-  Target.apply_on_path_targeting_a_sequence (set_implicit_aux)
-
-
-  where
-
-  let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (op_name:string) : trm->trm =
-    fun (t:trm) ->
-      match t with
-      | Trm_seq tl -> tr t
-      | Trm_labelled (l, Trm_seq _ as t1) ->
-          if keep_label
-            then Trm_labelled (l, tr t1)
-            else tr t1
-      | _ -> fail t.loc (op_name ^ " expected a sequence or a labelled sequence")
-
-*)
-
+let set_implicit (keep_label : bool) : Target.Transfo.local =
+  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (set_implicit_aux) "set_implicit")
 
 
 (* [inline_struct_accesses x t]: change all the occurrences of the struct accesses to a field into a field

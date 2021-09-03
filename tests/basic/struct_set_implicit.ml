@@ -3,10 +3,9 @@ open Target
 
 
 let _ = Run.script_cpp (fun _ ->
-  !! Struct_basic.set_implicit [cLabel "group1"; dBody];
-  (* TODO: check that the wrapper handles the label with dBody;
+  !! Struct_basic.set_implicit ~keep_label:true [cLabel "group1"];
+  (* DONE: check that the wrapper handles the label with dBody;
      here, the label "group1" should disappear *)
-
 
   (* apply operations to multiple groups *)
   !! Trace.alternative (fun () ->

@@ -443,7 +443,7 @@ let nobrace_remove_after (f : unit -> unit) : unit =
   f();
   nobrace_remove_and_exit()
 
-(* TODO: Fix me!*)
+(* In the cases when targeted sequences are labelled, this wrapper targets directly the sequence instead of the labeeld ast node *)
 let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (op_name:string) : trm->trm =
   fun (t:trm) ->
     match t.desc with
@@ -454,8 +454,8 @@ let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (
           if keep_label
           then trm_labelled l (tr t1)
           else tr t1
-        | _ -> fail t.loc (op_name ^ " expected a labelled sequence")
+        | _ -> fail t.loc (op_name ^ ": expected a labelled sequence")
         end
         
-    | _ -> fail t.loc (op_name ^ " expected a sequence or a labelled sequence")
+    | _ -> fail t.loc (op_name ^ ": expected a sequence or a labelled sequence")
 
