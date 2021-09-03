@@ -49,7 +49,7 @@ let bind ?(fresh_name : string = "res") ?(inner_fresh_names : var list = []) (tg
       expects the target tg to point to point to a function call. And automates completely the process
       of function call inlining.
 *)
-let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = AddSuffix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
+let inline_call1 ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = AddSuffix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
 (* TODO: use Target.apply_on_targets
    TODO: work with the explicit path converted to a target
    TODO: generate a nobrace sequence for producing the output *)
@@ -86,4 +86,41 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : ren
     else ()
 
 
-
+(* [inline_call ~name_result ~label ~renames ~inner_fresh_names ~no_control_structures tg]
+      expects the target tg to point to point to a function call. And automates completely the process
+      of function call inlining.
+*)
+let inline_call1 ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = AddSuffix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
+  let t = Trace.get_ast() in
+  let tg_paths = Target.resolve_target tg t in
+  List.iter (fun tg_path -> 
+  let name_result = ref name_result in
+  let (path_to_seq,local_path, i) = Internal.get_call_in_surrounding_sequence tg_path in
+  let (tg_trm, _) = Path.resolve_path (path_to_seq @ [Dir_seq_nth i] @ local_path) t in
+  let (tg_out_trm, _) = Path.resolve_path (path_to_seq @ [Dir_seq_nth i]) t in
+  Internal.nobrace_remove_after (fun _ -> 
+  let res_inlining_needed =
+    begin match tg_out_trm.desc with
+    | Trm_let (_, (x, _), _) ->
+      let init1 = get_init_val tg_out_trm in
+      if !name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline_call: no need to enter the result name in this case"
+        else if init1 = tg_trm then begin name_result := x; false end
+        else
+            begin match !name_result with
+            | ""  ->  name_result := "__TEMP_Optitrust";
+                      Function_basic.bind_intro ~fresh_name:!name_result tg;true
+            | _ -> Function_basic.bind_intro ~fresh_name:!name_result tg;false
+            end
+    | Trm_apps _ -> false
+    | _ -> fail None "inline_call: expected a variable declaration or a function call"
+    end in
+  if inner_fresh_names <> [] then bind_args inner_fresh_names tg else ();
+  Function_basic.inline_call ~label tg;
+  elim_body ~renames [Target.cLabel label];
+  if _no_control_structures && (!name_result <> "")
+    then
+      begin
+      Variable_basic.init_attach [Target.cVarDef !name_result];
+      if res_inlining_needed then Variable_basic.inline ~delete:true [Target.cVarDef !name_result] else ()
+      end
+    else ())) tg_paths

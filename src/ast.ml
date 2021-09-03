@@ -1486,6 +1486,12 @@ let get_lit_from_trm_lit (t : trm) : lit =
   | Trm_val (Val_lit l) -> l
   | _ -> fail t.loc "get_lit_from_trm: this type of literal is not supported"
 
+let is_type_unit (t : typ) : bool = 
+  match t.typ_desc with 
+  | Typ_unit -> true
+  | _ -> false 
+
+
 (* type instantiation = trm varmap *)
 
 (* Check if rule is applicable *)
