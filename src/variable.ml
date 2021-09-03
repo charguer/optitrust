@@ -1,4 +1,5 @@
 open Ast
+include Variable_core.Rename
 
 (* [fold ~as_reference ~at ~nonconst tg] expects [tg] to point to a variable declaration 
     [as_reference] - denotes a flag whether the declaration initialization contains a 
@@ -23,7 +24,7 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
     | _ -> if nonconst = true 
             then Variable_basic.fold ~as_reference ~at tg
             else
-              fail tg_trm.loc "fold: if you want to use folding for mutbale variables you should set
+              fail tg_trm.loc "fold: if you want to use folding for mutable variables you should set
                           ~nonconst to true when calling this transformation"
     end
   | _ -> fail tg_trm.loc "fold: expected a variable declaration"

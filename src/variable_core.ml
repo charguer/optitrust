@@ -17,6 +17,16 @@ open Target
     return:
       updated ast 
 *)
+
+(* This type is used for variable renaming, the user can choose between renaming all the variables 
+    on one block, by giving the suffix to add after or he can also  give the list of variables to 
+    be renamed together with their new name.
+*)
+module Rename = struct
+  type t = | AddSuffix of string | ByList of (string * string) list
+end
+type rename = Rename.t
+
 let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
@@ -125,18 +135,18 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
    return:
     updated ast 
 *)
-let rename_aux (rename : rename) (t : trm) : trm =
+let rename_aux (rename : Rename.t) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     List.fold_left (fun acc t1 ->
         match t1.desc with
         | Trm_let (vk,(x, tx), init) ->
           begin match rename with 
-          | Postfix post_fix ->
+          | AddSuffix post_fix ->
             let func = fun x -> x ^ post_fix in 
             let acc = Internal.change_trm t1 (trm_let vk ((func x), tx) init) acc in
             Internal.change_trm (trm_var x) (trm_var (func x)) acc
-          | Rename_list list -> 
+          | ByList list -> 
             if List.mem_assoc x list then
             begin 
             let new_var = List.assoc x list in
@@ -150,7 +160,7 @@ let rename_aux (rename : rename) (t : trm) : trm =
       ) t tl 
   | _ -> fail t.loc "rename_aux: expected the sequence block"
 
-let rename (rename : rename) : Target.Transfo.local =
+let rename (rename : Rename.t) : Target.Transfo.local =
   Target.apply_on_path (rename_aux rename)
 
 (* [init_detach_aux t]: replace an initialized variable declaration with an

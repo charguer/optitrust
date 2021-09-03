@@ -1,5 +1,7 @@
-open Ast
 open Target
+include Variable_core.Rename
+include Variable_core
+
 
 (* [fold ~as_reference ~at tg] expects [tg] to point to a variable declaration 
     [as_reference] - denotes a flag whether the declaration initialization contains a 

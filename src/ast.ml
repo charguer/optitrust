@@ -1425,7 +1425,7 @@ let get_nobrace_id (t : trm) : int =
     on one block, by giving the prefix to add or he can also  give the list of variable to 
     be renamed together with their new name.
 *)
-type rename = | Postfix of string | Rename_list of (var * var) list
+type rename = | Suffix of string | Rename_list of (var * var) list
 
 (* get the value of a variable initialization *)
 let get_init_val (t : trm) : trm = 

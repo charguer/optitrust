@@ -1,4 +1,6 @@
 open Ast
+include Variable_core.Rename
+type rename = Variable_core.Rename.t
 (* [hoist x_step tg] - expects target to point inside the declaration of the variable
     [x_step] - denotes the variable going to be hoisted outside the loop.
     This transformation is similar to the basic one except that it supports also
@@ -117,7 +119,7 @@ let unroll ?(_partition : int list = []) (tg : Target.target) : unit =
       begin match bnd.desc with 
       | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~label:"unroll" tg;
         let block_list = Tools.range 0 (n-1) in
-        List.iter (fun x -> Variable_basic.rename (Postfix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list;
+        List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list;
         Sequence_basic.partition _partition [Target.nbExact n;Target.cLabel "unroll"; Target.dBody;Target.cSeq ()]
         
       | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
@@ -131,7 +133,7 @@ let unroll ?(_partition : int list = []) (tg : Target.target) : unit =
         | Lit_int n -> n
         | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
         let block_list = Tools.range 0 (n-1) in
-        List.iter (fun x -> Variable_basic.rename (Postfix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list;
+        List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list;
         Sequence_basic.partition _partition [Target.nbExact n;Target.cLabel "unroll"; Target.dBody;Target.cSeq ()];
         Sequence_basic.reorder_blocks [Target.cLabel "unroll";Target.dBody];
         Internal.nobrace_remove_and_exit ~all:true ();

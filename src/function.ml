@@ -1,5 +1,9 @@
 open Ast
 open Path
+include Variable_core.Rename
+
+type rename = Variable_core.Rename.t
+
 
 (*  [bind_args fresh_names tg] expets the target [tg] to point to a function call.
       Then it takes [fresh_names] which is a list of strings where the string
@@ -28,7 +32,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
     Either the user can give a list of variables together with their new names, or he can give the postfix
     after which shoudl be assigned to all the declared variables.
 *)
-let elim_body ?(renames : rename = Postfix "") (tg : Target.target) : unit =
+let elim_body ?(renames : rename = AddSuffix "") (tg : Target.target) : unit =
   let tg_body = if List.mem Target.dBody tg then tg else (tg @ [Target.dBody]) in
   Variable_basic.rename renames tg_body;
   Sequence_basic.elim tg
@@ -45,7 +49,7 @@ let bind ?(fresh_name : string = "res") ?(inner_fresh_names : var list = []) (tg
       expects the target tg to point to point to a function call. And automates completely the process
       of function call inlining.
 *)
-let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = Postfix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
+let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = AddSuffix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
   let t = Trace.get_ast() in
   let name_result = ref name_result in
   let tg_path = Target.resolve_target_exactly_one tg t in
