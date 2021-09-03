@@ -437,3 +437,8 @@ let get_constr_from_target (tg : target) : constr =
   | [cnst] -> cnst
   | _ -> cChain tg
 
+
+let nobrace_remove_after (f : unit -> unit) : unit =
+  nobrace_enter();
+  f();
+  nobrace_remove_and_exit()

@@ -56,19 +56,17 @@ let tile ?(index : var = "") ?(bound : tile_bound = TileBoundMin) (tile_size : s
       }                                       }
 *)
 let hoist (x_step : var) (tg : Target.target) : unit =
-  Internal.nobrace_enter ();
-  Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.hoist x_step i t p) tg;
-  Internal.nobrace_remove_and_exit ()
+  Internal.nobrace_remove_after (fun _ ->
+    Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
+    (fun (p, i) t -> Loop_core.hoist x_step i t p) tg) 
 
 (* [fission tg]: expects [tg] to point somewhere inside the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
 *)
 let fission (tg : Target.target) : unit =
-  Internal.nobrace_enter ();
-  Target.apply_on_transformed_target_between (Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.fission i t p) tg;
-  Internal.nobrace_remove_and_exit ()
+  Internal.nobrace_remove_after( fun _ ->
+    Target.apply_on_transformed_target_between (Internal.get_trm_in_surrounding_loop)
+    (fun (p, i) t -> Loop_core.fission i t p) tg )
 
 (* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops
     with the same range, start step and bound but different body.
@@ -82,10 +80,9 @@ let fusion_on_block : Target.Transfo.t =
    declaration inside a for loop. The idea is similar to loop hoist
 *)
 let extract_variable (tg : Target.target) : unit =
-  Internal.nobrace_enter ();
-  Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.extract_variable i t p) tg;
-  Internal.nobrace_remove_and_exit ()
+  Internal.nobrace_remove_after( fun _ ->
+    Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
+    (fun (p, i) t -> Loop_core.extract_variable i t p) tg)
 
 (* [grid_enumerate index_and_bounds tg] expects tg to point to loop iterating over
     a grid. The grid can be of any dimension. This loop is transformed into nested loops
@@ -123,22 +120,18 @@ let unroll ?(label : var = "") : Target.Transfo.t =
     Then it will take it outside the loop.
 *)
 let invariant (tg : Target.target) : unit =
-  Internal.nobrace_enter();
+  Internal.nobrace_remove_after ( fun _ ->
   Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t ->
-       Loop_core.invariant i t p
-    ) tg;
-  Internal.nobrace_remove_and_exit ()
+    (fun (p, i) t -> Loop_core.invariant i t p ) tg)
 
 (* [unswitch tg] expects the target [tg] to point to an if statement inside the loop
      with a constant condition (not dependent on loop index or local variables)
      Then it will take the if statment outside the loop.
 *)
 let unswitch (tg : Target.target) : unit =
-  Internal.nobrace_enter ();
+  Internal.nobrace_remove_after ( fun _ ->
   Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.unswitch i t p) tg;
-  Internal.nobrace_remove_and_exit ()
+    (fun (p, i) t -> Loop_core.unswitch i t p) tg)
 
 
 (* [to_unit_steps index tg] expects target [tg] to point to a for loop

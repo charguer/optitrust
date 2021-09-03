@@ -42,10 +42,10 @@ let bind ?(fresh_name : string = "res") ?(inner_fresh_names : var list = []) (tg
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
 (* [inline_call ~name_result ~label ~renames ~inner_fresh_names ~no_control_structures tg]
-      expects the target tg to point to point to a function call. And automate completely the process
+      expects the target tg to point to point to a function call. And automates completely the process
       of function call inlining.
 *)
-let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = Postfix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
+let inline_call1 ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : rename = Postfix "1") ?(inner_fresh_names : var list = []) ?(_no_control_structures : bool = true) (tg : Target.target) : unit =
   let t = Trace.get_ast() in
   (* TODO:
   let name_result_provided = (name_result = "") in
@@ -64,9 +64,7 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : ren
         else if init1 = tg_trm then begin name_result := x; false end
         else
             begin match !name_result with
-            | "" ->
-                let rnd_nb = Random.int 1000 in
-                name_result := ("temp" ^ (string_of_int rnd_nb));true
+            | ""  ->  name_result := "__TEMP_Optitrust"; true
             | _ -> Function_basic.bind_intro ~fresh_name:!name_result tg;true
             end
     | Trm_apps _ -> false
@@ -85,3 +83,6 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(renames : ren
       if inlining_needed then Variable_basic.inline ~delete:true [Target.cVarDef !name_result] else ()
       end
     else ()
+
+
+

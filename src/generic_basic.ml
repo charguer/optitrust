@@ -17,25 +17,9 @@ let replace (code : string) (tg : target) : unit =
     each new variable entered by the user.
 *)
 let from_one_to_many (names : var list) (tg : Target.target) : unit =
-  Internal.nobrace_enter();
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.from_one_to_many names i t p) tg;
-  Internal.nobrace_remove_and_exit ()
-
-(* TODO: use a combinator when it is possible
-
-let from_one_to_many (names : var list) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after (fun () ->
+  Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-      (fun (p, i) t -> Generic_core.from_one_to_many names i t p) tg)
-
-in Internal:
-
-   let nobrace_remove_after (f:unit->unit) : unit =
-     Internal.nobrace_enter();
-     f();
-     Internal.nobrace_remove_and_exit ()
-*)
+    (fun (p, i) t -> Generic_core.from_one_to_many names i t p) tg)
 
 (* [local_other_name var_type old_var new_var tg] expectes target [tg] to point to a labelled
       sequence. Then it will declare a new variable with name [new_name] and replace all
@@ -107,9 +91,8 @@ let arbitrary_if (cond : string) (tg : target) : unit =
     of the array declared inside the block
 *)
 let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) (tg : Target.target) : unit =
-  Internal.nobrace_enter ();
-  Target.apply_on_target (Generic_core.delocalize array_size neutral_element fold_operation) tg;
-  Internal.nobrace_remove_and_exit ()
+  Internal.nobrace_remove_after (fun _ -> 
+    Target.apply_on_target (Generic_core.delocalize array_size neutral_element fold_operation) tg)
 
 (* [change_type new_type tg] expects [tg] to point to variable declaration
     then it will change the type of that variable with [new_type].

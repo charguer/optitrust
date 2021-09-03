@@ -811,21 +811,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           | [[]] when all_target_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
           | _ -> acc @ potential_targets  (* LATER: make code more complex to avoid quadratic operation here *)
           end ) [] tl
-        (* DEPRECATED List.fold_left(fun acc tr ->
-        let potential_target = resolve_target_simple tr t in
-        begin match potential_target with
-        | [[]] -> acc
-        | _ ->
-          begin match acc with
-          | [] -> potential_target
-          | _ -> acc
-          end
-        end ) [] tl *)
     | Constr_and tl :: [] ->
-        (* TODO: naive implementation:
-            - apply resolve_target_simple for each tl elements
-            - take the intersection of the sets of results
-              using a List.fold_left (fun ... -> List.filter ..) *)
         List.fold_left (fun acc tr ->
         let potential_target = resolve_target_simple tr t in
         begin match potential_target with

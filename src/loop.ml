@@ -7,7 +7,7 @@ open Ast
       transformation which does that for us. Otherwise just apply the basic hoist transformation.
 *)
 let hoist (x_step : var) (tg : Target.target) : unit =
-  Internal.nobrace_enter ();
+  Internal.nobrace_remove_after ( fun _ ->
   Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> 
       let (tg_trm,_) = Path.resolve_path (p @ [Dir_body;Dir_seq_nth i]) t in
@@ -26,8 +26,7 @@ let hoist (x_step : var) (tg : Target.target) : unit =
       | true -> 
         let t = Variable_core.init_detach i t (p @ [Dir_body]) in
         let t = Loop_core.hoist x_step i t p in t
-      | false -> let t = Loop_core.hoist x_step i t p in t) tg;
-  Internal.nobrace_remove_and_exit ()
+      | false -> let t = Loop_core.hoist x_step i t p in t) tg)
 
 
 (* [fusion nb tg] expects [tg] to point to a for loop followed by two or more
@@ -42,7 +41,7 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
 
 
 let invariant ?(upto : string = "") (tg : Target.target) : unit =
-  Internal.nobrace_enter();
+  Internal.nobrace_remove_after( fun _ -> 
   let t = Trace.get_ast() in
   let exp =  Constr.resolve_target_exactly_one tg t in
   let (p, _) = Internal.get_trm_in_surrounding_loop exp in 
@@ -68,8 +67,7 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
             | _ -> 
               Loop_basic.invariant tg;
               tmp_p := List.rev(List.tl (List.rev !tmp_p))
-            done;
-  Internal.nobrace_remove_and_exit ()
+            done)
 
 (* [move before after loop_to_move] move one loop before or after another loop in
     a "sequence"(not in the context of Optitrust) of nested loops.
