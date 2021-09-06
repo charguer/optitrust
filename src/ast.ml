@@ -621,8 +621,8 @@ let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (x : typvar) (tid : typconstrid) : typ =
   {typ_annot = annot; typ_desc = Typ_var (x, tid); typ_attributes}
 
-let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (x : typvar) (tid : typconstrid) (tl : typ list) : typ =
+let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = []) ?(tid : typconstrid = next_typconstrid ())
+  (x : typvar)  (tl : typ list) : typ =
   {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
 
 let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
@@ -666,6 +666,8 @@ let typ_template_param ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (name : string) : typ =
   {typ_annot = annot; typ_desc = Typ_template_param name; typ_attributes}
 
+let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typdef_body =
+  Typdef_prod (recursive, field_list)
 
 (* function that fails with given error message and points location in file *)
 exception TransfoError of string

@@ -209,8 +209,7 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
       the updated ast of the declaration
 *)
 let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
-  let tid = next_typconstrid() in
-  let constructed_type = typ_constr new_type tid [] in
+  let constructed_type = typ_constr new_type [] in
   match t.desc with 
   | Trm_seq tl ->
     let lfront, decl, lback = Internal.get_trm_and_its_relatives index tl in
