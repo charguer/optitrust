@@ -152,3 +152,42 @@ let list_remove_duplicates xs = List.rev (List.fold_left list_remove_duplicate [
 
 let list_intersect xs1 xs2 = List.filter (fun x -> List.mem x xs1) xs2
 
+
+(* maps on functions *)
+module Fun_map = Map.Make(String)
+type 'a funmap = 'a Fun_map.t
+
+(* sets on int lists *)
+module IntList =
+  struct
+    type t = int list
+    let rec compare il il' =
+      match il, il' with
+      | [], [] -> 0
+      | _ :: _, [] -> 1
+      | [], _ :: _ -> -1
+      | i :: il, i' :: il' ->
+         begin match Stdlib.compare i i' with
+         | 0 -> compare il il'
+         | c -> c
+         end
+  end
+  
+module IntListSet = Set.Make(IntList)
+type ilset = IntListSet.t
+
+(* foldi for int list sets *)
+let intl_set_foldi (f : int -> int list -> 'a -> 'a) (ils : ilset)
+  (a : 'a) : 'a =
+  let (_, res) =
+    IntListSet.fold (fun il (i, a) -> (i + 1, f i il a)) ils (0, a)
+  in
+  res
+
+(* helper function for union of maps of int list sets *)
+let ilset_funmap_union_aux (_ : Fun_map.key) (ils : ilset)
+  (ils' : ilset) : ilset option =
+  Some (IntListSet.union ils ils')
+let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
+  Fun_map.union ilset_funmap_union_aux
+let (+@) = ilset_funmap_union

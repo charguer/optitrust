@@ -1,6 +1,6 @@
 open Ast
 open Target
-
+open Tools
 (* Replaces all the occurrences of t_before in the ast [t] with t_after.
     If the user does not want to target the full ast but just some specific locations,
     then he can enter the targeted locations in [change_at].
@@ -460,4 +460,113 @@ let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (
         end
         
     | _ -> fail t.loc (op_name ^ ": expected a sequence or a labelled sequence")
+
+(* make sure each occurrence of y in t is marked with type variable x *)
+let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
+  match t.desc with 
+  | Trm_var y' when y' = y ->
+    trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x [])) y
+  | _ -> trm_map (replace_type_with x y) t
+
+
+(* replace with x the types of the variables given by their index
+  assumption: t is a fun body whose argument are given by tvl
+*)
+let replace_arg_types_with (x : typvar) (il : int list) (tvl : typed_var list) (t : trm) : trm =
+  List.fold_left (fun t' i ->
+    let (y, _) = List.nth tvl i in
+    replace_type_with x y t'
+  )
+  t il
+let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t : trm) : ilset funmap =
+  let rec aux (t : trm) : ilset funmap =
+    match t.desc with 
+    | Trm_let (_, _, body) -> aux body
+    | Trm_let_fun (_, _, _, body) -> aux body
+    | Trm_if (cond, then_, else_) -> aux cond +@ aux then_ +@ aux else_
+    | Trm_seq tl ->
+      List.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty tl
+    | Trm_apps (f, tl) ->
+      let ilsm =
+        List.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty tl
+      in
+      begin match f.desc with 
+      (* If f is a variable, we have to add f to ilsm if an argument has type x
+        ignore the free function
+      *)
+      | Trm_var f when f <> "free" ->
+          let il =
+            foldi
+              (fun i il (t' : trm) ->
+                match t'.typ with
+                (* note: also works for heap allocated variables *)
+                | Some {typ_desc = Typ_constr (x', _, _);_} when x' = x -> i :: il
+                | _ -> il
+              )
+              []
+              tl
+          in
+          begin match il with
+          | [] -> ilsm
+          | _ ->
+             let ils = IntListSet.singleton (List.rev il) in
+             Fun_map.update f
+               (function
+                | None -> Some ils
+                | Some ils' -> Some (IntListSet.union ils ils')
+               )
+               ilsm
+          end
+       (* in other cases, do a recursive call *)
+       | _ -> ilsm +@ aux f
+       end
+      | Trm_while (cond, body) -> aux cond +@ aux body
+      | Trm_for_c (init, cond, step, body) ->
+        aux init +@ aux cond +@ aux step +@ aux body
+      | Trm_for (_, _, _, _, _, body) -> aux body
+      | Trm_switch (cond, cases) ->
+        aux cond +@
+          List.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty
+            (List.map (fun (_, t') -> t') cases)
+      | Trm_abort (Ret (Some t'))
+        | Trm_labelled (_, t') ->
+          aux t'
+      (* val, var, array, struct, type decl, aborts with no argument *)
+      | _ -> Fun_map.empty
+    in
+    let ilsm = aux t in
+    (* 
+      For each function, do a recursive call on its declaration where the type of arguments is replaced with x
+    *)
+    Fun_map.fold (
+      fun f ils res ->
+        IntListSet.fold (
+          fun il res ->
+            (* 
+              First compute the body of f where the arguments at position in il have type x
+            *)
+            let global_trm =
+              match outer_trm with 
+              | None -> t
+              | Some t' -> t'
+            in
+            match (toplevel_decl f global_trm) with 
+            | None -> 
+              print_info global_trm.loc
+               ("functions_with_arg_type: cannot find declaration of " ^^
+                  "function %s, ignoring it.\n") f;
+               Fun_map.remove f res
+            | Some dl ->
+              begin match dl.desc with 
+              | Trm_let_fun (_, _, args, body) -> 
+                let b = replace_arg_types_with x il args body in
+                (* then do a recursive call on the body *)
+                res +@ functions_with_arg_type ~outer_trm:(Some global_trm) x b
+              | _ -> fail t.loc "function_with_arg_type: expected a function declaration"
+              end
+
+        )
+        ils res
+    ) ilsm ilsm
+
 
