@@ -13,6 +13,8 @@ let coloring (ds : string list) (tg : target) : unit =
 let _ = Run.script_cpp (fun () ->
 
   (* PART 1: Inlining *)
+  (* TODO: test !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_mul"]; *)
+
   !! Function_basic.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_add"];
@@ -21,35 +23,43 @@ let _ = Run.script_cpp (fun () ->
   !! Function_basic.bind_intro ~fresh_name:"r2" [cFun "vect_mul"];
   !! Function.inline_call [cFun "vect_mul"];
   !! Function.inline_call [cFun "vect_add"];
+  (* TODO: test if inlining operations on mul and add could be factorized *)
   !! Variable_basic.init_attach [cVarDef "r2"];
   !! Variable_basic.inline ~delete:true [cVarDef "r2"];
   !! Struct_basic.set_explicit [sInstr "speed2 ="];
-  !! Struct_basic.set_explicit [sInstr "pos2 ="];
-  !! Function.bind_args ["b2";""] [cTopFun "main"; cFun "bag_push"];
+  !! Struct_basic.set_explicit [sInstr "pos2 ="]; (* TODO: cOr *)
+  !! Function.bind_args ["b2";""] [cTopFun "main"; cFun "bag_push"]; (* TODO:should be a reference *)
   !! Function.inline_call [cTopFun "main"; cFun "bag_push"];
+  (* TODO: Function.bind ~args["a", "&r", ""]  with & symbol treated by bind_args for asking for a reference *)
   !! Function.inline_call [cTopFun "bag_transfer"; cFun "bag_push"];
   !! Struct_basic.set_explicit [sInstr " = p2"];
   !! Struct_basic.set_explicit [sInstr " = b2.items[i]"];
-  !! Struct.set_explicit [sInstr " = p2.pos"];
+  
+  (* show [nbMulti; cFunDef "bag_transfer"; cFor ""; dBody; sInstr " = "];*)
+  (* TODO: try  Struct.set_explicit [nbMulti; cFunDef "bag_transfer"; cFor "i"; dBody; sInstr " = "];  
+     make sure that the nobraces are left until the end, for targets to remain valid*)
+  !! Struct.set_explicit [sInstr " = p2.pos"]; 
   !! Struct.set_explicit [sInstr " = b2.items[i].pos"];
   !! Struct.set_explicit [sInstr " = p2.speed"];
   !! Struct.set_explicit [sInstr " = b2.items[i].speed"];
   
   (* Part 2 AOS-TO-SOA *)
   !! Sequence_basic.insert "int k = b2.nb;" [tAfter; cVarDef "b2"];
-  !! Variable.fold ~nonconst:true [cVarDef "k"];
+  !! Variable.fold ~nonconst:true [cVarDef "k"]; (* TODO: this should be earlier *)
   !! Struct_basic.inline "pos" [cTypDef "particle"];
-  !! Struct_basic.inline "speed" [cTypDef "particle"];
+  !! Struct_basic.inline "speed" [cTypDef "particle"]; (* TODO: remove _Basic wherever possible *)
   !! Struct_basic.set_explicit [cTopFun "bag_push"; sInstr "= p"];
   !! Variable_basic.inline ~delete:true [cVarDef "p"];
   !! Struct_basic.inline "items" [cTypDef "bag"];
 
-   (* PART 3 Splitting computations *)
+   (* PART 3 Splitting computations *) (* TODO: list rev missing *)
    !! Struct_basic.to_variables [cVarDef "speed2"];
    !! Loop_basic.extract_variable [cVarDef "speed2_x"];
    !! Loop_basic.extract_variable [cVarDef "speed2_y"];
    !! Loop_basic.extract_variable [cVarDef "speed2_z"];
 
+    (* TODO: this is a hoist of a struct which goes as named arrays; factorizable as
+         Loop.extract_struct ~names:["pos2_x";"pos2_y";"pos2_z"] [cVarDef "pos2"]; *)
    !! Struct_basic.to_variables [cVarDef "pos2"];
    !! Loop_basic.extract_variable [cVarDef "pos2_x"];
    !! Loop_basic.extract_variable [cVarDef "pos2_y"];
@@ -71,7 +81,7 @@ let _ = Run.script_cpp (fun () ->
    !! Loop.move "x" ~after:"bz";
    !! Loop.move "y" ~after:"x";
    !! Loop.move "cy" ~before:"bx";
-   !! Loop.move "cz" ~before:"bx";
+   !! Loop.move "cz" ~before:"bx"; (* TODO: keep this in a switch, and introduce a function to do color+moves *)
   (* PART 5 Concurrency, TODO: Arthur*)
 )
 
