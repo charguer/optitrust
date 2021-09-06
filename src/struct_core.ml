@@ -14,7 +14,6 @@ open Ast
  *)
 let set_explicit_aux (index : int) (t: trm) : trm =
   let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
-
   match t.desc with
   | Trm_seq tl ->
     let lfront, instruction_to_change, lback = Internal.get_trm_and_its_relatives index tl in
@@ -70,7 +69,8 @@ let set_explicit_aux (index : int) (t: trm) : trm =
                 ) field_list in
              trm_seq ~annot: t.annot (lfront @ exp_assgn @ lback)
       end
-    | _ ->  fail t.loc "set_explicit_aux: this expression is not supported"
+    
+    | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
     end
   | _ -> fail t.loc "set_explicit_aux: expected the surrounding sequence"
 

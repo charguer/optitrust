@@ -224,16 +224,17 @@ let rec get_typid_from_typ (t : typ) : int =
 (* For an ast node [t] check if its type is a constructed type. If this is the case then return its id
     Else return -1. Meaning that node [t] has a different type.
  *)
-let get_typid_from_trm (t : trm) : int = 
+let rec get_typid_from_trm (t : trm) : int = 
   match t.desc with 
-  | Trm_apps (_,[_base]) ->
+  | Trm_apps (_,[base]) ->
     begin match t.typ with
     | Some typ ->
       begin match typ.typ_desc with
       | Typ_constr (_,id,_) -> id
       | _ -> -1
+      (* | _ -> get_typid_from_trm base *)
       end
-    | None -> -1
+    | None -> get_typid_from_trm base
     end
   | Trm_struct _ | Trm_var _ ->
     begin match t.typ with 
@@ -247,6 +248,7 @@ let get_typid_from_trm (t : trm) : int =
   | Trm_let (_,(_,tx),_) ->
     get_typid_from_typ tx
   | _ -> -1
+
   
 (* Find the declaration of variable [x] if it exists in [t] where t usually is the full ast.*)
 let rec toplevel_decl (x : var) (t : trm) : trm option =

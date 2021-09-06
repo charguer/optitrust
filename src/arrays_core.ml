@@ -517,12 +517,22 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
       end
       (* TODO: arthur: test the use of exceptions for structuring this code *)
 
-    (* other cases: recursive call *)
     | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with
       | Typdef_prod (tn, s) ->
         let s = List.map( fun (x, typ) -> (x, typ_array (typ) (Trm (trm_var sz)))) s in
         trm_typedef {td with typdef_body = Typdef_prod (tn, s)}
+      | Typdef_alias ty ->
+          begin match ty.typ_desc with
+          | Typ_array (a, _)->
+            begin match a.typ_desc with
+            | Typ_constr (sn, _, _) when sn = struct_name-> trm_typedef {td with typdef_body  = Typdef_alias a} 
+
+            | _ -> trm_map(aux global_trm) t
+            end
+            
+          | _ -> trm_map(aux global_trm) t
+          end
       | _ -> fail t.loc "aos_to_soa_aux: expected a typedef struct"
       end
     | Trm_typedef td ->
@@ -542,6 +552,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         end
 
     | Trm_let (vk, (n, dx), _) ->
+      Tools.printf "Arrived here!\n";
        begin match dx.typ_desc with
        | Typ_ptr {inner_typ = ty;_} ->
         begin match ty.typ_desc with
@@ -551,7 +562,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
             trm_let vk (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut a) (trm_prim ~loc:t.loc (Prim_new a)) 
           | _ -> trm_map (aux global_trm) t
           end
-        | _ -> t
+        | _ -> trm_map (aux global_trm) t
         end
        | _ -> trm_map (aux global_trm) t 
        end

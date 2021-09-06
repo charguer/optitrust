@@ -30,10 +30,4 @@ int main() {
 
 }
 
-/* TOOD:
-this file rename to  aos_to_sao_sized_array
 
-update current file to using:
- typedef vect* vects;
-
-*/
