@@ -148,12 +148,14 @@ let split_aux (index : int) (t : trm) : trm =
 let split (index : int) : Target.Transfo.local =
   Target.apply_on_path (split_aux index)
 
-
 let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
+  (* NOTE: could also say "if blocks = [] then t else ..." *)
   match t.desc with 
   | Trm_seq tl -> 
+    let nb = List.length tl in
+    let blocks = if blocks = [] then [nb] else blocks in
     let sum_blocks = List.fold_left (+) 0 blocks in
-    if sum_blocks <> List.length tl 
+    if sum_blocks <> nb 
       then fail t.loc (Tools.sprintf "partition: the partition entered is not correct, the list length is %d, while the sum of the block size is %d" (List.length tl) sum_blocks)
       else
         let current_list = ref tl in
@@ -184,9 +186,8 @@ let reorder_blocks_aux (t : trm) : trm =
       ) [] (List.rev tl) in
     let first_part, second_part = List.split transformed_list in
     trm_seq ~annot:t.annot ((List.flatten first_part) @ (List.flatten second_part))
-
   | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
-
+  (* LATER: add an option for creating visible sequences around the groups of similar instructions *)
 
 let reorder_blocks : Target.Transfo.local = 
   Target.apply_on_path (reorder_blocks_aux)

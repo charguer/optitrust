@@ -93,7 +93,8 @@ let split (tg : Target.target) : unit =
   Target.apply_on_transformed_target_between (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Sequence_core.split i t p) tg)
 
-
+(* TODO: documentation ,
+   including that blocks=[] would give a single block, that is, do nothing! *)
 let partition ?(visible : bool = false) (blocks : int list) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.partition blocks visible)
 

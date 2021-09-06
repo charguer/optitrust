@@ -107,8 +107,10 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     the instructions out of the loop and the loop will be removed.
     Assumption C should be a literal, this is needed to compute the number 
     of sequences to generate.
+    braces:true to keep the sequences
 *)
-let unroll ?(_partition : int list = []) (tg : Target.target) : unit =
+let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) : unit =
+let mylabel = "__TEMP_LABEL" in
   let t = Trace.get_ast () in
   let tg_loop_path =  Constr.resolve_target_exactly_one tg t in
   let (tg_loop_trm,_) = Path.resolve_path tg_loop_path t in
@@ -117,13 +119,13 @@ let unroll ?(_partition : int list = []) (tg : Target.target) : unit =
     begin match stop.desc with 
     | Trm_apps (_,[_;bnd]) ->
       begin match bnd.desc with 
-      | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~label:"unroll" tg;
+      | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~label:mylabel tg;
         let block_list = Tools.range 0 (n-1) in
-        List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list;
-        Sequence_basic.partition _partition [Target.nbExact n;Target.cLabel "unroll"; Target.dBody;Target.cSeq ()]
+        List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])) block_list;
+        Sequence_basic.partition blocks [Target.nbExact n;Target.cLabel mylabel; Target.dBody;Target.cSeq ()]
         
       | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
-                     Loop_basic.unroll ~label:"unroll" tg;
+                    Loop_basic.unroll ~label:mylabel tg;
         let var_decl = match Internal.toplevel_decl x t with 
           | Some d -> d
           | None -> fail t.loc "unroll: could not find the declaration of the variable"
@@ -133,15 +135,14 @@ let unroll ?(_partition : int list = []) (tg : Target.target) : unit =
         | Lit_int n -> n
         | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
         let block_list = Tools.range 0 (n-1) in
-        List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel "unroll"; Target.dBody;Target.cSeq ()])) block_list;
-        Sequence_basic.partition _partition [Target.nbExact n;Target.cLabel "unroll"; Target.dBody;Target.cSeq ()];
-        Sequence_basic.reorder_blocks [Target.cLabel "unroll";Target.dBody];
-        Internal.nobrace_remove_and_exit ~all:true ();
-        Label_basic.remove [Target.cLabel "unroll"]
+        List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])) block_list;
+        Sequence_basic.partition ~visible:braces blocks [Target.nbExact n;Target.cLabel mylabel; Target.dBody;Target.cSeq ()];
+        Sequence_basic.reorder_blocks [Target.cLabel mylabel; Target.dBody];
+        Label_basic.remove [Target.cLabel mylabel]
       | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
       end
     | _ -> fail t.loc "unroll: expected an addition between two trms"
     end
   | _ -> fail t.loc "unroll: expected a simple loop"
 
- 
+  

@@ -63,7 +63,6 @@ transfo: $(TESTS:.ml=_out.cpp)
 check: $(TESTS:.ml=.chk)
 
 # 'make compile' checks that the source and output cpp files both compile
-compile: $(COMPILE:.ml=.prog) $(COMPILE:.ml=_out.prog)
 
 # 'make execute" checks that the source and output cpp file both produce similar output
 execute: $(EXECUTE:.ml=.exec)

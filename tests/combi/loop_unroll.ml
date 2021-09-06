@@ -3,9 +3,18 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
   
-  !! Loop.unroll ~_partition:[1;1] [cFor "i"];
+  (* With partitioning *)
+  !! Loop.unroll ~braces:true ~blocks:[2;3] [cFor "i"];
 
+  (* Without partitioning *)
+  !! Loop.unroll ~braces:true [cFor "i"];
+
+  (* Hiding braces *)
+  !! Trace.alternative (fun () ->
+    !! Loop.unroll [cFor "i"];
+    !!())
 )
+
 (* DONE:
    in the combi level, [unroll] is matching the code
 
@@ -69,12 +78,12 @@ let _ = Run.script_cpp (fun _ ->
    }
    THIRD SUBSTEP: reorder instructions
    {
-     { instr1 instr2(i+0) }@nobrace
-     { instr1 instr2(i+1) }
-     { instr1 instr2(i+2) }
-     { instr3 instr4 instr5(i+0) }
-     { instr3 instr4 instr5(i+1) }
-     { instr3 instr4 instr5(i+2) }
+     { { instr1 instr2(i+0) }@nobrace
+       { instr1 instr2(i+1) }
+       { instr1 instr2(i+2) } }@?
+     { { instr3 instr4 instr5(i+0) }
+       { instr3 instr4 instr5(i+1) }
+       { instr3 instr4 instr5(i+2) } }@?
    }
 
    FOURTH SUBSTEP: remove nobrace sequences

@@ -9,10 +9,10 @@ TESTS_WORKING := \
 	function_bind.ml \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
-  loop_fusion.ml \
+	loop_fusion.ml \
 	loop_hoist.ml \
-  loop_invariant.ml \
-  loop_unroll.ml \
+	loop_invariant.ml \
+	loop_unroll.ml \
 	sequence_intro.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \

@@ -7,20 +7,20 @@ TARGET_MAKE_ALL := transfo
 TESTS_WORKING := \
 	arbitrary_if.ml \
 	array_swap.ml \
-  array_tile.ml \
+	array_tile.ml \
 	array_to_variables.ml \
-  function_bind_intro.ml \
+	function_bind_intro.ml \
 	function_inline_call.ml \
 	label_add.ml \
-  label_remove.ml \
+	label_remove.ml \
 	loop_hoist.ml \
-  loop_fusion.ml \
-  loop_interchange.ml \
-  loop_grid_enumerate.ml \
-  loop_color.ml \
-  loop_unroll.ml \
-  loop_invariant.ml \
-  loop_fission.ml \
+	loop_fusion.ml \
+	loop_interchange.ml \
+	loop_grid_enumerate.ml \
+	loop_color.ml \
+	loop_unroll.ml \
+	loop_invariant.ml \
+	loop_fission.ml \
 	loop_tile.ml \
 	loop_unswitch.ml \
 	loop_to_unit_steps.ml \
@@ -31,8 +31,8 @@ TESTS_WORKING := \
 	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_delete.ml \
-  sequence_elim.ml \
-  sequence_intro_on_instr.ml \
+	sequence_elim.ml \
+	sequence_intro_on_instr.ml \
 	struct_fields_reorder.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \

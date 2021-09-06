@@ -107,7 +107,7 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
     is of the form for(int i = a; i < a + C; i++){..} then it will move the
     the instructions out of the loop and the loop will be removed.
-    Assumption C should be a literal, this is needed to compute the number 
+    Assumption: C should be a literal, this is needed to compute the number 
     of sequences to generate.
 *)
 let unroll ?(label : var = "") : Target.Transfo.t =

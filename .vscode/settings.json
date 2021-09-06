@@ -21,5 +21,11 @@
     "n",
     "t",
     "u"
-  ]
+  ],
+  "[makefile]": {
+    "editor.insertSpaces": false,
+    "editor.detectIndentation": false
+  },
+  "search.exclude": {
+    "**/_build": true,
 }
