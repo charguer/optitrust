@@ -2,7 +2,9 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-   (* See basic version *)
+   (* Testing the stub for calling the basic level *)
+   !! Variable.inline ~at:[cVarDef "b"] [cVarDef "a"];
+
    ()
 
    (* VERY MUCH LATER: do some checks

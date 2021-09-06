@@ -1,5 +1,6 @@
 open Ast
 include Variable_core.Rename
+include Variable_basic
 
 (* [fold ~as_reference ~at ~nonconst tg] expects [tg] to point to a variable declaration 
     [as_reference] - denotes a flag whether the declaration initialization contains a 
