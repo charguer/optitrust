@@ -570,3 +570,61 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
     ) ilsm ilsm
 
 
+(*
+  add copies of the provided functions given by their name
+  each function f is mapped to the set of lists of indices corresponding to uses
+  of f where the arguments at those indices have x for type
+  the name of the copies are indexed with "new_name_i", where "new_name" is the
+  result of name, and similarly for labels in these copies
+ *)
+(* let rec insert_fun_copies (name : var -> var) (ilsm : ilset funmap) (x : typvar) (t : trm) : trm =
+  (* also chang the labels in the body of fun copies for unquennes *)
+  let rec label_aux (i : int) (t : trm) : trm =
+    match t.desc with
+    | Trm_labelled (l, body) ->
+       trm_labelled ~annot:t.annot ~loc:t.loc ~add:t.add
+         ~attributes:t.attributes (name l ^ "_" ^ string_of_int i)
+         (label_aux i body)
+    | _ -> trm_map (label_aux i) t
+  in
+   (Fun_map.fold
+       (fun f ils t' ->
+         match toplevel_decl f t' with
+         | None ->
+            fail t'.loc
+              ("insert_fun_copies: cannot find declaration of function " ^ f)
+         | Some fdecl ->
+            begin match fdecl.desc with 
+            | Trm_let_fun (f', r, tvl, b) when f = f' ->
+               (* for each element of ils, create a copy *)
+               let tl =
+                 intl_set_foldi
+                   (fun i il tl ->
+                     (*
+                       for each argument whose index is in il, use x as
+                       (possibly new) type in the declaration
+                      *)
+                     let tvl' =
+                       List.fold_left
+                         (change_nth (fun (y, _) -> (y, typ_var x))) tvl il
+                     in
+                     (* add index to labels in the body of the function *)
+                     let b' =
+                       label_aux i (replace_arg_types_with x il tvl' b)
+                     in
+                     (* create the copy of f corresponding to il *)
+                     (trm_let_fun (name f ^ "_" ^ string_of_int i) r tvl' b') :: tl
+                   )
+                   ils
+                   []
+               in
+               (* insert the copies of f *)
+               (* insert_trm_after dl *)
+                 (trm_seq_no_brace  (List.rev tl)) t'
+            | _ -> fail t'.loc "insert_fun_copies: bad target to fun decl"
+            end
+       )
+       ilsm
+       t
+       )
+     *)

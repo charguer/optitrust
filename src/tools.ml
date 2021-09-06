@@ -191,3 +191,8 @@ let ilset_funmap_union_aux (_ : Fun_map.key) (ils : ilset)
 let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
   Fun_map.union ilset_funmap_union_aux
 let (+@) = ilset_funmap_union
+
+
+(* return the list where the nth element is transformed *)
+let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
+  List.mapi (fun i a -> if i = n then transfo a else a) al
