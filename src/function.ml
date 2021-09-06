@@ -35,7 +35,8 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
   let tg_body = if List.mem Target.dBody tg then tg else (tg @ [Target.dBody]) in
   Variable_basic.rename vars tg_body;
-  Sequence_basic.elim tg
+  Sequence_basic.elim tg;
+  Sequence_basic.delete [Target.cVarDef "__OPTITRUST__SAFE_ATTACH_"]
 
 (* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then
     it will just call bind args and bind_intro. Basically this function is used to save the user from
@@ -49,7 +50,7 @@ let bind ?(fresh_name : string = "res") ?(args : var list = []) (tg : Target.tar
       expects the target tg to point to point to a function call. And automates completely the process
       of function call inlining.
 *)
-let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : var list = []) ?(no_control_structures : bool = true) (tg : Target.target) : unit =
+let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : var list = []) (tg : Target.target) : unit =
   let t = Trace.get_ast() in
   let tg_paths = Target.resolve_target tg t in
   List.iter (fun tg_path -> 
@@ -76,8 +77,17 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     | Trm_apps _ -> false
     | _ -> fail None "inline_call: expected a variable declaration or a function call"
     end in
+  
   if args <> [] then bind_args args tg else ();
   Function_basic.inline_call ~label tg;
+  let no_control_structures = 
+    let nb_ctrl_path = Target.resolve_target_exactly_one [Target.cVarDef "__OPTITRUST__SAFE_ATTACH_"] (Trace.get_ast()) in
+    let (nb_ctrl, _) = Path.resolve_path  nb_ctrl_path (Trace.get_ast()) in
+    begin match (get_init_val nb_ctrl).desc with 
+    | Trm_val(Val_lit (Lit_bool b)) -> b
+    | _ -> fail nb_ctrl.loc "inline_call: could't find the variable __OPTITRUST__SAFE_ATTACH_"
+    end
+    in
   elim_body ~vars [Target.cLabel label];
   if no_control_structures && (!name_result <> "")
     then
