@@ -2,12 +2,10 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-   !! Variable_basic.inline ~at:[cVarDef "b"] [cVarDef "a"];
-   !! Variable_basic.inline ~delete:true [cVarDef "c"];
-   !! Variable_basic.inline ~at:[cVarDef "y"] [cVarDef "x"];
-   !! Variable_basic.inline ~delete:true [cVarDef "z"];
+   (* See basic version *)
+   ()
 
-   (* VERY MUCH LATER:
+   (* VERY MUCH LATER: do some checks
        at the basic level: apply inlining
        at the high level:
        - always ok to inline arithmetic expressions (possibly hidden behind functions)
