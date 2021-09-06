@@ -11,6 +11,7 @@ let coloring (ds : string list) (tg : target) : unit =
 
 
 let _ = Run.script_cpp (fun () ->
+
   (* PART 1: Inlining *)
   !! Function_basic.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_mul"];
@@ -43,7 +44,7 @@ let _ = Run.script_cpp (fun () ->
   !! Variable_basic.inline ~delete:true [cVarDef "p"];
   !! Struct_basic.inline "items" [cTypDef "bag"];
 
-  (*  PART 3 Splitting computations *)
+   (* PART 3 Splitting computations *)
    !! Struct_basic.to_variables [cVarDef "speed2"];
    !! Loop_basic.extract_variable [cVarDef "speed2_x"];
    !! Loop_basic.extract_variable [cVarDef "speed2_y"];

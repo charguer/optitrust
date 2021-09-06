@@ -13,6 +13,7 @@ const int nbCells = gridSize * gridSize * gridSize;
 const int bagCapacity = 100;
 
 const double charge = 1.0;
+
 // --------- Vector
  
 typedef struct {
@@ -52,14 +53,12 @@ void bag_clear(bag& b) {
   b.nb = 0;
 }
 
-
 void bag_transfer(bag& b1, bag& b2) { // transfer from b2 into b1
   for (int i = 0; i < b2.nb; i++) {
     bag_push(b1, b2.items[i]);
   }
   bag_clear(b2);
 }
-
 
 // --------- Grid Representation
 
