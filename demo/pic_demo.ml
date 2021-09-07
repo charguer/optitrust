@@ -38,15 +38,15 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.set_explicit [sInstr " = b2.items[i].speed"];
   
   (* Part 2 AOS-TO-SOA *)
-  !! Sequence_basic.insert "int k = b2.nb;" [tAfter; cVarDef "b2"];
-  !! Variable.fold ~nonconst:true [cVarDef "k"]; (* TODO: this should be earlier *)
+  !! Sequence_basic.insert "int k = b2.nb;" [tAfter; cVarDef "b2"]; 
+  !! Variable.fold ~nonconst:true [cVarDef "k"]; (* TODO: this should be earlier *) (* If I apply before there is a conflict with struct inline *)
   !! Struct_basic.inline "pos" [cTypDef "particle"];
   !! Struct_basic.inline "speed" [cTypDef "particle"]; (* TODO: remove _Basic wherever possible *)
   !! Struct_basic.set_explicit [cTopFun "bag_push"; sInstr "= p"];
   !! Variable_basic.inline ~delete:true [cVarDef "p"];
   !! Struct_basic.inline "items" [cTypDef "bag"];
 
-   (* PART 3 Splitting computations *) (* TODO: list rev missing *)
+   (* PART 3 Splitting computations *) 
    !! Struct_basic.to_variables [cVarDef "speed2"];
    !! Loop_basic.extract_variable [cVarDef "speed2_x"];
    !! Loop_basic.extract_variable [cVarDef "speed2_y"];

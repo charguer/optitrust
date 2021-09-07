@@ -24,9 +24,12 @@ let set_explicit_aux (index : int) (t: trm) : trm =
       let tid = match tid_r, tid_l with
       | -1, _ -> tid_l
       | _, -1 -> tid_r
-      | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
+      | _, _ -> if tid_r = tid_l then tid_r 
+                  else fail t.loc "set_explicit_aux: different types in an assignment"
       in
-      let struct_def = Typ_map.find tid typid_to_typedef_map in
+      
+      let struct_def = if tid <> -1 then Typ_map.find tid typid_to_typedef_map 
+                        else fail t.loc "set_explicit_aux: explicit assignemnt is support only for struct types" in
       let field_list = Internal.get_field_list struct_def in
       begin match rt.desc with
       (* Get the type of the variables *)
@@ -225,7 +228,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
                   trm_var p
                 ]
               ]
-            ) field_list
+            ) (List.rev field_list)
             in
             trm_struct (Tools.insert_sublist_in_list trm_list_to_inline field_index term_list)
           | _ -> fail base.loc "inline_struct_initialization: expected a heap allocated variable"

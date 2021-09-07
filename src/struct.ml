@@ -17,7 +17,7 @@ let set_explicit (tg : Target.target) : unit =
 
 
 (*  [set_implicit tg] expects [tg] to point to a struct set operation, with the assumption
-      that imediately after this instruction come all the other set instruction for the same 
+      that this instruction is folowed by all the other set instruction for the same 
       struct set operation. The trasnformation is going to find the type of the instruction
       and then consider (n - 1) instructions after the targeted instruction. Where n is the number
       of struct fields of the type of the instruction.
@@ -30,14 +30,16 @@ let set_implicit (tg : Target.target) : unit =
   let (tg_trm, _) = Path.resolve_path tg_path t in
   match tg_trm.desc with 
   | Trm_apps (_, [lt;rt]) ->
-    let tid_r = Internal.get_typid_from_trm rt  in 
-    let tid_l = Internal.get_typid_from_trm lt  in
+    let tid_r = Internal.get_typid_from_trm ~first_match:false rt  in 
+    let tid_l = Internal.get_typid_from_trm ~first_match:false  lt  in
     let tid = match tid_r, tid_l with 
     | -1, _ -> tid_l
     | _, -1 -> tid_r
     | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
     in
-    let struct_def = Typ_map.find tid typid_to_typedef_map in
+    let struct_def = if tid <> -1 
+      then Typ_map.find tid typid_to_typedef_map 
+      else fail t.loc "set_implicit_aux: the inner type should be a struct type" in
     let field_list = Internal.get_field_list struct_def in
     let nb = List.length field_list in
     Sequence_basic.intro nb tg;

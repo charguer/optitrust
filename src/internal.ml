@@ -224,15 +224,14 @@ let rec get_typid_from_typ (t : typ) : int =
 (* For an ast node [t] check if its type is a constructed type. If this is the case then return its id
     Else return -1. Meaning that node [t] has a different type.
  *)
-let rec get_typid_from_trm (t : trm) : int = 
+let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int = 
   match t.desc with 
   | Trm_apps (_,[base]) ->
     begin match t.typ with
     | Some typ ->
       begin match typ.typ_desc with
       | Typ_constr (_,id,_) -> id
-      | _ -> -1
-      (* | _ -> get_typid_from_trm base *)
+      | _ -> if first_match then -1 else get_typid_from_trm base 
       end
     | None -> get_typid_from_trm base
     end
