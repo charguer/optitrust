@@ -12,13 +12,10 @@ open Ast
     return:
       updated ast with the transformed assignment
  *)
-let set_explicit_aux (index : int) (t: trm) : trm =
+let set_explicit_aux (t: trm) : trm =
   let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
-  match t.desc with
-  | Trm_seq tl ->
-    let lfront, instruction_to_change, lback = Internal.get_trm_and_its_relatives index tl in
-    begin match instruction_to_change.desc with
-    | Trm_apps(_, [lt;rt]) ->
+  match t.desc with 
+  | Trm_apps(_, [lt;rt]) ->
       let tid_r = Internal.get_typid_from_trm rt  in
       let tid_l = Internal.get_typid_from_trm lt  in
       let tid = match tid_r, tid_l with
@@ -32,9 +29,6 @@ let set_explicit_aux (index : int) (t: trm) : trm =
                         else fail t.loc "set_explicit_aux: explicit assignemnt is support only for struct types" in
       let field_list = Internal.get_field_list struct_def in
       begin match rt.desc with
-      (* Get the type of the variables *)
-
-      (* If the right hand side is a get *)
       | Trm_apps(f1, [rbase]) ->
         begin match lt.desc with
         | Trm_apps (f2, [lbase]) ->
@@ -42,12 +36,12 @@ let set_explicit_aux (index : int) (t: trm) : trm =
           let new_f = trm_unop (Unop_struct_field_addr sf) in
            trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f2 [lbase]]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f1 [rbase]])
           ) field_list in
-         trm_seq ~annot: t.annot (lfront @ exp_assgn @ lback)
+         trm_seq_no_brace exp_assgn 
         | _ -> let exp_assgn = List.map(fun (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
           trm_set (trm_apps ~annot:[Mutable_var_get] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) f1 [trm_apps ~annot:[Mutable_var_get] new_f [rbase]])
           ) field_list in
-          trm_seq ~annot: t.annot (lfront @ exp_assgn @ lback)
+          trm_seq_no_brace exp_assgn 
         end
       (* If the right hand side is a struct initialization *)
       | Trm_struct st ->
@@ -57,28 +51,26 @@ let set_explicit_aux (index : int) (t: trm) : trm =
           let new_f = trm_unop (Unop_struct_field_addr sf) in
           trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) f2 [trm_apps ~annot:[Mutable_var_get] new_f lbase]) (List.nth st i)
           ) field_list in
-          trm_seq ~annot: t.annot (lfront @ exp_assgn @ lback)
+          trm_seq_no_brace exp_assgn 
         | Trm_var v ->
           let exp_assgn = List.mapi(fun i (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
           trm_set (trm_apps ~typ:(Some ty) new_f [trm_var v]) (List.nth st i)
           ) field_list in
-          trm_seq ~annot: t.annot (lfront @ exp_assgn @ lback)
+          trm_seq_no_brace exp_assgn 
         | _ -> fail t.loc "set_explicit_aux: left term was not matched"
         end
       | _ -> let exp_assgn = List.map (fun (sf, ty) ->
               let new_f = trm_unop (Unop_struct_field_addr sf) in
                 trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [rt])
                 ) field_list in
-             trm_seq ~annot: t.annot (lfront @ exp_assgn @ lback)
+             trm_seq_no_brace exp_assgn 
       end
     
     | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
-    end
-  | _ -> fail t.loc "set_explicit_aux: expected the surrounding sequence"
-
-let set_explicit (index : int) : Target.Transfo.local =
-  Target.apply_on_path(set_explicit_aux index)
+   
+let set_explicit : Target.Transfo.local =
+  Target.apply_on_path(set_explicit_aux )
 
 
 (* [set_implicit t] transform a sequence with a list of explicit assignments into

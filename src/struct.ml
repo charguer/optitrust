@@ -5,15 +5,18 @@ open Ast
     with initialization. If this is the case then first a detachement is performed.
 *)
 let set_explicit (tg : Target.target) : unit =
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> 
-      let (tg_trm, _) = Path.resolve_path (p @ [Dir_seq_nth i]) t in
-      match tg_trm.desc with 
-      | Trm_let _ ->
-        let t = Variable_core.init_detach i t p in
-                Struct_core.set_explicit (i + 1) t p
-      | _ -> Struct_core.set_explicit i t p
-    ) tg
+  let t = Trace.get_ast() in
+  let tg_paths = Target.resolve_target tg t in
+  List.iter (fun tg_path ->
+    let tg_trm, _ = Path.resolve_path tg_path t in
+    begin match tg_trm.desc with 
+    | Trm_let (_, (x, _), _) ->
+      Variable_basic.init_detach tg;
+      Internal.nobrace_remove_after( fun _ ->
+      Struct_basic.set_explicit [Target.sInstr (x ^ " =")])
+    | _ -> Struct_basic.set_explicit tg
+    end
+  ) tg_paths
 
 
 (*  [set_implicit tg] expects [tg] to point to a struct set operation, with the assumption
