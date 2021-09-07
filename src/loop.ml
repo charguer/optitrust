@@ -110,7 +110,7 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     braces:true to keep the sequences
 *)
 let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) : unit =
-let mylabel = "__TEMP_LABEL" in
+  let mylabel = "__TEMP_LABEL" in
   let t = Trace.get_ast () in
   let tg_loop_path =  Constr.resolve_target_exactly_one tg t in
   let (tg_loop_trm,_) = Path.resolve_path tg_loop_path t in
@@ -125,7 +125,7 @@ let mylabel = "__TEMP_LABEL" in
         Sequence_basic.partition blocks [Target.nbExact n;Target.cLabel mylabel; Target.dBody;Target.cSeq ()]
         
       | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
-                    Loop_basic.unroll ~label:mylabel tg;
+                     Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~label:mylabel tg);
         let var_decl = match Internal.toplevel_decl x t with 
           | Some d -> d
           | None -> fail t.loc "unroll: could not find the declaration of the variable"
@@ -135,7 +135,9 @@ let mylabel = "__TEMP_LABEL" in
         | Lit_int n -> n
         | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
         let block_list = Tools.range 0 (n-1) in
-        List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])) block_list;
+        Tools.printf "arrived here\n";
+        List.iter (fun x -> 
+          Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])) block_list;
         Sequence_basic.partition ~visible:braces blocks [Target.nbExact n;Target.cLabel mylabel; Target.dBody;Target.cSeq ()];
         Sequence_basic.reorder_blocks [Target.cLabel mylabel; Target.dBody];
         Label_basic.remove [Target.cLabel mylabel]

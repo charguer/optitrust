@@ -82,26 +82,19 @@ let inline (delete : bool) (inline_at : target) (index : int) : Target.Transfo.l
 (* [copy_aux name index t]: create a copy of a typedef with a new name
     params:
       name: new typ name
-      index: index of the original typedef declaration in the sequence it belongs to to
       t: ast of the surrounding sequence of the original declaration
     return:
       updated surrounding sequence with added new copy of the original declaration
 *)
-let copy_aux (name : string) (index : int) (t : trm) : trm =
+let copy_aux (name : string) (t : trm) : trm =
   match t.desc with 
-  | Trm_seq tl ->
-    let lfront, td_l, lback = Internal.get_trm_and_its_relatives index tl in
-    let td_copy = match td_l.desc with 
-    | Trm_typedef td ->
-      trm_typedef {td with typdef_tconstr = name}
-    | _ -> fail t.loc "copy_aux: expected a typedef declaration" 
-     in
-      trm_seq ~annot:t.annot (lfront @ [td_l] @ [td_copy] @ lback)
+  | Trm_typedef td ->
+    let td_copy = trm_typedef {td with typdef_tconstr = name} in
+    trm_seq_no_brace [t; td_copy]
+  | _ -> fail t.loc "copy_aux: expected a typedef declaration" 
 
-  | _-> fail t.loc "copy_aux: expected the surrounding sequence"
-
-let copy (name : string) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (copy_aux name index)
+let copy (name : string) : Target.Transfo.local =
+  Target.apply_on_path (copy_aux name )
 
 (* [insert_aux name td_body index]: insert a new type definition
     params:

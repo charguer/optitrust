@@ -48,9 +48,7 @@ let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Targe
     if statement, then this code is transformed and integrated inside the ast.
 *)
 let arbitrary_if (cond : string) (tg : target) : unit =
-  Target.apply_on_target (fun t p -> Generic_core.arbitrary_if cond t p) tg;
-  (* Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.arbitrary_if single_branch i cond t p) tg; *)
+  Target.apply_on_target (Generic_core.arbitrary_if cond) tg;
   Trace.reparse()
 
 

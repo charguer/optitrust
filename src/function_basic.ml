@@ -63,6 +63,7 @@ let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) : Target.Transfo
           }
         }
 *)
+
 let inline_call  ?(label : var = "body") : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
    (fun (p, p_local, i) t ->

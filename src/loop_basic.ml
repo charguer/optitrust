@@ -110,9 +110,10 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
     Assumption: C should be a literal, this is needed to compute the number 
     of sequences to generate.
 *)
-let unroll ?(label : var = "") : Target.Transfo.t =
-  Target.apply_on_transformed_targets(Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Loop_core.unroll label i t p)
+let unroll ?(label : var = "") (tg : Target.target): unit =
+  Internal.nobrace_remove_after (fun _ ->
+    Target.apply_on_target (Loop_core.unroll label) tg)
+
 
 
 (* [invariant] expects the target [tg] to point to an instruction inside the loop

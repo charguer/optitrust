@@ -4,6 +4,7 @@ open Target
 let _ = Run.script_cpp (fun _ ->
   
   (* With partitioning *)
+  (* TODO: FIX ME! *)
   !! Loop.unroll ~braces:true ~blocks:[2;3] [cFor "i"];
 
   (* Without partitioning *)
