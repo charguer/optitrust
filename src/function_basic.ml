@@ -18,7 +18,6 @@ let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) : Target.Transfo
   (fun (p, p_local, i) t ->  Function_core.bind_intro i fresh_name const p_local t p)
 
 
-
 (* [inline_call ~label tg] - expects the target [tg] to point to a function call inside a declaration
     or outside a declaration in case the function is of void type.
     Then it will replace that instruction with a nobrace sequence which is a sequence

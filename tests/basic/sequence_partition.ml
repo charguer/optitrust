@@ -12,7 +12,7 @@ let _ = Run.script_cpp (fun _ ->
      !! Sequence_basic.partition ~visible:true [2;3] tg; *)
 
   !! Trace.alternative (fun () ->
-     Sequence_basic.partition ~visible:true [7] tg;
+     Sequence_basic.partition ~visible:true [] tg;
      !!());
   
 )

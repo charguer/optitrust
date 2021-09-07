@@ -13,24 +13,18 @@ let coloring (ds : string list) (tg : target) : unit =
 let _ = Run.script_cpp (fun () ->
 
   (* PART 1: Inlining *)
-  (* TODO: test !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_mul"]; *)
-
-  !! Function_basic.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"];
-  !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Function.inline_call ~name_result:"res1" [tIndex ~nb:2 0; cFun "vect_mul"];
+  (* !! Function_basic.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"]; *)
+  !! Function.inline_call ~name_result:"res2" [cFun "vect_mul"];
   !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_add"];
-  !! Variable_basic.init_attach [cVarDef "r1"];
-  !! Variable_basic.inline ~delete:true [cVarDef "r1"];
-  !! Function_basic.bind_intro ~fresh_name:"r2" [cFun "vect_mul"];
-  !! Function.inline_call [cFun "vect_mul"];
   !! Function.inline_call [cFun "vect_add"];
-  (* TODO: test if inlining operations on mul and add could be factorized *)
-  !! Variable_basic.init_attach [cVarDef "r2"];
-  !! Variable_basic.inline ~delete:true [cVarDef "r2"];
-  !! Struct_basic.set_explicit [sInstr "speed2 ="];
-  !! Struct_basic.set_explicit [sInstr "pos2 ="]; (* TODO: cOr *)
-  !! Function.bind_args ["b2";""] [cTopFun "main"; cFun "bag_push"]; (* TODO:should be a reference *)
+  !! Variable_basic.inline ~delete:true [cVarDef "res1"];
+  !! Variable_basic.inline ~delete:true [cVarDef "res2"];
+  (* !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]]; *) (* TODO: Fix me! *)
+  !! Struct.set_explicit [cVarDef "speed2"];
+  !! Struct.set_explicit [cVarDef "pos2"];
+  !! Function.bind_args ["&b2";""] [cTopFun "main"; cFun "bag_push"]; 
   !! Function.inline_call [cTopFun "main"; cFun "bag_push"];
-  (* TODO: Function.bind ~args["a", "&r", ""]  with & symbol treated by bind_args for asking for a reference *)
   !! Function.inline_call [cTopFun "bag_transfer"; cFun "bag_push"];
   !! Struct_basic.set_explicit [sInstr " = p2"];
   !! Struct_basic.set_explicit [sInstr " = b2.items[i]"];

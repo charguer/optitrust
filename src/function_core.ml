@@ -27,11 +27,14 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
      | Some typ -> typ
      (* Maybe it should fail here!! *)
      | None -> typ_auto() in
+     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
+     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
      let decl_to_insert =
       if const then
         trm_let Var_immutable (fresh_name, function_type) trm_to_apply_changes
       else
-        trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [trm_to_apply_changes])
+        let ptrkind = if has_reference_type then Ptr_kind_ref else Ptr_kind_mut in
+        trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [trm_to_apply_changes])
       in
      let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      trm_seq ~annot:t.annot (lfront @ [decl_to_insert] @ [decl_to_change] @ lback)
@@ -125,8 +128,8 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
    let processed_body, nb_gotos, nb_returns = process_return_in_inlining "_exit_body" name fun_decl_body in
    let no_control_structures = 
-    if (nb_returns = 0  || nb_returns = 1) then trm_let Var_immutable ("__OPTITRUST__SAFE_ATTACH_", typ_bool ()) (trm_lit (Lit_bool false))
-      else trm_let Var_immutable ("__OPTITRUST__SAFE_ATTACH_", typ_bool ()) (trm_lit (Lit_bool true))
+    if (nb_returns = 0  || nb_returns = 1) then trm_let Var_immutable ("__OPTITRUST__SAFE_ATTACH_", typ_bool ()) (trm_lit (Lit_bool true))
+      else trm_let Var_immutable ("__OPTITRUST__SAFE_ATTACH_", typ_bool ()) (trm_lit (Lit_bool false))
     in
    let labelled_body = 
       if name = "" 

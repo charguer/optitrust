@@ -87,16 +87,27 @@ let elim_around_instr : Target.Transfo.t =
    Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, _) t -> Sequence_core.elim t p)
 
-
+(* [split tg] expects target [tg] to point around another target in a sequence meaning, before or after another target
+    It will split the sequence which contains that target into two parts, depending on the fact that the entered target
+    is of type before or after the first part will include (exclude) the target.
+*)
 let split (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ -> 
   Target.apply_on_transformed_target_between (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Sequence_core.split i t p) tg)
 
-(* TODO: documentation ,
-   including that blocks=[] would give a single block, that is, do nothing! *)
+(* [partition ~visible blocks tg] expects the target tg to point to a sequence, this transformations will split that sequence
+      into blocks where the sizes of the blocks are given by [blocks].  
+        [blocks] denotes the sizes for each block inside the sequence. By default it should be empty, otherwise the sum of 
+          integers inside [blocks] should sum up to the number of instructions of the targeted sequence.
+        [visible] denotes a flag for the visibility of the blocks meaning that this block partition will be meaningful only for 
+          other transformations which call explicitly the partition transformation.
+*)
 let partition ?(visible : bool = false) (blocks : int list) : Target.Transfo.t =
   Target.apply_on_target (Sequence_core.partition blocks visible)
 
+(* [reorder_blocks tg] expects the target [tg] to point to a sequence of blocks, this transformation will transpose the block structure
+    think about a sequence of blocks as a matrix.
+*)
 let reorder_blocks : Target.Transfo.t = 
   Target.apply_on_target (Sequence_core.reorder_blocks)

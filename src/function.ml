@@ -22,7 +22,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
       Tools.foldi (fun n t fresh_name ->
       if fresh_name <> "" then
         let ()  = counter := !counter+1 in
-        Function_core.bind_intro (i + !counter)  fresh_name true (p_local @ [Dir_arg n]) t p
+        Function_core.bind_intro (i + !counter)  fresh_name false (p_local @ [Dir_arg n]) t p
       else t) t fresh_names)
 
 (* [elim_body ~vars tg] expects the target [tg] to point to the labelled sequence.Then it will
@@ -62,7 +62,7 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
   Sequence_basic.intro_on_instr ~visible:false (Target.target_of_path (path_to_instruction));
   (* The full path has changed *)
   let tg_path = path_to_instruction @ [Dir_seq_nth 0] @ local_path in
-  let res_inlining_needed =
+  let _res_inlining_needed =
     begin match tg_out_trm.desc with
     | Trm_let (_, (x, _), _) ->
       let init1 = get_init_val tg_out_trm in
@@ -77,7 +77,6 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     | Trm_apps _ -> false
     | _ -> fail None "inline_call: expected a variable declaration or a function call"
     end in
-  
   if args <> [] then bind_args args tg else ();
   Function_basic.inline_call ~label tg;
   let no_control_structures = 
@@ -92,8 +91,9 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
   if no_control_structures && (!name_result <> "")
     then
       begin
-      Variable_basic.init_attach ((Target.target_of_path path_to_instruction) @ [Target.cVarDef !name_result]);
-      if res_inlining_needed then Variable_basic.inline ~delete:true ((Target.target_of_path path_to_instruction) @ [Target.cVarDef !name_result]) else ()
+      let spec_target = ((Target.target_of_path path_to_instruction) @ [Target.cVarDef !name_result]) in
+      Variable_basic.init_attach spec_target
+      (* if res_inlining_needed then Variable_basic.inline ~delete:true spec_target else () *)
       end
     else ();
   Internal.nobrace_remove_and_exit()) tg_paths
