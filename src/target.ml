@@ -97,7 +97,7 @@ let dRoot : constr =
     Constr_root
 
 let dNth (n : int) : constr =
-    Constr_dir (Dir_nth n)
+    Constr_dir (Dir_seq_nth n)
 
 let dCond : constr =
     Constr_dir Dir_cond
@@ -462,7 +462,6 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
-
 
 
 

@@ -32,6 +32,7 @@ let _ = Run.script_cpp (fun () ->
   (* show [nbMulti; cFunDef "bag_transfer"; cFor ""; dBody; sInstr " = "];*)
   (* TODO: try  Struct.set_explicit [nbMulti; cFunDef "bag_transfer"; cFor "i"; dBody; sInstr " = "];  
      make sure that the nobraces are left until the end, for targets to remain valid*)
+  
   !! Struct.set_explicit [sInstr " = p2.pos"]; 
   !! Struct.set_explicit [sInstr " = b2.items[i].pos"];
   !! Struct.set_explicit [sInstr " = p2.speed"];

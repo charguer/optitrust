@@ -26,7 +26,7 @@ let set_explicit_aux (t: trm) : trm =
       in
       
       let struct_def = if tid <> -1 then Typ_map.find tid typid_to_typedef_map 
-                        else fail t.loc "set_explicit_aux: explicit assignemnt is support only for struct types" in
+                        else fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" in
       let field_list = Internal.get_field_list struct_def in
       begin match rt.desc with
       | Trm_apps(f1, [rbase]) ->

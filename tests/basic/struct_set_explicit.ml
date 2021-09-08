@@ -9,13 +9,12 @@ let _ = Run.script_cpp ( fun _ ->
   !! Struct_basic.set_explicit [sInstr "c.pos ="];
      Struct_basic.set_explicit [sInstr "c.speed ="];
 
-  (* TODO: after chaning implementation to use nobrace *)
+  
   !! Trace.alternative (fun () ->
     !! Struct_basic.set_explicit [sInstr "c = a"];
     !! Struct_basic.set_explicit [nbMulti;cOr [[sInstr "c.pos ="]; [sInstr "c.speed ="]]];
     !! ());
 
-  (* TODO: this one should raise an error saying that only struct type can be updated *)
   !! Trace.alternative (fun () ->
     !! Struct_basic.set_explicit [sInstr "c = a"];
     !! Struct_basic.set_explicit [sInstr "c.weight ="];

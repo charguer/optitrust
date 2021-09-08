@@ -4,11 +4,10 @@ open Target
 let _ = Run.script_cpp (fun _ ->
   
   (* With partitioning *)
-  (* TODO: FIX ME! *)
   !! Loop.unroll ~braces:true ~blocks:[2;3] [cFor "i"];
 
   (* Without partitioning *)
-  !! Loop.unroll ~braces:true [cFor "i"];
+  (* !! Loop.unroll ~braces:true [cFor "i"]; *)
 
   (* Hiding braces *)
   !! Trace.alternative (fun () ->
