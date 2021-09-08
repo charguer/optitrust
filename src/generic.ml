@@ -1,4 +1,4 @@
-(* open Ast *)
+open Ast
 
 (* [delocalize ~var_type ~old_var ~new_var ~label ~arr_size ~neutral_element fold_operation tg] 
     expects the target [tg] to point to a for loop. Then it will surround this loop with a @nobrace
@@ -9,9 +9,9 @@
     transform the old loop into a parallel loop. And finally a reduction is done to save the result into
     the old variable.
 *)
-(* let delocalize ?(var_type : typvar = "T") ?(old_var : var = "a") ?(new_var : var = "x")  ?(label : var = "section_of_interest") 
-  ?(arr_size : string = "N") ?(neutral_element : int = 0) (fold_operation : string ) 
-  (tg : Target.target) : unit =
-    Sequence_basic.intro_on_instr ~label ~visible:false tg;
-    Variable_basic.local_other_name var_type old_var new_var [Target.cLabel label; Target.dBody];
-    Generic_basic.delocalize arr_size neutral_element fold_operation [Target.cLabel label; Target.dBody] *)
+
+let delocalize ?(old_var : var = "") ?(new_var : var = "") ?(label : var = "section_of_interest")
+  (var_type : typ) (arr_size : string) (dl_ops : delocalize_ops): unit = 
+    Variable.local_other_name ~label var_type old_var new_var ;
+    Generic_basic.delocalize arr_size dl_ops [Target.cLabel label; Target.dBody]
+    
