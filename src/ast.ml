@@ -1496,6 +1496,11 @@ let is_type_unit (t : typ) : bool =
   | _ -> false 
 
 
+type delocalize_ops =
+  | Delocalize_arith of lit * binary_op
+  | Delocalize_obj of string * string 
+
+
 (* type instantiation = trm varmap *)
 
 (* Check if rule is applicable *)

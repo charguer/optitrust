@@ -105,70 +105,54 @@ let arbitrary_if (cond : string) : Target.Transfo.local =
     return:
       the updated ast of the targeted sequence      
 *)
-let delocalize_aux (array_size : string) (neutral_element : int) (fold_operation : string) (t : trm) : trm =
+
+let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
+    if List.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
     let def = List.nth tl 0 in
-    let vk,new_var,old_var =
-    begin match def.desc with
-    | Trm_let (vk,(x, _),init) ->
-      begin match init.desc with
-      | Trm_apps(_, [base]) ->
-        begin match base.desc with
-        | Trm_apps (_, [base1]) ->
-          begin match base1.desc with
-          | Trm_var y -> (vk,y, x)
-          | _ -> fail t.loc "delocalize_aux: expected a variable"
-          end
-        | Trm_var y -> (vk,y,x)
-        | _ -> fail t.loc "delocalize_aux: expected a get or a simple variable"
-        end
-
-      | Trm_var y -> (vk,y, x)
-      | _ -> fail t.loc "delocalize_aux: expected something"
-      end
-    | _ -> fail t.loc "delocalize_aux: expected a varaible declaration"
-    end in
-    let tid = next_typconstrid () in
-    
-    let new_decl = trm_seq_no_brace[
-      trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (typ_var "T" tid) (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array (typ_var "T" tid) (Trm (trm_var array_size)))));
+    let middle_instr = List.nth tl 1 in
+    begin match def.desc with 
+    | Trm_let (vk, (x, tx), _) ->
+      let new_var = x in
+      let old_var_trm = get_init_val def in
+      let var_type = (get_inner_ptr_type tx) in
+      let new_decl = trm_seq_no_brace[
+      trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
       trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
-      (trm_seq ~annot:[] [
-        trm_set (trm_var old_var) (trm_lit (Lit_int 0))
-      ]
-      )]
-    in
-    let for_loop = List.nth tl 1 in
-    let parallel_for =  
-      begin match for_loop.desc  with
-      | Trm_for ( index, direction, start, stop, step, body) ->
-        trm_for index direction start stop step(
-            Internal.change_trm (trm_var new_var) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_var; trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var ~annot:[Any] "my_core_id"]]) body)
-      | _ -> fail t.loc "delocalize_aux: expected a simple for loop"
-      end in
-    let operation = match fold_operation with
-      | "+" -> Binop_add
-      | "-" -> Binop_sub
-      | "*" -> Binop_mul
-      | "/" -> Binop_div
-      | _ -> fail t.loc "delocalize_aux: this operation is not suported"
-    in
-    let accum = trm_seq_no_brace [
-      trm_set (trm_var old_var) (trm_lit (Lit_int neutral_element));
-      trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
-      (trm_seq [
-          trm_set ~annot:[App_and_set] (trm_var old_var)
-          (trm_apps (trm_binop operation)[
-              trm_var old_var;
-              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ])] in 
-      
-      trm_seq ([new_decl] @ [parallel_for] @ [accum])
+      (trm_seq ~annot:[] [trm_set (old_var_trm) (trm_lit (Lit_int 0))])] in
+      let new_snd_instr = Internal.change_trm (trm_var new_var) (trm_var ~annot:[Any] "0" ) middle_instr  in
+      let accum = begin match dl_ops with 
+                  | Delocalize_arith (li, op) ->
+                    trm_seq_no_brace [
+                      trm_set (old_var_trm) (trm_lit li);
+                      trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
+                        (trm_seq [
+                            trm_set ~annot:[App_and_set] (old_var_trm)
+                            (trm_apps (trm_binop op)[
+                             old_var_trm;
+                              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ])
+                     ]
+                  | Delocalize_obj (clear_f, transfer_f) -> 
+                    trm_seq_no_brace [
+                      trm_apps (trm_var clear_f) [old_var_trm];
+                      trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
+                        (
+                          trm_seq [
+                            (trm_apps (trm_var transfer_f)[
+                             old_var_trm;
+                              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ]
+                              )]
+                  end in
+      trm_seq ~annot:t.annot [new_decl; new_snd_instr; accum]
 
+    | _ -> fail t.loc "delocalize_aux: first instruction in the sequence should be the declaration of local variable"
+    end
   | _ -> fail t.loc "delocalize_aux: expected the nobrace sequence"
 
-let delocalize (array_size : string) (neutral_element : int) (fold_operation : string) : Target.Transfo.local =
-  Target.apply_on_path (delocalize_aux array_size neutral_element fold_operation)
+
+let delocalize (array_size : string) (dl_ops : delocalize_ops) : Target.Transfo.local =
+  Target.apply_on_path (delocalize_aux array_size dl_ops)
 
 (* [change_type_aux new_type t]  change the current type of the variable to new_type
     params: 
