@@ -672,6 +672,8 @@ let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typd
 (* function that fails with given error message and points location in file *)
 exception TransfoError of string
 
+exception Resolve_target_failure of location option * string
+
 let fail (loc : location) (err : string) : 'a =
   match loc with
   | None -> failwith err

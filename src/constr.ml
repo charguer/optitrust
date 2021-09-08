@@ -585,9 +585,6 @@ let match_regexp_trm (r : rexp) (t : trm) : bool =
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
-
-exception Resolve_target_failure of location option * string
-
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
   if List.mem Access t.annot  then
@@ -873,12 +870,13 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
     begin match n_opt with
     | Some n ->
       if n <> nb then error (sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
-        else begin
+        else 
           (* List.iter (fun i -> if not (0 <= i && i < nb) then error (sprintf "resolve_target_struct: the requested indices are out of range") else ()); *)
-          Tools.filter_not_selected i_selected end res;
-    | None -> if nb = 0 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb); res
+          Tools.filter_not_selected i_selected res;
+    | None -> if nb = 0 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb) 
+                else Tools.filter_not_selected i_selected res;
     end
-  end;
+  end
 
 and resolve_target (tg : target) (t : trm) : paths =
   let tgs = target_to_target_struct tg in
