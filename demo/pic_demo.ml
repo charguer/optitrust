@@ -17,10 +17,11 @@ let _ = Run.script_cpp (fun () ->
   (* !! Function_basic.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"]; *)
   !! Function.inline_call ~name_result:"res2" [cFun "vect_mul"];
   !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_add"];
-  !! Function.inline_call [cFun "vect_add"];
+  (* !! Function.inline_call [cFun "vect_add"]; *)
   !! Variable_basic.inline ~delete:true [cVarDef "res1"];
   !! Variable_basic.inline ~delete:true [cVarDef "res2"];
   (* !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]]; *) (* TODO: Fix me! *)
+  
   !! Struct.set_explicit [cVarDef "speed2"];
   !! Struct.set_explicit [cVarDef "pos2"];
   !! Function.bind_args ["&b2";""] [cTopFun "main"; cFun "bag_push"]; 

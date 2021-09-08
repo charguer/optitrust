@@ -7,6 +7,7 @@ let _ = Run.script_cpp ( fun _ ->
 
   !! Trace.alternative (fun () ->
     (* default is two loops *)
+    !! Loop.fusion ~nb:3 [cFunDef "main"; tIndex ~nb:3 1; cFor "i"];
     !! Loop.fusion [cFunDef "main"; cFor "i" ~body:[sInstr "t[i]"]];
     !!());
 

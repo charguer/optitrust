@@ -11,10 +11,9 @@ let set_explicit (tg : Target.target) : unit =
     let tg_trm, _ = Path.resolve_path tg_path t in
     begin match tg_trm.desc with 
     | Trm_let (_, (x, _), _) ->
-      Variable_basic.init_detach tg;
-      Internal.nobrace_remove_after( fun _ ->
-      Struct_basic.set_explicit [Target.sInstr (x ^ " =")])
-    | _ -> Struct_basic.set_explicit tg
+      Variable_basic.init_detach (Target.target_of_path tg_path);
+      Struct_basic.set_explicit [Target.sInstr (x ^ " =")]
+    | _ -> Struct_basic.set_explicit (Target.target_of_path tg_path)
     end
   ) tg_paths
 

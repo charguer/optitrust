@@ -9,13 +9,12 @@ type rename = Variable_core.Rename.t
       transformation which does that for us. Otherwise just apply the basic hoist transformation.
 *)
 let hoist (x_step : var) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after ( fun _ ->
-  Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> 
-      let (tg_trm,_) = Path.resolve_path (p @ [Dir_body;Dir_seq_nth i]) t in
-      (* Check if detaching is needed *)
-      let detach_first = 
-      match tg_trm.desc with 
+  let t = Trace.get_ast () in
+  let tg_paths = Target.resolve_target tg t in
+  List.iter( fun tg_path ->
+    let (tg_trm, _) = Path.resolve_path tg_path t in
+    let detach_first =
+    match tg_trm.desc with 
       | Trm_let (_, (_, _), init) ->
         begin match init.desc with 
         | Trm_val(Val_lit (Lit_uninitialized)) -> false
@@ -26,9 +25,10 @@ let hoist (x_step : var) (tg : Target.target) : unit =
       in
       match detach_first with 
       | true -> 
-        let t = Variable_core.init_detach i t (p @ [Dir_body]) in
-        let t = Loop_core.hoist x_step i t p in t
-      | false -> let t = Loop_core.hoist x_step i t p in t) tg)
+        Variable_basic.init_detach (Target.target_of_path tg_path);
+        Loop_basic.hoist x_step (Target.target_of_path tg_path);
+      | false -> Loop_basic.hoist x_step (Target.target_of_path tg_path)
+  ) tg_paths
 
 
 (* [fusion nb tg] expects [tg] to point to a for loop followed by two or more
@@ -37,7 +37,7 @@ let hoist (x_step : var) (tg : Target.target) : unit =
     [nb] - denotes the number of loops to consider.
 *)
 let fusion ?(nb : int = 2) (tg : Target.target) : unit =
-  let label = Tools.optitrust_label in
+  let label = "__TEMP_LABEL" in
   Sequence_basic.intro nb ~label tg;
   Loop_basic.fusion_on_block [Target.cLabel label]
 

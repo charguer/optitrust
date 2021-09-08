@@ -40,9 +40,15 @@ let rename (rename : rename) : Target.Transfo.t =
 (* [init_detach tg] expects the target to point to a variable initialization.
    It then splits the instruction into a variable declaration and a set operation.
 *)
-let init_detach : Target.Transfo.t =
+
+let init_detach (tg : Target.target) : unit =
+  Internal.nobrace_remove_after ( fun _ -> 
+    Target.apply_on_target (Variable_core.init_detach) tg
+  )
+
+(* let init_detach : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Variable_core.init_detach i t p)
+    (fun (p, i) t -> Variable_core.init_detach i t p) *)
 
 (* [init_attach const tg] expects the target to point to a variable declaration, 
     Then it will search inside the sequence which contains the variable declaration. 

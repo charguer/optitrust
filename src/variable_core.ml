@@ -172,12 +172,9 @@ let rename (rename : Rename.t) : Target.Transfo.local =
       the updated ast of the outer sequence which contains the declaration of the variable 
       and a set operations for that variable
 *)
-let init_detach_aux (index : int) (t : trm) : trm =
+let init_detach_aux  (t : trm) : trm =
   match t.desc with
-  | Trm_seq tl ->
-    let lfront,decl, lback  = Internal.get_trm_and_its_relatives index tl in
-    begin match decl.desc with 
-    | Trm_let(vk,(x, tx), init) ->
+  | Trm_let(vk,(x, tx), init) ->
       begin match vk with
       | Var_immutable -> fail t.loc "init_detach_aux: const declarations cannot be detached"
       | _ ->
@@ -188,14 +185,13 @@ let init_detach_aux (index : int) (t : trm) : trm =
           end in
         let var_decl = trm_let vk (x, tx) (trm_prim (Prim_new tx)) in
         let var_assgn = trm_set (trm_var ~typ:(Some (get_inner_ptr_type tx)) x) {init with typ = (Some (get_inner_ptr_type tx))} in
-        trm_seq ~annot:t.annot (lfront @ [var_decl; var_assgn] @ lback)
+        trm_seq_no_brace [var_decl; var_assgn] 
       end
-    | _ -> fail decl.loc "init_detach_aux: variable could not be matched, make sure your path is correct"
-    end
-  | _ -> fail t.loc "init_detach_aux: expected the surrounding sequence"
+    | _ -> 
+    fail t.loc "init_detach_aux: variable could not be matched, make sure your path is correct"
 
-let init_detach (index : int) : Target.Transfo.local =
-  Target.apply_on_path(init_detach_aux index )
+let init_detach : Target.Transfo.local =
+  Target.apply_on_path(init_detach_aux )
 
 
 (* [init_attach_aux t]: replace an uninitialized variable declaration with an initialized one.
