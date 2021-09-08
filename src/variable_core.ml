@@ -297,7 +297,7 @@ let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : t
   match t.desc with 
   | Trm_seq tl ->
     let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
-    let lst_instr = trm_set (trm_var old_var) (trm_apps (trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
+    let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
     let tl = List.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
     trm_seq ~annot:t.annot ([fst_instr] @ tl @ [lst_instr] )
   | _ -> fail t.loc "local_other_name_aux: expected a sequence"
