@@ -280,3 +280,28 @@ let const_non_const_aux (t : trm) : trm =
 
 let const_non_const : Target.Transfo.local =
   apply_on_path (const_non_const_aux)
+
+
+(* [local_other_name_aux var_type old_var new_var t] add a local name and replace all the 
+      occurrences of a variable inside a sequence.
+    params:
+      var_type: the type of the variable
+      old_var: the previous name of the variable, this is used to find all the occurrences
+      new_var: the name of the variable to be declared and replace all the occurrences of old_var
+      t: ast of the labelled sequence.
+    return:
+      the updated ast of the targeted sequence with the new local name
+
+*)
+let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
+    let lst_instr = trm_set (trm_var old_var) (trm_apps (trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
+    let tl = List.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
+    trm_seq ~annot:t.annot ([fst_instr] @ tl @ [lst_instr] )
+  | _ -> fail t.loc "local_other_name_aux: expected a sequence"
+
+
+let local_other_name (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =
+  Target.apply_on_path(local_other_name_aux var_type old_var new_var)

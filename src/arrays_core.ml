@@ -81,7 +81,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
         begin match t_var.typ_desc with
         | Typ_constr (y, tid, _) ->
           List.map(fun x ->
-          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_constr y ~tid []))) (trm_prim (Prim_new (typ_constr y ~tid [])))) new_vars
+          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_constr y ~tid ))) (trm_prim (Prim_new (typ_constr y ~tid )))) new_vars
 
         | _ -> fail t.loc "to_variables_aux: expected a type variable"
         end
@@ -222,7 +222,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
                   typdef_body = Typdef_alias (typ_array ty (Trm (trm_var block_size)))};
                 trm_typedef {
                   td with typdef_tconstr = td.typdef_tconstr;
-                  typdef_body = Typdef_alias (typ_ptr Ptr_kind_mut (typ_constr block_name ~tid:td.typdef_typid []))}]
+                  typdef_body = Typdef_alias (typ_ptr Ptr_kind_mut (typ_constr block_name ~tid:td.typdef_typid ))}]
         | Typ_array (ty, s) ->
            (* ty[s] becomes ty[s/b][b] *)
            begin match s with

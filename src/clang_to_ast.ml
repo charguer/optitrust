@@ -276,7 +276,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
   | Typedef {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-        let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n) [] in
+        let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n)  in
         if const then typ_const typ_to_add else typ_to_add 
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
@@ -291,14 +291,14 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~tid:(get_typid_from_trm n) []
+         typ_constr n ~tid:(get_typid_from_trm n) 
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~tid:(get_typid_from_trm n) []
+         typ_constr n ~tid:(get_typid_from_trm n) 
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end

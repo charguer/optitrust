@@ -464,7 +464,7 @@ let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with 
   | Trm_var y' when y' = y ->
-    trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x [])) y
+    trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x )) y
   | _ -> trm_map (replace_type_with x y) t
 
 

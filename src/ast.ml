@@ -621,8 +621,8 @@ let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (x : typvar) (tid : typconstrid) : typ =
   {typ_annot = annot; typ_desc = Typ_var (x, tid); typ_attributes}
 
-let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = []) ?(tid : typconstrid = next_typconstrid ())
-  (x : typvar)  (tl : typ list) : typ =
+let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = []) ?(tid : typconstrid = next_typconstrid ()) 
+  ?(tl : typ list = []) (x : typvar) : typ =
   {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
 
 let typ_auto ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =

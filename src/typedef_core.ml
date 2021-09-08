@@ -26,7 +26,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
      | Trm_typedef td ->
        begin match td.typdef_body with
        | Typdef_alias dx ->
-        let ty_x = typ_constr td.typdef_tconstr  ~tid:td.typdef_typid [] in
+        let ty_x = typ_constr td.typdef_tconstr  ~tid:td.typdef_typid  in
         let lback = List.map (Internal.change_typ ~change_at:[fold_at] dx ty_x) lback in
         trm_seq ~annot:t.annot (lfront @ [d] @ lback)
        | _ -> fail t.loc "fold_decl: expected a typedef"
@@ -62,7 +62,7 @@ let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : tr
     | Trm_typedef td ->
      begin match td.typdef_body with
      | Typdef_alias dx ->
-      let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid [] in
+      let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid  in
       let lback = List.map(Internal.change_typ ~change_at:[inline_at] ty_x dx) lback in
       let tl =
         if delete then lfront @ lback

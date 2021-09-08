@@ -21,26 +21,6 @@ let from_one_to_many (names : var list) (tg : Target.target) : unit =
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Generic_core.from_one_to_many names i t p) tg)
 
-(* [local_other_name var_type old_var new_var tg] expectes target [tg] to point to a labelled
-      sequence. Then it will declare a new variable with name [new_name] and replace all
-      the occurences of [old_var] with [new_var]. The user needs to give the type of the
-      variable for which we want to change the name.
-
-      Example:
-        T a                     ->->->    T a
-
-       sectionofinterest:{                sectionofinterest:{
-          for (int i = 0; i < 10; i++){      T x = a
-             a++;                            for(int i = 0; i < 10; i++){
-          }                                     x++;
-       }@nobrace                              }
-                                              a = x;
-                                            }@nobrace
-*)
-let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.t =
-  Target.apply_on_target (Generic_core.local_other_name var_type old_var new_var)
-
-
 (* [arbitrary_if cond tg] expects the target [tg] to point to an instruction
     inside a sequence. Then it will create an if statement with the condition entered by the user
       and both it's then and else branches will contain the same instruction.

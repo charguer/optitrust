@@ -7,37 +7,6 @@ open Ast
  *)
 
 
-
-(* [local_other_name_aux var_type old_var new_var t] add a local name and replace all the 
-      occurrences of a variable inside a sequence.
-    params:
-      var_type: the type of the variable
-      old_var: the previous name of the variable, this is used to find all the occurrences
-      new_var: the name of the variable to be declared and replace all the occurrences of old_var
-      t: ast of the labelled sequence.
-    return:
-      the updated ast of the targeted sequence with the new local name
-
-*)
-let local_other_name_aux (var_type : typvar) (old_var : var) (new_var : var) (t : trm) : trm =
-     match t.desc with
-    | Trm_seq [f_loop] ->
-          begin match f_loop.desc with
-          | Trm_for (index, direction, start, stop, step, body) ->
-            let tid = next_typconstrid () in
-            let ty = typ_var var_type tid in
-            let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_var old_var) in
-            let lst_instr = trm_set (trm_var old_var) (trm_var new_var) in
-            let new_loop = trm_for index direction start stop step (Internal.change_trm (trm_var old_var) (trm_var new_var) body) in
-            trm_seq ~annot:t.annot [fst_instr; new_loop;lst_instr]
-          | _ -> fail t.loc "local_other_name_aux: expected a for loop"
-          end
-    | _ -> fail t.loc "local_other_name_aux: expected the no brace sequence"
-
-let local_other_name (var_type : typvar) (old_var : var) (new_var : var) : Target.Transfo.local =
-  Target.apply_on_path(local_other_name_aux var_type old_var new_var)
-
-
 (* [replace_aux code index t]: replace any node of the ast with an arbitrary code
       tranformed later into an ast subtree
     params:
@@ -209,7 +178,7 @@ let delocalize (array_size : string) (neutral_element : int) (fold_operation : s
       the updated ast of the declaration
 *)
 let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
-  let constructed_type = typ_constr new_type [] in
+  let constructed_type = typ_constr new_type in
   match t.desc with 
   | Trm_seq tl ->
     let lfront, decl, lback = Internal.get_trm_and_its_relatives index tl in
