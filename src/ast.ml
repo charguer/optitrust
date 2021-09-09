@@ -172,7 +172,7 @@ and binary_op =
   | Binop_eq
   | Binop_neq
   | Binop_sub
-  | Binop_add
+  | Binop_add (* LATER: numeric operation takes a type argument *)
   | Binop_mul
   | Binop_mod
   | Binop_div
@@ -621,7 +621,7 @@ let typ_var ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (x : typvar) (tid : typconstrid) : typ =
   {typ_annot = annot; typ_desc = Typ_var (x, tid); typ_attributes}
 
-let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = []) ?(tid : typconstrid = next_typconstrid ()) 
+let typ_constr ?(annot : typ_annot list = []) ?(typ_attributes = []) ?(tid : typconstrid = next_typconstrid ())
   ?(tl : typ list = []) (x : typvar) : typ =
   {typ_annot = annot; typ_desc = Typ_constr (x, tid, tl); typ_attributes}
 
@@ -1490,15 +1490,15 @@ let get_lit_from_trm_lit (t : trm) : lit =
   | Trm_val (Val_lit l) -> l
   | _ -> fail t.loc "get_lit_from_trm: this type of literal is not supported"
 
-let is_type_unit (t : typ) : bool = 
-  match t.typ_desc with 
+let is_type_unit (t : typ) : bool =
+  match t.typ_desc with
   | Typ_unit -> true
-  | _ -> false 
+  | _ -> false
 
 
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op
-  | Delocalize_obj of string * string 
+  | Delocalize_obj of string * string
 
 
 (* type instantiation = trm varmap *)
