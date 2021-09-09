@@ -6,6 +6,8 @@ let _ = Run.script_cpp (fun _ ->
     !! Struct.set_explicit [cVarDef "p"];
     (* Another example with more complex initializers *)
     !! Struct.set_explicit [sInstr "obj a = "];
+    !! Struct.set_explicit [sInstr "a.speed = "];
+    (* TODO: fix the order *)
     (* Another example with a more complex right-hand side *)
     !! Struct.set_explicit [cVarDef "u"];
     (* Example without detach *)
