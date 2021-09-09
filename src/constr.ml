@@ -813,12 +813,12 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         let potential_target = resolve_target_simple tr t in
         begin match potential_target with
         | [[]] -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
-        | _ -> 
-          begin match acc with 
+        | _ ->
+          begin match acc with
           (* First step, initalize the acc *)
           | [] -> potential_target
           (* Compute the intersection of all resolved targets *)
-          | _ -> 
+          | _ ->
             Tools.list_intersect acc potential_target
           end
         end ) [] (List.rev tl)

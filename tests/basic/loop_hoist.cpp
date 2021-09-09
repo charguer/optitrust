@@ -3,10 +3,8 @@ int *u;
 
 int main() {
   for (int i = 0; i < 10; i++) {
-    int x;
-    x = t[i];
-    int z;
+    int x = t[i];
     u[i] = x;
-    z = x;
+    int z = x;
   }
 }

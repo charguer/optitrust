@@ -160,14 +160,14 @@ and unary_op =
   | Unop_post_dec
   | Unop_pre_inc
   | Unop_pre_dec
-  | Unop_struct_field_addr of field 
-  | Unop_struct_field_get of field 
+  | Unop_struct_field_addr of field
+  | Unop_struct_field_get of field
   | Unop_cast of typ (* cast operator towards the specified type *)
 
 (* binary operators *)
 and binary_op =
   | Binop_set (* type annotation?    lvalue = rvalue *)
-  | Binop_array_cell_addr 
+  | Binop_array_cell_addr
   | Binop_array_cell_get
   | Binop_eq
   | Binop_neq
@@ -189,7 +189,7 @@ and binary_op =
   | Binop_xor
 
 (* consistency mode for C++ memory model *)
-and consistency_mode = 
+and consistency_mode =
   | Sequentially_consistent
   | Release
   | Acquire
@@ -203,7 +203,7 @@ and prim =
   | Prim_fetch_add
   | Prim_atomic_get of consistency_mode
   | Prim_atomic_set of consistency_mode
-  | Prim_compare_and_swap 
+  | Prim_compare_and_swap
 
 (* literals *)
 and lit =
@@ -223,10 +223,10 @@ and value =
      and thus useful only for carrying out proofs about the program Generic *)
   (* LATER: add functions, which are also values that can be created at execution time *)
 
-(* annotations are used to decorate this AST when it is built from the Clang AST 
+(* annotations are used to decorate this AST when it is built from the Clang AST
    in such a way to be able to print back the AST like the original C code.
 *)
-and trm_annot = 
+and trm_annot =
   | No_braces of int (* some sequences can be visible only internally *)
   | Access (* annotate applications of star operator that should not be printed *)
   | Multi_decl (* used to print back sequences that contain multiple declarations *)
@@ -250,18 +250,18 @@ and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
   | GeneratedStar
 
 
-and record_type = 
+and record_type =
   | Struct
-  | Union 
+  | Union
   | Class
 
 (* [trm] is a record representing an ast node *)
 and trm =
- { annot : trm_annot list; 
+ { annot : trm_annot list;
    desc : trm_desc;
    loc : location;
-   is_statement : bool; 
-   add : special_operator list; 
+   is_statement : bool;
+   add : special_operator list;
    typ : typ option;
    ctx : ctx option;
    attributes : attribute list }
@@ -324,7 +324,7 @@ and trm_desc =
   | Trm_struct of trm list (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_var list) * trm
-  | Trm_let_record of string * record_type * trm list * trm 
+  | Trm_let_record of string * record_type * trm list * trm
   (* LATER: trm_fun  for anonymous functions *)
   (* LATER: mutual recursive functions via mutual recursion *)
   | Trm_typedef of typedef
@@ -368,7 +368,7 @@ and trm_desc =
   | Trm_namespace of string * trm * bool
   | Trm_template of template_parameter_list * trm
 
-and template_param_kind = 
+and template_param_kind =
   | Type_name of typ option
   | NonType of typ * trm option
   | Template of template_parameter_list
@@ -383,12 +383,12 @@ and varkind =
 (* ways of aborting *)
 and abort =
   | Ret of trm option (* return;  or return 3; *)
-  | Break of label option 
-  | Continue of label option 
+  | Break of label option
+  | Continue of label option
 
 
 (* mode used for default OpenMP clause *)
-and mode = 
+and mode =
   | Shared_m
   | None_
 
@@ -396,7 +396,7 @@ and mode =
 and expression = string
 
 (* scheduling type for OpenMP *)
-and sched_type = 
+and sched_type =
   | Static
   | Dynamic
   | Guided
@@ -412,17 +412,17 @@ and reduction_identifier =
   | Power
   | BitAnd
   | BitOr
-  | Min 
+  | Min
   | Max
 (* map type for map OpenMP clause *)
-and map_type = 
+and map_type =
   | Alloc
   | To
   | From
   | ToFrom
   | No_map
 
-and proc_bind = 
+and proc_bind =
   | Master_pb
   | Close
   | Spread
@@ -433,10 +433,10 @@ and dependence_type =
   | Inout of var list
   | Outin of var list
   | Sink of var list
-  | Source 
+  | Source
 
 (* OpenMP clauses *)
-and clause = 
+and clause =
   (* Data sharing clauses *)
   | Default of mode
   | Shared of var list
@@ -448,7 +448,7 @@ and clause =
   (* Data copying clasuses *)
   | Copyin of var list
   | CopyPrivate of var list
-  | Map_c of map_type * var list 
+  | Map_c of map_type * var list
   | Defaultmap of map_type * var list
   (* SIMD clauses *)
   | Safelen of int
@@ -472,7 +472,7 @@ and clause =
   | Taskgroup_c
   | Proc_bind of proc_bind
   | Priority of var
-  | Depend of dependence_type 
+  | Depend of dependence_type
   | Grainsize of int
   | Mergeable
   | Nogroup
@@ -485,7 +485,7 @@ and clause =
   | Num_teams of var
   | Thread_limit of var
 (* atomic operations for atomic OpenMP directive *)
-and atomic_operation = 
+and atomic_operation =
   | Read
   | Write
   | Update
@@ -494,29 +494,29 @@ and atomic_operation =
 (* OpenMP directives *)
 and directive =
   | Atomic of atomic_operation option
-  | Atomic_capture 
+  | Atomic_capture
   | Barrier
   | Cancel of clause * clause list
   | Cancellation_point of clause * clause list
   | Critical of var * var
   | Declare_simd of clause list
   | Declare_reduction of reduction_identifier * typvar list * expression * clause
-  | Declare_target of clause list 
+  | Declare_target of clause list
   | Distribute of clause list
   | Distribute_parallel_for of clause list
   | Distribute_parallel_for_simd of clause list
   | Distribute_simd
-  | End_declare_target 
+  | End_declare_target
   | Flush of var list
   | For of clause list
   | For_simd of clause list
-  | Master 
+  | Master
   | Ordered of clause list
   | Parallel of clause list
   | Parallel_for of clause list
   | Parallel_for_simd of clause list
   | Parallel_sections of clause list
-  | Section 
+  | Section
   | Sections of clause list
   | Simd of clause list
   | Single of clause list
@@ -535,7 +535,7 @@ and directive =
   | Taskloop of clause list
   | Taskloop_simd of clause list
   | Taskwait
-  | Taskyield 
+  | Taskyield
   | Teams of clause list
   | Teams_distribute of clause list
   | Teams_distribute_end of clause list
@@ -544,35 +544,35 @@ and directive =
   | Threadprivate of var list
 
 (* OpenMP Routines *)
-and omp_routine = 
+and omp_routine =
   | Set_num_threads of int
-  | Get_num_threads 
-  | Get_max_threads 
-  | Get_thread_num 
-  | Get_num_procs 
+  | Get_num_threads
+  | Get_max_threads
+  | Get_thread_num
+  | Get_num_procs
   | In_parallel
   | Set_dynamic of int
-  | Get_dynamic 
+  | Get_dynamic
   | Get_cancellation
   | Set_nested of int
-  | Get_nested 
+  | Get_nested
   | Set_schedule of sched_type * int
   | Get_schedule of sched_type * int
-  | Get_thread_limit 
+  | Get_thread_limit
   | Set_max_active_levels of int
-  | Get_max_active_levels 
-  | Get_level 
-  | Get_ancestor_thread_num 
+  | Get_max_active_levels
+  | Get_level
+  | Get_ancestor_thread_num
   | Get_team_size of int
-  | Get_active_level 
-  | In_final 
-  | Get_proc_bind 
+  | Get_active_level
+  | In_final
+  | Get_proc_bind
   | Set_default_device of var
-  | Get_default_device 
-  | Get_num_devices 
-  | Get_num_teams 
-  | Get_team_num 
-  | Is_initial_device 
+  | Get_default_device
+  | Get_num_devices
+  | Get_num_teams
+  | Get_team_num
+  | Is_initial_device
   | Init_lock of var
   | Init_nest_lock of var
   | Destroy_lock of var
@@ -583,8 +583,8 @@ and omp_routine =
   | Unset_nest_lock of var
   | Test_lock of var
   | Test_nest_lock of var
-  | Get_wtime 
-  | Get_wtick 
+  | Get_wtime
+  | Get_wtick
 
 
 (* patterns *)
@@ -610,7 +610,7 @@ type instantiation = trm tmap
 type reorder =
   | Reorder_before of string
   | Reorder_after of string
-  | Reorder_all 
+  | Reorder_all
 
 (* **************************Typ Construcors**************************** *)
 let typ_const ?(annot : typ_annot list = []) ?(typ_attributes = [])
@@ -1207,8 +1207,8 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | Typ_char, Typ_char -> true
   | Typ_ptr {ptr_kind = pk1; inner_typ = typ_a1}, Typ_ptr {ptr_kind = pk2; inner_typ = typ_a2} ->
    if match_generated_star then (pk1 = pk2) && (is_generated_star typ_1 && is_generated_star typ_2) && (aux typ_a1 typ_a2)
-    else (not (is_generated_star typ_1 || is_generated_star typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2) 
-  | Typ_array (typa1, size1), Typ_array (typa2, size2) -> 
+    else (not (is_generated_star typ_1 || is_generated_star typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2)
+  | Typ_array (typa1, size1), Typ_array (typa2, size2) ->
       (same_types typa1 typa2) && (same_sizes size1 size2)
   | _, _ -> false
   )
@@ -1216,8 +1216,8 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
 (* used for distinguishing simple loops from complex ones *)
 let is_simple_loop_component (t : trm) : bool =
   match t.desc with
-  | Trm_apps (f,_) -> 
-    begin match f.desc with 
+  | Trm_apps (f,_) ->
+    begin match f.desc with
     | Trm_val(Val_prim (Prim_unop (Unop_get))) -> true
     | Trm_val(Val_prim (Prim_unop (Unop_pre_inc))) -> false
     | Trm_val(Val_prim (Prim_unop (Unop_pre_dec))) -> false
@@ -1230,11 +1230,11 @@ let is_simple_loop_component (t : trm) : bool =
 
 
 (* check if the loop t is simple or not, if it is then return its simplified ast
-   else return the current ast 
+   else return the current ast
 *)
 let trm_for_of_trm_for_c (t : trm) : trm =
   begin match t.desc with
-  | Trm_for_c (init, _, step, body) -> 
+  | Trm_for_c (init, _, step, body) ->
     let index = for_loop_index t in
     let direction = for_loop_direction t in
     let start = for_loop_init t in
@@ -1251,7 +1251,7 @@ let trm_for_of_trm_for_c (t : trm) : trm =
       else t
   | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
   end
-  
+
 
 (* kind of the type used when parsing initialization lists*)
 type typ_kind =
@@ -1404,40 +1404,40 @@ let trm_seq_no_brace (tl : trm list) : trm=
 
 (* used to get the index of decorators when printing decoration *)
 let get_decorators (t : trm) : (string * string) =
-  let rec aux l = match l with 
+  let rec aux l = match l with
   | [] -> fail t.loc "get_decorators: empty annotation list"
   | hd :: tl ->
-    begin match hd with 
+    begin match hd with
     | Highlight (l, r) -> (l, r)
     | _ -> aux tl
     end
    in aux t.annot
 
 (* get the id of the sequence annotated as No_braces *)
-let get_nobrace_id (t : trm) : int = 
+let get_nobrace_id (t : trm) : int =
   let rec aux l = match l with
   | [] -> -1
   | hd :: tl ->
-    begin match hd with 
+    begin match hd with
     | No_braces i -> i
     | _ -> aux tl
-    end in 
+    end in
     aux t.annot
 
 
-(* This type is used for variable renaming, the uer can choose between renaming all the variables 
-    on one block, by giving the prefix to add or he can also  give the list of variable to 
+(* This type is used for variable renaming, the uer can choose between renaming all the variables
+    on one block, by giving the prefix to add or he can also  give the list of variable to
     be renamed together with their new name.
 *)
 type rename = | Suffix of string | Rename_list of (var * var) list
 
 (* get the value of a variable initialization *)
-let get_init_val (t : trm) : trm = 
-  match t.desc with 
-  | Trm_let (_, (_, _), init) -> 
-      begin match init.desc with 
+let get_init_val (t : trm) : trm =
+  match t.desc with
+  | Trm_let (_, (_, _), init) ->
+      begin match init.desc with
       | Trm_apps(f,[base]) ->
-        begin match f.desc with 
+        begin match f.desc with
         | Trm_val (Val_prim (Prim_new _)) -> base
         | _ -> init
         end
@@ -1447,10 +1447,10 @@ let get_init_val (t : trm) : trm =
 
 (* remove Highlight annotation from a trm_annot *)
 let remove_highlight (t_annot : trm_annot list) : trm_annot list =
-  let rec aux l = match l with 
+  let rec aux l = match l with
   | [] -> []
   | x :: xs ->
-    begin match x with 
+    begin match x with
     | Highlight _ -> xs
     | _ -> x :: aux xs
     end
@@ -1458,7 +1458,7 @@ let remove_highlight (t_annot : trm_annot list) : trm_annot list =
 
 (* remove all the Highlight annotations from the ast *)
 let rec clean_highlights (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_val _ -> {t with annot = remove_highlight t.annot}
   | Trm_var _ -> {t with annot = remove_highlight t.annot}
   | Trm_array tl -> {t with annot = remove_highlight t.annot; desc = Trm_array (List.map clean_highlights tl)}
@@ -1485,8 +1485,8 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_let_record (name, rt, tl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_let_record (name, rt, List.map clean_highlights tl, clean_highlights t1)}
   | Trm_template (pl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_template (pl, clean_highlights t1)}
 (* get the literal value from a trm_lit *)
-let get_lit_from_trm_lit (t : trm) : lit = 
-  match t.desc with 
+let get_lit_from_trm_lit (t : trm) : lit =
+  match t.desc with
   | Trm_val (Val_lit l) -> l
   | _ -> fail t.loc "get_lit_from_trm: this type of literal is not supported"
 

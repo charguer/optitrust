@@ -23,7 +23,7 @@ TESTS_TOCHECK := \
 	aos_to_soa.ml \
 	delocalize.ml \
 
-TESTS := $(TESTS_WORKING) 
+TESTS := $(TESTS_WORKING)
 
 include ../Common.Makefile
 
