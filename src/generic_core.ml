@@ -15,10 +15,10 @@ open Ast
     return:
       updated ast with the replaced trm
  *)
-let replace_aux (code : string) (t : trm) : trm =
+let replace_aux (cd : string) (t : trm) : trm =
   match t.desc with 
-  | Trm_var _ -> trm_var code
-  | _ ->  trm_arbitrary code
+  | Trm_var _ -> trm_var cd
+  | _ ->  code cd
   
 let replace (code : string) : Target.Transfo.local =
   Target.apply_on_path (replace_aux code)
@@ -89,7 +89,7 @@ let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
       updated ast of the surrounding sequence with the added if statement
  *)
 let arbitrary_if_aux (cond : string) (t : trm) : trm =
-  trm_if (trm_arbitrary cond) t t
+  trm_if (code cond) t t
    
 let arbitrary_if (cond : string) : Target.Transfo.local =
   Target.apply_on_path (arbitrary_if_aux cond)

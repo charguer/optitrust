@@ -1,7 +1,11 @@
 int const N = 3;
 
 int main() {
-  {int x = 5;}
+  int t[5] = { 0, 1, 2, 3, 4};
+  for (int i = 0; i < 5; i++){
+    t[i] = i + 3.14;
+  }
+  t[4] = 0;
   return 0;
 }
 

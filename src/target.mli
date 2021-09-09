@@ -195,6 +195,10 @@ val cDefault : case_kind
 
 val cSet : ?lhs:target -> ?rhs:target -> unit -> target
 
+val dRHS : constr 
+
+val dLHS : constr 
+
 val cTargetInDepth : target -> constr
 
 val make_target_list_pred : (int -> constr) -> (bool list -> bool) -> (unit -> string) -> target_list_pred

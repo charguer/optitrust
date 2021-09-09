@@ -810,7 +810,7 @@ let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
   {annot; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_arbitrary ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+let code ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (code : string) : trm =
   {annot = annot; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
@@ -1477,7 +1477,7 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_abort _ -> {t with annot = remove_highlight t.annot}
   | Trm_labelled (l, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_labelled (l, clean_highlights t1)}
   | Trm_goto _ -> {t with annot = remove_highlight t.annot}
-  | Trm_arbitrary _ -> fail t.loc "clean_highlights: trm_arbitrary should never appear on the ast"
+  | Trm_arbitrary _ -> fail t.loc "clean_highlights: Trm_arbitrary should never appear on the ast"
   | Trm_omp_directive _ -> {t with annot = remove_highlight t.annot}
   | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}
   | Trm_extern (lang, tl) -> {t with annot = remove_highlight t.annot; desc = Trm_extern (lang, (List.map clean_highlights tl))}

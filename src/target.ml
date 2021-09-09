@@ -453,6 +453,13 @@ let cCase ?(value : target = []) (_ : unit) : case_kind =
 
 let cDefault : case_kind = Case_default
 
+let dRHS : constr = 
+  cChain [dArg 1]
+
+let dLHS : constr = 
+  cChain [dArg 0]
+
+
 let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
   [
     cCall ~args:lhs "";
