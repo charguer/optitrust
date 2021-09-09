@@ -22,7 +22,30 @@ let _ = Run.script_cpp (fun () ->
   show [ nbAny; cFor "i" ];
   show [nbMulti;cAnd [[cReturn];[cTypDef "vect"];[cFunDef "main"; cFor "i"]]];
 
-  (* Testing the [target_of_path] function *)
+  (* Testing of marks *)
+  (* TODO: test
+  let mark = Ast.next_mark() in
+  Generic.add_mark mark [ nbMulti; cFor "i" ];
+  Transfo.iter_targets [cMark mark_bindings] (fun (p:path) ->
+     Generic.add_mark (Ast.next_mark()) (target_of_path p)
+    );
+  Generic.remove_marks [ cMark mark ];
+  Generic.remove_marks [ cMarkAll  ];
+  *)
+  (* TODO: print the marks when printing the code, using a similar code as for annotation
+      like /*<@*/ for show,  would be for example   /*@43*/ *)
+
+(* TODO:
+let Generic_core.add_mark (mark : mark) (t : trm) : trm =
+  let left_decoration = "/*[" ^ string_of_int mark ^ "]*/" in
+  let right_decoration = "" in
+  {t with annot = t.annot @ [Highlight (left_decoration, right_decoration)]}
+
+
+  *)
+
+
+    (* Testing the [target_of_path] function *)
   !! let paths = ref [] in
   Target.apply_on_target (fun t p -> paths := p :: !paths; t) [ nbMulti; cFor "i" ];
   let targets = List.map target_of_path !paths in

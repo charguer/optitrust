@@ -272,7 +272,20 @@ let cleanup_cpp_file_using_clang_format (filename : string) : unit =
    - one describing the CPP code ("prefix.cpp").
    The CPP code is automatically formatted using clang-format. *)
 
-type language = | Cpp | Rust | Ocaml
+type language = | Cpp | Rust | Ocaml (* TODO: Language_cpp .. *)
+
+(* TODO:
+let language_of_extension (extension:string) : language =
+  match extension with
+  | ".cpp" -> Language_cpp
+  | ...
+  | _ -> fail None ("unknown extension " ^ extension)
+
+let get_language () =
+  match !traces with
+  | [] -> fail None "cannot detect language -- trace should not be empty"
+  | t::_ -> language_of_extension t.extension
+  *)
 
 let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
   let file_ast = prefix ^ ".ast" in

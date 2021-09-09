@@ -11,6 +11,15 @@ type node_loc = {
   loc_start : pos;
   loc_end : pos;}
 
+(* Marks for use in transformations *)
+
+type mark = int (* fresh marks *)
+
+let next_mark : unit -> mark =
+  Tools.fresh_generator()
+
+(* [mark_any] is as special mark that means "any mark" in constraints *)
+let mark_any = next_mark()
 
 (* location of a node is given as an option term, that because sometimes for some nodes we
     cant' have the location. Of when generating new nodes it is hard for the transformations
@@ -226,7 +235,9 @@ and value =
 (* annotations are used to decorate this AST when it is built from the Clang AST
    in such a way to be able to print back the AST like the original C code.
 *)
+
 and trm_annot =
+  | Mark of mark (* custom mark for use by the transformations *)
   | No_braces of int (* some sequences can be visible only internally *)
   | Access (* annotate applications of star operator that should not be printed *)
   | Multi_decl (* used to print back sequences that contain multiple declarations *)

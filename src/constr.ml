@@ -136,6 +136,7 @@ and constr =
   | Constr_bool of bool
   (* Constraint that matches only the root of the AST *)
   | Constr_root
+  | Constr_mark of mark
   | Constr_or of target list
   | Constr_and of target list
 
@@ -389,6 +390,7 @@ let rec constr_to_string (c : constr) : string =
     list_to_string string_cl
   | Constr_bool b -> if b then "True" else "False"
   | Constr_root -> "Root"
+  | Constr_mark m -> "Mark (" ^ string_of_int m) ^ ")"
   | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
   | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
 and target_to_string (tg : target) : string =
@@ -705,7 +707,11 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_cases cc cases
      | Constr_bool b, _ -> b
      | Constr_root, _ ->
-        if List.mem Main_file t.annot then true else false
+        List.mem Main_file t.annot
+     | Constr_mark m, _ ->
+        if m = Ast.mark_any
+          then List.exists (function Mark m -> true | _ -> false) t.annot
+          else List.mem (Mark m) t.annot
      | _ -> false
      end
 
@@ -870,10 +876,10 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
     begin match n_opt with
     | Some n ->
       if n <> nb then error (sprintf "resolve_target_struct: expected %d matches, got %d" n nb)
-        else 
+        else
           (* List.iter (fun i -> if not (0 <= i && i < nb) then error (sprintf "resolve_target_struct: the requested indices are out of range") else ()); *)
           Tools.filter_not_selected i_selected res;
-    | None -> if nb = 0 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb) 
+    | None -> if nb = 0 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
                 else Tools.filter_not_selected i_selected res;
     end
   end
