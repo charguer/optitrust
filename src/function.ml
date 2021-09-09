@@ -1,6 +1,7 @@
 open Ast
 open Path
 include Variable_core.Rename
+include Function_basic
 
 type rename = Variable_core.Rename.t
 

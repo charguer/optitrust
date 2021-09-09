@@ -1,5 +1,7 @@
 open Ast
 include Variable_core.Rename
+include Loop_basic
+
 type rename = Variable_core.Rename.t
 (* [hoist x_step tg] - expects target to point inside the declaration of the variable
     [x_step] - denotes the variable going to be hoisted outside the loop.

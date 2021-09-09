@@ -432,6 +432,13 @@ let change_loop_body (loop : trm) (body : trm) : trm =
     trm_for_c init cond step body
   | _-> fail loop.loc "change_loop_body: expected for loop"
 
+
+let is_trm_loop (t : trm) : bool = 
+  match t.desc with 
+  | Trm_for _ | Trm_for_c _ -> true 
+  | _ -> false
+
+
 (* Get the constraint from a list of constraints(targets) *)
 let get_constr_from_target (tg : target) : constr =
   match tg with 

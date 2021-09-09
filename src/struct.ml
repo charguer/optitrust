@@ -1,4 +1,5 @@
 open Ast
+include Struct_basic
 
 (* [set_explicit tg] expects [tg] to point to a set instruction where one struct 
     instance has been assigned anothe struct instance. Or a variable declaration of type struct

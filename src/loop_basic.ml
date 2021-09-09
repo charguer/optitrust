@@ -73,15 +73,15 @@ let fission (tg : Target.target) : unit =
     Then it's going to take the body of the second loop and append
     it to the body ot the first loop.
 *)
-let fusion_on_block : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.fusion_on_block)
+let fusion_on_block ?(keep_label : bool = true) : Target.Transfo.t =
+  Target.apply_on_target (Loop_core.fusion_on_block keep_label)
 
 (* [extract_variable tg] expects tg to point to an uninitialized variable
    declaration inside a for loop. The idea is similar to loop hoist
 *)
 let extract_variable (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
-    Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
+    Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
     (fun (p, i) t -> Loop_core.extract_variable i t p) tg)
 
 (* [grid_enumerate index_and_bounds tg] expects tg to point to loop iterating over

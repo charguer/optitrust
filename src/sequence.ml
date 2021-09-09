@@ -1,4 +1,6 @@
 open Ast
+include Sequence_basic
+
 (* [intro ~start ~stop ~nb ~on ~label ~visible]: this is a high level function for inserting a subsequnece
     inside another sequence. 
      [start] - denotes the target for the starting point of the sub-sequnece, it should be used in conjunction with 

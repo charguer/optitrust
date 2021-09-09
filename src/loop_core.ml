@@ -257,25 +257,28 @@ let extract_variable (index : int) : Target.Transfo.local =
       update ast with the merged loops
  *)
 
-let fusion_on_block_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_labelled (_, {desc = Trm_seq tl;_}) ->
-    (* Assumption the sequence contains only two trms, the first one is the first loop *)
-    let first_loop = List.nth tl 0  in
-    begin match  first_loop.desc with
+let fusion_on_block_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    let n = List.length tl in
+    if n < 2 then fail t.loc "fission_aux: there must be >= 2 loops to apply fussion";
+    let first_loop = List.nth tl 0 in
+     begin match  first_loop.desc with
     | Trm_for (index, direction, start, stop, step, _) ->
-      let fusioned_body = List.fold_left (
-        fun acc loop -> acc @ (for_loop_body_trms loop)
+      let fusioned_body = Tools.foldi (
+        fun i acc loop -> 
+          if not (Internal.is_trm_loop loop) then fail loop.loc (Tools.sprintf "fusion_on_block_aux: cannot fuse %d loops as requested only %d where found" n (i+1)) 
+           else
+          acc @ (for_loop_body_trms loop)
       ) [] tl in
       trm_for index direction start stop step (trm_seq fusioned_body)
     | _ -> fail t.loc "fusion_on_block_aux: all loops should be simple loops"
     end
+  | _ -> fail t.loc "fission_aux: expected a sequence of for loops"
 
 
-  | _ -> fail t.loc "fusion_on_block_aux: expected the labelled sequence which contains the two loops to be merged"
-
-let fusion_on_block : Target.Transfo.local =
-  Target.apply_on_path (fusion_on_block_aux)
+let fusion_on_block (keep_label : bool): Target.Transfo.local =
+  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence ~keep_label (fusion_on_block_aux) "fussion")
 
 (* [grid_enumerate_aux index_and_bounds t]: transform a loop over a grid into ndested loops over each dimension
       of the grid

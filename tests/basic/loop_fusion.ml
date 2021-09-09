@@ -11,7 +11,7 @@ let _ = Run.script_cpp ( fun _ ->
     !! Loop.fusion [cFunDef "main"; cFor "i" ~body:[sInstr "t[i]"]];
     !!());
 
-  (* LATER: try to improve error: "cannot fuse 3 loops as requested, only 2 loops are found"
+  (* DONE: try to improve error: "cannot fuse 3 loops as requested, only 2 loops were found"
     !! Loop.fusion ~nb:3 [cFunDef "main"; tIndex ~nb:3 1; cFor "i"]; *)
 
   (* fuse loops inside a labelled block *)

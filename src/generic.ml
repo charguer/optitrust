@@ -1,4 +1,5 @@
 open Ast
+include Generic_basic
 
 (* [delocalize ~var_type ~old_var ~new_var ~label ~arr_size ~neutral_element fold_operation tg] 
     expects the target [tg] to point to a for loop. Then it will surround this loop with a @nobrace
