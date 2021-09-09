@@ -15,7 +15,7 @@ let set_explicit (tg : Target.target) : unit =
       Struct_basic.set_explicit [Target.sInstr (x ^ " =")]
     | _ -> Struct_basic.set_explicit (Target.target_of_path tg_path)
     end
-  ) tg_paths
+  ) (List.rev tg_paths)
 
 
 (*  [set_implicit tg] expects [tg] to point to a struct set operation, with the assumption

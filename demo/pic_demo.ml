@@ -20,24 +20,20 @@ let _ = Run.script_cpp (fun () ->
   (* !! Function.inline_call [cFun "vect_add"]; *)
   !! Variable_basic.inline ~delete:true [cVarDef "res1"];
   !! Variable_basic.inline ~delete:true [cVarDef "res2"];
-  (* !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]]; *) (* TODO: Fix me! *)
-  
-  !! Struct.set_explicit [cVarDef "speed2"];
-  !! Struct.set_explicit [cVarDef "pos2"];
+  !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]]; 
   !! Function.bind_args ["&b2";""] [cTopFun "main"; cFun "bag_push"]; 
   !! Function.inline_call [cTopFun "main"; cFun "bag_push"];
   !! Function.inline_call [cTopFun "bag_transfer"; cFun "bag_push"];
-  !! Struct_basic.set_explicit [sInstr " = p2"];
-  !! Struct_basic.set_explicit [sInstr " = b2.items[i]"];
+  !! Struct.set_explicit [nbMulti; cOr [[sInstr " = p2"];[sInstr " = b2.items[i]"]]];
   
   (* show [nbMulti; cFunDef "bag_transfer"; cFor ""; dBody; sInstr " = "];*)
   (* TODO: try  Struct.set_explicit [nbMulti; cFunDef "bag_transfer"; cFor "i"; dBody; sInstr " = "];  
      make sure that the nobraces are left until the end, for targets to remain valid*)
-  
-  !! Struct.set_explicit [sInstr " = p2.pos"]; 
+  !! Struct.set_explicit [nbMulti; cFunDef "bag_transfer"; cFor "i"; dBody; sInstr " = "];  
+  (* !! Struct.set_explicit [sInstr " = p2.pos"]; 
   !! Struct.set_explicit [sInstr " = b2.items[i].pos"];
   !! Struct.set_explicit [sInstr " = p2.speed"];
-  !! Struct.set_explicit [sInstr " = b2.items[i].speed"];
+  !! Struct.set_explicit [sInstr " = b2.items[i].speed"]; *)
   
   (* Part 2 AOS-TO-SOA *)
   !! Sequence_basic.insert "int k = b2.nb;" [tAfter; cVarDef "b2"]; 
