@@ -5,10 +5,7 @@ TARGET_MAKE_ALL := transfo
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
-	function_elim_body.ml \
 	function_bind.ml \
-	function_inline_complex.ml \
-	function_inline_simple.ml \
 	loop_fusion.ml \
 	loop_hoist.ml \
 	loop_invariant.ml \
@@ -22,6 +19,9 @@ TESTS_WORKING := \
 TESTS_TOCHECK := \
 	aos_to_soa.ml \
 	delocalize.ml \
+	function_elim_body.ml \
+	function_inline_complex.ml \
+	function_inline_simple.ml \
 
 TESTS := $(TESTS_WORKING)
 
