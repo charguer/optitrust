@@ -129,7 +129,7 @@ val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> string -> constr
 
 val cFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> ?regexp:bool ->string -> constr
 
-val cTopFun : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> string -> constr
+val cTopFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> string -> constr
 
 val cTypDef : ?substr:bool -> ?regexp:bool -> string -> constr
 
@@ -154,6 +154,10 @@ val cLit : constr
 val cCall : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> ?accept_encoded:bool -> string -> constr
 
 val cFun : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
+
+val cPrim : prim -> constr
+
+val cPrimFun : ?args:target -> ?args_pred:target_list_pred -> prim -> constr
 
 val cLabel : ?substr:bool -> ?body:target -> ?regexp:bool -> string -> constr
 

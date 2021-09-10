@@ -5,7 +5,7 @@ open Ast
         with initialized value equal to the trm targeted by [tg]. If [const] is
         true then the binded variable will be declared as mutable otherwise immutable.
         Finally It will replace the targeted term with the binded variable.
-      Example: let suposse that the target is g(x) then for the following example we will have
+      Example: let suppose that the target is g(x) then for the following example we will have
         {                         {
           int x = 3;                int x = 3;
           int y = f(g(x));          const int a = g(x);

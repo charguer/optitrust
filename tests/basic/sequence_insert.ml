@@ -8,6 +8,6 @@ let _ =
     !! Sequence_basic.insert "p++;" [tAfter; cVarDef "y"];
     !! Sequence_basic.insert "printf(\"%d\", y);" [tAfter; cVarDef "y"];
     !! Sequence_basic.insert "for (int i = 0; i < 5; i++) { x++; }" [tAfter; sInstr "y++"];
-    !! Sequence_basic.insert "typedef struct { int x; int y; } vect;" [tBefore; cTopFun "main"];
+    !! Sequence_basic.insert "typedef struct { int x; int y; } vect;" [tBefore; cTopFunDef "main"];
     !! Sequence_basic.insert "typedef vect myvect;" [tAfter; cTypDef "vect"];
   )

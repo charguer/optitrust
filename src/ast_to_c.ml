@@ -182,6 +182,10 @@ and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
       let (l, r) = get_decorators t in
       let dt = trm_to_doc ~semicolon t in
       string l ^^ dt ^^ string r
+    else if (List.exists (function Mark _ -> true | _ -> false) t.annot) then
+      let m = get_mark t in
+      let dt = trm_to_doc ~semicolon t in
+      string "/*@" ^^ string (string_of_int m) ^^ string "*/" ^^ dt
     else trm_to_doc ~semicolon t
 
 and trm_to_doc ?(semicolon=false) (t : trm) : document =

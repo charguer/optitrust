@@ -287,7 +287,7 @@ let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_p
   Constr_decl_fun (ro, p_args, body)
 
 (* toplevel fun declaration *)
-let cTopFun (* TODO: should be cTopFunDef *)
+let cTopFunDef 
   ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true)
   ?(body : target = []) (name : string) : constr =
   cChain [ dRoot; cFunDef ~args ~args_pred ~body name ]
@@ -345,18 +345,17 @@ let cString (s : string) : constr =
 let cLit : constr =
    Constr_lit None
 
-(* let cPrim (p : prim) : constr =
-    cStr (ast_to_string (trm_prim p)) *)
-
 (* [cCall] can match all kind of functions *)
 let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
-  let p_fun =
-    match name, fun_ with
-    | "",_ -> fun_
-    | _, [] -> [cVar name]
-    | _,_ -> raise (Argument_Error "Can't provide both the path and the name of the function")
-    in
+  let p_fun = match fun_ with 
+  | [] -> [cVar name]
+  | _ -> 
+    begin match name with 
+    | "" -> fun_
+    | _ -> raise (Argument_Error "Can't provide both the path and the name of the function")
+    end in
+  
   let args =
     match args with
     | [] -> args_pred
@@ -366,29 +365,14 @@ let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_p
 
 (* [cFun] matches a function by its name; it cannot match primitive functions *)
 let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr =
-  (* TODO: ideally cFun and cPrimFun are implemented in terms of cCall *)
-  let p_fun =
-  match fun_ with
-  | [] -> [cVar name]
-  | _ -> fun_
-  in
-  let args =
-  match args with
-  | [] -> args_pred
-  | _ -> (target_list_simpl args)
-  in
-  Constr_app (p_fun,args,false)
+  cCall ~fun_ ~args ~args_pred ~accept_encoded:false name
 
 (* [cPrim] matches only primitive functions; use [cPrimFun] for matching primitive function calls. *)
+let cPrim (p : prim) : constr =
+  Constr_prim p
 
-(*
-let cPrim (p:prim) : constr =
-  TODO: should match only Term_value (Value_prim p)
-
-let cPrimFun ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (p:prim) : constr
-  TODO: implement as cCall ~fun:[cStrict; cPrim p] ~args_pred
-
-*)
+let cPrimFun ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (p:prim) : constr =
+   cCall ~fun_:[cStrict; cPrim p] ~args ~args_pred ""
 
 let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in

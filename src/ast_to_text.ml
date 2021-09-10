@@ -346,6 +346,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
   let print_annot (t_ann : trm_annot) : document = 
     match t_ann with 
+    | Mark m -> string "Mark " ^^ string (string_of_int m) 
     | No_braces _ -> string "No_braces"
     | Access -> string "Access"
     | Multi_decl -> string "Multi_decl"
@@ -357,7 +358,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | As_left_value -> string "As_left_value"
     | Highlight (l, r) -> string "Highlight" ^^ parens (string l ^^ comma ^^ string r) 
     | Any -> string "Any" in
-
+    
   if only_desc then ddesc
     else 
       let dannot = Tools.doc_list_to_doc (List.map print_annot t.annot)

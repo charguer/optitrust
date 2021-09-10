@@ -20,9 +20,9 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.inline ~delete:true [cVarDef "res1"];
   !! Variable.inline ~delete:true [cVarDef "res2"];
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
-  !! Function.bind_args ["&b2";""] [cTopFun "main"; cFun "bag_push"];
-  !! Function.inline_call [cTopFun "main"; cFun "bag_push"];
-  !! Function.inline_call [cTopFun "bag_transfer"; cFun "bag_push"];
+  !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
+  !! Function.inline_call [cTopFunDef "main"; cFun "bag_push"];
+  !! Function.inline_call [cTopFunDef "bag_transfer"; cFun "bag_push"];
   (* TODO:  Struct.set_explicit [nbMulti; cSet ~typ:"particle" ]
       yet to implement: cSet and cGet should have a ~typ argument *)
   !! Struct.set_explicit [nbMulti; cOr [[sInstr " = p2"];[sInstr " = b2.items[i]"]]];
@@ -91,7 +91,7 @@ in Target:
 
   !! Struct.inline "pos" [cTypDef "particle"];
   !! Struct.inline "speed" [cTypDef "particle"];
-  !! Struct.set_explicit [cTopFun "bag_push"; sInstr "= p"];
+  !! Struct.set_explicit [cTopFunDef "bag_push"; sInstr "= p"];
   !! Variable.inline ~delete:true [cVarDef "p"];
   !! Struct.inline "items" [cTypDef "bag"];
 
