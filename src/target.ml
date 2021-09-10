@@ -374,6 +374,14 @@ let cPrim (p : prim) : constr =
 let cPrimFun ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (p:prim) : constr =
    cCall ~fun_:[cStrict; cPrim p] ~args ~args_pred ""
 
+
+let cMark ?(all : bool = false) (m : mark) : constr =
+  Constr_mark (m, all)
+
+let cMarkAll : constr =
+  cMark ~all:true 0
+
+
 let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
   let p_body = body in

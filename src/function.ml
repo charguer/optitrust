@@ -47,7 +47,7 @@ let bind ?(fresh_name : string = "res") ?(args : var list = []) (tg : Target.tar
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
-(* [inline_call ~name_result ~label ~vars ~args ~no_control_structures tg]
+(* [inline_call ~name_result ~label ~vars ~args  tg]
       expects the target tg to point to point to a function call. And automates completely the process
       of function call inlining.
 
