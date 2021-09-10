@@ -554,7 +554,7 @@ let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_target (fun _i t dl -> tr t dl) tg
 
 
-let applyi_on_transformed_target_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
+let applyi_on_transformed_target_between (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply( fun t ->
   let ps = resolve_target_between tg t in
   let marks = List.map (fun _ -> next_mark ()) ps in
@@ -562,9 +562,9 @@ let applyi_on_transformed_target_between (transformer : path * int -> 'a) (tr : 
   Tools.foldi( fun imark t m ->
     match resolve_target [cMark m] t with 
     | [] -> fail None "a mark disappeared"
-    | [p_to_item_in_seq] -> let (p_to_seq,i) = extract_last_dir p_to_item_in_seq in
+    | [p_to_item_in_seq] -> 
       let t = Path.apply_on_path remove_mark t p_to_item_in_seq in
-      tr imark t (transformer (p_to_seq, i))
+      tr imark t (transformer p_to_item_in_seq)
     | _ -> fail None "applyi_on_transformed_target_between: a mark was duplicated"
   ) t marks)
 
@@ -577,15 +577,15 @@ let applyi_on_transformed_target_between (transformer : path * int -> 'a) (tr : 
         unit
 *)
 
-let applyi_on_target_between (tr : int -> trm -> (path*int) -> trm) (tg : target) : unit =
-  applyi_on_transformed_target_between (fun pi -> pi) tr tg
+let applyi_on_target_between (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
+  applyi_on_transformed_target_between (fun pi -> pi,0) tr tg
 
-let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit =
-  applyi_on_target_between (fun _i pk t -> tr pk t) tg
+let apply_on_target_between (tr : trm -> 'a -> trm) (tg : target) : unit =
+  applyi_on_target_between (fun _i t pk -> tr t pk) tg
 
 
 
-let apply_on_transformed_target_between (transformer: path * int -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
+let apply_on_transformed_target_between (transformer: path -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
   applyi_on_transformed_target_between transformer (fun _i t descr -> tr t descr ) tg
 
 

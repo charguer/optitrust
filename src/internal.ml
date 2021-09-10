@@ -131,7 +131,7 @@ let get_call_in_surrounding_sequence (dl : path) : path * path * int =
     the path to the for loop contining that node together with the index of the instruction in the body sequence
     of the for loop.
 *)
-let get_trm_in_surrounding_loop(dl : path) : path * int =
+let get_trm_in_surrounding_loop (dl : path) : path * int =
     match List.rev dl with
     | Dir_seq_nth i :: Dir_body :: dl' -> (List.rev dl', i)
     | _ -> fail None "get_trm_in_surrounding_loop: empty path"
