@@ -94,7 +94,7 @@ let elim_around_instr : Target.Transfo.t =
 let split (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ -> 
   Target.apply_on_transformed_target_between (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Sequence_core.split i t p) tg)
+    (fun t (p, i)  -> Sequence_core.split i t p) tg)
 
 (* [partition ~visible blocks tg] expects the target tg to point to a sequence, this transformations will split that sequence
       into blocks where the sizes of the blocks are given by [blocks].  

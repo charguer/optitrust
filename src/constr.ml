@@ -1187,6 +1187,15 @@ let extract_last_path_item (p : path) : dir * path =
   | [] -> raise Not_found
   | d :: p' -> (d, List.rev p')
 
+let extract_last_dir (p : path) : path * int =
+  match List.rev p with 
+  | [] -> raise Not_found
+  | d :: p' ->
+    begin match d with 
+    | Dir_seq_nth i | Dir_nth i -> (List.rev p', i)
+    | _ -> fail None "extract_last_dir: expected a directory in a sequence"
+    end
+
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
   | Trm_seq tl -> List.length tl

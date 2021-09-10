@@ -554,6 +554,21 @@ let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_target (fun _i t dl -> tr t dl) tg
 
 
+let applyi_on_transformed_target_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
+  Trace.apply( fun t ->
+  let ps = resolve_target_between tg t in
+  let marks = List.map (fun _ -> next_mark ()) ps in
+  let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (add_mark m) t (p_to_seq @ [Dir_nth i])) t ps marks in
+  Tools.foldi( fun imark t m ->
+    match resolve_target [cMark m] t with 
+    | [] -> fail None "a mark disappeared"
+    | [p_to_item_in_seq] -> let (p_to_seq,i) = extract_last_dir p_to_item_in_seq in
+      let t = Path.apply_on_path remove_mark t p_to_item_in_seq in
+      tr imark t (transformer (p_to_seq, i))
+    | _ -> fail None "applyi_on_transformed_target_between: a mark was duplicated"
+  ) t marks)
+
+
 (* [apply_on_target_between ~replace_top tr tg]: Similar to apply_on_target, but the function considers the index too
       params:
         tr : transformation to be applied
@@ -561,43 +576,17 @@ let apply_on_target (tr : trm -> path -> trm) (tg : target) : unit =
       return:
         unit
 *)
-let applyi_on_target_between (tr : int -> trm -> (path*int)  -> trm) (tg : target) : unit =
-  Trace.apply (fun t ->
-    let ps = resolve_target_between tg t in
-    Tools.foldi (fun i t (pk:path*int) -> tr i t pk) t ps)
-
-(* TODO: new strategy using marks
-
-let applyi_on_transformed_target_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm ) (tg : target) : unit =  --- warning: i changed the order of arguments in tr
-
-  Trace.apply (fun t ->
-    let pis = resolve_target_between tg t in
-    let nb = List.length ps in
-    let marks = List.map (fun _ -> Ast.fresh_mark()) ps in
-    let t = List.fold_left2 (fun t (p_to_seq,i) m -> apply_on_path (add_mark m) t (p_to_seq ++ [Dir_nth i]) t pis marks in
-    List.fold_lefti (fun imark t m ->
-      match resolve_target [cMark m] t with
-      | [] -> fail "a mark disappeared"
-      | [p_to_item_in_seq] -> let (p_to_seq,i) = extract_last_dir p_to_item_in_seq in
-               let t = Path.apply_on_path remove_mark t p_to_item_in_seq in
-               tr imark t (transformer (p_to_seq,i))
-      | _ -> fail "a mark was duplicated"
-      ) t marks)
 
 let applyi_on_target_between (tr : int -> trm -> (path*int) -> trm) (tg : target) : unit =
   applyi_on_transformed_target_between (fun pi -> pi) tr tg
-*)
 
 let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit =
   applyi_on_target_between (fun _i pk t -> tr pk t) tg
 
 
-let apply_on_transformed_target_between (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
-  Trace.apply ( fun t ->
-  let ps = resolve_target_between_exactly_one tg t in
-  let descr = transformer (fst ps @ [Dir_seq_nth (snd ps)]) in
-  tr descr t
-  )
+
+let apply_on_transformed_target_between (transformer: path * int -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
+  applyi_on_transformed_target_between transformer (fun _i t descr -> tr t descr ) tg
 
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
@@ -617,21 +606,9 @@ let apply_on_transformed_target_between (transformer : path -> 'a) (tr : 'a -> t
   ones at larger indices, that is, by processing the targets in reverse order. This can be achieved
   by passing the flag [~rev:true] to the call.
 *)
-(* let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> 'a -> trm -> trm ) (tg : target) : unit =
- Trace.apply (fun t  ->
-  let ps = resolve_target tg t in
-  let descrs = List.map transformer ps in
-  let descrs = if rev then List.rev descrs else descrs in
-  Tools.foldi (fun i t descr -> tr i descr t) t descrs) *)
 
 let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
   applyi_on_transformed_targets  transformer (fun _i t descr -> tr descr t) tg
-
-  (* Trace.apply (fun t ->
-    let ps = resolve_target tg t in
-    let descrs = List.map transformer ps in
-    List.fold_left (fun t descr -> tr descr t) t descrs) *)
-
 
 (******************************************************************************)
 (*                                   Show                                     *)

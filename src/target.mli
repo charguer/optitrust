@@ -236,13 +236,15 @@ val applyi_on_target : (int -> trm -> path -> trm) -> target -> unit
 
 val apply_on_target : (trm -> path -> trm) -> target -> unit
 
+val applyi_on_target_between : (int -> trm -> path * int -> trm) -> target -> unit
+
 val apply_on_target_between : (trm -> (path*int) -> trm) -> target -> unit
 
 val applyi_on_transformed_targets : (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
 val apply_on_transformed_targets : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
-val apply_on_transformed_target_between : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
+val apply_on_transformed_target_between : (path * int -> 'a) -> (trm -> 'a -> trm) -> target -> unit
 
 val show : ?line:int -> ?reparse:bool -> target -> unit
 
