@@ -15,7 +15,6 @@ TESTS_WORKING := \
 	label_add.ml \
 	label_remove.ml \
 	loop_hoist.ml \
-	loop_fusion.ml \
 	loop_interchange.ml \
 	loop_grid_enumerate.ml \
 	loop_color.ml \
@@ -35,17 +34,18 @@ TESTS_WORKING := \
 	sequence_elim.ml \
 	sequence_intro_on_instr.ml \
 	struct_fields_reorder.ml \
-	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	typedef_inline.ml \
-	typedef_insert.ml \
 	typedef_fold.ml \
 	variable_inline.ml \
 	variable_fold.ml \
 	variable_rename.ml\
 
 TESTS_TOCHECK := \
+	loop_fusion.ml \
 	aos_to_soa.ml \
+	struct_set_explicit.ml \
+	typedef_insert.ml \
 
 ARTHUR_TO_SPEC := \
 	from_one_to_many.ml \

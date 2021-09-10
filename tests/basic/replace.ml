@@ -9,7 +9,7 @@ let _ = Run.script_cpp (fun _ ->
   (* replace the definition of "x" with a definition of "y" --somewhat arbitrary *)
   !! Generic_basic.replace "int y = 5;" [cVarDef "x"];
   (* replace the definition of "c" with a call to "f" --somewhat arbitrary *)
-  !! Generic_basic.replace "f(5)" [cVarDef "c"];
+  !! Generic_basic.replace "f(5);" [cVarDef "c"];
   (* replace, in the definition of "d", the first argument to f2, with the constant 3 *)
   !! Generic_basic.replace "3" [cVarDef "d"; cFun "f2"; cArg 0];
   (* replace, in the definition of "e", all constants "2" with the constant "1" *)

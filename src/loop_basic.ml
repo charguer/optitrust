@@ -73,7 +73,7 @@ let fission (tg : Target.target) : unit =
     Then it's going to take the body of the second loop and append
     it to the body ot the first loop.
 *)
-let fusion_on_block ?(keep_label : bool = true) : Target.Transfo.t =
+let fusion_on_block ?(keep_label : bool = false) : Target.Transfo.t =
   Target.apply_on_target (Loop_core.fusion_on_block keep_label)
 
 (* [extract_variable tg] expects tg to point to an uninitialized variable
