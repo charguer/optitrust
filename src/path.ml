@@ -225,7 +225,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_cond, Trm_while (cond, body) ->
           trm_while ~annot ~loc ~add ~attributes (aux dl cond) body
        | Dir_cond, Trm_do_while (body, cond) ->
-          trm_do_while ~annot ~loc ~add ~attributes body (aux dl cond) 
+          trm_do_while ~annot ~loc ~add ~attributes body (aux dl cond)
        | Dir_cond, Trm_for_c (init, cond, step, body) ->
           trm_for_c~annot ~loc ~add ~attributes init (aux dl cond) step body
        | Dir_cond, Trm_switch (cond, cases) ->
@@ -406,11 +406,11 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
          | Dir_body, Trm_labelled (_, body) ->
           aux dl body ctx
        | Dir_for_start, Trm_for (_, _, start, _, _, _) ->
-          aux dl start ctx 
+          aux dl start ctx
        | Dir_for_stop, Trm_for (_, _, _, stop, _, _) ->
-          aux dl stop ctx 
+          aux dl stop ctx
        | Dir_for_step, Trm_for (_, _, _, step, _, _) ->
-          aux dl step ctx 
+          aux dl step ctx
        | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
           aux dl init ctx
        | Dir_for_c_step, Trm_for_c (init, _, step, _) ->
@@ -458,7 +458,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
              )
           | _ -> fail loc ("resolving_path: direction")
           end
-          
+
        | _, _ ->
           let s = dir_to_string d in
           let s_t = Ast_to_c.ast_to_string t in

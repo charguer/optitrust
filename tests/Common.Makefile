@@ -62,6 +62,9 @@ transfo: $(TESTS:.ml=_out.cpp)
 # 'make check' executes all the transformations and check the results against expected results
 check: $(TESTS:.ml=.chk)
 
+# 'make exp' adds all the missing expected files
+exp: $(TESTS:.ml=.exp)
+
 # 'make compile' checks that the source and output cpp files both compile
 
 # 'make execute" checks that the source and output cpp file both produce similar output
@@ -121,7 +124,12 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 %.exp: %_out.cpp
 	$(V)(ls `basename -s .exp $@`_exp.cpp 2> /dev/null && echo "Skipping $@") \
   || (cp $< `basename -s .exp $@`_exp.cpp && \
-      echo "Generated `basename -s .exp $@`_exp.cpp from $<")
+      echo "Generated `basename -s .exp $@`_exp.cpp from $<, should GIT ADD.")
+
+# Rule for producing the expected file after deleting the previous one
+%.reexp: %_out.cpp
+	@rm $*_exp.cpp && (cp $< `basename -s .reexp $@`_exp.cpp && \
+	echo "ReGenerated `basename -s .reexp $@`_exp.cpp from $<.")
 
 # Rule for checking that a file compiles
 %.prog: %.cpp
@@ -169,6 +177,9 @@ opendoc: doc
 
 #######################################################
 # Cleanup
+
+clean_chk:
+	$(V)rm -rf *.chk
 
 clean:
 	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html

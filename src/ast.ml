@@ -1426,9 +1426,9 @@ let get_decorators (t : trm) : (string * string) =
 
 
 let get_mark (t : trm) : int =
-  let rec aux l = match l with 
+  let rec aux l = match l with
   | [] -> fail t.loc "get_mark: empty annotation list"
-  | hd :: tl -> 
+  | hd :: tl ->
     begin match hd with
     | Mark m -> m
     | _ -> aux tl

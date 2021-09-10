@@ -30,6 +30,10 @@ let foldi (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
   let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
   res
 
+let foldi2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c list) : 'a =
+  let (_, res) = List.fold_left2 (fun (i, a) b c -> (i + 1, f i a b c)) (0, a) bl cl in
+  res
+
 
 (* inline a list in another list starting from the given index, it removes the elment at the given index *)
 let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with
@@ -172,7 +176,7 @@ module IntList =
          | c -> c
          end
   end
-  
+
 module IntListSet = Set.Make(IntList)
 type ilset = IntListSet.t
 

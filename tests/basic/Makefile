@@ -1,5 +1,6 @@
 
 TARGET_MAKE_ALL := transfo
+# TODO: check
 
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp

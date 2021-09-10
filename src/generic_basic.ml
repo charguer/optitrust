@@ -69,7 +69,7 @@ let arbitrary_if (cond : string) (tg : target) : unit =
     of the array declared inside the block
 *)
 let delocalize (array_size : string) (dl_ops : delocalize_ops) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after (fun _ -> 
+  Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_target (Generic_core.delocalize array_size dl_ops) tg)
 
 (* [change_type new_type tg] expects [tg] to point to variable declaration

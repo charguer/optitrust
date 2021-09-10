@@ -287,7 +287,7 @@ let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_p
   Constr_decl_fun (ro, p_args, body)
 
 (* toplevel fun declaration *)
-let cTopFunDef 
+let cTopFunDef
   ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true)
   ?(body : target = []) (name : string) : constr =
   cChain [ dRoot; cFunDef ~args ~args_pred ~body name ]
@@ -348,14 +348,14 @@ let cLit : constr =
 (* [cCall] can match all kind of functions *)
 let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
-  let p_fun = match fun_ with 
+  let p_fun = match fun_ with
   | [] -> [cVar name]
-  | _ -> 
-    begin match name with 
+  | _ ->
+    begin match name with
     | "" -> fun_
     | _ -> raise (Argument_Error "Can't provide both the path and the name of the function")
     end in
-  
+
   let args =
     match args with
     | [] -> args_pred
@@ -377,9 +377,17 @@ let cPrimFun ?(args : target = []) ?(args_pred:target_list_pred = target_list_pr
 
 let cMark ?(all : bool = false) (m : mark) : constr =
   Constr_mark (m, all)
+  (* TODO:
+   let cMark m =
+      Constr_mark ((fun m1 -> m1 = m), "exactly:" ^ string_of_int m)
+
+   let cMarks ms =
+      Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ string_of_int_list ms)
+*)
 
 let cMarkAll : constr =
   cMark ~all:true 0
+  (* TODO: let cMarkAny = Constr_mark ((fun _ -> true), "any_mark") *)
 
 
 let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
@@ -511,10 +519,41 @@ let apply_on_path = Path.apply_on_path
       return:
         unit
 *)
+(* TODO: here
+  let add_mark (m:mark) (t:trm) = { t with trm_annot = Mark m :: t.trm_annot... }
+  let remove_mark (t:trm) = { t with trm_annot = List.filter (function Mark _ -> false | _ -> true) t.trm_annot }
+*)
+
 let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
     let ps = resolve_target tg t in
-    Tools.foldi (fun i t dl -> tr i t dl) t ps)
+    Tools.foldi (fun i t p -> tr i t p) t ps)
+(* TODO: new strategy using marks
+
+
+
+TODO:
+
+let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm ) (tg : target) : unit =  --- warning: i changed the order of arguments in tr
+  Trace.apply (fun t ->
+    let ps = resolve_target tg t in
+    let nb = List.length ps in
+    let marks = List.map (fun _ -> Ast.fresh_mark()) ps in
+    let t = List.fold_left2 (fun t p m -> apply_on_path (add_mark m) t p) t ps marks in
+    List.fold_lefti (fun imark t m ->
+      match resolve_target [cMark m] t with
+      | [] -> fail "a mark disappeared"
+      | [p] -> let t = Path.apply_on_path remove_mark t p in
+               tr imark t (transformer p)
+      | _ -> fail "a mark was duplicated"
+      ) t marks)
+
+let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
+  applyi_on_transformed_targets (fun p -> p) tr
+
+
+*)
+
 
 (* [apply_on_target ~replace tr tg]: Esentially the same as applyi_on_target, but without keeping track over the index of the target
       params:
@@ -538,6 +577,28 @@ let applyi_on_target_between (tr : int -> trm -> (path*int)  -> trm) (tg : targe
   Trace.apply (fun t ->
     let ps = resolve_target_between tg t in
     Tools.foldi (fun i t (pk:path*int) -> tr i t pk) t ps)
+
+(* TODO: new strategy using marks
+
+let applyi_on_transformed_target_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm ) (tg : target) : unit =  --- warning: i changed the order of arguments in tr
+
+  Trace.apply (fun t ->
+    let pis = resolve_target_between tg t in
+    let nb = List.length ps in
+    let marks = List.map (fun _ -> Ast.fresh_mark()) ps in
+    let t = List.fold_left2 (fun t (p_to_seq,i) m -> apply_on_path (add_mark m) t (p_to_seq ++ [Dir_nth i]) t pis marks in
+    List.fold_lefti (fun imark t m ->
+      match resolve_target [cMark m] t with
+      | [] -> fail "a mark disappeared"
+      | [p_to_item_in_seq] -> let (p_to_seq,i) = extract_last_dir p_to_item_in_seq in
+               let t = Path.apply_on_path remove_mark t p_to_item_in_seq in
+               tr imark t (transformer (p_to_seq,i))
+      | _ -> fail "a mark was duplicated"
+      ) t marks)
+
+let applyi_on_target_between (tr : int -> trm -> (path*int) -> trm) (tg : target) : unit =
+  applyi_on_transformed_target_between (fun pi -> pi) tr tg
+*)
 
 let apply_on_target_between (tr : trm -> (path*int) -> trm) (tg : target) : unit =
   applyi_on_target_between (fun _i pk t -> tr pk t) tg
@@ -641,3 +702,4 @@ let force_reparse_after (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     tr tg;
     Trace.reparse()
+
