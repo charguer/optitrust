@@ -62,16 +62,6 @@ let tFirst : constr =
 let tLast : constr =
   Constr_relative TargetLast
 
-let tIndices ?(nb : int = -1) (indices : int list) : constr =
-  let expected_nb = match nb with
-    | -1 -> None
-    | _ -> Some nb in
-  Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
-
-let tIndex ?(nb : int = -1) (index : int) : constr =
-  tIndices ~nb [index]
-
-
 (******************************************************************************)
 (*                            Number of targets                               *)
 (******************************************************************************)
@@ -84,6 +74,15 @@ let nbAny : constr =
 
 let nbExact (nb : int) : constr =
     Constr_occurrences (ExpectedNb nb)
+
+let tIndices ?(nb : int = -1) (indices : int list) : constr =
+  let expected_nb = match nb with
+    | -1 -> None
+    | _ -> Some nb in
+  Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
+
+let tIndex ?(nb : int = -1) (index : int) : constr =
+  tIndices ~nb [index]
 
 
 (******************************************************************************)
@@ -345,7 +344,7 @@ let cString (s : string) : constr =
 let cLit : constr =
    Constr_lit None
 
-(* [cCall] can match all kind of functions *)
+(* [cCall] can match all kind of function calls *)
 let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
   let p_fun = match fun_ with
@@ -513,41 +512,36 @@ let apply_on_path = Path.apply_on_path
       return:
         unit
 *)
-(* TODO: here
-  let add_mark (m:mark) (t:trm) = { t with trm_annot = Mark m :: t.trm_annot... }
-  let remove_mark (t:trm) = { t with trm_annot = List.filter (function Mark _ -> false | _ -> true) t.trm_annot }
-*)
 
-let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
+(* TODO: Document better marks *)
+let add_mark (m : mark) (t : trm) = {t with annot = (Mark m) :: t.annot}
+
+let remove_mark (t : trm) = {t with annot = List.filter (function Mark _ -> false | _ -> true) t.annot}
+
+(* 
+  OLD_VERSIOn
+  let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
     let ps = resolve_target tg t in
-    Tools.foldi (fun i t p -> tr i t p) t ps)
-(* TODO: new strategy using marks
+    Tools.foldi (fun i t p -> tr i t p) t ps) *)
 
-
-
-TODO:
-
-let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm ) (tg : target) : unit =  --- warning: i changed the order of arguments in tr
+let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit = 
   Trace.apply (fun t ->
     let ps = resolve_target tg t in
-    let nb = List.length ps in
-    let marks = List.map (fun _ -> Ast.fresh_mark()) ps in
+    let marks = List.map (fun _ -> next_mark()) ps in
     let t = List.fold_left2 (fun t p m -> apply_on_path (add_mark m) t p) t ps marks in
-    List.fold_lefti (fun imark t m ->
-      match resolve_target [cMark m] t with
-      | [] -> fail "a mark disappeared"
-      | [p] -> let t = Path.apply_on_path remove_mark t p in
-               tr imark t (transformer p)
-      | _ -> fail "a mark was duplicated"
-      ) t marks)
+    Tools.foldi( fun imark t m ->
+      match resolve_target [cMark m] t with 
+      | [] -> fail None "applyi_on_transformed_targets: a mark disappeared"
+      | [p] -> let t = apply_on_path (remove_mark) t p in
+        tr imark t (transformer p)
+      | _ -> fail None "applyi_on_transformed_targets: a mark was duplicated"
+    ) t marks)
+
+
 
 let applyi_on_target (tr : int -> trm -> path -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets (fun p -> p) tr
-
-
-*)
-
+  applyi_on_transformed_targets (fun p -> p) tr tg
 
 (* [apply_on_target ~replace tr tg]: Esentially the same as applyi_on_target, but without keeping track over the index of the target
       params:
@@ -623,15 +617,15 @@ let apply_on_transformed_target_between (transformer : path -> 'a) (tr : 'a -> t
   ones at larger indices, that is, by processing the targets in reverse order. This can be achieved
   by passing the flag [~rev:true] to the call.
 *)
-let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> 'a -> trm -> trm ) (tg : target) : unit =
+(* let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> 'a -> trm -> trm ) (tg : target) : unit =
  Trace.apply (fun t  ->
   let ps = resolve_target tg t in
   let descrs = List.map transformer ps in
   let descrs = if rev then List.rev descrs else descrs in
-  Tools.foldi (fun i t descr -> tr i descr t) t descrs)
+  Tools.foldi (fun i t descr -> tr i descr t) t descrs) *)
 
-let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets ~rev transformer (fun _i descr t -> tr descr t) tg
+let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
+  applyi_on_transformed_targets  transformer (fun _i t descr -> tr descr t) tg
 
   (* Trace.apply (fun t ->
     let ps = resolve_target tg t in

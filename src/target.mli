@@ -238,9 +238,9 @@ val apply_on_target : (trm -> path -> trm) -> target -> unit
 
 val apply_on_target_between : (trm -> (path*int) -> trm) -> target -> unit
 
-val applyi_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> 'a -> trm -> trm) -> target -> unit
+val applyi_on_transformed_targets : (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
-val apply_on_transformed_targets : ?rev:bool -> (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
+val apply_on_transformed_targets : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
 val apply_on_transformed_target_between : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
@@ -263,3 +263,7 @@ val (!!) : 'a -> 'a
 val (!!!) : 'a -> 'a
 
 val force_reparse_after : Transfo.t -> Transfo.t
+
+val add_mark : mark -> trm -> trm
+
+val remove_mark : trm -> trm

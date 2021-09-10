@@ -14,7 +14,7 @@ let insert (s : string) (tg : target): unit =
      [nb] denotes the number of instructions to delete starting from the targeted trm.
 *)
 let delete ?(nb : int = 1) : Target.Transfo.t =
-  Target.apply_on_transformed_targets ~rev:true (Internal.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Sequence_core.delete i nb t p) 
 
 
