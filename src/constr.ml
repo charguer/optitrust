@@ -137,8 +137,7 @@ and constr =
   (* Constraint that matches only the root of the AST *)
   | Constr_root
   | Constr_prim of prim
-  | Constr_mark of mark * bool (* TODO: Constr_mark of (mark->bool) * string
-     where string can be an optional string representation of the function *)
+  | Constr_mark of (mark -> bool) * string
   | Constr_or of target list
   | Constr_and of target list
 
@@ -393,8 +392,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_bool b -> if b then "True" else "False"
   | Constr_root -> "Root"
   | Constr_prim _ -> "Prim"
-  | Constr_mark (m, b) -> "Mark (" ^ string_of_int m ^ " ," ^ string_of_bool b ^")"
-  (* TODO: Constr_mark (pred,str) -> Mark ( ^ str ^ ) *)
+  | Constr_mark (_, str) -> "Mark (" ^ str ^ ")"
   | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
   | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
 and target_to_string (tg : target) : string =
@@ -714,12 +712,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         List.mem Main_file t.annot
      | Constr_prim p, Trm_val (Val_prim p1) ->
         p = p1
-      (* TODO: Constr_mark (pred, _) ->
-           List.exists (function Mark m -> pred m | _ -> false) t.annot
-      *)
-     | Constr_mark (m, b), _ ->
-        if b then List.exists (function Mark _ -> true | _ -> false) t.annot
-          else List.exists (function Mark m1 -> m1 = m | _ -> false) t.annot
+     | Constr_mark (pred, _), _ ->
+        List.exists (function Mark m -> pred m | _ -> false) t.annot
      | _ -> false
      end
 

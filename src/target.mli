@@ -159,9 +159,11 @@ val cPrim : prim -> constr
 
 val cPrimFun : ?args:target -> ?args_pred:target_list_pred -> prim -> constr
 
-val cMark : ?all:bool -> mark -> constr
+val cMark : mark -> constr
 
-val cMarkAll : constr
+val cMarks : mark list -> constr
+
+val cMarkAny : constr
 
 val cLabel : ?substr:bool -> ?body:target -> ?regexp:bool -> string -> constr
 

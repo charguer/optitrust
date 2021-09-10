@@ -374,20 +374,14 @@ let cPrim (p : prim) : constr =
 let cPrimFun ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (p:prim) : constr =
    cCall ~fun_:[cStrict; cPrim p] ~args ~args_pred ""
 
+let cMark (m : mark) : constr =
+  Constr_mark ((fun m1 -> m1 = m), "exactly:" ^ (string_of_int m))
 
-let cMark ?(all : bool = false) (m : mark) : constr =
-  Constr_mark (m, all)
-  (* TODO:
-   let cMark m =
-      Constr_mark ((fun m1 -> m1 = m), "exactly:" ^ string_of_int m)
+let cMarks (ms : mark list) : constr =
+  Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string (List.map string_of_int ms) ))
 
-   let cMarks ms =
-      Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ string_of_int_list ms)
-*)
-
-let cMarkAll : constr =
-  cMark ~all:true 0
-  (* TODO: let cMarkAny = Constr_mark ((fun _ -> true), "any_mark") *)
+let cMarkAny : constr = 
+  Constr_mark ((fun _ -> true), "any_mark")
 
 
 let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
