@@ -6,7 +6,7 @@ open Target
 *)
 let set_explicit (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
-  Target.apply_on_target(Struct_core.set_explicit) tg
+  Target.apply_on_targets(Struct_core.set_explicit) tg
   )
 
 (*  [set_implicit tg] expects [tg] to point to a sequence containing
@@ -14,7 +14,7 @@ let set_explicit (tg : Target.target) : unit =
       struct assignment. So it is the inverse of set_explicit.
 *)
 let set_implicit ?(keep_label : bool = true) : Target.Transfo.t =
-  Target.apply_on_target (Struct_core.set_implicit keep_label)
+  Target.apply_on_targets (Struct_core.set_implicit keep_label)
 
 (* [fields_reorder ?move_before ?move_after struct_fields tg] expects [tg]
     to point to typedef struct. It then switches the order of the fields of
@@ -32,7 +32,7 @@ let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struc
     | _, "" -> Reorder_before move_before
     | _,_-> fail None "fields_reorder: cannot provide both move_before and move_after"
     end in
-  Target.apply_on_target (Struct_core.fields_reorder struct_fields move_where) tg
+  Target.apply_on_targets (Struct_core.fields_reorder struct_fields move_where) tg
 
 (* [inline field_to_inline tg] expects [tg] to point to a typedef struct
     it then will find [field_to_inline] and it's underlying type. It will

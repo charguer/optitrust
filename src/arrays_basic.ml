@@ -60,7 +60,7 @@ let swap (tg : target) : unit =
 let aos_to_soa (tv : typvar) (sz : var) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,_) t ->  Arrays_core.aos_to_soa tv sz t p) [Target.cFunDef "main"]
-  (* Target.apply_on_target(Arrays_core.aos_to_soa tv sz) [Target.dRoot] *)
+  (* Target.apply_on_targets(Arrays_core.aos_to_soa tv sz) [Target.dRoot] *)
   
 
 

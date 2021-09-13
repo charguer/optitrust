@@ -5,7 +5,7 @@ open Target
   [s] denotes the trm_to be inserted inside the sequence
 *)
 let insert (s : string) (tg : target): unit =
-  Target.apply_on_target_between (fun t (p,i) ->
+  Target.apply_on_targets_between (fun t (p,i) ->
     Sequence_core.insert i s t p) tg;
   Trace.reparse()
 
@@ -68,7 +68,7 @@ let intro_between ?(label : string = "") (tg_beg : target) (tg_end : target) : u
    producing e.g., [{ t1; t2; t3; t3}]. *)
 let elim (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ -> 
-  Target.apply_on_target (Sequence_core.elim) tg)
+  Target.apply_on_targets (Sequence_core.elim) tg)
   
 (* [intro_on_instr visible tg] expecets the target [tg] to point at any arbitrary trm,
     it will wrap a sequence around the targeted  trm.
@@ -79,7 +79,7 @@ let elim (tg : Target.target) : unit =
 *)
 let intro_on_instr ?(label : string = "") ?(visible : bool = true) (tg : Target.target) : unit =
   Internal.nobrace_enter();
-  Target.apply_on_target (Sequence_core.intro_on_instr visible label) tg
+  Target.apply_on_targets (Sequence_core.intro_on_instr visible label) tg
 
 (* [unwrap tg] expects the target [tg] to point to a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)
@@ -93,7 +93,7 @@ let elim_around_instr : Target.Transfo.t =
 *)
 let split (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ -> 
-  Target.apply_on_transformed_target_between (Internal.isolate_last_dir_in_seq)
+  Target.apply_on_transformed_targets_between (Internal.isolate_last_dir_in_seq)
     (fun t (p, i)  -> Sequence_core.split i t p) tg)
 
 (* [partition ~visible blocks tg] expects the target tg to point to a sequence, this transformations will split that sequence
@@ -104,10 +104,10 @@ let split (tg : Target.target) : unit =
           other transformations which call explicitly the partition transformation.
 *)
 let partition ?(visible : bool = false) (blocks : int list) : Target.Transfo.t =
-  Target.apply_on_target (Sequence_core.partition blocks visible)
+  Target.apply_on_targets (Sequence_core.partition blocks visible)
 
 (* [reorder_blocks tg] expects the target [tg] to point to a sequence of blocks, this transformation will transpose the block structure
     think about a sequence of blocks as a matrix.
 *)
 let reorder_blocks : Target.Transfo.t = 
-  Target.apply_on_target (Sequence_core.reorder_blocks)
+  Target.apply_on_targets (Sequence_core.reorder_blocks)

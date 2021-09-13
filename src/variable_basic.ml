@@ -35,7 +35,7 @@ let inline ?(delete : bool = false) ?(at : target = []) : Target.Transfo.t =
       which adds "_1" to each declared variable inside the sequence.
 *)
 let rename (rename : rename) : Target.Transfo.t =
-  Target.apply_on_target (Variable_core.rename rename)
+  Target.apply_on_targets (Variable_core.rename rename)
 
 (* [init_detach tg] expects the target to point to a variable initialization.
    It then splits the instruction into a variable declaration and a set operation.
@@ -43,7 +43,7 @@ let rename (rename : rename) : Target.Transfo.t =
 
 let init_detach (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
-    Target.apply_on_target (Variable_core.init_detach) tg
+    Target.apply_on_targets (Variable_core.init_detach) tg
   )
 
 (* let init_detach : Target.Transfo.t =
@@ -64,7 +64,7 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
     a const in front. Otherwise make it mutable by removing the const.
 *)
 let const_non_const : Target.Transfo.t =
-  Target.apply_on_target (Variable_core.const_non_const)
+  Target.apply_on_targets (Variable_core.const_non_const)
 
 
 (* [local_other_name var_type old_var new_var tg] expectes target [tg] to point to a labelled
@@ -84,7 +84,7 @@ let const_non_const : Target.Transfo.t =
                                             }@nobrace
 *)
 let local_other_name (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.t =
-  Target.apply_on_target (Variable_core.local_other_name var_type old_var new_var)
+  Target.apply_on_targets (Variable_core.local_other_name var_type old_var new_var)
 
 (*
 TODO:

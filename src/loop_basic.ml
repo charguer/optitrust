@@ -11,7 +11,7 @@ open Ast
 (* [interchange tg] expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
 let interchange : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.interchange)
+  Target.apply_on_targets (Loop_core.interchange)
 
 (* [color nb_colors i_color tg]: expects [tg] to point to a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].
@@ -25,7 +25,7 @@ let interchange : Target.Transfo.t =
       for (int i = index*step; i < stop; i += step*nb_color) { body }].
 *)
 let color (nb_colors : string_trm) ?(index : var = "") : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.color nb_colors index)
+  Target.apply_on_targets (Loop_core.color nb_colors index)
 
 
 (* [tile tile_size index tg]: expects [tg] to point to a simple loop,
@@ -39,7 +39,7 @@ let color (nb_colors : string_trm) ?(index : var = "") : Target.Transfo.t =
       for (int i = index; i < min(X, bx+B); i++) { body }].
 *)
 let tile ?(index : var = "") ?(bound : tile_bound = TileBoundMin) (tile_size : string_trm) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.tile index bound tile_size)
+  Target.apply_on_targets (Loop_core.tile index bound tile_size)
 
 (* [hoist x_step tg]: expects [tg] to point to simple loop.
     [x_step] - denotes the variable going to be hoisted outside the loop
@@ -65,7 +65,7 @@ let hoist (x_step : var) (tg : Target.target) : unit =
 *)
 let fission (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
-    Target.apply_on_transformed_target_between (Internal.get_trm_in_surrounding_loop)
+    Target.apply_on_transformed_targets_between (Internal.get_trm_in_surrounding_loop)
     (fun t (p, i) -> Loop_core.fission i t p) tg )
 
 (* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops
@@ -74,7 +74,7 @@ let fission (tg : Target.target) : unit =
     it to the body ot the first loop.
 *)
 let fusion_on_block ?(keep_label : bool = false) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.fusion_on_block keep_label)
+  Target.apply_on_targets (Loop_core.fusion_on_block keep_label)
 
 (* [extract_variable tg] expects tg to point to an uninitialized variable
    declaration inside a for loop. The idea is similar to loop hoist
@@ -101,7 +101,7 @@ let extract_variable (tg : Target.target) : unit =
                                           }
 *)
 let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.grid_enumerate index_and_bounds)
+  Target.apply_on_targets (Loop_core.grid_enumerate index_and_bounds)
 
 
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
@@ -112,7 +112,7 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 *)
 let unroll ?(label : var = "") (tg : Target.target): unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_target (Loop_core.unroll label) tg)
+    Target.apply_on_targets (Loop_core.unroll label) tg)
 
 
 
@@ -147,5 +147,5 @@ let unswitch (tg : Target.target) : unit =
           for (int index = 0;)
 *)
 let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
-  Target.apply_on_target (Loop_core.to_unit_steps index)
+  Target.apply_on_targets (Loop_core.to_unit_steps index)
 

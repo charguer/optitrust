@@ -26,7 +26,7 @@ let inline ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
       of the body of typedef at gives to it the name [name]
 *)
 let copy (name : string) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after( fun _ -> Target.apply_on_target (Typedef_core.copy name) tg)
+  Internal.nobrace_remove_after( fun _ -> Target.apply_on_targets (Typedef_core.copy name) tg)
 
 (* [insert name td_body] expects target [tg] to a relative location inside a sequence
     then it will insert a typedef declaration at that location. [name] is the new type
@@ -34,5 +34,5 @@ let copy (name : string) (tg : Target.target) : unit =
     a product(for struct declarations), a sum type or an enum.
 *)
 let insert (name : string) (td_body : typdef_body) : Target.Transfo.t =
-  Target.apply_on_target_between(fun t (p, i) ->
+  Target.apply_on_targets_between(fun t (p, i) ->
     Typedef_core.insert name td_body i t p)
