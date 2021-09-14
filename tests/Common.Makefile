@@ -82,7 +82,7 @@ expected: $(TESTS:.ml=.exp)
 # Rules
 
 # The command for calling diff
-DIFF := diff --ignore-blank-lines --ignore-space-change -I '^//'
+DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 
 # The build command for compiling a script
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust

@@ -1,4 +1,4 @@
-TARGET_MAKE_ALL := transfo
+TARGET_MAKE_ALL := check
 
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
@@ -133,12 +133,12 @@ TESTS_WORKING := \
 	worksharing_critical.ml \
 
 TESTS_TOCHECK := \
-	taskgroup.ml 
+	taskgroup.ml
 
-TESTS := $(TESTS_WORKING) 
+TESTS := $(TESTS_WORKING)
 
 COMPILE := \
-	
+
 
 include ../Common.Makefile
 

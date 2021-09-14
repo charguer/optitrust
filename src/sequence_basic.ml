@@ -15,7 +15,7 @@ let insert (s : string) (tg : target): unit =
 *)
 let delete ?(nb : int = 1) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Sequence_core.delete i nb t p) 
+    (fun (p, i) t -> Sequence_core.delete i nb t p)
 
 
 (* [iter_delete tgl]: just iterate over the list of targeted trm to be deleted*)
@@ -27,11 +27,11 @@ let iter_delete (tgl : target list) : unit =
     [label] denotes a label which the generated sub-sequence is going to have, in case the user decides to have one.
    [visible] denotes the visibility of a sequence. This means the that the the sequence is
         used only for internal purposes.                     }
-   [nb] is the number of instructions to be moved inside the sub-sequence. 
-      If [nb] = 1 means then this transformation is basically the same as wrap. 
+   [nb] is the number of instructions to be moved inside the sub-sequence.
+      If [nb] = 1 means then this transformation is basically the same as wrap.
       If [nb] is greater than one then it means that the instructions which come right after
       the target instruction will be included in the sub-sequence too.
-  
+
    Ex: int main(){     int main(){
         int x = 5;      { int x = 5}
         iny y = 6;      int y = 6;
@@ -47,7 +47,7 @@ let intro ?(label : string = "") (nb : int) (tg : Target.target) : unit =
    All the intermediate trms are also included inside the sub-sequence.
 *)
 let intro_between ?(label : string = "") (tg_beg : target) (tg_end : target) : unit =
-  Internal.nobrace_remove_after ( fun  _ -> 
+  Internal.nobrace_remove_after ( fun  _ ->
   Trace.apply (fun t ->
     let ps_beg : (path * int) list = resolve_target_between tg_beg t in
     let ps_end : (path * int) list = resolve_target_between tg_end t in
@@ -67,14 +67,14 @@ let intro_between ?(label : string = "") (tg_beg : target) (tg_end : target) : u
    [{ t1; { t2; t3 }; t4 }]. It "elims" the contents of the inner sequence,
    producing e.g., [{ t1; t2; t3; t3}]. *)
 let elim (tg : Target.target) : unit =
-  Internal.nobrace_remove_after ( fun _ -> 
+  Internal.nobrace_remove_after ( fun _ ->
   Target.apply_on_targets (Sequence_core.elim) tg)
-  
+
 (* [intro_on_instr visible tg] expecets the target [tg] to point at any arbitrary trm,
     it will wrap a sequence around the targeted  trm.
     [visible] denotes the visibility of a sequence. This means the that the the sequence is
         used only for internal purposes.
-    [label] denotes the label of the sub-sequence. Targeting sequences can be challanging hence having 
+    [label] denotes the label of the sub-sequence. Targeting sequences can be challanging hence having
           them laballed before can make the apllication of the transformations easier.
 *)
 let intro_on_instr ?(label : string = "") ?(visible : bool = true) (tg : Target.target) : unit =
@@ -92,15 +92,14 @@ let elim_around_instr : Target.Transfo.t =
     is of type before or after the first part will include (exclude) the target.
 *)
 let split (tg : Target.target) : unit =
-  Internal.nobrace_remove_after ( fun _ -> 
-  Target.apply_on_transformed_targets_between (Internal.isolate_last_dir_in_seq)
-    (fun t (p, i)  -> Sequence_core.split i t p) tg)
+  Internal.nobrace_remove_after (fun _ ->
+    Target.apply_on_targets_between (fun t (p, i) -> Sequence_core.split i t p) tg)
 
 (* [partition ~visible blocks tg] expects the target tg to point to a sequence, this transformations will split that sequence
-      into blocks where the sizes of the blocks are given by [blocks].  
-        [blocks] denotes the sizes for each block inside the sequence. By default it should be empty, otherwise the sum of 
+      into blocks where the sizes of the blocks are given by [blocks].
+        [blocks] denotes the sizes for each block inside the sequence. By default it should be empty, otherwise the sum of
           integers inside [blocks] should sum up to the number of instructions of the targeted sequence.
-        [visible] denotes a flag for the visibility of the blocks meaning that this block partition will be meaningful only for 
+        [visible] denotes a flag for the visibility of the blocks meaning that this block partition will be meaningful only for
           other transformations which call explicitly the partition transformation.
 *)
 let partition ?(visible : bool = false) (blocks : int list) : Target.Transfo.t =
@@ -109,5 +108,5 @@ let partition ?(visible : bool = false) (blocks : int list) : Target.Transfo.t =
 (* [reorder_blocks tg] expects the target [tg] to point to a sequence of blocks, this transformation will transpose the block structure
     think about a sequence of blocks as a matrix.
 *)
-let reorder_blocks : Target.Transfo.t = 
+let reorder_blocks : Target.Transfo.t =
   Target.apply_on_targets (Sequence_core.reorder_blocks)

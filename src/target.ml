@@ -382,7 +382,7 @@ let cMarks (ms : mark list) : constr =
   Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string (List.map string_of_int ms) ))
 
 (* [cMarkAny] matches all the ast nodes with annotation Mark m, where m can be any positive integer *)
-let cMarkAny : constr = 
+let cMarkAny : constr =
   Constr_mark ((fun _ -> true), "any_mark")
 
 (* [cLabel ~substr ~body ~regexp label] matches C labels*)
@@ -516,9 +516,9 @@ let apply_on_path = Path.apply_on_path
         unit
 *)
 
-(* [add_mark m t]: add Mark [m] annotation to the ast node [t], 
+(* [add_mark m t]: add Mark [m] annotation to the ast node [t],
     as the name suggests marks are used for marking the targets given by the user.
-    They're very useful especially in case when the applied transformations change the 
+    They're very useful especially in case when the applied transformations change the
     structure of the ast.
 *)
 let add_mark (m : mark) (t : trm) = {t with annot = (Mark m) :: t.annot}
@@ -530,16 +530,16 @@ let remove_mark (t : trm) = {t with annot = List.filter (function Mark _ -> fals
         transformer: change the resolved path so that more information about the context of the node is given
         tr: transformation to be applied at the nodes corresponedt to target [tg]
         tg: target
-      return: 
+      return:
         unit
 *)
-let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit = 
+let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> next_mark()) ps in
     let t = List.fold_left2 (fun t p m -> apply_on_path (add_mark m) t p) t ps marks in
     Tools.foldi( fun imark t m ->
-      match resolve_target [cMark m] t with 
+      match resolve_target [cMark m] t with
       | [] -> fail None "applyi_on_transformed_targets: a mark disappeared"
       | [p] -> let t = apply_on_path (remove_mark) t p in
         tr imark t (transformer p)
@@ -582,22 +582,23 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_targets (fun _i t dl -> tr t dl) tg
 
 
-let applyi_on_transformed_targets_between (transformer : path  -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
+let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply( fun t ->
   let ps = resolve_target_between tg t in
   let marks = List.map (fun _ -> next_mark ()) ps in
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (add_mark m) t (p_to_seq @ [Dir_seq_nth i])) t ps marks in
-  Tools.foldi( fun imark t m ->
-    match resolve_target [cMark m] t with 
+  Tools.foldi (fun imark t m ->
+    match resolve_target [cMark m] t with
     | [] -> fail None "applyi_on_transformed_targets_between: a mark disappeared"
-    | [p_to_item_in_seq] -> 
+    | [p_to_item_in_seq] ->
       let t = Path.apply_on_path remove_mark t p_to_item_in_seq in
-      tr imark t (transformer p_to_item_in_seq)
+      let (p,i) = extract_last_dir p_to_item_in_seq in
+      tr imark t (transformer (p,i))
     | _ -> fail None "applyi_on_transformed_targets_between: a mark was duplicated"
   ) t marks)
 
-let apply_on_transformed_targets_between (transformer: path -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets_between transformer (fun _i t descr -> tr t descr ) tg
+let apply_on_transformed_targets_between (transformer: path * int -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
+  applyi_on_transformed_targets_between transformer (fun _i t descr -> tr t descr) tg
 
 
 (* [apply_on_targets_between ~replace_top tr tg]: Similar to apply_on_targets, but the function considers the index too
@@ -607,8 +608,8 @@ let apply_on_transformed_targets_between (transformer: path -> 'a) (tr : trm -> 
       return:
         unit
 *)
-let applyi_on_targets_between (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets_between (fun p -> extract_last_dir p) tr tg
+let applyi_on_targets_between (tr : int -> trm -> path * int -> trm) (tg : target) : unit =
+  applyi_on_transformed_targets_between (fun (p,i) -> (p,i)) tr tg
 
 let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
   applyi_on_targets_between (fun _i t pk -> tr t pk) tg

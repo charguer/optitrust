@@ -69,7 +69,7 @@ let hoist (x_step : var) (tg : Target.target) : unit =
 *)
 let fission (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
-    Target.apply_on_transformed_targets_between (Internal.get_trm_in_surrounding_loop)
+    Target.apply_on_transformed_targets_between (fun (p,i) -> Internal.get_trm_in_surrounding_loop (p @ [Dir_seq_nth i]))
     (fun t (p, i) -> Loop_core.fission i t p) tg )
 
 (* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops

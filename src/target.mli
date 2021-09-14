@@ -205,9 +205,9 @@ val cDefault : case_kind
 
 val cSet : ?lhs:target -> ?rhs:target -> unit -> target
 
-val dRHS : constr 
+val dRHS : constr
 
-val dLHS : constr 
+val dLHS : constr
 
 val cTargetInDepth : target -> constr
 
@@ -244,9 +244,9 @@ val applyi_on_transformed_targets : (path -> 'a) -> (int -> trm -> 'a -> trm) ->
 
 val apply_on_transformed_targets : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
 
-val applyi_on_transformed_targets_between : (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
+val applyi_on_transformed_targets_between : (path * int -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
-val apply_on_transformed_targets_between : (path -> 'a) -> (trm -> 'a -> trm) -> target -> unit
+val apply_on_transformed_targets_between : (path * int -> 'a) -> (trm -> 'a -> trm) -> target -> unit
 
 val show : ?line:int -> ?reparse:bool -> target -> unit
 
