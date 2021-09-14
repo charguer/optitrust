@@ -13,7 +13,7 @@
 
 ```
    # Installation of system packages
-   sudo apt-get install clang-format meld libclang-dev llvm-dev
+   sudo apt-get install clang-format meld libclang-dev llvm-dev libomp-dev
 
    # Installation of opam: https://opam.ocaml.org/doc/Install.html
    sudo apt-get install opam

@@ -107,7 +107,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 # Rule for building .chk, that gives evidence whether the output matches the expected output
 %.chk: %_out.cpp %_exp.cpp
 	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
-	|| (echo "$< does not match the expected result:" && echo "  make $*.meld")
+	|| (echo "=== ERROR: $< does not match the expected result:" && echo "  make $*.meld")
 #	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
 
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file

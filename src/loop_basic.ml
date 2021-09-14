@@ -33,7 +33,11 @@ let color (nb_colors : string_trm) ?(index : var = "") : Target.Transfo.t =
    divides - denotes a flag to know if tile_size divides the size of the array or not
    [tile_size] - denotes the width of the tile (e.g., ["2"])
    [index] - denotes a fresh name to use as index for iterating over tiles.
-   [bound] - denotes the bound type for the produced loop
+   [bound] - can be one of
+      - TileBoundMin: generates a constraint of the form  [i < min(X, bx+B)]
+      - TileBoundAnd: generates a constraint of the form [i <  X && i < bx+B]
+      - TileBoundDivides: generates a constraint of the form [i < X], which is only true if B divides X
+
    It produces:
    [for (int index = 0; index < stop; index += tile_size) {
       for (int i = index; i < min(X, bx+B); i++) { body }].
@@ -58,7 +62,7 @@ let tile ?(index : var = "") ?(bound : tile_bound = TileBoundMin) (tile_size : s
 let hoist (x_step : var) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.hoist x_step i t p) tg) 
+    (fun (p, i) t -> Loop_core.hoist x_step i t p) tg)
 
 (* [fission tg]: expects [tg] to point somewhere inside the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -107,7 +111,7 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
     is of the form for(int i = a; i < a + C; i++){..} then it will move the
     the instructions out of the loop and the loop will be removed.
-    Assumption: C should be a literal, this is needed to compute the number 
+    Assumption: C should be a literal, this is needed to compute the number
     of sequences to generate.
 *)
 let unroll ?(label : var = "") (tg : Target.target): unit =
