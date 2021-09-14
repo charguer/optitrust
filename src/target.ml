@@ -396,8 +396,8 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_set)
 
-let cGet : constr = 
-  cPrimFun (Prim_unop Unop_get)
+let cGet ?(arg : target = []) () : constr = 
+  cPrimFun ~args:[arg] (Prim_unop Unop_get)
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
@@ -468,7 +468,8 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
   let ro = string_to_rexp_opt regexp substr field TrmKind_Expr in
   Struct_access ro
 
-let cAccess : constr_access = Any_access
+let cAccess : constr_access = 
+  Any_access
 
 (* the empty list is interpreted as no constraint on the cases *)
 let cSwitch ?(cond : target = [])

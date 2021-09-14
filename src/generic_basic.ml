@@ -80,8 +80,10 @@ let change_type (new_type : typvar) : Target.Transfo.t =
     (fun (p, i) t -> Generic_core.change_type new_type i t p)
 
 
-let data_shift ?(neg : bool = true) ?(pre_cast : typ = typ_unit ()) ?(post_cast : typ = typ_unit ()) (u : var) (t : var) : Target.Transfo.t =
-  Target.apply_on_targets (Generic_core.data_shift neg pre_cast post_cast u t)
+let data_shift ?(neg : bool = true) ?(pre_cast : typ = typ_unit ()) ?(post_cast : typ = typ_unit ()) (u : trm) (tg : Target.target) : unit =
+  Target.apply_on_targets (Generic_core.data_shift neg pre_cast post_cast u ) tg;
+  Trace.reparse()
+
 
 
 (* ********************************************************* *)
