@@ -42,7 +42,7 @@ type target_occurrences =
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
 type target = constr list
-
+and targets = target list
 and depth =
   | DepthAny
   | DepthAt of int
@@ -156,7 +156,7 @@ and constr_accesses = (constr_access list) option
      the full list should be considered as matching or not.
    - a string that explains what was the user intention *)
 and target_list_pred =
-  { target_list_pred_ith_constr : int -> constr;
+  { target_list_pred_ith_target : int -> target;
     target_list_pred_validate : bool list -> bool;
     target_list_pred_to_string : unit -> string; }
 
@@ -194,8 +194,8 @@ type target_struct = {
    target_relative : target_relative;
    target_occurrences : target_occurrences; }
 
-let make_target_list_pred ith_constr validate to_string =
-  { target_list_pred_ith_constr = ith_constr;
+let make_target_list_pred ith_target validate to_string =
+  { target_list_pred_ith_target = ith_target;
     target_list_pred_validate = validate;
     target_list_pred_to_string = to_string; }
 
@@ -724,9 +724,9 @@ and check_name (name : constr_name) (s : string) : bool =
      match_regexp_str r  s
 
 and check_list ?(depth : depth = DepthAt 1) (lpred : target_list_pred) (tl : trm list) : bool =
-  let cstr = lpred.target_list_pred_ith_constr in
+  let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
-  validate (List.mapi (fun i t -> check_target ~depth ([cstr i]) t) tl)
+  validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
@@ -1188,10 +1188,10 @@ let extract_last_path_item (p : path) : dir * path =
   | d :: p' -> (d, List.rev p')
 
 let extract_last_dir (p : path) : path * int =
-  match List.rev p with 
+  match List.rev p with
   | [] -> raise Not_found
   | d :: p' ->
-    begin match d with 
+    begin match d with
     | Dir_seq_nth i | Dir_nth i -> (List.rev p', i)
     | _ -> fail None "extract_last_dir: expected a directory in a sequence"
     end

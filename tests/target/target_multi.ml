@@ -3,6 +3,8 @@ open Target
 
 let _ = Run.script_cpp (fun () ->
 
+  (* This is a demo for the [nb*] constraints, so we are purposely not precise about the number of occurrences *)
+
   (* One (ExpectedOne is the default) *)
   show [ cFor "j" ];
 
@@ -11,7 +13,7 @@ let _ = Run.script_cpp (fun () ->
   show [ nbMulti; cCall "f" ];
   show [ nbMulti; cFunDef "main"; cFor "i" ];
 
-  (* Nb *)
+  (* NbExact*)
   show [ nbExact 0; cFunDef "main"; cFor "j" ]; (* zero match *)
   show [ nbExact 1; cFunDef "main"; cFor "i" ];
   show [ nbExact 2; cFor "i" ];

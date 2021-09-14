@@ -74,7 +74,7 @@ type string_trm = string
 
 
 (* constructor name (for enum and algebraic datatypes) *)
-type constr = string
+type constrname = string
 
 (* Type used to defin the direction and the size of the step of the *)
 type loop_dir =
@@ -150,7 +150,7 @@ and typedef = { (* e.g. [type ('a,'b) t = ...] *)
 and typdef_body =
   | Typdef_alias of typ (* for abbreviations, e.g. [type 'a t = ('a * 'a) list] or [typdef vect t] *)
   | Typdef_prod of bool * (label * typ) list (* for records / struct, e.g. [type 'a t = { f : 'a; g : int } *)
-  | Typdef_sum of (constr * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
+  | Typdef_sum of (constrname * typ) list (* for algebraic definitions / enum, e.g. [type 'a t = A | B of 'a] *)
   (* Not sure if Typedef_enum is a sum type *)
   | Typdef_enum of (var * (trm option)) list (* for C/C++ enums *)
 

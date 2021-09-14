@@ -244,50 +244,77 @@ let cOr (tgl : target list) : constr =
 let cAnd (tgl : target list) : constr =
   Constr_and tgl
 
-(* Converts a list of constraints into a [target_list_pred] *)
-let target_list_simpl (cstrs : constr list) : target_list_pred =
-  let n = List.length cstrs in
+(* Converts a list of targets into a [target_list_pred] *)
+let target_list_simpl (args : targets) : target_list_pred =
+  let n = List.length args in
   make_target_list_pred
-    (fun i -> if i < n then List.nth cstrs i else bFalse)
+    (fun i -> if i < n then List.nth args i else [cStrict; bFalse]) (* TODO the else to name "target_none" *)
     (fun bs -> List.length bs = n && list_all_true bs)
-    (fun () -> "target_list_simpl(" ^ (list_to_string (List.map constr_to_string cstrs) ^ ")"))
+    (fun () -> "target_list_simpl(" ^ (list_to_string (List.map target_to_string args) ^ ")"))
+
+(* NOTE: the "_st" suffix means that the argument is a constraint and not a target
+   --we might revisit this convention later if we find it not suitable *)
 
 (* Converts a constraint into a [target_list_pred] that checks that at least one of the items in the list satisfies the given constraint *)
-let target_list_one_st (cstr : constr) : target_list_pred =
+let target_list_one_st (cstr : constr) : target_list_pred = (* LATER: DEPRECATE THIS *)
   make_target_list_pred
-    (fun _i -> cstr)
+    (fun _i -> [cStrict; cstr])
     (fun bs -> List.mem true bs)
     (fun () -> "target_list_one_st(" ^ (constr_to_string cstr) ^ ")")
 
-(* Converts a constraint into a [target_list_pred] that checks that at least all the items in the list satisfies the given constraint *)
-let target_list_all_st (cstr : constr) : target_list_pred =
+let target_list_one_st_target (tg : target) : target_list_pred =(* LATER: KEEP ONLY THIS *)
   make_target_list_pred
-    (fun _i -> cstr)
+    (fun _i -> tg)
+    (fun bs -> List.mem true bs)
+    (fun () -> "target_list_one_st(" ^ (target_to_string tg) ^ ")")
+
+
+(* Converts a constraint into a [target_list_pred] that checks that at least all the items in the list satisfies the given constraint *)
+let target_list_all_st (cstr : constr) : target_list_pred = (* LATER: DEPRECATE THIS *)
+  make_target_list_pred
+    (fun _i -> [cStrict; cstr])
     (fun bs -> List.for_all (fun b -> b = true) bs)
     (fun () -> "target_list_all_st(" ^ (constr_to_string cstr) ^ ")")
+
+let target_list_all_st_target (tg : target) : target_list_pred = (* LATER: KEEP ONLY THIS *)
+  make_target_list_pred
+    (fun _i -> tg)
+    (fun bs -> List.for_all (fun b -> b = true) bs)
+    (fun () -> "target_list_all_st(" ^ (target_to_string tg) ^ ")")
 
 
 (* Predicate that matches any list of arguments *)
 let target_list_pred_always_true : target_list_pred =
   make_target_list_pred
-    (fun _i -> bTrue)
+    (fun _i -> [])
     list_all_true
     (fun () -> "target_list_pred_always_true")
 
+let target_list_pred_default =
+  make_target_list_pred
+    (fun _i -> [])
+    list_all_true
+    (fun () -> "target_list_pred_default")
+
+(* [combine_args args args_pred] takes [args] as a [target_list_simpl] if it is nonempty,
+   and else returns [args_pred]; raise an error if the two arguments have non-default values *)
+let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred =
+  match args with
+  | [] -> args_pred
+  | _ ->
+      if args_pred != target_list_pred_default
+        then fail None "cFunDef: can't provide both args and args_pred";
+      target_list_simpl args
+
+
 (* by default an empty name is no name *)
-let cFunDef ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true) ?(body : target = []) ?(regexp : bool = false) (name : string) : constr =
+let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = []) ?(regexp : bool = false) (name : string) : constr =
   let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
-  let p_args = match args with
-    | [] -> args_pred
-    | _ -> if args_pred = target_list_pred_always_true
-            then target_list_simpl args
-            else fail None "cFunDef: can't provide both args and args_pred"
-    in
-  Constr_decl_fun (ro, p_args, body)
+  Constr_decl_fun (ro, combine_args args args_pred, body)
 
 (* toplevel fun declaration *)
 let cTopFunDef
-  ?(args : target = []) ?(args_pred : target_list_pred = target_list_pred_always_true)
+  ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default)
   ?(body : target = []) (name : string) : constr =
   cChain [ dRoot; cFunDef ~args ~args_pred ~body name ]
 
@@ -316,13 +343,8 @@ let cEnum ?(name : string = "")
   in
   Constr_decl_enum (c_n, cec_o)
 
-let cSeq ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (_ : unit) : constr =
-  let p_args =
-  match args with
-  | [] -> args_pred
-  | _ -> (target_list_simpl args)
-  in
-  Constr_seq  p_args
+let cSeq ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (_ : unit) : constr =
+  Constr_seq (combine_args args args_pred)
 
 
 let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) (name : string) : constr =
@@ -345,7 +367,7 @@ let cLit : constr =
    Constr_lit None
 
 (* [cCall] can match all kind of function calls *)
-let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) ?(accept_encoded : bool = false) (name:string) : constr =
+let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(accept_encoded : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
   let p_fun = match fun_ with
   | [] -> [cVar name]
@@ -354,24 +376,22 @@ let cCall ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_p
     | "" -> fun_
     | _ -> raise (Argument_Error "Can't provide both the path and the name of the function")
     end in
-
-  let args =
-    match args with
-    | [] -> args_pred
-    | _ -> (target_list_simpl args)
-    in
-  Constr_app (p_fun, args, accept_encoded)
+  Constr_app (p_fun, combine_args args args_pred, accept_encoded)
 
 (* [cFun] matches a function by its name; it cannot match primitive functions *)
-let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (name:string) : constr =
+let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (name:string) : constr =
   cCall ~fun_ ~args ~args_pred ~accept_encoded:false name
 
 (* [cPrim] matches only primitive functions; use [cPrimFun] for matching primitive function calls. *)
 let cPrim (p : prim) : constr =
   Constr_prim p
+
 (* [cPrimFun ~args ~args_pred  p] matches only primitive function calls*)
-let cPrimFun ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (p:prim) : constr =
+let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
    cCall ~fun_:[cPrim p] ~args ~args_pred ""
+
+let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : constr =
+  cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_add)
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
@@ -467,14 +487,6 @@ let dRHS : constr =
 
 let dLHS : constr =
   cChain [dArg 0]
-
-
-let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : target =
-  [
-    cCall ~args:lhs "";
-    cCall ~args:rhs "";
-    cCall ~fun_:[cStrict;sInstr "="] ""
-  ]
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)

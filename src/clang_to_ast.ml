@@ -69,7 +69,7 @@ let ctx_typedef_add (tn : typconstr) (tid : typconstrid) (td : typedef) : unit =
 let ctx_label_add (lb : label) (tid : typconstrid) : unit =
   ctx_label := String_map.add lb tid (!ctx_label)
 
-let ctx_constr_add (c : constr) (tid : typconstrid) : unit =
+let ctx_constr_add (c : constrname) (tid : typconstrid) : unit =
   ctx_constr := String_map.add c tid (!ctx_constr)
 
 
@@ -219,7 +219,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
     let t = translate_qual_type ~loc ~translate_record_types q in
     if const then
       typ_const (typ_ptr Ptr_kind_ref  (typ_ptr Ptr_kind_ref t))
-    else 
+    else
       (typ_ptr Ptr_kind_ref (typ_ptr Ptr_kind_ref t))
   | ConstantArray {element = q; size = n; size_as_expr = eo} ->
     let t = translate_qual_type ~loc ~translate_record_types q in
@@ -239,7 +239,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
   | IncompleteArray q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
     typ_array t Undefined
-  | Auto -> 
+  | Auto ->
     typ_auto ()
   | BuiltinType b ->
     begin match b with
@@ -277,7 +277,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
     begin match n with
       | IdentifierName n ->
         let typ_to_add = typ_constr n ~tid:(get_typid_from_trm n)  in
-        if const then typ_const typ_to_add else typ_to_add 
+        if const then typ_const typ_to_add else typ_to_add
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "type definitions")
     end
@@ -291,14 +291,14 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
   | Record {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~tid:(get_typid_from_trm n) 
+         typ_constr n ~tid:(get_typid_from_trm n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "records")
     end
   | Enum {nested_name_specifier = _; name = n; _} ->
     begin match n with
       | IdentifierName n ->
-         typ_constr n ~tid:(get_typid_from_trm n) 
+         typ_constr n ~tid:(get_typid_from_trm n)
       | _ -> fail loc ("translate_type_desc: only identifiers are allowed in " ^
                        "enums")
     end
@@ -307,7 +307,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
   | _ -> fail loc "translate_type_desc: not implemented"
 
 and is_qual_type_const (q : qual_type) : bool =
-  let {const;_} = q in const 
+  let {const;_} = q in const
 
 and translate_qual_type ?(loc : location = None) ?(translate_record_types : bool = true) (q : qual_type) : typ =
   let ({desc = d; const = c; _} : qual_type) = q in
@@ -526,7 +526,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | Some ty -> ty
     in
     let tl = List.map translate_expr el in
-    begin match get_typ_kind (get_ctx()) tt with 
+    begin match get_typ_kind (get_ctx()) tt with
     | Typ_kind_array -> trm_array ~loc ~ctx ~typ:(Some tt) tl
     | Typ_kind_prod -> trm_struct ~loc ~ctx ~typ:(Some tt) tl
     | Typ_kind_undefined -> trm_struct ~loc ~ctx ~typ:(Some tt) tl
@@ -913,23 +913,23 @@ and translate_decl_list (dl : decl list) : trm list =
     dl' ->
        let trm_list = List.map (fun (d : decl) ->
       let loc = loc_of_node d in
-      match d with 
+      match d with
       | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
         trm_let ~loc  Var_mutable (fn,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim ~loc (Prim_new ty))
-      | _ -> 
-      translate_decl d 
+      | _ ->
+      translate_decl d
     ) fl in
-      let kw = match k with 
+      let kw = match k with
       | Struct -> Struct
       | Union -> Union
       | Class -> Class
       | _ -> fail loc "translate_decl_list: special records are not supported" in
       let tl' = translate_decl_list dl' in
       trm_let_record rn kw trm_list (translate_decl d1) :: tl'
-  
+
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
@@ -1048,8 +1048,8 @@ and translate_decl (d : decl) : trm =
                 args_t
             in
             List.iter (fun (y, ty) -> ctx_var_add y ty) args;
-            
-            List.iter (fun (y, ty) -> begin match ty.typ_desc with 
+
+            List.iter (fun (y, ty) -> begin match ty.typ_desc with
             | Typ_ptr _ when not (is_typ_const ty) -> add_var y
             | _ -> ()
             end
@@ -1064,10 +1064,10 @@ and translate_decl (d : decl) : trm =
       |_ -> fail loc "translate_decl: should not happen"
     end
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
-    
-    let rec contains_elaborated_type (q : qual_type) : bool = 
+
+    let rec contains_elaborated_type (q : qual_type) : bool =
       let {desc = d;const = _;_} = q in
-      match d with 
+      match d with
       | Pointer q -> contains_elaborated_type q
       | LValueReference q -> contains_elaborated_type q
       | RValueReference q -> contains_elaborated_type q
@@ -1076,10 +1076,10 @@ and translate_decl (d : decl) : trm =
       | IncompleteArray q -> contains_elaborated_type q
       | Elaborated _ -> true
       | _ -> false
-    
+
     in
     let tt = if contains_elaborated_type t then translate_qual_type ~loc ~translate_record_types:false t else translate_qual_type ~loc t in
-    
+
     let const = is_typ_const tt in
     let te =
       begin match eo with
@@ -1090,13 +1090,13 @@ and translate_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
-          begin match get_typ_kind (get_ctx()) tt with  
+          begin match get_typ_kind (get_ctx()) tt with
           | Typ_kind_array -> trm_array ~loc ~typ:(Some tt) tl
           | Typ_kind_prod -> trm_struct ~loc ~typ:(Some tt) tl
           | Typ_kind_undefined -> trm_struct ~loc ~typ:(Some tt) tl
           | _ -> fail loc ("translate_decl: initialisation lists only " ^ "allowed for struct and array")
           end
-          
+
         | _ -> translate_expr e
         end
       end
@@ -1111,15 +1111,15 @@ and translate_decl (d : decl) : trm =
           add_var n;
           trm_let ~loc  Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) te
         | Some _ ->
-          begin match tt.typ_desc with 
-          | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tt1} -> begin match tt1.typ_desc with 
+          begin match tt.typ_desc with
+          | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tt1} -> begin match tt1.typ_desc with
                            (* This check is needed because we don't want const regerences to be accessed by using get  *)
-                           | Typ_const _ -> trm_let ~loc Var_immutable (n, tt) (te) 
-                           | _ -> 
+                           | Typ_const _ -> trm_let ~loc Var_immutable (n, tt) (te)
+                           | _ ->
                              add_var n;
                              trm_let ~loc Var_mutable (n, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) {te with annot = [As_left_value]}
                            end
-          | _ -> 
+          | _ ->
             add_var n;
             trm_let ~loc Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
           end
@@ -1156,26 +1156,26 @@ and translate_decl (d : decl) : trm =
       | _ -> fail loc "translate_decl: only identifiers allowed for type aliases"
     end
   | LinkageSpec {language = lang;decls = dl} ->
-     
+
      let dls = translate_decl_list dl in
-     let lang = match lang with 
+     let lang = match lang with
      | C -> "C"
-     | CXX -> "C++" 
+     | CXX -> "C++"
      | _ -> "" in
      trm_extern lang dls
   | RecordDecl {keyword = k; name = n; fields = fl;_} ->
     let trm_list = List.map (fun (d : decl) ->
       let loc = loc_of_node d in
-      match d with 
+      match d with
       | {decoration = _; desc = Field {name = fn; qual_type = q; attributes = al;_}} ->
         let ft = translate_qual_type ~loc q in
         let al = List.map (translate_attribute loc) al in
         let ty = {ft with typ_attributes = al} in
         trm_let ~loc  Var_mutable (fn,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim ~loc (Prim_new ty))
-      | _ -> 
-      translate_decl d 
+      | _ ->
+      translate_decl d
     ) fl in
-      let kw = match k with 
+      let kw = match k with
       | Struct -> Struct
       | Union -> Union
       | Class -> Class
@@ -1188,9 +1188,9 @@ and translate_decl (d : decl) : trm =
   | TemplateDecl {parameters = {list = pl;_}; decl = d} ->
     let dl = translate_decl d in
     let pl = List.map (fun {decoration = _;desc = {parameter_name = n; parameter_kind = pk; parameter_pack = b};_} ->
-      let tpk =  begin match pk with 
+      let tpk =  begin match pk with
         | Class {default = opt_q} ->
-         begin match opt_q with 
+         begin match opt_q with
          | Some q -> Type_name (Some (translate_qual_type ~loc q))
          | None -> Type_name None
          end

@@ -6,6 +6,7 @@ type paths = path list
 
 type constr = Constr.constr
 type target = constr list
+type targets = target list
 
 type case_dir = Path.case_dir
 
@@ -127,9 +128,9 @@ val cAnd : target list -> constr
 
 val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> string -> constr
 
-val cFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> ?regexp:bool ->string -> constr
+val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?regexp:bool ->string -> constr
 
-val cTopFunDef : ?args:target -> ?args_pred:target_list_pred -> ?body:target -> string -> constr
+val cTopFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> string -> constr
 
 val cTypDef : ?substr:bool -> ?regexp:bool -> string -> constr
 
@@ -137,7 +138,7 @@ val cDef : string -> constr
 
 val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) -> ?regexp:bool -> unit -> constr
 
-val cSeq : ?args:target -> ?args_pred:target_list_pred -> unit -> constr
+val cSeq : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
 val cVar : ?regexp:bool -> ?trmkind:trm_kind -> string -> constr
 
@@ -151,13 +152,13 @@ val cString : string -> constr
 
 val cLit : constr
 
-val cCall : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> ?accept_encoded:bool -> string -> constr
+val cCall : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> ?accept_encoded:bool -> string -> constr
 
-val cFun : ?fun_:target -> ?args:target -> ?args_pred:target_list_pred -> string -> constr
+val cFun : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> string -> constr
 
 val cPrim : prim -> constr
 
-val cPrimFun : ?args:target -> ?args_pred:target_list_pred -> prim -> constr
+val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 
 val cMark : mark -> constr
 
@@ -203,7 +204,7 @@ val cCase : ?value:target -> unit -> case_kind
 
 val cDefault : case_kind
 
-val cSet : ?lhs:target -> ?rhs:target -> unit -> target
+val cSet : ?lhs:target -> ?rhs:target -> unit -> constr
 
 val dRHS : constr
 
@@ -211,13 +212,15 @@ val dLHS : constr
 
 val cTargetInDepth : target -> constr
 
-val make_target_list_pred : (int -> constr) -> (bool list -> bool) -> (unit -> string) -> target_list_pred
+val make_target_list_pred : (int -> target) -> (bool list -> bool) -> (unit -> string) -> target_list_pred
 
-val target_list_simpl : constr list -> target_list_pred
+val target_list_simpl : targets -> target_list_pred
 
 val target_list_one_st : constr -> target_list_pred
+val target_list_one_st_target : target -> target_list_pred
 
 val target_list_all_st : constr -> target_list_pred
+val target_list_all_st_target : target -> target_list_pred
 
 val target_list_pred_always_true : target_list_pred
 
