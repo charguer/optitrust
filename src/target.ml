@@ -396,8 +396,8 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_set)
 
-let cGet ?(arg : target = []) () : constr = 
-  cPrimFun ~args:[arg] (Prim_unop Unop_get)
+let cGet ?(_arg : target = []) () : constr = 
+  cPrimFun (Prim_unop Unop_get)
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
