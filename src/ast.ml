@@ -13,13 +13,16 @@ type node_loc = {
 
 (* Marks for use in transformations *)
 
-type mark = int (* fresh marks *)
+type mark = string (* fresh marks *)
 
-let next_mark : unit -> mark =
+let next_mark_int : unit -> int =
   Tools.fresh_generator()
 
+let next_mark : unit -> mark =
+  fun () -> "__" ^ string_of_int (next_mark_int()) (* a prefix for generated marks *)
+
 (* [mark_any] is as special mark that means "any mark" in constraints *)
-let mark_any = next_mark()
+let mark_any = "__"
 
 (* location of a node is given as an option term, that because sometimes for some nodes we
     cant' have the location. Of when generating new nodes it is hard for the transformations
@@ -247,7 +250,6 @@ and trm_annot =
   | Main_file (* sequence annotated as the main file is not printed *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
-  | Highlight of string * string (* Used in show transformations to hightlight a targeted trm*)
   | Any (* Used for only one specific transformation called delocalize *)
 (* symbols to add while printing a C++ program.*)
 and special_operator =
@@ -694,6 +696,19 @@ let fail (loc : location) (err : string) : 'a =
 
 
 (* *************************** Trm constructors *************************** *)
+
+let trm_annot_add (a:trm_annot) (t:trm) : trm =
+  { t with annot =  a :: t.annot }
+
+let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
+  { t with annot = List.filter pred t.annot }
+
+let trm_mark_clear (t:trm) : trm =
+  trm_annot_filter (function Mark _ -> false | _ -> true) t
+
+let trm_mark_set (s:string) (t:trm) : trm =
+  let t = trm_mark_clear t in (* technically optional, but cleaner to do it *)
+  trm_annot_add (Mark s) t
 
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
@@ -1413,6 +1428,7 @@ end
 let trm_seq_no_brace (tl : trm list) : trm=
     trm_seq ~annot:[No_braces (Nobrace.current())] tl
 
+(* DEPRECATED
 (* used to get the index of decorators when printing decoration *)
 let get_decorators (t : trm) : (string * string) =
   let rec aux l = match l with
@@ -1423,17 +1439,13 @@ let get_decorators (t : trm) : (string * string) =
     | _ -> aux tl
     end
    in aux t.annot
+*)
 
-
-let get_mark (t : trm) : int =
-  let rec aux l = match l with
-  | [] -> fail t.loc "get_mark: empty annotation list"
-  | hd :: tl ->
-    begin match hd with
-    | Mark m -> m
-    | _ -> aux tl
-    end in
-  aux t.annot
+let get_mark_opt (t : trm) : string option =
+  match List.find_opt (function Mark _ -> true | _ -> false) t.annot with
+  | None -> None
+  | Some (Mark m) -> Some m
+  | _ -> assert false
 
 (* get the id of the sequence annotated as No_braces *)
 let get_nobrace_id (t : trm) : int =
@@ -1467,7 +1479,7 @@ let get_init_val (t : trm) : trm =
       end
   | _ -> fail t.loc "get_init_val: expected a variable declaration"
 
-(* remove Highlight annotation from a trm_annot *)
+(* DEPRECATED e Highlight annotation from a trm_annot
 let remove_highlight (t_annot : trm_annot list) : trm_annot list =
   let rec aux l = match l with
   | [] -> []
@@ -1477,8 +1489,10 @@ let remove_highlight (t_annot : trm_annot list) : trm_annot list =
     | _ -> x :: aux xs
     end
   in aux t_annot
+  *)
 
 (* remove all the Highlight annotations from the ast *)
+(* DEPRECATED : LATER replace with a function that uses the ast_mapper combinator
 let rec clean_highlights (t : trm) : trm =
   match t.desc with
   | Trm_val _ -> {t with annot = remove_highlight t.annot}
@@ -1506,6 +1520,8 @@ let rec clean_highlights (t : trm) : trm =
   | Trm_namespace (name, t1, inline) -> {t with annot = remove_highlight t.annot; desc = Trm_namespace (name, clean_highlights t1, inline)}
   | Trm_let_record (name, rt, tl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_let_record (name, rt, List.map clean_highlights tl, clean_highlights t1)}
   | Trm_template (pl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_template (pl, clean_highlights t1)}
+  *)
+
 (* get the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit =
   match t.desc with

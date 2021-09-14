@@ -6,11 +6,11 @@ open Tools
 let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   match t with
   | Typ_const t ->
-    let dt = print_typ ~only_desc t in 
+    let dt = print_typ ~only_desc t in
     node "Typ_const" ^^ dt
-  | Typ_var (x, tid) -> 
+  | Typ_var (x, tid) ->
     node "Typ_var" ^^ parens ( separate (comma ^^ break 1) [string x; string (string_of_int tid)])
-  | Typ_constr (tv, tid, tl) -> 
+  | Typ_constr (tv, tid, tl) ->
     let tl = List.map (print_typ ~only_desc) tl in
     node "Typ_constr" ^^ parens ( separate (comma ^^ break 1) [string tv; string (string_of_int tid); print_list tl])
   | Typ_auto -> string "Typ_auto"
@@ -21,7 +21,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_bool -> string "Typ_bool"
   | Typ_char -> string "Typ_char"
   | Typ_ptr {ptr_kind = pk; inner_typ = ty} ->
-     let dpk = begin match pk with 
+     let dpk = begin match pk with
                | Ptr_kind_mut -> string "pointer"
                | Ptr_kind_ref -> string "reference"
                end
@@ -113,8 +113,8 @@ and print_binop (op : binary_op) : document =
   | Binop_shiftr -> string "Binop_shiftr"
   | Binop_xor -> string "Binop_xor"
 
-and print_consistency (cm : consistency_mode) : document = 
-  match cm with 
+and print_consistency (cm : consistency_mode) : document =
+  match cm with
   | Sequentially_consistent -> string "Sequentially_consistent"
   | Release -> string "Release"
   | Acquire -> string "Acquire"
@@ -164,8 +164,8 @@ and print_attribute ?(only_desc : bool = false) (a : attribute) : document =
      string "Identifier" ^^ blank 1 ^^ string x
   | Aligned t ->
      string "Aligned" ^^ blank 1 ^^ print_trm ~only_desc t
-  | GeneratedStar -> 
-    string "GeneratedStar" ^^ blank 1 
+  | GeneratedStar ->
+    string "GeneratedStar" ^^ blank 1
 and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   match t with
   | Trm_val v ->
@@ -219,7 +219,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let db = print_trm ~only_desc b in
      let dc = print_trm ~only_desc c in
      node "Trm_do_while" ^^ parens (db ^^ comma ^/^ dc)
-  
+
   | Trm_for_c (init, cond, step, body) ->
      let dinit = print_trm ~only_desc init in
      let dcond = print_trm ~only_desc cond in
@@ -229,14 +229,14 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
        [dinit; dcond; dstep; dbody])
   | Trm_for (index, direction, start, stop, step, body) ->
     let dstart = print_trm ~only_desc start in
-    let ddirection = match direction with 
+    let ddirection = match direction with
     | DirUp -> string "Up"
     | DirDown -> string "Down"
     in
     let dstop = print_trm ~only_desc stop in
     let dstep = print_trm ~only_desc step in
     let dbody = print_trm ~only_desc body in
-    
+
     node "Trm_for" ^^ parens (separate (comma ^^ break 1)
       [string index; ddirection; dstart; dstop; dstep; dbody])
   | Trm_switch (cond, cases) ->
@@ -262,12 +262,12 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
              node "Ret" ^^ dt
           end
        | Break lb_opt ->
-          begin match lb_opt with 
+          begin match lb_opt with
           | Some lb -> string "Break" ^^ blank 1 ^^ string lb
           | None -> string "Break"
           end
-       | Continue lb_opt-> 
-          begin match lb_opt with 
+       | Continue lb_opt->
+          begin match lb_opt with
           | Some lb -> string "Continue" ^^ blank 1 ^^ string lb
           | None -> string "Continue"
           end
@@ -278,14 +278,14 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
   | Trm_goto l ->
      node "Trm_goto" ^^ string l
-  | Trm_arbitrary _ ->  string "" 
-  | Trm_omp_directive directive -> 
+  | Trm_arbitrary _ ->  string ""
+  | Trm_omp_directive directive ->
     node "Trm_omp_directive" ^^ parens (print_directive directive)
-  | Trm_omp_routine routine-> 
+  | Trm_omp_routine routine->
     node "Trm_omp_routine" ^^ parens (print_routine routine)
   | Trm_extern (lang, decls) ->
     let dtl = List.map (print_trm ~only_desc) decls in
-    node "Trm_extern" ^^ parens (string lang ^^ comma ^^ print_list dtl) 
+    node "Trm_extern" ^^ parens (string lang ^^ comma ^^ print_list dtl)
   | Trm_namespace (name, dcls, inline) ->
     let dt = print_trm ~only_desc dcls in
     node "Trm_namespace" ^^ parens (separate (comma ^^ break 1)
@@ -297,14 +297,14 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     node "Trm_let_record" ^^ parens (separate (comma ^^ break 1)
       [string name; drt; print_list dtl; dt])
   | Trm_template _ -> string ""
-      
-  
-and print_record_type (rt : record_type) : document = 
-  match rt with 
+
+
+and print_record_type (rt : record_type) : document =
+  match rt with
   | Struct -> string "struct"
   | Union -> string "union"
   | Class -> string "class"
-  
+
 and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
   let tid = td.typdef_typid in
   let tname = td.typdef_tconstr in
@@ -344,9 +344,9 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
 
 and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
-  let print_annot (t_ann : trm_annot) : document = 
-    match t_ann with 
-    | Mark m -> string "Mark " ^^ string (string_of_int m) 
+  let print_annot (t_ann : trm_annot) : document =
+    match t_ann with
+    | Mark m -> string "Mark " ^^ string m
     | No_braces _ -> string "No_braces"
     | Access -> string "Access"
     | Multi_decl -> string "Multi_decl"
@@ -356,11 +356,10 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Main_file -> string "Main_file"
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
-    | Highlight (l, r) -> string "Highlight" ^^ parens (string l ^^ comma ^^ string r) 
     | Any -> string "Any" in
-    
+
   if only_desc then ddesc
-    else 
+    else
       let dannot = Tools.doc_list_to_doc (List.map print_annot t.annot)
     in
     let dloc =
@@ -399,16 +398,16 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
                                 dattr])
 
 and print_atomic_operation (ao : atomic_operation option) : document =
-  match ao with 
+  match ao with
   | None -> empty
   | Some ao1 ->
-    begin match ao1 with 
+    begin match ao1 with
     | Read -> string "Read"
     | Write -> string "Write"
     | Update -> string "Update"
     | Capture -> string "Capture"
     end
-and print_directive (directive : directive) : document = 
+and print_directive (directive : directive) : document =
   match directive with
   | Atomic ao -> string "Atomic" ^^ blank 1 ^^ print_atomic_operation ao
   | Atomic_capture -> string "Atomic_capture"
@@ -460,8 +459,8 @@ and print_directive (directive : directive) : document =
   | Teams_distribute_parallel_for_simd _ -> string "Teams_distribute_parallel_for_simd"
   | Threadprivate _ -> string "Threadprivate"
 
-and print_routine (routine : omp_routine) : document = 
-  match routine with 
+and print_routine (routine : omp_routine) : document =
+  match routine with
   | Set_num_threads _ -> string "Set_num_threads"
   | Get_num_threads -> string "Get_num_threads"
   | Get_max_threads -> string "Get_max_threads"
@@ -510,7 +509,7 @@ let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
 let ast_to_string ?(only_desc : bool = false) (t : trm) : string =
   let d = print_trm ~only_desc t in
   document_to_string d
-let typedef_to_string ?(only_desc : bool = false) (td : typedef) : string = 
+let typedef_to_string ?(only_desc : bool = false) (td : typedef) : string =
   let d = print_typedef ~only_desc td in
   document_to_string d
 

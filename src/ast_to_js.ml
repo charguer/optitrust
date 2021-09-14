@@ -37,7 +37,7 @@ module Json = struct
 
   (* let json_to_js_1 ?(index : int = (-1)) (j : t) : document =
    let json_ast = json_to_doc j in
-   
+
    match index with
    | -1 ->  string "contents" ^^ equals ^^ json_ast ^^ semi ^^ hardline
    | _ ->   string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline *)
@@ -46,9 +46,9 @@ module Json = struct
    let json_ast = json_to_doc j in
    string "contents" ^^ brackets (string(string_of_int index)) ^^ equals ^^ json_ast ^^ semi ^^ hardline
 
-  
+
   (* let code_to_js (out : out_channel) (index : int) (src : string) : unit =
-    let doc = match index with 
+    let doc = match index with
       | -1 -> string "source"  ^^ equals ^^ bquotes (string src) ^^ hardline
       | _ -> string "source" ^^ brackets (string (string_of_int index)) ^^ equals ^^ bquotes (string src) ^^ hardline
       in
@@ -103,7 +103,7 @@ let kind_to_field (kind : string) : json * json =
 let value_to_field (value : string) : json * json =
   (strquote "value", strquote value)
 
-let directive_to_json (directive : directive) : json * json = 
+let directive_to_json (directive : directive) : json * json =
   let directive_js =
   match directive with
   | Atomic _-> strquote "Atomic"
@@ -157,9 +157,9 @@ let directive_to_json (directive : directive) : json * json =
   | Threadprivate _ -> strquote "Threadprivate"
   in (strquote "directive", directive_js)
 
-let routine_to_json (routine : omp_routine) : json * json = 
-  let routine_js = 
-  match routine with 
+let routine_to_json (routine : omp_routine) : json * json =
+  let routine_js =
+  match routine with
   | Set_num_threads _ -> strquote "Set_num_threads"
   | Get_num_threads -> strquote "Get_num_threads"
   | Get_max_threads -> strquote "Get_max_threads"
@@ -321,8 +321,8 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           children_to_field []]
     | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
     | Trm_omp_directive d -> [directive_to_json d]
-    | Trm_omp_routine r -> [routine_to_json r] 
-    | Trm_extern (_, l) -> 
+    | Trm_omp_routine r -> [routine_to_json r]
+    | Trm_extern (_, l) ->
       [ kind_to_field "extern";
         children_to_field (List.mapi ichild_to_json (List.map aux l))]
     | Trm_namespace (name, t1, _) ->
@@ -330,7 +330,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
           value_to_field name;
           children_to_field [child_to_json "namespace" (aux t1)]]
     | Trm_let_record (name, rt, l, t) ->
-        let rt_str = match rt with 
+        let rt_str = match rt with
         | Struct -> "struct"
         | Union -> "union"
         | Class -> "class" in
@@ -340,7 +340,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
     | Trm_template (_, t) ->
       [ kind_to_field "template";
           children_to_field [child_to_json "template" (aux t)]]
-          
+
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
      | Mark _-> "Mark"
@@ -353,9 +353,8 @@ let annot_to_string (t_ann : trm_annot) : string =
      | Main_file -> "Main_file"
      | Mutable_var_get -> "Mutable_var_get"
      | As_left_value -> "As_left_value"
-     | Highlight _ -> "Hightlight" 
      | Any -> "Any"
-     
+
 
   let annot_list_to_string (t : trm) : string =
     Tools.list_to_string ((List.map annot_to_string) t.annot)

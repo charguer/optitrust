@@ -21,15 +21,15 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
   | Typ_char -> string "char"
   | Typ_ptr { ptr_kind = pk; inner_typ = t} ->
     begin match pk with
-    | Ptr_kind_mut -> 
+    | Ptr_kind_mut ->
       typ_to_doc t ^^ star
     | Ptr_kind_ref ->
-      if not !decode then 
-        begin match const with 
+      if not !decode then
+        begin match const with
         | true -> typ_to_doc t ^^ string "<annotation:&>"
         | false -> typ_to_doc t ^^ star ^^ string "<annotation:&>"
         end
-      else typ_to_doc t ^^ ampersand 
+      else typ_to_doc t ^^ ampersand
     end
   | Typ_array (t, s) ->
      let d = typ_to_doc t in
@@ -177,16 +177,14 @@ and attr_to_doc (a : attribute) : document =
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
   | GeneratedStar -> blank 1
 
-and decorate_trm ?(semicolon : bool = false) (t : trm) : document = 
-    if (List.exists (function Mark _ -> true | _ -> false) t.annot) then
-      let m = get_mark t in
-      let dt = trm_to_doc ~semicolon t in
-      string "/*@" ^^ string (string_of_int m) ^^ string "*/" ^^ dt
-    else if (List.exists (function Highlight _-> true | _ -> false) t.annot) then
-      let (l, r) = get_decorators t in
-      let dt = trm_to_doc ~semicolon t in
-      string l ^^ dt ^^ string r
-    else trm_to_doc ~semicolon t
+and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
+  let dt = trm_to_doc ~semicolon t in
+  match get_mark_opt t with
+  | Some m ->
+      let sleft = string ("/*@" ^ m ^ "*/") in
+      let sright =  string ("/*>" ^ m ^ "@*/") in
+      sleft ^^ dt ^^ sright
+  | None -> dt
 
 and trm_to_doc ?(semicolon=false) (t : trm) : document =
   let loc = t.loc in
@@ -205,7 +203,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
                    is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
                    attributes = []}
      in
-     let body = if !decode then parens (ampersand ^^ d) 
+     let body = if !decode then parens (ampersand ^^ d)
                 else string "<annotation:addressof>" ^^ d in
      dattr ^^ body ^^ dsemi
   | Add_star_operator :: addl when !decode ->
@@ -221,7 +219,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_val v ->
         if List.mem Empty_cond t.annot then empty
           else dattr ^^ val_to_doc v
-     | Trm_var x -> 
+     | Trm_var x ->
         if List.mem Any t.annot then dattr ^^ string "ANY (" ^^ string x ^^ string ")"
           else
             dattr ^^ string x
@@ -243,26 +241,26 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              hardline ^^ string "else" ^^ blank 1 ^^ de
         end
      | Trm_seq tl ->
-        if List.mem Multi_decl t.annot 
+        if List.mem Multi_decl t.annot
           then dattr ^^ multi_decl_to_doc loc tl
         else if List.mem (No_braces (Nobrace.current())) t.annot
-          then 
+          then
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate hardline dl
         else if List.mem Main_file t.annot then
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate (twice hardline) dl
-        else if List.exists (function Include _ -> true | _ -> false) t.annot then empty 
+        else if List.exists (function Include _ -> true | _ -> false) t.annot then empty
         (* else if List.mem (Include h) t.annot then empty *)
-        else 
+        else
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
      | Trm_apps (f, tl) ->
         if List.mem App_and_set t.annot then
            dattr ^^ apps_to_doc ~is_app_and_set:true f tl ^^ dsemi
         else if  List.mem As_left_value t.annot then
-          dattr ^^ apps_to_doc ~as_left_value:true f tl 
-        else 
+          dattr ^^ apps_to_doc ~as_left_value:true f tl
+        else
            (*
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
@@ -331,16 +329,16 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
      | Trm_arbitrary code ->
         dattr ^^ string code ^^ hardline
-     | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d 
+     | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
      | Trm_omp_routine  r -> dattr ^^ routine_to_doc r ^^ semi
-     | Trm_extern (lang, tl) -> 
-        begin match tl with 
-        | [t1] -> 
+     | Trm_extern (lang, tl) ->
+        begin match tl with
+        | [t1] ->
           let dt = decorate_trm ~semicolon:true t1 in
-          dattr ^^ string "extern " ^^ string lang ^^ blank 1 ^^ dt 
-        | _ -> 
+          dattr ^^ string "extern " ^^ string lang ^^ blank 1 ^^ dt
+        | _ ->
           let dl = List.map (decorate_trm ~semicolon:true) tl in
-          dattr ^^ string "extern " ^^ string lang ^^ blank 1^^surround 2 1 lbrace (separate hardline dl) rbrace 
+          dattr ^^ string "extern " ^^ string lang ^^ blank 1^^surround 2 1 lbrace (separate hardline dl) rbrace
         end
      | Trm_namespace (name, t1, inline) ->
       let inline = if inline then string "inline" else empty in
@@ -352,70 +350,70 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
       let dt = decorate_trm t1 in
       let dl = List.map (decorate_trm ~semicolon:true) tl in
       dattr ^^ drt ^^ dname ^^  blank 1 ^^ Tools.doc_list_to_doc ~sep:hardline ~bounds:[lbrace; rbrace] dl ^^ blank 1 ^^ dt ^^ semi
-     | Trm_template (tpl, t1) -> 
+     | Trm_template (tpl, t1) ->
         let dl = decorate_trm t1 in
         let dtpl = List.map (fun (n, tpk, _) ->
-          match tpk with 
+          match tpk with
           | Type_name typ_opt ->
             begin match typ_opt with
             | Some ty -> string "class " ^^ string n ^^ equals ^^ typ_to_doc ty
-            | None -> string "class " ^^ string n 
+            | None -> string "class " ^^ string n
             end
           | NonType (ty, t_opt) ->
-            begin match t_opt with 
+            begin match t_opt with
             | Some t1 -> typ_to_doc ty ^^ blank 1 ^^ string n ^^ equals ^^ trm_to_doc t1
             | None -> typ_to_doc ty ^^ blank 1 ^^ string n
             end
-          | Template _ -> fail None "template_param_kind_to_doc: nested templates are not supported"        
-        
+          | Template _ -> fail None "template_param_kind_to_doc: nested templates are not supported"
+
         ) tpl in
         string "template" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~bounds:[langle;rangle] dtpl) ^^ dl ^^ semi
      end
 
-and record_type_to_doc (rt : record_type) : document = 
-  match rt with 
+and record_type_to_doc (rt : record_type) : document =
+  match rt with
   | Struct -> string "struct"
   | Union -> string "union"
   | Class -> string "class"
 
 
-and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document = 
+and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
-  match varkind with 
+  match varkind with
   | Var_immutable ->
-    let dtx = if not !decode then typ_to_doc ~const:true (snd tv) 
+    let dtx = if not !decode then typ_to_doc ~const:true (snd tv)
                 else typed_var_to_doc tv in
-    let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm init ^^ dsemi in 
+    let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm init ^^ dsemi in
     if not !decode then string "let" ^^blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^ blank 1 ^^ dtx ^^ initialisation
       else dtx ^^ initialisation
   | Var_mutable ->
-    let dtx = begin match (snd tv).typ_desc with 
+    let dtx = begin match (snd tv).typ_desc with
               | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_star (snd tv) ->
-                  begin match tx.typ_desc with 
+                  begin match tx.typ_desc with
                   | Typ_ptr {ptr_kind = Ptr_kind_ref; _} ->
                     if not !decode then (typ_to_doc tx)
                      else typed_var_to_doc (fst tv,tx)
-                  | _-> 
-                    if not !decode then typ_to_doc (snd tv) 
+                  | _->
+                    if not !decode then typ_to_doc (snd tv)
                     else typed_var_to_doc (fst tv, tx)
                   end
               | _ -> typed_var_to_doc tv
               end in
-    let d_init, is_initialized  = 
+    let d_init, is_initialized  =
     if not !decode  then init, true
-      else begin match init.desc with 
+      else begin match init.desc with
            | Trm_apps (_, [value]) -> value, true
            | Trm_val(Val_prim(Prim_new _)) -> trm_var "", false
-           | _-> init, true 
+           | _-> init, true
            end in
     let initialisation = blank 1 ^^ (if is_initialized then equals else empty) ^^ blank 1 ^^ decorate_trm d_init ^^ dsemi in
-    if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^  blank 1 ^^ dtx ^^ initialisation 
-      else dtx ^^ initialisation      
+    if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^  blank 1 ^^ dtx ^^ initialisation
+      else dtx ^^ initialisation
 
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
-  let argd = separate (comma ^^ blank 1) (List.map (fun tv -> 
+  let argd = separate (comma ^^ blank 1) (List.map (fun tv ->
     if is_typ_const (snd tv) then typed_var_to_doc ~const:true tv else typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   begin match b.desc with
@@ -588,17 +586,17 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                     let d' = decorate_trm t' in
                     (* if t' was a stack-allocated variable, use t'.f *)
                     if List.mem  Mutable_var_get t.annot then parens (d' ^^ dot ^^ string f)
-                    (* otherwise use t'->f instead of *t'.f *) 
+                    (* otherwise use t'->f instead of *t'.f *)
                     else if List.mem Access t.annot then parens (d ^^ dot ^^ string f)
-                    else  
-                      begin match t'.desc with 
+                    else
+                      begin match t'.desc with
                       | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
                               _}, _) -> d ^^ dot ^^ string f
                       | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)  (* parens (d' ^^ dot ^^ string f) *)
                       end
-                 | _ -> 
+                 | _ ->
                      (*parens (d ^^ dot ^^ string f)*)
-                    d ^^ dot ^^ string f  
+                    d ^^ dot ^^ string f
                  end
               | Unop_struct_field_get f  ->
                   d ^^ dot ^^ string f
@@ -702,7 +700,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
           let value = List.hd tl in
           string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
         | Prim_fetch_add ->
-          begin match tl with 
+          begin match tl with
           | [d1;d2] ->
             string "fetch_add" ^^ parens ((decorate_trm d1) ^^ comma ^^ blank 1 ^^ decorate_trm d2)
           | _ -> fail f.loc "apps_to_doc: fetch_add expects two arguments"
@@ -715,23 +713,23 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
-   | _ -> 
+   | _ ->
       Ast_to_text.print_ast ~only_desc:true stdout f;
       fail f.loc "apps_to_doc: only functions may be applied"
-and mode_to_doc (m : mode) : document = 
-  match m with 
+and mode_to_doc (m : mode) : document =
+  match m with
   | Shared_m -> string "shared"
   | None_ -> string "none"
 
 and sched_type_to_doc (st : sched_type) : document =
-  match st with 
+  match st with
   | Static -> string "static"
   | Dynamic -> string "dynamic"
   | Guided -> string "guided"
   | Runtime -> string "runtime"
 
-and reduction_identifier_to_doc (ri : reduction_identifier) : document = 
-  match ri with 
+and reduction_identifier_to_doc (ri : reduction_identifier) : document =
+  match ri with
   | Plus -> plus
   | Minus -> minus
   | Prod -> star
@@ -742,23 +740,23 @@ and reduction_identifier_to_doc (ri : reduction_identifier) : document =
   | BitOr -> bar
   | Min -> string "min"
   | Max -> string "max"
-  
+
 and map_type_to_doc (mt : map_type) : document =
-  match mt with 
+  match mt with
   | Alloc -> string "alloc" ^^ colon
   | To -> string "to" ^^ colon
   | From -> string "from" ^^ colon
   | ToFrom -> string "tofrom" ^^ colon
   | No_map -> empty
 
-and proc_bind_to_doc (pb : proc_bind) : document = 
-  match pb with 
+and proc_bind_to_doc (pb : proc_bind) : document =
+  match pb with
   | Master_pb -> string "master"
   | Close -> string "close"
   | Spread -> string "spread"
 
 and dependece_type_to_doc (dp : dependence_type) : document =
-  match dp with 
+  match dp with
   | In vl -> string "in" ^^ colon ^^ blank 1 ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["";""] vl)
   | Out vl -> string "out" ^^ colon ^^ blank 1 ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["";""] vl)
   | Inout vl -> string "inout" ^^ colon ^^ blank 1 ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["";""] vl)
@@ -811,11 +809,11 @@ and clause_to_doc (cl : clause) : document =
   | Link vl -> string "link" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Num_teams n -> string "num_teams" ^^ parens (string n)
   | Thread_limit n -> string "thread_limit" ^^ parens (string n)
-and atomic_operation_to_doc (ao : atomic_operation option) : document = 
-  match ao with 
+and atomic_operation_to_doc (ao : atomic_operation option) : document =
+  match ao with
   | None -> empty
   | Some ao1 ->
-    begin match ao1 with 
+    begin match ao1 with
     | Read -> string "read"
     | Write -> string "write"
     | Update -> string "update"
@@ -823,7 +821,7 @@ and atomic_operation_to_doc (ao : atomic_operation option) : document =
     end
 
 and directive_to_doc (d : directive) : document =
-  match d with 
+  match d with
   | Atomic ao -> string "atomic" ^^ blank 1 ^^ (atomic_operation_to_doc ao)
   | Atomic_capture -> string "atomic" ^^ blank 1 ^^ string "capture"
   | Barrier -> string "barrier"
@@ -836,8 +834,8 @@ and directive_to_doc (d : directive) : document =
     string e ^^ clause_to_doc c)
   | Declare_target cl -> string "declare" ^^ blank 1 ^^ string "target " ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Distribute cl -> string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
-  | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl)) 
-  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl)) 
+  | Distribute_parallel_for cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
+  | Distribute_parallel_for_simd cl -> string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Distribute_simd -> string "distribute" ^^ blank 1 ^^ string "simd"
   | End_declare_target -> string "end" ^^ blank 1 ^^ string "declare " ^^ string "target"
   | Flush vl -> string "flush" ^^ string (Tools.list_to_string ~sep:"," ~bounds:["(";")"] vl)
@@ -861,7 +859,7 @@ and directive_to_doc (d : directive) : document =
   | Target_teams_distribute cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Target_teams_distribute_parallel_for cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Target_teams_distribute_parallel_for_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parallel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
-  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl)) 
+  | Target_teams_distribute_simd cl -> string "target" ^^ blank 1 ^^ string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^ (Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Target_update cl -> string "target" ^^ blank 1 ^^ string "update" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:comma ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Task cl -> string "task" ^^ blank 1 ^^ (Tools.doc_list_to_doc ~sep:(blank 1) ~empty ~bounds:[empty;empty] (List.map clause_to_doc cl))
   | Taskgroup -> string "taskgroup"
@@ -876,21 +874,21 @@ and directive_to_doc (d : directive) : document =
   | Teams_distribute_parallel_for_simd cl -> string "teams" ^^ blank 1 ^^ string "distribute" ^^ blank 1 ^^ string "parllel" ^^ blank 1 ^^ string "for" ^^ blank 1 ^^ string "simd" ^^ blank 1 ^^(Tools.doc_list_to_doc (List.map clause_to_doc cl))
   | Threadprivate vl -> string "threadprivate" ^^ parens(string (Tools.list_to_string ~sep:"," ~bounds:["";""] vl))
 
-and routine_to_doc (r : omp_routine) : document = 
-  match r with 
+and routine_to_doc (r : omp_routine) : document =
+  match r with
   | Set_num_threads i -> string "omp_set_num_threads" ^^ parens (string (string_of_int i))
   | Get_num_threads -> string "omp_get_num_threads" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_max_threads -> string "omp_get_max_threads" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_thread_num  -> string "omp_get_thread_num" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_num_procs  -> string "omp_get_num_procs" ^^ lparen ^^ blank 1 ^^ rparen
   | In_parallel  -> string "omp_in_parallel" ^^ lparen ^^ blank 1 ^^ rparen
-  | Set_dynamic i -> string "omp_set_dynamic" ^^ parens (string (string_of_int i)) 
+  | Set_dynamic i -> string "omp_set_dynamic" ^^ parens (string (string_of_int i))
   | Get_dynamic  -> string "omp_get_dynamic" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_cancellation  -> string "omp_get_cancellation"
-  | Set_nested i -> string "omp_set_nested" ^^ parens (string (string_of_int i))  
+  | Set_nested i -> string "omp_set_nested" ^^ parens (string (string_of_int i))
   | Get_nested  -> string "omp_get_nested" ^^ lparen ^^ blank 1 ^^ rparen
-  | Set_schedule (s_type, md) -> string "omp_set_schedule" ^^ parens (string "omp_sched" ^^ sched_type_to_doc s_type ^^ comma ^^ blank 1 ^^ string (string_of_int md))  
-  | Get_schedule (s_type, md) -> string "omp_get_schedule" ^^ parens (string "omp_sched" ^^ sched_type_to_doc s_type ^^ comma ^^ blank 1 ^^ string (string_of_int md))  
+  | Set_schedule (s_type, md) -> string "omp_set_schedule" ^^ parens (string "omp_sched" ^^ sched_type_to_doc s_type ^^ comma ^^ blank 1 ^^ string (string_of_int md))
+  | Get_schedule (s_type, md) -> string "omp_get_schedule" ^^ parens (string "omp_sched" ^^ sched_type_to_doc s_type ^^ comma ^^ blank 1 ^^ string (string_of_int md))
   | Get_thread_limit  -> string "omp_get_thread_limit" ^^ lparen ^^ blank 1 ^^ rparen
   | Set_max_active_levels i -> string "omp_set_max_active_levels" ^^ parens (string (string_of_int i))
   | Get_max_active_levels -> string "omp_get_max_active_levels" ^^ lparen ^^ blank 1 ^^ rparen
@@ -900,7 +898,7 @@ and routine_to_doc (r : omp_routine) : document =
   | Get_active_level  -> string "omp_get_active_level" ^^ lparen ^^ blank 1 ^^ rparen
   | In_final  -> string "omp_in_final" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_proc_bind  -> string "omp_get_proc_bind" ^^ lparen ^^ blank 1 ^^ rparen
-  | Set_default_device i -> string "omp_set_default_device" ^^ parens (string i)  
+  | Set_default_device i -> string "omp_set_default_device" ^^ parens (string i)
   | Get_default_device -> string "omp_get_default_device" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_num_devices  -> string "omp_get_num_devices" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_num_teams -> string "omp_get_num_teams" ^^ lparen ^^ blank 1 ^^ rparen

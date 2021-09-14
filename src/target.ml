@@ -375,11 +375,11 @@ let cPrimFun ?(args : target = []) ?(args_pred:target_list_pred = target_list_pr
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
-  Constr_mark ((fun m1 -> m1 = m), "exactly:" ^ (string_of_int m))
+  Constr_mark ((fun m1 -> m1 = m), "exactly:" ^ m)
 
 (* [cMarks ms] matches all the ast nodes with annotation Mark m when m is an element of ms *)
 let cMarks (ms : mark list) : constr =
-  Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string (List.map string_of_int ms) ))
+  Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string ms))
 
 (* [cMarkAny] matches all the ast nodes with annotation Mark m, where m can be any positive integer *)
 let cMarkAny : constr =
@@ -516,15 +516,6 @@ let apply_on_path = Path.apply_on_path
         unit
 *)
 
-(* [add_mark m t]: add Mark [m] annotation to the ast node [t],
-    as the name suggests marks are used for marking the targets given by the user.
-    They're very useful especially in case when the applied transformations change the
-    structure of the ast.
-*)
-let add_mark (m : mark) (t : trm) = {t with annot = (Mark m) :: t.annot}
-(* [remove_mark t] is the opposite of add_mark, it deletes the Mark annotation from node [t] *)
-let remove_mark (t : trm) = {t with annot = List.filter (function Mark _ -> false | _ -> true) t.annot}
-
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
         transformer: change the resolved path so that more information about the context of the node is given
@@ -537,11 +528,11 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
   Trace.apply (fun t ->
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> next_mark()) ps in
-    let t = List.fold_left2 (fun t p m -> apply_on_path (add_mark m) t p) t ps marks in
+    let t = List.fold_left2 (fun t p m -> apply_on_path (trm_mark_set m) t p) t ps marks in
     Tools.foldi( fun imark t m ->
       match resolve_target [cMark m] t with
       | [] -> fail None "applyi_on_transformed_targets: a mark disappeared"
-      | [p] -> let t = apply_on_path (remove_mark) t p in
+      | [p] -> let t = apply_on_path (trm_mark_clear) t p in
         tr imark t (transformer p)
       | _ -> fail None "applyi_on_transformed_targets: a mark was duplicated"
     ) t marks)
@@ -586,12 +577,12 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   Trace.apply( fun t ->
   let ps = resolve_target_between tg t in
   let marks = List.map (fun _ -> next_mark ()) ps in
-  let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (add_mark m) t (p_to_seq @ [Dir_seq_nth i])) t ps marks in
+  let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_mark_set m) t (p_to_seq @ [Dir_seq_nth i])) t ps marks in
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
     | [] -> fail None "applyi_on_transformed_targets_between: a mark disappeared"
     | [p_to_item_in_seq] ->
-      let t = Path.apply_on_path remove_mark t p_to_item_in_seq in
+      let t = Path.apply_on_path trm_mark_clear t p_to_item_in_seq in
       let (p,i) = extract_last_dir p_to_item_in_seq in
       tr imark t (transformer (p,i))
     | _ -> fail None "applyi_on_transformed_targets_between: a mark was duplicated"
@@ -624,9 +615,7 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
    carrying the information [id] around the term t.
 *)
 let target_show_aux (id : int) (t : trm) : trm =
-  let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
-  let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
-  {t with annot = t.annot @ [Highlight (left_decoration, right_decoration)]}
+  trm_mark_set (string_of_int id) t
 
 (* [target_show_transfo id t p]: adds an annotation [trm_decoration]
    carrying the information [id] around the term at path [p] in the term [t]. *)
@@ -636,12 +625,10 @@ let target_show_transfo (id : int): Transfo.local =
 (* [target_between_show_aux id k t]: adds a decorated semi-column with identifier [id]
    at position [k] in the sequence described by the term [t]. *)
 let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
-    let left_decoration = "/*@" ^ string_of_int id ^ "<*/" in
-    let right_decoration = "/*>" ^ string_of_int id ^ "@*/" in
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at k tl in
-      let new_trm = trm_lit (Lit_unit) ~annot:[Highlight (left_decoration, right_decoration)] in
+      let new_trm = trm_mark_set (string_of_int id) (trm_lit (Lit_unit)) in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 

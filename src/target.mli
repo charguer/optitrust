@@ -267,7 +267,3 @@ val (!!) : 'a -> 'a
 val (!!!) : 'a -> 'a
 
 val force_reparse_after : Transfo.t -> Transfo.t
-
-val add_mark : mark -> trm -> trm
-
-val remove_mark : trm -> trm
