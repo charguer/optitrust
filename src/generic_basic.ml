@@ -79,6 +79,11 @@ let change_type (new_type : typvar) : Target.Transfo.t =
  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Generic_core.change_type new_type i t p)
 
+
+let data_shift ?(neg : bool = true) ?(pre_cast : typ = typ_unit ()) ?(post_cast : typ = typ_unit ()) (u : var) (t : var) : Target.Transfo.t =
+  Target.apply_on_targets (Generic_core.data_shift neg pre_cast post_cast u t)
+
+
 (* ********************************************************* *)
 (* Create an instance of the pattern *)
 (* let pattern_instantiate (t : trm) (p : pat) : instatiation option =

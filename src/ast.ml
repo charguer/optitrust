@@ -864,6 +864,10 @@ let trm_template ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribut
 (tpl : template_parameter_list) (t : trm ) : trm =
   {annot = annot; desc = Trm_template (tpl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
+let trm_cast (ty : typ) (t : trm) : trm =
+  trm_apps (trm_unop (Unop_cast ty)) [t]
+
+
 (* ********************************************************************************************************************* *)
 
 let is_included (t : trm) : bool =

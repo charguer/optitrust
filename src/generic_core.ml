@@ -154,7 +154,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
 let delocalize (array_size : string) (dl_ops : delocalize_ops) : Target.Transfo.local =
   Target.apply_on_path (delocalize_aux array_size dl_ops)
 
-(* [change_type_aux new_type t]  change the current type of the variable to new_type
+(* [change_type_aux new_type t]:  change the current type of the variable to new_type
     params: 
       new_type: the new type replacing the old one
       t: ast of the declaration 
@@ -189,3 +189,23 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
 
 let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
   Target.apply_on_path (change_type_aux new_type index)
+
+(* [data_shif_aux neg pre_cast post_cast u v]: shift 
+
+*)
+let data_shift_aux (neg : bool) (pre_cast : typ) (post_cast : typ) (u : var) (v : var) (t : trm) : trm =
+  match t.desc with 
+  | Trm_var v1 when v1 = v ->
+    let binop_op = if neg then Binop_div else Binop_add in
+    begin match pre_cast.typ_desc, post_cast.typ_desc with 
+    | Typ_unit , Typ_unit -> trm_apps (trm_binop binop_op) [trm_var v; trm_var u]
+    | Typ_unit, _ -> trm_cast post_cast (trm_apps (trm_binop binop_op) [trm_var v; trm_var u])
+    | _, Typ_unit -> trm_apps (trm_binop binop_op) [trm_cast pre_cast (trm_var v); trm_var u]
+    | _ -> fail t.loc "data_shift_aux: can'd do both precasting and postcasting"
+    end
+  | _ -> fail t.loc "data_shif_aux: expected a variable occurrence"
+
+
+let data_shift (neg : bool) (pre_cast : typ) (post_cast : typ) (u : var) (t : var) : Target.Transfo.local =
+  Target.apply_on_path (data_shift_aux neg pre_cast post_cast u t)
+

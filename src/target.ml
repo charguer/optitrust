@@ -390,8 +390,14 @@ let cPrim (p : prim) : constr =
 let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
    cCall ~fun_:[cPrim p] ~args ~args_pred ""
 
+(* [cSet ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
+    left empty, then no contraint on the side of the set operation will be applied.
+*)
 let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : constr =
-  cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_add)
+  cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_set)
+
+let cGet : constr = 
+  cPrimFun (Prim_unop Unop_get)
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
@@ -482,11 +488,11 @@ let cCase ?(value : target = []) (_ : unit) : case_kind =
 
 let cDefault : case_kind = Case_default
 
-let dRHS : constr =
-  cChain [dArg 1]
-
 let dLHS : constr =
-  cChain [dArg 0]
+  cChain [cSet(); dArg 0]
+
+let dRHS : constr =
+  cChain [cSet (); dArg 1]
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
