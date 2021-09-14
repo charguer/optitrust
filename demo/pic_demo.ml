@@ -29,7 +29,7 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.set_explicit [nbMulti; cFunDef "bag_transfer"; cFor "i"; dBody; sInstr " = "];
   !! Struct.set_explicit [nbMulti; sInstr "= p2."];
   (* TODO:  Struct.set_explicit [nbMulti; cSet ~typ:"vect" ] *)
-  (* implement as:   cCall ~args_pred:(args_pred_list [[]; [cHasType "vect"] ])
+  (* implement as:   cCall ~args_pred:(args_pred_list [[]; [cHasType "vect"] ]) TODO: implement cHasType
   where cHasType is a "Constr_has_typ of typconstr") that checks the type of a term.
     type typconstr = Typconstr_string of string | Typconstr_typ of typ
 

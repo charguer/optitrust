@@ -98,7 +98,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
     returns:
       the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
 *)
-let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : path ) (t : trm) : trm =
+let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (t : trm) : trm =
 
   match t.desc with
   | Trm_seq tl ->
@@ -127,19 +127,19 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
 
    let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
    let processed_body, nb_gotos, nb_returns = process_return_in_inlining "_exit_body" name fun_decl_body in
-   let no_control_structures = 
+   let no_control_structures =
     if (nb_returns = 0  || nb_returns = 1) then trm_let Var_immutable ("__OPTITRUST__SAFE_ATTACH_", typ_bool ()) (trm_lit (Lit_bool true))
       else trm_let Var_immutable ("__OPTITRUST__SAFE_ATTACH_", typ_bool ()) (trm_lit (Lit_bool false))
     in
-   let labelled_body = 
-      if name = "" 
-        then trm_labelled label fun_decl_body 
-        else trm_labelled label processed_body 
+   let labelled_body =
+      if name = ""
+        then trm_labelled label fun_decl_body
+        else trm_labelled label processed_body
       in
    let exit_label = if nb_gotos = 0 then trm_lit (Lit_unit) else trm_labelled "__exit_body" (trm_lit (Lit_unit)) in
-   let inlined_body = 
-    if is_type_unit(fun_decl_type) 
-      then [no_control_structures;labelled_body; exit_label] 
+   let inlined_body =
+    if is_type_unit(fun_decl_type)
+      then [no_control_structures;labelled_body; exit_label]
       else  [no_control_structures;trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
               labelled_body;exit_label]
       in

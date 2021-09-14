@@ -61,33 +61,34 @@ int main1() { // initial step : target on g(..)
   int u = 1, v = 2, w = 3;
   int t = f(g(h(4), u, m(v, 2), (w + 1)));
 }
+// let mymark = "__inline_call"
 int main2() { // Function_basic.bind_intro --> TODO: Function_core,
   int u = 1, v = 2, w = 3;
-  int r = g(h(4), u, m(v, 2), (w + 1));
+  mymark: int r = g(h(4), u, m(v, 2), (w + 1));
   int t = f(r);
 }
-int main3() { // Function.bind_args
+int main3() { // Function.bind_args ~[cMark mymark]
   int u = 1, v = 2, w = 3;
   int a = h(4);
   int b = m(v, 2);
-  int r = g(a, u, b, (w + 1));
+  mymark: int r = g(a, u, b, (w + 1));
   int t = f(r);
 }
-int main4() { // Function_basic.inline_call
+int main4() { // Function_basic.inline_call ~[cMark mymark] // SHOULD KEEP THE MARK on the var. decl
   int u = 1, v = 2, w = 3;
   bool __OPTITRUST__SAFE_ATTACH_ = true; // LATER: ARTHUR investigate this
-  int r;
-  body : {
+  mymark: int r; // same as before, only you remove the initialization term
+  mybody: {
     int p = ((((a + a) + u) + b) + (w + 1));
     r = (p + p);
   }
   int t = f(r);
 }
-int main5() { // Function.elim_body
+int main5() { // Function.elim_body ~[cMark mymark]
   int u = 1, v = 2, w = 3;
   int a = h(4);
   int b = m(v, 2);
-  int r;
+  mymark: int r;
   int p = ((((a + a) + u) + b) + (w + 1));
   r = (p + p);
   int t = f(r);
@@ -100,75 +101,22 @@ int main6() { // Variable_basic.init_attach
   int r = (p + p);
 }
 
+// NOTE: if we want to optimize, we could instead of
+// using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
+// where p is the path to the englobing sequence.
 
---
 
-int r = f(2)
-->
-{
- ...code of f inlined
-}@nobrace
-
---
-
-int a = g(f(2))
-->
-mark: int r = f(2);
-int a = g(r)
-
----
-IDEALLY
-
-int a = g(f(2); f(3))
-->
-{
-  mark: int r1 = f(2)
-  mark: int r2 = f(3)
-  int a = g(r1,r2)
-}->
-{
-  { mark_toinline: int r = ... code of f(2) }
-  { code of f(3) }
-  int a = g(r1,r2)
-}->
-{
-  mark_toinline: int r = ...
-  code of f(2)
-  code of f(3)
-  int a = g(r1,r2)
-}
-
-  WARNING: this code probably does not support nested calls, e.g. f(f(2))
 *)
 (* TODO: think about whether all transformations should offer the possibility
    leave nobrace sequences -->probably yes *)
 let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : var list = []) (tg : Target.target) : unit =
-  let t = Trace.get_ast() in
-  (*  TODO:   in target: let cMark m = Constr_mark m
 
-  let mark_bindings = Ast.next_mark() in
-  Transfo.iter_targets_in_reverse_order tg (fun (p:path) ->
-    bind_intro ~mark:mark_bindings p)
-  let mark_toinline = Ast.next_mark() in
-  Transfo.iter_targets_in_reverse_order [cMark mark_bindings] (fun (p:path) ->
-      do the Function_basic.inline_call ~mark:mark_toinline
-      // make sure to create them in nobrace sequences)))
-  Transfo.iter_targets_in_reverse_order [cMark mark_toinline] (fun (p:path) ->
-    init_attach p)
-  *)
-  (* TODO: probably not needed
-  Internal.nobrace_remove_after (fun _ ->
-    Transfo.iter_targets
-    *)
-(* TODO:
-  let iter_targets_independently f =
-    try while true do
-       match Target.resolve_target tg t with
-       | [] -> raise Break
-       | p::_ -> f p
-       end
-    done with Break -> ()
-  *)
+(* Target.apply_to_target tg (fun p ->
+
+
+*)
+
+  let t = Trace.get_ast() in
 
 
   (*  TODO:
