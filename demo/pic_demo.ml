@@ -13,7 +13,7 @@ let coloring (ds : string list) (tg : target) : unit =
 let _ = Run.script_cpp (fun () ->
 
   (* PART 1: Inlining *)
-  !! Function.inline_call ~name_result:"res1" [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Function.inline_call  (* TODO: rename to inline *) ~name_result:"res1" [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.inline_call ~name_result:"res2" [cFun "vect_mul"];
   !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_add"];
   !! Function.inline_call [cFun "vect_add"];
@@ -97,14 +97,14 @@ in Target:
 
    (* PART 3 Splitting computations *)
    !! Struct.to_variables [cVarDef "speed2"];
-   !! Loop.extract_variable [cVarDef "speed2_x"];
+   !! Loop.extract_variable [cVarDef "speed2_x"]; (* TODO: try to do the 3 at once *)
    !! Loop.extract_variable [cVarDef "speed2_y"];
    !! Loop.extract_variable [cVarDef "speed2_z"];
 
     (* TODO: this is a hoist of a struct which goes as named arrays; factorizable as
          Loop.extract_struct ~names:["pos2_x";"pos2_y";"pos2_z"] [cVarDef "pos2"]; *)
    !! Struct.to_variables [cVarDef "pos2"];
-   !! Loop.extract_variable [cVarDef "pos2_x"];
+   !! Loop.extract_variable [cVarDef "pos2_x"]; (* TODO: try to do the 3 at once with pos2_* *)
    !! Loop.extract_variable [cVarDef "pos2_y"];
    !! Loop.extract_variable [cVarDef "pos2_z"];
    !! Loop.fission [tBefore;sInstr "pos2_x[idParticle] = "];
