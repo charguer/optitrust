@@ -151,7 +151,8 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     | _ -> fail None "inline_call: expected a variable declaration or a function call"
     end in
   if args <> [] then bind_args args tg else ();
-  Function_basic.inline_call ~label tg;
+  (* TODO: mabyenot needed alternative; just call the analysis function here to check for control structure *)
+  Function_basic.inline_call ~label tg; (* ?(info:inlining_info ref)     type inlining_info = ... *)
   let no_control_structures =
     let nb_ctrl_path = Target.resolve_target_exactly_one [Target.cVarDef "__OPTITRUST__SAFE_ATTACH_"] (Trace.get_ast()) in
     let (nb_ctrl, _) = Path.resolve_path  nb_ctrl_path (Trace.get_ast()) in
@@ -165,7 +166,9 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     then
       begin
       let spec_target = ((Target.target_of_path path_to_instruction) @ [Target.cVarDef !name_result]) in
-      Variable_basic.init_attach spec_target
+      Variable_basic.init_attach spec_target (* TODO : raise exceptions for Init_attach_multiple_occurrences
+         and Init_attach_no_occurrences and Init_attach_occurrence_below_control *)
+         (* ty ... with | .. | .. | .. -> () | e -> raise e *)
       (* if res_inlining_needed then Variable_basic.inline ~delete:true spec_target else () *)
       end
     else ();
