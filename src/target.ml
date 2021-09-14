@@ -369,20 +369,23 @@ let cFun ?(fun_  : target = []) ?(args : target = []) ?(args_pred:target_list_pr
 (* [cPrim] matches only primitive functions; use [cPrimFun] for matching primitive function calls. *)
 let cPrim (p : prim) : constr =
   Constr_prim p
-
+(* [cPrimFun ~args ~args_pred  p] matches only primitive function calls*)
 let cPrimFun ?(args : target = []) ?(args_pred:target_list_pred = target_list_pred_always_true) (p:prim) : constr =
-   cCall ~fun_:[cStrict; cPrim p] ~args ~args_pred ""
+   cCall ~fun_:[cPrim p] ~args ~args_pred ""
 
+(* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
   Constr_mark ((fun m1 -> m1 = m), "exactly:" ^ (string_of_int m))
 
+(* [cMarks ms] matches all the ast nodes with annotation Mark m when m is an element of ms *)
 let cMarks (ms : mark list) : constr =
   Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string (List.map string_of_int ms) ))
 
+(* [cMarkAny] matches all the ast nodes with annotation Mark m, where m can be any positive integer *)
 let cMarkAny : constr = 
   Constr_mark ((fun _ -> true), "any_mark")
 
-
+(* [cLabel ~substr ~body ~regexp label] matches C labels*)
 let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
   let p_body = body in
