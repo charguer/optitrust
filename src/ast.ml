@@ -1503,7 +1503,8 @@ type delocalize_ops =
 module type MListSig = sig
 
   type 'a t
-  val langth : unit -> int
+  val create : unit -> 'a t
+  val length : unit -> int
   val of_list : 'a list -> unit 
   val to_list : unit -> 'a list 
 
@@ -1515,12 +1516,12 @@ module MList = struct
 
   type 'a t = {mutable items : 'a list; mutable marks : (mark list) list }
 
+  let create () = {items = []; marks = [[]]}
+ 
   let length ml = List.length ml.items
   
-  let of_list ml (l : 'a list) : unit = ml.items <- l
+  let of_list ml (l : 'a list) : unit = ml.items <- l; ml.marks <- List.init (List.length l) (fun _i -> [])
   
   let to_list ml  = ml.items
-
-
 
 end
