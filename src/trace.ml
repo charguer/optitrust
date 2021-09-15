@@ -534,7 +534,7 @@ let dump ?(prefix : string = "") () : unit =
    to add decorators to the AST in the case of function [show]), then
    calls [dump_diff_and_exit] to visualize the effect of [f]. *)
 
-let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> unit) : unit =
+let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> unit) : unit =
   if (Flags.get_exit_line() = Some line) then begin
     if reparse
       then reparse_alias();
@@ -543,7 +543,10 @@ let only_interactive_step (line : int) ?(reparse : bool = true) (f : unit -> uni
     dump_diff_and_exit()
   end
   else
+    begin 
+    check_exit_and_step();
     f()
+    end
 
 (* Get the current ast *)
 let get_ast () : trm =

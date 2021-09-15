@@ -666,7 +666,7 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
    There is no need for a prefix [!!] or [!!!] to the front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
+let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
   only_interactive_step line ~reparse (fun () ->
     if Constr.is_target_between tg then begin
       applyi_on_targets_between (fun i  t (p,k) ->

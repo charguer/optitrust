@@ -705,7 +705,6 @@ let trm_clear_marks (t : trm) : trm =
 let trm_add_mark (m : mark) (t : trm) : trm =
   {t with marks = m :: t.marks}
 
-
 (* LATER: Maybe trm_filter_mark could be useful here*)
 let trm_remove_mark (m : mark) (t : trm) : trm =
   {t with marks = List.filter (fun m1 -> m <> m1) t.marks}
