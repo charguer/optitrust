@@ -179,12 +179,15 @@ and attr_to_doc (a : attribute) : document =
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
-  match get_mark_opt t with
-  | Some m ->
+  if t.marks = [] 
+    then dt 
+    else 
+      begin
+      let m = Tools.list_to_string ~sep:"," t.marks in
       let sleft = string ("/*@" ^ m ^ "*/") in
       let sright =  string ("/*>" ^ m ^ "@*/") in
       sleft ^^ dt ^^ sright
-  | None -> dt
+      end
 
 and trm_to_doc ?(semicolon=false) (t : trm) : document =
   let loc = t.loc in
@@ -199,7 +202,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   match t.add with
   | Add_address_of_operator :: addl ->
      let d =
-       decorate_trm ~semicolon  {desc = t.desc; annot = t.annot; loc = t.loc;
+       decorate_trm ~semicolon  {desc = t.desc; marks = t.marks; annot = t.annot; loc = t.loc;
                    is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
                    attributes = []}
      in
@@ -208,7 +211,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      dattr ^^ body ^^ dsemi
   | Add_star_operator :: addl when !decode ->
      let d =
-       decorate_trm ~semicolon  {desc = t.desc; annot = t.annot; loc = t.loc;
+       decorate_trm ~semicolon  {desc = t.desc; annot = t.annot; marks = t.marks; loc = t.loc;
                    is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
                    attributes = []}
      in

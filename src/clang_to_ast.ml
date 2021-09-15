@@ -565,6 +565,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         in
         { desc;
           annot;
+          marks = [];
           loc; is_statement;
           add = Add_address_of_operator :: add;
           ctx;
@@ -593,6 +594,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                    We want to encode the latter as [set(p, v)], this is why we
                    want to drop the [*] operator. *)
                 { annot = t.annot;
+                  marks = t.marks;
                   desc = t.desc;
                   loc = t.loc;
                   is_statement = t.is_statement;

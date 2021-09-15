@@ -32,11 +32,11 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      let decl_to_insert =
       if const then
         let new_decl = trm_let Var_immutable (fresh_name, function_type) trm_to_apply_changes in
-        if my_mark <> "" then trm_annot_add (Mark my_mark) new_decl else new_decl
+        if my_mark <> "" then trm_add_mark my_mark new_decl else new_decl
       else
         let ptrkind = if has_reference_type then Ptr_kind_ref else Ptr_kind_mut in
         let new_decl = (trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [trm_to_apply_changes])) in
-        if my_mark <> "" then trm_annot_add (Mark my_mark)  new_decl else new_decl
+        if my_mark <> "" then trm_add_mark my_mark  new_decl else new_decl
       in
      let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      trm_seq ~annot:t.annot (lfront @ [decl_to_insert] @ [decl_to_change] @ lback)

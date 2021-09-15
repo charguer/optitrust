@@ -12,7 +12,7 @@ type node_loc = {
   loc_end : pos;}
 
 (* Marks for use in transformations *)
-type mark = string (* fresh marks *)
+type mark = string(* fresh marks *)
 
 let next_mark_int : unit -> int =
   Tools.fresh_generator()
@@ -239,7 +239,6 @@ and value =
 *)
 
 and trm_annot =
-  | Mark of mark (* custom mark for use by the transformations *)
   | No_braces of int (* some sequences can be visible only internally *)
   | Access (* annotate applications of star operator that should not be printed *)
   | Multi_decl (* used to print back sequences that contain multiple declarations *)
@@ -270,6 +269,7 @@ and record_type =
 (* [trm] is a record representing an ast node *)
 and trm =
  { annot : trm_annot list;
+   marks : mark list;
    desc : trm_desc;
    loc : location;
    is_statement : bool;
@@ -705,103 +705,99 @@ let trm_annot_add (a:trm_annot) (t:trm) : trm =
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
   { t with annot = List.filter pred t.annot }
 
-let trm_clear_marks (t:trm) : trm =
-  trm_annot_filter (function Mark _ -> false | _ -> true) t
-
-let trm_set_mark (s:string) (t:trm) : trm =
-  let t = trm_clear_marks t in (* technically optional, but cleaner to do it *)
-  trm_annot_add (Mark s) t
+let trm_clear_marks (t : trm) : trm =
+  {t with marks = []}
 
 let trm_add_mark (m : mark) (t : trm) : trm =
-  trm_annot_add (Mark m) t
+  {t with marks = m :: t.marks}
 
 let trm_remove_mark (m : mark) (t : trm) : trm =
-  trm_annot_filter (function Mark m1 -> m <> m1 | _ -> true) t
+  {t with marks = List.filter (fun m1 -> m <> m1) t.marks}
 
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
-  {annot = annot; desc = Trm_val v; loc = loc; is_statement = false; add; typ;
+  {annot; marks = []; desc = Trm_val v; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
 let trm_var ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (x : var) : trm =
-  {annot = annot; desc = Trm_var x; loc = loc; is_statement = false; add; typ;
+  {annot; marks = []; desc = Trm_var x; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
 let trm_array ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (tl : trm list) : trm =
-  {annot = annot; desc = Trm_array tl; loc = loc; is_statement = false; add; typ;
+  {annot; marks = []; desc = Trm_array tl; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
 let trm_struct ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (tl : trm list) : trm =
-  {annot = annot; desc = Trm_struct tl; loc = loc; is_statement = false; add; typ;
+  {annot; marks = []; desc = Trm_struct tl; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
 let trm_let ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind) (typed_var : typed_var) (init : trm): trm =
-  {annot = annot; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
+  {annot; marks = []; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_let_fun ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (name : var) (ret_typ : typ) (args : typed_var list) (body : trm) : trm =
-  {annot = annot; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; add;
+  {annot; marks = []; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_typedef ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (def_typ : typedef): trm =
-  {annot = annot; desc = Trm_typedef def_typ; loc = loc; is_statement; add;
+  {annot; marks = []; desc = Trm_typedef def_typ; loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_if ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (tb : trm) (eb : trm) : trm =
-  {annot = annot; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false;
+  {annot; marks = []; desc = Trm_if (cond, tb, eb); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_seq ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (tl : trm list) : trm =
-  {annot = annot; desc = Trm_seq tl; loc = loc; is_statement = false; add;
+  {annot; marks = []; desc = Trm_seq tl; loc = loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_apps ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None) (f : trm)
   (args : trm list) : trm =
-  {annot = annot; desc = Trm_apps (f, args); loc = loc; is_statement; add; typ;
+  {annot; marks = []; desc = Trm_apps (f, args); loc = loc; is_statement; add; typ;
    attributes; ctx}
 
 let trm_while ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (body : trm) : trm =
-  {annot = annot; desc = Trm_while (cond, body); loc = loc; is_statement = false;
+  {annot; marks = []; desc = Trm_while (cond, body); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_do_while ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (body : trm) (cond : trm) : trm =
-  {annot = annot; desc = Trm_do_while (body, cond); loc = loc; is_statement = false;
+  {annot; marks = []; desc = Trm_do_while (body, cond); loc = loc; is_statement = false;
    add; typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_for_c?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (init : trm) (cond : trm) (step : trm) (body : trm) : trm =
-  {annot; desc = Trm_for_c (init, cond, step, body); loc; is_statement = false; add;
+  {annot; marks = []; desc = Trm_for_c (init, cond, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_switch ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (cond : trm) (cases : (trm list * trm) list) : trm =
-  {annot; desc = Trm_switch (cond, cases); loc; is_statement = false; add;
+  {annot; marks = []; desc = Trm_switch (cond, cases); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_abort ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (a : abort) : trm =
-  {annot = annot; desc = Trm_abort a; loc = loc; is_statement = true; add;
+  {annot; marks = []; desc = Trm_abort a; loc = loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_labelled ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (l : label) (t : trm) : trm =
-  {annot; desc = Trm_labelled (l, t); loc; is_statement = false; add;
+  {annot; marks = []; desc = Trm_labelled (l, t); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_goto ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (l : label) : trm =
-  {annot; desc = Trm_goto l; loc; is_statement = true; add;
+  {annot; marks = []; desc = Trm_goto l; loc; is_statement = true; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_null ?(annot = []) ?(loc = None) ?(ctx : ctx option = None) (_ : unit) : trm =
@@ -841,36 +837,36 @@ let trm_set ?(annot = []) ?(loc = None) ?(is_statement : bool = false) ?(add = [
 
 let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
-  {annot; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
+  {annot; marks = []; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let code ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (code : string) : trm =
-  {annot = annot; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
+  {annot; marks = []; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
 let trm_omp_directive ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (directive : directive) : trm =
-  {annot = annot; desc = Trm_omp_directive directive; loc = loc; is_statement = true; add ; typ; attributes; ctx}
+  {annot; marks = []; desc = Trm_omp_directive directive; loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_omp_routine ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (omp_routine : omp_routine) : trm =
-  {annot = annot; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; add ; typ; attributes; ctx}
+  {annot; marks = []; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_extern ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (lang : string) (tl : trm list) : trm =
-  {annot = annot; desc = Trm_extern (lang, tl); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+  {annot; marks = []; desc = Trm_extern (lang, tl); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_namespace ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (name : string) (t : trm ) (inline : bool) : trm =
-  {annot = annot; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+  {annot; marks = []; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_let_record ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (name : string) (rt : record_type ) (tl : trm list) (t : trm) : trm =
-  {annot = annot; desc = Trm_let_record (name, rt, tl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+  {annot; marks = []; desc = Trm_let_record (name, rt, tl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_template ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (tpl : template_parameter_list) (t : trm ) : trm =
-  {annot = annot; desc = Trm_template (tpl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
+  {annot; marks = []; desc = Trm_template (tpl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_cast (ty : typ) (t : trm) : trm =
   trm_apps (trm_unop (Unop_cast ty)) [t]
@@ -1440,19 +1436,6 @@ end
 let trm_seq_no_brace (tl : trm list) : trm=
     trm_seq ~annot:[No_braces (Nobrace.current())] tl
 
-
-let get_mark_opt (t : trm) : string option =
-  let all_marks = List.fold_left (fun acc x -> 
-    match x with 
-    | Mark m ->  m :: acc
-    | _ -> acc
-  ) [] t.annot in
-  match all_marks with 
-  | [] -> None
-  | _ -> Some (Tools.list_to_string all_marks)
-
-  
-
 (* get the id of the sequence annotated as No_braces *)
 let get_nobrace_id (t : trm) : int =
   let rec aux l = match l with
@@ -1485,48 +1468,6 @@ let get_init_val (t : trm) : trm =
       end
   | _ -> fail t.loc "get_init_val: expected a variable declaration"
 
-(* DEPRECATED e Highlight annotation from a trm_annot
-let remove_highlight (t_annot : trm_annot list) : trm_annot list =
-  let rec aux l = match l with
-  | [] -> []
-  | x :: xs ->
-    begin match x with
-    | Highlight _ -> xs
-    | _ -> x :: aux xs
-    end
-  in aux t_annot
-  *)
-
-(* remove all the Highlight annotations from the ast *)
-(* DEPRECATED : LATER replace with a function that uses the ast_mapper combinator
-let rec clean_highlights (t : trm) : trm =
-  match t.desc with
-  | Trm_val _ -> {t with annot = remove_highlight t.annot}
-  | Trm_var _ -> {t with annot = remove_highlight t.annot}
-  | Trm_array tl -> {t with annot = remove_highlight t.annot; desc = Trm_array (List.map clean_highlights tl)}
-  | Trm_struct tl -> {t with annot = remove_highlight t.annot; desc = Trm_struct (List.map clean_highlights tl)}
-  | Trm_let (vk, (x, tx), init) -> {t with annot = remove_highlight t.annot; desc = Trm_let (vk, (x, tx), (clean_highlights init))}
-  | Trm_let_fun (v, ty, ty_v, body) -> {t with annot = remove_highlight t.annot; desc = Trm_let_fun (v, ty, ty_v, clean_highlights body)}
-  | Trm_typedef _ -> {t with annot = remove_highlight t.annot}
-  | Trm_if (cond, then_, else_) -> {t with annot = remove_highlight t.annot; desc = Trm_if (clean_highlights cond, clean_highlights then_, clean_highlights else_)}
-  | Trm_seq tl -> {t with annot = remove_highlight t.annot; desc = Trm_seq (List.map clean_highlights tl)}
-  | Trm_apps (f, args) -> {t with annot = remove_highlight t.annot; desc = Trm_apps (clean_highlights f, List.map clean_highlights args)}
-  | Trm_while (cond, body) -> {t with annot = remove_highlight t.annot; desc = Trm_while (clean_highlights cond, clean_highlights body)}
-  | Trm_do_while (body, cond) -> {t with annot = remove_highlight t.annot; desc = Trm_do_while (clean_highlights body, clean_highlights cond)}
-  | Trm_for (index, direction, start, stop, step, body) -> {t with annot = remove_highlight t.annot; desc = Trm_for (index, direction, clean_highlights start, clean_highlights stop, clean_highlights step, clean_highlights body)}
-  | Trm_for_c (init, cond, step, body) -> {t with annot = remove_highlight t.annot; desc = Trm_for_c (clean_highlights init, clean_highlights cond, clean_highlights step, clean_highlights body)}
-  | Trm_switch _-> {t with annot = remove_highlight t.annot}
-  | Trm_abort _ -> {t with annot = remove_highlight t.annot}
-  | Trm_labelled (l, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_labelled (l, clean_highlights t1)}
-  | Trm_goto _ -> {t with annot = remove_highlight t.annot}
-  | Trm_arbitrary _ -> fail t.loc "clean_highlights: Trm_arbitrary should never appear on the ast"
-  | Trm_omp_directive _ -> {t with annot = remove_highlight t.annot}
-  | Trm_omp_routine _ -> {t with annot = remove_highlight t.annot}
-  | Trm_extern (lang, tl) -> {t with annot = remove_highlight t.annot; desc = Trm_extern (lang, (List.map clean_highlights tl))}
-  | Trm_namespace (name, t1, inline) -> {t with annot = remove_highlight t.annot; desc = Trm_namespace (name, clean_highlights t1, inline)}
-  | Trm_let_record (name, rt, tl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_let_record (name, rt, List.map clean_highlights tl, clean_highlights t1)}
-  | Trm_template (pl, t1) -> {t with annot = remove_highlight t.annot; desc = Trm_template (pl, clean_highlights t1)}
-  *)
 
 (* get the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit =
@@ -1557,3 +1498,29 @@ type delocalize_ops =
 (* tile bound type is used  as a parameter to the tile transformation so that the transformation can
     decide what kind of loop bound it should use
 *)
+
+
+module type MListSig = sig
+
+  type 'a t
+  val langth : unit -> int
+  val of_list : 'a list -> unit 
+  val to_list : unit -> 'a list 
+
+end
+
+
+
+module MList = struct
+
+  type 'a t = {mutable items : 'a list; mutable marks : (mark list) list }
+
+  let length ml = List.length ml.items
+  
+  let of_list ml (l : 'a list) : unit = ml.items <- l
+  
+  let to_list ml  = ml.items
+
+
+
+end

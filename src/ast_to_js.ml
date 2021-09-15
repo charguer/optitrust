@@ -343,7 +343,6 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
 
 let annot_to_string (t_ann : trm_annot) : string =
   match t_ann with
-     | Mark _-> "Mark"
      | No_braces _ -> "No_braces"
      | Access -> "Access"
      | Multi_decl -> "Multi_decl"

@@ -713,7 +713,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_prim p, Trm_val (Val_prim p1) ->
         p = p1
      | Constr_mark (pred, _), _ ->
-        List.exists (function Mark m -> pred m | _ -> false) t.annot
+        List.exists pred t.marks
      | _ -> false
      end
 

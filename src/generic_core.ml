@@ -227,14 +227,8 @@ let remove_mark_aux (m : mark) (t : trm) : trm =
 let remove_mark (m : mark) : Target.Transfo.local =
   Target.apply_on_path (remove_mark_aux m)
 
-let set_mark_aux (m : mark) (t : trm) : trm =
-  trm_set_mark m t
-
-let set_mark (m : mark) : Target.Transfo.local =
-  Target.apply_on_path (set_mark_aux m)
-
-
 let clear_marks_aux (t : trm) : trm =
   trm_clear_marks t
+
 let clear_marks : Target.Transfo.local = 
   Target.apply_on_path (clear_marks_aux)

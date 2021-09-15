@@ -346,7 +346,6 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
   let print_annot (t_ann : trm_annot) : document =
     match t_ann with
-    | Mark m -> string "Mark " ^^ string m
     | No_braces _ -> string "No_braces"
     | Access -> string "Access"
     | Multi_decl -> string "Multi_decl"
