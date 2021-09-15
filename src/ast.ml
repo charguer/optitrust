@@ -1441,24 +1441,18 @@ end
 let trm_seq_no_brace (tl : trm list) : trm=
     trm_seq ~annot:[No_braces (Nobrace.current())] tl
 
-(* DEPRECATED
-(* used to get the index of decorators when printing decoration *)
-let get_decorators (t : trm) : (string * string) =
-  let rec aux l = match l with
-  | [] -> fail t.loc "get_decorators: empty annotation list"
-  | hd :: tl ->
-    begin match hd with
-    | Highlight (l, r) -> (l, r)
-    | _ -> aux tl
-    end
-   in aux t.annot
-*)
 
-let get_mark_opts (t : trm) : string list option =
-  match List.find_opt (function Mark _ -> true | _ -> false) t.annot with
-  | None -> None
-  | Some (Mark m) -> Some m
-  | _ -> assert false
+let get_mark_opt (t : trm) : string option =
+  let all_marks = List.fold_left (fun acc x -> 
+    match x with 
+    | Mark m ->  m :: acc
+    | _ -> acc
+  ) [] t.annot in
+  match all_marks with 
+  | [] -> None
+  | _ -> Some (Tools.list_to_string all_marks)
+
+  
 
 (* get the id of the sequence annotated as No_braces *)
 let get_nobrace_id (t : trm) : int =

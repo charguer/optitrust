@@ -85,6 +85,11 @@ let data_shift ?(neg : bool = true) ?(pre_cast : typ = typ_unit ()) ?(post_cast 
   Trace.reparse()
 
 
+let add_mark (m : mark) : Target.Transfo.t =
+  Target.apply_on_targets (Generic_core.add_mark m)
+
+let remove_mark (m : mark) : Target.Transfo.t =
+  Target.apply_on_targets (Generic_core.remove_mark m)
 
 (* ********************************************************* *)
 (* Create an instance of the pattern *)

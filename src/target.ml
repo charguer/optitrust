@@ -407,6 +407,8 @@ let cMark (m : mark) : constr =
 let cMarks (ms : mark list) : constr =
   Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string ms))
 
+let cMarkSt (pred : mark -> bool) : constr =
+  Constr_mark (pred, "such_that:" ^ "todo") 
 
 (* [cMarkAny] matches all the ast nodes with annotation Mark m, where m can be any positive integer *)
 let cMarkAny : constr =

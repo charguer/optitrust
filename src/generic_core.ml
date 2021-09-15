@@ -215,3 +215,14 @@ let data_shift_aux (neg : bool) (pre_cast : typ) (post_cast : typ) (u : trm) (t 
 let data_shift (neg : bool) (pre_cast : typ) (post_cast : typ) (u : trm) : Target.Transfo.local =
   Target.apply_on_path (data_shift_aux neg pre_cast post_cast u)
 
+let add_mark_aux (m : mark) (t : trm) : trm =
+  trm_add_mark m t
+
+let add_mark (m : mark) : Target.Transfo.local =
+  Target.apply_on_path (add_mark_aux m)
+
+let remove_mark_aux (m : mark) (t : trm) : trm =
+  trm_remove_mark m t
+
+let remove_mark (m : mark) : Target.Transfo.local =
+  Target.apply_on_path (remove_mark_aux m)
