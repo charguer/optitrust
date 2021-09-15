@@ -699,25 +699,24 @@ let fail (loc : location) (err : string) : 'a =
 
 
 (* *************************** Trm constructors *************************** *)
-
 let trm_annot_add (a:trm_annot) (t:trm) : trm =
   { t with annot =  a :: t.annot }
 
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
   { t with annot = List.filter pred t.annot }
 
-let trm_mark_clear (t:trm) : trm =
+let trm_clear_marks (t:trm) : trm =
   trm_annot_filter (function Mark _ -> false | _ -> true) t
 
-let trm_mark_set (s:string) (t:trm) : trm =
-  let t = trm_mark_clear t in (* technically optional, but cleaner to do it *)
+let trm_set_mark (s:string) (t:trm) : trm =
+  let t = trm_clear_marks t in (* technically optional, but cleaner to do it *)
   trm_annot_add (Mark s) t
 
 let trm_add_mark (m : mark) (t : trm) : trm =
   trm_annot_add (Mark m) t
 
 let trm_remove_mark (m : mark) (t : trm) : trm =
-  trm_annot_filter (function Mark m1 -> m = m1 | _ -> false) t
+  trm_annot_filter (function Mark m1 -> m <> m1 | _ -> true) t
 
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =

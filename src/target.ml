@@ -550,11 +550,11 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
   Trace.apply (fun t ->
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> next_mark()) ps in
-    let t = List.fold_left2 (fun t p m -> apply_on_path (trm_mark_set m) t p) t ps marks in
+    let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
     Tools.foldi( fun imark t m ->
       match resolve_target [cMark m] t with
       | [] -> fail None "applyi_on_transformed_targets: a mark disappeared"
-      | [p] -> let t = apply_on_path (trm_mark_clear) t p in
+      | [p] -> let t = apply_on_path (trm_remove_mark m) t p in
         tr imark t (transformer p)
       | _ -> fail None "applyi_on_transformed_targets: a mark was duplicated"
     ) t marks)
@@ -599,12 +599,12 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   Trace.apply( fun t ->
   let ps = resolve_target_between tg t in
   let marks = List.map (fun _ -> next_mark ()) ps in
-  let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_mark_set m) t (p_to_seq @ [Dir_seq_nth i])) t ps marks in
+  let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark m) t (p_to_seq @ [Dir_seq_nth i])) t ps marks in
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
     | [] -> fail None "applyi_on_transformed_targets_between: a mark disappeared"
     | [p_to_item_in_seq] ->
-      let t = Path.apply_on_path trm_mark_clear t p_to_item_in_seq in
+      let t = Path.apply_on_path (trm_remove_mark m) t p_to_item_in_seq in
       let (p,i) = extract_last_dir p_to_item_in_seq in
       tr imark t (transformer (p,i))
     | _ -> fail None "applyi_on_transformed_targets_between: a mark was duplicated"
@@ -637,7 +637,7 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
    carrying the information [id] around the term t.
 *)
 let target_show_aux (id : int) (t : trm) : trm =
-  trm_mark_set (string_of_int id) t
+  trm_add_mark (string_of_int id) t
 
 (* [target_show_transfo id t p]: adds an annotation [trm_decoration]
    carrying the information [id] around the term at path [p] in the term [t]. *)
@@ -650,7 +650,7 @@ let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
       let lfront, lback = Tools.split_list_at k tl in
-      let new_trm = trm_mark_set (string_of_int id) (trm_lit (Lit_unit)) in
+      let new_trm = trm_add_mark (string_of_int id) (trm_lit (Lit_unit)) in
       trm_seq ~annot:t.annot (lfront @ [new_trm] @ lback)
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 

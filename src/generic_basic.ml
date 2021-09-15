@@ -91,6 +91,12 @@ let add_mark (m : mark) : Target.Transfo.t =
 let remove_mark (m : mark) : Target.Transfo.t =
   Target.apply_on_targets (Generic_core.remove_mark m)
 
+let set_mark (m : mark) : Target.Transfo.t =
+  Target.apply_on_targets (Generic_core.set_mark m)
+
+let clear_marks : Target.Transfo.t = 
+  Target.apply_on_targets (Generic_core.clear_marks)
+
 (* ********************************************************* *)
 (* Create an instance of the pattern *)
 (* let pattern_instantiate (t : trm) (p : pat) : instatiation option =
