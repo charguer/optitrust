@@ -1,3 +1,4 @@
+
 (* a record used to represent a specifi location inside the code*)
 type pos = {
     pos_line : int;
@@ -11,17 +12,7 @@ type node_loc = {
   loc_start : pos;
   loc_end : pos;}
 
-(* Marks for use in transformations *)
-type mark = string(* fresh marks *)
 
-let next_mark_int : unit -> int =
-  Tools.fresh_generator()
-
-let next_mark : unit -> mark =
-  fun () -> "__" ^ string_of_int (next_mark_int()) (* a prefix for generated marks *)
-
-(* [mark_any] is as special mark that means "any mark" in constraints *)
-let mark_any = "__"
 
 (* location of a node is given as an option term, that because sometimes for some nodes we
     cant' have the location. Of when generating new nodes it is hard for the transformations
@@ -31,6 +22,9 @@ type location = node_loc option
 
 (* memory locations *)
 type loc = int
+
+(* marks *)
+type mark = Mark.t
 
 (* variables *)
 type var = string
@@ -711,6 +705,8 @@ let trm_clear_marks (t : trm) : trm =
 let trm_add_mark (m : mark) (t : trm) : trm =
   {t with marks = m :: t.marks}
 
+
+(* LATER: Maybe trm_filter_mark could be useful here*)
 let trm_remove_mark (m : mark) (t : trm) : trm =
   {t with marks = List.filter (fun m1 -> m <> m1) t.marks}
 
@@ -1499,29 +1495,3 @@ type delocalize_ops =
     decide what kind of loop bound it should use
 *)
 
-
-module type MListSig = sig
-
-  type 'a t
-  val create : unit -> 'a t
-  val length : unit -> int
-  val of_list : 'a list -> unit 
-  val to_list : unit -> 'a list 
-
-end
-
-
-
-module MList = struct
-
-  type 'a t = {mutable items : 'a list; mutable marks : (mark list) list }
-
-  let create () = {items = []; marks = [[]]}
- 
-  let length ml = List.length ml.items
-  
-  let of_list ml (l : 'a list) : unit = ml.items <- l; ml.marks <- List.init (List.length l) (fun _i -> [])
-  
-  let to_list ml  = ml.items
-
-end

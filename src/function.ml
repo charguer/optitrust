@@ -132,7 +132,7 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     
     if args <> [] then bind_args args new_target else ();
     Function_basic.inline_call ~label new_target; 
-    Tools.printf "arrived here!\n";
+    
     elim_body ~vars new_target;
      if !name_result <> ""
       then

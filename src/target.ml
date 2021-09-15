@@ -548,8 +548,9 @@ let apply_on_path = Path.apply_on_path
 *)
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
+    
     let ps = resolve_target tg t in
-    let marks = List.map (fun _ -> next_mark()) ps in
+    let marks = List.map (fun _ -> Mark.next()) ps in
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
     Tools.foldi( fun imark t m ->
       match resolve_target [cMark m] t with
@@ -598,7 +599,7 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply( fun t ->
   let ps = resolve_target_between tg t in
-  let marks = List.map (fun _ -> next_mark ()) ps in
+  let marks = List.map (fun _ -> Mark.next ()) ps in
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark m) t (p_to_seq @ [Dir_seq_nth i])) t ps marks in
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
