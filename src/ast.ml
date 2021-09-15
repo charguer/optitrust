@@ -12,7 +12,6 @@ type node_loc = {
   loc_end : pos;}
 
 (* Marks for use in transformations *)
-
 type mark = string (* fresh marks *)
 
 let next_mark_int : unit -> int =
@@ -687,6 +686,10 @@ exception TransfoError of string
 
 exception Resolve_target_failure of location option * string
 
+exception Init_attach_no_occurrences
+
+exception Init_attach_occurrence_below_control
+
 let fail (loc : location) (err : string) : 'a =
   match loc with
   | None -> failwith err
@@ -709,6 +712,12 @@ let trm_mark_clear (t:trm) : trm =
 let trm_mark_set (s:string) (t:trm) : trm =
   let t = trm_mark_clear t in (* technically optional, but cleaner to do it *)
   trm_annot_add (Mark s) t
+
+let trm_add_mark (m : mark) (t : trm) : trm =
+  trm_annot_add (Mark m) t
+
+let trm_remove_mark (m : mark) (t : trm) : trm =
+  trm_annot_filter (function Mark m1 -> m = m1 | _ -> false) t
 
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
@@ -1445,7 +1454,7 @@ let get_decorators (t : trm) : (string * string) =
    in aux t.annot
 *)
 
-let get_mark_opt (t : trm) : string option =
+let get_mark_opts (t : trm) : string list option =
   match List.find_opt (function Mark _ -> true | _ -> false) t.annot with
   | None -> None
   | Some (Mark m) -> Some m

@@ -194,6 +194,8 @@ let init_detach : Target.Transfo.local =
   Target.apply_on_path(init_detach_aux )
 
 
+
+
 (* [init_attach_aux t]: replace an uninitialized variable declaration with an initialized one.
     params:
       const: a boolean to decide if the attached variable should be mutable or not
@@ -213,14 +215,14 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
           | Trm_apps(_,[ls;_]) ->
             begin match ls.desc with 
             | Trm_var y when y = x -> 
-              if !counter <= 1 then Some i else fail t1.loc "init_attach_aux: cases with more than one occurence are not supported"
+              if !counter <= 1 then Some i else raise Init_attach_no_occurrences
             | _ -> acc
             end
           | _ -> acc
         ) None lback in
         let index1  = match init_index with 
         | Some index -> index
-        | _ -> fail trm_to_change.loc (Tools.sprintf("init_attach_aux: no assignment was found to the given variable %s") x)
+        | _ -> raise Init_attach_occurrence_below_control
           in
         let lfront1, assgn_to_change, lback1 = Internal.get_trm_and_its_relatives index1 lback in
         begin match assgn_to_change.desc with 

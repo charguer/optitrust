@@ -203,17 +203,14 @@ let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
       the updated set operation 
 *)
 let data_shift_aux (neg : bool) (pre_cast : typ) (post_cast : typ) (u : trm) (t : trm) : trm =
-  match t.desc with 
-  | Trm_apps (f,[lhs;rhs]) ->
-      let binop_op = if neg then Binop_sub else Binop_add in
-      let rhs = begin match pre_cast.typ_desc, post_cast.typ_desc with 
-      | Typ_unit , Typ_unit -> trm_apps (trm_binop binop_op) [rhs; u]
-      | Typ_unit, _ -> trm_cast post_cast (trm_apps (trm_binop binop_op) [rhs; u])
-      | _, Typ_unit -> trm_apps (trm_binop binop_op) [trm_cast pre_cast (rhs); u]
+    let binop_op = if neg then Binop_sub else Binop_add in
+    begin match pre_cast.typ_desc, post_cast.typ_desc with 
+    | Typ_unit , Typ_unit -> trm_apps (trm_binop binop_op) [t; u]
+    | Typ_unit, _ -> trm_cast post_cast (trm_apps (trm_binop binop_op) [t; u])
+      | _, Typ_unit -> trm_apps (trm_binop binop_op) [trm_cast pre_cast t; u]
       | _ -> fail t.loc "data_shift_aux: can'd do both precasting and postcasting"
-      end in
-      trm_apps f [lhs;rhs]
-  | _ -> fail t.loc "data_shift_aux: expected a set operation"
+      end 
+  
 
 let data_shift (neg : bool) (pre_cast : typ) (post_cast : typ) (u : trm) : Target.Transfo.local =
   Target.apply_on_path (data_shift_aux neg pre_cast post_cast u)

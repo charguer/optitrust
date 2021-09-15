@@ -13,11 +13,9 @@ open Ast
                                   }
 
 *)
-(* TODO: add an optional mark argument,
-   use it to tag the fresh var-definition *)
-let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) : Target.Transfo.t =
+let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) ?(my_mark : mark = ""): Target.Transfo.t =
  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
-  (fun (p, p_local, i) t ->  Function_core.bind_intro i fresh_name const p_local t p)
+  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p)
 
 
 (* [inline_call ~label tg] - expects the target [tg] to point to a function call inside a declaration

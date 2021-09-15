@@ -18,7 +18,7 @@ open Path
     return:
       the updated sequence with the new generated binding
 *)
-let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
+let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
      let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
@@ -31,18 +31,20 @@ let bind_intro_aux (index : int) (fresh_name : var) (const : bool) (p_local : pa
      let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
      let decl_to_insert =
       if const then
-        trm_let Var_immutable (fresh_name, function_type) trm_to_apply_changes
+        let new_decl = trm_let Var_immutable (fresh_name, function_type) trm_to_apply_changes in
+        if my_mark <> "" then trm_annot_add (Mark my_mark) new_decl else new_decl
       else
         let ptrkind = if has_reference_type then Ptr_kind_ref else Ptr_kind_mut in
-        trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [trm_to_apply_changes])
+        let new_decl = (trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [trm_to_apply_changes])) in
+        if my_mark <> "" then trm_annot_add (Mark my_mark)  new_decl else new_decl
       in
      let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      trm_seq ~annot:t.annot (lfront @ [decl_to_insert] @ [decl_to_change] @ lback)
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
 
-let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (bind_intro_aux index fresh_name const p_local)
+let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
+  Target.apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
 
 (* variable used for counting the numer of gotos generated during the translation of the body of the function *)
 
@@ -57,9 +59,8 @@ let bind_intro (index : int) (fresh_name : var) (const : bool) (p_local : path) 
     returns:
       the updated ast of the body of the function with the replaced all return statements
 *)
-let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm * int * int) =
+let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm * int ) =
   let nb_gotos = ref 0 in
-  let nb_returns = ref 0 in
   let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with
     | Trm_abort ab ->
@@ -74,7 +75,6 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
             else
               begin
               incr nb_gotos;
-              incr nb_returns;
               trm_seq [t_assign; trm_goto exit_label]
               end
         | _ ->
@@ -86,7 +86,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
           trm_goto exit_label
       end
     | _-> trm_map_with_terminal is_terminal aux t
-  in (aux true t, !nb_gotos, !nb_returns)
+  in (aux true t, !nb_gotos)
 
 (* [inline_call_aux index label top_ast p_local t] replaced a function call with the traslated body of the function called
     params:
@@ -126,11 +126,8 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
 
    let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
-   let processed_body, nb_gotos, nb_returns = process_return_in_inlining "_exit_body" name fun_decl_body in
-   let no_control_structures =
-    if (nb_returns = 0  || nb_returns = 1) then trm_let Var_immutable ("__OPTITRUST__SAFE_ATTACH_", typ_bool ()) (trm_lit (Lit_bool true))
-      else trm_let Var_immutable ("__OPTITRUST__SAFE_ATTACH_", typ_bool ()) (trm_lit (Lit_bool false))
-    in
+   let processed_body, nb_gotos = process_return_in_inlining "_exit_body" name fun_decl_body in
+
    let labelled_body =
       if name = ""
         then trm_labelled label fun_decl_body
@@ -139,8 +136,8 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    let exit_label = if nb_gotos = 0 then trm_lit (Lit_unit) else trm_labelled "__exit_body" (trm_lit (Lit_unit)) in
    let inlined_body =
     if is_type_unit(fun_decl_type)
-      then [no_control_structures;labelled_body; exit_label]
-      else  [no_control_structures;trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
+      then [labelled_body; exit_label]
+      else  [trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
               labelled_body;exit_label]
       in
        trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)

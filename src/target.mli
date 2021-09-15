@@ -206,7 +206,7 @@ val cDefault : case_kind
 
 val cSet : ?lhs:target -> ?rhs:target -> unit -> constr
 
-val cGet : ?_arg:target -> unit -> constr 
+val cGet : ?arg:target -> unit -> constr 
 
 val dRHS : constr
 

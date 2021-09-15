@@ -396,8 +396,8 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_set)
 
-let cGet ?(_arg : target = []) () : constr = 
-  cPrimFun (Prim_unop Unop_get)
+let cGet ?(arg : target = []) () : constr = 
+  cPrimFun ~args:[arg] (Prim_unop Unop_get)
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
@@ -406,6 +406,7 @@ let cMark (m : mark) : constr =
 (* [cMarks ms] matches all the ast nodes with annotation Mark m when m is an element of ms *)
 let cMarks (ms : mark list) : constr =
   Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string ms))
+
 
 (* [cMarkAny] matches all the ast nodes with annotation Mark m, where m can be any positive integer *)
 let cMarkAny : constr =
