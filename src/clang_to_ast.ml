@@ -132,7 +132,7 @@ let return (t : trm) : trm =
   open_scope kind;
   match tl with
   | [] -> t
-  | _ -> trm_seq (* ~annot:(Some Delete_instructions) *) (tl @ [t])
+  | _ -> trm_seq_nomarks (* ~annot:(Some Delete_instructions) *) (tl @ [t])
 
 (*
   return the number of scopes to exit before a break/continue instruction
@@ -186,7 +186,7 @@ let abort ?(break : bool = false) (t : trm) : trm =
   open_scope kind;
   match tl with
   | [] -> t
-  | _ -> trm_seq  (tl@[t])
+  | _ -> trm_seq_nomarks  (tl@[t])
 
 (* names for overloaded operators (later matched for printing) *)
  let string_of_overloaded_op ?(loc : location = None)
@@ -327,7 +327,7 @@ and translate_stmt (s : stmt) : trm =
   match s.desc with
   | Compound sl ->
     compute_scope ~loc Other_scope
-      (fun () -> trm_seq ~loc ~ctx (List.map translate_stmt sl))
+      (fun () -> trm_seq_nomarks ~loc ~ctx (List.map translate_stmt sl))
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
     let tc = translate_expr c in
@@ -385,7 +385,7 @@ and translate_stmt (s : stmt) : trm =
     begin match dl with
       | [] -> fail loc "translate_stmt: empty declaration list"
       | [d] -> translate_decl d
-      | _ -> trm_seq ~annot:[Multi_decl] ~loc ~ctx (translate_decl_list dl)
+      | _ -> trm_seq_nomarks ~annot:[Multi_decl] ~loc ~ctx (translate_decl_list dl)
     end
   | Expr e -> translate_expr ~is_statement:true e
   | Label {label = l; body = s} ->
@@ -469,7 +469,7 @@ and compute_body (loc : location) (body_acc : trm list)
       | Break ->
         begin match List.rev body_acc with
           | [t] -> (t, sl)
-          | tl -> (trm_seq ~annot:[No_braces (Nobrace.current ())] ~loc ~ctx:(Some (get_ctx ())) tl, sl)
+          | tl -> (trm_seq_nomarks ~annot:[No_braces (Nobrace.current ())] ~loc ~ctx:(Some (get_ctx ())) tl, sl)
         end
       | _ ->
         let t = translate_stmt s in
@@ -526,6 +526,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | Some ty -> ty
     in
     let tl = List.map translate_expr el in
+    let tl = Mlist.of_list tl in
     begin match get_typ_kind (get_ctx()) tt with
     | Typ_kind_array -> trm_array ~loc ~ctx ~typ:(Some tt) tl
     | Typ_kind_prod -> trm_struct ~loc ~ctx ~typ:(Some tt) tl
@@ -1092,6 +1093,7 @@ and translate_decl (d : decl) : trm =
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
           let tl = List.map translate_expr el in
+          let tl = Mlist.of_list tl in
           begin match get_typ_kind (get_ctx()) tt with
           | Typ_kind_array -> trm_array ~loc ~typ:(Some tt) tl
           | Typ_kind_prod -> trm_struct ~loc ~typ:(Some tt) tl
@@ -1185,7 +1187,7 @@ and translate_decl (d : decl) : trm =
       trm_let_record n kw trm_list (trm_lit (Lit_unit))
   | Namespace {name = n; declarations = dl; inline = b} ->
     let dls = translate_decl_list dl in
-    trm_namespace n (trm_seq dls) b
+    trm_namespace n (trm_seq_nomarks dls) b
 
   | TemplateDecl {parameters = {list = pl;_}; decl = d} ->
     let dl = translate_decl d in
@@ -1270,11 +1272,11 @@ let translate_ast (t : translation_unit) : trm =
        let tinclude_map =
          Include_map.mapi
            (fun h dl ->
-              trm_seq ~annot:[Include h] (translate_decl_list dl))
+              trm_seq_nomarks ~annot:[Include h] (translate_decl_list dl))
            include_map
        in
        let t =
-         trm_seq ~loc ~annot:[Main_file] (translate_decl_list file_decls)
+         trm_seq_nomarks ~loc ~annot:[Main_file] (translate_decl_list file_decls)
        in
        Nobrace.init();
        trm_seq_no_brace

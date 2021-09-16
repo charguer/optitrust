@@ -215,11 +215,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        let attributes = t.attributes in
        begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
-          trm_seq ~annot ~loc ~add ~attributes (Tools.list_update_nth (aux dl) (Mlist.to_list tl) n)
+          trm_seq ~annot ~loc ~add ~attributes (Mlist.list_update_nth (aux dl) tl n)
        | Dir_nth n, Trm_array tl ->
-          trm_array ~annot ~loc ~add ~typ ~attributes (Tools.list_update_nth (aux dl) tl n)
+          trm_array ~annot ~loc ~add ~typ ~attributes (Mlist.list_update_nth (aux dl) tl n)
        | Dir_nth n, Trm_struct tl ->
-          trm_struct ~annot ~loc ~add ~typ ~attributes(Tools.list_update_nth (aux dl) tl n)
+          trm_struct ~annot ~loc ~add ~typ ~attributes(Mlist.list_update_nth (aux dl) tl n)
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes (aux dl cond) then_t else_t
        | Dir_cond, Trm_while (cond, body) ->
@@ -348,8 +348,9 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
        let loc = t.loc in
        begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
+          let tl = Mlist.to_list tl in
           let decl_before (n : int) (tl : trm list) =
-            Mlist.foldi
+            Tools.foldi
               (fun i acc (t : trm) ->
                 if i >= n then acc
                 else
@@ -366,7 +367,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
             (fun nth_t -> aux dl nth_t ((decl_before n tl)@ctx))
        | Dir_nth n, Trm_array tl
          | Dir_nth n, Trm_struct tl ->
-          app_to_nth loc tl n (fun nth_t -> aux dl nth_t ctx)
+          app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux dl nth_t ctx)
        | Dir_cond, Trm_if (cond, _, _)
          | Dir_cond, Trm_while (cond, _)
          | Dir_cond, Trm_do_while (_, cond)

@@ -45,6 +45,7 @@ let set_explicit_aux (t: trm) : trm =
         end
       (* If the right hand side is a struct initialization *)
       | Trm_struct st ->
+        let st = Mlist.to_list st in
         begin match lt.desc with
         | Trm_apps (f2, lbase) ->
           let exp_assgn = List.mapi(fun i (sf, ty) ->
@@ -206,6 +207,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
     | Trm_struct term_list ->
+      let term_list = Mlist.to_list term_list in
       begin match t.typ with
       | Some { typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
         let trm_to_change = List.nth term_list field_index in
@@ -222,7 +224,8 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
               ]
             ) (List.rev field_list)
             in
-            trm_struct (Tools.insert_sublist_in_list trm_list_to_inline field_index term_list)
+            let new_term_list = (Tools.insert_sublist_in_list trm_list_to_inline field_index term_list) in
+            trm_struct (Mlist.of_list new_term_list)
           | _ -> fail base.loc "inline_struct_initialization: expected a heap allocated variable"
           end
         | _ -> trm_map (aux global_trm) t

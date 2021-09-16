@@ -367,8 +367,8 @@ let reorder_fields (reorder_kind : reorder) (local_l : var list) (sf : (var * ty
 (* For a trm t with index [index] in its surrounding sequence return that the list of trms before t,
     t itself and the list of trms behind t.
 *)
-let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm list * trm * trm list) =
-  let lback, lfront = Mlist.extract index index ((List.length tl) - 1) tl in
+let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
+  let lback, lfront = Mlist.extract index ((Mlist.length trms) - 1) trms in
   let element, lback = Mlist.extract 0 0 lback in
   let element = 
     if Mlist.length element = 1 
@@ -380,9 +380,10 @@ let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm list * trm
 (* Remove all the sequences from ast with annotation No_braces if [all] is equal to true
     otherwise remove only those sequence with id [id].
 *)
+
 let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
   let rec clean_up_in_list (tl : trm mlist) : trm mlist =
-    match tl with 
+    match (Mlist.to_list tl) with 
     | [] -> []
     | t :: tl ->
       begin match t.desc with
@@ -391,7 +392,8 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
         | false ->
           let current_seq_id = get_nobrace_id t in
           if current_seq_id = id 
-            then tl' @ (clean_up_in_list tl)
+            then Mlist.merge tl' (clean_up_in_list tl)
+            
             else t :: (clean_up_in_list tl) 
         | true ->
           tl' @ (clean_up_in_list tl)

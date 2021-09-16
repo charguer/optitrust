@@ -328,8 +328,8 @@ and trm =
 and trm_desc =
   | Trm_val of value
   | Trm_var of var (* LATER: varkind * var *)
-  | Trm_array of trm list (* { 0, 3, 5} as an array *)
-  | Trm_struct of trm list (* { 4, 5.3 } as a record *)
+  | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
+  | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_var list) * trm
   | Trm_let_record of string * record_type * trm list * trm
@@ -722,12 +722,12 @@ let trm_var ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
    attributes; ctx}
 
 let trm_array ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
-  ?(attributes = []) ?(ctx : ctx option = None) (tl : trm list) : trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (tl : trm mlist) : trm =
   {annot; marks = []; desc = Trm_array tl; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
 let trm_struct ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
-  ?(attributes = []) ?(ctx : ctx option = None) (tl : trm list) : trm =
+  ?(attributes = []) ?(ctx : ctx option = None) (tl : trm mlist) : trm =
   {annot; marks = []; desc = Trm_struct tl; loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
@@ -948,9 +948,9 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
   let typ = t.typ in
   match t.desc with
   | Trm_array tl ->
-    trm_array ~annot ~loc ~add ~typ (List.map (f false) tl)
+    trm_array ~annot ~loc ~add ~typ (Mlist.map (f false) tl)
   | Trm_struct tl ->
-    trm_struct ~annot ~loc ~add ~typ (List.map (f false) tl)
+    trm_struct ~annot ~loc ~add ~typ (Mlist.map (f false) tl)
   | Trm_let (vk, tv, init) ->
     trm_let ~annot ~loc ~is_statement ~add vk tv (f false init)
   | Trm_let_fun (f', res, args, body) ->

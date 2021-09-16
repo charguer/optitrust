@@ -255,7 +255,7 @@ let sections (cl : clause list) (index : int) : Target.Transfo.local =
 let simd_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
-    let new_tl = Mlist.insert_at index (trm_omp_directive (Simd cl) tl in 
+    let new_tl = Mlist.insert_at index (trm_omp_directive (Simd cl)) tl in 
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "simd_aux: expected the sequence where the directive is going to be added"
 
@@ -275,7 +275,7 @@ let single (cl : clause list) (index : int) : Target.Transfo.local =
 let target_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
-    let new_tl = Mlist.insert_at index (trm_omp_directive (Target cl) tl
+    let new_tl = Mlist.insert_at index (trm_omp_directive (Target cl)) tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "target_aux: expected the sequence where the directive is going to be added"
 
@@ -306,7 +306,7 @@ let target_enter_data (cl : clause list) (index : int) : Target.Transfo.local =
 let target_exit_data_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
-    let new_tl = Mlist.insert_at index (trm_omp_directive (Target_exit_data cl) tl in 
+    let new_tl = Mlist.insert_at index (trm_omp_directive (Target_exit_data cl)) tl in 
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "target_exit_data_aux: expected the sequence where the directive is going to be added"
 
@@ -789,7 +789,6 @@ let get_ancestor_thread_num (thread_num : var) (index : int) : Target.Transfo.lo
 let get_team_size_aux (level : int) (size : var) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    let new_tl = Mlist.insert_at index 
     let find_prev_decl = Internal.toplevel_decl size t in
     let new_trm = 
     begin match find_prev_decl with 
@@ -985,7 +984,7 @@ let init_nest_lock (lock : var) (index : int): Target.Transfo.local =
 let destroy_lock_aux (lock : var) (index : int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
-    let new_tl = Mlist.insert_at index (trm_omp_routine (Destroy_lock lock) 
+    let new_tl = Mlist.insert_at index (trm_omp_routine (Destroy_lock lock)) tl in
     trm_seq ~annot:t.annot new_tl  
   | _ -> fail t.loc "destroy_lock_aux: expected the sequence where the call to the routine is going to be added"
 

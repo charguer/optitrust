@@ -40,8 +40,8 @@ let insert_at (index : int) (el : 'a) (ml : 'a t) : 'a t =
     marks = Tools.insert_at index [] ml.items}
 
 let insert_sublist_at (index : int) (ml1 : 'a t ) (ml2 : 'a t) : 'a t =
-   { items = Tools.insert_sublist_at index ml1.items ml.items;
-     marks = ToolS.insert_sublist_at index ml1.marks ml2.marks }
+   { items = Tools.insert_sublist_at index ml1.items ml1.items;
+     marks = Tools.insert_sublist_at index ml1.marks ml2.marks }
 
 let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) = 
   let items1, items2 = Tools.extract start stop ml.items in
@@ -61,3 +61,10 @@ let remove (start : int) (stop : int) (ml : 'a t) : 'a t =
 let rev (ml : 'a t) : 'a t = 
   { items = List.rev ml.items;
     marks = List.rev ml.marks}
+
+
+let list_update_nth (transfo : 'a -> 'a) (ml : 'a t) (n : int) : 'a t =
+  {ml with items = Tools.list_update_nth transfo ml.items n}
+
+
+

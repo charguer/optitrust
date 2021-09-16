@@ -227,6 +227,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           else
             dattr ^^ string x
      | Trm_array tl | Trm_struct tl ->
+        let tl = Mlist.to_list tl in
         let dl = List.map (decorate_trm ~semicolon) tl in
         dattr ^^ braces (separate (comma ^^ blank 1) dl)
      | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
@@ -244,7 +245,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              hardline ^^ string "else" ^^ blank 1 ^^ de
         end
      | Trm_seq tl ->
-        let tl = Mlist.to_list in
+        let tl = Mlist.to_list tl in
         if List.mem Multi_decl t.annot
           then dattr ^^ multi_decl_to_doc loc tl
         else if List.mem (No_braces (Nobrace.current())) t.annot
