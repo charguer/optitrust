@@ -48,37 +48,6 @@ let replace_one_with_many (x : var) (names : var list) (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t 
 
-(* [from_one_to_many_aux names index t]: transform one variable declaration to a list of variable 
-      declarations, change all the instructions containing an occurrence of the declared variable
-      with a list of instructions with the occurrence replaced by the variable on the list entered by the user.
-      There is a bijective correspondence between the instructionss added and the list of variables.
-    params:
-      names: a list of variable names which are going to replace the curren variable
-      index: index of the variable declaration inside the sequence containing it
-      t: ast of the outer sequence containing the declaration
-    return:
-      updated ast of the surrounding sequence with all the changes performed
-*)
-let from_one_to_many_aux (names : var list) (index : int) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let decl_to_change, lback = Tools.split_list_at 1 lback in
-    let decl_to_change = match decl_to_change with 
-      | [dclt] -> dclt
-      | _ -> fail t.loc "from_one_to_many_aux: expected a list with only one trm" in
-    begin match decl_to_change.desc with 
-    | Trm_let (vk, (x, tx), init) -> 
-      let trms_to_add = List.map (fun name -> trm_let vk (name, tx) init) names in
-      let lback = List.map (replace_one_with_many x names) lback in
-      trm_seq ~annot:t.annot (lfront @ trms_to_add @ lback)
-    | _ -> fail decl_to_change.loc "from_one_to_many_aux: expected a variable declaration"
-    end
-  | _ -> fail t.loc "from_one_to_many_aux: expected the surrounding sequence"
-
-let from_one_to_many (names : var list) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (from_one_to_many_aux names index)
-
 
 (* [arbitrary_if single_branch index cond t]: take one or two instructions and create an if statement
       or an if else statment if [single_brnach] is true.
@@ -110,8 +79,8 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
   match t.desc with
   | Trm_seq tl ->
     if List.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
-    let def = List.nth tl 0 in
-    let middle_instr = List.nth tl 1 in
+    let def = Mlist.nth tl 0 in
+    let middle_instr = Mlist.nth tl 1 in
     begin match def.desc with 
     | Trm_let (vk, (x, tx), _) ->
       let new_var = x in
@@ -144,7 +113,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
                               trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ]
                               )]
                   end in
-      trm_seq ~annot:t.annot [new_decl; new_snd_instr; accum]
+      trm_seq ~annot:t.annot (Mlist.of_list [new_decl; new_snd_instr; accum])
 
     | _ -> fail t.loc "delocalize_aux: first instruction in the sequence should be the declaration of local variable"
     end
@@ -181,8 +150,10 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
       | Var_immutable ->
         trm_let vk (x, new_type) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init) 
       end in
-      let lback = List.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
-      trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback)
+      let lback = Mlist.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
+      let tl = Mlist.merge lfront lback in
+      let tl = Mlist.insert_at (index-1) new_decl tl in 
+      trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "change_type_aux: expected a variable or a function declaration"
     end
   | _ -> fail t.loc "change_type_aux: expected the surrounding sequence"

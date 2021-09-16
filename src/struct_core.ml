@@ -361,12 +361,7 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
 let to_variables_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let trm_to_change, lback = Tools.split_list_at 1 lback in
-    let trm_to_change = begin match trm_to_change with
-                        | [tch] -> tch
-                        | _ -> fail t.loc "struct_to_variables_aux: make sure that you're pointing to the right target"
-                        end in
+    let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with
     | Trm_let (vk, (x, tx), init) ->
       let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
@@ -397,12 +392,14 @@ let to_variables_aux (index : int) (t : trm) : trm =
           | [] -> trm_let Var_mutable (x ^ "_" ^sf, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim (Prim_new ty))
           | _ -> trm_let Var_mutable (x ^ "_" ^sf, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_apps (trm_prim (Prim_new ty)) [List.nth struct_init_list i])
       ) field_list in
-      let lback = List.map (fun t1 ->
+      let lback = Mlist.map (fun t1 ->
         List.fold_left (fun t2 f1 ->
           inline_struct_accesses x f1 t2
         ) t1 (List.rev (fst (List.split field_list)))
       ) lback in
-      trm_seq ~annot:t.annot (lfront @ variable_declarations @ lback)
+      let new_tl = Mlist.merge lfront lback in
+      let new_tl = Mlist.insert_at (index - 1) new_tl in
+      trm_seq ~annot:t.annot new_tl 
 
    | _ -> fail trm_to_change.loc "struct_to_variables_aux: expected a variable declaration"
     end

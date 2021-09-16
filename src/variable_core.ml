@@ -30,9 +30,7 @@ type rename = Rename.t
 let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let d, lback = Tools.split_list_at 1 lback in
-    let d = List.hd d in
+    let lback, d, lfront = Internal.get_trm_and_its_relatives index tl in
     begin match d.desc with
     | Trm_let (vk, (x, _), dx) ->
         let t_x =
@@ -59,8 +57,9 @@ let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : 
           -> replace it again with def_x
          *)
         in
-
-        trm_seq (lfront @ [d] @ lback)
+        let new_tl = Mlist.merge lfront lback in
+        let new_tl = Mlist.insert_at (index - 1) d new_tl in
+        trm_seq new_tl 
 
      | _ -> fail t.loc "fold_decl: expected a variable declaration"
      end
@@ -83,9 +82,7 @@ let fold (as_reference : bool) (fold_at : target) (index) : Target.Transfo.local
 let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let dl, lback = Tools.split_list_at 1 lback in
-    let dl = List.hd dl in
+     let lback, dl, lfront = Internal.get_trm_and_its_relatives index tl in
     begin match dl.desc with
     | Trm_let (vk, (x,tx), dx) ->
       let t_x = begin match vk with 
@@ -114,11 +111,9 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
           ) t1 field_init field_list) lback 
       | _ -> List.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
       end in
-      let tl =
-        if delete_decl then lfront @ lback
-        else lfront @ [dl] @ lback
-      in
-      trm_seq ~annot:t.annot tl
+      let new_tl = Mlist.merge lfront @ lback in
+      let new_tl = if delete_decl then new_tl else Mlist.insert_at (index - 1) dl new_tl in
+      trm_seq ~annot:t.annot new_tl
     | _ -> fail t.loc "inline_aux: expected a variable declaration"
     end
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
@@ -138,7 +133,7 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
 let rename_aux (rename : Rename.t) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    List.fold_left (fun acc t1 ->
+    Mlist.fold_left (fun acc t1 ->
         match t1.desc with
         | Trm_let (vk,(x, tx), init) ->
           begin match rename with 
@@ -207,6 +202,7 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
   let counter = ref 0 in
   match t.desc with 
   | Trm_seq tl ->
+    
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with 
     | Trm_let (_, (x, tx), _) ->
@@ -236,7 +232,10 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
           let tx = if const then typ_const inner_type else typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut inner_type in
           let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
           let new_trm = trm_let vk (x, tx)  init in
-          trm_seq ~annot:t.annot (lfront @ lfront1 @ [new_trm] @ lback1)
+          let new_front = Mlist.merge lfront lfront 1 in
+          let new_back = Mlist.insert_at 0 new_trm lback in
+          let new_tl = Mlist.merge new_front new_back in
+          trm_seq ~annot:t.annot new_tl
         | _ -> fail assgn_to_change.loc "init_attach: something wen't wrong"
         end
     | _ -> fail t.loc "init_attach_aux: target_doesn't point to the right trm, expected a trm_let"
@@ -296,8 +295,10 @@ let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : t
   | Trm_seq tl ->
     let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
     let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
-    let tl = List.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
-    trm_seq ~annot:t.annot ([fst_instr] @ tl @ [lst_instr] )
+    let tl = Mlist.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
+    let new_tl = List.insert_at 0 fst_instr tl in
+    let new_tl = List.insert_at ((List.length tl) - 1) lst_instr in
+    trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "local_other_name_aux: expected a sequence"
 
 

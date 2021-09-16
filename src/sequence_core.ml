@@ -105,10 +105,8 @@ let intro_on_instr (visible : bool) (label : string) : Target.Transfo.local=
 let unwrap_aux (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-       begin match tl with
-       | [el] -> el
-       | _ -> fail t.loc "unwrap_aux: can only unwrap a sequence with exactly one item"
-       end
+      if Mlist.length tl = 1 then Mlist.nth tl 0 
+        else fail t.loc "unwrap_aux: can only unwrap a sequence with exactly one item"
     | _ -> fail t.loc "unwrap_aux: expected to operate on a sequence"
 
 let unwrap : Target.Transfo.local =
@@ -124,18 +122,18 @@ let unwrap : Target.Transfo.local =
 let split_aux (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    let first_part, last_part = Tools.split_list_at index tl in
+    let first_part_last_part = Mlist.split index tl in
     trm_seq_no_brace [trm_seq ~annot:t.annot first_part;trm_seq ~annot:t.annot last_part]
   | _ -> fail t.loc "split_aux: expected a sequence, containing the location where it is going to be splitted"
 
 let split (index : int) : Target.Transfo.local =
   Target.apply_on_path (split_aux index)
 
+
 let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
-  (* NOTE: could also say "if blocks = [] then t else ..." *)
   match t.desc with 
   | Trm_seq tl -> 
-    let nb = List.length tl in
+    let nb = Mlist.length tl in
     let blocks = if blocks = [] then [nb] else blocks in
     let sum_blocks = List.fold_left (+) 0 blocks in
     if sum_blocks <> nb 
@@ -143,13 +141,13 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
       else
         let current_list = ref tl in
         let partition = List.fold_left (fun acc x -> 
-            let lfront, lback = Tools.split_list_at x !current_list in
+            let lback, lfront = Mlist.split x !current_list in
             current_list := lback;
             lfront :: acc
         ) [] blocks in
         begin match visible with 
-        | true -> trm_seq ~annot:t.annot (List.map (trm_seq) (List.rev partition))
-        | false -> trm_seq ~annot:t.annot (List.map (trm_seq_no_brace) (List.rev partition))
+        | true -> trm_seq ~annot:t.annot (Mlist.of_list (Mlist.map (trm_seq_nomarks) (List.rev partition)))
+        | false -> trm_seq ~annot:t.annot (Mlist.of_list (Mlist.map (trm_seq_no_brace) (List.rev partition)))
         end
         
   | _ -> fail t.loc "partial_aux: expected a sequence to partition"
@@ -161,12 +159,12 @@ let partition (blocks : int list) (visible : bool): Target.Transfo.local =
 let reorder_blocks_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
-    let transformed_list = List.fold_left (fun acc el -> 
+    let transformed_list = Mlist.fold_left (fun acc el -> 
       match el.desc with 
       | Trm_seq tl1 ->
         (Tools.split_list_at 1 tl1) :: acc
       | _ -> fail t.loc "reorder_blocks_aux: blocks should be sequences"
-      ) [] (List.rev tl) in
+      ) [] (Mlist.rev tl) in
     let first_part, second_part = List.split transformed_list in
     trm_seq ~annot:t.annot ((List.flatten first_part) @ (List.flatten second_part))
   | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"

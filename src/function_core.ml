@@ -21,7 +21,7 @@ open Path
 let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
+     let instr = Mlist.nth tl index in
      let trm_to_apply_changes, _ = Path.resolve_path p_local instr in
      let function_type = match trm_to_apply_changes.typ with
      | Some typ -> typ
@@ -39,7 +39,9 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
         if my_mark <> "" then trm_add_mark my_mark  new_decl else new_decl
       in
      let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
-     trm_seq ~annot:t.annot (lfront @ [decl_to_insert] @ [decl_to_change] @ lback)
+     let new_tl = Mlist.remove index index tl in
+     let new_tl = Mlist.insert_sublist_at (index-1) (Mlist.of_list ([decl_to_insert] @ [decl_to_change])) new_tl in
+     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
 
@@ -102,7 +104,7 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
 
   match t.desc with
   | Trm_seq tl ->
-    let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
+    let _trm_to_change, tl = Mlist.extract index index tl in
     let fun_call, _= Path.resolve_path p_local trm_to_change in
     let fun_call_name, fun_call_args = begin match fun_call.desc with
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
@@ -140,7 +142,8 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
       else  [trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
               labelled_body;exit_label]
       in
-       trm_seq ~annot:t.annot (lfront @ inlined_body @ lback)
+       let tl = Mlist.insert_at (index - 1) inlined_body tl in
+       trm_seq ~annot:t.annot tl
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 
 

@@ -9,18 +9,6 @@ let replace (code : string) (tg : target) : unit =
   Target.apply_on_targets (Generic_core.replace code) tg;
   Trace.reparse()
 
-(* [from_one_to_many names tg] expects the target to point to a declaration(
-    a variable declaration, array declaration etc.) It the chechs the list of new variables
-    and removes the curren declaration and replaces it with a list of declarations.
-    [names] - denotes the list of names entered by the user. Furthermore, every instruction which
-    contains an occurrence of the initial variable will be replace with a list of instructions for
-    each new variable entered by the user.
-*)
-let from_one_to_many (names : var list) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after ( fun _ ->
-    Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Generic_core.from_one_to_many names i t p) tg)
-
 (* [arbitrary_if cond tg] expects the target [tg] to point to an instruction
     inside a sequence. Then it will create an if statement with the condition entered by the user
       and both it's then and else branches will contain the same instruction.

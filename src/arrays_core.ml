@@ -66,7 +66,7 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
 let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
+    let lfron, d, lback = Tools.get_trm_and_its_relatives index tl in
     let array_name = decl_name d in
     let var_decls = begin match d.desc with
     | Trm_let (_, (_ , __), init) ->
@@ -88,8 +88,10 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
     | _ -> fail t.loc "to_variables_aux: expected a variable declaration"
     end
     in
-    let lback = List.map (inline_array_access array_name new_vars) lback in
-    trm_seq ~annot:t.annot ~loc:t.loc (lfront @ var_decls @ lback)
+    let lback = Mlist.map (inline_array_access array_name new_vars) lback in
+    let tl = Mlist.merge lfront lback in
+    let tl = Mlist.insert_sublist_at (index -1) var_decls tl in
+    trm_seq ~annot:t.annot ~loc:t.loc tl
   | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
 
 let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
@@ -157,10 +159,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
 let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let d,lback = Tools.split_list_at 1 lback in
-    let d = List.hd d in
-
+    let lfront, d, lback = Int.get_trm_and_its_relatives index tl in
     let base_type_name, base_type =
     begin match d.desc with
     | Trm_typedef td ->
@@ -272,8 +271,10 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
       end
 
     in
-    let lback = List.map (apply_tiling base_type block_name (trm_var block_size) base_type_name) lback in
-    trm_seq ~annot:t.annot (lfront @ [array_decl] @ lback)
+    let lback = Mlist.map (apply_tiling base_type block_name (trm_var block_size) base_type_name) lback in
+    let tl = Mlist.merge lfront lback in
+    let tl = Mlist.insert_at (index -1) array_decl tl in
+    trm_seq ~annot:t.annot tl
 
   | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
 
@@ -390,10 +391,7 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
 let swap_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let d,lback = Tools.split_list_at 1 lback in
-    let d = List.hd d in
-
+    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
     begin match d.desc with
       | Trm_typedef td ->
         begin match td.typdef_body with
@@ -425,7 +423,9 @@ let swap_aux (index : int) (t : trm) : trm =
           {td with typdef_body = Typdef_alias (swap_type ty)}
         in
         let lback = List.map (apply_swapping td.typdef_tconstr ) lback in
-        trm_seq ~annot:t.annot (lfront @ [new_decl] @ lback)
+        let tl = Mlist.merge lfront lback in
+        let tl = Mlist.insert_at (index - 1) new_decl tl in
+        trm_seq ~annot:t.annot tl
         | _ -> fail t.loc "swap_aux: expected a declaration"
         end
       | _ -> fail t.loc "swap_aux: expected the typedef"

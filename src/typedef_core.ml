@@ -19,16 +19,16 @@ open Target
 let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let d, lback = Tools.split_list_at 1 lback in
-    let d = List.hd d in
+    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
     begin match d.desc with
      | Trm_typedef td ->
        begin match td.typdef_body with
        | Typdef_alias dx ->
         let ty_x = typ_constr td.typdef_tconstr  ~tid:td.typdef_typid  in
-        let lback = List.map (Internal.change_typ ~change_at:[fold_at] dx ty_x) lback in
-        trm_seq ~annot:t.annot (lfront @ [d] @ lback)
+        let lback = Mlist.map (Internal.change_typ ~change_at:[fold_at] dx ty_x) lback in
+        let new_tl = Mlist.merge lfront lback in
+        let new_tl = Mlist.insert_at (index - 1) d new_tl in
+        trm_seq ~annot:t.annot new_tl
        | _ -> fail t.loc "fold_decl: expected a typedef"
        end
      | _ -> fail t.loc "fold_decl: expected a type definition"
@@ -55,18 +55,16 @@ let fold (fold_at : target) (index) : Target.Transfo.local =
 let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let dl, lback = Tools.split_list_at 1 lback in
-    let dl = List.hd dl in
+    let lback, dl, lfront = Internal.get_trm_and_its_relatives index tl in
     begin match dl.desc with
     | Trm_typedef td ->
      begin match td.typdef_body with
      | Typdef_alias dx ->
       let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid  in
       let lback = List.map(Internal.change_typ ~change_at:[inline_at] ty_x dx) lback in
-      let tl =
-        if delete then lfront @ lback
-        else lfront @ [dl] @ lback
+      let tl = Mlist.merge lfront lback in
+      let new_tl = 
+      if delete then tl else Mlist.insert_at (index-1) dl tl
       in
       trm_seq ~annot:t.annot tl
      | _ -> fail t.loc "inline_aux: expected a typdef_alias"
@@ -110,7 +108,8 @@ let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) :
      let lfront, lback = Tools.split_list_at index tl in
      let tid = next_typconstrid () in
      let trm_to_insert = trm_typedef {typdef_typid = tid; typdef_tconstr = name; typdef_body = td_body;typdef_vars = [];typdef_loc = None} in
-     trm_seq ~annot:t.annot (lfront @ [trm_to_insert] @ lback)
+     let new_tl = Mlist.insert_at index trm_to_insert tl in
+     trm_seq ~annot:t.annot new_tl 
   | _ -> fail t.loc "insert_aux: expected the surrounding sequence"
 
 let insert (name : string) (td_body : typdef_body) (index : int) : Target.Transfo.local =

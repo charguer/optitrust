@@ -215,7 +215,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        let attributes = t.attributes in
        begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
-          trm_seq ~annot ~loc ~add ~attributes (Tools.list_update_nth (aux dl) tl n)
+          trm_seq ~annot ~loc ~add ~attributes (Tools.list_update_nth (aux dl) (Mlist.to_list tl) n)
        | Dir_nth n, Trm_array tl ->
           trm_array ~annot ~loc ~add ~typ ~attributes (Tools.list_update_nth (aux dl) tl n)
        | Dir_nth n, Trm_struct tl ->
@@ -349,7 +349,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
        begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
           let decl_before (n : int) (tl : trm list) =
-            foldi
+            Mlist.foldi
               (fun i acc (t : trm) ->
                 if i >= n then acc
                 else
