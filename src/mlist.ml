@@ -35,7 +35,12 @@ let nth (ml : 'a t) (index : int) : 'a =
 let foldi (acc_f : 'b -> 'a -> 'c -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   Tools.foldi acc_f acc ml.items
 
-let insert_at (index : int) (ml1 : 'a t ) (ml2 : 'a t) : 'a t =
+
+let insert_at (index : int) (el : 'a) (ml : 'a t) : 'a t =
+  { items = Tools.insert_at index el ml.items;
+    marks = Tools.insert_at index [] ml.items}
+
+let insert_sublist_at (index : int) (ml1 : 'a t ) (ml2 : 'a t) : 'a t =
    { items = Tools.insert_sublist_at index ml1.items ml.items;
      marks = ToolS.insert_sublist_at index ml1.marks ml2.marks }
 

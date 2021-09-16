@@ -201,14 +201,19 @@ let (+@) = ilset_funmap_union
 let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
-let insert_at (index : int) (el : 'a) (l : 'a list) : 'a list = 
-  foldi (fun i acc x -> if i = ((List.length l) - index - 1) then el :: x :: acc else x :: acc) [] (List.rev l);;
 
+(* insert an element [e] at index [index] in list [ml] *)
+let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list = 
+  foldi (fun i acc x -> if i = ((List.length l) - index - 1) then e :: x :: acc else x :: acc) [] (List.rev l);;
+
+(* insert a list of elements at index [index ] in list [l], all the elments of [l] with index greater than [index] 
+  will be shifter for the length  of [el] *)
 let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list = foldi (fun i acc x -> if i = ((List.length l) - index - 1) then  el @ x :: acc else x :: acc) [] (List.rev l)
 
 
 (* TODO: Optimiza me *)
-let extract (start : int) (stop : int) (ml : 'a list) : ('a list * 'a list) =
-let ml = List.mapi (fun i x -> (x, i)) ml in
-let ml1, ml2 = List.partition (fun (_,i) -> (i >= start && i <= stop)) ml in
-(List.map (fun (x,_) -> x) ml1, List.map (fun (x,_) -> x) ml2)
+(* slice list [l] from [start] to [stop] and return the slice of the original list together with the original list without the slice*)
+let extract (start : int) (stop : int) (l : 'a list) : ('a list * 'a list) =
+let l = List.mapi (fun i x -> (x, i)) l in
+let l1, l2 = List.partition (fun (_,i) -> (i >= start && i <= stop)) l in
+(List.map (fun (x,_) -> x) l1, List.map (fun (x,_) -> x) l2)

@@ -53,8 +53,6 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t
 
-
-
 (* [to_variables_aux new_vars t]: tansform an array declaration into a list of variable declarations
       the list of variables should be entered by the user. And there should be enough variables to cover all
       the indices of the array.

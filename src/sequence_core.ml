@@ -16,10 +16,9 @@ open Ast
 let insert_aux (index : int) (s : string) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
-      let lfront, lback = Tools.split_list_at index tl in
-      (* let new_trm = trm_seq_no_brace [code s] in *)
       let new_trm = code s in
-      trm_seq ~annot:t.annot  (lfront @ [new_trm] @ lback)
+      Mlist.insert_at index new_trm tl
+      trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
 let insert (index : int) (s : string) : Target.Transfo.local =
@@ -36,10 +35,7 @@ let insert (index : int) (s : string) : Target.Transfo.local =
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      let lfront,lback = Tools.split_list_at index tl in
-      let _,lback = Tools.split_list_at nb_instr lback in
-      let tl = lfront @ lback in
-      trm_seq ~annot:t.annot tl
+      trm_seq ~annot:t.annot (Mlist.remove index (index + nb_instr) tl)
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
 (* [delete index nb_instr t p] *)
@@ -59,18 +55,11 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
 let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      if nb > 0 then 
-        let lfront, lback = Tools.split_list_at index tl in
-        let l_intro,lback = Tools.split_list_at nb lback in
-        let intro_seq = trm_seq  l_intro in
+      let tl1, tl2 = 
+        if nb > 0 then Mlist.extract index (index + nb) tl else Mlist.extract (index+ nb) index tl in
+        let intro_seq = trm_seq tl1 in
         let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
-          trm_seq (lfront @ [intro_seq] @ lback)
-      else 
-        let lfront, lback = Tools.split_list_at (index+1) tl in
-        let lfront, l_intro = Tools.split_list_at (List.length lfront + nb) lfront in
-        let intro_seq = trm_seq  l_intro in
-        let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
-          trm_seq (lfront @ [intro_seq] @ lback)
+          Mlist.insert_at index intro_seq tl2
     | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 
 let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local =
@@ -84,19 +73,13 @@ let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local
 *)
 let elim_aux (t : trm) : trm =
   match t.desc with
-   | Trm_labelled (_ , t1) ->
-      begin match t1.desc with 
-      | Trm_seq tl1 -> 
-        trm_seq_no_brace tl1
-      | _ -> fail t.loc "elim_aux: expected a sequence of terms"
-     end
-   | Trm_seq tl ->
-      trm_seq_no_brace tl
-   | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
+  | Trm_seq tl ->
+     trm_seq_no_brace tl
+  | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
 
 
 let elim : Target.Transfo.local =
-  Target.apply_on_path (elim_aux)
+  Target.apply_on_path( Internal.apply_on_path_targeting_a_sequence (elim_aux) "elim")
 
 (* [intro_on_instr_aux visible label t]: replacing t with a sequence that contains t as single item.
    params:
