@@ -244,6 +244,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              hardline ^^ string "else" ^^ blank 1 ^^ de
         end
      | Trm_seq tl ->
+        let tl = Mlist.to_list in
         if List.mem Multi_decl t.annot
           then dattr ^^ multi_decl_to_doc loc tl
         else if List.mem (No_braces (Nobrace.current())) t.annot

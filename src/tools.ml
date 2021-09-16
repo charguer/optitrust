@@ -200,3 +200,15 @@ let (+@) = ilset_funmap_union
 (* return the list where the nth element is transformed *)
 let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
+
+let insert_at (index : int) (el : 'a) (l : 'a list) : 'a list = 
+  foldi (fun i acc x -> if i = ((List.length l) - index - 1) then el :: x :: acc else x :: acc) [] (List.rev l);;
+
+let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list = foldi (fun i acc x -> if i = ((List.length l) - index - 1) then  el @ x :: acc else x :: acc) [] (List.rev l)
+
+
+(* TODO: Optimiza me *)
+let extract (start : int) (stop : int) (ml : 'a list) : ('a list * 'a list) =
+let ml = List.mapi (fun i x -> (x, i)) ml in
+let ml1, ml2 = List.partition (fun (_,i) -> (i >= start && i <= stop)) ml in
+(List.map (fun (x,_) -> x) ml1, List.map (fun (x,_) -> x) ml2)

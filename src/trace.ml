@@ -552,3 +552,4 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
 let get_ast () : trm =
   (List.hd (List.rev !traces)).cur_ast
 
+(* TODO: Arthur make sure to document that reparse invalidates the marks *)

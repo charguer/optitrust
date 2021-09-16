@@ -606,7 +606,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
        is true
       *)
      begin match t.desc with
-     | Trm_seq tl -> List.mem true (List.map (check_constraint c) tl)
+     | Trm_seq tl -> List.mem true (List.map (check_constraint c) (Mlist.to_list tl))
      | _ -> fail t.loc "check_constraint: bad multi_decl annotation"
      end
   else
@@ -670,7 +670,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> false
         end
      | Constr_seq cl, Trm_seq tl when  not (List.mem (No_braces (Nobrace.current())) t.annot) ->
-        check_list  ~depth:(DepthAt 0) cl tl
+        check_list  ~depth:(DepthAt 0) cl (Mlist.to_list tl)
      | Constr_var name, Trm_var x ->
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
@@ -955,15 +955,10 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
   else if List.mem Multi_decl t.annot then
      (* explore each declaration in the seq *)
      begin match t.desc with
-     | Trm_seq tl ->
-        explore_list tl (fun i -> Dir_seq_nth i) (explore_in_depth p)
+     | Trm_seq tl ->      
+        explore_list (Mlist.to_list tl) (fun i -> Dir_seq_nth i) (explore_in_depth p)
      | _ -> fail loc "explore_in_depth: bad multi_decl annotation"
      end
-  (* | Some Main_file ->
-    begin match t.desc with
-     | Trm_seq tl -> add_dir (Dir_nth 0) ((explore_list tl (fun n -> Dir_nth n) (aux)))
-     | _ -> fail t.loc "explore_in_depth: the main file starts with a suquence"
-    end *)
   else
      begin match t.desc with
      | Trm_let (_ ,(_, _), body) ->
@@ -1032,7 +1027,8 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (add_dir Dir_app_fun (aux f)) @
         (* args *)
         (explore_list args (fun n -> Dir_arg n) (aux))
-     | Trm_seq tl -> explore_list tl (fun n -> Dir_seq_nth n) (aux)
+     | Trm_seq tl ->
+        explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
      | Trm_array tl
      | Trm_struct tl ->
         explore_list tl (fun n -> Dir_nth n) (aux)
@@ -1075,7 +1071,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   let loc = t.loc in
   match d, t.desc with
   | Dir_seq_nth n, Trm_seq tl ->
-    app_to_nth_dflt loc tl n
+    app_to_nth_dflt loc (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
   | Dir_nth n, Trm_array tl
     | Dir_nth n, Trm_struct tl ->
@@ -1198,7 +1194,7 @@ let extract_last_dir (p : path) : path * int =
 
 let get_sequence_length (t : trm) : int =
   begin match t.desc with
-  | Trm_seq tl -> List.length tl
+  | Trm_seq tl -> Mlist.length tl
   | _ -> fail t.loc "get_sequence_lenth: expected a sequence"
   end
 (* Get the number of instructions a sequence contains *)

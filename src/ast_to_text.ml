@@ -205,7 +205,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let de = print_trm ~only_desc e in
      node "Trm_if" ^^ parens (separate (comma ^^ break 1) [dc; dt; de])
   | Trm_seq tl ->
-     let dtl = List.map (print_trm ~only_desc) tl in
+     let dtl = List.map (print_trm ~only_desc) (Mlist.to_list tl) in
      node "Trm_seq" ^^ print_list dtl
   | Trm_apps (f, tl) ->
      let df = print_trm ~only_desc f in

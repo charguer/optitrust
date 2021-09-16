@@ -242,6 +242,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
             child_to_json "then" (aux then_);
             child_to_json "else" (aux else_) ] ]
     | Trm_seq l ->
+        let l = Mlist.to_list l in
         [ kind_to_field "seq";
           children_to_field (List.mapi ichild_to_json (List.map aux l))]
     | Trm_apps (f,args) ->

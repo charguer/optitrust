@@ -165,12 +165,7 @@ let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
     begin match body.desc with
     | Trm_seq tl ->
       (* We assume that the first elment in the body is a variable declaration *)
-      let lfront, lback = Tools.split_list_at decl_index tl in
-      let var_decl, lback = Tools.split_list_at 1 lback in
-      let var_decl = begin match var_decl with
-        | [vd] -> vd
-        | _ -> fail t.loc "hoist_aux: expected a loop with a single element"
-        end  in
+      let lfront, var_decl, lback = Internal.get_trm_and_its_relatives 1 (Mlist.to_list tl) in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) in
@@ -198,12 +193,7 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
   | Trm_for (index, direction, start, stop, step, body) ->
     begin match body.desc with
     | Trm_seq tl ->
-      let lfront, lback = Tools.split_list_at decl_index tl in
-      let var_decl, lback = Tools.split_list_at 1 lback in
-      let var_decl = begin match var_decl with
-                     | [vd] -> vd
-                     | _ -> fail t.loc "extract_variable_aux: wrong index"
-                     end in
+      let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (_, (x, tx), _) ->
         let lback = List.map (
@@ -236,9 +226,10 @@ let extract_variable (index : int) : Target.Transfo.local =
   | Trm_for (loop_index, direction, start, stop, step, body) ->
     begin match body.desc with
     | Trm_seq tl ->
-      let first_part, last_part = Tools.split_list_at index tl in
-      let first_body = trm_seq first_part in
-      let second_body = trm_seq last_part in
+
+      let first_part, last_part = Tools.split_list_at index (Mlist.to_list tl) in
+      let first_body = trm_seq_nomarks first_part in
+      let second_body = trm_seq_nomarks last_part in
       trm_seq_no_brace [
         trm_for loop_index direction start stop step first_body;
         trm_for loop_index direction start stop step second_body;]
@@ -256,16 +247,15 @@ let extract_variable (index : int) : Target.Transfo.local =
     return
       update ast with the merged loops
  *)
-
 let fusion_on_block_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
-    let n = List.length tl in
+    let n = Mlist.length tl in
     if n < 2 then fail t.loc "fission_aux: there must be >= 2 loops to apply fussion";
-    let first_loop = List.nth tl 0 in
+    let first_loop = Mlist.nth tl 0 in
      begin match  first_loop.desc with
     | Trm_for (index, direction, start, stop, step, _) ->
-      let fusioned_body = Tools.foldi (
+      let fusioned_body = Mlist.foldi (
         fun i acc loop -> 
           if not (Internal.is_trm_loop loop) then fail loop.loc (Tools.sprintf "fusion_on_block_aux: cannot fuse %d loops as requested only %d where found" n (i+1)) 
            else
@@ -301,7 +291,7 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                               ; trm_var ind]
                     )  (trm_var "") index_and_bounds in
                     let old_loop_index_decl = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) old_loop_index_val in
-                    trm_seq ([old_loop_index_decl] @ tl)
+                    trm_seq_nomarks ([old_loop_index_decl] @ tl)
                    | _ -> fail body.loc "grid_enumerate_aux: the body of the loop should be a sequence"
                    end in
     Tools.foldi (fun i acc (ind, bnd) ->

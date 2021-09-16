@@ -26,6 +26,8 @@ type loc = int
 (* marks *)
 type mark = Mark.t
 
+type 'a mlist = 'a Mlist.t
+
 (* variables *)
 type var = string
 
@@ -336,7 +338,7 @@ and trm_desc =
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm
   (* question: distinguish toplevel seq for other seqs? *)
-  | Trm_seq of trm list (* { st1; st2; st3 } *)
+  | Trm_seq of trm mlist (* { st1; st2; st3 } *)
   | Trm_apps of trm * (trm list) (* f(t1, t2) *)
   | Trm_while of trm * trm (* while (t1) { t2 } *)
   | Trm_for of var * loop_dir * trm * trm * trm  * trm
@@ -750,9 +752,13 @@ let trm_if ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ct
    add; typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_seq ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
-  (tl : trm list) : trm =
+  (tl : trm mlist) : trm =
   {annot; marks = []; desc = Trm_seq tl; loc = loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
+
+let trm_seq_nomarks ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+  (tl : trm list) : trm =
+  trm_seq ~annot ~add ~loc ~attributes ~ctx (Mlist.of_list tl)
 
 let trm_apps ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None) (f : trm)
@@ -955,8 +961,8 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
     let else_' = f is_terminal else_ in
     trm_if ~annot ~loc ~add cond' then_' else_'
   | Trm_seq tl ->
-    let n = List.length tl in
-    let tl' = List.mapi(fun i tsub ->
+    let n = Mlist.length tl in
+    let tl' = Mlist.mapi(fun i tsub ->
       let sub_is_terminal = is_terminal && i == n-1 in
       f sub_is_terminal tsub
     ) tl in
@@ -1018,7 +1024,7 @@ let contains_variable (x : var) (t : trm) : bool =
     | Trm_var y when y = x -> true
     | Trm_let (_, (_, _), init) -> aux init
     | Trm_apps (_, args) -> List.exists aux args
-    | Trm_seq tl -> List.fold_left (fun acc t -> acc || (aux t)) false tl
+    | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || (aux t)) false tl
     | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_for (_, _, _, _, _, body) -> aux body
     | _ -> false
@@ -1194,12 +1200,12 @@ let for_loop_body_trms (t : trm) : trm list =
   match t.desc with
   | Trm_for (_, _, _, _, _, body) ->
     begin match body.desc with
-    | Trm_seq tl -> tl
+    | Trm_seq tl -> Mlist.to_list tl
     | _ -> fail body.loc "for_loop_body_trms: body of a simple loop should be a sequence"
     end
   | Trm_for_c (_, _, _,  body) ->
     begin match body.desc with
-    | Trm_seq tl -> tl
+    | Trm_seq tl -> Mlist.to_list tl
     | _ -> fail body.loc "for_loop_body_trms: body of a generic loop should be a sequence"
     end
   | _ -> fail t.loc "for_loop_body_trms: expected a loop"
@@ -1429,7 +1435,7 @@ end
 
 (* genereate a no_brace sequence with a fresh id *)
 let trm_seq_no_brace (tl : trm list) : trm=
-    trm_seq ~annot:[No_braces (Nobrace.current())] tl
+    trm_seq_nomarks ~annot:[No_braces (Nobrace.current())] tl
 
 (* get the id of the sequence annotated as No_braces *)
 let get_nobrace_id (t : trm) : int =

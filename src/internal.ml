@@ -175,14 +175,15 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
 
   let t = Clang_to_ast.translate_ast ast in
   match t.desc with
-  | Trm_seq [t] ->
+  | Trm_seq tl1 when Mlist.length tl1 = 1 ->
+    let t = Mlist.nth tl1 0 in
      begin match t.desc with
      | Trm_seq tl  ->
-        let fun_def = List.hd (List.rev tl) in
+        let fun_def = List.nth (List.rev (Mlist.to_list tl)) 0 in
         begin match fun_def.desc with
         | Trm_let_fun (_, _, _, fun_body) ->
           begin match fun_body.desc with
-          | Trm_seq tl -> tl
+          | Trm_seq tl -> Mlist.to_list tl
           | _ -> fail fun_body.loc "parse_cstring: expcted a sequence of terms"
           end
         | _ -> fail fun_def.loc "parse_cstring: expected a function definition"
@@ -257,7 +258,7 @@ let rec toplevel_decl (x : var) (t : trm) : trm option =
   | Trm_let_fun (y, _, _, body) ->
     if y = x then Some t else toplevel_decl x body 
   | Trm_seq tl ->
-    List.fold_left(
+    Mlist.fold_left(
       fun acc t1 ->
       match acc with
       | Some _ -> acc
@@ -278,14 +279,17 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
   | Trm_for (index, _, _, _, _, body) ->
     begin match body.desc with
-    | Trm_seq [f_loop] ->
+    | Trm_seq tl when Mlist.length tl = 1  ->
+      let f_loop = Mlist.nth tl 0 in
       index :: get_loop_nest_indices f_loop
     | _ -> index :: []
     end
   | Trm_for_c (_, _, _, body) ->
     let index = for_loop_index t in
     begin match body.desc with
-    | Trm_seq [f_loop] -> index :: get_loop_nest_indices f_loop
+    | Trm_seq tl when Mlist.length tl = 1 -> 
+      let f_loop = Mlist.nth tl 0 in
+      index :: get_loop_nest_indices f_loop
     | _ -> index :: []
     end
   | _ -> []
@@ -376,7 +380,7 @@ let get_trm_and_its_relatives (index : int) (trms : trm list) : (trm list * trm 
     otherwise remove only those sequence with id [id].
 *)
 let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
-  let rec clean_up_in_list (tl : trm list) : trm list =
+  let rec clean_up_in_list (tl : trm mlist) : trm mlist =
     match tl with 
     | [] -> []
     | t :: tl ->
@@ -397,9 +401,9 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
     match t.desc with 
     | Trm_seq tl ->
       trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
-         (clean_up_in_list (List.map aux tl))
+         (clean_up_in_list (Mlist.map aux tl))
     | _ -> trm_map aux t
-  in aux t
+  in Mlist.to_list (aux t)
 
 (* Apply function clean_no_brace over the curren ast *)
 let nobrace_remove_and_exit ?(all : bool = false) () =
@@ -491,10 +495,10 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
     | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_if (cond, then_, else_) -> aux cond +@ aux then_ +@ aux else_
     | Trm_seq tl ->
-      List.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty tl
+      Mlist.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty tl
     | Trm_apps (f, tl) ->
       let ilsm =
-        List.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty tl
+        Mlist.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty tl
       in
       begin match f.desc with 
       (* If f is a variable, we have to add f to ilsm if an argument has type x
