@@ -202,18 +202,26 @@ let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
 
-(* insert an element [e] at index [index] in list [ml] *)
+(* insert an element [e] at index [index] in list [ml], this operation will shift the current element 
+    at list [ml] for one index except for the case when [index] = length [ml] then [e] will be 
+    added at the end of [ml]. The reason for that is because thi technique is fully compatible with 
+    the concept of marks.
+*)
 let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list = 
-  foldi (fun i acc x -> if i = ((List.length l) - index - 1) then e :: x :: acc else x :: acc) [] (List.rev l);;
+  if index = List.length l 
+    then l @ [e] 
+    else foldi (fun i acc x -> 
+      if i = ((List.length l) - index - 1) then e :: x :: acc else x :: acc) [] (List.rev l)
 
 (* insert a list of elements at index [index ] in list [l], all the elments of [l] with index greater than [index] 
   will be shifter for the length  of [el] *)
-let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list = foldi (fun i acc x -> if i = ((List.length l) - index - 1) then  el @ x :: acc else x :: acc) [] (List.rev l)
-
-
-(* TODO: Optimiza me *)
+let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
+  List.fold_left (fun acc x -> insert_at index x acc) l el
+   
 (* slice list [l] from [start] to [stop] and return the slice of the original list together with the original list without the slice*)
 let extract (start : int) (stop : int) (l : 'a list) : ('a list * 'a list) =
-let l = List.mapi (fun i x -> (x, i)) l in
-let l1, l2 = List.partition (fun (_,i) -> (i >= start && i <= stop)) l in
-(List.map (fun (x,_) -> x) l1, List.map (fun (x,_) -> x) l2)
+  let rev_start = (List.length l - (stop + 1)) in
+  let rev_stop = (List.length l - (start + 1)) in
+  foldi (fun i acc x -> if i >= rev_start && i <= rev_stop then (x :: fst acc, snd acc) else (fst acc, x :: snd acc)) ([],[]) (List.rev l)
+
+

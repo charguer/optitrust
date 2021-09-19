@@ -4,10 +4,6 @@ type 'a t =
   { items : 'a list;
    marks : (mark list) list  }
 
-let create () = 
-  { items = []; 
-    marks = [[]]}
-
 let length (ml : 'a t) : int = 
   List.length ml.items
 
@@ -36,12 +32,15 @@ let foldi (acc_f : 'b -> 'a -> 'c -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   Tools.foldi acc_f acc ml.items
 
 let insert_at (index : int) (el : 'a) (ml : 'a t) : 'a t =
+  let sz = length ml in
   { items = Tools.insert_at index el ml.items;
-    marks = Tools.insert_at index [] ml.items}
+    marks = if index = sz then ml.marks @ [] else Tools.insert_at index [] ml.marks}
 
-let insert_sublist_at (index : int) (ml1 : 'a t ) (ml2 : 'a t) : 'a t =
-   { items = Tools.insert_sublist_at index ml1.items ml1.items;
-     marks = Tools.insert_sublist_at index ml1.marks ml2.marks }
+let insert_sublist_at (index : int) (sl : 'a list ) (ml : 'a t) : 'a t =
+   let sz = length ml in
+   let empty_marks = List.map (fun x -> []) sl in
+   { items = Tools.insert_sublist_at index sl ml.items;
+     marks = if index = sz then ml.marks @ empty_marks else Tools.insert_sublist_at index empty_marks ml.marks }
 
 let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) = 
   let items1, items2 = Tools.extract start stop ml.items in
@@ -61,7 +60,6 @@ let remove (start : int) (stop : int) (ml : 'a t) : 'a t =
 let rev (ml : 'a t) : 'a t = 
   { items = List.rev ml.items;
     marks = List.rev ml.marks}
-
 
 let list_update_nth (transfo : 'a -> 'a) (ml : 'a t) (n : int) : 'a t =
   {ml with items = Tools.list_update_nth transfo ml.items n}
