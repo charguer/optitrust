@@ -214,14 +214,19 @@ let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list =
       if i = ((List.length l) - index - 1) then e :: x :: acc else x :: acc) [] (List.rev l)
 
 (* insert a list of elements at index [index ] in list [l], all the elments of [l] with index greater than [index] 
-  will be shifter for the length  of [el] *)
+  will be shifter for the length  of [el] except for the case when [index] = lenth [m] then [l] will be 
+  concatenated at the end of [l]
+*)
 let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
   List.fold_left (fun acc x -> insert_at index x acc) l el
    
-(* slice list [l] from [start] to [stop] and return the slice of the original list together with the original list without the slice*)
+(* slice list [l] from [start] to [stop] and return the original list without the slice and the slice of the original list *)
 let extract (start : int) (stop : int) (l : 'a list) : ('a list * 'a list) =
   let rev_start = (List.length l - (stop + 1)) in
   let rev_stop = (List.length l - (start + 1)) in
-  foldi (fun i acc x -> if i >= rev_start && i <= rev_stop then (x :: fst acc, snd acc) else (fst acc, x :: snd acc)) ([],[]) (List.rev l)
+  foldi (fun i (f_acc, s_acc) x -> if i >= rev_start && i <= rev_stop then (f_acc, x :: s_acc) else (x :: f_acc, s_acc)) ([],[]) (List.rev l)
 
-
+let get_first_last (l : 'a list) : 'a * 'a = 
+  let n = List.length l in
+  if n = 0 then failwith "get_first_last: empty list"
+    else (List.nth l 0, List.nth l (n-1))

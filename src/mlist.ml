@@ -9,11 +9,10 @@ let length (ml : 'a t) : int =
 
 let of_list (l : 'a list) : 'a t = 
   { items = l; 
-    marks = List.init (List.length l) (fun _i -> [])}
+    marks = List.init (List.length l + 1) (fun _i -> [])}
 
 let to_list (ml : 'a t) : 'a list = 
   ml.items
-
 
 let mapi (map_fun : int -> 'a -> 'b) (ml : 'a t) : 'b t = 
   let new_items = List.mapi map_fun ml.items in
@@ -44,12 +43,19 @@ let insert_sublist_at (index : int) (sl : 'a list ) (ml : 'a t) : 'a t =
 
 let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) = 
   let items1, items2 = Tools.extract start stop ml.items in
-  let marks1, marks2 = Tools.extract start stop ml.marks in
+  let temp_marks1, temp_marks2 = Tools.extract start (stop+1) ml.marks in
+  let (mtg1, mtg2) = Tools.get_first_last temp_marks2 in
+  let merged_marks = mtg1 @ mtg2 in
+  let marks2 = temp_marks2 in
+  let marks1 = Tools.insert_sublist_at start merged_marks temp_marks1 in
   ({ items = items1; marks = marks1}, {items = items2; marks = marks2})
 
 let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =
+  let marks1, tmp_marks1 =  Tools.extract (List.length ml1.marks) (List.length ml1.marks + 1) ml1.marks in
+  let marks2, tmp_marks2 = Tools.extract 0 0 ml2.marks in
+  let merged_marks = tmp_marks1 @ tmp_marks2 in
   { items = ml1.items @ ml2.items;
-    marks = ml1.marks @ ml2.marks}
+    marks = marks1 @ merged_marks @ marks2}
 
 let split (index : int) (ml : 'a t) : 'a t * 'a t= 
   extract index ((length ml) -1) ml 
