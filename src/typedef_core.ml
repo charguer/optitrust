@@ -61,12 +61,12 @@ let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : tr
      begin match td.typdef_body with
      | Typdef_alias dx ->
       let ty_x = typ_constr td.typdef_tconstr ~tid:td.typdef_typid  in
-      let lback = List.map(Internal.change_typ ~change_at:[inline_at] ty_x dx) lback in
+      let lback = Mlist.map(Internal.change_typ ~change_at:[inline_at] ty_x dx) lback in
       let tl = Mlist.merge lfront lback in
       let new_tl = 
       if delete then tl else Mlist.insert_at (index-1) dl tl
       in
-      trm_seq ~annot:t.annot tl
+      trm_seq ~annot:t.annot new_tl
      | _ -> fail t.loc "inline_aux: expected a typdef_alias"
      end
     | _ -> fail t.loc "inline_aux: expected a typedef declaration"
@@ -105,7 +105,6 @@ let copy (name : string) : Target.Transfo.local =
 let insert_aux (name : string) (td_body : typdef_body) (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-     let lfront, lback = Tools.split_list_at index tl in
      let tid = next_typconstrid () in
      let trm_to_insert = trm_typedef {typdef_typid = tid; typdef_tconstr = name; typdef_body = td_body;typdef_vars = [];typdef_loc = None} in
      let new_tl = Mlist.insert_at index trm_to_insert tl in

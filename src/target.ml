@@ -651,8 +651,8 @@ let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
       let new_trm = trm_add_mark (string_of_int id) (trm_lit (Lit_unit)) in
-      let new_tl = Mlist.insert k new_trm in
-      trm_seq ~annot:t.annot tl
+      let new_tl = Mlist.insert_at k new_trm tl in
+      trm_seq ~annot:t.annot new_tl
     | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
 
 (* [target_between_show_transfo id k t p]: adds a decorated semi-column with identifier [id]

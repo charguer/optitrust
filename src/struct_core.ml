@@ -84,7 +84,7 @@ let set_explicit : Target.Transfo.local =
 let set_implicit_aux (t: trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     let rhs_trms = List.fold_left ( fun acc instr ->
+     let rhs_trms = Mlist.fold_left ( fun acc instr ->
       match instr.desc with
       | Trm_apps (_, [_;rhs]) ->
         begin match rhs.desc with
@@ -111,7 +111,7 @@ let set_implicit_aux (t: trm) : trm =
           end
       | _ -> fail t.loc "set_implicit_aux: expected a set operation"
     ) [] tl in
-    let first_instruction = List.hd tl in
+    let first_instruction = Mlist.nth tl 0 in
     begin match first_instruction.desc with
     | Trm_apps(f,[lhs;_]) ->
           begin match f.desc with
@@ -128,7 +128,7 @@ let set_implicit_aux (t: trm) : trm =
             in
             begin match rhs_trms with
             | [rhs1] -> trm_set lt rhs1
-            | _ -> trm_set lt (trm_struct rhs_trms)
+            | _ -> trm_set lt (trm_struct (Mlist.of_list rhs_trms))
             end
           | _ -> fail f.loc "set_explicit_aux: expected an assignment instruction"
           end
@@ -207,12 +207,11 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
     | Trm_struct term_list ->
-      let term_list = Mlist.to_list term_list in
       begin match t.typ with
       | Some { typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
-        let trm_to_change = List.nth term_list field_index in
+        let trm_to_change = Mlist.nth term_list field_index in
         begin match trm_to_change.desc with
-        | Trm_struct term_list_to_inline -> trm_struct (Tools.insert_sublist_in_list term_list_to_inline field_index term_list)
+        | Trm_struct _ ->  trm_struct (Internal.inline_sublist_at field_index term_list)(* trm_struct (Tools.insert_sublist_in_list term_list_to_inline field_index term_list) *)
         | Trm_apps(_, [base]) ->
           begin match base.desc with
           | Trm_var p ->
@@ -224,8 +223,9 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
               ]
             ) (List.rev field_list)
             in
-            let new_term_list = (Tools.insert_sublist_in_list trm_list_to_inline field_index term_list) in
-            trm_struct (Mlist.of_list new_term_list)
+            let term_list = Mlist.remove field_index field_index term_list in
+            let new_term_list = Mlist.insert_sublist_at field_index trm_list_to_inline term_list in
+            trm_struct new_term_list
           | _ -> fail base.loc "inline_struct_initialization: expected a heap allocated variable"
           end
         | _ -> trm_map (aux global_trm) t
@@ -249,9 +249,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
 let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, lback = Tools.split_list_at index tl in
-    let td, lback = Tools.split_list_at 1 lback in
-    let td = List.hd td in
+    let lfront, td, lback =  Internal.get_trm_and_its_relatives index tl in
     let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
     begin match td.desc with
     | Trm_typedef td ->
@@ -286,9 +284,11 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let field_list = List.rev  (lfront1 @ (List.rev inner_type_field_list) @ lback1) in
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
        let new_trm = trm_typedef new_typedef in
-       let lback = List.map (inline_struct_accesses field_to_inline) lback in
-       let lback = List.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
-       trm_seq_no_brace (lfront @ [new_trm] @ lback)
+       let lback = Mlist.map (inline_struct_accesses field_to_inline) lback in
+       let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
+       let new_tl = Mlist.merge lfront lback in
+       let new_tl = Mlist.replace_at index new_trm new_tl in
+       trm_seq_no_brace (Mlist.to_lsit new_tl)
       | _ -> fail t.loc "inline_aux: expected a struct "
       end
     | _ -> fail t.loc "inline_aux: expected a trm_typedef"

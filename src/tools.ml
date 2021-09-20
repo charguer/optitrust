@@ -226,7 +226,13 @@ let extract (start : int) (stop : int) (l : 'a list) : ('a list * 'a list) =
   let rev_stop = (List.length l - (start + 1)) in
   foldi (fun i (f_acc, s_acc) x -> if i >= rev_start && i <= rev_stop then (f_acc, x :: s_acc) else (x :: f_acc, s_acc)) ([],[]) (List.rev l)
 
+(* get the first and the last element of the list [l]*)
 let get_first_last (l : 'a list) : 'a * 'a = 
   let n = List.length l in
   if n = 0 then failwith "get_first_last: empty list"
     else (List.nth l 0, List.nth l (n-1))
+
+(* replace element at index [index] with [el] in list [l] *)
+let replace_at (index : int) (el : 'a) (l : 'a list) : 'a list =
+  List.rev (foldi (fun i acc x -> if i = index then el :: acc else x :: acc) [] l)
+

@@ -17,14 +17,28 @@ let interchange_aux (t : trm) : trm =
   match Internal.extract_loop t with
   | Some (loop1, body1) ->
     begin match body1.desc with
-    | Trm_seq[loop2] ->
+    | Trm_seq tl when Mlist.length tl = 1 ->
+      let loop2 = Mlist.nth tl 0 in
+      begin match Internal.extract_loop loop2 with
+      | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
+      | None -> fail body1.loc "internchange_aux: should target a loop with nested loop^inside"
+      end
+    | _ -> fail body1.loc "interchange_aux: body of the loop should be a sequence"
+    end
+  | None -> fail t.loc "interchange_aux: should target a loop"
+
+(* let interchange_aux (t : trm) : trm =
+  match Internal.extract_loop t with
+  | Some (loop1, body1) ->
+    begin match body1.desc with
+    | Trm_seq [loop2] ->
        begin match Internal.extract_loop loop2 with
       | Some (loop2, body2) -> loop2 (trm_seq [(loop1 body2)])
       | None -> fail body1.loc "interchange_aux: should target a loop with nested loop inside"
       end
     | _ -> fail body1.loc "interchange_aux: body of the loop should be a sequence"
     end
-  | None -> fail t.loc "interchange_aux: should target a loop"
+  | None -> fail t.loc "interchange_aux: should target a loop" *)
 
 
 let interchange : Target.Transfo.local =
@@ -57,7 +71,7 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
                             | _ -> false
                             end in
     trm_for (i_color) direction start (trm_var nb_colors) (trm_lit (Lit_int 1)) (
-      trm_seq [
+      trm_seq_nomarks [
         trm_for index direction (if is_step_equal_one then trm_var i_color else trm_apps (trm_binop Binop_mul) [trm_var i_color; step]) stop
          (if is_step_equal_one then  trm_var nb_colors else trm_apps (trm_binop Binop_mul) [trm_var nb_colors; step]) body
       ]
@@ -93,7 +107,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
           trm_var tile_index;
           trm_apps ~annot:[Mutable_var_get](trm_unop Unop_get) [trm_tile_size]]] in
           trm_for tile_index direction start stop (trm_tile_size) (
-              trm_seq [
+              trm_seq_nomarks [
                 trm_for index direction (trm_var tile_index) tile_stop step body])
       | TileBoundAnd ->
           let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [trm_var tile_index]) in
@@ -133,13 +147,13 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
                 end
             end in
             trm_for tile_index direction start stop (trm_tile_size)
-              (trm_seq [trm_for_c init cond step body])
+              (trm_seq_nomarks [trm_for_c init cond step body])
       | TileBoundDivides ->
         let tile_stop = trm_apps (trm_binop Binop_add)[
                           trm_var tile_index;
                           trm_apps ~annot:[Mutable_var_get](trm_unop Unop_get) [trm_tile_size]] in
         trm_for tile_index direction start stop (trm_tile_size) (
-              trm_seq [
+              trm_seq_nomarks [
                 trm_for index direction (trm_var tile_index) tile_stop step body])
      end
 
@@ -165,11 +179,11 @@ let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
     begin match body.desc with
     | Trm_seq tl ->
       (* We assume that the first elment in the body is a variable declaration *)
-      let lfront, var_decl, lback = Internal.get_trm_and_its_relatives 1 (Mlist.to_list tl) in
+      let var_decl = Mlist.nth tl decl_index in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) in
-        let new_body = trm_seq ~annot:body.annot (lfront @ [new_decl] @ lback) in
+        let new_body = trm_seq (Mlist.insert_at decl_index new_decl tl) in
         let inner_typ = get_inner_ptr_type tx in
         trm_seq_no_brace[
           trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
@@ -196,13 +210,13 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (_, (x, tx), _) ->
-        let lback = List.map (
+        let lback = Mlist.map (
           Internal.change_trm (trm_var x)
           (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x; trm_var index] )
         ) lback in
         trm_seq_no_brace [
           trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (get_inner_ptr_type tx) (Trm stop))) (trm_prim (Prim_new (typ_array (get_inner_ptr_type tx) (Trm stop))));
-          trm_for index direction start stop step (trm_seq ~annot:body.annot (lfront @ lback))
+          trm_for index direction start stop step (trm_seq ~annot:body.annot (Mlist.merge lfront lback))
         ]
       | _ -> fail var_decl.loc "extract_variable_aux: expected the declaration of the variable to be extracted"
       end
@@ -259,9 +273,9 @@ let fusion_on_block_aux (t : trm) : trm =
         fun i acc loop -> 
           if not (Internal.is_trm_loop loop) then fail loop.loc (Tools.sprintf "fusion_on_block_aux: cannot fuse %d loops as requested only %d where found" n (i+1)) 
            else
-          acc @ (for_loop_body_trms loop)
+          acc @ (Mlist.to_list (for_loop_body_trms loop))
       ) [] tl in
-      trm_for index direction start stop step (trm_seq fusioned_body)
+      trm_for index direction start stop step (trm_seq_nomarks fusioned_body)
     | _ -> fail t.loc "fusion_on_block_aux: all loops should be simple loops"
     end
   | _ -> fail t.loc "fission_aux: expected a sequence of for loops"
@@ -291,13 +305,14 @@ let grid_enumerate_aux (index_and_bounds : (string * string) list) (t : trm) : t
                               ; trm_var ind]
                     )  (trm_var "") index_and_bounds in
                     let old_loop_index_decl = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) old_loop_index_val in
-                    trm_seq_nomarks ([old_loop_index_decl] @ tl)
+                    let new_tl = Mlist.insert_at 0 old_loop_index_decl tl in
+                    trm_seq new_tl
                    | _ -> fail body.loc "grid_enumerate_aux: the body of the loop should be a sequence"
                    end in
     Tools.foldi (fun i acc (ind, bnd) ->
       if i = 0 then  trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) acc
-        else  trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) (trm_seq [acc])
-    )new_body (List.rev index_and_bounds)
+        else  trm_for ind direction (trm_lit (Lit_int 0)) (trm_var bnd) (trm_lit (Lit_int 1)) (trm_seq_nomarks [acc])
+    ) new_body (List.rev index_and_bounds)
   | _ -> fail t.loc "grid_enumerate_aux: expected a simple loop"
 
 
@@ -352,13 +367,13 @@ let invariant_aux (trm_index : int) (t : trm) : trm =
   | Trm_for (index, direction, start, stop, step, _) ->
     let tl = for_loop_body_trms t in
     let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
-    trm_seq ~annot: [No_braces (Nobrace.current())] ([trm_inv] @ [
-      trm_for index direction start stop step (trm_seq (lfront @ lback))])
+    trm_seq_nomarks ~annot: [No_braces (Nobrace.current())] ([trm_inv] @ [
+      trm_for index direction start stop step (trm_seq (Mlist.merge lfront lback))])
   | Trm_for_c (init, cond, step, _) ->
     let tl = for_loop_body_trms t in
     let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
-    trm_seq ~annot: [No_braces (Nobrace.current())]  ([trm_inv] @ [
-      trm_for_c init cond step (trm_seq (lfront @ lback))])
+    trm_seq_nomarks ~annot: [No_braces (Nobrace.current())]  ([trm_inv] @ [
+      trm_for_c init cond step (trm_seq (Mlist.merge lfront lback))])
   | _ -> fail t.loc "invariant_aux: expected a loop"
 
 let invariant (trm_index : int) : Target.Transfo.local =
@@ -374,12 +389,12 @@ let invariant (trm_index : int) : Target.Transfo.local =
 *)
 let unswitch_aux (trm_index : int) (t : trm) : trm =
   let tl = for_loop_body_trms t in
-  let lfront, if_stmt, lback = Internal.get_trm_and_its_relatives trm_index tl in
+  let if_stmt = Mlist.nth tl trm_index in
   match if_stmt.desc with
   | Trm_if (cond, then_, else_) ->
     let then_ = Internal.set_no_brace_if_sequence then_ in
     let else_ = Internal.set_no_brace_if_sequence else_ in
-    let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (lfront @ [t1] @ lback )) in
+    let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (Mlist.replace_at trm_index t1 tl )) in
     trm_if cond (wrap_branch then_) (wrap_branch else_)
   | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
 
@@ -410,7 +425,7 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
     trm_for new_index direction (trm_lit (Lit_int 0))
       (trm_apps (trm_binop Binop_div) [trm_apps (trm_binop Binop_sub) [stop; start]; step])
       (trm_lit (Lit_int 1))
-      (trm_seq ([new_decl] @ body_trms ))
+      (trm_seq (Mlist.insert_at 0 new_decl body_trms ))
 
   | _ -> fail t.loc "to_unit_steps_aux: expected a simple for loop"
 

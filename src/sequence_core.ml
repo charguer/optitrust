@@ -17,8 +17,8 @@ let insert_aux (index : int) (s : string) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
       let new_trm = code s in
-      Mlist.insert_at index new_trm tl
-      trm_seq ~annot:t.annot tl
+      let new_tl = Mlist.insert_at index new_trm tl in
+      trm_seq ~annot:t.annot new_tl
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
 let insert (index : int) (s : string) : Target.Transfo.local =
@@ -59,7 +59,7 @@ let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
         if nb > 0 then Mlist.extract index (index + nb) tl else Mlist.extract (index+ nb) index tl in
         let intro_seq = trm_seq tl1 in
         let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
-          Mlist.insert_at index intro_seq tl2
+         trm_seq  ~annot:t.annot (Mlist.insert_at index intro_seq tl2)
     | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 
 let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local =
@@ -74,7 +74,7 @@ let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local
 let elim_aux (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     trm_seq_no_brace tl
+     trm_seq_no_brace (Mlist.to_list tl)
   | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
 
 
@@ -90,7 +90,7 @@ let elim : Target.Transfo.local =
     updated ast of the outer sequence with wrapped node t
  *)
 let intro_on_instr_aux (label : string) (visible : bool) (t : trm) : trm =
-  let wrapped_seq = if visible then trm_seq [t] else trm_seq_no_brace [t] in
+  let wrapped_seq = if visible then trm_seq_nomarks [t] else trm_seq_no_brace [t] in
   if label <> "" then trm_labelled label wrapped_seq else wrapped_seq 
  
 let intro_on_instr (visible : bool) (label : string) : Target.Transfo.local=
@@ -122,7 +122,7 @@ let unwrap : Target.Transfo.local =
 let split_aux (index : int) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    let first_part_last_part = Mlist.split index tl in
+    let first_part,last_part = Mlist.split index tl in
     trm_seq_no_brace [trm_seq ~annot:t.annot first_part;trm_seq ~annot:t.annot last_part]
   | _ -> fail t.loc "split_aux: expected a sequence, containing the location where it is going to be splitted"
 
@@ -146,8 +146,8 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
             lfront :: acc
         ) [] blocks in
         begin match visible with 
-        | true -> trm_seq ~annot:t.annot (Mlist.of_list (Mlist.map (trm_seq_nomarks) (List.rev partition)))
-        | false -> trm_seq ~annot:t.annot (Mlist.of_list (Mlist.map (trm_seq_no_brace) (List.rev partition)))
+        | true -> trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq_nomarks) (List.rev partition)))
+        | false -> trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq_no_brace) (List.rev partition)))
         end
         
   | _ -> fail t.loc "partial_aux: expected a sequence to partition"

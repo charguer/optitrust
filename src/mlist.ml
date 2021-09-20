@@ -27,19 +27,23 @@ let fold_left (acc_f : 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
 let nth (ml : 'a t) (index : int) : 'a = 
   List.nth ml.items index 
 
-let foldi (acc_f : 'b -> 'a -> 'c -> 'b) (acc : 'b) (ml : 'a t) : 'b =
+let foldi (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   Tools.foldi acc_f acc ml.items
 
 let insert_at (index : int) (el : 'a) (ml : 'a t) : 'a t =
   let sz = length ml in
   { items = Tools.insert_at index el ml.items;
-    marks = if index = sz then ml.marks @ [] else Tools.insert_at index [] ml.marks}
+    marks = if index = sz then ml.marks @ [[]] else Tools.insert_at index [] ml.marks}
 
 let insert_sublist_at (index : int) (sl : 'a list ) (ml : 'a t) : 'a t =
    let sz = length ml in
    let empty_marks = List.map (fun _ -> []) sl in
    { items = Tools.insert_sublist_at index sl ml.items;
      marks = if index = sz then ml.marks @ empty_marks else Tools.insert_sublist_at index empty_marks ml.marks }
+
+let replace_at (index : int) (el : 'a) (ml : 'a t) : 'a t =
+  {ml with items = Tools.replace_at index el ml.items}
+
 
 let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) = 
   let items1, items2 = Tools.extract start stop ml.items in

@@ -5,7 +5,7 @@ open Ast
 let atomic_aux (ao : atomic_operation option) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
-    let new_tl = Mlist.insert_at (trm_omp_directive (Atomic ao)) index tl in 
+    let new_tl = Mlist.insert_at index (trm_omp_directive (Atomic ao)) tl in 
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "atomic_aux: expected the sequence where the directive is going to be added"
 
@@ -185,7 +185,7 @@ let master (index : int) : Target.Transfo.local =
 let ordered_aux (cl : clause list) (index : int) (t : trm) : trm =   
   match t.desc with 
   | Trm_seq tl->
-    let new_tl = Mlist.insert_at index trm_omp_directive (Ordered cl) tl in
+    let new_tl = Mlist.insert_at index (trm_omp_directive (Ordered cl)) tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "ordered_aux: expected the sequence where the directive is going to be added"
 
@@ -780,6 +780,7 @@ let get_ancestor_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm
     | None ->  
       trm_let Var_mutable (thread_num, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_ancestor_thread_num)])
     end in
+    let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "get_ancestor_thread_num_aux: expected the sequence where the call to the routine is going to be added"
 

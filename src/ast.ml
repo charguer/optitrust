@@ -1196,16 +1196,16 @@ let for_loop_nb_iter (t : trm) : trm =
        ]
 
 (* get the list of trms from the body of the loop *)
-let for_loop_body_trms (t : trm) : trm list =
+let for_loop_body_trms (t : trm) : trm mlist =
   match t.desc with
   | Trm_for (_, _, _, _, _, body) ->
     begin match body.desc with
-    | Trm_seq tl -> Mlist.to_list tl
+    | Trm_seq tl -> tl
     | _ -> fail body.loc "for_loop_body_trms: body of a simple loop should be a sequence"
     end
   | Trm_for_c (_, _, _,  body) ->
     begin match body.desc with
-    | Trm_seq tl -> Mlist.to_list tl
+    | Trm_seq tl -> tl
     | _ -> fail body.loc "for_loop_body_trms: body of a generic loop should be a sequence"
     end
   | _ -> fail t.loc "for_loop_body_trms: expected a loop"

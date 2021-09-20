@@ -51,7 +51,7 @@ let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : 
                    | _ -> fail t.loc "fold_aux: expected a new operation"
                    end
             end in
-        let lback = List.map(Internal.change_trm ~change_at:[fold_at] def_x t_x) lback
+        let lback = Mlist.map(Internal.change_trm ~change_at:[fold_at] def_x t_x) lback
         (*
           def_x might have been replaced with x in the definition of x
           -> replace it again with def_x
@@ -105,13 +105,13 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
         let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
         let struct_def = Typ_map.find tyid typid_to_typedef_map in
         let field_list = fst (List.split (Internal.get_field_list struct_def)) in
-        List.map (fun t1 ->
+        Mlist.map (fun t1 ->
           List.fold_left2 (fun acc t2 f2 ->  Internal.change_trm ~change_at:[inline_at] 
             (trm_apps (trm_unop (Unop_struct_field_get f2)) [trm_var x]) t2 acc
-          ) t1 field_init field_list) lback 
-      | _ -> List.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
+          ) t1 (Mlist.to_list field_init) field_list) lback 
+      | _ -> Mlist.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
       end in
-      let new_tl = Mlist.merge lfront @ lback in
+      let new_tl = Mlist.merge lfront lback in
       let new_tl = if delete_decl then new_tl else Mlist.insert_at (index - 1) dl new_tl in
       trm_seq ~annot:t.annot new_tl
     | _ -> fail t.loc "inline_aux: expected a variable declaration"
@@ -206,7 +206,7 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with 
     | Trm_let (_, (x, tx), _) ->
-        let init_index = Tools.foldi (fun i acc t1 -> 
+        let init_index = Mlist.foldi (fun i acc t1 -> 
           match t1.desc with 
           | Trm_apps(_,[ls;_]) ->
             begin match ls.desc with 
@@ -232,7 +232,7 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
           let tx = if const then typ_const inner_type else typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut inner_type in
           let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
           let new_trm = trm_let vk (x, tx)  init in
-          let new_front = Mlist.merge lfront lfront 1 in
+          let new_front = Mlist.merge lfront lfront1 in
           let new_back = Mlist.insert_at 0 new_trm lback in
           let new_tl = Mlist.merge new_front new_back in
           trm_seq ~annot:t.annot new_tl
