@@ -137,7 +137,7 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
     let blocks = if blocks = [] then [nb] else blocks in
     let sum_blocks = List.fold_left (+) 0 blocks in
     if sum_blocks <> nb 
-      then fail t.loc (Tools.sprintf "partition: the partition entered is not correct, the list length is %d, while the sum of the block size is %d" (List.length tl) sum_blocks)
+      then fail t.loc (Tools.sprintf "partition: the partition entered is not correct, the list length is %d, while the sum of the block size is %d" (Mlist.length tl) sum_blocks)
       else
         let current_list = ref tl in
         let partition = List.fold_left (fun acc x -> 
@@ -162,7 +162,7 @@ let reorder_blocks_aux (t : trm) : trm =
     let transformed_list = List.map (fun t1 -> 
       begin match t1.desc with
       | Trm_seq tl1 ->
-        Tools.split_list_at 1 (Mlist.to_list tl1)
+        Tools.get_first_last (Mlist.to_list tl1)
       | _ -> fail t1.loc "reorder_block_aux: blocks should be sequences"
       end
     ) (Mlist.to_list tl) in

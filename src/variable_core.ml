@@ -233,7 +233,7 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
           let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
           let new_trm = trm_let vk (x, tx)  init in
           let new_front = Mlist.merge lfront lfront1 in
-          let new_back = Mlist.insert_at 0 new_trm lback in
+          let new_back = Mlist.insert_at 0 new_trm lback1 in
           let new_tl = Mlist.merge new_front new_back in
           trm_seq ~annot:t.annot new_tl
         | _ -> fail assgn_to_change.loc "init_attach: something wen't wrong"
@@ -296,8 +296,8 @@ let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : t
     let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
     let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
     let tl = Mlist.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
-    let new_tl = List.insert_at 0 fst_instr tl in
-    let new_tl = List.insert_at ((List.length tl) - 1) lst_instr in
+    let new_tl = Mlist.insert_at 0 fst_instr tl in
+    let new_tl = Mlist.insert_at ((Mlist.length tl) - 1) lst_instr new_tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "local_other_name_aux: expected a sequence"
 

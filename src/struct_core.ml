@@ -288,7 +288,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.replace_at index new_trm new_tl in
-       trm_seq_no_brace (Mlist.to_lsit new_tl)
+       trm_seq_no_brace (Mlist.to_list new_tl)
       | _ -> fail t.loc "inline_aux: expected a struct "
       end
     | _ -> fail t.loc "inline_aux: expected a trm_typedef"
@@ -384,13 +384,13 @@ let to_variables_aux (index : int) (t : trm) : trm =
       let struct_init_list = begin match init.desc with
                              | Trm_apps(_, [base]) ->
                               begin match base.desc with
-                              | Trm_struct ls -> ls
+                              | Trm_struct ls -> (Mlist.to_list ls)
                               | _ -> fail init.loc "struct_to_variables_aux: expected a struct initialisation"
                               end
-                             | Trm_struct ls -> ls
+                             | Trm_struct ls -> (Mlist.to_list ls)
                              | _ -> []
                              end in
-      let variable_declarations = List.mapi( fun  i (sf, ty) ->
+      let var_decls = List.mapi( fun  i (sf, ty) ->
           match struct_init_list with
           | [] -> trm_let Var_mutable (x ^ "_" ^sf, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim (Prim_new ty))
           | _ -> trm_let Var_mutable (x ^ "_" ^sf, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_apps (trm_prim (Prim_new ty)) [List.nth struct_init_list i])
@@ -401,7 +401,7 @@ let to_variables_aux (index : int) (t : trm) : trm =
         ) t1 (List.rev (fst (List.split field_list)))
       ) lback in
       let new_tl = Mlist.merge lfront lback in
-      let new_tl = Mlist.insert_at (index - 1) new_tl in
+      let new_tl = Mlist.insert_sublist_at (index - 1) var_decls new_tl in
       trm_seq ~annot:t.annot new_tl 
 
    | _ -> fail trm_to_change.loc "struct_to_variables_aux: expected a variable declaration"
