@@ -75,7 +75,7 @@ let _ = Run.script_cpp (fun _ ->
    {
      { { instr1 instr2(i+0) } { instr3 instr4 instr5(i+0) } }
      { { instr1 instr2(i+1) } { instr3 instr4 instr5(i+1) } }
-     { { instr1 instr2(i+2) } { instr3 instr4 instr5(i+2) }
+     { { instr1 instr2(i+2) } { instr3 instr4 instr5(i+2) } }
    }
    THIRD SUBSTEP: reorder instructions
    {

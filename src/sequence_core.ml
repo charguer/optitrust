@@ -146,8 +146,8 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
             lfront :: acc
         ) [] blocks in
         begin match visible with 
-        | true -> trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq_nomarks) (List.rev partition)))
-        | false -> trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq_no_brace) (List.rev partition)))
+        | true -> trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq) (List.rev partition)))
+        | false -> trm_annot_add (No_braces (Nobrace.current())) (trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq) (List.rev partition))))
         end
         
   | _ -> fail t.loc "partial_aux: expected a sequence to partition"
@@ -156,19 +156,35 @@ let partition (blocks : int list) (visible : bool): Target.Transfo.local =
   Target.apply_on_path (partition_aux blocks visible)
 
 
-let reorder_blocks_aux (t : trm) : trm = 
+let reorder_blocks_aux (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let transformed_list = List.map (fun t1 -> 
+      begin match t1.desc with
+      | Trm_seq tl1 ->
+        Tools.split_list_at 1 (Mlist.to_list tl1)
+      | _ -> fail t1.loc "reorder_block_aux: blocks should be sequences"
+      end
+    ) (Mlist.to_list tl) in
+    let first_part, last_part = List.split transformed_list in
+    trm_seq ~annot:t.annot (Mlist.merge (Mlist.of_list first_part) (Mlist.of_list last_part))
+
+
+  | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
+
+(* let reorder_blocks_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
     let transformed_list = Mlist.fold_left (fun acc el -> 
       match el.desc with 
       | Trm_seq tl1 ->
-        (Tools.split_list_at 1 tl1) :: acc
+        (Mlist.split 1 tl1) :: acc
       | _ -> fail t.loc "reorder_blocks_aux: blocks should be sequences"
       ) [] (Mlist.rev tl) in
     let first_part, second_part = List.split transformed_list in
-    trm_seq ~annot:t.annot ((List.flatten first_part) @ (List.flatten second_part))
+    trm_seq ~annot:t.annot (Mlist.merge (List.flatten first_part) (List.flatten second_part))
   | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
-  (* LATER: add an option for creating visible sequences around the groups of similar instructions *)
+  (* LATER: add an option for creating visible sequences around the groups of similar instructions *)*)
 
 let reorder_blocks : Target.Transfo.local = 
-  Target.apply_on_path (reorder_blocks_aux)
+  Target.apply_on_path (reorder_blocks_aux) 
