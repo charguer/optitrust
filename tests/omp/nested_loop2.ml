@@ -5,9 +5,9 @@ let _ = Run.script_cpp (fun _ ->
 
   !! Sequence_basic.intro 1 [cFor "j"];
   !! Sequence_basic.intro 1 [cFor "i"];
-  !! Omp.parallel [Default Shared_m] [tBefore; cSeq ~args:[cFor "i"] ()];
+  !! Omp.parallel [Default Shared_m] [tBefore; cSeq ~args:[[cFor "i"]] ()];
   !! Omp.for_ [] [tBefore; cFor "j"];
-  !! Omp.parallel [Default Shared_m] [tBefore; cSeq ~args:[cFor "i"] ()];
+  !! Omp.parallel [Default Shared_m] [tBefore; cSeq ~args:[[cFor "i"]] ()];
   !! Omp.for_ [] [tBefore; cFor "i"];
   
 )

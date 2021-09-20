@@ -8,6 +8,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.task [Shared ["z"]] [tBefore; cFor "i"];
   !! Omp.target_teams [Map_c (From, ["Z[C:CHUNKSZ]"])] [tBefore; cFor "i"];
   !! Omp.parallel_for [] [tBefore; cFor "i"];
-show [tAfter; cFor "i"];
   !! Omp.taskwait [tAfter; cFor "i"];
 )
