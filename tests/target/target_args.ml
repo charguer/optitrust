@@ -9,8 +9,9 @@ let _ = Run.script_cpp (fun () ->
   (* find sequences of 3 instructions, the last one being a var def z *)
   show [ cSeq ~args:[[]; []; [cVarDef "z"]] () ];
 
+  !!! ();
   (* find all sequences *)
-  show [ nbExact 8; cSeq ~args_pred:target_list_pred_always_true () ];
+  sshow [ nbExact 8; cSeq ~args_pred:target_list_pred_always_true () ];
   (* find all sequences with at least one var def x *)
   show [ nbExact 5; cSeq ~args_pred:(target_list_one_st_target [cVarDef ""]) () ];
 (* find all sequences with only var defs *)

@@ -5,7 +5,6 @@ TARGET_MAKE_ALL := check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
-	arbitrary_if.ml \
 	array_swap.ml \
 	array_tile.ml \
 	array_to_variables.ml \
@@ -28,23 +27,24 @@ TESTS_WORKING := \
 	replace.ml \
 	sequence_elim_around_instr.ml \
 	sequence_insert.ml \
+	sequence_intro_on_instr.ml \
+	struct_fields_reorder.ml \
+	variable_rename.ml\
+
+TESTS_TOCHECK := \
+	arbitrary_if.ml \
+	loop_fusion.ml \
+	aos_to_soa.ml \
+	struct_set_explicit.ml \
+	typedef_insert.ml \
 	sequence_intro.ml \
 	sequence_delete.ml \
 	sequence_elim.ml \
-	sequence_intro_on_instr.ml \
-	struct_fields_reorder.ml \
 	struct_set_implicit.ml \
 	typedef_inline.ml \
 	typedef_fold.ml \
 	variable_inline.ml \
 	variable_fold.ml \
-	variable_rename.ml\
-
-TESTS_TOCHECK := \
-	loop_fusion.ml \
-	aos_to_soa.ml \
-	struct_set_explicit.ml \
-	typedef_insert.ml \
 
 ARTHUR_TO_SPEC := \
 	from_one_to_many.ml \
