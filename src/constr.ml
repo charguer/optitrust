@@ -195,7 +195,7 @@ type target_struct = {
    target_relative : target_relative;
    target_occurrences : target_occurrences; }
 
-let make_target_list_pred ith_target validate to_string =
+let make_target_list_pred (ith_target : int -> target) (validate : bool list -> bool) (to_string : unit -> string) : target_list_pred =
   { target_list_pred_ith_target = ith_target;
     target_list_pred_validate = validate;
     target_list_pred_to_string = to_string; }

@@ -224,8 +224,7 @@ val target_list_one_st : target -> target_list_pred
 
 val target_list_all_st : target -> target_list_pred
 
-val target_list_pred_always_true : target_list_pred
-
+val target_list_pred_default : target_list_pred
 
 (* Target resolution *)
 

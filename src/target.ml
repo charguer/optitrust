@@ -248,7 +248,7 @@ let cAnd (tgl : target list) : constr =
 let target_list_simpl (args : targets) : target_list_pred =
   let n = List.length args in
   make_target_list_pred
-    (fun i -> if i < n then List.nth args i else [bFalse]) (* TODO the else to name "target_none" *)
+    (fun i -> if i < n then List.nth args i else [cStrict;bFalse]) (* TODO the else to name "target_none" *)
     (fun bs -> List.length bs = n && list_all_true bs)
     (fun () -> "target_list_simpl(" ^ (list_to_string (List.map target_to_string args) ^ ")"))
 
@@ -263,7 +263,7 @@ let target_list_one_st (tg : target) : target_list_pred =(* LATER: KEEP ONLY THI
     (fun () -> "target_list_one_st(" ^ (target_to_string tg) ^ ")")
 
 
-(* Converts a constraint into a [target_list_pred] that checks that at least all the items in the list satisfies the given constraint *)
+(* Converts a target into a [target_list_pred] that checks that at least all the items in the list satisfies the given constraint *)
 let target_list_all_st (tg : target) : target_list_pred = (* LATER: KEEP ONLY THIS *)
   make_target_list_pred
     (fun _i -> tg)
@@ -271,13 +271,7 @@ let target_list_all_st (tg : target) : target_list_pred = (* LATER: KEEP ONLY TH
     (fun () -> "target_list_all_st(" ^ (target_to_string tg) ^ ")")
 
 (* Predicate that matches any list of arguments *)
-let target_list_pred_always_true : target_list_pred =
-  make_target_list_pred
-    (fun _i -> [])
-    list_all_true
-    (fun () -> "target_list_pred_always_true")
-
-let target_list_pred_default =
+let target_list_pred_default : target_list_pred =
   make_target_list_pred
     (fun _i -> [])
     list_all_true

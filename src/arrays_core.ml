@@ -548,7 +548,6 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
         end
 
     | Trm_let (vk, (n, dx), _) ->
-      Tools.printf "Arrived here!\n";
        begin match dx.typ_desc with
        | Typ_ptr {inner_typ = ty;_} ->
         begin match ty.typ_desc with

@@ -390,9 +390,9 @@ let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
 (* Remove all the sequences from ast with annotation No_braces if [all] is equal to true
     otherwise remove only those sequence with id [id].
 *)
-(* TODO: Test me! *)
+(* TODO: Fix me! *)
 let clean_no_brace_seq (id : int) (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
+  let rec aux (t : trm) : trm =
     match t.desc with 
     | Trm_seq tl ->
       let indices_list = List.flatten (List.mapi (fun i t1 -> 
@@ -400,13 +400,15 @@ let clean_no_brace_seq (id : int) (t : trm) : trm =
         if current_seq_id = id then [i]
           else [] 
       ) (Mlist.to_list tl)) in
-      let new_tl = List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list) in
-      let new_tl = Mlist.map (aux global_trm) new_tl in
+      let new_tl = if indices_list <> [] then List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list) 
+                    else tl in
+      let new_tl = Mlist.map aux new_tl in
       trm_seq new_tl
-    | _ -> trm_map (aux global_trm) t
-   in aux t t
+    | _ -> trm_map aux t
+   in aux t 
 
 (* Apply function clean_no_brace over the curren ast *)
+
 let nobrace_remove_and_exit () =
   let id = Nobrace.exit () in
   Trace.apply (fun ast -> clean_no_brace_seq id ast)

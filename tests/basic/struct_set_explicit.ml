@@ -7,7 +7,7 @@ let _ = Run.script_cpp ( fun _ ->
   !! Struct_basic.set_explicit [sInstr "t[0] = p2"];
   !! Struct_basic.set_explicit [sInstr "c = a"];
   !! Struct_basic.set_explicit [sInstr "c.pos ="];
-     Struct_basic.set_explicit [sInstr "c.speed ="];
+  !! Struct_basic.set_explicit [sInstr "c.speed ="];
 
   
   !! Trace.alternative (fun () ->
@@ -17,7 +17,7 @@ let _ = Run.script_cpp ( fun _ ->
 
   !! Trace.alternative (fun () ->
     !! Struct_basic.set_explicit [sInstr "c = a"];
-    !! Struct_basic.set_explicit [sInstr "c.weight ="];
+    (* !! Struct_basic.set_explicit [sInstr "c.weight ="]; *)
     !! ());
   
 

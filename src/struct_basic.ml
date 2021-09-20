@@ -6,8 +6,7 @@ open Target
 *)
 let set_explicit (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
-  Target.apply_on_targets(Struct_core.set_explicit) tg
-  )
+  Target.apply_on_targets(Struct_core.set_explicit) tg)
 
 (*  [set_implicit tg] expects [tg] to point to a sequence containing
       a list of struct set assignments. And transorms it into a single
