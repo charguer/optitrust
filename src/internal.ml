@@ -1,6 +1,5 @@
 open Ast
 open Target
-open Tools
 (* Replaces all the occurrences of t_before in the ast [t] with t_after.
     If the user does not want to target the full ast but just some specific locations,
     then he can enter the targeted locations in [change_at].
@@ -368,8 +367,8 @@ let reorder_fields (reorder_kind : reorder) (local_l : var list) (sf : (var * ty
     t itself and the list of trms behind t.
 *)
 let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
-  let lback, lfront = Mlist.extract index ((Mlist.length trms) - 1) trms in
-  let element, lback = Mlist.extract 0 0 lback in
+  let lfront, lback = Mlist.extract index ((Mlist.length trms) - 1) trms in
+  let lback, element = Mlist.extract 0 0 lback in
   let element = 
     if Mlist.length element = 1 
       then Mlist.nth element 0 
@@ -377,45 +376,40 @@ let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * tr
   in
   (lfront, element, lback)
   
+(* In the case of nested sequence, nested initialization lists for arrays and structs, this function
+    can be used to inline the sublist at index [index] into the main list
+*)
+let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
+  let lfront, st, lback  = get_trm_and_its_relatives index ml in
+  match st.desc with 
+  | Trm_seq tl | Trm_array tl | Trm_struct tl -> 
+    Mlist.merge (Mlist.merge lfront tl) lback
+  | _ -> fail st.loc "inline_sublist_at: expected an ast node which taks a mlist as parameter"
+
+
 (* Remove all the sequences from ast with annotation No_braces if [all] is equal to true
     otherwise remove only those sequence with id [id].
 *)
-
-let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
-  let rec clean_up_in_list (tl : trm mlist) : trm mlist =
-    match (Mlist.to_list tl) with 
-    | [] -> []
-    | t :: tl ->
-      begin match t.desc with
-      | Trm_seq tl' ->
-        begin match all with 
-        | false ->
-          let current_seq_id = get_nobrace_id t in
-          if current_seq_id = id 
-            then Mlist.merge tl' (clean_up_in_list tl)
-            
-            else t :: (clean_up_in_list tl) 
-        | true ->
-          tl' @ (clean_up_in_list tl)
-        end
-      | _ -> t :: (clean_up_in_list tl)
-      end in
-  let rec aux (t : trm) : trm =
+(* TODO: Test me! *)
+let clean_no_brace_seq (id : int) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with 
     | Trm_seq tl ->
-      trm_seq ~annot:t.annot ~loc:t.loc ~add:t.add ~attributes:t.attributes
-         (clean_up_in_list (Mlist.map aux tl))
-    | _ -> trm_map aux t
-  in Mlist.to_list (aux t)
+      let indices_list = List.flatten (List.mapi (fun i t1 -> 
+        let current_seq_id = get_nobrace_id t1 in
+        if current_seq_id = id then [i]
+          else [] 
+      ) (Mlist.to_list tl)) in
+      let new_tl = List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list) in
+      let new_tl = Mlist.map (aux global_trm) new_tl in
+      trm_seq new_tl
+    | _ -> trm_map (aux global_trm) t
+   in aux t t
 
 (* Apply function clean_no_brace over the curren ast *)
-let nobrace_remove_and_exit ?(all : bool = false) () =
-    match all with 
-    | true -> 
-      Trace.apply (fun ast -> clean_no_brace_seq ~all (-1) ast)
-    | false ->
-      let id = Nobrace.exit () in
-      Trace.apply (fun ast -> clean_no_brace_seq ~all id ast)
+let nobrace_remove_and_exit () =
+  let id = Nobrace.exit () in
+  Trace.apply (fun ast -> clean_no_brace_seq id ast)
     
     
 (* Called when there is generated a no brace sequence from a transformation, this is needed
@@ -427,7 +421,7 @@ let nobrace_enter () =
 (* Transform a normal sequence into a nobrace sequence *)
 let set_no_brace_if_sequence (t : trm) : trm = 
   match t.desc with 
-  | Trm_seq tl1 -> trm_seq_no_brace tl1
+  | Trm_seq tl1 -> trm_seq_no_brace (Mlist.to_list tl1)
   | _-> t
 
 (* Change the current body of loop [loop] with [body]*)
@@ -481,11 +475,10 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x )) y
   | _ -> trm_map (replace_type_with x y) t
 
-
 (* replace with x the types of the variables given by their index
   assumption: t is a fun body whose argument are given by tvl
 *)
-let replace_arg_types_with (x : typvar) (il : int list) (tvl : typed_var list) (t : trm) : trm =
+(* let replace_arg_types_with (x : typvar) (il : int list) (tvl : typed_var list) (t : trm) : trm =
   List.fold_left (fun t' i ->
     let (y, _) = List.nth tvl i in
     replace_type_with x y t'
@@ -580,7 +573,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
 
         )
         ils res
-    ) ilsm ilsm
+    ) ilsm ilsm *)
 
 
 (*

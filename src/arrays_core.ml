@@ -159,7 +159,7 @@ let rec apply_tiling (base_type : typ) (block_name : typvar) (b : trm) (x : typv
 let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, d, lback = Int.get_trm_and_its_relatives index tl in
+    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
     let base_type_name, base_type =
     begin match d.desc with
     | Trm_typedef td ->

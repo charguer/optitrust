@@ -37,7 +37,7 @@ let insert_at (index : int) (el : 'a) (ml : 'a t) : 'a t =
 
 let insert_sublist_at (index : int) (sl : 'a list ) (ml : 'a t) : 'a t =
    let sz = length ml in
-   let empty_marks = List.map (fun x -> []) sl in
+   let empty_marks = List.map (fun _ -> []) sl in
    { items = Tools.insert_sublist_at index sl ml.items;
      marks = if index = sz then ml.marks @ empty_marks else Tools.insert_sublist_at index empty_marks ml.marks }
 
@@ -47,7 +47,7 @@ let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) =
   let (mtg1, mtg2) = Tools.get_first_last temp_marks2 in
   let merged_marks = mtg1 @ mtg2 in
   let marks2 = temp_marks2 in
-  let marks1 = Tools.insert_sublist_at start merged_marks temp_marks1 in
+  let marks1 = Tools.insert_at start merged_marks temp_marks1 in
   ({ items = items1; marks = marks1}, {items = items2; marks = marks2})
 
 let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =
