@@ -390,7 +390,7 @@ let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
 (* Remove all the sequences from ast with annotation No_braces if [all] is equal to true
     otherwise remove only those sequence with id [id].
 *)
-(* TODO: Fix me! *)
+(* TODO: Fix the issue with double sequences appearing at the beginning of the file *)
 let clean_no_brace_seq (id : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 

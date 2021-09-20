@@ -27,7 +27,7 @@ let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
         let ty_x = typ_constr td.typdef_tconstr  ~tid:td.typdef_typid  in
         let lback = Mlist.map (Internal.change_typ ~change_at:[fold_at] dx ty_x) lback in
         let new_tl = Mlist.merge lfront lback in
-        let new_tl = Mlist.insert_at (index - 1) d new_tl in
+        let new_tl = Mlist.insert_at index d new_tl in
         trm_seq ~annot:t.annot new_tl
        | _ -> fail t.loc "fold_decl: expected a typedef"
        end

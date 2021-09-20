@@ -2,12 +2,12 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp ( fun _ ->
-  !! Struct_basic.set_explicit [sInstr "b = p"];
-  !! Struct_basic.set_explicit [sInstr "u = a.pos"];
-  !! Struct_basic.set_explicit [sInstr "t[0] = p2"];
-  !! Struct_basic.set_explicit [sInstr "c = a"];
-  !! Struct_basic.set_explicit [sInstr "c.pos ="];
-  !! Struct_basic.set_explicit [sInstr "c.speed ="];
+  !! Struct.set_explicit [sInstr "b = p"];
+  !! Struct.set_explicit [sInstr "u = a.pos"];
+  !! Struct.set_explicit [sInstr "t[0] = p2"];
+  !! Struct.set_explicit [sInstr "c = a"];
+  !! Struct.set_explicit [sInstr "c.pos ="];
+  !! Struct.set_explicit [sInstr "c.speed ="];
 
   
   !! Trace.alternative (fun () ->
