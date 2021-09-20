@@ -220,13 +220,9 @@ val make_target_list_pred : (int -> target) -> (bool list -> bool) -> (unit -> s
 
 val target_list_simpl : targets -> target_list_pred
 
-val target_list_one_st : constr -> target_list_pred
+val target_list_one_st : target -> target_list_pred
 
-val target_list_one_st_target : target -> target_list_pred
-
-val target_list_all_st : constr -> target_list_pred
-
-val target_list_all_st_target : target -> target_list_pred
+val target_list_all_st : target -> target_list_pred
 
 val target_list_pred_always_true : target_list_pred
 

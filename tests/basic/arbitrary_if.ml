@@ -13,7 +13,7 @@ let _ = Run.script_cpp (fun _ ->
   (* Another demo with a block *)
   !! Trace.alternative (fun () ->
       !! Sequence_basic.intro 2 [sInstr "x = 5"];
-      !! Generic_basic.arbitrary_if "x > 0" [cSeq ~args_pred:(target_list_one_st (sInstr "x = 5")) ()];
+      !! Generic_basic.arbitrary_if "x > 0" [cSeq ~args_pred:(target_list_one_st [sInstr "x = 5"]) ()];
       !!();
   )
 

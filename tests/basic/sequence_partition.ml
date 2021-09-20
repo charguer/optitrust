@@ -7,7 +7,7 @@ let _ = Run.script_cpp (fun _ ->
      ARTHUR: maybe "show" should force nbMulti always
    *)
 
-  let tg = [cSeq ~args_pred:(Target.target_list_one_st (cVarDef "a")) ()] in (* LATER: simplify *)
+  let tg = [cSeq ~args_pred:(Target.target_list_one_st [cVarDef "a"]) ()] in (* LATER: simplify *)
   (* Error message if invalid partition:
      !! Sequence_basic.partition ~visible:true [2;3] tg; *)
 

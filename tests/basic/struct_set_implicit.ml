@@ -14,7 +14,7 @@ let _ = Run.script_cpp (fun _ ->
 
   (* apply operation using a more complex target *)
   !! Trace.alternative (fun () ->
-    let tg = [cSeq ~args_pred:(Target.target_list_one_st (sInstr ~substr:false "b.x = p.x")) ()] in
+    let tg = [cSeq ~args_pred:(Target.target_list_one_st [sInstr ~substr:false "b.x = p.x"]) ()] in
     Struct_basic.set_implicit tg;
     !!(););
 )

@@ -42,6 +42,7 @@ type target_occurrences =
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
 type target = constr list
+
 and targets = target list
 and depth =
   | DepthAny

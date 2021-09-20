@@ -46,5 +46,5 @@ let set_implicit (tg : Target.target) : unit =
     let field_list = Internal.get_field_list struct_def in
     let nb = List.length field_list in
     Sequence_basic.intro nb tg;
-    Struct_basic.set_implicit [Target.cSeq ~args_pred:(Target.target_list_one_st (Internal.get_constr_from_target tg)) ()]
+    Struct_basic.set_implicit [Target.cSeq ~args_pred:(Target.target_list_one_st tg) ()]
   | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
