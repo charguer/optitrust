@@ -10,8 +10,9 @@ open Tools
 type path = dir list
 
 and dir =
-  (* nth: go to nth element in seq, array, struct *)
+  (* nth: go to nth element in array, struct *)
   | Dir_nth of int
+  (* nth: go to nth element in seq*)
   | Dir_seq_nth of int
   (* cond: used for if, loops and switch *)
   | Dir_cond

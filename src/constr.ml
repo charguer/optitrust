@@ -1218,6 +1218,7 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
   | _ -> fail None "get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
 
 let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path * int =
+  Tools.printf "arrived here\n";
   match rel with
   | TargetAt -> fail None "compute_relative_index: Didn't expect a TargetAt"
   | TargetFirst -> (p, 0)
