@@ -38,14 +38,15 @@ TESTS_WORKING := \
 	struct_fields_reorder.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
+	typedef_fold.ml \
+	typedef_inline.ml \
 	typedef_insert.ml \
 	variable_rename.ml\
-
-TESTS_TOCHECK := \
-	typedef_inline.ml \
-	typedef_fold.ml \
 	variable_inline.ml \
 	variable_fold.ml \
+	
+TESTS_TOCHECK := \
+	
 
 ARTHUR_TO_SPEC := \
 	from_one_to_many.ml \

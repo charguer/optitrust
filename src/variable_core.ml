@@ -30,7 +30,7 @@ type rename = Rename.t
 let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
-    let lback, d, lfront = Internal.get_trm_and_its_relatives index tl in
+    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
     begin match d.desc with
     | Trm_let (vk, (x, _), dx) ->
         let t_x =
@@ -58,7 +58,7 @@ let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : 
          *)
         in
         let new_tl = Mlist.merge lfront lback in
-        let new_tl = Mlist.insert_at (index - 1) d new_tl in
+        let new_tl = Mlist.insert_at index d new_tl in
         trm_seq new_tl 
 
      | _ -> fail t.loc "fold_decl: expected a variable declaration"
@@ -82,7 +82,7 @@ let fold (as_reference : bool) (fold_at : target) (index) : Target.Transfo.local
 let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     let lback, dl, lfront = Internal.get_trm_and_its_relatives index tl in
+     let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
     begin match dl.desc with
     | Trm_let (vk, (x,tx), dx) ->
       let t_x = begin match vk with 
@@ -112,7 +112,7 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
       | _ -> Mlist.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
       end in
       let new_tl = Mlist.merge lfront lback in
-      let new_tl = if delete_decl then new_tl else Mlist.insert_at (index - 1) dl new_tl in
+      let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
       trm_seq ~annot:t.annot new_tl
     | _ -> fail t.loc "inline_aux: expected a variable declaration"
     end

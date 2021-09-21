@@ -55,7 +55,7 @@ let fold (fold_at : target) (index) : Target.Transfo.local =
 let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lback, dl, lfront = Internal.get_trm_and_its_relatives index tl in
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
     begin match dl.desc with
     | Trm_typedef td ->
      begin match td.typdef_body with
@@ -64,7 +64,7 @@ let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : tr
       let lback = Mlist.map(Internal.change_typ ~change_at:[inline_at] ty_x dx) lback in
       let tl = Mlist.merge lfront lback in
       let new_tl = 
-      if delete then tl else Mlist.insert_at (index-1) dl tl
+      if delete then tl else Mlist.insert_at index dl tl
       in
       trm_seq ~annot:t.annot new_tl
      | _ -> fail t.loc "inline_aux: expected a typdef_alias"
