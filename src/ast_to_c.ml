@@ -245,7 +245,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              hardline ^^ string "else" ^^ blank 1 ^^ de
         end
      | Trm_seq tl ->
+        let tl_m = tl.marks in
         let tl = Mlist.to_list tl in
+        
         if List.mem Multi_decl t.annot
           then dattr ^^ multi_decl_to_doc loc tl
         else if List.mem (No_braces (Nobrace.current())) t.annot
@@ -256,9 +258,15 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate (twice hardline) dl
         else if List.exists (function Include _ -> true | _ -> false) t.annot then empty
-        (* else if List.mem (Include h) t.annot then empty *)
         else
            let dl = List.map (decorate_trm ~semicolon:true) tl in
+           let dl = Tools.foldi (fun i acc m -> 
+            if m <> [] then  
+              let m = Tools.list_to_string ~sep:"," t.marks in
+              let s = string ("/*@" ^ m ^ "*@/") in
+              Tools.insert_at i s acc
+            else acc
+           ) dl tl_m in
            dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
      | Trm_apps (f, tl) ->
         if List.mem App_and_set t.annot then

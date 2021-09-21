@@ -694,22 +694,15 @@ let fail (loc : location) (err : string) : 'a =
      " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]" ^ " : " ^ err))
 
 
+
+
 (* *************************** Trm constructors *************************** *)
+
 let trm_annot_add (a:trm_annot) (t:trm) : trm =
   { t with annot =  a :: t.annot }
 
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
   { t with annot = List.filter pred t.annot }
-
-let trm_clear_marks (t : trm) : trm =
-  {t with marks = []}
-
-let trm_add_mark (m : mark) (t : trm) : trm =
-  {t with marks = m :: t.marks}
-
-(* LATER: Maybe trm_filter_mark could be useful here*)
-let trm_remove_mark (m : mark) (t : trm) : trm =
-  {t with marks = List.filter (fun m1 -> m <> m1) t.marks}
 
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
@@ -871,6 +864,30 @@ let trm_template ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribut
 
 let trm_cast (ty : typ) (t : trm) : trm =
   trm_apps (trm_unop (Unop_cast ty)) [t]
+
+let trm_clear_marks (t : trm) : trm =
+  {t with marks = []}
+
+let trm_add_mark (m : mark) (t : trm) : trm =
+  {t with marks = m :: t.marks}
+
+(* LATER: Maybe trm_filter_mark could be useful here*)
+let trm_remove_mark (m : mark) (t : trm) : trm =
+  {t with marks = List.filter (fun m1 -> m <> m1) t.marks}
+
+let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let new_tl = Mlist.insert_mark_at index m tl in
+    trm_seq ~annot:t.annot new_tl
+  | _ -> fail t.loc "trm_add_mark_between: expected a sequence"
+
+let trm_remove_mark_between (index : int) (m : mark) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl -> 
+    let new_tl = Mlist.remove_mark_at index m tl in
+    trm_seq ~annot:t.annot new_tl
+  | _ -> fail t.loc "trm_remove_mark_between: expected a sequence"
 
 
 (* ********************************************************************************************************************* *)

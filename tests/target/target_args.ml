@@ -1,6 +1,8 @@
 open Optitrust
 open Target
 
+(* TODO: Fix cSeq *)
+
 let _ = Run.script_cpp (fun () ->
   (* find sequences of exactly 2 items, first with var def x, second with var def y *)
   show [ nbExact 2; cSeq ~args:[[cVarDef "x"]; [cVarDef "y"]] () ];

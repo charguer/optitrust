@@ -576,17 +576,18 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_targets (fun _i t dl -> tr t dl) tg
 
 
+
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply( fun t ->
   let ps = resolve_target_between tg t in
   let marks = List.map (fun _ -> Mark.next ()) ps in
-  let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark m) t (p_to_seq @ [Dir_seq_nth i])) t ps marks in
+  let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
     | [] -> fail None "applyi_on_transformed_targets_between: a mark disappeared"
     | [p_to_item_in_seq] ->
-      let t = Path.apply_on_path (trm_remove_mark m) t p_to_item_in_seq in
       let (p,i) = extract_last_dir p_to_item_in_seq in
+      let t = apply_on_path (trm_remove_mark_between i m) t p in
       tr imark t (transformer (p,i))
     | _ -> fail None "applyi_on_transformed_targets_between: a mark was duplicated"
   ) t marks)
@@ -613,6 +614,9 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (******************************************************************************)
 (*                                   Show                                     *)
 (******************************************************************************)
+
+(* let target_clean_show (id : int) (t : trm) : trm =  *)
+
 
 (* [target_show_aux id t]: adds an annotation [trm_decoration]
    carrying the information [id] around the term t.
