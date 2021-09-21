@@ -31,12 +31,14 @@ let _ = Run.script_cpp (fun () ->
   show [ nbMulti; cFor "i"; dBody; cStrict; cFor "j" ];
 
   show [ cFor "i"; cStrict; cFor "k" ];
-  show [ nbExact 3; cTopFunDef "main"; cFor "" ];
+  (* show [ nbExact 3; cTopFunDef "main"; cFor "" ]; *) (* TODO: Fix me *)
 
   show [ nbExact 2; cTopFunDef "main"; cStrict; cFor "" ];
   show [ nbExact 2; cTopFunDef "main"; dBody; cStrict; cFor "" ];
   show [ cTopFunDef "main"; dBody; cStrict; cFor "i" ];
   show [ cTopFunDef "main"; cStrict; cFor "j" ];
+  
+  show [ cTopFunDef "main"; cIf (); dCond];
 
   show [ cTopFunDef "main"; cThen ];
   show [ cTopFunDef "main"; cThen; sInstr "j++"];

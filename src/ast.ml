@@ -336,7 +336,7 @@ and trm_desc =
   (* LATER: trm_fun  for anonymous functions *)
   (* LATER: mutual recursive functions via mutual recursion *)
   | Trm_typedef of typedef
-  | Trm_if of trm * trm * trm
+  | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
   (* question: distinguish toplevel seq for other seqs? *)
   | Trm_seq of trm mlist (* { st1; st2; st3 } *)
   | Trm_apps of trm * (trm list) (* f(t1, t2) *)
@@ -1465,7 +1465,7 @@ end
 
 (* genereate a no_brace sequence with a fresh id *)
 let trm_seq_no_brace (tl : trm list) : trm=
-    trm_seq_nomarks ~annot:[No_braces (Nobrace.current())] tl
+    trm_annot_add (No_braces (Nobrace.current())) (trm_seq_nomarks tl)
 
 (* get the id of the sequence annotated as No_braces *)
 let get_nobrace_id (t : trm) : int =

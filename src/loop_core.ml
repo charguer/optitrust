@@ -185,10 +185,9 @@ let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) in
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl tl) in
         let inner_typ = get_inner_ptr_type tx in
-        trm_seq_no_brace[
+        trm_seq_no_brace [
           trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
-          trm_for index direction start stop step new_body
-        ]
+          trm_for index direction start stop step new_body ]
       | _ -> fail var_decl.loc "hoist_aux: expected a variable declaration"
       end
     | _ -> fail t.loc "hoist_aux: body of the loop should be a sequence"

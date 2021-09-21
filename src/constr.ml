@@ -620,7 +620,6 @@ let rec check_constraint (c : constr) (t : trm) : bool =
       *)
       | Constr_depth _,_
        | Constr_dir _, _
-       (* | Constr_list _, _ *)
        | Constr_include _, _ ->
         false
      | Constr_regexp r, _ -> match_regexp_trm r t

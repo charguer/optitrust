@@ -6,13 +6,6 @@ open Target
 let _ = Run.script_cpp (fun () ->
   (** There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
-  
-  (* Last *)
-  show [ tLast; dElse ];
-  show [ tLast; cFor "i"; cStrict; dBody];
-  show [ tLast; dThen ];
-  show [ tLast; dElse ];
-
   (* Before *)
   show [ tBefore; cVarDef "r1" ];
   show [ tBefore; cVarDef "r2" ];
@@ -29,7 +22,11 @@ let _ = Run.script_cpp (fun () ->
   show [ tFirst; cFor "i"; cStrict; dBody ];
   show [ tFirst; dElse ];
 
-  
+  (* Last *)
+  show [ tLast; dElse ];
+  show [ tLast; cFor "i"; cStrict; dBody];
+  show [ tLast; dThen ];
+  show [ tLast; dElse ];
 
   (* Nested paths *)
   show [ tLast; cFor_c"i"; dBody; dThen ];

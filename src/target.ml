@@ -527,7 +527,6 @@ let apply_on_path = Path.apply_on_path
 *)
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
-    
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
