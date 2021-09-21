@@ -714,7 +714,12 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_prim p, Trm_val (Val_prim p1) ->
         p = p1
      | Constr_mark (pred, _), _ ->
-        List.exists pred t.marks
+        begin match t.desc with
+        | Trm_seq tl | Trm_array tl | Trm_struct tl->
+          List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks
+        | _ -> List.exists pred t.marks
+        end
+        
      | _ -> false
      end
 
@@ -1177,7 +1182,6 @@ and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
 (******************************************************************************)
 (*                          Target-between resolution                         *)
 (******************************************************************************)
-
 (* Extracts the last direction from a nonempty path *)
 let extract_last_path_item (p : path) : dir * path =
   match List.rev p with

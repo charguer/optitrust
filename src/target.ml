@@ -509,7 +509,6 @@ end
 
 let apply_on_path = Path.apply_on_path
 
-
 (* [applyi_on_targets ~replace tr tg]: Apply a specific Generic over a target or a list of targets, keep track over the index of the target
       params:
         tg : target
@@ -575,8 +574,6 @@ let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_targets (fun _i t dl -> tr t dl) tg
 
-
-
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply( fun t ->
   let ps = resolve_target_between tg t in
@@ -585,10 +582,11 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
     | [] -> fail None "applyi_on_transformed_targets_between: a mark disappeared"
-    | [p_to_item_in_seq] ->
-      let (p,i) = extract_last_dir p_to_item_in_seq in
-      let t = apply_on_path (trm_remove_mark_between i m) t p in
-      tr imark t (transformer (p,i))
+    | [p_to_seq] ->
+      let t_seq, _ = resolve_path p_to_seq t in
+      let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
+      let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
+      tr imark t (transformer (p_to_seq,i))
     | _ -> fail None "applyi_on_transformed_targets_between: a mark was duplicated"
   ) t marks)
 
@@ -615,9 +613,6 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (*                                   Show                                     *)
 (******************************************************************************)
 
-(* let target_clean_show (id : int) (t : trm) : trm =  *)
-
-
 (* [target_show_aux id t]: adds an annotation [trm_decoration]
    carrying the information [id] around the term t.
 *)
@@ -626,18 +621,13 @@ let target_show_aux (id : int) (t : trm) : trm =
 
 (* [target_show_transfo id t p]: adds an annotation [trm_decoration]
    carrying the information [id] around the term at path [p] in the term [t]. *)
-let target_show_transfo (id : int): Transfo.local =
+let target_show_transfo (id : int) : Transfo.local =
   apply_on_path (target_show_aux id)
 
 (* [target_between_show_aux id k t]: adds a decorated semi-column with identifier [id]
    at position [k] in the sequence described by the term [t]. *)
 let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
-    match t.desc with
-    | Trm_seq tl ->
-      let new_trm = trm_add_mark (string_of_int id) (trm_lit (Lit_unit)) in
-      let new_tl = Mlist.insert_at k new_trm tl in
-      trm_seq ~annot:t.annot new_tl
-    | _ -> fail t.loc "target_between_show_aux: expected the surrounding sequence"
+    trm_add_mark_between k (string_of_int id) t 
 
 (* [target_between_show_transfo id k t p]: adds a decorated semi-column with identifier [id]
    at position [k] in the sequence at path [p] in the term [t]. *)

@@ -48,10 +48,9 @@ let insert_mark_at (index : int) (m : mark) (ml : 'a t) : 'a t =
   let m1 = List.nth ml.marks index in 
   {ml with marks = Tools.replace_at index (m :: m1) ml.marks}
 
-let remove_mark_at (index : int) (m : mark) (ml : 'a t) : 'a t =
-  let m1 = List.nth ml.marks index in
-  let new_m1 = List.filter (fun x -> x <> m) m1 in
-  {ml with marks = Tools.replace_at index new_m1 ml.marks}
+let remove_mark (m : mark)(ml : 'a t) : 'a t =
+  let new_marks = List.map (fun ms -> List.filter (fun x -> x <> m ) ms) ml.marks in
+  {ml with marks = new_marks}
 
 let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) = 
   let items1, items2 = Tools.extract start stop ml.items in

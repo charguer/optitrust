@@ -882,15 +882,28 @@ let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "trm_add_mark_between: expected a sequence"
 
-let trm_remove_mark_between (index : int) (m : mark) (t : trm) : trm =
+let trm_remove_mark_between (m : mark) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
-    let new_tl = Mlist.remove_mark_at index m tl in
+    let new_tl = Mlist.remove_mark m tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "trm_remove_mark_between: expected a sequence"
 
-
 (* ********************************************************************************************************************* *)
+
+(* for target betweens marks are stored on the parent sequence, 
+  this function give the index that mark m targets to 
+*)
+let get_mark_index (m : mark) (t : trm) : int option =
+  match t.desc with 
+  | Trm_seq tl ->
+    Tools.foldi (fun i acc ml -> 
+      match acc with 
+      | Some _ -> acc
+      | None ->
+        if List.mem m ml then Some i else None
+    ) None tl.marks
+  | _ -> fail t.loc "get_mark_index: expected a sequence trm"
 
 let is_included (t : trm) : bool =
  List.exists (function Include _ -> true | _ -> false) t.annot

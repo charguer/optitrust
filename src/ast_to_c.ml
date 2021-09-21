@@ -259,14 +259,17 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            dattr ^^ separate (twice hardline) dl
         else if List.exists (function Include _ -> true | _ -> false) t.annot then empty
         else
+           let counter = ref (-1) in
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            let dl = Tools.foldi (fun i acc m -> 
             if m <> [] then  
-              let m = Tools.list_to_string ~sep:"," t.marks in
-              let s = string ("/*@" ^ m ^ "*@/") in
-              Tools.insert_at i s acc
+              let () = incr counter in
+              let m = Tools.list_to_string ~sep:"," m in
+              let s = string ("/*@" ^ m ^ "@*/") in
+              Tools.insert_at (i + !counter) s acc
             else acc
            ) dl tl_m in
+           counter := -1;
            dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
      | Trm_apps (f, tl) ->
         if List.mem App_and_set t.annot then
