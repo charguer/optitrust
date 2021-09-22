@@ -242,7 +242,7 @@ let cAnd (tgl : target list) : constr =
 let target_list_simpl (args : targets) : target_list_pred =
   let n = List.length args in
   make_target_list_pred
-    (fun i -> if i < n then List.nth args i else [bFalse]) (* TODO the else to name "target_none" *)
+    (fun i -> if i < n then List.nth args i else [cStrict;bFalse]) (* TODO the else to name "target_none" *)
     (fun bs -> List.length bs = n && list_all_true bs)
     (fun () -> "target_list_simpl(" ^ (list_to_string (List.map target_to_string args) ^ ")"))
 

@@ -29,13 +29,15 @@ TESTS_WORKING := \
 	reference_fold.ml \
 	reference_inline.ml \
 	replace.ml \
-	sequence_elim_around_instr.ml \
 	sequence_delete.ml \
+	sequence_elim_around_instr.ml \
+	sequence_elim.ml \
 	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	struct_fields_reorder.ml \
 	struct_set_explicit.ml \
+	struct_set_implicit.ml \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
@@ -44,8 +46,7 @@ TESTS_WORKING := \
 	variable_fold.ml \
 	
 TESTS_TOCHECK := \
-	sequence_elim.ml \
-	struct_set_implicit.ml \
+	
 
 
 ARTHUR_TO_SPEC := \

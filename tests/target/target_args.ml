@@ -13,7 +13,7 @@ let _ = Run.script_cpp (fun () ->
   show [ cSeq ~args:[[]; []; [cVarDef "z"]] () ];
 
   (* find all sequences *)
-  (* show [ nbExact 8; cSeq () ]; *)
+  show [ cSeq () ];
   (* find all sequences with at least one var def x *)
   show [ nbExact 5; cSeq ~args_pred:(target_list_one_st [cVarDef ""]) () ];
 (* find all sequences with only var defs *)
