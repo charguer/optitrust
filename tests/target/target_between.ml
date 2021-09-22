@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-(* TODO: Fix tLast *)
+(* TODO: Fix dThen dElse *)
 
 let _ = Run.script_cpp (fun () ->
   (** There should be exactly one result to each of the commands;

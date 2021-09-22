@@ -1468,12 +1468,12 @@ let trm_seq_no_brace (tl : trm list) : trm=
     trm_annot_add (No_braces (Nobrace.current())) (trm_seq_nomarks tl)
 
 (* get the id of the sequence annotated as No_braces *)
-let get_nobrace_id (t : trm) : int =
+let get_nobrace_id (t : trm) : int option =
   let rec aux l = match l with
-  | [] -> -1
+  | [] -> None
   | hd :: tl ->
     begin match hd with
-    | No_braces i -> i
+    | No_braces i -> Some i
     | _ -> aux tl
     end in
     aux t.annot

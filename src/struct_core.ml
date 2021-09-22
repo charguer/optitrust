@@ -50,7 +50,7 @@ let set_explicit_aux (t: trm) : trm =
         | Trm_apps (f2, lbase) ->
           let exp_assgn = List.mapi(fun i (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) f2 [trm_apps ~annot:[Mutable_var_get] new_f lbase]) (List.nth st i)
+          trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f2 lbase]) (List.nth st i)
           ) field_list in
           trm_seq_no_brace exp_assgn 
         | Trm_var v ->

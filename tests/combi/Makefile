@@ -9,7 +9,6 @@ TESTS_WORKING := \
 	loop_hoist.ml \
 	loop_invariant.ml \
 	struct_set_explicit.ml \
-	struct_set_implicit.ml \
 	variable_fold.ml \
 
 
@@ -19,6 +18,7 @@ TESTS_TOCHECK := \
 	delocalize.ml \
 	loop_unroll.ml \
 	sequence_intro.ml \
+	struct_set_implicit.ml \
 	function_elim_body.ml \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
