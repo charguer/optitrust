@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
   !! Struct.set_implicit [sInstr "= p.x"];
-  !! Struct.set_implicit [sInstr "d.x ="];
+  (* !! Struct.set_implicit [sInstr "d.x ="]; *)
 )
 
 (*

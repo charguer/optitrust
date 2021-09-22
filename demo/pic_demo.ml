@@ -9,7 +9,6 @@ let coloring (ds : string list) (tg : target) : unit =
   List.iter2 (fun b c -> Loop_basic.color "2" ~index:c (tg @ [cFor b])) bs cs
 
 
-
 let _ = Run.script_cpp (fun () ->
 
   (* PART 1: Inlining *)

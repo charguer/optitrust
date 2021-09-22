@@ -24,5 +24,6 @@ int main() {
   int x = 3;
   int u, v, w;
   int t = f(g(h(4), u, m(v,2), w+1));
+  int t1 = f(g(h(6), u, m(v,3), w+2));
   return 0;
 }

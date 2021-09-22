@@ -1,12 +1,12 @@
 open Optitrust
 open Target
 
-(* TODO: Fix dThen dElse *)
 
 let _ = Run.script_cpp (fun () ->
   (** There should be exactly one result to each of the commands;
       if it is not the case, we'll get an error. *)
   (* Before *)
+  show [cIf (); dThen];
   show [ tBefore; cVarDef "r1" ];
   show [ tBefore; cVarDef "r2" ];
   show [ tBefore; cVarDef "m1" ];

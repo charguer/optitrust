@@ -56,9 +56,10 @@ let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       let tl1, tl2 = 
-        if nb > 0 then Mlist.extract index (index + nb - 1) tl else Mlist.extract (index+ nb) index tl in
+        if nb > 0 then Mlist.extract index (index + nb - 1) tl else Mlist.extract (index+ nb+1) index tl in
         let intro_seq = trm_seq tl2 in
         let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
+        let index = if nb < 0 then index -1 else index in
          trm_seq  ~annot:t.annot (Mlist.insert_at index intro_seq tl1)
     | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 

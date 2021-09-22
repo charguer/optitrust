@@ -40,7 +40,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
       in
      let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      let new_tl = Mlist.remove index index tl in
-     let new_tl = Mlist.insert_sublist_at (index-1) ([decl_to_insert] @ [decl_to_change]) new_tl in
+     let new_tl = Mlist.insert_sublist_at index ([decl_to_change] @ [decl_to_insert] ) new_tl in
      trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
@@ -101,7 +101,6 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
       the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
 *)
 let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (t : trm) : trm =
-
   match t.desc with
   | Trm_seq tl ->
     let trm_to_change = Mlist.nth tl index in

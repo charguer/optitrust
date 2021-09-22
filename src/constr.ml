@@ -618,6 +618,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
        target constraints never hold since they are checked against nodes before
        calling check_constraint in resolve_target
       *)
+      
       | Constr_depth _,_
        | Constr_dir _, _
        | Constr_include _, _ ->
