@@ -116,9 +116,6 @@ let dInit : constr =
 let dStep : constr =
     Constr_dir Dir_for_c_step
 
-let dArg (n : int) : constr =
-    Constr_dir (Dir_arg n)
-
 let dName : constr =
     Constr_dir Dir_name
 
@@ -136,6 +133,9 @@ let dEnumConst (n : int)
 let dEnumConstName : enum_const_dir = Enum_const_name
 
 let dEnumConstVal : enum_const_dir = Enum_const_val
+
+let dArg (n : int) : constr =
+  Constr_dir (Dir_arg n)
 
 
 (* [string_to_rexp regexp substr s trmKind]  transforms a string into a regular expression
@@ -188,12 +188,6 @@ let sExprRegexp ?(substr : bool = false) (s : string) : constr =
 
 let cInclude (s : string) : constr =
     Constr_include s
-
-let cSetVar (x : var) : constr =
-  sInstr (x ^ " " ^ "=")
-
-let cArg (n : int) : constr =
-  Constr_dir (Dir_arg n)
 
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
@@ -248,7 +242,7 @@ let cAnd (tgl : target list) : constr =
 let target_list_simpl (args : targets) : target_list_pred =
   let n = List.length args in
   make_target_list_pred
-    (fun i -> if i < n then List.nth args i else [cStrict;bFalse]) (* TODO the else to name "target_none" *)
+    (fun i -> if i < n then List.nth args i else [bFalse]) (* TODO the else to name "target_none" *)
     (fun bs -> List.length bs = n && list_all_true bs)
     (fun () -> "target_list_simpl(" ^ (list_to_string (List.map target_to_string args) ^ ")"))
 
@@ -256,7 +250,7 @@ let target_list_simpl (args : targets) : target_list_pred =
    --we might revisit this convention later if we find it not suitable *)
 
 (* Converts a target into a [target_list_pred] that checks that at least one of the items in the list satisfies the given constraint *)
-let target_list_one_st (tg : target) : target_list_pred =(* LATER: KEEP ONLY THIS *)
+let target_list_one_st (tg : target) : target_list_pred =
   make_target_list_pred
     (fun _i -> tg)
     (fun bs -> List.mem true bs)
@@ -273,7 +267,7 @@ let target_list_all_st (tg : target) : target_list_pred = (* LATER: KEEP ONLY TH
 (* Predicate that matches any list of arguments *)
 let target_list_pred_default : target_list_pred =
   make_target_list_pred
-    (fun _i -> [])
+    (fun _i -> [bTrue])
     list_all_true
     (fun () -> "target_list_pred_default")
 
@@ -375,6 +369,10 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 *)
 let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : constr =
   cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_set)
+
+let cSetVar (x : var) : constr =
+  cSet ~lhs:[cVar x] ()
+
 
 let cGet ?(arg : target = []) () : constr = 
   cPrimFun ~args:[arg] (Prim_unop Unop_get)
@@ -531,7 +529,7 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     let marks = List.map (fun _ -> Mark.next()) ps in
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
     Tools.foldi( fun imark t m ->
-      match resolve_target [cMark m] t with
+      match resolve_target [nbAny;cMark m] t with
       | [] -> fail None "applyi_on_transformed_targets: a mark disappeared"
       | [p] -> let t = apply_on_path (trm_remove_mark m) t p in
         tr imark t (transformer p)

@@ -671,7 +671,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> false
         end
      | Constr_seq cl, Trm_seq tl when  not (List.mem (No_braces (Nobrace.current())) t.annot) ->
-        check_list  ~depth:(DepthAt 0) cl (Mlist.to_list tl)
+        check_list  ~depth:(DepthAt 1) cl (Mlist.to_list tl)
      | Constr_var name, Trm_var x ->
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->

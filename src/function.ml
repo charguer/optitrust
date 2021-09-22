@@ -36,8 +36,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
   let tg_body = if List.mem Target.dBody tg then tg else (tg @ [Target.dBody]) in
   Variable_basic.rename vars tg_body;
-  Sequence_basic.elim tg;
-  Sequence_basic.delete [Target.cVarDef "__OPTITRUST__SAFE_ATTACH_"]
+  Sequence_basic.elim tg
 
 (* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then
     it will just call bind args and bind_intro. Basically this function is used to save the user from
