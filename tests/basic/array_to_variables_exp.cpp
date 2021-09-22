@@ -33,8 +33,8 @@ int main() {
   t[1][0] = 5;
   t[0][0] = 1;
   t[1][1] = 2;
-  U ua;
   U ub;
+  U ua;
   ua[1].x = 5;
   ua[1].y = (ua[1].x + 6);
   ub[1].x = 5;
@@ -45,8 +45,8 @@ int main() {
   particle ps[5];
   ps[3].t[0][1] = 8;
   ps[3].t[1][0] = 10;
-  vect va;
   vect vb;
+  vect va;
   vect a = {1, 2};
   va = a;
   vb = a;

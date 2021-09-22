@@ -4,10 +4,10 @@ open Target
 (* TODO: Fix cSeq *)
 
 let _ = Run.script_cpp (fun () ->
-  show [nbMulti;cSeq ()];
+  
   (* find sequences of exactly 2 items, first with var def x, second with var def y *)
   show [ nbExact 2; cSeq ~args:[[cVarDef "x"]; [cVarDef "y"]] () ];
-  (* find sequencess of exactly 2 var defs *)
+  (* find sequences of exactly 2 var defs *)
   show [ nbExact 2; cSeq ~args:[[cVarDef ""]; [cVarDef ""]] () ];
   (* find sequences of 3 instructions, the last one being a var def z *)
   show [ cSeq ~args:[[]; []; [cVarDef "z"]] () ];

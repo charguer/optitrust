@@ -618,7 +618,6 @@ let rec check_constraint (c : constr) (t : trm) : bool =
        target constraints never hold since they are checked against nodes before
        calling check_constraint in resolve_target
       *)
-      
       | Constr_depth _,_
        | Constr_dir _, _
        | Constr_include _, _ ->
@@ -671,7 +670,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> false
         end
      | Constr_seq cl, Trm_seq tl when  not (List.mem (No_braces (Nobrace.current())) t.annot) ->
-        check_list  ~depth:(DepthAt 1) cl (Mlist.to_list tl)
+        check_list  ~depth:(DepthAt 0) cl (Mlist.to_list tl)
      | Constr_var name, Trm_var x ->
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
@@ -716,7 +715,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_mark (pred, _), _ ->
         begin match t.desc with
         | Trm_seq tl | Trm_array tl | Trm_struct tl->
-          List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks
+          (List.exists pred t.marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
         | _ -> List.exists pred t.marks
         end
         

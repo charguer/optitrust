@@ -19,25 +19,21 @@ int h(int x) {
 void m(int *p) { (*p)++; }
 
 int main() {
-  int x = 3;
-  bool __OPTITRUST__SAFE_ATTACH_ = true;
-  int y;
+
 bodyf : {
   int a = (x + x);
   y = (a + a);
 }
+  int y;
 
-  bool __OPTITRUST__SAFE_ATTACH_ = true;
-  int z;
 bodyg : {
   if ((x > 0))
     z = 1;
   else
     z = 2;
 }
+  int z;
 
-  bool __OPTITRUST__SAFE_ATTACH_ = true;
-  int u;
 bodyh : {
   if ((x > 0)) {
     u = 1;
@@ -45,10 +41,10 @@ bodyh : {
   }
   u = 2;
 }
+  int u;
+  int x = 3;
 
-  int *q = new int;
-  bool __OPTITRUST__SAFE_ATTACH_ = true;
 bodym : { (*q)++; }
-
+  int *q = new int;
   return 0;
 }

@@ -11,7 +11,7 @@ let _ = Run.script_cpp (fun _ ->
   (* replace the definition of "c" with a call to "f" --somewhat arbitrary *)
   !! Generic_basic.replace "f(5);" [cVarDef "c"];
   (* replace, in the definition of "d", the first argument to f2, with the constant 3 *)
-  !! Generic_basic.replace "3" [cVarDef "d"; cFun "f2"; cArg 0];
+  !! Generic_basic.replace "3" [cVarDef "d"; cFun "f2"; dArg 0];
   (* replace, in the definition of "e", all constants "2" with the constant "1" *)
   !! Generic_basic.replace "1" [nbMulti; cVarDef "e"; cFun "f2"; cInt 2 ];
   (* replace the function "f2" with another one *)
