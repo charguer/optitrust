@@ -505,16 +505,6 @@ module Transfo = struct
 end
 
 
-let apply_on_path = Path.apply_on_path
-
-(* [applyi_on_targets ~replace tr tg]: Apply a specific Generic over a target or a list of targets, keep track over the index of the target
-      params:
-        tg : target
-        tr : transformation to be applied
-      return:
-        unit
-*)
-
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
         transformer: change the resolved path so that more information about the context of the node is given
@@ -537,7 +527,7 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     ) t marks)
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
-   Same as [apply_to_transformed_targets] except that there is some processing performed on each of the explicit path.
+    Same as [applyi_to_transformed_targets] except that here the index of the resolved_path is not considered
     params:
       transformer: ..
       tr: transformation to be applied
@@ -545,23 +535,25 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     return:
       unit
 *)
-
 let apply_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> trm) (tg : target) : unit =
   applyi_on_transformed_targets  transformer (fun _i t descr -> tr descr t) tg
 
-(* [applyi_on_transformed_targets tr tg]: similar as applyi_on_transformed_targets except that this function does
-    note modfiy the resolved path
+
+(* [applyi_on_targets ~replace tr tg]:  A specialization of [applyi_on_transformed_targets] but here the transformer
+      is the identity function.
       params:
-        tr: transformation
-        tg: target
+        tg : target
+        tr : transformation to be applied
+      return:
+        unit
 *)
 let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
   applyi_on_transformed_targets (fun p -> p) tr tg
 
 
 
-
-(* [apply_on_targets ~replace tr tg]: esentially the same as applyi_on_targets, but without keeping track over the index of the target
+(* [apply_on_targets ~replace tr tg]: A specialization of [applyi_on_targets] but here the index of the resolved path is not 
+      taken into account.
       params:
         tg : target
         tr : transformation to be applied
@@ -571,6 +563,16 @@ let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_targets (fun _i t dl -> tr t dl) tg
 
+
+
+(* [applyi_on_transformed_targets_between transformer tr tg]: Apply a transformation [tr] on a target relative to [tg]
+      params:
+        transformer: change the resolved path so that more information about the context of the node is given
+        tr: transformation to be applied at the nodes corresponedt to target [tg]
+        tg: target
+      return:
+        unit
+*)
 let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply( fun t ->
   let ps = resolve_target_between tg t in
@@ -587,20 +589,38 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
     | _ -> fail None "applyi_on_transformed_targets_between: a mark was duplicated"
   ) t marks)
 
+(* [apply_on_transformed_targets_between ~replace_top transformer tr tg]:
+    Same as [applyi_to_transformed_targets_between] except that here the index of the resolved_path is not considered.
+    params:
+      transformer: ..
+      tr: transformation to be applied
+      tg: target
+    return:
+      unit
+*)
 let apply_on_transformed_targets_between (transformer: path * int -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
   applyi_on_transformed_targets_between transformer (fun _i t descr -> tr t descr) tg
 
 
-(* [apply_on_targets_between ~replace_top tr tg]: Similar to apply_on_targets, but the function considers the index too
+(* [applyi_on_targets_between ~replace tr tg]:  A specialization of [applyi_on_transformed_targets_between] but here the transformer
+      is the identity function.
       params:
-        tr : transformation to be applied
         tg : target
+        tr : transformation to be applied
       return:
         unit
 *)
 let applyi_on_targets_between (tr : int -> trm -> path * int -> trm) (tg : target) : unit =
   applyi_on_transformed_targets_between (fun (p,i) -> (p,i)) tr tg
 
+(* [apply_on_targets_between ~replace tr tg]: A specialization of [applyi_on_targets_between] but here the index of the resolved path is not 
+      taken into account.
+      params:
+        tg : target
+        tr : transformation to be applied
+      return:
+        unit
+*)
 let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
   applyi_on_targets_between (fun _i t pk -> tr t pk) tg
 
@@ -610,24 +630,24 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
 (*                                   Show                                     *)
 (******************************************************************************)
 
-(* [target_show_aux id t]: adds an annotation [trm_decoration]
+(* [target_show_aux id t]: adds a mark with the
    carrying the information [id] around the term t.
 *)
 let target_show_aux (id : int) (t : trm) : trm =
   let show_mark = "show_mark " ^ (string_of_int id) in
   trm_add_mark show_mark t
 
-(* [target_show_transfo id t p]: adds an annotation [trm_decoration]
+(* [target_show_transfo id t p]: adds a mark with the 
    carrying the information [id] around the term at path [p] in the term [t]. *)
 let target_show_transfo (id : int) : Transfo.local =
   apply_on_path (target_show_aux id)
 
-(* [target_between_show_aux id k t]: adds a decorated semi-column with identifier [id]
-   at position [k] in the sequence described by the term [t]. *)
+(* [target_between_show_aux id k t]: adds a a mark with identifier [id]
+   at position [k] in the marks list of the sequence described by the term [t]. *)
 let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
     trm_add_mark_between k (string_of_int id) t 
 
-(* [target_between_show_transfo id k t p]: adds a decorated semi-column with identifier [id]
+(* [target_between_show_transfo id k t p]: adds a mark with identifier [id]
    at position [k] in the sequence at path [p] in the term [t]. *)
 let target_between_show_transfo (id : int) : Transfo.local_between =
   fun (k:int) -> apply_on_path (target_between_show_aux id k)

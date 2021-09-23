@@ -22,8 +22,7 @@ let length_ml = Mlist.length ml
 
 let foldi_ml = Mlist.fold_left (fun i acc x -> x ^ " " ^ i ^ " " ^acc) "" ml
 
-(* Not std library functions *)
-
+(******************* Not std library functions **********************)
 let insert_at_ml_1 = Mlist.insert_at 0 "z" ml
 
 let insert_at_ml_2 = Mlist.insert_at 2 "z" ml
@@ -42,7 +41,7 @@ let replace_at_ml_2 = Mlist.replace_at 2 "z" ml
 
 let replace_at_ml_3 = Mlist.replace_at 5 "z" ml
 
-(* TESTS FOR MARKS *)
+(****************************TESTS FOR MARKS *************************)
 let int_marks = [0;1;2;3;4;5;6]
 
 let insert_mark_at_ml = List.fold_left (fun acc ind -> Mlist.insert_mark_at ind (string_of_int ind) acc) ml int_marks
