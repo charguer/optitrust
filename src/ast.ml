@@ -725,8 +725,8 @@ let trm_struct ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
    attributes; ctx}
 
 let trm_let ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) (kind : varkind) (typed_var : typed_var) (init : trm): trm =
-  {annot; marks = []; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : string list = [])(kind : varkind) (typed_var : typed_var) (init : trm): trm =
+  {annot; marks; desc = Trm_let (kind,typed_var,init); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_let_fun ?(annot = []) ?(loc = None) ?(is_statement : bool = false)

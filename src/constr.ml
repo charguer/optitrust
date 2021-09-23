@@ -669,7 +669,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const cec xto_l
         | _ -> false
         end
-     | Constr_seq cl, Trm_seq tl when  not (List.mem (No_braces (Nobrace.current())) t.annot) ->
+     | Constr_seq cl, Trm_seq tl when  
+        not ((List.mem (No_braces (Nobrace.current())) t.annot) || List.mem Main_file t.annot)->
         check_list  ~depth:(DepthAt 0) cl (Mlist.to_list tl)
      | Constr_var name, Trm_var x ->
         check_name name x

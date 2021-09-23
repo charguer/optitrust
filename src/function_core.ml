@@ -103,8 +103,9 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
 let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let trm_to_change = Mlist.nth tl index in
-    let fun_call, _= Path.resolve_path p_local trm_to_change in
+    let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
+    let fun_call = if p_local = [] then (get_init_val trm_to_change) else fst (Path.resolve_path p_local trm_to_change) in
+        
     let fun_call_name, fun_call_args = begin match fun_call.desc with
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
                    | _ -> fail fun_call.loc "inline_call_aux: couldn't resolve the name of the function, target does not resolve to a function call"
@@ -138,11 +139,11 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    let inlined_body =
     if is_type_unit(fun_decl_type)
       then [labelled_body; exit_label]
-      else  [trm_let Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
+      else  [trm_let ~marks:trm_to_change.marks Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
               labelled_body;exit_label]
       in
-       let new_tl = Mlist.remove index index tl in
-       let new_tl = Mlist.insert_sublist_at (index - 1) inlined_body new_tl in
+       let new_tl = Mlist.merge lfront lback in
+       let new_tl = Mlist.insert_sublist_at index (List.rev inlined_body) new_tl in
        trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 

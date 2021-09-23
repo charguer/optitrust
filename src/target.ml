@@ -504,6 +504,7 @@ module Transfo = struct
   type local_between = int -> local
 end
 
+let apply_on_path = Path.apply_on_path
 
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
@@ -516,11 +517,14 @@ end
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
     let ps = resolve_target tg t in
+    (* Tools.printf "Targets resolved successfully: %s\n" (Path.paths_to_string ps); *)
     let marks = List.map (fun _ -> Mark.next()) ps in
+    (* Tools.printf "Marks created successfully: %s\n" (Tools.list_to_string marks); *)
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+    (* Tools.printf "Marks applied successfully\n"; *)
     Tools.foldi( fun imark t m ->
       match resolve_target [nbAny;cMark m] t with
-      | [] -> fail None "applyi_on_transformed_targets: a mark disappeared"
+      | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
       | [p] -> let t = apply_on_path (trm_remove_mark m) t p in
         tr imark t (transformer p)
       | _ -> fail None "applyi_on_transformed_targets: a mark was duplicated"
@@ -580,7 +584,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
-    | [] -> fail None "applyi_on_transformed_targets_between: a mark disappeared"
+    | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m)
     | [p_to_seq] ->
       let t_seq, _ = resolve_path p_to_seq t in
       let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in

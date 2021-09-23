@@ -74,7 +74,6 @@ int main3() { // Function.bind_args ~[cMark mymark]
 }
 int main4() { // Function_basic.inline_call ~[cMark mymark] // SHOULD KEEP THE MARK on the var. decl
   int u = 1, v = 2, w = 3;
-  bool __OPTITRUST__SAFE_ATTACH_ = true; // LATER: ARTHUR investigate this
   mymark: int r; // same as before, only you remove the initialization term
   mybody: {
     int p = ((((a + a) + u) + b) + (w + 1));
@@ -111,8 +110,7 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     let (tg_trm, _) = Path.resolve_path (path_to_instruction @ local_path) t in
     let (tg_out_trm, _) = Path.resolve_path path_to_instruction t in
     let my_mark = "__inline_call" in
-    let new_target = [Target.cMark my_mark] in
-    let _res_inlining_needed =
+    let res_inlining_needed =
     begin match tg_out_trm.desc with
     | Trm_let (_, (x, _), _) ->
       let init1 = get_init_val tg_out_trm in
@@ -127,18 +125,19 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     | Trm_apps _ -> false
     | _ -> fail None "inline_call: expected a variable declaration or a function call"
     end in
-    
+    let new_target = [Target.cMark my_mark] in
+    if not res_inlining_needed then Generic.add_mark my_mark (Target.target_of_path path_to_instruction);
     if args <> [] then bind_args args new_target else ();
     Function_basic.inline_call ~label new_target; 
-    
-    elim_body ~vars new_target;
-     if !name_result <> ""
+    elim_body ~vars [Target.cLabel label];
+    (* if !name_result <> ""
       then
         begin
         Variable_basic.init_attach new_target; 
+        Tools.printf "arrived here\n";
         let () = try Variable_basic.init_attach new_target with | Init_attach_no_occurrences | Init_attach_occurrence_below_control -> () | e -> raise e in
-        if _res_inlining_needed then Variable_basic.inline ~delete:true new_target end
-    else ();
+        if res_inlining_needed then Variable_basic.inline ~delete:true new_target end
+    else (); *)
     Trace.get_ast()
   ) tg
 

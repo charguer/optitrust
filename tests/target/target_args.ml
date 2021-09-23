@@ -1,9 +1,11 @@
 open Optitrust
 open Target
 
+(* TODO: Fix the issue with nested paths *)
 
 let _ = Run.script_cpp (fun () ->
-  
+
+  show [cFunDef "main"; dBody];
   (* find sequences of exactly 2 items, first with var def x, second with var def y *)
   show [ nbExact 2; cSeq ~args:[[cVarDef "x"]; [cVarDef "y"]] () ];
   (* find sequences of exactly 2 var defs *)
@@ -12,16 +14,17 @@ let _ = Run.script_cpp (fun () ->
   show [ cSeq ~args:[[]; []; [cVarDef "z"]] () ];
 
   (* find all sequences *)
-  (* show [ cSeq () ]; *) (* TODO: Fix me! *)
+  
+  (* show [nbMulti;cSeq () ]; *) 
   (* find all sequences with at least one var def x *)
-  (* show [ nbExact 5; cSeq ~args_pred:(target_list_one_st [cVarDef ""]) () ]; *) (* TODO: Fix me too! *)
+  (* show [ nbExact 5; cSeq ~args_pred:(target_list_one_st [cVarDef ""]) () ]; *) 
 (* find all sequences with only var defs *)
   (* show [ nbExact 3; cSeq ~args_pred:(target_list_all_st [cVarDef ""]) () ]; *)
 
 
   
   show [ nbMulti; cSeq ~args_pred:(target_list_all_st [cVarDef ""]) () ];
-  (* show [ nbMulti; cSeq ~args_pred:(target_list_one_st [cVarDef "x"])() ]; *) (* TODO: Fix the issue with nested sequences! *)
+  (* show [ nbMulti; cSeq ~args_pred:(target_list_one_st [cVarDef "x"])() ]; *) 
   show [ nbMulti; cSeq ~args_pred:(target_list_one_st [cVarDef "z"])() ];
   show [ nbMulti; cFunDef ~args_pred:(target_list_one_st [cVar "x"]) "" ];
   show [nbMulti; cFun ~args_pred:(target_list_all_st [cLit ]) "" ];
