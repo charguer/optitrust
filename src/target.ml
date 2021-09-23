@@ -374,7 +374,7 @@ let cSetVar (x : var) : constr =
   cSet ~lhs:[cVar x] ()
 
 
-let cGet ?(arg : target = []) () : constr = 
+let cGet ?(arg : target = []) () : constr =
   cPrimFun ~args:[arg] (Prim_unop Unop_get)
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
@@ -386,7 +386,7 @@ let cMarks (ms : mark list) : constr =
   Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string ms))
 
 let cMarkSt (pred : mark -> bool) : constr =
-  Constr_mark (pred, "such_that:" ^ "todo") 
+  Constr_mark (pred, "such_that:" ^ "todo")
 
 (* [cMarkAny] matches all the ast nodes with annotation Mark m, where m can be any positive integer *)
 let cMarkAny : constr =
@@ -449,7 +449,7 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
   let ro = string_to_rexp_opt regexp substr field TrmKind_Expr in
   Struct_access ro
 
-let cAccess : constr_access = 
+let cAccess : constr_access =
   Any_access
 
 (* the empty list is interpreted as no constraint on the cases *)
@@ -522,7 +522,7 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     (* Tools.printf "Marks created successfully: %s\n" (Tools.list_to_string marks); *)
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
     (* Tools.printf "Marks applied successfully\n"; *)
-    Tools.foldi( fun imark t m ->
+    Tools.foldi (fun imark t m ->
       match resolve_target [nbAny;cMark m] t with
       | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
       | [p] -> let t = apply_on_path (trm_remove_mark m) t p in
@@ -556,7 +556,7 @@ let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
 
 
 
-(* [apply_on_targets ~replace tr tg]: A specialization of [applyi_on_targets] but here the index of the resolved path is not 
+(* [apply_on_targets ~replace tr tg]: A specialization of [applyi_on_targets] but here the index of the resolved path is not
       taken into account.
       params:
         tg : target
@@ -617,7 +617,7 @@ let apply_on_transformed_targets_between (transformer: path * int -> 'a) (tr : t
 let applyi_on_targets_between (tr : int -> trm -> path * int -> trm) (tg : target) : unit =
   applyi_on_transformed_targets_between (fun (p,i) -> (p,i)) tr tg
 
-(* [apply_on_targets_between ~replace tr tg]: A specialization of [applyi_on_targets_between] but here the index of the resolved path is not 
+(* [apply_on_targets_between ~replace tr tg]: A specialization of [applyi_on_targets_between] but here the index of the resolved path is not
       taken into account.
       params:
         tg : target
@@ -641,7 +641,7 @@ let target_show_aux (id : int) (t : trm) : trm =
   let show_mark = "show_mark " ^ (string_of_int id) in
   trm_add_mark show_mark t
 
-(* [target_show_transfo id t p]: adds a mark with the 
+(* [target_show_transfo id t p]: adds a mark with the
    carrying the information [id] around the term at path [p] in the term [t]. *)
 let target_show_transfo (id : int) : Transfo.local =
   apply_on_path (target_show_aux id)
@@ -649,7 +649,7 @@ let target_show_transfo (id : int) : Transfo.local =
 (* [target_between_show_aux id k t]: adds a a mark with identifier [id]
    at position [k] in the marks list of the sequence described by the term [t]. *)
 let target_between_show_aux (id : int) (k : int) (t : trm) : trm =
-    trm_add_mark_between k (string_of_int id) t 
+    trm_add_mark_between k (string_of_int id) t
 
 (* [target_between_show_transfo id k t p]: adds a mark with identifier [id]
    at position [k] in the sequence at path [p] in the term [t]. *)
@@ -665,9 +665,9 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
 let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
         if reparse then reparse_alias();
         let should_exit = (Flags.get_exit_line() = Some line) in
-        if should_exit then begin 
+        if should_exit then begin
           if Constr.is_target_between tg then begin
-            applyi_on_targets_between (fun i t (p,k) -> 
+            applyi_on_targets_between (fun i t (p,k) ->
               target_between_show_transfo i k t p) tg
               end
           else begin

@@ -22,8 +22,10 @@ let _ = Run.script_cpp (fun () ->
   show [ nbAny; cFunDef "main"; cFor "j" ]; (* zero match *)
   show [ nbAny; cFunDef "main"; cFor "i" ];
   show [ nbAny; cFor "i" ];
-  show [nbMulti;cAnd [[cReturn];[cTypDef "vect"];[cFunDef "main"; cFor "i"]]];
+  show [ nbMulti; cAnd [[cReturn];[cTypDef "vect"];[cFunDef "main"; cFor "i"]]];
 
+  (* Nested *)
+  show [ nbMulti; cFor "" ];
     (* Testing the [target_of_path] function *)
   (* let paths = ref [] in
   Target.apply_on_targets (fun t p -> paths := p :: !paths; t) [ nbMulti; cFor "i" ];
@@ -35,7 +37,7 @@ let _ = Run.script_cpp (fun () ->
     in
   show tg1;
   show tg2; *)
-  
+
 )
 
 

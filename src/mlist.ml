@@ -36,6 +36,16 @@ let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
    let empty_marks = List.map (fun _ -> []) sl in
    { items = Tools.insert_sublist_at index sl ml.items;
      marks = if index = sz then ml.marks @ empty_marks else Tools.insert_sublist_at index empty_marks ml.marks }
+(*
+let insert_sublist_at ?(left_bias:bool=true) (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
+   let sz = length ml in
+   assert (0 <= index && index <= sz);
+   let empty_marks = List.map (fun _ -> []) sl in
+   { items = Tools.insert_sublist_at index sl ml.items;
+     marks = Tools.insert_sublist_at (if left_bias then index else index+1) empty_marks ml.marks }
+
+*)
+
 
 let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   insert_sublist_at index [x] ml

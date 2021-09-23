@@ -204,7 +204,7 @@ let app_to_nth_dflt (loc : location) (l : 'a list) (n : int)
 
 (* follow an explicit target to apply a function on the corresponding subterm *)
 let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
-  let rec aux (dl : path) (t : trm) : trm =
+  let rec aux (* rename to apply_on_path_rec *) (dl : path) (t : trm) : trm =
     match dl with
     | [] -> transfo t
     | d :: dl ->
@@ -214,9 +214,11 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        let add = t.add in
        let typ = t.typ in
        let attributes = t.attributes in
-       begin match d, t.desc with
+       (* TODO: let aux t = apply_on_path_rec dl t *)
+       let newt = begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
-          trm_seq ~annot ~loc ~add ~attributes (Mlist.list_update_nth (aux dl) tl n)
+          { t with desc = Trm_seq (Mlist.list_update_nth (aux dl) tl n) }
+          (* TODO trm_seq ~annot ~loc ~add ~attributes (Mlist.list_update_nth (aux dl) tl n) *)
        | Dir_nth n, Trm_array tl ->
           trm_array ~annot ~loc ~add ~typ ~attributes (Mlist.list_update_nth (aux dl) tl n)
        | Dir_nth n, Trm_struct tl ->
@@ -234,13 +236,15 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_then, Trm_if (cond, then_t, else_t) ->
           trm_if ~annot ~loc ~add ~attributes cond (aux dl then_t) else_t
        | Dir_else, Trm_if (cond, then_t, else_t) ->
+        (* { t with desc = Trm_seq (cond, then_t, aux else_t) } *)
           trm_if ~annot ~loc ~add ~attributes cond then_t (aux dl else_t)
        | Dir_body, Trm_let (vk,tx,body) ->
           trm_let ~annot ~loc ~is_statement ~add ~attributes vk tx  (aux dl body)
        | Dir_body, Trm_let_fun (x, tx, txl, body) ->
           trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl (aux dl body)
        | Dir_body, Trm_for (index, direction, start, stop, step, body) ->
-          trm_for ~annot ~loc ~add ~attributes index direction start stop step (aux dl body)
+          { t with desc = Trm_for (index, direction, start, stop, step, aux dl body) }
+          (*trm_for ~annot ~loc ~add ~attributes index direction start stop step (aux dl body)*)
        | Dir_body, Trm_for_c (init, cond, step, body) ->
           trm_for_c~annot ~loc ~add ~attributes init cond step (aux dl body)
        | Dir_body, Trm_while (cond, body) ->
@@ -327,7 +331,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
            let s = dir_to_string d in
            fail loc ("apply_on_path: direction " ^ s ^
                        " does not match")
-       end
+       end in
+        { newt with typ = None; ctx = None } (* LATER: check if other info need to be cleared *)
+
 
   in
   aux dl t

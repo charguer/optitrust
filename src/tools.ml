@@ -215,7 +215,7 @@ let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
 let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list =
   insert_sublist_at index [e] l
 
-(* [extract start stop l] returns a pair of lists:
+(* [extract start stop l] returns a pair of lists:    start inclusive, start+nb exclusive
    - the list with items outside of the range from [start] to [stop]
    - the list with items inside the range from [start] to [stop].
    TODO: the two returns values should ideally be in the other order, that is, the slice comes first
