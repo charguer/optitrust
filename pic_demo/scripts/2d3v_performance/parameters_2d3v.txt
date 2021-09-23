@@ -1,0 +1,36 @@
+// This file accepts: C-like comments (like this line),
+# Script-like or Python-like comments (like this line),
+! Fortran-like comments (like this line),
+% Latex-like comments (like this line),
+// And blank lines (in fact also any line, but will then complain a little bit).
+
+// To set values of parameters, you may add any number of spaces.
+// It might be convenient to put spaces in the middle of the value (cf. nb_particles)
+// You may or may not add a ';' at the end of the line.
+// Any parameter not set will have default values (visible in the output).
+
+// Values for the parameters.
+sim_distrib = ELECTRON_HOLES_2D3V;    // Physical test case (ELECTRON_HOLES_2D3V, BI_MAXWELLIAN_2D3V or LANDAU_1D_PROJ2D3V).
+fourier_modes = (1,0) (2,0) (3,0) (4,0) (5,0) (6,0) (7,0) (8,0) (9,0) (10,0) (11,0) (12,0) (13,0) (14,0) (15,0) (16,0) (17,0) (18,0) (19,0) (20,0) (0,1) (0,1) (0,2) (0,3) (0,4) (0,5) (0,6) (0,7) (0,8) (0,9) (0,10) (0,11) (0,12) (0,13) (0,14) (0,15) (0,16) (0,17) (0,18) (0,19) (0,20); // Fourier modes of the electric field (be sure to respect a maximum of 256 modes and a maximum of 2048 characters on that line for that; would you need more, you can modify those parameters in the compile script).
+nb_cells_x      = 256;                // Number of grid points, x-axis
+nb_cells_y      = 256;                // Number of grid points, y-axis
+nb_particles    = 2 500 000 000;      // Number of particles. As example, 2.5 billions is a maximum for 96 GB of memory.
+nb_iterations   = 2000;               // Number of time steps
+diag_nb_outputs = 10000;              // Number of diagnostics energy outputs (reset to nb_iterations if you put more than nb_iterations)
+hdf5_nb_outputs = 10;                 // Number of hdf5 outputs (reset to 1000 if you put more than 1000)
+delta_t       = 0.02;                 // Time step
+thermal_speed = 0.1;                  // Thermal speed
+B_field       = 0.2;                  // Constant magnetic field on the x-axis (reset to 0. for LANDAU_1D_PROJ2D3V)
+// ELECTRON_HOLES_2D3V only
+vx_min    = -6.;   // Minimum speed at initialization
+vx_max    =  6.;   // Maximum speed at initialization
+ell       = 16.;   // Middle of the physical domain (parallel to B_0 : in x)
+delta_par =  3.;   // Half-width of the electron hole in x (parallel to B_0 : in x)
+psi       =  1.;   // Allows to define the bounce frequency omega_b = sqrt(psi / delta_par**2)
+epsilon   =  0.3;  // Measure of the perturbation
+ky        =  0.39; // Wave number (transverse to B_0 : in y)
+// BI_MAXWELLIAN_2D3V only
+vx_drift = 4.; // Drift of the second electron beam (first one is 0)
+// LANDAU_1D_PROJ2D3V only
+alpha   = 0.01; // Landau1d perturbation amplitude
+kmode_x = 0.5;  // Landau1d perturbation mode
