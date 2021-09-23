@@ -78,9 +78,8 @@ let elim_aux (t : trm) : trm =
      trm_seq_no_brace (Mlist.to_list tl)
   | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
 
-
 let elim : Target.Transfo.local =
-  Target.apply_on_path( Internal.apply_on_path_targeting_a_sequence (elim_aux) "elim")
+  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence ~keep_label:false (elim_aux) "elim")
 
 (* [intro_on_instr_aux visible label t]: replacing t with a sequence that contains t as single item.
    params:

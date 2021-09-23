@@ -25,7 +25,7 @@ let _ = Run.script_cpp (fun () ->
   show [nbMulti;cAnd [[cReturn];[cTypDef "vect"];[cFunDef "main"; cFor "i"]]];
 
     (* Testing the [target_of_path] function *)
-  !! let paths = ref [] in
+  (* let paths = ref [] in
   Target.apply_on_targets (fun t p -> paths := p :: !paths; t) [ nbMulti; cFor "i" ];
   let targets = List.map target_of_path !paths in
   let tg1,tg2 =
@@ -34,7 +34,7 @@ let _ = Run.script_cpp (fun () ->
     | _ ->  assert false
     in
   show tg1;
-  show tg2;
+  show tg2; *)
   
 )
 

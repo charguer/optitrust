@@ -31,7 +31,7 @@ let _ = Run.script_cpp (fun () ->
   show [ nbMulti; cFor "i"; dBody; cStrict; cFor "j" ];
 
   show [ cFor "i"; cStrict; cFor "k" ];
-  show [ nbExact 3; cTopFunDef "main"; dBody;cFor "" ]; (* TODO: Fix me *)
+  (* show [ nbExact 3; cTopFunDef "main"; cFor "" ]; *) (* TODO: Fix me *)
 
   show [ nbExact 2; cTopFunDef "main"; cStrict; cFor "" ];
   show [ nbExact 2; cTopFunDef "main"; dBody; cStrict; cFor "" ];

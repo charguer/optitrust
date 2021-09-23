@@ -5,18 +5,24 @@ let ml_items = ["a";"b";"c";"d";"e";"f"]
 
 let ml = Mlist.of_list ml_items
 
+let _ = Tools.printf "Generated marked list is correct: %b\n" (ml.marks = List.init (List.length l + 1) (fun _i -> []) && ml.items = ml_items)
 
 (*  TESTS FOR ITEMS *)
+(* Std library functions, correctnes comes from the std library *)
 let ml_items1 = Mlist.to_list ml
 
 let map_ml = Mlist.map (fun x -> x ^ "_") ml
 
+
 let fold_ml = Mlist.fold_left (fun acc x -> x ^ acc) "" ml
 
-let nth_ml = Mlist.length ml
+
+let length_ml = Mlist.length ml
+
 
 let foldi_ml = Mlist.fold_left (fun i acc x -> x ^ " " ^ i ^ " " ^acc) "" ml
 
+(* Not std library functions *)
 
 let insert_at_ml_1 = Mlist.insert_at 0 "z" ml
 

@@ -1,3 +1,5 @@
+include ../Common.Makefile
+
 TARGET_MAKE_ALL := transfo
 
 # Usage: make transfo   or   make check
@@ -13,9 +15,9 @@ TESTS_WORKING := \
 
 
 NOT_A_TEST := \
-	target_regexp \
+	target_regexp.ml \
 
 
 TESTS := $(TESTS_WORKING)
 
-include ../Common.Makefile
+

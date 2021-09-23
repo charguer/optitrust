@@ -34,8 +34,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
     after which shoudl be assigned to all the declared variables.
 *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
-  let tg_body = if List.mem Target.dBody tg then tg else (tg @ [Target.dBody]) in
-  Variable_basic.rename vars tg_body;
+  Variable_basic.rename vars tg;
   Sequence_basic.elim tg
 
 (* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then

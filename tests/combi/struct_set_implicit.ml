@@ -1,7 +1,6 @@
 open Optitrust
 open Target
 
-(* TODO: Test it after fixing the issue with cSeq *)
 let _ = Run.script_cpp (fun _ ->
 
   !! Struct.set_implicit [sInstr "= p.x"];

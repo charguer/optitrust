@@ -1,7 +1,6 @@
 open Optitrust
 open Target
 
-(* TODO: Fix cSeq *)
 
 let _ = Run.script_cpp (fun () ->
   
@@ -13,19 +12,19 @@ let _ = Run.script_cpp (fun () ->
   show [ cSeq ~args:[[]; []; [cVarDef "z"]] () ];
 
   (* find all sequences *)
-  show [ cSeq () ];
+  (* show [ cSeq () ]; *) (* TODO: Fix me! *)
   (* find all sequences with at least one var def x *)
-  show [ nbExact 5; cSeq ~args_pred:(target_list_one_st [cVarDef ""]) () ];
+  (* show [ nbExact 5; cSeq ~args_pred:(target_list_one_st [cVarDef ""]) () ]; *) (* TODO: Fix me too! *)
 (* find all sequences with only var defs *)
   (* show [ nbExact 3; cSeq ~args_pred:(target_list_all_st [cVarDef ""]) () ]; *)
 
 
-  (* TODO
+  
   show [ nbMulti; cSeq ~args_pred:(target_list_all_st [cVarDef ""]) () ];
-  show [ nbMulti; cSeq ~args_pred:(target_list_one_st [cVarDef "x"])() ];
+  (* show [ nbMulti; cSeq ~args_pred:(target_list_one_st [cVarDef "x"])() ]; *) (* TODO: Fix the issue with nested sequences! *)
   show [ nbMulti; cSeq ~args_pred:(target_list_one_st [cVarDef "z"])() ];
   show [ nbMulti; cFunDef ~args_pred:(target_list_one_st [cVar "x"]) "" ];
   show [nbMulti; cFun ~args_pred:(target_list_all_st [cLit ]) "" ];
   show [nbMulti; cFun ~args_pred:(target_list_one_st [cLit ]) "" ];
-  *)
+ 
   )

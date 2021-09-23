@@ -156,7 +156,7 @@ let rename_aux (rename : Rename.t) (t : trm) : trm =
   | _ -> fail t.loc "rename_aux: expected the sequence block"
 
 let rename (rename : Rename.t) : Target.Transfo.local =
-  Target.apply_on_path (rename_aux rename)
+  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_aux rename) "var_rename")
 
 (* [init_detach_aux t]: replace an initialized variable declaration with an
     uninitialized declaration and an assignment.

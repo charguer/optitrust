@@ -21,7 +21,7 @@ int main() {
     if (true) {
       j++;
     } else {
-      j++;
+      j--;
     }
   }
 }

@@ -42,7 +42,7 @@ let _ =
   List.iteri (fun i r ->
     List.iteri (fun j s ->
       let b = Constr.match_regexp_str r s in
-      Printf.printf "rexp%d(%s)\tstr%d(%s)\t-> %s\n" i (Constr.regexp_to_string r) j s (if b then "true" else "false");
+      Printf.printf "rexp%d(%s)\tstr%d(%s)\t-> %s\n" i (Constr.rexp_to_string r) j s (if b then "true" else "false");
      ) strs) rexps
 
 
