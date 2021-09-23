@@ -197,8 +197,7 @@ let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
 let (+@) = ilset_funmap_union
 
 (* return the list where the nth element is transformed *)
-(* TODO: rename into  [map_at i f l] *)
-let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
+let map_at (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
 (* [insert_sublist_at index el l] inserts the elemtns [el] at index [index] in the list [l].
@@ -214,7 +213,7 @@ let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
    The [index] should be in the range [0] to [length l], inclusive.
    In particular, if [index = length l], then the operation returns [l @ [e]]. *)
 let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list =
-  isnert_sublist_at index [e] l
+  insert_sublist_at index [e] l
 
 (* [extract start stop l] returns a pair of lists:
    - the list with items outside of the range from [start] to [stop]
@@ -240,11 +239,4 @@ let get_first_last (l : 'a list) : 'a * 'a =
   let n = List.length l in
   if n = 0 then failwith "get_first_last: empty list"
     else (List.nth l 0, List.nth l (n-1))
-
-(* [replace_at index y l] replaces the element at index [index] in list [l] with [x].
-   The [index] should satisfy [0 <= index < length l]. *)
-let replace_at (index : int) (x : 'a) (l : 'a list) : 'a list =
-  List.rev (foldi (fun i acc y -> if i = index then x :: acc else y :: acc) [] l)
-  (* TODO: why not use mapi like in change_nth?
-  or even better, just call change_nth (fun _y -> x) l index *)
 

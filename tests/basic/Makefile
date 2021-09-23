@@ -26,6 +26,7 @@ TESTS_WORKING := \
 	loop_tile.ml \
 	loop_unswitch.ml \
 	loop_to_unit_steps.ml \
+	pointer_fold.ml \
 	reference_fold.ml \
 	reference_inline.ml \
 	replace.ml \
@@ -46,6 +47,8 @@ TESTS_WORKING := \
 	variable_fold.ml \
 	
 TESTS_TOCHECK := \
+	change_type.ml \
+	sequence_partition.ml \
 	
 
 

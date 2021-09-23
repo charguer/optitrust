@@ -616,7 +616,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
                       *)
                      let tvl' =
                        List.fold_left
-                         (change_nth (fun (y, _) -> (y, typ_var x))) tvl il
+                         (map_at (fun (y, _) -> (y, typ_var x))) tvl il
                      in
                      (* add index to labels in the body of the function *)
                      let b' =

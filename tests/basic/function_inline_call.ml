@@ -5,7 +5,7 @@ let _ = Run.script_cpp (fun _ ->
   !! Function_basic.inline_call ~label:"bodyf" [cFun "f"];
   !! Function_basic.inline_call ~label:"bodyg" [cFun "g"];
   !! Function_basic.inline_call ~label:"bodyh" [cFun "h"];
-  !! Function_basic.inline_call ~label:"bodym" [cFun "m"];
+  (* !! Function_basic.inline_call ~label:"bodym" [cFun "m"]; *)
 )
 
 (* NOTE: this basic transformation assumes a call of the form

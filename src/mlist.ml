@@ -30,30 +30,28 @@ let nth (ml : 'a t) (index : int) : 'a =
 let foldi (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   Tools.foldi acc_f acc ml.items
 
-let insert_at (index : int) (el : 'a) (ml : 'a t) : 'a t =
-  let sz = length ml in
-  (* TODO: assert (0 <= index && index <= sz); *)
-  { items = Tools.insert_at index el ml.items;
-    marks = if index = sz then ml.marks @ [[]] else Tools.insert_at index [] ml.marks }
-    (* TODO: I think
-         marks = Tools.insert_at index [] ml.marks
-      would work in all cases *)
-  (* TODO: insert_at can be implemented as insert_sublist_at, see how it's dont in tool.ml *)
-
 let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
    let sz = length ml in
+   assert (0 <= index && index <= sz);
    let empty_marks = List.map (fun _ -> []) sl in
    { items = Tools.insert_sublist_at index sl ml.items;
      marks = if index = sz then ml.marks @ empty_marks else Tools.insert_sublist_at index empty_marks ml.marks }
 
-(* TODO: rename el to x, keep "l" for lists *)
-let replace_at (index : int) (el : 'a) (ml : 'a t) : 'a t =
-  { ml with items = Tools.replace_at index el ml.items }
+let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
+  insert_sublist_at index [x] ml
+
+(* DEPRECATED *)
+(* let insert_at1 (index : int) (el : 'a) (ml : 'a t) : 'a t =
+  let sz = length ml in
+  { items = Tools.insert_at index el ml.items;
+    marks = if index = sz then ml.marks @ [[]] else Tools.insert_at index [] ml.marks } *)
+
+
+let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
+  { ml with items = Tools.map_at (fun _ -> x) ml.items index  }
 
 let insert_mark_at (index : int) (m : mark) (ml : 'a t) : 'a t =
-  let m1 = List.nth ml.marks index in
-  { ml with marks = Tools.replace_at index (m :: m1) ml.marks }
-  (* TODO: Tools.map_at index (fun ms -> m::ms) ml.marks *)
+  { ml with marks = Tools.map_at (fun ms -> m :: ms) ml.marks index}
 
 let remove_mark (m : mark) (ml : 'a t) : 'a t =
   let new_marks = List.map (fun ms -> List.filter (fun x -> x <> m) ms) ml.marks in
@@ -112,7 +110,8 @@ let list_update_nth (transfo : 'a -> 'a) (ml : 'a t) (n : int) : 'a t =
   { ml with items = Tools.list_update_nth transfo ml.items n }
 
 let marks_to_string (ml : 'a t) : string =
-  Tools.list_to_string (List.map (fun ml1 -> Tools.list_to_string ml1) ml.marks)
+  "[" ^ List.fold_left (fun acc x -> (Tools.list_to_string x) ^ acc ) "" (List.rev ml.marks) ^ "]"
+  (* sTools.list_to_string (List.map (fun ml1 -> Tools.list_to_string ml1) ml.marks) *)
    (* TODO: I am not sure this will be unambiguously readable, if you don't
    use different kind of separators for the two list_to_string calls,
    or brackets. Perhaps simplest is to print brackets "[...]" around

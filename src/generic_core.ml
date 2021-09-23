@@ -152,7 +152,7 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
       end in
       let lback = Mlist.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
       let tl = Mlist.merge lfront lback in
-      let tl = Mlist.insert_at (index-1) new_decl tl in 
+      let tl = Mlist.insert_at index new_decl tl in 
       trm_seq ~annot:t.annot tl
     | _ -> fail t.loc "change_type_aux: expected a variable or a function declaration"
     end

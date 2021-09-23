@@ -6,9 +6,9 @@ int h() { return 1; }
 
 int main() {
   int a = 3;
-  int r = g(a, 4);
   int t = f(r);
-  int s = h();
+  int r = g(a, 4);
   int z = f(s);
+  int s = h();
   return 0;
 }
