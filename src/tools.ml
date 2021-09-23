@@ -154,7 +154,21 @@ let list_remove_duplicate xs x = if List.mem x xs then xs else x :: xs
 
 let list_remove_duplicates xs = List.rev (List.fold_left list_remove_duplicate [] xs)
 
-let list_intersect xs1 xs2 = List.filter (fun x -> List.mem x xs1) xs2
+(* [list_intersect xs1 xs2] computs the intersection of the sets describe dy the two lists *)
+let list_intersect (xs1:'a list) (xs2:'a list) : 'a list =
+  List.filter (fun x -> List.mem x xs1) xs2
+  (*  LATER:
+    let h = Hashtbl.create (List.length xs1) in
+    List.filter (fun x -> Hashtbl.mem h x) xs2
+  *)
+
+  (* [list_union xs1 xs2] returns a list that extends [xs1] with the elements from [xs2] that are not in [xs1] already
+
+    let h = Hashtbl.create (List.length xs1) in
+    List.fold_left (fun acc x -> if Hashtbl.mem h x then acc else x::acc) xs1 xs2
+   *)
+
+
 
 
 (* maps on functions *)

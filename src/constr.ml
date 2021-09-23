@@ -669,7 +669,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | Typdef_enum xto_l -> check_name name td.typdef_tconstr && check_enum_const cec xto_l
         | _ -> false
         end
-     | Constr_seq cl, Trm_seq tl when  
+     | Constr_seq cl, Trm_seq tl when
         not ((List.mem (No_braces (Nobrace.current())) t.annot) || List.mem Main_file t.annot)->
         check_list  ~depth:(DepthAt 0) cl (Mlist.to_list tl)
      | Constr_var name, Trm_var x ->
@@ -719,7 +719,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           (List.exists pred t.marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
         | _ -> List.exists pred t.marks
         end
-        
+
      | _ -> false
      end
 
@@ -820,22 +820,20 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           let potential_targets = resolve_target_simple tr t in
           begin match potential_targets with
           | [[]] when all_target_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
-          | _ -> acc @ potential_targets  (* LATER: make code more complex to avoid quadratic operation here *)
+          | _ -> acc @ potential_targets  (* LATER: make code more complex to avoid quadratic operation here -- TODO: call list_union acc potential_targets? *)
           end ) [] tl
     | Constr_and tl :: [] ->
-        List.fold_left (fun acc tr ->
+        Tools.foldi (fun i acc tr ->
         let potential_target = resolve_target_simple tr t in
         begin match potential_target with
         | [[]] -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
         | _ ->
-          begin match acc with
-          (* First step, initalize the acc *)
-          | [] -> potential_target
+          if i = 0
+            (* First step, initalize the acc *)
+            then potential_target
           (* Compute the intersection of all resolved targets *)
-          | _ ->
-            Tools.list_intersect acc potential_target
-          end
-        end ) [] (List.rev tl)
+            else Tools.list_intersect acc potential_target
+        end ) [] tl
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t
@@ -961,7 +959,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
   else if List.mem Multi_decl t.annot then
      (* explore each declaration in the seq *)
      begin match t.desc with
-     | Trm_seq tl ->      
+     | Trm_seq tl ->
         explore_list (Mlist.to_list tl) (fun i -> Dir_seq_nth i) (explore_in_depth p)
      | _ -> fail loc "explore_in_depth: bad multi_decl annotation"
      end

@@ -663,18 +663,20 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
 let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
-        if reparse then reparse_alias();
-        let should_exit = (Flags.get_exit_line() = Some line) in
-        if should_exit then begin
-          if Constr.is_target_between tg then begin
-            applyi_on_targets_between (fun i t (p,k) ->
-              target_between_show_transfo i k t p) tg
-              end
-          else begin
-            applyi_on_targets (fun i t p -> target_show_transfo i t p) tg
-          end;
-          dump_diff_and_exit()
+  (* TODO: let tg = add_nbMulti_if_no_constr_occ tg in
+    implemented as List.exists .. *)
+  if reparse then reparse_alias();
+  let should_exit = (Flags.get_exit_line() = Some line) in
+  if should_exit then begin
+    if Constr.is_target_between tg then begin
+      applyi_on_targets_between (fun i t (p,k) ->
+        target_between_show_transfo i k t p) tg
         end
+    else begin
+      applyi_on_targets (fun i t p -> target_show_transfo i t p) tg
+    end;
+    dump_diff_and_exit()
+  end
 
 (* DEPRECATED *)
 (* let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
