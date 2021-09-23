@@ -196,43 +196,55 @@ let ilset_funmap_union : ilset funmap -> ilset funmap -> ilset funmap =
   Fun_map.union ilset_funmap_union_aux
 let (+@) = ilset_funmap_union
 
-
 (* return the list where the nth element is transformed *)
+(* TODO: rename into  [map_at i f l] *)
 let change_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
-
-(* insert an element [e] at index [index] in list [ml], this operation will shift the current element 
-    at list [ml] for one index except for the case when [index] = length [ml] then [e] will be 
-    added at the end of [ml]. The reason for that is because thi technique is fully compatible with 
-    the concept of marks.
-*)
-let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list = 
-  if index = List.length l 
-    then l @ [e] 
-    else foldi (fun i acc x -> 
-      if i = ((List.length l) - index - 1) then e :: x :: acc else x :: acc) [] (List.rev l)
-
-(* insert a list of elements at index [index ] in list [l], all the elments of [l] with index greater than [index] 
-  will be shifter for the length  of [el] except for the case when [index] = lenth [m] then [l] will be 
-  concatenated at the end of [l]
-*)
+(* [insert_sublist_at index el l] inserts the elemtns [el] at index [index] in the list [l].
+   The [index] should be in the range [0] to [length l], inclusive.
+   In particular, if [index = length l], then the operation returns [l @ el]. *)
 let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
-  List.fold_left (fun acc x -> insert_at index x acc) l el
-   
-(* slice list [l] from [start] to [stop] and return the original list without the slice and the slice of the original list *)
+  if index = List.length l
+    then l @ el
+    else foldi (fun i acc x ->
+      if i = ((List.length l) - index - 1) then el @ x :: acc else x :: acc) [] (List.rev l)
+
+(* [insert_at index e l] inserts an element [e] at index [index] in the list [l].
+   The [index] should be in the range [0] to [length l], inclusive.
+   In particular, if [index = length l], then the operation returns [l @ [e]]. *)
+let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list =
+  isnert_sublist_at index [e] l
+
+(* [extract start stop l] returns a pair of lists:
+   - the list with items outside of the range from [start] to [stop]
+   - the list with items inside the range from [start] to [stop].
+   TODO: the two returns values should ideally be in the other order, that is, the slice comes first
+   TODO: specify the length of the slice, e.g. [stop - start (?+1)].
+   TODO: specify if the indices [start] and [stop] are inclusive or exclusive;
+      in general, the convention that works best is to to take start inclusive and stop exclusive;
+      but in fact, the even better convention is to take [start] and [nb] as argument,
+      and deduce the index of the last item as [start+nb-1]. It is much more frequent
+      to know [nb] than to know [stop]. *)
 let extract (start : int) (stop : int) (l : 'a list) : ('a list * 'a list) =
   let rev_start = (List.length l - (stop + 1)) in
   let rev_stop = (List.length l - (start + 1)) in
   foldi (fun i (f_acc, s_acc) x -> if i >= rev_start && i <= rev_stop then (f_acc, x :: s_acc) else (x :: f_acc, s_acc)) ([],[]) (List.rev l)
 
-(* get the first and the last element of the list [l]*)
-let get_first_last (l : 'a list) : 'a * 'a = 
+(* get the first and the last element of the list [l]
+   TODO: I've never seen this fucntion before.
+   if the list as size 2, you should match it against [x;y];
+   else you could call get_first and get_last two separate functions;
+   but it's very rare to need this. *)
+let get_first_last (l : 'a list) : 'a * 'a =
   let n = List.length l in
   if n = 0 then failwith "get_first_last: empty list"
     else (List.nth l 0, List.nth l (n-1))
 
-(* replace element at index [index] with [el] in list [l] *)
-let replace_at (index : int) (el : 'a) (l : 'a list) : 'a list =
-  List.rev (foldi (fun i acc x -> if i = index then el :: acc else x :: acc) [] l)
+(* [replace_at index y l] replaces the element at index [index] in list [l] with [x].
+   The [index] should satisfy [0 <= index < length l]. *)
+let replace_at (index : int) (x : 'a) (l : 'a list) : 'a list =
+  List.rev (foldi (fun i acc y -> if i = index then x :: acc else y :: acc) [] l)
+  (* TODO: why not use mapi like in change_nth?
+  or even better, just call change_nth (fun _y -> x) l index *)
 
