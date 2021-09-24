@@ -87,7 +87,9 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
           trm_goto exit_label
       end
     | _-> trm_map_with_terminal is_terminal aux t
-  in (aux true t, !nb_gotos)
+  in
+  let t = aux true t in
+  (t, !nb_gotos)
 
 (* [inline_call_aux index label top_ast p_local t] replaced a function call with the traslated body of the function called
     params:
@@ -103,7 +105,7 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
   match t.desc with
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
-    let fun_call = if p_local = [] then (get_init_val trm_to_change) else fst (Path.resolve_path p_local trm_to_change) in
+    let fun_call = fst (Path.resolve_path p_local trm_to_change) in
         
     let fun_call_name, fun_call_args = begin match fun_call.desc with
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args

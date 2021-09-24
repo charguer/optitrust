@@ -205,26 +205,15 @@ exception Init_attach_no_occurrences
 exception Init_attach_occurrence_below_control
 
 let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
-  let counter = ref 0 in
   match t.desc with 
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with 
     | Trm_let (_, (x, tx), _) ->
-        let init_index = Mlist.foldi (fun i acc t1 -> 
-          match t1.desc with 
-          | Trm_apps(_,[ls;_]) ->
-            begin match ls.desc with 
-            | Trm_var y when y = x -> 
-              if !counter <= 1 then Some i else raise Init_attach_no_occurrences
-            | _ -> acc
-            end
-          | _ -> acc
-        ) None lback in
-        let index1  = match init_index with 
-        | Some index -> index
-        | _ -> raise Init_attach_occurrence_below_control
-          in
+        let init_index = Internal.nb_inits x (trm_seq lback) in
+        let index1 = if init_index < 1 then raise Init_attach_no_occurrences
+            else if init_index > 1 then raise Init_attach_occurrence_below_control
+            else init_index in
         let lfront1, assgn_to_change, lback1 = Internal.get_trm_and_its_relatives index1 lback in
         begin match assgn_to_change.desc with 
         | Trm_apps(_, [_; rhs]) ->

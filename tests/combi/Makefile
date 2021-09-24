@@ -8,6 +8,8 @@ TESTS_WORKING := \
 	function_bind_args.ml \
 	function_bind.ml \
 	function_elim_body.ml \
+	function_inline_complex.ml \
+	function_inline_simple.ml \
 	loop_fusion.ml \
 	loop_hoist.ml \
 	loop_invariant.ml \
@@ -21,8 +23,6 @@ TESTS_TOCHECK := \
 	aos_to_soa.ml \
 	delocalize.ml \
 	loop_unroll.ml \
-	function_inline_complex.ml \
-	function_inline_simple.ml \
 
 TESTS := $(TESTS_WORKING)
 

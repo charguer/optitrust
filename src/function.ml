@@ -129,13 +129,13 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : var list = []) (tg : Target.target) : unit =
-  Target.apply_on_targets (fun t p ->
+  Target.applyi_on_targets (fun i t p ->
     let name_result = ref name_result in
-    let (path_to_seq,local_path, i) = Internal.get_call_in_surrounding_sequence p in
-    let path_to_instruction = path_to_seq @ [Dir_seq_nth i] in
+    let (path_to_seq,local_path, i1) = Internal.get_call_in_surrounding_sequence p in
+    let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
     let (tg_trm, _) = Path.resolve_path (path_to_instruction @ local_path) t in
     let (tg_out_trm, _) = Path.resolve_path path_to_instruction t in
-    let my_mark = "__inline_call" in
+    let my_mark = "__inline_call" ^ "_" ^ (string_of_int i) in
     let res_inlining_needed =
     begin match tg_out_trm.desc with
     | Trm_let (_, (x, _), _) ->
@@ -146,7 +146,7 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
             begin match !name_result with
             | ""  ->  name_result := "__TEMP_Optitrust";
                       Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p) ;true
-            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p) ;false
+            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p) ;true
             end
     | Trm_apps _ -> false
     | _ -> fail None "inline_call: expected a variable declaration or a function call"
@@ -156,15 +156,14 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     if args <> [] then bind_args args new_target else ();
     Function_basic.inline_call ~label new_target; 
     elim_body ~vars [Target.cLabel label];
-    if !name_result <> ""
-      then
-        begin
+    if !name_result <> "" 
+        then begin
         let () = try Variable_basic.init_attach new_target with
            | Variable_basic.Init_attach_no_occurrences 
            | Variable_basic.Init_attach_occurrence_below_control -> ()
            | e -> raise e in
-        if res_inlining_needed then Variable_basic.inline ~delete:true new_target else ()end;
-    Generic.remove_mark my_mark [Target.cMark my_mark];
+        if res_inlining_needed then Variable_basic.inline ~delete:true new_target; 
+        Generic.remove_mark my_mark [Target.nbAny; Target.cMark my_mark] end;
     Trace.get_ast()
   ) tg
 

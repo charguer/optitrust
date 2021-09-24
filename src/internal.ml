@@ -248,7 +248,20 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
     get_typid_from_typ tx
   | _ -> -1
 
-  
+
+let nb_inits (x : var) (t : trm) : int = 
+  let counter = ref 0 in
+  let rec aux (t : trm) : trm =
+    match t.desc with 
+    | Trm_apps (_,[ls; _]) ->
+      begin match ls.desc with 
+      | Trm_var y when y = x -> incr counter; ls
+      | _ -> ls
+      end
+    | _ -> trm_map aux t
+    in
+    let _t = aux t in !counter
+
 (* Find the declaration of variable [x] if it exists in [t] where t usually is the full ast.*)
 let rec toplevel_decl (x : var) (t : trm) : trm option =
   match t.desc with

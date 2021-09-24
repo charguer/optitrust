@@ -8,10 +8,7 @@ let _ = Run.script_cpp (fun _ ->
       !! Function.bind_args ["a";"";"b";""] [cFun "g"];
       !! Function_basic.inline_call ~label:"body" [cFun "g"];
       !! Function.elim_body [cLabel "body"];
-      (* DONE: skip this ! List.iter (fun x -> Variable_basic.inline ~delete:true [cVarDef x]) (List.filter (fun x -> x <> "") ["a";"";"b";""]);*)
       !! Variable_basic.init_attach [cVarDef "r"];
-      (* DONE: this step should only be done if name_result was not provided
-         !! Variable_basic.inline ~delete:true [cVarDef "r"]; *)
       !!());
 
     (* Demo without a result name *)
