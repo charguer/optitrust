@@ -81,7 +81,7 @@ int main4() { // Function_basic.inline_call ~[cMark mymark] // SHOULD KEEP THE M
   }
   int t = f(r);
 }
-int main5() { // Function.elim_body ~[cMark mymark]
+int main5() { // Function.elim_body ~[cLabel label]
   int u = 1, v = 2, w = 3;
   int a = h(4);
   int b = m(v, 2);
@@ -126,7 +126,7 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     | _ -> fail None "inline_call: expected a variable declaration or a function call"
     end in
     let new_target = [Target.cMark my_mark] in
-    if not res_inlining_needed then Generic.add_mark my_mark (Target.target_of_path path_to_instruction);
+    if not res_inlining_needed then Generic.add_mark my_mark (Target.target_of_path p);
     if args <> [] then bind_args args new_target else ();
     Function_basic.inline_call ~label new_target; 
     elim_body ~vars [Target.cLabel label];
@@ -134,12 +134,9 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
       then
         begin
         Variable_basic.init_attach new_target; 
-        Tools.printf "arrived here\n";
-        end;
-        (* let () = try Variable_basic.init_attach new_target with | Init_attach_no_occurrences | Init_attach_occurrence_below_control -> () | e -> raise e in *)
-        (* if res_inlining_needed then Variable_basic.inline ~delete:true new_target end; *)
-    (* else (); *)
-    (* Generic.remove_mark my_mark [Target.cMark my_mark]; *)
+        let () = try Variable_basic.init_attach new_target with | Init_attach_no_occurrences | Init_attach_occurrence_below_control -> () | e -> raise e in
+        if res_inlining_needed then Variable_basic.inline ~delete:true new_target else ()end;
+    Generic.remove_mark my_mark [Target.cMark my_mark];
     Trace.get_ast()
   ) tg
 

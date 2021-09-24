@@ -202,7 +202,6 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
   let counter = ref 0 in
   match t.desc with 
   | Trm_seq tl ->
-    
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with 
     | Trm_let (_, (x, tx), _) ->
@@ -235,7 +234,7 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
           let new_front = Mlist.merge lfront lfront1 in
           let new_back = Mlist.insert_at 0 new_trm lback1 in
           let new_tl = Mlist.merge new_front new_back in
-          trm_seq ~annot:t.annot new_tl
+          trm_seq ~annot:t.annot ~marks:t.marks new_tl
         | _ -> fail assgn_to_change.loc "init_attach: something wen't wrong"
         end
     | _ -> fail t.loc "init_attach_aux: target_doesn't point to the right trm, expected a trm_let"

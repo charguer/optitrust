@@ -123,8 +123,8 @@ let get_call_in_surrounding_sequence (dl : path) : path * path * int =
     | [] -> fail None "get_call_in_surrounding_sequence: empty path"
     | Dir_seq_nth i :: dl'-> (List.rev dl', acc, i)
     | dir :: dl' -> aux (dir :: acc) dl'
-  in
-  aux [] (List.rev dl)
+  in aux [] (List.rev dl) 
+  
 
 (* For an ast node with path [dl] where the node is a children of the body of a for loop, this function returns
     the path to the for loop contining that node together with the index of the instruction in the body sequence

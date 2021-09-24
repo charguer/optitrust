@@ -23,6 +23,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
   | Trm_seq tl ->
      let instr = Mlist.nth tl index in
      let trm_to_apply_changes, _ = Path.resolve_path p_local instr in
+     let trm_to_apply_changes = if my_mark <> "" then trm_add_mark my_mark trm_to_apply_changes else trm_to_apply_changes in
      let function_type = match trm_to_apply_changes.typ with
      | Some typ -> typ
      (* Maybe it should fail here!! *)
@@ -31,16 +32,14 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
      let decl_to_insert =
       if const then
-        let new_decl = trm_let Var_immutable (fresh_name, function_type) trm_to_apply_changes in
-        if my_mark <> "" then trm_add_mark my_mark new_decl else new_decl
+        trm_let Var_immutable (fresh_name, function_type) trm_to_apply_changes
       else
         let ptrkind = if has_reference_type then Ptr_kind_ref else Ptr_kind_mut in
-        let new_decl = (trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [trm_to_apply_changes])) in
-        if my_mark <> "" then trm_add_mark my_mark  new_decl else new_decl
+        trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [trm_to_apply_changes])
       in
      let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      let new_tl = Mlist.remove index index tl in
-     let new_tl = Mlist.insert_sublist_at index ([decl_to_change] @ [decl_to_insert] ) new_tl in
+     let new_tl = Mlist.insert_sublist_at index ([decl_to_insert] @ [decl_to_change]) new_tl in
      trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
@@ -139,7 +138,7 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
    let inlined_body =
     if is_type_unit(fun_decl_type)
       then [labelled_body; exit_label]
-      else  [trm_let ~marks:trm_to_change.marks Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
+      else  [trm_let ~marks:fun_call.marks Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
               labelled_body;exit_label]
       in
        let new_tl = Mlist.merge lfront lback in
