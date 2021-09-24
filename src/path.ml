@@ -204,139 +204,127 @@ let app_to_nth_dflt (loc : location) (l : 'a list) (n : int)
 
 (* follow an explicit target to apply a function on the corresponding subterm *)
 let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
-  let rec aux (* rename to apply_on_path_rec *) (dl : path) (t : trm) : trm =
+  let rec aux_on_path_rec (* rename to apply_on_path_rec *) (dl : path) (t : trm) : trm =
     match dl with
     | [] -> transfo t
     | d :: dl ->
-       let annot = t.annot in
-       let loc = t.loc in
-       let is_statement = t.is_statement in
-       let add = t.add in
-       let typ = t.typ in
-       let attributes = t.attributes in
+       let aux t = aux_on_path_rec dl t in
        (* TODO: let aux t = apply_on_path_rec dl t *)
        let newt = begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
-          { t with desc = Trm_seq (Mlist.list_update_nth (aux dl) tl n) }
-          (* TODO trm_seq ~annot ~loc ~add ~attributes (Mlist.list_update_nth (aux dl) tl n) *)
+          { t with desc = Trm_seq (Mlist.list_update_nth aux tl n) }
        | Dir_nth n, Trm_array tl ->
-          trm_array ~annot ~loc ~add ~typ ~attributes (Mlist.list_update_nth (aux dl) tl n)
+          { t with desc = Trm_array (Mlist.list_update_nth aux tl n)}
        | Dir_nth n, Trm_struct tl ->
-          trm_struct ~annot ~loc ~add ~typ ~attributes(Mlist.list_update_nth (aux dl) tl n)
+          { t with desc = Trm_struct (Mlist.list_update_nth aux tl n)}
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
-          trm_if ~annot ~loc ~add ~attributes (aux dl cond) then_t else_t
+          { t with desc = Trm_if (aux cond, then_t, else_t)}
        | Dir_cond, Trm_while (cond, body) ->
-          trm_while ~annot ~loc ~add ~attributes (aux dl cond) body
+          { t with desc = Trm_while (aux cond, body)}
        | Dir_cond, Trm_do_while (body, cond) ->
-          trm_do_while ~annot ~loc ~add ~attributes body (aux dl cond)
+          { t with desc = Trm_do_while (body, aux cond)}
        | Dir_cond, Trm_for_c (init, cond, step, body) ->
-          trm_for_c~annot ~loc ~add ~attributes init (aux dl cond) step body
+          { t with desc = Trm_for_c (init, aux cond, step, body)}
        | Dir_cond, Trm_switch (cond, cases) ->
-          trm_switch ~annot ~loc ~add ~attributes (aux dl cond) cases
+          { t with desc = Trm_switch (aux cond, cases)}
        | Dir_then, Trm_if (cond, then_t, else_t) ->
-          trm_if ~annot ~loc ~add ~attributes cond (aux dl then_t) else_t
+          { t with desc = Trm_if (cond, aux then_t, else_t)}
        | Dir_else, Trm_if (cond, then_t, else_t) ->
-        (* { t with desc = Trm_seq (cond, then_t, aux else_t) } *)
-          trm_if ~annot ~loc ~add ~attributes cond then_t (aux dl else_t)
+          { t with desc = Trm_if (cond, then_t, aux else_t) }
        | Dir_body, Trm_let (vk,tx,body) ->
-          trm_let ~annot ~loc ~is_statement ~add ~attributes vk tx  (aux dl body)
+          { t with desc = Trm_let (vk, tx, aux body)}
        | Dir_body, Trm_let_fun (x, tx, txl, body) ->
-          trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl (aux dl body)
+          { t with desc = Trm_let_fun (x, tx, txl, aux body)}
        | Dir_body, Trm_for (index, direction, start, stop, step, body) ->
-          { t with desc = Trm_for (index, direction, start, stop, step, aux dl body) }
-          (*trm_for ~annot ~loc ~add ~attributes index direction start stop step (aux dl body)*)
+          { t with desc = Trm_for (index, direction, start, stop, step, aux body) }
        | Dir_body, Trm_for_c (init, cond, step, body) ->
-          trm_for_c~annot ~loc ~add ~attributes init cond step (aux dl body)
+          { t with desc = Trm_for_c (init, cond, step, aux body) }
        | Dir_body, Trm_while (cond, body) ->
-          trm_while ~annot ~loc ~add ~attributes cond (aux dl body)
+          { t with desc = Trm_while (cond, aux body)}
        | Dir_body, Trm_do_while (body, cond) ->
-          trm_do_while ~annot ~loc ~add ~attributes (aux dl body) cond
+          {t with desc = Trm_do_while (aux body, cond)}
        | Dir_body, Trm_abort (Ret (Some body)) ->
-          trm_abort ~annot ~loc ~add ~attributes (Ret (Some (aux dl body)))
+          { t with desc = Trm_abort (Ret (Some (aux body)))}
        | Dir_body, Trm_labelled (l, body) ->
-          trm_labelled ~annot ~loc ~add ~attributes l (aux dl body)
+          { t with desc = Trm_labelled (l, aux body)}
        | Dir_for_start, Trm_for (index, direction, start, stop, step, body) ->
-         trm_for ~annot ~loc ~add ~attributes index direction (aux dl start) stop step body
+          { t with desc = Trm_for (index, direction, aux start, stop, step, body)}
        | Dir_for_stop, Trm_for (index, direction, start, stop, step, body) ->
-         trm_for ~annot ~loc ~add ~attributes index direction start (aux dl stop) step body
+          { t with desc = Trm_for (index, direction, start, aux stop, step, body)}
        | Dir_for_step, Trm_for (index, direction, start, stop, step, body) ->
-         trm_for ~annot ~loc ~add ~attributes index direction start stop (aux dl step) body
+          { t with desc = Trm_for (index, direction, start, stop, aux step, body)}
        | Dir_for_c_init, Trm_for_c (init, cond, step, body) ->
-          trm_for_c~annot ~loc ~add ~attributes (aux dl init) cond step body
+          { t with desc = Trm_for_c (aux init, cond, step, body)}
        | Dir_for_c_step, Trm_for_c (init, cond, step, body) ->
-          trm_for_c~annot ~loc ~add ~attributes init cond (aux dl step) body
+          { t with desc = Trm_for_c (init, cond, aux step, body)}
        | Dir_app_fun, Trm_apps (f, tl) ->
           (*
             warning: the type of f may change
             -> print and reparse to have the right type
            *)
-          trm_apps ~annot ~loc ~is_statement ~add ~typ ~attributes (aux dl f) tl
+          { t with desc = Trm_apps (aux f, tl)}
        | Dir_arg n, Trm_apps (f, tl) ->
-          trm_apps ~annot ~loc ~is_statement ~add ~typ ~attributes f
-            (Tools.list_update_nth (aux dl) tl n)
+          { t with desc = Trm_apps (f, Tools.list_update_nth aux tl n)}
        | Dir_arg n, Trm_let_fun (x, tx, txl, body) ->
           let txl' =
             Tools.list_update_nth
               (fun (x, tx) ->
-                let t' = aux dl (trm_var ~loc x) in
+                let t' = aux (trm_var ~loc:t.loc x) in
                 match t'.desc with
                 | Trm_var x' -> (x', tx)
                 | _ ->
-                   fail loc ("apply_on_path: transformation " ^
+                   fail t.loc ("apply_on_path: transformation " ^
                                "must preserve fun arguments")
               )
               txl
               n
           in
-          trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x tx txl' body
+          {t with desc = Trm_let_fun (x, tx, txl', body)}
         | Dir_name , Trm_let (vk,(x,tx),body) ->
-          let t' = aux dl (trm_var ~loc x) in
-          (* DEBUG: Ast_to_text.print_ast  ~only_desc:true stdout t'; *)
+          let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var x' -> trm_let ~annot ~loc ~is_statement ~add ~attributes  vk (x',tx) body
-          | _ -> fail loc ("apply_on_path: transformation " ^ "must preserve names(variable)")
+          | Trm_var x' -> { t with desc = Trm_let (vk, (x', tx), body)}
+          | _ -> fail t.loc ("apply_on_path: transformation " ^ "must preserve names(variable)")
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
-          let t' = aux dl (trm_var ~loc x) in
+          let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var x' ->
-            trm_let_fun ~annot ~loc ~is_statement ~add ~attributes x' tx txl body
+          | Trm_var x' -> { t with desc = Trm_let_fun (x', tx, txl, body)}
           | _ ->
-             fail loc ("apply_on_path: transformation " ^
+             fail t.loc ("apply_on_path: transformation " ^
                          "must preserve names(function)")
           end
        | Dir_name, Trm_labelled (l, body) ->
-          let t' = aux dl (trm_var ~loc l) in
+          let t' = aux (trm_var ~loc:t.loc l) in
           begin match t'.desc with
-          | Trm_var l' ->
-             trm_labelled ~annot ~loc ~add ~attributes l' body
+          | Trm_var l' -> { t with desc = Trm_labelled (l', body)}
           | _ ->
-             fail loc ("apply_on_path: transformation " ^
+             fail t.loc ("apply_on_path: transformation " ^
                          "must preserve names(label)")
           end
 
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
-          trm_switch ~annot ~loc ~add ~attributes cond
+          let updated_cases = 
             (Tools.list_update_nth
                (fun (tl, body) ->
                  match cd with
-                 | Case_body -> (tl, aux dl body)
+                 | Case_body -> (tl, aux body)
                  | Case_name i ->
-                    (Tools.list_update_nth (fun ith_t -> aux dl ith_t) tl i, body)
+                    (Tools.list_update_nth (fun ith_t -> aux ith_t) tl i, body)
                )
                cases
                n
-            )
+            ) in {t with desc = Trm_switch (cond, updated_cases)}
         | _, _ ->
            let s = dir_to_string d in
-           fail loc ("apply_on_path: direction " ^ s ^
+           fail t.loc ("apply_on_path: direction " ^ s ^
                        " does not match")
        end in
         { newt with typ = None; ctx = None } (* LATER: check if other info need to be cleared *)
 
 
   in
-  aux dl t
+  aux_on_path_rec dl t
 
 
 

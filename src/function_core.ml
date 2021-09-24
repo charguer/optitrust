@@ -143,7 +143,7 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
               labelled_body;exit_label]
       in
        let new_tl = Mlist.merge lfront lback in
-       let new_tl = Mlist.insert_sublist_at index (List.rev inlined_body) new_tl in
+       let new_tl = Mlist.insert_sublist_at index inlined_body new_tl in
        trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
 

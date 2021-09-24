@@ -130,14 +130,16 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     if args <> [] then bind_args args new_target else ();
     Function_basic.inline_call ~label new_target; 
     elim_body ~vars [Target.cLabel label];
-    (* if !name_result <> ""
+    if !name_result <> ""
       then
         begin
         Variable_basic.init_attach new_target; 
         Tools.printf "arrived here\n";
-        let () = try Variable_basic.init_attach new_target with | Init_attach_no_occurrences | Init_attach_occurrence_below_control -> () | e -> raise e in
-        if res_inlining_needed then Variable_basic.inline ~delete:true new_target end
-    else (); *)
+        end;
+        (* let () = try Variable_basic.init_attach new_target with | Init_attach_no_occurrences | Init_attach_occurrence_below_control -> () | e -> raise e in *)
+        (* if res_inlining_needed then Variable_basic.inline ~delete:true new_target end; *)
+    (* else (); *)
+    (* Generic.remove_mark my_mark [Target.cMark my_mark]; *)
     Trace.get_ast()
   ) tg
 

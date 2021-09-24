@@ -406,7 +406,7 @@ let clean_no_brace_seq (id : int) (t : trm) : trm =
           List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list) 
         else tl in
       let new_tl = Mlist.map aux new_tl in
-      trm_seq ~annot:t.annot new_tl
+      {t with desc = Trm_seq new_tl}
     | _ -> trm_map aux t
    in aux t 
 

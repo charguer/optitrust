@@ -663,8 +663,7 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
 let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
-  (* TODO: let tg = add_nbMulti_if_no_constr_occ tg in
-    implemented as List.exists .. *)
+  let tg = if List.exists (function Constr_occurrences _ -> true | _ -> false) tg then tg else (nbMulti) :: tg in
   if reparse then reparse_alias();
   let should_exit = (Flags.get_exit_line() = Some line) in
   if should_exit then begin

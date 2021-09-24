@@ -231,7 +231,7 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
           end in
           let tx = if const then typ_const inner_type else typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut inner_type in
           let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
-          let new_trm = trm_let vk (x, tx)  init in
+          let new_trm = trm_let ~marks:trm_to_change.marks vk (x, tx)  init in
           let new_front = Mlist.merge lfront lfront1 in
           let new_back = Mlist.insert_at 0 new_trm lback1 in
           let new_tl = Mlist.merge new_front new_back in
