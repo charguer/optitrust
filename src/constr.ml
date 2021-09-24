@@ -137,12 +137,24 @@ and constr =
   | Constr_bool of bool
   (* Constraint that matches only the root of the AST *)
   | Constr_root
+  (* Constraint that matches primitive operations *)
   | Constr_prim of prim
+  (* Constraint that matches ast nodes whose marks satisfy the predicate *)
   | Constr_mark of (mark -> bool) * string
+  (* Constraint that matches a union of targets *)
   | Constr_or of target list
+  (* Constraint that matches an intersection of targets *)
   | Constr_and of target list
+  (* Constraint to match arguments  that sastify both the name predicated and the type predicate *)
+  | Constr_arg of var_constraint * typ_constraint
+  (* Constraint to match ast nodes of types that satisfy the type predicate *)
+  | Constr_hastype of typ_constraint 
 
+(* constraint over type *)
+and typ_constraint = typ -> bool
 
+(* constraint over name *)
+and var_constraint = string -> bool
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
 
@@ -396,6 +408,9 @@ let rec constr_to_string (c : constr) : string =
   | Constr_mark (_, str) -> "Mark (" ^ str ^ ")"
   | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
   | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
+  | Constr_arg _ -> "TODO"
+  | Constr_hastype _ -> "TODO"
+
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
 
@@ -720,7 +735,11 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           (List.exists pred t.marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)
         | _ -> List.exists pred t.marks
         end
-
+     | Constr_hastype pred , _ ->
+        begin match t.typ with 
+        | Some ty -> pred ty
+        | _ -> false
+        end
      | _ -> false
      end
 
@@ -785,16 +804,12 @@ and check_args (lpred : target_list_pred) (txl : typed_var list) : bool =
        *)
 
   (* [check_arg] understands [cHasType] and [cArg], expect target to be singleton constraints *)
-and check_arg (_tg:target) ((_var_name,_var_typ) : typed_var) : bool =
-(* TODO *) true (*
-  match tg with
+and check_arg (tg:target) ((var_name, var_typ) : typed_var) : bool =
+  match tg with 
   | [] -> true
-  | [Constr_arg (var_constraint, typ_constraint)] -> 
-       var_constraint var_name
-    && typ_constraint var_typ
-  | _ -> fail None "check_arg expects just one constraint in the target "
-  *)
-
+  | [Constr_arg (var_constraint, typ_constraint)] ->
+      var_constraint var_name && typ_constraint var_typ
+  | _ -> fail None "check_arg: expected just one constraint in the target"
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =

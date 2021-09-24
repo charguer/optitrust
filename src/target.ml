@@ -189,11 +189,44 @@ let sExprRegexp ?(substr : bool = false) (s : string) : constr =
 let cInclude (s : string) : constr =
     Constr_include s
 
+let cOr (tgl : target list) : constr =
+  Constr_or tgl
+
+let cAnd (tgl : target list) : constr =
+  Constr_and tgl
+
+let make_typ_constraint ?(typ : string option = None) ?(typ_ast : typ option = None) () : typ_constraint =
+  match typ, typ_ast with 
+  | None, None -> (fun _ -> true)
+  | Some ty_str, None -> (fun (ty : typ) -> ty_str = (Ast_to_c.typ_to_string ty))
+  | None, Some ty_ast -> (fun (ty : typ) -> same_types ty ty_ast)
+  | Some _, Some _ -> fail None "make_typ_constraint: can't provide both typ as string and type as ast type"
+
+let add_type_constraint ?(typ : string option = None) ?(typ_ast : typ option = None) (c : constr) : constr =
+  if typ = None && typ_ast = None 
+    then c
+    else cAnd [[c];[Constr_hastype (make_typ_constraint ~typ ~typ_ast ())]]  
+
+let cHasTypePred (pred : typ -> bool) : constr =
+  Constr_hastype pred
+
+let cHasTypeAst (ty : typ) : typ_constraint =
+  make_typ_constraint ~typ_ast:(Some ty) ()  
+
+let cHasType (tystr : string) : typ_constraint =
+  make_typ_constraint ~typ:(Some tystr) ()
+
+let cArgPred ?(typ : string option = None) ?(typ_ast : typ option = None) (pred : string -> bool) : constr =
+  Constr_arg (pred, make_typ_constraint ~typ ~typ_ast ())
+
+let cArg ?(typ : string option = None) ?(typ_ast : typ option = None) (name : string) : constr =
+  cArgPred ~typ ~typ_ast (fun x -> x = name)
+
 let cVarDef
-  ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) (name : string) : constr =
+  ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) ?(typ : string option = None) ?(typ_ast : typ option = None) (name : string) : constr =
   let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
   let p_body =  body in
-    Constr_decl_var (ro, p_body)
+  let c = Constr_decl_var (ro, p_body) in add_type_constraint ~typ ~typ_ast c
 
 let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
@@ -231,12 +264,6 @@ let cIf ?(cond : target = [])
 
 let cThen : constr =
  Constr_target [cIf(); dThen]
-
-let cOr (tgl : target list) : constr =
-  Constr_or tgl
-
-let cAnd (tgl : target list) : constr =
-  Constr_and tgl
 
 (* Converts a list of targets into a [target_list_pred] *)
 let target_list_simpl (args : targets) : target_list_pred =
@@ -321,9 +348,9 @@ let cEnum ?(name : string = "")
 let cSeq ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (_ : unit) : constr =
   Constr_seq (combine_args args args_pred)
 
-let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) (name : string) : constr =
+let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : string option = None) ?(typ_ast : typ option = None) (name : string) : constr =
   let ro = string_to_rexp_opt regexp false name trmkind in
-  Constr_var ro
+  let c = Constr_var ro in add_type_constraint ~typ ~typ_ast c
 
 let cBool (b : bool) : constr =
     Constr_lit (Some (Lit_bool b))
@@ -367,12 +394,11 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 (* [cSet ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
 *)
-let cSet ?(lhs : target = []) ?(rhs : target = []) (_ : unit) : constr =
-  cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_set)
+let cSet ?(lhs : target = []) ?(rhs : target = []) ?(typ : string option = None) ?(typ_ast : typ option = None) (_ : unit) : constr =
+  let c = cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_set) in add_type_constraint ~typ ~typ_ast c
 
 let cSetVar (x : var) : constr =
   cSet ~lhs:[cVar x] ()
-
 
 let cGet ?(arg : target = []) () : constr =
   cPrimFun ~args:[arg] (Prim_unop Unop_get)

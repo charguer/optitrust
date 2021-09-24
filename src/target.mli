@@ -124,7 +124,17 @@ val cOr : target list -> constr
 
 val cAnd : target list -> constr
 
-val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> string -> constr
+val cHasTypePred : (typ -> bool) -> constr 
+
+val cHasTypeAst : typ -> (typ -> bool)
+
+val cHasType : string -> (typ -> bool)
+
+val cArgPred : ?typ:string option -> ?typ_ast:typ option -> (string -> bool) -> constr
+
+val cArg : ?typ:string option -> ?typ_ast:typ option -> string -> constr
+
+val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string option -> ?typ_ast:typ option -> string -> constr
 
 val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?regexp:bool ->string -> constr
 
@@ -138,7 +148,7 @@ val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) 
 
 val cSeq : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
-val cVar : ?regexp:bool -> ?trmkind:trm_kind -> string -> constr
+val cVar : ?regexp:bool -> ?trmkind:trm_kind -> ?typ:string option -> ?typ_ast:typ option -> string -> constr
 
 val cBool : bool -> constr
 
@@ -204,7 +214,7 @@ val cCase : ?value:target -> unit -> case_kind
 
 val cDefault : case_kind
 
-val cSet : ?lhs:target -> ?rhs:target -> unit -> constr
+val cSet : ?lhs:target -> ?rhs:target -> ?typ:string option -> ?typ_ast:typ option -> unit -> constr
 
 val cGet : ?arg:target -> unit -> constr 
 
