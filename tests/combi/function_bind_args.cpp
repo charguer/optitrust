@@ -15,14 +15,13 @@ int m(int x, int y) {
   return x-y;
 }
 
-void n(int x) {
-  x = x + 1;
-  return;
+int main() {
+  int u, v, w;
+  int t = g(h(4), u, m(v,2), w+1);  
+  return 0;
 }
 
-int main() {
-  int x = 3;
-  int u, v, w;
+void main2() {
+  int u, v, w;  
   int t = f(g(h(4), u, m(v,2), w+1));
-  return 0;
 }

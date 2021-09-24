@@ -56,6 +56,7 @@ let init_detach (tg : Target.target) : unit =
     variable declaration.
     [const] -denotes a booleean to decide if the new declaration is constant or not.
 *)
+
 let init_attach ?(const : bool = false) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.init_attach const i t p )

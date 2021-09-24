@@ -19,7 +19,10 @@ let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) ?(my_mark : mark
 
 
 (* [inline_call ~label tg] - expects the target [tg] to point to a function call inside a declaration
-    or outside a declaration in case the function is of void type.
+    or inside a sequence in case the function is of void type. Example:
+          int r = g(a);
+      or  g(a);
+
     Then it will replace that instruction with a nobrace sequence which is a sequence
     visible only inside the ast. This sequence will be labelled with [label]. Basically
     this sequence contains the body of the declaration of the called function targeted with
@@ -52,6 +55,7 @@ let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) ?(my_mark : mark
         int y = x + x;
         return y + y;
       }
+      int r = [target:]g(a)
 
      this result is:
 

@@ -59,20 +59,20 @@ int main1() { // initial step : target on g(..)
   int u = 1, v = 2, w = 3;
   int t = f(g(h(4), u, m(v, 2), (w + 1)));
 }
-// let mymark = "__inline_call"
 int main2() { // Function_basic.bind_intro 
   int u = 1, v = 2, w = 3;
-  mymark: int r = g(h(4), u, m(v, 2), (w + 1));
+  int r = [mymark:](g(h(4), u, m(v, 2), (w + 1)));
   int t = f(r);
 }
 int main3() { // Function.bind_args ~[cMark mymark]
   int u = 1, v = 2, w = 3;
   int a = h(4);
   int b = m(v, 2);
-  mymark: int r = g(a, u, b, (w + 1));
+  int r = [mymark:](g(a, u, b, (w + 1)));
   int t = f(r);
 }
-int main4() { // Function_basic.inline_call ~[cMark mymark] // SHOULD KEEP THE MARK on the var. decl
+int main4() { // Function_basic.inline_call ~[cMark mymark] 
+              // The mark gets moved to the surrounding declaration
   int u = 1, v = 2, w = 3;
   mymark: int r; // same as before, only you remove the initialization term
   mybody: {
@@ -97,6 +97,32 @@ int main6() { // Variable_basic.init_attach
   int p = ((((a + a) + u) + b) + (w + 1));
   int r = (p + p);
 }
+
+Other example in the case of return:
+
+int h(int x) {
+  if (x > 0)
+    return -x;
+  return x;
+}
+int f1() {
+  int a = 3;
+  int r = [mymark:]h(a);
+  int s = r;
+}
+int f2() { // result of Funciton_basic.inline_cal 
+    // generate goto, generate label, don't call init_attach 
+  int a = 3
+  [mymark:]int r;
+  if (a > 0) {
+    r = -a;
+    goto _exit;
+  }
+  r = a;
+  _exit:;
+  int s = r;
+}
+
 
 // NOTE: if we want to optimize, we could instead of
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
@@ -133,8 +159,10 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
     if !name_result <> ""
       then
         begin
-        Variable_basic.init_attach new_target; 
-        let () = try Variable_basic.init_attach new_target with | Init_attach_no_occurrences | Init_attach_occurrence_below_control -> () | e -> raise e in
+        let () = try Variable_basic.init_attach new_target with
+           | Variable_basic.Init_attach_no_occurrences 
+           | Variable_basic.Init_attach_occurrence_below_control -> ()
+           | e -> raise e in
         if res_inlining_needed then Variable_basic.inline ~delete:true new_target else ()end;
     Generic.remove_mark my_mark [Target.cMark my_mark];
     Trace.get_ast()

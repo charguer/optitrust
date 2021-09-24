@@ -197,7 +197,13 @@ let init_detach : Target.Transfo.local =
       t: ast of the surrounding sequence of the variable declaration
     return
       the updated ast of the outer sequence which contains now the initialized variable declaration
+    raises:
+      - Init_attach_no_occurrences if ...TODO
+        
 *)
+exception Init_attach_no_occurrences
+exception Init_attach_occurrence_below_control
+
 let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
   let counter = ref 0 in
   match t.desc with 

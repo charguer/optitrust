@@ -8,6 +8,6 @@ let _ = Run.script_cpp (fun _ ->
     !! Function.inline_call ~label:"body" ~args:["v"] [cFun "f"];
     !!());
   !! Function.inline_call ~label:"body" [cFun "g"];
-  !! Function.inline_call ~label:"body" [cFun "h"];
+  !! Function.inline_call ~label:"body" [cFun "h"]; (* TODO: fix *)
   !! Function.inline_call ~label:"body" [cFun "m"];
 )

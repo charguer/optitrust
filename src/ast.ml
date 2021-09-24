@@ -682,10 +682,6 @@ exception TransfoError of string
 
 exception Resolve_target_failure of location option * string
 
-exception Init_attach_no_occurrences
-
-exception Init_attach_occurrence_below_control
-
 let fail (loc : location) (err : string) : 'a =
   match loc with
   | None -> failwith err
