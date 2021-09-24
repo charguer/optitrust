@@ -22,7 +22,7 @@ let _ = Run.script_cpp (fun () ->
   !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline_call [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline_call [cTopFunDef "bag_transfer"; cFun "bag_push"];
-  (* TODO:  Struct.set_explicit [nbMulti; cSet ~typ:"particle" ]
+  (* TODO:  Struct.set_explicit [nbMulti; cSet ~typ:"particle" -> the type constraints the left hand side ]
       yet to implement: cSet and cGet should have a ~typ argument *)
   !! Struct.set_explicit [nbMulti; cOr [[sInstr " = p2"];[sInstr " = b2.items[i]"]]];
   !! Struct.set_explicit [nbMulti; cFunDef "bag_transfer"; cFor "i"; dBody; sInstr " = "];

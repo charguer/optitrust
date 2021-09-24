@@ -612,7 +612,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      end
   else
 
-     let loc = t.loc in
+     let _loc = t.loc in
      begin match c, t.desc with
      (*
        target constraints never hold since they are checked against nodes before
@@ -652,9 +652,10 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_body body
      | Constr_decl_fun (name, cl_args, p_body),
        Trm_let_fun (x, _, args, body) ->
-        let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
+        (* DEPRECATED let tl = List.map (fun (x, _) -> trm_var ~loc x) args in
+          check_list ~depth:(DepthAt 0) cl_args tl && *)
         check_name name x &&
-        check_list ~depth:(DepthAt 0) cl_args tl &&
+        check_args cl_args args &&
         check_target p_body body
      | Constr_decl_type name, Trm_typedef td ->
         let is_new_typ = begin match td.typdef_body with
@@ -733,6 +734,67 @@ and check_list ?(depth : depth = DepthAt 1) (lpred : target_list_pred) (tl : trm
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
+
+  (* TODO typed_vars = typed_var list *)
+and check_args (lpred : target_list_pred) (txl : typed_var list) : bool =
+  let ith_target = lpred.target_list_pred_ith_target in
+  let validate = lpred.target_list_pred_validate in
+  validate (List.mapi (fun i tx -> check_arg (ith_target i) tx) txl)
+
+
+  (* TODO  cVar ?typ:string ?typ_ast:typ "x"   ->  
+      let tg = ... current code ... in
+      add_type_constraint ?typ ?typ_ast tg
+
+      where let add_type_constraint ?typ:string ?typ_ast:typ tg =
+          if typ = None && typ_ast = None 
+              then tg
+              else cAnd [c; [Constr_hastyp (make_typ_constraint ?typ ?typ_ast ())]]
+           
+            type typ_constraint = typ -> bool 
+
+            let make_typ_constraint ?typ:string ?typ_ast:typ () : typ_constraint
+              match typ, typ_ast with
+              | None, None -> (fun (ty:typ) -> true)
+              | Some ty_str, None -> (fun (ty:typ) -> str = (typ_to_string ty.typ))
+              | None, Some ty_ast -> (fun (ty:typ) -> compare_type ty ty_ast)
+              | Some _, Some _ -> error 
+
+            new constructor, need to be added to check_constraint
+                     | Constr_hastyp of typ_constraint 
+          
+            type var_constraint = (string -> bool)
+
+             new constructor, handled by check_arg only (should raise error in check_constraint)
+             | Constr_arg of  var_constraint * typ_constraint
+
+            cHasTypePred (pred:typ->bool) : constr =
+                Constr_hastype pred
+
+            cHasTypeAst (ty:typ) : constr =
+                make_typ_constraint ?typ_ast=ty ()
+
+            cHasType (tystr:string) : constr =
+               make_typ_constraint ?typ=tystr ()
+              
+            cArgPred ?typ:string ?typ_ast:typ (pred:string->bool) : constr =
+               Constr_arg (pred, make_typ_constraint ?typ ?typ_ast ())
+
+            cArg ?typ:string ?typ_ast:typ (name:string) : constr =
+              cArgPred ?typ ?typ_ast (fun x -> x = name)
+       *)
+
+  (* [check_arg] understands [cHasType] and [cArg], expect target to be singleton constraints *)
+and check_arg (_tg:target) ((_var_name,_var_typ) : typed_var) : bool =
+(* TODO *) true (*
+  match tg with
+  | [] -> true
+  | [Constr_arg (var_constraint, typ_constraint)] -> 
+       var_constraint var_name
+    && typ_constraint var_typ
+  | _ -> fail None "check_arg expects just one constraint in the target "
+  *)
+
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
