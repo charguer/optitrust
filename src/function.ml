@@ -18,13 +18,23 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
  let counter = ref (-1) in
  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
   (fun (p, p_local, i) t ->
-   if List.length fresh_names = 0 then t
-    else
-      Tools.foldi (fun n t fresh_name ->
-      if fresh_name <> "" then
-        let () = incr counter in
-        Function_core.bind_intro (i + !counter)  fresh_name false (p_local @ [Dir_arg n]) t p
-      else t) t fresh_names)
+   let path_to_call = p @ [Dir_seq_nth i] @ p_local in
+   let call_trm,_ = Path.resolve_path path_to_call t in
+   begin match call_trm.desc with 
+   | Trm_apps (_, tl) ->
+    if List.length fresh_names = 0 
+      then begin Tools.printf "bind_args: no argumetns to bind, no changes to be made\n";t end
+      else if List.length tl <> List.length fresh_names then
+        fail call_trm.loc "bind_args: for each argument of the function call, there should be associated either an empty string or a variable to be bounded to"
+      else begin
+           Tools.foldi (fun n t fresh_name ->
+            if fresh_name <> "" then
+            let () = incr counter in
+            Function_core.bind_intro (i + !counter)  fresh_name false (p_local @ [Dir_arg n]) t p
+            else t) t fresh_names
+            end
+   | _ -> fail call_trm.loc "bind_args: expected a function call as target"
+   end)
 
 (* [elim_body ~vars tg] expects the target [tg] to point to the labelled sequence.Then it will
     remove this sequence and its label and merge the trms inside this sequence with te ones of the

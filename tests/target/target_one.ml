@@ -39,17 +39,11 @@ let _ = Run.script_cpp (fun () ->
   (* find functions of 2 arguments *)
   show [ cFunDef "" ~args:[[];[]] ];
   (* find functions of 2 arguments, one named t *)
-  show [ cFunDef "" ~args:[[cVar "t"];[]] ]; (* TODO: cVar should not match, cVarDef should, cArg should be an alias *)
-  (* TODO: cArg should allow you to specify the typ, and cVarDef as well *)
-
-
-
-  (*show [ cFunDef ~args:[bTrue;cVarDef "varg"] "" ];(* This doesn't work' *)*)
-  (* show [ cFunDef ~args_pred:((fun i -> [bTrue]),(fun bs -> List.length bs = 2)) "" ]; (* This doesn't work' *) *)
+  show [ cFunDef "" ~args:[[cArg "t"];[]] ]; 
+  show [ cFunDef "" ~args:[[bTrue];[cArg "varg"]]];
 
   (* Regexp *)
   (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
-
 
   show [nbExact 0; sInstr ~substr:false "j <"];
 
