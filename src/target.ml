@@ -632,12 +632,13 @@ let iteri_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 
     let _t_before = t in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+    Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
     (* iterate over these marks *)
     try
       List.iteri (fun imark m ->
+        let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
         match resolve_target [nbAny;cMark m] t with
         | [p] ->
-            let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
             (* Here we don't call [Generic.remove_mark] to avoid a circular dependency issue *)
             let t = apply_on_path (trm_remove_mark m) t p in
             Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
