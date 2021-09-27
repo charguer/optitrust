@@ -15,10 +15,7 @@ let _ = Run.script_cpp (fun () ->
   (* PART 1: Inlining *)
   !! Function.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r2" [tIndex ~nb:2 1; cFun "vect_mul"];
- !!();
-   show [ cFun "vect_mul"]; (* TODO ARTHUR: why reparse *)
-(*
-
+show [nbMulti; cFun "vect_mul"];
   !! Function.inline [nbMulti; cFun "vect_mul"];
   !! Function.inline [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.inline [cFun "vect_mul"];
@@ -70,8 +67,8 @@ let _ = Run.script_cpp (fun () ->
    !! Loop.move "y" ~after:"x";
    !! Loop.move "cy" ~before:"bx";
    !! Loop.move "cz" ~before:"bx"; (* TODO: keep this in a switch, and introduce a function to do color+moves *)
-  (* PART 5 Concurrency, TODO: Arthur*)*
-  *)
+  (* PART 5 Concurrency, TODO: Arthur*)
+
 )
 
 

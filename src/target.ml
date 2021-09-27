@@ -629,6 +629,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
+    (* TODO: follow the same treatment of errors as in applyi_on_transformed_targets_between *)
     | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m)
     | [p_to_seq] ->
       let t_seq, _ = resolve_path p_to_seq t in
