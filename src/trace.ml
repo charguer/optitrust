@@ -508,11 +508,11 @@ let dump_diff_and_exit () : unit =
   if !Flags.dump_last <> Flags.dump_last_default then begin
     let nb_requested = !Flags.dump_last in
     let nb_available = List.length trace.history in
-    if nb_requested < nb_available
-       then Printf.eprintf "Warning: not enought many steps for [dump_last]; completing with blank files.\n";
-    for n = 1 to nb_requested do
-      let astBeforeN = if n <= nb_available then Some (List.nth trace.history n) else None in
-      output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int n) astBeforeN
+    (* if nb_requested < nb_available
+       then Printf.eprintf "Warning: not enought many steps for [dump_last]; completing with blank files.\n"; *)
+    for i = 0 to nb_requested-1 do
+      let astBeforeI = if i < nb_available then Some (List.nth trace.history i) else None in
+      output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int i) astBeforeI
     done;
   end;
   (* CPP and AST and Javscript for AFTER *)
