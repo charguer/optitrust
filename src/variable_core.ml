@@ -198,7 +198,8 @@ let init_detach : Target.Transfo.local =
     return
       the updated ast of the outer sequence which contains now the initialized variable declaration
     raises:
-      - Init_attach_no_occurrences if ...TODO
+      - Init_attach_no_occurrences if no variable set operations are found
+      - Init_attach_occurrence_below_control if more than one variable set operation are found 
         
 *)
 exception Init_attach_no_occurrences
@@ -210,10 +211,23 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with 
     | Trm_let (_, (x, tx), _) ->
-        let init_index = Internal.nb_inits x (trm_seq lback) in
-        let index1 = if init_index < 1 then raise Init_attach_no_occurrences
-            else if init_index > 1 then raise Init_attach_occurrence_below_control
-            else init_index in
+        let nb_sets = Internal.nb_inits x (trm_seq lback) in
+        if nb_sets < 1 then raise Init_attach_no_occurrences
+          else if nb_sets > 1 then raise Init_attach_occurrence_below_control;
+        let init_index = Mlist.foldi (fun i acc t1 -> 
+          match t1.desc with 
+          | Trm_apps(_,[ls;_]) ->
+            begin match ls.desc with 
+            | Trm_var y when y = x -> 
+              Some i 
+            | _ -> acc
+            end
+          | _ -> acc
+        ) None lback in
+        let index1  = match init_index with 
+        | Some index -> index
+        | _ -> raise Init_attach_occurrence_below_control
+          in
         let lfront1, assgn_to_change, lback1 = Internal.get_trm_and_its_relatives index1 lback in
         begin match assgn_to_change.desc with 
         | Trm_apps(_, [_; rhs]) ->
@@ -230,7 +244,8 @@ let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
           let new_back = Mlist.insert_at 0 new_trm lback1 in
           let new_tl = Mlist.merge new_front new_back in
           trm_seq ~annot:t.annot ~marks:t.marks new_tl
-        | _ -> fail assgn_to_change.loc "init_attach: something wen't wrong"
+        | _ -> 
+          fail assgn_to_change.loc "init_attach: something went wrong"
         end
     | _ -> fail t.loc "init_attach_aux: target_doesn't point to the right trm, expected a trm_let"
     end

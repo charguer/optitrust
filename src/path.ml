@@ -204,19 +204,18 @@ let app_to_nth_dflt (loc : location) (l : 'a list) (n : int)
 
 (* follow an explicit target to apply a function on the corresponding subterm *)
 let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
-  let rec aux_on_path_rec (* rename to apply_on_path_rec *) (dl : path) (t : trm) : trm =
+  let rec aux_on_path_rec (dl : path) (t : trm) : trm =
     match dl with
     | [] -> transfo t
     | d :: dl ->
        let aux t = aux_on_path_rec dl t in
-       (* TODO: let aux t = apply_on_path_rec dl t *)
        let newt = begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
-          { t with desc = Trm_seq (Mlist.list_update_nth aux tl n) }
+          { t with desc = Trm_seq (Mlist.update_nth aux tl n) }
        | Dir_nth n, Trm_array tl ->
-          { t with desc = Trm_array (Mlist.list_update_nth aux tl n)}
+          { t with desc = Trm_array (Mlist.update_nth aux tl n)}
        | Dir_nth n, Trm_struct tl ->
-          { t with desc = Trm_struct (Mlist.list_update_nth aux tl n)}
+          { t with desc = Trm_struct (Mlist.update_nth aux tl n)}
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (aux cond, then_t, else_t)}
        | Dir_cond, Trm_while (cond, body) ->
@@ -264,10 +263,10 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
            *)
           { t with desc = Trm_apps (aux f, tl)}
        | Dir_arg n, Trm_apps (f, tl) ->
-          { t with desc = Trm_apps (f, Tools.list_update_nth aux tl n)}
+          { t with desc = Trm_apps (f, Tools.map_at aux tl n)}
        | Dir_arg n, Trm_let_fun (x, tx, txl, body) ->
           let txl' =
-            Tools.list_update_nth
+            Tools.map_at
               (fun (x, tx) ->
                 let t' = aux (trm_var ~loc:t.loc x) in
                 match t'.desc with
@@ -305,12 +304,12 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
 
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
           let updated_cases = 
-            (Tools.list_update_nth
+            (Tools.map_at
                (fun (tl, body) ->
                  match cd with
                  | Case_body -> (tl, aux body)
                  | Case_name i ->
-                    (Tools.list_update_nth (fun ith_t -> aux ith_t) tl i, body)
+                    (Tools.map_at (fun ith_t -> aux ith_t) tl i, body)
                )
                cases
                n

@@ -9,22 +9,30 @@ let coloring (ds : string list) (tg : target) : unit =
   List.iter2 (fun b c -> Loop_basic.color "2" ~index:c (tg @ [cFor b])) bs cs
 
 
+
 let _ = Run.script_cpp (fun () ->
 
   (* PART 1: Inlining *)
-  !! Function.inline_call  (* TODO: rename to inline *) ~name_result:"res1" [tIndex ~nb:2 0; cFun "vect_mul"];
-  !! Function.inline_call ~name_result:"res2" [cFun "vect_mul"];
-  !! Function.inline_call [tIndex ~nb:2 0; cFun "vect_add"];
-  !! Function.inline_call [cFun "vect_add"];
-  !! Variable.inline ~delete:true [cVarDef "res1"];
-  !! Variable.inline ~delete:true [cVarDef "res2"];
-  !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
+  !! Function.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" [tIndex ~nb:2 1; cFun "vect_mul"];
+  
+  !! Function.inline [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Function.inline [cFun "vect_mul"];
+
+  !! Function.inline [tIndex ~nb:2 0; cFun "vect_add"];
+  !! Function.inline [cFun "vect_add"];
+
+  !! Variable.inline ~delete:true [nbMulti;cOr [[cVarDef "r1"];[cVarDef "r2"]]];
+  show [cVarDef ~typ:(Some "vect") ""];
+  (* show [cSet ~typ:(Some "vect") ()]; *)
+  (* !! Struct.set_explicit [nbMulti; cSet ~] *)
+  !! Struct.set_explicit [cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
   !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
-  !! Function.inline_call [cTopFunDef "main"; cFun "bag_push"];
-  !! Function.inline_call [cTopFunDef "bag_transfer"; cFun "bag_push"];
-  (* TODO:  Struct.set_explicit [nbMulti; cSet ~typ:"particle" -> the type constraints the left hand side ]
+  !! Function.inline [cTopFunDef "main"; cFun "bag_push"];
+  !! Function.inline [cTopFunDef "bag_transfer"; cFun "bag_push"];
+  (* TODO:  Struct.set_explicit [nbMulti; cSet ~typ:"particle" ]
       yet to implement: cSet and cGet should have a ~typ argument *)
-  !! Struct.set_explicit [nbMulti; cOr [[sInstr " = p2"];[sInstr " = b2.items[i]"]]];
+  !! Struct.set_explicit [cOr [[sInstr " = p2"];[sInstr " = b2.items[i]"]]];
   !! Struct.set_explicit [nbMulti; cFunDef "bag_transfer"; cFor "i"; dBody; sInstr " = "];
   !! Struct.set_explicit [nbMulti; sInstr "= p2."];
   (* TODO:  Struct.set_explicit [nbMulti; cSet ~typ:"vect" ] *)

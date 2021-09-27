@@ -26,18 +26,4 @@ let _ = Run.script_cpp (fun () ->
 
   (* Nested *)
   show [ nbMulti; cFor "" ];
-    (* Testing the [target_of_path] function *)
-  (* let paths = ref [] in
-  Target.apply_on_targets (fun t p -> paths := p :: !paths; t) [ nbMulti; cFor "i" ];
-  let targets = List.map target_of_path !paths in
-  let tg1,tg2 =
-    match targets with
-    | target1:: target2 :: [] -> target1,target2
-    | _ ->  assert false
-    in
-  show tg1;
-  show tg2; *)
-
 )
-
-

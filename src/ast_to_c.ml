@@ -721,7 +721,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
             string "fetch_add" ^^ parens ((decorate_trm d1) ^^ comma ^^ blank 1 ^^ decorate_trm d2)
           | _ -> fail f.loc "apps_to_doc: fetch_add expects two arguments"
           end
-        (* TODO: FIX ME! *)
+        (* LATER: FIX ME! *)
         | Prim_atomic_get _cm -> string "atomic_get"
         | Prim_atomic_set _cm -> string "atomic_set"
         | Prim_compare_and_swap -> string "compare_and_swap"

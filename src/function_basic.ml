@@ -18,7 +18,7 @@ let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) ?(my_mark : mark
   (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p)
 
 
-(* [inline_call ~label tg] - expects the target [tg] to point to a function call inside a declaration
+(* [inline ~label tg] - expects the target [tg] to point to a function call inside a declaration
     or inside a sequence in case the function is of void type. Example:
           int r = g(a);
       or  g(a);
@@ -68,8 +68,8 @@ let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) ?(my_mark : mark
         }
 *)
 
-let inline_call  ?(label : var = "body") : Target.Transfo.t =
+let inline  ?(label : var = "body") : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
    (fun (p, p_local, i) t ->
-    Function_core.inline_call i label t p_local t p)
+    Function_core.inline i label t p_local t p)
 

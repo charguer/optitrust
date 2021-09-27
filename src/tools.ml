@@ -75,7 +75,7 @@ let split_list_at (n : int) (al : 'a list) : ('a list) * ('a list) =
   aux n [] al
 
 (* return the list where the nth element is transformed *)
-let list_update_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
+let update_nth (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
   List.mapi (fun i a -> if i = n then transfo a else a) al
 
 module type DebugSig = sig

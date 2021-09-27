@@ -4,11 +4,15 @@ open Ast
 
 let _ = Run.script_cpp (fun () ->
   
-   show [nbMulti; cAccesses ()];
-   !! Generic.data_shift (code "i") [cSet ~lhs:[sExpr "t[i]"] ()];
-   (* !! Generic.data_shift ~neg:true (code "i") [cSet ~lhs:[cStrict; cAccess ()] ()]; *)
-   (*!! Generic.data_shift ~neg:false (code "i") [cGet ~arg:[sExpr "t[i]"];
-
-   !! Generic.data_shift (code "i") ~pre_cast:typ_double [cGet ~arg:[sExpr "u[i]"];
-   !! Generic.data_shift (code "")~neg:true (code "i") ~post_cast:typ_float [cSet ~lhs:[sExpr "u[i]"]; *)
+   (* All right hand sides of the equalities*)
+   show [dRHS];
+   (* All left hand sides of the equalities*)
+   show [dLHS];   
+   (* All equalities*)
+   show [cSet ()];
+   (* Equalities with specific right hand side*)
+   show [cSet ~lhs:[cVar "i"] ()];
+   show [cSet ~lhs:[cVar "t"] ()];
+   (* All get operations *)
+   show [cGet ()];
 )

@@ -21,8 +21,10 @@ open Path
 let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-     let instr = Mlist.nth tl index in
+     let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
+     
      let trm_to_apply_changes, _ = Path.resolve_path p_local instr in
+     let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
      let trm_to_apply_changes = if my_mark <> "" then trm_add_mark my_mark trm_to_apply_changes else trm_to_apply_changes in
      let function_type = match trm_to_apply_changes.typ with
      | Some typ -> typ
@@ -37,8 +39,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
         let ptrkind = if has_reference_type then Ptr_kind_ref else Ptr_kind_mut in
         trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [trm_to_apply_changes])
       in
-     let decl_to_change = Internal.change_trm trm_to_apply_changes (trm_var fresh_name) instr in
-     let new_tl = Mlist.remove index index tl in
+     let new_tl = Mlist.merge lfront lback in
      let new_tl = Mlist.insert_sublist_at index ([decl_to_insert] @ [decl_to_change]) new_tl in
      trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
@@ -91,7 +92,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
   let t = aux true t in
   (t, !nb_gotos)
 
-(* [inline_call_aux index label top_ast p_local t] replaced a function call with the traslated body of the function called
+(* [inline_aux index label top_ast p_local t] replaced a function call with the traslated body of the function called
     params:
       index: index of the instruction containing the function call
       label: label used for the traslated body of the function
@@ -101,7 +102,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
     returns:
       the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
 *)
-let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (t : trm) : trm =
+let inline_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
@@ -109,7 +110,7 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
         
     let fun_call_name, fun_call_args = begin match fun_call.desc with
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
-                   | _ -> fail fun_call.loc "inline_call_aux: couldn't resolve the name of the function, target does not resolve to a function call"
+                   | _ -> fail fun_call.loc "inline_aux: couldn't resolve the name of the function, target does not resolve to a function call"
                    end in
     let fun_decl = Internal.toplevel_decl fun_call_name top_ast in
     let fun_decl = begin match fun_decl with
@@ -118,7 +119,7 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
       end in
     let fun_decl_type, fun_decl_args, fun_decl_body = begin match fun_decl.desc with
                    | Trm_let_fun (f, ty, args,body) when f = fun_call_name  -> ty, args, body
-                   | _ -> fail fun_decl.loc "inline_call_aux: failed to find the top level declaration of the function"
+                   | _ -> fail fun_decl.loc "inline_aux: failed to find the top level declaration of the function"
                    end in
    let fun_decl_arg_vars = List.map trm_var (fst (List.split fun_decl_args)) in
    (* Since there is a chance that there can be arguments which have the same name both on the function call and function definition,
@@ -146,8 +147,8 @@ let inline_call_aux (index : int) (label : string) (top_ast : trm) (p_local : pa
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.insert_sublist_at index inlined_body new_tl in
        trm_seq ~annot:t.annot new_tl
-  | _ -> fail t.loc "inline_call_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
 
-let inline_call (index: int) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (inline_call_aux index label top_ast p_local)
+let inline (index: int) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local =
+  Target.apply_on_path (inline_aux index label top_ast p_local)

@@ -116,13 +116,8 @@ let rev (ml : 'a t) : 'a t =
   { items = List.rev ml.items;
     marks = List.rev ml.marks }
 
-let list_update_nth (transfo : 'a -> 'a) (ml : 'a t) (n : int) : 'a t =
-  { ml with items = Tools.list_update_nth transfo ml.items n }
+let update_nth (transfo : 'a -> 'a) (ml : 'a t) (n : int) : 'a t =
+  { ml with items = Tools.map_at transfo ml.items n }
 
 let marks_to_string (ml : 'a t) : string =
   "[" ^ List.fold_left (fun acc x -> (Tools.list_to_string x) ^ acc ) "" (List.rev ml.marks) ^ "]"
-  (* sTools.list_to_string (List.map (fun ml1 -> Tools.list_to_string ml1) ml.marks) *)
-   (* TODO: I am not sure this will be unambiguously readable, if you don't
-   use different kind of separators for the two list_to_string calls,
-   or brackets. Perhaps simplest is to print brackets "[...]" around
-   "Tools.list_to_string ml1". *)

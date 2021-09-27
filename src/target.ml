@@ -269,7 +269,7 @@ let cThen : constr =
 let target_list_simpl (args : targets) : target_list_pred =
   let n = List.length args in
   make_target_list_pred
-    (fun i -> if i < n then List.nth args i else [cStrict;bFalse]) (* TODO the else to name "target_none" *)
+    (fun i -> if i < n then List.nth args i else [cStrict;bFalse]) 
     (fun bs -> List.length bs = n && list_all_true bs)
     (fun () -> "target_list_simpl(" ^ (list_to_string (List.map target_to_string args) ^ ")"))
 
@@ -389,7 +389,7 @@ let cPrim (p : prim) : constr =
 
 (* [cPrimFun ~args ~args_pred  p] matches only primitive function calls*)
 let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
-   cCall ~fun_:[cPrim p] ~args ~args_pred ""
+   cCall ~fun_:[cPrim p] ~args ~args_pred ~accept_encoded:true ""
 
 (* [cSet ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
@@ -407,14 +407,14 @@ let cGet ?(arg : target = []) () : constr =
 let cMark (m : mark) : constr =
   Constr_mark ((fun m1 -> m1 = m), "exactly:" ^ m)
 
-(* [cMarks ms] matches all the ast nodes with annotation Mark m when m is an element of ms *)
+(* [cMarks ms] matches all the ast nodes marked with Mark m when m is an element of ms *)
 let cMarks (ms : mark list) : constr =
   Constr_mark ((fun m1 -> List.mem m1 ms), "one of:" ^ (Tools.list_to_string ms))
 
 let cMarkSt (pred : mark -> bool) : constr =
   Constr_mark (pred, "such_that:" ^ "todo")
 
-(* [cMarkAny] matches all the ast nodes with annotation Mark m, where m can be any positive integer *)
+(* [cMarkAny] matches all the ast nodes marked with Mark m, where m can be any positive integer *)
 let cMarkAny : constr =
   Constr_mark ((fun _ -> true), "any_mark")
 
@@ -423,6 +423,7 @@ let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = fals
   let ro = string_to_rexp_opt regexp substr label TrmKind_Expr in
   let p_body = body in
   Constr_label (ro, p_body)
+
 
 let cGoto ?(label : string = "")
   ?(substr : bool = false) ?(regexp : bool = false) (_ : unit) : constr =
@@ -542,12 +543,11 @@ let apply_on_path = Path.apply_on_path
 *)
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
+    (* let tg = if List.exists (function Constr_or _ | Constr_and _ -> true | Constr_occurrences _ | _ -> false) tg then nbMulti :: tg else tg in *)
     let ps = resolve_target tg t in
-    (* Tools.printf "Targets resolved successfully: %s\n" (Path.paths_to_string ps); *)
     let marks = List.map (fun _ -> Mark.next()) ps in
-    (* Tools.printf "Marks created successfully: %s\n" (Tools.list_to_string marks); *)
+    let _t_before = t in
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
-    (* Tools.printf "Marks applied successfully\n"; *)
     Tools.foldi (fun imark t m ->
       match resolve_target [nbAny;cMark m] t with
       | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
@@ -702,17 +702,6 @@ let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
     end;
     dump_diff_and_exit()
   end
-
-(* DEPRECATED *)
-(* let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
-  only_interactive_step line ~reparse (fun () ->
-    if Constr.is_target_between tg then begin
-      applyi_on_targets_between (fun i  t (p,k) ->
-        target_between_show_transfo i k t p) tg
-    end else begin
-      applyi_on_targets (fun i t p ->
-        target_show_transfo i t p) tg
-    end) *)
 
 (** [force_reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.

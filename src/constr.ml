@@ -734,7 +734,12 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> List.exists pred t.marks
         end
      | Constr_hastype pred , _ ->
-        begin match t.typ with 
+        let t_typ = begin match t.desc with 
+        | Trm_let (_,(_,tx),_) ->
+          Some (get_inner_ptr_type tx)
+        | _ -> t.typ 
+        end in
+        begin match t_typ with 
         | Some ty -> pred ty
         | _ -> false
         end
@@ -752,13 +757,13 @@ and check_list ?(depth : depth = DepthAt 1) (lpred : target_list_pred) (tl : trm
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
 
-  (* TODO typed_vars = typed_var list *)
+(* TODO typed_vars = typed_var list *)
 and check_args (lpred : target_list_pred) (txl : typed_var list) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i tx -> check_arg (ith_target i) tx) txl)
 
-  (* [check_arg] understands [cHasType] and [cArg], expect target to be singleton constraints *)
+(* [check_arg] understands [cHasType] and [cArg], expect target to be singleton constraints *)
 and check_arg (tg:target) ((var_name, var_typ) : typed_var) : bool =
   match tg with
   | [] -> true

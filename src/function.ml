@@ -55,7 +55,7 @@ let bind ?(fresh_name : string = "res") ?(args : var list = []) (tg : Target.tar
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
-(* [inline_call ~name_result ~label ~vars ~args  tg]
+(* [inline ~name_result ~label ~vars ~args  tg]
       expects the target tg to point to point to a function call. And automates completely the process
       of function call inlining.
 
@@ -81,7 +81,7 @@ int main3() { // Function.bind_args ~[cMark mymark]
   int r = [mymark:](g(a, u, b, (w + 1)));
   int t = f(r);
 }
-int main4() { // Function_basic.inline_call ~[cMark mymark] 
+int main4() { // Function_basic.inline ~[cMark mymark] 
               // The mark gets moved to the surrounding declaration
   int u = 1, v = 2, w = 3;
   mymark: int r; // same as before, only you remove the initialization term
@@ -138,19 +138,19 @@ int f2() { // result of Funciton_basic.inline_cal
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
 // where p is the path to the englobing sequence.
 *)
-let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : var list = []) (tg : Target.target) : unit =
+let inline ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : var list = []) (tg : Target.target) : unit =
   Target.applyi_on_targets (fun i t p ->
     let name_result = ref name_result in
     let (path_to_seq,local_path, i1) = Internal.get_call_in_surrounding_sequence p in
     let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
     let (tg_trm, _) = Path.resolve_path (path_to_instruction @ local_path) t in
     let (tg_out_trm, _) = Path.resolve_path path_to_instruction t in
-    let my_mark = "__inline_call" ^ "_" ^ (string_of_int i) in
+    let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
     let res_inlining_needed =
     begin match tg_out_trm.desc with
     | Trm_let (_, (x, _), _) ->
       let init1 = get_init_val tg_out_trm in
-      if !name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline_call: no need to enter the result name in this case"
+      if !name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline: no need to enter the result name in this case"
         else if init1 = tg_trm then begin name_result := x; false end
         else
             begin match !name_result with
@@ -159,12 +159,12 @@ let inline_call ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename
             | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p) ;true
             end
     | Trm_apps _ -> false
-    | _ -> fail None "inline_call: expected a variable declaration or a function call"
+    | _ -> fail None "inline: expected a variable declaration or a function call"
     end in
     let new_target = [Target.cMark my_mark] in
     if not res_inlining_needed then Generic.add_mark my_mark (Target.target_of_path p);
     if args <> [] then bind_args args new_target else ();
-    Function_basic.inline_call ~label new_target; 
+    Function_basic.inline ~label new_target; 
     elim_body ~vars [Target.cLabel label];
     if !name_result <> "" 
         then begin
