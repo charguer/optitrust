@@ -179,13 +179,13 @@ and attr_to_doc (a : attribute) : document =
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
-  if t.marks = [] 
-    then dt 
-    else 
+  if t.marks = []
+    then dt
+    else
       begin
-      let m = Tools.list_to_string ~sep:"," t.marks in
+      let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
       let sleft = string ("/*@" ^ m ^ "*/") in
-      let sright =  string ("/*>" ^ m ^ "@*/") in
+      let sright =  string ("/*" ^ m ^ "@*/") in
       sleft ^^ dt ^^ sright
       end
 
@@ -247,7 +247,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_seq tl ->
         let tl_m = tl.marks in
         let tl = Mlist.to_list tl in
-        
+
         if List.mem Multi_decl t.annot
           then dattr ^^ multi_decl_to_doc loc tl
         else if List.mem (No_braces (Nobrace.current())) t.annot
@@ -261,8 +261,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         else
            let counter = ref (-1) in
            let dl = List.map (decorate_trm ~semicolon:true) tl in
-           let dl = Tools.foldi (fun i acc m -> 
-            if m <> [] then  
+           let dl = Tools.foldi (fun i acc m ->
+            if m <> [] then
               let () = incr counter in
               let m = Tools.list_to_string ~sep:"," m in
               let s = string ("/*@" ^ m ^ "@*/") in
