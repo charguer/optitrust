@@ -15,6 +15,7 @@ LINE=$3
 VIEW=$4 # should be view_diff or view_result
 RECOMPILE_OPTITRUST=$5 # should be recompile_optitrust_yes or recompile_optitrust_no
 OPTIONS=$6
+OPTIONS2=$7
 
 # LATER: if a ${FILEBASE}_exp.cpp file is present, export it into the JS file,
 # so that the browser can report on the differences between _out.cpp and _exp.cpp.
@@ -48,7 +49,7 @@ fi
 PROG="${FILEBASE}_with_lines.byte"
 
 # First we create the source code for the transformation program
-# ---DEPRECATED: 
+# ---DEPRECATED:
 # ocaml ${VSCODE}/add_exit.ml -file "${FILEBASE}.ml" -line ${LINE}
 #sed 's/show/myshow/' "${FILEBASE}.ml" > "${FILEBASE}_with_exit.byte"
 
@@ -79,7 +80,7 @@ fi
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
 # Activate the backtrace
-OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS}
+OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}
 
 # DEBUG: echo "cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
 # DEPREACTED | tee stdoutput.txt
@@ -87,7 +88,7 @@ OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS}
 OUT=$?
 if [ ${OUT} -ne 0 ];then
   echo "Error executing the script:"
-  echo "  cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
+  echo "  cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}"
   exit 1
 fi
 

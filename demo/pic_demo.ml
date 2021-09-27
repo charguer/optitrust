@@ -5,6 +5,30 @@ let _ = Run.script_cpp (fun () ->
   (* PART 1: Inlining *)
   !! Function.bind_intro ~fresh_name:"r1" ~const:false [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r2" [tIndex ~nb:2 1; cFun "vect_mul"];
+
+  (* Example use of [Trace.call] *)
+  (*
+  !! Trace.call (fun _t ->
+    Generic.add_mark "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
+    Generic.add_mark "foo2" [tIndex ~nb:2 1; cFun "vect_mul"];
+    Trace.step();
+    Function.inline [nbMulti; cMark "foo1"];
+    Trace.step();
+    Function.inline [nbMulti; cMark "foo2"];
+  );
+
+  !! Generic.add_mark "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Generic.add_mark "foo2" [tIndex ~nb:2 1; cFun "vect_mul"];
+  !! Function.inline [nbMulti; cMark "foo1"];
+  !! Function.inline [nbMulti; cMark "foo2"];
+  *)
+
+  (* wip
+  !! Function.inline [nbMulti; cFun "vect_mul"];
+
+  !! Function.inline [ cFun "vect_mul"];
+  *)
+
   !! Function.inline [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.inline [cFun "vect_mul"];
   !! Function.inline [tIndex ~nb:2 0; cFun "vect_add"];
@@ -33,7 +57,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* PART4  Coloring *)
    !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-   !! Loop.coloring ["x";"y";"z"] [cFor "step"];
-   
+   !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];
+
   (* PART 5 Concurrency, LATER: Arthur*)
 )

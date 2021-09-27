@@ -238,13 +238,42 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
 (* [apply f] applies the transformation [f] to the current AST,
    and updates the current ast with the result of that transformation.
    If there are several active trace (e.g., after a [switch]),
-   then [f] is applied to each of the traces. *)
+   then [f] is applied to each of the traces. During the execution of [f]
+   on a given trace, the set of traces is replaced with a singleton set
+   made of only that trace; this allows for safe re-entrant calls
+   (i.e., the function [f] itself may call [Trace.apply]. *)
 let apply (f : trm -> trm) : unit =
   if is_traces_dummy()
     then fail None "Trace.init must be called prior to any transformation.";
+  let cur_traces = !traces in
   List.iter (fun trace ->
+    traces := [trace]; (* temporary view on a single trace *)
     trace.cur_ast <- f trace.cur_ast)
-    !traces
+    cur_traces;
+  traces := cur_traces (* restoring the original view on all traces *)
+
+(* For dynamic checks: keep track of the number of nested calls to [Trace.call] *)
+let call_depth = ref 0
+
+(* [call f] is similar to [apply] except that it applies to a function [f]
+   with unit return type: [f] is meant to update the [cur_ast] by itself
+   through calls to [apply].
+   If there are several active trace (e.g., after a [switch]),
+   then [f] is applied to each of the traces. During the execution of [f]
+   on a given trace, the set of traces is replaced with a singleton set
+   made of only that trace; this allows for safe re-entrant calls
+   (i.e., the function [f] itself may call [Trace.apply]. *)
+let call (f : trm -> unit) : unit =
+  if is_traces_dummy()
+    then fail None "Trace.init must be called prior to any transformation.";
+  incr call_depth;
+  let cur_traces = !traces in
+  List.iter (fun trace ->
+    traces := [trace]; (* temporary view on a single trace *)
+    f trace.cur_ast)
+    cur_traces;
+  traces := cur_traces; (* restoring the original view on all traces *)
+  decr call_depth
 
 (* [step()] takes the current AST and adds it to the history.
    If there are several traces, it does so in every branch. *)
@@ -287,37 +316,52 @@ let get_language () =
   | t::_ -> language_of_extension t.extension
   *)
 
-let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
-  let file_ast = prefix ^ ".ast" in
-  let file_enc = prefix ^ "_enc" ^ ctx.extension in
+let output_prog ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let file_prog = prefix ^ ctx.extension in
-  let out_ast = open_out file_ast in
-  let out_enc = open_out file_enc in
   let out_prog = open_out file_prog in
-  let close_channels() =
-    close_out out_ast;
-    close_out out_enc;
-    close_out out_prog;
-    in
-  try
-    (* print the raw ast *)
-    Ast_to_text.print_ast out_ast ast;
-    output_string out_ast "\n";
-    output_string out_enc ctx.includes;
-    Ast_to_c.ast_to_undecoded_doc out_enc ast;
-    output_string out_enc "\n";
+  begin try
     (* print C++ code with decoding *)
     output_string out_prog ctx.includes;
     Ast_to_c.ast_to_doc out_prog ast;
-    close_channels();
-    (* beautify the C++ code *)
-    if true then begin (* --comment out for debug *)
-      cleanup_cpp_file_using_clang_format file_enc;
-      cleanup_cpp_file_using_clang_format file_prog
-    end
+    close_out out_prog;
   with | Failure s ->
-    close_channels();
+    close_out out_prog;
     failwith s
+  end;
+  (* beautify the C++ code --comment out for debug *)
+  cleanup_cpp_file_using_clang_format file_prog;
+  (* ast and enc *)
+  if ast_and_enc then begin
+    let file_ast = prefix ^ ".ast" in
+    let file_enc = prefix ^ "_enc" ^ ctx.extension in
+    let out_ast = open_out file_ast in
+    let out_enc = open_out file_enc in
+    begin try
+    (* print the raw ast *)
+      Ast_to_text.print_ast out_ast ast;
+      output_string out_ast "\n";
+      output_string out_enc ctx.includes;
+      Ast_to_c.ast_to_undecoded_doc out_enc ast;
+      output_string out_enc "\n";
+      close_out out_ast;
+      close_out out_enc;
+      cleanup_cpp_file_using_clang_format file_enc;
+    with | Failure s ->
+      close_out out_ast;
+      close_out out_enc;
+      failwith s
+    end
+  end
+
+(* [output_prog_opt ctx prefix ast_opt] is similar to [output_prog], but it
+   generates an empty file in case the [ast_opt] is [None]. *)
+let output_prog_opt  ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast_opt : trm option) : unit =
+  match ast_opt with
+  | Some ast -> output_prog ~ast_and_enc ctx prefix ast
+  | None ->
+      let file_prog = prefix ^ ctx.extension in
+      let out_prog = open_out file_prog in
+      close_out out_prog
 
 (* [output_js index cpp_filename prefix _ast] Produces a javascript file used for viewing the ast in interactive mode
    This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
@@ -433,32 +477,50 @@ let reparse_alias = reparse
 (* [dump_diff_and_exit()] invokes [output_prog] on the current AST an also on the
    last item from the history, then it interrupts the execution of the script.
    This function is useful for interactively studying the effect of one particular
-   transformation from the script. *)
+   transformation from the script.
+   If option [-dump-last nb] was provided, output files are produced for the last [nb] step. *)
 (* LATER for mli: dump_diff_and_exit : unit -> unit *)
 let dump_diff_and_exit () : unit =
   print_info None "Exiting script\n";
   close_logs ();
-  List.iter
-    (fun trace ->
-      let ctx = trace.context in
-      let prefix = ctx.directory ^ ctx.prefix in
-      let astBefore =
-        match trace.history with
-        | t::_ -> t (* the most recently saved AST *)
-        | [] -> fail None "No previous transformation to compare against"
-        in
-      let astAfter = trace.cur_ast in
-      print_info None "Writing ast and code before last transformation...\n";
-      output_prog ctx (prefix ^ "_before") astBefore;
-      print_info None "Done. Output files: %s_before.ast and %s_before%s.\n" prefix prefix ctx.extension;
-      print_info None "Writing ast and code after last transformation...\n";
-      output_prog ctx (prefix ^ "_after") astAfter;
-      print_info None "Writing ast and code into %s.js " prefix;
-      output_js 0  prefix astAfter;
-      print_info None "Done. Output files: %s_after.ast and %s_after%s.\n" prefix prefix ctx.extension;
-      ()
-    )
-    (!traces);
+  let trace =
+    match !traces with
+    | [] -> fail None "No trace"
+    | [tr] -> tr
+    | trs -> Printf.eprintf "Warning: considering the last branch of all switches.\n";
+             List.hd (List.rev trs)
+    in
+  let ctx = trace.context in
+  let prefix = ctx.directory ^ ctx.prefix in
+  (* Common printinf function *)
+  let output_ast ?(ast_and_enc:bool=true) filename_prefix ast_opt =
+    output_prog_opt ~ast_and_enc ctx filename_prefix ast_opt;
+    print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
+    in
+  (* CPP and AST output for BEFORE *)
+  let astBefore =
+    match trace.history with
+    | t::_ -> Some t (* the most recently saved AST *)
+    | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
+    in
+  output_ast (prefix ^ "_before") astBefore;
+  (* CPP and AST for BEFORE_N *)
+  if !Flags.dump_last <> Flags.dump_last_default then begin
+    let nb_requested = !Flags.dump_last in
+    let nb_available = List.length trace.history in
+    if nb_requested < nb_available
+       then Printf.eprintf "Warning: not enought many steps for [dump_last]; completing with blank files.\n";
+    for n = 1 to nb_requested do
+      let astBeforeN = if n <= nb_available then Some (List.nth trace.history n) else None in
+      output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int n) astBeforeN
+    done;
+  end;
+  (* CPP and AST and Javscript for AFTER *)
+  let astAfter = trace.cur_ast in
+  output_ast (prefix ^ "_after") (Some astAfter);
+  print_info None "Writing ast and code into %s.js " prefix;
+  output_js 0 prefix astAfter;
+  (* Exit *)
   exit 0
 
 (* [check_exit_and_step()] performs a call to [check_exit], to check whether
@@ -517,18 +579,19 @@ let (!!!) (x:'a) : 'a =
 
 let dump ?(prefix : string = "") () : unit =
   if Flags.get_exit_line() <> None then dump_diff_and_exit ();
-  (* if !Flags.full_dump then dump_trace ~prefix () *)
-  if !Flags.full_dump then dump_trace_to_js ~prefix () else begin
-    List.iter
-      (fun trace ->
-        let ctx = trace.context in
-        let prefix =
-          if prefix = "" then ctx.directory ^ ctx.prefix else prefix
-        in
-        output_prog ctx (prefix ^ "_out") (trace.cur_ast)
-      )
-      (!traces)
-  end
+  (* Dump full trace if requested *)
+  if !Flags.dump_all then
+     dump_trace_to_js ~prefix (); (* dump_trace ~prefix () *)
+  (* Dump final result, for every [switch] branch *)
+  List.iter
+    (fun trace ->
+      let ctx = trace.context in
+      let prefix =
+        if prefix = "" then ctx.directory ^ ctx.prefix else prefix
+      in
+      output_prog ctx (prefix ^ "_out") (trace.cur_ast)
+    )
+    (!traces)
 
 (* [only_interactive_step line f] invokes [f] only if the argument [line]
    matches the command line argument [-exit-line]. If so, it calls the
@@ -550,8 +613,25 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
     f()
     end
 
-(* Get the current ast *)
+(* Get the current ast -- TODO: should remove this function? *)
 let get_ast () : trm =
+  (* LATER: explain this code, and add assertions *)
   (List.hd (List.rev !traces)).cur_ast
 
 (* TODO: Arthur make sure to document that reparse invalidates the marks *)
+
+(* [ast] returns the current ast; must be done as part of a call to [Trace.call]. *)
+let ast () : trm =
+  if !call_depth = 0
+    then failwith "[get_the_ast] can only be invoked inside a call to [Trace.call].";
+   match !traces with
+   | [tr] -> tr.cur_ast
+   | [] -> assert false (* [!traces] can never be empty *)
+   | _ -> failwith "[get_the_ast] can only be invoked inside a call to [Trace.call] and not after a switch."
+
+(* only for implementing [iteri_on_transformed_targets]. don't use it otherwise *)
+let set_ast (t:trm) : unit =
+  assert (!call_depth > 0);
+  match !traces with
+  | [tr] -> tr.cur_ast <- t
+  | _ -> assert false

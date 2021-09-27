@@ -124,7 +124,7 @@ val cOr : target list -> constr
 
 val cAnd : target list -> constr
 
-val cHasTypePred : (typ -> bool) -> constr 
+val cHasTypePred : (typ -> bool) -> constr
 
 val cHasTypeAst : typ -> (typ -> bool)
 
@@ -216,7 +216,7 @@ val cDefault : case_kind
 
 val cSet : ?lhs:target -> ?rhs:target -> ?typ:string option -> ?typ_ast:typ option -> unit -> constr
 
-val cGet : ?arg:target -> unit -> constr 
+val cGet : ?arg:target -> unit -> constr
 
 val dRHS : constr
 
@@ -244,17 +244,28 @@ val resolve_target_between : target -> trm -> (path * int) list
 
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
 
+
 val applyi_on_targets : (int -> trm -> path -> trm) -> target -> unit
 
 val apply_on_targets : (trm -> path -> trm) -> target -> unit
 
-val applyi_on_targets_between : (int -> trm -> path * int -> trm) -> target -> unit
-
-val apply_on_targets_between : (trm -> path*int -> trm) -> target -> unit
-
 val applyi_on_transformed_targets : (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
 val apply_on_transformed_targets : (path -> 'a) -> ('a -> trm -> trm) -> target -> unit
+
+
+val iteri_on_targets : (int -> trm -> path -> unit) -> target -> unit
+
+val iter_on_targets : (trm -> path -> unit) -> target -> unit
+
+val iteri_on_transformed_targets : (path -> 'a) -> (int -> trm -> 'a -> unit) -> target -> unit
+
+val iter_on_transformed_targets : (path -> 'a) -> ('a -> trm -> unit) -> target -> unit
+
+
+val applyi_on_targets_between : (int -> trm -> path * int -> trm) -> target -> unit
+
+val apply_on_targets_between : (trm -> path*int -> trm) -> target -> unit
 
 val applyi_on_transformed_targets_between : (path * int -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
