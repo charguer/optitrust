@@ -628,17 +628,25 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   let ps = resolve_target_between tg t in
   let marks = List.map (fun _ -> Mark.next ()) ps in
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
-  Tools.foldi (fun imark t m ->
-    match resolve_target [cMark m] t with
-    (* TODO: follow the same treatment of errors as in applyi_on_transformed_targets_between *)
-    | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m)
-    | [p_to_seq] ->
-      let t_seq, _ = resolve_path p_to_seq t in
-      let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
-      let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
-      tr imark t (transformer (p_to_seq,i))
-    | _ -> fail None "applyi_on_transformed_targets_between: a mark was duplicated"
-  ) t marks)
+  try
+    Tools.foldi (fun imark t m ->
+      match resolve_target [nbAny;cMark m] t with
+      | [p_to_seq] ->
+        let t_seq, _ = resolve_path p_to_seq t in
+        let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
+        let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
+        tr imark t (transformer (p_to_seq,i))
+      | ps ->
+        let msg = 
+          if ps <> []
+            then "applyi_on_transformed_targets_between: a mark was duplicated"
+            else (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
+        if debug_disappearing_mark
+          then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+          else fail None msg
+    )  t marks
+    with Interrupted_applyi_on_transformed_targets t -> t
+)
 
 (* [apply_on_transformed_targets_between ~replace_top transformer tr tg]:
     Same as [applyi_to_transformed_targets_between] except that here the index of the resolved_path is not considered.
