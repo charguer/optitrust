@@ -178,8 +178,16 @@ let init_detach_aux  (t : trm) : trm =
           | Trm_apps(_,[init]) -> init
           | _ -> fail t.loc "init_detach_aux: expected a heap allocated variable declaration"
           end in
-        let var_decl = trm_let vk (x, tx) (trm_prim (Prim_new tx)) in
-        let var_assgn = trm_set (trm_var ~typ:(Some (get_inner_ptr_type tx)) x) {init with typ = (Some (get_inner_ptr_type tx))} in
+        let var_type = get_inner_ptr_type tx in
+        let var_type = begin match  var_type.typ_desc  with
+        | Typ_ptr {inner_typ = ty;_} -> ty
+        | _ -> var_type
+        end in
+        let new_tx = typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type in
+        let var_decl = trm_let vk (x, new_tx) (trm_prim (Prim_new new_tx)) in
+        (* Check if variable was declared as a reference *)
+        
+        let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in
         trm_seq_no_brace [var_decl; var_assgn] 
       end
     | _ -> 
