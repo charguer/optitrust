@@ -2,3 +2,7 @@
   (name optitrust)
   (public_name optitrust)
   (libraries clangml refl pprint str))
+
+(env
+  (dev
+    (flags (:standard -warn-error -A))))

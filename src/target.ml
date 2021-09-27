@@ -542,6 +542,10 @@ let apply_on_path = Path.apply_on_path
       return:
         unit
 *)
+
+let debug_disappearing_mark = true
+exception Interrupted_applyi_on_transformed_targets of trm
+
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
     (* Occurrence constraints should be unique *)
@@ -553,13 +557,24 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
-    Tools.foldi (fun imark t m ->
-      match resolve_target [nbAny;cMark m] t with
-      | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
-      | [p] -> let t = apply_on_path (trm_remove_mark m) t p in
-        tr imark t (transformer p)
-      | _ -> fail None "applyi_on_transformed_targets: a mark was duplicated"
-    ) t marks)
+    try
+      Tools.foldi (fun imark t m ->
+        match resolve_target [nbAny;cMark m] t with
+        | [p] ->
+            let t = apply_on_path (trm_remove_mark m) t p in
+            tr imark t (transformer p)
+        | ps ->
+            let msg =
+              if ps <> []
+                then "applyi_on_transformed_targets: a mark was duplicated"
+                else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
+              in
+            if debug_disappearing_mark
+              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+              else fail None msg
+      ) t marks
+    with Interrupted_applyi_on_transformed_targets t -> t
+    )
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
     Same as [applyi_to_transformed_targets] except that here the index of the resolved_path is not considered
@@ -615,6 +630,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
+    (* TODO: follow the same treatment of errors as in applyi_on_transformed_targets_between *)
     | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m)
     | [p_to_seq] ->
       let t_seq, _ = resolve_path p_to_seq t in
