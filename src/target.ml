@@ -546,17 +546,23 @@ let apply_on_path = Path.apply_on_path
 let debug_disappearing_mark = true
 exception Interrupted_applyi_on_transformed_targets of trm
 
+(* TODO: discuss *)
+let fix_target (tg : target) : target =
+  (* Occurrence constraints should be unique *)
+  let check_occurrences = List.exists (function Constr_occurrences _ -> true | _ -> false) tg in
+  (* If there are logic constraints then multiple occurrences are allowed *)
+  let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
+  if (not check_occurrences) && check_logic then nbMulti :: tg else tg
+
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
+  let tg = fix_target tg in
   Trace.apply (fun t ->
-    (* Occurrence constraints should be unique *)
-    let check_occurrences = List.exists (function Constr_occurrences _ -> true | _ -> false) tg in
-    (* If there are logic constraints then multiple occurrences are allowed *)
-    let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
-    let tg = if (not check_occurrences) && check_logic then nbMulti :: tg else tg in
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
+    (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+    (* iterate over these marks *)
     try
       Tools.foldi (fun imark t m ->
         match resolve_target [nbAny;cMark m] t with
@@ -613,6 +619,52 @@ let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
 let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
   applyi_on_targets (fun _i t dl -> tr t dl) tg
 
+
+
+(* [iteri_on_transformed_targets] is similar to [applyi] except that it is meant to for
+   transformations that are implemented in terms of other transformations with unit return type.
+   LATER: try to better factorize the code. *)
+let iteri_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
+  let tg = fix_target tg in
+  Trace.call (fun t ->
+    let ps = resolve_target tg t in
+    let marks = List.map (fun _ -> Mark.next()) ps in
+    let _t_before = t in
+    (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
+    let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+    (* iterate over these marks *)
+    try
+      List.iteri (fun imark m ->
+        match resolve_target [nbAny;cMark m] t with
+        | [p] ->
+            let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
+            (* Here we don't call [Generic.remove_mark] to avoid a circular dependency issue *)
+            let t = apply_on_path (trm_remove_mark m) t p in
+            Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
+            tr imark t (transformer p)
+        | ps ->
+            let msg =
+              if ps <> []
+                then "iteri_on_transformed_targets: a mark was duplicated"
+                else (Tools.sprintf "iteri_on_transformed_targets: mark %s disappeared" m)
+              in
+            if debug_disappearing_mark
+              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+              else fail None msg
+      ) marks
+    with Interrupted_applyi_on_transformed_targets t -> Trace.set_ast t (* view the ast when the bug appears *)
+    )
+
+(* Variants *)
+
+let iter_on_transformed_targets (transformer : path -> 'a) (tr : 'a -> trm -> unit) (tg : target) : unit =
+  iteri_on_transformed_targets  transformer (fun _i t descr -> tr descr t) tg
+
+let iteri_on_targets (tr : int -> trm -> path -> unit) (tg : target) : unit =
+  iteri_on_transformed_targets (fun p -> p) tr tg
+
+let iter_on_targets (tr : trm -> path -> unit) (tg : target) : unit =
+  iteri_on_targets (fun _i t dl -> tr t dl) tg
 
 
 (* [applyi_on_transformed_targets_between transformer tr tg]: Apply a transformation [tr] on a target relative to [tg]

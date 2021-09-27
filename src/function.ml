@@ -139,7 +139,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 let inline ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : var list = []) (tg : Target.target) : unit =
-  Target.applyi_on_targets (fun i t p ->
+  Target.iteri_on_targets (fun i t p ->
     let name_result = ref name_result in
     let (path_to_seq,local_path, i1) = Internal.get_call_in_surrounding_sequence p in
     let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
@@ -173,8 +173,7 @@ let inline ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = Ad
            | e -> raise e in
         if res_inlining_needed then Variable_basic.inline ~delete:true new_target;
         Generic.remove_mark my_mark [Target.nbAny; Target.cMark my_mark]
-    end;
-    Trace.get_ast()
+    end
   ) tg
 
 

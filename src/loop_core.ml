@@ -61,7 +61,7 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
     let i_color = match i_color with
       | "" -> "c" ^ index
       | _ -> i_color in
-    let full_ast = Trace.get_ast () in
+    let full_ast = Trace.ast () in
     let i_color = begin match Internal.toplevel_decl i_color full_ast with
     | Some _ -> let rnd_nb = Random.int 100 in i_color ^ (string_of_int rnd_nb)
     | None -> i_color
@@ -260,8 +260,8 @@ let extract_variable (index : int) : Target.Transfo.local =
     return
       update ast with the merged loops
  *)
-let fusion_on_block_aux (t : trm) : trm = 
-  match t.desc with 
+let fusion_on_block_aux (t : trm) : trm =
+  match t.desc with
   | Trm_seq tl ->
     let n = Mlist.length tl in
     if n < 2 then fail t.loc "fission_aux: there must be >= 2 loops to apply fussion";
@@ -269,8 +269,8 @@ let fusion_on_block_aux (t : trm) : trm =
      begin match  first_loop.desc with
     | Trm_for (index, direction, start, stop, step, _) ->
       let fusioned_body = Mlist.foldi (
-        fun i acc loop -> 
-          if not (Internal.is_trm_loop loop) then fail loop.loc (Tools.sprintf "fusion_on_block_aux: cannot fuse %d loops as requested only %d where found" n (i+1)) 
+        fun i acc loop ->
+          if not (Internal.is_trm_loop loop) then fail loop.loc (Tools.sprintf "fusion_on_block_aux: cannot fuse %d loops as requested only %d where found" n (i+1))
            else
           acc @ (Mlist.to_list (for_loop_body_trms loop))
       ) [] tl in
@@ -345,8 +345,8 @@ let unroll_aux (label : var) (t : trm) : trm =
         Internal.change_trm (trm_var index) new_index body :: acc
          ) [] (List.rev unrolled_loop_range) in
       begin match label with
-      | "" -> trm_seq_no_brace unrolled_body 
-      | _ -> trm_seq_no_brace [trm_labelled label (trm_seq_no_brace unrolled_body)] 
+      | "" -> trm_seq_no_brace unrolled_body
+      | _ -> trm_seq_no_brace [trm_labelled label (trm_seq_no_brace unrolled_body)]
       end
   | _ -> fail t.loc "unroll_aux: only simple loops supported"
 
