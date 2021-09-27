@@ -15,15 +15,13 @@ let _ = Run.script_cpp (fun () ->
   (* PART 1: Inlining *)
   !! Function.bind_intro ~fresh_name:"r1" [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r2" [tIndex ~nb:2 1; cFun "vect_mul"];
-  
   !! Function.inline [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.inline [cFun "vect_mul"];
-
   !! Function.inline [tIndex ~nb:2 0; cFun "vect_add"];
   !! Function.inline [cFun "vect_add"];
-
   !! Variable.inline ~delete:true [cOr [[cVarDef "r1"];[cVarDef "r2"]]];
-  (* PART 2: Explicit assignment *)
+  
+  (* PART 2: Explicit assignments *)
   !! Struct.set_explicit [nbMulti;cVarDef ~typ:(Some "vect") ~substr:true "2"];
   !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline [cTopFunDef "main"; cFun "bag_push"];
@@ -33,13 +31,10 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part 2 AOS-TO-SOA *)
   !! Sequence.insert "int k = b2.nb;" [tAfter; cVarDef "b2"];
-  !! Variable.fold ~nonconst:true [cVarDef "k"]; (* TODO: this should be earlier *) (* If I apply before there is a conflict with struct inline *)
-
+  !! Variable.fold ~nonconst:true [cVarDef "k"]; 
   !! Struct.inline "pos" [cTypDef "particle"];
   !! Struct.inline "speed" [cTypDef "particle"];
-  !! Struct.set_explicit [cTopFunDef "bag_push"; sInstr "= p"];
-  !! Variable.inline ~delete:true [cVarDef "p"];
-  !! Struct.inline "items" [cTypDef "bag"];
+  !! Struct.inline "items" [cTypDef "bag"]; (* FIX ME! *)
 
    (* PART 3 Splitting computations *)
    !! Struct.to_variables [cVarDef "speed2"];
