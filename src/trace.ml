@@ -311,8 +311,10 @@ let output_prog (ctx : context) (prefix : string) (ast : trm) : unit =
     Ast_to_c.ast_to_doc out_prog ast;
     close_channels();
     (* beautify the C++ code *)
-    cleanup_cpp_file_using_clang_format file_enc;
-    cleanup_cpp_file_using_clang_format file_prog
+    if true then begin (* --comment out for debug *)
+      cleanup_cpp_file_using_clang_format file_enc;
+      cleanup_cpp_file_using_clang_format file_prog
+    end
   with | Failure s ->
     close_channels();
     failwith s
@@ -543,7 +545,7 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
     dump_diff_and_exit()
   end
   else
-    begin 
+    begin
     check_exit_and_step();
     f()
     end

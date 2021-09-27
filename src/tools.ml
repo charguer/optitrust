@@ -43,12 +43,16 @@ let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = ma
 
 (* convert a list of strings to a string *)
 let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : string list) : string =
+  let (bl,br) = match bounds with
+    | [bl; br] -> (bl,br)
+    | _ -> failwith "list_to_string: bounds argument must be a list of length 2"
+    in
   let rec aux = function
     | [] -> ""
     | [s] -> s
     | s1 :: s2 :: sl -> s1 ^ sep ^ " " ^ aux (s2 :: sl)
   in
-  (List.nth bounds 0) ^ aux l ^ (List.nth bounds 1)
+  bl ^ aux l ^ br
 
 (* convert a list of docs to doc *)
 let doc_list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =

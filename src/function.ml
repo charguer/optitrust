@@ -20,9 +20,9 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
   (fun (p, p_local, i) t ->
    let path_to_call = p @ [Dir_seq_nth i] @ p_local in
    let call_trm,_ = Path.resolve_path path_to_call t in
-   begin match call_trm.desc with 
+   begin match call_trm.desc with
    | Trm_apps (_, tl) ->
-    if List.length fresh_names = 0 
+    if List.length fresh_names = 0
       then begin Tools.printf "bind_args: no argumetns to bind, no changes to be made\n";t end
       else if List.length tl <> List.length fresh_names then
         fail call_trm.loc "bind_args: for each argument of the function call, there should be associated either an empty string or a variable to be bounded to"
@@ -30,7 +30,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
            Tools.foldi (fun n t fresh_name ->
             if fresh_name <> "" then
             let () = incr counter in
-            Function_core.bind_intro (i + !counter)  fresh_name false (p_local @ [Dir_arg n]) t p
+            Function_core.bind_intro (i + !counter) fresh_name false (p_local @ [Dir_arg n]) t p
             else t) t fresh_names
             end
    | _ -> fail call_trm.loc "bind_args: expected a function call as target"
@@ -69,7 +69,7 @@ int main1() { // initial step : target on g(..)
   int u = 1, v = 2, w = 3;
   int t = f(g(h(4), u, m(v, 2), (w + 1)));
 }
-int main2() { // Function_basic.bind_intro 
+int main2() { // Function_basic.bind_intro
   int u = 1, v = 2, w = 3;
   int r = [mymark:](g(h(4), u, m(v, 2), (w + 1)));
   int t = f(r);
@@ -81,7 +81,7 @@ int main3() { // Function.bind_args ~[cMark mymark]
   int r = [mymark:](g(a, u, b, (w + 1)));
   int t = f(r);
 }
-int main4() { // Function_basic.inline ~[cMark mymark] 
+int main4() { // Function_basic.inline ~[cMark mymark]
               // The mark gets moved to the surrounding declaration
   int u = 1, v = 2, w = 3;
   mymark: int r; // same as before, only you remove the initialization term
@@ -120,8 +120,8 @@ int f1() {
   int r = [mymark:]h(a);
   int s = r;
 }
-int f2() { // result of Funciton_basic.inline_cal 
-    // generate goto, generate label, don't call init_attach 
+int f2() { // result of Funciton_basic.inline_cal
+    // generate goto, generate label, don't call init_attach
   int a = 3
   [mymark:]int r;
   if (a > 0) {
@@ -164,16 +164,16 @@ let inline ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = Ad
     let new_target = [Target.cMark my_mark] in
     if not res_inlining_needed then Generic.add_mark my_mark (Target.target_of_path p);
     if args <> [] then bind_args args new_target else ();
-    Function_basic.inline ~label new_target; 
+    Function_basic.inline ~label new_target;
     elim_body ~vars [Target.cLabel label];
-    if !name_result <> "" 
-        then begin
+    if !name_result <> "" then begin
         let () = try Variable_basic.init_attach new_target with
-           | Variable_basic.Init_attach_no_occurrences 
+           | Variable_basic.Init_attach_no_occurrences
            | Variable_basic.Init_attach_occurrence_below_control -> ()
            | e -> raise e in
-        if res_inlining_needed then Variable_basic.inline ~delete:true new_target; 
-        Generic.remove_mark my_mark [Target.nbAny; Target.cMark my_mark] end;
+        if res_inlining_needed then Variable_basic.inline ~delete:true new_target;
+        Generic.remove_mark my_mark [Target.nbAny; Target.cMark my_mark]
+    end;
     Trace.get_ast()
   ) tg
 

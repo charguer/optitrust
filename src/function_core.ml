@@ -106,7 +106,7 @@ let inline_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     let fun_call = fst (Path.resolve_path p_local trm_to_change) in
-        
+
     let fun_call_name, fun_call_args = begin match fun_call.desc with
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
                    | _ -> fail fun_call.loc "inline_aux: couldn't resolve the name of the function, target does not resolve to a function call"

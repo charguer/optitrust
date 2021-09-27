@@ -196,22 +196,22 @@ let cAnd (tgl : target list) : constr =
   Constr_and tgl
 
 let make_typ_constraint ?(typ : string option = None) ?(typ_ast : typ option = None) () : typ_constraint =
-  match typ, typ_ast with 
+  match typ, typ_ast with
   | None, None -> (fun _ -> true)
   | Some ty_str, None -> (fun (ty : typ) -> ty_str = (Ast_to_c.typ_to_string ty))
   | None, Some ty_ast -> (fun (ty : typ) -> same_types ty ty_ast)
   | Some _, Some _ -> fail None "make_typ_constraint: can't provide both typ as string and type as ast type"
 
 let add_type_constraint ?(typ : string option = None) ?(typ_ast : typ option = None) (c : constr) : constr =
-  if typ = None && typ_ast = None 
+  if typ = None && typ_ast = None
     then c
-    else cAnd [[c];[Constr_hastype (make_typ_constraint ~typ ~typ_ast ())]]  
+    else cAnd [[c];[Constr_hastype (make_typ_constraint ~typ ~typ_ast ())]]
 
 let cHasTypePred (pred : typ -> bool) : constr =
   Constr_hastype pred
 
 let cHasTypeAst (ty : typ) : typ_constraint =
-  make_typ_constraint ~typ_ast:(Some ty) ()  
+  make_typ_constraint ~typ_ast:(Some ty) ()
 
 let cHasType (tystr : string) : typ_constraint =
   make_typ_constraint ~typ:(Some tystr) ()
@@ -269,7 +269,7 @@ let cThen : constr =
 let target_list_simpl (args : targets) : target_list_pred =
   let n = List.length args in
   make_target_list_pred
-    (fun i -> if i < n then List.nth args i else [cStrict;bFalse]) 
+    (fun i -> if i < n then List.nth args i else [cStrict;bFalse])
     (fun bs -> List.length bs = n && list_all_true bs)
     (fun () -> "target_list_simpl(" ^ (list_to_string (List.map target_to_string args) ^ ")"))
 
@@ -533,6 +533,7 @@ end
 
 let apply_on_path = Path.apply_on_path
 
+
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
       params:
         transformer: change the resolved path so that more information about the context of the node is given
@@ -541,6 +542,10 @@ let apply_on_path = Path.apply_on_path
       return:
         unit
 *)
+
+let debug_disappearing_mark = true
+exception Interrupted_applyi_on_transformed_targets of trm
+
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
     (* Occurrence constraints should be unique *)
@@ -552,13 +557,24 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
-    Tools.foldi (fun imark t m ->
-      match resolve_target [nbAny;cMark m] t with
-      | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
-      | [p] -> let t = apply_on_path (trm_remove_mark m) t p in
-        tr imark t (transformer p)
-      | _ -> fail None "applyi_on_transformed_targets: a mark was duplicated"
-    ) t marks)
+    try
+      Tools.foldi (fun imark t m ->
+        match resolve_target [nbAny;cMark m] t with
+        | [p] ->
+            let t = apply_on_path (trm_remove_mark m) t p in
+            tr imark t (transformer p)
+        | ps ->
+            let msg =
+              if ps <> []
+                then "applyi_on_transformed_targets: a mark was duplicated"
+                else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
+              in
+            if debug_disappearing_mark
+              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+              else fail None msg
+      ) t marks
+    with Interrupted_applyi_on_transformed_targets t -> t
+    )
 
 (* [apply_on_transformed_targets ~replace_top transformer tr tg]:
     Same as [applyi_to_transformed_targets] except that here the index of the resolved_path is not considered
@@ -614,6 +630,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
   Tools.foldi (fun imark t m ->
     match resolve_target [cMark m] t with
+    (* TODO: follow the same treatment of errors as in applyi_on_transformed_targets_between *)
     | [] -> fail None (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m)
     | [p_to_seq] ->
       let t_seq, _ = resolve_path p_to_seq t in
@@ -668,7 +685,7 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
    carrying the information [id] around the term t.
 *)
 let target_show_aux (id : int) (t : trm) : trm =
-  let show_mark = "show_mark " ^ (string_of_int id) in
+  let show_mark = (*"show_mark " ^*) (string_of_int id) in
   trm_add_mark show_mark t
 
 (* [target_show_transfo id t p]: adds a mark with the
@@ -693,7 +710,11 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
 let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
-  let tg = if List.exists (function Constr_occurrences _ -> true | _ -> false) tg then tg else (nbMulti) :: tg in
+  (* Automatically add [nbMulti] if there is no occurence constraint *)
+  let tg =
+    if List.exists (function Constr_occurrences _ -> true | _ -> false) tg
+      then tg
+      else nbMulti::tg in
   if reparse then reparse_alias();
   let should_exit = (Flags.get_exit_line() = Some line) in
   if should_exit then begin
