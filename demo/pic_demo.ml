@@ -29,27 +29,24 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.set_explicit [nbMulti;cSet ~typ:(Some "particle")()];
   !! Struct.set_explicit [nbMulti;cSet ~typ:(Some "vect")()];
 
-  (* Part 2 AOS-TO-SOA *)
+  (* Part 3 AOS-TO-SOA *)
   !! Sequence.insert "int k = b2.nb;" [tAfter; cVarDef "b2"];
   !! Variable.fold ~nonconst:true [cVarDef "k"]; 
   !! Struct.inline "pos" [cTypDef "particle"];
   !! Struct.inline "speed" [cTypDef "particle"];
+  !! Struct.set_explicit [cVarDef "p"];
   !! Struct.inline "items" [cTypDef "bag"]; (* FIX ME! *)
 
    (* PART 3 Splitting computations *)
-   !! Struct.to_variables [cVarDef "speed2"];
-   !! Loop.extract_variable [cVarDef "speed2_x"]; (* TODO: try to do the 3 at once *)
-   !! Loop.extract_variable [cVarDef "speed2_y"];
-   !! Loop.extract_variable [cVarDef "speed2_z"];
+   !! Struct.to_variables [nbMulti;cVarDef ~typ:(Some "vect") ~substr:true "2"];
+   (* TODO: Fix the unnecessary scopes added from Loop.extract *)
+   !! Loop.extract_variable [nbMulti;cVarDef ~typ:(Some "double") ~substr:true "2"];
+   !! Loop.fission [tBefore;cSet ~lhs:[sExpr "pos2_x"] ()];
+   !! Loop.fission [tBefore;cVarDef "idCell2"];
 
     (* TODO: this is a hoist of a struct which goes as named arrays; factorizable as
          Loop.extract_struct ~names:["pos2_x";"pos2_y";"pos2_z"] [cVarDef "pos2"]; *)
-   !! Struct.to_variables [cVarDef "pos2"];
-   !! Loop.extract_variable [cVarDef "pos2_x"]; (* TODO: try to do the 3 at once with pos2_* *)
-   !! Loop.extract_variable [cVarDef "pos2_y"];
-   !! Loop.extract_variable [cVarDef "pos2_z"];
-   !! Loop.fission [tBefore;sInstr "pos2_x[idParticle] = "];
-   !! Loop.fission [tBefore;cVarDef "idCell2"];
+   
 
   (* PART4  Coloring *)
    !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];

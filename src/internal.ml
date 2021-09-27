@@ -235,7 +235,7 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
       end
     | None -> get_typid_from_trm base
     end
-  | Trm_struct _ | Trm_var _ ->
+  | Trm_struct _ ->
     begin match t.typ with 
     | Some typ -> 
       begin match typ.typ_desc with 
@@ -245,7 +245,12 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
     | None -> -1
     end
   | Trm_let (_,(_,tx),_) ->
-    get_typid_from_typ tx
+    get_typid_from_typ (get_inner_ptr_type tx)
+  | Trm_var _ -> 
+      begin match t.typ with 
+      | Some ty ->  get_typid_from_typ ty
+      | _ -> -1
+      end
   | _ -> -1
 
 
