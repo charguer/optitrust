@@ -57,7 +57,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* PART4  Coloring *)
    !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-   !! Loop.coloring ["x";"y";"z"] [cFor "step"];
+   !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];
 
   (* PART 5 Concurrency, LATER: Arthur*)
 )
