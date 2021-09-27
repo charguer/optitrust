@@ -12,7 +12,7 @@ TESTS_WORKING := \
 	array_tile.ml \
 	array_to_variables.ml \
 	function_bind_intro.ml \
-	function_inline_call.ml \
+	function_inline.ml \
 	label_add.ml \
 	label_remove.ml \
 	loop_fusion.ml \
@@ -37,15 +37,16 @@ TESTS_WORKING := \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	struct_fields_reorder.ml \
+	struct_inline.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
-	variable_rename.ml\
-	variable_inline.ml \
 	variable_fold.ml \
-	
+	variable_inline.ml \
+	variable_rename.ml\
+
 TESTS_TOCHECK := \
 	change_type.ml \
 	sequence_partition.ml \

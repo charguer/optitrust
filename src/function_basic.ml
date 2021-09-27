@@ -13,7 +13,7 @@ open Ast
                                   }
 
 *)
-let bind_intro ?(fresh_name : var = "a") ?(const : bool = true) ?(my_mark : mark = ""): Target.Transfo.t =
+let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = ""): Target.Transfo.t =
  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
   (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p)
 

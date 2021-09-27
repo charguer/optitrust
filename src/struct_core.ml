@@ -259,7 +259,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let lfront1, lback1 = Tools.split_list_at field_index (List.rev field_list) in
        let field_to_inline1, lback1 = if List.length lback1 = 1 then (lback1, []) else
         Tools.split_list_at 1 lback1 in
-       let _ ,field_type = List.hd field_to_inline1 in
+       let _ ,field_type = List.nth field_to_inline1 0 in
        let tyid = begin match field_type.typ_desc with
        | Typ_constr (_, tid , _) -> tid
        | Typ_array (ty1, _) ->
@@ -287,8 +287,8 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let lback = Mlist.map (inline_struct_accesses field_to_inline) lback in
        let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
        let new_tl = Mlist.merge lfront lback in
-       let new_tl = Mlist.replace_at index new_trm new_tl in
-       trm_seq_no_brace (Mlist.to_list new_tl)
+       let new_tl = Mlist.insert_at index new_trm new_tl in
+       trm_seq ~annot:t.annot ~marks:t.marks  new_tl
       | _ -> fail t.loc "inline_aux: expected a struct "
       end
     | _ -> fail t.loc "inline_aux: expected a trm_typedef"
