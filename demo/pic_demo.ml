@@ -22,11 +22,10 @@ let _ = Run.script_cpp (fun () ->
   !! Function.inline [tIndex ~nb:2 0; cFun "vect_add"];
   !! Function.inline [cFun "vect_add"];
 
-  !! Variable.inline ~delete:true [nbMulti;cOr [[cVarDef "r1"];[cVarDef "r2"]]];
-  show [cVarDef ~typ:(Some "vect") ""];
-  (* show [cSet ~typ:(Some "vect") ()]; *)
+  !! Variable.inline ~delete:true [cOr [[cVarDef "r1"];[cVarDef "r2"]]];
+  
   (* !! Struct.set_explicit [nbMulti; cSet ~] *)
-  !! Struct.set_explicit [cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
+  !! Struct.set_explicit [nbMulti;cVarDef ~typ:(Some "vect")""];
   !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline [cTopFunDef "bag_transfer"; cFun "bag_push"];

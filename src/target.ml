@@ -543,7 +543,7 @@ let apply_on_path = Path.apply_on_path
 *)
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   Trace.apply (fun t ->
-    (* let tg = if List.exists (function Constr_or _ | Constr_and _ -> true | Constr_occurrences _ | _ -> false) tg then nbMulti :: tg else tg in *)
+    let tg = if List.exists (function Constr_occurrences _ -> true | _ -> false) tg then tg else (nbMulti) :: tg in
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in

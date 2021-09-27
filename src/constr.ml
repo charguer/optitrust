@@ -605,6 +605,30 @@ let match_regexp_trm (r : rexp) (t : trm) : bool =
 let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
+
+(* get the type of an variable or an expression*)
+let get_typ (t : trm) : typ option = 
+  match t.desc with 
+  | Trm_let (_,(_, tx), _) -> Some (get_inner_ptr_type tx)
+  | Trm_apps (f, tl) ->
+    begin match f.desc with 
+    | Trm_val (Val_prim (Prim_binop Binop_set)) ->
+      begin match tl with 
+      | [fs;sd] ->
+        begin match fs.typ, sd.typ with 
+        | Some t1 , Some t2 -> 
+          if t1 = t2 then Some t1 else fail t.loc "get_typ: both sides should have the same type"
+        | Some _, _ -> fs.typ
+        | _, Some _ -> sd.typ
+        | None, None -> fail t.loc "get_typ: fatal error"
+        end
+      | _-> fail None "get_typ: set operation requires two arguments"
+      end
+    | _ -> t.typ 
+    end
+  | _ -> t.typ
+
+
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
   if List.mem Access t.annot  then
@@ -734,12 +758,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> List.exists pred t.marks
         end
      | Constr_hastype pred , _ ->
-        let t_typ = begin match t.desc with 
-        | Trm_let (_,(_,tx),_) ->
-          Some (get_inner_ptr_type tx)
-        | _ -> t.typ 
-        end in
-        begin match t_typ with 
+        begin match get_typ t with 
         | Some ty -> pred ty
         | _ -> false
         end
