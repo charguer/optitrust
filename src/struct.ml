@@ -6,17 +6,19 @@ include Struct_basic
     with initialization. If this is the case then first a detachement is performed.
 *)
 let set_explicit (tg : Target.target) : unit =
-  let t = Trace.get_ast() in
-  let tg_paths = Target.resolve_target tg t in
-  List.iter (fun tg_path ->
-    let tg_trm, _ = Path.resolve_path tg_path t in
-    begin match tg_trm.desc with
-    | Trm_let (_, (x, _), _) ->
-      Variable_basic.init_detach (Target.target_of_path tg_path);
-      Struct_basic.set_explicit [Target.sInstr (x ^ " =")]
-    | _ -> Struct_basic.set_explicit (Target.target_of_path tg_path)
-    end
+  Trace.call (fun t ->
+    let tg_paths = Target.resolve_target tg t in
+    List.iter (fun tg_path ->
+      let tg_trm, _ = Path.resolve_path tg_path t in
+      begin match tg_trm.desc with
+      | Trm_let (_, (x, _), _) ->
+        Variable_basic.init_detach (Target.target_of_path tg_path);
+        Struct_basic.set_explicit [Target.sInstr (x ^ " =")]
+      | _ -> Struct_basic.set_explicit (Target.target_of_path tg_path)
+      end
   ) (List.rev tg_paths)
+  )
+  
 
 
 (*  [set_implicit tg] expects [tg] to point to a struct set operation, with the assumption

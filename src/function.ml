@@ -23,7 +23,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
    begin match call_trm.desc with
    | Trm_apps (_, tl) ->
     if List.length fresh_names = 0
-      then begin Tools.printf "bind_args: no arguments to bind, no changes to be made\n";t end
+      then begin Tools.printf "bind_args: no arguments to bind, no changes to be done\n";t end
       else if List.length tl <> List.length fresh_names then
         fail call_trm.loc "bind_args: for each argument of the function call, there should be associated either an empty string or a variable to be bounded to"
       else begin

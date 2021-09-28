@@ -49,8 +49,8 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
 
 let invariant ?(upto : string = "") (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
-  let t = Trace.get_ast() in
-  let exp =  Constr.resolve_target_exactly_one tg t in
+  Trace.call (fun t ->
+    let exp =  Constr.resolve_target_exactly_one tg t in
   let (p, _) = Internal.get_trm_in_surrounding_loop exp in
   match upto with
   | "" -> Loop_basic.invariant tg
@@ -74,7 +74,9 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
             | _ ->
               Loop_basic.invariant tg;
               tmp_p := List.rev(List.tl (List.rev !tmp_p))
-            done)
+            done  
+  )
+)
 
 (* [move before after loop_to_move] move one loop before or after another loop in
     a "sequence"(not in the context of Optitrust) of nested loops.
@@ -85,8 +87,8 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
       we want to move [loop_to_move]
 *)
 let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit =
-  let t = Trace.get_ast() in
-  let move_where, target_loop = match before, after with
+  Trace.call (fun t ->
+    let move_where, target_loop = match before, after with
   | "", _ -> "after", [Target.cFor loop_to_move]
   | _, "" -> "before", [Target.cFor before]
   | _ -> fail None "move: make sure you specify where to move the loop, don't give both before and after directives" in
@@ -105,6 +107,8 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     let indices_list = Tools.chop_list_after loop_to_move indices_list in
     List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev indices_list)
   | _ -> fail t.loc "move: something went wrong"
+  )
+  
 
 
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
@@ -115,44 +119,46 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     braces:true to keep the sequences
 *)
 let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) : unit =
-  let mylabel = "__TEMP_LABEL" in
-  let t = Trace.get_ast () in
-  let tg_loop_path =  Constr.resolve_target_exactly_one tg t in
-  let (tg_loop_trm,_) = Path.resolve_path tg_loop_path t in
-  match tg_loop_trm.desc with
-  | Trm_for (_, _, _, stop, _, _) ->
-    begin match stop.desc with
-    | Trm_apps (_,[_;bnd]) ->
-      begin match bnd.desc with
-      | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~label:mylabel tg;
-        let block_list = Tools.range 0 (n-1) in
-        List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])) block_list;
-        Sequence_basic.partition blocks [Target.nbExact n;Target.cLabel mylabel; Target.dBody;Target.cSeq ()]
-
-      | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
-                     Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~label:mylabel tg);
-        let var_decl = match Internal.toplevel_decl x t with
-          | Some d -> d
-          | None -> fail t.loc "unroll: could not find the declaration of the variable"
-        in
-        let lit_n = get_init_val var_decl in
-        let n = match (get_lit_from_trm_lit lit_n)  with
-        | Lit_int n -> n
-        | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
-        let block_list = Tools.range 0 (n-1) in
-        List.iter (fun x ->
-          Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])
-        ) block_list;
-        List.iter (fun x ->
-           Sequence_basic.partition ~visible:braces blocks [Target.cLabel mylabel; Target.dBody; Target.dNth x]
-        ) block_list;
-        Sequence_basic.reorder_blocks [Target.cLabel mylabel; Target.dBody];
-        Label_basic.remove [Target.cLabel mylabel]
-      | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
+  Trace.call (fun t ->
+    let mylabel = "__TEMP_LABEL" in
+    let tg_loop_path =  Constr.resolve_target_exactly_one tg t in
+    let (tg_loop_trm,_) = Path.resolve_path tg_loop_path t in
+    match tg_loop_trm.desc with
+    | Trm_for (_, _, _, stop, _, _) ->
+      begin match stop.desc with
+      | Trm_apps (_,[_;bnd]) ->
+        begin match bnd.desc with
+        | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~label:mylabel tg;
+          let block_list = Tools.range 0 (n-1) in
+          List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])) block_list;
+          Sequence_basic.partition blocks [Target.nbExact n;Target.cLabel mylabel; Target.dBody;Target.cSeq ()]
+  
+        | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
+                       Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~label:mylabel tg);
+          let var_decl = match Internal.toplevel_decl x t with
+            | Some d -> d
+            | None -> fail t.loc "unroll: could not find the declaration of the variable"
+          in
+          let lit_n = get_init_val var_decl in
+          let n = match (get_lit_from_trm_lit lit_n)  with
+          | Lit_int n -> n
+          | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
+          let block_list = Tools.range 0 (n-1) in
+          List.iter (fun x ->
+            Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])
+          ) block_list;
+          List.iter (fun x ->
+             Sequence_basic.partition ~visible:braces blocks [Target.cLabel mylabel; Target.dBody; Target.dNth x]
+          ) block_list;
+          Sequence_basic.reorder_blocks [Target.cLabel mylabel; Target.dBody];
+          Label_basic.remove [Target.cLabel mylabel]
+        | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
+        end
+      | _ -> fail t.loc "unroll: expected an addition between two trms"
       end
-    | _ -> fail t.loc "unroll: expected an addition between two trms"
-    end
-  | _ -> fail t.loc "unroll: expected a simple loop"
+    | _ -> fail t.loc "unroll: expected a simple loop"
+  )
+  
 
 
 (* An automated version of coloring and reordering *)
