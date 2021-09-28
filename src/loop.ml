@@ -182,3 +182,47 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
    Loop.reorder list_of_indices tg_first_loop
    let list_of_indces = (add_prefix "c" dims) @ (add_prefix "b" dims) @ dims
 *)
+
+let reorder (ordered_indices : var list) (tg : Target.target) : unit =
+    Target.iter_on_targets (fun t p ->
+      let tg_loop, _ = Path.resolve_path p t in
+      let current_indices = Internal.get_loop_nest_indices tg_loop in
+      if (List.length current_indices <> List.length ordered_indices) 
+        then fail tg_loop.loc "reorder: reordering does not change the number of nested loops"
+        else 
+          begin
+          let index_map : int varmap ref  = ref String_map.empty in
+          List.iteri (fun i x -> index_map := String_map.add x i !index_map) ordered_indices;
+          let _sorted_indices = Tools.bubble_sort (
+            fun x y ->
+            let targeted_ind_x = begin match (String_map.find_opt x !index_map) with
+            | Some i -> i
+            | None -> fail tg_loop.loc "reorder: the ordered list you entered contains indices of loops which don't belong the targeted scope"
+            end in
+            let targeted_ind_y = begin match (String_map.find_opt y !index_map) with
+            | Some i -> i
+            | None -> fail tg_loop.loc "reorder: the ordered list you entered contains indices of loops which don't belong the targeted scope"
+            end in
+            if targeted_ind_x > targeted_ind_y then 
+              begin
+              Loop_basic.interchange [Target.cFor x];
+              true
+              end
+              else false
+
+          ) current_indices in ()
+          end
+    ) tg
+
+let pic_coloring1 (tile_size: int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
+  let add_prefix (prefix : string) (indices : var list) : var list =
+    List.map (fun x -> x ^ prefix) indices  
+    in
+  let bs = add_prefix "b" ds in
+  let cs = add_prefix "c" ds in
+  let list_of_indices = bs @ cs @ ds in
+  let tile =  string_of_int tile_size in
+  let color = string_of_int color_size in
+  List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
+  List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
+  reorder list_of_indices [Target.cFor (List.nth cs 0)]
