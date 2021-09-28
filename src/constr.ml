@@ -148,7 +148,7 @@ and constr =
   (* Constraint to match arguments  that sastify both the name predicated and the type predicate *)
   | Constr_arg of var_constraint * typ_constraint
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
-  | Constr_hastype of typ_constraint 
+  | Constr_hastype of typ_constraint
 
 (* constraint over type *)
 and typ_constraint = typ -> bool
@@ -606,27 +606,33 @@ let is_constr_regexp (c : constr) : bool =
   match c with | Constr_regexp _ -> true | _ -> false
 
 
-(* get the type of an variable or an expression*)
-let get_typ (t : trm) : typ option = 
-  match t.desc with 
-  | Trm_let (_,(_, tx), _) -> Some (get_inner_ptr_type tx)
-  | Trm_apps (f, tl) ->
-    begin match f.desc with 
-    | Trm_val (Val_prim (Prim_binop Binop_set)) ->
-      begin match tl with 
+(* [check_hastype pred t] tests whether [t] carries a type
+   that satisfies [pred]. If [t] does not carry a type information,
+   then the return value is [false]. For constraints to work properly,
+   one may want to check that types are up to date (e.g. by reparsing). *)
+let check_hastype (pred : typ->bool) (t : trm) : bool =
+  let default () =
+    match t.typ with
+    | Some ty -> pred ty
+    | None -> false
+    in
+  match t.desc with
+  | Trm_let (_,(_, tx), _) ->
+      pred (get_inner_ptr_type tx)
+  | Trm_apps ({desc= Trm_val (Val_prim (Prim_binop Binop_set));_ }, tl) ->
+      begin match tl with
       | [fs;sd] ->
-        begin match fs.typ, sd.typ with 
-        | Some t1 , Some t2 -> 
-          if t1 = t2 then Some t1 else fail t.loc "get_typ: both sides should have the same type"
-        | Some _, _ -> fs.typ
-        | _, Some _ -> sd.typ
-        | None, None -> fail t.loc "get_typ: fatal error"
+        begin match fs.typ, sd.typ with
+        | Some t1 , Some _t2 -> pred t1
+          (* Note: we arbitrarily bias towards information on the left-hand side,
+             which is presumably a simpler expression *)
+        | Some ty, _ | _, Some ty -> pred ty
+        | None, None -> false
+          (* fail t.loc "check_hastype: no type information available for 'set', try reparsing first."*)
         end
-      | _-> fail None "get_typ: set operation requires two arguments"
+      | _-> fail None "check_hastype: set operation should have two arguments"
       end
-    | _ -> t.typ 
-    end
-  | _ -> t.typ
+  | _ -> default()
 
 
 (* check if constraint c is satisfied by trm t *)
@@ -758,10 +764,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         | _ -> List.exists pred t.marks
         end
      | Constr_hastype pred , _ ->
-        begin match get_typ t with 
-        | Some ty -> pred ty
-        | _ -> false
-        end
+        check_hastype pred t
      | _ -> false
      end
 
@@ -785,7 +788,7 @@ and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
 and check_arg (tg:target) ((var_name, var_typ) : typed_var) : bool =
   match tg with
   | [] -> true
-  | [c] -> begin match c with 
+  | [c] -> begin match c with
            | Constr_bool true -> true
            | Constr_arg (var_constraint, typ_constraint) ->
               var_constraint var_name && typ_constraint var_typ

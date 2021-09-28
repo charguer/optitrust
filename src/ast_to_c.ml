@@ -257,6 +257,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         else if List.mem Main_file t.annot then
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate (twice hardline) dl
+           (* TODO: this code seems to be executed, however it don't understand
+              why pic_demo_before.cpp has braces around the entire file (first and last line) *)
         else if List.exists (function Include _ -> true | _ -> false) t.annot then empty
         else
            let counter = ref (-1) in
