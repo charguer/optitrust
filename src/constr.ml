@@ -100,7 +100,7 @@ and constr =
   (* if: cond, then, else *)
   | Constr_if of target * target * target
   (* decl_var: name, body *)
-  | Constr_decl_var of constr_name * target
+  | Constr_decl_var of typ_constraint * constr_name * target
   (* decl_fun: name, args, body *)
   | Constr_decl_fun of constr_name * target_list_pred * target
   (* decl_type: name *)
@@ -279,12 +279,13 @@ let rec constr_to_string (c : constr) : string =
      let s_then = target_to_string p_then in
      let s_else = target_to_string p_else in
      "If (" ^ s_cond ^ ", " ^ s_then ^ ", " ^ s_else ^ ")"
-  | Constr_decl_var (name, p_body) ->
+  | Constr_decl_var (ty_pred, name, p_body) ->
      let s_name =
        match name with | None -> "_" | Some r -> rexp_to_string r
      in
      let s_body = target_to_string p_body in
-     "Decl_var (" ^ s_name ^ ", " ^ s_body ^ ")"
+     "Decl_var (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
+     (* LATER: add a string representation for type constraints *)
   | Constr_decl_fun (name, _tgt_list_pred, p_body) ->
     let s_name =
        match name with | None -> "_" | Some r -> rexp_to_string r
@@ -611,11 +612,15 @@ let is_constr_regexp (c : constr) : bool =
    then the return value is [false]. For constraints to work properly,
    one may want to check that types are up to date (e.g. by reparsing). *)
 let check_hastype (pred : typ->bool) (t : trm) : bool =
-  let default () =
     match t.typ with
     | Some ty -> pred ty
     | None -> false
-    in
+
+(* DEPREACTED
+    let default () =
+    match t.typ with
+    | Some ty -> pred ty
+    | None -> false
   match t.desc with
   | Trm_let (_,(_, tx), _) ->
       pred (get_inner_ptr_type tx)
@@ -633,6 +638,7 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
       | _-> fail None "check_hastype: set operation should have two arguments"
       end
   | _ -> default()
+  *)
 
 
 (* check if constraint c is satisfied by trm t *)
@@ -692,7 +698,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_then then_t &&
         check_target p_else else_t
-      | Constr_decl_var (name, p_body) , Trm_let (_,(x,_), body) ->
+      | Constr_decl_var (ty_pred, name, p_body) , Trm_let (_,(x,tx), body) ->
+        ty_pred (get_inner_ptr_type tx) &&
         check_name name x &&
         check_target p_body body
      | Constr_decl_fun (name, cl_args, p_body),

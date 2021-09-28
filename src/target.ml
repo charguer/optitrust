@@ -207,6 +207,13 @@ let add_type_constraint ?(typ : string option = None) ?(typ_ast : typ option = N
     then c
     else cAnd [[c];[Constr_hastype (make_typ_constraint ~typ ~typ_ast ())]]
 
+(* should only be used for strict targets *)
+let add_type_constraint_to_target ?(typ : string option = None) ?(typ_ast : typ option = None) (tg : target) : target =
+(* TODO: factorize better with above *)
+  if typ = None && typ_ast = None
+    then tg
+    else [cAnd [tg; [cStrict; Constr_hastype (make_typ_constraint ~typ ~typ_ast ())]]]
+
 let cHasTypePred (pred : typ -> bool) : constr =
   Constr_hastype pred
 
@@ -226,7 +233,8 @@ let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) ?(typ : string option = None) ?(typ_ast : typ option = None) (name : string) : constr =
   let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
   let p_body =  body in
-  let c = Constr_decl_var (ro, p_body) in add_type_constraint ~typ ~typ_ast c
+  let ty_pred = make_typ_constraint ~typ ~typ_ast () in
+  Constr_decl_var (ty_pred, ro, p_body)
 
 let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
@@ -350,7 +358,8 @@ let cSeq ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_
 
 let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : string option = None) ?(typ_ast : typ option = None) (name : string) : constr =
   let ro = string_to_rexp_opt regexp false name trmkind in
-  let c = Constr_var ro in add_type_constraint ~typ ~typ_ast c
+  let c = Constr_var ro in
+  add_type_constraint ~typ ~typ_ast c
 
 let cBool (b : bool) : constr =
     Constr_lit (Some (Lit_bool b))
@@ -395,7 +404,8 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
     left empty, then no contraint on the side of the set operation will be applied.
 *)
 let cSet ?(lhs : target = []) ?(rhs : target = []) ?(typ : string option = None) ?(typ_ast : typ option = None) (_ : unit) : constr =
-  let c = cPrimFun ~args:[lhs; rhs] (Prim_binop Binop_set) in add_type_constraint ~typ ~typ_ast c
+  let lhs_typed = add_type_constraint_to_target ~typ ~typ_ast lhs in
+  cPrimFun ~args:[lhs_typed; rhs] (Prim_binop Binop_set)
 
 let cSetVar (x : var) : constr =
   cSet ~lhs:[cVar x] ()

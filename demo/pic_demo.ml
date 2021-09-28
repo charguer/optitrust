@@ -46,7 +46,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
-  !!! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
+  !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
   !!! Struct.set_explicit [nbMulti;cSet ~typ:(Some "particle")()];
   !!! Struct.set_explicit [nbMulti;cSet ~typ:(Some "vect")()];
 
