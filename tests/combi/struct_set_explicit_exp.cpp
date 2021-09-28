@@ -21,8 +21,8 @@ int main() {
   obj a;
   a.weight = 0;
   a.pos = {0, 0};
-  a.x.speed = 0;
-  a.y.speed = 0;
+  a.speed.x = 0;
+  a.speed.y = 0;
   vect u;
   u.x = a.pos.x;
   u.y = a.pos.y;

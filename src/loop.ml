@@ -11,7 +11,7 @@ type rename = Variable_core.Rename.t
       transformation which does that for us. Otherwise just apply the basic hoist transformation.
 *)
 let hoist (x_step : var) (tg : Target.target) : unit =
-  let t = Trace.get_ast () in (* TODO: replace with Trace.call (fun t -> ...)  here and in 3 other occurrences *)
+  Trace.call (fun t ->
   let tg_paths = Target.resolve_target tg t in
   List.iter( fun tg_path ->
     let (tg_trm, _) = Path.resolve_path tg_path t in
@@ -31,6 +31,9 @@ let hoist (x_step : var) (tg : Target.target) : unit =
         Loop_basic.hoist x_step (Target.target_of_path tg_path);
       | false -> Loop_basic.hoist x_step (Target.target_of_path tg_path)
   ) tg_paths
+  )
+  
+  
 
 
 (* [fusion nb tg] expects [tg] to point to a for loop followed by two or more

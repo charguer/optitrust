@@ -26,8 +26,8 @@ let set_explicit (tg : Target.target) : unit =
       of struct fields of the type of the instruction.
 *)
 let set_implicit (tg : Target.target) : unit =
-  let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
-  let t = Trace.get_ast () in (* TODO: replace with Trace.call (fun t -> ...)  here and in 1 other occurrence *)
+  Trace.call (fun t -> 
+    let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
   let tg_path = Target.resolve_target_exactly_one tg t in
   let (tg_trm, _) = Path.resolve_path tg_path t in
   match tg_trm.desc with
@@ -47,3 +47,5 @@ let set_implicit (tg : Target.target) : unit =
     Sequence_basic.intro nb tg;
     Struct_basic.set_implicit [Target.cSeq ~args_pred:(Target.target_list_one_st tg) ()]
   | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
+)
+  

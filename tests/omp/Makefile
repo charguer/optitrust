@@ -9,8 +9,10 @@ TESTS_WORKING := \
 	array_sections2.ml \
 	array_sections3.ml \
 	array_sections4.ml \
+	async_target1.ml \
 	async_target2.ml \
 	async_target3.ml \
+	async_target4.ml \
 	atomic1.ml \
 	atomic2.ml \
 	atomic3.ml \
@@ -40,13 +42,16 @@ TESTS_WORKING := \
 	doacross2.ml \
 	doacross3.ml \
 	doacross4.ml \
+	flush_nolist.ml \
 	fpriv_sections.ml \
-	get_nthrs.ml \
 	icv.ml \
 	lastprivate.ml \
 	linear_in_loop.ml \
 	master.ml \
 	mem_model1.ml \
+	mem_model2.ml \
+	mem_model3.ml \
+	nested_loop1.ml \
 	nested_loop2.ml \
 	nesting_restrict1.ml \
 	nesting_restrict2.ml \
@@ -81,6 +86,7 @@ TESTS_WORKING := \
 	simd7.ml \
 	simd8.ml \
 	single.ml \
+	standalone.ml \
 	target1.ml \
 	target2.ml \
 	target3.ml \
@@ -94,20 +100,27 @@ TESTS_WORKING := \
 	target_data5.ml \
 	target_data6.ml \
 	target_data7.ml \
+	target_update1.ml \
+	target_update2.ml \
 	task_dep1.ml \
 	task_dep2.ml \
 	task_dep3.ml \
 	task_dep5.ml \
-	tasking11.ml \
-	tasking12.ml \
 	tasking3.ml \
 	tasking4.ml \
+	tasking5.ml \
 	tasking6.ml \
 	tasking7.ml \
 	tasking8.ml \
 	tasking9.ml \
+	tasking10.ml \
+	tasking11.ml \
+	tasking12.ml \
+	tasking13.ml \
+	tasking14.ml \
 	taskloop.ml \
 	task_priority.ml \
+	taskyield.ml \
 	teams1.ml \
 	teams2.ml \
 	teams3.ml \
@@ -119,21 +132,8 @@ TESTS_WORKING := \
 	worksharing_critical.ml \
 
 TESTS_TOCHECK := \
-	async_target1.ml \
 	taskgroup.ml \
-	async_target4.ml \
-	flush_nolist.ml \
-	tasking5.ml \
-	mem_model2.ml \
-	mem_model3.ml \
-	target_update2.ml \
-	target_update1.ml \
-	standalone.ml \
-	tasking14.ml \
-	tasking10.ml \
-	taskyield.ml \
-	tasking13.ml \
-	nested_loop1.ml \
+	get_nthrs.ml \
 
 TESTS := $(TESTS_WORKING)
 

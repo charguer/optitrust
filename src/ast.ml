@@ -861,7 +861,7 @@ let trm_template ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribut
 let trm_cast (ty : typ) (t : trm) : trm =
   trm_apps (trm_unop (Unop_cast ty)) [t]
 
-let trm_clear_marks (t : trm) : trm =
+let trm_remove_marks (t : trm) : trm =
   {t with marks = []}
 
 let trm_add_mark (m : mark) (t : trm) : trm =

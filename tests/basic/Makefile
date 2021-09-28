@@ -19,7 +19,6 @@ TESTS_WORKING := \
 	loop_hoist.ml \
 	loop_interchange.ml \
 	loop_grid_enumerate.ml \
-	loop_color.ml \
 	loop_unroll.ml \
 	loop_invariant.ml \
 	loop_fission.ml \
@@ -48,6 +47,7 @@ TESTS_WORKING := \
 	variable_rename.ml\
 
 TESTS_TOCHECK := \
+	loop_color.ml \
 	change_type.ml \
 	sequence_partition.ml \
 	

@@ -3,7 +3,6 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
   
-  !! Function.inline [cOr [[cFun "f"];[cFun "g"]]];
   !! Function.inline ~label:"body" [cFun "f"];
   (* with naming of the arguments *)
   !! Trace.alternative (fun () ->

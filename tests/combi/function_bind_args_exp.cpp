@@ -22,6 +22,5 @@ void main2() {
   int a = h(4);
   int b = m(v, 2);
   int c = (w + 1);
-  auto a = a;
   int t = f(g(a, u, b, c));
 }

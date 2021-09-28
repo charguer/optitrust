@@ -79,8 +79,8 @@ let add_mark (m : mark) : Target.Transfo.t =
 let remove_mark (m : mark) : Target.Transfo.t =
   Target.apply_on_targets (Generic_core.remove_mark m)
 
-let clear_marks : Target.Transfo.t = 
-  Target.apply_on_targets (Generic_core.clear_marks)
+let remove_marks : Target.Transfo.t = 
+  Target.apply_on_targets (Generic_core.remove_marks)
 
 (* ********************************************************* *)
 (* Create an instance of the pattern *)

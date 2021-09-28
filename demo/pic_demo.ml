@@ -23,7 +23,7 @@ let _ = Run.script_cpp (fun () ->
   *)
 
   (* Example use of [Trace.call] -- keep this code as a basic test, illustration for the working of [iteri_on_targets] *)
-  !! Trace.call (fun _t ->
+  (* !! Trace.call (fun _t ->
     Generic.add_mark "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
     Trace.step();
     Generic.add_mark "foo2" [tIndex ~nb:2 1; cFun "vect_mul"];
@@ -35,19 +35,12 @@ let _ = Run.script_cpp (fun () ->
     Function.inline [nbMulti; cMark "foo2"];
     Trace.step();
     Generic.remove_mark "foo2" [cMark "foo2"];
-  ); (*
+  ); *) (*
 
   !! Generic.add_mark "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Generic.add_mark "foo2" [tIndex ~nb:2 1; cFun "vect_mul"];
   !! Function.inline [nbMulti; cMark "foo1"];
   !! Function.inline [nbMulti; cMark "foo2"];
-  *)
-
-  (* TODO:  implement [Generic.remove_marks tg]
-    which removes all marks on the terms targeted by [tg].
-    This way, we can write:
-      Generic.remove_marks [cMark "m"];
-    without specifying "m" twice
   *)
 
   (* previous workaround for inlining vect_mul, in two steps

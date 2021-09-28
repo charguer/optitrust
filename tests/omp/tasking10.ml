@@ -12,6 +12,5 @@ let _ = Run.script_cpp (fun _ ->
   !! Omp.unset_lock "lock" [tAfter; cSeq ~args:[[cFun "printf"]] ()];
   !! Omp.task [] [tFirst; cFunDef "work";dBody];
   !! Omp.destroy_lock "lock" [tLast; cFunDef "work"; dBody];
-  
 
 )

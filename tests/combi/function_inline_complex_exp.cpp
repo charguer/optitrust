@@ -15,6 +15,6 @@ int main() {
   int b = m(v, 2);
   int p1 = ((((a + a) + u) + b) + (w + 1));
 
-  int t = f(g(h(4), u, m(v, 2), (w + 1)));
+  int t = f((p1 + p1));
   return 0;
 }

@@ -557,7 +557,7 @@ let get_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (thread_num, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_thread_num)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_thread_num_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_thread_num (thread_num : var) (index : int) : Target.Transfo.local =
