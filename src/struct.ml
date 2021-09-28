@@ -6,18 +6,16 @@ include Struct_basic
     with initialization. If this is the case then first a detachement is performed.
 *)
 let set_explicit (tg : Target.target) : unit =
-  Trace.call (fun t ->
-    let tg_paths = Target.resolve_target tg t in
-    List.iter (fun tg_path ->
-      let tg_trm, _ = Path.resolve_path tg_path t in
+  Target.iter_on_targets (fun t p ->
+    let tg_trm, _ = Path.resolve_path p t in
       begin match tg_trm.desc with
       | Trm_let (_, (x, _), _) ->
-        Variable_basic.init_detach (Target.target_of_path tg_path);
+        Variable_basic.init_detach (Target.target_of_path p);
         Struct_basic.set_explicit [Target.sInstr (x ^ " =")]
-      | _ -> Struct_basic.set_explicit (Target.target_of_path tg_path)
+      | _ -> Struct_basic.set_explicit (Target.target_of_path p)
       end
-  ) (List.rev tg_paths)
-  )
+  
+  ) tg
 
   (* Note: set_explicit on a reference can only be correct if the reference is used for read-only purpose
        LATER: issue a warning when the user does this *)
@@ -30,26 +28,25 @@ let set_explicit (tg : Target.target) : unit =
       of struct fields of the type of the instruction.
 *)
 let set_implicit (tg : Target.target) : unit =
-  Trace.call (fun t ->
+  Target.iter_on_targets (fun t p ->
     let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
-  let tg_path = Target.resolve_target_exactly_one tg t in
-  let (tg_trm, _) = Path.resolve_path tg_path t in
-  match tg_trm.desc with
-  | Trm_apps (_, [lt;rt]) ->
-    let tid_r = Internal.get_typid_from_trm ~first_match:false rt  in
-    let tid_l = Internal.get_typid_from_trm ~first_match:false  lt  in
-    let tid = match tid_r, tid_l with
-    | -1, _ -> tid_l
-    | _, -1 -> tid_r
-    | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
-    in
-    let struct_def = if tid <> -1
-      then Typ_map.find tid typid_to_typedef_map
-      else fail t.loc "set_implicit_aux: the inner type should be a struct type" in
-    let field_list = Internal.get_field_list struct_def in
-    let nb = List.length field_list in
-    Sequence_basic.intro nb tg;
-    Struct_basic.set_implicit [Target.cSeq ~args_pred:(Target.target_list_one_st tg) ()]
-  | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
-)
-
+    let (tg_trm, _) = Path.resolve_path p t in
+    match tg_trm.desc with
+    | Trm_apps (_, [lt;rt]) ->
+      let tid_r = Internal.get_typid_from_trm ~first_match:false rt  in
+      let tid_l = Internal.get_typid_from_trm ~first_match:false  lt  in
+      let tid = match tid_r, tid_l with
+      | -1, _ -> tid_l
+      | _, -1 -> tid_r
+      | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
+      in
+      let struct_def = if tid <> -1
+        then Typ_map.find tid typid_to_typedef_map
+        else fail t.loc "set_implicit_aux: the inner type should be a struct type" in
+      let field_list = Internal.get_field_list struct_def in
+      let nb = List.length field_list in
+      Sequence_basic.intro nb tg;
+      Struct_basic.set_implicit [Target.cSeq ~args_pred:(Target.target_list_one_st tg) ()]
+    | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
+  
+) tg

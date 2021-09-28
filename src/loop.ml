@@ -11,10 +11,8 @@ type rename = Variable_core.Rename.t
       transformation which does that for us. Otherwise just apply the basic hoist transformation.
 *)
 let hoist (x_step : var) (tg : Target.target) : unit =
-  Trace.call (fun t ->
-    let tg_paths = Target.resolve_target tg t in
-    List.iter( fun tg_path ->
-      let (tg_trm, _) = Path.resolve_path tg_path t in
+  Target.iter_on_targets (fun t p ->
+    let (tg_trm, _) = Path.resolve_path p t in
       let detach_first =
       match tg_trm.desc with
         | Trm_let (_, (_, _), init) ->
@@ -27,11 +25,10 @@ let hoist (x_step : var) (tg : Target.target) : unit =
         in
         match detach_first with
         | true ->
-          Variable_basic.init_detach (Target.target_of_path tg_path);
-          Loop_basic.hoist x_step (Target.target_of_path tg_path);
-        | false -> Loop_basic.hoist x_step (Target.target_of_path tg_path)
-    ) tg_paths
-  )
+          Variable_basic.init_detach (Target.target_of_path p);
+          Loop_basic.hoist x_step (Target.target_of_path p);
+        | false -> Loop_basic.hoist x_step (Target.target_of_path p)
+  ) tg
 
 (* [fusion nb tg] expects [tg] to point to a for loop followed by two or more
     loops with the same range, start step and bound but different body.
@@ -46,12 +43,11 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
 (* LATER: documentation?generalize? *)
 let invariant ?(upto : string = "") (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
-  Trace.call (fun t ->
-    let exp =  Constr.resolve_target_exactly_one tg t in
-  let (p, _) = Internal.get_trm_in_surrounding_loop exp in
-  match upto with
-  | "" -> Loop_basic.invariant tg
-  | _ ->
+  Target.iter_on_targets (fun t exp ->
+    let (p, _) = Internal.get_trm_in_surrounding_loop exp in
+    match upto with
+    | "" -> Loop_basic.invariant tg
+    | _ ->
           let quit_loop = ref false in
           let tmp_p = ref [] in
           tmp_p := List.rev(List.tl (List.rev p));
@@ -72,7 +68,7 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
               Loop_basic.invariant tg;
               tmp_p := List.rev(List.tl (List.rev !tmp_p))
             done
-  )
+  ) tg
 )
 
 (* [move before after loop_to_move] move one loop before or after another loop in
@@ -105,7 +101,7 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     let indices_list = Tools.chop_list_after loop_to_move indices_list in
     List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev indices_list)
   | _ -> fail t.loc "move: something went wrong"
-  )
+)
 
 
 
@@ -117,10 +113,9 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     braces:true to keep the sequences
 *)
 let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) : unit =
-  Trace.call (fun t ->
+  Target.iter_on_targets (fun t p ->
     let mylabel = "__TEMP_LABEL" in
-    let tg_loop_path =  Constr.resolve_target_exactly_one tg t in
-    let (tg_loop_trm,_) = Path.resolve_path tg_loop_path t in
+    let (tg_loop_trm,_) = Path.resolve_path p t in
     match tg_loop_trm.desc with
     | Trm_for (_, _, _, stop, _, _) ->
       begin match stop.desc with
@@ -155,7 +150,7 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) :
       | _ -> fail t.loc "unroll: expected an addition between two trms"
       end
     | _ -> fail t.loc "unroll: expected a simple loop"
-  )
+  ) tg
 
 
 
@@ -179,7 +174,55 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   (* List.iter (fun b -> move b ~after:last_cs) (snd splitted_bs); *)
   (* List.iter (fun d -> move d ~after:last_bs) (snd _splitted_ds) *)
 
+
+(* let loop_reorder (indices : var list) (tg : Target.target) : unit =
+  Target.apply_on_targets () *)
+
 (* TODO:
    Loop.reorder list_of_indices tg_first_loop
    let list_of_indces = (add_prefix "c" dims) @ (add_prefix "b" dims) @ dims
 *)
+
+let reorder (ordered_indices : var list) (tg : Target.target) : unit =
+    Target.iter_on_targets (fun t p ->
+      let tg_loop, _ = Path.resolve_path p t in
+      let current_indices = Internal.get_loop_nest_indices tg_loop in
+      if (List.length current_indices <> List.length ordered_indices) 
+        then fail tg_loop.loc "reorder: reordering does not change the number of nested loops"
+        else 
+          begin
+          let index_map : int varmap ref  = ref String_map.empty in
+          List.iteri (fun i x -> index_map := String_map.add x i !index_map) ordered_indices;
+          let _sorted_indices = Tools.bubble_sort (
+            fun x y ->
+            let targeted_ind_x = begin match (String_map.find_opt x !index_map) with
+            | Some i -> i
+            | None -> fail tg_loop.loc "reorder: the ordered list you entered contains indices of loops which don't belong the targeted scope"
+            end in
+            let targeted_ind_y = begin match (String_map.find_opt y !index_map) with
+            | Some i -> i
+            | None -> fail tg_loop.loc "reorder: the ordered list you entered contains indices of loops which don't belong the targeted scope"
+            end in
+            if targeted_ind_x > targeted_ind_y then 
+              begin
+              Loop_basic.interchange [Target.cFor x];
+              true
+              end
+              else false
+
+          ) current_indices in ()
+          end
+    ) tg
+
+let pic_coloring1 (tile_size: int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
+  let add_prefix (prefix : string) (indices : var list) : var list =
+    List.map (fun x -> x ^ prefix) indices  
+    in
+  let bs = add_prefix "b" ds in
+  let cs = add_prefix "c" ds in
+  let list_of_indices = bs @ cs @ ds in
+  let tile =  string_of_int tile_size in
+  let color = string_of_int color_size in
+  List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
+  List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
+  reorder list_of_indices [Target.cFor (List.nth cs 0)]

@@ -546,7 +546,6 @@ let apply_on_path = Path.apply_on_path
 let debug_disappearing_mark = true
 exception Interrupted_applyi_on_transformed_targets of trm
 
-(* TODO: discuss *)
 let fix_target (tg : target) : target =
   (* Occurrence constraints should be unique *)
   let check_occurrences = List.exists (function Constr_occurrences _ -> true | _ -> false) tg in

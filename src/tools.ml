@@ -258,3 +258,11 @@ let get_first_last (l : 'a list) : 'a * 'a =
   if n = 0 then failwith "get_first_last: empty list"
     else (List.nth l 0, List.nth l (n-1))
 
+
+let rec bubble_sort (compare : 'a -> 'a -> bool) (lst : 'a list) : 'a list =
+  let sorted (l : 'a list) : 'a list = match l with 
+  | hd1 :: hd2 :: tl when (compare hd1 hd2) -> hd2 :: bubble_sort compare (hd1 :: tl)
+  | hd1 :: tl -> hd1 :: bubble_sort compare tl
+  | tl -> tl 
+  in 
+  if lst = sorted lst then lst else bubble_sort compare (sorted lst)

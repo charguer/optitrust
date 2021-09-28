@@ -54,14 +54,13 @@ let interchange : Target.Transfo.local =
       return:
         updated ast with the transformed loop
 *)
-let color_aux (nb_colors : var) (i_color : var) (full_ast : trm) (t : trm) : trm =
-  (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
-  (* TODO: TODO5: try to do    let full_ast = Trace.ast() *)
+let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     let i_color = match i_color with
       | "" -> "c" ^ index
       | _ -> i_color in
+    let full_ast = Trace.ast () in
     let i_color = begin match Internal.toplevel_decl i_color full_ast with
     | Some _ -> let rnd_nb = Random.int 100 in i_color ^ (string_of_int rnd_nb)
     | None -> i_color
@@ -79,8 +78,8 @@ let color_aux (nb_colors : var) (i_color : var) (full_ast : trm) (t : trm) : trm
   | _ -> fail t.loc "color_aux: only simple loops are supported"
 
 
-let color (c : var) (i_color : var) (t : trm) (p : Path.path) : trm =
-    Target.apply_on_path (color_aux c i_color t) t p
+let color (c : var) (i_color : var) : Target.Transfo.local =
+    Target.apply_on_path (color_aux c i_color) 
 
 (*  [tile_aux divides b tile_index t]: tile loop t
       params:
@@ -216,7 +215,7 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
         ) lback in
         trm_seq_no_brace [
           trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (get_inner_ptr_type tx) (Trm stop))) (trm_prim (Prim_new (typ_array (get_inner_ptr_type tx) (Trm stop))));
-          trm_for index direction start stop step (trm_seq ~annot:body.annot (Mlist.merge lfront lback))
+          trm_for index direction start stop step (trm_seq ~annot:body.annot ~marks:body.marks (Mlist.merge lfront lback))
         ]
       | _ -> fail var_decl.loc "extract_variable_aux: expected the declaration of the variable to be extracted"
       end
@@ -240,8 +239,6 @@ let extract_variable (index : int) : Target.Transfo.local =
   | Trm_for (loop_index, direction, start, stop, step, body) ->
     begin match body.desc with
     | Trm_seq tl ->
-      (* TODO: keep existing marks in other places like here
-        -- search for MList.to_list *)
       let tl1, tl2 = Mlist.split index tl in
       let b1 = trm_seq tl1 in
       let b2 = trm_seq tl2 in
