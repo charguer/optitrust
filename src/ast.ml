@@ -157,6 +157,8 @@ and typdef_body =
 (* used for function arguments *)
 and typed_var = var * typ
 
+and typed_vars = typed_var list
+
 (* unary operators *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)

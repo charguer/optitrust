@@ -178,11 +178,12 @@ let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
     begin match body.desc with
     | Trm_seq tl ->
       (* We assume that the first elment in the body is a variable declaration *)
-      let var_decl = Mlist.nth tl decl_index in
+      let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) in
-        let new_body = trm_seq (Mlist.insert_at decl_index new_decl tl) in
+        let new_tl = Mlist.merge lfront lback in
+        let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
         let inner_typ = get_inner_ptr_type tx in
         trm_seq_no_brace [
           trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));

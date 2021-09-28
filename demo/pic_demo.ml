@@ -16,7 +16,7 @@ let _ = Run.script_cpp (fun () ->
   *)
 
   (* all inlining at once! *)
-  !! Function.inline [nbMulti; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Function.inline [cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   (* details:
   !! Function.inline [nbMulti; cFun "vect_mul"];
   !! Function.inline [nbMulti; cFun "vect_add"];
@@ -68,6 +68,7 @@ let _ = Run.script_cpp (fun () ->
 
    (* PART 3 Splitting computations *)
    !! Struct.to_variables [nbMulti;cVarDef ~typ:(Some "vect") ~substr:true "2"];
+   !! Loop.extract_variable [cVarDef "pos2_x"];
    !! Loop.extract_variable [nbMulti;cVarDef ~typ:(Some "double") ~substr:true "2"];
    !! Loop.fission [tBefore;cSet ~lhs:[sExpr "pos2_x"] ()];
    !! Loop.fission [tBefore;cVarDef "idCell2"];

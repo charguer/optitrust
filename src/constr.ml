@@ -776,8 +776,7 @@ and check_list ?(depth : depth = DepthAt 1) (lpred : target_list_pred) (tl : trm
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
 
-(* TODO typed_vars = typed_var list *)
-and check_args (lpred : target_list_pred) (txl : typed_var list) : bool =
+and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i tx -> check_arg (ith_target i) tx) txl)
