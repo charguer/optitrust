@@ -38,4 +38,9 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
 *)
 let local_other_name ?(label : var = "section_of_interes") (var_type : typ) (old_name : var) (new_name : var) : unit =
   Sequence_basic.intro_on_instr ~label:"section_of_interest" ~visible:false [Target.tIndex 0; Target.cFor ~body:[Target.cVar old_name]""];
-  Variable_basic.local_other_name var_type old_name new_name [Target.cLabel label;Target.dBody];
+  Variable_basic.local_other_name var_type old_name new_name [Target.cLabel label;Target.dBody]
+
+
+let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target.target) : unit = 
+  Variable_basic.insert name typ value tg;
+  Variable_basic.fold [Target.cVarDef name]

@@ -125,3 +125,7 @@ BASIC STEPS
     a variable definition, given a path to an occurence of the variable
 
 *)
+
+let insert (name : string) (typ : string ) (value : string) (tg : Target.target) : unit =
+  Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i name typ value t p) tg;
+  Trace.reparse()

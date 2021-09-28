@@ -85,6 +85,7 @@ let _ = Run.script_cpp (fun () ->
         cOr[ [ cVarDef ~typ:(Some "vect") ~substr:true "speed2"];
              [ cVarDef ~typ:(Some "vect") ~substr:true "pos2"] ] ];
         (* TODO: cVarDef ~regexp:true "(speed2|pos2)_."  *) (* TODO4 *)
+   
    !! Loop.extract_variable [nbMulti;cVarDef ~typ:(Some "double") ~substr:true "2"];
 
    !! Loop.fission [nbMulti; tBefore;

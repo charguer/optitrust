@@ -161,23 +161,23 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) :
 
 (* An automated version of coloring and reordering *)
 let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
-  let splitted_ds = Tools.extract 0 (List.length ds - 2) ds in
+  let _splitted_ds = Tools.extract 0 (List.length ds - 2) ds in
   let bs = List.map (fun s -> "b" ^ s) ds in
   let splitted_bs = Tools.extract 0 (List.length bs - 2) bs in
-  let last_bs = match fst splitted_bs with
+  let _last_bs = match fst splitted_bs with
   | [x] -> x
   | _ -> failwith "coloring:expected the last element of bs" in
   let cs = List.map (fun s -> "c" ^ s) ds in
   let splitted_cs = Tools.extract 0 (List.length cs - 2) cs in
-  let last_cs = match fst splitted_cs with
+  let _last_cs = match fst splitted_cs with
   | [x] -> x
   | _ -> failwith "coloring:expected the last element of cs" in
   let tile = string_of_int tile_size in
   let color = string_of_int color_size in
   List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
-  List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
-  List.iter (fun b -> move b ~after:last_cs) (snd splitted_bs);
-  List.iter (fun d -> move d ~after:last_bs) (snd splitted_ds)
+  List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs
+  (* List.iter (fun b -> move b ~after:last_cs) (snd splitted_bs); *)
+  (* List.iter (fun d -> move d ~after:last_bs) (snd _splitted_ds) *)
 
 (* TODO:
    Loop.reorder list_of_indices tg_first_loop
