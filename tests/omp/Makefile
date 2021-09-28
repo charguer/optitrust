@@ -44,6 +44,7 @@ TESTS_WORKING := \
 	doacross4.ml \
 	flush_nolist.ml \
 	fpriv_sections.ml \
+	get_nthrs.ml \
 	icv.ml \
 	lastprivate.ml \
 	linear_in_loop.ml \
@@ -133,7 +134,6 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
 	taskgroup.ml \
-	get_nthrs.ml \
 
 TESTS := $(TESTS_WORKING)
 

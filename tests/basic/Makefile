@@ -15,16 +15,17 @@ TESTS_WORKING := \
 	function_inline.ml \
 	label_add.ml \
 	label_remove.ml \
+	loop_color.ml \
+	loop_fission.ml \
 	loop_fusion.ml \
+	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_interchange.ml \
-	loop_grid_enumerate.ml \
-	loop_unroll.ml \
 	loop_invariant.ml \
-	loop_fission.ml \
 	loop_tile.ml \
-	loop_unswitch.ml \
 	loop_to_unit_steps.ml \
+	loop_unroll.ml \
+	loop_unswitch.ml \
 	pointer_fold.ml \
 	reference_fold.ml \
 	reference_inline.ml \
@@ -47,7 +48,6 @@ TESTS_WORKING := \
 	variable_rename.ml\
 
 TESTS_TOCHECK := \
-	loop_color.ml \
 	change_type.ml \
 	sequence_partition.ml \
 	
@@ -65,7 +65,6 @@ TESTS := $(TESTS_WORKING)
 
 COMPILE := \
 	loop_grid_enumerate.ml \
-	loop_color.ml \
 	loop_to_unit_steps.cpp \
 	loop_tile.ml \
 

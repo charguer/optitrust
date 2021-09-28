@@ -13,3 +13,4 @@ void critical_example(float *x, float *y)
     work(iy_next, y);
   }
 
+}

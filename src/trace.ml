@@ -301,20 +301,20 @@ let cleanup_cpp_file_using_clang_format (filename : string) : unit =
    - one describing the CPP code ("prefix.cpp").
    The CPP code is automatically formatted using clang-format. *)
 
-type language = | Cpp | Rust | Ocaml (* TODO: Language_cpp .. *)
 
-(* TODO:
+type language = | Language_cpp | Language_rust | Language_ocaml
+
 let language_of_extension (extension:string) : language =
   match extension with
   | ".cpp" -> Language_cpp
-  | ...
+  | ".rs" -> Language_rust
+  | ".ml" -> Language_ocaml
   | _ -> fail None ("unknown extension " ^ extension)
 
 let get_language () =
   match !traces with
   | [] -> fail None "cannot detect language -- trace should not be empty"
-  | t::_ -> language_of_extension t.extension
-  *)
+  | t::_ -> language_of_extension t.context.extension
 
 let output_prog ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let file_prog = prefix ^ ctx.extension in
@@ -367,16 +367,16 @@ let output_prog_opt  ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) 
    This javascript file contains an array of source codes and an array of ast's. Where the entry at index i contains the state
    of the source and ast after applying transformaion i.
 *)
-let output_js ?(language : language = Cpp) ?(vars_declared : bool = false)(index : int) (prefix : string) (ast : trm) : unit =
+let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (ast : trm) : unit =
   (* DEPRECATED let (_, ast) = parse cpp_filename in *)
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
     (* Dump the description of the AST nodes *)
-    let lang, extension = match language with
-      | Cpp -> "\'" ^ "text/x-c++src" ^ "\'", ".cpp"
-      | Rust -> "\'" ^ "text/x-rustsrc" ^ "\'", ".rs"
-      | Ocaml -> "\'" ^ "text/x-Ocaml" ^ "\'", ".ml" in
+    let lang, extension = match get_language () with
+      | Language_cpp -> "\'" ^ "text/x-c++src" ^ "\'", ".cpp"
+      | Language_rust -> "\'" ^ "text/x-rustsrc" ^ "\'", ".rs"
+      | Language_ocaml -> "\'" ^ "text/x-Ocaml" ^ "\'", ".ml" in
     if not vars_declared
       then begin
       output_string out_js (Tools.sprintf "var source = %s\n" "new Array();");
@@ -612,11 +612,6 @@ let only_interactive_step (line : int) ?(reparse : bool = false) (f : unit -> un
     check_exit_and_step();
     f()
     end
-
-(* Get the current ast -- TODO: should remove this function? *)
-let get_ast () : trm =
-  (* LATER: explain this code, and add assertions *)
-  (List.hd (List.rev !traces)).cur_ast
 
 (* TODO: Arthur make sure to document that reparse invalidates the marks *)
 

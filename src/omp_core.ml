@@ -545,10 +545,10 @@ let get_max_threads (max_threads : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (get_max_threads_aux max_threads index)
 
 
-let get_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
+let get_thread_num_aux (thread_num : var) (index : int) (full_ast : trm) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl thread_num (Trace.ast()) in
+    let find_prev_decl = Internal.toplevel_decl thread_num full_ast in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -560,8 +560,8 @@ let get_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_thread_num_aux: expected the sequence where the call to the routine is going to be added"
 
-let get_thread_num (thread_num : var) (index : int) : Target.Transfo.local =
-  Target.apply_on_path (get_thread_num_aux thread_num index)
+let get_thread_num (thread_num : var) (index : int) (t : trm) (p : Path.path) : trm =
+  Target.apply_on_path (get_thread_num_aux thread_num index t) t  p
 
 let get_num_procs_aux (num_procs : var) (index : int) (t : trm) : trm =
   match t.desc with

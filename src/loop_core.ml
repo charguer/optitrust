@@ -54,14 +54,13 @@ let interchange : Target.Transfo.local =
       return:
         updated ast with the transformed loop
 *)
-let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
+let color_aux (nb_colors : var) (i_color : var) (full_ast : trm) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     let i_color = match i_color with
       | "" -> "c" ^ index
       | _ -> i_color in
-    let full_ast = Trace.ast () in
     let i_color = begin match Internal.toplevel_decl i_color full_ast with
     | Some _ -> let rnd_nb = Random.int 100 in i_color ^ (string_of_int rnd_nb)
     | None -> i_color
@@ -79,8 +78,8 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
   | _ -> fail t.loc "color_aux: only simple loops are supported"
 
 
-let color (c : var) (i_color : var) : Target.Transfo.local =
-    Target.apply_on_path (color_aux c i_color)
+let color (c : var) (i_color : var) (t : trm) (p : Path.path) : trm =
+    Target.apply_on_path (color_aux c i_color t) t p 
 
 (*  [tile_aux divides b tile_index t]: tile loop t
       params:
