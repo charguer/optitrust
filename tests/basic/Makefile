@@ -45,6 +45,8 @@ TESTS_WORKING := \
 	typedef_insert.ml \
 	variable_fold.ml \
 	variable_inline.ml \
+	variable_insert.ml \
+	variable_insert_and_fold.ml \
 	variable_rename.ml\
 
 TESTS_TOCHECK := \
