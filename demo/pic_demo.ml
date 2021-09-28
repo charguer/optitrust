@@ -1,14 +1,18 @@
 open Optitrust
 open Target
 
-let _ = Run.script_cpp (fun () ->
-  (* PART: Inlining of arithmetic operations *)
-
-    (* NOTE: please keep commented versions here for a few days. *)
-
+let _ = Run.script_cpp ~check_exit_at_end:false (fun () ->
   (*details:*)
-  !! Function.bind_intro ~fresh_name:"r1" ~const:false [tIndex ~nb:2 0; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r2" [tIndex ~nb:2 1; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:2 1; cFun "vect_mul"];
+  !!();
+)
+
+let _ = Run.script_cpp (fun () ->
+  Printf.printf "ok\n";
+  (* PART: Inlining of arithmetic operations *)
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:2 1; cFun "vect_mul"];
   (* test: both at once works!
   !! iteri_on_targets (fun i _t p ->
      Function.bind_intro ~fresh_name:("r"^string_of_int (i+1)) (target_of_path p);

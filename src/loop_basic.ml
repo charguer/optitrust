@@ -146,9 +146,14 @@ let unswitch (tg : Target.target) : unit =
         where index is the index of the targeted loop.
     Assumption:
       The targeted loop should be of the form:
-        for (int i = a; i < b; i+=B){...}, and it assumes that B divides (b-a). It then
+        for (int i = a; i < b; i+=B){ body },
+        and it assumes that B divides (b-a). It then
         transforms the targeted loop into the following form:
-          for (int index = 0;)
+          for (int index = 0; index < ...; index++) {
+            int i = ..;
+            body
+           }
+        TODO: complete documentation, by filling in the dots above.
 *)
 let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.to_unit_steps index)

@@ -13,7 +13,8 @@ let _ = Run.script_cpp (fun () ->
   show [nbExact 0; cAnd [[cFor "i"];[cFor "j"];[cFor "k"]]];
   show [nbMulti; cAnd [[cSet()]; [sInstr "k + j"]]];
 )
-  (* TODO: -- not the most urgent
+  (*
+   LATER: -- not the most urgent
   show [nbMulti; sInstr "k++"];
   show [nbMulti; sInstr "k < 13"];
   show [nbMulti; cFor ~step:[sInstr "k++"]] "" ; *)

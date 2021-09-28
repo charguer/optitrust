@@ -152,6 +152,11 @@ let init (filename : string) : unit =
   traces := [trace];
   print_info None "Starting script execution...\n"
 
+(* [finalize()] should be called at the end of the script, to properly close the log files
+    created by the call to [init]. *)
+let finalize () : unit =
+  close_logs()
+
 (* [alternative f] executes the script [f] in the original state that
    was available just after the call to [init].
    After the call, all the actions performed are discarded.
@@ -570,17 +575,16 @@ let (!!!) (x:'a) : 'a =
    If there are several traces (e.g., due to a [switch]), it writes one file for each.
    If the prefix is not provided, the input file basename is used as prefix,
    and in any case "_out" is appended to the prefix.
-   If [-exit-line] was provided on the command line, the [dump] operation
-   instead calls [dump_diff_and_exit]; in other word we assume that if the
-   cursor is past the last '!!' symbol, then the user wants to visualize the last
-   transformation in the file.
+
+   If you use [dump] in your script, make sure to call [!! Trace.dump] with the
+   prefix [!!] in order for the diff visualization to work well for the last
+   command before the call to dump.
 
    WILL BE DEPRECATED: If the command line argument [-dump-trace] was provided, then the
    function writes all the ASTs from the history into javascript files. *)
 (* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
 
 let dump ?(prefix : string = "") () : unit =
-  if Flags.get_exit_line() <> None then dump_diff_and_exit ();
   (* Dump full trace if requested *)
   if !Flags.dump_all then
      dump_trace_to_js ~prefix (); (* dump_trace ~prefix () *)

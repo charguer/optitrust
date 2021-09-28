@@ -2,7 +2,7 @@
 
 val script : (unit -> unit) -> unit
 
-val script_cpp : ?prefix:string -> (unit -> unit) -> unit
+val script_cpp : ?check_exit_at_end:bool -> ?prefix:string -> (unit -> unit) -> unit
 
 
 
