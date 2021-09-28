@@ -32,8 +32,8 @@ let hoist (x_step : var) (tg : Target.target) : unit =
       | false -> Loop_basic.hoist x_step (Target.target_of_path tg_path)
   ) tg_paths
   )
-  
-  
+
+
 
 
 (* [fusion nb tg] expects [tg] to point to a for loop followed by two or more
@@ -74,7 +74,7 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
             | _ ->
               Loop_basic.invariant tg;
               tmp_p := List.rev(List.tl (List.rev !tmp_p))
-            done  
+            done
   )
 )
 
@@ -108,7 +108,7 @@ let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) 
     List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev indices_list)
   | _ -> fail t.loc "move: something went wrong"
   )
-  
+
 
 
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
@@ -132,7 +132,7 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) :
           let block_list = Tools.range 0 (n-1) in
           List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])) block_list;
           Sequence_basic.partition blocks [Target.nbExact n;Target.cLabel mylabel; Target.dBody;Target.cSeq ()]
-  
+
         | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
                        Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~label:mylabel tg);
           let var_decl = match Internal.toplevel_decl x t with
@@ -158,7 +158,7 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) :
       end
     | _ -> fail t.loc "unroll: expected a simple loop"
   )
-  
+
 
 
 (* An automated version of coloring and reordering *)
@@ -180,3 +180,8 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
   List.iter (fun b -> move b ~after:last_cs) (snd splitted_bs);
   List.iter (fun d -> move d ~after:last_bs) (snd splitted_ds)
+
+(* TODO:
+   Loop.reorder list_of_indices tg_first_loop
+   let list_of_indces = (add_prefix "c" dims) @ (add_prefix "b" dims) @ dims
+*)

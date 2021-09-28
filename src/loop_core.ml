@@ -79,7 +79,7 @@ let color_aux (nb_colors : var) (i_color : var) (full_ast : trm) (t : trm) : trm
 
 
 let color (c : var) (i_color : var) (t : trm) (p : Path.path) : trm =
-    Target.apply_on_path (color_aux c i_color t) t p 
+    Target.apply_on_path (color_aux c i_color t) t p
 
 (*  [tile_aux divides b tile_index t]: tile loop t
       params:
@@ -238,13 +238,14 @@ let extract_variable (index : int) : Target.Transfo.local =
   | Trm_for (loop_index, direction, start, stop, step, body) ->
     begin match body.desc with
     | Trm_seq tl ->
-
-      let first_part, last_part = Tools.split_list_at index (Mlist.to_list tl) in
-      let first_body = trm_seq_nomarks first_part in
-      let second_body = trm_seq_nomarks last_part in
+      (* TODO: keep existing marks in other places like here
+        -- search for MList.to_list *)
+      let tl1, tl2 = Mlist.split index tl in
+      let b1 = trm_seq tl1 in
+      let b2 = trm_seq tl2 in
       trm_seq_no_brace [
-        trm_for loop_index direction start stop step first_body;
-        trm_for loop_index direction start stop step second_body;]
+        trm_for loop_index direction start stop step b1;
+        trm_for loop_index direction start stop step b2;]
     | _ -> fail t.loc "fission_aux: expected the sequence inside the loop body"
     end
   | _ -> fail t.loc "fission_aux: onl simple loops are supported"

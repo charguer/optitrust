@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-  (* PART 1: Inlining *)
+  (* PART: Inlining of arithmetic operations *)
 
     (* NOTE: please keep commented versions here for a few days. *)
 
@@ -13,6 +13,9 @@ let _ = Run.script_cpp (fun () ->
   !! iteri_on_targets (fun i _t p ->
      Function.bind_intro ~fresh_name:("r"^string_of_int (i+1)) (target_of_path p);
   )  [nbMulti; cFun "vect_mul"];
+  *)
+  (* LATER:
+  !! Function.bind_intro ~fresh_name:"r${int}" ~const:false [cFun "vect_mul"];
   *)
 
   (* all inlining at once! *)
@@ -50,31 +53,51 @@ let _ = Run.script_cpp (fun () ->
   !! Function.inline [cFun "vect_add"];
   *)
 
-  !! Variable.inline ~delete:true [cOr [[cVarDef "r1"];[cVarDef "r2"]]];
+  !! Variable.inline [cOr [[cVarDef "r1"];[cVarDef "r2"]]];
 
-  (* Part 2 AOS-TO-SOA *)
+  (* Part: Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti;cVarDef ~typ:(Some "vect") ~substr:true "2"];
-  !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
-  !! Function.inline [cTopFunDef "main"; cFun "bag_push"];
+  (* alternative:
+     !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
+     !! Function.inline [cFun "bag_push"]; *)
+  !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline [cTopFunDef "bag_transfer"; cFun "bag_push"];
   !! Struct.set_explicit [nbMulti;cSet ~typ:(Some "particle")()];
   !! Struct.set_explicit [nbMulti;cSet ~typ:(Some "vect")()];
+    (* LATER: see why !!! above does not work *)
+
+  (* Part: AOS-TO-SOA *)
   !! Sequence.insert "int k = b2.nb;" [tAfter; cVarDef "b2"];
   !! Variable.fold ~nonconst:true [cVarDef "k"];
+  (* TODO2 *)
+  (* TODO:  Variable.insert_and_fold "int" "k" "b2.nb" [tAfter; cVarDef "b2"]; *)
+  (*  Variable.insert_and_fold ~const:true "int" "k" "b2.nb" [tAfter; cVarDef "b2"];*)
+  (*   Variable.insert_and_fold "const int" "k" "b2.nb" [tAfter; cVarDef "b2"];*)
+
   !! Struct.inline "pos" [cTypDef "particle"];
   !! Struct.inline "speed" [cTypDef "particle"];
-  !! Struct.set_explicit [cVarDef "p"];
+  !! Variable.inline [cVarDef "p"];
   !! Struct.inline "items" [cTypDef "bag"];
 
-   (* PART 3 Splitting computations *)
-   !! Struct.to_variables [nbMulti;cVarDef ~typ:(Some "vect") ~substr:true "2"];
+   (* PART Splitting loops, with hoisting *)
+   !! Struct.to_variables [
+        cOr[ [ cVarDef ~typ:(Some "vect") ~substr:true "speed2"];
+             [ cVarDef ~typ:(Some "vect") ~substr:true "pos2"] ] ];
+        (* TODO: cVarDef ~regexp:true "(speed2|pos2)_."  *) (* TODO4 *)
    !! Loop.extract_variable [nbMulti;cVarDef ~typ:(Some "double") ~substr:true "2"];
+
+   !! Loop.fission [nbMulti; tBefore;
+     cOr [ [ cSet ~lhs:[sExpr "pos2_x"] ()];
+           [ cVarDef "idCell2" ] ]];
+           (* TODO3: remove extra braces *)
+  (* details
    !! Loop.fission [tBefore;cSet ~lhs:[sExpr "pos2_x"] ()];
    !! Loop.fission [tBefore;cVarDef "idCell2"];
+   *)
 
-  (* PART4  Coloring *)
-   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-   !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];
+  (* PART Coloring *)
+  !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
+  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; (* TODO1 *)
 
-  (* PART 5 Concurrency, LATER: Arthur*)
+  (* PART : to be continued with concurrent bags, and delocalized sums *)
 )

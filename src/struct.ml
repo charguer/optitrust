@@ -18,7 +18,9 @@ let set_explicit (tg : Target.target) : unit =
       end
   ) (List.rev tg_paths)
   )
-  
+
+  (* Note: set_explicit on a reference can only be correct if the reference is used for read-only purpose
+       LATER: issue a warning when the user does this *)
 
 
 (*  [set_implicit tg] expects [tg] to point to a struct set operation, with the assumption
@@ -28,7 +30,7 @@ let set_explicit (tg : Target.target) : unit =
       of struct fields of the type of the instruction.
 *)
 let set_implicit (tg : Target.target) : unit =
-  Trace.call (fun t -> 
+  Trace.call (fun t ->
     let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
   let tg_path = Target.resolve_target_exactly_one tg t in
   let (tg_trm, _) = Path.resolve_path tg_path t in
@@ -50,4 +52,4 @@ let set_implicit (tg : Target.target) : unit =
     Struct_basic.set_implicit [Target.cSeq ~args_pred:(Target.target_list_one_st tg) ()]
   | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
 )
-  
+

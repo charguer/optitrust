@@ -15,16 +15,28 @@ let fold ?(as_reference : bool = false) ?(at : target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.fold as_reference at i t p)
 
-(* [inline ~delete ~at tg] expects [tg] to point to a variable declaration
+(* internal function *)
+(* [inline_common delete at tg] expects [tg] to point to a variable declaration
     it then find all the occurrences of the variable and replaces them with it's assigned value.
-   [delete] ~ denotes a falg whether the declaration should be kept or not
+   [delete] ~ denotes a flag whether the declaration should be kept or not
    [at] - denotes a target where inlining is done. If empty the
     inlining operation is performed on all the ast nodes in the same level as the declaration
-    or deeper, by default [at] = []
+    or deeper
 *)
-let inline ?(delete : bool = false) ?(at : target = []) : Target.Transfo.t =
+let inline_common (delete : bool) (at : target) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Variable_core.inline delete at i t p)
+
+(* [inline tg] expects [tg] to point to a variable declaration
+    it then find all the occurrences of the variable and replaces them with it's assigned value. *)
+let inline : Target.Transfo.t =
+  inline_common true []
+
+(* [inline_at at tg] expects [tg] to point to a variable declaration
+    it then find the occurrences pointed at by the [at] target,
+    and replaces them with it's assigned value. *)
+let inline_at (at : target) : Target.Transfo.t =
+  inline_common false at
 
 (* [reanme ~list ~func tg] expects [tg] to point to a sequence.
     [list] - denotes a list of pairs where each pair has the

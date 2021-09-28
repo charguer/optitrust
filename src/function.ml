@@ -23,7 +23,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
    begin match call_trm.desc with
    | Trm_apps (_, tl) ->
     if List.length fresh_names = 0
-      then begin Tools.printf "bind_args: no arguments to bind, no changes to be done\n";t end
+      then begin Tools.printf "bind_args: no arguments to bind, no changes to be done\n"; t end (* LATER: check this *)
       else if List.length tl <> List.length fresh_names then
         fail call_trm.loc "bind_args: for each argument of the function call, there should be associated either an empty string or a variable to be bounded to"
       else begin
@@ -171,7 +171,7 @@ let inline ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = Ad
            | Variable_basic.Init_attach_no_occurrences
            | Variable_basic.Init_attach_occurrence_below_control -> ()
            | e -> raise e in
-        if res_inlining_needed then Variable_basic.inline ~delete:true new_target;
+        if res_inlining_needed then Variable_basic.inline new_target;
         Generic.remove_mark my_mark [Target.nbAny; Target.cMark my_mark]
     end
   ) tg
