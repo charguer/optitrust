@@ -72,7 +72,6 @@ let data_shift ?(neg : bool = true) ?(pre_cast : typ = typ_unit ()) ?(post_cast 
   Target.apply_on_targets (Generic_core.data_shift neg pre_cast post_cast u ) tg;
   Trace.reparse()
 
-
 let add_mark (m : mark) : Target.Transfo.t =
   Target.apply_on_targets (Generic_core.add_mark m)
 

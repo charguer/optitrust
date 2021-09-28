@@ -7,9 +7,7 @@ int main() {
   int z_step[10];
   for (int i = 0; (i < 10); i++) {
     int &x = x_step[i];
-    int x = t[i];
     u[i] = x;
     int &z = z_step[i];
-    int z = x;
   }
 }

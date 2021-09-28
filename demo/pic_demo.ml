@@ -19,7 +19,7 @@ let _ = Run.script_cpp (fun () ->
   *)
 
   (* all inlining at once! *)
-  !! Function.inline [nbMulti; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Function.inline [cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   (* details:
   !! Function.inline [nbMulti; cFun "vect_mul"];
   !! Function.inline [nbMulti; cFun "vect_add"];
@@ -78,6 +78,7 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.inline "speed" [cTypDef "particle"];
   !! Variable.inline [cVarDef "p"];
   !! Struct.inline "items" [cTypDef "bag"];
+
 
    (* PART Splitting loops, with hoisting *)
    !! Struct.to_variables [
