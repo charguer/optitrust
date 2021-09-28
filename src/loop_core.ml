@@ -56,6 +56,7 @@ let interchange : Target.Transfo.local =
 *)
 let color_aux (nb_colors : var) (i_color : var) (full_ast : trm) (t : trm) : trm =
   (* Ast_to_text.print_ast ~only_desc:true stdout t; *)
+  (* TODO: TODO5: try to do    let full_ast = Trace.ast() *)
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     let i_color = match i_color with

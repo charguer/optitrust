@@ -100,5 +100,8 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
   !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; (* TODO1 *)
 
+  (* TODO5: replace Trace.call *)
   (* PART : to be continued with concurrent bags, and delocalized sums *)
-)
+
+
+  )

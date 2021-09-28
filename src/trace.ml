@@ -235,6 +235,9 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
   in
   traces := List.flatten (List.rev list_of_traces)
 
+(* For dynamic checks: keep track of the number of nested calls to [Trace.call] *)
+let call_depth = ref 0
+
 (* [apply f] applies the transformation [f] to the current AST,
    and updates the current ast with the result of that transformation.
    If there are several active trace (e.g., after a [switch]),
@@ -246,14 +249,13 @@ let apply (f : trm -> trm) : unit =
   if is_traces_dummy()
     then fail None "Trace.init must be called prior to any transformation.";
   let cur_traces = !traces in
+  incr call_depth;
   List.iter (fun trace ->
     traces := [trace]; (* temporary view on a single trace *)
     trace.cur_ast <- f trace.cur_ast)
     cur_traces;
-  traces := cur_traces (* restoring the original view on all traces *)
-
-(* For dynamic checks: keep track of the number of nested calls to [Trace.call] *)
-let call_depth = ref 0
+  traces := cur_traces; (* restoring the original view on all traces *)
+  decr call_depth
 
 (* [call f] is similar to [apply] except that it applies to a function [f]
    with unit return type: [f] is meant to update the [cur_ast] by itself

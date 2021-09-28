@@ -12,29 +12,26 @@ type rename = Variable_core.Rename.t
 *)
 let hoist (x_step : var) (tg : Target.target) : unit =
   Trace.call (fun t ->
-  let tg_paths = Target.resolve_target tg t in
-  List.iter( fun tg_path ->
-    let (tg_trm, _) = Path.resolve_path tg_path t in
-    let detach_first =
-    match tg_trm.desc with
-      | Trm_let (_, (_, _), init) ->
-        begin match init.desc with
-        | Trm_val(Val_lit (Lit_uninitialized)) -> false
-        | Trm_val(Val_prim (Prim_new _))-> false
-        | _ -> true
-        end
-      | _ -> fail tg_trm.loc "hoist: expected a variable declaration"
-      in
-      match detach_first with
-      | true ->
-        Variable_basic.init_detach (Target.target_of_path tg_path);
-        Loop_basic.hoist x_step (Target.target_of_path tg_path);
-      | false -> Loop_basic.hoist x_step (Target.target_of_path tg_path)
-  ) tg_paths
+    let tg_paths = Target.resolve_target tg t in
+    List.iter( fun tg_path ->
+      let (tg_trm, _) = Path.resolve_path tg_path t in
+      let detach_first =
+      match tg_trm.desc with
+        | Trm_let (_, (_, _), init) ->
+          begin match init.desc with
+          | Trm_val(Val_lit (Lit_uninitialized)) -> false
+          | Trm_val(Val_prim (Prim_new _))-> false
+          | _ -> true
+          end
+        | _ -> fail tg_trm.loc "hoist: expected a variable declaration"
+        in
+        match detach_first with
+        | true ->
+          Variable_basic.init_detach (Target.target_of_path tg_path);
+          Loop_basic.hoist x_step (Target.target_of_path tg_path);
+        | false -> Loop_basic.hoist x_step (Target.target_of_path tg_path)
+    ) tg_paths
   )
-
-
-
 
 (* [fusion nb tg] expects [tg] to point to a for loop followed by two or more
     loops with the same range, start step and bound but different body.
@@ -46,7 +43,7 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   Sequence_basic.intro nb ~label tg;
   Loop_basic.fusion_on_block [Target.cLabel label]
 
-
+(* LATER: documentation?generalize? *)
 let invariant ?(upto : string = "") (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
   Trace.call (fun t ->
@@ -86,6 +83,7 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
     [after] - similar to [after] but now is the index of the loop after whom
       we want to move [loop_to_move]
 *)
+(* TODO: discuss this LATER: loop_to_move should be a target; *)
 let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit =
   Trace.call (fun t ->
     let move_where, target_loop = match before, after with
