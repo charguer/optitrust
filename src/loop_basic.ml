@@ -51,7 +51,7 @@ let tile ?(index : var = "") ?(bound : tile_bound = TileBoundMin) (tile_size : s
       int *t;                                 int *t;
       int *u;                                 int *u;
       int main() {                            int main(){
-        for (int i = 0; (i < 10); i++) {        int x_steo[10];
+        for (int i = 0; (i < 10); i++) {        int x_step[10];
           int x;                                for (int i = 0; i < 10; i++){
           x = t[i];                               x_step[i] = t[i];
           u[i] = x;                               u[i] = x_step[i];
@@ -61,8 +61,8 @@ let tile ?(index : var = "") ?(bound : tile_bound = TileBoundMin) (tile_size : s
 *)
 let hoist (x_step : var) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.hoist x_step i t p) tg)
+    Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
+     (fun (p, i) t -> Loop_core.hoist x_step i t p) tg)
 
 (* [fission tg]: expects [tg] to point somewhere inside the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
