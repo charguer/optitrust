@@ -322,13 +322,14 @@ let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : t
 let local_other_name (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =
   Target.apply_on_path(local_other_name_aux var_type old_var new_var)
 
-let insert_aux (index : int) (name : string) (typ : string) (value : string) (t : trm) : trm =
+let insert_aux (index : int) (const : bool) (name : string) (typ : string) (value : string) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    let new_trm = trm_let Var_immutable (name, string_to_type typ) (code value) in
+    let vk = if const then Var_immutable else Var_mutable  in
+    let new_trm = trm_let vk (name, typ_constr typ) (code value) in
     let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot new_tl
   | _ -> fail t.loc "insert_aux: expected the sequence which is going to contain the variable declaration" 
 
-let insert (index : int) (name : string) (typ : string) (value : string) : Target.Transfo.local =
-  Target.apply_on_path (insert_aux index name typ value)
+let insert (index : int) (const : bool) (name : string) (typ : string) (value : string) : Target.Transfo.local =
+  Target.apply_on_path (insert_aux index const name typ value)

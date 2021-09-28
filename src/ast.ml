@@ -1528,14 +1528,3 @@ type delocalize_ops =
 (* tile bound type is used  as a parameter to the tile transformation so that the transformation can
     decide what kind of loop bound it should use
 *)
-
-let string_to_type (ty : string) : typ =
-  match ty with 
-  | "int" -> typ_int ()
-  | "auto" -> typ_auto ()
-  | "unit" -> typ_unit ()
-  | "flaot" -> typ_float ()
-  | "double" -> typ_double ()
-  | "bool" -> typ_bool ()
-  | "char" -> typ_char ()
-  | _ -> typ_constr ty

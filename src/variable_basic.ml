@@ -126,6 +126,6 @@ BASIC STEPS
 
 *)
 
-let insert (name : string) (typ : string ) (value : string) (tg : Target.target) : unit =
-  Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i name typ value t p) tg;
+let insert ?(const : bool = false) (name : string) (typ : string ) (value : string) (tg : Target.target) : unit =
+  Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p) tg;
   Trace.reparse()

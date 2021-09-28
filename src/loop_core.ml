@@ -216,7 +216,7 @@ let extract_variable_aux (decl_index : int) (t : trm) : trm =
         ) lback in
         trm_seq_no_brace [
           trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (get_inner_ptr_type tx) (Trm stop))) (trm_prim (Prim_new (typ_array (get_inner_ptr_type tx) (Trm stop))));
-          trm_for index direction start stop step (trm_seq ~annot:body.annot (Mlist.merge lfront lback))
+          trm_for index direction start stop step (trm_seq ~annot:body.annot ~marks:body.marks (Mlist.merge lfront lback))
         ]
       | _ -> fail var_decl.loc "extract_variable_aux: expected the declaration of the variable to be extracted"
       end

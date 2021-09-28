@@ -67,10 +67,12 @@ let _ = Run.script_cpp (fun () ->
     (* LATER: see why !!! above does not work *)
 
   (* Part: AOS-TO-SOA *)
-  !! Sequence.insert "int k = b2.nb;" [tAfter; cVarDef "b2"];
-  !! Variable.fold ~nonconst:true [cVarDef "k"];
+  !! Variable.insert_and_fold "k" "int" "b2.nb" [tAfter; cVarDef "b2"];
+  (* details *)
+  (* !! Variable.insert "k" "int" "b2.nb" [tAfter; cVarDef "b2"];
+     !! Variable.fold ~nonconst:true [cVarDef "k"]; *)
   (* TODO2 *)
-  (* TODO:  Variable.insert_and_fold "int" "k" "b2.nb" [tAfter; cVarDef "b2"]; *)
+  (* DONE:  Variable.insert_and_fold "int" "k" "b2.nb" [tAfter; cVarDef "b2"]; *)
   (*  Variable.insert_and_fold ~const:true "int" "k" "b2.nb" [tAfter; cVarDef "b2"];*)
   (*   Variable.insert_and_fold "const int" "k" "b2.nb" [tAfter; cVarDef "b2"];*)
 
