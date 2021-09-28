@@ -28,9 +28,8 @@ let script (f : unit -> unit) : unit =
     ("usage: no argument expected, only options");
   try
     f ();
-    Trace.close_logs()
   with | Failure s ->
-    Trace.close_logs();
+    Trace.finalize();
     (* failwith s *)
     Printf.eprintf "Failure: %s\n" s;
     let s = Printexc.get_backtrace() in
@@ -40,7 +39,7 @@ let script (f : unit -> unit) : unit =
 (* [get_basename ()] is  function to get the name of the file being executed
      by chopping the extension.
 *)
-let get_basename () : string = 
+let get_basename () : string =
   let basename = Filename.chop_extension Sys.argv.(0) in
   let suffix = "_with_lines" in
   let nsuffix = String.length suffix in
@@ -54,7 +53,7 @@ let get_basename () : string =
      where "foo" is the basename of the current script named "foo.ml";
    - automatically invokes [Trace.dump] at the end of the script;
      (the main output file is named "foo_out.cpp"). *)
-let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
+let script_cpp ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   let basename = get_basename() in
   (* Set the input file, execute the function [f], dump the results. *)
@@ -62,11 +61,14 @@ let script_cpp ?(prefix : string = "") (f : unit -> unit) : unit =
     Trace.init (basename ^ ".cpp");
     f();
     flush stdout;
+    if check_exit_at_end && Flags.get_exit_line() <> None
+      then Trace.dump_diff_and_exit ();
     Trace.dump ~prefix ();
+    Trace.finalize();
   )
 
 
-(* TODO: Anton :   add  script_rust  following script_cpp *)
+(* LATER:   add  script_rust  following script_cpp *)
 
 
 

@@ -15,21 +15,20 @@ include Variable_basic
     This transformation
 *)
 let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
-  Trace.call (fun t ->
-    let exp =  Constr.resolve_target_exactly_one tg t in
-    let (tg_trm, _) = Path.resolve_path exp t in
+  Target.iter_on_targets (fun t p ->
+    let (tg_trm, _) = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_let (vk, _, _) ->
       begin match vk with
-      | Var_immutable -> Variable_basic.fold ~as_reference ~at tg
+      | Var_immutable -> Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
       | _ -> if nonconst = true
-              then Variable_basic.fold ~as_reference ~at tg
+              then Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
               else
                 fail tg_trm.loc "fold: if you want to use folding for mutable variables you should set
                             ~nonconst to true when calling this transformation"
       end
     | _ -> fail tg_trm.loc "fold: expected a variable declaration"
-)
+) tg
 
 
 
