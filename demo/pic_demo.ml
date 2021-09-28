@@ -56,12 +56,12 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.inline [cVarDef "p"];
   !! Struct.inline "items" [cTypDef "bag"];
 
-   (* PART Splitting the loop, with hoisting *)
+   (* Part: Splitting the loop, with hoisting *)
    !! Struct.to_variables [cVarDef "speed2"];
    !! Loop.extract_variable [nbMulti; cVarDef ~regexp:true "speed2_."];
    !! Loop.fission [tBefore; cVarDef "pos2"];
 
-  (* PART Coloring *)
+  (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
   !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; (* TODO1 *)
 

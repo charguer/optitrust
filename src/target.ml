@@ -690,7 +690,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
         let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
         tr imark t (transformer (p_to_seq,i))
       | ps ->
-        let msg = 
+        let msg =
           if ps <> []
             then "applyi_on_transformed_targets_between: a mark was duplicated"
             else (Tools.sprintf "applyi_on_transformed_targets_between: mark %s disappeared" m) in
@@ -789,10 +789,11 @@ let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
     dump_diff_and_exit()
   end
 
-(** [force_reparse_after tr] is a wrapper to invoke for forcing the reparsing
+(** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
-    See example in [Struct.inline]. *)
-let force_reparse_after (tr : Transfo.t) : Transfo.t =
+    See example in [Struct.inline]. The argument [~reparse:false] can be
+    specified to deactivate the reparsing. *)
+let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     tr tg;
     Trace.reparse()
