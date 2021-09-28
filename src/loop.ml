@@ -169,19 +169,12 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   | _ -> failwith "coloring:expected the last element of cs" in
   let tile = string_of_int tile_size in
   let color = string_of_int color_size in
+  Tools.printf "Last_cs %s, last_bs %s\n" (_last_cs) (_last_bs);
   List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
-  List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs
-  (* List.iter (fun b -> move b ~after:last_cs) (snd splitted_bs); *)
-  (* List.iter (fun d -> move d ~after:last_bs) (snd _splitted_ds) *)
+  List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
+  List.iter (fun b -> move b ~after:_last_cs) (List.rev (snd splitted_bs));
+  List.iter (fun d -> move d ~after:_last_bs) (List.rev (snd _splitted_ds))
 
-
-(* let loop_reorder (indices : var list) (tg : Target.target) : unit =
-  Target.apply_on_targets () *)
-
-(* TODO:
-   Loop.reorder list_of_indices tg_first_loop
-   let list_of_indces = (add_prefix "c" dims) @ (add_prefix "b" dims) @ dims
-*)
 
 let reorder (ordered_indices : var list) (tg : Target.target) : unit =
     Target.iter_on_targets (fun t p ->

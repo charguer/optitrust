@@ -41,8 +41,10 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: Naming the target bag *)
   !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
-  !! Sequence.insert "int& k = b2.nb;" [tAfter; cVarDef "b2"];
-  !! Variable.fold ~nonconst:true [cVarDef "k"];
+  !! Variable.insert_and_fold "k" "int&" "b2.nb" [tAfter; cVarDef "b2"];
+  (* Details *)
+  (* !! Variable.insert "k" "int&"  "k = b2.nb;" [tAfter; cVarDef "b2"]; *)
+  (* !! Variable.fold ~nonconst:true [cVarDef "k"]; *)
 
   (* Part: Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
@@ -72,7 +74,7 @@ let _ = Run.script_cpp (fun () ->
 
 
 
-  (* TODO5: replace Trace.call *)
+  (* DONE: replace Trace.call *)
 
     (* LATER:   !! Function.bind_intro ~fresh_name:"r${int}" ~const:false [cFun "vect_mul"]; *)
 
@@ -101,7 +103,6 @@ let _ = Run.script_cpp (fun () ->
 
 (* LATER: see why !!! above does not work before Struct.set_explicit *)
 
-  (* TODO2 *)
   (* DONE:  Variable.insert_and_fold "int" "k" "b2.nb" [tAfter; cVarDef "b2"]; *)
   (*  Variable.insert_and_fold ~const:true "int" "k" "b2.nb" [tAfter; cVarDef "b2"];*)
   (*   Variable.insert_and_fold "const int" "k" "b2.nb" [tAfter; cVarDef "b2"];*)
