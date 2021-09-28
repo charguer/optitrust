@@ -3,9 +3,11 @@ int *u;
 
 int main() {
   for (int i = 0; i < 10; i++) {
-    int x = t[i];
+    int x;
+    x = t[i];
     u[i] = x;
-    int z = x;
+    int z;
+    z = x;
   }
 }
 
