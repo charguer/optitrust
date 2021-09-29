@@ -163,7 +163,10 @@ let reorder_blocks_aux (t : trm) : trm =
     let transformed_list = List.map (fun t1 -> 
       begin match t1.desc with
       | Trm_seq tl1 ->
-        Tools.get_first_last (Mlist.to_list tl1)
+        let first_element, _ = Tools.uncons (Mlist.to_list tl1) in
+        let  _, last_element = Tools.unlast (Mlist.to_list tl1) in
+         
+        (first_element, last_element)
       | _ -> fail t1.loc "reorder_block_aux: blocks should be sequences"
       end
     ) (Mlist.to_list tl) in

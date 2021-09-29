@@ -233,37 +233,6 @@ let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
 let insert_at (index : int) (e : 'a) (l : 'a list) : 'a list =
   insert_sublist_at index [e] l
 
-(* [extract start stop l] returns a pair of lists:    start inclusive, start+nb exclusive
-   - the list with items outside of the range from [start] to [stop]
-   - the list with items inside the range from [start] to [stop].
-   TODO: the two returns values should ideally be in the other order, that is, the slice comes first
-   TODO: specify the length of the slice, e.g. [stop - start (?+1)].
-   TODO: specify if the indices [start] and [stop] are inclusive or exclusive;
-      in general, the convention that works best is to to take start inclusive and stop exclusive;
-      but in fact, the even better convention is to take [start] and [nb] as argument,
-      and deduce the index of the last item as [start+nb-1]. It is much more frequent
-      to know [nb] than to know [stop]. *)
-let extract (start : int) (stop : int) (l : 'a list) : ('a list * 'a list) =
-  let rev_start = (List.length l - (stop + 1)) in
-  let rev_stop = (List.length l - (start + 1)) in
-  foldi (fun i (f_acc, s_acc) x -> if i >= rev_start && i <= rev_stop then (f_acc, x :: s_acc) else (x :: f_acc, s_acc)) ([],[]) (List.rev l)
-
-let extract_temp (start : int) (nb : int) (l : 'a list) : ('a list * 'a list) =
-  let rev_start = List.length l - (start + nb) in
-  let rev_stop = List.length l - (start + 1) in
-  foldi (fun i (f_acc, s_acc) x -> if i >= rev_start && i <= rev_stop then (x :: f_acc, s_acc) else (f_acc, x :: s_acc)) ([],[]) (List.rev l)
-
-
-
-(* get the first and the last element of the list [l]
-   TODO: I've never seen this fucntion before.
-   if the list as size 2, you should match it against [x;y];
-   else you could call get_first and get_last two separate functions;
-   but it's very rare to need this. *)
-let get_first_last (l : 'a list) : 'a * 'a =
-  let n = List.length l in
-  if n = 0 then failwith "get_first_last: empty list"
-    else (List.nth l 0, List.nth l (n-1))
 
 (* [uncons l] returns [(x,l')] such that [l = x::l']. If fails on empty lists. *)
 let uncons (l : 'a list) : 'a * 'a list =
