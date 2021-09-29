@@ -100,7 +100,7 @@ and constr =
   (* if: cond, then, else *)
   | Constr_if of target * target * target
   (* decl_var: name, body *)
-  | Constr_decl_var of constr_name * target
+  | Constr_decl_var of typ_constraint * constr_name * target
   (* decl_fun: name, args, body *)
   | Constr_decl_fun of constr_name * target_list_pred * target
   (* decl_type: name *)
@@ -150,11 +150,16 @@ and constr =
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
   | Constr_hastype of typ_constraint
 
-(* constraint over type *)
+(* Constraint over types *)
 and typ_constraint = typ -> bool
 
-(* constraint over name *)
+(* Constraint on an argument, represented as a target with a single item
+   of the form [cArg ..] or [cTrue]. *)
+and arg_constraint = target
+
+(* Constraint over variable names *)
 and var_constraint = string -> bool
+
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
 
@@ -279,12 +284,13 @@ let rec constr_to_string (c : constr) : string =
      let s_then = target_to_string p_then in
      let s_else = target_to_string p_else in
      "If (" ^ s_cond ^ ", " ^ s_then ^ ", " ^ s_else ^ ")"
-  | Constr_decl_var (name, p_body) ->
+  | Constr_decl_var (_ty_pred, name, p_body) ->
      let s_name =
        match name with | None -> "_" | Some r -> rexp_to_string r
      in
      let s_body = target_to_string p_body in
-     "Decl_var (" ^ s_name ^ ", " ^ s_body ^ ")"
+     "Decl_var (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
+     (* LATER: add a string representation for type constraints *)
   | Constr_decl_fun (name, _tgt_list_pred, p_body) ->
     let s_name =
        match name with | None -> "_" | Some r -> rexp_to_string r
@@ -611,11 +617,15 @@ let is_constr_regexp (c : constr) : bool =
    then the return value is [false]. For constraints to work properly,
    one may want to check that types are up to date (e.g. by reparsing). *)
 let check_hastype (pred : typ->bool) (t : trm) : bool =
-  let default () =
     match t.typ with
     | Some ty -> pred ty
     | None -> false
-    in
+
+(* DEPREACTED
+    let default () =
+    match t.typ with
+    | Some ty -> pred ty
+    | None -> false
   match t.desc with
   | Trm_let (_,(_, tx), _) ->
       pred (get_inner_ptr_type tx)
@@ -633,6 +643,7 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
       | _-> fail None "check_hastype: set operation should have two arguments"
       end
   | _ -> default()
+  *)
 
 
 (* check if constraint c is satisfied by trm t *)
@@ -692,7 +703,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_then then_t &&
         check_target p_else else_t
-      | Constr_decl_var (name, p_body) , Trm_let (_,(x,_), body) ->
+      | Constr_decl_var (ty_pred, name, p_body) , Trm_let (_,(x,tx), body) ->
+        ty_pred (get_inner_ptr_type tx) &&
         check_name name x &&
         check_target p_body body
      | Constr_decl_fun (name, cl_args, p_body),
@@ -715,7 +727,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         end
      | Constr_seq cl, Trm_seq tl when
         not ((List.mem (No_braces (Nobrace.current())) t.annot) || List.mem Main_file t.annot)->
-        check_list  ~depth:(DepthAt 0) cl (Mlist.to_list tl)
+        check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
+        in constra_app *)
      | Constr_var name, Trm_var x ->
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
@@ -733,7 +746,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           end
         else
           check_target p_fun f &&
-          check_list cl_args args
+          check_list ~depth:(DepthAny) cl_args args (* LATER: check if depth any is ok *)
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
         check_name so l &&
         check_target p_body body
@@ -774,7 +787,7 @@ and check_name (name : constr_name) (s : string) : bool =
   | Some r ->
      match_regexp_str r  s
 
-and check_list ?(depth : depth = DepthAt 1) (lpred : target_list_pred) (tl : trm list) : bool =
+and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trm list) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
@@ -784,17 +797,20 @@ and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i tx -> check_arg (ith_target i) tx) txl)
 
-(* [check_arg] understands [cHasType] and [cArg], expect target to be singleton constraints *)
-and check_arg (tg:target) ((var_name, var_typ) : typed_var) : bool =
+(* [check_arg tg tx] checks if the typed-variable [tx] satisfies the
+   argument-constraint [tg]. An argument constraint is a singleton
+   constraint, of the form [cArg ..] or [cTrue]. *)
+
+and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
   match tg with
   | [] -> true
   | [c] -> begin match c with
            | Constr_bool true -> true
            | Constr_arg (var_constraint, typ_constraint) ->
               var_constraint var_name && typ_constraint var_typ
-           | _ -> false
+           | _ -> fail None  "check_arg: target expressing constraints on arguments must be of the form [cArg...] or [cTrue]."
           end
-  | _ -> fail None "check_arg: expected just one constraint in the target"
+  | _ -> fail None "check_arg: target expressing constraints on arguments must be list with at most one item."
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
@@ -877,25 +893,28 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     match trs with
     | [] -> [[]]
     | Constr_or tl :: [] -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at list one solution *)
-        let all_target_must_resolve = false in
+        let all_targets_must_resolve = false in
         List.fold_left (fun acc tr ->
           let potential_targets = resolve_target_simple tr t in
           begin match potential_targets with
-          | [[]] when all_target_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
           | _ -> acc @ potential_targets  (* LATER: make code more complex to avoid quadratic operation here -- TODO: call list_union acc potential_targets? *)
           end ) [] tl
     | Constr_and tl :: [] ->
+        (* TODO ARTHUR : optimize resolution by resolving the targets only by exploring
+          through the paths that are candidates; using e.g. path_satisfies_target *)
+        let all_targets_must_resolve = false in
         Tools.foldi (fun i acc tr ->
-        let potential_target = resolve_target_simple tr t in
-        begin match potential_target with
-        | [[]] -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
-        | _ ->
-          if i = 0
-            (* First step, initalize the acc *)
-            then potential_target
-          (* Compute the intersection of all resolved targets *)
-            else Tools.list_intersect acc potential_target
-        end ) [] tl
+          let targetsi = resolve_target_simple tr t in
+          begin match targetsi with
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | _ ->
+            if i = 0
+              (* First step, initalize the acc *)
+              then targetsi
+            (* Compute the intersection of all resolved targets *)
+              else Tools.list_intersect acc targetsi
+          end) [] tl
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t

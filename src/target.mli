@@ -5,6 +5,7 @@ type path = Path.path
 type paths = path list
 
 type constr = Constr.constr
+type typ_constraint = (typ->bool)
 type target = constr list
 type targets = target list
 
@@ -34,9 +35,9 @@ type target_list_pred
 
 type trm_kind = Constr.trm_kind
 
-val bTrue : constr
+val cTrue : constr
 
-val bFalse : constr
+val cFalse : constr
 
 val tBefore : constr
 
@@ -126,15 +127,17 @@ val cAnd : target list -> constr
 
 val cHasTypePred : (typ -> bool) -> constr
 
-val cHasTypeAst : typ -> (typ -> bool)
+val cHasTypeAst : typ -> constr
 
-val cHasType : string -> (typ -> bool)
+val cHasType : string -> constr
 
-val cArgPred : ?typ:string option -> ?typ_ast:typ option -> (string -> bool) -> constr
+val with_type : ?typ:string -> ?typ_pred:typ_constraint -> target -> target
 
-val cArg : ?typ:string option -> ?typ_ast:typ option -> string -> constr
+val cArgPred : ?typ:string -> ?typ_pred:typ_constraint -> (string -> bool) -> constr
 
-val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string option -> ?typ_ast:typ option -> string -> constr
+val cArg : ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
+
+val cVarDef : ?regexp:bool -> ?substr:bool -> ?body:target -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
 val cFunDef : ?args:targets -> ?args_pred:target_list_pred -> ?body:target -> ?regexp:bool ->string -> constr
 
@@ -148,7 +151,7 @@ val cEnum : ?name:string -> ?substr:bool -> ?constants:((string * target) list) 
 
 val cSeq : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
-val cVar : ?regexp:bool -> ?trmkind:trm_kind -> ?typ:string option -> ?typ_ast:typ option -> string -> constr
+val cVar : ?regexp:bool -> ?trmkind:trm_kind -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
 val cBool : bool -> constr
 
@@ -214,7 +217,7 @@ val cCase : ?value:target -> unit -> case_kind
 
 val cDefault : case_kind
 
-val cSet : ?lhs:target -> ?rhs:target -> ?typ:string option -> ?typ_ast:typ option -> unit -> constr
+val cSet : ?lhs:target -> ?rhs:target -> ?typ:string -> ?typ_pred:typ_constraint -> unit -> constr
 
 val cGet : ?arg:target -> unit -> constr
 

@@ -39,8 +39,8 @@ let _ = Run.script_cpp (fun () ->
   (* find functions of 2 arguments *)
   show [ cFunDef "" ~args:[[];[]] ];
   (* find functions of 2 arguments, one named t *)
-  show [ cFunDef "" ~args:[[cArg "t"];[]] ]; 
-  show [ cFunDef "" ~args:[[bTrue];[cArg "varg"]]];
+  show [ cFunDef "" ~args:[[cArg "t"];[]] ];
+  show [ cFunDef "" ~args:[[cTrue];[cArg "varg"]]];
 
   (* Regexp *)
   (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
@@ -74,7 +74,7 @@ let _ = Run.script_cpp (fun () ->
 
 (* LATER: smart constructors for checking calls to builtin operations such as get/set/compare/incr, etc *)
 
-(* LATER: show [ cFunDefDef ~args:[[bTrue]; [cOfTyp "vect*"]] "" ]; *)
+(* LATER: show [ cFunDefDef ~args:[[cTrue]; [cOfTyp "vect*"]] "" ]; *)
 
 (* LATER: match typedef using a function over the body of the type definition *)
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)

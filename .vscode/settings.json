@@ -1,18 +1,9 @@
 {
   "launch": {
-  
+
     "configurations": [],
     "compounds": []
   },
-  "spellright.language": [
-    "en_US"
-  ],
-  "spellright.documentTypes": [
-    "*.v",
-    "coq",
-    "markdown",
-    "latex"
-  ],
   "cSpell.words": [
     "for",
     "i",
@@ -22,10 +13,7 @@
     "t",
     "u"
   ],
-  "[makefile]": {
-    "editor.insertSpaces": false,
-    "editor.detectIndentation": false
-  },
   "search.exclude": {
     "**/_build": true,
+  }
 }
