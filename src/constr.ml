@@ -941,10 +941,9 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           (paths_to_string ~sep:"\n   " res_deep)
           (paths_to_string ~sep:"\n   " res_here); *)
 
-        (* printf " ~deep:%s\n  ~here:%s\n"
+        Tools.printf " ~deep:%s\n  ~here:%s\n"
           (paths_to_string ~sep:"\n   " res_deep)
-          (paths_to_string ~sep:"\n   " res_here); *)
-
+          (paths_to_string ~sep:"\n   " res_here);
 
       res_deep@res_here  (* put deeper nodes first *) in
   List.sort_uniq compare_path epl

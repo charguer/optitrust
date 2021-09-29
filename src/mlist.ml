@@ -67,6 +67,24 @@ let remove_mark (m : mark) (ml : 'a t) : 'a t =
   let new_marks = List.map (fun ms -> List.filter (fun x -> x <> m) ms) ml.marks in
   { ml with marks = new_marks }
 
+let split_temp ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t=
+  let items1, items2 = Tools.split_list_at index ml.items in
+  let marks1a, marks2a = Tools.split_list_at (index + if left_bias then 1 else 0) ml.items in
+  let marks1 = if left_bias then marks1a else marks1a @ [] in
+  let marks2 = if left_bias then [] :: marks2a else marks2a in
+  ({items = items1; marks = marks1}, {items = items2; marks = marks2})
+
+
+let extract_temp ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (start : int) (nb : int) (ml : 'a t) : 'a t * 'a t =
+  let ml1, ml23 = split_temp ~left_bias:start_left_bias start ml in
+  let ml2, ml3 = split_temp ~left_bias:stop_left_bias (nb - start) ml23 in
+  let ml13 = merge_temp ml1 ml3 in
+  (ml13, ml2)
+
+
+
+
+
 (* TODO: document what is the first return value and what is the second one *)
 let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) =
   (* TODO: see comment in tools.ml about using start and nb *)
@@ -95,6 +113,12 @@ let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) =
         (ml13, ml2)
 
 *)
+
+let merge_temp (ml1 : 'a t) (ml2 : 'a t) : 'a t =
+  let marks1, tmp_marks1 = Tools.unlast ml1.marks in
+  let tmp_marks2, marks2 = Tools.uncons ml2.marks in
+  let merged_marks = [tmp_marks1] @ [tmp_marks2] in
+  { items = ml1.items @ ml2.items; marks = marks1 @ merged_marks @ marks2 }
 
 
 let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =

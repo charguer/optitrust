@@ -248,6 +248,13 @@ let extract (start : int) (stop : int) (l : 'a list) : ('a list * 'a list) =
   let rev_stop = (List.length l - (start + 1)) in
   foldi (fun i (f_acc, s_acc) x -> if i >= rev_start && i <= rev_stop then (f_acc, x :: s_acc) else (x :: f_acc, s_acc)) ([],[]) (List.rev l)
 
+let extract_temp (start : int) (nb : int) (l : 'a list) : ('a list * 'a list) =
+  let rev_start = List.length l - (start + nb) in
+  let rev_stop = List.length l - (start + 1) in
+  foldi (fun i (f_acc, s_acc) x -> if i >= rev_start && i <= rev_stop then (x :: f_acc, s_acc) else (f_acc, x :: s_acc)) ([],[]) (List.rev l)
+
+
+
 (* get the first and the last element of the list [l]
    TODO: I've never seen this fucntion before.
    if the list as size 2, you should match it against [x;y];
