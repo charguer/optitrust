@@ -28,8 +28,8 @@ let _ = Run.script_cpp ~check_exit_at_end:false (fun () ->
   !! Struct.set_explicit [cVarDef "speed2"];
   !! Struct.set_explicit [cVarDef "pos2"];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
-  !! Struct.set_explicit [nbMulti; cSet ~typ:(Some "particle")()];
-  !! Struct.set_explicit [nbMulti; cSet ~typ:(Some "vect")()];
+  !! Struct.set_explicit [nbMulti; cSet ~typ:"particle"()];
+  !! Struct.set_explicit [nbMulti; cSet ~typ:"vect"()];
 
   !!();
 )
@@ -49,8 +49,8 @@ let _ = Run.script_cpp (fun () ->
   (* Part: Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
-  !!! Struct.set_explicit [nbMulti;cSet ~typ:(Some "particle")()];
-  !!! Struct.set_explicit [nbMulti;cSet ~typ:(Some "vect")()];
+  !!! Struct.set_explicit [nbMulti;cSet ~typ:"particle"()];
+  !!! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
 
   (* Part: AOS-TO-SOA *)
   !!! Struct.inline "pos" [cTypDef "particle"];
@@ -65,7 +65,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; 
+  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];
 
   (* PART : to be continued with concurrent bags, and delocalized sums *)
 
