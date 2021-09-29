@@ -318,18 +318,16 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
 
 
 (* by default an empty name is no name *)
-(* TODO: add constraint on return types, in the form
-   ?(ret_typ:string) ?(ret_typ_pred:typ_constraint);
-   make sure to add unit tests in target_type.ml *)
-let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = []) ?(regexp : bool = false) (name : string) : constr =
+let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) ?(regexp : bool = false) (name : string) : constr =
   let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
-  Constr_decl_fun (ro, combine_args args args_pred, body)
+  let ty_pred = make_typ_constraint ~typ:ret_typ ~typ_pred:ret_typ_pred () in
+  Constr_decl_fun (ty_pred, ro, combine_args args args_pred, body)
 
 (* toplevel fun declaration *)
 let cTopFunDef
   ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default)
-  ?(body : target = []) (name : string) : constr =
-  cChain [ dRoot; cFunDef ~args ~args_pred ~body name ]
+  ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
+  cChain [ dRoot; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred name ]
 
 let cTypDef
   ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =

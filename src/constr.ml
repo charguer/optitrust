@@ -102,7 +102,7 @@ and constr =
   (* decl_var: name, body *)
   | Constr_decl_var of typ_constraint * constr_name * target
   (* decl_fun: name, args, body *)
-  | Constr_decl_fun of constr_name * target_list_pred * target
+  | Constr_decl_fun of typ_constraint * constr_name * target_list_pred * target
   (* decl_type: name *)
   | Constr_decl_type of constr_name
   (* decl_enum: name, constants *)
@@ -291,13 +291,13 @@ let rec constr_to_string (c : constr) : string =
      let s_body = target_to_string p_body in
      "Decl_var (<ty_pred>, " ^ s_name ^ ", " ^ s_body ^ ")"
      (* LATER: add a string representation for type constraints *)
-  | Constr_decl_fun (name, _tgt_list_pred, p_body) ->
+  | Constr_decl_fun (_ty_pred,name, _tgt_list_pred, p_body) ->
     let s_name =
        match name with | None -> "_" | Some r -> rexp_to_string r
      in
      let spred = _tgt_list_pred.target_list_pred_to_string() in
      let s_body = target_to_string p_body in
-     "Decl_fun (" ^ s_name ^ spred ^ s_body ^ ")"
+     "Decl_fun (<ty_pred>, " ^ s_name ^ spred ^ s_body ^ ")"
 
   | Constr_decl_type name ->
      let s_name =
@@ -707,8 +707,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         ty_pred (get_inner_ptr_type tx) &&
         check_name name x &&
         check_target p_body body
-     | Constr_decl_fun (name, cl_args, p_body),
-       Trm_let_fun (x, _, args, body) ->
+     | Constr_decl_fun (ty_pred, name, cl_args, p_body),
+       Trm_let_fun (x, tx, args, body) ->
+        ty_pred tx &&
         check_name name x &&
         check_args cl_args args &&
         check_target p_body body
