@@ -79,7 +79,6 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
     [after] - similar to [after] but now is the index of the loop after whom
       we want to move [loop_to_move]
 *)
-(* TODO: Document the details of this implementation *)
 let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_move : Target.target) : unit =
   Trace.call (fun t ->
    let loop_to_move_path = Target.resolve_target_exactly_one loop_to_move t in
@@ -193,37 +192,29 @@ let reorder ?(order : var list = []) (tg : Target.target) : unit =
       then fail tg_loop.loc "[Loop.reorder]: the single index in the argument [order] should match the name of the targeted loop."
     else
     let _, targeted_loop_index = Tools.unlast order in
-    (* TODO: add [target_of_path p] to the front of the targets;
-       LATER: use more precise targets, to avoid targeting deeply-nested loops that resue the same index *)
-    List.iter (fun x -> move [Target.cFor x] ~before:[Target.cFor targeted_loop_index]) order
+    (*  LATER: use more precise targets, to avoid targeting deeply-nested loops that resue the same index *)
+    List.iter (fun x -> move (Target.target_of_path p @ [Target.cFor x]) ~before:(Target.target_of_path p @ [Target.cFor targeted_loop_index])) order
   ) tg
 
 
-    (* TODO: documentation *)
-    (* TODO: tg should be a target on the outer loop, not on its context.
-       I think using [tg @ [cForNestedAtDepth i]] would work for targeting the loop at depth i  *)
+(* TODO: tg should be a target on the outer loop, not on its context.
+   I think using [tg @ [cForNestedAtDepth i]] would work for targeting the loop at depth i  *)
+(* [pic_coloring tile_size color_size ds tg] expects the target [tg] to point to the first loop
+      on which tiling(refer to Loop_basic.tile ) is going to be applied. Then on the loop comming right after the target [tg]
+      coloring transformation (refere to Loop_basic.color).
+      Finally a reorder is going to be applied by using reorder transformation (refer to reorder).
+      Assumption:
+        The target should be a nested loop 
+*)
 let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
   let add_prefix (prefix : string) (indices : var list) : var list =
     List.map (fun x -> prefix ^ x) indices in
   let bs = add_prefix "b" ds in
   let cs = add_prefix "c" ds in
-  let _,last_ds = Tools.unlast ds in
-  (* let nb = List.length ds in*)
+  let first_cs = List.nth cs 0 in
   let order = cs @ bs @ ds in
   let tile = string_of_int tile_size in
   let color = string_of_int color_size in
   List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
   List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
-  List.iter (fun x -> move [Target.cFor x ] ~before:[Target.cFor last_ds]) order
-  (* TODO: above we should use [reorder order tg_outer_loop], *)
-
-
-(* [unroll] expects the target to point to a loop. It the checks if teh loop
-    is of the form for(int i = a; i < a + C; i++){..} then it will move the
-    the instructions out of the loop and the loop will be removed.
-    Assumption C should be a literal, this is needed to compute the number
-    of sequences to generate.
-    braces:true to keep the sequences
-*)
-(* TODO: code is gone? *)
-
+  reorder ~order [Target.cFor first_cs]
