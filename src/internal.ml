@@ -321,7 +321,8 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
     Some ((fun b -> trm_for_c init cond step b), body)
   | Trm_for (index, direction, start, stop, step, body) ->
     Some ((fun b -> trm_for index direction start stop step b), body)
-  | _ -> fail t.loc "extract_loop: expected a loop"
+  | _ -> 
+    fail t.loc "extract_loop: expected a loop"
 
 (* For a struct field with name [field] and  [fields] being the list of fields of the
     same struct return back the index of field [field] in the list of fields [fields].
