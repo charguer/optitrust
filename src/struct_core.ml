@@ -223,7 +223,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
               ]
             ) (List.rev field_list)
             in
-            let term_list = Mlist.remove field_index field_index term_list in
+            let term_list = Mlist.remove field_index 1 term_list in
             let new_term_list = Mlist.insert_sublist_at field_index trm_list_to_inline term_list in
             trm_struct new_term_list
           | _ -> fail base.loc "inline_struct_initialization: expected a heap allocated variable"

@@ -35,7 +35,7 @@ let insert (index : int) (s : string) : Target.Transfo.local =
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      trm_seq ~annot:t.annot ~marks:t.marks (Mlist.remove index (index + nb_instr - 1) tl)
+      trm_seq ~annot:t.annot ~marks:t.marks (Mlist.remove index nb_instr tl)
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
 (* [delete index nb_instr t p] *)
@@ -52,11 +52,12 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
     return: the updated ast of surrounding sequence with the inserted nodes
 
 *)
+
 let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       let tl1, tl2 = 
-        if nb > 0 then Mlist.extract index (index + nb - 1) tl else Mlist.extract (index+ nb+1) index tl in
+        if nb > 0 then Mlist.extract index nb tl else Mlist.extract (index+ nb+1) (-nb) tl in
         let intro_seq = trm_seq tl2 in
         let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
         let index = if nb < 0 then index -1 else index in

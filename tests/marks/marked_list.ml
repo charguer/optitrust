@@ -60,11 +60,11 @@ let merge_m2_ml = Mlist.merge extract_m2_ml extract_s2_ml (* TODO: Fix me *)
 
 let merge_m3_ml = Mlist.merge extract_m3_ml extract_s3_ml
 
-let split_l1_ml, split_r1_ml = Mlist.split 0 ml
+let split_l1_ml, split_r1_ml = Mlist.split_temp 0 ml
 
-let split_l2_ml, split_r2_ml = Mlist.split 2 ml
+let split_l2_ml, split_r2_ml = Mlist.split_temp 2 ml
 
-let split_l3_ml, split_r3_ml = Mlist.split (Mlist.length ml - 1) ml
+let split_l3_ml, split_r3_ml = Mlist.split_temp (Mlist.length ml - 1) ml
 
 let merge_m1_ml = Mlist.merge split_l1_ml split_r1_ml 
 

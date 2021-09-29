@@ -386,28 +386,15 @@ let reorder_fields (reorder_kind : reorder) (local_l : var list) (sf : (var * ty
     t itself and the list of trms behind t.
 *)
 
-let get_trm_and_its_relatives_temp (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
-  let lfront, lback = Mlist.split_temp index trms in
-  let element, lback = Mlist.split_temp 1 lback in
-  let element = 
-    if Mlist.length element = 1 
-      then Mlist.nth element 0 
-      else fail None "get_element_and_its_relatives: expected a list with a single element"
-  in
-  (lfront, element, lback)
-
-
-
 let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
-  let lfront, lback = Mlist.extract index ((Mlist.length trms) - 1) trms in
-  let lback, element = Mlist.extract 0 0 lback in
+  let lfront, lback = Mlist.split index trms in
+  let element, lback = Mlist.split 1 lback in
   let element = 
     if Mlist.length element = 1 
       then Mlist.nth element 0 
       else fail None "get_element_and_its_relatives: expected a list with a single element"
   in
   (lfront, element, lback)
-    
 
 (* In the case of nested sequence, nested initialization lists for arrays and structs, this function
     can be used to inline the sublist at index [index] into the main list
