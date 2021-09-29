@@ -86,23 +86,23 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
    let loop_to_move_trm, _ = Path.resolve_path loop_to_move_path t in
    let loop_to_move_nested_indices = Internal.get_loop_nest_indices loop_to_move_trm in
    let loop_to_move_index  = List.nth loop_to_move_nested_indices 0 in
-   begin match before, after with 
+   begin match before, after with
    | [], [] -> fail None  "move: the before target or after target are mandatory please enter only one of them"
    | [], _ ->
     let targeted_loop_path = Target.resolve_target_exactly_one after t in
     let targeted_loop, _ = Path.resolve_path targeted_loop_path t in
     let targeted_loop_nested_indices = Internal.get_loop_nest_indices targeted_loop in
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
-    if List.mem targeted_loop_index loop_to_move_nested_indices 
+    if List.mem targeted_loop_index loop_to_move_nested_indices
       then begin
            let choped_indices = Tools.chop_list_after targeted_loop_index loop_to_move_nested_indices in
            List.iter (fun _ -> Loop_basic.interchange loop_to_move) choped_indices
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
-        begin 
+        begin
         let choped_indices = Tools.chop_list_after loop_to_move_index targeted_loop_nested_indices in
         let choped_indices = Tools.chop_list_after targeted_loop_index (List.rev choped_indices) in
-        List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) choped_indices 
+        List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) choped_indices
         end
       else fail loop_to_move_trm.loc "move: the given targets are not correct"
 
@@ -111,16 +111,16 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
     let targeted_loop, _ = Path.resolve_path targeted_loop_path t in
     let targeted_loop_nested_indices = Internal.get_loop_nest_indices targeted_loop in
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
-    if List.mem targeted_loop_index loop_to_move_nested_indices 
+    if List.mem targeted_loop_index loop_to_move_nested_indices
       then begin
            let choped_indices = Tools.chop_list_after targeted_loop_index loop_to_move_nested_indices in
            let choped_indices = Tools.chop_list_after loop_to_move_index (List.rev choped_indices) in
            List.iter (fun _ -> Loop_basic.interchange loop_to_move) (List.rev choped_indices)
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
-        begin 
+        begin
         let choped_indices = Tools.chop_list_after loop_to_move_index targeted_loop_nested_indices in
-        List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev choped_indices) 
+        List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev choped_indices)
         end
       else fail loop_to_move_trm.loc "move: the given targets are not correct"
 
@@ -175,24 +175,48 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) :
     | _ -> fail t.loc "unroll: expected a simple loop"
   ) tg
 
+(* [reorder order]  expects the target [tg] to point to the first loop included in the sorting
+    the it will reorder the nested loops based on [order]
+    Assumption:
+      Loops are nested by using sequences
+*)
+let reorder ?(order : var list = []) (tg : Target.target) : unit =
+  Target.iter_on_targets (fun t p ->
+    let tg_loop, _ = Path.resolve_path p t in
+    let indices = Internal.get_loop_nest_indices tg_loop in
+    let nb_order = List.length order in
+    if nb_order > List.length indices
+      then fail tg_loop.loc "[Loop.reorder]: the number of indices provided in argument [order] exceeds the number of nested loops that appears in the code."
+    else if nb_order = 0
+      then ()
+    else if nb_order = 1 && List.nth order 0 <> List.nth indices 0
+      then fail tg_loop.loc "[Loop.reorder]: the single index in the argument [order] should match the name of the targeted loop."
+    else
+    let _, targeted_loop_index = Tools.unlast order in
+    (* TODO: add [target_of_path p] to the front of the targets;
+       LATER: use more precise targets, to avoid targeting deeply-nested loops that resue the same index *)
+    List.iter (fun x -> move [Target.cFor x] ~before:[Target.cFor targeted_loop_index]) order
+  ) tg
 
+
+    (* TODO: documentation *)
+    (* TODO: tg should be a target on the outer loop, not on its context.
+       I think using [tg @ [cForNestedAtDepth i]] would work for targeting the loop at depth i  *)
 let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
   let add_prefix (prefix : string) (indices : var list) : var list =
-    List.map (fun x -> prefix ^ x) indices  
-    in
-  let splitted_ds = Tools.extract 0 (List.length ds - 2) ds in
-  let last_ds = match fst splitted_ds with
-  | [x] -> x
-  | _ -> failwith "coloring:expected the last element of ds" in
+    List.map (fun x -> prefix ^ x) indices in
   let bs = add_prefix "b" ds in
   let cs = add_prefix "c" ds in
-  let list_of_indices = cs @ bs @ ds in
+  let _,last_ds = Tools.unlast ds in
+  (* let nb = List.length ds in*)
+  let order = cs @ bs @ ds in
   let tile = string_of_int tile_size in
   let color = string_of_int color_size in
   List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
   List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
-  List.iter (fun x -> move [Target.cFor x ] ~before:[Target.cFor last_ds]) list_of_indices
-  
+  List.iter (fun x -> move [Target.cFor x ] ~before:[Target.cFor last_ds]) order
+  (* TODO: above we should use [reorder order tg_outer_loop], *)
+
 
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
     is of the form for(int i = a; i < a + C; i++){..} then it will move the
@@ -201,19 +225,5 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
     of sequences to generate.
     braces:true to keep the sequences
 *)
-(* [reorder order]  expects the targe [tg] to point to the first loop included in the sorting 
-    the it will reorder the nested loops based on [order]
-    Assumption:
-      Loops are nested by using sequences
-*)
-let reorder ?(order : var list = []) (tg : Target.target) : unit =
-  Target.iter_on_targets (fun t p ->
-    let tg_loop, _ = Path.resolve_path p t in
-    let current_indices = Internal.get_loop_nest_indices tg_loop in
-    if (List.length current_indices <> List.length order) 
-      then fail tg_loop.loc "reorder: reordering does not change the number of nested loops"
-      else 
-        let targeted_loop_index = List.nth (List.rev order) 0 in
-        List.iter (fun x -> move [Target.cFor x] ~before:[Target.cFor targeted_loop_index ]) order
-  ) tg
+(* TODO: code is gone? *)
 

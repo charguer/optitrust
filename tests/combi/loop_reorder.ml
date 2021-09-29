@@ -2,6 +2,22 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  
-  !! Loop.reorder ~order:["bx";"by";"x";"cx";"cy";"y" ] [cFor "cx"];
+
+  !! Loop.reorder ~order:["d";"c";"b"] [cFor "b"];
+
+  !! Trace.alternative (fun () ->
+    !! Loop.reorder ~order:["b";"d";"e";"a";"c" ] [cFor "a"];
+    !!(););
+
+  !! Trace.alternative (fun () ->
+    !! Loop.reorder ~order:["e";"d"] [cFor "d"];
+    !! Loop.reorder ~order:["a"] [cFor "a"]; (* identity *)
+    !!(););
+
+  !! Trace.alternative (fun () ->
+    !! Tools.failure_expected (fun () ->
+       Loop.reorder ~order:["e"] [cFor "a"];);
+    !! Tools.failure_expected (fun () ->
+       Loop.reorder ~order:["e"; "f"] [cFor "e"];)
+    );
 )

@@ -1,20 +1,15 @@
 int main() {
-  int X = 6;
-  int Y = 6; 
-  
-  for (int cx = 0; cx < 2; cx++){
-     for (int cy = 0; cy < 2; cy++){
-       for (int bx = 2*cx; bx < X; bx += 4){
-         for (int by = 2*cy; by < Y; by += 4){
-           for (int x = bx; x < bx+2; x++){
-             for (int y = by; y < by+2; y++){
-               int x = 6;
-
-             }
-           }
-         }
-       }
-     }
-  }   
+  int r = 0;
+  for (int a = 0; a < 4; a++) {
+    for (int b = 0; b < 4; b++) {
+      for (int c = 0; c < 4; c++) {
+        for (int d = 0; d < 4; d++) {
+          for (int e = 0; e < 4; e++) {
+              r++;
+            }
+          }
+        }
+      }
+    }
   return 0;
 }

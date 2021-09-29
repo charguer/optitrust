@@ -62,6 +62,9 @@ let _ = Run.script_cpp (fun () ->
 
   show [ cTopFunDef "main"; cFor "j"; cStrict; cIf (); dThen; cStrict; sInstr "j++" ];
 
-  show [ sInstr "i++" ]
+  show [ sInstr "i++" ];
+
+  show [ cTopFunDef "main"; cFor "i"; cForNestedAtDepth 0 ];
+  show [ cTopFunDef "main"; cFor "i"; cForNestedAtDepth 1 ];
 
 )

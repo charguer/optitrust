@@ -112,6 +112,8 @@ val cFor_c: ?init:target -> ?cond:target ->
 
 val cFor : ?direction:loop_dir -> ?start:target -> ?stop:target -> ?step:target -> ?body:target -> string -> constr
 
+val cForNestedAtDepth : int -> constr
+
 val cWhile : ?cond:target -> ?body:target -> unit ->
              constr
 val cDoWhile : ?body:target -> ?cond:target -> unit -> constr

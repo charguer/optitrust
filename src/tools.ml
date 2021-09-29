@@ -257,3 +257,16 @@ let get_first_last (l : 'a list) : 'a * 'a =
   let n = List.length l in
   if n = 0 then failwith "get_first_last: empty list"
     else (List.nth l 0, List.nth l (n-1))
+
+(* [uncons l] returns [(x,l')] such that [l = x::l']. If fails on empty lists. *)
+let uncons (l : 'a list) : 'a * 'a list =
+  match l with
+  | [] -> invalid_arg "uncons"
+  | x::l' -> (x,l')
+
+(* [unlast l] returns [(l',x)] such that [l = l'@[x]]. If fails on empty lists. *)
+let unlast (l : 'a list) : 'a list * 'a =
+  match List.rev l with
+  | [] -> invalid_arg "uncons"
+  | x::l' -> (List.rev l', x)
+
