@@ -148,7 +148,7 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
       | Var_mutable -> 
         trm_let vk (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut new_type ) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init) 
       | Var_immutable ->
-        trm_let vk (x, new_type) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init) 
+        trm_let vk (x, typ_const new_type) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init) 
       end in
       let lback = Mlist.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
       let tl = Mlist.merge lfront lback in

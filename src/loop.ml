@@ -79,31 +79,54 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
     [after] - similar to [after] but now is the index of the loop after whom
       we want to move [loop_to_move]
 *)
-(* TODO: discuss this LATER: loop_to_move should be a target; *)
-let move ?(before : string = "") ?(after : string = "") (loop_to_move : string) : unit =
+(* TODO: Document the details of this implementation *)
+let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_move : Target.target) : unit =
   Trace.call (fun t ->
-    let move_where, target_loop = match before, after with
-  | "", _ -> "after", [Target.cFor loop_to_move]
-  | _, "" -> "before", [Target.cFor before]
-  | _ -> fail None "move: make sure you specify where to move the loop, don't give both before and after directives" in
-  let exp = Constr.resolve_target_exactly_one target_loop t in
-  let (loop, _) = Path.resolve_path exp t in
-  let indices_list = Internal.get_loop_nest_indices loop in
-  match move_where with
-  | "after" ->
-    let indices_list = Tools.chop_list_after after indices_list in
-    let counter = ref (List.length indices_list) in
-    while (!counter <> 0) do
-      counter := !counter - 1;
-      Loop_basic.interchange [Target.cFor loop_to_move];
-    done
-  | "before" ->
-    let indices_list = Tools.chop_list_after loop_to_move indices_list in
-    List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev indices_list)
-  | _ -> fail t.loc "move: something went wrong"
-)
+   let loop_to_move_path = Target.resolve_target_exactly_one loop_to_move t in
+   let loop_to_move_trm, _ = Path.resolve_path loop_to_move_path t in
+   let loop_to_move_nested_indices = Internal.get_loop_nest_indices loop_to_move_trm in
+   let loop_to_move_index  = List.nth loop_to_move_nested_indices 0 in
+   begin match before, after with 
+   | [], [] -> fail None  "move: the before target or after target are mandatory please enter only one of them"
+   | [], _ ->
+    let targeted_loop_path = Target.resolve_target_exactly_one after t in
+    let targeted_loop, _ = Path.resolve_path targeted_loop_path t in
+    let targeted_loop_nested_indices = Internal.get_loop_nest_indices targeted_loop in
+    let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
+    if List.mem targeted_loop_index loop_to_move_nested_indices 
+      then begin
+           let choped_indices = Tools.chop_list_after targeted_loop_index loop_to_move_nested_indices in
+           List.iter (fun _ -> Loop_basic.interchange loop_to_move) choped_indices
+           end
+      else if List.mem loop_to_move_index targeted_loop_nested_indices then
+        begin 
+        let choped_indices = Tools.chop_list_after loop_to_move_index targeted_loop_nested_indices in
+        let choped_indices = Tools.chop_list_after targeted_loop_index (List.rev choped_indices) in
+        List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) choped_indices 
+        end
+      else fail loop_to_move_trm.loc "move: the given targets are not correct"
 
+   | _ , [] ->
+    let targeted_loop_path = Target.resolve_target_exactly_one before t in
+    let targeted_loop, _ = Path.resolve_path targeted_loop_path t in
+    let targeted_loop_nested_indices = Internal.get_loop_nest_indices targeted_loop in
+    let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
+    if List.mem targeted_loop_index loop_to_move_nested_indices 
+      then begin
+           let choped_indices = Tools.chop_list_after targeted_loop_index loop_to_move_nested_indices in
+           let choped_indices = Tools.chop_list_after loop_to_move_index (List.rev choped_indices) in
+           List.iter (fun _ -> Loop_basic.interchange loop_to_move) (List.rev choped_indices)
+           end
+      else if List.mem loop_to_move_index targeted_loop_nested_indices then
+        begin 
+        let choped_indices = Tools.chop_list_after loop_to_move_index targeted_loop_nested_indices in
+        List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev choped_indices) 
+        end
+      else fail loop_to_move_trm.loc "move: the given targets are not correct"
 
+   | _  -> fail None "move: only one of target before or after should be given"
+   end
+  )
 
 (* [unroll] expects the target to point to a loop. It the checks if teh loop
     is of the form for(int i = a; i < a + C; i++){..} then it will move the
@@ -153,69 +176,44 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) :
   ) tg
 
 
-
-(* An automated version of coloring and reordering *)
 let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
-  let _splitted_ds = Tools.extract 0 (List.length ds - 2) ds in
-  let bs = List.map (fun s -> "b" ^ s) ds in
-  let splitted_bs = Tools.extract 0 (List.length bs - 2) bs in
-  let _last_bs = match fst splitted_bs with
-  | [x] -> x
-  | _ -> failwith "coloring:expected the last element of bs" in
-  let cs = List.map (fun s -> "c" ^ s) ds in
-  let splitted_cs = Tools.extract 0 (List.length cs - 2) cs in
-  let _last_cs = match fst splitted_cs with
-  | [x] -> x
-  | _ -> failwith "coloring:expected the last element of cs" in
-  let tile = string_of_int tile_size in
-  let color = string_of_int color_size in
-  Tools.printf "Last_cs %s, last_bs %s\n" (_last_cs) (_last_bs);
-  List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
-  List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
-  List.iter (fun b -> move b ~after:_last_cs) (List.rev (snd splitted_bs));
-  List.iter (fun d -> move d ~after:_last_bs) (List.rev (snd _splitted_ds))
-
-
-let reorder (ordered_indices : var list) (tg : Target.target) : unit =
-    Target.iter_on_targets (fun t p ->
-      let tg_loop, _ = Path.resolve_path p t in
-      let current_indices = Internal.get_loop_nest_indices tg_loop in
-      if (List.length current_indices <> List.length ordered_indices) 
-        then fail tg_loop.loc "reorder: reordering does not change the number of nested loops"
-        else 
-          begin
-          let index_map : int varmap ref  = ref String_map.empty in
-          List.iteri (fun i x -> index_map := String_map.add x i !index_map) ordered_indices;
-          let _sorted_indices = Tools.bubble_sort (
-            fun x y ->
-            let targeted_ind_x = begin match (String_map.find_opt x !index_map) with
-            | Some i -> i
-            | None -> fail tg_loop.loc "reorder: the ordered list you entered contains indices of loops which don't belong the targeted scope"
-            end in
-            let targeted_ind_y = begin match (String_map.find_opt y !index_map) with
-            | Some i -> i
-            | None -> fail tg_loop.loc "reorder: the ordered list you entered contains indices of loops which don't belong the targeted scope"
-            end in
-            if targeted_ind_x > targeted_ind_y then 
-              begin
-              Loop_basic.interchange [Target.cFor x];
-              true
-              end
-              else false
-
-          ) current_indices in ()
-          end
-    ) tg
-
-let pic_coloring1 (tile_size: int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
   let add_prefix (prefix : string) (indices : var list) : var list =
-    List.map (fun x -> x ^ prefix) indices  
+    List.map (fun x -> prefix ^ x) indices  
     in
+  let splitted_ds = Tools.extract 0 (List.length ds - 2) ds in
+  let last_ds = match fst splitted_ds with
+  | [x] -> x
+  | _ -> failwith "coloring:expected the last element of ds" in
   let bs = add_prefix "b" ds in
   let cs = add_prefix "c" ds in
-  let list_of_indices = bs @ cs @ ds in
-  let tile =  string_of_int tile_size in
+  let list_of_indices = cs @ bs @ ds in
+  let tile = string_of_int tile_size in
   let color = string_of_int color_size in
   List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
   List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
-  reorder list_of_indices [Target.cFor (List.nth cs 0)]
+  List.iter (fun x -> move [Target.cFor x ] ~before:[Target.cFor last_ds]) list_of_indices
+  
+
+(* [unroll] expects the target to point to a loop. It the checks if teh loop
+    is of the form for(int i = a; i < a + C; i++){..} then it will move the
+    the instructions out of the loop and the loop will be removed.
+    Assumption C should be a literal, this is needed to compute the number
+    of sequences to generate.
+    braces:true to keep the sequences
+*)
+(* [reorder order]  expects the targe [tg] to point to the first loop included in the sorting 
+    the it will reorder the nested loops based on [order]
+    Assumption:
+      Loops are nested by using sequences
+*)
+let reorder ?(order : var list = []) (tg : Target.target) : unit =
+  Target.iter_on_targets (fun t p ->
+    let tg_loop, _ = Path.resolve_path p t in
+    let current_indices = Internal.get_loop_nest_indices tg_loop in
+    if (List.length current_indices <> List.length order) 
+      then fail tg_loop.loc "reorder: reordering does not change the number of nested loops"
+      else 
+        let targeted_loop_index = List.nth (List.rev order) 0 in
+        List.iter (fun x -> move [Target.cFor x] ~before:[Target.cFor targeted_loop_index ]) order
+  ) tg
+

@@ -13,6 +13,8 @@ TESTS_WORKING := \
 	loop_fusion.ml \
 	loop_hoist.ml \
 	loop_invariant.ml \
+	loop_move.ml \
+	loop_reorder.ml \
 	sequence_intro.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \

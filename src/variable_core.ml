@@ -326,7 +326,8 @@ let insert_aux (index : int) (const : bool) (name : string) (typ : string) (valu
   match t.desc with 
   | Trm_seq tl ->
     let vk = if const then Var_immutable else Var_mutable  in
-    let new_trm = trm_let vk (name, typ_constr typ) (code value) in
+    let new_typ = if const then typ_const (typ_constr typ) else typ_constr typ in
+    let new_trm = trm_let vk (name, new_typ) (code value) in
     let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "insert_aux: expected the sequence which is going to contain the variable declaration" 

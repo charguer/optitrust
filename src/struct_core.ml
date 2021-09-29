@@ -366,19 +366,13 @@ let to_variables_aux (index : int) (t : trm) : trm =
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with
-    | Trm_let (vk, (x, tx), init) ->
+    | Trm_let (_, (x, tx), init) ->
       let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
-      let typid = begin match vk with
-                  | Var_immutable ->
-                    begin match tx.typ_desc with
-                    | Typ_constr (_, tid, _) -> tid
-                    | _ -> fail t.loc "struct_to_variables_aux: expected a struct type"
-                    end
-                  | Var_mutable -> begin match (get_inner_ptr_type tx).typ_desc with
-                                   | Typ_constr (_, tid, _) -> tid
-                                   | _ -> fail t.loc "struct_to_variables_aux: expected a struct type"
-                                   end
+      let typid = begin match (get_inner_ptr_type tx).typ_desc with
+                  | Typ_constr (_, tid, _) -> tid
+                  | _ -> fail t.loc "struct_to_variables_aux: expected a struct type"
                   end in
+      
       let struct_def = Typ_map.find typid typid_to_typedef_map in
       let field_list = Internal.get_field_list struct_def in
       let struct_init_list = begin match init.desc with

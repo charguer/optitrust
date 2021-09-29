@@ -21,7 +21,7 @@ let interchange_aux (t : trm) : trm =
       let loop2 = Mlist.nth tl 0 in
       begin match Internal.extract_loop loop2 with
       | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-      | None -> fail body1.loc "internchange_aux: should target a loop with nested loop^inside"
+      | None -> fail body1.loc "interchange_aux: should target a loop with nested loop^inside"
       end
     | _ -> begin match Internal.extract_loop body1 with 
            | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
@@ -167,7 +167,6 @@ let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
   | Trm_for (index, direction, start, stop, step, body) ->
     begin match body.desc with
     | Trm_seq tl ->
-      (* We assume that the first elment in the body is a variable declaration *)
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
