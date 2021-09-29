@@ -23,23 +23,12 @@ let interchange_aux (t : trm) : trm =
       | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
       | None -> fail body1.loc "internchange_aux: should target a loop with nested loop^inside"
       end
-    | _ -> fail body1.loc "interchange_aux: body of the loop should be a sequence"
+    | _ -> begin match Internal.extract_loop body1 with 
+           | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
+           | None -> fail body1.loc "interchange_aux: should target a loop with nested inner loops" 
+           end
     end
   | None -> fail t.loc "interchange_aux: should target a loop"
-
-(* let interchange_aux (t : trm) : trm =
-  match Internal.extract_loop t with
-  | Some (loop1, body1) ->
-    begin match body1.desc with
-    | Trm_seq [loop2] ->
-       begin match Internal.extract_loop loop2 with
-      | Some (loop2, body2) -> loop2 (trm_seq [(loop1 body2)])
-      | None -> fail body1.loc "interchange_aux: should target a loop with nested loop inside"
-      end
-    | _ -> fail body1.loc "interchange_aux: body of the loop should be a sequence"
-    end
-  | None -> fail t.loc "interchange_aux: should target a loop" *)
-
 
 let interchange : Target.Transfo.local =
   Target.apply_on_path (interchange_aux)
@@ -163,16 +152,17 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Tran
 
 
 
-(* [hoist_aux x_step t]: extract a loop variable inside the loop as an array with size equal
+(* [hoist_aux patt_name t]: extract a loop variable inside the loop as an array with size equal
       to (loop_bound - 1), the change all the occurrences of the variable with an array access
       with index same as the index of the loop
     params:
-      x_step: a new_variable name going to appear as the extract variable
+      patt_name: a pattern of the form ${var}_something for the name entered by the user otherwise used the dafault pattern
+        ${var}_step
       t: ast of the loop
     return:
       updated ast with the hoisted loop
 *)
-let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
+let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     begin match body.desc with
@@ -181,12 +171,13 @@ let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
-        let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x_step; trm_var index] ) in
+        let new_name = Str.global_replace (Str.regexp "var") x patt_name in
+        let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_name; trm_var index] ) in
         let new_tl = Mlist.merge lfront lback in
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
         let inner_typ = get_inner_ptr_type tx in
         trm_seq_no_brace [
-          trm_let Var_mutable (x_step, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
+          trm_let Var_mutable (new_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array inner_typ (Trm stop))) (trm_prim (Prim_new inner_typ));
           trm_for index direction start stop step new_body ]
       | _ -> fail var_decl.loc "hoist_aux: expected a variable declaration"
       end
@@ -197,35 +188,9 @@ let hoist_aux (x_step : var) (decl_index : int) (t : trm) : trm =
   | _ -> fail t.loc "hoist_aux: only simple loops are supported"
 
 
-let hoist (x_step : var) (index : int): Target.Transfo.local =
-   Target.apply_on_path (hoist_aux x_step index)
+let hoist (patt_name : var) (index : int): Target.Transfo.local =
+   Target.apply_on_path (hoist_aux patt_name index)
 
-(* [extract_variable_aux decl_index t] similar to loop hoist *)
-let extract_variable_aux (decl_index : int) (t : trm) : trm =
-  match t.desc with
-  | Trm_for (index, direction, start, stop, step, body) ->
-    begin match body.desc with
-    | Trm_seq tl ->
-      let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
-      begin match var_decl.desc with
-      | Trm_let (_, (x, tx), _) ->
-        let lback = Mlist.map (
-          Internal.change_trm (trm_var x)
-          (trm_apps (trm_binop Binop_array_cell_addr) [trm_var x; trm_var index] )
-        ) lback in
-        trm_seq_no_brace [
-          trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array (get_inner_ptr_type tx) (Trm stop))) (trm_prim (Prim_new (typ_array (get_inner_ptr_type tx) (Trm stop))));
-          trm_for index direction start stop step (trm_seq ~annot:body.annot ~marks:body.marks (Mlist.merge lfront lback))
-        ]
-      | _ -> fail var_decl.loc "extract_variable_aux: expected the declaration of the variable to be extracted"
-      end
-    | _ -> fail body.loc "exptract_variable_aux: body of the loop should be a sequence"
-    end
-  | _ -> fail t.loc "extract_variable_aux: expected a for loop"
-
-
-let extract_variable (index : int) : Target.Transfo.local =
-  Target.apply_on_path(extract_variable_aux index)
 
 (* [fission_aux]: split a loop into two loops
     params:
@@ -365,12 +330,12 @@ let invariant_aux (trm_index : int) (t : trm) : trm =
   | Trm_for (index, direction, start, stop, step, _) ->
     let tl = for_loop_body_trms t in
     let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
-    trm_seq_nomarks ~annot: [No_braces (Nobrace.current())] ([trm_inv] @ [
+    trm_seq_no_brace ([trm_inv] @ [
       trm_for index direction start stop step (trm_seq (Mlist.merge lfront lback))])
   | Trm_for_c (init, cond, step, _) ->
     let tl = for_loop_body_trms t in
     let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
-    trm_seq_nomarks ~annot: [No_braces (Nobrace.current())]  ([trm_inv] @ [
+    trm_seq_no_brace  ([trm_inv] @ [
       trm_for_c init cond step (trm_seq (Mlist.merge lfront lback))])
   | _ -> fail t.loc "invariant_aux: expected a loop"
 

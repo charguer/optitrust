@@ -419,11 +419,12 @@ let clean_no_brace_seq (id : int) (t : trm) : trm =
         | _ -> []
         end 
       ) (Mlist.to_list tl)) in
+      let new_tl = Mlist.map aux tl in
+      
       let new_tl = 
         if indices_list <> [] then 
           List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list) 
-        else tl in
-      let new_tl = Mlist.map aux new_tl in
+        else new_tl in
       {t with desc = Trm_seq new_tl}
     | _ -> trm_map aux t
    in aux t 

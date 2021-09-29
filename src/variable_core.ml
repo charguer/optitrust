@@ -113,7 +113,7 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
       end in
       let new_tl = Mlist.merge lfront lback in
       let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
-      trm_seq ~annot:t.annot new_tl
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
     | _ -> fail t.loc "inline_aux: expected a variable declaration"
     end
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
@@ -315,7 +315,7 @@ let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : t
     let tl = Mlist.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
     let new_tl = Mlist.insert_at 0 fst_instr tl in
     let new_tl = Mlist.insert_at ((Mlist.length tl) - 1) lst_instr new_tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "local_other_name_aux: expected a sequence"
 
 
@@ -328,7 +328,7 @@ let insert_aux (index : int) (const : bool) (name : string) (typ : string) (valu
     let vk = if const then Var_immutable else Var_mutable  in
     let new_trm = trm_let vk (name, typ_constr typ) (code value) in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "insert_aux: expected the sequence which is going to contain the variable declaration" 
 
 let insert (index : int) (const : bool) (name : string) (typ : string) (value : string) : Target.Transfo.local =

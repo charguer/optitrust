@@ -91,7 +91,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
     let lback = Mlist.map (inline_array_access array_name new_vars) lback in
     let new_tl = Mlist.merge lfront lback in
     let tl = Mlist.insert_sublist_at index var_decls new_tl in
-    trm_seq ~annot:t.annot ~loc:t.loc tl
+    trm_seq ~annot:t.annot ~loc:t.loc ~marks:t.marks tl
   | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
 
 let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
@@ -274,7 +274,7 @@ let tile_aux (block_name : typvar) (block_size : var) (index: int) (t : trm) : t
     let lback = Mlist.map (apply_tiling base_type block_name (trm_var block_size) base_type_name) lback in
     let new_tl = Mlist.merge lfront lback in
     let new_tl = Mlist.insert_at index array_decl new_tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
   | _ -> fail t.loc "tile_aux: expected the surrounding sequence of the targeted trm"
 
@@ -425,7 +425,7 @@ let swap_aux (index : int) (t : trm) : trm =
         let lback = Mlist.map (apply_swapping td.typdef_tconstr ) lback in
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index new_decl new_tl in
-        trm_seq ~annot:t.annot new_tl
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
         | _ -> fail t.loc "swap_aux: expected a declaration"
         end
       | _ -> fail t.loc "swap_aux: expected the typedef"

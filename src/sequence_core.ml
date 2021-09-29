@@ -18,7 +18,7 @@ let insert_aux (index : int) (s : string) (t : trm) : trm =
     | Trm_seq tl ->
       let new_trm = code s in
       let new_tl = Mlist.insert_at index new_trm tl in
-      trm_seq ~annot:t.annot new_tl
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
 let insert (index : int) (s : string) : Target.Transfo.local =
@@ -35,7 +35,7 @@ let insert (index : int) (s : string) : Target.Transfo.local =
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
-      trm_seq ~annot:t.annot (Mlist.remove index (index + nb_instr - 1) tl)
+      trm_seq ~annot:t.annot ~marks:t.marks (Mlist.remove index (index + nb_instr - 1) tl)
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
 (* [delete index nb_instr t p] *)
@@ -60,7 +60,7 @@ let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
         let intro_seq = trm_seq tl2 in
         let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
         let index = if nb < 0 then index -1 else index in
-         trm_seq  ~annot:t.annot (Mlist.insert_at index intro_seq tl1)
+         trm_seq  ~annot:t.annot ~marks:t.marks (Mlist.insert_at index intro_seq tl1)
     | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 
 let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local =
@@ -146,7 +146,7 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
             lfront :: acc
         ) [] blocks in
         begin match visible with 
-        | true -> trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq) (List.rev partition)))
+        | true -> trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list (List.map (trm_seq) (List.rev partition)))
         | false -> trm_annot_add (No_braces (Nobrace.current())) (trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq) (List.rev partition))))
         end
         
@@ -167,7 +167,7 @@ let reorder_blocks_aux (t : trm) : trm =
       end
     ) (Mlist.to_list tl) in
     let first_part, last_part = List.split transformed_list in
-    trm_seq ~annot:t.annot (Mlist.merge (Mlist.of_list first_part) (Mlist.of_list last_part))
+    trm_seq ~annot:t.annot ~marks:t.marks (Mlist.merge (Mlist.of_list first_part) (Mlist.of_list last_part))
 
 
   | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"

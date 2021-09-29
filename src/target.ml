@@ -795,5 +795,4 @@ let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
 let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     tr tg;
-    Trace.reparse()
-
+    if reparse then Trace.reparse ()

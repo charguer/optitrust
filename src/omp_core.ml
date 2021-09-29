@@ -6,7 +6,7 @@ let atomic_aux (ao : atomic_operation option) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Atomic ao)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "atomic_aux: expected the sequence where the directive is going to be added"
 
 let atomic (ao : atomic_operation option) (index : int) : Target.Transfo.local =
@@ -16,7 +16,7 @@ let atomic_capture_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive Atomic_capture) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "atomic_capture_aux: expected the sequence where the directive is going to be added"
 
 let atomic_capture (index : int) : Target.Transfo.local =
@@ -26,7 +26,7 @@ let barrier_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive Barrier) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "barrier_aux: expected the sequence where the directive is going to be added"
 
 let barrier (index : int) : Target.Transfo.local =
@@ -36,7 +36,7 @@ let cancel_aux (ctc : clause) (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Cancel (ctc, cl))) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "cancel_aux: expected the sequence where the directive is going to be added"
 
 let cancel (construct_type_clause : clause) (cl : clause list) (index : int) : Target.Transfo.local =
@@ -46,7 +46,7 @@ let cancellation_point_aux (ctc : clause) (cl : clause list) (index : int) (t : 
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Cancellation_point (ctc, cl))) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "cancellation_point_aux: expected the sequence where the directive is going to be added"
 
 let cancellation_point (construct_type_clause : clause) (cl : clause list) (index : int) : Target.Transfo.local =
@@ -56,7 +56,7 @@ let critical_aux (v : var) (hint : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Critical (v, hint))) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "critical_aux: expected the sequence where the directive is going to be added"
 
 let critical (v : var) (hint : var) (index : int) : Target.Transfo.local =
@@ -66,7 +66,7 @@ let declare_simd_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Declare_simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "declare_simd_aux: expected the sequence where the directive is going to be added"
 
 let declare_simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -76,7 +76,7 @@ let declare_reduction_aux (ri : reduction_identifier) (tv : typvar list) (e : ex
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Declare_reduction (ri, tv, e, c))) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "declare_reduction_aux: expected the sequence where the directive is going to be added"
 
 let declare_reduction (ri : reduction_identifier) (tv : typvar list) (e : expression) (c : clause) (index : int) : Target.Transfo.local =
@@ -86,7 +86,7 @@ let declare_target_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Declare_target cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "declare_target_aux: expected the sequence where the directive is going to be added"
 
 let declare_target (cl : clause list) (index : int) : Target.Transfo.local =
@@ -96,7 +96,7 @@ let distribute_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Distribute cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "distribute_aux: expected the sequence where the directive is going to be added"
 
 let distribute (cl : clause list) (index : int) : Target.Transfo.local =
@@ -106,7 +106,7 @@ let distribute_parallel_for_aux (cl : clause list) (index : int) (t : trm) : trm
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Distribute_parallel_for cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "distribute_parallel_for_aux: expected the sequence where the directive is going to be added"
 
 let distribute_parallel_for (cl : clause list) (index : int) : Target.Transfo.local =
@@ -116,7 +116,7 @@ let distribute_parallel_for_simd_aux (cl : clause list) (index : int) (t : trm) 
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Distribute_parallel_for_simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "distribute_parallel_for_simd_aux: expected the sequence where the directive is going to be added"
 
 let distribute_parallel_for_simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -126,7 +126,7 @@ let distribute_simd_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive Distribute_simd) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "distribute_simd_aux: expected the sequence where the directive is going to be added"
 
 let distribute_simd (index : int) : Target.Transfo.local =
@@ -136,7 +136,7 @@ let end_declare_target_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive End_declare_target) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "end_declare_target_aux: expected the sequence where the directive is going to be added"
 
 let end_declare_target (index : int) : Target.Transfo.local =
@@ -146,7 +146,7 @@ let flush_aux (vl : var list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Flush vl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "flush_aux: expected the sequence where the directive is going to be added"
 
 let flush (vl : var list) (index : int) : Target.Transfo.local =
@@ -156,7 +156,7 @@ let for_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (For cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "for_aux: expected the sequence where the directive is going to be added"
 
 let for_ (cl : clause list) (index : int) : Target.Transfo.local =
@@ -166,7 +166,7 @@ let for_simd_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (For_simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "for_simd_aux: expected the sequence where the directive is going to be added"
 
 let for_simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -176,7 +176,7 @@ let master_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive Master) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "master_aux: expected the sequence where the directive is going to be added"
 
 let master (index : int) : Target.Transfo.local =
@@ -186,7 +186,7 @@ let ordered_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Ordered cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "ordered_aux: expected the sequence where the directive is going to be added"
 
 let ordered (cl : clause list) (index : int) : Target.Transfo.local =
@@ -196,7 +196,7 @@ let parallel_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Parallel cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "parallel_aux: expected the sequence where the directive is going to be added"
 
 let parallel (cl : clause list) (index : int) : Target.Transfo.local =
@@ -206,7 +206,7 @@ let parallel_for_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Parallel_for cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "parallel_for_aux: expected the sequence where the directive is going to be added"
 
 let parallel_for (cl : clause list) (index : int) : Target.Transfo.local =
@@ -216,7 +216,7 @@ let parallel_for_simd_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Parallel_for_simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "parallel_for_simd_aux: expected the sequence where the directive is going to be added"
 
 let parallel_for_simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -226,7 +226,7 @@ let parallel_sections_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Parallel_sections cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "parallel_sections_aux: expected the sequence where the directive is going to be added"
 
 let parallel_sections (cl : clause list) (index : int) : Target.Transfo.local =
@@ -236,7 +236,7 @@ let section_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive Section) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "section_aux: expected the sequence where the directive is going to be added"
 
 let section (index : int) : Target.Transfo.local =
@@ -246,7 +246,7 @@ let sections_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Sections cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "sections_aux: expected the sequence where the directive is going to be added"
 
 let sections (cl : clause list) (index : int) : Target.Transfo.local =
@@ -256,7 +256,7 @@ let simd_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "simd_aux: expected the sequence where the directive is going to be added"
 
 let simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -266,7 +266,7 @@ let single_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Single cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "single_aux: expected the sequence where the directive is going to be added"
 
 let single (cl : clause list) (index : int) : Target.Transfo.local =
@@ -276,7 +276,7 @@ let target_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_aux: expected the sequence where the directive is going to be added"
 
 let target (cl : clause list) (index : int) : Target.Transfo.local =
@@ -286,7 +286,7 @@ let target_data_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_data cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_data_aux: expected the sequence where the directive is going to be added"
 
 let target_data (cl : clause list) (index : int) : Target.Transfo.local =
@@ -297,7 +297,7 @@ let target_enter_data_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_enter_data cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_enter_data_aux: expected the sequence where the directive is going to be added"
 
 let target_enter_data (cl : clause list) (index : int) : Target.Transfo.local =
@@ -307,7 +307,7 @@ let target_exit_data_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_exit_data cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_exit_data_aux: expected the sequence where the directive is going to be added"
 
 let target_exit_data (cl : clause list) (index : int) : Target.Transfo.local =
@@ -317,7 +317,7 @@ let target_teams_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_teams cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_teams_aux: expected the sequence where the directive is going to be added"
 
 let target_teams (cl : clause list) (index : int) : Target.Transfo.local =
@@ -327,7 +327,7 @@ let target_teams_distribute_aux (cl : clause list) (index : int) (t : trm) : trm
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_teams_distribute cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_teams_distribute_aux: expected the sequence where the directive is going to be added"
 
 let target_teams_distribute (cl : clause list) (index : int) : Target.Transfo.local =
@@ -337,7 +337,7 @@ let target_teams_distribute_parallel_for_aux (cl : clause list) (index : int) (t
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_teams_distribute_parallel_for cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_teams_distribute_parallel_for_aux: expected the sequence where the directive is going to be added"
 
 let target_teams_distribute_parallel_for (cl : clause list) (index : int) : Target.Transfo.local =
@@ -347,7 +347,7 @@ let target_teams_distribute_parallel_for_simd_aux (cl : clause list) (index : in
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_teams_distribute_parallel_for_simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_teams_distribute_parallel_for_simd_aux: expected the sequence where the directive is going to be added"
 
 let target_teams_distribute_parallel_for_simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -357,7 +357,7 @@ let target_teams_distribute_simd_aux (cl : clause list) (index : int) (t : trm) 
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_teams_distribute_simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_teams_distribute_simd_aux: expected the sequence where the directive is going to be added"
 
 let target_teams_distribute_simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -367,7 +367,7 @@ let target_update_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Target_update cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "target_update_aux: expected the sequence where the directive is going to be added"
 
 let target_update (cl : clause list) (index : int) : Target.Transfo.local =
@@ -377,7 +377,7 @@ let task_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Task cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "task_aux: expected the sequence where the directive is going to be added"
 
 let task (cl : clause list) (index : int) : Target.Transfo.local =
@@ -387,7 +387,7 @@ let taskgroup_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive Taskgroup) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "taskgroup_aux: expected the sequence where the directive is going to be added"
 
 let taskgroup (index : int) : Target.Transfo.local =
@@ -397,7 +397,7 @@ let taskloop_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Taskloop cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "taskloop_aux: expected the sequence where the directive is going to be added"
 
 let taskloop (cl : clause list) (index : int) : Target.Transfo.local =
@@ -407,7 +407,7 @@ let taskloop_simd_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Taskloop_simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "taskloop_simd_aux: expected the sequence where the directive is going to be added"
 
 let taskloop_simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -417,7 +417,7 @@ let taskwait_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive Taskwait) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "taskwait_aux: expected the sequence where the directive is going to be added"
 
 let taskwait (index : int) : Target.Transfo.local =
@@ -427,7 +427,7 @@ let taskyield_aux (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive Taskyield) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "taskyield_aux: expected the sequence where the directive is going to be added"
 
 let taskyield (index : int) : Target.Transfo.local =
@@ -437,7 +437,7 @@ let teams_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Teams cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "teams_aux: expected the sequence where the directive is going to be added"
 
 let teams (cl : clause list) (index : int) : Target.Transfo.local =
@@ -447,7 +447,7 @@ let teams_distribute_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Teams_distribute cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "teams_distribute_aux: expected the sequence where the directive is going to be added"
 
 let teams_distribute (cl : clause list) (index : int) : Target.Transfo.local =
@@ -457,7 +457,7 @@ let teams_distribute_end_aux (cl : clause list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Teams_distribute_end cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "teams_distribute_end_aux: expected the sequence where the directive is going to be added"
 
 let teams_distribute_end (cl : clause list) (index : int) : Target.Transfo.local =
@@ -467,7 +467,7 @@ let teams_distribute_parallel_for_aux (cl : clause list) (index : int) (t : trm)
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Teams_distribute_parallel_for cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "teams_distribute_parallel_for_aux: expected the sequence where the directive is going to be added"
 
 let teams_distribute_parallel_for (cl : clause list) (index : int) : Target.Transfo.local =
@@ -477,7 +477,7 @@ let teams_distribute_parallel_for_simd_aux (cl : clause list) (index : int) (t :
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Teams_distribute_parallel_for_simd cl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "teams_distribute_parallel_for_simd_aux: expected the sequence where the directive is going to be added"
 
 let teams_distribute_parallel_for_simd (cl : clause list) (index : int) : Target.Transfo.local =
@@ -488,7 +488,7 @@ let threadprivate_aux (vl : var list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Threadprivate vl)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "threadprivate_aux: expected the sequence where the directive is going to be added"
 
 let threadprivate (vl : var list) (index : int) : Target.Transfo.local =
@@ -499,7 +499,7 @@ let set_num_threads_aux (nb_threads : int) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_num_threads nb_threads)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
   | _ -> fail t.loc "set_num_threads_aux: expected the sequence where the call to the routine is going to be added"
 
@@ -520,7 +520,7 @@ let get_num_threads_aux (nb_threads : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (nb_threads, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_num_threads)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_num_threads_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_num_threads (nb_threads : var) (index : int) : Target.Transfo.local =
@@ -538,7 +538,7 @@ let get_max_threads_aux (max_threads : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (max_threads, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_max_threads)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_max_threads_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_max_threads (max_threads : var) (index : int) : Target.Transfo.local =
@@ -575,7 +575,7 @@ let get_num_procs_aux (num_procs : var) (index : int) (full_ast : trm) (t : trm)
       trm_let Var_mutable (num_procs, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_num_procs)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_num_procs_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_num_procs (num_procs : var) (index : int) (t : trm) (p : Path.path) : trm =
@@ -594,7 +594,7 @@ let in_parallel_aux (in_parallel : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (in_parallel, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (In_parallel)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "in_parallel_aux: expected the sequence where the call to the routine is going to be added"
 
 let in_parallel (in_parallel : var) (index : int) : Target.Transfo.local =
@@ -605,7 +605,7 @@ let set_dynamic_aux (thread_id : int) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_dynamic thread_id)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
   | _ -> fail t.loc "set_dynamic_aux: expected the sequence where the call to the routine is going to be added"
 
@@ -625,7 +625,7 @@ let get_dynamic_aux (is_dynamic : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (is_dynamic, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_dynamic)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_dynamic_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_dynamic (is_dynamic : var) (index : int) : Target.Transfo.local =
@@ -644,7 +644,7 @@ let get_cancellation_aux (is_cancellation : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (is_cancellation, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_cancellation)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_cancellation_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_cancellation (is_cancellation : var) (index : int) : Target.Transfo.local =
@@ -654,7 +654,7 @@ let set_nested_aux (nested : int) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_nested nested)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
   | _ -> fail t.loc "set_nested_aux: expected the sequence where the call to the routine is going to be added"
 
@@ -673,7 +673,7 @@ let get_nested_aux (is_nested : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (is_nested, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_nested)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_nested_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_nested (is_nested : var) (index : int) : Target.Transfo.local =
@@ -684,7 +684,7 @@ let set_schedule_aux (sched_kind : sched_type) (modifier : int) (index : int) (t
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_schedule (sched_kind, modifier))) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
   | _ -> fail t.loc "set_nested_aux: expected the sequence where the call to the routine is going to be added"
 
@@ -696,7 +696,7 @@ let get_schedule_aux (sched_kind : sched_type) (modifier : int) (index : int) (t
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Get_schedule (sched_kind, modifier))) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
   | _ -> fail t.loc "set_nested_aux: expected the sequence where the call to the routine is going to be added"
 
@@ -715,7 +715,7 @@ let get_thread_limit_aux (limit : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (limit, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_thread_limit)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_thread_limit_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_thread_limit (limit : var) (index : int) : Target.Transfo.local =
@@ -725,7 +725,7 @@ let set_max_active_levels_aux (max_levels : int) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_max_active_levels max_levels)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
   | _ -> fail t.loc "set_max_active_levels_aux: expected the sequence where the call to the routine is going to be added"
 
@@ -745,7 +745,7 @@ let get_max_active_levels_aux (max_levels : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (max_levels, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_max_active_levels)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_max_active_levels_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_max_active_levels (max_levels : var) (index : int) : Target.Transfo.local =
@@ -763,7 +763,7 @@ let get_level_aux (level : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (level, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_level)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_level_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_level (level : var) (index : int) : Target.Transfo.local =
@@ -781,7 +781,7 @@ let get_ancestor_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm
       trm_let Var_mutable (thread_num, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_ancestor_thread_num)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_ancestor_thread_num_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_ancestor_thread_num (thread_num : var) (index : int) : Target.Transfo.local =
@@ -799,7 +799,7 @@ let get_team_size_aux (level : int) (size : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (size, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_team_size level)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_team_size_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_team_size (level : int) (size : var) (index : int) : Target.Transfo.local =
@@ -817,7 +817,7 @@ let get_active_level_aux (active_level : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (active_level, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_active_level)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_active_level_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_active_level (active_level : var) (index : int) : Target.Transfo.local =
@@ -835,7 +835,7 @@ let in_final_aux (in_final : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (in_final, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (In_final)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "in_final_aux: expected the sequence where the call to the routine is going to be added"
 
 let in_final (in_final : var) (index : int) : Target.Transfo.local =
@@ -853,7 +853,7 @@ let get_proc_bind_aux (proc_bind : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (proc_bind, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_proc_bind)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_proc_bind_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_proc_bind (proc_bind : var) (index : int) : Target.Transfo.local =
@@ -863,7 +863,7 @@ let set_default_device_aux (device_num : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_default_device device_num)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
   | _ -> fail t.loc "set_default_device_aux: expected the sequence where the call to the routine is going to be added"
 
@@ -882,7 +882,7 @@ let get_default_device_aux (default_device : var) (index : int) (t : trm) : trm 
       trm_let Var_mutable (default_device, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_default_device)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_default_device_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_default_device (default_device : var) (index : int) : Target.Transfo.local =
@@ -901,7 +901,7 @@ let get_num_devices_aux (num_devices : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (num_devices, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_num_devices)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_num_devices_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_num_devices (num_devices : var) (index : int) : Target.Transfo.local =
@@ -919,7 +919,7 @@ let get_num_teams_aux (num_teams : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (num_teams, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_num_teams)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_num_teams_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_num_teams (num_teams : var) (index : int) : Target.Transfo.local =
@@ -937,7 +937,7 @@ let get_team_num_aux (team_num : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (team_num, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_team_num)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_team_num_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_team_num (team_num : var) (index : int) : Target.Transfo.local =
@@ -955,7 +955,7 @@ let is_initial_device_aux (is_initial_device : var) (index : int) (t : trm) : tr
       trm_let Var_mutable (is_initial_device, typ_ptr Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (In_final)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "is_initial_device_aux: expected the sequence where the call to the routine is going to be added"
 
 let is_initial_device (is_initial_device : var) (index : int) : Target.Transfo.local =
@@ -965,7 +965,7 @@ let init_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Init_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "init_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let init_lock (lock : var) (index : int): Target.Transfo.local =
@@ -975,7 +975,7 @@ let init_nest_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Init_nest_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "init_nest_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let init_nest_lock (lock : var) (index : int): Target.Transfo.local =
@@ -986,7 +986,7 @@ let destroy_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Destroy_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "destroy_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let destroy_lock (lock : var) (index : int): Target.Transfo.local =
@@ -996,7 +996,7 @@ let destroy_nest_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Destroy_nest_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "destroy_nest_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let destroy_nest_lock (lock : var) (index : int): Target.Transfo.local =
@@ -1007,7 +1007,7 @@ let set_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "set_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let set_lock (lock : var) (index : int): Target.Transfo.local =
@@ -1017,7 +1017,7 @@ let set_nest_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_nest_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "set_nest_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let set_nest_lock (lock : var) (index : int): Target.Transfo.local =
@@ -1028,7 +1028,7 @@ let unset_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Unset_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "unset_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let unset_lock (lock : var) (index : int): Target.Transfo.local =
@@ -1038,7 +1038,7 @@ let unset_nest_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Unset_nest_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "unset_nest_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let unset_nest_lock (lock : var) (index : int): Target.Transfo.local =
@@ -1048,7 +1048,7 @@ let test_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "test_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let test_lock (lock : var) (index : int): Target.Transfo.local =
@@ -1058,7 +1058,7 @@ let test_nest_lock_aux (lock : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_routine (Set_nest_lock lock)) tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "test_nest_lock_aux: expected the sequence where the call to the routine is going to be added"
 
 let test_nest_lock (lock : var) (index : int): Target.Transfo.local =
@@ -1076,7 +1076,7 @@ let get_wtime_aux (wtime : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (wtime, typ_ptr Ptr_kind_mut (typ_double())) (trm_apps (trm_prim(Prim_new (typ_double()))) [trm_omp_routine (Get_wtime)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_wtime_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_wtime (wtime : var) (index : int) : Target.Transfo.local =
@@ -1094,7 +1094,7 @@ let get_wtick_aux (wtick : var) (index : int) (t : trm) : trm =
       trm_let Var_mutable (wtick, typ_ptr Ptr_kind_mut (typ_double())) (trm_apps (trm_prim(Prim_new (typ_double()))) [trm_omp_routine (Get_wtick)])
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "get_wtick_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_wtick (wtick : var) (index : int) : Target.Transfo.local =

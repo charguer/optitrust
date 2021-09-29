@@ -877,14 +877,14 @@ let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let new_tl = Mlist.insert_mark_at index m tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "trm_add_mark_between: expected a sequence"
 
 let trm_remove_mark_between (m : mark) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
     let new_tl = Mlist.remove_mark m tl in
-    trm_seq ~annot:t.annot new_tl
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "trm_remove_mark_between: expected a sequence"
 
 (* ********************************************************************************************************************* *)

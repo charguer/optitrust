@@ -40,7 +40,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
       in
      let new_tl = Mlist.merge lfront lback in
      let new_tl = Mlist.insert_sublist_at index ([decl_to_insert] @ [decl_to_change]) new_tl in
-     trm_seq ~annot:t.annot new_tl
+     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
 
@@ -145,7 +145,7 @@ let inline_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (
       in
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.insert_sublist_at index inlined_body new_tl in
-       trm_seq ~annot:t.annot new_tl
+       trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
 

@@ -113,7 +113,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
                               trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ]
                               )]
                   end in
-      trm_seq ~annot:t.annot (Mlist.of_list [new_decl; new_snd_instr; accum])
+      trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_decl; new_snd_instr; accum])
 
     | _ -> fail t.loc "delocalize_aux: first instruction in the sequence should be the declaration of local variable"
     end
@@ -153,7 +153,7 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
       let lback = Mlist.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
       let tl = Mlist.merge lfront lback in
       let tl = Mlist.insert_at index new_decl tl in 
-      trm_seq ~annot:t.annot tl
+      trm_seq ~annot:t.annot ~marks:t.marks tl
     | _ -> fail t.loc "change_type_aux: expected a variable or a function declaration"
     end
   | _ -> fail t.loc "change_type_aux: expected the surrounding sequence"

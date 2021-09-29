@@ -402,7 +402,7 @@ let to_variables_aux (index : int) (t : trm) : trm =
       ) lback in
       let new_tl = Mlist.merge lfront lback in
       let new_tl = Mlist.insert_sublist_at index var_decls new_tl in
-      trm_seq ~annot:t.annot new_tl 
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl 
 
    | _ -> fail trm_to_change.loc "struct_to_variables_aux: expected a variable declaration"
     end
