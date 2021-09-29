@@ -17,9 +17,9 @@ let _ = Run.script_cpp (fun () ->
   show [ cTopFunDef "f"; cVarDef "k" ];
 
   (* Mutliple *)
-  show [ nbMulti; cFunDef "f"; sInstr "j++" ];
+  show [ nbExact 1; cFunDef "f"; sInstr "j++" ];
 
-  show [ nbMulti; cFun "f" ];
+  show [ nbExact 1; cFun "f" ];
 
   (* Inside loop bodies *)
   show [ nbMulti; cFor "j"; sInstr "i++" ];

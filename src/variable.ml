@@ -18,15 +18,23 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
   Target.iter_on_targets (fun t p ->
     let (tg_trm, _) = Path.resolve_path p t in
     match tg_trm.desc with
-    | Trm_let (vk, _, _) ->
-      begin match vk with
-      | Var_immutable -> Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
-      | _ -> if nonconst = true
-              then Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
-              else
-                fail tg_trm.loc "fold: if you want to use folding for mutable variables you should set
+    | Trm_let (vk, (_, tx), _) ->
+      let ty = get_inner_ptr_type tx in
+      begin match ty.typ_desc with 
+      (* If the declared variable has a refernce type checking its mutability is not needed*)
+      | Typ_ptr {ptr_kind = Ptr_kind_ref;_} ->
+        Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
+      (* In other cases we need to check the mutability of the variable *)
+      | _ -> begin match vk with
+            | Var_immutable -> Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
+            | _ -> if nonconst = true
+                then Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
+                else
+                  fail tg_trm.loc "fold: if you want to use folding for mutable variables you should set
                             ~nonconst to true when calling this transformation"
+            end
       end
+      
     | _ -> fail tg_trm.loc "fold: expected a variable declaration"
 ) tg
 
@@ -39,7 +47,10 @@ let local_other_name ?(label : var = "section_of_interes") (var_type : typ) (old
   Sequence_basic.intro_on_instr ~label:"section_of_interest" ~visible:false [Target.tIndex 0; Target.cFor ~body:[Target.cVar old_name]""];
   Variable_basic.local_other_name var_type old_name new_name [Target.cLabel label;Target.dBody]
 
-
+(* [insert_and_fold] expects [tg] to point to relative location, then it inserts a new variable declaration at that location. 
+    The new declared variable is [name] with typ [typ] and value [value]. This variable will be folded everywhere on the ast nodes
+    which come after the declared variable.
+*)
 let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target.target) : unit = 
   Variable_basic.insert name typ value tg;
   Variable_basic.fold [Target.cVarDef name]

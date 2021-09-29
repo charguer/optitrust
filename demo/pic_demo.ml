@@ -66,7 +66,7 @@ let _ = Run.script_cpp (fun () ->
   (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
   !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];
-
+  !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore;cFor "bx"];
   (* PART : to be continued with concurrent bags, and delocalized sums *)
 
   )
@@ -120,7 +120,7 @@ let _ = Run.script_cpp (fun () ->
    !! Loop.fission [tBefore;cVarDef "idCell2"];
    *)
 
-(* TODO 4bis: in
+(* DONE 4bis: in
    !! Variable.fold ~nonconst:true [cVarDef "k"];
    the ~nonconst:true should not be required when the variable is a reference.
   *)
