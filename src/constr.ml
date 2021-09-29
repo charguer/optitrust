@@ -414,8 +414,8 @@ let rec constr_to_string (c : constr) : string =
   | Constr_mark (_, str) -> "Mark (" ^ str ^ ")"
   | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
   | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
-  | Constr_arg _ -> "TODO"
-  | Constr_hastype _ -> "TODO"
+  | Constr_arg _ -> "<Constr_args>"
+  | Constr_hastype _ -> "<Constr_hastype>"
 
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)

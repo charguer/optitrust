@@ -52,26 +52,19 @@ let _ = Run.script_cpp (fun () ->
   show [nbExact 0; sInstr ~substr:false "+= 2"];
   show [sInstr "r += 2"];
   show [sInstr "i++"];
-  show [nbMulti; sInstrRegexp "int . = .."];
+  show [nbExact 6; sInstrRegexp "int . = .."];
   show [nbMulti; sInstrRegexp ~substr:true ". = ."];
-  show [nbMulti; sInstrRegexp ~substr:false ". = ."];
+  show [nbExact 1; sInstrRegexp ~substr:false ". = ."];
   show [nbExact 1; sInstr "int r = 3"];
   show [nbExact 0; sExpr "int r = 3"];
   show [sInstr "i++" ];
-  show [nbMulti; sInstrRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
+  show [nbExact 2; sInstrRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
+  
+  
+  (* Declarations *)
+  show [cDef "s"];
+  show [cDef "p2"];
 )
- (*
-
-  (* Works, in general but fails here because there are more then one occurrences of i++ *)
-  show [nbMulti; sExprRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
-
-
-
-  (* show [ cDef "f" ]; *)
-  (* show [ cDef "s" ]; *):
-  (* show [ cDef "p2" ]; *)
-
-
 (* LATER: smart constructors for checking calls to builtin operations such as get/set/compare/incr, etc *)
 
 (* LATER: show [ cFunDefDef ~args:[[cTrue]; [cOfTyp "vect*"]] "" ]; *)
@@ -80,4 +73,4 @@ let _ = Run.script_cpp (fun () ->
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)
 
 (* LATER: match types using a function of their list of fields *)
-*)
+

@@ -2,7 +2,6 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
-  (* TODO: replace nbMulti with nbExact *)
 
   (* Loop in a function *)
   show [ cFunDef "main"; cFor "i" ];
@@ -19,14 +18,14 @@ let _ = Run.script_cpp (fun () ->
   (* Mutliple *)
   show [ nbExact 1; cFunDef "f"; sInstr "j++" ];
 
-  show [ nbExact 1; cFun "f" ];
+  show [ nbExact 2; cFun "f" ];
 
   (* Inside loop bodies *)
-  show [ nbMulti; cFor "j"; sInstr "i++" ];
+  show [ nbExact 1; cFor "j"; sInstr "i++" ];
 
-  show [ nbMulti; cFor "i"; cFor "j" ];
+  show [ nbExact 1; cFor "i"; cFor "j" ];
 
-  show [ nbMulti; cFunDef ""; dBody; cStrict; cFor "" ];
+  show [ nbExact 3; cFunDef ""; dBody; cStrict; cFor "" ];
 
   show [ nbAny; cFor "i"; sExpr "i++" ];
 
@@ -36,7 +35,7 @@ let _ = Run.script_cpp (fun () ->
 
   show [ nbAny; cFor "i"; dBody; sInstr "i++" ];
 
-  show [ nbMulti; cFor "i"; dBody; cStrict; cFor "j" ];
+  show [ nbExact 1; cFor "i"; dBody; cStrict; cFor "j" ];
 
   show [ cFor "i"; cStrict; cFor "k" ];
 
@@ -65,6 +64,7 @@ let _ = Run.script_cpp (fun () ->
   show [ sInstr "i++" ];
 
   show [ cTopFunDef "main"; cFor "i"; cForNestedAtDepth 0 ];
+  
   show [ cTopFunDef "main"; cFor "i"; cForNestedAtDepth 1 ];
 
 )
