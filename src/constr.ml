@@ -727,7 +727,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         end
      | Constr_seq cl, Trm_seq tl when
         not ((List.mem (No_braces (Nobrace.current())) t.annot) || List.mem Main_file t.annot)->
-        check_list  ~depth:(DepthAt 0) cl (Mlist.to_list tl)
+        check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
+        in constra_app *)
      | Constr_var name, Trm_var x ->
         check_name name x
      | Constr_lit l, Trm_val (Val_lit l') ->
@@ -745,7 +746,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           end
         else
           check_target p_fun f &&
-          check_list cl_args args
+          check_list ~depth:(DepthAny) cl_args args (* LATER: check if depth any is ok *)
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
         check_name so l &&
         check_target p_body body
@@ -786,7 +787,7 @@ and check_name (name : constr_name) (s : string) : bool =
   | Some r ->
      match_regexp_str r  s
 
-and check_list ?(depth : depth = DepthAt 1) (lpred : target_list_pred) (tl : trm list) : bool =
+and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trm list) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
@@ -892,25 +893,28 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
     match trs with
     | [] -> [[]]
     | Constr_or tl :: [] -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at list one solution *)
-        let all_target_must_resolve = false in
+        let all_targets_must_resolve = false in
         List.fold_left (fun acc tr ->
           let potential_targets = resolve_target_simple tr t in
           begin match potential_targets with
-          | [[]] when all_target_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
           | _ -> acc @ potential_targets  (* LATER: make code more complex to avoid quadratic operation here -- TODO: call list_union acc potential_targets? *)
           end ) [] tl
     | Constr_and tl :: [] ->
+        (* TODO ARTHUR : optimize resolution by resolving the targets only by exploring
+          through the paths that are candidates; using e.g. path_satisfies_target *)
+        let all_targets_must_resolve = false in
         Tools.foldi (fun i acc tr ->
-        let potential_target = resolve_target_simple tr t in
-        begin match potential_target with
-        | [[]] -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
-        | _ ->
-          if i = 0
-            (* First step, initalize the acc *)
-            then potential_target
-          (* Compute the intersection of all resolved targets *)
-            else Tools.list_intersect acc potential_target
-        end ) [] tl
+          let targetsi = resolve_target_simple tr t in
+          begin match targetsi with
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | _ ->
+            if i = 0
+              (* First step, initalize the acc *)
+              then targetsi
+            (* Compute the intersection of all resolved targets *)
+              else Tools.list_intersect acc targetsi
+          end) [] tl
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t

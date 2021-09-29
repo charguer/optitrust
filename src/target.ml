@@ -41,7 +41,7 @@ let cFalse : constr =
   Constr_bool false
 
 let cStrict : constr =
-  Constr_depth (DepthAt 1)
+  Constr_depth (DepthAt 0)
 
 let cChain (cstrs : constr list) : constr =
   Constr_target cstrs
@@ -212,13 +212,13 @@ let cHasTypeAst (ty : typ) : constr =
   let pred = (fun (ty2 : typ) -> same_types ty ty2) in
   cHasTypePred (make_typ_constraint ~typ_pred:pred ())
 
-let cHasType (tystr : string) : constr =
-  cHasTypePred (make_typ_constraint ~typ:tystr ())
+let cHasType (typ : string) : constr =
+  cHasTypePred (make_typ_constraint ~typ ())
 
 let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default)  (tg : target) : target =
   if typ = "" && typ_pred == typ_constraint_default
     then tg
-    else [cAnd [tg; [cStrict; Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
+    else [cAnd [tg; [Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
 
 let cArgPred ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (pred : string -> bool) : constr =
   Constr_arg (pred, make_typ_constraint ~typ ~typ_pred ())
@@ -230,9 +230,8 @@ let cArg ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_defau
 let cVarDef
   ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
   let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
-  let p_body =  body in
   let ty_pred = make_typ_constraint ~typ ~typ_pred () in
-  Constr_decl_var (ty_pred, ro, p_body)
+  Constr_decl_var (ty_pred, ro, body)
 
 let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
