@@ -65,7 +65,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; (* TODO1 *)
+  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; 
 
   (* PART : to be continued with concurrent bags, and delocalized sums *)
 
@@ -112,7 +112,7 @@ let _ = Run.script_cpp (fun () ->
 
         (* TODO: cVarDef ~regexp:true "(speed2|pos2)_."  *) (* TODO4 *)
 
-        (* TODO1:  reimplement  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];  *)
+        (* DONE:  reimplement  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];  *)
 
 
   (* details on loop fission; useful for debugging extra braces

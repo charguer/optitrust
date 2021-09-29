@@ -201,19 +201,19 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
     of sequences to generate.
     braces:true to keep the sequences
 *)
-(* [reorder ordered_indices]  expects the targe [tg] to point to the first loop included in the sorting 
-    the it will reorder the nested loops based on [ordered_indices]
+(* [reorder order]  expects the targe [tg] to point to the first loop included in the sorting 
+    the it will reorder the nested loops based on [order]
     Assumption:
       Loops are nested by using sequences
 *)
-let reorder (ordered_indices : var list) (tg : Target.target) : unit =
+let reorder ?(order : var list = []) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_loop, _ = Path.resolve_path p t in
     let current_indices = Internal.get_loop_nest_indices tg_loop in
-    if (List.length current_indices <> List.length ordered_indices) 
+    if (List.length current_indices <> List.length order) 
       then fail tg_loop.loc "reorder: reordering does not change the number of nested loops"
       else 
-        let targeted_loop_index = List.nth (List.rev ordered_indices) 0 in
-        List.iter (fun x -> move [Target.cFor x] ~after:[Target.cFor targeted_loop_index ]) current_indices
+        let targeted_loop_index = List.nth (List.rev order) 0 in
+        List.iter (fun x -> move [Target.cFor x] ~before:[Target.cFor targeted_loop_index ]) order
   ) tg
 
