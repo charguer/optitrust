@@ -29,9 +29,7 @@ let _ = Run.script_cpp (fun () ->
   show [ nbExact 3; cPrimFun ~args:[[]; []] (Prim_binop Binop_set) ];
   show [ nbExact 3; cPrimFun ~args:[[cVar ""]; []] (Prim_binop Binop_set) ];
   show [ nbExact 1; cPrimFun ~args:[[cVar "i"]; []] (Prim_binop Binop_set) ];
-  show [ nbExact 1; cPrimFun ~args:[[cStrict; cVar "i"]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cPrimFun ~args:[[cHasType "int"]; []] (Prim_binop Binop_set) ];
-  show [ nbExact 2; cPrimFun ~args:[[cStrict; cHasType "int"]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cPrimFun ~args:[[cAnd [[]; [cHasType "int"]]]; []] (Prim_binop Binop_set) ];
   show [ nbExact 2; cSet ~typ:"int" () ];
   show [ nbExact 1; cSet ~typ_pred:ty_double () ];

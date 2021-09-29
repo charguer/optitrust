@@ -65,7 +65,14 @@ check: $(TESTS:.ml=.chk)
 # 'make exp' adds all the missing expected files
 exp: $(TESTS:.ml=.exp)
 
+# 'make compile_src' checks that the source files compile
+compile_src: $(TESTS:.ml=.prog)
+
+# 'make compile_out' checks that the output files compile
+compile_out: $(TESTS:.ml=_out.prog)
+
 # 'make compile' checks that the source and output cpp files both compile
+compile: compile_src compile_out
 
 # 'make execute" checks that the source and output cpp file both produce similar output
 execute: $(EXECUTE:.ml=.exec)

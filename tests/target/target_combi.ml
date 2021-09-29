@@ -2,6 +2,8 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun () ->
+  (* TODO: replace nbMulti with nbExact *)
+
   (* Loop in a function *)
   show [ cFunDef "main"; cFor "i" ];
 
@@ -25,7 +27,6 @@ let _ = Run.script_cpp (fun () ->
   show [ nbMulti; cFor "i"; cFor "j" ];
 
   show [ nbMulti; cFunDef ""; dBody; cStrict; cFor "" ];
-  (* TODO ARTHUR: here and below fix cStrict for targeting cFor via its seq *)
 
   show [ nbAny; cFor "i"; sExpr "i++" ];
 

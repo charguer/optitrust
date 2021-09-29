@@ -41,7 +41,7 @@ let cFalse : constr =
   Constr_bool false
 
 let cStrict : constr =
-  Constr_depth (DepthAt 0)
+  Constr_depth (DepthAt 1)
 
 let cChain (cstrs : constr list) : constr =
   Constr_target cstrs
@@ -775,8 +775,9 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
   fun (k:int) -> apply_on_path (target_between_show_aux id k)
 
 (* [show ~line:int tg] is a transformation for visualizing targets.
-   The operation only executes if the command line argument [-exit-line]
-   matches the [line] argument provided to the function. Otherwise, it is a noop.
+   The operation add marks if the command line argument [-exit-line]
+   matches the [line] argument provided to the function. Otherwise, the
+   [show] function only checks that the path resolve properly.
    There is no need for a prefix [!!] or [!!!] to the front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
@@ -792,11 +793,15 @@ let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
     if Constr.is_target_between tg then begin
       applyi_on_targets_between (fun i t (p,k) ->
         target_between_show_transfo i k t p) tg
-        end
-    else begin
+    end else begin
       applyi_on_targets (fun i t p -> target_show_transfo i t p) tg
     end;
     dump_diff_and_exit()
+  end else begin
+    (* only check targets are valid *)
+    if Constr.is_target_between tg
+      then applyi_on_targets_between (fun _i t (_p,_k) -> t) tg
+      else applyi_on_targets (fun _i t _p -> t) tg
   end
 
 (** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
