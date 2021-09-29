@@ -385,9 +385,10 @@ let reorder_fields (reorder_kind : reorder) (local_l : var list) (sf : (var * ty
 (* For a trm t with index [index] in its surrounding sequence return that the list of trms before t,
     t itself and the list of trms behind t.
 *)
-let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
-  let lfront, lback = Mlist.extract index ((Mlist.length trms) - 1) trms in
-  let lback, element = Mlist.extract 0 0 lback in
+
+let get_trm_and_its_relatives_temp (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
+  let lfront, lback = Mlist.split_temp index trms in
+  let element, lback = Mlist.split_temp 1 lback in
   let element = 
     if Mlist.length element = 1 
       then Mlist.nth element 0 
@@ -395,11 +396,11 @@ let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * tr
   in
   (lfront, element, lback)
 
-let get_trm_and_its_relatives_temp (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
-  
-  let element, new_tl = Mlist.extract_temp index 0 trms in
-  (* let lfront, lback = Mlist.extract index ((Mlist.length trms) - 1) trms in *)
-  (* let lback, element = Mlist.extract 0 0 lback in *)
+
+
+let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
+  let lfront, lback = Mlist.extract index ((Mlist.length trms) - 1) trms in
+  let lback, element = Mlist.extract 0 0 lback in
   let element = 
     if Mlist.length element = 1 
       then Mlist.nth element 0 

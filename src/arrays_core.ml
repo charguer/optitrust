@@ -66,7 +66,8 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
 let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
+    let lfront, d, lback = Internal.get_trm_and_its_relatives_temp index tl in
+    Tools.printf "Arrived here";
     let array_name = decl_name d in
     let var_decls = begin match d.desc with
     | Trm_let (_, (_ , __), init) ->
@@ -89,7 +90,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
     end
     in
     let lback = Mlist.map (inline_array_access array_name new_vars) lback in
-    let new_tl = Mlist.merge lfront lback in
+    let new_tl = Mlist.merge_temp lfront lback in
     let tl = Mlist.insert_sublist_at index var_decls new_tl in
     trm_seq ~annot:t.annot ~loc:t.loc ~marks:t.marks tl
   | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"

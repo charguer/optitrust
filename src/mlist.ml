@@ -69,11 +69,16 @@ let remove_mark (m : mark) (ml : 'a t) : 'a t =
 
 let split_temp ?(left_bias : bool = true) (index : int) (ml : 'a t) : 'a t * 'a t=
   let items1, items2 = Tools.split_list_at index ml.items in
-  let marks1a, marks2a = Tools.split_list_at (index + if left_bias then 1 else 0) ml.items in
+  let marks1a, marks2a = Tools.split_list_at (index + if left_bias then 1 else 0) ml.marks in
   let marks1 = if left_bias then marks1a else marks1a @ [] in
   let marks2 = if left_bias then [] :: marks2a else marks2a in
   ({items = items1; marks = marks1}, {items = items2; marks = marks2})
 
+let merge_temp (ml1 : 'a t) (ml2 : 'a t) : 'a t =
+  let marks1, tmp_marks1 = Tools.unlast ml1.marks in
+  let tmp_marks2, marks2 = Tools.uncons ml2.marks in
+  let merged_marks = [tmp_marks1] @ [tmp_marks2] in
+  { items = ml1.items @ ml2.items; marks = marks1 @ merged_marks @ marks2 }
 
 let extract_temp ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (start : int) (nb : int) (ml : 'a t) : 'a t * 'a t =
   let ml1, ml23 = split_temp ~left_bias:start_left_bias start ml in
@@ -113,12 +118,6 @@ let extract (start : int) (stop : int) (ml : 'a t) : ('a t * 'a t) =
         (ml13, ml2)
 
 *)
-
-let merge_temp (ml1 : 'a t) (ml2 : 'a t) : 'a t =
-  let marks1, tmp_marks1 = Tools.unlast ml1.marks in
-  let tmp_marks2, marks2 = Tools.uncons ml2.marks in
-  let merged_marks = [tmp_marks1] @ [tmp_marks2] in
-  { items = ml1.items @ ml2.items; marks = marks1 @ merged_marks @ marks2 }
 
 
 let merge (ml1 : 'a t) (ml2 : 'a t) : 'a t =
