@@ -18,15 +18,18 @@ let _ = Run.script_cpp ~check_exit_at_end:false (fun () ->
   !! Variable.inline [cVarDef "r1"];
   !! Variable.inline [cVarDef "r2"];
 
+  (* Part: Naming the target bag *)
+  !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
+  !! Function.inline [cTopFunDef "main"; cFun "bag_push"];
+  !! Variable.insert "k" "int&" "b2.nb;" [tAfter; cVarDef "b2"];
+  !! Variable.fold ~nonconst:true [cVarDef "k"];
+
   (* Part: Inlining of structure assignements *)
   !! Struct.set_explicit [cVarDef "speed2"];
   !! Struct.set_explicit [cVarDef "pos2"];
-  !! Function.bind_args ["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
-  !! Function.inline [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
   !! Struct.set_explicit [nbMulti; cSet ~typ:(Some "particle")()];
   !! Struct.set_explicit [nbMulti; cSet ~typ:(Some "vect")()];
-
 
   !!();
 )
@@ -42,9 +45,6 @@ let _ = Run.script_cpp (fun () ->
   (* Part: Naming the target bag *)
   !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
   !! Variable.insert_and_fold "k" "int&" "b2.nb" [tAfter; cVarDef "b2"];
-  (* Details *)
-  (* !! Variable.insert "k" "int&"  "k = b2.nb;" [tAfter; cVarDef "b2"]; *)
-  (* !! Variable.fold ~nonconst:true [cVarDef "k"]; *)
 
   (* Part: Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
@@ -55,7 +55,7 @@ let _ = Run.script_cpp (fun () ->
   (* Part: AOS-TO-SOA *)
   !!! Struct.inline "pos" [cTypDef "particle"];
   !!! Struct.inline "speed" [cTypDef "particle"];
-  !! Variable.inline [cVarDef "p"];
+  !! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
   !! Struct.inline "items" [cTypDef "bag"];
 
    (* Part: Splitting the loop, with hoisting *)
