@@ -34,10 +34,10 @@ include Trace
 (*                             Logic constraints                              *)
 (******************************************************************************)
 
-let bTrue : constr =
+let cTrue : constr =
   Constr_bool true
 
-let bFalse : constr =
+let cFalse : constr =
   Constr_bool false
 
 let cStrict : constr =
@@ -195,45 +195,43 @@ let cOr (tgl : target list) : constr =
 let cAnd (tgl : target list) : constr =
   Constr_and tgl
 
-let make_typ_constraint ?(typ : string option = None) ?(typ_ast : typ option = None) () : typ_constraint =
-  match typ, typ_ast with
-  | None, None -> (fun _ -> true)
-  | Some ty_str, None -> (fun (ty : typ) -> ty_str = (Ast_to_c.typ_to_string ty))
-  | None, Some ty_ast -> (fun (ty : typ) -> same_types ty ty_ast)
-  | Some _, Some _ -> fail None "make_typ_constraint: can't provide both typ as string and type as ast type"
+let typ_constraint_default : typ_constraint =
+  (fun _ -> true)
 
-let add_type_constraint ?(typ : string option = None) ?(typ_ast : typ option = None) (c : constr) : constr =
-  if typ = None && typ_ast = None
-    then c
-    else cAnd [[c];[Constr_hastype (make_typ_constraint ~typ ~typ_ast ())]]
-
-(* should only be used for strict targets *)
-let add_type_constraint_to_target ?(typ : string option = None) ?(typ_ast : typ option = None) (tg : target) : target =
-(* TODO: factorize better with above *)
-  if typ = None && typ_ast = None
-    then tg
-    else [cAnd [tg; [cStrict; Constr_hastype (make_typ_constraint ~typ ~typ_ast ())]]]
+let make_typ_constraint ?(typ:string="") ?(typ_pred : typ_constraint = typ_constraint_default) () : typ_constraint =
+  if typ <> "" && typ_pred != typ_constraint_default
+    then fail None "make_typ_constraint: cannot provide both ~typ and ~typ_pred.";
+  if typ = ""
+    then typ_pred
+    else (fun (ty : typ) -> typ = (Ast_to_c.typ_to_string ty))
 
 let cHasTypePred (pred : typ -> bool) : constr =
   Constr_hastype pred
 
-let cHasTypeAst (ty : typ) : typ_constraint =
-  make_typ_constraint ~typ_ast:(Some ty) ()
+let cHasTypeAst (ty : typ) : constr =
+  let pred = (fun (ty2 : typ) -> same_types ty ty2) in
+  cHasTypePred (make_typ_constraint ~typ_pred:pred ())
 
-let cHasType (tystr : string) : typ_constraint =
-  make_typ_constraint ~typ:(Some tystr) ()
+let cHasType (tystr : string) : constr =
+  cHasTypePred (make_typ_constraint ~typ:tystr ())
 
-let cArgPred ?(typ : string option = None) ?(typ_ast : typ option = None) (pred : string -> bool) : constr =
-  Constr_arg (pred, make_typ_constraint ~typ ~typ_ast ())
+let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default)  (tg : target) : target =
+  if typ = "" && typ_pred == typ_constraint_default
+    then tg
+    else [cAnd [tg; [cStrict; Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
 
-let cArg ?(typ : string option = None) ?(typ_ast : typ option = None) (name : string) : constr =
-  cArgPred ~typ ~typ_ast (fun x -> x = name)
+let cArgPred ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (pred : string -> bool) : constr =
+  Constr_arg (pred, make_typ_constraint ~typ ~typ_pred ())
+
+let cArg ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
+  let pred = if (name = "") then (fun _ -> true) else (fun x -> x = name) in
+  cArgPred ~typ ~typ_pred pred
 
 let cVarDef
-  ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) ?(typ : string option = None) ?(typ_ast : typ option = None) (name : string) : constr =
+  ?(regexp : bool = false) ?(substr : bool = false) ?(body : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
   let ro = string_to_rexp_opt regexp substr name TrmKind_Instr in
   let p_body =  body in
-  let ty_pred = make_typ_constraint ~typ ~typ_ast () in
+  let ty_pred = make_typ_constraint ~typ ~typ_pred () in
   Constr_decl_var (ty_pred, ro, p_body)
 
 let cFor ?(direction : loop_dir = DirUp) ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
@@ -277,7 +275,7 @@ let cThen : constr =
 let target_list_simpl (args : targets) : target_list_pred =
   let n = List.length args in
   make_target_list_pred
-    (fun i -> if i < n then List.nth args i else [cStrict;bFalse])
+    (fun i -> if i < n then List.nth args i else [cStrict;cFalse])
     (fun bs -> List.length bs = n && list_all_true bs)
     (fun () -> "target_list_simpl(" ^ (list_to_string (List.map target_to_string args) ^ ")"))
 
@@ -302,7 +300,7 @@ let target_list_all_st (tg : target) : target_list_pred = (* LATER: KEEP ONLY TH
 (* Predicate that matches any list of arguments *)
 let target_list_pred_default : target_list_pred =
   make_target_list_pred
-    (fun _i -> [bTrue])
+    (fun _i -> [cTrue])
     list_all_true
     (fun () -> "target_list_pred_default")
 
@@ -318,6 +316,9 @@ let combine_args (args:targets) (args_pred:target_list_pred) : target_list_pred 
 
 
 (* by default an empty name is no name *)
+(* TODO: add constraint on return types, in the form
+   ?(ret_typ:string) ?(ret_typ_pred:typ_constraint);
+   make sure to add unit tests in target_type.ml *)
 let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default) ?(body : target = []) ?(regexp : bool = false) (name : string) : constr =
   let ro = string_to_rexp_opt regexp false name TrmKind_Expr in
   Constr_decl_fun (ro, combine_args args args_pred, body)
@@ -356,10 +357,11 @@ let cEnum ?(name : string = "")
 let cSeq ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (_ : unit) : constr =
   Constr_seq (combine_args args args_pred)
 
-let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : string option = None) ?(typ_ast : typ option = None) (name : string) : constr =
+let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
   let ro = string_to_rexp_opt regexp false name trmkind in
   let c = Constr_var ro in
-  add_type_constraint ~typ ~typ_ast c
+  if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization *)
+  Constr_target (with_type ~typ ~typ_pred [c])
 
 let cBool (b : bool) : constr =
     Constr_lit (Some (Lit_bool b))
@@ -403,8 +405,8 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
 (* [cSet ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
 *)
-let cSet ?(lhs : target = []) ?(rhs : target = []) ?(typ : string option = None) ?(typ_ast : typ option = None) (_ : unit) : constr =
-  let lhs_typed = add_type_constraint_to_target ~typ ~typ_ast lhs in
+let cSet ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
+  let lhs_typed = with_type ~typ ~typ_pred lhs in
   cPrimFun ~args:[lhs_typed; rhs] (Prim_binop Binop_set)
 
 let cSetVar (x : var) : constr =
@@ -805,5 +807,5 @@ let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
 let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     tr tg;
-    Trace.reparse()
+    if reparse then Trace.reparse()
 

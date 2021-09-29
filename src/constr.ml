@@ -150,11 +150,16 @@ and constr =
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
   | Constr_hastype of typ_constraint
 
-(* constraint over type *)
+(* Constraint over types *)
 and typ_constraint = typ -> bool
 
-(* constraint over name *)
+(* Constraint on an argument, represented as a target with a single item
+   of the form [cArg ..] or [cTrue]. *)
+and arg_constraint = target
+
+(* Constraint over variable names *)
 and var_constraint = string -> bool
+
 (* Names involved in constraints, e.g. for goto labels *)
 and constr_name = rexp option
 
@@ -279,7 +284,7 @@ let rec constr_to_string (c : constr) : string =
      let s_then = target_to_string p_then in
      let s_else = target_to_string p_else in
      "If (" ^ s_cond ^ ", " ^ s_then ^ ", " ^ s_else ^ ")"
-  | Constr_decl_var (ty_pred, name, p_body) ->
+  | Constr_decl_var (_ty_pred, name, p_body) ->
      let s_name =
        match name with | None -> "_" | Some r -> rexp_to_string r
      in
@@ -791,17 +796,20 @@ and check_args (lpred : target_list_pred) (txl : typed_vars) : bool =
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i tx -> check_arg (ith_target i) tx) txl)
 
-(* [check_arg] understands [cHasType] and [cArg], expect target to be singleton constraints *)
-and check_arg (tg:target) ((var_name, var_typ) : typed_var) : bool =
+(* [check_arg tg tx] checks if the typed-variable [tx] satisfies the
+   argument-constraint [tg]. An argument constraint is a singleton
+   constraint, of the form [cArg ..] or [cTrue]. *)
+
+and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
   match tg with
   | [] -> true
   | [c] -> begin match c with
            | Constr_bool true -> true
            | Constr_arg (var_constraint, typ_constraint) ->
               var_constraint var_name && typ_constraint var_typ
-           | _ -> false
+           | _ -> fail None  "check_arg: target expressing constraints on arguments must be of the form [cArg...] or [cTrue]."
           end
-  | _ -> fail None "check_arg: expected just one constraint in the target"
+  | _ -> fail None "check_arg: target expressing constraints on arguments must be list with at most one item."
 
 and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
