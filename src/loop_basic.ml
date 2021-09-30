@@ -59,7 +59,7 @@ let tile ?(index : var = "") ?(bound : tile_bound = TileBoundMin) (tile_size : s
         return 0;                               return 0;
       }                                       }
 *)
-let hoist ? (patt_name : var = "var_step") (tg : Target.target) : unit =
+let hoist ? (patt_name : var = "${var}_step") (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
      (fun (p, i) t -> Loop_core.hoist patt_name i t p) tg)

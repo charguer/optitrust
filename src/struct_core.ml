@@ -34,12 +34,12 @@ let set_explicit_aux (t: trm) : trm =
         | Trm_apps (f2, [lbase]) ->
           let exp_assgn = List.map (fun (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-           trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f2 [lbase]]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f1 [rbase]])
+           trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{lt with desc = Trm_apps (f2, [lbase])}]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{rt with desc = Trm_apps (f1 ,[rbase])}])
           ) field_list in
          trm_seq_no_brace exp_assgn 
         | _ -> let exp_assgn = List.map(fun (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~annot:[Mutable_var_get] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) f1 [trm_apps ~annot:[Mutable_var_get] new_f [rbase]])
+          trm_set (trm_apps ~annot:[Mutable_var_get] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{rt with desc = Trm_apps (f1 ,[rbase])}])
           ) field_list in
           trm_seq_no_brace exp_assgn 
         end
@@ -47,16 +47,16 @@ let set_explicit_aux (t: trm) : trm =
       | Trm_struct st ->
         let st = Mlist.to_list st in
         begin match lt.desc with
-        | Trm_apps (f2, lbase) ->
+        | Trm_apps (_f2, _lbase) ->
           let exp_assgn = List.mapi(fun i (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f2 lbase]) (List.nth st i)
+          trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [lt]) (List.nth st i)
           ) field_list in
           trm_seq_no_brace exp_assgn 
-        | Trm_var v ->
+        | Trm_var _ ->
           let exp_assgn = List.mapi(fun i (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~typ:(Some ty) new_f [trm_var v]) (List.nth st i)
+          trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (List.nth st i)
           ) field_list in
           trm_seq_no_brace exp_assgn 
         | _ -> fail t.loc "set_explicit_aux: left term was not matched"
@@ -147,6 +147,8 @@ let set_implicit (keep_label : bool) : Target.Transfo.local =
       t: ast node located in the same level as the stract declaration or deeper
     return:
       updated ast node with the transformed field accesses
+    
+    example p.pos.x to p.pos_x
 *)
 let inline_struct_accesses  (x : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
@@ -163,7 +165,7 @@ let inline_struct_accesses  (x : var) (t : trm) : trm =
             begin match f'.desc with
             | Trm_val(Val_prim (Prim_binop Binop_array_cell_addr))
               | Trm_val(Val_prim (Prim_binop Binop_array_cell_get)) ->
-                (* THen base caontains another base and also the index  *)
+                (* Then base caontains another base and also the index  *)
                 let base2 = List.nth base' 0 in
                 let index = List.nth base' 1 in
                 begin match base2.desc with
@@ -288,7 +290,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.insert_at index new_trm new_tl in
-       trm_seq ~annot:t.annot ~marks:t.marks  new_tl
+       { t with desc = Trm_seq new_tl}
       | _ -> fail t.loc "inline_aux: expected a struct "
       end
     | _ -> fail t.loc "inline_aux: expected a trm_typedef"
