@@ -23,9 +23,9 @@ let interchange_aux (t : trm) : trm =
       | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
       | None -> fail body1.loc "interchange_aux: should target a loop with nested loop^inside"
       end
-    | _ -> begin match Internal.extract_loop body1 with 
+    | _ -> begin match Internal.extract_loop body1 with
            | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-           | None -> fail body1.loc "interchange_aux: should target a loop with nested inner loops" 
+           | None -> fail body1.loc "interchange_aux: should target a loop with nested inner loops"
            end
     end
   | None -> fail t.loc "interchange_aux: should target a loop"
@@ -68,7 +68,7 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
 
 
 let color (c : var) (i_color : var) : Target.Transfo.local =
-    Target.apply_on_path (color_aux c i_color) 
+    Target.apply_on_path (color_aux c i_color)
 
 (*  [tile_aux divides b tile_index t]: tile loop t
       params:
@@ -170,7 +170,7 @@ let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
-        let new_name = Str.global_replace (Str.regexp "var") x patt_name in
+        let new_name = Str.global_replace (Str.regexp_string "${var}") x patt_name in
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_name; trm_var index] ) in
         let new_tl = Mlist.merge lfront lback in
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in

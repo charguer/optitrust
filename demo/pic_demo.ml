@@ -60,24 +60,26 @@ let _ = Run.script_cpp (fun () ->
 
    (* Part: Splitting the loop, with hoisting *)
    !! Struct.to_variables [cVarDef "speed2"];
-   !! Loop.hoist ~patt_name:"var_step" [nbMulti; cVarDef ~regexp:true "speed2_."];
+   !! Loop.hoist ~patt_name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
+   (* !! Variable.inline [cVarDef "speed2_x" ];
+      TODO !! Variable.inline [cVarDef ~regexp:true "speed2_." ]; *)
    !! Loop.fission [tBefore; cVarDef "pos2"];
 
   (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-  
-  let dims = ["x";"y";"z"] in
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
-    Loop_basic.tile tile ~index:bd [cFor d];
-    Loop_basic.color color ~index:("c"^d) [cFor bd] 
+    Loop_basic.tile tile ~bound:TileBoundDivides ~index:bd [cFor d]; (* TODO: ~index:"b${id}" *)
+    Loop_basic.color color ~index:("c"^d) [cFor bd]
     in
-  
-  !! List.iter  (colorize "2" "2") dims;
-  !! Loop.reorder ~order:((Tools.add_prefix "c" dims) @ (Tools.add_prefix "b" dims) @ dims) [cFor "cx"];
-  
-  (* !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; *)
-  !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore;cFor "bx"];
+  (*!! colorize "2" "2" "x";*)
+  let dims = ["x";"y";"z"] in
+  !! List.iter (colorize "2" "2") dims;
+  !! Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cx"];
+
+  (* Part: Parallelization *)
+  !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bx"];
+
   (* PART : to be continued with concurrent bags, and delocalized sums *)
 
   )

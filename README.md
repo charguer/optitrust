@@ -40,7 +40,8 @@
    # OCaml syntax highlighting
    # New plugins to highlight the code "OCaml and Reason IDE"
    # Type CTRL+P, then paste and execute the commande:
-   #    ext install ocamllabs.ocaml-platform
+   #    ext install freebroccolo.reasonml
+   # Alternative? ocamllabs.ocaml-platform
 
    # As explained in https://www.cosmiccode.blog/blog/vscode-for-ocaml/
    # for merlin to work well you need to update settings.json (global VS code settings)
