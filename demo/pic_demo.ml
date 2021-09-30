@@ -55,13 +55,13 @@ let _ = Run.script_cpp (fun () ->
   (* Part: AOS-TO-SOA *)
   !!! Struct.inline "pos" [cTypDef "particle"];
   !!! Struct.inline "speed" [cTypDef "particle"];
-  !! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
-  !! Struct.inline "items" [cTypDef "bag"];
+  !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
+  !!! Struct.inline "items" [cTypDef "bag"];
 
    (* Part: Splitting the loop, with hoisting *)
-   !! Struct.to_variables [cVarDef "speed2"];
-   !! Loop.hoist ~patt_name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
-   !! Variable.inline [cVarDef "speed2_x"];
+   !!! Struct.to_variables [cVarDef "speed2"];
+   !!! Loop.hoist ~patt_name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
+   !!! Variable.inline [nbMulti; cVarDef ~regexp:true "speed2_."];
    (* !! Variable.inline [cVarDef "speed2_x" ];
       TODO !! Variable.inline [cVarDef ~regexp:true "speed2_." ]; *)
    !! Loop.fission [tBefore; cVarDef "pos2"];
