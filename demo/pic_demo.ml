@@ -55,29 +55,30 @@ let _ = Run.script_cpp (fun () ->
   (* Part: AOS-TO-SOA *)
   !!! Struct.inline "pos" [cTypDef "particle"];
   !!! Struct.inline "speed" [cTypDef "particle"];
-  !! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
-  !! Struct.inline "items" [cTypDef "bag"];
+  !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
+  !!! Struct.inline "items" [cTypDef "bag"];
 
    (* Part: Splitting the loop, with hoisting *)
-   !! Struct.to_variables [cVarDef "speed2"];
-   !! Loop.hoist ~patt_name:"var_step" [nbMulti; cVarDef ~regexp:true "speed2_."];
-   !! Loop.fission [tBefore; cVarDef "pos2"];
+   !!! Struct.to_variables [cVarDef "speed2"];
+   !!! Loop.hoist ~patt_name:"var_step" [nbMulti; cVarDef ~regexp:true "speed2_."];
+   !!! Loop.fission [tBefore; cVarDef "pos2"];
 
   (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-  
-  let dims = ["x";"y";"z"] in
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
     Loop_basic.tile tile ~index:bd [cFor d];
-    Loop_basic.color color ~index:("c"^d) [cFor bd] 
+    Loop_basic.color color ~index:("c"^d) [cFor bd]
     in
-  
+
+  let dims = ["x";"y";"z"] in
+  (* !! colorize "2" "2" "x" *)
   !! List.iter  (colorize "2" "2") dims;
   !! Loop.reorder ~order:((Tools.add_prefix "c" dims) @ (Tools.add_prefix "b" dims) @ dims) [cFor "cx"];
-  
-  (* !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; *)
+
+  (* PART: parallelization *)
   !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore;cFor "bx"];
+
   (* PART : to be continued with concurrent bags, and delocalized sums *)
 
   )
