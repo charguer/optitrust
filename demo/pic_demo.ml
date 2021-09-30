@@ -61,7 +61,6 @@ let _ = Run.script_cpp (fun () ->
    (* Part: Splitting the loop, with hoisting *)
    !! Struct.to_variables [cVarDef "speed2"];
    !! Loop.hoist ~name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
-   
    (* remove the dollar to see the error *)
    !! Variable.inline [nbMulti; cVarDef ~regexp:true "speed2_.$"];
      
@@ -124,8 +123,8 @@ let _ = Run.script_cpp (fun () ->
 
   (* DONE: remove extra braces in loop fission *)
 
-
-        (* TODO: cVarDef ~regexp:true "(speed2|pos2)_."  *) (* TODO4 *)
+        (* DONE: cVarDef ~regexp:true "(speed2|pos2)_."  *) (* DONE *)
+        (*CORRECT usage of regex cVarDef ~regexp:true "speed2\|pos2_." *)
 
         (* DONE:  reimplement  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];  *)
 
