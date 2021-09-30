@@ -184,6 +184,16 @@ let intersect (p1 : paths) (p2 : paths) : paths =
   let inter_p1_p2 = Path_set.inter set_of_p1 set_of_p2 in
   Path_set.elements inter_p1_p2
 
+(* Compute the union of two resolved paths and remove duplicates *)
+let union (p1 : paths) (p2 : paths) : paths = 
+  let set_of_p1 = Path_set.empty in
+  let set_of_p2 = Path_set.empty in
+  let set_of_p1 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1 in
+  let set_of_p2 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p2 p2 in
+  let union_p1_p2 = Path_set.union set_of_p1 set_of_p2 in
+  Path_set.elements union_p1_p2
+
+
 
 (******************************************************************************)
 (*                                  Auxiliary functions                       *)
