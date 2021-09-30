@@ -914,7 +914,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
               (* First step, initalize the acc *)
               then targetsi
             (* Compute the intersection of all resolved targets *)
-              else Tools.list_intersect acc targetsi
+              else Path.intersect acc targetsi
           end) [] tl
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)

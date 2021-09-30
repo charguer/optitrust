@@ -168,7 +168,21 @@ let rec compare_path (dl : path) (dl' : path) : int =
      if cd = 0 then compare_path dl dl' else cd
 
 
+module Path_set = Set.Make(
+  struct
+  let compare = compare_path
+  type t = path
+  end 
+)
 
+(* Compute the intersection of two resolved paths *)
+let intersect (p1 : paths) (p2 : paths) : paths = 
+  let set_of_p1 = Path_set.empty in
+  let set_of_p2 = Path_set.empty in
+  let set_of_p1 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1 in
+  let set_of_p2 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p2 p2 in
+  let inter_p1_p2 = Path_set.inter set_of_p1 set_of_p2 in
+  Path_set.elements inter_p1_p2
 
 
 (******************************************************************************)
