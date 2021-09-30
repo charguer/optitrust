@@ -60,10 +60,10 @@ let _ = Run.script_cpp (fun () ->
 
    (* Part: Splitting the loop, with hoisting *)
    !! Struct.to_variables [cVarDef "speed2"];
-   !! Loop.hoist ~patt_name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
+   !! Loop.hoist ~name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
    
    (* remove the dollar to see the error *)
-   !! Variable.inline [nbMulti; cVarDef ~regexp:true "speed2_$"];
+   !! Variable.inline [nbMulti; cVarDef ~regexp:true "speed2_.$"];
      
    !! Loop.fission [tBefore; cVarDef "pos2"];
 
@@ -71,7 +71,7 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
-    Loop_basic.tile tile ~bound:TileBoundDivides ~index:bd [cFor d]; (* TODO: ~index:"b${id}" *)
+    Loop_basic.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)
     Loop_basic.color color ~index:("c"^d) [cFor bd]
     in
   (*!! colorize "2" "2" "x";*)
