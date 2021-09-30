@@ -84,14 +84,24 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
   | Trm_seq tl ->
      let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
     begin match dl.desc with
-    | Trm_let (vk, (x,tx), _dx) ->
+    | Trm_let (vk, (x,tx), dx) ->
       let t_x = begin match vk with 
                 | Var_immutable -> trm_var x
                 | _ -> trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var x] 
                 end in
-      let def_x = get_init_val dl in 
+      let def_x = 
+      begin match vk with 
+            | Var_immutable -> dx
+            | _ ->
+                   begin match dx.desc with 
+                   | Trm_apps(_, [init]) -> init
+                   | Trm_val (Val_prim (Prim_new _)) -> fail dl.loc "inline_aux: can't inline a variable with detached declaration"
+                   | _ -> dx
+                   end
+      end in
+      let init = get_init_val dl in
       let lback = 
-      begin match def_x.desc with 
+      begin match init.desc with 
       | Trm_struct field_init ->
         let tyid = Internal.get_typid_from_typ tx in
         let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in

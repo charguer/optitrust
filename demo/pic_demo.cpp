@@ -108,7 +108,7 @@ int main() {
         nextCharge[idCell2] += 1.0;
 
         // Write the updated particle in the bag associated with its new cell
-        particle p2 = { speed2, pos2 };
+        particle p2 = { pos2, speed2 };
         bag_push(bagsNext[idCell2], p2);
       }
 
