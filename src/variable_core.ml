@@ -315,14 +315,13 @@ let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : t
     let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
     let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
     let tl = Mlist.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
-    let new_tl = Mlist.insert_at 0 fst_instr tl in
-    let new_tl = Mlist.insert_at ((Mlist.length tl) - 1) lst_instr new_tl in
-    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    let new_tl = Mlist.merge (Mlist.of_list [fst_instr;lst_instr]) tl in
+    {t with desc = Trm_seq new_tl}
   | _ -> fail t.loc "local_other_name_aux: expected a sequence"
 
 
 let local_other_name (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =
-  Target.apply_on_path(local_other_name_aux var_type old_var new_var)
+  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence ~keep_label:true (local_other_name_aux var_type old_var new_var) "local_other_name")
 
 let insert_aux (index : int) (const : bool) (name : string) (typ : string) (value : string) (t : trm) : trm =
   match t.desc with 
