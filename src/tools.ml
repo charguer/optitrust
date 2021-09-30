@@ -246,3 +246,8 @@ let unlast (l : 'a list) : 'a list * 'a =
   | [] -> invalid_arg "uncons"
   | x::l' -> (List.rev l', x)
 
+(* [add_prefix prefix indices] iterates over the indices by adding the prefix [prefix] 
+    to each element in [indices]
+*)
+let add_prefix (prefix : string) (indices : string list) : string list =
+    List.map (fun x -> prefix ^ x) indices 

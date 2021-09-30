@@ -1,9 +1,5 @@
 open Ast
 
-(* 
-LATER: think about higher-level operations for commands that go in pair, around one scope
-*)
-
 (******************************************************************************)
 (*                            OpenMP directives                               *)
 (******************************************************************************)

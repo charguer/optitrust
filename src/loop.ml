@@ -207,10 +207,8 @@ let reorder ?(order : var list = []) (tg : Target.target) : unit =
         The target should be a nested loop 
 *)
 let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
-  let add_prefix (prefix : string) (indices : var list) : var list =
-    List.map (fun x -> prefix ^ x) indices in
-  let bs = add_prefix "b" ds in
-  let cs = add_prefix "c" ds in
+  let bs = Tools.add_prefix "b" ds in
+  let cs = Tools.add_prefix "c" ds in
   let first_cs = List.nth cs 0 in
   let order = cs @ bs @ ds in
   let tile = string_of_int tile_size in

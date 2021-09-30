@@ -65,7 +65,18 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
-  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];
+  
+  let dims = ["x";"y";"z"] in
+  let colorize (tile : string) (color : string) (d:string) : unit =
+    let bd = "b" ^ d in
+    Loop_basic.tile tile ~index:bd [cFor d];
+    Loop_basic.color color ~index:("c"^d) [cFor bd] 
+    in
+  
+  !! List.iter  (colorize "2" "2") dims;
+  !! Loop.reorder ~order:((Tools.add_prefix "c" dims) @ (Tools.add_prefix "b" dims) @ dims) [cFor "cx"];
+  
+  (* !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"]; *)
   !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore;cFor "bx"];
   (* PART : to be continued with concurrent bags, and delocalized sums *)
 
