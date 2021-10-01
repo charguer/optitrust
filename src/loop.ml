@@ -146,7 +146,7 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) ?(shuffle : bool = fal
         | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~my_mark tg;
           let block_list = Tools.range 0 (n-1) in
           List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.cMark my_mark;Target.cSeq ()])) block_list;
-          Sequence_basic.partition blocks [Target.cMark my_mark; Target.cSeq ()];
+          Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.cSeq ()];
           if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
         | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
                        Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark tg);
@@ -163,7 +163,7 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) ?(shuffle : bool = fal
             Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
           ) block_list;
           List.iter (fun x ->
-             Sequence_basic.partition ~visible:braces blocks [Target.cMark my_mark; Target.dNth x]
+             Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
           if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
           Generic.remove_marks [Target.cMark my_mark]
@@ -184,9 +184,9 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) ?(shuffle : bool = fal
             Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
           ) block_list;
           List.iter (fun x ->
-             Sequence_basic.partition ~visible:braces blocks [Target.cMark my_mark; Target.dNth x]
+             Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
-          if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
+          if shuffle then Sequence_basic.reorder_blocks ~braces [Target.cMark my_mark];
           Generic_basic.remove_marks [Target.cMark my_mark]
       | _ -> fail t.loc "unroll: expected an addition between two trms"
       end

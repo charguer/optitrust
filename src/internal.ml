@@ -444,10 +444,26 @@ let nobrace_enter () =
   Nobrace.enter()
 
 (* Transform a normal sequence into a nobrace sequence *)
-let set_no_brace_if_sequence (t : trm) : trm = 
+let set_nobrace_if_sequence (t : trm) : trm = 
   match t.desc with 
-  | Trm_seq tl1 -> trm_seq_no_brace (Mlist.to_list tl1)
+  | Trm_seq tl1 -> trm_seq_no_brace (Mlist.to_list tl1) 
   | _-> t
+
+(* Check if the current sequence is visible or not or not *)
+let is_nobrace (t : trm) : bool =
+  match t.desc with 
+  | Trm_seq _ ->
+    List.exists (function No_braces _ -> true | _ -> false) t.annot
+  | _ -> false
+
+
+(*  *)
+let remove_nobrace_if_sequence (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq _ ->
+    if is_nobrace t then trm_annot_filter (function No_braces _ -> true | _ -> false) t else t
+  | _ -> t
+
 
 (* Change the current body of loop [loop] with [body]*)
 let change_loop_body (loop : trm) (body : trm) : trm = 

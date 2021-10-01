@@ -131,7 +131,7 @@ let split (index : int) : Target.Transfo.local =
   Target.apply_on_path (split_aux index)
 
 
-let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
+let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
     let nb = Mlist.length tl in
@@ -148,7 +148,7 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
           ) [] blocks 
           in
         let new_tl = 
-          if visible 
+          if braces 
             then Mlist.of_list (List.map trm_seq (List.rev partition))
             else Mlist.of_list (List.map (fun x -> trm_seq_no_brace (Mlist.to_list x)) (List.rev partition))
             in
@@ -156,11 +156,11 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
         
   | _ -> fail t.loc "partial_aux: expected a sequence to partition"
 
-let partition (blocks : int list) (visible : bool): Target.Transfo.local =
-  Target.apply_on_path (partition_aux blocks visible)
+let partition (blocks : int list) (braces : bool): Target.Transfo.local =
+  Target.apply_on_path (partition_aux blocks braces)
 
 
-let reorder_blocks_aux (t : trm) : trm =
+let reorder_blocks_aux (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     let transformed_list = List.map (fun t1 -> 
@@ -168,7 +168,16 @@ let reorder_blocks_aux (t : trm) : trm =
       | Trm_seq tl1 ->
         let first_element, _ = Tools.uncons (Mlist.to_list tl1) in
         let  _, last_element = Tools.unlast (Mlist.to_list tl1) in
-         
+        
+        let first_element = 
+          if braces 
+            then Internal.remove_nobrace_if_sequence first_element 
+            else Internal.set_nobrace_if_sequence first_element in
+        let last_element = 
+          if braces 
+            then Internal.remove_nobrace_if_sequence last_element 
+            else Internal.set_nobrace_if_sequence last_element in
+
         (first_element, last_element)
       | _ -> fail t1.loc "reorder_block_aux: blocks should be sequences"
       end
@@ -179,19 +188,5 @@ let reorder_blocks_aux (t : trm) : trm =
 
   | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
 
-(* let reorder_blocks_aux (t : trm) : trm = 
-  match t.desc with 
-  | Trm_seq tl ->
-    let transformed_list = Mlist.fold_left (fun acc el -> 
-      match el.desc with 
-      | Trm_seq tl1 ->
-        (Mlist.split 1 tl1) :: acc
-      | _ -> fail t.loc "reorder_blocks_aux: blocks should be sequences"
-      ) [] (Mlist.rev tl) in
-    let first_part, second_part = List.split transformed_list in
-    trm_seq ~annot:t.annot (Mlist.merge (List.flatten first_part) (List.flatten second_part))
-  | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
-  (* LATER: add an option for creating visible sequences around the groups of similar instructions *)*)
-
-let reorder_blocks : Target.Transfo.local = 
-  Target.apply_on_path (reorder_blocks_aux) 
+let reorder_blocks (braces : bool) : Target.Transfo.local = 
+  Target.apply_on_path (reorder_blocks_aux braces) 

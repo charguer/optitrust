@@ -353,8 +353,8 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
   let if_stmt = Mlist.nth tl trm_index in
   match if_stmt.desc with
   | Trm_if (cond, then_, else_) ->
-    let then_ = Internal.set_no_brace_if_sequence then_ in
-    let else_ = Internal.set_no_brace_if_sequence else_ in
+    let then_ = Internal.set_nobrace_if_sequence then_ in
+    let else_ = Internal.set_nobrace_if_sequence else_ in
     let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (Mlist.replace_at trm_index t1 tl )) in
     trm_if cond (wrap_branch then_) (wrap_branch else_)
   | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"
