@@ -134,22 +134,22 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
     of sequences to generate.
     braces:true to keep the sequences
 *)
-let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) : unit =
+let unroll ?(braces:bool=false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
-    let mylabel = "__TEMP_LABEL" in
+    let my_mark  =  Mark.next () in
     let (tg_loop_trm,_) = Path.resolve_path p t in
     match tg_loop_trm.desc with
     | Trm_for (_, _, _, stop, _, _) ->
       begin match stop.desc with
       | Trm_apps (_,[_;bnd]) ->
         begin match bnd.desc with
-        | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~label:mylabel tg;
+        | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~my_mark tg;
           let block_list = Tools.range 0 (n-1) in
-          List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:n x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])) block_list;
-          Sequence_basic.partition blocks [Target.nbExact n;Target.cLabel mylabel; Target.dBody;Target.cSeq ()]
-
+          List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.cMark my_mark;Target.cSeq ()])) block_list;
+          Sequence_basic.partition blocks [Target.cMark my_mark; Target.cSeq ()];
+          if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
         | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
-                       Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~label:mylabel tg);
+                       Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark tg);
           let var_decl = match Internal.toplevel_decl x t with
             | Some d -> d
             | None -> fail t.loc "unroll: could not find the declaration of the variable"
@@ -160,15 +160,34 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) (tg : Target.target) :
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
           let block_list = Tools.range 0 (n-1) in
           List.iter (fun x ->
-            Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cLabel mylabel; Target.dBody;Target.cSeq ()])
+            Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
           ) block_list;
           List.iter (fun x ->
-             Sequence_basic.partition ~visible:braces blocks [Target.cLabel mylabel; Target.dBody; Target.dNth x]
+             Sequence_basic.partition ~visible:braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
-          Sequence_basic.reorder_blocks [Target.cLabel mylabel; Target.dBody];
-          Label_basic.remove [Target.cLabel mylabel]
+          if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
+          Generic.remove_marks [Target.cMark my_mark]
         | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
         end
+      | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
+                       Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark tg);
+          let var_decl = match Internal.toplevel_decl x t with
+            | Some d -> d
+            | None -> fail t.loc "unroll: could not find the declaration of the variable"
+          in
+          let lit_n = get_init_val var_decl in
+          let n = match (get_lit_from_trm_lit lit_n)  with
+          | Lit_int n -> n
+          | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
+          let block_list = Tools.range 0 (n-1) in
+          List.iter (fun x ->
+            Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
+          ) block_list;
+          List.iter (fun x ->
+             Sequence_basic.partition ~visible:braces blocks [Target.cMark my_mark; Target.dNth x]
+          ) block_list;
+          if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
+          Generic_basic.remove_marks [Target.cMark my_mark]
       | _ -> fail t.loc "unroll: expected an addition between two trms"
       end
     | _ -> fail t.loc "unroll: expected a simple loop"

@@ -106,9 +106,9 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
     Assumption: C should be a literal, this is needed to compute the number
     of sequences to generate.
 *)
-let unroll ?(label : var = "") (tg : Target.target): unit =
+let unroll ?(my_mark : mark  = "") (tg : Target.target): unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_targets (Loop_core.unroll label) tg)
+    Target.apply_on_targets (Loop_core.unroll my_mark) tg)
 
 
 
