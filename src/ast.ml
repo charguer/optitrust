@@ -1013,7 +1013,7 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      let cond' = f false cond in
      let step' = f false step in
      let body' = f is_terminal body in
-     trm_for_c~annot ~marks ~loc ~add init' cond' step' body'
+     trm_for_c ~annot ~marks ~loc ~add init' cond' step' body'
   | Trm_for (index, direction, start, stop, step, body) ->
     trm_for ~annot ~marks ~loc ~add index direction (f is_terminal start) (f is_terminal stop) (f is_terminal step) (f is_terminal body)
   | Trm_switch (cond, cases) ->

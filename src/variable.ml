@@ -43,9 +43,9 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
 (* [local_other_name var_type old_name new_name] similar to the basic version of local_other_name but with the intermediate
       done autmatically
 *)
-let local_other_name ?(label : var = "section_of_interes") (var_type : typ) (old_name : var) (new_name : var) : unit =
-  Sequence_basic.intro_on_instr ~label:"section_of_interest" ~visible:false [Target.tIndex 0; Target.cFor ~body:[Target.cVar old_name]""];
-  Variable_basic.local_other_name var_type old_name new_name [Target.cLabel label;Target.dBody]
+let local_other_name ?(label : var = "section_of_interest") (var_type : typ) (old_name : var) (new_name : var) : unit =
+  Sequence_basic.intro_on_instr ~label:"section_of_interest" ~visible:false [Target.tIndex 0; Target.cFor ~body:[Target.cVar old_name]""];  
+  Variable_basic.local_other_name var_type old_name new_name [Target.cLabel label]
 
 (* [insert_and_fold] expects [tg] to point to relative location, then it inserts a new variable declaration at that location. 
     The new declared variable is [name] with typ [typ] and value [value]. This variable will be folded everywhere on the ast nodes

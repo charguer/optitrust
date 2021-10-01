@@ -12,21 +12,24 @@ open Ast
     return:
       updated ast with the transformed assignment
  *)
-let set_explicit_aux (t: trm) : trm =
-  let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
-  match t.desc with 
+let set_explicit_aux (t : trm) : trm =
+  match t.desc with
   | Trm_apps(_, [lt;rt]) ->
       let tid_r = Internal.get_typid_from_trm rt  in
       let tid_l = Internal.get_typid_from_trm lt  in
       let tid = match tid_r, tid_l with
       | -1, _ -> tid_l
       | _, -1 -> tid_r
-      | _, _ -> if tid_r = tid_l then tid_r 
+      | _, _ -> if tid_r = tid_l then tid_r
                   else fail t.loc "set_explicit_aux: different types in an assignment"
       in
-      let struct_def = if tid <> -1 then Typ_map.find tid typid_to_typedef_map 
-                        else fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" in
-      
+      let struct_def = 
+        if tid <> -1 then match Context.typid_to_typedef tid with 
+          | Some td -> td 
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
+        else    
+          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+      in
       let field_list = Internal.get_field_list struct_def in
       begin match rt.desc with
       | Trm_apps(f1, [rbase]) ->
@@ -34,42 +37,42 @@ let set_explicit_aux (t: trm) : trm =
         | Trm_apps (f2, [lbase]) ->
           let exp_assgn = List.map (fun (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-           trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f2 [lbase]]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f1 [rbase]])
+           trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{lt with desc = Trm_apps (f2, [lbase])}]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{rt with desc = Trm_apps (f1 ,[rbase])}])
           ) field_list in
-         trm_seq_no_brace exp_assgn 
+         trm_seq_no_brace exp_assgn
         | _ -> let exp_assgn = List.map(fun (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~annot:[Mutable_var_get] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) f1 [trm_apps ~annot:[Mutable_var_get] new_f [rbase]])
+          trm_set (trm_apps ~annot:[Mutable_var_get] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{rt with desc = Trm_apps (f1 ,[rbase])}])
           ) field_list in
-          trm_seq_no_brace exp_assgn 
+          trm_seq_no_brace exp_assgn
         end
       (* If the right hand side is a struct initialization *)
       | Trm_struct st ->
         let st = Mlist.to_list st in
         begin match lt.desc with
-        | Trm_apps (f2, lbase) ->
+        | Trm_apps (_f2, _lbase) ->
           let exp_assgn = List.mapi(fun i (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [trm_apps ~annot:[Mutable_var_get] f2 lbase]) (List.nth st i)
+          trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [lt]) (List.nth st i)
           ) field_list in
-          trm_seq_no_brace exp_assgn 
-        | Trm_var v ->
+          trm_seq_no_brace exp_assgn
+        | Trm_var _ ->
           let exp_assgn = List.mapi(fun i (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~typ:(Some ty) new_f [trm_var v]) (List.nth st i)
+          trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (List.nth st i)
           ) field_list in
-          trm_seq_no_brace exp_assgn 
+          trm_seq_no_brace exp_assgn
         | _ -> fail t.loc "set_explicit_aux: left term was not matched"
         end
       | _ -> let exp_assgn = List.map (fun (sf, ty) ->
               let new_f = trm_unop (Unop_struct_field_addr sf) in
                 trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [rt])
                 ) field_list in
-             trm_seq_no_brace exp_assgn 
+             trm_seq_no_brace exp_assgn
       end
-    
+
     | _ -> fail t.loc "set_explicit_aux: this expression is not supported"
-   
+
 let set_explicit : Target.Transfo.local =
   Target.apply_on_path(set_explicit_aux )
 
@@ -147,6 +150,8 @@ let set_implicit (keep_label : bool) : Target.Transfo.local =
       t: ast node located in the same level as the stract declaration or deeper
     return:
       updated ast node with the transformed field accesses
+
+    example p.pos.x to p.pos_x
 *)
 let inline_struct_accesses  (x : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
@@ -163,7 +168,7 @@ let inline_struct_accesses  (x : var) (t : trm) : trm =
             begin match f'.desc with
             | Trm_val(Val_prim (Prim_binop Binop_array_cell_addr))
               | Trm_val(Val_prim (Prim_binop Binop_array_cell_get)) ->
-                (* THen base caontains another base and also the index  *)
+                (* Then base caontains another base and also the index  *)
                 let base2 = List.nth base' 0 in
                 let index = List.nth base' 1 in
                 begin match base2.desc with
@@ -209,13 +214,16 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
     | Trm_struct term_list ->
       begin match t.typ with
       | Some { typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
-        let trm_to_change = Mlist.nth term_list field_index in
+        let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in
         begin match trm_to_change.desc with
-        | Trm_struct _ ->  trm_struct (Internal.inline_sublist_at field_index term_list)(* trm_struct (Tools.insert_sublist_in_list term_list_to_inline field_index term_list) *)
+        | Trm_struct sl -> 
+           let new_sl = Mlist.merge lfront sl in
+           let new_sl = Mlist.merge new_sl lback in
+           trm_struct ~annot:t.annot ~marks:t.marks new_sl
         | Trm_apps(_, [base]) ->
           begin match base.desc with
           | Trm_var p ->
-            let trm_list_to_inline = List.map(fun x ->
+            let sl1  = List.map(fun x ->
               trm_apps ~annot: [Access] (trm_unop (Unop_get))[
                 trm_apps (trm_unop (Unop_struct_field_addr x)) [
                   trm_var p
@@ -223,9 +231,9 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
               ]
             ) (List.rev field_list)
             in
-            let term_list = Mlist.remove field_index 1 term_list in
-            let new_term_list = Mlist.insert_sublist_at field_index trm_list_to_inline term_list in
-            trm_struct new_term_list
+            let new_sl = Mlist.merge lfront (Mlist.of_list sl1) in
+            let new_sl = Mlist.merge new_sl lback in
+            trm_struct new_sl
           | _ -> fail base.loc "inline_struct_initialization: expected a heap allocated variable"
           end
         | _ -> trm_map (aux global_trm) t
@@ -250,7 +258,6 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
   match t.desc with
   | Trm_seq tl ->
     let lfront, td, lback =  Internal.get_trm_and_its_relatives index tl in
-    let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
     begin match td.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with
@@ -270,7 +277,13 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        | _ -> fail t.loc  "inline_aux: expected a typ_constr"
        end
        in
-       let struct_def = Typ_map.find tyid typid_to_typedef_map in
+       let struct_def = 
+        if tyid <> -1 then match Context.typid_to_typedef tyid with 
+          | Some td -> td 
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
+        else    
+          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+       in
        let inner_type_field_list = begin match struct_def.typdef_body with
         | Typdef_prod (_, s) -> s
         | _ -> fail t.loc "inline_aux: the field wanted to inline should have also a struct typedef"
@@ -288,7 +301,7 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        let lback = Mlist.map (inline_struct_initialization td.typdef_tconstr (List.rev (fst (List.split (Internal.get_field_list struct_def)))) field_index) lback in
        let new_tl = Mlist.merge lfront lback in
        let new_tl = Mlist.insert_at index new_trm new_tl in
-       trm_seq ~annot:t.annot ~marks:t.marks  new_tl
+       { t with desc = Trm_seq new_tl}
       | _ -> fail t.loc "inline_aux: expected a struct "
       end
     | _ -> fail t.loc "inline_aux: expected a trm_typedef"
@@ -367,13 +380,18 @@ let to_variables_aux (index : int) (t : trm) : trm =
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with
     | Trm_let (_, (x, tx), init) ->
-      let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
+      
       let typid = begin match (get_inner_ptr_type tx).typ_desc with
                   | Typ_constr (_, tid, _) -> tid
                   | _ -> fail t.loc "struct_to_variables_aux: expected a struct type"
                   end in
-      
-      let struct_def = Typ_map.find typid typid_to_typedef_map in
+      let struct_def = 
+        if typid <> -1 then match Context.typid_to_typedef typid with 
+          | Some td -> td 
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
+        else    
+          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+       in
       let field_list = Internal.get_field_list struct_def in
       let struct_init_list = begin match init.desc with
                              | Trm_apps(_, [base]) ->
@@ -394,9 +412,9 @@ let to_variables_aux (index : int) (t : trm) : trm =
           inline_struct_accesses x f1 t2
         ) t1 (List.rev (fst (List.split field_list)))
       ) lback in
-      let new_tl = Mlist.merge lfront lback in
-      let new_tl = Mlist.insert_sublist_at index var_decls new_tl in
-      trm_seq ~annot:t.annot ~marks:t.marks new_tl 
+      let new_tl = Mlist.merge lfront (Mlist.of_list var_decls) in
+      let new_tl = Mlist.merge new_tl lback in
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
    | _ -> fail trm_to_change.loc "struct_to_variables_aux: expected a variable declaration"
     end

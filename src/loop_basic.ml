@@ -42,7 +42,7 @@ let color (nb_colors : string_trm) ?(index : var = "") : Target.Transfo.t =
    [for (int index = 0; index < stop; index += tile_size) {
       for (int i = index; i < min(X, bx+B); i++) { body }].
 *)
-let tile ?(index : var = "") ?(bound : tile_bound = TileBoundMin) (tile_size : string_trm) : Target.Transfo.t =
+let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_size : string_trm) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.tile index bound tile_size)
 
 (* [hoist x_step tg]: expects [tg] to point to simple loop.
@@ -59,10 +59,10 @@ let tile ?(index : var = "") ?(bound : tile_bound = TileBoundMin) (tile_size : s
         return 0;                               return 0;
       }                                       }
 *)
-let hoist ? (patt_name : var = "var_step") (tg : Target.target) : unit =
+let hoist ? (name : var = "${var}_step") (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-     (fun (p, i) t -> Loop_core.hoist patt_name i t p) tg)
+     (fun (p, i) t -> Loop_core.hoist name i t p) tg)
 
 (* [fission tg]: expects [tg] to point somewhere inside the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.

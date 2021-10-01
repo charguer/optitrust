@@ -86,15 +86,19 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
       let new_var = x in
       let old_var_trm = get_init_val def in
       let var_type = (get_inner_ptr_type tx) in
-      let new_decl = trm_seq_no_brace[
-      trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
-      trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
-      (trm_seq_nomarks [trm_set (old_var_trm) (trm_lit (Lit_int 0))])] in
-      let new_snd_instr = Internal.change_trm (trm_var new_var) (trm_var ~annot:[Any] "0" ) middle_instr  in
-      let accum = begin match dl_ops with
+
+      let new_first_trm = trm_seq_no_brace[
+          trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
+          trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
+         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]) (trm_lit (Lit_int 0))])]
+          in
+      let new_snd_instr = Internal.change_trm (trm_var new_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var ~annot:[Any] "0" ]) middle_instr  in
+
+      let new_thrd_trm = begin match dl_ops with
                   | Delocalize_arith (li, op) ->
                     trm_seq_no_brace [
                       trm_set (old_var_trm) (trm_lit li);
+                      (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
                       trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
                         (trm_seq_nomarks [
                             trm_set ~annot:[App_and_set] (old_var_trm)
@@ -105,6 +109,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
                   | Delocalize_obj (clear_f, transfer_f) ->
                     trm_seq_no_brace [
                       trm_apps (trm_var clear_f) [old_var_trm];
+                      (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
                       trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
                         (
                           trm_seq_nomarks [
@@ -113,7 +118,9 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
                               trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ]
                               )]
                   end in
-      trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_decl; new_snd_instr; accum])
+      let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
+      { t with desc = Trm_seq new_tl}
+      (* trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) *)
 
     | _ -> fail t.loc "delocalize_aux: first instruction in the sequence should be the declaration of local variable"
     end

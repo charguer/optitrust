@@ -22,7 +22,7 @@ let inline ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
       Typedef_core.inline delete at i t p) tg
 
 
-(* [alias name tg] expects [tg] to point to a typedef declaration in then copies the content 
+(* [copy name tg] expects [tg] to point to a typedef declaration in then copies the content 
       of the body of typedef at gives to it the name [name]
 *)
 let copy (name : string) (tg : Target.target) : unit =
