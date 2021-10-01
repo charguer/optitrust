@@ -316,7 +316,7 @@ let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : t
     let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
     let tl = Mlist.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
     let new_tl = Mlist.merge (Mlist.of_list [fst_instr;lst_instr]) tl in
-    {t with desc = Trm_seq new_tl}
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "local_other_name_aux: expected a sequence"
 
 

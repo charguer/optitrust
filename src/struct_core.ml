@@ -12,7 +12,6 @@ open Ast
     return:
       updated ast with the transformed assignment
  *)
-let set_explicit_aux (t : trm) : trm =
   (* TODO:
   -- context.ml (depends only on ast.ml)
 
@@ -21,8 +20,9 @@ let set_explicit_aux (t : trm) : trm =
     match t_root with
     | { desc = Trm_seq topleveldefs ; _ } ->
       MList.find_map (function { desc = Trm_typdef ({{typdef_typid tid2} as td) when tid = tid2 } -> Some td | _ -> None) topleveldefs
-    | _ -> fail None "the main file should be a sequence
+    | _ -> fail None "the main file should be a sequence"
   *)
+let set_explicit_aux (t : trm) : trm =
   let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
   match t.desc with
   | Trm_apps(_, [lt;rt]) ->
@@ -221,13 +221,16 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
     | Trm_struct term_list ->
       begin match t.typ with
       | Some { typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
-        let trm_to_change = Mlist.nth term_list field_index in
+        let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in
         begin match trm_to_change.desc with
-        | Trm_struct _ ->  trm_struct (Internal.inline_sublist_at field_index term_list)(* trm_struct (Tools.insert_sublist_in_list term_list_to_inline field_index term_list) *)
+        | Trm_struct sl -> 
+           let new_sl = Mlist.merge lfront sl in
+           let new_sl = Mlist.merge new_sl lback in
+           trm_struct ~annot:t.annot ~marks:t.marks new_sl
         | Trm_apps(_, [base]) ->
           begin match base.desc with
           | Trm_var p ->
-            let trm_list_to_inline = List.map(fun x ->
+            let sl1  = List.map(fun x ->
               trm_apps ~annot: [Access] (trm_unop (Unop_get))[
                 trm_apps (trm_unop (Unop_struct_field_addr x)) [
                   trm_var p
@@ -235,9 +238,9 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
               ]
             ) (List.rev field_list)
             in
-            let term_list = Mlist.remove field_index 1 term_list in
-            let new_term_list = Mlist.insert_sublist_at field_index trm_list_to_inline term_list in
-            trm_struct new_term_list
+            let new_sl = Mlist.merge lfront (Mlist.of_list sl1) in
+            let new_sl = Mlist.merge new_sl lback in
+            trm_struct new_sl
           | _ -> fail base.loc "inline_struct_initialization: expected a heap allocated variable"
           end
         | _ -> trm_map (aux global_trm) t
@@ -406,8 +409,8 @@ let to_variables_aux (index : int) (t : trm) : trm =
           inline_struct_accesses x f1 t2
         ) t1 (List.rev (fst (List.split field_list)))
       ) lback in
-      let new_tl = Mlist.merge lfront lback in
-      let new_tl = Mlist.insert_sublist_at index var_decls new_tl in
+      let new_tl = Mlist.merge lfront (Mlist.of_list var_decls) in
+      let new_tl = Mlist.merge new_tl lback in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
 
    | _ -> fail trm_to_change.loc "struct_to_variables_aux: expected a variable declaration"

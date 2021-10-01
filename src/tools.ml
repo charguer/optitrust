@@ -34,13 +34,6 @@ let foldi2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c li
   let (_, res) = List.fold_left2 (fun (i, a) b c -> (i + 1, f i a b c)) (0, a) bl cl in
   res
 
-
-(* inline a list in another list starting from the given index, it removes the elment at the given index *)
-let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with
-| [] -> []
-| h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
-
-
 (* convert a list of strings to a string *)
 let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : string list) : string =
   let (bl,br) = match bounds with
