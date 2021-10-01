@@ -51,11 +51,11 @@ let _ = Run.script_cpp (fun () ->
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
   !!! Struct.set_explicit [nbMulti;cSet ~typ:"particle"()];
   !!! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
+  !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
 
   (* Part: AOS-TO-SOA *)
   !!! Struct.inline "pos" [cTypDef "particle"];
   !!! Struct.inline "speed" [cTypDef "particle"];
-  !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
   !!! Struct.inline "items" [cTypDef "bag"];
 
    (* Part: Splitting the loop, with hoisting *)

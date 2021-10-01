@@ -747,7 +747,7 @@ let trm_seq ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
   {annot; marks; desc = Trm_seq tl; loc = loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_seq_nomarks ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_seq_nomarks ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (tl : trm list) : trm =
   trm_seq ~annot ~add ~loc ~attributes ~ctx (Mlist.of_list tl)
 
@@ -874,29 +874,29 @@ let trm_remove_mark (m : mark) (t : trm) : trm =
   {t with marks = List.filter (fun m1 -> m <> m1) t.marks}
 
 let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_mark_at index m tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "trm_add_mark_between: expected a sequence"
 
 let trm_remove_mark_between (m : mark) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl -> 
+  match t.desc with
+  | Trm_seq tl ->
     let new_tl = Mlist.remove_mark m tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "trm_remove_mark_between: expected a sequence"
 
 (* ********************************************************************************************************************* *)
 
-(* for target betweens marks are stored on the parent sequence, 
-  this function give the index that mark m targets to 
+(* for target betweens marks are stored on the parent sequence,
+  this function give the index that mark m targets to
 *)
 let get_mark_index (m : mark) (t : trm) : int option =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
-    Tools.foldi (fun i acc ml -> 
-      match acc with 
+    Tools.foldi (fun i acc ml ->
+      match acc with
       | Some _ -> acc
       | None ->
         if List.mem m ml then Some i else None

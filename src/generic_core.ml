@@ -1,6 +1,6 @@
 open Ast
 
-(* *********************************************************************************** 
+(* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
  * transformation. That's why there is not need to document them.                     *
@@ -16,15 +16,15 @@ open Ast
       updated ast with the replaced trm
  *)
 let replace_aux (cd : string) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_var _ -> trm_var cd
   | _ ->  code cd
-  
+
 let replace (code : string) : Target.Transfo.local =
   Target.apply_on_path (replace_aux code)
 
-(* [replace_one_with_mane]: change all the instructions containing the occurrence of the 
-      variable into a list of instructions, the list of instructions contains one instruction 
+(* [replace_one_with_mane]: change all the instructions containing the occurrence of the
+      variable into a list of instructions, the list of instructions contains one instruction
       per variable.
     params:
       x: the name of the variable to be whose occurrence is going to be replaced
@@ -33,20 +33,20 @@ let replace (code : string) : Target.Transfo.local =
     return:
       updated ast nodes which are in the same level with the variable declaration or deeper
 *)
-let replace_one_with_many (x : var) (names : var list) (t : trm) : trm = 
-  let rec aux (global_trm : trm) (t : trm) : trm = 
-    match t.desc with 
+let replace_one_with_many (x : var) (names : var list) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    match t.desc with
     | Trm_let (vk, (y, ty), init) ->
-      if contains_variable x init 
+      if contains_variable x init
         then trm_seq_no_brace (List.mapi (fun i name ->
          trm_let vk (y ^ "_" ^(string_of_int i), ty) (Internal.change_trm (trm_var x) (trm_var name) init)) names)
         else t
-    | Trm_apps (_, _) -> 
+    | Trm_apps (_, _) ->
       if contains_variable x t then
         trm_seq_no_brace (List.map (fun name -> Internal.change_trm (trm_var x) (trm_var name) t) names)
-        else t 
+        else t
     | _ -> trm_map (aux global_trm) t
-  in aux t t 
+  in aux t t
 
 
 (* [arbitrary_if single_branch index cond t]: take one or two instructions and create an if statement
@@ -59,7 +59,7 @@ let replace_one_with_many (x : var) (names : var list) (t : trm) : trm =
  *)
 let arbitrary_if_aux (cond : string) (t : trm) : trm =
   trm_if (code cond) t t
-   
+
 let arbitrary_if (cond : string) : Target.Transfo.local =
   Target.apply_on_path (arbitrary_if_aux cond)
 
@@ -72,7 +72,7 @@ let arbitrary_if (cond : string) : Target.Transfo.local =
       fold_operation: reduction over all the elements of the declared array
       t: the ast of the @nobrace sequence
     return:
-      the updated ast of the targeted sequence      
+      the updated ast of the targeted sequence
 *)
 
 let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : trm =
@@ -81,7 +81,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
     if Mlist.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
     let def = Mlist.nth tl 0 in
     let middle_instr = Mlist.nth tl 1 in
-    begin match def.desc with 
+    begin match def.desc with
     | Trm_let (vk, (x, tx), _) ->
       let new_var = x in
       let old_var_trm = get_init_val def in
@@ -91,7 +91,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
       trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
       (trm_seq_nomarks [trm_set (old_var_trm) (trm_lit (Lit_int 0))])] in
       let new_snd_instr = Internal.change_trm (trm_var new_var) (trm_var ~annot:[Any] "0" ) middle_instr  in
-      let accum = begin match dl_ops with 
+      let accum = begin match dl_ops with
                   | Delocalize_arith (li, op) ->
                     trm_seq_no_brace [
                       trm_set (old_var_trm) (trm_lit li);
@@ -102,7 +102,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
                              old_var_trm;
                               trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ])
                      ]
-                  | Delocalize_obj (clear_f, transfer_f) -> 
+                  | Delocalize_obj (clear_f, transfer_f) ->
                     trm_seq_no_brace [
                       trm_apps (trm_var clear_f) [old_var_trm];
                       trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
@@ -124,35 +124,35 @@ let delocalize (array_size : string) (dl_ops : delocalize_ops) : Target.Transfo.
   Target.apply_on_path (delocalize_aux array_size dl_ops)
 
 (* [change_type_aux new_type t]:  change the current type of the variable to new_type
-    params: 
+    params:
       new_type: the new type replacing the old one
-      t: ast of the declaration 
-    return: 
+      t: ast of the declaration
+    return:
       the updated ast of the declaration
 *)
 let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
   let constructed_type = typ_constr new_type in
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let lfront, decl, lback = Internal.get_trm_and_its_relatives index tl in
-    begin match decl.desc with 
+    begin match decl.desc with
     | Trm_let (vk, (x, tx), init) ->
-      let new_type = 
-        begin match (get_inner_ptr_type tx) .typ_desc with 
-        | Typ_const _ -> typ_const constructed_type 
+      let new_type =
+        begin match (get_inner_ptr_type tx) .typ_desc with
+        | Typ_const _ -> typ_const constructed_type
         | Typ_ptr {ptr_kind = pk; _} -> typ_ptr pk constructed_type
         | Typ_array (_, sz) -> typ_array constructed_type sz
         | _ -> constructed_type
         end in
-      let new_decl = begin match vk with 
-      | Var_mutable -> 
-        trm_let vk (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut new_type ) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init) 
+      let new_decl = begin match vk with
+      | Var_mutable ->
+        trm_let vk (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut new_type ) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init)
       | Var_immutable ->
-        trm_let vk (x, typ_const new_type) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init) 
+        trm_let vk (x, typ_const new_type) (Internal.change_typ (get_inner_ptr_type tx) (new_type) init)
       end in
       let lback = Mlist.map (Internal.change_typ (get_inner_ptr_type tx) new_type ~change_at:[[Target.cVar x]]) lback in
       let tl = Mlist.merge lfront lback in
-      let tl = Mlist.insert_at index new_decl tl in 
+      let tl = Mlist.insert_at index new_decl tl in
       trm_seq ~annot:t.annot ~marks:t.marks tl
     | _ -> fail t.loc "change_type_aux: expected a variable or a function declaration"
     end
@@ -171,17 +171,17 @@ let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
       u: shift size
       t: the ast of teh set operation
     return:
-      the updated set operation 
+      the updated set operation
 *)
 let data_shift_aux (neg : bool) (pre_cast : typ) (post_cast : typ) (u : trm) (t : trm) : trm =
     let binop_op = if neg then Binop_sub else Binop_add in
-    begin match pre_cast.typ_desc, post_cast.typ_desc with 
+    begin match pre_cast.typ_desc, post_cast.typ_desc with
     | Typ_unit , Typ_unit -> trm_apps (trm_binop binop_op) [t; u]
     | Typ_unit, _ -> trm_cast post_cast (trm_apps (trm_binop binop_op) [t; u])
       | _, Typ_unit -> trm_apps (trm_binop binop_op) [trm_cast pre_cast t; u]
       | _ -> fail t.loc "data_shift_aux: can'd do both precasting and postcasting"
-      end 
-  
+      end
+
 
 let data_shift (neg : bool) (pre_cast : typ) (post_cast : typ) (u : trm) : Target.Transfo.local =
   Target.apply_on_path (data_shift_aux neg pre_cast post_cast u)
@@ -201,5 +201,5 @@ let remove_mark (m : mark) : Target.Transfo.local =
 let remove_marks_aux (t : trm) : trm =
   trm_remove_marks t
 
-let remove_marks : Target.Transfo.local = 
+let remove_marks : Target.Transfo.local =
   Target.apply_on_path (remove_marks_aux)

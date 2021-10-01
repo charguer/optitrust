@@ -15,7 +15,7 @@ const int bagCapacity = 100;
 const double charge = 1.0;
 
 // --------- Vector
- 
+
 typedef struct {
   double x, y, z;
 } vect;
@@ -98,9 +98,9 @@ int main() {
       for (int idParticle = 0; idParticle < nb; idParticle++) {
         // Read the particle in memory
         particle &p = b.items[idParticle];
-        
+
         // Compute the new speed and position for the particle
-        vect speed2 = vect_add(p.speed, vect_mul(charge, field)); 
+        vect speed2 = vect_add(p.speed, vect_mul(charge, field));
         vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
         // Deposit the unit charge of the particle in array "nextCharge"
@@ -108,7 +108,7 @@ int main() {
         nextCharge[idCell2] += 1.0;
 
         // Write the updated particle in the bag associated with its new cell
-        particle p2 = { speed2, pos2 };
+        particle p2 = { pos2, speed2 };
         bag_push(bagsNext[idCell2], p2);
       }
 
