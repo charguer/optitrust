@@ -1,4 +1,3 @@
-
 typedef int T;
 int main(){
   T a;
