@@ -21,8 +21,8 @@ int main() {
   }
   printf("%d %d %d\n", s1, s2, s3);
   int t1 = 0, t2 = 0, t3 = 0;
-  for (int ba = 0; (ba < 12); ba += (2 * 3)) {
-    for (int i = ba; (i < (ba + (2 * 3))); i += 3) {
+  for (int bi = 0; (bi < 12); bi += (2 * 3)) {
+    for (int i = bi; (i < (bi + (2 * 3))); i += 3) {
       t1 += i;
     }
   }

@@ -23,9 +23,9 @@ let interchange_aux (t : trm) : trm =
       | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
       | None -> fail body1.loc "interchange_aux: should target a loop with nested loop^inside"
       end
-    | _ -> begin match Internal.extract_loop body1 with 
+    | _ -> begin match Internal.extract_loop body1 with
            | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-           | None -> fail body1.loc "interchange_aux: should target a loop with nested inner loops" 
+           | None -> fail body1.loc "interchange_aux: should target a loop with nested inner loops"
            end
     end
   | None -> fail t.loc "interchange_aux: should target a loop"
@@ -68,7 +68,7 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
 
 
 let color (c : var) (i_color : var) : Target.Transfo.local =
-    Target.apply_on_path (color_aux c i_color) 
+    Target.apply_on_path (color_aux c i_color)
 
 (*  [tile_aux divides b tile_index t]: tile loop t
       params:
@@ -81,9 +81,7 @@ let color (c : var) (i_color : var) : Target.Transfo.local =
 let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
-     let tile_index = match tile_index with
-      | "" -> "b" ^ index
-      | _ -> tile_index in
+    let tile_index = Str.global_replace (Str.regexp_string "${id}") index tile_index in
     (* Hack for elminating the appearance of 1 in the case when step is equal to one *)
     let trm_tile_size =  match step.desc with
     | Trm_val (Val_lit (Lit_int 1)) ->
@@ -152,17 +150,17 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Tran
 
 
 
-(* [hoist_aux patt_name t]: extract a loop variable inside the loop as an array with size equal
+(* [hoist_aux name t]: extract a loop variable inside the loop as an array with size equal
       to (loop_bound - 1), the change all the occurrences of the variable with an array access
       with index same as the index of the loop
     params:
-      patt_name: a pattern of the form ${var}_something for the name entered by the user otherwise used the dafault pattern
+      name: a pattern of the form ${var}_something for the name entered by the user otherwise used the dafault pattern
         ${var}_step
       t: ast of the loop
     return:
       updated ast with the hoisted loop
 *)
-let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
+let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     begin match body.desc with
@@ -170,7 +168,7 @@ let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
-        let new_name = Str.global_replace (Str.regexp "var") x patt_name in
+        let new_name = Str.global_replace (Str.regexp_string "${var}") x name in
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_name; trm_var index] ) in
         let new_tl = Mlist.merge lfront lback in
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
@@ -187,8 +185,8 @@ let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
   | _ -> fail t.loc "hoist_aux: only simple loops are supported"
 
 
-let hoist (patt_name : var) (index : int): Target.Transfo.local =
-   Target.apply_on_path (hoist_aux patt_name index)
+let hoist (name : var) (index : int): Target.Transfo.local =
+   Target.apply_on_path (hoist_aux name index)
 
 
 (* [fission_aux]: split a loop into two loops

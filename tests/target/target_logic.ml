@@ -9,7 +9,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* And constraints *)
   show [nbMulti; cAnd [[cFor "i"];[cFor ""]]];
-  show [nbMulti; cAnd []];
+  show [nbExact 0; cAnd []];
   show [nbExact 0; cAnd [[cFor "i"];[cFor "j"];[cFor "k"]]];
   show [nbMulti; cAnd [[cSet()]; [sInstr "k + j"]]];
 )

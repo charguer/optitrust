@@ -142,14 +142,17 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
       else
         let current_list = ref tl in
         let partition = List.fold_left (fun acc x -> 
-            let lback, lfront = Mlist.split x !current_list in
-            current_list := lback;
-            lfront :: acc
-        ) [] blocks in
-        begin match visible with 
-        | true -> trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list (List.map (trm_seq) (List.rev partition)))
-        | false -> trm_annot_add (No_braces (Nobrace.current())) (trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq) (List.rev partition))))
-        end
+          let lfront, lback = Mlist.split x !current_list in
+          current_list := lback;
+          lfront :: acc
+          ) [] blocks 
+          in
+        let new_tl = 
+          if visible 
+            then Mlist.of_list (List.map trm_seq (List.rev partition))
+            else Mlist.of_list (List.map (fun x -> trm_seq_no_brace (Mlist.to_list x)) (List.rev partition))
+            in
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
         
   | _ -> fail t.loc "partial_aux: expected a sequence to partition"
 

@@ -38,7 +38,7 @@ let arbitrary_if (cond : string) (tg : target) : unit =
       { T x[N];
          x[0] = a;
          for (k = 1; k < N; k++)
-            a = 0;
+            x[k] = 0;
       }@nobrace
 
       parallel for (int i = ...)

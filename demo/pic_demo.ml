@@ -59,14 +59,24 @@ let _ = Run.script_cpp (fun () ->
   !!! Struct.inline "items" [cTypDef "bag"];
 
    (* Part: Splitting the loop, with hoisting *)
+<<<<<<< HEAD
    !!! Struct.to_variables [cVarDef "speed2"];
    !!! Loop.hoist ~patt_name:"var_step" [nbMulti; cVarDef ~regexp:true "speed2_."];
    !!! Loop.fission [tBefore; cVarDef "pos2"];
+=======
+   !! Struct.to_variables [cVarDef "speed2"];
+   !! Loop.hoist ~name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
+   (* remove the dollar to see the error *)
+   !! Variable.inline [nbMulti; cVarDef ~regexp:true "speed2_.$"];
+     
+   !! Loop.fission [tBefore; cVarDef "pos2"];
+>>>>>>> wip_demo
 
   (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
+<<<<<<< HEAD
     Loop_basic.tile tile ~index:bd [cFor d];
     Loop_basic.color color ~index:("c"^d) [cFor bd]
     in
@@ -78,6 +88,18 @@ let _ = Run.script_cpp (fun () ->
 
   (* PART: parallelization *)
   !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore;cFor "bx"];
+=======
+    Loop_basic.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)
+    Loop_basic.color color ~index:("c"^d) [cFor bd]
+    in
+  (*!! colorize "2" "2" "x";*)
+  let dims = ["x";"y";"z"] in
+  !! List.iter (colorize "2" "2") dims;
+  !! Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cx"];
+
+  (* Part: Parallelization *)
+  !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bx"];
+>>>>>>> wip_demo
 
   (* PART : to be continued with concurrent bags, and delocalized sums *)
 
@@ -121,8 +143,8 @@ let _ = Run.script_cpp (fun () ->
 
   (* DONE: remove extra braces in loop fission *)
 
-
-        (* TODO: cVarDef ~regexp:true "(speed2|pos2)_."  *) (* TODO4 *)
+        (* DONE: cVarDef ~regexp:true "(speed2|pos2)_."  *) (* DONE *)
+        (*CORRECT usage of regex cVarDef ~regexp:true "speed2\|pos2_." *)
 
         (* DONE:  reimplement  !! Loop.pic_coloring 2 2 ["x";"y";"z"] [cFor "step"];  *)
 
