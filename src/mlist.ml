@@ -21,9 +21,8 @@ let mapi (f : int -> 'a -> 'b) (ml : 'a t) : 'b t =
 let map (f : 'a -> 'b) (ml : 'a t) : 'b t =
   mapi (fun _i x -> f x) ml
 
-
-let find_map (f : 'a -> 'b option) (ml : 'a t) : 'b option = 
-  List.find_map f ml.items
+let find_map (f : 'a -> 'b option) (ml : 'a t) : 'b option =
+  Tools.find_map f ml.items (* LATER: now in the List stdlib module *)
 
 let fold_left (acc_f : 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   List.fold_left acc_f acc ml.items
@@ -73,8 +72,8 @@ let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
    let empty_marks = List.map (fun _ -> []) sl in
    let x = {items = sl; marks = empty_marks} in
    let new_ml = merge lfront x in
-   merge new_ml lback 
-   
+   merge new_ml lback
+
 let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   insert_sublist_at index [x] ml
 
