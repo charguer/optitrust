@@ -10,7 +10,7 @@ type rename = Variable_core.Rename.t
       the declaration is detached or not. If it is not detached then we call another
       transformation which does that for us. Otherwise just apply the basic hoist transformation.
 *)
-let hoist ?(name : var = "var_step") (tg : Target.target) : unit =
+let hoist ?(name : var = "${var}_step") (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let (tg_trm, _) = Path.resolve_path p t in
       let detach_first =

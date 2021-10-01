@@ -14,12 +14,16 @@ let of_list (l : 'a list) : 'a t =
 let to_list (ml : 'a t) : 'a list =
   ml.items
 
-let mapi (map_fun : int -> 'a -> 'b) (ml : 'a t) : 'b t =
-  let new_items = List.mapi map_fun ml.items in
+let mapi (f : int -> 'a -> 'b) (ml : 'a t) : 'b t =
+  let new_items = List.mapi f ml.items in
   { ml with items = new_items }
 
-let map (map_fun : 'a -> 'b) (ml : 'a t) : 'b t =
-  mapi (fun _i x -> map_fun x) ml
+let map (f : 'a -> 'b) (ml : 'a t) : 'b t =
+  mapi (fun _i x -> f x) ml
+
+
+let find_map (f : 'a -> 'b option) (ml : 'a t) : 'b option = 
+  List.find_map f ml.items
 
 let fold_left (acc_f : 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   List.fold_left acc_f acc ml.items

@@ -12,18 +12,7 @@ open Ast
     return:
       updated ast with the transformed assignment
  *)
-  (* TODO:
-  -- context.ml (depends only on ast.ml)
-
-  let typid_to_typedef tid : typedef option =
-    let t_root = Trace.ast() in
-    match t_root with
-    | { desc = Trm_seq topleveldefs ; _ } ->
-      MList.find_map (function { desc = Trm_typdef ({{typdef_typid tid2} as td) when tid = tid2 } -> Some td | _ -> None) topleveldefs
-    | _ -> fail None "the main file should be a sequence"
-  *)
 let set_explicit_aux (t : trm) : trm =
-  let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
   match t.desc with
   | Trm_apps(_, [lt;rt]) ->
       let tid_r = Internal.get_typid_from_trm rt  in
@@ -34,9 +23,13 @@ let set_explicit_aux (t : trm) : trm =
       | _, _ -> if tid_r = tid_l then tid_r
                   else fail t.loc "set_explicit_aux: different types in an assignment"
       in
-      let struct_def = if tid <> -1 then Typ_map.find tid typid_to_typedef_map
-                        else fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" in
-
+      let struct_def = 
+        if tid <> -1 then match Context.typid_to_typedef tid with 
+          | Some td -> td 
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
+        else    
+          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+      in
       let field_list = Internal.get_field_list struct_def in
       begin match rt.desc with
       | Trm_apps(f1, [rbase]) ->
@@ -265,7 +258,6 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
   match t.desc with
   | Trm_seq tl ->
     let lfront, td, lback =  Internal.get_trm_and_its_relatives index tl in
-    let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
     begin match td.desc with
     | Trm_typedef td ->
       begin match td.typdef_body with
@@ -285,7 +277,13 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        | _ -> fail t.loc  "inline_aux: expected a typ_constr"
        end
        in
-       let struct_def = Typ_map.find tyid typid_to_typedef_map in
+       let struct_def = 
+        if tyid <> -1 then match Context.typid_to_typedef tyid with 
+          | Some td -> td 
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
+        else    
+          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+       in
        let inner_type_field_list = begin match struct_def.typdef_body with
         | Typdef_prod (_, s) -> s
         | _ -> fail t.loc "inline_aux: the field wanted to inline should have also a struct typedef"
@@ -382,13 +380,18 @@ let to_variables_aux (index : int) (t : trm) : trm =
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with
     | Trm_let (_, (x, tx), init) ->
-      let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
+      
       let typid = begin match (get_inner_ptr_type tx).typ_desc with
                   | Typ_constr (_, tid, _) -> tid
                   | _ -> fail t.loc "struct_to_variables_aux: expected a struct type"
                   end in
-
-      let struct_def = Typ_map.find typid typid_to_typedef_map in
+      let struct_def = 
+        if typid <> -1 then match Context.typid_to_typedef typid with 
+          | Some td -> td 
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
+        else    
+          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+       in
       let field_list = Internal.get_field_list struct_def in
       let struct_init_list = begin match init.desc with
                              | Trm_apps(_, [base]) ->
