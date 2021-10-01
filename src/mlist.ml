@@ -2,7 +2,7 @@ type mark = Mark.t
 
 type 'a t =
   { items : 'a list;
-   marks : (mark list) list  }
+    marks : (mark list) list  }
 
 let length (ml : 'a t) : int =
   List.length ml.items
@@ -36,6 +36,11 @@ let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
    let empty_marks = List.map (fun _ -> []) sl in
    { items = Tools.insert_sublist_at index sl ml.items;
      marks = if index = sz then ml.marks @ empty_marks else Tools.insert_sublist_at index empty_marks ml.marks }
+
+(* TODO:
+let insert_sublist_at (index : int) (sl : 'a mlist) (ml : 'a t) : 'a t =
+  one split+ 2merge
+*)
 
 let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   insert_sublist_at index [x] ml
