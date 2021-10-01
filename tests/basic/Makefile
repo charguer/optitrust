@@ -36,6 +36,7 @@ TESTS_WORKING := \
 	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
+	sequence_partition.ml \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
 	struct_set_explicit.ml \
