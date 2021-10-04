@@ -239,22 +239,25 @@ STEP 1 (BASIC): ONLY UNROLL
 
 (* TODO: Factorize unroll *)
 let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : Target.target) : unit =
-  Target.iter_on_targets (fun t p ->
-    let my_mark  =  Mark.next () in
+  Target.iteri_on_targets (fun i t p ->
+    let my_mark  =  "__unroll_" ^ string_of_int i in
     let (tg_loop_trm,_) = Path.resolve_path p t in
+    Tools.printf "%s\n" (Ast_to_c.ast_to_string tg_loop_trm);
     match tg_loop_trm.desc with
     | Trm_for (_, _, _, stop, _, _) ->
       begin match stop.desc with
       | Trm_apps (_,[_;bnd]) ->
         begin match bnd.desc with
-        | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~my_mark tg;
+        | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~my_mark (Target.target_of_path p);
           let block_list = Tools.range 0 (n-1) in
           List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.cMark my_mark;Target.cSeq ()])) block_list;
           Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.cSeq ()];
           if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
-          Marks.clean [Target.nbAny;Target.cMark my_mark]
-        | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
-                       Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark tg);
+          Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
+        | Trm_var x -> 
+          Variable_basic.inline [Target.cVarDef x];
+          Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark (Target.target_of_path p));
+          
           let var_decl = match Internal.toplevel_decl x t with
             | Some d -> d
             | None -> fail t.loc "unroll: could not find the declaration of the variable"
@@ -272,11 +275,14 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
              Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
           if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
-          Marks.clean [Target.nbAny;Target.cMark my_mark]
+          Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
         | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
         end
-      | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
-                       Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark tg);
+      | Trm_var x -> 
+          Tools.printf "arrived here\n";
+          Variable_basic.inline [Target.cVarDef x];
+          Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark (Target.target_of_path p));
+
           let var_decl = match Internal.toplevel_decl x t with
             | Some d -> d
             | None -> fail t.loc "unroll: could not find the declaration of the variable"
@@ -286,6 +292,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | Lit_int n -> n
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
           
+          
           let block_list = Tools.range 0 (n-1) in
           List.iter (fun x ->
             Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
@@ -294,7 +301,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
              Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
           if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
-          Marks.clean [Target.nbAny;Target.cMark my_mark]
+          Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
       | _ -> fail t.loc "unroll: expected an addition between two trms"
       end
     | _ -> fail t.loc "unroll: expected a simple loop"
