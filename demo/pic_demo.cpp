@@ -1,4 +1,4 @@
-
+#include <stdlib.h>
 // --------- Parameters
 
 // Time steps description
@@ -13,6 +13,25 @@ const int nbCells = gridSize * gridSize * gridSize;
 const int bagCapacity = 100;
 
 const double charge = 1.0;
+
+//  physical parameter of the simulation
+const double cellSize = 0.001;
+
+// size of the blocks used in loop tiling
+const int blocksize = 2;
+
+// from double to int
+int int_of_double (double x) {
+  return (int) x - (x < 0.);
+}
+
+int index_of_double (double x) {
+  return (int) (x / cellSize); 
+}
+
+int fetch_and_add (int * p, int n); // translated at the end of our script into "omp atomic"
+
+
 
 // --------- Vector
 
@@ -49,6 +68,25 @@ void bag_push(bag& b, particle p) {
   b.nb++;
 }
 
+void bag_push_atomic (bag &b, particle p) {
+  int k = fetch_and_add (&b.nb, 1);
+  b.items[k] = p;
+}
+
+bag* bag_create() {
+  return malloc(nbCells * sizeof(bag));
+}
+
+
+void delete_bag (bag * b) {
+  free(b);
+}
+
+void initParticel (bag* b);
+
+bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
+
+
 void bag_clear(bag& b) {
   b.nb = 0;
 }
@@ -77,7 +115,13 @@ double nextCharge[nbCells];
 void updateFieldsUsingNextCharge();
 
 // idCellOfPos computes the id of the cell that contains a position.
-int idCellOfPos(vect pos);
+int idCellOfPos(vect pos) {
+  int x = index_of_double (pos.x);
+  int y = index_of_double (pos.y);
+  int z = index_of_double (pos.z);
+
+  return (x * gridSize + y)* gridSize + z;
+}
 
 // --------- Module Simulation
 

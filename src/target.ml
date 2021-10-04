@@ -650,7 +650,7 @@ let iteri_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 
         let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
         match resolve_target [nbAny;cMark m] t with
         | [p] ->
-            (* Here we don't call [Generic.remove_mark] to avoid a circular dependency issue *)
+            (* Here we don't call [Marks.remove] to avoid a circular dependency issue *)
             let t = apply_on_path (trm_remove_mark m) t p in
             Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
             tr imark t (transformer p)

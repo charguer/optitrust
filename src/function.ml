@@ -91,7 +91,7 @@ int main4() { // Function_basic.inline ~[cMark mymark]
   }
   int t = f(r);
 }
-int main5() { // Function.elim_body ~[cLabel label]
+int main5() { // Function.elim_body ~[cMark mark]
   int u = 1, v = 2, w = 3;
   int a = h(4);
   int b = m(v, 2);
@@ -162,7 +162,7 @@ let inline ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = Ad
     | _ -> fail None "inline: expected a variable declaration or a function call"
     end in
     let new_target = [Target.cMark my_mark] in
-    if not res_inlining_needed then Generic.add_mark my_mark (Target.target_of_path p);
+    if not res_inlining_needed then Marks.add my_mark (Target.target_of_path p);
     if args <> [] then bind_args args new_target else ();
     Function_basic.inline ~label new_target;
     elim_body ~vars [Target.cLabel label];
@@ -172,7 +172,7 @@ let inline ?(name_result = "") ?(label:var = "__TEMP_body") ?(vars : rename = Ad
            | Variable_basic.Init_attach_occurrence_below_control -> ()
            | e -> raise e in
         if res_inlining_needed then Variable_basic.inline new_target;
-        Generic.remove_mark my_mark [Target.nbAny; Target.cMark my_mark]
+        Marks.remove my_mark [Target.nbAny; Target.cMark my_mark]
     end
   ) tg
 

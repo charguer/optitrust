@@ -99,6 +99,60 @@ let const_non_const : Target.Transfo.t =
 let local_other_name (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.t =
   Target.apply_on_targets (Variable_core.local_other_name var_type old_var new_var)
 
+
+(* [delocalize array_size neutral_element fold_operation tg] expects target [tg] to point to
+    a block of code of the following form
+      T a
+
+   { T x = a; // mendatory format for first instruction
+
+      for (int i = ...)
+         x++;
+
+      a = x;  // mendatory format for last instruction
+   }@nobrace then
+   Then it will transform it into:
+       T a
+
+   {
+      { T x[N];
+         x[0] = a;
+         for (k = 1; k < N; k++)
+            x[k] = 0;
+      }@nobrace
+
+      for (int i = ...)
+         x[my_core_id]++;
+
+      { a = 0;
+         for (k = 1; k < N; k++)
+            a = a + x[k];  // could be a += if exists
+         }@nobrace
+
+   }@nobrace.
+
+   [array_size] - denotes the size of the array inside the block
+   [neutral_element] - denotes the neutral element for the folding operation
+   [fold_operation] - denotes a reduction operation over all the elements
+    of the array declared inside the block
+*)
+let delocalize (array_size : string) (dl_ops : delocalize_ops) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after (fun _ ->
+    Target.apply_on_targets (Variable_core.delocalize array_size dl_ops) tg)
+
+
+(* [change_type new_type tg] expects [tg] to point to variable declaration
+    then it will change the type of that variable with [new_type].
+*)
+let change_type (new_type : typvar) : Target.Transfo.t =
+ Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Variable_core.change_type new_type i t p)
+
+
+
+
+
+
 (*
 TODO:
 

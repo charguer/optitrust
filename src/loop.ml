@@ -166,7 +166,7 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) ?(shuffle : bool = fal
              Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
           if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
-          Generic.remove_marks [Target.cMark my_mark]
+          Marks.clean [Target.cMark my_mark]
         | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
         end
       | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
@@ -187,7 +187,7 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) ?(shuffle : bool = fal
              Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
           if shuffle then Sequence_basic.reorder_blocks ~braces [Target.cMark my_mark];
-          Generic_basic.remove_marks [Target.cMark my_mark]
+          Marks.remove my_mark [Target.cMark my_mark]
       | _ -> fail t.loc "unroll: expected an addition between two trms"
       end
     | _ -> fail t.loc "unroll: expected a simple loop"
