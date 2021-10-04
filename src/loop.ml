@@ -252,6 +252,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.cMark my_mark;Target.cSeq ()])) block_list;
           Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.cSeq ()];
           if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
+          Marks.clean [Target.nbAny;Target.cMark my_mark]
         | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
                        Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark tg);
           let var_decl = match Internal.toplevel_decl x t with
@@ -271,7 +272,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
              Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
           if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
-          Marks.clean [Target.cMark my_mark]
+          Marks.clean [Target.nbAny;Target.cMark my_mark]
         | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
         end
       | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
@@ -284,6 +285,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           let n = match (get_lit_from_trm_lit lit_n)  with
           | Lit_int n -> n
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
+          
           let block_list = Tools.range 0 (n-1) in
           List.iter (fun x ->
             Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
@@ -291,8 +293,8 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           List.iter (fun x ->
              Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
-          if shuffle then Sequence_basic.shuffle ~braces [Target.cMark my_mark];
-          Marks.remove my_mark [Target.cMark my_mark]
+          if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
+          Marks.clean [Target.nbAny;Target.cMark my_mark]
       | _ -> fail t.loc "unroll: expected an addition between two trms"
       end
     | _ -> fail t.loc "unroll: expected a simple loop"

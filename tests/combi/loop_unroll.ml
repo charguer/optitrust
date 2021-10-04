@@ -1,11 +1,14 @@
 open Optitrust
 open Target
 
+
+
+(* TODO: Fix the issue with braces parameter for the second loop *)
 let _ = Run.script_cpp (fun _ ->
   
   (* With partitioning *)
-  !! Loop.unroll ~braces:true ~shuffle:true ~blocks:[2;3] [cFor "i"];
-  !! Loop.unroll ~braces:false  [cFor "j"];
+  (* !! Loop.unroll ~braces:false ~shuffle:true ~blocks:[2;3] [cFor "i"]; *)
+  !! Loop.unroll  [cFor "j"];
   
   (* Without partitioning *)
   !! Trace.alternative (fun _ -> 

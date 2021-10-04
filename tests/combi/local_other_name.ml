@@ -3,9 +3,10 @@ open Target
 
 let _ = Run.script_cpp (fun _ -> 
   
-  !! Variable.local_other_name (Ast.typ_constr "T") "a"  "x" ;
+  let mark = "section_of_interest" in
+  !! Variable.local_other_name  ~mark ~var_type:(Ast.typ_constr "T") ~old_var:"a"  ~new_var:"x" ();
   !! Trace.alternative (fun _ ->
-    !! Sequence_basic.intro_on_instr ~mark:"section_of_interest" ~visible:false [cFor "i"];
-    !! Variable_basic.local_other_name (Ast.typ_constr "T") "a"  "x" [cMark "section_of_interest"];
+    !! Sequence_basic.intro_on_instr ~mark ~visible:false [cFor "i"];
+    !! Variable_basic.local_other_name  ~var_type:(Ast.typ_constr "T") ~old_var:"a"  ~new_var:"x" [cMark "section_of_interest"];
     !! ());
 )

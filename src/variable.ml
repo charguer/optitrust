@@ -38,15 +38,6 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
     | _ -> fail tg_trm.loc "fold: expected a variable declaration"
 ) tg
 
-
-
-(* [local_other_name var_type old_name new_name] similar to the basic version of local_other_name but with the intermediate
-      done autmatically
-*)
-let local_other_name ?(mark : var = "_SECTION_MARK") (var_type : typ) (old_name : var) (new_name : var) : unit =
-  Sequence_basic.intro_on_instr ~mark ~visible:false [Target.tIndex 0; Target.cFor ~body:[Target.cVar old_name]""];  
-  Variable_basic.local_other_name var_type old_name new_name [Target.cMark mark]
-
 (* [insert_and_fold] expects [tg] to point to relative location, then it inserts a new variable declaration at that location. 
     The new declared variable is [name] with typ [typ] and value [value]. This variable will be folded everywhere on the ast nodes
     which come after the declared variable.
@@ -55,6 +46,12 @@ let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target
   Variable_basic.insert name typ value tg;
   Variable_basic.fold [Target.cVarDef name]
 
+(* [local_other_name var_type old_name new_name] similar to the basic version of local_other_name but with the intermediate
+      done autmatically
+*)
+let local_other_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ) ~old_var:(ov : var) ~new_var:(nv : var) () : unit =
+  Sequence_basic.intro_on_instr ~mark  ~visible:false [Target.tIndex 0; Target.cFor ~body:[Target.cVar ov]""];  
+  Variable_basic.local_other_name  ~var_type:vt ~old_var:ov ~new_var:nv [Target.cMark mark]
 
 
 (* [delocalize ~var_type ~old_var ~new_var ~mark ~arr_size ~neutral_element fold_operation tg] 
@@ -67,8 +64,8 @@ let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target
     the old variable.
 *)
 
-let delocalize ?(old_var : var = "") ?(new_var : var = "") ?(mark : var = "section_of_interest")
-  (var_type : typ) (arr_size : string) (dl_ops : delocalize_ops): unit = 
-    local_other_name ~mark var_type old_var new_var ;
-    Variable_basic.delocalize arr_size dl_ops [Target.cMark mark]
-    
+let delocalize ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(dl_ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
+   ~old_var:(ov : var) ~new_var:(nv : var)  ~var_type:(vt : typ) 
+  ~array_size:(arrs : string) () : unit =
+  local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv ();
+  Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark]
