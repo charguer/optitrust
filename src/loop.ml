@@ -251,7 +251,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           let block_list = Tools.range 0 (n-1) in
           List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.cMark my_mark;Target.cSeq ()])) block_list;
           Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.cSeq ()];
-          if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
+          if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
         | Trm_var x -> Variable_basic.inline [Target.cVarDef x];
                        Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark tg);
           let var_decl = match Internal.toplevel_decl x t with
@@ -270,7 +270,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           List.iter (fun x ->
              Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
-          if shuffle then Sequence_basic.reorder_blocks [Target.cMark my_mark];
+          if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
           Marks.clean [Target.cMark my_mark]
         | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
         end
@@ -291,7 +291,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           List.iter (fun x ->
              Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
           ) block_list;
-          if shuffle then Sequence_basic.reorder_blocks ~braces [Target.cMark my_mark];
+          if shuffle then Sequence_basic.shuffle ~braces [Target.cMark my_mark];
           Marks.remove my_mark [Target.cMark my_mark]
       | _ -> fail t.loc "unroll: expected an addition between two trms"
       end

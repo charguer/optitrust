@@ -160,33 +160,38 @@ let partition (blocks : int list) (braces : bool): Target.Transfo.local =
   Target.apply_on_path (partition_aux blocks braces)
 
 
-let reorder_blocks_aux (braces : bool) (t : trm) : trm =
+let shuffle_aux (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    let transformed_list = List.map (fun t1 -> 
-      begin match t1.desc with
-      | Trm_seq tl1 ->
-        let first_element, _ = Tools.uncons (Mlist.to_list tl1) in
-        let  _, last_element = Tools.unlast (Mlist.to_list tl1) in
-        
-        let first_element = 
-          if braces 
-            then Internal.remove_nobrace_if_sequence first_element 
-            else Internal.set_nobrace_if_sequence first_element in
-        let last_element = 
-          if braces 
-            then Internal.remove_nobrace_if_sequence last_element 
-            else Internal.set_nobrace_if_sequence last_element in
+    if Mlist.length tl < 1 then fail t.loc "shuffle_aux:can't shuffle an empty mlist";
+    let first_row = Mlist.nth tl 0 in
+    begin match first_row.desc with 
+    | Trm_seq tl1 ->
+      let loop_bound = Mlist.length tl1 in
+      if loop_bound < 2 then fail t.loc "shuffle_aux: expected a row of length at least 2";
+      let global_acc = ref [] in
+      for i = 0 to loop_bound-1 do
+        let local_acc = Mlist.fold_left (fun acc t1 -> 
+            begin match t1.desc with 
+            | Trm_seq tl2 ->
+              if Mlist.length tl2 <> loop_bound then fail t1.loc "shuffle_aux: all the subgroups should be of the same size";
+              let temp_el = Mlist.nth tl2 i in
+              let temp_el = 
+              if braces 
+                then Internal.remove_nobrace_if_sequence temp_el 
+                else Internal.set_nobrace_if_sequence temp_el in
+            temp_el :: acc
+            | _ -> fail t1.loc "shuffle_aux: all the elements of the blocks should be sequences"
+            end
+            
+          ) [] tl in
+        global_acc := (if braces then trm_seq (Mlist.of_list local_acc) else trm_seq_no_brace local_acc) :: !global_acc
+      done;
+      if braces then trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list !global_acc) else trm_seq_no_brace (!global_acc)
 
-        (first_element, last_element)
-      | _ -> fail t1.loc "reorder_block_aux: blocks should be sequences"
-      end
-    ) (Mlist.to_list tl) in
-    let first_part, last_part = List.split transformed_list in
-    trm_seq ~annot:t.annot ~marks:t.marks (Mlist.merge (Mlist.of_list first_part) (Mlist.of_list last_part))
+    | _ -> fail first_row.loc "shuffle_aux: shuffle can be applied only on sequences"
+    end
+  | _ -> fail t.loc "shuffle_aux: expected the sequence with blocks to reorder"
 
-
-  | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
-
-let reorder_blocks (braces : bool) : Target.Transfo.local = 
-  Target.apply_on_path (reorder_blocks_aux braces) 
+let shuffle (braces : bool) : Target.Transfo.local = 
+  Target.apply_on_path (shuffle_aux braces) 

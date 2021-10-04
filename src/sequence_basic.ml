@@ -105,8 +105,8 @@ let split (tg : Target.target) : unit =
 let partition ?(braces : bool = false) (blocks : int list) : Target.Transfo.t =
   Target.apply_on_targets (Sequence_core.partition blocks braces)
 
-(* [reorder_blocks tg] expects the target [tg] to point to a sequence of blocks, this transformation will transpose the block structure
+(* [shuffle tg] expects the target [tg] to point to a sequence of blocks, this transformation will transpose the block structure
     think about a sequence of blocks as a matrix.
 *)
-let reorder_blocks ?(braces : bool = false) : Target.Transfo.t =
-  Target.apply_on_targets (Sequence_core.reorder_blocks braces)
+let shuffle ?(braces : bool = false) : Target.Transfo.t =
+  Target.apply_on_targets (Sequence_core.shuffle braces)
