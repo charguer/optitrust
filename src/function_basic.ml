@@ -18,13 +18,13 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
   (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p)
 
 
-(* [inline ~label tg] - expects the target [tg] to point to a function call inside a declaration
+(* [inline ~body_mark tg] - expects the target [tg] to point to a function call inside a declaration
     or inside a sequence in case the function is of void type. Example:
           int r = g(a);
       or  g(a);
 
     Then it will replace that instruction with a nobrace sequence which is a sequence
-    visible only inside the ast. This sequence will be labelled with [label]. Basically
+    visible only inside the ast. This sequence will be marked with [body_mark]. Basically
     this sequence contains the body of the declaration of the called function targeted with
     [tg]. This transformation end with some tunnings of the copied body listed below:
 
@@ -68,8 +68,8 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
         }
 *)
 
-let inline  ?(label : var = "body") : Target.Transfo.t =
+let inline  ?(body_mark : var = "body") : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
    (fun (p, p_local, i) t ->
-    Function_core.inline i label t p_local t p)
+    Function_core.inline i body_mark t p_local t p)
 

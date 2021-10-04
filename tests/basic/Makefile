@@ -7,10 +7,10 @@ TARGET_MAKE_ALL := check
 TESTS_WORKING := \
 	aos_to_soa_sized_array.ml \
 	aos_to_soa_typedef.ml \
-	arbitrary_if.ml \
 	array_swap.ml \
 	array_tile.ml \
 	array_to_variables.ml \
+	flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
 	label_add.ml \
@@ -29,7 +29,8 @@ TESTS_WORKING := \
 	pointer_fold.ml \
 	reference_fold.ml \
 	reference_inline.ml \
-	replace.ml \
+	instr_replace.ml \
+	instr_replace_fun.ml \
 	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
 	sequence_elim.ml \

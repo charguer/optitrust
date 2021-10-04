@@ -53,19 +53,19 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
 
 *)
 
-let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
+let intro_aux (mark : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       let tl1, tl2 = 
         if nb > 0 then Mlist.extract index nb tl else Mlist.extract (index+ nb+1) (-nb) tl in
         let intro_seq = trm_seq tl2 in
-        let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
+        let intro_seq = if mark <> "" then trm_add_mark mark intro_seq else intro_seq in
         let index = if nb < 0 then index -1 else index in
          trm_seq  ~annot:t.annot ~marks:t.marks (Mlist.insert_at index intro_seq tl1)
     | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 
-let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local =
-  Target.apply_on_path (intro_aux label index nb_instr)
+let intro (mark : string) (index : int) (nb_instr : int) : Target.Transfo.local =
+  Target.apply_on_path (intro_aux mark index nb_instr)
 
 (*[elim_aux index t]: inline an inner sequence into an outer sequence.
     params:
@@ -80,22 +80,22 @@ let elim_aux (t : trm) : trm =
   | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
 
 let elim : Target.Transfo.local =
-  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence ~keep_label:false (elim_aux) "elim")
+  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) "elim")
 
-(* [intro_on_instr_aux visible label t]: replacing t with a sequence that contains t as single item.
+(* [intro_on_instr_aux visible mark t]: replacing t with a sequence that contains t as single item.
    params:
-    label: add a label around the sequence
+    mark: add a mark around the sequence
     visible: a flag to turn on(off) curly braces of the sequence
     t: ast of the instruction 
    return: 
     updated ast of the outer sequence with wrapped node t
  *)
-let intro_on_instr_aux (label : string) (visible : bool) (t : trm) : trm =
+let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
   let wrapped_seq = if visible then trm_seq_nomarks [t] else trm_seq_no_brace [t] in
-  if label <> "" then trm_labelled label wrapped_seq else wrapped_seq 
+  if mark <> "" then trm_add_mark mark wrapped_seq else wrapped_seq 
  
-let intro_on_instr (visible : bool) (label : string) : Target.Transfo.local=
-  Target.apply_on_path (intro_on_instr_aux label visible)
+let intro_on_instr (visible : bool) (mark : mark) : Target.Transfo.local=
+  Target.apply_on_path (intro_on_instr_aux mark visible)
 
 (* [unrwap_aux t]: replacing a sequence that contains a single item t with t.
    params:

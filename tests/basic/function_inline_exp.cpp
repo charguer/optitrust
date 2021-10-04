@@ -21,31 +21,31 @@ void m(int *p) { (*p)++; }
 int main() {
   int x = 3;
   int y;
-bodyf : {
-  int a = (x + x);
-  y = (a + a);
-}
+  /*@bodyf*/ {
+    int a = (x + x);
+    y = (a + a);
+  } /*bodyf@*/
 
   int z;
-bodyg : {
-  if ((x > 0))
-    z = 1;
-  else
-    z = 2;
-}
+  /*@bodyg*/ {
+    if ((x > 0))
+      z = 1;
+    else
+      z = 2;
+  } /*bodyg@*/
 
   int u;
-bodyh : {
-  if ((x > 0)) {
-    u = 1;
-    goto _exit_body;
-  }
-  u = 2;
-}
+  /*@bodyh*/ {
+    if ((x > 0)) {
+      u = 1;
+      goto _exit_body;
+    }
+    u = 2;
+  } /*bodyh@*/
 __exit_body:
 
   int *q = new int;
-bodym : { (*q)++; }
+  /*@bodym*/ { (*q)++; } /*bodym@*/
 
   return 0;
 }

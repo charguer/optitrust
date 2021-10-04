@@ -1,4 +1,8 @@
 #include <stdlib.h>
+
+// chose function
+bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
+
 // --------- Parameters
 
 // Time steps description
@@ -25,11 +29,13 @@ int int_of_double (double x) {
   return (int) x - (x < 0.);
 }
 
+// coordinate round up
 int index_of_double (double x) {
   return (int) (x / cellSize); 
 }
 
-int fetch_and_add (int * p, int n); // translated at the end of our script into "omp atomic"
+// translated at the end of our script into "omp atomic"
+int fetch_and_add (int * p, int n); 
 
 
 
@@ -82,10 +88,7 @@ void delete_bag (bag * b) {
   free(b);
 }
 
-void initParticel (bag* b);
-
-bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
-
+void initParticles (bag* b);
 
 void bag_clear(bag& b) {
   b.nb = 0;

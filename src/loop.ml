@@ -36,9 +36,9 @@ let hoist ?(name : var = "${var}_step") (tg : Target.target) : unit =
     [nb] - denotes the number of loops to consider.
 *)
 let fusion ?(nb : int = 2) (tg : Target.target) : unit =
-  let label = "__TEMP_LABEL" in
-  Sequence_basic.intro nb ~label tg;
-  Loop_basic.fusion_on_block [Target.cLabel label]
+  let mark = "__TEMP_MARK" in
+  Sequence_basic.intro nb ~mark tg;
+  Loop_basic.fusion_on_block [Target.cMark mark]
 
 (* LATER: documentation?generalize? *)
 let invariant ?(upto : string = "") (tg : Target.target) : unit =

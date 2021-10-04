@@ -304,7 +304,7 @@ let const_non_const : Target.Transfo.local =
       var_type: the type of the variable
       old_var: the previous name of the variable, this is used to find all the occurrences
       new_var: the name of the variable to be declared and replace all the occurrences of old_var
-      t: ast of the labelled sequence.
+      t: ast of the marked(labelled) sequence.
     return:
       the updated ast of the targeted sequence with the new local name
 

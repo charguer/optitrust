@@ -80,21 +80,20 @@ let const_non_const : Target.Transfo.t =
   Target.apply_on_targets (Variable_core.const_non_const)
 
 
-(* [local_other_name var_type old_var new_var tg] expectes target [tg] to point to a labelled
+(* [local_other_name var_type old_var new_var tg] expectes target [tg] to point to a marked
       sequence. Then it will declare a new variable with name [new_name] and replace all
       the occurences of [old_var] with [new_var]. The user needs to give the type of the
       variable for which we want to change the name.
 
       Example:
-        T a                     ->->->    T a
-
-       sectionofinterest:{                sectionofinterest:{
-          for (int i = 0; i < 10; i++){      T x = a
-             a++;                            for(int i = 0; i < 10; i++){
-          }                                     x++;
-       }@nobrace                              }
-                                              a = x;
-                                            }@nobrace
+        T a                     ->->->       T a
+       mark:{                                marlk:{
+          for (int i = 0; i < 10; i++){       T x = a
+             a++;                             for(int i = 0; i < 10; i++){
+          }                                       x++;
+       }@nobrace                                }
+                                                a = x;
+                                              }@nobrace
 *)
 let local_other_name (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.t =
   Target.apply_on_targets (Variable_core.local_other_name var_type old_var new_var)

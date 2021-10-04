@@ -48,8 +48,8 @@ let set_implicit (tg : Target.target) : unit =
       in
       let field_list = Internal.get_field_list struct_def in
       let nb = List.length field_list in
-      Sequence_basic.intro nb tg;
-      Struct_basic.set_implicit [Target.cSeq ~args_pred:(Target.target_list_one_st tg) ()]
+      Sequence_basic.intro ~mark:"__SEQUENCE_MARK" nb tg;
+      Struct_basic.set_implicit [Target.cMark "__SEQUENCE_MARK"];
     | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
   
 ) tg
