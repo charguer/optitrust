@@ -348,7 +348,8 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
 
       let new_first_trm = trm_seq_no_brace[
           trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
-          trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
+          trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]) (trm_var new_var);
+          trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]) (trm_lit (Lit_int 0))])]
           in
       let new_snd_instr = Internal.change_trm (trm_var new_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var ~annot:[Any] "0" ]) middle_instr  in
@@ -356,20 +357,20 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (t : trm) : t
       let new_thrd_trm = begin match dl_ops with
                   | Delocalize_arith (li, op) ->
                     trm_seq_no_brace [
-                      trm_set (old_var_trm) (trm_lit li);
+                      trm_set (old_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]);
                       (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
-                      trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
+                      trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
                         (trm_seq_nomarks [
                             trm_set ~annot:[App_and_set] (old_var_trm)
                             (trm_apps (trm_binop op)[
                              old_var_trm;
                               trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var "k"]]) ])
                      ]
-                  | Delocalize_obj (clear_f, transfer_f) ->
+                  | Delocalize_obj (_clear_f, transfer_f) ->
                     trm_seq_no_brace [
-                      trm_apps (trm_var clear_f) [old_var_trm];
+                      trm_set (old_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]);
                       (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
-                      trm_for "k" DirUp (trm_lit (Lit_int 0)) (trm_var array_size) (trm_lit (Lit_int 1))
+                      trm_for "k" DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
                         (
                           trm_seq_nomarks [
                             (trm_apps (trm_var transfer_f)[

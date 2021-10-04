@@ -127,14 +127,118 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
    end
   )
 
-(* [unroll] expects the target to point to a loop. It the checks if teh loop
+(* [unroll] expects the target to point to a loop. Then it checks if the loop
     is of the form for(int i = a; i < a + C; i++){..} then it will move the
-    the instructions out of the loop and the loop will be removed.
-    Assumption C should be a literal, this is needed to compute the number
-    of sequences to generate.
-    braces:true to keep the sequences
+    the instructions out of the loop and the loop will be removed. It works also
+    in the case when C = 0 and a is a constant variable. To get the number of steps
+    a is first inlined.
+    
+    [braces]: a flag on the visiblity of blocks created during the unroll process
+
+    [blocks]: a list of integers describing the partition type of the targeted sequence
+    
+    [shuffle]: shuffle blocks
+    
+      Assumption: C should be a literal or a constant variable
+
+DETAILS:
+ Let [tg] target the following loop
+      
+    for (int i = a; i < a + N; i++) {
+
+    if N is a variable -> call inline_var on this target
+    then
+    if N is not a literal -> fail
+    then
+    call the basic unroll
+
+
+    [unroll_and_shuffle] which does unroll, then [shuffle]
+
+    [shuffle] is a stand alone transformation (see notes)
+STEP 1 (BASIC): ONLY UNROLL
+
+   for i { body(i) }
+   --->
+   { body(i+0) }
+   { body(i+1) }
+   { body(i+2) }
+
+  example:
+    { int a = (i+0 * 2);
+        t[i] = a; }
+    { int a = (i+1 * 2);
+        t[i] = a; }
+
+  STEP2:  software-pipelining is a combi transformation that decomposes as:
+
+   START:
+   {
+     { body(i+0) }
+     { body(i+1) }
+     { body(i+2) }
+   }
+
+   FIRST SUBSTEP : perform renaming of local varaibles (see simd.txt)
+
+   SECOND SUBSTEP: make the subgroups
+    now with number of instructions in each sublock, e.g. take a list [2;3]
+     Sequence.partition [2;3] p    // DONE: test "partition" as a combi transfo
+        // -> check that the sum of the sizes in the list correspond to the nb of items in the seq
+       -> implemented as
+            Sequence.sub 0 2; Sequence.sub 1 3; Sequence.sub 2 ...
+          (list fold over the partition sizes)
+       -> make the @nobraces on the subsequences produced (this should be a flag of Seq.sub),
+          so that we can remove them at the end
+       where p points to the item "body(i+k)"
+
+       ( if body(i) is   instr1 instr2 instr3 instr4 instr5
+       ( then i make { { instr1 instr2 } { instr3 instr4 instr5 } }
+
+   {
+     { { instr1 instr2(i+0) } { instr3 instr4 instr5(i+0) } }
+     { { instr1 instr2(i+1) } { instr3 instr4 instr5(i+1) } }
+     { { instr1 instr2(i+2) } { instr3 instr4 instr5(i+2) } }
+   }
+   THIRD SUBSTEP: reorder instructions
+   {
+     { { instr1 instr2(i+0) }@nobrace
+       { instr1 instr2(i+1) }
+       { instr1 instr2(i+2) } }@?
+     { { instr3 instr4 instr5(i+0) }
+       { instr3 instr4 instr5(i+1) }
+       { instr3 instr4 instr5(i+2) } }@?
+   }
+
+   FOURTH SUBSTEP: remove nobrace sequences
+
+
+ ===================note
+    the actual reorder operation is just (the one already implemented):
+    {
+     { cmd1(i+0) cmd2 cmd3 }
+     { cmd1(i+1) cmd2 cmd3 }
+     { cmd1(i+2) cmd2 cmd3 }
+   }
+   THIRD SUBSTEP: reorder instructions
+   {
+     cmd1(i+0)
+     cmd1(i+1)
+     cmd1(i+2)
+     cmd2(i+0)
+     cmd2(i+1)
+     cmd2(i+2)
+     cmd3(i+0)
+     cmd3(i+1)
+     cmd3(i+2)
+
+   }
+
 *)
-let unroll ?(braces:bool=false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : Target.target) : unit =
+
+
+(* TODO: Factorize unroll *)
+let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let my_mark  =  Mark.next () in
     let (tg_loop_trm,_) = Path.resolve_path p t in
@@ -158,6 +262,7 @@ let unroll ?(braces:bool=false) ?(blocks : int list = []) ?(shuffle : bool = fal
           let n = match (get_lit_from_trm_lit lit_n)  with
           | Lit_int n -> n
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
+          
           let block_list = Tools.range 0 (n-1) in
           List.iter (fun x ->
             Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
