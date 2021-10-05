@@ -334,11 +334,11 @@ let local_other_name (var_type : typ) (old_var : var) (new_var : var) : Target.T
     return:
       the updated ast of the targeted sequence
 *)
-
 let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index : string) (t : trm) : trm =
-  match t.desc with
+  match t.desc with 
   | Trm_seq tl ->
     if Mlist.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
+    
     let def = Mlist.nth tl 0 in
     let middle_instr = Mlist.nth tl 1 in
     begin match def.desc with
@@ -346,39 +346,31 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index :
       let new_var = x in
       let old_var_trm = get_init_val def in
       let var_type = (get_inner_ptr_type tx) in
-
+      let init_trm, op = begin match dl_ops with 
+      | Delocalize_arith (li, op) ->
+          trm_lit li, (trm_set ~annot:[App_and_set] (old_var_trm)
+                            (trm_apps (trm_binop op) [
+                             old_var_trm;
+                              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]])) 
+      | Delocalize_obj (clear_f, transfer_f) ->
+          trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [], 
+          trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f) 
+            [old_var_trm; trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]]
+      end in
       let new_first_trm = trm_seq_no_brace[
           trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
           trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]) old_var_trm;
           trm_for loop_index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
-         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]) (trm_lit (Lit_int 0))])]
+         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]) init_trm])]
           in
       let new_snd_instr = Internal.change_trm (trm_var new_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var ~annot:[Any] "0" ]) middle_instr  in
 
-      let new_thrd_trm = begin match dl_ops with
-                  | Delocalize_arith (_li, op) ->
-                    trm_seq_no_brace [
+      let new_thrd_trm = trm_seq_no_brace [
                       trm_set (old_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]);
                       (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
                       trm_for loop_index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
-                        (trm_seq_nomarks [
-                            trm_set ~annot:[App_and_set] (old_var_trm)
-                            (trm_apps (trm_binop op)[
-                             old_var_trm;
-                              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]]) ])
-                     ]
-                  | Delocalize_obj (_clear_f, transfer_f) ->
-                    trm_seq_no_brace [
-                      trm_set (old_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]);
-                      (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
-                      trm_for loop_index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
-                        (
-                          trm_seq_nomarks [
-                            (trm_apps (trm_var transfer_f)[
-                             old_var_trm;
-                              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]]) ]
-                              )]
-                  end in
+                        (trm_seq_nomarks [op])
+                     ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
       { t with desc = Trm_seq new_tl}
       (* trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) *)

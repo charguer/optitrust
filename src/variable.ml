@@ -78,6 +78,7 @@ let delocalize_in_vars ?(loop_index : string = "dl_i") ?(mark : mark = "section_
   Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark];
   Variable_basic.inline_at [Target.cFor loop_index] [Target.nbAny;Target.cVarDef arrs];
   Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor loop_index];
-  Arrays.to_variables  lv [Target.cVarDef nv]
+  Arrays.to_variables  lv [Target.cVarDef nv];
+  Marks.remove "section_of_interest" [Target.cMark "section_of_interest"]
   
   

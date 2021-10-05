@@ -1,14 +1,23 @@
 // This line should be included in the file in order for the output of "delocalize" to typecheck
+
 int ANY(int maxValue){ return 0;}
 
 const int N = 2;
 typedef int T;
+
+
+void test (){
+  int x = 1;
+}
+
+
 int main(){
   T a;
   for (int i = 0; i < N; i++){
      a++;
   }
   int y = 0;
+  test();
   return 0;
 }
 
