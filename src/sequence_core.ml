@@ -132,7 +132,6 @@ let split (index : int) : Target.Transfo.local =
 
 
 let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
-  Tools.printf "%b\n" (Internal.is_nobrace t);
   match t.desc with 
   | Trm_seq tl -> 
     let nb = Mlist.length tl in

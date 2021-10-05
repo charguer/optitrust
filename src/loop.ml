@@ -236,74 +236,52 @@ STEP 1 (BASIC): ONLY UNROLL
 
 *)
 
-
-(* TODO: Factorize unroll *)
 let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : Target.target) : unit =
   Target.iteri_on_targets (fun i t p ->
-    let my_mark  =  "__unroll_" ^ string_of_int i in
+    let my_mark = "__unroll_" ^ string_of_int i in
     let (tg_loop_trm,_) = Path.resolve_path p t in
-    match tg_loop_trm.desc with
+    Marks.add my_mark (Target.target_of_path p);
+    (* Function used in the case when the loop bound is a constant variable *)
+    let aux (x : var) (t : trm) : int  = 
+      Variable_basic.inline_at [Target.cMark my_mark] [Target.cVarDef x];
+          let var_decl = match Internal.toplevel_decl x t with
+            | Some d -> d
+            | None -> fail t.loc "unroll: could not find the declaration of the loop bound variable"
+            in
+          let lit_n = get_init_val var_decl  in
+          match (get_lit_from_trm_lit lit_n) with
+          | Lit_int n -> n
+          | _ -> fail t.loc "unroll: could not get the number of steps to unroll"
+      in        
+    match tg_loop_trm.desc with 
     | Trm_for (_, _, _, stop, _, _) ->
-      begin match stop.desc with
-      | Trm_apps (_,[_;bnd]) ->
-        begin match bnd.desc with
-        | Trm_val (Val_lit (Lit_int n)) -> Loop_basic.unroll ~my_mark (Target.target_of_path p);
-          let block_list = Tools.range 0 (n-1) in
-          List.iter (fun x -> Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.cMark my_mark;Target.cSeq ()])) block_list;
-          Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.cSeq ()];
-          if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
-          Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
-        | Trm_var x -> 
-          Variable_basic.inline [Target.cVarDef x];
-          Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark (Target.target_of_path p));
-          
-          let var_decl = match Internal.toplevel_decl x t with
-            | Some d -> d
-            | None -> fail t.loc "unroll: could not find the declaration of the variable"
-          in
-          let lit_n = get_init_val var_decl in
-          let n = match (get_lit_from_trm_lit lit_n)  with
-          | Lit_int n -> n
-          | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
-          
-          let block_list = Tools.range 0 (n-1) in
-          List.iter (fun x ->
-            Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
-          ) block_list;
-          List.iter (fun x ->
-             Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
-          ) block_list;
-          if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
-          Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
-        | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
+      let nb_instr = begin match stop.desc with 
+      | Trm_apps (_, [_;bnd]) ->
+        begin match bnd.desc with 
+        | Trm_val (Val_lit (Lit_int n)) -> n
+        | Trm_var x -> aux x t
+        | _ -> fail stop.loc "unroll: expected eitehr a constant variable of a literal"
         end
-      | Trm_var x -> 
-          Variable_basic.inline [Target.cVarDef x];
-          Loop_basic.unroll ~my_mark (Target.target_of_path p);
-          
-          Tools.printf "arrived here\n";
-          let var_decl = match Internal.toplevel_decl x t with
-            | Some d -> d
-            | None -> fail t.loc "unroll: could not find the declaration of the variable"
-          in
-          let lit_n = get_init_val var_decl in
-          let n = match (get_lit_from_trm_lit lit_n)  with
-          | Lit_int n -> n
-          | _ -> fail t.loc "unroll: could not get the number of steps to unroll" in
-          
-          
-          let block_list = Tools.range 0 (n-1) in
-          List.iter (fun x ->
-            Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:(n+1) x; Target.cMark my_mark;Target.cSeq ()])
-          ) block_list;
-          List.iter (fun x ->
-             Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
-          ) block_list;
-          if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
-          Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
-      | _ -> fail t.loc "unroll: expected an addition between two trms"
-      end
-    | _ -> fail t.loc "unroll: expected a simple loop"
+      | Trm_var x -> aux x t
+      | _ -> fail stop.loc "unroll: expected an addition of two constants or a constant variable"
+      end 
+        in
+      Loop_basic.unroll ~braces:true ~my_mark [Target.cMark my_mark];
+      
+      let block_list = Tools.range 0 (nb_instr-1) in
+      List.iter (fun x ->
+        Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
+      ) block_list;
+      List.iter (fun x ->
+         Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
+      ) block_list;
+      
+      Tools.printf "I am here\n";
+      if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
+      
+      Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
+
+    | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
   ) tg
 
 (* [reorder order]  expects the target [tg] to point to the first loop included in the sorting

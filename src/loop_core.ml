@@ -311,7 +311,7 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
         body_i :: acc ) [] (List.rev unrolled_loop_range) in
       begin match my_mark with
       | "" -> trm_seq_no_brace unrolled_body
-      | _ -> trm_add_mark my_mark (trm_seq_no_brace unrolled_body)
+      | _ -> trm_seq_no_brace [trm_add_mark my_mark (trm_seq_no_brace unrolled_body)]
       end
   | _ -> fail t.loc "unroll_aux: only simple loops supported"
 
