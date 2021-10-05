@@ -254,8 +254,8 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll"
       in        
     match tg_loop_trm.desc with 
-    | Trm_for (_, _, _, stop, _, _) ->
-      let nb_instr = begin match stop.desc with 
+    | Trm_for (_, _, start, stop, _, _) ->
+      let loop_bound = begin match stop.desc with 
       | Trm_apps (_, [_;bnd]) ->
         begin match bnd.desc with 
         | Trm_val (Val_lit (Lit_int n)) -> n
@@ -266,16 +266,25 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       | _ -> fail stop.loc "unroll: expected an addition of two constants or a constant variable"
       end 
         in
+      let loop_start = begin match start.desc with 
+      | Trm_apps (_, [var_occ]) ->
+        begin match var_occ.desc with 
+        | Trm_val (Val_lit (Lit_int n)) -> n
+        | Trm_var x -> aux x t
+        | _ -> fail stop.loc "unroll: expected eitehr a constant variable of a literal"
+        end
+      | Trm_var x -> aux x t
+      | _ -> fail stop.loc "unroll: expected an addition of two constants or a constant variable"
+      end  in
       Loop_basic.unroll ~braces:true ~my_mark [Target.cMark my_mark];
-      
-      let block_list = Tools.range 0 (nb_instr-1) in
+      let block_list = Tools.range loop_start (loop_bound-1) in
+      let nb_instr = (loop_bound - loop_start) in
       List.iter (fun x ->
         Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
       ) block_list;
       List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
       ) block_list;
-      
       Tools.printf "I am here\n";
       if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
       

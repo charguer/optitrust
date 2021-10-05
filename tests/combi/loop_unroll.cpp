@@ -1,9 +1,9 @@
 const int N = 3;
 const int M = 2;
-
+int s = 2;
 
 int main(){
-  int s = 2;
+  
   for (int i = s; i < s + N; i++) {
     int a = 1;
     int b = a + 2;

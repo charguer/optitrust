@@ -78,14 +78,18 @@ let elim (tg : Target.target) : unit =
           them laballed before can make the apllication of the transformations easier.
 *)
 let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo.t =
+   if not visible then Internal.nobrace_enter();
    Target.apply_on_targets (Sequence_core.intro_on_instr visible mark)
   
 
 (* [unwrap tg] expects the target [tg] to point to a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)
-let elim_around_instr : Target.Transfo.t =
-   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, _) t -> Sequence_core.elim t p)
+let elim_around_instr (tg : Target.target) : unit =
+   Internal.nobrace_remove_after ( fun _ ->
+    Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p, _) t -> Sequence_core.elim t p) tg
+   )
+   
 
 (* [split tg] expects target [tg] to point around another target in a sequence meaning, before or after another target
     It will split the sequence which contains that target into two parts, depending on the fact that the entered target
@@ -103,10 +107,12 @@ let split (tg : Target.target) : unit =
           other transformations which call explicitly the partition transformation.
 *)
 let partition ?(braces : bool = false) (blocks : int list) : Target.Transfo.t =
+  if not braces then Internal.nobrace_enter();
   Target.apply_on_targets (Sequence_core.partition blocks braces)
 
 (* [shuffle tg] expects the target [tg] to point to a sequence of blocks, this transformation will transpose the block structure
     think about a sequence of blocks as a matrix.
 *)
 let shuffle ?(braces : bool = false) : Target.Transfo.t =
+  if not braces then Internal.nobrace_enter ();
   Target.apply_on_targets (Sequence_core.shuffle braces)

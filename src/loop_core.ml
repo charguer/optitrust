@@ -291,7 +291,7 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
 *)
 let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
   match t.desc with
-  | Trm_for (index, _direction, _start, stop, _step, body) ->
+  | Trm_for (index, _direction, start, stop, _step, body) ->
       let unroll_bound = begin match stop.desc with
                          | Trm_apps(_,[_; bnd]) ->
                             begin match bnd.desc with
@@ -301,7 +301,17 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
                           | Trm_val (Val_lit (Lit_int bnd)) -> bnd
                          | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
                          end in
-      let unrolled_loop_range = Tools.range 0 (unroll_bound - 1) in
+                        
+      let unroll_start = begin match start.desc with
+                         | Trm_apps(_,[_; bnd]) ->
+                            begin match bnd.desc with
+                            | Trm_val (Val_lit (Lit_int bnd)) -> bnd
+                            | _ -> fail bnd.loc "unroll_aux: expected a literal trm"
+                            end
+                         | Trm_val (Val_lit (Lit_int bnd)) -> bnd
+                         | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a start which is a a variable or a literal"
+                         end in
+      let unrolled_loop_range = Tools.range unroll_start (unroll_bound - 1) in
       let unrolled_body = List.fold_left ( fun acc i1 ->
         let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
         let body_i = Internal.change_trm (trm_var index) new_index body in
