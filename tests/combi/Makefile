@@ -5,11 +5,13 @@ TARGET_MAKE_ALL := check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
+	delocalize.ml \
 	function_bind_args.ml \
 	function_bind.ml \
 	function_elim_body.ml \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
+	local_other_name.ml \
 	loop_fusion.ml \
 	loop_hoist.ml \
 	loop_invariant.ml \

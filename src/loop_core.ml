@@ -289,7 +289,7 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
     return:
       updated ast with the unrolled loop
 *)
-let unroll_aux (my_mark : mark) (t : trm) : trm =
+let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, _direction, _start, stop, _step, body) ->
       let unroll_bound = begin match stop.desc with
@@ -304,17 +304,20 @@ let unroll_aux (my_mark : mark) (t : trm) : trm =
       let unrolled_loop_range = Tools.range 0 (unroll_bound - 1) in
       let unrolled_body = List.fold_left ( fun acc i1 ->
         let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
-        Internal.change_trm (trm_var index) new_index body :: acc
-         ) [] (List.rev unrolled_loop_range) in
+        let body_i = Internal.change_trm (trm_var index) new_index body in
+        let body_i = if braces 
+                      then Internal.remove_nobrace_if_sequence body_i 
+                      else Internal.set_nobrace_if_sequence body_i in
+        body_i :: acc ) [] (List.rev unrolled_loop_range) in
       begin match my_mark with
       | "" -> trm_seq_no_brace unrolled_body
-      | _ -> trm_seq_no_brace [trm_add_mark my_mark (trm_seq_no_brace unrolled_body)]
+      | _ -> trm_add_mark my_mark (trm_seq_no_brace unrolled_body)
       end
   | _ -> fail t.loc "unroll_aux: only simple loops supported"
 
 
-let unroll (my_mark : mark) : Target.Transfo.local =
-  Target.apply_on_path (unroll_aux my_mark)
+let unroll (braces : bool)(my_mark : mark) : Target.Transfo.local =
+  Target.apply_on_path (unroll_aux braces my_mark)
 (* [invariant_aux trm_index t]: take a constant term inside the body of the loop
       in outside the loop.
     params:

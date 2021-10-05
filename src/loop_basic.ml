@@ -106,10 +106,11 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
     Assumption: C should be a literal, this is needed to compute the number
     of sequences to generate.
 *)
-let unroll ?(my_mark : mark  = "") (tg : Target.target): unit =
-  Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_targets (Loop_core.unroll my_mark) tg)
-
+let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : Target.target): unit =
+  Internal.nobrace_remove_after (fun _ -> 
+    Target.apply_on_targets (Loop_core.unroll braces my_mark) tg
+  )
+  
 
 
 (* [invariant] expects the target [tg] to point to an instruction inside the loop

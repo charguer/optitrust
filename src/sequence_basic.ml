@@ -77,9 +77,9 @@ let elim (tg : Target.target) : unit =
     [mark] denotes the mark of the sub-sequence. Targeting sequences can be challanging hence having
           them laballed before can make the apllication of the transformations easier.
 *)
-let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) (tg : Target.target) : unit =
-  Internal.nobrace_enter();
-  Target.apply_on_targets (Sequence_core.intro_on_instr visible mark) tg
+let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo.t =
+   Target.apply_on_targets (Sequence_core.intro_on_instr visible mark)
+  
 
 (* [unwrap tg] expects the target [tg] to point to a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)

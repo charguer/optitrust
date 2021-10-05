@@ -5,7 +5,7 @@ const int N = 2;
 typedef int T;
 int main(){
   T a;
-  for (int i = 0; i < N; i++){
+  for (int i = 0; i < 2; i++){
      a++;
   }
   int y = 0;

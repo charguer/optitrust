@@ -1275,10 +1275,5 @@ let translate_ast (t : translation_unit) : trm =
               trm_seq_nomarks ~annot:[Include h] (translate_decl_list dl))
            include_map
        in
-       let t =
-         trm_seq_nomarks ~loc ~annot:[Main_file] (translate_decl_list file_decls)
-       in
-       Nobrace.init();
-       trm_seq_no_brace
-         ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map [])@[t])
+         trm_seq_nomarks ~loc ~annot:[Main_file] ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ translate_decl_list file_decls)
     )

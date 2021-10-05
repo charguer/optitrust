@@ -242,7 +242,6 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
   Target.iteri_on_targets (fun i t p ->
     let my_mark  =  "__unroll_" ^ string_of_int i in
     let (tg_loop_trm,_) = Path.resolve_path p t in
-    Tools.printf "%s\n" (Ast_to_c.ast_to_string tg_loop_trm);
     match tg_loop_trm.desc with
     | Trm_for (_, _, _, stop, _, _) ->
       begin match stop.desc with
@@ -279,10 +278,10 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
         | _ -> fail bnd.loc "unroll: expected either a constant variable or a literal"
         end
       | Trm_var x -> 
-          Tools.printf "arrived here\n";
           Variable_basic.inline [Target.cVarDef x];
-          Internal.nobrace_remove_after (fun _-> Loop_basic.unroll ~my_mark (Target.target_of_path p));
-
+          Loop_basic.unroll ~my_mark (Target.target_of_path p);
+          
+          Tools.printf "arrived here\n";
           let var_decl = match Internal.toplevel_decl x t with
             | Some d -> d
             | None -> fail t.loc "unroll: could not find the declaration of the variable"

@@ -250,7 +250,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
 
         if List.mem Multi_decl t.annot
           then dattr ^^ multi_decl_to_doc loc tl
-        else if List.mem (No_braces (Nobrace.current())) t.annot
+        else if List.exists (function No_braces _ -> true | _ -> false) t.annot
           then
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate hardline dl
