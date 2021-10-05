@@ -135,14 +135,15 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
 let rename_aux (rename : Rename.t) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
+    let t_acc = t in
     Mlist.fold_left (fun acc t1 ->
         match t1.desc with
         | Trm_let (vk,(x, tx), init) ->
           begin match rename with 
           | AddSuffix post_fix ->
-            let func = fun x -> x ^ post_fix in 
-            let acc = Internal.change_trm t1 (trm_let vk ((func x), tx) init) acc in
-            Internal.change_trm (trm_var x) (trm_var (func x)) acc
+            let new_name = x ^ post_fix  in
+            let acc = Internal.change_trm t1 {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc in
+            Internal.change_trm (trm_var x) (trm_var new_name) acc 
           | ByList list -> 
             if List.mem_assoc x list then
             begin 
@@ -154,7 +155,7 @@ let rename_aux (rename : Rename.t) (t : trm) : trm =
               acc 
           end
         | _ -> acc
-      ) t tl 
+      ) t_acc tl 
   | _ -> fail t.loc "rename_aux: expected the sequence block"
 
 let rename (rename : Rename.t) : Target.Transfo.local =

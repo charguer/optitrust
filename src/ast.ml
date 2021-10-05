@@ -1505,15 +1505,23 @@ let get_lit_from_trm_lit (t : trm) : lit =
   | Trm_val (Val_lit l) -> l
   | _ -> fail t.loc "get_lit_from_trm: this type of literal is not supported"
 
+(* Check if the node has type unit *)
 let is_type_unit (t : typ) : bool =
   match t.typ_desc with
   | Typ_unit -> true
   | _ -> false
 
+let is_lit (t : trm) : bool =
+  match t.desc with 
+  | Trm_val (Val_lit _) -> true
+  | _ -> false
+
+
 
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op
   | Delocalize_obj of string * string
+
 
 
 (* type instantiation = trm varmap *)

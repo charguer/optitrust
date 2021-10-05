@@ -30,6 +30,8 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
             if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
             else
               trm_var (List.nth new_vars i)
+          | Trm_var _ when (List.mem Any arr_index.annot) ->
+            trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int 2)) :: (List.map trm_var new_vars))
           | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
           end
         | Trm_apps (f1,[base1]) ->
@@ -77,9 +79,14 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
         begin match t_var.typ_desc with
         | Typ_constr (y, tid, _) ->
           List.map(fun x ->
-          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_constr y ~tid ))) (trm_prim (Prim_new (typ_constr y ~tid )))) new_vars
-
-        | _ -> fail t.loc "to_variables_aux: expected a type variable"
+            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_constr y ~tid ))) (trm_prim (Prim_new (typ_constr y ~tid )))) new_vars
+        | Typ_var (y, tid) ->
+          List.map(fun x ->
+            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_var y tid ))) (trm_prim (Prim_new (typ_var y tid )))) new_vars
+        
+        | _ -> 
+          List.map(fun x ->
+            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut t_var)) (trm_prim (Prim_new t_var))) new_vars
         end
       | _ -> fail t.loc "to_variables_aux: expected an array type"
       end

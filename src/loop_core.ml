@@ -307,9 +307,12 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
                               end
                          | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
                          end in
-      (* let unrolled_loop_range = Tools.range 0 (unroll_bound - 1) in *)
       let unrolled_body = List.fold_left ( fun acc i1 ->
-        let new_index = trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))] in
+        let new_index = 
+          begin match start.desc with 
+          | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
+          | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))] 
+          end in
         let body_i = Internal.change_trm (trm_var index) new_index body in
         let body_i = if braces 
                       then Internal.remove_nobrace_if_sequence body_i 

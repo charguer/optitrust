@@ -73,10 +73,11 @@ let delocalize ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_inter
 
 let delocalize_in_vars ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(dl_ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
    ~old_var:(ov : var) ~new_var:(nv : var)  ~var_type:(vt : typ) 
-  ~array_size:(arrs : string) () : unit =
+  ~array_size:(arrs : string) ~local_vars:(lv : var list) () : unit =
   local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv ();
   Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark];
   Variable_basic.inline_at [Target.cFor loop_index] [Target.nbAny;Target.cVarDef arrs];
   Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor loop_index];
-  Trace.reparse()
+  Arrays.to_variables  lv [Target.cVarDef nv]
+  
   
