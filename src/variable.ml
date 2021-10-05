@@ -76,5 +76,7 @@ let delocalize_in_vars ?(loop_index : string = "dl_i") ?(mark : mark = "section_
   ~array_size:(arrs : string) () : unit =
   local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv ();
   Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark];
-  Loop.unroll [Target.nbMulti ;Target.cFor loop_index];
+  Variable_basic.inline_at [Target.cFor loop_index] [Target.nbAny;Target.cVarDef arrs];
+  Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor loop_index];
+  Trace.reparse()
   

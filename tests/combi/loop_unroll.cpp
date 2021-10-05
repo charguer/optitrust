@@ -1,7 +1,7 @@
 const int N = 3;
-const int M = 2;
+const int M = 5;
 int s = 2;
-
+const int u = 2;
 int main(){
   
   for (int i = s; i < s + N; i++) {
@@ -12,7 +12,7 @@ int main(){
     int e = d + 5;
   }
 
-  for (int j = s; j < M; j++){
+  for (int j = u; j < M; j++){
     int x = j;
     int y = j + 1;
   }
