@@ -220,6 +220,10 @@ val cFieldGet : string -> constr
 
 val cFieldSet : string -> constr 
 
+val cIndexGet : target -> constr 
+
+val cIndexSet : target -> constr 
+
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr
 

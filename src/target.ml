@@ -480,36 +480,7 @@ let cContinue : constr =
 
 
 
-(*
-  the empty list is interpreted as no constraint on the accesses
-  accesses are reversed so that users give constraints on what they see
-  *)
-let cAccesses ?(base : target = [])
-  ?(accesses : constr_access list = []) (_ : unit) : constr =
-  let p_base =  base in
-  let accesses =
-    match accesses with | [] -> None | cal -> Some (List.rev cal)
-  in
-    Constr_access (p_base, accesses)
 
-let cIndex ?(index : target = []) (_ : unit) : constr_access =
-  let p_index =  index in
-  Array_access p_index
-
-let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = false)
-  (_ : unit) : constr_access =
-  let ro = string_to_rexp_opt regexp substr field TrmKind_Expr in
-  Struct_access ro
-
-let cAccess : constr_access =
-  Any_access
-
-let cFieldGet (field : field )  : constr =
-  cAccesses ~accesses:[cField ~field ()] ()
-
-let cFieldSet (field : field) : constr =
-  let lhs = [cAccesses ~accesses:[cField ~field ()] ()] in
-  cChain ([cSet ~lhs ()] @ lhs)
 
 (* the empty list is interpreted as no constraint on the cases *)
 let cSwitch ?(cond : target = [])
@@ -539,6 +510,43 @@ let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
 
 
+(*
+  the empty list is interpreted as no constraint on the accesses
+  accesses are reversed so that users give constraints on what they see
+  *)
+let cAccesses ?(base : target = [])
+  ?(accesses : constr_access list = []) (_ : unit) : constr =
+  let p_base =  base in
+  let accesses =
+    match accesses with | [] -> None | cal -> Some (List.rev cal)
+  in
+    Constr_access (p_base, accesses)
+
+let cIndex ?(index : target = []) (_ : unit) : constr_access =
+  let p_index =  index in
+  Array_access p_index
+
+let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = false)
+  (_ : unit) : constr_access =
+  let ro = string_to_rexp_opt regexp substr field TrmKind_Expr in
+  Struct_access ro
+
+let cAccess : constr_access =
+  Any_access
+
+let cFieldGet (field : field )  : constr =
+  cAccesses ~accesses:[cField ~field ()] ()
+
+let cFieldSet (field : field) : constr =
+  let lhs = [cAccesses ~accesses:[cField ~field ()] ()] in
+  cChain ([cSet ~lhs ()] @ [dLHS])
+
+let cIndexGet (index : target )  : constr =
+  cAccesses ~accesses:[cIndex ~index ()] ()
+
+let cIndexSet (index : target) : constr =
+  let lhs = [cAccesses ~accesses:[cIndex ~index ()] ()] in
+  cChain ([cSet ~lhs ()] @ [dLHS])
 
 
 
