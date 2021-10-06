@@ -100,6 +100,7 @@ val cInclude : string -> constr
 val cSetVar : string -> constr
 
 val cAny : constr 
+
 val cChoose : constr 
 
 val sInstr : ?substr:bool -> string -> constr
@@ -214,6 +215,10 @@ val cIndex : ?index:target -> unit -> constr_access
 val cField : ?field:string -> ?substr:bool -> ?regexp:bool -> unit -> constr_access
 
 val cAccess : constr_access
+
+val cFieldGet : string -> constr 
+
+val cFieldSet : string -> constr 
 
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr

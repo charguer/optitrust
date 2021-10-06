@@ -477,6 +477,9 @@ let cBreak : constr =
 
 let cContinue : constr =
   Constr_abort (cAbrtCtn)
+
+
+
 (*
   the empty list is interpreted as no constraint on the accesses
   accesses are reversed so that users give constraints on what they see
@@ -500,6 +503,13 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
 
 let cAccess : constr_access =
   Any_access
+
+let cFieldGet (field : field )  : constr =
+  cAccesses ~accesses:[cField ~field ()] ()
+
+let cFieldSet (field : field) : constr =
+  let lhs = [cAccesses ~accesses:[cField ~field ()] ()] in
+  cChain ([cSet ~lhs ()] @ lhs)
 
 (* the empty list is interpreted as no constraint on the cases *)
 let cSwitch ?(cond : target = [])

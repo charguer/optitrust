@@ -54,7 +54,8 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
 	change_type.ml \
-	sequence_partition.ml \
+	arith_shift.ml \
+	
 	
 
 

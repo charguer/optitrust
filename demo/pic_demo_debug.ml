@@ -39,4 +39,7 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.delocalize_in_vars  ~local_vars:["bagsNextPrivate";"bagsNextShared"]~old_var:"bagsNext" ~new_var:"bagsNextLocal" ~var_type:Ast.(typ_ptr Ptr_kind_mut (typ_constr "bag")) ~array_size:"N" ~dl_ops:ops  [cMark "next"];
   !! Specialize.choose "bagsNextPrivate" [cIf();dThen; cChoose];
   !! Specialize.choose "bagsNextShared" [cIf();dElse; cChoose];
+
+  (* Relative positions *)
+  (* TODO: *)
 )
