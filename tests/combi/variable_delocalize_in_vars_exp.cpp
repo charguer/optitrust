@@ -11,7 +11,7 @@ int main() {
   xa = a;
   xb = 0;
   for (int i = 0; (i < 2); i++) {
-    a++;
+    CHOOSE(2, xa, xb)++;
   }
   a = xa;
   a += xb;

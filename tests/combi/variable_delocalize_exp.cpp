@@ -14,7 +14,7 @@ int main() {
     x[k] = 0;
   }
   for (int i = 0; (i < N); i++) {
-    a++;
+    x[ANY(0)]++;
   }
   a = x[0];
   for (int k = 1; (k < N); k++) {

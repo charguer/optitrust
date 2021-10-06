@@ -313,7 +313,8 @@ let const_non_const : Target.Transfo.local =
 let local_other_name_aux (mark : mark) (var_type : typ) (old_var : var) (new_var : var) (t : trm) : trm =
   let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
   let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
-  let final_trm = trm_seq_no_brace [fst_instr;t;lst_instr] in
+  let new_t = Internal.change_trm (trm_var old_var) (trm_var new_var) t in
+  let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
   if mark <> "" then trm_add_mark mark final_trm else final_trm
 
 let local_other_name (mark : mark) (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =

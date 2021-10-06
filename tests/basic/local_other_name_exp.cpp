@@ -6,7 +6,7 @@ int main() {
     for (int j = 0; (j < 10); j++) {
       /*@section_of_interest*/ T x = a;
       for (int i = 0; (i < j); i++) {
-        a++;
+        x++;
       }
       a = x; /*section_of_interest@*/
     }
