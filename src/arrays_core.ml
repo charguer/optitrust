@@ -30,8 +30,9 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
             if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
             else
               trm_var (List.nth new_vars i)
-          | Trm_var _ when (List.mem Any arr_index.annot) ->
-            trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int 2)) :: (List.map trm_var new_vars))
+          | Trm_apps ({desc = Trm_var "ANY";_}, _) ->
+            let nb_vars = List.length new_vars in
+            trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var new_vars))
           | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
           end
         | Trm_apps (f1,[base1]) ->

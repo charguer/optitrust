@@ -419,7 +419,7 @@ let cAny : constr =
 
 (* [cChoose] matches all the calls to function CHOOSE *)
 let cChoose : constr =
-  cFun "choose"
+  cFun "CHOOSE"
 
 (* [cGet] matches all the get operations on immutable variables *)
 let cGet ?(arg : target = []) () : constr =

@@ -14,7 +14,7 @@ int main() {
   xb = 0;
   for (int i = 0; (i < 2); i++) {
     T b;
-    b  = CHOOSE(2, xa, xb);
+    b = xa;
   }
   a = xa;
   a += xb;

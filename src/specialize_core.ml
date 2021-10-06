@@ -15,8 +15,11 @@ open Ast
 *)
 let any_aux (array_index : var) (t : trm) : trm =
   match t.desc with 
-  | Trm_var _ when List.mem Ast.Any t.annot ->
-    trm_var array_index 
+  | Trm_apps (f,_) ->
+    begin match f.desc with
+    | Trm_var "ANY" ->  trm_var array_index
+    | _ -> fail f.loc "any_aux: expected the special function ANY"
+    end
   | _ -> fail t.loc "any_aux: expected a trm_var with ANY annotation"
 
 let any (array_index : var) : Target.Transfo.local =
@@ -36,8 +39,17 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
     begin match argnb.desc with 
     | Trm_val (Val_lit (Lit_int nb)) -> 
        if nb <> List.length args then fail t.loc "choose_aux: number of args is not correct";
-        let choices = List.map (fun arg -> match arg.desc with | Trm_var s -> s | _ -> fail arg.loc "choose_aux: all the arguments of a 
-          function call should be variable occurrences") args in
+        let choices = List.map (fun arg -> 
+          match arg.desc with 
+          | Trm_var s -> s 
+          | Trm_apps (_, [v])  -> 
+            begin match v.desc with 
+            | Trm_var v -> v 
+            | _ -> fail arg.loc "choose_aux: could not match non constant variable"
+            end
+          | _ ->  
+          fail arg.loc "choose_aux: all the arguments of a 
+          function call should be variable occurrences\n and %s is not one \n") args  in
         let id = select_arg choices in
         if id < 0 || id > List.length choices -1 then fail t.loc "choose_aux: select_arg function does not give a correct index";
         trm_var (List.nth choices id ) 
