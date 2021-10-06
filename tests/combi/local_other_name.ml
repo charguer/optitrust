@@ -9,4 +9,8 @@ let _ = Run.script_cpp (fun _ ->
     !! Sequence_basic.intro_on_instr ~mark ~visible:false [cFor "i"];
     !! Variable_basic.local_other_name  ~var_type:(Ast.typ_constr "T") ~old_var:"a"  ~new_var:"x" [cMark "section_of_interest"];
     !! ());
+  
+  !! Trace.alternative (fun _ ->
+    !! Variable_basic.local_other_name  ~var_type:(Ast.typ_constr "T") ~old_var:"a"  ~new_var:"x" [cFor "i"];
+    !! ());
 )
