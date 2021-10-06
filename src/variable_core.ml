@@ -124,6 +124,7 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
 let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Transfo.local =
   Target.apply_on_path(inline_aux delete_decl inline_at index)
 
+
 (* [rename_aux new_name index t] rename a variable, change its declaration
       and all its occurrences
    params:
@@ -359,7 +360,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index :
           trm_for loop_index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]) init_trm])]
           in
-      let new_snd_instr = Internal.change_trm (trm_var new_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var ~annot:[Any] "0" ]) middle_instr  in
+      let new_snd_instr = Internal.change_trm (trm_var new_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var ~annot:[Any] array_size ]) middle_instr  in
 
       let new_thrd_trm = trm_seq_no_brace [
                       trm_set (old_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]);

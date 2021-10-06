@@ -409,9 +409,19 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_pr
   let lhs_typed = with_type ~typ ~typ_pred lhs in
   cPrimFun ~args:[lhs_typed; rhs] (Prim_binop Binop_set)
 
+(* [cSetVar x] matches a set operation for variable [x] *)
 let cSetVar (x : var) : constr =
   cSet ~lhs:[cVar x] ()
 
+(* [cAny] matches all the calls to function ANY *)
+let cAny : constr =
+  cFun "ANY"
+
+(* [cChoose] matches all the calls to function CHOOSE *)
+let cChoose : constr =
+  cFun "choose"
+
+(* [cGet] matches all the get operations on immutable variables *)
 let cGet ?(arg : target = []) () : constr =
   cPrimFun ~args:[arg] (Prim_unop Unop_get)
 

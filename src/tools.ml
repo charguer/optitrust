@@ -257,3 +257,5 @@ let find_map f t =
   in
   loop t
 
+let index_of (x : 'a) (l : 'a list) : int option =
+  foldi (fun i acc y -> if x = y then Some i else acc) None l 

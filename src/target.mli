@@ -99,6 +99,9 @@ val cInclude : string -> constr
 
 val cSetVar : string -> constr
 
+val cAny : constr 
+val cChoose : constr 
+
 val sInstr : ?substr:bool -> string -> constr
 
 val sExpr : ?substr:bool -> string -> constr

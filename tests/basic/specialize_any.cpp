@@ -4,9 +4,14 @@ int const N = 2;
 
 typedef int T;
 
+void test() {
+  int corners[4];
+  corners[ANY(4)] = 9;
+} 
+
 int main() {
   T a;
-  /*@section_of_interest*/ T x[N];
+  T x[N];
   x[0] = a;
   for (int k = 1; (k < N); k++) {
     x[k] = 0;
@@ -14,10 +19,5 @@ int main() {
   for (int i = 0; (i < N); i++) {
     x[ANY(N)]++;
   }
-  a = x[0];
-  for (int k = 1; (k < N); k++) {
-    a += x[k];
-  } /*section_of_interest@*/
-  int y = 0;
   return 0;
 }
