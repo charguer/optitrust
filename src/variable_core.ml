@@ -305,24 +305,19 @@ let const_non_const : Target.Transfo.local =
       var_type: the type of the variable
       old_var: the previous name of the variable, this is used to find all the occurrences
       new_var: the name of the variable to be declared and replace all the occurrences of old_var
-      t: ast of the marked(labelled) sequence.
+      t: ast of the trm which contains old_var.
     return:
       the updated ast of the targeted sequence with the new local name
 
 *)
-let local_other_name_aux (var_type : typ) (old_var : var) (new_var : var) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl ->
-    let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
-    let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
-    let tl = Mlist.map (Internal.change_trm (trm_var old_var) (trm_var new_var)) tl in
-    let new_tl = Mlist.merge (Mlist.of_list [fst_instr]) tl in
-    let new_tl = Mlist.merge  new_tl (Mlist.of_list [lst_instr]) in
-    trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "local_other_name_aux: expected a sequence"
+let local_other_name_aux (mark : mark) (var_type : typ) (old_var : var) (new_var : var) (t : trm) : trm =
+  let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
+  let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
+  let final_trm = trm_seq_no_brace [fst_instr;t;lst_instr] in
+  if mark <> "" then trm_add_mark mark final_trm else final_trm
 
-let local_other_name (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =
-  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence ~keep_label:true (local_other_name_aux var_type old_var new_var) "local_other_name")
+let local_other_name (mark : mark) (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =
+  Target.apply_on_path(local_other_name_aux mark var_type old_var new_var)
 
 (* [delocalize_aux array_size neutral_element fold_operation t] add local array to apply
       the operation inside the for loop in parallel.

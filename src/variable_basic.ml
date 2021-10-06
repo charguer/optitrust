@@ -95,8 +95,9 @@ let const_non_const : Target.Transfo.t =
                                                 a = x;
                                               }@nobrace
 *)
-let local_other_name ~var_type:(vt : typ) ~old_var:(ov : var) ~new_var:(nv : var) : Target.Transfo.t =
-  Target.apply_on_targets (Variable_core.local_other_name vt ov nv)
+let local_other_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ) ~old_var:(ov : var) ~new_var:(nv : var) (tg : Target.target) : unit =
+  Internal.nobrace_enter();
+  Target.apply_on_targets (Variable_core.local_other_name mark vt ov nv) tg
 
 
 (* [delocalize array_size neutral_element fold_operation tg] expects target [tg] to point to

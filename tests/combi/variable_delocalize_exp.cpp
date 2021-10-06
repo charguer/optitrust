@@ -4,6 +4,8 @@ int const N = 2;
 
 typedef int T;
 
+void test() { int x = 1; }
+
 int main() {
   T a;
   /*@section_of_interest*/ T x[N];
@@ -12,12 +14,13 @@ int main() {
     x[k] = 0;
   }
   for (int i = 0; (i < N); i++) {
-    x[ANY(0)]++;
+    a++;
   }
   a = x[0];
   for (int k = 1; (k < N); k++) {
     a += x[k];
   } /*section_of_interest@*/
   int y = 0;
+  test();
   return 0;
 }

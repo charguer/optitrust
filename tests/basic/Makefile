@@ -15,6 +15,7 @@ TESTS_WORKING := \
 	function_inline.ml \
 	label_add.ml \
 	label_remove.ml \
+	local_other_name.ml \
 	loop_color.ml \
 	loop_fission.ml \
 	loop_fusion.ml \

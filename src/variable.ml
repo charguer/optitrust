@@ -46,14 +46,6 @@ let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target
   Variable_basic.insert name typ value tg;
   Variable_basic.fold [Target.cVarDef name]
 
-(* [local_other_name var_type old_name new_name] similar to the basic version of local_other_name but with the intermediate
-      done autmatically
-*)
-let local_other_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ) ~old_var:(ov : var) ~new_var:(nv : var) () : unit =
-  Sequence_basic.intro_on_instr ~mark  ~visible:false [Target.tIndex 0; Target.cFor ~body:[Target.cVar ov]""];  
-  Variable_basic.local_other_name  ~var_type:vt ~old_var:ov ~new_var:nv [Target.cMark mark]
-
-
 (* [delocalize ~var_type ~old_var ~new_var ~mark ~arr_size ~neutral_element fold_operation tg] 
     expects the target [tg] to point to a for loop. Then it will surround this loop with a @nobrace
     sequence. After that it will apply another transformation called local other name. Which as the name
@@ -66,15 +58,15 @@ let local_other_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ)
 
 let delocalize ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(dl_ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
    ~old_var:(ov : var) ~new_var:(nv : var)  ~var_type:(vt : typ) 
-  ~array_size:(arrs : string) () : unit =
-  local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv ();
+  ~array_size:(arrs : string) (tg : Target.target) : unit =
+  Variable_basic.local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv tg;
   Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark]
 
 
 let delocalize_in_vars ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(dl_ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
    ~old_var:(ov : var) ~new_var:(nv : var)  ~var_type:(vt : typ) 
-  ~array_size:(arrs : string) ~local_vars:(lv : var list) () : unit =
-  local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv ();
+  ~array_size:(arrs : string) ~local_vars:(lv : var list) (tg : Target.target) : unit =
+  Variable_basic.local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv tg;
   Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark];
   Variable_basic.inline_at [Target.cFor loop_index] [Target.nbAny;Target.cVarDef arrs];
   Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor loop_index];
