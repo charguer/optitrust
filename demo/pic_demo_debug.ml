@@ -1,5 +1,6 @@
 open Optitrust
 open Target
+open Ast 
 
 let _ = Run.script_cpp (fun () ->
   
@@ -8,10 +9,7 @@ let _ = Run.script_cpp (fun () ->
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:2 1; cFun "vect_mul"];
   !! Function.inline [cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Variable.inline [nbMulti; cVarDef ~regexp:true "r."];
-  
-  (* Inlining of idCellOfPos *)
   !! Function.(inline ~vars:(AddSuffix "2"))[cFun "idCellOfPos"];
-
 
   (* Part: Coloring *)
   !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
@@ -40,6 +38,27 @@ let _ = Run.script_cpp (fun () ->
   !! Specialize.choose "bagsNextPrivate" [cIf();dThen; cChoose];
   !! Specialize.choose "bagsNextShared" [cIf();dElse; cChoose];
 
+
+  (* Inlining of structure assignements *)
+  !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
+  !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
+  !! Struct.set_explicit [nbMulti;cSet ~typ:"particle"()];
+  !! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
+  !! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
+  
+
+  (* AOS-TO-SOA *)
+  !!! Struct.inline "pos" [cTypDef "particle"];
+  !!! Struct.inline "speed" [cTypDef "particle"];
+  !! Struct.inline "items" [cTypDef "bag"];
+
+
   (* Relative positions *)
-  (* TODO: *)
+    let shift_coord d = 
+      let f = "pos_" ^ d in
+        Arith.shift (code (d ^ " * cellSize")) [nbAny;cFieldGet f];
+        Arith.shift (code (d ^ "2 * cellSize")) [nbAny;cFieldGet f] 
+      in
+   !! List.iter shift_coord dims;
+
 )

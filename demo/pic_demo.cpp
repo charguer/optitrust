@@ -1,8 +1,5 @@
 #include <stdlib.h>
 
-// chose function
-bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
-
 // --------- Parameters
 
 // Time steps description
@@ -75,12 +72,12 @@ void bag_push(bag& b, particle p) {
 }
 
 void bag_push_atomic (bag &b, particle p) {
-  int k = fetch_and_add (&b.nb, 1);
-  b.items[k] = p;
+  int fa = fetch_and_add (&b.nb, 1);
+  b.items[fa] = p;
 }
 
 bag* bag_create() {
-  return malloc(nbCells * sizeof(bag));
+  return (bag*)malloc(nbCells * sizeof(bag));
 }
 
 
@@ -100,6 +97,8 @@ void bag_transfer(bag& b1, bag& b2) { // transfer from b2 into b1
   }
   bag_clear(b2);
 }
+// chose function
+bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
 
 // --------- Grid Representation
 

@@ -7,14 +7,10 @@ let _ = Run.script_cpp ~check_exit_at_end:false (fun () ->
 
   !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:2 1; cFun "vect_mul"];
-
-  !! Generic.add_mark "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Marks.add "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.inline [cMark "foo1"];
-
   !! Function.inline [nbMulti; cFun "vect_mul"];
-
   !! Function.inline [nbMulti; cFun "vect_add"];
-
   !! Variable.inline [cVarDef "r1"];
   !! Variable.inline [cVarDef "r2"];
 
@@ -95,23 +91,23 @@ let _ = Run.script_cpp (fun () ->
 
       (* Example use of [Trace.call] -- keep this code as a basic test, illustration for the working of [iteri_on_targets] *)
   (* !! Trace.call (fun _t ->
-    Generic.add_mark "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
+    Marks.add "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
     Trace.step();
-    Generic.add_mark "foo2" [tIndex ~nb:2 1; cFun "vect_mul"];
+    Marks.add "foo2" [tIndex ~nb:2 1; cFun "vect_mul"];
     Trace.step();
     Function.inline [nbMulti; cMark "foo1"];
     Trace.step();
-    Generic.remove_mark "foo1" [cMark "foo1"];
+    Marks.remove "foo1" [cMark "foo1"];
     Trace.step();
     Function.inline [nbMulti; cMark "foo2"];
     Trace.step();
-    Generic.remove_mark "foo2" [cMark "foo2"];
+    Marks.remove "foo2" [cMark "foo2"];
   ); *)
 
 
 (*
-  !! Generic.add_mark "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
-  !! Generic.add_mark "foo2" [tIndex ~nb:2 1; cFun "vect_mul"];
+  !! Marks.add "foo1" [tIndex ~nb:2 0; cFun "vect_mul"];
+  !! Marks.add "foo2" [tIndex ~nb:2 1; cFun "vect_mul"];
   !! Function.inline [nbMulti; cMark "foo1"];
   !! Function.inline [nbMulti; cMark "foo2"];
   *)
