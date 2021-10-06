@@ -14,11 +14,12 @@ int main() {
    printf("%d\n", s);
 }
 
-float* u;
+float u[N];
 
 int other() {
    for (int i = 0; i < N; i++) {
-      double a = u[i];
+      double a;
+      a = u[i];
       double b = 3.14 * a + 0.68;
       u[i] = b;
    }

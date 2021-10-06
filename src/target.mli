@@ -216,13 +216,13 @@ val cField : ?field:string -> ?substr:bool -> ?regexp:bool -> unit -> constr_acc
 
 val cAccess : constr_access
 
-val cFieldGet : string -> constr 
+val cFieldGet : ?base:target -> string -> constr 
 
-val cFieldSet : string -> constr 
+val cFieldSet : ?base:target -> string -> constr 
 
-val cIndexGet : target -> constr 
+val cIndexGet : ?base:target -> target -> constr 
 
-val cIndexSet : target -> constr 
+val cIndexSet : ?base:target -> target -> constr 
 
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr

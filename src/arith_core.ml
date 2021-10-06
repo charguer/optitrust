@@ -17,6 +17,7 @@ open Ast
       the updated set operation
 *)
 let shift_aux (neg : bool) (pre_cast : typ) (post_cast : typ) (u : trm) (t : trm) : trm =
+    Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
     let binop_op = if neg then Binop_sub else Binop_add in
     begin match pre_cast.typ_desc, post_cast.typ_desc with
     | Typ_unit , Typ_unit -> trm_apps (trm_binop binop_op) [t; u]

@@ -534,18 +534,18 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
 let cAccess : constr_access =
   Any_access
 
-let cFieldGet (field : field )  : constr =
-  cAccesses ~accesses:[cField ~field ()] ()
+let cFieldGet ?(base : target = []) (field : field )  : constr =
+  cAccesses ~base ~accesses:[cField ~field ()] ()
 
-let cFieldSet (field : field) : constr =
-  let lhs = [cAccesses ~accesses:[cField ~field ()] ()] in
+let cFieldSet ?(base : target = []) (field : field) : constr =
+  let lhs = [cAccesses ~base ~accesses:[cField ~field ()] ()] in
   cChain ([cSet ~lhs ()] @ [dLHS])
 
-let cIndexGet (index : target )  : constr =
-  cAccesses ~accesses:[cIndex ~index ()] ()
+let cIndexGet ?(base : target = []) (index : target )  : constr =
+  cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
-let cIndexSet (index : target) : constr =
-  let lhs = [cAccesses ~accesses:[cIndex ~index ()] ()] in
+let cIndexSet ?(base : target = []) (index : target) : constr =
+  let lhs = [cAccesses ~base ~accesses:[cIndex ~index ()] ()] in
   cChain ([cSet ~lhs ()] @ [dLHS])
 
 
