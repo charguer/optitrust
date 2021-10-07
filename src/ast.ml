@@ -933,6 +933,8 @@ type trm_access =
  *)
 let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
   match t.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));_},[t]) ->
+    get_nested_accesses t
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr f))); _},
               [t']) ->
      let (base, al) = get_nested_accesses t' in

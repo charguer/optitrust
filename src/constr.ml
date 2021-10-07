@@ -746,7 +746,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         List.mem Main_file t.annot
      | Constr_prim p, Trm_val (Val_prim p1) ->
         p = p1
-     | Constr_mark (pred, _), _ ->
+     | Constr_mark (pred, _m), _ ->
+        (* Tools.printf "Checking mark %s with trm %s\n" _m (Ast_to_text.ast_to_string t); *)
+        (* Tools.printf "---------------------------\n"; *)
         begin match t.desc with
         | Trm_seq tl | Trm_array tl | Trm_struct tl->
           (List.exists pred t.marks) || (List.fold_left (fun acc x -> (List.exists pred x) || acc) false tl.marks)

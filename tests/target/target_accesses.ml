@@ -4,7 +4,7 @@ open Target
 let _ = Run.script_cpp (fun _ -> 
 
   (* All accesses *)
-  show [cAccesses ~accesses:[cAccess] ()];
+  (* show [cAccesses ~accesses:[cAccess] ()]; *)
   (* Array_accesses *)
   show [cIndexGet [cVar "i"]];
 
