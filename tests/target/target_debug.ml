@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun () ->
 
-  show [cFieldGet "x" ];
+  (* show [cFieldGet "x" ]; *)
   show [cFieldSet "x" ];
   show [cFieldGet "y" ];
   show [cFieldSet "y" ];

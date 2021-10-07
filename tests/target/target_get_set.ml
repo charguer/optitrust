@@ -14,7 +14,7 @@ let _ = Run.script_cpp (fun () ->
    show [cSet ~lhs:[cVar "i"] ()];
    show [cSet ~lhs:[cVar "t"] ()];
    (* All get operations *)
-   show [cGet ~arg:[sExpr a"] ()];
+   show [cGet ~arg:[sExpr "a"] ()];
    show [cGet ~arg:[cVar "b"] ()];
    show [cGet ~arg:[cVar "i"] ()];
    

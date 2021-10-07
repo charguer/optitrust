@@ -5,6 +5,7 @@ TARGET_MAKE_ALL := check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
+  arith_shift.ml \
 	aos_to_soa_sized_array.ml \
 	aos_to_soa_typedef.ml \
 	array_swap.ml \

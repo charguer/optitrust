@@ -551,7 +551,7 @@ let cAccess : constr_access =
 
 (* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base] *)
 let cFieldGet ?(base : target = []) (field : field )  : constr =
-  cAccesses ~base ~accesses:[cField ~field ()] ()
+  cGet ~arg:[cAccesses ~base ~accesses:[cField ~field ()] ()] ()
 
 (* [cFieldSet ~base field] matches all struct field set operations*)
 let cFieldSet ?(base : target = [cVar ""])  (field : field) : constr =
@@ -561,7 +561,7 @@ let cFieldSet ?(base : target = [cVar ""])  (field : field) : constr =
 
 (* [cIndexGet ~base index] matches all array accesses at index [index] with base [base] *)
 let cIndexGet ?(base : target = []) (index : target )  : constr =
-  cAccesses ~base ~accesses:[cIndex ~index ()] ()
+  cGet ~arg:[cAccesses ~base ~accesses:[cIndex ~index ()] ()] ()
 
 (* [cIndexSet ~base index] matches all array index set operations*)
 let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
@@ -619,10 +619,8 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
-    Tools.printf "Before applying marks %s\n" (Ast_to_c.ast_to_string _t_before);
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
-    Tools.printf "After applying marks %s\n" (Ast_to_c.ast_to_string t);
     (* iterate over these marks *)
     try
       Tools.foldi (fun imark t m ->
@@ -807,7 +805,7 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
    carrying the information [id] around the term t.
 *)
 let target_show_aux (id : int) (t : trm) : trm =
-  let show_mark = "show_mark " ^ (string_of_int id) in
+  let show_mark = (* "show_mark " ^*) (string_of_int id) in
   trm_add_mark show_mark t
 
 (* [target_show_transfo id t p]: adds a mark with the

@@ -4,11 +4,12 @@ open Target
 let _ = Run.script_cpp (fun _ -> 
 
   (* All accesses *)
-  (* show [cAccesses ~accesses:[cAccess] ()]; *)
+  show [cAccesses ~accesses:[cAccess] ()];
+  
   (* Array_accesses *)
   show [cIndexGet [cVar "i"]];
 
-  show [cIndexSet [cVar "i"]];
+  (* show [cIndexSet [cVar "i"]]; *)
 
   show  [cAccesses ~base:[cVar "t"] ~accesses:[cIndex ~index:[cVar "i"]  ()] ()];
   show  [nbExact 0;cAccesses ~base:[cVar "t"] ~accesses:[cIndex ~index:[cVar "j" ] ()] ()];
