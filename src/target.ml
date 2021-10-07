@@ -549,7 +549,9 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
 let cAccess : constr_access =
   Any_access
 
-(* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base] *)
+(* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base] 
+    which are at the base of a get operation
+*)
 let cFieldGet ?(base : target = []) (field : field )  : constr =
   cGet ~arg:[cAccesses ~base ~accesses:[cField ~field ()] ()] ()
 
@@ -558,8 +560,14 @@ let cFieldSet ?(base : target = [cVar ""])  (field : field) : constr =
   let lhs = [cAccesses ~base  ~accesses:[cField ~field ()] ()] in
   cSet ~lhs ()
 
+(* [cFieldAccess field] field matches all struct accesses in field [field]*)
+let cFieldAccess ?(base : target = []) (field : field )  : constr =
+  cAccesses ~base ~accesses:[cField ~field ()] ()
 
-(* [cIndexGet ~base index] matches all array accesses at index [index] with base [base] *)
+
+(* [cIndexGet ~base index] matches all array accesses at index [index] with base [base] 
+    which are under a get operation
+*)
 let cIndexGet ?(base : target = []) (index : target )  : constr =
   cGet ~arg:[cAccesses ~base ~accesses:[cIndex ~index ()] ()] ()
 
@@ -567,6 +575,10 @@ let cIndexGet ?(base : target = []) (index : target )  : constr =
 let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
   let lhs = [cAccesses ~base ~accesses:[cIndex ~index ()] ()] in
   cSet ~lhs ()
+
+(* [cIndexAccess ~base index] matches all array accesses at index [index] with base [base] *)
+let cIndexAccess ?(base : target = []) (index : target )  : constr =
+  cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
 
 

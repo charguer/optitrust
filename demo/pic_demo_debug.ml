@@ -38,7 +38,6 @@ let _ = Run.script_cpp (fun () ->
   !! Specialize.choose "bagsNextPrivate" [cIf();dThen; cChoose];
   !! Specialize.choose "bagsNextShared" [cIf();dElse; cChoose];
 
-
   (* Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
@@ -48,20 +47,28 @@ let _ = Run.script_cpp (fun () ->
   
 
   (* AOS-TO-SOA *)
-  !!! Struct.inline "pos" [cTypDef "particle"];
-  !!! Struct.inline "speed" [cTypDef "particle"];
-  !! Struct.inline "items" [cTypDef "bag"];
-
-
+  !! Struct.inline "pos" [cTypDef "particle"];
+  !! Struct.inline "speed" [cTypDef "particle"];
   
-  (* Relative positions *)
-  !! Arith.shift (code "x * cellSize") [nbMulti;cFieldGet "pos_x"];
-  
-    let shift_coord d = 
+
+  (* TODO: For the other fields *)
+  !! Arith.shift (code " x * cellSize") [nbAny;cFunDef "main"; cFieldGet "pos_x"];
+
+  (* let shift_coord d = 
       let f = "pos_" ^ d in
         Arith.shift (code (d ^ " * cellSize")) [nbAny;cFieldGet f];
         Arith.shift (code (d ^ "2 * cellSize")) [nbAny;cFieldGet f] 
       in
    !! List.iter shift_coord dims;
+
+
+  !! Struct.inline "items" [cTypDef "bag"]; *)
+
+
+  
+  (* Relative positions *)
+  
+  
+    
 
 )

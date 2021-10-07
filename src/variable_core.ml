@@ -343,6 +343,14 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index :
       let new_var = x in
       let old_var_trm = get_init_val def in
       let var_type = (get_inner_ptr_type tx) in
+      (* In the case when the given type is typ pointer dereferencing is performed *)
+      let add_star (t : trm) : trm = 
+        let is_typ_ptr = begin match (get_inner_ptr_type tx).typ_desc with 
+        | Typ_ptr _ -> true
+        | _ -> false end in
+        if is_typ_ptr then {t with add = Add_star_operator :: t.add} else t 
+      in
+      
       let init_trm, op = begin match dl_ops with 
       | Delocalize_arith (li, op) ->
           trm_lit li, (trm_set ~annot:[App_and_set] (old_var_trm)
@@ -352,7 +360,7 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index :
       | Delocalize_obj (clear_f, transfer_f) ->
           trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [], 
           trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f) 
-            [old_var_trm; trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]]
+            [add_star old_var_trm; add_star (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index])]
       end in
       let new_first_trm = trm_seq_no_brace[
           trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));

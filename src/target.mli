@@ -218,9 +218,13 @@ val cAccess : constr_access
 
 val cFieldGet : ?base:target -> string -> constr 
 
+val cFieldAccess : ?base:target -> string -> constr
+
 val cFieldSet : ?base:target -> string -> constr 
 
 val cIndexGet : ?base:target -> target -> constr 
+
+val cIndexAccess : ?base:target -> target -> constr
 
 val cIndexSet : ?base:target -> target -> constr 
 
