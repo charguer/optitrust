@@ -10,10 +10,10 @@ let _ = Run.script_cpp (fun _ ->
 
   show [cIndexSet [cVar "i"]];
 
-  show  [cAccesses ~base:[cVar "t"] ~accesses:[cField ~field:"i"  ()] ()];
-  show  [nbExact 0;cAccesses ~base:[cVar "t"] ~accesses:[cField ~field:"j"  ()] ()];
+  show  [cAccesses ~base:[cVar "t"] ~accesses:[cIndex ~index:[cVar "i"]  ()] ()];
+  show  [nbExact 0;cAccesses ~base:[cVar "t"] ~accesses:[cIndex ~index:[cVar "j" ] ()] ()];
   
-  show  [cAccesses ~accesses:[cField ~field:"p" ~substr:true ()] ()];
+  show  [cAccesses ~accesses:[cField ~field:"x" ~substr:true ()] ()];
   (* Struct accesses *)
   show [cFieldGet "x"];
   show [cFieldGet "y"];

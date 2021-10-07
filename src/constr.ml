@@ -379,7 +379,6 @@ let rec constr_to_string (c : constr) : string =
        | Some cal -> list_to_string (List.map access_to_string cal)
      in
      let s_base = target_to_string p_base in
-     (* let s = target_to_string p_elt in *)
      "Access (" ^ s_accesses ^ ", " ^ s_base ^ ")"
   | Constr_switch (p_cond, cc) ->
      let s_cond = target_to_string p_cond in
@@ -760,9 +759,11 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_abort Break, Trm_abort (Break _) -> true
      | Constr_abort Continue, Trm_abort (Continue _) -> true
      | Constr_access (p_base, ca), _ ->
-        let (base, al) =get_nested_accesses t in
+        let (base, al) = get_nested_accesses t in
+        let b = check_accesses ca al in
+        if b then Ast_to_text.print_ast ~only_desc:true stdout base;
         check_target p_base base &&
-        check_accesses ca al
+        b
      | Constr_switch (p_cond, cc), Trm_switch (cond, cases) ->
         check_target p_cond cond &&
         check_cases cc cases
