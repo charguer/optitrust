@@ -9,7 +9,7 @@ int main() {
    }
    double s = 0;
    for (int i = 0; i < N; i++) {
-      s += t[i];  // internally: set(s, app(+, [get(s); get(access(t,i))]))
+      s = s + t[i];  // internally: set(s, app(+, [get(s); get(access(t,i))]))
    }
    printf("%d\n", s);
 }
@@ -18,8 +18,7 @@ float u[N];
 
 int other() {
    for (int i = 0; i < N; i++) {
-      double a;
-      a = u[i];
+      double a = u[i];
       double b = 3.14 * a + 0.68;
       u[i] = b;
    }

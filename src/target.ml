@@ -619,8 +619,10 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
+    Tools.printf "Before applying marks %s\n" (Ast_to_c.ast_to_string _t_before);
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+    Tools.printf "After applying marks %s\n" (Ast_to_c.ast_to_string t);
     (* iterate over these marks *)
     try
       Tools.foldi (fun imark t m ->
@@ -805,7 +807,7 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
    carrying the information [id] around the term t.
 *)
 let target_show_aux (id : int) (t : trm) : trm =
-  let show_mark = (*"show_mark " ^*) (string_of_int id) in
+  let show_mark = "show_mark " ^ (string_of_int id) in
   trm_add_mark show_mark t
 
 (* [target_show_transfo id t p]: adds a mark with the

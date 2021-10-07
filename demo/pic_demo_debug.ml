@@ -53,7 +53,10 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.inline "items" [cTypDef "bag"];
 
 
+  
   (* Relative positions *)
+  !! Arith.shift (code "x * cellSize") [nbMulti;cFieldGet "pos_x"];
+  
     let shift_coord d = 
       let f = "pos_" ^ d in
         Arith.shift (code (d ^ " * cellSize")) [nbAny;cFieldGet f];

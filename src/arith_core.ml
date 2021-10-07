@@ -20,8 +20,8 @@ let shift_aux (neg : bool) (pre_cast : typ option) (post_cast : typ option) (u :
     let binop_op = if neg then Binop_sub else Binop_add in
     begin match pre_cast, post_cast with
     | None , None -> trm_apps (trm_binop binop_op) [t; u]
-    | Some ty, None -> trm_cast ty (trm_apps (trm_binop binop_op) [t; u])
-    | None, Some ty -> trm_apps (trm_binop binop_op) [trm_cast ty t; u]
+    | None, Some ty -> trm_cast ty (trm_apps (trm_binop binop_op) [t; u])
+    | Some ty, None -> trm_apps (trm_binop binop_op) [trm_cast ty t; u]
     | _ -> fail t.loc "shift_aux: can'd do both pre-casting and post-casting"
     end
 
