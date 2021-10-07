@@ -124,7 +124,7 @@ and constr =
   (* abort *)
   | Constr_abort of abort_kind
   (* accesses: base, accesses *)
-  | Constr_access of target * constr_accesses
+  | Constr_access of target * constr_accesses * bool
   (* switch: cond, cases *)
   | Constr_switch of target * constr_cases
   (* Target relative to another trm *)
@@ -372,7 +372,7 @@ let rec constr_to_string (c : constr) : string =
        | Continue -> "Continue"
      in
      "Abort_" ^ s_kind
-  | Constr_access (p_base, ca) ->
+  | Constr_access (p_base, ca, _) ->
      let s_accesses =
        match ca with
        | None -> "_"
@@ -457,6 +457,7 @@ and access_to_string (ca : constr_access) : string =
      in
      "Struct_access " ^ s_field
   | Any_access -> "Any_access"
+
 
 
 
@@ -620,31 +621,6 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
     | Some ty -> pred ty
     | None -> false
 
-(* DEPREACTED
-    let default () =
-    match t.typ with
-    | Some ty -> pred ty
-    | None -> false
-  match t.desc with
-  | Trm_let (_,(_, tx), _) ->
-      pred (get_inner_ptr_type tx)
-  | Trm_apps ({desc= Trm_val (Val_prim (Prim_binop Binop_set));_ }, tl) ->
-      begin match tl with
-      | [fs;sd] ->
-        begin match fs.typ, sd.typ with
-        | Some t1 , Some _t2 -> pred t1
-          (* Note: we arbitrarily bias towards information on the left-hand side,
-             which is presumably a simpler expression *)
-        | Some ty, _ | _, Some ty -> pred ty
-        | None, None -> false
-          (* fail t.loc "check_hastype: no type information available for 'set', try reparsing first."*)
-        end
-      | _-> fail None "check_hastype: set operation should have two arguments"
-      end
-  | _ -> default()
-  *)
-
-
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
   if List.mem Access t.annot  then
@@ -758,12 +734,10 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_abort Return, Trm_abort (Ret _) -> true
      | Constr_abort Break, Trm_abort (Break _) -> true
      | Constr_abort Continue, Trm_abort (Continue _) -> true
-     | Constr_access (p_base, ca), _ ->
+     | Constr_access (p_base, ca,ia), _ ->
         let (base, al) = get_nested_accesses t in
-        let b = check_accesses ca al in
-        if b then Ast_to_text.print_ast ~only_desc:true stdout base;
         check_target p_base base &&
-        b
+        check_accesses ~inner_accesses:ia ca al
      | Constr_switch (p_cond, cc), Trm_switch (cond, cases) ->
         check_target p_cond cond &&
         check_cases cc cases
@@ -814,10 +788,16 @@ and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
           end
   | _ -> fail None "check_arg: target expressing constraints on arguments must be list with at most one item."
 
-and check_accesses (ca : constr_accesses) (al : trm_access list) : bool =
+
+and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
-    | [], [] -> true
+    | [], a -> if not inner_accesses 
+                  then begin match a with 
+                       | [] -> true 
+                       | _  -> false
+                       end
+                  else true
     | Array_access p_index :: cal, Array_access_get index :: al ->
        check_target p_index index &&
        aux cal al

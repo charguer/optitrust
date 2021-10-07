@@ -510,43 +510,63 @@ let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
 
 
-(*
-  the empty list is interpreted as no constraint on the accesses
-  accesses are reversed so that users give constraints on what they see
-  *)
+
+(* [cAccesses ~base ~accesses ()] matches array_accesses or struct accesses 
+    depending on [accesses] parameter. [base] is a target on the base of an access
+    and [accesses] is a list of constraints on accesses. 
+    Note:
+      the empty list is interpreted as no constraint on the accesses
+      accesses are reversed so that users give constraints on what they see  
+*)
+
 let cAccesses ?(base : target = [])
-  ?(accesses : constr_access list = []) (_ : unit) : constr =
+  ?(accesses : constr_access list = []) ?(inner_accesses : bool = true)(_ : unit) : constr =
   let p_base =  base in
   let accesses =
     match accesses with | [] -> None | cal -> Some (List.rev cal)
   in
-    Constr_access (p_base, accesses)
+    Constr_access (p_base, accesses, inner_accesses)
 
+(* [cIndex ~index ()] is an access constrint in index [index], because the 
+    index can be a variable or an integer it should be given as a target.
+*)
 let cIndex ?(index : target = []) (_ : unit) : constr_access =
   let p_index =  index in
   Array_access p_index
 
+(* [cField ~field ~substr ~regexp ()] is an access constraint on field [field]
+      since the field is a string this constructor allows to use more advance 
+      string matching like matching all substrings which contain [field] as a 
+      substring. Also one can constaint accesses on multiple fields by enabling
+      regular expressions when setting [regexp] to true.
+ *)
 let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = false)
   (_ : unit) : constr_access =
   let ro = string_to_rexp_opt regexp substr field TrmKind_Expr in
   Struct_access ro
 
+(* [cAccess] matches any access no matter if it is a struct access or an array access *)
 let cAccess : constr_access =
   Any_access
 
+(* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base] *)
 let cFieldGet ?(base : target = []) (field : field )  : constr =
   cAccesses ~base ~accesses:[cField ~field ()] ()
 
-let cFieldSet ?(base : target = []) (field : field) : constr =
-  let lhs = [cAccesses ~base ~accesses:[cField ~field ()] ()] in
-  cChain ([cSet ~lhs ()] @ [dLHS])
+(* [cFieldSet ~base field] matches all struct field set operations*)
+let cFieldSet ?(base : target = [cVar ""])  (field : field) : constr =
+  let lhs = [cAccesses ~base  ~accesses:[cField ~field ()] ()] in
+  cSet ~lhs ()
 
+
+(* [cIndexGet ~base index] matches all array accesses at index [index] with base [base] *)
 let cIndexGet ?(base : target = []) (index : target )  : constr =
   cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
-let cIndexSet ?(base : target = []) (index : target) : constr =
+(* [cIndexSet ~base index] matches all array index set operations*)
+let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
   let lhs = [cAccesses ~base ~accesses:[cIndex ~index ()] ()] in
-  cChain ([cSet ~lhs ()] @ [dLHS])
+  cSet ~lhs ()
 
 
 

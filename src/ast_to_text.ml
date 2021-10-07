@@ -502,6 +502,16 @@ and print_routine (routine : omp_routine) : document =
   | Get_wtime -> string "Get_wtime"
   | Get_wtick -> string "Get_wtick"
 
+let trm_access_to_string (ta : trm_access) : string =
+  let aux (ta : trm_access) : document =
+  match ta with 
+  | Array_access_get i -> string "arr_at " ^^ print_trm ~only_desc:true i
+  | Array_access_addr i -> string "arr_at " ^^ print_trm ~only_desc:true i
+  | Struct_access_get f -> string "struct_at " ^^ string f
+  | Struct_access_addr f -> string "struct_at " ^^ string f
+  in
+  document_to_string (aux ta)
+
 let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in
   PPrintEngine.ToChannel.pretty 0.9 80 out d

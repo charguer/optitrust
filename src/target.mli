@@ -208,7 +208,7 @@ val cBreak : constr
 val cContinue : constr
 
 val cAccesses : ?base:target ->
-                ?accesses:(constr_access list) -> unit -> constr
+                ?accesses:(constr_access list) -> ?inner_accesses:bool -> unit -> constr
 
 val cIndex : ?index:target -> unit -> constr_access
 
