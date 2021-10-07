@@ -5,9 +5,18 @@ OUTPUT="${FILENAME%.*}"_one.ml
 
 LINECUT=`grep -n "\!\!" ${FILENAME} | awk -F  ":" '{print $1}' | tail -n +2 | head -1`
 
-sed "${LINECUT},1000d" ${FILENAME} > ${OUTPUT}
+if [ -z "${LINECUT}" ]; then
 
-echo ")" >> ${OUTPUT}
+   cp ${FILENAME} ${OUTPUT}
+
+else
+
+  sed "${LINECUT},1000d" ${FILENAME} > ${OUTPUT}
+
+  echo ")" >> ${OUTPUT}
+
+fi
+
 
 echo "Generated ${OUTPUT}"
 

@@ -15,7 +15,6 @@ TESTS_WORKING := \
 	function_inline.ml \
 	label_add.ml \
 	label_remove.ml \
-	local_other_name.ml \
 	loop_color.ml \
 	loop_fission.ml \
 	loop_fusion.ml \
@@ -52,6 +51,7 @@ TESTS_WORKING := \
 	variable_insert_and_fold.ml \
 	variable_rename.ml\
 
+#	local_other_name.ml \
 TESTS_TOCHECK := \
 	change_type.ml \
 	arith_shift.ml \

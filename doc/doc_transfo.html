@@ -120,6 +120,8 @@ function loadDiffFromString(targetId, diffString) {
 
 // removes from src everything between the line that contains ".cpp" or "fun" and the line that contains "dump" or ")"
 function shrinkSrc(src) {
+   src = src.replace("\n\n","\n");
+   src = src.replace("  \n\n","\n");
    var start = src.indexOf(".cpp");
    if (start == -1) 
       start = src.indexOf("fun _");
@@ -240,6 +242,14 @@ $("button").click(function(){
 
 <div class="test" id="basic__label_add"></div>
 
+<div class="test" id="basic__array_swap"></div>
+
+<div class="test" id="basic__array_tile"></div>
+
+<div class="test" id="basic__loop_fusion"></div>
+
+<div class="test" id="basic__sequence_elim"></div>
+
 <!---------------------------------------------------------------------------->
 <!--<h2>Loop Tiling</h2>
 
@@ -257,6 +267,55 @@ $("button").click(function(){
 <h2>Coloring</h2>
 
 <!--<div class="test" id="loop_coloring"></div>
+TESTS_WORKING := \
+	aos_to_soa_sized_array.ml \
+	aos_to_soa_typedef.ml \
+	array_swap.ml \
+	array_tile.ml \
+	array_to_variables.ml \
+	flow_insert_if.ml \
+	function_bind_intro.ml \
+	function_inline.ml \
+	label_add.ml \
+	label_remove.ml \
+	local_other_name.ml \
+	loop_color.ml \
+	loop_fission.ml \
+	loop_fusion.ml \
+	loop_grid_enumerate.ml \
+	loop_hoist.ml \
+	loop_interchange.ml \
+	loop_invariant.ml \
+	loop_tile.ml \
+	loop_to_unit_steps.ml \
+	loop_unroll.ml \
+	loop_unswitch.ml \
+	pointer_fold.ml \
+	reference_fold.ml \
+	reference_inline.ml \
+	instr_replace.ml \
+	instr_replace_fun.ml \
+	sequence_delete.ml \
+	sequence_elim_around_instr.ml \
+	sequence_elim.ml \
+	sequence_insert.ml \
+	sequence_intro.ml \
+	sequence_intro_on_instr.ml \
+	sequence_partition.ml \
+	struct_fields_reorder.ml \
+	struct_inline.ml \
+	struct_set_explicit.ml \
+	struct_set_implicit.ml \
+	typedef_fold.ml \
+	typedef_inline.ml \
+	typedef_insert.ml \
+	variable_fold.ml \
+	variable_inline.ml \
+	variable_insert.ml \
+	variable_insert_and_fold.ml \
+	variable_rename.ml\
+
+
 -->
 
 <!---------------------------------------------------------------------------->
