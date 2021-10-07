@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en-us"><head>
+<title>
+OptiTrust Documentation
+</title>
+<meta charset="utf-8">
+   <!--Make sure to load the CSS file in that order-->
+   <link rel="stylesheet" type="text/css" href="../tools/lib/highlight.js_github.min.css" />
+   <link rel="stylesheet" type="text/css" href="../tools/lib/diff2html.min.css" />
+
+   
+   <!--custom highlightjs with only ocaml and C/C++ supported-->
+   <script src="../tools/lib/highlight_custom/highlight.pack.js"></script>
+
+   <script src="../tools/lib/jquery.min.js"></script>
+   <script src="../tools/lib/jquery-ui.min.js"></script>
+   <script type="text/javascript" src="../tools/lib/diff2html-ui.min.js"></script>
+   <!--TODO: http://underscorejs.org/ ? -->
+
+
+   <!--explicit inclusion of files-->
+   <!--<script src="split_loop_diff.js"></script>-->
+
+
+<style>
+/* Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+   display: none;
+}
+
+/* Hide the diff line number because we're showing full file comparisons */
+.d2h-info {
+   display: none;
+}
+
+.title {
+   font-size: 300%;
+   font-weight: bold;
+   text-align: center;
+}
+
+h1 {
+   padding: 4px;
+   /*color: #0000CC;*/
+   background: #DDFFFF;
+}
+
+h2 {
+   padding: 4px;
+   /*color: #006600;*/
+   background: #00FFFF;
+   padding-left: 1em;
+}
+
+.spec {
+}
+
+.src {
+   border: 2px solid black;
+   padding: 1px 5px 1px 5px;
+   background: #FFFFA0;
+   font-weight: bold;
+}
+
+.diff{
+   margin: 2px 0px 2px 0px;
+}
+
+.error {
+   padding: 2em;
+   background: red;
+   font-weight: bold;
+   font-size: 2em;
+}
+
+.warning {
+   padding: 1em;
+   background: red;
+   font-weight: bold;
+   font-size: 1em;
+}
+</style>
+
+<script>
+var enableWarning = false;
+
+var configuration = { 
+   inputFormat: 'json', 
+   drawFileList: false,
+   // fileListToggle: false,
+   // fileListStartVisible: false
+   fileContentToggle: false,
+   matching: 'lines', 
+   outputFormat: 'side-by-side',
+   synchronisedScroll: true,
+   highlight: true,
+   renderNothingWhenEmpty: false,
+   // LATER tune?
+   // matchWordsThreshold : similarity threshold for word matching, default is 0.25
+   // matchWordsThresholdmatchingMaxComparisons: perform at most this much comparisons for line matching a block of changes, default is 2500
+   // maxLineSizeInBlockForComparison: maximum number os characters of the bigger line in a block to apply comparison, default is 200
+   // maxLineLengthHighlight: only perform diff changes highlight if lines are smaller than this, default is 10000
+   };
+
+// TODO: the horizontal scrollbars should not be needed if the diff contains no long lines.
+
+
+// Could use Underscore's _escape method.
+function escapeHTML(s) {
+   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function loadDiffFromString(targetId, diffString) {
+   // this function should be called only after DOM contents is loaded
+  var targetElement = document.getElementById(targetId);
+  var diff2htmlUi = new Diff2HtmlUI(targetElement, diffString, configuration);
+  diff2htmlUi.draw();
+  diff2htmlUi.highlightCode();
+}
+
+// removes from src everything between the line that contains ".cpp" or "fun" and the line that contains "dump" or ")"
+function shrinkSrc(src) {
+   var start = src.indexOf(".cpp");
+   if (start == -1) 
+      start = src.indexOf("fun _");
+   if (start == -1) 
+      return src;
+   start = src.indexOf("\n", start);
+   if (start == -1)
+      return src;
+   src = src.substr(start+1);
+   var stop = src.lastIndexOf("dump");
+   if (stop == -1) {
+      stop = src.lastIndexOf(")");
+   }
+   if (stop != -1) {
+      return src.substr(0,stop);
+   }
+   return src;
+}
+
+function reportError(targetId, targetJsFilename) {
+   $('#'+targetId).html("Error loading " + targetJsFilename + ". Check that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_diff.js files have been generated using 'make doc'. Alternatively, the '*_diff.js' file needs to be included explicitly in _doc.html.").addClass("error");
+}
+
+function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
+   // function names
+   var targetJsFunctionDiff = "get_diff_" + targetId;
+   var targetJsFunctionSrc = "get_src_" + targetId;
+   // Fill the test block
+   var srcId = targetId + "_src";
+   var diffId = targetId + "_diff";
+   $('#'+targetId).html("<div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>");
+   // Fill the source part 
+   var srcContents = eval(targetJsFunctionSrc + "()");
+
+   var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
+   var srcWarning = "";
+   if (enableWarning && sWarning) {
+      srcWarning = "<div class='warning'>" + sWarning + "</div>";
+   }
+   $('#'+srcId).html(srcWarning + srcHTML);
+   //hljs.highlightElement(srcId);
+   // Fill the diff part
+   var diffContents = eval(targetJsFunctionDiff + "()");
+   loadDiffFromString(diffId, diffContents);
+}
+
+function loadTestFromFile(targetId) {
+   var targetName = targetId.replace("__", "/");
+   var targetJsFilename = "../tests/" + targetName + "_diff.js";
+
+   try { // try loading from an include
+      loadTestFromFileAssumedLoaded(targetId, targetName);
+   } catch (error) {
+      // The dynamic loading of the JS file requires --disable-web-security
+      $.getScript(targetJsFilename, function(data, status) {
+         if (status != "success") {
+            reportError(targetId, targetJsFilename);
+            return;
+         }
+         loadTestFromFileAssumedLoaded(targetId, targetName, "Warning: JS file loaded the unsafe way.");
+      }).fail(function () {
+         reportError(targetId, targetJsFilename);
+      });
+   }
+
+}
+
+function loadAllTestFromFile() {
+   var all = $(".test").each(function() {
+     loadTestFromFile(this.id);
+   }); 
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+   loadAllTestFromFile();
+
+});
+
+
+/*
+var all = $(".mbox").map(function() {
+    return this.innerHTML;
+}).get();
+
+$("button").click(function(){
+  $.getScript("demo_ajax_script.js");
+});
+*/
+</script>
+
+</head>
+
+<body>
+
+<div class="title">OptiTrust Documentation</div>
+<!---------------------------------------------------------------------------->
+<!---------------------------------------------------------------------------->
+<!---------------------------------------------------------------------------->
+<h1>Data layout</h1>
+
+
+<!---------------------------------------------------------------------------->
+<!---------------------------------------------------------------------------->
+<!---------------------------------------------------------------------------->
+<h1>Control Flow</h1>
+
+<!---------------------------------------------------------------------------->
+<h2>Loop Splitting</h2>
+
+<!--
+<ul class="spec">
+<li>Input: a loop, and a "split-point" in the body of that loop.</li>
+<li>Output: a sequence of two loops, each with the same iteration range as the original loop. The first loop executes the first part of the body, whereas the second loop executes the second part of the body.</li>
+<li>Assumption: the loop range has a "simple" form.
+<li>Correctness: the reordering of the instructions must not change the semantics.</li>
+</ul>
+-->
+
+<div class="test" id="basic__label_add"></div>
+
+<!---------------------------------------------------------------------------->
+<!--<h2>Loop Tiling</h2>
+
+<div class="test" id="test_tile_loop"></div>-->
+
+<!---------------------------------------------------------------------------->
+<h2>Other Transformations</h2>
+
+
+<!---------------------------------------------------------------------------->
+<h2>Domain-Specific Transformations</h2>
+
+
+<!---------------------------------------------------------------------------->
+<h2>Coloring</h2>
+
+<!--<div class="test" id="loop_coloring"></div>
+-->
+
+<!---------------------------------------------------------------------------->
+<!---------------------------------------------------------------------------->
+<!---------------------------------------------------------------------------->
+<h1>Instructions</h1>
+
+
+
+
+</body>
+</html>
+

@@ -66,8 +66,8 @@
               "${lineNumber}",
               "view_diff",
               "recompile_optitrust_no",
-              "-dump-last",
-              "5"
+              /*"-dump-last",
+              "5"*/
           ]
         },
         {
@@ -152,8 +152,8 @@
           "${lineNumber}",
           "view_diff",
           "recompile_optitrust_no",
-          "-dump-last",
-          "5"
+          /*"-dump-last",
+          "5"*/
         ]
       },
       {
