@@ -160,13 +160,22 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 #######################################################
 # Documentation
 
+CURDIR=$(shell basename `pwd`)
+
 # CHECKS contains the list of targets to be produced for the documentation
 DIFFJS=$(TESTS:.ml=_diff.js)
 
+%_one.ml: %.ml
+	$(V)$(OPTITRUST)/tests/extract_first_transfo.sh $<
+
+%_one.cpp: %.cpp
+	$(V)cp $< $@
+
 # Rule for producing the diff between the output and the expected output, in a form readable in a browser
-%_diff.js: %.cpp %_exp.cpp %.ml
-	@echo "function get_diff_$*() { return window.atob(\"`git diff --no-index -U10 $*.cpp $*_exp.cpp | base64 -w 0`\"); }" > $@
-	@echo "function get_src_$*() { return window.atob(\"`cat $*.ml | base64 -w 0`\"); }" >> $@
+#	git diff  --ignore-blank-lines --ignore-all-space --no-index -U10 $*_one.cpp $*_one_out.cpp
+%_diff.js: %_one.cpp %_one_out.cpp %_one.ml
+	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U10 $*_one.cpp $*_one_out.cpp | base64 -w 0`\"); }" > $@
+	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_one.ml | base64 -w 0`\"); }" >> $@
 	@echo Produced $@
 
 # 'make doc' to build the auxililary files needed by _doc.html
@@ -176,11 +185,6 @@ doc: $(DIFFJS)
 redoc:
 	rm -f *_diff.js
 	$(MAKE) doc
-
-# 'make opendoc' to view the documentation
-opendoc: doc
-	mkdir -p .chromium
-	chromium-browser --new-window --user-data-dir=../.chromium --disable-web-security _doc.html
 
 #######################################################
 # Cleanup

@@ -19,7 +19,7 @@ OptiTrust Documentation
 
 
    <!--explicit inclusion of files-->
-   <script src="split_loop_diff.js"></script>
+   <!--<script src="split_loop_diff.js"></script>-->
 
 
 <style>
@@ -82,6 +82,8 @@ h2 {
 </style>
 
 <script>
+var enableWarning = false;
+
 var configuration = { 
    inputFormat: 'json', 
    drawFileList: false,
@@ -116,7 +118,7 @@ function loadDiffFromString(targetId, diffString) {
   diff2htmlUi.highlightCode();
 }
 
-// removes from src everything between the line that contains ".cpp" or "fun" and the line that contains "dump"
+// removes from src everything between the line that contains ".cpp" or "fun" and the line that contains "dump" or ")"
 function shrinkSrc(src) {
    var start = src.indexOf(".cpp");
    if (start == -1) 
@@ -128,10 +130,13 @@ function shrinkSrc(src) {
       return src;
    src = src.substr(start+1);
    var stop = src.lastIndexOf("dump");
-   if (stop == -1)
-      return src;
-   stop = src.lastIndexOf("\n", stop);
-   return src.substr(0,stop);
+   if (stop == -1) {
+      stop = src.lastIndexOf(")");
+   }
+   if (stop != -1) {
+      return src.substr(0,stop);
+   }
+   return src;
 }
 
 function reportError(targetId, targetJsFilename) {
@@ -140,18 +145,18 @@ function reportError(targetId, targetJsFilename) {
 
 function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
    // function names
-   var targetJsFunctionDiff = "get_diff_" + targetName;
-   var targetJsFunctionSrc = "get_src_" + targetName;
+   var targetJsFunctionDiff = "get_diff_" + targetId;
+   var targetJsFunctionSrc = "get_src_" + targetId;
    // Fill the test block
-   var srcId = targetName + "_src";
-   var diffId = targetName + "_diff";
+   var srcId = targetId + "_src";
+   var diffId = targetId + "_diff";
    $('#'+targetId).html("<div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>");
    // Fill the source part 
    var srcContents = eval(targetJsFunctionSrc + "()");
 
    var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
    var srcWarning = "";
-   if (sWarning) {
+   if (enableWarning && sWarning) {
       srcWarning = "<div class='warning'>" + sWarning + "</div>";
    }
    $('#'+srcId).html(srcWarning + srcHTML);
@@ -162,8 +167,8 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
 }
 
 function loadTestFromFile(targetId) {
-   var targetName = targetId.substring(5); // remove the 'test_' prefix
-   var targetJsFilename = targetName + "_diff.js";
+   var targetName = targetId.replace("__", "/");
+   var targetJsFilename = "../tests/" + targetName + "_diff.js";
 
    try { // try loading from an include
       loadTestFromFileAssumedLoaded(targetId, targetName);
@@ -224,14 +229,16 @@ $("button").click(function(){
 <!---------------------------------------------------------------------------->
 <h2>Loop Splitting</h2>
 
+<!--
 <ul class="spec">
 <li>Input: a loop, and a "split-point" in the body of that loop.</li>
 <li>Output: a sequence of two loops, each with the same iteration range as the original loop. The first loop executes the first part of the body, whereas the second loop executes the second part of the body.</li>
 <li>Assumption: the loop range has a "simple" form.
 <li>Correctness: the reordering of the instructions must not change the semantics.</li>
 </ul>
+-->
 
-<div class="test" id="test_split_loop"></div>
+<div class="test" id="basic__label_add"></div>
 
 <!---------------------------------------------------------------------------->
 <!--<h2>Loop Tiling</h2>
@@ -249,8 +256,8 @@ $("button").click(function(){
 <!---------------------------------------------------------------------------->
 <h2>Coloring</h2>
 
-<div class="test" id="test_loop_coloring"></div>
-
+<!--<div class="test" id="loop_coloring"></div>
+-->
 
 <!---------------------------------------------------------------------------->
 <!---------------------------------------------------------------------------->
