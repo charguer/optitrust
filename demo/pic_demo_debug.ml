@@ -54,6 +54,7 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.inline "pos" [cTypDef "particle"];
   !! Struct.inline "speed" [cTypDef "particle"];
   
+  (* Relative positions *)
     let shift_coord d = 
         let f = "pos_" ^ d in
           Arith.shift (code (d ^ " * cellSize")) [nbAny;cFunDef "main";cFieldGet f];
@@ -64,9 +65,10 @@ let _ = Run.script_cpp (fun () ->
 
   !! Struct.inline "items" [cTypDef "bag"];
 
+  !! Struct.(rename_fields Rename.(only_for "pos_." (fun x ->  "rel_" ^ x))) [cTypDef "particle"];
+
 
   
-  (* Relative positions *)
   
   
     

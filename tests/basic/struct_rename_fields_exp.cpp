@@ -1,12 +1,12 @@
 typedef struct {
-  int x_rel;
-  int y_rel;
+  int rel_x;
+  int rel_y;
 } vect;
 
 typedef struct {
-  int weight_rel;
-  vect pos_rel;
-  vect speed_rel;
+  int weight;
+  vect rel_pos;
+  vect rel_speed;
 } obj;
 
 vect f() { return {1, 1}; }
@@ -14,21 +14,21 @@ vect f() { return {1, 1}; }
 int main() {
   vect p = {0, 0};
   vect b;
-  b.x_rel = p.x_rel;
-  b.y_rel = p.y_rel;
+  b.rel_x = p.rel_x;
+  b.rel_y = p.rel_y;
   vect u;
   obj a = {0, {0, 0}, {0, 0}};
-  u.x_rel = a.pos_rel.x_rel;
-  u.y_rel = a.pos_rel.y_rel;
+  u.rel_x = a.rel_pos.rel_x;
+  u.rel_y = a.rel_pos.rel_y;
   vect t[2];
   vect p2 = p;
-  t[0].x_rel = p2.x_rel;
-  t[0].y_rel = p2.y_rel;
+  t[0].rel_x = p2.rel_x;
+  t[0].rel_y = p2.rel_y;
   obj c;
-  c.weight_rel = a.weight_rel;
-  c.pos_rel.x_rel = a.pos_rel.x_rel;
-  c.pos_rel.y_rel = a.pos_rel.y_rel;
-  c.speed_rel.x_rel = a.speed_rel.x_rel;
-  c.speed_rel.y_rel = a.speed_rel.y_rel;
+  c.weight = a.weight;
+  c.rel_pos.rel_x = a.rel_pos.rel_x;
+  c.rel_pos.rel_y = a.rel_pos.rel_y;
+  c.rel_speed.rel_x = a.rel_speed.rel_x;
+  c.rel_speed.rel_y = a.rel_speed.rel_y;
   return 0;
 }

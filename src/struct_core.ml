@@ -428,13 +428,19 @@ let to_variables (index : int) : Target.Transfo.local =
   Target.apply_on_path (to_variables_aux index)
 
 
+
+(* TODO: Document rename_fields  *)
 module Rename = struct
   type t = string -> string
   let add_prefix (s : string) : t =
     fun str -> s ^ str
   
   let only_for (pattern : string) : t -> t = 
-    fun tr s -> if Str.string_match (Str.regexp_string pattern) s 0 then tr s else s
+    fun tr s ->
+      let matches_pattern =  
+      try let _ = Str.search_forward (Str.regexp pattern) s 0 in true
+      with Not_found -> false in
+      if matches_pattern then tr s else s
 end
 
 type rename = Rename.t 
