@@ -33,7 +33,9 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
             Function_core.bind_intro (i + !counter) fresh_name false (p_local @ [Dir_arg n]) t p
             else t) t fresh_names
             end
-   | _ -> fail call_trm.loc "bind_args: expected a function call as target"
+   | _ ->
+     Ast_to_text.print_ast ~only_desc:true stdout call_trm;
+     fail call_trm.loc "bind_args: expected a function call as target"
    end)
 
 (* [elim_body ~vars tg] expects the target [tg] to point to the marked sequence.Then it will

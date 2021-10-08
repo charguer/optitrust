@@ -37,12 +37,16 @@ let _ = Run.script_cpp (fun () ->
   !! Variable.delocalize_in_vars  ~local_vars:["bagsNextPrivate";"bagsNextShared"]~old_var:"bagsNext" ~new_var:"bagsNextLocal" ~var_type:Ast.(typ_ptr Ptr_kind_mut (typ_constr "bag")) ~array_size:"N" ~dl_ops:ops  [cMark "next"];
   !! Specialize.choose "bagsNextPrivate" [cIf();dThen; cChoose];
   !! Specialize.choose "bagsNextShared" [cIf();dElse; cChoose];
+  !! Sequence.elim [cMark "next"];
 
   (* Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
   !! Struct.set_explicit [nbMulti;cSet ~typ:"particle"()];
   !! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
+  !! Function.inline [cFunDef "main";cOr [[cFun "bag_push"]; [cFun "bag_push_atomic"]]];
+
+  (* !! Function.inline ~args:["&b2";""] [cFunDef "main"; cFun "bag_push"]; *)
   !! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
   
 
@@ -51,13 +55,11 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.inline "speed" [cTypDef "particle"];
   
 
-  (* TODO: For the other fields *)
-  !! Arith.shift (code " x * cellSize") [nbAny;cFunDef "main"; cFieldGet "pos_x"];
-
   (* let shift_coord d = 
       let f = "pos_" ^ d in
-        Arith.shift (code (d ^ " * cellSize")) [nbAny;cFieldGet f];
-        Arith.shift (code (d ^ "2 * cellSize")) [nbAny;cFieldGet f] 
+        Arith.shift (code (d ^ " * cellSize")) [nbAny;cFunDef "main";cFieldGet f];
+        (* TODO: After inlining bag_push *)
+        (* Arith.shift (code (d ^ "2 * cellSize")) [nbAny;cFunDef "main";cFieldGet f]  *)
       in
    !! List.iter shift_coord dims;
 

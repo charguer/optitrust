@@ -41,12 +41,12 @@ let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : 
             begin match vk with 
             | Var_immutable -> 
               if as_reference 
-                then {dx with add = List.filter (fun x -> x <> Add_address_of_operator) dx.add}
+                then {dx with add = List.filter (fun x -> x <> Address_operator) dx.add}
                 else dx
             | _ -> begin match dx.desc with 
                    | Trm_apps(_, [init]) -> 
                     if as_reference 
-                      then {init with add = List.filter (fun x -> x <> Add_address_of_operator) init.add}
+                      then {init with add = List.filter (fun x -> x <> Address_operator) init.add}
                       else init
                    | _ -> fail t.loc "fold_aux: expected a new operation"
                    end
@@ -343,14 +343,10 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index :
       let new_var = x in
       let old_var_trm = get_init_val def in
       let var_type = (get_inner_ptr_type tx) in
-      (* In the case when the given type is typ pointer dereferencing is performed *)
-      let add_star (t : trm) : trm = 
-        let is_typ_ptr = begin match (get_inner_ptr_type tx).typ_desc with 
-        | Typ_ptr _ -> true
-        | _ -> false end in
-        if is_typ_ptr then {t with add = Add_star_operator :: t.add} else t 
-      in
-      
+      let add_star_if_ptr (t : trm) : trm = 
+        if is_typ_ptr (get_inner_ptr_type tx)  then add_star t
+          else t
+          in 
       let init_trm, op = begin match dl_ops with 
       | Delocalize_arith (li, op) ->
           trm_lit li, (trm_set ~annot:[App_and_set] (old_var_trm)
@@ -360,7 +356,8 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index :
       | Delocalize_obj (clear_f, transfer_f) ->
           trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [], 
           trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f) 
-            [add_star old_var_trm; add_star (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index])]
+            [add_star_if_ptr old_var_trm ; 
+            add_star_if_ptr  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index])]
       end in
       let new_first_trm = trm_seq_no_brace[
           trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));

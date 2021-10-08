@@ -249,8 +249,8 @@ and trm_annot =
   | Any (* Used for only one specific transformation called delocalize *)
 (* symbols to add while printing a C++ program.*)
 and special_operator =
-  | Add_address_of_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
-  | Add_star_operator (* used to print the start operator when dereferencing a pointer , ex int y = *b *)
+  | Address_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
+  | Star_operator (* used to print the start operator when dereferencing a pointer , ex int y = *b *)
 
 (* We only need to support two specific attributes for the time being *)
 and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
@@ -701,6 +701,9 @@ let trm_annot_add (a:trm_annot) (t:trm) : trm =
 
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
   { t with annot = List.filter pred t.annot }
+
+let trm_add_operator (a : special_operator) (t : trm) : trm =
+  { t with add = a :: t.add}
 
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
@@ -1409,10 +1412,10 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
     in
   trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
 
-(* bypas the pointer type used only for optitrust encoding *)
+(* bypass the pointer type used only for optitrust encoding *)
 let get_inner_ptr_type (ty : typ) : typ =
   match ty.typ_desc with
-  | Typ_ptr {inner_typ = ty;_} -> ty
+  | Typ_ptr {inner_typ = ty1;_} when is_generated_star ty -> ty1
   | _ -> ty
 
 let is_typ_const (t : typ) : bool =
@@ -1511,13 +1514,22 @@ let is_type_unit (t : typ) : bool =
   | Typ_unit -> true
   | _ -> false
 
+(* Check if a trl is a trm_lit *)
 let is_lit (t : trm) : bool =
   match t.desc with 
   | Trm_val (Val_lit _) -> true
   | _ -> false
 
+(* Add the star operator to a trm *)
+let add_star (t : trm) : trm =
+  trm_add_operator Star_operator t
 
 
+(* Check if the type ty is a pointer type *)
+let is_typ_ptr (ty : typ) : bool =
+  match ty.typ_desc with 
+  | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
+  | _ -> false
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op
   | Delocalize_obj of string * string

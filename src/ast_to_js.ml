@@ -362,8 +362,8 @@ let annot_to_string (t_ann : trm_annot) : string =
 
 let add_to_string (add : special_operator) =
       match add with
-      | Add_address_of_operator -> quote "Add_address_of_operator"
-      | Add_star_operator -> quote "Add_star_operator"
+      | Address_operator -> quote "Address_operator"
+      | Star_operator -> quote "Star_operator"
 
 let ast_to_json (trm_root : trm) : json =
   (* node id generator *)

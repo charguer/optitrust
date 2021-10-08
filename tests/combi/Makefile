@@ -19,7 +19,7 @@ TESTS_WORKING := \
 	sequence_intro.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
-	variable_delocalize.ml \x
+	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
 

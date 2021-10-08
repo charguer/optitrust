@@ -15,7 +15,10 @@ open Ast
       updated ast of the surrounding sequence with the added if statement
  *)
 let insert_if_aux (cond : string) (t : trm) : trm =
-  trm_if (code cond) t t
+  begin match t.desc with 
+  | Trm_seq _ -> trm_if (code cond) t t
+  | _ -> trm_if (code cond) (trm_seq_nomarks [t]) (trm_seq_nomarks [t])
+  end 
 
 let insert_if (cond : string) : Target.Transfo.local =
   Target.apply_on_path (insert_if_aux cond)

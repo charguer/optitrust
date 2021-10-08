@@ -373,8 +373,8 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     let dinstr = string (string_of_bool t.is_statement) in
     let add_to_doc (add : special_operator) =
       match add with
-      | Add_address_of_operator -> string "Add_address_of_operator"
-      | Add_star_operator -> string "Add_star_operator"
+      | Address_operator -> string "Address_operator"
+      | Star_operator -> string "Star_operator"
     in
     let dadd =
       brackets (List.fold_left (fun d add -> d ^^ semi ^//^ add_to_doc add)

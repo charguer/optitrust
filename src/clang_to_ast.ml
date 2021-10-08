@@ -568,7 +568,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
           annot;
           marks = [];
           loc; is_statement;
-          add = Add_address_of_operator :: add;
+          add = Address_operator :: add;
           ctx;
           typ;
           attributes }
@@ -599,7 +599,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   desc = t.desc;
                   loc = t.loc;
                   is_statement = t.is_statement;
-                  add = Add_star_operator :: t.add;
+                  add = Star_operator :: t.add;
                   typ;
                   ctx;
                   attributes = t.attributes}
