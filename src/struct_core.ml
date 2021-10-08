@@ -32,17 +32,19 @@ let set_explicit_aux (t : trm) : trm =
       in
       let field_list = Internal.get_field_list struct_def in
       begin match rt.desc with
-      | Trm_apps(f1, [rbase]) ->
+      | Trm_apps(_f1, [rbase]) ->
+        let rt = if is_get_operation rt then rbase else rt in
         begin match lt.desc with
-        | Trm_apps (f2, [lbase]) ->
+        | Trm_apps (_f2, [lbase]) ->
+          let lt = if is_get_operation lt then lbase else lt in
           let exp_assgn = List.map (fun (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-           trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{lt with desc = Trm_apps (f2, [lbase])}]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{rt with desc = Trm_apps (f1 ,[rbase])}])
+           trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [rt])
           ) field_list in
          trm_seq_no_brace exp_assgn
         | _ -> let exp_assgn = List.map(fun (sf, ty) ->
           let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~annot:[Mutable_var_get] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [{rt with desc = Trm_apps (f1 ,[rbase])}])
+          trm_set (trm_apps ~annot:[Mutable_var_get] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [rt])
           ) field_list in
           trm_seq_no_brace exp_assgn
         end
@@ -52,8 +54,8 @@ let set_explicit_aux (t : trm) : trm =
         begin match lt.desc with
         | Trm_apps (_f2, _lbase) ->
           let exp_assgn = List.mapi(fun i (sf, ty) ->
-          let new_f = trm_unop (Unop_struct_field_addr sf) in
-          trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [lt]) (List.nth st i)
+            let new_f = trm_unop (Unop_struct_field_addr sf) in
+            trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [lt]) (List.nth st i)
           ) field_list in
           trm_seq_no_brace exp_assgn
         | Trm_var _ ->
@@ -64,7 +66,8 @@ let set_explicit_aux (t : trm) : trm =
           trm_seq_no_brace exp_assgn
         | _ -> fail t.loc "set_explicit_aux: left term was not matched"
         end
-      | _ -> let exp_assgn = List.map (fun (sf, ty) ->
+      | _ -> 
+          let exp_assgn = List.map (fun (sf, ty) ->
               let new_f = trm_unop (Unop_struct_field_addr sf) in
                 trm_set (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) new_f [rt])
                 ) field_list in

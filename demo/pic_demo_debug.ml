@@ -43,28 +43,26 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
   !! Struct.set_explicit [nbMulti;cSet ~typ:"particle"()];
-  !! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
-  !! Function.inline [cFunDef "main";cOr [[cFun "bag_push"]; [cFun "bag_push_atomic"]]];
+  !!! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
+  !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
+  !! Function.inline ~args:["&b3";""] [cTopFunDef "main"; cFun "bag_push_atomic"];
 
-  (* !! Function.inline ~args:["&b2";""] [cFunDef "main"; cFun "bag_push"]; *)
-  !! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
-  
+  (* TODO: Fix the issue of type changing in the case of function inline, for the moment reparsing vorks fine *)
+  !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
 
   (* AOS-TO-SOA *)
   !! Struct.inline "pos" [cTypDef "particle"];
   !! Struct.inline "speed" [cTypDef "particle"];
   
-
-  (* let shift_coord d = 
-      let f = "pos_" ^ d in
-        Arith.shift (code (d ^ " * cellSize")) [nbAny;cFunDef "main";cFieldGet f];
-        (* TODO: After inlining bag_push *)
-        (* Arith.shift (code (d ^ "2 * cellSize")) [nbAny;cFunDef "main";cFieldGet f]  *)
-      in
-   !! List.iter shift_coord dims;
+    let shift_coord d = 
+        let f = "pos_" ^ d in
+          Arith.shift (code (d ^ " * cellSize")) [nbAny;cFunDef "main";cFieldGet f];
+          Arith.shift ~neg:true (code (d ^ "2 * cellSize")) [nbAny;cFunDef "main";cFieldSet f] 
+        in
+  !! List.iter shift_coord dims;
 
 
-  !! Struct.inline "items" [cTypDef "bag"]; *)
+  !! Struct.inline "items" [cTypDef "bag"];
 
 
   

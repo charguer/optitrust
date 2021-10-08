@@ -1530,6 +1530,10 @@ let is_typ_ptr (ty : typ) : bool =
   match ty.typ_desc with 
   | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
   | _ -> false
+
+let is_get_operation (t : trm) : bool =
+  List.mem Mutable_var_get t.annot
+
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op
   | Delocalize_obj of string * string
