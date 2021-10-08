@@ -45,6 +45,7 @@ TESTS_WORKING := \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
+	struct_update_fields_type.ml \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \

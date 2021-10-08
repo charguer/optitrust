@@ -69,10 +69,10 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.(rename_fields Rename.(only_for "pos_." (fun x ->  "rel_" ^ x))) [cTypDef "particle"];
 
   (* Change of precision *)
-  (* TODO: Fix the issue with regexp in cField, cast is working *)
-  !! Cast.insert (typ_float ()) [nbMulti;cFieldSet ~substr:true ~regexp:true "pos";dRHS];
+  (* Casting works fine, missing a tests case for the pic demo *)
+  (* !! Cast.insert (typ_float ()) [nbMulti;cFieldGet ~substr:true ~regexp:true "rel_pos_"]; *)
 
-  
+  !! Struct.update_fields_type "rel_pos_." (typ_float ()) [cTypDef "particle"];
   
   
     

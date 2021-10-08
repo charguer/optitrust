@@ -58,3 +58,10 @@ let to_variables : Target.Transfo.t =
 let rename_fields (rename : rename) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Struct_core.rename_fields i rename t p)
+
+
+
+let update_fields_type (pattern : string) (ty : typ) (tg : Target.target) : unit =
+  Target.apply_on_targets (Struct_core.update_fields_type pattern ty) tg;
+  Trace.reparse();
+  
