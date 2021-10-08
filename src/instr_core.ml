@@ -6,8 +6,7 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [replace code t]: replace any node of the ast with an arbitrary code
-      tranformed later into an ast subtree
+(* [replace code t]: replace an instruction with arbitrary code
     params:
       cd: string representing the code which will appear in place of the targeted trm
       t: ast of the trm going to be replaced
@@ -20,7 +19,9 @@ let replace (cd : string) : Target.Transfo.local =
 
 
 
-(* [replace_fun name t]: change the current function call name to [name]
+(* [replace_fun name t]: change the current function call 
+      to another function call with where the function called now
+      has name [name]
     params:
       name: name of the function replacing the targeted one
       t: ast of the function call trm

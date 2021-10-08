@@ -43,7 +43,7 @@ let bind_args (fresh_names : var list) : Target.Transfo.t =
     sequence containing the marked sequence. But before doing that, first a change of all the declared
     variables inside this sequence is performed. [vars] tells for the way the reanming is done.
     Either the user can give a list of variables together with their new names, or he can give the postfix
-    after which shoudl be assigned to all the declared variables.
+    that shoudl be assigned to all the declared variables.
 *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
   Variable_basic.rename vars tg;

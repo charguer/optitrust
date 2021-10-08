@@ -7,11 +7,10 @@ open Ast
  *)
 
 
-(* [inline_array_access array_var new_vars t]: change all the occurence of the array to variables,
-      this function is used when transforming an array to variables. 
+(* [inline_array_access array_var new_vars t]: change all the occurences of the array to variables,
     params:
       array_var: array_variable  to apply changes on
-      new_vars: a list of variables, the variables at index i replaces and occurence of array_var[i]
+      new_vars: a list of variables, the variables at index i replaces and occurence of [array_var[i]]
       t: ast node located in the same level or deeper as the array declaration
     return: 
         updated ast node  with the replaced array accesses to variable references.
@@ -57,8 +56,9 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   in aux t t
 
 (* [to_variables_aux new_vars t]: tansform an array declaration into a list of variable declarations
-      the list of variables should be entered by the user. And there should be enough variables to cover all
-      the indices of the array.
+      the list of variables should be entered by the user. The number of variables should correspond to 
+      the size of the arrys. The variable at index i in [new_vars] will replace the array occurrence 
+      at index i
     params:
       new_vars: a list of strings of length equal to the size of the array
       index: index of the instruction inside the sequence 
@@ -105,7 +105,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
 let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
-(* [apply_tiling base_type block_name b x]: Change all the occurence of the array to the tiled form
+(* [apply_tiling base_type block_name b x]: Change all the occurences of the array to the tiled form
     params:
       base_type: type of the array
       block_name: new name for the array
@@ -384,7 +384,7 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
 
 
 (* [swap_aux name x t]: transform an array declaration to a swaped one, Basically the bounds will swap
-     places in the arary declaration, and the indices will swap places on all the array occurrences.
+     places in the array declaration, and the indices will swap places on all the array occurrences.
     params:
       index: used to find the instruction inside the sequence
       x: typ of the array
@@ -445,14 +445,13 @@ let swap (index : int) : Target.Transfo.local =
   Target.apply_on_path (swap_aux index )
 
 
-(* [aos_to_soa_aux t ] : Trasnform an array of structures to a structure of arrays
+(* [aos_to_soa_aux t ] : Transform an array of structures to a structure of arrays
     params:
       index: the index of the array declaration inside the surrounding sequence
       t: ast of the outer sequence containing the array of structures declaration
     return:
       updated ast of the surrounding sequence wuth the new changed declaration and occurences
 *)
-
 let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with

@@ -152,34 +152,6 @@ let change_type (new_type : typvar) : Target.Transfo.t =
 
 
 
-
-(*
-TODO:
-
-
-BASIC STEPS
-
- ---> this can be use in an "alternative" in the combi unit test
-
-  let label = "scope" in
-  Sequence.intro ~start:... ~stop:... ~label;
-  Variable_basic.local_other_name ~label T "a" ~array_name:"x";
-  Variable_basic.delocalize ~label "N"
-
-
-
-  let occ_a = resolve_target_exactly_one [cLabel label; cVar "a"]
-   .. get the type of the term, so you have T
-
-
-  Variable.delocalize ~start:.. ~stop:.. "a" ~array_name:"x" ~array_size:"N"
-
-
-  LATER: FOR OTHER PURPOSES we will need a mechanism for computing the explicit path to
-    a variable definition, given a path to an occurence of the variable
-
-*)
-
 let insert ?(const : bool = false) (name : string) (typ : string ) (value : string) (tg : Target.target) : unit =
   Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p) tg;
   Trace.reparse()

@@ -6,15 +6,17 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [data_shif_aux neg pre_cast post_cast u t]: shift the right hand side of a set operation with term [u]
+(* [data_shif_aux neg pre_cast post_cast u t]: shift the right node t by term [u]
     params:
-      new: a flag for the sine of shifting
-      pre_cast: casting of type [pre_cast] performed on the right hand side of the set operation before shifting is applied
-      post_cast: casting of type [post_cast] performed after shifting is done
+      neg: a flag for the sine of shifting
+      pre_cast: casting of type [pre_cast] performed on the trm t before applying
+       the shifting operation
+      post_cast: casting of type [post_cast] performed on the trm t after applying 
+        the shifting operation
       u: shift size
-      t: the ast of teh set operation
+      t: the ast of the trm which is going to be shiften
     return:
-      the updated set operation
+      the updated ast of t
 *)
 let shift_aux (neg : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm =
     let binop_op = if neg then Binop_sub else Binop_add in
