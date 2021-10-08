@@ -2,7 +2,7 @@ type mark = Mark.t
 
 type 'a t =
   { items : 'a list;
-   marks : (mark list) list  }
+    marks : (mark list) list  }
 
 let length (ml : 'a t) : int =
   List.length ml.items
@@ -14,12 +14,15 @@ let of_list (l : 'a list) : 'a t =
 let to_list (ml : 'a t) : 'a list =
   ml.items
 
-let mapi (map_fun : int -> 'a -> 'b) (ml : 'a t) : 'b t =
-  let new_items = List.mapi map_fun ml.items in
+let mapi (f : int -> 'a -> 'b) (ml : 'a t) : 'b t =
+  let new_items = List.mapi f ml.items in
   { ml with items = new_items }
 
-let map (map_fun : 'a -> 'b) (ml : 'a t) : 'b t =
-  mapi (fun _i x -> map_fun x) ml
+let map (f : 'a -> 'b) (ml : 'a t) : 'b t =
+  mapi (fun _i x -> f x) ml
+
+let find_map (f : 'a -> 'b option) (ml : 'a t) : 'b option =
+  Tools.find_map f ml.items (* LATER: now in the List stdlib module *)
 
 let fold_left (acc_f : 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   List.fold_left acc_f acc ml.items
@@ -29,16 +32,6 @@ let nth (ml : 'a t) (index : int) : 'a =
 
 let foldi (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
   Tools.foldi acc_f acc ml.items
-
-let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
-   let sz = length ml in
-   assert (0 <= index && index <= sz);
-   let empty_marks = List.map (fun _ -> []) sl in
-   { items = Tools.insert_sublist_at index sl ml.items;
-     marks = if index = sz then ml.marks @ empty_marks else Tools.insert_sublist_at index empty_marks ml.marks }
-
-let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
-  insert_sublist_at index [x] ml
 
 let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   { ml with items = Tools.map_at (fun _ -> x) ml.items index  }
@@ -71,6 +64,18 @@ let extract ?(start_left_bias : bool = true) ?(stop_left_bias : bool = true) (st
 
 let remove (start : int) (nb : int) (ml : 'a t) : 'a t =
   fst (extract start nb ml)
+
+let insert_sublist_at (index : int) (sl : 'a list) (ml : 'a t) : 'a t =
+   let sz = length ml in
+   assert (0 <= index && index <= sz);
+   let lfront, lback = split index ml in
+   let empty_marks = List.map (fun _ -> []) sl in
+   let x = {items = sl; marks = empty_marks} in
+   let new_ml = merge lfront x in
+   merge new_ml lback
+
+let insert_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
+  insert_sublist_at index [x] ml
 
 let rev (ml : 'a t) : 'a t =
   { items = List.rev ml.items;

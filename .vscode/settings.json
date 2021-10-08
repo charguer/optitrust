@@ -11,7 +11,8 @@
     "main",
     "n",
     "t",
-    "u"
+    "u",
+    "vect"
   ],
   "search.exclude": {
     "**/_build": true,

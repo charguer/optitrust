@@ -1,3 +1,4 @@
+#include <stdlib.h>
 
 // --------- Parameters
 
@@ -14,8 +15,29 @@ const int bagCapacity = 100;
 
 const double charge = 1.0;
 
+//  physical parameter of the simulation
+const double cellSize = 0.001;
+
+// size of the blocks used in loop tiling
+const int blocksize = 2;
+
+// from double to int
+int int_of_double (double x) {
+  return (int) x - (x < 0.);
+}
+
+// coordinate round up
+int index_of_double (double x) {
+  return (int) (x / cellSize); 
+}
+
+// translated at the end of our script into "omp atomic"
+int fetch_and_add (int * p, int n); 
+
+
+
 // --------- Vector
- 
+
 typedef struct {
   double x, y, z;
 } vect;
@@ -49,6 +71,22 @@ void bag_push(bag& b, particle p) {
   b.nb++;
 }
 
+void bag_push_atomic (bag &b, particle p) {
+  int fa = fetch_and_add (&b.nb, 1);
+  b.items[fa] = p;
+}
+
+bag* bag_create() {
+  return (bag*)malloc(nbCells * sizeof(bag));
+}
+
+
+void delete_bag (bag * b) {
+  free(b);
+}
+
+void initParticles (bag* b);
+
 void bag_clear(bag& b) {
   b.nb = 0;
 }
@@ -59,6 +97,8 @@ void bag_transfer(bag& b1, bag& b2) { // transfer from b2 into b1
   }
   bag_clear(b2);
 }
+// chose function
+bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
 
 // --------- Grid Representation
 
@@ -77,7 +117,13 @@ double nextCharge[nbCells];
 void updateFieldsUsingNextCharge();
 
 // idCellOfPos computes the id of the cell that contains a position.
-int idCellOfPos(vect pos);
+int idCellOfPos(vect pos) {
+  int x = index_of_double (pos.x);
+  int y = index_of_double (pos.y);
+  int z = index_of_double (pos.z);
+
+  return (x * gridSize + y)* gridSize + z;
+}
 
 // --------- Module Simulation
 
@@ -98,9 +144,9 @@ int main() {
       for (int idParticle = 0; idParticle < nb; idParticle++) {
         // Read the particle in memory
         particle &p = b.items[idParticle];
-        
+
         // Compute the new speed and position for the particle
-        vect speed2 = vect_add(p.speed, vect_mul(charge, field)); 
+        vect speed2 = vect_add(p.speed, vect_mul(charge, field));
         vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
         // Deposit the unit charge of the particle in array "nextCharge"
@@ -108,7 +154,7 @@ int main() {
         nextCharge[idCell2] += 1.0;
 
         // Write the updated particle in the bag associated with its new cell
-        particle p2 = { speed2, pos2 };
+        particle p2 = { pos2, speed2 };
         bag_push(bagsNext[idCell2], p2);
       }
 

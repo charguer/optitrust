@@ -1,5 +1,6 @@
 open Ast
 open Target
+
 (* Replaces all the occurrences of t_before in the ast [t] with t_after.
     If the user does not want to target the full ast but just some specific locations,
     then he can enter the targeted locations in [change_at].
@@ -444,10 +445,26 @@ let nobrace_enter () =
   Nobrace.enter()
 
 (* Transform a normal sequence into a nobrace sequence *)
-let set_no_brace_if_sequence (t : trm) : trm = 
+let set_nobrace_if_sequence (t : trm) : trm = 
   match t.desc with 
-  | Trm_seq tl1 -> trm_seq_no_brace (Mlist.to_list tl1)
+  | Trm_seq tl1 -> trm_seq_no_brace (Mlist.to_list tl1) 
   | _-> t
+
+(* Check if the current sequence is visible or not or not *)
+let is_nobrace (t : trm) : bool =
+  match t.desc with 
+  | Trm_seq _ ->
+    List.exists (function No_braces _ -> true | _ -> false) t.annot
+  | _ -> false
+
+
+(*  *)
+let remove_nobrace_if_sequence (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq _ ->
+    if is_nobrace t then trm_annot_filter (function No_braces _ -> true | _ -> false) t else t
+  | _ -> t
+
 
 (* Change the current body of loop [loop] with [body]*)
 let change_loop_body (loop : trm) (body : trm) : trm = 
@@ -499,6 +516,13 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   | Trm_var y' when y' = y ->
     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x )) y
   | _ -> trm_map (replace_type_with x y) t
+
+
+(* Check if a regexp matches a given string or not *)
+let pattern_matches (pattern : string) (s : string) : bool = 
+  try let _ = Str.search_forward (Str.regexp pattern) s 0 in true 
+  with Not_found -> false 
+
 
 (* replace with x the types of the variables given by their index
   assumption: t is a fun body whose argument are given by tvl
@@ -659,3 +683,4 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
        t
        )
      *)
+

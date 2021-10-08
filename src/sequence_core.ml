@@ -53,19 +53,19 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
 
 *)
 
-let intro_aux (label : string) (index : int) (nb : int) (t : trm) : trm =
+let intro_aux (mark : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
       let tl1, tl2 = 
         if nb > 0 then Mlist.extract index nb tl else Mlist.extract (index+ nb+1) (-nb) tl in
         let intro_seq = trm_seq tl2 in
-        let intro_seq = if label <> "" then trm_labelled label intro_seq else intro_seq in
+        let intro_seq = if mark <> "" then trm_add_mark mark intro_seq else intro_seq in
         let index = if nb < 0 then index -1 else index in
          trm_seq  ~annot:t.annot ~marks:t.marks (Mlist.insert_at index intro_seq tl1)
     | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 
-let intro (label : string) (index : int) (nb_instr : int) : Target.Transfo.local =
-  Target.apply_on_path (intro_aux label index nb_instr)
+let intro (mark : string) (index : int) (nb_instr : int) : Target.Transfo.local =
+  Target.apply_on_path (intro_aux mark index nb_instr)
 
 (*[elim_aux index t]: inline an inner sequence into an outer sequence.
     params:
@@ -80,22 +80,22 @@ let elim_aux (t : trm) : trm =
   | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
 
 let elim : Target.Transfo.local =
-  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence ~keep_label:false (elim_aux) "elim")
+  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) "elim")
 
-(* [intro_on_instr_aux visible label t]: replacing t with a sequence that contains t as single item.
+(* [intro_on_instr_aux visible mark t]: replacing t with a sequence that contains t as single item.
    params:
-    label: add a label around the sequence
+    mark: add a mark around the sequence
     visible: a flag to turn on(off) curly braces of the sequence
     t: ast of the instruction 
    return: 
     updated ast of the outer sequence with wrapped node t
  *)
-let intro_on_instr_aux (label : string) (visible : bool) (t : trm) : trm =
-  let wrapped_seq = if visible then trm_seq_nomarks [t] else trm_seq_no_brace [t] in
-  if label <> "" then trm_labelled label wrapped_seq else wrapped_seq 
+let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
+  let wrapped_seq = if visible then trm_seq (Mlist.of_list [t]) else trm_seq_no_brace [t] in
+  if mark <> "" then trm_add_mark mark wrapped_seq else wrapped_seq 
  
-let intro_on_instr (visible : bool) (label : string) : Target.Transfo.local=
-  Target.apply_on_path (intro_on_instr_aux label visible)
+let intro_on_instr (visible : bool) (mark : mark) : Target.Transfo.local=
+  Target.apply_on_path (intro_on_instr_aux mark visible)
 
 (* [unrwap_aux t]: replacing a sequence that contains a single item t with t.
    params:
@@ -131,7 +131,7 @@ let split (index : int) : Target.Transfo.local =
   Target.apply_on_path (split_aux index)
 
 
-let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
+let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
     let nb = Mlist.length tl in
@@ -142,53 +142,57 @@ let partition_aux (blocks : int list) (visible : bool) (t : trm) : trm =
       else
         let current_list = ref tl in
         let partition = List.fold_left (fun acc x -> 
-            let lback, lfront = Mlist.split x !current_list in
-            current_list := lback;
-            lfront :: acc
-        ) [] blocks in
-        begin match visible with 
-        | true -> trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list (List.map (trm_seq) (List.rev partition)))
-        | false -> trm_annot_add (No_braces (Nobrace.current())) (trm_seq ~annot:t.annot (Mlist.of_list (List.map (trm_seq) (List.rev partition))))
-        end
+          let lfront, lback = Mlist.split x !current_list in
+          current_list := lback;
+          lfront :: acc
+          ) [] blocks 
+          in
+        let new_tl = 
+          if braces 
+            then Mlist.of_list (List.map trm_seq (List.rev partition))
+            else Mlist.of_list (List.map (fun x -> trm_seq_no_brace (Mlist.to_list x)) (List.rev partition))
+            in
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
         
   | _ -> fail t.loc "partial_aux: expected a sequence to partition"
 
-let partition (blocks : int list) (visible : bool): Target.Transfo.local =
-  Target.apply_on_path (partition_aux blocks visible)
+let partition (blocks : int list) (braces : bool): Target.Transfo.local =
+  Target.apply_on_path (partition_aux blocks braces)
 
 
-let reorder_blocks_aux (t : trm) : trm =
+let shuffle_aux (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
-    let transformed_list = List.map (fun t1 -> 
-      begin match t1.desc with
-      | Trm_seq tl1 ->
-        let first_element, _ = Tools.uncons (Mlist.to_list tl1) in
-        let  _, last_element = Tools.unlast (Mlist.to_list tl1) in
-         
-        (first_element, last_element)
-      | _ -> fail t1.loc "reorder_block_aux: blocks should be sequences"
-      end
-    ) (Mlist.to_list tl) in
-    let first_part, last_part = List.split transformed_list in
-    trm_seq ~annot:t.annot ~marks:t.marks (Mlist.merge (Mlist.of_list first_part) (Mlist.of_list last_part))
+    if Mlist.length tl < 1 then fail t.loc "shuffle_aux:can't shuffle an empty mlist";
+    let first_row = Mlist.nth tl 0 in
+    begin match first_row.desc with 
+    | Trm_seq tl1 ->
+      let loop_bound = Mlist.length tl1 in
+      if loop_bound < 2 then fail t.loc "shuffle_aux: expected a row of length at least 2";
+      let global_acc = ref [] in
+      for i = 0 to loop_bound-1 do
+        let local_acc = Mlist.fold_left (fun acc t1 -> 
+            begin match t1.desc with 
+            | Trm_seq tl2 ->
+              if Mlist.length tl2 <> loop_bound then fail t1.loc "shuffle_aux: all the subgroups should be of the same size";
+              let temp_el = Mlist.nth tl2 i in
+              let temp_el = 
+              if braces 
+                then Internal.remove_nobrace_if_sequence temp_el 
+                else Internal.set_nobrace_if_sequence temp_el in
+            temp_el :: acc
+            | _ -> fail t1.loc "shuffle_aux: all the elements of the blocks should be sequences"
+            end
+            
+          ) [] tl in
+        let local_acc = List.rev local_acc in
+        global_acc := (if braces then trm_seq (Mlist.of_list local_acc) else trm_seq_no_brace local_acc) :: !global_acc
+      done;
+       trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list (List.rev !global_acc))
 
+    | _ -> fail first_row.loc "shuffle_aux: shuffle can be applied only on sequences"
+    end
+  | _ -> fail t.loc "shuffle_aux: expected the sequence with blocks to reorder"
 
-  | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
-
-(* let reorder_blocks_aux (t : trm) : trm = 
-  match t.desc with 
-  | Trm_seq tl ->
-    let transformed_list = Mlist.fold_left (fun acc el -> 
-      match el.desc with 
-      | Trm_seq tl1 ->
-        (Mlist.split 1 tl1) :: acc
-      | _ -> fail t.loc "reorder_blocks_aux: blocks should be sequences"
-      ) [] (Mlist.rev tl) in
-    let first_part, second_part = List.split transformed_list in
-    trm_seq ~annot:t.annot (Mlist.merge (List.flatten first_part) (List.flatten second_part))
-  | _ -> fail t.loc "reorder_blocks_aux: expected the sequence with blocks to reorder"
-  (* LATER: add an option for creating visible sequences around the groups of similar instructions *)*)
-
-let reorder_blocks : Target.Transfo.local = 
-  Target.apply_on_path (reorder_blocks_aux) 
+let shuffle (braces : bool) : Target.Transfo.local = 
+  Target.apply_on_path (shuffle_aux braces) 

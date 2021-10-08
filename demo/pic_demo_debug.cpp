@@ -1,125 +1,176 @@
-int const nbSteps = 100;
+#include <stdlib.h>
 
-double const step_duration = 0.2;
 
-int const gridSize = 64;
+// --------- Parameters
 
-int const nbCells = ((gridSize * gridSize) * gridSize);
+// Time steps description
+const int nbSteps = 100;
+const double step_duration = 0.2;
 
-int const bagCapacity = 100;
+// Grid description
+const int gridSize = 64;
+const int nbCells = gridSize * gridSize * gridSize;
 
-double const charge = 1.;
+// Maximum number of particles per cell
+const int bagCapacity = 100;
 
-typedef struct {
-  double x;
-  double y;
-  double z;
-} vect;
+const double charge = 1.0;
 
-vect vect_add(vect v1, vect v2) {
-  return {(v1.x + v2.x), (v1.y + v2.y), (v1.z + v2.z)};
+//  physical parameter of the simulation
+const double cellSize = 0.001;
+
+// size of the blocks used in loop tiling
+const int blockSize = 2;
+
+// from double to int
+int int_of_double (double x) {
+  return (int) x - (x < 0.);
 }
 
-vect vect_mul(double d, vect v) { return {(d * v.x), (d * v.y), (d * v.z)}; }
+// coordinate round up
+int index_of_double (double x) {
+  return (int) (x / cellSize); 
+}
+
+// translated at the end of our script into "omp atomic"
+int fetch_and_add (int * p, int n); 
+
+
+
+// --------- Vector
 
 typedef struct {
-  double pos_x;
-  double pos_y;
-  double pos_z;
-  double speed_x;
-  double speed_y;
-  double speed_z;
+  double x, y, z;
+} vect;
+
+
+vect vect_add(vect v1, vect v2) {
+  return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
+}
+
+vect vect_mul(double d, vect v) {
+  return { d * v.x, d * v.y, d * v.z };
+}
+
+// --------- Particle
+
+typedef struct {
+  vect pos;
+  vect speed;
 } particle;
 
+// --------- Bags of particles
+
 typedef struct {
-  int nb;
-  double items_pos_x[bagCapacity];
-  double items_pos_y[bagCapacity];
-  double items_pos_z[bagCapacity];
-  double items_speed_x[bagCapacity];
-  double items_speed_y[bagCapacity];
-  double items_speed_z[bagCapacity];
+  int nb; // 0 <= nb <= bagCapacity
+  particle items[bagCapacity];
 } bag;
 
-void bag_push(bag &b, particle p) {
-  b.items_pos_x[b.nb] = p.pos_x;
-  b.items_pos_y[b.nb] = p.pos_y;
-  b.items_pos_z[b.nb] = p.pos_z;
-  b.items_speed_x[b.nb] = p.speed_x;
-  b.items_speed_y[b.nb] = p.speed_y;
-  b.items_speed_z[b.nb] = p.speed_z;
+void bag_push(bag& b, particle p) {
+  // assert(b.nb < bagCapacity);
+  b.items[b.nb] = p;
   b.nb++;
 }
 
-void bag_clear(bag &b) { b.nb = 0; }
+void bag_push_atomic (bag &b, particle p) {
+  int k = fetch_and_add (&b.nb, 1);
+  b.items[k] = p;
+}
 
-void bag_transfer(bag &b1, bag &b2) {
-  for (int i = 0; (i < b2.nb); i++) {
+bag* bag_create() {
+  return (bag*)malloc(nbCells * sizeof(bag));
+}
+
+// chose function
+bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
+
+
+void delete_bag (bag * b) {
+  free(b);
+}
+
+void initParticles (bag* b);
+
+void bag_clear(bag& b) {
+  b.nb = 0;
+}
+
+void bag_transfer(bag& b1, bag& b2) { // transfer from b2 into b1
+  for (int i = 0; i < b2.nb; i++) {
+    bag_push(b1, b2.items[i]);
   }
   bag_clear(b2);
 }
 
-bag bagsCur[nbCells];
+// --------- Grid Representation
 
-bag bagsNext[nbCells];
-
+// Strength of the field that applies to each cell
 vect fields[nbCells];
 
+// Total charge of the particles already placed in the cell for the next time step
 double nextCharge[nbCells];
 
+// updateFieldsUsingNextCharge in an operation that reads nextCharge,
+// resets it to zero, and updates the values in the fields array.
 void updateFieldsUsingNextCharge();
 
-int idCellOfPos(vect pos);
+// idCellOfPos computes the id of the cell that contains a position.
+int idCellOfPos(vect pos) {
+  int x = index_of_double (pos.x);
+  int y = index_of_double (pos.y);
+  int z = index_of_double (pos.z);
+  return (x * gridSize + y)* gridSize + z;
+}
+
+const int N = 2;
+
+// --------- Module Simulation
 
 int main() {
-  for (int step = 0; (step < nbSteps); step++) {
-    for (int idCell = 0; (idCell < nbCells); idCell++) {
+  bag* bagsCur = bag_create();
+  initParticles(bagsCur);
+  // Foreach time step
+  for (int step = 0; step < nbSteps; step++) {
+    bag* bagsNext = bag_create();
+    // For each cell from the grid
+    for (int idCell = 0; idCell < nbCells; idCell++) {
+
+      // Read the electric field that applies to the cell considered
       vect field = fields[idCell];
-      bag &b = bagsCur[idCell];
+
+      // Foreach particle in the cell considered
+      bag& b = bagsCur[idCell];
       int nb = b.nb;
-      double speed2_x[nb];
-      double speed2_y[nb];
-      double speed2_z[nb];
-      double pos2_x[nb];
-      double pos2_y[nb];
-      double pos2_z[nb];
-      for (int idParticle = 0; (idParticle < nb); idParticle++) {
-        speed2_x[idParticle] =
-            (b.items_speed_x[idParticle] + (charge * field.x));
-        speed2_y[idParticle] =
-            (b.items_speed_y[idParticle] + (charge * field.y));
-        speed2_z[idParticle] =
-            (b.items_speed_z[idParticle] + (charge * field.z));
-      }
-      for (int idParticle = 0; (idParticle < nb); idParticle++) {
-        pos2_x[idParticle] = (b.items_speed_x[idParticle] +
-                              (step_duration * speed2_x[idParticle]));
-        pos2_y[idParticle] = (b.items_speed_y[idParticle] +
-                              (step_duration * speed2_y[idParticle]));
-        pos2_z[idParticle] = (b.items_speed_z[idParticle] +
-                              (step_duration * speed2_z[idParticle]));
-      }
-      for (int idParticle = 0; (idParticle < nb); idParticle++) {
+      for (int idParticle = 0; idParticle < nb; idParticle++) {
+        // Read the particle in memory
+        particle &p = b.items[idParticle];
+
+        // Compute the new speed and position for the particle
+        vect speed2 = vect_add(p.speed, vect_mul(charge, field));
+        vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
+
+        // Deposit the unit charge of the particle in array "nextCharge"
         int idCell2 = idCellOfPos(pos2);
-        nextCharge[idCell2] += 1.;
-        particle p2 = {pos2_z[idParticle],   pos2_y[idParticle],
-                       pos2_x[idParticle],   speed2_z[idParticle],
-                       speed2_y[idParticle], speed2_x[idParticle]};
-        bag &b2 = bagsNext[idCell2];
-        int k = b.nb;
-        b2.items_pos_x[k] = p2.pos_x;
-        b2.items_pos_y[k] = p2.pos_y;
-        b2.items_pos_z[k] = p2.pos_z;
-        b2.items_speed_x[k] = p2.speed_x;
-        b2.items_speed_y[k] = p2.speed_y;
-        b2.items_speed_z[k] = p2.speed_z;
-        b2.nb++;
+        nextCharge[idCell2] += 1.0;
+
+        // Write the updated particle in the bag associated with its new cell
+        particle p2 = { pos2, speed2 };
+        bag_push(bagsNext[idCell2], p2);
       }
+
+      // At the end of the time step, clear the contents of the bag
       bag_clear(bagsCur[idCell]);
     }
+
+    // Update the new field based on the total charge accumulated in each cell
     updateFieldsUsingNextCharge();
-    // for (int idCell = 0; (idCell < nbCells); idCell++) {
-    //   bag_transfer(bagsCur[idCell], bagsNext[idCell]);
-    // }
+
+    // For the next time step, the contents of bagNext is moved into bagCur
+    for (int idCell = 0; idCell < nbCells; idCell++) {
+      bag_transfer(bagsCur[idCell], bagsNext[idCell]);
+    }
+
   }
 }
+
+

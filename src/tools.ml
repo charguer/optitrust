@@ -34,13 +34,6 @@ let foldi2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c li
   let (_, res) = List.fold_left2 (fun (i, a) b c -> (i + 1, f i a b c)) (0, a) bl cl in
   res
 
-
-(* inline a list in another list starting from the given index, it removes the elment at the given index *)
-let rec insert_sublist_in_list (sublist : 'a list) (i : int) (xs : 'a list) = match xs with
-| [] -> []
-| h :: t -> if i = 0 then sublist @ t else h :: insert_sublist_in_list sublist (i-1) t
-
-
 (* convert a list of strings to a string *)
 let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : string list) : string =
   let (bl,br) = match bounds with
@@ -246,8 +239,23 @@ let unlast (l : 'a list) : 'a list * 'a =
   | [] -> invalid_arg "uncons"
   | x::l' -> (List.rev l', x)
 
-(* [add_prefix prefix indices] iterates over the indices by adding the prefix [prefix] 
+(* [add_prefix prefix indices] iterates over the indices by adding the prefix [prefix]
     to each element in [indices]
 *)
 let add_prefix (prefix : string) (indices : string list) : string list =
-    List.map (fun x -> prefix ^ x) indices 
+    List.map (fun x -> prefix ^ x) indices
+
+
+(* LATER: now in the List stdlib module *)
+let find_map f t =
+  let rec loop = function
+    | [] -> None
+    | x :: l ->
+        match f x with
+        | None -> loop l
+        | Some _ as r -> r
+  in
+  loop t
+
+let index_of (x : 'a) (l : 'a list) : int option =
+  foldi (fun i acc y -> if x = y then Some i else acc) None l 

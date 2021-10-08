@@ -7,11 +7,10 @@ open Ast
  *)
 
 
-(* [inline_array_access array_var new_vars t]: change all the occurence of the array to variables,
-      this function is used when transforming an array to variables. 
+(* [inline_array_access array_var new_vars t]: change all the occurences of the array to variables,
     params:
       array_var: array_variable  to apply changes on
-      new_vars: a list of variables, the variables at index i replaces and occurence of array_var[i]
+      new_vars: a list of variables, the variables at index i replaces and occurence of [array_var[i]]
       t: ast node located in the same level or deeper as the array declaration
     return: 
         updated ast node  with the replaced array accesses to variable references.
@@ -29,7 +28,10 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
           | Trm_val (Val_lit (Lit_int i)) ->
             if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
             else
-              trm_var (List.nth new_vars i)
+              trm_var ~typ:t.typ ~add:t.add (List.nth new_vars i)
+          | Trm_apps ({desc = Trm_var "ANY";_}, _) ->
+            let nb_vars = List.length new_vars in
+            trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var new_vars))
           | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
           end
         | Trm_apps (f1,[base1]) ->
@@ -40,7 +42,7 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
               if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
               else
                 let f1 = {f1 with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr (List.nth new_vars i))))} in
-                trm_apps f1 [base1]
+                trm_apps ~typ:t.typ ~add:t.add f1 [base1]
                 (* trm_var (List.nth new_vars i) *)
             | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"
             end
@@ -54,8 +56,9 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
   in aux t t
 
 (* [to_variables_aux new_vars t]: tansform an array declaration into a list of variable declarations
-      the list of variables should be entered by the user. And there should be enough variables to cover all
-      the indices of the array.
+      the list of variables should be entered by the user. The number of variables should correspond to 
+      the size of the arrys. The variable at index i in [new_vars] will replace the array occurrence 
+      at index i
     params:
       new_vars: a list of strings of length equal to the size of the array
       index: index of the instruction inside the sequence 
@@ -77,9 +80,14 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
         begin match t_var.typ_desc with
         | Typ_constr (y, tid, _) ->
           List.map(fun x ->
-          trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_constr y ~tid ))) (trm_prim (Prim_new (typ_constr y ~tid )))) new_vars
-
-        | _ -> fail t.loc "to_variables_aux: expected a type variable"
+            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_constr y ~tid ))) (trm_prim (Prim_new (typ_constr y ~tid )))) new_vars
+        | Typ_var (y, tid) ->
+          List.map(fun x ->
+            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_var y tid ))) (trm_prim (Prim_new (typ_var y tid )))) new_vars
+        
+        | _ -> 
+          List.map(fun x ->
+            trm_let Var_mutable (x,(typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut t_var)) (trm_prim (Prim_new t_var))) new_vars
         end
       | _ -> fail t.loc "to_variables_aux: expected an array type"
       end
@@ -97,7 +105,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
 let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
-(* [apply_tiling base_type block_name b x]: Change all the occurence of the array to the tiled form
+(* [apply_tiling base_type block_name b x]: Change all the occurences of the array to the tiled form
     params:
       base_type: type of the array
       block_name: new name for the array
@@ -376,7 +384,7 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
 
 
 (* [swap_aux name x t]: transform an array declaration to a swaped one, Basically the bounds will swap
-     places in the arary declaration, and the indices will swap places on all the array occurrences.
+     places in the array declaration, and the indices will swap places on all the array occurrences.
     params:
       index: used to find the instruction inside the sequence
       x: typ of the array
@@ -437,14 +445,13 @@ let swap (index : int) : Target.Transfo.local =
   Target.apply_on_path (swap_aux index )
 
 
-(* [aos_to_soa_aux t ] : Trasnform an array of structures to a structure of arrays
+(* [aos_to_soa_aux t ] : Transform an array of structures to a structure of arrays
     params:
       index: the index of the array declaration inside the surrounding sequence
       t: ast of the outer sequence containing the array of structures declaration
     return:
       updated ast of the surrounding sequence wuth the new changed declaration and occurences
 *)
-
 let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with

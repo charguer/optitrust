@@ -23,9 +23,9 @@ let interchange_aux (t : trm) : trm =
       | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
       | None -> fail body1.loc "interchange_aux: should target a loop with nested loop^inside"
       end
-    | _ -> begin match Internal.extract_loop body1 with 
+    | _ -> begin match Internal.extract_loop body1 with
            | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-           | None -> fail body1.loc "interchange_aux: should target a loop with nested inner loops" 
+           | None -> fail body1.loc "interchange_aux: should target a loop with nested inner loops"
            end
     end
   | None -> fail t.loc "interchange_aux: should target a loop"
@@ -68,7 +68,7 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
 
 
 let color (c : var) (i_color : var) : Target.Transfo.local =
-    Target.apply_on_path (color_aux c i_color) 
+    Target.apply_on_path (color_aux c i_color)
 
 (*  [tile_aux divides b tile_index t]: tile loop t
       params:
@@ -81,9 +81,7 @@ let color (c : var) (i_color : var) : Target.Transfo.local =
 let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
-     let tile_index = match tile_index with
-      | "" -> "b" ^ index
-      | _ -> tile_index in
+    let tile_index = Str.global_replace (Str.regexp_string "${id}") index tile_index in
     (* Hack for elminating the appearance of 1 in the case when step is equal to one *)
     let trm_tile_size =  match step.desc with
     | Trm_val (Val_lit (Lit_int 1)) ->
@@ -152,17 +150,17 @@ let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Tran
 
 
 
-(* [hoist_aux patt_name t]: extract a loop variable inside the loop as an array with size equal
+(* [hoist_aux name t]: extract a loop variable inside the loop as an array with size equal
       to (loop_bound - 1), the change all the occurrences of the variable with an array access
       with index same as the index of the loop
     params:
-      patt_name: a pattern of the form ${var}_something for the name entered by the user otherwise used the dafault pattern
+      name: a pattern of the form ${var}_something for the name entered by the user otherwise used the dafault pattern
         ${var}_step
       t: ast of the loop
     return:
       updated ast with the hoisted loop
 *)
-let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
+let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, direction, start, stop, step, body) ->
     begin match body.desc with
@@ -170,7 +168,7 @@ let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
-        let new_name = Str.global_replace (Str.regexp "var") x patt_name in
+        let new_name = Str.global_replace (Str.regexp_string "${var}") x name in
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_name; trm_var index] ) in
         let new_tl = Mlist.merge lfront lback in
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
@@ -187,8 +185,8 @@ let hoist_aux (patt_name : var) (decl_index : int) (t : trm) : trm =
   | _ -> fail t.loc "hoist_aux: only simple loops are supported"
 
 
-let hoist (patt_name : var) (index : int): Target.Transfo.local =
-   Target.apply_on_path (hoist_aux patt_name index)
+let hoist (name : var) (index : int): Target.Transfo.local =
+   Target.apply_on_path (hoist_aux name index)
 
 
 (* [fission_aux]: split a loop into two loops
@@ -291,31 +289,44 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
     return:
       updated ast with the unrolled loop
 *)
-let unroll_aux (label : var) (t : trm) : trm =
+let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
   match t.desc with
-  | Trm_for (index, _direction, _start, stop, _step, body) ->
-      let unroll_bound = begin match stop.desc with
+  | Trm_for (index, _direction, start, stop, _step, body) ->
+      let unrolled_loop_range = begin match stop.desc with
                          | Trm_apps(_,[_; bnd]) ->
                             begin match bnd.desc with
-                            | Trm_val (Val_lit (Lit_int bnd)) -> bnd
+                            | Trm_val (Val_lit (Lit_int bnd)) -> 
+                              Tools.range 0 (bnd - 1)
                             | _ -> fail bnd.loc "unroll_aux: expected a literal trm"
                             end
+                          | Trm_val (Val_lit (Lit_int bnd)) -> 
+                              begin match start.desc with 
+                              | Trm_val (Val_lit (Lit_int strt)) ->
+                                Tools.range 0 (bnd - 1 - strt)
+                              | _ -> fail start.loc "unroll_aux: expected a "
+                              end
                          | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
                          end in
-      let unrolled_loop_range = Tools.range 0 (unroll_bound - 1) in
       let unrolled_body = List.fold_left ( fun acc i1 ->
-        let new_index = Internal.change_trm (trm_lit (Lit_int unroll_bound)) (trm_lit (Lit_int i1)) stop in
-        Internal.change_trm (trm_var index) new_index body :: acc
-         ) [] (List.rev unrolled_loop_range) in
-      begin match label with
+        let new_index = 
+          begin match start.desc with 
+          | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
+          | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))] 
+          end in
+        let body_i = Internal.change_trm (trm_var index) new_index body in
+        let body_i = if braces 
+                      then Internal.remove_nobrace_if_sequence body_i 
+                      else Internal.set_nobrace_if_sequence body_i in
+        body_i :: acc ) [] (List.rev unrolled_loop_range) in
+      begin match my_mark with
       | "" -> trm_seq_no_brace unrolled_body
-      | _ -> trm_seq_no_brace [trm_labelled label (trm_seq_no_brace unrolled_body)]
+      | _ -> trm_seq_no_brace [trm_add_mark my_mark (trm_seq_no_brace unrolled_body)]
       end
   | _ -> fail t.loc "unroll_aux: only simple loops supported"
 
 
-let unroll (label : var) : Target.Transfo.local =
-  Target.apply_on_path (unroll_aux label)
+let unroll (braces : bool)(my_mark : mark) : Target.Transfo.local =
+  Target.apply_on_path (unroll_aux braces my_mark)
 (* [invariant_aux trm_index t]: take a constant term inside the body of the loop
       in outside the loop.
     params:
@@ -354,8 +365,8 @@ let unswitch_aux (trm_index : int) (t : trm) : trm =
   let if_stmt = Mlist.nth tl trm_index in
   match if_stmt.desc with
   | Trm_if (cond, then_, else_) ->
-    let then_ = Internal.set_no_brace_if_sequence then_ in
-    let else_ = Internal.set_no_brace_if_sequence else_ in
+    let then_ = Internal.set_nobrace_if_sequence then_ in
+    let else_ = Internal.set_nobrace_if_sequence else_ in
     let wrap_branch (t1 : trm) : trm  = Internal.change_loop_body t (trm_seq (Mlist.replace_at trm_index t1 tl )) in
     trm_if cond (wrap_branch then_) (wrap_branch else_)
   | _ -> fail if_stmt.loc "unswitch_aux: expected an if statement"

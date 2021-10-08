@@ -409,9 +409,19 @@ let cSet ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_pr
   let lhs_typed = with_type ~typ ~typ_pred lhs in
   cPrimFun ~args:[lhs_typed; rhs] (Prim_binop Binop_set)
 
+(* [cSetVar x] matches a set operation for variable [x] *)
 let cSetVar (x : var) : constr =
   cSet ~lhs:[cVar x] ()
 
+(* [cAny] matches all the calls to function ANY *)
+let cAny : constr =
+  cFun "ANY"
+
+(* [cChoose] matches all the calls to function CHOOSE *)
+let cChoose : constr =
+  cFun "CHOOSE"
+
+(* [cGet] matches all the get operations on immutable variables *)
 let cGet ?(arg : target = []) () : constr =
   cPrimFun ~args:[arg] (Prim_unop Unop_get)
 
@@ -467,29 +477,10 @@ let cBreak : constr =
 
 let cContinue : constr =
   Constr_abort (cAbrtCtn)
-(*
-  the empty list is interpreted as no constraint on the accesses
-  accesses are reversed so that users give constraints on what they see
-  *)
-let cAccesses ?(base : target = [])
-  ?(accesses : constr_access list = []) (_ : unit) : constr =
-  let p_base =  base in
-  let accesses =
-    match accesses with | [] -> None | cal -> Some (List.rev cal)
-  in
-    Constr_access (p_base, accesses)
 
-let cIndex ?(index : target = []) (_ : unit) : constr_access =
-  let p_index =  index in
-  Array_access p_index
 
-let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = false)
-  (_ : unit) : constr_access =
-  let ro = string_to_rexp_opt regexp substr field TrmKind_Expr in
-  Struct_access ro
 
-let cAccess : constr_access =
-  Any_access
+
 
 (* the empty list is interpreted as no constraint on the cases *)
 let cSwitch ?(cond : target = [])
@@ -519,6 +510,77 @@ let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
 
 
+
+(* [cAccesses ~base ~accesses ()] matches array_accesses or struct accesses 
+    depending on [accesses] parameter. [base] is a target on the base of an access
+    and [accesses] is a list of constraints on accesses. 
+    Note:
+      the empty list is interpreted as no constraint on the accesses
+      accesses are reversed so that users give constraints on what they see  
+*)
+
+let cAccesses ?(base : target = [])
+  ?(accesses : constr_access list = []) ?(inner_accesses : bool = true)(_ : unit) : constr =
+  let p_base =  base in
+  let accesses =
+    match accesses with | [] -> None | cal -> Some (List.rev cal)
+  in
+    Constr_access (p_base, accesses, inner_accesses)
+
+(* [cIndex ~index ()] is an access constrint in index [index], because the 
+    index can be a variable or an integer it should be given as a target.
+*)
+let cIndex ?(index : target = []) (_ : unit) : constr_access =
+  let p_index =  index in
+  Array_access p_index
+
+(* [cField ~field ~substr ~regexp ()] is an access constraint on field [field]
+      since the field is a string this constructor allows to use more advance 
+      string matching like matching all substrings which contain [field] as a 
+      substring. Also one can constaint accesses on multiple fields by enabling
+      regular expressions when setting [regexp] to true.
+ *)
+let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = false)
+  (_ : unit) : constr_access =
+  let ro = string_to_rexp_opt regexp substr field TrmKind_Expr in
+  Struct_access ro
+
+(* [cAccess] matches any access no matter if it is a struct access or an array access *)
+let cAccess : constr_access =
+  Any_access
+
+(* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base] 
+    which are at the base of a get operation
+*)
+let cFieldGet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  (field : field )  : constr =
+  cGet ~arg:[cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()] ()
+
+(* [cFieldAccess field] field matches all struct accesses in field [field]*)
+let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) (field : field )  : constr =
+  cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()
+
+
+(* [cFieldSet ~base field] matches all struct field set operations*)
+let cFieldSet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) (field : field) : constr =
+  let lhs = [cFieldAccess ~base ~substr ~regexp field] in
+  cSet ~lhs ()
+
+
+
+(* [cIndexGet ~base index] matches all array accesses at index [index] with base [base] 
+    which are under a get operation
+*)
+let cIndexGet ?(base : target = []) (index : target )  : constr =
+  cGet ~arg:[cAccesses ~base ~accesses:[cIndex ~index ()] ()] ()
+
+(* [cIndexSet ~base index] matches all array index set operations*)
+let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
+  let lhs = [cAccesses ~base ~accesses:[cIndex ~index ()] ()] in
+  cSet ~lhs ()
+
+(* [cIndexAccess ~base index] matches all array accesses at index [index] with base [base] *)
+let cIndexAccess ?(base : target = []) (index : target )  : constr =
+  cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
 
 
@@ -650,7 +712,7 @@ let iteri_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 
         let t = Trace.ast() in (* valid because inside the scope of [Trace.call] *)
         match resolve_target [nbAny;cMark m] t with
         | [p] ->
-            (* Here we don't call [Generic.remove_mark] to avoid a circular dependency issue *)
+            (* Here we don't call [Marks.remove] to avoid a circular dependency issue *)
             let t = apply_on_path (trm_remove_mark m) t p in
             Trace.set_ast t; (* Never use the function [set_ast] in another file! *)
             tr imark t (transformer p)
@@ -757,7 +819,7 @@ let apply_on_targets_between (tr : trm -> 'a -> trm) (tg : target) : unit =
    carrying the information [id] around the term t.
 *)
 let target_show_aux (id : int) (t : trm) : trm =
-  let show_mark = (*"show_mark " ^*) (string_of_int id) in
+  let show_mark = (* "show_mark " ^*) (string_of_int id) in
   trm_add_mark show_mark t
 
 (* [target_show_transfo id t p]: adds a mark with the

@@ -198,9 +198,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
     | al -> separate (blank 1) (List.map attr_to_doc al) ^^ blank 1
   in
   (* For printing C code, we have (see explanations in [clang_to_ast.ml],
-     search for [Add_address_of_operator] and [Add_star_operator]. *)
+     search for [Address_operator] and [Star_operator]. *)
   match t.add with
-  | Add_address_of_operator :: addl ->
+  | Address_operator :: addl ->
      let d =
        decorate_trm ~semicolon  {desc = t.desc; marks = t.marks; annot = t.annot; loc = t.loc;
                    is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
@@ -209,7 +209,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      let body = if !decode then parens (ampersand ^^ d)
                 else string "<annotation:addressof>" ^^ d in
      dattr ^^ body ^^ dsemi
-  | Add_star_operator :: addl when !decode ->
+  | Star_operator :: addl when !decode ->
      let d =
        decorate_trm ~semicolon  {desc = t.desc; annot = t.annot; marks = t.marks; loc = t.loc;
                    is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
@@ -250,7 +250,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
 
         if List.mem Multi_decl t.annot
           then dattr ^^ multi_decl_to_doc loc tl
-        else if List.mem (No_braces (Nobrace.current())) t.annot
+        else if List.exists (function No_braces _ -> true | _ -> false) t.annot
           then
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate hardline dl

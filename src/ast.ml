@@ -249,8 +249,8 @@ and trm_annot =
   | Any (* Used for only one specific transformation called delocalize *)
 (* symbols to add while printing a C++ program.*)
 and special_operator =
-  | Add_address_of_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
-  | Add_star_operator (* used to print the start operator when dereferencing a pointer , ex int y = *b *)
+  | Address_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
+  | Star_operator (* used to print the start operator when dereferencing a pointer , ex int y = *b *)
 
 (* We only need to support two specific attributes for the time being *)
 and attribute = (* LATER: rename to typ_annot when typ_annot disappears *)
@@ -702,6 +702,9 @@ let trm_annot_add (a:trm_annot) (t:trm) : trm =
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
   { t with annot = List.filter pred t.annot }
 
+let trm_add_operator (a : special_operator) (t : trm) : trm =
+  { t with add = a :: t.add}
+
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
   {annot; marks = []; desc = Trm_val v; loc = loc; is_statement = false; add; typ;
@@ -747,7 +750,7 @@ let trm_seq ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
   {annot; marks; desc = Trm_seq tl; loc = loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let trm_seq_nomarks ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) 
+let trm_seq_nomarks ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (tl : trm list) : trm =
   trm_seq ~annot ~add ~loc ~attributes ~ctx (Mlist.of_list tl)
 
@@ -874,29 +877,29 @@ let trm_remove_mark (m : mark) (t : trm) : trm =
   {t with marks = List.filter (fun m1 -> m <> m1) t.marks}
 
 let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_mark_at index m tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "trm_add_mark_between: expected a sequence"
 
 let trm_remove_mark_between (m : mark) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl -> 
+  match t.desc with
+  | Trm_seq tl ->
     let new_tl = Mlist.remove_mark m tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "trm_remove_mark_between: expected a sequence"
 
 (* ********************************************************************************************************************* *)
 
-(* for target betweens marks are stored on the parent sequence, 
-  this function give the index that mark m targets to 
+(* for target betweens marks are stored on the parent sequence,
+  this function give the index that mark m targets to
 *)
 let get_mark_index (m : mark) (t : trm) : int option =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
-    Tools.foldi (fun i acc ml -> 
-      match acc with 
+    Tools.foldi (fun i acc ml ->
+      match acc with
       | Some _ -> acc
       | None ->
         if List.mem m ml then Some i else None
@@ -1013,7 +1016,7 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      let cond' = f false cond in
      let step' = f false step in
      let body' = f is_terminal body in
-     trm_for_c~annot ~marks ~loc ~add init' cond' step' body'
+     trm_for_c ~annot ~marks ~loc ~add init' cond' step' body'
   | Trm_for (index, direction, start, stop, step, body) ->
     trm_for ~annot ~marks ~loc ~add index direction (f is_terminal start) (f is_terminal stop) (f is_terminal step) (f is_terminal body)
   | Trm_switch (cond, cases) ->
@@ -1409,10 +1412,10 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
     in
   trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
 
-(* bypas the pointer type used only for optitrust encoding *)
+(* bypass the pointer type used only for optitrust encoding *)
 let get_inner_ptr_type (ty : typ) : typ =
   match ty.typ_desc with
-  | Typ_ptr {inner_typ = ty;_} -> ty
+  | Typ_ptr {inner_typ = ty1;_} when is_generated_star ty -> ty1
   | _ -> ty
 
 let is_typ_const (t : typ) : bool =
@@ -1505,15 +1508,36 @@ let get_lit_from_trm_lit (t : trm) : lit =
   | Trm_val (Val_lit l) -> l
   | _ -> fail t.loc "get_lit_from_trm: this type of literal is not supported"
 
+(* Check if the node has type unit *)
 let is_type_unit (t : typ) : bool =
   match t.typ_desc with
   | Typ_unit -> true
   | _ -> false
 
+(* Check if a trl is a trm_lit *)
+let is_lit (t : trm) : bool =
+  match t.desc with 
+  | Trm_val (Val_lit _) -> true
+  | _ -> false
+
+(* Add the star operator to a trm *)
+let add_star (t : trm) : trm =
+  trm_add_operator Star_operator t
+
+
+(* Check if the type ty is a pointer type *)
+let is_typ_ptr (ty : typ) : bool =
+  match ty.typ_desc with 
+  | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
+  | _ -> false
+
+let is_get_operation (t : trm) : bool =
+  List.mem Mutable_var_get t.annot
 
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op
   | Delocalize_obj of string * string
+
 
 
 (* type instantiation = trm varmap *)

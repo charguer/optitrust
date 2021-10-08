@@ -7,7 +7,7 @@ open Path
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [bind_intro_aux index fresh_name const p_local t]: bind an variable fresh_name to the function_call
+(* [bind_intro_aux index fresh_name const p_local t]: bind the variable [fresh_name] to the function_call
     params:
       index: index of the instruction containing the targeted function call
       fresh_name: name of the variable which going to be binded to the function call
@@ -38,8 +38,8 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
         let ptrkind = if has_reference_type then Ptr_kind_ref else Ptr_kind_mut in
         trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [function_call])
       in
-     let new_tl = Mlist.merge lfront lback in
-     let new_tl = Mlist.insert_sublist_at index ([decl_to_insert] @ [decl_to_change]) new_tl in
+     let new_tl = Mlist.merge lfront (Mlist.of_list ([decl_to_insert] @ [decl_to_change])) in
+     let new_tl = Mlist.merge new_tl lback in
      trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
@@ -47,12 +47,9 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
 let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
 
-(* variable used for counting the numer of gotos generated during the translation of the body of the function *)
-
-
-
-(* [replace_return exit_label r t] if the founded return statement is not terminal than replace it with an
-      a variable declaration
+(* [replace_return exit_label r t] remove all the return statemns from the body of a function declaration.
+      these return statements will be replaced either by set operations if the return statment are not terminal
+       then an additional goto statement is added.
     params:
       exit_label: this label is generated only if the body contains non terminal return instructions
       r: the name of the variable replacing the return statement
@@ -91,17 +88,17 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
   let t = aux true t in
   (t, !nb_gotos)
 
-(* [inline_aux index label top_ast p_local t] replaced a function call with the traslated body of the function called
+(* [inline_aux index body_mark top_ast p_local t] replace a function call with the traslated body of the function called
     params:
       index: index of the instruction containing the function call
-      label: label used for the traslated body of the function
-      top_ast: the main ast of the file, this is used to check is ome variable is define before or not
+      body_mark: body_mark used for the traslated body of the function
+      top_ast: the main ast of the file, this is used to check if ome variable is defined before or not
       p_local: path from the instruction containing the function call to the call
       t: ast of the sequence containing the instruction with the function call
     returns:
       the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
 *)
-let inline_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (t : trm) : trm =
+let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
@@ -131,23 +128,23 @@ let inline_aux (index : int) (label : string) (top_ast : trm) (p_local : path) (
    let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
    let processed_body, nb_gotos = process_return_in_inlining "_exit_body" name fun_decl_body in
 
-   let labelled_body =
+   let marked_body =
       if name = ""
-        then trm_labelled label fun_decl_body
-        else trm_labelled label processed_body
+        then trm_add_mark body_mark fun_decl_body
+        else trm_add_mark body_mark processed_body
       in
    let exit_label = if nb_gotos = 0 then trm_lit (Lit_unit) else trm_labelled "__exit_body" (trm_lit (Lit_unit)) in
    let inlined_body =
     if is_type_unit(fun_decl_type)
-      then [labelled_body; exit_label]
+      then [marked_body; exit_label]
       else  [trm_let ~marks:fun_call.marks Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
-              labelled_body;exit_label]
+              marked_body;exit_label]
       in
-       let new_tl = Mlist.merge lfront lback in
-       let new_tl = Mlist.insert_sublist_at index inlined_body new_tl in
+       let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
+       let new_tl = Mlist.merge new_tl lback in
        trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
 
-let inline (index: int) (label : string) (top_ast : trm) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (inline_aux index label top_ast p_local)
+let inline (index: int) (body_mark : string) (top_ast : trm) (p_local : path) : Target.Transfo.local =
+  Target.apply_on_path (inline_aux index body_mark top_ast p_local)

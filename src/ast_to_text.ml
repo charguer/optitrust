@@ -347,7 +347,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
   let ddesc = print_trm_desc ~only_desc t.desc in
   let print_annot (t_ann : trm_annot) : document =
     match t_ann with
-    | No_braces _ -> string "No_braces"
+    | No_braces i -> string "No_braces " ^^ string (string_of_int i)
     | Access -> string "Access"
     | Multi_decl -> string "Multi_decl"
     | Empty_cond -> string "Empty_cond"
@@ -373,8 +373,8 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     let dinstr = string (string_of_bool t.is_statement) in
     let add_to_doc (add : special_operator) =
       match add with
-      | Add_address_of_operator -> string "Add_address_of_operator"
-      | Add_star_operator -> string "Add_star_operator"
+      | Address_operator -> string "Address_operator"
+      | Star_operator -> string "Star_operator"
     in
     let dadd =
       brackets (List.fold_left (fun d add -> d ^^ semi ^//^ add_to_doc add)
@@ -501,6 +501,16 @@ and print_routine (routine : omp_routine) : document =
   | Test_nest_lock _ -> string "Test_nest_lock"
   | Get_wtime -> string "Get_wtime"
   | Get_wtick -> string "Get_wtick"
+
+let trm_access_to_string (ta : trm_access) : string =
+  let aux (ta : trm_access) : document =
+  match ta with 
+  | Array_access_get i -> string "arr_at " ^^ print_trm ~only_desc:true i
+  | Array_access_addr i -> string "arr_at " ^^ print_trm ~only_desc:true i
+  | Struct_access_get f -> string "struct_at " ^^ string f
+  | Struct_access_addr f -> string "struct_at " ^^ string f
+  in
+  document_to_string (aux ta)
 
 let print_ast ?(only_desc : bool = false) (out : out_channel) (t : trm) : unit =
   let d = print_trm ~only_desc t in

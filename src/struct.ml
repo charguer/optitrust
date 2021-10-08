@@ -29,7 +29,6 @@ let set_explicit (tg : Target.target) : unit =
 *)
 let set_implicit (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
-    let typid_to_typedef_map = Clang_to_ast.(!ctx_typedef) in
     let (tg_trm, _) = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_apps (_, [lt;rt]) ->
@@ -40,13 +39,17 @@ let set_implicit (tg : Target.target) : unit =
       | _, -1 -> tid_r
       | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
       in
-      let struct_def = if tid <> -1
-        then Typ_map.find tid typid_to_typedef_map
-        else fail t.loc "set_implicit_aux: the inner type should be a struct type" in
+      let struct_def = 
+        if tid <> -1 then match Context.typid_to_typedef tid with 
+          | Some td -> td 
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
+        else    
+          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+      in
       let field_list = Internal.get_field_list struct_def in
       let nb = List.length field_list in
-      Sequence_basic.intro nb tg;
-      Struct_basic.set_implicit [Target.cSeq ~args_pred:(Target.target_list_one_st tg) ()]
+      Sequence_basic.intro ~mark:"__SEQUENCE_MARK" nb tg;
+      Struct_basic.set_implicit [Target.cMark "__SEQUENCE_MARK"];
     | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
   
 ) tg

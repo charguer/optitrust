@@ -9,17 +9,11 @@ let _ = Run.script_cpp ( fun _ ->
   !! Struct_basic.set_explicit [sInstr "c = a"];
   !! Struct_basic.set_explicit [sInstr "c.pos ="];
   !! Struct_basic.set_explicit [sInstr "c.speed ="];
-
+ 
   
   !! Trace.alternative (fun () ->
     !! Struct_basic.set_explicit [sInstr "c = a"];
     !! Struct_basic.set_explicit [nbMulti;cOr [[sInstr "c.pos ="]; [sInstr "c.speed ="]]];
-    !! ());
-
-  !! Trace.alternative (fun () ->
-    !! Struct_basic.set_explicit [sInstr "c = a"];
-    !! Tools.failure_expected (fun () ->
-        Struct_basic.set_explicit [sInstr "c.weight ="];);
     !! ());
 
   (* LATER: arthur think about this one, the explicit path are modified in between...

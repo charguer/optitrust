@@ -568,7 +568,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
           annot;
           marks = [];
           loc; is_statement;
-          add = Add_address_of_operator :: add;
+          add = Address_operator :: add;
           ctx;
           typ;
           attributes }
@@ -599,7 +599,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   desc = t.desc;
                   loc = t.loc;
                   is_statement = t.is_statement;
-                  add = Add_star_operator :: t.add;
+                  add = Star_operator :: t.add;
                   typ;
                   ctx;
                   attributes = t.attributes}
@@ -1275,10 +1275,5 @@ let translate_ast (t : translation_unit) : trm =
               trm_seq_nomarks ~annot:[Include h] (translate_decl_list dl))
            include_map
        in
-       let t =
-         trm_seq_nomarks ~loc ~annot:[Main_file] (translate_decl_list file_decls)
-       in
-       Nobrace.init();
-       trm_seq_no_brace
-         ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map [])@[t])
+         trm_seq_nomarks ~loc ~annot:[Main_file] ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ translate_decl_list file_decls)
     )

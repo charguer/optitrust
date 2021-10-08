@@ -99,6 +99,10 @@ val cInclude : string -> constr
 
 val cSetVar : string -> constr
 
+val cAny : constr 
+
+val cChoose : constr 
+
 val sInstr : ?substr:bool -> string -> constr
 
 val sExpr : ?substr:bool -> string -> constr
@@ -204,13 +208,25 @@ val cBreak : constr
 val cContinue : constr
 
 val cAccesses : ?base:target ->
-                ?accesses:(constr_access list) -> unit -> constr
+                ?accesses:(constr_access list) -> ?inner_accesses:bool -> unit -> constr
 
 val cIndex : ?index:target -> unit -> constr_access
 
 val cField : ?field:string -> ?substr:bool -> ?regexp:bool -> unit -> constr_access
 
 val cAccess : constr_access
+
+val cFieldGet : ?base:target -> ?substr:bool -> ?regexp:bool-> string -> constr 
+
+val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> string -> constr
+
+val cFieldSet : ?base:target -> ?substr:bool -> ?regexp:bool -> string -> constr 
+
+val cIndexGet : ?base:target -> target -> constr 
+
+val cIndexAccess : ?base:target -> target -> constr
+
+val cIndexSet : ?base:target -> target -> constr 
 
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr
