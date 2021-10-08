@@ -11,6 +11,7 @@ TESTS_WORKING := \
 	array_swap.ml \
 	array_tile.ml \
 	array_to_variables.ml \
+	cast_insert.ml \
 	flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \

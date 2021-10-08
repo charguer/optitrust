@@ -552,17 +552,19 @@ let cAccess : constr_access =
 (* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base] 
     which are at the base of a get operation
 *)
-let cFieldGet ?(base : target = []) (field : field )  : constr =
-  cGet ~arg:[cAccesses ~base ~accesses:[cField ~field ()] ()] ()
-
-(* [cFieldSet ~base field] matches all struct field set operations*)
-let cFieldSet ?(base : target = [cVar ""])  (field : field) : constr =
-  let lhs = [cAccesses ~base  ~accesses:[cField ~field ()] ()] in
-  cSet ~lhs ()
+let cFieldGet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  (field : field )  : constr =
+  cGet ~arg:[cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()] ()
 
 (* [cFieldAccess field] field matches all struct accesses in field [field]*)
-let cFieldAccess ?(base : target = []) (field : field )  : constr =
-  cAccesses ~base ~accesses:[cField ~field ()] ()
+let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) (field : field )  : constr =
+  cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()
+
+
+(* [cFieldSet ~base field] matches all struct field set operations*)
+let cFieldSet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) (field : field) : constr =
+  let lhs = [cFieldAccess ~base ~substr ~regexp field] in
+  cSet ~lhs ()
+
 
 
 (* [cIndexGet ~base index] matches all array accesses at index [index] with base [base] 

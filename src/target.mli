@@ -216,11 +216,11 @@ val cField : ?field:string -> ?substr:bool -> ?regexp:bool -> unit -> constr_acc
 
 val cAccess : constr_access
 
-val cFieldGet : ?base:target -> string -> constr 
+val cFieldGet : ?base:target -> ?substr:bool -> ?regexp:bool-> string -> constr 
 
-val cFieldAccess : ?base:target -> string -> constr
+val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> string -> constr
 
-val cFieldSet : ?base:target -> string -> constr 
+val cFieldSet : ?base:target -> ?substr:bool -> ?regexp:bool -> string -> constr 
 
 val cIndexGet : ?base:target -> target -> constr 
 
