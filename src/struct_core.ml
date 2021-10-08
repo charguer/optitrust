@@ -426,3 +426,65 @@ let to_variables_aux (index : int) (t : trm) : trm =
 
 let to_variables (index : int) : Target.Transfo.local =
   Target.apply_on_path (to_variables_aux index)
+
+
+module Rename = struct
+  type t = string -> string
+  let add_prefix (s : string) : t =
+    fun str -> s ^ str
+  
+  let only_for (pattern : string) : t -> t = 
+    fun tr s -> if Str.string_match (Str.regexp_string pattern) s 0 then tr s else s
+end
+
+type rename = Rename.t 
+
+let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm =
+  let rec aux (global_trm : trm) (t : trm) : trm =
+    begin match t.desc with
+    | Trm_apps (f, [base]) ->
+      begin match f.desc with
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr y))) ->
+          begin match base.typ with
+          | Some ty -> 
+            begin match ty.typ_desc with 
+            | Typ_constr (x, _, _) when x = struct_name->
+              trm_apps ~annot:t.annot ~typ:t.typ ~marks:t.marks ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr (rename y))))})  [base]
+            | _ -> trm_map (aux global_trm) t
+            end
+          | None -> trm_map (aux global_trm) t
+          end
+      | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get y))) ->
+        begin match base.typ with
+          | Some ty -> 
+            begin match ty.typ_desc with 
+            | Typ_constr (x, _, _) when x = struct_name->
+              trm_apps ~annot:t.annot ~typ:t.typ ~marks:t.marks ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get (rename y))))})  [base]
+            | _ -> trm_map (aux global_trm) t
+            end
+          | None -> trm_map (aux global_trm) t
+          end
+      | _ -> trm_map (aux global_trm) t
+      end
+    | _ -> trm_map (aux global_trm) t
+    end
+   in aux t t
+
+let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl ->
+    let lfront, tdef , lback = Internal.get_trm_and_its_relatives index tl in
+    begin match tdef.desc with 
+    | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_prod (tn, fl);_}  as td) ->
+        let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in
+        let new_tdef = trm_typedef ~annot:tdef.annot ~marks:tdef.marks {td with typdef_body = Typdef_prod (tn, new_fl)} in
+        let lback = Mlist.map (fun t1 -> rename_struct_accesses name rename t1) lback in
+        let new_tl = Mlist.merge lfront lback in
+        let new_tl = Mlist.insert_at index new_tdef new_tl in
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    | _ -> fail tdef.loc "reanme_fields_aux: expected a typedef declaration"
+    end
+  | _ -> fail t.loc "rename_fields_aux: expected the sequence which contains the typedef declaration"
+
+let rename_fields (index : int) (rename : rename) : Target.Transfo.local =
+  Target.apply_on_path (rename_fields_aux index rename)

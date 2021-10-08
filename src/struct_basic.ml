@@ -1,5 +1,7 @@
-open Ast
+stopen Ast
 open Target
+include Struct_core
+include Struct_core.Rename
 
 (* [set_explicit tg] expects [tg] to point to a set instruction where one struct
     instance has been assigned anothe struct instance.
@@ -51,3 +53,8 @@ let inline ?(reparse:bool=true) (field_to_inline : field) : Target.Transfo.t =
 let to_variables : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Struct_core.to_variables i t p)
+
+
+let rename_fields (rename : rename) : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p, i) t -> Struct_core.rename_fields i rename t p)

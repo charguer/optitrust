@@ -41,6 +41,7 @@ TESTS_WORKING := \
 	sequence_partition.ml \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
+	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	typedef_fold.ml \
