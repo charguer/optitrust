@@ -99,7 +99,7 @@ void stack_array() {
 
 void stack_struct() {
   vect v = { 5, 6 };
-  int a = v.x; 
+  int a = v.x;
   v.y = a + 2;
   vect v2 = v;
   v2 = v;
@@ -131,13 +131,13 @@ typedef int* intstar;
 void const_pointers() {
   int a = 3;
   const intstar b = &a;
-  const int c = *b + 4; 
+  const int c = *b + 4;
 }
 
 void nonconst_pointers() {
   int a = 3;
   int* b = &a;
-  *b = *b + 4; 
+  *b = *b + 4;
   int c = 3;
   b = &c;
 }
@@ -214,6 +214,19 @@ int mutable_stack_array (){
    *(w[0]) = 3; // allowed
    return *(w[0]);
 }
+
+/* LATER
+int local_function() {
+  int n = 2;
+  auto addOne = [&] () {
+      i++;
+  };
+  addOne(n);
+  return n;
+}
+*/
+
+
 // void advanced_stuff () {
 //     int* x;
 //     int ** p;
