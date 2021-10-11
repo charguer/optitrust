@@ -1,4 +1,6 @@
 
+#include <stdio.h>
+#include "particle.h"
 //==========================================================================
 // Representation of chunks
 
@@ -55,6 +57,13 @@
 
 
 const int CHUNK_SIZE = 128;
+
+
+// --------- Particle
+// --------- Vector
+
+
+
 
 /*
  * A chunk is a fixed-capacity array of particles, with a pointer to the next chunk.
@@ -196,7 +205,7 @@ void locate_spare_chunk(int id_bag, int id_cell, int thread_id) {
 
 // In the initial phase, instantiate the argument thread_id with the value THREAD_INITIAL
 // to assume that all free chunks are stored in the free list of processor THREAD_ZERO.
-const int THREAD_INITIAL = -1
+const int THREAD_INITIAL = -1;
 const int THREAD_ZERO = 0;
 
 chunk* obtain_chunk_initial() {
@@ -264,7 +273,7 @@ void compute_cumulative_free_list_sizes() {
     // there is enough indexes in that list to put all the new chunks here.
     int nb_allocated_chunks = 0;
     while (nb_allocated_chunks < nb_chunks_to_allocate) {
-      free_chunks[THREAD_ZERO][FREE_INDEX(THREAD_ZERO)++] = malloc(sizeof(chunk));
+      free_chunks[THREAD_ZERO][FREE_INDEX(THREAD_ZERO)++] = (chunk*)malloc(sizeof(chunk));
       nb_allocated_chunks++;
 #ifdef PIC_VERT_TESTING
       nb_malloc[THREAD_ZERO]++;
@@ -364,7 +373,7 @@ void update_free_list_sizes() {
 void bag_init(bag* b, int id_bag, int id_cell, int thread_id) {
   chunk* c = obtain_chunk(id_bag, id_cell, thread_id);
   c->size = 0;
-  c->next = (void*)0;
+  c->next = NULL;
   b->front = c;
   b->back  = c;
 }
@@ -401,8 +410,8 @@ void bag_append(bag* b, bag* other, int id_bag, int id_cell, int thread_id) {
  * @param[in, out] b the bag to nullify.
  */
 void bag_nullify(bag* b) {
-  b->front = (void*)0;
-  b->back  = (void*)0;
+  b->front = NULL;
+  b->back  = NULL;
 }
 
 /*
@@ -529,9 +538,9 @@ void bag_push_serial(bag* b, particle p, int thread_id) {
  * Swap the contents of two bags
  */
 void bag_swap(bag* b1, bag* b2) {
-  bag temp = *b1;
-  b1 = *b2;
-  b2 = temp;
+  bag temp =*b1;
+  *b1 = *b2;
+  *b2 = temp;
 }
 
 

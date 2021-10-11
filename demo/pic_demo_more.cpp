@@ -1,5 +1,14 @@
 #include <stdlib.h>
 
+// --------- Bags of particles
+
+// Import the chunked sequence data structure, specialized to particles
+// In OptiTrust, we want to actually inline that code.
+
+// implicitly includes particle.h
+#include "particle_bag.cpp"
+
+
 // --------- OptiTrust macros // temporary
 
 bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
@@ -30,11 +39,7 @@ const double cellSize = 0.001;
 // size of the blocks used in loop tiling
 const int blocksize = 2;
 
-// --------- Vector
 
-typedef struct {
-  double x, y, z;
-} vect;
 
 
 vect vect_add(vect v1, vect v2) {
@@ -45,12 +50,6 @@ vect vect_mul(double d, vect v) {
   return { d * v.x, d * v.y, d * v.z };
 }
 
-// --------- Particle
-
-typedef struct {
-  vect pos;
-  vect speed;
-} particle;
 
 // --------- Grid coordinate functions
 
@@ -105,36 +104,55 @@ double relativePosInCell(double x) { // likewise for all dimensions
   return (x - (double) i) / gridSize;
 }
 
-int[3] coordOfCell(idCell) {
+// coord array of size 3
+void compute_coordOfCell (int idCell, int* coord_arr) {
   int z = idCell % gridSize;
-  int yz = idCell / gridSize;
-  int y = yz % gridSize;
-  int x = yx / gridSize;
-  return { x, y, z };
+  int xy = idCell / gridSize;
+  int y = xy % gridSize;
+  int x = xy / gridSize;
+  coord_arr[0] = x;
+  coord_arr[1] = y;
+  coord_arr[1] = z;
 }
 
-int[nbCorners] indicesOfCorners(idCell) {
-  int[3] coord = coordOfCell(idCell);
+// indices array of size 8
+// later compute
+void compute_indicesOfCorners (int idCell, int* indices) {
+  int coord[3];
+  compute_coordOfCell(idCell, coord);
   int x = coord[0];
   int y = coord[1];
   int z = coord[2];
   int x2 = wrap(x+1);
   int y2 = wrap(y+1);
   int z2 = wrap(z+1);
-  return {
-    cellOfCoord(x,y,z),
-    cellOfCoord(x,y,z2),
-    cellOfCoord(x,y2,z),
-    cellOfCoord(x,y2,z2),
-    cellOfCoord(x2,y,z),
-    cellOfCoord(x2,y,z2),
-    cellOfCoord(x2,y2,z),
-    cellOfCoord(x2,y2,z2) };
-
+  int indices[8];
+  indices[0] = cellOfCoord(x,y,z);
+  indices[1] = cellOfCoord(x,y,z2);
+  indices[2] = cellOfCoord(x,y2,z);
+  indices[3] = cellOfCoord(x,y2,z2);
+  indices[4] = cellOfCoord(x2,y,z);
+  indices[5] = cellOfCoord(x2,y,z2);
+  indices[6] = cellOfCoord(x2,y2,z);
+  indices[7] = cellOfCoord(x2,y2,z2);
+}
+vect[nbCorners] getFieldAtCorners(idCell) {
+  
+  
+  int indices[nbCorners];
+  compute_indicesOfCorners(idCell, &indices, nbCorners);
+  vect result[nbCorners];
+  for (int k = 0; k < nbCorners; k++) {
+    result[k] = fields[indices[k]];
+  }
+  return result;
 }
 
-vect[nbCorners] getFieldAtCorners(idCell) {
-  int indices[nbCorners] = indicesOfCorners(idCell);
+void computer_FieldAtCorners(idCell) {
+  
+  
+  int indices[nbCorners];
+  compute_indicesOfCorners(idCell, &indices, nbCorners);
   vect result[nbCorners];
   for (int k = 0; k < nbCorners; k++) {
     result[k] = fields[indices[k]];
@@ -199,11 +217,6 @@ double[nbCorners] vect8_mul(const double a, const double v[nbCorners]) {
 }
 
 
-// --------- Bags of particles
-
-// Import the chunked sequence data structure, specialized to particles
-// In OptiTrust, we want to actually inline that code.
-#include <particle_bag.cpp>
 
 // Particles in each cell, at the current and the next time step
 bag bagsCur[nbCells];
