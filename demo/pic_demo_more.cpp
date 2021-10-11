@@ -137,8 +137,8 @@ void compute_indicesOfCorners (int idCell, int* indices) {
   indices[7] = cellOfCoord(x2,y2,z2);
 }
 vect[nbCorners] getFieldAtCorners(idCell) {
-  
-  
+
+
   int indices[nbCorners];
   compute_indicesOfCorners(idCell, &indices, nbCorners);
   vect result[nbCorners];
@@ -149,8 +149,8 @@ vect[nbCorners] getFieldAtCorners(idCell) {
 }
 
 void computer_FieldAtCorners(idCell) {
-  
-  
+
+
   int indices[nbCorners];
   compute_indicesOfCorners(idCell, &indices, nbCorners);
   vect result[nbCorners];
@@ -164,10 +164,13 @@ void computer_FieldAtCorners(idCell) {
 // charge are also accumulated in the corners of the cells
 double nextCharge[nbCells];
 
-void accumulateChargeAtCorners(idCell, double charges[nbCorners]) {
-
-  // nextCharge
-  return
+// charges an array of type [nbCorners]
+void accumulateChargeAtCorners(idCell, double* charges) {
+  int indices[nbCorners];
+  compute_indicesOfCorners(idCell, &indices);
+  for (int k = 0; k < nbCorners; k++) {
+    nextCharge[indices[k]] += charges[k];
+  }
 }
 
 
@@ -250,7 +253,8 @@ int main() {
         particle &p = *cur_p;
 
         // interpolate the field based on the position relative to the corners of the cell
-        const double coeffs[nbCorners] = cornerInterpolationCoeff(p.pos);
+        double coeffs[nbCorners];
+        compute_cornerInterpolationCoeff(p.pos, coeffs);
         vect field_at_pos = vect_matrix_mul(coeffs, field_at_corners);
 
         // Compute the new speed and position for the particle.
@@ -260,7 +264,9 @@ int main() {
 
         // Deposit the charge of the particle at the corners of the target cell
         const int idCell2 = idCellOfPos(pos2);
-        accumulateChargeAtCorners(idCell2, vect8_mul(charge, coeffs));
+        double_nbCorners coeffs2 = cornerInterpolationCoeff(p.pos);
+        double_nbCorners charges = vect8_mul(charge, coeffs2);
+        accumulateChargeAtCorners(idCell2, charges);
 
         // Push the updated particle into the bag associated with its target cell
         const particle p2 = { pos2, speed2 };

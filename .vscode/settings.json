@@ -16,5 +16,13 @@
   ],
   "search.exclude": {
     "**/_build": true,
+  },
+  "files.associations": {
+    "*.md": "markdown",
+    "*.v": "coq",
+    "*.ml": "ocaml",
+    "*.mli": "ocaml",
+    "*.json": "jsonc",
+    "functional": "cpp"
   }
 }
