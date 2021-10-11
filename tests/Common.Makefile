@@ -46,6 +46,8 @@ OPTITRUST ?= ../..
 # Default target for 'make all'
 TARGET_MAKE_ALL ?= check compile
 
+OPTITRUSTLIB=$(shell ocamlfind query optitrust)
+
 
 #######################################################
 # Targets
@@ -123,7 +125,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 	@echo "Produced $@"
 
 # Rule for building the binary associated with a test
-%.byte: %.ml
+%.byte: %.ml $(OPTITRUSTLIB)
 	$(V)$(BUILD) $@
 
 # Rule for producing the expected output file from the result

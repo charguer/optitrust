@@ -137,14 +137,17 @@ let reset () : unit =
 
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
-   The history is initialized with the initial AST. *)
+   The history is initialized with the initial AST.
+   [~prefix:"foo"] allows to use a custom prefix for all output files,
+   instead of the basename of [f]. *)
 (* LATER for mli: val set_init_source : string -> unit *)
-let init (filename : string) : unit =
+let init ?(prefix : string = "") (filename : string) : unit =
   reset ();
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
   let directory = (Filename.dirname filename) ^ "/" in
-  let prefix = Filename.remove_extension basename in
+  let default_prefix = Filename.remove_extension basename in
+  let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let (includes, cur_ast) = parse filename in
   let context = { extension; directory; prefix; includes; clog } in
@@ -328,7 +331,7 @@ let output_prog ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast 
   let out_prog = open_out file_prog in
   begin try
     (* print C++ code with decoding *)
-    (* 
+    (*
       DEPRECATED
       output_string out_prog ctx.includes; *)
     Ast_to_c.ast_to_doc out_prog ast;

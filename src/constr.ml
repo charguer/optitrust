@@ -795,9 +795,9 @@ and check_arg (tg:arg_constraint) ((var_name, var_typ) : typed_var) : bool =
 and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : trm_access list) : bool =
   let rec aux (cal : constr_access list) (al : trm_access list) : bool =
     match cal, al with
-    | [], a -> if not inner_accesses 
-                  then begin match a with 
-                       | [] -> true 
+    | [], a -> if not inner_accesses
+                  then begin match a with
+                       | [] -> true
                        | _  -> false
                        end
                   else true
@@ -883,7 +883,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           let potential_targets = resolve_target_simple tr t in
           begin match potential_targets with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
-          | _ -> 
+          | _ ->
             Path.union acc potential_targets
           end ) [] tl
     | Constr_and tl :: [] ->
