@@ -14,12 +14,11 @@ vect f() { return {1, 1}; }
 int main() {
   vect p = {0, 0};
   vect b;
-  b.x = p.x;
-  b.y = p.y;
+  b = p;
   vect u;
   obj a = {0, {0, 0}, {0, 0}};
-  u.x = (a.pos.x);
-  u.y = (a.pos.y);
+  u.x = a.pos.x;
+  u.y = a.pos.y;
   vect t[2];
   vect p2 = p;
   t[0].x = p2.x;

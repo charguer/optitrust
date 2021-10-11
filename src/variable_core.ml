@@ -155,7 +155,7 @@ let rename_aux (rename : Rename.t) (t : trm) : trm =
             if List.mem_assoc x list then
             begin 
             let new_var = List.assoc x list in
-            let acc = Internal.change_trm t1 (trm_let vk (new_var, tx) init) acc in
+            let acc = Internal.change_trm ~is_decl:true t1 (trm_let vk (new_var, tx) init) acc in
              Internal.change_trm (trm_var x) (trm_var new_var) acc
             end
             else
