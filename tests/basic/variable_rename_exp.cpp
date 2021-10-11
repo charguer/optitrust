@@ -11,7 +11,7 @@ int g(int x) {
 
 int main() {
   int a22 = 1;
-  int b22 = f(a);
-  int c22 = g(b);
+  int b22 = f(a22);
+  int c22 = g(b22);
   return 0;
 }

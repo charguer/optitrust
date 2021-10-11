@@ -5,20 +5,14 @@ open Target
     If the user does not want to target the full ast but just some specific locations,
     then he can enter the targeted locations in [change_at].
 *)
-let change_trm ?(change_at : target list = [[]]) ?(is_decl : bool = false)(t_before : trm)
+let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
     (* DEBUG: *)
-    (* Tools.printf "Trying to match %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_before); *)
-    (* Tools.printf "--------------------------------------\n"; *)
-    if is_decl 
-      then begin match decl_name t', decl_name t_before with 
-           | Some x, Some y -> if x = y && same_node_type t' t_before then t_after else trm_map apply_change t'
-           | _ -> trm_map apply_change t'
-           end
-      else 
-        if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
-          else trm_map apply_change t'
+    (* Tools.printf "Trying to match %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_before);
+    Tools.printf "--------------------------------------\n"; *)
+    if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
+      else trm_map apply_change t'
       in
   List.fold_left
     (fun t' tr ->

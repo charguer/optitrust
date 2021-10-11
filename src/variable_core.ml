@@ -142,27 +142,41 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
 let rename_aux (rename : Rename.t) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let t_acc = t in
-    Mlist.fold_left (fun acc t1 ->
+    (* first change the declarations*)
+    let t_new_dl = Mlist.fold_left (fun acc t1 ->
         match t1.desc with
         | Trm_let (vk,(x, tx), init) ->
           begin match rename with 
           | AddSuffix post_fix ->
             let new_name = x ^ post_fix  in
-            let acc = Internal.change_trm (trm_var x) (trm_var new_name) acc  in
-            Internal.change_trm ~is_decl:true t1  {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc 
+            Internal.change_trm t1  {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc 
           | ByList list -> 
             if List.mem_assoc x list then
-            begin 
-            let new_var = List.assoc x list in
-            let acc = Internal.change_trm ~is_decl:true t1 (trm_let vk (new_var, tx) init) acc in
-             Internal.change_trm (trm_var x) (trm_var new_var) acc
-            end
+              let new_name = List.assoc x list in
+              Internal.change_trm t1 (trm_let vk (new_name, tx) init) acc 
             else
               acc 
           end
         | _ -> acc
-      ) t_acc tl 
+      ) t tl 
+       in
+     (* then all the variable occurrences *)
+     Mlist.fold_left (fun acc t1 ->
+          match t1.desc with
+          | Trm_let (_,(x, _), _) ->
+            begin match rename with 
+            | AddSuffix post_fix ->
+              let new_name = x ^ post_fix  in
+              Internal.change_trm (trm_var x) (trm_var new_name) acc
+          | ByList list -> 
+            if List.mem_assoc x list then
+              let new_name = List.assoc x list in
+              Internal.change_trm (trm_var x) (trm_var new_name) acc
+            else
+              acc 
+          end
+        | _ -> acc
+      ) t_new_dl tl 
   | _ -> fail t.loc "rename_aux: expected the sequence block"
 
 let rename (rename : Rename.t) : Target.Transfo.local =
