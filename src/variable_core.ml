@@ -7,26 +7,26 @@ open Target
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [fold_aux as_reference fold_at]: fold the variable declarations t
-    params:
-      as_reference: a flag for telling if the variable on the assignment 
-        has the address operator or not
-      fold_at: target where folding should be performed, if left empty 
-        then folding is applied everywhere
-      t: ast of the variable declaration
-    return:
-      updated ast 
-*)
-
 (* This type is used for variable renaming, the user can choose between renaming all the variables 
-    on one block, by giving the suffix to add after or he can also  give the list of variables to 
-    be renamed together with their new name.
+    on one block, by giving the suffix to add after or he can also give the list of variables to 
+    be renamed where the list should be a a list of string pairs ex. (current_name, new_name).
 *)
 module Rename = struct
   type t = | AddSuffix of string | ByList of (string * string) list
 end
 type rename = Rename.t
 
+
+(* [fold_aux as_reference fold_at index t]: fold the variable declarations [t]
+    params:
+      [as_reference]: a flag for telling if the variable on the assignment 
+        has the address operator or not
+      [fold_at]: target where folding should be performed, if left empty 
+        then folding is applied everywhere
+      [t]: ast of the variable declaration
+    return:
+      updated ast of the block which contained the variable declaration [t]
+*)
 let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
   | Trm_seq tl ->
@@ -71,13 +71,13 @@ let fold (as_reference : bool) (fold_at : target) (index) : Target.Transfo.local
   Target.apply_on_path(fold_aux as_reference fold_at index)
 
 
-(* [inline_aux inline_at]: inline variable defined in term t
+(* [inline_aux delete_decl inline_at index t]: inline variable the variable declaraed in [t] at target [tg]
     params:
-      delete_decl: delete or don't delete the declaration of the variable after inlining
-      inline_at: target where inlining should be performed, if empty inlining is applied everywhere
-      t: ast of the variable declaration
+      [delete_decl]: delete or don't delete the declaration of the variable after inlining
+      [inline_at]: target where inlining should be performed, if empty inlining is applied everywhere
+      [t]: ast of the variable declaration
     return:
-      updated ast
+      the ast of the updated sequence which contains the declaration ast [t]
 *)
 let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm) : trm =
   match t.desc with
@@ -131,13 +131,13 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
   Target.apply_on_path(inline_aux delete_decl inline_at index)
 
 
-(* [rename_aux new_name index t] rename a variable, change its declaration
-      and all its occurrences
+(* [rename_aux new_name index t] rename the variable declared in [t] and all its occurrences
    params:
-    rename: a type covering both the case when a prefix is given or the list of variables to change
-      together with their new name
+     [rename]: a type covering both the case when a prefix is given or the list of variables to change
+        together with their new name
+     [t]: ast of the declaration
    return:
-    updated ast 
+    updated ast of the sequence which contains the declaration
 *)
 let rename_aux (rename : Rename.t) (t : trm) : trm =
   match t.desc with
@@ -149,8 +149,8 @@ let rename_aux (rename : Rename.t) (t : trm) : trm =
           begin match rename with 
           | AddSuffix post_fix ->
             let new_name = x ^ post_fix  in
-            let acc = Internal.change_trm t1 {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc in
-            Internal.change_trm (trm_var x) (trm_var new_name) acc 
+            let acc = Internal.change_trm (trm_var x) (trm_var new_name) acc  in
+            Internal.change_trm t1 {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc 
           | ByList list -> 
             if List.mem_assoc x list then
             begin 
@@ -169,13 +169,12 @@ let rename (rename : Rename.t) : Target.Transfo.local =
   Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_aux rename) "var_rename")
 
 (* [init_detach_aux t]: replace an initialized variable declaration with an
-    uninitialized declaration and an assignment.
+      uninitialized declaration and a set operation.
     params:
-      index: 
-      t: ast of the surrounding sequence of the variable declaration
+      [index]: 
+      [t]: ast of the surrounding sequence of the variable declaration
     return:
-      the updated ast of the outer sequence which contains the declaration of the variable 
-      and a set operations for that variable
+      the updated ast of the sequence which contains [t]
 *)
 let init_detach_aux  (t : trm) : trm =
   match t.desc with
@@ -211,10 +210,10 @@ let init_detach : Target.Transfo.local =
 
 (* [init_attach_aux t]: replace an uninitialized variable declaration with an initialized one.
     params:
-      const: a boolean to decide if the attached variable should be mutable or not
-      t: ast of the surrounding sequence of the variable declaration
+      [const]: a boolean to decide if the attached variable should be mutable or not
+      [t]: ast of the surrounding sequence of the variable declaration
     return
-      the updated ast of the outer sequence which contains now the initialized variable declaration
+      the updated ast of the sequence which contains [t]
     raises:
       - Init_attach_no_occurrences if no variable set operations are found
       - Init_attach_occurrence_below_control if more than one variable set operation are found 
@@ -274,47 +273,17 @@ let init_attach (const : bool) (index : int) : Target.Transfo.local =
   Target.apply_on_path(init_attach_aux const index )
 
 
-(* [const_non_const_aux t]: transform a const declaration to a non-const one or vice-versa
-    params:
-      t: ast of the variable declaration 
-    return:
-      the updated ast of the declaration
-*)
-let const_non_const_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_let (vk, (x,tx), init) ->
-    begin match vk with
-     (* If variable is a constant than whe remove the const and we perform the heap allocation  *)
-    | Var_immutable ->
-      trm_let Var_mutable (x, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tx) (trm_apps (trm_prim ~loc: t.loc (Prim_new tx)) [init])
-    | _ ->
-      let var_type = begin match tx.typ_desc with
-      | Typ_ptr {inner_typ = t; _} -> t
-      | _ -> fail t.loc "const_non_const_aux: expected a pointer type"
-      end
-      in
-      let var_init = begin match init.desc with
-      | Trm_apps(_, [_; init]) -> init
-      | _ -> fail t.loc "const_non_const_aux: expected a something of the form 'new ()'"
-      end
-      in
-      trm_let Var_immutable (x,var_type) var_init
-    end
-  | _ -> fail t.loc "const_non_const_aux: variable declaration was not matched, make sure the path is correct"
-
-let const_non_const : Target.Transfo.local =
-  apply_on_path (const_non_const_aux)
-
-
-(* [local_other_name_aux var_type old_var new_var t] add a local name and replace all the 
+(* [local_other_name_aux var_type old_var new_var t]: add a local name and replace all the 
       occurrences of a variable inside a sequence.
     params:
-      var_type: the type of the variable
-      old_var: the previous name of the variable, this is used to find all the occurrences
-      new_var: the name of the variable to be declared and replace all the occurrences of old_var
-      t: ast of the trm which contains old_var.
+      [mark]: a mark to mark the producesd nobrace sequence
+      [var_type]: the type of the variable
+      [old_var]: the previous name of the variable, this is used to find all its occurrences
+      [new_var]: the name of the variable to be declared and replace all the occurrences of old_var
+      [t]: ast of the trm which contains old_var.
     return:
-      the updated ast of the targeted sequence with the new local name
+      the ast of a marked(clean) nobrace sequence depending on the flag [mark] which contains
+        the term [t] the new declaration and a set operation at the end
 
 *)
 let local_other_name_aux (mark : mark) (var_type : typ) (old_var : var) (new_var : var) (t : trm) : trm =
@@ -327,15 +296,19 @@ let local_other_name_aux (mark : mark) (var_type : typ) (old_var : var) (new_var
 let local_other_name (mark : mark) (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =
   Target.apply_on_path(local_other_name_aux mark var_type old_var new_var)
 
-(* [delocalize_aux array_size neutral_element fold_operation t] add local array to apply
-      the operation inside the for loop in parallel.
+(* [delocalize_aux array_size dl_ops loop_index t]: after introduced the local_other_name transformation
+      transform the newly declared local variable [new_var]  into an array of size [array size]
+      and add to loops: the first one to initialize the elements of the added array and the last one 
+      to reduce the array into a single value, the inittialization value and the reducing(folding operation)
+      is given through [dl_ops].
     params:
-      array_size: size of the arrays to be declared inside the targeted sequence
-      neutral_element: the neutral element used when applying the [fold_operation]
-      fold_operation: reduction over all the elements of the declared array
-      t: the ast of the @nobrace sequence
+      [array_size]: size of the arrays to be declared inside the targeted sequence
+      [dl_ops]: delocalize operation representing the unitary lement used for initialization 
+        and the folding operation used for the reduction
+      [loop_index]: the index for the two added loops
+      [t]: the ast of the sequence generated after applying the local_other_name transformation
     return:
-      the updated ast of the targeted sequence
+      the update ast of [t]
 *)
 let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index : string) (t : trm) : trm =
   match t.desc with 
@@ -392,7 +365,17 @@ let delocalize (array_size : string) (dl_ops : delocalize_ops) (loop_index : str
 
 
 
-
+(* [insert_aux index const name typ value t] insert a variaable declaration at index [index] with 
+    name [name], type [typ] and initial value [value].
+    params:
+      [index]: index inside the sequence where the insertion is performed
+      [const]: a flag on the mutability of the variable [name]
+      [typ]: the type of the inserted variable entered as a string
+      [value]: the initial value of the inserted variable [name] entered as a string
+      [t]: the ast of the sequence where the insertion is performed
+    return:
+      the updated [t] with the newly inserted declaration []
+  *)
 let insert_aux (index : int) (const : bool) (name : string) (typ : string) (value : string) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -409,12 +392,13 @@ let insert (index : int) (const : bool) (name : string) (typ : string) (value : 
 
 
 
-(* [change_type_aux new_type t]:  change the current type of the variable to new_type
+(* [change_type_aux new_type t]:  change the current type of the variable declared at the node with index [i] 
+      of the sequence with ast [t] to [new_type]
     params:
-      new_type: the new type replacing the old one
-      t: ast of the declaration
+      [new_type]: the new type replacing the current one entered as a string
+      [t]: ast of the sequence which contains the declaration
     return:
-      the updated ast of the declaration
+      the updated ast of the sequence which contains the declaration
 *)
 let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
   let constructed_type = typ_constr new_type in

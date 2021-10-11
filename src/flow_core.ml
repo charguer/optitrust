@@ -9,8 +9,8 @@ open Ast
 (* [insert_if single_branch index cond t]: take one or two instructions and create an if statement
       or an if else statment if [single_brnach] is true.
     params:
-      cond: condition of the if statement given as string code
-      t: ast of the outer sequence containing the instruction
+      [cond]: condition of the if statement given as string code
+      [t]: ast of the outer sequence containing the instruction
     return:
       updated ast of the surrounding sequence with the added if statement
  *)

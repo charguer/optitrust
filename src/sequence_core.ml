@@ -7,11 +7,11 @@ open Ast
 
 (* [insert_aux index ts t]: insert an arbitrary trm after or before a targeted trm
     params:
-      index: and integer in range 0 .. (nbinstr-1)
-      ts: a list of trms which the inner sequence will contain
-      t: ast of the outer sequence where the insertion will be performed.
+      [index]: an integer in range 0 .. (nbinstr-1)
+      [ts]: a list of trms which the inner sequence will contain
+      [t]: ast of the outer sequence where the insertion will be performed.
     return: 
-      the updated ast of the updated outer sequence with the augmented new trm
+      the equence with the augmented new trm
 *)
 let insert_aux (index : int) (s : string) (t : trm) : trm =
     match t.desc with
@@ -24,13 +24,13 @@ let insert_aux (index : int) (s : string) (t : trm) : trm =
 let insert (index : int) (s : string) : Target.Transfo.local =
   Target.apply_on_path (insert_aux index s)
 
-(* [delete_aux index nb_instr t]: delete a number of instruction inside the sequence starting 
+(* [delete_aux index nb_instr t]: delete a number of instructions inside the sequence starting 
       from index [index] and ending at ([index] + [nb])
     params:
-      nb: number of instructions to delete
-      t: ast of the outer sequence where the deletion is performed.
+      [nb]: number of instructions to delete
+      [t]: ast of the outer sequence where the deletion is performed.
     return: 
-      the updated ast of the surrounding sequence with the deleted nodes
+      the sequence woithout the deleted instructions
 *)
 let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
   match t.desc with
@@ -38,21 +38,19 @@ let delete_aux (index : int) (nb_instr : int) (t : trm) : trm =
       trm_seq ~annot:t.annot ~marks:t.marks (Mlist.remove index nb_instr tl)
     | _ -> fail t.loc "delete_aux: expected the sequence on which the trms are deleted"
 
-(* [delete index nb_instr t p] *)
+
 let delete (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path (delete_aux index nb_instr)
 
 
-(* [intro_aux index nb t]: inside a sequence, move all the trms with findex falling in a rance 
+(* [intro_aux index nb t]: inside a sequence, move all the trms with findex falling in a range 
       from [index] to [index] + [nb] into a sub-sequence.
     params:
-      index: index where the grouping is performed
-      ts: a list of ast nodes
-      t: ast of the outer sequence where the insertion is performed
-    return: the updated ast of surrounding sequence with the inserted nodes
-
+      [index]: index where the grouping is performed
+      [ts]: a list of ast nodes
+      [t]: ast of the outer sequence where the insertion is performed
+    return: the sequence with the inserted nodes
 *)
-
 let intro_aux (mark : string) (index : int) (nb : int) (t : trm) : trm =
   match t.desc with
     | Trm_seq tl ->
@@ -69,7 +67,7 @@ let intro (mark : string) (index : int) (nb_instr : int) : Target.Transfo.local 
 
 (*[elim_aux index t]: inline an inner sequence into an outer sequence.
     params:
-      t: ast of the sequence wanted to remove
+      [t]: ast of the sequence wanted to remove
     return: 
       a hiden sequence which is going to be merged witht the outer sequence on the next step
 *)
@@ -82,13 +80,12 @@ let elim_aux (t : trm) : trm =
 let elim : Target.Transfo.local =
   Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) "elim")
 
-(* [intro_on_instr_aux visible mark t]: replacing t with a sequence that contains t as single item.
+(* [intro_on_instr_aux visible mark t]: replacing t with a sequence that contains t .
    params:
-    mark: add a mark around the sequence
-    visible: a flag to turn on(off) curly braces of the sequence
-    t: ast of the instruction 
+    (mark]: add a mark around the sequence
+    [visible]: a flag on the visibility of the added sequence
    return: 
-    updated ast of the outer sequence with wrapped node t
+    the outer sequence with wrapped node t
  *)
 let intro_on_instr_aux (mark : mark) (visible : bool) (t : trm) : trm =
   let wrapped_seq = if visible then trm_seq (Mlist.of_list [t]) else trm_seq_no_brace [t] in
@@ -99,7 +96,7 @@ let intro_on_instr (visible : bool) (mark : mark) : Target.Transfo.local=
 
 (* [unrwap_aux t]: replacing a sequence that contains a single item t with t.
    params:
-    t: a term that corresponds to a sequence with a single item in t
+    [t]: a term that corresponds to a sequence with a single item in t
    return:
     the udated the ast where the trm inside the sequence has been extracted
  *)
@@ -113,12 +110,12 @@ let unwrap_aux (t : trm) : trm =
 let unwrap : Target.Transfo.local =
   Target.apply_on_path (unwrap_aux)
 
-(* [split_aux index t ]: splitting a sequence in two parts 
+(* [split_aux index t ]: splitting a sequence in two sequences
     params:
-      index: index of the realative target entered by the user
-      t : an ast term that corresponds to the the targeted sequence
+      [index]: the location where the splitting is done 
+      [t] : a term that corresponds to the the targeted sequence
     return:
-      the updated ast with the splitted sequence
+      a nobrace sequence containing the splitted sequence
 *)
 let split_aux (index : int) (t : trm) : trm =
   match t.desc with 
@@ -130,7 +127,14 @@ let split_aux (index : int) (t : trm) : trm =
 let split (index : int) : Target.Transfo.local =
   Target.apply_on_path (split_aux index)
 
-
+(* [partition blocks braces]: partition a sequence into a list of sequences
+    params:
+      [blocks]: a list of integers denoting the size of the partition blocks
+      [braces]: denotes a flag on the visibility of the added sequences
+      [t]: the ast of the sequence to be partitioned
+    return:
+      the partitioned sequence
+*)
 let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
@@ -159,7 +163,13 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
 let partition (blocks : int list) (braces : bool): Target.Transfo.local =
   Target.apply_on_path (partition_aux blocks braces)
 
-
+(* [shiffle_aux braces t]: transpose a a list of partitioned sequences
+    params:
+      [braces]: denotes a flag on the visibility of the added sequences
+      [t]: the ast of the complex sequence of blocks
+    return:
+      the updated ast
+*)
 let shuffle_aux (braces : bool) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->

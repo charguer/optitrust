@@ -8,8 +8,8 @@ open Ast
 
 (* [replace code t]: replace an instruction with arbitrary code
     params:
-      cd: string representing the code which will appear in place of the targeted trm
-      t: ast of the trm going to be replaced
+      [cd]: string representing the code which will appear in place of the targeted trm
+      [t]: ast of the trm going to be replaced
     return:
       updated ast with the replaced trm
  *)
@@ -23,8 +23,8 @@ let replace (cd : string) : Target.Transfo.local =
       to another function call with where the function called now
       has name [name]
     params:
-      name: name of the function replacing the targeted one
-      t: ast of the function call trm
+      [name]: name of the function replacing the targeted one
+      [t]: ast of the function call trm
     return:
       updated ast with the replaced trm
  *)

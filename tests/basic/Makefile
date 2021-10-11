@@ -60,11 +60,7 @@ TESTS_TOCHECK := \
 	change_type.ml \
 	arith_shift.ml \
 	
-	
 
-
-ARTHUR_TO_SPEC := \
-	from_one_to_many.ml \
 
 TESTS_OTHERS := \
 

@@ -54,13 +54,19 @@ let to_variables : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Struct_core.to_variables i t p)
 
-
+(* [rename_fields rename tg] expects [tg] to point to a struct declaration 
+    then it will rename all the fields which are matched when applying the type rename
+    which can be a function to renam all the struct fields or only those which 
+    are matched by the patter given as argument when the function [only_for] is used.
+*)
 let rename_fields (rename : rename) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p, i) t -> Struct_core.rename_fields i rename t p)
 
 
-
+(* [update_fields_type pattern ty tg] expects [tg] to point to a struct declaration . 
+    Then it will change the current type to [ty] of all the fields which are matched with [pattern].
+*)
 let update_fields_type (pattern : string) (ty : typ) (tg : Target.target) : unit =
   Target.apply_on_targets (Struct_core.update_fields_type pattern ty) tg;
   Trace.reparse();

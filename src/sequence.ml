@@ -4,9 +4,9 @@ include Sequence_basic
 (* [intro ~start ~stop ~nb ~on ~mark ~visible]: this is a high level function for inserting a subsequnece
     inside another sequence. 
      [start] - denotes the target for the starting point of the sub-sequnece, it should be used in conjunction with 
-      nb or [end]
+      [nb] or [end]
      [end] - denotes the target for the end point of the sub-sequnece, it should be used in conjunction with 
-      nb or [start]
+      [nb] or [start]
     [nb] - in the case when the user does not give the target of  the end point of the sequence he can give as
       argument the number of instruction to include comming after [start] or [end]. If used with [start] the sign
       of [nb] should be poistive otherwise it should be negative.

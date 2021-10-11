@@ -8,6 +8,8 @@ open Target
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
+    Tools.printf "Trying to match %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_before);
+    Tools.printf "--------------------------------------\n";
     if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
     else trm_map apply_change t'
   in

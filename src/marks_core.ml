@@ -6,19 +6,38 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-
+(* [add_aux m t] add mark m to the node t
+    params:
+      [m]: the mark which is addded
+      [t]: the ast of the trm where the mark is added to
+    return:
+      trm [t] with mark m
+*)
 let add_aux (m : mark) (t : trm) : trm =
   trm_add_mark m t
 
 let add (m : mark) : Target.Transfo.local =
   Target.apply_on_path (add_aux m)
 
+(* [remove_aux m t] remove mark m from node t
+    params:
+      [m]: the mark which is removed
+      [t]: the ast of the trm where the mark is removed
+    return:
+      trm [t] without the mark m
+*)
 let remove_aux (m : mark) (t : trm) : trm =
   trm_remove_mark m t
 
 let remove (m : mark) : Target.Transfo.local =
   Target.apply_on_path (remove_aux m)
 
+(* [clean_aux m t] remove all marks from note t²
+    params:
+      [t]: the ast where the marks are removed from
+    return:
+      trm [t] without any mark
+*)
 let clean_aux (t : trm) : trm =
   trm_remove_marks t
 

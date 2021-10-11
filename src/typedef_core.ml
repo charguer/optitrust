@@ -10,11 +10,11 @@ open Target
 (* [fold_aux as_reference fold_at]: replace all the occurrences of the typedef underlying type
       with the defined type
     params:
-      fold_at: targets where folding should be performed, if left empty then folding 
+      [fold_at]: targets where folding should be performed, if left empty then folding 
         on all the nodes of the same sequence t belongs to.
-      t: ast of the typedef declaration
+      [t]: ast of the typedef declaration
     return:
-      update ast
+      the updated ast with the folded type declared at [t]
 *)
 let fold_aux (fold_at : target) (index : int) (t : trm) : trm=
   match t.desc with
@@ -42,15 +42,14 @@ let fold (fold_at : target) (index) : Target.Transfo.local =
 
 
 (* [inline_aux inline_at]: replace all the occurrences of the defined type with
-      its underlying type
+        its underlying type
     params:
-      delete: a flag for deciding if we should delete or not the typedef 
-        declaration
-      inline_at: targets where inlining should be performed, if empty inlining is applied
+      [delete]: a flag for deciding if we should delete or not the typedef declaration
+      [inline_at]: targets where inlining should be performed, if empty inlining is applied
         on all the ast nodes in the same level as the typedef declaration
-      t: ast subterm
+      [t]: ast subterm
     return:
-      updated ast
+      updated ast with the typedef occurrences inlined
 *)
 let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : trm =
   match t.desc with
@@ -73,16 +72,17 @@ let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : tr
     end
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
-(* [inline delete inline_at index t p] *)
+
 let inline (delete : bool) (inline_at : target) (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux delete inline_at index)
 
 (* [copy_aux name index t]: create a copy of a typedef with a new name
     params:
-      name: new typ name
-      t: ast of the surrounding sequence of the original declaration
+      [name]: new typ name
+      [t]: ast of the surrounding sequence of the original declaration
     return:
-      updated surrounding sequence with added new copy of the original declaration
+      the updated sequence with the newly inserted typedef with the smae structure ast the one
+          at index [index] but name [name]
 *)
 let copy_aux (name : string) (t : trm) : trm =
   match t.desc with 
@@ -96,9 +96,9 @@ let copy (name : string) : Target.Transfo.local =
 
 (* [insert_aux name td_body index]: insert a new type definition
     params:
-      name: new type name
-      td_body: body of the new type definition
-      index: location where the typedef should be inserted inside a sequence
+      [name]: new type name
+      [td_body]: body of the new type definition
+      [index]: location where the typedef should be inserted inside a sequence
     return:
       updated surrounding sequence with added typedef definition
 *)

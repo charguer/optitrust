@@ -8,9 +8,9 @@ open Ast
 
 (* [set_explicit_aux field_list t]: transform an assigment into a list of field assignments
     params:
-      t: ast of the assignment
+      [t]: ast of the assignment
     return:
-      updated ast with the transformed assignment
+      the ast of nobrace sequence which is going to contain the added set operations
  *)
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
@@ -83,10 +83,10 @@ let set_explicit : Target.Transfo.local =
 (* [set_implicit t] transform a sequence with a list of explicit assignments into
       a single assignment.
     pararms:
-      t: ast of the sequence containing the assignments
+      [t]: ast of the sequence containing the assignments
     return:
-      updated ast with the transfored assignments
- *)
+      ast of a struct instance set operation
+*)
 let set_implicit_aux (t: trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -149,11 +149,10 @@ let set_implicit (keep_label : bool) : Target.Transfo.local =
 
 (* [inline_struct_accesses x t]: change all the occurrences of the struct accesses to a field into a field
     params:
-      x: the name of the field for which the transformation is applied
-      t: ast node located in the same level as the stract declaration or deeper
+      [x]: the name of the field for which the transformation is applied
+      [t]: ast node located in the same level as the stract declaration or deeper
     return:
       updated ast node with the transformed field accesses
-
     example p.pos.x to p.pos_x
 *)
 let inline_struct_accesses  (x : var) (t : trm) : trm =
@@ -204,10 +203,10 @@ in
 aux t t
 (* [inline_struct_initialization struct_name field_list field_index t]: change all struct in struct initializations
     params:
-      struct_name: the type of the struct which is being inlined
-      field_list: a list of fields from the original type of the struct
-      field_index: index of the field in the outer struct
-      t: ast node located in the same level as the main struct declaration or deeper
+      [struct_name]: the type of the struct which is being inlined
+      [field_list]: a list of fields from the original type of the struct
+      [field_index]: index of the field in the outer struct
+      [t]: ast node located in the same level as the main struct declaration or deeper
     return:
       updated ast nodes with the changed struct in struct initializations
 *)
@@ -251,11 +250,11 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
       the fields of the type of [field_to_inlne] which should be a typedef struct. Then it will change all
        the accesses of this field to accesses of the field.
     params:
-      field_to_inline: field which is going to be inlined
-      index: index of the struct declaration inside the sequence it belongs
-      t: ast of the struct declaration
+      [field_to_inline]: field which is going to be inlined
+      [index]: index of the struct declaration inside the sequence it belongs
+      [t]: ast of the struct declaration
     return:
-      update ast with the inline struct in struct and changed all struct accesses
+      updated ast with the inline struct in struct and changed all struct accesses
 *)
 let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
   match t.desc with
@@ -318,10 +317,10 @@ let inline (field_to_inline : field) (index : int) : Target.Transfo.local =
 
 (* [fields_reorder_aux struct_fields move_where around t]: reorder fields of a struct
     params:
-      struct_fields: a list of fields to move
-      move_where: a string which is equal either to before or after
-      around: the target field where fields are going to move
-      t: ast of the typedef struct
+      [struct_fields]: a list of fields to move
+      [move_where]: a string which is equal either to before or after
+      [around]: the target field where fields are going to move
+      [t]: ast of the typedef struct
     return:
       updated ast of the typedef struct declaration
  *)
@@ -344,9 +343,9 @@ let fields_reorder (struct_fields : var list) (move_where : reorder) : Target.Tr
 (* [inline_struct_accesses name field t] transform a specifi struct access into a variable
       occurrence.
     params:
-      name: name of the variable to replace teh struct access
-      field: struct accesses on this field are going to be replaced with name
-      t: ast node located in the same level as the variable declaration
+      [name]: name of the variable to replace teh struct access
+      [field]: struct accesses on this field are going to be replaced with name
+      [t]: ast node located in the same level as the variable declaration
     return:
       updated ast node with all the struct accesses changed to variable occurrences
 *)
@@ -372,8 +371,8 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
 (* [to_variables_aux index t] change a variable declaration of type typedef struct into a list
       of variable declarations with types inherited from the fields of the underlying type.
     params:
-      index: index of the declaration inside the sequence it belongs to.
-      t: ast of the surrounding sequence of the variable declarations
+      [index]: index of the declaration inside the sequence it belongs to.
+      [t]: ast of the surrounding sequence of the variable declarations
     return:
       updated surrounding sequence
 *)
@@ -428,8 +427,8 @@ let to_variables (index : int) : Target.Transfo.local =
   Target.apply_on_path (to_variables_aux index)
 
 
+(* a module used for renaming the struct fields *)
 
-(* TODO: Document rename_fields  *)
 module Rename = struct
   type t = string -> string
   let add_prefix (s : string) : t =
@@ -442,6 +441,15 @@ end
 
 type rename = Rename.t 
 
+
+(* [rename_struct_accesses struct_name renam t]: rename all the struct accesses based on [rename]
+    params:
+      [struct_name]: the constructed type whose fields are going to be renamed
+      [rename]: a type used to rename the struct fields
+      [t]: any node in the same level as the struct declaration
+    return:
+      updated ast nodes which are in the same level as the typedef declaration
+*)
 let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     begin match t.desc with
@@ -473,6 +481,14 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
     end
    in aux t t
 
+(* [rename_fields_aux index rename t]: rename the struct fields in the struct declaration 
+    params:
+      [index]: the index of the struct declaration in the sequence [t]
+      [rename]: a type used to rename 
+      [t]: the ast of the sequence which contains the struct declaration
+    return:
+      the updated ast of the struct declaration and all its field accesses
+*)
 let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
@@ -492,7 +508,14 @@ let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
 let rename_fields (index : int) (rename : rename) : Target.Transfo.local =
   Target.apply_on_path (rename_fields_aux index rename)
 
-
+(* [update_fields_type_aux pattern ty t]: change the current type to [ŧy] for all the struct fields
+      which are matched with [pattern] for the struct declaration [t]
+    params:
+      [rename]: a type used to rename 
+      [t]: the ast of the typedef declaration
+    return:
+      the updated ast of the struct declaration
+*)
 let update_fields_type_aux (pattern : string ) (ty : typ) (t : trm) : trm =
   match t.desc with 
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->

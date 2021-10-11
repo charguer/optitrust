@@ -8,15 +8,15 @@ open Ast
 
 (* [data_shif_aux neg pre_cast post_cast u t]: shift the right node t by term [u]
     params:
-      neg: a flag for the sine of shifting
-      pre_cast: casting of type [pre_cast] performed on the trm t before applying
+      [neg]: a flag for the sine of shifting
+      [pre_cast]: casting of type [pre_cast] performed on the trm t before applying
        the shifting operation
-      post_cast: casting of type [post_cast] performed on the trm t after applying 
+      [post_cast]: casting of type [post_cast] performed on the trm t after applying 
         the shifting operation
-      u: shift size
-      t: the ast of the trm which is going to be shiften
+      [u]: shift size
+      [t]: the ast of the trm which is going to be shiften
     return:
-      the updated ast of t
+      the updated ast of t shifted by u
 *)
 let shift_aux (neg : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) (t : trm) : trm =
     let binop_op = if neg then Binop_sub else Binop_add in

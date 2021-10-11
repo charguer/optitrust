@@ -2,7 +2,7 @@ open Ast
 include Struct_basic
 
 (* [set_explicit tg] expects [tg] to point to a set instruction where one struct
-    instance has been assigned anothe struct instance. Or a variable declaration of type struct
+    instance has been assigned to another struct instance. Or a variable declaration of type struct
     with initialization. If this is the case then first a detachement is performed.
 *)
 let set_explicit (tg : Target.target) : unit =
@@ -19,7 +19,6 @@ let set_explicit (tg : Target.target) : unit =
 
   (* Note: set_explicit on a reference can only be correct if the reference is used for read-only purpose
        LATER: issue a warning when the user does this *)
-
 
 (*  [set_implicit tg] expects [tg] to point to a struct set operation, with the assumption
       that this instruction is folowed by all the other set instruction for the same

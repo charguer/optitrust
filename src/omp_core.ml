@@ -1,7 +1,8 @@
 open Ast
 
-(* OpenMP directives *)
-
+(******************************************************************************)
+(*                            OpenMP directives                               *)
+(******************************************************************************)
 let atomic_aux (ao : atomic_operation option) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
@@ -494,7 +495,11 @@ let threadprivate_aux (vl : var list) (index : int) (t : trm) : trm =
 let threadprivate (vl : var list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (threadprivate_aux vl index)
 
-(* OpenMP routines *)
+
+
+(******************************************************************************)
+(*                             OpenMP routines                                *)
+(******************************************************************************)
 let set_num_threads_aux (nb_threads : int) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->

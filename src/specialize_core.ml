@@ -6,12 +6,12 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [any_aux array_index t]: replace variable_occurrence t with array_index 
+(* [any_aux array_index t]: replace a function call t with a variable occurrence [array_index]
       params:
-        array_index: index going to be used for the variable represented by node t
-        t: ast of the current array variable occurrence
+        [array_index]: the variablee replacing the function call [t]
+        [t]: ast of a call to function [ANY]
       return:
-        update ast with the replaced array variable occurence
+        the variable occurrence of [array_index]
 *)
 let any_aux (array_index : var) (t : trm) : trm =
   match t.desc with 
@@ -25,13 +25,13 @@ let any_aux (array_index : var) (t : trm) : trm =
 let any (array_index : var) : Target.Transfo.local =
   Target.apply_on_path (any_aux array_index)
 
-(* [choose_aux  selelct_arg t]: replace function call t with one of its arguments which statisfies
+(* [choose_aux  selelct_arg t]: replace the function call t with one of its arguments which statisfies
         the predicate select_arg
       params:
-        select_arg: a predicate on the index of the argument which should be choosed
-        t: ast of the call to function choose
+        [select_arg]: a predicate on the index of the argument which should be choosed
+        [t]: ast of the call to function choose
       return:
-        update ast with the replaced call to function choose
+        the variable occurrence of the selected argument
 *)
 let choose_aux (select_arg : string list -> int) (t : trm) : trm =
   match t.desc with 

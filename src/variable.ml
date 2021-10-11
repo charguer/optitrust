@@ -8,9 +8,9 @@ include Variable_basic
     [at] - denotes a list of targets where the folding is done. If empty the
       folding operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = [].
-    [nonconst] - denotes a flag to decide if folding should be done for variable which are
+    [nonconst] - denotes a flag to decide if folding should be done for variables which are
         not mutable, in general is not safe to fold variables which are not declared as const.
-        But if the user knows what he/she is doing than it can use this flag to use folding
+        But if the users know what they're doing then  they can use this flag to use folding
         also for mutable variables.
     This transformation
 *)
@@ -54,6 +54,55 @@ let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target
     ready to apply delocalize which basically declares a new array oof size [array_size]. Then it will
     transform the old loop into a parallel loop. And finally a reduction is done to save the result into
     the old variable.
+
+    Ex: 
+    int ANY(int maxValue){ return 0;}
+
+    const int N = 2;
+    typedef int T;
+
+    int main(){
+      T a;
+      for (int i = 0; i < N; i++){
+         a++;
+      }
+      int y = 0;
+      return 0;
+    }
+    STEP1:
+      Introduce a new local name x for variable a and replace all its occurrences inside
+      the section of interest which can be any ast node. In this particular case it is 
+      a for loop.
+
+    int main() {
+      T a;
+      /*@section_of_interest*/ T x = a;
+      for (int i = 0; (i < N); i++) {
+        x++;
+      }
+      a = x; /*section_of_interest@*/
+      int y = 0;
+      return 0;
+    }
+    STEP 2:
+      Apply_ the basic delocalize transformation
+     int main() {
+        T a;
+        /*@section_of_interest*/ T x[N];
+        x[0] = a;
+        for (int dl_k = 1; (dl_k < N); dl_k++) {
+          x[dl_k] = 0;
+        }
+        for (int i = 0; (i < N); i++) {
+          x[ANY(N)]++;
+        }
+        a = x[0];
+        for (int dl_k = 1; (dl_k < N); dl_k++) {
+          a += x[dl_k];
+        } /*section_of_interest@*/
+        int y = 0;
+        return 0;
+    }
 *)
 
 let delocalize ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(dl_ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
@@ -62,7 +111,12 @@ let delocalize ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_inter
   Variable_basic.local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv tg;
   Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark]
 
-
+(* [delocalize ~loop_index ~mark ~dl_ops ~old_var ~new_var ~var_type ~array_size ~local_vars tg] 
+    It's a continuation to the delocalize transformation which will unroll all the introduced loops
+    from the basic delocalize transformation and convert the newly declared array to a list of variables
+    namely for each index on variable, this variables should be given by the user through the labelled 
+    argument [vars].
+*)
 let delocalize_in_vars ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(dl_ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
    ~old_var:(ov : var) ~new_var:(nv : var)  ~var_type:(vt : typ) 
   ~array_size:(arrs : string) ~local_vars:(lv : var list) (tg : Target.target) : unit =

@@ -9,12 +9,12 @@ open Path
 
 (* [bind_intro_aux index fresh_name const p_local t]: bind the variable [fresh_name] to the function_call
     params:
-      index: index of the instruction containing the targeted function call
-      fresh_name: name of the variable which going to be binded to the function call
-      const: a flag for the mutability of the binded variable
-      p_local: the local path from the instruction containing the targeted function call
+      [index]: index of the instruction containing the targeted function call
+      [fresh_name]: name of the variable which going to be binded to the function call
+      [const]: a flag for the mutability of the binded variable
+      [p_local]: the local path from the instruction containing the targeted function call
         to the targeted function call
-      t: ast of the sequence containing the targeted function call
+      [t]: ast of the sequence containing the targeted function call
     return:
       the updated sequence with the new generated binding
 *)
@@ -51,9 +51,9 @@ let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const
       these return statements will be replaced either by set operations if the return statment are not terminal
        then an additional goto statement is added.
     params:
-      exit_label: this label is generated only if the body contains non terminal return instructions
-      r: the name of the variable replacing the return statement
-      t: the ast of the body of the function
+      [exit_label]: this label is generated only if the body contains non terminal return instructions
+      [r]: the name of the variable replacing the return statement
+      [t]: the ast of the body of the function
     returns:
       the updated ast of the body of the function with the replaced all return statements
 *)
@@ -90,11 +90,11 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
 
 (* [inline_aux index body_mark top_ast p_local t] replace a function call with the traslated body of the function called
     params:
-      index: index of the instruction containing the function call
-      body_mark: body_mark used for the traslated body of the function
-      top_ast: the main ast of the file, this is used to check if ome variable is defined before or not
-      p_local: path from the instruction containing the function call to the call
-      t: ast of the sequence containing the instruction with the function call
+      [index]: index of the instruction containing the function call
+      [body_mark]: body_mark used for the traslated body of the function
+      [top_ast]: the main ast of the file, this is used to check if ome variable is defined before or not
+      [p_local]: path from the instruction containing the function call to the call
+      [t]: ast of the sequence containing the instruction with the function call
     returns:
       the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
 *)

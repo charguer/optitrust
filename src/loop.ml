@@ -6,9 +6,9 @@ type rename = Variable_core.Rename.t
 (* [hoist x_step tg] - expects target to point inside the declaration of the variable
     [x_step] - denotes the variable going to be hoisted outside the loop.
     This transformation is similar to the basic one except that it supports also
-      undetached declarations contrary to the basic one. This is done by first checking if
-      the declaration is detached or not. If it is not detached then we call another
-      transformation which does that for us. Otherwise just apply the basic hoist transformation.
+    undetached declarations contrary to the basic one. This is done by first checking if
+    the declaration is detached or not. If it is not detached then we call another
+    transformation which does that for us. Otherwise just apply the basic hoist transformation.
 *)
 let hoist ?(name : var = "${var}_step") (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
@@ -30,8 +30,8 @@ let hoist ?(name : var = "${var}_step") (tg : Target.target) : unit =
         | false -> Loop_basic.hoist ~name (Target.target_of_path p)
   ) tg
 
-(* [fusion nb tg] expects [tg] to point to a for loop followed by two or more
-    loops with the same range, start step and bound but different body.
+(* [fusion nb tg] expects [tg] to point to a for loop followed by one or more
+    for loops with the same range, start step and bound but different body.
     Then it's going to merge bodies of all those loops into a single loop.
     [nb] - denotes the number of loops to consider.
 *)
@@ -75,8 +75,8 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
     a "sequence"(not in the context of Optitrust) of nested loops.
     [before] - a default argument given as empty string, if the user wants to move
       [loop_to_move] before another loop then it should use this default argument with the
-      value the the quoted loop intex
-    [after] - similar to [after] but now is the index of the loop after whom
+      value the quoted loop index
+    [after] - similar to [before] but now is the index of the loop after whom
       we want to move [loop_to_move]
 *)
 let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_move : Target.target) : unit =
@@ -288,10 +288,11 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
   ) tg
 
-(* [reorder order]  expects the target [tg] to point to the first loop included in the sorting
-    the it will reorder the nested loops based on [order]
+(* [reorder order]  expects the target [tg] to point to the first loop included in the [order]
+    list, then it will find all the nested loops starting from the targeted loop [tg] and 
+    reorder them based on [oder].
     Assumption:
-      Loops are nested by using sequences
+      All loops have as bodies blocks of code(sequences)
 *)
 let reorder ?(order : var list = []) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
@@ -315,7 +316,7 @@ let reorder ?(order : var list = []) (tg : Target.target) : unit =
    I think using [tg @ [cForNestedAtDepth i]] would work for targeting the loop at depth i  *)
 (* [pic_coloring tile_size color_size ds tg] expects the target [tg] to point to the first loop
       on which tiling(refer to Loop_basic.tile ) is going to be applied. Then on the loop comming right after the target [tg]
-      coloring transformation (refere to Loop_basic.color).
+      coloring transformation (refer to Loop_basic.color).
       Finally a reorder is going to be applied by using reorder transformation (refer to reorder).
       Assumption:
         The target should be a nested loop 
