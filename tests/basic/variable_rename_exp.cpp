@@ -10,8 +10,8 @@ int g(int x) {
 }
 
 int main() {
-  int a2 = 1;
-  int b = f(a2);
-  int c = g(b2);
+  int a22 = 1;
+  int b22 = f(a);
+  int c22 = g(b);
   return 0;
 }

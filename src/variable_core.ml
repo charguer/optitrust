@@ -150,7 +150,7 @@ let rename_aux (rename : Rename.t) (t : trm) : trm =
           | AddSuffix post_fix ->
             let new_name = x ^ post_fix  in
             let acc = Internal.change_trm (trm_var x) (trm_var new_name) acc  in
-            Internal.change_trm t1 {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc 
+            Internal.change_trm ~is_decl:true t1  {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc 
           | ByList list -> 
             if List.mem_assoc x list then
             begin 

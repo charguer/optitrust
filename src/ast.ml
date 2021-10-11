@@ -1063,15 +1063,23 @@ let contains_variable (x : var) (t : trm) : bool =
   in aux t
 
 
-(* return the name of the declared object *)
-let decl_name (t : trm) : var =
+(* return the name of the declared object as an optional type *)
+let decl_name (t : trm) : var option =
   match t.desc with
-  | Trm_let (_,(x,_),_) -> x
+  | Trm_let (_,(x,_),_) -> Some x
   (* take into account heap allocated variables *)
-  | Trm_let_fun (f, _, _, _) -> f
-  | Trm_typedef td -> td.typdef_tconstr
-  | _ -> fail t.loc "decl_name: expected declaration"
+  | Trm_let_fun (f, _, _, _) -> Some f
+  | Trm_typedef td -> Some td.typdef_tconstr
+  | _ -> None
 
+(* checks if two declarations are of the same category  *)
+let same_node_type (t : trm) (t1 : trm) : bool =
+  begin match t.desc, t1.desc with 
+  | Trm_let _ , Trm_let _ -> true
+  | Trm_let_fun _, Trm_let_fun _ -> true
+  | Trm_typedef _, Trm_typedef _ -> true
+  | _ -> false 
+  end
 
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
@@ -1088,7 +1096,10 @@ let for_loop_index (t : trm) : var =
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [{desc = Trm_var x; _}; _]) ->
         x
-     | _ -> decl_name init
+     | _ -> begin match decl_name init with 
+            | Some x -> x
+            | None -> fail init.loc "for_loop_index: could't get the loop index"
+            end
      end
   | _ -> fail t.loc "for_loop_index: expected for loop"
 

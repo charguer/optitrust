@@ -70,7 +70,10 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
-    let array_name = decl_name d in
+    let array_name = begin match (decl_name d) with
+                     | Some nm -> nm
+                     | None -> fail t.loc "to_variables_aux: could don't find the name of the array declaration"
+                     end in
     let var_decls = begin match d.desc with
     | Trm_let (_, (_ , __), init) ->
       begin match init.desc with
