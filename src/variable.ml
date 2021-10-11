@@ -46,7 +46,7 @@ let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target
   Variable_basic.insert name typ value tg;
   Variable_basic.fold [Target.cVarDef name]
 
-(* [delocalize ~var_type ~old_var ~new_var ~mark ~arr_size ~neutral_element fold_operation tg] 
+(* [delocalize ~var_type ~var ~local_var ~mark ~arr_size ~neutral_element fold_operation tg] 
     expects the target [tg] to point to a for loop. Then it will surround this loop with a @nobrace
     sequence. After that it will apply another transformation called local other name. Which as the name
     suggests it will declare a new variable inside the targeted block and replace the current one with t he new one.
@@ -105,25 +105,29 @@ let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target
     }
 *)
 
-let delocalize ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(dl_ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
-   ~old_var:(ov : var) ~new_var:(nv : var)  ~var_type:(vt : typ) 
+let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
+   ~var:(ov : var) ~local_var:(nv : var)  ~var_type:(vt : typ) 
   ~array_size:(arrs : string) (tg : Target.target) : unit =
-  Variable_basic.local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv tg;
-  Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark]
-
-(* [delocalize ~loop_index ~mark ~dl_ops ~old_var ~new_var ~var_type ~array_size ~local_vars tg] 
+  let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
+  Variable_basic.local_other_name ~mark:middle_mark ~var_type:vt ~var:ov ~local_var:nv tg;
+  Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark middle_mark];
+  begin
+   match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> ()
+  end
+  
+(* [delocalize ~index ~mark ~ops ~var ~local_var ~var_type ~array_size ~local_vars tg] 
     It's a continuation to the delocalize transformation which will unroll all the introduced loops
     from the basic delocalize transformation and convert the newly declared array to a list of variables
     namely for each index on variable, this variables should be given by the user through the labelled 
     argument [vars].
 *)
-let delocalize_in_vars ?(loop_index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(dl_ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
-   ~old_var:(ov : var) ~new_var:(nv : var)  ~var_type:(vt : typ) 
+let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
+   ~var:(ov : var) ~local_var:(nv : var)  ~var_type:(vt : typ) 
   ~array_size:(arrs : string) ~local_vars:(lv : var list) (tg : Target.target) : unit =
-  Variable_basic.local_other_name ~mark ~var_type:vt ~old_var:ov ~new_var:nv tg;
-  Variable_basic.delocalize ~loop_index ~array_size:arrs ~dl_ops [Target.cMark mark];
-  Variable_basic.inline_at [Target.cFor loop_index] [Target.nbAny;Target.cVarDef arrs];
-  Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor loop_index];
+  Variable_basic.local_other_name ~mark ~var_type:vt ~var:ov ~local_var:nv tg;
+  Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark mark];
+  Variable_basic.inline_at [Target.cFor index] [Target.nbAny;Target.cVarDef arrs];
+  Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor index];
   Arrays.to_variables  lv [Target.cVarDef nv];
   Marks.remove "section_of_interest" [Target.cMark "section_of_interest"]
   

@@ -632,9 +632,10 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
   Trace.apply (fun t ->
     let ps = resolve_target tg t in
     let marks = List.map (fun _ -> Mark.next()) ps in
-    let _t_before = t in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
+    (* Tools.printf "%s\n" (Ast_to_c.ast_to_string t); *)
     let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+    (* Tools.printf "%s\n" (Ast_to_c.ast_to_string t); *)
     (* iterate over these marks *)
     try
       Tools.foldi (fun imark t m ->

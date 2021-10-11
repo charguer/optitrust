@@ -139,6 +139,7 @@ vect[nbCorners] getFieldAtCorners(idCell) {
   for (int k = 0; k < nbCorners; k++) {
     result[k] = fields[indices[k]];
   }
+  return result;
 }
 
 // Total charge of the particles already placed in the cell for the next time step
@@ -146,7 +147,9 @@ vect[nbCorners] getFieldAtCorners(idCell) {
 double nextCharge[nbCells];
 
 void accumulateChargeAtCorners(idCell, double charges[nbCorners]) {
-  nextCharge
+
+  // nextCharge
+  return
 }
 
 

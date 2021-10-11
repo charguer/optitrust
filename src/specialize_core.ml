@@ -13,6 +13,7 @@ open Ast
       return:
         the variable occurrence of [array_index]
 *)
+(* LATER: if the bound of any is a literal int and the value is a string representation of int then we can do a check *)
 let any_aux (array_index : var) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (f,_) ->

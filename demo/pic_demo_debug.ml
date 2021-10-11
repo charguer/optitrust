@@ -25,19 +25,20 @@ let _ = Run.script_cpp (fun () ->
   
   (* Introduction of the computation *)
   !! Variable.insert "d" "int" "blockSize/2" [tAfter;cVarDef "blockSize"];
-  !! Variable.insert "distanceToBlockLessThanHalfABlock" "bool"  
+  !! Variable.insert "distanceToBlockLessThanHalfABlock" "bool"  (* TODO: Add optional arg for the type *)
        "(x2 >= bx + d && x2 < bx + blockSize + d)
-    && (y2 >= by + d && y2 < by + blockSize + d)" [tAfter; cVarDef "p2"];
+    && (y2 >= by + d && y2 < by + blockSize + d)
+    && (z2 >= bz + d && z2 < bz + blockSize + d)" [tAfter; cVarDef "p2"];
   !! Flow.insert_if "distanceToBlockLessThanHalfABlock" [cFunDef "main"; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_atomic" [cFunDef "main"; cIf ();dElse; cFun "bag_push"];
   
   (* Delocalize of bagsNext *)
   !! Sequence.intro_between ~mark:"next" [tAfter; cVarDef "bagsNext"] [tBefore; cFor ~body:[cFun "bag_transfer"] "idCell"];
   let ops = Ast.Delocalize_obj ("bag_create", "bag_transfer") in
-  !! Variable.delocalize_in_vars  ~local_vars:["bagsNextPrivate";"bagsNextShared"]~old_var:"bagsNext" ~new_var:"bagsNextLocal" ~var_type:Ast.(typ_ptr Ptr_kind_mut (typ_constr "bag")) ~array_size:"N" ~dl_ops:ops  [cMark "next"];
-  !! Specialize.choose "bagsNextPrivate" [cIf();dThen; cChoose];
-  !! Specialize.choose "bagsNextShared" [cIf();dElse; cChoose];
+  !! Variable.delocalize_in_vars  ~local_vars:["bagsNextPrivate";"bagsNextShared"]~old_var:"bagsNext" ~new_var:"bagsNextLocal" ~var_type:Ast.(typ_ptr Ptr_kind_mut (typ_constr "bag")) ~array_size:"N" ~ops:ops  [cMark "next"];
   !! Sequence.elim [cMark "next"];
+  !! Specialize.choose "bagsNextPrivate" [cFun "bag_push"; cChoose];
+  !! Specialize.choose "bagsNextShared" [cFun "bag_push_atomic"; cChoose];
 
   (* Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];

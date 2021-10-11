@@ -1552,6 +1552,16 @@ type delocalize_ops =
 
 
 
+let get_include_filename (t : trm) : string  = 
+  let f_name = List.fold_left (fun acc x -> 
+    match x with 
+    | Include s -> Some s
+    | _ -> acc
+  ) None t.annot in
+  match f_name with 
+  | Some s -> s
+  | _ -> fail t.loc "get_include_filename: couldn't get the requested filename"
+
 (* type instantiation = trm varmap *)
 
 (* Check if rule is applicable *)

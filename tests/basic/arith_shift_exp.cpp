@@ -21,6 +21,6 @@ int other() {
   for (int i = 0; (i < N); i++) {
     double a = ((double)u[i] + i);
     double b = ((3.14 * a) + 0.68);
-    (float)u[i] = (b + i);
+    u[i] = (float)(b + i);
   }
 }

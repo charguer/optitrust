@@ -69,9 +69,9 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
     (fun (p,i) t -> Variable_core.init_attach const i t p )
 
 
-(* [local_other_name var_type old_var new_var tg] expectes target [tg] to point to a marked
+(* [local_other_name var_type var local_var tg] expectes target [tg] to point to a marked
       sequence. Then it will declare a new variable with name [new_name] and replace all
-      the occurences of [old_var] with [new_var]. The user needs to give the type of the
+      the occurences of [var] with [local_var]. The user needs to give the type of the
       variable for which we want to change the name.
 
       Example:
@@ -84,7 +84,7 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
                                                 a = x;
                                               }@nobrace
 *)
-let local_other_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ) ~old_var:(ov : var) ~new_var:(nv : var) (tg : Target.target) : unit =
+let local_other_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ) ~var:(ov : var) ~local_var:(nv : var) (tg : Target.target) : unit =
   Internal.nobrace_enter();
   Target.apply_on_targets (Variable_core.local_other_name mark vt ov nv) tg
 
@@ -119,14 +119,14 @@ let local_other_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ)
          }@nobrace
 
    }@nobrace.
-   [loop_index]: denotes the index of the two added loops
+   [index]: denotes the index of the two added loops
    [array_size] - denotes the size of the array inside the block
-   [dl_ops]: the delocalize operation, it can be an arithmetic delocalization or an object delocalization
+   [ops]: the delocalize operation, it can be an arithmetic delocalization or an object delocalization
     of the array declared inside the block
 *)
-let delocalize ?(loop_index : string = "dl_k") ~array_size:(arr_s : string) ~dl_ops:(dl_o : delocalize_ops) (tg : Target.target) : unit =
+let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_o : delocalize_ops) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_targets (Variable_core.delocalize arr_s dl_o loop_index ) tg)
+    Target.apply_on_targets (Variable_core.delocalize arr_s dl_o index ) tg)
 
 
 (* [change_type new_type tg] expects [tg] to point to variable declaration

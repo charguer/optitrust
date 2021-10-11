@@ -287,82 +287,81 @@ let init_attach (const : bool) (index : int) : Target.Transfo.local =
   Target.apply_on_path(init_attach_aux const index )
 
 
-(* [local_other_name_aux var_type old_var new_var t]: add a local name and replace all the 
+(* [local_other_name_aux var_type curr_var local_var t]: add a local name and replace all the 
       occurrences of a variable inside a sequence.
     params:
       [mark]: a mark to mark the producesd nobrace sequence
       [var_type]: the type of the variable
-      [old_var]: the previous name of the variable, this is used to find all its occurrences
-      [new_var]: the name of the variable to be declared and replace all the occurrences of old_var
-      [t]: ast of the trm which contains old_var.
+      [curr_var]: the previous name of the variable, this is used to find all its occurrences
+      [local_var]: the name of the variable to be declared and replace all the occurrences of curr_var
+      [t]: ast of the trm which contains curr_var.
     return:
       the ast of a marked(clean) nobrace sequence depending on the flag [mark] which contains
         the term [t] the new declaration and a set operation at the end
 
 *)
-let local_other_name_aux (mark : mark) (var_type : typ) (old_var : var) (new_var : var) (t : trm) : trm =
-  let fst_instr = trm_let Var_mutable (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var old_var]) in
-  let lst_instr = trm_set (trm_var old_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var new_var]) in
-  let new_t = Internal.change_trm (trm_var old_var) (trm_var new_var) t in
+let local_other_name_aux (mark : mark) (var_type : typ) (curr_var : var) (local_var : var) (t : trm) : trm =
+  let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var curr_var]) in
+  let lst_instr = trm_set (trm_var curr_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var local_var]) in
+  let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
   if mark <> "" then trm_add_mark mark final_trm else final_trm
 
-let local_other_name (mark : mark) (var_type : typ) (old_var : var) (new_var : var) : Target.Transfo.local =
-  Target.apply_on_path(local_other_name_aux mark var_type old_var new_var)
+let local_other_name (mark : mark) (var_type : typ) (curr_var : var) (local_var : var) : Target.Transfo.local =
+  Target.apply_on_path(local_other_name_aux mark var_type curr_var local_var)
 
-(* [delocalize_aux array_size dl_ops loop_index t]: after introduced the local_other_name transformation
-      transform the newly declared local variable [new_var]  into an array of size [array size]
+(* [delocalize_aux array_size ops index t]: after introduced the local_other_name transformation
+      transform the newly declared local variable [local_var]  into an array of size [array size]
       and add to loops: the first one to initialize the elements of the added array and the last one 
       to reduce the array into a single value, the inittialization value and the reducing(folding operation)
-      is given through [dl_ops].
+      is given through [ops].
     params:
       [array_size]: size of the arrays to be declared inside the targeted sequence
-      [dl_ops]: delocalize operation representing the unitary lement used for initialization 
+      [ops]: delocalize operation representing the unitary lement used for initialization 
         and the folding operation used for the reduction
-      [loop_index]: the index for the two added loops
+      [index]: the index for the two added loops
       [t]: the ast of the sequence generated after applying the local_other_name transformation
     return:
       the update ast of [t]
 *)
-let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index : string) (t : trm) : trm =
+let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl ->
     if Mlist.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
-    
     let def = Mlist.nth tl 0 in
     let middle_instr = Mlist.nth tl 1 in
     begin match def.desc with
     | Trm_let (vk, (x, tx), _) ->
-      let new_var = x in
-      let old_var_trm = get_init_val def in
+      let local_var = x in
+      let curr_var_trm = get_init_val def in
       let var_type = (get_inner_ptr_type tx) in
       let add_star_if_ptr (t : trm) : trm = 
         if is_typ_ptr (get_inner_ptr_type tx)  then add_star t
           else t
           in 
-      let init_trm, op = begin match dl_ops with 
+      let init_trm, op = begin match ops with 
       | Delocalize_arith (li, op) ->
-          trm_lit li, (trm_set ~annot:[App_and_set] (old_var_trm)
+          trm_lit li, (trm_set ~annot:[App_and_set] (curr_var_trm)
                             (trm_apps (trm_binop op) [
-                             old_var_trm;
-                              trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]])) 
+                             curr_var_trm;
+                              trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_var index]])) 
       | Delocalize_obj (clear_f, transfer_f) ->
           trm_apps ~typ:(Some (typ_unit ())) (trm_var clear_f) [], 
           trm_apps ~typ:(Some (typ_unit())) (trm_var transfer_f) 
-            [add_star_if_ptr old_var_trm ; 
-            add_star_if_ptr  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index])]
+            [add_star_if_ptr curr_var_trm ; 
+            add_star_if_ptr  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_var index])]
       end in
       let new_first_trm = trm_seq_no_brace[
-          trm_let vk (new_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
-          trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]) old_var_trm;
-          trm_for loop_index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
-         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_var loop_index]) init_trm])]
+          trm_let vk (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
+          trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_lit (Lit_int 0)]) curr_var_trm;
+          trm_for index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
+         (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_var index]) init_trm])]
           in
-      let new_snd_instr = Internal.change_trm (trm_var new_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) middle_instr  in
+      let new_snd_instr = Internal.change_trm (trm_var local_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) middle_instr  in
       let new_thrd_trm = trm_seq_no_brace [
-                      trm_set (old_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var new_var; trm_lit (Lit_int 0)]);
+                      trm_set (curr_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_lit (Lit_int 0)]);
                       (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
-                      trm_for loop_index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
+                      trm_for index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
                         (trm_seq_nomarks [op])
                      ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in
@@ -374,8 +373,8 @@ let delocalize_aux (array_size : string) (dl_ops : delocalize_ops) (loop_index :
   | _ -> fail t.loc "delocalize_aux: expected the nobrace sequence"
 
 
-let delocalize (array_size : string) (dl_ops : delocalize_ops) (loop_index : string) : Target.Transfo.local =
-  Target.apply_on_path (delocalize_aux array_size dl_ops loop_index )
+let delocalize (array_size : string) (ops : delocalize_ops) (index : string) : Target.Transfo.local =
+  Target.apply_on_path (delocalize_aux array_size ops index )
 
 
 
