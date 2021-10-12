@@ -555,6 +555,10 @@ void bag_push_serial(bag* b, particle p) {
   }
 }
 
+void bag_push(bag* b, particle p) {
+  return bag_push_serial(b, p);
+}
+
 /*
  * Swap the contents of two bags
  */
@@ -577,6 +581,7 @@ void bag_destructive_iter(bag* b, void f(particle*)) {
       f(cur_p);
     }
   }
+  bag_nullify(b);
 }
 
 // First-order iterator

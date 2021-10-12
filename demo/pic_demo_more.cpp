@@ -232,54 +232,6 @@ double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
 bag bagsCur[nbCells];
 bag bagsNext[nbCells];
 
-typedef particle* bag_iterator;
-
-
-
-
-
-void operations_in_particle (particle* p1, vect_nbCorners fieldAtCorners){
-  // interpolate the field based on the position relative to the corners of the cell
-        particle &p = *p1;
-        const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
-        vect field_at_pos = vect_matrix_mul(coeffs, fieldAtCorners);
-
-        // Compute the new speed and position for the particle.
-        // When ClangML supports it, we'll use overloaded + and * operators on class vect
-        const vect speed2 = vect_add(p.speed, vect_mul(charge, field_at_pos));
-        const vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
-
-        // Deposit the charge of the particle at the corners of the target cell
-        const int idCell2 = idCellOfPos(pos2);
-        accumulateChargeAtCorners(idCell2, vect8_mul(charge, coeffs));
-
-        // Push the updated particle into the bag associated with its target cell
-        const particle p2 = { pos2, speed2 };
-        bag_push_concurrent(&bagsNext[idCell2], p2, 0);
-}
-
-// DEPRECATED
-// bag_iterator bag_destructive_iterator_create();
-
-// particle* bag_iterator_begin (bag_iterator it, bag* b){
-//   particle p_cur = b->front-> items[0];
-//   it = &p_cur;
-//   return it;
-// }
-
-// particle* bag_iterator_next (bag_iterator it, bag* b) {
-
-// }
-
-
-// particle* bag_iterator_end (bag_iterator it, bag* b){
-//   chunk* back_chunk = b->back;
-//   particle p_cur = back_chunk-> items[back_chunk->size-1];
-//   it = &p_cur;
-//   return it;
-// }
-
-
 // --------- Module Simulation
 
 int main() {
@@ -297,40 +249,34 @@ int main() {
       bag* b = &bagsCur[idCell];
 
       // Perform a destructive iteration on that bag,
-      // meaning that chunks are freed after traversal,
-      // and the bag cleared at the end of the traversal.
-      // Ideally, we would use a higher-order iteration function,
-      // but since ClangML does not support this feature yet,
-      // we temporarily encode it using an iterator.
-      // bag_iterator it = bag_destructive_iterator_create(b);
-
+      // meaning that chunks are freed after traversal.
       bag_iter it;
       bag_iter_init(&it, b);
       for (particle* cur_p = bag_iter_current(&it); !bag_iter_finished(&it); cur_p = bag_iter_next_destructive(&it)) {
          particle &p = *cur_p;
 
-      //   // interpolate the field based on the position relative to the corners of the cell
-      //   const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
-      //   vect field_at_pos = vect_matrix_mul(coeffs, field_at_corners);
+        // interpolate the field based on the position relative to the corners of the cell
+        const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
+        vect field_at_pos = vect_matrix_mul(coeffs, field_at_corners);
 
-      //   // Compute the new speed and position for the particle.
-      //   // When ClangML supports it, we'll use overloaded + and * operators on class vect
-      //   const vect speed2 = vect_add(p.speed, vect_mul(charge, field_at_pos));
-      //   const vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
+        // Compute the new speed and position for the particle.
+        const vect speed2 = vect_add(p.speed, vect_mul(charge, field_at_pos));
+        const vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
-      //   // Deposit the charge of the particle at the corners of the target cell
-      //   const int idCell2 = idCellOfPos(pos2);
-      //   accumulateChargeAtCorners(idCell2, vect8_mul(charge, coeffs));
+        // Deposit the charge of the particle at the corners of the target cell
+        const int idCell2 = idCellOfPos(pos2);
+        const double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
+        accumulateChargeAtCorners(idCell2, vect8_mul(charge, coeffs2));
 
-      //   // Push the updated particle into the bag associated with its target cell
-      //   const particle p2 = { pos2, speed2 };
-      //   bag_push(bagsNext[idCell2], p2);
-      // }
+        // Push the updated particle into the bag associated with its target cell
+        const particle p2 = { pos2, speed2 };
+        bag_push(&bagsNext[idCell2], p2);
     }
+    bag_nullify(b);
+
 
     // Update the new field based on the total charge accumulated in each cell
-    // TODO: Define this function
-    // updateFieldsUsingNextCharge();
+    updateFieldsUsingNextCharge();
 
     // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
     for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -341,3 +287,6 @@ int main() {
 }
 
 
+// LATER: When ClangML supports it, we'll use overloaded + and * operators on class vect
+// LATER: When ClangML supports it, we'll use higher-order iteration with a local function
+// LATER: When ClangML supports it, we'll use boost arrays for fixed size arrays
