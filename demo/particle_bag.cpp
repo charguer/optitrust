@@ -82,9 +82,13 @@ typedef struct bag {
   chunk* back;
 } bag;
 
+// TODO: move above in this file into particle_chunk.h
+
 
 //==========================================================================
 // Manual memory management for chunks
+
+// TODO: move this section into particle_chunk_alloc.h
 
 // You need one free list per processor
 unsigned int FREELIST_SIZE;
@@ -131,7 +135,7 @@ int** spare_chunk_location;
  * @param[in] thread_id the index of the thread asking for a new chunk.
  * @return    a chunk almost ready to be filled with particles (set size to 0 before).
  */
-chunk* chunk_alloc(int thread_id) {
+chunk* manual_chunk_alloc(int thread_id) {
   if (FREE_INDEX(thread_id) > 0) {
     return free_chunks[thread_id][--FREE_INDEX(thread_id)];
   } else {
@@ -150,7 +154,7 @@ chunk* chunk_alloc(int thread_id) {
  * @param[in] c         the chunk to be put back in the freelist.
  * @param[in] thread_id the index of the thread asking for this release.
  */
-void chunk_free(chunk* c, int thread_id) {
+void manual_chunk_free(chunk* c, int thread_id) {
   if (FREE_INDEX(thread_id) < FREELIST_SIZE) {
     free_chunks[thread_id][FREE_INDEX(thread_id)++] = c;
   } else {
@@ -208,7 +212,7 @@ void locate_spare_chunk(int id_bag, int id_cell, int thread_id) {
 const int THREAD_INITIAL = -1;
 const int THREAD_ZERO = 0;
 
-chunk* obtain_chunk_initial() {
+chunk* manual_obtain_chunk_initial() {
   // We are never too careful (-:
   if (FREE_INDEX(THREAD_ZERO) < 1) {
     fprintf(stderr, "Not enough chunks in all_free_chunks. Check its allocation.\n");
@@ -221,9 +225,9 @@ chunk* obtain_chunk_initial() {
  * Obtain a chunk from the free list; used by bag_init (i.e. outside of the particle loop)
  * ARTHUR: document this function
  */
-chunk* obtain_chunk(int id_bag, int id_cell, int thread_id) {
+chunk* manual_obtain_chunk(int id_bag, int id_cell, int thread_id) {
   if (thread_id == THREAD_INITIAL) {
-    return obtain_chunk_initial();
+    return manual_obtain_chunk_initial();
   }
 #ifdef SPARE_LOC_OPTIMIZED
   if (spare_chunk_location[thread_id][SPARE_CHUNK_LOCATION_OFFSET] >= spare_chunk_location[thread_id][SPARE_CHUNK_LOCATION_MAX_OFFSET])
@@ -310,6 +314,23 @@ void update_free_list_sizes() {
 }
 
 
+
+//==========================================================================
+// Naive chunk allocation operations
+
+chunk* chunk_alloc() {
+  return (chunk*) malloc(sizeof(chunk));
+}
+
+chunk* obtain_chunk() {
+  return chunk_alloc();
+}
+
+void chunk_free(chunk* c) {
+  free(c);
+}
+
+
 //==========================================================================
 // External chunk operations
 
@@ -370,8 +391,8 @@ void update_free_list_sizes() {
  *
  * @param[in, out] b the bag to initialize.
  */
-void bag_init(bag* b, int id_bag, int id_cell, int thread_id) {
-  chunk* c = obtain_chunk(id_bag, id_cell, thread_id);
+void bag_init(bag* b, int id_bag, int id_cell) {
+  chunk* c = obtain_chunk(id_bag, id_cell);
   c->size = 0;
   c->next = NULL;
   b->front = c;
@@ -385,11 +406,11 @@ void bag_init(bag* b, int id_bag, int id_cell, int thread_id) {
  * @param[in, out] b
  * @param[in, out] other
  */
-void bag_append(bag* b, bag* other, int id_bag, int id_cell, int thread_id) {
+void bag_append(bag* b, bag* other, int id_bag, int id_cell) {
   if (other->front) {
     b->back->next = other->front;
     b->back       = other->back;
-    bag_init(other, id_bag, id_cell, thread_id);
+    bag_init(other, id_bag, id_cell);
   }
 }
 
@@ -442,8 +463,8 @@ int bag_size(bag* b) {
  *
  * @param[in, out] b the bag in which to put the new chunk.
  */
-void add_front_chunk(bag* b, int thread_id) {
-  chunk* c = chunk_alloc(thread_id);
+void add_front_chunk(bag* b) {
+  chunk* c = chunk_alloc();
   // Warning - TODO: the instruction c->size=0 might be viewd switched with b->front=c by other threads, which would lead to non-valid code.
   // (e.g. on PowerPC, the present code is valid on Intel).
   // Solution: adding a memory fence (putting write c->size=0 when freeing a chunk, and not when adding it is not enough).
@@ -480,7 +501,7 @@ chunk* atomic_read(chunk** p) {
  * @param[in, out] b
  * @param[in]      p
  */
-void bag_push_concurrent(bag* b, particle p, int thread_id) {
+void bag_push_concurrent(bag* b, particle p) {
   chunk* c;
   int index;
   while (true) { // Until success.
@@ -496,7 +517,7 @@ void bag_push_concurrent(bag* b, particle p, int thread_id) {
         // The chunk is now full, we extend the bag.
         // Inside add_front_chunk, the update of the b->front
         // pointer is made atomic so that other threads see the update.
-        add_front_chunk(b, thread_id);
+        add_front_chunk(b);
       }
       return;
     } else {
@@ -524,13 +545,13 @@ void bag_push_concurrent(bag* b, particle p, int thread_id) {
  * @param[in, out] b
  * @param[in]      p
  */
-void bag_push_serial(bag* b, particle p, int thread_id) {
+void bag_push_serial(bag* b, particle p) {
   chunk* c = b->front;
   int index = c->size++;
   c->items[index] = p;
   if (index == CHUNK_SIZE - 1) {
     // chunk is full, we extend the bag
-    add_front_chunk(b, thread_id);
+    add_front_chunk(b);
   }
 }
 
@@ -556,11 +577,11 @@ void bag_swap(bag* b1, bag* b2) {
  */
 
 void bag_push_initial(bag* b, particle p) {
-  bag_push_serial(b, p, THREAD_INITIAL);
+  bag_push_serial(b, p); // threadid=THREAD_INITIAL
 }
 
 void bag_init_initial(bag* b) {
-  bag_init(b, -1, -1, THREAD_INITIAL);
+  bag_init(b, -1, -1); // threadid=THREAD_INITIAL
   // TODO: maybe put the thread_id argument before id_bag and id_cell (both are dummy values here)
 }
 

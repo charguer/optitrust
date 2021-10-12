@@ -9,7 +9,7 @@
 #include "particle_bag.cpp"
 
 
-// --------- OptiTrust macros // temporary
+// --------- OptiTrust macros // TODO: optitrust.h
 
 bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
 
@@ -38,6 +38,8 @@ const double cellSize = 0.001;
 
 // size of the blocks used in loop tiling
 const int blocksize = 2;
+
+// --------- Vector operations TODO: move to particle.h
 
 vect vect_add(vect v1, vect v2) {
   return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
@@ -83,7 +85,7 @@ vect fields[nbCells];
 
 int cellOfCoord(int i, int j, int k) {
   return (i * gridSize + j)* gridSize + k;
-}
+} // TODO: replace with MINDEX(G,G,G,i,j,k), where "const int G = gridSize"
 
 // idCellOfPos computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
@@ -97,7 +99,7 @@ double relativePosInCell(double x) { // likewise for all dimensions
   int i = index_of_double(x);
   return (x - (double) i) / gridSize;
 }
-
+/* DEPRECATED
 // coord array of size 3
 void compute_coordOfCell (int idCell, int* coord_arr) {
   int z = idCell % gridSize;
@@ -106,30 +108,42 @@ void compute_coordOfCell (int idCell, int* coord_arr) {
   int x = xy / gridSize;
   coord_arr[0] = x;
   coord_arr[1] = y;
-  coord_arr[1] = z;
+  coord_arr[2] = z;
+}*/
+typedef struct {
+  int ix;
+  int iy;
+  int iz;
+} coord;
+
+coord coordOfCell(int idCell) {
+  int iz = idCell % gridSize;
+  int ixy = idCell / gridSize;
+  int iy = ixy % gridSize;
+  int ix = ixy / gridSize;
+  return { ix, iy, iz };
 }
 
 
-// struct for storing indices of corners 
+// struct for storing indices of corners
 typedef struct {
-  int values[nbCorners];
+  int val[nbCorners];
 } int_nbCorners;
 
 // struct for storing corner coefficients
 typedef struct {
-  double values[nbCorners];
+  double val[nbCorners];
 } double_nbCorners;
 
 typedef struct {
-  vect values[nbCorners];
+  vect val[nbCorners];
 } vect_nbCorners;
 
 int_nbCorners indicesOfCorners (int idCell) {
-  int coord[3];
-  compute_coordOfCell(idCell, coord);
-  int x = coord[0];
-  int y = coord[1];
-  int z = coord[2];
+  coord coord = coordOfCell(idCell);
+  int x = coord.ix; // LATER/ could add "i" in front of all variables
+  int y = coord.iy;
+  int z = coord.iz;
   int x2 = wrap(x+1);
   int y2 = wrap(y+1);
   int z2 = wrap(z+1);
@@ -145,13 +159,11 @@ int_nbCorners indicesOfCorners (int idCell) {
   };
 }
 
-
-
 vect_nbCorners getFieldAtCorners(int idCell) {
   int_nbCorners indices = indicesOfCorners(idCell);
   vect_nbCorners result;
   for (int k = 0; k < nbCorners; k++) {
-    result.values[k] = fields[indices.values[k]];
+    result.val[k] = fields[indices.val[k]];
   }
   return result;
 
@@ -161,20 +173,16 @@ vect_nbCorners getFieldAtCorners(int idCell) {
 // charge are also accumulated in the corners of the cells
 double nextCharge[nbCells];
 
-
-
-
 void accumulateChargeAtCorners(int idCell, double_nbCorners charges) {
   int_nbCorners indices = indicesOfCorners(idCell);
   for(int k = 0; k < nbCorners; k++){
-    nextCharge[indices.values[k]] += charges.values[k];
+    nextCharge[indices.val[k]] += charges.val[k];
   }
 }
 
-
 // updateFieldsUsingNextCharge in an operation that reads nextCharge,
-// resets it to zero, and updates the values in the fields array.
-void updateFieldsUsingNextCharge();
+// resets it to zero, and updates the val in the fields array.
+void updateFieldsUsingNextCharge() { }
 
 // --------- Interpolation operations
 
@@ -202,34 +210,27 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   };
 }
 
-
-
+// returns the vector obtained as the product of [matrix] with the vector [coeffs]
 vect vect_matrix_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
-  
-  
   vect result = { 0., 0., 0. };
   for (int k = 0; k < nbCorners; k++) {
-    result = vect_add(result, vect_mul(coeffs.values[k], matrix.values[k]));
+    result = vect_add(result, vect_mul(coeffs.val[k], matrix.val[k]));
   }
   return result;
 }
 
-
-
+// returns the product of the scalar [a] over the vector of doubles [v]
 double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
   double_nbCorners result;
   for (int k = 0; k < nbCorners; k++) {
-    result.values[k] = a * v.values[k];
+    result.val[k] = a * v.val[k];
   }
   return result;
 }
-
-
 
 // Particles in each cell, at the current and the next time step
 bag bagsCur[nbCells];
 bag bagsNext[nbCells];
-
 
 typedef particle* bag_iterator;
 
@@ -264,7 +265,7 @@ void operations_in_particle (particle* p1, vect_nbCorners fieldAtCorners){
 
 // DEPRECATED
 // bag_iterator bag_destructive_iterator_create();
-  
+
 // particle* bag_iterator_begin (bag_iterator it, bag* b){
 //   particle p_cur = b->front-> items[0];
 //   it = &p_cur;
@@ -282,10 +283,6 @@ void operations_in_particle (particle* p1, vect_nbCorners fieldAtCorners){
 //   it = &p_cur;
 //   return it;
 // }
-
-
-
-
 
 
 // --------- Module Simulation
