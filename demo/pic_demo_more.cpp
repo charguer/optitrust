@@ -39,9 +39,6 @@ const double cellSize = 0.001;
 // size of the blocks used in loop tiling
 const int blocksize = 2;
 
-
-
-
 vect vect_add(vect v1, vect v2) {
   return { v1.x + v2.x, v1.y + v2.y, v1.z + v2.z };
 }
@@ -49,7 +46,6 @@ vect vect_add(vect v1, vect v2) {
 vect vect_mul(double d, vect v) {
   return { d * v.x, d * v.y, d * v.z };
 }
-
 
 // --------- Grid coordinate functions
 
@@ -85,10 +81,8 @@ const int nbCorners = 8;
 // The grid is treated with wrap-around
 vect fields[nbCells];
 
- // TODO: could use i,j,k for cell coordinates, to avoid confusion with x,y,z the absolute coordinates?
-
-int cellOfCoord(int x, int y, int z) {
-  return (x * gridSize + y)* gridSize + z;
+int cellOfCoord(int i, int j, int k) {
+  return (i * gridSize + j)* gridSize + k;
 }
 
 // idCellOfPos computes the id of the cell that contains a position.
@@ -115,9 +109,26 @@ void compute_coordOfCell (int idCell, int* coord_arr) {
   coord_arr[1] = z;
 }
 
-// indices array of size 8
-// later compute
-void compute_indicesOfCorners (int idCell, int* indices) {
+
+// struct for storing indices of corners 
+typedef struct {
+  int values[nbCorners];
+} int_nbCorners;
+
+// struct for storing corner coefficients
+typedef struct {
+  double values[nbCorners];
+} double_nbCorners;
+
+typedef struct {
+  vect values[nbCorners];
+} vect_nbCorners;
+
+
+
+
+
+int_nbCorners indicesOfCorners (int idCell) {
   int coord[3];
   compute_coordOfCell(idCell, coord);
   int x = coord[0];
@@ -126,50 +137,41 @@ void compute_indicesOfCorners (int idCell, int* indices) {
   int x2 = wrap(x+1);
   int y2 = wrap(y+1);
   int z2 = wrap(z+1);
-  int indices[8];
-  indices[0] = cellOfCoord(x,y,z);
-  indices[1] = cellOfCoord(x,y,z2);
-  indices[2] = cellOfCoord(x,y2,z);
-  indices[3] = cellOfCoord(x,y2,z2);
-  indices[4] = cellOfCoord(x2,y,z);
-  indices[5] = cellOfCoord(x2,y,z2);
-  indices[6] = cellOfCoord(x2,y2,z);
-  indices[7] = cellOfCoord(x2,y2,z2);
-}
-vect[nbCorners] getFieldAtCorners(idCell) {
-
-
-  int indices[nbCorners];
-  compute_indicesOfCorners(idCell, &indices, nbCorners);
-  vect result[nbCorners];
-  for (int k = 0; k < nbCorners; k++) {
-    result[k] = fields[indices[k]];
-  }
-  return result;
+  return {
+    cellOfCoord(x,y,z),
+    cellOfCoord(x,y,z2),
+    cellOfCoord(x,y2,z),
+    cellOfCoord(x,y2,z2),
+    cellOfCoord(x2,y,z),
+    cellOfCoord(x2,y,z2),
+    cellOfCoord(x2,y2,z),
+    cellOfCoord(x2,y2,z2),
+  };
 }
 
-void computer_FieldAtCorners(idCell) {
 
 
-  int indices[nbCorners];
-  compute_indicesOfCorners(idCell, &indices, nbCorners);
-  vect result[nbCorners];
+vect_nbCorners getFieldAtCorners(int idCell) {
+  int_nbCorners indices = indicesOfCorners(idCell);
+  vect_nbCorners result;
   for (int k = 0; k < nbCorners; k++) {
-    result[k] = fields[indices[k]];
+    result.values[k] = fields[indices.values[k]];
   }
   return result;
+
 }
 
 // Total charge of the particles already placed in the cell for the next time step
 // charge are also accumulated in the corners of the cells
 double nextCharge[nbCells];
 
-// charges an array of type [nbCorners]
-void accumulateChargeAtCorners(idCell, double* charges) {
-  int indices[nbCorners];
-  compute_indicesOfCorners(idCell, &indices);
-  for (int k = 0; k < nbCorners; k++) {
-    nextCharge[indices[k]] += charges[k];
+
+
+
+void accumulateChargeAtCorners(int idCell, double_nbCorners charges) {
+  int_nbCorners indices = indicesOfCorners(idCell);
+  for(int k = 0; k < nbCorners; k++){
+    nextCharge[indices.values[k]] += charges.values[k];
   }
 }
 
@@ -184,7 +186,8 @@ void updateFieldsUsingNextCharge();
 // compute the coefficient for interpolation at each corner;
 // the value for one corner is proportional to the volume between the particle
 // and the opposite corner.
-double[nbCorners] cornerInterpolationCoeff(vect pos) {
+
+double_nbCorners cornerInterpolationCoeff(vect pos) {
   double rx = relativePosInCell(pos.x);
   double ry = relativePosInCell(pos.y);
   double rz = relativePosInCell(pos.z);
@@ -203,18 +206,24 @@ double[nbCorners] cornerInterpolationCoeff(vect pos) {
   };
 }
 
-vect vect_matrix_mul(const double coeffs[nbCorners], const vect matrix[nbCorners]) {
+
+
+vect vect_matrix_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
+  
+  
   vect result = { 0., 0., 0. };
   for (int k = 0; k < nbCorners; k++) {
-    result = vect_add(result, vect_mul(coeffs[k], matrix[k]));
+    result = vect_add(result, vect_mul(coeffs.values[k], matrix.values[k]));
   }
   return result;
 }
 
-double[nbCorners] vect8_mul(const double a, const double v[nbCorners]) {
-  vect result;
+
+
+double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
+  double_nbCorners result;
   for (int k = 0; k < nbCorners; k++) {
-    result[k] = a * v[k];
+    result.values[k] = a * v.values[k];
   }
   return result;
 }
@@ -224,6 +233,33 @@ double[nbCorners] vect8_mul(const double a, const double v[nbCorners]) {
 // Particles in each cell, at the current and the next time step
 bag bagsCur[nbCells];
 bag bagsNext[nbCells];
+
+
+typedef particle* bag_iterator;
+
+void destructive_iter(bag* b, void f(particle* p)) {
+  for (chunk* c = b->front; c != NULL; c = c -> next){
+    for (int i = 0; i < c->size; i++){
+      particle cur_p = (c -> items[i]);
+      f(&cur_p);
+    }
+  }
+}
+
+bag_iterator bag_destructive_iterator_create();
+  
+particle* bag_iterator_begin (bag_iterator it, bag* b){
+  particle p_cur = b->front-> items[0];
+  it = &p_cur;
+  return it;
+}
+
+particle* bag_iterator_end (bag_iterator it, bag* b){
+  chunk* back_chunk = b->back;
+  particle p_cur = back_chunk-> items[back_chunk->size-1];
+  it = &p_cur;
+  return it;
+}
 
 
 // --------- Module Simulation
@@ -237,7 +273,7 @@ int main() {
     for (int idCell = 0; idCell < nbCells; idCell++) {
 
       // Read the electric field that applies to the corners of the cell considered
-      vect field_at_corners[nbCorners] = getFieldAtCorners(idCell);
+      vect_nbCorners field_at_corners = getFieldAtCorners(idCell);
 
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
@@ -249,12 +285,12 @@ int main() {
       // but since ClangML does not support this feature yet,
       // we temporarily encode it using an iterator.
       bag_iterator it = bag_destructive_iterator_create(b);
-      for (particle* cur_p = it.begin(); cur_p < it.end(); it++) {
+
+      for (particle* cur_p = bag_iterator_begin(it); cur_p < bag_iterator_end(it); it++) {
         particle &p = *cur_p;
 
         // interpolate the field based on the position relative to the corners of the cell
-        double coeffs[nbCorners];
-        compute_cornerInterpolationCoeff(p.pos, coeffs);
+        const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
         vect field_at_pos = vect_matrix_mul(coeffs, field_at_corners);
 
         // Compute the new speed and position for the particle.
@@ -264,9 +300,7 @@ int main() {
 
         // Deposit the charge of the particle at the corners of the target cell
         const int idCell2 = idCellOfPos(pos2);
-        double_nbCorners coeffs2 = cornerInterpolationCoeff(p.pos);
-        double_nbCorners charges = vect8_mul(charge, coeffs2);
-        accumulateChargeAtCorners(idCell2, charges);
+        accumulateChargeAtCorners(idCell2, vect8_mul(charge, coeffs));
 
         // Push the updated particle into the bag associated with its target cell
         const particle p2 = { pos2, speed2 };
