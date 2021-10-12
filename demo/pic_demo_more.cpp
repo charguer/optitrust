@@ -234,14 +234,9 @@ bag bagsNext[nbCells];
 
 typedef particle* bag_iterator;
 
-void destructive_iter(bag* b, vect_nbCorners fieldAtCorners,void f(particle*, vect_nbCorners )) {
-  for (chunk* c = b->front; c != NULL; c = c -> next){
-    for (int i = 0; i < c->size; i++){
-      particle cur_p = (c -> items[i]);
-      f(&cur_p,fieldAtCorners);
-    }
-  }
-}
+
+
+
 
 void operations_in_particle (particle* p1, vect_nbCorners fieldAtCorners){
   // interpolate the field based on the position relative to the corners of the cell
@@ -309,9 +304,10 @@ int main() {
       // we temporarily encode it using an iterator.
       // bag_iterator it = bag_destructive_iterator_create(b);
 
-      destructive_iter(b, field_at_corners, &operations_in_particle);
-      // for (particle* cur_p = bag_iterator_begin(it); cur_p < bag_iterator_end(it); it++) {
-      //   particle &p = *cur_p;
+      bag_iter it;
+      bag_iter_init(&it, b);
+      for (particle* cur_p = bag_iter_current(&it); !bag_iter_finished(&it); cur_p = bag_iter_next_destructive(&it)) {
+         particle &p = *cur_p;
 
       //   // interpolate the field based on the position relative to the corners of the cell
       //   const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);

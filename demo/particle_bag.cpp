@@ -564,6 +564,62 @@ void bag_swap(bag* b1, bag* b2) {
   *b2 = temp;
 }
 
+//==========================================================================
+// Iteration
+
+// Higher-order iteration, destructive version
+
+void bag_destructive_iter(bag* b, void f(particle*)) {
+  for (chunk* c = b->front; c != NULL; c = c->next) {
+    int nb = c->size;
+    for (int i = 0; i < nb; i++) {
+      particle* cur_p = &c->items[i];
+      f(cur_p);
+    }
+  }
+}
+
+// First-order iterator
+typedef struct {
+  chunk* chunk;
+  int size;
+  int index;
+} bag_iter;
+
+void bag_iter_load_chunk(bag_iter* it, chunk* c) {
+  it->chunk = c;
+  if (c != NULL) {
+    it->size = c->size;
+    it->index = 0;
+  }
+}
+
+particle* bag_iter_current(bag_iter* it) {
+  return &it->chunk[it->index]
+}
+
+void bag_iter_init(bag_iter* it, bag* b) {
+  bag_iter_load_chunk(it, b->front);
+}
+
+bool bag_iter_finished(bag_iter* it) {
+  return it->chunk == NULL;
+}
+
+particle* bag_iter_next_destructive(bag_iter* it) {
+  int i = it->index;
+  it->index++;
+  if (it->index == it->size) {
+    chunk* c = it->chunk;
+    bag_iter_load_chunk(it, c->next);
+    chunk_free(c); // because destructive iteration
+    if (bag_iter_finished(it)) {
+      return NULL;
+    }
+  }
+  return bag_iter_current(it);
+}
+
 
 //==========================================================================
 // Initial, sequential manipulation of bags
