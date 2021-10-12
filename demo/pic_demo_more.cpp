@@ -78,11 +78,6 @@ int wrap(int x) { // could be likewise on other dimensions
 
 const int nbCorners = 8;
 
-// Strength of the field that applies to each cell
-// fields[idCell] corresponds to the field at the top-right corner of the cell idCell;
-// The grid is treated with wrap-around
-vect fields[nbCells];
-
 int cellOfCoord(int i, int j, int k) {
   return (i * gridSize + j)* gridSize + k;
 } // TODO: replace with MINDEX(G,G,G,i,j,k), where "const int G = gridSize"
@@ -159,30 +154,21 @@ int_nbCorners indicesOfCorners (int idCell) {
   };
 }
 
-vect_nbCorners getFieldAtCorners(int idCell) {
+vect_nbCorners getFieldAtCorners(vect* field, int idCell) {
   int_nbCorners indices = indicesOfCorners(idCell);
   vect_nbCorners result;
   for (int k = 0; k < nbCorners; k++) {
-    result.val[k] = fields[indices.val[k]];
+    result.val[k] = field[indices.val[k]];
   }
   return result;
-
 }
 
-// Total charge of the particles already placed in the cell for the next time step
-// charge are also accumulated in the corners of the cells
-double nextCharge[nbCells];
-
-void accumulateChargeAtCorners(int idCell, double_nbCorners charges) {
+void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners charges) {
   int_nbCorners indices = indicesOfCorners(idCell);
   for(int k = 0; k < nbCorners; k++){
     nextCharge[indices.val[k]] += charges.val[k];
   }
 }
-
-// updateFieldsUsingNextCharge in an operation that reads nextCharge,
-// resets it to zero, and updates the val in the fields array.
-void updateFieldsUsingNextCharge() { }
 
 // --------- Interpolation operations
 
@@ -198,7 +184,7 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   double cx = 1. - rx;
   double cy = 1. - ry;
   double cz = 1. - rz;
-  return {
+  return { {
     cx * cy * cz,
     cx * cy * rz,
     cx * ry * cz,
@@ -207,7 +193,7 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
     rx * cy * rz,
     rx * ry * cz,
     rx * ry * rz,
-  };
+  } };
 }
 
 // returns the vector obtained as the product of [matrix] with the vector [coeffs]
@@ -228,22 +214,41 @@ double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
   return result;
 }
 
-// Particles in each cell, at the current and the next time step
-bag bagsCur[nbCells];
-bag bagsNext[nbCells];
+// --------- LEFT to implement
+
+void init_bags(bag* bagsCur, bag* bagsNext) {}
+
+void init_field(vect* field) {}
+
+void updateFieldUsingNextCharge(double* nextCharge, vect* field) { }
+
 
 // --------- Module Simulation
 
 int main() {
 
+  // Particles in each cell, at the current and the next time step
+  bag* bagsCur = (bag*) malloc(nbCells * sizeof(bag));
+  bag* bagsNext = (bag*) malloc(nbCells * sizeof(bag));
+  init_bags(bagsCur, bagsNext);
+
+  // Strength of the field that applies to each cell
+  // fields[idCell] corresponds to the field at the top-right corner of the cell idCell;
+  // The grid is treated with wrap-around
+  vect* field = (double*) malloc(nbCells * sizeof(vect));
+  init_field(field);
+
   // Foreach time step
   for (int step = 0; step < nbSteps; step++) {
+
+    // nextCharge[idCell] corresponds to the cell in the front-top-left corner of that cell
+    double* nextCharge = (double*) calloc(nbCells, sizeof(double)); // zero initialize
 
     // For each cell from the grid
     for (int idCell = 0; idCell < nbCells; idCell++) {
 
       // Read the electric field that applies to the corners of the cell considered
-      vect_nbCorners field_at_corners = getFieldAtCorners(idCell);
+      vect_nbCorners field_at_corners = getFieldAtCorners(field, idCell);
 
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
@@ -266,17 +271,17 @@ int main() {
         // Deposit the charge of the particle at the corners of the target cell
         const int idCell2 = idCellOfPos(pos2);
         const double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
-        accumulateChargeAtCorners(idCell2, vect8_mul(charge, coeffs2));
+        accumulateChargeAtCorners(nextCharge, idCell2, vect8_mul(charge, coeffs2));
 
         // Push the updated particle into the bag associated with its target cell
         const particle p2 = { pos2, speed2 };
         bag_push(&bagsNext[idCell2], p2);
+      }
+      bag_nullify(b);
     }
-    bag_nullify(b);
-
 
     // Update the new field based on the total charge accumulated in each cell
-    updateFieldsUsingNextCharge();
+    updateFieldUsingNextCharge(nextCharge, field);
 
     // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
     for (int idCell = 0; idCell < nbCells; idCell++) {
