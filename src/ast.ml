@@ -612,7 +612,7 @@ type base = rewrite_rule list
 (* pattern instantiation *)
 module Trm_map = Map.Make(String)
 
-type 'a tmap = 'a Trm_map.t
+type trm_map = trm Trm_map.t
 
 type instantiation = trm tmap
 
@@ -1074,11 +1074,11 @@ let decl_name (t : trm) : var option =
 
 (* checks if two declarations are of the same category  *)
 let same_node_type (t : trm) (t1 : trm) : bool =
-  begin match t.desc, t1.desc with 
+  begin match t.desc, t1.desc with
   | Trm_let _ , Trm_let _ -> true
   | Trm_let_fun _, Trm_let_fun _ -> true
   | Trm_typedef _, Trm_typedef _ -> true
-  | _ -> false 
+  | _ -> false
   end
 
 (* return the name of the index of the for loop *)
@@ -1096,7 +1096,7 @@ let for_loop_index (t : trm) : var =
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [{desc = Trm_var x; _}; _]) ->
         x
-     | _ -> begin match decl_name init with 
+     | _ -> begin match decl_name init with
             | Some x -> x
             | None -> fail init.loc "for_loop_index: could't get the loop index"
             end
@@ -1527,7 +1527,7 @@ let is_type_unit (t : typ) : bool =
 
 (* Check if a trl is a trm_lit *)
 let is_lit (t : trm) : bool =
-  match t.desc with 
+  match t.desc with
   | Trm_val (Val_lit _) -> true
   | _ -> false
 
@@ -1538,27 +1538,27 @@ let add_star (t : trm) : trm =
 
 (* Check if the type ty is a pointer type *)
 let is_typ_ptr (ty : typ) : bool =
-  match ty.typ_desc with 
+  match ty.typ_desc with
   | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
   | _ -> false
 
 (* check if it is a struct access get operation of a immutable variable get operation *)
-let is_get_operation (t : trm) : bool = 
+let is_get_operation (t : trm) : bool =
   List.exists (function | Access | Mutable_var_get -> true | _ -> false) t.annot
-  
+
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op
   | Delocalize_obj of string * string
 
 
 
-let get_include_filename (t : trm) : string  = 
-  let f_name = List.fold_left (fun acc x -> 
-    match x with 
+let get_include_filename (t : trm) : string  =
+  let f_name = List.fold_left (fun acc x ->
+    match x with
     | Include s -> Some s
     | _ -> acc
   ) None t.annot in
-  match f_name with 
+  match f_name with
   | Some s -> s
   | _ -> fail t.loc "get_include_filename: couldn't get the requested filename"
 
