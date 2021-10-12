@@ -38,3 +38,23 @@ let replace_fun_aux (name : string) (t : trm) : trm =
 
 let replace_fun (name : string) : Target.Transfo.local =
   Target.apply_on_path (replace_fun_aux name)
+
+(* [move_aux index index_instr t]: move instruction at [index] to [index_instr]  
+    in the sequence [t]
+    params:
+      [index]: current index of the targeted instruction
+      [index_instr]: the targeted index where the current instruction should be moved to
+    return:
+      the updated [t]
+*)
+let move_aux (index : int) (tg_index : int) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl -> 
+    let instr_to_move = Mlist.nth tl index in
+    let new_tl = Mlist.remove index 1 tl in
+    let new_tl = Mlist.insert_at tg_index instr_to_move new_tl in
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+  | _ -> fail t.loc "move_aux: expected the sequence which contains the surrounding sequence"
+
+let move (index : int) (tg_index : int) : Target.Transfo.local =
+  Target.apply_on_path (move_aux index tg_index)
