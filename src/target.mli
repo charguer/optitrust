@@ -173,7 +173,7 @@ val cCall : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> ?acc
 
 val cFun : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> string -> constr
 
-val cPrim : prim -> constr
+val cPrimPred : (prim -> bool) -> constr
 
 val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 

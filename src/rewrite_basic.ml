@@ -5,3 +5,5 @@ let equiv_at (rule : string) : Target.Transfo.t =
   Target.apply_on_targets (Rewrite_core.apply_rule rule_descr)
 
 
+let compute_inside : Target.Transfo.t = 
+  Target.apply_on_targets (Rewrite_core.compute_inside)

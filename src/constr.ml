@@ -138,7 +138,7 @@ and constr =
   (* Constraint that matches only the root of the AST *)
   | Constr_root
   (* Constraint that matches primitive operations *)
-  | Constr_prim of prim
+  | Constr_prim of (prim -> bool)
   (* Constraint that matches ast nodes whose marks satisfy the predicate *)
   | Constr_mark of (mark -> bool) * string
   (* Constraint that matches a union of targets *)
@@ -745,8 +745,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_bool b, _ -> b
      | Constr_root, _ ->
         List.mem Main_file t.annot
-     | Constr_prim p, Trm_val (Val_prim p1) ->
-        p = p1
+     | Constr_prim pred, Trm_val (Val_prim p1) ->
+        pred p1 
      | Constr_mark (pred, _m), _ ->
         (* Tools.printf "Checking mark %s with trm %s\n" _m (Ast_to_text.ast_to_string t); *)
         (* Tools.printf "---------------------------\n"; *)
