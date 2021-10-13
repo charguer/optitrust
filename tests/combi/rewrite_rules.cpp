@@ -1,6 +1,8 @@
 int main() {
-  bool a = true;
-  if ( a || (true || true) ){
-    a = false || true;
-  }
+  int x = 1; 
+  int y = 2; 
+  int z = 3;
+  int res;
+  res = x + y * z ;
+  return 0;  
 }

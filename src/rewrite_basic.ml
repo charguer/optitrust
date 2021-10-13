@@ -16,13 +16,8 @@ let parse_pattern (str : string) : (vars * trm) =
     | Trm_let_fun (_, _, _, body) ->
       begin match body.desc with 
       | Trm_seq tl1 -> 
-        let tl_vars, tl_pattern = Mlist.split (Mlist.length tl - 1) tl1 in
-        let pattern_vars = List.map (fun t -> 
-          match t.desc with 
-          | Trm_var x -> [x]
-          | _ -> []
-        ) (Mlist.to_list tl_vars) in
-        let pattern_vars = List.flatten pattern_vars in
+        let tl_vars, tl_pattern = Mlist.split (Mlist.length tl1 - 1) tl1 in                
+        let pattern_vars = List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl_vars)) in
         let pattern_instr = Mlist.nth tl_pattern 0 in
         (pattern_vars, pattern_instr)
       | _ -> fail body.loc "parse_pattern: body of the main function should be a sequence"
@@ -39,7 +34,7 @@ let parse_pattern (str : string) : (vars * trm) =
 let parse_rule (str : string) : rewrite_rule =
   let pattern_vars, pattern_instr = parse_pattern str in
   match pattern_instr.desc with 
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set));_},[t1; t2]) ->
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_eq));_},[t1; t2]) ->
     {rule_vars = pattern_vars; rule_from = t1; rule_to = t2}
   | _ -> fail pattern_instr.loc "parse_rule: could not parse the given rule"
 
@@ -49,17 +44,19 @@ exception Rule_mismatch
       as keys and their associated ast as values
 *)
 let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
+  Tools.printf "Comparing %s with %s\n" (Ast_to_c.ast_to_string pat) (Ast_to_c.ast_to_string t);
   let inst = ref Trm_map.empty in
-  
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let aux_list (ts1 : trm list) (ts2 : trm list) : unit =
       List.iter2 aux ts1 ts2 in  
     match t1.desc, t2.desc with 
+    (* | Trm_apps (_, [t']), _ when is_get_operation t1 -> aux t' t2
+    | _, Trm_apps (_, [t']) when is_get_operation t2 -> aux t1 t' *)
     | Trm_var x, _ when List.mem x vars ->
       begin match Trm_map.find_opt x !inst with 
       | None -> inst := Trm_map.add x t2 !inst
-      | Some t0 when (Internal.same_trm t0 t2) -> ()
-      | _ -> raise Rule_mismatch
+      | Some t0 when (Internal.same_trm t0 t2) -> raise Rule_mismatch
+      | _ -> ()
       end
     | Trm_var x1, Trm_var x2 when x1 = x2 -> ()
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
@@ -68,7 +65,8 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
         aux f1 f2;
         aux_list ts1 ts2;
       end
-    | _ -> raise Rule_mismatch
+    | _ -> 
+      raise Rule_mismatch
   in 
   aux pat t;
   !inst

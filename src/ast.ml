@@ -1564,6 +1564,15 @@ let get_include_filename (t : trm) : string  =
   | Some s -> s
   | _ -> fail t.loc "get_include_filename: couldn't get the requested filename"
 
+(* get the singleton declaration variable in the case when [t] is a variable declaration or a list of variable in the case when 
+    we have multiple variable declarations in one line
+*)
+let rec trm_vardef_get_vars (t : trm) : var list = 
+  match t.desc with 
+  | Trm_let (_, (x, _), _) -> [x]
+  | Trm_seq tl when List.mem Multi_decl t.annot -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl)) 
+  | _ -> [] 
+
 (* type instantiation = trm varmap *)
 
 (* Check if rule is applicable *)
