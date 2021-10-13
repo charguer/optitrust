@@ -1573,15 +1573,64 @@ let rec trm_vardef_get_vars (t : trm) : var list =
   | Trm_seq tl when List.mem Multi_decl t.annot -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl)) 
   | _ -> [] 
 
-(* type instantiation = trm varmap *)
+(* get the primitive operation *)
+let trm_priv_inv (t : trm) : prim option =
+  match t.desc with 
+  | Trm_val (Val_prim p) -> Some p
+  | _ -> None
 
-(* Check if rule is applicable *)
-(* let is_rule_applicable (t : trm) (p : pat) : bool =
-  *)
 
-(* Rewrite rule transformation  *)
-(* let rewrite (pl : target) (rule : base)  *)
+(* get the primitive value *)
+let trm_lit_inv (t : trm) : lit option = 
+  match t.desc with 
+  | Trm_val (Val_lit v) -> Some v
+  | _ -> None
 
-(* tile bound type is used  as a parameter to the tile transformation so that the transformation can
-    decide what kind of loop bound it should use
-*)
+
+(* convert an integer to an ast node *)
+let trm_int (n : int) : trm = trm_lit (Lit_int n)
+
+(* convert a double/float to an ast node *)
+let trm_double (d : float) : trm = trm_lit (Lit_double d)
+
+(* convert an integer to an ast node *)
+let trm_bool (b : bool) : trm = trm_lit (Lit_bool b)
+
+(* simplifiy unary operations on literals*)
+let compute_app_unop_value (p : unary_op) (v1:lit) : trm = 
+  match p, v1 with 
+  | Unop_neg, Lit_bool b -> trm_bool (not b)
+  | Unop_post_inc, Lit_int n -> trm_int (n + 1)
+  | Unop_pre_inc, Lit_int n -> trm_int (n + 1)
+  | Unop_post_dec, Lit_int n -> trm_int (n - 1)
+  | Unop_pre_dec, Lit_int n -> trm_int (n - 1)
+  | _ -> fail None "compute_app_unop_value: only negation can be applied here"
+
+(* simplifiy binary operations on literals*)
+let compute_app_binop_value (p : binary_op) (v1 : lit) (v2 : lit) : trm =
+  match p,v1, v2 with 
+  | Binop_eq , Lit_int n1, Lit_int n2 -> trm_bool (n1 == n2)
+  | Binop_eq, Lit_double d1, Lit_double d2 -> trm_bool (d1 == d2)
+  | Binop_neq , Lit_int n1, Lit_int n2 -> trm_bool (n1 <> n2)
+  | Binop_neq, Lit_double d1, Lit_double d2 -> trm_bool (d1 <> d2)
+  | Binop_sub, Lit_int n1, Lit_int n2 -> trm_int (n1 - n2)
+  | Binop_sub, Lit_double d1, Lit_double d2 -> trm_double (d1 -. d2)
+  | Binop_add, Lit_int n1, Lit_int n2 -> trm_int (n1 + n2)
+  | Binop_add, Lit_double d1, Lit_double d2 -> trm_double (d1 +. d2)
+  | Binop_mul, Lit_int n1, Lit_int n2 -> trm_int (n1 * n2)
+  | Binop_mul, Lit_double n1, Lit_double n2 -> trm_double (n1 *. n2)
+  | Binop_mod, Lit_int n1, Lit_int n2 -> trm_int (n1 mod n2)
+  | Binop_div, Lit_int n1, Lit_int n2 -> trm_int (n1 / n2)
+  | Binop_div, Lit_double d1, Lit_double d2 -> trm_double (d1 /. d2)
+  | Binop_le, Lit_int n1, Lit_int n2 -> trm_bool (n1 <= n2)
+  | Binop_le, Lit_double d1, Lit_double d2 -> trm_bool (d1 <= d2)
+  | Binop_lt, Lit_int n1, Lit_int n2 -> trm_bool (n1 < n2)
+  | Binop_lt, Lit_double d1, Lit_double d2 -> trm_bool (d1 < d2)
+  | Binop_ge, Lit_int n1, Lit_int n2 -> trm_bool (n1 >= n2)
+  | Binop_ge, Lit_double d1, Lit_double d2 -> trm_bool (d1 >= d2)
+  | Binop_gt, Lit_int n1, Lit_int n2 -> trm_bool (n1 > n2)
+  | Binop_gt, Lit_double d1, Lit_double d2 -> trm_bool (d1 > d2)
+  | _ -> fail None "compute_app_binop_value: operator not supporeted"
+
+
+
