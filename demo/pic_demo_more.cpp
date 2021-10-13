@@ -54,7 +54,7 @@ int int_of_double(double x) {
   return (int) x - (x < 0.);
 }
 
-int wrap(int x) { // could be likewise on other dimensions
+int wrap(int gridSize, int x) { // could be likewise on other dimensions
   // assuming that a particle does not traverse the grid more than once in a timestep
   return (x + gridSize) % gridSize;
   /*
@@ -140,9 +140,9 @@ int_nbCorners indicesOfCorners (int idCell) {
   int x = coord.ix; // LATER/ could add "i" in front of all variables
   int y = coord.iy;
   int z = coord.iz;
-  int x2 = wrap(x+1);
-  int y2 = wrap(y+1);
-  int z2 = wrap(z+1);
+  int x2 = wrap(gridX, x+1);
+  int y2 = wrap(gridY, y+1);
+  int z2 = wrap(gridZ, z+1);
   return {
     cellOfCoord(x,y,z),
     cellOfCoord(x,y,z2),
