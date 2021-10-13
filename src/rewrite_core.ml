@@ -83,3 +83,32 @@ let apply_rule_aux (rule : rewrite_rule) (t : trm) : trm =
 let apply_rule (rule : rewrite_rule) : Target.Transfo.local =
   Target.apply_on_path (apply_rule_aux rule)
 
+
+let compute (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (f, ts) -> 
+    begin match (trm_prim_inv f), ts with 
+    | Some (Prim unop p), [t1] ->
+      begin match trm_lit_inv t1 with 
+      | None | Some Unop_get | Some Unop_bitwise_neg | Some Unop_opp | Some Unop_struct_field_addr _ | Unop_struct_field_get _ -> t
+      | Some v1 -> compute_app_unop_value p v1
+      end
+    | Some (Prim_binop Binop_and), [Trm_val (Val_lit (Lit_bool true)); t2] -> t2
+    | Some (Prim_binop Binop_and), [Trm_val (Val_lit (Lit_bool false)); t2] -> trm_bool false
+    | Some (Prim_binop Binop_and), [Trm_val v1; Trm_val (Val_lit (Lit_bool true))] -> trm_val v1
+    | Some (Prim_binop Binop_and), [Trm_val v2; Trm_val (Val_lit (Lit_bool false))] -> trm_bool false
+    | Some (Prim_binop Binop_or), [Trm_val (Val_lit (Lit_bool true)); t2] -> trm_bool true
+    | Some (Prim_binop Binop_or), [Trm_val (Val_lit (Lit_bool false)); t2] -> t2
+    | Some (Prim_binop Binop_or), [Trm_val v1; Trm_val (Val_lit (Lit_bool true))] -> trm_bool true
+    | Some (Prim_binop Binop_or), [Trm_val v2; Trm_val (Val_lit (Lit_bool false))] -> Trm_val v2
+    | None -> | Some _ -> t
+    | Some (Prim_binop p), [t1;t2] -> 
+      begin match (trm_lit_inv t1) (trm_lit_inv t2) with 
+      | Some v1, Some v2 -> compute_app_binop_value p v1 v2 
+      | None -> t
+      end
+    end
+  | _ -> t
+
+
+
