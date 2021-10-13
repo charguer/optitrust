@@ -54,12 +54,7 @@ int int_of_double(double x) {
   return (int) x - (x < 0.);
 }
 
-// coordinate rounding
-int index_of_double(double x) {
-  return int_of_double(x / cellWidth);
-}
-
-int wrap(int x) { // could be likewise on other dimensions
+int wrap(int gridSize, int x) { // could be likewise on other dimensions
   // assuming that a particle does not traverse the grid more than once in a timestep
   return (x + gridSize) % gridSize;
   /*
@@ -82,23 +77,23 @@ int cellOfCoord(int i, int j, int k) {
 
 // idCellOfPos computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
-  int x = index_of_double(pos.x / cellX);
-  int y = index_of_double(pos.y / cellY);
-  int z = index_of_double(pos.z / cellZ);
-  return cellOfCoord(x, y, z);
+  int ix = int_of_double(pos.x / cellX);
+  int iy = int_of_double(pos.y / cellY);
+  int iz = int_of_double(pos.z / cellZ);
+  return cellOfCoord(ix, iy, iz);
 }
 
 double relativePosX(double x) {
-  int i = index_of_double(x / cellX);
-  return (x - (double) i) / cellX;
+  int ix = int_of_double(x / cellX);
+  return (x - ix * cellX) / cellX;
 }
 double relativePosY(double y) {
-  int i = index_of_double(y / cellY);
-  return (y - (double) i) / gridY;
+  int iy = int_of_double(y / cellY);
+  return (y - iy * cellY) / cellY;
 }
 double relativePosZ(double z) {
-  int i = index_of_double(z / cellZ);
-  return (z - (double) i) / gridZ;
+  int iz = int_of_double(z / cellZ);
+  return (z -  iz * cellZ) / cellZ;
 }
 /* DEPRECATED
 // coord array of size 3
@@ -145,9 +140,9 @@ int_nbCorners indicesOfCorners (int idCell) {
   int x = coord.ix; // LATER/ could add "i" in front of all variables
   int y = coord.iy;
   int z = coord.iz;
-  int x2 = wrap(x+1);
-  int y2 = wrap(y+1);
-  int z2 = wrap(z+1);
+  int x2 = wrap(gridX, x+1);
+  int y2 = wrap(gridY, y+1);
+  int z2 = wrap(gridZ, z+1);
   return {
     cellOfCoord(x,y,z),
     cellOfCoord(x,y,z2),
@@ -171,7 +166,7 @@ vect_nbCorners getFieldAtCorners(vect* field, int idCell) {
 
 void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners charges) {
   int_nbCorners indices = indicesOfCorners(idCell);
-  for(int k = 0; k < nbCorners; k++){
+  for (int k = 0; k < nbCorners; k++){
     nextCharge[indices.val[k]] += charges.val[k];
   }
 }
@@ -286,14 +281,17 @@ int main() {
         const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
         const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
 
-        // Deposit the charge of the particle at the corners of the target cell
+        // Compute the location of the cell that now contains the particle
         const int idCell2 = idCellOfPos(pos2);
-        const double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
-        accumulateChargeAtCorners(nextCharge, idCell2, vect8_mul(particleCharge, coeffs2));
 
         // Push the updated particle into the bag associated with its target cell
         const particle p2 = { pos2, speed2 };
         bag_push(&bagsNext[idCell2], p2);
+
+        // Deposit the charge of the particle at the corners of the target cell
+        const double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
+        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
+        accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
       }
       bag_nullify(b);
     }
