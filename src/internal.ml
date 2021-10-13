@@ -1,5 +1,10 @@
+
 open Ast
 open Target
+
+let same_trm (t1 : trm) (t2 : trm) : bool = 
+  Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2 
+
 
 (* Replaces all the occurrences of t_before in the ast [t] with t_after.
     If the user does not want to target the full ast but just some specific locations,
@@ -11,7 +16,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
     (* DEBUG: *)
     (* Tools.printf "Trying to match %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_before);
     Tools.printf "--------------------------------------\n"; *)
-    if Ast_to_c.ast_to_string t' = Ast_to_c.ast_to_string t_before then t_after
+    if same_trm t' t_before then t_after
       else trm_map apply_change t'
       in
   List.fold_left
@@ -686,4 +691,6 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
        t
        )
      *)
+
+
 

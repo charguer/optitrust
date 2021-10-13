@@ -602,9 +602,9 @@ type pat = trm
 
 (* rewrite_rule *)
 type rewrite_rule = {
-  name : string;
-  source : pat;
-  target : string }
+  rule_vars : var list;
+  rule_from : pat;
+  rule_to : pat }
 
 (* basic rewrite rules *)
 type base = rewrite_rule list
@@ -612,9 +612,9 @@ type base = rewrite_rule list
 (* pattern instantiation *)
 module Trm_map = Map.Make(String)
 
-type trm_map = trm Trm_map.t
+type tmap = trm Trm_map.t
 
-type instantiation = trm tmap
+type instantiation = trm Trm_map.t
 
 (* used for defining the type of reordering for struct fields *)
 type reorder =
