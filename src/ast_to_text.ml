@@ -131,10 +131,6 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
      let dt = print_typ ~only_desc t in
      node "Prim_new" ^^ dt
   | Prim_conditional_op -> node "Prim_conditional_op"
-  | Prim_fetch_add -> node "Prim_fetch_add"
-  | Prim_atomic_get cm -> node "Prim_atomic_get" ^^ print_consistency cm
-  | Prim_atomic_set cm -> node "Prim_atomic_set" ^^ print_consistency cm
-  | Prim_compare_and_swap -> node "Prim_compare_and_swap"
 
 and print_lit (l : lit) : document =
   match l with

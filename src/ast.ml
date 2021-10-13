@@ -211,10 +211,6 @@ and prim =
   | Prim_binop of binary_op (* e.g. "n + m" *)
   | Prim_new of typ (* "new T" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
-  | Prim_fetch_add
-  | Prim_atomic_get of consistency_mode
-  | Prim_atomic_set of consistency_mode
-  | Prim_compare_and_swap
 
 (* literals *)
 and lit =

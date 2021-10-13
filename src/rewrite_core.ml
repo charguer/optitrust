@@ -84,7 +84,7 @@ let apply_rule (rule : rewrite_rule) : Target.Transfo.local =
   Target.apply_on_path (apply_rule_aux rule)
 
 
-let compute_inside_aux (t : trm) : trm = 
+let compute_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_apps (f, ts) -> 
     begin match (trm_prim_inv f), ts with 
@@ -113,5 +113,8 @@ let compute_inside_aux (t : trm) : trm =
     end
   | _ -> t
 
-let compute_inside : Target.Transfo.local = 
-  Target.apply_on_path (compute_inside_aux)
+let compute : Target.Transfo.local = 
+  Target.apply_on_path (compute_aux)
+
+
+
