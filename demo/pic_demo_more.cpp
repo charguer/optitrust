@@ -262,11 +262,11 @@ int main() {
 
         // interpolate the field based on the position relative to the corners of the cell
         const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
-        vect field_at_pos = vect_matrix_mul(coeffs, field_at_corners);
+        const vect field_at_pos = vect_matrix_mul(coeffs, field_at_corners);
 
         // Compute the new speed and position for the particle.
-          const vect speed2 = vect_add(p.speed, vect_mul(charge, field_at_pos));
-          const vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
+        const vect speed2 = vect_add(p.speed, vect_mul(charge, field_at_pos));
+        const vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
 
         // Deposit the charge of the particle at the corners of the target cell
         const int idCell2 = idCellOfPos(pos2);
