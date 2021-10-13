@@ -20,24 +20,22 @@ bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
 // not the charge to be normalized; the normalization will
 // be implemented in the transformations
 
-// Time steps description
-const int nbSteps = 100;
-const double step_duration = 0.2;
-
 // Grid description
-const int gridSize = 64;
-const int nbCells = gridSize * gridSize * gridSize;
-
-// Maximum number of particles per cell
-const int bagCapacity = 100;
-
-const double charge = 10.0;
+const int gridX = 64;
+const int gridY = 64;
+const int gridZ = 64;
+const int nbCells = gridX * gridY * gridZ;
 
 //  physical parameter of the simulation
-const double cellSize = 0.001;
+const double stepDuration = 0.2;
+const double particleCharge = 10.0;
+const double particleMass = 5.0;
+const double cellX = 0.001;
+const double cellY = 0.001;
+const double cellZ = 0.001;
 
-// size of the blocks used in loop tiling
-const int blocksize = 2;
+// duration of the simulation
+const int nbSteps = 100;
 
 // --------- Vector operations TODO: move to particle.h
 
@@ -58,7 +56,7 @@ int int_of_double(double x) {
 
 // coordinate rounding
 int index_of_double(double x) {
-  return int_of_double(x / cellSize);
+  return int_of_double(x / cellWidth);
 }
 
 int wrap(int x) { // could be likewise on other dimensions
@@ -84,15 +82,23 @@ int cellOfCoord(int i, int j, int k) {
 
 // idCellOfPos computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
-  int x = index_of_double(pos.x);
-  int y = index_of_double(pos.y);
-  int z = index_of_double(pos.z);
+  int x = index_of_double(pos.x / cellX);
+  int y = index_of_double(pos.y / cellY);
+  int z = index_of_double(pos.z / cellZ);
   return cellOfCoord(x, y, z);
 }
 
-double relativePosInCell(double x) { // likewise for all dimensions
-  int i = index_of_double(x);
-  return (x - (double) i) / gridSize;
+double relativePosX(double x) {
+  int i = index_of_double(x / cellX);
+  return (x - (double) i) / cellX;
+}
+double relativePosY(double y) {
+  int i = index_of_double(y / cellY);
+  return (y - (double) i) / gridY;
+}
+double relativePosZ(double z) {
+  int i = index_of_double(z / cellZ);
+  return (z - (double) i) / gridZ;
 }
 /* DEPRECATED
 // coord array of size 3
@@ -112,10 +118,10 @@ typedef struct {
 } coord;
 
 coord coordOfCell(int idCell) {
-  int iz = idCell % gridSize;
-  int ixy = idCell / gridSize;
-  int iy = ixy % gridSize;
-  int ix = ixy / gridSize;
+  int iz = idCell % gridZ;
+  int ixy = idCell / gridZ;
+  int iy = ixy % griY;
+  int ix = ixy / gridY;
   return { ix, iy, iz };
 }
 
@@ -178,9 +184,9 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 // and the opposite corner.
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rx = relativePosInCell(pos.x);
-  double ry = relativePosInCell(pos.y);
-  double rz = relativePosInCell(pos.z);
+  double rx = relativePosX(pos.x);
+  double ry = relativePosY(pos.y);
+  double rz = relativePosZ(pos.z);
   double cx = 1. - rx;
   double cy = 1. - ry;
   double cz = 1. - rz;
@@ -216,7 +222,16 @@ double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
 
 // --------- LEFT to implement
 
-void init_bags(bag* bagsCur, bag* bagsNext) {}
+void init_bags(bag* bagsCur, bag* bagsNext) {
+  // example push of one particle in cell zero, just to see the effect of scaling/shifting
+  // of speed and positions
+  double posX = 1.0, posY = 1.0, posZ = 1.0; // arbitrary values
+  double speedX = 1.0, speedY = 1.0, speedZ = 1.0; // arbitrary values
+  const vect pos = { posX, posY, posZ };
+  const vect speed = { speedX, speedY, speedZ };
+  const particle p0 = { pos, speed };
+  bag_push(&bagsCur[0], p0);
+}
 
 void init_field(vect* field) {}
 
@@ -260,18 +275,21 @@ int main() {
       for (particle* cur_p = bag_iter_current(&it); !bag_iter_finished(&it); cur_p = bag_iter_next_destructive(&it)) {
          particle &p = *cur_p;
 
-        // interpolate the field based on the position relative to the corners of the cell
+        // Interpolate the field based on the position relative to the corners of the cell
         const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
-        const vect field_at_pos = vect_matrix_mul(coeffs, field_at_corners);
+        const vect fieldAtPos = vect_matrix_mul(coeffs, field_at_corners);
+
+        // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
+        const vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
 
         // Compute the new speed and position for the particle.
-        const vect speed2 = vect_add(p.speed, vect_mul(charge, field_at_pos));
-        const vect pos2 = vect_add(p.pos, vect_mul(step_duration, speed2));
+        const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
+        const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
 
         // Deposit the charge of the particle at the corners of the target cell
         const int idCell2 = idCellOfPos(pos2);
         const double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
-        accumulateChargeAtCorners(nextCharge, idCell2, vect8_mul(charge, coeffs2));
+        accumulateChargeAtCorners(nextCharge, idCell2, vect8_mul(particleCharge, coeffs2));
 
         // Push the updated particle into the bag associated with its target cell
         const particle p2 = { pos2, speed2 };
