@@ -72,7 +72,7 @@ int wrap(int gridSize, int x) { // could be likewise on other dimensions
 const int nbCorners = 8;
 
 int cellOfCoord(int i, int j, int k) {
-  return (i * gridSize + j)* gridSize + k;
+  return (i * gridY + j)* gridZ + k;
 } // TODO: replace with MINDEX(G,G,G,i,j,k), where "const int G = gridSize"
 
 // idCellOfPos computes the id of the cell that contains a position.
@@ -243,7 +243,7 @@ int main() {
   init_bags(bagsCur, bagsNext);
 
   // nextCharge[idCell] corresponds to the cell in the front-top-left corner of that cell
-  double* nextCharge = (double*) malloc(nbCells * sizeof(double)); // zero initialize
+  double* nextCharge = (double*) malloc(nbCells * sizeof(double));
 
   // Strength of the field that applies to each cell
   // fields[idCell] corresponds to the field at the top-right corner of the cell idCell;
@@ -298,7 +298,6 @@ int main() {
         double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
         accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
       }
-      bag_nullify(b);
     }
 
     // Update the new field based on the total charge accumulated in each cell
