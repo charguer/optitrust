@@ -2,8 +2,13 @@
 open Ast
 open Target
 
+(* check if two ast nodes give the same code *)
 let same_trm (t1 : trm) (t2 : trm) : bool = 
   Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2 
+
+(* check if two values are equal *)
+let same_val (v1 : value) (v2 : value) : bool = 
+  same_trm (trm_val v1) (trm_val v2)
 
 
 (* Replaces all the occurrences of t_before in the ast [t] with t_after.
@@ -348,11 +353,11 @@ let get_field_index (field : field) (fields : (var * typ) list) : int =
 (* *) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (* *)
 (* *) let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys                                  (* *)                  
 (* *) let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs                                                      (* *)
-(* *) let remove_pairs (ys : var list) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
+(* *) let remove_pairs (ys : vars) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
 (* ************************************************************************************************************************)
 
 (* Move struct fields with names [local_l] after field [x] *)
-let move_fields_after (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ ) list=
+let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ ) list=
   let fins = List.flatten (get_pairs local_l l )in
   let l = remove_pairs local_l l in
   let rec aux = function
@@ -365,7 +370,7 @@ let move_fields_after (x : var) (local_l : var list) (l : (var * typ) list) : (v
     aux l
 
 (* Move struct fields with names [local_l] before field [x] *)
-let move_fields_before (x : var) (local_l : var list) (l : (var * typ) list) : (var * typ) list =
+let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var * typ) list =
   let fins = List.flatten (get_pairs local_l l) in
   let l = remove_pairs local_l l in
   let rec aux = function
@@ -377,7 +382,7 @@ let move_fields_before (x : var) (local_l : var list) (l : (var * typ) list) : (
       in
     aux l
 
-let reorder_fields (reorder_kind : reorder) (local_l : var list) (sf : (var * typ) list) : (var * typ) list =
+let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) list) : (var * typ) list =
   match reorder_kind with 
   | Reorder_after around -> move_fields_after around local_l sf
   | Reorder_before around -> move_fields_before around local_l sf
@@ -532,10 +537,25 @@ let pattern_matches (pattern : string) (s : string) : bool =
   with Not_found -> false 
 
 
+(* find all the occurrences of variables in [t] and check if they are key in map [tm] 
+    if yes then assign its values otherwise do nothing
+*)
+let variable_substitute (tm : tmap) (t : trm) : trm = 
+  let function_to_apply (t : trm) : trm = 
+    match t.desc with 
+    | Trm_var x -> 
+      begin match Trm_map.find_opt x tm with
+      | Some t1 -> t1
+      | _ -> t
+      end
+    | _ -> t
+  in
+  trm_map function_to_apply t
+
 (* replace with x the types of the variables given by their index
   assumption: t is a fun body whose argument are given by tvl
 *)
-(* let replace_arg_types_with (x : typvar) (il : int list) (tvl : typed_var list) (t : trm) : trm =
+(* let replace_arg_types_with (x : typvar) (il : int list) (tvl : typed_vars) (t : trm) : trm =
   List.fold_left (fun t' i ->
     let (y, _) = List.nth tvl i in
     replace_type_with x y t'
@@ -691,6 +711,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
        t
        )
      *)
+
 
 
 

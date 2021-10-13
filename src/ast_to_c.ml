@@ -426,7 +426,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^  blank 1 ^^ dtx ^^ initialisation
       else dtx ^^ initialisation
 
-and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_var list) (b : trm) : document =
+and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let f = Str.global_replace (Str.regexp "overloaded") "operator" f in
   let argd = separate (comma ^^ blank 1) (List.map (fun tv ->

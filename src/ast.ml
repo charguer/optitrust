@@ -31,6 +31,8 @@ type 'a mlist = 'a Mlist.t
 (* variables *)
 type var = string
 
+type vars = var list
+
 (* name of type constructors (e.g. [list] in Ocaml's type [int list];
    or [vect] in C type [struct { int x,y }; *)
 type typconstr = string
@@ -333,7 +335,7 @@ and trm_desc =
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
-  | Trm_let_fun of var * typ * (typed_var list) * trm
+  | Trm_let_fun of var * typ * (typed_vars) * trm
   | Trm_let_record of string * record_type * trm list * trm
   (* LATER: trm_fun  for anonymous functions *)
   (* LATER: mutual recursive functions via mutual recursion *)
@@ -438,34 +440,34 @@ and proc_bind =
   | Spread
 
 and dependence_type =
-  | In of var list
-  | Out of var list
-  | Inout of var list
-  | Outin of var list
-  | Sink of var list
+  | In of vars
+  | Out of vars
+  | Inout of vars
+  | Outin of vars
+  | Sink of vars
   | Source
 
 (* OpenMP clauses *)
 and clause =
   (* Data sharing clauses *)
   | Default of mode
-  | Shared of var list
-  | Private of var list
-  | FirstPrivate of var list
-  | LastPrivate of var list
-  | Linear of var list * int
-  | Reduction of reduction_identifier * (var list)
+  | Shared of vars
+  | Private of vars
+  | FirstPrivate of vars
+  | LastPrivate of vars
+  | Linear of vars * int
+  | Reduction of reduction_identifier * (vars)
   (* Data copying clasuses *)
-  | Copyin of var list
-  | CopyPrivate of var list
-  | Map_c of map_type * var list
-  | Defaultmap of map_type * var list
+  | Copyin of vars
+  | CopyPrivate of vars
+  | Map_c of map_type * vars
+  | Defaultmap of map_type * vars
   (* SIMD clauses *)
   | Safelen of int
   | Collapse of int
   | Simdlen of int
-  | Aligned_c of var list * int
-  | Uniform of var list
+  | Aligned_c of vars * int
+  | Uniform of vars
   | Inbranch
   | NotInbranch
   (* General clauses *)
@@ -489,9 +491,9 @@ and clause =
   | Num_tasks of int
   | Untied
   | Final of expression
-  | To_c of var list
-  | From_c of var list
-  | Link of var list
+  | To_c of vars
+  | From_c of vars
+  | Link of vars
   | Num_teams of var
   | Thread_limit of var
 (* atomic operations for atomic OpenMP directive *)
@@ -510,14 +512,14 @@ and directive =
   | Cancellation_point of clause * clause list
   | Critical of var * var
   | Declare_simd of clause list
-  | Declare_reduction of reduction_identifier * typvar list * expression * clause
+  | Declare_reduction of reduction_identifier * typvars * expression * clause
   | Declare_target of clause list
   | Distribute of clause list
   | Distribute_parallel_for of clause list
   | Distribute_parallel_for_simd of clause list
   | Distribute_simd
   | End_declare_target
-  | Flush of var list
+  | Flush of vars
   | For of clause list
   | For_simd of clause list
   | Master
@@ -551,7 +553,7 @@ and directive =
   | Teams_distribute_end of clause list
   | Teams_distribute_parallel_for of clause list
   | Teams_distribute_parallel_for_simd of clause list
-  | Threadprivate of var list
+  | Threadprivate of vars
 
 (* OpenMP Routines *)
 and omp_routine =
@@ -602,7 +604,7 @@ type pat = trm
 
 (* rewrite_rule *)
 type rewrite_rule = {
-  rule_vars : var list;
+  rule_vars : vars;
   rule_from : pat;
   rule_to : pat }
 
@@ -731,7 +733,7 @@ let trm_let ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_let_fun ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (name : var) (ret_typ : typ) (args : typed_var list) (body : trm) : trm =
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (name : var) (ret_typ : typ) (args : typed_vars) (body : trm) : trm =
   {annot; marks; desc = Trm_let_fun (name,ret_typ,args,body); loc = loc; is_statement; add;
    typ = Some (typ_unit ()); attributes; ctx}
 

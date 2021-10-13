@@ -123,7 +123,7 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
 *)
 let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
    ~var:(ov : var) ~local_var:(nv : var)  ~var_type:(vt : typ) 
-  ~array_size:(arrs : string) ~local_vars:(lv : var list) (tg : Target.target) : unit =
+  ~array_size:(arrs : string) ~local_vars:(lv : vars) (tg : Target.target) : unit =
   Variable_basic.local_other_name ~mark ~var_type:vt ~var:ov ~local_var:nv tg;
   Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark mark];
   Variable_basic.inline_at [Target.cFor index] [Target.nbAny;Target.cVarDef arrs];
