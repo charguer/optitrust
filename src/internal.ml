@@ -541,14 +541,14 @@ let pattern_matches (pattern : string) (s : string) : bool =
     if yes then assign its values otherwise do nothing
 *)
 let variable_substitute (tm : tmap) (t : trm) : trm = 
-  let function_to_apply (t : trm) : trm = 
+  let rec function_to_apply (t : trm) : trm = 
     match t.desc with 
     | Trm_var x -> 
       begin match Trm_map.find_opt x tm with
       | Some t1 -> t1
       | _ -> t
       end
-    | _ -> t
+    | _ -> trm_map function_to_apply t
   in
   trm_map function_to_apply t
 
