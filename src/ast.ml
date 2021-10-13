@@ -1574,7 +1574,7 @@ let rec trm_vardef_get_vars (t : trm) : var list =
   | _ -> [] 
 
 (* get the primitive operation *)
-let trm_priv_inv (t : trm) : prim option =
+let trm_prim_inv (t : trm) : prim option =
   match t.desc with 
   | Trm_val (Val_prim p) -> Some p
   | _ -> None
