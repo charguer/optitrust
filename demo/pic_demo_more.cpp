@@ -54,11 +54,6 @@ int int_of_double(double x) {
   return (int) x - (x < 0.);
 }
 
-// coordinate rounding
-int index_of_double(double x) {
-  return int_of_double(x / cellWidth);
-}
-
 int wrap(int x) { // could be likewise on other dimensions
   // assuming that a particle does not traverse the grid more than once in a timestep
   return (x + gridSize) % gridSize;
@@ -82,22 +77,22 @@ int cellOfCoord(int i, int j, int k) {
 
 // idCellOfPos computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
-  int ix = index_of_double(pos.x / cellX);
-  int iy = index_of_double(pos.y / cellY);
-  int iz = index_of_double(pos.z / cellZ);
+  int ix = int_of_double(pos.x / cellX);
+  int iy = int_of_double(pos.y / cellY);
+  int iz = int_of_double(pos.z / cellZ);
   return cellOfCoord(ix, iy, iz);
 }
 
 double relativePosX(double x) {
-  int ix = index_of_double(x / cellX);
+  int ix = int_of_double(x / cellX);
   return (x - ix * cellX) / cellX;
 }
 double relativePosY(double y) {
-  int iy = index_of_double(y / cellY);
+  int iy = int_of_double(y / cellY);
   return (y - iy * cellY) / cellY;
 }
 double relativePosZ(double z) {
-  int iz = index_of_double(z / cellZ);
+  int iz = int_of_double(z / cellZ);
   return (z -  iz * cellZ) / cellZ;
 }
 /* DEPRECATED
