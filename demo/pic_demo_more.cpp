@@ -286,15 +286,17 @@ int main() {
         const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
         const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
 
-        // Deposit the charge of the particle at the corners of the target cell
+        // Compute the location of the cell that now contains the particle
         const int idCell2 = idCellOfPos(pos2);
-        const double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
-        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
-        accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
 
         // Push the updated particle into the bag associated with its target cell
         const particle p2 = { pos2, speed2 };
         bag_push(&bagsNext[idCell2], p2);
+
+        // Deposit the charge of the particle at the corners of the target cell
+        const double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
+        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
+        accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
       }
       bag_nullify(b);
     }
