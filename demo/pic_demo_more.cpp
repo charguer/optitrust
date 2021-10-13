@@ -82,23 +82,23 @@ int cellOfCoord(int i, int j, int k) {
 
 // idCellOfPos computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
-  int x = index_of_double(pos.x / cellX);
-  int y = index_of_double(pos.y / cellY);
-  int z = index_of_double(pos.z / cellZ);
-  return cellOfCoord(x, y, z);
+  int ix = index_of_double(pos.x / cellX);
+  int iy = index_of_double(pos.y / cellY);
+  int iz = index_of_double(pos.z / cellZ);
+  return cellOfCoord(ix, iy, iz);
 }
 
 double relativePosX(double x) {
-  int i = index_of_double(x / cellX);
-  return (x - (double) i) / cellX;
+  int ix = index_of_double(x / cellX);
+  return (x - ix * cellX) / cellX;
 }
 double relativePosY(double y) {
-  int i = index_of_double(y / cellY);
-  return (y - (double) i) / gridY;
+  int iy = index_of_double(y / cellY);
+  return (y - iy * cellY) / cellY;
 }
 double relativePosZ(double z) {
-  int i = index_of_double(z / cellZ);
-  return (z - (double) i) / gridZ;
+  int iz = index_of_double(z / cellZ);
+  return (z -  iz * cellZ) / cellZ;
 }
 /* DEPRECATED
 // coord array of size 3
@@ -171,7 +171,7 @@ vect_nbCorners getFieldAtCorners(vect* field, int idCell) {
 
 void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners charges) {
   int_nbCorners indices = indicesOfCorners(idCell);
-  for(int k = 0; k < nbCorners; k++){
+  for (int k = 0; k < nbCorners; k++){
     nextCharge[indices.val[k]] += charges.val[k];
   }
 }
@@ -289,7 +289,8 @@ int main() {
         // Deposit the charge of the particle at the corners of the target cell
         const int idCell2 = idCellOfPos(pos2);
         const double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
-        accumulateChargeAtCorners(nextCharge, idCell2, vect8_mul(particleCharge, coeffs2));
+        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
+        accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
 
         // Push the updated particle into the bag associated with its target cell
         const particle p2 = { pos2, speed2 };
