@@ -571,17 +571,31 @@ void bag_swap(bag* b1, bag* b2) {
 //==========================================================================
 // Iteration
 
-// Higher-order iteration, destructive version
+// Higher-order iteration, destructive version that clears the bag
 
 void bag_destructive_iter(bag* b, void f(particle*)) {
-  for (chunk* c = b->front; c != NULL; c = c->next) {
+  chunk* c = b->front;
+  while (true) { // loop on chunks
     int nb = c->size;
+    // iterate over the items from the current chunk
     for (int i = 0; i < nb; i++) {
       particle* cur_p = &c->items[i];
       f(cur_p);
     }
+    chunk* cnext = c->next;
+    if (cnext != NULL) {
+      // move to the next chunk, free the current chunk
+      chunk_free(c);
+      c = cnext; // beware that "c = c->next" would be illegal here, because c was freed
+    } else {
+      // finished the last chunk, clear the current chunk, clear the bag
+      c->size = 0;
+      b->front = c;
+      b->back = c; // this write is redundant, but let's do it for clarity
+      c->next = NULL; // this write is redundant, but let's do it for clarity
+      break; // exit the loop on chunks
+    }
   }
-  bag_nullify(b);
 }
 
 // First-order iterator
