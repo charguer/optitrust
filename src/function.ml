@@ -14,7 +14,7 @@ type rename = Variable_core.Rename.t
       just an aplication of bind_intro n times. Where n is the numer of string inside
       [fresh_names] different from "".
 *)
-let bind_args (fresh_names : var list) : Target.Transfo.t =
+let bind_args (fresh_names : vars) : Target.Transfo.t =
  let counter = ref (-1) in
  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
   (fun (p, p_local, i) t ->
@@ -53,7 +53,7 @@ let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
     it will just call bind args and bind_intro. Basically this function is used to save the user from
     entering both of them.
 *)
-let bind ?(fresh_name : string = "res") ?(args : var list = []) (tg : Target.target) : unit =
+let bind ?(fresh_name : string = "res") ?(args : vars = []) (tg : Target.target) : unit =
   bind_args args tg;
   Function_basic.bind_intro ~const:false ~fresh_name tg
 
@@ -140,7 +140,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
 // where p is the path to the englobing sequence.
 *)
-let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : var list = []) (tg : Target.target) : unit =
+let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : vars = []) (tg : Target.target) : unit =
   Target.iteri_on_targets (fun i t p ->
     let name_result = ref name_result in
     let (path_to_seq,local_path, i1) = Internal.get_call_in_surrounding_sequence p in

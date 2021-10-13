@@ -6,7 +6,7 @@ open Target
     [new_vars] - denotes the list of variables which is going to replace the initial declaration
       the length of this list is equal to one less than this size of the array.
 *)
-let to_variables (new_vars : var list) (tg : target) : unit = 
+let to_variables (new_vars : vars) (tg : target) : unit = 
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,i) t -> Arrays_core.to_variables new_vars i t p 
   ) tg

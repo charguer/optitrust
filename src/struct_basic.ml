@@ -25,7 +25,7 @@ let set_implicit ?(keep_label : bool = true) : Target.Transfo.t =
     [struct_fields] - list of fields to move
 *)
 
-let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : var list) (tg : target) : unit =
+let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struct_fields : vars) (tg : target) : unit =
   let move_where =
     begin match move_before, move_after with
     | "", "" -> Reorder_all

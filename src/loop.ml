@@ -294,7 +294,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     Assumption:
       All loops have as bodies blocks of code(sequences)
 *)
-let reorder ?(order : var list = []) (tg : Target.target) : unit =
+let reorder ?(order : vars = []) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_loop, _ = Path.resolve_path p t in
     let indices = Internal.get_loop_nest_indices tg_loop in

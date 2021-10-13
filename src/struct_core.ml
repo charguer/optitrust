@@ -327,7 +327,7 @@ let inline (field_to_inline : field) (index : int) : Target.Transfo.local =
       updated ast of the typedef struct declaration
  *)
 
-let fields_reorder_aux (struct_fields: var list) (move_where : reorder) (t: trm) : trm =
+let fields_reorder_aux (struct_fields: vars) (move_where : reorder) (t: trm) : trm =
   match t.desc with
   | Trm_typedef td ->
    begin match td.typdef_body with
@@ -339,7 +339,7 @@ let fields_reorder_aux (struct_fields: var list) (move_where : reorder) (t: trm)
   | _ -> fail t.loc "fields_reorder_aux: expected a typedef definiton"
 
 (* [fields_reorder struct_fields move_where around t p] *)
-let fields_reorder (struct_fields : var list) (move_where : reorder) : Target.Transfo.local =
+let fields_reorder (struct_fields : vars) (move_where : reorder) : Target.Transfo.local =
   Target.apply_on_path(fields_reorder_aux struct_fields move_where)
 
 (* [inline_struct_accesses name field t] transform a specifi struct access into a variable

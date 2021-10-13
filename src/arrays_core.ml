@@ -15,7 +15,7 @@ open Ast
     return: 
         updated ast with the replaced array accesses to variable references.
 *)
-let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
+let inline_array_access (array_var : var) (new_vars : vars) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
     | Trm_var y when y = array_var -> fail t.loc "inline_array_access: arrays should be accessed by using indices"
@@ -66,7 +66,7 @@ let inline_array_access (array_var : var) (new_vars : var list) (t: trm) : trm =
     return: 
       updated ast of the outer sequence with the replaced declarations and all changed accesses.
 *)
-let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
+let to_variables_aux (new_vars : vars) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, d, lback = Internal.get_trm_and_its_relatives index tl in
@@ -105,7 +105,7 @@ let to_variables_aux (new_vars : var list) (index : int) (t : trm) : trm =
     trm_seq ~annot:t.annot ~loc:t.loc ~marks:t.marks tl
   | _ -> fail t.loc "to_variables_aux: expected the outer sequence of the targeted trm"
 
-let to_variables (new_vars : var list) (index : int): Target.Transfo.local =
+let to_variables (new_vars : vars) (index : int): Target.Transfo.local =
   Target.apply_on_path (to_variables_aux new_vars index)
 
 (* [apply_tiling base_type block_name b x]: Change all the occurences of the array to the tiled form

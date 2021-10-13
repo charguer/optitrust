@@ -84,7 +84,7 @@ let loc_to_json (t : trm) : json =
            (strquote "col", Json.Int end_column)] )]
   end
 
-let typed_var_list_to_json (tv : typed_var list) : json =
+let typed_var_list_to_json (tv : typed_vars) : json =
   Json.Object (List.map (fun (v,typ) -> (strquote v, Json.typ_to_json typ)) tv)
 
 let child_to_json (label : string) (child_id : nodeid) : json =

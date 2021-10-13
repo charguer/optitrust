@@ -73,14 +73,14 @@ let declare_simd_aux (cl : clause list) (index : int) (t : trm) : trm =
 let declare_simd (cl : clause list) (index : int) : Target.Transfo.local =
   Target.apply_on_path (declare_simd_aux cl index)
 
-let declare_reduction_aux (ri : reduction_identifier) (tv : typvar list) (e : expression) (c : clause) (index : int) (t : trm) : trm =
+let declare_reduction_aux (ri : reduction_identifier) (tv : typvars) (e : expression) (c : clause) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Declare_reduction (ri, tv, e, c))) tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "declare_reduction_aux: expected the sequence where the directive is going to be added"
 
-let declare_reduction (ri : reduction_identifier) (tv : typvar list) (e : expression) (c : clause) (index : int) : Target.Transfo.local =
+let declare_reduction (ri : reduction_identifier) (tv : typvars) (e : expression) (c : clause) (index : int) : Target.Transfo.local =
   Target.apply_on_path (declare_reduction_aux ri tv e c index)
 
 let declare_target_aux (cl : clause list) (index : int) (t : trm) : trm =
@@ -143,14 +143,14 @@ let end_declare_target_aux (index : int) (t : trm) : trm =
 let end_declare_target (index : int) : Target.Transfo.local =
   Target.apply_on_path (end_declare_target_aux index)
 
-let flush_aux (vl : var list) (index : int) (t : trm) : trm =
+let flush_aux (vl : vars) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Flush vl)) tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "flush_aux: expected the sequence where the directive is going to be added"
 
-let flush (vl : var list) (index : int) : Target.Transfo.local =
+let flush (vl : vars) (index : int) : Target.Transfo.local =
   Target.apply_on_path (flush_aux vl index)
 
 let for_aux (cl : clause list) (index : int) (t : trm) : trm =
@@ -485,14 +485,14 @@ let teams_distribute_parallel_for_simd (cl : clause list) (index : int) : Target
   Target.apply_on_path (taskloop_aux cl index)
 
 
-let threadprivate_aux (vl : var list) (index : int) (t : trm) : trm =
+let threadprivate_aux (vl : vars) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let new_tl = Mlist.insert_at index (trm_omp_directive (Threadprivate vl)) tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "threadprivate_aux: expected the sequence where the directive is going to be added"
 
-let threadprivate (vl : var list) (index : int) : Target.Transfo.local =
+let threadprivate (vl : vars) (index : int) : Target.Transfo.local =
   Target.apply_on_path (threadprivate_aux vl index)
 
 
