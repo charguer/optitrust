@@ -175,6 +175,10 @@ val cFun : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> strin
 
 val cPrimPred : (prim -> bool) -> constr
 
+val cPrim : prim -> constr
+
+val cPrimPredFun : ?args:targets -> ?args_pred:target_list_pred -> (prim -> bool) -> constr
+
 val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 
 val cMark : mark -> constr

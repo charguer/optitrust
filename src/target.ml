@@ -394,13 +394,23 @@ let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_
 let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (name:string) : constr =
   cCall ~fun_ ~args ~args_pred ~accept_encoded:false name
 
-(* [cPrimPred] matches only primitive functions; use [cPrimFun] for matching primitive function calls. *)
+(* [cPrimPred f_pred] matches all primitives which satisfy the predicated [f_pred]*)
 let cPrimPred (f_pred : prim -> bool) : constr =
   Constr_prim f_pred
 
-(* [cPrimFun ~args ~args_pred  p] matches only primitive function calls*)
+(* [cPrim] matches all [p] primitives *)
+let cPrim (p : prim) : constr =
+  cPrimPred (fun p2 -> p2 = p)
+
+(* [cPrimPredFun ~args ~args_pred  p] matches only primitive function calls which satisfy the predicate [prim_pred]
+    and the other constraints in [args] or [args_pred]
+*)
+let cPrimPredFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (prim_pred:prim -> bool) : constr =
+   cCall ~fun_:[cPrimPred prim_pred] ~args ~args_pred ~accept_encoded:true ""
+
+(* [cPrimFun ~args ~args_pred  p] matches only primitive function calls with priimitive [p]*)
 let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
-   cCall ~fun_:[cPrimPred (fun p2 -> p2 = p)] ~args ~args_pred ~accept_encoded:true ""
+   cPrimPredFun ~args ~args_pred (fun p2 -> p2 = p)
 
 (* [cSet ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
