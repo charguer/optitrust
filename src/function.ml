@@ -16,7 +16,7 @@ type rename = Variable_core.Rename.t
 *)
 let bind_args (fresh_names : vars) : Target.Transfo.t =
  let counter = ref (-1) in
- Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
+ Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
   (fun (p, p_local, i) t ->
    let path_to_call = p @ [Dir_seq_nth i] @ p_local in
    let call_trm,_ = Path.resolve_path path_to_call t in
@@ -143,7 +143,7 @@ int f2() { // result of Funciton_basic.inline_cal
 let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : vars = []) (tg : Target.target) : unit =
   Target.iteri_on_targets (fun i t p ->
     let name_result = ref name_result in
-    let (path_to_seq,local_path, i1) = Internal.get_call_in_surrounding_sequence p in
+    let (path_to_seq,local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
     let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
     let (tg_trm, _) = Path.resolve_path (path_to_instruction @ local_path) t in
     let (tg_out_trm, _) = Path.resolve_path path_to_instruction t in

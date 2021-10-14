@@ -132,3 +132,44 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
   Marks.remove "section_of_interest" [Target.cMark "section_of_interest"]
   
   
+
+let intro_pattern_array (str : string) (tg : Target.target) : unit = 
+  let (pattern_vars, pattern_instr) = Rewrite_core.parse_pattern str in
+  (* set the path to the surrounding sequence to the path to the root of the ast *)
+  let path_to_surrounding_seq = ref [] in
+  let minimal_index_branch = ref (10000000, -1) in
+  let tg =
+    if List.exists (function Constr.Constr_occurrences _ -> true | _ -> false) tg
+      then tg
+      else Target.nbMulti::tg in
+  (* Compute the branch with the minimal index *)
+  let t = Trace.ast() in
+  let paths = Target.resolve_target tg t in
+  List.iteri (fun i p -> 
+    let path_to_seq, _ , index  = Internal.get_instruction_in_surrounding_sequence p in
+    if !path_to_surrounding_seq = [] then path_to_surrounding_seq := path_to_seq 
+      else if !path_to_surrounding_seq <> path_to_seq then fail None "intro_patter_array: all the targeted instuctions should belong to the same englobing sequence"
+      else begin 
+           minimal_index_branch := (min (index) (fst !minimal_index_branch), i)
+            end
+  ) paths;
+  let nb_paths = List.length paths in
+  let nb_vars = List.length pattern_vars in
+  let all_values = Array.make_matrix nb_vars nb_paths (trm_unit ()) in
+  let parsed_rule = Rewrite_core.parse_rule str in
+  Target.iteri_on_targets (fun id_path t p ->
+    let values = Rewrite_core.rule_match_as_list pattern_vars pattern_instr t in
+    List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v ) values;
+    let inst = List.map (fun x -> trm_apps (trm_binop (Binop_array_cell_addr))[trm_var x; trm_int id_path]) pattern_vars in
+    let new_inst = Trm_map.empty in
+    let new_inst = List.fold_left2 (fun acc x y -> Trm_map.add x y acc) new_inst pattern_vars inst in
+    Rewrite_basic.apply_rule ~rule_map:new_inst parsed_rule (Target.target_of_path p) 
+  ) tg
+
+
+  
+  
+
+
+
+

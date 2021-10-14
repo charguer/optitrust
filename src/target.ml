@@ -886,3 +886,13 @@ let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     tr tg;
     if reparse then Trace.reparse ()
+
+
+(* [get_trm_at] returns that trm that corresponds to the target [tg] 
+    Note:
+      Call this function only on targets which resolve to a unique ast node
+*)
+let get_trm_at (tg : target) : trm =
+  let t = Trace.ast() in
+  let tg_path = resolve_target_exactly_one tg t in
+  fst (Path.resolve_path tg_path t)

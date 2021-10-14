@@ -15,6 +15,8 @@ TESTS_WORKING := \
 	flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
+	instr_replace.ml \
+	instr_replace_fun.ml \
 	label_add.ml \
 	label_remove.ml \
 	loop_color.ml \
@@ -31,8 +33,8 @@ TESTS_WORKING := \
 	pointer_fold.ml \
 	reference_fold.ml \
 	reference_inline.ml \
-	instr_replace.ml \
-	instr_replace_fun.ml \
+	rewrite_compute.ml \
+	rewrite_compute_inside.ml \
 	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
 	sequence_elim.ml \

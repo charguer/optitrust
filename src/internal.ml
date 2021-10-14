@@ -118,6 +118,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
     t
     change_at
 
+
 (* For an ast node with path [dl] this function returns back the path ot the sequence
      containing that trm together with the index of that trm in the surrounding sequence.
 *)
@@ -127,14 +128,15 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
   | _ -> fail None "isolate_last_dir_in_seq: the transformation expects a target on an element that belongs to a sequence"
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
-(* For an ast node with path [dl] where the node represents a function call, this function returns
-    the path to the sequence containing the instruction which contains the function call, the local path
-    from that instruction to the call and the index of that instruction on its surrounding sequence.
+
+(* For nodes whose parent node is not a sequence, return the path to the sequence containing the instructions 
+    which contains the node at path [dl], the index of that instuction into the surronding sequence and the 
+    local path from the instruction at index [i] to the node with the initial path [dl]
 *)
-let get_call_in_surrounding_sequence (dl : path) : path * path * int =
+let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
   let rec aux (acc : path) (dl : path) =
     match dl with
-    | [] -> fail None "get_call_in_surrounding_sequence: empty path"
+    | [] -> fail None "get_instruction_in_surrounding_sequence: empty path"
     | Dir_seq_nth i :: dl'-> (List.rev dl', acc, i)
     | dir :: dl' -> aux (dir :: acc) dl'
   in aux [] (List.rev dl) 

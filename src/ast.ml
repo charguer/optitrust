@@ -1586,6 +1586,10 @@ let trm_lit_inv (t : trm) : lit option =
 (* convert an integer to an ast node *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
 
+(* Unit trm, unvisble to the user *)
+let trm_unit () : trm = 
+  trm_lit (Lit_unit)
+
 (* convert a double/float to an ast node *)
 let trm_double (d : float) : trm = trm_lit (Lit_double d)
 

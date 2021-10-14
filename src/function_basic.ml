@@ -14,7 +14,7 @@ open Ast
 
 *)
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = ""): Target.Transfo.t =
- Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
+ Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
   (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p)
 
 
@@ -68,7 +68,7 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
 *)
 
 let inline  ?(body_mark : var = "body") : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.get_call_in_surrounding_sequence)
+  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
    (fun (p, p_local, i) t ->
     Function_core.inline i body_mark t p_local t p)
 

@@ -315,3 +315,5 @@ val (!!) : 'a -> 'a
 val (!!!) : 'a -> 'a
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
+
+val get_trm_at : target -> trm 
