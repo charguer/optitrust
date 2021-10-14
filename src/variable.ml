@@ -158,7 +158,7 @@ let intro_pattern_array (str : string) (tg : Target.target) : unit =
   let all_values = Array.make_matrix nb_vars nb_paths (trm_unit ()) in
   let parsed_rule = Rewrite_core.parse_rule str in
   Target.iteri_on_targets (fun id_path t p ->
-    let values = Rewrite_core.rule_match_as_list pattern_vars pattern_instr t in
+    let values = Rewrite_core.rule_match_as_list pattern_vars pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v ) values;
     let inst = List.map (fun x -> trm_apps (trm_binop (Binop_array_cell_addr))[trm_var x; trm_int id_path]) pattern_vars in
     let new_inst = Trm_map.empty in

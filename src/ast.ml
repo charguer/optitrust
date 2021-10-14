@@ -610,6 +610,8 @@ type base = rewrite_rule list
 (* pattern instantiation *)
 module Trm_map = Map.Make(String)
 
+
+
 type tmap = trm Trm_map.t
 
 type instantiation = trm Trm_map.t

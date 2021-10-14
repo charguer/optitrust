@@ -49,16 +49,26 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let aux_list (ts1 : trm list) (ts2 : trm list) : unit =
       List.iter2 aux ts1 ts2 in  
+    Tools.printf "Comparing %s with %s\n" (Ast_to_text.ast_to_string t1) (Ast_to_text.ast_to_string t2);
+    Tools.printf "-----------------------------------------\n";
     match t1.desc, t2.desc with 
     | Trm_var x, _ when List.mem x vars ->
       begin match Trm_map.find_opt x !inst with 
       | None -> inst := Trm_map.add x t2 !inst
-      | Some t0 when (Internal.same_trm t0 t2) -> raise Rule_mismatch
-      | _ -> ()
+      | Some t0 when (Internal.same_trm t0 t2) -> ()
+      | _ -> raise Rule_mismatch
       end
     | Trm_var x1, Trm_var x2 when x1 = x2 -> ()
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
+    | Trm_var _, Trm_val _ -> ()
+    
+    | Trm_apps (_f1, [ts1]), Trm_val _ -> 
+        if is_get_operation t1 then 
+        aux ts1 t2
+        else ()
     | Trm_apps (f1, ts1), Trm_apps (f2, ts2) ->
+      let f1 = if is_get_operation t1 then (List.nth ts1 0) else f1 in
+      let f2 = if is_get_operation t2 then (List.nth ts2 0) else f2 in
       begin 
         aux f1 f2;
         aux_list ts1 ts2;
