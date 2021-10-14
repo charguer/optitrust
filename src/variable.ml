@@ -137,6 +137,7 @@ let intro_pattern_array (str : string) (tg : Target.target) : unit =
   let (pattern_vars, pattern_instr) = Rewrite_core.parse_pattern str in
   (* set the path to the surrounding sequence to the path to the root of the ast *)
   let path_to_surrounding_seq = ref [] in
+  (* set the minimal value to *infinity *)
   let minimal_index_branch = ref (10000000, -1) in
   let tg =
     if List.exists (function Constr.Constr_occurrences _ -> true | _ -> false) tg
@@ -156,15 +157,19 @@ let intro_pattern_array (str : string) (tg : Target.target) : unit =
   let nb_paths = List.length paths in
   let nb_vars = List.length pattern_vars in
   let all_values = Array.make_matrix nb_vars nb_paths (trm_unit ()) in
-  let parsed_rule = Rewrite_core.parse_rule str in
-  Target.iteri_on_targets (fun id_path t p ->
+  Target.iteri_on_targets (fun id_path _ p ->
     let values = Rewrite_core.rule_match_as_list pattern_vars pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v ) values;
     let inst = List.map (fun x -> trm_apps (trm_binop (Binop_array_cell_addr))[trm_var x; trm_int id_path]) pattern_vars in
     let new_inst = Trm_map.empty in
     let new_inst = List.fold_left2 (fun acc x y -> Trm_map.add x y acc) new_inst pattern_vars inst in
-    Rewrite_basic.apply_rule ~rule_map:new_inst parsed_rule (Target.target_of_path p) 
-  ) tg
+    let new_t = Internal.variable_substitute new_inst pattern_instr in
+    (* replace_the current trm with the update one *)
+    Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> new_t) t p) (Target.target_of_path p)
+  ) tg;
+  (* let decl_list = List.mapi (fun id_var x -> trm_var_def_array x nb_vars (Array.to_list all_values.(id_var))) pattern_vars in
+  trm_seq_no_brace *)
+
 
 
   

@@ -90,18 +90,14 @@ let rule_match_as_list (pattern_vars : vars) (pattern_instr : trm)  (t : trm) : 
   ) pattern_vars
 
 (* [apply_rule rule t] apply rule [rule] in the ast [t] *)
-let apply_rule_aux (rule_map : tmap)(rule : rewrite_rule) (t : trm) : trm =
-  let inst : tmap = 
-  if Trm_map.is_empty rule_map
-    then rule_match rule.rule_vars rule.rule_from t 
-    else rule_map in
+let apply_rule_aux (rule : rewrite_rule) (t : trm) : trm =
+  let inst : tmap = rule_match rule.rule_vars rule.rule_from t in
   let rule_before = rule.rule_to in
   let rule_after = Internal.variable_substitute inst rule_before in
-  Tools.printf "Comparing %s with %s\n" (Ast_to_c.ast_to_string rule_before) (Ast_to_c.ast_to_string rule_after);
   rule_after
 
-let apply_rule ?(rule_map : tmap = Trm_map.empty) (rule : rewrite_rule) : Target.Transfo.local =
-  Target.apply_on_path (apply_rule_aux rule_map rule)
+let apply_rule (rule : rewrite_rule) : Target.Transfo.local =
+  Target.apply_on_path (apply_rule_aux rule)
 
 let compute_aux (t : trm) : trm = 
   match t.desc with 
