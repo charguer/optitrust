@@ -166,14 +166,52 @@ let intro_pattern_array (str : string) (tg : Target.target) : unit =
     let new_t = Internal.variable_substitute new_inst pattern_instr in
     (* replace_the current trm with the update one *)
     Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> new_t) t p) (Target.target_of_path p)
-  ) tg;
+  ) tg
   (* let decl_list = List.mapi (fun id_var x -> trm_var_def_array x nb_vars (Array.to_list all_values.(id_var))) pattern_vars in
   trm_seq_no_brace *)
 
+let detach_if_needed (tg : Target.target) : unit = 
+  Target.iter_on_targets (fun t p -> 
+    let decl_t ,_ = Path.resolve_path p t in
+    match decl_t.desc with 
+    | Trm_let(vk,(_, _), init) ->
+      begin match vk with
+      | Var_immutable -> ()
+      | _ ->
+        begin match init.desc with 
+        | Trm_apps (_,[_init]) -> 
+          Variable_basic.init_detach (Target.target_of_path p)
+        | _ -> ()
+        end
+      end
+    | _ -> fail t.loc "init_detach_aux: variable could not be matched, make sure your path is correct"
+  ) tg
 
+let variable_rename (new_name : var) (tg : Target.target) : unit = 
+  Target.iter_on_targets (fun t p -> 
+    let mark = Mark.next() in
+    let decl_t,_= Path.resolve_path p t in
+    match decl_t.desc with 
+    | Trm_let (_, (x,_),_) ->
+      let path_to_seq, i, _ = Internal.get_instruction_in_surrounding_sequence p in
+      Sequence_basic.intro_between ~mark([Target.tBefore] @ (Target.target_of_path p)) ([Target.tLast] @ (Target.target_of_path path_to_seq));
+      Variable_basic.rename_on_block (ByList [(x,new_name)])[Target.cMark mark];
+    | _ -> fail decl_t.loc ""
+) tg
+  
 
   
-  
+let reuse (space : var) (tg : Target.target) : unit =
+   Target.iter_on_targets (fun t p -> 
+    let decl_t,_ = Path.resolve_path p t in
+    detach_if_needed (Target.target_of_path p);
+    match decl_t.desc with 
+    | Trm_let (_,(x,_),_) -> 
+      let path_to_seq, _, _ = Internal.get_instruction_in_surrounding_sequence p in
+      Variable_basic.rename_on_block (ByList [(x, space)]) (Target.target_of_path (path_to_seq));
+      Sequence.delete [Target.tIndex ~nb:2 1; Target.cVarDef space];
+    | _ -> fail t.loc "reuse: expected a variable_declaraton"
+   ) tg 
 
 
 

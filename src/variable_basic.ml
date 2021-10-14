@@ -39,7 +39,7 @@ let inline : Target.Transfo.t =
 let inline_at (at : target) : Target.Transfo.t =
   inline_common false at
 
-(* [reanme ~list ~func tg] expects [tg] to point to a sequence.
+(* [rename_on_block ~list ~func tg] expects [tg] to point to a sequence.
     [list] - denotes a list of pairs where each pair has the
       current variable and the one which is going to replace it.
       By default this list is empty.
@@ -47,8 +47,8 @@ let inline_at (at : target) : Target.Transfo.t =
       inside the targeted sequence. By default this function is the one
       which adds the suffix 1 to each declared variable inside the sequence.
 *)
-let rename (rename : rename) : Target.Transfo.t =
-  Target.apply_on_targets (Variable_core.rename rename)
+let rename_on_block (rename : rename) : Target.Transfo.t =
+  Target.apply_on_targets (Variable_core.rename_on_block rename)
 
 (* [init_detach tg] expects the target [tg] to point to a variable initialization.
    It then splits the instruction into a variable declaration and a set operation.

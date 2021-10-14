@@ -275,7 +275,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       Loop_basic.unroll ~braces:true ~my_mark [Target.cMark my_mark];
       let block_list = Tools.range 0 (nb_instr-1) in
       List.iter (fun x ->
-        Variable_basic.rename (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
+        Variable_basic.rename_on_block (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
       ) block_list;
       List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]

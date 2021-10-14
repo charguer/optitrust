@@ -131,7 +131,7 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
   Target.apply_on_path(inline_aux delete_decl inline_at index)
 
 
-(* [rename_aux new_name index t] rename the variable declared in [t] and all its occurrences
+(* [rename_on_block_aux new_name index t] rename the variable declared in [t] and all its occurrences
    params:
      [rename]: a type covering both the case when a prefix is given or the list of variables to change
         together with their new name
@@ -139,7 +139,7 @@ let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Tran
    return:
     updated ast of the sequence which contains the declaration
 *)
-let rename_aux (rename : Rename.t) (t : trm) : trm =
+let rename_on_block_aux (rename : Rename.t) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     (* first change the declarations*)
@@ -177,10 +177,10 @@ let rename_aux (rename : Rename.t) (t : trm) : trm =
           end
         | _ -> acc
       ) t_new_dl tl 
-  | _ -> fail t.loc "rename_aux: expected the sequence block"
+  | _ -> fail t.loc "rename_on_block_aux: expected the sequence block"
 
-let rename (rename : Rename.t) : Target.Transfo.local =
-  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_aux rename) "var_rename")
+let rename_on_block (rename : Rename.t) : Target.Transfo.local =
+  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_on_block_aux rename) "var_rename")
 
 (* [init_detach_aux t]: replace an initialized variable declaration with an
       uninitialized declaration and a set operation.
@@ -199,7 +199,7 @@ let init_detach_aux  (t : trm) : trm =
         let init =
           begin match init.desc with
           | Trm_apps(_,[init]) -> init
-          | _ -> fail t.loc "init_detach_aux: expected a heap allocated variable declaration"
+          | _ -> fail t.loc "init_detach_aux: can't detach an uninitialized declaration"
           end in
         let var_type = get_inner_ptr_type tx in
         let var_type = begin match  var_type.typ_desc  with

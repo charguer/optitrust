@@ -46,7 +46,7 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
     that shoudl be assigned to all the declared variables.
 *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
-  Variable_basic.rename vars tg;
+  Variable_basic.rename_on_block vars tg;
   Sequence_basic.elim tg
 
 (* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then
