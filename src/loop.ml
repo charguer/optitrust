@@ -331,3 +331,14 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   List.iter2 (fun d b -> Loop_basic.tile tile ~index:b (tg @ [Target.cFor d])) ds bs;
   List.iter2 (fun b c -> Loop_basic.color color ~index:c (tg @ [Target.cFor b])) bs cs;
   reorder ~order [Target.cFor first_cs]
+
+
+let fold  ~index:(loop_index : var) ~start:(loop_start : var) ~stop:(loop_stop : var) ~step:(loop_step : var) (nb_instr : int)(tg : Target.target) : unit =
+  Target.iter_on_targets (fun _t p ->
+    let my_mark = Mark.next () in
+    Sequence_basic.intro ~mark:my_mark nb_instr (Target.target_of_path p);
+    Loop_basic.fold loop_index loop_start loop_stop loop_step [Target.cMark my_mark]
+  ) tg
+  
+
+

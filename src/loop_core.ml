@@ -417,6 +417,11 @@ let fold_aux (index : var) (start : var) (stop : var) (step : var) (t : trm) : t
     if Mlist.length tl < 2 then fail t.loc "fold_aux: expected at least two instructions";
     let first_instr = Mlist.nth tl 0 in
     let loop_body = Internal.change_trm (trm_int 0) (trm_var index) first_instr in
+    List.iteri (fun i t1 -> 
+      let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in
+      if Internal.same_trm loop_body local_body then ()
+      else fail t1.loc "fold_aux: all the instruction should have the same shape but differ by index"
+    ) (List.tl (Mlist.to_list tl));
     trm_for index DirUp (trm_var start) (trm_var stop) (trm_var step) (trm_seq_nomarks [loop_body])
   | _ -> fail t.loc "fold_aux: expected a sequence of instructions"
 
