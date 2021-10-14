@@ -411,3 +411,15 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
 let to_unit_steps (new_index : var) : Target.Transfo.local =
   Target.apply_on_path (to_unit_steps_aux new_index)
 
+let fold_aux (index : var) (start : var) (stop : var) (step : var) (t : trm) : trm =  
+  match t.desc with 
+  | Trm_seq tl -> 
+    if Mlist.length tl < 2 then fail t.loc "fold_aux: expected at least two instructions";
+    let first_instr = Mlist.nth tl 0 in
+    let loop_body = Internal.change_trm (trm_int 0) (trm_var index) first_instr in
+    trm_for index DirUp (trm_var start) (trm_var stop) (trm_var step) (trm_seq_nomarks [loop_body])
+  | _ -> fail t.loc "fold_aux: expected a sequence of instructions"
+
+
+let fold (index : var) (start : var) (stop : var) (step : var) : Target.Transfo.local =
+  Target.apply_on_path (fold_aux index start stop step)
