@@ -87,7 +87,6 @@ let script_cpp ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?
     in
   let default_prefix = Filename.remove_extension basename in
   let prefix = if prefix = "" then default_prefix else prefix in
-  Printf.printf "prefix=%s\n" prefix;
   let default_input_file = basename ^ ".cpp" in
   let input_file =
     match inline with

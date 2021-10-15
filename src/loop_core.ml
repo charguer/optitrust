@@ -72,7 +72,7 @@ let color (c : var) (i_color : var) : Target.Transfo.local =
 
 (*  [tile_aux divides b tile_index t]: tile loop t
       params:
-        [bound]: a tile_bound type variable representing the type of the bound used in 
+        [bound]: a tile_bound type variable representing the type of the bound used in
           this transformation
         [tile_index]: string used to represent the index used for the new outer loop
         [t]: ast of the loop going to be tiled
@@ -298,12 +298,12 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
       let unrolled_loop_range = begin match stop.desc with
                          | Trm_apps(_,[_; bnd]) ->
                             begin match bnd.desc with
-                            | Trm_val (Val_lit (Lit_int bnd)) -> 
+                            | Trm_val (Val_lit (Lit_int bnd)) ->
                               Tools.range 0 (bnd - 1)
                             | _ -> fail bnd.loc "unroll_aux: expected a literal trm"
                             end
-                          | Trm_val (Val_lit (Lit_int bnd)) -> 
-                              begin match start.desc with 
+                          | Trm_val (Val_lit (Lit_int bnd)) ->
+                              begin match start.desc with
                               | Trm_val (Val_lit (Lit_int strt)) ->
                                 Tools.range 0 (bnd - 1 - strt)
                               | _ -> fail start.loc "unroll_aux: expected a "
@@ -311,14 +311,14 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
                          | _ -> fail t.loc "unroll_aux: the loop which is going to be unrolled shoudl have a bound which is a sum of a variable and a literal"
                          end in
       let unrolled_body = List.fold_left ( fun acc i1 ->
-        let new_index = 
-          begin match start.desc with 
+        let new_index =
+          begin match start.desc with
           | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
-          | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))] 
+          | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
           end in
         let body_i = Internal.change_trm (trm_var index) new_index body in
-        let body_i = if braces 
-                      then Internal.remove_nobrace_if_sequence body_i 
+        let body_i = if braces
+                      then Internal.remove_nobrace_if_sequence body_i
                       else Internal.set_nobrace_if_sequence body_i in
         body_i :: acc ) [] (List.rev unrolled_loop_range) in
       begin match my_mark with
@@ -339,7 +339,7 @@ let unroll (braces : bool)(my_mark : mark) : Target.Transfo.local =
       [trm_index]: index of the constant trm inside the body of the loop
       [t]: ast of the loop
     return:
-      
+
 *)
 let invariant_aux (trm_index : int) (t : trm) : trm =
   match t.desc with
@@ -411,18 +411,23 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
 let to_unit_steps (new_index : var) : Target.Transfo.local =
   Target.apply_on_path (to_unit_steps_aux new_index)
 
-let fold_aux (index : var) (start : var) (stop : var) (step : var) (t : trm) : trm =  
-  match t.desc with 
-  | Trm_seq tl -> 
-    if Mlist.length tl < 2 then fail t.loc "fold_aux: expected at least two instructions";
+(* NOTE: we trust the user that "stop" corresponds to the number of iterations *)
+(* NOTE: currently the function only works for "start = 0"
+   LATER: use  sExpr  to mark the subexpression that correspnod to the string "start";
+    then you can Generic.replace at these marks *)
+let fold_aux (index : var) (start : strm) (stop : strm) (step : strm) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
+    if Mlist.length tl = 0
+      then fail t.loc "fold_aux: expects a non-empty list of instructions";
     let first_instr = Mlist.nth tl 0 in
-    let loop_body = Internal.change_trm (trm_int 0) (trm_var index) first_instr in
-    List.iteri (fun i t1 -> 
-      let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in
-      if Internal.same_trm loop_body local_body then ()
-      else fail t1.loc "fold_aux: all the instruction should have the same shape but differ by index"
-    ) (List.tl (Mlist.to_list tl));
-    trm_for index DirUp (trm_var start) (trm_var stop) (trm_var step) (trm_seq_nomarks [loop_body])
+    let loop_body = Internal.change_trm (trm_int 0) (* LATER: allow for starts other than zero *) (trm_var index) first_instr in
+    List.iteri (fun i t1 ->
+      let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in (* change the code if start <> 0 *)
+      if not (Internal.same_trm loop_body local_body)
+        then fail t1.loc "fold_aux: all the instruction should have the same shape but differ by index";
+    ) (List.tl (Mlist.to_list tl)); (* NOTE: we could also iterate on "to_list tl", without doing the +1 *)
+    trm_for index DirUp (code start) (code stop) (code step) (trm_seq_nomarks [loop_body])
   | _ -> fail t.loc "fold_aux: expected a sequence of instructions"
 
 

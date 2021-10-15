@@ -40,7 +40,10 @@ let cTrue : constr =
 let cFalse : constr =
   Constr_bool false
 
-let cStrict : constr =
+let cStrictNEW : constr =
+  Constr_depth (DepthAt 0)
+
+let cStrict : constr = (* TODO ARTHUR: remove this and patch the treatment of C for loops differently *)
   Constr_depth (DepthAt 1)
 
 let cChain (cstrs : constr list) : constr =
@@ -110,7 +113,7 @@ let dElse : constr =
 let dBody : constr =
     Constr_dir Dir_body
 
-let dInit : constr =
+let dInit : constr = (* TODO: rename to dLoopInit *)
     Constr_dir Dir_for_c_init
 
 let dStep : constr =
@@ -521,12 +524,12 @@ let cTargetInDepth (tg : target) : constr =
 
 
 
-(* [cAccesses ~base ~accesses ()] matches array_accesses or struct accesses 
+(* [cAccesses ~base ~accesses ()] matches array_accesses or struct accesses
     depending on [accesses] parameter. [base] is a target on the base of an access
-    and [accesses] is a list of constraints on accesses. 
+    and [accesses] is a list of constraints on accesses.
     Note:
       the empty list is interpreted as no constraint on the accesses
-      accesses are reversed so that users give constraints on what they see  
+      accesses are reversed so that users give constraints on what they see
 *)
 
 let cAccesses ?(base : target = [])
@@ -537,7 +540,7 @@ let cAccesses ?(base : target = [])
   in
     Constr_access (p_base, accesses, inner_accesses)
 
-(* [cIndex ~index ()] is an access constrint in index [index], because the 
+(* [cIndex ~index ()] is an access constrint in index [index], because the
     index can be a variable or an integer it should be given as a target.
 *)
 let cIndex ?(index : target = []) (_ : unit) : constr_access =
@@ -545,8 +548,8 @@ let cIndex ?(index : target = []) (_ : unit) : constr_access =
   Array_access p_index
 
 (* [cField ~field ~substr ~regexp ()] is an access constraint on field [field]
-      since the field is a string this constructor allows to use more advance 
-      string matching like matching all substrings which contain [field] as a 
+      since the field is a string this constructor allows to use more advance
+      string matching like matching all substrings which contain [field] as a
       substring. Also one can constaint accesses on multiple fields by enabling
       regular expressions when setting [regexp] to true.
  *)
@@ -559,7 +562,7 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
 let cAccess : constr_access =
   Any_access
 
-(* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base] 
+(* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base]
     which are at the base of a get operation
 *)
 let cFieldGet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  (field : field )  : constr =
@@ -577,7 +580,7 @@ let cFieldSet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = f
 
 
 
-(* [cIndexGet ~base index] matches all array accesses at index [index] with base [base] 
+(* [cIndexGet ~base index] matches all array accesses at index [index] with base [base]
     which are under a get operation
 *)
 let cIndexGet ?(base : target = []) (index : target )  : constr =
@@ -888,7 +891,7 @@ let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
     if reparse then Trace.reparse ()
 
 
-(* [get_trm_at] returns that trm that corresponds to the target [tg] 
+(* [get_trm_at] returns that trm that corresponds to the target [tg]
     Note:
       Call this function only on targets which resolve to a unique ast node
 *)
