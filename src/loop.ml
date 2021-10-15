@@ -278,7 +278,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
         Variable_basic.rename_on_block (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
       ) block_list;
       List.iter (fun x ->
-         Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dNth x]
+         Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dSeqNth x]
       ) block_list;
       (* Tools.printf "I am here\n"; *)
       if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];

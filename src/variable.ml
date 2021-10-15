@@ -162,7 +162,7 @@ let into_pattern_arrat (str : string) (tg : Target.target) : unit =
   ) tg;
   let instr_to_insert = List.mapi (fun id_var x -> trm_let (Var_mutable) (x , typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_vars)) ~typ_attributes:[GeneratedStar]) 
   (trm_apps (trm_prim (Prim_new (typ_array (typ_double ()) (Const nb_vars)))) (Array.to_list all_values.(id_var)))) pattern_vars in
-  Sequence.insert (trm_seq_no_brace instr_to_insert)  ([Target.tBefore]  @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dNth (snd !minimal_index_branch)]) 
+  Sequence.insert (trm_seq_no_brace instr_to_insert)  ([Target.tBefore]  @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dSeqNth (snd !minimal_index_branch)]) 
 
 let detach_if_needed (tg : Target.target) : unit = 
   Target.iter_on_targets (fun t p -> 

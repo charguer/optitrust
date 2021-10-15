@@ -30,3 +30,18 @@ let shift_aux (neg : bool) (pre_cast : typ option) (post_cast : typ option) (u :
 
 let shift (neg : bool) (pre_cast : typ option) (post_cast : typ option) (u : trm) : Target.Transfo.local =
   Target.apply_on_path (shift_aux neg pre_cast post_cast u)
+
+(* [apply_aux op arg t]: apply binary_operation op on [t] with the second arguement of the operation being [arg]
+    params:
+      [op]: the binary operation going to be applied
+      [arg]: the second argument after [t] in the performed operation
+      [t]: the first argument in the performed operation
+    return:
+      the ast of the binary operation
+*)
+let apply_aux (op : binary_op) (arg : trm) (t : trm) : trm = 
+  trm_apps (trm_binop op) [t; arg]
+
+
+let apply (op : binary_op) (arg : trm) : Target.Transfo.local =
+  Target.apply_on_path (apply_aux op arg)

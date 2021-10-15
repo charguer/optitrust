@@ -98,8 +98,15 @@ let target_of_path (p : path) : target =
 let dRoot : constr =
     Constr_root
 
-let dNth (n : int) : constr =
+let dArrayNth (n : int) : constr =
+    Constr_dir (Dir_array_nth n)
+
+let dSeqNth (n : int) : constr =
     Constr_dir (Dir_seq_nth n)
+
+let dStructNth (n : int) : constr =
+    Constr_dir (Dir_struct_nth n)
+
 
 let dCond : constr =
     Constr_dir Dir_cond
@@ -113,7 +120,7 @@ let dElse : constr =
 let dBody : constr =
     Constr_dir Dir_body
 
-let dInit : constr = (* TODO: rename to dLoopInit *)
+let dForInit : constr = 
     Constr_dir Dir_for_c_init
 
 let dStep : constr =
@@ -595,12 +602,19 @@ let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
 let cIndexAccess ?(base : target = []) (index : target )  : constr =
   cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
-(* [cCell arary_size] matches all arrray cells in an array initialization *)
-let cCell (array_size : int) : constr = 
-  let all_cells = Tools.range 0 (array_size-1) in
-  let all_cells_constr = List.map (fun i -> [dNth i]) all_cells in
-  cOr all_cells_constr
+(* [cArrayInit] matches all array initialization lists *)
+let cArrayInit : constr = 
+  Constr_array_init
 
+(* [cStructInit] matches all struct initialization lists *)
+let cStructInit : constr = 
+  Constr_struct_init
+
+(* [cCell arary_size] matches all arrray cells in an array initialization *)
+let cCell ?(cell_index : int option = None) (): constr = 
+  match cell_index with 
+  | None -> cChain [cArrayInit; cStrictNew; cTrue]
+  | Some i -> cChain [cArrayInit; dArrayNth i]
 
 (******************************************************************************)
 (*                          Target resolution                                 *)

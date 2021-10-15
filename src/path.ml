@@ -9,13 +9,17 @@ open Tools
     of directions through the nodes from that AST. *)
 type path = dir list
 
+
 and dir =
   (* nth: go to nth element in array, struct *)
-  | Dir_nth of int (* TODO: replace with:
-      | Dir_array_nth of int
+  | Dir_struct_nth of int 
+  | Dir_array_nth of int
+  (* | Dir_struct_nth of int_or_string *)
+    (* LATER: replace with:
+        type int_or_string = IntOrString_int of int | IntOrString_string of sring
       | Dir_struct_nth of int_or_string
-
-    where type int_or_string = IntOrString_int of int | IntOrString_string *)
+  *)
+    
 
   (* nth: go to nth element in seq*)
   | Dir_seq_nth of int
@@ -64,7 +68,8 @@ type paths = path list
 
 let dir_to_string (d : dir) : string =
   match d with
-  | Dir_nth n -> "Dir_nth " ^ (string_of_int n)
+  | Dir_array_nth n -> "Dir_array_nth " ^ (string_of_int n)
+  | Dir_struct_nth n -> "Dir_struct_nth " ^ (string_of_int n)
   | Dir_seq_nth n-> "Dir_seq_nth " ^ (string_of_int n)
   | Dir_cond -> "Dir_cond"
   | Dir_then -> "Dir_then"
@@ -111,8 +116,9 @@ let paths_to_string ?(sep:string="; ") (dls : paths) : string =
  *)
 let compare_dir (d : dir) (d' : dir) : int =
   match d, d' with
-  | Dir_nth n, Dir_nth m -> compare n m
+  | Dir_array_nth n, Dir_array_nth m -> compare n m
   | Dir_seq_nth n, Dir_seq_nth m -> compare n m
+  | Dir_struct_nth n, Dir_struct_nth m -> compare n m
   | Dir_arg n, Dir_arg m -> compare n m
   | Dir_case (n, cd), Dir_case (m, cd') ->
      let cn = compare n m in
@@ -132,10 +138,14 @@ let compare_dir (d : dir) (d' : dir) : int =
        | Enum_const_val, _ -> 1
        end
   | d, d' when d = d' -> 0
-  | Dir_nth _, _ -> -1
-  | _, Dir_nth _ -> 1
+  
+  | Dir_array_nth _, _ -> -1
+  | _, Dir_array_nth _ -> 1
+  | Dir_struct_nth _, _ -> -1
+  | _, Dir_struct_nth _ -> 1
   | Dir_seq_nth _, _ -> -1
   | _, Dir_seq_nth _ -> 1
+  
   | Dir_cond, _ -> -1
   | _, Dir_cond -> 1
   | Dir_then, _ -> -1
@@ -241,9 +251,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        let newt = begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
           { t with desc = Trm_seq (Mlist.update_nth aux tl n) }
-       | Dir_nth n, Trm_array tl ->
+       | Dir_array_nth n, Trm_array tl ->
           { t with desc = Trm_array (Mlist.update_nth aux tl n)}
-       | Dir_nth n, Trm_struct tl ->
+       | Dir_struct_nth n, Trm_struct tl ->
           { t with desc = Trm_struct (Mlist.update_nth aux tl n)}
        | Dir_cond, Trm_if (cond, then_t, else_t) ->
           { t with desc = Trm_if (aux cond, then_t, else_t)}
@@ -388,8 +398,8 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           in
           app_to_nth loc tl n
             (fun nth_t -> aux dl nth_t ((decl_before n tl)@ctx))
-       | Dir_nth n, Trm_array tl
-         | Dir_nth n, Trm_struct tl ->
+       | Dir_array_nth n, Trm_array tl
+         | Dir_struct_nth n, Trm_struct tl ->
           app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux dl nth_t ctx)
        | Dir_cond, Trm_if (cond, _, _)
          | Dir_cond, Trm_while (cond, _)

@@ -149,6 +149,10 @@ and constr =
   | Constr_arg of var_constraint * typ_constraint
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
   | Constr_hastype of typ_constraint
+  (* Constraint to match an array initialization list *)
+  | Constr_array_init 
+  (* Constraint to match an struct initialization list  *)
+  | Constr_struct_init
 
 (* Constraint over types *)
 and typ_constraint = typ -> bool
@@ -415,6 +419,8 @@ let rec constr_to_string (c : constr) : string =
   | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
   | Constr_arg _ -> "<Constr_args>"
   | Constr_hastype _ -> "<Constr_hastype>"
+  | Constr_array_init -> "Array_init "
+  | Constr_struct_init -> "Struct_init"
 
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
@@ -757,6 +763,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         end
      | Constr_hastype pred , _ ->
         check_hastype pred t
+     | Constr_array_init, Trm_array _ -> true
+     | Constr_struct_init, Trm_struct _ -> true 
      | _ -> false
      end
 
@@ -1101,7 +1109,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
      | Trm_array tl
      | Trm_struct tl ->
-        explore_list (Mlist.to_list tl) (fun n -> Dir_nth n) (aux)
+        explore_list (Mlist.to_list tl) (fun n -> Dir_struct_nth n) (aux)
      | Trm_labelled (l, body) ->
         add_dir Dir_name (aux (trm_var ~loc l)) @
         add_dir Dir_body (aux body)
@@ -1143,10 +1151,13 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_seq_nth n, Trm_seq tl ->
     app_to_nth_dflt loc (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
-  | Dir_nth n, Trm_array tl
-    | Dir_nth n, Trm_struct tl ->
+  
+  | Dir_array_nth n, Trm_array tl ->
+    app_to_nth_dflt loc (Mlist.to_list tl) n
+       (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
+  | Dir_struct_nth n, Trm_struct tl ->
      app_to_nth_dflt loc (Mlist.to_list tl) n
-       (fun nth_t -> add_dir (Dir_nth n) (aux nth_t))
+       (fun nth_t -> add_dir (Dir_struct_nth n) (aux nth_t))
   | Dir_cond, Trm_if (cond, _, _)
     | Dir_cond, Trm_while (cond, _)
     | Dir_cond, Trm_do_while (_, cond)
@@ -1257,7 +1268,7 @@ let extract_last_dir (p : path) : path * int =
   | [] -> raise Not_found
   | d :: p' ->
     begin match d with
-    | Dir_seq_nth i | Dir_nth i -> (List.rev p', i)
+    | Dir_seq_nth i -> (List.rev p', i)
     | _ -> fail None "extract_last_dir: expected a directory in a sequence"
     end
 
@@ -1299,8 +1310,7 @@ let compute_relative_index (rel : target_relative) (t : trm) (p : path) : path *
         in
       match d with
       | Dir_seq_nth i -> (p', i + shift)
-      | Dir_nth i -> (p', i + shift)
-      | _ -> fail None "compute_relative_index: expected a Dir_nth as last direction"
+      | _ -> fail None "compute_relative_index: expected a Dir_seq_nth as last direction"
 
 let resolve_target_between (tg : target) (t : trm) : (path * int) list =
   let tgs = target_to_target_struct tg in

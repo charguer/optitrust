@@ -61,7 +61,11 @@ val target_of_path : path -> target
 
 val dRoot : constr
 
-val dNth : int -> constr
+val dArrayNth : int -> constr
+
+val dSeqNth : int -> constr
+
+val dStructNth : int -> constr
 
 val dCond : constr
 
@@ -71,7 +75,7 @@ val dElse : constr
 
 val dBody : constr
 
-val dInit : constr
+val dForInit : constr
 
 val dStep : constr
 
@@ -234,7 +238,11 @@ val cIndexAccess : ?base:target -> target -> constr
 
 val cIndexSet : ?base:target -> target -> constr 
 
-val cCell : int -> constr
+val cArrayInit : constr 
+
+val cStructInit : constr 
+
+val cCell : ?cell_index: int option -> unit -> constr 
 
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr
