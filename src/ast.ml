@@ -1544,9 +1544,19 @@ let is_typ_ptr (ty : typ) : bool =
   | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
   | _ -> false
 
-(* check if it is a struct access get operation of a immutable variable get operation *)
+(* check if [t] is a struct access get operation of a immutable variable get operation *)
 let is_get_operation (t : trm) : bool =
   List.exists (function | Access | Mutable_var_get -> true | _ -> false) t.annot
+
+(* check if [t] is a set operation *)
+let is_set_operation (t : trm) : bool = 
+  match t.desc with 
+  | Trm_apps (f, _) -> 
+    begin match f.desc with 
+    | Trm_val (Val_prim (Prim_binop Binop_set)) -> true
+    | _ -> false
+    end
+  | _ -> false
 
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op
