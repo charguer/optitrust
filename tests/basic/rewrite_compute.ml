@@ -1,6 +1,6 @@
 open Optitrust
 open Target
-let _ = Run.script_cpp (fun _ -> 
+let _ = Run.script_cpp (fun _ ->
 
   !! Rewrite_basic.compute [nbMulti;cPrimFun (Prim_binop Binop_add)];
   !! Rewrite_basic.compute [nbMulti;cPrimFun (Prim_binop Binop_mul)];

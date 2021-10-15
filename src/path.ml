@@ -11,7 +11,12 @@ type path = dir list
 
 and dir =
   (* nth: go to nth element in array, struct *)
-  | Dir_nth of int
+  | Dir_nth of int (* TODO: replace with:
+      | Dir_array_nth of int
+      | Dir_struct_nth of int_or_string
+
+    where type int_or_string = IntOrString_int of int | IntOrString_string *)
+
   (* nth: go to nth element in seq*)
   | Dir_seq_nth of int
   (* cond: used for if, loops and switch *)
@@ -34,7 +39,7 @@ and dir =
   (* app *)
   | Dir_app_fun
   (* arg for fun application and declaration *)
-  | Dir_arg of int
+  | Dir_arg of int (* TODO Dir_arg_nth *)
   (* name of declared var/fun or label *)
   | Dir_name
   (*
@@ -172,11 +177,11 @@ module Path_set = Set.Make(
   struct
   let compare = compare_path
   type t = path
-  end 
+  end
 )
 
 (* Compute the intersection of two resolved paths *)
-let intersect (p1 : paths) (p2 : paths) : paths = 
+let intersect (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = Path_set.empty in
   let set_of_p2 = Path_set.empty in
   let set_of_p1 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1 in
@@ -185,7 +190,7 @@ let intersect (p1 : paths) (p2 : paths) : paths =
   Path_set.elements inter_p1_p2
 
 (* Compute the union of two resolved paths and remove duplicates *)
-let union (p1 : paths) (p2 : paths) : paths = 
+let union (p1 : paths) (p2 : paths) : paths =
   let set_of_p1 = Path_set.empty in
   let set_of_p2 = Path_set.empty in
   let set_of_p1 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1 in
@@ -327,7 +332,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           end
 
        | Dir_case (n, cd), Trm_switch (cond, cases) ->
-          let updated_cases = 
+          let updated_cases =
             (Tools.map_at
                (fun (tl, body) ->
                  match cd with

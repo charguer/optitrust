@@ -27,6 +27,9 @@ type mark = Mark.t
 
 type 'a mlist = 'a Mlist.t
 
+(* string representation of a term, as provided by the user *)
+type strm = string
+
 (* variables *)
 type var = string
 
@@ -1561,25 +1564,25 @@ let get_include_filename (t : trm) : string  =
   | Some s -> s
   | _ -> fail t.loc "get_include_filename: couldn't get the requested filename"
 
-(* get the singleton declaration variable in the case when [t] is a variable declaration or a list of variable in the case when 
+(* get the singleton declaration variable in the case when [t] is a variable declaration or a list of variable in the case when
     we have multiple variable declarations in one line
 *)
-let rec trm_vardef_get_vars (t : trm) : var list = 
-  match t.desc with 
+let rec trm_vardef_get_vars (t : trm) : var list =
+  match t.desc with
   | Trm_let (_, (x, _), _) -> [x]
-  | Trm_seq tl when List.mem Multi_decl t.annot -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl)) 
-  | _ -> [] 
+  | Trm_seq tl when List.mem Multi_decl t.annot -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
+  | _ -> []
 
 (* get the primitive operation *)
 let trm_prim_inv (t : trm) : prim option =
-  match t.desc with 
+  match t.desc with
   | Trm_val (Val_prim p) -> Some p
   | _ -> None
 
 
 (* get the primitive value *)
-let trm_lit_inv (t : trm) : lit option = 
-  match t.desc with 
+let trm_lit_inv (t : trm) : lit option =
+  match t.desc with
   | Trm_val (Val_lit v) -> Some v
   | _ -> None
 
@@ -1588,7 +1591,7 @@ let trm_lit_inv (t : trm) : lit option =
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
 
 (* Unit trm, unvisble to the user *)
-let trm_unit () : trm = 
+let trm_unit () : trm =
   trm_lit (Lit_unit)
 
 (* convert a double/float to an ast node *)
@@ -1598,8 +1601,8 @@ let trm_double (d : float) : trm = trm_lit (Lit_double d)
 let trm_bool (b : bool) : trm = trm_lit (Lit_bool b)
 
 (* simplifiy unary operations on literals*)
-let compute_app_unop_value (p : unary_op) (v1:lit) : trm = 
-  match p, v1 with 
+let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
+  match p, v1 with
   | Unop_neg, Lit_bool b -> trm_bool (not b)
   | Unop_post_inc, Lit_int n -> trm_int (n + 1)
   | Unop_pre_inc, Lit_int n -> trm_int (n + 1)
@@ -1609,7 +1612,7 @@ let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
 
 (* simplifiy binary operations on literals*)
 let compute_app_binop_value (p : binary_op) (v1 : lit) (v2 : lit) : trm =
-  match p,v1, v2 with 
+  match p,v1, v2 with
   | Binop_eq , Lit_int n1, Lit_int n2 -> trm_bool (n1 == n2)
   | Binop_eq, Lit_double d1, Lit_double d2 -> trm_bool (d1 == d2)
   | Binop_neq , Lit_int n1, Lit_int n2 -> trm_bool (n1 <> n2)

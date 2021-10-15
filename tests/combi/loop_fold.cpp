@@ -1,4 +1,14 @@
-int main(){
+
+int main() {
+  int a = 0;
+  iterations: {
+    a += 0;
+    a += 1;
+    a += 2;
+    a += 3;
+  }
+}
+int more(){
   double coef_x[3] = {0.,1.,2.};
   double sign_x[3] = {0.,1.,2.};
   double values[3];

@@ -182,3 +182,16 @@ Basic test scripts are provided in the following files:
 To run tests, execute `make TESTS="test_name1 test_name2 ..." tests`, where
 `test_name` is the name of a test script without its `.ml` extension. To run all
 test scripts, simply execute `make tests`.
+
+
+
+# Shorthands for OptiTrust developers
+
+Shorthand for opening tests files all at once
+```
+optitrust_tests() {
+  code `find /home/charguer/shared/verified_transfo/src/tests -name *$1* -type f \( -iname \*.ml -o -iname \*.cpp -and -not -iname \*_exp.cpp \)  -not -path "*/_build/*"`
+}
+alias ot='optitrust_tests'
+```
+```

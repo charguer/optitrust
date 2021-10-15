@@ -45,7 +45,7 @@ let color (nb_colors : string_trm) ?(index : var = "") : Target.Transfo.t =
 let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_size : string_trm) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.tile index bound tile_size)
 
-(* [hoist x_step tg]: expects [tg] to point to a variable declaration inside a 
+(* [hoist x_step tg]: expects [tg] to point to a variable declaration inside a
     simple loop. Let's say for {int i ...} {
         int x; [tg]
         ...
@@ -73,7 +73,7 @@ let fission (tg : Target.target) : unit =
 
 (* [fusion_on_block tg] expects [tg] to point to a sequence containing two loops
     with the same range, start step and bound but different body.
-    Then it's going to append the body of to the body ot the first loop and of course 
+    Then it's going to append the body of to the body ot the first loop and of course
     remove the second loop from the ast.
 *)
 let fusion_on_block ?(keep_label : bool = false) : Target.Transfo.t =
@@ -99,18 +99,18 @@ let grid_enumerate (index_and_bounds : (string * string) list) : Target.Transfo.
   Target.apply_on_targets (Loop_core.grid_enumerate index_and_bounds)
 
 
-(* [unroll] expects the target to point to a simple loop of the shape 
-    for (int i = a; i < a + C; i++) or for (int i = 0; i < C; i++) 
-      then it will move the instructions out of the loop by replacing 
+(* [unroll] expects the target to point to a simple loop of the shape
+    for (int i = a; i < a + C; i++) or for (int i = 0; i < C; i++)
+      then it will move the instructions out of the loop by replacing
       the index i occurrence with a + j in and j in the second case where
       j is an integer in rance from 0 to C.
-      
+
     Assumption: Both a and C should be declared as constant variables.
 *)
 let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : Target.target): unit =
-  Internal.nobrace_remove_after (fun _ -> 
+  Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Loop_core.unroll braces my_mark) tg)
-  
+
 
 (* [invariant] expects the target [tg] to point to an instruction inside the loop
     which is not dependent on the index of the loop or any local variable.
@@ -154,5 +154,7 @@ let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
     array set operations.
 *)
 let fold (index : var) (start : var) (stop : var) (step : var) : Target.Transfo.t =
-  Target.apply_on_targets (Loop_core.fold index start stop step)
+  Target.reparse_after ( (* TODO: reparse_after_if_arbitrary_code *)
+    Target.apply_on_targets (Loop_core.fold index start stop step))
+    (* TODO: make sure this pattern is used everywhere *)
 
