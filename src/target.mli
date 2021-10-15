@@ -93,6 +93,8 @@ val dEnumConstVal : enum_const_dir
 
 val cStrict : constr
 
+val cStrictNew : constr
+
 val cChain : constr list -> constr
 
 val cInclude : string -> constr

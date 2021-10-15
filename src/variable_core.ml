@@ -179,6 +179,16 @@ let rename_on_block_aux (rename : Rename.t) (t : trm) : trm =
       ) t_new_dl tl 
   | _ -> fail t.loc "rename_on_block_aux: expected the sequence block"
 
+
+let rec replace_occurrences_aux (name : var) (space : strm) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_var y when y = name -> code space
+  | _ -> trm_map (replace_occurrences_aux name space) t
+
+let replace_occurrences (name : var)(space : strm) : Target.Transfo.local = 
+  Target.apply_on_path (replace_occurrences_aux name space)
+
+
 let rename_on_block (rename : Rename.t) : Target.Transfo.local =
   Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_on_block_aux rename) "var_rename")
 

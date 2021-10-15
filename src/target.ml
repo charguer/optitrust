@@ -40,7 +40,7 @@ let cTrue : constr =
 let cFalse : constr =
   Constr_bool false
 
-let cStrictNEW : constr =
+let cStrictNew : constr =
   Constr_depth (DepthAt 0)
 
 let cStrict : constr = (* TODO ARTHUR: remove this and patch the treatment of C for loops differently *)

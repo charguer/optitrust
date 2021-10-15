@@ -144,3 +144,10 @@ let change_type (new_type : typvar) : Target.Transfo.t =
 let insert ?(const : bool = false) (name : string) (typ : string ) (value : string) (tg : Target.target) : unit =
   Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p) tg;
   Trace.reparse()
+
+
+
+let replace_occurrences (name : var) ~space:(space1 : strm) : Target.Transfo.t =
+  Target.reparse_after (
+    Target.apply_on_targets (Variable_core.replace_occurrences name space1)
+  )
