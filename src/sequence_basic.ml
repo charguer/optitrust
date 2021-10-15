@@ -2,11 +2,11 @@ open Ast
 open Target
 
 (* [insert tg ts] expects the relative target [tg] pointing before or after an instruction.
-  [s] denotes the arbitrary code to be inserted inside the sequence
+  [code] denotes the arbitrary code to be inserted inside the sequence
 *)
-let insert (s : string) (tg : target): unit =
+let insert (code : trm) (tg : target): unit =
   Target.apply_on_targets_between (fun t (p,i) ->
-    Sequence_core.insert i s t p) tg;
+    Sequence_core.insert i code t p) tg;
   Trace.reparse()
 
 

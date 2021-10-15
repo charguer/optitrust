@@ -13,16 +13,15 @@ open Ast
     return: 
       the equence with the augmented new trm
 *)
-let insert_aux (index : int) (s : string) (t : trm) : trm =
+let insert_aux (index : int) (code : trm) (t : trm) : trm =
     match t.desc with
     | Trm_seq tl ->
-      let new_trm = code s in
-      let new_tl = Mlist.insert_at index new_trm tl in
+      let new_tl = Mlist.insert_at index code tl in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
     | _ -> fail t.loc "insert_aux: expected the sequence on which the insertion is performed"
 
-let insert (index : int) (s : string) : Target.Transfo.local =
-  Target.apply_on_path (insert_aux index s)
+let insert (index : int) (code : trm) : Target.Transfo.local =
+  Target.apply_on_path (insert_aux index code)
 
 (* [delete_aux index nb_instr t]: delete a number of instructions inside the sequence starting 
       from index [index] and ending at ([index] + [nb])

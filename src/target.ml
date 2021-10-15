@@ -592,6 +592,11 @@ let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
 let cIndexAccess ?(base : target = []) (index : target )  : constr =
   cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
+(* [cCell arary_size] matches all arrray cells in an array initialization *)
+let cCell (array_size : int) : constr = 
+  let all_cells = Tools.range 0 (array_size-1) in
+  let all_cells_constr = List.map (fun i -> [dNth i]) all_cells in
+  cOr all_cells_constr
 
 
 (******************************************************************************)

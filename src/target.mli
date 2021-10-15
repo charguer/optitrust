@@ -232,6 +232,8 @@ val cIndexAccess : ?base:target -> target -> constr
 
 val cIndexSet : ?base:target -> target -> constr 
 
+val cCell : int -> constr
+
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr
 

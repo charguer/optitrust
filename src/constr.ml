@@ -149,7 +149,7 @@ and constr =
   | Constr_arg of var_constraint * typ_constraint
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
   | Constr_hastype of typ_constraint
-  | Constr_cell 
+  | Constr_cell of int 
   
 (* Constraint over types *)
 and typ_constraint = typ -> bool
@@ -416,7 +416,7 @@ let rec constr_to_string (c : constr) : string =
   | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
   | Constr_arg _ -> "<Constr_args>"
   | Constr_hastype _ -> "<Constr_hastype>"
-  | Constr_cell -> "Array_cell"
+  | Constr_cell i -> "Array_cell " ^ (string_of_int i)
 and target_to_string (tg : target) : string =
   list_to_string (List.map constr_to_string tg)
 
