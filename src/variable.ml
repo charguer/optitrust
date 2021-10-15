@@ -181,30 +181,19 @@ let detach_if_needed (tg : Target.target) : unit =
     | _ -> fail t.loc "init_detach_aux: variable could not be matched, make sure your path is correct"
   ) tg
 
-let variable_rename (new_name : var) (tg : Target.target) : unit = 
-  Target.iter_on_targets (fun t p -> 
-    let mark = Mark.next() in
-    let decl_t,_= Path.resolve_path p t in
-    match decl_t.desc with 
-    | Trm_let (_, (x,_),_) ->
-      let path_to_seq, i, _ = Internal.get_instruction_in_surrounding_sequence p in
-      Sequence_basic.intro_between ~mark([Target.tBefore] @ (Target.target_of_path p)) ([Target.tLast] @ (Target.target_of_path path_to_seq));
-      Variable_basic.rename_on_block (ByList [(x,new_name)])[Target.cMark mark];
-    | _ -> fail decl_t.loc ""
-) tg
-  
-
   
 let reuse (space : var) (tg : Target.target) : unit =
    Target.iter_on_targets (fun t p -> 
     let decl_t,_ = Path.resolve_path p t in
-    detach_if_needed (Target.target_of_path p);
-    match decl_t.desc with 
-    | Trm_let (_,(x,_),_) -> 
-      let path_to_seq, _, _ = Internal.get_instruction_in_surrounding_sequence p in
-      Variable_basic.rename_on_block (ByList [(x, space)]) (Target.target_of_path (path_to_seq));
-      Sequence.delete [Target.tIndex ~nb:2 1; Target.cVarDef space];
-    | _ -> fail t.loc "reuse: expected a variable_declaraton"
+    begin match decl_name decl_t with 
+    | Some x -> 
+      (* Marks.add "opti_mark" (Target.target_of_path p); *)
+      let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
+      detach_if_needed (Target.target_of_path p);
+      Variable_basic.replace_occurrences x ~space (Target.target_of_path _path_to_seq);
+      Instr_basic.delete (Target.target_of_path p)
+    | None -> fail decl_t.loc "reuse: could not match the declaration"
+    end
    ) tg 
 
 

@@ -179,7 +179,14 @@ let rename_on_block_aux (rename : Rename.t) (t : trm) : trm =
       ) t_new_dl tl 
   | _ -> fail t.loc "rename_on_block_aux: expected the sequence block"
 
-
+(* [replace_occurrences_aux name space t]: replace all occurrences of [name] with [space] 
+      params:
+        [name]: name of the variable whose occurrences are going to be replaced
+        [space]:trm which is going to replace all the occurrences of [name]
+        [t]: any node in the ast which could contain an occurrence of [name]
+      return:
+        updated [t] with all the replaced occurrences
+*)
 let rec replace_occurrences_aux (name : var) (space : strm) (t : trm) : trm = 
   match t.desc with 
   | Trm_var y when y = name -> code space
@@ -217,7 +224,7 @@ let init_detach_aux  (t : trm) : trm =
         | _ -> var_type
         end in
         let new_tx = typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type in
-        let var_decl = trm_let vk (x, new_tx) (trm_prim (Prim_new new_tx)) in
+        let var_decl = trm_let ~annot:t.annot ~marks:t.marks vk (x, new_tx) (trm_prim (Prim_new new_tx)) in
         (* Check if variable was declared as a reference *)
         
         let var_assgn = trm_set (trm_var ~typ:(Some var_type) x) {init with typ = (Some var_type)} in

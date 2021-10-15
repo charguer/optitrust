@@ -138,7 +138,7 @@ let change_type (new_type : typvar) : Target.Transfo.t =
 
 
 
-(* [variable_insert ~constr name typ value tg] expects the target [tg] to point to a location in a sequence
+(* [insert ~constr name typ value tg] expects the target [tg] to point to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
 let insert ?(const : bool = false) (name : string) (typ : string ) (value : string) (tg : Target.target) : unit =
@@ -146,7 +146,9 @@ let insert ?(const : bool = false) (name : string) (typ : string ) (value : stri
   Trace.reparse()
 
 
-
+(* [replace_occurrences name ~space tg]] expects the target [tg] to point to any node ast which could contain 
+    an occurrence of the variable [name], then it will all the nodes which come after the node targeted by target [tg]
+*)
 let replace_occurrences (name : var) ~space:(space1 : strm) : Target.Transfo.t =
   Target.reparse_after (
     Target.apply_on_targets (Variable_core.replace_occurrences name space1)

@@ -20,7 +20,12 @@ let replace (code : string) (tg : target) : unit =
 let replace_fun (name : string) (tg : target) : unit =
   Target.apply_on_targets (Instr_core.replace_fun name) tg
   
-(* [] *)
+(* [move ~before ~after tg] expects the target [tg] to point to an instruction
+      inside a sequence, then it will move this instruction before the target [before]
+      or after the target [after].
+
+      Note: Only one of [before] or [after] should be specified
+*)
 let move ?(before : target = []) ?(after : target = []) : Target.Transfo.t  =
   let rel_tg = 
   begin match before, after with 
@@ -35,3 +40,14 @@ let move ?(before : target = []) ?(after : target = []) : Target.Transfo.t  =
       let (p_instr,i_instr) = Internal.isolate_last_dir_in_seq ps in
       if p_instr <> p then fail t.loc "move: before or after should resolve to an instruction relative to the main target";
       Instr_core.move i i_instr t p) 
+
+
+(* [delete tg] expects the target [tg] to point to an instruction inside a sequence 
+      then it will replace that instruction with a unit literal. To remove this trm from the
+      ast a final reparse is done.
+*)
+let delete : Target.Transfo.t = 
+  Target.reparse_after (
+    Target.apply_on_targets (Target.apply_on_path (fun _ -> trm_unit ()))
+    )
+  
