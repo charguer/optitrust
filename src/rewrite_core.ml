@@ -16,8 +16,9 @@ let parse_pattern (str : string) : (vars * vars *trm) =
   if List.length splitted_pattern < 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
     for the declaration of variables used in the pattern and the rule itself" ;
   let var_decls = String.trim (List.nth splitted_pattern 0) in
-  let aux_var_decls, pat = if List.length splitted_pattern = 3 then (List.nth splitted_pattern 1),(List.nth splitted_pattern 2)
+  let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
     else ("", List.nth splitted_pattern 1) in
+  
   let var_decls_temp  = String.mapi (fun i x -> 
     if x = ';' 
       then 
@@ -29,13 +30,13 @@ let parse_pattern (str : string) : (vars * vars *trm) =
   let aux_var_decls_temp  = String.mapi (fun i x -> 
     if x = ';' 
       then 
-        if i <> String.length aux_var_decls - 1 
+        if i <> String.length aux_var_decls - 1  
           then ','
           else ' '
       else x) aux_var_decls in
-
-  let fun_args = var_decls_temp ^ aux_var_decls_temp in
-  let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ aux_var_decls ^ "\nreturn " ^ pat ^ "\n}" in
+ 
+  let fun_args = var_decls_temp ^"," ^aux_var_decls_temp in
+  let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ "\n}" in
   Xfile.put_contents output_file file_content;
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with 
@@ -47,7 +48,7 @@ let parse_pattern (str : string) : (vars * vars *trm) =
       begin match body.desc with
       | Trm_seq tl1 -> 
         if Mlist.length tl1 < 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls # rule_to_appy";
-        let aux_var_decls, pattern_instr_ret = Tools.unlast (Mlist.to_list tl1) in 
+        let pattern_instr_ret = Mlist.nth tl1 0 in
         let pattern_instr = 
         begin match pattern_instr_ret.desc with
         | Trm_abort (Ret r1) -> 
@@ -58,7 +59,8 @@ let parse_pattern (str : string) : (vars * vars *trm) =
         | _ -> pattern_instr_ret  
         end in
         let pattern_vars = fst (List.split args) in
-        let aux_vars = List.flatten (List.map trm_vardef_get_vars aux_var_decls ) in
+        let aux_vars = List.filter_map (fun x -> if Internal.pattern_matches x aux_var_decls then Some x else None ) pattern_vars in
+        let pattern_vars = List.filter (fun x -> not (List.mem x aux_vars ) ) pattern_vars in
         (pattern_vars, aux_vars, pattern_instr)
       | _ -> fail body.loc "parse_pattern: body of the function f should be a sequence"
       end
@@ -102,6 +104,10 @@ let rule_match (vars : vars) (aux_vars : vars) (pat : trm) (t : trm) : tmap =
         if is_get_operation t1 then 
         aux ts1 t2
         else ()
+    | Trm_var _, Trm_apps (_f1, [ts2]) -> 
+        if is_get_operation t1 then 
+        aux t1 ts2
+        else ()
     | Trm_apps (f1, ts1), Trm_apps (f2, ts2) ->
       let f1 = if is_get_operation t1 then (List.nth ts1 0) else f1 in
       let f2 = if is_get_operation t2 then (List.nth ts2 0) else f2 in
@@ -110,7 +116,6 @@ let rule_match (vars : vars) (aux_vars : vars) (pat : trm) (t : trm) : tmap =
         aux_list ts1 ts2;
       end
     | _ -> 
-      Tools.printf "%s and %s dont match\n" (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
       raise Rule_mismatch
   in 
   aux pat t;
