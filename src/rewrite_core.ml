@@ -52,7 +52,6 @@ let parse_pattern (str : string) : (vars * trm) =
       end
     | _ -> fail main_fun.loc "parse_pattern: the pattern was not entered correctly"
     end
-
   | _ -> fail ast_of_file.loc "parse_pattern: expected the main sequence of tmp_rule.cpp"
 
 
@@ -135,12 +134,13 @@ let compute_aux (t : trm) : trm =
       | None -> t
       end
     | Some (Prim_binop Binop_and), [{desc = Trm_val (Val_lit (Lit_bool true));_}; t2] -> t2
-    | Some (Prim_binop Binop_and), [t2; {desc = Trm_val (Val_lit (Lit_bool true));_}] -> t2
     | Some (Prim_binop Binop_and), [{desc = Trm_val (Val_lit (Lit_bool false));_};_] -> trm_bool false
-    | Some (Prim_binop Binop_and), [_;{desc = Trm_val (Val_lit (Lit_bool false));_}] -> trm_bool false
+    | Some (Prim_binop Binop_and), [t2; {desc = Trm_val (Val_lit (Lit_bool true));_}] when trm_is_val_or_var t2 -> t2
+    | Some (Prim_binop Binop_and), [t2;{desc = Trm_val (Val_lit (Lit_bool false));_}] when trm_is_val_or_var t2 -> trm_bool false
     | Some (Prim_binop Binop_or), [{desc = Trm_val (Val_lit (Lit_bool true));_}; _] -> trm_bool true
-    | Some (Prim_binop Binop_or), [_; {desc = Trm_val (Val_lit (Lit_bool true));_}] -> trm_bool true
-    | Some (Prim_binop Binop_or), [t2; {desc = Trm_val (Val_lit (Lit_bool false));_}] -> t2
+    | Some (Prim_binop Binop_or), [{desc = Trm_val (Val_lit (Lit_bool false));_}; _] -> trm_bool false
+    | Some (Prim_binop Binop_or), [t2; {desc = Trm_val (Val_lit (Lit_bool true));_}] when trm_is_val_or_var t2 -> trm_bool true
+    | Some (Prim_binop Binop_or), [t2; {desc = Trm_val (Val_lit (Lit_bool false));_}] when trm_is_val_or_var t2 -> t2
     | Some (Prim_binop p), [t1;t2] -> 
       begin match (trm_lit_inv t1), (trm_lit_inv t2) with 
       | Some v1, Some v2 -> compute_app_binop_value p v1 v2

@@ -5,7 +5,8 @@ TARGET_MAKE_ALL := check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
 TESTS_WORKING := \
-  arith_shift.ml \
+	accesses_scale.ml \
+	accesses_shift.ml \
 	aos_to_soa_sized_array.ml \
 	aos_to_soa_typedef.ml \
 	array_swap.ml \
@@ -15,6 +16,7 @@ TESTS_WORKING := \
 	flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
+	instr_move.ml \
 	instr_replace.ml \
 	instr_replace_fun.ml \
 	label_add.ml \
@@ -22,6 +24,7 @@ TESTS_WORKING := \
 	loop_color.ml \
 	loop_fission.ml \
 	loop_fusion.ml \
+	loop_fold.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_interchange.ml \
@@ -33,6 +36,7 @@ TESTS_WORKING := \
 	pointer_fold.ml \
 	reference_fold.ml \
 	reference_inline.ml \
+	rewrite_equiv_at.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
 	sequence_delete.ml \
@@ -51,12 +55,13 @@ TESTS_WORKING := \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
+	variable_change_type.ml \
 	variable_fold.ml \
 	variable_inline.ml \
 	variable_insert.ml \
 	variable_insert_and_fold.ml \
 	variable_rename.ml\
-
+  variable_replace_occurrences.ml \
 #	local_other_name.ml \
 TESTS_TOCHECK := \
 	change_type.ml \

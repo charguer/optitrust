@@ -4,5 +4,5 @@ open Ast
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Accesses_basic.scale (trm_double 5.0) [cCellAccess ~base:[cVar "t"] [cVar "i"]];
+  !! Accesses_basic.scale (trm_double 5.0) [cOr [[cCellWrite ~base:[cVar "t"] ~index:[cVar "i"]];[cCellRead ~base:[cVar "t"] ~index:[cVar "i"]]]]
 )

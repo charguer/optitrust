@@ -1596,7 +1596,6 @@ let trm_lit_inv (t : trm) : lit option =
   | Trm_val (Val_lit v) -> Some v
   | _ -> None
 
-
 (* convert an integer to an ast node *)
 let trm_int (n : int) : trm = trm_lit (Lit_int n)
 
@@ -1655,3 +1654,10 @@ let decl_list_to_typed_vars (tl : trm list) : typed_vars =
     | Trm_let (_, (x, tx),_) -> (x, get_inner_ptr_type tx)
     | _ -> fail t.loc "decl_list_to_typed_vars: expected a list of declarations"
   ) tl
+
+(* check if [t] is a variable occurrence or a value *)
+let rec trm_is_val_or_var (t : trm) : bool = 
+  match t.desc with 
+  | Trm_val _ | Trm_var _ -> true 
+  | Trm_apps (_, [var_occ]) when is_get_operation t -> trm_is_val_or_var var_occ
+  | _ -> false
