@@ -14,7 +14,8 @@ vect f() { return {1, 1}; }
 int main() {
   vect p = {0, 0};
   vect b;
-  b = p;
+  b.x = p.x;
+  b.y = p.y;
   vect u;
   obj a = {0, {0, 0}, {0, 0}};
   u.x = a.pos.x;

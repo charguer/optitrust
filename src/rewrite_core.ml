@@ -12,19 +12,20 @@ open Ast
 *)
 let parse_pattern (str : string) : (vars * trm) = 
   let output_file = "tmp_rule.cpp" in
-  let splitted_pattern = String.split_on_char '#' str in
-  if List.length splitted_pattern <> 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using # as a separator
+  let splitted_pattern = Str.split (Str.regexp_string "==>") str in
+  if List.length splitted_pattern < 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
     for the declaration of variables used in the pattern and the rule itself" ;
   let var_decls = String.trim (List.nth splitted_pattern 0) in
-  let pat = List.nth splitted_pattern 1 in
-  let fun_args = String.mapi (fun i x -> 
+  let aux_var_decls, pat = if List.length splitted_pattern = 3 then (List.nth splitted_pattern 1),(List.nth splitted_pattern 2)
+    else ("", List.nth splitted_pattern 1) in
+  let fun_args  = String.mapi (fun i x -> 
     if x = ';' 
       then 
         if i <> String.length var_decls - 1 
           then ','
           else ' '
       else x) var_decls in
-  let file_content = "bool f(" ^ fun_args ^ "){ return " ^ pat ^ "}" in
+  let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ aux_var_decls ^ "\nreturn " ^ pat ^ "\n}" in
   Xfile.put_contents output_file file_content;
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with 
@@ -35,8 +36,8 @@ let parse_pattern (str : string) : (vars * trm) =
     | Trm_let_fun (_, _, args, body) ->
       begin match body.desc with
       | Trm_seq tl1 -> 
-        if Mlist.length tl1 <> 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls # rule_to_appy";
-        let pattern_instr_ret = Mlist.nth tl1 0 in 
+        if Mlist.length tl1 < 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls # rule_to_appy";
+        let pattern_instr_ret = snd (Tools.unlast (Mlist.to_list tl1)) in 
         let pattern_instr = 
         begin match pattern_instr_ret.desc with
         | Trm_abort (Ret r1) -> 
@@ -98,6 +99,7 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
         aux_list ts1 ts2;
       end
     | _ -> 
+      Tools.printf "%s and %s dont match\n" (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
       raise Rule_mismatch
   in 
   aux pat t;

@@ -161,12 +161,11 @@ let intro_pattern_array (str : string) (tg : Target.target) : unit =
     let new_t = Internal.variable_substitute new_inst pattern_instr in
     Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> new_t) t p) (Target.target_of_path p)
   ) tg;
-  let instrs_to_insert = List.mapi (fun id_var x -> trm_let Var_mutable (x, typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_vars)) ~typ_attributes:[GeneratedStar])
-  (trm_apps (trm_prim (Prim_new (typ_array (typ_double ()) (Const nb_vars)))) (Array.to_list all_values.(id_var)))) pattern_vars in
-  (* Internal.nobrace_remove_after (fun _ -> *)
-    Internal.nobrace_enter();
-    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tBefore] @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dSeqNth (snd !minimal_index_branch + 1)]))
-  (* )) *)
+  let instrs_to_insert = List.mapi (fun id_var x -> trm_let Var_mutable (x, typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_paths)) ~typ_attributes:[GeneratedStar])
+  (trm_apps (trm_prim (Prim_new (typ_array (typ_double ()) (Const nb_paths)))) [trm_array (Mlist.of_list (Array.to_list all_values.(id_var)))])) pattern_vars in
+  Internal.nobrace_remove_after (fun _ ->
+    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tBefore] @ (Target.target_of_path !path_to_surrounding_seq) @ [Target.dSeqNth (snd !minimal_index_branch)])))
+  
   
 
 let detach_if_needed (tg : Target.target) : unit = 

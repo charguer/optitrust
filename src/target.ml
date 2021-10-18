@@ -422,7 +422,7 @@ let cPrimPredFun ?(args : targets = []) ?(args_pred:target_list_pred = target_li
 let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
    cPrimPredFun ~args ~args_pred (fun p2 -> p2 = p)
 
-(* [cWrite ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
+(* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
 *)
 let cWrite ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
@@ -585,31 +585,42 @@ let cAccess : constr_access =
 let cFieldRead ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  ~field:(field : field )  : constr =
   cRead ~addr:[cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()] ()
 
+(* [cFieldWrite ~base field] matches all struct field write operations*)
+let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
+  let lhs = [cAccesses ~base ~accesses:[cField ~substr ~regexp ~field ()] ()] in
+  cWrite ~lhs ()
+
 
 (* [cFieldAccess field] field matches all struct accesses in field [field]*)
 let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
-  cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()
+ cOr [[cFieldWrite ~base ~substr ~regexp ~field; dLHS];[cFieldRead ~base ~substr ~regexp ~field;dArg 0]]
 
 
-(* [cFieldWrite ~base field] matches all struct field set operations*)
-let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
-  let lhs = [cFieldAccess ~base ~substr ~regexp ~field] in
-  cWrite ~lhs ()
+(* [cFieldReadOrWrite ~base ~substr ~regexp ~field] matches all read or write operations 
+*)
+let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
+ cOr [[cFieldWrite ~base ~substr ~regexp ~field];[cFieldRead ~base ~substr ~regexp ~field]]
 
 (* [cCellRead ~base index] matches all array accesses at index [index] with base [base]
     which are under a get operation
 *)
-let cCellRead ?(base : target = []) ~index:(index : target )  : constr =
+let cCellRead ?(base : target = []) ~index:(index : target ) : constr =
   cRead ~addr:[cAccesses ~base ~accesses:[cIndex ~index ()] ()] ()
 
-(* [cCellWrite ~base index] matches all array index set operations*)
+(* [cCellWrite ~base index] matches all array index write operations*)
 let cCellWrite ?(base : target = [cStrict;cVar ""]) ~index:(index : target) : constr =
   let lhs = [cAccesses ~base ~accesses:[cIndex ~index ()] ()] in
   cWrite ~lhs ()
 
+(* [cCellReadOrWrite ~base ~index ] matches all read or write operations on array cells with 
+  base [base] and index [index]
+*)
+let cCellReadOrWrite ?(base : target = [cStrict;cVar ""]) ~index:(index : target) : constr =
+  cOr [[cCellRead ~base ~index];[cCellWrite ~base ~index]]
+
 (* [cCellAccess ~base index] matches all array accesses at index [index] with base [base] *)
 let cCellAccess ?(base : target = []) ~index:(index : target )  : constr =
-  cOr [[cCellWrite ~base ~index; dLHS];[cCellRead ~base ~index]]
+  cOr [[cCellWrite ~base ~index; dLHS];[cCellRead ~base ~index;dArg 0]]
 
 (* [cArrayInit] matches all array initialization lists *)
 let cArrayInit : constr = 

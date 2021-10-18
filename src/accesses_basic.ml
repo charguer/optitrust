@@ -25,3 +25,4 @@ let shift (arg : trm) (tg : Target.target) : unit =
   let f_set t = Arith_core.apply_aux Binop_add arg t in
   transform f_get f_set tg
  
+ (* LATER: Define shift_access that applies to a target on accesses and calls shift on the parent path *)

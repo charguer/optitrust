@@ -230,15 +230,19 @@ val cAccess : constr_access
 
 val cFieldRead : ?base:target -> ?substr:bool -> ?regexp:bool-> field:string -> constr 
 
+val cFieldWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr 
+
 val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr
 
-val cFieldWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr 
+val cFieldReadOrWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr 
 
 val cCellRead : ?base:target -> index:target -> constr 
 
-val cCellAccess : ?base:target -> index:target -> constr
-
 val cCellWrite : ?base:target -> index:target -> constr 
+
+val cCellReadOrWrite : ?base:target -> index:target -> constr 
+
+val cCellAccess : ?base:target -> index:target -> constr
 
 val cArrayInit : constr 
 
