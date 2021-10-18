@@ -31,9 +31,9 @@ let script (f : unit -> unit) : unit =
   with | Failure s ->
     Trace.finalize();
     (* failwith s *)
-    Printf.eprintf "Failure: %s\n" s;
-    let s = Printexc.get_backtrace() in
-    Printf.eprintf "%s\n" s;
+    let sbt = Printexc.get_backtrace() in
+    Printf.eprintf "%s\n" sbt;
+    Printf.eprintf "=======\nFailure: %s\n" s;
     exit 1
 
 (* [get_basename ()] is  function to get the name of the file being executed

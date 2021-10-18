@@ -68,9 +68,20 @@ sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_
 # TODO(Anton): replace this line with a dune command that uses directly /src/src files instead
 # of the installed package; only consider ${FILEBASE}.ml from local folder
 
-ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
+
+if [[ "${FILEBASE}.ml" -nt "${PROG}" ]]; then
+  # echo FILE1 is newer than FILE2
+  PROGNEEDSREBUILD="needsrebuild"
+fi
+
+
+if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ] || [ "${PROGNEEDSREBUILD}" = "needsrebuild" ]; then
+  ocamlbuild -tag debug -quiet -r -pkgs clangml,refl,pprint,str,optitrust ${PROG}
+fi
+
 # LATER: capture the output error message
 # so we can do the postprocessing on it
+
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
@@ -87,8 +98,8 @@ OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
-  echo "Error executing the script:"
-  echo "  cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}"
+  #echo "Error executing the script:"
+  #echo "  cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2}"
   exit 1
 fi
 
