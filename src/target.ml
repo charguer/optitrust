@@ -466,6 +466,9 @@ let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = fals
   let p_body = body in
   Constr_label (ro, p_body)
 
+(* [cLabelBdoy ~substr ~body ~regexp label] matches C label bodys*)
+let cLabelBody ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
+  cChain [cLabel ~substr ~body ~regexp label; dBody]
 
 let cGoto ?(label : string = "")
   ?(substr : bool = false) ?(regexp : bool = false) (_ : unit) : constr =

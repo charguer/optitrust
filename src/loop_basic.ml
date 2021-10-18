@@ -156,5 +156,5 @@ let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
 let fold (index : var) (start : var) (stop : var) (step : var) : Target.Transfo.t =
   Target.reparse_after ( (* TODO: reparse_after_if_arbitrary_code *)
     Target.apply_on_targets (Loop_core.fold index start stop step))
-    (* TODO: make sure this pattern is used everywhere *)
+    
 

@@ -15,10 +15,16 @@ let parse_pattern (str : string) : (vars * trm) =
   let splitted_pattern = String.split_on_char '#' str in
   if List.length splitted_pattern <> 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using # as a separator
     for the declaration of variables used in the pattern and the rule itself" ;
-  let var_decls = List.nth splitted_pattern 0 in
+  let var_decls = String.trim (List.nth splitted_pattern 0) in
   let pat = List.nth splitted_pattern 1 in
-  let fun_args = String.map (fun x -> if x = ';' then ',' else x) var_decls in
-  let file_content = "bool f(" ^ fun_args ^ "){" ^ pat ^ "}" in
+  let fun_args = String.mapi (fun i x -> 
+    if x = ';' 
+      then 
+        if i <> String.length var_decls - 1 
+          then ','
+          else ' '
+      else x) var_decls in
+  let file_content = "bool f(" ^ fun_args ^ "){ return " ^ pat ^ ";}" in
   Xfile.put_contents output_file file_content;
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with 
@@ -30,7 +36,16 @@ let parse_pattern (str : string) : (vars * trm) =
       begin match body.desc with
       | Trm_seq tl1 -> 
         if Mlist.length tl1 <> 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls # rule_to_appy";
-        let pattern_instr = Mlist.nth tl1 0 in 
+        let pattern_instr_ret = Mlist.nth tl1 0 in 
+        let pattern_instr = 
+        begin match pattern_instr_ret.desc with
+        | Trm_abort (Ret r1) -> 
+          begin match  r1 with 
+          | Some t1 -> t1
+          | _ -> fail pattern_instr_ret.loc "parse_pattern: this should never appear"
+          end
+        | _ -> pattern_instr_ret  
+        end in
         let pattern_vars = fst (List.split args) in
         (pattern_vars, pattern_instr)
       | _ -> fail body.loc "parse_pattern: body of the function f should be a sequence"
@@ -61,8 +76,6 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let aux_list (ts1 : trm list) (ts2 : trm list) : unit =
       List.iter2 aux ts1 ts2 in  
-    Tools.printf "Comparing %s with %s\n" (Ast_to_text.ast_to_string t1) (Ast_to_text.ast_to_string t2);
-    Tools.printf "-----------------------------------------\n";
     match t1.desc, t2.desc with 
     | Trm_var x, _ when List.mem x vars ->
       begin match Trm_map.find_opt x !inst with 
@@ -122,13 +135,12 @@ let compute_aux (t : trm) : trm =
       | None -> t
       end
     | Some (Prim_binop Binop_and), [{desc = Trm_val (Val_lit (Lit_bool true));_}; t2] -> t2
+    | Some (Prim_binop Binop_and), [t2; {desc = Trm_val (Val_lit (Lit_bool true));_}] -> t2
     | Some (Prim_binop Binop_and), [{desc = Trm_val (Val_lit (Lit_bool false));_};_] -> trm_bool false
-    | Some (Prim_binop Binop_and), [{desc = Trm_val v1;_}; { desc = Trm_val (Val_lit (Lit_bool true));_}] -> trm_val v1
-    | Some (Prim_binop Binop_and), [{desc = Trm_val _;_}; {desc = Trm_val (Val_lit (Lit_bool false));_}] -> trm_bool false
+    | Some (Prim_binop Binop_and), [_;{desc = Trm_val (Val_lit (Lit_bool false));_}] -> trm_bool false
     | Some (Prim_binop Binop_or), [{desc = Trm_val (Val_lit (Lit_bool true));_}; _] -> trm_bool true
-    | Some (Prim_binop Binop_or), [{desc = Trm_val (Val_lit (Lit_bool false));_}; t2] -> t2
-    | Some (Prim_binop Binop_or), [{desc = Trm_val _;_}; {desc = Trm_val (Val_lit (Lit_bool true));_}] -> trm_bool true
-    | Some (Prim_binop Binop_or), [{desc = Trm_val v2;_}; {desc = Trm_val (Val_lit (Lit_bool false));_}] -> trm_val v2
+    | Some (Prim_binop Binop_or), [_; {desc = Trm_val (Val_lit (Lit_bool true));_}] -> trm_bool true
+    | Some (Prim_binop Binop_or), [t2; {desc = Trm_val (Val_lit (Lit_bool false));_}] -> t2
     | Some (Prim_binop p), [t1;t2] -> 
       begin match (trm_lit_inv t1), (trm_lit_inv t2) with 
       | Some v1, Some v2 -> compute_app_binop_value p v1 v2
