@@ -24,7 +24,7 @@ let parse_pattern (str : string) : (vars * trm) =
           then ','
           else ' '
       else x) var_decls in
-  let file_content = "bool f(" ^ fun_args ^ "){ return " ^ pat ^ ";}" in
+  let file_content = "bool f(" ^ fun_args ^ "){ return " ^ pat ^ "}" in
   Xfile.put_contents output_file file_content;
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with 

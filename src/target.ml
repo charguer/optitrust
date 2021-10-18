@@ -603,7 +603,7 @@ let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
 
 (* [cIndexAccess ~base index] matches all array accesses at index [index] with base [base] *)
 let cIndexAccess ?(base : target = []) (index : target )  : constr =
-  cAccesses ~base ~accesses:[cIndex ~index ()] ()
+  cOr [[cIndexSet ~base index];[cIndexGet ~base index]]
 
 (* [cArrayInit] matches all array initialization lists *)
 let cArrayInit : constr = 
