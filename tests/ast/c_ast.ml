@@ -4,7 +4,5 @@
 open Optitrust
 open Target
 
-(* TODO: Fix the issue with const types *)
-
 let _ = Run.script_cpp (fun () -> ();)
 

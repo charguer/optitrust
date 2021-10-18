@@ -1,6 +1,4 @@
 open Ast
-open Target
-
 
 (* [shift ~neg ~pre_cast ~post_cast u] expects the target [tg] to point 
     to a set operation of a get operation then it will replace trm with an 
@@ -11,9 +9,8 @@ open Target
     [post_cast] similat to [pre_cast] but the casting is done after applying the 
     operation.
 *)
-let shift ?(neg : bool = false) ?(pre_cast : typ option) ?(post_cast : typ option) (code : trm) (tg : target) : unit =
-  Target.apply_on_targets (Arith_core.shift neg pre_cast post_cast code ) tg;
-  Trace.reparse()
+let shift ?(neg : bool = false) ?(pre_cast : typ option) ?(post_cast : typ option) (code : trm) : Target.Transfo.t =
+  Target.reparse_after (Target.apply_on_targets (Arith_core.shift neg pre_cast post_cast code ))
 
 (* [apply op arg] expects the target [tg] to point to any node of the ast
       then it applies the binary operation [op] at that node with the second argument 

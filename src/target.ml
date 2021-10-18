@@ -613,7 +613,7 @@ let cStructInit : constr =
 (* [cCell arary_size] matches all arrray cells in an array initialization *)
 let cCell ?(cell_index : int option = None) (): constr = 
   match cell_index with 
-  | None -> cChain [cArrayInit; cStrictNew; cTrue]
+  | None -> cChain [cArrayInit; cStrict; cTrue]
   | Some i -> cChain [cArrayInit; dArrayNth i]
 
 (******************************************************************************)

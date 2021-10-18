@@ -67,7 +67,6 @@ let rename_fields (rename : rename) : Target.Transfo.t =
 (* [update_fields_type pattern ty tg] expects [tg] to point to a struct declaration . 
     Then it will change the current type to [ty] of all the fields which are matched with [pattern].
 *)
-let update_fields_type (pattern : string) (ty : typ) (tg : Target.target) : unit =
-  Target.apply_on_targets (Struct_core.update_fields_type pattern ty) tg;
-  Trace.reparse();
+let update_fields_type (pattern : string) (ty : typ) : Target.Transfo.t =
+  Target.reparse_after (Target.apply_on_targets (Struct_core.update_fields_type pattern ty))
   

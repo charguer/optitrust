@@ -3,30 +3,42 @@ open Ast
 
 (* [parse_pattern str]: for a given pattern [str] return the list of variables used in that pattern 
       and the ast of the pattern
+      Example: 
+      str = "double a; double b; double c; (a + k * b) == (b * k + a)" 
+      Then this string will be splitted parsed as 
+      void f (double a, double b, double c) {
+        (a + k * b) == (b * k + a)
+      }
 *)
 let parse_pattern (str : string) : (vars * trm) = 
   let output_file = "tmp_rule.cpp" in
-  let file_content = "int main() {" ^ str ^";}" in
+  let splitted_pattern = String.split_on_char '#' str in
+  if List.length splitted_pattern <> 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using # as a separator
+    for the declaration of variables used in the pattern and the rule itself" ;
+  let var_decls = List.nth splitted_pattern 0 in
+  let pat = List.nth splitted_pattern 1 in
+  let fun_args = String.map (fun x -> if x = ';' then ',' else x) var_decls in
+  let file_content = "bool f(" ^ fun_args ^ "){" ^ pat ^ "}" in
   Xfile.put_contents output_file file_content;
   let _, ast_of_file = Trace.parse output_file in
   match ast_of_file.desc with 
-  | Trm_seq tl when (List.mem Main_file ast_of_file.annot) -> 
-    if Mlist.length tl = 0 then fail ast_of_file.loc "parse_pattern: couldn't parse pattern";
+  | Trm_seq tl when (List.mem Main_file ast_of_file.annot) ->
+    if Mlist.length tl = 0 then fail ast_of_file.loc "parse_pattern; couldn't parse pattern";
     let main_fun = Mlist.nth tl 0 in
-    begin match main_fun.desc with 
-    | Trm_let_fun (_, _, _, body) ->
-      begin match body.desc with 
+    begin match main_fun.desc with
+    | Trm_let_fun (_, _, args, body) ->
+      begin match body.desc with
       | Trm_seq tl1 -> 
-        let tl_vars, tl_pattern = Mlist.split (Mlist.length tl1 - 1) tl1 in                
-        let pattern_vars = List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl_vars)) in
-        let pattern_instr = Mlist.nth tl_pattern 0 in
+        if Mlist.length tl1 <> 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls # rule_to_appy";
+        let pattern_instr = Mlist.nth tl1 0 in 
+        let pattern_vars = fst (List.split args) in
         (pattern_vars, pattern_instr)
-      | _ -> fail body.loc "parse_pattern: body of the main function should be a sequence"
+      | _ -> fail body.loc "parse_pattern: body of the function f should be a sequence"
       end
-    | _ -> fail main_fun.loc "parse_pattern: expected the declaration of the main function"
+    | _ -> fail main_fun.loc "parse_pattern: the pattern was not entered correctly"
     end
-  | _ -> fail ast_of_file.loc "parse_pattern: expected the main sequence of tmp_rule.cpp"
 
+  | _ -> fail ast_of_file.loc "parse_pattern: expected the main sequence of tmp_rule.cpp"
 
 
 (* [parse_rule str]: for a given pattern [str] return a rewrite rule which is a record containing the 

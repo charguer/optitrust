@@ -1646,5 +1646,12 @@ let compute_app_binop_value (p : binary_op) (v1 : lit) (v2 : lit) : trm =
   | Binop_gt, Lit_double d1, Lit_double d2 -> trm_bool (d1 > d2)
   | _ -> fail None "compute_app_binop_value: operator not supporeted"
 
-
-
+(* convert a list of variable declarations to a list of paris where each pair
+    consists of a variable and its type
+*)
+let decl_list_to_typed_vars (tl : trm list) : typed_vars = 
+  List.map (fun t -> 
+    match t.desc with 
+    | Trm_let (_, (x, tx),_) -> (x, get_inner_ptr_type tx)
+    | _ -> fail t.loc "decl_list_to_typed_vars: expected a list of declarations"
+  ) tl

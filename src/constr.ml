@@ -1105,9 +1105,10 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (add_dir Dir_app_fun (aux f)) @
         (* args *)
         (explore_list args (fun n -> Dir_arg n) (aux))
+     | Trm_array tl ->
+        explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
      | Trm_seq tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_seq_nth n) (aux)
-     | Trm_array tl
      | Trm_struct tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_struct_nth n) (aux)
      | Trm_labelled (l, body) ->
@@ -1148,11 +1149,10 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   let aux = resolve_target_simple p in
   let loc = t.loc in
   match d, t.desc with
-  | Dir_seq_nth n, Trm_seq tl ->
-    app_to_nth_dflt loc (Mlist.to_list tl) n
-       (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
-  
   | Dir_array_nth n, Trm_array tl ->
+    app_to_nth_dflt loc (Mlist.to_list tl) n
+       (fun nth_t -> add_dir (Dir_array_nth n) (aux nth_t))
+  | Dir_seq_nth n, Trm_seq tl ->
     app_to_nth_dflt loc (Mlist.to_list tl) n
        (fun nth_t -> add_dir (Dir_seq_nth n) (aux nth_t))
   | Dir_struct_nth n, Trm_struct tl ->
