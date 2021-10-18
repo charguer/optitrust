@@ -603,6 +603,7 @@ type pat = trm
 (* rewrite_rule *)
 type rewrite_rule = {
   rule_vars : vars;
+  rule_aux_vars : vars;
   rule_from : pat;
   rule_to : pat }
 
