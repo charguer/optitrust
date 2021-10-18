@@ -4,8 +4,5 @@ open Ast
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Accesses_basic.scale (trm_double 6.0) [cIndexAccess ~base:[cVar "t"] [cVar "i"]];
-
-  !! Variable.init_detach [cVarDef "t"];
-
+  !! Accesses_basic.scale (trm_double 5.0) [cCellAccess ~base:[cVar "t"] [cVar "i"]];
 )

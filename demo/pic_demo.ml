@@ -24,8 +24,8 @@ let _ = Run.script_cpp ~check_exit_at_end:false (fun () ->
   !! Struct.set_explicit [cVarDef "speed2"];
   !! Struct.set_explicit [cVarDef "pos2"];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
-  !! Struct.set_explicit [nbMulti; cSet ~typ:"particle"()];
-  !! Struct.set_explicit [nbMulti; cSet ~typ:"vect"()];
+  !! Struct.set_explicit [nbMulti; cWrite ~typ:"particle"()];
+  !! Struct.set_explicit [nbMulti; cWrite ~typ:"vect"()];
 
   !!();
 )
@@ -45,8 +45,8 @@ let _ = Run.script_cpp (fun () ->
   (* Part: Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
-  !!! Struct.set_explicit [nbMulti;cSet ~typ:"particle"()];
-  !!! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
+  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()];
+  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()];
   !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
 
   (* Part: AOS-TO-SOA *)
@@ -127,7 +127,7 @@ let _ = Run.script_cpp (fun () ->
 
 
   (* details on loop fission; useful for debugging extra braces
-   !! Loop.fission [tBefore;cSet ~lhs:[sExpr "pos2_x"] ()];
+   !! Loop.fission [tBefore;cWrite ~lhs:[sExpr "pos2_x"] ()];
    !! Loop.fission [tBefore;cVarDef "idCell2"];
    *)
 

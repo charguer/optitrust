@@ -11,7 +11,7 @@ let _ = Run.script_cpp (fun () ->
   show [nbMulti; cAnd [[cFor "i"];[cFor ""]]];
   show [nbExact 0; cAnd []];
   show [nbExact 0; cAnd [[cFor "i"];[cFor "j"];[cFor "k"]]];
-  show [nbMulti; cAnd [[cSet()]; [sInstr "k + j"]]];
+  show [nbMulti; cAnd [[cWrite()]; [sInstr "k + j"]]];
 )
   (*
    LATER: -- not the most urgent

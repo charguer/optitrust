@@ -422,16 +422,16 @@ let cPrimPredFun ?(args : targets = []) ?(args_pred:target_list_pred = target_li
 let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
    cPrimPredFun ~args ~args_pred (fun p2 -> p2 = p)
 
-(* [cSet ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
+(* [cWrite ~lhs ~rhs ()] matches set operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
 *)
-let cSet ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
+let cWrite ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
   let lhs_typed = with_type ~typ ~typ_pred lhs in
   cPrimFun ~args:[lhs_typed; rhs] (Prim_binop Binop_set)
 
-(* [cSetVar x] matches a set operation for variable [x] *)
-let cSetVar (x : var) : constr =
-  cSet ~lhs:[cVar x] ()
+(* [cWriteVar x] matches a set operation for variable [x] *)
+let cWriteVar (x : var) : constr =
+  cWrite ~lhs:[cVar x] ()
 
 (* [cAny] matches all the calls to function ANY *)
 let cAny : constr =
@@ -441,9 +441,9 @@ let cAny : constr =
 let cChoose : constr =
   cFun "CHOOSE"
 
-(* [cGet] matches all the get operations on immutable variables *)
-let cGet ?(arg : target = []) () : constr =
-  cPrimFun ~args:[arg] (Prim_unop Unop_get)
+(* [cRead] matches all the get operations on mutable variables *)
+let cRead ?(addr : target = []) () : constr =
+  cPrimFun ~args:[addr] (Prim_unop Unop_get)
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
@@ -524,10 +524,10 @@ let cCase ?(value : target = []) (_ : unit) : case_kind =
 let cDefault : case_kind = Case_default
 
 let dLHS : constr =
-  cChain [cSet(); dArg 0]
+  cChain [cWrite(); dArg 0]
 
 let dRHS : constr =
-  cChain [cSet (); dArg 1]
+  cChain [cWrite (); dArg 1]
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
@@ -572,38 +572,44 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
 let cAccess : constr_access =
   Any_access
 
-(* [cFieldGet ~base field] matches all struct accesses at field [field] with base [base]
+
+(* TODO: 
+
+  Add cCells* and cFields* constructors
+*)
+
+
+(* [cFieldRead ~base ~substr ~regexp ~field ] matches all struct accesses at field [field] with base [base]
     which are at the base of a get operation
 *)
-let cFieldGet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  (field : field )  : constr =
-  cGet ~arg:[cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()] ()
+let cFieldRead ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  ~field:(field : field )  : constr =
+  cRead ~addr:[cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()] ()
+
 
 (* [cFieldAccess field] field matches all struct accesses in field [field]*)
-let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) (field : field )  : constr =
+let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
   cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()
 
 
-(* [cFieldSet ~base field] matches all struct field set operations*)
-let cFieldSet ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) (field : field) : constr =
-  let lhs = [cFieldAccess ~base ~substr ~regexp field] in
-  cSet ~lhs ()
+(* [cFieldWrite ~base field] matches all struct field set operations*)
+let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
+  let lhs = [cFieldAccess ~base ~substr ~regexp ~field] in
+  cWrite ~lhs ()
 
-
-
-(* [cIndexGet ~base index] matches all array accesses at index [index] with base [base]
+(* [cCellRead ~base index] matches all array accesses at index [index] with base [base]
     which are under a get operation
 *)
-let cIndexGet ?(base : target = []) (index : target )  : constr =
-  cGet ~arg:[cAccesses ~base ~accesses:[cIndex ~index ()] ()] ()
+let cCellRead ?(base : target = []) ~index:(index : target )  : constr =
+  cRead ~addr:[cAccesses ~base ~accesses:[cIndex ~index ()] ()] ()
 
-(* [cIndexSet ~base index] matches all array index set operations*)
-let cIndexSet ?(base : target = [cStrict;cVar ""]) (index : target) : constr =
+(* [cCellWrite ~base index] matches all array index set operations*)
+let cCellWrite ?(base : target = [cStrict;cVar ""]) ~index:(index : target) : constr =
   let lhs = [cAccesses ~base ~accesses:[cIndex ~index ()] ()] in
-  cSet ~lhs ()
+  cWrite ~lhs ()
 
-(* [cIndexAccess ~base index] matches all array accesses at index [index] with base [base] *)
-let cIndexAccess ?(base : target = []) (index : target )  : constr =
-  cOr [[cIndexSet ~base index];[cIndexGet ~base index]]
+(* [cCellAccess ~base index] matches all array accesses at index [index] with base [base] *)
+let cCellAccess ?(base : target = []) ~index:(index : target )  : constr =
+  cOr [[cCellWrite ~base ~index; dLHS];[cCellRead ~base ~index]]
 
 (* [cArrayInit] matches all array initialization lists *)
 let cArrayInit : constr = 

@@ -43,8 +43,8 @@ let _ = Run.script_cpp (fun () ->
   (* Inlining of structure assignements *)
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
   !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
-  !! Struct.set_explicit [nbMulti;cSet ~typ:"particle"()];
-  !!! Struct.set_explicit [nbMulti;cSet ~typ:"vect"()];
+  !! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()];
+  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()];
   !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline ~args:["&b3";""] [cTopFunDef "main"; cFun "bag_push_atomic"];
 
@@ -58,8 +58,8 @@ let _ = Run.script_cpp (fun () ->
   (* Relative positions *)
     let shift_coord d = 
         let f = "pos_" ^ d in
-          Arith.shift (code (d ^ " * cellSize")) [nbAny;cFunDef "main";cFieldGet f];
-          Arith.shift ~neg:true (code (d ^ "2 * cellSize")) [nbAny;cFunDef "main";cFieldSet f] 
+          Arith.shift (code (d ^ " * cellSize")) [nbAny;cFunDef "main";cFieldRead f];
+          Arith.shift ~neg:true (code (d ^ "2 * cellSize")) [nbAny;cFunDef "main";cFieldWrite f] 
         in
   !! List.iter shift_coord dims;
 
@@ -71,7 +71,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Change of precision *)
   (* Casting works fine, missing a tests case for the pic demo *)
-  (* !! Cast.insert (typ_float ()) [nbMulti;cFieldGet ~substr:true ~regexp:true "rel_pos_"]; *)
+  (* !! Cast.insert (typ_float ()) [nbMulti;cFieldRead ~substr:true ~regexp:true "rel_pos_"]; *)
 
   !! Struct.update_fields_type "rel_pos_." (typ_float ()) [cTypDef "particle"];
   

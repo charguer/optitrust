@@ -18,7 +18,6 @@ open Ast
 let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm = 
   match t.desc with 
   | Trm_apps (_, [_addr]) -> 
-    Ast_to_text.print_ast ~only_desc:true stdout t;
     if is_get_operation t 
       then f_get t 
       else fail t.loc "transform_aux: expected a get operation"

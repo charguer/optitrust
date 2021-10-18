@@ -8,7 +8,7 @@ let _ = Run.script_cpp (fun _ ->
 
   *) (* NOTE: nbMulti is added by default *)
 
-  !! Loop.fold  ~index:"k"  ~start:"0" ~stop:"3" ~step:"1" 3 [cIndexSet ~base:[cVar "values"] [cInt 0]];
+  !! Loop.fold  ~index:"k"  ~start:"0" ~stop:"3" ~step:"1" 3 [cCellWrite ~base:[cVar "values"] [cInt 0]];
 
   (* TODO:
   !! Loop.fold takes as target a sequence containing the list of instructions to fold

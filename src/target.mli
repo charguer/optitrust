@@ -103,7 +103,7 @@ val cChain : constr list -> constr
 
 val cInclude : string -> constr
 
-val cSetVar : string -> constr
+val cWriteVar : string -> constr
 
 val cAny : constr 
 
@@ -228,17 +228,17 @@ val cField : ?field:string -> ?substr:bool -> ?regexp:bool -> unit -> constr_acc
 
 val cAccess : constr_access
 
-val cFieldGet : ?base:target -> ?substr:bool -> ?regexp:bool-> string -> constr 
+val cFieldRead : ?base:target -> ?substr:bool -> ?regexp:bool-> field:string -> constr 
 
-val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> string -> constr
+val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr
 
-val cFieldSet : ?base:target -> ?substr:bool -> ?regexp:bool -> string -> constr 
+val cFieldWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr 
 
-val cIndexGet : ?base:target -> target -> constr 
+val cCellRead : ?base:target -> index:target -> constr 
 
-val cIndexAccess : ?base:target -> target -> constr
+val cCellAccess : ?base:target -> index:target -> constr
 
-val cIndexSet : ?base:target -> target -> constr 
+val cCellWrite : ?base:target -> index:target -> constr 
 
 val cArrayInit : constr 
 
@@ -253,9 +253,9 @@ val cCase : ?value:target -> unit -> case_kind
 
 val cDefault : case_kind
 
-val cSet : ?lhs:target -> ?rhs:target -> ?typ:string -> ?typ_pred:typ_constraint -> unit -> constr
+val cWrite : ?lhs:target -> ?rhs:target -> ?typ:string -> ?typ_pred:typ_constraint -> unit -> constr
 
-val cGet : ?arg:target -> unit -> constr
+val cRead : ?addr:target -> unit -> constr
 
 val dRHS : constr
 

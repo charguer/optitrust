@@ -629,17 +629,7 @@ let check_hastype (pred : typ->bool) (t : trm) : bool =
 
 (* check if constraint c is satisfied by trm t *)
 let rec check_constraint (c : constr) (t : trm) : bool =
-  (* DEPRECATED with the introduction of cGet constructor *)
-  (* if List.mem Access t.annot  then
-     (* forget the star operator at the root before checking the constraint *)
-     begin match t.desc with
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [t']) ->
-        check_constraint c t'
-     | _ -> false
-        (* Ast_to_text.print_ast ~only_desc:true stdout t;
-        fail t.loc "check_constraint: bad access annotation" *)
-     end
-  else *) if List.mem Multi_decl t.annot then
+   if List.mem Multi_decl t.annot then
      (*
        check the constraint on each element of the seq and return true if one
        is true
