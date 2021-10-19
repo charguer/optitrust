@@ -7,4 +7,8 @@ let insert (ty : typ) : Target.Transfo.t =
   Target.apply_on_targets (Cast_core.insert ty)
 
 
-  
+  (* LATER:
+
+      insert ~typ:strm ~typ_sat:typ () : Target.Transfo.t =
+
+  *)

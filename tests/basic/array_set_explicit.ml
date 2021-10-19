@@ -4,6 +4,5 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-
-    Arrays.set_explicit [cVarDef "values"];
+    Arrays.set_explicit [cVarDef "t"];
 )

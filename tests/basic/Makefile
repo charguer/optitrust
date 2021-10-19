@@ -4,6 +4,9 @@ TARGET_MAKE_ALL := check
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
+
+TESTS_TOCHECK := \
+
 TESTS_WORKING := \
 	accesses_scale.ml \
 	accesses_shift.ml \
@@ -64,19 +67,17 @@ TESTS_WORKING := \
 	variable_insert_and_fold.ml \
 	variable_rename.ml\
   variable_replace_occurrences.ml \
-#	local_other_name.ml \
-TESTS_TOCHECK := \
-	change_type.ml \
-	arith_shift.ml \
-	
 
 
 TESTS_OTHERS := \
 
+#  change_type.ml \
+# arith_shift.ml \
+#	local_other_name.ml
 
 # TODO: script for vscode opening
 
-TESTS := $(TESTS_WORKING)
+TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK)
 
 COMPILE := \
 	loop_grid_enumerate.ml \

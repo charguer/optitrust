@@ -332,9 +332,8 @@ let output_prog ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast 
   let out_prog = open_out file_prog in
   begin try
     (* print C++ code with decoding *)
-    (*
-      DEPRECATED
-      output_string out_prog ctx.includes; *)
+    (*   DEPRECATED *)
+    output_string out_prog ctx.includes;
     Ast_to_c.ast_to_doc out_prog ast;
     close_out out_prog;
   with | Failure s ->
@@ -642,3 +641,8 @@ let set_ast (t:trm) : unit =
   match !traces with
   | [tr] -> tr.cur_ast <- t
   | _ -> assert false
+
+
+(* LATER:  need to reparse to hide spurious parentheses *)
+(* LATER: add a mechanism for automatic simplifications after every step *)
+
