@@ -17,6 +17,7 @@ TESTS_WORKING := \
 	flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
+	instr_read_last_write.ml \
 	instr_move.ml \
 	instr_replace.ml \
 	instr_replace_fun.ml \

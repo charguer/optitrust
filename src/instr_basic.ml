@@ -50,3 +50,12 @@ let delete : Target.Transfo.t =
     Target.apply_on_targets (Target.apply_on_path (fun _ -> trm_unit ()))
     )
   
+(* [read_last_write ~write tg] expects the target [tg] to point to a read operation, then it
+    replaces the trm corresponding to that read operation with the one at [write].    
+ *)
+let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
+  let write_trm = Target.get_trm_at (write @ [dRHS]) in
+  Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> write_trm) t p) tg
+
+
+
