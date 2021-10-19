@@ -9,6 +9,7 @@ TESTS_WORKING := \
 	accesses_shift.ml \
 	aos_to_soa_sized_array.ml \
 	aos_to_soa_typedef.ml \
+	array_set_explicit.ml \
 	array_swap.ml \
 	array_tile.ml \
 	array_to_variables.ml \

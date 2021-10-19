@@ -61,7 +61,15 @@ let swap (tg : target) : unit =
 let aos_to_soa (tv : typvar) (sz : var) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun (p,_) t ->  Arrays_core.aos_to_soa tv sz t p) [Target.cFunDef "main"]
-  
-  
+
+
+(* [set_explicit tg] expects the target [tg] to point to an array declaration 
+    then it will remove the initialization trm and a list of write operations on 
+    each of the cells of the targeted array.
+*)
+let set_explicit (tg : Target.target) : unit = 
+  Internal.nobrace_remove_after (fun _ -> 
+    Target.apply_on_targets (Arrays_core.set_explicit) tg
+  )
 
 

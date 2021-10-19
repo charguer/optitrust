@@ -935,6 +935,9 @@ let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
       Call this function only on targets which resolve to a unique ast node
 *)
 let get_trm_at (tg : target) : trm =
-  let t = Trace.ast() in
-  let tg_path = resolve_target_exactly_one tg t in
-  fst (Path.resolve_path tg_path t)
+  let t_ast = ref (trm_unit ()) in
+  Trace.call (fun t -> 
+    let tg_path = resolve_target_exactly_one tg t in
+    t_ast := fst (Path.resolve_path tg_path t) 
+  );
+  !t_ast

@@ -90,7 +90,7 @@ let rule_match (vars : vars) (aux_vars : vars) (pat : trm) (t : trm) : tmap =
     let aux_list (ts1 : trm list) (ts2 : trm list) : unit =
       List.iter2 aux ts1 ts2 in  
     match t1.desc, t2.desc with 
-    | Trm_var x, _ when List.mem x vars && not (List.mem x aux_vars) ->
+    | Trm_var x, _ when List.mem x vars (* && not (List.mem x aux_vars) *) ->
       begin match Trm_map.find_opt x !inst with 
       | None -> inst := Trm_map.add x t2 !inst
       | Some t0 when (Internal.same_trm t0 t2) -> ()

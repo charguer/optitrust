@@ -575,3 +575,30 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
 
 let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
   Target.apply_on_path(aos_to_soa_aux tv sz)
+
+(* [set_explicit_aux t]: transoform an initialized array declaration into a list of write operations
+      for each one of its cells
+      params:
+        [t]: ast of the array declaration
+      return:
+        the ast of the uninitialized array declaration and a list of write operations
+*)
+let set_explicit_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_let (vk, (x, tx), _) ->
+    let init = get_init_val t in
+    begin match init.desc with 
+    | Trm_array tl -> 
+      let array_set_list = 
+      List.mapi ( fun i t1 -> 
+        trm_set (trm_apps (trm_binop (Binop_array_cell_addr)) [trm_var x;trm_int i]) t1
+      ) (Mlist.to_list tl) in
+      let new_decl = trm_let vk (x,tx) (trm_prim (Prim_new (get_inner_ptr_type tx))) in
+      trm_seq_no_brace ([new_decl] @ array_set_list)
+    | _ -> fail init.loc "set_explicit_aux: expected an array initialization"
+    end
+  | _ -> fail t.loc "set_explicit_aux: expected an array declaration"
+
+
+let set_explicit : Target.Transfo.local =
+  Target.apply_on_path (set_explicit_aux )
