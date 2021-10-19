@@ -332,6 +332,7 @@ and trm =
 *)
 
 (* description of an ast node *)
+
 and trm_desc =
   | Trm_val of value
   | Trm_var of var (* LATER: varkind * var *)
@@ -1667,3 +1668,26 @@ let rec trm_is_val_or_var (t : trm) : bool =
   | Trm_val _ | Trm_var _ -> true
   | Trm_apps (_, [var_occ]) when is_get_operation t -> trm_is_val_or_var var_occ
   | _ -> false
+
+type loop_range = var * loop_dir * trm * trm * trm 
+
+let trm_for_inv (t : trm) : loop_range option =
+  match t.desc with 
+  | Trm_for (index, direction, start, stop, step, _) -> Some (index, direction, start, stop ,step)
+  | _ -> None
+
+
+(* [trm_fors rgs tbody] create a nested loops with the main body [tbody] each nested loop
+    takes its components from [rgs]
+*)
+let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
+  List.fold_right (fun x acc -> 
+    let index, loop_dir, start, stop, step = x in
+    trm_for index loop_dir start stop step (trm_seq_nomarks [acc])
+  ) rgs tbody
+
+
+(* TODO: *)
+(* let trm_fors_inv (nb : int) (t : trm) : (for_range list * trm) option =  *)
+
+
