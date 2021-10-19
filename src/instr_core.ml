@@ -19,7 +19,7 @@ let replace (cd : string) : Target.Transfo.local =
 
 
 
-(* [replace_fun name t]: change the current function call 
+(* [replace_fun name t]: change the current function call
       to another function call with where the function called now
       has name [name]
     params:
@@ -28,9 +28,9 @@ let replace (cd : string) : Target.Transfo.local =
     return:
       updated ast with the replaced trm
  *)
- 
+
 let replace_fun_aux (name : string) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_apps (_, args) ->
     trm_apps ~annot:t.annot ~marks:t.marks ~typ:t.typ (trm_var name) args
   | _ -> fail t.loc "replace_fun: expected a function call"
@@ -39,7 +39,7 @@ let replace_fun_aux (name : string) (t : trm) : trm =
 let replace_fun (name : string) : Target.Transfo.local =
   Target.apply_on_path (replace_fun_aux name)
 
-(* [move_aux index index_instr t]: move instruction at [index] to [index_instr]  
+(* [move_aux index index_instr t]: move instruction at [index] to [index_instr]
     in the sequence [t]
     params:
       [index]: current index of the targeted instruction
@@ -48,8 +48,10 @@ let replace_fun (name : string) : Target.Transfo.local =
       the updated [t]
 *)
 let move_aux (index : int) (tg_index : int) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl -> 
+  (* TODO: need a -1 when source is strictly before target *)
+  if index = tg_index then t else
+  match t.desc with
+  | Trm_seq tl ->
     let instr_to_move = Mlist.nth tl index in
     let new_tl = Mlist.remove index 1 tl in
     let new_tl = Mlist.insert_at tg_index instr_to_move new_tl in

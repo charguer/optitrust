@@ -87,6 +87,12 @@ let tIndices ?(nb : int = -1) (indices : int list) : constr =
 let tIndex ?(nb : int = -1) (index : int) : constr =
   tIndices ~nb [index]
 
+(* LATER:
+   tIndex -> named to occIndex
+   occLast
+   occFirst
+   we can change Constr_occurrences to be a function of type  path list -> path list
+*)
 
 (******************************************************************************)
 (*                                Directions                                  *)
@@ -120,7 +126,7 @@ let dElse : constr =
 let dBody : constr =
     Constr_dir Dir_body
 
-let dForInit : constr = 
+let dForInit : constr =
     Constr_dir Dir_for_c_init
 
 let dStep : constr =
@@ -573,7 +579,7 @@ let cAccess : constr_access =
   Any_access
 
 
-(* TODO: 
+(* TODO:
 
   Add cCells* and cFields* constructors
 *)
@@ -596,7 +602,7 @@ let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool 
  cOr [[cFieldWrite ~base ~substr ~regexp ~field; dLHS];[cFieldRead ~base ~substr ~regexp ~field;dArg 0]]
 
 
-(* [cFieldReadOrWrite ~base ~substr ~regexp ~field] matches all read or write operations 
+(* [cFieldReadOrWrite ~base ~substr ~regexp ~field] matches all read or write operations
 *)
 let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
  cOr [[cFieldWrite ~base ~substr ~regexp ~field];[cFieldRead ~base ~substr ~regexp ~field]]
@@ -612,7 +618,7 @@ let cCellWrite ?(base : target = [cStrict;cVar ""]) ~index:(index : target) : co
   let lhs = [cAccesses ~base ~accesses:[cIndex ~index ()] ()] in
   cWrite ~lhs ()
 
-(* [cCellReadOrWrite ~base ~index ] matches all read or write operations on array cells with 
+(* [cCellReadOrWrite ~base ~index ] matches all read or write operations on array cells with
   base [base] and index [index]
 *)
 let cCellReadOrWrite ?(base : target = [cStrict;cVar ""]) ~index:(index : target) : constr =
@@ -623,16 +629,16 @@ let cCellAccess ?(base : target = []) ~index:(index : target )  : constr =
   cOr [[cCellWrite ~base ~index; dLHS];[cCellRead ~base ~index;dArg 0]]
 
 (* [cArrayInit] matches all array initialization lists *)
-let cArrayInit : constr = 
+let cArrayInit : constr =
   Constr_array_init
 
 (* [cStructInit] matches all struct initialization lists *)
-let cStructInit : constr = 
+let cStructInit : constr =
   Constr_struct_init
 
 (* [cCell arary_size] matches all arrray cells in an array initialization *)
-let cCell ?(cell_index : int option = None) (): constr = 
-  match cell_index with 
+let cCell ?(cell_index : int option = None) (): constr =
+  match cell_index with
   | None -> cChain [cArrayInit; cStrict; cTrue]
   | Some i -> cChain [cArrayInit; dArrayNth i]
 
@@ -936,8 +942,8 @@ let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
 *)
 let get_trm_at (tg : target) : trm =
   let t_ast = ref (trm_unit ()) in
-  Trace.call (fun t -> 
+  Trace.call (fun t ->
     let tg_path = resolve_target_exactly_one tg t in
-    t_ast := fst (Path.resolve_path tg_path t) 
+    t_ast := fst (Path.resolve_path tg_path t)
   );
   !t_ast

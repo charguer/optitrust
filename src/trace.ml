@@ -640,3 +640,8 @@ let set_ast (t:trm) : unit =
   match !traces with
   | [tr] -> tr.cur_ast <- t
   | _ -> assert false
+
+
+(* LATER:  need to reparse to hide spurious parentheses *)
+(* LATER: add a mechanism for automatic simplifications after every step *)
+

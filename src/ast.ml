@@ -107,6 +107,8 @@ and typ_desc =
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
   | Typ_record of record_type * typ
   | Typ_template_param of string
+  (* LATER:  Typ_arbitrary of string *)
+
 (* references are considered as pointers that's why we need to distinguish the kind of the pointer *)
 and ptr_kind =
   | Ptr_kind_mut
@@ -1550,10 +1552,10 @@ let is_get_operation (t : trm) : bool =
   List.exists (function | Access | Mutable_var_get -> true | _ -> false) t.annot
 
 (* check if [t] is a set operation *)
-let is_set_operation (t : trm) : bool = 
-  match t.desc with 
-  | Trm_apps (f, _) -> 
-    begin match f.desc with 
+let is_set_operation (t : trm) : bool =
+  match t.desc with
+  | Trm_apps (f, _) ->
+    begin match f.desc with
     | Trm_val (Val_prim (Prim_binop Binop_set)) -> true
     | _ -> false
     end
@@ -1649,16 +1651,16 @@ let compute_app_binop_value (p : binary_op) (v1 : lit) (v2 : lit) : trm =
 (* convert a list of variable declarations to a list of paris where each pair
     consists of a variable and its type
 *)
-let decl_list_to_typed_vars (tl : trm list) : typed_vars = 
-  List.map (fun t -> 
-    match t.desc with 
+let decl_list_to_typed_vars (tl : trm list) : typed_vars =
+  List.map (fun t ->
+    match t.desc with
     | Trm_let (_, (x, tx),_) -> (x, get_inner_ptr_type tx)
     | _ -> fail t.loc "decl_list_to_typed_vars: expected a list of declarations"
   ) tl
 
 (* check if [t] is a variable occurrence or a value *)
-let rec trm_is_val_or_var (t : trm) : bool = 
-  match t.desc with 
-  | Trm_val _ | Trm_var _ -> true 
+let rec trm_is_val_or_var (t : trm) : bool =
+  match t.desc with
+  | Trm_val _ | Trm_var _ -> true
   | Trm_apps (_, [var_occ]) when is_get_operation t -> trm_is_val_or_var var_occ
   | _ -> false
