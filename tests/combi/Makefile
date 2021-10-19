@@ -12,18 +12,21 @@ TESTS_WORKING := \
 	function_inline_complex.ml \
 	function_inline_simple.ml \
 	loop_fusion.ml \
+	loop_fold.ml \
 	loop_hoist.ml \
 	loop_invariant.ml \
 	loop_move.ml \
 	loop_reorder.ml \
 	loop_unroll.ml \
 	sequence_intro.ml \
+	sequence_split.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
 	variable_intro_pattern_array.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
+	variable_reuse.ml \
 
 
 TESTS_TOCHECK := \
