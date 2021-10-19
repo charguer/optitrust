@@ -167,7 +167,7 @@ let fresh_args (t : trm) : trm =
     [s] - denotes the code entered as a string.
     [ctx] - check Trace.context
 *)
-let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : Trace.context) : trm list =
+let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : Trace.context) : trms =
  let context = if context = "" then ctx.includes else context in
  let command_line_args =
   List.map Clang.Command_line.include_directory

@@ -278,6 +278,9 @@ and trm =
    ctx : ctx option;
    attributes : attribute list }
 
+
+and trms = trm list
+
 (* A [typ_env] stores all the information about types, labels, constructors, etc. *)
 (* [ctx_var] is useful for interpreting types that are provided in the user scripts *)
 and ctx = {
@@ -336,14 +339,14 @@ and trm_desc =
   | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_vars) * trm
-  | Trm_let_record of string * record_type * trm list * trm
+  | Trm_let_record of string * record_type * trms * trm
   (* LATER: trm_fun  for anonymous functions *)
   (* LATER: mutual recursive functions via mutual recursion *)
   | Trm_typedef of typedef
   | Trm_if of trm * trm * trm (* if (x > 0) {x += 1} else{x -= 1} *)
   (* question: distinguish toplevel seq for other seqs? *)
   | Trm_seq of trm mlist (* { st1; st2; st3 } *)
-  | Trm_apps of trm * (trm list) (* f(t1, t2) *)
+  | Trm_apps of trm * (trms) (* f(t1, t2) *)
   | Trm_while of trm * trm (* while (t1) { t2 } *)
   | Trm_for of var * loop_dir * trm * trm * trm  * trm
   | Trm_for_c of trm * trm * trm * trm
@@ -369,14 +372,14 @@ and trm_desc =
         break;
     }
    *)
-  | Trm_switch of trm * ((trm list * trm) list)
+  | Trm_switch of trm * ((trms * trm) list)
   | Trm_abort of abort (* return or break or continue *)
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
   | Trm_arbitrary of string
   | Trm_omp_directive of directive
   | Trm_omp_routine of omp_routine
-  | Trm_extern of string * trm list
+  | Trm_extern of string * trms
   | Trm_namespace of string * trm * bool
   | Trm_template of template_parameter_list * trm
 
@@ -756,12 +759,12 @@ let trm_seq ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_seq_nomarks ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
-  (tl : trm list) : trm =
+  (tl : trms) : trm =
   trm_seq ~annot ~add ~loc ~attributes ~ctx (Mlist.of_list tl)
 
 let trm_apps ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(typ = None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (f : trm)
-  (args : trm list) : trm =
+  (args : trms) : trm =
   {annot; marks; desc = Trm_apps (f, args); loc = loc; is_statement; add; typ;
    attributes; ctx}
 
@@ -781,7 +784,7 @@ let trm_for_c?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : 
    typ = Some (typ_unit ()); attributes; ctx}
 
 let trm_switch ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
-  (cond : trm) (cases : (trm list * trm) list) : trm =
+  (cond : trm) (cases : (trms * trm) list) : trm =
   {annot; marks; desc = Trm_switch (cond, cases); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
@@ -853,7 +856,7 @@ let trm_omp_routine ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attri
   {annot; marks; desc = Trm_omp_routine omp_routine; loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_extern ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
-(lang : string) (tl : trm list) : trm =
+(lang : string) (tl : trms) : trm =
   {annot; marks; desc = Trm_extern (lang, tl); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_namespace ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
@@ -861,7 +864,7 @@ let trm_namespace ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attribu
   {annot; marks; desc = Trm_namespace (name, t, inline); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_let_record ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
-(name : string) (rt : record_type ) (tl : trm list) (t : trm) : trm =
+(name : string) (rt : record_type ) (tl : trms) (t : trm) : trm =
   {annot; marks; desc = Trm_let_record (name, rt, tl, t); loc = loc; is_statement = true; add ; typ; attributes; ctx}
 
 let trm_template ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
@@ -1482,7 +1485,7 @@ module Nobrace = struct
 end
 
 (* genereate a no_brace sequence with a fresh id *)
-let trm_seq_no_brace (tl : trm list) : trm=
+let trm_seq_no_brace (tl : trms) : trm=
     trm_annot_add (No_braces (Nobrace.current())) (trm_seq_nomarks tl)
 
 (* get the id of the sequence annotated as No_braces *)
@@ -1651,7 +1654,7 @@ let compute_app_binop_value (p : binary_op) (v1 : lit) (v2 : lit) : trm =
 (* convert a list of variable declarations to a list of paris where each pair
     consists of a variable and its type
 *)
-let decl_list_to_typed_vars (tl : trm list) : typed_vars =
+let decl_list_to_typed_vars (tl : trms) : typed_vars =
   List.map (fun t ->
     match t.desc with
     | Trm_let (_, (x, tx),_) -> (x, get_inner_ptr_type tx)

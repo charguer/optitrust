@@ -478,7 +478,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       separate (blank 1) [string "enum"; string tname;
       braces (separate (comma ^^ blank 1) const_doc_l)] ^^ dsemi
 
-and multi_decl_to_doc (loc : location) (tl : trm list) : document =
+and multi_decl_to_doc (loc : location) (tl : trms) : document =
  let get_info (t : trm) : document =
   begin match t.desc with
   | Trm_let (vk, (x, _), init) ->
@@ -520,7 +520,7 @@ and multi_decl_to_doc (loc : location) (tl : trm list) : document =
 
 (* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false)
-  (f : trm) (tl : trm list) : document =
+  (f : trm) (tl : trms) : document =
   match f.desc with
   (* NOTE: in C, we don't apply arbitrary terms to terms, functions can only
      be variables or primitive functions. *)

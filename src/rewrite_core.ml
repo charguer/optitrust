@@ -87,7 +87,7 @@ exception Rule_mismatch
 let rule_match (vars : vars) (_aux_vars : vars) (pat : trm) (t : trm) : tmap =
   let inst = ref Trm_map.empty in
   let rec aux (t1 : trm) (t2 : trm) : unit =
-    let aux_list (ts1 : trm list) (ts2 : trm list) : unit =
+    let aux_list (ts1 : trms) (ts2 : trms) : unit =
       List.iter2 aux ts1 ts2 in
     match t1.desc, t2.desc with
     | Trm_var x, _ when List.mem x vars ->
@@ -137,7 +137,7 @@ exception Rule_match_ast_list_no_occurrence_for of string
 *)
 
 (* [rule_match_as_list pattern_vars pattern_instr t] returns the list of key values in the map generated from rule_match *)
-let rule_match_as_list (pattern_vars : vars) (pattern_aux_vars : vars) (pattern_instr : trm)  (t : trm) : trm list =
+let rule_match_as_list (pattern_vars : vars) (pattern_aux_vars : vars) (pattern_instr : trm)  (t : trm) : trms =
   let inst : tmap = rule_match pattern_vars pattern_aux_vars pattern_instr t in
   List.map (fun x -> match Trm_map.find_opt x inst with
     | Some v -> v

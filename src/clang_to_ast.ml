@@ -440,7 +440,7 @@ and translate_switch (loc : location) (cond : expr) (cases : stmt list) : trm =
   compute the list of nested cases described by s in reverse order and the first
   instruction of their body
  *)
-and compute_cases (case_acc : trm list) (s : stmt) : trm list * stmt =
+and compute_cases (case_acc : trms) (s : stmt) : trms * stmt =
   let loc = loc_of_node s in
   match s.desc with
   | Case {lhs = e; rhs = None; body = s'} ->
@@ -458,7 +458,7 @@ and compute_cases (case_acc : trm list) (s : stmt) : trm list * stmt =
   to find the first break, cases must be written without compound statements
     -> no variable declaration in cases
 *)
-and compute_body (loc : location) (body_acc : trm list)
+and compute_body (loc : location) (body_acc : trms)
     (sl : stmt list) : trm * (stmt list) =
   match sl with
   | [] -> fail loc "compute_body: cases must end with break"
@@ -895,7 +895,7 @@ and translate_attribute (loc : location) (a : Clang.Ast.attribute) : attribute =
   | Aligned {spelling = _; alignment_expr = e} -> Aligned (translate_expr e)
   | _ -> fail loc "translate_attribute: unsupported attribute"
 
-and translate_decl_list (dl : decl list) : trm list =
+and translate_decl_list (dl : decl list) : trms =
   let loc =
     (* some recursive calls might be on the empty list *)
     match dl with

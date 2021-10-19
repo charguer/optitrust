@@ -288,7 +288,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
              "body_2", aux t2
           *)
           (* children_to_field (List.flatten (List.mapi children_of_icase cases)) *)
-          (* let children_of_icase (i:int) (case:(trm list*trm)) : (string,nodeid) =
+          (* let children_of_icase (i:int) (case:(trms*trm)) : (string,nodeid) =
                 let pat_label = "pat_" ^ string_of_int i in
                 let body_label = "body_" ^ string_of_int i in
                 match case with

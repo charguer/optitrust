@@ -764,7 +764,7 @@ and check_name (name : constr_name) (s : string) : bool =
   | Some r ->
      match_regexp_str r  s
 
-and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trm list) : bool =
+and check_list ?(depth : depth = DepthAny) (lpred : target_list_pred) (tl : trms) : bool =
   let ith_target = lpred.target_list_pred_ith_target in
   let validate = lpred.target_list_pred_validate in
   validate (List.mapi (fun i t -> check_target ~depth (ith_target i) t) tl)
@@ -818,9 +818,9 @@ and check_accesses ?(inner_accesses : bool = true) (ca : constr_accesses) (al : 
   | None -> true
   | Some cal -> aux cal al
 
-and check_cases (cc : constr_cases) (cases : (trm list * trm) list) : bool =
+and check_cases (cc : constr_cases) (cases : (trms * trm) list) : bool =
   let rec aux (cl : (case_kind * target) list)
-    (cases : (trm list * trm) list) : bool =
+    (cases : (trms * trm) list) : bool =
     match cl, cases with
     | [], [] -> true
     | (k, p_body) :: cl, (tl, body) :: cases ->
@@ -833,7 +833,7 @@ and check_cases (cc : constr_cases) (cases : (trm list * trm) list) : bool =
   | None -> true
   | Some cl -> aux cl cases
 
-and check_kind (k : case_kind) (tl : trm list) : bool =
+and check_kind (k : case_kind) (tl : trms) : bool =
   match k, tl with
   | Case_any, _ -> true
   | Case_default, [] -> true
@@ -1116,7 +1116,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
   call resolve_target_simple on given case name and body
   i is the index of the case in its switch
  *)
-and explore_case (depth : depth) (i : int) (case : trm list * trm) (p : target_simple) : paths =
+and explore_case (depth : depth) (i : int) (case : trms * trm) (p : target_simple) : paths =
   let aux = resolve_target_simple ~depth p in
   let (tl, body) = case in
   match tl with
@@ -1226,7 +1226,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   used for seq, array, struct, and fun arguments
   d: function that gives the direction to add depending on the index
  *)
-and explore_list (tl : trm list) (d : int -> dir)
+and explore_list (tl : trms) (d : int -> dir)
   (cont : trm -> paths) : paths =
   foldi (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
 
@@ -1235,7 +1235,7 @@ and explore_list (tl : trm list) (d : int -> dir)
   gather the results
   d: function that gives the direction to add depending on the index
  *)
-and explore_list_ind (tl : trm list) (d : int -> dir) (dom : int list)
+and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)
   (cont : trm -> paths) : paths =
   foldi
     (fun i epl t ->

@@ -105,7 +105,7 @@ let context_dummy : context =
 type trace = {
   mutable context : context;
   mutable cur_ast : trm;
-  mutable history : trm list; }
+  mutable history : trms; }
 
 let trm_dummy : trm =
   trm_val (Val_lit Lit_unit)
@@ -411,7 +411,7 @@ let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (a
 *)
 let dump_trace_to_js ?(prefix : string = "") () : unit =
   assert (prefix = prefix && false);
-  let dump_history (prefix : string) (asts : trm list) : unit =
+  let dump_history (prefix : string) (asts : trms) : unit =
     let nbAst = List.length asts in
     let i = ref (nbAst - 2) in
     List.iter
