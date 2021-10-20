@@ -14,3 +14,7 @@ let intro_mindex (dims : trms) : Target.Transfo.t =
 
 let reorder_dims (order : int list) : Target.Transfo.t = 
   Target.apply_on_targets (Matrix_core.reorder_dims order)
+
+
+let redundeant_dim (new_dim : trm) : Target.Transfo.t = 
+  Target.apply_on_targets (Matrix_core.new_redundant_dim new_dim)

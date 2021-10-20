@@ -205,3 +205,16 @@ let reorder_dims_aux (order : int list) (t : trm) : trm =
 
 let reorder_dims (order : int list) : Target.Transfo.local = 
   Target.apply_on_path (reorder_dims_aux order)
+
+let new_redundant_dim_aux (new_dim : trm) (t : trm) : trm = 
+  match alloc_inv t with 
+  | Some (dims, size, zero_init) -> 
+    let new_dims = new_dim :: dims in
+    let init = if zero_init then Some (trm_int 0) else None in
+    alloc ~init new_dims size
+  | None -> fail t.loc "new_redundant_dim_aux: expected a function call to MCALLOC"
+
+let new_redundant_dim (new_dim : trm) : Target.Transfo.local =
+  Target.apply_on_path (new_redundant_dim_aux new_dim)
+
+
