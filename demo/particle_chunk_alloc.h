@@ -1,8 +1,6 @@
 //==========================================================================
 // Manual memory management for chunks
 
-// TODO: move this section into particle_chunk_alloc.h
-
 // You need one free list per processor
 unsigned int FREELIST_SIZE;
 // free_index[thread_id][0] will store the number of free chunks available

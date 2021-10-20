@@ -175,7 +175,7 @@ let intro_mcalloc : Target.Transfo.local =
 *)
 let intro_mmalloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var "mmalloc";_},[dim; size]) -> (* TODO: one arg *)
+  | Trm_apps ({desc = Trm_var "mmalloc";_},[{desc = Trm_apps (_,[dim ;size]);_}]) -> 
     alloc ~init:None [dim] size
   | _ -> fail t.loc "intro_mmalloc: expected a function call to mmalloc"
 
@@ -213,21 +213,17 @@ let intro_mindex (dim : trm) : Target.Transfo.local =
         the updated ast of the call with reordered args
 *)
 let reorder_dims_aux (order : int list) (t : trm) : trm =
-  let nb = List.length dims in
+  
   match mindex_inv t, alloc_inv t with
   | Some (dims, indices), None ->
-    if nb <> List.length order then fail t.loc "reoder_dims_aux: the entered order does not correspond to the targeted call ";
-    (* TODO: check that each integer in the range 0...length dims
-       occurs at least once in order
-       Tools.check_permutation nb order =
-          if nb <> List.length order then fail t.loc "reoder_dims_aux: the entered order does not correspond to the targeted call ";
-          List.map (fun k -> if not (List.mem k order) then raise "invalid permutation") (range nb)
-       *)
+    let nb = List.length dims in
+    begin try Tools.check_permutation nb order with | Tools.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
     let reordered_dims = Tools.list_reorder order dims in
     let reordered_indices = Tools.list_reorder order indices in
     mindex (reordered_dims) (reordered_indices)
   | None, Some (dims, size, zero_init) ->
-    if nb <> List.length order then fail t.loc "reorder_dims_aux: the entered order does not correspond ot the targeted call";
+    let nb = List.length dims in
+    begin try Tools.check_permutation nb order with | Tools.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
     let reordered_dims = Tools.list_reorder order dims in
     let init = if zero_init then Some (trm_int 0 ) else None in
     alloc ~init reordered_dims size

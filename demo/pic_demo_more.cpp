@@ -8,9 +8,10 @@
 // implicitly includes particle.h
 #include "particle_chunk.h"
 #include "particle_chunk_alloc.h"
+#include "optitrust.h"
 
 
-// --------- OptiTrust macros // TODO: optitrust.h
+
 
 bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
 

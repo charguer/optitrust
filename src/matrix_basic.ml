@@ -17,7 +17,7 @@ let intro_mmalloc : Target.Transfo.t =
     then it will replace that access to let say index i with an access at
     MINDEX (dim,i)
 *)
-let intro_mindex (dim : trms) : Target.Transfo.t = 
+let intro_mindex (dim : trm) : Target.Transfo.t = 
   Target.apply_on_targets (Matrix_core.intro_mindex dim)
 
 (* [reorder_dims order tg]: expects the target [tg] pointing to a call to ALLOC functions, or MINDEX 
