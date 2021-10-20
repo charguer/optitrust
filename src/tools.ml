@@ -257,17 +257,18 @@ let find_map f t =
   in
   loop t
 
-(* [index_of x l] returns the index of element [x] in list [l] if 
+(* [index_of x l] returns the index of element [x] in list [l] if
     the list contains that element, otherwise None
  *)
 let index_of (x : 'a) (l : 'a list) : int option =
-  foldi (fun i acc y -> if x = y then Some i else acc) None l 
+  foldi (fun i acc y -> if x = y then Some i else acc) None l
 
 (* [list_reorder order l] reorder list [l] based on order [order] *)
-let list_reorder (order : int list) (l : 'a list) : 'a list = 
+let list_reorder (order : int list) (l : 'a list) : 'a list =
+  (* List.map (fun k -> match List.nth_opt k l with | None -> raise Out_of_bound | Some v -> v) order *)=
   let assoc_list = List.mapi (fun i x -> (i,x)) l in
-  List.fold_left (fun acc x -> 
-    match List.assoc_opt x assoc_list with 
+  List.fold_left (fun acc x ->
+    match List.assoc_opt x assoc_list with
     | Some y -> y :: acc
     | None -> failwith "out of bounds indices"
   ) [] (List.rev order)

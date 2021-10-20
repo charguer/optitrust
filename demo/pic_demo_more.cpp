@@ -31,7 +31,7 @@ const int nbCells = gridX * gridY * gridZ;
 const double stepDuration = 0.2;
 const double particleCharge = 10.0;
 const double particleMass = 5.0;
-const double cellX = 0.001;
+const double cellX = 0.001; // TODO: areaX / gridX
 const double cellY = 0.001;
 const double cellZ = 0.001;
 
@@ -48,6 +48,8 @@ int int_of_double(double x) {
 int wrap(int gridSize, int x) { // could be likewise on other dimensions
   // assuming that a particle does not traverse the grid more than once in a timestep
   return (x + gridSize) % gridSize;
+  // else we can do return (x % gridSize + gridSize) % gridSize
+  // use of fmod possible
   /*
   // version without modulo
   if (x < 0)
@@ -126,7 +128,7 @@ typedef struct {
   vect val[nbCorners];
 } vect_nbCorners;
 
-int_nbCorners indicesOfCorners (int idCell) {
+int_nbCorners indicesOfCorners(int idCell) {
   coord coord = coordOfCell(idCell);
   int x = coord.ix; // LATER/ could add "i" in front of all variables
   int y = coord.iy;
@@ -208,7 +210,7 @@ double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
 
 // --------- LEFT to implement
 
-void init_bags(bag* bagsCur, bag* bagsNext) {
+void init(bag* bagsCur, bag* bagsNext, vect* field) {
   // example push of one particle in cell zero, just to see the effect of scaling/shifting
   // of speed and positions
   double posX = 1.0, posY = 1.0, posZ = 1.0; // arbitrary values
@@ -219,10 +221,7 @@ void init_bags(bag* bagsCur, bag* bagsNext) {
   bag_push(&bagsCur[0], p0);
 }
 
-void init_field(vect* field) {}
-
 void updateFieldUsingNextCharge(double* nextCharge, vect* field) { }
-
 
 // --------- Module Simulation
 
@@ -231,7 +230,6 @@ int main() {
   // Particles in each cell, at the current and the next time step
   bag* bagsCur = (bag*) malloc(nbCells * sizeof(bag));
   bag* bagsNext = (bag*) malloc(nbCells * sizeof(bag));
-  init_bags(bagsCur, bagsNext);
 
   // nextCharge[idCell] corresponds to the cell in the front-top-left corner of that cell
   double* nextCharge = (double*) malloc(nbCells * sizeof(double));
@@ -240,10 +238,14 @@ int main() {
   // fields[idCell] corresponds to the field at the top-right corner of the cell idCell;
   // The grid is treated with wrap-around
   vect* field = (double*) malloc(nbCells * sizeof(vect));
-  init_field(field);
+
+  init(bagsCur, bagsNext, field);
 
   // Foreach time step
   for (int step = 0; step < nbSteps; step++) {
+
+    // Update the new field based on the total charge accumulated in each cell
+    updateFieldUsingNextCharge(nextCharge, field);
 
     // reset the array of next charges
     for (int idCell = 0; idCell < nbCells; idCell++) {
@@ -290,9 +292,6 @@ int main() {
         accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
       }
     }
-
-    // Update the new field based on the total charge accumulated in each cell
-    updateFieldUsingNextCharge(nextCharge, field);
 
     // For the next time step, the contents of bagNext is moved into bagCur (which is empty)
     for (int idCell = 0; idCell < nbCells; idCell++) {
