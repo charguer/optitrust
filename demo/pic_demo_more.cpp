@@ -10,11 +10,7 @@
 #include "particle_chunk_alloc.h"
 #include "optitrust.h"
 
-
-
-
 bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
-
 
 // --------- Parameters
 
@@ -22,19 +18,25 @@ bag* CHOOSE (int nb, bag* b1, bag* b2) {return b1;}
 // not the charge to be normalized; the normalization will
 // be implemented in the transformations
 
+//  physical parameter of the simulation
+const double areaX = 10.0;
+const double areaY = 10.0;
+const double areaZ = 10.0;
+
+const double stepDuration = 0.2;
+const double particleCharge = 10.0;
+const double particleMass = 5.0;
+
 // Grid description
 const int gridX = 64;
 const int gridY = 64;
 const int gridZ = 64;
 const int nbCells = gridX * gridY * gridZ;
 
-//  physical parameter of the simulation
-const double stepDuration = 0.2;
-const double particleCharge = 10.0;
-const double particleMass = 5.0;
-const double cellX = 0.001; // TODO: areaX / gridX
-const double cellY = 0.001;
-const double cellZ = 0.001;
+// Derived grid parameters
+const double cellX = areaX / gridX;
+const double cellY = areaY / gridY;
+const double cellZ = areaZ / gridZ;
 
 // duration of the simulation
 const int nbSteps = 100;
@@ -42,24 +44,25 @@ const int nbSteps = 100;
 // --------- Grid coordinate functions
 
 // from double to int
-int int_of_double(double x) {
-  return (int) x - (x < 0.);
+int int_of_double(double a) {
+  return (int) a - (a < 0.);
 }
 
-int wrap(int gridSize, int x) { // could be likewise on other dimensions
-  // assuming that a particle does not traverse the grid more than once in a timestep
-  return (x + gridSize) % gridSize;
-  // else we can do return (x % gridSize + gridSize) % gridSize
-  // use of fmod possible
-  /*
-  // version without modulo
-  if (x < 0)
-     return x + gridSize;
-  if (x >= gridSize)
-     return x - gridSize;
-  return x;
-  */
+int wrapX(int gridSize, int a) {
+  return (a % gridSize + gridSize) % gridSize;
 }
+
+/* Other possible implementations for wrap
+  // assuming that a particle does not traverse the grid more than once in a timestep
+   return (x % gridSize + gridSize) % gridSize
+  // use of fmod possible
+  // version without modulo but using if statements
+    if (x < 0)
+       return x + gridSize;
+    if (x >= gridSize)
+       return x - gridSize;
+    return x;
+*/
 
 // --------- Grid Representation
 
