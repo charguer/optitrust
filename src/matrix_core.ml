@@ -258,7 +258,7 @@ let local_other_name_aux (mark : mark option) (var : var) (local_var : var) (mal
   let dims, size = malloc_trms in
   let local_var_type = (typ_ptr Ptr_kind_mut (typ_constr "T") ) in
   let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut local_var_type) (trm_apps (trm_prim (Prim_new local_var_type)) [trm_cast (local_var_type) (alloc dims size )]) in
-  let indices_list = List.mapi (fun i _ -> "i" ^ (string_of_int i)) dims in
+  let indices_list = List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_ranges = List.map2 (fun dim ind-> (ind, DirUp, (trm_int 0), dim, (trm_int 1))) dims indices_list in
   let write_on_new_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
