@@ -238,12 +238,7 @@ let reorder_dims (order : int list) : Target.Transfo.local =
         [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to MCALLOC or MMALLOC
         [t]: ast of the call to ALLOC functions
       return:
-        the update ast of the call to ALLOC functions with the new arg [new_dim]
-
-
-
-
-
+        the updated ast of the call to ALLOC functions with the new arg [new_dim]
 *)
 let new_redundant_dim_aux (new_dim : trm) (t : trm) : trm =
   match alloc_inv t with
@@ -256,4 +251,24 @@ let new_redundant_dim_aux (new_dim : trm) (t : trm) : trm =
 let new_redundant_dim (new_dim : trm) : Target.Transfo.local =
   Target.apply_on_path (new_redundant_dim_aux new_dim)
 
+
+(* TOOD: Replace T with the type derived from the call to calloc *)
+let local_other_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm) (t : trm) : trm = 
+  let dims, size = malloc_trms in
+  let local_var_type = (typ_ptr Ptr_kind_mut (typ_constr "T") ) in
+  let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut local_var_type) (trm_apps (trm_prim (Prim_new local_var_type)) [trm_cast (local_var_type) (alloc dims size )]) in
+  let indices_list = List.mapi (fun i _ -> "i" ^ (string_of_int i)) dims in
+  let indices = List.map (fun ind -> trm_var ind) indices_list in
+  let nested_loop_ranges = List.map2 (fun dim ind-> (ind, DirUp, (trm_int 0), dim, (trm_int 1))) dims indices_list in
+  let write_on_new_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
+  let write_on_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) in
+  let snd_instr = trm_fors nested_loop_ranges write_on_new_var in
+  let new_t = Internal.change_trm (trm_var var) (trm_var local_var) t in
+  let thrd_instr = trm_fors nested_loop_ranges write_on_var in
+  let last_instr = trm_apps (trm_var "MFREE") [trm_var local_var] in
+  let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
+  match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm
+
+let local_other_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm) : Target.Transfo.local =
+  Target.apply_on_path (local_other_name_aux mark var local_var malloc_trms)
 
