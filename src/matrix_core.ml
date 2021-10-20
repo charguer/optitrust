@@ -102,9 +102,9 @@ let alloc ?(init : trm option = None) (dims : trms) (size : trm) : trm =
   let n = List.length dims in
   match init with
   | Some _ ->
-    trm_apps (trm_var ("MMALLOC" ^  (string_of_int n))) (dims @ [size])
-  | None ->
     trm_apps (trm_var ("MCALLOC" ^  (string_of_int n))) (dims @ [size])
+  | None ->
+    trm_apps (trm_var ("MMALLOC" ^  (string_of_int n))) (dims @ [size])
 
 (* a boolean type used as flag to tell if the array cells should be initialized to zero or not *)
 type zero_initialized = bool
@@ -158,7 +158,7 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
 *)
 let intro_mcalloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var "mcalloc";_},[dim; size]) ->
+  | Trm_apps ({desc = Trm_var "calloc";_},[dim; size]) ->
     alloc ~init:(Some (trm_int 0)) [dim] size
   | _ -> fail t.loc "intro_mcalloc_aux: expected a function call to mcalloc"
 
@@ -175,7 +175,7 @@ let intro_mcalloc : Target.Transfo.local =
 *)
 let intro_mmalloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var "mmalloc";_},[{desc = Trm_apps (_,[dim ;size]);_}]) -> 
+  | Trm_apps ({desc = Trm_var "malloc";_},[{desc = Trm_apps (_,[dim ;size]);_}]) -> 
     alloc ~init:None [dim] size
   | _ -> fail t.loc "intro_mmalloc: expected a function call to mmalloc"
 
