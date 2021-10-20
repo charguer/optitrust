@@ -54,6 +54,10 @@ let next_typconstrid : (unit -> int) =
 module Typ_map = Map.Make(Int)
 type 'a typmap = 'a Typ_map.t
 
+
+
+(* a map from int to int *)
+
 (* struct fields and maps describing struct *)
 type field = string
 

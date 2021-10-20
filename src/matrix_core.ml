@@ -151,7 +151,12 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
 (*                        Core transformations on C matrices                                        *)
 (****************************************************************************************************)
 
-
+(* [intro_mcalloc_aux t]: replace a call to calloc with a call to MCALLOC 
+      params:
+       [t]: ast of the call to alloc
+      return:
+        the updated ast of the function call
+*)
 let intro_mcalloc_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_apps ({desc = Trm_var "mcalloc";_},[dim; size]) -> 
@@ -163,7 +168,12 @@ let intro_mcalloc : Target.Transfo.local =
   Target.apply_on_path (intro_mcalloc_aux)
 
 
-
+(* [intro_mmalloc_aux t]: replace a call to calloc with a call to MMALLOC 
+      params:
+       [t]: ast of the call to alloc
+      return:
+        the updated ast of the function call
+*)
 let intro_mmalloc_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_apps ({desc = Trm_var "mmalloc";_},[dim; size]) -> 
@@ -174,21 +184,35 @@ let intro_mmalloc_aux (t : trm) : trm =
 let intro_mmalloc : Target.Transfo.local = 
   Target.apply_on_path (intro_mmalloc_aux)
 
-let intro_mindex_aux (dims : trms) (t : trm) : trm = 
+
+(* [intro_mindex_aux dim t] replace an array access at index [i] with an array access at MINDEX([dim],i)
+     params:
+      [dim]: the size of the array accesses with [t]
+      [t]: the ast of the array access
+     return:
+      the updated ast of the array access
+*)
+let intro_mindex_aux (dim : trm) (t : trm) : trm = 
   match t.desc with 
   | Trm_apps (f, [base;index]) -> 
     begin match trm_prim_inv f with
     | Some (Prim_binop Binop_array_cell_addr) ->
-      trm_apps ~annot:t.annot ~marks:t.marks f [base; mindex dims [index]]
+      trm_apps ~annot:t.annot ~marks:t.marks f [base; mindex [dim] [index]]
     | _ -> fail t.loc "intro_mindex_aux: expected a primitive array access operation"
     end
   | _ -> fail t.loc "intro_mindex_aux: expected an array access trm"
 
-let intro_mindex (dims : trms) : Target.Transfo.local = 
-  Target.apply_on_path (intro_mindex_aux dims)
+let intro_mindex (dim : trm) : Target.Transfo.local = 
+  Target.apply_on_path (intro_mindex_aux dim)
 
 
-
+(* [reorder_dims_aux order t]: reorder the dimensions in a call to MCALLOC, MMALLOC or MINDEX  
+      params:
+        [order]: a list of indices based on which the elements in dims should be ordered
+        [t]: ast of the call to MCALLOC, MMALLOC, MINDEX
+      return:
+        the updated ast of the call with reordered args
+*)
 let reorder_dims_aux (order : int list) (t : trm) : trm = 
   match mindex_inv t, alloc_inv t with 
   | Some (dims, indices), None -> 
@@ -206,6 +230,19 @@ let reorder_dims_aux (order : int list) (t : trm) : trm =
 let reorder_dims (order : int list) : Target.Transfo.local = 
   Target.apply_on_path (reorder_dims_aux order)
 
+
+(* [new_redundant_dim_aux new_dim t]: add a new dimension at the beginning of the list of dimension 
+      params:
+        [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to MCALLOC or MMALLOC
+        [t]: ast of the call to ALLOC functions
+      return:
+        the update ast of the call to ALLOC functions with the new arg [new_dim]
+
+
+
+
+
+*)
 let new_redundant_dim_aux (new_dim : trm) (t : trm) : trm = 
   match alloc_inv t with 
   | Some (dims, size, zero_init) -> 
