@@ -38,9 +38,12 @@ let redundant_dim (new_dim : trm) : Target.Transfo.t =
       as the one of [var]. Then we copy the contents of the matrix [var] into [local_var] and finaly we 
       free up the memory.
  *)
-let local_other_name ?(mark : mark option) ~var:(var : var) ~local_var:(local_var : var) : Target.Transfo.t =
+let local_other_name ?(mark : mark option) ~var:(var : var) ~local_var:(local_var : var) (tg : Target.target) : unit =
   let malloc_trm = Target.get_trm_at [Target.cVarDef var; Target.cFun "MCALLOC3"] in
   let malloc_trms = match Matrix_core.alloc_inv malloc_trm with 
   | Some (dims, sz, _) -> (dims, sz)
   | _ -> fail None "local_other_name: could not get the dimensions and the size of the matrix" in
-  Target.apply_on_targets (Matrix_core.local_other_name mark var local_var malloc_trms)
+  Internal.nobrace_remove_after (fun _ -> 
+    Target.apply_on_targets (Matrix_core.local_other_name mark var local_var malloc_trms) tg
+  )
+  

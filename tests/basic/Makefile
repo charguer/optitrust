@@ -69,7 +69,12 @@ TESTS_WORKING := \
   variable_replace_occurrences.ml \
 
 
-TESTS_OTHERS := \
+TESTS_TOCHECK := \
+	matrix_intro_mcalloc.ml \
+	matrix_intro_mmalloc.ml \
+	matrix_reorder_dims.ml \
+	
+	
 
 #  change_type.ml \
 # arith_shift.ml \
