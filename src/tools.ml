@@ -275,4 +275,4 @@ exception Invalid_permutation
 
 (* [check_permuattion nb order] check if the given order is a permutation of the integer set [0, .. ,nb] *)
 let check_permutation (nb : int) (order : int list) : unit = 
-  List.iter (fun k -> if not (List.mem k order) then raise Invalid_permutation) (range 0 nb)
+  List.iter (fun k -> if not (List.mem k order) then raise Invalid_permutation) (range 0 (nb -1))

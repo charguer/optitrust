@@ -28,7 +28,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
   | Trm_apps (f, dims_and_indices) ->
     begin match f.desc with
-    | Trm_var f_name when (Internal.pattern_matches f_name "mindex") ->
+    | Trm_var f_name when (Internal.pattern_matches "MINDEX" f_name) ->
       let n = List.length dims_and_indices in
       if (n mod 2 = 0) then
         Some (Tools.split_list_at (n/2) dims_and_indices)
@@ -117,8 +117,8 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
     begin match f.desc with
     | Trm_var f_name ->
       let dims , size = Tools.unlast args in
-      if (Internal.pattern_matches f_name "MCALLOC") then Some (dims, size, true)
-        else if (Internal.pattern_matches f_name "MMALLOC") then Some (dims, size, true)
+      if (Internal.pattern_matches "MCALLOC" f_name) then Some (dims, size, true)
+        else if (Internal.pattern_matches "MMALLOC" f_name) then Some (dims, size, true)
         else None
     | _ -> None
     end
@@ -213,7 +213,7 @@ let intro_mindex (dim : trm) : Target.Transfo.local =
         the updated ast of the call with reordered args
 *)
 let reorder_dims_aux (order : int list) (t : trm) : trm =
-  
+  Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
   match mindex_inv t, alloc_inv t with
   | Some (dims, indices), None ->
     let nb = List.length dims in
@@ -223,6 +223,7 @@ let reorder_dims_aux (order : int list) (t : trm) : trm =
     mindex (reordered_dims) (reordered_indices)
   | None, Some (dims, size, zero_init) ->
     let nb = List.length dims in
+    Tools.printf "Size of dims %d" nb;
     begin try Tools.check_permutation nb order with | Tools.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
     let reordered_dims = Tools.list_reorder order dims in
     let init = if zero_init then Some (trm_int 0 ) else None in
