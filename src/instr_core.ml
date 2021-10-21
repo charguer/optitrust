@@ -48,13 +48,11 @@ let replace_fun (name : string) : Target.Transfo.local =
       the updated [t]
 *)
 let move_aux (index : int) (tg_index : int) (t : trm) : trm =
-  (* TODO: need a -1 when source is strictly before target *)
-  if index = tg_index then t else
   match t.desc with
   | Trm_seq tl ->
-    let instr_to_move = Mlist.nth tl index in
-    let new_tl = Mlist.remove index 1 tl in
-    let new_tl = Mlist.insert_at tg_index instr_to_move new_tl in
+    let instr_to_move = Mlist.nth tl tg_index in
+    let instr_to_move = {instr_to_move with marks = []} in
+    let new_tl = Mlist.insert_at index instr_to_move tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "move_aux: expected the sequence which contains the surrounding sequence"
 

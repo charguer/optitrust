@@ -3,12 +3,10 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Instr.move ~before:[cVarDef "x"] [cVarDef "z"];
-
-  !! Instr.move ~before:[cVarDef "y"] [cVarDef "x"]; (* TODO: fix should do nothing if already at the right place *)
-
-  !! Instr.move ~after:[cVarDef "z"] [cVarDef "x"];
-  !! Instr.move ~after:[cVarDef "y"] [cVarDef "x"];
-  !! Instr.move ~after:[cVarDef "x"] [cVarDef "z"];
-  !! Instr.move ~after:[cVarDef "x"] [cVarDef "y"];
+  !! Instr_basic.move ~where:[tBefore;cVarDef "x"] [cVarDef "z"];
+  !! Instr_basic.move ~where:[tBefore;cVarDef "y"] [cVarDef "x"]; 
+  !! Instr_basic.move ~where:[tAfter;cVarDef "z"] [cVarDef "x"];
+  !! Instr_basic.move ~where:[tAfter;cVarDef "y"] [cVarDef "x"];
+  !! Instr_basic.move ~where:[tAfter;cVarDef "x"] [cVarDef "z"];
+  !! Instr_basic.move ~where:[tAfter;cVarDef "x"] [cVarDef "y"];
 )

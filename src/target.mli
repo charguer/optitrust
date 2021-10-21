@@ -285,8 +285,9 @@ val resolve_target_exactly_one : target -> trm -> path
 
 val resolve_target_between : target -> trm -> (path * int) list
 
-val apply_on_path : (trm -> trm) -> trm -> path -> trm
+val resolve_target_between_exactly_one : target -> trm -> (path * int) 
 
+val apply_on_path : (trm -> trm) -> trm -> path -> trm
 
 val applyi_on_targets : (int -> trm -> path -> trm) -> target -> unit
 

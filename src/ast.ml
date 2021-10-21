@@ -1695,5 +1695,3 @@ let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
 (* let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option = 
   let rec aux (t : trm) :   *)
 
-
-
