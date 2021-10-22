@@ -277,3 +277,15 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm) (var_type : typ): Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type)
 
+(* let delocalize_aux (dime : strm) (init_zero : bool) (_acc_in_place : bool) (acc : string) (index : string) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    if Mlist.length tl <> 4 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
+    
+  | _ -> fail t.loc "delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
+
+
+
+let delocalize (dim : strm) (init_zero : bool) (acc_in_place : bool) (acc : string) (index : string): Target.Transfo.local = 
+  Target.apply_on_path (delcoalize_aux) *)
+

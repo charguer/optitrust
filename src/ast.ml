@@ -1703,9 +1703,9 @@ let rec trm_is_val_or_var (t : trm) : bool =
 
 type loop_range = var * loop_dir * trm * trm * trm 
 
-let trm_for_inv (t : trm) : loop_range option =
+let trm_for_inv (t : trm) : (loop_range * trm)  option =
   match t.desc with 
-  | Trm_for (index, direction, start, stop, step, _) -> Some (index, direction, start, stop ,step)
+  | Trm_for (index, direction, start, stop, step, body) -> Some ((index, direction, start, stop ,step), body)
   | _ -> None
 
 
@@ -1718,8 +1718,40 @@ let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
     trm_for index loop_dir start stop step (trm_seq_nomarks [acc])
   ) rgs tbody
 
+(* TOOD: Optimize this function later *)
+(* [trm_fors_inv nb t] got into a note of nested loops and return all the components
+    of all the loops up to the depth of [nb]
+ *)
+let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option = 
+  let nb_loops = ref 0 in
+  let body_to_return = ref (trm_unit ()) in
+  let rec aux (t : trm) : loop_range list = 
+    incr nb_loops;
+    match t.desc with 
+    | Trm_for (index, direction, start, stop, step, body) ->
+      begin match body.desc with 
+      | Trm_seq tl when Mlist.length tl = 1 -> 
+        if !nb_loops = nb 
+          then begin
+            body_to_return := body;
+            (index, direction, start, stop, step) :: []
+            end
+          else 
+            (index, direction, start, stop, step) :: aux body
+      | _ -> 
+        (index, direction, start, stop, step) :: []
+      end
+      
+    | _ -> []
+    in
+  let loop_range_list = aux t in
+  if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
+    
+  
+  
 
-(* TODO: *)
+
+
 (* let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option = 
   let rec aux (t : trm) :   *)
 
