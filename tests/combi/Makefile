@@ -31,7 +31,8 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
 	aos_to_soa.ml \
-	matrix_intro_mcalloc.ml \
+	matrix_intro_mops.ml \
+
 
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 

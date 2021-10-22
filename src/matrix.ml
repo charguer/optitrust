@@ -80,18 +80,18 @@ let intro_mops (dim : trm) : Target.Transfo.t =
           begin match malloc_trm.desc with
           | Trm_apps ({desc = Trm_var "calloc";_}, _) ->
             intro_mcalloc [Target.cVarDef x];
-            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]; Target.dLHS]
+            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]]
           | Trm_apps ({desc = Trm_var "malloc";_}, _) ->
             Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
-            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]; Target.dLHS]
+            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]]
           | _ -> fail t1.loc "intro_mops: couldn't find a call to calloc/malloc function"
           end
         | Trm_apps ({desc = Trm_var "calloc";_}, _) ->
             Matrix_basic.intro_mcalloc ((Target.target_of_path p) @ [Target.cFun "calloc"]);
-            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]; Target.dLHS]
+            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]]
         | Trm_apps ({desc = Trm_var "malloc";_}, _) ->
             Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
-            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]; Target.dLHS]
+            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]]
         | _ -> fail t1.loc "intro_mmalloc:"
         end
       | _ -> fail None "intro_mmalloc: the targeted variable should be initialized"

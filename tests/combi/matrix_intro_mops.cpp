@@ -2,7 +2,7 @@
 int main () {
 
   const int N = 5;
-  int* p = (int*) calloc (N * sizeof(int));
+  int* p = (int*) calloc (N, sizeof(int));
   for (int i = 0; i < 5; i++){
     p[i] = i;
   }
