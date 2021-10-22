@@ -56,9 +56,9 @@ void MFREE(void* p) {
 // Potential later use
 
 void MFREE1(int N1, void* p) {
-  MATRIX_FREE(p);
+  MFREE(p);
 }
 
 void MFREE2(int N1, int N2, void* p) {
-  MATRIX_FREE(p);
+  MFREE(p);
 }

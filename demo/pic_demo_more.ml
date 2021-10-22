@@ -3,7 +3,11 @@ open Target
 
 let _ = Run.script_cpp (fun () ->
 
-  (* Change the loop from using an iterator to using nested loops over chunks *)
+  (* Part: inlining of the bag iteration *)
+  (* skip *)
+
+  (* Part: optimize chunk allocation *)
+  (* skip *)
 
   (* PART: Inlining of arithmetic operations *)
   (* TODO: the intermediate names should be inserted then inlined automatically *)
@@ -25,8 +29,6 @@ let _ = Run.script_cpp (fun () ->
   !!! Struct.inline "speed" [cTypDef "particle"];
   !!! Struct.inline "items" [cTypDef "bag"];
 
-  (* Part: optimization of computation of speeds *)
-
   (* Part: vectorization of cornerInterpolationCoeff *)
 
   (* Part: space reuse for storing updated speeds and positions *)
@@ -35,7 +37,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: optimization of accumulateChargeAtCorners *)
 
-  (* Part: scaling of electric field -- TODO: check if we need this *)
+  (* Part: scaling of electric field -- LATER ARTHUR: check if we need this *)
 
   (* Part: scaling of speeds *)
 
@@ -71,7 +73,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: Parallelization *)
   !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bx"];
-
+  (* TODO: a few more parallel_for to add *)
 
   )
 

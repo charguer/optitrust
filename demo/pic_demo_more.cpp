@@ -70,7 +70,7 @@ const int nbCorners = 8;
 
 int cellOfCoord(int i, int j, int k) {
   return MINDEX3(6,6,6,i,j,k)
-} 
+}
 
 // idCellOfPos computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
@@ -159,23 +159,15 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 // compute the coefficient for interpolation at each corner;
 // the value for one corner is proportional to the volume between the particle
 // and the opposite corner.
-<<<<<<< Updated upstream
-
-double_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rx = relativePosX(pos.x);
-  double ry = relativePosY(pos.y);
-  double rz = relativePosZ(pos.z);
-=======
 typedef struct {
   double values[nbCorners];
 
 } double_nbCorners;
 
 double8_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rx = relativePosInCell(pos.x);
-  double ry = relativePosInCell(pos.y);
-  double rz = relativePosInCell(pos.z);
->>>>>>> Stashed changes
+  double rx = relativePosX(pos.x);
+  double ry = relativePosY(pos.y);
+  double rz = relativePosZ(pos.z);
   double cx = 1. - rx;
   double cy = 1. - ry;
   double cz = 1. - rz;
@@ -191,17 +183,12 @@ double8_nbCorners cornerInterpolationCoeff(vect pos) {
   } };
 }
 
-<<<<<<< Updated upstream
-// returns the vector obtained as the product of [matrix] with the vector [coeffs]
-vect vect_matrix_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
-=======
 
 typedef struct {
   vect values[nbCorners]
 }
 
 vect vect_matrix_mul(const double coeffs[nbCorners], const vect matrix[nbCorners]) {
->>>>>>> Stashed changes
   vect result = { 0., 0., 0. };
   for (int k = 0; k < nbCorners; k++) {
     result = vect_add(result, vect_mul(coeffs.val[k], matrix.val[k]));
@@ -266,12 +253,8 @@ int main() {
     for (int idCell = 0; idCell < nbCells; idCell++) {
 
       // Read the electric field that applies to the corners of the cell considered
-<<<<<<< Updated upstream
-      vect_nbCorners field_at_corners = getFieldAtCorners(field, idCell);
-=======
       vect field_at_corners[nbCorners];
       compute_FieldAtCorners(idCell, field_at_corners);
->>>>>>> Stashed changes
 
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
