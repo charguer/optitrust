@@ -27,11 +27,17 @@ let intro_mindex (dim : trm) : Target.Transfo.t =
 let reorder_dims (order : int list) : Target.Transfo.t = 
   Target.apply_on_targets (Matrix_core.reorder_dims order)
 
-(* [redundant_dim new_dim]: expects the target [tg] pointing to call to ALLOC functions, then it will 
+(* [insert_alloc_dim new_dim]: expects the target [tg] pointing to call to ALLOC functions, then it will 
       add a new arg at the begining of the list of args in the targetd call
  *)
-let new_redundant_dim (new_dim : trm) : Target.Transfo.t = 
-  Target.apply_on_targets (Matrix_core.new_redundant_dim new_dim)
+let insert_alloc_dim (new_dim : trm) : Target.Transfo.t =
+  Target.apply_on_targets (Matrix_core.insert_alloc_dim new_dim)
+
+(* [insert_access_dim new_dim new_index tg] expects the target [tg] pointing to an array access, then it will
+    add two new args in the call to MINDEX function inside that array access *)
+
+let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.t =
+  Target.apply_on_targets (Matrix_core.insert_access_dim_index new_dim new_index)
 
 (* [local_name ~mark var local_var tg] expects the target pointing to an instruction that contains 
       an occurrence of [var] then it will define a matrix [local_var] whose dimensions will be the same

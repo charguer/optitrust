@@ -97,3 +97,4 @@ let intro_mops (dim : trm) : Target.Transfo.t =
       | _ -> fail None "intro_mmalloc: the targeted variable should be initialized"
       end
     | _ -> fail None "intro_mmalloc: the target should be a variable declarartion allocated with alloc")
+

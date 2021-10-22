@@ -238,26 +238,57 @@ let reorder_dims (order : int list) : Target.Transfo.local =
   Target.apply_on_path (reorder_dims_aux order)
 
 
-(* [new_redundant_dim_aux new_dim t]: add a new dimension at the beginning of the list of dimension
+(* [insert_alloc_dim_aux new_dim t]: add a new dimension at the beginning of the list of dimension
       params:
         [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to MCALLOC or MMALLOC
         [t]: ast of the call to ALLOC functions
       return:
         the updated ast of the call to ALLOC functions with the new arg [new_dim]
 *)
-let new_redundant_dim_aux (new_dim : trm) (t : trm) : trm =
+let insert_alloc_dim_aux (new_dim : trm) (t : trm) : trm =
   match alloc_inv t with
   | Some (dims, size, zero_init) ->
     let new_dims = new_dim :: dims in
     let init = if zero_init then Some (trm_int 0) else None in
     alloc ~init new_dims size
-  | None -> fail t.loc "new_redundant_dim_aux: expected a function call to MCALLOC"
+  | None -> fail t.loc "insert_alloc_dim_aux: expected a function call to MCALLOC"
 
-let new_redundant_dim (new_dim : trm) : Target.Transfo.local =
-  Target.apply_on_path (new_redundant_dim_aux new_dim)
+let insert_alloc_dim (new_dim : trm) : Target.Transfo.local =
+  Target.apply_on_path (insert_alloc_dim_aux new_dim)
+
+(* [insert_access_dim_index_aux new_dim new_index t]: add a new dimension at the beginning of the list of dimension
+        and add a new index at the begining of the list of indices in the call to MINDEX inside the
+        targeted array access
+      params:
+        [new_dim]: the new dimension which is goin to be inserted into the list of dims in call to MINDEX
+        [new_index]: the new index which is goin to be inserted into the list of indices in call to MINDEX
+        [t]: ast of the array_access with the updated list of args in the call to MINDEX
+      return:
+        the updated ast of the
+*)
+let insert_access_dim_index_aux (new_dim : trm) (new_index : trm) (t : trm) : trm = 
+  match access_inv t with
+  | Some (base, dims, indices) ->
+    let new_dims = new_dim :: dims in
+    let new_indices = new_index :: indices in
+    access base new_dims new_indices
+  | None -> fail t.loc "insert_access_dim_index_aux: expected an array access "
+
+let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.local =
+  Target.apply_on_path (insert_access_dim_index_aux new_dim new_index)
 
 
-(* TOOD: Replace T with the type derived from the call to calloc *)
+(* [local_name_aux mark var local_var malloc_trms var_type t] insert a local matrix declaration with name [local_var] and copy the content 
+      from the matrix [var] to [local_var] and replace all the accesses of that matrix inside the targeted insturction [t]
+    params:
+      [mark]: an optional mark at the final generated sequence
+      [var]: the name of the current matrix used in instruction [t]
+      [new_var]: the name of the local matrix which replaces all the current accesses of [var]
+      [t]: ast of thee instuction which contains accesses to [var]
+    return:
+      ast of a hidden sequence which contains the updated instruction [t] and the other instructions 
+        used for copying the value from the current matrix to the local one
+*)
 let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm) (var_type : typ)(t : trm) : trm = 
   let dims, size = malloc_trms in
   let local_var_type = var_type in
