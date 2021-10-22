@@ -30,7 +30,7 @@ let reorder_dims (order : int list) : Target.Transfo.t =
 (* [redundant_dim new_dim]: expects the target [tg] pointing to call to ALLOC functions, then it will 
       add a new arg at the begining of the list of args in the targetd call
  *)
-let redundant_dim (new_dim : trm) : Target.Transfo.t = 
+let new_redundant_dim (new_dim : trm) : Target.Transfo.t = 
   Target.apply_on_targets (Matrix_core.new_redundant_dim new_dim)
 
 (* [local_name ~mark var local_var tg] expects the target pointing to an instruction that contains 

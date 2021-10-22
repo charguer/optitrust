@@ -350,9 +350,11 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
     let def = Mlist.nth tl 0 in
     let middle_instr = Mlist.nth tl 1 in
     begin match def.desc with
-    | Trm_let (vk, (x, tx), _init) ->
+    | Trm_let (vk, (x, tx), init) ->
       let local_var = x in
-      let curr_var_trm = trm_var x in
+      let curr_var_trm = match get_init_val init with
+      | Some init1 -> init1
+      | _ -> fail def.loc "delocalize_aux: couldn't get the value of the current variable " in
       let var_type = (get_inner_ptr_type tx) in
       let add_star_if_ptr (t : trm) : trm = 
         if is_typ_ptr (get_inner_ptr_type tx)  then add_star t

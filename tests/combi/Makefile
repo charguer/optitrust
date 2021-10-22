@@ -31,8 +31,9 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
 	aos_to_soa.ml \
+	matrix_intro_mcalloc.ml \
 
-TESTS := $(TESTS_WORKING)
+TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 
 include ../Common.Makefile
 

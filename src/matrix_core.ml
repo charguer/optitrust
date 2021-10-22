@@ -261,13 +261,13 @@ let new_redundant_dim (new_dim : trm) : Target.Transfo.local =
 let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm) (var_type : typ)(t : trm) : trm = 
   let dims, size = malloc_trms in
   let local_var_type = var_type in
-  let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut local_var_type) (trm_apps (trm_prim (Prim_new local_var_type)) [trm_cast (local_var_type) (alloc dims size )]) in
+  let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc dims size )) in
   let indices_list = List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_ranges = List.map2 (fun dim ind-> (ind, DirUp, (trm_int 0), dim, (trm_int 1))) dims indices_list in
-  let write_on_new_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
+  let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
   let write_on_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) in
-  let snd_instr = trm_fors nested_loop_ranges write_on_new_var in
+  let snd_instr = trm_fors nested_loop_ranges write_on_local_var in
   let new_t = Internal.change_trm (trm_var var) (trm_var local_var) t in
   let thrd_instr = trm_fors nested_loop_ranges write_on_var in
   let last_instr = trm_apps (trm_var "MFREE") [trm_var local_var] in
@@ -276,16 +276,16 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 
 let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm) (var_type : typ): Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type)
-
-(* let delocalize_aux (dime : strm) (init_zero : bool) (_acc_in_place : bool) (acc : string) (index : string) (t : trm) : trm = 
+(* 
+let delocalize_aux (dime : strm) (init_zero : bool) (_acc_in_place : bool) (acc : string) (index : string) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
     if Mlist.length tl <> 4 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
-    
+     
   | _ -> fail t.loc "delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
 
 
 
 let delocalize (dim : strm) (init_zero : bool) (acc_in_place : bool) (acc : string) (index : string): Target.Transfo.local = 
-  Target.apply_on_path (delcoalize_aux) *)
-
+  Target.apply_on_path (delcoalize_aux)
+ *)
