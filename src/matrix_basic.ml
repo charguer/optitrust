@@ -33,17 +33,17 @@ let reorder_dims (order : int list) : Target.Transfo.t =
 let redundant_dim (new_dim : trm) : Target.Transfo.t = 
   Target.apply_on_targets (Matrix_core.new_redundant_dim new_dim)
 
-(* [local_other_name ~mark var local_var tg] expects the target pointing to an instruction that contains 
+(* [local_name ~mark var local_var tg] expects the target pointing to an instruction that contains 
       an occurrence of [var] then it will define a matrix [local_var] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [local_var] and finaly we 
       free up the memory.
  *)
-let local_other_name ?(mark : mark option) ~var:(var : var) ~local_var:(local_var : var) (tg : Target.target) : unit =
+let local_name ?(mark : mark option) ~var:(var : var) ~local_var:(local_var : var) (tg : Target.target) : unit =
   let malloc_trm = Target.get_trm_at [Target.cVarDef var; Target.cFun "MCALLOC3"] in
   let malloc_trms = match Matrix_core.alloc_inv malloc_trm with 
   | Some (dims, sz, _) -> (dims, sz)
-  | _ -> fail None "local_other_name: could not get the dimensions and the size of the matrix" in
+  | _ -> fail None "local_name: could not get the dimensions and the size of the matrix" in
   Internal.nobrace_remove_after (fun _ -> 
-    Target.apply_on_targets (Matrix_core.local_other_name mark var local_var malloc_trms) tg
+    Target.apply_on_targets (Matrix_core.local_name mark var local_var malloc_trms) tg
   )
   

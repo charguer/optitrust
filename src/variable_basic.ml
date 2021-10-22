@@ -69,7 +69,7 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
     (fun (p,i) t -> Variable_core.init_attach const i t p )
 
 
-(* [local_other_name var_type var local_var tg] expectes target [tg] to point to a marked
+(* [local_name var_type var local_var tg] expectes target [tg] to point to a marked
       sequence. Then it will declare a new variable with name [new_name] and replace all
       the occurences of [var] with [local_var]. The user needs to give the type of the
       variable for which we want to change the name.
@@ -84,9 +84,9 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
                                                 a = x;
                                               }@nobrace
 *)
-let local_other_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ) ~var:(ov : var) ~local_var:(nv : var) (tg : Target.target) : unit =
+let local_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ) ~var:(ov : var) ~local_var:(nv : var) (tg : Target.target) : unit =
   Internal.nobrace_enter();
-  Target.apply_on_targets (Variable_core.local_other_name mark vt ov nv) tg
+  Target.apply_on_targets (Variable_core.local_name mark vt ov nv) tg
 
 
 (* [delocalize array_size neutral_element fold_operation tg] expects target [tg] to point to
@@ -148,7 +148,7 @@ let insert ?(const : bool = false) (name : string) (typ : string ) (value : stri
 (* [replace_occurrences name ~space tg]] expects the target [tg] to point to any node ast which could contain 
     an occurrence of the variable [name], then it will all the nodes which come after the node targeted by target [tg]
 *)
-let replace_occurrences (name : var) ~space:(space1 : strm) : Target.Transfo.t =
+let replace_occurrences ~subst:(name : var) ~put:(put : strm) : Target.Transfo.t =
   Target.reparse_after (
-    Target.apply_on_targets (Variable_core.replace_occurrences name space1)
+    Target.apply_on_targets (Variable_core.replace_occurrences name put)
   )

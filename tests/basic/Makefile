@@ -65,7 +65,8 @@ TESTS_WORKING := \
 	variable_inline.ml \
 	variable_insert.ml \
 	variable_insert_and_fold.ml \
-	variable_rename.ml\
+	variable_local_name.ml \
+	variable_rename.ml \
   variable_replace_occurrences.ml \
 
 
@@ -78,7 +79,7 @@ TESTS_TOCHECK := \
 
 #  change_type.ml \
 # arith_shift.ml \
-#	local_other_name.ml
+#	local_name.ml
 
 # TODO: script for vscode opening
 

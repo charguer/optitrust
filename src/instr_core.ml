@@ -39,11 +39,11 @@ let replace_fun_aux (name : string) (t : trm) : trm =
 let replace_fun (name : string) : Target.Transfo.local =
   Target.apply_on_path (replace_fun_aux name)
 
-(* [move_aux index index_instr t]: move instruction at [index] to [index_instr]
+(* [move_aux index tg_index t]: move instruction at [index] to [index_instr]
     in the sequence [t]
     params:
-      [index]: current index of the targeted instruction
-      [index_instr]: the targeted index where the current instruction should be moved to
+      [index]: index where the instr should be move to
+      [tg_index]: the current index of the targeted instruction
     return:
       the updated [t]
 *)

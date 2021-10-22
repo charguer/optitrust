@@ -395,10 +395,10 @@ let cLit : constr =
    Constr_lit None
 
 (* [cCall] can match all kind of function calls *)
-let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(accept_encoded : bool = false) (name:string) : constr =
+let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(accept_encoded : bool = false) ?(regexp : bool = false) (name:string) : constr =
   let exception Argument_Error of string in
   let p_fun = match fun_ with
-  | [] -> [cVar name]
+  | [] -> [cVar ~regexp  name]
   | _ ->
     begin match name with
     | "" -> fun_
@@ -407,8 +407,8 @@ let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_
   Constr_app (p_fun, combine_args args args_pred, accept_encoded)
 
 (* [cFun] matches a function by its name; it cannot match primitive functions *)
-let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (name:string) : constr =
-  cCall ~fun_ ~args ~args_pred ~accept_encoded:false name
+let cFun ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(regexp : bool = false) (name:string) : constr =
+  cCall ~fun_ ~args ~args_pred ~accept_encoded:false ~regexp name
 
 (* [cPrimPred f_pred] matches all primitives which satisfy the predicated [f_pred]*)
 let cPrimPred (f_pred : prim -> bool) : constr =

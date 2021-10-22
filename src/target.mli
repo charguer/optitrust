@@ -175,9 +175,9 @@ val cString : string -> constr
 
 val cLit : constr
 
-val cCall : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> ?accept_encoded:bool -> string -> constr
+val cCall : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> ?accept_encoded:bool -> ?regexp:bool -> string -> constr
 
-val cFun : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> string -> constr
+val cFun : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> ?regexp:bool -> string -> constr
 
 val cPrimPred : (prim -> bool) -> constr
 

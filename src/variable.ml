@@ -109,7 +109,7 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
    ~var:(ov : var) ~local_var:(nv : var)  ~var_type:(vt : typ) 
   ~array_size:(arrs : string) (tg : Target.target) : unit =
   let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
-  Variable_basic.local_other_name ~mark:middle_mark ~var_type:vt ~var:ov ~local_var:nv tg;
+  Variable_basic.local_name ~mark:middle_mark ~var_type:vt ~var:ov ~local_var:nv tg;
   Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark middle_mark];
   begin
    match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> ()
@@ -124,7 +124,7 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
 let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) ) 
    ~var:(ov : var) ~local_var:(nv : var)  ~var_type:(vt : typ) 
   ~array_size:(arrs : string) ~local_vars:(lv : vars) (tg : Target.target) : unit =
-  Variable_basic.local_other_name ~mark ~var_type:vt ~var:ov ~local_var:nv tg;
+  Variable_basic.local_name ~mark ~var_type:vt ~var:ov ~local_var:nv tg;
   Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark mark];
   Variable_basic.inline_at [Target.cFor index] [Target.nbAny;Target.cVarDef arrs];
   Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor index];
@@ -188,7 +188,7 @@ let reuse (space : var) (tg : Target.target) : unit =
       (* Marks.add "opti_mark" (Target.target_of_path p); *)
       let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
       detach_if_needed (Target.target_of_path p);
-      Variable_basic.replace_occurrences x ~space (Target.target_of_path _path_to_seq);
+      Variable_basic.replace_occurrences ~subst:x ~put:space (Target.target_of_path _path_to_seq);
       Instr_basic.delete (Target.target_of_path p)
     | None -> fail decl_t.loc "reuse: could not match the declaration"
     end

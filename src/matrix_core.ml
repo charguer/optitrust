@@ -254,7 +254,7 @@ let new_redundant_dim (new_dim : trm) : Target.Transfo.local =
 
 
 (* TOOD: Replace T with the type derived from the call to calloc *)
-let local_other_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm) (t : trm) : trm = 
+let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm) (t : trm) : trm = 
   let dims, size = malloc_trms in
   let local_var_type = (typ_ptr Ptr_kind_mut (typ_constr "T") ) in
   let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut local_var_type) (trm_apps (trm_prim (Prim_new local_var_type)) [trm_cast (local_var_type) (alloc dims size )]) in
@@ -270,6 +270,6 @@ let local_other_name_aux (mark : mark option) (var : var) (local_var : var) (mal
   let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
   match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm
 
-let local_other_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm) : Target.Transfo.local =
-  Target.apply_on_path (local_other_name_aux mark var local_var malloc_trms)
+let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm) : Target.Transfo.local =
+  Target.apply_on_path (local_name_aux mark var local_var malloc_trms)
 

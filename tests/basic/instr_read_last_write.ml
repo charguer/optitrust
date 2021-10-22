@@ -7,5 +7,5 @@ let _ = Run.script_cpp (fun _->
 
     !! Instr.read_last_write ~write:[sInstr "t[0] ="] [sInstr "= t[0]"; dRHS];
 
-    (* TODO: check in the combi function that the target reaches a get operation *)
+    (* LATER: check in the combi function that the target reaches a get operation *)
 )
