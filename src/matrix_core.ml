@@ -136,12 +136,16 @@ let vardef_alloc ?(init : trm option = None) (x : string) (ty : typ) (dims : trm
 (* [vardef_alloc_inv t ] returns all the args used in vardef_alloc*)
 let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) option =
   match t.desc with
-  | Trm_let (_, (x, ty), _) ->
-    let init = get_init_val t in
-    begin match alloc_inv  init with
-    | Some (dims, size, z_in) -> Some (x, (get_inner_ptr_type ty), dims, size, z_in)
+  | Trm_let (_, (x, ty), init) ->
+    begin match get_init_val init with 
+    | Some init1 -> 
+      begin match alloc_inv  init1 with
+      | Some (dims, size, z_in) -> Some (x, (get_inner_ptr_type ty), dims, size, z_in)
+      | _ -> None
+      end
     | _ -> None
     end
+    
   | _ -> None
 
 
@@ -254,9 +258,9 @@ let new_redundant_dim (new_dim : trm) : Target.Transfo.local =
 
 
 (* TOOD: Replace T with the type derived from the call to calloc *)
-let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm) (t : trm) : trm = 
+let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm) (var_type : typ)(t : trm) : trm = 
   let dims, size = malloc_trms in
-  let local_var_type = (typ_ptr Ptr_kind_mut (typ_constr "T") ) in
+  let local_var_type = var_type in
   let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut local_var_type) (trm_apps (trm_prim (Prim_new local_var_type)) [trm_cast (local_var_type) (alloc dims size )]) in
   let indices_list = List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
@@ -270,6 +274,6 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
   match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm
 
-let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm) : Target.Transfo.local =
-  Target.apply_on_path (local_name_aux mark var local_var malloc_trms)
+let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm) (var_type : typ): Target.Transfo.local =
+  Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type)
 

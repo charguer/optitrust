@@ -99,7 +99,9 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
                    | _ -> dx
                    end
       end in
-      let init = get_init_val dl in
+      let init = match get_init_val dx with 
+      | Some init1 -> init1 
+      | _ -> fail t.loc "inline_aux: coudl not get the initial value of the targeted variable" in
       let lback = 
       begin match init.desc with 
       | Trm_struct field_init ->
@@ -348,9 +350,9 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
     let def = Mlist.nth tl 0 in
     let middle_instr = Mlist.nth tl 1 in
     begin match def.desc with
-    | Trm_let (vk, (x, tx), _) ->
+    | Trm_let (vk, (x, tx), _init) ->
       let local_var = x in
-      let curr_var_trm = get_init_val def in
+      let curr_var_trm = trm_var x in
       let var_type = (get_inner_ptr_type tx) in
       let add_star_if_ptr (t : trm) : trm = 
         if is_typ_ptr (get_inner_ptr_type tx)  then add_star t

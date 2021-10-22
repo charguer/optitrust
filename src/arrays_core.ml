@@ -585,8 +585,10 @@ let aos_to_soa (tv : typvar) (sz : var): Target.Transfo.local =
 *)
 let set_explicit_aux (t : trm) : trm = 
   match t.desc with 
-  | Trm_let (vk, (x, tx), _) ->
-    let init = get_init_val t in
+  | Trm_let (vk, (x, tx), init) ->
+    let init = match get_init_val init with 
+    | Some init -> init
+    | None -> fail t.loc "set_explicit_aux: could not get the initialization trms for the targeted array declaration" in
     begin match init.desc with 
     | Trm_array tl -> 
       let array_set_list = 

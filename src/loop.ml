@@ -248,7 +248,9 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
             | Some d -> d
             | None -> fail t.loc "unroll: could not find the declaration of the loop bound variable"
             in
-          let lit_n = get_init_val var_decl  in
+          let lit_n = match get_init_val var_decl with 
+          | Some init1 -> init1 
+          | None -> fail t.loc "unroll: could not get the value of the loop component" in
           match (get_lit_from_trm_lit lit_n) with
           | Lit_int n -> n
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll"

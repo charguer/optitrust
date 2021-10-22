@@ -848,6 +848,24 @@ let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
   {annot; marks; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
+
+(* TOOD: From now on use these two constructors to add new variables, and later change the implementation of  
+    trm_let so that it add the encoding automatically
+*)
+let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type_ptr = typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
+  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
+
+let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type = typ_array var_type sz in
+  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
+  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
+  trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
+
 let code ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (code : string) : trm =
   {annot; marks = []; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
@@ -1512,18 +1530,28 @@ let get_nobrace_id (t : trm) : int option =
 type rename = | Suffix of string | Rename_list of (var * var) list
 
 (* get the value of a variable initialization *)
-let get_init_val (t : trm) : trm =
-  match t.desc with
+let rec get_init_val (t : trm) : trm option =
+  match t.desc with 
+  | Trm_let (_, (_, _), init) -> get_init_val init
+  | Trm_apps(f,[base]) ->
+        begin match f.desc with
+        | Trm_val (Val_prim (Prim_new _)) -> Some base
+        | _ -> None
+        end
+  | Trm_val (Val_prim (Prim_new _)) -> None
+  | _ -> Some t
+  
+  (* match t.desc with
   | Trm_let (_, (_, _), init) ->
       begin match init.desc with
       | Trm_apps(f,[base]) ->
         begin match f.desc with
-        | Trm_val (Val_prim (Prim_new _)) -> base
-        | _ -> init
+        | Trm_val (Val_prim (Prim_new _)) -> Some base
+        | _ -> Some init
         end
       | _-> init
       end
-  | _ -> fail t.loc "get_init_val: expected a variable declaration"
+  | _ -> fail t.loc "get_init_val: expected a variable declaration" *)
 
 
 (* get the literal value from a trm_lit *)
@@ -1694,4 +1722,15 @@ let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
 (* TODO: *)
 (* let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option = 
   let rec aux (t : trm) :   *)
+
+
+(* [trm_var_def_inv t] get the name type and the initialization value  *)
+let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option = 
+  match t.desc with 
+  | Trm_let (vk, (x,tx), init) -> 
+    let init1 = match get_init_val init with 
+    | Some init1 -> Some init1
+    | _ -> None in
+    Some (vk, x, get_inner_ptr_type tx, init1)
+  | _ -> None
 

@@ -138,8 +138,8 @@ let intro_pattern_array (str : string) (tg : Target.target) : unit =
   let path_to_surrounding_seq = ref [] in
   let paths = Target.resolve_target tg t in
   (* compute the branch with minia *)
-  List.iteri (fun i p -> 
-    let path_to_seq, _ , index  = Internal.get_instruction_in_surrounding_sequence p in
+  List.iteri (fun _i p -> 
+    let path_to_seq, _ , _index  = Internal.get_instruction_in_surrounding_sequence p in
     if !path_to_surrounding_seq = [] then path_to_surrounding_seq := path_to_seq 
       else if !path_to_surrounding_seq <> path_to_seq then fail None "intro_patter_array: all the targeted instuctions should belong to the same englobing sequence";
   ) paths;
