@@ -4,10 +4,10 @@ open Target
 let _ = Run.script_cpp (fun () ->
 
   (* Part: inlining of the bag iteration *)
-  (* skip *)
+  (* skip #1 *)
 
   (* Part: optimize chunk allocation *)
-  (* skip *)
+  (* skip #16 *)
 
   (* PART: Inlining of arithmetic operations *)
   (* TODO: the intermediate names should be inserted then inlined automatically *)
@@ -29,35 +29,34 @@ let _ = Run.script_cpp (fun () ->
   !!! Struct.inline "speed" [cTypDef "particle"];
   !!! Struct.inline "items" [cTypDef "bag"];
 
-  (* Part: vectorization of cornerInterpolationCoeff *)
+  (* Part: vectorization of cornerInterpolationCoeff #2 *)
 
-  (* Part: space reuse for storing updated speeds and positions *)
+  (* Part: space reuse for storing updated speeds and positions #5 *)
 
-  (* Part: optimization of computation of speeds *)
-
-  (* Part: optimization of accumulateChargeAtCorners *)
+  (* Part: optimization of computation of speeds #6 *)
 
   (* Part: scaling of electric field -- LATER ARTHUR: check if we need this *)
 
-  (* Part: scaling of speeds *)
+  (* Part: scaling of speeds and positions #7 *)
 
-  (* Part: scaling of positions *)
+  (* Part: shifting of positions #8 #9 *)
 
-  (* Part: shifting of positions *)
+  (* Part: optimization of accumulateChargeAtCorners #4 #10 *)
 
-  (* Part: simplifications in charge deposit *)
+  (* Part: introduction of matrix macros #12 *)
 
-  (* Part: vectorization in charge deposit *)
+  (* Part: duplication of corners for vectorization of charge deposit #13 *)
 
-  (* Part: introduction of thread-independence in charge deposit *)
+  (* Part: duplication of corners for thread-independence of charge deposit #14 *)
 
-  (* Part: loop splitting for treatments of speeds and positions and deposit *)
-  (* TODO: adapt the script below; the hoisting should be on the variable idCell2 *)
-  !! Struct.to_variables [cVarDef "speed2"];
-  !! Loop.hoist ~name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
-  (* remove the dollar to see the error *)
-  !! Variable.inline [nbMulti; cVarDef ~regexp:true "speed2_.$"];
-  !! Loop.fission [tBefore; cVarDef "pos2"];
+  (* Part: loop splitting for treatments of speeds and positions and deposit #11 *)
+
+    (* TODO: adapt the script below; the hoisting should be on the variable idCell2 *)
+    !! Struct.to_variables [cVarDef "speed2"];
+    !! Loop.hoist ~name:"${var}_at" [nbMulti; cVarDef ~regexp:true "speed2_."];
+    (* remove the dollar to see the error *)
+    !! Variable.inline [nbMulti; cVarDef ~regexp:true "speed2_.$"];
+    !! Loop.fission [tBefore; cVarDef "pos2"];
 
   (* Part: Coloring *)
   let sized_dims = [("x", "gridX"); ("y", "gridY"); ("z", "gridZ")] in
