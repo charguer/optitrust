@@ -296,12 +296,12 @@ int main() {
           // Compute the new speed and position for the particle.
           const vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
           const vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
+          const particle p2 = { pos2, speed2 };
 
           // Compute the location of the cell that now contains the particle
           const int idCell2 = idCellOfPos(pos2);
 
           // Push the updated particle into the bag associated with its target cell
-          const particle p2 = { pos2, speed2 };
           bag_push(&bagsNext[idCell2], p2);
 
           // Deposit the charge of the particle at the corners of the target cell
