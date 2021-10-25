@@ -84,7 +84,7 @@ exception Rule_mismatch
 (* [rule_match]: for a given list of variables [vars] in pattern [pat] return a map with all the variables
       as keys and their associated ast as values
 *)
-let rule_match (vars : vars) (_aux_vars : vars) (pat : trm) (t : trm) : tmap =
+let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
   let inst = ref Trm_map.empty in
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let aux_list (ts1 : trms) (ts2 : trms) : unit =
@@ -136,9 +136,11 @@ exception Rule_match_ast_list_no_occurrence_for of string
 
 *)
 
+
+
 (* [rule_match_as_list pattern_vars pattern_instr t] returns the list of key values in the map generated from rule_match *)
-let rule_match_as_list (pattern_vars : vars) (pattern_aux_vars : vars) (pattern_instr : trm)  (t : trm) : trms =
-  let inst : tmap = rule_match pattern_vars pattern_aux_vars pattern_instr t in
+let rule_match_as_list (pattern_vars : vars)  (pattern_instr : trm)  (t : trm) : trms =
+  let inst : tmap = rule_match pattern_vars  pattern_instr t in
   List.map (fun x -> match Trm_map.find_opt x inst with
     | Some v -> v
     | None -> raise (Rule_match_ast_list_no_occurrence_for x)
@@ -146,7 +148,7 @@ let rule_match_as_list (pattern_vars : vars) (pattern_aux_vars : vars) (pattern_
 
 (* [apply_rule rule t] apply rule [rule] in the ast [t] *)
 let apply_rule_aux (rule : rewrite_rule) (t : trm) : trm =
-  let inst : tmap = rule_match rule.rule_vars rule.rule_aux_vars rule.rule_from t in
+  let inst : tmap = rule_match (rule.rule_vars  @ rule.rule_aux_vars) rule.rule_from t in
   let rule_before = rule.rule_to in
   let rule_after = Internal.variable_substitute inst rule_before in
   rule_after

@@ -340,7 +340,7 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
               ) thrd_instr ps2 in
             
             let new_frth_instr = 
-              begin match Internal.trm_fors_inv alloc_arity snd_instr with
+              begin match trm_fors_inv alloc_arity snd_instr with
                 | Some (loop_ranges, body) -> 
                   let set_instr = 
                   begin match body.desc with
