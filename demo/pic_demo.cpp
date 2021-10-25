@@ -223,12 +223,13 @@ double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
 void init(bag* bagsCur, bag* bagsNext, vect* field) {
   // example push of one particle in cell zero, just to see the effect of scaling/shifting
   // of speed and positions
-  double posX = 1.0, posY = 1.0, posZ = 1.0; // arbitrary values
+  /*double posX = 1.0, posY = 1.0, posZ = 1.0; // arbitrary values
   double speedX = 1.0, speedY = 1.0, speedZ = 1.0; // arbitrary values
   const vect pos = { posX, posY, posZ };
   const vect speed = { speedX, speedY, speedZ };
   const particle p0 = { pos, speed };
   bag_push(&bagsCur[0], p0);
+  */
 }
 
 // updateFieldsUsingNextCharge in an operation that reads nextCharge,
