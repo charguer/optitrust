@@ -338,7 +338,7 @@ void bag_swap(bag* b1, bag* b2) {
 // Iteration
 
 // Higher-order iteration, destructive version that clears the bag
-
+/* LATER
 void bag_destructive_iter(bag* b, void f(particle*)) {
   chunk* c = b->front;
   while (true) { // loop on chunks
@@ -363,6 +363,7 @@ void bag_destructive_iter(bag* b, void f(particle*)) {
     }
   }
 }
+*/
 
 // First-order iterator
 typedef struct bag_iter {

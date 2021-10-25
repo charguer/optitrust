@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.script_cpp ~inline:["particle.h";"particle_chunk_alloc.h";"particle_chunk.h"] (fun () ->
+let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
   (* Part: inlining of the bag iteration *)
   (* skip #1 *)
@@ -19,31 +19,39 @@ let _ = Run.script_cpp ~inline:["particle.h";"particle_chunk_alloc.h";"particle_
   (* TODO: the intermediate names should be inserted then inlined automatically *)
 
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
+      !!!();
+
+(* TODO: missing the type in the generatino of:
+     const r0 = vect_mul(coeffs.values[k], matrix.values[k]);
+ in:
   !! Function.bind_intro ~fresh_name:"r0" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-  (* !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"]; *)
+*)
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
   !! Function.inline [cFunDef "main"; cOr [[cFun "vect_mul"]]];
   (*!! Function.bind_intro [cFunDef "vect_matrix_mul"; cFun "vect_add"; dArg 2]; *)
   !! Function.inline [cFunDef "main"; cOr [[cFun "vect_add"]]];
   !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"];
-  !!! Variable.inline [nbMulti; cFunDef "main"; cVarDef"r2"];
-
-  (* Part: Naming the target bag *)
-  !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
-  !! Variable.insert_and_fold "k" "int&" "b2.nb" [tAfter; cVarDef "b2"];
+  !!! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r."];
 
   (* Part: Inlining of structure assignements *)
+  !! Variable.inline [cOr [[cVarDef "p"]]];
   !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
-  !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
   !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()];
   !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()];
-  !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
 
-  (* Part: AOS-TO-SOA *)
+
+  (* Part: AOS-TO-SOA -- TODO: this does not work, it seems that
+        result.values[k].x = fields[indices.values[k]].x;
+        is incorrectly targeted when looking for field "pos" of type "particle" :
+
   !!! Struct.inline "pos" [cTypDef "particle"];
+  *)
+  (*
   !!! Struct.inline "speed" [cTypDef "particle"];
   !!! Struct.inline "items" [cTypDef "bag"];
+  *)
 
 
 
@@ -86,6 +94,13 @@ let _ = Run.script_cpp ~inline:["particle.h";"particle_chunk_alloc.h";"particle_
     in
   !! List.iter (colorize "2" "2") dims;
   !! Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cx"];
+
+  (* Part: Introducing an if-statement for slow particles *)
+  (*
+  !! Function.inline [cFunDef "bag_transfer"; cFun "bag_push"];
+  !! Function.inline ~args:["b2";""] [cTopFunDef "main"; cFun "bag_push"];
+  !! Variable.insert_and_fold "k" "int&" "b2.nb" [tAfter; cVarDef "b2"];
+  *)
 
   (* Part: Parallelization *)
   !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bx"];
