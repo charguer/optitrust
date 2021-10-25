@@ -1747,15 +1747,6 @@ let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
   let loop_range_list = aux t in
   if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
     
-  
-  
-
-
-
-(* let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option = 
-  let rec aux (t : trm) :   *)
-
-
 (* [trm_var_def_inv t] get the name type and the initialization value  *)
 let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option = 
   match t.desc with 

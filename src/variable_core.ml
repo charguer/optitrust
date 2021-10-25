@@ -348,7 +348,7 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
   | Trm_seq tl ->
     if Mlist.length tl <> 3 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
     let def = Mlist.nth tl 0 in
-    let middle_instr = Mlist.nth tl 1 in
+    let snd_instr = Mlist.nth tl 1 in
     begin match def.desc with
     | Trm_let (vk, (x, tx), init) ->
       let local_var = x in
@@ -378,7 +378,7 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
           trm_for index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_var index]) init_trm])]
           in
-      let new_snd_instr = Internal.change_trm (trm_var local_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) middle_instr  in
+      let new_snd_instr = Internal.change_trm (trm_var local_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_no_brace [
                       trm_set (curr_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_lit (Lit_int 0)]);
                       (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)

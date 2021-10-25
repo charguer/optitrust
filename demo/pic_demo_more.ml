@@ -60,9 +60,10 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.fission [tBefore; cVarDef "pos2"];
 
   (* Part: Coloring *)
+  (* TODO: find a better target *)
   let sized_dims = [("x", "gridX"); ("y", "gridY"); ("z", "gridZ")] in
   let dims = List.map fst sized_dims in
-  !! Loop.grid_enumerate dims [tIndex ~nb:2 0; cFor "idCell"]; (* TODO: find a better target *)
+  !! Loop.grid_enumerate sized_dims [tIndex ~nb:2 0; cFor "idCell"]; 
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
     Loop_basic.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)
