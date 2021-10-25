@@ -61,9 +61,11 @@ let get_cpp_includes (filename : string) : string =
 let parse (filename : string) : string * trm =
   print_info None "Parsing %s...\n" filename;
   let includes = get_cpp_includes filename in
-  let command_line_args =
+  let command_line_include =
     List.map Clang.Command_line.include_directory
       (Clang.default_include_directories ()) in
+  let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
+  let command_line_args = command_line_warnings @ command_line_include in
   let ast = Clang.Ast.parse_file ~command_line_args filename  in
 
   (* DEBUG: Format.eprintf "%a@."
@@ -332,7 +334,8 @@ let output_prog ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast 
   let out_prog = open_out file_prog in
   begin try
     (* print C++ code with decoding *)
-    (*   DEPRECATED *)
+    (*   DEPRECATED
+    Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     output_string out_prog ctx.includes;
     Ast_to_c.ast_to_doc out_prog ast;
     close_out out_prog;

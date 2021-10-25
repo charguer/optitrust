@@ -280,9 +280,11 @@ int main() {
         int nb = c->size;
         // iterate over the items from the current chunk
         for (int i = 0; i < nb; i++) {
+          /* TODO: re-printing the code below gives: "particle &p = cur_p;"
           particle* cur_p = &c->items[i];
+          particle &p = *cur_p; */
+          particle p = c->items[i];
 
-          particle &p = *cur_p;
 
           // Interpolate the field based on the position relative to the corners of the cell
           const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);

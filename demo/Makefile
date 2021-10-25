@@ -170,3 +170,5 @@ TARGET_MAKE_ALL := transfo
 
 compile_demo:
 	gcc -std=c++11 pic_demo.cpp
+compile_demo_inlined:
+	gcc -std=c++11 pic_demo_inlined.cpp

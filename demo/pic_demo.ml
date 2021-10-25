@@ -1,7 +1,7 @@
 open Optitrust
 open Target
 
-let _ = Run.script_cpp ~inline:["particle.h";"particle_chunk_alloc.h";"particle_chunk.h"] (fun () ->
+let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
   (* Part: inlining of the bag iteration *)
   (* skip #1 *)
@@ -19,8 +19,10 @@ let _ = Run.script_cpp ~inline:["particle.h";"particle_chunk_alloc.h";"particle_
   (* TODO: the intermediate names should be inserted then inlined automatically *)
 
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
+      !!!();
+
   !! Function.bind_intro ~fresh_name:"r0" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-    !!!();
+
   !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
