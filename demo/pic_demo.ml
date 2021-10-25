@@ -20,15 +20,14 @@ let _ = Run.script_cpp ~inline:["particle.h";"particle_chunk_alloc.h";"particle_
 
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
   !! Function.bind_intro ~fresh_name:"r0" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-    !!!();
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
+  (* !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"]; *)
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
   !! Function.inline [cFunDef "main"; cOr [[cFun "vect_mul"]]];
   (*!! Function.bind_intro [cFunDef "vect_matrix_mul"; cFun "vect_add"; dArg 2]; *)
   !! Function.inline [cFunDef "main"; cOr [[cFun "vect_add"]]];
   !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"];
-  !!! Variable.inline [nbMulti; cFunDef "main"; cVarDef"r1"];
+  !!! Variable.inline [nbMulti; cFunDef "main"; cVarDef"r2"];
 
   (* Part: Naming the target bag *)
   !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];

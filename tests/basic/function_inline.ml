@@ -3,6 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
+  !! Function.inline ~body_mark:"bodyk" [cFun "k"];
   !! Function_basic.inline ~body_mark:"bodyk" [cFun "k"];
   !! Function_basic.inline ~body_mark:"bodyf" [cFun "f"];
   !! Function_basic.inline ~body_mark:"bodyg" [cFun "g"];
