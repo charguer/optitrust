@@ -30,7 +30,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (*!! Function.bind_intro [cFunDef "vect_matrix_mul"; cFun "vect_add"; dArg 2]; *)
   !! Function.inline [cFunDef "main"; cOr [[cFun "vect_add"]]];
   !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"];
-  !!! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r."];
+  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r."];
 
   (* Part: Inlining of structure assignements *)
   !! Variable.inline [cOr [[cVarDef "p"]]];
@@ -38,10 +38,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()];
   !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()];
 
-  (* Part: vectorization of cornerInterpolationCoeff #2
-  Rewrite.equiv_at "double a; a ==> (0. + 1. * a)" [cFun "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
-*)
-
+  (* Part: vectorization of cornerInterpolationCoeff #2 *)
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti;cFunDef "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
+  !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
+  !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cReturn; cCell ()];
 
   (* Part: optimization of accumulateChargeAtCorners #4 *)
  (* TODO:

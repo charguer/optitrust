@@ -62,6 +62,7 @@ TESTS_WORKING := \
 	typedef_insert.ml \
 	variable_change_type.ml \
 	variable_fold.ml \
+	variable_init_attach.ml \
 	variable_inline.ml \
 	variable_insert.ml \
 	variable_insert_and_fold.ml \

@@ -186,9 +186,9 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   double rx = relativePosX(pos.x);
   double ry = relativePosY(pos.y);
   double rz = relativePosZ(pos.z);
-  double cx = 1. - rx;
-  double cy = 1. - ry;
-  double cz = 1. - rz;
+  double cx = 1. + -1. * rx;
+  double cy = 1. + -1. * ry;
+  double cz = 1. + -1. * rz;
   return { {
     cx * cy * cz,
     cx * cy * rz,
