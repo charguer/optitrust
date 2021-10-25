@@ -66,7 +66,7 @@ const int CHUNK_SIZE = 128;
 /*
  * A chunk is a fixed-capacity array of particles, with a pointer to the next chunk.
  */
-typedef struct chunk {
+typedef struct chunk{
   chunk* next; // null if last in the chain
   int size;
   particle items[CHUNK_SIZE];
@@ -75,7 +75,7 @@ typedef struct chunk {
 /*
  * A bag is a pair of pointers on the first and the last chunk (possibly the same).
  */
-typedef struct bag {
+typedef struct {
   chunk* front;
   chunk* back;
 } bag;
@@ -172,7 +172,7 @@ void chunk_free(chunk* c) {
  * @param[in, out] b the bag to initialize.
  */
 void bag_init(bag* b, int id_bag, int id_cell) {
-  chunk* c = chunk_alloc(id_bag, id_cell);
+  chunk* c = chunk_alloc();
   c->size = 0;
   c->next = NULL;
   b->front = c;

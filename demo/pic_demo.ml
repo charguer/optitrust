@@ -6,6 +6,12 @@ let _ = Run.script_cpp (fun () ->
   (* Part: inlining of the bag iteration *)
   (* skip #1 *)
 
+  
+  (* Part: vectorization of cornerInterpolationCoeff #2 *)
+  Rewrite.equiv_at "double a; a == (0. + 1. * a)" [cFun "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
+  
+  
+  
   (* Part: optimize chunk allocation *)
   (* skip #16 *)
 
@@ -34,7 +40,7 @@ let _ = Run.script_cpp (fun () ->
   !!! Struct.inline "speed" [cTypDef "particle"];
   !!! Struct.inline "items" [cTypDef "bag"];
 
-  (* Part: vectorization of cornerInterpolationCoeff #2 *)
+
 
   (* Part: space reuse for storing updated speeds and positions #5 *)
 
