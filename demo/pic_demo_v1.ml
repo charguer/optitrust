@@ -31,8 +31,7 @@ let _ = Run.script_cpp ~check_exit_at_end:false (fun () ->
 )
 
 let _ = Run.script_cpp (fun () ->
-  !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"];
-  !! Function.inline [cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+
   (* PART: Inlining of arithmetic operations *)
   !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:2 0; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:2 1; cFun "vect_mul"];
