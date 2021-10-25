@@ -57,3 +57,8 @@ let local_name ?(mark : mark option) ~var:(var : var) ~local_var:(local_var : va
     Target.apply_on_targets (Matrix_core.local_name mark var local_var malloc_trms var_type ) tg
   )
   
+
+
+let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ~dim:(dim : trm)  ~index:(index : string) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after (fun _ ->
+    Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc index) tg)

@@ -716,4 +716,33 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
 
 
 
-
+(* TOOD: Optimize this function later *)
+(* [trm_fors_inv nb t] got into a node of nested loops and return all the components
+    of all the loops up to the depth of [nb]
+ *)
+let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option = 
+  let nb_loops = ref 0 in
+  let body_to_return  = ref (trm_int 0) in
+  let rec aux (t : trm) : loop_range list = 
+    match t.desc with 
+    | Trm_for (index, direction, start, stop, step, body) ->
+      incr nb_loops;
+      begin match body.desc with 
+      | Trm_seq tl when Mlist.length tl = 1 -> 
+        if !nb_loops = nb 
+          then begin
+            body_to_return := body;
+            (index, direction, start, stop, step) :: []
+            end
+          else 
+            (index, direction, start, stop, step) :: aux (Mlist.nth tl 0)
+      | _ -> 
+        (index, direction, start, stop, step) :: []
+      end
+      
+    | _ -> []
+    in
+  
+  let loop_range_list = aux t in
+  if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
+    
