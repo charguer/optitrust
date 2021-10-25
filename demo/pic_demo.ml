@@ -1,17 +1,17 @@
 open Optitrust
 open Target
 
-let _ = Run.script_cpp (fun () ->
+let _ = Run.script_cpp ~inline:["particle.h";"particle_chunk_alloc.h";"particle_chunk.h"] (fun () ->
 
   (* Part: inlining of the bag iteration *)
   (* skip #1 *)
 
-  
-  (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  Rewrite.equiv_at "double a; a == (0. + 1. * a)" [cFun "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
-  
-  
-  
+
+  (* Part: vectorization of cornerInterpolationCoeff #2
+  Rewrite.equiv_at "double a; a ==> (0. + 1. * a)" [cFun "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
+*)
+
+
   (* Part: optimize chunk allocation *)
   (* skip #16 *)
 
@@ -19,10 +19,16 @@ let _ = Run.script_cpp (fun () ->
   (* TODO: the intermediate names should be inserted then inlined automatically *)
 
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:2 0; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:2 1; cFun "vect_mul"];
-  !! Function.inline [cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Variable.inline [nbMulti; cVarDef ~regexp:true "r."];
+  !! Function.bind_intro ~fresh_name:"r0" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
+    !!!();
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
+  !! Function.inline [cFunDef "main"; cOr [[cFun "vect_mul"]]];
+  (*!! Function.bind_intro [cFunDef "vect_matrix_mul"; cFun "vect_add"; dArg 2]; *)
+  !! Function.inline [cFunDef "main"; cOr [[cFun "vect_add"]]];
+  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"];
+  !!! Variable.inline [nbMulti; cFunDef "main"; cVarDef"r1"];
 
   (* Part: Naming the target bag *)
   !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
