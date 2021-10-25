@@ -264,7 +264,7 @@ int main() {
       bag_iter it;
       bag_iter_init(&it, b);
       for (particle* cur_p = bag_iter_current(&it); !bag_iter_finished(&it); cur_p = bag_iter_next_destructive(&it)) {
-         particle &p = *cur_p;
+        particle &p = *cur_p;
 
         // Interpolate the field based on the position relative to the corners of the cell
         const double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
