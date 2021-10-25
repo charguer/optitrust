@@ -4,8 +4,8 @@ typedef int T;
 
 int main() {
   int const N1 = 10;
-  int const N2 = 10;
-  int const N3 = 10;
+  int const N2 = 11;
+  int const N3 = 12;
   T *a = (T *)MCALLOC3(N1, N2, N3, sizeof(T));
   T *x = (T *)MMALLOC3(N1, N2, N3, sizeof(T));
   for (int i1 = 0; (i1 < N1); i1++) {
@@ -16,7 +16,8 @@ int main() {
     }
   }
   for (int i = 0; (i < 10); i++) {
-    x[MINDEX3(N1, N2, N3, i, (i + 1), (i + 2))] = 2;
+    int t = x[MINDEX3(N1, N2, N3, i, (i + 1), (i + 2))];
+    x[MINDEX3(N1, N2, N3, i, (i + 1), (i + 2))] = t + 2;
   }
   for (int i1 = 0; (i1 < N1); i1++) {
     for (int i2 = 0; (i2 < N2); i2++) {
