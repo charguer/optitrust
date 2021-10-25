@@ -28,7 +28,6 @@ const double particleCharge = 10.0;
 const double particleMass = 5.0;
 
 // Grid description
-const int gridSize  = 64;
 const int gridX = 64;
 const int gridY = 64;
 const int gridZ = 64;
@@ -69,11 +68,8 @@ int wrapX(int gridSize, int a) {
 
 const int nbCorners = 8;
 
-vect* fields = (vect*) malloc(nbCells * sizeof(vect));
-
-
 int cellOfCoord(int i, int j, int k) {
-  return MINDEX3(gridSize,gridSize,gridSize,i,j,k);
+  return MINDEX3(6,6,6,i,j,k)
 }
 
 // idCellOfPos computes the id of the cell that contains a position.
@@ -116,59 +112,34 @@ typedef struct {
 coord coordOfCell(int idCell) {
   int iz = idCell % gridZ;
   int ixy = idCell / gridZ;
-  int iy = ixy % gridY;
+  int iy = ixy % griY;
   int ix = ixy / gridY;
   return { ix, iy, iz };
 }
 
-typedef struct {
-  int values [nbCorners];
-} int_nbCorners;
-
-typedef struct {
-  double values[nbCorners];
-} double_nbCorners;
-
-typedef struct {
-  vect values[nbCorners];
-} vect_nbCorners;
-
-
-int_nbCorners indicesOfCorners (int idCell) {
-  coord coord = coordOfCell (idCell);
-  int x = coord.ix;
-  int y = coord.iy;
-  int z = coord.iz;
-  int x2 = wrapX(gridSize, x+1);
-  int y2 = wrapX(gridSize, y+1);
-  int z2 = wrapX(gridSize, z+1);
-  return {
-    cellOfCoord(x,y,z),
-    cellOfCoord(x,y,z2),
-    cellOfCoord(x,y2,z),
-    cellOfCoord(x,y2,z2),
-    cellOfCoord(x2,y,z),
-    cellOfCoord(x2,y,z2),
-    cellOfCoord(x2,y2,z),
-    cellOfCoord(x2,y2,z2),
-  };
-
+// indices array of size 8
+// later compute
+void compute_indicesOfCorners (int idCell, int* indices) {
+  int coord[3];
+  compute_coordOfCell(idCell, coord);
+  int x = coord[0];
+  int y = coord[1];
+  int z = coord[2];
+  int x2 = wrap(x+1);
+  int y2 = wrap(y+1);
+  int z2 = wrap(z+1);
+  indices[0] = cellOfCoord(x,y,z);
+  indices[1] = cellOfCoord(x,y,z2);
+  indices[2] = cellOfCoord(x,y2,z);
+  indices[3] = cellOfCoord(x,y2,z2);
+  indices[4] = cellOfCoord(x2,y,z);
+  indices[5] = cellOfCoord(x2,y,z2);
+  indices[6] = cellOfCoord(x2,y2,z);
+  indices[7] = cellOfCoord(x2,y2,z2);
 }
-
-vect_nbCorners getFieldAtCorners(int idCell) {
-  int_nbCorners indices = indicesOfCorners(idCell);
-  vect_nbCorners result;
-  for (int k = 0; k < nbCorners; k++) {
-    result.values[k] = fields[indices.values[k]];
-  }
-  return result;
-
-}
-
 
 void compute_FieldAtCorners(int idCell, vect* field_at_corners) {
   int indices[nbCorners];
-  int_nbCorners indices = indicesOfCorners (idCell);
   compute_indicesOfCorners(idCell, indices);
   for (int k = 0; k < nbCorners; k++) {
     field_at_corners[k] = fields[indices[k]];
@@ -193,7 +164,7 @@ typedef struct {
 
 } double_nbCorners;
 
-double_nbCorners cornerInterpolationCoeff(vect pos) {
+double8_nbCorners cornerInterpolationCoeff(vect pos) {
   double rx = relativePosX(pos.x);
   double ry = relativePosY(pos.y);
   double rz = relativePosZ(pos.z);
@@ -215,7 +186,7 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
 
 typedef struct {
   vect values[nbCorners]
-} vect_nbCorners
+}
 
 vect vect_matrix_mul(const double coeffs[nbCorners], const vect matrix[nbCorners]) {
   vect result = { 0., 0., 0. };

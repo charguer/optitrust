@@ -66,8 +66,8 @@ const int CHUNK_SIZE = 128;
 /*
  * A chunk is a fixed-capacity array of particles, with a pointer to the next chunk.
  */
-typedef struct chunk{
-  chunk* next; // null if last in the chain
+typedef struct mychunk {
+  mychunk* next; // null if last in the chain
   int size;
   particle items[CHUNK_SIZE];
 } chunk;
@@ -365,14 +365,14 @@ void bag_destructive_iter(bag* b, void f(particle*)) {
 }
 
 // First-order iterator
-typedef struct {
-  chunk* chunk;
+typedef struct bag_iter {
+  chunk* iter_chunk;
   int size;
   int index;
 } bag_iter;
 
 void bag_iter_load_chunk(bag_iter* it, chunk* c) {
-  it->chunk = c;
+  it->iter_chunk = c;
   if (c != NULL) {
     it->size = c->size;
     it->index = 0;
@@ -380,7 +380,7 @@ void bag_iter_load_chunk(bag_iter* it, chunk* c) {
 }
 
 particle* bag_iter_current(bag_iter* it) {
-  return &it->chunk[it->index]
+  return &(it->iter_chunk->items[it->index]);
 }
 
 void bag_iter_init(bag_iter* it, bag* b) {
@@ -388,14 +388,14 @@ void bag_iter_init(bag_iter* it, bag* b) {
 }
 
 bool bag_iter_finished(bag_iter* it) {
-  return it->chunk == NULL;
+  return it->iter_chunk == NULL;
 }
 
 particle* bag_iter_next_destructive(bag_iter* it) {
   int i = it->index;
   it->index++;
   if (it->index == it->size) {
-    chunk* c = it->chunk;
+    chunk* c = it->iter_chunk;
     bag_iter_load_chunk(it, c->next);
     chunk_free(c); // because destructive iteration
     if (bag_iter_finished(it)) {

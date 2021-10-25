@@ -166,3 +166,7 @@ clean:
 
 TARGET_MAKE_ALL := transfo
 
+
+
+compile_demo:
+	gcc -std=c++11 pic_demo.cpp
