@@ -255,52 +255,31 @@ let init_detach : Target.Transfo.local =
 exception Init_attach_no_occurrences
 exception Init_attach_occurrence_below_control
 
-let init_attach_aux (const : bool ) (index : int) (t : trm) : trm =
-  match t.desc with 
-  | Trm_seq tl ->
-    let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
-    begin match trm_to_change.desc with 
-    | Trm_let (_, (x, tx), _) ->
-        let nb_sets = Internal.nb_inits x (trm_seq lback) in
-        if nb_sets < 1 then raise Init_attach_no_occurrences
-          else if nb_sets > 1 then raise Init_attach_occurrence_below_control;
-        let init_index = Mlist.foldi (fun i acc t1 -> 
-          match t1.desc with 
-          | Trm_apps(_,[ls;_]) ->
-            begin match ls.desc with 
-            | Trm_var y when y = x -> 
-              Some i 
-            | _ -> acc
-            end
-          | _ -> acc
-        ) None lback in
-        let index1  = match init_index with 
-        | Some index -> index
-        | _ -> raise Init_attach_occurrence_below_control
-          in
-        let lfront1, assgn_to_change, lback1 = Internal.get_trm_and_its_relatives index1 lback in
-        begin match assgn_to_change.desc with 
-        | Trm_apps(_, [_; rhs]) ->
-          let vk = if const then Var_immutable else Var_mutable in
-          let inner_type = 
-          begin match tx.typ_desc with
-          | Typ_ptr {ptr_kind=Ptr_kind_mut; inner_typ = ty} -> ty
-          | _ -> tx
-          end in
-          let tx = if const then typ_const inner_type else typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut inner_type in
-          let init = if const then rhs else (trm_apps (trm_prim (Prim_new inner_type)) [rhs]) in 
-          let new_trm = trm_let ~marks:trm_to_change.marks vk (x, tx)  init in
-          let new_front = Mlist.merge lfront lfront1 in
-          let new_back = Mlist.insert_at 0 new_trm lback1 in
-          let new_tl = Mlist.merge new_front new_back in
-          trm_seq ~annot:t.annot ~marks:t.marks new_tl
-        | _ -> 
-          fail assgn_to_change.loc "init_attach: something went wrong"
+let init_attach_aux (const : bool) (index : int) (t : trm) : trm = 
+  match t.desc with
+  | Trm_seq tl -> 
+    let lfront, trm_to_change, lback  = Internal.get_trm_and_its_relatives index tl in
+    begin match trm_to_change.desc with
+    | Trm_let (_, (x, tx), _) -> 
+      let tg = [nbMulti;cSeq (); cStrict;cWriteVar x] in
+      let new_tl = Mlist.merge lfront lback in
+      let new_t = trm_seq ~annot:t.annot ~marks:t.marks new_tl in
+      let ps = resolve_target tg new_t in
+      Tools.foldi (fun i acc p ->
+        if i = 0 then begin 
+        apply_on_path (fun t1 -> 
+          begin match t1.desc with
+          | Trm_apps (_, [_;rs]) ->
+            if const then trm_let_immut (x,tx) rs else trm_let_mut (x, (get_inner_ptr_type tx)) rs
+          | _ -> t1
+          end
+        ) acc p
         end
-    | _ -> fail t.loc "init_attach_aux: target_doesn't point to the right trm, expected a trm_let"
+        else acc
+      ) new_t ps
+    | _ -> fail trm_to_change.loc "init_attach_aux: expected a variable declaration"
     end
   | _ -> fail t.loc "init_attach_axu: expected the surrounding sequence"
-
 
 let init_attach (const : bool) (index : int) : Target.Transfo.local =
   Target.apply_on_path(init_attach_aux const index )

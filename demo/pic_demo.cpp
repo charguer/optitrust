@@ -217,7 +217,6 @@ double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
   return result;
 }
 
-
 // --------- LEFT to implement
 
 void init(bag* bagsCur, bag* bagsNext, vect* field) {

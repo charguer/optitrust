@@ -7,9 +7,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* skip #1 *)
 
 
-  (* Part: vectorization of cornerInterpolationCoeff #2
-  Rewrite.equiv_at "double a; a ==> (0. + 1. * a)" [cFun "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
-*)
 
 
   (* Part: optimize chunk allocation *)
@@ -41,17 +38,38 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()];
   !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()];
 
+  (* Part: vectorization of cornerInterpolationCoeff #2
+  Rewrite.equiv_at "double a; a ==> (0. + 1. * a)" [cFun "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
+*)
+
+
+  (* Part: optimization of accumulateChargeAtCorners #4 *)
+ (* TODO:
+
+  vect8_mul
+  accumulateChargeAtCorners
+  *)
+    !!! Function.inline [nbMulti; cFun "accumulateChargeAtCorners"];
+(*!!! Function.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];
+*)
+  !!! Function_basic.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];
+  !! Marks.add "foo" [cMark "body"; cWrite ~lhs:[cVar "coeffs"]()];
+  !! Function.elim_body [cMark "body"]; (* TODO: elimiante nobrace sequences *)
+  !! Variable_basic.init_attach [cVarDef "coeffs"];
+  (* TODO: at the combi level it should work *)
 
   (* Part: AOS-TO-SOA -- TODO: this does not work, it seems that
         result.values[k].x = fields[indices.values[k]].x;
         is incorrectly targeted when looking for field "pos" of type "particle" :
-
-  !!! Struct.inline "pos" [cTypDef "particle"];
-  *)
+          !!! Struct.inline "pos" [cTypDef "particle"];
+ *)
   (*
   !!! Struct.inline "speed" [cTypDef "particle"];
   !!! Struct.inline "items" [cTypDef "bag"];
   *)
+
+  (* LATER: probably not needed
+  !!! Function.bind_args ["auto ppos"] [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"]; LATER: should insert the type *)
 
 
 
@@ -65,7 +83,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: shifting of positions #8 #9 *)
 
-  (* Part: optimization of accumulateChargeAtCorners #4 #10 *)
+  (* Part: optimization of accumulateChargeAtCorners #10 *)
 
   (* Part: introduction of matrix macros #12 *)
 

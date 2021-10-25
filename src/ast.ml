@@ -858,6 +858,14 @@ let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   let var_type_ptr = typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
   trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
 
+let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type = typ_const var_type in
+  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_immutable (var_name, var_type) (init)
+
+
+
 let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
