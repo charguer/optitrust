@@ -335,7 +335,7 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   reorder ~order [Target.cFor first_cs]
 
 
-let fold  ~index:(loop_index : var) ~start:(loop_start : var) ~stop:(loop_stop : var) ~step:(loop_step : var) (nb_instr : int)(tg : Target.target) : unit =
+let fold  ~index:(loop_index : var) ~start:(loop_start : var) ~stop:(loop_stop : var) ~step:(loop_step : var) (nb_instr : int) (tg : Target.target) : unit =
   Target.iter_on_targets (fun _t p ->
     let my_mark = Mark.next () in
     Sequence_basic.intro ~mark:my_mark nb_instr (Target.target_of_path p);

@@ -42,20 +42,25 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti;cFunDef "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
   !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cReturn; cCell ()];
-
+  !! Variable.bind_intro ~fresh_name:"values" [cFunDef "cornerInterpolationCoeff"; cReturn; cArrayInit];
+  !! Arrays.set_explicit [cFunDef "cornerInterpolationCoeff";cVarDef "values"];
+  (* TODO: Avoid reparsing when arbitrary code is a variable or a literal *)
+  (* !!! Loop.fold ~index:"k" ~start:"0" ~stop:"nbCorners" ~step:"1" 8 [cCellWrite ~base:[cVar "values"] ~index:[cInt 0]]; *)
   (* Part: optimization of accumulateChargeAtCorners #4 *)
- (* TODO:
+  !! Function.inline [cFun "vect8_mul"];
+  !! Variable.inline [cVarDef "deltaChargeOnCorners"];
+  
+    (* TODO:
 
-  vect8_mul
-  accumulateChargeAtCorners
-  *)
+      vect8_mul
+      accumulateChargeAtCorners
+      *)
     !!! Function.inline [nbMulti; cFun "accumulateChargeAtCorners"];
-(*!!! Function.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];
-*)
+    (*!!! Function.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];*)
   !!! Function_basic.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];
   !! Marks.add "foo" [cMark "body"; cWrite ~lhs:[cVar "coeffs"]()];
   !! Function.elim_body [cMark "body"]; (* TODO: elimiante nobrace sequences *)
-  !! Variable_basic.init_attach [cVarDef "coeffs"];
+  !! Variable.init_attach [cVarDef "coeffs"];
   (* TODO: at the combi level it should work *)
 
   (* Part: AOS-TO-SOA -- TODO: this does not work, it seems that

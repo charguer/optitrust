@@ -62,7 +62,6 @@ TESTS_WORKING := \
 	typedef_insert.ml \
 	variable_change_type.ml \
 	variable_fold.ml \
-	variable_init_attach.ml \
 	variable_inline.ml \
 	variable_insert.ml \
 	variable_insert_and_fold.ml \
@@ -72,6 +71,8 @@ TESTS_WORKING := \
 
 
 TESTS_TOCHECK := \
+  variable_bind_intro.ml \
+	variable_init_attach.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mmalloc.ml \
 	matrix_reorder_dims.ml \
