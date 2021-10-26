@@ -7,11 +7,12 @@ include Struct_basic
 *)
 let set_explicit (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
+    let surrounding_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm, _ = Path.resolve_path p t in
       begin match tg_trm.desc with
       | Trm_let (_, (x, _), _) ->
         Variable_basic.init_detach (Target.target_of_path p);
-        Struct_basic.set_explicit [Target.sInstr (x ^ " =")]
+        Struct_basic.set_explicit ((Target.target_of_path surrounding_seq) @ [Target.cStrict;Target.cWriteVar x])
       | _ -> Struct_basic.set_explicit (Target.target_of_path p)
       end
   

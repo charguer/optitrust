@@ -84,7 +84,7 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
                                                 a = x;
                                               }@nobrace
 *)
-let local_name ?(mark : mark = "section_of_interest") ~var_type:(vt : typ) ~var:(ov : var) ~local_var:(nv : var) (tg : Target.target) : unit =
+let local_name ?(mark : mark = "") ~var_type:(vt : typ) ~var:(ov : var) ~local_var:(nv : var) (tg : Target.target) : unit =
   Internal.nobrace_enter();
   Target.apply_on_targets (Variable_core.local_name mark vt ov nv) tg
 

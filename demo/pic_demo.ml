@@ -37,32 +37,51 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !!! Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
   !! Loop.unroll ~braces:false [cFunDef "main";cFor "k"];
   (* !!! Function.inline [cVarDef "coeffs2"; cFun "cornerInterpolationCoeff"]; *) (* Fix me! *)
-    
+  
+  (* Part: optimization of computation of speeds #6 *)
+  !! Instr.delete [cVarDef "result1"];
+  !! Variable.local_name ~var:"result" ~local_var:"r" ~var_type:(Ast.typ_constr "vect") [cFunDef "vect_matrix_mul"; cFor "k"];
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
+  !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_add"];
+  !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_add"];
+  !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
+  !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r2"];
+  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "r"];
+  !!! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
+  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cVarDef "r"];
+  !! Struct.to_variables [cFunDef "vect_matrix_mul"; cVarDef "r"];
+  !! Loop.unroll [cFunDef "vect_matrix_mul"; cFor "k"];
+
+  (* !! Function.inline [cFun "vect_matrix_mul"]; *)
+  (* !! Variable.inline [cVarDef "fieldAtPos"]; *)
+  (* !! Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody]; *)
+  
+  
   (* Part: space reuse for storing updated speeds and positions #5 *)
   !! Variable.reuse "p.speed" [cVarDef "speed2"];
   !! Variable.reuse "p.pos" [cVarDef "pos2"];
-  
-   
 
+  
   (* TODO: missing the type in the generatino of:
      const r0 = vect_mul(coeffs.values[k], matrix.values[k]);
  in:
   !! Function.bind_intro ~fresh_name:"r0" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
 *)
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
-  !! Function.inline [cFunDef "main"; cOr [[cFun "vect_mul"]]];
+  (* !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"]; *)
+  (* !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"]; *)
+  (* !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"]; *)
+  (* !! Function.inline [cFunDef "main"; cOr [[cFun "vect_mul"]]]; *)
   (*!! Function.bind_intro [cFunDef "vect_matrix_mul"; cFun "vect_add"; dArg 2]; *)
-  !! Function.inline [cFunDef "main"; cOr [[cFun "vect_add"]]];
-  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"];
-  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r."];
+  (* !! Function.inline [cFunDef "main"; cOr [[cFun "vect_add"]]]; *)
+  (* !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"]; *)
+  (* !! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r."]; *)
 
   (* Part: Inlining of structure assignements *)
-  !! Variable.inline [cOr [[cVarDef "p"]]];
-  !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
-  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()];
-  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()];
+  (* !! Variable.inline [cOr [[cVarDef "p"]]]; *)
+  (* !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]]; *)
+  (* !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()]; *)
+  (* !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()]; *)
 
   (* TODO: at the combi level it should work *)
 
@@ -83,7 +102,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   
 
-  (* Part: optimization of computation of speeds #6 *)
 
   (* Part: scaling of electric field -- LATER ARTHUR: check if we need this *)
 

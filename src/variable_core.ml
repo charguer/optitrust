@@ -115,10 +115,10 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
               fail t.loc "inline_aux: there is something wrong with type of the variable you are trying to inline"
         in
         let field_list = fst (List.split (Internal.get_field_list struct_def)) in
-        Mlist.map (fun t1 ->
+        let lback = Mlist.map (fun t1 ->
           List.fold_left2 (fun acc t2 f2 -> Internal.change_trm ~change_at:[inline_at]
-            (trm_apps (trm_unop (Unop_struct_field_addr f2)) [trm_var x]) t2 acc ) t1 (Mlist.to_list field_init) field_list) lback 
-        
+            (trm_apps (trm_unop (Unop_struct_field_addr f2)) [trm_var x]) t2 acc ) t1 (Mlist.to_list field_init) field_list) lback  in
+        Mlist.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
       | _ -> Mlist.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
       end in
       let new_tl = Mlist.merge lfront lback in
