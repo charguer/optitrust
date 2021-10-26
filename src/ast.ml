@@ -848,32 +848,6 @@ let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
   {annot; marks; desc = Trm_for (index, direction, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-
-(* TOOD: From now on use these two constructors to add new variables, and later change the implementation of  
-    trm_let so that it add the encoding automatically
-*)
-let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
-  let var_name, var_type = typed_var in
-  let var_type_ptr = typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
-  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
-
-let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
-  let var_name, var_type = typed_var in
-  let var_type = typ_const var_type in
-  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_immutable (var_name, var_type) (init)
-
-
-
-let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
-  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
-  let var_name, var_type = typed_var in
-  let var_type = typ_array var_type sz in
-  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
-  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
-  trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
-
 let code ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (code : string) : trm =
   {annot; marks = []; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
@@ -1780,3 +1754,26 @@ let tmap_to_list (keys : vars) (map : tmap) : trms =
 let tmap_filter (keys : vars) (map : tmap) : tmap = 
   Trm_map.filter (fun k _ -> not (List.mem k keys)) map
   
+
+(* TOOD: From now on use these two constructors to add new variables, and later change the implementation of  
+    trm_let so that it add the encoding automatically
+*)
+let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type_ptr = typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
+  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
+
+let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type = typ_const var_type in
+  trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_immutable (var_name, var_type) (init)
+
+let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
+  ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
+  let var_name, var_type = typed_var in
+  let var_type = typ_array var_type sz in
+  let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
+  let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
+  trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init

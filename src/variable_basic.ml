@@ -152,3 +152,7 @@ let replace_occurrences ~subst:(name : var) ~put:(put : strm) : Target.Transfo.t
   Target.reparse_after (
     Target.apply_on_targets (Variable_core.replace_occurrences name put)
   )
+
+let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = false) ?(my_mark : mark = "") : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    (fun (p, p_local, i) t -> Variable_core.bind_intro my_mark i fresh_name const p_local t p)

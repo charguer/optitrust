@@ -443,3 +443,55 @@ let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
 
 let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
   Target.apply_on_path (change_type_aux new_type index)
+
+
+(* [bind_intro_aux index fresh_name const p_local t]: bind the variable [fresh_name] to the function_call
+    params:
+      [my_mark]: a mark to be left in the targeted node
+      [index]: index of the instruction containing the targeted function call
+      [fresh_name]: name of the variable which going to be binded to the function call
+      [const]: a flag for the mutability of the binded variable
+      [p_local]: the local path from the instruction containing the targeted node
+        to the targeted node
+      [t]: ast of the sequence containing the targeted node
+    return:
+      the updated sequence with the new generated binding
+*)
+let bind_intro_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
+  match t.desc with 
+  | Trm_seq tl -> 
+    let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
+    let targeted_node, _ = Path.resolve_path p_local instr in
+    let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
+    let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
+    let node_to_change = Internal.change_trm targeted_node (trm_var fresh_name) instr in
+    let targeted_node = if my_mark <> "" then trm_add_mark my_mark targeted_node else targeted_node in
+    let node_type = match targeted_node.typ with
+    | Some ty -> ty
+    | _ -> typ_auto() in
+    let decl_to_insert =
+      begin match targeted_node.desc with
+      | Trm_array tl -> 
+        let node_type = begin match node_type.typ_desc with 
+        | Typ_array (ty, _) -> ty
+        | _ -> typ_auto ()
+        end in
+        let sz = (Mlist.length tl)  in
+        if const 
+          then 
+            trm_let_array Var_immutable (fresh_name, node_type) (Const sz) targeted_node
+          else 
+            trm_let_array Var_mutable (fresh_name, node_type) (Const sz) targeted_node
+      | _ ->
+        if const 
+          then trm_let_immut (fresh_name, node_type) targeted_node  
+          else trm_let_mut (fresh_name, node_type) targeted_node
+      end in
+      let new_tl = Mlist.merge lfront (Mlist.of_list ([decl_to_insert] @ [node_to_change])) in
+      let new_tl = Mlist.merge new_tl lback in
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+  | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
+
+
+let bind_intro (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
+  Target.apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
