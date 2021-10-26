@@ -16,27 +16,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO: the intermediate names should be inserted then inlined automatically *)
 
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
-      !!!();
 
-(* TODO: missing the type in the generatino of:
-     const r0 = vect_mul(coeffs.values[k], matrix.values[k]);
- in:
-  !! Function.bind_intro ~fresh_name:"r0" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-*)
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
-  !! Function.inline [cFunDef "main"; cOr [[cFun "vect_mul"]]];
-  (*!! Function.bind_intro [cFunDef "vect_matrix_mul"; cFun "vect_add"; dArg 2]; *)
-  !! Function.inline [cFunDef "main"; cOr [[cFun "vect_add"]]];
-  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"];
-  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r."];
 
-  (* Part: Inlining of structure assignements *)
-  !! Variable.inline [cOr [[cVarDef "p"]]];
-  !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
-  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()];
-  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()];
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti;cFunDef "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
@@ -57,7 +38,32 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.unroll ~braces:false [cFunDef "main";cFor "k"];
   (* !!! Function.inline [cVarDef "coeffs2"; cFun "cornerInterpolationCoeff"]; *) (* Fix me! *)
     
+  (* Part: space reuse for storing updated speeds and positions #5 *)
+  !! Variable.reuse "p.speed" [cVarDef "speed2"];
+  !! Variable.reuse "p.pos" [cVarDef "pos2"];
   
+   
+
+  (* TODO: missing the type in the generatino of:
+     const r0 = vect_mul(coeffs.values[k], matrix.values[k]);
+ in:
+  !! Function.bind_intro ~fresh_name:"r0" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
+*)
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
+  !! Function.inline [cFunDef "main"; cOr [[cFun "vect_mul"]]];
+  (*!! Function.bind_intro [cFunDef "vect_matrix_mul"; cFun "vect_add"; dArg 2]; *)
+  !! Function.inline [cFunDef "main"; cOr [[cFun "vect_add"]]];
+  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"];
+  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r."];
+
+  (* Part: Inlining of structure assignements *)
+  !! Variable.inline [cOr [[cVarDef "p"]]];
+  !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]];
+  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()];
+  !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()];
+
   (* TODO: at the combi level it should work *)
 
   (* Part: AOS-TO-SOA -- TODO: this does not work, it seems that
@@ -75,7 +81,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
 
-  (* Part: space reuse for storing updated speeds and positions #5 *)
+  
 
   (* Part: optimization of computation of speeds #6 *)
 
