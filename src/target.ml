@@ -584,22 +584,22 @@ let cAccess : constr_access =
   Add cCells* and cFields* constructors
 *)
 
+(* [cFieldAccess field] field matches all struct accesses in field [field]*)
+let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
+ cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()
 
 (* [cFieldRead ~base ~substr ~regexp ~field ] matches all struct accesses at field [field] with base [base]
     which are at the base of a get operation
 *)
 let cFieldRead ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  ~field:(field : field )  : constr =
-  cRead ~addr:[cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()] ()
+  cRead ~addr:[cFieldAccess ~base ~substr ~regexp ~field] ()
 
 (* [cFieldWrite ~base field] matches all struct field write operations*)
 let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
-  let lhs = [cAccesses ~base ~accesses:[cField ~substr ~regexp ~field ()] ()] in
+  let lhs = [cFieldAccess ~base ~substr ~regexp ~field] in
   cWrite ~lhs ()
 
 
-(* [cFieldAccess field] field matches all struct accesses in field [field]*)
-let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  : constr =
- cOr [[cFieldWrite ~base ~substr ~regexp ~field; dLHS];[cFieldRead ~base ~substr ~regexp ~field;dArg 0]]
 
 
 (* [cFieldReadOrWrite ~base ~substr ~regexp ~field] matches all read or write operations

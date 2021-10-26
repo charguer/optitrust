@@ -3,6 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
   !! Sequence_basic.intro 1 [cVarDef "x"];
+  !! Sequence_basic.intro 2 [cFor "i"];
   !! Sequence_basic.intro_between [tBefore; cVarDef "y"] [tAfter; cVarDef "t"];
   !! Sequence_basic.intro_between [tAfter; sInstr "int u"] [tLast; cFunDef "main"; dBody];
 

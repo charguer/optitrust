@@ -133,7 +133,7 @@ let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : pat
         then trm_add_mark body_mark fun_decl_body
         else trm_add_mark body_mark processed_body
       in
-   let exit_label = if nb_gotos = 0 then trm_lit (Lit_unit) else trm_labelled "__exit_body" (trm_lit (Lit_unit)) in
+   let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "__exit_body" (trm_lit (Lit_unit)) in
    let inlined_body =
     if is_type_unit(fun_decl_type)
       then [marked_body; exit_label]

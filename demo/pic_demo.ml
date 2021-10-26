@@ -46,21 +46,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Arrays.set_explicit [cFunDef "cornerInterpolationCoeff";cVarDef "values"];
   (* TODO: Avoid reparsing when arbitrary code is a variable or a literal *)
   (* !!! Loop.fold ~index:"k" ~start:"0" ~stop:"nbCorners" ~step:"1" 8 [cCellWrite ~base:[cVar "values"] ~index:[cInt 0]]; *)
+  
   (* Part: optimization of accumulateChargeAtCorners #4 *)
   !! Function.inline [cFun "vect8_mul"];
   !! Variable.inline [cVarDef "deltaChargeOnCorners"];
+  !! Function.inline [cFun "accumulateChargeAtCorners"];
+  !! Instr.move ~target:[tBefore; cVarDef "result1"] [cVarDef "indices1"];
+  !! Loop.fusion ~nb:2 [tIndex ~nb:2 0; cFunDef "main"; cFor "k"];
+  !!! Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
+  !! Loop.unroll ~braces:false [cFunDef "main";cFor "k"];
+  (* !!! Function.inline [cVarDef "coeffs2"; cFun "cornerInterpolationCoeff"]; *) (* Fix me! *)
+    
   
-    (* TODO:
-
-      vect8_mul
-      accumulateChargeAtCorners
-      *)
-    !!! Function.inline [nbMulti; cFun "accumulateChargeAtCorners"];
-    (*!!! Function.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];*)
-  !!! Function_basic.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];
-  !! Marks.add "foo" [cMark "body"; cWrite ~lhs:[cVar "coeffs"]()];
-  !! Function.elim_body [cMark "body"]; (* TODO: elimiante nobrace sequences *)
-  !! Variable.init_attach [cVarDef "coeffs"];
   (* TODO: at the combi level it should work *)
 
   (* Part: AOS-TO-SOA -- TODO: this does not work, it seems that

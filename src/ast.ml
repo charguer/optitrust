@@ -1518,7 +1518,7 @@ let rec get_init_val (t : trm) : trm option =
   | Trm_apps(f,[base]) ->
         begin match f.desc with
         | Trm_val (Val_prim (Prim_new _)) -> Some base
-        | _ -> None
+        | _ -> Some t
         end
   | Trm_val (Val_prim (Prim_new _)) -> None
   | _ -> Some t
