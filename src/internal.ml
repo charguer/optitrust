@@ -3,11 +3,11 @@ open Ast
 open Target
 
 (* [same_kind t1 t2] check if two ast nodes are of the same kind or not *)
-let same_kind (t1 : trm) (t2 : trm) : bool =
+let rec same_kind (t1 : trm) (t2 : trm) : bool =
   match t1.desc, t2 .desc with
   | Trm_val _, Trm_val _ -> true
   | Trm_var _, Trm_var _ -> true
-  | Trm_var _, _  when is_get_operation t2 -> true
+  | Trm_var _, Trm_apps (_, [t3])  when is_get_operation t2 -> same_kind t1 t3
   | Trm_array _, Trm_array _ ->  true
   | Trm_struct _, Trm_struct _ -> true
   | Trm_let _, Trm_let _ -> true
@@ -16,6 +16,7 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_typedef _, Trm_typedef _ -> true
   | Trm_if _, Trm_if _ -> true
   | Trm_seq _, Trm_seq _ -> true 
+  | Trm_apps (_, [t3]) , Trm_var _  when is_get_operation t2 -> same_kind t1 t3
   | Trm_apps _, Trm_apps _-> true
   | Trm_while _, Trm_while  _ -> true
   | Trm_for _, Trm_for _ -> true
@@ -35,7 +36,9 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
 
 (* check if two ast nodes give the same code *)
 let same_trm (t1 : trm) (t2 : trm) : bool = 
-  if same_kind t1 t2 then  Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2 
+  
+  if same_kind t1 t2 then  
+    Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2 
    else false
 
 (* check if two values are equal *)

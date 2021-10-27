@@ -40,30 +40,34 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   
   (* Part: optimization of computation of speeds #6 *)
   !! Instr.delete [cVarDef "result1"];
-  !! Variable.local_name ~var:"result" ~local_var:"r" ~var_type:(Ast.typ_constr "vect") [cFunDef "vect_matrix_mul"; cFor "k"];
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-  !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_add"];
-  !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_add"];
-  !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
-  !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r2"];
-  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "r"];
-  !!! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
-  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cVarDef "r"];
-  !! Struct.to_variables [cFunDef "vect_matrix_mul"; cVarDef "r"];
-  !! Loop.unroll [cFunDef "vect_matrix_mul"; cFor "k"];
-  (* !! Function.inline [cFun "vect_matrix_mul"]; *) (* Takes to much time to apply *)
+  !! Function.inline [cFun "vect_matrix_mul"]; (* Takes to much time to apply *)
+  !! Variable.local_name ~var:"result1" ~local_var:"r" ~var_type:(Ast.typ_constr "vect") [cFunDef "main"; cFor "k"];
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [cFunDef "main"; cFor "k";cFun "vect_mul"];
+  !! Function.inline [cFunDef "main"; cFor "k"; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" ~const:true [cFunDef "main"; cFor "k"; cFun "vect_add"];
+  !! Function.inline [cFunDef "main"; cFor "k";cFun "vect_add"];
+  !! Variable.inline [cFunDef "main"; cFor "k";cVarDef "r1"];
+  !! Variable.inline [cFunDef "main"; cFor "k";cVarDef "r2"];
+  !! Struct.set_explicit [cFunDef "main"; cWriteVar "r"];
+  !!! Struct.set_explicit [cFunDef "main"; cWriteVar "result1"];
+  !! Struct.set_explicit [cFunDef "main"; cVarDef "r"];
+  !! Struct.to_variables [cFunDef "main"; cVarDef "r"];
+  !! Loop.unroll [cFunDef "main"; cFor "k"];
   !! Variable.inline [cVarDef "fieldAtPos"];
   !! Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];
   
 
   (* Part: reveal fields *)
-  !! Variable.inline [cVarDef "p"];
-  !! Variable.inline [cVarDef "p2"];
-  !! Function_basic.inline [cTopFunDef "main"; cFun "bag_push"];
-  (* !! Function.inline  *)
-  
-
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
+  !! Function.inline [nbMulti;cFunDef "main"; cFun "vect_mul"];
+  !! Function.inline [nbMulti;cFunDef "main"; cFun "vect_add"];
+  (* !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"]; *)
+  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r1"];  
+  (* !! Variable.inline [cVarDef "p"]; *)
+  (* !! Variable.inline [cVarDef "p2"]; *)
+  (* !! Function_basic.inline [cTopFunDef "main"; cFun "bag_push"]; *)
 
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert "factor"  "const double" "particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];
