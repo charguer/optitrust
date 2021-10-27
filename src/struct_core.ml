@@ -28,8 +28,9 @@ let set_explicit_aux (t : trm) : trm =
         if tid <> -1 then match Context.typid_to_typedef tid with 
           | Some td -> td 
           | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
-        else    
-          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+        else   begin 
+          Tools.printf "%s\n" (Ast_to_text.ast_to_string t);
+          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types"  end
       in
       let field_list = Internal.get_field_list struct_def in
       begin match rt.desc with

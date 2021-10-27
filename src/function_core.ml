@@ -70,9 +70,10 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
         begin match t1 with
         | Some t2 ->
           let t1' = (aux false t2) in
-          let t_assign = trm_set (trm_var r) t1' in
+          let t_assign = if r = "" then t2 else trm_set (trm_var r) t1' in
           if is_terminal
-            then t_assign
+            then 
+              t_assign
             else
               begin
               incr nb_gotos;
@@ -130,12 +131,11 @@ let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : pat
 
    let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
    let processed_body, nb_gotos = process_return_in_inlining "_exit_body" name fun_decl_body in
-
-   let marked_body =
-      if name = ""
+   let marked_body = trm_add_mark body_mark processed_body in
+      (* if name = ""
         then trm_add_mark body_mark fun_decl_body
         else trm_add_mark body_mark processed_body
-      in
+      in *)
    let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "__exit_body" (trm_lit (Lit_unit)) in
    let inlined_body =
     if is_type_unit(fun_decl_type)
@@ -143,9 +143,10 @@ let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : pat
       else  [trm_let ~marks:fun_call.marks Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
               marked_body;exit_label]
       in
-       let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
-       let new_tl = Mlist.merge new_tl lback in
-       trm_seq ~annot:t.annot ~marks:t.marks new_tl
+
+    let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
+    let new_tl = Mlist.merge new_tl lback in
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
 

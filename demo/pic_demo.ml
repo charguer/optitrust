@@ -48,11 +48,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
   !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r2"];
   !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "r"];
-  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
+  !!! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
   !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cVarDef "r"];
   !! Struct.to_variables [cFunDef "vect_matrix_mul"; cVarDef "r"];
   !! Loop.unroll [cFunDef "vect_matrix_mul"; cFor "k"];
-  !! Function.inline [cFun "vect_matrix_mul"];
+  (* !! Function.inline [cFun "vect_matrix_mul"]; *) (* Takes to much time to apply *)
   !! Variable.inline [cVarDef "fieldAtPos"];
   !! Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];
   
@@ -60,7 +60,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: reveal fields *)
   !! Variable.inline [cVarDef "p"];
   !! Variable.inline [cVarDef "p2"];
-  !! Function.inline [cTopFunDef "main"; cFun "bag_push"];
+  !! Function_basic.inline [cTopFunDef "main"; cFun "bag_push"];
+  (* !! Function.inline  *)
   
 
 
@@ -71,8 +72,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.insert "factorZ" "const double" "factor / cellZ" [tAfter; cVarDef "factorY"];
   
   
-
-
+  
   (* !! Function.inline [cFun "vect_matrix_mul"]; *)
   (* !! Variable.inline [cVarDef "fieldAtPos"]; *)
   (* !! Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody]; *)

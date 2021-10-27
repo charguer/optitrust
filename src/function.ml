@@ -148,7 +148,7 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
     let (tg_trm, _) = Path.resolve_path (path_to_instruction @ local_path) t in
     let (tg_out_trm, _) = Path.resolve_path path_to_instruction t in
     let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
-    let time = Unix.gettimeofday () in    
+    (* let time = Unix.gettimeofday () in     *)
     let res_inlining_needed =
     begin match tg_out_trm.desc with
     | Trm_let (_, (x, _), init) ->
@@ -168,7 +168,7 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
     | Trm_apps _ -> false
     | _ -> fail None "inline: expected a variable declaration or a function call"
     end in
-    Tools.printf "Execution time of function_bind_intro: %fs\n" (Unix.gettimeofday () -. time);
+    (* Tools.printf "Execution time of function_bind_intro: %fs\n" (Unix.gettimeofday () -. time); *)
     let new_target = [Target.cMark my_mark] in
     if not res_inlining_needed then Marks.add my_mark (Target.target_of_path p);
     if args <> [] then bind_args args new_target else ();
