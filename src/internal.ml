@@ -2,9 +2,41 @@
 open Ast
 open Target
 
+(* [same_kind t1 t2] check if two ast nodes are of the same kind or not *)
+let same_kind (t1 : trm) (t2 : trm) : bool =
+  match t1.desc, t2 .desc with
+  | Trm_val _, Trm_val _ -> true
+  | Trm_var _, Trm_var _ -> true
+  | Trm_var _, _  when is_get_operation t2 -> true
+  | Trm_array _, Trm_array _ ->  true
+  | Trm_struct _, Trm_struct _ -> true
+  | Trm_let _, Trm_let _ -> true
+  | Trm_let_fun _, Trm_let_fun _ -> true
+  | Trm_let_record _, Trm_let_record _ -> true
+  | Trm_typedef _, Trm_typedef _ -> true
+  | Trm_if _, Trm_if _ -> true
+  | Trm_seq _, Trm_seq _ -> true 
+  | Trm_apps _, Trm_apps _-> true
+  | Trm_while _, Trm_while  _ -> true
+  | Trm_for _, Trm_for _ -> true
+  | Trm_for_c _, Trm_for_c _ -> true
+  | Trm_do_while _, Trm_do_while _ -> true
+  | Trm_switch _, Trm_switch _ -> true
+  | Trm_abort _, Trm_abort _ -> true
+  | Trm_labelled _, Trm_labelled _ -> true
+  | Trm_goto _, Trm_goto _ -> true
+  | Trm_arbitrary _, Trm_arbitrary _ -> true
+  | Trm_omp_directive  _, Trm_omp_directive _ -> true
+  | Trm_omp_routine _ , Trm_omp_routine _ -> true
+  | Trm_extern _, Trm_extern _ -> true
+  | Trm_namespace _, Trm_namespace _ -> true
+  | Trm_template _, Trm_template _ -> true
+  | _ , _ -> false
+
 (* check if two ast nodes give the same code *)
 let same_trm (t1 : trm) (t2 : trm) : bool = 
-  Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2 
+  if same_kind t1 t2 then  Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2 
+   else false
 
 (* check if two values are equal *)
 let same_val (v1 : value) (v2 : value) : bool = 
@@ -18,13 +50,18 @@ let same_val (v1 : value) (v2 : value) : bool =
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
-    (* DEBUG: *)
-    (* Tools.printf "Trying to match %s with %s\n" (Ast_to_c.ast_to_string t') (Ast_to_c.ast_to_string t_before);
-    Tools.printf "--------------------------------------\n"; *)
     if same_trm t' t_before then t_after
       else trm_map apply_change t'
       in
-  List.fold_left
+  if change_at = [[]] then 
+    begin
+    (* let time = Unix.gettimeofday () in     *)
+    let res = apply_change t in
+    (* Tools.printf "Execution time of change_trm: %fs\n" (Unix.gettimeofday () -. time); *)
+    res
+    end
+  else 
+    let res = List.fold_left
     (fun t' tr ->
       let tr = if not (List.mem nbAny tr) 
         then [nbAny] @ tr 
@@ -38,7 +75,8 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
       | _ -> List.fold_left (apply_on_path apply_change) t' epl
     )
     t
-    change_at
+    change_at in
+    res
 
 
 

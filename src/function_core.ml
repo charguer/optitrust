@@ -39,8 +39,11 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
         trm_let Var_mutable (fresh_name, typ_ptr ~typ_attributes:[GeneratedStar] ptrkind (function_type)) (trm_apps  (trm_prim (Prim_new (function_type))) [function_call])
       in
      let new_tl = Mlist.merge lfront (Mlist.of_list ([decl_to_insert] @ [decl_to_change])) in
+     
+     
      let new_tl = Mlist.merge new_tl lback in
-     trm_seq ~annot:t.annot ~marks:t.marks new_tl
+     let res = trm_seq ~annot:t.annot ~marks:t.marks new_tl in
+     res
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
 

@@ -48,7 +48,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
   !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r2"];
   !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "r"];
-  !!! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
+  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
   !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cVarDef "r"];
   !! Struct.to_variables [cFunDef "vect_matrix_mul"; cVarDef "r"];
   !! Loop.unroll [cFunDef "vect_matrix_mul"; cFor "k"];
