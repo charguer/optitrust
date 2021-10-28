@@ -338,7 +338,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         | Continue _ -> dattr ^^ string "continue" ^^ dsemi
         end
      | Trm_labelled (l, t) ->
-        let dt = decorate_trm ~semicolon t in
+        let dt = decorate_trm  ~semicolon t in
         dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
      | Trm_arbitrary code ->

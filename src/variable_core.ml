@@ -261,16 +261,18 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
     let lfront, trm_to_change, lback  = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with
     | Trm_let (_, (x, tx), _) -> 
-      let tg = [nbMulti;cSeq (); cStrict;cWriteVar x] in
+      let tg = [nbAny;cSeq (); cStrict;cWriteVar x] in
       let new_tl = Mlist.merge lfront lback in
       let new_t = trm_seq ~annot:t.annot ~marks:t.marks new_tl in
       let ps = resolve_target tg new_t in
+      let nb_occs = List.length ps in
+      if nb_occs < 0 then raise Init_attach_no_occurrences;
       Tools.foldi (fun i acc p ->
         if i = 0 then begin 
         apply_on_path (fun t1 -> 
           begin match t1.desc with
           | Trm_apps (_, [_;rs]) ->
-            if const then trm_let_immut (x,tx) rs else trm_let_mut (x, (get_inner_ptr_type tx)) rs
+            if const then trm_let_immut ~marks:trm_to_change.marks (x,tx) rs else trm_let_mut ~marks:trm_to_change.marks (x, (get_inner_ptr_type tx)) rs
           | _ -> t1
           end
         ) acc p

@@ -127,13 +127,13 @@ let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : pat
    let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
 
    let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
-   let processed_body, nb_gotos = process_return_in_inlining "_exit_body" name fun_decl_body in
+   let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
    let marked_body = trm_add_mark body_mark processed_body in
       (* if name = ""
         then trm_add_mark body_mark fun_decl_body
         else trm_add_mark body_mark processed_body
       in *)
-   let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "__exit_body" (trm_lit (Lit_unit)) in
+   let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "exit_body" (trm_lit (Lit_unit)) in
    let inlined_body =
     if is_type_unit(fun_decl_type)
       then [marked_body; exit_label]

@@ -27,5 +27,6 @@ int main() {
   int u = h(x);
   int *q = new int(3);
   m(q);
+  z = f(x);
   return 0;
 }

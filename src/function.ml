@@ -162,21 +162,26 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
         else
             begin match !name_result with
             | ""  ->  name_result := "__TEMP_Optitrust";
-                      Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);
-                      true
-            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);
-                   true
-            end; 
-    | Trm_apps _ -> false
+                      Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
+            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
+            end
+    | Trm_apps (_f, [_; rs]) when is_set_operation tg_out_trm -> 
+      if Internal.same_trm rs tg_trm then
+        begin match !name_result with
+            | ""  ->  name_result := "__TEMP_Optitrust";
+                      Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
+            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
+            end else false
+    | Trm_apps _ -> false 
     | _ -> fail None "inline: expected a variable declaration or a function call"
     end in
-    let new_target = (Target.target_of_path path_to_seq) @ [Target.cMark my_mark] in
+    let new_target = [Target.cMark my_mark] in
     if not res_inlining_needed then Marks.add my_mark (Target.target_of_path p);
     if args <> [] then bind_args args new_target else ();
     Function_basic.inline ~body_mark new_target;
     elim_body ~vars [Target.cMark body_mark];
     if !name_result <> "" then begin
-        let () = try Variable_basic.init_attach new_target with
+        let () = try Variable_basic.init_attach (new_target) with
            | Variable_basic.Init_attach_no_occurrences
            | Variable_basic.Init_attach_occurrence_below_control -> ()
            | e -> raise e in

@@ -18,13 +18,15 @@ let parse_pattern (str : string) : (vars * vars *trm) =
   let var_decls = String.trim (List.nth splitted_pattern 0) in
   let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
     else ("", List.nth splitted_pattern 1) in
-
+  
   let var_decls_temp  = String.mapi (fun i x ->
     if x = ';'
       then
+        begin 
         if i <> String.length var_decls - 1
           then ','
           else ' '
+        end
       else x) var_decls in
 
   let aux_var_decls_temp  = String.mapi (fun i x ->
@@ -35,7 +37,7 @@ let parse_pattern (str : string) : (vars * vars *trm) =
           else ' '
       else x) aux_var_decls in
 
-  let fun_args = var_decls_temp ^"," ^aux_var_decls_temp in
+  let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
   let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ "\n}" in
   Xfile.put_contents output_file file_content;
   let _, ast_of_file = Trace.parse output_file in
@@ -118,6 +120,8 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
         aux_list ts1 ts2;
       end
     | _ ->
+      Tools.printf "Comparing %s with %s" (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
+      (* Tools.printf "Comparing %s with %s" (Ast_to_text.ast_to_string t1) (Ast_to_text.ast_to_string t2); *)
       raise Rule_mismatch
   in
   aux pat t;

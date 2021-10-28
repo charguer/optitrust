@@ -20,7 +20,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a)" [nbMulti;cFunDef "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
   !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cReturn; cCell ()];
   !! Variable.bind_intro ~fresh_name:"values" [cFunDef "cornerInterpolationCoeff"; cReturn; cArrayInit];
@@ -40,33 +40,50 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   
   (* Part: optimization of computation of speeds #6 *)
   !! Instr.delete [cVarDef "result1"];
-  !! Function.inline [cFun "vect_matrix_mul"]; (* Takes to much time to apply *)
-  !! Variable.local_name ~var:"result1" ~local_var:"r" ~var_type:(Ast.typ_constr "vect") [cFunDef "main"; cFor "k"];
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [cFunDef "main"; cFor "k";cFun "vect_mul"];
-  !! Function.inline [cFunDef "main"; cFor "k"; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [cFunDef "main"; cFor "k"; cFun "vect_add"];
-  !! Function.inline [cFunDef "main"; cFor "k";cFun "vect_add"];
-  !! Variable.inline [cFunDef "main"; cFor "k";cVarDef "r1"];
-  !! Variable.inline [cFunDef "main"; cFor "k";cVarDef "r2"];
-  !! Struct.set_explicit [cFunDef "main"; cWriteVar "r"];
-  !!! Struct.set_explicit [cFunDef "main"; cWriteVar "result1"];
-  !! Struct.set_explicit [cFunDef "main"; cVarDef "r"];
-  !! Struct.to_variables [cFunDef "main"; cVarDef "r"];
-  !! Loop.unroll [cFunDef "main"; cFor "k"];
+  !! Variable.local_name ~var:"result" ~local_var:"r" ~var_type:(Ast.typ_constr "vect") [cFunDef "vect_matrix_mul"; cFor "k"];
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
+  !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
+  !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_add"];
+  !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
+  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "r"];
+  !!! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
+  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cVarDef "r"];
+  !! Struct.to_variables [cFunDef "vect_matrix_mul"; cVarDef "r"];
+  !! Loop.fission [tAfter; cFunDef "vect_matrix_mul"; cFor "k";cWriteVar "r_x"];
+  !! Loop.fission [tAfter; cFunDef "vect_matrix_mul"; cFor "k";cWriteVar "r_y"];
+  (* TODO: Remove braces when the block parameter is empty *)
+  !! Loop.unroll [nbMulti;cFunDef "vect_matrix_mul"; cFor "k"];
+  !! Function.inline [cFun "vect_matrix_mul"];
   !! Variable.inline [cVarDef "fieldAtPos"];
   !! Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];
-  
 
+  
+  (* Part: space reuse *)
+  !! Variable.reuse "p.speed" [cVarDef "speed2"];
+  !! Variable.reuse "p.pos" [cVarDef "pos2"];
+  
   (* Part: reveal fields *)
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:3 0; cFunDef "main"; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
   !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
   !! Function.inline [nbMulti;cFunDef "main"; cFun "vect_mul"];
   !! Function.inline [nbMulti;cFunDef "main"; cFun "vect_add"];
-  (* !! Variable.inline [nbMulti; cFunDef "main"; cVarDef"accel"]; *)
-  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r1"];  
+  !! Flow.insert_if "ANY_BOOL()" [cFunDef "main"; cFun "bag_push"];
+  !! Instr.replace_fun "bag_push_serial" [cFunDef "main"; cIf ();dThen; cFun "bag_push"];
+  !! Instr.replace_fun "bag_push_concurrent" [cFunDef "main"; cIf ();dElse; cFun "bag_push"];
+  !! Function.inline [cFunDef "main";cFun "bag_push_serial"];
+  !! Function.inline [cFunDef "main";cFun "bag_push_concurrent"];
+  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef "r2"];  
+  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef "r3"];  
+  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];  
+  !! Function.(inline ~vars:(AddSuffix "2"))[cFun "idCellOfPos"];
+  !! Struct.set_explicit [sInstr "p.speed ="];
+  !! Struct.set_explicit [sInstr "p.pos ="];
+  !! Struct.set_explicit [nbMulti;sInstr "(c1->items)[index1] = "];
+  !! Struct.set_explicit [nbMulti;cFunDef "main";cWrite ~typ:"vect" ()];
+  !! Variable.inline [cVarDef "p2"];
+  !! Variable.inline [cVarDef "p"];
+
   (* !! Variable.inline [cVarDef "p"]; *)
-  (* !! Variable.inline [cVarDef "p2"]; *)
   (* !! Function_basic.inline [cTopFunDef "main"; cFun "bag_push"]; *)
 
   (* Part: scaling of speeds and positions #7 *)
@@ -82,7 +99,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* !! Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody]; *)
   
   
-  (* Part: space reuse for storing updated speeds and positions #5 *)
   !! Variable.reuse "p.speed" [cVarDef "speed2"];
   !! Variable.reuse "p.pos" [cVarDef "pos2"];
 
@@ -104,7 +120,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: Inlining of structure assignements *)
   (* !! Variable.inline [cOr [[cVarDef "p"]]]; *)
   (* !! Struct.set_explicit [nbMulti; cOr [[cVarDef "speed2"]; [cVarDef "pos2"]]]; *)
-  (* !!! Struct.set_explicit [nbMulti;cWrite ~typ:"particle"()]; *)
+  (* !!! Struct.set_explicit [nbMulti;cWr b ite ~typ:"particle"()]; *)
   (* !!! Struct.set_explicit [nbMulti;cWrite ~typ:"vect"()]; *)
 
   (* TODO: at the combi level it should work *)
