@@ -228,13 +228,13 @@ val cField : ?field:string -> ?substr:bool -> ?regexp:bool -> unit -> constr_acc
 
 val cAccess : constr_access
 
-val cFieldRead : ?base:target -> ?substr:bool -> ?regexp:bool-> field:string -> constr 
+val cFieldRead : field:string -> ?base:target -> ?substr:bool -> ?regexp:bool-> unit -> constr 
 
-val cFieldWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr 
+val cFieldWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr 
 
-val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr
+val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr
 
-val cFieldReadOrWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> constr 
+val cFieldReadOrWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr 
 
 val cCellRead : ?base:target -> index:target -> constr 
 

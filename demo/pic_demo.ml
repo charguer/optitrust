@@ -89,7 +89,19 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.insert "factorX" "const double" "factor / cellX" [tAfter; cVarDef "factor"];
   !! Variable.insert "factorY" "const double" "factor / cellY" [tAfter; cVarDef "factorX"];
   !! Variable.insert "factorZ" "const double" "factor / cellZ" [tAfter; cVarDef "factorY"];
+  !! Accesses.scale (Ast.trm_var "factorX") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
+  !! Accesses.scale (Ast.trm_var "factorY") [sInstr "c->items";cFieldRead ~field:"y" ~base:[cVar "fieldAtPos"] ()];
+  !! Accesses.scale (Ast.trm_var "factorZ") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
   
+  show [cFieldAccess ~base:[cFieldAccess ~base:[] ~field:"speed" ()] ~field:"x" ()];
+  (* show [cRead ~addr:[sExpr ~substr:true "c->items.speed.x"] ()]; *)
+  !! Accesses.scale (Ast.trm_var "stepDuration / cellX") [sInstr "c->items";cFieldRead ~field:"x" ~base:[sExpr "c->items.speed"] ()];
+  !! Accesses.scale (Ast.trm_var "stepDuration / cellY") [sInstr "c->items";cFieldRead ~field:"y" ~base:[sExpr "c->items.speed"] ()];
+  !! Accesses.scale (Ast.trm_var "stepDuration / cellZ") [sInstr "c->items";cFieldRead ~field:"x" ~base:[sExpr "c->items.speed"] ()];
+  
+  (* !! Variable.insert_and_fold "accel_x" "const double" "particleCharge / particleMass * fieldAtPos.x" [tBefore; sInstr "(c->items)[i].speed.x ="];*)
+  (* !! Variable.insert_and_fold "accel_y" "const double" "particleCharge / particleMass * fieldAtPos.y" [tBefore; sInstr "(c->items)[i].speed.y ="]; *)
+  (* !! Variable.insert_and_fold "accel_z" "const double" "particleCharge / particleMass * fieldAtPos.z" [tBefore; sInstr "(c->items)[i].speed.z ="]; *) 
   
   (* TODO: missing the type in the generatino of:
      const r0 = vect_mul(coeffs.values[k], matrix.values[k]);
