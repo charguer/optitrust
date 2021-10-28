@@ -1,7 +1,7 @@
 open Ast
 
 (* ***********************************************************************************
- * Note: All the intermediate functions which are called from [sequence.ml] file      *
+ * Note: All the intermediate functions which a called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
  * transformation. That's why there is not need to document them.                     *
  *)
