@@ -560,6 +560,36 @@ let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
     step();
  end
 
+(*
+TODO
+
+let analyse_time = true (* take this flag *)
+let src =
+  if analyse_time then
+    Xfile.get_lines current_source_file (* we know the basline *)
+    else []
+let last_time = ref 0
+ -- initialize this value in Trace.init function
+
+let check_time line =
+  if analyse_time then begin
+  let t = get_time_of_day_in_sec() in
+  let dt = int_of_float ((t - !last_time) * 1000) in
+  last_time := t;
+  let txt = List.nth (line-1) src in ---make sure to check bounds
+  Printf.printf "%d: %d\n  %s" line dt txt;
+  --or print in a file
+
+  end
+
+let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
+  check_time line;
+  ...
+
+
+*)
+
+
 (* [!!] is a prefix notation for the operation [check_exit_and_step].
    By default, it performs only [step]. The preprocessor of the OCaml script file
    can add the [line] argument to the call to [check_exit_and_step], in order
