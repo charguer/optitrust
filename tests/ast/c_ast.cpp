@@ -66,6 +66,9 @@ void test_loop() {
   for (int i = 0; i < 10; i++) {
       i++;
   }
+  for (int i = 10; i >= 0; i--) {
+      i++;
+  }
 
 }
 

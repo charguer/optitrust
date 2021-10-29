@@ -1188,17 +1188,9 @@ let for_loop_step (t : trm) : trm =
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_inc)); _}, _) ->
         trm_lit (Lit_int 1)
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_dec)); _}, _) ->
-        (*
-          choose this instead of trm_lit (Lit_int (- 1)) for the
-          for_loop_nb_iter function
-         *)
-        trm_apps (trm_unop Unop_opp) [trm_lit (Lit_int 1)]
+        trm_lit (Lit_int 1)
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_dec)); _}, _) ->
-        (*
-          choose this instead of trm_lit (Lit_int (- 1)) for the
-          for_loop_nb_iter function
-         *)
-        trm_apps (trm_unop Unop_opp) [trm_lit (Lit_int 1)]
+        trm_lit (Lit_int 1)
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
                  [_; t']) ->
         begin match t'.desc with
@@ -1325,7 +1317,7 @@ let is_simple_loop_component (t : trm) : bool =
 *)
 let trm_for_of_trm_for_c (t : trm) : trm =
   begin match t.desc with
-  | Trm_for_c (init, _, step, body) ->
+  | Trm_for_c (init,_, step, body) ->
     let index = for_loop_index t in
     let direction = for_loop_direction t in
     let start = for_loop_init t in
@@ -1406,7 +1398,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
     | DirUp -> (trm_apps (trm_binop Binop_lt)
       [trm_apps ~annot:[Mutable_var_get]
         (trm_unop Unop_get) [trm_var index];stop])
-    | DirDown -> (trm_apps (trm_binop Binop_lt)
+    | DirDown -> (trm_apps (trm_binop Binop_gt)
       [trm_apps ~annot:[Mutable_var_get]
         (trm_unop Unop_get) [trm_var index];stop])
     end

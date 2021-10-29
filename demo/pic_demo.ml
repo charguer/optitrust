@@ -17,10 +17,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
 
+  (* Part: space reuse *)
+  !! Variable.reuse "p.speed" [cVarDef "speed2"];
+     Variable.reuse "p.pos" [cVarDef "pos2"];
 
-
-
-(* TODO; optimizee k += (-(-1) *)
   (* Part: Introducing an if-statement for slow particles *)
   (* LATER: maybe name &bagsNext[idCell2]) *)
   !! Flow.insert_if "ANY_BOOL()" [cFunDef "main"; cFun "bag_push"];
@@ -29,9 +29,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [cFunDef "main";cFun "bag_push_serial"];
      Function.inline [cFunDef "main";cFun "bag_push_concurrent"];
 
-  (* Part: space reuse *)
-  !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse "p.pos" [cVarDef "pos2"];
+  
 
 
   (* Part: optimization of vect_matrix_mul *)

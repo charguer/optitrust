@@ -1,3 +1,6 @@
- template <class X, int i> int f(X);
+void test_loop() {
 
- template <bool b> void f(); 
+  for (int j = 10; j >= 0; j--) {
+      j++;
+  }
+}
