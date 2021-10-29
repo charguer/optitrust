@@ -83,6 +83,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iy1"];
   !! Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iz1"];
   
+  (* TOOD: Maybe these are not neded *)
   (* !! Loop.fusion ~nb:2 [tIndex ~nb:2 0; cFunDef "main"; cFor "k"];
   !!! Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
   !! Loop.unroll ~braces:false [cFunDef "main";cFor "k"]; *)
@@ -96,11 +97,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Accesses.scale (Ast.trm_var "factorX") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
   !! Accesses.scale (Ast.trm_var "factorY") [sInstr "c->items";cFieldRead ~field:"y" ~base:[cVar "fieldAtPos"] ()];
   !! Accesses.scale (Ast.trm_var "factorZ") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
-  
-  (* TODO: Find the right target for matching accesses of speed *)
-  (* !! Accesses.scale (Ast.trm_var "stepDuration / cellX") [sInstr "c->items";cFieldRead ~field:"x" ~base:[sExpr "c->items.speed"] ()]; *)
-  (* !! Accesses.scale (Ast.trm_var "stepDuration / cellY") [sInstr "c->items";cFieldRead ~field:"y" ~base:[sExpr "c->items.speed"] ()]; *)
-  (* !! Accesses.scale (Ast.trm_var "stepDuration / cellZ") [sInstr "c->items";cFieldRead ~field:"x" ~base:[sExpr "c->items.speed"] ()]; *)
+  !! Accesses.scale (Ast.trm_var "stepDuration / cellX") [sInstr "(c->items)[i].pos.x ="; cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
+  !! Accesses.scale (Ast.trm_var "stepDuration / cellY") [sInstr "(c->items)[i].pos.y ="; cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
+  !! Accesses.scale (Ast.trm_var "stepDuration / cellZ") [sInstr "(c->items)[i].pos.z ="; cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
   
   (* Part: shifting of positions #8  *)
   !! Function.bind_args ["px"] [cFunDef "main"; tIndex ~nb:3 0; cFun "int_of_double"];
