@@ -189,27 +189,16 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   double cx = 1. + -1. * rx;
   double cy = 1. + -1. * ry;
   double cz = 1. + -1. * rz;
-
-  return { {
-    cx * cy * cz,
-    cx * cy * rz,
-    cx * ry * cz,
-    cx * ry * rz,
-    rx * cy * cz,
-    rx * cy * rz,
-    rx * ry * cz,
-    rx * ry * rz,
-  } };
- /* TODO: set the above as LATER
   double_nbCorners r;
   r.values[0] = cx * cy * cz;
   r.values[1] = cx * cy * rz;
-    cx * ry * cz,
-    cx * ry * rz,
-    rx * cy * cz,
-    rx * cy * rz,
-    rx * ry * cz,
-    rx * ry * rz,  */
+  r.values[2] = cx * ry * cz;
+  r.values[3] = cx * ry * rz;
+  r.values[4] = rx * cy * cz;
+  r.values[5] = rx * cy * rz;
+  r.values[6] = rx * ry * cz;
+  r.values[7] = rx * ry * rz;
+  return r;
 }
 
 vect vect_matrix_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {

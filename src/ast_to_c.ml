@@ -98,7 +98,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
 
 and lit_to_doc (l : lit) : document =
   match l with
-  | Lit_unit -> empty
+  | Lit_unit -> semi
   | Lit_uninitialized ->
      print_info None "lit_to_doc: uninitialized literal should not occur\n";
      at

@@ -17,41 +17,49 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
 
-  (* Part: space reuse *)
-  !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse "p.pos" [cVarDef "pos2"];
+  
 
   (* Part: Introducing an if-statement for slow particles *)
   (* LATER: maybe name &bagsNext[idCell2]) *)
   !! Flow.insert_if "ANY_BOOL()" [cFunDef "main"; cFun "bag_push"];
-  !! Instr.replace_fun "bag_push_serial" [cFunDef "main"; cIf ();dThen; cFun "bag_push"];
-  !! Instr.replace_fun "bag_push_concurrent" [cFunDef "main"; cIf ();dElse; cFun "bag_push"];
-  !! Function.inline [cFunDef "main";cFun "bag_push_serial"];
+     Instr.replace_fun "bag_push_serial" [cFunDef "main"; cIf ();dThen; cFun "bag_push"];
+     Instr.replace_fun "bag_push_concurrent" [cFunDef "main"; cIf ();dElse; cFun "bag_push"];
+     Function.inline [cFunDef "main";cFun "bag_push_serial"];
      Function.inline [cFunDef "main";cFun "bag_push_concurrent"];
 
-  
-
+  (* Part: space reuse *)
+  !! Variable.reuse "p.speed" [cVarDef "speed2"];
+     Variable.reuse "p.pos" [cVarDef "pos2"];
 
   (* Part: optimization of vect_matrix_mul *)
   !! Function.bind_intro ~fresh_name:"r1" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-  !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-  !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_add"]; (* TODO: cor *)
-  !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
-  !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
-  !! Loop.unroll [nbMulti;cFunDef "vect_matrix_mul"; cFor "k"];
-  !! Function.inline [cFun "vect_matrix_mul"];
-  !! Variable.inline [cVarDef "fieldAtPos"];
-  !! Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];
+     Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
+     Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_add"]; (* TODO: cor *)
+     Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
+     Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
+     Loop.fission [nbMulti;tAfter; cFunDef "vect_matrix_mul"; cFor "k"; cFieldWrite ~base:[cVar "result"] ~regexp:true ~field:"[^z]" ()];
+     Loop.unroll [nbMulti;cFunDef "vect_matrix_mul"; cFor "k"];
+     (* TODO:  update inline last write so that it finds the read target *)
+     Function.inline [cFun "vect_matrix_mul"];
+     Variable.inline [cVarDef "fieldAtPos"];
+     Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];
 
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; dArg 0];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-  !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cReturn; cCell ()];
+  show [cFun "cornerInterpolationCoeff"];
+  !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
   !! Variable.bind_intro ~fresh_name:"values" [cFunDef "cornerInterpolationCoeff"; cReturn; cArrayInit];
   !! Arrays.set_explicit [cFunDef "cornerInterpolationCoeff";cVarDef "values"];
   !! Loop.fold ~index:"k" ~start:"0" ~stop:"nbCorners" ~step:"1" 8 [cCellWrite ~base:[cVar "values"] ~index:[cInt 0]];
 
+  (* !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
+  !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
+  !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cReturn; cCell ()];
+  !! Variable.bind_intro ~fresh_name:"values" [cFunDef "cornerInterpolationCoeff"; cReturn; cArrayInit];
+  !! Arrays.set_explicit [cFunDef "cornerInterpolationCoeff";cVarDef "values"];
+  !! Loop.fold ~index:"k" ~start:"0" ~stop:"nbCorners" ~step:"1" 8 [cCellWrite ~base:[cVar "values"] ~index:[cInt 0]]; *)
 
   (* Part: reveal fields *)
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
