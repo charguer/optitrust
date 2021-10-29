@@ -282,9 +282,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dSeqNth x]
       ) block_list;
-      (* Tools.printf "I am here\n"; *)
       if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
-      
       Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
 
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"

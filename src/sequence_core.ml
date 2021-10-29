@@ -155,7 +155,8 @@ let partition_aux (blocks : int list) (braces : bool) (t : trm) : trm =
             then Mlist.of_list (List.map trm_seq (List.rev partition))
             else Mlist.of_list (List.map (fun x -> trm_seq_no_brace (Mlist.to_list x)) (List.rev partition))
             in
-        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+        
+        if not braces then trm_seq_no_brace ~marks:t.marks (Mlist.to_list new_tl) else trm_seq ~annot:t.annot ~marks:t.marks new_tl
         
   | _ -> fail t.loc "partial_aux: expected a sequence to partition"
 
