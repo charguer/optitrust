@@ -39,7 +39,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_add"];
   !! Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
   !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
-  (* TODO: Remove braces when the block parameter is empty *)
   !! Loop.unroll [nbMulti;cFunDef "vect_matrix_mul"; cFor "k"];
   !! Function.inline [cFun "vect_matrix_mul"];
   !! Variable.inline [cVarDef "fieldAtPos"];
@@ -100,23 +99,31 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Accesses.scale (Ast.trm_var "stepDuration / cellX") [sInstr "(c->items)[i].pos.x ="; cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
   !! Accesses.scale (Ast.trm_var "stepDuration / cellY") [sInstr "(c->items)[i].pos.y ="; cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
   !! Accesses.scale (Ast.trm_var "stepDuration / cellZ") [sInstr "(c->items)[i].pos.z ="; cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
-  
+  (* TODO: More scaling operations needed *)
+
+  (* Part: grid_enumeration *)
+  !! Loop.grid_enumerate [("ix", "gridSize"); ("iy", "gridSize"); ("iz", "gridSize")] [tIndex ~nb:3 1;cFor "idCell"];
+
   (* Part: shifting of positions #8  *)
-  !! Function.bind_args ["px"] [cFunDef "main"; tIndex ~nb:3 0; cFun "int_of_double"];
-  !! Function.bind_args ["py"] [cFunDef "main"; tIndex ~nb:3 1; cFun "int_of_double"];
-  !! Function.bind_args ["pz"] [cFunDef "main"; tIndex ~nb:3 2; cFun "int_of_double"];
-  !! Instr.move ~target:[tAfter; cVarDef "pz"] [cVarDef "iy2"];
-  !! Instr.move ~target:[tAfter; cVarDef "pz"] [cVarDef "ix2"];
+  !! Function.bind_args ["px2"] [cFunDef "main"; tIndex ~nb:6 0; cFun "int_of_double"];
+  !! Function.bind_args ["py2"] [cFunDef "main"; tIndex ~nb:6 1; cFun "int_of_double"];
+  !! Function.bind_args ["pz2"] [cFunDef "main"; tIndex ~nb:6 2; cFun "int_of_double"];
+  !! Instr.move ~target:[tAfter; cVarDef "pz2"] [cVarDef "iy2"];
+  !! Instr.move ~target:[tAfter; cVarDef "pz2"] [cVarDef "ix2"];
+  (* !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).ix") [sInstr "(c->items)[i].pos.x ="];
+  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iy") [sInstr "(c->items)[i].pos.y ="];
+  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iz") [sInstr "(c->items)[i].pos.z ="];
+  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).ix") [cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iy") [cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iz") [cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]; *)
+   (* !!! (); Instead of reparsing for each transformation applied we do a single reparse at the end of shifting *)
+  !! Accesses.shift (Ast.trm_var "ix") [sInstr "(c->items)[i].pos.x ="];
+  !! Accesses.shift (Ast.trm_var "iy") [sInstr "(c->items)[i].pos.y ="];
+  !! Accesses.shift (Ast.trm_var "iz") [sInstr "(c->items)[i].pos.z ="];
+  !! Accesses.shift (Ast.trm_var "ix") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+  !! Accesses.shift (Ast.trm_var "iy") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+  !! Accesses.shift (Ast.trm_var "iz") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
 
-
-  
-
-  (* TODO: missing the type in the generatino of:
-     const r0 = vect_mul(coeffs.values[k], matrix.values[k]);
- in:
-  !! Function.bind_intro ~fresh_name:"r0" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-*)
-  
   (* TODO: at the combi level it should work *)
 
   (* Part: AOS-TO-SOA -- TODO: this does not work, it seems that

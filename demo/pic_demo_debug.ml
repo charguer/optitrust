@@ -35,7 +35,7 @@ let _ = Run.script_cpp (fun () ->
   (* Delocalize of bagsNext *)
   !! Sequence.intro_between ~mark:"next" [tAfter; cVarDef "bagsNext"] [tBefore; cFor ~body:[cFun "bag_transfer"] "idCell"];
   let ops = Ast.Delocalize_obj ("bag_create", "bag_transfer") in
-  !! Variable.delocalize_in_vars  ~local_vars:["bagsNextPrivate";"bagsNextShared"]~old_var:"bagsNext" ~new_var:"bagsNextLocal" ~var_type:Ast.(typ_ptr Ptr_kind_mut (typ_constr "bag")) ~array_size:"N" ~ops:ops  [cMark "next"];
+  (* !! Variable.delocalize_in_vars  ~local_vars:["bagsNextPrivate";"bagsNextShared"]~old_var:"bagsNext" ~new_var:"bagsNextLocal" ~var_type:Ast.(typ_ptr Ptr_kind_mut (typ_constr "bag")) ~array_size:"N" ~ops:ops  [cMark "next"]; *)
   !! Sequence.elim [cMark "next"];
   !! Specialize.choose "bagsNextPrivate" [cFun "bag_push"; cChoose];
   !! Specialize.choose "bagsNextShared" [cFun "bag_push_atomic"; cChoose];
@@ -56,7 +56,7 @@ let _ = Run.script_cpp (fun () ->
   !! Struct.inline "speed" [cTypDef "particle"];
   
   (* Relative positions *)
-    let shift_coord d = 
+    (* let shift_coord d = 
         let f = "pos_" ^ d in
           Arith.shift (code (d ^ " * cellSize")) [nbAny;cFunDef "main";cFieldRead f];
           Arith.shift ~neg:true (code (d ^ "2 * cellSize")) [nbAny;cFunDef "main";cFieldWrite f] 
@@ -64,7 +64,7 @@ let _ = Run.script_cpp (fun () ->
   !! List.iter shift_coord dims;
 
 
-  !! Struct.inline "items" [cTypDef "bag"];
+  !! Struct.inline "items" [cTypDef "bag"]; *)
   
   (* Renaming struct fields *)
   !! Struct.(rename_fields Rename.(only_for "pos_." (fun x ->  "rel_" ^ x))) [cTypDef "particle"];
