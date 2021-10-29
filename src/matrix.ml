@@ -98,3 +98,10 @@ let intro_mops (dim : trm) : Target.Transfo.t =
       end
     | _ -> fail None "intro_mmalloc: the target should be a variable declarartion allocated with alloc")
 
+
+
+(* let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ~var:(var : var)  ~local_var:(local_var : var) ~dim:(dim : trm)  ~index:(index : string) (tg : Target.target) : unit =
+  let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
+  Matrix_basic.local_name ~my_mark:(Some middle_mark) ~var ~local_var tg;
+  Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~dim ~index [Target.cMark middle_mark];
+  begin match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> () end *)

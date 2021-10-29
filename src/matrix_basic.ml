@@ -44,7 +44,7 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.t
       as the one of [var]. Then we copy the contents of the matrix [var] into [local_var] and finaly we 
       free up the memory.
  *)
-let local_name ?(mark : mark option) ~var:(var : var) ~local_var:(local_var : var) (tg : Target.target) : unit =
+let local_name ?(my_mark : mark option) ~var:(var : var) ~local_var:(local_var : var) (tg : Target.target) : unit =
   let vardef_trm = Target.get_trm_at [Target.cVarDef var] in
   let var_type = match trm_var_def_inv vardef_trm with
   | Some (_, _, ty, _) -> ty
@@ -54,11 +54,9 @@ let local_name ?(mark : mark option) ~var:(var : var) ~local_var:(local_var : va
   | Some (dims, sz, _) -> (dims, sz)
   | _ -> fail None "local_name: could not get the dimensions and the size of the matrix" in
   Internal.nobrace_remove_after (fun _ -> 
-    Target.apply_on_targets (Matrix_core.local_name mark var local_var malloc_trms var_type ) tg
+    Target.apply_on_targets (Matrix_core.local_name my_mark var local_var malloc_trms var_type ) tg
   )
   
-
-
 let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ~dim:(dim : trm)  ~index:(index : string) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc index) tg)

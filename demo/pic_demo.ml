@@ -138,22 +138,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   
 
   (* Part: introduction of matrix macros *)
-  Matrix.intro_mops (Ast.trm_var "nbCells") [cVarDef "nextCharge"];
+  !! Matrix.intro_mops (Ast.trm_var "nbCells") [cVarDef "nextCharge"];
   
+  (* Part: duplication of corners for vectorization of charge deposit *)
+  (* TOOD: WIP *)
   
-  (* TODO: at the combi level it should work *)
-
-  (* Part: AOS-TO-SOA -- TODO: this does not work, it seems that
-        result.values[k].x = fields[indices.values[k]].x;
-        is incorrectly targeted when looking for field "pos" of type "particle" :
-          !!! Struct.inline "pos" [cTypDef "particle"];
- *)
-  
-
-  (* LATER: probably not needed
-  !!! Function.bind_args ["auto ppos"] [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"]; LATER: should insert the type *)
-
-
 
   
 
