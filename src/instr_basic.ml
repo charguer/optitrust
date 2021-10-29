@@ -2,11 +2,13 @@ open Ast
 open Target
 
 (* [replace code tg] expects the target to point at an instruction,
-    then it will replace this instruction with the code entered by the user, which is merged into
-    the ast by doing a reparse of the full ast.
+    then it will replace this instruction with [node]. Note that [node] can be
+    also code entered as string which is transformed into a trm through function code
+    then this node is merged into the ast by doing a reparse of the full ast.
 *)
-let replace (code : string) : Target.Transfo.t =
-  Target.reparse_after(Target.apply_on_targets (Instr_core.replace code))
+let replace (node : trm) : Target.Transfo.t =
+  let reparse = is_trm node in
+  Target.reparse_after ~reparse (Target.apply_on_targets (Instr_core.replace node))
 
 (* [replace_fun code tg] expects the target to point to a function call,
     it then replaces the name of the function call with the one entered

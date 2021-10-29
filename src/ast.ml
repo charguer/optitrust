@@ -1777,3 +1777,10 @@ let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   let var_type_ptr = if kind = Var_immutable then typ_const var_type else typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
   let var_init = if kind = Var_immutable then init else trm_apps (trm_prim (Prim_new var_type)) [init]  in
   trm_let ~annot ~loc ~is_statement  ~add ~attributes ~ctx ~marks kind (var_name, var_type_ptr) var_init
+
+
+(* [is_trm t] check if [t] is a proper ast node or not *)
+let is_trm (t : trm) : bool = 
+  match t.desc with
+  | Trm_arbitrary _ -> false
+  | _ -> true

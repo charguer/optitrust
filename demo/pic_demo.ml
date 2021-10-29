@@ -76,15 +76,16 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cFun "vect8_mul"];
   !! Variable.inline [cVarDef "deltaChargeOnCorners"];
-  !! Variable.rename_on_block (ByList [("coeffs2","values1")]) [cFunDef "main"; cFor "i"; dBody];
   !! Function.inline [cVarDef "coeffs2"; cFun "cornerInterpolationCoeff"]; 
+  !! Instr.replace (Ast.trm_var "values1") [cFieldAccess ~base:[cVar "coeffs2"] ~field:"values" ()];
   !! Function.inline [cFun "accumulateChargeAtCorners"];
-  !! Variable.replace_occurrences ~subst:"coeffs2" ~put:"values1" [cFor "k";cVar "coeffs2"]; 
+  !! Function.inline [nbMulti;cFunDef "main"; cFun ~regexp:true "relativePos."];
+  !! Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iy1"];
+  !! Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iz1"];
   
-  !! Instr.move ~target:[tBefore; cVarDef "result1"] [cVarDef "indices1"];
-  !! Loop.fusion ~nb:2 [tIndex ~nb:2 0; cFunDef "main"; cFor "k"];
+  (* !! Loop.fusion ~nb:2 [tIndex ~nb:2 0; cFunDef "main"; cFor "k"];
   !!! Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
-  !! Loop.unroll ~braces:false [cFunDef "main";cFor "k"];
+  !! Loop.unroll ~braces:false [cFunDef "main";cFor "k"]; *)
   
 
   (* Part: scaling of speeds and positions #7 *)

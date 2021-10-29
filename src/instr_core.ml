@@ -8,13 +8,12 @@ open Ast
 
 (* [replace code t]: replace an instruction with arbitrary code
     params:
-      [cd]: string representing the code which will appear in place of the targeted trm
-      [t]: ast of the trm going to be replaced
+      [t]: ast node which is going to replace the current one
     return:
       updated ast with the replaced trm
  *)
-let replace (cd : string) : Target.Transfo.local =
-  Target.apply_on_path (fun _t -> code cd)
+let replace (t : trm) : Target.Transfo.local =
+  Target.apply_on_path (fun _t ->  t)
 
 
 
