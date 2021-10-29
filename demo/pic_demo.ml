@@ -81,7 +81,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [nbMulti;cFunDef "main"; cFun ~regexp:true "relativePos."];
   !! Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iy1"];
   !! Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iz1"];
-  
+
   (* TOOD: Maybe these are not neded *)
   (* !! Loop.fusion ~nb:2 [tIndex ~nb:2 0; cFunDef "main"; cFor "k"];
   !!! Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
@@ -124,6 +124,23 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Accesses.shift (Ast.trm_var "iy") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
   !! Accesses.shift (Ast.trm_var "iz") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
 
+
+
+  (* Part: convert pos fields to float *)
+  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.x ="; dRHS];
+  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.y ="; dRHS];
+  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.z ="; dRHS];
+
+  (* Part: AOS-SOA *)
+  !! Struct.inline "speed" [cTypDef "particle"];
+  !! Struct.inline "pos" [cTypDef "particle"];
+  (* !! Struct.inline "items" [cTypDef "bag"]; *) (* Fix me! *)
+  
+
+  (* Part: introduction of matrix macros *)
+  Matrix.intro_mops (Ast.trm_var "nbCells") [cVarDef "nextCharge"];
+  
+  
   (* TODO: at the combi level it should work *)
 
   (* Part: AOS-TO-SOA -- TODO: this does not work, it seems that
@@ -131,10 +148,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         is incorrectly targeted when looking for field "pos" of type "particle" :
           !!! Struct.inline "pos" [cTypDef "particle"];
  *)
-  (*
-  !!! Struct.inline "speed" [cTypDef "particle"];
-  !!! Struct.inline "items" [cTypDef "bag"];
-  *)
+  
 
   (* LATER: probably not needed
   !!! Function.bind_args ["auto ppos"] [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"]; LATER: should insert the type *)
