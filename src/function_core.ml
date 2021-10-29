@@ -18,7 +18,7 @@ open Path
     return:
       the updated sequence with the new generated binding
 *)
-let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
+let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : bool) (p_local : path) (_path : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
      let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
@@ -45,7 +45,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
   | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
 
 let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
+  Target.applyp_on_path (bind_intro_aux my_mark index fresh_name const p_local)
 
 (* [replace_return exit_label r t] remove all the return statemns from the body of a function declaration.
       these return statements will be replaced either by set operations if the return statment are not terminal
@@ -69,7 +69,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
           let t1' = (aux false t2) in
           let t_assign = if r = "" then t2 else trm_set (trm_var r) t1' in
           if is_terminal
-            then 
+            then
               t_assign
             else
               begin

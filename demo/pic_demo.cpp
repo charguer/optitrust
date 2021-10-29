@@ -189,6 +189,7 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   double cx = 1. + -1. * rx;
   double cy = 1. + -1. * ry;
   double cz = 1. + -1. * rz;
+
   return { {
     cx * cy * cz,
     cx * cy * rz,
@@ -199,6 +200,16 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
     rx * ry * cz,
     rx * ry * rz,
   } };
+ /* TODO: set the above as LATER
+  double_nbCorners r;
+  r.values[0] = cx * cy * cz;
+  r.values[1] = cx * cy * rz;
+    cx * ry * cz,
+    cx * ry * rz,
+    rx * cy * cz,
+    rx * cy * rz,
+    rx * ry * cz,
+    rx * ry * rz,  */
 }
 
 vect vect_matrix_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {

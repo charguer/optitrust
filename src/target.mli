@@ -105,9 +105,9 @@ val cInclude : string -> constr
 
 val cWriteVar : string -> constr
 
-val cAny : constr 
+val cAny : constr
 
-val cChoose : constr 
+val cChoose : constr
 
 val sInstr : ?substr:bool -> string -> constr
 
@@ -228,27 +228,27 @@ val cField : ?field:string -> ?substr:bool -> ?regexp:bool -> unit -> constr_acc
 
 val cAccess : constr_access
 
-val cFieldRead : field:string -> ?base:target -> ?substr:bool -> ?regexp:bool-> unit -> constr 
+val cFieldRead : field:string -> ?base:target -> ?substr:bool -> ?regexp:bool-> unit -> constr
 
-val cFieldWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr 
+val cFieldWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr
 
 val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr
 
-val cFieldReadOrWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr 
+val cFieldReadOrWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr
 
-val cCellRead : ?base:target -> index:target -> constr 
+val cCellRead : ?base:target -> index:target -> constr
 
-val cCellWrite : ?base:target -> index:target -> constr 
+val cCellWrite : ?base:target -> index:target -> constr
 
-val cCellReadOrWrite : ?base:target -> index:target -> constr 
+val cCellReadOrWrite : ?base:target -> index:target -> constr
 
 val cCellAccess : ?base:target -> index:target -> constr
 
-val cArrayInit : constr 
+val cArrayInit : constr
 
-val cStructInit : constr 
+val cStructInit : constr
 
-val cCell : ?cell_index: int option -> unit -> constr 
+val cCell : ?cell_index: int option -> unit -> constr
 
 val cSwitch : ?cond:target ->
               ?cases:((case_kind * target) list) -> unit -> constr
@@ -285,9 +285,11 @@ val resolve_target_exactly_one : target -> trm -> path
 
 val resolve_target_between : target -> trm -> (path * int) list
 
-val resolve_target_between_exactly_one : target -> trm -> (path * int) 
+val resolve_target_between_exactly_one : target -> trm -> (path * int)
 
 val apply_on_path : (trm -> trm) -> trm -> path -> trm
+
+val applyp_on_path : (path -> trm -> trm) -> trm -> path -> trm
 
 val applyi_on_targets : (int -> trm -> path -> trm) -> target -> unit
 
@@ -335,4 +337,4 @@ val (!!!) : 'a -> 'a
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 
-val get_trm_at : target -> trm 
+val get_trm_at : target -> trm

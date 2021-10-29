@@ -11,7 +11,7 @@ type path = dir list
 
 and dir =
   (* nth: go to nth element in a struct initialization *)
-  | Dir_struct_nth of int 
+  | Dir_struct_nth of int
   (* nth: go to nth element in a array initialization *)
   | Dir_array_nth of int
   (* nth: go to nth element in seq*)
@@ -355,6 +355,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
   in
   aux_on_path_rec dl t
 
+let applyp_on_path (transfo : path -> trm -> trm) (t : trm) (dl : path) : trm =
+  apply_on_path (transfo dl) t dl
 
 
 (******************************************************************************)

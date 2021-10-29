@@ -151,13 +151,16 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
     let res_inlining_needed =
     begin match tg_out_trm.desc with
     | Trm_let (_, (x, _), init) ->
-      let init1 = match get_init_val init with 
+      let init1 = match get_init_val init with
       | Some init1 -> init1
       | None -> fail t.loc "inline: coudl not get the target to the function call" in
       if !name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline: no need to enter the result name in this case"
-        else if 
-          Internal.same_trm init1  tg_trm then 
-          begin 
+        else if
+          Internal.same_trm init1  tg_trm then
+          (* TODO: local_path = [dBody]
+              List.length local_path
+              this might be enough *)
+          begin
           name_result := x; false end
         else
             begin match !name_result with
@@ -165,14 +168,14 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
                       Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
             | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
             end
-    | Trm_apps (_f, [_; rs]) when is_set_operation tg_out_trm -> 
+    | Trm_apps (_f, [_; rs]) when is_set_operation tg_out_trm ->
       if Internal.same_trm rs tg_trm then
         begin match !name_result with
             | ""  ->  name_result := "__TEMP_Optitrust";
                       Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
             | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
             end else false
-    | Trm_apps _ -> false 
+    | Trm_apps _ -> false
     | _ -> fail None "inline: expected a variable declaration or a function call"
     end in
     let new_target = [Target.cMark my_mark] in
@@ -190,4 +193,4 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
     end;
 
   ) tg;
-  
+

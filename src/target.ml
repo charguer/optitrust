@@ -665,6 +665,7 @@ module Transfo = struct
 end
 
 let apply_on_path = Path.apply_on_path
+let applyp_on_path = Path.applyp_on_path
 
 
 (* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
