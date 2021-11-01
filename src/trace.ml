@@ -1,4 +1,3 @@
-
 open Ast
 (******************************************************************************)
 (*                             Logging management                             *)
@@ -559,6 +558,7 @@ let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
       then reparse_alias();
     step();
  end
+
 
 (*
 TODO

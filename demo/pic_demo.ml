@@ -17,6 +17,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
 
+ (* Part1: space reuse *)
+  !! Variable.reuse "p.speed" [cVarDef "speed2"];
+     Variable.reuse "p.pos" [cVarDef "pos2"];
   
 
   (* Part: Introducing an if-statement for slow particles *)
@@ -27,14 +30,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Function.inline [cFunDef "main";cFun "bag_push_serial"];
      Function.inline [cFunDef "main";cFun "bag_push_concurrent"];
 
-  (* Part: space reuse *)
-  !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse "p.pos" [cVarDef "pos2"];
 
   (* Part: optimization of vect_matrix_mul *)
   !! Function.bind_intro ~fresh_name:"r1" ~const:true [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-     Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_mul"];
-     Function.inline [cFunDef "vect_matrix_mul"; cFun "vect_add"]; (* TODO: cor *)
+     Function.inline [cFunDef "vect_matrix_mul"; cOr [[cFun "vect_mul"];[cFun "vect_add"]]];
      Variable.inline [cFunDef "vect_matrix_mul"; cFor "k";cVarDef "r1"];
      Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
      Loop.fission [nbMulti;tAfter; cFunDef "vect_matrix_mul"; cFor "k"; cFieldWrite ~base:[cVar "result"] ~regexp:true ~field:"[^z]" ()];
@@ -46,66 +45,57 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; dArg 0];
-  !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-  show [cFun "cornerInterpolationCoeff"];
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
+     Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
   !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-  !! Variable.bind_intro ~fresh_name:"values" [cFunDef "cornerInterpolationCoeff"; cReturn; cArrayInit];
-  !! Arrays.set_explicit [cFunDef "cornerInterpolationCoeff";cVarDef "values"];
-  !! Loop.fold ~index:"k" ~start:"0" ~stop:"nbCorners" ~step:"1" 8 [cCellWrite ~base:[cVar "values"] ~index:[cInt 0]];
-
-  (* !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cReturn; cVar ~regexp:true "r."];
-  !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-  !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cReturn; cCell ()];
-  !! Variable.bind_intro ~fresh_name:"values" [cFunDef "cornerInterpolationCoeff"; cReturn; cArrayInit];
-  !! Arrays.set_explicit [cFunDef "cornerInterpolationCoeff";cVarDef "values"];
-  !! Loop.fold ~index:"k" ~start:"0" ~stop:"nbCorners" ~step:"1" 8 [cCellWrite ~base:[cVar "values"] ~index:[cInt 0]]; *)
+     Loop.fold ~index:"k" ~start:"0" ~stop:"nbCorners" ~step:"1" 8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()];
 
   (* Part: reveal fields *)
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; cFunDef "main"; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
-  !! Function.inline [nbMulti;cFunDef "main"; cFun "vect_mul"];
-  !! Function.inline [nbMulti;cFunDef "main"; cFun "vect_add"];
-  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef "r2"];
-  !! Variable.inline [nbMulti; cFunDef "main"; cVarDef "r3"];
-  !! Function.(inline ~vars:(AddSuffix "2"))[cFun "idCellOfPos"];
-  !! Struct.set_explicit [sInstr "p.speed ="];
-  !! Struct.set_explicit [sInstr "p.pos ="];
-  !! Struct.set_explicit [nbMulti;sInstr "(c1->items)[index1] = "];
-  !! Struct.set_explicit [nbMulti;cFunDef "main";cWrite ~typ:"vect" ()];
-  !! Variable.inline [cVarDef "p2"];
-  !! Variable.inline [cVarDef "p"];
+     Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; cFunDef "main"; cFun "vect_mul"];
+     Function.inline [cFunDef "main"; cOr [[cFun "vect_mul"];[cFun "vect_add"]]];
+     Variable.inline [nbMulti; cFunDef "main"; cVarDef ~regexp:true "r."];
+     Function.(inline ~vars:(AddSuffix "2"))[cFun "idCellOfPos"];
+     Struct.set_explicit [cOr [[sInstr "p.speed ="];[sInstr "p.pos ="]]];
+     Struct.set_explicit [nbMulti;sInstr "(c1->items)[index1] = "];
+     Struct.set_explicit [nbMulti;cFunDef "main";cWrite ~typ:"vect" ()];
+     Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
   !!! Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];
+  (* TODO: Fix Variable.inline for struct fields inisde get operations *)
    (*TODO: Update inline last write so that it works without giving a specific target on the read  *)
 
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cFun "vect8_mul"];
-  !! Variable.inline [cVarDef "deltaChargeOnCorners"];
-  !! Function.inline [cVarDef "coeffs2"; cFun "cornerInterpolationCoeff"];
-  !! Instr.replace (Ast.trm_var "values1") [cFieldAccess ~base:[cVar "coeffs2"] ~field:"values" ()];
-  !! Function.inline [cFun "accumulateChargeAtCorners"];
-  !! Function.inline [nbMulti;cFunDef "main"; cFun ~regexp:true "relativePos."];
-  !! Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iy1"];
-  !! Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iz1"];
-
-  (* TOOD: Maybe these are not neded *)
-  (* !! Loop.fusion ~nb:2 [tIndex ~nb:2 0; cFunDef "main"; cFor "k"];
-  !!! Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
-  !! Loop.unroll ~braces:false [cFunDef "main";cFor "k"]; *)
-
-
+     Variable.inline [cVarDef "deltaChargeOnCorners"];
+     Function.inline [nbMulti;cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
+     Function.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];
+     Function.inline ~vars:(AddSuffix "2") [cFun "cornerInterpolationCoeff"];
+     Function.inline [cFun "accumulateChargeAtCorners"];
+     Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iy11"];
+     Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iz11"];
+     Instr.move ~target:[tBefore; cVarDef "rx2"] [cVarDef "iy12"];
+     Instr.move ~target:[tBefore; cVarDef "rx2"] [cVarDef "iz12"];
+     Instr.move ~target:[tAfter; cVarDef "r2"] [cVarDef "result1"];
+     Instr.move ~target:[tAfter; cVarDef "r2"] [cVarDef "indices1"];
+     Instr.delete [cOr [[cVarDef "coeffs"];[cVarDef "coeffs2"]]];
+     Variable.rename_on_block (ByList [("r1","coeffs");("r2","coeffs2")]) [cFunDef "main"; cFor "i"; dBody];
+     Loop.fusion ~nb:3 [cFunDef "main"; cFor "k" ~body:[sInstr "coeffs2.values[k] ="]];
+ !!! Instr.inline_last_write ~write:[sInstr "coeffs2.values[k] ="] [cRead ~addr:[sExpr "coeffs2.values"] ()];
+     Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
+     Loop.unroll ~braces:false [tIndex 1;cFunDef "main";cFor "k"];
+  
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert "factor"  "const double" "particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];
-  !! Variable.insert "factorX" "const double" "factor / cellX" [tAfter; cVarDef "factor"];
-  !! Variable.insert "factorY" "const double" "factor / cellY" [tAfter; cVarDef "factorX"];
-  !! Variable.insert "factorZ" "const double" "factor / cellZ" [tAfter; cVarDef "factorY"];
-  !! Accesses.scale (Ast.trm_var "factorX") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
-  !! Accesses.scale (Ast.trm_var "factorY") [sInstr "c->items";cFieldRead ~field:"y" ~base:[cVar "fieldAtPos"] ()];
-  !! Accesses.scale (Ast.trm_var "factorZ") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
-  !! Accesses.scale (Ast.trm_var "stepDuration / cellX") [sInstr "(c->items)[i].pos.x ="; cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
-  !! Accesses.scale (Ast.trm_var "stepDuration / cellY") [sInstr "(c->items)[i].pos.y ="; cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
-  !! Accesses.scale (Ast.trm_var "stepDuration / cellZ") [sInstr "(c->items)[i].pos.z ="; cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
+     Variable.insert "factorX" "const double" "factor / cellX" [tAfter; cVarDef "factor"];
+     Variable.insert "factorY" "const double" "factor / cellY" [tAfter; cVarDef "factorX"];
+     Variable.insert "factorZ" "const double" "factor / cellZ" [tAfter; cVarDef "factorY"];
+     Accesses.scale (Ast.trm_var "factorX") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
+     Accesses.scale (Ast.trm_var "factorY") [sInstr "c->items";cFieldRead ~field:"y" ~base:[cVar "fieldAtPos"] ()];
+     Accesses.scale (Ast.trm_var "factorZ") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
+     Accesses.scale (Ast.trm_var "stepDuration / cellX") [sInstr "(c->items)[i].pos.x ="; cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
+     Accesses.scale (Ast.trm_var "stepDuration / cellY") [sInstr "(c->items)[i].pos.y ="; cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
+     Accesses.scale (Ast.trm_var "stepDuration / cellZ") [sInstr "(c->items)[i].pos.z ="; cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
   (* TODO: More scaling operations needed *)
   (* TODO: arthur will give the pseudo code for the automated simplifier *)
 
@@ -123,27 +113,27 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.grid_enumerate [("ix", "gridSize"); ("iy", "gridSize"); ("iz", "gridSize")] [tIndex ~nb:3 1;cFor "idCell"];
 
   (* Part: shifting of positions #8  *)
-  !! Function.bind_args ["px2"] [cFunDef "main"; tIndex ~nb:6 0; cFun "int_of_double"];
-  !! Function.bind_args ["py2"] [cFunDef "main"; tIndex ~nb:6 1; cFun "int_of_double"];
-  !! Function.bind_args ["pz2"] [cFunDef "main"; tIndex ~nb:6 2; cFun "int_of_double"];
-  !! Instr.move ~target:[tAfter; cVarDef "pz2"] [cVarDef "iy2"];
-  !! Instr.move ~target:[tAfter; cVarDef "pz2"] [cVarDef "ix2"];
-  (* LATER: ARTHUR will figure out how to do this in one step, by allowing regexp capture in transfos. *)
-  (* !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).ix") [sInstr "(c->items)[i].pos.x ="];
-  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iy") [sInstr "(c->items)[i].pos.y ="];
-  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iz") [sInstr "(c->items)[i].pos.z ="];
-  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).ix") [cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iy") [cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-  !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iz") [cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]; *)
-   (* !!! (); Instead of reparsing for each transformation applied we do a single reparse at the end of shifting *)
-   (* LATER
-     !! Accesses.shift (Ast.trm_var "i${occ[1]}") [sInstr ~regexp:true "(c->items)\[i\].pos.\.\) ="];*)
-  !! Accesses.shift (Ast.trm_var "ix") [sInstr "(c->items)[i].pos.x ="];
-  !! Accesses.shift (Ast.trm_var "iy") [sInstr "(c->items)[i].pos.y ="];
-  !! Accesses.shift (Ast.trm_var "iz") [sInstr "(c->items)[i].pos.z ="];
-  !! Accesses.shift (Ast.trm_var "ix") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-  !! Accesses.shift (Ast.trm_var "iy") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-  !! Accesses.shift (Ast.trm_var "iz") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
+ !! Function.bind_args ["px2"] [cFunDef "main"; tIndex ~nb:6 0; cFun "int_of_double"];
+    Function.bind_args ["py2"] [cFunDef "main"; tIndex ~nb:6 1; cFun "int_of_double"];
+    Function.bind_args ["pz2"] [cFunDef "main"; tIndex ~nb:6 2; cFun "int_of_double"];
+    Instr.move ~target:[tAfter; cVarDef "pz2"] [cVarDef "iy2"];
+    Instr.move ~target:[tAfter; cVarDef "pz2"] [cVarDef "ix2"];
+    (* LATER: ARTHUR will figure out how to do this in one step, by allowing regexp capture in transfos. *)
+    (* !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).ix") [sInstr "(c->items)[i].pos.x ="];
+    !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iy") [sInstr "(c->items)[i].pos.y ="];
+    !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iz") [sInstr "(c->items)[i].pos.z ="];
+    !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).ix") [cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+    !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iy") [cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+    !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iz") [cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]; *)
+    (* !!! (); Instead of reparsing for each transformation applied we do a single reparse at the end of shifting *)
+    (* LATER
+    !! Accesses.shift (Ast.trm_var "i${occ[1]}") [sInstr ~regexp:true "(c->items)\[i\].pos.\.\) ="];*)
+    Accesses.shift (Ast.trm_var "ix") [sInstr "(c->items)[i].pos.x ="];
+    Accesses.shift (Ast.trm_var "iy") [sInstr "(c->items)[i].pos.y ="];
+    Accesses.shift (Ast.trm_var "iz") [sInstr "(c->items)[i].pos.z ="];
+    Accesses.shift (Ast.trm_var "ix") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+    Accesses.shift (Ast.trm_var "iy") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+    Accesses.shift (Ast.trm_var "iz") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
 
  (* Trace.dump ~prefix:"pic_demo_wip" *)
  (* TODO: create   pic_demo_wip_out.ml *)
@@ -152,13 +142,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: convert pos fields to float *)
   !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.x ="; dRHS];
-  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.y ="; dRHS];
-  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.z ="; dRHS];
+     Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.y ="; dRHS];
+     Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.z ="; dRHS];
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
-  !! Struct.inline "pos" [cTypDef "particle"];
-  (* !! Struct.inline "items" [cTypDef "bag"]; *) (* Fix me! *)
+     Struct.inline "pos" [cTypDef "particle"];
+  (* !!! Struct.inline "items" [cTypDef "chunk"]; *) (* Fix me! *)
 
 
   (* Part: introduction of matrix macros *)

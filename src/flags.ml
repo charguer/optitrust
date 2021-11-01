@@ -1,6 +1,9 @@
 (* debug printing*)
 let verbose : bool ref = ref false
 
+(* check the time it takes to run one transformation *)
+let analyse_time : bool ref = ref false
+
 (* Call [Trace.dump_last !dump_last] instead of [Trace.dump], if value is set.
    Note: incompatible with the use of [switch] in scripts, currently. *)
 let dump_last_default = -1

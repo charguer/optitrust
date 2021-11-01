@@ -182,6 +182,28 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 // and the opposite corner.
 
 
+// double_nbCorners cornerInterpolationCoeff(vect pos) {
+//   double rx = relativePosX(pos.x);
+//   double ry = relativePosY(pos.y);
+//   double rz = relativePosZ(pos.z);
+//   double cx = 1. + -1. * rx;
+//   double cy = 1. + -1. * ry;
+//   double cz = 1. + -1. * rz;
+//   double_nbCorners r = {{
+//     cx * cy * cz,
+//     cx * cy * rz,
+//     cx * ry * cz,
+//     cx * ry * rz,
+//     rx * cy * cz,
+//     rx * cy * rz,
+//     rx * ry * cz,
+//     rx * ry * rz,
+//   }};
+//   return r;
+// }
+
+
+
 double_nbCorners cornerInterpolationCoeff(vect pos) {
   double rx = relativePosX(pos.x);
   double ry = relativePosY(pos.y);
