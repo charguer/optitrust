@@ -39,6 +39,12 @@ let insert_alloc_dim (new_dim : trm) : Target.Transfo.t =
 let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.t =
   Target.apply_on_targets (Matrix_core.insert_access_dim_index new_dim new_index)
 
+(* [biject fun_name tg] expectes the target [tg] poiting to a function call then it 
+      replaces the name of that function call with [fun_name]
+*)
+let biject (fun_name : string) : Target.Transfo.t = 
+  Instr.replace_fun fun_name
+
 (* [local_name ~mark var local_var tg] expects the target pointing to an instruction that contains 
       an occurrence of [var] then it will define a matrix [local_var] whose dimensions will be the same
       as the one of [var]. Then we copy the contents of the matrix [var] into [local_var] and finaly we 

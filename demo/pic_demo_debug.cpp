@@ -11,8 +11,12 @@ typedef struct {
 } vect;
 
 typedef struct {
-  vect pos;
-  vect speed;
+  double pos_x;
+  double pos_y;
+  double pos_z;
+  double speed_x;
+  double speed_y;
+  double speed_z;
 } particle;
 
 vect vect_add(vect v1, vect v2) {
@@ -490,12 +494,17 @@ int main() {
               double sign_y[8] = {(-1.), (-1.), 1., 1., (-1.), (-1.), 1., 1.};
               double coef_z[8] = {1., 0., 1., 0., 1., 0., 1., 0.};
               double sign_z[8] = {(-1.), 1., (-1.), 1., (-1.), 1., (-1.), 1.};
-              int ix = int_of_double(((c->items)[i].pos.x / cellX));
-              int iy = int_of_double(((c->items)[i].pos.y / cellY));
-              int iz = int_of_double(((c->items)[i].pos.z / cellZ));
-              double rx1 = (((c->items)[i].pos.x - (ix * cellX)) / cellX);
-              double ry1 = (((c->items)[i].pos.y - (iy * cellY)) / cellY);
-              double rz1 = (((c->items)[i].pos.z - (iz * cellZ)) / cellZ);
+              double px = ((c->items)[i].pos_x / cellX);
+              double py = ((((c->items)[i].pos_y - iy) - ix) / cellY);
+              double pz = (((c->items)[i].pos_z - iz) / cellZ);
+              int ix = int_of_double(px);
+              int iy = int_of_double(py);
+              int iz = int_of_double(pz);
+              double rx1 = (((c->items)[i].pos_x - (ix * cellX)) / cellX);
+              double ry1 =
+                  (((((c->items)[i].pos_y - iy) - ix) - (iy * cellY)) / cellY);
+              double rz1 =
+                  ((((c->items)[i].pos_z - iz) - (iz * cellZ)) / cellZ);
               double_nbCorners coeffs;
               for (int k = 0; (k < nbCorners); k++) {
                 coeffs.values[k] = (((coef_x[k] + (sign_x[k] * rx1)) *
@@ -551,37 +560,43 @@ int main() {
                                               field_at_corners.values[6].z));
               fieldAtPos.z = (fieldAtPos.z + (coeffs.values[7] *
                                               field_at_corners.values[7].z));
-              (c->items)[i].speed.x =
-                  ((c->items)[i].speed.x +
+              (c->items)[i].speed_x =
+                  ((c->items)[i].speed_x +
                    (stepDuration * ((particleCharge / particleMass) *
                                     ((fieldAtPos.x / factorZ) / factorX))));
-              (c->items)[i].speed.y =
-                  ((c->items)[i].speed.y +
+              (c->items)[i].speed_y =
+                  ((c->items)[i].speed_y +
                    (stepDuration * ((particleCharge / particleMass) *
                                     (fieldAtPos.y / factorY))));
-              (c->items)[i].speed.z =
-                  ((c->items)[i].speed.z +
+              (c->items)[i].speed_z =
+                  ((c->items)[i].speed_z +
                    (stepDuration *
                     ((particleCharge / particleMass) * fieldAtPos.z)));
-              (c->items)[i].pos.x = ((c->items)[i].pos.x +
-                                     (stepDuration * ((c->items)[i].speed.x /
-                                                      stepDuration / cellX)));
-              (c->items)[i].pos.y = ((c->items)[i].pos.y +
-                                     (stepDuration * ((c->items)[i].speed.y /
-                                                      stepDuration / cellY)));
-              (c->items)[i].pos.z = ((c->items)[i].pos.z +
-                                     (stepDuration * ((c->items)[i].speed.z /
-                                                      stepDuration / cellZ)));
+              (c->items)[i].pos_x =
+                  (float)(((c->items)[i].pos_x +
+                           (stepDuration *
+                            (((c->items)[i].speed_x / stepDuration) / cellX))) +
+                          ix);
+              (c->items)[i].pos_y =
+                  (float)(((((c->items)[i].pos_y - iy) - ix) +
+                           (stepDuration *
+                            (((c->items)[i].speed_y / stepDuration) / cellY))) +
+                          iy);
+              (c->items)[i].pos_z =
+                  (float)((((c->items)[i].pos_z - iz) +
+                           (stepDuration *
+                            (((c->items)[i].speed_z / stepDuration) / cellZ))) +
+                          iz);
               int idCell2 = cellOfCoord(ix, iy, iz);
               if (ANY_BOOL()) {
                 chunk *c1 = ((&bagsNext[idCell2])->front);
                 int index1 = (c1->size)++;
-                (c1->items)[index1].pos.x = (c->items)[i].pos.x;
-                (c1->items)[index1].pos.y = (c->items)[i].pos.y;
-                (c1->items)[index1].pos.z = (c->items)[i].pos.z;
-                (c1->items)[index1].speed.x = (c->items)[i].speed.x;
-                (c1->items)[index1].speed.y = (c->items)[i].speed.y;
-                (c1->items)[index1].speed.z = (c->items)[i].speed.z;
+                (c1->items)[index1].pos_x = (c->items)[i].pos_x;
+                (c1->items)[index1].pos_y = (((c->items)[i].pos_y - iy) - ix);
+                (c1->items)[index1].pos_z = ((c->items)[i].pos_z - iz);
+                (c1->items)[index1].speed_x = (c->items)[i].speed_x;
+                (c1->items)[index1].speed_y = (c->items)[i].speed_y;
+                (c1->items)[index1].speed_z = (c->items)[i].speed_z;
                 if ((index1 == (CHUNK_SIZE - 1))) {
                   bag_add_front_chunk((&bagsNext[idCell2]));
                 }
@@ -592,12 +607,13 @@ int main() {
                   c1 = ((&bagsNext[idCell2])->front);
                   index1 = (c1->size)++;
                   if ((index1 < CHUNK_SIZE)) {
-                    (c1->items)[index1].pos.x = (c->items)[i].pos.x;
-                    (c1->items)[index1].pos.y = (c->items)[i].pos.y;
-                    (c1->items)[index1].pos.z = (c->items)[i].pos.z;
-                    (c1->items)[index1].speed.x = (c->items)[i].speed.x;
-                    (c1->items)[index1].speed.y = (c->items)[i].speed.y;
-                    (c1->items)[index1].speed.z = (c->items)[i].speed.z;
+                    (c1->items)[index1].pos_x = (c->items)[i].pos_x;
+                    (c1->items)[index1].pos_y =
+                        (((c->items)[i].pos_y - iy) - ix);
+                    (c1->items)[index1].pos_z = ((c->items)[i].pos_z - iz);
+                    (c1->items)[index1].speed_x = (c->items)[i].speed_x;
+                    (c1->items)[index1].speed_y = (c->items)[i].speed_y;
+                    (c1->items)[index1].speed_z = (c->items)[i].speed_z;
                     if ((index1 == (CHUNK_SIZE - 1))) {
                       bag_add_front_chunk((&bagsNext[idCell2]));
                     }
