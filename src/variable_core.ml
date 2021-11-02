@@ -155,7 +155,7 @@ let rename_on_block_aux (rename : Rename.t) (t : trm) : trm =
           | ByList list -> 
             if List.mem_assoc x list then
               let new_name = List.assoc x list in
-              Internal.change_trm t1 (trm_let vk (new_name, tx) init) acc 
+              Internal.change_trm t1  {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc 
             else
               acc 
           end
@@ -181,6 +181,9 @@ let rename_on_block_aux (rename : Rename.t) (t : trm) : trm =
       ) t_new_dl tl 
   | _ -> fail t.loc "rename_on_block_aux: expected the sequence block"
 
+let rename_on_block (rename : Rename.t) : Target.Transfo.local =
+  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_on_block_aux rename) "var_rename")
+
 (* [replace_occurrences_aux name space t]: replace all occurrences of [name] with [space] 
       params:
         [name]: name of the variable whose occurrences are going to be replaced
@@ -189,6 +192,7 @@ let rename_on_block_aux (rename : Rename.t) (t : trm) : trm =
       return:
         updated [t] with all the replaced occurrences
 *)
+
 let rec replace_occurrences_aux (name : var) (space : strm) (t : trm) : trm = 
   match t.desc with 
   | Trm_var y when y = name -> code space
@@ -198,8 +202,6 @@ let replace_occurrences (name : var)(space : strm) : Target.Transfo.local =
   Target.apply_on_path (replace_occurrences_aux name space)
 
 
-let rename_on_block (rename : Rename.t) : Target.Transfo.local =
-  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_on_block_aux rename) "var_rename")
 
 (* [init_detach_aux t]: replace an initialized variable declaration with an
       uninitialized declaration and a set operation.

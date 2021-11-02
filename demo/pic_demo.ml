@@ -72,18 +72,32 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Function.inline [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];
      Function.inline ~vars:(AddSuffix "2") [cFun "cornerInterpolationCoeff"];
      Function.inline [cFun "accumulateChargeAtCorners"];
-     Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iy11"];
-     Instr.move ~target:[tBefore; cVarDef "rx1"] [cVarDef "iz11"];
-     Instr.move ~target:[tBefore; cVarDef "rx2"] [cVarDef "iy12"];
-     Instr.move ~target:[tBefore; cVarDef "rx2"] [cVarDef "iz12"];
-     Instr.move ~target:[tAfter; cVarDef "r2"] [cVarDef "result1"];
-     Instr.move ~target:[tAfter; cVarDef "r2"] [cVarDef "indices1"];
-     Instr.delete [cOr [[cVarDef "coeffs"];[cVarDef "coeffs2"]]];
-     Variable.rename_on_block (ByList [("r1","coeffs");("r2","coeffs2")]) [cFunDef "main"; cFor "i"; dBody];
-     Loop.fusion ~nb:3 [cFunDef "main"; cFor "k" ~body:[sInstr "coeffs2.values[k] ="]];
- !!! Instr.inline_last_write ~write:[sInstr "coeffs2.values[k] ="] [cRead ~addr:[sExpr "coeffs2.values"] ()];
-     Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
-     Loop.unroll ~braces:false [tIndex 1;cFunDef "main";cFor "k"];
+     let mark = "mark_decls" in
+  !! Marks.add mark [nbMulti;cFunDef "main"; 
+    cOr [[cVarDef ~regexp:true ~substr:true "i.2"];
+          [cVarDef ~regexp:true ~substr:true "i.12"];
+          [cVarDef ~regexp:true ~substr:true "r.2"];
+          [cVarDef ~regexp:true ~substr:true "coef\_.2"];
+          [cVarDef ~regexp:true ~substr:true "sign\_.2"]]];
+  !! Variable.rename_on_block (ByList [
+    ("coef_x2","coef_x");("coef_x1","coef_x");("coef_y2","coef_y");
+    ("coef_y1","coef_y");("coef_z2","coef_z");("coef_z1","coef_z");
+    ("sign_x2","sign_x");("sign_x1","sign_x");("sign_y2","sign_y");
+    ("sign_y1","sign_y");("sign_z2","sign_z");("sign_z1","sign_z");
+    ("ix2","ix");("iy2","iy");("iz2","iz");
+    ("ix12","ix");("ix11","ix");("iy12","iy");("iy11","iy");("iz12","iz");("iz11","iz");
+    ("rx2","rx1");("ry2","ry1");("rz2","rz1")]) [cFunDef "main"; cFor "i"; dBody];
+    Instr.delete [nbMulti; cMark mark];
+    Instr.move ~target:[tBefore; cVarDef "rx1"] [cFunDef "main"; cVarDef "iy"];
+    Instr.move ~target:[tBefore; cVarDef "rx1"] [cFunDef "main"; cVarDef "iz"];
+    Instr.move ~target:[tAfter; cVarDef "r2"] [cVarDef "result1"];
+    Instr.move ~target:[tAfter; cVarDef "r2"] [cVarDef "indices1"];
+    Instr.delete [cOr [[cVarDef "coeffs"];[cVarDef "coeffs2"]]];
+    Variable.rename_on_block (ByList [("r1","coeffs");("r2","coeffs2")]) [cFunDef "main"; cFor "i"; dBody];
+    Loop.fusion ~nb:3 [cFunDef "main"; cFor "k" ~body:[sInstr "coeffs2.values[k] ="]];
+!!! Instr.inline_last_write ~write:[sInstr "coeffs2.values[k] ="] [cRead ~addr:[sExpr "coeffs2.values"] ()];
+    Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
+    (* Loop.unroll ~braces:false [tIndex 1;cFunDef "main";cFor "k"]; *)
   
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert "factor"  "const double" "particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];

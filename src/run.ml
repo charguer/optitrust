@@ -76,7 +76,7 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp". *)
-let script_cpp ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") ?(analyse_time : bool = false) (f : unit -> unit) : unit =
+let script_cpp ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   (* TODO: see what happens of the directory... *)
   let basename =
