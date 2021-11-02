@@ -42,5 +42,6 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" [tIndex 1;cFunDef "main"; cFor "k"];
+  
   !! Matrix_basic.delocalize ~dim:(trm_var "nbCorners") ~index:"i0" ~acc:"sum" [cMark "first_local"];
 )

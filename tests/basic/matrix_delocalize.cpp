@@ -3,11 +3,12 @@
 typedef int T;
 
 int main() {
+  int const N0 = 5;
   int const N1 = 10;
   int const N2 = 11;
   int const N3 = 12;
   T *a = (T *)MCALLOC3(N1, N2, N3, sizeof(T));
-  T *x = (T *)MMALLOC3(N1, N2, N3, sizeof(T));
+  T *x = (T *)MCALLOC3(N1, N2, N3, sizeof(T));
   for (int i1 = 0; (i1 < N1); i1++) {
     for (int i2 = 0; (i2 < N2); i2++) {
       for (int i3 = 0; (i3 < N3); i3++) {

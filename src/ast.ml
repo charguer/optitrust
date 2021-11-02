@@ -1682,6 +1682,11 @@ let trm_for_inv (t : trm) : (loop_range * trm)  option =
   | Trm_for (index, direction, start, stop, step, body) -> Some ((index, direction, start, stop ,step), body)
   | _ -> None
 
+(* [is_trm_seq t] check if [t] is a sequence or not *)
+let is_trm_seq (t : trm) : bool = 
+  match t.desc with
+  | Trm_seq _ -> true  | _ -> false 
+
 
 (* [trm_fors rgs tbody] create a nested loops with the main body [tbody] each nested loop
     takes its components from [rgs]
@@ -1689,7 +1694,7 @@ let trm_for_inv (t : trm) : (loop_range * trm)  option =
 let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
   List.fold_right (fun x acc -> 
     let index, loop_dir, start, stop, step = x in
-    trm_for index loop_dir start stop step (trm_seq_nomarks [acc])
+    trm_for index loop_dir start stop step (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
   ) rgs tbody
 
 
