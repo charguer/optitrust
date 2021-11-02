@@ -287,12 +287,13 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.l
       ast of a hidden sequence which contains the updated instruction [t] and the other instructions 
         used for copying the value from the current matrix to the local one
 *)
-let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ)(t : trm) : trm = 
+let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) option) (t : trm) : trm = 
   let dims, size, zero_init = malloc_trms in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
   let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ~init dims size )) in
-  let indices_list = List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims in
+  let indices_list = begin match indices with 
+  | Some l -> l | _ -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_ranges = List.map2 (fun dim ind-> (ind, DirUp, (trm_int 0), dim, (trm_int 1))) dims indices_list in
   let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
@@ -304,8 +305,8 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
   match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm
 
-let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ): Target.Transfo.local =
-  Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type)
+let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : (var list option)) : Target.Transfo.local =
+  Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices)
 
 let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc : string option) (index : string) (t : trm) : trm = 
   match t.desc with 

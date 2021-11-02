@@ -7,7 +7,7 @@ open Target
     then this node is merged into the ast by doing a reparse of the full ast.
 *)
 let replace (node : trm) : Target.Transfo.t =
-  let reparse = is_trm node in
+  let reparse = not (is_trm node) in
   Target.reparse_after ~reparse (Target.apply_on_targets (Instr_core.replace node))
 
 (* [replace_fun code tg] expects the target to point to a function call,
