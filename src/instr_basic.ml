@@ -49,3 +49,6 @@ let move ~target:(where : Target.target) (tg : Target.target) : unit =
 let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
   let write_trm = Target.get_trm_at (write @ [dRHS]) in
   Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> write_trm) t p) tg
+
+let accumulate : Target.Transfo.t =
+  Target.apply_on_targets (Instr_core.accumulate)

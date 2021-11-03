@@ -19,7 +19,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
  (* Part1: space reuse *)
   !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse "p.pos" [cVarDef "pos2"];
+  !! Variable.reuse "p.pos" [cVarDef "pos2"];
   
 
   (* Part: Introducing an if-statement for slow particles *)
@@ -38,7 +38,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
      Loop.fission [nbMulti;tAfter; cFunDef "vect_matrix_mul"; cFor "k"; cFieldWrite ~base:[cVar "result"] ~regexp:true ~field:"[^z]" ()];
      Loop.unroll [nbMulti;cFunDef "vect_matrix_mul"; cFor "k"];
-     (* TODO:  update inline last write so that it finds the read target *)
+ !!! Sequence.intro ~mark:"instr_x" ~start:[tIndex 0; sInstr "result.x ="] ~nb:8 ();
+     Sequence.intro ~mark:"instr_y" ~start:[tIndex 0; sInstr "result.y ="] ~nb:8 ();
+     Sequence.intro ~mark:"instr_z" ~start:[tIndex 0; sInstr "result.z ="] ~nb:8 ();
+     Instr.accumulate [nbMulti; cMarks ["instr_x"; "instr_y"; "instr_z"]];
      Function.inline [cFun "vect_matrix_mul"];
      Variable.inline [cVarDef "fieldAtPos"];
      Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];
@@ -60,7 +63,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti;sInstr "(c1->items)[index1] = "];
      Struct.set_explicit [nbMulti;cFunDef "main";cWrite ~typ:"vect" ()];
      Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
-  !!! Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];
+  !!! Struct.to_variables [cVarDef "fieldAtPos"];
+     Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_x"] [cRead ~addr:[cVar "fieldAtPos_x"] ()];
+     Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_y"] [cRead ~addr:[cVar "fieldAtPos_y"] ()];
+     Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_z"] [cRead ~addr:[cVar "fieldAtPos_z"] ()];
+     Instr.delete [nbMulti;cVarDef ~regexp:true "fieldAtPos_."];
+     Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];
+  
   (* TODO: Fix Variable.inline for struct fields inisde get operations *)
    (*TODO: Update inline last write so that it works without giving a specific target on the read  *)
 
@@ -73,20 +82,20 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Function.inline ~vars:(AddSuffix "2") [cFun "cornerInterpolationCoeff"];
      Function.inline [cFun "accumulateChargeAtCorners"];
      let mark = "mark_decls" in
-  !! Marks.add mark [nbMulti;cFunDef "main"; 
-    cOr [[cVarDef ~regexp:true ~substr:true "i.2"];
+     Marks.add mark [nbMulti;cFunDef "main"; 
+     cOr [[cVarDef ~regexp:true ~substr:true "i.2"];
           [cVarDef ~regexp:true ~substr:true "i.12"];
           [cVarDef ~regexp:true ~substr:true "r.2"];
           [cVarDef ~regexp:true ~substr:true "coef\_.2"];
           [cVarDef ~regexp:true ~substr:true "sign\_.2"]]];
-  !! Variable.rename_on_block (ByList [
-    ("coef_x2","coef_x");("coef_x1","coef_x");("coef_y2","coef_y");
-    ("coef_y1","coef_y");("coef_z2","coef_z");("coef_z1","coef_z");
-    ("sign_x2","sign_x");("sign_x1","sign_x");("sign_y2","sign_y");
-    ("sign_y1","sign_y");("sign_z2","sign_z");("sign_z1","sign_z");
-    ("ix2","ix");("iy2","iy");("iz2","iz");
-    ("ix12","ix");("ix11","ix");("iy12","iy");("iy11","iy");("iz12","iz");("iz11","iz");
-    ("rx2","rx1");("ry2","ry1");("rz2","rz1")]) [cFunDef "main"; cFor "i"; dBody];
+    Variable.rename_on_block (ByList [
+     ("coef_x2","coef_x");("coef_x1","coef_x");("coef_y2","coef_y");
+     ("coef_y1","coef_y");("coef_z2","coef_z");("coef_z1","coef_z");
+     ("sign_x2","sign_x");("sign_x1","sign_x");("sign_y2","sign_y");
+     ("sign_y1","sign_y");("sign_z2","sign_z");("sign_z1","sign_z");
+     ("ix2","ix");("iy2","iy");("iz2","iz");
+     ("ix12","ix");("ix11","ix");("iy12","iy");("iy11","iy");("iz12","iz");("iz11","iz");
+     ("rx2","rx1");("ry2","ry1");("rz2","rz1")]) [cFunDef "main"; cFor "i"; dBody];
     Instr.delete [nbMulti; cMark mark];
     Instr.move ~target:[tBefore; cVarDef "rx1"] [cFunDef "main"; cVarDef "iy"];
     Instr.move ~target:[tBefore; cVarDef "rx1"] [cFunDef "main"; cVarDef "iz"];

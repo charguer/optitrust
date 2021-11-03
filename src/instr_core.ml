@@ -57,3 +57,29 @@ let move_aux (index : int) (tg_index : int) (t : trm) : trm =
 
 let move (index : int) (tg_index : int) : Target.Transfo.local =
   Target.apply_on_path (move_aux index tg_index)
+
+let accumulate_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    let nb_instr = Mlist.length tl in
+    if nb_instr < 2 then fail t.loc "accumulate_aux: expected at least two instructions";
+    Mlist.foldi (fun i acc t1 -> 
+      begin match t1.desc with 
+      | Trm_apps (_, [ls; rs]) when is_set_operation t1 ->
+        begin match rs.desc with 
+        | Trm_apps (_, [ls1; rs1]) ->
+          let acc_trm = (trm_apps (trm_binop Binop_add) [acc; rs1]) in
+          if i = nb_instr -1 then trm_set ls acc_trm else acc_trm 
+        | _-> fail t.loc "accumulate_aux: expected an instruction of the form x += A or x = x + A"
+        end
+      | _ -> fail t.loc "accumulate_aux: all the instructions should be write operations"
+      end
+
+    ) (trm_int 0) tl 
+
+  | _ -> fail t.loc "accumulate_aux: expected a block of instructions"
+
+
+let accumulate : Target.Transfo.local = 
+  Target.apply_on_path (accumulate_aux)
+
