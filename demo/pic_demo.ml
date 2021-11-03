@@ -62,11 +62,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti;cFunDef "main";cWrite ~typ:"vect" ()];
      Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
  !!! Struct.to_variables [cVarDef "fieldAtPos"];
-    (* Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_x"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_x"] ()];
-     Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_y"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_y"] ()];
-     Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_z"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_z"] ()];
-     Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];
-     Variable.inline [nbMulti;cVarDef ~regexp:true "fieldAtPos_."]; *)
   
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [ cOr [[cFun "vect8_mul"];[cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
@@ -106,15 +101,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Variable.insert "factorY" "const double" "factor / cellY" [tAfter; cVarDef "factorX"];
      Variable.insert "factorZ" "const double" "factor / cellZ" [tAfter; cVarDef "factorY"];
   
-     Accesses.scale (Ast.trm_var "factorX") [cVarDef "accel"; cReadVar "fieldAtPos_x"];
+  !! Accesses.scale (Ast.trm_var "factorX") [cVarDef "accel"; cReadVar "fieldAtPos_x"];
      Accesses.scale (Ast.trm_var "factorY") [cVarDef "accel"; cReadVar "fieldAtPos_y"];
      Accesses.scale (Ast.trm_var "factorZ") [cVarDef "accel"; cReadVar "fieldAtPos_z"];
   
-     Accesses.scale (Ast.trm_var "stepDuration / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
+  !! Accesses.scale (Ast.trm_var "stepDuration / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
      Accesses.scale (Ast.trm_var "stepDuration / cellY") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
      Accesses.scale (Ast.trm_var "stepDuration / cellZ") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
   
-     Accesses.scale (Ast.trm_var "1. / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()];
+  !! Accesses.scale (Ast.trm_var "1. / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()];
      Accesses.scale (Ast.trm_var "1. / cellY") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
      Accesses.scale (Ast.trm_var "1. / cellZ") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
   
@@ -135,27 +130,23 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   
   
   (* Part: shifting of positions #8  *)
-  !! Function.bind_args ["px"] [cFunDef "main"; tIndex 0; cFun "int_of_double"];
-     Function.bind_args ["py"] [cFunDef "main"; tIndex 1; cFun "int_of_double"];
-     Function.bind_args ["pz"] [cFunDef "main"; tIndex 2; cFun "int_of_double"];
-     Instr.move ~target:[tAfter; cVarDef "pz"] [cFunDef "main"; cVarDef "iy"];
-     Instr.move ~target:[tAfter; cVarDef "pz"] [cFunDef "main"; cVarDef "ix"];
-     (* LATER: ARTHUR will figure out how to do this in one step, by allowing regexp capture in transfos. *)
-     (* !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).ix") [sInstr "(c->items)[i].pos.x ="];
-     !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iy") [sInstr "(c->items)[i].pos.y ="];
-     !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iz") [sInstr "(c->items)[i].pos.z ="];
-     !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).ix") [cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-     !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iy") [cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-     !! Accesses.shift (Ast.trm_var "coordOfCell(idCell).iz") [cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]; *)
-     (* !!! (); Instead of reparsing for each transformation applied we do a single reparse at the end of shifting *)
-     (* LATER
-     !! Accesses.shift (Ast.trm_var "i${occ[1]}") [sInstr ~regexp:true "(c->items)\[i\].pos.\.\) ="];*)
-     Accesses.shift (Ast.trm_var "ix") [sInstr "(c->items)[i].pos.x ="];
-     Accesses.shift (Ast.trm_var "iy") [sInstr "(c->items)[i].pos.y ="];
-     Accesses.shift (Ast.trm_var "iz") [sInstr "(c->items)[i].pos.z ="];
-     Accesses.shift (Ast.trm_var "ix") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-     Accesses.shift (Ast.trm_var "iy") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-     Accesses.shift (Ast.trm_var "iz") [nbMulti;cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
+  (* Part: Shifting of positions*)
+  !! Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_x"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_x"] ()];
+     Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_y"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_y"] ()];
+     Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_z"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_z"] ()];
+     Variable.inline [nbMulti;cVarDef ~regexp:true "fieldAtPos_."];
+     Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];
+
+  !! Variable.bind_intro ~fresh_name:"px" [sInstr "(c->items)[i].pos.x ="; dRHS];
+     Variable.bind_intro ~fresh_name:"py" [sInstr "(c->items)[i].pos.y ="; dRHS];
+     Variable.bind_intro ~fresh_name:"pz" [sInstr "(c->items)[i].pos.z ="; dRHS];
+  !! Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
+  
+  !! Variable.insert "pos2" "const vect" "{px, py, pz}" [tAfter; cVarDef "pz"];
+     Accesses.shift (Ast.code "coordOfCell(idCell).ix") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.x"] ()]; [cVarDef "px"; cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()]]];
+     Accesses.shift (Ast.code "coordOfCell(idCell).iy") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.y"] ()]; [cVarDef "py"; cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()]]];
+     Accesses.shift (Ast.code "coordOfCell(idCell).iz") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.z"] ()]; [cVarDef "pz"; cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]]];
+  
 
   (* Part: convert pos fields to float *)
   !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.x ="; dRHS];
@@ -165,8 +156,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
      Struct.inline "pos" [cTypDef "particle"];
-
-  
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [cVarDef "nextCharge"];

@@ -443,7 +443,7 @@ let cRead ?(addr : target = []) () : constr =
 let cWriteVar (x : var) : constr =
   cWrite ~lhs:[cVar x] ()
 
-(* [cWriteVar x] matches a set operation for variable [x] *)
+(* [cReadVar x] matches a read operation for variable [x] *)
 let cReadVar (x : var) : constr =
   cRead ~addr:[cVar x] ()
 
@@ -601,9 +601,6 @@ let cFieldRead ~field:(field : field ) ?(base : target = []) ?(substr : bool = f
 let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  () : constr =
   let lhs = [cFieldAccess ~base ~substr ~regexp ~field ()] in
   cWrite ~lhs ()
-
-
-
 
 (* [cFieldReadOrWrite ~base ~substr ~regexp ~field] matches all read or write operations
 *)
