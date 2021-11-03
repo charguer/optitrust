@@ -38,4 +38,4 @@ let accumulate ?(nb : int option) : Target.Transfo.t =
 *)
 let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(targets : Target.target list ) : unit = 
   if List.length destinations <> List.length targets then fail None "move_multiple: each destination corresponds to a single target and vice-versa";
-  List.iter2(fun target tg1 -> Instr_basic.move ~target tg1) destinations targets 
+  List.iter2(fun dest tg1 -> Instr_basic.move ~dest tg1) destinations targets 

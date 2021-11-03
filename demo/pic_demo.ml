@@ -129,33 +129,21 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.grid_enumerate [("ix", "gridSize"); ("iy", "gridSize"); ("iz", "gridSize")] [tIndex ~nb:3 1;cFor "idCell"];
   
   
-  (* Part: shifting of positions #8  *)
   (* Part: Shifting of positions*)
   !! Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_x"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_x"] ()];
      Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_y"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_y"] ()];
      Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_z"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_z"] ()];
+     
      Variable.inline [nbMulti;cVarDef ~regexp:true "fieldAtPos_."];
      Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];
-
-  !! Variable.bind_intro ~fresh_name:"px" [sInstr "(c->items)[i].pos.x ="; dRHS];
+     Variable.bind_intro ~fresh_name:"px" [sInstr "(c->items)[i].pos.x ="; dRHS];
      Variable.bind_intro ~fresh_name:"py" [sInstr "(c->items)[i].pos.y ="; dRHS];
      Variable.bind_intro ~fresh_name:"pz" [sInstr "(c->items)[i].pos.z ="; dRHS];
-  !! Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
-  
-  !! Variable.insert "pos2" "const vect" "{px, py, pz}" [tAfter; cVarDef "pz"];
-     Accesses.shift (Ast.code "coordOfCell(idCell).ix") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.x"] ()]; [cVarDef "px"; cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()]]];
-     Accesses.shift (Ast.code "coordOfCell(idCell).iy") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.y"] ()]; [cVarDef "py"; cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()]]];
-     Accesses.shift (Ast.code "coordOfCell(idCell).iz") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.z"] ()]; [cVarDef "pz"; cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]]];
-  
-
-  (* Part: convert pos fields to float *)
-  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.x ="; dRHS];
-     Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.y ="; dRHS];
-     Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.z ="; dRHS];
-
-  (* Part: AOS-SOA *)
-  !! Struct.inline "speed" [cTypDef "particle"];
-     Struct.inline "pos" [cTypDef "particle"];
+     Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
+     
+     Accesses.shift (Ast.trm_var "ix") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.x"] ()]; [cVarDef "px"; cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()]]];
+     Accesses.shift (Ast.trm_var "iy") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.y"] ()]; [cVarDef "py"; cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()]]];
+     Accesses.shift (Ast.trm_var "iz") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.z"] ()]; [cVarDef "pz"; cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]]];
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [cVarDef "nextCharge"];
@@ -182,12 +170,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      return MINDEX2(nbCells, nbCorners, result[idCorner], idCorner);
      }" in
     Sequence.insert (Ast.code my_bij_code) [tBefore;cFunDef "main"];
-  (* !! Matrix.biject "mybij" [tIndex 0;cFunDef "main"; cFor "k" ; cFun "MINDEX2"]; *)
-  
-  (* !! Instr.replace (code "MINDEX2(nbCells, nbCorners, idCell2, k") [tIndex 1;cFunDef "main"; cFun "mybij"]; *)
-  (* TODO: Replace mybij with MINDEX2 *)
-  !! Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
+!!! Matrix.biject "mybij" [tIndex 0;cFunDef "main"; cFor "k" ; cFun "MINDEX2"];
+    Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
 
+    (* TODO: This is probably not correct *)
+    Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"];
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert "nbProcs" "int" "8" [tBefore; cFunDef "main"];
@@ -197,18 +184,26 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Specialize.any "k" [cAny];
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
-  !! Loop.hoist [cVarDef "idCell2"];
-  (* TODO: Loop.fission *)
+  !! Loop.invariant [cFunDef "main"; cVarDef "coef_x"];
+     Loop.invariant [cFunDef "main"; cVarDef "coef_y"];
+     Loop.invariant [cFunDef "main"; cVarDef "coef_z"];
+     Loop.invariant [cFunDef "main"; cVarDef "sign_x"];
+     Loop.invariant [cFunDef "main"; cVarDef "sign_y"];
+     Loop.invariant [cFunDef "main"; cVarDef "sign_z"];
+    
+     Loop.fission [tBefore; cVarDef "px"];
+     Loop.fission [tBefore; cVarDef "ix2"];
+     Loop.hoist [cVarDef "idCell2"];
 
 
   (* Part: Coloring *)
-  let sized_dims = [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] in
-  let dims = List.map fst sized_dims in
-  let colorize (tile : string) (color : string) (d:string) : unit =
-    let bd = "b" ^ d in
-    Loop_basic.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)
-    Loop_basic.color color ~index:("c"^d) [cFor bd]
-    in
+     let sized_dims = [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] in
+     let dims = List.map fst sized_dims in
+     let colorize (tile : string) (color : string) (d:string) : unit =
+     let bd = "b" ^ d in
+     Loop_basic.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)
+     Loop_basic.color color ~index:("c"^d) [cFor bd]
+      in
      List.iter (colorize "2" "2") dims;
   !! Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cix"];
   
@@ -221,6 +216,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   
   (* Part: Parallelization *)
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti;tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
-     Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bix"];
+     Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bix"]; 
 )
 

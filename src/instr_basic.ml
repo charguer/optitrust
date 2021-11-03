@@ -31,7 +31,7 @@ let delete : Target.Transfo.t =
 (* [move ~target tg] expects the target [tg] to point to the instruction which is 
     going to be moved at the relative target [where]
 *)
-let move ~target:(where : Target.target) (tg : Target.target) : unit =
+let move ~dest:(where : Target.target) (tg : Target.target) : unit =
   Trace.call (fun t -> 
     let tg_where_path_seq,where_index = Target.resolve_target_between_exactly_one where t in
     let tg_path = Target.resolve_target_exactly_one tg t in
