@@ -58,6 +58,15 @@ let move_aux (index : int) (tg_index : int) (t : trm) : trm =
 let move (index : int) (tg_index : int) : Target.Transfo.local =
   Target.apply_on_path (move_aux index tg_index)
 
+(* [accumulate_aux t] transform a list of write instructions into a single instruction
+    params:
+      [t]: the ast of the sequence containing the instructions
+    return:
+      the ast of the single write instruction where the value that is written into
+          is the accumulated trm from all the initial write instructions
+
+ *)
+(* TODO: Add support for other operators *)
 let accumulate_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
@@ -67,9 +76,9 @@ let accumulate_aux (t : trm) : trm =
       begin match t1.desc with 
       | Trm_apps (_, [ls; rs]) when is_set_operation t1 ->
         begin match rs.desc with 
-        | Trm_apps (_, [ls1; rs1]) ->
-          let acc_trm = (trm_apps (trm_binop Binop_add) [acc; rs1]) in
-          if i = nb_instr -1 then trm_set ls acc_trm else acc_trm 
+        | Trm_apps (f, [ls1; rs1]) ->
+          let acc_trm = (trm_apps f [acc; rs1]) in
+          if i = nb_instr -1 then trm_set ~annot:t1.annot ls (trm_apps f [ls1; acc_trm]) else acc_trm 
         | _-> fail t.loc "accumulate_aux: expected an instruction of the form x += A or x = x + A"
         end
       | _ -> fail t.loc "accumulate_aux: all the instructions should be write operations"

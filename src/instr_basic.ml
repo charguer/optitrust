@@ -50,5 +50,17 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
   let write_trm = Target.get_trm_at (write @ [dRHS]) in
   Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> write_trm) t p) tg
 
+
+(* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location 
+    then it will do an acumulation of those trms .
+    Ex.
+    int x;
+    {
+      x += 1;
+      x += 2;
+      x += 3;
+    }
+    is transformed to x += 1+2+3
+*)
 let accumulate : Target.Transfo.t =
   Target.apply_on_targets (Instr_core.accumulate)
