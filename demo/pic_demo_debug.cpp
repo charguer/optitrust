@@ -11,12 +11,8 @@ typedef struct {
 } vect;
 
 typedef struct {
-  double pos_x;
-  double pos_y;
-  double pos_z;
-  double speed_x;
-  double speed_y;
-  double speed_z;
+  vect pos;
+  vect speed;
 } particle;
 
 vect vect_add(vect v1, vect v2) {
@@ -299,15 +295,6 @@ double const cellY = (areaY / gridY);
 
 double const cellZ = (areaZ / gridZ);
 
-double const factor =
-    ((((particleCharge * stepDuration) * stepDuration) / particleMass) / cellX);
-
-double const factorX = (factor / cellX);
-
-double const factorY = (factor / cellY);
-
-double const factorZ = (factor / cellZ);
-
 int const nbSteps = 100;
 
 int int_of_double(double a) { return ((int)a - (a < 0.)); }
@@ -428,30 +415,30 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
 vect vect_matrix_mul(const double_nbCorners coeffs,
                      const vect_nbCorners matrix) {
   vect result = {0., 0., 0.};
-  result.x = (result.x + (coeffs.values[0] * matrix.values[0].x));
-  result.x = (result.x + (coeffs.values[1] * matrix.values[1].x));
-  result.x = (result.x + (coeffs.values[2] * matrix.values[2].x));
-  result.x = (result.x + (coeffs.values[3] * matrix.values[3].x));
-  result.x = (result.x + (coeffs.values[4] * matrix.values[4].x));
-  result.x = (result.x + (coeffs.values[5] * matrix.values[5].x));
-  result.x = (result.x + (coeffs.values[6] * matrix.values[6].x));
-  result.x = (result.x + (coeffs.values[7] * matrix.values[7].x));
-  result.y = (result.y + (coeffs.values[0] * matrix.values[0].y));
-  result.y = (result.y + (coeffs.values[1] * matrix.values[1].y));
-  result.y = (result.y + (coeffs.values[2] * matrix.values[2].y));
-  result.y = (result.y + (coeffs.values[3] * matrix.values[3].y));
-  result.y = (result.y + (coeffs.values[4] * matrix.values[4].y));
-  result.y = (result.y + (coeffs.values[5] * matrix.values[5].y));
-  result.y = (result.y + (coeffs.values[6] * matrix.values[6].y));
-  result.y = (result.y + (coeffs.values[7] * matrix.values[7].y));
-  result.z = (result.z + (coeffs.values[0] * matrix.values[0].z));
-  result.z = (result.z + (coeffs.values[1] * matrix.values[1].z));
-  result.z = (result.z + (coeffs.values[2] * matrix.values[2].z));
-  result.z = (result.z + (coeffs.values[3] * matrix.values[3].z));
-  result.z = (result.z + (coeffs.values[4] * matrix.values[4].z));
-  result.z = (result.z + (coeffs.values[5] * matrix.values[5].z));
-  result.z = (result.z + (coeffs.values[6] * matrix.values[6].z));
-  result.z = (result.z + (coeffs.values[7] * matrix.values[7].z));
+  result.x = ((((((((result.x + (coeffs.values[0] * matrix.values[0].x)) +
+                    (coeffs.values[1] * matrix.values[1].x)) +
+                   (coeffs.values[2] * matrix.values[2].x)) +
+                  (coeffs.values[3] * matrix.values[3].x)) +
+                 (coeffs.values[4] * matrix.values[4].x)) +
+                (coeffs.values[5] * matrix.values[5].x)) +
+               (coeffs.values[6] * matrix.values[6].x)) +
+              (coeffs.values[7] * matrix.values[7].x));
+  result.y = ((((((((result.y + (coeffs.values[0] * matrix.values[0].y)) +
+                    (coeffs.values[1] * matrix.values[1].y)) +
+                   (coeffs.values[2] * matrix.values[2].y)) +
+                  (coeffs.values[3] * matrix.values[3].y)) +
+                 (coeffs.values[4] * matrix.values[4].y)) +
+                (coeffs.values[5] * matrix.values[5].y)) +
+               (coeffs.values[6] * matrix.values[6].y)) +
+              (coeffs.values[7] * matrix.values[7].y));
+  result.z = ((((((((result.z + (coeffs.values[0] * matrix.values[0].z)) +
+                    (coeffs.values[1] * matrix.values[1].z)) +
+                   (coeffs.values[2] * matrix.values[2].z)) +
+                  (coeffs.values[3] * matrix.values[3].z)) +
+                 (coeffs.values[4] * matrix.values[4].z)) +
+                (coeffs.values[5] * matrix.values[5].z)) +
+               (coeffs.values[6] * matrix.values[6].z)) +
+              (coeffs.values[7] * matrix.values[7].z));
   return result;
 }
 
@@ -478,177 +465,146 @@ int main() {
     for (int idCell = 0; (idCell < nbCells); idCell++) {
       nextCharge[idCell] = 0.;
     }
-    for (int ix = 0; (ix < gridSize); ix++) {
-      for (int iy = 0; (iy < gridSize); iy++) {
-        for (int iz = 0; (iz < gridSize); iz++) {
-          int idCell = ((((ix * gridSize) + iy) * gridSize) + iz);
-          vect_nbCorners field_at_corners = getFieldAtCorners(idCell);
-          bag *b = (&bagsCur[idCell]);
-          chunk *c = (b->front);
-          while (true) {
-            int nb = (c->size);
-            for (int i = 0; (i < nb); i++) {
-              double coef_x[8] = {1., 1., 1., 1., 0., 0., 0., 0.};
-              double sign_x[8] = {(-1.), (-1.), (-1.), (-1.), 1., 1., 1., 1.};
-              double coef_y[8] = {1., 1., 0., 0., 1., 1., 0., 0.};
-              double sign_y[8] = {(-1.), (-1.), 1., 1., (-1.), (-1.), 1., 1.};
-              double coef_z[8] = {1., 0., 1., 0., 1., 0., 1., 0.};
-              double sign_z[8] = {(-1.), 1., (-1.), 1., (-1.), 1., (-1.), 1.};
-              double px = ((c->items)[i].pos_x / cellX);
-              double py = ((((c->items)[i].pos_y - iy) - ix) / cellY);
-              double pz = (((c->items)[i].pos_z - iz) / cellZ);
-              int ix = int_of_double(px);
-              int iy = int_of_double(py);
-              int iz = int_of_double(pz);
-              double rx1 = (((c->items)[i].pos_x - (ix * cellX)) / cellX);
-              double ry1 =
-                  (((((c->items)[i].pos_y - iy) - ix) - (iy * cellY)) / cellY);
-              double rz1 =
-                  ((((c->items)[i].pos_z - iz) - (iz * cellZ)) / cellZ);
-              double_nbCorners coeffs;
-              for (int k = 0; (k < nbCorners); k++) {
-                coeffs.values[k] = (((coef_x[k] + (sign_x[k] * rx1)) *
-                                     (coef_y[k] + (sign_y[k] * ry1))) *
-                                    (coef_z[k] + (sign_z[k] * rz1)));
-              }
-              vect fieldAtPos = {0., 0., 0.};
-              fieldAtPos.x = (fieldAtPos.x + (coeffs.values[0] *
-                                              field_at_corners.values[0].x));
-              fieldAtPos.x = (fieldAtPos.x + (coeffs.values[1] *
-                                              field_at_corners.values[1].x));
-              fieldAtPos.x = (fieldAtPos.x + (coeffs.values[2] *
-                                              field_at_corners.values[2].x));
-              fieldAtPos.x = (fieldAtPos.x + (coeffs.values[3] *
-                                              field_at_corners.values[3].x));
-              fieldAtPos.x = (fieldAtPos.x + (coeffs.values[4] *
-                                              field_at_corners.values[4].x));
-              fieldAtPos.x = (fieldAtPos.x + (coeffs.values[5] *
-                                              field_at_corners.values[5].x));
-              fieldAtPos.x = (fieldAtPos.x + (coeffs.values[6] *
-                                              field_at_corners.values[6].x));
-              fieldAtPos.x = (fieldAtPos.x + (coeffs.values[7] *
-                                              field_at_corners.values[7].x));
-              fieldAtPos.y = (fieldAtPos.y + (coeffs.values[0] *
-                                              field_at_corners.values[0].y));
-              fieldAtPos.y = (fieldAtPos.y + (coeffs.values[1] *
-                                              field_at_corners.values[1].y));
-              fieldAtPos.y = (fieldAtPos.y + (coeffs.values[2] *
-                                              field_at_corners.values[2].y));
-              fieldAtPos.y = (fieldAtPos.y + (coeffs.values[3] *
-                                              field_at_corners.values[3].y));
-              fieldAtPos.y = (fieldAtPos.y + (coeffs.values[4] *
-                                              field_at_corners.values[4].y));
-              fieldAtPos.y = (fieldAtPos.y + (coeffs.values[5] *
-                                              field_at_corners.values[5].y));
-              fieldAtPos.y = (fieldAtPos.y + (coeffs.values[6] *
-                                              field_at_corners.values[6].y));
-              fieldAtPos.y = (fieldAtPos.y + (coeffs.values[7] *
-                                              field_at_corners.values[7].y));
-              fieldAtPos.z = (fieldAtPos.z + (coeffs.values[0] *
-                                              field_at_corners.values[0].z));
-              fieldAtPos.z = (fieldAtPos.z + (coeffs.values[1] *
-                                              field_at_corners.values[1].z));
-              fieldAtPos.z = (fieldAtPos.z + (coeffs.values[2] *
-                                              field_at_corners.values[2].z));
-              fieldAtPos.z = (fieldAtPos.z + (coeffs.values[3] *
-                                              field_at_corners.values[3].z));
-              fieldAtPos.z = (fieldAtPos.z + (coeffs.values[4] *
-                                              field_at_corners.values[4].z));
-              fieldAtPos.z = (fieldAtPos.z + (coeffs.values[5] *
-                                              field_at_corners.values[5].z));
-              fieldAtPos.z = (fieldAtPos.z + (coeffs.values[6] *
-                                              field_at_corners.values[6].z));
-              fieldAtPos.z = (fieldAtPos.z + (coeffs.values[7] *
-                                              field_at_corners.values[7].z));
-              (c->items)[i].speed_x =
-                  ((c->items)[i].speed_x +
-                   (stepDuration * ((particleCharge / particleMass) *
-                                    ((fieldAtPos.x / factorZ) / factorX))));
-              (c->items)[i].speed_y =
-                  ((c->items)[i].speed_y +
-                   (stepDuration * ((particleCharge / particleMass) *
-                                    (fieldAtPos.y / factorY))));
-              (c->items)[i].speed_z =
-                  ((c->items)[i].speed_z +
-                   (stepDuration *
-                    ((particleCharge / particleMass) * fieldAtPos.z)));
-              (c->items)[i].pos_x =
-                  (float)(((c->items)[i].pos_x +
-                           (stepDuration *
-                            (((c->items)[i].speed_x / stepDuration) / cellX))) +
-                          ix);
-              (c->items)[i].pos_y =
-                  (float)(((((c->items)[i].pos_y - iy) - ix) +
-                           (stepDuration *
-                            (((c->items)[i].speed_y / stepDuration) / cellY))) +
-                          iy);
-              (c->items)[i].pos_z =
-                  (float)((((c->items)[i].pos_z - iz) +
-                           (stepDuration *
-                            (((c->items)[i].speed_z / stepDuration) / cellZ))) +
-                          iz);
-              int idCell2 = cellOfCoord(ix, iy, iz);
-              if (ANY_BOOL()) {
-                chunk *c1 = ((&bagsNext[idCell2])->front);
-                int index1 = (c1->size)++;
-                (c1->items)[index1].pos_x = (c->items)[i].pos_x;
-                (c1->items)[index1].pos_y = (((c->items)[i].pos_y - iy) - ix);
-                (c1->items)[index1].pos_z = ((c->items)[i].pos_z - iz);
-                (c1->items)[index1].speed_x = (c->items)[i].speed_x;
-                (c1->items)[index1].speed_y = (c->items)[i].speed_y;
-                (c1->items)[index1].speed_z = (c->items)[i].speed_z;
+    for (int idCell = 0; (idCell < nbCells); idCell++) {
+      vect_nbCorners field_at_corners = getFieldAtCorners(idCell);
+      bag *b = (&bagsCur[idCell]);
+      chunk *c = (b->front);
+      while (true) {
+        int nb = (c->size);
+        for (int i = 0; (i < nb); i++) {
+          double coef_x[8] = {1., 1., 1., 1., 0., 0., 0., 0.};
+          double sign_x[8] = {(-1.), (-1.), (-1.), (-1.), 1., 1., 1., 1.};
+          double coef_y[8] = {1., 1., 0., 0., 1., 1., 0., 0.};
+          double sign_y[8] = {(-1.), (-1.), 1., 1., (-1.), (-1.), 1., 1.};
+          double coef_z[8] = {1., 0., 1., 0., 1., 0., 1., 0.};
+          double sign_z[8] = {(-1.), 1., (-1.), 1., (-1.), 1., (-1.), 1.};
+          int ix11 = int_of_double(((c->items)[i].pos.x / cellX));
+          int iy11 = int_of_double(((c->items)[i].pos.y / cellY));
+          int iz11 = int_of_double(((c->items)[i].pos.z / cellZ));
+          double rx1 = (((c->items)[i].pos.x - (ix11 * cellX)) / cellX);
+          double ry1 = (((c->items)[i].pos.y - (iy11 * cellY)) / cellY);
+          double rz1 = (((c->items)[i].pos.z - (iz11 * cellZ)) / cellZ);
+          double_nbCorners coeffs;
+          for (int k = 0; (k < nbCorners); k++) {
+            coeffs.values[k] = (((coef_x[k] + (sign_x[k] * rx1)) *
+                                 (coef_y[k] + (sign_y[k] * ry1))) *
+                                (coef_z[k] + (sign_z[k] * rz1)));
+          }
+          double fieldAtPos_x = 0.;
+          double fieldAtPos_y = 0.;
+          double fieldAtPos_z = 0.;
+          fieldAtPos_x =
+              ((((((((fieldAtPos_x +
+                      (coeffs.values[0] * field_at_corners.values[0].x)) +
+                     (coeffs.values[1] * field_at_corners.values[1].x)) +
+                    (coeffs.values[2] * field_at_corners.values[2].x)) +
+                   (coeffs.values[3] * field_at_corners.values[3].x)) +
+                  (coeffs.values[4] * field_at_corners.values[4].x)) +
+                 (coeffs.values[5] * field_at_corners.values[5].x)) +
+                (coeffs.values[6] * field_at_corners.values[6].x)) +
+               (coeffs.values[7] * field_at_corners.values[7].x));
+          fieldAtPos_y =
+              ((((((((fieldAtPos_y +
+                      (coeffs.values[0] * field_at_corners.values[0].y)) +
+                     (coeffs.values[1] * field_at_corners.values[1].y)) +
+                    (coeffs.values[2] * field_at_corners.values[2].y)) +
+                   (coeffs.values[3] * field_at_corners.values[3].y)) +
+                  (coeffs.values[4] * field_at_corners.values[4].y)) +
+                 (coeffs.values[5] * field_at_corners.values[5].y)) +
+                (coeffs.values[6] * field_at_corners.values[6].y)) +
+               (coeffs.values[7] * field_at_corners.values[7].y));
+          fieldAtPos_z =
+              ((((((((fieldAtPos_z +
+                      (coeffs.values[0] * field_at_corners.values[0].z)) +
+                     (coeffs.values[1] * field_at_corners.values[1].z)) +
+                    (coeffs.values[2] * field_at_corners.values[2].z)) +
+                   (coeffs.values[3] * field_at_corners.values[3].z)) +
+                  (coeffs.values[4] * field_at_corners.values[4].z)) +
+                 (coeffs.values[5] * field_at_corners.values[5].z)) +
+                (coeffs.values[6] * field_at_corners.values[6].z)) +
+               (coeffs.values[7] * field_at_corners.values[7].z));
+          vect accel = {((particleCharge / particleMass) * fieldAtPos_x),
+                        ((particleCharge / particleMass) * fieldAtPos_y),
+                        ((particleCharge / particleMass) * fieldAtPos_z)};
+          (c->items)[i].speed.x =
+              ((c->items)[i].speed.x + (stepDuration * accel.x));
+          (c->items)[i].speed.y =
+              ((c->items)[i].speed.y + (stepDuration * accel.y));
+          (c->items)[i].speed.z =
+              ((c->items)[i].speed.z + (stepDuration * accel.z));
+          (c->items)[i].pos.x =
+              ((c->items)[i].pos.x + (stepDuration * (c->items)[i].speed.x));
+          (c->items)[i].pos.y =
+              ((c->items)[i].pos.y + (stepDuration * (c->items)[i].speed.y));
+          (c->items)[i].pos.z =
+              ((c->items)[i].pos.z + (stepDuration * (c->items)[i].speed.z));
+          int ix2 = int_of_double(((c->items)[i].pos.x / cellX));
+          int iy2 = int_of_double(((c->items)[i].pos.y / cellY));
+          int iz2 = int_of_double(((c->items)[i].pos.z / cellZ));
+          int idCell2 = cellOfCoord(ix2, iy2, iz2);
+          if (ANY_BOOL()) {
+            chunk *c1 = ((&bagsNext[idCell2])->front);
+            int index1 = (c1->size)++;
+            (c1->items)[index1].pos.x = (c->items)[i].pos.x;
+            (c1->items)[index1].pos.y = (c->items)[i].pos.y;
+            (c1->items)[index1].pos.z = (c->items)[i].pos.z;
+            (c1->items)[index1].speed.x = (c->items)[i].speed.x;
+            (c1->items)[index1].speed.y = (c->items)[i].speed.y;
+            (c1->items)[index1].speed.z = (c->items)[i].speed.z;
+            if ((index1 == (CHUNK_SIZE - 1))) {
+              bag_add_front_chunk((&bagsNext[idCell2]));
+            }
+          } else {
+            chunk *c1;
+            int index1;
+            while (true) {
+              c1 = ((&bagsNext[idCell2])->front);
+              index1 = (c1->size)++;
+              if ((index1 < CHUNK_SIZE)) {
+                (c1->items)[index1].pos.x = (c->items)[i].pos.x;
+                (c1->items)[index1].pos.y = (c->items)[i].pos.y;
+                (c1->items)[index1].pos.z = (c->items)[i].pos.z;
+                (c1->items)[index1].speed.x = (c->items)[i].speed.x;
+                (c1->items)[index1].speed.y = (c->items)[i].speed.y;
+                (c1->items)[index1].speed.z = (c->items)[i].speed.z;
                 if ((index1 == (CHUNK_SIZE - 1))) {
                   bag_add_front_chunk((&bagsNext[idCell2]));
                 }
+                goto exit_body;
               } else {
-                chunk *c1;
-                int index1;
-                while (true) {
-                  c1 = ((&bagsNext[idCell2])->front);
-                  index1 = (c1->size)++;
-                  if ((index1 < CHUNK_SIZE)) {
-                    (c1->items)[index1].pos_x = (c->items)[i].pos_x;
-                    (c1->items)[index1].pos_y =
-                        (((c->items)[i].pos_y - iy) - ix);
-                    (c1->items)[index1].pos_z = ((c->items)[i].pos_z - iz);
-                    (c1->items)[index1].speed_x = (c->items)[i].speed_x;
-                    (c1->items)[index1].speed_y = (c->items)[i].speed_y;
-                    (c1->items)[index1].speed_z = (c->items)[i].speed_z;
-                    if ((index1 == (CHUNK_SIZE - 1))) {
-                      bag_add_front_chunk((&bagsNext[idCell2]));
-                    }
-                    goto exit_body;
-                  } else {
-                    (c1->size) = CHUNK_SIZE;
-                    while (
-                        (atomic_read((&((&bagsNext[idCell2])->front))) == c1)) {
-                    }
-                  }
+                (c1->size) = CHUNK_SIZE;
+                while ((atomic_read((&((&bagsNext[idCell2])->front))) == c1)) {
                 }
-              exit_body:;
-              }
-              double_nbCorners coeffs2;
-              int_nbCorners indices1 = indicesOfCorners(idCell2);
-              double_nbCorners result1;
-              for (int k = 0; (k < nbCorners); k++) {
-                nextCharge[indices1.values[k]] +=
-                    (particleCharge * (((coef_x[k] + (sign_x[k] * rx1)) *
-                                        (coef_y[k] + (sign_y[k] * ry1))) *
-                                       (coef_z[k] + (sign_z[k] * rz1))));
               }
             }
-            chunk *cnext = (c->next);
-            if ((cnext != NULL)) {
-              chunk_free(c);
-              c = cnext;
-            } else {
-              (c->size) = 0;
-              (b->front) = c;
-              (b->back) = c;
-              (c->next) = NULL;
-              break;
-            }
+          exit_body:;
           }
+          int ix12 = int_of_double(((c->items)[i].pos.x / cellX));
+          int iy12 = int_of_double(((c->items)[i].pos.y / cellY));
+          int iz12 = int_of_double(((c->items)[i].pos.z / cellZ));
+          double rx2 = (((c->items)[i].pos.x - (ix12 * cellX)) / cellX);
+          double ry2 = (((c->items)[i].pos.y - (iy12 * cellY)) / cellY);
+          double rz2 = (((c->items)[i].pos.z - (iz12 * cellZ)) / cellZ);
+          double_nbCorners coeffs2;
+          double_nbCorners result1;
+          int_nbCorners indices1 = indicesOfCorners(idCell2);
+          for (int k = 0; (k < nbCorners); k++) {
+            nextCharge[indices1.values[k]] +=
+                (particleCharge * (((coef_x[k] + (sign_x[k] * rx2)) *
+                                    (coef_y[k] + (sign_y[k] * ry2))) *
+                                   (coef_z[k] + (sign_z[k] * rz2))));
+          }
+        }
+        chunk *cnext = (c->next);
+        if ((cnext != NULL)) {
+          chunk_free(c);
+          c = cnext;
+        } else {
+          (c->size) = 0;
+          (b->front) = c;
+          (b->back) = c;
+          (c->next) = NULL;
+          break;
         }
       }
     }

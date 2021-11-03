@@ -105,6 +105,8 @@ val cInclude : string -> constr
 
 val cWriteVar : string -> constr
 
+val cReadVar : string -> constr
+
 val cAny : constr
 
 val cChoose : constr

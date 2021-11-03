@@ -435,21 +435,17 @@ let cWrite ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_
   let lhs_typed = with_type ~typ ~typ_pred lhs in
   cPrimFun ~args:[lhs_typed; rhs] (Prim_binop Binop_set)
 
+(* [cRead] matches all the get operations on mutable variables *)
+let cRead ?(addr : target = []) () : constr =
+  cPrimFun ~args:[addr] (Prim_unop Unop_get)
+
 (* [cWriteVar x] matches a set operation for variable [x] *)
 let cWriteVar (x : var) : constr =
   cWrite ~lhs:[cVar x] ()
 
-(* [cAny] matches all the calls to function ANY *)
-let cAny : constr =
-  cFun "ANY"
-
-(* [cChoose] matches all the calls to function CHOOSE *)
-let cChoose : constr =
-  cFun "CHOOSE"
-
-(* [cRead] matches all the get operations on mutable variables *)
-let cRead ?(addr : target = []) () : constr =
-  cPrimFun ~args:[addr] (Prim_unop Unop_get)
+(* [cWriteVar x] matches a set operation for variable [x] *)
+let cReadVar (x : var) : constr =
+  cRead ~addr:[cVar x] ()
 
 (* [cMark m] matches all the ast nodes with annotation Mark m*)
 let cMark (m : mark) : constr =
@@ -507,6 +503,13 @@ let cBreak : constr =
 let cContinue : constr =
   Constr_abort (cAbrtCtn)
 
+(* [cAny] matches all the calls to function ANY *)
+let cAny : constr =
+  cFun "ANY"
+
+(* [cChoose] matches all the calls to function CHOOSE *)
+let cChoose : constr =
+  cFun "CHOOSE"
 
 
 
@@ -949,3 +952,4 @@ let get_trm_at (tg : target) : trm =
     t_ast := fst (Path.resolve_path tg_path t)
   );
   !t_ast
+

@@ -62,11 +62,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti;cFunDef "main";cWrite ~typ:"vect" ()];
      Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
  !!! Struct.to_variables [cVarDef "fieldAtPos"];
-     Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_x"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_x"] ()];
+    (* Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_x"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_x"] ()];
      Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_y"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_y"] ()];
      Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_z"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_z"] ()];
      Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];
-     Variable.inline [nbMulti;cVarDef ~regexp:true "fieldAtPos_."];
+     Variable.inline [nbMulti;cVarDef ~regexp:true "fieldAtPos_."]; *)
   
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [ cOr [[cFun "vect8_mul"];[cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
@@ -92,25 +92,32 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
    (* TODO: Improve Instr_basic.move so that it support multiple targets *)
   
-    Instr.delete [cOr [[cVarDef "coeffs"];[cVarDef "coeffs2"]]];
-    Variable.rename_on_block (ByList [("r1","coeffs");("r2","coeffs2")]) [cFunDef "main"; cFor "i"; dBody];
-    Loop.fusion ~nb:3 [cFunDef "main"; cFor "k" ~body:[sInstr "coeffs2.values[k] ="]];
-!!! Instr.inline_last_write ~write:[sInstr "coeffs2.values[k] ="] [cRead ~addr:[sExpr "coeffs2.values"] ()];
-    Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
+     Instr.delete [cOr [[cVarDef "coeffs"];[cVarDef "coeffs2"]]];
+     Variable.rename_on_block (ByList [("r1","coeffs");("r2","coeffs2")]) [cFunDef "main"; cFor "i"; dBody];
+     Loop.fusion ~nb:3 [cFunDef "main"; cFor "k" ~body:[sInstr "coeffs2.values[k] ="]];
+ !!! Instr.inline_last_write ~write:[sInstr "coeffs2.values[k] ="] [cRead ~addr:[sExpr "coeffs2.values"] ()];
+     Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
     (* Loop.unroll ~braces:false [tIndex 1;cFunDef "main";cFor "k"]; *)
+  
   
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert "factor"  "const double" "particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];
      Variable.insert "factorX" "const double" "factor / cellX" [tAfter; cVarDef "factor"];
      Variable.insert "factorY" "const double" "factor / cellY" [tAfter; cVarDef "factorX"];
      Variable.insert "factorZ" "const double" "factor / cellZ" [tAfter; cVarDef "factorY"];
-     Accesses.scale (Ast.trm_var "factorX") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
-     Accesses.scale (Ast.trm_var "factorY") [sInstr "c->items";cFieldRead ~field:"y" ~base:[cVar "fieldAtPos"] ()];
-     Accesses.scale (Ast.trm_var "factorZ") [sInstr "c->items";cFieldRead ~field:"x" ~base:[cVar "fieldAtPos"] ()];
-     Accesses.scale (Ast.trm_var "stepDuration / cellX") [sInstr "(c->items)[i].pos.x ="; cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
-     Accesses.scale (Ast.trm_var "stepDuration / cellY") [sInstr "(c->items)[i].pos.y ="; cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
-     Accesses.scale (Ast.trm_var "stepDuration / cellZ") [sInstr "(c->items)[i].pos.z ="; cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
-  (* TODO: More scaling operations needed *)
+  
+     Accesses.scale (Ast.trm_var "factorX") [cVarDef "accel"; cReadVar "fieldAtPos_x"];
+     Accesses.scale (Ast.trm_var "factorY") [cVarDef "accel"; cReadVar "fieldAtPos_y"];
+     Accesses.scale (Ast.trm_var "factorZ") [cVarDef "accel"; cReadVar "fieldAtPos_z"];
+  
+     Accesses.scale (Ast.trm_var "stepDuration / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
+     Accesses.scale (Ast.trm_var "stepDuration / cellY") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
+     Accesses.scale (Ast.trm_var "stepDuration / cellZ") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
+  
+     Accesses.scale (Ast.trm_var "1. / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()];
+     Accesses.scale (Ast.trm_var "1. / cellY") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+     Accesses.scale (Ast.trm_var "1. / cellZ") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
+  
   (* TODO: arthur will give the pseudo code for the automated simplifier *)
 
   (* NOTE:
