@@ -32,3 +32,10 @@ let accumulate ?(nb : int option) : Target.Transfo.t =
     | _ -> fail t.loc "accumulate: expected a target to a sequence or a target to an instruction and the number of instructions to consider too"
     end
   ) 
+
+(* [move_multiple ~targets tgs] expects a list of destinations and a list of targets to be movet at those 
+    destinations, the map is based on the indices, ex target and index 1 will be move at the destination 1 and so on.
+*)
+let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(targets : Target.target list ) : unit = 
+  if List.length destinations <> List.length targets then fail None "move_multiple: each destination corresponds to a single target and vice-versa";
+  List.iter2(fun target tg1 -> Instr_basic.move ~target tg1) destinations targets 

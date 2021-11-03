@@ -77,8 +77,9 @@ let accumulate_aux (t : trm) : trm =
       | Trm_apps (_, [ls; rs]) when is_set_operation t1 ->
         begin match rs.desc with 
         | Trm_apps (f, [ls1; rs1]) ->
+          let acc = if i = 0 then ls1 else acc in
           let acc_trm = (trm_apps f [acc; rs1]) in
-          if i = nb_instr -1 then trm_set ~annot:t1.annot ls (trm_apps f [ls1; acc_trm]) else acc_trm 
+          if i = nb_instr -1 then trm_set ls acc_trm else acc_trm 
         | _-> fail t.loc "accumulate_aux: expected an instruction of the form x += A or x = x + A"
         end
       | _ -> fail t.loc "accumulate_aux: all the instructions should be write operations"
