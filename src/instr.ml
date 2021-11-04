@@ -39,3 +39,14 @@ let accumulate ?(nb : int option) : Target.Transfo.t =
 let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(targets : Target.target list ) : unit = 
   if List.length destinations <> List.length targets then fail None "move_multiple: each destination corresponds to a single target and vice-versa";
   List.iter2(fun dest tg1 -> Instr_basic.move ~dest tg1) destinations targets 
+
+(* [move_invariant dest tg] move the invariant [tg] to destination [dest] 
+   Note: The transformation does not check if [tg] points to some invariant code or not
+*)
+let move_invariant ~dest:(dest : Target.target) : Target.Transfo.t =  
+  Target.iter_on_targets (fun t p ->
+    let tg_trm,_ = Path.resolve_path p t in
+    Marks.add "instr_move_invariant" (Target.target_of_path p);
+    Sequence_basic.insert tg_trm dest;
+    Instr_basic.delete [Target.cMark "instr_move_invariant"]
+  )

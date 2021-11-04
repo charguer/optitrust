@@ -60,3 +60,4 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
 *)
 let accumulate : Target.Transfo.t =
   Target.apply_on_targets (Instr_core.accumulate)
+

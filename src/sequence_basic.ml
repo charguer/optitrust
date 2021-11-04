@@ -5,7 +5,8 @@ open Target
   [code] denotes the arbitrary code to be inserted inside the sequence
 *)
 let insert (code : trm) : Target.Transfo.t =
-  Target.reparse_after (Target.apply_on_targets_between (fun t (p,i) ->
+  let reparse = not (is_trm code) in
+  Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) ->
     Sequence_core.insert i code t p) )
 
 

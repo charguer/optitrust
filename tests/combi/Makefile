@@ -34,6 +34,7 @@ TESTS_TOCHECK := \
 	matrix_intro_mops.ml \
 	instr_accumulate.ml \
 	funciton_inline_struct.ml \
+	instr_move_invariant.ml \
 
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 

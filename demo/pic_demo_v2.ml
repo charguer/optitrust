@@ -25,7 +25,7 @@ let _ = Run.script_cpp (fun () ->
   
   (* Introduction of the computation *)
   !! Variable.insert ~name:"d" ~typ:"int" ~value:"blockSize/2" [tAfter;cVarDef "blockSize"];
-  !! Variable.insert ~name:"distanceToBlockLessThanHalfABlock" ~typ:"bool"  (* TODO: Add optional arg for the type *)
+  !! Variable.insert ~name:"distanceToBlockLessThanHalfABlock" ~typ:"bool"  
        ~value:"(x2 >= bx + d && x2 < bx + blockSize + d)
     && (y2 >= by + d && y2 < by + blockSize + d)
     && (z2 >= bz + d && z2 < bz + blockSize + d)" [tAfter; cVarDef "p2"];
