@@ -46,17 +46,20 @@ let replace_fun (name : string) : Target.Transfo.local =
     return:
       the updated [t]
 *)
-let move_aux (index : int) (tg_index : int) (t : trm) : trm =
-  match t.desc with
+let move_aux (dest_index : int) (index : int) (t : trm) : trm = 
+  match t.desc with 
   | Trm_seq tl ->
-    let instr_to_move = Mlist.nth tl tg_index in
-    let instr_to_move = {instr_to_move with marks = []} in
-    let new_tl = Mlist.insert_at index instr_to_move tl in
+    let instr_to_move = Mlist.nth tl index in
+    let index_to_remove = if dest_index <= index then index + 1 else index in
+    let new_tl = Mlist.insert_at dest_index instr_to_move tl in
+    let new_tl = Mlist.remove index_to_remove  1 new_tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "move_aux: expected the sequence which contains the surrounding sequence"
+  | _ -> fail t.loc "move_aux: expected the surrounding sequence of the targeted instructions"
 
-let move (index : int) (tg_index : int) : Target.Transfo.local =
-  Target.apply_on_path (move_aux index tg_index)
+
+
+let move (dest_index : int) (index : int) : Target.Transfo.local =
+  Target.apply_on_path (move_aux dest_index index)
 
 (* [accumulate_aux t] transform a list of write instructions into a single instruction
     params:

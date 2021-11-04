@@ -31,16 +31,13 @@ let delete : Target.Transfo.t =
 (* [move ~target tg] expects the target [tg] to point to the instruction which is 
     going to be moved at the relative target [where]
 *)
-let move ~dest:(where : Target.target) (tg : Target.target) : unit =
-  Trace.call (fun t -> 
-    let tg_where_path_seq,where_index = Target.resolve_target_between_exactly_one where t in
-    let tg_path = Target.resolve_target_exactly_one tg t in
-    let tg_path_to_seq, tg_index = Internal.isolate_last_dir_in_seq tg_path in
-    if tg_where_path_seq <> tg_path_to_seq then fail None "move: the relative target should be in the same block as the main target";
-    Marks.add "tmp_mark_move" (Target.target_of_path tg_path);
-    Target.apply_on_targets (Instr_core.move where_index tg_index ) (Target.target_of_path tg_path_to_seq);
-    delete [Target.cMark "tmp_mark_move"];
-  ) 
+let move ~dest:(where : Target.target) (tg : Target.target) : unit = 
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun (p,i) t -> 
+      let tg_dest_path_seq, dest_index = Target.resolve_target_between_exactly_one where t in
+      if tg_dest_path_seq <> p then fail None "move: the destination target should be unique and belong to the same block as the main targets";
+      Instr_core.move dest_index i t p
+    ) tg
 
 (* [read_last_write ~write tg] expects the target [tg] to point to a read operation, then it
     replaces the trm corresponding to that read operation with the one at [write].

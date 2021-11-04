@@ -78,14 +78,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       ("sign_x2","sign_x");("sign_x1","sign_x");("sign_y2","sign_y");
       ("sign_y1","sign_y");("sign_z2","sign_z");("sign_z1","sign_z");]) [cFunDef "main"; cFor "i"; dBody];
      Instr.delete [nbMulti; cMark mark];
-     Instr.move_multiple ~destinations:[
-      [tBefore; cVarDef "rx1"];[tBefore; cVarDef "rx1"];[tBefore; cVarDef "rx2"];
-      [tBefore; cVarDef "rx2"];[tAfter; cVarDef "r2"];[tAfter; cVarDef "r2"]] 
-      ~targets:[
-        [cVarDef "iy11"];[cVarDef "iz11"];[cVarDef "iy12"];[cVarDef "iz12"];
-        [cVarDef "indices1"];[cVarDef "result1"]];
-
-   (* TODO: Improve Instr_basic.move so that it support multiple targets *)
+     !! Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true "i.11"];
+        Instr.move ~dest:[tBefore; cVarDef "rx2"] [nbMulti; cVarDef ~regexp:true "i.12"];
+        Instr.move ~dest:[tBefore; cVarDef "r2"] [cOr [ [cVarDef ~regexp:true "indices1"];[cVarDef ~regexp:true "result1"]]];
   
      Instr.delete [cOr [[cVarDef "coeffs"];[cVarDef "coeffs2"]]];
      Variable.rename_on_block (ByList [("r1","coeffs");("r2","coeffs2")]) [cFunDef "main"; cFor "i"; dBody];
@@ -139,7 +134,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Variable.bind_intro ~fresh_name:"px" [sInstr "(c->items)[i].pos.x ="; dRHS];
      Variable.bind_intro ~fresh_name:"py" [sInstr "(c->items)[i].pos.y ="; dRHS];
      Variable.bind_intro ~fresh_name:"pz" [sInstr "(c->items)[i].pos.z ="; dRHS];
-     Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
+    !!Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
      
      Accesses.shift (Ast.trm_var "ix") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.x"] ()]; [cVarDef "px"; cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()]]];
      Accesses.shift (Ast.trm_var "iy") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.y"] ()]; [cVarDef "py"; cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()]]];

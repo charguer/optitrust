@@ -43,7 +43,7 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
     which come after the declared variable.
 *)
 let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target.target) : unit = 
-  Variable_basic.insert name typ value tg;
+  Variable_basic.insert ~name ~typ ~value tg;
   Variable_basic.fold [Target.cVarDef name]
 
 (* [delocalize ~var_type ~var ~local_var ~mark ~arr_size ~neutral_element fold_operation tg] 
