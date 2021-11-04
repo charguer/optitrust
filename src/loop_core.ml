@@ -332,7 +332,6 @@ let unroll (braces : bool)(my_mark : mark) : Target.Transfo.local =
   Target.apply_on_path (unroll_aux braces my_mark)
 
 
-(* TODO: Reimplement it so that it supports a more generic context *)
 (* [invariant_aux trm_index t]: take a constant term inside the body of the loop
       in outside the loop.
     params:

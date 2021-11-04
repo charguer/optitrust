@@ -36,7 +36,7 @@ and dir =
   (* app *)
   | Dir_app_fun
   (* arg for fun application and declaration *)
-  | Dir_arg of int (* TODO Dir_arg_nth *)
+  | Dir_arg_nth of int (* TODO Dir_arg_nth_nth *)
   (* name of declared var/fun or label *)
   | Dir_name
   (*
@@ -74,7 +74,7 @@ let dir_to_string (d : dir) : string =
   | Dir_for_c_init -> "Dir_for_c_init"
   | Dir_for_c_step -> "Dir_for_c_step"
   | Dir_app_fun -> "Dir_app_fun"
-  | Dir_arg n -> "Dir_arg " ^ (string_of_int n)
+  | Dir_arg_nth n -> "Dir_arg_nth " ^ (string_of_int n)
   | Dir_name -> "Dir_name"
   | Dir_case (n, cd) ->
      let s_cd =
@@ -112,7 +112,7 @@ let compare_dir (d : dir) (d' : dir) : int =
   | Dir_array_nth n, Dir_array_nth m -> compare n m
   | Dir_seq_nth n, Dir_seq_nth m -> compare n m
   | Dir_struct_nth n, Dir_struct_nth m -> compare n m
-  | Dir_arg n, Dir_arg m -> compare n m
+  | Dir_arg_nth n, Dir_arg_nth m -> compare n m
   | Dir_case (n, cd), Dir_case (m, cd') ->
      let cn = compare n m in
      if cn <> 0 then cn else
@@ -157,8 +157,8 @@ let compare_dir (d : dir) (d' : dir) : int =
   | _, Dir_for_c_step -> 1
   | Dir_app_fun, _ -> -1
   | _, Dir_app_fun -> 1
-  | Dir_arg _, _ -> -1
-  | _, Dir_arg _ -> 1
+  | Dir_arg_nth _, _ -> -1
+  | _, Dir_arg_nth _ -> 1
   | Dir_name, _ -> -1
   | _, Dir_name -> 1
   | Dir_case _, _ -> -1
@@ -292,9 +292,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
             -> print and reparse to have the right type
            *)
           { t with desc = Trm_apps (aux f, tl)}
-       | Dir_arg n, Trm_apps (f, tl) ->
+       | Dir_arg_nth n, Trm_apps (f, tl) ->
           { t with desc = Trm_apps (f, Tools.map_at aux tl n)}
-       | Dir_arg n, Trm_let_fun (x, tx, txl, body) ->
+       | Dir_arg_nth n, Trm_let_fun (x, tx, txl, body) ->
           let txl' =
             Tools.map_at
               (fun (x, tx) ->
@@ -448,9 +448,9 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           | _ -> aux dl step ctx
           end
        | Dir_app_fun, Trm_apps (f, _) -> aux dl f ctx
-       | Dir_arg n, Trm_apps (_, tl) ->
+       | Dir_arg_nth n, Trm_apps (_, tl) ->
           app_to_nth loc tl n (fun nth_t -> aux dl nth_t ctx)
-       | Dir_arg n, Trm_let_fun (_, _, arg, _) ->
+       | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
           app_to_nth loc arg n
             (fun (x, _) -> aux dl (trm_var ~loc x) ctx)
        | Dir_name , Trm_let (_,(x,_),_)

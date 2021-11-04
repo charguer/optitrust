@@ -287,7 +287,6 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
 
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
   ) tg;
-  (* TODO: Replace reparsing with remove_nobrace *)
   if not braces then Trace.reparse () 
 
 

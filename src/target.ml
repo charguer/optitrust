@@ -151,7 +151,7 @@ let dEnumConstName : enum_const_dir = Enum_const_name
 let dEnumConstVal : enum_const_dir = Enum_const_val
 
 let dArg (n : int) : constr =
-  Constr_dir (Dir_arg n)
+  Constr_dir (Dir_arg_nth n)
 
 
 (* [string_to_rexp regexp substr s trmKind]  transforms a string into a regular expression

@@ -177,7 +177,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Sequence.intro ~mark:"temp_seq" ~start:[cFunDef "main";cVarDef "coef_x"] ~nb:6 (); 
-     Loop.invariant [cMark "temp_seq"];
+     Instr.move_invariant [cMark "temp_seq"];
      Sequence.elim [cMark "temp_seq"];
      Loop.fission [tBefore; cVarDef "px"];
      Loop.fission [tBefore; cVarDef "ix2"];

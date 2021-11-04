@@ -1017,7 +1017,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
          the wildcard is a star operator the user doesn't know about
          t' is an access under which want to explore
         *)
-     | Trm_apps (_, [t']) -> add_dir (Dir_arg 0) (explore_in_depth p t')
+     | Trm_apps (_, [t']) -> add_dir (Dir_arg_nth 0) (explore_in_depth p t')
      | _ -> fail loc "explore_in_depth: bad access annotation"
      end
   else if List.mem Multi_decl t.annot then
@@ -1094,7 +1094,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         (* fun *)
         (add_dir Dir_app_fun (aux f)) @
         (* args *)
-        (explore_list args (fun n -> Dir_arg n) (aux))
+        (explore_list args (fun n -> Dir_arg_nth n) (aux))
      | Trm_array tl ->
         explore_list (Mlist.to_list tl) (fun n -> Dir_array_nth n) (aux)
      | Trm_seq tl ->
@@ -1172,13 +1172,13 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_for_c_step, Trm_for_c (_, _, step, _) ->
      add_dir Dir_for_c_step (aux step)
   | Dir_app_fun, Trm_apps (f, _) -> add_dir Dir_app_fun (aux f)
-  | Dir_arg n, Trm_apps (_, tl) ->
+  | Dir_arg_nth n, Trm_apps (_, tl) ->
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (aux nth_t))
-  | Dir_arg n, Trm_let_fun (_, _, arg, _) ->
+         add_dir (Dir_arg_nth n) (aux nth_t))
+  | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
      let tl = List.map (fun (x, _) -> trm_var ~loc x) arg in
      app_to_nth_dflt loc tl n (fun nth_t ->
-         add_dir (Dir_arg n) (aux nth_t))
+         add_dir (Dir_arg_nth n) (aux nth_t))
   | Dir_name, Trm_typedef td ->
      add_dir Dir_name (aux (trm_var ~loc td.typdef_tconstr))
   | Dir_name, Trm_let (_,(x,_),_)

@@ -30,7 +30,7 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
            Tools.foldi (fun n t fresh_name ->
             if fresh_name <> "" then
             let () = incr counter in
-            Function_core.bind_intro (i + !counter) fresh_name false (p_local @ [Dir_arg n]) t p
+            Function_core.bind_intro (i + !counter) fresh_name false (p_local @ [Dir_arg_nth n]) t p
             else t) t fresh_names
             end
    | _ ->
