@@ -3,18 +3,9 @@ open Target
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
-  (* Part: inlining of the bag iteration *)
-  (* skip #1 *)
 
-
-
-
-  (* Part: optimize chunk allocation *)
-  (* skip #16 *)
-
-  (* PART: Inlining of arithmetic operations *)
-  (* TODO: the intermediate names should be inserted then inlined automatically *)
-
+  (* Part: inlining of the bag iteration *) (* skip #1 *)
+  
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
 
  (* Part1: space reuse *)
@@ -177,7 +168,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Sequence.intro ~mark:"temp_seq" ~start:[cFunDef "main";cVarDef "coef_x"] ~nb:6 (); 
-     Instr.move_invariant [cMark "temp_seq"];
+     Instr.move_invariant ~dest:[tBefore; cFunDef "main"] [cMark "temp_seq"];
      Sequence.elim [cMark "temp_seq"];
      Loop.fission [tBefore; cVarDef "px"];
      Loop.fission [tBefore; cVarDef "ix2"];
@@ -205,5 +196,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: Parallelization *)
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti;tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
      Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bix"]; 
+
+  (* Part: optimize chunk allocation *)
+  (* skip #16 *)
+
+
 )
 
