@@ -37,7 +37,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
      Loop.fission [nbMulti;tAfter; cFunDef "vect_matrix_mul"; cFor "k"; cFieldWrite ~base:[cVar "result"] ~regexp:true ~field:"[^z]" ()];
      Loop.unroll [nbMulti;cFunDef "vect_matrix_mul"; cFor "k"];
- !!! Instr.accumulate ~nb:8 [tIndex 0; sInstr "result.x ="];
+     Instr.accumulate ~nb:8 [tIndex 0; sInstr "result.x ="];
      Instr.accumulate ~nb:8 [tIndex 0; sInstr "result.y ="];
      Instr.accumulate ~nb:8 [tIndex 0; sInstr "result.z ="];
      Function.inline [cFun "vect_matrix_mul"];
@@ -48,7 +48,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
      Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
- !!! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
+     Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
      Loop.fold ~index:"k" ~start:"0" ~stop:"nbCorners" ~step:"1" 8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()];
 
   (* Part: reveal fields *)
@@ -61,33 +61,35 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti;sInstr "(c1->items)[index1] = "];
      Struct.set_explicit [nbMulti;cFunDef "main";cWrite ~typ:"vect" ()];
      Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
- !!! Struct.to_variables [cVarDef "fieldAtPos"];
+  !!! Struct.to_variables [cVarDef "fieldAtPos"];
   
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [ cOr [[cFun "vect8_mul"];[cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
      [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];[cFun "accumulateChargeAtCorners"]]];
      Function.inline ~vars:(AddSuffix "2") [cFun "cornerInterpolationCoeff"];
      Variable.inline [cVarDef "deltaChargeOnCorners"];
+     
      let mark = "mark_decls" in
-     !! Marks.add mark [nbMulti;cFunDef "main"; 
-     cOr [[cVarDef ~regexp:true ~substr:true "coef\_.2"];
-          [cVarDef ~regexp:true ~substr:true "sign\_.2"]]];
+     Marks.add mark [nbMulti;cFunDef "main"; 
+      cOr [[cVarDef ~regexp:true ~substr:true "coef_.2"];
+           [cVarDef ~regexp:true ~substr:true "sign_.2"]]];
+     
      Variable.rename_on_block (ByList [
       ("coef_x2","coef_x");("coef_x1","coef_x");("coef_y2","coef_y");
       ("coef_y1","coef_y");("coef_z2","coef_z");("coef_z1","coef_z");
       ("sign_x2","sign_x");("sign_x1","sign_x");("sign_y2","sign_y");
       ("sign_y1","sign_y");("sign_z2","sign_z");("sign_z1","sign_z");]) [cFunDef "main"; cFor "i"; dBody];
+     
      Instr.delete [nbMulti; cMark mark];
-     !! Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true "i.11"];
-        Instr.move ~dest:[tBefore; cVarDef "rx2"] [nbMulti; cVarDef ~regexp:true "i.12"];
-        Instr.move ~dest:[tBefore; cVarDef "r2"] [cOr [ [cVarDef ~regexp:true "indices1"];[cVarDef ~regexp:true "result1"]]];
+     Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true "i.11"];
+     Instr.move ~dest:[tBefore; cVarDef "rx2"] [nbMulti; cVarDef ~regexp:true "i.12"];
+     Instr.move ~dest:[tBefore; cVarDef "r2"] [cOr [ [cVarDef ~regexp:true "indices1"];[cVarDef ~regexp:true "result1"]]];
   
      Instr.delete [cOr [[cVarDef "coeffs"];[cVarDef "coeffs2"]]];
      Variable.rename_on_block (ByList [("r1","coeffs");("r2","coeffs2")]) [cFunDef "main"; cFor "i"; dBody];
      Loop.fusion ~nb:3 [cFunDef "main"; cFor "k" ~body:[sInstr "coeffs2.values[k] ="]];
  !!! Instr.inline_last_write ~write:[sInstr "coeffs2.values[k] ="] [cRead ~addr:[sExpr "coeffs2.values"] ()];
      Instr.inline_last_write ~write:[sInstr "result1.values[k] ="] [cRead ~addr:[sExpr "result1.values"] ()];
-    (* Loop.unroll ~braces:false [tIndex 1;cFunDef "main";cFor "k"]; *)
   
   
   (* Part: scaling of speeds and positions #7 *)
@@ -95,31 +97,19 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Variable.insert ~name:"factorX" ~typ:"const double" ~value:"factor / cellX" [tAfter; cVarDef "factor"];
      Variable.insert ~name:"factorY" ~typ:"const double" ~value:"factor / cellY" [tAfter; cVarDef "factorX"];
      Variable.insert ~name:"factorZ" ~typ:"const double" ~value:"factor / cellZ" [tAfter; cVarDef "factorY"];
-  
-  !! Accesses.scale (Ast.trm_var "factorX") [cVarDef "accel"; cReadVar "fieldAtPos_x"];
-     Accesses.scale (Ast.trm_var "factorY") [cVarDef "accel"; cReadVar "fieldAtPos_y"];
-     Accesses.scale (Ast.trm_var "factorZ") [cVarDef "accel"; cReadVar "fieldAtPos_z"];
-  
-  !! Accesses.scale (Ast.trm_var "stepDuration / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
-     Accesses.scale (Ast.trm_var "stepDuration / cellY") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
-     Accesses.scale (Ast.trm_var "stepDuration / cellZ") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
-  
-  !! Accesses.scale (Ast.trm_var "1. / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()];
-     Accesses.scale (Ast.trm_var "1. / cellY") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-     Accesses.scale (Ast.trm_var "1. / cellZ") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
+     Accesses.scale ~factor_ast:(Ast.trm_var "factorX") [cVarDef "accel"; cReadVar "fieldAtPos_x"];
+     Accesses.scale ~factor_ast:(Ast.trm_var "factorY") [cVarDef "accel"; cReadVar "fieldAtPos_y"];
+     Accesses.scale ~factor_ast:(Ast.trm_var "factorZ") [cVarDef "accel"; cReadVar "fieldAtPos_z"];
+     Accesses.scale ~factor_ast:(Ast.trm_var "stepDuration / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
+     Accesses.scale ~factor_ast:(Ast.trm_var "stepDuration / cellY") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
+     Accesses.scale ~factor_ast:(Ast.trm_var "stepDuration / cellZ") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
+     Accesses.scale ~factor_ast:(Ast.trm_var "1. / cellX") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()];
+     Accesses.scale ~factor_ast:(Ast.trm_var "1. / cellY") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
+     Accesses.scale ~factor_ast:(Ast.trm_var "1. / cellZ") [nbMulti;cFunDef "main"; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
   
   (* TODO: arthur will give the pseudo code for the automated simplifier *)
 
-  (* NOTE:
-  Accesses.scale ~factor:"factorX"
-  Accesses.scale ~factor_ast:(Ast.trm_var "factorX")
-
-    let f (factor:strm) (factor_ast:trm)
-  let factor : trm = combine_strm ~name:"factor" factor factor_ast in
-
-  combine_strm ~default:None => error (raise exception (sprintf "please don't provide %s and %s_ast together" $name sname) if none provided
-  combine_strm ~default:(Some "foo")  => use default if none provided
-  *)
+  
   (* Part: grid_enumeration *)
   !! Loop.grid_enumerate [("ix", "gridSize"); ("iy", "gridSize"); ("iz", "gridSize")] [tIndex ~nb:3 1;cFor "idCell"];
   
@@ -129,16 +119,25 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_y"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_y"] ()];
      Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_z"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_z"] ()];
      
-     Variable.inline [nbMulti;cVarDef ~regexp:true "fieldAtPos_."];
+  !! Variable.inline [nbMulti;cVarDef ~regexp:true "fieldAtPos_."];
      Variable.inline [nbMulti; cFunDef "main"; cVarDef "accel"];
      Variable.bind_intro ~fresh_name:"px" [sInstr "(c->items)[i].pos.x ="; dRHS];
      Variable.bind_intro ~fresh_name:"py" [sInstr "(c->items)[i].pos.y ="; dRHS];
      Variable.bind_intro ~fresh_name:"pz" [sInstr "(c->items)[i].pos.z ="; dRHS];
-    !!Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
+     Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
      
-     Accesses.shift (Ast.trm_var "ix") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.x"] ()]; [cVarDef "px"; cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()]]];
-     Accesses.shift (Ast.trm_var "iy") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.y"] ()]; [cVarDef "py"; cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()]]];
-     Accesses.shift (Ast.trm_var "iz") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.z"] ()]; [cVarDef "pz"; cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]]];
+  !! Accesses.shift ~factor_ast:(Ast.trm_var "ix") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.x"] ()]; [cVarDef "px"; cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()]]];
+     Accesses.shift ~factor_ast:(Ast.trm_var "iy") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.y"] ()]; [cVarDef "py"; cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()]]];
+     Accesses.shift ~factor_ast:(Ast.trm_var "iz") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.z"] ()]; [cVarDef "pz"; cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]]];
+
+  (* Part: convert pos fields to float *)
+  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.x ="; dRHS];
+     Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.y ="; dRHS];
+     Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.z ="; dRHS];
+
+  (* Part: AOS-SOA *)
+  !! Struct.inline "speed" [cTypDef "particle"];
+     Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [cVarDef "nextCharge"];
@@ -167,8 +166,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
     Sequence.insert (Ast.code my_bij_code) [tBefore;cFunDef "main"];
 !!! Matrix.biject "mybij" [tIndex 0;cFunDef "main"; cFor "k" ; cFun "MINDEX2"];
     Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
-
-    (* TODO: This is probably not correct *)
     Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"];
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
@@ -179,13 +176,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Specialize.any "k" [cAny];
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
-  !! Loop.invariant [cFunDef "main"; cVarDef "coef_x"];
-     Loop.invariant [cFunDef "main"; cVarDef "coef_y"];
-     Loop.invariant [cFunDef "main"; cVarDef "coef_z"];
-     Loop.invariant [cFunDef "main"; cVarDef "sign_x"];
-     Loop.invariant [cFunDef "main"; cVarDef "sign_y"];
-     Loop.invariant [cFunDef "main"; cVarDef "sign_z"];
-    
+  !! Sequence.intro ~mark:"temp_seq" ~start:[cFunDef "main";cVarDef "coef_x"] ~nb:6 (); 
+     Loop.invariant [cMark "temp_seq"];
+     Sequence.elim [cMark "temp_seq"];
      Loop.fission [tBefore; cVarDef "px"];
      Loop.fission [tBefore; cVarDef "ix2"];
      Loop.hoist [cVarDef "idCell2"];

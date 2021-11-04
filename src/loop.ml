@@ -286,7 +286,10 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
 
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
-  ) tg
+  ) tg;
+  (* TODO: Replace reparsing with remove_nobrace *)
+  if not braces then Trace.reparse () 
+
 
 (* [reorder order]  expects the target [tg] to point to the first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and 

@@ -48,8 +48,6 @@ let _ = Run.script_cpp (fun () ->
     Sequence.insert (Ast.code my_bij_code) [tBefore;cFunDef "main"];
 !!! Matrix.biject "mybij" [tIndex 0;cFunDef "main"; cFor "k" ; cFun "MINDEX2"];
     Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
-
-    (* TODO: This is probably not correct *)
     Instr.replace (code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"];
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)

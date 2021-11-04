@@ -1781,3 +1781,14 @@ let is_trm (t : trm) : bool =
   match t.desc with
   | Trm_arbitrary _ -> false
   | _ -> true
+
+exception Ast_not_provided
+exception Ast_and_code_provided
+
+(* [combine_strm t1 t2] expectes a part of code or an ast node as args, only one of them should be given *)
+let combine_strm (t1 : strm option) (t2 : trm option) : trm = 
+  match t1, t2 with 
+  | Some st, None -> code st
+  | None, Some t -> t
+  | Some _, Some _ -> raise Ast_and_code_provided
+  | None, None -> raise Ast_not_provided
