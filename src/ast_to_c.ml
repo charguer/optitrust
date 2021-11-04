@@ -253,7 +253,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            let dl = List.map (decorate_trm ~semicolon:true) tl in
            dattr ^^ separate (twice hardline) dl
         else if List.exists (function Include _ -> true | _ -> false) t.annot then
-          (* TODO: restore printing of includes
+          (* LATER: restore printing of includes
              sharp ^^ string "include" ^^ blank 1 ^^ dquote ^^ string (get_include_filename t) ^^ dquote *)
           empty
         else

@@ -156,10 +156,9 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
       | None -> fail t.loc "inline: coudl not get the target to the function call" in
       if !name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline: no need to enter the result name in this case"
         else if
-          Internal.same_trm init1  tg_trm then
-          (* TODO: local_path = [dBody]
-              List.length local_path
-              this might be enough *)
+          List.length local_path <= 2 && List.length local_path > 0
+          (* Internal.same_trm init1  tg_trm *) then
+          
           begin
           name_result := x; false end
         else

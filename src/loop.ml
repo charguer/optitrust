@@ -312,7 +312,7 @@ let reorder ?(order : vars = []) (tg : Target.target) : unit =
   ) tg
 
 
-(* TODO: tg should be a target on the outer loop, not on its context.
+(* LATER: tg should be a target on the outer loop, not on its context.
    I think using [tg @ [cForNestedAtDepth i]] would work for targeting the loop at depth i  *)
 (* [pic_coloring tile_size color_size ds tg] expects the target [tg] to point to the first loop
       on which tiling(refer to Loop_basic.tile ) is going to be applied. Then on the loop comming right after the target [tg]

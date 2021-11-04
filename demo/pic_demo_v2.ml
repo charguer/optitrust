@@ -24,9 +24,9 @@ let _ = Run.script_cpp (fun () ->
   !! Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cx"];
   
   (* Introduction of the computation *)
-  !! Variable.insert "d" "int" "blockSize/2" [tAfter;cVarDef "blockSize"];
-  !! Variable.insert "distanceToBlockLessThanHalfABlock" "bool"  (* TODO: Add optional arg for the type *)
-       "(x2 >= bx + d && x2 < bx + blockSize + d)
+  !! Variable.insert ~name:"d" ~typ:"int" ~value:"blockSize/2" [tAfter;cVarDef "blockSize"];
+  !! Variable.insert ~name:"distanceToBlockLessThanHalfABlock" ~typ:"bool"  (* TODO: Add optional arg for the type *)
+       ~value:"(x2 >= bx + d && x2 < bx + blockSize + d)
     && (y2 >= by + d && y2 < by + blockSize + d)
     && (z2 >= bz + d && z2 < bz + blockSize + d)" [tAfter; cVarDef "p2"];
   !! Flow.insert_if "distanceToBlockLessThanHalfABlock" [cFunDef "main"; cFun "bag_push"];
@@ -48,7 +48,6 @@ let _ = Run.script_cpp (fun () ->
   !! Function.inline ~args:["&b2";""] [cTopFunDef "main"; cFun "bag_push"];
   !! Function.inline ~args:["&b3";""] [cTopFunDef "main"; cFun "bag_push_atomic"];
 
-  (* TODO: Fix the issue of type changing in the case of function inline, for the moment reparsing vorks fine *)
   !!! Variable.inline [cOr [[cVarDef "p"]; [cVarDef "p2"]]];
 
   (* AOS-TO-SOA *)

@@ -63,10 +63,9 @@ let move (index : int) (tg_index : int) : Target.Transfo.local =
       [t]: the ast of the sequence containing the instructions
     return:
       the ast of the single write instruction where the value that is written into
-          is the accumulated trm from all the initial write instructions
-
+      is the accumulated trm from all the initial write instructions, the operation used for
+      the accumulation is the one used in each write operation
  *)
-(* TODO: Add support for other operators *)
 let accumulate_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->

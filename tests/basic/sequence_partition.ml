@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
-  (* TODO: ARTHUR why is this giving 2 results? 
+  (* LATER: ARTHUR why is this giving 2 results? 
      show [nbMulti; cFunDef "main"; cSeq(); cSeq()];  
      ARTHUR: maybe "show" should force nbMulti always
    *)  

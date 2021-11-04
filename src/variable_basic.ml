@@ -141,7 +141,7 @@ let change_type (new_type : typvar) : Target.Transfo.t =
 (* [insert ~constr name typ value tg] expects the target [tg] to point to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
-let insert ?(const : bool = false) (name : string) (typ : string ) (value : string) : Target.Transfo.t =
+let insert ?(const : bool = false) ~name:(name : string) ~typ:(typ : string ) ~value:(value : string) : Target.Transfo.t =
   Target.reparse_after (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))
 
 

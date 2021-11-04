@@ -43,7 +43,7 @@ let cFalse : constr =
 let cStrictNew : constr =
   Constr_depth (DepthAt 0)
 
-let cStrict : constr = (* TODO ARTHUR: remove this and patch the treatment of C for loops differently *)
+let cStrict : constr = 
   Constr_depth (DepthAt 1)
 
 let cChain (cstrs : constr list) : constr =
@@ -580,12 +580,6 @@ let cField ?(field : string = "") ?(substr : bool = false) ?(regexp : bool = fal
 (* [cAccess] matches any access no matter if it is a struct access or an array access *)
 let cAccess : constr_access =
   Any_access
-
-
-(* TODO:
-
-  Add cCells* and cFields* constructors
-*)
 
 (* [cFieldAccess field] field matches all struct accesses in field [field]*)
 let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  () : constr =

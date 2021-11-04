@@ -885,7 +885,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
             Path.union acc potential_targets
           end ) [] tl
     | Constr_and tl :: [] ->
-        (* TODO ARTHUR : optimize resolution by resolving the targets only by exploring
+        (* LATER: ARTHUR : optimize resolution by resolving the targets only by exploring
           through the paths that are candidates; using e.g. path_satisfies_target *)
         let all_targets_must_resolve = false in
         Tools.foldi (fun i acc tr ->

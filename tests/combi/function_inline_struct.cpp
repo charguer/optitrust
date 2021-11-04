@@ -5,7 +5,7 @@ typedef struct {
 } vect;
 
 vect f(int a) {
-  return { a, a };
+  return { a-1, a };
 }
 
 int g(vect v) {

@@ -33,6 +33,7 @@ TESTS_TOCHECK := \
 	aos_to_soa.ml \
 	matrix_intro_mops.ml \
 	instr_accumulate.ml \
+	funciton_inline_struct.ml \
 
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 
