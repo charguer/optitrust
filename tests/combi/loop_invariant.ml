@@ -13,5 +13,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Loop.invariant [cVarDef "s"];
 )
 
-(* LATER: in the future, the transformation will be generalized to 
-   move expressions out of arbitrary contexts *)

@@ -65,12 +65,7 @@ let _ = Run.script_cpp (fun () ->
   show [cDef "s"];
   show [cDef "p2"];
 )
-(* LATER: smart constructors for checking calls to builtin operations such as get/set/compare/incr, etc *)
-
-(* LATER: show [ cFunDefDef ~args:[[cTrue]; [cOfTyp "vect*"]] "" ]; *)
-
 (* LATER: match typedef using a function over the body of the type definition *)
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)
-
 (* LATER: match types using a function of their list of fields *)
 

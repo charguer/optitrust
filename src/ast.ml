@@ -30,6 +30,9 @@ type 'a mlist = 'a Mlist.t
 (* string representation of a term, as provided by the user *)
 type strm = string
 
+(* string representation of a type, as provided by the user *)
+type styp = string
+
 (* variables *)
 type var = string
 
@@ -111,6 +114,7 @@ and typ_desc =
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
   | Typ_record of record_type * typ
   | Typ_template_param of string
+  | Typ_arbitrary of styp
   (* LATER:  Typ_arbitrary of string *)
 
 (* references are considered as pointers that's why we need to distinguish the kind of the pointer *)
@@ -691,6 +695,10 @@ let typ_template_param ?(annot : typ_annot list = []) ?(typ_attributes = [])
 
 let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typdef_body =
   Typdef_prod (recursive, field_list)
+
+let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
+  (s : styp) : typ =
+  {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
 
 (* function that fails with given error message and points location in file *)
 exception TransfoError of string
@@ -1688,6 +1696,8 @@ let is_trm_seq (t : trm) : bool =
   | Trm_seq _ -> true  | _ -> false 
 
 
+
+
 (* [trm_fors rgs tbody] create a nested loops with the main body [tbody] each nested loop
     takes its components from [rgs]
 *)
@@ -1782,7 +1792,13 @@ let is_trm (t : trm) : bool =
   | Trm_arbitrary _ -> false
   | _ -> true
 
-exception Ast_not_provided
+(* [is_typ ty] check if [ty] is a type ast or a string *)
+let is_typ (ty : typ) : bool = 
+  match ty.typ_desc with 
+  | Typ_arbitrary _ -> false
+  | _ -> true 
+
+exception No_ast_or_code_provided
 exception Ast_and_code_provided
 
 (* [combine_strm t1 t2] expectes a part of code or an ast node as args, only one of them should be given *)
@@ -1791,4 +1807,12 @@ let combine_strm (t1 : strm option) (t2 : trm option) : trm =
   | Some st, None -> code st
   | None, Some t -> t
   | Some _, Some _ -> raise Ast_and_code_provided
-  | None, None -> raise Ast_not_provided
+  | None, None -> raise No_ast_or_code_provided
+
+(* [combine_styp ty1 ty2] expects a type given as tring or an ast typ as args, only one of them shoudl be provided *)
+let combine_styp (ty1 : styp option) (ty2 : typ option) : typ = 
+  match ty1, ty2 with 
+  | Some sty, None -> typ_str sty
+  | None, Some ty -> ty
+  | Some _, Some _ -> raise Ast_and_code_provided
+  | None, None -> raise No_ast_or_code_provided

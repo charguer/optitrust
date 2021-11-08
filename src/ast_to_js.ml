@@ -320,7 +320,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "goto";
           (strquote "target", strquote label);
           children_to_field []]
-    | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code dissappears when C code is parsed"
+    | Trm_arbitrary _ -> fail t.loc  "node_to_js: arbitrary code shoudl be removed when C code is parsed"
     | Trm_omp_directive d -> [directive_to_json d]
     | Trm_omp_routine r -> [routine_to_json r]
     | Trm_extern (_, l) ->

@@ -48,7 +48,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
   | Typ_template_param name ->
     node "Typ_template_param" ^^ parens (string name)
-
+  | Typ_arbitrary s -> string s
 
 and print_typ_annot (a : typ_annot) : document =
   match a with
@@ -275,7 +275,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
   | Trm_goto l ->
      node "Trm_goto" ^^ string l
-  | Trm_arbitrary _ ->  string ""
+  | Trm_arbitrary s ->  string s
   | Trm_omp_directive directive ->
     node "Trm_omp_directive" ^^ parens (print_directive directive)
   | Trm_omp_routine routine->

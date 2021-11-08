@@ -19,11 +19,9 @@ let scale ?(factor : string option) ?(factor_ast : trm option) (tg : Target.targ
   let reparse = not (is_trm arg) in
   transform ~reparse f_get f_set tg
   with | Ast_and_code_provided -> fail None "scale: please choose between factor and factor_ast arg"
-       | Ast_not_provided -> fail None "scale: expected for the code entered as string or the ast of that code"
+       | No_ast_or_code_provided -> fail None "scale: expected for the code entered as string or the ast of that code"
   end
   
-
-
 (* [shift ~factor ~factor_ast tg] this function is a specialization of the function transform where the functions f_get and f_set 
     are given explicitly as the substraction  and addition respectively
 *)
@@ -35,7 +33,7 @@ let shift ?(factor : string option) ?(factor_ast : trm option ) (tg : Target.tar
   let reparse = not (is_trm arg) in
   transform ~reparse f_get f_set tg
   with | Ast_and_code_provided -> fail None "shift: please choose between factor and factor_ast arg"
-       | Ast_not_provided -> fail None "shift: expected for the code entered as string or the ast of that code"
+       | No_ast_or_code_provided -> fail None "shift: expected for the code entered as string or the ast of that code"
   end
   
  (* LATER: Define shift_access that applies to a target on accesses and calls shift on the parent path *)

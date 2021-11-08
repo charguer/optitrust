@@ -134,7 +134,7 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
 
 let intro_pattern_array (str : string) (tg : Target.target) : unit = 
   Trace.call (fun t -> 
-  let (pattern_vars, pattern_aux_vars, pattern_instr) = Rewrite_core.parse_pattern str in
+  let (pattern_vars, _pattern_aux_vars, pattern_instr) = Rewrite_core.parse_pattern str in
   let path_to_surrounding_seq = ref [] in
   let paths = Target.resolve_target tg t in
   (* compute the branch with minia *)

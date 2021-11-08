@@ -118,9 +118,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Accesses.shift ~factor_ast:(Ast.trm_var "iz") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.z"] ()]; [cVarDef "pz"; cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]]];
 
   (* Part: convert pos fields to float *)
-  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.x ="; dRHS];
-  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.y ="; dRHS];
-  !! Cast.insert (Ast.typ_float ()) [sInstr "(c->items)[i].pos.z ="; dRHS];
+  !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr "(c->items)[i].pos.x ="; dRHS];
+  !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr "(c->items)[i].pos.y ="; dRHS];
+  !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr "(c->items)[i].pos.z ="; dRHS];
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
