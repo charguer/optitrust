@@ -337,6 +337,8 @@ val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 val (!!) : 'a -> 'a
 val (!!!) : 'a -> 'a
 
-val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
+val reparse_at : target -> unit
+
+val reparse_after : ?reparse:bool -> ?local_reparse:bool -> Transfo.t -> Transfo.t
 
 val get_trm_at : target -> trm

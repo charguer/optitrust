@@ -562,8 +562,6 @@ let check_time (line : int) : unit =
     Printf.printf "\n%d: %f\n %s\n" line dt txt; 
     else ()
 
-
-
 (* [check_exit_and_step()] performs a call to [check_exit], to check whether
    the program execution should be interrupted based on the command line argument
    [-exit-line], then it performas a call to [step], to save the current AST
@@ -573,6 +571,7 @@ let check_time (line : int) : unit =
    then the [reparse] function is called, replacing the current AST with
    a freshly parsed and typechecked version of it. *)
 let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
+  if !Flags.analyse_time then check_time line;
   let should_exit =
     match Flags.get_exit_line() with
     | Some li -> (line > li)
@@ -584,7 +583,6 @@ let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
     if reparse
       then reparse_alias();
     step();
-    if !Flags.analyse_time then check_time line;
  end
 
 
@@ -673,6 +671,11 @@ let set_ast (t:trm) : unit =
   | [tr] -> tr.cur_ast <- t
   | _ -> assert false
 
+(* get the current context *)
+let get_context () : context = 
+  match !traces with 
+  | [tr] -> tr.context
+  | _ -> fail None "get_context: couldn't get the current context"
 
 (* LATER:  need to reparse to hide spurious parentheses *)
 (* LATER: add a mechanism for automatic simplifications after every step *)

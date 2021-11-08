@@ -922,15 +922,6 @@ let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
       else applyi_on_targets (fun _i t _p -> t) tg
   end
 
-(** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
-    after a transformation. For example because it modifies type definitions.
-    See example in [Struct.inline]. The argument [~reparse:false] can be
-    specified to deactivate the reparsing. *)
-let reparse_after ?(reparse:bool=true) (tr : Transfo.t) : Transfo.t =
-  fun (tg : target) ->
-    tr tg;
-    if reparse then Trace.reparse ()
-
 
 (* [get_trm_at] returns that trm that corresponds to the target [tg]
     Note:
@@ -943,4 +934,22 @@ let get_trm_at (tg : target) : trm =
     t_ast := fst (Path.resolve_path tg_path t)
   );
   !t_ast
+
+(* [reparse_at tg] reparse the node at [tg] *)
+let reparse_at (tg : target) : unit = 
+  let context = Trace.get_context() in
+  apply_on_targets ( apply_on_path (Trace.reparse_trm context )
+  ) tg
+
+
+(** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
+    after a transformation. For example because it modifies type definitions.
+    See example in [Struct.inline]. The argument [~reparse:false] can be
+    specified to deactivate the reparsing. *)
+let reparse_after ?(reparse:bool=true) ?(local_reparse : bool = true)(tr : Transfo.t) : Transfo.t =
+  fun (tg : target) ->
+    tr tg;
+    if reparse then 
+      if local_reparse then reparse_at tg
+       else Trace.reparse ()
 
