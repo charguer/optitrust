@@ -199,62 +199,6 @@ let fresh_args (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t
   in aux t t
 
-(* Transform code entered as string into ast, this function returns a list of ast nodes because, the user can enter
-    code which could be a list of instructions, for ex: int x; x = 1; x = 5;
-    [context] - denotes specific entered by the user
-    [is_expression] - a flag for telling if the entered code is an expression or not, this is needed to decide
-      if we should add a semicolon at the end or not.
-    [s] - denotes the code entered as a string.
-    [ctx] - check Trace.context
-*)
-let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : Trace.context) : trms =
- let context = if context = "" then ctx.includes else context in
- let command_line_args =
-  List.map Clang.Command_line.include_directory
-    (ctx.directory :: Clang.default_include_directories())
-  in
- let ast =
-    Clang.Ast.parse_string ~command_line_args
-      (Printf.sprintf
-         {|
-          %s
-          void f(void){
-            #pragma clang diagnostic ignored "-Wunused-value"
-            %s
-          }
-          |}
-         context
-         (if is_expression then s ^ ";" else s)
-      )
-  in
-
-  let t = Clang_to_ast.translate_ast ast in
-  match t.desc with
-  | Trm_seq tl1 when Mlist.length tl1 = 1 ->
-    let t = Mlist.nth tl1 0 in
-     begin match t.desc with
-     | Trm_seq tl  ->
-        let fun_def = List.nth (List.rev (Mlist.to_list tl)) 0 in
-        begin match fun_def.desc with
-        | Trm_let_fun (_, _, _, fun_body) ->
-          begin match fun_body.desc with
-          | Trm_seq tl -> Mlist.to_list tl
-          | _ -> fail fun_body.loc "parse_cstring: expcted a sequence of terms"
-          end
-        | _ -> fail fun_def.loc "parse_cstring: expected a function definition"
-        end
-     | _ -> fail t.loc "parse_cstring: expected another sequence"
-     end
-  | _-> fail t.loc "parse_cstring: exptected with only one trm"
-
-
-(* For a single instruction s return its ast *)
-let term ?(context : string = "")(ctx : Trace.context) (s : string) : trm =
-  let tl = parse_cstring context true s ctx  in
-  match tl with
-  | [expr] -> expr
-  | _ -> fail None "term: expcted a list with only one element"
-
 (* In the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with

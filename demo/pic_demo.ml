@@ -9,11 +9,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
 
  (* Part1: space reuse *)
- (* TODO: Optimize *)
   !! Variable.reuse "p.speed" [cVarDef "speed2"];
   !! Variable.reuse "p.pos" [cVarDef "pos2"];
   
-
   (* Part: Introducing an if-statement for slow particles *)
   (* LATER: maybe name &bagsNext[idCell2]) *)
   !! Flow.insert_if "ANY_BOOL()" [cFunDef "main"; cFun "bag_push"];
@@ -29,10 +27,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.set_explicit [nbMulti;cFunDef "vect_matrix_mul"; cWriteVar "result"];
   !! Loop.fission [nbMulti;tAfter; cFunDef "vect_matrix_mul"; cFor "k"; cFieldWrite ~base:[cVar "result"] ~regexp:true ~field:"[^z]" ()];
   !! Loop.unroll [nbMulti;cFunDef "vect_matrix_mul"; cFor "k"];
-  (* TODO: Optimize *)
-  !! Instr.accumulate ~nb:8 [tIndex 0; sInstr "result.x ="];
-  !! Instr.accumulate ~nb:8 [tIndex 0; sInstr "result.y ="];
-  !! Instr.accumulate ~nb:8 [tIndex 0; sInstr "result.z ="];
+  !! Instr.accumulate ~nb:8 [tIndices ~nb:24 [0;8;16]; cFunDef "vect_matrix_mul"; cFieldWrite ~base:[cVar "result"] ~field:"" ()];
   !! Function.inline [cFun "vect_matrix_mul"];
   !! Variable.inline [cVarDef "fieldAtPos"];
   !! Variable.rename_on_block (ByList [("result1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];

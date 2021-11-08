@@ -937,19 +937,17 @@ let get_trm_at (tg : target) : trm =
 
 (* [reparse_at tg] reparse the node at [tg] *)
 let reparse_at (tg : target) : unit = 
-  let context = Trace.get_context() in
-  apply_on_targets ( apply_on_path (Trace.reparse_trm context )
-  ) tg
-
+  apply_on_targets ( fun t p -> apply_on_path (fun t -> 
+  Trace.term (Trace.get_context ()) (Ast_to_c.ast_to_string t)) t p) tg
 
 (** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
     See example in [Struct.inline]. The argument [~reparse:false] can be
     specified to deactivate the reparsing. *)
-let reparse_after ?(reparse:bool=true) ?(local_reparse : bool = true)(tr : Transfo.t) : Transfo.t =
+let reparse_after ?(reparse:bool=true) ?(local_reparse : bool = false)(tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     tr tg;
     if reparse then 
       if local_reparse then reparse_at tg
-       else Trace.reparse ()
+      else Trace.reparse ()
 

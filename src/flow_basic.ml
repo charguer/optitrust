@@ -8,4 +8,4 @@
         so that the added string gets integrated into the current ast
 *)
 let insert_if (cond : string) : Target.Transfo.t =
-  Target.reparse_after (Target.apply_on_targets (Flow_core.insert_if cond) )
+  Target.reparse_after (Target.apply_on_targets (Flow_core.insert_if cond))
