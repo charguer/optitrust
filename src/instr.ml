@@ -5,6 +5,20 @@ let inline_last_write ~write:(write : Target.target) ?(delete : bool = true) (tg
   Instr_basic.read_last_write ~write tg;
   if delete then Instr_basic.delete write 
 
+
+(* [read_last_write ~write tg] expects the target [tg] to pointing to a read operation 
+    the it will take the value of the write operation [write] and replace the curren read operation 
+    with that value, if [tg] doesn't point to a read operation then the transformation will fail
+*)
+let read_last_write ~write:(write : Target.target) : Target.Transfo.t =
+  Target.iter_on_targets (fun t p ->
+    let tg_trm,_ = Path.resolve_path p t in
+    if is_get_operation tg_trm then 
+      Instr_basic.read_last_write ~write (Target.target_of_path p)
+      else fail tg_trm.loc "read_last_write: the main target should be a get operation"
+) 
+
+
 (* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location 
     or to a single instruction and [nb] the number of the instructions after the targetd instruction that need to be
     considered.
@@ -50,3 +64,5 @@ let move_invariant ~dest:(dest : Target.target) : Target.Transfo.t =
     Sequence_basic.insert tg_trm dest;
     Instr_basic.delete [Target.cMark "instr_move_invariant"]
   )
+
+

@@ -40,7 +40,10 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   Sequence_basic.intro nb ~mark tg;
   Loop_basic.fusion_on_block [Target.cMark mark]
 
-(* LATER: documentation?generalize? *)
+(* [invariant ~upto  tg] expects the target [tg] pointing to an instruction inside a for loop
+    then it will move that instruction outside that loop. In the case of nested loops the user
+    can specify before which loop with index [upto] wants the instruction to be moved to.
+*)
 let invariant ?(upto : string = "") (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
   Target.iter_on_targets (fun t exp ->

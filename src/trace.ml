@@ -161,6 +161,7 @@ let init ?(prefix : string = "") (filename : string) : unit =
   ml_file := if !Flags.analyse_time then
               Xfile.get_lines (ml_file_name ^ ".ml")
               else [];
+  last_time := Unix.gettimeofday ();
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let (includes, cur_ast) = parse filename in
@@ -706,8 +707,8 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
          (if is_expression then s ^ ";" else s)
       )
   in
-
   let t = Clang_to_ast.translate_ast ast in
+  Tools.printf "%s\n" (Ast_to_c.ast_to_string t); 
   match t.desc with
   | Trm_seq tl1 when Mlist.length tl1 = 1 ->
     let t = Mlist.nth tl1 0 in
@@ -724,7 +725,7 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
         end
      | _ -> fail t.loc "parse_cstring: expected another sequence"
      end
-  | _-> fail t.loc "parse_cstring: exptected with only one trm"
+  | _-> fail t.loc (Printf.sprintf "parse_cstring: exptected a sequence with only one trm, got %s\n" (Ast_to_c.ast_to_string t))
 
 
 (* For a single instruction s return its ast *)

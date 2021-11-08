@@ -27,7 +27,9 @@ let script (f : unit -> unit) : unit =
     (fun _ -> raise (Arg.Bad "Error: no argument expected"))
     ("usage: no argument expected, only options");
   try
+    let t1 = Unix.gettimeofday () in
     f ();
+    Tools.printf "Total time to execute the script %f" (Unix.gettimeofday () -. t1);
   with | Failure s ->
     Trace.finalize();
     (* failwith s *)

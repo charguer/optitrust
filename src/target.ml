@@ -937,8 +937,13 @@ let get_trm_at (tg : target) : trm =
 
 (* [reparse_at tg] reparse the node at [tg] *)
 let reparse_at (tg : target) : unit = 
-  apply_on_targets ( fun t p -> apply_on_path (fun t -> 
-  Trace.term (Trace.get_context ()) (Ast_to_c.ast_to_string t)) t p) tg
+  apply_on_targets ( fun t p -> 
+    let path_to_seq =  
+       match List.rev p with
+       | Path.Dir_seq_nth _ :: dl' -> List.rev dl'
+       | _ -> p in
+      apply_on_path (fun t -> 
+        Trace.term (Trace.get_context ()) (Ast_to_c.ast_to_string t)) t path_to_seq) tg
 
 (** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.

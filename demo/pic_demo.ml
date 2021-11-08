@@ -15,7 +15,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: Introducing an if-statement for slow particles *)
   (* LATER: maybe name &bagsNext[idCell2]) *)
   !! Flow.insert_if "ANY_BOOL()" [cFunDef "main"; cFun "bag_push"];
-  (* TODO: Optimize *)
   !! Instr.replace_fun "bag_push_serial" [cFunDef "main"; cIf ();dThen; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_concurrent" [cFunDef "main"; cIf ();dElse; cFun "bag_push"];
   !! Function.inline [cFunDef "main"; cOr [[cFun "bag_push_serial"];[cFun "bag_push_concurrent"]]];

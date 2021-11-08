@@ -35,6 +35,7 @@ TESTS_TOCHECK := \
 	instr_accumulate.ml \
 	funciton_inline_struct.ml \
 	instr_move_invariant.ml \
+	instr_read_last_write.ml \
 
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 

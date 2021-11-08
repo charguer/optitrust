@@ -40,7 +40,7 @@ let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struc
     replace [field_to_inline] with a list of fields rename comming from the underlying type
     renamed with the following the prefix "field_to_inline_".
 *)
-let inline ?(reparse:bool=true) (field_to_inline : field) : Target.Transfo.t =
+let inline ?(reparse:bool=false) (field_to_inline : field) : Target.Transfo.t =
   Target.reparse_after ~reparse
     (Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
       (fun (p, i) t -> Struct_core.inline field_to_inline i t p))
