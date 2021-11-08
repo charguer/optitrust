@@ -572,13 +572,6 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x )) y
   | _ -> trm_map (replace_type_with x y) t
 
-
-(* Check if a regexp matches a given string or not *)
-let pattern_matches (pattern : string) (s : string) : bool = 
-  try let _ = Str.search_forward (Str.regexp pattern) s 0 in true 
-  with Not_found -> false 
-
-
 (* find all the occurrences of variables in [t] and check if they are key in map [tm] 
     if yes then assign its values otherwise do nothing
 *)

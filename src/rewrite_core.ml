@@ -61,7 +61,7 @@ let parse_pattern (str : string) : (vars * vars *trm) =
         | _ -> pattern_instr_ret
         end in
         let pattern_vars = fst (List.split args) in
-        let aux_vars = List.filter_map (fun x -> if Internal.pattern_matches x aux_var_decls then Some x else None ) pattern_vars in
+        let aux_vars = List.filter_map (fun x -> if Tools.pattern_matches x aux_var_decls then Some x else None ) pattern_vars in
         let pattern_vars = List.filter (fun x -> not (List.mem x aux_vars ) ) pattern_vars in
         (pattern_vars, aux_vars, pattern_instr)
       | _ -> fail body.loc "parse_pattern: body of the function f should be a sequence"

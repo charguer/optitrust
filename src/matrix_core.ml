@@ -28,7 +28,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
   | Trm_apps (f, dims_and_indices) ->
     begin match f.desc with
-    | Trm_var f_name when (Internal.pattern_matches "MINDEX" f_name) ->
+    | Trm_var f_name when (Tools.pattern_matches "MINDEX" f_name) ->
       let n = List.length dims_and_indices in
       if (n mod 2 = 0) then
         Some (Tools.split_list_at (n/2) dims_and_indices)
@@ -117,8 +117,8 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
     begin match f.desc with
     | Trm_var f_name ->
       let dims , size = Tools.unlast args in
-      if (Internal.pattern_matches "MCALLOC" f_name) then Some (dims, size, true)
-        else if (Internal.pattern_matches "MMALLOC" f_name) then Some (dims, size, false)
+      if (Tools.pattern_matches "MCALLOC" f_name) then Some (dims, size, true)
+        else if (Tools.pattern_matches "MMALLOC" f_name) then Some (dims, size, false)
         else None
     | _ -> None
     end

@@ -439,7 +439,7 @@ module Rename = struct
   
   let only_for (pattern : string) : t -> t = 
     fun tr s ->
-      if Internal.pattern_matches pattern s then tr s else s
+      if Tools.pattern_matches pattern s then tr s else s
 end
 
 type rename = Rename.t 
@@ -523,7 +523,7 @@ let update_fields_type_aux (pattern : string ) (ty : typ) (t : trm) : trm =
   match t.desc with 
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
       let replace_type (s : string) (ty1 : typ) : typ = 
-        if Internal.pattern_matches pattern s then ty else ty1 in 
+        if Tools.pattern_matches pattern s then ty else ty1 in 
       let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
       trm_typedef ~annot:t.annot ~marks:t.marks {td with typdef_body = Typdef_prod (tn, new_fl)}
     | _ -> fail t.loc "reanme_fields_aux: expected a typedef declaration"

@@ -276,3 +276,9 @@ exception Invalid_permutation
 (* [check_permuattion nb order] check if the given order is a permutation of the integer set [0, .. ,nb] *)
 let check_permutation (nb : int) (order : int list) : unit = 
   List.iter (fun k -> if not (List.mem k order) then raise Invalid_permutation) (range 0 (nb -1))
+
+
+(* Check if a regexp matches a given string or not *)
+let pattern_matches (pattern : string) (s : string) : bool = 
+  try let _ = Str.search_forward (Str.regexp pattern) s 0 in true 
+  with Not_found -> false 

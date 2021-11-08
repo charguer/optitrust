@@ -187,9 +187,9 @@ let reuse (space : var) (tg : Target.target) : unit =
     begin match decl_name decl_t with 
     | Some x -> 
       let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
-      Marks.add "opti_mark" (Target.target_of_path p);
-      detach_if_needed [Target.cMark "opti_mark"];
-      Instr_basic.delete [Target.cMark "opti_mark"];
+      Marks.add "reuse_mark" (Target.target_of_path p);
+      detach_if_needed [Target.cMark "reuse_mark"];
+      Instr_basic.delete [Target.cMark "reuse_mark"];
       Variable_basic.replace_occurrences ~subst:x ~put:space (Target.target_of_path _path_to_seq);
     | None -> fail decl_t.loc "reuse: could not match the declaration"
     end

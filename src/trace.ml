@@ -137,6 +137,12 @@ let reset () : unit =
   close_logs();
   traces := [trace_dummy]
 
+(* Storage for the current ml script *)
+let ml_file = ref []
+
+(* Storage for the current time *)
+let last_time  = ref (Unix.gettimeofday ())
+
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
    The history is initialized with the initial AST.
@@ -145,10 +151,16 @@ let reset () : unit =
 (* LATER for mli: val set_init_source : string -> unit *)
 let init ?(prefix : string = "") (filename : string) : unit =
   reset ();
+  
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
   let directory = (Filename.dirname filename) ^ "/" in
   let default_prefix = Filename.remove_extension basename in
+  let ml_file_name = if Tools.pattern_matches "_inlined" default_prefix then 
+  List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0 else default_prefix in
+  ml_file := if !Flags.analyse_time then
+              Xfile.get_lines (ml_file_name ^ ".ml")
+              else [];
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let (includes, cur_ast) = parse filename in
@@ -156,7 +168,6 @@ let init ?(prefix : string = "") (filename : string) : unit =
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
   print_info None "Starting script execution...\n"
-
 (* [finalize()] should be called at the end of the script, to properly close the log files
     created by the call to [init]. *)
 let finalize () : unit =
@@ -537,6 +548,22 @@ let dump_diff_and_exit () : unit =
   (* Exit *)
   exit 0
 
+
+
+(* [check_time line]: compute the time it takes to execute the transformation at line 
+  [line] in a ml script
+*)
+let check_time (line : int) : unit = 
+  if !Flags.analyse_time then 
+    let t = Unix.gettimeofday () in
+    let dt = ((t -. !last_time)) in
+    last_time := t;
+    let txt = List.nth !ml_file (line -1) in
+    Printf.printf "\n%d: %f\n %s\n" line dt txt; 
+    else ()
+
+
+
 (* [check_exit_and_step()] performs a call to [check_exit], to check whether
    the program execution should be interrupted based on the command line argument
    [-exit-line], then it performas a call to [step], to save the current AST
@@ -557,37 +584,8 @@ let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
     if reparse
       then reparse_alias();
     step();
+    if !Flags.analyse_time then check_time line;
  end
-
-
-(*
-TODO
-
-let analyse_time = true (* take this flag *)
-let src =
-  if analyse_time then
-    Xfile.get_lines current_source_file (* we know the basline *)
-    else []
-let last_time = ref 0
- -- initialize this value in Trace.init function
-
-let check_time line =
-  if analyse_time then begin
-  let t = get_time_of_day_in_sec() in
-  let dt = int_of_float ((t - !last_time) * 1000) in
-  last_time := t;
-  let txt = List.nth (line-1) src in ---make sure to check bounds
-  Printf.printf "%d: %d\n  %s" line dt txt;
-  --or print in a file
-
-  end
-
-let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
-  check_time line;
-  ...
-
-
-*)
 
 
 (* [!!] is a prefix notation for the operation [check_exit_and_step].
