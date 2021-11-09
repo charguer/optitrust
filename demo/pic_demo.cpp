@@ -96,17 +96,7 @@ double relativePosZ(double z) {
   int iz = int_of_double(z / cellZ);
   return (z -  iz * cellZ) / cellZ;
 }
-/* DEPRECATED
-// coord array of size 3
-void compute_coordOfCell (int idCell, int* coord_arr) {
-  int z = idCell % gridSize;
-  int xy = idCell / gridSize;
-  int y = xy % gridSize;
-  int x = xy / gridSize;
-  coord_arr[0] = x;
-  coord_arr[1] = y;
-  coord_arr[2] = z;
-}*/
+
 typedef struct {
   int ix;
   int iy;

@@ -1341,30 +1341,6 @@ let is_simple_loop_component (t : trm) : bool =
   | _ -> false
 
 
-(* check if the loop t is simple or not, if it is then return its simplified ast
-   else return the current ast
-*)
-let trm_for_of_trm_for_c (t : trm) : trm =
-  begin match t.desc with
-  | Trm_for_c (init,_, step, body) ->
-    let index = for_loop_index t in
-    let direction = for_loop_direction t in
-    let start = for_loop_init t in
-    let stop = for_loop_bound t in
-    let step_size = for_loop_step t in
-    let is_simple_loop =
-       (is_simple_loop_component init)
-    && (is_simple_loop_component start)
-    && (is_simple_loop_component stop)
-    && (is_simple_loop_component step) in
-
-    if is_simple_loop
-      then trm_for ~loc:t.loc index direction start stop step_size body
-      else t
-  | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
-  end
-
-
 (* kind of the type used when parsing initialization lists*)
 type typ_kind =
   | Typ_kind_undefined
@@ -1417,51 +1393,6 @@ let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
      end
 
   | _ -> Typ_kind_basic ty.typ_desc
-
-
-(* before printing a simple loop first it should be converted to complex loop *)
-let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
-  (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
-  let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start]) in
-  let cond = begin match direction with
-    | DirUp -> (trm_apps (trm_binop Binop_lt)
-      [trm_apps ~annot:[Mutable_var_get]
-        (trm_unop Unop_get) [trm_var index];stop])
-    | DirUpEq -> (trm_apps (trm_binop Binop_le)
-      [trm_apps ~annot:[Mutable_var_get]
-        (trm_unop Unop_get) [trm_var index];stop])
-    | DirDown -> (trm_apps (trm_binop Binop_gt)
-      [trm_apps ~annot:[Mutable_var_get]
-        (trm_unop Unop_get) [trm_var index];stop])
-    | DirDownEq -> (trm_apps (trm_binop Binop_ge)
-      [trm_apps ~annot:[Mutable_var_get]
-        (trm_unop Unop_get) [trm_var index];stop])
-    end
-    in
-
-  let step =
-    begin match direction with
-    | DirUp | DirUpEq->
-        begin match step.desc with
-        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_inc) [trm_var index]
-        | _ ->
-          trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_add)
-          [
-            trm_var index;
-            trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
-        end
-    | DirDown | DirDownEq ->
-        begin match step.desc with
-        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_dec) [trm_var index]
-        | _ ->
-          trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_sub)
-          [
-            trm_var index;
-            trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
-        end
-    end
-    in
-  trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
 
 (* bypass the pointer type used only for optitrust encoding *)
 let get_inner_ptr_type (ty : typ) : typ =
@@ -1580,6 +1511,79 @@ let is_set_operation (t : trm) : bool =
     | _ -> false
     end
   | _ -> false
+
+
+(* check if the loop t is simple or not, if it is then return its simplified ast
+   else return the current ast
+*)
+let trm_for_of_trm_for_c (t : trm) : trm =
+  begin match t.desc with
+  | Trm_for_c (init,_, step, body) ->
+    let index = for_loop_index t in
+    let direction = for_loop_direction t in
+    let start = for_loop_init t in
+    let stop = for_loop_bound t in
+    let step_size = for_loop_step t in
+    let is_simple_loop =
+       (is_simple_loop_component init)
+    && (is_simple_loop_component start)
+    && (is_simple_loop_component stop)
+    && (is_simple_loop_component step) in
+
+    if is_simple_loop
+      then 
+        trm_for ~loc:t.loc index direction start stop step_size body
+      else t
+  | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
+  end
+
+(* before printing a simple loop first it should be converted to complex loop *)
+let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+  (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
+  
+  
+  let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
+  let cond = begin match direction with
+    | DirUp -> (trm_apps (trm_binop Binop_lt)
+      [trm_apps ~annot:[Mutable_var_get]
+        (trm_unop Unop_get) [trm_var index];stop])
+    | DirUpEq -> (trm_apps (trm_binop Binop_le)
+      [trm_apps ~annot:[Mutable_var_get]
+        (trm_unop Unop_get) [trm_var index];stop])
+    | DirDown -> (trm_apps (trm_binop Binop_gt)
+      [trm_apps ~annot:[Mutable_var_get]
+        (trm_unop Unop_get) [trm_var index];stop])
+    | DirDownEq -> (trm_apps (trm_binop Binop_ge)
+      [trm_apps ~annot:[Mutable_var_get]
+        (trm_unop Unop_get) [trm_var index];stop])
+    end
+    in
+
+  let step =
+    begin match direction with
+    | DirUp | DirUpEq->
+        begin match step.desc with
+        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_inc) [trm_var index]
+        | _ ->
+          trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_add)
+          [
+            trm_var index;
+            trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
+        end
+    | DirDown | DirDownEq ->
+        begin match step.desc with
+        | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_dec) [trm_var index]
+        | _ ->
+          trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_sub)
+          [
+            trm_var index;
+            trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
+        end
+    end
+    in
+  trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
+
+
 
 type delocalize_ops =
   | Delocalize_arith of lit * binary_op

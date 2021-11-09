@@ -3,12 +3,12 @@ open Ast
 
 (* [parse_pattern str]: for a given pattern [str] return the list of variables used in that pattern
       and the ast of the pattern
-      Example:
-      str = "double a; double b; double c; (a + k * b) == (b * k + a)"
-      Then this string will be splitted parsed as
-      void f (double a, double b, double c) {
-        (a + k * b) == (b * k + a)
-      }
+    Example:
+    str = "double a; double b; double c; (a + k * b) == (b * k + a)"
+    Then this string will be splitted parsed as
+    void f (double a, double b, double c) {
+      (a + k * b) == (b * k + a)
+    }
 *)
 let parse_pattern (str : string) : (vars * vars *trm) =
   let output_file = "tmp_rule.cpp" in
@@ -18,7 +18,7 @@ let parse_pattern (str : string) : (vars * vars *trm) =
   let var_decls = String.trim (List.nth splitted_pattern 0) in
   let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
     else ("", List.nth splitted_pattern 1) in
-  
+
   let var_decls_temp  = String.mapi (fun i x ->
     if x = ';'
       then
