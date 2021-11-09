@@ -15,7 +15,7 @@ let rexp2 = Target.string_to_rexp regexp_true substr_false "t" Constr.TrmKind_An
 let rexp3 = Target.string_to_rexp regexp_true substr_true "t" Constr.TrmKind_Any
 
 
-(* TODO ARTHUR: better factorize the code.
+(* LATER: ARTHUR: better factorize the code.
 2		-	let rexp0 = Target.string_to_rexp regexp_false substr_false "ab." Constr.TrmKind_Any
 13		-	let rexp1 = Target.string_to_rexp regexp_false substr_true "ab." Constr.TrmKind_Any
 14		-	let rexp2 = Target.string_to_rexp regexp_true substr_false "ab." Constr.TrmKind_Any

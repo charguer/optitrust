@@ -80,7 +80,7 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp". *)
 let script_cpp ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
-  (* TODO: see what happens of the directory... *)
+  (* LATER: see what happens of the directory... *)
   let basename =
     let b = get_basename() in
     if String.length b > 2 && b.[0] = '.' && b.[1] = '/'

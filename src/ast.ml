@@ -1104,6 +1104,60 @@ let same_node_type (t : trm) (t1 : trm) : bool =
   | _ -> false
   end
 
+
+
+(* check ia a typ is a type used only for optitrust encoding *)
+let is_generated_star (ty : typ) : bool =
+  List.mem GeneratedStar ty.typ_attributes
+
+(* check if two arrays are of the same size *)
+let same_sizes (sz1 : size) (sz2 : size) : bool =
+ match sz1, sz2 with
+ | Undefined, Undefined -> true
+ | Const i1, Const i2 -> i1 = i2
+ | Trm t1, Trm t2->  t1 = t2
+ | _, _ -> false
+
+(* check if two types are the same *)
+let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 : typ) : bool =
+  let aux = same_types ~match_generated_star in
+  (typ_1.typ_annot = typ_2.typ_annot) &&
+  (
+  match typ_1.typ_desc, typ_2.typ_desc with
+  | Typ_const typ_a1, Typ_const typ_a2 ->
+    (aux typ_a1 typ_a2)
+  | Typ_var (a1, _), Typ_var (a2, _) ->
+    a1 = a2
+  | Typ_constr (typ_var1, typ_id1, typ_list1), Typ_constr (typ_var2, typ_id2, typ_list2) ->
+    (typ_var1 = typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
+  | Typ_unit, Typ_unit -> true
+  | Typ_int, Typ_int -> true
+  | Typ_float, Typ_float -> true
+  | Typ_double, Typ_double -> true
+  | Typ_bool, Typ_bool -> true
+  | Typ_char, Typ_char -> true
+  | Typ_ptr {ptr_kind = pk1; inner_typ = typ_a1}, Typ_ptr {ptr_kind = pk2; inner_typ = typ_a2} ->
+   if match_generated_star then (pk1 = pk2) && (is_generated_star typ_1 && is_generated_star typ_2) && (aux typ_a1 typ_a2)
+    else (not (is_generated_star typ_1 || is_generated_star typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2)
+  | Typ_array (typa1, size1), Typ_array (typa2, size2) ->
+      (same_types typa1 typa2) && (same_sizes size1 size2)
+  | _, _ -> false
+  )
+
+(* get the value of a variable initialization *)
+let rec get_init_val (t : trm) : trm option =
+  match t.desc with 
+  | Trm_let (_, (_, _), init) -> get_init_val init
+  | Trm_apps(f,[base]) ->
+        begin match f.desc with
+        | Trm_val (Val_prim (Prim_new _)) -> Some base
+        | _ -> Some t
+        end
+  | Trm_val (Val_prim (Prim_new _)) -> None
+  | _ -> Some t
+
+
+
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
   match t.desc with
@@ -1117,8 +1171,7 @@ let for_loop_index (t : trm) : var =
 
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [{desc = Trm_var x; _}; _]) ->
-        x
+                 [{desc = Trm_var x; _}; _]) ->x
      | _ -> begin match decl_name init with
             | Some x -> x
             | None -> fail init.loc "for_loop_index: could't get the loop index"
@@ -1137,6 +1190,7 @@ let for_loop_direction (t : trm) : loop_dir =
      | _ -> fail cond.loc "for_loop_direction: bad for loop condition"
      end
   | _ -> fail t.loc "for_loop_direction: expected a for loop"
+
 (* return the initial value of the loop index *)
 let for_loop_init (t : trm) : trm =
   match t.desc with
@@ -1148,12 +1202,11 @@ let for_loop_init (t : trm) : trm =
       *)
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [_; n]) ->
-        n
+                 [_; n]) -> n
      | Trm_let (_,(_, _), init) ->
-        begin match init.desc with
-        | Trm_apps(_, [init1]) -> init1
-        | _ -> init
+        begin match get_init_val init with
+        | Some v  -> v
+        | None -> fail init.loc "for_loop_init: bad for loop initialization"
         end
      | _ -> fail init.loc "for_loop_init: bad for loop initialisation"
      end
@@ -1166,14 +1219,16 @@ let for_loop_bound (t : trm) : trm =
      (*
        covered cases:
        - for (…; i < n; …)
+       - for (…; i <= n; …)
        - for (…; i > n; …)
+       - for (…; i >= n; …)
       *)
      begin match cond.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _},
                  [_; n]) -> n
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _},
-                 [_; n]) -> n
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _},
+                 [_; n]) -> n
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _},
                  [_; n]) -> n
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
                  [_; n]) -> n
@@ -1188,7 +1243,9 @@ let for_loop_step (t : trm) : trm =
      (*
        covered cases:
        - for (…; …; i++)
+       - for (…; …; ++i)
        - for (…; …; i--)
+       - for (…; …; --i)
        - for (…; …; i += n) for n > 0
        - for (…; …; i -= n) for n > 0
       *)
@@ -1267,44 +1324,6 @@ let for_loop_body_trms (t : trm) : trm mlist =
     | _ -> fail body.loc "for_loop_body_trms: body of a generic loop should be a sequence"
     end
   | _ -> fail t.loc "for_loop_body_trms: expected a loop"
-
-(* check ia a typ is a type used only for optitrust encoding *)
-let is_generated_star (ty : typ) : bool =
-  List.mem GeneratedStar ty.typ_attributes
-
-(* check if two arrays are of the same size *)
-let same_sizes (sz1 : size) (sz2 : size) : bool =
- match sz1, sz2 with
- | Undefined, Undefined -> true
- | Const i1, Const i2 -> i1 = i2
- | Trm t1, Trm t2->  t1 = t2
- | _, _ -> false
-
-(* check if two types are the same *)
-let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 : typ) : bool =
-  let aux = same_types ~match_generated_star in
-  (typ_1.typ_annot = typ_2.typ_annot) &&
-  (
-  match typ_1.typ_desc, typ_2.typ_desc with
-  | Typ_const typ_a1, Typ_const typ_a2 ->
-    (aux typ_a1 typ_a2)
-  | Typ_var (a1, _), Typ_var (a2, _) ->
-    a1 = a2
-  | Typ_constr (typ_var1, typ_id1, typ_list1), Typ_constr (typ_var2, typ_id2, typ_list2) ->
-    (typ_var1 = typ_var2) && (typ_id1 = typ_id2) && (typ_list1 = typ_list2)
-  | Typ_unit, Typ_unit -> true
-  | Typ_int, Typ_int -> true
-  | Typ_float, Typ_float -> true
-  | Typ_double, Typ_double -> true
-  | Typ_bool, Typ_bool -> true
-  | Typ_char, Typ_char -> true
-  | Typ_ptr {ptr_kind = pk1; inner_typ = typ_a1}, Typ_ptr {ptr_kind = pk2; inner_typ = typ_a2} ->
-   if match_generated_star then (pk1 = pk2) && (is_generated_star typ_1 && is_generated_star typ_2) && (aux typ_a1 typ_a2)
-    else (not (is_generated_star typ_1 || is_generated_star typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2)
-  | Typ_array (typa1, size1), Typ_array (typa2, size2) ->
-      (same_types typa1 typa2) && (same_sizes size1 size2)
-  | _, _ -> false
-  )
 
 (* used for distinguishing simple loops from complex ones *)
 let is_simple_loop_component (t : trm) : bool =
@@ -1518,31 +1537,6 @@ let get_nobrace_id (t : trm) : int option =
     be renamed together with their new name.
 *)
 type rename = | Suffix of string | Rename_list of (var * var) list
-
-(* get the value of a variable initialization *)
-let rec get_init_val (t : trm) : trm option =
-  match t.desc with 
-  | Trm_let (_, (_, _), init) -> get_init_val init
-  | Trm_apps(f,[base]) ->
-        begin match f.desc with
-        | Trm_val (Val_prim (Prim_new _)) -> Some base
-        | _ -> Some t
-        end
-  | Trm_val (Val_prim (Prim_new _)) -> None
-  | _ -> Some t
-  
-  (* match t.desc with
-  | Trm_let (_, (_, _), init) ->
-      begin match init.desc with
-      | Trm_apps(f,[base]) ->
-        begin match f.desc with
-        | Trm_val (Val_prim (Prim_new _)) -> Some base
-        | _ -> Some init
-        end
-      | _-> init
-      end
-  | _ -> fail t.loc "get_init_val: expected a variable declaration" *)
-
 
 (* get the literal value from a trm_lit *)
 let get_lit_from_trm_lit (t : trm) : lit =

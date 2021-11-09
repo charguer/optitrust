@@ -92,7 +92,7 @@ and constr =
   (* for: init, cond, step, body *)
   | Constr_for_c of target * target * target * target
   (* for index, start, stop, step, body *)
-  | Constr_for of constr_name * loop_dir * target * target * target * target
+  | Constr_for of constr_name * (loop_dir option) * target * target * target * target
   (* while: cond, body *)
   | Constr_while of target * target
   (* do while: body, cond *)
@@ -267,11 +267,11 @@ let rec constr_to_string (c : constr) : string =
       match p_index with | None -> "_" | Some r -> rexp_to_string r
     in
     let s_direction = match p_direction with
-    | DirUp -> "Up"
-    | DirUpEq -> "UpEq"
-    | DirDown -> "Down"
-    | DirDownEq -> "DownEq"
-
+    | Some DirUp -> "Up"
+    | Some DirUpEq -> "UpEq"
+    | Some DirDown -> "Down"
+    | Some DirDownEq -> "DownEq"
+    | None -> "AnyDirection"
     in
     let s_start = target_to_string p_start in
     let s_stop = target_to_string p_stop in
@@ -662,8 +662,11 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_body body
      | Constr_for (p_index, p_direction, p_start, p_stop, p_step, p_body),
         Trm_for(index, direction, start, stop, step, body) ->
+        let direction_match = match p_direction with 
+        | None -> true 
+        | Some d -> d = direction in        
         check_name p_index index &&
-        (p_direction = direction) &&
+        direction_match &&
         check_target p_start start &&
         check_target p_stop stop &&
         check_target p_step step &&

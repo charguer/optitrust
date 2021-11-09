@@ -36,7 +36,7 @@ and dir =
   (* app *)
   | Dir_app_fun
   (* arg for fun application and declaration *)
-  | Dir_arg_nth of int (* TODO Dir_arg_nth_nth *)
+  | Dir_arg_nth of int 
   (* name of declared var/fun or label *)
   | Dir_name
   (*

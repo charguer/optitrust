@@ -6,6 +6,6 @@ open Target
 
 let _ = Run.script_cpp (fun () -> 
 
-    show [cFunDef "test_loop"];
+  show [cFor ""];
 )
 
