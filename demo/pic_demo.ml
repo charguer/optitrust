@@ -55,10 +55,24 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.rename_on_block (ByList [("res1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
+  !!! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti;cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-  !! Loop.fold ~index:"k" ~start:0 ~step:1 8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()];
+  !! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
+    (* TODO:  long double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>
+        split at "==>"
+        split at ","
+        for the first element of the list, split at the last space character,
+          the variable goes back in the list with the other variables
+          and the type can be copied for each variable.
+          // we assume there is no "*" in the types.
+      =>  double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z;
+    *)
+  !! Loop.fold ~index:"k" ~start:0 ~step:1 8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()]; (* ~step:1 and ~start:0 should be default  ;  ~nb:8 *)
+    (* TODO:
+      and then you can define "fold_instrs", which takes a target that returns multiple results,
+      check that these results are consecutive items from a same sequence,
+      and deduce the ~nb  from the number of results (as a constant).
+      Here, the target would be sInstr "r.v["  *)
 
   (* Part: reveal fields *)
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; main; cFun "vect_mul"];
