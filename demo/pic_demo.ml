@@ -20,7 +20,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.replace_fun "bag_push_serial" [main; cIf ();dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf ();dElse; cFun "bag_push"];
   !! Function.inline [main; cOr [[cFun "bag_push_serial"];[cFun "bag_push_concurrent"]]];
-    (* TODO: later, try  to not inline the bag_push operations, but to modify the code inside those functions *)
+    (* Later: try  to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
   let pre = cFunDef "vect_matrix_mul" in
@@ -34,8 +34,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.unroll [nbMulti; pre; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
   (* variant:   !! Instr.accumulate ~nb:8 [tIndices ~nb:24 [0;8;16]; pre; cFieldWrite ~base:[cVar "res"] ~field:"" ()]; *)
-  !! Function.inline [cFun "vect_matrix_mul"]; (* TODO: ~local:(AddSuffix "1") , but by default it should do nothing *)
-  !! Variable.inline [cVarDef "fieldAtPos"];
+  !! Function.inline [cFun "vect_matrix_mul"]; 
+  !! Variable.reverse_fold [cVarDef "fieldAtPos"];
   (* NEW transfo:  Variable.use_alias_earlier [cVarDef "y"]
         int x = ...; // the declaration of x must be in the same sequence
         instr(x)
@@ -68,8 +68,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
             int y = x;
 
   *)
-  !! Variable.rename_on_block (ByList [("res1","fieldAtPos")]) [cFunDef "main"; cFor "i"; dBody];
-
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !!! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];

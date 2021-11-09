@@ -36,7 +36,8 @@ TESTS_TOCHECK := \
 	funciton_inline_struct.ml \
 	instr_move_invariant.ml \
 	instr_read_last_write.ml \
-
+  varaible_reverse_fold.ml \
+	
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 
 include ../Common.Makefile

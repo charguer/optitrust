@@ -140,7 +140,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
 // where p is the path to the englobing sequence.
 *)
-let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "1") ?(args : vars = []) (tg : Target.target) : unit =
+let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
   Target.iteri_on_targets (fun i t p ->
     let name_result = ref name_result in
     let (path_to_seq,local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in

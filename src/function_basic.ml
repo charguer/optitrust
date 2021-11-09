@@ -13,16 +13,15 @@ open Ast
                                   }
 
 *)
-let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
+(* let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
-(* TODO:
- Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-  (fun occ (p, p_local, i) t ->
-     let fresh_name = Tools.subst "${occ}" (string_of_int occ) fresh_name in
-     Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
-*)
-
+  (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg *)
+let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit = 
+  Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence) 
+    (fun occ t (p, p_local, i)  -> 
+      let fresh_name = Str.global_replace (Str.regexp_string "${occ}") (string_of_int occ) fresh_name  in
+    Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
+    
 
 (* [inline ~body_mark tg] - expects the target [tg] to point to a function call inside a declaration
     or inside a sequence in case the function is of void type. Example:

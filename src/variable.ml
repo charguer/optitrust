@@ -195,6 +195,32 @@ let reuse (space : var) (tg : Target.target) : unit =
     end
    ) tg 
 
+(* [reverse_fold tg] expects the target [tg] poiting to a variable declaration with an initial value 
+    being another variable occurrence. Then it will inline y on all its occurrenes which belong to the
+    same scope. Then it will rename the variable x to y, both in the declaration and its occurrences
+*)
 
-
-
+let reverse_fold : Target.Transfo.t =
+  Target.iter_on_targets( fun t p -> 
+    let tg_trm ,_ = Path.resolve_path p t in
+    let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
+    match tg_trm.desc with 
+    | Trm_let (_, (y,_), init) -> 
+      begin match get_init_val init with 
+      | Some v -> 
+        let x = 
+        begin match v.desc with 
+        | Trm_var x -> x
+        | Trm_apps (_, [v1]) when is_get_operation v -> 
+          begin match v1.desc with
+          | Trm_var x -> x
+          | _ -> fail t.loc "reverse_fold: the value of the targetd variable should be a variable occurrence"
+          end
+        | _ -> fail t.loc "reverse_fold: the value of the targetd variable should be a variable occurrence"
+        end in
+          Variable_basic.inline [Target.cVarDef y];
+          Variable_basic.rename_on_block (ByList [(x,y)]) (Target.target_of_path path_to_seq)
+      | _ -> fail init.loc "reverse_fold: expected an initialized variable declaration"
+      end
+    | _ -> fail t.loc "reverse_fold: expected the declaration of the variable which is goingg to be reverse folded"
+)
