@@ -35,52 +35,12 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
   (* variant:   !! Instr.accumulate ~nb:8 [tIndices ~nb:24 [0;8;16]; pre; cFieldWrite ~base:[cVar "res"] ~field:"" ()]; *)
   !! Function.inline [cFun "vect_matrix_mul"]; 
-  (* NEW transfo:  Variable.use_alias_earlier [cVarDef "y"]
-        int x = ...; // the declaration of x must be in the same sequence
-        instr(x)
-        int y = x;  // a declaration where the RHS is just one variable x
-        instr2(y)
-      -->
-        int y = ..;
-        instr(y)
-        instr2(y)
-      ==> can this be implemented as:
-        - inline y
-        - rename x into y  --> here the target to x is  [p; cStrict; cVarDef "x"]
-                               where p is the path to the sequence containing "y"
-      ==> (LATER if we want better complexity, could also be obtained by
-           deleting "int y = .." and renaming "x" into "y" over the scope)
-
-     --> Function.inline could call Variable.use_alias_earlier automatically
-         when possible (ie when reattach was successful, and its RHS is a local variable of the function body);
-         we would have a flag to disable this feature, e.g.:
-            ?try_to_use_result_name_as_local_name:true  by default.
-
-
-            void f(int a) {
-              return a;
-            }
-            int x = 3;
-            int y = f(x)
-            -->
-            int x = 3;
-            int y = x;
-
-  *)
+  
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !!! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array "double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-    (* TODO:  long double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>
-        split at "==>"
-        split at ","
-        for the first element of the list, split at the last space character,
-          the variable goes back in the list with the other variables
-          and the type can be copied for each variable.
-          // we assume there is no "*" in the types.
-      =>  double coef_x; double sign_x; double coef_y; double sign_y; double coef_z; double sign_z;
-    *)
-  !! Loop.fold ~index:"k" ~start:0 ~step:1 8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()]; (* ~step:1 and ~start:0 should be default  ;  ~nb:8 *)
+  !! Variable.intro_pattern_array "double coef_x; sign_x; coef_y; sign_y; coef_z; sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
+  !! Loop.fold ~index:"k"  8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()]; 
     (* TODO:
       and then you can define "fold_instrs", which takes a target that returns multiple results,
       check that these results are consecutive items from a same sequence,

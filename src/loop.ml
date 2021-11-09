@@ -341,12 +341,25 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
 (* [fold ~index ~start ~step ~nb_instr tg] expects the target [tg] pointing to an instruction folloed by [nb_instr] -1 instructions
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
  *)
-let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ~start:(loop_start : int) ~step:(loop_step : int) (nb_instr : int) (tg : Target.target) : unit =
+let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (nb_instr : int) (tg : Target.target) : unit =
   Target.iter_on_targets (fun _t p ->
     let my_mark = Mark.next () in
     Sequence_basic.intro ~mark:my_mark nb_instr (Target.target_of_path p);
     Loop_basic.fold loop_index ~direction loop_start loop_step [Target.cMark my_mark]
   ) tg
+
+let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (tg : Target.target) : unit =
+  let nb_targets = ref 0 in
+  let prev_index = ref (-1) in
+  Target.iter_on_transformed_targets( Internal.isolate_last_dir_in_seq)
+   (fun (_,i) t -> 
+     if i <> !prev_index -1 && i <> -1 then fail t.loc "fold_instrs: all the targeted instructions shoudl be consecutive instuctions";
+     incr nb_targets;
+     prev_index := i;
+   ) tg;
+   if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction ";
+   fold ~direction ~index:loop_index ~loop_start ~loop_step  !nb_targets ([Target.tIndex 0] @ tg)
+
 
 
 (* LOOP_FOLD SECOND VERSION *)
