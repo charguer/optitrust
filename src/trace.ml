@@ -151,12 +151,12 @@ let last_time  = ref (0.)
 (* LATER for mli: val set_init_source : string -> unit *)
 let init ?(prefix : string = "") (filename : string) : unit =
   reset ();
-  
+
   let basename = Filename.basename filename in
   let extension = Filename.extension basename in
   let directory = (Filename.dirname filename) ^ "/" in
   let default_prefix = Filename.remove_extension basename in
-  let ml_file_name = if Tools.pattern_matches "_inlined" default_prefix then 
+  let ml_file_name = if Tools.pattern_matches "_inlined" default_prefix then
   List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0 else default_prefix in
   ml_file := if !Flags.analyse_time then
               Xfile.get_lines (ml_file_name ^ ".ml")
@@ -551,17 +551,19 @@ let dump_diff_and_exit () : unit =
 
 
 
-(* [check_time line]: compute the time it takes to execute the transformation at line 
+(* [check_time line]: compute the time it takes to execute the transformation at line
   [line] in a ml script
 *)
-let check_time (line : int) : unit = 
-  if !Flags.analyse_time then 
-    let t = Unix.gettimeofday () in
-    let dt = ((t -. !last_time)) in
-    last_time := t;
-    let txt = List.nth !ml_file (line -1) in
-    Printf.printf "\n%d: %f\n %s\n" line dt txt; 
-    else ()
+let check_time (line : int) : unit =
+  let t = Unix.gettimeofday() in
+  let dt = t -. !last_time in
+  last_time := t;
+  let txt =
+    match List.nth_opt !ml_file (line - 1) with
+    | Some txt -> txt
+    | None -> "<unable to retrieve line from script>"
+    in
+  Printf.printf "\n%d: %f\n %s\n" line dt txt
 
 (* [check_exit_and_step()] performs a call to [check_exit], to check whether
    the program execution should be interrupted based on the command line argument
@@ -583,7 +585,8 @@ let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
     if reparse
       then reparse_alias();
     step();
-    if !Flags.analyse_time then check_time line;
+    if !Flags.analyse_time
+      then check_time line;
  end
 
 
@@ -673,8 +676,8 @@ let set_ast (t:trm) : unit =
   | _ -> assert false
 
 (* get the current context *)
-let get_context () : context = 
-  match !traces with 
+let get_context () : context =
+  match !traces with
   | [tr] -> tr.context
   | _ -> fail None "get_context: couldn't get the current context"
 
@@ -708,7 +711,7 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
       )
   in
   let t = Clang_to_ast.translate_ast ast in
-  Tools.printf "%s\n" (Ast_to_c.ast_to_string t); 
+  Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
   match t.desc with
   | Trm_seq tl1 when Mlist.length tl1 = 1 ->
     let t = Mlist.nth tl1 0 in

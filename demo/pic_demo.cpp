@@ -28,7 +28,6 @@ const double particleCharge = 10.0;
 const double particleMass = 5.0;
 
 // Grid description
-const int gridSize  = 64;
 const int gridX = 64;
 const int gridY = 64;
 const int gridZ = 64;
@@ -49,7 +48,7 @@ int int_of_double(double a) {
   return (int) a - (a < 0.);
 }
 
-int wrapX(int gridSize, int a) {
+int wrap(int gridSize, int a) {
   return (a % gridSize + gridSize) % gridSize;
 }
 
@@ -69,11 +68,11 @@ int wrapX(int gridSize, int a) {
 
 const int nbCorners = 8;
 
-vect* fields = (vect*) malloc(nbCells * sizeof(vect));
+vect* fields = (vect*) malloc(nbCells * sizeof(vect)); // TODO: delete
 
 
 int cellOfCoord(int i, int j, int k) {
-  return MINDEX3(gridSize,gridSize,gridSize,i,j,k);
+  return MINDEX3(gridX,gridY,gridZ,i,j,k);
 }
 
 // idCellOfPos computes the id of the cell that contains a position.
@@ -112,15 +111,15 @@ coord coordOfCell(int idCell) {
 }
 
 typedef struct {
-  int values [nbCorners];
+  int v[nbCorners];
 } int_nbCorners;
 
 typedef struct {
-  double values[nbCorners];
+  double v[nbCorners];
 } double_nbCorners;
 
 typedef struct {
-  vect values[nbCorners];
+  vect v[nbCorners];
 } vect_nbCorners;
 
 int_nbCorners indicesOfCorners (int idCell) {
@@ -128,9 +127,9 @@ int_nbCorners indicesOfCorners (int idCell) {
   int x = coord.ix;
   int y = coord.iy;
   int z = coord.iz;
-  int x2 = wrapX(gridSize, x+1);
-  int y2 = wrapX(gridSize, y+1);
-  int z2 = wrapX(gridSize, z+1);
+  int x2 = wrap(gridX, x+1);
+  int y2 = wrap(gridY, y+1);
+  int z2 = wrap(gridZ, z+1);
   return {
     cellOfCoord(x,y,z),
     cellOfCoord(x,y,z2),
@@ -146,11 +145,11 @@ int_nbCorners indicesOfCorners (int idCell) {
 
 vect_nbCorners getFieldAtCorners(int idCell) {
   int_nbCorners indices = indicesOfCorners(idCell);
-  vect_nbCorners result;
+  vect_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
-    result.values[k] = fields[indices.values[k]];
+    res.v[k] = fields[indices.v[k]];
   }
-  return result;
+  return res;
 
 }
 
@@ -159,8 +158,8 @@ vect_nbCorners getFieldAtCorners(int idCell) {
 
 void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners charges) {
   int_nbCorners indices = indicesOfCorners(idCell);
-  for(int k = 0; k < nbCorners; k++){
-    nextCharge[indices.values[k]] += charges.values[k];
+  for (int k = 0; k < nbCorners; k++) {
+    nextCharge[indices.v[k]] += charges.v[k];
   }
 }
 
@@ -171,14 +170,25 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 // the value for one corner is proportional to the volume between the particle
 // and the opposite corner.
 
-
-// double_nbCorners cornerInterpolationCoeff(vect pos) {
-//   double rx = relativePosX(pos.x);
-//   double ry = relativePosY(pos.y);
-//   double rz = relativePosZ(pos.z);
-//   double cx = 1. + -1. * rx;
-//   double cy = 1. + -1. * ry;
-//   double cz = 1. + -1. * rz;
+double_nbCorners cornerInterpolationCoeff(vect pos) {
+  double rx = relativePosX(pos.x);
+  double ry = relativePosY(pos.y);
+  double rz = relativePosZ(pos.z);
+  double cx = 1. + -1. * rx;
+  double cy = 1. + -1. * ry;
+  double cz = 1. + -1. * rz;
+  double_nbCorners r;
+  r.v[0] = cx * cy * cz;
+  r.v[1] = cx * cy * rz;
+  r.v[2] = cx * ry * cz;
+  r.v[3] = cx * ry * rz;
+  r.v[4] = rx * cy * cz;
+  r.v[5] = rx * cy * rz;
+  r.v[6] = rx * ry * cz;
+  r.v[7] = rx * ry * rz;
+  return r;
+}
+// alternative syntax for above, might be nicer in the future:
 //   double_nbCorners r = {{
 //     cx * cy * cz,
 //     cx * cy * rz,
@@ -189,44 +199,21 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 //     rx * ry * cz,
 //     rx * ry * rz,
 //   }};
-//   return r;
-// }
-
-
-
-double_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rx = relativePosX(pos.x);
-  double ry = relativePosY(pos.y);
-  double rz = relativePosZ(pos.z);
-  double cx = 1. + -1. * rx;
-  double cy = 1. + -1. * ry;
-  double cz = 1. + -1. * rz;
-  double_nbCorners r;
-  r.values[0] = cx * cy * cz;
-  r.values[1] = cx * cy * rz;
-  r.values[2] = cx * ry * cz;
-  r.values[3] = cx * ry * rz;
-  r.values[4] = rx * cy * cz;
-  r.values[5] = rx * cy * rz;
-  r.values[6] = rx * ry * cz;
-  r.values[7] = rx * ry * rz;
-  return r;
-}
 
 vect vect_matrix_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
-  vect result = { 0., 0., 0. };
+  vect res = { 0., 0., 0. };
   for (int k = 0; k < nbCorners; k++) {
-    result = vect_add(result, vect_mul(coeffs.values[k], matrix.values[k]));
+    res = vect_add(res, vect_mul(coeffs.v[k], matrix.v[k]));
   }
-  return result;
+  return res;
 }
 
-double_nbCorners vect8_mul(const double a, const double_nbCorners v) {
-  double_nbCorners result;
+double_nbCorners vect8_mul(const double a, const double_nbCorners data) {
+  double_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
-    result.values[k] = a * v.values[k];
+    res.v[k] = a * data.v[k];
   }
-  return result;
+  return res;
 }
 
 // --------- LEFT to implement
@@ -281,7 +268,7 @@ int main() {
     for (int idCell = 0; idCell < nbCells; idCell++) {
 
       // Read the electric field that applies to the corners of the cell considered
-      vect_nbCorners field_at_corners = getFieldAtCorners(idCell);
+      vect_nbCorners field_at_corners = getFieldAtCorners(idCell); // TODO: take "field" as argument
 
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
