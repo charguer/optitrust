@@ -414,13 +414,11 @@ let to_unit_steps (new_index : var) : Target.Transfo.local =
 (* NOTE: currently the function only works for "start = 0"
    LATER: use  sExpr  to mark the subexpression that correspnod to the string "start";
     then you can Generic.replace at these marks *)
-
-
-
-(* let fold_aux (index : var) (start : int) (stop : int) (step : int) (t : trm) : trm =  
+let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =  
   match t.desc with 
   | Trm_seq tl ->
-    if Mlist.length tl = 0 
+    let nb = Mlist.length tl in 
+    if nb = 0 
       then fail t.loc "fold_aux: expected a non-empty list of instructions";
     let first_instr, other_instr  = Tools.uncons (Mlist.to_list tl) in
     let loop_body = Internal.change_trm (trm_int start) (trm_var index) first_instr in
@@ -429,13 +427,15 @@ let to_unit_steps (new_index : var) : Target.Transfo.local =
       if not (Internal.same_trm loop_body local_body)
         then fail t1.loc "fold_aux: all the instructions should have the same shape but differ by the index";
     ) other_instr;
-    trm_for index DirUp (trm_int start) (trm_int stop) (trm_int step) (trm_seq_nomarks [loop_body])
+    trm_for index DirUp (trm_int start) (trm_int nb) (trm_int step) (trm_seq_nomarks [loop_body])
   | _ -> fail t.loc "fold_aux: expected a sequence of instructions"
 
-let fold (index : var) (start : int) (stop : var) (step : int) : Target.Transfo.local =
-  Target.apply_on_path (fold_aux index start stop step) *)
+let fold (index : var) (start : int) (step : int) : Target.Transfo.local =
+  Target.apply_on_path (fold_aux index start step)
 
-let fold_aux (index : var) (start : strm) (stop : strm) (step : strm) (t : trm) : trm =
+
+(* SECOND VERSION OF LOOP_FOLD *)
+(* let fold_aux (index : var) (start : strm) (stop : strm) (step : strm) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     if Mlist.length tl = 0
@@ -452,4 +452,4 @@ let fold_aux (index : var) (start : strm) (stop : strm) (step : strm) (t : trm) 
 
 
 let fold (index : var) (start : var) (stop : var) (step : var) : Target.Transfo.local =
-  Target.apply_on_path (fold_aux index start stop step)
+  Target.apply_on_path (fold_aux index start stop step) *)
