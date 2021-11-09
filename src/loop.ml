@@ -341,11 +341,11 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
 (* [fold ~index ~start ~step ~nb_instr tg] expects the target [tg] pointing to an instruction folloed by [nb_instr] -1 instructions
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
  *)
-let fold  ~index:(loop_index : var) ~start:(loop_start : int) ~step:(loop_step : int) (nb_instr : int) (tg : Target.target) : unit =
+let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ~start:(loop_start : int) ~step:(loop_step : int) (nb_instr : int) (tg : Target.target) : unit =
   Target.iter_on_targets (fun _t p ->
     let my_mark = Mark.next () in
     Sequence_basic.intro ~mark:my_mark nb_instr (Target.target_of_path p);
-    Loop_basic.fold loop_index loop_start loop_step [Target.cMark my_mark]
+    Loop_basic.fold loop_index ~direction loop_start loop_step [Target.cMark my_mark]
   ) tg
 
 

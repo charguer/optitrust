@@ -85,7 +85,9 @@ type constrname = string
 (* Type used to defin the direction and the size of the step of the *)
 type loop_dir =
  | DirUp
+ | DirUpEq
  | DirDown
+ | DirDownEq
 
 
 (* array sizes *)
@@ -1129,9 +1131,9 @@ let for_loop_direction (t : trm) : loop_dir =
   | Trm_for_c (_, cond, _, _) ->
     begin match cond.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _}, _) -> DirUp
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _}, _) -> DirUpEq
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _}, _) -> DirDown
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _}, _) -> DirUp
-     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _}, _) -> DirDown
+     | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _}, _) -> DirDownEq
      | _ -> fail cond.loc "for_loop_direction: bad for loop condition"
      end
   | _ -> fail t.loc "for_loop_direction: expected a for loop"
@@ -1406,7 +1408,13 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
     | DirUp -> (trm_apps (trm_binop Binop_lt)
       [trm_apps ~annot:[Mutable_var_get]
         (trm_unop Unop_get) [trm_var index];stop])
+    | DirUpEq -> (trm_apps (trm_binop Binop_le)
+      [trm_apps ~annot:[Mutable_var_get]
+        (trm_unop Unop_get) [trm_var index];stop])
     | DirDown -> (trm_apps (trm_binop Binop_gt)
+      [trm_apps ~annot:[Mutable_var_get]
+        (trm_unop Unop_get) [trm_var index];stop])
+    | DirDownEq -> (trm_apps (trm_binop Binop_ge)
       [trm_apps ~annot:[Mutable_var_get]
         (trm_unop Unop_get) [trm_var index];stop])
     end
@@ -1414,7 +1422,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
 
   let step =
     begin match direction with
-    | DirUp ->
+    | DirUp | DirUpEq->
         begin match step.desc with
         | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_inc) [trm_var index]
         | _ ->
@@ -1423,7 +1431,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
             trm_var index;
             trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
         end
-    | DirDown ->
+    | DirDown | DirDownEq ->
         begin match step.desc with
         | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_dec) [trm_var index]
         | _ ->

@@ -149,14 +149,14 @@ let unswitch (tg : Target.target) : unit =
 let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.to_unit_steps index)
 
-(* [fold index start stop step tg] expects the target [tg] to point to the first instruction in a sequence
+(* [fold ~direction index start stop step tg] expects the target [tg] to point to the first instruction in a sequence
     and it assumes that the sequence containing the target [tg] is composed of a list of instructions which 
-    can be expressed into a single for loop with [index] [start] [nb_instructions] and [step] as loop 
+    can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop 
     components.
 *)
-let fold (index : var) (start : int) (step : int) : Target.Transfo.t =
+let fold ?(direction : loop_dir = DirUp)(index : var) (start : int) (step : int) : Target.Transfo.t =
   Target.apply_on_targets (
-    Loop_core.fold index start step
+    Loop_core.fold index direction start step
 )
 
 (* SECOND_VERSION of LOOP_FOLD *)

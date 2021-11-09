@@ -106,7 +106,21 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
                       trm_var tile_index; trm_tile_size]];
                   trm_apps (trm_binop Binop_lt)  [trm_var index; stop]
                 ]
+              | DirUpEq ->
+                trm_apps (trm_binop Binop_and)[
+                  trm_apps (trm_binop (Binop_lt)) [trm_var index;
+                    trm_apps (trm_binop Binop_add) [
+                      trm_var tile_index; trm_tile_size]];
+                  trm_apps (trm_binop Binop_le)  [trm_var index; stop]
+                ]
               | DirDown ->
+                trm_apps (trm_binop Binop_and)[
+                  trm_apps (trm_binop (Binop_gt)) [trm_var index;
+                    trm_apps (trm_binop Binop_add) [
+                      trm_var tile_index; trm_tile_size]];
+                  trm_apps (trm_binop Binop_gt)  [trm_var index; stop]
+                ]
+              | DirDownEq ->
                 trm_apps (trm_binop Binop_and)[
                   trm_apps (trm_binop (Binop_gt)) [trm_var index;
                     trm_apps (trm_binop Binop_add) [
@@ -116,7 +130,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
               end in
           let step =
             begin match direction with
-            | DirUp ->
+            | DirUp | DirUpEq->
                 begin match step.desc with
                 | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_inc) [trm_var index]
                 | _ ->
@@ -124,7 +138,7 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
                     trm_var index;
                     trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [step]])
                 end
-            | DirDown ->
+            | DirDown | DirDownEq ->
                 begin match step.desc with
                 | Trm_val (Val_lit (Lit_int 1)) -> trm_apps (trm_unop Unop_post_dec) [trm_var index]
                 | _ ->
@@ -414,7 +428,21 @@ let to_unit_steps (new_index : var) : Target.Transfo.local =
 (* NOTE: currently the function only works for "start = 0"
    LATER: use  sExpr  to mark the subexpression that correspnod to the string "start";
     then you can Generic.replace at these marks *)
-let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =  
+
+
+(* [loop_fold_aux index direction start step t]: transform a sequence of instrucitons into a 
+    single loop with components [index], [direction], [start], [nb_instr], [step] and [t].
+    params:
+      [index]: index of the for generated for loop
+      [direction]: direction of the generated for loop
+      [start]: starting value for the index of the generated for loop
+      [step]: step of the generated for loop
+      [t]: the ast of the sequence with a list of instructions
+    return:
+      the ast of the for loop
+
+*)
+let fold_aux (index : var) (direction : loop_dir) (start : int) (step : int) (t : trm) : trm =  
   match t.desc with 
   | Trm_seq tl ->
     let nb = Mlist.length tl in 
@@ -427,11 +455,11 @@ let fold_aux (index : var) (start : int) (step : int) (t : trm) : trm =
       if not (Internal.same_trm loop_body local_body)
         then fail t1.loc "fold_aux: all the instructions should have the same shape but differ by the index";
     ) other_instr;
-    trm_for index DirUp (trm_int start) (trm_int nb) (trm_int step) (trm_seq_nomarks [loop_body])
+    trm_for index direction (trm_int start) (trm_int nb) (trm_int step) (trm_seq_nomarks [loop_body])
   | _ -> fail t.loc "fold_aux: expected a sequence of instructions"
 
-let fold (index : var) (start : int) (step : int) : Target.Transfo.local =
-  Target.apply_on_path (fold_aux index start step)
+let fold (index : var) (direction : loop_dir)(start : int) (step : int) : Target.Transfo.local =
+  Target.apply_on_path (fold_aux index direction start step)
 
 
 (* SECOND VERSION OF LOOP_FOLD *)

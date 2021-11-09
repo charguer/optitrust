@@ -268,7 +268,10 @@ let rec constr_to_string (c : constr) : string =
     in
     let s_direction = match p_direction with
     | DirUp -> "Up"
+    | DirUpEq -> "UpEq"
     | DirDown -> "Down"
+    | DirDownEq -> "DownEq"
+
     in
     let s_start = target_to_string p_start in
     let s_stop = target_to_string p_stop in

@@ -229,6 +229,8 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     let ddirection = match direction with
     | DirUp -> string "Up"
     | DirDown -> string "Down"
+    | DirUpEq -> string "UpEq"
+    | DirDownEq -> string "DownEq"
     in
     let dstop = print_trm ~only_desc stop in
     let dstep = print_trm ~only_desc step in
