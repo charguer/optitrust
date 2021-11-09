@@ -3,6 +3,13 @@ int f(int x) {
   return a + a;
 }
 
+int f1(int x) {
+  int a = x + x;
+  return a;
+}
+
+
+
 int g(int x) {
   if (x > 0)
     return 1;
@@ -22,7 +29,7 @@ void m(int* p) {
 
 int main() {
   int x = 3;
-  int y = f(x);
+  int y = f1(x);
   int z = g(x);
   int u = h(x);
   int *q = new int(3);

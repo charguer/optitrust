@@ -214,10 +214,11 @@ let reverse_fold : Target.Transfo.t =
         | Trm_apps (_, [v1]) when is_get_operation v -> 
           begin match v1.desc with
           | Trm_var x -> x
-          | _ -> fail t.loc "reverse_fold: the value of the targetd variable should be a variable occurrence"
+          | _ -> ""
           end
-        | _ -> fail t.loc "reverse_fold: the value of the targetd variable should be a variable occurrence"
+        | _ -> ""
         end in
+         if x <> "" then
           Variable_basic.inline [Target.cVarDef y];
           Variable_basic.rename_on_block (ByList [(x,y)]) (Target.target_of_path path_to_seq)
       | _ -> fail init.loc "reverse_fold: expected an initialized variable declaration"

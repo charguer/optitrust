@@ -183,11 +183,13 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
     Function_basic.inline ~body_mark new_target;
     elim_body ~vars [Target.cMark body_mark];
     if !name_result <> "" then begin
+        let success_attach = ref true in
         let () = try Variable_basic.init_attach (new_target) with
            | Variable_basic.Init_attach_no_occurrences
-           | Variable_basic.Init_attach_occurrence_below_control -> ()
+           | Variable_basic.Init_attach_occurrence_below_control -> success_attach  := false;()
            | e -> raise e in
         if res_inlining_needed then Variable_basic.inline new_target;
+        if !success_attach then Variable.reverse_fold [Target.nbAny;Target.cVarDef !name_result];
         Marks.remove my_mark ([Target.nbAny] @ new_target)
     end;
 

@@ -35,7 +35,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
   (* variant:   !! Instr.accumulate ~nb:8 [tIndices ~nb:24 [0;8;16]; pre; cFieldWrite ~base:[cVar "res"] ~field:"" ()]; *)
   !! Function.inline [cFun "vect_matrix_mul"]; 
-  !! Variable.reverse_fold [cVarDef "fieldAtPos"];
   (* NEW transfo:  Variable.use_alias_earlier [cVarDef "y"]
         int x = ...; // the declaration of x must be in the same sequence
         instr(x)
