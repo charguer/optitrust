@@ -16,7 +16,12 @@ open Ast
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) ?(my_mark : mark = "") (tg : Target.target) : unit =
  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
   (fun (p, p_local, i) t ->  Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
-
+(* TODO:
+ Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+  (fun occ (p, p_local, i) t ->
+     let fresh_name = Tools.subst "${occ}" (string_of_int occ) fresh_name in
+     Function_core.bind_intro ~my_mark i fresh_name const p_local t p) tg
+*)
 
 
 (* [inline ~body_mark tg] - expects the target [tg] to point to a function call inside a declaration
@@ -25,8 +30,8 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
       or  g(a);
 
     Then it will replace that instruction with a nobrace sequence which is a sequence
-    hidden from the user. This sequence will be marked with [body_mark] and it will 
-    contain the body of the declaration of the called function targeted with [tg]. 
+    hidden from the user. This sequence will be marked with [body_mark] and it will
+    contain the body of the declaration of the called function targeted with [tg].
     Transformation steps:
        1) generate in that sequence the binding "int r", in case it is needed
           (if the original instructions featured a "int r = ..")
@@ -70,11 +75,11 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
 
 
 let inline  ?(body_mark : var = "body") (tg : Target.target) : unit =
-  Internal.nobrace_remove_after (fun _ -> 
+  Internal.nobrace_remove_after (fun _ ->
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
    (fun (p, p_local, i) t ->
     Function_core.inline i body_mark t p_local t p) tg)
-  
-  
+
+
 
 

@@ -6,29 +6,45 @@ let main = cFunDef "main"
 
 let _ = Run.script_cpp (fun () ->
 
-  (* Part: reveal fields *)
-
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; main; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; main; cFun "vect_mul"];
-  !! Function.inline [main; cOr [[cFun "vect_mul"];[cFun "vect_add"]]];
-  !! Variable.inline [nbMulti; main; cVarDef ~regexp:true "r."];
-  !! Function.(inline ~vars:(AddSuffix "2"))[cFun "idCellOfPos"];
-  !! Struct.set_explicit [cOr [[sInstr "p.speed ="];[sInstr "p.pos ="]]];
-  !! Struct.set_explicit [nbMulti;sInstr "(c1->items)[index1] = "];
-  !! Struct.set_explicit [nbMulti;main;cWrite ~typ:"vect" ()];
-  !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
-  !!! Struct.to_variables [cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
-  !! Function.inline [ cOr [[cFun "vect8_mul"];[cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
-     [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];[cFun "accumulateChargeAtCorners"]]];
-  !! Function.inline ~vars:(AddSuffix "2") [cFun "cornerInterpolationCoeff"];
-  !! Variable.inline [cVarDef "deltaChargeOnCorners"];
+  !! Function.inline [cOr [
+     [cFun "vect8_mul"];
+     [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
+     [cVarDef "coeffs"; cFun "cornerInterpolationCoeff"];
+     [cFun "accumulateChargeAtCorners"]]];
+     Function.inline ~vars:(AddSuffix "2") [cFun "cornerInterpolationCoeff"];
+  (* !! Function.inline ~vars:(AddSuffix "${occ}") [cFun "cornerInterpolationCoeff"];
+     for this you need
 
-     let mark = "mark_decls" in
-  !! Marks.add mark [nbMulti;main;
+     let Variable_core.map f = function
+      | AddSuffix v -> AddSuffix (f v)
+      | ByList kvs -> ByList (List.map (fun (k,v) -> (k, f v)) kvs)
+
+    in Function.inline:
+      Target.iteri_on_targets (fun i t p ->
+        let vars = Variable_core.map (Tools.subst "${occ}" i) vars in <---- new line
+        let name_result = ref name_result in
+  *)
+  !! Variable.inline [cVarDef "deltaChargeOnCorners"]; (* LATER: will be covered by a previous function.inline *)
+
+  let mark = "mark_decls" in
+  !! Marks.add mark [nbMulti; main;
       cOr [[cVarDef ~regexp:true ~substr:true "coef_.2"];
            [cVarDef ~regexp:true ~substr:true "sign_.2"]]];
+   (*
+      Variable.elim_redundant ~source:[cVarDef "a"] [cVarDef "b"]
+
+     const int a = 4;
+     const int b = 4;
+     f(a,b)
+     -->
+     const int a = 4;
+     f(a,a)
+
+     Variable.elim_redundant ~source_fct:(fun v -> [cVarDef (String.sub v 0 (length v - 1)))] [cVarDef "coef_x2"]
+   *)
+
 
   !! Variable.rename_on_block (ByList [
       ("coef_x2","coef_x");("coef_x1","coef_x");("coef_y2","coef_y");

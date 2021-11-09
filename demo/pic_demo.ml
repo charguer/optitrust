@@ -91,14 +91,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       Here, the target would be sInstr "r.v["  *)
 
   (* Part: reveal fields *)
+  (* LATER:
+    !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; main; cFun "vect_mul"];
+  *)
   !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; main; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; main; cFun "vect_mul"];
-  !! Function.inline [main; cOr [[cFun "vect_mul"];[cFun "vect_add"]]];
-  !! Variable.inline [nbMulti; main; cVarDef ~regexp:true "r."];
-  !! Function.(inline ~vars:(AddSuffix "2"))[cFun "idCellOfPos"];
-  !! Struct.set_explicit [cOr [[sInstr "p.speed ="];[sInstr "p.pos ="]]];
-  !! Struct.set_explicit [nbMulti;sInstr "(c1->items)[index1] = "];
-  !! Struct.set_explicit [nbMulti;main;cWrite ~typ:"vect" ()];
+     Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; main; cFun "vect_mul"];
+     Function.inline [main; cOr [[cFun "vect_mul"];[cFun "vect_add"]]];
+     Variable.inline [nbMulti; main; cVarDef ~regexp:true "r."];
+  !! Function.(inline ~vars:(AddSuffix "2")) [cFun "idCellOfPos"];
+  (*  !! Struct.set_explicit ~reparse:true [nbMulti; main; cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]; TODO:; try this*)
+  !! Struct.set_explicit [main; cOr [[sInstr "p.speed ="];[sInstr "p.pos ="]]];
+  !! Struct.set_explicit [nbMulti; sInstr "(c1->items)[index1] = "];
+
   !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
   !!! Struct.to_variables [cVarDef "fieldAtPos"];
 
