@@ -279,6 +279,8 @@ val target_list_all_st : target -> target_list_pred
 
 val target_list_pred_default : target_list_pred
 
+val filter_constr_occurrence : target -> target
+
 val enable_multi_targets : target -> target
 
 (* Target resolution *)

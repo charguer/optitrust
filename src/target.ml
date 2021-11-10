@@ -646,7 +646,11 @@ let resolve_target = Constr.resolve_target
 let resolve_target_between = Constr.resolve_target_between
 *)
 
-(* [enable_multi_targets]: matching multiple targets is not possible then enable it otherwise
+(* [filter_constr_occurrence tg] *)
+let filter_constr_occurrence (tg : target) : target = 
+  List.filter (function Constr_occurrences _ -> false | _ -> true ) tg
+
+(* [enable_multi_targets tg]: matching multiple targets is not possible then enable it otherwise
     do nothing
  *)
 let enable_multi_targets (tg : target) : target =

@@ -342,12 +342,15 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
  *)
 let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (nb_instr : int) (tg : Target.target) : unit =
-  
-  Target.iter_on_targets (fun _t p ->
+  let mark = "opti_fold" in
+  Sequence_basic.intro ~mark nb_instr tg;
+  Loop_basic.fold loop_index ~direction loop_start loop_step [Target.cMark mark]
+
+  (* Target.iter_on_targets (fun _t p ->
     let my_mark = Mark.next () in
     Sequence_basic.intro ~mark:my_mark nb_instr (Target.target_of_path p);
     Loop_basic.fold loop_index ~direction loop_start loop_step [Target.cMark my_mark]
-  ) tg
+  ) tg *)
 
 
 (* [fold_instrs ~direction ~index ~loop_start ~loop_step tg] expects the target [tg] pointing to more than one instructions in a sequence 
@@ -359,16 +362,15 @@ let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start
 let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (tg : Target.target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
-  let first_target = ref [] in
+  let first_target = [Target.tIndex 0] @ (Target.filter_constr_occurrence tg) in
   let tg = Target.enable_multi_targets tg in
   Target.iter_on_targets 
     (fun t p ->
       let _, i = Internal.isolate_last_dir_in_seq p in 
       if i <> !prev_index + 1 && !prev_index <> -1 then fail t.loc "fold_instrs: all the targeted instructions should be consecutive ones";
-      if !prev_index = -1 then
-        first_target := (Target.target_of_path p);
       incr nb_targets;
     ) tg;
+    Tools.printf "nb_targets: %d" !nb_targets;
     if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
-    fold ~direction ~index:loop_index ~loop_start ~loop_step !nb_targets !first_target
+    fold ~direction ~index:loop_index ~loop_start ~loop_step !nb_targets first_target
 

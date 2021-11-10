@@ -39,13 +39,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !!! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-(* TODO:
-!! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-*)
 
   (* show [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"]; *)
-  !! Loop.fold_instrs ~index:"k" [nbMulti;cFunDef "cornerInterpolationCoeff"; sInstr "r.v"]; 
-  !! Loop.fold ~index:"k"  8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()];
+  !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"]; 
+  (* !! Loop.fold ~index:"k"  8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()]; *)
     
 
   (* Part: reveal fields *)
