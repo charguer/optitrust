@@ -646,6 +646,13 @@ let resolve_target = Constr.resolve_target
 let resolve_target_between = Constr.resolve_target_between
 *)
 
+(* [enable_multi_targets]: matching multiple targets is not possible then enable it otherwise
+    do nothing
+ *)
+let enable_multi_targets (tg : target) : target =
+    if List.exists (function Constr_occurrences _ -> true | _ -> false) tg
+      then tg
+      else nbMulti::tg 
 
 (******************************************************************************)
 (*                          Apply on target operations                        *)
@@ -901,10 +908,7 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
    that generates the [foo_with_lines.ml] instrumented source. *)
 let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
   (* Automatically add [nbMulti] if there is no occurence constraint *)
-  let tg =
-    if List.exists (function Constr_occurrences _ -> true | _ -> false) tg
-      then tg
-      else nbMulti::tg in
+  let tg = enable_multi_targets tg in
   if reparse then reparse_alias();
   let should_exit = (Flags.get_exit_line() = Some line) in
   if should_exit then begin

@@ -20,7 +20,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.replace_fun "bag_push_serial" [main; cIf ();dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf ();dElse; cFun "bag_push"];
   !! Function.inline [main; cOr [[cFun "bag_push_serial"];[cFun "bag_push_concurrent"]]];
-    (* Later: try  to not inline the bag_push operations, but to modify the code inside those functions *)
+    (* LATER: try  to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
   let pre = cFunDef "vect_matrix_mul" in
@@ -33,24 +33,20 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fission [nbMulti; tAfter; pre; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
   !! Loop.unroll [nbMulti; pre; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
-  (* variant:   !! Instr.accumulate ~nb:8 [tIndices ~nb:24 [0;8;16]; pre; cFieldWrite ~base:[cVar "res"] ~field:"" ()]; *)
   !! Function.inline [cFun "vect_matrix_mul"];
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !!! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array "double coef_x; sign_x; coef_y; sign_y; coef_z; sign_z; ==>  double rx; double ry; double rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
+  !! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
 (* TODO:
 !! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
 *)
 
-
+  (* show [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"]; *)
+  !! Loop.fold_instrs ~index:"k" [nbMulti;cFunDef "cornerInterpolationCoeff"; sInstr "r.v"]; 
   !! Loop.fold ~index:"k"  8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()];
-    (* TODO:
-      and then you can define "fold_instrs", which takes a target that returns multiple results,
-      check that these results are consecutive items from a same sequence,
-      and deduce the ~nb  from the number of results (as a constant).
-      Here, the target would be sInstr "r.v["  *)
+    
 
   (* Part: reveal fields *)
   (* LATER:

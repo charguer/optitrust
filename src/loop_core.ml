@@ -460,24 +460,3 @@ let fold_aux (index : var) (direction : loop_dir) (start : int) (step : int) (t 
 
 let fold (index : var) (direction : loop_dir)(start : int) (step : int) : Target.Transfo.local =
   Target.apply_on_path (fold_aux index direction start step)
-
-
-(* SECOND VERSION OF LOOP_FOLD *)
-(* let fold_aux (index : var) (start : strm) (stop : strm) (step : strm) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    if Mlist.length tl = 0
-      then fail t.loc "fold_aux: expects a non-empty list of instructions";
-    let first_instr = Mlist.nth tl 0 in
-    let loop_body = Internal.change_trm (trm_int 0) (* LATER: allow for starts other than zero *) (trm_var index) first_instr in
-    List.iteri (fun i t1 ->
-      let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in (* change the code if start <> 0 *)
-      if not (Internal.same_trm loop_body local_body)
-        then fail t1.loc "fold_aux: all the instruction should have the same shape but differ by index";
-    ) (List.tl (Mlist.to_list tl)); (* NOTE: we could also iterate on "to_list tl", without doing the +1 *)
-    trm_for index DirUp (code start) (code stop) (code step) (trm_seq_nomarks [loop_body])
-  | _ -> fail t.loc "fold_aux: expected a sequence of instructions"
-
-
-let fold (index : var) (start : var) (stop : var) (step : var) : Target.Transfo.local =
-  Target.apply_on_path (fold_aux index start stop step) *)

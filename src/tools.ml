@@ -282,3 +282,17 @@ let check_permutation (nb : int) (order : int list) : unit =
 let pattern_matches (pattern : string) (s : string) : bool = 
   try let _ = Str.search_forward (Str.regexp pattern) s 0 in true 
   with Not_found -> false 
+
+(* for pattern_matching when the args or the pattern are ginve as Ex:
+    double a, b, c; this function converst them into double a, double b, double c
+ *)
+let fix_pattern_args (var_decls : string) : string =
+  
+  let var_decls_temp = String.sub var_decls 0 (String.length var_decls - 1) in
+  let args_decl_list = Str.split (Str.regexp_string ",") var_decls_temp in
+  let first_var, other_vars = uncons args_decl_list in
+  let var_type, _ =  unlast (Str.split (Str.regexp_string " ") first_var) in
+  let var_type = List.fold_left (^) "" var_type in
+  let other_vars = List.map (fun x -> var_type ^ " " ^ x) other_vars in
+  let var_decls_list = first_var :: other_vars in
+  (list_to_string ~sep:"," ~bounds:["";""] var_decls_list)

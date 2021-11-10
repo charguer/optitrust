@@ -279,6 +279,8 @@ val target_list_all_st : target -> target_list_pred
 
 val target_list_pred_default : target_list_pred
 
+val enable_multi_targets : target -> target
+
 (* Target resolution *)
 
 val resolve_target : target -> trm -> paths

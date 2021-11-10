@@ -20,40 +20,8 @@ let parse_pattern (str : string) : (vars * vars *trm) =
   let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
     else ("", List.nth splitted_pattern 1) in
 
-  let var_decls_temp  = String.mapi (fun i x ->
-    if x = ';'
-      then
-        begin 
-        if i <> String.length var_decls - 1
-          then ','
-          else ' '
-        end
-      else x) var_decls in
-
-  let aux_var_decls_temp  = String.mapi (fun i x ->
-    if x = ';'
-      then
-        if i <> String.length aux_var_decls - 1
-          then ','
-          else ' '
-      else x) aux_var_decls in
-
-  let var_decls_list = Str.split (Str.regexp_string ",") var_decls_temp in
-  let first_var, other_vars = Tools.uncons var_decls_list in
-  let var_type, _ = Tools.unlast (Str.split (Str.regexp_string " ") first_var) in
-  let var_type = List.fold_left (^) "" var_type in
-  let other_vars = List.map (fun x -> var_type ^ " " ^ x)  other_vars in
-  let var_decls_list = first_var :: other_vars in
-  let var_decls_temp = Tools.list_to_string ~sep:"," ~bounds: ["";""] var_decls_list in
-  
-  
-  (* let aux_var_decls_list = Str.split (Str.regexp_string ",") aux_var_decls_temp in
-  let aux_first_var, aux_other_vars = Tools.uncons aux_var_decls_list in
-  let aux_var_type, _ = Tools.unlast (Str.split (Str.regexp_string " ") aux_first_var) in
-  let aux_var_type = List.fold_left (^) "" aux_var_type in
-  let aux_other_vars = List.map (fun x -> aux_var_type ^ " " ^ x)  aux_other_vars in
-  let aux_var_decls_list = aux_first_var :: aux_other_vars in
-  let aux_var_decls_temp = Tools.list_to_string ~sep:"," ~bounds: ["";""] aux_var_decls_list in *)
+  let var_decls_temp = Tools.fix_pattern_args var_decls in
+  let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else Tools.fix_pattern_args aux_var_decls in
   
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
   let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ "\n}" in

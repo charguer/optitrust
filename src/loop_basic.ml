@@ -159,8 +159,3 @@ let fold ?(direction : loop_dir = DirUp)(index : var) (start : int) (step : int)
     Loop_core.fold index direction start step
 )
 
-(* SECOND_VERSION of LOOP_FOLD *)
-(* let fold (index : var) (start : var) (stop : var) (step : var) : Target.Transfo.t =
-  Target.reparse_after (
-    Target.apply_on_targets (Loop_core.fold index start stop step)) *)
-
