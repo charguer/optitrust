@@ -369,7 +369,6 @@ let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop
       if i <> !prev_index + 1 && !prev_index <> -1 then fail t.loc "fold_instrs: all the targeted instructions should be consecutive ones";
       incr nb_targets;
     ) tg;
-    Tools.printf "nb_targets: %d" !nb_targets;
     if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
     fold ~direction ~index:loop_index ~loop_start ~loop_step !nb_targets first_target
 
