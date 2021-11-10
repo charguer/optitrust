@@ -27,7 +27,26 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.bind_intro ~fresh_name:"rmul" ~const:true [pre; cFun "vect_mul"];
      Function.inline [pre; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      Variable.inline [pre; cVarDef "rmul"];
-     (* LATER ARTHUR: find out how to make the second line sufficient *)
+     (* LATER ARTHUR: find out how to make the second line sufficient
+
+        Function.inline  tg
+
+        int x = f(fdsq);
+        f(fdsqf);
+
+        or f is deep
+
+        TODO: At some point implement bind_name to disable inlining after
+        Function.inline ~bind_name:"rmul${occ}" [pre; cFun "vect_mul"];
+          => should not do the final inlining of the variable introduced by bind_intro
+
+        TODO:
+        !! Function.inline [pre; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+           Struct.simpl_proj ~typ:"vect"
+            - if typ provided, lookup the def, else do a  lookup each time
+            - search for:    { ax, ay }.x  -> ax
+              trm_get (trm_access "x", trm_struct ..)
+     *)
   !! Struct.set_explicit [nbMulti; pre; cWriteVar "res"];
   (* LATER: !! Loop.fission [nbMulti; tAllInBetween; pre; cFor "k"; cSeq]; *)
   !! Loop.fission [nbMulti; tAfter; pre; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
