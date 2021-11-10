@@ -24,6 +24,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: optimization of vect_matrix_mul *)
   let pre = cFunDef "vect_matrix_mul" in
+  !! Function.inline  [pre; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Function.bind_intro ~fresh_name:"rmul" ~const:true [pre; cFun "vect_mul"];
      Function.inline [pre; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      Variable.inline [pre; cVarDef "rmul"];

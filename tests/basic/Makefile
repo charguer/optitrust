@@ -77,6 +77,7 @@ TESTS_TOCHECK := \
 	matrix_intro_mmalloc.ml \
 	matrix_reorder_dims.ml \
 	instr_accumulate.ml \
+	struct_simpl_proj.ml \
 	
 	
 

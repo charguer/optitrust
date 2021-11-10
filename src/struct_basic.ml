@@ -69,4 +69,10 @@ let rename_fields (rename : rename) : Target.Transfo.t =
 *)
 let update_fields_type (pattern : string) (ty : typ) : Target.Transfo.t =
   Target.reparse_after (Target.apply_on_targets (Struct_core.update_fields_type pattern ty))
+
   
+(* [simpl_proj tg] expects the target [tg] pointing to any node whose descendants can contain struct
+ initialization list projections 
+*)
+let simpl_proj : Target.Transfo.t =
+  Target.apply_on_targets (Struct_core.simpl_proj)

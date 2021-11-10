@@ -155,7 +155,7 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
       let init1 = match get_init_val init with
       | Some init1 -> init1
       | None -> fail t.loc "inline: coudl not get the target to the function call" in
-      if !name_result <> "" && init1 = tg_trm then fail tg_trm.loc "inline: no need to enter the result name in this case"
+      if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case"
         else if
           List.length local_path <= 2 && List.length local_path > 0
           (* Internal.same_trm init1  tg_trm *) then
@@ -166,15 +166,15 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
             begin match !name_result with
             | ""  ->  name_result := "__TEMP_Optitrust";
                       Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
-            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
+            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);false
             end
-    | Trm_apps (_f, [_; rs]) when is_set_operation tg_out_trm ->
-      if Internal.same_trm rs tg_trm then
+    | Trm_apps (_f, [_; _]) when is_set_operation tg_out_trm ->
         begin match !name_result with
-            | ""  ->  name_result := "__TEMP_Optitrust";
+        | ""  ->  
+                      name_result := "__TEMP_Optitrust";
                       Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
-            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
-            end else false
+        | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);false
+        end 
     | Trm_apps _ -> false
     | _ -> fail None "inline: expected a variable declaration or a function call"
     end in
@@ -190,9 +190,9 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
            | Variable_basic.Init_attach_occurrence_below_control -> success_attach  := false;()
            | e -> raise e in
         if res_inlining_needed then Variable_basic.inline new_target;
-        if !success_attach then Variable.reverse_fold [Target.nbAny;Target.cVarDef !name_result];
+          if !success_attach then Variable.reverse_fold [Target.nbAny;Target.cVarDef !name_result];
         Marks.remove my_mark ([Target.nbAny] @ new_target)
     end;
-
-  ) tg;
+    Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
+  ) tg
 

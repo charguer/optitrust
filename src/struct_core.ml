@@ -530,3 +530,39 @@ let update_fields_type_aux (pattern : string ) (ty : typ) (t : trm) : trm =
 
 let update_fields_type (pattern : string) (ty : typ) : Target.Transfo.local =
   Target.apply_on_path (update_fields_type_aux pattern ty)
+(* [simpl_proj_aux t] transform all expression of the form {1, 2, 3}.f into the trm it projects to 
+    params:
+      [t]: ast of the node whose descendants can contain struct initialization list projections
+    return:
+      the updated ast with all the simplified projections
+*)
+let rec simpl_proj_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (f, [struct_list]) ->
+    begin match trm_prim_inv f with 
+    | Some (Prim_unop (Unop_struct_field_get x)) | Some (Prim_unop (Unop_struct_field_addr x))-> 
+      begin match struct_list.desc with 
+      | Trm_struct tl ->
+        let tid = Internal.get_typid_from_trm struct_list in
+          if tid <> -1 then begin
+            let struct_def = match Context.typid_to_typedef tid with
+            | Some td -> td
+            | _ -> fail struct_list.loc "simpl_proj_aux: couldn't retrieve the the struct declaration" in
+            let field_list = Internal.get_field_list struct_def in
+            let field_vars = fst (List.split field_list) in
+            match Tools.index_of x field_vars  with 
+            | Some i -> 
+              Mlist.nth tl i
+            | _ -> t
+            end 
+            else  t
+      | _ -> trm_map simpl_proj_aux t
+      end 
+
+    | _ -> trm_map simpl_proj_aux t 
+    end
+  | _ -> trm_map simpl_proj_aux t 
+
+
+let simpl_proj : Target.Transfo.local =
+  Target.apply_on_path ( simpl_proj_aux)
