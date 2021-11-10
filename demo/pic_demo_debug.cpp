@@ -345,11 +345,17 @@ coord coordOfCell(int idCell) {
   return {ix, iy, iz};
 }
 
-typedef struct { int v[nbCorners]; } int_nbCorners;
+typedef struct {
+  int v[nbCorners];
+} int_nbCorners;
 
-typedef struct { double v[nbCorners]; } double_nbCorners;
+typedef struct {
+  double v[nbCorners];
+} double_nbCorners;
 
-typedef struct { vect v[nbCorners]; } vect_nbCorners;
+typedef struct {
+  vect v[nbCorners];
+} vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
   coord coord = coordOfCell(idCell);
@@ -497,27 +503,27 @@ int main() {
           particle p2 = {p.pos, p.speed};
           int idCell2 = idCellOfPos(p.pos);
           if (ANY_BOOL()) {
-            chunk *c1 = ((&bagsNext[idCell2])->front);
-            int index1 = (c1->size)++;
-            (c1->items)[index1] = p2;
-            if ((index1 == (CHUNK_SIZE - 1))) {
+            chunk *c = ((&bagsNext[idCell2])->front);
+            int index = (c->size)++;
+            (c->items)[index] = p2;
+            if ((index == (CHUNK_SIZE - 1))) {
               bag_add_front_chunk((&bagsNext[idCell2]));
             }
           } else {
-            chunk *c1;
-            int index1;
+            chunk *c;
+            int index;
             while (true) {
-              c1 = ((&bagsNext[idCell2])->front);
-              index1 = (c1->size)++;
-              if ((index1 < CHUNK_SIZE)) {
-                (c1->items)[index1] = p2;
-                if ((index1 == (CHUNK_SIZE - 1))) {
+              c = ((&bagsNext[idCell2])->front);
+              index = (c->size)++;
+              if ((index < CHUNK_SIZE)) {
+                (c->items)[index] = p2;
+                if ((index == (CHUNK_SIZE - 1))) {
                   bag_add_front_chunk((&bagsNext[idCell2]));
                 }
                 goto exit_body;
               } else {
-                (c1->size) = CHUNK_SIZE;
-                while ((atomic_read((&((&bagsNext[idCell2])->front))) == c1)) {
+                (c->size) = CHUNK_SIZE;
+                while ((atomic_read((&((&bagsNext[idCell2])->front))) == c)) {
                 }
               }
             }

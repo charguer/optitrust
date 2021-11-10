@@ -358,7 +358,6 @@ let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start
     the previous transformation [fold]. The difference here is that the number of instructions is computed automatically.
     LATER: Merge this two functions into one
 *)
-(* TODO: Fix me! *)
 let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (tg : Target.target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in

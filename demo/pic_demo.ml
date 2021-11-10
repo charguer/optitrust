@@ -39,24 +39,16 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !!! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-
-  (* show [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"]; *)
   !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"]; 
-  (* !! Loop.fold ~index:"k"  8 [tIndex 0; cFieldWrite ~base:[cVar "r"] ~field:""()]; *)
-    
 
   (* Part: reveal fields *)
   (* LATER:
     !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; main; cFun "vect_mul"];
   *)
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:3 1; main; cFun "vect_mul"];
-     Function.bind_intro ~fresh_name:"r3" ~const:true [tIndex ~nb:3 2; main; cFun "vect_mul"];
-     Function.inline [main; cOr [[cFun "vect_mul"];[cFun "vect_add"]]];
+  !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti;main; cFun "vect_add"; cFun "vect_mul"];
+     Function.inline [main; cOr [[cFun "vect_mul"];[cFun "vect_add"];[cFun "idCellOfPos"]]];
      Variable.inline [nbMulti; main; cVarDef ~regexp:true "r."];
-  !! Function.(inline ~vars:(AddSuffix "2")) [cFun "idCellOfPos"];
-  (*  !! Struct.set_explicit ~reparse:true [nbMulti; main; cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]; TODO:; try this*)
-  !! Struct.set_explicit [main; cOr [[sInstr "p.speed ="];[sInstr "p.pos ="]]];
-  !! Struct.set_explicit [nbMulti; sInstr "(c->items)[index] = "];
+     Struct.set_explicit [main; cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; 
 
   !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
   !!! Struct.to_variables [cVarDef "fieldAtPos"];

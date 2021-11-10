@@ -5,9 +5,8 @@ open Ast
 let main = cFunDef "main"
 
 let _ = Run.script_cpp (fun () ->
-
-
-
+   
+   
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert ~name:"factor"  ~typ:"const double" ~value:"particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];
   !! Variable.insert ~name:"factorX" ~typ:"const double" ~value:"factor / cellX" [tAfter; cVarDef "factor"];
