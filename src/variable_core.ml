@@ -16,6 +16,10 @@ module Rename = struct
 end
 type rename = Rename.t
 
+let map f = function 
+| Rename.AddSuffix v -> Rename.AddSuffix (f v)
+| ByList kvs -> ByList (List.map (fun (k,v) -> (k, f v)) kvs)
+
 
 (* [fold_aux as_reference fold_at index t]: fold the variable declarations [t]
     params:
