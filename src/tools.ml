@@ -268,26 +268,26 @@ let index_of (x : 'a) (l : 'a list) : int option =
 exception Out_of_bound
 
 (* [list_reorder order l] reorder list [l] based on order [order] *)
-let list_reorder (order : int list) (l : 'a list) : 'a list = 
+let list_reorder (order : int list) (l : 'a list) : 'a list =
   List.map (fun k -> match List.nth_opt l k with | None -> raise Out_of_bound | Some v -> v) order
 
 exception Invalid_permutation
 
 (* [check_permuattion nb order] check if the given order is a permutation of the integer set [0, .. ,nb] *)
-let check_permutation (nb : int) (order : int list) : unit = 
+let check_permutation (nb : int) (order : int list) : unit =
   List.iter (fun k -> if not (List.mem k order) then raise Invalid_permutation) (range 0 (nb -1))
 
 
 (* Check if a regexp matches a given string or not *)
-let pattern_matches (pattern : string) (s : string) : bool = 
-  try let _ = Str.search_forward (Str.regexp pattern) s 0 in true 
-  with Not_found -> false 
+let pattern_matches (pattern : string) (s : string) : bool =
+  try let _ = Str.search_forward (Str.regexp pattern) s 0 in true
+  with Not_found -> false
 
 (* for pattern_matching when the args or the pattern are ginve as Ex:
     double a, b, c; this function converst them into double a, double b, double c
  *)
 let fix_pattern_args (var_decls : string) : string =
-  
+
   let var_decls_temp = String.sub var_decls 0 (String.length var_decls - 1) in
   let args_decl_list = Str.split (Str.regexp_string ",") var_decls_temp in
   let first_var, other_vars = uncons args_decl_list in

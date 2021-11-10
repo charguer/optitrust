@@ -43,7 +43,7 @@ let cFalse : constr =
 let cStrictNew : constr =
   Constr_depth (DepthAt 0)
 
-let cStrict : constr = 
+let cStrict : constr =
   Constr_depth (DepthAt 1)
 
 let cChain (cstrs : constr list) : constr =
@@ -647,7 +647,7 @@ let resolve_target_between = Constr.resolve_target_between
 *)
 
 (* [filter_constr_occurrence tg] *)
-let filter_constr_occurrence (tg : target) : target = 
+let filter_constr_occurrence (tg : target) : target =
   List.filter (function Constr_occurrences _ -> false | _ -> true ) tg
 
 (* [enable_multi_targets tg]: matching multiple targets is not possible then enable it otherwise
@@ -656,7 +656,7 @@ let filter_constr_occurrence (tg : target) : target =
 let enable_multi_targets (tg : target) : target =
     if List.exists (function Constr_occurrences _ -> true | _ -> false) tg
       then tg
-      else nbMulti::tg 
+      else nbMulti::tg
 
 (******************************************************************************)
 (*                          Apply on target operations                        *)
@@ -695,28 +695,34 @@ let fix_target (tg : target) : target =
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   let tg = fix_target tg in
   Trace.apply (fun t ->
-    let ps = resolve_target tg t in
+    let ps =
+      Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
+        resolve_target tg t) in
     let marks = List.map (fun _ -> Mark.next()) ps in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
     (* Tools.printf "%s\n" (Ast_to_c.ast_to_string t); *)
-    let t = List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks in
+    let t =
+        Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_marks" (fun () ->
+          List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
     (* Tools.printf "%s\n" (Ast_to_c.ast_to_string t); *)
     (* iterate over these marks *)
     try
       Tools.foldi (fun imark t m ->
-        match resolve_target [nbAny;cMark m] t with
-        | [p] ->
-            let t = apply_on_path (trm_remove_mark m) t p in
-            tr imark t (transformer p)
-        | ps ->
-            let msg =
-              if ps <> []
-                then "applyi_on_transformed_targets: a mark was duplicated"
-                else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
-              in
-            if debug_disappearing_mark
-              then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
-              else fail None msg
+        Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
+          match resolve_target [nbAny;cMark m] t with
+          | [p] ->
+              let t = apply_on_path (trm_remove_mark m) t p in
+              tr imark t (transformer p)
+          | ps ->
+              let msg =
+                if ps <> []
+                  then "applyi_on_transformed_targets: a mark was duplicated"
+                  else (Tools.sprintf "applyi_on_transformed_targets: mark %s disappeared" m)
+                in
+              if debug_disappearing_mark
+                then (Printf.eprintf "%s\n" msg; raise (Interrupted_applyi_on_transformed_targets t))
+                else fail None msg
+        )
       ) t marks
     with Interrupted_applyi_on_transformed_targets t -> t
     )
@@ -944,13 +950,13 @@ let get_trm_at (tg : target) : trm =
   !t_ast
 
 (* [reparse_at tg] reparse the node at [tg] *)
-let reparse_at (tg : target) : unit = 
-  apply_on_targets ( fun t p -> 
-    let path_to_seq =  
+let reparse_at (tg : target) : unit =
+  apply_on_targets ( fun t p ->
+    let path_to_seq =
        match List.rev p with
        | Path.Dir_seq_nth _ :: dl' -> List.rev dl'
        | _ -> p in
-      apply_on_path (fun t -> 
+      apply_on_path (fun t ->
         Trace.term (Trace.get_context ()) (Ast_to_c.ast_to_string t)) t path_to_seq) tg
 
 (** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
@@ -960,7 +966,7 @@ let reparse_at (tg : target) : unit =
 let reparse_after ?(reparse:bool=true) ?(local_reparse : bool = false)(tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     tr tg;
-    if reparse then 
+    if reparse then
       if local_reparse then reparse_at tg
       else Trace.reparse ()
 

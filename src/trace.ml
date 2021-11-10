@@ -3,6 +3,9 @@ open Ast
 (*                             Logging management                             *)
 (******************************************************************************)
 
+(* [timing_log] is a handle on the channel for writing timing reports. *)
+let timing_log_handle = ref None
+
 (* [logs] is a reference on the list of open log channels. *)
 let logs : (out_channel list) ref = ref []
 
@@ -16,7 +19,9 @@ let close_logs () : unit =
 let init_logs directory prefix =
   close_logs();
   let clog = open_out (directory ^ prefix ^ ".log") in
-  logs := clog :: [];
+  let timing_log = open_out ("timing.log") in
+  timing_log_handle := Some timing_log;
+  logs := timing_log :: clog :: [];
   clog
 
 (* [write_log clog msg] writes the string [msg] to the channel [clog]. *)
@@ -35,6 +40,53 @@ let trm_to_log (clog : out_channel) (exp_type : string) (t : trm) : unit =
     in
   let msg = Printf.sprintf (" -expression\n%s\n" ^^ " %s is a %s\n") (Ast_to_c.ast_to_string t) sloc exp_type in
  write_log clog msg
+
+(******************************************************************************)
+(*                             Timing logs                                    *)
+(******************************************************************************)
+
+(* [write_timing_log msg] is writing a message in the timing log *)
+let write_timing_log (msg : string) : unit =
+  let timing_log = match !timing_log_handle with
+    | Some log -> log
+    | None -> failwith "uninitialized timing log"
+   in
+   write_log timing_log msg
+
+(* [timing ~name f] writes the execution time of [f] in the timing log file *)
+let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
+  if !Flags.analyse_time && cond then begin
+    let t0 = Unix.gettimeofday () in
+    let res = f() in
+    let t1 = Unix.gettimeofday () in
+    let nb_ms = int_of_float (1000. *. (t1 -. t0)) in
+    let msg = Printf.sprintf "%d\tms -- %s\n" nb_ms name in
+    write_timing_log msg;
+    res
+  end else begin
+    f()
+  end
+
+(* Storage for measuring the duration of all the steps *)
+let start_time  = ref (0.)
+
+(* Storage for measuring the duration of each step *)
+let last_time  = ref (0.)
+
+(* [last_time_update()] updates [last_time] and returns the delay
+   since last call *)
+let last_time_update () : int =
+  let t = Unix.gettimeofday() in
+  let dt = t -. !last_time in
+  last_time := t;
+  int_of_float (1000. *. dt)
+
+(* [report_time_of_last_step()] reports the total duration of the last step *)
+let report_time_of_last_step () : unit =
+  if !Flags.analyse_time then begin
+    let duration_of_previous_step = last_time_update () in
+    write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" duration_of_previous_step);
+  end
 
 (******************************************************************************)
 (*                             File input                                     *)
@@ -65,14 +117,18 @@ let parse (filename : string) : string * trm =
       (Clang.default_include_directories ()) in
   let command_line_warnings = ["-Wno-parentheses-equality"; "-Wno-c++11-extensions"] in
   let command_line_args = command_line_warnings @ command_line_include in
-  let ast = Clang.Ast.parse_file ~command_line_args filename  in
+  let ast =
+    timing ~name:"parse_file" (fun () ->
+      Clang.Ast.parse_file ~command_line_args filename) in
 
   (* DEBUG: Format.eprintf "%a@."
        (Clang.Ast.format_diagnostics Clang.not_ignored_diagnostics) ast; *)
   print_info None "Parsing Done.\n";
   print_info None "Translating AST...\n";
 
-  let t = Clang_to_ast.translate_ast ast in
+  let t =
+    timing ~name:"translate_ast" (fun () ->
+      Clang_to_ast.translate_ast ast) in
 
   print_info None "Translation done.\n";
   (includes, t)
@@ -140,9 +196,6 @@ let reset () : unit =
 (* Storage for the current ml script *)
 let ml_file = ref []
 
-(* Storage for the current time *)
-let last_time  = ref (0.)
-
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
    The history is initialized with the initial AST.
@@ -161,7 +214,8 @@ let init ?(prefix : string = "") (filename : string) : unit =
   ml_file := if !Flags.analyse_time then
               Xfile.get_lines (ml_file_name ^ ".ml")
               else [];
-  last_time := Unix.gettimeofday ();
+  start_time := Unix.gettimeofday ();
+  last_time := !start_time;
   let prefix = if prefix = "" then default_prefix else prefix in
   let clog = init_logs directory prefix in
   let (includes, cur_ast) = parse filename in
@@ -169,6 +223,7 @@ let init ?(prefix : string = "") (filename : string) : unit =
   let trace = { context; cur_ast; history = [cur_ast] } in
   traces := [trace];
   print_info None "Starting script execution...\n"
+
 (* [finalize()] should be called at the end of the script, to properly close the log files
     created by the call to [init]. *)
 let finalize () : unit =
@@ -316,7 +371,8 @@ let step () : unit =
    LATER: find a way to remove extra parentheses in ast_to_doc, by using
    priorities to determine when parentheses are required. *)
 let cleanup_cpp_file_using_clang_format (filename : string) : unit =
-  ignore (Sys.command ("clang-format -i " ^ filename))
+  timing ~name:(Printf.sprintf "cleanup_cpp_file_using_clang_format(%s)" filename) (fun () ->
+    ignore (Sys.command ("clang-format -i " ^ filename)))
 
 (* [output_prog ctx prefix ast] writes the program described by the term [ast]
    in several files:
@@ -340,7 +396,7 @@ let get_language () =
   | [] -> fail None "cannot detect language -- trace should not be empty"
   | t::_ -> language_of_extension t.context.extension
 
-let output_prog ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
+let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast : trm) : unit =
   let file_prog = prefix ^ ctx.extension in
   let out_prog = open_out file_prog in
   begin try
@@ -355,9 +411,10 @@ let output_prog ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) (ast 
     failwith s
   end;
   (* beautify the C++ code --comment out for debug *)
-  cleanup_cpp_file_using_clang_format file_prog;
+  if beautify
+    then cleanup_cpp_file_using_clang_format file_prog;
   (* ast and enc *)
-  if ast_and_enc then begin
+  if ast_and_enc && !Flags.dump_ast_details then begin
     let file_ast = prefix ^ ".ast" in
     let file_enc = prefix ^ "_enc" ^ ctx.extension in
     let out_ast = open_out file_ast in
@@ -479,7 +536,7 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
 (* [reparse_trm ctx ast] print [ast] in a temporary file and reparses it using Clang. *)
 let reparse_trm (ctx : context) (ast : trm) : trm =
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
-  output_prog ctx in_prefix ast;
+  output_prog ~beautify:false ctx in_prefix ast;
   let (_, t) = parse (in_prefix ^ ctx.extension) in
   (*let _ = Sys.command ("rm " ^ in_prefix ^ "*") in*)
   t
@@ -507,8 +564,13 @@ let reparse_alias = reparse
    If option [-dump-last nb] was provided, output files are produced for the last [nb] step. *)
 (* LATER for mli: dump_diff_and_exit : unit -> unit *)
 let dump_diff_and_exit () : unit =
+  if !Flags.analyse_time then begin
+     report_time_of_last_step();
+     write_timing_log (Printf.sprintf "------------------------TOTAL TRANSFO TIME: %.3f s\n" (!last_time -. !start_time));
+     write_timing_log (Printf.sprintf "------------START DUMP------------\n");
+  end;
+  timing ~name:"TOTAL for dump_diff_and_exit" (fun () ->
   print_info None "Exiting script\n";
-  close_logs ();
   let trace =
     match !traces with
     | [] -> fail None "No trace"
@@ -546,24 +608,10 @@ let dump_diff_and_exit () : unit =
   output_ast (prefix ^ "_after") (Some astAfter);
   print_info None "Writing ast and code into %s.js " prefix;
   output_js 0 prefix astAfter;
+  );
   (* Exit *)
+  close_logs ();
   exit 0
-
-
-
-(* [check_time line]: compute the time it takes to execute the transformation at line
-  [line] in a ml script
-*)
-let check_time (line : int) : unit =
-  let t = Unix.gettimeofday() in
-  let dt = t -. !last_time in
-  last_time := t;
-  let txt =
-    match List.nth_opt !ml_file (line - 1) with
-    | Some txt -> txt
-    | None -> "<unable to retrieve line from script>"
-    in
-  Printf.printf "\n%d: %f\n %s\n" line dt txt
 
 (* [check_exit_and_step()] performs a call to [check_exit], to check whether
    the program execution should be interrupted based on the command line argument
@@ -574,19 +622,34 @@ let check_time (line : int) : unit =
    then the [reparse] function is called, replacing the current AST with
    a freshly parsed and typechecked version of it. *)
 let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
+  report_time_of_last_step();
   let should_exit =
     match Flags.get_exit_line() with
     | Some li -> (line > li)
     | _ -> false
     in
   if should_exit then begin
-     dump_diff_and_exit();
+    if !Flags.analyse_time then begin
+       write_timing_log (Printf.sprintf "------------------------\n");
+    end;
+    dump_diff_and_exit();
   end else begin
-    if reparse
-      then reparse_alias();
+
+    if reparse then begin
+      reparse_alias();
+      if !Flags.analyse_time then
+        let duration_of_reparse = last_time_update () in
+        write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
+    end;
+    if !Flags.analyse_time then begin
+      let txt =
+      match List.nth_opt !ml_file (line - 1) with
+      | Some txt -> txt
+      | None -> "<unable to retrieve line from script>"
+      in
+      write_timing_log (Printf.sprintf "------------------------\n[line %d]  %s\n" line txt);
+    end;
     step();
-    if !Flags.analyse_time
-      then check_time line;
  end
 
 
@@ -623,6 +686,9 @@ let (!!!) (x:'a) : 'a =
 (* LATER for mli: val dump : ?prefix:string -> unit -> unit *)
 
 let dump ?(prefix : string = "") () : unit =
+  if !Flags.analyse_time then begin
+      write_timing_log (Printf.sprintf "------------START DUMP------------\n");
+  end;
   (* Dump full trace if requested *)
   if !Flags.dump_all then
      dump_trace_to_js ~prefix (); (* dump_trace ~prefix () *)

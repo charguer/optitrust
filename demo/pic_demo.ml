@@ -39,7 +39,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !!! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-  !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"]; 
+  !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
 
   (* Part: reveal fields *)
   (* LATER:
@@ -48,7 +48,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti;main; cFun "vect_add"; cFun "vect_mul"];
      Function.inline [main; cOr [[cFun "vect_mul"];[cFun "vect_add"];[cFun "idCellOfPos"]]];
      Variable.inline [nbMulti; main; cVarDef ~regexp:true "r."];
-     Struct.set_explicit [main; cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; 
+     Struct.set_explicit [main; cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]];
 
   !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
   !!! Struct.to_variables [cVarDef "fieldAtPos"];
