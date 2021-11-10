@@ -225,3 +225,29 @@ let reverse_fold : Target.Transfo.t =
       end
     | _ -> fail t.loc "reverse_fold: expected the declaration of the variable which is goingg to be reverse folded"
 )
+
+(* [elim_redundant ~source tg] expets the target [tg] pointing to a variable declaration with an initial value
+    the same as the variable declaration which [source] points to. Then it will fold the variable in [source] into 
+    the varibale declaration [tg] and inline the declaration in [tg]
+   NOTE: This version works only if source was provide otherwise it will throw an error *)
+let elim_redundant ?(source : Target.target = []) (tg : Target.target) : unit  =
+  Trace.call (fun t -> 
+    let source_paths = Target.resolve_target source t in 
+    Target.iteri_on_targets ( fun i t p -> 
+    if source = [] then fail None "elim_redundant: source declaration was not provided";
+    let source_decl_trm = match List.nth_opt source_paths i with 
+    | Some p -> fst (Path.resolve_path p t) 
+    | None -> fail t.loc "elim_redundant: the number of source targets shoudl be equeal to the number of the main targets" in
+    let tg_trm,_ = Path.resolve_path p t in
+    match source_decl_trm.desc with 
+    | Trm_let (_, (a, _), _init) -> 
+      begin match tg_trm.desc with 
+      | Trm_let (_, (b, _), _init) ->
+          Variable_basic.fold ~at:[Target.cVarDef b] [Target.cVarDef a];
+          Variable_basic.inline [Target.cVarDef b]
+      | _ -> fail tg_trm.loc "elim_redundant: "
+      end
+    | _ -> fail source_decl_trm.loc "elim_redundant: the target to the source declaration does not resolve to a variable declaration"
+    ) tg
+  )
+  

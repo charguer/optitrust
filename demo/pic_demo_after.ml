@@ -5,82 +5,9 @@ open Ast
 let main = cFunDef "main"
 
 let _ = Run.script_cpp (fun () ->
-   
-   (* Part: optimization of accumulateChargeAtCorners *)
-  !! Function.inline [cOr [
-     [cFun "vect8_mul"];
-     [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
-     [cFun "accumulateChargeAtCorners"]]];
-  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti;cFun "cornerInterpolationCoeff"];
-    
-
-  let mark = "mark_decls" in
-  !! Marks.add mark [nbMulti; main;
-      cOr [[cVarDef ~regexp:true ~substr:true "coef_.2"];
-           [cVarDef ~regexp:true ~substr:true "sign_.2"]]];
-   (*
-      Variable.elim_redundant ~source:[cVarDef "a"] [cVarDef "b"]
-
-       If ~source  is not provided, then we simply look in the same sequence
-       for a variable definition with the same initialization value;
-       and if we have more than one occurrence, we raise an error.
-
-     const int a = 4;
-     const int b = 4;
-     f(a,b)
-     -->
-     const int a = 4;
-     f(a,a)
-
-
-     const int a = 4;
-     const int b = 4;
-     f(a,b)
-     --> // by folding "a" in the [cVarDef "b"]
-     const int a = 4;
-     const int b = a;
-     f(a,b)
-     --> // inline of "b"
-     const int a = 4;
-     f(a,a)
-
-     more advanced unit test:
-      double[8] coef_x1 = {1., 1., 1., 1., 0., 0., 0., 0.};
-      double coef_x2[8] = coef_x1;
-      instr(coef_x2)
-      -->
-      double coef_x1[8] = {1., 1., 1., 1., 0., 0., 0., 0.};
-      instr(coef_x1)
-   *)
-
-  !! Variable.rename_on_block (ByList [
-      ("coef_x2","coef_x");("coef_x1","coef_x");("coef_y2","coef_y");
-      ("coef_y1","coef_y");("coef_z2","coef_z");("coef_z1","coef_z");
-      ("sign_x2","sign_x");("sign_x1","sign_x");("sign_y2","sign_y");
-      ("sign_y1","sign_y");("sign_z2","sign_z");("sign_z1","sign_z");]) [main; cFor "i"; dBody];
-
-     Instr.delete [nbMulti; cMark mark];
-  !! Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true "i.11"];
-     Instr.move ~dest:[tBefore; cVarDef "rx2"] [nbMulti; cVarDef ~regexp:true "i.12"];
-     Instr.move ~dest:[tBefore; cVarDef "r2"] [cOr [ [cVarDef ~regexp:true "indices"];[cVarDef ~regexp:true "res"]]];
-  (* TODO: at some point
-     type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target_between
-     Instr.(gather ~dest:GatherAtFirst) tg
-       -> resolve paths for tg;
-       -> check all path reach the same sequence
-       -> put a mark-between on the desired target_between
-          | GatherAtFirst -> mark after index of first occurrence
-          | GatherAtLast -> mark before index of last occurrence
-          | GatherAt tg2 -> resolve the target-between and put the mark there
-       -> move all targeted instructions to the mark   *)
-
-  (* TODO ARTHUR: nbCorners vs 8 *)
-  !! Instr.delete [cOr [[cVarDef "coeffs"];[cVarDef "coeffs2"]]];
-  !! Variable.rename_on_block (ByList [("r1","coeffs");("r2","coeffs2")]) [main; cFor "i"; dBody];
-  !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
-  (* TODO ARTHUR: see how to improve this part *)
- !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
-  !! Instr.inline_last_write ~write:[sInstr "res1.v[k] ="] [cRead ~addr:[sExpr "res1.v"] ()];
+      
+  
+  
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert ~name:"factor"  ~typ:"const double" ~value:"particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];
   !! Variable.insert ~name:"factorX" ~typ:"const double" ~value:"factor / cellX" [tAfter; cVarDef "factor"];

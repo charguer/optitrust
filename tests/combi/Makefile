@@ -37,6 +37,7 @@ TESTS_TOCHECK := \
 	instr_move_invariant.ml \
 	instr_read_last_write.ml \
   varaible_reverse_fold.ml \
+	variable_elim_redundant.ml \
 	
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 
