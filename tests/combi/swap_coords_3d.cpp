@@ -11,5 +11,5 @@ int main() {
 }
 
 // TO INVESTIGATE LATER
-// TODO: support swapping of t[i][j][k] into t[i][k][j] can perhaps be obtained by giving a specific type to t[i], but it's not obvious.
-// TODO: support swapping of t[i][j][k] into t[k][i][j] or t[k][j][i] could be obtained in theory as a result of two successive swaps, but that remains to be demonstrated
+// LATER: support swapping of t[i][j][k] into t[i][k][j] can perhaps be obtained by giving a specific type to t[i], but it's not obvious.
+// LATER: support swapping of t[i][j][k] into t[k][i][j] or t[k][j][i] could be obtained in theory as a result of two successive swaps, but that remains to be demonstrated

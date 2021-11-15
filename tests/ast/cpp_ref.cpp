@@ -174,7 +174,7 @@ int main() {
   const int c = 5;
   ref_argument(a, b, c);
 }
-// TODO: Implement virtual_get function
+// LATER: Implement virtual_get function
 /*
   in OptiTrust
 

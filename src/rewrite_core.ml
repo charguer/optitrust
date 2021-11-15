@@ -126,8 +126,6 @@ exception Rule_match_ast_list_no_occurrence_for of string
 
 *)
 
-
-
 (* [rule_match_as_list pattern_vars pattern_instr t] returns the list of key values in the map generated from rule_match *)
 let rule_match_as_list (pattern_vars : vars)  (pattern_instr : trm)  (t : trm) : trms =
   let inst : tmap = rule_match pattern_vars  pattern_instr t in

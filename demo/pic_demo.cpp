@@ -68,7 +68,7 @@ int wrap(int gridSize, int a) {
 
 const int nbCorners = 8;
 
-vect* fields = (vect*) malloc(nbCells * sizeof(vect)); // TODO: delete
+vect* fields = (vect*) malloc(nbCells * sizeof(vect)); 
 
 
 int cellOfCoord(int i, int j, int k) {
@@ -143,11 +143,11 @@ int_nbCorners indicesOfCorners (int idCell) {
 
 }
 
-vect_nbCorners getFieldAtCorners(int idCell) {
+vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
   int_nbCorners indices = indicesOfCorners(idCell);
   vect_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
-    res.v[k] = fields[indices.v[k]];
+    res.v[k] = field[indices.v[k]];
   }
   return res;
 
@@ -268,7 +268,7 @@ int main() {
     for (int idCell = 0; idCell < nbCells; idCell++) {
 
       // Read the electric field that applies to the corners of the cell considered
-      vect_nbCorners field_at_corners = getFieldAtCorners(idCell); // TODO: take "field" as argument
+      vect_nbCorners field_at_corners = getFieldAtCorners(idCell,field); 
 
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
@@ -280,9 +280,7 @@ int main() {
         int nb = c->size;
         // iterate over the items from the current chunk
         for (int i = 0; i < nb; i++) {
-          /* TODO: re-printing the code below gives: "particle &p = cur_p;"
-          particle* cur_p = &c->items[i];
-          particle &p = *cur_p; */
+          
           particle p = c->items[i];
 
 
