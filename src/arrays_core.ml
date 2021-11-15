@@ -457,7 +457,7 @@ let swap (index : int) : Target.Transfo.local =
 let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
-    (* TODO: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
+    (* LATER: document  E.G.  matching (array_access(struct_access(t, f), index)); ... *)
     | Trm_apps(_,[get_base]) when (List.mem Access t.annot)  ->
       begin match get_base.desc with
       | Trm_apps (f, [base]) ->
@@ -475,7 +475,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
                    *)
 
                    (*
-                     TODO: Arthur write better specification for the changes
+                     LATER: Arthur write better specification for the changes
                       <<t>> [i].x
                    *)
 
@@ -520,7 +520,7 @@ let aos_to_soa_aux (struct_name : typvar) (sz : var) (t : trm) : trm =
          end
       | _ -> trm_map (aux global_trm) t
       end
-      (* TODO: arthur: test the use of exceptions for structuring this code *)
+      (* LATER: arthur: test the use of exceptions for structuring this code *)
 
     | Trm_typedef td when td.typdef_tconstr = struct_name ->
       begin match td.typdef_body with

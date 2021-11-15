@@ -6,31 +6,29 @@ let main = cFunDef "main"
 
 let _ = Run.script_cpp (fun () ->
 
-
-
   (* Part: scaling of speeds and positions #7 *)
-  !! Variable.insert ~name:"factor"  ~typ:"const double" ~value:"particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];
-  !! Variable.insert ~name:"factorX" ~typ:"const double" ~value:"factor / cellX" [tAfter; cVarDef "factor"];
-  !! Variable.insert ~name:"factorY" ~typ:"const double" ~value:"factor / cellY" [tAfter; cVarDef "factorX"];
-  !! Variable.insert ~name:"factorZ" ~typ:"const double" ~value:"factor / cellZ" [tAfter; cVarDef "factorY"];
-  (* TODO: insert and insert_list should have option ~reparse:false
-
-         let defs = ["factor", "particleCharge * stepDuration * stepDuration /particleMass / cellX";
-                     "factorX", "factor / cellX";
-                     "factorY", ...] in
-         let defs = List.map (fun d -> "factor" ^ d, "factor / cell" ^ d) dims in
-      !! Variable.insert_list ~typ:"const double" ~values:defs [tBefore; cVarDef "nbSteps"];
-      *)
+    let dims = ["X";"Y";"Z"] in
+    let names = "factor" :: (List.map (fun x -> "factor" ^ x) dims) in
+    let values = "particleCharge * stepDuration * stepDuration /particleMass / cellX" :: (List.map (fun x -> "factor / cell" ^ x) dims) in
+  !! Variable.insert_list ~names ~values ~typ:"const double" ~reparse:true [tBefore; cVarDef "nbSteps"];
+  !! List.iter (fun d -> 
+    Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos_" ^ (String.lowercase_ascii d))]
+  ) dims;
 
 
-  (*
 
-    Tools.list_iter dims ~f:(fun d ->
-     Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ (Tools.uppercase d))) [cVarDef "accel"; cReadVar ("fieldAtPos_" ^ d)]);
-  *)
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "factorX") [cVarDef "accel"; cReadVar "fieldAtPos_x"];
+  (* !! Variable.insert ~name:"factor"  ~typ:"const double" ~value:"particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];
+     Variable.insert ~name:"factorX" ~typ:"const double" ~value:"factor / cellX" [tAfter; cVarDef "factor"];
+     Variable.insert ~name:"factorY" ~typ:"const double" ~value:"factor / cellY" [tAfter; cVarDef "factorX"];
+     Variable.insert ~name:"factorZ" ~typ:"const double" ~value:"factor / cellZ" [tAfter; cVarDef "factorY"]; 
+     !! Accesses.scale ~factor_ast:(Ast.trm_var "factorX") [cVarDef "accel"; cReadVar "fieldAtPos_x"];
   !! Accesses.scale ~factor_ast:(Ast.trm_var "factorY") [cVarDef "accel"; cReadVar "fieldAtPos_y"];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "factorZ") [cVarDef "accel"; cReadVar "fieldAtPos_z"];
+  !! Accesses.scale ~factor_ast:(Ast.trm_var "factorZ") [cVarDef "accel"; cReadVar "fieldAtPos_z"]; *)
+
+  
+  
+  
+  
   (* TODO: target all the reads of the right form in the labelled sequence p_write: {..}  added before set_explicit *)
   !! Accesses.scale ~factor_ast:(Ast.trm_var "stepDuration / cellX") [nbMulti;main; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
   !! Accesses.scale ~factor_ast:(Ast.trm_var "stepDuration / cellY") [nbMulti;main; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];

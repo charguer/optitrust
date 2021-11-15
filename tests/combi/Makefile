@@ -38,7 +38,8 @@ TESTS_TOCHECK := \
 	instr_read_last_write.ml \
   varaible_reverse_fold.ml \
 	variable_elim_redundant.ml \
-	
+  variable_insert_list.ml \
+		
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 
 include ../Common.Makefile
