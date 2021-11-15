@@ -8,9 +8,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: inlining of the bag iteration *) (* skip #1 *)
 
-  (* LATER: !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; cFun "vect_mul"]; *)
-
- (* Part1: space reuse *)
+  (* Part1: space reuse *)
   !! Variable.reuse "p.speed" [cVarDef "speed2"];
      Variable.reuse "p.pos" [cVarDef "pos2"];
 

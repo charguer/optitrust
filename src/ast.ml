@@ -1822,3 +1822,4 @@ let combine_styp (ty1 : styp option) (ty2 : typ option) : typ =
   | None, Some ty -> ty
   | Some _, Some _ -> raise Ast_and_code_provided
   | None, None -> raise No_ast_or_code_provided
+

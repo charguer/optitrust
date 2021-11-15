@@ -16,11 +16,10 @@ let parse_pattern (str : string) : (vars * vars *trm) =
   if List.length splitted_pattern < 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
     for the declaration of variables used in the pattern and the rule itself" ;
   let var_decls = String.trim (List.nth splitted_pattern 0) in
-  
   let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
     else ("", List.nth splitted_pattern 1) in
-
   let var_decls_temp = Tools.fix_pattern_args var_decls in
+  
   let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else Tools.fix_pattern_args aux_var_decls in
   
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
@@ -35,7 +34,7 @@ let parse_pattern (str : string) : (vars * vars *trm) =
     | Trm_let_fun (_, _, args, body) ->
       begin match body.desc with
       | Trm_seq tl1 ->
-        if Mlist.length tl1 < 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls # rule_to_appy";
+        if Mlist.length tl1 < 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls ==> rule_to_apply";
         let pattern_instr_ret = Mlist.nth tl1 0 in
         let pattern_instr =
         begin match pattern_instr_ret.desc with
@@ -115,19 +114,21 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
 
 exception Rule_match_ast_list_no_occurrence_for of string
 
-(* TODO:
-  tmap_to_list (keys:vars) (map:tmap) : trms
-  tmap_filter_keys (keys:vars) (map:tmap) : trmap
 
-  in intro_pattern_array
+(* [tmap_to_list keys map] get the values of [keys] in map as a list *)
+let tmap_to_list (keys : vars) (map : tmap) : trms = 
+  List.map (fun x -> match Trm_map.find_opt x map with
+    | Some v -> v
+    | None -> raise (Rule_match_ast_list_no_occurrence_for x)
+  ) keys
 
-    let inst = rule_match (pattern_vars @ pattern_aux_vars) pattern_instr t in
-    let decls = tmap_to_list patterns_vars (tmap_filter_keys pattern_vars inst) in
+(* [tmap_filter_keys keys map] get a map with filtered keys *)
+let tmap_filter_keys (keys : vars) (map : tmap) : tmap = 
+  Trm_map.filter (fun k _ -> List.mem k keys) map
 
-*)
 
 (* [rule_match_as_list pattern_vars pattern_instr t] returns the list of key values in the map generated from rule_match *)
-let rule_match_as_list (pattern_vars : vars)  (pattern_instr : trm)  (t : trm) : trms =
+let rule_match_as_list (pattern_vars : vars) (pattern_instr : trm)  (t : trm) : trms =
   let inst : tmap = rule_match pattern_vars  pattern_instr t in
   List.map (fun x -> match Trm_map.find_opt x inst with
     | Some v -> v

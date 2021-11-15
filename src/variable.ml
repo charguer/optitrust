@@ -134,10 +134,9 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
 
 let intro_pattern_array (str : string) (tg : Target.target) : unit = 
   Trace.call (fun t -> 
-  let (pattern_vars, _pattern_aux_vars, pattern_instr) = Rewrite_core.parse_pattern str in
+  let (pattern_vars, pattern_aux_vars, pattern_instr) = Rewrite_core.parse_pattern str in
   let path_to_surrounding_seq = ref [] in
   let paths = Target.resolve_target tg t in
-  (* compute the branch with minia *)
   List.iteri (fun _i p -> 
     let path_to_seq, _ , _index  = Internal.get_instruction_in_surrounding_sequence p in
     if !path_to_surrounding_seq = [] then path_to_surrounding_seq := path_to_seq 
@@ -147,7 +146,8 @@ let intro_pattern_array (str : string) (tg : Target.target) : unit =
   let nb_vars = List.length pattern_vars in
   let all_values = Array.make_matrix nb_vars nb_paths (trm_unit ()) in
   Target.iteri_on_targets (fun id_path _ p -> 
-    let values = Rewrite_core.rule_match_as_list pattern_vars  pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
+    let inst = Rewrite_core.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
+    let values = Rewrite_core.tmap_to_list pattern_vars (Rewrite_core.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
     let inst = List.map (fun  x -> trm_apps (trm_binop (Binop_array_cell_addr))[trm_var x; trm_int id_path]) pattern_vars in
     let new_inst = Trm_map.empty in
