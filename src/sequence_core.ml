@@ -45,24 +45,33 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
 (* [intro_aux index nb t]: inside a sequence, move all the trms with findex falling in a range 
       from [index] to [index] + [nb] into a sub-sequence.
     params:
+      |mark]: mark to insert on the new sequence
+      [label]: a label to insert on the new sequence
       [index]: index where the grouping is performed
       [ts]: a list of ast nodes
       [t]: ast of the outer sequence where the insertion is performed
+    
+    ote: if both the mark and the label are given then transformation will fail
+    
     return: the sequence with the inserted nodes
 *)
-let intro_aux (mark : string) (index : int) (nb : int) (t : trm) : trm =
+let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm) : trm =
+  if mark <> "" && label <> "" then fail t.loc "intro_aux: can't insert both the label and the mark at the same time";
   match t.desc with
     | Trm_seq tl ->
       let tl1, tl2 = 
         if nb > 0 then Mlist.extract index nb tl else Mlist.extract (index+ nb+1) (-nb) tl in
         let intro_seq = trm_seq tl2 in
-        let intro_seq = if mark <> "" then trm_add_mark mark intro_seq else intro_seq in
+        let intro_seq = if mark <> "" 
+                          then trm_add_mark mark intro_seq 
+                          else if label <> "" then trm_labelled label intro_seq 
+                          else intro_seq in
         let index = if nb < 0 then index -1 else index in
          trm_seq  ~annot:t.annot ~marks:t.marks (Mlist.insert_at index intro_seq tl1)
     | _ -> fail t.loc "intro_aux: expected the sequence on which the grouping is performed"
 
-let intro (mark : string) (index : int) (nb_instr : int) : Target.Transfo.local =
-  Target.apply_on_path (intro_aux mark index nb_instr)
+let intro (mark : string) (label : label) (index : int) (nb_instr : int) : Target.Transfo.local =
+  Target.apply_on_path (intro_aux mark label index nb_instr)
 
 (*[elim_aux index t]: inline an inner sequence into an outer sequence.
     params:

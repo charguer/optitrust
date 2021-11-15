@@ -142,7 +142,7 @@ let change_type (new_type : typvar) : Target.Transfo.t =
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
 let insert ?(const : bool = false) ?(reparse : bool = false) ~name:(name : string) ~typ:(typ : string ) ~value:(value : string) : Target.Transfo.t =
-  Target.reparse_after (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))
+  Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))
 
 (* [replace_occurrences name ~space tg]] expects the target [tg] to point to any node ast which could contain 
     an occurrence of the variable [name], then it will all the nodes which come after the node targeted by target [tg]
@@ -153,5 +153,7 @@ let replace_occurrences ~subst:(name : var) ~put:(put : strm) : Target.Transfo.t
   )
 
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = false) ?(my_mark : mark = "") : Target.Transfo.t =
-  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-    (fun (p, p_local, i) t -> Variable_core.bind_intro my_mark i fresh_name const p_local t p)
+  Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
+    (fun occ  t (p, p_local, i) -> 
+      let fresh_name = Str.global_replace (Str.regexp_string "${occ}") (string_of_int occ) fresh_name in
+      Variable_core.bind_intro my_mark i fresh_name const p_local t p)

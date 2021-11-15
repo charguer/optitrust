@@ -70,9 +70,11 @@ let biject (fun_bij : string) : Target.Transfo.t =
 *)
 let intro_mops (dim : trm) : Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
+    let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
     let tg_trm, _ = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_let (_, (x,_), init) ->
+      let tg_occs = [Target.nbAny] @ (Target.target_of_path path_to_seq) @ [Target.cCellAccess ~base:[Target.cVar x] ~index:[]] in
       begin match get_init_val init with
       | Some t1 ->
         begin match t1.desc with 
@@ -80,18 +82,18 @@ let intro_mops (dim : trm) : Target.Transfo.t =
           begin match malloc_trm.desc with
           | Trm_apps ({desc = Trm_var "calloc";_}, _) ->
             intro_mcalloc [Target.cVarDef x];
-            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]]
+            Matrix_basic.intro_mindex dim tg_occs
           | Trm_apps ({desc = Trm_var "malloc";_}, _) ->
             Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
-            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]]
+            Matrix_basic.intro_mindex dim tg_occs
           | _ -> fail t1.loc "intro_mops: couldn't find a call to calloc/malloc function"
           end
         | Trm_apps ({desc = Trm_var "calloc";_}, _) ->
             Matrix_basic.intro_mcalloc ((Target.target_of_path p) @ [Target.cFun "calloc"]);
-            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]]
+            Matrix_basic.intro_mindex dim tg_occs
         | Trm_apps ({desc = Trm_var "malloc";_}, _) ->
             Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
-            Matrix_basic.intro_mindex dim [Target.nbAny;Target.cCellAccess ~base:[Target.cVar x] ~index:[]]
+            Matrix_basic.intro_mindex dim tg_occs
         | _ -> fail t1.loc "intro_mmalloc:"
         end
       | _ -> fail None "intro_mmalloc: the targeted variable should be initialized"

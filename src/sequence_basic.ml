@@ -38,15 +38,15 @@ let iter_delete (tgl : target list) : unit =
         return 0;       return 0;
       }                }
 *)
-let intro ?(mark : string = "") (nb : int) (tg : Target.target) : unit =
+let intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : Target.target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-  (fun (p, i) t -> Sequence_core.intro mark i nb t p) tg
+  (fun (p, i) t -> Sequence_core.intro mark label i nb t p) tg
 (* [intro_between tg_beg tg_end]: this transformation is an advanced version of intro.
    The difference is that instead of giving the number of instructions one want's to put
    inside a sub-sequence, the first and the last trm of the on-coming sub-sequence are given.
    All the intermediate trms are also included inside the sub-sequence.
 *)
-let intro_between ?(mark : string = "") (tg_beg : target) (tg_end : target) : unit =
+let intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) (tg_end : target) : unit =
   Internal.nobrace_remove_after ( fun  _ ->
   Trace.apply (fun t ->
     let ps_beg : (path * int) list = resolve_target_between tg_beg t in
@@ -59,7 +59,7 @@ let intro_between ?(mark : string = "") (tg_beg : target) (tg_end : target) : un
       if i2 <= i1
         then fail t.loc "intro_between: target for end should be past the target for start";
       (p1, i1, i2 - i1)) ps_beg ps_end in
-    List.fold_left (fun t (p,i,nb) -> Sequence_core.intro mark i nb t p) t pis))
+    List.fold_left (fun t (p,i,nb) -> Sequence_core.intro mark label i nb t p) t pis))
 
 
 (* [elim tg] expects the target [tg] to point at a sequence that appears

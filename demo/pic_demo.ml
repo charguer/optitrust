@@ -43,15 +43,17 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
     !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; main; cFun "vect_mul"];
   *)
   !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-     Struct.set_explicit [main; cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]];
-     Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
+     (* Struct.set_explicit [cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; *)
+     Struct.set_explicit [nbMulti;main;cWrite ~typ:"particle" ()]; 
+     Struct.set_explicit [nbMulti;main;cWrite ~typ:"vect" ()]; 
+  !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
   !!! Struct.to_variables [cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [
      [cFun "vect8_mul"];
      [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
-     [cFun "accumulateChargeAtCorners"]]];
+     [cFun "accumulateChargeAtCorners"]; [cFun "idCellOfPos"]]];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti;cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant ~source:[nbMulti;main; cVarDef ~regexp:true ~substr:true "_.0"] [nbMulti;main; cVarDef ~regexp:true ~substr:true "_.1"];
 
@@ -66,58 +68,59 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: scaling of speeds and positions #7 *)
-  !! Variable.insert ~name:"factor"  ~typ:"const double" ~value:"particleCharge * stepDuration * stepDuration /particleMass / cellX" [tBefore; cVarDef "nbSteps"];
-  !! Variable.insert ~name:"factorX" ~typ:"const double" ~value:"factor / cellX" [tAfter; cVarDef "factor"];
-  !! Variable.insert ~name:"factorY" ~typ:"const double" ~value:"factor / cellY" [tAfter; cVarDef "factorX"];
-  !! Variable.insert ~name:"factorZ" ~typ:"const double" ~value:"factor / cellZ" [tAfter; cVarDef "factorY"];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "factorX") [cVarDef "accel"; cReadVar "fieldAtPos_x"];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "factorY") [cVarDef "accel"; cReadVar "fieldAtPos_y"];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "factorZ") [cVarDef "accel"; cReadVar "fieldAtPos_z"];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "stepDuration / cellX") [nbMulti;main; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.x"] ()];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "stepDuration / cellY") [nbMulti;main; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.y"] ()];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "stepDuration / cellZ") [nbMulti;main; cWrite ~lhs:[sExpr "(c->items)[i].speed"] ();cRead ~addr:[sExpr "(c->items)[i].speed.z"] ()];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "1. / cellX") [nbMulti;main; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "1. / cellY") [nbMulti;main; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()];
-  !! Accesses.scale ~factor_ast:(Ast.trm_var "1. / cellZ") [nbMulti;main; cWrite ~lhs:[sExpr "(c->items)[i].pos"] ();cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()];
+    let dims = ["X";"Y";"Z"] in
+    let names = "factor" :: (List.map (fun x -> "factor" ^ x) dims) in
+    let values = "particleCharge * stepDuration * stepDuration /particleMass / cellX" :: (List.map (fun x -> "factor / cell" ^ x) dims) in
+  !! Variable.insert_list ~names ~values ~typ:"const double" ~reparse:true [tBefore; cVarDef "nbSteps"];
+  !! List.iter (fun d -> 
+    Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos_" ^ (String.lowercase_ascii d))]
+  ) dims;
 
-  (* TODO: arthur will give the pseudo code for the automated simplifier *)
-
+  !! List.iter (fun d -> 
+    Accesses.scale ~factor_ast:(Ast.trm_var ("stepDuration / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].speed." ^ (String.lowercase_ascii d))] ()]
+  ) dims;
+  
+  !! List.iter (fun d -> 
+    Accesses.scale ~factor_ast:(Ast.trm_var ("1. / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].pos." ^ (String.lowercase_ascii d))] ()]
+  ) dims;
 
   (* Part: grid_enumeration *)
-  !! Loop.grid_enumerate [("ix", "gridSize"); ("iy", "gridSize"); ("iz", "gridSize")] [tIndex ~nb:3 1;cFor "idCell"];
+  !! Loop.grid_enumerate [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] [tIndex ~nb:3 1;cFor "idCell"];
 
 
   (* Part: Shifting of positions*)
-  !! Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_x"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_x"] ()];
-  !! Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_y"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_y"] ()];
-  !! Instr.inline_last_write ~write:[cWriteVar "fieldAtPos_z"] [cVarDef "accel"; cRead ~addr:[cVar "fieldAtPos_z"] ()];
-
-  !! Variable.inline [nbMulti;cVarDef ~regexp:true "fieldAtPos_."];
-  !! Variable.inline [nbMulti; main; cVarDef "accel"];
-  !! Variable.bind_intro ~fresh_name:"px" [sInstr "(c->items)[i].pos.x ="; dRHS];
-  !! Variable.bind_intro ~fresh_name:"py" [sInstr "(c->items)[i].pos.y ="; dRHS];
-  !! Variable.bind_intro ~fresh_name:"pz" [sInstr "(c->items)[i].pos.z ="; dRHS];
-  !! Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
-
-  !! Accesses.shift ~factor_ast:(Ast.trm_var "ix") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.x"] ()]; [cVarDef "px"; cRead ~addr:[sExpr "(c->items)[i].pos.x"] ()]]];
-  !! Accesses.shift ~factor_ast:(Ast.trm_var "iy") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.y"] ()]; [cVarDef "py"; cRead ~addr:[sExpr "(c->items)[i].pos.y"] ()]]];
-  !! Accesses.shift ~factor_ast:(Ast.trm_var "iz") [cOr [[cWrite ~lhs:[sExpr "(c->items)[i].pos.z"] ()]; [cVarDef "pz"; cRead ~addr:[sExpr "(c->items)[i].pos.z"] ()]]];
-
+  !! List.iter (fun d -> 
+      let field_at_pos = "fieldAtPos_" ^ (String.lowercase_ascii d) in 
+      Instr.inline_last_write ~write:[cWriteVar field_at_pos] [cVarDef "accel"; cRead ~addr:[cVar field_at_pos] ()];) dims ;
+  (* TODO :ARTHUR : see how to inline the zero for fieldatpos in the simplest way *)
+     Variable.inline [cOr [[cVarDef ~regexp:true "fieldAtPos_."];[cVarDef "accel"]]];
+     List.iter (fun d -> 
+       let d_l = String.lowercase_ascii d in
+       let c_items = "c->items)[i].pos." ^ d_l  ^ " =" in 
+       Variable.bind_intro ~fresh_name:("p" ^ d_l) [sInstr c_items; dRHS];) dims ; 
+     Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
+     List.iter (fun d -> 
+      let d_l = String.lowercase_ascii d in
+      let c_items = "c->items)[i].pos." ^ d_l  in 
+      Accesses.shift ~factor_ast:(Ast.trm_var ("i" ^  d_l)) [cOr [[cWrite ~lhs:[sExpr c_items] ()]; [cVarDef ("p" ^ d_l); cRead ~addr:[sExpr c_items] ()]]];
+     ) dims;
+  
   (* Part: convert pos fields to float *)
-  !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr "(c->items)[i].pos.x ="; dRHS];
-  !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr "(c->items)[i].pos.y ="; dRHS];
-  !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr "(c->items)[i].pos.z ="; dRHS];
+  !! List.iter ( fun d ->
+      let d_l = String.lowercase_ascii d in
+      let c_items = "c->items)[i].pos." ^ d_l  ^ " =" in 
+      Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr c_items; dRHS]; ) dims;
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
-  !! Struct.inline "pos" [cTypDef "particle"];
+     Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: duplication of corners for vectorization of change deposit *)
-  !! Matrix.intro_mops (Ast.trm_var "nbCells") [cVarDef "nextCharge"];
-  !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [tIndex 1;main; cFor "k"];
-  !! Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" [cMark "first_local"];
-  !! Variable.inline [cVarDef "indices1"];
-  !! Specialize.any "k" [cAny];
+  !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
+     Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [tIndex 1;main; cFor "k"];
+     Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" [cMark "first_local"];
+     Variable.inline [main;cVarDef "indices"];
+     Specialize.any "k" [cAny];
   let my_bij_code =
     "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
       coord coord = coordOfCell(idCell);
@@ -126,35 +129,35 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       int iz = coord.iz;
       int res[] = {
         cellOfCoord(ix, iy, iz),
-        cellOfCoord(ix, iy, wrapX(gridZ,iz-1)),
-        cellOfCoord(ix, wrapX(gridY,iy-1), iz),
-        cellOfCoord(ix, wrapX(gridY,iy-1), wrapX(gridZ,iz-1)),
-        cellOfCoord(wrapX(gridX,ix-1), iy, iz),
-        cellOfCoord(wrapX(gridX,ix-1), iy, wrapX(gridZ,iz-1)),
-        cellOfCoord(wrapX(gridX,ix-1), wrapX(gridY,iy-1), iz),
-        cellOfCoord(wrapX(gridX,ix-1), wrapX(gridY,iy-1), wrapX(gridZ,iz-1)),
+        cellOfCoord(ix, iy, wrap(gridZ,iz-1)),
+        cellOfCoord(ix, wrap(gridY,iy-1), iz),
+        cellOfCoord(ix, wrap(gridY,iy-1), wrap(gridZ,iz-1)),
+        cellOfCoord(wrap(gridX,ix-1), iy, iz),
+        cellOfCoord(wrap(gridX,ix-1), iy, wrap(gridZ,iz-1)),
+        cellOfCoord(wrap(gridX,ix-1), wrap(gridY,iy-1), iz),
+        cellOfCoord(wrap(gridX,ix-1), wrap(gridY,iy-1), wrap(gridZ,iz-1)),
       };
      return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
      }" in
-    Sequence.insert (Ast.code my_bij_code) [tBefore;main];
-!!! Matrix.biject "mybij" [tIndex 0;main; cFor "k" ; cFun "MINDEX2"];
-  !! Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
-  !! Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"];
+     Sequence.insert (Ast.code my_bij_code) [tBefore;main];
+     Matrix.biject "mybij" [tIndex 0;main; cFor "k" ; cFun "MINDEX2"];
+     Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
+     Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"];
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:"8" [tBefore; main];
-  !! Matrix.local_name ~my_mark:"second_local" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [tIndex 2;main; cFor "k"];
-  !! Matrix_basic.delocalize ~dim:(Ast.trm_var "nbProcs") ~index:"k" ~acc:"sum" [cMark "second_local"];
-  !! Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
-  !! Specialize.any "k" [cAny];
+     Matrix.local_name ~my_mark:"second_local" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [tIndex 2;main; cFor "k"];
+     Matrix_basic.delocalize ~dim:(Ast.trm_var "nbProcs") ~index:"k" ~acc:"sum" [cMark "second_local"];
+     Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
+     Specialize.any "k" [cAny];
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
-  !! Sequence.intro ~mark:"temp_seq" ~start:[main;cVarDef "coef_x"] ~nb:6 ();
-  !! Instr.move_invariant ~dest:[tBefore; main] [cMark "temp_seq"];
-  !! Sequence.elim [cMark "temp_seq"];
-  !! Loop.fission [tBefore; cVarDef "px"];
-  !! Loop.fission [tBefore; cVarDef "ix2"];
-  !! Loop.hoist [cVarDef "idCell2"];
+  !! Sequence.intro ~mark:"temp_seq" ~start:[main;cVarDef "coef_x0"] ~nb:6 ();
+     Instr.move_invariant ~dest:[tBefore; main] [cMark "temp_seq"];
+     Sequence.elim [cMark "temp_seq"];
+     Loop.fission [tBefore; cVarDef "px"];
+     Loop.fission [tBefore; main; cVarDef "ix"];
+     Loop.hoist [cVarDef "idCell2"];
 
 
   (* Part: Coloring *)
@@ -166,18 +169,19 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       Loop_basic.color color ~index:("c"^d) [cFor bd]
         in
   !! List.iter (colorize "2" "2") dims;
-  !! Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cix"];
+     Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cix"];
 
   (* Introduction of the computation *)
-  !! Variable.insert ~name:"blockSize" ~typ:"int" ~value:"2" [tAfter; cVarDef "gridSize"];
-  !! Variable.insert ~name:"d" ~typ:"int" ~value:"blockSize / 2" [tAfter;cVarDef "blockSize"];
-  !! Variable.insert ~name:"distanceToBlockLessThanHalfABlock" ~typ:"bool"  ~value:"(ix >= bix + d && ix < bix + blockSize + d)&& (iy >= biy + d && iy < biy + blockSize + d) && (iz >= biz + d && iz < biz + blockSize + d)" [tAfter; cVarDef "rz1"];
-  !! Instr.replace (Ast.trm_var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
+  let names = ["blockSize";"d"] in
+  let values = ["2";"blockSize / 2"] in
+  !! Variable.insert_list ~names ~values ~typ:"int" [tBefore; cVarDef "nbCells"];
+     Variable.insert ~name:"distanceToBlockLessThanHalfABlock" ~typ:"bool"  ~value:"(ix >= bix + d && ix < bix + blockSize + d)&& (iy >= biy + d && iy < biy + blockSize + d) && (iz >= biz + d && iz < biz + blockSize + d)" [tAfter; main; cVarDef "iz"];
+     Instr.replace (Ast.trm_var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
 
 
   (* Part: Parallelization *)
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti;tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
-  !! Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bix"];
+     Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bix"];
 
   (* Part: optimize chunk allocation *)
   (* skip #16 *)

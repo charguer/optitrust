@@ -18,7 +18,7 @@ let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int 
   match on with
   | [_] ->  if (start = [] && stop = [] && nb = 0) then Sequence_basic.intro_on_instr ~mark ~visible on else ()
   | _ ->  begin match nb with 
-          | 0 -> Sequence_basic.intro_between ~mark start stop
+          | 0 -> if (start <> [] && stop <> []) then Sequence_basic.intro_between ~mark start stop
           | _ -> begin match start, stop with
                 | _, [] -> Sequence_basic.intro ~mark nb start
                 | [], _ -> Sequence_basic.intro ~mark (-nb) stop
