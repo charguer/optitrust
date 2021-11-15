@@ -117,7 +117,6 @@ and typ_desc =
   | Typ_record of record_type * typ
   | Typ_template_param of string
   | Typ_arbitrary of styp
-  (* LATER:  Typ_arbitrary of string *)
 
 (* references are considered as pointers that's why we need to distinguish the kind of the pointer *)
 and ptr_kind =
@@ -895,9 +894,12 @@ let trm_remove_marks (t : trm) : trm =
 let trm_add_mark (m : mark) (t : trm) : trm =
   {t with marks = m :: t.marks}
 
-(* LATER: Maybe trm_filter_mark could be useful here*)
+
+let trm_filter_mark (pred : mark -> bool) (t : trm): trm = 
+  {t with marks = List.filter (fun m -> pred m) t.marks}
+
 let trm_remove_mark (m : mark) (t : trm) : trm =
-  {t with marks = List.filter (fun m1 -> m <> m1) t.marks}
+  trm_filter_mark (fun m1 -> m <> m1) t
 
 let trm_add_mark_between (index : int) (m : mark) (t : trm) : trm =
   match t.desc with
@@ -1400,6 +1402,15 @@ let get_inner_ptr_type (ty : typ) : typ =
   | Typ_ptr {inner_typ = ty1;_} when is_generated_star ty -> ty1
   | _ -> ty
 
+
+(* check if the type is a reference type or not *)
+let is_refernce (ty : typ) : bool =
+  let ty = get_inner_ptr_type ty in
+  match ty.typ_desc with
+  | Typ_ptr {ptr_kind = Ptr_kind_ref;_} -> true
+  | _ -> false
+
+(* check if the type is const or not *)
 let is_typ_const (t : typ) : bool =
   begin match t.typ_desc with
   | Typ_ptr {inner_typ = tx;_} ->

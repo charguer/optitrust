@@ -87,7 +87,6 @@ let _ = Run.script_cpp (fun () ->
 
   (* DONE: replace Trace.call *)
 
-    (* LATER:   !! Function.bind_intro ~fresh_name:"r${int}" ~const:false [cFun "vect_mul"]; *)
 
       (* Example use of [Trace.call] -- keep this code as a basic test, illustration for the working of [iteri_on_targets] *)
   (* !! Trace.call (fun _t ->
@@ -111,8 +110,6 @@ let _ = Run.script_cpp (fun () ->
   !! Function.inline [nbMulti; cMark "foo1"];
   !! Function.inline [nbMulti; cMark "foo2"];
   *)
-
-(* LATER: see why !!! above does not work before Struct.set_explicit *)
 
   (* DONE:  Variable.insert_and_fold "int" "k" "b2.nb" [tAfter; cVarDef "b2"]; *)
   (*  Variable.insert_and_fold ~const:true "int" "k" "b2.nb" [tAfter; cVarDef "b2"];*)

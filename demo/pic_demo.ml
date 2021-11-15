@@ -37,9 +37,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
 
   (* Part: reveal fields *)
-  (* LATER:
-    !! Function.bind_intro ~fresh_name:"r${occ}" ~const:true [nbMulti; main; cFun "vect_mul"];
-  *)
   !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      (* Struct.set_explicit [cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; *)
      Struct.set_explicit [nbMulti;main;cWrite ~typ:"particle" ()]; 

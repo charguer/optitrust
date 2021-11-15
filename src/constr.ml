@@ -725,7 +725,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           end
         else
           check_target p_fun f &&
-          check_list ~depth:(DepthAny) cl_args args (* LATER: check if depth any is ok *)
+          check_list ~depth:(DepthAny) cl_args args 
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
         check_name so l &&
         check_target p_body body
@@ -881,7 +881,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
-    | Constr_or tl :: [] -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at list one solution *)
+    | Constr_or tl :: [] -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at least one solution *)
         let all_targets_must_resolve = false in
         List.fold_left (fun acc tr ->
           let potential_targets = resolve_target_simple tr t in

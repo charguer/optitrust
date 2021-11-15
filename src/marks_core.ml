@@ -27,7 +27,7 @@ let add (m : mark) : Target.Transfo.local =
       trm [t] without the mark m
 *)
 let remove_aux (m : mark) (t : trm) : trm =
-  trm_remove_mark m t
+  trm_remove_mark (m) t
 
 let remove (m : mark) : Target.Transfo.local =
   Target.apply_on_path (remove_aux m)

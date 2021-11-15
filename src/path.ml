@@ -349,7 +349,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
            fail t.loc ("apply_on_path: direction " ^ s ^
                        " does not match")
        end in
-        { newt with typ = None; ctx = None } (* LATER: check if other info need to be cleared *)
+        { newt with typ = None; ctx = None } 
 
 
   in

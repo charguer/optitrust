@@ -4,7 +4,7 @@
 (******************************************************************************)
 
 (* include Tools.Debug *)
-include Tools (* LATER: make it better *)
+include Tools 
 
 let set_exn_backtrace (b : bool) : unit =
   Printexc.record_backtrace b
