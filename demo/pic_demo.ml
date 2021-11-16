@@ -24,26 +24,26 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: optimization of vect_matrix_mul *)
   let pre = cFunDef "vect_matrix_mul" in
   !! Function.inline  [pre; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Struct.set_explicit [nbMulti; pre; cWriteVar "res"];
-  (* LATER: !! Loop.fission [nbMulti; tAllInBetween; pre; cFor "k"; cSeq]; *)
-  !! Loop.fission [nbMulti; tAfter; pre; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
-  !! Loop.unroll [nbMulti; pre; cFor "k"];
-  !! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
-  !! Function.inline [cFun "vect_matrix_mul"];
+     Struct.set_explicit [nbMulti; pre; cWriteVar "res"];
+     (* LATER: !! Loop.fission [nbMulti; tAllInBetween; pre; cFor "k"; cSeq]; *)
+     Loop.fission [nbMulti; tAfter; pre; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
+     Loop.unroll [nbMulti; pre; cFor "k"];
+ !!! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
+     Function.inline [cFun "vect_matrix_mul"];
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  !!! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
-  !! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-  !! Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
+ !!! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
+     Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
+     Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
 
   (* Part: reveal fields *)
   !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      (* Struct.set_explicit [cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; *)
      Struct.set_explicit [nbMulti;main;cWrite ~typ:"particle" ()]; 
      Struct.set_explicit [nbMulti;main;cWrite ~typ:"vect" ()]; 
-  !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
-  !!! Struct.to_variables [cVarDef "fieldAtPos"];
+     Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
+ !!! Struct.to_variables [cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [

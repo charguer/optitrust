@@ -52,14 +52,16 @@ let same_val (v1 : value) (v2 : value) : bool =
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
-    if same_trm t' t_before then t_after
+    if same_trm t' t_before then 
+      begin match t'.desc with 
+      | Trm_apps (f, _) when (is_get_operation t' && not (is_get_operation t_before)) -> {t' with desc = Trm_apps (f, [t_after])}
+      | _ -> t_after
+      end
       else trm_map apply_change t'
       in
   if change_at = [[]] then 
     begin
-    (* let time = Unix.gettimeofday () in     *)
     let res = apply_change t in
-    (* Tools.printf "Execution time of change_trm: %fs\n" (Unix.gettimeofday () -. time); *)
     res
     end
   else 
@@ -410,14 +412,14 @@ let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
 (* Remove all the sequences from ast with annotation No_braces if [all] is equal to true
     otherwise remove only those sequence with id [id].
 *)
-let clean_no_brace_seq (id : int) (t : trm) : trm =
+let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with 
     | Trm_seq tl ->
       let indices_list = List.flatten (List.mapi (fun i t1 -> 
         let current_seq_id = get_nobrace_id t1 in
         begin match current_seq_id with 
-        | Some c_i when c_i = id -> [i] 
+        | Some c_i when  (all || (c_i = id)) -> [i]
         | _ -> []
         end 
       ) (Mlist.to_list tl)) in
@@ -488,10 +490,10 @@ let get_constr_from_target (tg : target) : constr =
   | _ -> cChain tg
 
 (* A wrapper for creating and deleting a nobrace sequence *)
-let nobrace_remove_after (f : unit -> unit) : unit =
-  nobrace_enter();
+let nobrace_remove_after ?(remove : bool = true) (f : unit -> unit) : unit =
+  if remove then begin nobrace_enter();
   f();
-  nobrace_remove_and_exit()
+  nobrace_remove_and_exit() end
 
 (* In the cases when targeted sequences are labelled, this wrapper targets directly the sequence instead of the labeeld ast node *)
 let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (op_name:string) : trm->trm =
@@ -530,6 +532,12 @@ let variable_substitute (tm : tmap) (t : trm) : trm =
     | _ -> trm_map function_to_apply t
   in
   trm_map function_to_apply t
+
+(* [clean_nobraces tg] Remove all the hidden sequence starting from target [ŧg] *)
+let clean_nobraces : Transfo.t = 
+  apply_on_targets (apply_on_path (fun t -> clean_no_brace_seq ~all:true (-1) t))
+
+
 
 (* replace with x the types of the variables given by their index
   assumption: t is a fun body whose argument are given by tvl

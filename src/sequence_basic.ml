@@ -125,5 +125,4 @@ let partition ?(braces : bool = false) (blocks : int list) : Target.Transfo.t =
     }
 *)
 let shuffle ?(braces : bool = false) : Target.Transfo.t =
-  if not braces then Internal.nobrace_enter ();
   Target.apply_on_targets (Sequence_core.shuffle braces)

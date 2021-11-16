@@ -285,13 +285,11 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dSeqNth x]
       ) block_list;
-      if shuffle then Sequence_basic.shuffle [Target.cMark my_mark];
+      if shuffle then Sequence_basic.shuffle ~braces [Target.cMark my_mark];
+      Internal.clean_nobraces [Target.nbAny;Target.cMark my_mark];
       Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
-
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
-  ) tg;
-  if not braces then Trace.reparse () 
-
+  ) tg
 
 (* [reorder order]  expects the target [tg] to point to the first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and 

@@ -353,22 +353,23 @@ let fields_reorder (struct_fields : vars) (move_where : reorder) : Target.Transf
       updated ast node with all the struct accesses changed to variable occurrences
 *)
 let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
+  let rec aux (t : trm) : trm =
     begin match t.desc with
     | Trm_apps (f, [base]) ->
       begin match f.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get y))) when y = field ->
+          Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
           begin match base.desc with
           | Trm_var v when v = name ->
             trm_var (name ^ "_" ^ field)
-          | _ -> trm_map (aux global_trm) t
+          | _ -> trm_map aux t
           end
-      | _ -> trm_map (aux global_trm) t
+      | _ -> trm_map aux t
       end
-    | _ -> trm_map (aux global_trm) t
+    | _ -> trm_map aux t
     end
-   in aux t t
+   in aux t 
 
 
 (* [to_variables_aux index t] change a variable declaration of type typedef struct into a list
