@@ -419,7 +419,7 @@ let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
       let indices_list = List.flatten (List.mapi (fun i t1 -> 
         let current_seq_id = get_nobrace_id t1 in
         begin match current_seq_id with 
-        | Some c_i when  (all || (c_i = id)) -> [i]
+        | Some c_i when  (all || (c_i = id)) -> Tools.printf "Removing sequence at index %d with id %d\n--------\n" i id ;[i]
         | _ -> []
         end 
       ) (Mlist.to_list tl)) in

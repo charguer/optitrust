@@ -19,6 +19,24 @@ let add_aux (m : mark) (t : trm) : trm =
 let add (m : mark) : Target.Transfo.local =
   Target.apply_on_path (add_aux m)
 
+
+(* [add_between_aux index m t] add mark m at [index] in sequence [t]
+    params:
+      [index]: the relative index where the mark should be added
+      [m]: the mark which is addded
+      [t]: the ast of the trm where the mark is added to
+    return:
+      trm [t] with mark m
+*)
+let add_between_aux (index : int) (m : mark) (t : trm) : trm =
+  trm_add_mark_between index m t
+
+let add_between (index : int) (m : mark) : Target.Transfo.local =
+  Target.apply_on_path (add_between_aux index m)
+
+
+
+
 (* [remove_aux m t] remove mark m from node t
     params:
       [m]: the mark which is removed

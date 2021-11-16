@@ -8,7 +8,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
-     Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [tIndex 1;main; cFor "k"];
+     Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"];
      Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" [cMark "first_local"];
      Variable.inline [main;cVarDef "indices"];
      Specialize.any "k" [cAny];
@@ -31,15 +31,15 @@ let _ = Run.script_cpp (fun () ->
      return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
      }" in
      Sequence.insert (Ast.code my_bij_code) [tBefore;main];
-     Matrix.biject "mybij" [tIndex 0;main; cFor "k" ; cFun "MINDEX2"];
-     Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
+     Matrix.biject "mybij" [occIndex 0;main; cFor "k" ; cFun "MINDEX2"];
+     Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
      Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"];
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:"8" [tBefore; main];
-     Matrix.local_name ~my_mark:"second_local" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [tIndex 2;main; cFor "k"];
+     Matrix.local_name ~my_mark:"second_local" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [occIndex 2;main; cFor "k"];
      Matrix_basic.delocalize ~dim:(Ast.trm_var "nbProcs") ~index:"k" ~acc:"sum" [cMark "second_local"];
-     Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
+     Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
      Specialize.any "k" [cAny];
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)

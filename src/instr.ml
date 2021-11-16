@@ -47,16 +47,22 @@ let accumulate ?(nb : int option) : Target.Transfo.t =
     end
   ) 
 
-(* LATER: at some point
-     type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of target_between
-     Instr.(gather ~dest:GatherAtFirst) tg
-       -> resolve paths for tg;
-       -> check all path reach the same sequence
-       -> put a mark-between on the desired target_between
-          | GatherAtFirst -> mark after index of first occurrence
-          | GatherAtLast -> mark before index of last occurrence
-          | GatherAt tg2 -> resolve the target-between and put the mark there
-       -> move all targeted instructions to the mark   *)
+
+type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of Target.target
+
+
+
+(* [gather ~dest tg] expects the target [tg] pointing to a list to multiple nodes belonging to the
+    same sequence. Then it will move all those targets to the given destination.
+*)
+let gather ~dest:(dest : gather_dest) (tg : Target.target) : unit =
+  let my_mark = "inbetween_mark" in
+  begin match dest with 
+  | GatherAtFirst -> Marks.add_between my_mark ([Target.tAfter] @ [Target.occFirst] @ tg)
+  | GatherAtLast -> Marks.add_between my_mark ([Target.tBefore] @ [Target.occLast] @ tg)
+  | GatherAt tg_dest -> Marks.add_between my_mark tg_dest
+  end;
+  Instr_basic.move ~dest:[Target.cMark my_mark] tg
 
 
 (* [move_multiple ~targets tgs] expects a list of destinations and a list of targets to be movet at those 

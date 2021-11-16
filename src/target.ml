@@ -84,15 +84,14 @@ let tIndices ?(nb : int = -1) (indices : int list) : constr =
     | _ -> Some nb in
   Constr_occurrences (ExpectedSelected (expected_nb, indices)  )
 
-let tIndex ?(nb : int = -1) (index : int) : constr =
+let occIndex ?(nb : int = -1) (index : int) : constr =
   tIndices ~nb [index]
 
-(* LATER:
-   tIndex -> named to occIndex
-   occLast
-   occFirst
-   we can change Constr_occurrences to be a function of type  path list -> path list
-*)
+let occFirst : constr = 
+  Constr_occurrences FirstOcc
+
+let occLast : constr = 
+  Constr_occurrences LastOcc
 
 (******************************************************************************)
 (*                                Directions                                  *)

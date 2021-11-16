@@ -11,7 +11,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part1: space reuse *)
   !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse ~reparse:true "p.pos" [cVarDef "pos2"];
+     Variable.reuse "p.pos" [cVarDef "pos2"];
 
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [cFun "bag_push"; dArg 0];
@@ -27,14 +27,16 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti; pre; cWriteVar "res"];
      (* LATER: !! Loop.fission [nbMulti; tAllInBetween; pre; cFor "k"; cSeq]; *)
      Loop.fission [nbMulti; tAfter; pre; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
+  
+     (* LATER: Fix the issue with clean nobrace to remove all no brace sequences after unrolling *)
      Loop.unroll [nbMulti; pre; cFor "k"];
  !!! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
      Function.inline [cFun "vect_matrix_mul"];
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
- !!! Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-     Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
+     Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
+ !!! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
      Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
 
   (* Part: reveal fields *)
@@ -50,7 +52,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      [cFun "vect8_mul"];
      [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
      [cFun "accumulateChargeAtCorners"]; [cFun "idCellOfPos"]]];
-  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti;cFun "cornerInterpolationCoeff"];
+     Function.inline ~vars:(AddSuffix "${occ}") [nbMulti;cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant ~source:[nbMulti;main; cVarDef ~regexp:true ~substr:true "_.0"] [nbMulti;main; cVarDef ~regexp:true ~substr:true "_.1"];
 
   !! Instr.move ~dest:[tBefore; cVarDef "rx0"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
@@ -81,7 +83,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   ) dims;
 
   (* Part: grid_enumeration *)
-  !! Loop.grid_enumerate [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] [tIndex ~nb:3 1;cFor "idCell"];
+  !! Loop.grid_enumerate [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] [occIndex ~nb:3 1;cFor "idCell"];
 
 
   (* Part: Shifting of positions*)
@@ -113,7 +115,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
-     Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [tIndex 1;main; cFor "k"];
+     Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"];
      Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" [cMark "first_local"];
      Variable.inline [main;cVarDef "indices"];
      Specialize.any "k" [cAny];
@@ -136,15 +138,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
      }" in
      Sequence.insert (Ast.code my_bij_code) [tBefore;main];
-     Matrix.biject "mybij" [tIndex 0;main; cFor "k" ; cFun "MINDEX2"];
-     Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
+     Matrix.biject "mybij" [occIndex 0;main; cFor "k" ; cFun "MINDEX2"];
+     Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
      Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"];
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:"8" [tBefore; main];
-     Matrix.local_name ~my_mark:"second_local" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [tIndex 2;main; cFor "k"];
+     Matrix.local_name ~my_mark:"second_local" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [occIndex 2;main; cFor "k"];
      Matrix_basic.delocalize ~dim:(Ast.trm_var "nbProcs") ~index:"k" ~acc:"sum" [cMark "second_local"];
-     Instr.delete [tIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
+     Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
      Specialize.any "k" [cAny];
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)

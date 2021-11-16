@@ -359,7 +359,6 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
       begin match f.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get y))) when y = field ->
-          Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
           begin match base.desc with
           | Trm_var v when v = name ->
             trm_var (name ^ "_" ^ field)

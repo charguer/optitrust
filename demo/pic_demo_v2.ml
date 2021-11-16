@@ -5,14 +5,14 @@ open Ast
 let _ = Run.script_cpp (fun () ->
   
   (* PART: Inlining of arithmetic operations *)
-  !! Function.bind_intro ~fresh_name:"r1" ~const:true [tIndex ~nb:2 0; cFun "vect_mul"];
-  !! Function.bind_intro ~fresh_name:"r2" ~const:true [tIndex ~nb:2 1; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r1" ~const:true [occIndex ~nb:2 0; cFun "vect_mul"];
+  !! Function.bind_intro ~fresh_name:"r2" ~const:true [occIndex ~nb:2 1; cFun "vect_mul"];
   !! Function.inline [cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Variable.inline [nbMulti; cVarDef ~regexp:true "r."];
   !! Function.(inline ~vars:(AddSuffix "2"))[cFun "idCellOfPos"];
 
   (* Part: Coloring *)
-  !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [tIndex ~nb:2 0;cFor "idCell"];
+  !! Loop.grid_enumerate [("x", "gridSize"); ("y", "gridSize"); ("z", "gridSize")] [occIndex ~nb:2 0;cFor "idCell"];
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)

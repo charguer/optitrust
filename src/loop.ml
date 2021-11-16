@@ -280,13 +280,12 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       Loop_basic.unroll ~braces:true ~my_mark [Target.cMark my_mark];
       let block_list = Tools.range 0 (nb_instr-1) in
       List.iter (fun x ->
-        Variable_basic.rename_on_block (AddSuffix (string_of_int x)) ([Target.tIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
+        Variable_basic.rename_on_block (AddSuffix (string_of_int x)) ([Target.occIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
       ) block_list;
       List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dSeqNth x]
       ) block_list;
       if shuffle then Sequence_basic.shuffle ~braces [Target.cMark my_mark];
-      Internal.clean_nobraces [Target.nbAny;Target.cMark my_mark];
       Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
   ) tg
@@ -359,7 +358,7 @@ let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start
 let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (tg : Target.target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
-  let first_target = [Target.tIndex 0] @ (Target.filter_constr_occurrence tg) in
+  let first_target = [Target.occIndex 0] @ (Target.filter_constr_occurrence tg) in
   let tg = Target.enable_multi_targets tg in
   Target.iter_on_targets 
     (fun t p ->

@@ -777,7 +777,6 @@ let parse_cstring (context : string) (is_expression : bool) (s : string) (ctx : 
       )
   in
   let t = Clang_to_ast.translate_ast ast in
-  Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
   match t.desc with
   | Trm_seq tl1 when Mlist.length tl1 = 1 ->
     let t = Mlist.nth tl1 0 in

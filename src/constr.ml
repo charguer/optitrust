@@ -37,8 +37,9 @@ type target_occurrences =
     | ExpectedNb of int  (* exactly n occurrences *)
     | ExpectedMulti  (* > 0 number of occurrences *)
     | ExpectedAnyNb  (* any number of occurrences *)
-    | ExpectedSelected of int option * int list
-
+    | ExpectedSelected of int option * int list              
+    | FirstOcc
+    | LastOcc
 (* A [target] is a list of constraints to identify nodes of the AST
    that we require the result path to go through. *)
 type target = constr list
@@ -437,6 +438,8 @@ and target_struct_to_string (tgs : target_struct) : string =
 
 and target_occurrences_to_string (occ : target_occurrences) =
   match occ with
+  | FirstOcc -> "FirstOcc"
+  | LastOcc -> "LastOcc"
   | ExpectedOne -> "ExpectedOne"
   | ExpectedNb n -> sprintf "ExpectedNb(%d)" n
   | ExpectedMulti -> "ExpectedMulti"
@@ -958,6 +961,8 @@ and resolve_target_struct (tgs : target_struct) (t : trm) : paths =
     | None -> if nb = 0 then error (sprintf "resolve_target_struct: expected %d matches, got %d" (List.length i_selected) nb)
                 else Tools.filter_not_selected i_selected res;
     end
+  | FirstOcc -> [fst (Tools.uncons res)]
+  | LastOcc ->  [snd (Tools.unlast res)]
   end
 
 and resolve_target (tg : target) (t : trm) : paths =

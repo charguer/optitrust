@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp ( fun _ ->
   
-  !! Loop.fusion ~nb:3 [cFunDef "fusion_on_block"; tIndex ~nb:3 0; cFor "i"];
+  !! Loop.fusion ~nb:3 [cFunDef "fusion_on_block"; occIndex ~nb:3 0; cFor "i"];
   !! Loop.fusion [cFunDef "main"; cFor "i" ~body:[sInstr "t[i]"]];
   !! Trace.alternative (fun () ->
     (* default is two loops *)
