@@ -181,7 +181,7 @@ let detach_if_needed (tg : Target.target) : unit =
   ) tg
 
   
-let reuse (space : var) (tg : Target.target) : unit =
+let reuse ?(reparse : bool = false) (space : var) (tg : Target.target) : unit =
    Target.iter_on_targets (fun t p -> 
     let decl_t,_ = Path.resolve_path p t in
     begin match decl_name decl_t with 
@@ -190,7 +190,7 @@ let reuse (space : var) (tg : Target.target) : unit =
       Marks.add "reuse_mark" (Target.target_of_path p);
       detach_if_needed [Target.cMark "reuse_mark"];
       Instr_basic.delete [Target.cMark "reuse_mark"];
-      Variable_basic.replace_occurrences ~subst:x ~put:space (Target.target_of_path _path_to_seq);
+      Variable_basic.replace_occurrences ~reparse ~subst:x ~put:space (Target.target_of_path _path_to_seq);
     | None -> fail decl_t.loc "reuse: could not match the declaration"
     end
    ) tg 

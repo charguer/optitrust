@@ -147,8 +147,8 @@ let insert ?(const : bool = false) ?(reparse : bool = false) ~name:(name : strin
 (* [replace_occurrences name ~space tg]] expects the target [tg] to point to any node ast which could contain 
     an occurrence of the variable [name], then it will all the nodes which come after the node targeted by target [tg]
 *)
-let replace_occurrences ~subst:(name : var) ~put:(put : strm) : Target.Transfo.t =
-  Target.reparse_after (
+let replace_occurrences ?(reparse : bool = false) ~subst:(name : var) ~put:(put : strm) : Target.Transfo.t =
+  Target.reparse_after ~reparse (
     Target.apply_on_targets (Variable_core.replace_occurrences name put)
   )
 

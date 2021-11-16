@@ -1,5 +1,6 @@
 open Optitrust
 open Target
+open Ast
 
 let main = cFunDef "main"
 
@@ -10,14 +11,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part1: space reuse *)
   !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse "p.pos" [cVarDef "pos2"];
+     Variable.reuse ~reparse:true "p.pos" [cVarDef "pos2"];
 
   (* Part: Introducing an if-statement for slow particles *)
-  (* LATER: maybe name &bagsNext[idCell2]) *)
-  !! Flow.insert_if "ANY_BOOL()" [main; cFun "bag_push"];
-  !! Instr.replace_fun "bag_push_serial" [main; cIf ();dThen; cFun "bag_push"];
+  !! Variable.bind_intro ~fresh_name:"b2" [cFun "bag_push"; dArg 0];
+     Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
+     Instr.replace_fun "bag_push_serial" [main; cIf ();dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf ();dElse; cFun "bag_push"];
-  !! Function.inline [main; cOr [[cFun "bag_push_serial"];[cFun "bag_push_concurrent"]]];
+     Function.inline [main; cOr [[cFun "bag_push_serial"];[cFun "bag_push_concurrent"]]];
     (* LATER: try  to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)

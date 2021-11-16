@@ -1404,7 +1404,7 @@ let get_inner_ptr_type (ty : typ) : typ =
 
 
 (* check if the type is a reference type or not *)
-let is_refernce (ty : typ) : bool =
+let is_reference (ty : typ) : bool =
   let ty = get_inner_ptr_type ty in
   match ty.typ_desc with
   | Typ_ptr {ptr_kind = Ptr_kind_ref;_} -> true
