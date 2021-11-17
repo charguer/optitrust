@@ -968,13 +968,13 @@ let get_ast () : trm =
 *)
 let get_parent_function_name (dl : path) : string option =
   let rec aux (dl : path) : path =
-    match List.rev dl with
+    match dl with
     | [] -> []
     | Dir_body :: dl' -> (List.rev dl')
     | _dir :: dl' -> aux dl'
 
     in
-  let path_to_fun_decl = aux dl in
+  let path_to_fun_decl = aux (List.rev dl) in
   let is_local_function = false in
   if is_local_function then None else
     let decl_trm,_ = Path.resolve_path path_to_fun_decl (get_ast ()) in

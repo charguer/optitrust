@@ -240,7 +240,7 @@ STEP 1 (BASIC): ONLY UNROLL
 *)
 
 let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : Target.target) : unit =
-  Target.iteri_on_targets (fun i t p ->
+  Target.reparse_after ~reparse:(not braces) (Target.iteri_on_targets (fun i t p ->
     let my_mark = "__unroll_" ^ string_of_int i in
     let (tg_loop_trm,_) = Path.resolve_path p t in
     Marks.add my_mark (Target.target_of_path p);
@@ -288,7 +288,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       if shuffle then Sequence_basic.shuffle ~braces [Target.cMark my_mark];
       Marks.remove my_mark [Target.nbAny;Target.cMark my_mark]
     | _ -> fail tg_loop_trm.loc "unroll: expected a loop to unroll"
-  ) tg
+  )) tg
 
 (* [reorder order]  expects the target [tg] to point to the first loop included in the [order]
     list, then it will find all the nested loops starting from the targeted loop [tg] and 

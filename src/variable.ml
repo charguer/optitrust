@@ -121,7 +121,7 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
     namely for each index on variable, this variables should be given by the user through the labelled
     argument [vars].
 *)
-cWrite_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) )
+(* cWrite_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) )
    ~var:(ov : var) ~local_var:(nv : var)  ~var_type:(vt : typ)
   ~array_size:(arrs : string) ~local_vars:(lv : vars) (tg : Target.target) : unit =
   Variable_basic.local_name ~mark ~var_type:vt ~var:ov ~local_var:nv tg;
@@ -129,7 +129,7 @@ cWrite_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest")
   Variable_basic.inline_at [Target.cFor index] [Target.nbAny;Target.cVarDef arrs];
   Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor index];
   Arrays.to_variables  lv [Target.cVarDef nv];
-  Marks.remove "section_of_interest" [Target.cMark "section_of_interest"]
+  Marks.remove "section_of_interest" [Target.cMark "section_of_interest"] *)
 
 
 let intro_pattern_array (str : string) (tg : Target.target) : unit =

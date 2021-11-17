@@ -14,7 +14,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part1: space reuse *)
   !! Variable.reuse ~reparse:true "p.speed" [cVarDef "speed2"];
-  !! Variable.reuse "p.pos" [cVarDef "pos2"];
+     Variable.reuse ~reparse:true "p.pos" [cVarDef "pos2"];
 
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [cFun "bag_push"; dArg 0];
@@ -33,7 +33,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
      (* LATER: Fix the issue with clean nobrace to remove all no brace sequences after unrolling *)
      Loop.unroll [nbMulti; pre; cFor "k"];
- !!! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
+     Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
      Function.inline [cFun "vect_matrix_mul"];
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
