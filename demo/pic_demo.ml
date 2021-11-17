@@ -5,12 +5,10 @@ open Ast
 let main = cFunDef "main"
 
 let dims = ["X";"Y";"Z"]
-
 let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
-
 
   (* Part: inlining of the bag iteration *) (* skip #1 *)
 
@@ -124,7 +122,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
      Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"];
      Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" [cMark "first_local"];
-     Variable.inline [main;cVarDef "indices"];
+     Variable.inline [main; cVarDef "indices"];
      Specialize.any "k" [cAny];
   let my_bij_code =
     "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
