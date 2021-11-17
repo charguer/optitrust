@@ -223,6 +223,19 @@ let get_parent_function_names (dls : paths) : (string option) list =
   List.map get_parent_function_name dls
 
 
+(* [fold_function_decl fun_names t] for all the functions with the name listed in [fun_names] transform 
+      them in function prototypes
+*)
+let fold_function_decl (fun_names : vars) (t : trm) : trm = 
+  let rec aux (t : trm) : trm = 
+    match t.desc with 
+    | Trm_let_fun (f,ty, tv, _) -> 
+      if (List.mem f fun_names) then 
+      trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) else t
+    | _ -> trm_map aux t
+    in
+  aux t
+
 
 (* Rename all the occurrences of a variable by adding an underscore as prefix*)
 let fresh_args (t : trm) : trm =
