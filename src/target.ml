@@ -948,6 +948,10 @@ let get_trm_at (tg : target) : trm =
   );
   !t_ast
 
+let get_ast () : trm =
+  get_trm_at []
+
+
 (* [reparse_at tg] reparse the node at [tg] *)
 let reparse_at (tg : target) : unit =
   apply_on_targets ( fun t p ->

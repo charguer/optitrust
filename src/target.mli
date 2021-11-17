@@ -350,3 +350,5 @@ val reparse_at : target -> unit
 val reparse_after : ?reparse:bool -> ?local_reparse:bool -> Transfo.t -> Transfo.t
 
 val get_trm_at : target -> trm
+
+val get_ast : unit -> trm
