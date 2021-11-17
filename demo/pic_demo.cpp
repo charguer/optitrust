@@ -68,7 +68,7 @@ int wrap(int gridSize, int a) {
 
 const int nbCorners = 8;
 
-vect* fields = (vect*) malloc(nbCells * sizeof(vect)); 
+vect* fields = (vect*) malloc(nbCells * sizeof(vect));
 
 
 int cellOfCoord(int i, int j, int k) {
@@ -171,7 +171,7 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 // and the opposite corner.
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rx = relativePosX(pos.x);
+  double rx = relativePosX(pos.x); /* TODO: rX */
   double ry = relativePosY(pos.y);
   double rz = relativePosZ(pos.z);
   double cx = 1. + -1. * rx;
@@ -268,7 +268,7 @@ int main() {
     for (int idCell = 0; idCell < nbCells; idCell++) {
 
       // Read the electric field that applies to the corners of the cell considered
-      vect_nbCorners field_at_corners = getFieldAtCorners(idCell,field); 
+      vect_nbCorners field_at_corners = getFieldAtCorners(idCell,field);
 
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
@@ -280,7 +280,7 @@ int main() {
         int nb = c->size;
         // iterate over the items from the current chunk
         for (int i = 0; i < nb; i++) {
-          
+
           particle p = c->items[i];
 
 

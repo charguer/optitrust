@@ -636,10 +636,12 @@ let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
   end else begin
 
     if reparse then begin
+      if !Flags.analyse_time then
+        write_timing_log (Printf.sprintf "------------------------\n");
       reparse_alias();
       if !Flags.analyse_time then
         let duration_of_reparse = last_time_update () in
-        write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
+        write_timing_log (Printf.sprintf "===> TOTAL FOR REPARSE: %d\tms\n" duration_of_reparse);
     end;
     if !Flags.analyse_time then begin
       let txt =

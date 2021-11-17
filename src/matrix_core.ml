@@ -1,5 +1,5 @@
 open Ast
-open Target 
+open Target
 (* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
@@ -137,15 +137,15 @@ let vardef_alloc ?(init : trm option = None) (x : string) (ty : typ) (dims : trm
 let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) option =
   match t.desc with
   | Trm_let (_, (x, ty), init) ->
-    begin match get_init_val init with 
-    | Some init1 -> 
+    begin match get_init_val init with
+    | Some init1 ->
       begin match alloc_inv  init1 with
       | Some (dims, size, z_in) -> Some (x, (get_inner_ptr_type ty), dims, size, z_in)
       | _ -> None
       end
     | _ -> None
     end
-    
+
   | _ -> None
 
 
@@ -179,7 +179,7 @@ let intro_mcalloc : Target.Transfo.local =
 *)
 let intro_mmalloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var "malloc";_},[{desc = Trm_apps (_,[dim ;size]);_}]) -> 
+  | Trm_apps ({desc = Trm_var "malloc";_},[{desc = Trm_apps (_,[dim ;size]);_}]) ->
     alloc ~init:None [dim] size
   | _ -> fail t.loc "intro_mmalloc: expected a function call to mmalloc"
 
@@ -264,7 +264,7 @@ let insert_alloc_dim (new_dim : trm) : Target.Transfo.local =
       return:
         the updated ast of the
 *)
-let insert_access_dim_index_aux (new_dim : trm) (new_index : trm) (t : trm) : trm = 
+let insert_access_dim_index_aux (new_dim : trm) (new_index : trm) (t : trm) : trm =
   match access_inv t with
   | Some (base, dims, indices) ->
     let new_dims = new_dim :: dims in
@@ -276,7 +276,7 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.l
   Target.apply_on_path (insert_access_dim_index_aux new_dim new_index)
 
 
-(* [local_name_aux mark var local_var malloc_trms var_type t] insert a local matrix declaration with name [local_var] and copy the content 
+(* [local_name_aux mark var local_var malloc_trms var_type t] insert a local matrix declaration with name [local_var] and copy the content
       from the matrix [var] to [local_var] and replace all the accesses of that matrix inside the targeted insturction [t]
     params:
       [mark]: an optional mark at the final generated sequence
@@ -284,22 +284,22 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.l
       [new_var]: the name of the local matrix which replaces all the current accesses of [var]
       [t]: ast of thee instuction which contains accesses to [var]
     return:
-      ast of a hidden sequence which contains the updated instruction [t] and the other instructions 
+      ast of a hidden sequence which contains the updated instruction [t] and the other instructions
         used for copying the value from the current matrix to the local one
 *)
-let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) option) (t : trm) : trm = 
+let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_trms : trms * trm * bool) (var_type : typ) (indices : (var list) option) (t : trm) : trm =
   let dims, size, zero_init = malloc_trms in
   let local_var_type = var_type in
   let init = if zero_init then Some (trm_int 0) else None in
   let fst_instr = trm_let_mut (local_var,local_var_type) (trm_cast (local_var_type) (alloc ~init dims size )) in
-  let indices_list = begin match indices with 
+  let indices_list = begin match indices with
   | Some l -> l | _ -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_ranges = List.map2 (fun dim ind-> (ind, DirUp, (trm_int 0), dim, (trm_int 1))) dims indices_list in
   let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
   let write_on_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) in
   let snd_instr = trm_fors nested_loop_ranges write_on_local_var in
-  let new_t = Internal.change_trm (trm_var var) (trm_var local_var) t in
+  let new_t = Internal.change_trm (trm_var var) (trm_var local_var) t in (* TODO: subst1 *)
   let thrd_instr = trm_fors nested_loop_ranges write_on_var in
   let last_instr = trm_apps (trm_var "MFREE") [trm_var local_var] in
   let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
@@ -308,13 +308,13 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : (var list option)) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices)
 
-let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc : string option) (index : string) (t : trm) : trm = 
-  match t.desc with 
-  | Trm_seq tl -> 
+let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc : string option) (index : string) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
     if Mlist.length tl <> 5 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
     let decl = Mlist.nth tl 0 in
-    begin match decl.desc with 
-    | Trm_let (_, (local_var, tx), init) -> 
+    begin match decl.desc with
+    | Trm_let (_, (local_var, tx), init) ->
       begin match get_init_val init with
       | Some t1 ->
         begin match t1.desc with
@@ -327,15 +327,15 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
             let tg = [cCellAccess ~base:[cVar local_var] ~index:[]] in
             let snd_instr = Mlist.nth tl 1 in
             begin match trm_fors_inv alloc_arity snd_instr with
-            | Some (loop_ranges, body) -> 
+            | Some (loop_ranges, body) ->
               let set_instr =
               begin match body.desc with
-              | Trm_seq tl when Mlist.length tl = 1-> 
+              | Trm_seq tl when Mlist.length tl = 1->
                 Mlist.nth tl 0
               | _ -> body
               end in
               begin match set_inv set_instr with
-              | Some (base, dims, indices, old_var_access) -> 
+              | Some (base, dims, indices, old_var_access) ->
                 let new_dims = dim :: dims in
                 let new_indices = (trm_var index) :: indices in
                 let new_body = trm_seq_nomarks [
@@ -343,37 +343,37 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
                 ] in
                 let new_loop_ranges = loop_ranges @ [(index, DirUp, trm_int 0, dim, trm_int 1)] in
                 let new_snd_instr = trm_fors new_loop_ranges new_body in
-   
+
                 let thrd_instr = Mlist.nth tl 2 in
                 let ps2 = resolve_target tg thrd_instr in
-                let new_thrd_instr = 
-                  List.fold_left (fun acc p -> 
+                let new_thrd_instr =
+                  List.fold_left (fun acc p ->
                     apply_on_path (insert_access_dim_index_aux dim (trm_apps (trm_var "ANY") [dim])) acc p
                   ) thrd_instr ps2 in
 
-                
+
                 let new_access = access base new_dims new_indices in
                     let acc = match acc with
                     | Some s -> s
                     | None -> "s" in
 
-                let new_frth_instr = 
-                  trm_fors loop_ranges 
+                let new_frth_instr =
+                  trm_fors loop_ranges
                   (trm_seq_nomarks [
                         trm_let_mut (acc, typ_int ()) (trm_int 0);
                         trm_for index DirUp (trm_int 0) dim (trm_int 1) (trm_seq_nomarks [
                             trm_set ~annot:[App_and_set] (trm_var acc) (trm_apps (trm_binop Binop_add) [(trm_var acc); new_access]) ]);
                         trm_set old_var_access (trm_var acc)]) in
-                
+
                 let fifth_instr = Mlist.nth tl 4 in
                   trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_decl; new_snd_instr; new_thrd_instr; new_frth_instr; fifth_instr])
-                
-              |  _ -> fail t.loc "delocalize_aux: expected a write operation on array cell" 
+
+              |  _ -> fail t.loc "delocalize_aux: expected a write operation on array cell"
               end
-              
+
             | _ -> fail t.loc "delocalize_aux: expected a write operation on array cell"
             end
-            
+
           | _ -> fail t.loc "delocalize_aux: couldn't find the call to the alloc function"
           end
         | _ -> fail t.loc "delocalize_aux: alloc functions are called inside a cast operation"
@@ -385,6 +385,6 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
 
   |  _ -> fail t.loc "delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
 
-let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (index : string): Target.Transfo.local = 
+let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (index : string): Target.Transfo.local =
   Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc index)
 

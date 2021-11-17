@@ -987,7 +987,7 @@ and translate_decl_list (dl : decl list) : trms =
     let tl = translate_decl_list (d' :: dl) in
     td :: tl
 
-and translate_decl (d : decl) : trm =  
+and translate_decl (d : decl) : trm =
   let loc = loc_of_node d in
   let ctx = Some (get_ctx ()) in
   let res = match d.desc with
@@ -1208,7 +1208,7 @@ and translate_decl (d : decl) : trm =
         (n, tpk, b)
     ) pl in
     trm_template pl dl
-    
+
   | _ -> fail loc "translate_decl: not implemented" in
      res
 module Include_map = Map.Make(String)
@@ -1249,7 +1249,7 @@ let dump_clang_ast = false
 let dump_clang_file = "clang_ast.ml"
 
 let translate_ast (t : translation_unit) : trm =
-  
+
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   print_info None "translate_ast: translating %s's AST...\n" filename;
   let (include_map, file_decls) = filter_out_include filename dl in
@@ -1279,4 +1279,4 @@ let translate_ast (t : translation_unit) : trm =
        in
          trm_seq_nomarks ~loc ~annot:[Main_file] ((Include_map.fold (fun _ t tl -> t :: tl) tinclude_map []) @ translate_decl_list file_decls)
     )
-    
+

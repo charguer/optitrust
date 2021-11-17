@@ -15,7 +15,7 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | Trm_let_record _, Trm_let_record _ -> true
   | Trm_typedef _, Trm_typedef _ -> true
   | Trm_if _, Trm_if _ -> true
-  | Trm_seq _, Trm_seq _ -> true 
+  | Trm_seq _, Trm_seq _ -> true
   | Trm_apps _ , Trm_var _  when is_get_operation t1 -> true
   | Trm_apps _, Trm_apps _-> true
   | Trm_while _, Trm_while  _ -> true
@@ -35,13 +35,13 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | _ , _ -> false
 
 (* check if two ast nodes give the same code *)
-let same_trm (t1 : trm) (t2 : trm) : bool = 
-  if same_kind t1 t2 then  
-    Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2 
+let same_trm (t1 : trm) (t2 : trm) : bool =
+  if same_kind t1 t2 then
+    Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2
    else false
 
 (* check if two values are equal *)
-let same_val (v1 : value) (v2 : value) : bool = 
+let same_val (v1 : value) (v2 : value) : bool =
   same_trm (trm_val v1) (trm_val v2)
 
 
@@ -52,23 +52,23 @@ let same_val (v1 : value) (v2 : value) : bool =
 let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
-    if same_trm t' t_before then 
-      begin match t'.desc with 
+    if same_trm t' t_before then
+      begin match t'.desc with
       | Trm_apps (f, _) when (is_get_operation t' && not (is_get_operation t_before)) -> {t' with desc = Trm_apps (f, [t_after])}
       | _ -> t_after
       end
       else trm_map apply_change t'
       in
-  if change_at = [[]] then 
+  if change_at = [[]] then
     begin
     let res = apply_change t in
     res
     end
-  else 
+  else
     let res = List.fold_left
     (fun t' tr ->
-      let tr = if not (List.mem nbAny tr) 
-        then [nbAny] @ tr 
+      let tr = if not (List.mem nbAny tr)
+        then [nbAny] @ tr
         else tr in
       let epl = resolve_target tr t' in
       match epl with
@@ -92,9 +92,9 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   (ty_after : typ) (t : trm) : trm =
   (* change all occurences of ty_before in ty *)
   let rec change_typ (ty : typ) : typ =
-    if same_types ~match_generated_star:false ty ty_before then 
-      ty_after 
-      else 
+    if same_types ~match_generated_star:false ty ty_before then
+      ty_after
+      else
         typ_map change_typ ty
   in
   let rec replace_type_annot (t : trm) : trm =
@@ -134,7 +134,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
         | _ -> trm_map aux t
         end
        | Trm_var x ->
-          let ty = begin match t.typ with 
+          let ty = begin match t.typ with
                    | Some ty -> ty
                    | None -> fail t.loc "apply_change: all variable occurrences should have a type"
                    end in
@@ -146,8 +146,8 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
   List.fold_left
     (fun t' tr ->
       Flags.verbose := false;
-      let tr = if not (List.mem nbAny tr) 
-        then [nbAny] @ tr 
+      let tr = if not (List.mem nbAny tr)
+        then [nbAny] @ tr
         else tr in
       let epl = resolve_target tr t' in
       match epl with
@@ -171,8 +171,8 @@ let isolate_last_dir_in_seq (dl : path) : path * int =
   (* LATER: raise an exception that each transformation could catch OR take as argument a custom error message *)
 
 
-(* For nodes whose parent node is not a sequence, return the path to the sequence containing the instructions 
-    which contains the node at path [dl], the index of that instuction into the surronding sequence and the 
+(* For nodes whose parent node is not a sequence, return the path to the sequence containing the instructions
+    which contains the node at path [dl], the index of that instuction into the surronding sequence and the
     local path from the instruction at index [i] to the node with the initial path [dl]
 *)
 let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
@@ -181,8 +181,8 @@ let get_instruction_in_surrounding_sequence (dl : path) : path * path * int =
     | [] -> fail None "get_instruction_in_surrounding_sequence: empty path"
     | Dir_seq_nth i :: dl'-> (List.rev dl', acc, i)
     | dir :: dl' -> aux (dir :: acc) dl'
-  in aux [] (List.rev dl) 
-  
+  in aux [] (List.rev dl)
+
 
 (* For an ast node with path [dl] where the node is a children of the body of a for loop, this function returns
     the path to the for loop contining that node together with the index of the instruction in the body sequence
@@ -194,17 +194,17 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
     | _ -> fail None "get_trm_in_surrounding_loop: empty path"
 
 
-(* [get_parent_function_name dl] for any path which can be resolved to a node inside a function 
+(* [get_parent_function_name dl] for any path which can be resolved to a node inside a function
     get the name of the toplevel function it belongs
 *)
 let rec get_parent_function_name (dl : path) : string option =
-  let rec aux (dl : path) : path = 
-    match List.rev dl with 
+  let rec aux (dl : path) : path =
+    match List.rev dl with
     | [] -> []
     | Dir_body :: dl' -> (List.rev dl')
     | _dir :: dl' -> aux dl'
-    
-    in 
+
+    in
   let path_to_fun_decl = aux dl in
   let is_local_function = match get_parent_function_name path_to_fun_decl with
   | Some _-> true
@@ -215,8 +215,8 @@ let rec get_parent_function_name (dl : path) : string option =
     | Trm_let_fun (f, _, _, _) -> Some f
     | _ -> None
     end
-  
-(* [get_parent_function_namenes dls] for any list of paths whose elements can be resolved to a node inside a function 
+
+(* [get_parent_function_namenes dls] for any list of paths whose elements can be resolved to a node inside a function
     get the name of the toplevel function it belongs
 *)
 let get_parent_function_names (dls : paths) : (string option) list =
@@ -245,7 +245,7 @@ let get_field_list (td : typedef) : (var * typ) list =
     Else return -1 meaning that the type [t] is not a constructed type.
 *)
 let rec get_typid_from_typ (t : typ) : int =
-  match t.typ_desc with 
+  match t.typ_desc with
   | Typ_constr (_, id, _) -> id
   | Typ_const ty -> get_typid_from_typ ty
   | Typ_var (_, id) -> id
@@ -257,21 +257,21 @@ let rec get_typid_from_typ (t : typ) : int =
 (* For an ast node [t] check if its type is a constructed type. If this is the case then return its id
     Else return -1. Meaning that node [t] has a different type.
  *)
-let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int = 
-  match t.desc with 
+let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
+  match t.desc with
   | Trm_apps (_,[base]) ->
     begin match t.typ with
     | Some typ ->
       begin match typ.typ_desc with
       | Typ_constr (_,id,_) -> id
-      | _ -> if first_match then -1 else get_typid_from_trm base 
+      | _ -> if first_match then -1 else get_typid_from_trm base
       end
     | None -> get_typid_from_trm base
     end
   | Trm_struct _ ->
-    begin match t.typ with 
-    | Some typ -> 
-      begin match typ.typ_desc with 
+    begin match t.typ with
+    | Some typ ->
+      begin match typ.typ_desc with
       | Typ_constr(_,id,_) -> id
       | _ -> -1
       end
@@ -279,20 +279,20 @@ let rec get_typid_from_trm ?(first_match : bool = true) (t : trm) : int =
     end
   | Trm_let (_,(_,tx),_) ->
     get_typid_from_typ (get_inner_ptr_type tx)
-  | Trm_var _ -> 
-      begin match t.typ with 
+  | Trm_var _ ->
+      begin match t.typ with
       | Some ty ->  get_typid_from_typ ty
       | _ -> -1
       end
   | _ -> -1
 
 
-let nb_inits (x : var) (t : trm) : int = 
+let nb_inits (x : var) (t : trm) : int =
   let counter = ref 0 in
   let rec aux (t : trm) : trm =
-    match t.desc with 
+    match t.desc with
     | Trm_apps (_,[ls; _]) ->
-      begin match ls.desc with 
+      begin match ls.desc with
       | Trm_var y when y = x -> incr counter; ls
       | _ -> ls
       end
@@ -306,7 +306,7 @@ let rec toplevel_decl (x : var) (t : trm) : trm option =
   | Trm_typedef td when td.typdef_tconstr = x -> Some t
   | Trm_let (_, (y, _),_ ) when y = x -> Some t
   | Trm_let_fun (y, _, _, body) ->
-    if y = x then Some t else toplevel_decl x body 
+    if y = x then Some t else toplevel_decl x body
   | Trm_seq tl ->
     Mlist.fold_left(
       fun acc t1 ->
@@ -322,7 +322,7 @@ let rec toplevel_decl (x : var) (t : trm) : trm option =
   | _ -> None
 
 
-(* If node [t] represents a loop nest then go through all of them an return an 
+(* If node [t] represents a loop nest then go through all of them an return an
     ordered list of their indices where the order is the depth order
 *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
@@ -337,7 +337,7 @@ let rec get_loop_nest_indices (t : trm) : 'a list =
   | Trm_for_c (_, _, _, body) ->
     let index = for_loop_index t in
     begin match body.desc with
-    | Trm_seq tl when Mlist.length tl = 1 -> 
+    | Trm_seq tl when Mlist.length tl = 1 ->
       let f_loop = Mlist.nth tl 0 in
       index :: get_loop_nest_indices f_loop
     | _ -> index :: []
@@ -354,7 +354,7 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
     Some ((fun b -> trm_for_c init cond step b), body)
   | Trm_for (index, direction, start, stop, step, body) ->
     Some ((fun b -> trm_for index direction start stop step b), body)
-  | _ -> 
+  | _ ->
     fail t.loc "extract_loop: expected a loop"
 
 (* For a struct field with name [field] and  [fields] being the list of fields of the
@@ -370,7 +370,7 @@ let get_field_index (field : field) (fields : (var * typ) list) : int =
 
 (*********************Auxiliary functions for reorder transformation ******************************************************)
 (* *) let get_pair x xs = List.fold_left(fun acc (y,ty) -> if y = x then (y,ty) :: acc else acc) [] xs                 (* *)
-(* *) let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys                                  (* *)                  
+(* *) let get_pairs ys xs = List.fold_left(fun acc y -> (get_pair y xs) :: acc) [] ys                                  (* *)
 (* *) let remove_pair x xs = List.filter (fun (y,_) -> y <> x) xs                                                      (* *)
 (* *) let remove_pairs (ys : vars) (xs : (var * typ) list) = List.fold_left (fun acc y -> remove_pair y acc) xs ys (* *)
 (* ************************************************************************************************************************)
@@ -383,7 +383,7 @@ let move_fields_after (x : var) (local_l : vars) (l : (var * typ) list) : (var *
     | [] -> failwith "move_fields_after: empty list" (* raise an error x not part of the list *)
     | (hd, ty) :: tl ->
       if hd = x
-        then fins @ [hd, ty] @ tl 
+        then fins @ [hd, ty] @ tl
         else (hd,ty) :: aux tl
       in
     aux l
@@ -396,20 +396,20 @@ let move_fields_before (x : var) (local_l : vars) (l : (var * typ) list) : (var 
     | [] -> failwith "move_fields_after: empty list" (* raise an error x not part of the list *)
     | (hd, ty) :: tl ->
       if hd = x
-        then [hd, ty] @ fins @ tl 
+        then [hd, ty] @ fins @ tl
         else (hd,ty) :: aux tl
       in
     aux l
 
 let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) list) : (var * typ) list =
-  match reorder_kind with 
+  match reorder_kind with
   | Reorder_after around -> move_fields_after around local_l sf
   | Reorder_before around -> move_fields_before around local_l sf
   | Reorder_all -> let check = (List.length (Tools.list_remove_duplicates local_l) = List.length sf) in
-    begin match check with 
+    begin match check with
     | false -> fail None "reorder_fields: list of fields entered contains duplicates"
-    | true -> List.map (fun x -> 
-        match List.assoc_opt x sf with 
+    | true -> List.map (fun x ->
+        match List.assoc_opt x sf with
       | Some d -> (x,d)
       | None -> fail None (Tools.sprintf "reorder_fields: field %s doest not exist" x)
         ) (List.rev local_l)
@@ -422,9 +422,9 @@ let reorder_fields (reorder_kind : reorder) (local_l : vars) (sf : (var * typ) l
 let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * trm * trm mlist) =
   let lfront, lback = Mlist.split index trms in
   let element, lback = Mlist.split 1 lback in
-  let element = 
-    if Mlist.length element = 1 
-      then Mlist.nth element 0 
+  let element =
+    if Mlist.length element = 1
+      then Mlist.nth element 0
       else fail None "get_element_and_its_relatives: expected a list with a single element"
   in
   (lfront, element, lback)
@@ -434,8 +434,8 @@ let get_trm_and_its_relatives (index : int) (trms : trm mlist) : (trm mlist * tr
 *)
 let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
   let lfront, st, lback  = get_trm_and_its_relatives index ml in
-  match st.desc with 
-  | Trm_seq tl | Trm_array tl | Trm_struct tl -> 
+  match st.desc with
+  | Trm_seq tl | Trm_array tl | Trm_struct tl ->
     Mlist.merge (Mlist.merge lfront tl) lback
   | _ -> fail st.loc "inline_sublist_at: expected an ast node which taks a mlist as parameter"
 
@@ -445,31 +445,31 @@ let inline_sublist_at (index : int) (ml : trm mlist) : trm mlist =
 *)
 let clean_no_brace_seq ?(all : bool = false) (id : int) (t : trm) : trm =
   let rec aux (t : trm) : trm =
-    match t.desc with 
+    match t.desc with
     | Trm_seq tl ->
-      let indices_list = List.flatten (List.mapi (fun i t1 -> 
+      let indices_list = List.flatten (List.mapi (fun i t1 ->
         let current_seq_id = get_nobrace_id t1 in
-        begin match current_seq_id with 
+        begin match current_seq_id with
         | Some c_i when  (all || (c_i = id)) -> [i]
         | _ -> []
-        end 
+        end
       ) (Mlist.to_list tl)) in
       let new_tl = Mlist.map aux tl in
-      
-      let new_tl = 
-        if indices_list <> [] then 
-          List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list) 
+
+      let new_tl =
+        if indices_list <> [] then
+          List.fold_left (fun acc x_i -> inline_sublist_at x_i acc) tl (List.rev indices_list)
         else new_tl in
       {t with desc = Trm_seq new_tl}
     | _ -> trm_map aux t
-   in aux t 
+   in aux t
 
 (* Apply function clean_no_brace over the curren ast *)
 let nobrace_remove_and_exit () =
   let id = Nobrace.exit () in
   Trace.apply (fun ast -> clean_no_brace_seq id ast)
-    
-    
+
+
 (* Called when there is generated a no brace sequence from a transformation, this is needed
     to generate a unique id for that nobrace sequence.
 *)
@@ -477,14 +477,14 @@ let nobrace_enter () =
   Nobrace.enter()
 
 (* Transform a normal sequence into a nobrace sequence *)
-let set_nobrace_if_sequence (t : trm) : trm = 
-  match t.desc with 
-  | Trm_seq tl1 -> trm_seq_no_brace (Mlist.to_list tl1) 
+let set_nobrace_if_sequence (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl1 -> trm_seq_no_brace (Mlist.to_list tl1)
   | _-> t
 
 (* Check if the current sequence is visible or not or not *)
 let is_nobrace (t : trm) : bool =
-  match t.desc with 
+  match t.desc with
   | Trm_seq _ ->
     List.exists (function No_braces _ -> true | _ -> false) t.annot
   | _ -> false
@@ -492,15 +492,15 @@ let is_nobrace (t : trm) : bool =
 
 (*  *)
 let remove_nobrace_if_sequence (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq _ ->
     if is_nobrace t then trm_annot_filter (function No_braces _ -> true | _ -> false) t else t
   | _ -> t
 
 
 (* Change the current body of loop [loop] with [body]*)
-let change_loop_body (loop : trm) (body : trm) : trm = 
-  match loop.desc with 
+let change_loop_body (loop : trm) (body : trm) : trm =
+  match loop.desc with
   | Trm_for (index , direction, start, stop, step, _) ->
     trm_for index direction start stop step body
   | Trm_for_c (init, cond, step, _) ->
@@ -508,15 +508,15 @@ let change_loop_body (loop : trm) (body : trm) : trm =
   | _-> fail loop.loc "change_loop_body: expected for loop"
 
 
-let is_trm_loop (t : trm) : bool = 
-  match t.desc with 
-  | Trm_for _ | Trm_for_c _ -> true 
+let is_trm_loop (t : trm) : bool =
+  match t.desc with
+  | Trm_for _ | Trm_for_c _ -> true
   | _ -> false
 
 
 (* Get the constraint from a list of constraints(targets) *)
 let get_constr_from_target (tg : target) : constr =
-  match tg with 
+  match tg with
   | [cnst] -> cnst
   | _ -> cChain tg
 
@@ -532,30 +532,30 @@ let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (
     match t.desc with
     | Trm_seq _ -> tr t
     | Trm_labelled (l, t1) ->
-        begin match t1.desc with 
-        | Trm_seq _ -> 
+        begin match t1.desc with
+        | Trm_seq _ ->
           if keep_label
           then trm_labelled l (tr t1)
           else tr t1
         | _ -> fail t.loc (op_name ^ ": expected a labelled sequence")
         end
-        
+
     | _ -> fail t.loc (op_name ^ ": expected a sequence or a labelled sequence")
 
 (* make sure each occurrence of y in t is marked with type variable x *)
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_var y' when y' = y ->
     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x )) y
   | _ -> trm_map (replace_type_with x y) t
 
-(* find all the occurrences of variables in [t] and check if they are key in map [tm] 
+(* find all the occurrences of variables in [t] and check if they are key in map [tm]
     if yes then assign its values otherwise do nothing
 *)
-let variable_substitute (tm : tmap) (t : trm) : trm = 
-  let rec function_to_apply (t : trm) : trm = 
-    match t.desc with 
-    | Trm_var x -> 
+let variable_substitute (tm : tmap) (t : trm) : trm = (* TODO: rename to subst *)
+  let rec function_to_apply (t : trm) : trm =
+    match t.desc with
+    | Trm_var x ->
       begin match Trm_map.find_opt x tm with
       | Some t1 -> t1
       | _ -> t
@@ -564,8 +564,13 @@ let variable_substitute (tm : tmap) (t : trm) : trm =
   in
   trm_map function_to_apply t
 
+(* TODO:
+let subst1 (x:var) (u:trm) (t:trm) : trm =
+  call subst with a singleton map
+*)
+
 (* [clean_nobraces tg] Remove all the hidden sequence starting from target [ŧg] *)
-let clean_nobraces : Transfo.t = 
+let clean_nobraces : Transfo.t =
   apply_on_targets (apply_on_path (fun t -> clean_no_brace_seq ~all:true (-1) t))
 
 
@@ -582,7 +587,7 @@ let clean_nobraces : Transfo.t =
   t il
 let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t : trm) : ilset funmap =
   let rec aux (t : trm) : ilset funmap =
-    match t.desc with 
+    match t.desc with
     | Trm_let (_, _, body) -> aux body
     | Trm_let_fun (_, _, _, body) -> aux body
     | Trm_if (cond, then_, else_) -> aux cond +@ aux then_ +@ aux else_
@@ -592,7 +597,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
       let ilsm =
         Mlist.fold_left (fun ilsm t' -> ilsm +@ aux t') Fun_map.empty tl
       in
-      begin match f.desc with 
+      begin match f.desc with
       (* If f is a variable, we have to add f to ilsm if an argument has type x
         ignore the free function
       *)
@@ -637,30 +642,30 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
       | _ -> Fun_map.empty
     in
     let ilsm = aux t in
-    (* 
+    (*
       For each function, do a recursive call on its declaration where the type of arguments is replaced with x
     *)
     Fun_map.fold (
       fun f ils res ->
         IntListSet.fold (
           fun il res ->
-            (* 
+            (*
               First compute the body of f where the arguments at position in il have type x
             *)
             let global_trm =
-              match outer_trm with 
+              match outer_trm with
               | None -> t
               | Some t' -> t'
             in
-            match (toplevel_decl f global_trm) with 
-            | None -> 
+            match (toplevel_decl f global_trm) with
+            | None ->
               print_info global_trm.loc
                ("functions_with_arg_type: cannot find declaration of " ^^
                   "function %s, ignoring it.\n") f;
                Fun_map.remove f res
             | Some dl ->
-              begin match dl.desc with 
-              | Trm_let_fun (_, _, args, body) -> 
+              begin match dl.desc with
+              | Trm_let_fun (_, _, args, body) ->
                 let b = replace_arg_types_with x il args body in
                 (* then do a recursive call on the body *)
                 res +@ functions_with_arg_type ~outer_trm:(Some global_trm) x b
@@ -696,7 +701,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
             fail t'.loc
               ("insert_fun_copies: cannot find declaration of function " ^ f)
          | Some fdecl ->
-            begin match fdecl.desc with 
+            begin match fdecl.desc with
             | Trm_let_fun (f', r, tvl, b) when f = f' ->
                (* for each element of ils, create a copy *)
                let tl =

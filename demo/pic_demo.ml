@@ -4,6 +4,11 @@ open Ast
 
 let main = cFunDef "main"
 
+let dims = ["X";"Y";"Z"]
+
+let iter_dims f = List.iter f dims
+let map_dims f = List.map f dims
+
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
 
@@ -27,7 +32,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti; pre; cWriteVar "res"];
      (* LATER: !! Loop.fission [nbMulti; tAllInBetween; pre; cFor "k"; cSeq]; *)
      Loop.fission [nbMulti; tAfter; pre; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
-  
+
      (* LATER: Fix the issue with clean nobrace to remove all no brace sequences after unrolling *)
      Loop.unroll [nbMulti; pre; cFor "k"];
  !!! Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
@@ -42,19 +47,21 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: reveal fields *)
   !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      (* Struct.set_explicit [cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; *)
-     Struct.set_explicit [nbMulti;main;cWrite ~typ:"particle" ()]; 
-     Struct.set_explicit [nbMulti;main;cWrite ~typ:"vect" ()]; 
+     Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
+     Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
      Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
  !!! Struct.to_variables [cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [
-     [cFun "vect8_mul"];
-     [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
-     [cFun "accumulateChargeAtCorners"]; [cFun "idCellOfPos"]]];
-     Function.inline ~vars:(AddSuffix "${occ}") [nbMulti;cFun "cornerInterpolationCoeff"];
-  !! Variable.elim_redundant ~source:[nbMulti;main; cVarDef ~regexp:true ~substr:true "_.0"] [nbMulti;main; cVarDef ~regexp:true ~substr:true "_.1"];
+       [cFun "vect8_mul"];
+       [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
+       [cFun "accumulateChargeAtCorners"]; [cFun "idCellOfPos"]]];
+     Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
+     (* LATER: try a pattern of the form: \\(coef|sign\))_.0 *)
+  !! Variable.elim_redundant ~source:[nbMulti; main; cVarDef ~regexp:true ~substr:true "_.0"] [nbMulti; main; cVarDef ~regexp:true ~substr:true "_.1"];
 
+  (* LATER: ARTHUR: look at this *)
   !! Instr.move ~dest:[tBefore; cVarDef "rx0"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
      Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
      Instr.move ~dest:[tBefore; main;cVarDef "coeffs2"] [cOr [ [main;cVarDef "indices"];[cVarDef "deltaChargeOnCorners"]]];
@@ -66,48 +73,48 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: scaling of speeds and positions #7 *)
-    let dims = ["X";"Y";"Z"] in
-    let names = "factor" :: (List.map (fun x -> "factor" ^ x) dims) in
-    let values = "particleCharge * stepDuration * stepDuration /particleMass / cellX" :: (List.map (fun x -> "factor / cell" ^ x) dims) in
-  !! Variable.insert_list ~names ~values ~typ:"const double" ~reparse:true [tBefore; cVarDef "nbSteps"];
-  !! List.iter (fun d -> 
-    Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos_" ^ (String.lowercase_ascii d))]
-  ) dims;
+  !! Variable.insert_list ~reparse:true ~typ:"const double"
+      ~names:("factor" :: (List.map (fun x -> "factor" ^ x) dims))
+      ~values:("particleCharge * stepDuration * stepDuration /particleMass / cellX" :: (List.map (fun x -> "factor / cell" ^ x) dims))
+      [tBefore; cVarDef "nbSteps"];
+  (* TODO:
+      ~defs:(["factor", "particleCharge * stepDuration * stepDuration /particleMass / cellX"]
+              :: map_dims (fun d -> ("factor" ^ x), ("factor / cell" ^ x)) ] *)
 
-  !! List.iter (fun d -> 
-    Accesses.scale ~factor_ast:(Ast.trm_var ("stepDuration / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].speed." ^ (String.lowercase_ascii d))] ()]
-  ) dims;
-  
-  !! List.iter (fun d -> 
-    Accesses.scale ~factor_ast:(Ast.trm_var ("1. / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].pos." ^ (String.lowercase_ascii d))] ()]
-  ) dims;
+  !! iter_dims (fun d ->
+       Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos_" ^ (String.lowercase_ascii d))]);
+  !! iter_dims (fun d ->
+       Accesses.scale ~factor_ast:(Ast.trm_var ("stepDuration / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].speed." ^ (String.lowercase_ascii d))] ()]);
+  !! iter_dims (fun d ->
+       Accesses.scale ~factor_ast:(Ast.trm_var ("1. / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].pos." ^ (String.lowercase_ascii d))] ()]);
 
   (* Part: grid_enumeration *)
   !! Loop.grid_enumerate [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] [occIndex ~nb:3 1;cFor "idCell"];
-
+  (* TODO; ("iX", "gridX"); ("iY", "gridY"); ("iZ", "gridZ")
+      map_dims (fun d -> "i"^d, "grid"^d) *)
 
   (* Part: Shifting of positions*)
-  !! List.iter (fun d -> 
-      let field_at_pos = "fieldAtPos_" ^ (String.lowercase_ascii d) in 
+  !! List.iter (fun d ->
+      let field_at_pos = "fieldAtPos_" ^ (String.lowercase_ascii d) in
       Instr.inline_last_write ~write:[cWriteVar field_at_pos] [cVarDef "accel"; cRead ~addr:[cVar field_at_pos] ()];) dims ;
   (* TODO :ARTHUR : see how to inline the zero for fieldatpos in the simplest way *)
-     Variable.inline [cOr [[cVarDef ~regexp:true "fieldAtPos_."];[cVarDef "accel"]]];
-     List.iter (fun d -> 
+     Variable.inline [cOr [[cVarDef ~regexp:true "fieldAtPos_."]; [cVarDef "accel"]]];
+     List.iter (fun d ->
        let d_l = String.lowercase_ascii d in
-       let c_items = "c->items)[i].pos." ^ d_l  ^ " =" in 
-       Variable.bind_intro ~fresh_name:("p" ^ d_l) [sInstr c_items; dRHS];) dims ; 
+       let c_items = "c->items)[i].pos." ^ d_l  ^ " =" in
+       Variable.bind_intro ~fresh_name:("p" ^ d_l) [sInstr c_items; dRHS];) dims ;
      Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
-     List.iter (fun d -> 
+     iter_dims (fun d ->
       let d_l = String.lowercase_ascii d in
-      let c_items = "c->items)[i].pos." ^ d_l  in 
-      Accesses.shift ~factor_ast:(Ast.trm_var ("i" ^  d_l)) [cOr [[cWrite ~lhs:[sExpr c_items] ()]; [cVarDef ("p" ^ d_l); cRead ~addr:[sExpr c_items] ()]]];
-     ) dims;
-  
+      let c_items = "c->items)[i].pos." ^ d_l  in (* TODO: inline this after lowercase is not needed *)
+      Accesses.shift ~factor_ast:(Ast.trm_var ("i" ^  d_l)) [cOr [[cWrite ~lhs:[sExpr c_items] ()]; [cVarDef ("p" ^ d_l); cRead ~addr:[sExpr c_items] ()]]]);
+
   (* Part: convert pos fields to float *)
-  !! List.iter ( fun d ->
-      let d_l = String.lowercase_ascii d in
-      let c_items = "c->items)[i].pos." ^ d_l  ^ " =" in 
-      Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr c_items; dRHS]; ) dims;
+  !! iter_dims (fun d ->
+      let d_l = String.lowercase_ascii d in (* TODO: inline this after lowercase is not needed *)
+      let c_items = "c->items)[i].pos." ^ d_l  ^ " =" in
+      Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr c_items; dRHS]);
+      (* TODO: target [sExprRegexp "p. + i."] *)
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];

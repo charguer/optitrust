@@ -125,6 +125,7 @@ let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : pat
 
    let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fun_decl_arg_vars fresh_args in
    let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
+   (* TODO: subst with the right map *)
 
    let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
    let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
