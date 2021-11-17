@@ -13,8 +13,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: inlining of the bag iteration *) (* skip #1 *)
 
   (* Part1: space reuse *)
-  !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse "p.pos" [cVarDef "pos2"];
+  !! Variable.reuse ~reparse:true "p.speed" [cVarDef "speed2"];
+  !! Variable.reuse "p.pos" [cVarDef "pos2"];
 
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [cFun "bag_push"; dArg 0];

@@ -3,5 +3,5 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Variable.reuse "x" [cVarDef "y"];
+  !! Variable.reuse ~reparse:true "x" [cVarDef "y"];
 )

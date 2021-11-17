@@ -194,33 +194,7 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
     | _ -> fail None "get_trm_in_surrounding_loop: empty path"
 
 
-(* [get_parent_function_name dl] for any path which can be resolved to a node inside a function
-    get the name of the toplevel function it belongs
-*)
-let rec get_parent_function_name (dl : path) : string option =
-  let rec aux (dl : path) : path =
-    match List.rev dl with
-    | [] -> []
-    | Dir_body :: dl' -> (List.rev dl')
-    | _dir :: dl' -> aux dl'
 
-    in
-  let path_to_fun_decl = aux dl in
-  let is_local_function = match get_parent_function_name path_to_fun_decl with
-  | Some _-> true
-  | None -> false in
-  if is_local_function then None else
-    let decl_trm,_ = Path.resolve_path path_to_fun_decl (Target.get_ast ()) in
-    begin match decl_trm.desc with
-    | Trm_let_fun (f, _, _, _) -> Some f
-    | _ -> None
-    end
-
-(* [get_parent_function_namenes dls] for any list of paths whose elements can be resolved to a node inside a function
-    get the name of the toplevel function it belongs
-*)
-let get_parent_function_names (dls : paths) : (string option) list =
-  List.map get_parent_function_name dls
 
 (* Rename all the occurrences of a variable by adding an underscore as prefix*)
 let fresh_args (t : trm) : trm =

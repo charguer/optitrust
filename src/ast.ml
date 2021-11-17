@@ -58,9 +58,6 @@ module Typ_map = Map.Make(Int)
 type 'a typmap = 'a Typ_map.t
 
 
-
-(* a map from int to int *)
-
 (* struct fields and maps describing struct *)
 type field = string
 
@@ -1835,14 +1832,14 @@ let combine_styp (ty1 : styp option) (ty2 : typ option) : typ =
   | Some _, Some _ -> raise Ast_and_code_provided
   | None, None -> raise No_ast_or_code_provided
 
-(* [fold_function_decl fun_names t] for all the functions with the name listed in [fun_names] transform 
+(* [remove_fun_body fun_names t] for all the functions with the name listed in [fun_names] transform 
       them in function prototypes
 *)
-let fold_function_decl (fun_names : vars) (t : trm) : trm = 
+let remove_fun_body (fun_names : vars) (t : trm) : trm = 
   let rec aux (t : trm) : trm = 
     match t.desc with 
     | Trm_let_fun (f,ty, tv, _) -> 
-      if (List.mem f fun_names) then 
+      if not (List.mem f fun_names) then 
       trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) else t
     | _ -> trm_map aux t
     in

@@ -636,6 +636,8 @@ let cCell ?(cell_index : int option = None) (): constr =
   | None -> cChain [cArrayInit; cStrict; cTrue]
   | Some i -> cChain [cArrayInit; dArrayNth i]
 
+
+
 (******************************************************************************)
 (*                          Target resolution                                 *)
 (******************************************************************************)
@@ -690,6 +692,7 @@ let fix_target (tg : target) : target =
   (* If there are logic constraints then multiple occurrences are allowed *)
   let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
   if (not check_occurrences) && check_logic then nbMulti :: tg else tg
+
 
 let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   let tg = fix_target tg in
@@ -935,7 +938,6 @@ let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
       else applyi_on_targets (fun _i t _p -> t) tg
   end
 
-
 (* [get_trm_at] returns that trm that corresponds to the target [tg]
     Note:
       Call this function only on targets which resolve to a unique ast node
@@ -948,28 +950,65 @@ let get_trm_at (tg : target) : trm =
   );
   !t_ast
 
+(* [get_ast ()] returns the full ast*)
 let get_ast () : trm =
   get_trm_at []
 
 
-(* [reparse_at tg] reparse the node at [tg] *)
-let reparse_at (tg : target) : unit =
-  apply_on_targets ( fun t p ->
-    let path_to_seq =
-       match List.rev p with
-       | Path.Dir_seq_nth _ :: dl' -> List.rev dl'
-       | _ -> p in
-      apply_on_path (fun t ->
-        Trace.term (Trace.get_context ()) (Ast_to_c.ast_to_string t)) t path_to_seq) tg
 
-(** [reparse_after tr] is a wrapper to invoke for forcing the reparsing
+
+(******************************************************************************)
+(*                          Reparse                                           *)
+(******************************************************************************)
+(* LATER: We can use the following type for reparsing *)
+(* type reparse = | Reparse_none | Reparse_only_paths | Reparse_all *)
+
+(* [get_parent_function_name dl] for any path which can be resolved to a node inside a function
+    get the name of the toplevel function it belongs
+*)
+let get_parent_function_name (dl : path) : string option =
+  let rec aux (dl : path) : path =
+    match List.rev dl with
+    | [] -> []
+    | Dir_body :: dl' -> (List.rev dl')
+    | _dir :: dl' -> aux dl'
+
+    in
+  let path_to_fun_decl = aux dl in
+  let is_local_function = false in
+  if is_local_function then None else
+    let decl_trm,_ = Path.resolve_path path_to_fun_decl (get_ast ()) in
+    begin match decl_trm.desc with
+    | Trm_let_fun (f, _, _, _) -> Some f
+    | _ -> None
+    end
+
+(* [get_parent_function_namenes dls] for any list of paths whose elements can be resolved to a node inside a function
+    get the name of the toplevel function it belongs
+*)
+let get_parent_function_names (dls : paths) : (string option) list =
+  List.map get_parent_function_name dls
+
+(* [reparse_only ps ast] for the given full ast reparse only those functions which contains paths [ps] *)
+let reparse_only (ps : path list) (ast : trm) : trm = 
+  let parent_function_names = get_parent_function_names ps in
+  let fun_names = List.fold_left (fun acc x -> match x with | Some f -> f :: acc | _ -> acc) [] (List.rev parent_function_names) in
+  let temp_ast = remove_fun_body fun_names ast in
+  let curr_context = Trace.get_context () in
+  let parsed_temp_ast = Trace.reparse_trm curr_context temp_ast in
+  update_ast ast parsed_temp_ast 
+
+(* [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
     See example in [Struct.inline]. The argument [~reparse:false] can be
     specified to deactivate the reparsing. *)
-let reparse_after ?(reparse:bool=true) ?(local_reparse : bool = false)(tr : Transfo.t) : Transfo.t =
+let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
+    let tg_paths = resolve_target tg (get_ast ()) in
     tr tg;
-    if reparse then
-      if local_reparse then reparse_at tg
-      else Trace.reparse ()
+    Trace.call (fun t -> 
+      if reparse then Trace.set_ast (reparse_only tg_paths t) else ()
+    )
+    
+    
 
