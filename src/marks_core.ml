@@ -34,9 +34,6 @@ let add_between_aux (index : int) (m : mark) (t : trm) : trm =
 let add_between (index : int) (m : mark) : Target.Transfo.local =
   Target.apply_on_path (add_between_aux index m)
 
-
-
-
 (* [remove_aux m t] remove mark m from node t
     params:
       [m]: the mark which is removed

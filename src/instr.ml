@@ -54,15 +54,22 @@ type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of Target.target
 
 (* [gather ~dest tg] expects the target [tg] pointing to a list to multiple nodes belonging to the
     same sequence. Then it will move all those targets to the given destination.
+    NOTE: There is not need to write explicitly nbMulti before the main target 
 *)
 let gather ~dest:(dest : gather_dest) (tg : Target.target) : unit =
-  let my_mark = "inbetween_mark" in
+  let tg = Target.filter_constr_occurrence tg in
+  let tg_dest = ref [] in
   begin match dest with 
-  | GatherAtFirst -> Marks.add_between my_mark ([Target.tAfter] @ [Target.occFirst] @ tg)
-  | GatherAtLast -> Marks.add_between my_mark ([Target.tBefore] @ [Target.occLast] @ tg)
-  | GatherAt tg_dest -> Marks.add_between my_mark tg_dest
+  | GatherAtFirst -> 
+    tg_dest := [Target.tBefore; Target.occFirst] @ tg 
+  | GatherAtLast -> 
+    tg_dest := [Target.tAfter; Target.occLast] @ tg 
+  | GatherAt tg_dest1 -> 
+    tg_dest := tg_dest1
   end;
-  Instr_basic.move ~dest:[Target.cMark my_mark] tg
+  let tg = Target.enable_multi_targets tg in
+  Instr_basic.move ~dest:!tg_dest tg
+  
 
 
 (* [move_multiple ~targets tgs] expects a list of destinations and a list of targets to be movet at those 
