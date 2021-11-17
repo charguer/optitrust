@@ -1835,3 +1835,41 @@ let combine_styp (ty1 : styp option) (ty2 : typ option) : typ =
   | Some _, Some _ -> raise Ast_and_code_provided
   | None, None -> raise No_ast_or_code_provided
 
+(* [fold_function_decl fun_names t] for all the functions with the name listed in [fun_names] transform 
+      them in function prototypes
+*)
+let fold_function_decl (fun_names : vars) (t : trm) : trm = 
+  let rec aux (t : trm) : trm = 
+    match t.desc with 
+    | Trm_let_fun (f,ty, tv, _) -> 
+      if (List.mem f fun_names) then 
+      trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) else t
+    | _ -> trm_map aux t
+    in
+  aux t
+
+(* [update_ast full_ast temp_ast] *)
+let update_ast (full_ast : trm) (temp_ast : trm) : trm = 
+  let fun_map = ref Trm_map.empty in
+  let _ = trm_map (fun t1 -> 
+    match t1.desc with 
+    | Trm_let_fun (f, _, _, body) ->
+      fun_map := Trm_map.add f body !fun_map;
+      t1
+    | _ -> t1
+  ) full_ast in
+  
+  let rec aux1 (t : trm) : trm = 
+    match t.desc with 
+    | Trm_let_fun (f, ty, tv, body) -> 
+      begin match trm_lit_inv body with
+      | Some _ -> 
+        begin match Trm_map.find_opt f !fun_map with
+        | Some bd -> 
+          trm_let_fun ~annot:t.annot f ty tv bd
+        | _ -> t
+        end
+      | _ -> t
+      end
+    | _ -> trm_map aux1 t 
+  in aux1 temp_ast
