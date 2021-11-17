@@ -78,8 +78,9 @@ TESTS_TOCHECK := \
 	matrix_reorder_dims.ml \
 	instr_accumulate.ml \
 	struct_simpl_proj.ml \
-	
-	
+
+
+# arith_simpl.ml
 
 #  change_type.ml \
 # arith_shift.ml \
