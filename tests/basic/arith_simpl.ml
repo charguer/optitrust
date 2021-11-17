@@ -150,6 +150,8 @@ let trm_to_expr (t : trm) : expr =
   let expr, atoms = trm_to_naive_expr t in
   (normalize expr), atoms
 
+(* TODO: expr_to_trm, the reverse conversion *)
+
 (* TODO: define an operation, following the pattern of trm_to_doc / trm_to_string
 
   val expr_to_string (atoms:atom_map) (e:expr) : string
