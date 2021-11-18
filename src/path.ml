@@ -26,6 +26,7 @@ and dir =
       -> directions for while loop: cond and body
    *)
   | Dir_body
+  | Dir_fun_body
   (* for *)
   | Dir_for_start
   | Dir_for_stop
@@ -68,6 +69,7 @@ let dir_to_string (d : dir) : string =
   | Dir_then -> "Dir_then"
   | Dir_else -> "Dir_else"
   | Dir_body -> "Dir_body"
+  | Dir_fun_body -> "Dir_fun_body"
   | Dir_for_start -> "Dir_for_start"
   | Dir_for_stop -> "Dir_for_stop"
   | Dir_for_step -> "Dir_for_step"
@@ -145,6 +147,8 @@ let compare_dir (d : dir) (d' : dir) : int =
   | _, Dir_else -> 1
   | Dir_body, _ -> -1
   | _, Dir_body -> 1
+  | Dir_fun_body, _ -> -1
+  | _, Dir_fun_body -> 1
   | Dir_for_start, _ -> -1
   | _, Dir_for_start -> 1
   | Dir_for_stop, _ -> -1
@@ -262,7 +266,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_if (cond, then_t, aux else_t) }
        | Dir_body, Trm_let (vk,tx,body) ->
           { t with desc = Trm_let (vk, tx, aux body)}
-       | Dir_body, Trm_let_fun (x, tx, txl, body) ->
+       | Dir_fun_body, Trm_let_fun (x, tx, txl, body) ->
           { t with desc = Trm_let_fun (x, tx, txl, aux body)}
        | Dir_body, Trm_for (index, direction, start, stop, step, body) ->
           { t with desc = Trm_for (index, direction, start, stop, step, aux body) }
@@ -409,7 +413,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
           aux dl then_t ctx
        | Dir_else, Trm_if (_, _, else_t) ->
           aux dl else_t ctx
-       | Dir_body, Trm_let_fun (_, _, args, body) ->
+       | Dir_fun_body, Trm_let_fun (_, _, args, body) ->
           (* do as if fun args were heap allocated *)
           let args_decl =
             List.rev_map

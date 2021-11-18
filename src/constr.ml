@@ -1045,7 +1045,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      | Trm_let_fun (_, _ , _,body) ->
         (* DEPRECATED: the name of the function should not be considered an occurence;
             add_dir Dir_name (aux (trm_var ~loc x))@*)
-        add_dir Dir_body (aux_body body)
+        add_dir Dir_fun_body (aux_body body)
      | Trm_typedef td  ->
       begin match td.typdef_body with
       | Typdef_enum xto_l ->
@@ -1169,6 +1169,8 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
+  | Dir_fun_body, Trm_let_fun (_, _, _, body) -> 
+    add_dir Dir_fun_body (aux body)
   | Dir_body, Trm_let (_,(_,_),body)
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for_c (_, _, _, body)

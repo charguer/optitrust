@@ -963,6 +963,7 @@ let get_ast () : trm =
 (* LATER: We can use the following type for reparsing *)
 (* type reparse = | Reparse_none | Reparse_only_paths | Reparse_all *)
 
+
 (* [get_parent_function_name dl] for any path which can be resolved to a node inside a function
     get the name of the toplevel function it belongs
 *)
@@ -970,7 +971,7 @@ let get_parent_function_name (dl : path) : string option =
   let rec aux (dl : path) : path =
     match dl with
     | [] -> []
-    | Dir_body :: dl' -> (List.rev dl')
+    | Dir_fun_body :: dl' -> (List.rev dl')
     | _dir :: dl' -> aux dl'
 
     in
@@ -994,6 +995,9 @@ let reparse_only (ps : path list) (ast : trm) : trm =
   let parent_function_names = get_parent_function_names ps in
   let fun_names = List.fold_left (fun acc x -> match x with | Some f -> f :: acc | _ -> acc) [] (List.rev parent_function_names) in
   let temp_ast = remove_fun_body fun_names ast in
+  (* DEBUG: *)
+  (* Tools.printf "Full_ast:%s\n" (Ast_to_c.ast_to_string ast); *)
+  (* Tools.printf "Temporary_ast:%s\n" (Ast_to_c.ast_to_string temp_ast); *)
   let curr_context = Trace.get_context () in
   let parsed_temp_ast = Trace.reparse_trm curr_context temp_ast in
   update_ast ast parsed_temp_ast 
@@ -1004,7 +1008,12 @@ let reparse_only (ps : path list) (ast : trm) : trm =
     specified to deactivate the reparsing. *)
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
-    let tg_paths = resolve_target tg (get_ast ()) in
+    let tg = enable_multi_targets tg in
+    let ast = (get_ast ()) in
+    let tg_paths = if Constr.is_target_between tg then 
+        let tg_ps = (resolve_target_between tg ast) in
+        fst (List.split tg_ps)        
+        else resolve_target tg ast in
     tr tg;
     Trace.call (fun t -> 
       if reparse then Trace.set_ast (reparse_only tg_paths t) else ()

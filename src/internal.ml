@@ -194,8 +194,6 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
     | _ -> fail None "get_trm_in_surrounding_loop: empty path"
 
 
-
-
 (* Rename all the occurrences of a variable by adding an underscore as prefix*)
 let fresh_args (t : trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =

@@ -13,7 +13,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: inlining of the bag iteration *) (* skip #1 *)
 
   (* Part1: space reuse *)
-  !! Variable.reuse ~reparse:true "p.speed" [cVarDef "speed2"];
+  !! Variable.reuse "p.speed" [cVarDef "speed2"];
      Variable.reuse ~reparse:true "p.pos" [cVarDef "pos2"];
 
   (* Part: Introducing an if-statement for slow particles *)
@@ -26,12 +26,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: optimization of vect_matrix_mul *)
   let pre = cFunDef "vect_matrix_mul" in
-  !! Function.inline  [pre; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+ !!! Function.inline  [pre; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      Struct.set_explicit [nbMulti; pre; cWriteVar "res"];
      (* LATER: !! Loop.fission [nbMulti; tAllInBetween; pre; cFor "k"; cSeq]; *)
      Loop.fission [nbMulti; tAfter; pre; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
-
-     (* LATER: Fix the issue with clean nobrace to remove all no brace sequences after unrolling *)
      Loop.unroll [nbMulti; pre; cFor "k"];
      Instr.accumulate ~nb:8 [nbMulti; pre; sInstrRegexp "res.*\\[0\\]"];
      Function.inline [cFun "vect_matrix_mul"];
@@ -39,7 +37,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
      Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
- !!! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
+     Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
      Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
 
   (* Part: reveal fields *)
@@ -48,7 +46,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
      Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
      Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
- !!! Struct.to_variables [cVarDef "fieldAtPos"];
+     Struct.to_variables [cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [
@@ -67,7 +65,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO ARTHUR: nbCorners vs 8 *)
   !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
   (* TODO ARTHUR: see how to improve this part *)
- !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
+  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
      Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: scaling of speeds and positions #7 *)

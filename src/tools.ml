@@ -298,4 +298,3 @@ let fix_pattern_args (var_decls : string) : string =
     in
   let var_decls = Str.split (Str.regexp_string ";") var_decls in
   List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls 
-
