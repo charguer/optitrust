@@ -1,7 +1,13 @@
 
 (*--------contents below in module ArithSimplifier -----------*)
 
-(* A grammar for arithmetic expressions *)
+(* A grammar for arithmetic expressions
+
+       foo + 2 * foo + bar
+    encoded as
+       expr_sum [(1, expr_atom 0); (2, expr_atom 0); (1, expr_atom 1)]
+    with atom_map : 0 -> trm_var "foo", and 1 -> trm_var "bar"
+*)
 
 type id = int
 
@@ -11,8 +17,8 @@ type expr =
   | Expr_int of int
   | Expr_double of float
   | Expr_atom of id
-  | Expr_sum of wexprs
-  | Expr_prod of wexprs
+  | Expr_sum of wexprs (* example: 2*e1 + 4*e2 *)
+  | Expr_prod of wexprs (* example: e1^1 * e2^(1) * e3^2 *)
 
 (* list of expressions *)
 and exprs = expr list
@@ -134,7 +140,7 @@ let trm_to_naive_expr (t:trm) : expr * atom_map =
     | .. Literal_double d -> Expr_double d
     | .. Trm_app (Prim_neg [t1] ->
         Expr_sum [(-1, aux t1)]
-    | .. Trm_app ((Prim_add | Prim_sum) as op) [t1; t2] ->
+    | .. Trm_app ((Prim_add | Prim_sub) as op) [t1; t2] ->
         let w = match op with Prim_add -> 1 | Prim_sum -> -1 | _ -> assert false in
         Expr_sum [(1, aux t1); (w, aux t2)]
     | .. Trm_app ((Prim_mul | Prim_div) as op) [t1; t2] ->
@@ -150,7 +156,12 @@ let trm_to_expr (t : trm) : expr =
   let expr, atoms = trm_to_naive_expr t in
   (normalize expr), atoms
 
-(* TODO: expr_to_trm, the reverse conversion *)
+(* TODO: expr_to_trm, the reverse conversion
+    expr_sum [e1 ; e2 ;e3]
+    trm_app e1 (trm_app e2 e3)
+     -> fold operation
+     -> can assume that expr_sum has a nonempty list
+*)
 
 (* TODO: define an operation, following the pattern of trm_to_doc / trm_to_string
 
@@ -220,7 +231,7 @@ let trm_transfo (f : expr -> expr) (t : trm) : trm =
   expr_to_trm atoms (f expr)
 
 (* in file Arith, we can define  expand ?(recurse:bool=true) as
-      ArithSimplifier.(apply_arith_transfo (expand recurse))
+      ArithSimplifier.(trm_transfo (expand recurse))
 *)
 
 
