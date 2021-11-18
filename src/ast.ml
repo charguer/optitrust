@@ -347,7 +347,7 @@ and trm_desc =
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
   | Trm_let_fun of var * typ * (typed_vars) * trm
   | Trm_let_record of string * record_type * trms * trm
-  
+
   (* LATER: trm_fun  for anonymous functions *)
   (* LATER: mutual recursive functions via mutual recursion *)
   | Trm_typedef of typedef
@@ -893,7 +893,7 @@ let trm_add_mark (m : mark) (t : trm) : trm =
   {t with marks = m :: t.marks}
 
 
-let trm_filter_mark (pred : mark -> bool) (t : trm): trm = 
+let trm_filter_mark (pred : mark -> bool) (t : trm): trm =
   {t with marks = List.filter (fun m -> pred m) t.marks}
 
 let trm_remove_mark (m : mark) (t : trm) : trm =
@@ -1146,7 +1146,7 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
 
 (* get the value of a variable initialization *)
 let rec get_init_val (t : trm) : trm option =
-  match t.desc with 
+  match t.desc with
   | Trm_let (_, (_, _), init) -> get_init_val init
   | Trm_apps(f,[base]) ->
         begin match f.desc with
@@ -1540,7 +1540,7 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     && (is_simple_loop_component step) in
 
     if is_simple_loop
-      then 
+      then
         trm_for ~loc:t.loc index direction start stop step_size body
       else t
   | _ -> fail t.loc "trm_for_of_trm_for: expected a loop"
@@ -1549,8 +1549,8 @@ let trm_for_of_trm_for_c (t : trm) : trm =
 (* before printing a simple loop first it should be converted to complex loop *)
 let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (direction : loop_dir) (start : trm) (stop : trm) (step : trm) (body : trm) : trm =
-  
-  
+
+
   let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
   let cond = begin match direction with
     | DirUp -> (trm_apps (trm_binop Binop_lt)
@@ -1698,17 +1698,17 @@ let rec trm_is_val_or_var (t : trm) : bool =
   | Trm_apps (_, [var_occ]) when is_get_operation t -> trm_is_val_or_var var_occ
   | _ -> false
 
-type loop_range = var * loop_dir * trm * trm * trm 
+type loop_range = var * loop_dir * trm * trm * trm
 
 let trm_for_inv (t : trm) : (loop_range * trm)  option =
-  match t.desc with 
+  match t.desc with
   | Trm_for (index, direction, start, stop, step, body) -> Some ((index, direction, start, stop ,step), body)
   | _ -> None
 
 (* [is_trm_seq t] check if [t] is a sequence or not *)
-let is_trm_seq (t : trm) : bool = 
+let is_trm_seq (t : trm) : bool =
   match t.desc with
-  | Trm_seq _ -> true  | _ -> false 
+  | Trm_seq _ -> true  | _ -> false
 
 
 
@@ -1717,17 +1717,17 @@ let is_trm_seq (t : trm) : bool =
     takes its components from [rgs]
 *)
 let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
-  List.fold_right (fun x acc -> 
+  List.fold_right (fun x acc ->
     let index, loop_dir, start, stop, step = x in
     trm_for index loop_dir start stop step (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
   ) rgs tbody
 
 
 (* [trm_var_def_inv t] get the name type and the initialization value  *)
-let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option = 
-  match t.desc with 
-  | Trm_let (vk, (x,tx), init) -> 
-    let init1 = match get_init_val init with 
+let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option =
+  match t.desc with
+  | Trm_let (vk, (x,tx), init) ->
+    let init1 = match get_init_val init with
     | Some init1 -> Some init1
     | _ -> None in
     Some (vk, x, get_inner_ptr_type tx, init1)
@@ -1737,47 +1737,47 @@ let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option =
 (* [trm_fors_inv nb t] got into a node of nested loops and return all the components
     of all the loops up to the depth of [nb]
  *)
-let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option = 
+let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
   let nb_loops = ref 0 in
   let body_to_return  = ref (trm_int 0) in
-  let rec aux (t : trm) : loop_range list = 
-    match t.desc with 
+  let rec aux (t : trm) : loop_range list =
+    match t.desc with
     | Trm_for (index, direction, start, stop, step, body) ->
       incr nb_loops;
-      begin match body.desc with 
-      | Trm_seq tl when Mlist.length tl = 1 -> 
-        if !nb_loops = nb 
+      begin match body.desc with
+      | Trm_seq tl when Mlist.length tl = 1 ->
+        if !nb_loops = nb
           then begin
             body_to_return := body;
             (index, direction, start, stop, step) :: []
             end
-          else 
+          else
             (index, direction, start, stop, step) :: aux (Mlist.nth tl 0)
-      | _ -> 
+      | _ ->
         (index, direction, start, stop, step) :: []
       end
-      
+
     | _ -> []
     in
-  
+
   let loop_range_list = aux t in
   if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
-    
+
 exception Unknown_key
 
 (* [tmap_to_list keys map] get the list of values for all keys [keys] in map [map] *)
-let tmap_to_list (keys : vars) (map : tmap) : trms = 
+let tmap_to_list (keys : vars) (map : tmap) : trms =
   List.map (fun x -> match Trm_map.find_opt x map with
     | Some v -> v
     | None -> raise Unknown_key
   ) keys
 
 (* [tmap_filter keys tmap] remove all the bindings with [keys] in [map] and return that map *)
-let tmap_filter (keys : vars) (map : tmap) : tmap = 
+let tmap_filter (keys : vars) (map : tmap) : tmap =
   Trm_map.filter (fun k _ -> not (List.mem k keys)) map
-  
 
-(* TOOD: From now on use these two constructors to add new variables, and later change the implementation of  
+
+(* TOOD: From now on use these two constructors to add new variables, and later change the implementation of
     trm_let so that it add the encoding automatically
 *)
 let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
@@ -1802,71 +1802,83 @@ let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
 
 
 (* [is_trm t] check if [t] is a proper ast node or not *)
-let is_trm (t : trm) : bool = 
+let is_trm (t : trm) : bool =
   match t.desc with
   | Trm_arbitrary _ -> false
   | _ -> true
 
 (* [is_typ ty] check if [ty] is a type ast or a string *)
-let is_typ (ty : typ) : bool = 
-  match ty.typ_desc with 
+let is_typ (ty : typ) : bool =
+  match ty.typ_desc with
   | Typ_arbitrary _ -> false
-  | _ -> true 
+  | _ -> true
 
 exception No_ast_or_code_provided
 exception Ast_and_code_provided
 
 (* [combine_strm t1 t2] expectes a part of code or an ast node as args, only one of them should be given *)
-let combine_strm (t1 : strm option) (t2 : trm option) : trm = 
-  match t1, t2 with 
+let combine_strm (t1 : strm option) (t2 : trm option) : trm =
+  match t1, t2 with
   | Some st, None -> code st
   | None, Some t -> t
   | Some _, Some _ -> raise Ast_and_code_provided
   | None, None -> raise No_ast_or_code_provided
 
 (* [combine_styp ty1 ty2] expects a type given as tring or an ast typ as args, only one of them shoudl be provided *)
-let combine_styp (ty1 : styp option) (ty2 : typ option) : typ = 
-  match ty1, ty2 with 
+let combine_styp (ty1 : styp option) (ty2 : typ option) : typ =
+  match ty1, ty2 with
   | Some sty, None -> typ_str sty
   | None, Some ty -> ty
   | Some _, Some _ -> raise Ast_and_code_provided
   | None, None -> raise No_ast_or_code_provided
 
-(* [remove_fun_body fun_names t] for all the functions with the name listed in [fun_names] transform 
+(* [remove_fun_body fun_names t] for all the functions with the name listed in [fun_names] transform
       them in function prototypes
 *)
-let remove_fun_body (fun_names : vars) (t : trm) : trm = 
-  let rec aux (t : trm) : trm = 
-    match t.desc with 
-    | Trm_let_fun (f,ty, tv, _) -> 
-      if not (List.mem f fun_names) then 
+let remove_fun_body (fun_names : vars) (t : trm) : trm =
+  let rec aux (t : trm) : trm =
+    match t.desc with
+    | Trm_let_fun (f,ty, tv, _) ->
+      if not (List.mem f fun_names) then
       trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) else t
     | _ -> trm_map aux t
     in
   aux t
 
-(* [update_ast full_ast temp_ast] *)
-let update_ast (full_ast : trm) (temp_ast : trm) : trm = 
+(* [update_ast full_ast new_ast] TODO: temp_ast -> new_ast*)
+(* TODO: take the new_ast, for each function that has unspecified body, reuse body from old_ast *)
+let update_ast (full_ast : trm) (temp_ast : trm) : trm =
   let fun_map = ref Trm_map.empty in
-  let _ = trm_map (fun t1 -> 
-    match t1.desc with 
+  (* TODO: could be safer to enumerate the elements of the toplevel sequence:
+      match full_ast.desc with trm_seq defs ->
+          List.iter (fun def -> match def.desc with Trm_let_fun ...  ) defs
+  *)
+  let _ = trm_map (fun t1 ->
+    match t1.desc with
     | Trm_let_fun (f, _, _, body) ->
-      fun_map := Trm_map.add f body !fun_map;
+      fun_map := Trm_map.add f body !fun_map; (* TODO: could store just t1 *)
       t1
     | _ -> t1
   ) full_ast in
-  
-  let rec aux1 (t : trm) : trm = 
-    match t.desc with 
-    | Trm_let_fun (f, ty, tv, body) -> 
+
+  (*
+        match full_ast.desc with trm_seq defs ->
+          trm_seq (List.map (fun def -> match def.desc with Trm_let_fun ...  ) defs)
+  *)
+  let rec aux1 (t : trm) : trm =
+    match t.desc with
+    | Trm_let_fun (f, ty, tv, body) ->
       begin match trm_lit_inv body with
-      | Some _ -> 
+      | Some _ -> (* Some Lit_unspecified *)
         begin match Trm_map.find_opt f !fun_map with
-        | Some bd -> 
+        | Some bd -> (* TODO: could be Some tdef -> tdef *)
           trm_let_fun ~annot:t.annot f ty tv bd
         | _ -> t
         end
       | _ -> t
       end
-    | _ -> trm_map aux1 t 
-  in aux1 temp_ast
+    | _ -> trm_map aux1 t
+    in
+   aux1 temp_ast
+
+(* TODO: check on the unit test  'insert'  of a constant, and of a function at level *)
