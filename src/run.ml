@@ -99,7 +99,7 @@ let script_cpp ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?
         if debug_inline_cpp then Printf.printf "Generated %s\n" file;
         file
     in
-
+  
   (* Set the input file, execute the function [f], dump the results. *)
   script (fun () ->
     Trace.init ~prefix input_file;

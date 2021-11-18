@@ -50,8 +50,8 @@ type typvars = typvar list
 type typconstrid = int
 
 (* [next_typconstrid ()] generate and return a new integer *)
-let next_typconstrid : (unit -> int) =
-  Tools.fresh_generator()
+let next_typconstrid ?(init : bool = false): (unit -> int) =
+  Tools.fresh_generator ~init ()
 
 (* ['a typmap] is a map from [typeid] to ['a] *)
 module Typ_map = Map.Make(Int)
@@ -1847,29 +1847,29 @@ let keep_only_function_bodies (fun_names : vars) (t : trm) : trm =
 
 let update_ast_with_chopped_ast (full_ast : trm) (chopped_ast : trm) : trm = 
    let fun_map = ref Trm_map.empty in
-   let __ = match full_ast.desc with 
+   let __ = match chopped_ast.desc with 
     | Trm_seq tl -> 
       Mlist.iter (fun def -> match def.desc with 
-      | Trm_let_fun (f, _, _, _) -> 
-        fun_map := Trm_map.add f def !fun_map
+      | Trm_let_fun (f, _, _, body) ->
+        begin match body.desc with 
+        | Trm_val( Val_lit Lit_uninitialized ) -> ()
+        | _ -> 
+          fun_map := Trm_map.add f def !fun_map
+        end 
       | _ ->  ()
       ) tl
     | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
   
    in
-   match chopped_ast.desc with
+   match full_ast.desc with
    | Trm_seq tl -> 
       let new_tl = 
       Mlist.map (fun def -> match def.desc with 
-      | Trm_let_fun (f, _, _, body) -> 
-          begin match trm_lit_inv body with
-            | Some _ -> (* Some Lit_unspecified *)
-              begin match Trm_map.find_opt f !fun_map with
-              | Some tdef ->  tdef
-              | _ -> def
-              end
-            | _ -> def
-          end  
+      | Trm_let_fun (f, _, _, _) -> 
+        begin match Trm_map.find_opt f !fun_map with
+        | Some tdef ->  tdef
+        | _ -> def
+        end
       |_ ->  def
     ) tl in trm_seq ~annot:chopped_ast.annot ~marks:chopped_ast.marks new_tl
   | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"

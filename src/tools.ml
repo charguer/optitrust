@@ -100,10 +100,13 @@ module Debug = struct
 end
 
 (* generate a positive integer *)
-let fresh_generator () : (unit -> int) =
+let fresh_generator ?(init : bool = false)() : (unit -> int) =
   let n = ref 0 in
   fun () ->
-    incr n;
+    if init then 
+      begin
+      n := 0;
+     incr n end else incr n;
     !n
 
 (* used for unit tests *)

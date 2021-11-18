@@ -982,11 +982,10 @@ let get_toplevel_function_name_containing (dl : path) : string option =
 
 (* [reparse_only fun_nmaes] reparse only those functions whose identifier is contained in [fun_names]*)
 let reparse_only (fun_names : string list) : unit = 
-  let ast = get_ast () in
-  let chopped_ast =  keep_only_function_bodies fun_names ast in
-  let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
-  let new_ast = update_ast_with_chopped_ast ast parsed_chopped_ast   in
-  Trace.call (fun _ -> 
+  Trace.call (fun t -> 
+    let chopped_ast =  keep_only_function_bodies fun_names t in
+    let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
+    let new_ast = update_ast_with_chopped_ast t parsed_chopped_ast   in
     Trace.set_ast new_ast
   )
   
@@ -997,7 +996,8 @@ let reparse_only (fun_names : string list) : unit =
     See example in [Struct.inline]. The argument [~reparse:false] can be
     specified to deactivate the reparsing. 
 *)
-let reparse_after ?(reparse : bool = true) (tr_of : trm -> _ -> trm) : Transfo.t = 
+(* TODO: DEBUG IT *)
+(* let reparse_after ?(reparse : bool = true) (tr_of : trm -> 'a -> _) : Transfo.t = 
   let function_names_to_reparse = ref [] in
   let reparse_where (tr : Transfo.local) : Transfo.local =
     fun (t : trm)  (p : path) ->
@@ -1007,38 +1007,19 @@ let reparse_after ?(reparse : bool = true) (tr_of : trm -> _ -> trm) : Transfo.t
   tr_of reparse_where;
   let func_names_to_keep = Tools.remove_duplicates (List.filter_map (fun d -> d) !function_names_to_reparse) in
   if reparse then reparse_only func_names_to_keep
+ *)
 
 
-
-
-  (* TODO:
-
-    example transformation:
-      Target.reparse_after ~reparse (fun reparse_where ->
-         (Target.apply_on_targets (reparse_where (Accesses_core.transform f_get f_set)))
-
-
-    
-
-
-    type apply_on_target_arg = trm -> path -> trm
-    let reparse_after ?(reparse : bool = true) (tr_of : apply_on_target_arg -> apply_on_target_arg) : Transfo.t =
-      let function_names_to_reparse = ref [] in
-      let reparse_where (tr : apply_on_target_arg) : apply_on_target_arg =
-        fun (t:trm) (p:path) ->
-          function_names_to_reparse := (list_of_option (get_toplevel_function_containing p) :: !function_names_to_reparse;
-          tr t p
-        in
-      tr_of reparse_where;
-      let func_names_to_keep = List.remove_duplicate !function_names_to_reparse in
-      if reparse then reparse_only func_names_to_keep
-
-
-      let reparse_only func_names_to_keep =
-        let temp_ast = remove_fun_body fun_names ast in (* TODO: rename to :  let chopped_ast = keep_only_function_bodies fun_names ast *)
-        let parsed_temp_ast = Trace.reparse_trm (Trace.get_context()) temp_ast in (* TODO: let reparsed_choppped_ast *)
-        update_ast ast parsed_temp_ast (* TODO: update_ast_with_chopped_ast  ast  reparsed_choppped_ast  *)
-
-
-  *)
-
+let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
+  fun (tg : target) -> 
+    let tg = enable_multi_targets tg in 
+    let ast = (get_ast()) in
+    let tg_paths = if Constr.is_target_between tg then 
+      let tg_ps = (resolve_target_between tg ast) in
+      fst (List.split tg_ps)
+      else resolve_target tg ast in
+    tr tg;
+    if reparse then begin 
+    let fun_names = List.map get_toplevel_function_name_containing tg_paths in      
+    let fun_names = Tools.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
+    reparse_only fun_names end 

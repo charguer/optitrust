@@ -947,7 +947,7 @@ and translate_decl_list (dl : decl list) : trms =
           then fail loc (sprintf "Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);
 
         (* First add the constructor name to the context, needed for recursive types *)
-        let tid = next_typconstrid () in
+        let tid = next_typconstrid ~init:true () in
         ctx_tconstr_add tn tid;
 
         (* Second, parse the fields names and types *)

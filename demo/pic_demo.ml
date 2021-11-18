@@ -27,7 +27,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: optimization of vect_matrix_mul *)
   let pre = cFunDef "vect_matrix_mul" in
   !! Function.inline  [pre; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Struct.set_explicit [nbMulti; pre; cWriteVar "res"];
+     Struct.set_explicit [nbMulti; pre; cWriteVar "res"];
      (* LATER: !! Loop.fission [nbMulti; tAllInBetween; pre; cFor "k"; cSeq]; *)
      Loop.fission [nbMulti; tAfter; pre; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
      Loop.unroll [nbMulti; pre; cFor "k"];
@@ -43,10 +43,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: reveal fields *)
   !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      (* Struct.set_explicit [cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; *)
-     Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
-     Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-     Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
-     Struct.to_variables [cVarDef "fieldAtPos"];
+     !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
+     !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
+     !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
+     !! Struct.to_variables [cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [
