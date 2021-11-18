@@ -185,12 +185,23 @@ module Path_set = Set.Make(
   end
 )
 
+(* [set_of_paths p1] create a set of paths *)
+let set_of_paths (p1 : paths) : Path_set.t = 
+  let set_of_p1 = Path_set.empty in
+  List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1
+ 
+
+
+(* [filter_duplicates p1] remove all the duplicate paths from p1 *)
+let filter_duplicates (ps : paths) : paths = 
+  let sp = set_of_paths ps in
+  Path_set.elements sp
+
+
 (* Compute the intersection of two resolved paths *)
 let intersect (p1 : paths) (p2 : paths) : paths =
-  let set_of_p1 = Path_set.empty in
-  let set_of_p2 = Path_set.empty in
-  let set_of_p1 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1 in
-  let set_of_p2 = List.fold_left (fun acc x -> Path_set.add x acc) set_of_p2 p2 in
+  let set_of_p1 = set_of_paths p1 in
+  let set_of_p2 = set_of_paths p2 in
   let inter_p1_p2 = Path_set.inter set_of_p1 set_of_p2 in
   Path_set.elements inter_p1_p2
 

@@ -988,7 +988,8 @@ let get_parent_function_name (dl : path) : string option =
     get the name of the toplevel function it belongs
 *)
 let get_parent_function_names (dls : paths) : (string option) list =
-  List.map get_parent_function_name dls
+  let filtered_dls = Path.filter_duplicates dls in
+  List.map get_parent_function_name filtered_dls 
 
 (* [reparse_only ps ast] for the given full ast reparse only those functions which contains paths [ps] *)
 let reparse_only (ps : path list) (ast : trm) : trm = 

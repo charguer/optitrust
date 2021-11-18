@@ -324,7 +324,8 @@ and print_typedef ?(only_desc : bool = false) (td : typedef) : document =
       aux [] s
      in
     let dtl = get_document_list s in
-    node "Typedef_prod" ^^ print_pair (print_list dtl) (string tname)
+    node "Typedef_prod" ^^ parens ( separate (comma ^^ break 1)
+     [string tname; string (string_of_int tid); print_list dtl ])
   | Typdef_sum _ ->
     fail None "print_typedef: sum types are not supported in C/C++"
   | Typdef_enum enum_const_l ->
