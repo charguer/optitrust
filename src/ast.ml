@@ -1832,10 +1832,10 @@ let combine_styp (ty1 : styp option) (ty2 : typ option) : typ =
   | Some _, Some _ -> raise Ast_and_code_provided
   | None, None -> raise No_ast_or_code_provided
 
-(* [remove_fun_body fun_names t] for all the functions with the name listed in [fun_names] transform
+(* [keep_only_function_bodies fun_names t] for all the functions with the name listed in [fun_names] transform
       them in function prototypes
 *)
-let remove_fun_body (fun_names : vars) (t : trm) : trm =
+let keep_only_function_bodies (fun_names : vars) (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_let_fun (f,ty, tv, _) ->
@@ -1845,40 +1845,32 @@ let remove_fun_body (fun_names : vars) (t : trm) : trm =
     in
   aux t
 
-(* [update_ast full_ast new_ast] TODO: temp_ast -> new_ast*)
-(* TODO: take the new_ast, for each function that has unspecified body, reuse body from old_ast *)
-let update_ast (full_ast : trm) (temp_ast : trm) : trm =
-  let fun_map = ref Trm_map.empty in
-  (* TODO: could be safer to enumerate the elements of the toplevel sequence:
-      match full_ast.desc with trm_seq defs ->
-          List.iter (fun def -> match def.desc with Trm_let_fun ...  ) defs
-  *)
-  let _ = trm_map (fun t1 ->
-    match t1.desc with
-    | Trm_let_fun (f, _, _, body) ->
-      fun_map := Trm_map.add f body !fun_map; (* TODO: could store just t1 *)
-      t1
-    | _ -> t1
-  ) full_ast in
-
-  (*
-        match full_ast.desc with trm_seq defs ->
-          trm_seq (List.map (fun def -> match def.desc with Trm_let_fun ...  ) defs)
-  *)
-  let rec aux1 (t : trm) : trm =
-    match t.desc with
-    | Trm_let_fun (f, ty, tv, body) ->
-      begin match trm_lit_inv body with
-      | Some _ -> (* Some Lit_unspecified *)
-        begin match Trm_map.find_opt f !fun_map with
-        | Some bd -> (* TODO: could be Some tdef -> tdef *)
-          trm_let_fun ~annot:t.annot f ty tv bd
-        | _ -> t
-        end
-      | _ -> t
-      end
-    | _ -> trm_map aux1 t
-    in
-   aux1 temp_ast
-
-(* TODO: check on the unit test  'insert'  of a constant, and of a function at level *)
+let update_ast_with_chopped_ast (full_ast : trm) (chopped_ast : trm) : trm = 
+   let fun_map = ref Trm_map.empty in
+   let __ = match full_ast.desc with 
+    | Trm_seq tl -> 
+      Mlist.iter (fun def -> match def.desc with 
+      | Trm_let_fun (f, _, _, _) -> 
+        fun_map := Trm_map.add f def !fun_map
+      | _ ->  ()
+      ) tl
+    | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
+  
+   in
+   match chopped_ast.desc with
+   | Trm_seq tl -> 
+      let new_tl = 
+      Mlist.map (fun def -> match def.desc with 
+      | Trm_let_fun (f, _, _, body) -> 
+          begin match trm_lit_inv body with
+            | Some _ -> (* Some Lit_unspecified *)
+              begin match Trm_map.find_opt f !fun_map with
+              | Some tdef ->  tdef
+              | _ -> def
+              end
+            | _ -> def
+          end  
+      |_ ->  def
+    ) tl in trm_seq ~annot:chopped_ast.annot ~marks:chopped_ast.marks new_tl
+  | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
+   

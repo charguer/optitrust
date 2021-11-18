@@ -15,7 +15,7 @@ let insert (code : trm) : Target.Transfo.t =
 *)
 let delete ?(nb : int = 1) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Sequence_core.delete i nb t p)
+    (fun t (p, i) -> Sequence_core.delete i nb t p)
 
 
 (* [iter_delete tgl]: just iterate over the list of targeted trms to be deleted*)
@@ -40,7 +40,7 @@ let iter_delete (tgl : target list) : unit =
 *)
 let intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : Target.target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-  (fun (p, i) t -> Sequence_core.intro mark label i nb t p) tg
+  (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
 (* [intro_between tg_beg tg_end]: this transformation is an advanced version of intro.
    The difference is that instead of giving the number of instructions one want's to put
    inside a sub-sequence, the first and the last trm of the on-coming sub-sequence are given.
@@ -87,7 +87,7 @@ let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo
 let elim_around_instr (tg : Target.target) : unit =
    Internal.nobrace_remove_after ( fun _ ->
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, _) t -> Sequence_core.elim t p) tg
+    (fun t (p, _) -> Sequence_core.elim t p) tg
    )
    
 

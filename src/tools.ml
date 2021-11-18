@@ -166,6 +166,13 @@ let list_intersect (xs1:'a list) (xs2:'a list) : 'a list =
    *)
 
 
+(* removes all duplicates from a list *)
+let remove_duplicates (lst : 'a list) =
+  let unique_set = Hashtbl.create (List.length lst) in
+  List.iter (fun x -> Hashtbl.replace unique_set x ()) lst;
+  Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
+ 
+
 
 
 (* maps on functions *)

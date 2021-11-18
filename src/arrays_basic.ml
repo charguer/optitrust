@@ -8,7 +8,7 @@ open Target
 *)
 let to_variables (new_vars : vars) (tg : target) : unit = 
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Arrays_core.to_variables new_vars i t p 
+    (fun t (p,i) -> Arrays_core.to_variables new_vars i t p 
   ) tg
 
 (*[tile name block_name b x tg] expects the target [tg] to point to an array declaration.
@@ -19,7 +19,7 @@ let to_variables (new_vars : vars) (tg : target) : unit =
 let tile ?(block_type :typvar = "") (block_size : var) (tg : target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_transformed_targets(Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Arrays_core.tile block_type block_size i t p) tg)
+    (fun t (p,i) -> Arrays_core.tile block_type block_size i t p) tg)
 
 (* [swap name x tg] expects the target [tg] to point to an array declaration.
    It changes the declaration so that the bounds of the array ar switched. Also 
@@ -27,7 +27,7 @@ let tile ?(block_type :typvar = "") (block_size : var) (tg : target) : unit =
 *)
 let swap (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Arrays_core.swap i t p) tg
+    (fun t (p,i) -> Arrays_core.swap i t p) tg
 
 
 (* [aos_to_soa tv sz] finds the definition of type [tv] which should be a typedef struct.
@@ -60,7 +60,7 @@ let swap (tg : target) : unit =
 *)
 let aos_to_soa (tv : typvar) (sz : var) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,_) t ->  Arrays_core.aos_to_soa tv sz t p) [Target.cFunDef "main"]
+    (fun t (p,_) ->  Arrays_core.aos_to_soa tv sz t p) [Target.cFunDef "main"]
 
 
 (* [set_explicit tg] expects the target [tg] to point to an array declaration 

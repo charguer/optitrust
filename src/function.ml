@@ -17,7 +17,7 @@ type rename = Variable_core.Rename.t
 let bind_args (fresh_names : vars) : Target.Transfo.t =
  let counter = ref (-1) in
  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-  (fun (p, p_local, i) t ->
+  (fun t (p, p_local, i) ->
    let path_to_call = p @ [Dir_seq_nth i] @ p_local in
    let call_trm,_ = Path.resolve_path path_to_call t in
    begin match call_trm.desc with

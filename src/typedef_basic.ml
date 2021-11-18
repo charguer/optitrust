@@ -8,7 +8,7 @@ open Target
 *)
 let fold ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Typedef_core.fold at i t p) tg
+    (fun t (p,i) -> Typedef_core.fold at i t p) tg
   
 (* [inline ~delete ~at tg] expects [tg] to point to a typedef declaration
     [delete] - denotes a flag for telling if the declaration should be kept or no
@@ -18,7 +18,7 @@ let fold ?(at : target = []) (tg : target) : unit =
 *)
 let inline ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t ->
+    (fun t (p,i) ->
       Typedef_core.inline delete at i t p) tg
 
 

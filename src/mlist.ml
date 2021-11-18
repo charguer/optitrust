@@ -21,6 +21,9 @@ let mapi (f : int -> 'a -> 'b) (ml : 'a t) : 'b t =
 let map (f : 'a -> 'b) (ml : 'a t) : 'b t =
   mapi (fun _i x -> f x) ml
 
+let iter (f : 'a -> unit) (ml : 'a t) : unit = 
+  List.iter f (to_list ml)
+
 let find_map (f : 'a -> 'b option) (ml : 'a t) : 'b option =
   Tools.find_map f ml.items (* LATER: now in the List stdlib module *)
 

@@ -61,7 +61,7 @@ let tile ?(index : var = "b${id}") ?(bound : tile_bound = TileBoundMin) (tile_si
 let hoist ? (name : var = "${var}_step") (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-     (fun (p, i) t -> Loop_core.hoist name i t p) tg)
+     (fun t (p, i) -> Loop_core.hoist name i t p) tg)
 
 (* [fission tg]: expects [tg] to point somewhere inside the body ot the simple loop
    It splits the loop in two loops, the spliting point is trm matched by the relative target.
@@ -119,7 +119,7 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : Target.target
 let invariant (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   Target.apply_on_transformed_targets (Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.invariant i t p ) tg)
+    (fun t (p, i) -> Loop_core.invariant i t p ) tg)
 
 (* [unswitch tg] expects the target [tg] to point to an if statement inside the loop
      with a constant condition (not dependent on loop index or local variables)
@@ -128,7 +128,7 @@ let invariant (tg : Target.target) : unit =
 let unswitch (tg : Target.target) : unit =
   Internal.nobrace_remove_after ( fun _ ->
   Target.apply_on_transformed_targets(Internal.get_trm_in_surrounding_loop)
-    (fun (p, i) t -> Loop_core.unswitch i t p) tg)
+    (fun t (p, i) -> Loop_core.unswitch i t p) tg)
 
 
 (* [to_unit_steps index tg] expects target [tg] to point to a for loop

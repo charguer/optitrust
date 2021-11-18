@@ -43,7 +43,7 @@ let fields_reorder ?(move_before : field = "") ?(move_after : field = "") (struc
 let inline ?(reparse:bool=false) (field_to_inline : field) : Target.Transfo.t =
   Target.reparse_after ~reparse
     (Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-      (fun (p, i) t -> Struct_core.inline field_to_inline i t p))
+      (fun t (p, i) -> Struct_core.inline field_to_inline i t p))
 
 (* [to_variables tg] expects [tg] to point to a variable declaration of type typedef struct.
     Then it will transform this declaration into a list of variable declarations where the type
@@ -52,7 +52,7 @@ let inline ?(reparse:bool=false) (field_to_inline : field) : Target.Transfo.t =
 *)
 let to_variables : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Struct_core.to_variables i t p)
+    (fun t (p, i) -> Struct_core.to_variables i t p)
 
 (* [rename_fields rename tg] expects [tg] to point to a struct declaration 
     then it will rename all the fields which are matched when applying the type rename
@@ -61,7 +61,7 @@ let to_variables : Target.Transfo.t =
 *)
 let rename_fields (rename : rename) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Struct_core.rename_fields i rename t p)
+    (fun t (p, i) -> Struct_core.rename_fields i rename t p)
 
 
 (* [update_fields_type pattern ty tg] expects [tg] to point to a struct declaration . 

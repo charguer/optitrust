@@ -13,7 +13,7 @@ include Variable_core
 *)
 let fold ?(as_reference : bool = false) ?(at : target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Variable_core.fold as_reference at i t p)
+    (fun t (p,i) -> Variable_core.fold as_reference at i t p)
 
 (* internal function *)
 (* [inline_common delete at tg] expects the target [tg] to point to a variable declaration
@@ -25,7 +25,7 @@ let fold ?(as_reference : bool = false) ?(at : target = []) : Target.Transfo.t =
 *)
 let inline_common (delete : bool) (at : target) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Variable_core.inline delete at i t p)
+    (fun t (p,i) -> Variable_core.inline delete at i t p)
 
 (* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to true. 
     an the target [at] left empty.
@@ -66,7 +66,7 @@ let init_detach (tg : Target.target) : unit =
 *)
 let init_attach ?(const : bool = false) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p,i) t -> Variable_core.init_attach const i t p )
+    (fun t (p,i) -> Variable_core.init_attach const i t p )
 
 
 (* [local_name var_type var local_var tg] expectes target [tg] to point to a marked
@@ -134,7 +134,7 @@ let delocalize ?(index : string = "dl_k") ~array_size:(arr_s : string) ~ops:(dl_
 *)
 let change_type (new_type : typvar) : Target.Transfo.t =
  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun (p, i) t -> Variable_core.change_type new_type i t p)
+    (fun t (p, i) -> Variable_core.change_type new_type i t p)
 
 
 
