@@ -947,7 +947,7 @@ and translate_decl_list (dl : decl list) : trms =
           then fail loc (sprintf "Typedef-struct: the struct name (%s) must match the typedef name (%s).\n" tn rn);
 
         (* First add the constructor name to the context, needed for recursive types *)
-        let tid = next_typconstrid ~init:true () in
+        let tid = next_typconstrid () in
         ctx_tconstr_add tn tid;
 
         (* Second, parse the fields names and types *)
@@ -1249,7 +1249,9 @@ let dump_clang_ast = false
 let dump_clang_file = "clang_ast.ml"
 
 let translate_ast (t : translation_unit) : trm =
-
+  
+  (* Initialize id_counter *)
+  init_typconstrid ();
   let {decoration = _; desc = {filename = filename; items = dl}} = t in
   print_info None "translate_ast: translating %s's AST...\n" filename;
   let (include_map, file_decls) = filter_out_include filename dl in

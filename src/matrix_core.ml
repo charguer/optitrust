@@ -299,7 +299,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
   let write_on_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) in
   let snd_instr = trm_fors nested_loop_ranges write_on_local_var in
-  let new_t = Internal.change_trm (trm_var var) (trm_var local_var) t in (* TODO: subst1 *)
+  let new_t = Internal.subst_var var (trm_var local_var) t in 
   let thrd_instr = trm_fors nested_loop_ranges write_on_var in
   let last_instr = trm_apps (trm_var "MFREE") [trm_var local_var] in
   let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in

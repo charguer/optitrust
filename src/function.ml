@@ -141,7 +141,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
-  Target.reparse_after ~reparse:false (Target.iteri_on_targets (fun i t p ->
+  Target.iteri_on_targets (fun i t p ->
     let vars = Variable_core.map (fun x -> Str.global_replace (Str.regexp_string "${occ}") (string_of_int i) x ) vars in
     let name_result = ref name_result in
     let (path_to_seq,local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
@@ -194,5 +194,5 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
         Marks.remove my_mark ([Target.nbAny] @ new_target)
     end;
     Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
-  )) tg
+  ) tg
 

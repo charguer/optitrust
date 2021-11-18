@@ -195,12 +195,10 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
 
 
 (* Rename all the occurrences of a variable by adding an underscore as prefix*)
-let fresh_args (t : trm) : trm =
-  let rec aux (global_trm : trm) (t : trm) : trm =
-    match t.desc with
-    | Trm_var x -> trm_var ("_" ^ x)
-    | _ -> trm_map (aux global_trm) t
-  in aux t t
+let fresh_args (t : trm) : trm = 
+  match t.desc with 
+  | Trm_var x-> trm_var ("_" ^ x) 
+  | _ -> t
 
 (* In the case of typedef struct give back the list of struct fields *)
 let get_field_list (td : typedef) : (var * typ) list =
@@ -522,7 +520,7 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
 (* find all the occurrences of variables in [t] and check if they are key in map [tm]
     if yes then assign its values otherwise do nothing
 *)
-let variable_substitute (tm : tmap) (t : trm) : trm = (* TODO: rename to subst *)
+let subst (tm : tmap) (t : trm) : trm = 
   let rec function_to_apply (t : trm) : trm =
     match t.desc with
     | Trm_var x ->
@@ -534,10 +532,12 @@ let variable_substitute (tm : tmap) (t : trm) : trm = (* TODO: rename to subst *
   in
   trm_map function_to_apply t
 
-(* TODO:
-let subst1 (x:var) (u:trm) (t:trm) : trm =
-  call subst with a singleton map
-*)
+(* [subst x u t] replace all the occurences of x with t *)
+let subst_var (x : var) (u : trm) (t : trm) =
+  let tmap =  Trm_map.empty  in
+  let tmap = Trm_map.add x u tmap  in
+  subst tmap t
+
 
 (* [clean_nobraces tg] Remove all the hidden sequence starting from target [ŧg] *)
 let clean_nobraces : Transfo.t =

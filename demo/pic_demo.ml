@@ -43,7 +43,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: reveal fields *)
   !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      (* Struct.set_explicit [cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; *)
-     !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
+     Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
      !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
      !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
      !! Struct.to_variables [cVarDef "fieldAtPos"];

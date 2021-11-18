@@ -330,7 +330,7 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
           | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
           | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
           end in
-        let body_i = Internal.change_trm (trm_var index) new_index body in (* TODO: subst1 *)
+        let body_i = Internal.subst_var index new_index body in (* TODO: subst1 *)
         let body_i = if braces
                       then Internal.remove_nobrace_if_sequence body_i
                       else Internal.set_nobrace_if_sequence body_i in
@@ -449,9 +449,9 @@ let fold_aux (index : var) (direction : loop_dir) (start : int) (step : int) (t 
     if nb = 0
       then fail t.loc "fold_aux: expected a non-empty list of instructions";
     let first_instr, other_instr  = Tools.uncons (Mlist.to_list tl) in
-    let loop_body = Internal.change_trm (trm_int start) (trm_var index) first_instr in (* TODO: subst1 *)
+    let loop_body = Internal.change_trm (trm_int start) (trm_var index) first_instr in
     List.iteri( fun i t1 ->
-      let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in (* TODO: subst1 *)
+      let local_body = Internal.change_trm (trm_int (i+1)) (trm_var index) t1 in 
       if not (Internal.same_trm loop_body local_body)
         then fail t1.loc "fold_aux: all the instructions should have the same shape but differ by the index";
     ) other_instr;

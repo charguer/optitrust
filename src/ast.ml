@@ -50,8 +50,13 @@ type typvars = typvar list
 type typconstrid = int
 
 (* [next_typconstrid ()] generate and return a new integer *)
-let next_typconstrid ?(init : bool = false): (unit -> int) =
-  Tools.fresh_generator ~init ()
+let next_typconstrid : (unit -> int) =
+  Tools.fresh_generator ()
+
+(* [init_typconstrid ()] reset the id generator *)
+let init_typconstrid (): unit =
+  Tools.reset_generator ()
+
 
 (* ['a typmap] is a map from [typeid] to ['a] *)
 module Typ_map = Map.Make(Int)

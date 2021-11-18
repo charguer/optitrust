@@ -139,7 +139,7 @@ let rule_match_as_list (pattern_vars : vars) (pattern_instr : trm)  (t : trm) : 
 let apply_rule_aux (rule : rewrite_rule) (t : trm) : trm =
   let inst : tmap = rule_match (rule.rule_vars  @ rule.rule_aux_vars) rule.rule_from t in
   let rule_before = rule.rule_to in
-  let rule_after = Internal.variable_substitute inst rule_before in
+  let rule_after = Internal.subst inst rule_before in
   rule_after
 
 let apply_rule (rule : rewrite_rule) : Target.Transfo.local =

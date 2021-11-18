@@ -104,10 +104,12 @@ let fresh_generator ?(init : bool = false)() : (unit -> int) =
   let n = ref 0 in
   fun () ->
     if init then 
-      begin
-      n := 0;
-     incr n end else incr n;
+      n := 0 else incr n;
     !n
+
+(* [reset_generator ()] reset the generator to avoid id clashes when reparsing *)
+let reset_generator () : unit = 
+  let _x = fresh_generator ~init:true () in ()
 
 (* used for unit tests *)
 let failure_expected (f : unit -> unit) : unit =

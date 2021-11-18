@@ -152,7 +152,7 @@ let intro_pattern_array (str : string) (tg : Target.target) : unit =
     let inst = List.map (fun  x -> trm_apps (trm_binop (Binop_array_cell_addr))[trm_var x; trm_int id_path]) pattern_vars in
     let new_inst = Trm_map.empty in
     let new_inst = List.fold_left2 (fun acc x y -> Trm_map.add x y acc) new_inst pattern_vars inst in
-    let new_t = Internal.variable_substitute new_inst pattern_instr in
+    let new_t = Internal.subst new_inst pattern_instr in
     Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> new_t) t p) (Target.target_of_path p)
   ) tg;
   let instrs_to_insert = List.mapi (fun id_var x -> trm_let Var_mutable (x, typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_paths)) ~typ_attributes:[GeneratedStar])
