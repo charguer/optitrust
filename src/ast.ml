@@ -1152,7 +1152,11 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
 (* get the value of a variable initialization *)
 let rec get_init_val (t : trm) : trm option =
   match t.desc with
-  | Trm_let (_, (_, _), init) -> get_init_val init
+  | Trm_let (vk, (_, _), init) -> 
+      begin match vk with 
+      | Var_immutable -> Some init
+      | _ -> get_init_val init
+      end
   | Trm_apps(f,[base]) ->
         begin match f.desc with
         | Trm_val (Val_prim (Prim_new _)) -> Some base

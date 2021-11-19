@@ -42,11 +42,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: reveal fields *)
   !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-     (* Struct.set_explicit [cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]]; *)
-     Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
-     !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-     !! Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
-     !! Struct.to_variables [cVarDef "fieldAtPos"];
+     Struct.set_explicit [main;cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]];
+     Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
+  (* TODO:FIx me! *)
+  !!! Struct.to_variables [cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [
@@ -65,7 +64,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO ARTHUR: nbCorners vs 8 *)
   !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
   (* TODO ARTHUR: see how to improve this part *)
-  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
+  !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
      Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: scaling of speeds and positions #7 *)

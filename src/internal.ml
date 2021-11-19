@@ -53,10 +53,7 @@ let change_trm ?(change_at : target list = [[]]) (t_before : trm)
   (t_after : trm) (t : trm) : trm =
   let rec apply_change (t' : trm) : trm=
     if same_trm t' t_before then
-      begin match t'.desc with
-      | Trm_apps (f, _) when (is_get_operation t' && not (is_get_operation t_before)) -> {t' with desc = Trm_apps (f, [t_after])}
-      | _ -> t_after
-      end
+      t_after
       else trm_map apply_change t'
       in
   if change_at = [[]] then

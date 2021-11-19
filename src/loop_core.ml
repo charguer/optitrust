@@ -330,7 +330,7 @@ let unroll_aux (braces : bool) (my_mark : mark) (t : trm) : trm =
           | Trm_val (Val_lit (Lit_int n)) -> trm_lit (Lit_int (n + i1))
           | _ -> trm_apps (trm_binop Binop_add) [start; (trm_lit (Lit_int i1))]
           end in
-        let body_i = Internal.subst_var index new_index body in (* TODO: subst1 *)
+        let body_i = Internal.subst_var index new_index body in 
         let body_i = if braces
                       then Internal.remove_nobrace_if_sequence body_i
                       else Internal.set_nobrace_if_sequence body_i in
