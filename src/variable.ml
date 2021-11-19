@@ -256,10 +256,9 @@ let elim_redundant ?(source : Target.target = []) (tg : Target.target) : unit  =
 (* [insert_list ~const names typ values tg] expects the target [tg] to point to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
-let insert_list ?(const : bool = false) ?(reparse : bool = false) ~names:(names : string list) ~typ:(typ : string ) ~values:(values : string list) : Target.Transfo.t =
-  Target.reparse_after ~reparse ( fun tg ->
-    List.iter2 (
-      fun name value -> Variable_basic.insert ~const ~name ~typ ~value tg
-    ) names values
+let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string) list) ~typ:(typ : string) : Target.Transfo.t = 
+  Target.reparse_after ~reparse (fun tg -> 
+    List.iter (fun (name, value) -> Variable_basic.insert ~const ~name ~typ ~value tg) defs 
 )
+
 

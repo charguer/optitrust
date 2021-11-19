@@ -42,7 +42,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: reveal fields *)
   !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-     Struct.set_explicit [main;cOr [[cWrite ~typ:"particle" ()]; [cWrite ~typ:"vect" ()]]];
+     Struct.set_explicit [nbMulti;main;cWrite ~typ:"particle" ()];
+     Struct.set_explicit [nbMulti;main;cWrite ~typ:"vect" ()];
      Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
   (* TODO:FIx me! *)
   !!! Struct.to_variables [cVarDef "fieldAtPos"];
@@ -69,12 +70,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert_list ~reparse:true ~typ:"const double"
-      ~names:("factor" :: (List.map (fun x -> "factor" ^ x) dims))
-      ~values:("particleCharge * stepDuration * stepDuration /particleMass / cellX" :: (List.map (fun x -> "factor / cell" ^ x) dims))
-      [tBefore; cVarDef "nbSteps"];
-  (* TODO:
-      ~defs:(["factor", "particleCharge * stepDuration * stepDuration /particleMass / cellX"]
-              :: map_dims (fun d -> ("factor" ^ x), ("factor / cell" ^ x)) ] *)
+        ~defs:(("factor", "particleCharge * stepDuration * stepDuration /particleMass / cellX")
+              :: map_dims (fun d -> ("factor" ^ d), ("factor / cell" ^ d)) ) [tBefore; cVarDef "nbSteps"];
 
   !! iter_dims (fun d ->
        Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos_" ^ (String.lowercase_ascii d))]);
@@ -84,9 +81,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        Accesses.scale ~factor_ast:(Ast.trm_var ("1. / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].pos." ^ (String.lowercase_ascii d))] ()]);
 
   (* Part: grid_enumeration *)
-  !! Loop.grid_enumerate [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] [occIndex ~nb:3 1;cFor "idCell"];
-  (* TODO; ("iX", "gridX"); ("iY", "gridY"); ("iZ", "gridZ")
-      map_dims (fun d -> "i"^d, "grid"^d) *)
+  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];  
 
   (* Part: Shifting of positions*)
   !! List.iter (fun d ->
@@ -172,9 +167,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cix"];
 
   (* Introduction of the computation *)
-  let names = ["blockSize";"d"] in
-  let values = ["2";"blockSize / 2"] in
-  !! Variable.insert_list ~names ~values ~typ:"int" [tBefore; cVarDef "nbCells"];
+  
+  !! Variable.insert_list ~defs:[("blockSize","2");("2","blockSize / 2")] ~typ:"int" [tBefore; cVarDef "nbCells"];
      Variable.insert ~name:"distanceToBlockLessThanHalfABlock" ~typ:"bool"  ~value:"(ix >= bix + d && ix < bix + blockSize + d)&& (iy >= biy + d && iy < biy + blockSize + d) && (iz >= biz + d && iz < biz + blockSize + d)" [tAfter; main; cVarDef "iz"];
      Instr.replace (Ast.trm_var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
 

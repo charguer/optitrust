@@ -181,7 +181,8 @@ let inline_struct_accesses  (x : var) (t : trm) : trm =
                   begin match f''.desc with
                   | Trm_val (Val_prim (Prim_unop Unop_struct_field_addr z))
                     | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get z ))) when z = x ->
-                    let new_var = z ^ "_" ^ y in
+                    let new_var = Convention.name_app z y in
+                    (* let new_var = z ^ "_" ^ y in *)
                     let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_field_addr new_var)))} in
                     trm_apps ~annot:t.annot  f' [trm_apps new_f base3;index]
                   | _ -> trm_map (aux global_trm) t
@@ -190,7 +191,8 @@ let inline_struct_accesses  (x : var) (t : trm) : trm =
                 end
             | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr z)))
               | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get z))) when z = x ->
-                let new_var = z ^"_"^ y in
+                let new_var = Convention.name_app z y in
+                (* let new_var = z ^"_"^ y in *)
                 let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_field_addr new_var)))}
               in
               trm_apps ~annot:t.annot ~loc:t.loc ~is_statement:t.is_statement
@@ -295,9 +297,10 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
         end
        in
        let inner_type_field_list = List.map (fun (x, typ) ->
+            let new_field = Convention.name_app field_to_inline x in
             match field_type.typ_desc with
-            | Typ_array (_, size) -> (field_to_inline ^ "_" ^ x, (typ_array typ size))
-            | _ -> (field_to_inline ^ "_" ^ x, typ)) inner_type_field_list in
+            | Typ_array (_, size) -> (new_field, (typ_array typ size))
+            | _ -> (new_field, typ)) inner_type_field_list in
 
        let field_list = List.rev  (lfront1 @ (List.rev inner_type_field_list) @ lback1) in
        let new_typedef = {td with typdef_body =  Typdef_prod (t_names, field_list)} in
@@ -361,7 +364,7 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
         | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get y))) when y = field ->
           begin match base.desc with
           | Trm_var v when v = name ->
-            trm_var (name ^ "_" ^ field)
+            trm_var (Convention.name_app name field)
           | _ -> trm_map aux t
           end
       | _ -> trm_map aux t
@@ -408,9 +411,10 @@ let to_variables_aux (index : int) (t : trm) : trm =
                              | _ -> []
                              end in
       let var_decls = List.mapi( fun  i (sf, ty) ->
+          let new_name = Convention.name_app x sf in
           match struct_init_list with
-          | [] -> trm_let Var_mutable (x ^ "_" ^sf, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim (Prim_new ty))
-          | _ -> trm_let Var_mutable (x ^ "_" ^sf, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_apps (trm_prim (Prim_new ty)) [List.nth struct_init_list i])
+          | [] -> trm_let Var_mutable (new_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_prim (Prim_new ty))
+          | _ -> trm_let Var_mutable (new_name, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut ty) (trm_apps (trm_prim (Prim_new ty)) [List.nth struct_init_list i])
       ) field_list in
       let lback = Mlist.map (fun t1 ->
         List.fold_left (fun t2 f1 ->
