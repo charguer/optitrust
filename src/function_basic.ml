@@ -80,5 +80,7 @@ let inline  ?(body_mark : var = "body") (tg : Target.target) : unit =
     Function_core.inline i body_mark t p_local t p) tg)
 
 
+let use_infix_ops (tg : Target.target) : unit = 
+  Target.apply_on_targets (Function_core.use_infix_ops) tg
 
 

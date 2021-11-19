@@ -78,6 +78,7 @@ TESTS_TOCHECK := \
 	matrix_reorder_dims.ml \
 	instr_accumulate.ml \
 	struct_simpl_proj.ml \
+	function_use_infix.ml \
 
 
 # arith_simpl.ml

@@ -1883,3 +1883,15 @@ let update_ast_with_chopped_ast (full_ast : trm) (chopped_ast : trm) : trm =
     ) tl in trm_seq ~annot:chopped_ast.annot ~marks:chopped_ast.marks new_tl
   | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
    
+
+
+(* [is_infix_prim_fun p] check if the primitive function [p] is one of those which supports app and set operations or not*)
+let is_infix_prim_fun (p : prim) : bool = 
+  match p with
+  | Prim_binop bin_op -> 
+    begin match bin_op with
+    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod | Binop_shiftl | Binop_shiftr 
+      | Binop_bitwise_and | Binop_bitwise_or | Binop_xor -> true
+    | _ -> false
+    end
+  | _ -> false

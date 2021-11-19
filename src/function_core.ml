@@ -149,3 +149,31 @@ let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : pat
 
 let inline (index: int) (body_mark : string) (top_ast : trm) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index body_mark top_ast p_local)
+
+(* [use_infix_ops_aux t] transforms a write operation into app and write operation in the case when 
+      the operator applied has the neccessary shape
+    params:
+      [t]: the ast of the write operation
+    return:
+      the same ast node with the added annotation App_and_set
+*)
+let use_infix_ops_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (f, [ls; rs]) when is_set_operation t ->
+    begin match rs.desc with 
+    | Trm_apps (f1, [get_ls; arg])  ->
+      begin match trm_prim_inv f1 with
+      | Some p when is_infix_prim_fun p ->  
+        let final_trm = 
+        if Internal.same_trm ls get_ls then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
+        trm_annot_add App_and_set final_trm 
+      | _ -> fail f1.loc "use_infix_ops_aux: expected a write operatoin of the form x = f(get(x), arg where f should be a binary operation which supports app and set operations"
+      end
+    | _ -> 
+      fail rs.loc "use_infix_ops: expected a write operation of the form x = f(get(x), arg)"
+    end
+  | _ -> fail t.loc "use_infix_ops: expected an infix operation of the form x = f(x,a)"
+
+let use_infix_ops : Target.Transfo.local = 
+  Target.apply_on_path (use_infix_ops_aux)
+
