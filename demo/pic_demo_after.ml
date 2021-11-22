@@ -10,26 +10,29 @@ let map_dims f = List.map f dims
 let _ = Run.script_cpp (fun () ->
 
   (* Part: grid_enumeration *)
-  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];
+  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]]; (* TODO: add a label on this loop "main_loop" at the very first step *)
 
-  (* Part: Shifting of positions*)
-  !! iter_dims (fun d ->
-    Instr.inline_last_write ~write:[cWriteVar ("fieldAtPos" ^ d)] [cVarDef "accel"; cRead ~addr:[cVar ("fieldAtPos" ^ d)] ()]);
-
-
+  (* Part: ARTHUR ; maybe not needed: !! iter_dims (fun d ->
+    Instr.inline_last_write ~write:[cWriteVar ("fieldAtPos" ^ d)] [nbMulti; cRead ~addr:[cVar ("fieldAtPos" ^ d)] ()]); *)
   (* TODO :ARTHUR : see how to inline the zero for fieldatpos in the simplest way *)
-  !! Variable.inline [cVarDef ~regexp:true "fieldAtPos."];
+  (* !! Variable.inline [cVarDef ~regexp:true "fieldAtPos."]; *)
+
+  (* Part: Introduce names for new positions *)
   !! iter_dims (fun d ->
       Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) ();  dRHS]);
+  !! Instr.(gather_targets ~dest:GatherAtFirst) [main; cVarDef ~regexp:true "p."]; (* TODO: fix order of gather at first *)
 
-  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main; cVarDef ~regexp:true "p."];
-
-
+  (* Part: Make positions relative, and convert sortage to float *)
   !! iter_dims (fun d ->
-    Accesses.shift ~factor_ast:(Ast.trm_var ("i" ^  d)) [cOr [[cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] ()]; [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]]];);
-
-  (* Part: convert pos fields to float *)
+    Accesses.shift (* TODO: neg:true instead of minus *) (*~factor_ast:(Ast.trm_var ("i" ^  d))*) ~factor:("- i"^d) [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]);
+  !! iter_dims (fun d ->
+    Accesses.shift (* TODO: neg:true *) ~factor_ast:(Ast.trm_var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
   !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sExprRegexp ~substr:true "\\(p. \\+ i.\\)"];
+  (* TODO:   double posX;
+             double posY;
+             double posZ;
+        - Typdef.change_fields "float" [map_dims (fun d -> "pos"^d)] [cTypdef "particle"]
+    *)
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
