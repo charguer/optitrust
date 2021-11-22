@@ -47,7 +47,7 @@ let _ = Run.script_cpp (fun () ->
   !! iter_dims (fun d ->
       Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) ();  dRHS]);
 
-  !! Instr.(gather ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main; cVarDef ~regexp:true "p."]; (* TODO: rename to gather_targets *)
+  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main; cVarDef ~regexp:true "p."]; 
 
 
   !! iter_dims (fun d ->

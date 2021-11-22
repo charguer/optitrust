@@ -77,37 +77,37 @@ int cellOfCoord(int i, int j, int k) {
 
 // idCellOfPos computes the id of the cell that contains a position.
 int idCellOfPos(vect pos) {
-  int ix = int_of_double(pos.x / cellX);
-  int iy = int_of_double(pos.y / cellY);
-  int iz = int_of_double(pos.z / cellZ);
-  return cellOfCoord(ix, iy, iz);
+  int iX = int_of_double(pos.x / cellX);
+  int iY = int_of_double(pos.y / cellY);
+  int iZ = int_of_double(pos.z / cellZ);
+  return cellOfCoord(iZ, iY, iZ);
 }
 
 double relativePosX(double x) {
-  int ix = int_of_double(x / cellX);
-  return (x - ix * cellX) / cellX;
+  int iX = int_of_double(x / cellX);
+  return (x - iX * cellX) / cellX;
 }
 double relativePosY(double y) {
-  int iy = int_of_double(y / cellY);
-  return (y - iy * cellY) / cellY;
+  int iY = int_of_double(y / cellY);
+  return (y - iY * cellY) / cellY;
 }
 double relativePosZ(double z) {
-  int iz = int_of_double(z / cellZ);
-  return (z -  iz * cellZ) / cellZ;
+  int iZ = int_of_double(z / cellZ);
+  return (z -  iZ * cellZ) / cellZ;
 }
 
 typedef struct {
-  int ix;
-  int iy;
-  int iz;
+  int iX;
+  int iY;
+  int iZ;
 } coord;
 
 coord coordOfCell(int idCell) {
-  int iz = idCell % gridZ;
-  int ixy = idCell / gridZ;
-  int iy = ixy % gridY;
-  int ix = ixy / gridY;
-  return { ix, iy, iz };
+  int iZ = idCell % gridZ;
+  int iXY = idCell / gridZ;
+  int iY = iXY % gridY;
+  int iX = iXY / gridY;
+  return { iX, iY, iZ };
 }
 
 typedef struct {
@@ -124,9 +124,9 @@ typedef struct {
 
 int_nbCorners indicesOfCorners (int idCell) {
   coord coord = coordOfCell (idCell);
-  int x = coord.ix;
-  int y = coord.iy;
-  int z = coord.iz;
+  int x = coord.iX;
+  int y = coord.iY;
+  int z = coord.iZ;
   int x2 = wrap(gridX, x+1);
   int y2 = wrap(gridY, y+1);
   int z2 = wrap(gridZ, z+1);
@@ -171,34 +171,23 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 // and the opposite corner.
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rx = relativePosX(pos.x); /* TODO: rX */
-  double ry = relativePosY(pos.y);
-  double rz = relativePosZ(pos.z);
-  double cx = 1. + -1. * rx;
-  double cy = 1. + -1. * ry;
-  double cz = 1. + -1. * rz;
+  double rX = relativePosX(pos.x); 
+  double rY = relativePosY(pos.y);
+  double rZ = relativePosZ(pos.z);
+  double cX = 1. + -1. * rX;
+  double cY = 1. + -1. * rY;
+  double cZ = 1. + -1. * rZ;
   double_nbCorners r;
-  r.v[0] = cx * cy * cz;
-  r.v[1] = cx * cy * rz;
-  r.v[2] = cx * ry * cz;
-  r.v[3] = cx * ry * rz;
-  r.v[4] = rx * cy * cz;
-  r.v[5] = rx * cy * rz;
-  r.v[6] = rx * ry * cz;
-  r.v[7] = rx * ry * rz;
+  r.v[0] = cX * cY * cZ;
+  r.v[1] = cX * cY * rZ;
+  r.v[2] = cX * rY * cZ;
+  r.v[3] = cX * rY * rZ;
+  r.v[4] = rX * cY * cZ;
+  r.v[5] = rX * cY * rZ;
+  r.v[6] = rX * rY * cZ;
+  r.v[7] = rX * rY * rZ;
   return r;
 }
-// alternative syntax for above, might be nicer in the future:
-//   double_nbCorners r = {{
-//     cx * cy * cz,
-//     cx * cy * rz,
-//     cx * ry * cz,
-//     cx * ry * rz,
-//     rx * cy * cz,
-//     rx * cy * rz,
-//     rx * ry * cz,
-//     rx * ry * rz,
-//   }};
 
 vect vect_matrix_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
   vect res = { 0., 0., 0. };
