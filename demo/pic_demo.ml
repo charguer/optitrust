@@ -140,12 +140,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         - Typdef.change_fields "float" [map_dims (fun d -> "pos"^d)] [cTypdef "particle"]
     *)
 
+
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
-     Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"];
-     Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" [cMark "first_local"];
-     Variable.inline [main; cVarDef "indices"];
-     Specialize.any "k" [cAny];
+  !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"];
+  (* TODO: read_last_write   on  .. = nextCharge[MINDEX1(nbCells, idCell)]    to become  .. = 0 *)
+  !! Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add)) [cMark "first_local"]; (* TODO: ~init_zero:true
+       so no need to generate nextChargeCorners[MINDEX2(nbCorners, nbCells, 0, idCell)] = nextCharge[MINDEX1(nbCells, idCell)]; *)
+  !! Variable.inline [main; cVarDef "indices"];
+  !! Specialize.any "k" [cAny];
   let my_bij_code =
     "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
       coord coord = coordOfCell(idCell);
@@ -164,10 +167,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       };
      return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
      }" in
-     Sequence.insert (Ast.code my_bij_code) [tBefore;main];
-     Matrix.biject "mybij" [occIndex 0;main; cFor "k" ; cFun "MINDEX2"];
-     Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];
-     Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"];
+  !! Sequence.insert (Ast.code my_bij_code) [tBefore; main];
+  !! Matrix.biject "mybij" [occIndex 0; main; cFor "k"; cFun "MINDEX2"]; (* TODO: target should be  cellReadOrWrite ~base:"nextChargeCorners"  ->  on the base argument of the read/write -> check it is a mindex_ then replace it *)
+  !! Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];  (* TODO:  cLabel "initNextCharge"  ;  assuming ~labels:["initNextCharge",""] to be given to delocalize on nextCharnge *)
+  !! Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2,k)") [cFun "mybij"]; (* ARTHUR: fixed when the rest is updated *)
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:"8" [tBefore; main];
@@ -176,14 +179,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
      Specialize.any "k" [cAny];
 
+(* TODO: capitalize rest of the script *)
+
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Sequence.intro ~mark:"temp_seq" ~start:[main;cVarDef "coef_x0"] ~nb:6 ();
      Instr.move_invariant ~dest:[tBefore; main] [cMark "temp_seq"];
      Sequence.elim [cMark "temp_seq"];
      Loop.fission [tBefore; cVarDef "px"];
      Loop.fission [tBefore; main; cVarDef "ix"];
-     Loop.hoist [cVarDef "idCell2"];
-
+     Loop.hoist [cVarDef "idCell2"]; (* TODO: hoisting before fission *)
 
   (* Part: Coloring *)
      let sized_dims = [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] in
@@ -205,10 +209,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: Parallelization *)
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
-     Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bix"];
+     Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
 
   (* Part: optimize chunk allocation *)  (* ARTHUR *)
   (* skip #16 *)
+
 
 
 )
