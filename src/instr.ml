@@ -52,11 +52,11 @@ type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of Target.target
 
 
 
-(* [gather ~dest tg] expects the target [tg] pointing to a list to multiple nodes belonging to the
+(* [gather_targets ~dest tg] expects the target [tg] pointing to a list to multiple nodes belonging to the
     same sequence. Then it will move all those targets to the given destination.
     NOTE: There is not need to write explicitly nbMulti before the main target 
 *)
-let gather ~dest:(dest : gather_dest) (tg : Target.target) : unit =
+let gather_targets ~dest:(dest : gather_dest) (tg : Target.target) : unit =
   let tg = Target.filter_constr_occurrence tg in
   let tg_dest = ref [] in
   begin match dest with 

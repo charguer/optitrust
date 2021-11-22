@@ -911,8 +911,7 @@ and translate_decl_list (dl : decl list) : trms =
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
-                                        complete_definition = _;
-                                        is_injected_class_name = _ }} ::
+                                        complete_definition = _;_ }} ::
     ({desc = Var _;_} as d1) ::
     dl' ->
        let trm_list = List.map (fun (d : decl) ->
@@ -937,8 +936,7 @@ and translate_decl_list (dl : decl list) : trms =
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
-                                        complete_definition = _;
-                                        is_injected_class_name = _}} ::
+                                        complete_definition = _; _}} ::
     {decoration = _; desc = TypedefDecl {name = tn; underlying_type = _q}} ::
     dl' ->
     begin match k with

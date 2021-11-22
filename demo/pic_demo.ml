@@ -65,7 +65,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO: there remains lowercase dimensions *)
   (* TODO: we need nbCorners instead of 8 *)
 
-  (* TODO:  Instr.gather ~dest:GatherAtFirst [nbMulti; cVarDef ~regexp:true "r.0"]; *)
+  (* TODO:  Instr.gather_targets ~dest:GatherAtFirst [nbMulti; cVarDef ~regexp:true "r.0"]; *)
   !! Instr.move ~dest:[tBefore; cVarDef "rx0"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
      Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
 
@@ -153,8 +153,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:"8" [tBefore; main];
-     Matrix.local_name ~my_mark:"second_local" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [occIndex 2;main; cFor "k"];
-     Matrix_basic.delocalize ~dim:(Ast.trm_var "nbProcs") ~index:"k" ~acc:"sum" [cMark "second_local"];
+  !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"];
+     Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add))[cMark "first_local"];
      Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
      Specialize.any "k" [cAny];
 
