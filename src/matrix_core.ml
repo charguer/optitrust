@@ -308,6 +308,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : (var list option)) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices)
 
+(* TODO: Use ops just like in the variable_delocalize version *)
 let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc : string option) (index : string) (_ops : delocalize_ops) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -324,7 +325,7 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
             let alloc_arity = List.length dims in
             let new_alloc_trm = insert_alloc_dim_aux dim alloc_trm in
             let new_decl = trm_let_mut (local_var, (get_inner_ptr_type tx)) (trm_cast (get_inner_ptr_type tx) new_alloc_trm) in
-            let tg = [cCellAccess ~base:[cVar local_var] ~index:[]] in
+            let tg = [cCellAccess ~base:[cVar local_var] ~index:[] ()] in
             let snd_instr = Mlist.nth tl 1 in
             begin match trm_fors_inv alloc_arity snd_instr with
             | Some (loop_ranges, body) ->

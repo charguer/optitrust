@@ -242,13 +242,13 @@ val cFieldAccess : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string 
 
 val cFieldReadOrWrite : ?base:target -> ?substr:bool -> ?regexp:bool -> field:string -> unit -> constr
 
-val cCellRead : ?base:target -> index:target -> constr
+val cCellRead : ?base:target -> index:target -> unit -> constr
 
-val cCellWrite : ?base:target -> index:target -> constr
+val cCellWrite : ?base:target -> index:target -> unit -> constr
 
-val cCellReadOrWrite : ?base:target -> index:target -> constr
+val cCellReadOrWrite : ?base:target -> index:target -> unit -> constr
 
-val cCellAccess : ?base:target -> index:target -> constr
+val cCellAccess : ?base:target -> index:target -> unit -> constr
 
 val cArrayInit : constr
 
