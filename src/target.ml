@@ -750,6 +750,7 @@ let apply_on_transformed_targets (transformer : path -> 'a) (tr : trm -> 'a -> t
       return:
         unit
 *)
+(*  (tr : int * trm -> path -> trm) *)
 let applyi_on_targets (tr : int -> trm -> path -> trm) (tg : target) : unit =
   applyi_on_transformed_targets (fun p -> p) tr tg
 
@@ -997,7 +998,7 @@ let reparse_only (fun_names : string list) : unit =
     specified to deactivate the reparsing.
 *)
 (* TODO: DEBUG IT *)
-(* let reparse_after ?(reparse : bool = true) (tr_of : trm -> 'a -> _) : Transfo.t =
+(* let reparse_after ?(reparse : bool = true) (tr_of : trm -> 'a -> 'b) : Transfo.t =
   let function_names_to_reparse = ref [] in
   let reparse_where (tr : Transfo.local) : Transfo.local =
     fun (t : trm)  (p : path) ->
@@ -1023,4 +1024,11 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
     let fun_names = List.map get_toplevel_function_name_containing tg_paths in
     let fun_names = Tools.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
     reparse_only fun_names end
+
+
+(*
+
+  apply _i   _transformed   _between
+
+*)
 

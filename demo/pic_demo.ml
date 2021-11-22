@@ -10,11 +10,11 @@ let map_dims f = List.map f dims
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
-  (* Part: inlining of the bag iteration *) (* skip #1 *)
+  (* Part: inlining of the bag iteration *) (* skip #1 *) (* ARTHUR *)
 
   (* Part1: space reuse *)
   !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse ~reparse:true "p.pos" [cVarDef "pos2"];
+     Variable.reuse ~reparse:true "p.pos" [cVarDef "pos2"]; (* LATER: avoid reparse using new parser *)
 
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [cFun "bag_push"; dArg 0];
@@ -22,7 +22,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Instr.replace_fun "bag_push_serial" [main; dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; dElse; cFun "bag_push"];
      Function.inline [main; cOr [[cFun "bag_push_serial"];[cFun "bag_push_concurrent"]]];
-    (* LATER: try  to not inline the bag_push operations, but to modify the code inside those functions *)
+    (* ARTHUR: try to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
   let pre = cFunDef "vect_matrix_mul" in
@@ -37,14 +37,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
      Variable.inline [nbMulti; cFunDef "cornerInterpolationCoeff";cVarDef ~regexp:true "c."];
-     Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
+     Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; (* TODO:  Pattern.({ vars = "double ..."; context = "..."; pattern = "... " }) *)
      Loop.fold_instrs ~index:"k" [cFunDef "cornerInterpolationCoeff"; sInstr "r.v"];
 
   (* Part: reveal fields *)
-  !! Function.inline  [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-     Struct.set_explicit [nbMulti;main;cWrite ~typ:"particle" ()];
-     Struct.set_explicit [nbMulti;main;cWrite ~typ:"vect" ()];
-     Variable.inline [cOr [[cVarDef "p2"];[cVarDef "p"]]];
+  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; (* TODO: again? *)
+     Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()]; (* TODO: cOR ? *)
+     Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
+     Variable.inline [cOr [[cVarDef "p2"]; [cVarDef "p"]]];
   (* TODO:FIx me! *)
   !!! Struct.to_variables [cVarDef "fieldAtPos"];
 
@@ -67,7 +67,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO ARTHUR: see how to improve this part *)
   !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
      Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
-  
+
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
      Struct.inline "pos" [cTypDef "particle"];
@@ -89,18 +89,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];
 
   (* Part: Shifting of positions*)
-  !! iter_dims (fun d -> 
+  !! iter_dims (fun d ->
     Instr.inline_last_write ~write:[cWriteVar ("fieldAtPos" ^ d)] [cVarDef "accel"; cRead ~addr:[cVar ("fieldAtPos" ^ d)] ()]);
-  
-  
+
+
   (* TODO :ARTHUR : see how to inline the zero for fieldatpos in the simplest way *)
   !! Variable.inline [cOr [[cVarDef ~regexp:true "fieldAtPos."]; [cVarDef "accel"]]];
   !! iter_dims (fun d ->
       Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) ();  dRHS]);
-     
+
   !! Instr.(gather ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main;cVarDef ~regexp:true "p."];
-     
-     
+
+
   !! iter_dims (fun d ->
     Accesses.shift ~factor_ast:(Ast.trm_var ("i" ^  d)) [cOr [[cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] ()]; [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]]];);
 
@@ -174,7 +174,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
      Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bix"];
 
-  (* Part: optimize chunk allocation *)
+  (* Part: optimize chunk allocation *)  (* ARTHUR *)
   (* skip #16 *)
 
 
