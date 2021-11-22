@@ -343,7 +343,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
      | Trm_arbitrary code ->
-        dattr ^^ string code ^^ hardline
+        dattr ^^ parens (string code) ^^ hardline
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
      | Trm_omp_routine  r -> dattr ^^ routine_to_doc r ^^ semi
      | Trm_extern (lang, tl) ->
