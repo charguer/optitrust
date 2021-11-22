@@ -46,6 +46,9 @@ let cStrictNew : constr =
 let cStrict : constr =
   Constr_depth (DepthAt 1)
 
+let cInDepth : constr =
+  Constr_depth DepthAny
+
 let cChain (cstrs : constr list) : constr =
   Constr_target cstrs
 

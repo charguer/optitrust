@@ -53,7 +53,7 @@ val occIndex : ?nb:int -> int -> constr
 
 val occFirst : constr
 
-val occLast : constr 
+val occLast : constr
 
 val nbMulti : constr
 
@@ -100,6 +100,8 @@ val dEnumConstName : enum_const_dir
 val dEnumConstVal : enum_const_dir
 
 val cStrict : constr
+
+val cInDepth : constr
 
 val cStrictNew : constr
 
@@ -345,6 +347,8 @@ val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 val (!!) : 'a -> 'a
 
 val (!!!) : 'a -> 'a
+
+(* TODO:  !!^  and !!!^  to do reparse true *)
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 

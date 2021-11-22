@@ -24,6 +24,11 @@ let get_exit_line () : int option =
     then None
     else Some !exit_line
 
+
+(*
+let ignore_small_steps : bool ref = ref false
+*)
+
 let spec =
   Arg.align [
      ("-verbose", Arg.Set verbose, " activates debug printing");
@@ -35,4 +40,3 @@ let spec =
      ("-analyse_time_details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time");
      (* LATER: a -dev flag to activate a combination of dump *)
     ]
-

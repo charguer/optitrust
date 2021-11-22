@@ -13,14 +13,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: inlining of the bag iteration *) (* skip #1 *) (* ARTHUR *)
 
   (* Part1: space reuse *)
-  !! Variable.reuse "p.speed" [cVarDef "speed2"];
-     Variable.reuse ~reparse:true "p.pos" [cVarDef "pos2"]; (* LATER: avoid reparse using new parser *)
+  !! Variable.reuse "p.speed" [main; cVarDef "speed2"];
+     Variable.reuse ~reparse:true "p.pos" [main; cVarDef "pos2"]; (* LATER: avoid reparse using new parser *)
 
   (* Part: Introducing an if-statement for slow particles *)
-  !! Variable.bind_intro ~fresh_name:"b2" [cFun "bag_push"; dArg 0];
-     Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
-     Instr.replace_fun "bag_push_serial" [main; dThen; cFun "bag_push"];
-     Instr.replace_fun "bag_push_concurrent" [main; dElse; cFun "bag_push"];
+  !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext" ];
+  !! Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
+  !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
+     Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
+     !!
      Function.inline [main; cOr [[cFun "bag_push_serial"];[cFun "bag_push_concurrent"]]];
     (* ARTHUR: try to not inline the bag_push operations, but to modify the code inside those functions *)
 

@@ -621,7 +621,10 @@ let dump_diff_and_exit () : unit =
    If the optional argument [~reparse:true] is passed to the function,
    then the [reparse] function is called, replacing the current AST with
    a freshly parsed and typechecked version of it. *)
-let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
+let check_exit_and_step ?(line : int = -1) (* ~is_small_step *) ?(reparse : bool = false) () : unit =
+  (* TODO:
+      let ignore_step = is_small_step && Flags.ignore_small_steps in
+      if not ignore_step then begin ... *)
   report_time_of_last_step();
   let should_exit =
     match Flags.get_exit_line() with
@@ -664,7 +667,7 @@ let check_exit_and_step ?(line : int = -1) ?(reparse : bool = false) () : unit =
    loaded by [Trace.init] if there is no preceeding '!!'.).
    Use [!!();] for a step in front of another language construct, e.g., a let-binding. *)
 let (!!) (x:'a) : 'a =
-  check_exit_and_step ();
+  check_exit_and_step (); (* TODO: ~is_small_step:bool *)
   x
 
 (* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
