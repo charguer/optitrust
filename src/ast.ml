@@ -1152,8 +1152,8 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
 (* get the value of a variable initialization *)
 let rec get_init_val (t : trm) : trm option =
   match t.desc with
-  | Trm_let (vk, (_, _), init) -> 
-      begin match vk with 
+  | Trm_let (vk, (_, _), init) ->
+      begin match vk with
       | Var_immutable -> Some init
       | _ -> get_init_val init
       end
@@ -1854,27 +1854,27 @@ let keep_only_function_bodies (fun_names : vars) (t : trm) : trm =
     in
   aux t
 
-let update_ast_with_chopped_ast (full_ast : trm) (chopped_ast : trm) : trm = 
+let update_ast_with_chopped_ast (full_ast : trm) (chopped_ast : trm) : trm =
    let fun_map = ref Trm_map.empty in
-   let __ = match chopped_ast.desc with 
-    | Trm_seq tl -> 
-      Mlist.iter (fun def -> match def.desc with 
+   let __ = match chopped_ast.desc with
+    | Trm_seq tl ->
+      Mlist.iter (fun def -> match def.desc with
       | Trm_let_fun (f, _, _, body) ->
-        begin match body.desc with 
+        begin match body.desc with
         | Trm_val( Val_lit Lit_uninitialized ) -> ()
-        | _ -> 
+        | _ ->
           fun_map := Trm_map.add f def !fun_map
-        end 
+        end
       | _ ->  ()
       ) tl
     | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
-  
+
    in
    match full_ast.desc with
-   | Trm_seq tl -> 
-      let new_tl = 
-      Mlist.map (fun def -> match def.desc with 
-      | Trm_let_fun (f, _, _, _) -> 
+   | Trm_seq tl ->
+      let new_tl =
+      Mlist.map (fun def -> match def.desc with
+      | Trm_let_fun (f, _, _, _) ->
         begin match Trm_map.find_opt f !fun_map with
         | Some tdef ->  tdef
         | _ -> def
@@ -1882,15 +1882,15 @@ let update_ast_with_chopped_ast (full_ast : trm) (chopped_ast : trm) : trm =
       |_ ->  def
     ) tl in trm_seq ~annot:chopped_ast.annot ~marks:chopped_ast.marks new_tl
   | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
-   
+
 
 
 (* [is_infix_prim_fun p] check if the primitive function [p] is one of those which supports app and set operations or not*)
-let is_infix_prim_fun (p : prim) : bool = 
+let is_infix_prim_fun (p : prim) : bool =
   match p with
-  | Prim_binop bin_op -> 
+  | Prim_binop bin_op ->
     begin match bin_op with
-    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod | Binop_shiftl | Binop_shiftr 
+    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod | Binop_shiftl | Binop_shiftr
       | Binop_bitwise_and | Binop_bitwise_or | Binop_xor -> true
     | _ -> false
     end

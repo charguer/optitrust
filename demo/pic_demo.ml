@@ -19,8 +19,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [cFun "bag_push"; dArg 0];
      Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
-     Instr.replace_fun "bag_push_serial" [main; cIf ();dThen; cFun "bag_push"];
-     Instr.replace_fun "bag_push_concurrent" [main; cIf ();dElse; cFun "bag_push"];
+     Instr.replace_fun "bag_push_serial" [main; dThen; cFun "bag_push"];
+     Instr.replace_fun "bag_push_concurrent" [main; dElse; cFun "bag_push"];
      Function.inline [main; cOr [[cFun "bag_push_serial"];[cFun "bag_push_concurrent"]]];
     (* LATER: try  to not inline the bag_push operations, but to modify the code inside those functions *)
 
@@ -81,7 +81,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        Accesses.scale ~factor_ast:(Ast.trm_var ("1. / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].pos." ^ (String.lowercase_ascii d))] ()]);
 
   (* Part: grid_enumeration *)
-  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];  
+  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];
 
   (* Part: Shifting of positions*)
   !! List.iter (fun d ->
@@ -167,14 +167,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cix"];
 
   (* Introduction of the computation *)
-  
+
   !! Variable.insert_list ~defs:[("blockSize","2");("2","blockSize / 2")] ~typ:"int" [tBefore; cVarDef "nbCells"];
      Variable.insert ~name:"distanceToBlockLessThanHalfABlock" ~typ:"bool"  ~value:"(ix >= bix + d && ix < bix + blockSize + d)&& (iy >= biy + d && iy < biy + blockSize + d) && (iz >= biz + d && iz < biz + blockSize + d)" [tAfter; main; cVarDef "iz"];
      Instr.replace (Ast.trm_var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
 
 
   (* Part: Parallelization *)
-  !! Omp.parallel_for [Shared ["idCell"]] [nbMulti;tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
+  !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
      Omp.parallel_for [Shared ["bx";"by";"bz"]] [tBefore; cFor "bix"];
 
   (* Part: optimize chunk allocation *)

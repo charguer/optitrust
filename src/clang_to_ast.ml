@@ -911,7 +911,8 @@ and translate_decl_list (dl : decl list) : trms =
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
-                                        complete_definition = _}} ::
+                                        complete_definition = _;
+                                        is_injected_class_name = _ }} ::
     ({desc = Var _;_} as d1) ::
     dl' ->
        let trm_list = List.map (fun (d : decl) ->
@@ -936,7 +937,8 @@ and translate_decl_list (dl : decl list) : trms =
   | {decoration = _; desc = RecordDecl {keyword = k; attributes = _;
                                         nested_name_specifier = _; name = rn;
                                         bases = _; fields = fl; final = _;
-                                        complete_definition = _}} ::
+                                        complete_definition = _;
+                                        is_injected_class_name = _}} ::
     {decoration = _; desc = TypedefDecl {name = tn; underlying_type = _q}} ::
     dl' ->
     begin match k with
@@ -1249,7 +1251,7 @@ let dump_clang_ast = false
 let dump_clang_file = "clang_ast.ml"
 
 let translate_ast (t : translation_unit) : trm =
-  
+
   (* Initialize id_counter *)
   init_typconstrid ();
   let {decoration = _; desc = {filename = filename; items = dl}} = t in

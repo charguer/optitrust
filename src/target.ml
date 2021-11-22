@@ -966,38 +966,38 @@ let get_ast () : trm =
 
 
 (* [get_function_name_at dl] get the name of the function that corresponds to [dl]*)
-let get_function_name_at (dl : path) : string option = 
+let get_function_name_at (dl : path) : string option =
   let fun_decl = get_trm_at (target_of_path dl) in
-  match fun_decl.desc with 
+  match fun_decl.desc with
   | Trm_let_fun (f, _, _, _) -> Some f
   | _ -> None
 
 
 (* [get_top_level_function_name_containing dl] get the name of the toplevel function which contains the path [dl]  *)
-let get_toplevel_function_name_containing (dl : path) : string option = 
-  match dl with 
+let get_toplevel_function_name_containing (dl : path) : string option =
+  match dl with
   | Dir_seq_nth i :: Dir_fun_body :: _ -> get_function_name_at [Dir_seq_nth i]
-  | _ -> None 
+  | _ -> None
 
 
 (* [reparse_only fun_nmaes] reparse only those functions whose identifier is contained in [fun_names]*)
-let reparse_only (fun_names : string list) : unit = 
-  Trace.call (fun t -> 
+let reparse_only (fun_names : string list) : unit =
+  Trace.call (fun t ->
     let chopped_ast =  keep_only_function_bodies fun_names t in
     let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
     let new_ast = update_ast_with_chopped_ast t parsed_chopped_ast   in
     Trace.set_ast new_ast
   )
-  
+
 
 
 (* [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
     See example in [Struct.inline]. The argument [~reparse:false] can be
-    specified to deactivate the reparsing. 
+    specified to deactivate the reparsing.
 *)
 (* TODO: DEBUG IT *)
-(* let reparse_after ?(reparse : bool = true) (tr_of : trm -> 'a -> _) : Transfo.t = 
+(* let reparse_after ?(reparse : bool = true) (tr_of : trm -> 'a -> _) : Transfo.t =
   let function_names_to_reparse = ref [] in
   let reparse_where (tr : Transfo.local) : Transfo.local =
     fun (t : trm)  (p : path) ->
@@ -1011,15 +1011,16 @@ let reparse_only (fun_names : string list) : unit =
 
 
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
-  fun (tg : target) -> 
-    let tg = enable_multi_targets tg in 
+  fun (tg : target) ->
+    let tg = enable_multi_targets tg in
     let ast = (get_ast()) in
-    let tg_paths = if Constr.is_target_between tg then 
+    let tg_paths = if Constr.is_target_between tg then
       let tg_ps = (resolve_target_between tg ast) in
       fst (List.split tg_ps)
       else resolve_target tg ast in
     tr tg;
-    if reparse then begin 
-    let fun_names = List.map get_toplevel_function_name_containing tg_paths in      
+    if reparse then begin
+    let fun_names = List.map get_toplevel_function_name_containing tg_paths in
     let fun_names = Tools.remove_duplicates (List.filter_map (fun d -> d) fun_names) in
-    reparse_only fun_names end 
+    reparse_only fun_names end
+
