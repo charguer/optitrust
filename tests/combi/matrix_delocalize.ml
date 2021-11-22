@@ -1,8 +1,8 @@
 open Optitrust
 open Target
+open Ast
 
 let _ = Run.script_cpp (fun _ ->
 
-    !! Matrix_basic.local_name ~var:"a" ~local_var:"x" [cFor "i"];
-
+  !! Matrix.delocalize ~dim:(trm_var "N0") ~index:"i0" ~acc:"sum" [cLabelBody "mark"];
 )

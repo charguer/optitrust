@@ -236,7 +236,7 @@ let gather (recurse : bool) (e : expr) : expr =
 (* [expand_one e] expends sums that appear inside product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3]
     The function is identity if no expansion can be performed
- *)
+*)
 (* let expand_one (e : expr) : expr =
   let aux ((w,e) : wexpr) (acc : exprs) : exprs =
     match (w,e) with

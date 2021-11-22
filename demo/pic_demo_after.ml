@@ -26,7 +26,11 @@ let _ = Run.script_cpp (fun () ->
         cellOfCoord(ix, iy, wrap(gridZ,iz-1)),
         cellOfCoord(ix, wrap(gridY,iy-1), iz),
         cellOfCoord(ix, wrap(gridY,iy-1), wrap(gridZ,iz-1)),
-        cellOfCoord(wrap(gridX,ix-1), iy, iz),
+        cesqr
+        
+        
+        
+        llOfCoord(wrap(gridX,ix-1), iy, iz),
         cellOfCoord(wrap(gridX,ix-1), iy, wrap(gridZ,iz-1)),
         cellOfCoord(wrap(gridX,ix-1), wrap(gridY,iy-1), iz),
         cellOfCoord(wrap(gridX,ix-1), wrap(gridY,iy-1), wrap(gridZ,iz-1)),

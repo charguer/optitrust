@@ -67,48 +67,45 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO ARTHUR: see how to improve this part *)
   !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
      Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
+  
+  (* Part: AOS-SOA *)
+  !! Struct.inline "speed" [cTypDef "particle"];
+     Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert_list ~reparse:true ~typ:"const double"
         ~defs:(("factor", "particleCharge * stepDuration * stepDuration /particleMass / cellX")
               :: map_dims (fun d -> ("factor" ^ d), ("factor / cell" ^ d)) ) [tBefore; cVarDef "nbSteps"];
 
+  (* Part: scaling of speeds and positions *)
   !! iter_dims (fun d ->
-       Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos_" ^ (String.lowercase_ascii d))]);
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor_ast:(Ast.trm_var ("stepDuration / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].speed." ^ (String.lowercase_ascii d))] ()]);
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor_ast:(Ast.trm_var ("1. / cell" ^ d)) [nbMulti;cRead ~addr:[sExpr ("(c->items)[i].pos." ^ (String.lowercase_ascii d))] ()]);
+       Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
+     iter_dims (fun d ->
+       Accesses.scale ~factor_ast:(Ast.trm_var ("stepDuration / cell" ^ d)) [nbMulti;cFieldReadOrWrite ~field:("speed" ^ d) ()]);
+     iter_dims (fun d ->
+       Accesses.scale ~factor_ast:(Ast.trm_var ("1. / cell" ^ d)) [nbMulti;cFieldReadOrWrite ~field:("pos" ^ d) ()]);
 
   (* Part: grid_enumeration *)
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];  
 
   (* Part: Shifting of positions*)
-  !! List.iter (fun d ->
-      let field_at_pos = "fieldAtPos_" ^ (String.lowercase_ascii d) in
-      Instr.inline_last_write ~write:[cWriteVar field_at_pos] [cVarDef "accel"; cRead ~addr:[cVar field_at_pos] ()];) dims ;
+  !! iter_dims (fun d -> 
+    Instr.inline_last_write ~write:[cWriteVar ("fieldAtPos" ^ d)] [cVarDef "accel"; cRead ~addr:[cVar ("fieldAtPos" ^ d)] ()]);
+  
+  
   (* TODO :ARTHUR : see how to inline the zero for fieldatpos in the simplest way *)
-     Variable.inline [cOr [[cVarDef ~regexp:true "fieldAtPos_."]; [cVarDef "accel"]]];
-     List.iter (fun d ->
-       let d_l = String.lowercase_ascii d in
-       let c_items = "c->items)[i].pos." ^ d_l  ^ " =" in
-       Variable.bind_intro ~fresh_name:("p" ^ d_l) [sInstr c_items; dRHS];) dims ;
-     Instr.move_multiple ~destinations:[[tAfter; cVarDef "px"];[tAfter; cVarDef "py"]] ~targets:[[cVarDef "py"];[cVarDef "pz"]];
-     iter_dims (fun d ->
-      let d_l = String.lowercase_ascii d in
-      let c_items = "c->items)[i].pos." ^ d_l  in (* TODO: inline this after lowercase is not needed *)
-      Accesses.shift ~factor_ast:(Ast.trm_var ("i" ^  d_l)) [cOr [[cWrite ~lhs:[sExpr c_items] ()]; [cVarDef ("p" ^ d_l); cRead ~addr:[sExpr c_items] ()]]]);
+  !! Variable.inline [cOr [[cVarDef ~regexp:true "fieldAtPos."]; [cVarDef "accel"]]];
+  !! iter_dims (fun d ->
+      Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) ();  dRHS]);
+     
+  !! Instr.(gather ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main;cVarDef ~regexp:true "p."];
+     
+     
+  !! iter_dims (fun d ->
+    Accesses.shift ~factor_ast:(Ast.trm_var ("i" ^  d)) [cOr [[cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] ()]; [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]]];);
 
   (* Part: convert pos fields to float *)
-  !! iter_dims (fun d ->
-      let d_l = String.lowercase_ascii d in (* TODO: inline this after lowercase is not needed *)
-      let c_items = "c->items)[i].pos." ^ d_l  ^ " =" in
-      Cast.insert ~typ_ast:(Ast.typ_float ()) [sInstr c_items; dRHS]);
-      (* TODO: target [sExprRegexp "p. + i."] *)
-
-  (* Part: AOS-SOA *)
-  !! Struct.inline "speed" [cTypDef "particle"];
-     Struct.inline "pos" [cTypDef "particle"];
+  !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sExprRegexp ~substr:true "\\(p. \+ i.\\)"];
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
