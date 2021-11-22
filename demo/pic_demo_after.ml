@@ -9,31 +9,6 @@ let map_dims f = List.map f dims
 
 let _ = Run.script_cpp (fun () ->
 
-  (* LATER: ~parser:Clang_full | Clang | Menhir *)
-  (* Part: scaling of speeds and positions #7 *)
-  !! Variable.insert_list ~reparse:true ~typ:"const double"
-        ~defs:(("factor", "particleCharge * stepDuration * stepDuration / particleMass")
-              :: map_dims (fun d -> ("factor" ^ d), ("factor / cell" ^ d)) ) [tBefore; cVarDef "nbSteps"];
-
-   (* TODO
-   let cdouble = "const double" in
-   Variable.insert_list ~reparse:true ~defs:(
-         [cdouble, "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
-       @ (map_dims (fun d -> cdouble, ("factor" ^ d), ("factor / cell" ^ d))))
-     [tBefore; cVarDef "nbSteps"];
-  *)
-
-  (* Part: scaling of field, speeds and positions *)
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
-  !! Variable.inline [cOr [[cVarDef "accel"]; [cVarDef ~regexp:true "factor."] (*; [cVarDef "factor"]*)]];
-  !!! Variable.inline [cVarDef "factor"]; (* TODO: see why occurrence not found on the previous line *)
-  (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
-  !! iter_dims (fun d ->
-       Accesses.scale (* TODO ~reparse:false *) ~factor:("stepDuration / cell" ^ d) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor:("1. / cell" ^ d) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-
   (* Part: grid_enumeration *)
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];
 
@@ -47,7 +22,7 @@ let _ = Run.script_cpp (fun () ->
   !! iter_dims (fun d ->
       Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) ();  dRHS]);
 
-  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main; cVarDef ~regexp:true "p."]; 
+  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main; cVarDef ~regexp:true "p."];
 
 
   !! iter_dims (fun d ->

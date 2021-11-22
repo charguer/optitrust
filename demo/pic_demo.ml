@@ -38,10 +38,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx = cFunDef "cornerInterpolationCoeff" in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z; ==>  double rx, ry, rz; ==> (coef_x + sign_x * rx) * (coef_y + sign_y * ry) * (coef_z + sign_z * rz);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; (* TODO:
+  !! Variable.intro_pattern_array "double coefX, signX, coefY, signY, coefZ, signZ; ==>  double rX, rY, rZ; ==> (coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; (* TODO:
         PatternArray.({ vars = "double ...";
           context = "...";
           pattern = "... " }) *)
+          (* ARTHUR: check if with the new parser we could do "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z;"  and "(coef_x + sign_x * _) * (coef_y + sign_y * _) * (coef_z + sign_z * _);" *)
   !! Loop.fold_instrs ~index:"k" [ctx; sInstr "r.v"];
 
   (* Part: reveal fields *)
@@ -57,17 +58,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
        [cFun "accumulateChargeAtCorners"];
        [cFun "idCellOfPos"]]];
-     Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
-  (* TODO: try a pattern of the form: \\(coef|sign\))_.1 *) (* TODO: remove the source *)
-  !! Variable.elim_redundant ~source:[nbMulti; main; cVarDef ~regexp:true ~substr:true "_.0"] [nbMulti; main; cVarDef ~regexp:true ~substr:true "_.1"];
+  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
+  (* TODO: remove the source *) (* TODO: then, try a pattern of the form: \\(coef|sign\)).1 *)
+  !! Variable.elim_redundant ~source:[nbMulti; main; cVarDef ~regexp:true ~substr:true "coef.0"] [nbMulti; main; cVarDef ~regexp:true ~substr:true "coef.1"];
+  !! Variable.elim_redundant ~source:[nbMulti; main; cVarDef ~regexp:true ~substr:true "sign.0"] [nbMulti; main; cVarDef ~regexp:true ~substr:true "sign.1"];
 
 
   (* TODO: there remains lowercase dimensions *)
   (* TODO: we need nbCorners instead of 8 *)
 
   (* TODO:  Instr.gather_targets ~dest:GatherAtFirst [nbMulti; cVarDef ~regexp:true "r.0"]; *)
-  !! Instr.move ~dest:[tBefore; cVarDef "rx0"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
-     Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
+  !! Instr.move ~dest:[tBefore; cVarDef "rX0"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
+     Instr.move ~dest:[tBefore; cVarDef "rX1"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
 
   (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
      Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
@@ -86,19 +88,31 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.inline "pos" [cTypDef "particle"];
 
 
-
+  (* LATER: ~parser:Clang_full | Clang | Menhir *)
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert_list ~reparse:true ~typ:"const double"
-        ~defs:(("factor", "particleCharge * stepDuration * stepDuration /particleMass / cellX")
+        ~defs:(("factor", "particleCharge * stepDuration * stepDuration / particleMass")
               :: map_dims (fun d -> ("factor" ^ d), ("factor / cell" ^ d)) ) [tBefore; cVarDef "nbSteps"];
 
-  (* Part: scaling of speeds and positions *)
+   (* TODO
+   let cdouble = "const double" in
+   Variable.insert_list ~reparse:true ~defs:(
+         [cdouble, "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
+       @ (map_dims (fun d -> cdouble, ("factor" ^ d), ("factor / cell" ^ d))))
+     [tBefore; cVarDef "nbSteps"];
+  *)
+
+  (* Part: scaling of field, speeds and positions *)
   !! iter_dims (fun d ->
-       Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]);
-     iter_dims (fun d ->
-       Accesses.scale ~factor_ast:(Ast.trm_var ("stepDuration / cell" ^ d)) [nbMulti;cFieldReadOrWrite ~field:("speed" ^ d) ()]);
-     iter_dims (fun d ->
-       Accesses.scale ~factor_ast:(Ast.trm_var ("1. / cell" ^ d)) [nbMulti;cFieldReadOrWrite ~field:("pos" ^ d) ()]);
+       Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
+  !! Variable.inline [cOr [[cVarDef "accel"]; [cVarDef ~regexp:true "factor."] (*; [cVarDef "factor"]*)]];
+  !!! Variable.inline [cVarDef "factor"]; (* TODO: see why occurrence not found on the previous line *)
+  (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
+  !! iter_dims (fun d ->
+       Accesses.scale (* TODO ~reparse:false *) ~factor:("stepDuration / cell" ^ d) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
+  !! iter_dims (fun d ->
+       Accesses.scale ~factor:("1. / cell" ^ d) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
+
 
   (* Part: grid_enumeration *)
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d,"grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];
@@ -113,7 +127,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d ->
       Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) ();  dRHS]);
 
-  !! Instr.(gather ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main;cVarDef ~regexp:true "p."];
+  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; sInstr "= pX"])) [main;cVarDef ~regexp:true "p."];
 
 
   !! iter_dims (fun d ->
