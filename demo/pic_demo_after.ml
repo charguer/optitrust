@@ -9,25 +9,7 @@ let map_dims f = List.map f dims
 
 let _ = Run.script_cpp (fun () ->
 
-  (* TODO: there remains lowercase dimensions *)
-  (* TODO: we need nbCorners instead of 8 *)
 
-  (* TODO:  Instr.gather ~dest:GatherAtFirst [nbMulti; cVarDef ~regexp:true "r.0"]; *)
-  !! Instr.move ~dest:[tBefore; cVarDef "rx0"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
-     Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
-
-  (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
-     Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
-  !! Instr.move ~dest:[tBefore; main;cVarDef "coeffs2"] [cOr [[main;cVarDef "indices"]; [cVarDef "deltaChargeOnCorners"]]]
-  !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
-
-  (* TODO ARTHUR: see how to improve this part *)
-  !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
-  !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
-
-  (* Part: AOS-SOA *)
-  !! Struct.inline "speed" [cTypDef "particle"];
-     Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert_list ~reparse:true ~typ:"const double"

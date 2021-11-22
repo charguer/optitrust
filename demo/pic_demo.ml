@@ -61,20 +61,31 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO: try a pattern of the form: \\(coef|sign\))_.1 *) (* TODO: remove the source *)
   !! Variable.elim_redundant ~source:[nbMulti; main; cVarDef ~regexp:true ~substr:true "_.0"] [nbMulti; main; cVarDef ~regexp:true ~substr:true "_.1"];
 
-  (* LATER: ARTHUR: look at this *)
+
+  (* TODO: there remains lowercase dimensions *)
+  (* TODO: we need nbCorners instead of 8 *)
+
+  (* TODO:  Instr.gather ~dest:GatherAtFirst [nbMulti; cVarDef ~regexp:true "r.0"]; *)
   !! Instr.move ~dest:[tBefore; cVarDef "rx0"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
      Instr.move ~dest:[tBefore; cVarDef "rx1"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
-     Instr.move ~dest:[tBefore; main;cVarDef "coeffs2"] [cOr [ [main;cVarDef "indices"];[cVarDef "deltaChargeOnCorners"]]];
 
-  (* TODO ARTHUR: nbCorners vs 8 *)
+  (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
+     Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
+  !! Instr.move ~dest:[tBefore; main;cVarDef "coeffs2"] [cOr [[main;cVarDef "indices"]; [cVarDef "deltaChargeOnCorners"]]];
   !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
-  (* TODO ARTHUR: see how to improve this part *)
-  !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [cRead ~addr:[sExpr "coeffs2.v"] ()];
-     Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
+  (* TODO: see if reparse is needed *)
+  !!!();
+
+  (* TODO:  if the read is on an access  P  then search above in the same trm_seq  for a write at P
+          (when the write argument is not provided) *)
+  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; (* TODO: ~delete:true   should be explicit *)
+  !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
      Struct.inline "pos" [cTypDef "particle"];
+
+
 
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert_list ~reparse:true ~typ:"const double"
