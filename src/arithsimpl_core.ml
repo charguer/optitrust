@@ -1,4 +1,5 @@
 open Ast
+open PPrint
 
 type id = int
 
@@ -187,29 +188,29 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     NOTE: Only for debugging
 *)
 let expr_to_string (atoms : atom_map) (e : expr) : string = 
-  let rec aux (e : expr) : string = 
+  let rec aux (e : expr) : document = 
     match e with 
-    | Expr_int n -> string_of_int n
-    | Expr_double n -> string_of_float n
+    | Expr_int n -> string (string_of_int n)
+    | Expr_double n -> string (string_of_float n)
     | Expr_sum we -> 
       let we_l = List.map (fun (w, e) -> 
-        let ex_str = aux e in
-        if w = 1 then ex_str else if ex_str = "1"  then (string_of_int w) else (Tools.sprintf "%d * %s" w ex_str)
-      ) we in
-      List.fold_left (fun acc x -> acc ^" + " ^ x) "" we_l
+        let ex_str = aux e in 
+        if w = 1 then ex_str else if (Tools.document_to_string ex_str = "1") then string (string_of_int w) else (string (string_of_int w) ^^ star ^^ ex_str )  
+      ) we in 
+      List.fold_left (fun acc x -> acc ^^ plus ^^ x) empty we_l
     | Expr_prod we -> 
-      (* LATER: Since there isn't any power operator in C the last line is the same was the one in the previous case *)
       let we_l = List.map (fun (w, e) -> 
-        let ex_str = aux e in
-        if w = 1 then ex_str else if ex_str = "1"  then (string_of_int w) else (Tools.sprintf "%d * %s" w ex_str)
-      ) we in
-      List.fold_left (fun acc x -> acc ^" * "  ^ x) "" we_l
-    | Expr_atom id ->
+        let ex_str = aux e in 
+        if w = 1 then ex_str else if (Tools.document_to_string ex_str = "1") then string (string_of_int w) else (string (string_of_int w) ^^ star ^^ ex_str )  
+      ) we in 
+      List.fold_left (fun acc x -> acc ^^ plus ^^ x) empty we_l
+    | Expr_atom id -> 
       begin match Atom_map.find_opt id atoms with 
-      | Some t1 -> (Ast_to_c.ast_to_string t1)
-      | _ -> fail None "expr_to_string: couldn't convert an atom expr to a trm"
+      | Some t1 -> (Ast_to_c.trm_to_doc t1)
+      | _  -> fail None "expr_to_string: couldn't convert an atom expr to a trm"
       end
-    in aux e
+  in 
+  Tools.document_to_string (aux e)
 
 (* [gather_one e] regroups similar expression that appear inside a same product or sum
       For example, [2 * e1 + (-1)*e1] simplifies to [e1]
@@ -236,7 +237,9 @@ let gather (recurse : bool) (e : expr) : expr =
 (* [expand_one e] expends sums that appear inside product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3]
     The function is identity if no expansion can be performed
- *)
+*)
+
+
 (* let expand_one (e : expr) : expr =
   let aux ((w,e) : wexpr) (acc : exprs) : exprs =
     match (w,e) with
@@ -258,7 +261,7 @@ let gather (recurse : bool) (e : expr) : expr =
   apply_bottom_up_if cleanup_true recurse tr e *)
 
 
-(* let trm_transfo  (f : expr -> expr) (t : trm) : trm = 
+let trm_transfo  (f : expr -> expr) (t : trm) : trm = 
   let expr, atoms = trm_to_expr t in
   expr_to_trm atoms (f expr)
- *)
+

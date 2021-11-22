@@ -308,7 +308,8 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : (var list option)) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices)
 
-let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc : string option) (index : string) (t : trm) : trm =
+
+let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc : string option) (index : string) (_ops : delocalize_ops) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     if Mlist.length tl <> 5 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
@@ -324,7 +325,7 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
             let alloc_arity = List.length dims in
             let new_alloc_trm = insert_alloc_dim_aux dim alloc_trm in
             let new_decl = trm_let_mut (local_var, (get_inner_ptr_type tx)) (trm_cast (get_inner_ptr_type tx) new_alloc_trm) in
-            let tg = [cCellAccess ~base:[cVar local_var] ~index:[]] in
+            let tg = [cCellAccess ~base:[cVar local_var] ~index:[] ()] in
             let snd_instr = Mlist.nth tl 1 in
             begin match trm_fors_inv alloc_arity snd_instr with
             | Some (loop_ranges, body) ->
@@ -336,21 +337,22 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
               end in
               begin match set_inv set_instr with
               | Some (base, dims, indices, old_var_access) ->
+                
                 let new_dims = dim :: dims in
+
                 let new_indices = (trm_var index) :: indices in
                 let new_body = trm_seq_nomarks [
-                  set base new_dims new_indices (trm_int 0)
+                  set base new_dims((trm_int 0) :: indices) old_var_access;
+                  trm_for index DirUp (trm_int 0) dim (trm_int 1) (set base new_dims new_indices (trm_int 0);)
                 ] in
-                let new_loop_ranges = loop_ranges @ [(index, DirUp, trm_int 0, dim, trm_int 1)] in
-                let new_snd_instr = trm_fors new_loop_ranges new_body in
 
+                let new_snd_instr = trm_fors loop_ranges new_body in
                 let thrd_instr = Mlist.nth tl 2 in
                 let ps2 = resolve_target tg thrd_instr in
                 let new_thrd_instr =
                   List.fold_left (fun acc p ->
                     apply_on_path (insert_access_dim_index_aux dim (trm_apps (trm_var "ANY") [dim])) acc p
                   ) thrd_instr ps2 in
-
 
                 let new_access = access base new_dims new_indices in
                     let acc = match acc with
@@ -385,6 +387,6 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
 
   |  _ -> fail t.loc "delocalize_aux: expected sequence which contains the mandatory instructions for applying the delocalize transformation"
 
-let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (index : string): Target.Transfo.local =
-  Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc index)
+let delocalize (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (index : string) (ops : delocalize_ops): Target.Transfo.local =
+  Target.apply_on_path (delocalize_aux dim init_zero acc_in_place acc index ops)
 
