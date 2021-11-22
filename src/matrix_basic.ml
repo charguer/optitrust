@@ -69,5 +69,4 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) option) ~var:(var
 
 (* TODO: Add docs for this function *)
 let delocalize ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ~dim:(dim : trm)  ~index:(index : string) ~ops:(dl_o : delocalize_ops): Target.Transfo.t =
-    Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc index ops)
-    (* TODO: add delocalize_ops *)
+    Target.apply_on_targets (Matrix_core.delocalize dim init_zero acc_in_place acc index dl_o)
