@@ -308,7 +308,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
 let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :trms * trm * bool) (var_type : typ) (indices : (var list option)) : Target.Transfo.local =
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices)
 
-(* TODO: Use ops just like in the variable_delocalize version *)
+
 let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc : string option) (index : string) (_ops : delocalize_ops) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -337,14 +337,16 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
               end in
               begin match set_inv set_instr with
               | Some (base, dims, indices, old_var_access) ->
+                
                 let new_dims = dim :: dims in
+
                 let new_indices = (trm_var index) :: indices in
                 let new_body = trm_seq_nomarks [
-                  set base new_dims new_indices (trm_int 0)
+                  set base new_dims((trm_int 0) :: indices) old_var_access;
+                  trm_for index DirUp (trm_int 0) dim (trm_int 1) (set base new_dims new_indices (trm_int 0);)
                 ] in
-                let new_loop_ranges = loop_ranges @ [(index, DirUp, trm_int 0, dim, trm_int 1)] in
-                let new_snd_instr = trm_fors new_loop_ranges new_body in
 
+                let new_snd_instr = trm_fors loop_ranges new_body in
                 let thrd_instr = Mlist.nth tl 2 in
                 let ps2 = resolve_target tg thrd_instr in
                 let new_thrd_instr =
