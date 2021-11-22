@@ -9,8 +9,6 @@ let map_dims f = List.map f dims
 
 let _ = Run.script_cpp (fun () ->
 
-
-
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert_list ~reparse:true ~typ:"const double"
         ~defs:(("factor", "particleCharge * stepDuration * stepDuration /particleMass / cellX")
