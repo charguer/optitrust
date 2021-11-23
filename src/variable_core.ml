@@ -186,12 +186,12 @@ let rename_on_block (rename : Rename.t) : Target.Transfo.local =
         updated [t] with all the replaced occurrences
 *)
 
-let rec replace_occurrences_aux (name : var) (space : strm) (t : trm) : trm = 
+let rec replace_occurrences_aux (name : var) (space : trm) (t : trm) : trm = 
   match t.desc with 
-  | Trm_var y when y = name -> code space
+  | Trm_var y when y = name -> space
   | _ -> trm_map (replace_occurrences_aux name space) t
 
-let replace_occurrences (name : var)(space : strm) : Target.Transfo.local = 
+let replace_occurrences (name : var)(space : trm) : Target.Transfo.local = 
   Target.apply_on_path (replace_occurrences_aux name space)
 
 

@@ -180,20 +180,29 @@ let detach_if_needed (tg : Target.target) : unit =
     | _ -> fail t.loc "init_detach_aux: variable could not be matched, make sure your path is correct"
   ) tg
 
-(* [reuse ~reparse space tg] expects the target [tg] to be poiting to a variable d *)
-let reuse ?(reparse : bool = false) (space : var) (tg : Target.target) : unit =
-  Target.reparse_after ~reparse (Target.iter_on_targets (fun t p -> 
-    let decl_t,_ = Path.resolve_path p t in
-    begin match decl_name decl_t with
-    | Some x ->
-      let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
-      Marks.add "reuse_mark" (Target.target_of_path p);
-      detach_if_needed [Target.cMark "reuse_mark"];
-      Instr_basic.delete [Target.cMark "reuse_mark"];
-      Variable_basic.replace_occurrences ~subst:x ~put:space (Target.target_of_path _path_to_seq);
-    | None -> fail decl_t.loc "reuse: could not match the declaration"
-    end
-   )) tg 
+(* [reuse ~reparse space tg] expects the target [tg] to be poiting to a variable declaration, then it will 
+    remove that declaration and replace all its occurrences with [space]
+
+*)
+let reuse ?(space : string option) ?(space_ast : trm option) (tg : Target.target) : unit = 
+  begin try 
+    let arg_space = combine_strm space space_ast in
+    let reparse = not (is_trm arg_space) in
+    Target.reparse_after ~reparse (Target.iter_on_targets (fun t p -> 
+      let decl_t,_ = Path.resolve_path p t in
+      begin match decl_name decl_t with
+      | Some x ->
+        let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
+        Marks.add "reuse_mark" (Target.target_of_path p);
+        detach_if_needed [Target.cMark "reuse_mark"];
+        Instr_basic.delete [Target.cMark "reuse_mark"];
+        Variable_basic.replace_occurrences ~subst:x ~put:arg_space (Target.target_of_path _path_to_seq);
+      | None -> fail decl_t.loc "reuse: could not match the declaration"
+      end
+      )) tg
+    with | Ast_and_code_provided -> fail None "reuse: please choose between [space] or [space_ast] arguments"
+         | No_ast_or_code_provided -> fail None "reuse: please provide one of [space] or [space_ast] arguments"
+  end
 
 (* [reverse_fold tg] expects the target [tg] poiting to a variable declaration with an initial value
     being another variable occurrence. Then it will inline y on all its occurrenes which belong to the
