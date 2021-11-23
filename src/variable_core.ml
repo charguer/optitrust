@@ -63,7 +63,7 @@ let fold_aux (as_reference : bool) (fold_at : target) (index : int) (t : trm) : 
         in
         let new_tl = Mlist.merge lfront lback in
         let new_tl = Mlist.insert_at index d new_tl in
-        trm_seq new_tl 
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl 
 
      | _ -> fail t.loc "fold_decl: expected a variable declaration"
      end
