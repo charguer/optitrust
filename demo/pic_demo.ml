@@ -60,16 +60,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
-
-
-  (* TODO: there remains lowercase dimensions *)
-  
   !! Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
      Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
   
-
+  !! Sequence.split ~marks:[""; "loops"] [tBefore;cVarDef "coeffs2"];
   (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
      Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
+  
   !! Instr.move ~dest:[tBefore; main;cVarDef "coeffs2"] [cOr [[main;cVarDef "indices"]; [cVarDef "deltaChargeOnCorners"]]];
   !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
   (* TODO: see if reparse is needed *)
@@ -77,8 +74,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* TODO:  if the read is on an access  P  then search above in the same trm_seq  for a write at P
           (when the write argument is not provided) *)
-  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; (* TODO: ~delete:true   should be explicit *)
-  !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
+  !! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; 
+  !! Instr.inline_last_write ~delete:true ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];

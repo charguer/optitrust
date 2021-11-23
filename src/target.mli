@@ -314,13 +314,13 @@ val applyi_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> trm -> 
 val apply_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (trm -> 'a -> trm) -> target -> unit
 
 
-val iteri_on_targets : (int -> trm -> path -> unit) -> target -> unit
+val iteri_on_targets : ?rev:bool -> (int -> trm -> path -> unit) -> target -> unit
 
-val iter_on_targets : (trm -> path -> unit) -> target -> unit
+val iter_on_targets : ?rev:bool -> (trm -> path -> unit) -> target -> unit
 
-val iteri_on_transformed_targets : (path -> 'a) -> (int -> trm -> 'a -> unit) -> target -> unit
+val iteri_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> trm -> 'a -> unit) -> target -> unit
 
-val iter_on_transformed_targets : (path -> 'a) -> (trm -> 'a -> unit) -> target -> unit
+val iter_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (trm -> 'a -> unit) -> target -> unit
 
 
 val applyi_on_targets_between : (int -> trm -> path * int -> trm) -> target -> unit

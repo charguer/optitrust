@@ -39,6 +39,27 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   let mark = "__TEMP_MARK" in
   Sequence_basic.intro nb ~mark tg;
   Loop_basic.fusion_on_block [Target.cMark mark]
+  
+let fusion_targets (tg : Target.target) : unit = 
+  Target.iter_on_targets ~rev:true (fun t p -> 
+    let tg_seq = Target.target_of_path p in
+    let tg_trm, _ = Path.resolve_path p t in
+    let indices = 
+    match tg_trm.desc with 
+    | Trm_seq tl ->
+      List.concat (List.mapi (fun i t1 -> 
+      match t1.desc with 
+      | Trm_for _ -> []
+      | _ -> [i]
+      ) (Mlist.to_list tl)) 
+    | _ -> fail tg_trm.loc "fusion_targets: expected a target pointing to the sequence that contains the potential loops to be fused"
+    in 
+    List.iter (fun i -> 
+    Instr.move_invariant ~dest:([Target.tBefore] @  tg_seq) (Target.target_of_path (p @ [Dir_seq_nth i]))) (List.rev indices);
+    Loop_basic.fusion_on_block tg_seq
+  ) tg
+
+
 
 (* [invariant ~upto  tg] expects the target [tg] pointing to an instruction inside a for loop
     then it will move that instruction outside that loop. In the case of nested loops the user

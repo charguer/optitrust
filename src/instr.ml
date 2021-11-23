@@ -1,7 +1,7 @@
 open Ast 
 include Instr_basic
 
-let inline_last_write ~write:(write : Target.target) ?(delete : bool = true) (tg : Target.target) : unit =
+let inline_last_write ~write:(write : Target.target) ?(delete : bool = false) (tg : Target.target) : unit =
   Instr_basic.read_last_write ~write tg;
   if delete then Instr_basic.delete write 
 
@@ -101,8 +101,9 @@ let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(t
 (* [move_invariant dest tg] move the invariant [tg] to destination [dest] 
    Note: The transformation does not check if [tg] points to some invariant code or not
 *)
-let move_invariant ~dest:(dest : Target.target) : Target.Transfo.t =  
-  Target.iter_on_targets (fun t p ->
+
+let move_invariant ?(rev : bool = false) ~dest:(dest : Target.target) : Target.Transfo.t =  
+  Target.iter_on_targets ~rev (fun t p ->
     let tg_trm,_ = Path.resolve_path p t in
     Marks.add "instr_move_invariant" (Target.target_of_path p);
     Sequence_basic.insert tg_trm dest;

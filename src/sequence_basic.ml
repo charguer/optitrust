@@ -95,9 +95,9 @@ let elim_around_instr (tg : Target.target) : unit =
     It will split the sequence which contains that target into two parts, depending on the fact that the entered target
     is of type before or after the first part will include (exclude) the target.
 *)
-let split (tg : Target.target) : unit =
+let split ?(marks : mark list = []) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_targets_between (fun t (p, i) -> Sequence_core.split i t p) tg)
+    Target.apply_on_targets_between (fun t (p, i) -> Sequence_core.split i marks t p) tg)
 
 (* [partition ~braces blocks tg] expects the target tg to point to a sequence, this transformations will split that sequence
       into blocks where the sizes of the blocks are given by [blocks].

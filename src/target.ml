@@ -779,10 +779,11 @@ let apply_on_targets (tr : trm -> path -> trm) (tg : target) : unit =
 (* [iteri_on_transformed_targets] is similar to [applyi] except that it is meant to for
    transformations that are implemented in terms of other transformations with unit return type.
    LATER: try to better factorize the code. *)
-let iteri_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
+let iteri_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> unit) (tg : target) : unit =
   let tg = fix_target tg in
   Trace.call (fun t ->
     let ps = resolve_target tg t in
+    let ps = if rev then List.rev ps else ps in
     let marks = List.map (fun _ -> Mark.next()) ps in
     let _t_before = t in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
@@ -813,14 +814,14 @@ let iteri_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 
 
 (* Variants *)
 
-let iter_on_transformed_targets (transformer : path -> 'a) (tr : trm -> 'a -> unit) (tg : target) : unit =
-  iteri_on_transformed_targets  transformer (fun _i t descr -> tr t descr) tg
+let iter_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : trm -> 'a -> unit) (tg : target) : unit =
+  iteri_on_transformed_targets ~rev transformer (fun _i t descr -> tr t descr) tg
 
-let iteri_on_targets (tr : int -> trm -> path -> unit) (tg : target) : unit =
-  iteri_on_transformed_targets (fun p -> p) tr tg
+let iteri_on_targets ?(rev : bool = false) (tr : int -> trm -> path -> unit) (tg : target) : unit =
+  iteri_on_transformed_targets~rev (fun p -> p) tr tg
 
-let iter_on_targets (tr : trm -> path -> unit) (tg : target) : unit =
-  iteri_on_targets (fun _i t dl -> tr t dl) tg
+let iter_on_targets ?(rev : bool = false) (tr : trm -> path -> unit) (tg : target) : unit =
+  iteri_on_targets ~rev (fun _i t dl -> tr t dl) tg
 
 
 (* [applyi_on_transformed_targets_between transformer tr tg]: Apply a transformation [tr] on a target relative to [tg]
