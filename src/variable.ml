@@ -180,7 +180,7 @@ let detach_if_needed (tg : Target.target) : unit =
     | _ -> fail t.loc "init_detach_aux: variable could not be matched, make sure your path is correct"
   ) tg
 
-
+(* [reuse ~reparse space tg] expects the target [tg] to be poiting to a variable d *)
 let reuse ?(reparse : bool = false) (space : var) (tg : Target.target) : unit =
   Target.reparse_after ~reparse (Target.iter_on_targets (fun t p -> 
     let decl_t,_ = Path.resolve_path p t in
@@ -231,43 +231,45 @@ let reverse_fold : Target.Transfo.t =
     the varibale declaration [tg] and inline the declaration in [tg]
    NOTE: This version works only if source was provided otherwise it will throw an error *)
 
-let elim_redundant ?(source : Target.target = []) (tg : Target.target) : unit = 
-  Target.iteri_on_targets( fun i t p -> 
+let elim_redundant ?(source : Target.target = []) : Target.Transfo.t = 
+  Target.iteri_on_targets (fun i t p -> 
     let tg_trm, _ = Path.resolve_path p t in
-    match tg_trm.desc with
-    | Trm_let (_, (x, _), init_x) ->
-       if source = [] then 
-        let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
-        let seq_trm,_ = Path.resolve_path path_to_seq t in
-        begin match seq_trm.desc with 
-        | Trm_seq tl ->
-          Mlist.iter( fun t1 -> 
-           match t1.desc with 
-           | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y -> 
-              Variable_basic.fold ~at:[Target.cVarDef y] [Target.cVarDef x];
-              Variable_basic.inline [Target.cVarDef y]  
-           | _ -> ()) tl
-        | _ -> fail t.loc "elim_redundant: couldn't find the englobing sequence, providing the source argument could solve the problem"
-        end
-        else  
-         begin
-         let source_paths = Target.resolve_target source t in
-         let source_decl_trm = match List.nth_opt source_paths i with
-          | Some p -> fst (Path.resolve_path p t)
-          | None -> fail t.loc "elim_redundant: the number of source targets should be equal to the number of the main targets" in
-          let tg_trm,_ = Path.resolve_path p t in
-          match source_decl_trm.desc with
-          | Trm_let (_, (a, _), _init) ->
-            begin match tg_trm.desc with
-            | Trm_let (_, (b, _), _init) ->
-                Variable_basic.fold ~at:[Target.cVarDef b] [Target.cVarDef a];
-                Variable_basic.inline [Target.cVarDef b]
-            | _ -> fail tg_trm.loc "elim_redundant: "
-            end
-          | _ -> fail source_decl_trm.loc "elim_redundant: the target to the source declaration does not resolve to a variable declaration"
-         end     
-    | _ -> fail tg_trm.loc "elim_redundant: "
-  ) tg
+    match tg_trm.desc with 
+    | Trm_let (_, (x, _), init_x) -> 
+      let source_var = ref "" in
+      if source = [] 
+        then
+          let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
+          let seq_trm, _ = Path.resolve_path path_to_seq t in
+          begin match seq_trm.desc with 
+          | Trm_seq tl -> 
+            Mlist.iteri (fun i t1 -> 
+            if i >= index then () 
+                else 
+                begin match t1.desc with 
+                | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y -> 
+                  source_var := y
+                | _ -> ()
+                end
+            ) tl
+          | _ -> fail t.loc "elim_redundant: couldn't find the englobing sequence, try providing the source argument to solve this problem"
+          end
+       else 
+        begin 
+          let source_paths = Target.resolve_target source t in
+          let source_decl_trm = match List.nth_opt source_paths i with
+            | Some p -> fst (Path.resolve_path p t)
+            | None -> fail t.loc "elim_redundant: the number of source targets  should be equal to the number of the main targets" in
+          match source_decl_trm.desc with 
+          | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y -> 
+            source_var := y
+          | _ -> fail source_decl_trm.loc "elim_redundant: the soource target should point to a variable declaration"
+        end;
+        Variable_basic.fold ~at:[Target.cVarDef x] [Target.cVarDef !source_var];
+        Variable_basic.inline [Target.cVarDef x]
+    | _ -> fail tg_trm.loc "elim_redundant: the main target should point to the declaration of the variable you want to eliminate"
+  
+  )
 
 
 (* let elim_redundant1 ?(source : Target.target = []) (tg : Target.target) : unit  =
