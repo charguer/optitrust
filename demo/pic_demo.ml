@@ -86,7 +86,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: scaling of field, speeds and positions *)
   !! iter_dims (fun d ->
-       Accesses.scale ~factor_ast:(Ast.trm_var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
+       Accesses.scale ~factor_ast:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
   !! Variable.inline [cOr [[cVarDef "accel"]; [cVarDef ~regexp:true "factor."] (*; [cVarDef "factor"]*)]];
   !!! Variable.inline [cVarDef "factor"]; (* TODO: see why occurrence not found on the previous line *)
   (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
@@ -112,10 +112,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: Make positions relative, and convert sortage to float *)
   !! iter_dims (fun d ->
-    Accesses.shift (* TODO: neg:true instead of minus *) (*~factor_ast:(Ast.trm_var ("i" ^  d))*) ~factor:("- i"^d) [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]);
+    Accesses.shift (* TODO: neg:true instead of minus *) (*~factor_ast:(var ("i" ^  d))*) ~factor:("- i"^d) [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]);
        (* TODO: above the prototype so that we can write:  Access.shift ~get:true (var ("i"^d)) [cVarDef ...; ...] *)
   !! iter_dims (fun d ->
-    Accesses.shift (* TODO: neg:true *) ~factor_ast:(Ast.trm_var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
+    Accesses.shift (* TODO: neg:true *) ~factor_ast:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
   !! Cast.insert ~typ_ast:(Ast.typ_float ()) [sExprRegexp ~substr:true "\\(p. \\+ i.\\)"];
   (* Above, change to:  Cast.insert (Ast.typ_float()) ,   and in the future we will be able to write equivalently:   Cast.insert (atyp "float"). *)
   (* TODO:   double posX;
@@ -124,18 +124,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         - Typdef.change_fields "float" [map_dims (fun d -> "pos"^d)] [cTypdef "particle"]
     *)
 
-  (* TODO: replace Ast.trm_var with just [var] everywhere;
+  (* TODO: replace var with just [var] everywhere;
       to that end, in ast.ml, we define a module [AstParsers] with definitions such as
-         [let var = Ast.trm_var] and [let expr = Ast.code] etc...
+         [let var = var] and [let expr = Ast.code] etc...
       and then in [target.ml] we can do [include AstParser], so that we don't need to do [open AstParser] in each file. *)
   (* Part: duplication of corners for vectorization of change deposit *)
-  !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
+  !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];
   !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"]; (* TODO: place a label earlier on, on the relevant loop *)
   (* TODO: read_last_write   on  .. = nextCharge[MINDEX1(nbCells, idCell)]    to become  .. = 0 *)
   (* TODO: below Lit_int 0 should be Lit_double 0 *)
   (* TODO: put in some library:   let delocalize_double_add = Delocalize_arith (Lit_double 0, Binop_add)
      then use [delocalize_double_add] here and further on as argument *)
-  !! Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add)) [cMark "first_local"]; (* TODO: ~init_zero:true
+  !! Matrix_basic.delocalize ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add)) [cMark "first_local"]; (* TODO: ~init_zero:true
        so no need to generate nextChargeCorners[MINDEX2(nbCorners, nbCells, 0, idCell)] = nextCharge[MINDEX1(nbCells, idCell)]; *)
   !! Variable.inline [main; cVarDef "indices"];
   !! Specialize.any "k" [cAny];
@@ -165,7 +165,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:"8" [tBefore; main];
   !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1; main; cFor "k"]; (* TODO: use a label that should be on that loop *)
-     Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add))[cMark "first_local"];
+     Matrix_basic.delocalize ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add))[cMark "first_local"];
      Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]]; (* TODO: use a label that should be on that loop, introduced by the earlier delocalize *)
      Specialize.any "k" [cAny]; (* this should be specialized not to k but to [myThread] *)
 
@@ -200,7 +200,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
          Variable.insert (Ast.trm_ands (map_dims (fun d -> expr ~vars:[d] "(i${1} >= bi${1} - dist && i${1} < bi${1} + blockSize + dist)"))))
          where the "value" argument needs not use a label since it has type trm directly
          and where trm_ands is a smart construction for building a conjunction from a list of terms *)
-     Instr.replace (Ast.trm_var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
+     Instr.replace (var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
 
 
   (* Part: Parallelization *)

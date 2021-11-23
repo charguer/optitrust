@@ -11,30 +11,22 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
 (* [scale ~factor ~factor_ast tg] this function is a specialization of the function transform where the functions f_get and f_set
     are given explicitly as the division and multiplication operations respectively
 *)
-let scale ?(factor : string option) ?(factor_ast : trm option) (tg : Target.target) : unit =
-  begin try
-  let arg = combine_strm factor factor_ast in
-  let f_get t = Arith_core.apply_aux Binop_div arg t in
-  let f_set t = Arith_core.apply_aux Binop_mul arg t in
-  let reparse = not (is_trm arg) in
+let scale ?(reparse : bool = false) ~factor:(factor:trm) (tg : Target.target) : unit =
+  let f_get t = Arith_core.apply_aux Binop_div factor t in
+  let f_set t = Arith_core.apply_aux Binop_mul factor t in
   transform ~reparse f_get f_set tg
-  with | Ast_and_code_provided -> fail None "scale: please choose between factor and factor_ast arg"
-       | No_ast_or_code_provided -> fail None "scale: expected for the code entered as string or the ast of that code"
-  end
+
+
+
+
 
 (* [shift ~factor ~factor_ast tg] this function is a specialization of the function transform where the functions f_get and f_set
     are given explicitly as the substraction  and addition respectively
 *)
-let shift (* TODO: ?neg:bool=false *) ?(factor : string option) ?(factor_ast : trm option ) (tg : Target.target) : unit =
-  begin try
-  let arg = combine_strm factor factor_ast in
-   (* TODO: let op_get, op_set = if neg then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in *)
-  let f_get t = Arith_core.apply_aux Binop_sub arg t in
-  let f_set t = Arith_core.apply_aux Binop_add arg t in
-  let reparse = not (is_trm arg) in
+let shift ?(neg:bool=false) ?(reparse : bool = false) ~factor:(factor : trm) (tg : Target.target) : unit =
+  let op_get, op_set = if neg then (Binop_add, Binop_sub) else (Binop_sub, Binop_add) in
+  let f_get t = Arith_core.apply_aux op_get factor t in
+  let f_set t = Arith_core.apply_aux op_set factor t in
   transform ~reparse f_get f_set tg
-  with | Ast_and_code_provided -> fail None "shift: please choose between factor and factor_ast arg"
-       | No_ast_or_code_provided -> fail None "shift: expected the code entered as string or the ast of that code"
-  end
 
  (* LATER: Define shift_access that applies to a target on accesses and calls shift on the parent path *)

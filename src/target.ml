@@ -17,6 +17,8 @@ type target = constr list
 (* Shorthands for Trace functions *)
 include Trace
 
+include AstParser
+
 
 (******************************************************************************)
 (*                        Smart constructors for targets                      *)

@@ -1899,3 +1899,12 @@ let is_infix_prim_fun (p : prim) : bool =
 (* [trm_access base field] create a dummy access without type checking*)
 let trm_access (base : trm) (field : var) : trm = 
   trm_apps (trm_unop (Unop_struct_field_addr field)) [base]
+
+
+module AstParser = struct
+  
+  let var = trm_var
+
+  let expr = code 
+end
+
