@@ -236,10 +236,10 @@ let hoist (name : var) (index : int): Target.Transfo.local =
     return
       merged loops
  *)
+
 let fusion_on_block_aux (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
     let n = Mlist.length tl in
     if n < 2 then fail t.loc "fission_aux: there must be >= 2 loops to apply fussion";
     let first_loop = Mlist.nth tl 0 in

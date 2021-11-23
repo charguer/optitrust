@@ -2,7 +2,7 @@ open Optitrust
 open Target
 open Ast
 
-let main = cTopFunDef "main" (* TODO: not that i changed from cFunDef to  cTopFunDef ; this made target resolution sometimes twice faster, because e.g. on cVar there is no need to look everywhere in the ast. *)
+let main = cTopFunDef "main" 
 
 let dims = ["X";"Y";"Z"]
 let iter_dims f = List.iter f dims
@@ -25,7 +25,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
     (* ARTHUR: try to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
-  let ctx = cFunDef "vect_matrix_mul" in
+  let ctx = cTopFunDef "vect_matrix_mul" in
   !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
      Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
      (* LATER: !! Loop.fission [nbMulti; tAllInBetween; ctx; cFor "k"; cSeq]; *)
@@ -35,10 +35,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [cFun "vect_matrix_mul"];
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  let ctx = cFunDef "cornerInterpolationCoeff" in
+  let ctx = cTopFunDef "cornerInterpolationCoeff" in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array "double coefX, signX, coefY, signY, coefZ, signZ; ==>  double rX, rY, rZ; ==> (coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);" [nbMulti; cFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; (* TODO:
+  !! Variable.intro_pattern_array "double coefX, signX, coefY, signY, coefZ, signZ; ==>  double rX, rY, rZ; ==> (coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);" [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; (* TODO:
         PatternArray.({ vars = "double ...";
           context = "...";
           pattern = "... " }) *)
@@ -55,54 +55,34 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [
        [cFun "vect8_mul"];
-       [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
+       [cTopFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
        [cFun "accumulateChargeAtCorners"]]];
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
-<<<<<<< HEAD
-  !! Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
-     Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
+  (* !! Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"]; *)
+  (* !! Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"]; *)
   
-  !! Sequence.split ~marks:[""; "loops"] [tBefore;cVarDef "coeffs2"];
-=======
-
-
-  (* TODO: there remains lowercase dimensions *)
-
-  !! Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
-     Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
-
-
->>>>>>> ed39c9be9c577e846776ae993fb023b0444b93cb
+  (* TODO: Fix the issue with fusion_targets *)
   (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
      Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
-  
-  !! Instr.move ~dest:[tBefore; main;cVarDef "coeffs2"] [cOr [[main;cVarDef "indices"]; [cVarDef "deltaChargeOnCorners"]]];
+  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; cVarDef "coeffs2"])) [main;cVarDef ~regexp:true "\\(delta\\|indice\\)."];
   !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
-  (* TODO: see if reparse is needed *)
-  !!!();
 
   (* TODO:  if the read is on an access  P  then search above in the same trm_seq  for a write at P
           (when the write argument is not provided) *)
-  !! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; 
-  !! Instr.inline_last_write ~delete:true ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
+!!! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; 
+    Instr.inline_last_write ~delete:true ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
      Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: scaling of speeds and positions #7 *)
-  !! Variable.insert_list ~reparse:true ~typ:"const double"
-        ~defs:(("factor", "particleCharge * stepDuration * stepDuration / particleMass")
-              :: map_dims (fun d -> ("factor" ^ d), ("factor / cell" ^ d)) ) [tBefore; cVarDef "nbSteps"];
-
-   (* TODO
-   Variable.insert_list ~reparse:true ~defs:(
+   !! Variable.insert_list ~reparse:true ~defs:(
          ["const double", "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), ("factor / cell" ^ d))))
      [tBefore; cVarDef "nbSteps"];
-  *)
 
   (* Part: scaling of field, speeds and positions *)
   !! iter_dims (fun d ->
@@ -213,7 +193,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Introduction of the computation *)
 
-  !! Variable.insert_list ~defs:[("blockSize","2"); ("2","blockSize / 2")] ~typ:"int" [tBefore; cVarDef "nbCells"]; (* TODO: put in the form ~defs[("int", ...] *)
+  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","2","blockSize / 2")] [tBefore; cVarDef "nbCells"]; (* TODO: put in the form ~defs[("int", ...] *)
       (* TODO: "2","blockSize / 2" does not seem right, because "2" is not a variable name...was it d? *)
      Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:"(ix >= bix - d && ix < bix + blockSize + d)&& (iy >= biy - d && iy < biy + blockSize + d) && (iz >= biz - d && iz < biz + blockSize + d)" [tAfter; main; cVarDef "iz"];
      (* TODO  assume "d" is rename to "dist";  then we can make above shorter:
