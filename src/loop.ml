@@ -358,7 +358,7 @@ let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start
 let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (tg : Target.target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
-  let first_target = [Target.occIndex 0] @ (Target.filter_constr_occurrence tg) in
+  let first_target = [Target.occFirst] @ (Target.filter_constr_occurrence tg) in
   let tg = Target.enable_multi_targets tg in
   Target.iter_on_targets 
     (fun t p ->
@@ -367,5 +367,6 @@ let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop
       incr nb_targets;
     ) tg;
     if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
-    fold ~direction ~index:loop_index ~loop_start ~loop_step !nb_targets first_target
+    fold ~direction ~index:loop_index ~loop_start ~loop_step !nb_targets first_target;
+    Variable.fold [Target.nbAny;Target.cVarDef "" ~body:[Target.cInt !nb_targets]]
 

@@ -69,7 +69,26 @@ let gather_targets ~dest:(dest : gather_dest) (tg : Target.target) : unit =
   end;
   let tg = Target.enable_multi_targets tg in
   Instr_basic.move ~rev:true ~dest:!tg_dest tg
-  
+
+  (* TOOD: Improve this function  *)
+  (* let gather_targets ~dest:(dest : gather_dest) (tg : Target.target) : unit =
+  let tg = Target.filter_constr_occurrence tg in
+  let tg_dest = ref [] in
+  let tg_instr = ref [] in 
+  begin match dest with 
+  | GatherAtFirst -> 
+    tg_dest := [Target.tAfter; Target.occFirst] @ tg;
+    tg_instr := [Target.cDiff [tg] ([[Target.occFirst] ; tg])]
+  | GatherAtLast -> 
+    tg_dest := [Target.tBefore; Target.occLast] @ tg;
+    tg_instr := [Target.cDiff [tg] ([[Target.occLast] ; tg])]
+  | GatherAt tg_dest1 -> 
+    tg_dest := tg_dest1;
+    let tg = Target.enable_multi_targets tg in
+    tg_instr := tg
+  end;
+  Instr_basic.move ~rev:true ~dest:!tg_dest !tg_instr *)
+
 
 
 (* [move_multiple ~targets tgs] expects a list of destinations and a list of targets to be movet at those 

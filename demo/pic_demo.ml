@@ -63,11 +63,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
   (* TODO: there remains lowercase dimensions *)
-  (* TODO: we need nbCorners instead of 8 *)
-
-  (* TODO:  Instr.gather_targets ~dest:GatherAtFirst [nbMulti; cVarDef ~regexp:true "r.0"]; *)
-  !! Instr.move ~dest:[tBefore; cVarDef "rX0"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
-     Instr.move ~dest:[tBefore; cVarDef "rX1"] [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
+  
+  !! Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
+     Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
+  
 
   (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
      Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
