@@ -4,7 +4,7 @@
 (******************************************************************************)
 
 (* include Tools.Debug *)
-include Tools 
+include Tools
 
 let set_exn_backtrace (b : bool) : unit =
   Printexc.record_backtrace b
@@ -30,13 +30,14 @@ let script (f : unit -> unit) : unit =
     let t1 = Unix.gettimeofday () in
     f ();
     Tools.printf "Total time to execute the script %f" (Unix.gettimeofday () -. t1);
-  with | Failure s ->
+  with | Failure s | Ast.TransfoError s ->
     Trace.finalize();
     (* failwith s *)
     let sbt = Printexc.get_backtrace() in
     Printf.eprintf "%s\n" sbt;
     Printf.eprintf "=======\nFailure: %s\n" s;
     exit 1
+
 
 (* [get_basename ()] is  function to get the name of the file being executed
      by chopping the extension.
@@ -99,7 +100,7 @@ let script_cpp ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?
         if debug_inline_cpp then Printf.printf "Generated %s\n" file;
         file
     in
-  
+
   (* Set the input file, execute the function [f], dump the results. *)
   script (fun () ->
     Trace.init ~prefix input_file;

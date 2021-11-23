@@ -19,9 +19,9 @@ let parse_pattern (str : string) : (vars * vars *trm) =
   let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
     else ("", List.nth splitted_pattern 1) in
   let var_decls_temp = Tools.fix_pattern_args var_decls in
-  
+
   let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else Tools.fix_pattern_args aux_var_decls in
-  
+
   let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
   let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ "\n}" in
   Xfile.put_contents output_file file_content;
@@ -73,22 +73,63 @@ exception Rule_mismatch
 *)
 let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
   let inst = ref Trm_map.empty in
+  let find_occurrence (x : var) (u : trm) : unit =
+    match Trm_map.find_opt x !inst with
+    | None -> inst := Trm_map.add x u !inst
+    | Some t0 when (Internal.same_trm t0 u) -> ()
+    | _ -> raise Rule_mismatch
+    in
+
+  (* TODO: add vars to the aux function, so it can be changed during recursion *)
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let aux_list (ts1 : trms) (ts2 : trms) : unit =
       List.iter2 aux ts1 ts2 in
     match t1.desc, t2.desc with
-    | Trm_var x, _ when List.mem x vars ->
-      begin match Trm_map.find_opt x !inst with
-      | None -> inst := Trm_map.add x t2 !inst
-      | Some t0 when (Internal.same_trm t0 t2) -> ()
-      | _ -> raise Rule_mismatch
-      end
+
+    | Trm_var x, _  when List.mem x vars -> find_occurrence x t2
 
     | Trm_var x1, Trm_var x2 when x1 = x2 -> ()
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
-    | Trm_var _, Trm_val _ -> ()
 
+    | Trm_var _, Trm_val _ -> () (* TODO: i'm not sure what this case is for...*)
+
+    (* TODO: add more cases:
+    | Trm_for_c (init1, cond1, step1, body1), Trm_for_c (init2, cond2, step2, body2) ->
+        aux init1 inti2;
+        aux cond1 cond2;
+        aux step1 step2;
+        aux body1 body2;
+
+    | Trm_seq tl1, Trm_seq tl2 ->
+        aux_list (MList.to_list tl1) (MList.to_list tl2)
+       (* LATER: in the future, we will have a more relaxed treatment, so that
+          [t1; t2; t3] can match the pattern [t1; body(p)] successfully,
+          with [body] being instantiated as [trm_fun ["p", typ_auto] trm_seq [t2; t3])]
+        *)
+
+    (* next case is for treating matching against pattern such as [body(i)],
+       where [body] is a pattern variable that corresponds to a function. *)
+    | Trm_apps ({ desc = Trm_var x}, ts1), _ when List.mem x vars ->
+         let saved_inst = !inst in
+         try begin
+           match t2.desc with | Trm_apps (f2, ts2) when List.length ts1 = List.length ts2 ->
+              find_occurrence x f2;
+              aux_list ts1 ts2
+           end
+        with Rule_mismatch ->
+           inst := saved_inst in
+           let args = List.map fresh_var ts1 in
+           aux_list ~vars:(vars@args) ts1...
+           let body = ...  (* TODO: find the instances of the arguments *)
+           find_occurence x (trm_fun ["p'', typ_auto] body)
+
+          // where
+
+    *)
+
+    (* TODO: I am not sure that it is correct to go throught the get operations like done
+       in the 3 cases below; we had discussed this in the past *)
     | Trm_apps (_f1, [ts1]), Trm_val _ ->
         if is_get_operation t1 then
         aux ts1 t2
@@ -112,18 +153,26 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
   aux pat t;
   !inst
 
+  (*
+
+              if has_typ_optitrust_body t1 then begin
+              if Trm_map.find_opt x !inst <> None
+                then fail "variables of type optitrust_body can only occur once in patterns";
+              inst := Trm_map.add x tbody !inst
+              *)
+
 exception Rule_match_ast_list_no_occurrence_for of string
 
 
 (* [tmap_to_list keys map] get the values of [keys] in map as a list *)
-let tmap_to_list (keys : vars) (map : tmap) : trms = 
+let tmap_to_list (keys : vars) (map : tmap) : trms =
   List.map (fun x -> match Trm_map.find_opt x map with
     | Some v -> v
     | None -> raise (Rule_match_ast_list_no_occurrence_for x)
   ) keys
 
 (* [tmap_filter_keys keys map] get a map with filtered keys *)
-let tmap_filter_keys (keys : vars) (map : tmap) : tmap = 
+let tmap_filter_keys (keys : vars) (map : tmap) : tmap =
   Trm_map.filter (fun k _ -> List.mem k keys) map
 
 

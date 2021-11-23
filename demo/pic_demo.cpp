@@ -262,6 +262,26 @@ int main() {
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
 
+      /* TODO: first, modify the existing code to use
+           particle* p = &(c->items[i]);
+         and
+           p->pos and p->speed
+        After inlining, &(c->items[i])->pos  should simplify to c->items[i].pos
+        because q->pos = (*q).pos     and  (*(&x)) = x.
+        Thus, we'll get the same code as we have currently
+        (maybe inlining of 'p' needs to be done earlier than currently.
+
+
+        TODO: Implement the iteration over particles, instead of using [chunk* c] and a [while(true)],
+        with the following loop, which will be expanded later as a loop over chunks.
+
+          bag_iter it = bag_iter_begin(b);
+          for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
+            ...
+          }
+          bag_init(b);
+
+      */
       // Perform a destructive iteration on that bag,
       // meaning that chunks are freed after traversal.
       chunk* c = b->front;
@@ -271,7 +291,6 @@ int main() {
         for (int i = 0; i < nb; i++) {
 
           particle p = c->items[i];
-
 
           // Interpolate the field based on the position relative to the corners of the cell
           double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
