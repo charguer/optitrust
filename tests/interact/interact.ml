@@ -8,6 +8,7 @@
 open Optitrust
 open Target
 
+
 let _ = Run.script_cpp (fun () ->
 
   !! Label.add "m0" [cVarDef "a"];
@@ -30,4 +31,5 @@ let _ = Run.script_cpp (fun () ->
   (* Trace.dump() is called implicitly called at the end of file;
      this function handles the case where the cursor was after the last '!!'. *)
 )
+
 
