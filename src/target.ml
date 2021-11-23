@@ -213,7 +213,7 @@ let cOr (tgl : target list) : constr =
 let cAnd (tgl : target list) : constr =
   Constr_and tgl
 
-let cDiff (tgl1 : target list) (tgl2 : target list) : constr = 
+let cDiff (tgl1 : target list) (tgl2 : target list) : constr =
   Constr_diff (tgl1, tgl2)
 
 let typ_constraint_default : typ_constraint =
@@ -348,7 +348,7 @@ let cFunDef ?(args : targets = []) ?(args_pred : target_list_pred = target_list_
 let cTopFunDef
   ?(args : targets = []) ?(args_pred : target_list_pred = target_list_pred_default)
   ?(body : target = []) ?(ret_typ : string = "") ?(ret_typ_pred : typ_constraint = typ_constraint_default) (name : string) : constr =
-  cChain [ dRoot; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred name ]
+  cChain [ dRoot; cStrict; cFunDef ~args ~args_pred ~body ~ret_typ ~ret_typ_pred name ]
 
 let cTypDef
   ?(substr : bool = false) ?(regexp : bool = false) (name : string) : constr =
