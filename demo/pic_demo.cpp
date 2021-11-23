@@ -122,8 +122,8 @@ typedef struct {
   vect v[nbCorners];
 } vect_nbCorners;
 
-int_nbCorners indicesOfCorners (int idCell) {
-  coord coord = coordOfCell (idCell);
+int_nbCorners indicesOfCorners(int idCell) {
+  coord coord = coordOfCell(idCell);
   int x = coord.iX;
   int y = coord.iY;
   int z = coord.iZ;
@@ -171,7 +171,7 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 // and the opposite corner.
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rX = relativePosX(pos.x); 
+  double rX = relativePosX(pos.x);
   double rY = relativePosY(pos.y);
   double rZ = relativePosZ(pos.z);
   double cX = 1. + -1. * rX;
@@ -328,3 +328,9 @@ int main() {
 // LATER: When ClangML supports it, we'll use overloaded + and * operators on class vect
 // LATER: When ClangML supports it, we'll use higher-order iteration with a local function
 // LATER: When ClangML supports it, we'll use boost arrays for fixed size arrays
+
+
+// TODO: rename "_nbCorners" to 8
+// TODO: move particle p2 = just before the bag_push
+// TODO: replace double cX = 1. + -1. * rX;   with   double cX = 1. - rX;   and use a transformation for this change
+// TODO: int x =     make those uppercase in indicesOfCorners

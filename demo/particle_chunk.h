@@ -374,37 +374,72 @@ typedef struct bag_iter {
 
 void bag_iter_load_chunk(bag_iter* it, chunk* c) {
   it->iter_chunk = c;
-  if (c != NULL) {
-    it->size = c->size;
-    it->index = 0;
-  }
-}
-
-particle* bag_iter_current(bag_iter* it) {
-  return &(it->iter_chunk->items[it->index]);
+  // if (c == NULL) { return; }   // technically optional as we assume all bags to have at least one chunk
+  it->size = c->size;
+  it->index = 0;
 }
 
 void bag_iter_init(bag_iter* it, bag* b) {
   bag_iter_load_chunk(it, b->front);
 }
 
-bool bag_iter_finished(bag_iter* it) {
-  return it->iter_chunk == NULL;
+bag_iter bag_iter_begin(bag* b) {
+  bag_iter it;
+  bag_iter_init(&it, b);
+  return it;
 }
 
-particle* bag_iter_next_destructive(bag_iter* it) {
-  int i = it->index;
+particle* bag_iter_get(bag_iter* it) {
+  return &(it->iter_chunk->items[it->index]);
+}
+
+chunk* bag_iter_get_chunk(bag_iter* it) {
+  return it->iter_chunk;
+}
+
+// Return the next chunk in the chain, possibly Null;
+// Deallocate the argument [c] if [destructive] is true
+chunk* chunk_next(chunk* c, bool destructive) {
+  chunk* cnext = c->next;
+  if (destructive) {
+    chunk_free(c);
+  }
+  return cnext;
+}
+
+// Return the next particle, or NULL if at the end
+// (we cannot return one-past-the-end pointer because chunks are deallocated)
+particle* bag_iter_next(bag_iter* it, bool destructive) {
   it->index++;
   if (it->index == it->size) {
     chunk* c = it->iter_chunk;
-    bag_iter_load_chunk(it, c->next);
-    chunk_free(c); // because destructive iteration
-    if (bag_iter_finished(it)) {
+    chunk* cnext = chunk_next(c, destructive);
+    if (cnext == NULL) {
       return NULL;
     }
+    bag_iter_load_chunk(it, cnext);
   }
-  return bag_iter_current(it);
+  return bag_iter_get(it);
 }
+
+/*
+// example of a basic iteration over a bag
+void bag_iter_pattern(bag* b) {
+  bag_iter it = bag_iter_begin(b);
+  for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {}
+}
+
+// example of an iteration over a bag with the loop over the chunk items revealed
+void bag_iter_chunk_pattern(bag* b) {
+  for (chunk* c = b->front; c != NULL; c = chunk_next(c, true)) {
+    int nb = c->size;
+    for (int i = 0; i < nb; i++) {
+      particle* p = &c->items[i];
+      {}
+    }
+  }
+}
+*/
 
 
 //==========================================================================
