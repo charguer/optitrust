@@ -3,7 +3,7 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
   (* LATER: ARTHUR why is this giving 2 results? 
-     show [nbMulti; cFunDef "main"; cSeq(); cSeq()];  
+     show [ cFunDef "main"; cSeq(); cSeq()];  
      ARTHUR: maybe "show" should force nbMulti always
    *)  
   let tg = [cSeq ~args_pred:(Target.target_list_one_st [cVarDef "a"]) ()] in (* LATER: simplify *)

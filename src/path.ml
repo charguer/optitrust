@@ -214,6 +214,12 @@ let union (p1 : paths) (p2 : paths) : paths =
   let union_p1_p2 = Path_set.union set_of_p1 set_of_p2 in
   Path_set.elements union_p1_p2
 
+(* Compute the the diff of two resolved paths and remove duplicates *)
+let diff (p1 : paths) (p2 : paths) : paths =
+  let set_of_p1 = set_of_paths p1 in
+  let set_of_p2 = set_of_paths p2 in
+  let diff_p1_p2 = Path_set.diff set_of_p1 set_of_p2 in
+  Path_set.elements diff_p1_p2
 
 
 (******************************************************************************)

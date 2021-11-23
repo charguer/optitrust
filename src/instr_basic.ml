@@ -31,8 +31,8 @@ let delete : Target.Transfo.t =
 (* [move ~target tg] expects the target [tg] to point to the instruction which is 
     going to be moved at the relative target [where]
 *)
-let move ~dest:(where : Target.target) (tg : Target.target) : unit = 
-  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target) : unit = 
+  Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> 
       let tg_dest_path_seq, dest_index = Target.resolve_target_between_exactly_one where t in
       if tg_dest_path_seq <> p then fail None "move: the destination target should be unique and belong to the same block as the main targets";

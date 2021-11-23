@@ -146,6 +146,8 @@ and constr =
   | Constr_or of target list
   (* Constraint that matches an intersection of targets *)
   | Constr_and of target list
+  (* Constrain that match the diff between two targets *)
+  | Constr_diff of target list * target list
   (* Constraint to match arguments  that sastify both the name predicated and the type predicate *)
   | Constr_arg of var_constraint * typ_constraint
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
@@ -420,7 +422,8 @@ let rec constr_to_string (c : constr) : string =
   | Constr_prim _ -> "Prim"
   | Constr_mark (_, str) -> "Mark (" ^ str ^ ")"
   | Constr_or tl -> "Or (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
-  | Constr_and tl -> " (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
+  | Constr_and tl -> "And (" ^ Tools.list_to_string (List.map target_to_string tl) ^ ")"
+  | Constr_diff (tl1, tl2) -> "Diff (" ^ Tools.list_to_string (List.map target_to_string tl1) ^ "," ^ Tools.list_to_string (List.map target_to_string tl2) ^ ")"
   | Constr_arg _ -> "<Constr_args>"
   | Constr_hastype _ -> "<Constr_hastype>"
   | Constr_array_init -> "Array_init "
@@ -892,6 +895,26 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           | _ ->
             Path.union acc potential_targets
           end ) [] tl
+    | Constr_diff (tl1 , tl2) :: [] -> 
+      let all_targets_must_resolve = false in
+      let targets_to_keep = 
+      List.fold_left (fun acc tr ->
+          let potential_targets = resolve_target_simple tr t in
+          begin match potential_targets with
+          | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
+          | _ ->
+            Path.union acc potential_targets
+          end ) [] tl1 in
+      let targets_to_remove = 
+      List.fold_left (fun acc tr ->
+          let potential_targets = resolve_target_simple tr t in
+          begin match potential_targets with
+          | ([] | [[]]) -> acc
+          | _ ->
+            Path.union acc potential_targets
+          end ) [] tl2 in
+      Path.diff targets_to_keep targets_to_remove 
+      
     | Constr_and tl :: [] ->
         (* LATER: ARTHUR : optimize resolution by resolving the targets only by exploring
           through the paths that are candidates; using e.g. path_satisfies_target *)

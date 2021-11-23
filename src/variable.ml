@@ -132,6 +132,9 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
   Marks.remove "section_of_interest" [Target.cMark "section_of_interest"] *)
 
 
+
+
+
 let intro_pattern_array (str : string) (tg : Target.target) : unit =
   Trace.call (fun t ->
   let (pattern_vars, pattern_aux_vars, pattern_instr) = Rewrite_core.parse_pattern str in
@@ -243,13 +246,13 @@ let reverse_fold : Target.Transfo.t =
 let elim_redundant ?(source : Target.target = []) : Target.Transfo.t = 
   Target.iteri_on_targets (fun i t p -> 
     let tg_trm, _ = Path.resolve_path p t in
+    let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
+    let seq_trm, _ = Path.resolve_path path_to_seq t in
     match tg_trm.desc with 
     | Trm_let (_, (x, _), init_x) -> 
       let source_var = ref "" in
       if source = [] 
         then
-          let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
-          let seq_trm, _ = Path.resolve_path path_to_seq t in
           begin match seq_trm.desc with 
           | Trm_seq tl -> 
             Mlist.iteri (fun i t1 -> 
@@ -274,37 +277,14 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
             source_var := y
           | _ -> fail source_decl_trm.loc "elim_redundant: the soource target should point to a variable declaration"
         end;
-        Variable_basic.fold ~at:[Target.cVarDef x] [Target.cVarDef !source_var];
-        Variable_basic.inline [Target.cVarDef x]
+        Variable_basic.fold ~at:([Target.cVarDef x]) ((Target.target_of_path path_to_seq) @ [Target.cVarDef !source_var]);
+        Variable_basic.inline ((Target.target_of_path path_to_seq) @ [Target.cVarDef x])
     | _ -> fail tg_trm.loc "elim_redundant: the main target should point to the declaration of the variable you want to eliminate"
   
   )
 
 
-(* let elim_redundant1 ?(source : Target.target = []) (tg : Target.target) : unit  =
-  Trace.call (fun t ->
-    let source_paths = Target.resolve_target source t in
-    Target.iteri_on_targets ( fun i t p ->
-    if source = [] then fail None "elim_redundant: source declaration was not provided";
-    let source_decl_trm = match List.nth_opt source_paths i with
-    | Some p -> fst (Path.resolve_path p t)
-    | None -> fail t.loc "elim_redundant: the number of source targets should be equal to the number of the main targets" in
-    let tg_trm,_ = Path.resolve_path p t in
-    match source_decl_trm.desc with
-    | Trm_let (_, (a, _), _init) ->
-      begin match tg_trm.desc with
-      | Trm_let (_, (b, _), _init) ->
-          Variable_basic.fold ~at:[Target.cVarDef b] [Target.cVarDef a];
-          Variable_basic.inline [Target.cVarDef b]
-      | _ -> fail tg_trm.loc "elim_redundant: "
-      end
-    | _ -> fail source_decl_trm.loc "elim_redundant: the target to the source declaration does not resolve to a variable declaration"
-    ) tg
-  ) *)
-
-
-
-(* [insert_list ~const names typ values tg] expects the target [tg] to point to a location in a sequence
+(* [insert_list ~const names typ values tg] expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
 let insert_list ?(const : bool = false) ?(reparse : bool = false) ~defs:(defs : (string * string) list) ~typ:(typ : string) : Target.Transfo.t = 
