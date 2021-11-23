@@ -59,9 +59,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        [cFun "accumulateChargeAtCorners"]]];
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
-  (* TODO: remove the source *) (* TODO: then, try a pattern of the form: \\(coef|sign\)).1 *)
-  !! Variable.elim_redundant ~source:[nbMulti; main; cVarDef ~regexp:true ~substr:true "coef.0"] [nbMulti; main; cVarDef ~regexp:true ~substr:true "coef.1"];
-  !! Variable.elim_redundant ~source:[nbMulti; main; cVarDef ~regexp:true ~substr:true "sign.0"] [nbMulti; main; cVarDef ~regexp:true ~substr:true "sign.1"];
+  !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
 
 
   (* TODO: there remains lowercase dimensions *)

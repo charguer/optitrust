@@ -53,13 +53,13 @@ let _ = Run.script_cpp (fun () ->
   show [sInstr "r += 2"];
   show [sInstr "i++"];
   show [nbExact 6; sInstrRegexp "int . = .."];
-  show [nbMulti; sInstrRegexp ~substr:true ". = ."];
+  show [ sInstrRegexp ~substr:true ". = ."];
   show [nbExact 1; sInstrRegexp ~substr:false ". = ."];
   show [nbExact 1; sInstr "int r = 3"];
   show [nbExact 0; sExpr "int r = 3"];
   show [sInstr "i++" ];
   show [nbExact 2; sInstrRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
-  show [nbMulti;cVarDef ~regexp:true "r|s"];
+  show [cVarDef ~regexp:true "r|s"];
   
   (* Declarations *)
   show [cDef "s"];

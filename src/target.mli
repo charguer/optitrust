@@ -145,6 +145,8 @@ val cOr : target list -> constr
 
 val cAnd : target list -> constr
 
+val cDiff : target list -> target list -> constr
+
 val cHasTypePred : (typ -> bool) -> constr
 
 val cHasTypeAst : typ -> constr
@@ -307,9 +309,9 @@ val applyi_on_targets : (int -> trm -> path -> trm) -> target -> unit
 
 val apply_on_targets : (trm -> path -> trm) -> target -> unit
 
-val applyi_on_transformed_targets : (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
+val applyi_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (int -> trm -> 'a -> trm) -> target -> unit
 
-val apply_on_transformed_targets : (path -> 'a) -> (trm -> 'a -> trm) -> target -> unit
+val apply_on_transformed_targets : ?rev:bool -> (path -> 'a) -> (trm -> 'a -> trm) -> target -> unit
 
 
 val iteri_on_targets : (int -> trm -> path -> unit) -> target -> unit

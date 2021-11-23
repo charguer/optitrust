@@ -213,6 +213,9 @@ let cOr (tgl : target list) : constr =
 let cAnd (tgl : target list) : constr =
   Constr_and tgl
 
+let cDiff (tgl1 : target list) (tgl2 : target list) : constr = 
+  Constr_diff (tgl1, tgl2)
+
 let typ_constraint_default : typ_constraint =
   (fun _ -> true)
 
@@ -697,12 +700,13 @@ let fix_target (tg : target) : target =
   if (not check_occurrences) && check_logic then nbMulti :: tg else tg
 
 
-let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
+let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   let tg = fix_target tg in
   Trace.apply (fun t ->
     let ps =
       Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_targets" (fun () ->
         resolve_target tg t) in
+    let ps = if rev then List.rev ps else ps in
     let marks = List.map (fun _ -> Mark.next()) ps in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
     (* Tools.printf "%s\n" (Ast_to_c.ast_to_string t); *)
@@ -741,8 +745,8 @@ let applyi_on_transformed_targets (transformer : path -> 'a) (tr : int -> trm ->
     return:
       unit
 *)
-let apply_on_transformed_targets (transformer : path -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
-  applyi_on_transformed_targets  transformer (fun _i t descr -> tr t descr) tg
+let apply_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : trm -> 'a -> trm) (tg : target) : unit =
+  applyi_on_transformed_targets  ~rev transformer (fun _i t descr -> tr t descr) tg
 
 
 (* [applyi_on_targets ~replace tr tg]:  A specialization of [applyi_on_transformed_targets] but here the transformer

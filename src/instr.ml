@@ -68,7 +68,7 @@ let gather_targets ~dest:(dest : gather_dest) (tg : Target.target) : unit =
     tg_dest := tg_dest1
   end;
   let tg = Target.enable_multi_targets tg in
-  Instr_basic.move ~dest:!tg_dest tg
+  Instr_basic.move ~rev:true ~dest:!tg_dest tg
   
 
 
