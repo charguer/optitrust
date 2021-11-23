@@ -21,7 +21,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
+  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]]; (**)
     (* ARTHUR: try to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
@@ -63,10 +63,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
   (* TODO: there remains lowercase dimensions *)
-  
+
   !! Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.0"];
      Instr.(gather_targets ~dest:GatherAtFirst) [nbMulti; cVarDef ~regexp:true ~substr:true "i.1"];
-  
+
 
   (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
      Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
@@ -205,7 +205,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Introduction of the computation *)
 
-  !! Variable.insert_list ~defs:[("blockSize","2"); ("2","blockSize / 2")] ~typ:"int" [tBefore; cVarDef "nbCells"]; (* TODO: put in the form ~defs[("int", ...] *) *)
+  !! Variable.insert_list ~defs:[("blockSize","2"); ("2","blockSize / 2")] ~typ:"int" [tBefore; cVarDef "nbCells"]; (* TODO: put in the form ~defs[("int", ...] *)
       (* TODO: "2","blockSize / 2" does not seem right, because "2" is not a variable name...was it halfBlockSize? *)
      Variable.insert ~name:"distanceToBlockLessThanHalfABlock" ~typ:"bool"  ~value:"(ix >= bix + d && ix < bix + blockSize + d)&& (iy >= biy + d && iy < biy + blockSize + d) && (iz >= biz + d && iz < biz + blockSize + d)" [tAfter; main; cVarDef "iz"];
      Instr.replace (Ast.trm_var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
