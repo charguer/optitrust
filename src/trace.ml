@@ -193,8 +193,38 @@ let reset () : unit =
   close_logs();
   traces := [trace_dummy]
 
-(* Storage for the current ml script *)
-let ml_file = ref []
+(* [ml_file_excerpts] maps line numbers to the corresponding sections in-between [!!] marks in
+   the source file. Line numbers are counted from 1 in that map. *)
+module Int_map = Map.Make(Int)
+let ml_file_excerpts = ref Int_map.empty
+
+(* [compute_ml_file_excerpts lines] is a function for grouping lines according to the [!!] symbols. *)
+let compute_ml_file_excerpts (lines : string list) : string Int_map.t =
+  let r = ref Int_map.empty in
+  let start = ref 0 in
+  let acc = Buffer.create 3000 in
+  let push () =
+    r := Int_map.add (!start+1) (Buffer.contents acc) !r;
+    Buffer.clear acc; in
+  let regexp_let = Str.regexp "^[ ]*let" in
+  let starts_with_let (str : string) : bool =
+    Str.string_match regexp_let str 0 in
+  let regexp_double_quote = Str.regexp "^[ ]*!!" in
+  let starts_with_double_quote (str : string) : bool =
+    Str.string_match regexp_double_quote str 0 in
+  let process_line (iline : int) (line : string) : unit =
+    if starts_with_double_quote line then begin
+      push();
+      start := iline;
+    end;
+    if not (starts_with_let line) then begin
+      Buffer.add_string acc line;
+      Buffer.add_string acc "\n";
+    end;
+    in
+  List.iteri process_line lines;
+  push();
+  !r
 
 (* [init f] initialize the trace with the contents of the file [f].
    This operation should be the first in a transformation script.
@@ -209,11 +239,14 @@ let init ?(prefix : string = "") (filename : string) : unit =
   let extension = Filename.extension basename in
   let directory = (Filename.dirname filename) ^ "/" in
   let default_prefix = Filename.remove_extension basename in
-  let ml_file_name = if Tools.pattern_matches "_inlined" default_prefix then
-  List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0 else default_prefix in
-  ml_file := if !Flags.analyse_time then
-              Xfile.get_lines (ml_file_name ^ ".ml")
-              else [];
+  let ml_file_name =
+    if Tools.pattern_matches "_inlined" default_prefix
+      then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
+      else default_prefix in
+  if !Flags.analyse_time then begin
+    let lines = Xfile.get_lines (ml_file_name ^ ".ml") in
+    ml_file_excerpts := compute_ml_file_excerpts lines;
+  end;
   start_time := Unix.gettimeofday ();
   last_time := !start_time;
   let prefix = if prefix = "" then default_prefix else prefix in
@@ -646,11 +679,11 @@ let check_exit_and_step ?(line : int = -1) (* ~is_small_step *) ?(reparse : bool
     end;
     if !Flags.analyse_time then begin
       let txt =
-      match List.nth_opt !ml_file (line - 1) with
+      match Int_map.find_opt line !ml_file_excerpts with
       | Some txt -> txt
       | None -> "<unable to retrieve line from script>"
       in
-      write_timing_log (Printf.sprintf "------------------------\n[line %d]  %s\n" line txt);
+      write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
     end;
     step();
  end

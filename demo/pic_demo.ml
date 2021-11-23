@@ -15,7 +15,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part1: space reuse *)
   !! Variable.reuse ~space_ast:(trm_access (trm_var "p") "speed") [main; cVarDef "speed2"];
      Variable.reuse ~space_ast:(trm_access (trm_var "p") "pos") [main; cVarDef "pos2"];
-  
+
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext" ];
   !! Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
@@ -84,18 +84,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.inline "speed" [cTypDef "particle"];
      Struct.inline "pos" [cTypDef "particle"];
 
-
-  (* LATER: ~parser:Clang_full | Clang | Menhir *)
   (* Part: scaling of speeds and positions #7 *)
   !! Variable.insert_list ~reparse:true ~typ:"const double"
         ~defs:(("factor", "particleCharge * stepDuration * stepDuration / particleMass")
               :: map_dims (fun d -> ("factor" ^ d), ("factor / cell" ^ d)) ) [tBefore; cVarDef "nbSteps"];
 
    (* TODO
-   let cdouble = "const double" in
    Variable.insert_list ~reparse:true ~defs:(
-         [cdouble, "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
-       @ (map_dims (fun d -> cdouble, ("factor" ^ d), ("factor / cell" ^ d))))
+         ["const double", "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
+       @ (map_dims (fun d -> "const double", ("factor" ^ d), ("factor / cell" ^ d))))
      [tBefore; cVarDef "nbSteps"];
   *)
 
@@ -108,8 +105,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d ->
        Accesses.scale (* TODO ~reparse:false *) ~factor:("stepDuration / cell" ^ d) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
   !! iter_dims (fun d ->
-       Accesses.scale ~factor:("1. / cell" ^ d) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-
+       Accesses.scale (* TODO ~reparse:false *) ~factor:("1. / cell" ^ d) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
+  (* TODO: do the reparse here, only once *)
 
 
   (* Part: grid_enumeration *)
