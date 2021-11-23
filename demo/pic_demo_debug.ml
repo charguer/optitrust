@@ -2,91 +2,19 @@ open Optitrust
 open Target
 open Ast
 
-let main = cTopFunDef "main" 
+let main = cFunDef "main"
 
 let dims = ["X";"Y";"Z"]
 let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
-
-  (* Part: inlining of the bag iteration *) (* skip #1 *) (* ARTHUR *)
-
-  (* Part1: space reuse *)
-  !! Variable.reuse ~space_ast:(trm_access (trm_var "p") "speed") [main; cVarDef "speed2"];
-     Variable.reuse ~space_ast:(trm_access (trm_var "p") "pos") [main; cVarDef "pos2"];
-
-  (* Part: Introducing an if-statement for slow particles *)
-  !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext" ];
-  !! Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
-  !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
-     Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]]; (**)
-    (* ARTHUR: try to not inline the bag_push operations, but to modify the code inside those functions *)
-
-  (* Part: optimization of vect_matrix_mul *)
-  let ctx = cTopFunDef "vect_matrix_mul" in
-  !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-     Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
-     (* LATER: !! Loop.fission [nbMulti; tAllInBetween; ctx; cFor "k"; cSeq]; *)
-     Loop.fission [nbMulti; tAfter; ctx; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
-     Loop.unroll [nbMulti; ctx; cFor "k"];
-  !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"];
-  !! Function.inline [cFun "vect_matrix_mul"];
-
-  (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  let ctx = cTopFunDef "cornerInterpolationCoeff" in
-  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
-  !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array "double coefX, signX, coefY, signY, coefZ, signZ; ==>  double rX, rY, rZ; ==> (coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);" [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; (* TODO:
-        PatternArray.({ vars = "double ...";
-          context = "...";
-          pattern = "... " }) *)
-          (* ARTHUR: check if with the new parser we could do "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z;"  and "(coef_x + sign_x * _) * (coef_y + sign_y * _) * (coef_z + sign_z * _);" *)
-  !! Loop.fold_instrs ~index:"k" [ctx; sInstr "r.v"];
-
-  (* Part: reveal fields *)
-  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
-  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
-  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Variable.inline [cOr [[cVarDef "p2"]; [cVarDef "p"]]];
-  !! Struct.to_variables [cVarDef "fieldAtPos"];
-
-  (* Part: optimization of accumulateChargeAtCorners *)
-  !! Function.inline [cOr [
-       [cFun "vect8_mul"];
-       [cTopFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
-       [cFun "accumulateChargeAtCorners"]]];
-  !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
-  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
-  !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
   
-  (* TODO: Fix the issue with fusion_targets *)
-  (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
-     Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
-  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; cVarDef "coeffs2"])) [main;cVarDef ~regexp:true "\\(delta\\|indice\\)."];
-  !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
-
-  (* TODO:  if the read is on an access  P  then search above in the same trm_seq  for a write at P
-          (when the write argument is not provided) *)
-!!! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; 
-    Instr.inline_last_write ~delete:true ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
-
-  (* Part: AOS-SOA *)
-  !! Struct.inline "speed" [cTypDef "particle"];
-     Struct.inline "pos" [cTypDef "particle"];
-
-  (* Part: scaling of speeds and positions #7 *)
-  !! Variable.insert_list ~reparse:true ~defs:(
-         ["const double", "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
-       @ (map_dims (fun d -> "const double", ("factor" ^ d), ("factor / cell" ^ d))))
-     [tBefore; cVarDef "nbSteps"];
-
   (* Part: scaling of field, speeds and positions *)
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
   !! Variable.inline [cVarDef "accel"];
-  !!! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
+  !! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
   (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
@@ -202,8 +130,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: optimize chunk allocation *)  (* ARTHUR *)
   (* skip #16 *)
-
-
 
 )
 

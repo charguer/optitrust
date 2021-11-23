@@ -17,9 +17,6 @@ let scale ?(reparse : bool = false) ~factor:(factor:trm) (tg : Target.target) : 
   transform ~reparse f_get f_set tg
 
 
-
-
-
 (* [shift ~factor ~factor_ast tg] this function is a specialization of the function transform where the functions f_get and f_set
     are given explicitly as the substraction  and addition respectively
 *)
