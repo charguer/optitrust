@@ -34,7 +34,7 @@ let shift (* TODO: ?neg:bool=false *) ?(factor : string option) ?(factor_ast : t
   let reparse = not (is_trm arg) in
   transform ~reparse f_get f_set tg
   with | Ast_and_code_provided -> fail None "shift: please choose between factor and factor_ast arg"
-       | No_ast_or_code_provided -> fail None "shift: expected for the code entered as string or the ast of that code"
+       | No_ast_or_code_provided -> fail None "shift: expected the code entered as string or the ast of that code"
   end
 
  (* LATER: Define shift_access that applies to a target on accesses and calls shift on the parent path *)

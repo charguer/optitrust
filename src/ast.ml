@@ -1895,3 +1895,7 @@ let is_infix_prim_fun (p : prim) : bool =
     | _ -> false
     end
   | _ -> false
+
+(* [trm_access base field] create a dummy access without type checking*)
+let trm_access (base : trm) (field : var) : trm = 
+  trm_apps (trm_unop (Unop_struct_field_addr field)) [base]
