@@ -29,10 +29,10 @@ let iter_delete (tgl : target list) : unit =
         used only for internal purposes.                     }
    [nb] is the number of instructions to be moved inside the sub-sequence.
      If [nb] = 1 means then this transformation is basically the same as intro_on_instr.
-     If [nb] is greater than one then it means that the instructions which comes right after
+     If [nb] is greater than one then it means that the instructions which come right after
       the targeted instruction will be included in the sub-sequence too.
-    TODO: document negative [nb]
-
+    If [nb] is lwoer than one then it means that the instructions which come before
+      the targeted instruction will be included in the sub-sequence too.
    Ex: int main(){     int main(){
         int x = 5;      { int x = 5}
         iny y = 6;      int y = 6;
@@ -42,6 +42,22 @@ let iter_delete (tgl : target list) : unit =
 let intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : Target.target) : unit =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
   (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
+
+
+(* [intro_after ~marks ~label tg] same as intro but this function will include in the sequence all the instructions 
+    which come after the targeted instruction and belong to the same scope.
+ *)
+let intro_after ?(mark : string = "") ?(label : label = "") (tg : Target.target) : unit = 
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p, i) -> Sequence_core.intro_after mark label i t p) tg
+
+(* [intro_before ~marks ~label tg] same as intro but this function will include in the sequence all the instructions 
+    which come before the targeted instruction and belong to the same scope.
+ *)
+let intro_before ?(mark : string = "") ?(label : label = "") (tg : Target.target) : unit = 
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p, i) -> Sequence_core.intro_before mark label i t p) tg
+
 (* [intro_between tg_beg tg_end]: this transformation is an advanced version of intro.
    The difference is that instead of giving the number of instructions one want's to put
    inside a sub-sequence, the first and the last trm of the on-coming sub-sequence are given.
@@ -61,6 +77,9 @@ let intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) 
         then fail t.loc "intro_between: target for end should be past the target for start";
       (p1, i1, i2 - i1)) ps_beg ps_end in
     List.fold_left (fun t (p,i,nb) -> Sequence_core.intro mark label i nb t p) t pis))
+
+
+
 
 
 (* [elim tg] expects the target [tg] to point at a sequence that appears

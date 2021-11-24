@@ -20,15 +20,14 @@ let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int 
   | _ ->  begin match nb with
           | 0 -> if (start <> [] && stop <> [])
                   then Sequence_basic.intro_between ~mark start stop
-                  else fail None "intro: when nb is not provided, both start and stop need to be provided"
-                (* TODO   Sequence_basic.intro_after  and intro_before:
-                     if only start is given, then go from start target to the end of the sequence
-                     if only stop is given, then go from the beginning of the sequence until the stop target
-                *)
+                  else begin match start, stop with
+                       | _, [] -> Sequence_basic.intro_after ~mark start
+                       | [], _ -> Sequence_basic.intro_before ~mark stop
+                       | _,_ -> fail None "intro: can't enter both the start and stop and the number of instruction to include inside the sequence"
+                       end
           | _ -> begin match start, stop with
-                (* TODO: Sequence_basic.intro_nb *)
                 | _, [] -> Sequence_basic.intro ~mark nb start
                 | [], _ -> Sequence_basic.intro ~mark (-nb) stop
                 | _,_ -> fail None "intro: can't enter both the start and stop and the number of instruction to include inside the sequence"
                 end
-          end
+         end

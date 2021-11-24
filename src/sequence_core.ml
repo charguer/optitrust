@@ -42,7 +42,7 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path (delete_aux index nb_instr)
 
 
-(* [intro_aux index nb t]: inside a sequence, move all the trms with findex falling in a range 
+(* [intro_aux index nb t]: inside a sequence, move all the trms with index falling in a range 
       from [index] to [index] + [nb] into a sub-sequence.
     params:
       |mark]: mark to insert on the new sequence
@@ -51,7 +51,7 @@ let delete (index : int) (nb_instr : int) : Target.Transfo.local =
       [ts]: a list of ast nodes
       [t]: ast of the outer sequence where the insertion is performed
     
-    ote: if both the mark and the label are given then transformation will fail
+    Note: if both the mark and the label are given then transformation will fail
     
     return: the sequence with the inserted nodes
 *)
@@ -72,6 +72,62 @@ let intro_aux (mark : string) (label : label) (index : int) (nb : int) (t : trm)
 
 let intro (mark : string) (label : label) (index : int) (nb_instr : int) : Target.Transfo.local =
   Target.apply_on_path (intro_aux mark label index nb_instr)
+
+(* [intro_after_aux index nb t]: inside a sequence, move all the trms with index greater than [index] inside a 
+      sequence
+    params:
+      |mark]: mark to insert on the new sequence
+      [label]: a label to insert on the new sequence
+      [index]: index where the grouping is performed
+      [ts]: a list of ast nodes
+      [t]: ast of the outer sequence where the insertion is performed
+    Note: if both the mark and the label are given then transformation will fail
+    
+    return: ast of the sequence with the new subsequnece
+*)
+let intro_after_aux (mark : mark)(label : label) (index : int) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    let tl_up, tl_down = Mlist.split index tl in
+    let intro_seq = trm_seq tl_down in
+    let intro_seq = if mark <> "" then trm_add_mark mark intro_seq
+                                  else if label <> "" then trm_labelled label intro_seq
+                                  else intro_seq in
+    let new_tl = Mlist.merge tl_up (Mlist.of_list [intro_seq]) in
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+  | _ -> fail t.loc "intro_after_aux: expected the sequence which contains the targeted instruction"
+
+let intro_after (mark : mark) (label : label) (index : int) : Target.Transfo.local = 
+  Target.apply_on_path (intro_after_aux mark label index)
+
+
+(* [intro_before_ux index nb t]: inside a sequence, move all the trms with index lower than [index] inside a 
+      sequence
+    params:
+      |mark]: mark to insert on the new sequence
+      [label]: a label to insert on the new sequence
+      [index]: index where the grouping is performed
+      [ts]: a list of ast nodes
+      [t]: ast of the outer sequence where the insertion is performed
+    Note: if both the mark and the label are given then transformation will fail
+    
+    return: ast of the sequence with the new subsequnece
+*)
+let intro_before_aux (mark : mark)(label : label) (index : int) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl ->
+    let tl_up, tl_down = Mlist.split index tl in
+    let intro_seq = trm_seq tl_down in
+    let intro_seq = if mark <> "" then trm_add_mark mark intro_seq
+                                  else if label <> "" then trm_labelled label intro_seq
+                                  else intro_seq in
+    let new_tl = Mlist.merge (Mlist.of_list [intro_seq]) tl_up  in
+    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+  | _ -> fail t.loc "intro_before_aux: expected the sequence which contains the targeted instruction"
+
+let intro_before (mark : mark) (label : label) (index : int) : Target.Transfo.local = 
+  Target.apply_on_path (intro_before_aux mark label index)
+
 
 (*[elim_aux index t]: inline an inner sequence into an outer sequence.
     params:
