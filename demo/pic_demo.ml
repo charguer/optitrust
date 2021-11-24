@@ -14,44 +14,17 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO:
     - see todo in file particle_chunk.h, next to function  bag_ho_iter_basic
     - see todo in file pic_demo.cpp on how to write the loop code, just above "while (true)"
-    - See todo in [rule_match] for how to handle sequence and for loops in that function
-    - define [trm_fun args body] as short for [trm_let_fun "" args body]
-
-    - the script for replacing the loop, at the "basic" level, will be as follows:
-        -- put  the [bag_iter it =] instruction with the [for] loop into a sequence
-        -- call the new [Function.uninline] operation, which is the opposite of inlining,
-           on bag_ho_iter_basic, to replace the sequence with a term of the form
-             trm_app "bag_ho_iter_basic" [trm_var "b"; trm_fun ["p",_] body)].
-            // beware that the term obtained is not valid C code, but it will be valid in C23.
-        -- replace bag_ho_iter_basic with bag_ho_iter_chunk
-        -- inline bag_ho_iter_chunk
-        -- beta-reduce the call [trm_app (trm_fun ["p",_] body) [trm_var "p"]
-           to simply [body]   (here, "p" is replaced with "p"); this is a new transformation.
-
-      in summary, we would have something like:
+    - see todo in file tests/basic/function_uninline and iteration_replace.ml
+    - the script here should be like:
+       Pattern.replace ~source:[cFunDef "bag_ho_iter_basic"] ~target:["cFunDef bag_ho_iter_chunk"]  [cVarDef "it"];
+    - internally, the transformation would be equivalent to performing those steps:
         Sequence.intro ~mark:"iter" ~nb:2 [cVarDef "it"];
         Function.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "iter"];
         Expr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"];
         Function.inline [main; cFun "bag_ho_iter_chunk"];
         Function.beta [cFor "i"; cAppFun()];  // where cAppFun() = "cApp ~base:[cStrict; cFunDef]()"
         Mark.rem "iter"  // a shorthand for Mark.remove [cMark "iter"]
-
-    - then, we can think of combi-level operations, to perform the sequence.intro,
-      and the sequence.elim on-the-fly for the body, and the fact of picking the body
-      of the functions. Overall combi-level the script would look like:
-
-        Iteration.replace ~source:[cFunDef "bag_ho_iter_basic"] ~target:["cFunDef bag_ho_iter_chunk"]  [cVarDef "it"];
-          // the ~nb argument of sequence intro should automatically be set to the number
-          //   of instructions in the body of the source function
-          // the ~vars argument of inlining should be exposed in Iteration.replace,
-          //   to allow for customizing variables such as "nb" and "i".
-
-    - Details on Function.uninline  // for now, we only support unit type functions
-        - target a term [t]   (usually a sequence)
-        - consider a function definition   [void f(x) {body}]
-        - the idea is to replace [t] with [f(a)] for the right argument a
-        - this is done by comparing [t] and [body], to find the instantiation of [x]
-          that corresponds to [a]; this isi mplemented using [rule_match].
+        // maybe also with a sequence.inline on the body
 
   *)
 
