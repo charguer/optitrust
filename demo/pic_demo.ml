@@ -14,7 +14,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* TODO:
     - see todo in file particle_chunk.h, next to function  bag_ho_iter_basic
     - see todo in file pic_demo.cpp on how to write the loop code, just above "while (true)"
-    - see todo in file tests/basic/function_uninline and iteration_replace.ml
+    - see todo in file tests/basic/function_uninline and pattern_replace.ml and function_beta.ml
     - the script here should be like:
        Pattern.replace ~source:[cFunDef "bag_ho_iter_basic"] ~target:["cFunDef bag_ho_iter_chunk"]  [cVarDef "it"];
     - internally, the transformation would be equivalent to performing those steps:
