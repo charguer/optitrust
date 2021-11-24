@@ -94,40 +94,6 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
 
     | Trm_var _, Trm_val _ -> () (* TODO: i'm not sure what this case is for...*)
 
-    (* TODO: add more cases:
-    | Trm_for_c (init1, cond1, step1, body1), Trm_for_c (init2, cond2, step2, body2) ->
-        aux init1 inti2;
-        aux cond1 cond2;
-        aux step1 step2;
-        aux body1 body2;
-
-    | Trm_seq tl1, Trm_seq tl2 ->
-        aux_list (MList.to_list tl1) (MList.to_list tl2)
-       (* LATER: in the future, we will have a more relaxed treatment, so that
-          [t1; t2; t3] can match the pattern [t1; body(p)] successfully,
-          with [body] being instantiated as [trm_fun ["p", typ_auto] trm_seq [t2; t3])]
-        *)
-
-    (* next case is for treating matching against pattern such as [body(i)],
-       where [body] is a pattern variable that corresponds to a function. *)
-    | Trm_apps ({ desc = Trm_var x}, ts1), _ when List.mem x vars ->
-         let saved_inst = !inst in
-         try begin
-           match t2.desc with | Trm_apps (f2, ts2) when List.length ts1 = List.length ts2 ->
-              find_occurrence x f2;
-              aux_list ts1 ts2
-           end
-        with Rule_mismatch ->
-           inst := saved_inst in
-           let args = List.map fresh_var ts1 in
-           aux_list ~vars:(vars@args) ts1...
-           let body = ...  (* TODO: find the instances of the arguments *)
-           find_occurence x (trm_fun ["p'', typ_auto] body)
-
-          // where
-
-    *)
-
     (* TODO: I am not sure that it is correct to go throught the get operations like done
        in the 3 cases below; we had discussed this in the past *)
     | Trm_apps (_f1, [ts1]), Trm_val _ ->
