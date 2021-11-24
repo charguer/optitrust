@@ -197,7 +197,9 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
   ) tg
 
 
-(* [beta ~tg] *)
+(* [beta ~tg] expects if the target [tg] is given then this transformation expects this target to be pointing to a function call
+      if not, then this transformation will try to target all the beta function declarations and reduce them
+*)
 let beta ?(tg : Target.target = []) () : unit = 
   let tg = match tg with | [] -> [Target.cFun "" ~args:[[Target.cFunDef ""]]] | _ -> tg in
   Target.iter_on_targets (fun t p ->
@@ -209,7 +211,7 @@ let beta ?(tg : Target.target = []) () : unit =
       let parent_path, _ = Tools.unlast p in
       let parent_node, _ = Path.resolve_path parent_path t in
       begin match parent_node.desc with 
-      | Trm_apps (_, args) -> () 
+      | Trm_apps (_, args) -> Trace.set_ast (trm_apps ~annot:parent_node.annot ~marks:parent_node.marks (trm_var f) args)
       | _ -> ()
       end
     | _ -> fail t.loc "beta: this transformation expects a target to a function call"
