@@ -59,8 +59,7 @@ let timing ?(cond : bool = true) ?(name : string = "") (f : unit -> 'a) : 'a =
     let t0 = Unix.gettimeofday () in
     let res = f() in
     let t1 = Unix.gettimeofday () in
-    let nb_ms = int_of_float (1000. *. (t1 -. t0)) in
-    let msg = Printf.sprintf "%d\tms -- %s\n" nb_ms name in
+    let msg = Printf.sprintf "%d\tms -- %s\n" (Tools.milliseconds_between t0 t1) name in
     write_timing_log msg;
     res
   end else begin
@@ -76,10 +75,10 @@ let last_time  = ref (0.)
 (* [last_time_update()] updates [last_time] and returns the delay
    since last call *)
 let last_time_update () : int =
+  let t0 = !last_time in
   let t = Unix.gettimeofday() in
-  let dt = t -. !last_time in
   last_time := t;
-  int_of_float (1000. *. dt)
+  Tools.milliseconds_between t0 t
 
 (* [report_time_of_last_step()] reports the total duration of the last step *)
 let report_time_of_last_step () : unit =

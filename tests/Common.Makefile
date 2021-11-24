@@ -83,6 +83,9 @@ execute: $(EXECUTE:.ml=.exec)
 optitrust: clean
 	$(MAKE) -C $(OPTITRUST) install
 
+# 'make recheck' is a shorthand for 'make optitrust' followed with 'make check'
+recheck: optitrust check
+
 # 'make expected' produces all the '_exp.cpp' files
 expected: $(TESTS:.ml=.exp)
 
@@ -120,9 +123,15 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 #	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
 
 # Rule for building the output of a test: build the binary and run it; result depends on input .cpp file
+#-----begin rules for non-batch mode------
+ifeq ($(BATCH),)
+
 %_out.cpp: %.byte %.cpp
 	$(V)OCAMLRUNPARAM=b ./$<
 	@echo "Produced $@"
+
+endif
+#-----end rules for non-batch mode------
 
 # Rule for building the binary associated with a test
 %.byte: %.ml $(OPTITRUSTLIB)
@@ -157,6 +166,44 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # LATER: we might want to activate more warnings, e.g.
 # MOREWARNINGS=-Wall -Wno-unused-variable -Wunused-but-set-variable
+
+
+#######################################################
+# Batch-Targets
+
+# 'make batch_check' is like 'make check' but it builds a single binary for executing all the tests at once.
+# It is equivalent to 'make BATCH=1 recheck'.
+# For a subset of the tests, use the syntax 'make BATCH=1 TESTS="foo.ml bar.ml"'.
+
+# 'make batch_recheck' is similar but for 'recheck' instead of 'check'.
+# 'make batch' is a shorthand for this.
+
+batch_check: clean_batch
+	$(MAKE) BATCH=1 check
+
+batch_recheck: clean_batch
+	$(MAKE) BATCH=1 recheck
+
+batch: batch_recheck
+
+clean_batch:
+	$(V)rm -f batch.ml
+
+#-----begin rules for batch mode------
+
+ifeq ($(BATCH), 1)
+
+# Create batch.ml by concatenating all tests files, and fixing each call to 'Run.script_cpp'
+batch.ml: $(OPTITRUST)/tests/batch_tests.sh $(TESTS)
+	$(V) $^ > $@
+
+# Produce all '_out.cpp' files at once by running 'batch.byte' (obtained by compiling 'batch.ml')
+$(TESTS:.ml=_out.cpp): batch.byte $(TESTS:.ml=.cpp)
+	$(V)OCAMLRUNPARAM=b ./$<
+	@echo "Executed batch.byte to produce all output files"
+
+endif
+#-----end rules for batch mode------
 
 
 #######################################################
@@ -195,7 +242,7 @@ clean_chk:
 	$(V)rm -rf *.chk
 
 clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp batch.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

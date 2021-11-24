@@ -27,9 +27,11 @@ let script (f : unit -> unit) : unit =
     (fun _ -> raise (Arg.Bad "Error: no argument expected"))
     ("usage: no argument expected, only options");
   try
-    let t1 = Unix.gettimeofday () in
+    let t0 = Unix.gettimeofday() in
     f ();
-    Tools.printf "Total time to execute the script %f" (Unix.gettimeofday () -. t1);
+    let t1 = Unix.gettimeofday() in
+    if !Flags.analyse_time
+      then Tools.printf "Script execution time: %d ms\n" (Tools.milliseconds_between t0 t1);
   with | Failure s | Ast.TransfoError s ->
     Trace.finalize();
     (* failwith s *)
@@ -70,7 +72,8 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
 
 (* [script_cpp f] is a specialized version of [script f] that:
    - automatically invokes [Trace.init "foo.cpp"] at start,
-     where "foo" is the basename of the current script named "foo.ml";
+     where "foo" is the basename of the current script named "foo.ml"
+     (alternatively, this name can be specified using the ~filename argument).
    - automatically invokes [Trace.dump] at the end of the script;
      (the main output file is named "foo_out.cpp").
    - [~check_exit_at_end:false] is an option for deactivating the implicit call to [Trace.check_exit_and_step()]
@@ -79,15 +82,16 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
      the other, meaning that "bar.h" will be inlined if included from "foo.cpp". *)
-let script_cpp ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
+let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   (* LATER: see what happens of the directory... *)
   let basename =
-    let b = get_basename() in
-    if String.length b > 2 && b.[0] = '.' && b.[1] = '/'
-      then String.sub b 2 (String.length b - 2)
-      else b
-    in
+    if filename <> "" then Filename.chop_extension filename else begin
+      let b = if filename <> "" then filename else get_basename() in
+      if String.length b > 2 && b.[0] = '.' && b.[1] = '/'
+        then String.sub b 2 (String.length b - 2)
+        else b
+    end in
   let default_prefix = Filename.remove_extension basename in
   let prefix = if prefix = "" then default_prefix else prefix in
   let default_input_file = basename ^ ".cpp" in

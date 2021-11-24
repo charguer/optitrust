@@ -7,7 +7,10 @@ TEST_DIRS = \
 	basic \
 	combi \
 
-TARGETS=all optitrust transfo check clean
+# Path to the folder containing optitrust main Makefile, on which to call make install
+OPTITRUST ?= ..
+
+TARGETS=all transfo check clean batch_check
 
 ##############################################################################
 # Targets
@@ -15,6 +18,14 @@ TARGETS=all optitrust transfo check clean
 .PHONY: $(TARGETS) seq
 
 # "make all" and "make clean" can be run in parallel on all directories.
+
+# "make optitrust" reinstalls the library once, and clean all directories
+optitrust:
+	$(MAKE) -C $(OPTITRUST) install
+	$(MAKE) clean
+
+batch_recheck: optitrust
+	$(MAKE) batch_check
 
 $(TARGETS): $(TEST_DIRS)
 
