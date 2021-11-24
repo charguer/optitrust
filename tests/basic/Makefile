@@ -7,9 +7,12 @@ TARGET_MAKE_ALL := check
 
 TESTS_TOCHECK := \
 
-TESTS_WORKING := \
+TESTS_BROKEN := \
 	accesses_scale.ml \
 	accesses_shift.ml \
+  flow_insert_if.ml \
+
+TESTS_WORKING := \
 	aos_to_soa_sized_array.ml \
 	aos_to_soa_typedef.ml \
 	array_set_explicit.ml \
@@ -17,11 +20,10 @@ TESTS_WORKING := \
 	array_tile.ml \
 	array_to_variables.ml \
 	cast_insert.ml \
-	flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
-	instr_read_last_write.ml \
 	instr_move.ml \
+	instr_read_last_write.ml \
 	instr_replace.ml \
 	instr_replace_fun.ml \
 	label_add.ml \
@@ -78,7 +80,7 @@ TESTS_TOCHECK := \
 	matrix_reorder_dims.ml \
 	instr_accumulate.ml \
 	struct_simpl_proj.ml \
-	function_use_infix.ml \
+	function_use_infix_ops.ml \
 
 
 # arith_simpl.ml
@@ -90,6 +92,10 @@ TESTS_TOCHECK := \
 # TODO: script for vscode opening
 
 TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK)
+
+
+# TEMPORARY FOR TESTING MAKEFILE
+# TESTS := loop_color.ml loop_fission.ml loop_fusion.ml
 
 COMPILE := \
 	loop_grid_enumerate.ml \

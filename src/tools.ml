@@ -103,12 +103,12 @@ end
 let fresh_generator ?(init : bool = false)() : (unit -> int) =
   let n = ref 0 in
   fun () ->
-    if init then 
+    if init then
       n := 0 else incr n;
     !n
 
 (* [reset_generator ()] reset the generator to avoid id clashes when reparsing *)
-let reset_generator () : unit = 
+let reset_generator () : unit =
   let _x = fresh_generator ~init:true () in ()
 
 (* used for unit tests *)
@@ -176,7 +176,7 @@ let remove_duplicates (lst : 'a list) =
   let unique_set = Hashtbl.create (List.length lst) in
   List.iter (fun x -> Hashtbl.replace unique_set x ()) lst;
   Hashtbl.fold (fun x () xs -> x :: xs) unique_set []
- 
+
 
 
 
@@ -298,15 +298,19 @@ let pattern_matches (pattern : string) (s : string) : bool =
 (* for pattern_matching when the args or the pattern are ginve as Ex:
     double a, b, c; this function converst them into double a, double b, double c
  *)
-let fix_pattern_args (var_decls : string) : string =  
-  let aux (var_decl : string) : string = 
+let fix_pattern_args (var_decls : string) : string =
+  let aux (var_decl : string) : string =
     let args_decl_list = Str.split (Str.regexp_string ",") var_decl in
     let first_var, other_vars = uncons args_decl_list in
     let var_type, _ =  unlast (Str.split (Str.regexp_string " ") first_var) in
     let var_type = List.fold_left (^) "" var_type in
     let other_vars = List.map (fun x -> var_type ^ " " ^ x) other_vars in
     let var_decl_list = first_var :: other_vars in
-    (list_to_string ~sep:"," ~bounds:["";""] var_decl_list) 
+    (list_to_string ~sep:"," ~bounds:["";""] var_decl_list)
     in
   let var_decls = Str.split (Str.regexp_string ";") var_decls in
-  List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls 
+  List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls
+
+let milliseconds_between (t0 : float) (t1 : float) : int =
+  int_of_float (1000. *. (t1 -. t0))
+
