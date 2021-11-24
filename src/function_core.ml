@@ -99,7 +99,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
     returns:
       the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
 *)
-let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : path) (t : trm) : trm =
+let inline_aux (index : int) (body_mark : string) (_top_ast : trm) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
@@ -109,7 +109,7 @@ let inline_aux (index : int) (body_mark : string) (top_ast : trm) (p_local : pat
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
                    | _ -> fail fun_call.loc "inline_aux: couldn't resolve the name of the function, target does not resolve to a function call"
                    end in
-    let fun_decl = Internal.toplevel_decl fun_call_name top_ast in
+    let fun_decl = Internal.toplevel_decl fun_call_name in
     let fun_decl = begin match fun_decl with
       | Some decl -> decl
       | None -> fail t.loc "inline_aux: no trm in top level gives the declaration with the given name"
@@ -177,3 +177,30 @@ let use_infix_ops_aux (t : trm) : trm =
 let use_infix_ops : Target.Transfo.local = 
   Target.apply_on_path (use_infix_ops_aux)
 
+
+(* [beta_aux t] replace a function call with another function call where the application is its complete body declaration
+    params:
+      [t]: ast of targeted function call
+    returns:
+      the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
+*)
+let beta_aux (t : trm) : trm = 
+  match t.desc with 
+  | Trm_apps (f, arg) -> 
+    begin match f.desc with 
+    | Trm_var f1 -> 
+      let fun_decl = Internal.toplevel_decl f1  in
+      begin match fun_decl with 
+      | Some fu -> 
+        trm_apps fu arg
+      | _ -> fail t.loc "beta_aux: couldn't find the toplevel declaration of the targeted function"
+      end
+
+    | _ -> fail t.loc "beta_aux: the target should be a user defined function call and not an internal one"
+    end
+
+  | _ -> fail t.loc" beta_aux: expected a target to the function call"
+
+
+let beta : Target.Transfo.local =
+  Target.apply_on_path (beta_aux)

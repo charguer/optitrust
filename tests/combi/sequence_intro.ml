@@ -9,8 +9,7 @@ let _ = Run.script_cpp (fun _ ->
      Trace.alternative (fun _ -> 
       !! Sequence.intro ~start:[cVarDef "f"] ();
       !! Sequence.intro ~stop:[cVarDef "e"] ();
-      !! ();
-  );
+      !! (););
   
   !! Tools.failure_expected (fun () ->
        Sequence.intro ~start:[tAfter; cVarDef "z"] ~stop:[tBefore; cVarDef "z"] ());

@@ -516,7 +516,7 @@ let set_num_threads (nb_threads : int) (index : int) : Target.Transfo.local =
 let get_num_threads_aux (nb_threads : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl nb_threads t in
+    let find_prev_decl = Internal.toplevel_decl nb_threads in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -534,7 +534,7 @@ let get_num_threads (nb_threads : var) (index : int) : Target.Transfo.local =
 let get_max_threads_aux (max_threads : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl max_threads t in
+    let find_prev_decl = Internal.toplevel_decl max_threads in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -550,10 +550,10 @@ let get_max_threads (max_threads : var) (index : int) : Target.Transfo.local =
   Target.apply_on_path (get_max_threads_aux max_threads index)
 
 
-let get_thread_num_aux (thread_num : var) (index : int) (full_ast : trm) (t : trm) : trm =
+let get_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl thread_num full_ast in
+    let find_prev_decl = Internal.toplevel_decl thread_num in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -566,12 +566,12 @@ let get_thread_num_aux (thread_num : var) (index : int) (full_ast : trm) (t : tr
   | _ -> fail t.loc "get_thread_num_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_thread_num (thread_num : var) (index : int) (t : trm) (p : Path.path) : trm =
-  Target.apply_on_path (get_thread_num_aux thread_num index t) t  p
+  Target.apply_on_path (get_thread_num_aux thread_num index) t  p
 
-let get_num_procs_aux (num_procs : var) (index : int) (full_ast : trm) (t : trm) : trm =
+let get_num_procs_aux (num_procs : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl num_procs full_ast in
+    let find_prev_decl = Internal.toplevel_decl num_procs in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -584,13 +584,13 @@ let get_num_procs_aux (num_procs : var) (index : int) (full_ast : trm) (t : trm)
   | _ -> fail t.loc "get_num_procs_aux: expected the sequence where the call to the routine is going to be added"
 
 let get_num_procs (num_procs : var) (index : int) (t : trm) (p : Path.path) : trm =
-  Target.apply_on_path (get_num_procs_aux num_procs index t) t p
+  Target.apply_on_path (get_num_procs_aux num_procs index) t p
 
 
 let in_parallel_aux (in_parallel : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl in_parallel t in
+    let find_prev_decl = Internal.toplevel_decl in_parallel in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -621,7 +621,7 @@ let set_dynamic (thread_id : int) (index : int) : Target.Transfo.local =
 let get_dynamic_aux (is_dynamic : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl is_dynamic t in
+    let find_prev_decl = Internal.toplevel_decl is_dynamic in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -640,7 +640,7 @@ let get_dynamic (is_dynamic : var) (index : int) : Target.Transfo.local =
 let get_cancellation_aux (is_cancellation : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl is_cancellation t in
+    let find_prev_decl = Internal.toplevel_decl is_cancellation in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -669,7 +669,7 @@ let set_nested (nested : int) (index : int) : Target.Transfo.local =
 let get_nested_aux (is_nested : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl is_nested t in
+    let find_prev_decl = Internal.toplevel_decl is_nested in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -711,7 +711,7 @@ let get_schedule (sched_kind : sched_type) (modifier : int) (index : int) : Targ
 let get_thread_limit_aux (limit : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl limit t in
+    let find_prev_decl = Internal.toplevel_decl limit in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -741,7 +741,7 @@ let set_max_active_levels (max_levels : int) (index : int) : Target.Transfo.loca
 let get_max_active_levels_aux (max_levels : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl max_levels t in
+    let find_prev_decl = Internal.toplevel_decl max_levels in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -759,7 +759,7 @@ let get_max_active_levels (max_levels : var) (index : int) : Target.Transfo.loca
 let get_level_aux (level : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl level t in
+    let find_prev_decl = Internal.toplevel_decl level in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -777,7 +777,7 @@ let get_level (level : var) (index : int) : Target.Transfo.local =
 let get_ancestor_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl thread_num t in
+    let find_prev_decl = Internal.toplevel_decl thread_num in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -795,7 +795,7 @@ let get_ancestor_thread_num (thread_num : var) (index : int) : Target.Transfo.lo
 let get_team_size_aux (level : int) (size : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl size t in
+    let find_prev_decl = Internal.toplevel_decl size in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -813,7 +813,7 @@ let get_team_size (level : int) (size : var) (index : int) : Target.Transfo.loca
 let get_active_level_aux (active_level : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl active_level t in
+    let find_prev_decl = Internal.toplevel_decl active_level in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -831,7 +831,7 @@ let get_active_level (active_level : var) (index : int) : Target.Transfo.local =
 let in_final_aux (in_final : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl in_final t in
+    let find_prev_decl = Internal.toplevel_decl in_final in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -849,7 +849,7 @@ let in_final (in_final : var) (index : int) : Target.Transfo.local =
 let get_proc_bind_aux (proc_bind : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl proc_bind t in
+    let find_prev_decl = Internal.toplevel_decl proc_bind in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -878,7 +878,7 @@ let set_default_device (device_num : var) (index : int) : Target.Transfo.local =
 let get_default_device_aux (default_device : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl default_device t in
+    let find_prev_decl = Internal.toplevel_decl default_device in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -897,7 +897,7 @@ let get_default_device (default_device : var) (index : int) : Target.Transfo.loc
 let get_num_devices_aux (num_devices : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl num_devices t in
+    let find_prev_decl = Internal.toplevel_decl num_devices in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -915,7 +915,7 @@ let get_num_devices (num_devices : var) (index : int) : Target.Transfo.local =
 let get_num_teams_aux (num_teams : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl num_teams t in
+    let find_prev_decl = Internal.toplevel_decl num_teams in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -933,7 +933,7 @@ let get_num_teams (num_teams : var) (index : int) : Target.Transfo.local =
 let get_team_num_aux (team_num : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl team_num t in
+    let find_prev_decl = Internal.toplevel_decl team_num in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -951,7 +951,7 @@ let get_team_num (team_num : var) (index : int) : Target.Transfo.local =
 let is_initial_device_aux (is_initial_device : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl is_initial_device t in
+    let find_prev_decl = Internal.toplevel_decl is_initial_device in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -1072,7 +1072,7 @@ let test_nest_lock (lock : var) (index : int): Target.Transfo.local =
 let get_wtime_aux (wtime : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl wtime t in
+    let find_prev_decl = Internal.toplevel_decl wtime in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
@@ -1090,7 +1090,7 @@ let get_wtime (wtime : var) (index : int) : Target.Transfo.local =
 let get_wtick_aux (wtick : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl wtick t in
+    let find_prev_decl = Internal.toplevel_decl wtick in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->

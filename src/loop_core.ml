@@ -49,8 +49,7 @@ let color_aux (nb_colors : var) (i_color : var) (t : trm) : trm =
     let i_color = match i_color with
       | "" -> "c" ^ index
       | _ -> i_color in
-    let full_ast = Trace.ast () in
-    let i_color = begin match Internal.toplevel_decl i_color full_ast with
+    let i_color = begin match Internal.toplevel_decl i_color with
     | Some _ -> let rnd_nb = Random.int 100 in i_color ^ (string_of_int rnd_nb)
     | None -> i_color
     end in

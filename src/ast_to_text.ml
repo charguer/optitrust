@@ -359,7 +359,7 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
 
   if only_desc then ddesc
     else
-      let dannot = Tools.doc_list_to_doc (List.map print_annot t.annot)
+      let dannot = Tools.list_to_doc (List.map print_annot t.annot)
     in
     let dloc =
       begin match t.loc with

@@ -266,19 +266,37 @@ let nb_inits (x : var) (t : trm) : int =
     let _t = aux t in !counter
 
 (* Find the declaration of variable [x] if it exists in [t] where t usually is the full ast.*)
-let rec toplevel_decl (x : var) (t : trm) : trm option =
+let toplevel_decl (x : var) : trm option = 
+  let full_ast = Target.get_ast () in
+  match full_ast.desc with
+  | Trm_seq tl ->
+    Mlist.fold_left(
+      fun acc t1 ->
+      match acc with
+      | Some _ -> acc
+      | _ -> match t1.desc with 
+            | Trm_typedef td when td.typdef_tconstr = x -> Some t1
+            | Trm_let (_, (y, _),_ ) when y = x -> Some t1
+            | Trm_let_fun (y, _, _, _) when y = x -> Some t1
+            | _ -> None 
+  ) None tl
+  | _ -> fail full_ast.loc "top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
+
+
+(* [local_decl x t] search for a declaration with name [x] in node [t] *)
+let rec local_decl (x : var) (t : trm) : trm option =
   match t.desc with
   | Trm_typedef td when td.typdef_tconstr = x -> Some t
   | Trm_let (_, (y, _),_ ) when y = x -> Some t
   | Trm_let_fun (y, _, _, body) ->
-    if y = x then Some t else toplevel_decl x body
+    if y = x then Some t else local_decl x body
   | Trm_seq tl ->
     Mlist.fold_left(
       fun acc t1 ->
       match acc with
       | Some _ -> acc
       | _ ->
-        let t2 = toplevel_decl x t1 in
+        let t2 = local_decl x t1 in
         begin match t2 with
         | Some _->  t2
         | _ -> None

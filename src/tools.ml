@@ -48,7 +48,7 @@ let list_to_string ?(sep:string=";") ?(bounds:string list = ["[";"]"]) (l : stri
   bl ^ aux l ^ br
 
 (* convert a list of docs to doc *)
-let doc_list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =
+let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds:document list = [string "["; string "]"]) (l : document list) : document =
   let rec aux = function
     | [] -> empty
     | [s] -> s

@@ -50,6 +50,8 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
       All the instructions in-between loops should not depend on the index of the loop.
 *)
 
+
+
 let fusion_targets (tg : Target.target) : unit = 
   let non_loop_indices = ref [] in
   Target.iter_on_targets (fun t p -> 
@@ -275,7 +277,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     (* Function used in the case when the loop bound is a constant variable *)
     let aux (x : var) (t : trm) : int  = 
       Variable_basic.inline_at [Target.cMark my_mark] [Target.cVarDef x];
-          let var_decl = match Internal.toplevel_decl x t with
+          let var_decl = match Internal.toplevel_decl x with
             | Some d -> d
             | None -> fail t.loc "unroll: could not find the declaration of the loop bound variable"
             in
