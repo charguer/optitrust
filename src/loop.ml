@@ -49,6 +49,7 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
       The loops inside the sequence satisfy the same assumption as in fusion_in_block transformation
       All the instructions in-between loops should not depend on the index of the loop.
 *)
+
 let fusion_targets (tg : Target.target) : unit = 
   let non_loop_indices = ref [] in
   Target.iter_on_targets (fun t p -> 

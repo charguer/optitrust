@@ -159,9 +159,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ~pattern_vars:(pattern
   let instrs_to_insert = List.mapi (fun id_var x -> trm_let Var_mutable (x, typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_paths)) ~typ_attributes:[GeneratedStar])
   (trm_apps (trm_prim (Prim_new (typ_array (typ_double ()) (Const nb_paths)))) [trm_array (Mlist.of_list (Array.to_list all_values.(id_var)))])) pattern_vars in
   Internal.nobrace_remove_after (fun _ ->
-    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tFirst] @ (Target.target_of_path !path_to_surrounding_seq))));
-  Trace.reparse ()
-
+    Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tFirst] @ (Target.target_of_path !path_to_surrounding_seq))))
 
 
 let detach_if_needed (tg : Target.target) : unit =

@@ -10,7 +10,23 @@ let map_dims f = List.map f dims
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
-  (* Part: inlining of the bag iteration *) (* skip #1 *) (* ARTHUR *)
+  (* Part: inlining of the bag iteration *) (* skip #1 *)
+  (* TODO:
+    - see todo in file particle_chunk.h, next to function  bag_ho_iter_basic
+    - see todo in file pic_demo.cpp on how to write the loop code, just above "while (true)"
+    - see todo in file tests/basic/function_uninline and pattern_replace.ml and function_beta.ml
+    - the script here should be like:
+       Pattern.replace ~source:[cFunDef "bag_ho_iter_basic"] ~target:["cFunDef bag_ho_iter_chunk"]  [cVarDef "it"];
+    - internally, the transformation would be equivalent to performing those steps:
+        Sequence.intro ~mark:"iter" ~nb:2 [cVarDef "it"];
+        Function.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "iter"];
+        Expr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"];
+        Function.inline [main; cFun "bag_ho_iter_chunk"];
+        Function.beta [cFor "i"; cAppFun()];  // where cAppFun() = "cApp ~base:[cStrict; cFunDef]()"
+        Mark.rem "iter"  // a shorthand for Mark.remove [cMark "iter"]
+        // maybe also with a sequence.inline on the body
+
+  *)
 
   (* Part1: space reuse *)
   !! Variable.reuse ~space_ast:(trm_access (trm_var "p") "speed") [main; cVarDef "speed2"];
@@ -22,7 +38,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
   !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
-    (* ARTHUR: try to not inline the bag_push operations, but to modify the code inside those functions *)
+    (* TODO: try to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
   let ctx = cTopFunDef "vect_matrix_mul" in
