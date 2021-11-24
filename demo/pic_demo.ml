@@ -84,7 +84,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.inline "speed" [cTypDef "particle"];
      Struct.inline "pos" [cTypDef "particle"];
 
-  (* Part: scaling of speeds and positions #7 *)
+  (* Part: scaling of speeds and positions *)
   !! Variable.insert_list ~reparse:true ~defs:(
          ["const double", "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), ("factor / cell" ^ d))))
@@ -92,7 +92,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: scaling of field, speeds and positions *)
   !! iter_dims (fun d ->
-       Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
+       Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation after simplifier *)
   !! Variable.inline [cVarDef "accel"];
   !!! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
   (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
@@ -104,7 +104,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
   (* Part: grid_enumeration *)
-  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]]; (* TODO: add a label on this loop "main_loop" at the very first step *)
+  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];
+    (* TODO: add a label on this loop "main_loop" at the very first step
+        Label.add "core" [cFor "idCell" ~body:[cVarDef "b"]] *)
 
   (* Part: ARTHUR ; maybe not needed: !! iter_dims (fun d ->
     Instr.inline_last_write ~write:[cWriteVar ("fieldAtPos" ^ d)] [nbMulti; cRead ~addr:[cVar ("fieldAtPos" ^ d)] ()]); *)
