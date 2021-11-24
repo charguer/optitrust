@@ -2,7 +2,7 @@ open Optitrust
 open Target
 open Ast
 
-let main = cTopFunDef "main" 
+let main = cTopFunDef "main"
 
 let dims = ["X";"Y";"Z"]
 let iter_dims f = List.iter f dims
@@ -21,7 +21,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]]; (**)
+  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
     (* ARTHUR: try to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
@@ -38,14 +38,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;"  ~pattern_aux_vars:"double rX, rY, rZ;" ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);" [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; 
-  (*
-      TODO: In my opinion is better to use labelled args then passing a record as an argument
-      TODO: Discuss
-        PatternArray.({ vars = "double ...";
-          context = "...";
-          pattern = "... " }) *)
-          (* ARTHUR: check if with the new parser we could do "double coef_x, sign_x, coef_y, sign_y, coef_z, sign_z;"  and "(coef_x + sign_x * _) * (coef_y + sign_y * _) * (coef_z + sign_z * _);" *)
+  !! Variable.intro_pattern_array
+      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;" ~pattern_aux_vars:"double rX, rY, rZ;"
+      ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
+      [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
   !! Loop.fold_instrs ~index:"k" [ctx; sInstr "r.v"];
 
   (* Part: reveal fields *)
@@ -63,12 +59,25 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
-  
+
+  (* TODO:
+       low-level
+  !! Sequence.intro ~mark:"deposit" ~start:[main; cVarDef "coeffs2"];
+  !! Instr.gather ~dest:GatherAtLast ~mark:"fusion" [cMark "deposit"; cFor "k"];
+  !! Loop_basic.fusion [cMark "fusion"];
+
+      high-level
+  !! Sequence.intro ~mark:"deposit" ~start:[main; cVarDef "coeffs2"];
+  !! Loop.fusion_targets [cMark "deposit"; cFor "k"];   // ~dest:GatherAtLast is the default
+
+     thus Loop.fusion_targets is just a combination of instr.gather and Loop_basic.fusion
+  *)
+
   !! Sequence_basic.intro ~mark:"to_fusion" 5 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
   !! Loop.fusion_targets [cMark "to_fusion"];
-  
+
   (* TODO: Support the case when ~where is left empty *)
-!!! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; 
+!!! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];
     Instr.inline_last_write ~delete:true ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
@@ -105,21 +114,21 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: Introduce names for new positions *)
   !! iter_dims (fun d ->
       Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) (); dRHS]);
-  
+
   !! Instr.(gather_targets ~dest:(GatherAtFirst)) [main;cVarDef ~regexp:true "\\(i.2\\|p.\\)"];
 
   (* Part: Make positions relative, and convert sortage to float *)
-  !! iter_dims (fun d -> 
+  !! iter_dims (fun d ->
       Accesses.shift ~neg:true ~factor:(var ("i" ^ d)) [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]
   );
   !! iter_dims (fun d ->
     Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
-  
+
   !! Cast.insert (Ast.typ_float ()) [sExprRegexp ~substr:true "\\(p. - i.\\)"];
   !! Struct.update_fields_type "pos." (typ_float ()) [cTypDef "particle"];
 
   !!! ();
-  
+
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];
   !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"]; (* TODO: place a label earlier on, on the relevant loop *)
@@ -190,8 +199,23 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:"(ix >= bix - d && ix < bix + blockSize + d)&& (iy >= biy - d && iy < biy + blockSize + d) && (iz >= biz - d && iz < biz + blockSize + d)" [tAfter; main; cVarDef "iz"];
      (* TODO  assume "d" is rename to "dist";  then we can make above shorter:
          Variable.insert (Ast.trm_ands (map_dims (fun d -> expr ~vars:[d] "(i${1} >= bi${1} - dist && i${1} < bi${1} + blockSize + dist)"))))
+
+             let subst_dollar_number inst s
+               -> fold_lefti (fun i insti acc ->  replace ${i} in acc with insti) s
+
+            let expr ?(vars:list option) (s:string) : trm =
+              let s = if vars = [] then s else subst_dollar_number inst s in
+              code s
+
          where the "value" argument needs not use a label since it has type trm directly
-         and where trm_ands is a smart construction for building a conjunction from a list of terms *)
+         where trm_and  is a shorthand for trm_app prim_and
+        and where trm_ands is a smart construction for building a conjunction from a list of terms (using trm_ands)
+              let trm_ands (ts : trm list) : trm =
+                 match List.rev ts with
+                  | [] -> lit_true
+                  | t0::tr -> List.fold_left (fun acc ti -> trm_and ti acc) t0 tr
+              t1 && (t2 && t3)
+      *)
      Instr.replace (var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
 
 

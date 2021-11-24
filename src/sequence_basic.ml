@@ -31,6 +31,7 @@ let iter_delete (tgl : target list) : unit =
      If [nb] = 1 means then this transformation is basically the same as intro_on_instr.
      If [nb] is greater than one then it means that the instructions which comes right after
       the targeted instruction will be included in the sub-sequence too.
+    TODO: document negative [nb]
 
    Ex: int main(){     int main(){
         int x = 5;      { int x = 5}
@@ -80,7 +81,7 @@ let elim (tg : Target.target) : unit =
 let intro_on_instr ?(mark : mark = "") ?(visible : bool = true) : Target.Transfo.t =
    if not visible then Internal.nobrace_enter();
    Target.apply_on_targets (Sequence_core.intro_on_instr visible mark)
-  
+
 
 (* [unwrap tg] expects the target [tg] to point to a instruction surrounded by a sequence..
  It moves this trm to the outer sequence*)
@@ -89,7 +90,7 @@ let elim_around_instr (tg : Target.target) : unit =
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, _) -> Sequence_core.elim t p) tg
    )
-   
+
 
 (* [split tg] expects target [tg] to point around another target in a sequence meaning, before or after another target
     It will split the sequence which contains that target into two parts, depending on the fact that the entered target
