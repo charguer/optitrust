@@ -16,5 +16,9 @@ int main() {
   for (int i = 0; i < n; i++) {
     v[i] += i;
   }
+  int a;
+  int b;
+  int c;
+  return 0;
 }
 

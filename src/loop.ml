@@ -41,20 +41,30 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   Loop_basic.fusion_on_block [Target.cMark mark]
 
 
+(* [fusion_targets tg] expects the target [tg] to be pointing at a sequence that contains loops  
+    then it will move all the other instructions other than loops outside that sequence.
+    After that, it will call fusion in block.
+
+    Assumptions:
+      The loops inside the sequence satisfy the same assumption as in fusion_in_block transformation
+      All the instructions in-between loops should not depend on the index of the loop.
+*)
 let fusion_targets (tg : Target.target) : unit = 
-  Target.iter_on_targets ~rev:true (fun t p -> 
+  let non_loop_indices = ref [] in
+  Target.iter_on_targets (fun t p -> 
     let tg_trm, _ = Path.resolve_path p t in
     match tg_trm.desc with 
-    | Trm_seq tl ->
+    | Trm_seq tl ->   
       Mlist.iteri (fun i t1 ->
         match t1.desc with 
         | Trm_for _ -> ()
-        | _ -> Instr.move ~rev:true ~dest:([Target.tBefore] @ tg) (tg @ [Target.dSeqNth i])
+        | _ -> non_loop_indices := i :: !non_loop_indices 
       ) tl
-    | _ -> fail tg_trm.loc "fusion_targets: expected a target pointing to the sequence that contains the potential loops to be fused"
+    | _ -> fail tg_trm.loc "fusion_targets: expected a target pointing to the sequence that contains the potention loops to be fused"
+  
   ) tg;
+  List.iteri (fun i index -> Instr.move_invariant ~dest:([Target.tBefore] @ tg) (tg @ [Target.dSeqNth (index-i)])) (List.rev !non_loop_indices);
   Loop_basic.fusion_on_block tg
-
 
 
 (* [invariant ~upto  tg] expects the target [tg] pointing to an instruction inside a for loop

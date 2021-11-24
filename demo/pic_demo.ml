@@ -64,14 +64,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
   
-  (* TODO: Fix the issue with fusion_targets *)
-  (* Seq.split ~marks:["";"loops"] [cVarDef "coeffs2"];
-     Loop.fusion_targets [cMark "loops"; cFor "k"]; ---gather+fusion *)
-  !! Instr.(gather_targets ~dest:(GatherAt [tBefore; cVarDef "coeffs2"])) [main;cVarDef ~regexp:true "\\(delta\\|indice\\)."];
-  !! Loop.fusion ~nb:3 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
-
-  (* TODO:  if the read is on an access  P  then search above in the same trm_seq  for a write at P
-          (when the write argument is not provided) *)
+  !! Sequence_basic.intro ~mark:"to_fusion" 5 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
+  !! Loop.fusion_targets [cMark "to_fusion"];
+  
 !!! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; 
     Instr.inline_last_write ~delete:true ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
