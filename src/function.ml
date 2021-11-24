@@ -197,6 +197,21 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
   ) tg
 
 
+(* [beta ~tg] *)
+let beta ?(tg : Target.target = []) () : unit = 
+  let tg = match tg with | [] -> [Target.cFun "" ~args:[[Target.cFunDef ""]]] | _ -> tg in
+  Target.iter_on_targets (fun t p ->
+    let tg_trm, _ = Path.resolve_path p t in
+    match tg_trm.desc with 
+    | Trm_apps _ -> 
+      Function_basic.beta tg
+    | Trm_let_fun (f, _, _, _) -> 
+      let parent_path, _ = Tools.unlast p in
+      let parent_node, _ = Path.resolve_path parent_path t in
+      begin match parent_node.desc with 
+      | Trm_apps (_, args) -> () 
+      | _ -> ()
+      end
+    | _ -> fail t.loc "beta: this transformation expects a target to a function call"
 
-
-
+  ) tg
