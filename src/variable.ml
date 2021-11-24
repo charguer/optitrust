@@ -131,12 +131,10 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
   Arrays.to_variables  lv [Target.cVarDef nv];
   Marks.remove "section_of_interest" [Target.cMark "section_of_interest"] *)
 
-
-
-
-
-let intro_pattern_array (str : string) (tg : Target.target) : unit =
+let intro_pattern_array ?(pattern_aux_vars : string = "") ~pattern_vars:(pattern_vars : string ) ~pattern:(pattern : string) (tg : Target.target) : unit =
   Trace.call (fun t ->
+  (* Temporary hack till Arthur enables the usage of the new parser *)
+  let str = pattern_vars ^ " ==>" ^ pattern_aux_vars ^ " ==> " ^ pattern in
   let (pattern_vars, pattern_aux_vars, pattern_instr) = Rewrite_core.parse_pattern str in
   let path_to_surrounding_seq = ref [] in
   let paths = Target.resolve_target tg t in

@@ -10,44 +10,6 @@ let map_dims f = List.map f dims
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
   
-  (* Part: scaling of field, speeds and positions *)
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation *)
-  !! Variable.inline [cVarDef "accel"];
-  !! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
-  (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
-  !! iter_dims (fun d ->
-       Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-  !!! ();
-
-
-  (* Part: grid_enumeration *)
-  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]]; (* TODO: add a label on this loop "main_loop" at the very first step *)
-
-  (* Part: ARTHUR ; maybe not needed: !! iter_dims (fun d ->
-    Instr.inline_last_write ~write:[cWriteVar ("fieldAtPos" ^ d)] [nbMulti; cRead ~addr:[cVar ("fieldAtPos" ^ d)] ()]); *)
-  (* TODO :ARTHUR : see how to inline the zero for fieldatpos in the simplest way *)
-  (* !! Variable.inline [cVarDef ~regexp:true "fieldAtPos."]; *)
-
-  (* Part: Introduce names for new positions *)
-  !! iter_dims (fun d ->
-      Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) (); dRHS]);
-  
-  !! Instr.(gather_targets ~dest:(GatherAtFirst)) [main;cVarDef ~regexp:true "\\(i.2\\|p.\\)"];
-
-  (* Part: Make positions relative, and convert sortage to float *)
-  !! iter_dims (fun d -> 
-      Accesses.shift ~neg:true ~factor:(var ("i" ^ d)) [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]
-  );
-  !! iter_dims (fun d ->
-    Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
-  
-  !! Cast.insert (Ast.typ_float ()) [sExprRegexp ~substr:true "\\(p. - i.\\)"];
-  !! Struct.update_fields_type "pos." (typ_float ()) [cTypDef "particle"];
-
-  !!! ();
   
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];

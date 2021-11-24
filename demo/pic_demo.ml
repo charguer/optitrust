@@ -38,7 +38,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctx = cTopFunDef "cornerInterpolationCoeff" in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
-  !! Variable.intro_pattern_array "double coefX, signX, coefY, signY, coefZ, signZ; ==>  double rX, rY, rZ; ==> (coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);" [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; (* TODO:
+  !! Variable.intro_pattern_array ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;"  ~pattern_aux_vars:"double rX, rY, rZ;" ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);" [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS]; 
+  (*
+      TODO: In my opinion is better to use labelled args then passing a record as an argument
+      TODO: Discuss
         PatternArray.({ vars = "double ...";
           context = "...";
           pattern = "... " }) *)
