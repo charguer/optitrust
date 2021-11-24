@@ -337,34 +337,6 @@ void bag_swap(bag* b1, bag* b2) {
 //==========================================================================
 // Iteration
 
-// Higher-order iteration, destructive version that clears the bag
-/* LATER
-void bag_destructive_iter(bag* b, void f(particle*)) {
-  chunk* c = b->front;
-  while (true) { // loop on chunks
-    int nb = c->size;
-    // iterate over the items from the current chunk
-    for (int i = 0; i < nb; i++) {
-      particle* cur_p = &c->items[i];
-      f(cur_p);
-    }
-    chunk* cnext = c->next;
-    if (cnext != NULL) {
-      // move to the next chunk, free the current chunk
-      chunk_free(c);
-      c = cnext; // beware that "c = c->next" would be illegal here, because c was freed
-    } else {
-      // finished the last chunk, clear the current chunk, clear the bag
-      c->size = 0;
-      b->front = c;
-      b->back = c; // this write is redundant, but let's do it for clarity
-      c->next = NULL; // this write is redundant, but let's do it for clarity
-      break; // exit the loop on chunks
-    }
-  }
-}
-*/
-
 // First-order iterator
 typedef struct bag_iter {
   chunk* iter_chunk;
@@ -423,23 +395,32 @@ particle* bag_iter_next(bag_iter* it, bool destructive) {
 }
 
 /*
+TODO: to parse this code, need to fix the function Ast.trm_for_of_trm_for_c
+where "is_simple_loop" is not correctly computed (see, e.g.,  the branch
+  | _ -> true   in  is_simple_loop_component). More generally, one should
+  use different tests for each of the components, not a unified one.
+
 // example of a basic iteration over a bag
-void bag_iter_pattern(bag* b) {
+void bag_ho_iter_basic(bag* b, void body(particle*)) {
   bag_iter it = bag_iter_begin(b);
-  for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {}
+  for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
+    body(p);
+  }
 }
 
 // example of an iteration over a bag with the loop over the chunk items revealed
-void bag_iter_chunk_pattern(bag* b) {
+void bag_ho_iter_chunk(bag* b, void body(particle*)) {
   for (chunk* c = b->front; c != NULL; c = chunk_next(c, true)) {
     int nb = c->size;
     for (int i = 0; i < nb; i++) {
       particle* p = &c->items[i];
-      {}
+      body(p);
     }
   }
 }
+
 */
+
 
 
 //==========================================================================

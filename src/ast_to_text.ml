@@ -503,7 +503,7 @@ and print_routine (routine : omp_routine) : document =
 
 let trm_access_to_string (ta : trm_access) : string =
   let aux (ta : trm_access) : document =
-  match ta with 
+  match ta with
   | Array_access_get i -> string "arr_at " ^^ print_trm ~only_desc:true i
   | Array_access_addr i -> string "arr_at " ^^ print_trm ~only_desc:true i
   | Struct_access_get f -> string "struct_at " ^^ string f
