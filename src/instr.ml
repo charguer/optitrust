@@ -56,7 +56,7 @@ type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of Target.target
     same sequence. Then it will move all those targets to the given destination.
     NOTE: No need to write explicitly nbMulti before the main target 
 *)
-let gather_targets ~dest:(dest : gather_dest) (tg : Target.target) : unit =
+let gather_targets ?(dest : gather_dest = GatherAtLast) (tg : Target.target) : unit =
   let tg = Target.filter_constr_occurrence tg in
   let tg_dest = ref [] in
   let reverse = ref true in

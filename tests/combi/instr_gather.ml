@@ -14,7 +14,7 @@ let _ = Run.script_cpp (fun _ ->
       !! ();
      );
   !! Trace.alternative (fun _ -> 
-      Instr.(gather_targets ~dest:(GatherAt [tAfter; cFor "k"])) [cVarDef ""];
+      Instr.(g ather_targets ~dest:(GatherAt [tAfter; cFor "k"])) [cVarDef ""];
       !! ();
      );
   

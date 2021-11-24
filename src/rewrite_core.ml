@@ -83,9 +83,7 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
       | Some t0 when (Internal.same_trm t0 t2) -> ()
       | _ -> raise Rule_mismatch
       end
-
     | Trm_var x1, Trm_var x2 when x1 = x2 -> ()
-
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
     | Trm_var _, Trm_val _ -> ()
 
@@ -94,8 +92,12 @@ let rule_match (vars : vars) (pat : trm) (t : trm) : tmap =
         aux ts1 t2
         else ()
     | Trm_var _, Trm_apps (_f1, [ts2]) ->
-        if is_get_operation t1 then
+        if is_get_operation t2 then
         aux t1 ts2
+        else ()
+    | Trm_apps (_f1, [ts1]), Trm_var _ ->
+        if is_get_operation t1 then
+        aux ts1 t2
         else ()
     | Trm_apps (f1, ts1), Trm_apps (f2, ts2) ->
       let f1 = if is_get_operation t1 then (List.nth ts1 0) else f1 in
