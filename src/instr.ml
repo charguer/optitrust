@@ -54,41 +54,38 @@ type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of Target.target
 
 (* [gather_targets ~dest tg] expects the target [tg] pointing to a list to multiple nodes belonging to the
     same sequence. Then it will move all those targets to the given destination.
-    NOTE: There is not need to write explicitly nbMulti before the main target 
+    NOTE: No need to write explicitly nbMulti before the main target 
 *)
 let gather_targets ~dest:(dest : gather_dest) (tg : Target.target) : unit =
   let tg = Target.filter_constr_occurrence tg in
   let tg_dest = ref [] in
-  begin match dest with 
-  | GatherAtFirst -> 
-    tg_dest := [Target.tBefore; Target.occFirst] @ tg 
-  | GatherAtLast -> 
-    tg_dest := [Target.tAfter; Target.occLast] @ tg 
-  | GatherAt tg_dest1 -> 
-    tg_dest := tg_dest1
-  end;
-  let tg = Target.enable_multi_targets tg in
-  Instr_basic.move ~rev:true ~dest:!tg_dest tg
-
-  (* TOOD: Improve this function  *)
-  (* let gather_targets ~dest:(dest : gather_dest) (tg : Target.target) : unit =
-  let tg = Target.filter_constr_occurrence tg in
-  let tg_dest = ref [] in
-  let tg_instr = ref [] in 
+  let reverse = ref true in
   begin match dest with 
   | GatherAtFirst -> 
     tg_dest := [Target.tAfter; Target.occFirst] @ tg;
-    tg_instr := [Target.cDiff [tg] ([[Target.occFirst] ; tg])]
+    reverse := true
   | GatherAtLast -> 
     tg_dest := [Target.tBefore; Target.occLast] @ tg;
-    tg_instr := [Target.cDiff [tg] ([[Target.occLast] ; tg])]
+    reverse := false
   | GatherAt tg_dest1 -> 
     tg_dest := tg_dest1;
-    let tg = Target.enable_multi_targets tg in
-    tg_instr := tg
+    match Target.get_relative_type tg_dest1 with 
+    | Some tg_rel -> 
+      begin match tg_rel with
+      | TargetBefore -> 
+        reverse := false
+      | TargetAfter ->
+        reverse := true
+      | TargetFirst ->  
+        reverse := true
+      | TargetLast -> 
+        reverse := false
+      | TargetAt -> fail None "gather_targets: if you used GatherAt you should provide a valid relative target"
+      end
+    | None -> fail None "gather_targets: if you used GatherAt you should provide a valid relative target"
   end;
-  Instr_basic.move ~rev:true ~dest:!tg_dest !tg_instr *)
-
+  let tg = Target.enable_multi_targets tg in
+  Instr_basic.move ~rev:!reverse ~dest:!tg_dest tg
 
 
 (* [move_multiple ~targets tgs] expects a list of destinations and a list of targets to be movet at those 

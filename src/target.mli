@@ -7,6 +7,7 @@ type paths = path list
 type constr = Constr.constr
 type typ_constraint = (typ->bool)
 type target = constr list
+type target_relative = Constr.target_relative
 type targets = target list
 
 type case_dir = Path.case_dir
@@ -361,3 +362,5 @@ val get_ast : unit -> trm
 val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> ?marks:string list -> string -> trm
 
 val expr : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> string -> trm
+
+val get_relative_type : target -> target_relative option
