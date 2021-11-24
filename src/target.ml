@@ -1000,7 +1000,18 @@ let reparse_only (fun_names : string list) : unit =
     Trace.set_ast new_ast
   )
 
-
+(* [get_relative_type tg] get the type of target relative , Before, After, First Last *)
+let get_relative_type (tg : target) : target_relative option =
+  List.fold_left (fun acc x -> 
+    match acc with 
+    | Some _ -> acc
+    | None -> 
+      begin match x with 
+      | Constr_relative occ -> Some occ
+      | _ -> None 
+      end
+  ) None tg
+  
 
 (* [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
