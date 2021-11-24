@@ -67,6 +67,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Sequence_basic.intro ~mark:"to_fusion" 5 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
   !! Loop.fusion_targets [cMark "to_fusion"];
   
+  (* TODO: Support the case when ~where is left empty *)
 !!! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; 
     Instr.inline_last_write ~delete:true ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
