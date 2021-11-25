@@ -19,7 +19,7 @@ OptiTrust Documentation
 
 
    <!--explicit inclusion of files-->
-   <!--<script src="split_loop_diff.js"></script>-->
+   <!--<script src="split_loop_doc.js"></script>-->
 
 
 <style>
@@ -55,6 +55,10 @@ h2 {
 .spec {
 }
 
+.doc {
+
+}
+
 .src {
    border: 2px solid black;
    padding: 1px 5px 1px 5px;
@@ -62,7 +66,7 @@ h2 {
    font-weight: bold;
 }
 
-.diff{
+.diff {
    margin: 2px 0px 2px 0px;
 }
 
@@ -142,20 +146,27 @@ function shrinkSrc(src) {
 }
 
 function reportError(targetId, targetJsFilename) {
-   $('#'+targetId).html("Error loading " + targetJsFilename + ". Check that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_diff.js files have been generated using 'make doc'. Alternatively, the '*_diff.js' file needs to be included explicitly in _doc.html.").addClass("error");
+   $('#'+targetId).html("Error loading " + targetJsFilename + ". Check that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_doc.js files have been generated using 'make doc'. Alternatively, the '*_doc.js' file needs to be included explicitly in _doc.html.").addClass("error");
 }
 
 function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
    // function names
-   var targetJsFunctionDiff = "get_diff_" + targetId;
+   var targetJsFunctionSpec = "get_spec_" + targetId;
    var targetJsFunctionSrc = "get_src_" + targetId;
+   var targetJsFunctionDiff = "get_diff_" + targetId;
    // Fill the test block
+   var specId = targetId + "_doc";
    var srcId = targetId + "_src";
    var diffId = targetId + "_diff";
-   $('#'+targetId).html("<div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>");
+   var contents = "<div class='doc' id='"+specId+"'></div><div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>";
+   $('#'+targetId).html(contents);
+
+   // Fill the spec part
+   var specContents = eval(targetJsFunctionSpec + "()");
+   $('#'+specId).html("<pre>"+specContents+"</pre>");
+
    // Fill the source part 
    var srcContents = eval(targetJsFunctionSrc + "()");
-
    var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
    var srcWarning = "";
    if (enableWarning && sWarning) {
@@ -163,6 +174,7 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
    }
    $('#'+srcId).html(srcWarning + srcHTML);
    //hljs.highlightElement(srcId);
+
    // Fill the diff part
    var diffContents = eval(targetJsFunctionDiff + "()");
    loadDiffFromString(diffId, diffContents);
@@ -170,7 +182,7 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
 
 function loadTestFromFile(targetId) {
    var targetName = targetId.replace("__", "/");
-   var targetJsFilename = "../tests/" + targetName + "_diff.js";
+   var targetJsFilename = "../tests/" + targetName + "_doc.js";
 
    try { // try loading from an include
       loadTestFromFileAssumedLoaded(targetId, targetName);
@@ -217,6 +229,21 @@ $("button").click(function(){
 <body>
 
 <div class="title">OptiTrust Documentation</div>
+
+
+<!---------------------------------------------------------------------------->
+<!---------------------------------------------------------------------------->
+<!---------------------------------------------------------------------------->
+<h1>AST management</h1>
+
+<!---------------------------------------------------------------------------->
+<h2>Labels</h2>
+
+<div class="test" id="basic__label_add"></div>
+
+<div class="test" id="basic__label_remove"></div>
+
+
 <!---------------------------------------------------------------------------->
 <!---------------------------------------------------------------------------->
 <!---------------------------------------------------------------------------->
@@ -231,16 +258,11 @@ $("button").click(function(){
 <!---------------------------------------------------------------------------->
 <h2>Loop Splitting</h2>
 
-<!--
-<ul class="spec">
-<li>Input: a loop, and a "split-point" in the body of that loop.</li>
-<li>Output: a sequence of two loops, each with the same iteration range as the original loop. The first loop executes the first part of the body, whereas the second loop executes the second part of the body.</li>
-<li>Assumption: the loop range has a "simple" form.
-<li>Correctness: the reordering of the instructions must not change the semantics.</li>
-</ul>
--->
+<div class="test" id="combi__loop_fusion"></div>
 
-<div class="test" id="basic__label_add"></div>
+
+<!--
+
 
 <div class="test" id="basic__array_swap"></div>
 
@@ -249,6 +271,8 @@ $("button").click(function(){
 <div class="test" id="basic__loop_fusion"></div>
 
 <div class="test" id="basic__sequence_elim"></div>
+-->
+
 
 <!---------------------------------------------------------------------------->
 <!--<h2>Loop Tiling</h2>
@@ -328,4 +352,15 @@ TESTS_WORKING := \
 
 </body>
 </html>
+
+<!--
+
+<ul class="spec">
+<li>Input: a loop, and a "split-point" in the body of that loop.</li>
+<li>Output: a sequence of two loops, each with the same iteration range as the original loop. The first loop executes the first part of the body, whereas the second loop executes the second part of the body.</li>
+<li>Assumption: the loop range has a "simple" form.
+<li>Correctness: the reordering of the instructions must not change the semantics.</li>
+</ul>
+
+-->
 

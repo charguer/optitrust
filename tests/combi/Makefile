@@ -41,6 +41,7 @@ TESTS_TOCHECK := \
   variable_insert_list.ml \
 
 TESTS_WITH_DOC := \
+	loop_fusion.ml \
 
 
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)

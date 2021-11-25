@@ -78,11 +78,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
-  
+
   !! Sequence.intro ~mark:"to_fusion" ~start:[main; cVarDef "coeffs2"] ();
   !! Loop.fusion_targets [cMark "to_fusion"];
 
-  
+
 
 (* TODO: Fix the issue of inline_last_write for this particular case *)
 !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];

@@ -3,7 +3,7 @@
 # Given a unit test file, extract the lines between the first '!!' and
 # until the closing parenthesis at a head of a line.
 # Write the output in a file "foo_doc.txt", where "foo" is the basename of the input.
-# example usage: ./extract_doc_source.sh ../tests/basic/label_add.ml
+# example usage: ./extract_demo.sh ../tests/basic/label_add.ml
 
 FILE=$1
 OUTPUT="${FILE%.*}"_doc.txt

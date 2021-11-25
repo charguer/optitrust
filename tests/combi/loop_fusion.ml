@@ -1,6 +1,21 @@
 open Optitrust
 open Target
 
+let _ = Run.doc_script_cpp (fun _ ->
+    !! Loop.fusion [occIndex 0; cFor "i"]
+  )
+"
+int main() {
+  int s, t = 0;
+  for (int i = 0; i < 3; i++) {
+    s += i;
+  }
+  for (int i = 0; i < 3; i++) {
+    t += i;
+  }
+}
+"
+
 let _ = Run.script_cpp ( fun _ ->
 
   (* fuse a given number of loops *)

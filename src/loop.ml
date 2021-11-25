@@ -33,8 +33,7 @@ let hoist ?(name : var = "${var}_step") (tg : Target.target) : unit =
 (* [fusion nb tg] expects [tg] to point to a for loop followed by one or more
     for loops with the same range, start step and bound but different body.
     Then it's going to merge bodies of all those loops into a single loop.
-    [nb] - denotes the number of loops to consider.
-*)
+    [nb] - denotes the number of loops to consider. *)
 let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   let mark = "__TEMP_MARK" in
   Sequence_basic.intro nb ~mark tg;
@@ -54,7 +53,7 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
      thus Loop.fusion_targets is just a combination of instr.gather and Loop_basic.fusion
   *)
 
-(* [fusion_targets tg] expects the target [tg] to be pointing at a sequence that contains loops  
+(* [fusion_targets tg] expects the target [tg] to be pointing at a sequence that contains loops
     then it will move all the other instructions other than loops outside that sequence.
     After that, it will call fusion in block.
 
@@ -62,19 +61,19 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
       The loops inside the sequence satisfy the same assumption as in fusion_in_block transformation
       All the instructions in-between loops should not depend on the index of the loop.
 *)
-let fusion_targets (tg : Target.target) : unit = 
+let fusion_targets (tg : Target.target) : unit =
   let non_loop_indices = ref [] in
-  Target.iter_on_targets (fun t p -> 
+  Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with 
-    | Trm_seq tl ->   
+    match tg_trm.desc with
+    | Trm_seq tl ->
       Mlist.iteri (fun i t1 ->
-        match t1.desc with 
+        match t1.desc with
         | Trm_for _ -> ()
-        | _ -> non_loop_indices := i :: !non_loop_indices 
+        | _ -> non_loop_indices := i :: !non_loop_indices
       ) tl
     | _ -> fail tg_trm.loc "fusion_targets: expected a target pointing to the sequence that contains the potention loops to be fused"
-  
+
   ) tg;
   List.iteri (fun i index -> Instr.move_out ~dest:([Target.tBefore] @ tg) (tg @ [Target.dSeqNth (index-i)])) (List.rev !non_loop_indices);
   Loop_basic.fusion_on_block tg
@@ -175,18 +174,18 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
     the instructions out of the loop and the loop will be removed. It works also
     in the case when C = 0 and a is a constant variable. To get the number of steps
     a is first inlined.
-    
+
     [braces]: a flag on the visiblity of blocks created during the unroll process
 
     [blocks]: a list of integers describing the partition type of the targeted sequence
-    
+
     [shuffle]: shuffle blocks
-    
+
       Assumption: C should be a literal or a constant variable
 
 DETAILS:
  Let [tg] target the following loop
-      
+
     for (int i = a; i < a + N; i++) {
 
     if N is a variable -> call inline_var on this target
@@ -285,37 +284,37 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     let tg_loop_trm  = Path.resolve_path p t in
     Marks.add my_mark (Target.target_of_path p);
     (* Function used in the case when the loop bound is a constant variable *)
-    let aux (x : var) (t : trm) : int  = 
+    let aux (x : var) (t : trm) : int  =
       Variable_basic.inline_at [Target.cMark my_mark] [Target.cVarDef x];
           let var_decl = match Internal.toplevel_decl x with
             | Some d -> d
             | None -> fail t.loc "unroll: could not find the declaration of the loop bound variable"
             in
-          let lit_n = match get_init_val var_decl with 
-          | Some init1 -> init1 
+          let lit_n = match get_init_val var_decl with
+          | Some init1 -> init1
           | None -> fail t.loc "unroll: could not get the value of the loop component" in
           match (get_lit_from_trm_lit lit_n) with
           | Lit_int n -> n
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll"
-      in        
-    match tg_loop_trm.desc with 
+      in
+    match tg_loop_trm.desc with
     | Trm_for (_, _, start, stop, _, _) ->
-      let nb_instr = begin match stop.desc with 
+      let nb_instr = begin match stop.desc with
       | Trm_apps (_, [_;bnd]) ->
-        begin match bnd.desc with 
+        begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
         | Trm_var x -> aux x t
         | _ -> fail stop.loc "unroll: expected eitehr a constant variable of a literal"
         end
-      | Trm_var x -> 
-          let start_nb = begin match start.desc with 
-          | Trm_var y -> aux y t 
+      | Trm_var x ->
+          let start_nb = begin match start.desc with
+          | Trm_var y -> aux y t
           | Trm_val (Val_lit (Lit_int n)) -> n
           | _ -> fail start.loc "unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in
           (aux x t) - start_nb
       | _ -> fail stop.loc "unroll: expected an addition of two constants or a constant variable"
-      end 
+      end
         in
       Loop_basic.unroll ~braces:true ~my_mark [Target.cMark my_mark];
       let block_list = Tools.range 0 (nb_instr-1) in
@@ -331,7 +330,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
   )) tg
 
 (* [reorder order]  expects the target [tg] to point to the first loop included in the [order]
-    list, then it will find all the nested loops starting from the targeted loop [tg] and 
+    list, then it will find all the nested loops starting from the targeted loop [tg] and
     reorder them based on [oder].
     Assumption:
       All loops have as bodies blocks of code(sequences)
@@ -361,7 +360,7 @@ let reorder ?(order : vars = []) (tg : Target.target) : unit =
       coloring transformation (refer to Loop_basic.color).
       Finally a reorder is going to be applied by using reorder transformation (refer to reorder).
       Assumption:
-        The target should be a nested loop 
+        The target should be a nested loop
 *)
 let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : Target.target) : unit =
   let bs = Tools.add_prefix "b" ds in
@@ -390,8 +389,8 @@ let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start
   ) tg *)
 
 
-(* [fold_instrs ~direction ~index ~loop_start ~loop_step tg] expects the target [tg] pointing to more than one instructions in a sequence 
-    all this instructions shoudl be consecutive ones. Then it will find the number of targeted instructions and it will call 
+(* [fold_instrs ~direction ~index ~loop_start ~loop_step tg] expects the target [tg] pointing to more than one instructions in a sequence
+    all this instructions shoudl be consecutive ones. Then it will find the number of targeted instructions and it will call
     the previous transformation [fold]. The difference here is that the number of instructions is computed automatically.
     LATER: Merge this two functions into one
 *)
@@ -400,9 +399,9 @@ let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop
   let prev_index = ref (-1) in
   let first_target = [Target.occFirst] @ (Target.filter_constr_occurrence tg) in
   let tg = Target.enable_multi_targets tg in
-  Target.iter_on_targets 
+  Target.iter_on_targets
     (fun t p ->
-      let _, i = Internal.isolate_last_dir_in_seq p in 
+      let _, i = Internal.isolate_last_dir_in_seq p in
       if i <> !prev_index + 1 && !prev_index <> -1 then fail t.loc "fold_instrs: all the targeted instructions should be consecutive ones";
       incr nb_targets;
     ) tg;
