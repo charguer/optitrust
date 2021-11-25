@@ -100,7 +100,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt
+.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -217,34 +217,46 @@ DOCJS=$(TESTS_WITH_DOC:.ml=_doc.js)
 
 # Generate an OCaml file containing the script executed by the demo
 %_doc.txt: %.ml
-	$(V)$(OPTITRUST)/doc/extract_doc_source.sh $<
+	$(V)$(OPTITRUST)/doc/extract_demo.sh $<
+
+OPTITRUST_SRC=$(wildcard $(OPTITRUST)/src/*.ml)
+
+# Generate an OCaml file containing the spec of the function associated with the test
+%_doc_spec.txt: %_doc.txt $(OPTITRUST_SRC)
+	$(V)$(OPTITRUST)/doc/extract_spec_for_demo.sh $< $(OPTITRUST)
 
 # To produce the demo input and output files, execute the unit test
 %_doc.cpp %_doc_out.cpp: %_out.cpp
 
 # To check the output of the demo, use 'make mytransfo.doc'
-%.doc: %_out.cpp %_doc.txt
-	@echo "Produced $*_doc.{txt,cpp,out_cpp}"
+%.doc: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
+	@echo "Produced $*_doc_spec.txt and $*_doc.{txt,cpp,out_cpp}"
+	@echo "---"
+	$(V)cat $*_doc_spec.txt
 	@echo "---"
 	$(V)cat $*_doc.txt
 	@echo "---"
 	$(V)cat $*_doc.cpp
 	@echo "---"
 	$(V)cat $*_doc_out.cpp
+	@echo "---"
+	git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp
+
 
 # Generate a JS file containing the material to be displayed in the doc:
 # including the source code, and the full input/output diff
-%_doc.js: %_out.cpp %_doc.txt  # %_doc.cpp %_doc_out.cpp
+%_doc.js: %_out.cpp %_doc.txt %_doc_spec.txt # %_doc.cpp %_doc_out.cpp
 	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
 	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
+	@echo "function get_spec_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
 	@echo Produced $@
 
 # 'make doc' to build the auxililary files needed by _doc.html
 doc: $(DOCJS)
 
-# 'make redoc' to force rebuilding all *_diff.js files
+# 'make redoc' to force rebuilding all *_doc.js files
 redoc:
-	rm -f *_diff.js
+	rm -f *_doc.js
 	$(MAKE) doc
 
 
@@ -255,7 +267,7 @@ clean_chk:
 	$(V)rm -rf *.chk
 
 clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp batch.ml _doc.ml _doc.cpp *_doc.js
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp batch.ml _doc.txt _doc.cpp *_doc.js _spec.txt
 	$(V)rm -rf _build
 	@echo "Clean successful"
 
