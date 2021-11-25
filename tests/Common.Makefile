@@ -32,7 +32,7 @@ V ?= @
 EXCLUDE_TESTS ?=
 
 # List of ml files to include (by default, all *.ml except those in EXCLUDE_TESTS, and the generated *.ml files)
-TESTS ?= $(filter-out $(wildcard *with_lines.ml),$(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
+TESTS ?= $(filter-out $(wildcard *with_lines.ml), $(filter-out $(EXCLUDE_TESTS), $(wildcard *.ml)))
 
 # List of ml files for which the cpp files should be compiled
 COMPILE ?= $(TESTS)
@@ -100,7 +100,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.byte %_out.cpp %.chk
+.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -209,31 +209,44 @@ endif
 #######################################################
 # Documentation
 
+# Current folder, to prefix the function names that appear in the JS files
 CURDIR=$(shell basename `pwd`)
 
 # CHECKS contains the list of targets to be produced for the documentation
-DIFFJS=$(TESTS:.ml=_diff.js)
+DOCJS=$(TESTS_WITH_DOC:.ml=_doc.js)
 
-%_one.ml: %.ml
-	$(V)$(OPTITRUST)/tests/extract_first_transfo.sh $<
+# Generate an OCaml file containing the script executed by the demo
+%_doc.txt: %.ml
+	$(V)$(OPTITRUST)/doc/extract_doc_source.sh $<
 
-%_one.cpp: %.cpp
-	$(V)cp $< $@
+# To produce the demo input and output files, execute the unit test
+%_doc.cpp %_doc_out.cpp: %_out.cpp
 
-# Rule for producing the diff between the output and the expected output, in a form readable in a browser
-#	git diff  --ignore-blank-lines --ignore-all-space --no-index -U10 $*_one.cpp $*_one_out.cpp
-%_diff.js: %_one.cpp %_one_out.cpp %_one.ml
-	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U10 $*_one.cpp $*_one_out.cpp | base64 -w 0`\"); }" > $@
-	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_one.ml | base64 -w 0`\"); }" >> $@
+# To check the output of the demo, use 'make mytransfo.doc'
+%.doc: %_out.cpp %_doc.txt
+	@echo "Produced $*_doc.{txt,cpp,out_cpp}"
+	@echo "---"
+	$(V)cat $*_doc.txt
+	@echo "---"
+	$(V)cat $*_doc.cpp
+	@echo "---"
+	$(V)cat $*_doc_out.cpp
+
+# Generate a JS file containing the material to be displayed in the doc:
+# including the source code, and the full input/output diff
+%_doc.js: %_out.cpp %_doc.txt  # %_doc.cpp %_doc_out.cpp
+	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
+	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
 	@echo Produced $@
 
 # 'make doc' to build the auxililary files needed by _doc.html
-doc: $(DIFFJS)
+doc: $(DOCJS)
 
 # 'make redoc' to force rebuilding all *_diff.js files
 redoc:
 	rm -f *_diff.js
 	$(MAKE) doc
+
 
 #######################################################
 # Cleanup
@@ -242,7 +255,7 @@ clean_chk:
 	$(V)rm -rf *.chk
 
 clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp batch.ml
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp batch.ml _doc.ml _doc.cpp *_doc.js
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

@@ -42,18 +42,6 @@ let script (f : unit -> unit) : unit =
     exit 1
 
 
-(* [get_basename ()] is  function to get the name of the file being executed
-     by chopping the extension.
-*)
-let get_basename () : string =
-  let basename = Filename.chop_extension Sys.argv.(0) in
-  let suffix = "_with_lines" in
-  let nsuffix = String.length suffix in
-  let nbasename = String.length basename in
-  if nbasename >= nsuffix && (String.sub basename (nbasename - nsuffix) nsuffix) = suffix
-    then String.sub basename 0 (nbasename - nsuffix)
-    else basename
-
 
 let debug_inline_cpp = false
 
@@ -71,6 +59,28 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
     inline;
   Xfile.put_contents output_file !s
 
+(* [get_basename filename] is  function to get the name of the file being executed
+     by chopping the extension. If filename is the empty string, then the name of
+     current binary program is used.
+*)
+let get_basename (filename : string) =
+  if filename <> "" then Filename.chop_extension filename else begin
+    let basename = Filename.chop_extension Sys.argv.(0) in
+    (* remove the "_with_lines" suffix *)
+    let suffix = "_with_lines" in
+    let nsuffix = String.length suffix in
+    let nbasename = String.length basename in
+    let b =
+      if nbasename >= nsuffix && (String.sub basename (nbasename - nsuffix) nsuffix) = suffix
+        then String.sub basename 0 (nbasename - nsuffix)
+        else basename
+      in
+    (* remove the leading './' *)
+    if String.length b > 2 && b.[0] = '.' && b.[1] = '/'
+      then String.sub b 2 (String.length b - 2)
+      else b
+    end
+
 (* [script_cpp f] is a specialized version of [script f] that:
    - automatically invokes [Trace.init "foo.cpp"] at start,
      where "foo" is the basename of the current script named "foo.ml"
@@ -79,6 +89,7 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
      (the main output file is named "foo_out.cpp").
    - [~check_exit_at_end:false] is an option for deactivating the implicit call to [Trace.check_exit_and_step()]
     at the end of the execution of [f] (LATER: will be deprecated)
+      This flag only has an effect if a [-exit_line] option was passed on the command line.
    - [~prefix:string] allows providing the basename for the output files produced
    - [~inline:["foo.cpp";"bar.h"]] allows to perform substitution of "#include" directives
      with the contents of the corresponding files; the substitutions are performed one after
@@ -86,13 +97,8 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
 let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   (* LATER: see what happens of the directory... *)
-  let basename =
-    if filename <> "" then Filename.chop_extension filename else begin
-      let b = if filename <> "" then filename else get_basename() in
-      if String.length b > 2 && b.[0] = '.' && b.[1] = '/'
-        then String.sub b 2 (String.length b - 2)
-        else b
-    end in
+
+  let basename = get_basename filename in
   let default_prefix = Filename.remove_extension basename in
   let prefix = if prefix = "" then default_prefix else prefix in
   let default_input_file = basename ^ ".cpp" in
@@ -117,6 +123,15 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
     Trace.finalize();
   )
 
+(* [doc_script_cpp f src] is a variant of [script_cpp] that takes as input a
+    piece of source code [src] as a string, and stores this contents into
+    [foo_doc.cpp], where [foo.ml] is the name of the current file. It then
+    executes the transformation [f] using [script_cpp ~filename:"foo_doc.cpp"]  *)
+let doc_script_cpp ?(filename : string = "") (f : unit -> unit) (src : string) : unit =
+  let basename = get_basename filename in
+  let src_filename = basename ^ "_doc.cpp" in
+  Xfile.put_contents src_filename src;
+  script_cpp ~filename:src_filename f
 
 (* LATER:   add  script_rust  following script_cpp *)
 
