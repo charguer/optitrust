@@ -721,6 +721,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
    | _ ->
+      
       Ast_to_text.print_ast ~only_desc:true stdout f;
       fail f.loc "apps_to_doc: only functions may be applied"
 and mode_to_doc (m : mode) : document =

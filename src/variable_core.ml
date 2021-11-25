@@ -120,9 +120,9 @@ let inline_aux (delete_decl : bool) (accept_functions : bool) (inline_at : targe
           trm_seq ~annot:t.annot ~marks:t.marks new_tl
     | Trm_let_fun (f, _, _, _) -> 
       if accept_functions then 
-      let lback = Mlist.map (Internal.subst_var f (trm_apps dl []))lback in 
+      let lback = Mlist.map (Internal.subst_var f dl)lback in 
       let new_tl = Mlist.merge lfront lback in
-      trm_seq ~annot:dl.annot ~marks:dl.marks new_tl
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
       else fail dl.loc "inline_aux: to replace function calls with their declaration you need to set accept_functions flag to true "
     | _ -> fail t.loc "inline_aux: expected a target to a variable declaration"
     end
