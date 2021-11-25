@@ -1310,10 +1310,10 @@ let get_arity_of_seq_at (p : path) (t : trm) : int =
     in
   match d with
   | Dir_seq_nth _ ->
-      let (seq_trm,_context) = Path.resolve_path p' t in
+      let seq_trm = Path.resolve_path p' t in
       get_sequence_length seq_trm
   | Dir_then | Dir_else | Dir_body  ->
-      let (seq_trm, _) = resolve_path p t in
+      let seq_trm = Path.resolve_path p t in
       get_sequence_length seq_trm
   | _ -> fail None "get_arity_of_seq_at: expected a Dir_seq_nth, Dir_then, Dir_else or Dir_body as last direction"
 

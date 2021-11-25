@@ -8,7 +8,7 @@ include Matrix_basic
 *)
 let intro_mcalloc : Target.Transfo.t = 
   Target.iter_on_targets ( fun t p ->
-    let tg_trm,_ = Path.resolve_path p t in
+    let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with 
     | Trm_let (_, (_,_), init) ->
       begin match get_init_val init with
@@ -35,7 +35,7 @@ let intro_mcalloc : Target.Transfo.t =
 *)
 let intro_mmalloc : Target.Transfo.t = 
   Target.iter_on_targets ( fun t p ->
-    let tg_trm,_ = Path.resolve_path p t in
+    let tg_trm,_ = Path.resolve_path_and_ctx p t in
     match tg_trm.desc with 
     | Trm_let (_, (_,_), init) ->
       begin match get_init_val init with
@@ -71,7 +71,7 @@ let biject (fun_bij : string) : Target.Transfo.t =
 let intro_mops (dim : trm) : Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
     let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in
-    let tg_trm, _ = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_let (_, (x,_), init) ->
       let tg_occs = [Target.nbAny] @ (Target.target_of_path path_to_seq) @ [Target.cCellAccess ~base:[Target.cVar x] ~index:[] ()] in

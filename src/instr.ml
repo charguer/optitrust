@@ -11,13 +11,13 @@ include Instr_basic
 
 let read_last_write ?(write : Target.target = []) : Target.Transfo.t =
   Target.iter_on_targets (fun t p -> 
-    let tg_trm, _ = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with 
     | Trm_apps (_, [arg]) when is_get_operation tg_trm -> 
       begin match write with 
       | [] -> 
         let path_to_seq, _, index = Internal.get_instruction_in_surrounding_sequence p in
-        let seq_trm, _ = Path.resolve_path path_to_seq t in
+        let seq_trm = Path.resolve_path path_to_seq t in
         let write_index = ref None in
         begin match seq_trm.desc with 
         | Trm_seq tl -> 
@@ -68,7 +68,7 @@ let inline_last_write ?(write : Target.target = []) (tg : Target.target) : unit 
 *)
 let accumulate ?(nb : int option) : Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
-    let tg_trm, _ = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
     begin match tg_trm.desc with
     | Trm_seq _ -> Instr_basic.accumulate (Target.target_of_path p)
     | _  when is_set_operation tg_trm -> 
@@ -137,7 +137,7 @@ let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(t
 
 let move_out ?(rev : bool = false) ~dest:(dest : Target.target) : Target.Transfo.t =  
   Target.iter_on_targets ~rev (fun t p ->
-    let tg_trm,_ = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
     Marks.add "instr_move_out" (Target.target_of_path p);
     Sequence_basic.insert tg_trm dest;
     Instr_basic.delete [Target.cMark "instr_move_out"]

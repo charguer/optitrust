@@ -16,7 +16,7 @@ include Variable_basic
 *)
 let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
-    let (tg_trm, _) = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_let (vk, (_, tx), _) ->
       let ty = get_inner_ptr_type tx in
@@ -164,7 +164,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ~pattern_vars:(pattern
 
 let detach_if_needed (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
-    let decl_t ,_ = Path.resolve_path p t in
+    let decl_t  = Path.resolve_path p t in
     match decl_t.desc with
     | Trm_let(vk,(_, _), init) ->
       begin match vk with
@@ -188,7 +188,7 @@ let reuse ?(space : string option) ?(space_ast : trm option) (tg : Target.target
     let arg_space = combine_strm space space_ast in
     let reparse = not (is_trm arg_space) in
     Target.reparse_after ~reparse (Target.iter_on_targets (fun t p -> 
-      let decl_t,_ = Path.resolve_path p t in
+      let decl_t = Path.resolve_path p t in
       begin match decl_name decl_t with
       | Some x ->
         let _path_to_seq, _,_ = Internal.get_instruction_in_surrounding_sequence p in
@@ -210,7 +210,7 @@ let reuse ?(space : string option) ?(space_ast : trm option) (tg : Target.target
 
 let reverse_fold : Target.Transfo.t =
   Target.iter_on_targets( fun t p ->
-    let tg_trm ,_ = Path.resolve_path p t in
+    let tg_trm  = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
     match tg_trm.desc with
     | Trm_let (_, (y,_), init) ->
@@ -241,9 +241,9 @@ let reverse_fold : Target.Transfo.t =
 
 let elim_redundant ?(source : Target.target = []) : Target.Transfo.t = 
   Target.iteri_on_targets (fun i t p -> 
-    let tg_trm, _ = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
-    let seq_trm, _ = Path.resolve_path path_to_seq t in
+    let seq_trm = Path.resolve_path path_to_seq t in
     match tg_trm.desc with 
     | Trm_let (_, (x, _), init_x) -> 
       let source_var = ref "" in
@@ -266,7 +266,7 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
         begin 
           let source_paths = Target.resolve_target source t in
           let source_decl_trm = match List.nth_opt source_paths i with
-            | Some p -> fst (Path.resolve_path p t)
+            | Some p -> Path.resolve_path p t
             | None -> fail t.loc "elim_redundant: the number of source targets  should be equal to the number of the main targets" in
           match source_decl_trm.desc with 
           | Trm_let (_, (y, _), init_y) when Internal.same_trm init_x init_y -> 

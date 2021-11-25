@@ -19,7 +19,7 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
  Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
   (fun t (p, p_local, i) ->
    let path_to_call = p @ [Dir_seq_nth i] @ p_local in
-   let call_trm,_ = Path.resolve_path path_to_call t in
+   let call_trm = Path.resolve_path path_to_call t in
    begin match call_trm.desc with
    | Trm_apps (_, tl) ->
     if List.length fresh_names = 0
@@ -146,8 +146,8 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
     let name_result = ref name_result in
     let (path_to_seq,local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
     let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
-    let (tg_trm, _) = Path.resolve_path (path_to_instruction @ local_path) t in
-    let (tg_out_trm, _) = Path.resolve_path path_to_instruction t in
+    let tg_trm = Path.resolve_path (path_to_instruction @ local_path) t in
+    let tg_out_trm = Path.resolve_path path_to_instruction t in
     let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
     let res_inlining_needed =
     begin match tg_out_trm.desc with
@@ -200,20 +200,20 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
 (* [beta ~tg] expects if the target [tg] is given then this transformation expects this target to be pointing to a function call
       if not, then this transformation will try to target all the beta function declarations and reduce them
 *)
-let beta ?(tg : Target.target = []) () : unit = 
+(* let beta ?(tg : Target.target = []) () : unit = 
   let tg = match tg with | [] -> [Target.cFun "" ~args:[[Target.cFunDef ""]]] | _ -> tg in
   Target.iter_on_targets (fun t p ->
-    let tg_trm, _ = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with 
     | Trm_apps _ -> 
       Function_basic.beta tg
     | Trm_let_fun (f, _, _, _) -> 
       let parent_path, _ = Tools.unlast p in
-      let parent_node, _ = Path.resolve_path parent_path t in
+      let parent_node, _ = Path.resolve_path_and_ctx parent_path t in
       begin match parent_node.desc with 
       | Trm_apps (_, args) -> Trace.set_ast (trm_apps ~annot:parent_node.annot ~marks:parent_node.marks (trm_var f) args)
       | _ -> ()
       end
     | _ -> fail t.loc "beta: this transformation expects a target to a function call"
 
-  ) tg
+  ) tg *)

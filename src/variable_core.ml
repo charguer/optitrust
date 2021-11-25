@@ -84,7 +84,7 @@ let fold (as_reference : bool) (fold_at : target) (index) : Target.Transfo.local
       the ast of the updated sequence which contains the declaration ast [t]
 *)
 
-let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm) : trm = 
+let inline_aux (delete_decl : bool) (accept_functions : bool) (inline_at : target) (index : int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl -> 
     let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
@@ -118,12 +118,18 @@ let inline_aux (delete_decl : bool) (inline_at : target) (index : int) (t : trm)
           let new_tl = Mlist.merge lfront lback in
           let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
           trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    | Trm_let_fun (f, _, _, _) -> 
+      if accept_functions then 
+      let lback = Mlist.map (Internal.subst_var f (trm_apps dl []))lback in 
+      let new_tl = Mlist.merge lfront lback in
+      trm_seq ~annot:dl.annot ~marks:dl.marks new_tl
+      else fail dl.loc "inline_aux: to replace function calls with their declaration you need to set accept_functions flag to true "
     | _ -> fail t.loc "inline_aux: expected a target to a variable declaration"
     end
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
-let inline (delete_decl : bool) (inline_at : target) (index : int) : Target.Transfo.local =
-  Target.apply_on_path(inline_aux delete_decl inline_at index)
+let inline (delete_decl : bool) (accept_functions : bool )(inline_at : target) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(inline_aux delete_decl accept_functions inline_at index)
 
 
 (* [rename_on_block_aux new_name index t] rename the variable declared in [t] and all its occurrences
@@ -458,7 +464,7 @@ let bind_intro_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bo
   match t.desc with 
   | Trm_seq tl -> 
     let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
-    let targeted_node, _ = Path.resolve_path p_local instr in
+    let targeted_node = Path.resolve_path p_local instr in
     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
     let node_to_change = Internal.change_trm targeted_node (trm_var fresh_name) instr in

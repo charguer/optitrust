@@ -85,34 +85,3 @@ let use_infix_ops ?(tg_ops : Target.target = [Target.nbMulti;Target.cWrite ~rhs:
   Target.apply_on_targets (Function_core.use_infix_ops) tg_ops
 
 
-(* [beta tg] expects the target [tg] to be pointing to a function call then it will replace that function call 
-      where the name of the function will be replace with the complete body of the function
-  Ex:
-      void f(int j) {
-      s += 2*j;
-      s -= j;
-  }
-  int main() {
-    int i = 1;
-    f(i)
-  }
----
-
-  After transformation
-
----
-    int main () {
-      int i = 1;
-      (void f(int j) {
-      s += 2*j;
-      s -= j;
-        }))(i);
-  }
-    
-    
----
-
-*)
-let beta : Target.Transfo.t =
-  Target.apply_on_targets (Function_core.beta)
-

@@ -51,6 +51,10 @@ module Atom_map = Map.Make(Int)
 
 type atom_map = trm Atom_map.t
 
+(* [print_atom_map k v] pretty print the keys and values of an atom_map  *)
+let print_atom_map (k : int) (v : trm) : unit = 
+  Tools.printf "Atom_id : %d assigned to node %s _n" k (Ast_to_c.ast_to_string v)
+
 
 (******************************************************************************)
 (*                          Smart constructors                                *)
@@ -156,7 +160,6 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
   let atoms = ref Atom_map.empty in
     let rec aux (t : trm) : expr =
       let not_expression = Expr_atom (create_or_reuse_atom_for_trm atoms t) in
-      Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
       match t.desc with
         | Trm_val (Val_lit (Lit_int n)) -> Expr_int n
         | Trm_val (Val_lit (Lit_double n)) -> Expr_double n
@@ -179,10 +182,14 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
           begin match trm_prim_inv f with
           | Some (Prim_unop Unop_neg) ->
             Expr_sum [(-1, aux t1)]
-          | _ -> not_expression
+          | _ -> 
+            not_expression
           end
         | _ -> not_expression
-      in aux t, !atoms
+      in
+      let res = aux t in
+      res, !atoms
+      
 
 
 (* [is_one e] check is e = 1 *)
@@ -243,7 +250,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
 (* [trm_to_expr t] convert trm [t] to an expression*)
 let trm_to_expr (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
-  (* Tools.printf "%s\n" (expr_to_string atoms expr); *)
+  Tools.printf "Generated expression: %s" (expr_to_string atoms expr);
   (normalize expr), atoms
 
 (* [expr_to_trm e ] convert expr [e] to trm  *)
@@ -327,7 +334,7 @@ let expand_one (e : expr) : expr =
   let aux ((w,e) : wexpr) (acc : exprs) : exprs = 
     match (w,e) with 
     | 1, (Expr_sum wes) -> 
-      List.concat_map (fun (wk, ek) -> 
+      List.concat_map (fun (_wk, ek) -> 
         List.map (fun ei -> expr_mul [(w,e)] (expr_mul [(1,ek)] ei)) acc
       ) wes
     | _ -> 
