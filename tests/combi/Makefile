@@ -39,7 +39,10 @@ TESTS_TOCHECK := \
   varaible_reverse_fold.ml \
 	variable_elim_redundant.ml \
   variable_insert_list.ml \
-		
+
+TESTS_WITH_DOC := \
+
+
 TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
 
 include ../Common.Makefile

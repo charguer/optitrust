@@ -71,7 +71,6 @@ TESTS_WORKING := \
 	variable_rename.ml \
   variable_replace_occurrences.ml \
 
-
 TESTS_TOCHECK := \
   variable_bind_intro.ml \
 	variable_init_attach.ml \
@@ -81,6 +80,10 @@ TESTS_TOCHECK := \
 	instr_accumulate.ml \
 	struct_simpl_proj.ml \
 	function_use_infix_ops.ml \
+
+TESTS_WITH_DOC := \
+	label_add.ml \
+	label_remove.ml \
 
 
 # arith_simpl.ml
