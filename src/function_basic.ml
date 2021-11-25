@@ -79,7 +79,9 @@ let inline  ?(body_mark : var = "body") (tg : Target.target) : unit =
    (fun  t (p, p_local, i) ->
     Function_core.inline i body_mark t p_local t p) tg)
 
-
+(* [beta ~body_mark tg] its the same as function_inline *)
+let beta  ?(body_mark : var = "body") (tg : Target.target) : unit =
+  inline ~body_mark tg
 
 let use_infix_ops ?(tg_ops : Target.target = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()]) () : unit = 
   Target.apply_on_targets (Function_core.use_infix_ops) tg_ops
