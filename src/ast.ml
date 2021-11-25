@@ -926,7 +926,7 @@ let trm_remove_mark_between (m : mark) (t : trm) : trm =
 let get_mark_index (m : mark) (t : trm) : int option =
   match t.desc with
   | Trm_seq tl ->
-    Tools.foldi (fun i acc ml ->
+    Tools.fold_lefti (fun i acc ml ->
       match acc with
       | Some _ -> acc
       | None ->

@@ -2,8 +2,8 @@ open Ast
 open Target
 
 (* [fold ~at tg] expects [tg] to point to a typedef declaration.
-    [at] - denotes a target where folding is done. If empty
-      the folding operation is performed on all the ast nodes in the same 
+    [at] - denotes a target where fold_lefting is done. If empty
+      the fold_lefting operation is performed on all the ast nodes in the same 
       level as the declaration or deeper
 *)
 let fold ?(at : target = []) (tg : target) : unit =

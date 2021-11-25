@@ -718,7 +718,7 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
     (* Tools.printf "%s\n" (Ast_to_c.ast_to_string t); *)
     (* iterate over these marks *)
     try
-      Tools.foldi (fun imark t m ->
+      Tools.fold_lefti (fun imark t m ->
         Trace.timing ~cond:!Flags.analyse_time_details ~name:(sprintf "process target %d" imark) (fun () ->
           match resolve_target [nbAny;cMark m] t with
           | [p] ->
@@ -840,7 +840,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
   let marks = List.map (fun _ -> Mark.next ()) ps in
   let t = List.fold_left2 (fun t (p_to_seq, i) m -> apply_on_path (trm_add_mark_between i m) t p_to_seq ) t ps marks in
   try
-    Tools.foldi (fun imark t m ->
+    Tools.fold_lefti (fun imark t m ->
       match resolve_target [nbAny;cMark m] t with
       | [p_to_seq] ->
         let t_seq, _ = resolve_path p_to_seq t in

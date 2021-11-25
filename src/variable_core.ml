@@ -25,8 +25,8 @@ let map f = function
     params:
       [as_reference]: a flag for telling if the variable on the assignment 
         has the address operator or not
-      [fold_at]: target where folding should be performed, if left empty 
-        then folding is applied everywhere
+      [fold_at]: target where fold_lefting should be performed, if left empty 
+        then fold_lefting is applied everywhere
       [t]: ast of the variable declaration
     return:
       updated ast of the block which contained the variable declaration [t]
@@ -262,7 +262,7 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
       let ps = resolve_target tg new_t in
       let nb_occs = List.length ps in
       if nb_occs < 0 then raise Init_attach_no_occurrences;
-      Tools.foldi (fun i acc p ->
+      Tools.fold_lefti (fun i acc p ->
         if i = 0 then begin 
         apply_on_path (fun t1 -> 
           begin match t1.desc with
@@ -308,12 +308,12 @@ let local_name (mark : mark) (var_type : typ) (curr_var : var) (local_var : var)
 (* [delocalize_aux array_size ops index t]: after introduced the local_name transformation
       transform the newly declared local variable [local_var]  into an array of size [array size]
       and add to loops: the first one to initialize the elements of the added array and the last one 
-      to reduce the array into a single value, the inittialization value and the reducing(folding operation)
+      to reduce the array into a single value, the inittialization value and the reducing(fold_lefting operation)
       is given through [ops].
     params:
       [array_size]: size of the arrays to be declared inside the targeted sequence
       [ops]: delocalize operation representing the unitary lement used for initialization 
-        and the folding operation used for the reduction
+        and the fold_lefting operation used for the reduction
       [index]: the index for the two added loops
       [t]: the ast of the sequence generated after applying the local_name transformation
     return:

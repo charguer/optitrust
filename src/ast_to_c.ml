@@ -260,7 +260,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         else
            let counter = ref (-1) in
            let dl = List.map (decorate_trm ~semicolon:true) tl in
-           let dl = Tools.foldi (fun i acc m ->
+           let dl = Tools.fold_lefti (fun i acc m ->
             if m <> [] then
               let () = incr counter in
               let m = Tools.list_to_string ~sep:"," m in

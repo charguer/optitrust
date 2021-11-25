@@ -204,3 +204,4 @@ let beta_aux (t : trm) : trm =
 
 let beta : Target.Transfo.local =
   Target.apply_on_path (beta_aux)
+

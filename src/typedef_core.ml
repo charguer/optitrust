@@ -10,7 +10,7 @@ open Target
 (* [fold_aux as_reference fold_at]: replace all the occurrences of the typedef underlying type
       with the defined type
     params:
-      [fold_at]: targets where folding should be performed, if left empty then folding 
+      [fold_at]: targets where fold_lefting should be performed, if left empty then fold_lefting 
         on all the nodes of the same sequence t belongs to.
       [t]: ast of the typedef declaration
     return:

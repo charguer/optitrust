@@ -189,13 +189,13 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     | Expr_double n -> trm_double n
     | Expr_sum we ->
       let we_l = List.map (fun (w, e) -> if w = 1 then aux e else trm_apps (trm_binop Binop_mul) [trm_int w; aux e]) we in
-      Tools.foldi (fun i acc x ->
+      Tools.fold_lefti (fun i acc x ->
         if i = 0 then x else trm_apps (trm_binop Binop_add) [x; acc]
       ) (trm_unit ()) we_l
     | Expr_prod  we ->
       (* LATER: Since there isn't any power operator in C the last line is the same was the one in the previous case *)
       let we_l = List.map (fun (w, e) -> if w = 1 then aux e else trm_apps (trm_binop Binop_mul) [trm_int w; aux e]) we in
-      Tools.foldi (fun i acc x ->
+      Tools.fold_lefti (fun i acc x ->
         if i = 0 then x else trm_apps (trm_binop Binop_mul) [x; acc]
       ) (trm_unit ()) we_l
     | Expr_atom id ->

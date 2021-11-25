@@ -52,7 +52,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Sequence.intro ~mark:"temp_seq" ~start:[main;cVarDef "coef_x0"] ~nb:6 ();
-     Instr.move_invariant ~dest:[tBefore; main] [cMark "temp_seq"];
+     Instr.move_out ~dest:[tBefore; main] [cMark "temp_seq"];
      Sequence.elim [cMark "temp_seq"];
      Loop.fission [tBefore; cVarDef "px"];
      Loop.fission [tBefore; main; cVarDef "ix"];
@@ -139,7 +139,7 @@ let _ = Run.script_cpp (fun () ->
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Sequence.intro ~mark:"temp_seq" ~start:[main; cVarDef "coef_x0"] ~nb:6 (); (* LATER/ ARTHUR think of a simpler way *)
-     Instr.move_invariant ~dest:[tBefore; main] [cMark "temp_seq"];
+     Instr.move_out ~dest:[tBefore; main] [cMark "temp_seq"];
      Sequence.elim [cMark "temp_seq"];
 
   !! Loop.fission [tBefore; cVarDef "px"];

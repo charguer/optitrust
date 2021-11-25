@@ -919,7 +919,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
         (* LATER: ARTHUR : optimize resolution by resolving the targets only by exploring
           through the paths that are candidates; using e.g. path_satisfies_target *)
         let all_targets_must_resolve = false in
-        Tools.foldi (fun i acc tr ->
+        Tools.fold_lefti (fun i acc tr ->
           let targetsi = resolve_target_simple tr t in
           begin match targetsi with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
@@ -1072,7 +1072,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
       begin match td.typdef_body with
       | Typdef_enum xto_l ->
         let (il, tl) =
-          foldi
+          fold_lefti
             (fun n (il, tl) (_, t_o) ->
               match t_o with
               | None -> (il, tl)
@@ -1139,7 +1139,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
         add_dir Dir_body (aux body)
      | Trm_switch (cond, cases) ->
         (add_dir Dir_cond (aux cond)) @
-        (foldi (fun i epl case -> epl@explore_case depth i case p) [] cases)
+        (fold_lefti (fun i epl case -> epl@explore_case depth i case p) [] cases)
      | _ ->
         print_info loc "explore_in_depth: cannot find a subterm to explore\n";
         []
@@ -1157,7 +1157,7 @@ and explore_case (depth : depth) (i : int) (case : trms * trm) (p : target_simpl
   | [] ->
      add_dir (Dir_case (i, Case_body)) (aux body)
   | _ ->
-     (foldi
+     (fold_lefti
         (fun j epl t ->
           epl @
           (add_dir (Dir_case (i, Case_name j)) (aux t))
@@ -1263,7 +1263,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
  *)
 and explore_list (tl : trms) (d : int -> dir)
   (cont : trm -> paths) : paths =
-  foldi (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
+  fold_lefti (fun i epl t -> epl@add_dir (d i) (cont t)) [] tl
 
 (*
   call cont on each element of the list whose index is in the domain and
@@ -1272,7 +1272,7 @@ and explore_list (tl : trms) (d : int -> dir)
  *)
 and explore_list_ind (tl : trms) (d : int -> dir) (dom : int list)
   (cont : trm -> paths) : paths =
-  foldi
+  fold_lefti
     (fun i epl t ->
       if List.mem i dom then epl@add_dir (d i) (cont t) else epl)
     []

@@ -27,7 +27,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         // maybe also with a sequence.inline on the body
 
   *)
-
+  (* Part 0: Labelling the main loop*)
+  !! Label.add "main_loop" [cFor "idCell" ~body:[cWhile ()]];
   (* Part1: space reuse *)
   !! Variable.reuse ~space_ast:(trm_access (trm_var "p") "speed") [main; cVarDef "speed2"];
      Variable.reuse ~space_ast:(trm_access (trm_var "p") "pos") [main; cVarDef "pos2"];
@@ -37,7 +38,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
+  (* !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]]; *)
     (* TODO: try to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
@@ -61,10 +62,12 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fold_instrs ~index:"k" [ctx; sInstr "r.v"];
 
   (* Part: reveal fields *)
-  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
-  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
-  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Variable.inline [cOr [[cVarDef "p2"]; [cVarDef "p"]]];
+  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; (* !!!(); *)
+  !! Struct.set_explicit [nbMulti; (* main;  *)cWrite ~typ:"particle" ()];
+  !!! Struct.set_explicit [nbMulti; (* main; *) cWrite ~typ:"vect" ()];
+  (* Can't inline p2 when if bag_push functions are not inlined *)
+  (* !! Variable.inline [cOr [[cVarDef "p2"]; [cVarDef "p"]]]; *)
+  !! Variable.inline [main;cVarDef "p"];
   !! Struct.to_variables [cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
@@ -75,21 +78,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
-
-  (* TODO:
-       low-level
-  !! Sequence.intro ~mark:"deposit" ~start:[main; cVarDef "coeffs2"];
-  !! Instr.gather ~dest:GatherAtLast ~mark:"fusion" [cMark "deposit"; cFor "k"];
-  !! Loop_basic.fusion [cMark "fusion"];
-
-      high-level
-  !! Sequence.intro ~mark:"deposit" ~start:[main; cVarDef "coeffs2"];
-  !! Loop.fusion_targets [cMark "deposit"; cFor "k"];   // ~dest:GatherAtLast is the default
-
-     thus Loop.fusion_targets is just a combination of instr.gather and Loop_basic.fusion
-  *)
-
-  !! Sequence_basic.intro ~mark:"to_fusion" 5 [main; cFor "k" ~body:[sInstr "coeffs2.v[k] ="]];
+  
+  !! Sequence.intro ~mark:"to_fusion" ~start:[main; cVarDef "coeffs2"] ();
   !! Loop.fusion_targets [cMark "to_fusion"];
 
   (* TODO: Support the case when ~where is left empty *)
@@ -192,9 +182,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Sequence.intro ~mark:"temp_seq" ~start:[main; cVarDef "coef_x0"] ~nb:6 (); (* TODO: replace 6 with (2*nb_dims),  where let nb_dims = List.length dims should be define at the top of the file *)
-     Instr.move_invariant ~dest:[tBefore; main] [cMark "temp_seq"]; (* TODO: rename "move_invariant" to "move_out" *)
+     Instr.move_out ~dest:[tBefore; main] [cMark "temp_seq"]; (* TODO: rename "move_out" to "move_out" *)
      Sequence.elim [cMark "temp_seq"]; (* TODO: rename "temp_seq" to "coefs" *)
-     (* TODO: move_invariant would often apply to sequences, thus we could add an optional argument ?(elim_seq:bool=false) to perform the sequence elimination on the fly *)
+     (* TODO: move_out would often apply to sequences, thus we could add an optional argument ?(elim_seq:bool=false) to perform the sequence elimination on the fly *)
   !! Loop.fission [tBefore; cVarDef "px"];
      Loop.fission [tBefore; main; cVarDef "ix"];
      Loop.hoist [cVarDef "idCell2"]; (* TODO: hoisting before fission *)

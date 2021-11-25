@@ -42,6 +42,7 @@ let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target
 (* [read_last_write ~write tg] expects the target [tg] to point to a read operation, then it
     replaces the trm corresponding to that read operation with the one at [write].
  *)
+
 let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
   let write_trm = Target.get_trm_at (write @ [dRHS]) in
   Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> write_trm) t p) tg

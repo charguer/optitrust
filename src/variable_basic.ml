@@ -7,8 +7,8 @@ include Variable_core
 (* [fold ~as_reference ~at tg] expects the target [tg] to point to a variable declaration
     [as_reference] - denotes a flag whether the declaration initialization contains a
       variable reference or not.
-    [at] - denotes a target where the folding is done. If empty the
-      folding operation is performed on all the ast nodes in the same level as the
+    [at] - denotes a target where the fold_lefting is done. If empty the
+      fold_lefting operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = []
 *)
 let fold ?(as_reference : bool = false) ?(at : target = []) : Target.Transfo.t =

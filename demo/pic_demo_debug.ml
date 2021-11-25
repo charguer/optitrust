@@ -57,9 +57,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Sequence.intro ~mark:"temp_seq" ~start:[main; cVarDef "coef_x0"] ~nb:6 (); (* TODO: replace 6 with (2*nb_dims),  where let nb_dims = List.length dims should be define at the top of the file *)
-     Instr.move_invariant ~dest:[tBefore; main] [cMark "temp_seq"]; (* TODO: rename "move_invariant" to "move_out" *)
+     Instr.move_out ~dest:[tBefore; main] [cMark "temp_seq"]; (* TODO: rename "move_out" to "move_out" *)
      Sequence.elim [cMark "temp_seq"]; (* TODO: rename "temp_seq" to "coefs" *)
-     (* TODO: move_invariant would often apply to sequences, thus we could add an optional argument ?(elim_seq:bool=false) to perform the sequence elimination on the fly *)
+     (* TODO: move_out would often apply to sequences, thus we could add an optional argument ?(elim_seq:bool=false) to perform the sequence elimination on the fly *)
   !! Loop.fission [tBefore; cVarDef "px"];
      Loop.fission [tBefore; main; cVarDef "ix"];
      Loop.hoist [cVarDef "idCell2"]; (* TODO: hoisting before fission *)

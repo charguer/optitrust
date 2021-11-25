@@ -305,7 +305,7 @@ let switch ?(only_branch : int = 0) (cases : (unit -> unit) list) : unit =
   (* Close logs: new logs will be opened in every branch. *)
   close_logs ();
   let list_of_traces =
-    Tools.foldi
+    Tools.fold_lefti
       (fun i tr f ->
         let branch_id = i + 1 in
         if only_branch = 0 || branch_id = only_branch then

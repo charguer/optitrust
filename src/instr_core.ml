@@ -74,7 +74,7 @@ let accumulate_aux (t : trm) : trm =
   | Trm_seq tl ->
     let nb_instr = Mlist.length tl in
     if nb_instr < 2 then fail t.loc "accumulate_aux: expected at least two instructions";
-    Mlist.foldi (fun i acc t1 -> 
+    Mlist.fold_lefti (fun i acc t1 -> 
       begin match t1.desc with 
       | Trm_apps (_, [ls; rs]) when is_set_operation t1 ->
         begin match rs.desc with 

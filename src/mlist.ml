@@ -36,8 +36,11 @@ let fold_left (acc_f : 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
 let nth (ml : 'a t) (index : int) : 'a =
   List.nth ml.items index
 
-let foldi (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
-  Tools.foldi acc_f acc ml.items
+let fold_lefti (acc_f : int -> 'b -> 'a -> 'b) (acc : 'b) (ml : 'a t) : 'b =
+  Tools.fold_lefti acc_f acc ml.items
+
+let fold_righti (acc_f : int -> 'a -> 'b -> 'b)  (ml : 'a t) (acc : 'b) : 'b =
+  Tools.fold_righti acc_f ml.items acc
 
 let replace_at (index : int) (x : 'a) (ml : 'a t) : 'a t =
   { ml with items = Tools.map_at (fun _ -> x) ml.items index  }

@@ -588,7 +588,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
       *)
       | Trm_var f when f <> "free" ->
           let il =
-            foldi
+            fold_lefti
               (fun i il (t' : trm) ->
                 match t'.typ with
                 (* note: also works for heap allocated variables *)
@@ -690,7 +690,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
             | Trm_let_fun (f', r, tvl, b) when f = f' ->
                (* for each element of ils, create a copy *)
                let tl =
-                 intl_set_foldi
+                 intl_set_fold_lefti
                    (fun i il tl ->
                      (*
                        for each argument whose index is in il, use x as

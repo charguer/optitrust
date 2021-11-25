@@ -25,12 +25,21 @@ let document_to_string (d : document) : string =
   Buffer.contents b
 
 (* fold left with access to the indices
-  [foldi f a xs] computes  [ f 2 (f 1 (f 0 a x0) x1) x2) ] *)
-let foldi (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
+  [fold_lefti f a xs] computes  [ f 2 (f 1 (f 0 a x0) x1) x2) ] *)
+let fold_lefti (f : int -> 'a -> 'b -> 'a) (a : 'a) (bl : 'b list) : 'a =
   let (_, res) = List.fold_left (fun (i, a) b -> (i + 1, f i a b)) (0, a) bl in
   res
 
-let foldi2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c list) : 'a =
+
+(* fold right with access to the indices
+  [fold_righti f a xs] computes  [][ f 0 (f 1 (f 2 a x2) x1) x0) ] *)
+let fold_righti (f : int -> 'b -> 'a -> 'a) (bl : 'b list) (a : 'a) : 'a =
+  let (_, res) = List.fold_right (fun b (i,a) -> (i + 1, f i b a)) bl (0, a) in
+  res
+
+
+
+let fold_lefti2 (f : int -> 'a -> 'b -> 'c -> 'a) (a : 'a) (bl : 'b list) (cl : 'c list) : 'a =
   let (_, res) = List.fold_left2 (fun (i, a) b c -> (i + 1, f i a b c)) (0, a) bl cl in
   res
 
@@ -203,8 +212,8 @@ module IntList =
 module IntListSet = Set.Make(IntList)
 type ilset = IntListSet.t
 
-(* foldi for int list sets *)
-let intl_set_foldi (f : int -> int list -> 'a -> 'a) (ils : ilset)
+(* fold_lefti for int list sets *)
+let intl_set_fold_lefti (f : int -> int list -> 'a -> 'a) (ils : ilset)
   (a : 'a) : 'a =
   let (_, res) =
     IntListSet.fold (fun il (i, a) -> (i + 1, f i il a)) ils (0, a)
@@ -229,7 +238,7 @@ let map_at (transfo : 'a -> 'a) (al : 'a list) (n : int) : 'a list =
 let insert_sublist_at (index : int) (el : 'a list) (l : 'a list) : 'a list =
   if index = List.length l
     then l @ el
-    else foldi (fun i acc x ->
+    else fold_lefti (fun i acc x ->
       if i = ((List.length l) - index - 1) then el @ x :: acc else x :: acc) [] (List.rev l)
 
 (* [insert_at index e l] inserts an element [e] at index [index] in the list [l].
@@ -273,7 +282,7 @@ let find_map f t =
     the list contains that element, otherwise None
  *)
 let index_of (x : 'a) (l : 'a list) : int option =
-  foldi (fun i acc y -> if x = y then Some i else acc) None l
+  fold_lefti (fun i acc y -> if x = y then Some i else acc) None l
 
 
 

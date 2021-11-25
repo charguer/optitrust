@@ -1,16 +1,59 @@
 open Ast 
 include Instr_basic
 
-let inline_last_write ?(write : Target.target = []) ?(delete : bool = false) (tg : Target.target) : unit =
+
+
+(* [inline_last_write ~write ~delete tg] this tranformation is a version of read last write, in fact it will call 
+    the basic read_last_write transformation and then it will delete the write operation. So the main difference between
+    these two transformations is that the later one deletes the write operation
+*)
+let inline_last_write ?(write : Target.target = []) (tg : Target.target) : unit =
   Instr_basic.read_last_write ~write tg;
-  if delete then Instr_basic.delete write 
+  if write <> [] then  Instr_basic.delete write 
 
 
-(* [read_last_write ~write tg] expects the target [tg] to pointing to a read operation 
-    the it will take the value of the write operation [write] and replace the curren read operation 
+(* [read_last_write ~write tg] expects the target [tg] to be pointing at a read operation 
+    then it will take the value of the write operation [write] and replace the current read operation 
     with that value, if [tg] doesn't point to a read operation then the transformation will fail
 *)
-let read_last_write ~write:(write : Target.target) : Target.Transfo.t =
+
+let read_last_write ?(write : Target.target = []) : Target.Transfo.t =
+  Target.iter_on_targets (fun t p -> 
+    let tg_trm, _ = Path.resolve_path p t in
+    match tg_trm.desc with 
+    | Trm_apps (_, [arg]) when is_get_operation tg_trm -> 
+      begin match write with 
+      | [] -> 
+        let path_to_seq, _, index = Internal.get_instruction_in_surrounding_sequence p in
+        let seq_trm, _ = Path.resolve_path path_to_seq t in
+        let write_index = ref None in
+        begin match seq_trm.desc with 
+        | Trm_seq tl -> 
+          Mlist.iteri (fun i t1 -> 
+            if i >= index 
+              then () 
+              else begin match t1.desc with 
+                   | Trm_apps (_, [ls; _rs]) when is_set_operation t1 -> 
+                     if Internal.same_trm ls arg then write_index := Some i else () 
+                   | Trm_let (_, (x, _), _ ) when Internal.same_trm (trm_var x) arg -> 
+                      write_index := Some i
+                   | _ -> ()
+                   end     
+          ) tl
+        | _ -> fail seq_trm.loc (Printf.sprintf "read_last_write: expected the sequence which contains the targeted get operation got %s" (Ast_to_c.ast_to_string seq_trm))
+        end;
+        begin match !write_index with 
+        | Some index -> 
+          let write =  (Target.target_of_path path_to_seq) @ [Target.dSeqNth index] in
+          Instr_basic.read_last_write ~write (Target.target_of_path p)
+        | None -> fail tg_trm.loc "read_last_write: couuldn't find a write operation for your targeted read operation"
+        end
+      | _ -> Instr_basic.read_last_write  ~write (Target.target_of_path p)
+      end
+    | _ -> fail tg_trm.loc "read_last_write: the main target should be a get operation"
+  ) 
+
+let read_last_write1 ~write:(write : Target.target) : Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
     let tg_trm,_ = Path.resolve_path p t in
     if is_get_operation tg_trm then 
@@ -95,16 +138,17 @@ let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(t
   if List.length destinations <> List.length targets then fail None "move_multiple: each destination corresponds to a single target and vice-versa";
   List.iter2(fun dest tg1 -> Instr_basic.move ~dest tg1) destinations targets 
 
-(* [move_invariant dest tg] move the invariant [tg] to destination [dest] 
+(* [move_out dest tg] move the invariant [tg] to destination [dest] 
    Note: The transformation does not check if [tg] points to some invariant code or not
+   LATER: Check if [tg] is dependent on other instructions of the same scope
 *)
 
-let move_invariant ?(rev : bool = false) ~dest:(dest : Target.target) : Target.Transfo.t =  
+let move_out ?(rev : bool = false) ~dest:(dest : Target.target) : Target.Transfo.t =  
   Target.iter_on_targets ~rev (fun t p ->
     let tg_trm,_ = Path.resolve_path p t in
-    Marks.add "instr_move_invariant" (Target.target_of_path p);
+    Marks.add "instr_move_out" (Target.target_of_path p);
     Sequence_basic.insert tg_trm dest;
-    Instr_basic.delete [Target.cMark "instr_move_invariant"]
+    Instr_basic.delete [Target.cMark "instr_move_out"]
   )
 
 

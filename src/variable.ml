@@ -5,12 +5,12 @@ include Variable_basic
 (* [fold ~as_reference ~at ~nonconst tg] expects [tg] to point to a variable declaration
     [as_reference] - denotes a flag whether the declaration initialization contains a
       variable reference or not.
-    [at] - denotes a list of targets where the folding is done. If empty the
-      folding operation is performed on all the ast nodes in the same level as the
+    [at] - denotes a list of targets where the fold_lefting is done. If empty the
+      fold_lefting operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = [].
-    [nonconst] - denotes a flag to decide if folding should be done for variables which are
+    [nonconst] - denotes a flag to decide if fold_lefting should be done for variables which are
         not mutable, in general is not safe to fold variables which are not declared as const.
-        But if the users know what they're doing then  they can use this flag to use folding
+        But if the users know what they're doing then  they can use this flag to use fold_lefting
         also for mutable variables.
     This transformation
 *)
@@ -30,7 +30,7 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
             | _ -> if nonconst = true
                 then Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
                 else
-                  fail tg_trm.loc "fold: if you want to use folding for mutable variables you should set
+                  fail tg_trm.loc "fold: if you want to use fold_lefting for mutable variables you should set
                             ~nonconst to true when calling this transformation"
             end
       end
