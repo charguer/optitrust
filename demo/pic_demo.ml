@@ -62,9 +62,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fold_instrs ~index:"k" [ctx; sInstr "r.v"];
 
   (* Part: reveal fields *)
-  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; (* !!!(); *)
+  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
   !! Struct.set_explicit [nbMulti; (* main;  *)cWrite ~typ:"particle" ()];
-  !!! Struct.set_explicit [nbMulti; (* main; *) cWrite ~typ:"vect" ()];
+  !! Struct.set_explicit [nbMulti; (* main; *) cWrite ~typ:"vect" ()];
   (* Can't inline p2 when if bag_push functions are not inlined *)
   (* !! Variable.inline [cOr [[cVarDef "p2"]; [cVarDef "p"]]]; *)
   !! Variable.inline [main;cVarDef "p"];
@@ -82,9 +82,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Sequence.intro ~mark:"to_fusion" ~start:[main; cVarDef "coeffs2"] ();
   !! Loop.fusion_targets [cMark "to_fusion"];
 
-  (* TODO: Support the case when ~where is left empty *)
-!!! Instr.inline_last_write ~delete:true ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];
-    Instr.inline_last_write ~delete:true ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
+  
+
+(* TODO: Fix the issue of inline_last_write for this particular case *)
+!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];
+!! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
