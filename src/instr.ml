@@ -3,14 +3,6 @@ include Instr_basic
 
 
 
-(* [inline_last_write ~write ~delete tg] this tranformation is a version of read last write, in fact it will call 
-    the basic read_last_write transformation and then it will delete the write operation. So the main difference between
-    these two transformations is that the later one deletes the write operation
-*)
-let inline_last_write ?(write : Target.target = []) (tg : Target.target) : unit =
-  Instr_basic.read_last_write ~write tg;
-  if write <> [] then  Instr_basic.delete write 
-
 
 (* [read_last_write ~write tg] expects the target [tg] to be pointing at a read operation 
     then it will take the value of the write operation [write] and replace the current read operation 
@@ -53,13 +45,13 @@ let read_last_write ?(write : Target.target = []) : Target.Transfo.t =
     | _ -> fail tg_trm.loc "read_last_write: the main target should be a get operation"
   ) 
 
-let read_last_write1 ~write:(write : Target.target) : Target.Transfo.t =
-  Target.iter_on_targets (fun t p ->
-    let tg_trm,_ = Path.resolve_path p t in
-    if is_get_operation tg_trm then 
-      Instr_basic.read_last_write ~write (Target.target_of_path p)
-      else fail tg_trm.loc "read_last_write: the main target should be a get operation"
-) 
+(* [inline_last_write ~write ~delete tg] this tranformation is a version of read last write, in fact it will call 
+    the basic read_last_write transformation and then it will delete the write operation. So the main difference between
+    these two transformations is that the later one deletes the write operation
+*)
+let inline_last_write ?(write : Target.target = []) (tg : Target.target) : unit =
+  Instr_basic.read_last_write ~write tg;
+  if write <> [] then  Instr_basic.delete write 
 
 
 (* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location 

@@ -56,13 +56,14 @@ type atom_map = trm Atom_map.t
 (*                          Smart constructors                                *)
 (******************************************************************************)
 
+(* [expr_mul we1 e]  *)
 let expr_mul (we1 : wexprs) (e : expr) : expr =
   match e with
   | Expr_prod [_,Expr_int 1] -> Expr_prod we1
   | Expr_prod wes -> Expr_prod (we1 @ wes)
   | _ -> Expr_prod  ((1,e) :: we1)
 
-
+(* [expr_add we1 e]  *)
 let expr_add (we1 : wexprs) (e : expr) : expr =
   match e with
   | Expr_sum [_,Expr_int 0] -> Expr_sum we1
@@ -73,8 +74,8 @@ let expr_add (we1 : wexprs) (e : expr) : expr =
 (*-----------------------------------------------------------------------------------------*)
 
 (* [apply_bottom_up] is a combinator that takes a transformation and applies it recursively,
-   bottom up through a term. *)
-
+   bottom up through a term. 
+*)
 let apply_bottom_up (f : expr -> expr) (e : expr) : expr =
   let apply_wexprs (wes : wexprs) : wexprs =
     List.map (fun (w,e) -> (w, f e)) wes in
@@ -155,6 +156,7 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
   let atoms = ref Atom_map.empty in
     let rec aux (t : trm) : expr =
       let not_expression = Expr_atom (create_or_reuse_atom_for_trm atoms t) in
+      Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
       match t.desc with
         | Trm_val (Val_lit (Lit_int n)) -> Expr_int n
         | Trm_val (Val_lit (Lit_double n)) -> Expr_double n
@@ -182,9 +184,66 @@ let trm_to_naive_expr (t : trm) : expr * atom_map =
         | _ -> not_expression
       in aux t, !atoms
 
+
+(* [is_one e] check is e = 1 *)
+let is_one (e : expr) : bool =
+  match e with
+  | Expr_int 1 | Expr_double 1.0 -> true
+  | _ -> false
+
+(* [expr_to_string atoms e] convert an expression to a string,
+    NOTE: Only for debugging
+*)
+let expr_to_string (atoms : atom_map) (e : expr) : string =
+  let rec power_to_doc (base : document) (power : int) : document =
+     if power = 0 then base
+     else if power < 0 then string "1./" ^^ parens (power_to_doc base (-power))
+     else Tools.list_to_doc ~sep:(star) ~bounds:[empty;empty] (List.init power (fun _ -> base))
+     in
+  let rec aux (e : expr) : document =
+    match e with
+    | Expr_int n -> string (string_of_int n)
+    | Expr_double n -> string (string_of_float n)
+    | Expr_sum we ->
+      begin match we with 
+      | [] -> Printf.printf "expr: Expr_sum [] should never appear";
+        (string (string_of_int 0))
+      | _ -> 
+        let we_l = List.map (fun (w, e) ->
+          if is_one e then
+            string (string_of_int w)
+          else begin
+            let s = aux e in
+            if w = 1
+              then s
+              else (string (string_of_int w) ^^ star ^^ s)
+          end
+        ) we in
+        Tools.list_to_doc ~sep:plus ~bounds:[lparen; rparen] we_l
+      end
+    | Expr_prod we ->
+      begin match we with 
+      | [] -> Printf.printf "expr: Expr_prod [] should never appear"; 
+        string (string_of_int 1)
+      | _ -> 
+        let we_l = List.map (fun (w, e) ->
+        power_to_doc (aux e) w
+      ) we in
+      Tools.list_to_doc ~sep:star ~bounds:[lparen; rparen] we_l
+      end
+    | Expr_atom id ->
+      begin match Atom_map.find_opt id atoms with
+      | Some t1 -> (Ast_to_c.trm_to_doc t1)
+      | _  -> fail None "expr_to_string: couldn't convert an atom expr to a trm"
+      end
+  in
+  Tools.document_to_string (aux e)
+
+
 (* [trm_to_expr t] convert trm [t] to an expression*)
 let trm_to_expr (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
+  (* Tools.printf "%s\n" (expr_to_string atoms expr); *)
   (normalize expr), atoms
 
 (* [expr_to_trm e ] convert expr [e] to trm  *)
@@ -212,57 +271,11 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     in
   aux e
 
-let is_one (e : expr) : bool =
-  match e with
-  | Expr_int 1 | Expr_double 1.0 -> true
-  | _ -> false
-
-(* [expr_to_string atoms e] convert an expression to a string,
-    NOTE: Only for debugging
-*)
-let expr_to_string (atoms : atom_map) (e : expr) : string =
-  let rec power_to_doc (base : document) (power : int) : document =
-     if power = 0 then base
-     else if power < 0 then string "1./" ^^ parens (power_to_doc base (-power))
-     else Tools.list_to_doc ~sep:(star) ~bounds:[empty;empty] (List.init power (fun _ -> base))
-     in
-  let rec aux (e : expr) : document =
-    match e with
-    | Expr_int n -> string (string_of_int n)
-    | Expr_double n -> string (string_of_float n)
-    | Expr_sum we ->
-      let we_l = List.map (fun (w, e) ->
-        if is_one e then
-          string (string_of_int w)
-        else begin
-          let s = aux e in
-          if w = 1
-            then s
-            else (string (string_of_int w) ^^ star ^^ s)
-        end
-      ) we in
-      parens (List.fold_left (fun acc x -> acc ^^ plus ^^ x) empty we_l) (* TODO: use the function that takes a separator and a list of docs, and return the doc;
-                                                                            if we is empty, then raise a warning, and provide ~empty:(string "0") *)
-    | Expr_prod we ->
-      let we_l = List.map (fun (w, e) ->
-        power_to_doc (aux e) w
-      ) we in
-      List.fold_left (fun acc x -> acc ^^ star ^^ x) empty we_l
-       (* TODO: use the function that takes a separator and a list of docs, and return the doc;
-                if we is empty, then raise a warning, and provide ~empty:(string "1") *)
-
-    | Expr_atom id ->
-      begin match Atom_map.find_opt id atoms with
-      | Some t1 -> (Ast_to_c.trm_to_doc t1)
-      | _  -> fail None "expr_to_string: couldn't convert an atom expr to a trm"
-      end
-  in
-  Tools.document_to_string (aux e)
-
 (* [gather_one e] regroups similar expression that appear inside a same product or sum
       For example, [2 * e1 + (-1)*e1] simplifies to [e1]
       and [e1 * e2 * e1^(-1)] simplifies to [e2].
  *)
+(* LATER: Use a map instead of a list *)
 let gather_one (e : expr) : expr =
   let rec insert (acc : wexprs) ((w,e) : wexpr) : wexprs =
       match acc with
@@ -307,15 +320,32 @@ let expand_one (e : expr) : expr =
       let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
       let wes_in_sum = List.map (fun e -> (1,e)) exprs_in_sum in
       normalize_one (Expr_sum wes_in_sum)
-  | _ -> e  (* *)
+  | _ -> e  
 *)
+
+let expand_one (e : expr) : expr = 
+  let aux ((w,e) : wexpr) (acc : exprs) : exprs = 
+    match (w,e) with 
+    | 1, (Expr_sum wes) -> 
+      List.concat_map (fun (wk, ek) -> 
+        List.map (fun ei -> expr_mul [(w,e)] (expr_mul [(1,ek)] ei)) acc
+      ) wes
+    | _ -> 
+      List.map (fun ei -> expr_mul [(w,e)] ei) acc
+  in
+  match e with 
+  | Expr_prod wes -> 
+    let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
+    let wes_in_sum = List.map (fun e -> (1,e)) exprs_in_sum in
+    normalize_one (Expr_sum wes_in_sum)
+  | _ -> e
 
 (* [expand] calls [expand_one] recursively, calling [gather] and [normalize]
    operations after each step. *)
-(* let expand (recurse : bool) (e : expr) : expr =
+let expand (recurse : bool) (e : expr) : expr =
   let tr (ei : expr) : expr =
     normalize_one (gather_one (expand_one ei)) in
-  apply_bottom_up_if cleanup_true recurse tr e *)
+  apply_bottom_up_if cleanup_true recurse tr e
 
 
 let trm_transfo  (f : expr -> expr) (t : trm) : trm =

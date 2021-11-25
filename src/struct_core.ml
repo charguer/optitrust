@@ -182,12 +182,12 @@ let inline_struct_accesses  (x : var) (t : trm) : trm =
                   | Trm_val (Val_prim (Prim_unop Unop_struct_field_addr z))
                     | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get z ))) when z = x ->
                     let new_var = Convention.name_app z y in
-                    (* let new_var = z ^ "_" ^ y in *)
+                    
                     let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_field_addr new_var)))} in
                     trm_apps ~annot:t.annot  f' [trm_apps new_f base3;index]
                   | _ -> trm_map (aux global_trm) t
                   end
-                | _ -> fail t.loc "inline_struct_accesses: expected a trm_apps"
+                | _ -> t (* fail t.loc (Printf.sprintf "inline_struct_accesses: expected a trm_apps and got %s" (Ast_to_text.ast_to_string base2)) *)
                 end
             | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr z)))
               | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get z))) when z = x ->
