@@ -231,16 +231,16 @@ OPTITRUST_SRC=$(wildcard $(OPTITRUST)/src/*.ml)
 # To check the output of the demo, use 'make mytransfo.doc'
 %.doc: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
 	@echo "Produced $*_doc_spec.txt and $*_doc.{txt,cpp,out_cpp}"
-	@echo "---"
+	@echo "---------------------"
 	$(V)cat $*_doc_spec.txt
-	@echo "---"
+	@echo "---------------------"
 	$(V)cat $*_doc.txt
-	@echo "---"
+	@echo "---------------------"
 	$(V)cat $*_doc.cpp
-	@echo "---"
+	@echo "---------------------"
 	$(V)cat $*_doc_out.cpp
-	@echo "---"
-	git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp
+	@echo "---------------------"
+	$(V)git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | tail -n +5
 
 
 # Generate a JS file containing the material to be displayed in the doc:

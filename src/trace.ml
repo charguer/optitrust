@@ -437,6 +437,7 @@ let output_prog ?(beautify:bool=true) ?(ast_and_enc:bool=true) (ctx : context) (
     Printf.printf "===> %s \n" (ctx.includes); print_newline();*)
     output_string out_prog ctx.includes;
     Ast_to_c.ast_to_doc out_prog ast;
+    output_string out_prog "\n";
     close_out out_prog;
   with | Failure s ->
     close_out out_prog;
