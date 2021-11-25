@@ -1537,6 +1537,24 @@ let is_set_operation (t : trm) : bool =
 let trm_for_of_trm_for_c (t : trm) : trm =
   begin match t.desc with
   | Trm_for_c (init,_, step, body) ->
+    (* TODO:
+
+      let oinit = trm_for_c_inv_simple_init init
+        -> Some ("i", t0)    if    init is a term of the form  int i = t0
+      let ostop = trm_for_c_inv_simple_stop stop
+        -> Some ("i", t1)    if   stop is a term of the form    i < n
+      let ostep = trm_for_c_inv_simple_step step
+        -> Some ("i", dir, t2)    if   stop is a term of the form    i += t2  or i -= t2, with the right dir
+
+      match oinit, ostop, ostep with
+      | Some (i1, tstart), Some (i2, tstop), Some (i3, dir, tstep)
+          when i1 = i2 && i2 = i3 ->
+            trm_for i1 dir tstart tstop tstep
+      | _ -> t
+
+
+    *)
+
     let index = for_loop_index t in
     let direction = for_loop_direction t in
     let start = for_loop_init t in
@@ -1897,14 +1915,14 @@ let is_infix_prim_fun (p : prim) : bool =
   | _ -> false
 
 (* [trm_access base field] create a dummy access without type checking*)
-let trm_access (base : trm) (field : var) : trm = 
+let trm_access (base : trm) (field : var) : trm =
   trm_apps (trm_unop (Unop_struct_field_addr field)) [base]
 
 
 module AstParser = struct
-  
+
   let var = trm_var
 
-  let expr = code 
+  let expr = code
 end
 
