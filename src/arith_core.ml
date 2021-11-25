@@ -284,21 +284,31 @@ let gather (recurse : bool) (e : expr) : expr =
 (* [expand_one e] expends sums that appear inside product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3]
     The function is identity if no expansion can be performed
+
+
+  | 1, (Expr_sum wes) ->
+    wes=(e2+e3)   acc=(w1*a1+a2+a3)  ->  (e2*w1*a1 +e2*a2 + e2*a3   +  e3*a2 + e3*a2 + e3*a2)
 *)
 
-
-(* let expand_one (e : expr) : expr =
+(*
+let expand_one (e : expr) : expr =
   let aux ((w,e) : wexpr) (acc : exprs) : exprs =
     match (w,e) with
-    | 1, (Expr_sum wes) -> List.concat_map (fun (wk,ek) -> List.map (fun ei -> expr_mul [(Expr_int wk) (expr_mul (1,ek) ei)]) acc) wes
-    | _ -> List.map (fun ei -> expr_mul (w,e) ei) acc
+    | 1, (Expr_sum wes) ->
+        List.concat_map (fun (wk,ek) ->
+           List.map (fun ei ->
+              expr_mul [(1,Expr_int wk)] (expr_mul [(1,ek)] ei))
+            ) acc
+        ) wes
+    | _ -> List.map (fun ei -> expr_mul [(w,e)] ei) acc
     in
   match e with
   | Expr_prod wes ->
       let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
       let wes_in_sum = List.map (fun e -> (1,e)) exprs_in_sum in
       normalize_one (Expr_sum wes_in_sum)
-  | _ -> e *)
+  | _ -> e  (* *)
+*)
 
 (* [expand] calls [expand_one] recursively, calling [gather] and [normalize]
    operations after each step. *)
