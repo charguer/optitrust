@@ -22,7 +22,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
   match t.desc with
   | Trm_seq tl ->
      let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
-     let function_call, _ = Path.resolve_path p_local instr in
+     let function_call = Path.resolve_path p_local instr in
      let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
      let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
      let decl_to_change = Internal.change_trm function_call (trm_var fresh_name) instr in
@@ -102,66 +102,63 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
 (* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
    but for now we implement a function that covers both beta and inline at once, as it is simpler *)
 (* TODO: let beta = inline *)
+
+
+
+
 let inline_aux (index : int) (body_mark : string) (_top_ast : trm) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
-    let fun_call = fst (Path.resolve_path p_local trm_to_change) in (* TODO: rename to resolve_path_and_ctx;   get_trm_at_path -> first projection of it *)
-
-   (* TODO: let fun_decl =
-       begin match fun_call.desc with
-       | Trm_apps (tfun, args) ->
-                   begin match tfun.desc with
-                   | Trm_var f ->
-                         begin match Internal.toplevel_decl fun_call_name with
-                        | Some decl -> decl
-                        | None -> fail t
-                        end
-                   | Trm_let_fun ... -> tfun
-                   end
-       | _ -> error
-       in
-    let fun_decl ... *)
-    let fun_call_name, fun_call_args = begin match fun_call.desc with
-                   | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
-                   | _ -> fail fun_call.loc "inline_aux: couldn't resolve the name of the function, target does not resolve to a function call"
-                   end in
-    let fun_decl = Internal.toplevel_decl fun_call_name in
-    let fun_decl = begin match fun_decl with
-      | Some decl -> decl
-      | None -> fail t.loc "inline_aux: no trm in top level gives the declaration with the given name"
+    let fun_call = Path.resolve_path p_local trm_to_change  in
+    begin match fun_call.desc with 
+    | Trm_apps (tfun, fun_call_args) -> 
+      let fun_decl = 
+      begin match tfun .desc with 
+      | Trm_var f ->
+        begin match Internal.toplevel_decl f with
+        | Some decl -> decl 
+        | None -> fail tfun.loc "inline_aux: couldn't find the toplevel_decl for the targeted function call"
+        end
+      | Trm_let_fun _ -> tfun
+      | _ -> fail tfun.loc "inline_aux: expected either a function call or beta funtion call"
       end in
-
-    let (* TODO: obtain f here as well *) fun_decl_type, fun_decl_args, fun_decl_body = begin match fun_decl.desc with
-                   | Trm_let_fun (f, ty, args,body) (* TODO: remove when clause *) when f = fun_call_name  -> ty, args, body
+      let  fun_decl_type, fun_decl_args, fun_decl_body = begin match fun_decl.desc with
+                   | Trm_let_fun (f, ty, args,body) -> ty, args, body
                    | _ -> fail fun_decl.loc "inline_aux: failed to find the top level declaration of the function"
                    end in
-   let fun_decl_arg_vars = fst (List.split fun_decl_args) in
-   (* Since there is a chance that there can be arguments which have the same name both on the function call and function definition,
-      a replacing of the current args with the function call args with an underscore prefix is needed *)
-   let fresh_args = List.map Internal.fresh_args fun_call_args in
+      let fun_decl_arg_vars = fst (List.split fun_decl_args) in
+      (* Since there is a chance that there can be arguments which have the same name both on the function call and function definition,
+         a replacing of the current args with the function call args with an underscore prefix is needed *)
+      let fresh_args = List.map Internal.fresh_args fun_call_args in
 
-   let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) fun_decl_body fun_decl_arg_vars fresh_args in
-   let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
+      let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) fun_decl_body fun_decl_arg_vars fresh_args in
+      let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
 
-   let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
-   let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
-   let marked_body = trm_add_mark body_mark processed_body in
-      (* if name = ""
-        then trm_add_mark body_mark fun_decl_body
-        else trm_add_mark body_mark processed_body
-      in *)
-   let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "exit_body" (trm_lit (Lit_unit)) in
-   let inlined_body =
-    if is_type_unit(fun_decl_type)
-      then [marked_body; exit_label]
-      else  [trm_let ~marks:fun_call.marks Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
-              marked_body;exit_label]
-      in
+      let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
+      let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
+      let marked_body = trm_add_mark body_mark processed_body in
+         (* if name = ""
+           then trm_add_mark body_mark fun_decl_body
+           else trm_add_mark body_mark processed_body
+         in *)
+      let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "exit_body" (trm_lit (Lit_unit)) in
+      let inlined_body =
+       if is_type_unit(fun_decl_type)
+         then [marked_body; exit_label]
+         else  [trm_let ~marks:fun_call.marks Var_mutable (name, fun_decl_type) (trm_prim (Prim_new fun_decl_type));
+                 marked_body;exit_label]
+         in
 
-    let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
-    let new_tl = Mlist.merge new_tl lback in
-    trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
+      let new_tl = Mlist.merge new_tl lback in
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+
+    | _ -> fail fun_call.loc "inline_aux: couldn't resolve the name of the function, target does not resolve to a function call"
+    end
+    
+
+    
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
 
@@ -195,31 +192,4 @@ let use_infix_ops_aux (t : trm) : trm =
 let use_infix_ops : Target.Transfo.local =
   Target.apply_on_path (use_infix_ops_aux)
 
-
-(* [beta_aux t] replace a function call with another function call where the application is its complete body declaration
-    params:
-      [t]: ast of targeted function call
-    returns:
-      the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
-*)
-let beta_aux (t : trm) : trm =
-  match t.desc with
-  | Trm_apps (f, arg) ->
-    begin match f.desc with
-    | Trm_var f1 ->
-      let fun_decl = Internal.toplevel_decl f1  in
-      begin match fun_decl with
-      | Some fu ->
-        trm_apps fu arg
-      | _ -> fail t.loc "beta_aux: couldn't find the toplevel declaration of the targeted function"
-      end
-
-    | _ -> fail t.loc "beta_aux: the target should be a user defined function call and not an internal one"
-    end
-
-  | _ -> fail t.loc" beta_aux: expected a target to the function call"
-
-
-let beta : Target.Transfo.local =
-  Target.apply_on_path (beta_aux)
 

@@ -12,7 +12,7 @@ type rename = Variable_core.Rename.t
 *)
 let hoist ?(name : var = "${var}_step") (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
-    let (tg_trm, _) = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
       let detach_first =
       match tg_trm.desc with
         | Trm_let (_, (_, _), init) ->
@@ -64,7 +64,7 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
 let fusion_targets (tg : Target.target) : unit =
   let non_loop_indices = ref [] in
   Target.iter_on_targets (fun t p ->
-    let tg_trm, _ = Path.resolve_path p t in
+    let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
     | Trm_seq tl ->
       Mlist.iteri (fun i t1 ->
@@ -94,7 +94,7 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
           let tmp_p = ref [] in
           tmp_p := List.rev(List.tl (List.rev p));
           while not !quit_loop do
-            let (tg_trm, _) = Path.resolve_path !tmp_p t in
+            let tg_trm = Path.resolve_path !tmp_p t in
             match  tg_trm.desc with
             | Trm_for _ ->
               let index = for_loop_index tg_trm in
@@ -124,14 +124,14 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
 let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_move : Target.target) : unit =
   Trace.call (fun t ->
    let loop_to_move_path = Target.resolve_target_exactly_one loop_to_move t in
-   let loop_to_move_trm, _ = Path.resolve_path loop_to_move_path t in
+   let loop_to_move_trm = Path.resolve_path loop_to_move_path t in
    let loop_to_move_nested_indices = Internal.get_loop_nest_indices loop_to_move_trm in
    let loop_to_move_index  = List.nth loop_to_move_nested_indices 0 in
    begin match before, after with
    | [], [] -> fail None  "move: the before target or after target are mandatory please enter only one of them"
    | [], _ ->
     let targeted_loop_path = Target.resolve_target_exactly_one after t in
-    let targeted_loop, _ = Path.resolve_path targeted_loop_path t in
+    let targeted_loop = Path.resolve_path targeted_loop_path t in
     let targeted_loop_nested_indices = Internal.get_loop_nest_indices targeted_loop in
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
     if List.mem targeted_loop_index loop_to_move_nested_indices
@@ -149,7 +149,7 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
 
    | _ , [] ->
     let targeted_loop_path = Target.resolve_target_exactly_one before t in
-    let targeted_loop, _ = Path.resolve_path targeted_loop_path t in
+    let targeted_loop = Path.resolve_path targeted_loop_path t in
     let targeted_loop_nested_indices = Internal.get_loop_nest_indices targeted_loop in
     let targeted_loop_index = List.nth targeted_loop_nested_indices  0 in
     if List.mem targeted_loop_index loop_to_move_nested_indices
@@ -281,7 +281,7 @@ STEP 1 (BASIC): ONLY UNROLL
 let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool = false) (tg : Target.target) : unit =
   Target.reparse_after ~reparse:(not braces) (Target.iteri_on_targets (fun i t p ->
     let my_mark = "__unroll_" ^ string_of_int i in
-    let (tg_loop_trm,_) = Path.resolve_path p t in
+    let tg_loop_trm  = Path.resolve_path p t in
     Marks.add my_mark (Target.target_of_path p);
     (* Function used in the case when the loop bound is a constant variable *)
     let aux (x : var) (t : trm) : int  =
@@ -337,7 +337,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
 *)
 let reorder ?(order : vars = []) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
-    let tg_loop, _ = Path.resolve_path p t in
+    let tg_loop = Path.resolve_path p t in
     let indices = Internal.get_loop_nest_indices tg_loop in
     let nb_order = List.length order in
     if nb_order > List.length indices

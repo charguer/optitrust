@@ -23,21 +23,21 @@ let fold ?(as_reference : bool = false) ?(at : target = []) : Target.Transfo.t =
     inlining operation is performed on all the ast nodes in the same level as the declaration
     or deeper
 *)
-let inline_common (delete : bool) (at : target) : Target.Transfo.t =
+let inline_common (delete : bool) (accept_functions : bool) (at : target) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.inline delete at i t p)
+    (fun t (p,i) -> Variable_core.inline delete accept_functions at i t p)
 
 (* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to true. 
     an the target [at] left empty.
 *)
-let inline : Target.Transfo.t =
-  inline_common true []
+let inline ?(accept_functions : bool = true): Target.Transfo.t =
+  inline_common true accept_functions []
 
 (* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to false. 
     an the target [at] should be given by the user.
 *)
-let inline_at (at : target) : Target.Transfo.t =
-  inline_common false at
+let inline_at ?(accept_functions : bool = true) (at : target) : Target.Transfo.t =
+  inline_common false accept_functions at
 
 (* [rename_on_block ~list ~func tg] expects [tg] to point to a sequence.
     [list] - denotes a list of pairs where each pair has the

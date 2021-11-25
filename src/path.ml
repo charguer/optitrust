@@ -387,7 +387,7 @@ let applyp_on_path (transfo : path -> trm -> trm) (t : trm) (dl : path) : trm =
 (*
   follow the explicit path and return the corresponding subterm and its context
  *)
-let resolve_path (dl : path) (t : trm) : trm * (trm list) =
+let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
   let rec aux (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
     | [] -> (t, List.rev ctx)
@@ -500,7 +500,7 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
                   begin match t_o with
                   | None ->
                      fail loc
-                       "resolve_path: no value for enum constant"
+                       "resolve_path_and_ctx: no value for enum constant"
                   | Some t ->
                      aux dl t ctx
                   end
@@ -511,8 +511,10 @@ let resolve_path (dl : path) (t : trm) : trm * (trm list) =
        | _, _ ->
           let s = dir_to_string d in
           let s_t = Ast_to_c.ast_to_string t in
-          fail loc (Tools.sprintf "resolve_path: direction  %s does not match with the following term %s" s s_t )
+          fail loc (Tools.sprintf "resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
        end
   in
   aux dl t []
 
+let resolve_path (dl : path) (t : trm) : trm  =
+  fst (resolve_path_and_ctx dl t )

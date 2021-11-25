@@ -843,7 +843,7 @@ let applyi_on_transformed_targets_between (transformer : path * int -> 'a) (tr :
     Tools.fold_lefti (fun imark t m ->
       match resolve_target [nbAny;cMark m] t with
       | [p_to_seq] ->
-        let t_seq, _ = resolve_path p_to_seq t in
+        let t_seq, _ = resolve_path_and_ctx p_to_seq t in
         let i = begin match get_mark_index m t_seq with | Some i -> i | None -> fail t_seq.loc "applyi_on_transformed_targets_between: could not get the between index" end in
         let t = apply_on_path (trm_remove_mark_between m) t p_to_seq in
         tr imark t (transformer (p_to_seq,i))
@@ -957,7 +957,7 @@ let get_trm_at (tg : target) : trm =
   let t_ast = ref (trm_unit ()) in
   Trace.call (fun t ->
     let tg_path = resolve_target_exactly_one tg t in
-    t_ast := fst (Path.resolve_path tg_path t)
+    t_ast := Path.resolve_path tg_path t
   );
   !t_ast
 
