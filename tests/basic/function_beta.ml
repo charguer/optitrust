@@ -28,10 +28,25 @@ beta reduction  is just a form of inlining, where the function is defined "on-th
 
 
   The transformation Function_basic.beta takes as target the trm_app node.
+    Function_basic.beta = Function_basic.inline
 
   The combi transformation Function.beta takes a target:
+
+  Function.beta =
     - if this target points to a trm_app, apply Function_basic.beta on it
     - if this target points to a trm_let_fun, check that the parent node is a trm_app, and target this one.
+        int a = (void f(int x) { return x; })(3)
+        ->
+        int a =3
+
+
+        same result as if you ave
+          f(3)
+
+        trm_app ~base:[trm_let_fun ~name:"f"]
+        [trm_let_fun ~name:"f"]
+
+
   The point is that the user can say "beta reduce the function f"
 
   The combi transformation has prototype:
@@ -44,7 +59,7 @@ beta reduction  is just a form of inlining, where the function is defined "on-th
 open Optitrust
 open Target
 
-let _ = Run.script_cpp (fun _ -> 
+let _ = Run.script_cpp (fun _ ->
 
   !! Function_basic.beta [cFun "f"];
 

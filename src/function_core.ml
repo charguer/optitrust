@@ -99,12 +99,29 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
     returns:
       the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
 *)
+(* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
+   but for now we implement a function that covers both beta and inline at once, as it is simpler *)
+(* TODO: let beta = inline *)
 let inline_aux (index : int) (body_mark : string) (_top_ast : trm) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
-    let fun_call = fst (Path.resolve_path p_local trm_to_change) in
+    let fun_call = fst (Path.resolve_path p_local trm_to_change) in (* TODO: rename to resolve_path_and_ctx;   get_trm_at_path -> first projection of it *)
 
+   (* TODO: let fun_decl =
+       begin match fun_call.desc with
+       | Trm_apps (tfun, args) ->
+                   begin match tfun.desc with
+                   | Trm_var f ->
+                         begin match Internal.toplevel_decl fun_call_name with
+                        | Some decl -> decl
+                        | None -> fail t
+                        end
+                   | Trm_let_fun ... -> tfun
+                   end
+       | _ -> error
+       in
+    let fun_decl ... *)
     let fun_call_name, fun_call_args = begin match fun_call.desc with
                    | Trm_apps ({desc = Trm_var f; _}, args) -> f, args
                    | _ -> fail fun_call.loc "inline_aux: couldn't resolve the name of the function, target does not resolve to a function call"
@@ -114,8 +131,9 @@ let inline_aux (index : int) (body_mark : string) (_top_ast : trm) (p_local : pa
       | Some decl -> decl
       | None -> fail t.loc "inline_aux: no trm in top level gives the declaration with the given name"
       end in
-    let fun_decl_type, fun_decl_args, fun_decl_body = begin match fun_decl.desc with
-                   | Trm_let_fun (f, ty, args,body) when f = fun_call_name  -> ty, args, body
+
+    let (* TODO: obtain f here as well *) fun_decl_type, fun_decl_args, fun_decl_body = begin match fun_decl.desc with
+                   | Trm_let_fun (f, ty, args,body) (* TODO: remove when clause *) when f = fun_call_name  -> ty, args, body
                    | _ -> fail fun_decl.loc "inline_aux: failed to find the top level declaration of the function"
                    end in
    let fun_decl_arg_vars = fst (List.split fun_decl_args) in
@@ -125,7 +143,7 @@ let inline_aux (index : int) (body_mark : string) (_top_ast : trm) (p_local : pa
 
    let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) fun_decl_body fun_decl_arg_vars fresh_args in
    let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
-   
+
    let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
    let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
    let marked_body = trm_add_mark body_mark processed_body in
@@ -150,31 +168,31 @@ let inline_aux (index : int) (body_mark : string) (_top_ast : trm) (p_local : pa
 let inline (index: int) (body_mark : string) (top_ast : trm) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index body_mark top_ast p_local)
 
-(* [use_infix_ops_aux t] transforms a write operation into app and write operation in the case when 
+(* [use_infix_ops_aux t] transforms a write operation into app and write operation in the case when
       the operator applied has the neccessary shape
     params:
       [t]: the ast of the write operation
     return:
       the same ast node with the added annotation App_and_set
 *)
-let use_infix_ops_aux (t : trm) : trm = 
-  match t.desc with 
+let use_infix_ops_aux (t : trm) : trm =
+  match t.desc with
   | Trm_apps (f, [ls; rs]) when is_set_operation t ->
-    begin match rs.desc with 
+    begin match rs.desc with
     | Trm_apps (f1, [get_ls; arg])  ->
       begin match trm_prim_inv f1 with
-      | Some p when is_infix_prim_fun p ->  
-        let final_trm = 
+      | Some p when is_infix_prim_fun p ->
+        let final_trm =
         if Internal.same_trm ls get_ls then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
-        trm_annot_add App_and_set final_trm 
+        trm_annot_add App_and_set final_trm
       | _ -> fail f1.loc "use_infix_ops_aux: expected a write operatoin of the form x = f(get(x), arg where f should be a binary operation which supports app and set operations"
       end
-    | _ -> 
+    | _ ->
       fail rs.loc "use_infix_ops: expected a write operation of the form x = f(get(x), arg)"
     end
   | _ -> fail t.loc "use_infix_ops: expected an infix operation of the form x = f(x,a)"
 
-let use_infix_ops : Target.Transfo.local = 
+let use_infix_ops : Target.Transfo.local =
   Target.apply_on_path (use_infix_ops_aux)
 
 
@@ -184,14 +202,14 @@ let use_infix_ops : Target.Transfo.local =
     returns:
       the updated ast of the surrounding sequence where the update is the inserted body translation of the function called
 *)
-let beta_aux (t : trm) : trm = 
-  match t.desc with 
-  | Trm_apps (f, arg) -> 
-    begin match f.desc with 
-    | Trm_var f1 -> 
+let beta_aux (t : trm) : trm =
+  match t.desc with
+  | Trm_apps (f, arg) ->
+    begin match f.desc with
+    | Trm_var f1 ->
       let fun_decl = Internal.toplevel_decl f1  in
-      begin match fun_decl with 
-      | Some fu -> 
+      begin match fun_decl with
+      | Some fu ->
         trm_apps fu arg
       | _ -> fail t.loc "beta_aux: couldn't find the toplevel declaration of the targeted function"
       end

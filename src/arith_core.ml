@@ -18,9 +18,14 @@ open PPrint
 let apply_aux (op : binary_op) (arg : trm) (t : trm) : trm =
   trm_apps (trm_binop op) [t; arg]
 
-
 let apply (op : binary_op) (arg : trm) : Target.Transfo.local =
   Target.apply_on_path (apply_aux op arg)
+
+
+
+(******************************************************************************)
+(*                          Simplifier                                        *)
+(******************************************************************************)
 
 type id = int
 
@@ -45,6 +50,7 @@ and wexpr = (int * expr)
 module Atom_map = Map.Make(Int)
 
 type atom_map = trm Atom_map.t
+
 
 (******************************************************************************)
 (*                          Smart constructors                                *)
@@ -203,27 +209,48 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
         | Some t1 -> t1
         | _ -> fail None "expr_to_trm: couldn't convert an atom expr to a trm"
         end
-    in aux e
+    in
+  aux e
+
+let is_one (e : expr) : bool =
+  match e with
+  | Expr_int 1 | Expr_double 1.0 -> true
+  | _ -> false
+
 (* [expr_to_string atoms e] convert an expression to a string,
     NOTE: Only for debugging
 *)
 let expr_to_string (atoms : atom_map) (e : expr) : string =
+  let rec power_to_doc (base : document) (power : int) : document =
+     if power = 0 then base
+     else if power < 0 then string "1./" ^^ parens (power_to_doc base (-power))
+     else Tools.list_to_doc ~sep:(star) ~bounds:[empty;empty] (List.init power (fun _ -> base))
+     in
   let rec aux (e : expr) : document =
     match e with
     | Expr_int n -> string (string_of_int n)
     | Expr_double n -> string (string_of_float n)
     | Expr_sum we ->
       let we_l = List.map (fun (w, e) ->
-        let ex_str = aux e in
-        if w = 1 then ex_str else if (Tools.document_to_string ex_str = "1") then string (string_of_int w) else (string (string_of_int w) ^^ star ^^ ex_str )
+        if is_one e then
+          string (string_of_int w)
+        else begin
+          let s = aux e in
+          if w = 1
+            then s
+            else (string (string_of_int w) ^^ star ^^ s)
+        end
       ) we in
-      List.fold_left (fun acc x -> acc ^^ plus ^^ x) empty we_l
+      parens (List.fold_left (fun acc x -> acc ^^ plus ^^ x) empty we_l) (* TODO: use the function that takes a separator and a list of docs, and return the doc;
+                                                                            if we is empty, then raise a warning, and provide ~empty:(string "0") *)
     | Expr_prod we ->
       let we_l = List.map (fun (w, e) ->
-        let ex_str = aux e in
-        if w = 1 then ex_str else if (Tools.document_to_string ex_str = "1") then string (string_of_int w) else (string (string_of_int w) ^^ star ^^ ex_str )
+        power_to_doc (aux e) w
       ) we in
-      List.fold_left (fun acc x -> acc ^^ plus ^^ x) empty we_l
+      List.fold_left (fun acc x -> acc ^^ star ^^ x) empty we_l
+       (* TODO: use the function that takes a separator and a list of docs, and return the doc;
+                if we is empty, then raise a warning, and provide ~empty:(string "1") *)
+
     | Expr_atom id ->
       begin match Atom_map.find_opt id atoms with
       | Some t1 -> (Ast_to_c.trm_to_doc t1)

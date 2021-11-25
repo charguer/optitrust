@@ -84,7 +84,8 @@ void iter_nat_for(int n, void body(int)) {
 
 int main() {
   int s = 0;
-  for (int j = 0; j < n; j++) {
+  int m = 3;
+  for (int j = 0; j < m; j++) {
     { // with a nested sequence for the body
       s += 2*j;
       s -= j;
@@ -96,11 +97,28 @@ int main() {
 
 int main() {
   int s = 0;
-  iter_nat_for(n, void body(int j) {
+  int m = 3;
+  iter_nat_for(m, void body(int j) {
       s += 2*j;
       s -= j;
     });
 }
+
+
+/// little exercise:
+ // Function.inline iter_nat_for
+
+int main() {
+  int s = 0;
+  int m = 3;
+  for (int i = 0; i < m; i++) {
+    (void body(int j) {
+      s += 2*j;
+      s -= j;
+    })) (i);
+  }
+
+
 
 ----------------
 Implementation:
