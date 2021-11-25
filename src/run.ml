@@ -26,6 +26,7 @@ let script (f : unit -> unit) : unit =
     Flags.spec
     (fun _ -> raise (Arg.Bad "Error: no argument expected"))
     ("usage: no argument expected, only options");
+  Flags.fix_flags();
   try
     let t0 = Unix.gettimeofday() in
     f ();

@@ -2,8 +2,8 @@
 let verbose : bool ref = ref false
 
 (* check the time it takes to run one transformation *)
-let analyse_time : bool ref = ref true (* LATER: will be false by default *)
-let analyse_time_details : bool ref = ref false (* LATER: will be false by default *)
+let analyse_time : bool ref = ref false
+let analyse_time_details : bool ref = ref false
 
 (* dump .ast and _enc.cpp files *)
 let dump_ast_details : bool ref = ref false
@@ -37,6 +37,9 @@ let spec =
      ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode");
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
      ("-analyse_time", Arg.Set analyse_time, " produce a file reporting on the execution time");
-     ("-analyse_time_details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time");
+     ("-analyse_time_details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      (* LATER: a -dev flag to activate a combination of dump *)
     ]
+
+let fix_flags () =
+  if !analyse_time_details then analyse_time := true

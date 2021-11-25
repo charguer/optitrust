@@ -680,7 +680,7 @@ let check_exit_and_step ?(line : int = -1) (* ~is_small_step *) ?(reparse : bool
       let txt =
       match Int_map.find_opt line !ml_file_excerpts with
       | Some txt -> txt
-      | None -> "<unable to retrieve line from script>"
+      | None -> failwith "<unable to retrieve line from script>"
       in
       write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
     end;
