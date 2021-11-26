@@ -95,6 +95,8 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
          trm_apps (trm_var "min") [loop_bound; trm_apps (trm_binop Binop_add) [
            trm_var tile_index; trm_var tile_size]] 
       | TileBoundAnd -> 
+        
+        
         trm_apps (trm_binop Binop_and ) [
             trm_apps (trm_binop Binop_add) [trm_var tile_index; trm_var tile_size];
             loop_cond

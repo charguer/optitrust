@@ -26,6 +26,7 @@ and dir =
       -> directions for while loop: cond and body
    *)
   | Dir_body
+  (* body: used for function declarations *)
   | Dir_fun_body
   (* for *)
   | Dir_for_start
@@ -367,8 +368,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
             ) in {t with desc = Trm_switch (cond, updated_cases)}
         | _, _ ->
            let s = dir_to_string d in
-           fail t.loc ("apply_on_path: direction " ^ s ^
-                       " does not match")
+           fail t.loc (Printf.sprintf "apply_on_path: direction %s does not match with trm %s" s (Ast_to_c.ast_to_string t))
+           
        end in
         { newt with typ = None; ctx = None } 
 

@@ -320,8 +320,10 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "goto";
           (strquote "target", strquote label);
           children_to_field []]
-    | Trm_arbitrary code -> [kind_to_field "arbitrary code";
-                          value_to_field code]
+    | Trm_arbitrary a_kind -> 
+       let code_str = code_to_str a_kind in
+      [kind_to_field "arbitrary code";
+      value_to_field code_str]
     | Trm_omp_directive d -> [directive_to_json d]
     | Trm_omp_routine r -> [routine_to_json r]
     | Trm_extern (_, l) ->

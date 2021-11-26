@@ -6,8 +6,7 @@ int main() {
     } else {
       i++;
     }
-  }
-
+  };
 stop:
   return 0;
 }

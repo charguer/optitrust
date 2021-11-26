@@ -341,8 +341,16 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let dt = decorate_trm  ~semicolon t in
         dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
-     | Trm_arbitrary code ->
-        dattr ^^ parens (string code) ^^ hardline
+     | Trm_arbitrary a_kind  ->
+        let code_str = 
+        begin match a_kind with 
+        | Lit l -> string l
+        | Expr e -> parens (string e)
+        | Stmt s -> string s
+        | Func f -> string f
+        | Atyp ty -> string ty
+        end  in
+        dattr ^^ code_str 
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
      | Trm_omp_routine  r -> dattr ^^ routine_to_doc r ^^ semi
      | Trm_extern (lang, tl) ->

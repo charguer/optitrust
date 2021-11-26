@@ -80,6 +80,8 @@ val dElse : constr
 
 val dBody : constr
 
+val dFunBody : constr
+
 val dForInit : constr
 
 val dStep : constr
@@ -361,6 +363,14 @@ val get_ast : unit -> trm
 
 val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> ?marks:string list -> string -> trm
 
-val expr : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> string -> trm
+val lit : string -> trm 
+
+val expr : string -> trm
+
+val stmt : string -> trm 
+
+val func : string -> trm 
+
+val atyp : string -> trm 
 
 val get_relative_type : target -> target_relative option

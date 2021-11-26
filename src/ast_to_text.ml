@@ -281,7 +281,9 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      node "Trm_labelled" ^^ parens (string l ^^ comma ^/^ dt)
   | Trm_goto l ->
      node "Trm_goto" ^^ string l
-  | Trm_arbitrary s ->  node "Trm_arbitrary" ^^ parens (string s)
+  | Trm_arbitrary s ->  
+    let code_str = code_to_str s in
+    node "Trm_arbitrary" ^^ parens (string code_str)
   | Trm_omp_directive directive ->
     node "Trm_omp_directive" ^^ parens (print_directive directive)
   | Trm_omp_routine routine->

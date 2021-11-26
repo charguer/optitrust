@@ -6,7 +6,7 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [replace code t]: replace an instruction with arbitrary code
+(* [replace code t]: replace an instruction with arbitrary code or ast code 
     params:
       [t]: ast node which is going to replace the current one
     return:

@@ -5,23 +5,28 @@ typedef struct {
 
 typedef struct {
   int weight;
-  int pos_x;
-  int pos_y;
-  int speed_x;
-  int speed_y;
+  int posX;
+  int posY;
+  int speedX;
+  int speedY;
 } obj;
+
+typedef struct {
+  vect foo;
+} dummy;
 
 int main() {
   vect p = {0, 0};
   vect s = {0, 0};
-  obj a = {0, 0, 0, s.x, s.y};
-  obj b = {0, p.x, p.y, s.x, s.y};
-  int nx = (a.pos_x + a.speed_x);
-  int ny = (a.pos_y + a.speed_y);
-  a.pos_x = 5;
+  dummy d = {p};
+  vect dfoo = d.foo;
+  obj a = {0, 0, 0, s};
+  obj b = {0, p.x, p.y, s};
+  int nx = (a.posX + a.speedX);
+  int ny = (a.posY + a.speedY);
+  a.posX = 5;
   p.x = 5;
   vect t = {1, 0};
   int z = t.x;
-  vect u;
-  u = {0, 0};
+  vect u = {0, 0};
 }

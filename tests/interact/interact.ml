@@ -17,7 +17,7 @@ let _ = Run.script_cpp (fun () ->
      showing only the result of one show command at a time. *)
   show [cVarDef "a"];
   show [cVarDef "b"];
-  show [tFirst; cFunDef "main"; cStrict; dBody];
+  show [tFirst; cFunDef "main"; cStrict; dFunBody];
 
   (* Showing operation with step at front *)
   !! Label.add "m1" [cVarDef "b"];
