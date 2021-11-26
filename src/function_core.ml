@@ -101,11 +101,6 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
 *)
 (* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
    but for now we implement a function that covers both beta and inline at once, as it is simpler *)
-(* TODO: let beta = inline *)
-
-
-
-
 let inline_aux (index : int) (body_mark : string) (_top_ast : trm) (p_local : path) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
@@ -124,7 +119,7 @@ let inline_aux (index : int) (body_mark : string) (_top_ast : trm) (p_local : pa
       | _ -> fail tfun.loc "inline_aux: expected either a function call or beta funtion call"
       end in
       let  fun_decl_type, fun_decl_args, fun_decl_body = begin match fun_decl.desc with
-                   | Trm_let_fun (f, ty, args,body) -> ty, args, body
+                   | Trm_let_fun (_f, ty, args,body) -> ty, args, body
                    | _ -> fail fun_decl.loc "inline_aux: failed to find the top level declaration of the function"
                    end in
       let fun_decl_arg_vars = fst (List.split fun_decl_args) in

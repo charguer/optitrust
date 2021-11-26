@@ -285,8 +285,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_let (vk, tx, aux body)}
        | Dir_fun_body, Trm_let_fun (x, tx, txl, body) ->
           { t with desc = Trm_let_fun (x, tx, txl, aux body)}
-       | Dir_body, Trm_for (index, direction, start, stop, step, body) ->
-          { t with desc = Trm_for (index, direction, start, stop, step, aux body) }
+       | Dir_body, Trm_for (index, start, stop, step, body) ->
+          { t with desc = Trm_for (index, start, stop, step, aux body) }
        | Dir_body, Trm_for_c (init, cond, step, body) ->
           { t with desc = Trm_for_c (init, cond, step, aux body) }
        | Dir_body, Trm_while (cond, body) ->
@@ -297,12 +297,12 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_abort (Ret (Some (aux body)))}
        | Dir_body, Trm_labelled (l, body) ->
           { t with desc = Trm_labelled (l, aux body)}
-       | Dir_for_start, Trm_for (index, direction, start, stop, step, body) ->
-          { t with desc = Trm_for (index, direction, aux start, stop, step, body)}
-       | Dir_for_stop, Trm_for (index, direction, start, stop, step, body) ->
-          { t with desc = Trm_for (index, direction, start, aux stop, step, body)}
-       | Dir_for_step, Trm_for (index, direction, start, stop, step, body) ->
-          { t with desc = Trm_for (index, direction, start, stop, aux step, body)}
+       | Dir_for_start, Trm_for (index, start, stop, step, body) ->
+          { t with desc = Trm_for (index, aux start, stop, step, body)}
+       | Dir_for_stop, Trm_for (index, start, stop, step, body) ->
+          { t with desc = Trm_for (index, start, apply_on_loop_stop aux stop, step, body)}
+       | Dir_for_step, Trm_for (index, start, stop, step, body) ->
+          { t with desc = Trm_for (index, start, stop, apply_on_loop_step aux step, body)}
        | Dir_for_c_init, Trm_for_c (init, cond, step, body) ->
           { t with desc = Trm_for_c (aux init, cond, step, body)}
        | Dir_for_c_step, Trm_for_c (init, cond, step, body) ->
@@ -388,10 +388,11 @@ let applyp_on_path (transfo : path -> trm -> trm) (t : trm) (dl : path) : trm =
   follow the explicit path and return the corresponding subterm and its context
  *)
 let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
-  let rec aux (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
+  let rec aux_on_path_rec (dl : path) (t : trm) (ctx : trm list) : trm * (trm list) =
     match dl with
     | [] -> (t, List.rev ctx)
     | d :: dl ->
+       let aux t ctx = aux_on_path_rec dl t ctx in
        let loc = t.loc in
        begin match d, t.desc with
        | Dir_seq_nth n, Trm_seq tl ->
@@ -411,25 +412,25 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
               tl
           in
           app_to_nth loc tl n
-            (fun nth_t -> aux dl nth_t ((decl_before n tl)@ctx))
+            (fun nth_t -> aux nth_t ((decl_before n tl)@ctx))
        | Dir_array_nth n, Trm_array tl ->
-          app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux dl nth_t ctx)
+          app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
        | Dir_struct_nth n, Trm_struct tl ->
-          app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux dl nth_t ctx)
+          app_to_nth loc (Mlist.to_list tl) n (fun nth_t -> aux nth_t ctx)
        | Dir_cond, Trm_if (cond, _, _)
          | Dir_cond, Trm_while (cond, _)
          | Dir_cond, Trm_do_while (_, cond)
          | Dir_cond, Trm_switch (cond, _) ->
-          aux dl cond ctx
+          aux cond ctx
        | Dir_cond, Trm_for_c (init, cond, _, _) ->
           begin match init.desc with
-          | Trm_let _  -> aux dl cond (init :: ctx)
-          | _ -> aux dl cond ctx
+          | Trm_let _  -> aux cond (init :: ctx)
+          | _ -> aux cond ctx
           end
        | Dir_then, Trm_if (_, then_t, _) ->
-          aux dl then_t ctx
+          aux then_t ctx
        | Dir_else, Trm_if (_, _, else_t) ->
-          aux dl else_t ctx
+          aux else_t ctx
        | Dir_fun_body, Trm_let_fun (_, _, args, body) ->
           (* do as if fun args were heap allocated *)
           let args_decl =
@@ -439,55 +440,58 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
               )
               args
           in
-          aux dl body (args_decl@ctx)
+          aux body (args_decl@ctx)
        | Dir_body, Trm_for_c (init, _, _, body) ->
           begin match init.desc with
           | Trm_let _ ->
-             aux dl body (init :: ctx)
-          | _ -> aux dl body ctx
+             aux body (init :: ctx)
+          | _ -> aux body ctx
           end
-       | Dir_body, Trm_for (_, _, _, _, _, body) ->
-          aux dl body ctx
+       | Dir_body, Trm_for (_, _, _, _, body) ->
+          aux body ctx
        | Dir_body, Trm_let (_,(_,_), body)
          | Dir_body, Trm_while (_, body)
          | Dir_body, Trm_do_while (body, _)
          | Dir_body, Trm_abort (Ret (Some body))
          | Dir_body, Trm_labelled (_, body) ->
-          aux dl body ctx
-       | Dir_for_start, Trm_for (_, _, start, _, _, _) ->
-          aux dl start ctx
-       | Dir_for_stop, Trm_for (_, _, _, stop, _, _) ->
-          aux dl stop ctx
-       | Dir_for_step, Trm_for (_, _, _, step, _, _) ->
-          aux dl step ctx
+          aux body ctx
+       | Dir_for_start, Trm_for (_, start, _, _, _) ->
+          aux start ctx
+       | Dir_for_stop, Trm_for (_,  _, stop, _, _) ->
+          let stop_trm = loop_stop_to_trm stop in
+          aux stop_trm ctx 
+          
+       | Dir_for_step, Trm_for (_, _, _, step, _) ->
+          let step_trm = loop_step_to_trm step in
+          aux step_trm ctx 
        | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
-          aux dl init ctx
+          aux init ctx
        | Dir_for_c_step, Trm_for_c (init, _, step, _) ->
           begin match init.desc with
           | Trm_let _ ->
-             aux dl step (init :: ctx)
-          | _ -> aux dl step ctx
+             aux step (init :: ctx)
+          | _ -> aux step ctx
           end
-       | Dir_app_fun, Trm_apps (f, _) -> aux dl f ctx
+       | Dir_app_fun, Trm_apps (f, _) -> aux f ctx
        | Dir_arg_nth n, Trm_apps (_, tl) ->
-          app_to_nth loc tl n (fun nth_t -> aux dl nth_t ctx)
+          app_to_nth loc tl n (fun nth_t -> aux nth_t ctx)
        | Dir_arg_nth n, Trm_let_fun (_, _, arg, _) ->
           app_to_nth loc arg n
-            (fun (x, _) -> aux dl (trm_var ~loc x) ctx)
+            (fun (x, _) -> aux (trm_var ~loc x) ctx)
        | Dir_name , Trm_let (_,(x,_),_)
          | Dir_name, Trm_let_fun (x, _, _, _)
          | Dir_name, Trm_labelled (x, _)
          | Dir_name, Trm_goto x ->
-          aux dl (trm_var ~loc x) ctx
+          aux (trm_var ~loc x) ctx
        | Dir_name, Trm_typedef td ->
-        aux dl (trm_var ~loc td.typdef_tconstr) ctx
+        aux (trm_var ~loc td.typdef_tconstr) ctx
        | Dir_case (n, cd), Trm_switch (_, cases) ->
           app_to_nth loc cases n
             (fun (tl, body) ->
               match cd with
-              | Case_body -> aux dl body ctx
+              | Case_body -> aux body ctx
               | Case_name i ->
-                 app_to_nth loc tl i (fun ith_t -> aux dl ith_t ctx)
+                 app_to_nth loc tl i (fun ith_t -> aux ith_t ctx)
             )
        | Dir_enum_const (n, ecd), Trm_typedef td ->
           begin match td.typdef_body with
@@ -495,14 +499,14 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
             app_to_nth loc xto_l n
              (fun (x, t_o) ->
                match ecd with
-               | Enum_const_name -> aux dl (trm_var ~loc x) ctx
+               | Enum_const_name -> aux (trm_var ~loc x) ctx
                | Enum_const_val ->
                   begin match t_o with
                   | None ->
                      fail loc
                        "resolve_path_and_ctx: no value for enum constant"
                   | Some t ->
-                     aux dl t ctx
+                     aux t ctx
                   end
              )
           | _ -> fail loc ("resolving_path: direction")
@@ -514,7 +518,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
           fail loc (Tools.sprintf "resolve_path_and_ctx: direction  %s does not match with the following term %s" s s_t )
        end
   in
-  aux dl t []
+  aux_on_path_rec dl t []
 
 let resolve_path (dl : path) (t : trm) : trm  =
   fst (resolve_path_and_ctx dl t )

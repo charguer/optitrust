@@ -24,7 +24,6 @@ TESTS_WORKING := \
 	function_inline.ml \
 	instr_move.ml \
 	instr_read_last_write.ml \
-	instr_replace.ml \
 	instr_replace_fun.ml \
 	label_add.ml \
 	label_remove.ml \
@@ -36,7 +35,6 @@ TESTS_WORKING := \
 	loop_hoist.ml \
 	loop_interchange.ml \
 	loop_invariant.ml \
-	loop_tile.ml \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
@@ -48,8 +46,6 @@ TESTS_WORKING := \
 	rewrite_compute_inside.ml \
 	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
-	sequence_elim.ml \
-	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
@@ -65,13 +61,17 @@ TESTS_WORKING := \
 	variable_change_type.ml \
 	variable_fold.ml \
 	variable_inline.ml \
-	variable_insert.ml \
-	variable_insert_and_fold.ml \
 	variable_local_name.ml \
-	variable_rename.ml \
   variable_replace_occurrences.ml \
 
 TESTS_TOCHECK := \
+	variable_rename.ml \
+	variable_insert_and_fold.ml \
+	variable_insert.ml \
+	sequence_elim.ml \
+	sequence_insert.ml \
+	loop_tile.ml \
+	instr_replace.ml \
   variable_bind_intro.ml \
 	variable_init_attach.ml \
 	matrix_intro_mcalloc.ml \

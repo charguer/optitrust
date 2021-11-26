@@ -59,9 +59,12 @@ beta reduction  is just a form of inlining, where the function is defined "on-th
 open Optitrust
 open Target
 
+(* TODO: Find the right path to find all beta function calls *)
+
 let _ = Run.script_cpp (fun _ ->
 
-  !! Function_basic.beta [cFun "f"];
+  !! Variable_basic.inline [cFunDef "f"];
+  !! Function_basic.beta [cFun ""];
 
 )
 

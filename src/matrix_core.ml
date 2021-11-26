@@ -295,7 +295,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let indices_list = begin match indices with
   | Some l -> l | _ -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
-  let nested_loop_ranges = List.map2 (fun dim ind-> (ind, DirUp, (trm_int 0), dim, (trm_int 1))) dims indices_list in
+  let nested_loop_ranges = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp dim, Post_inc)) dims indices_list in
   let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
   let write_on_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) in
   let snd_instr = trm_fors nested_loop_ranges write_on_local_var in
@@ -343,20 +343,10 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
                 let new_indices = (trm_var index) :: indices in
                 let new_body = trm_seq_nomarks [
                   set base new_dims((trm_int 0) :: indices) old_var_access;
-                  trm_for index DirUp (trm_int 0) dim (trm_int 1) (set base new_dims new_indices (trm_int 0);)
+                  trm_for index (trm_int 0) (DirUp dim) (Post_inc) (set base new_dims new_indices (trm_int 0);)
                 ] in
 
                 let new_snd_instr = trm_fors loop_ranges new_body in
-                (* let new_loop_ranges = loop_ranges @ [(index, DirUp, trm_int 0, dim, trm_int 1)] in
-
-                let new_body = if not init_zero then trm_seq_nomarks [
-                    set base new_dims((trm_int 0) :: indices) old_var_access;
-                    trm_for index DirUp (trm_int 0) dim (trm_int 1) (set base new_dims new_indices (trm_int 0))
-                  ] else trm_seq_nomarks [
-                  set base new_dims new_indices (trm_int 0)
-                ] in
-                
-                let new_snd_instr = if not init_zero then trm_fors loop_ranges new_body else trm_fors new_loop_ranges new_body in *)
                 
                 let thrd_instr = Mlist.nth tl 2 in
                 let ps2 = resolve_target tg thrd_instr in
@@ -374,7 +364,7 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
                   trm_fors loop_ranges
                   (trm_seq_nomarks [
                         trm_let_mut (acc, typ_int ()) (trm_int 0);
-                        trm_for index DirUp (trm_int 0) dim (trm_int 1) (trm_seq_nomarks [
+                        trm_for index (trm_int 0) (DirUp dim) (Post_inc) (trm_seq_nomarks [
                             trm_set ~annot:[App_and_set] (trm_var acc) (trm_apps (trm_binop Binop_add) [(trm_var acc); new_access]) ]);
                         trm_set old_var_access (trm_var acc)]) in
 

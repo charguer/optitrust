@@ -207,11 +207,11 @@ let beta ?(tg : Target.target = []) () : unit =
     match tg_trm.desc with 
     | Trm_apps _ -> 
       Function_basic.beta tg
-    | Trm_let_fun (f, _, _, _) -> 
+    | Trm_let_fun (_f, _, _, _) -> 
       let parent_path, _ = Tools.unlast p in
       let parent_node = Path.resolve_path parent_path t in
       begin match parent_node.desc with 
-      | Trm_apps (_, args) -> Function_basic.beta (Target.target_of_path parent_path)
+      | Trm_apps (_, _args) -> Function_basic.beta (Target.target_of_path parent_path)
       | _ -> ()
       end
     | _ -> fail t.loc "beta: this transformation expects a target to a function call"

@@ -406,7 +406,7 @@ void bag_ho_iter_basic(bag* b, void body(particle*)) {
   for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
     body(p);
   }
-}
+}pas
 
 // example of an iteration over a bag with the loop over the chunk items revealed
 void bag_ho_iter_chunk(bag* b, void body(particle*)) {
