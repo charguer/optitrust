@@ -10,14 +10,11 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-(*
     !! Arith_basic.(simpl identity) [nbMulti; cWriteVar "x"; dRHS];
     !! Arith_basic.(simpl normalize) [nbMulti; cWriteVar "x"; dRHS];
     !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "y"; dRHS];
     !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "z"; dRHS];
     !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "t"; dRHS];
-*)
-
     !! Arith_basic.(simpl Arith_core.expand) [nbMulti; cWriteVar "u"; dRHS];
     !! Arith_basic.(simpl Arith_core.expand) [nbMulti; cWriteVar "v"; dRHS];
 
