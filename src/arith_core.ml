@@ -1,7 +1,7 @@
 open Ast
 open PPrint
 
-let debug = true
+let debug = false
 let debug_rec = false
 
 (* ***********************************************************************************
