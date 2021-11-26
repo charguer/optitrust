@@ -271,9 +271,14 @@ let new_rule_match ~higher_order_inst(*:bool*) (vars : typed_vars) (pat : trm) (
     (* Case for treating a match against a pattern such as [body(i)],
        where [body] is a pattern variable that corresponds to a function. *)
     | Trm_apps ({ desc = Trm_var x; _}, ts1), _ when higher_order_inst && is_var x ->
-        let msg i = fail None (Printf.sprintf "rule_match: the %d-th argument of the higher-order function variable %s is not a local variable" i x) in
-        let xargs = List.mapi (fun i t -> match t.desc with Trm_var x -> x | _ -> msg i) ts1 in
-        let targs = List.mapi (fun i xi -> match get_binding xi with Some typed_yi -> typed_yi | None -> msg i) xargs in
+        let msg1 i ti = fail None (Printf.sprintf "rule_match: the %d-th argument of the higher-order function variable %s is not a variable. It is the term: %s" i x (Ast_to_text.ast_to_string ti)) in
+        let xargs = List.mapi (fun i ti -> match ti.desc with
+          | Trm_var x
+          (* LATER: find out if it is really correct to igore the get operation here *)
+          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var x; _}]) -> x
+          | _ -> msg1 i ti) ts1 in
+        let msg2 i = fail None (Printf.sprintf "rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
+        let targs = List.mapi (fun i xi -> match get_binding xi with Some typed_yi -> typed_yi | None -> msg2 i) xargs in
         let body = t2 in
         let func = trm_let_fun x (typ_unit()) targs body in
         find_var x func
