@@ -9,11 +9,11 @@ int main(int argc, char const *argv[])
 
   // test parsing and normalizing
   x = 2 * b;
-  x = a + 2 * b - 3 * c;
+  x = a + b * 2 - (3 * c);
   x = a + ((a + 2*b) + 1);
   x = 3 + 5.0 + a + (a + b*2 - 3*c);
   x = 3 * 5.0 * a * b * b;
-  x = a / (b * c) / d;
+  x = a / (b * b* c) / d;
 
   // test gather sum
   y = 1 + 2; // = 3
@@ -27,8 +27,7 @@ int main(int argc, char const *argv[])
   z = a / b / a * b / b; // = 1 / b
 
   // test nested
-  t = (a + 5*a);
-  t = (a + (3 + 2)*a);
+  t = (a + (3 + 2)*a); // = 6 * a
   t = a + b * a / b; // = 2 * a
   t = (a + (3 + 2)*a) / a * b; // = 6 * b
 

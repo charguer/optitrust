@@ -298,16 +298,26 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     | Expr_int n -> trm_int n
     | Expr_double n -> trm_double n
     | Expr_sum we ->
-      let we_l = List.map (fun (w, e) -> if w = 1 then aux e else trm_apps (trm_binop Binop_mul) [trm_int w; aux e]) we in
-      Tools.fold_lefti (fun i acc x ->
-        if i = 0 then x else trm_apps (trm_binop Binop_add) [x; acc]
-      ) (trm_unit ()) we_l
+      if we = [] then failwith "expr_to_trm: assumes a normalized term";
+      Tools.fold_lefti (fun i acc (w, e) ->
+        let (w, e) = match (w,e) with (n,Expr_int 1) -> (1,Expr_int n) | _ -> (w,e) in
+        let c = if i = 0 then w else abs w in
+        let x = if c = 1 then aux e else trm_apps (trm_binop Binop_mul) [trm_int c; aux e] in
+        if i = 0 then x else trm_apps (trm_binop (if w >= 0 then Binop_add else Binop_sub)) [acc; x]
+      ) (trm_unit ()) we
     | Expr_prod  we ->
+      if we = [] then failwith "expr_to_trm: assumes a normalized term";
+      let rec power t n =
+        if n = 0 then failwith "expr_to_trm: assumes a normalized term"
+        else if n < 0 then trm_apps (trm_binop Binop_div) [trm_double 1.0; power t (-n)]
+        else if n = 1 then t
+        else (* n > 1 then *) trm_apps (trm_binop Binop_mul) [t; power t (n-1)]
+        in
       (* LATER: Since there isn't any power operator in C the last line is the same was the one in the previous case *)
-      let we_l = List.map (fun (w, e) -> if w = 1 then aux e else trm_apps (trm_binop Binop_mul) [trm_int w; aux e]) we in
-      Tools.fold_lefti (fun i acc x ->
-        if i = 0 then x else trm_apps (trm_binop Binop_mul) [x; acc]
-      ) (trm_unit ()) we_l
+      Tools.fold_lefti (fun i acc (w,e) ->
+        if i = 0 then power (aux e) w else
+        trm_apps (trm_binop (if w > 0 then Binop_mul else Binop_div)) [acc; power (aux e) (abs w)]
+      ) (trm_unit ()) we
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 -> t1
@@ -327,9 +337,10 @@ let cleanup_false = false
 
 let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr) (e : expr) : expr =
   let f_with_cleanup e =
-    let e2 = f e in
+    let e1 = (if cleanup then normalize_one else identity) e in
+    let e2 = f e1 in
     let e3 = (if cleanup then normalize_one else identity) e2 in
-    if debug then Tools.printf "Step:\n\t%s\n\t%s\n\t%s\n" (expr_to_string no_atoms e) (expr_to_string no_atoms e2) (expr_to_string no_atoms e3);
+    (*if debug then Tools.printf "Step:\n\t%s\n\t%s\n\t%s\n" (expr_to_string no_atoms e) (expr_to_string no_atoms e2) (expr_to_string no_atoms e3);*)
     e3 in
   if recurse
     then apply_bottom_up f_with_cleanup e
