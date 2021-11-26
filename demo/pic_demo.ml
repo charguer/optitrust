@@ -28,18 +28,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   *)
   (* Part 0: Labelling the main loop*)
-  !! Label.add "main_loop" [cFor "idCell" ~body:[cWhile ()]];
+  !! Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
   (* Part1: space reuse *)
-  !! Variable.reuse ~space_ast:(trm_access (trm_var "p") "speed") [main; cVarDef "speed2"];
-     Variable.reuse ~space_ast:(trm_access (trm_var "p") "pos") [main; cVarDef "pos2"];
+  !! Variable.reuse ~space:(trm_access (trm_var "p") "speed") [main; cVarDef "speed2"];
+     Variable.reuse ~space:(trm_access (trm_var "p") "pos") [main; cVarDef "pos2"];
 
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext" ];
-  !! Flow.insert_if ~cond_ast:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
+  !! Flow.insert_if ~cond:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-  (* !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]]; *)
-    (* TODO: try to not inline the bag_push operations, but to modify the code inside those functions *)
+  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
+    (* LATER: try to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
   let ctx = cTopFunDef "vect_matrix_mul" in
@@ -63,12 +63,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: reveal fields *)
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
-  !! Struct.set_explicit [nbMulti; (* main;  *)cWrite ~typ:"particle" ()];
-  !! Struct.set_explicit [nbMulti; (* main; *) cWrite ~typ:"vect" ()];
-  (* Can't inline p2 when if bag_push functions are not inlined *)
-  (* !! Variable.inline [cOr [[cVarDef "p2"]; [cVarDef "p"]]]; *)
-  !! Variable.inline [main;cVarDef "p"];
-  !! Struct.to_variables [cVarDef "fieldAtPos"];
+  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
+  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
+  !! Variable.inline [cOr [[cVarDef "p2"]; [cVarDef "p"]]];
+  !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [
@@ -85,7 +83,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
 (* TODO: Fix the issue of inline_last_write for this particular case *)
-!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];
+!!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];
 !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
@@ -112,9 +110,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
 
   (* Part: grid_enumeration *)
-  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cFor "idCell" ~body:[cWhile ()]];
-    (* TODO: add a label on this loop "main_loop" at the very first step
-        Label.add "core" [cFor "idCell" ~body:[cVarDef "b"]] *)
+  !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
 
   (* Part: ARTHUR ; maybe not needed: !! iter_dims (fun d ->
     Instr.inline_last_write ~write:[cWriteVar ("fieldAtPos" ^ d)] [nbMulti; cRead ~addr:[cVar ("fieldAtPos" ^ d)] ()]); *)
@@ -168,13 +164,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       };
      return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
      }" in
-  !! Sequence.insert (Ast.code my_bij_code) [tBefore; main];
+  !! Sequence.insert (func my_bij_code) [tBefore; main];
   !! Matrix.biject "mybij" [occIndex 0; main; cFor "k"; cFun "MINDEX2"]; (* TODO: target should be  cellReadOrWrite ~base:"nextChargeCorners"  ->  on the base argument of the read/write -> check it is a mindex_ then replace it *)
   !! Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];  (* TODO:  cLabel "initNextCharge"  ;  assuming ~labels:["initNextCharge",""] to be given to delocalize on nextCharnge *)
-  !! Instr.replace (Ast.code "MINDEX2(nbCells, nbCorners, idCell2, k)") [cFun "mybij"]; (* ARTHUR: fixed when the rest is updated *)
+  !! Instr.replace (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)") [cFun "mybij"]; (* ARTHUR: fixed when the rest is updated *)
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
-  !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:"8" [tBefore; main];
+  !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:(lit "8") [tBefore; main];
   !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1; main; cFor "k"]; (* TODO: use a label that should be on that loop *)
      Matrix_basic.delocalize ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add))[cMark "first_local"];
      Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]]; (* TODO: use a label that should be on that loop, introduced by the earlier delocalize *)
@@ -206,7 +202,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","2","blockSize / 2")] [tBefore; cVarDef "nbCells"]; (* TODO: put in the form ~defs[("int", ...] *)
       (* TODO: "2","blockSize / 2" does not seem right, because "2" is not a variable name...was it d? *)
-     Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:"(ix >= bix - d && ix < bix + blockSize + d)&& (iy >= biy - d && iy < biy + blockSize + d) && (iz >= biz - d && iz < biz + blockSize + d)" [tAfter; main; cVarDef "iz"];
+     Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(expr "(ix >= bix - d && ix < bix + blockSize + d)&& (iy >= biy - d && iy < biy + blockSize + d) && (iz >= biz - d && iz < biz + blockSize + d)") [tAfter; main; cVarDef "iz"];
      (* TODO  assume "d" is rename to "dist";  then we can make above shorter:
          Variable.insert (Ast.trm_ands (map_dims (fun d -> expr ~vars:[d] "(i${1} >= bi${1} - dist && i${1} < bi${1} + blockSize + dist)"))))
 

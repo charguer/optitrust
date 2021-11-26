@@ -9,8 +9,6 @@ TESTS_WORKING := \
 	function_bind_args.ml \
 	function_bind.ml \
 	function_elim_body.ml \
-	function_inline_complex.ml \
-	function_inline_simple.ml \
 	loop_fusion.ml \
 	loop_fold.ml \
 	loop_hoist.ml \
@@ -24,12 +22,14 @@ TESTS_WORKING := \
 	struct_set_implicit.ml \
 	variable_intro_pattern_array.ml \
 	variable_delocalize.ml \
-	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
 	variable_reuse.ml \
 
 
 TESTS_TOCHECK := \
+	variable_delocalize_in_vars.ml \
+	function_inline_complex.ml \
+	function_inline_simple.ml \
 	aos_to_soa.ml \
 	matrix_intro_mops.ml \
 	instr_accumulate.ml \

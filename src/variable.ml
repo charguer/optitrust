@@ -277,8 +277,8 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
 (* [insert_list ~const names typ values tg] expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
-let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Target.Transfo.t =
+let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * string ) list) : Target.Transfo.t =
   Target.reparse_after ~reparse (fun tg -> 
-    List.iter (fun (typ, name, value) -> Variable_basic.insert ~name ~typ ~value tg) defs
+    List.iter (fun (typ, name, value) -> Variable_basic.insert ~name ~typ ~value:(Target.lit value) tg) defs
 )
 
