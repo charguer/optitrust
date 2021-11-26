@@ -8,7 +8,11 @@ include Arith_core
 let apply (op : binary_op) (arg : trm) : Target.Transfo.t =
   Target.apply_on_targets (Arith_core.apply op arg)
 
-
-
-let simplify ?(f: (expr -> expr) = gather true) : Target.Transfo.t =
+let simpl (f: (expr -> expr)) : Target.Transfo.t =
   Target.apply_on_targets (Arith_core.simplify f)
+
+let simplify : Target.Transfo.t =
+  simpl Arith_core.gather_rec
+
+let normalize : Target.Transfo.t =
+  simpl Arith_core.normalize
