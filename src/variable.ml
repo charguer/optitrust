@@ -42,8 +42,8 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
     The new declared variable is [name] with typ [typ] and value [value]. This variable will be folded everywhere on the ast nodes
     which come after the declared variable.
 *)
-let insert_and_fold (name : string) (typ : string) (value : string) (tg : Target.target) : unit =
-  Variable_basic.insert ~name ~typ ~value tg;
+let insert_and_fold ~name:(name : string) ~typ:(typ : string) ~value:(value : trm) (tg : Target.target) : unit =
+  Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
   Variable_basic.fold [Target.cVarDef name]
 
 (* [delocalize ~var_type ~var ~local_var ~mark ~arr_size ~neutral_element fold_operation tg]
@@ -183,11 +183,8 @@ let detach_if_needed (tg : Target.target) : unit =
     remove that declaration and replace all its occurrences with [space]
 
 *)
-let reuse ?(space : string option) ?(space_ast : trm option) (tg : Target.target) : unit = 
-  begin try 
-    let arg_space = combine_strm space space_ast in
-    let reparse = not (is_trm arg_space) in
-    Target.reparse_after ~reparse (Target.iter_on_targets (fun t p -> 
+let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t = 
+  Target.reparse_after ~reparse (Target.iter_on_targets (fun t p -> 
       let decl_t = Path.resolve_path p t in
       begin match decl_name decl_t with
       | Some x ->
@@ -195,13 +192,10 @@ let reuse ?(space : string option) ?(space_ast : trm option) (tg : Target.target
         Marks.add "reuse_mark" (Target.target_of_path p);
         detach_if_needed [Target.cMark "reuse_mark"];
         Instr_basic.delete [Target.cMark "reuse_mark"];
-        Variable_basic.replace_occurrences ~subst:x ~put:arg_space (Target.target_of_path _path_to_seq);
+        Variable_basic.replace_occurrences ~subst:x ~put:space (Target.target_of_path _path_to_seq);
       | None -> fail decl_t.loc "reuse: could not match the declaration"
       end
-      )) tg
-    with | Ast_and_code_provided -> fail None "reuse: please choose between [space] or [space_ast] arguments"
-         | No_ast_or_code_provided -> fail None "reuse: please provide one of [space] or [space_ast] arguments"
-  end
+      )) 
 
 (* [reverse_fold tg] expects the target [tg] poiting to a variable declaration with an initial value
     being another variable occurrence. Then it will inline y on all its occurrenes which belong to the
@@ -283,7 +277,7 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
 (* [insert_list ~const names typ values tg] expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
-let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * string ) list) : Target.Transfo.t =
+let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * trm ) list) : Target.Transfo.t =
   Target.reparse_after ~reparse (fun tg -> 
     List.iter (fun (typ, name, value) -> Variable_basic.insert ~name ~typ ~value tg) defs
 )

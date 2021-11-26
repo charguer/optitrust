@@ -3,11 +3,10 @@ open Target
 
 (* [replace code tg] expects the target to point at an instruction,
     then it will replace this instruction with [node]. Note that [node] can be
-    also code entered as string which is transformed into a trm through function code
+    also some code entered as string which is transformed into a trm through function code
     then this node is merged into the ast by doing a reparse of the full ast.
 *)
-let replace (node : trm) : Target.Transfo.t =
-  let reparse = not (is_trm node) in
+let replace ?(reparse: bool = false) (node : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets (Instr_core.replace node))
 
 (* [replace_fun code tg] expects the target to point to a function call,

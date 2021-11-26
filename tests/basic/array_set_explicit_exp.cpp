@@ -1,14 +1,14 @@
 int main() {
-  int values[10];
-  values[0] = 0;
-  values[1] = 0;
-  values[2] = 0;
-  values[3] = 0;
-  values[4] = 0;
-  values[5] = 0;
-  values[6] = 0;
-  values[7] = 0;
-  values[8] = 0;
-  values[9] = 0;
+  int t[10];
+  t[0] = 0;
+  t[1] = 0;
+  t[2] = 0;
+  t[3] = 0;
+  t[4] = 0;
+  t[5] = 0;
+  t[6] = 0;
+  t[7] = 0;
+  t[8] = 0;
+  t[9] = 0;
   return 0;
 }

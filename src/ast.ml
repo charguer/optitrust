@@ -108,6 +108,12 @@ and loop_stop =
   | DirDown of trm 
   | DirDownEq of trm
 
+and code_kind = 
+  | Lit of string 
+  | Expr of string 
+  | Stmt of string 
+  | Func of string 
+  | Atyp of string 
 
 
 (* types of expressions *)
@@ -398,7 +404,7 @@ and trm_desc =
   | Trm_abort of abort (* return or break or continue *)
   | Trm_labelled of label * trm (* foo: st *)
   | Trm_goto of label
-  | Trm_arbitrary of string
+  | Trm_arbitrary of code_kind
   | Trm_omp_directive of directive
   | Trm_omp_routine of omp_routine
   | Trm_extern of string * trms
@@ -870,9 +876,8 @@ let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
   {annot; marks; desc = Trm_for (index, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
-let code ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
-(code : string) : trm =
-  {annot; marks = []; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
+let code ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) (code : code_kind) : trm =
+  {annot; marks = []; desc = Trm_arbitrary code ; loc = loc; is_statement=false; add; typ; attributes; ctx}
 
 let trm_omp_directive ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
 (directive : directive) : trm =
@@ -1931,22 +1936,6 @@ let is_typ (ty : typ) : bool =
 exception No_ast_or_code_provided
 exception Ast_and_code_provided
 
-(* [combine_strm t1 t2] expectes a part of code or an ast node as args, only one of them should be given *)
-let combine_strm (t1 : strm option) (t2 : trm option) : trm =
-  match t1, t2 with
-  | Some st, None -> code st
-  | None, Some t -> t
-  | Some _, Some _ -> raise Ast_and_code_provided
-  | None, None -> raise No_ast_or_code_provided
-
-(* [combine_styp ty1 ty2] expects a type given as tring or an ast typ as args, only one of them shoudl be provided *)
-let combine_styp (ty1 : styp option) (ty2 : typ option) : typ =
-  match ty1, ty2 with
-  | Some sty, None -> typ_str sty
-  | None, Some ty -> ty
-  | Some _, Some _ -> raise Ast_and_code_provided
-  | None, None -> raise No_ast_or_code_provided
-
 (* [keep_only_function_bodies fun_names t] for all the functions with the name listed in [fun_names] transform
       them in function prototypes
 *)
@@ -2007,10 +1996,27 @@ let trm_access (base : trm) (field : var) : trm =
   trm_apps (trm_unop (Unop_struct_field_addr field)) [base]
 
 
+let code_to_str (code : code_kind) : string =
+  match code with
+  | Lit l -> l
+  | Expr e -> e
+  | Stmt s -> s
+  | Func f -> f
+  | Atyp ty -> ty
+
 module AstParser = struct
 
   let var = trm_var
 
-  let expr = code
+  let lit l = code (Lit l)
+  
+  let expr e = code (Expr e)
+
+  let stmt s= code (Stmt s)
+
+  let func f = code (Func f)
+
+  let atyp ty = code (Atyp ty)
+
 end
 

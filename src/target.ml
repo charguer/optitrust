@@ -127,8 +127,11 @@ let dThen : constr =
 let dElse : constr =
     Constr_dir Dir_else
 
-let dBody : constr =
+let dBodyAll : constr =
     Constr_dir Dir_body
+
+let dFunBody : constr =
+    Constr_dir Dir_fun_body
 
 let dForInit : constr =
     Constr_dir Dir_for_c_init
@@ -477,7 +480,7 @@ let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = fals
 
 (* [cLabelBdoy ~substr ~body ~regexp label] matches C label bodys*)
 let cLabelBody ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
-  cChain [cLabel ~substr ~body ~regexp label; dBody]
+  cChain [cLabel ~substr ~body ~regexp label; dBodyAll]
 
 let cGoto ?(label : string = "")
   ?(substr : bool = false) ?(regexp : bool = false) (_ : unit) : constr =
@@ -544,6 +547,10 @@ let dLHS : constr =
 
 let dRHS : constr =
   cChain [cWrite (); dArg 1]
+
+let dBody : constr = 
+  cOr [[dBodyAll]; [dFunBody]]
+
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
