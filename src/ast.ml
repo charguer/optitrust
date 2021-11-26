@@ -94,18 +94,18 @@ type size =
 
 
 (* Type used for the step of the loop *)
-and loop_step = 
+and loop_step =
   | Pre_inc
-  | Post_inc 
+  | Post_inc
   | Pre_dec
   | Post_dec
   | Step of trm
 
 (* Type used for the bound of the loop *)
-and loop_stop = 
+and loop_stop =
   | DirUp of trm
   | DirUpEq of trm
-  | DirDown of trm 
+  | DirDown of trm
   | DirDownEq of trm
 
 
@@ -870,6 +870,10 @@ let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : c
   {annot; marks; desc = Trm_for (index, start, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
+let trm_uninitialized ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
+() : trm =
+  {annot; marks = []; desc = Trm_val (Val_lit Lit_uninitialized); loc = loc; is_statement=false; add; typ; attributes; ctx}
+
 let code ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None)
 (code : string) : trm =
   {annot; marks = []; desc = Trm_arbitrary code; loc = loc; is_statement=false; add; typ; attributes; ctx}
@@ -1010,19 +1014,19 @@ let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
 (* [loop_stop_to_trm l_stop ] return the loop bound as trm *)
 
 
-let loop_stop_to_trm (l_stop : loop_stop) : trm = 
+let loop_stop_to_trm (l_stop : loop_stop) : trm =
   match l_stop with
   | DirUp bnd | DirUpEq bnd | DirDown bnd | DirDownEq bnd -> bnd
 
 (* [loop_step_to_trm l_step] return the loop step as trm *)
-let loop_step_to_trm (l_step: loop_step) : trm = 
-  match l_step with 
-  | Post_inc | Post_dec | Pre_inc | Pre_dec -> trm_lit (Lit_int 1) 
+let loop_step_to_trm (l_step: loop_step) : trm =
+  match l_step with
+  | Post_inc | Post_dec | Pre_inc | Pre_dec -> trm_lit (Lit_int 1)
   | Step s -> s
 
 (* [apply_on_loop_stop] used for functions which need to be applied in trms*)
-let apply_on_loop_stop (f : trm -> trm) (l_stop : loop_stop) : loop_stop = 
-  match l_stop with 
+let apply_on_loop_stop (f : trm -> trm) (l_stop : loop_stop) : loop_stop =
+  match l_stop with
   | DirUp bnd -> DirUp (f bnd)
   | DirUpEq bnd -> DirUpEq (f bnd)
   | DirDown bnd -> DirDown (f bnd)
@@ -1030,8 +1034,8 @@ let apply_on_loop_stop (f : trm -> trm) (l_stop : loop_stop) : loop_stop =
 
 
 (* [apply_on_loop_step] used for functions which need to be applied in trms*)
-let apply_on_loop_step (f : trm -> trm) (l_step : loop_step) : loop_step = 
-  match l_step with 
+let apply_on_loop_step (f : trm -> trm) (l_step : loop_step) : loop_step =
+  match l_step with
   | Step st -> Step (f st)
   | _ as step ->  step
 
@@ -1086,16 +1090,16 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      let body' = f is_terminal body in
      trm_for_c ~annot ~marks ~loc ~add init' cond' step' body'
   | Trm_for (index, start, stop, step, body) ->
-    let m_stop = match stop with 
+    let m_stop = match stop with
     | DirUp st -> DirUp (f is_terminal st)
     | DirUpEq st -> DirUp (f is_terminal st)
     | DirDown st -> DirDown (f is_terminal st)
     | DirDownEq st -> DirDownEq (f is_terminal st)
-    in 
-    let m_step = match step with 
+    in
+    let m_step = match step with
     | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
     | Step sp -> Step (f is_terminal sp)
-    in 
+    in
     trm_for ~annot ~marks ~loc ~add index (f is_terminal start) m_stop m_step (f is_terminal body)
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
@@ -1577,16 +1581,16 @@ let is_set_operation (t : trm) : bool =
     int x = a -> Some (x, a, true)
     x = a -> Some (x, a, false)
 *)
-let trm_for_c_inv_simple_init (init : trm) : (var * trm * bool) option = 
-  match init.desc with 
-  | Trm_let (_, (x, _), init_val) -> 
-    begin match get_init_val init_val with 
-    | Some init1 -> 
+let trm_for_c_inv_simple_init (init : trm) : (var * trm * bool) option =
+  match init.desc with
+  | Trm_let (_, (x, _), init_val) ->
+    begin match get_init_val init_val with
+    | Some init1 ->
       Some (x, init1, true)
     | _ -> None
     end
-  | Trm_apps (_, [ls; rs]) when is_set_operation init -> 
-    begin match ls.desc with 
+  | Trm_apps (_, [ls; rs]) when is_set_operation init ->
+    begin match ls.desc with
     | Trm_var x -> Some (x, rs, false)
     | _ -> None
     end
@@ -1596,8 +1600,8 @@ let trm_for_c_inv_simple_init (init : trm) : (var * trm * bool) option =
 (* [trm_for_c_inv_simple_stop stop] check if the loop bound is simple or not.
       If not  then return None else return the bound the and the direction of the loop.
 *)
-let trm_for_c_inv_simple_stop (stop : trm) : loop_stop option =  
-  match stop.desc with 
+let trm_for_c_inv_simple_stop (stop : trm) : loop_stop option =
+  match stop.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _},
                  [_; n]) -> Some (DirUp n)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _},
@@ -1606,20 +1610,20 @@ let trm_for_c_inv_simple_stop (stop : trm) : loop_stop option =
               [_; n]) -> Some (DirDown n)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
               [_; n]) -> Some (DirDownEq n)
-  | _ -> None 
+  | _ -> None
 
 
 (* [trm_for_c_inv_simple_step step] check if the loop step is simple or not.
     If not then return None else return the step that can be a literal or a variable.
 *)
-let trm_for_c_inv_simple_step (step : trm) : loop_step option = 
-  match step.desc with 
+let trm_for_c_inv_simple_step (step : trm) : loop_step option =
+  match step.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_inc)); _}, _) ->
       Some Post_inc
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_inc)); _}, _) ->
      Some Pre_inc
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_post_dec)); _}, _) ->
-     Some Post_dec 
+     Some Post_dec
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_pre_dec)); _}, _) ->
      Some Pre_dec
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
@@ -1633,21 +1637,21 @@ let trm_for_c_inv_simple_step (step : trm) : loop_step option =
          Some (Step n)
       | _ -> None
       end
-  | _ -> None 
+  | _ -> None
 
 
 (* [trm_for_of_trm_for_c t] checks if loops [t] is a simple loop or not, if yes then return the simple loop
     else returns [t]
  *)
 (* LATER: Support also loops of the form for( i = a ; i < b; i++) *)
-let trm_for_of_trm_for_c (t : trm) : trm = 
-  match t.desc with 
-  | Trm_for_c (init, cond , step, body) -> 
+let trm_for_of_trm_for_c (t : trm) : trm =
+  match t.desc with
+  | Trm_for_c (init, cond , step, body) ->
     let init_ops = trm_for_c_inv_simple_init init in
     let stop_ops = trm_for_c_inv_simple_stop cond in
     let step_ops = trm_for_c_inv_simple_step step in
-    begin match init_ops, stop_ops, step_ops with 
-    | Some (index, start, _is_local), Some stop, Some step -> 
+    begin match init_ops, stop_ops, step_ops with
+    | Some (index, start, _is_local), Some stop, Some step ->
       trm_for index start stop step body
     | _ -> t
     end
@@ -1658,12 +1662,12 @@ let trm_for_of_trm_for_c (t : trm) : trm =
 let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
   (index : var) (start : trm) (stop : loop_stop) (step : loop_step) (body : trm) : trm =
   let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
-  let cond = begin match stop with 
-    | DirUp bnd -> 
+  let cond = begin match stop with
+    | DirUp bnd ->
       (trm_apps (trm_binop Binop_lt)
         [trm_apps ~annot:[Mutable_var_get]
           (trm_unop Unop_get) [trm_var index];bnd])
-    | DirUpEq bnd -> 
+    | DirUpEq bnd ->
       (trm_apps (trm_binop Binop_le)
         [trm_apps ~annot:[Mutable_var_get]
           (trm_unop Unop_get) [trm_var index];bnd])
@@ -1675,37 +1679,37 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
       (trm_apps (trm_binop Binop_ge)
         [trm_apps ~annot:[Mutable_var_get]
           (trm_unop Unop_get) [trm_var index];bnd])
-   end in 
-  let step = 
-    begin match stop with 
-    | DirUp _ | DirUpEq _ -> 
-      begin match step with 
-      | Pre_inc -> 
+   end in
+  let step =
+    begin match stop with
+    | DirUp _ | DirUpEq _ ->
+      begin match step with
+      | Pre_inc ->
         trm_apps (trm_unop Unop_pre_inc) [trm_var index]
       | Post_inc ->
         trm_apps (trm_unop Unop_post_inc) [trm_var index]
-      | Step st -> 
+      | Step st ->
         trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_add)
           [
             trm_var index;
             trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [st]])
       | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
-      end 
-    | DirDown _ | DirDownEq _ -> 
-      begin match step with 
-      | Pre_dec -> 
+      end
+    | DirDown _ | DirDownEq _ ->
+      begin match step with
+      | Pre_dec ->
         trm_apps (trm_unop Unop_pre_dec) [trm_var index]
       | Post_dec ->
         trm_apps (trm_unop Unop_post_dec) [trm_var index]
-      | Step st -> 
+      | Step st ->
         trm_set (trm_var index ) ~annot:[App_and_set](trm_apps (trm_binop Binop_sub)
           [
             trm_var index;
             trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [st]])
       | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
-      end 
-      
-    end in 
+      end
+
+    end in
 
     trm_for_c ~annot ~loc ~add ~attributes ~ctx init cond step body
 
@@ -1877,6 +1881,14 @@ let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
 
   let loop_range_list = aux t in
   if List.length loop_range_list <> nb then None else Some (loop_range_list, !body_to_return)
+
+
+let is_trm_uninitialized (t:trm) : bool =
+  match t.desc with
+  | Trm_val (Val_lit Lit_uninitialized) -> true
+  | _ -> false
+
+
 
 exception Unknown_key
 
