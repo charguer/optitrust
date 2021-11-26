@@ -1,0 +1,64 @@
+/* Hide the filename since we're concerned with only one file name */
+.d2h-file-header {
+   display: none;
+}
+
+/* Hide the diff line number because we're showing full file comparisons */
+.d2h-info {
+   display: none;
+}
+
+.title {
+   font-size: 300%;
+   font-weight: bold;
+   text-align: center;
+}
+
+h1 {
+   padding: 4px;
+   /*color: #0000CC;*/
+   background: #ADAFAF;
+}
+
+h2 {
+   padding: 4px;
+   /*color: #006600;*/
+   background: #00FFFF;
+   padding-left: 1em;
+}
+
+.name {
+   background: #DDFFFF;
+   font-size: Large;
+   padding-left: 2em;
+   font-weight: bold;
+}
+
+.spec {
+
+}
+
+.src {
+   border: 1px solid black;
+   padding: 1px 5px 1px 5px;
+   background: #FFFFA0;
+   font-weight: bold;
+}
+
+.diff {
+   margin: 2px 0px 2px 0px;
+}
+
+.error {
+   padding: 2em;
+   background: red;
+   font-weight: bold;
+   font-size: 2em;
+}
+
+.warning {
+   padding: 1em;
+   background: red;
+   font-weight: bold;
+   font-size: 1em;
+}

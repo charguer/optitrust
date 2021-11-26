@@ -46,7 +46,11 @@ OPTITRUST ?= ../..
 # Default target for 'make all'
 TARGET_MAKE_ALL ?= check compile
 
-OPTITRUSTLIB=$(shell ocamlfind query optitrust)
+# Path to the OptiTrust installed library
+OPTITRUSTLIB ?= $(shell ocamlfind query optitrust)
+
+# Browser for opening documentation
+BROWSER ?= chromium-browser
 
 
 #######################################################
@@ -100,7 +104,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js
+.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -210,7 +214,7 @@ endif
 # Documentation
 
 # Current folder, to prefix the function names that appear in the JS files
-CURDIR=$(shell basename `pwd`)
+CURDIR := $(shell basename `pwd`)
 
 # CHECKS contains the list of targets to be produced for the documentation
 DOCJS=$(TESTS_WITH_DOC:.ml=_doc.js)
@@ -228,8 +232,18 @@ OPTITRUST_SRC=$(wildcard $(OPTITRUST)/src/*.ml)
 # To produce the demo input and output files, execute the unit test
 %_doc.cpp %_doc_out.cpp: %_out.cpp
 
-# To check the output of the demo, use 'make mytransfo.doc'
-%.doc: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
+# Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation
+%_doc.html: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
+	$(V)cp $(OPTITRUST)/doc/doc_template.html $@
+	$(V)sed -i "s#{FOLDER}#$(CURDIR)#g;s#{BASENAME}#$*#g" $@
+	@echo Produced $@
+
+# To check the documentation associated with the demo in a browser, use 'make mytransfo.doc'
+%.doc: %_doc.html
+	$(V)$(BROWSER) $<
+
+# To check the documentation associated with the demo in a console, use 'make mytransfo.doct'
+%.doct: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
 	@echo "Produced $*_doc_spec.txt and $*_doc.{txt,cpp,out_cpp}"
 	@echo "---------------------"
 	$(V)cat $*_doc_spec.txt
@@ -256,10 +270,8 @@ OPTITRUST_SRC=$(wildcard $(OPTITRUST)/src/*.ml)
 # 'make doc' to build the auxililary files needed by _doc.html
 doc: $(DOCJS)
 
-# 'make redoc' to force rebuilding all *_doc.js files
-redoc:
-	rm -f *_doc.js
-	$(MAKE) doc
+# 'make redoc' to force rebuilding all the documentation files
+redoc: cleandoc doc
 
 
 #######################################################
@@ -268,8 +280,11 @@ redoc:
 clean_chk:
 	$(V)rm -rf *.chk
 
-clean:
-	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp batch.ml _doc.txt _doc.cpp *_doc.js _spec.txt
+cleandoc:
+	$(V)rm -rf *_doc.txt *_doc.cpp *_doc_out.cpp *_doc_spec.txt *_doc.js *_doc.html
+
+clean: cleandoc
+	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp batch.ml
 	$(V)rm -rf _build
 	@echo "Clean successful"
 

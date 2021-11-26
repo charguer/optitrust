@@ -59,7 +59,8 @@ function shrinkSrc(src) {
 }
 
 function reportError(targetId, targetJsFilename) {
-   $('#'+targetId).html("Error loading " + targetJsFilename + ". Check that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_doc.js files have been generated using 'make doc'. Alternatively, the '*_doc.js' file needs to be included explicitly in _doc.html.").addClass("error");
+   $('#'+targetId).html("Error loading " + targetJsFilename + ". Check that the '*_doc.js' file exists. If you opening transfo_doc.html, check also that this file is included explicitly in transfo_doc.html.").addClass("error");
+   // that you open the chromium browser with flag --disable-web-security, e.g., via 'make opendoc', and that all the *_doc.js files have been generated using 'make doc'.
 }
 
 function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
@@ -112,7 +113,7 @@ function loadTestFromFile(targetId) {
          }
          loadTestFromFileAssumedLoaded(targetId, targetName, "Warning: JS file loaded the unsafe way.");
       }).fail(function () {
-         reportError(targetId, targetJsFilename);
+         reportError(targetId, targetName + "_doc.js");
       });
    }
 
