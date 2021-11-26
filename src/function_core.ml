@@ -208,7 +208,7 @@ let new_rule_match ~higher_order_inst(*:bool*) (vars : typed_vars) (pat : trm) (
         if Ast.is_trm_uninitialized t0 then
           inst := Trm_map.add x (ty,u) !inst
         else if not (Internal.same_trm t0 u) then begin
-          Tools.printf "Mismatch on %s already bound to %s which is not identical to %s" x (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string u);
+          Tools.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'" x (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string u);
           raise Rule_mismatch
         end
     in

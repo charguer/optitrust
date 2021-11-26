@@ -14,13 +14,18 @@ let _ = Run.script_cpp (fun _ ->
     (*
     !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabel "gtwice_body"; dBody];
     !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabel "fbody"; dBody];
-    *)
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabel "hobody"; dBody];
+    *)
+    !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabel "bagbody"; dBody];
 
 )
 
-(*
-==> see function_uninline.cpp
+(* TODO: implement the combi version, see at the bottom of this file;
+   LATER: we will improve the new_rule_match function so that it is not needed to
+   introduce a sequence for matching "body(i)" against a list of instructions. *)
+
+
+(* ==> notes, already implemented
 ----------------
 UNIT TEST 1
 
@@ -182,7 +187,10 @@ int main() {
   iter_nat_for(n, body);
 }
 
+*)
 
+
+(* TODO:
 ----------------
 At the combi level, the uninline operation should be able to automatically
 perform a Sequence_intro, when given the target of the first instruction
