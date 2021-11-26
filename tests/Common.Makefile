@@ -104,7 +104,7 @@ DIFF := diff --ignore-blank-lines --ignore-all-space -I '^//'
 BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Instruction to keep intermediate files
-.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html
+.PRECIOUS: %.byte %_out.cpp %.chk %_doc.txt %_doc_spec.txt %_doc.js %_doc.html %_doc.cpp %_doc_out.cpp
 
 # Rule for viewing the encoding of an output
 %.enc: %_out.cpp
@@ -130,7 +130,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 #-----begin rules for non-batch mode------
 ifeq ($(BATCH),)
 
-%_out.cpp: %.byte %.cpp
+%_out.cpp: %.byte %.cpp %.ml
 	$(V)OCAMLRUNPARAM=b ./$<
 	@echo "Produced $@"
 
@@ -146,12 +146,12 @@ endif
 %.exp: %_out.cpp
 	$(V)(ls `basename -s .exp $@`_exp.cpp 2> /dev/null && echo "Skipping $@") \
   || (cp $< `basename -s .exp $@`_exp.cpp && \
-      echo "Generated `basename -s .exp $@`_exp.cpp from $<, should GIT ADD.")
+      echo "Produced `basename -s .exp $@`_exp.cpp from $<, should GIT ADD.")
 
 # Rule for producing the expected file after deleting the previous one
 %.reexp: %_out.cpp
 	@rm $*_exp.cpp && (cp $< `basename -s .reexp $@`_exp.cpp && \
-	echo "ReGenerated `basename -s .reexp $@`_exp.cpp from $<.")
+	echo "(Re)Produced `basename -s .reexp $@`_exp.cpp from $<.")
 
 # Rule for checking that a file compiles
 %.prog: %.cpp
@@ -216,21 +216,39 @@ endif
 # Current folder, to prefix the function names that appear in the JS files
 CURDIR := $(shell basename `pwd`)
 
+# Source files that the documentation depends upon
+OPTITRUST_SRC := $(wildcard $(OPTITRUST)/src/*.ml)
+
 # CHECKS contains the list of targets to be produced for the documentation
-DOCJS=$(TESTS_WITH_DOC:.ml=_doc.js)
+DOCJS := $(TESTS_WITH_DOC:.ml=_doc.js)
 
 # Generate an OCaml file containing the script executed by the demo
 %_doc.txt: %.ml
 	$(V)$(OPTITRUST)/doc/extract_demo.sh $<
-
-OPTITRUST_SRC=$(wildcard $(OPTITRUST)/src/*.ml)
+	@echo Produced $@
 
 # Generate an OCaml file containing the spec of the function associated with the test
 %_doc_spec.txt: %_doc.txt $(OPTITRUST_SRC)
 	$(V)$(OPTITRUST)/doc/extract_spec_for_demo.sh $< $(OPTITRUST)
+	@echo Produced $@
 
 # To produce the demo input and output files, execute the unit test
 %_doc.cpp %_doc_out.cpp: %_out.cpp
+	@echo Produced $*_doc.cpp
+	@echo Produced $*_doc_out.cpp
+
+#%_doc_out.cpp: %_out.cpp
+#	@echo Produced $@
+
+# Generate a JS file containing the material to be displayed in the doc:
+# including the source code, and the full input/output diff
+# (first remove leading white lines in _doc.cpp)
+%_doc.js: %_out.cpp %_doc.txt %_doc_spec.txt %_doc.cpp # %_doc_out.cpp
+	$(V)sed -i '/./,$$!d' $*_doc.cpp
+	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
+	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
+	@echo "function get_spec_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
+	@echo Produced $@
 
 # Use 'make mytransfo_doc.html' to build an html preview of the documentation on that transformation
 %_doc.html: %_doc.js # %_out.cpp %_doc.txt %_doc_spec.txt
@@ -256,17 +274,6 @@ OPTITRUST_SRC=$(wildcard $(OPTITRUST)/src/*.ml)
 	@echo "---------------------"
 	$(V)git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | tail -n +5
 
-
-# Generate a JS file containing the material to be displayed in the doc:
-# including the source code, and the full input/output diff
-# (first remove leading white lines in _doc.cpp)
-%_doc.js: %_out.cpp %_doc.txt %_doc_spec.txt # %_doc.cpp %_doc_out.cpp
-	$(V)sed -i '/./,$$!d' $*_doc.cpp
-	@echo "function get_diff_$(CURDIR)__$*() { return window.atob(\"`git diff  --ignore-blank-lines --ignore-all-space --no-index -U100 $*_doc.cpp $*_doc_out.cpp | base64 -w 0`\"); }" > $@
-	@echo "function get_src_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc.txt | base64 -w 0`\"); }" >> $@
-	@echo "function get_spec_$(CURDIR)__$*() { return window.atob(\"`cat $*_doc_spec.txt | base64 -w 0`\"); }" >> $@
-	@echo Produced $@
-
 # 'make doc' to build the auxililary files needed by _doc.html
 doc: $(DOCJS)
 
@@ -281,7 +288,8 @@ clean_chk:
 	$(V)rm -rf *.chk
 
 cleandoc:
-	$(V)rm -rf *_doc.txt *_doc.cpp *_doc_out.cpp *_doc_spec.txt *_doc.js *_doc.html
+	$(V)rm -rf *_doc.txt *_doc.cpp *_doc_out.cpp *_doc_spec.txt *_doc.js *_doc.html *_out.cpp
+	@echo "Clean documentation"
 
 clean: cleandoc
 	$(V)rm -rf *.js *_out.cpp *.byte *.chk *.log *.ast *.out *.prog *_enc.cpp *_diff.js *_before.cpp *_after.cpp *_diff.html *_with_exit.ml *_with_lines.ml *.html *_before_* tmp_* *_one.cpp batch.ml

@@ -24,7 +24,6 @@ fi
 
 # Extract the contents of the comment
 sed -n "${START},${STOP}p" ${FILE} > ${OUTPUT}
-echo "Generated ${OUTPUT}"
 
 # cat ${OUTPUT}
 
