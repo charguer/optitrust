@@ -14,5 +14,7 @@ let simpl (f: (expr -> expr)) : Target.Transfo.t =
 let simplify : Target.Transfo.t =
   simpl Arith_core.gather_rec
 
+(*
 let normalize : Target.Transfo.t =
   simpl Arith_core.normalize
+*)

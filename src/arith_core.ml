@@ -2,6 +2,7 @@ open Ast
 open PPrint
 
 let debug = true
+let debug_rec = false
 
 (* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
@@ -78,6 +79,12 @@ let expr_add (we1 : wexprs) (e : expr) : expr =
   | Expr_sum wes -> Expr_sum (we1 @ wes)
   | _ -> Expr_sum ((1, e) :: we1)
 
+let expr_sum_nonweighted (es : exprs) : expr =
+   Expr_sum (List.map (fun e -> (1,e)) es)
+
+let expr_prod_nonweighted (es : exprs) : expr =
+   Expr_prod (List.map (fun e -> (1,e)) es)
+
 
 (*-----------------------------------------------------------------------------------------*)
 
@@ -124,7 +131,9 @@ let normalize_one (e : expr) : expr =
                                  | (_ai, Expr_int 1) | (_ai, Expr_double 1.) -> []
                                  | (0, _ei) -> []
                                  | (1, Expr_prod wesi) -> wesi
+                                 | (-1, Expr_prod wesi) -> List.map (fun (w,ei) -> (-w, ei)) wesi
                                  | (ai, Expr_sum [(bi, Expr_int 1)]) -> [(ai, Expr_int bi)]
+                                 | (ai, Expr_sum [(bi, ei)]) -> [(ai, Expr_int bi); (ai, ei)]
                                  | we -> [we]) wes)
     | _ -> e
     in
@@ -302,7 +311,12 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
       Tools.fold_lefti (fun i acc (w, e) ->
         let (w, e) = match (w,e) with (n,Expr_int 1) -> (1,Expr_int n) | _ -> (w,e) in
         let c = if i = 0 then w else abs w in
-        let x = if c = 1 then aux e else trm_apps (trm_binop Binop_mul) [trm_int c; aux e] in
+        let y = aux e in
+        let x =
+          if c = 1 then y
+          else if c = -1 then trm_apps (trm_unop Unop_opp) [y]
+          else trm_apps (trm_binop Binop_mul) [trm_int c; y]
+          in
         if i = 0 then x else trm_apps (trm_binop (if w >= 0 then Binop_add else Binop_sub)) [acc; x]
       ) (trm_unit ()) we
     | Expr_prod  we ->
@@ -340,7 +354,7 @@ let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr) (e :
     let e1 = (if cleanup then normalize_one else identity) e in
     let e2 = f e1 in
     let e3 = (if cleanup then normalize_one else identity) e2 in
-    (*if debug then Tools.printf "Step:\n\t%s\n\t%s\n\t%s\n" (expr_to_string no_atoms e) (expr_to_string no_atoms e2) (expr_to_string no_atoms e3);*)
+    if debug_rec then Tools.printf "Step:\n\t%s\n\t%s\n\t%s\n" (expr_to_string no_atoms e) (expr_to_string no_atoms e2) (expr_to_string no_atoms e3);
     e3 in
   if recurse
     then apply_bottom_up f_with_cleanup e
@@ -390,56 +404,42 @@ let gather_rec = gather_common true
 
 (* [expand_one e] expends sums that appear inside product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3]
-    The function is identity if no expansion can be performed
+    The function is identity if no expansion can be performed.
+    It applies [normalize] to the result. *)
 
-
-  | 1, (Expr_sum wes) ->
-    wes=(e2+e3)   acc=(w1*a1+a2+a3)  ->  (e2*w1*a1 +e2*a2 + e2*a3   +  e3*a2 + e3*a2 + e3*a2)
-*)
-
-(*
 let expand_one (e : expr) : expr =
+  (* [acc] corresponds to the list of terms in the current sum;
+     [e^w] is the term to distribute over the sum described by [acc].
+     For example, assume [acc] is [e1; e2].
+     If [e^w = w1*a1 + w2*a2], then we produce [w1*a1 * e1 + w1*a1 * e2 + w2*a2 * e1 + w2*a2 * e2].
+     Else, we produce [e^w*e1; e^w*e2]. *)
   let aux ((w,e) : wexpr) (acc : exprs) : exprs =
     match (w,e) with
     | 1, (Expr_sum wes) ->
-        List.concat_map (fun (wk,ek) ->
-           List.map (fun ei ->
-              expr_mul [(1,Expr_int wk)] (expr_mul [(1,ek)] ei))
-            ) acc
+        List.concat_map (fun (wk,ak) ->
+          List.map (fun ei ->
+            expr_prod_nonweighted [(Expr_int wk); ak; ei]) acc
         ) wes
-    | _ -> List.map (fun ei -> expr_mul [(w,e)] ei) acc
-    in
-  match e with
-  | Expr_prod wes ->
-      let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
-      let wes_in_sum = List.map (fun e -> (1,e)) exprs_in_sum in
-      normalize_one (Expr_sum wes_in_sum)
-  | _ -> e
-*)
-
-let expand_one (e : expr) : expr =
-  let aux ((w,e) : wexpr) (acc : exprs) : exprs =
-    match (w,e) with
-    | 1, (Expr_sum wes) ->
-      List.concat_map (fun (_wk, ek) ->
-        List.map (fun ei -> expr_mul [(w,e)] (expr_mul [(1,ek)] ei)) acc
-      ) wes
     | _ ->
       List.map (fun ei -> expr_mul [(w,e)] ei) acc
-  in
-  match e with
-  | Expr_prod wes ->
-    let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
-    let wes_in_sum = List.map (fun e -> (1,e)) exprs_in_sum in
-    normalize_one (Expr_sum wes_in_sum)
-  | _ -> e
+    in
+  let r = match e with
+    | Expr_prod wes ->
+        let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
+        expr_sum_nonweighted exprs_in_sum
+    | _ -> e
+    in
+  normalize r
 
-(* [expand] calls [expand_one] recursively, calling [gather] and [normalize]
+(* [expand] calls [expand_one] recursively, calling the [gather]
    operations after each step. *)
-let expand (recurse : bool) (e : expr) : expr =
+let expand_common (recurse : bool) (e : expr) : expr =
   let tr (ei : expr) : expr =
-    normalize_one (gather_one (expand_one ei)) in
+    gather_rec (expand_one ei) in
   apply_bottom_up_if recurse cleanup_true tr e
+
+let expand = expand_common false
+let expand_rec = expand_common true (* Warning: quadratic, because normalize all and gather_rec at each step *)
 
 
 (* DEPRECATED? same as simplify_aux
