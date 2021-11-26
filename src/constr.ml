@@ -93,7 +93,7 @@ and constr =
   (* for: init, cond, step, body *)
   | Constr_for_c of target * target * target * target
   (* for index, start, stop, step, body *)
-  | Constr_for of constr_name * (loop_dir option) * target * target * target * target
+  | Constr_for of constr_name * target * target * target * target
   (* while: cond, body *)
   | Constr_while of target * target
   (* do while: body, cond *)
@@ -265,22 +265,15 @@ let rec constr_to_string (c : constr) : string =
      let s_step = target_to_string p_step in
      let s_body = target_to_string p_body in
      "For (" ^ s_init ^ ", " ^ s_cond ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
-  | Constr_for (p_index, p_direction, p_start, p_stop, p_step, p_body) ->
+  | Constr_for (p_index, p_start, p_stop, p_step, p_body) ->
     let s_index =
       match p_index with | None -> "_" | Some r -> rexp_to_string r
-    in
-    let s_direction = match p_direction with
-    | Some DirUp -> "Up"
-    | Some DirUpEq -> "UpEq"
-    | Some DirDown -> "Down"
-    | Some DirDownEq -> "DownEq"
-    | None -> "AnyDirection"
     in
     let s_start = target_to_string p_start in
     let s_stop = target_to_string p_stop in
     let s_step = target_to_string p_step in
     let s_body = target_to_string p_body in
-    "For ("^s_index ^ " ," ^ s_direction ^ " , " ^ s_start ^ ", " ^ s_stop ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
+    "For ("^s_index ^ " , " ^ s_start ^ ", " ^ s_stop ^ ", " ^ s_step ^ ", " ^ s_body ^ ")"
   | Constr_while (p_cond, p_body) ->
      let s_cond = target_to_string p_cond in
      let s_body = target_to_string p_body in
@@ -665,16 +658,12 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_cond cond &&
         check_target p_step step &&
         check_target p_body body
-     | Constr_for (p_index, p_direction, p_start, p_stop, p_step, p_body),
-        Trm_for(index, direction, start, stop, step, body) ->
-        let direction_match = match p_direction with 
-        | None -> true 
-        | Some d -> d = direction in        
+     | Constr_for (p_index, p_start, p_stop, p_step, p_body),
+        Trm_for(index, start, stop, step, body) ->
         check_name p_index index &&
-        direction_match &&
         check_target p_start start &&
-        check_target p_stop stop &&
-        check_target p_step step &&
+        check_target p_stop (loop_stop_to_trm stop) &&
+        check_target p_step (loop_step_to_trm step) &&
         check_target p_body body
      | Constr_while (p_cond, p_body), Trm_while (cond, body) ->
         check_target p_cond cond &&
@@ -1092,10 +1081,12 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
       end
      | Trm_abort (Ret (Some body)) ->
         add_dir Dir_body (aux body)
-     | Trm_for ( _, _, start, stop, step, body) ->
+     | Trm_for ( _, start, stop, step, body) ->
+        let stop_t = loop_stop_to_trm stop in
+        let step_t = loop_step_to_trm step in
         (add_dir Dir_for_start (aux start)) @
-        (add_dir Dir_for_stop (aux stop)) @
-        (add_dir Dir_for_step (aux step)) @
+        (add_dir Dir_for_stop (aux stop_t)) @
+        (add_dir Dir_for_step (aux step_t)) @
         (add_dir Dir_body (aux_body body))
      | Trm_for_c (init, cond, step, body) ->
         (* init *)
@@ -1196,7 +1187,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
   | Dir_body, Trm_let (_,(_,_),body)
     | Dir_body, Trm_let_fun (_, _, _, body)
     | Dir_body, Trm_for_c (_, _, _, body)
-    | Dir_body, Trm_for (_, _, _, _, _, body)
+    | Dir_body, Trm_for (_, _, _, _, body)
     | Dir_body, Trm_while (_, body)
     | Dir_body, Trm_do_while (body, _)
     | Dir_body, Trm_abort (Ret (Some body))

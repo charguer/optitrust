@@ -302,9 +302,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string "for" ^^ blank 1 ^^
           parens (separate (semi ^^ blank 1) [dinit; dcond; dstep]) ^^
             blank 1 ^^ dbody
-     | Trm_for (index, direction, start, stop, step, body) ->
-           (* for (int i = 10; i >= 0; i--)       dir=dDirDownTo   step=1 *)
-       let full_loop = trm_for_to_trm_for_c index direction start stop step body in
+     | Trm_for (index, start, stop, step, body) ->
+       let full_loop = trm_for_to_trm_for_c index start stop step body in
        decorate_trm full_loop
      | Trm_switch (cond, cases) ->
         let dcond = decorate_trm cond in

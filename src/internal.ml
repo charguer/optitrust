@@ -310,7 +310,7 @@ let rec local_decl (x : var) (t : trm) : trm option =
 *)
 let rec get_loop_nest_indices (t : trm) : 'a list =
   match t.desc with
-  | Trm_for (index, _, _, _, _, body) ->
+  | Trm_for (index, _, _, _, body) ->
     begin match body.desc with
     | Trm_seq tl when Mlist.length tl = 1  ->
       let f_loop = Mlist.nth tl 0 in
@@ -335,8 +335,8 @@ let extract_loop (t : trm) : ((trm -> trm) * trm) option =
   match t.desc with
   | Trm_for_c (init, cond, step, body) ->
     Some ((fun b -> trm_for_c init cond step b), body)
-  | Trm_for (index, direction, start, stop, step, body) ->
-    Some ((fun b -> trm_for index direction start stop step b), body)
+  | Trm_for (index, start, stop, step, body) ->
+    Some ((fun b -> trm_for index start stop step b), body)
   | _ ->
     fail t.loc "extract_loop: expected a loop"
 
@@ -484,8 +484,8 @@ let remove_nobrace_if_sequence (t : trm) : trm =
 (* Change the current body of loop [loop] with [body]*)
 let change_loop_body (loop : trm) (body : trm) : trm =
   match loop.desc with
-  | Trm_for (index , direction, start, stop, step, _) ->
-    trm_for index direction start stop step body
+  | Trm_for (index , start, stop, step, _) ->
+    trm_for index start stop step body
   | Trm_for_c (init, cond, step, _) ->
     trm_for_c init cond step body
   | _-> fail loop.loc "change_loop_body: expected for loop"

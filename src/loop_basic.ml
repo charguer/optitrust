@@ -24,7 +24,7 @@ let interchange : Target.Transfo.t =
    [for (int index = 0; index < nb_color; index++) {
       for (int i = index*step; i < stop; i += step*nb_color) { body }].
 *)
-let color (nb_colors : string_trm) ?(index : var = "") : Target.Transfo.t =
+let color (nb_colors : string_trm) ?(index : var option) : Target.Transfo.t =
   Target.apply_on_targets (Loop_core.color nb_colors index)
 
 
@@ -154,8 +154,8 @@ let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
     can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop 
     components.
 *)
-let fold ?(direction : loop_dir = DirUp)(index : var) (start : int) (step : int) : Target.Transfo.t =
+let fold (index : var) (start : int) (step : int) : Target.Transfo.t =
   Target.apply_on_targets (
-    Loop_core.fold index direction start step
+    Loop_core.fold index start step
 )
 

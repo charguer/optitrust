@@ -357,14 +357,14 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
       let new_first_trm = trm_seq_no_brace[
           trm_let vk (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_array var_type (Trm (trm_var array_size)))) (trm_prim (Prim_new (typ_array var_type (Trm (trm_var array_size)))));
           trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_lit (Lit_int 0)]) curr_var_trm;
-          trm_for index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
+          trm_for index (trm_int 1)  (DirUp (trm_var array_size)) Post_inc
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_var index]) init_trm])]
           in
       let new_snd_instr = Internal.change_trm (trm_var local_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_no_brace [
                       trm_set (curr_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_lit (Lit_int 0)]);
                       (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
-                      trm_for index DirUp (trm_lit (Lit_int 1)) (trm_var array_size) (trm_lit (Lit_int 1))
+                      trm_for index (trm_int 1) (DirUp (trm_var array_size)) Post_inc
                         (trm_seq_nomarks [op])
                      ] in
       let new_tl = (Mlist.of_list [new_first_trm; new_snd_instr; new_thrd_trm]) in

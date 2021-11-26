@@ -298,13 +298,14 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll"
       in
     match tg_loop_trm.desc with
-    | Trm_for (_, _, start, stop, _, _) ->
-      let nb_instr = begin match stop.desc with
+    | Trm_for (_,  start, stop, _, _) ->
+      let stop_t = loop_stop_to_trm stop in 
+      let nb_instr = begin match stop_t.desc with
       | Trm_apps (_, [_;bnd]) ->
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
         | Trm_var x -> aux x t
-        | _ -> fail stop.loc "unroll: expected eitehr a constant variable of a literal"
+        | _ -> fail stop_t.loc "unroll: expected eitehr a constant variable of a literal"
         end
       | Trm_var x ->
           let start_nb = begin match start.desc with
@@ -313,7 +314,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | _ -> fail start.loc "unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in
           (aux x t) - start_nb
-      | _ -> fail stop.loc "unroll: expected an addition of two constants or a constant variable"
+      | _ -> fail stop_t.loc "unroll: expected an addition of two constants or a constant variable"
       end
         in
       Loop_basic.unroll ~braces:true ~my_mark [Target.cMark my_mark];
@@ -374,27 +375,27 @@ let pic_coloring (tile_size : int) (color_size : int) (ds : string list) (tg : T
   reorder ~order [Target.cFor first_cs]
 
 
-(* [fold ~direction ~index ~start ~step ~nb_instr tg] expects the target [tg] pointing to an instruction folloed by [nb_instr] -1 instructions
+(* [fold ~index ~start ~step ~nb_instr tg] expects the target [tg] pointing to an instruction folloed by [nb_instr] -1 instructions
       which could be expressed into a single for loop with [index], [start], [nb_instr] and [step] as its components.
  *)
-let fold  ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (nb_instr : int) (tg : Target.target) : unit =
+let fold  ?(loop_start : int = 0) ?(loop_step : int = 1) ~index:(loop_index : var)  (nb_instr : int) (tg : Target.target) : unit =
   let mark = "opti_fold" in
   Sequence_basic.intro ~mark nb_instr tg;
-  Loop_basic.fold loop_index ~direction loop_start loop_step [Target.cMark mark]
+  Loop_basic.fold loop_index loop_start loop_step [Target.cMark mark]
 
   (* Target.iter_on_targets (fun _t p ->
     let my_mark = Mark.next () in
     Sequence_basic.intro ~mark:my_mark nb_instr (Target.target_of_path p);
-    Loop_basic.fold loop_index ~direction loop_start loop_step [Target.cMark my_mark]
+    Loop_basic.fold loop_index loop_start loop_step [Target.cMark my_mark]
   ) tg *)
 
 
-(* [fold_instrs ~direction ~index ~loop_start ~loop_step tg] expects the target [tg] pointing to more than one instructions in a sequence
+(* [fold_instrs ~index ~loop_start ~loop_step tg] expects the target [tg] pointing to more than one instructions in a sequence
     all this instructions shoudl be consecutive ones. Then it will find the number of targeted instructions and it will call
     the previous transformation [fold]. The difference here is that the number of instructions is computed automatically.
     LATER: Merge this two functions into one
 *)
-let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (tg : Target.target) : unit =
+let fold_instrs ~index:(loop_index : var) ?(loop_start : int = 0) ?(loop_step : int = 1) (tg : Target.target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
   let first_target = [Target.occFirst] @ (Target.filter_constr_occurrence tg) in
@@ -406,6 +407,6 @@ let fold_instrs ?(direction : loop_dir = DirUp) ~index:(loop_index : var) ?(loop
       incr nb_targets;
     ) tg;
     if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
-    fold ~direction ~index:loop_index ~loop_start ~loop_step !nb_targets first_target;
+    fold ~index:loop_index ~loop_start ~loop_step !nb_targets first_target;
     Variable.fold [Target.nbAny;Target.cVarDef "" ~body:[Target.cInt !nb_targets]]
 

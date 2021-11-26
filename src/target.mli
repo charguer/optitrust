@@ -129,7 +129,7 @@ val sExprRegexp : ?substr:bool -> string -> constr
 val cFor_c: ?init:target -> ?cond:target ->
            ?step:target -> ?body:target -> string -> constr
 
-val cFor : ?direction:loop_dir -> ?start:target -> ?stop:target -> ?step:target -> ?body:target -> string -> constr
+val cFor : ?start:target -> ?stop:target -> ?step:target -> ?body:target -> string -> constr
 
 val cForNestedAtDepth : int -> constr
 
