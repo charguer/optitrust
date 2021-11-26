@@ -13,12 +13,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];
-  !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"]; (* TODO: place a label earlier on, on the relevant loop *)
-  (* TODO: read_last_write   on  .. = nextCharge[MINDEX1(nbCells, idCell)]    to become  .. = 0 *)
+  !! Matrix.local_name ~my_mark:"charge" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"]; (* TODO: place a label earlier on, on the relevant loop *)
+  
+  (* TODO: read_last_write   on  .. = nextCharge[MINDEX1(nbCells, idCell)]    to become  .. = 0 , this doesn't work *)
   (* TODO: below Lit_int 0 should be Lit_double 0 *)
   (* TODO: put in some library:   let delocalize_double_add = Delocalize_arith (Lit_double 0, Binop_add)
      then use [delocalize_double_add] here and further on as argument *)
-  !! Matrix_basic.delocalize ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add)) [cMark "first_local"]; (* TODO: ~init_zero:true
+  !! Matrix_basic.delocalize ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_double 0., Binop_add)) [cMark "charge"]; (* TODO: ~init_zero:true
        so no need to generate nextChargeCorners[MINDEX2(nbCorners, nbCells, 0, idCell)] = nextCharge[MINDEX1(nbCells, idCell)]; *)
   !! Variable.inline [main; cVarDef "indices"];
   !! Specialize.any "k" [cAny];
@@ -47,9 +48,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:(lit "8") [tBefore; main];
-  !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1; main; cFor "k"]; (* TODO: use a label that should be on that loop *)
-     Matrix_basic.delocalize ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_int 0, Binop_add))[cMark "first_local"];
-     Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]]; (* TODO: use a label that should be on that loop, introduced by the earlier delocalize *)
+  !! Matrix.local_name ~my_mark:"cores" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1; main; cFor "k"]; (* TODO: use a label that should be on that loop *)
+  !! Matrix_basic.delocalize ~dim:(var "nbProcs") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_double 0., Binop_add))[cMark "cores"];
+  !! Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]]; (* TODO: use a label that should be on that loop, introduced by the earlier delocalize *)
      Specialize.any "k" [cAny]; (* this should be specialized not to k but to [myThread] *)
 
 (* TODO: capitalize rest of the script *)

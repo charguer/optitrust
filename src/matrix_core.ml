@@ -343,7 +343,7 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
                 let new_indices = (trm_var index) :: indices in
                 let new_body = trm_seq_nomarks [
                   set base new_dims((trm_int 0) :: indices) old_var_access;
-                  trm_for index (trm_int 0) (DirUp dim) (Post_inc) (set base new_dims new_indices (trm_int 0);)
+                  trm_for index (trm_int 0) (DirUp dim) (Post_inc) (set base new_dims new_indices (trm_double 0.);)
                 ] in
 
                 let new_snd_instr = trm_fors loop_ranges new_body in
