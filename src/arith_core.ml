@@ -1,6 +1,9 @@
 open Ast
 open PPrint
 
+let debug = false
+let debug_rec = false
+
 (* ***********************************************************************************
  * Note: All the intermediate functions which are called from [sequence.ml] file      *
  * have only one purpose, and that is targeting the trm in which we want to apply the *
@@ -51,6 +54,8 @@ module Atom_map = Map.Make(Int)
 
 type atom_map = trm Atom_map.t
 
+let no_atoms = Atom_map.empty
+
 (* [print_atom_map k v] pretty print the keys and values of an atom_map  *)
 let print_atom_map (k : int) (v : trm) : unit =
   Tools.printf "Atom_id : %d assigned to node %s _n" k (Ast_to_c.ast_to_string v)
@@ -74,20 +79,29 @@ let expr_add (we1 : wexprs) (e : expr) : expr =
   | Expr_sum wes -> Expr_sum (we1 @ wes)
   | _ -> Expr_sum ((1, e) :: we1)
 
+let expr_sum_nonweighted (es : exprs) : expr =
+   Expr_sum (List.map (fun e -> (1,e)) es)
+
+let expr_prod_nonweighted (es : exprs) : expr =
+   Expr_prod (List.map (fun e -> (1,e)) es)
+
 
 (*-----------------------------------------------------------------------------------------*)
 
 (* [apply_bottom_up] is a combinator that takes a transformation and applies it recursively,
    bottom up through a term.
 *)
-let apply_bottom_up (f : expr -> expr) (e : expr) : expr =
+let rec apply_bottom_up (f : expr -> expr) (e : expr) : expr =
   let apply_wexprs (wes : wexprs) : wexprs =
-    List.map (fun (w,e) -> (w, f e)) wes in
+    List.map (fun (w,e) -> (w, apply_bottom_up f e)) wes in
   match e with
   | Expr_sum wes -> f (Expr_sum (apply_wexprs wes))
   | Expr_prod wes -> f (Expr_prod (apply_wexprs wes))
   | _ -> f e
 
+
+let identity (e : expr) : expr =
+  e
 
 (*-----------------------------------------------------------------------------------------*)
 
@@ -103,18 +117,23 @@ let normalize_one (e : expr) : expr =
   let e =
     match e with
     | Expr_sum wes -> Expr_sum (List.concat_map (function
-                                | (_wi, Expr_int 0) | (_wi, Expr_double 0.) -> []
+                                | (_ai, Expr_int 0) | (_ai, Expr_double 0.) -> []
+                                | (1, Expr_int n) -> [(n, Expr_int 1)]
                                 | (0, _ei) -> []
                                 | (1, Expr_sum wesi) -> wesi
-                                | (ai, Expr_prod [(1, Expr_int bi); (1,ei)]) -> [(ai * bi, ei)]
+                                | (-1, Expr_sum [(ai,ei)]) -> [(-ai,ei)]
+                                | (ai, Expr_prod [(1, Expr_int bi); (1,ei)]) (* Optional? *)
+                                | (ai, Expr_prod [(1,ei); (1, Expr_int bi)]) (* Optional? *)
+                                | (ai, Expr_prod [(bi, Expr_int 1); (1,ei)])
+                                | (ai, Expr_prod [(1,ei); (bi, Expr_int 1)])  -> [(ai * bi, ei)]
                                 | we -> [we]) wes)
-
-    | Expr_prod [(1,Expr_int n);(1,e)]
-    | Expr_prod [(1,e);(1,Expr_int n)] -> Expr_sum [(n,e)]
     | Expr_prod wes -> Expr_prod (List.concat_map (function
-                                 | (_wi, Expr_int 1) | (_wi, Expr_double 1.) -> []
+                                 | (_ai, Expr_int 1) | (_ai, Expr_double 1.) -> []
                                  | (0, _ei) -> []
                                  | (1, Expr_prod wesi) -> wesi
+                                 | (-1, Expr_prod wesi) -> List.map (fun (w,ei) -> (-w, ei)) wesi
+                                 | (ai, Expr_sum [(bi, Expr_int 1)]) -> [(ai, Expr_int bi)]
+                                 | (ai, Expr_sum [(bi, ei)]) -> [(ai, Expr_int bi); (ai, ei)]
                                  | we -> [we]) wes)
     | _ -> e
     in
@@ -127,22 +146,6 @@ let normalize_one (e : expr) : expr =
 
 let normalize (e : expr) : expr =
   apply_bottom_up normalize_one e
-
-
-(* [apply_bottom_up_if] is a combinator for either applying a transformation recursively,
-   or applying it only at the top level, according to the [recurse] argument.
-   If the [cleanup] argument is true, then after each call to the transformation,
-   the operation [normalize_one] is called. *)
-let cleanup_true = true
-
-let apply_bottom_up_if (cleanup : bool) (recurse : bool) (f : expr -> expr) (e : expr) : expr =
-  let g e =
-    if cleanup
-      then f e
-      else normalize_one (f e) in
-  if recurse
-    then apply_bottom_up g e
-    else g e
 
 
 (* auxiliary function for [trm_to_naive_expr] *)
@@ -202,10 +205,47 @@ let is_one (e : expr) : bool =
 let parens_if_neg (n:int) (d:document) : document =
   if n < 0 then parens d else d
 
+
 (* [expr_to_string atoms e] convert an expression to a string,
-    NOTE: Only for debugging
-*)
+   in AST form *)
+
 let expr_to_string (atoms : atom_map) (e : expr) : string =
+  let rec aux (e : expr) : document =
+    let auxw ((w,e) : wexpr) : document =
+      parens ((string (string_of_int w)) ^^ comma ^^ aux e) in
+    let auxwes (we : wexprs) : document =
+      Tools.list_to_doc (*~sep:plus ~bounds:[lparen; rparen]*) (List.map auxw we) in
+    match e with
+    | Expr_int n -> string (string_of_int n)
+    | Expr_double n -> string (string_of_float n)
+    | Expr_sum wes -> string "Sum" ^^ (auxwes wes)
+    | Expr_prod wes -> string "Prod" ^^ (auxwes wes)
+    | Expr_atom id ->
+        begin match Atom_map.find_opt id atoms with
+        | Some t1 ->
+           (* Ast_to_text.print_ast stdout t1; *)
+            begin match t1.desc with
+            | Trm_var x -> string x
+            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var x; _}]) -> string x
+            | _ -> braces (Ast_to_c.trm_to_doc t1)
+            end
+        | _  ->
+          if id > 26*26 then braces (string (string_of_int id)) else
+            let string_of_small_int i =
+              let c = Char.chr ((Char.code 'a') + i) in
+              String.make 1 c in
+            let s1 = (if id >= 26 then string_of_small_int (id / 26) else "") in
+            let s2 = string_of_small_int (id mod 26) in
+            braces (string "!" ^^ string (s1 ^ s2))
+          (* fail None "expr_to_math_string: couldn't convert an atom expr to a trm"*)
+        end
+  in
+ Tools.document_to_string (aux e)
+
+
+(* [expr_to_math_string atoms e] convert an expression to a string,
+   using mathematical notations *)
+let expr_to_math_string (atoms : atom_map) (e : expr) : string =
   let power_to_doc (base : document) (power : int) : document =
      (* if power = 0 then string "1"
      else if power < 0 then string "1./" ^^ parens (power_to_doc base (-power))
@@ -246,7 +286,7 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
     | Expr_atom id ->
       begin match Atom_map.find_opt id atoms with
       | Some t1 -> (Ast_to_c.trm_to_doc t1)
-      | _  -> fail None "expr_to_string: couldn't convert an atom expr to a trm"
+      | _  -> fail None "expr_to_math_string: couldn't convert an atom expr to a trm"
       end
   in
   Tools.document_to_string (aux e)
@@ -255,9 +295,9 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
 (* [trm_to_expr t] convert trm [t] to an expression*)
 let trm_to_expr (t : trm) : expr * atom_map =
   let expr, atoms = trm_to_naive_expr t in
-  Tools.printf "Expr after conversion: %s\n" (expr_to_string atoms expr);
+  if debug then Tools.printf "Expr after conversion: %s\n" (expr_to_string atoms expr);
   let res = normalize expr in
-  Tools.printf "Expr after normalization: %s\n" (expr_to_string atoms res);
+  if debug then Tools.printf "Expr after normalization: %s\n" (expr_to_string atoms res);
   res, atoms
 
 (* [expr_to_trm e ] convert expr [e] to trm  *)
@@ -267,16 +307,31 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
     | Expr_int n -> trm_int n
     | Expr_double n -> trm_double n
     | Expr_sum we ->
-      let we_l = List.map (fun (w, e) -> if w = 1 then aux e else trm_apps (trm_binop Binop_mul) [trm_int w; aux e]) we in
-      Tools.fold_lefti (fun i acc x ->
-        if i = 0 then x else trm_apps (trm_binop Binop_add) [x; acc]
-      ) (trm_unit ()) we_l
+      if we = [] then failwith "expr_to_trm: assumes a normalized term";
+      Tools.fold_lefti (fun i acc (w, e) ->
+        let (w, e) = match (w,e) with (n,Expr_int 1) -> (1,Expr_int n) | _ -> (w,e) in
+        let c = if i = 0 then w else abs w in
+        let y = aux e in
+        let x =
+          if c = 1 then y
+          else if c = -1 then trm_apps (trm_unop Unop_opp) [y]
+          else trm_apps (trm_binop Binop_mul) [trm_int c; y]
+          in
+        if i = 0 then x else trm_apps (trm_binop (if w >= 0 then Binop_add else Binop_sub)) [acc; x]
+      ) (trm_unit ()) we
     | Expr_prod  we ->
+      if we = [] then failwith "expr_to_trm: assumes a normalized term";
+      let rec power t n =
+        if n = 0 then failwith "expr_to_trm: assumes a normalized term"
+        else if n < 0 then trm_apps (trm_binop Binop_div) [trm_double 1.0; power t (-n)]
+        else if n = 1 then t
+        else (* n > 1 then *) trm_apps (trm_binop Binop_mul) [t; power t (n-1)]
+        in
       (* LATER: Since there isn't any power operator in C the last line is the same was the one in the previous case *)
-      let we_l = List.map (fun (w, e) -> if w = 1 then aux e else trm_apps (trm_binop Binop_mul) [trm_int w; aux e]) we in
-      Tools.fold_lefti (fun i acc x ->
-        if i = 0 then x else trm_apps (trm_binop Binop_mul) [x; acc]
-      ) (trm_unit ()) we_l
+      Tools.fold_lefti (fun i acc (w,e) ->
+        if i = 0 then power (aux e) w else
+        trm_apps (trm_binop (if w > 0 then Binop_mul else Binop_div)) [acc; power (aux e) (abs w)]
+      ) (trm_unit ()) we
     | Expr_atom id ->
         begin match Atom_map.find_opt id atoms with
         | Some t1 -> t1
@@ -284,6 +339,42 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
         end
     in
   aux e
+
+
+
+(* [apply_bottom_up_if] is a combinator for either applying a transformation recursively,
+   or applying it only at the top level, according to the [recurse] argument.
+   If the [cleanup] argument is true, then after each call to the transformation,
+   the operation [normalize_one] is called. *)
+let cleanup_true = true
+let cleanup_false = false
+
+let apply_bottom_up_if (recurse : bool) (cleanup : bool) (f : expr -> expr) (e : expr) : expr =
+  let f_with_cleanup e =
+    let e1 = (if cleanup then normalize_one else identity) e in
+    let e2 = f e1 in
+    let e3 = (if cleanup then normalize_one else identity) e2 in
+    if debug_rec then Tools.printf "Step:\n\t%s\n\t%s\n\t%s\n" (expr_to_string no_atoms e) (expr_to_string no_atoms e2) (expr_to_string no_atoms e3);
+    e3 in
+  if recurse
+    then apply_bottom_up f_with_cleanup e
+    else f_with_cleanup e
+
+
+let apply_bottom_up_debug (e : expr) : expr =
+  let f ei =
+    if debug then Tools.printf "Bottom-up %s\n" (expr_to_string no_atoms ei);
+    ei in
+  apply_bottom_up f e
+
+let apply_bottom_up_if_debug (recurse : bool) (cleanup : bool) (e : expr) : expr =
+  let f ei =
+    let ej = (if cleanup then normalize_one else identity) ei in
+    if debug then Tools.printf "Bottom-up-if:\n\t%s\n\t%s\n" (expr_to_string no_atoms ei) (expr_to_string no_atoms ej);
+    ej in
+  apply_bottom_up_if recurse cleanup f e
+
+
 
 (* [gather_one e] regroups similar expression that appear inside a same product or sum
       For example, [2 * e1 + (-1)*e1] simplifies to [e1]
@@ -304,69 +395,60 @@ let gather_one (e : expr) : expr =
   | Expr_prod wes -> Expr_prod (gather_wexprs wes)
   | _ -> e
 
-  (* [gather recurese_bool e] apply gather one in a full expression if recurse is set to true *)
-let gather (recurse : bool) (e : expr) : expr =
-  let tr (ei : expr) : expr =
-    normalize_one (gather_one ei) in
-  apply_bottom_up_if cleanup_true recurse tr e
+  (* [gather_common recurse_bool e] apply gather one in a full expression if recurse is set to true *)
+let gather_common (recurse : bool) (e : expr) : expr =
+  apply_bottom_up_if recurse cleanup_true gather_one e
+
+let gather = gather_common false
+let gather_rec = gather_common true
 
 (* [expand_one e] expends sums that appear inside product.
     For example, [e1 * (e2 + e3)] becomes [e1 * e2 + e1 * e3]
-    The function is identity if no expansion can be performed
+    The function is identity if no expansion can be performed.
+    It applies [normalize] to the result. *)
 
-
-  | 1, (Expr_sum wes) ->
-    wes=(e2+e3)   acc=(w1*a1+a2+a3)  ->  (e2*w1*a1 +e2*a2 + e2*a3   +  e3*a2 + e3*a2 + e3*a2)
-*)
-
-(*
 let expand_one (e : expr) : expr =
+  (* [acc] corresponds to the list of terms in the current sum;
+     [e^w] is the term to distribute over the sum described by [acc].
+     For example, assume [acc] is [e1; e2].
+     If [e^w = w1*a1 + w2*a2], then we produce [w1*a1 * e1 + w1*a1 * e2 + w2*a2 * e1 + w2*a2 * e2].
+     Else, we produce [e^w*e1; e^w*e2]. *)
   let aux ((w,e) : wexpr) (acc : exprs) : exprs =
     match (w,e) with
     | 1, (Expr_sum wes) ->
-        List.concat_map (fun (wk,ek) ->
-           List.map (fun ei ->
-              expr_mul [(1,Expr_int wk)] (expr_mul [(1,ek)] ei))
-            ) acc
+        List.concat_map (fun (wk,ak) ->
+          List.map (fun ei ->
+            expr_prod_nonweighted [(Expr_int wk); ak; ei]) acc
         ) wes
-    | _ -> List.map (fun ei -> expr_mul [(w,e)] ei) acc
-    in
-  match e with
-  | Expr_prod wes ->
-      let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
-      let wes_in_sum = List.map (fun e -> (1,e)) exprs_in_sum in
-      normalize_one (Expr_sum wes_in_sum)
-  | _ -> e
-*)
-
-let expand_one (e : expr) : expr =
-  let aux ((w,e) : wexpr) (acc : exprs) : exprs =
-    match (w,e) with
-    | 1, (Expr_sum wes) ->
-      List.concat_map (fun (_wk, ek) ->
-        List.map (fun ei -> expr_mul [(w,e)] (expr_mul [(1,ek)] ei)) acc
-      ) wes
     | _ ->
       List.map (fun ei -> expr_mul [(w,e)] ei) acc
-  in
-  match e with
-  | Expr_prod wes ->
-    let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
-    let wes_in_sum = List.map (fun e -> (1,e)) exprs_in_sum in
-    normalize_one (Expr_sum wes_in_sum)
-  | _ -> e
+    in
+  let r = match e with
+    | Expr_prod wes ->
+        let exprs_in_sum = List.fold_right aux wes [Expr_int 1] in
+        expr_sum_nonweighted exprs_in_sum
+    | _ -> e
+    in
+  normalize r
 
-(* [expand] calls [expand_one] recursively, calling [gather] and [normalize]
+(* [expand] calls [expand_one] recursively, calling the [gather]
    operations after each step. *)
-let expand (recurse : bool) (e : expr) : expr =
+let expand_common (recurse : bool) (e : expr) : expr =
   let tr (ei : expr) : expr =
-    normalize_one (gather_one (expand_one ei)) in
-  apply_bottom_up_if cleanup_true recurse tr e
+    gather_rec (expand_one ei) in
+  apply_bottom_up_if recurse cleanup_true tr e
+
+let expand = expand_common false
+let expand_rec = expand_common true (* Warning: quadratic, because normalize all and gather_rec at each step *)
 
 
-let trm_transfo  (f : expr -> expr) (t : trm) : trm =
+(* DEPRECATED? same as simplify_aux
+let trm_transfo (f : expr -> expr) (t : trm) : trm =
   let expr, atoms = trm_to_expr t in
-  expr_to_trm atoms (f expr)
+  let expr2 = f expr in
+  if debug then Tools.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
+  expr_to_trm atoms expr2
+*)
 
 (* [simplify_aux f t] convert node [t] to an expression then apply the simplifier [f], then convert it back to a trm
       params:
@@ -377,7 +459,9 @@ let trm_transfo  (f : expr -> expr) (t : trm) : trm =
 *)
 let simplify_aux  (f : expr -> expr) (t : trm) : trm =
   let expr, atoms = trm_to_expr t in
-  expr_to_trm atoms (f expr)
+  let expr2 = f expr in
+  if debug then Tools.printf "Expr after transformation: %s\n" (expr_to_string atoms expr2);
+  expr_to_trm atoms expr2
 
 let simplify (f : expr -> expr) : Target.Transfo.local =
   Target.apply_on_path (simplify_aux f)
