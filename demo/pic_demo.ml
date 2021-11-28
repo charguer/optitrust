@@ -30,12 +30,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part 0: Labelling the main loop*)
   !! Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
   (* Part1: space reuse *)
-  !! Variable.reuse ~space:(trm_access (trm_var "p") "speed") [main; cVarDef "speed2"];
-     Variable.reuse ~space:(trm_access (trm_var "p") "pos") [main; cVarDef "pos2"];
-
+  
+  !! Variable.reuse ~space:(expr "p.speed") [main; cVarDef "speed2"];
+     Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
+  
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext" ];
-  !! Flow.insert_if ~cond:(trm_apps (trm_var "ANY_BOOL") []) [main; cFun "bag_push"];
+  !! Flow.insert_if ~cond:(trm_any_bool) [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
   !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
@@ -62,25 +63,24 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fold_instrs ~index:"k" [ctx; sInstr "r.v"];
 
   (* Part: reveal fields *)
-  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
+  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; 
+  !!!();
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Variable.inline [cOr [[cVarDef "p2"]; [cVarDef "p"]]];
+  !! Variable.inline [cVarDef "p2"];
+  !! Variable.inline [cVarDef "p"];
   !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
   !! Function.inline [cOr [
        [cFun "vect8_mul"];
-       [cTopFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
+       [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
        [cFun "accumulateChargeAtCorners"]]];
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
-
   !! Sequence.intro ~mark:"to_fusion" ~start:[main; cVarDef "coeffs2"] ();
   !! Loop.fusion_targets [cMark "to_fusion"];
-
-
 
 (* TODO: Fix the issue of inline_last_write for this particular case *)
 !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];

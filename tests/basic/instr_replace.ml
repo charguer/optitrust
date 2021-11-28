@@ -14,5 +14,5 @@ let _ = Run.script_cpp (fun _ ->
   (* replace, in the definition of "e", all constants "2" with the constant "1" *)
   !! Instr_basic.replace (lit "1") [nbMulti; cVarDef "e"; cFun "f2"; cInt 2 ];
   (* replace the function "f2" with another one *)
-  !! Instr_basic.replace (func "int f2(int a, int b, int c) { return a ; }") [cFunDef "f2" ];
+  !! Instr_basic.replace (stmt "int f2(int a, int b, int c) { return a ; }") [cFunDef "f2" ];
 )

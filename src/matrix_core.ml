@@ -295,12 +295,12 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let indices_list = begin match indices with
   | Some l -> l | _ -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
-  let nested_loop_ranges = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp dim, Post_inc)) dims indices_list in
+  let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp dim, Post_inc)) dims indices_list in
   let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
   let write_on_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) in
-  let snd_instr = trm_fors nested_loop_ranges write_on_local_var in
+  let snd_instr = trm_fors nested_loop_range write_on_local_var in
   let new_t = Internal.subst_var var (trm_var local_var) t in 
-  let thrd_instr = trm_fors nested_loop_ranges write_on_var in
+  let thrd_instr = trm_fors nested_loop_range write_on_var in
   let last_instr = trm_apps (trm_var "MFREE") [trm_var local_var] in
   let final_trm = trm_seq_no_brace [fst_instr; snd_instr; new_t; thrd_instr; last_instr] in
   match mark with Some m -> trm_add_mark m final_trm | _ ->  final_trm
@@ -309,7 +309,7 @@ let local_name (mark : mark option) (var : var) (local_var : var) (malloc_trms :
   Target.apply_on_path (local_name_aux mark var local_var malloc_trms var_type indices)
 
 
-let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc : string option) (index : string) (_ops : delocalize_ops) (t : trm) : trm =
+let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : string option) (index : string) (ops : delocalize_ops) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     if Mlist.length tl <> 5 then fail t.loc "delocalize_aux: the targeted sequence does not have the correct shape";
@@ -328,7 +328,7 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
             let tg = [cCellAccess ~base:[cVar local_var] ~index:[] ()] in
             let snd_instr = Mlist.nth tl 1 in
             begin match trm_fors_inv alloc_arity snd_instr with
-            | Some (loop_ranges, body) ->
+            | Some (loop_range, body) ->
               let set_instr =
               begin match body.desc with
               | Trm_seq tl when Mlist.length tl = 1->
@@ -339,14 +339,23 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
               | Some (base, dims, indices, old_var_access) ->
                 
                 let new_dims = dim :: dims in
-                
                 let new_indices = (trm_var index) :: indices in
-                let new_body = trm_seq_nomarks [
-                  set base new_dims((trm_int 0) :: indices) old_var_access;
-                  trm_for index (trm_int 0) (DirUp dim) (Post_inc) (set base new_dims new_indices (trm_double 0.);)
-                ] in
+                let new_loop_range = loop_range @ [(index, trm_int 0, DirUp dim, Post_inc)] in
+                let init_val = match ops with 
+                  | Delocalize_arith (li, _) -> trm_lit li
+                  | Delocalize_obj (clean_f, _) -> trm_apps (trm_var clean_f) [] in
 
-                let new_snd_instr = trm_fors loop_ranges new_body in
+                let new_body = if init_zero 
+                  then trm_seq_nomarks [set base new_dims new_indices init_val]
+                  else trm_seq_nomarks [
+                    set base new_dims((trm_int 0) :: indices) old_var_access;
+                    trm_for index (trm_int 0) (DirUp dim) (Post_inc) (set base new_dims new_indices init_val;)
+                  ]
+                  in
+                
+                let new_snd_instr = if init_zero 
+                  then trm_fors new_loop_range new_body 
+                  else trm_fors loop_range new_body in
                 
                 let thrd_instr = Mlist.nth tl 2 in
                 let ps2 = resolve_target tg thrd_instr in
@@ -359,15 +368,29 @@ let delocalize_aux (dim : trm) (_init_zero : bool) (_acc_in_place : bool) (acc :
                     let acc = match acc with
                     | Some s -> s
                     | None -> "s" in
+                
+                let op_fun (l_arg : trm) (r_arg : trm) : trm  = match ops with 
+                  | Delocalize_arith (_, op) -> trm_set ~annot:[App_and_set] l_arg (trm_apps (trm_binop op) [l_arg; r_arg])
+                  | Delocalize_obj (_, transfer_f) -> trm_apps (trm_var transfer_f) [l_arg; r_arg] 
+                in
 
-                let new_frth_instr =
-                  trm_fors loop_ranges
-                  (trm_seq_nomarks [
+                let new_body = if acc_in_place 
+                  then 
+                    trm_seq_nomarks [
+                      set (trm_var "a") dims indices (access base new_dims ((trm_int 0) :: indices));
+                      trm_for index (trm_int 1) (DirUp dim) (Post_inc) (
+                        op_fun old_var_access new_access
+                      )
+                    ]
+                  else 
+                    (trm_seq_nomarks [
                         trm_let_mut (acc, typ_int ()) (trm_int 0);
                         trm_for index (trm_int 0) (DirUp dim) (Post_inc) (trm_seq_nomarks [
-                            trm_set ~annot:[App_and_set] (trm_var acc) (trm_apps (trm_binop Binop_add) [(trm_var acc); new_access]) ]);
+                            op_fun (trm_var acc) new_access]);
                         trm_set old_var_access (trm_var acc)]) in
-
+                let new_frth_instr =
+                  trm_fors loop_range new_body in
+                    
                 let fifth_instr = Mlist.nth tl 4 in
                   trm_seq ~annot:t.annot ~marks:t.marks (Mlist.of_list [new_decl; new_snd_instr; new_thrd_instr; new_frth_instr; fifth_instr])
 

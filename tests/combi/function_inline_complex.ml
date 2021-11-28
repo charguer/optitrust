@@ -2,6 +2,7 @@ open Optitrust
 open Target
 
 let _ = Run.script_cpp (fun _ ->
+    
     !! Function.inline ~name_result:"r" ~args:["a";"";"b";""] [cFun "g"];
     !! Trace.alternative (fun () ->
       !! Function_basic.bind_intro ~fresh_name:"r" [cFun "g"];
@@ -17,7 +18,7 @@ let _ = Run.script_cpp (fun _ ->
       !!());
     !! Trace.alternative (fun () ->
       let r = "res_temp" in
-      !! Function_basic.bind_intro ~fresh_name:r [cFun "g"];
+      !! Function_basic.bind_intro ~fresh_name:r ~const:false [cFun "g"];
       !! Function.bind_args ["a";"";"b";""] [cFun "g"];
       !! Function_basic.inline ~body_mark:"body" [cFun "g"];
       !! Function.elim_body [cMark "body"];

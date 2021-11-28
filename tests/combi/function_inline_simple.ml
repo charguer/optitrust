@@ -7,12 +7,10 @@ open Target
 let _ = Run.script_cpp (fun _ ->
   
 
-  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti;cFun "f1?"];
+  !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"];
   !! Function.inline ~body_mark:"body" [cFun "vect_mul"];
   !! Function.inline [cFun "vect_add"];
   
-  !! Function.inline ~body_mark:"body" [occIndex ~nb:2 0; cFun "f"];
-  !! Function.inline ~body_mark:"bodyf" [cFun "f"];
   (* with naming of the arguments *)
   !! Trace.alternative (fun () ->
     !! Function.inline ~body_mark:"body" ~args:["v"] [cFun "f"];

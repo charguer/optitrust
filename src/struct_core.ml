@@ -396,9 +396,9 @@ let to_variables_aux (index : int) (t : trm) : trm =
       let struct_def = 
         if typid <> -1 then match Context.typid_to_typedef typid with 
           | Some td -> td 
-          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
+          | _ -> fail t.loc "to_variables_aux: could not get the declaration of typedef" 
         else    
-          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+          fail t.loc "to_variables_aux: explicit assignemnt is supported only for struct types" 
        in
       let field_list = Internal.get_field_list struct_def in
       let struct_init_list = begin match init.desc with

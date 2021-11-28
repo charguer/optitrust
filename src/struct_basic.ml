@@ -51,7 +51,7 @@ let inline ?(reparse:bool=false) (field_to_inline : field) : Target.Transfo.t =
     are going to be changed to variable occurrences.
 *)
 let to_variables : Target.Transfo.t =
-  Target.reparse_after (Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+  Target.reparse_after ~reparse:false (Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, i) -> Struct_core.to_variables i t p) )
 
 (* [rename_fields rename tg] expects [tg] to point to a struct declaration 

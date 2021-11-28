@@ -168,11 +168,11 @@ let rename_on_block_aux (rename : Rename.t) (t : trm) : trm =
             begin match rename with 
             | AddSuffix post_fix ->
               let new_name = x ^ post_fix  in
-              Internal.change_trm (trm_var x) (trm_var new_name) acc
+              Internal.subst_var x (trm_var new_name) acc
           | ByList list -> 
             if List.mem_assoc x list then
               let new_name = List.assoc x list in
-              Internal.change_trm (trm_var x) (trm_var new_name) acc
+              Internal.subst_var x (trm_var new_name) acc
             else
               acc 
           end
@@ -360,7 +360,7 @@ let delocalize_aux (array_size : string) (ops : delocalize_ops) (index : string)
           trm_for index (trm_int 1)  (DirUp (trm_var array_size)) Post_inc
          (trm_seq_nomarks [trm_set (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_var index]) init_trm])]
           in
-      let new_snd_instr = Internal.change_trm (trm_var local_var)  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) snd_instr  in
+      let new_snd_instr = Internal.subst_var local_var  (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_apps (trm_var "ANY") [trm_var array_size] ]) snd_instr  in
       let new_thrd_trm = trm_seq_no_brace [
                       trm_set (curr_var_trm) (trm_apps (trm_binop Binop_array_cell_addr)[trm_var local_var; trm_lit (Lit_int 0)]);
                       (* trm_omp_directive (Parallel_for [Reduction (Plus,["a"])]); *)
@@ -467,7 +467,7 @@ let bind_intro_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bo
     let targeted_node = Path.resolve_path p_local instr in
     let has_reference_type = if (Str.string_before fresh_name 1) = "&" then true else false in
     let fresh_name = if has_reference_type then (Str.string_after fresh_name 1) else fresh_name in
-    let node_to_change = Internal.change_trm targeted_node (trm_var fresh_name) instr in
+    let node_to_change = Internal.change_trm targeted_node (if const then trm_var fresh_name else (trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var fresh_name])) instr in
     let targeted_node = if my_mark <> "" then trm_add_mark my_mark targeted_node else targeted_node in
     let node_type = match targeted_node.typ with
     | Some ty -> ty

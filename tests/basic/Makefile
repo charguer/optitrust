@@ -4,15 +4,9 @@ TARGET_MAKE_ALL := check
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 
-
-TESTS_TOCHECK := \
-
-TESTS_BROKEN := \
+TESTS_WORKING := \
 	accesses_scale.ml \
 	accesses_shift.ml \
-  flow_insert_if.ml \
-
-TESTS_WORKING := \
 	aos_to_soa_sized_array.ml \
 	aos_to_soa_typedef.ml \
 	array_set_explicit.ml \
@@ -20,11 +14,12 @@ TESTS_WORKING := \
 	array_tile.ml \
 	array_to_variables.ml \
 	cast_insert.ml \
+  flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
 	instr_move.ml \
-	instr_read_last_write.ml \
 	instr_replace.ml \
+	instr_read_last_write.ml \
 	instr_replace_fun.ml \
 	label_add.ml \
 	label_remove.ml \
@@ -40,8 +35,8 @@ TESTS_WORKING := \
 	loop_unroll.ml \
 	loop_unswitch.ml \
 	pointer_fold.ml \
-	reference_fold.ml \
 	reference_inline.ml \
+	reference_fold.ml \
 	rewrite_equiv_at.ml \
 	rewrite_compute.ml \
 	rewrite_compute_inside.ml \
@@ -69,8 +64,8 @@ TESTS_WORKING := \
 	variable_rename.ml \
 	variable_replace_occurrences.ml \
 
+
 TESTS_TOCHECK := \
-	loop_tile.ml \
   variable_bind_intro.ml \
 	variable_init_attach.ml \
 	matrix_intro_mcalloc.ml \
@@ -80,6 +75,24 @@ TESTS_TOCHECK := \
 	struct_simpl_proj.ml \
 	function_use_infix_ops.ml \
 	sequence_insert.ml \
+	function_beta.ml \
+	function_uninlink.ml \
+	include_inline.ml \
+	matrix_delocalize.ml \
+	matrix_intro_mops.ml \
+	matrix_insert_access_dime_index.ml \
+	matrix_insert_alloc_dim.ml \
+	matrix_intro_mindex.ml \
+	matrix_local_name.ml \
+	specialize_any.ml \
+	specialize_chhose.ml \
+	
+
+
+
+
+TESTS_TO_FIX := \
+	loop_tile.ml \
 
 
 

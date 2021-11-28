@@ -77,7 +77,7 @@ let inline ?(body_mark : var = "body") (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
    (fun  t (p, p_local, i) ->
-    Function_core.inline i body_mark t p_local t p) tg)
+    Function_core.inline i body_mark p_local t p) tg)
 
 (* [beta ~body_mark tg] its the same as function_inline *)
 let beta  ?(body_mark : var = "body") (tg : Target.target) : unit =

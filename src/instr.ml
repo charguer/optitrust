@@ -139,7 +139,7 @@ let move_out ?(rev : bool = false) ~dest:(dest : Target.target) : Target.Transfo
   Target.iter_on_targets ~rev (fun t p ->
     let tg_trm = Path.resolve_path p t in
     Marks.add "instr_move_out" (Target.target_of_path p);
-    Sequence_basic.insert tg_trm dest;
+    Sequence_basic.insert ~reparse:false tg_trm dest;
     Instr_basic.delete [Target.cMark "instr_move_out"]
   )
 

@@ -44,7 +44,7 @@ void m(int* p) {
 
 int main() {
   int x = 3;
-  // int y = f1(x);
+  int y = f1(x);
   int z = g(x);
   int u = h(x);
   int *q = new int(3);
@@ -53,7 +53,6 @@ int main() {
 
   vect a = {0,1};
   vect b = {3,4,5};
-  vect c;
-  c = vect_add (b, vect_mul(x, a));
+  vect c = vect_add (b, vect_mul(x, a));
   return 0;
 }

@@ -19,6 +19,7 @@ int main() {
 
   // inlinine of not a constant
   int x = 3;
+  x = 5;
   int y = x + x;
 
   // inlining in a return expression

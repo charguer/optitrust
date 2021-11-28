@@ -394,6 +394,25 @@ particle* bag_iter_next(bag_iter* it, bool destructive) {
   return bag_iter_get(it);
 }
 
+// example of a basic iteration over a bag
+// void bag_ho_iter_basic(bag* b, void body(particle*)) {
+//   bag_iter it = bag_iter_begin(b);
+//   for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
+//     body(p);
+//   }
+// }
+
+// example of an iteration over a bag with the loop over the chunk items revealed
+// void bag_ho_iter_chunk(bag* b, void body(particle*)) {
+//   for (chunk* c = b->front; c != NULL; c = chunk_next(c, true)) {
+//     int nb = c->size;
+//     for (int i = 0; i < nb; i++) {
+//       particle* p = &c->items[i];
+//       body(p);
+//     }
+//   }
+// }
+
 /*
 TODO: to parse this code, need to fix the function Ast.trm_for_of_trm_for_c
 where "is_simple_loop" is not correctly computed (see, e.g.,  the branch
@@ -406,7 +425,7 @@ void bag_ho_iter_basic(bag* b, void body(particle*)) {
   for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
     body(p);
   }
-}pas
+}
 
 // example of an iteration over a bag with the loop over the chunk items revealed
 void bag_ho_iter_chunk(bag* b, void body(particle*)) {

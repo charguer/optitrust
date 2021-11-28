@@ -2007,6 +2007,10 @@ let is_infix_prim_fun (p : prim) : bool =
 let trm_access (base : trm) (field : var) : trm =
   trm_apps (trm_unop (Unop_struct_field_addr field)) [base]
 
+(* [trm_any_bool] generates ANY_BOOL () *)
+let trm_any_bool : trm = 
+  trm_apps (trm_var "ANY_BOOL") []
+
 
 let code_to_str (code : code_kind) : string =
   match code with
@@ -2024,7 +2028,7 @@ module AstParser = struct
 
   let expr e = code (Expr e)
 
-  let stmt s= code (Stmt s)
+  let stmt s = code (Stmt s)
 
   let func f = code (Func f)
 

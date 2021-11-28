@@ -7,6 +7,8 @@ typedef struct {
   int y;
 } vect;
 
+int test() { return 0; }
+
 typedef vect myvect;
 
 int main() {

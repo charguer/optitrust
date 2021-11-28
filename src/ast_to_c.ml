@@ -345,9 +345,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let code_str = 
         begin match a_kind with 
         | Lit l -> string l
-        | Expr e -> parens (string e)
+        | Expr e -> string e
         | Stmt s -> string s
-        | Func f -> string f
+        | Func f -> parens (string f)
         | Atyp ty -> string ty
         end  in
         dattr ^^ code_str 

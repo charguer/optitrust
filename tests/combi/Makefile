@@ -9,6 +9,9 @@ TESTS_WORKING := \
 	function_bind_args.ml \
 	function_bind.ml \
 	function_elim_body.ml \
+	function_inline_complex.ml \
+	function_inline_simple.ml \
+	function_inline_struct.ml \
 	loop_fusion.ml \
 	loop_fold.ml \
 	loop_hoist.ml \
@@ -22,29 +25,37 @@ TESTS_WORKING := \
 	struct_set_implicit.ml \
 	variable_intro_pattern_array.ml \
 	variable_delocalize.ml \
+	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
 	variable_reuse.ml \
 
 
 TESTS_TOCHECK := \
-	variable_delocalize_in_vars.ml \
-	function_inline_complex.ml \
-	function_inline_simple.ml \
-	aos_to_soa.ml \
 	matrix_intro_mops.ml \
 	instr_accumulate.ml \
-	funciton_inline_struct.ml \
-	instr_move_invariant.ml \
+	instr_moveout.ml \
 	instr_read_last_write.ml \
-  varaible_reverse_fold.ml \
+  variable_reverse_fold.ml \
 	variable_elim_redundant.ml \
   variable_insert_list.ml \
+	instr_gather.ml \
+	loop_fold.ml \
+	loop_fusion_targets.ml \
+	matrix_delocalize.ml \
+	
+
+
+TESTS_TO_FIX := \
+	aos_to_soa.ml \
+	function_beta.ml \
+	
+
 
 TESTS_WITH_DOC := \
 	loop_fusion.ml \
 
 
-TESTS := $(TESTS_WORKING) $(TESTS_TO_CHECK)
+TESTS := $(TESTS_WORKING) $(TESTS_TOCHECK)
 
 include ../Common.Makefile
 

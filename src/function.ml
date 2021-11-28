@@ -140,7 +140,7 @@ int f2() { // result of Funciton_basic.inline_cal
 // using ~[cMark mymark] use ~((target_of_path p)++[cMark mymark])
 // where p is the path to the englobing sequence.
 *)
-let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
+let inline ?(name_result : string = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
   Target.iteri_on_targets (fun i t p ->
     let vars = Variable_core.map (fun x -> Str.global_replace (Str.regexp_string "${occ}") (string_of_int i) x ) vars in
     let name_result = ref name_result in
@@ -149,47 +149,57 @@ let inline ?(name_result = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rena
     let tg_trm = Path.resolve_path (path_to_instruction @ local_path) t in
     let tg_out_trm = Path.resolve_path path_to_instruction t in
     let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
-    let res_inlining_needed =
+    let res_inlining_needed = ref false in
+    let mark_added = ref false in
     begin match tg_out_trm.desc with
     | Trm_let (_, (x, _), init) ->
       let init1 = match get_init_val init with
       | Some init1 -> init1
       | None -> fail t.loc "inline: coudl not get the target to the function call" in
       if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case"
-        else if
-          List.length local_path <= 2 && List.length local_path > 0
-          (* Internal.same_trm init1  tg_trm *) then
-          
+        else if List.length local_path <= 2 && List.length local_path > 0 then
           begin
-          name_result := x; false end
+          name_result := x;
+          res_inlining_needed := false
+          end
         else
             begin match !name_result with
             | ""  ->  name_result := "__TEMP_Optitrust";
-                      Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
-            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);false
+                      Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path p);
+                      res_inlining_needed := true;
+                      mark_added := true
+
+            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);
+                   res_inlining_needed := false;
+                   mark_added := true
             end
     | Trm_apps (_f, [_; _]) when is_set_operation tg_out_trm ->
         begin match !name_result with
         | ""  ->  
-                      name_result := "__TEMP_Optitrust";
-                      Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);true
-        | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);false
+                  name_result := "__TEMP_Optitrust";
+                  Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path p);
+                  res_inlining_needed := true;
+                  mark_added := true
+
+        | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);
+               res_inlining_needed := false;
+               mark_added := true
         end 
-    | Trm_apps _ -> false
+    | Trm_apps _ -> res_inlining_needed := false
     | _ -> fail None "inline: expected a variable declaration or a function call"
-    end in
+    end;
     let new_target = [Target.cMark my_mark] in
-    if not res_inlining_needed then Marks.add my_mark (Target.target_of_path p);
+    if not !mark_added then Marks.add my_mark (Target.target_of_path p);
     if args <> [] then bind_args args new_target else ();
-    Function_basic.inline ~body_mark new_target;
+    Function_basic.inline ~body_mark new_target;    
     elim_body ~vars [Target.cMark body_mark];
     if !name_result <> "" then begin
         let success_attach = ref true in
-        let () = try Variable_basic.init_attach (new_target) with
+        let _ = try Variable_basic.init_attach (new_target) with
            | Variable_basic.Init_attach_no_occurrences
            | Variable_basic.Init_attach_occurrence_below_control -> success_attach  := false;()
            | e -> raise e in
-        if res_inlining_needed then Variable_basic.inline new_target;
+        if !res_inlining_needed then Variable_basic.inline new_target;
           if !success_attach then Variable.reverse_fold [Target.nbAny;Target.cVarDef !name_result];
         Marks.remove my_mark ([Target.nbAny] @ new_target)
     end;
