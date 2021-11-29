@@ -279,6 +279,6 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
 *)
 let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * string ) list) : Target.Transfo.t =
   Target.reparse_after ~reparse (fun tg -> 
-    List.iter (fun (typ, name, value) -> Variable_basic.insert ~name ~typ ~value:(Target.lit value) tg) defs
+    List.iter (fun (typ, name, value) -> Variable_basic.insert ~name ~typ ~value:(Target.expr value) tg) defs
 )
 

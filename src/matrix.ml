@@ -56,13 +56,19 @@ let intro_mmalloc : Target.Transfo.t =
     | _ -> fail None "intro_mmalloc: the target should be a variable declarartion allocated with alloc")
 
 
-(* [biject fun_bij tg] expects the target [tg] to point to a function call to MINDEX 
-      then it will replace its name with [fun_bij]
+(* [biject fun_bij tg] expects the target [tg] to be pointing at a matrix declaration , then it will search for all the occurrences 
+    of the matrix access, and replace MINDEX function with [fun_bij]
 *)
 let biject (fun_bij : string) : Target.Transfo.t = 
-  Instr_basic.replace_fun fun_bij
-
-
+  Target.iter_on_targets (fun t p -> 
+    let tg_trm = Path.resolve_path p t in
+    let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
+    match tg_trm.desc with 
+    | Trm_let (_, (p, _), _) -> 
+      Instr.replace_fun fun_bij ((Target.target_of_path path_to_seq) @ [Target.nbAny; Target.cCellAccess ~base:[Target.cVar p] ~index:[Target.cFun ""] (); Target.cFun ~regexp:true "MINDEX."])
+    | _ -> fail tg_trm.loc "biject: expected a variable declaration"
+  
+)
 
 (* [intro_mops dims] expects the target [tg] pointing to an array declaration allocated with
       calloc or malloc, then it will apply intro_mcalloc or intor_mmaloc based on the type of 
