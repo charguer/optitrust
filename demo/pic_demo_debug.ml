@@ -5,22 +5,19 @@ open Ast
 let main = cFunDef "main"
 
 let dims = ["X";"Y";"Z"]
+let nb_dims = List.length dims
 let iter_dims f = List.iter f dims
 let map_dims f = List.map f dims
+let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
   
   
   (* Part: duplication of corners for vectorization of change deposit *)
+  !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
   !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];
-  !! Matrix.local_name ~my_mark:"charge" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1;main; cFor "k"]; (* TODO: place a label earlier on, on the relevant loop *)
-  
-  (* TODO: read_last_write   on  .. = nextCharge[MINDEX1(nbCells, idCell)]    to become  .. = 0 , this doesn't work *)
-  (* TODO: below Lit_int 0 should be Lit_double 0 *)
-  (* TODO: put in some library:   let delocalize_double_add = Delocalize_arith (Lit_double 0, Binop_add)
-     then use [delocalize_double_add] here and further on as argument *)
-  !! Matrix_basic.delocalize ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_double 0., Binop_add)) [cMark "charge"]; (* TODO: ~init_zero:true
-       so no need to generate nextChargeCorners[MINDEX2(nbCorners, nbCells, 0, idCell)] = nextCharge[MINDEX1(nbCells, idCell)]; *)
+  !! Matrix.local_name ~my_mark:"charge" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [cLabelBody "charge"];
+  !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "charge"]; 
   !! Variable.inline [main; cVarDef "indices"];
   !! Specialize.any "k" [cAny];
   let my_bij_code =
@@ -46,34 +43,33 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];  (* TODO:  cLabel "initNextCharge"  ;  assuming ~labels:["initNextCharge",""] to be given to delocalize on nextCharnge *)
   !! Instr.replace (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)") [cFun "mybij"]; (* ARTHUR: fixed when the rest is updated *)
 
+  
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:(lit "8") [tBefore; main];
-  !! Matrix.local_name ~my_mark:"cores" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [occIndex 1; main; cFor "k"]; (* TODO: use a label that should be on that loop *)
-  !!! Matrix_basic.delocalize ~dim:(var "nbProcs") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_double 0., Binop_add))[cMark "cores"];
-  !! Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]]; (* TODO: use a label that should be on that loop, introduced by the earlier delocalize *)
-     Specialize.any "k" [cAny]; (* this should be specialized not to k but to [myThread] *)
+  !! Matrix.local_name ~my_mark:"cores" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [occIndex 2;main; cFor "k"];
+  !! Matrix_basic.delocalize ~dim:(var "nbProcs") ~index:"k" ~acc:"sum" ~ops:(Delocalize_arith (Lit_double 0., Binop_add))[cMark "cores"];
+  !! Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
+  !! Specialize.any "k" [cAny];
 
 (* TODO: capitalize rest of the script *)
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
-  !! Sequence.intro ~mark:"temp_seq" ~start:[main; cVarDef "coef_x0"] ~nb:6 (); (* TODO: replace 6 with (2*nb_dims),  where let nb_dims = List.length dims should be define at the top of the file *)
-     Instr.move_out ~dest:[tBefore; main] [cMark "temp_seq"]; (* TODO: rename "move_out" to "move_out" *)
-     Sequence.elim [cMark "temp_seq"]; (* TODO: rename "temp_seq" to "coefs" *)
+  !! Sequence.intro ~mark:"coeffs" ~start:[main; cVarDef "coef_x0"] ~nb:(2*nb_dims) (); 
+     Instr.move_out ~dest:[tBefore; main] [cMark "coeffs"]; 
+     Sequence.elim [cMark "coeffs"]; 
      (* TODO: move_out would often apply to sequences, thus we could add an optional argument ?(elim_seq:bool=false) to perform the sequence elimination on the fly *)
   !! Loop.fission [tBefore; cVarDef "px"];
      Loop.fission [tBefore; main; cVarDef "ix"];
      Loop.hoist [cVarDef "idCell2"]; (* TODO: hoisting before fission *)
 
   (* Part: Coloring *)
-  let sized_dims = [("ix", "gridX"); ("iy", "gridY"); ("iz", "gridZ")] in
-  let dims = List.map fst sized_dims in
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "b" ^ d in
-    Loop_basic.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)
+    Loop_basic.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; 
     Loop_basic.color color ~index:("c"^d) [cFor bd]
     in
-  !! List.iter (colorize "2" "2") dims;
-     Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "cix"];
+  !! iter_dims (colorize "2" "2");
+     Loop.reorder ~order:(Tools.((add_prefix "c" dims) @ (add_prefix "b" dims) @ dims)) [cFor "ciX"];
 
   (* Introduction of the computation *)
 
