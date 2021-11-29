@@ -143,7 +143,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Matrix.local_name ~my_mark:"charge" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [cLabel "charge"];
   !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "charge"]; 
   !! Variable.inline [main; cVarDef "indices"];
-  !! Specialize.any "k" [cAny];
+  !! Specialize.any "k" [main; cAny];
   let my_bij_code =
     "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
       coord coord = coordOfCell(idCell);
@@ -164,15 +164,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      }" in
   !! Sequence.insert (stmt my_bij_code) [tBefore; main];
   !! Matrix.biject "mybij" [main; cVarDef "nextChargeCorners"];
-  !! Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextCharge["]];  (* TODO:  cLabel "initNextCharge"  ;  assuming ~labels:["initNextCharge",""] to be given to delocalize on nextCharnge *)
+  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
   !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)") [cFun "mybij"];
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
-  !! Variable.insert ~name:"nbProcs" ~typ:"int" ~value:(lit "8") [tBefore; main];
-  !! Matrix.local_name ~my_mark:"cores" ~var:"nextChargeCorners" ~local_var:"nextChargeProCorners" ~indices:["idProc";"idCell"] [cLabel "charge"];
-  !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbProcs") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "cores"];
-  !! Instr.delete [occIndex 0; cFor "idCell" ~body:[sInstr "nextChargeCorners["]];
-  !! Specialize.any "k" [cAny];
+  !! Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main];
+  !! Matrix.local_name ~my_mark:"cores" ~var:"nextChargeCorners" ~local_var:"nextChargeThreadCorners" ~indices:["idThread";"idCell"] [cLabel "charge"];
+  !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "cores"];
+  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
+  !! Instr.move_out ~dest:[tBefore; main; cLabel "core"] [nbMulti; main; cVarDef ~regexp:true "nextCharge."];
+     Instr.move_out ~dest:[tAfter; main; cLabel "core"] [nbMulti; main; cFun "MFREE"];
+  !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"];
+  !! Specialize.any "idThread" [main; cAny];
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Instr.move_out ~dest:[tBefore; main] [nbMulti; main; cVarDef ~regexp:true "\\(coef\\|sign\\).0"];
@@ -180,41 +183,19 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fission [tBefore; main; cVarDef "pX"];
   (* !! Loop.fission [tBefore; main; cVarDef "idCell2"]; *) (* TODO: Find the right place where the second split should be done *)
 
+  (* Part: introduction of the computation *)
+  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"]; 
+  !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(trm_ands (map_dims (fun d -> expr ~vars:[d] "i${0} >= bi${0} - dist && i${0} < bi${0} + blockSize + dist"))) [tAfter; main; cVarDef "iZ2"];
+  !! Specialize.any "distanceToBlockLessThanHalfABlock" [main; cFun "ANY_BOOL"];
+  
   (* Part: Coloring *)
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor ("i" ^ d)];
     Loop.color color ~index:("ci"^d) [cFor bd]
     in
-  !! iter_dims (fun d -> colorize "2" "2" d);
-  !! Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [cFor "ciX"];
-
-  (* Introduction of the computation *)
-
-  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"]; 
-  !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(expr "(iX >= biX - d && iX < biX + blockSize + d)&& (iY >= biY - d && iY < biY + blockSize + d) && (iZ >= biZ - d && iZ < biZ + blockSize + d)") [tAfter; main; cVarDef "iZ2"];
-     
-     (* TODO  assume "d" is rename to "dist";  then we can make above shorter:
-         Variable.insert (Ast.trm_ands (map_dims (fun d -> expr ~vars:[d] "(i${1} >= bi${1} - dist && i${1} < bi${1} + blockSize + dist)"))))
-
-             let subst_dollar_number inst s
-               -> fold_lefti (fun i insti acc ->  replace ${i} in acc with insti) s
-
-            let expr ?(vars:list option) (s:string) : trm =
-              let s = if vars = [] then s else subst_dollar_number inst s in
-              code s
-
-         where the "value" argument needs not use a label since it has tYpe trm directly
-         where trm_and  is a shorthand for trm_app prim_and
-        and where trm_ands is a smart construction for building a conjunction from a list of terms (using trm_ands)
-              let trm_ands (ts : trm list) : trm =
-                 match List.rev ts with
-                  | [] -> lit_true
-                  | t0::tr -> List.fold_left (fun acc ti -> trm_and ti acc) t0 tr
-              t1 && (t2 && t3)
-      *)
-     Instr.replace (var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
-
+  !! iter_dims (fun d -> colorize "blockSize" "blockSize" d);
+    Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [cFor "ciX"];
 
   (* Part: Parallelization *)
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
@@ -222,7 +203,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: optimize chunk allocation *)  (* ARTHUR *)
   (* skip #16 *)
-
 
 )
 

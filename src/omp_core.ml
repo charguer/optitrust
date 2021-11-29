@@ -553,13 +553,13 @@ let get_max_threads (max_threads : var) (index : int) : Target.Transfo.local =
 let get_thread_num_aux (thread_num : var) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
-    let find_prev_decl = Internal.toplevel_decl thread_num in
+    let find_prev_decl = Internal.local_decl thread_num t in
     let new_trm =
     begin match find_prev_decl with
     | Some _ ->
       trm_set (trm_var thread_num) (trm_omp_routine (Get_thread_num))
     | None ->
-      trm_let Var_mutable (thread_num, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int())) (trm_apps (trm_prim(Prim_new (typ_int()))) [trm_omp_routine (Get_thread_num)])
+      trm_let_mut (thread_num, typ_int()) (trm_omp_routine (Get_thread_num))
     end in
     let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl

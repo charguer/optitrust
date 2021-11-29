@@ -17,7 +17,7 @@ let any_aux (array_index : var) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (f,_) ->
     begin match f.desc with
-    | Trm_var any when Tools.pattern_matches "ANY." any ->  trm_var array_index
+    | Trm_var any when Tools.pattern_matches "ANY?." any ->  trm_var array_index
     | _ -> fail f.loc "any_aux: expected the special function ANY"
     end
   | _ -> fail t.loc "any_aux: expected a trm_var with ANY annotation"

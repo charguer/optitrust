@@ -606,9 +606,9 @@ let cFieldRead ~field:(field : field ) ?(base : target = []) ?(substr : bool = f
   cRead ~addr:[cFieldAccess ~base ~substr ~regexp ~field ()] ()
 
 (* [cFieldWrite ~base field] matches all struct field write operations*)
-let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  () : constr =
+let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ?(rhs : target = []) ~field:(field : field )  () : constr =
   let lhs = [cFieldAccess ~base ~substr ~regexp ~field ()] in
-  cWrite ~lhs ()
+  cWrite ~lhs ~rhs ()
 
 (* [cFieldReadOrWrite ~base ~substr ~regexp ~field] matches all read or write operations
 *)
@@ -625,10 +625,10 @@ let cCellAccess ?(base : target = []) ~index:(index : target )  () : constr =
 let cCellRead ?(base : target = []) ~index:(index : target ) (): constr =
   cRead ~addr:[cCellAccess ~base ~index ()] ()
 
-(* [cCellWrite ~base index] matches all array index write operations*)
-let cCellWrite ?(base : target = [cStrict;cVar ""]) ~index:(index : target) (): constr =
+(* [cCellWrite ~base ~index ~arg] matches all array index write operations*)
+let cCellWrite ?(base : target = [cStrict;cVar ""]) ?(rhs:target = []) ~index:(index : target) (): constr =
   let lhs = [cCellAccess ~base ~index ()]  in
-  cWrite ~lhs ()
+  cWrite ~lhs ~rhs ()
 
 (* [cCellReadOrWrite ~base ~index ] matches all read or write operations on array cells with
   base [base] and index [index]

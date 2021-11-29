@@ -137,8 +137,6 @@ let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(t
 
 let move_out ?(rev : bool = false) ~dest:(dest : Target.target) : Target.Transfo.t =  
   Target.iter_on_targets ~rev (fun t p ->
-    let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
-    Marks.add "surrounding_seq" (Target.target_of_path path_to_seq);
     let tg_trm = Path.resolve_path p t in
     Marks.add "instr_move_out" (Target.target_of_path p);
     Sequence_basic.insert ~reparse:false tg_trm dest;
