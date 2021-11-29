@@ -154,5 +154,5 @@ let replace_occurrences ?(reparse : bool = false) ~subst:(name : var) ~put:(put 
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = false) ?(my_mark : mark = "") : Target.Transfo.t =
   Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) -> 
-      let fresh_name = Str.global_replace (Str.regexp_string "${occ}") (string_of_int occ) fresh_name in
+      let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
       Variable_core.bind_intro my_mark i fresh_name const p_local t p)

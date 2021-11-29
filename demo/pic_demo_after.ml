@@ -82,7 +82,7 @@ let _ = Run.script_cpp (fun () ->
         Loop_basic.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor d]; (* DONE: ~index:"b${id}" *)
         Loop_basic.color color ~index:("c"^d) [cFor bd]
         in
-     List.iter (colorize "2" "2") idims; (* TODO: replace 2 with blocksize, which should be introduced earlier *)
+     List.iter (colorize "2" "2") idims; (* DONE: replace 2 with blocksize, which should be introduced earlier *)
      Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [cFor "cix"];
 
   (* Introduction of the computation *)

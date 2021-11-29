@@ -320,6 +320,21 @@ let fix_pattern_args (var_decls : string) : string =
   let var_decls = Str.split (Str.regexp_string ";") var_decls in
   List.fold_left (fun acc x -> if acc = "" then acc ^ (aux x) else acc ^ "," ^ (aux x)) "" var_decls
 
+(* [miliseconds_between t0 t2] compute the diff between two times and them convert it to miliseconds*)
 let milliseconds_between (t0 : float) (t1 : float) : int =
   int_of_float (1000. *. (t1 -. t0))
 
+
+(* [string_subst pattern replacement s] replace all [pattern] occurrences inisde [s] with 
+      [replacement]
+*)
+let string_subst (pattern : string) (replacement : string) (s : string) : string = 
+  Str.global_replace (Str.regexp_string pattern) replacement s
+
+(* [subst_dollar_number inst s] search for ocurrences of ${i} in s and replace them with the variable
+      at index i in [inst] where [inst] is a list of variables
+*)
+let subst_dollar_number (inst : string list) (s : string) : string =
+  fold_lefti (fun i acc insti -> 
+    string_subst ("${"^(string_of_int i) ^ "}") insti acc
+  ) s inst

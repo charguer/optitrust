@@ -55,7 +55,7 @@ let generated_source_with_inlined_header_cpp (input_file:string) (inline:string 
       let include_instr = "#include \"" ^ file_to_inline ^ "\"" in
       if debug_inline_cpp then Printf.printf "Inlined %s\n" include_instr;
       let contents = Xfile.get_contents file_to_inline in
-      s := Str.global_replace (Str.regexp_string include_instr) contents !s)
+      s := Tools.string_subst include_instr contents !s)
     inline;
   Xfile.put_contents output_file !s
 

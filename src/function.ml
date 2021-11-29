@@ -142,7 +142,7 @@ int f2() { // result of Funciton_basic.inline_cal
 *)
 let inline ?(name_result : string = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
   Target.iteri_on_targets (fun i t p ->
-    let vars = Variable_core.map (fun x -> Str.global_replace (Str.regexp_string "${occ}") (string_of_int i) x ) vars in
+    let vars = Variable_core.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x ) vars in
     let name_result = ref name_result in
     let (path_to_seq,local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
     let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in

@@ -2011,7 +2011,61 @@ let trm_access (base : trm) (field : var) : trm =
 let trm_any_bool : trm = 
   trm_apps (trm_var "ANY_BOOL") []
 
+(* [trm_eq t1 t2] generates t1 = t2 *)
+let trm_eq (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_eq) [t1; t2]
 
+(* [trm_neq t1 t2] generates t1 != t2 *)
+let trm_neq (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_neq) [t1; t2]
+
+(* [trm_sub t1 t2] generates t1 - t2 *)
+let trm_sub (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_sub) [t1; t2]
+
+(* [trm_add t1 t2] generates t1 + t2 *)
+let trm_add (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_add) [t1; t2]
+
+(* [trm_mul t1 t2] generates t1 * t2 *)
+let trm_mul (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_mul) [t1; t2]
+
+(* [trm_div t1 t2] generates t1 / t2 *)
+let trm_div (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_div) [t1; t2]
+
+(* [trm_le t1 t2] generates t1 <= t2 *)
+let trm_le (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_le) [t1; t2]
+
+(* [trm_lt t1 t2] generates t1 < t2 *)
+let trm_lt (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_lt) [t1; t2]
+
+(* [trm_ge t1 t2] generates t1 >= t2 *)
+let trm_ge (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_ge) [t1; t2]
+
+(* [trm_gt t1 t2] generates t1 > t2 *)
+let trm_gt (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_gt) [t1; t2]
+
+(* [trm_and t1 t2] generates t1 && t2 *)
+let trm_and (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_and) [t1;t2]
+
+(* [trm_or t1 t2] generates t1 || t2 *)
+let trm_or (t1 : trm) (t2 : trm) : trm = 
+  trm_apps (trm_binop Binop_or) [t1;t2]
+
+(* [trm_ands ts] generalized version of trm_and *)
+let trm_ands (ts : trm list) : trm = 
+  Tools.fold_lefti (fun i acc t1 -> 
+    if i = 0 then t1 else trm_and acc t1
+  ) (trm_bool true) ts
+
+(* [code_to_str] extract the code from the nodes that contain the arbitrary code*)
 let code_to_str (code : code_kind) : string =
   match code with
   | Lit l -> l
@@ -2026,7 +2080,9 @@ module AstParser = struct
 
   let lit l = code (Lit l)
 
-  let expr e = code (Expr e)
+  let expr ?(vars : var list = []) (e : string)  = 
+    let e = if vars = [] then e else Tools.subst_dollar_number vars e in
+    code (Expr e)
 
   let stmt s = code (Stmt s)
 

@@ -6,19 +6,18 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [any_aux array_index t]: replace a function call t with a variable occurrence [array_index]
+(* [any_aux var t]: replace a function call t with a variable occurrence [var]
       params:
-        [array_index]: the variablee replacing the function call [t]
+        [var]: the variablee replacing the function call [t]
         [t]: ast of a call to function [ANY]
       return:
-        the variable occurrence of [array_index]
+        the ast of [var]
 *)
-(* LATER: if the bound of any is a literal int and the value is a string representation of int then we can do a check *)
 let any_aux (array_index : var) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (f,_) ->
     begin match f.desc with
-    | Trm_var "ANY" ->  trm_var array_index
+    | Trm_var any when Tools.pattern_matches "ANY." any ->  trm_var array_index
     | _ -> fail f.loc "any_aux: expected the special function ANY"
     end
   | _ -> fail t.loc "any_aux: expected a trm_var with ANY annotation"

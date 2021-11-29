@@ -84,7 +84,7 @@ let color (c : var) (i_color : var option ) : Target.Transfo.local =
 let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm) : trm =
   match t.desc with 
   | Trm_for (index, start, stop, step, body) -> 
-   let tile_index = Str.global_replace (Str.regexp_string "${id}") index tile_index in
+   let tile_index = Tools.string_subst "${id}" index tile_index in
    let loop_bound, loop_cond  = begin match stop with 
    | DirUp bnd -> bnd, trm_apps (trm_binop Binop_lt ) [bnd]
    | DirUpEq bnd -> bnd, trm_apps (trm_binop Binop_le ) [bnd]
@@ -135,7 +135,7 @@ let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
       let lfront, var_decl, lback = Internal.get_trm_and_its_relatives decl_index tl in
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
-        let new_name = Str.global_replace (Str.regexp_string "${var}") x name in
+        let new_name = Tools.string_subst "${var}" x name in
         let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_name; trm_var index] ) in
         let new_tl = Mlist.merge lfront lback in
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in

@@ -3,7 +3,6 @@ open Target
 open Ast
 
 let main = cFunDef "main"
-
 let dims = ["X";"Y";"Z"]
 let nb_dims = List.length dims
 let iter_dims f = List.iter f dims
@@ -57,41 +56,19 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fission [tBefore; main; cVarDef "pX"];
   (* !! Loop.fission [tBefore; main; cVarDef "idCell2"]; *) (* TODO: Find the right place where the second split should be done *)
 
+  (* Introduction of the computation *)
+  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"]; 
+  !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(trm_ands (map_dims (fun d -> expr ~vars:[d] "i${0} >= bi${0} - dist && i${0} < bi${0} + blockSize + dist"))) [tAfter; main; cVarDef "iZ2"];
+  !! Specicalize.any "distanceToBlockLessThanHalfABlock" [cFun "ANY_BOOL"];
+  
   (* Part: Coloring *)
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor ("i" ^ d)];
     Loop.color color ~index:("ci"^d) [cFor bd]
     in
-  !! iter_dims (fun d -> colorize "2" "2" d);
-  !! Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [cFor "ciX"];
-
-  (* Introduction of the computation *)
-
-  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"]; 
-  !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(expr "(iX >= biX - d && iX < biX + blockSize + d)&& (iY >= biY - d && iY < biY + blockSize + d) && (iZ >= biZ - d && iZ < biZ + blockSize + d)") [tAfter; main; cVarDef "iZ2"];
-     
-     (* TODO  assume "d" is rename to "dist";  then we can make above shorter:
-         Variable.insert (Ast.trm_ands (map_dims (fun d -> expr ~vars:[d] "(i${1} >= bi${1} - dist && i${1} < bi${1} + blockSize + dist)"))))
-
-             let subst_dollar_number inst s
-               -> fold_lefti (fun i insti acc ->  replace ${i} in acc with insti) s
-
-            let expr ?(vars:list option) (s:string) : trm =
-              let s = if vars = [] then s else subst_dollar_number inst s in
-              code s
-
-         where the "value" argument needs not use a label since it has tYpe trm directly
-         where trm_and  is a shorthand for trm_app prim_and
-        and where trm_ands is a smart construction for building a conjunction from a list of terms (using trm_ands)
-              let trm_ands (ts : trm list) : trm =
-                 match List.rev ts with
-                  | [] -> lit_true
-                  | t0::tr -> List.fold_left (fun acc ti -> trm_and ti acc) t0 tr
-              t1 && (t2 && t3)
-      *)
-     Instr.replace (var "distanceToBlockLessThanHalfABlock") [cFun "ANY_BOOL"];
-
+  !! iter_dims (fun d -> colorize "blockSize" "blockSize" d);
+    Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [cFor "ciX"];
 
   (* Part: Parallelization *)
   !! Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
