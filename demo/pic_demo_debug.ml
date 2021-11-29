@@ -68,10 +68,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Introduction of the computation *)
 
-  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"]; (* TODO: put in the form ~defs[("int", ...] *)
-      (* TODO: "2","blockSize / 2" does not seem right, because "2" is not a variable name...was it d? *)
-  !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(expr "(ix >= bix - d && ix < bix + blockSize + d)&& (iy >= biy - d && iy < biy + blockSize + d) && (iz >= biz - d && iz < biz + blockSize + d)") [tAfter; main; cVarDef "iZ"];
-  !! Varaible.insert   
+  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"]; 
+  !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(expr "(iX >= biX - d && iX < biX + blockSize + d)&& (iY >= biY - d && iY < biY + blockSize + d) && (iZ >= biZ - d && iZ < biZ + blockSize + d)") [tAfter; main; cVarDef "iZ2"];
      
      (* TODO  assume "d" is rename to "dist";  then we can make above shorter:
          Variable.insert (Ast.trm_ands (map_dims (fun d -> expr ~vars:[d] "(i${1} >= bi${1} - dist && i${1} < bi${1} + blockSize + dist)"))))
@@ -83,7 +81,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
               let s = if vars = [] then s else subst_dollar_number inst s in
               code s
 
-         where the "value" argument needs not use a label since it has type trm directly
+         where the "value" argument needs not use a label since it has tYpe trm directly
          where trm_and  is a shorthand for trm_app prim_and
         and where trm_ands is a smart construction for building a conjunction from a list of terms (using trm_ands)
               let trm_ands (ts : trm list) : trm =
