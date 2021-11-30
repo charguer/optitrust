@@ -353,7 +353,9 @@ val (!!) : 'a -> 'a
 
 val (!!!) : 'a -> 'a
 
-(* TODO:  !!^  and !!!^  to do reparse true *)
+val (!!?) : 'a -> 'a
+
+val (!!!?) : 'a -> 'a
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 
@@ -365,12 +367,12 @@ val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -
 
 val lit : string -> trm
 
+val atyp : string -> trm
+
 val expr : ?vars:string list -> string -> trm
 
+val atypexpr : string -> trm
+
 val stmt : string -> trm
-
-val func : string -> trm
-
-val atyp : string -> trm
 
 val get_relative_type : target -> target_relative option

@@ -350,10 +350,10 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let code_str =
         begin match a_kind with
         | Lit l -> string l
-        | Expr e -> string e
-        | Stmt s -> string s
-        | Func f -> parens (string f)
         | Atyp ty -> string ty
+        | Expr e -> parens (string e)
+        | Atypexpr tye -> parens (string tye)
+        | Stmt s -> string s
         end  in
         dattr ^^ code_str
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d

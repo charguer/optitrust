@@ -110,10 +110,11 @@ and loop_stop =
 
 and code_kind =
   | Lit of string
-  | Expr of string
-  | Stmt of string
-  | Func of string
   | Atyp of string
+  | Expr of string
+  | Atypexpr of string
+  | Stmt of string
+   
 
 
 (* types of expressions *)
@@ -2077,10 +2078,10 @@ let trm_ands (ts : trm list) : trm =
 let code_to_str (code : code_kind) : string =
   match code with
   | Lit l -> l
-  | Expr e -> e
-  | Stmt s -> s
-  | Func f -> f
   | Atyp ty -> ty
+  | Expr e -> e
+  | Atypexpr tye -> tye
+  | Stmt s -> s
 
 module AstParser = struct
 
@@ -2088,15 +2089,16 @@ module AstParser = struct
 
   let lit l = code (Lit l)
 
+  let atyp ty = code (Atyp ty)
+
   let expr ?(vars : var list = []) (e : string)  = 
     let e = if vars = [] then e else Tools.subst_dollar_number vars e in
     code (Expr e)
 
+  let atypexpr ty = code (Atypexpr ty)
+  
   let stmt s = code (Stmt s)
 
-  let func f = code (Func f)
-
-  let atyp ty = code (Atyp ty)
 
 end
 

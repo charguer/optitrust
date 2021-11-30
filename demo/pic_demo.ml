@@ -35,7 +35,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part 0: Labelling the main loop*)
   !! Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
 
-  (* Part1: space reuse *) (* TODO: expr and typexpr put parentheses,  lit and atyp don't *)
+  (* Part1: space reuse *) 
   !! Variable.reuse ~space:(expr "p.speed") [main; cVarDef "speed2"];
      Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
 
@@ -73,8 +73,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Variable.inline [cVarDef "p2"];
-  !! Variable.inline [cVarDef "p"];
+  !! Variable.inline [main; cVarDef "p2"];
+  !! Variable.inline [main; cVarDef "p"];
   !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)

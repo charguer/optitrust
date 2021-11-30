@@ -658,42 +658,44 @@ let dump_diff_and_exit () : unit =
    If the optional argument [~reparse:true] is passed to the function,
    then the [reparse] function is called, replacing the current AST with
    a freshly parsed and typechecked version of it. *)
-let check_exit_and_step ?(line : int = -1) (* ~is_small_step *) ?(reparse : bool = false) () : unit =
-  (* TODO:
-      let ignore_step = is_small_step && Flags.ignore_small_steps in
-      if not ignore_step then begin ... *)
-  report_time_of_last_step();
-  let should_exit =
-    match Flags.get_exit_line() with
-    | Some li -> (line > li)
-    | _ -> false
-    in
-  if should_exit then begin
-    if !Flags.analyse_time then begin
-       write_timing_log (Printf.sprintf "------------------------\n");
-    end;
-    dump_diff_and_exit();
-  end else begin
+let check_exit_and_step ?(line : int = -1) ?(is_small_step  : bool = false)  ?(reparse : bool = false) () : unit =
+  let ignore_step = is_small_step && !Flags.ignore_small_steps in
+  if not ignore_step then begin 
+    report_time_of_last_step();
+    let should_exit =
+      match Flags.get_exit_line() with
+      | Some li -> (line > li)
+      | _ -> false
+      in
+    if should_exit then begin
+      if !Flags.analyse_time then begin
+         write_timing_log (Printf.sprintf "------------------------\n");
+      end;
+      dump_diff_and_exit();
+    end else begin
 
-    if reparse then begin
-      reparse_alias();
-      if !Flags.analyse_time then
-        let duration_of_reparse = last_time_update () in
-        write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
-    end;
-    if !Flags.analyse_time then begin
-      let txt =
-        if !ml_file_excerpts = Int_map.empty then "" else begin
-          match Int_map.find_opt line !ml_file_excerpts with
-          | Some txt -> txt
-          | None -> failwith "<unable to retrieve line from script>"
-        end in
-      write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
-    end;
+      if reparse then begin
+        reparse_alias();
+        if !Flags.analyse_time then
+          let duration_of_reparse = last_time_update () in
+          write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
+      end;
+      if !Flags.analyse_time then begin
+        let txt =
+          if !ml_file_excerpts = Int_map.empty then "" else begin
+            match Int_map.find_opt line !ml_file_excerpts with
+            | Some txt -> txt
+            | None -> failwith "<unable to retrieve line from script>"
+          end in
+        write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
+      end;
+      end;
     step();
  end
 
 
+
+(* TODO: Update docs *)
 (* [!!] is a prefix notation for the operation [check_exit_and_step].
    By default, it performs only [step]. The preprocessor of the OCaml script file
    can add the [line] argument to the call to [check_exit_and_step], in order
@@ -704,13 +706,22 @@ let check_exit_and_step ?(line : int = -1) (* ~is_small_step *) ?(reparse : bool
    which could be on line N or before (or could correspond to the input AST
    loaded by [Trace.init] if there is no preceeding '!!'.).
    Use [!!();] for a step in front of another language construct, e.g., a let-binding. *)
+
 let (!!) (x:'a) : 'a =
-  check_exit_and_step (); (* TODO: ~is_small_step:bool *)
+  check_exit_and_step ~is_small_step:true (); 
   x
 
 (* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
 let (!!!) (x:'a) : 'a =
-  check_exit_and_step ~reparse:true ();
+  check_exit_and_step ~is_small_step:false ();
+  x
+
+let (!!?) (x : 'a) : 'a = 
+  check_exit_and_step ~is_small_step:true ~reparse:true ();
+  x
+
+let (!!!?) (x : 'a) : 'a = 
+  check_exit_and_step ~is_small_step:false ~reparse:true ();
   x
 
 (* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.

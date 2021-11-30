@@ -24,10 +24,8 @@ let get_exit_line () : int option =
     then None
     else Some !exit_line
 
-
-(*
-let ignore_small_steps : bool ref = ref false
-*)
+(* ignore small steps to apply multiple transformations at one time *)
+let ignore_small_steps : bool ref = ref true
 
 let spec =
   Arg.align [
