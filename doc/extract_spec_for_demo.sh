@@ -9,8 +9,15 @@ FILE=$1
 OPTITRUST_PATH=$2
 OUTPUT="${FILE%.*}"_spec.txt
 
+if [ ! -f "${FILE}" ]; then
+  echo "extract_spec_for_demo: file ${FILE} not found." >> /dev/stderr
+  exit 1;
+fi
+
+
 REGEXP="\!\! ([^.]*)\.([^ ]*)"
 CONTENTS=`cat ${FILE}`
+
 # echo ${CONTENTS}
 
 [[ ${CONTENTS} =~ ${REGEXP} ]]
@@ -25,6 +32,12 @@ SRC_PATH=${OPTITRUST_PATH}/src/${SRC_FILE}.ml
 
 # echo ${SRC_PATH}
 
+if [ ! -f "${SRC_PATH}" ]; then
+  echo "extract_spec_for_demo: file ${SRC_PATH} not found."  >> /dev/stderr
+  exit 1;
+fi
+
+# echo "${OPTITRUST_PATH}/doc/extract_spec.sh ${SRC_PATH} ${FCT} > ${OUTPUT}"
 ${OPTITRUST_PATH}/doc/extract_spec.sh ${SRC_PATH} ${FCT} > ${OUTPUT}
 
 # cat ${OUTPUT}

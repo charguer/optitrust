@@ -8,8 +8,19 @@ FILE=$1
 # Name of the function to search for
 FCT=$2
 
+if [ ! -f "${FILE}" ]; then
+  echo "extract_spec: file ${FILE} not found."  >> /dev/stderr
+  exit 1;
+fi
+
 # Line containing the function definition
 LINE=`grep -n "^let ${FCT} " ${FILE} | cut -d : -f 1`
+
+# Error message if not found
+if [ -z "${LINE}" ];then
+  echo "Error: extract_spec: could not find function '${FCT}' in file '${FILE}'."  >> /dev/stderr
+  exit 1
+fi
 
 # Number of lines of the comments above the function
 STOP=$((LINE-1))
