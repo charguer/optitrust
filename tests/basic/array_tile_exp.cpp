@@ -27,7 +27,7 @@ int main() {
   int x = t[(i / B)][(i % B)];
   int y = u[(i / B)][(i % B)];
   int z = v[(i / B)][(i % B)];
-  for (int i = 0; (i < N); i++) {
+  for (i = 0; (i < N); i++) {
     w[(i / B)][(i % B)] = 0;
   }
 }
