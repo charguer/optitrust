@@ -95,20 +95,17 @@ let tile_aux (tile_index : var) (bound : tile_bound) (tile_size : var) (t : trm)
          trm_apps (trm_var "min") [loop_bound; trm_apps (trm_binop Binop_add) [
            trm_var tile_index; trm_var tile_size]] 
       | TileBoundAnd -> 
-        
-        
         trm_apps (trm_binop Binop_and ) [
-            trm_apps (trm_binop Binop_add) [trm_var tile_index; trm_var tile_size];
+            trm_add (trm_var tile_index) (trm_var tile_size);
             loop_cond
             ]
       | TileBoundDivides -> 
-        trm_apps (trm_binop Binop_add) [trm_var tile_index; trm_var tile_size]
+        trm_add (trm_var tile_index) (trm_var tile_size)
     end in
     trm_for tile_index start (DirUp loop_bound) (Step (trm_var tile_size)) (trm_seq_nomarks [
       trm_for index (trm_var tile_index) (DirUp tile_bound) step body
     ])
   | _ -> fail t.loc "tile_aux: only simple loops are supported "
-
 
 
 let tile (tile_index : var) (bound : tile_bound) (tile_size : var) : Target.Transfo.local =

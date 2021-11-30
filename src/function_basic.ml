@@ -72,19 +72,27 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
         }
 *)
 
-
 let inline ?(body_mark : var = "body") (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
    (fun  t (p, p_local, i) ->
     Function_core.inline i body_mark p_local t p) tg)
 
-(* [beta ~body_mark tg] its the same as function_inline *)
+(* [beta ~body_mark tg] the difference between using function_inline and function_beta lies inside the implementation
+     basically beta is used in the cases when the declaration of the function call be founded at the targeted function call
+     contrary to function_inline which will need to find the toplevel declaration.
+     At the basic level they are both the same.
+*)
 let beta  ?(body_mark : var = "body") (tg : Target.target) : unit =
   inline ~body_mark tg
 
+(* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transform them
+    into x += a
+ *)
 let use_infix_ops ?(tg_ops : Target.target = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()]) () : unit =
   Target.apply_on_targets (Function_core.use_infix_ops) tg_ops
+
+
 
 let uninline ~fct (*:Target.target*) (tg : Target.target) : unit =
   Trace.call (fun t ->

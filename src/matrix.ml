@@ -107,12 +107,15 @@ let intro_mops (dim : trm) : Target.Transfo.t =
     | _ -> fail None "intro_mmalloc: the target should be a variable declarartion allocated with alloc")
 
 
-
-(* TODO: Add docs for this function *)
-let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ~var:(var : var) ~local_var:(local_var : var) ~dim:(dim : trm)  ~index:(index : string) ~ops:(ops : delocalize_ops) (tg : Target.target) : unit =
+(* [delocalize ~mark ~init_zero ~acc_in_place ~acc ~last ~var ~local_var ~dim ~index ~indices ~ops tg] this is a combi varsion of 
+  matrix_delocalize, this transformation first calls Matrix_basi.local_name to create the isolated environment where the delocalizing transformatino
+  is going to be performed
+*)
+let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(_last : bool = true) ~var:(var : var) ~local_var:(local_var : var) ~dim:(dim : trm)  ~index:(index : string) ~indices:(indices : (string list) option) ~ops:(ops : delocalize_ops) (tg : Target.target) : unit =
+  let indices = match indices with | Some s_l -> s_l | None -> [] in
   let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
   let acc = match acc with | Some s -> s | _ -> "s" in
-  Matrix_basic.local_name ~my_mark:middle_mark  ~var ~local_var tg ;
+  Matrix_basic.local_name ~my_mark:middle_mark  ~var ~local_var ~indices tg;
   Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops [Target.cMark middle_mark];
   begin match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> () end
 

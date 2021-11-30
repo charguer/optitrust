@@ -2011,6 +2011,10 @@ let is_infix_prim_fun (p : prim) : bool =
 let trm_access (base : trm) (field : var) : trm =
   trm_apps (trm_unop (Unop_struct_field_addr field)) [base]
 
+(* [trm_get t] generates a get operation in [t] *)
+let trm_get (t : trm) : trm = 
+  trm_apps (trm_unop Unop_get) [t]
+
 (* [trm_any_bool] generates ANY_BOOL () *)
 let trm_any_bool : trm = 
   trm_apps (trm_var "ANY_BOOL") []

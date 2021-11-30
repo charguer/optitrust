@@ -31,17 +31,18 @@ TESTS_WORKING := \
 
 
 TESTS_TOCHECK := \
-	matrix_intro_mops.ml \
+	
 	instr_accumulate.ml \
 	instr_moveout.ml \
 	instr_read_last_write.ml \
-  variable_reverse_fold.ml \
-	variable_elim_redundant.ml \
-  variable_insert_list.ml \
 	instr_gather.ml \
 	loop_fold.ml \
 	loop_fusion_targets.ml \
+	matrix_intro_mops.ml \
 	matrix_delocalize.ml \
+	variable_reverse_fold.ml \
+	variable_elim_redundant.ml \
+  variable_insert_list.ml \
 	
 
 
