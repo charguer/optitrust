@@ -38,7 +38,7 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
      | Const n -> d ^^ brackets (string (string_of_int n))
      | Trm t' -> d ^^ brackets (decorate_trm t')
      end
-  | Typ_fun (_, _) ->
+  | Typ_fun _ ->
      print_info None "typ_desc_to_doc: typ_fun not implemented\n";
      at
   | Typ_var (t, _) -> string t
@@ -70,6 +70,7 @@ and typ_to_doc ?(const : bool = false) (t : typ) : document =
   dattr ^^ dannot ^^ d
 
 and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
+  Tools.printf "I never was here\n";
   let const_string = if false then blank 1 ^^ string " const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
@@ -95,6 +96,11 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
+  | Typ_fun (tyl , ty) -> 
+    let (arg_types, ret_type) = 
+     let arg_typs = List.map typ_to_doc tyl in
+      (arg_typs, typ_to_doc ty) in
+    dattr ^^ ret_type ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
   | _ -> const_string ^^ typ_to_doc ~const t ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =

@@ -15,7 +15,6 @@ let _ = Run.script_cpp (fun _ ->
     !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabel "gtwice_body"; dBody];
     !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabel "fbody"; dBody];
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabel "hobody"; dBody];
-   
     !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabel "bagbody"; dBody];
 
 )
