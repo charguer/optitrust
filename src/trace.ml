@@ -243,8 +243,11 @@ let init ?(prefix : string = "") (filename : string) : unit =
       then List.nth (Str.split (Str.regexp "_inlined") default_prefix) 0
       else default_prefix in
   if !Flags.analyse_time then begin
-    let lines = Xfile.get_lines (ml_file_name ^ ".ml") in
-    ml_file_excerpts := compute_ml_file_excerpts lines;
+    let src_file = (ml_file_name ^ ".ml") in
+    if Sys.file_exists src_file then begin
+      let lines = Xfile.get_lines src_file in
+      ml_file_excerpts := compute_ml_file_excerpts lines;
+    end;
   end;
   start_time := Unix.gettimeofday ();
   last_time := !start_time;
@@ -603,44 +606,45 @@ let dump_diff_and_exit () : unit =
      write_timing_log (Printf.sprintf "------------START DUMP------------\n");
   end;
   timing ~name:"TOTAL for dump_diff_and_exit" (fun () ->
-  print_info None "Exiting script\n";
-  let trace =
-    match !traces with
-    | [] -> fail None "No trace"
-    | [tr] -> tr
-    | trs -> Printf.eprintf "Warning: considering the last branch of all switches.\n";
-             List.hd (List.rev trs)
-    in
-  let ctx = trace.context in
-  let prefix = ctx.directory ^ ctx.prefix in
-  (* Common printinf function *)
-  let output_ast ?(ast_and_enc:bool=true) filename_prefix ast_opt =
-    output_prog_opt ~ast_and_enc ctx filename_prefix ast_opt;
-    print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
-    in
-  (* CPP and AST output for BEFORE *)
-  let astBefore =
-    match trace.history with
-    | t::_ -> Some t (* the most recently saved AST *)
-    | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
-    in
-  output_ast (prefix ^ "_before") astBefore;
-  (* CPP and AST for BEFORE_N *)
-  if !Flags.dump_last <> Flags.dump_last_default then begin
-    let nb_requested = !Flags.dump_last in
-    let nb_available = List.length trace.history in
-    (* if nb_requested < nb_available
-       then Printf.eprintf "Warning: not enought many steps for [dump_last]; completing with blank files.\n"; *)
-    for i = 0 to nb_requested-1 do
-      let astBeforeI = if i < nb_available then Some (List.nth trace.history i) else None in
-      output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int i) astBeforeI
-    done;
-  end;
-  (* CPP and AST and Javscript for AFTER *)
-  let astAfter = trace.cur_ast in
-  output_ast (prefix ^ "_after") (Some astAfter);
-  print_info None "Writing ast and code into %s.js " prefix;
-  output_js 0 prefix astAfter;
+    print_info None "Exiting script\n";
+    let trace =
+      match !traces with
+      | [] -> fail None "No trace"
+      | [tr] -> tr
+      | trs -> Printf.eprintf "Warning: considering the last branch of all switches.\n";
+              List.hd (List.rev trs)
+      in
+    let ctx = trace.context in
+    let prefix = ctx.directory ^ ctx.prefix in
+    (* Common printinf function *)
+    let output_ast ?(ast_and_enc:bool=true) filename_prefix ast_opt =
+      output_prog_opt ~ast_and_enc ctx filename_prefix ast_opt;
+      print_info None "Generated: %s%s\n" filename_prefix ctx.extension;
+      in
+    (* CPP and AST output for BEFORE *)
+    let astBefore =
+      match trace.history with
+      | t::_ -> Some t (* the most recently saved AST *)
+      | [] -> Printf.eprintf "Warning: only one step in the history; consider previous step blank.\n"; None
+      in
+    output_ast (prefix ^ "_before") astBefore;
+    (* CPP and AST for BEFORE_N *)
+    if !Flags.dump_last <> Flags.dump_last_default then begin
+      let nb_requested = !Flags.dump_last in
+      let nb_available = List.length trace.history in
+      (* if nb_requested < nb_available
+        then Printf.eprintf "Warning: not enought many steps for [dump_last]; completing with blank files.\n"; *)
+      for i = 0 to nb_requested-1 do
+        let astBeforeI = if i < nb_available then Some (List.nth trace.history i) else None in
+        output_ast ~ast_and_enc:false (prefix ^ "_before_" ^ string_of_int i) astBeforeI
+      done;
+    end;
+    (* CPP and AST and Javscript for AFTER *)
+    let astAfter = trace.cur_ast in
+    output_ast (prefix ^ "_after") (Some astAfter);
+    print_info None "Writing ast and code into %s.js " prefix;
+    output_js 0 prefix astAfter;
+    (* Printf.printf "EXIT   %s\n" prefix; *)
   );
   (* Exit *)
   close_logs ();
@@ -679,10 +683,11 @@ let check_exit_and_step ?(line : int = -1) (* ~is_small_step *) ?(reparse : bool
     end;
     if !Flags.analyse_time then begin
       let txt =
-      match Int_map.find_opt line !ml_file_excerpts with
-      | Some txt -> txt
-      | None -> failwith "<unable to retrieve line from script>"
-      in
+        if !ml_file_excerpts = Int_map.empty then "" else begin
+          match Int_map.find_opt line !ml_file_excerpts with
+          | Some txt -> txt
+          | None -> failwith "<unable to retrieve line from script>"
+        end in
       write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
     end;
     step();
