@@ -39,8 +39,8 @@ if [ "${RECOMPILE_OPTITRUST}" = "recompile_optitrust_yes" ]; then
   echo "recompile lib"
   make optitrust
   OUT=$?
-  if [ ${OUT} -ne 0 ];then
-    echo "Could not compile lib"
+  if [ ${OUT} -ne 0 ]; then
+    echo "Could not compile lib"  >> /dev/stderr
     exit 1
   fi
 fi
@@ -85,7 +85,7 @@ fi
 
 OUT=$?
 if [ ${OUT} -ne 0 ];then
-  echo "Could not compile file"
+  echo "Could not compile file"  >> /dev/stderr
   exit 1
 fi
 
@@ -119,7 +119,7 @@ elif [ "${VIEW}" = "view_result" ]; then
 
 else
 
-  echo "invalid VIEW argument"
+  echo "invalid VIEW argument"  >> /dev/stderr
   exit 1
 
 fi

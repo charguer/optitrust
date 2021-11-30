@@ -97,8 +97,8 @@ let get_basename (filename : string) =
 let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_exit_at_end : bool = true) ?(prefix : string = "") (f : unit -> unit) : unit =
   (* Extract the basename. We remove "_with_lines" suffix if the basename ends with that suffix. *)
   (* LATER: see what happens of the directory... *)
-
   let basename = get_basename filename in
+  (* Printf.printf "START   %s\n" basename; *)
   let default_prefix = Filename.remove_extension basename in
   let prefix = if prefix = "" then default_prefix else prefix in
   let default_input_file = basename ^ ".cpp" in
@@ -122,6 +122,7 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
     Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     Trace.finalize();
   )
+  (* Printf.printf "END  %s\n" basename *)
 
 (* [doc_script_cpp f src] is a variant of [script_cpp] that takes as input a
     piece of source code [src] as a string, and stores this contents into
@@ -131,7 +132,7 @@ let doc_script_cpp ?(filename : string = "") (f : unit -> unit) (src : string) :
   let basename = get_basename filename in
   let src_filename = basename ^ "_doc.cpp" in
   Xfile.put_contents src_filename src;
-  script_cpp ~filename:src_filename f
+  script_cpp ~filename:src_filename ~check_exit_at_end:false f
 
 (* LATER:   add  script_rust  following script_cpp *)
 
