@@ -29,8 +29,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         // maybe also with a sequence.inline on the body
 
   *)
-  (* TODO: printing of function type *)
 
+
+  !!! ();
   (* Part 0: Labelling the main loop*)
   !! Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
 
