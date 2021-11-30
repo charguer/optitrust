@@ -361,7 +361,8 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Main_file -> string "Main_file"
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
-    | Any -> string "Any" in
+    | Any -> string "Any" 
+    | Non_local_index -> string "Non_local_index" in
 
   if only_desc then ddesc
     else

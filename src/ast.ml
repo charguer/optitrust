@@ -275,6 +275,7 @@ and trm_annot =
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
   | Any (* Used for only one specific transformation called delocalize *)
+  | Non_local_index (* Used for loops whose index is not declared inside the scope of the loop body *)
 (* symbols to add while printing a C++ program.*)
 and special_operator =
   | Address_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
@@ -1656,17 +1657,20 @@ let trm_for_of_trm_for_c (t : trm) : trm =
     let stop_ops = trm_for_c_inv_simple_stop cond in
     let step_ops = trm_for_c_inv_simple_step step in
     begin match init_ops, stop_ops, step_ops with
-    | Some (index, start, _is_local), Some stop, Some step ->
-      trm_for index start stop step body
+    | Some (index, start, is_local), Some stop, Some step ->
+      let for_loop = trm_for index start stop step body in
+      if (not is_local ) then trm_annot_add Non_local_index for_loop else for_loop
     | _ -> t
     end
   | _ -> fail t.loc "trm_for_of_trm_for_c: expected a for loop"
 
 
 (* before printing a simple loop first it should be converted to complex loop *)
-let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None)
+let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(local_index : bool = true)
   (index : var) (start : trm) (stop : loop_stop) (step : loop_step) (body : trm) : trm =
-  let init = trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
+  let init = if not local_index 
+                then trm_set (trm_var index) start 
+                else trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
   let cond = begin match stop with
     | DirUp bnd ->
       (trm_apps (trm_binop Binop_lt)
