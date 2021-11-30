@@ -121,7 +121,7 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
       then Trace.dump_diff_and_exit ();
     Trace.dump ~prefix (); (* LATER: in theory, providing the prefix in function "init" should suffice; need to check, however, what happens when the file is not in the current folder *)
     Trace.finalize();
-  );
+  )
   (* Printf.printf "END  %s\n" basename *)
 
 (* [doc_script_cpp f src] is a variant of [script_cpp] that takes as input a
