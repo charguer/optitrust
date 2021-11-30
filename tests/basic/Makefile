@@ -67,29 +67,29 @@ TESTS_WORKING := \
 #	variable_inline.ml \
 
 TESTS_TOCHECK := \
-  variable_bind_intro.ml \
-	variable_init_attach.ml \
-	matrix_intro_mcalloc.ml \
-	matrix_intro_mmalloc.ml \
-	matrix_reorder_dims.ml \
-	instr_accumulate.ml \
-	struct_simpl_proj.ml \
-	function_use_infix_ops.ml \
-	sequence_insert.ml \
+  arith_simplify.ml \
+	arith_shift.ml \
 	function_beta.ml \
+	function_use_infix_ops.ml \
 	function_uninline.ml \
 	include_inline.ml \
+	instr_accumulate.ml \
+	matrix_delocalize.ml \
+	matrix_intro_mcalloc.ml \
+	matrix_intro_mindex.ml \
+	matrix_intro_mmalloc.ml \
 	matrix_local_name.ml \
+	matrix_reorder_dims.ml \
+	sequence_insert.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
+	struct_simpl_proj.ml \
+	variable_bind_intro.ml \
+	variable_init_attach.ml \
 
-# missing:
-#	matrix_intro_mops.ml \ 	
 # missing expected
-#	matrix_delocalize.ml
+# matrix_insert_alloc_dim.ml 
 #	matrix_insert_access_dim_index.ml \
-# 	matrix_insert_alloc_dim.ml \
-# 	matrix_intro_mindex.ml \
 
 
 
@@ -103,11 +103,9 @@ TESTS_WITH_DOC := \
 	label_remove.ml \
 
 
+# TODO:
 # arith_simpl.ml
 
-#  change_type.ml \
-# arith_shift.ml \
-#	local_name.ml
 
 # TODO: script for vscode opening
 
