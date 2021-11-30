@@ -1,5 +1,22 @@
+
 open Optitrust
 open Target
+
+let _ = Run.doc_script_cpp (fun _ ->
+  !! Variable_basic.fold ~at:[cVarDef "q"] [cVarDef "p"];
+  !! Variable_basic.fold ~at:[cVarDef "x"] ~as_reference:true [cVarDef "p"];
+  )
+"
+int main() {
+  int t[2];
+  int *p = &t[0];
+  int* q = &t[0];
+  int x = t[0];
+}
+"
+
+(* TODO: rename ~as_reference to ~deref *)
+
 
 let _ = Run.script_cpp (fun _->
   (* Fold everywhere *)

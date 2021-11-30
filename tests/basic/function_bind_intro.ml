@@ -1,6 +1,31 @@
 open Optitrust
 open Target
 
+let _ = Run.doc_script_cpp (fun _ ->
+  !! Function_basic.bind_intro ~fresh_name:"a" [cFun "g"];
+  )
+"
+int f(int x) { return (x + 1); }
+
+int g(int x) { return (x + 1); }
+
+int main() {
+  int b = f(g(1));
+}
+"
+
+(* TODO:  this target did not select the innermost call to f
+
+int f(int x) { return (x + 1); }
+
+int main() {
+  int b = f(f(1));
+}
+
+      !! Function_basic.bind_intro ~fresh_name:"a" [sExpr "f(1)"]; *)
+
+
+
 let _ = Run.script_cpp (fun _ ->
 
   !! Function_basic.bind_intro ~fresh_name:"s" [cFun "h"];

@@ -395,7 +395,38 @@ particle* bag_iter_next(bag_iter* it, bool destructive) {
 }
 
 // example of a basic iteration over a bag
+<<<<<<< HEAD
 void bag_ho_iter_basic(bag* b, void *body(particle*)) {
+=======
+// void bag_ho_iter_basic(bag* b, void body(particle*)) {
+//   bag_iter it = bag_iter_begin(b);
+//   for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
+//     body(p);
+//   }
+// }
+
+// example of an iteration over a bag with the loop over the chunk items revealed
+// void bag_ho_iter_chunk(bag* b, void body(particle*)) {
+//   for (chunk* c = b->front; c != NULL; c = chunk_next(c, true)) {
+//     int nb = c->size;
+//     for (int i = 0; i < nb; i++) {
+//       particle* p = &c->items[i];
+//       body(p);
+//     }
+//   }
+// }
+
+/*
+TODO: to parse this code, need to fix the function Ast.trm_for_of_trm_for_c
+where "is_simple_loop" is not correctly computed (see, e.g.,  the branch
+  | _ -> true   in  is_simple_loop_component). More generally, one should
+  use different tests for each of the components, not a unified one.
+
+*/
+/*
+// example of a basic iteration over a bag
+void bag_ho_iter_basic(bag* b, void (*body)(particle*)) {
+>>>>>>> 7ba46cbf1473d02768b98f06c39f82164605cec9
   bag_iter it = bag_iter_begin(b);
   for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
     body(p);
@@ -403,7 +434,11 @@ void bag_ho_iter_basic(bag* b, void *body(particle*)) {
 }
 
 // example of an iteration over a bag with the loop over the chunk items revealed
+<<<<<<< HEAD
 void bag_ho_iter_chunk(bag* b, void *body(particle*)) {
+=======
+void bag_ho_iter_chunk(bag* b, void (*body)(particle*)) {
+>>>>>>> 7ba46cbf1473d02768b98f06c39f82164605cec9
   for (chunk* c = b->front; c != NULL; c = chunk_next(c, true)) {
     int nb = c->size;
     for (int i = 0; i < nb; i++) {
@@ -412,7 +447,6 @@ void bag_ho_iter_chunk(bag* b, void *body(particle*)) {
     }
   }
 }
-
 
 
 //==========================================================================

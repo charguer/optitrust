@@ -363,14 +363,14 @@ val get_ast : unit -> trm
 
 val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> ?marks:string list -> string -> trm
 
-val lit : string -> trm 
+val lit : string -> trm
 
 val expr : ?vars:string list -> string -> trm
 
-val stmt : string -> trm 
+val stmt : string -> trm
 
-val func : string -> trm 
+val func : string -> trm
 
-val atyp : string -> trm 
+val atyp : string -> trm
 
 val get_relative_type : target -> target_relative option

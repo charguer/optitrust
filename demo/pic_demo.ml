@@ -29,16 +29,19 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         // maybe also with a sequence.inline on the body
 
   *)
+  (* TODO: printing of function type *)
+
   (* Part 0: Labelling the main loop*)
   !! Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
-  (* Part1: space reuse *)
-  
+
+  (* Part1: space reuse *) (* TODO: expr and typexpr put parentheses,  lit and atyp don't *)
   !! Variable.reuse ~space:(expr "p.speed") [main; cVarDef "speed2"];
      Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
-  
+
+  (* TODO: use !!! for big steps *)
   (* Part: Introducing an if-statement for slow particles *)
-  !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext" ];
-  !! Flow.insert_if ~cond:(trm_any_bool) [main; cFun "bag_push"];
+  !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
+  !! Flow.insert_if ~cond:(trm_any_bool) [main; cFun "bag_push"]; (* TODO: trm_any_bool should be default value *)
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
   !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
@@ -47,26 +50,26 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: optimization of vect_matrix_mul *)
   let ctx = cTopFunDef "vect_matrix_mul" in
   !! Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-     Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
+  !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
      (* LATER: !! Loop.fission [nbMulti; tAllInBetween; ctx; cFor "k"; cSeq]; *)
-     Loop.fission [nbMulti; tAfter; ctx; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
-     Loop.unroll [nbMulti; ctx; cFor "k"];
+  !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
+  !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"];
-  !! Function.inline [cFun "vect_matrix_mul"];
+  !! Function.inline [cFun "vect_matrix_mul"]; (* LATER: check if it is needed *)
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
-  let ctx = cTopFunDef "cornerInterpolationCoeff" in
-  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS; cVar ~regexp:true "r."];
-  !! Variable.inline [nbMulti; ctx; cVarDef ~regexp:true "c."];
+  let ctxf = cTopFunDef "cornerInterpolationCoeff" in
+  let ctx = cChain [ctxf; sInstr "r.v"] in
+  !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
+  !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;" ~pattern_aux_vars:"double rX, rY, rZ;"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
-      [nbMulti; cTopFunDef "cornerInterpolationCoeff"; cFieldWrite ~base:[cVar "r"] ~field:""(); dRHS];
-  !! Loop.fold_instrs ~index:"k" [ctx; sInstr "r.v"];
+      [nbMulti; ctx; dRHS];
+  !! Loop.fold_instrs ~index:"k" [ctx];
 
-  (* Part: reveal fields *)
-  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; 
-  !!!();
+  (* Part: reveal fields *) (* TODO: unit test showning issue with inlining *)
+  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
   !! Variable.inline [cVarDef "p2"];
@@ -78,27 +81,36 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        [cFun "vect8_mul"];
        [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
        [cFun "accumulateChargeAtCorners"]]];
-  !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
-  !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
+     Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
+     Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
-  !! Sequence.intro ~mark:"to_fusion" ~start:[main; cVarDef "coeffs2"] ();
-  !! Loop.fusion_targets [cMark "to_fusion"];
+  !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
+     Loop.fusion_targets [cMark "fuse"];
+     (* TODO:  uint test
+
+        typedef struct { int v[2]; } T;
+         int main() {
+             T f;
+             f.v[0] = 1;
+             int a = (f.v)[0];
+             int b = f.v[0];
+         }
+        see the difference in  ast, and  try to run read_last_write
+     *)
 
 (* TODO: Fix the issue of inline_last_write for this particular case *)
 !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];
-!! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
+    Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
   !! Struct.inline "speed" [cTypDef "particle"];
      Struct.inline "pos" [cTypDef "particle"];
 
-  (* Part: scaling of speeds and positions *)
+  (* Part: scaling of field, speeds and positions *)
   !! Variable.insert_list ~reparse:true ~defs:(
          ["const double", "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), ("factor / cell" ^ d))))
      [tBefore; cVarDef "nbSteps"];
-
-  (* Part: scaling of field, speeds and positions *)
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation after simplifier *)
   !! Variable.inline [cVarDef "accel"];
@@ -110,6 +122,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
   !!! ();
 
+  (* TODO: simplifier *)
 
   (* Part: grid_enumeration *)
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
@@ -131,17 +144,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   );
   !! iter_dims (fun d ->
     Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
-
-  !! Cast.insert (Ast.typ_float ()) [sExprRegexp ~substr:true "\\(p. - i.\\)"];
-  !! Struct.update_fields_type "pos." (typ_float ()) [cTypDef "particle"];
-
+  !! Cast.insert (Ast.typ_float ()) [sExprRegexp ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
+  !! Struct.update_fields_type "pos." (typ_float ()) [cTypDef "particle"];   (* TODO: (atyp "float")  ;  if argument of atype is int or float  *)
   !!! ();
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
   !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];
   !! Matrix.local_name ~my_mark:"charge" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [cLabel "charge"];
-  !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "charge"]; 
+  !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "charge"];
   !! Variable.inline [main; cVarDef "indices"];
   !! Specialize.any "k" [main; cAny];
   let my_bij_code =
@@ -179,15 +190,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Instr.move_out ~dest:[tBefore; main] [nbMulti; main; cVarDef ~regexp:true "\\(coef\\|sign\\).0"];
-  !! Loop.hoist [cVarDef "idCell2"]; 
+  !! Loop.hoist [cVarDef "idCell2"];
   !! Loop.fission [tBefore; main; cVarDef "pX"];
   (* !! Loop.fission [tBefore; main; cVarDef "idCell2"]; *) (* TODO: Find the right place where the second split should be done *)
 
   (* Part: introduction of the computation *)
-  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"]; 
+  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"];
   !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(trm_ands (map_dims (fun d -> expr ~vars:[d] "i${0} >= bi${0} - dist && i${0} < bi${0} + blockSize + dist"))) [tAfter; main; cVarDef "iZ2"];
   !! Specialize.any "distanceToBlockLessThanHalfABlock" [main; cFun "ANY_BOOL"];
-  
+
   (* Part: Coloring *)
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in

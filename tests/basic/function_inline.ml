@@ -1,6 +1,21 @@
 open Optitrust
 open Target
 
+
+let _ = Run.doc_script_cpp (fun _ ->
+  !! Function_basic.inline [cFun "sq"];
+  )
+"
+int sq(int x) { return (x * x); }
+
+int main() {
+  int r = sq(3);
+}
+"
+
+(* TODO: by default, when ~body_mark is empty, no mark should be left visible after the transformation *)
+
+
 let _ = Run.script_cpp (fun _ ->
 
   !! Function_basic.inline ~body_mark:"bodyf" [cFun "f"];

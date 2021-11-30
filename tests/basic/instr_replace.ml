@@ -2,6 +2,19 @@ open Optitrust
 open Target
 open Ast
 
+
+let _ = Run.doc_script_cpp (fun _ ->
+  !! Instr_basic.replace (lit "20") [sExpr "a * 4"];
+  )
+"
+int main() {
+  int a = 5;
+  int x = a * 4;
+}
+"
+
+(* LATER: "int const" should be printed as "const int" in the output *)
+
 let _ = Run.script_cpp (fun _ ->
   (* replace multiple occurrences of variable "a" with variable "b" *)
   !! Instr_basic.replace (var "b") [nbMulti; cVar "a"];
