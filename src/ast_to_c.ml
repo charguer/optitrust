@@ -343,15 +343,15 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         dattr ^^ string l ^^ colon ^^ nest 2 (hardline ^^ dt)
      | Trm_goto l -> dattr ^^ string "goto" ^^ blank 1 ^^ string l ^^ dsemi
      | Trm_arbitrary a_kind  ->
-        let code_str = 
-        begin match a_kind with 
+        let code_str =
+        begin match a_kind with
         | Lit l -> string l
         | Expr e -> string e
         | Stmt s -> string s
         | Func f -> parens (string f)
         | Atyp ty -> string ty
         end  in
-        dattr ^^ code_str 
+        dattr ^^ code_str
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d
      | Trm_omp_routine  r -> dattr ^^ routine_to_doc r ^^ semi
      | Trm_extern (lang, tl) ->
@@ -533,9 +533,24 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
 (* display_star: true if f is get and we should display it *)
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false)
   (f : trm) (tl : trms) : document =
+  let aux_arguments f_as_doc =
+      (* LATER: might be able to use a list_to_doc function here *)
+      let rec aux d = function
+        | [] -> d
+        | [t] -> d ^^ decorate_trm t
+        | t1 :: t2 :: tl ->
+          aux (d ^^ decorate_trm t1 ^^ comma ^^ blank 1) (t2 :: tl)
+      in
+    f_as_doc ^^ parens (aux empty tl)
+    in
+
   match f.desc with
-  (* NOTE: in C, we don't apply arbitrary terms to terms, functions can only
-     be variables or primitive functions. *)
+
+  (* Case of function pointers *)
+  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var x; _ } ]) ->
+      aux_arguments (string x)
+
+  (* Case of function by name *)
   | Trm_var x ->
      if !decode && Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
         (* Note x is for example "overloaded=" *)
@@ -564,16 +579,13 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
        else
          fail f.loc "apps_to_doc: unsupported operator"
      else
-       (* The generic case of a function being applied *)
-       let rec aux d = function
-         | [] -> d
-         | [t] -> d ^^ decorate_trm t
-         | t1 :: t2 :: tl ->
-            aux (d ^^ decorate_trm t1 ^^ comma ^^ blank 1) (t2 :: tl)
-       in
-       string x ^^ parens (aux empty tl)
-  | Trm_let_fun _ -> 
+       aux_arguments (string x)
+
+  (* Case of inlined function *)
+  | Trm_let_fun _ ->
         parens (decorate_trm f) ^^ Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map decorate_trm tl)
+
+  (* Case of primitive operations *)
   | Trm_val v ->
      begin match v with
      | Val_prim p ->
@@ -729,7 +741,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
    | _ ->
-      
+
       Ast_to_text.print_ast ~only_desc:true stdout f;
       fail f.loc "apps_to_doc: only functions may be applied"
 and mode_to_doc (m : mode) : document =
