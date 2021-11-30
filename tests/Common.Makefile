@@ -53,6 +53,7 @@ OPTITRUSTLIB ?= $(shell ocamlfind query optitrust)
 BROWSER ?= chromium-browser
 
 
+
 #######################################################
 # Targets
 
@@ -122,7 +123,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 
 # Rule for building .chk, that gives evidence whether the output matches the expected output
 %.chk: %_out.cpp %_exp.cpp
-	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "$< matches the expected result") \
+	$(V) ($(DIFF) -q $^ > /dev/null && touch $@ && echo "Success for $@") \
 	|| (echo "=== ERROR: $< does not match the expected result:" && echo "  make $*.meld")
 #	|| (echo "$< does not match the expected result:" && $(DIFF) $^)
 

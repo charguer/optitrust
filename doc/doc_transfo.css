@@ -1,3 +1,8 @@
+
+pre {
+  margin: 0;
+}
+
 /* Hide the filename since we're concerned with only one file name */
 .d2h-file-header {
    display: none;
@@ -27,15 +32,26 @@ h2 {
    padding-left: 1em;
 }
 
+
 .name {
-   background: #DDFFFF;
-   font-size: Large;
-   padding-left: 2em;
+   padding: 5px 5px 1px 50px;
+   background: #FFCFA0;
    font-weight: bold;
+   font-size: 22px;
 }
 
 .spec {
+  margin-top: 0.5em;
+}
 
+.src {
+   /* border: 1px solid black; */
+   padding-bottom: 5px;
+   padding-top: 5px;
+   margin-top: 1em;
+   margin-bottom: 0.5em;
+   background: #FFE0FF;
+   font-weight: bold;
 }
 
 .src {

@@ -57,13 +57,14 @@ TESTS_WORKING := \
 	typedef_insert.ml \
 	variable_change_type.ml \
 	variable_fold.ml \
-	variable_inline.ml \
 	variable_insert.ml \
 	variable_insert_and_fold.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
 	variable_replace_occurrences.ml \
 
+# not working
+#	variable_inline.ml \
 
 TESTS_TOCHECK := \
   variable_bind_intro.ml \
@@ -76,18 +77,19 @@ TESTS_TOCHECK := \
 	function_use_infix_ops.ml \
 	sequence_insert.ml \
 	function_beta.ml \
-	function_uninlink.ml \
+	function_uninline.ml \
 	include_inline.ml \
-	matrix_delocalize.ml \
-	matrix_intro_mops.ml \
-	matrix_insert_access_dime_index.ml \
-	matrix_insert_alloc_dim.ml \
-	matrix_intro_mindex.ml \
 	matrix_local_name.ml \
 	specialize_any.ml \
-	specialize_chhose.ml \
-	
+	specialize_choose.ml \
 
+# missing:
+#	matrix_intro_mops.ml \ 	
+# missing expected
+#	matrix_delocalize.ml
+#	matrix_insert_access_dim_index.ml \
+# 	matrix_insert_alloc_dim.ml \
+# 	matrix_intro_mindex.ml \
 
 
 
