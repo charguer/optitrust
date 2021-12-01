@@ -41,3 +41,6 @@ let spec =
 
 let fix_flags () =
   if !analyse_time_details then analyse_time := true
+
+(* Flag used for a hack by [doc_script_cpp] *)
+let documentation_save_file_at_first_check = ref ""

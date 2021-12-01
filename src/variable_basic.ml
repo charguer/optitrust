@@ -27,13 +27,13 @@ let inline_common (delete : bool) (accept_functions : bool) (at : target) : Targ
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.inline delete accept_functions at i t p)
 
-(* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to true. 
+(* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to true.
     an the target [at] left empty.
 *)
 let inline ?(accept_functions : bool = true): Target.Transfo.t =
   inline_common true accept_functions []
 
-(* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to false. 
+(* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to false.
     an the target [at] should be given by the user.
 *)
 let inline_at ?(accept_functions : bool = true) (at : target) : Target.Transfo.t =
@@ -143,7 +143,7 @@ let change_type (new_type : typvar) : Target.Transfo.t =
 let insert ?(const : bool = false) ?(reparse : bool = false) ~name:(name : string) ~typ:(typ : string ) ~value:(value : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))
 
-(* [replace_occurrences name ~space tg]] expects the target [tg] to point to any node ast which could contain 
+(* [replace_occurrences name ~space tg]] expects the target [tg] to point to any node ast which could contain
     an occurrence of the variable [name], then it will all the nodes which come after the node targeted by target [tg]
 *)
 let replace_occurrences ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Target.Transfo.t =
@@ -151,8 +151,9 @@ let replace_occurrences ?(reparse : bool = false) ~subst:(name : var) ~put:(put 
     Target.apply_on_targets (Variable_core.replace_occurrences name put)
   )
 
+(* [bind_intro] spec *)
 let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = false) ?(my_mark : mark = "") : Target.Transfo.t =
   Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-    (fun occ  t (p, p_local, i) -> 
+    (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
       Variable_core.bind_intro my_mark i fresh_name const p_local t p)
