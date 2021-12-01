@@ -14,6 +14,9 @@ let shift ?(reparse : bool = false) ?(neg : bool = false) ?(pre_cast : typ optio
 let apply (op : binary_op) (arg : trm) : Target.Transfo.t =
   Target.apply_on_targets (Arith_core.apply op arg)
 
+(* [simpl f] applies a arithmetic rewriting method from the module Arith_core:
+   - gather  for grouping and cancelling out similar expressions in sums and produts
+   - expand  for expanding products involving sums. *)
 let simpl (f: (expr -> expr)) : Target.Transfo.t =
   Target.apply_on_targets (Arith_core.simplify f)
 

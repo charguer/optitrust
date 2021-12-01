@@ -1,12 +1,32 @@
 open Optitrust
 open Target
 
+(* TODO: the operations don't seem to work here; an issue with the target? *)
+
+let _ = Run.doc_script_cpp (fun _ ->
+    !! Arith_basic.(simpl gather) [cVarDef "a"; dBody];
+       Arith_basic.(simpl gather) [cVarDef "b"; dBody];
+       Arith_basic.(simpl gather) [cVarDef "c"; dBody];
+       Arith_basic.(simpl expand) [cVarDef "d"; dBody];
+  )
+"
+int main() {
+  int a = 2 + 3;
+  int b = 3 * a + 4 * a;
+  int c = (a * 3 * a) / a;
+  int d = (a + b) * c;
+}
+"
+
+
+
 (* LATER: add a "compute" transformation to simplify
     - products of int
     - sums and products of doubles
 
    LATER: simplification recursively in atoms, see example of [w];
    to implement using trm_map. *)
+
 
 let _ = Run.script_cpp (fun _ ->
 
@@ -15,8 +35,8 @@ let _ = Run.script_cpp (fun _ ->
     !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "y"; dRHS];
     !! Arith_basic.(simpl gather) [nbMulti; cWriteVar "z"; dRHS];
     !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "t"; dRHS];
-    !! Arith_basic.(simpl Arith_core.expand) [nbMulti; cWriteVar "u"; dRHS];
-    !! Arith_basic.(simpl Arith_core.expand) [nbMulti; cWriteVar "v"; dRHS];
+    !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "u"; dRHS];
+    !! Arith_basic.(simpl expand) [nbMulti; cWriteVar "v"; dRHS];
 
 (* For testing one line, add a line in the source "r = ...;" and use:
     !! Arith_basic.(simpl gather_rec) [nbMulti; cWriteVar "r"; dRHS];

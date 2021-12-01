@@ -15,7 +15,7 @@ if [ ! -f "${FILE}" ]; then
 fi
 
 
-REGEXP="\!\! ([^.]*)\.([^ ]*)"
+REGEXP="\!\! ([^.]*)\.[(]?([^ (]*)"
 CONTENTS=`cat ${FILE}`
 
 # echo ${CONTENTS}
