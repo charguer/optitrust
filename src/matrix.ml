@@ -111,12 +111,12 @@ let intro_mops (dim : trm) : Target.Transfo.t =
   matrix_delocalize, this transformation first calls Matrix_basi.local_name to create the isolated environment where the delocalizing transformatino
   is going to be performed
 *)
-let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(_last : bool = true)  ~var:(var : var) ~local_var:(local_var : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : delocalize_ops) (tg : Target.target) : unit =
+let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(last : bool = false)  ~var:(var : var) ~local_var:(local_var : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : delocalize_ops) (tg : Target.target) : unit =
   let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
   let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
   let acc = match acc with | Some s -> s | _ -> "s" in
   Matrix_basic.local_name ~my_mark:middle_mark  ~var ~local_var ~indices tg;
   Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops [Target.cMark middle_mark];
-  (* if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.cMark middle_mark; Target.cFun ~regexp:true "M.\\(NDEX\\|ALLOC\\)."] ; *)
+  if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.nbMulti; Target.cMark middle_mark; Target.cFun ~regexp:true "M.\\(NDEX\\|ALLOC\\)."] ;
   begin match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> () end
 

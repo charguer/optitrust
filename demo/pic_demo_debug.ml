@@ -16,8 +16,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
   !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];
-  !! Matrix.local_name ~my_mark:"charge" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [cLabel "charge"];
-  !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "charge"]; 
+  !! Matrix.delocalize ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
   !! Variable.inline [main; cVarDef "indices"];
   !! Specialize.any "k" [main; cAny];
   let my_bij_code =
@@ -45,8 +44,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main];
-  !! Matrix.local_name ~my_mark:"cores" ~var:"nextChargeCorners" ~local_var:"nextChargeThreadCorners" ~indices:["idThread";"idCell"] [cLabel "charge"];
-  !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "cores"];
+  !! Matrix.delocalize ~var:"nextChargeCorners" ~local_var:"nextChargeThreadCorners" ~indices:["idThread";"idCell"] ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~last:true [cLabel "charge"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
   !! Instr.move_out ~dest:[tBefore; main; cLabel "core"] [nbMulti; main; cVarDef ~regexp:true "nextCharge."];
      Instr.move_out ~dest:[tAfter; main; cLabel "core"] [nbMulti; main; cFun "MFREE"];
