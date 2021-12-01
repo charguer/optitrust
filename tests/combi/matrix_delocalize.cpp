@@ -1,5 +1,9 @@
 
 #include "../../include/optitrust.h"
+
+int ANY (int x) { return true;}
+
+
 typedef int T;
 int main(){
   const int N0 = 5;
@@ -8,7 +12,7 @@ int main(){
   const int N3 = 10;
   T* a = (T*) MCALLOC3 (N1, N2, N3, sizeof(T));
   for (int i = 0; i < 10; i++) {
-    a[MINDEX3(N1,N2,N3,i,i+1,i+2)];
+    a[MINDEX3(N1,N2,N3,i,i+1,i+2)] = 5;
   }
   int y = 0;
   return 0;

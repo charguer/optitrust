@@ -216,24 +216,45 @@ let intro_mindex (dim : trm) : Target.Transfo.local =
       return:
         the updated ast of the call with reordered args
 *)
-let reorder_dims_aux (order : int list) (t : trm) : trm =
+(* LATER: Factorize this code *)
+let reorder_dims_aux (rotate_n : int option) (order : int list) (t : trm) : trm =
   match mindex_inv t, alloc_inv t with
   | Some (dims, indices), None ->
     let nb = List.length dims in
+    let order = begin match rotate_n with 
+    | Some n -> 
+      let id_perm = Tools.range 0 (nb - 1) in
+      Tools.list_rotate n id_perm 
+    | _ -> 
+      begin match order with 
+      | [] -> fail t.loc "reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
+      | _ -> order
+      end 
+    end in
     begin try Tools.check_permutation nb order with | Tools.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
     let reordered_dims = Tools.list_reorder order dims in
     let reordered_indices = Tools.list_reorder order indices in
     mindex (reordered_dims) (reordered_indices)
   | None, Some (dims, size, zero_init) ->
     let nb = List.length dims in
+    let order = begin match rotate_n with 
+    | Some n -> 
+      let id_perm = Tools.range 0 (nb - 1) in
+      Tools.list_rotate n id_perm 
+    | _ -> 
+      begin match order with 
+      | [] -> fail t.loc "reorder_dims_aux: permuation order of indices and dims should be given or ~rotate_n argument should be used"
+      | _ -> order
+      end 
+    end in
     begin try Tools.check_permutation nb order with | Tools.Invalid_permutation -> fail t.loc "order is not a permutation of indices" end;
     let reordered_dims = Tools.list_reorder order dims in
     let init = if zero_init then Some (trm_int 0 ) else None in
     alloc ~init reordered_dims size
   | _ -> fail t.loc "reorder_dims_aux: expected  a function call to MCALLOC or MINDEX"
 
-let reorder_dims (order : int list) : Target.Transfo.local =
-  Target.apply_on_path (reorder_dims_aux order)
+let reorder_dims (rotate_n : int option) (order : int list) : Target.Transfo.local =
+  Target.apply_on_path (reorder_dims_aux rotate_n order)
 
 
 (* [insert_alloc_dim_aux new_dim t]: add a new dimension at the beginning of the list of dimension
