@@ -2,8 +2,18 @@ open Optitrust
 open Target
 open Ast
 
-let _ = Run.script_cpp (fun _ -> 
+let _ = Run.doc_script_cpp (fun _ ->
+    !! Struct_basic.update_fields_type "x" (atyp "float") [cTypDef "vect"];
+  )
+"
+typedef struct {
+  int x;
+  int y;
+} vect;
+"
 
-  !! Struct_basic.update_fields_type "x" (typ_float ()) [ cTypDef "vect"];
-  !! Struct_basic.update_fields_type "y" (typ_float ()) [ cTypDef "vect"];
+let _ = Run.script_cpp (fun _ ->
+
+  !! Struct_basic.update_fields_type "x" (typ_float ()) [cTypDef "vect"];
+  !! Struct_basic.update_fields_type "y" (typ_float ()) [cTypDef "vect"];
 )
