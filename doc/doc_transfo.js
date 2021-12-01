@@ -73,11 +73,14 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
    var srcId = targetId + "_src";
    var diffId = targetId + "_diff";
 
+   var elem = $('#'+targetId);
+   var title = elem.html();
+   var ascombi = elem.is(".ascombi");
    var pieces = targetName.split("/");
-   var kind = pieces[0];
-   var name = pieces[1];
-   var contents = "<div class='name'>"+name+"</div><div class='spec' id='"+specId+"'></div><div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>";
-   $('#'+targetId).html(contents);
+   var kind = pieces[0]; // unused
+   var name = pieces[1]; // unused
+   var contents = "<div class='name'>"+title+"</div><div class='spec' id='"+specId+"'></div><div class='src' id='"+srcId+"'></div><div class='diff' id='"+diffId+"'></div>";
+   elem.html(contents);
 
    // Fill the spec part
    var specContents = eval(targetJsFunctionSpec + "()");
@@ -85,6 +88,9 @@ function loadTestFromFileAssumedLoaded(targetId, targetName, sWarning) {
 
    // Fill the source part
    var srcContents = eval(targetJsFunctionSrc + "()");
+   if (ascombi) {
+     srcContents = srcContents.replace("_basic.", ".");
+   }
    var srcHTML = "<pre><code class='ocaml'>"+escapeHTML(shrinkSrc(srcContents))+"</code></pre>";
    var srcWarning = "";
    if (enableWarning && sWarning) {
