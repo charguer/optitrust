@@ -1,8 +1,7 @@
 open Ast
-include Variable_core.Rename
 include Loop_basic
 
-type rename = Variable_core.Rename.t
+type rename = Variable.Rename.t
 (* [hoist x_step tg] - expects target to point inside the declaration of the variable
     [x_step] - denotes the variable going to be hoisted outside the loop.
     This transformation is similar to the basic one except that it supports also
@@ -321,7 +320,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       Loop_basic.unroll ~braces:true ~my_mark [Target.cMark my_mark];
       let block_list = Tools.range 0 (nb_instr-1) in
       List.iter (fun x ->
-        Variable_basic.rename_on_block (AddSuffix (string_of_int x)) ([Target.occIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
+        Variable.renames (AddSuffix (string_of_int x)) ([Target.occIndex ~nb:nb_instr x; Target.cMark my_mark;Target.cSeq ()])
       ) block_list;
       List.iter (fun x ->
          Sequence_basic.partition ~braces blocks [Target.cMark my_mark; Target.dSeqNth x]

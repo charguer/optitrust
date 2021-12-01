@@ -27,6 +27,7 @@ TESTS_WORKING := \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
+	variable_rename.ml \
 	variable_reuse.ml \
 
 

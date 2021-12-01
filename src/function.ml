@@ -1,9 +1,8 @@
 open Ast
 open Path
-include Variable_core.Rename
 include Function_basic
 
-type rename = Variable_core.Rename.t
+type rename = Variable.Rename.t
 
 
 (*  [bind_args fresh_names tg] expets the target [tg] to point to a function call.
@@ -46,7 +45,7 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
     that shoudl be assigned to all the declared variables.
 *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
-  Variable_basic.rename_on_block vars tg;
+  Variable.renames vars tg;
   Sequence_basic.elim tg
 
 (* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then
@@ -142,7 +141,7 @@ int f2() { // result of Funciton_basic.inline_cal
 *)
 let inline ?(name_result : string = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
   Target.iteri_on_targets (fun i t p ->
-    let vars = Variable_core.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x ) vars in
+    let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x ) vars in
     let name_result = ref name_result in
     let (path_to_seq,local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
     let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
@@ -196,8 +195,8 @@ let inline ?(name_result : string = "") ?(body_mark : mark = "__TEMP_body") ?(va
     if !name_result <> "" then begin
         let success_attach = ref true in
         let _ = try Variable_basic.init_attach (new_target) with
-           | Variable_basic.Init_attach_no_occurrences
-           | Variable_basic.Init_attach_occurrence_below_control -> success_attach  := false;()
+           | Variable_core.Init_attach_no_occurrences
+           | Variable_core.Init_attach_occurrence_below_control -> success_attach  := false;()
            | e -> raise e in
         if !res_inlining_needed then Variable_basic.inline new_target;
           if !success_attach then Variable.reverse_fold [Target.nbAny;Target.cVarDef !name_result];

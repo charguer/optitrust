@@ -1,7 +1,7 @@
 int f(int x) {
-  int y1 = 1;
-  int z1 = 2;
-  return (y1 + z1);
+  int y = 1;
+  int z = 2;
+  return (y + z);
 }
 
 int g(int x) {
@@ -10,8 +10,8 @@ int g(int x) {
 }
 
 int main() {
-  int a22 = 1;
-  int b22 = f(a22);
-  int c22 = g(b22);
+  int a1 = 1;
+  int b1 = f(a1);
+  int c = g(b1);
   return 0;
 }

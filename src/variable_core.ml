@@ -7,20 +7,6 @@ open Target
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* This type is used for variable renaming, the user can choose between renaming all the variables 
-    on one block, by giving the suffix to add after or he can also give the list of variables to 
-    be renamed where the list should be a a list of string pairs ex. (current_name, new_name).
-*)
-module Rename = struct
-  type t = | AddSuffix of string | ByList of (string * string) list
-end
-type rename = Rename.t
-
-let map f = function 
-| Rename.AddSuffix v -> Rename.AddSuffix (f v)
-| ByList kvs -> ByList (List.map (fun (k,v) -> (k, f v)) kvs)
-
-
 (* [fold_aux as_reference fold_at index t]: fold the variable declarations [t]
     params:
       [as_reference]: a flag for telling if the variable on the assignment 
@@ -132,56 +118,36 @@ let inline (delete_decl : bool) (accept_functions : bool )(inline_at : target) (
   Target.apply_on_path(inline_aux delete_decl accept_functions inline_at index)
 
 
-(* [rename_on_block_aux new_name index t] rename the variable declared in [t] and all its occurrences
+(* [rename_aux index new_name t] rename the variable declared in [t] and all its occurrences
    params:
-     [rename]: a type covering both the case when a prefix is given or the list of variables to change
-        together with their new name
+     [new_name]: the new name for the targeted variable
      [t]: ast of the declaration
    return:
-    updated ast of the sequence which contains the declaration
+    updated sequence with the renamed occurrences of the targeted variable
 *)
-let rename_on_block_aux (rename : Rename.t) (t : trm) : trm =
-  match t.desc with
-  | Trm_seq tl ->
-    (* first change the declarations*)
-    let t_new_dl = Mlist.fold_left (fun acc t1 ->
-        match t1.desc with
-        | Trm_let (vk,(x, tx), init) ->
-          begin match rename with 
-          | AddSuffix post_fix ->
-            let new_name = x ^ post_fix  in
-            Internal.change_trm t1  {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc 
-          | ByList list -> 
-            if List.mem_assoc x list then
-              let new_name = List.assoc x list in
-              Internal.change_trm t1  {t1 with desc = Trm_let (vk, (new_name, tx), init)} acc 
-            else
-              acc 
-          end
-        | _ -> acc
-      ) t tl 
+let rename_aux (index : int) (new_name : var) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl -> 
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    begin match dl.desc with 
+    | Trm_let (vk, (x, tx), init) -> 
+      let rec aux (t : trm) : trm = 
+        match t.desc with 
+        | Trm_var y when y = x -> {t with desc = Trm_var new_name}
+        | _ -> trm_map aux t
        in
-     (* then all the variable occurrences *)
-     Mlist.fold_left (fun acc t1 ->
-          match t1.desc with
-          | Trm_let (_,(x, _), _) ->
-            begin match rename with 
-            | AddSuffix post_fix ->
-              let new_name = x ^ post_fix  in
-              Internal.subst_var x (trm_var new_name) acc
-          | ByList list -> 
-            if List.mem_assoc x list then
-              let new_name = List.assoc x list in
-              Internal.subst_var x (trm_var new_name) acc
-            else
-              acc 
-          end
-        | _ -> acc
-      ) t_new_dl tl 
-  | _ -> fail t.loc "rename_on_block_aux: expected the sequence block"
+      let lback = Mlist.map aux lback in
+      let new_dl = trm_let ~annot:t.annot ~marks:t.marks vk (new_name, tx) init in
+      let new_tl = Mlist.merge lfront lback in
+      let new_tl = Mlist.insert_at index new_dl new_tl in
+      trm_seq ~annot:t.annot ~marks:t.marks new_tl
+    | _ -> fail t.loc "rename_aux: expected a declaration"
+    end 
+  | _ -> fail t.loc "rename_aux: expected the surrounding sequence of the targeted declaration"
 
-let rename_on_block (rename : Rename.t) : Target.Transfo.local =
-  Target.apply_on_path (Internal.apply_on_path_targeting_a_sequence (rename_on_block_aux rename) "var_rename")
+
+let rename (new_name : var) (index : int): Target.Transfo.local =
+  Target.apply_on_path (rename_aux index new_name)
 
 (* [replace_occurrences_aux name space t]: replace all occurrences of [name] with [space] 
       params:

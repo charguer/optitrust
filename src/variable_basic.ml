@@ -1,7 +1,5 @@
 open Target
 open Ast
-include Variable_core.Rename
-include Variable_core
 
 
 (* [fold ~as_reference ~at tg] expects the target [tg] to point to a variable declaration
@@ -39,16 +37,12 @@ let inline ?(accept_functions : bool = true): Target.Transfo.t =
 let inline_at ?(accept_functions : bool = true) (at : target) : Target.Transfo.t =
   inline_common false accept_functions at
 
-(* [rename_on_block ~list ~func tg] expects [tg] to point to a sequence.
-    [list] - denotes a list of pairs where each pair has the
-      current variable and the one which is going to replace it.
-      By default this list is empty.
-    [func] - a function which is going to replace all the variables
-      inside the targeted sequence. By default this function is the one
-      which adds the suffix 1 to each declared variable inside the sequence.
+(* [rename ~into tg] expects the target [tg] to be pointing at a declaration, then it will  
+    rename its declaration and all its occurrences
 *)
-let rename_on_block (rename : rename) : Target.Transfo.t =
-  Target.apply_on_targets (Variable_core.rename_on_block rename)
+let rename ~into:(new_name : var) : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p,i) -> Variable_core.rename new_name i t p)
 
 (* [init_detach tg] expects the target [tg] to point to a variable initialization.
    It then splits the instruction into a variable declaration and a set operation.

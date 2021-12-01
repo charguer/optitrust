@@ -1,6 +1,18 @@
 open Ast
-include Variable_core.Rename
-include Variable_basic
+
+(* This type is used for variable renaming, the user can choose between renaming all the variables 
+    on one block, by giving the suffix to add after or he can also give the list of variables to 
+    be renamed where the list should be a a list of string pairs ex. (current_name, new_name).
+*)
+module Rename = struct
+  type t = | AddSuffix of string | ByList of (string * string) list
+end
+type rename = Rename.t
+
+let map f = function 
+| Rename.AddSuffix v -> Rename.AddSuffix (f v)
+| ByList kvs -> ByList (List.map (fun (k,v) -> (k, f v)) kvs)
+
 
 (* [fold ~as_reference ~at ~nonconst tg] expects [tg] to point to a variable declaration
     [as_reference] - denotes a flag whether the declaration initialization contains a
@@ -196,6 +208,32 @@ let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
       | None -> fail decl_t.loc "reuse: could not match the declaration"
       end
       )) 
+(* [renames rename tg] expects [tg] to point to a sequence.
+    [rename] can be either ByList l where l denotes a list of pairs where 
+    each pair has the current variable and the one which is going to replace it.
+    Or AddSuffix s, if this is the case then all the variable declared inside the targeted sequence 
+     are going to be renamed by adding the suffix at the end of its current name.
+*)
+
+let renames (rename : rename) : Target.Transfo.t =
+  Target.iter_on_targets (fun t p -> 
+    let tg_trm = Path.resolve_path p t in
+    match tg_trm.desc with 
+    | Trm_seq tl -> 
+      let decls = List.map decl_name  (Mlist.to_list tl)  in
+      let decls = List.filter_map (fun d -> d) decls in
+      begin match rename with 
+      | AddSuffix s -> 
+        let new_decls = List.map (fun d -> d ^ s) decls in 
+        List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decls new_decls 
+      | ByList l -> 
+        List.iter (fun (d, into) -> if not (List.mem d decls) then fail tg_trm.loc "renames: one of the variables you want to rename does not belong to the targeted scope"
+          else Variable_basic.rename ~into ((Target.target_of_path p) @ [Target.cVarDef d])) l
+      end 
+    | _ -> fail tg_trm.loc "renames: the target should be pointing to a sequence"
+  )
+
+
 
 (* [reverse_fold tg] expects the target [tg] poiting to a variable declaration with an initial value
     being another variable occurrence. Then it will inline y on all its occurrenes which belong to the
@@ -222,7 +260,7 @@ let reverse_fold : Target.Transfo.t =
         end in
          if x <> "" then
           Variable_basic.inline [Target.cVarDef y];
-          Variable_basic.rename_on_block (ByList [(x,y)]) (Target.target_of_path path_to_seq)
+          renames (ByList [(x,y)]) (Target.target_of_path path_to_seq)
       | _ -> fail init.loc "reverse_fold: expected an initialized variable declaration"
       end
     | _ -> fail t.loc "reverse_fold: expected the declaration of the variable which is goingg to be reverse folded"
