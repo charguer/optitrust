@@ -367,11 +367,11 @@ val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -
 
 val lit : string -> trm
 
-val atyp : string -> trm
+val atyp : string -> typ
 
 val expr : ?vars:string list -> string -> trm
 
-val atypexpr : string -> trm
+val atypexpr : string -> typ
 
 val stmt : string -> trm
 

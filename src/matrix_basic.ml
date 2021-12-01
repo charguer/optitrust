@@ -50,7 +50,7 @@ let biject (fun_name : string) : Target.Transfo.t =
       as the one of [var]. Then we copy the contents of the matrix [var] into [local_var] and finaly we
       free up the memory.
  *)
-let local_name ?(my_mark : mark option) ?(indices : (var list) option) ~var:(var : var) ~local_var:(local_var : var) (tg : Target.target) : unit =
+let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ~var:(var : var) ~local_var:(local_var : var) (tg : Target.target) : unit =
   let vardef_trm = Target.get_trm_at [Target.cVarDef var] in
   let var_type = match trm_var_def_inv vardef_trm with
   | Some (_, _, ty, _) -> ty

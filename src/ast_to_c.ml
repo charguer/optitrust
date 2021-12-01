@@ -48,8 +48,12 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
     drt ^^ blank 1 ^^ d
   | Typ_template_param n ->
     string n
-  | Typ_arbitrary s -> string s
-
+  | Typ_arbitrary a_kind -> 
+        begin match a_kind with
+        | Atyp ty -> string ty
+        | Atypexpr tye -> parens (string tye)
+        | _ -> fail None "typ_to_doc: arbitrary types entered as string should be entered by using either Atyp or Atypexpr"
+        end  
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
@@ -350,10 +354,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         let code_str =
         begin match a_kind with
         | Lit l -> string l
-        | Atyp ty -> string ty
         | Expr e -> parens (string e)
-        | Atypexpr tye -> parens (string tye)
         | Stmt s -> string s
+        | _ -> fail t.loc "trm_to_doc: arbitrary code should be entered by using Lit, Expr and Stmt only"
         end  in
         dattr ^^ code_str
      | Trm_omp_directive d -> dattr ^^ sharp ^^ string "pragma" ^^ blank 1 ^^ string "omp" ^^ blank 1 ^^ directive_to_doc d

@@ -135,12 +135,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   );
   !! iter_dims (fun d ->
     Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
-  !! Cast.insert (Ast.typ_float ()) [sExprRegexp  "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
-  !! Struct.update_fields_type "pos." (Atyp "float") [cTypDef "particle"];   (* TODO: (atyp "float")  ;  if argument of atype is int or float  *)
+  !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
+  !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];   
   !!! ();
-
-
-
 
   (* Part: introduce matrix operations, and mark a key loop *)
   !! Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
@@ -149,7 +146,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.local_name ~my_mark:"charge" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [cLabel "charge"];
   !! Matrix_basic.delocalize (*~init_zero:true*) ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "charge"];
-  (* TODO: if init_zero=false, then start the loop at one *)
   (* TODO: Matrix.delocalize = local_name + delocalize + remove mark + reorder if ~last:true
       : first dimension goes to last *) (* list_rotate n l = let (l1,l2) = split n l in l2 ++ l1      with n=1 *)
   !! Specialize.any "k" [main; cAny];

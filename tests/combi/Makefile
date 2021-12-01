@@ -31,7 +31,6 @@ TESTS_WORKING := \
 
 
 TESTS_TOCHECK := \
-	
 	instr_accumulate.ml \
 	instr_moveout.ml \
 	instr_read_last_write.ml \

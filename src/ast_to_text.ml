@@ -48,7 +48,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
     node "Typ_record" ^^ parens (drt ^^ comma ^^ blank 1 ^^ dt)
   | Typ_template_param name ->
     node "Typ_template_param" ^^ parens (string name)
-  | Typ_arbitrary s -> string s
+  | Typ_arbitrary s -> string (code_to_str s)
 
 and print_typ_annot (a : typ_annot) : document =
   match a with

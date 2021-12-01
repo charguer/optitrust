@@ -62,3 +62,4 @@ void MFREE1(int N1, void* p) {
 void MFREE2(int N1, int N2, void* p) {
   MFREE(p);
 }
+

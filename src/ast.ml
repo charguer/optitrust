@@ -134,7 +134,7 @@ and typ_desc =
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
   | Typ_record of record_type * typ
   | Typ_template_param of string
-  | Typ_arbitrary of styp
+  | Typ_arbitrary of code_kind
 
 (* references are considered as pointers that's why we need to distinguish the kind of the pointer *)
 and ptr_kind =
@@ -718,7 +718,7 @@ let typdef_prod ?(recursive:bool=false) (field_list : (label * typ) list) : typd
   Typdef_prod (recursive, field_list)
 
 let typ_str ?(annot : typ_annot list = []) ?(typ_attributes = [])
-  (s : styp) : typ =
+  (s : code_kind) : typ =
   {typ_annot = annot; typ_desc = Typ_arbitrary s ; typ_attributes}
 
 (* function that fails with given error message and points location in file *)
@@ -732,9 +732,6 @@ let fail (loc : location) (err : string) : 'a =
   | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
      raise (TransfoError (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^
      " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]" ^ " : " ^ err))
-
-
-
 
 (* *************************** Trm constructors *************************** *)
 
@@ -2089,13 +2086,13 @@ module AstParser = struct
 
   let lit l = code (Lit l)
 
-  let atyp ty = code (Atyp ty)
+  let atyp ty = typ_str (Atyp ty)
 
   let expr ?(vars : var list = []) (e : string)  = 
     let e = if vars = [] then e else Tools.subst_dollar_number vars e in
     code (Expr e)
 
-  let atypexpr ty = code (Atypexpr ty)
+  let atypexpr tye = typ_str (Atypexpr tye)
   
   let stmt s = code (Stmt s)
 

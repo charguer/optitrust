@@ -396,7 +396,7 @@ let insert_aux (index : int) (const : bool) (name : string) (typ : string) (valu
   match t.desc with 
   | Trm_seq tl ->
     let vk = if const then Var_immutable else Var_mutable  in
-    let new_typ = if const then typ_const (typ_str typ) else typ_str typ in
+    let new_typ = if const then typ_const (atyp typ) else atyp typ in
     let new_trm = trm_let vk (name, new_typ) value in
     let new_tl = Mlist.insert_at index new_trm tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
@@ -417,7 +417,7 @@ let insert (index : int) (const : bool) (name : string) (typ : string) (value : 
       the updated ast of the sequence which contains the declaration
 *)
 let change_type_aux (new_type : typvar) (index : int) (t : trm) : trm =
-  let constructed_type = typ_str new_type in
+  let constructed_type = atyp new_type in
   match t.desc with
   | Trm_seq tl ->
     let lfront, decl, lback = Internal.get_trm_and_its_relatives index tl in

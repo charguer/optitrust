@@ -338,3 +338,10 @@ let subst_dollar_number (inst : string list) (s : string) : string =
   fold_lefti (fun i acc insti -> 
     string_subst ("${"^(string_of_int i) ^ "}") insti acc
   ) s inst
+
+(* [list_rotate n l] move n elements at the end of the list *)
+let list_rotate (n : int) (l : 'a list) : 'a list = 
+ if n > List.length l then failwith "list_rotate: the elements to rotate shouuld be less or equal to the number of the elements in the list";
+ let ls, rs = split_list_at n l in rs @ ls
+
+
