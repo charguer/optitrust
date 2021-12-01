@@ -32,7 +32,6 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
 	instr_accumulate.ml \
-	instr_moveout.ml \
 	instr_read_last_write.ml \
 	instr_gather.ml \
 	loop_fold.ml \
@@ -42,13 +41,15 @@ TESTS_TOCHECK := \
 	variable_reverse_fold.ml \
 	variable_elim_redundant.ml \
   variable_insert_list.ml \
-	
+
+# TODO:
+# instr_moveout.ml \  -- currently move_invariant
 
 
 TESTS_TO_FIX := \
 	aos_to_soa.ml \
 	function_beta.ml \
-	
+
 
 
 TESTS_WITH_DOC := \
