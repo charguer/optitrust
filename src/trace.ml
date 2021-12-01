@@ -716,11 +716,11 @@ let (!!!) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:false ();
   x
 
-let (!!?) (x : 'a) : 'a = 
+let (!!^) (x : 'a) : 'a = 
   check_exit_and_step ~is_small_step:true ~reparse:true ();
   x
 
-let (!!!?) (x : 'a) : 'a = 
+let (!!!^) (x : 'a) : 'a = 
   check_exit_and_step ~is_small_step:false ~reparse:true ();
   x
 

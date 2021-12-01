@@ -35,14 +35,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part 0: Labelling the main loop*)
   !! Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
 
-  (* Part1: space reuse *) 
+  (* Part1: space reuse *)
   !! Variable.reuse ~space:(expr "p.speed") [main; cVarDef "speed2"];
      Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
 
-  (* TODO: use !!! for big steps *)
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
-  !! Flow.insert_if ~cond:(trm_any_bool) [main; cFun "bag_push"]; (* TODO: trm_any_bool should be default value *)
+  !! Flow.insert_if [main; cFun "bag_push"]; 
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
   !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
@@ -69,7 +68,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       [nbMulti; ctx; dRHS];
   !! Loop.fold_instrs ~index:"k" [ctx];
 
-  (* Part: reveal fields *) (* TODO: unit test showning issue with inlining *)
+  (* Part: reveal fields *) 
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
@@ -87,20 +86,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-     (* TODO:  uint test
+     
 
-        typedef struct { int v[2]; } T;
-         int main() {
-             T f;
-             f.v[0] = 1;
-             int a = (f.v)[0];
-             int b = f.v[0];
-         }
-        see the difference in  ast, and  try to run read_last_write
-     *)
-
-(* TODO: Fix the issue of inline_last_write for this particular case *)
-!!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()];
+!!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; (* The issue is coming from function inline *)
     Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
@@ -122,8 +110,10 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
   !!! ();
+  
 
-  (* TODO: simplifier *)
+  (* Part: simplify expressions *)
+  !! Arith.simplify [nbMulti;cFieldWrite ~regexp:true ~field:"\\(speed\\|pos\\)." (); dRHS];
 
   (* Part: grid_enumeration *)
   !! Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
@@ -145,17 +135,27 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   );
   !! iter_dims (fun d ->
     Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
-  !! Cast.insert (Ast.typ_float ()) [sExprRegexp ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
-  !! Struct.update_fields_type "pos." (typ_float ()) [cTypDef "particle"];   (* TODO: (atyp "float")  ;  if argument of atype is int or float  *)
+  !! Cast.insert (Ast.typ_float ()) [sExprRegexp  "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
+  !! Struct.update_fields_type "pos." (Atyp "float") [cTypDef "particle"];   (* TODO: (atyp "float")  ;  if argument of atype is int or float  *)
   !!! ();
 
-  (* Part: duplication of corners for vectorization of change deposit *)
+
+
+
+  (* Part: introduce matrix operations, and mark a key loop *)
+  !! Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
   !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
-  !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];
+
+  (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.local_name ~my_mark:"charge" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [cLabel "charge"];
-  !! Matrix_basic.delocalize ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "charge"];
-  !! Variable.inline [main; cVarDef "indices"];
+  !! Matrix_basic.delocalize (*~init_zero:true*) ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cMark "charge"];
+  (* TODO: if init_zero=false, then start the loop at one *)
+  (* TODO: Matrix.delocalize = local_name + delocalize + remove mark + reorder if ~last:true
+      : first dimension goes to last *) (* list_rotate n l = let (l1,l2) = split n l in l2 ++ l1      with n=1 *)
   !! Specialize.any "k" [main; cAny];
+  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]]; (* TODO: ARTHUR shorter?*)
+
+  (* Part: bijection to group corners of a same cell nearby in memory *)
   let my_bij_code =
     "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
       coord coord = coordOfCell(idCell);
@@ -176,8 +176,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      }" in
   !! Sequence.insert (stmt my_bij_code) [tBefore; main];
   !! Matrix.biject "mybij" [main; cVarDef "nextChargeCorners"];
-  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
-  !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)") [cFun "mybij"];
+  !! Variable.inline [main; cVarDef "indices"];
+  show [sExpr "mybij(nbCorners, nbCells, k, indicesOfCorners(idCell2).v[k])"]; (* TODO : fix sExpr , then use this target *)
+  !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)") [cLabel "charge"; cFun "mybij"];
+    (* TODO: after ~last:true [sExpr "mybij(nbCells, nbCorners, indicesOfCorners(idCell2).val[k], k)"]; *)
+
+    (* TODO: ARTHUR: simplify mybij calls in the sum *)
+
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main];
@@ -216,5 +221,5 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: optimize chunk allocation *)  (* ARTHUR *)
   (* skip #16 *)
 
-)
 
+)

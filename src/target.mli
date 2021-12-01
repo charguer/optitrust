@@ -353,9 +353,9 @@ val (!!) : 'a -> 'a
 
 val (!!!) : 'a -> 'a
 
-val (!!?) : 'a -> 'a
+val (!!^) : 'a -> 'a
 
-val (!!!?) : 'a -> 'a
+val (!!!^) : 'a -> 'a
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 
