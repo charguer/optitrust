@@ -14,7 +14,7 @@ TESTS_WORKING := \
 	array_tile.ml \
 	array_to_variables.ml \
 	cast_insert.ml \
-   flow_insert_if.ml \
+  flow_insert_if.ml \
 	function_bind_intro.ml \
 	function_inline.ml \
 	instr_move.ml \
@@ -74,21 +74,21 @@ TESTS_TOCHECK := \
 	function_uninline.ml \
 	include_inline.ml \
 	instr_accumulate.ml \
-	matrix_delocalize.ml \
-	matrix_intro_mcalloc.ml \
-	matrix_intro_mindex.ml \
-	matrix_intro_mmalloc.ml \
-	matrix_local_name.ml \
-	matrix_reorder_dims.ml \
 	sequence_insert.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
 	struct_simpl_proj.ml \
 	variable_bind_intro.ml \
 	variable_init_attach.ml \
+	matrix_delocalize.ml \
+	matrix_intro_mcalloc.ml \
+	matrix_intro_mindex.ml \
+	matrix_intro_mmalloc.ml \
+	matrix_local_name.ml \
+	matrix_reorder_dims.ml \
 
 # missing expected
-# matrix_insert_alloc_dim.ml 
+# matrix_insert_alloc_dim.ml
 #	matrix_insert_access_dim_index.ml \
 
 

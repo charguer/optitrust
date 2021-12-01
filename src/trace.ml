@@ -659,8 +659,17 @@ let dump_diff_and_exit () : unit =
    then the [reparse] function is called, replacing the current AST with
    a freshly parsed and typechecked version of it. *)
 let check_exit_and_step ?(line : int = -1) ?(is_small_step  : bool = false)  ?(reparse : bool = false) () : unit =
+  if !Flags.documentation_save_file_at_first_check <> "" then begin
+    let trace =
+      match !traces with
+      | [trace] -> trace
+      | _ -> fail None "doc_script_cpp: does not support the use of [switch]"
+      in
+    let ctx = trace.context in
+    output_prog ctx !Flags.documentation_save_file_at_first_check (trace.cur_ast)
+  end else
   let ignore_step = is_small_step && !Flags.ignore_small_steps in
-  if not ignore_step then begin 
+  if not ignore_step then begin
     report_time_of_last_step();
     let should_exit =
       match Flags.get_exit_line() with
@@ -708,7 +717,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step  : bool = false)  ?(r
    Use [!!();] for a step in front of another language construct, e.g., a let-binding. *)
 
 let (!!) (x:'a) : 'a =
-  check_exit_and_step ~is_small_step:true (); 
+  check_exit_and_step ~is_small_step:true ();
   x
 
 (* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
@@ -716,11 +725,11 @@ let (!!!) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:false ();
   x
 
-let (!!^) (x : 'a) : 'a = 
+let (!!^) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:true ~reparse:true ();
   x
 
-let (!!!^) (x : 'a) : 'a = 
+let (!!!^) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:true ();
   x
 

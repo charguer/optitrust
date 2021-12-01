@@ -2,6 +2,27 @@
 open Optitrust
 open Target
 
+
+let _ = Run.doc_script_cpp (fun _ ->
+    !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabelBody "body"];
+  )
+"
+void foo(int x);
+
+void f(int x) {
+  foo(x);
+  foo(x);
+}
+
+int main() {
+  body: {
+    foo(3);
+    foo(3);
+  }
+}
+"
+
+
 (* LATER: add a "compute" transformation to simplify
     - products of int
     - sums and products of doubles
@@ -11,11 +32,11 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
 
-    
-    !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabel "gtwice_body"; dBody];
-    !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabel "fbody"; dBody];
-    !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabel "hobody"; dBody];
-    !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabel "bagbody"; dBody];
+
+    !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabelBody "gtwice_body"];
+    !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabelBody "fbody"];
+    !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabelBody "hobody"];
+    !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabelBody "bagbody"];
 
 )
 

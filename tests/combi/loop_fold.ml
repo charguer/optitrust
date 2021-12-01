@@ -6,7 +6,7 @@ let _ = Run.script_cpp (fun _ ->
   (*
   !! Loop.fold "i" [cLabelled "iterations"];
 
-  *) (* NOTE: nbMulti is added by default *)
+  *) (* NOTE: nbMulti is added by default --> should rename to fold_targets   TODO: *)
 
   !! Loop.fold  ~index:"k"  3 [cCellWrite ~base:[cVar "values"] ~index:[cInt 0] ()];
 

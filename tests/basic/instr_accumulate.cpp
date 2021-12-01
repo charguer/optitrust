@@ -15,7 +15,7 @@ int main () {
     x = x + 4;
     x = x + 5;
     x = x + 6;
-    x = x + 7;
+    x += 7;
   }
   vect result = {0,0};
   test2: {

@@ -130,9 +130,13 @@ let script_cpp ?(filename : string = "") ?(inline : string list = []) ?(check_ex
     executes the transformation [f] using [script_cpp ~filename:"foo_doc.cpp"]  *)
 let doc_script_cpp ?(filename : string = "") (f : unit -> unit) (src : string) : unit =
   let basename = get_basename filename in
-  let src_filename = basename ^ "_doc.cpp" in
-  Xfile.put_contents src_filename src;
-  script_cpp ~filename:src_filename ~check_exit_at_end:false f
+  let doc_basename = basename ^ "_doc" in
+  Flags.documentation_save_file_at_first_check := doc_basename;
+  let src_filename = doc_basename ^ ".ml" in
+  (* Write the contents of the cpp file; not that it will be overwritten at the first '!!' from the script. *)
+  Xfile.put_contents (doc_basename ^ ".cpp") src;
+  script_cpp ~filename:src_filename ~check_exit_at_end:false f;
+  Flags.documentation_save_file_at_first_check := ""
 
 (* LATER:   add  script_rust  following script_cpp *)
 

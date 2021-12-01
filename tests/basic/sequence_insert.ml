@@ -1,6 +1,19 @@
 open Optitrust
 open Target
-open Ast 
+open Ast
+
+(* TODO: why is this not working?
+let _ = Run.doc_script_cpp (fun _ ->
+    !! Sequence_basic.insert (stmt "a++;") [tBefore; cVarDef "c"] (*[tAfter; cVarDef "a"];*)
+  )
+"
+int main() {
+  int a = 1;
+  int c = 2;
+}
+"
+*)
+
 
 let _ =
   Run.script_cpp (fun _ ->
