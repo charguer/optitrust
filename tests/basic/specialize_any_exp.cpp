@@ -1,4 +1,4 @@
-int ANY(int maxValue) { return 0; }
+#include "../../include/optitrust.h"
 
 int const N = 2;
 

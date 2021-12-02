@@ -48,6 +48,7 @@ TESTS_WORKING := \
 	sequence_partition.ml \
 	struct_fields_reorder.ml \
 	struct_inline.ml \
+	struct_rename_field.ml \
 	struct_rename_fields.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
@@ -55,6 +56,7 @@ TESTS_WORKING := \
 	typedef_fold.ml \
 	typedef_inline.ml \
 	typedef_insert.ml \
+	typedef_insert_copy.ml \
 	variable_change_type.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
@@ -79,7 +81,7 @@ TESTS_TOCHECK := \
 	specialize_any.ml \
 	specialize_choose.ml \
 	struct_simpl_proj.ml \
-	variable_bind_intro.ml \
+	variable_bind.ml \
 	variable_init_attach.ml \
 	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \

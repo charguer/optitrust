@@ -7,11 +7,6 @@ typedef struct {
   int y;
 } vect;
 
-typedef struct {
-  int x;
-  int y;
-} vect2;
-
 vect w[N];
 
 vect u[N];

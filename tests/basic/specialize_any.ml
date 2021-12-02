@@ -1,10 +1,6 @@
 open Optitrust
 open Target
 
-(* TODO: the unit test and the doc test should have an #include "../../include/optitrust.h"
-   and not contain a definition of the ANY function
-*)
-
 
 let _ = Run.doc_script_cpp (fun _ ->
       !! Specialize_basic.any "i" [cAny];

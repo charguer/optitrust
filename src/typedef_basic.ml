@@ -22,11 +22,11 @@ let inline ?(delete : bool = false) ?(at : target = []) (tg : target) : unit =
       Typedef_core.inline delete at i t p) tg
 
 
-(* [copy name tg] expects [tg] to point to a typedef declaration it then copies the content 
+(* [insert_copy name tg] expects [tg] to point to a typedef declaration it then copies the content 
       of the body of typedef at gives to it the name [name]
 *)
-let copy (name : string) (tg : Target.target) : unit =
-  Internal.nobrace_remove_after( fun _ -> Target.apply_on_targets (Typedef_core.copy name) tg)
+let insert_copy (name : string) (tg : Target.target) : unit =
+  Internal.nobrace_remove_after( fun _ -> Target.apply_on_targets (Typedef_core.insert_copy name) tg)
 
 (* [insert name td_body] expects target [tg] to a relative location inside a sequence
     then it will insert a typedef declaration at that location. [name] is the new type

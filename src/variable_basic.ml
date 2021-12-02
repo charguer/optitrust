@@ -28,8 +28,8 @@ let inline_common (delete : bool) (accept_functions : bool) (at : target) : Targ
 (* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to true.
     an the target [at] left empty.
 *)
-let inline ?(accept_functions : bool = true): Target.Transfo.t =
-  inline_common true accept_functions []
+let inline ?(delete : bool = false) ?(accept_functions : bool = true): Target.Transfo.t =
+  inline_common delete accept_functions []
 
 (* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to false.
     an the target [at] should be given by the user.
@@ -146,9 +146,9 @@ let replace_occurrences ?(reparse : bool = false) ~subst:(name : var) ~put:(put 
     Target.apply_on_targets (Variable_core.replace_occurrences name put)
   )
 
-(* [bind_intro] spec *)
-let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = false) ?(my_mark : mark = "") : Target.Transfo.t =
+(* [bind] spec *)
+let bind  ?(const : bool = false) ?(my_mark : mark = "") (fresh_name : var) : Target.Transfo.t =
   Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
-      Variable_core.bind_intro my_mark i fresh_name const p_local t p)
+      Variable_core.bind my_mark i fresh_name const p_local t p)

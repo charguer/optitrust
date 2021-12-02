@@ -417,7 +417,7 @@ let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
   Target.apply_on_path (change_type_aux new_type index)
 
 
-(* [bind_intro_aux index fresh_name const p_local t]: bind the variable [fresh_name] to the function_call
+(* [bind_aux index fresh_name const p_local t]: bind the variable [fresh_name] to the function_call
     params:
       [my_mark]: a mark to be left in the targeted node
       [index]: index of the instruction containing the targeted function call
@@ -429,7 +429,7 @@ let change_type (new_type : typvar) (index : int) : Target.Transfo.local =
     return:
       the updated sequence with the new generated binding
 *)
-let bind_intro_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
+let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) (t : trm) : trm =
   match t.desc with 
   | Trm_seq tl -> 
     let lfront, instr, lback = Internal.get_trm_and_its_relatives index tl in
@@ -462,8 +462,8 @@ let bind_intro_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bo
       let new_tl = Mlist.merge lfront (Mlist.of_list ([decl_to_insert] @ [node_to_change])) in
       let new_tl = Mlist.merge new_tl lback in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
-  | _ -> fail t.loc "bind_intro_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "bind_aux: expected the surrounding sequence"
 
 
-let bind_intro (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
-  Target.apply_on_path (bind_intro_aux my_mark index fresh_name const p_local)
+let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
+  Target.apply_on_path (bind_aux my_mark index fresh_name const p_local)

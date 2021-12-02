@@ -1,8 +1,6 @@
 open Optitrust
 open Target
 
-(* TODO: another unit test for rename_field *)
-
 let _ = Run.doc_script_cpp (fun _ ->
     !! Struct_basic.rename_fields (fun f -> String.uppercase_ascii f) [cTypDef "obj"];
   )
@@ -17,7 +15,6 @@ typedef struct {
   int mass;
 } obj;
 "
-
 
 let _ = Run.script_cpp (fun _ ->
 

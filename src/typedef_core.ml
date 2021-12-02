@@ -76,7 +76,7 @@ let inline_aux (delete : bool) (inline_at : target) (index : int) (t : trm) : tr
 let inline (delete : bool) (inline_at : target) (index : int) : Target.Transfo.local =
   Target.apply_on_path (inline_aux delete inline_at index)
 
-(* [copy_aux name index t]: create a copy of a typedef with a new name
+(* [insert_copy_aux name index t]: create a copy of a typedef with a new name
     params:
       [name]: new typ name
       [t]: ast of the surrounding sequence of the original declaration
@@ -84,15 +84,15 @@ let inline (delete : bool) (inline_at : target) (index : int) : Target.Transfo.l
       the updated sequence with the newly inserted typedef with the smae structure ast the one
           at index [index] but name [name]
 *)
-let copy_aux (name : string) (t : trm) : trm =
+let insert_copy_aux (name : string) (t : trm) : trm =
   match t.desc with 
   | Trm_typedef td ->
     let td_copy = trm_typedef {td with typdef_tconstr = name} in
     trm_seq_no_brace [t; td_copy]
-  | _ -> fail t.loc "copy_aux: expected a typedef declaration" 
+  | _ -> fail t.loc "insert_copy_aux: expected a typedef declaration" 
 
-let copy (name : string) : Target.Transfo.local =
-  Target.apply_on_path (copy_aux name )
+let insert_copy (name : string) : Target.Transfo.local =
+  Target.apply_on_path (insert_copy_aux name )
 
 (* [insert_aux name td_body index]: insert a new type definition
     params:
