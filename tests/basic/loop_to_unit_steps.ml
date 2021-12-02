@@ -12,9 +12,6 @@ int main() {
   }
 }
 "
-(* TODO: simplify the expression when the start is zero, there is no need to subtract zero;
-   in other cases, even if we have constant values, it's fine to leave the subtraction (eg. 10-4). *)
-
 
 let _ = Run.script_cpp (fun _ ->
   !! Loop_basic.to_unit_steps ~index:"j" [cFor "i"];

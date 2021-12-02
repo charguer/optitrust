@@ -154,7 +154,7 @@ let to_unit_steps ?(index : var = "" ) : Target.Transfo.t =
     can be expressed into a single for loop with [index] [direction] [start] [nb_instructions] and [step] as loop 
     components.
 *)
-let fold (index : var) (start : int) (step : int) : Target.Transfo.t =
+let fold ~index:(index : var) ~start:(start : int) ~step:(step : int) : Target.Transfo.t =
   Target.apply_on_targets (
     Loop_core.fold index start step
 )

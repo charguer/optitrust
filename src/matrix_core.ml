@@ -385,24 +385,29 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   ) thrd_instr ps2 in
 
                 let new_access = access base new_dims new_indices in
-                    let acc = match acc with
-                    | Some s -> s
-                    | None -> "s" in
+                
+                let acc, acc_provided = match acc with
+                | Some s -> s, true
+                | None -> "s", false in
                 
                 let op_fun (l_arg : trm) (r_arg : trm) : trm  = match ops with 
                   | Delocalize_arith (_, op) -> trm_set ~annot:[App_and_set] l_arg (trm_apps (trm_binop op) [l_arg; r_arg])
                   | Delocalize_obj (_, transfer_f) -> trm_apps (trm_var transfer_f) [l_arg; r_arg] 
                 in
 
-                let new_body = if acc_in_place 
-                  then 
+                let new_body = if acc_in_place then
+                  if acc_provided then fail t.loc "delocalize_aux: if acc_in_place is set to true there is not need to provide an accumulator"
+                  else 
+                  begin
                     trm_seq_nomarks [
                       set (trm_var "a") dims indices (access base new_dims ((trm_int 0) :: indices));
                       trm_for index (trm_int 1) (DirUp dim) (Post_inc) (
                         op_fun old_var_access new_access
                       )
                     ]
+                    end
                   else 
+                    if not acc_provided then fail t.loc "delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
                     (trm_seq_nomarks [
                         trm_let_mut (acc, typ_int ()) (trm_int 0);
                         trm_for index (trm_int 0) (DirUp dim) (Post_inc) (trm_seq_nomarks [

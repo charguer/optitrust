@@ -967,7 +967,7 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
        Printf.kfprintf Printf.fprintf stdout ("<%s> from <%d>,<%d> to   <%d>,<%d>") filename start_row start_column end_row end_column
   else
     Printf.ifprintf stdout
-
+    
 (* concrete accesses in a trm *)
 type trm_access =
   | Array_access_get of trm (* operator -> [i] *)

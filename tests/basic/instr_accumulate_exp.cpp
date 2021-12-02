@@ -6,9 +6,9 @@ typedef struct {
 int main() {
   int x = 10;
 test1:
-  x = ((((((x + 2) + 3) + 4) + 5) + 6) + 7);
+  x = (x + (((((2 + 3) + 4) + 5) + 6) + 7));
   vect result = {0, 0};
 test2:
-  result.x = ((((((result.x + 2) + 3) + 4) + 5) + 6) + 7);
+  result.x += (((((2 + 3) + 4) + 5) + 6) + 7);
   return 0;
 }

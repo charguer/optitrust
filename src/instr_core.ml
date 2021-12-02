@@ -69,19 +69,46 @@ let move (dest_index : int) (index : int) : Target.Transfo.local =
       is the accumulated trm from all the initial write instructions, the operation used for
       the accumulation is the one used in each write operation
  *)
+
 let accumulate_aux (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl ->
     let nb_instr = Mlist.length tl in
     if nb_instr < 2 then fail t.loc "accumulate_aux: expected at least two instructions";
+    let is_infix_op = ref false in
     Mlist.fold_lefti (fun i acc t1 -> 
       begin match t1.desc with 
       | Trm_apps (_, [ls; rs]) when is_set_operation t1 ->
         begin match rs.desc with 
         | Trm_apps (f, [ls1; rs1]) ->
-          let acc = if i = 0 then ls1 else acc in
-          let acc_trm = (trm_apps f [acc; rs1]) in
-          if i = nb_instr -1 then trm_set ls acc_trm else acc_trm 
+          if i = 0 
+            then begin
+              if List.mem App_and_set t1.annot then is_infix_op := true;
+            rs1 
+            end 
+          else if i = nb_instr - 1 
+            then 
+              let acc = trm_apps f [acc; rs1] in
+              let acc_trm = trm_apps f [ls1; acc] in
+              if !is_infix_op 
+                then trm_annot_add App_and_set (trm_set ls acc_trm)
+                else trm_set ls acc_trm
+          else 
+            (trm_apps f [acc; rs1])  
+          (* let acc = if i = 0 
+            then 
+             begin 
+               if List.mem App_and_set t1.annot then is_infix_op := true;
+               acc 
+             end  
+            else acc in 
+          let acc_trm = if i = nb_instr - 1 then trm_apps f [ls1; acc] else (trm_apps f [acc; rs1]) in
+          if i = nb_instr -1 
+            then 
+              if !is_infix_op 
+                then trm_annot_add App_and_set (trm_set ls acc_trm)  
+                else trm_set ls acc_trm 
+            else acc_trm  *)
         | _-> fail t.loc "accumulate_aux: expected an instruction of the form x += A or x = x + A"
         end
       | _ -> fail t.loc "accumulate_aux: all the instructions should be write operations"

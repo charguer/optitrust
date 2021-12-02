@@ -16,10 +16,6 @@ int main() {
   }
 }
 "
-(* TODO: if the first operation has an annotation "infix_op", ie is of the form x+=..
-   then the output should be  x += .. instead of x = x + ..
-   (that is, we would preserve the infix_op annotation) *)
-
 let _ = Run.script_cpp (fun _ ->
 
   !! Instr_basic.accumulate [cLabelBody "test1"];

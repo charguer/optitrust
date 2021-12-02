@@ -367,13 +367,21 @@ let to_unit_steps_aux (new_index : var) (t : trm) : trm =
    | Step l_step -> l_step 
    | _ -> trm_int 1 in
 
+    let aux (start : trm) (stop : trm) : trm = 
+      match trm_lit_inv start with 
+      | Some (Lit_int 0) -> 
+        stop
+      | _ -> trm_sub stop start 
+     in
+
     let new_stop  = 
     begin match stop with
-    | DirUp bnd ->  DirUp (trm_apps (trm_binop Binop_div) [trm_apps (trm_binop Binop_sub) [bnd; start]; loop_step])
-    | DirUpEq bnd -> DirUpEq (trm_apps (trm_binop Binop_div) [trm_apps (trm_binop Binop_sub) [bnd; start]; loop_step])
-    | DirDown bnd -> DirDown (trm_apps (trm_binop Binop_div) [trm_apps (trm_binop Binop_sub) [bnd; start]; loop_step])
-    | DirDownEq bnd -> DirDownEq (trm_apps (trm_binop Binop_div) [trm_apps (trm_binop Binop_sub) [bnd; start]; loop_step])
-    end in
+    | DirUp bnd ->  DirUp (trm_div (aux start bnd) loop_step)
+    | DirUpEq bnd -> DirUpEq (trm_div (aux start bnd) loop_step)
+    | DirDown bnd -> DirDown (trm_div (aux start bnd) loop_step)
+    | DirDownEq bnd -> DirDownEq (trm_div (aux start bnd) loop_step)
+    end in  
+    
     let new_decl = trm_let Var_mutable (index, (typ_ptr Ptr_kind_mut (typ_int()) ~typ_attributes:[GeneratedStar]))
         (trm_apps (trm_prim (Prim_new (typ_int())))
           [trm_apps (trm_binop Binop_add)[
