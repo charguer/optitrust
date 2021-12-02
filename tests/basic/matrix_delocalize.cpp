@@ -1,7 +1,5 @@
 #include "../../include/optitrust.h"
 
-bool ANY (int x) {return true;}
-
 typedef int T;
 
 int main() {

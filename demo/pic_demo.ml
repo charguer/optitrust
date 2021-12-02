@@ -40,7 +40,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
 
   (* Part: Introducing an if-statement for slow particles *)
-  !! Variable.bind_intro ~fresh_name:"b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
+  !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
   !! Flow.insert_if [main; cFun "bag_push"]; 
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
@@ -125,7 +125,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: Introduce names for new positions *)
   !! iter_dims (fun d ->
-      Variable.bind_intro ~fresh_name:("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) (); dRHS]);
+      Variable.bind ("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) (); dRHS]);
 
   !! Instr.(gather_targets ~dest:(GatherAtFirst)) [main;cVarDef ~regexp:true "\\(i.2\\|p.\\)"];
 
@@ -144,7 +144,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
 
   (* Part: duplication of corners for vectorization of change deposit *)
-  !! Matrix.delocalize ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
+  !! Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~indices:["idCell"] ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
   !! Variable.inline [main; cVarDef "indices"];
   !! Specialize.any "k" [main; cAny];
   let my_bij_code =
@@ -173,7 +173,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main];
-  !! Matrix.delocalize ~var:"nextChargeCorners" ~local_var:"nextChargeThreadCorners" ~indices:["idThread";"idCell"] ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~last:true [cLabel "charge"];
+  !! Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idThread";"idCell"] ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~last:true [cLabel "charge"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
   !! Instr.move_out ~dest:[tBefore; main; cLabel "core"] [nbMulti; main; cVarDef ~regexp:true "nextCharge."];
      Instr.move_out ~dest:[tAfter; main; cLabel "core"] [nbMulti; main; cFun "MFREE"];

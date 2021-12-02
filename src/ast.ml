@@ -2005,6 +2005,20 @@ let is_infix_prim_fun (p : prim) : bool =
     end
   | _ -> false
 
+
+(* [is_arith_fun p] check if the primitive function [p] is an arithmetic operation or not *)
+let is_arith_fun (p : prim) : bool =
+  match p with
+  | Prim_binop bin_op ->
+    begin match bin_op with
+    | Binop_add | Binop_sub | Binop_mul | Binop_div | Binop_mod -> true
+    | _ -> false
+    end
+  | _ -> false
+
+
+
+
 (* [trm_access base field] create a dummy access without type checking*)
 let trm_access (base : trm) (field : var) : trm =
   trm_apps (trm_unop (Unop_struct_field_addr field)) [base]

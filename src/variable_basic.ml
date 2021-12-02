@@ -2,16 +2,16 @@ open Target
 open Ast
 
 
-(* [fold ~as_reference ~at tg] expects the target [tg] to point to a variable declaration
-    [as_reference] - denotes a flag whether the declaration initialization contains a
+(* [fold ~deref ~at tg] expects the target [tg] to point to a variable declaration
+    [deref] - denotes a flag whether the declaration initialization contains a
       variable reference or not.
     [at] - denotes a target where the fold_lefting is done. If empty the
       fold_lefting operation is performed on all the ast nodes in the same level as the
       declaration or deeper, by default [at] = []
 *)
-let fold ?(as_reference : bool = false) ?(at : target = []) : Target.Transfo.t =
+let fold ?(deref : bool = false) ?(at : target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.fold as_reference at i t p)
+    (fun t (p,i) -> Variable_core.fold deref at i t p)
 
 (* internal function *)
 (* [inline_common delete at tg] expects the target [tg] to point to a variable declaration
@@ -147,7 +147,7 @@ let replace_occurrences ?(reparse : bool = false) ~subst:(name : var) ~put:(put 
   )
 
 (* [bind] spec *)
-let bind  ?(const : bool = false) ?(my_mark : mark = "") (fresh_name : var) : Target.Transfo.t =
+let bind ?(const : bool = false) ?(my_mark : mark = "") (fresh_name : var) : Target.Transfo.t =
   Target.applyi_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
     (fun occ  t (p, p_local, i) ->
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in

@@ -438,6 +438,10 @@ let cPrimPredFun ?(args : targets = []) ?(args_pred:target_list_pred = target_li
 let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
    cPrimPredFun ~args ~args_pred (fun p2 -> p2 = p)
 
+(* [cPrimFunArith] *)
+let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr = 
+  cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
+
 (* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
 *)

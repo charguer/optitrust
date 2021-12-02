@@ -18,7 +18,6 @@ int main() {
 let _ = Run.script_cpp (fun _ ->
   (* LATER: ARTHUR why is this giving 2 results?
      show [ cFunDef "main"; cSeq(); cSeq()];
-     ARTHUR: maybe "show" should force nbMulti always
    *)
   let tg = [cSeq ~args_pred:(Target.target_list_one_st [cVarDef "a"]) ()] in (* LATER: simplify *)
   !! Sequence_basic.partition ~braces:true [2;3;2] tg;

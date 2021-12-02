@@ -7,17 +7,17 @@ open Target
 let _ = Run.script_cpp (fun _ ->
   
 
-  !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"];
-  !! Function.inline ~body_mark:"body" [cFun "vect_mul"];
+  (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)
+  !! Function.inline [cFun "vect_mul"];
   !! Function.inline [cFun "vect_add"];
   
   (* with naming of the arguments *)
   !! Trace.alternative (fun () ->
-    !! Function.inline ~body_mark:"body" ~args:["v"] [cFun "f"];
+    !! Function.inline  ~args:["v"] [cFun "f"];
     !!());
   (* inlining a function with if else branches *)
   (* inlining a function with one if branch *)
-  !! Function.inline ~body_mark:"body" [cFun "h"]; 
+  !! Function.inline [cFun "h"]; 
   (* inlining a function of type void *)
-  !! Function.inline ~body_mark:"body" [cFun "m"];
+  !! Function.inline [cFun "m"];
 )

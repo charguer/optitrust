@@ -200,6 +200,8 @@ val cPrimPredFun : ?args:targets -> ?args_pred:target_list_pred -> (prim -> bool
 
 val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 
+val cPrimFunArith : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
+
 val cMark : mark -> constr
 
 val cMarks : mark list -> constr

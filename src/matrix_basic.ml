@@ -45,12 +45,12 @@ let insert_access_dim_index (new_dim : trm) (new_index : trm) : Target.Transfo.t
 let biject (fun_name : string) : Target.Transfo.t =
   Instr.replace_fun fun_name
 
-(* [local_name ~mark var local_var tg] expects the target pointing to an instruction that contains
-      an occurrence of [var] then it will define a matrix [local_var] whose dimensions will be the same
-      as the one of [var]. Then we copy the contents of the matrix [var] into [local_var] and finaly we
+(* [local_name ~mark var into tg] expects the target pointing to an instruction that contains
+      an occurrence of [var] then it will define a matrix [into] whose dimensions will be the same
+      as the one of [var]. Then we copy the contents of the matrix [var] into [into] and finaly we
       free up the memory.
  *)
-let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ~var:(var : var) ~local_var:(local_var : var) (tg : Target.target) : unit =
+let local_name ?(my_mark : mark option) ?(indices : (var list) = []) (var : var) ~into:(into : var) (tg : Target.target) : unit =
   let vardef_trm = Target.get_trm_at [Target.cVarDef var] in
   let var_type = match trm_var_def_inv vardef_trm with
   | Some (_, _, ty, _) -> ty
@@ -60,10 +60,10 @@ let local_name ?(my_mark : mark option) ?(indices : (var list) = []) ~var:(var :
   | Some (dims, sz, zero_init) -> (dims, sz, zero_init)
   | _ -> fail None "local_name: could not get the dimensions and the size of the matrix" in
   begin match my_mark with
-  | Some _ -> Internal.nobrace_enter (); Target.apply_on_targets (Matrix_core.local_name my_mark var local_var alloc_trms var_type indices) tg
+  | Some _ -> Internal.nobrace_enter (); Target.apply_on_targets (Matrix_core.local_name my_mark var into alloc_trms var_type indices) tg
   | _ ->
   Internal.nobrace_remove_after (fun _ ->
-    Target.apply_on_targets (Matrix_core.local_name my_mark var local_var alloc_trms var_type indices ) tg
+    Target.apply_on_targets (Matrix_core.local_name my_mark var into alloc_trms var_type indices ) tg
   ) end
 
 

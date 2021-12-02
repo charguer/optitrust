@@ -1,5 +1,7 @@
 open Ast
 
+include Variable_basic
+
 (* This type is used for variable renaming, the user can choose between renaming all the variables 
     on one block, by giving the suffix to add after or he can also give the list of variables to 
     be renamed where the list should be a a list of string pairs ex. (current_name, new_name).
@@ -14,8 +16,8 @@ let map f = function
 | ByList kvs -> ByList (List.map (fun (k,v) -> (k, f v)) kvs)
 
 
-(* [fold ~as_reference ~at ~nonconst tg] expects [tg] to point to a variable declaration
-    [as_reference] - denotes a flag whether the declaration initialization contains a
+(* [fold ~deref ~at ~nonconst tg] expects [tg] to point to a variable declaration
+    [deref] - denotes a flag whether the declaration initialization contains a
       variable reference or not.
     [at] - denotes a list of targets where the fold_lefting is done. If empty the
       fold_lefting operation is performed on all the ast nodes in the same level as the
@@ -26,7 +28,7 @@ let map f = function
         also for mutable variables.
     This transformation
 *)
-let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
+let fold ?(deref : bool = false) ?(at : Target.target = []) ?(nonconst : bool = false) (tg : Target.target) : unit =
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
@@ -35,12 +37,12 @@ let fold ?(as_reference : bool = false) ?(at : Target.target = []) ?(nonconst : 
       begin match ty.typ_desc with
       (* If the declared variable has a refernce type checking its mutability is not needed*)
       | Typ_ptr {ptr_kind = Ptr_kind_ref;_} ->
-        Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
+        Variable_basic.fold ~deref ~at (Target.target_of_path p)
       (* In other cases we need to check the mutability of the variable *)
       | _ -> begin match vk with
-            | Var_immutable -> Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
+            | Var_immutable -> Variable_basic.fold ~deref ~at (Target.target_of_path p)
             | _ -> if nonconst = true
-                then Variable_basic.fold ~as_reference ~at (Target.target_of_path p)
+                then Variable_basic.fold ~deref ~at (Target.target_of_path p)
                 else
                   fail tg_trm.loc "fold: if you want to use fold_lefting for mutable variables you should set
                             ~nonconst to true when calling this transformation"
@@ -224,10 +226,12 @@ let renames (rename : rename) : Target.Transfo.t =
       let decls = List.filter_map (fun d -> d) decls in
       begin match rename with 
       | AddSuffix s -> 
-        let new_decls = List.map (fun d -> d ^ s) decls in 
-        List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decls new_decls 
+        if s = "" then () (* No changes so we can return unit *)
+        else 
+          let new_decls = List.map (fun d -> d ^ s) decls in 
+          List.iter2 (fun d into -> Variable_basic.rename ~into ((Target.target_of_path p) @  [Target.cVarDef d])) decls new_decls 
       | ByList l -> 
-        List.iter (fun (d, into) -> if not (List.mem d decls) then fail tg_trm.loc "renames: one of the variables you want to rename does not belong to the targeted scope"
+        List.iter (fun (d, into) -> if not (List.mem d decls) then () (* if not (List.mem d decls) then fail tg_trm.loc "renames: one of the variables you want to rename does not belong to the targeted scope" *)
           else Variable_basic.rename ~into ((Target.target_of_path p) @ [Target.cVarDef d])) l
       end 
     | _ -> fail tg_trm.loc "renames: the target should be pointing to a sequence"

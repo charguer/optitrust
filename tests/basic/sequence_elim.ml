@@ -15,8 +15,6 @@ int main() {
 }
 "
 
-(* TODO: i think the label should disappear when the sequence it points to disappears *)
-
 let _ = Run.script_cpp ( fun _ ->
 
     !! Sequence_basic.elim [cSeq ~args:[[cVarDef "u"]] ()];

@@ -60,7 +60,7 @@ TESTS_WORKING := \
 	variable_change_type.ml \
 	variable_fold.ml \
 	variable_init_attach.ml \
-	variable_init_dettach.ml \
+	variable_init_detach.ml \
 	variable_insert.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
@@ -77,12 +77,10 @@ TESTS_TOCHECK := \
 	function_uninline.ml \
 	include_inline.ml \
 	instr_accumulate.ml \
-	sequence_insert.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
 	struct_simpl_proj.ml \
 	variable_bind.ml \
-	variable_init_attach.ml \
 	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \
 	matrix_intro_mindex.ml \
@@ -97,6 +95,7 @@ TESTS_TOCHECK := \
 
 
 TESTS_TO_FIX := \
+	sequence_insert.ml \
 	loop_tile.ml \
 
 

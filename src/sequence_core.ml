@@ -88,7 +88,7 @@ let elim_aux (t : trm) : trm =
   | _ -> fail t.loc "elim_aux: expected the sequence to be deleteds"
 
 let elim : Target.Transfo.local =
-  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) "elim")
+  Target.apply_on_path(Internal.apply_on_path_targeting_a_sequence (elim_aux) ~keep_label:false "elim")
 
 (* [intro_on_instr_aux visible mark t]: replacing t with a sequence that contains t .
    params:
