@@ -6,7 +6,7 @@ open Target
    for this demo to work, we would need a way to disable simpl_proj *)
 
 let _ = Run.doc_script_cpp (fun _ ->
-  Variable_basic.inline ~delete:false [cVarDef "v"]; 
+  Variable_basic.inline [cVarDef "v"]; 
   !! Struct_basic.simpl_proj [cVarDef "a"];
   )
 "

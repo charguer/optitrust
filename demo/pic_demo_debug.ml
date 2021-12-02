@@ -12,11 +12,14 @@ let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
   
+
+
+  (* Part: introduce matrix operations, and mark a key loop *)
+  !! Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
+  !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
   
   (* Part: duplication of corners for vectorization of change deposit *)
-  !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
-  !! Matrix.intro_mops (var "nbCells") [main;cVarDef "nextCharge"];
-  !! Matrix.delocalize ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
+  !! Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~indices:["idCell"] ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
   !! Variable.inline [main; cVarDef "indices"];
   !! Specialize.any "k" [main; cAny];
   let my_bij_code =
@@ -45,7 +48,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !! Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main];
-  !! Matrix.delocalize ~var:"nextChargeCorners" ~local_var:"nextChargeThreadCorners" ~indices:["idThread";"idCell"] ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~last:true [cLabel "charge"];
+  !! Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idThread";"idCell"] ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~last:true [cLabel "charge"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
   !! Instr.move_out ~dest:[tBefore; main; cLabel "core"] [nbMulti; main; cVarDef ~regexp:true "nextCharge."];
      Instr.move_out ~dest:[tAfter; main; cLabel "core"] [nbMulti; main; cFun "MFREE"];

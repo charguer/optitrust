@@ -73,8 +73,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Variable.inline [main; cVarDef "p2"];
-  !! Variable.inline [main; cVarDef "p"];
+  !! Variable.inline ~delete:true [main; cVarDef "p2"];
+  !! Variable.inline ~delete:true [main; cVarDef "p"];
   !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
@@ -93,8 +93,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
     Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
-  !! Struct.inline "speed" [cTypDef "particle"];
-     Struct.inline "pos" [cTypDef "particle"];
+ !! Struct.inline "speed" [cTypDef "particle"];
+    Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: scaling of field, speeds and positions *)
   !! Variable.insert_list ~reparse:true ~defs:(

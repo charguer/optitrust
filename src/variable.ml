@@ -315,7 +315,7 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
           | _ -> fail source_decl_trm.loc "elim_redundant: the soource target should point to a variable declaration"
         end;
         Variable_basic.fold ~at:([Target.cVarDef x]) ((Target.target_of_path path_to_seq) @ [Target.cVarDef !source_var]);
-        Variable_basic.inline ((Target.target_of_path path_to_seq) @ [Target.cVarDef x])
+        Variable_basic.inline ~delete:true ((Target.target_of_path path_to_seq) @ [Target.cVarDef x])
     | _ -> fail tg_trm.loc "elim_redundant: the main target should point to the declaration of the variable you want to eliminate"
   
   )
