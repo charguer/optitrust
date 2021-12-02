@@ -45,8 +45,14 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
     that shoudl be assigned to all the declared variables.
 *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
-  Variable.renames vars tg;
-  Sequence_basic.elim tg
+  Target.iter_on_targets ( fun t p -> 
+    let tg_trm = Path.resolve_path p t in
+    match tg_trm.desc with 
+    | Trm_seq _ -> 
+      Variable.renames vars (Target.target_of_path p);
+      Sequence_basic.elim (Target.target_of_path p)
+    | _ -> fail tg_trm.loc "elim_body: the targetd should be pointing to a sequence"
+  ) tg
 
 (* [bind ~fresh_name ~args tg] expectes the target [tg] to point to a function call, then
     it will just call bind args and bind_intro. Basically this function is used to save the user from
@@ -143,7 +149,7 @@ int f2() { // result of Funciton_basic.inline_cal
 let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
     Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
       (fun i t (path_to_seq, local_path, i1) -> 
-        let _vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
+        let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
         let name_result = ref name_result in
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
         let path_to_call = path_to_instruction @ local_path in
@@ -191,7 +197,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
         let new_target = Target.cMark my_mark in
         if not !mark_added then Marks.add my_mark (Target.target_of_path path_to_call);
         if args <> [] then bind_args args [new_target] else ();
-        let body_mark = "__TEMP_BODY" in
+        let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Function_basic.inline ~body_mark [new_target];
         elim_body ~vars [Target.cMark body_mark];
         if !name_result <> "" then begin 
@@ -207,103 +213,6 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
           Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
       
       ) tg
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-let inline1 ?(name_result : string = "") ?(body_mark : mark = "__TEMP_body") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
-  Target.iteri_on_targets (fun i t p ->
-    let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x ) vars in
-    let name_result = ref name_result in
-    let (path_to_seq,local_path, i1) = Internal.get_instruction_in_surrounding_sequence p in
-    let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
-    let tg_trm = Path.resolve_path (path_to_instruction @ local_path) t in
-    let tg_out_trm = Path.resolve_path path_to_instruction t in
-    let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
-    let res_inlining_needed = ref false in
-    let mark_added = ref false in
-    begin match tg_out_trm.desc with
-    | Trm_let (_, (x, _), init) ->
-      let init1 = match get_init_val init with
-      | Some init1 -> init1
-      | None -> fail t.loc "inline: coudl not get the target to the function call" in
-      if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case"
-        else if List.length local_path <= 2 && List.length local_path > 0 then
-          begin
-          name_result := x;
-          res_inlining_needed := false
-          end
-        else
-            begin match !name_result with
-            | ""  ->  name_result := "__TEMP_Optitrust";
-                      Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path p);
-                      res_inlining_needed := true;
-                      mark_added := true
-
-            | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);
-                   res_inlining_needed := false;
-                   mark_added := true
-            end
-    | Trm_apps (_f, [_; _]) when is_set_operation tg_out_trm ->
-        begin match !name_result with
-        | ""  ->  
-                  name_result := "__TEMP_Optitrust";
-                  Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path p);
-                  res_inlining_needed := true;
-                  mark_added := true
-
-        | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path p);
-               res_inlining_needed := false;
-               mark_added := true
-        end 
-    | Trm_apps _ -> res_inlining_needed := false
-    | _ -> fail None "inline: expected a variable declaration or a function call"
-    end;
-    let new_target = [Target.cMark my_mark] in
-    if not !mark_added then Marks.add my_mark (Target.target_of_path p);
-    if args <> [] then bind_args args new_target else ();
-    Function_basic.inline ~body_mark new_target;    
-
-    elim_body ~vars [Target.cMark body_mark];
-    if !name_result <> "" then begin
-        let success_attach = ref true in
-        let _ = try Variable_basic.init_attach (new_target) with
-           | Variable_core.Init_attach_no_occurrences
-           | Variable_core.Init_attach_occurrence_below_control -> success_attach  := false;()
-           | e -> raise e in
-        if !res_inlining_needed then Variable_basic.inline new_target;
-          (* if !success_attach then Variable.inline_and_rename [Target.nbAny;Target.cVarDef !name_result]; *)
-        Marks.remove my_mark ([Target.nbAny] @ new_target)
-    end;
-    Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
-  ) tg
-
 
 (* [beta ~tg] if the target [tg] is given then this transformation expects this targets to be pointing to a function call 
     if not, then this transformation will try to target all the beta function declarations and reduce them

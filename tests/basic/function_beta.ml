@@ -22,7 +22,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Variable_basic.inline [cFunDef "f"];
+     Variable_basic.inline [cFunDef "f"];
   !! Function_basic.beta [cFun ""];
 
 )

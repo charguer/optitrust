@@ -268,7 +268,7 @@ let inline_and_rename : Target.Transfo.t =
         | _ -> ""
         end in
          if x <> "" then
-          Variable_basic.inline [Target.cVarDef y];
+          Variable_basic.inline ~delete:true [Target.cVarDef y];
           renames (ByList [(x,y)]) (Target.target_of_path path_to_seq)
       | _ -> fail init.loc "inline_and_rename: expected an initialized variable declaration"
       end

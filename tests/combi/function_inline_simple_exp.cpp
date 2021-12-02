@@ -47,8 +47,7 @@ int main() {
 exit_body:;
   int *q = new int;
   (*q)++;
-  int a0 = (f1(x) + f1(x));
-  z = (a0 + a0);
+  z = f(f1(x));
   vect a = {0, 1};
   vect b = {3, 4, 5};
   vect c = {((b.x) + (x * (a.x))), ((b.y) + (x * (a.y))),

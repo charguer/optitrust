@@ -137,7 +137,7 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
         | _ -> trm_map aux t
        in
       let lback = Mlist.map aux lback in
-      let new_dl = trm_let ~annot:t.annot ~marks:t.marks vk (new_name, tx) init in
+      let new_dl = trm_let ~annot:dl.annot  ~marks:dl.marks vk (new_name, tx) init in
       let new_tl = Mlist.merge lfront lback in
       let new_tl = Mlist.insert_at index new_dl new_tl in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl

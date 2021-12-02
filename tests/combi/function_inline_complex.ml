@@ -14,7 +14,7 @@ let _ = Run.script_cpp (fun _ ->
 
     (* Demo without a result name *)
     !! Trace.alternative (fun () ->
-      !! Function.inline ~body_mark:"body1" ~args:["a";"";"b";""] [cFun "g"];
+      !! Function.inline ~args:["a";"";"b";""] [cFun "g"];
       !!());
     !! Trace.alternative (fun () ->
       let r = "res_temp" in
