@@ -10,7 +10,7 @@ vect vect_add(vect v1, vect v2) {
 
 vect vect_mul(int i, vect v) { return {(i * v.x), (i * v.y), (i * v.z)}; }
 
-int main(int argc, char const *argv[]) {
+int main() {
   vect a = {0, 1};
   int x = 1;
   vect b = {3, 4, 5};

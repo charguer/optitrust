@@ -203,7 +203,7 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
       trm_apps ~annot:t.annot ~marks:t.marks f [base; mindex [dim] [index]]
     | _ -> fail t.loc "intro_mindex_aux: expected a primitive array access operation"
     end
-  | _ -> fail t.loc "intro_mindex_aux: expected an array access trm"
+  | _ -> fail t.loc "intro_mindex_aux: expected an array access trm got %s"
 
 let intro_mindex (dim : trm) : Target.Transfo.local =
   Target.apply_on_path (intro_mindex_aux dim)

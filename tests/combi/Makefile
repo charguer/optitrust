@@ -39,7 +39,7 @@ TESTS_TOCHECK := \
 	loop_fusion_targets.ml \
 	matrix_intro_mops.ml \
 	matrix_delocalize.ml \
-	variable_reverse_fold.ml \
+	variable_inline_and_rename.ml \
 	variable_elim_redundant.ml \
   variable_insert_list.ml \
 

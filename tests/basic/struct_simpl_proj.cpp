@@ -13,7 +13,7 @@ vect vect_mul(int i, vect v) {
 }
 
 
-int main(int argc, char const *argv[])
+int main()
 {
   vect a = {0,1};
   int x = 1;

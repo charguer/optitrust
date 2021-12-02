@@ -199,7 +199,7 @@ let inline ?(name_result : string = "") ?(body_mark : mark = "__TEMP_body") ?(va
            | Variable_core.Init_attach_occurrence_below_control -> success_attach  := false;()
            | e -> raise e in
         if !res_inlining_needed then Variable_basic.inline new_target;
-          if !success_attach then Variable.reverse_fold [Target.nbAny;Target.cVarDef !name_result];
+          if !success_attach then Variable.inline_and_rename [Target.nbAny;Target.cVarDef !name_result];
         Marks.remove my_mark ([Target.nbAny] @ new_target)
     end;
     Struct_basic.simpl_proj (Target.target_of_path path_to_seq)

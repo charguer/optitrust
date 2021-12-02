@@ -235,12 +235,17 @@ let renames (rename : rename) : Target.Transfo.t =
 
 
 
-(* [reverse_fold tg] expects the target [tg] poiting to a variable declaration with an initial value
+(* [inline_and_rename tg] expects the target [tg] to be poiting at a variable declaration with an initial value
     being another variable occurrence. Then it will inline y on all its occurrenes which belong to the
     same scope. Then it will rename the variable x to y, both in the declaration and its occurrences
+
+
+    Assumption:
+      if the target [tg] points to the following instruction int y = x; then 
+      no occurrence of x appears after that instruction
 *)
 
-let reverse_fold : Target.Transfo.t =
+let inline_and_rename : Target.Transfo.t =
   Target.iter_on_targets( fun t p ->
     let tg_trm  = Path.resolve_path p t in
     let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in
@@ -261,9 +266,9 @@ let reverse_fold : Target.Transfo.t =
          if x <> "" then
           Variable_basic.inline [Target.cVarDef y];
           renames (ByList [(x,y)]) (Target.target_of_path path_to_seq)
-      | _ -> fail init.loc "reverse_fold: expected an initialized variable declaration"
+      | _ -> fail init.loc "inline_and_rename: expected an initialized variable declaration"
       end
-    | _ -> fail t.loc "reverse_fold: expected the declaration of the variable which is goingg to be reverse folded"
+    | _ -> fail t.loc "inline_and_rename: expected the declaration of the variable which is goingg to be reverse folded"
 )
 
 (* [elim_redundant ~source tg] expets the target [tg] pointing to a variable declaration with an initial value being

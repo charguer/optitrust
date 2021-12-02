@@ -1,6 +1,6 @@
 void f(int a) { a = (a + 1); }
 
-int main(int argc, char const *argv[]) {
+int main() {
   int y = 5;
   y = 6;
   y = 7;

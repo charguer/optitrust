@@ -1,6 +1,6 @@
 int f(int x) { return x; }
 
-int main(int argc, char const *argv[]) {
+int main() {
   double a, b, c, d, e;
   double r, s, t, u, v, w, x, y, z;
   x = (2 * b);
