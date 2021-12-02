@@ -72,7 +72,7 @@ let bind_intro ?(fresh_name : var = "__OPTITRUST___VAR") ?(const : bool = true) 
         }
 *)
 
-let inline ?(body_mark : var = "body") (tg : Target.target) : unit =
+let inline ?(body_mark : mark option) (tg : Target.target) : unit =
   Internal.nobrace_remove_after (fun _ ->
   Target.apply_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
    (fun  t (p, p_local, i) ->

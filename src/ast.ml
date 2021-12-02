@@ -1578,6 +1578,7 @@ let is_set_operation (t : trm) : bool =
   | _ -> false
 
 
+
 (* [trm_for_c_inv_simple_init init] check if the init loop component is simple or not.
     It not then return None else return the index used in the init trm, its initial value and a boolean which states if
   the loop index is declared locally or belongs to another scope.
@@ -1836,8 +1837,15 @@ let is_trm_seq (t : trm) : bool =
   match t.desc with
   | Trm_seq _ -> true  | _ -> false
 
-
-
+(* [is_new_operation t] check if the trm [t] is a primitive new operation *)
+let is_new_operation (t : trm) : bool = 
+  match t.desc with 
+  | Trm_apps (f, [_]) ->
+    begin match trm_prim_inv f with 
+    | Some (Prim_new _) -> true 
+    | _ -> false 
+    end
+  | _ -> false
 
 (* [trm_fors rgs tbody] create nested loops with the main body [tbody] each nested loop
     takes its components from [rgs]

@@ -22,7 +22,7 @@ let _ = Run.script_cpp (fun () ->
   !! Matrix.intro_mops (Ast.trm_var "nbCells") [main;cVarDef "nextCharge"];
   !! Matrix.local_name ~my_mark:"first_local" ~var:"nextCharge" ~local_var:"nextChargeCorners" ~indices:["idCell"] [main; cFor "ix"];
   !! Matrix_basic.delocalize ~dim:(Ast.trm_var "nbCorners") ~index:"k" ~acc:"sum" [cMark "first_local"]; (* LATER: combi version *)
-     Specialize.any "k" [cAny]; (* TODO: ~last:true in delocalize *)
+     Specialize.any "k" [cAny]; (* DONE: ~last:true in delocalize *)
   !! Variable.inline [main; cVarDef "indices"];
   let my_bij_code =
     "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {

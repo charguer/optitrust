@@ -13,10 +13,6 @@ int main() {
   int r = sq(3);
 }
 "
-(* TODO: the mark should not be left by default; only if ~mark:.. is provided there should that mark;
-   if no mark is provided, the sequence around the body should also be removed (nobrace sequence);
-   if a mark is provided, that sequence should remain. *)
-
 
 (* TODO: Find the right path to find all beta function calls *)
 

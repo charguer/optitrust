@@ -100,7 +100,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
 (* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
    but for now we implement a function that covers both beta and inline at once, as it is simpler *)
 
-let inline_aux (index : int) (body_mark : mark) (p_local : path) (t : trm) : trm = 
+let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl -> 
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
@@ -124,7 +124,10 @@ let inline_aux (index : int) (body_mark : mark) (p_local : path) (t : trm) : trm
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
         let name = match trm_to_change.desc with| Trm_let (_, (x, _), _) -> x | _ -> ""  in
         let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
-        let marked_body = trm_add_mark body_mark processed_body in
+        let marked_body = begin match body_mark with 
+        | Some b_m -> trm_add_mark b_m processed_body 
+        | _ -> Internal.set_nobrace_if_sequence processed_body 
+        end  in
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
          if is_type_unit(ty)
@@ -142,7 +145,7 @@ let inline_aux (index : int) (body_mark : mark) (p_local : path) (t : trm) : trm
   | _ -> fail t.loc "inline_aux: the targeted function call should be contained into an instuction that belongs to a local or global scope"
 
 
-let inline (index: int) (body_mark : string) (p_local : path) : Target.Transfo.local =
+let inline (index: int) (body_mark : string option) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (inline_aux index body_mark p_local)
 
 (* [use_infix_ops_aux t] transforms a write operation into app and write operation in the case when

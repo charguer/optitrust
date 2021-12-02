@@ -28,12 +28,10 @@ int main() {
     y = (a + a);
   } /*bodyf@*/
   int z;
-  /*@bodyg*/ {
-    if ((x > 0))
-      z = 1;
-    else
-      z = 2;
-  } /*bodyg@*/
+  if ((x > 0))
+    z = 1;
+  else
+    z = 2;
   int u;
   /*@bodyh*/ {
     if ((x > 0)) {
@@ -44,7 +42,7 @@ int main() {
   } /*bodyh@*/
 exit_body:;
   int *q = new int;
-  /*@bodym*/ { (*q)++; } /*bodym@*/
+  (*q)++;
   int result;
   /*@bodyk*/ { result = (result + 4); } /*bodyk@*/
   return 0;
