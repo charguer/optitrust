@@ -57,8 +57,9 @@ TESTS_WORKING := \
 	typedef_insert.ml \
 	variable_change_type.ml \
 	variable_fold.ml \
+	variable_init_attach.ml \
+	variable_init_dettach.ml \
 	variable_insert.ml \
-	variable_insert_and_fold.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
 	variable_replace_occurrences.ml \

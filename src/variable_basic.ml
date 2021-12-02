@@ -63,10 +63,11 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
     (fun t (p,i) -> Variable_core.init_attach const i t p )
 
 
-(* [local_name var_type var local_var tg] expectes target [tg] to point to a marked
+(* [local_name var_type ~mark var ~into tg] expectes target [tg] to be pointing at a marked
       sequence. Then it will declare a new variable with name [new_name] and replace all
-      the occurences of [var] with [local_var]. The user needs to give the type of the
-      variable for which we want to change the name.
+      the occurences of [var] with [into]. The user needs to provide the new local name.
+      If the arg [mark] is provided then after the transformation the local scope will be marked
+      with that mark.
 
       Example:
         T a                     ->->->       T a
@@ -78,9 +79,9 @@ let init_attach ?(const : bool = false) : Target.Transfo.t =
                                                 a = x;
                                               }@nobrace
 *)
-let local_name ?(mark : mark = "") ~var_type:(vt : typ) ~var:(ov : var) ~local_var:(nv : var) (tg : Target.target) : unit =
+let local_name ?(mark : mark = "") (var : var) ~into:(nv : var) (tg : Target.target) : unit =
   Internal.nobrace_enter();
-  Target.apply_on_targets (Variable_core.local_name mark vt ov nv) tg
+  Target.apply_on_targets (Variable_core.local_name mark var nv) tg
 
 
 (* [delocalize array_size neutral_element fold_operation tg] expects target [tg] to point to

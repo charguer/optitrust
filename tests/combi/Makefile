@@ -23,10 +23,11 @@ TESTS_WORKING := \
 	sequence_split.ml \
 	struct_set_explicit.ml \
 	struct_set_implicit.ml \
-	variable_intro_pattern_array.ml \
 	variable_delocalize.ml \
 	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
+	variable_intro_pattern_array.ml \
+  variable_insert_and_fold.ml \
 	variable_rename.ml \
 	variable_reuse.ml \
 

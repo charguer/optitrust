@@ -118,10 +118,10 @@ let insert_and_fold ~name:(name : string) ~typ:(typ : string) ~value:(value : tr
 *)
 
 let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) )
-   ~var:(ov : var) ~local_var:(nv : var)  ~var_type:(vt : typ)
+   (ov : var) ~local_var:(nv : var) 
   ~array_size:(arrs : string) (tg : Target.target) : unit =
   let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
-  Variable_basic.local_name ~mark:middle_mark ~var_type:vt ~var:ov ~local_var:nv tg;
+  Variable_basic.local_name ~mark:middle_mark ov ~into:nv tg;
   Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark middle_mark];
   begin
    match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> ()
@@ -134,9 +134,9 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
     argument [vars].
 *)
 let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_interest") ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) )
-   ~var:(ov : var) ~local_var:(nv : var)  ~var_type:(vt : typ)
-  ~array_size:(arrs : string) ~local_vars:(lv : vars) (tg : Target.target) : unit =
-  Variable_basic.local_name ~mark ~var_type:vt ~var:ov ~local_var:nv tg;
+   (ov : var) ~into:(nv : var)  ~array_size:(arrs : string) 
+  ~local_vars:(lv : vars) (tg : Target.target) : unit =
+  Variable_basic.local_name ~mark ov ~into:nv tg;
   Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark mark];
   Variable_basic.inline_at [Target.cFor index] [Target.nbAny;Target.cVarDef arrs];
   Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor index];

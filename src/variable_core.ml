@@ -258,7 +258,6 @@ let init_attach (const : bool) (index : int) : Target.Transfo.local =
       occurrences of a variable inside a sequence.
     params:
       [mark]: a mark to mark the producesd nobrace sequence
-      [var_type]: the type of the variable
       [curr_var]: the previous name of the variable, this is used to find all its occurrences
       [local_var]: the name of the variable to be declared and replace all the occurrences of curr_var
       [t]: ast of the trm which contains curr_var.
@@ -267,15 +266,19 @@ let init_attach (const : bool) (index : int) : Target.Transfo.local =
         the term [t] the new declaration and a set operation at the end
 
 *)
-let local_name_aux (mark : mark) (var_type : typ) (curr_var : var) (local_var : var) (t : trm) : trm =
+let local_name_aux (mark : mark) (curr_var : var) (local_var : var) (t : trm) : trm =
+  let vardef_trm = Target.get_trm_at [Target.cVarDef curr_var] in
+  let var_type = match trm_var_def_inv vardef_trm with 
+  | Some (_, _, ty, _) -> ty
+  | _ -> fail vardef_trm.loc "local_name: make sure the name of the current var is entered correctly" in
   let fst_instr = trm_let Var_mutable (local_var, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut var_type) (trm_apps (trm_prim (Prim_new var_type)) [trm_var curr_var]) in
   let lst_instr = trm_set (trm_var ~typ:(Some var_type) curr_var) (trm_apps ~annot:[Mutable_var_get] ( trm_prim (Prim_unop Unop_get)) [trm_var ~typ:(Some var_type) local_var]) in
   let new_t = Internal.change_trm (trm_var curr_var) (trm_var local_var) t in
   let final_trm = trm_seq_no_brace [fst_instr;new_t;lst_instr] in
   if mark <> "" then trm_add_mark mark final_trm else final_trm
 
-let local_name (mark : mark) (var_type : typ) (curr_var : var) (local_var : var) : Target.Transfo.local =
-  Target.apply_on_path(local_name_aux mark var_type curr_var local_var)
+let local_name (mark : mark) (curr_var : var) (local_var : var) : Target.Transfo.local =
+  Target.apply_on_path(local_name_aux mark curr_var local_var)
 
 (* [delocalize_aux array_size ops index t]: after introduced the local_name transformation
       transform the newly declared local variable [local_var]  into an array of size [array size]
