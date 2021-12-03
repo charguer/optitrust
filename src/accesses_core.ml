@@ -31,3 +31,30 @@ let transform_aux (f_get : trm -> trm) (f_set : trm -> trm) (t : trm) : trm =
 
 let transform (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.local = 
   Target.apply_on_path (transform_aux f_get f_set)
+
+(* [intro_aux t] change encodings generated after applying function inline from 
+          struct_get (get (t), f) to get (struct_access (t, f))
+      params:
+        [t]: ast of the node where the accesses can be found
+      return:
+        updated ast of t 
+*)
+let intro_aux (t : trm) : trm = 
+  let rec aux (t : trm) : trm = 
+    match t.desc with 
+    | Trm_apps (f, [arg]) -> 
+      begin match trm_prim_inv f with 
+      | Some (Prim_unop (Unop_struct_field_get x)) -> 
+        begin match arg.desc with 
+        | Trm_apps (_, [arg1]) when is_get_operation arg -> 
+          trm_get ~annot:arg.annot (trm_apps (trm_unop (Unop_struct_field_addr x)) [arg1])
+        | _ -> t
+        end 
+      | _ -> trm_map aux t 
+      end 
+    | _ -> trm_map aux t
+  in 
+  aux t
+
+let intro : Target.Transfo.local = 
+  Target.apply_on_path (intro_aux)

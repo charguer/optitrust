@@ -28,3 +28,10 @@ let shift ?(neg:bool=false) ?(reparse : bool = false) ~factor:(factor : trm) (tg
   transform ~reparse f_get f_set tg
 
  (* LATER: Define shift_access that applies to a target on accesses and calls shift on the parent path *)
+
+
+(* [intro tg] expects the target [tg] to be pointing at any node which could contain struct accesses, preferably a sequence 
+    then it will replace all the nodes with encoding as struct_get (get (t), f) -> get (struct_access (t, f))
+*)
+let intro : Target.Transfo.t = 
+  Target.apply_on_targets (Accesses_core.intro )

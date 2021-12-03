@@ -87,6 +87,7 @@ TESTS_TOCHECK := \
 	matrix_intro_mmalloc.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
+	accesses_intro.ml \
 
 # missing expected
 # matrix_insert_alloc_dim.ml

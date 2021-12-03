@@ -305,12 +305,9 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
            *)
-            if List.mem Mutable_var_get t.annot
-              then dattr ^^ apps_to_doc ~display_star:false ~is_var_get:true f tl ^^ dsemi
-              else if List.mem Access t.annot then
-                dattr ^^ apps_to_doc ~display_star:false ~is_access:true f tl ^^ dsemi
-              else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
-
+            if List.mem Mutable_var_get t.annot || List.mem Access t.annot then  
+              dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
+            else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
             end
      | Trm_while (b, t) ->
         let db = decorate_trm b in
@@ -555,7 +552,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false) ?(is_var_get : bool = false) ?(is_access : bool = false)
+and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false) 
   (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
@@ -613,11 +610,6 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_get ->
                  if not !decode then begin
                    string "get(" ^^ d ^^ string ")"
-                    (* if is_var_get
-                      then
-                      else if is_access
-                        then string "access(" ^^ d ^^ string")"
-                     else d*)
                 end else begin
                   if display_star then parens (star ^^ d) else d
                 end
