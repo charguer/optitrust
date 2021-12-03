@@ -60,6 +60,19 @@ and typ_annot_to_doc (a : typ_annot) : document =
   | Long -> string "long"
   | Short -> string "short"
 
+and trm_annot_to_doc (t_annot : trm_annot list) : document = 
+  let aux t_annot = match t_annot with 
+  | [Access] -> string "<annotation : Access>"
+  | [Multi_decl] -> string "<annotation : Multi_decl>"
+  | [App_and_set] -> string "<annotation : App_and_set>"
+  | [Main_file] -> string "<annotation : Main_file>"
+  | [Mutable_var_get] -> string "<annotation : Mutable_var_get>"
+  | [As_left_value] -> string "<annotation : As_left_value>"
+  | _ -> empty
+  in 
+  (aux t_annot) 
+
+
 and typ_to_doc ?(const : bool = false) (t : typ) : document =
   let d = typ_desc_to_doc ~const t.typ_desc in
   let dannot =
@@ -183,15 +196,18 @@ and attr_to_doc (a : attribute) : document =
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
-  if t.marks = []
-    then dt
-    else
-      begin
-      let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
-      let sleft = string ("/*@" ^ m ^ "*/") in
-      let sright =  string ("/*" ^ m ^ "@*/") in
-      sleft ^^ dt ^^ sright
-      end
+  let dt = 
+    if t.marks = []
+      then dt
+      else
+        begin
+        let m = Tools.list_to_string ~sep:"," ~bounds:["";""] t.marks in
+        let sleft = string ("/*@" ^ m ^ "*/") in
+        let sright =  string ("/*" ^ m ^ "@*/") in
+        sleft ^^ dt ^^ sright
+        end
+    in 
+    if not !decode then trm_annot_to_doc t.annot ^^ dt else dt
 
 and trm_to_doc ?(semicolon=false) (t : trm) : document =
   let loc = t.loc in
