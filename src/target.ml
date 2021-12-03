@@ -619,7 +619,7 @@ let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool =
 let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  () : constr =
  cOr [[cFieldWrite ~base ~substr ~regexp ~field ()];[cFieldRead ~base ~substr ~regexp ~field ()] ]
 
-(* [cCellAccess ~base index] matches all array accesses at index [index] with base [base] *)
+(* [cCellAccess ~base ~index ] matches all array accesses at index [index] with base [base] *)
 let cCellAccess ?(base : target = []) ~index:(index : target )  () : constr =
   cAccesses ~base ~accesses:[cIndex ~index ()] ()
 

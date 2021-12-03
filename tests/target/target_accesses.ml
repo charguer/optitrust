@@ -7,7 +7,7 @@ let _ = Run.script_cpp (fun _ ->
   show [cAccesses ~accesses:[cAccess] ()];
   
   (* Array_accesses *)
-  show [cCellRead [cVar "i"]];
+  (* show [cCellRead ~base:[cVar "i"] ~index:[] ()]; *)
 
   (* show [cCellWrite [cVar "i"]]; *)
 
@@ -16,17 +16,17 @@ let _ = Run.script_cpp (fun _ ->
   
   show  [cAccesses ~accesses:[cField ~field:"x" ~substr:true ()] ()];
   (* Struct accesses *)
-  show [cFieldRead "x"];
-  show [cFieldRead "y"];
+  show [cFieldRead ~field:"x" ()];
+  show [cFieldRead ~field:"y" ()];
   
-  show [cFieldRead "pos"];
-  show [cFieldRead "speed"];
+  show [cFieldRead ~field:"pos" ()];
+  show [cFieldRead ~field:"speed" ()];
 
-  show [cFieldWrite "x"];
-  show [cFieldWrite "y"];
+  show [cFieldWrite ~field:"x" ()];
+  show [cFieldWrite ~field:"y" ()];
   
-  show [cFieldWrite "pos"];
-  show [cFieldWrite "speed"];
+  show [cFieldWrite ~field:"pos" ()];
+  show [cFieldWrite ~field:"speed" ()];
 
 
   show  [cAccesses ~base:[cVar "p"] ~accesses:[cField ~field:"x"  ()] ()];

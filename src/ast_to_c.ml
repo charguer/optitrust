@@ -283,17 +283,19 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
            dattr ^^ apps_to_doc ~is_app_and_set:true f tl ^^ dsemi
         else if  List.mem As_left_value t.annot then
           dattr ^^ apps_to_doc ~as_left_value:true f tl
-        else
+
+        else begin 
            (*
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
-            *)
-          let display_star =
-
-             if (List.mem Mutable_var_get t.annot || List.mem Access t.annot) && !decode then false
-             else true
-           in
-           dattr ^^ apps_to_doc ~display_star f tl ^^ dsemi
+           *)
+            if List.mem Mutable_var_get t.annot 
+              then dattr ^^ apps_to_doc ~display_star:false ~is_var_get:true f tl ^^ dsemi
+              else if List.mem Access t.annot then 
+                dattr ^^ apps_to_doc ~display_star:false ~is_access:true f tl ^^ dsemi
+              else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
+          
+            end
      | Trm_while (b, t) ->
         let db = decorate_trm b in
         let dt = decorate_trm ~semicolon:true t in
@@ -537,26 +539,16 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-(* display_star: true if f is get and we should display it *)
-and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false)
+and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false) ?(is_var_get : bool = false) ?(is_access : bool = false)
   (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
-      (* LATER: might be able to use a list_to_doc function here *)
-      let rec aux d = function
-        | [] -> d
-        | [t] -> d ^^ decorate_trm t
-        | t1 :: t2 :: tl ->
-          aux (d ^^ decorate_trm t1 ^^ comma ^^ blank 1) (t2 :: tl)
+      f_as_doc ^^ Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
       in
-    f_as_doc ^^ parens (aux empty tl)
-    in
 
   match f.desc with
-
   (* Case of function pointers *)
   | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var x; _ } ]) ->
       aux_arguments (string x)
-
   (* Case of function by name *)
   | Trm_var x ->
      if !decode && Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
@@ -591,7 +583,6 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
   (* Case of inlined function *)
   | Trm_let_fun _ ->
         parens (decorate_trm f) ^^ Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] (List.map decorate_trm tl)
-
   (* Case of primitive operations *)
   | Trm_val v ->
      begin match v with
@@ -605,7 +596,13 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_get when as_left_value -> d
               | Unop_get ->
                  if not !decode then
-                   string "read(" ^^ d ^^ string ")"
+                   begin 
+                    if is_var_get 
+                      then string "get(" ^^ d ^^ string ")"
+                      else if is_access 
+                        then string "access(" ^^ d ^^ string")"
+                     else d
+                   end 
                  else begin
                    if display_star then parens (star ^^ d) else d
                  end
@@ -643,7 +640,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                     d ^^ dot ^^ string f
                  end
               | Unop_struct_field_get f  ->
-                  d ^^ dot ^^ string f
+                  string "struct_get(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
               | Unop_struct_field_addr f ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
               | Unop_cast ty ->
@@ -661,7 +658,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               begin match op with
               | Binop_set ->
                  if not !decode then
-                   string "write(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
+                   string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
                  else if not is_app_and_set then
                    separate (blank 1) [d1; equals; d2]
                  else
@@ -748,9 +745,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
    | _ ->
-
       Ast_to_text.print_ast ~only_desc:true stdout f;
       fail f.loc "apps_to_doc: only functions may be applied"
+
 and mode_to_doc (m : mode) : document =
   match m with
   | Shared_m -> string "shared"

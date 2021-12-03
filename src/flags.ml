@@ -6,7 +6,7 @@ let analyse_time : bool ref = ref false
 let analyse_time_details : bool ref = ref false
 
 (* dump .ast and _enc.cpp files *)
-let dump_ast_details : bool ref = ref false
+let dump_ast_details : bool ref = ref true 
 
 (* Call [Trace.dump_last !dump_last] instead of [Trace.dump], if value is set.
    Note: incompatible with the use of [switch] in scripts, currently. *)

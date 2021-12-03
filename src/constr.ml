@@ -1031,7 +1031,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      []
      end
 
-  else if List.mem Access t.annot then
+  else if List.mem Access t.annot (* || List.mem Mutable_var_get t.annot *) then
      begin match t.desc with
        (*
          the wildcard is a star operator the user doesn't know about

@@ -14,10 +14,6 @@ int main() {
 }
 "
 
-(* TODO: This generates non valid C code, but this transformation it's mostly used in intermediate steps hence
-    the final code will be okday
-
- *)
 let _ = Run.script_cpp (fun _ ->
 
   !! Variable_basic.bind "a" ~const:true [cFunDef "test"; cReturn;cArrayInit];

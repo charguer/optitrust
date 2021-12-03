@@ -86,7 +86,7 @@ let inline ?(body_mark : mark option) (tg : Target.target) : unit =
 let beta  ?(body_mark : var = "body") (tg : Target.target) : unit =
   inline ~body_mark tg
 
-(* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transform them
+(* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transforms them
     into x += a
  *)
 let use_infix_ops ?(tg_ops : Target.target = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()]) () : unit =
