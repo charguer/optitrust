@@ -62,15 +62,15 @@ and typ_annot_to_doc (a : typ_annot) : document =
 
 and trm_annot_to_doc (t_annot : trm_annot list) : document = 
   let aux t_annot = match t_annot with 
-  | [Access] -> string "<annotation : Access>"
-  | [Multi_decl] -> string "<annotation : Multi_decl>"
-  | [App_and_set] -> string "<annotation : App_and_set>"
-  | [Main_file] -> string "<annotation : Main_file>"
-  | [Mutable_var_get] -> string "<annotation : Mutable_var_get>"
-  | [As_left_value] -> string "<annotation : As_left_value>"
+  | Access -> string "Access"
+  | Multi_decl -> string "Multi_decl>"
+  | App_and_set -> string "App_and_set"
+  | Main_file -> string "Main_file"
+  | Mutable_var_get -> string "Mutable_var_get"
+  | As_left_value -> string "As_left_value"
   | _ -> empty
   in 
-  (aux t_annot) 
+  Tools.list_to_doc ~empty ~sep:comma (List.map aux t_annot) 
 
 
 and typ_to_doc ?(const : bool = false) (t : typ) : document =

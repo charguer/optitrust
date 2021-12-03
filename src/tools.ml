@@ -63,7 +63,9 @@ let list_to_doc ?(empty : document = underscore) ?(sep:document = semi) ?(bounds
     | [s] -> s
     | s1 :: s2 :: sl -> s1 ^^ sep ^^ string " " ^^ aux (s2 :: sl)
   in
-  (List.nth bounds 0) ^^ aux l ^^ (List.nth bounds 1)
+  let res = aux l in 
+  if res = empty then empty else 
+  (List.nth bounds 0) ^^ res ^^ (List.nth bounds 1)
 
 (* check if all the elements of a list fulfill predicate f *)
 let list_all_true (bl : bool list) : bool =
