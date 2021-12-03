@@ -345,7 +345,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
             let alloc_arity = List.length dims in
             let new_alloc_trm = insert_alloc_dim_aux dim alloc_trm in
             let new_decl = trm_let_mut (local_var, (get_inner_ptr_type tx)) (trm_cast (get_inner_ptr_type tx) new_alloc_trm) in
-            let tg = [cCellAccess ~base:[cVar local_var] ~index:[] ()] in
+            let tg = [nbMulti; cCellAccess ~base:[cVar local_var] ~index:[] ()] in
             let snd_instr = Mlist.nth tl 1 in
             begin match trm_fors_inv alloc_arity snd_instr with
             | Some (loop_range, body) ->

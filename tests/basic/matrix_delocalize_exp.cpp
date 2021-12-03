@@ -20,7 +20,7 @@ mark : {
     }
   }
   for (int i = 0; (i < 10); i++) {
-    int t = x[MINDEX3(N1, N2, N3, i, (i + 1), (i + 2))];
+    int t = x[MINDEX4(N0, N1, N2, N3, ANY(N0), i, (i + 1), (i + 2))];
     x[MINDEX4(N0, N1, N2, N3, ANY(N0), i, (i + 1), (i + 2))] = (t + 2);
   }
   for (int i1 = 0; (i1 < N1); i1++) {

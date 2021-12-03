@@ -70,7 +70,8 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   | As_left_value -> string "As_left_value"
   | _ -> empty
   in
-  Tools.list_to_doc ~empty ~sep:comma (List.map aux t_annot)
+  if t_annot = [] then empty else 
+  Tools.list_to_doc ~sep:comma (List.map aux t_annot)
 
 
 and typ_to_doc ?(const : bool = false) (t : typ) : document =
@@ -555,7 +556,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
 and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false) 
   (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
-      f_as_doc ^^ Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
+      f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
       in
 
   match f.desc with

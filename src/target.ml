@@ -620,24 +620,24 @@ let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : 
  cOr [[cFieldWrite ~base ~substr ~regexp ~field ()];[cFieldRead ~base ~substr ~regexp ~field ()] ]
 
 (* [cCellAccess ~base ~index ] matches all array accesses at index [index] with base [base] *)
-let cCellAccess ?(base : target = []) ~index:(index : target )  () : constr =
+let cCellAccess ?(base : target = []) ?(index : target = [cTrue])  () : constr =
   cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
 (* [cCellRead ~base index] matches all array accesses at index [index] with base [base]
     which are under a get operation
 *)
-let cCellRead ?(base : target = []) ~index:(index : target ) (): constr =
+let cCellRead ?(base : target = []) ?(index : target = [cTrue]) (): constr =
   cRead ~addr:[cCellAccess ~base ~index ()] ()
 
 (* [cCellWrite ~base ~index ~arg] matches all array index write operations*)
-let cCellWrite ?(base : target = [cStrict;cVar ""]) ?(rhs:target = []) ~index:(index : target) (): constr =
+let cCellWrite ?(base : target = [cStrict;cVar ""]) ?(rhs:target = []) ?(index : target = [cTrue]) (): constr =
   let lhs = [cCellAccess ~base ~index ()]  in
   cWrite ~lhs ~rhs ()
 
 (* [cCellReadOrWrite ~base ~index ] matches all read or write operations on array cells with
   base [base] and index [index]
 *)
-let cCellReadOrWrite ?(base : target = [cStrict;cVar ""]) ~index:(index : target) () : constr =
+let cCellReadOrWrite ?(base : target = [cStrict;cVar ""]) ?(index : target = [cTrue]) () : constr =
   cOr [[cCellRead ~base ~index ()];[cCellWrite ~base ~index ()]]
 
 

@@ -199,6 +199,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
         if args <> [] then bind_args args [new_target] else ();
         let body_mark = "__TEMP_BODY" ^ (string_of_int i) in
         Function_basic.inline ~body_mark [new_target];
+        Accesses_basic.intro [Target.cMark body_mark];
         elim_body ~vars [Target.cMark body_mark];
         if !name_result <> "" then begin 
             let success_attach = ref true in 
