@@ -43,6 +43,7 @@ TESTS_WORKING := \
 	sequence_delete.ml \
 	sequence_elim_around_instr.ml \
 	sequence_elim.ml \
+	sequence_insert.ml \
 	sequence_intro.ml \
 	sequence_intro_on_instr.ml \
 	sequence_partition.ml \
@@ -96,7 +97,6 @@ TESTS_TOCHECK := \
 
 
 TESTS_TO_FIX := \
-	sequence_insert.ml \
 	loop_tile.ml \
 
 

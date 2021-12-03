@@ -1958,51 +1958,43 @@ let is_typ (ty : typ) : bool =
 exception No_ast_or_code_provided
 exception Ast_and_code_provided
 
-(* [keep_only_function_bodies fun_names t] for all the functions with the name listed in [fun_names] transform
-      them in function prototypes
-*)
-let keep_only_function_bodies (fun_names : vars) (t : trm) : trm =
+(* [keep_only_function_bodies fun_names t] all the functions with the name listed in [fun_names] will be transformed into 
+    function prototypes. Return the chopped ast and a map were the keys are the function names that do not belong to 
+    [fun_names] and their values are their bodies.
+ *)
+let keep_only_function_bodies (fun_names : vars) (t : trm) : trm * tmap = 
+  let t_map = ref Trm_map.empty in
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_let_fun (f,ty, tv, _) ->
-      if not (List.mem f fun_names) then
-      trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) else t
+      if not (List.mem f fun_names) then begin 
+        t_map := Trm_map.add f t !t_map;
+      trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) end 
+       else t
     | _ -> trm_map aux t
     in
-  aux t
+  let res = aux t in 
+  res, !t_map
 
-(* TODO: document
-   match on chopped ast
- *)
-let update_ast_with_chopped_ast (full_ast : trm) (chopped_ast : trm) : trm =
-   let fun_map = ref Trm_map.empty in
-   let __ = match chopped_ast.desc with
-    | Trm_seq tl ->
-      Mlist.iter (fun def -> match def.desc with
-      | Trm_let_fun (f, _, _, body) ->
-        begin match body.desc with
-        | Trm_val( Val_lit Lit_uninitialized ) -> ()
-        | _ ->
-          fun_map := Trm_map.add f def !fun_map
-        end
-      | _ ->  ()
-      ) tl
-    | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
 
-   in
-   match full_ast.desc with
-   | Trm_seq tl ->
+
+(* [update_chopped_ast chopped_ast chopped_fun_map] for all the functions whose bodies were removed during the creation  
+    of the chopped_ast restore their bodies by using [chopped_fun_map] which is map with keys the names of the functions 
+    that were chopped and values their actual declaration
+*)
+let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm = 
+  match chopped_ast.desc with 
+  | Trm_seq tl ->
       let new_tl =
       Mlist.map (fun def -> match def.desc with
       | Trm_let_fun (f, _, _, _) ->
-        begin match Trm_map.find_opt f !fun_map with
+        begin match Trm_map.find_opt f chopped_fun_map with
         | Some tdef ->  tdef
         | _ -> def
         end
       |_ ->  def
     ) tl in trm_seq ~annot:chopped_ast.annot ~marks:chopped_ast.marks new_tl
-  | _ -> fail full_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
-
+  | _ -> fail chopped_ast.loc "update_ast_with_chopped_ast: ast of the main file should start with a top level sequence"
 
 
 (* [is_infix_prim_fun p] check if the primitive function [p] is one of those which supports app and set operations or not*)
