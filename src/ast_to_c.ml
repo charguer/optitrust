@@ -48,29 +48,29 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
     drt ^^ blank 1 ^^ d
   | Typ_template_param n ->
     string n
-  | Typ_arbitrary a_kind -> 
+  | Typ_arbitrary a_kind ->
         begin match a_kind with
         | Atyp ty -> string ty
         | Atypexpr tye -> parens (string tye)
         | _ -> fail None "typ_to_doc: arbitrary types entered as string should be entered by using either Atyp or Atypexpr"
-        end  
+        end
 and typ_annot_to_doc (a : typ_annot) : document =
   match a with
   | Unsigned -> string "unsigned"
   | Long -> string "long"
   | Short -> string "short"
 
-and trm_annot_to_doc (t_annot : trm_annot list) : document = 
-  let aux t_annot = match t_annot with 
+and trm_annot_to_doc (t_annot : trm_annot list) : document =
+  let aux t_annot = match t_annot with
   | Access -> string "Access"
-  | Multi_decl -> string "Multi_decl>"
+  | Multi_decl -> string "Multi_dec"
   | App_and_set -> string "App_and_set"
   | Main_file -> string "Main_file"
   | Mutable_var_get -> string "Mutable_var_get"
   | As_left_value -> string "As_left_value"
   | _ -> empty
-  in 
-  Tools.list_to_doc ~empty ~sep:comma (List.map aux t_annot) 
+  in
+  Tools.list_to_doc ~empty ~sep:comma (List.map aux t_annot)
 
 
 and typ_to_doc ?(const : bool = false) (t : typ) : document =
@@ -196,7 +196,7 @@ and attr_to_doc (a : attribute) : document =
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
-  let dt = 
+  let dt =
     if t.marks = []
       then dt
       else
@@ -206,7 +206,7 @@ and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
         let sright =  string ("/*" ^ m ^ "@*/") in
         sleft ^^ dt ^^ sright
         end
-    in 
+    in
     if not !decode then trm_annot_to_doc t.annot ^^ dt else dt
 
 and trm_to_doc ?(semicolon=false) (t : trm) : document =
@@ -300,17 +300,17 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         else if  List.mem As_left_value t.annot then
           dattr ^^ apps_to_doc ~as_left_value:true f tl
 
-        else begin 
+        else begin
            (*
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
            *)
-            if List.mem Mutable_var_get t.annot 
+            if List.mem Mutable_var_get t.annot
               then dattr ^^ apps_to_doc ~display_star:false ~is_var_get:true f tl ^^ dsemi
-              else if List.mem Access t.annot then 
+              else if List.mem Access t.annot then
                 dattr ^^ apps_to_doc ~display_star:false ~is_access:true f tl ^^ dsemi
               else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
-          
+
             end
      | Trm_while (b, t) ->
         let db = decorate_trm b in
@@ -611,17 +611,17 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               begin match op with
               | Unop_get when as_left_value -> d
               | Unop_get ->
-                 if not !decode then
-                   begin 
-                    if is_var_get 
-                      then string "get(" ^^ d ^^ string ")"
-                      else if is_access 
+                 if not !decode then begin
+                   string "get(" ^^ d ^^ string ")"
+                    (* if is_var_get
+                      then
+                      else if is_access
                         then string "access(" ^^ d ^^ string")"
-                     else d
-                   end 
-                 else begin
-                   if display_star then parens (star ^^ d) else d
-                 end
+                     else d*)
+                end else begin
+                  if display_star then parens (star ^^ d) else d
+                end
+
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
@@ -857,6 +857,7 @@ and clause_to_doc (cl : clause) : document =
   | Link vl -> string "link" ^^ string ( Tools.list_to_string ~sep:"," ~bounds: ["(";")"] vl)
   | Num_teams n -> string "num_teams" ^^ parens (string n)
   | Thread_limit n -> string "thread_limit" ^^ parens (string n)
+
 and atomic_operation_to_doc (ao : atomic_operation option) : document =
   match ao with
   | None -> empty

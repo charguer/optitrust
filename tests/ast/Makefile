@@ -1,4 +1,6 @@
 
+FLAGS := -dump-ast-details
+
 include ../Common.Makefile
 
 debug: c_ast_debug.out

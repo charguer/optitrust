@@ -52,6 +52,8 @@ OPTITRUSTLIB ?= $(shell ocamlfind query optitrust)
 # Browser for opening documentation
 BROWSER ?= chromium-browser
 
+# Flags for executing the programs
+FLAGS ?=
 
 
 #######################################################
@@ -132,7 +134,7 @@ BUILD := ocamlbuild -tag debug -quiet -pkgs clangml,refl,pprint,str,optitrust
 ifeq ($(BATCH),)
 
 %_out.cpp: %.byte %.cpp %.ml
-	$(V)OCAMLRUNPARAM=b ./$<
+	$(V)OCAMLRUNPARAM=b ./$< $(FLAGS)
 	@echo "Produced $@"
 
 endif

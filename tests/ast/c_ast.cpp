@@ -218,6 +218,31 @@ int mutable_stack_array (){
    return *(w[0]);
 }
 
+
+
+void access_encoding() {
+  const vect a;
+  // copy as const
+  const vect b = a;
+  // copy as non-const
+  vect c = a;
+  // accesses to const
+  const int ax = a.x;
+ // accesses to non-const
+  const int cy = c.y;
+}
+
+int foo(vect v) { return v.x; }
+
+int mutable_var_encoding() {
+    const vect a;
+    int ax = foo(a);
+    vect c = a;
+    int cx = foo(c);
+}
+
+
+
 /* LATER
 int local_function() {
   int n = 2;

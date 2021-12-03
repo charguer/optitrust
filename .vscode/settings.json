@@ -18,11 +18,13 @@
     "**/_build": true,
   },
   "files.associations": {
-    "*.md": "markdown",
-    "*.v": "coq",
     "*.ml": "ocaml",
     "*.mli": "ocaml",
     "*.json": "jsonc",
-    "functional": "cpp"
+    "*.md": "markdown",
+    "*.v": "coq",
+    "functional": "cpp",
+    "*.tcc": "cpp",
+    "random": "cpp"
   }
 }
