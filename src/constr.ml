@@ -37,7 +37,7 @@ type target_occurrences =
     | ExpectedNb of int  (* exactly n occurrences *)
     | ExpectedMulti  (* > 0 number of occurrences *)
     | ExpectedAnyNb  (* any number of occurrences *)
-    | ExpectedSelected of int option * int list              
+    | ExpectedSelected of int option * int list
     | FirstOcc
     | LastOcc
 (* A [target] is a list of constraints to identify nodes of the AST
@@ -153,7 +153,7 @@ and constr =
   (* Constraint to match ast nodes of types that satisfy the type predicate *)
   | Constr_hastype of typ_constraint
   (* Constraint to match an array initialization list *)
-  | Constr_array_init 
+  | Constr_array_init
   (* Constraint to match an struct initialization list  *)
   | Constr_struct_init
 
@@ -719,7 +719,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
           end
         else
           check_target p_fun f &&
-          check_list ~depth:(DepthAny) cl_args args 
+          check_list ~depth:(DepthAny) cl_args args
      | Constr_label (so, p_body), Trm_labelled (l, body) ->
         check_name so l &&
         check_target p_body body
@@ -742,7 +742,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_root, _ ->
         List.mem Main_file t.annot
      | Constr_prim pred, Trm_val (Val_prim p1) ->
-        pred p1 
+        pred p1
      | Constr_mark (pred, _m), _ ->
         begin match t.desc with
         | Trm_seq tl | Trm_array tl | Trm_struct tl->
@@ -752,7 +752,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
      | Constr_hastype pred , _ ->
         check_hastype pred t
      | Constr_array_init, Trm_array _ -> true
-     | Constr_struct_init, Trm_struct _ -> true 
+     | Constr_struct_init, Trm_struct _ -> true
      | _ -> false
      end
 
@@ -882,9 +882,9 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           | _ ->
             Path.union acc potential_targets
           end ) [] tl
-    | Constr_diff (tl1 , tl2) :: [] -> 
+    | Constr_diff (tl1 , tl2) :: [] ->
       let all_targets_must_resolve = false in
-      let targets_to_keep = 
+      let targets_to_keep =
       List.fold_left (fun acc tr ->
           let potential_targets = resolve_target_simple tr t in
           begin match potential_targets with
@@ -892,7 +892,7 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           | _ ->
             Path.union acc potential_targets
           end ) [] tl1 in
-      let targets_to_remove = 
+      let targets_to_remove =
       List.fold_left (fun acc tr ->
           let potential_targets = resolve_target_simple tr t in
           begin match potential_targets with
@@ -900,8 +900,8 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           | _ ->
             Path.union acc potential_targets
           end ) [] tl2 in
-      Path.diff targets_to_keep targets_to_remove 
-      
+      Path.diff targets_to_keep targets_to_remove
+
     | Constr_and tl :: [] ->
         (* LATER: ARTHUR : optimize resolution by resolving the targets only by exploring
           through the paths that are candidates; using e.g. path_satisfies_target *)
@@ -1030,7 +1030,7 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
      print_info loc "explore_in_depth: no exploration in included files\n";
      []
      end
-
+  (* DEPRECATED
   else if List.mem Access t.annot (* || List.mem Mutable_var_get t.annot *) then
      begin match t.desc with
        (*
@@ -1038,8 +1038,12 @@ and explore_in_depth ?(depth : depth = DepthAny) (p : target_simple) (t : trm) :
          t' is an access under which want to explore
         *)
      | Trm_apps (_, [t']) -> add_dir (Dir_arg_nth 0) (explore_in_depth p t')
+
+
+
      | _ -> fail loc "explore_in_depth: bad access annotation"
      end
+  *)
   else if List.mem Multi_decl t.annot then
      (* explore each declaration in the seq *)
      begin match t.desc with
@@ -1178,7 +1182,7 @@ and follow_dir (d : dir) (p : target_simple) (t : trm) : paths =
      add_dir Dir_then (aux then_t)
   | Dir_else, Trm_if (_, _, else_t) ->
      add_dir Dir_else (aux else_t)
-  | Dir_fun_body, Trm_let_fun (_, _, _, body) -> 
+  | Dir_fun_body, Trm_let_fun (_, _, _, body) ->
     add_dir Dir_fun_body (aux body)
   | Dir_body, Trm_let (_,(_,_),body)
     | Dir_body, Trm_let_fun (_, _, _, body)

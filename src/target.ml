@@ -439,7 +439,7 @@ let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_p
    cPrimPredFun ~args ~args_pred (fun p2 -> p2 = p)
 
 (* [cPrimFunArith] *)
-let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr = 
+let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
   cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
 
 (* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
@@ -552,7 +552,7 @@ let dLHS : constr =
 let dRHS : constr =
   cChain [cWrite (); dArg 1]
 
-let dBody : constr = 
+let dBody : constr =
   cOr [[dBodyAll]; [dFunBody]]
 
 
@@ -940,7 +940,7 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
    There is no need for a prefix [!!] or [!!!] to the front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
-let show ?(line : int = -1) ?(reparse : bool = true) (tg : target) : unit =
+let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =
   (* Automatically add [nbMulti] if there is no occurence constraint *)
   let tg = enable_multi_targets tg in
   if reparse then reparse_alias();
@@ -1013,36 +1013,22 @@ let reparse_only (fun_names : string list) : unit =
 
 (* [get_relative_type tg] get the type of target relative , Before, After, First Last *)
 let get_relative_type (tg : target) : target_relative option =
-  List.fold_left (fun acc x -> 
-    match acc with 
+  List.fold_left (fun acc x ->
+    match acc with
     | Some _ -> acc
-    | None -> 
-      begin match x with 
+    | None ->
+      begin match x with
       | Constr_relative occ -> Some occ
-      | _ -> None 
+      | _ -> None
       end
   ) None tg
-  
+
 
 (* [reparse_after tr] is a wrapper to invoke for forcing the reparsing
     after a transformation. For example because it modifies type definitions.
     See example in [Struct.inline]. The argument [~reparse:false] can be
     specified to deactivate the reparsing.
 *)
-(* TODO: DEBUG IT *)
-(* let reparse_after ?(reparse : bool = true) (tr_of : trm -> 'a -> 'b) : Transfo.t =
-  let function_names_to_reparse = ref [] in
-  let reparse_where (tr : Transfo.local) : Transfo.local =
-    fun (t : trm)  (p : path) ->
-      function_names_to_reparse  := (get_toplevel_function_name_containing p) :: !function_names_to_reparse;
-      tr t p
-    in
-  tr_of reparse_where;
-  let func_names_to_keep = Tools.remove_duplicates (List.filter_map (fun d -> d) !function_names_to_reparse) in
-  if reparse then reparse_only func_names_to_keep
- *)
-
-
 let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
   fun (tg : target) ->
     let tg = enable_multi_targets tg in
@@ -1058,9 +1044,31 @@ let reparse_after ?(reparse : bool = true) (tr : Transfo.t) : Transfo.t =
     reparse_only fun_names end
 
 
-(*
+(* LATER: use this more efficient version that avoids computing path resolution twice
 
-  apply _i   _transformed   _between
+type apply_on_target_arg = trm -> path -> trm
+
+let list_of_option (o : 'a option) : 'a list =
+  match o with
+  | None -> []
+  | Some x -> [x]
+
+let reparse_after ?(reparse : bool = true) (tr_of : (apply_on_target_arg -> apply_on_target_arg) -> Transfo.t) : Transfo.t =
+  fun (tg : target) ->
+    let function_names_to_reparse : string list ref = ref [] in
+    let reparse_where (tr : apply_on_target_arg) : apply_on_target_arg =
+      fun (t:trm) (p:path) ->
+        function_names_to_reparse := (list_of_option (get_toplevel_function_name_containing p)) @ !function_names_to_reparse;
+        tr t p
+      in
+    tr_of reparse_where tg;
+    let func_names_to_keep = Tools.remove_duplicates !function_names_to_reparse in
+    if reparse then reparse_only func_names_to_keep
+
+
+example usage: in Access_basic.
+let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.t =
+  Target.reparse_after ~reparse (fun reparse_where ->
+    Target.apply_on_targets (reparse_where (Accesses_core.transform f_get f_set)))
 
 *)
-

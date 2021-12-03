@@ -2,7 +2,7 @@ open Optitrust
 open Target
 open Ast
 
-(* TODO: why is this not working? 
+(* TODO: why is this not working?
   I have no clue :)
 let _ = Run.doc_script_cpp (fun _ ->
     !! Sequence_basic.insert (stmt "a++;") [tBefore; cVarDef "c"] [tAfter; cVarDef "a"];
@@ -23,8 +23,12 @@ let _ =
     !! Sequence_basic.insert (stmt "p++;") [tAfter; cVarDef "y"];
     !! Sequence_basic.insert ~reparse:true (stmt "printf(\"%d\", y);") [tAfter; cVarDef "y"];
     !! Sequence_basic.insert (stmt "for (int i = 0; i < 5; i++) { x++; }") [tAfter; sInstr "y++"];
-    !! Sequence_basic.insert (stmt "typedef struct { int x; int y; } vect;") [tBefore; cTopFunDef "main"];
+    !! Sequence_basic.insert ~reparse:true (stmt "typedef struct { int x; int y; } vect;") [tBefore; cTopFunDef "main"];
+
+    show ~reparse:false [cTypDef "vect"];
+    (*!!!();
     !!! Sequence_basic.insert ~reparse:true (stmt "typedef vect myvect;") [tAfter; cTypDef "vect"];
     !! Sequence_basic.insert (stmt "int test () {return 0;}") [tAfter; cTypDef "vect"];
+    *)
 
 )

@@ -114,7 +114,7 @@ and code_kind =
   | Expr of string
   | Atypexpr of string
   | Stmt of string
-   
+
 
 
 (* types of expressions *)
@@ -967,7 +967,7 @@ let print_info (loc : location) : ('a, out_channel, unit) format -> 'a =
        Printf.kfprintf Printf.fprintf stdout ("<%s> from <%d>,<%d> to   <%d>,<%d>") filename start_row start_column end_row end_column
   else
     Printf.ifprintf stdout
-    
+
 (* concrete accesses in a trm *)
 type trm_access =
   | Array_access_get of trm (* operator -> [i] *)
@@ -1667,8 +1667,8 @@ let trm_for_of_trm_for_c (t : trm) : trm =
 (* before printing a simple loop first it should be converted to complex loop *)
 let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(local_index : bool = true)
   (index : var) (start : trm) (stop : loop_stop) (step : loop_step) (body : trm) : trm =
-  let init = if not local_index 
-                then trm_set (trm_var index) start 
+  let init = if not local_index
+                then trm_set (trm_var index) start
                 else trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
   let cond = begin match stop with
     | DirUp bnd ->
@@ -1838,12 +1838,12 @@ let is_trm_seq (t : trm) : bool =
   | Trm_seq _ -> true  | _ -> false
 
 (* [is_new_operation t] check if the trm [t] is a primitive new operation *)
-let is_new_operation (t : trm) : bool = 
-  match t.desc with 
+let is_new_operation (t : trm) : bool =
+  match t.desc with
   | Trm_apps (f, [_]) ->
-    begin match trm_prim_inv f with 
-    | Some (Prim_new _) -> true 
-    | _ -> false 
+    begin match trm_prim_inv f with
+    | Some (Prim_new _) -> true
+    | _ -> false
     end
   | _ -> false
 
@@ -1971,6 +1971,9 @@ let keep_only_function_bodies (fun_names : vars) (t : trm) : trm =
     in
   aux t
 
+(* TODO: document
+   match on chopped ast
+ *)
 let update_ast_with_chopped_ast (full_ast : trm) (chopped_ast : trm) : trm =
    let fun_map = ref Trm_map.empty in
    let __ = match chopped_ast.desc with
@@ -2032,64 +2035,64 @@ let trm_access (base : trm) (field : var) : trm =
   trm_apps (trm_unop (Unop_struct_field_addr field)) [base]
 
 (* [trm_get t] generates a get operation in [t] *)
-let trm_get (t : trm) : trm = 
+let trm_get (t : trm) : trm =
   trm_apps (trm_unop Unop_get) [t]
 
 (* [trm_any_bool] generates ANY_BOOL () *)
-let trm_any_bool : trm = 
+let trm_any_bool : trm =
   trm_apps (trm_var "ANY_BOOL") []
 
 (* [trm_eq t1 t2] generates t1 = t2 *)
-let trm_eq (t1 : trm) (t2 : trm) : trm = 
+let trm_eq (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_eq) [t1; t2]
 
 (* [trm_neq t1 t2] generates t1 != t2 *)
-let trm_neq (t1 : trm) (t2 : trm) : trm = 
+let trm_neq (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_neq) [t1; t2]
 
 (* [trm_sub t1 t2] generates t1 - t2 *)
-let trm_sub (t1 : trm) (t2 : trm) : trm = 
+let trm_sub (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_sub) [t1; t2]
 
 (* [trm_add t1 t2] generates t1 + t2 *)
-let trm_add (t1 : trm) (t2 : trm) : trm = 
+let trm_add (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_add) [t1; t2]
 
 (* [trm_mul t1 t2] generates t1 * t2 *)
-let trm_mul (t1 : trm) (t2 : trm) : trm = 
+let trm_mul (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_mul) [t1; t2]
 
 (* [trm_div t1 t2] generates t1 / t2 *)
-let trm_div (t1 : trm) (t2 : trm) : trm = 
+let trm_div (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_div) [t1; t2]
 
 (* [trm_le t1 t2] generates t1 <= t2 *)
-let trm_le (t1 : trm) (t2 : trm) : trm = 
+let trm_le (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_le) [t1; t2]
 
 (* [trm_lt t1 t2] generates t1 < t2 *)
-let trm_lt (t1 : trm) (t2 : trm) : trm = 
+let trm_lt (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_lt) [t1; t2]
 
 (* [trm_ge t1 t2] generates t1 >= t2 *)
-let trm_ge (t1 : trm) (t2 : trm) : trm = 
+let trm_ge (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_ge) [t1; t2]
 
 (* [trm_gt t1 t2] generates t1 > t2 *)
-let trm_gt (t1 : trm) (t2 : trm) : trm = 
+let trm_gt (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_gt) [t1; t2]
 
 (* [trm_and t1 t2] generates t1 && t2 *)
-let trm_and (t1 : trm) (t2 : trm) : trm = 
+let trm_and (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_and) [t1;t2]
 
 (* [trm_or t1 t2] generates t1 || t2 *)
-let trm_or (t1 : trm) (t2 : trm) : trm = 
+let trm_or (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_or) [t1;t2]
 
 (* [trm_ands ts] generalized version of trm_and *)
-let trm_ands (ts : trm list) : trm = 
-  Tools.fold_lefti (fun i acc t1 -> 
+let trm_ands (ts : trm list) : trm =
+  Tools.fold_lefti (fun i acc t1 ->
     if i = 0 then t1 else trm_and acc t1
   ) (trm_bool true) ts
 
@@ -2110,12 +2113,12 @@ module AstParser = struct
 
   let atyp ty = typ_str (Atyp ty)
 
-  let expr ?(vars : var list = []) (e : string)  = 
+  let expr ?(vars : var list = []) (e : string)  =
     let e = if vars = [] then e else Tools.subst_dollar_number vars e in
     code (Expr e)
 
   let atypexpr tye = typ_str (Atypexpr tye)
-  
+
   let stmt s = code (Stmt s)
 
 

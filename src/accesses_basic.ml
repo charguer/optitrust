@@ -6,7 +6,8 @@ open Ast
     it is a set oepration then f_set will be applied on the second argument of the targeted node
 *)
 let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm) : Target.Transfo.t =
-  Target.reparse_after ~reparse (Target.apply_on_targets (Accesses_core.transform f_get  f_set) )
+   Target.reparse_after ~reparse (
+     Target.apply_on_targets (Accesses_core.transform f_get  f_set))
 
 (* [scale ~factor ~factor_ast tg] this function is a specialization of the function transform where the functions f_get and f_set
     are given explicitly as the division and multiplication operations respectively

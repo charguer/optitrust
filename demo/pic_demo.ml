@@ -42,7 +42,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: Introducing an if-statement for slow particles *)
   !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
-  !! Flow.insert_if [main; cFun "bag_push"]; 
+  !! Flow.insert_if [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
   !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
@@ -69,7 +69,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       [nbMulti; ctx; dRHS];
   !! Loop.fold_instrs ~index:"k" [ctx];
 
-  (* Part: reveal fields *) 
+  (* Part: reveal fields *)
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; !!!();
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
@@ -87,7 +87,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-     
+
 
 !!! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; (* The issue is coming from function inline *)
     Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
@@ -111,7 +111,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
   !!! ();
-  
+
 
   (* Part: simplify expressions *)
   !! Arith.simplify [nbMulti;cFieldWrite ~regexp:true ~field:"\\(speed\\|pos\\)." (); dRHS];
@@ -137,7 +137,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d ->
     Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
   !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
-  !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];   
+  !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
   !!! ();
 
   (* Part: introduce matrix operations, and mark a key loop *)
@@ -183,15 +183,15 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !! Instr.move_out ~dest:[tBefore; main] [nbMulti; main; cVarDef ~regexp:true "\\(coef\\|sign\\).0"];
-  !! Loop.hoist [cVarDef "idCell2"]; 
+  !! Loop.hoist [cVarDef "idCell2"];
   !! Loop.fission [tBefore; main; cVarDef "pX"];
   !! Loop.fission [tBefore; main; cVarDef "iX1"]; (* TODO: Check with Arthur *)
 
   (* Part: introduction of the computation *)
-  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"]; 
+  !! Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"];
   !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(trm_ands (map_dims (fun d -> expr ~vars:[d] "i${0} >= bi${0} - dist && i${0} < bi${0} + blockSize + dist"))) [tAfter; main; cVarDef "iZ2"];
   !! Specialize.any "distanceToBlockLessThanHalfABlock" [main; cFun "ANY_BOOL"];
-  
+
   (* Part: Coloring *)
   let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in

@@ -33,6 +33,8 @@ let _ = Run.script_cpp (fun () ->
   (* Calls *)
   show [ cCall ~args:[[cInt 2]] "" ];
 
+  (* TODO: add unit test for each constraint function *)
+
   (* Var/Fun definitions *)
   show [ cFunDef "main" ];
   show [ cFunDef "f" ];
@@ -60,7 +62,7 @@ let _ = Run.script_cpp (fun () ->
   show [sInstr "i++" ];
   show [nbExact 2; sInstrRegexp "f\\(.\\)" ]; (* Finds all the occurrences of the f function call, somehow it matches the for loop!!*)
   show [cVarDef ~regexp:true "r|s"];
-  
+
   (* Declarations *)
   show [cDef "s"];
   show [cDef "p2"];
