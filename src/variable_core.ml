@@ -498,3 +498,48 @@ let bind_aux (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p
 
 let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_local : path) : Target.Transfo.local =
   Target.apply_on_path (bind_aux my_mark index fresh_name const p_local)
+
+
+(* [to_const_aux index t] change the mutability of a variable, and replace all the get operations on that variable
+    with an occurrence of that variable
+*)
+let to_const_aux (index : int) (t : trm) : trm = 
+  match t.desc with 
+  | Trm_seq tl -> 
+    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
+    begin match dl.desc with 
+    | Trm_let (vk, (x, tx), init) -> 
+      begin match vk with 
+      | Var_immutable -> t
+      | Var_mutable ->
+        (* first search if there are any write operations inside the same scope *)
+        Mlist.iter (fun t1 -> 
+          begin match t1.desc with 
+          | Trm_apps (_, [ls; _rs]) when is_set_operation t1 -> 
+            begin match ls.desc with 
+            | Trm_var y when y = x -> fail ls.loc "to_const_aux: can't convert a variable to a const variable if there are other write operations besides the the first initalization"
+            | _ -> ()
+            end 
+          | _ -> ()
+          end
+        ) lback;
+        (* replace all get(x) with x *)
+        let init_val = match get_init_val init with 
+        | Some init1 -> init1 
+        | _ -> fail dl.loc "to_const_aux: can't convert to const a non intialized variable"
+        in
+        let init_type = get_inner_ptr_type tx in 
+        let new_dl = trm_let_immut ~annot:dl.annot ~marks:dl.marks (x, init_type) init_val in
+        let new_lback = Mlist.map (Internal.change_trm (trm_get ~annot:[Mutable_var_get] (trm_var x)) (trm_var x)) lback in 
+        let new_tl = Mlist.merge lfront new_lback in 
+        let new_tl = Mlist.insert_at index new_dl new_tl in 
+        trm_seq ~annot:t.annot ~marks:t.marks new_tl
+      end 
+      
+    | _ -> fail t.loc "to_const_aux: expected a target to variable declaration"
+    end 
+
+  | _ -> fail t.loc "to_const_aux: expected the sequence that contains the targeted declaration"
+
+let to_const (index : int) : Target.Transfo.local = 
+  Target.apply_on_path (to_const_aux index)
