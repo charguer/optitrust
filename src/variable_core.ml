@@ -71,12 +71,13 @@ let fold (as_reference : bool) (fold_at : target) (index) : Target.Transfo.local
       the ast of the updated sequence which contains the declaration ast [t]
 *)
 
-let inline_aux (delete_decl : bool) (accept_functions : bool) (inline_at : target) (index : int) (t : trm) : trm = 
+let inline_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (inline_at : target) (index : int) (t : trm) : trm = 
   match t.desc with 
   | Trm_seq tl -> 
     let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
     begin match dl.desc with 
     | Trm_let (vk, (x, _), init) -> 
+      let init = if mark = "" then init else trm_add_mark mark init in 
       begin match vk with 
       | Var_immutable ->
         let new_lback = begin match inline_at with 
@@ -100,53 +101,8 @@ let inline_aux (delete_decl : bool) (accept_functions : bool) (inline_at : targe
   | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
 
 
-(* DEPRECATED *)
-(* let inline_aux (delete_decl : bool) (accept_functions : bool) (inline_at : target) (index : int) (t : trm) : trm = 
-  match t.desc with 
-  | Trm_seq tl -> 
-    let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
-    begin match dl.desc with 
-    | Trm_let (vk, (x, tx), dx) -> 
-      let def_x = match get_init_val dx with 
-      | Some init1 -> init1
-      | _ -> fail dl.loc "inline_aux: can't inline a variable with a detached declaration" in
-      let t_x = begin match vk with 
-      | Var_immutable -> trm_var x 
-      | Var_mutable ->  trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [trm_var x] end in
-         let lback = 
-          begin match def_x.desc with 
-          | Trm_struct field_init ->
-            let tyid = Internal.get_typid_from_typ tx in
-            let struct_def = 
-              if tyid <> -1
-                 then match Context.typid_to_typedef tyid with 
-                  | Some td -> td 
-                  | _ -> fail t.loc "inline_aux: could not get the declaration of the struct"
-                 else 
-                  fail t.loc "inline_aux: there is something wrong with type of the variable you are trying to inline"
-            in
-            let field_list = fst (List.split (Internal.get_field_list struct_def)) in
-            let lback = Mlist.map (fun t1 ->
-              List.fold_left2 (fun acc t2 f2 -> Internal.change_trm ~change_at:[inline_at]
-                (trm_get ~annot:[Access](trm_apps (trm_unop (Unop_struct_field_addr f2)) [trm_var x])) t2 acc ) t1 (Mlist.to_list field_init) field_list) lback  in
-            Mlist.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
-          | _ -> Mlist.map (Internal.change_trm ~change_at:[inline_at] t_x def_x) lback 
-          end in
-          let new_tl = Mlist.merge lfront lback in
-          let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
-          trm_seq ~annot:t.annot ~marks:t.marks new_tl
-    | Trm_let_fun (f, _, _, _) -> 
-      if accept_functions then 
-      let lback = Mlist.map (Internal.subst_var f dl)lback in 
-      let new_tl = Mlist.merge lfront lback in
-      trm_seq ~annot:t.annot ~marks:t.marks new_tl
-      else fail dl.loc "inline_aux: to replace function calls with their declaration you need to set accept_functions flag to true "
-    | _ -> fail t.loc "inline_aux: expected a target to a variable declaration"
-    end
-  | _ -> fail t.loc "inline_aux: expected the surrounding sequence" *)
-
-let inline (delete_decl : bool) (accept_functions : bool )(inline_at : target) (index : int) : Target.Transfo.local =
-  Target.apply_on_path(inline_aux delete_decl accept_functions inline_at index)
+let inline (delete_decl : bool) (accept_functions : bool) (mark : mark) (inline_at : target) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(inline_aux delete_decl accept_functions mark inline_at index)
 
 
 (* [rename_aux index new_name t] rename the variable declared in [t] and all its occurrences
