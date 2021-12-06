@@ -1,10 +1,5 @@
 #!/bin/bash
-# Arguments:
-#   0. file dirname
-#   1. filename of the transformation script (without extension)
-#   2. active line number (to add exit_script instruction)
-#   3. option(s) for execution
-#      currently: only -dump-trace
+
 
 # TODO FOR ARTHUR: take as argument FILENAME, then deduce FILEBASE AND FILEEXT
 # AND if we're calling a cpp file, then don't add_exit
@@ -16,6 +11,7 @@ VIEW=$4 # should be view_diff or view_result
 RECOMPILE_OPTITRUST=$5 # should be recompile_optitrust_yes or recompile_optitrust_no
 OPTIONS=$6
 OPTIONS2=$7
+# options: e.g.  -dump-trace
 
 # LATER: if a ${FILEBASE}_exp.cpp file is present, export it into the JS file,
 # so that the browser can report on the differences between _out.cpp and _exp.cpp.
