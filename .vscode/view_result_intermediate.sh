@@ -58,14 +58,13 @@ if [ "${VIEW}" = "view_diff" ]; then
   LINE_START=$((LINE_RUNSCRIPT+1))
   LINE_STOP=$((LINE_INTER-1))
 
-
-  echo "Using cache for lines from ${LINE_START} to ${LINE_STOP}"
+  echo "Using cache up to line ${LINE_STOP}" # from ${LINE_START}
   sed "${LINE_START}","${LINE_STOP}"'{s/^.*$/  /;}' ${FILEBASE}.ml > ${SOURCEBASE}.ml
 
   # Patch the call to "script_cpp" so that it loads the saved intermediate CPP file
   sed -i "s/script_cpp/script_cpp ~filename:\"${FILEBASE}_inter_before.cpp\" ~prefix:\"${FILEBASE}_fast\"/;" ${SOURCEBASE}.ml
 
-  echo "Produced ${SOURCEBASE}.ml"
+  # echo "Produced ${SOURCEBASE}.ml"
 
 elif [ "${VIEW}" = "save_intermediate_state" ]; then
 
@@ -149,7 +148,7 @@ elif [ "${VIEW}" = "save_intermediate_state" ]; then
 
   # TODO: we could clear ${SOURCEBASE}_after.cpp and rename ${SOURCEBASE}_before.cpp to a different name
 
-  echo "Produced ${SOURCEBASE}_before.cpp"
+  echo "Produced ${SOURCEBASE}_before.cpp as checkpoint for line ${LINE}"
 
 fi
 
