@@ -14,10 +14,9 @@ int main() {
   particle p = {{0,0},{0,0}};
 
   vect u = p.pos;
-
+  int x = p.pos.x;
 
   particle p2 = p;
-  particle p3[2];
 
   return 0;
 }

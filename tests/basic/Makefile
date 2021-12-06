@@ -82,6 +82,7 @@ TESTS_TOCHECK := \
 	specialize_choose.ml \
 	struct_simpl_proj.ml \
 	variable_bind.ml \
+	variable_simpl_deref.ml \
 	variable_to_const.ml \
 	matrix_delocalize.ml \
 	matrix_intro_mcalloc.ml \

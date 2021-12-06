@@ -155,7 +155,7 @@ let inline (index: int) (body_mark : string option) (p_local : path) : Target.Tr
     return:
       the same ast node with the added annotation App_and_set
 *)
-let use_infix_ops_aux (t : trm) : trm =
+let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, [ls; rs]) when is_set_operation t ->
     begin match rs.desc with
@@ -165,15 +165,20 @@ let use_infix_ops_aux (t : trm) : trm =
         let final_trm =
         if Internal.same_trm ls get_ls then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
         trm_annot_add App_and_set final_trm
-      | _ -> fail f1.loc "use_infix_ops_aux: expected a write operatoin of the form x = f(get(x), arg where f should be a binary operation which supports app and set operations"
+      | _ -> 
+        if allow_identity then t else 
+        fail f1.loc "use_infix_ops_aux: expected a write operatoin of the form x = f(get(x), arg where f should be a binary operation which supports app and set operations"
       end
     | _ ->
+      if allow_identity then t else 
       fail rs.loc "use_infix_ops: expected a write operation of the form x = f(get(x), arg)"
     end
-  | _ -> fail t.loc "use_infix_ops: expected an infix operation of the form x = f(x,a)"
 
-let use_infix_ops : Target.Transfo.local =
-  Target.apply_on_path (use_infix_ops_aux)
+  | _ ->
+    if allow_identity then t else  fail t.loc "use_infix_ops: expected an infix operation of the form x = f(x,a)"
+
+let use_infix_ops (allow_identity: bool) : Target.Transfo.local =
+  Target.apply_on_path (use_infix_ops_aux allow_identity)
 
 
 

@@ -235,4 +235,21 @@ let beta ?(tg : Target.target = []) () : unit =
     | _ -> fail t.loc "beta: this transformation expects a target to a function call"
 
   ) tg
+  
+(* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transforms them
+    into x += a
+ *)
+let use_infix_ops ?(allow_identity : bool = true) (tg : Target.target) : unit = 
+  let tg_infix_ops = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] in
+  Target.iter_on_targets (fun _ p -> 
+    if p = [] then 
+      Function_basic.use_infix_ops_at ~allow_identity ((Target.target_of_path p) @ tg_infix_ops)
+      else 
+        let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in 
+        let tg_seq = Target.target_of_path path_to_seq in 
+        Function_basic.use_infix_ops_at ~allow_identity (tg_seq @ tg_infix_ops)
+  ) tg
+
+
+
 

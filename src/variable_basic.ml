@@ -164,3 +164,10 @@ let bind ?(const : bool = false) ?(mark : mark = "") (fresh_name : var) : Target
 let to_const : Target.Transfo.t = 
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
      ( fun t (p, i) -> Variable_core.to_const i t p) 
+
+
+(* [simpl_deref tg] expects the target [tg] to be pointing at a node which could contain expression of the form
+      &( * ) or * (&) and simply them.
+*)
+let simpl_deref : Target.Transfo.t = 
+  Target.apply_on_targets (Variable_core.simpl_deref)

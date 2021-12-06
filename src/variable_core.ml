@@ -458,6 +458,11 @@ let bind (my_mark : mark) (index : int) (fresh_name : var) (const : bool) (p_loc
 
 (* [to_const_aux index t] change the mutability of a variable, and replace all the get operations on that variable
     with an occurrence of that variable
+    params:
+      [index]: the index of the targeted declaration inside its englobing sequence
+      [t]: ast of the surrounding sequence of the targeted instruction
+    return:
+      the update [t]
 *)
 let to_const_aux (index : int) (t : trm) : trm = 
   match t.desc with 
@@ -499,3 +504,31 @@ let to_const_aux (index : int) (t : trm) : trm =
 
 let to_const (index : int) : Target.Transfo.local = 
   Target.apply_on_path (to_const_aux index)
+
+(* [simpl_deref_aux t] find all the occurrences of *(&b) and simplify them
+    params:
+      [t]: any node, that could contain in its depth expression of the form &( * ) or * (&)
+    return:
+      the update [t]
+*)
+let simpl_deref_aux (t : trm) : trm = 
+  let rec aux (t : trm) : trm = 
+    match t.desc with 
+    | Trm_apps (_, [t1]) ->
+      (* First case  &* both & and * are encoded as annotations of t*)
+      if List.mem Address_operator t.add && List.mem Star_operator t.add then 
+      let new_add = List.filter (function |Address_operator | Star_operator -> false) t.add in
+      {t with add = new_add}
+      (* Second case: *& now * is a get operation and & is annotation encode inside  t1 *)
+      else if List.mem Address_operator t1.add then 
+        begin 
+        let new_t1 = {t1 with add = []} in
+        trm_get ~annot:[Mutable_var_get] new_t1
+        end
+      else t
+    | _ -> trm_map aux t
+   in
+   aux t
+
+let simpl_deref : Target.Transfo.local = 
+  Target.apply_on_path (simpl_deref_aux)
