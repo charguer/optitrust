@@ -525,7 +525,7 @@ let simpl_deref_aux (t : trm) : trm =
         let new_t1 = {t1 with add = []} in
         trm_get ~annot:[Mutable_var_get] new_t1
         end
-      else t
+      else trm_map aux t
     | _ -> trm_map aux t
    in
    aux t

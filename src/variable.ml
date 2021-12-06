@@ -375,7 +375,7 @@ let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * strin
           Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is not valied C code.
           After calling Struct_basic.simpl_proj {0, 1}.x becomes 0 
 *)
-let inline ?(accept_functions : bool = false) ?(_simpl_deref : bool = false) : Target.Transfo.t =
+let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) : Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
     let tg_seq_path, _ = Internal.isolate_last_dir_in_seq p in 
     let seq = Target.target_of_path tg_seq_path in 
@@ -392,7 +392,10 @@ let inline ?(accept_functions : bool = false) ?(_simpl_deref : bool = false) : T
         Variable_basic.to_const (seq @ [Target.cVarDef x]);
         Variable_basic.inline ~mark (seq @ [Target.cVarDef x])
       end;
+     if mark <> "" then begin 
      Struct_basic.simpl_proj [Target.nbAny; Target.cFieldAccess ~base:[Target.cMark mark] ()];
+      if simpl_deref then Variable_basic.simpl_deref [Target.nbAny; Target.cRead ~addr:[Target.cMark mark] ()];
      Marks.remove mark [Target.nbAny; Target.cMark mark]     
+     end 
     | _ -> fail t.loc "inline: expected a target to a variable declaration"
   )

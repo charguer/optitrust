@@ -62,7 +62,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctxf = cTopFunDef "cornerInterpolationCoeff" in
   let ctx = cChain [ctxf; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
-  !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
+  !! Variable_basic.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;" ~pattern_aux_vars:"double rX, rY, rZ;"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
@@ -73,8 +73,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !!! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; (* !!!(); *)
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Variable.inline ~delete:true [main; cVarDef "p2"];
-  !! Variable.inline ~delete:true [main; cVarDef "p"];
+  !! Variable_basic.inline ~delete:true [main; cVarDef "p2"];
+  !! Variable_basic.inline ~delete:true [main; cVarDef "p"];
   !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
@@ -103,8 +103,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      [tBefore; cVarDef "nbSteps"];
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation after simplifier *)
-  !! Variable.inline [cVarDef "accel"];
-  !!! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
+  !! Variable_basic.inline [cVarDef "accel"];
+  !!! Variable_basic.inline [nbMulti; cVarDef ~regexp:true "factor?."];
   (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
@@ -122,7 +122,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: ARTHUR ; maybe not needed: !! iter_dims (fun d ->
     Instr.inline_last_write ~write:[cWriteVar ("fieldAtPos" ^ d)] [nbMulti; cRead ~addr:[cVar ("fieldAtPos" ^ d)] ()]); *)
   (* TODO :ARTHUR : see how to inline the zero for fieldatpos in the simplest way *)
-  (* !! Variable.inline [cVarDef ~regexp:true "fieldAtPos."]; *)
+  (* !! Variable_basic.inline [cVarDef ~regexp:true "fieldAtPos."]; *)
 
   (* Part: Introduce names for new positions *)
   !! iter_dims (fun d ->
@@ -146,7 +146,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: duplication of corners for vectorization of change deposit *)
   !! Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~indices:["idCell"] ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
-  !! Variable.inline [main; cVarDef "indices"];
+  !! Variable_basic.inline [main; cVarDef "indices"];
   !! Specialize.any "k" [main; cAny];
   let my_bij_code =
     "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
