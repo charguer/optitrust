@@ -1117,7 +1117,7 @@ and translate_decl (d : decl) : trm =
         | Some _ ->
           begin match tt.typ_desc with
           | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tt1} -> begin match tt1.typ_desc with
-                           (* This check is needed because we don't want const regerences to be accessed by using get  *)
+                           (* This check is needed because we don't want const references to be accessed by using get  *)
                            | Typ_const _ -> trm_let ~loc Var_immutable (n, tt) (te)
                            | _ ->
                              add_var n;

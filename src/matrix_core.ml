@@ -316,7 +316,7 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   let indices_list = begin match indices with
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
-  let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp dim, Post_inc)) dims indices_list in
+  let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp,  dim, Post_inc)) dims indices_list in
   let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
   let write_on_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) in
   let snd_instr = trm_fors nested_loop_range write_on_local_var in
@@ -360,7 +360,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                 
                 let new_dims = dim :: dims in
                 let new_indices = (trm_var index) :: indices in
-                let new_loop_range = loop_range @ [(index, trm_int 0, DirUp dim, Post_inc)] in
+                let new_loop_range = loop_range @ [(index, trm_int 0, DirUp, dim, Post_inc)] in
                 let init_val = match ops with 
                   | Delocalize_arith (li, _) -> trm_lit li
                   | Delocalize_obj (clean_f, _) -> trm_apps (trm_var clean_f) [] in
@@ -369,7 +369,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   then trm_seq_nomarks [set base new_dims new_indices init_val]
                   else trm_seq_nomarks [
                     set base new_dims((trm_int 0) :: indices) old_var_access;
-                    trm_for index (trm_int 1) (DirUp dim) (Post_inc) (set base new_dims new_indices init_val;)
+                    trm_for index (trm_int 1) DirUp  dim (Post_inc) (set base new_dims new_indices init_val;)
                   ]
                   in
                 
@@ -401,7 +401,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                   begin
                     trm_seq_nomarks [
                       set (trm_var "a") dims indices (access base new_dims ((trm_int 0) :: indices));
-                      trm_for index (trm_int 1) (DirUp dim) (Post_inc) (
+                      trm_for index (trm_int 1) DirUp dim (Post_inc) (
                         op_fun old_var_access new_access
                       )
                     ]
@@ -410,7 +410,7 @@ let delocalize_aux (dim : trm) (init_zero : bool) (acc_in_place : bool) (acc : s
                     if not acc_provided then fail t.loc "delocalize_aux: accumulator should be provided otherwise you need to set the flag ~acc_in_place to false" else
                     (trm_seq_nomarks [
                         trm_let_mut (acc, typ_int ()) (trm_int 0);
-                        trm_for index (trm_int 0) (DirUp dim) (Post_inc) (trm_seq_nomarks [
+                        trm_for index (trm_int 0) DirUp dim (Post_inc) (trm_seq_nomarks [
                             op_fun (trm_var acc) new_access]);
                         trm_set old_var_access (trm_var acc)]) in
                 let new_frth_instr =

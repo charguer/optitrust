@@ -277,16 +277,10 @@ let new_rule_match ~higher_order_inst(*:bool*) (vars : typed_vars) (pat : trm) (
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 
-    | Trm_for (index1, start1, stop1, step1, body1),
-      Trm_for (index2, start2, stop2, step2, body2) ->
+    | Trm_for (index1, start1, _direction1, stop1, step1, body1),
+      Trm_for (index2, start2, _direction2, stop2, step2, body2) ->
         aux start1 start2;
-        begin match stop1, stop2 with (* TODO: Trm_for should have dir and stop as argument, where dir does not carry a trm *)
-        | DirUp stopt1, DirUp stopt2 -> aux stopt1 stopt2
-        | DirUpEq stopt1, DirUpEq stopt2 -> aux stopt1 stopt2
-        | DirDown stopt1, DirDown stopt2 -> aux stopt1 stopt2
-        | DirDownEq stopt1, DirDownEq stopt2 -> aux stopt1 stopt2
-        | _ -> mismatch()
-        end;
+        aux stop1 stop2;
         begin match step1, step2 with
         | Step stept1, Step stept2 -> aux stept1 stept2
         | _ -> if step1 <> step2 then mismatch()

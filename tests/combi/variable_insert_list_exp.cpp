@@ -1,8 +1,8 @@
 const int x = 1;
 
-const int y = x / 2;
+const int y = (x / 2);
 
-const int z = y / x;
+const int z = (y / x);
 
 int main() {
   int a = 0;

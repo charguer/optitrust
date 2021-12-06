@@ -31,6 +31,7 @@ TESTS_WORKING := \
 	loop_hoist.ml \
 	loop_interchange.ml \
 	loop_invariant.ml \
+	loop_tile.ml \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \
 	loop_unswitch.ml \
@@ -72,7 +73,6 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
   arith_simplify.ml \
-	arith_shift.ml \
 	function_beta.ml \
 	function_use_infix_ops.ml \
 	function_uninline.ml \
@@ -97,8 +97,8 @@ TESTS_TOCHECK := \
 
 
 TESTS_TO_FIX := \
-	loop_tile.ml \
-
+	arith_shift.ml \
+  
 
 
 TESTS_WITH_DOC := \

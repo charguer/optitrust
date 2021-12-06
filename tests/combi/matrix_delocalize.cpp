@@ -1,9 +1,6 @@
 
 #include "../../include/optitrust.h"
 
-int ANY (int x) { return true;}
-
-
 typedef int T;
 int main(){
   const int N0 = 5;

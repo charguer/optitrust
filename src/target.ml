@@ -259,9 +259,10 @@ let cVarDef
   let ty_pred = make_typ_constraint ~typ ~typ_pred () in
   Constr_decl_var (ty_pred, ro, body)
 
-let cFor ?(start : target = []) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
+let cFor ?(start : target = []) ?(direction : loop_dir option) ?(stop : target = []) ?(step : target = []) ?(body : target = []) (index : string) : constr =
   let ro = string_to_rexp_opt false false index TrmKind_Instr in
-  Constr_for (ro, start, stop, step, body)
+  Constr_for (ro, start, direction, stop, step, body)
+
 
 let cForNestedAtDepth (i:int) : constr =
   Constr_target (List.flatten (List.init i (fun _ -> [cStrict; cFor ""])))
@@ -389,6 +390,9 @@ let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : s
   if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization *)
   Constr_target (with_type ~typ ~typ_pred [c])
 
+
+
+
 let cBool (b : bool) : constr =
     Constr_lit (Some (Lit_bool b))
 
@@ -445,13 +449,17 @@ let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_l
 (* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
 *)
-let cWrite ?(lhs : target = []) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
+let cWrite ?(lhs : target = [cTrue]) ?(rhs : target = []) ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (_ : unit) : constr =
   let lhs_typed = with_type ~typ ~typ_pred lhs in
   cPrimFun ~args:[lhs_typed; rhs] (Prim_binop Binop_set)
 
 (* [cRead] matches all the get operations on mutable variables *)
-let cRead ?(addr : target = []) () : constr =
+let cRead ?(addr : target = [cTrue]) () : constr =
   cPrimFun ~args:[addr] (Prim_unop Unop_get)
+
+(* [cReadOrWrite] *)
+let cReadOrWrite ?(addr : target = [cTrue]) () : constr = 
+  cOr [[cWrite ~lhs:addr ()];[cRead ~addr ()]]
 
 (* [cWriteVar x] matches a set operation for variable [x] *)
 let cWriteVar (x : var) : constr =
@@ -620,24 +628,24 @@ let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : 
  cOr [[cFieldWrite ~base ~substr ~regexp ~field ()];[cFieldRead ~base ~substr ~regexp ~field ()] ]
 
 (* [cCellAccess ~base ~index ] matches all array accesses at index [index] with base [base] *)
-let cCellAccess ?(base : target = []) ?(index : target = [cTrue])  () : constr =
+let cCellAccess ?(base : target = []) ?(index : target = [])  () : constr =
   cAccesses ~base ~accesses:[cIndex ~index ()] ()
 
 (* [cCellRead ~base index] matches all array accesses at index [index] with base [base]
     which are under a get operation
 *)
-let cCellRead ?(base : target = []) ?(index : target = [cTrue]) (): constr =
+let cCellRead ?(base : target = []) ?(index : target = []) (): constr =
   cRead ~addr:[cCellAccess ~base ~index ()] ()
 
 (* [cCellWrite ~base ~index ~arg] matches all array index write operations*)
-let cCellWrite ?(base : target = [cStrict;cVar ""]) ?(rhs:target = []) ?(index : target = [cTrue]) (): constr =
+let cCellWrite ?(base : target = []) ?(rhs:target = []) ?(index : target = []) (): constr =
   let lhs = [cCellAccess ~base ~index ()]  in
   cWrite ~lhs ~rhs ()
 
 (* [cCellReadOrWrite ~base ~index ] matches all read or write operations on array cells with
   base [base] and index [index]
 *)
-let cCellReadOrWrite ?(base : target = [cStrict;cVar ""]) ?(index : target = [cTrue]) () : constr =
+let cCellReadOrWrite ?(base : target = []) ?(index : target = []) () : constr =
   cOr [[cCellRead ~base ~index ()];[cCellWrite ~base ~index ()]]
 
 
@@ -693,14 +701,6 @@ let apply_on_path = Path.apply_on_path
 let applyp_on_path = Path.applyp_on_path
 
 
-(* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
-      params:
-        transformer: change the resolved path so that more information about the context of the node is given
-        tr: transformation to be applied at the nodes corresponedt to target [tg]
-        tg: target
-      return:
-        unit
-*)
 
 let debug_disappearing_mark = true
 exception Interrupted_applyi_on_transformed_targets of trm
@@ -712,7 +712,14 @@ let fix_target (tg : target) : target =
   let check_logic = List.exists (function Constr_or _ | Constr_and _ -> true | _ -> false) tg in
   if (not check_occurrences) && check_logic then nbMulti :: tg else tg
 
-
+(* [applyi_on_transformed_targets transformer tr tg]: Apply a transformation [tr] on target [tg]
+      params:
+        transformer: change the resolved path so that more information about the context of the node is given
+        tr: transformation to be applied at the nodes corresponedt to target [tg]
+        tg: target
+      return:
+        unit
+*)
 let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> 'a) (tr : int -> trm -> 'a -> trm) (tg : target) : unit =
   let tg = fix_target tg in
   Trace.apply (fun t ->
@@ -722,11 +729,11 @@ let applyi_on_transformed_targets ?(rev : bool = false) (transformer : path -> '
     let ps = if rev then List.rev ps else ps in
     let marks = List.map (fun _ -> Mark.next()) ps in
     (* add marks for occurences -- could be implemented in a single path, if optimization were needed *)
-    (* Tools.printf "%s\n" (Ast_to_c.ast_to_string t); *)
+    (* Tools.printf "Before applyin_marks: %s\n" (Ast_to_c.ast_to_string t); *)
     let t =
         Trace.timing ~cond:!Flags.analyse_time_details ~name:"resolve_add_marks" (fun () ->
           List.fold_left2 (fun t p m -> apply_on_path (trm_add_mark m) t p) t ps marks) in
-    (* Tools.printf "%s\n" (Ast_to_c.ast_to_string t); *)
+    (* Tools.printf "After applying_marks: %s\n" (Ast_to_c.ast_to_string t); *)
     (* iterate over these marks *)
     try
       Tools.fold_lefti (fun imark t m ->

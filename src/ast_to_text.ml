@@ -224,13 +224,14 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
      let dbody = print_trm ~only_desc body in
      node "Trm_for" ^^ parens (separate (comma ^^ break 1)
        [dinit; dcond; dstep; dbody])
-  | Trm_for (index, start, stop, step, body) ->
+  | Trm_for (index, start, direction, stop, step, body) ->
     let dstart = print_trm ~only_desc start in
-    let dstop  = match stop with
-    | DirUp st-> string "Up" ^^ parens (print_trm ~only_desc st)
-    | DirDown st -> string "Down" ^^ parens (print_trm ~only_desc st)
-    | DirUpEq st -> string "UpEq" ^^ parens (print_trm ~only_desc st)
-    | DirDownEq st -> string "DownEq" ^^ parens (print_trm ~only_desc st)
+    let dstop = print_trm ~only_desc stop in
+    let ddir  = match direction with
+    | DirUp -> string "Up" 
+    | DirDown -> string "Down" 
+    | DirUpEq -> string "UpEq" 
+    | DirDownEq -> string "DownEq" 
     in
     let dstep = match step with 
     | Post_inc -> string "Post_inc" 
@@ -241,7 +242,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
     in
     let dbody = print_trm ~only_desc body in
     node "Trm_for" ^^ parens (separate (comma ^^ break 1)
-      [string index; dstart; dstop; dstep; dbody])
+      [string index; dstart; ddir; dstop; dstep; dbody])
   | Trm_switch (cond, cases) ->
      let dcond = print_trm ~only_desc cond in
      let dcases =

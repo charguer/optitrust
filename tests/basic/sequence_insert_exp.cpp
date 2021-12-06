@@ -19,7 +19,7 @@ int main() {
   printf("%d", y);
   p++;
   y++;
-  for (int i = 0; (i < 5); i++) {
+  for (int i = 0; i < 5; i++) {
     x++;
   }
   int z = 5;

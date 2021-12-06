@@ -15,7 +15,7 @@ TESTS_WORKING := \
 	loop_fusion.ml \
 	loop_fold.ml \
 	loop_hoist.ml \
-	loop_invariant.ml \
+	loop_moveout.ml \
 	loop_move.ml \
 	loop_reorder.ml \
 	loop_unroll.ml \
@@ -28,7 +28,7 @@ TESTS_WORKING := \
 	variable_fold.ml \
 	variable_intro_pattern_array.ml \
   variable_insert_and_fold.ml \
-	variable_rename.ml \
+	variable_renames.ml \
 	variable_reuse.ml \
 
 

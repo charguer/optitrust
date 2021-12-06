@@ -60,7 +60,7 @@ let insert_and_fold ~name:(name : string) ~typ:(typ : string) ~value:(value : tr
   Variable_basic.insert ~reparse:true ~name ~typ ~value tg;
   Variable_basic.fold [Target.cVarDef name]
 
-(* [delocalize ~var_type ~var ~local_var ~mark ~arr_size ~neutral_element fold_operation tg]
+(* [delocalize var ~into ~mark ~arr_size ~neutral_element fold_operation tg]
     expects the target [tg] to point to a for loop. Then it will surround this loop with a @nobrace
     sequence. After that it will apply another transformation called local other name. Which as the name
     suggests it will declare a new variable inside the targeted block and replace the current one with t he new one.
@@ -120,7 +120,7 @@ let insert_and_fold ~name:(name : string) ~typ:(typ : string) ~value:(value : tr
 *)
 
 let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocalize_ops = Delocalize_arith (Lit_int 0, Binop_add) )
-   (ov : var) ~local_var:(nv : var) 
+   (ov : var) ~into:(nv : var) 
   ~array_size:(arrs : string) (tg : Target.target) : unit =
   let middle_mark = match mark with | None -> Mark.next () | Some m -> m in
   Variable_basic.local_name ~mark:middle_mark ov ~into:nv tg;
@@ -129,7 +129,7 @@ let delocalize ?(index : string = "dl_i") ?(mark : mark option) ?(ops : delocali
    match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> ()
   end
 
-(* [delocalize ~index ~mark ~ops ~var ~local_var ~var_type ~array_size ~local_vars tg]
+(* [delocalize ~var ~into ~index ~mark ~ops ~array_size ~intos tg]
     It's a continuation to the delocalize transformation which will unroll all the introduced loops
     from the basic delocalize transformation and convert the newly declared array to a list of variables
     namely for each index on variable, this variables should be given by the user through the labelled
@@ -275,11 +275,10 @@ let inline_and_rename : Target.Transfo.t =
     | _ -> fail t.loc "inline_and_rename: expected the declaration of the variable which is goingg to be reverse folded"
 )
 
-(* [elim_redundant ~source tg] expets the target [tg] pointing to a variable declaration with an initial value being
+(* [elim_redundant ~source tg] expets the target [tg] to be pointing to a variable declaration with an initial value being
     the same as the variable declaration which [source] points to. Then it will fold the variable in [source] into
     the varibale declaration [tg] and inline the declaration in [tg]
-   NOTE: This version works only if source was provided otherwise it will throw an error *)
-
+*)
 let elim_redundant ?(source : Target.target = []) : Target.Transfo.t = 
   Target.iteri_on_targets (fun i t p -> 
     let tg_trm = Path.resolve_path p t in
@@ -326,6 +325,9 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
 *)
 let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * string ) list) : Target.Transfo.t =
   Target.reparse_after ~reparse (fun tg -> 
-    List.iter (fun (typ, name, value) -> Variable_basic.insert ~name ~typ ~value:(Target.expr value) tg) defs
+    List.iter (fun (typ, name, value) -> 
+      (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
+      let str_val = if String.length value = 1 then Target.lit value else Target.expr value in 
+      Variable_basic.insert ~name ~typ ~value:str_val tg) defs
 )
 

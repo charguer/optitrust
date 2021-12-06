@@ -9,7 +9,7 @@ let transform ?(reparse : bool = false) (f_get : trm -> trm) (f_set : trm -> trm
    Target.reparse_after ~reparse (
      Target.apply_on_targets (Accesses_core.transform f_get  f_set))
 
-(* [scale ~factor ~factor_ast tg] this function is a specialization of the function transform where the functions f_get and f_set
+(* [scale ~factor ~factor_ast tg] this function is a specialization of function transform where the functions f_get and f_set
     are given explicitly as the division and multiplication operations respectively
 *)
 let scale ?(reparse : bool = false) ~factor:(factor:trm) (tg : Target.target) : unit =

@@ -286,8 +286,8 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_let (vk, tx, aux body)}
        | Dir_fun_body, Trm_let_fun (x, tx, txl, body) ->
           { t with desc = Trm_let_fun (x, tx, txl, aux body)}
-       | Dir_body, Trm_for (index, start, stop, step, body) ->
-          { t with desc = Trm_for (index, start, stop, step, aux body) }
+       | Dir_body, Trm_for (index, start, direction, stop, step, body) ->
+          { t with desc = Trm_for (index, start, direction, stop, step, aux body) }
        | Dir_body, Trm_for_c (init, cond, step, body) ->
           { t with desc = Trm_for_c (init, cond, step, aux body) }
        | Dir_body, Trm_while (cond, body) ->
@@ -298,12 +298,12 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
           { t with desc = Trm_abort (Ret (Some (aux body)))}
        | Dir_body, Trm_labelled (l, body) ->
           { t with desc = Trm_labelled (l, aux body)}
-       | Dir_for_start, Trm_for (index, start, stop, step, body) ->
-          { t with desc = Trm_for (index, aux start, stop, step, body)}
-       | Dir_for_stop, Trm_for (index, start, stop, step, body) ->
-          { t with desc = Trm_for (index, start, apply_on_loop_stop aux stop, step, body)}
-       | Dir_for_step, Trm_for (index, start, stop, step, body) ->
-          { t with desc = Trm_for (index, start, stop, apply_on_loop_step aux step, body)}
+       | Dir_for_start, Trm_for (index, start, direction, stop, step, body) ->
+          { t with desc = Trm_for (index, aux start, direction, stop, step, body)}
+       | Dir_for_stop, Trm_for (index, start, direction, stop, step, body) ->
+          { t with desc = Trm_for (index, start, direction, aux stop, step, body)}
+       | Dir_for_step, Trm_for (index, start, direction, stop, step, body) ->
+          { t with desc = Trm_for (index, start, direction, stop, apply_on_loop_step aux step, body)}
        | Dir_for_c_init, Trm_for_c (init, cond, step, body) ->
           { t with desc = Trm_for_c (aux init, cond, step, body)}
        | Dir_for_c_step, Trm_for_c (init, cond, step, body) ->
@@ -448,7 +448,7 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
              aux body (init :: ctx)
           | _ -> aux body ctx
           end
-       | Dir_body, Trm_for (_, _, _, _, body) ->
+       | Dir_body, Trm_for (_, _, _, _, _, body) ->
           aux body ctx
        | Dir_body, Trm_let (_,(_,_), body)
          | Dir_body, Trm_while (_, body)
@@ -456,13 +456,12 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
          | Dir_body, Trm_abort (Ret (Some body))
          | Dir_body, Trm_labelled (_, body) ->
           aux body ctx
-       | Dir_for_start, Trm_for (_, start, _, _, _) ->
+       | Dir_for_start, Trm_for (_, start, _, _, _, _) ->
           aux start ctx
-       | Dir_for_stop, Trm_for (_,  _, stop, _, _) ->
-          let stop_trm = loop_stop_to_trm stop in
-          aux stop_trm ctx 
+       | Dir_for_stop, Trm_for (_,  _, _, stop, _, _) ->
+          aux stop ctx 
           
-       | Dir_for_step, Trm_for (_, _, _, step, _) ->
+       | Dir_for_step, Trm_for (_, _, _, _, step, _) ->
           let step_trm = loop_step_to_trm step in
           aux step_trm ctx 
        | Dir_for_c_init, Trm_for_c (init, _, _, _) ->

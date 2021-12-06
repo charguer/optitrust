@@ -131,7 +131,7 @@ val sExprRegexp : ?substr:bool -> string -> constr
 val cFor_c: ?init:target -> ?cond:target ->
            ?step:target -> ?body:target -> string -> constr
 
-val cFor : ?start:target -> ?stop:target -> ?step:target -> ?body:target -> string -> constr
+val cFor : ?start:target -> ?direction: loop_dir -> ?stop:target -> ?step:target -> ?body:target -> string -> constr
 
 val cForNestedAtDepth : int -> constr
 
@@ -275,6 +275,8 @@ val cDefault : case_kind
 val cWrite : ?lhs:target -> ?rhs:target -> ?typ:string -> ?typ_pred:typ_constraint -> unit -> constr
 
 val cRead : ?addr:target -> unit -> constr
+
+val cReadOrWrite : ?addr:target -> unit -> constr 
 
 val dRHS : constr
 

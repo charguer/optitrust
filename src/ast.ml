@@ -102,11 +102,11 @@ and loop_step =
   | Step of trm
 
 (* Type used for the bound of the loop *)
-and loop_stop =
-  | DirUp of trm
-  | DirUpEq of trm
-  | DirDown of trm
-  | DirDownEq of trm
+and loop_dir = 
+  | DirUp
+  | DirUpEq 
+  | DirDown
+  | DirDownEq 
 
 and code_kind =
   | Lit of string
@@ -378,7 +378,7 @@ and trm_desc =
   | Trm_seq of trm mlist (* { st1; st2; st3 } *)
   | Trm_apps of trm * (trms) (* f(t1, t2) *)
   | Trm_while of trm * trm (* while (t1) { t2 } *)
-  | Trm_for of var * trm * loop_stop * loop_step  * trm
+  | Trm_for of var * trm * loop_dir * trm * loop_step  * trm
   | Trm_for_c of trm * trm * trm * trm
   | Trm_do_while of trm * trm
   (*
@@ -875,8 +875,8 @@ let trm_uninitialized ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(att
   {annot; marks = []; desc = Trm_val (Val_lit Lit_uninitialized); loc = loc; is_statement=false; add; typ; attributes; ctx}
 
 let trm_for ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = [])
-  (index : var) (start : trm) (stop : loop_stop) (step : loop_step) (body : trm) : trm =
-  {annot; marks; desc = Trm_for (index, start, stop, step, body); loc; is_statement = false; add;
+  (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
+  {annot; marks; desc = Trm_for (index, start, direction, stop, step, body); loc; is_statement = false; add;
    typ = Some (typ_unit ()); attributes; ctx}
 
 let code ?(annot = []) ?(loc = None) ?(add =  []) ?(typ=None) ?(attributes = []) ?(ctx : ctx option = None) (code : code_kind) : trm =
@@ -935,6 +935,42 @@ let trm_remove_mark_between (m : mark) (t : trm) : trm =
     let new_tl = Mlist.remove_mark m tl in
     trm_seq ~annot:t.annot ~marks:t.marks new_tl
   | _ -> fail t.loc "trm_remove_mark_between: expected a sequence"
+
+
+(* get the singleton declaration variable in the case when [t] is a variable declaration or a list of variable in the case when
+    we have multiple variable declarations in one line
+*)
+let rec trm_vardef_get_vars (t : trm) : var list =
+  match t.desc with
+  | Trm_let (_, (x, _), _) -> [x]
+  | Trm_seq tl when List.mem Multi_decl t.annot -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
+  | _ -> []
+
+(* get the primitive operation *)
+let trm_prim_inv (t : trm) : prim option =
+  match t.desc with
+  | Trm_val (Val_prim p) -> Some p
+  | _ -> None
+
+
+(* get the primitive value *)
+let trm_lit_inv (t : trm) : lit option =
+  match t.desc with
+  | Trm_val (Val_lit v) -> Some v
+  | _ -> None
+
+(* convert an integer to an ast node *)
+let trm_int (n : int) : trm = trm_lit (Lit_int n)
+
+(* Unit trm, unvisble to the user *)
+let trm_unit () : trm =
+  trm_lit (Lit_unit)
+
+(* convert a double/float to an ast node *)
+let trm_double (d : float) : trm = trm_lit (Lit_double d)
+
+(* convert an integer to an ast node *)
+let trm_bool (b : bool) : trm = trm_lit (Lit_bool b)
 
 (* ********************************************************************************************************************* *)
 
@@ -1014,28 +1050,17 @@ let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
       trm_apps (trm_binop (Binop_array_cell_get)) [acc;i]
   ) base access_list
 
-
-(* [loop_stop_to_trm l_stop ] return the loop bound as trm *)
-
-
-let loop_stop_to_trm (l_stop : loop_stop) : trm =
-  match l_stop with
-  | DirUp bnd | DirUpEq bnd | DirDown bnd | DirDownEq bnd -> bnd
-
 (* [loop_step_to_trm l_step] return the loop step as trm *)
 let loop_step_to_trm (l_step: loop_step) : trm =
   match l_step with
   | Post_inc | Post_dec | Pre_inc | Pre_dec -> trm_lit (Lit_int 1)
   | Step s -> s
 
-(* [apply_on_loop_stop] used for functions which need to be applied in trms*)
-let apply_on_loop_stop (f : trm -> trm) (l_stop : loop_stop) : loop_stop =
-  match l_stop with
-  | DirUp bnd -> DirUp (f bnd)
-  | DirUpEq bnd -> DirUpEq (f bnd)
-  | DirDown bnd -> DirDown (f bnd)
-  | DirDownEq bnd -> DirDownEq (f bnd)
-
+(* [is_step_one step] check if the step of the loop is one or not *)
+let is_step_one (step : loop_step) : bool = 
+  match step with 
+  | Post_inc | Post_dec | Pre_inc | Pre_dec -> true 
+  | _ -> false
 
 (* [apply_on_loop_step] used for functions which need to be applied in trms*)
 let apply_on_loop_step (f : trm -> trm) (l_step : loop_step) : loop_step =
@@ -1093,18 +1118,12 @@ let trm_map_with_terminal (is_terminal : bool) (f: bool -> trm -> trm) (t : trm)
      let step' = f false step in
      let body' = f is_terminal body in
      trm_for_c ~annot ~marks ~loc ~add init' cond' step' body'
-  | Trm_for (index, start, stop, step, body) ->
-    let m_stop = match stop with
-    | DirUp st -> DirUp (f is_terminal st)
-    | DirUpEq st -> DirUp (f is_terminal st)
-    | DirDown st -> DirDown (f is_terminal st)
-    | DirDownEq st -> DirDownEq (f is_terminal st)
-    in
+  | Trm_for (index, start, direction, stop, step, body) ->
     let m_step = match step with
     | Post_inc | Post_dec | Pre_inc | Pre_dec -> step
     | Step sp -> Step (f is_terminal sp)
     in
-    trm_for ~annot ~marks ~loc ~add index (f is_terminal start) m_stop m_step (f is_terminal body)
+    trm_for ~annot ~marks ~loc ~add index (f is_terminal start) direction (f is_terminal stop) m_step (f is_terminal body)
   | Trm_switch (cond, cases) ->
      let cond' = f false cond in
      let cases' = List.map (fun (tl, body) -> (tl, f is_terminal body)) cases in
@@ -1144,7 +1163,7 @@ let contains_variable (x : var) (t : trm) : bool =
     | Trm_apps (_, args) -> List.exists aux args
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || (aux t)) false tl
     | Trm_let_fun (_, _, _, body) -> aux body
-    | Trm_for (_, _, _, _, body) -> aux body
+    | Trm_for (_, _, _, _, _, body) -> aux body
     | _ -> false
   in aux t
 
@@ -1228,7 +1247,7 @@ let rec get_init_val (t : trm) : trm option =
 (* return the name of the index of the for loop *)
 let for_loop_index (t : trm) : var =
   match t.desc with
-  | Trm_for (index, _, _, _, _) -> index
+  | Trm_for (index, _, _, _, _,  _) -> index
   | Trm_for_c (init, _, _, _) ->
      (*
        covered cases:
@@ -1369,7 +1388,7 @@ let for_loop_nb_iter (t : trm) : trm =
 (* get the list of trms from the body of the loop *)
 let for_loop_body_trms (t : trm) : trm mlist =
   match t.desc with
-  | Trm_for (_, _, _, _, body) ->
+  | Trm_for (_, _, _, _, _, body) ->
     begin match body.desc with
     | Trm_seq tl -> tl
     | _ -> fail body.loc "for_loop_body_trms: body of a simple loop should be a sequence"
@@ -1552,27 +1571,38 @@ let is_lit (t : trm) : bool =
   | Trm_val (Val_lit _) -> true
   | _ -> false
 
-(* Add the star operator to a trm *)
+(* [add_star t] add the star operator to a trm *)
 let add_star (t : trm) : trm =
   trm_add_operator Star_operator t
 
 
-(* Check if the type ty is a pointer type *)
+(* [is_typ_ptr ty] check if the type ty is a pointer type *)
 let is_typ_ptr (ty : typ) : bool =
   match ty.typ_desc with
   | Typ_ptr {ptr_kind = Ptr_kind_mut;_} -> true
   | _ -> false
 
-(* check if [t] is a struct access get operation of a immutable variable get operation *)
+(* [is_get_operation t] check if [t] is a struct access get operation of a immutable variable get operation *)
 let is_get_operation (t : trm) : bool =
   List.exists (function | Access | Mutable_var_get -> true | _ -> false) t.annot
+
+
+(* [is_new_operation t] check if [t] is new operation *)
+let is_new_operation (t : trm) : bool = 
+  match t.desc with 
+  | Trm_apps (f, _) -> 
+    begin match trm_prim_inv f with 
+    | Some (Prim_new _) -> true 
+    | _ -> false
+    end
+  | _ -> false
 
 (* check if [t] is a set operation *)
 let is_set_operation (t : trm) : bool =
   match t.desc with
   | Trm_apps (f, _) ->
-    begin match f.desc with
-    | Trm_val (Val_prim (Prim_binop Binop_set)) -> true
+    begin match trm_prim_inv f with
+    | Some (Prim_binop Binop_set) -> true
     | _ -> false
     end
   | _ -> false
@@ -1605,16 +1635,16 @@ let trm_for_c_inv_simple_init (init : trm) : (var * trm * bool) option =
 (* [trm_for_c_inv_simple_stop stop] check if the loop bound is simple or not.
       If not  then return None else return the bound the and the direction of the loop.
 *)
-let trm_for_c_inv_simple_stop (stop : trm) : loop_stop option =
+let trm_for_c_inv_simple_stop (stop : trm) : (loop_dir * trm) option =
   match stop.desc with
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_lt)); _},
-                 [_; n]) -> Some (DirUp n)
+                 [_; n]) -> Some (DirUp, n)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_le)); _},
-              [_; n]) -> Some (DirUpEq n)
+              [_; n]) -> Some (DirUpEq, n)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_gt)); _},
-              [_; n]) -> Some (DirDown n)
+              [_; n]) -> Some (DirDown, n)
   | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_ge)); _},
-              [_; n]) -> Some (DirDownEq n)
+              [_; n]) -> Some (DirDownEq, n)
   | _ -> None
 
 
@@ -1653,11 +1683,11 @@ let trm_for_of_trm_for_c (t : trm) : trm =
   match t.desc with
   | Trm_for_c (init, cond , step, body) ->
     let init_ops = trm_for_c_inv_simple_init init in
-    let stop_ops = trm_for_c_inv_simple_stop cond in
+    let bound_ops = trm_for_c_inv_simple_stop cond in
     let step_ops = trm_for_c_inv_simple_step step in
-    begin match init_ops, stop_ops, step_ops with
-    | Some (index, start, is_local), Some stop, Some step ->
-      let for_loop = trm_for index start stop step body in
+    begin match init_ops, bound_ops, step_ops with
+    | Some (index, start, is_local), Some (direction, stop), Some step ->
+      let for_loop = trm_for index start direction stop step body in
       if (not is_local ) then trm_annot_add Non_local_index for_loop else for_loop
     | _ -> t
     end
@@ -1666,31 +1696,31 @@ let trm_for_of_trm_for_c (t : trm) : trm =
 
 (* before printing a simple loop first it should be converted to complex loop *)
 let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(local_index : bool = true)
-  (index : var) (start : trm) (stop : loop_stop) (step : loop_step) (body : trm) : trm =
+  (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
   let init = if not local_index
                 then trm_set (trm_var index) start
                 else trm_let Var_mutable (index, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut (typ_int ())) (trm_apps (trm_prim ~loc:start.loc (Prim_new (typ_int ()))) [start])  in
-  let cond = begin match stop with
-    | DirUp bnd ->
+  let cond = begin match direction with
+    | DirUp ->
       (trm_apps (trm_binop Binop_lt)
         [trm_apps ~annot:[Mutable_var_get]
-          (trm_unop Unop_get) [trm_var index];bnd])
-    | DirUpEq bnd ->
+          (trm_unop Unop_get) [trm_var index];stop])
+    | DirUpEq ->
       (trm_apps (trm_binop Binop_le)
         [trm_apps ~annot:[Mutable_var_get]
-          (trm_unop Unop_get) [trm_var index];bnd])
-    | DirDown bnd ->
+          (trm_unop Unop_get) [trm_var index];stop])
+    | DirDown ->
       (trm_apps (trm_binop Binop_gt)
         [trm_apps ~annot:[Mutable_var_get]
-          (trm_unop Unop_get) [trm_var index];bnd])
-    | DirDownEq bnd ->
+          (trm_unop Unop_get) [trm_var index];stop])
+    | DirDownEq ->
       (trm_apps (trm_binop Binop_ge)
         [trm_apps ~annot:[Mutable_var_get]
-          (trm_unop Unop_get) [trm_var index];bnd])
+          (trm_unop Unop_get) [trm_var index];stop])
    end in
   let step =
-    begin match stop with
-    | DirUp _ | DirUpEq _ ->
+    begin match direction with
+    | DirUp | DirUpEq ->
       begin match step with
       | Pre_inc ->
         trm_apps (trm_unop Unop_pre_inc) [trm_var index]
@@ -1703,7 +1733,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
             trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [st]])
       | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
       end
-    | DirDown _ | DirDownEq _ ->
+    | DirDown | DirDownEq -> 
       begin match step with
       | Pre_dec ->
         trm_apps (trm_unop Unop_pre_dec) [trm_var index]
@@ -1736,41 +1766,6 @@ let get_include_filename (t : trm) : string  =
   match f_name with
   | Some s -> s
   | _ -> fail t.loc "get_include_filename: couldn't get the requested filename"
-
-(* get the singleton declaration variable in the case when [t] is a variable declaration or a list of variable in the case when
-    we have multiple variable declarations in one line
-*)
-let rec trm_vardef_get_vars (t : trm) : var list =
-  match t.desc with
-  | Trm_let (_, (x, _), _) -> [x]
-  | Trm_seq tl when List.mem Multi_decl t.annot -> List.flatten (List.map trm_vardef_get_vars (Mlist.to_list tl))
-  | _ -> []
-
-(* get the primitive operation *)
-let trm_prim_inv (t : trm) : prim option =
-  match t.desc with
-  | Trm_val (Val_prim p) -> Some p
-  | _ -> None
-
-
-(* get the primitive value *)
-let trm_lit_inv (t : trm) : lit option =
-  match t.desc with
-  | Trm_val (Val_lit v) -> Some v
-  | _ -> None
-
-(* convert an integer to an ast node *)
-let trm_int (n : int) : trm = trm_lit (Lit_int n)
-
-(* Unit trm, unvisble to the user *)
-let trm_unit () : trm =
-  trm_lit (Lit_unit)
-
-(* convert a double/float to an ast node *)
-let trm_double (d : float) : trm = trm_lit (Lit_double d)
-
-(* convert an integer to an ast node *)
-let trm_bool (b : bool) : trm = trm_lit (Lit_bool b)
 
 (* simplifiy unary operations on literals*)
 let compute_app_unop_value (p : unary_op) (v1:lit) : trm =
@@ -1825,11 +1820,11 @@ let rec trm_is_val_or_var (t : trm) : bool =
   | Trm_apps (_, [var_occ]) when is_get_operation t -> trm_is_val_or_var var_occ
   | _ -> false
 
-type loop_range = var * trm * loop_stop * loop_step
+type loop_range = var * trm * loop_dir * trm * loop_step
 
 let trm_for_inv (t : trm) : (loop_range * trm)  option =
   match t.desc with
-  | Trm_for (index, start, stop, step, body) -> Some ((index, start, stop ,step), body)
+  | Trm_for (index, start, direction, stop, step, body) -> Some ((index, start, direction,stop ,step), body)
   | _ -> None
 
 (* [is_trm_seq t] check if [t] is a sequence or not *)
@@ -1837,23 +1832,13 @@ let is_trm_seq (t : trm) : bool =
   match t.desc with
   | Trm_seq _ -> true  | _ -> false
 
-(* [is_new_operation t] check if the trm [t] is a primitive new operation *)
-let is_new_operation (t : trm) : bool =
-  match t.desc with
-  | Trm_apps (f, [_]) ->
-    begin match trm_prim_inv f with
-    | Some (Prim_new _) -> true
-    | _ -> false
-    end
-  | _ -> false
-
 (* [trm_fors rgs tbody] create nested loops with the main body [tbody] each nested loop
     takes its components from [rgs]
 *)
 let trm_fors (rgs : loop_range list) (tbody : trm) : trm =
   List.fold_right (fun x acc ->
-    let index, start, stop, step = x in
-    trm_for index start stop step (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
+    let index, start, direction,stop, step = x in
+    trm_for index start direction stop step (if (is_trm_seq acc) then acc else trm_seq_nomarks [acc])
   ) rgs tbody
 
 
@@ -1876,19 +1861,19 @@ let trm_fors_inv (nb : int) (t : trm) : (loop_range list * trm) option =
   let body_to_return  = ref (trm_int 0) in
   let rec aux (t : trm) : loop_range list =
     match t.desc with
-    | Trm_for (index, start, stop, step, body) ->
+    | Trm_for (index, start, direction, stop, step, body) ->
       incr nb_loops;
       begin match body.desc with
       | Trm_seq tl when Mlist.length tl = 1 ->
         if !nb_loops = nb
           then begin
             body_to_return := body;
-            (index, start, stop, step) :: []
+            (index, start, direction, stop, step) :: []
             end
           else
-            (index, start, stop, step) :: aux (Mlist.nth tl 0)
+            (index, start, direction, stop, step) :: aux (Mlist.nth tl 0)
       | _ ->
-        (index, start, stop, step) :: []
+        (index, start, direction, stop, step) :: []
       end
 
     | _ -> []
@@ -2073,6 +2058,18 @@ let trm_ge (t1 : trm) (t2 : trm) : trm =
 (* [trm_gt t1 t2] generates t1 > t2 *)
 let trm_gt (t1 : trm) (t2 : trm) : trm =
   trm_apps (trm_binop Binop_gt) [t1; t2]
+
+(* [trm_ineq ineq_sgn t1 t2] generates an inequality t1 # t2
+    where # is one of the following operators <, <=, >, >=.
+    The operator is provided implicitly through the [ineq_sng] arg
+*)
+let trm_ineq (ineq_sgn : loop_dir) (t1 : trm) (t2 : trm) : trm = 
+  match ineq_sgn with 
+  | DirUp -> trm_lt t1 t2 
+  | DirUpEq -> trm_le t1 t2
+  | DirDown ->  trm_gt t1 t2
+  | DirDownEq -> trm_ge t1 t2
+
 
 (* [trm_and t1 t2] generates t1 && t2 *)
 let trm_and (t1 : trm) (t2 : trm) : trm =

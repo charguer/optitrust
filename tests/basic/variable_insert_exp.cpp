@@ -6,7 +6,7 @@ typedef struct {
 
 int b = 500;
 
-const int a = 300;
+int const a = 300;
 
 typedef struct {
   vect pos;

@@ -298,14 +298,13 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | _ -> fail t.loc "unroll: could not get the number of steps to unroll"
       in
     match tg_loop_trm.desc with
-    | Trm_for (_,  start, stop, _, _) ->
-      let stop_t = loop_stop_to_trm stop in 
-      let nb_instr = begin match stop_t.desc with
+    | Trm_for (_index, start, _direction, stop, _, _) ->
+      let nb_instr = begin match stop.desc with
       | Trm_apps (_, [_;bnd]) ->
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
         | Trm_var x -> aux x t
-        | _ -> fail stop_t.loc "unroll: expected eitehr a constant variable of a literal"
+        | _ -> fail stop.loc "unroll: expected eitehr a constant variable of a literal"
         end
       | Trm_var x ->
           let start_nb = begin match start.desc with
@@ -314,7 +313,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
           | _ -> fail start.loc "unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in
           (aux x t) - start_nb
-      | _ -> fail stop_t.loc "unroll: expected an addition of two constants or a constant variable"
+      | _ -> fail stop.loc "unroll: expected an addition of two constants or a constant variable"
       end
         in
       Loop_basic.unroll ~braces:true ~my_mark [Target.cMark my_mark];
