@@ -12,7 +12,6 @@ open Ast
     return:
       the ast of nobrace sequence which is going to contain the added set operations
  *)
-
 let set_explicit_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps(_, [lt;rt]) ->

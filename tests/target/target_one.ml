@@ -1,6 +1,19 @@
 open Optitrust
 open Target
 
+
+(* TODO: add unit test for each constraint function *)
+(*
+  show [cFieldRead "x" ()];
+  show [cFieldWrite "x" ()];
+  show [cFieldAccess "x" ()]; 
+  show [cFieldWrite "x" ];
+  show [cFieldRead "y" ];
+  show [cFieldWrite "y" ];
+  show [cFieldRead "pos" ];
+  show [cFieldWrite "pos" ];*)
+
+
 let _ = Run.script_cpp (fun () ->
 
   (* Constants *)
@@ -33,7 +46,6 @@ let _ = Run.script_cpp (fun () ->
   (* Calls *)
   show [ cCall ~args:[[cInt 2]] "" ];
 
-  (* TODO: add unit test for each constraint function *)
 
   (* Var/Fun definitions *)
   show [ cFunDef "main" ];

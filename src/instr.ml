@@ -83,6 +83,14 @@ let accumulate ?(nb : int option) : Target.Transfo.t =
   ) 
 
 
+(* [accummulate_targets tg] similar to accummulate but here one can target multiple consecutive targets at the same time, and the number of  
+    targets is not needed.
+*)
+let accumulate_targets (tg : Target.target) : unit = 
+  let mark = Mark.next() in
+  Sequence.intro_targets ~mark tg;
+  Instr_basic.accumulate  [Target.cMark mark]
+
 type gather_dest = GatherAtFirst | GatherAtLast | GatherAt of Target.target
 
 
@@ -134,7 +142,6 @@ let move_multiple ~destinations:(destinations : Target.target list)  ~targets:(t
    Note: The transformation does not check if [tg] points to some invariant code or not
    LATER: Check if [tg] is dependent on other instructions of the same scope
 *)
-
 let move_out ?(rev : bool = false) ~dest:(dest : Target.target) : Target.Transfo.t =  
   Target.iter_on_targets ~rev (fun t p ->
     let tg_trm = Path.resolve_path p t in

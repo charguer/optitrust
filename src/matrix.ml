@@ -114,9 +114,22 @@ let intro_mops (dim : trm) : Target.Transfo.t =
 let delocalize ?(mark : mark option) ?(init_zero : bool = false) ?(acc_in_place : bool = false) ?(acc : string option) ?(last : bool = false)  (var : var) ~into:(into : var) ~dim:(dim : trm)  ~index:(index : string) ?(indices : string list = []) ~ops:(ops : delocalize_ops) (tg : Target.target) : unit =
   let indices = match indices with | [] -> [] | _ as s_l -> s_l  in
   let middle_mark = match mark with | None -> Mark.next() | Some m -> m in
-  let acc = match acc with | Some s -> s | _ -> "s" in
-  Matrix_basic.local_name ~my_mark:middle_mark  var ~into ~indices tg;
+  let acc = match acc with | Some s -> s | _ -> "s" in  Matrix_basic.local_name ~my_mark:middle_mark  var ~into ~indices tg;
   Matrix_basic.delocalize ~init_zero ~acc_in_place ~acc ~dim ~index ~ops [Target.cMark middle_mark];
   if last then Matrix_basic.reorder_dims ~rotate_n:1 () [Target.nbMulti; Target.cMark middle_mark; Target.cFun ~regexp:true "M.\\(NDEX\\|ALLOC\\)."] ;
   begin match mark with | None -> Marks.remove middle_mark [Target.cMark middle_mark] | _ -> () end
 
+
+(* [reorder_dims ~rotate_n ~order tg] expects the target [tg] to be pointing at a matrix declaration, then it will find the occurrences of ALLOC and INDEX functions  
+      and apply the reordering of the dimensions. 
+*)
+let reorder_dims ?(rotate_n : int option) ?(order : int list = []) () (tg : Target.target) : unit =
+  let rotate_n = match rotate_n with Some n -> n | None -> 0  in
+  Target.iter_on_targets (fun t p -> 
+    let path_to_seq,_ = Internal.isolate_last_dir_in_seq p in 
+    let tg_trm = Path.resolve_path p t in
+    match tg_trm.desc with 
+    | Trm_let (_, (x, _), _) -> 
+        Matrix_basic.reorder_dims ~rotate_n ~order () ((Target.target_of_path path_to_seq) @ [Target.cOr [[Target.cVarDef x; Target.cFun ~regexp:true "M.ALLOC."];[Target.cCellAccess ~base:[Target.cVar x] (); Target.cFun ~regexp:true "MINDEX."]]])
+    | _ -> fail tg_trm.loc "reorder_dims: expected a target to variable declaration"
+  ) tg

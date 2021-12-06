@@ -57,8 +57,6 @@ let intro_after ?(mark : mark = "") ? (label : label = "") (tg : Target.target) 
     | _ -> fail seq_trm.loc "intro_after: the targeted instruction should belong to a sequence"
   ) tg
 
-
-
 (* [intro_before ~marks ~label tg] same as intro but this function will include in the sequence all the instructions 
     which come before the targeted instruction and belong to the same scope.
 *)
@@ -71,10 +69,6 @@ let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target)
       Sequence_core.intro mark label index (-index-1) t path_to_seq
     | _ -> fail seq_trm.loc "intro_after: the targeted instruction should belong to a sequence"
   ) tg
-
-
-
-
 
 
 (* [intro_between tg_beg tg_end]: this transformation is an advanced version of intro.
@@ -96,9 +90,6 @@ let intro_between ?(mark : string = "") ?(label : label = "") (tg_beg : target) 
         then fail t.loc "intro_between: target for end should be past the target for start";
       (p1, i1, i2 - i1)) ps_beg ps_end in
     List.fold_left (fun t (p,i,nb) -> Sequence_core.intro mark label i nb t p) t pis))
-
-
-
 
 
 (* [elim tg] expects the target [tg] to point at a sequence that appears

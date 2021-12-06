@@ -740,7 +740,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | OperatorName op -> trm_var ~loc ~ctx ~typ (string_of_overloaded_op ~loc op)
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
-  | Member {base = eo; arrow = b; field = f} -> (* TODO: ARTHUR relire bien *)
+  | Member {base = eo; arrow = b; field = f} -> 
     begin match eo with
       | None -> fail loc "translate_expr: field accesses should have a base"
       | Some e ->
@@ -1203,7 +1203,7 @@ and translate_decl (d : decl) : trm =
          | Some e -> NonType (translate_qual_type ~loc q, Some (translate_expr e ))
          | None -> NonType (translate_qual_type ~loc q, None)
          end
-        | _ -> fail loc "translate_decl: nested templates are not supported" (* TODO: Add support for nested templates *)
+        | _ -> fail loc "translate_decl: nested templates are not supported" (* LATER: Add support for nested templates *)
         end in
         (n, tpk, b)
     ) pl in

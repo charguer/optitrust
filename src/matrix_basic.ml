@@ -1,4 +1,3 @@
-
 open Ast
 
 (* [intro_mcalloc tg] expects the target [tg] pointing to a call to funciton alloc
@@ -24,7 +23,7 @@ let intro_mindex (dim : trm) : Target.Transfo.t =
       then it will reorder their args based on [order], where [order] is a list of indices which the
       current args should follow
 *)
-let reorder_dims ?(rotate_n : int option) ?(order : int list = [])  (): Target.Transfo.t =
+let reorder_dims ?(rotate_n : int = 0) ?(order : int list = [])  (): Target.Transfo.t =
   Target.apply_on_targets (Matrix_core.reorder_dims rotate_n order)
 
 (* [insert_alloc_dim new_dim]: expects the target [tg] pointing to call to ALLOC functions, then it will
