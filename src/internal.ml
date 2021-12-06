@@ -200,7 +200,6 @@ let fresh_args (t : trm) : trm =
 let get_field_list (td : typedef) : (var * typ) list =
   begin match td.typdef_body with
   | Typdef_prod (_, s) -> List.rev s
-  (* | Typdef_prod (_, s) -> List.rev (fst (List.split s)) *)
   | _ -> fail None "get_field_lists: expected a Typedef_prod"
   end
 
@@ -489,11 +488,31 @@ let change_loop_body (loop : trm) (body : trm) : trm =
     trm_for_c init cond step body
   | _-> fail loop.loc "change_loop_body: expected for loop"
 
-
+(* [is_trm_loop t] check if [t] is a loop or not *)
 let is_trm_loop (t : trm) : bool =
   match t.desc with
   | Trm_for _ | Trm_for_c _ -> true
   | _ -> false
+
+(* [is_struct_type t] check if t is type struct or not 
+    Note: The current infrastructure of Optitrust supports only
+      struct declared via typedefs, later will add support for 
+      struct types not declared via a typedef.
+*)
+let is_struct_type (t : typ) : bool = 
+  match t.typ_desc with 
+  | Typ_constr (_tv, tid, _) -> 
+    begin match Context.typid_to_typedef tid with 
+    | Some td ->
+      begin match td.typdef_body with 
+      | Typdef_prod _ -> true
+      | _ -> false
+      end 
+    | _ -> false
+    end
+  | Typ_record _ -> false (* LATER: All the transformations that work with typedefs should also work with structs *)
+  | _ -> false
+
 
 
 (* Get the constraint from a list of constraints(targets) *)

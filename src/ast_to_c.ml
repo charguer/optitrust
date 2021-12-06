@@ -220,6 +220,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   in
   (* For printing C code, we have (see explanations in [clang_to_ast.ml],
      search for [Address_operator] and [Star_operator]. *)
+  
   match t.add with
   | Address_operator :: addl ->
      let d =
@@ -236,7 +237,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
                    is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
                    attributes = []}
      in
-     let body = if !decode then parens (star ^^ d) else d in
+     let body = if !decode then parens (star ^^ d) else string "<annotation:valueof>" ^^ d in
      dattr ^^ body ^^ dsemi
   | _ ->
      begin match t.desc with

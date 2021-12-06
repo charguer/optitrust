@@ -331,3 +331,68 @@ let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * strin
       Variable_basic.insert ~name ~typ ~value:str_val tg) defs
 )
 
+(* VERY MUCH LATER: do some checks
+       at the basic level: apply inlining
+       at the high level:
+       - always ok to inline arithmetic expressions (possibly hidden behind functions)
+       - operations with potential side effects should not be duplicated
+         except if there is a single occurrence of the variable
+         AND this occurence is not beyond other interacting side effects
+
+      const int a = x++;
+      int b = a;
+      int c = a;
+      => not safe to inline a
+
+      const int a = x++;
+      int b = a;
+      => safe to inline a
+
+      const int a = x++;
+      int c = y;
+      int b = a;
+      => safe to inline a
+
+      const int a = x++;
+      int c = x++;
+      int b = a;
+      => not safe to inline a
+
+      const int a = x++;
+      int b = f(x++,a);
+      => not safe to inline a
+    *)
+(* [inline ~accept_functions ~simple_deref tg] expects the target [tg] to be pointing a variable declaration.
+    If the variable has a struct type then a mark is created and passed as an argument to Variable_basic.inline 
+      on the next step, otherwise no marks needs to be created.
+      We consider the following cases:
+      1) If the targeted variable is mutable then try to make it immutable by calling Variable.to_const.
+         WARNING: This step will fail in the case when there are any write operations on the targetd varibles.
+      2) If the transformation didn't fail in the first step we are sure that we are trying to inline a const varible
+         and we can call safely Variable_basic.inline 
+      3) If the targeted variable is a struct type then call Struct_basic.simpl_proj to remove all the occurrences
+          of struct initialization list, by projecting them on the field they are accesses. 
+          Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is not valied C code.
+          After calling Struct_basic.simpl_proj {0, 1}.x becomes 0 
+*)
+let inline ?(accept_functions : bool = false) ?(_simpl_deref : bool = false) : Target.Transfo.t =
+  Target.iter_on_targets (fun t p ->
+    let tg_seq_path, _ = Internal.isolate_last_dir_in_seq p in 
+    let seq = Target.target_of_path tg_seq_path in 
+    let tg_trm = Path.resolve_path p t in 
+    let mark = Mark.next () in
+    match tg_trm.desc with 
+    | Trm_let (vk, (x, tx), _init) ->
+      let var_type = get_inner_ptr_type tx in
+      let mark = if (Internal.is_struct_type var_type) then mark else "" in
+      begin match vk with 
+      | Var_immutable ->
+        Variable_basic.inline ~mark ~accept_functions (seq @ [Target.cVarDef x])
+      | Var_mutable -> 
+        Variable_basic.to_const (seq @ [Target.cVarDef x]);
+        Variable_basic.inline ~mark (seq @ [Target.cVarDef x])
+      end;
+     Struct_basic.simpl_proj [Target.nbAny; Target.cFieldAccess ~base:[Target.cMark mark] ()];
+     Marks.remove mark [Target.nbAny; Target.cMark mark]     
+    | _ -> fail t.loc "inline: expected a target to a variable declaration"
+  )

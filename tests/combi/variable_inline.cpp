@@ -1,31 +1,23 @@
-void printReference (int& x) {
+typedef struct {
+  int x;
   int y;
-  y = x;
-}
+} vect;
 
-void printReference1 (int&& x) {
-  int y;
-  y = x+1;
-}
+typedef struct {
+  vect pos;
+  vect speed;
+} particle;
 
 int main() {
-  // inlining without removal of 'a'
-  const int a = 2;
-  const int b = a + a;
+  
+  vect v = {0,0};
+  particle p = {{0,0},{0,0}};
 
-  // inlining with removal of 'c'
-  const int c = 2;
-  const int d = c + c;
+  vect u = p.pos;
+  int x = p.pos.x;
 
-  // inlinine of not a constant
-  int x = 3;
-  int y = x + x;
+  particle p2 = p;
 
-  // inlining in a return expression
-  int &u = y;
-  u = 5;
-  int z = 4;
-
-  return z;
+  return 0;
 }
 

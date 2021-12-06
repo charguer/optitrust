@@ -17,15 +17,6 @@ int main() {
   const int c = 2;
   const int d = c + c;
 
-  // inlinine of not a constant
-  int x = 3;
-  int y = x + x;
-
-  // inlining in a return expression
-  int &u = y;
-  u = 5;
-  int z = 4;
-
   return z;
 }
 

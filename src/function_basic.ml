@@ -86,14 +86,16 @@ let inline ?(body_mark : mark option) (tg : Target.target) : unit =
 let beta  ?(body_mark : var = "body") (tg : Target.target) : unit =
   inline ~body_mark tg
 
-(* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transforms them
-    into x += a
+(* [use_infix_ops tg] expects the target [tg] to be pointing at an instruction of the form x = x (op) a,
+    then it will transform that instruction into x (op)= a. 
+    Note: This transformation can be used only with infix operators like +, -, * etc.
  *)
-let use_infix_ops ?(tg_ops : Target.target = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()]) () : unit =
-  Target.apply_on_targets (Function_core.use_infix_ops) tg_ops
+let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
+  Target.apply_on_targets (Function_core.use_infix_ops allow_identity)
 
-
-
+(* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similart to what Function_basic.inline generates 
+    Then it will replace that sequence with a call to the fuction with declaration targeted by [fct].
+*)
 let uninline ~fct (*:Target.target*) (tg : Target.target) : unit =
   Trace.call (fun t ->
     let fct_path = Target.resolve_target_exactly_one fct t in

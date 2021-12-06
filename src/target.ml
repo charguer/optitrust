@@ -608,23 +608,23 @@ let cAccess : constr_access =
   Any_access
 
 (* [cFieldAccess field] field matches all struct accesses in field [field]*)
-let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  () : constr =
+let cFieldAccess ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ?(field : field = "" )  () : constr =
  cAccesses ~base ~accesses:[cField ~field ~substr ~regexp ()] ()
 
 (* [cFieldRead ~base ~substr ~regexp ~field ] matches all struct accesses at field [field] with base [base]
     which are at the base of a get operation
 *)
-let cFieldRead ~field:(field : field ) ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  () : constr =
+let cFieldRead ?(field : field = "") ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false)  () : constr =
   cRead ~addr:[cFieldAccess ~base ~substr ~regexp ~field ()] ()
 
 (* [cFieldWrite ~base field] matches all struct field write operations*)
-let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ?(rhs : target = []) ~field:(field : field )  () : constr =
+let cFieldWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ?(rhs : target = []) ?(field : field = "")  () : constr =
   let lhs = [cFieldAccess ~base ~substr ~regexp ~field ()] in
   cWrite ~lhs ~rhs ()
 
 (* [cFieldReadOrWrite ~base ~substr ~regexp ~field] matches all read or write operations
 *)
-let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ~field:(field : field )  () : constr =
+let cFieldReadOrWrite ?(base : target = []) ?(substr : bool = false) ?(regexp : bool = false) ?(field : field = "")  () : constr =
  cOr [[cFieldWrite ~base ~substr ~regexp ~field ()];[cFieldRead ~base ~substr ~regexp ~field ()] ]
 
 (* [cCellAccess ~base ~index ] matches all array accesses at index [index] with base [base] *)

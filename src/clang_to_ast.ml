@@ -603,7 +603,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   typ;
                   ctx;
                   attributes = t.attributes}
-              | Rvalue -> trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
+              | Rvalue -> 
+                trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
             end
           | Minus ->
             let t = translate_expr e in
