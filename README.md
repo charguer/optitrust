@@ -194,3 +194,14 @@ optitrust_tests() {
   code `find /home/charguer/shared/verified_transfo/src/tests -name *$1* -type f \( \( -iname \*.ml -o -iname \*.cpp \) -and -not -iname \*_exp.cpp -and -not -iname \*_enc.cpp -and -not -iname \*lines.ml -and -not -iname \*_before.cpp  -and -not -iname \*_after.cpp \)  -not -path "*/_build/*"`
 }
 alias ot='optitrust_tests'
+
+
+# Flags
+
+In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
+
+```
+  #!/bin/bash
+  FLAGS="-dump-ast-details -analyse-time-details"
+```
+

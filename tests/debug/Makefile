@@ -1,4 +1,5 @@
-FLAGS := -dump-ast-details # -analyse_time_details
+FLAGS := -dump-ast-details # -analyse-time-details
+
 TARGET_MAKE_ALL := mine
 include ../Common.Makefile
 

@@ -11,7 +11,6 @@ VIEW=$4 # should be view_diff or view_result
 RECOMPILE_OPTITRUST=$5 # should be recompile_optitrust_yes or recompile_optitrust_no
 OPTIONS=$6
 OPTIONS2=$7
-# options: e.g.  -dump-trace
 
 # LATER: if a ${FILEBASE}_exp.cpp file is present, export it into the JS file,
 # so that the browser can report on the differences between _out.cpp and _exp.cpp.
@@ -28,6 +27,14 @@ eval $(opam env)
 
 # Make sure we work in the directory that contains the file
 cd ${DIRNAME}
+
+
+# Read options from optitrust_flags.sh
+# options: e.g.,  -dump-ast-details -analyse-time-details
+if [ -f "optitrust_flags.sh" ]; then
+  source optitrust_flags.sh
+fi
+
 
 # NOTE: this could be removed if we use the VScode command to run "make optitrust" first.
 # Run make update in working folder if requested
@@ -87,7 +94,7 @@ fi
 
 # Third, we execute the transformation program, obtain "${FILEBASE}_before.cpp" and "${FILEBASE}_after.cpp
 # Activate the backtrace
-OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} -analyse_time_details
+OCAMLRUNPARAM=b ./${PROG} -exit-line ${LINE} ${OPTIONS} ${OPTIONS2} ${FLAGS}
 
 # DEBUG: echo "cd ${DIRNAME}; ./${PROG} -exit-line ${LINE} ${OPTIONS}"
 # DEPREACTED | tee stdoutput.txt

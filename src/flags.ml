@@ -6,7 +6,7 @@ let analyse_time : bool ref = ref false
 let analyse_time_details : bool ref = ref false
 
 (* dump .ast and _enc.cpp files *)
-let dump_ast_details : bool ref = ref true
+let dump_ast_details : bool ref = ref false
 
 (* Call [Trace.dump_last !dump_last] instead of [Trace.dump], if value is set.
    Note: incompatible with the use of [switch] in scripts, currently. *)
@@ -34,8 +34,8 @@ let spec =
      ("-dump-trace", Arg.Set dump_all, " produce a JS file with all the steps performed by the transformation script");
      ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode");
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");
-     ("-analyse_time", Arg.Set analyse_time, " produce a file reporting on the execution time");
-     ("-analyse_time_details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
+     ("-analyse-time", Arg.Set analyse_time, " produce a file reporting on the execution time");
+     ("-analyse-time-details", Arg.Set analyse_time_details, " produce more details in the file reporting on the execution time (implies -analyse_time)");
      (* LATER: a -dev flag to activate a combination of dump *)
     ]
 
