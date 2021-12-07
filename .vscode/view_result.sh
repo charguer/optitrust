@@ -113,9 +113,13 @@ fi
 cd ${VSCODE}
 
 
-if [ "${VIEW}" = "view_diff" ]; then
+if [ "${VIEW}" = "view_diff" ] || [ "${VIEW}" = "view_diff_enc" ]; then
 
-  ./open_diff.sh ${DIRNAME} ${FILEBASE} &
+  if [ "${VIEW}" = "view_diff_enc" ]; then
+    DIFFFOR="enc"
+  fi
+
+  ./open_diff.sh ${DIRNAME} ${FILEBASE} ${DIFFFOR} &
 
 elif [ "${VIEW}" = "view_result" ]; then
 

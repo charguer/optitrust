@@ -72,6 +72,22 @@
         ]
       },
       {
+        "label": "View diff for ast encoding",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff_enc",
+            "recompile_optitrust_no"
+        ]
+      },
+      {
         "label": "Execute from intermediate state",
         "type": "shell",
         "command": "./run_action.sh",

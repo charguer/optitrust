@@ -205,3 +205,34 @@ In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
   FLAGS="-dump-ast-details -analyse-time-details"
 ```
 
+
+# Shortcuts
+
+
+```
+  {
+    "key": "f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View diff",
+  },
+  {
+    "key":"shift+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Recompile and view diff",
+  },
+  {
+    "key":"ctrl+shift+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View diff for ast encoding",
+  },
+  {
+    "key": "f7",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute from intermediate state",
+  },
+  {
+    "key": "shift+f7",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Save intermediate state",
+  },
+```
