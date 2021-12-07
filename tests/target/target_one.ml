@@ -36,12 +36,17 @@ let _ = Run.script_cpp (fun () ->
   (* Vardef/initializer *)
   show [ cVarDef "r" ];
   (* TOOO: move this to target.ml *)
-  let cPrimNew () = cPrimPredFun (function Prim_new _ -> true | _ -> false) in
-  let cInit () = cChain [cPrimNew(); dArg 0 ] in
+  let cPrimNew ?(arg:target = []) () =
+    cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false) in
+  let cInit ?(arg:target = []) () = cChain ([ cPrimNew ~arg (); dArg 0 ]) in
+  let dInit = cChain [ cStrict; cInit() ] in
   show [ cVarDef "r" ; cPrimNew() ];
   show [ cVarDef "r" ; cPrimNew(); dArg 0 ];
   show [ cVarDef "r" ; cInit () ];
-
+  show [ cVarDef "r" ; dInit ];
+  show [ cInit () ];
+  show [ cVarDef ""; cStrict; cInit ~arg:[ cLit] () ];
+  show [ cVarDef ""; cStrict; cInit ~arg:[ cStrict; cLit] () ]; (* TODO: not resolving to the good ones *)
 
   (* Loops *)
   show [ cFor "i" ];

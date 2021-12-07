@@ -182,6 +182,7 @@ val cInit : ?arg:target -> unit -> constr
 
 val cBool : bool -> constr
 
+(* TODO: cIntPred : (int -> bool) -> constr *)
 val cInt : int -> constr
 
 val cDouble : float -> constr
