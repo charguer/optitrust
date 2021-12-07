@@ -149,7 +149,7 @@ int f2() { // result of Funciton_basic.inline_cal
 let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
     Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
       (fun i t (path_to_seq, local_path, i1) -> 
-        let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
+        let _vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
         let name_result = ref name_result in
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
         let path_to_call = path_to_instruction @ local_path in
@@ -164,6 +164,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
           | Some init1 -> init1
           | None -> fail t.loc "inline: coudl not get the target to the function call" in
           if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case"
+            
             else if List.length local_path <= 2 && List.length local_path > 0 then
               begin
               name_result := x;
@@ -177,7 +178,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
                           mark_added := true
 
                 | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
-                    res_inlining_needed := false;
+                    res_inlining_needed := true;
                     mark_added := true
                 end
         | Trm_apps (_f, [_; _]) when is_set_operation tg_out_trm ->
@@ -207,7 +208,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
                 | e -> raise e in 
-             if !res_inlining_needed then Variable_basic.inline ~delete:true [new_target];
+             if !res_inlining_needed then Variable.inline ~delete:true [new_target];
             if !success_attach then Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result];
             Marks.remove my_mark [Target.nbAny; new_target]
           end;

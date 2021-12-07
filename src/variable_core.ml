@@ -209,6 +209,7 @@ let init_detach : Target.Transfo.local =
 exception Init_attach_no_occurrences
 exception Init_attach_occurrence_below_control
 
+
 let init_attach_aux (const : bool) (index : int) (t : trm) : trm = 
   match t.desc with
   | Trm_seq tl -> 
@@ -220,7 +221,8 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
       let new_t = trm_seq ~annot:t.annot ~marks:t.marks new_tl in
       let ps = resolve_target tg new_t in
       let nb_occs = List.length ps in
-      if nb_occs < 0 then raise Init_attach_no_occurrences;
+      if nb_occs = 0 then raise Init_attach_no_occurrences
+       else if nb_occs >= 2 then raise Init_attach_occurrence_below_control;
       Tools.fold_lefti (fun i acc p ->
         if i = 0 then begin 
         apply_on_path (fun t1 -> 
@@ -228,7 +230,7 @@ let init_attach_aux (const : bool) (index : int) (t : trm) : trm =
           | Trm_apps (_, [_;rs]) ->
             if const then trm_let_immut ~marks:trm_to_change.marks (x,tx) rs else trm_let_mut ~marks:trm_to_change.marks (x, (get_inner_ptr_type tx)) rs
           | _ -> t1
-          end
+          end 
         ) acc p
         end
         else acc

@@ -36,7 +36,6 @@ TESTS_WORKING := \
 	loop_unroll.ml \
 	loop_unswitch.ml \
 	pointer_fold.ml \
-	reference_inline.ml \
 	reference_fold.ml \
 	rewrite_equiv_at.ml \
 	rewrite_compute.ml \
@@ -72,9 +71,9 @@ TESTS_WORKING := \
 #	variable_inline.ml \
 
 TESTS_TOCHECK := \
-  arith_simplify.ml \
+	accesses_intro.ml \
+	arith_simplify.ml \
 	function_beta.ml \
-	function_use_infix_ops.ml \
 	function_uninline.ml \
 	include_inline.ml \
 	instr_accumulate.ml \
@@ -90,7 +89,6 @@ TESTS_TOCHECK := \
 	matrix_intro_mmalloc.ml \
 	matrix_local_name.ml \
 	matrix_reorder_dims.ml \
-	accesses_intro.ml \
 
 # missing expected
 # matrix_insert_alloc_dim.ml
@@ -101,6 +99,8 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
+	function_use_infix_ops.ml \
+	reference_inline.ml \
   
 
 

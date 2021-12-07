@@ -6,7 +6,6 @@ open Target
 
 let _ = Run.script_cpp (fun _ ->
   
-
   (* !! Function.inline ~vars:(AddSuffix "${occ}") [occFirst;cFun "f?"]; *)
   !! Function.inline [cFun "vect_mul"];
   !! Function.inline [cFun "vect_add"];
@@ -16,6 +15,7 @@ let _ = Run.script_cpp (fun _ ->
     !! Function.inline  ~args:["v"] [cFun "f"];
     !!());
   (* inlining a function with if else branches *)
+  !! Function.inline [cFun "g"];
   (* inlining a function with one if branch *)
   !! Function.inline [cFun "h"]; 
   (* inlining a function of type void *)

@@ -23,7 +23,7 @@ let _ = Run.script_cpp (fun _ ->
       !! Function_basic.inline ~body_mark:"body" [cFun "g"];
       !! Function.elim_body [cMark "body"];
       !! Variable_basic.init_attach [cVarDef r];
-      !! Variable_basic.inline [cVarDef r];
+      !! Variable.inline [cVarDef r];
       !!());
 
     (* Demo without naming the arguments, observe the duplicated call to h *)

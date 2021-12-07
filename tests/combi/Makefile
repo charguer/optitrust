@@ -38,7 +38,6 @@ TESTS_TOCHECK := \
 	instr_moveout.ml \
 	instr_read_last_write.ml \
 	instr_gather.ml \
-	loop_fold.ml \
 	loop_fusion_targets.ml \
 	matrix_intro_mops.ml \
 	matrix_delocalize.ml \
@@ -50,7 +49,7 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	aos_to_soa.ml \
 	function_beta.ml \
-
+  
 TESTS_WITH_DOC := \
 	loop_fusion.ml \
 

@@ -2,12 +2,12 @@ open Optitrust
 open Target
 
 let _ = Run.doc_script_cpp (fun _ ->
-  !! Variable_basic.inline [cVarDef "y"];
+  !! Variable_basic.inline [cVarDef "x"];
   )
 "
 int main() {
-  int x = 3;
-  int& y = x;
+  const int& x = 3;
+  int y = x;
   y++;
 }
 "

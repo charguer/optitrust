@@ -14,7 +14,6 @@ int main() {
   int a = h(4);
   int b = m(v, 2);
   int p = ((((a + a) + u) + b) + (w + 1));
-  int r = (p + p);
-  int t = f(r);
+  int t = f((p + p));
   return 0;
 }

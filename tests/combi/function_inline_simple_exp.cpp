@@ -15,11 +15,6 @@ int f(int x) {
   return (a + a);
 }
 
-int f1(int x) {
-  int a = (x + x);
-  return a;
-}
-
 int g(int x) {
   if ((x > 0))
     return 1;
@@ -37,17 +32,21 @@ void m(int *p) { (*p)++; }
 
 int main() {
   int x = 3;
-  int y = f1(x);
-  int z = g(x);
+  int y = f(x);
+  int z;
+  if ((x > 0))
+    z = 1;
+  else
+    z = 2;
+  int u;
   if ((x > 0)) {
-    int u = 1;
+    u = 1;
     goto exit_body;
   }
   u = 2;
 exit_body:;
   int *q = new int;
   (*q)++;
-  z = f(f1(x));
   vect a = {0, 1};
   vect b = {3, 4, 5};
   vect c = {(b.x + (x * a.x)), (b.y + (x * a.y)), (b.z + (x * a.z))};
