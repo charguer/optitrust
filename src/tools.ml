@@ -121,9 +121,14 @@ let reset_generator () : unit =
   let _x = fresh_generator ~init:true () in ()
 
 (* used for unit tests *)
+exception Failure_expected_did_not_fail
 let failure_expected (f : unit -> unit) : unit =
-  try f(); failwith "failure_expected: the operation was supposed to fail but it didn't"
-  with _ -> ()
+  try
+    f();
+    raise Failure_expected_did_not_fail
+  with
+    | Failure_expected_did_not_fail -> failwith "failure_expected: the operation was supposed to fail but it didn't"
+    |_ -> ()
 
 
 (* remove all the elements from a list starting from a element x *)
@@ -325,22 +330,22 @@ let milliseconds_between (t0 : float) (t1 : float) : int =
   int_of_float (1000. *. (t1 -. t0))
 
 
-(* [string_subst pattern replacement s] replace all [pattern] occurrences inisde [s] with 
+(* [string_subst pattern replacement s] replace all [pattern] occurrences inisde [s] with
       [replacement]
 *)
-let string_subst (pattern : string) (replacement : string) (s : string) : string = 
+let string_subst (pattern : string) (replacement : string) (s : string) : string =
   Str.global_replace (Str.regexp_string pattern) replacement s
 
 (* [subst_dollar_number inst s] search for ocurrences of ${i} in s and replace them with the variable
       at index i in [inst] where [inst] is a list of variables
 *)
 let subst_dollar_number (inst : string list) (s : string) : string =
-  fold_lefti (fun i acc insti -> 
+  fold_lefti (fun i acc insti ->
     string_subst ("${"^(string_of_int i) ^ "}") insti acc
   ) s inst
 
 (* [list_rotate n l] move n elements at the end of the list *)
-let list_rotate (n : int) (l : 'a list) : 'a list = 
+let list_rotate (n : int) (l : 'a list) : 'a list =
  if n > List.length l then failwith "list_rotate: the elements to rotate shouuld be less or equal to the number of the elements in the list";
  let ls, rs = split_list_at n l in rs @ ls
 
