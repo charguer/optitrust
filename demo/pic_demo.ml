@@ -62,7 +62,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   let ctxf = cTopFunDef "cornerInterpolationCoeff" in
   let ctx = cChain [ctxf; sInstr "r.v"] in
   !! Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
-  !! Variable_basic.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
+  !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;" ~pattern_aux_vars:"double rX, rY, rZ;"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
@@ -73,8 +73,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !!! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; (* !!!(); *)
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Variable_basic.inline ~delete:true [main; cVarDef "p2"];
-  !! Variable_basic.inline ~delete:true [main; cVarDef "p"];
+  !! Variable.inline ~delete:true [main; cVarDef "p2"];
+  !! Variable.inline ~delete:true [main; cVarDef "p"];
   !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)

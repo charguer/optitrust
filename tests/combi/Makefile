@@ -35,6 +35,7 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
 	function_use_infix_ops.ml \
+	function_beta.ml \
 	instr_accumulate.ml \
 	instr_accumulate_targets.ml \
 	instr_moveout.ml \
@@ -50,7 +51,6 @@ TESTS_TOCHECK := \
 
 TESTS_TO_FIX := \
 	aos_to_soa.ml \
-	function_beta.ml \
 
 TESTS_WITH_DOC := \
 	loop_fusion.ml \

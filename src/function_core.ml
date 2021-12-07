@@ -125,7 +125,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let name = match trm_to_change.desc with | Trm_let (_, (x, _), _) -> x | _ -> ""  in
         let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
         let marked_body = begin match body_mark with 
-        | Some b_m -> trm_add_mark b_m processed_body 
+        | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body 
         | _ -> Internal.set_nobrace_if_sequence processed_body 
         end  in
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "exit_body" (trm_lit (Lit_unit)) in

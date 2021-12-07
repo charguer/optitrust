@@ -215,22 +215,51 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
           Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
       
       ) tg
+(*
 
-(* [beta ~tg] if the target [tg] is given then this transformation expects this targets to be pointing to a function call 
+
+  The combi transformation Function.beta takes a target:
+
+  Function.beta =
+    - if this target points to a trm_app, apply Function_basic.beta on it
+    - if this target points to a trm_let_fun, check that the parent node is a trm_app, and target this one.
+        int a = (void f(int x) { return x; })(3)
+        ->
+        int a =3
+
+
+        same result as if you ave
+> Executing task: ./run_action.sh ./view_result.sh 
+          f(3)
+
+        trm_app ~base:[trm_let_fun ~name:"f"]
+        [trm_let_fun ~name:"f"]
+
+
+  The point is that the user can say "beta reduce the function f"
+
+  The combi transformation has prototype:
+      Function.beta ?(target:target=[]) ()
+  when target is not provided, we use the target [cApp ~base:[cFunDef()]]
+  to indicate that we are looking for any application of a function definition through the AST.
+
+*)
+
+(* [beta ~tg] if the target [tg] is given then this transformation expects this target to be pointing to a function call 
     if not, then this transformation will try to target all the beta function declarations and reduce them
 *)
-let beta ?(tg : Target.target = []) () : unit = 
-  let tg = match tg with | [] -> [Target.cFun "" ~args:[[Target.cFunDef ""]]] | _ -> tg in
+let beta ?(tg : Target.target = []) ?(body_mark : mark = "") (): unit = 
+  let tg = match tg with | [] -> [Target.cFun ~fun_:[Target.cFunDef ""] ""] | _ -> tg in
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with 
     | Trm_apps _ -> 
-      Function_basic.beta tg
+      Function_basic.beta ~body_mark tg
     | Trm_let_fun (_f, _, _, _) -> 
       let parent_path, _ = Tools.unlast p in
       let parent_node = Path.resolve_path parent_path t in
       begin match parent_node.desc with 
-      | Trm_apps (_, _args) -> Function_basic.beta (Target.target_of_path parent_path)
+      | Trm_apps (_, _args) -> Function_basic.beta ~body_mark (Target.target_of_path parent_path)
       | _ -> ()
       end
     | _ -> fail t.loc "beta: this transformation expects a target to a function call"
