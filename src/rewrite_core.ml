@@ -68,6 +68,8 @@ let parse_rule (str : string) : rewrite_rule =
 
 exception Rule_mismatch
 
+
+(* TODO: Replace this function with the one from Trm_matchig.new_rule_match *)
 (* [rule_match]: for a given list of variables [vars] in pattern [pat] return a map with all the variables
       as keys and their associated ast as values
 *)

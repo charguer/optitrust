@@ -88,7 +88,7 @@ let beta  ?(body_mark : var = "body") (tg : Target.target) : unit =
 
 (* [use_infix_ops tg] expects the target [tg] to be pointing at an instruction of the form x = x (op) a,
     then it will transform that instruction into x (op)= a. 
-    Note: This transformation can be used only with infix operators like +, -, * etc.
+    Note: This transformation can be used only with operators that have an infix version like +, -, *, / etc.
  *)
 let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
   Target.apply_on_targets (Function_core.use_infix_ops allow_identity)

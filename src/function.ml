@@ -242,11 +242,12 @@ let beta ?(tg : Target.target = []) () : unit =
  *)
 let use_infix_ops ?(allow_identity : bool = true) (tg : Target.target) : unit = 
   let tg_infix_ops = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] in
-  Target.iter_on_targets (fun _ p -> 
+  Target.iter_on_targets (fun t p -> 
     if p = [] then 
       Function_basic.use_infix_ops_at ~allow_identity ((Target.target_of_path p) @ tg_infix_ops)
       else 
-        let path_to_seq, _ = Internal.isolate_last_dir_in_seq p in 
+        let tg_trm = Path.resolve_path p t in 
+        let path_to_seq = if is_trm_seq tg_trm then p else fst (Internal.isolate_last_dir_in_seq p) in
         let tg_seq = Target.target_of_path path_to_seq in 
         Function_basic.use_infix_ops_at ~allow_identity (tg_seq @ tg_infix_ops)
   ) tg

@@ -75,6 +75,7 @@ TESTS_TOCHECK := \
 	arith_simplify.ml \
 	function_beta.ml \
 	function_uninline.ml \
+	function_use_infix_ops.ml \
 	include_inline.ml \
 	instr_accumulate.ml \
 	specialize_any.ml \
@@ -99,9 +100,7 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
-	function_use_infix_ops.ml \
 	reference_inline.ml \
-  
 
 
 TESTS_WITH_DOC := \
