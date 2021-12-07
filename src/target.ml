@@ -127,11 +127,8 @@ let dThen : constr =
 let dElse : constr =
     Constr_dir Dir_else
 
-let dBodyAll : constr = (* TODO: naming issue *)
-    Constr_dir Dir_body
-
-let dFunBody : constr =
-    Constr_dir Dir_fun_body
+let dBody : constr = 
+  Constr_dir Dir_body
 
 let dForInit : constr =
     Constr_dir Dir_for_c_init
@@ -391,8 +388,6 @@ let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : s
   Constr_target (with_type ~typ ~typ_pred [c])
 
 
-
-
 let cBool (b : bool) : constr =
     Constr_lit (Some (Lit_bool b))
 
@@ -442,9 +437,21 @@ let cPrimPredFun ?(args : targets = []) ?(args_pred:target_list_pred = target_li
 let cPrimFun ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) (p:prim) : constr =
    cPrimPredFun ~args ~args_pred (fun p2 -> p2 = p)
 
-(* [cPrimFunArith] *)
+(* [cPrimFunArith] matches all the primitive arithmetic operations *)
 let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) () : constr =
   cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
+
+(* [let cPrimNew ~arg ()] matches all the encode new primitive operations*)
+let cPrimNew ?(arg : target = []) () : constr = 
+  cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false) 
+
+(* [cInit ~arg ()] matches all the initialization values of variable declarations *)
+let cInit ?(arg:target = []) () : constr = 
+  cChain ([ cPrimNew ~arg (); dArg 0 ]) 
+
+(* [dInit] similar to cInit  but this one doesn't match on depth *)
+let dInit : constr = 
+  cChain [cStrict; cInit ()]
 
 (* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
     left empty, then no contraint on the side of the set operation will be applied.
@@ -492,7 +499,7 @@ let cLabel ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = fals
 
 (* [cLabelBdoy ~substr ~body ~regexp label] matches C label bodys*)
 let cLabelBody ?(substr : bool = false) ?(body : target = []) ?(regexp : bool = false) (label : string) : constr =
-  cChain [cLabel ~substr ~body ~regexp label; dBodyAll]
+  cChain [cLabel ~substr ~body ~regexp label; dBody]
 
 let cGoto ?(label : string = "")
   ?(substr : bool = false) ?(regexp : bool = false) (_ : unit) : constr =
@@ -558,17 +565,12 @@ let dLHS : constr =
 let dRHS : constr =
   cChain [cWrite (); dArg 1]
 
-let dBody : constr =
-  cOr [[dBodyAll]; [dFunBody]]
-
-
 (* select initializers *)
 let cInit ?(arg:target=[]) () : constr =
-  Constr_target [ dBodyAll; dArg 1]
+  Constr_target [ dBody; dArg 1]
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
-
 
 
 (* [cAccesses ~base ~accesses ()] matches array_accesses or struct accesses
@@ -1007,7 +1009,7 @@ let get_function_name_at (dl : path) : string option =
 (* [get_top_level_function_name_containing dl] get the name of the toplevel function which contains the path [dl]  *)
 let get_toplevel_function_name_containing (dl : path) : string option =
   match dl with
-  | Dir_seq_nth i :: Dir_fun_body :: _ -> get_function_name_at [Dir_seq_nth i]
+  | Dir_seq_nth i :: Dir_body :: _ -> get_function_name_at [Dir_seq_nth i]
   | _ -> None
 
 

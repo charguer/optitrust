@@ -4,5 +4,5 @@ open Ast
 
 let _ = Run.script_cpp (fun _ ->
 
-    show [cVarDef "c"];
+    show [cVarDef "a";dBody; dArg 0];
 )

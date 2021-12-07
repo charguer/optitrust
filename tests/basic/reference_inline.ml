@@ -19,7 +19,6 @@ let _ = Run.script_cpp ( fun _ ->
   (* inline at all occurences and delete the reference definition *)
   !! Variable_basic.inline [cVarDef "a"];
   (* inline a reference to a matrix row *)
-  (* !! Variable_basic.inline [cVarDef "v"]; *)
 )
 
 (* TODO:

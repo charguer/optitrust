@@ -80,8 +80,6 @@ val dElse : constr
 
 val dBody : constr
 
-val dFunBody : constr
-
 val dForInit : constr
 
 val dStep : constr
@@ -182,7 +180,6 @@ val cInit : ?arg:target -> unit -> constr
 
 val cBool : bool -> constr
 
-(* TODO: cIntPred : (int -> bool) -> constr *)
 val cInt : int -> constr
 
 val cDouble : float -> constr
@@ -204,6 +201,12 @@ val cPrimPredFun : ?args:targets -> ?args_pred:target_list_pred -> (prim -> bool
 val cPrimFun : ?args:targets -> ?args_pred:target_list_pred -> prim -> constr
 
 val cPrimFunArith : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
+
+val cPrimNew : ?arg:target -> unit -> constr
+
+val cInit : ?arg:target -> unit -> constr 
+
+val dInit : constr 
 
 val cMark : mark -> constr
 

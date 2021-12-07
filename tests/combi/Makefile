@@ -35,7 +35,7 @@ TESTS_WORKING := \
 
 TESTS_TOCHECK := \
 	function_beta.ml \
-	function_uniline.ml \
+	function_uninline.ml \
 	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_accumulate_targets.ml \

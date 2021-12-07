@@ -5,5 +5,5 @@ open Ast
 
 let _ = Run.script_cpp (fun _ ->
 
-    !! Function.use_infix_ops [cFunDef "main"; dFunBody];
+    !! Function.use_infix_ops [cFunDef "main"; dBody];
 )
