@@ -603,7 +603,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   typ;
                   ctx;
                   attributes = t.attributes}
-              | Rvalue -> 
+              | Rvalue ->
                 trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
             end
           | Minus ->
@@ -741,7 +741,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | OperatorName op -> trm_var ~loc ~ctx ~typ (string_of_overloaded_op ~loc op)
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
-  | Member {base = eo; arrow = b; field = f} -> 
+  | Member {base = eo; arrow = b; field = f} ->
     begin match eo with
       | None -> fail loc "translate_expr: field accesses should have a base"
       | Some e ->

@@ -1,4 +1,5 @@
 
+
 // Description of the encoding performed for the AST representation
 
 typedef struct { int x; int y; } vect;
@@ -221,7 +222,7 @@ int mutable_stack_array (){
 
 
 void access_encoding() {
-  const vect a;
+  const vect a = { 0, 1 };
   // copy as const
   const vect b = a;
   // copy as non-const
@@ -235,12 +236,29 @@ void access_encoding() {
 int foo(vect v) { return v.x; }
 
 int mutable_var_encoding() {
-    const vect a;
+    const vect a = { 0, 1 };
     int ax = foo(a);
     vect c = a;
     int cx = foo(c);
 }
 
+typedef struct {
+  vect fst;
+  vect snd;
+} vectpair;
+
+void lvalue_encoding() {
+  vect* p;
+  p->x = 2;
+  (*p).x = 3;
+
+  vectpair* q;
+  q->fst.x = 2;
+  (*q).fst.x = 3;
+
+  int *v;
+  *v = 4;
+}
 
 
 /* LATER

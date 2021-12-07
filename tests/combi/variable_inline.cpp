@@ -35,7 +35,7 @@ int main() {
      particle* const p = &(c ->items[i]);
 
     vect f = {0,0,0};
-    (p->pos) = f;   (*p).pos
+    (p->pos) = f;
     (p->speed) = f;
 
     (p -> pos).x = 0;
