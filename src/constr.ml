@@ -113,7 +113,7 @@ and constr =
   (* var *)
   | Constr_var of constr_name
   (* lit *)
-  | Constr_lit of lit option
+  | Constr_lit of (lit -> bool)
   (* app: function, arguments *)
   | Constr_app of target * target_list_pred * bool
   (* label *)
@@ -341,8 +341,9 @@ let rec constr_to_string (c : constr) : string =
      sprintf "Seq (%s)" spred
   | Constr_var name ->
      "Var " ^ (match name with | None -> "_" | Some r -> rexp_to_string r)
-  | Constr_lit l ->
-     let s =
+  | Constr_lit _ ->
+     "Lit todo"
+     (* let s =
        begin match l with
        | Some l1 -> begin match l1 with
             | Lit_unit ->  "()"
@@ -354,7 +355,7 @@ let rec constr_to_string (c : constr) : string =
             end
        | None -> "Any"
        end
-     in "Lit " ^ s
+     in "Lit " ^ s *)
   | Constr_app (p_fun, tgt_list_pred, accept_encoded) ->
     let spred = tgt_list_pred.target_list_pred_to_string() in
     let s_fun = target_to_string p_fun in
@@ -715,11 +716,8 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         in constra_app *)
      | Constr_var name, Trm_var x ->
         check_name name x
-     | Constr_lit l, Trm_val (Val_lit l') ->
-        begin match l with
-        | Some l1 -> is_equal_lit l1 l'
-        | None -> true
-        end
+     | Constr_lit pred_l, Trm_val (Val_lit l) ->
+        pred_l l
      | Constr_app (p_fun, cl_args, accept_encoded), Trm_apps (f, args) ->
         if not accept_encoded then
           begin match f.desc with

@@ -176,17 +176,25 @@ val cSeq : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
 val cVar : ?regexp:bool -> ?trmkind:trm_kind -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
-val cInit : ?arg:target -> unit -> constr
+val cLitPred : (lit -> bool) -> constr
 
-val cBool : bool -> constr
+val cLit : constr
+
+val cIntPred : (int -> bool) -> constr
 
 val cInt : int -> constr
 
+val cDoublePred : (float -> bool) -> constr
+
 val cDouble : float -> constr
 
-val cString : string -> constr
+val cBoolPred : (bool -> bool) -> constr
 
-val cLit : constr
+val cBool : bool -> constr
+
+val cStringPred : (string -> bool) -> constr
+
+val cString : string -> constr
 
 val cCall : ?fun_:target -> ?args:targets -> ?args_pred:target_list_pred -> ?accept_encoded:bool -> ?regexp:bool -> string -> constr
 

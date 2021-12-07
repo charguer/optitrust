@@ -387,21 +387,62 @@ let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : s
   if typ = "" && typ_pred == typ_constraint_default then c else (* this line is just an optimization *)
   Constr_target (with_type ~typ ~typ_pred [c])
 
+(* [cLitPred pred_l] matches all the literals that statisfy the predicate [pred_l] *)
+let cLitPred (pred_l : lit -> bool) : constr = 
+  Constr_lit pred_l
 
-let cBool (b : bool) : constr =
-    Constr_lit (Some (Lit_bool b))
+(* [cLit ] matches all the literals *)
+let cLit : constr = 
+  cLitPred (function _ -> true)
 
-let cInt (n : int) : constr =
-    Constr_lit (Some (Lit_int n))
 
-let cDouble (f : float) : constr =
-    Constr_lit (Some (Lit_double f))
+(* [cIntPred pred] matches all the integer literals that statisfy the predicate [pred] *)
+let cIntPred (pred : int -> bool) : constr = 
+  cLitPred (function l -> 
+   begin match l with 
+   | Lit_int n -> pred n 
+   | _ -> false
+   end )
+  
+(* [cInt n] matches all string literals equal to [n] *)
+let cInt (n : int) : constr = 
+  cIntPred (function m -> m = n)
 
-let cString (s : string) : constr =
-    Constr_lit (Some (Lit_string s))
+(* [cDoublePred pred] matches all the double literals that statisfy the predicate [pred]*)
+let cDoublePred (pred : float -> bool) : constr = 
+  cLitPred (function l -> 
+   begin match l with 
+   | Lit_double d -> pred d 
+   | _ -> false
+   end )
+  
+(* [cDouble d] matches all the doubles equal to [d] *)
+let cDouble (d : float) : constr = 
+  cDoublePred (function d1 -> d1 = d)
 
-let cLit : constr =
-   Constr_lit None
+(* [cBoolPred pred] matches all the boolean literals that satisfy the predicate [pred] *)
+let cBoolPred (pred : bool -> bool) : constr = 
+  cLitPred (function l -> 
+   begin match l with 
+   | Lit_bool b -> pred b
+   | _ -> false
+   end )
+  
+(* [cBool b] matches all the booleans equal to [b] *)
+let cBool (b : bool) : constr = 
+  cBoolPred (function b1 -> b1 = b)
+
+(* [cStringPred pred] matches all the string literals that satisfy the predicate [pred] *)
+let cStringPred (pred : string -> bool) : constr = 
+  cLitPred (function l -> 
+   begin match l with 
+   | Lit_string s -> pred s
+   | _ -> false
+   end )
+  
+(* [let cString s] matches all the string literals equal to [s] *)
+let cString (s : string) : constr = 
+  cStringPred (function s1 -> s1 = s)
 
 (* [cCall] can match all kind of function calls *)
 let cCall ?(fun_  : target = []) ?(args : targets = []) ?(args_pred:target_list_pred = target_list_pred_default) ?(accept_encoded : bool = false) ?(regexp : bool = false) (name:string) : constr =
@@ -564,10 +605,6 @@ let dLHS : constr =
 
 let dRHS : constr =
   cChain [cWrite (); dArg 1]
-
-(* select initializers *)
-let cInit ?(arg:target=[]) () : constr =
-  Constr_target [ dBody; dArg 1]
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
