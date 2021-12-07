@@ -1,5 +1,8 @@
 TARGET_MAKE_ALL := transfo
 
+FLAGS := -dump-ast-details
+
+
 # Usage: make transfo   or   make check
 # Example usage for rebuilding just one test: make optitrust && make sequence_sub_out.cpp
 

@@ -6,7 +6,7 @@ open Target
 (*
   show [cFieldRead "x" ()];
   show [cFieldWrite "x" ()];
-  show [cFieldAccess "x" ()]; 
+  show [cFieldAccess "x" ()];
   show [cFieldWrite "x" ];
   show [cFieldRead "y" ];
   show [cFieldWrite "y" ];
@@ -15,6 +15,10 @@ open Target
 
 
 let _ = Run.script_cpp (fun () ->
+
+  (* Root *)
+  show [];
+  show [dRoot];
 
   (* Constants *)
   show [ cInt 8 ];
@@ -28,6 +32,16 @@ let _ = Run.script_cpp (fun () ->
   show [ cVar "u" ];
   show [ cVar "r2" ];
   show [ cVar "g" ];
+
+  (* Vardef/initializer *)
+  show [ cVarDef "r" ];
+  (* TOOO: move this to target.ml *)
+  let cPrimNew () = cPrimPredFun (function Prim_new _ -> true | _ -> false) in
+  let cInit () = cChain [cPrimNew(); dArg 0 ] in
+  show [ cVarDef "r" ; cPrimNew() ];
+  show [ cVarDef "r" ; cPrimNew(); dArg 0 ];
+  show [ cVarDef "r" ; cInit () ];
+
 
   (* Loops *)
   show [ cFor "i" ];
@@ -78,6 +92,7 @@ let _ = Run.script_cpp (fun () ->
   (* Declarations *)
   show [cDef "s"];
   show [cDef "p2"];
+
 )
 (* LATER: match typedef using a function over the body of the type definition *)
 (* LATER: match a typedef struct using of a function over the list fields [(var*typ)list->bool] *)

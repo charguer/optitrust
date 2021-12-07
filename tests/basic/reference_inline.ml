@@ -22,6 +22,13 @@ let _ = Run.script_cpp ( fun _ ->
   (* !! Variable_basic.inline [cVarDef "v"]; *)
 )
 
-(* TODO: we need to discuss if we want to make the ~at an optional argument, like is done in pointer_fold.ml,
-   or if we should change pointer_fold, or otherwise.  *)
+(* TODO:
+
+  in variable_basic
+
+  fold ?at ?deref tg => no change
+  unfold ?at:target tg => does unfold, and no deletion
+  inline tg => does unfold + delete the cvardef
+
+*)
 

@@ -127,7 +127,7 @@ let dThen : constr =
 let dElse : constr =
     Constr_dir Dir_else
 
-let dBodyAll : constr =
+let dBodyAll : constr = (* TODO: naming issue *)
     Constr_dir Dir_body
 
 let dFunBody : constr =
@@ -458,7 +458,7 @@ let cRead ?(addr : target = [cTrue]) () : constr =
   cPrimFun ~args:[addr] (Prim_unop Unop_get)
 
 (* [cReadOrWrite] *)
-let cReadOrWrite ?(addr : target = [cTrue]) () : constr = 
+let cReadOrWrite ?(addr : target = [cTrue]) () : constr =
   cOr [[cWrite ~lhs:addr ()];[cRead ~addr ()]]
 
 (* [cWriteVar x] matches a set operation for variable [x] *)
@@ -534,8 +534,6 @@ let cChoose : constr =
   cFun "CHOOSE"
 
 
-
-
 (* the empty list is interpreted as no constraint on the cases *)
 let cSwitch ?(cond : target = [])
   ?(cases : (case_kind * (target)) list = []) (_ : unit) : constr =
@@ -563,6 +561,10 @@ let dRHS : constr =
 let dBody : constr =
   cOr [[dBodyAll]; [dFunBody]]
 
+
+(* select initializers *)
+let cInit ?(arg:target=[]) () : constr =
+  Constr_target [ dBodyAll; dArg 1]
 
 let cTargetInDepth (tg : target) : constr =
   Constr_target (Constr_depth DepthAny :: tg)
@@ -1014,7 +1016,7 @@ let reparse_only (fun_names : string list) : unit =
   Trace.call (fun t ->
     let chopped_ast, chopped_ast_map  =  keep_only_function_bodies fun_names t in
     let parsed_chopped_ast = Trace.reparse_trm (Trace.get_context ()) chopped_ast in
-    let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in 
+    let new_ast = update_chopped_ast parsed_chopped_ast chopped_ast_map in
     Trace.set_ast new_ast
   )
 

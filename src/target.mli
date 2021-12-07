@@ -178,6 +178,8 @@ val cSeq : ?args:targets -> ?args_pred:target_list_pred -> unit -> constr
 
 val cVar : ?regexp:bool -> ?trmkind:trm_kind -> ?typ:string -> ?typ_pred:typ_constraint -> string -> constr
 
+val cInit : ?arg:target -> unit -> constr
+
 val cBool : bool -> constr
 
 val cInt : int -> constr
@@ -276,7 +278,7 @@ val cWrite : ?lhs:target -> ?rhs:target -> ?typ:string -> ?typ_pred:typ_constrai
 
 val cRead : ?addr:target -> unit -> constr
 
-val cReadOrWrite : ?addr:target -> unit -> constr 
+val cReadOrWrite : ?addr:target -> unit -> constr
 
 val dRHS : constr
 
