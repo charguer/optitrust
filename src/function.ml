@@ -281,6 +281,25 @@ let use_infix_ops ?(allow_identity : bool = true) (tg : Target.target) : unit =
         Function_basic.use_infix_ops_at ~allow_identity (tg_seq @ tg_infix_ops)
   ) tg
 
-
-
-
+(* [uninline ~fxt tg] expects the target [tg] to be pointing at an instruction that is similar to the first instruction 
+    of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation
+    will put the targeted instruction together with the following (nb -1) instructions into a sequence marked with a mark.
+    Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that 
+    everything went fine we can now eliminate the introduced sequence.
+*)
+let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
+  let tg_fun_def = Target.get_trm_at fct in 
+  Target.iter_on_targets (fun _ p -> 
+    let mark = Mark.next () in
+    match tg_fun_def.desc with 
+    | Trm_let_fun (_, _, _, body) ->
+      begin match body.desc with 
+      | Trm_seq tl -> 
+        let nb = Mlist.length tl in 
+        Sequence_basic.intro nb ~mark (Target.target_of_path p);
+        Function_basic.uninline ~fct [Target.cMark mark]
+      | _ -> fail tg_fun_def.loc "uninline: weird function declaration "
+      end 
+    | _ -> fail tg_fun_def.loc "uinline: fct arg should point to a a function declaration"
+  
+)

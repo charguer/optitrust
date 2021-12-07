@@ -93,10 +93,10 @@ let beta  ?(body_mark : var = "body") (tg : Target.target) : unit =
 let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
   Target.apply_on_targets (Function_core.use_infix_ops allow_identity)
 
-(* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similart to what Function_basic.inline generates 
+(* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates 
     Then it will replace that sequence with a call to the fuction with declaration targeted by [fct].
 *)
-let uninline ~fct (*:Target.target*) (tg : Target.target) : unit =
+let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =
   Trace.call (fun t ->
     let fct_path = Target.resolve_target_exactly_one fct t in
     let fct_decl = Path.resolve_path fct_path t in
