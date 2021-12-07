@@ -26,16 +26,17 @@ typedef struct {
 
 
 int main() {
-  
+
   bag *b = (bag*) malloc (100 * sizeof (bag));
   chunk* c = b-> front;
-  
+
   int nb = (c ->size);
   for (int i = 0; i < nb; i++){
-    particle *p = &(c ->items[i]);
+     particle* const p = &(c ->items[i]);
 
-    (p->pos) = {0,0,0};
-    (p->speed) = {0,0,0};
+    vect f = {0,0,0};
+    (p->pos) = f;   (*p).pos
+    (p->speed) = f;
 
     (p -> pos).x = 0;
     (p -> pos).y = 0;
@@ -45,8 +46,8 @@ int main() {
     ((*p).speed).y = 0;
     ((*p).speed).z = 0;
   }
-  
-  
+
+
   // vect v = {0,0};
   // particle p = {{0,0},{0,0}};
 
@@ -55,7 +56,7 @@ int main() {
 
   // particle p2 = p;
 
-  
+
 
   return 0;
 }

@@ -1,3 +1,4 @@
+FLAGS := -dump-ast-details
 
 TARGET_MAKE_ALL := check
 
@@ -50,7 +51,7 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	aos_to_soa.ml \
 	function_beta.ml \
-  
+
 TESTS_WITH_DOC := \
 	loop_fusion.ml \
 

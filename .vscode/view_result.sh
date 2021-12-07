@@ -72,6 +72,7 @@ sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_
 # of the installed package; only consider ${FILEBASE}.ml from local folder
 
 
+# TODO: check that PROG is also more recent than the optitrust library
 if [[ "${FILEBASE}.ml" -nt "${PROG}" ]] || [[ "${FILEBASE}.cpp" -nt "${PROG}" ]]; then
   # echo FILE1 is newer than FILE2
   PROGNEEDSREBUILD="needsrebuild"

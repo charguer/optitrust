@@ -28,7 +28,7 @@ let inline_common ?(mark : mark = "") (delete : bool) (accept_functions : bool) 
 (* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to true.
     an the target [at] left empty.
 *)
-let inline ?(delete : bool = false) ?(mark : mark = "") ?(accept_functions : bool = true): Target.Transfo.t =
+let inline ?(delete : bool = true) ?(mark : mark = "") ?(accept_functions : bool = true): Target.Transfo.t =
   inline_common ~mark delete accept_functions []
 
 (* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to false.
@@ -37,7 +37,7 @@ let inline ?(delete : bool = false) ?(mark : mark = "") ?(accept_functions : boo
 let inline_at ?(accept_functions : bool = true) (at : target) : Target.Transfo.t =
   inline_common false accept_functions at
 
-(* [rename ~into tg] expects the target [tg] to be pointing at a declaration, then it will  
+(* [rename ~into tg] expects the target [tg] to be pointing at a declaration, then it will
     rename its declaration and all its occurrences
 *)
 let rename ~into:(new_name : var) : Target.Transfo.t =
@@ -156,18 +156,18 @@ let bind ?(const : bool = false) ?(mark : mark = "") (fresh_name : var) : Target
       let fresh_name = Tools.string_subst "${occ}" (string_of_int occ) fresh_name in
       Variable_core.bind mark i fresh_name const p_local t p)
 
-(* [to_const tg] expects the target [tg] to be pointing at a variable declaration, then it will search inside the same scope if there are 
+(* [to_const tg] expects the target [tg] to be pointing at a variable declaration, then it will search inside the same scope if there are
       any write operations on that variable. If this is the case then the tranformation will fail, because of the safety of this operation.
-      Otherwise, first switch the mutability of that variable and then replace all get operations on that variable with its intialization 
+      Otherwise, first switch the mutability of that variable and then replace all get operations on that variable with its intialization
       value.
 *)
-let to_const : Target.Transfo.t = 
+let to_const : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-     ( fun t (p, i) -> Variable_core.to_const i t p) 
+     ( fun t (p, i) -> Variable_core.to_const i t p)
 
 
 (* [simpl_deref tg] expects the target [tg] to be pointing at a node which could contain expression of the form
       &( * ) or * (&) and simply them.
 *)
-let simpl_deref : Target.Transfo.t = 
+let simpl_deref : Target.Transfo.t =
   Target.apply_on_targets (Variable_core.simpl_deref)

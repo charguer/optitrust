@@ -25,6 +25,10 @@
     "*.v": "coq",
     "functional": "cpp",
     "*.tcc": "cpp",
-    "random": "cpp"
+    "random": "cpp",
+    "array": "cpp",
+    "istream": "cpp",
+    "tuple": "cpp",
+    "utility": "cpp"
   }
 }
