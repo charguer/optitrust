@@ -33,6 +33,7 @@ TESTS_WORKING := \
 
 
 TESTS_TOCHECK := \
+	function_use_infix_ops.ml \
 	instr_accumulate.ml \
 	instr_accumulate_targets.ml \
 	instr_moveout.ml \
