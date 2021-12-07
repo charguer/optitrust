@@ -16,8 +16,8 @@ int main() {
    int r3 = b + b;
 
    // inline reference on matrix row
-   const auto& v = m[0]; // LATER: what is the type of v?
-   int r4 = v[2];
+  //  const auto& v = m[0]; // LATER: what is the type of v?
+  //  int r4 = v[2];
    
 }
 

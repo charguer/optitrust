@@ -209,7 +209,7 @@ int main() {
 *)
 
 
-(* TODO:
+(* 
 ----------------
 At the combi level, the uninline operation should be able to automatically
 perform a Sequence_intro, when given the target of the first instruction

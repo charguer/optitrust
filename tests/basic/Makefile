@@ -78,6 +78,7 @@ TESTS_TOCHECK := \
 	function_use_infix_ops.ml \
 	include_inline.ml \
 	instr_accumulate.ml \
+	reference_inline.ml \
 	specialize_any.ml \
 	specialize_choose.ml \
 	struct_simpl_proj.ml \
@@ -100,7 +101,7 @@ TESTS_TOCHECK := \
 TESTS_TO_FIX := \
 	arith_shift.ml \
 	arith_to_fix.ml \
-	reference_inline.ml \
+	
 
 
 TESTS_WITH_DOC := \

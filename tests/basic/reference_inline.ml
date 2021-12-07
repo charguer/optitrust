@@ -14,12 +14,12 @@ int main() {
 
 let _ = Run.script_cpp ( fun _ ->
   (* inline at one specific occurence *)
-  !! Variable_basic.inline_at [sInstr "y = 9"] [cVarDef "y"];
-  !! Variable_basic.inline_at [sInstr "b = 9"] [cVarDef "b"];
+  !! Variable_basic.inline_at [cVarDef "r1"] [cVarDef "y"];
+  !! Variable_basic.inline_at [cVarDef "r3"] [cVarDef "b"];
   (* inline at all occurences and delete the reference definition *)
   !! Variable_basic.inline [cVarDef "a"];
   (* inline a reference to a matrix row *)
-  !! Variable_basic.inline [cVarDef "v"];
+  (* !! Variable_basic.inline [cVarDef "v"]; *)
 )
 
 (* TODO: we need to discuss if we want to make the ~at an optional argument, like is done in pointer_fold.ml,
