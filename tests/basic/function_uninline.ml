@@ -41,7 +41,7 @@ let _ = Run.script_cpp (fun _ ->
 )
 
 (* 
-   LATER: we will improve the new_rule_match function so that it is not needed to
+   LATER: we will improve the rule_match function so that it is not needed to
    introduce a sequence for matching "body(i)" against a list of instructions. *)
 
 (* ==> notes, already implemented

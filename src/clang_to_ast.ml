@@ -137,7 +137,6 @@ let return (t : trm) : trm =
 (*
   return the number of scopes to exit before a break/continue instruction
   look for closest for/while scope
-  todo later: do scope too
  *)
 let find_scope ?(break : bool = false) (kl : scope_kind list) : int =
   let rec aux (n : int) = function

@@ -1,7 +1,72 @@
 open Ast
 
+(* [parse_pattern str]: for a given pattern [str] return the list of variables used in that pattern
+      and the ast of the pattern
+    Example:
+    str = "double a; double b; double c; (a + k * b) == (b * k + a)"
+    Then this string will be splitted parsed as
+    void f (double a, double b, double c) {
+      (a + k * b) == (b * k + a)
+    }
+*)
+let parse_pattern (str : string) : (typed_vars * typed_vars *trm) =
+  let output_file = "tmp_rule.cpp" in
+  let splitted_pattern = Str.split (Str.regexp_string "==>") str in
+  if List.length splitted_pattern < 2 then fail None "parse_pattern : could not split the given pattern, make sure that you are using ==> as a separator
+    for the declaration of variables used in the pattern and the rule itself" ;
+  let var_decls = String.trim (List.nth splitted_pattern 0) in
+  let aux_var_decls, pat = if List.length splitted_pattern = 3 then (String.trim (List.nth splitted_pattern 1)),(List.nth splitted_pattern 2)
+    else ("", List.nth splitted_pattern 1) in
+  let var_decls_temp = Tools.fix_pattern_args var_decls in
+
+  let aux_var_decls_temp = if aux_var_decls = "" then aux_var_decls else Tools.fix_pattern_args aux_var_decls in
+
+  let fun_args = if aux_var_decls_temp = "" then var_decls_temp else var_decls_temp ^"," ^aux_var_decls_temp in
+  let file_content = "bool f(" ^ fun_args ^ "){ \n" ^ "return " ^ pat ^ "\n}" in
+  Xfile.put_contents output_file file_content;
+  let _, ast_of_file = Trace.parse output_file in
+  match ast_of_file.desc with
+  | Trm_seq tl when (List.mem Main_file ast_of_file.annot) ->
+    if Mlist.length tl = 0 then fail ast_of_file.loc "parse_pattern; couldn't parse pattern";
+    let main_fun = Mlist.nth tl 0 in
+    begin match main_fun.desc with
+    | Trm_let_fun (_, _, args, body) ->
+      begin match body.desc with
+      | Trm_seq tl1 ->
+        if Mlist.length tl1 < 1 then fail body.loc "parse_pattern: please enter a pattern of the shape var_decls ==> rule_to_apply";
+        let pattern_instr_ret = Mlist.nth tl1 0 in
+        let pattern_instr =
+        begin match pattern_instr_ret.desc with
+        | Trm_abort (Ret r1) ->
+          begin match  r1 with
+          | Some t1 -> t1
+          | _ -> fail pattern_instr_ret.loc "parse_pattern: this should never appear"
+          end
+        | _ -> pattern_instr_ret
+        end in
+        let aux_vars = List.filter_map (fun (x, ty) -> if Tools.pattern_matches x aux_var_decls then Some (x, ty) else None ) args in
+        let pattern_vars = List.filter (fun (x, ty) -> not (List.mem (x, ty) aux_vars ) ) args in
+        (pattern_vars, aux_vars, pattern_instr)
+      | _ -> fail body.loc "parse_pattern: body of the function f should be a sequence"
+      end
+    | _ -> fail main_fun.loc "parse_pattern: the pattern was not entered correctly"
+    end
+  | _ -> fail ast_of_file.loc "parse_pattern: expected the main sequence of tmp_rule.cpp"
+
+
+(* [parse_rule str]: for a given pattern [str] return a rewrite rule which is a record containing the
+    the list of variables used in that rule, the rule itself and the result after applying that rule.
+*)
+let parse_rule (str : string) : rewrite_rule =
+  let pattern_vars, aux_vars, pattern_instr = parse_pattern str in
+  match pattern_instr.desc with
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_eq));_},[t1; t2]) ->
+    {rule_vars = pattern_vars; rule_aux_vars = aux_vars; rule_from = t1; rule_to = t2}
+  | _ -> fail pattern_instr.loc "parse_rule: could not parse the given rule"
+
+
 exception Rule_mismatch
-let new_rule_match ~higher_order_inst(*:bool*) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
+let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : trm) (t : trm) : tmap =
 
   (* [inst] maps each pattern variable to a term and to a type;
      when pattern variables are not yet instantiated,
@@ -123,3 +188,26 @@ let new_rule_match ~higher_order_inst(*:bool*) (vars : typed_vars) (pat : trm) (
     in
   aux pat t;
   Trm_map.map (fun (_ty,t) -> t) !inst
+
+exception Rule_match_ast_list_no_occurrence_for of string
+
+
+(* [tmap_to_list keys map] get the values of [keys] in map as a list *)
+let tmap_to_list (keys : typed_vars) (map : tmap) : trms =
+  List.map (fun (x, _) -> match Trm_map.find_opt x map with
+    | Some v -> v
+    | None -> raise (Rule_match_ast_list_no_occurrence_for x)
+  ) keys
+
+(* [tmap_filter_keys keys map] get a map with filtered keys *)
+let tmap_filter_keys (keys : typed_vars) (map : tmap) : tmap =
+  let keys = fst (List.split keys) in
+  Trm_map.filter (fun k _ -> List.mem k keys) map
+
+(* [rule_match_as_list pattern_vars pattern_instr t] returns the list of key values in the map generated from rule_match *)
+let rule_match_as_list (pattern_vars : typed_vars) (pattern_instr : trm)  (t : trm) : trms =
+  let inst : tmap = rule_match pattern_vars  pattern_instr t in
+  List.map (fun (x,_) -> match Trm_map.find_opt x inst with
+    | Some v -> v
+    | None -> raise (Rule_match_ast_list_no_occurrence_for x)
+  ) pattern_vars

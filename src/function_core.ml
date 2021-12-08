@@ -187,7 +187,7 @@ let use_infix_ops (allow_identity: bool) : Target.Transfo.local =
 let uninline_aux (fct_decl : trm) (t : trm) : trm =
   match fct_decl.desc with
   | Trm_let_fun (name, _rettype, targs, body) ->
-      let inst = Trm_matching.new_rule_match ~higher_order_inst:true targs body t in
+      let inst = Trm_matching.rule_match ~higher_order_inst:true targs body t in
       let args = Ast.tmap_to_list (List.map fst targs) inst in
       trm_apps (trm_var name) args
   | _ -> fail fct_decl.loc "uninline: fct argument should target a function definition"

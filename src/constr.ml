@@ -66,7 +66,6 @@ and constr =
     matching constraint: match against regexp
     the user may also match against a string through smart constructors
    *)
-  (* todo: beware of multiline matching *)
   | Constr_regexp of rexp
   (*
     node related constraints (constraints are expressed using a target):

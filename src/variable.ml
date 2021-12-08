@@ -149,7 +149,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ~pattern_vars:(pattern
   Trace.call (fun t ->
   (* Temporary hack till Arthur enables the usage of the new parser *)
   let str = pattern_vars ^ " ==>" ^ pattern_aux_vars ^ " ==> " ^ pattern in
-  let (pattern_vars, pattern_aux_vars, pattern_instr) = Rewrite_core.parse_pattern str in
+  let (pattern_vars, pattern_aux_vars, pattern_instr) = Trm_matching.parse_pattern str in
   let path_to_surrounding_seq = ref [] in
   let paths = Target.resolve_target tg t in
   List.iteri (fun _i p ->
@@ -161,16 +161,16 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ~pattern_vars:(pattern
   let nb_vars = List.length pattern_vars in
   let all_values = Array.make_matrix nb_vars nb_paths (trm_unit ()) in
   Target.iteri_on_targets (fun id_path _ p ->
-    let inst = Rewrite_core.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
-    let values = Rewrite_core.tmap_to_list pattern_vars (Rewrite_core.tmap_filter_keys pattern_vars inst) in
+    let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
+    let values = Trm_matching.tmap_to_list pattern_vars (Trm_matching.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
-    let inst = List.map (fun  x -> trm_apps (trm_binop (Binop_array_cell_addr))[trm_var x; trm_int id_path]) pattern_vars in
+    let inst = List.map (fun  (x, _) -> trm_apps (trm_binop (Binop_array_cell_addr))[trm_var x; trm_int id_path]) pattern_vars in
     let new_inst = Trm_map.empty in
-    let new_inst = List.fold_left2 (fun acc x y -> Trm_map.add x y acc) new_inst pattern_vars inst in
+    let new_inst = List.fold_left2 (fun acc (x, _) y -> Trm_map.add x y acc) new_inst pattern_vars inst in
     let new_t = Internal.subst new_inst pattern_instr in
     Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> new_t) t p) (Target.target_of_path p)
   ) tg;
-  let instrs_to_insert = List.mapi (fun id_var x -> trm_let Var_mutable (x, typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_paths)) ~typ_attributes:[GeneratedStar])
+  let instrs_to_insert = List.mapi (fun id_var (x, _) -> trm_let Var_mutable (x, typ_ptr Ptr_kind_mut (typ_array (typ_double ()) (Const nb_paths)) ~typ_attributes:[GeneratedStar])
   (trm_apps (trm_prim (Prim_new (typ_array (typ_double ()) (Const nb_paths)))) [trm_array (Mlist.of_list (Array.to_list all_values.(id_var)))])) pattern_vars in
   Internal.nobrace_remove_after (fun _ ->
     Sequence_basic.insert (trm_seq_no_brace instrs_to_insert) ([Target.tFirst] @ (Target.target_of_path !path_to_surrounding_seq))))

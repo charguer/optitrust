@@ -638,8 +638,8 @@ type pat = trm
 
 (* rewrite_rule *)
 type rewrite_rule = {
-  rule_vars : vars;
-  rule_aux_vars : vars;
+  rule_vars : typed_vars;
+  rule_aux_vars : typed_vars;
   rule_from : pat;
   rule_to : pat }
 
@@ -1854,7 +1854,6 @@ let trm_var_def_inv (t : trm) : (varkind * var * typ * trm option) option =
     Some (vk, x, get_inner_ptr_type tx, init1)
   | _ -> None
 
-(* TOOD: Optimize this function later *)
 (* [trm_fors_inv nb t] got into a node of nested loops and return all the components
     of all the loops up to the depth of [nb]
  *)
@@ -1906,21 +1905,21 @@ let tmap_filter (keys : vars) (map : tmap) : tmap =
   Trm_map.filter (fun k _ -> not (List.mem k keys)) map
 
 
-(* TOOD: From now on use these two constructors to add new variables, and later change the implementation of
-    trm_let so that it add the encoding automatically
-*)
+(* [trm_let_mut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating mutable variable declarations *)
 let trm_let_mut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type_ptr = typ_ptr Ptr_kind_mut var_type ~typ_attributes:[GeneratedStar] in
   trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_mutable (var_name, var_type_ptr) (trm_apps (trm_prim (Prim_new var_type)) [init])
 
+(* [trm_let_IMmut ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating immutable variable declarations *)
 let trm_let_immut ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (typed_var : typed_var) (init : trm): trm =
   let var_name, var_type = typed_var in
   let var_type = typ_const var_type in
   trm_let ~annot ~loc ~is_statement ~add ~attributes ~ctx ~marks Var_immutable (var_name, var_type) (init)
 
+(* [trm_let_array ~annot ~is_statement ~add ~attributes ~ctx ~marks typed_var init] an extension of trm_let for creating array variable declarations *)
 let trm_let_array ?(annot = []) ?(loc = None) ?(is_statement : bool = false)
   ?(add = []) ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (kind : varkind )(typed_var : typed_var) (sz : size)(init : trm): trm =
   let var_name, var_type = typed_var in
