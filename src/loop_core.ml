@@ -6,14 +6,14 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [interchange_aux t]: swap the order of two nested loops, the targeted loop
+(* [swap_aux t]: swap the order of two nested loops, the targeted loop
       the immediate inner loop
     params:
       [t]: ast of the targeted loop
     return:
       updated ast with swapped loops
  *)
-let interchange_aux (t : trm) : trm =
+let swap_aux (t : trm) : trm =
   match Internal.extract_loop t with
   | Some (loop1, body1) ->
     begin match body1.desc with
@@ -21,17 +21,17 @@ let interchange_aux (t : trm) : trm =
       let loop2 = Mlist.nth tl 0 in
       begin match Internal.extract_loop loop2 with
       | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-      | None -> fail body1.loc "interchange_aux: should target a loop with nested loop^inside"
+      | None -> fail body1.loc "swap_aux: should target a loop with nested loop^inside"
       end
     | _ -> begin match Internal.extract_loop body1 with
            | Some (loop2, body2) -> loop2 (trm_seq_nomarks [loop1 body2])
-           | None -> fail body1.loc "interchange_aux: should target a loop with nested inner loops"
+           | None -> fail body1.loc "swap_aux: should target a loop with nested inner loops"
            end
     end
-  | None -> fail t.loc "interchange_aux: should target a loop"
+  | None -> fail t.loc "swap_aux: should target a loop"
 
-let interchange : Target.Transfo.local =
-  Target.apply_on_path (interchange_aux)
+let swap : Target.Transfo.local =
+  Target.apply_on_path (swap_aux)
 
 
 (*  [color_aux nb_colors i_color t]: transform a loop into two nested loops based

@@ -8,10 +8,10 @@ open Ast
  * say [for (int i = start; i < stop; i += step) { body } ].
  *)
 
-(* [interchange tg] expects the target [tg] to point at a loop that contains an
+(* [swap tg] expects the target [tg] to point at a loop that contains an
    immediately-nested loop. The transformation swaps the two loops. *)
-let interchange : Target.Transfo.t =
-  Target.apply_on_targets (Loop_core.interchange)
+let swap : Target.Transfo.t =
+  Target.apply_on_targets (Loop_core.swap)
 
 (* [color nb_colors i_color tg]: expects [tg] to point to a simple loop,
    say [for (int i = start; i < stop; i += step) { body } ].

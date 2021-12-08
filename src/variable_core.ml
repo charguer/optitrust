@@ -136,7 +136,7 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
 let rename (new_name : var) (index : int): Target.Transfo.local =
   Target.apply_on_path (rename_aux index new_name)
 
-(* [replace_occurrences_aux name space t]: replace all occurrences of [name] with [space]
+(* [subst_aux name space t]: replace all occurrences of [name] with [space]
       params:
         [name]: name of the variable whose occurrences are going to be replaced
         [space]:trm which is going to replace all the occurrences of [name]
@@ -145,13 +145,13 @@ let rename (new_name : var) (index : int): Target.Transfo.local =
         updated [t] with all the replaced occurrences
 *)
 
-let rec replace_occurrences_aux (name : var) (space : trm) (t : trm) : trm =
+let rec subst_aux (name : var) (space : trm) (t : trm) : trm =
   match t.desc with
   | Trm_var y when y = name -> space
-  | _ -> trm_map (replace_occurrences_aux name space) t
+  | _ -> trm_map (subst_aux name space) t
 
-let replace_occurrences (name : var)(space : trm) : Target.Transfo.local =
-  Target.apply_on_path (replace_occurrences_aux name space)
+let subst (name : var)(space : trm) : Target.Transfo.local =
+  Target.apply_on_path (subst_aux name space)
 
 
 

@@ -123,13 +123,13 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
     if List.mem targeted_loop_index loop_to_move_nested_indices
       then begin
            let choped_indices = Tools.chop_list_after targeted_loop_index loop_to_move_nested_indices in
-           List.iter (fun _ -> Loop_basic.interchange loop_to_move) choped_indices
+           List.iter (fun _ -> Loop_basic.swap loop_to_move) choped_indices
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
         let choped_indices = Tools.chop_list_after loop_to_move_index targeted_loop_nested_indices in
         let choped_indices = Tools.chop_list_after targeted_loop_index (List.rev choped_indices) in
-        List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) choped_indices
+        List.iter (fun x -> Loop_basic.swap [Target.cFor x]) choped_indices
         end
       else fail loop_to_move_trm.loc "move: the given targets are not correct"
 
@@ -142,12 +142,12 @@ let move ?(before : Target.target = []) ?(after : Target.target = []) (loop_to_m
       then begin
            let choped_indices = Tools.chop_list_after targeted_loop_index loop_to_move_nested_indices in
            let choped_indices = Tools.chop_list_after loop_to_move_index (List.rev choped_indices) in
-           List.iter (fun _ -> Loop_basic.interchange loop_to_move) (List.rev choped_indices)
+           List.iter (fun _ -> Loop_basic.swap loop_to_move) (List.rev choped_indices)
            end
       else if List.mem loop_to_move_index targeted_loop_nested_indices then
         begin
         let choped_indices = Tools.chop_list_after loop_to_move_index targeted_loop_nested_indices in
-        List.iter (fun x -> Loop_basic.interchange [Target.cFor x]) (List.rev choped_indices)
+        List.iter (fun x -> Loop_basic.swap [Target.cFor x]) (List.rev choped_indices)
         end
       else fail loop_to_move_trm.loc "move: the given targets are not correct"
 
@@ -388,4 +388,3 @@ let fold_instrs ~index:(index : var) ?(start : int = 0) ?(step : int = 1) (tg : 
     if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
     fold ~index ~start ~step !nb_targets first_target;
     Variable.fold [Target.nbAny;Target.cVarDef "" ~body:[Target.cInt !nb_targets]]
-

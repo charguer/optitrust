@@ -13,8 +13,6 @@ int main() {
 }
 "
 
-(* LATER: "int const" should be printed as "const int" in the output *)
-
 let _ = Run.script_cpp (fun _ ->
   (* replace multiple occurrences of variable "a" with variable "b" *)
   !! Instr_basic.replace (var "b") [nbMulti; cVar "a"];

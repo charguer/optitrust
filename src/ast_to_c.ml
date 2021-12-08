@@ -9,7 +9,6 @@ let decode = ref true
 (* translate an ast to a C/C++ document *)
 let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
   match t with
-  | Typ_const t when (is_atomic_typ t)-> typ_to_doc t ^^ string " const "
   | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_constr (tv, _, _) -> string tv
   | Typ_auto  -> string "auto"

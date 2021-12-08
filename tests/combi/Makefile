@@ -28,7 +28,8 @@ TESTS_WORKING := \
 	variable_delocalize_in_vars.ml \
 	variable_fold.ml \
 	variable_intro_pattern_array.ml \
-  variable_insert_and_fold.ml \
+  variable_insert.ml \
+	variable_insert_and_fold.ml \
 	variable_renames.ml \
 	variable_reuse.ml \
 

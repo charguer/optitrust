@@ -29,7 +29,7 @@ TESTS_WORKING := \
 	loop_fold.ml \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
-	loop_interchange.ml \
+	loop_swap.ml \
 	loop_moveout.ml \
 	loop_tile.ml \
 	loop_to_unit_steps.ml \
@@ -66,7 +66,7 @@ TESTS_WORKING := \
 	variable_insert.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
-	variable_replace_occurrences.ml \
+	variable_subst.ml \
   variable_unfold.ml \
 	
 TESTS_TOCHECK := \

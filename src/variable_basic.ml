@@ -143,12 +143,12 @@ let change_type (new_type : typvar) : Target.Transfo.t =
 let insert ?(const : bool = false) ?(reparse : bool = false) ~name:(name : string) ~typ:(typ : string ) ~value:(value : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))
 
-(* [replace_occurrences name ~space tg]] expects the target [tg] to point to any node ast which could contain
-    an occurrence of the variable [name], then it will all the nodes which come after the node targeted by target [tg]
+(* [subst name ~space tg]] expects the target [tg] to point to any node ast which could contain
+    an occurrence of the variable [name], then it will check for occurrences of the variable [subst] and replace is  with [put].
 *)
-let replace_occurrences ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Target.Transfo.t =
+let subst ?(reparse : bool = false) ~subst:(name : var) ~put:(put : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (
-    Target.apply_on_targets (Variable_core.replace_occurrences name put)
+    Target.apply_on_targets (Variable_core.subst name put)
   )
 
 (* [bind ~const ~mark fresh_name tg] expects the target [tg] to be pointing at any ast node then it will insert a variable declaration

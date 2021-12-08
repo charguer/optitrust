@@ -18,6 +18,3 @@ let _ = Run.script_cpp (fun _ ->
   !! Variable_basic.insert ~reparse:true ~name:"b" ~typ:"int" ~value:(lit "500") [ tAfter; cTypDef "vect"];
 
 )
-(* LATER: add a combi level version, where typ is auto by default ;
-     ~reparse:false means do not reparse
-     ~reparse:true  means do reparse (even if the user provided a piece of ast, because this ast is most probably not typed) *)

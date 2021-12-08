@@ -3,7 +3,7 @@ open Target
 
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Loop_basic.invariant [cVarDef "x"];
+    !! Loop_basic.move_out [cVarDef "x"];
   )
 "
 int main() {

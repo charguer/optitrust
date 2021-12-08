@@ -206,7 +206,7 @@ let reuse ~space:(space : trm) ?(reparse : bool = false) : Target.Transfo.t =
         Marks.add "reuse_mark" (Target.target_of_path p);
         detach_if_needed [Target.cMark "reuse_mark"];
         Instr_basic.delete [Target.cMark "reuse_mark"];
-        Variable_basic.replace_occurrences ~subst:x ~put:space (Target.target_of_path _path_to_seq);
+        Variable_basic.subst ~subst:x ~put:space (Target.target_of_path _path_to_seq);
       | None -> fail decl_t.loc "reuse: could not match the declaration"
       end
       )) 
@@ -394,6 +394,13 @@ let elim_redundant ?(source : Target.target = []) : Target.Transfo.t =
   )
 
 
+(* [insert ~constr name typ value tg] expects the target [tg] to point to a location in a sequence
+    then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]. 
+    This transformation is basically the same as the basic one except that this has a default value for the type argument.
+*)
+let insert ?(const : bool = false) ?(reparse : bool = false) ?(typ : string = "auto") ~name:(name : string) ~value:(value : trm) : Target.Transfo.t =
+ Variable_basic.insert ~const ~reparse ~name ~typ ~value
+
 (* [insert_list ~const names typ values tg] expects the target [tg] to be poiting to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
 *)
@@ -402,5 +409,5 @@ let insert_list ?(reparse : bool = false) ~defs:(defs : (string * string * strin
     List.iter (fun (typ, name, value) -> 
       (* This check is needed to avoid the parentheses in the case when the value of the vairbale is a simple expression  *)
       let str_val = if String.length value = 1 then Target.lit value else Target.expr value in 
-      Variable_basic.insert ~name ~typ ~value:str_val tg) defs
+      insert ~name ~typ ~value:str_val tg) defs
 )
