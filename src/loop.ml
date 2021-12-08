@@ -289,12 +289,12 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
       | Trm_apps (_, [_;bnd]) ->
         begin match bnd.desc with
         | Trm_val (Val_lit (Lit_int n)) -> n
-        | Trm_var x -> aux x t
+        | Trm_var (_, x) -> aux x t
         | _ -> fail stop.loc "unroll: expected eitehr a constant variable of a literal"
         end
-      | Trm_var x ->
+      | Trm_var (_, x) ->
           let start_nb = begin match start.desc with
-          | Trm_var y -> aux y t
+          | Trm_var (_, y) -> aux y t
           | Trm_val (Val_lit (Lit_int n)) -> n
           | _ -> fail start.loc "unroll: expected a loop of the form for (int i = a; i < N; i where a should be a constant variable"
           end in

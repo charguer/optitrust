@@ -168,7 +168,7 @@ and print_trm_desc ?(only_desc : bool = false) (t : trm_desc) : document =
   | Trm_val v ->
      let dv = print_val ~only_desc v in
      node "Trm_val" ^^ parens dv
-  | Trm_var x -> string "Trm_var" ^^ blank 1 ^^ string x
+  | Trm_var (_, x) -> string "Trm_var" ^^ blank 1 ^^ string x
   | Trm_array tl ->
      let tl = Mlist.to_list tl in
      let dtl = List.map (print_trm ~only_desc) tl in

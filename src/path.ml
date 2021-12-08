@@ -317,7 +317,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
               (fun (x, tx) ->
                 let t' = aux (trm_var ~loc:t.loc x) in
                 match t'.desc with
-                | Trm_var x' -> (x', tx)
+                | Trm_var (_, x') -> (x', tx)
                 | _ ->
                    fail t.loc ("apply_on_path: transformation " ^
                                "must preserve fun arguments")
@@ -329,13 +329,13 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         | Dir_name , Trm_let (vk,(x,tx),body) ->
           let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var x' -> { t with desc = Trm_let (vk, (x', tx), body)}
+          | Trm_var (_, x') -> { t with desc = Trm_let (vk, (x', tx), body)}
           | _ -> fail t.loc ("apply_on_path: transformation " ^ "must preserve names(variable)")
           end
        | Dir_name, Trm_let_fun (x, tx, txl, body) ->
           let t' = aux (trm_var ~loc:t.loc x) in
           begin match t'.desc with
-          | Trm_var x' -> { t with desc = Trm_let_fun (x', tx, txl, body)}
+          | Trm_var (_, x') -> { t with desc = Trm_let_fun (x', tx, txl, body)}
           | _ ->
              fail t.loc ("apply_on_path: transformation " ^
                          "must preserve names(function)")
@@ -343,7 +343,7 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
        | Dir_name, Trm_labelled (l, body) ->
           let t' = aux (trm_var ~loc:t.loc l) in
           begin match t'.desc with
-          | Trm_var l' -> { t with desc = Trm_labelled (l', body)}
+          | Trm_var (_, l') -> { t with desc = Trm_labelled (l', body)}
           | _ ->
              fail t.loc ("apply_on_path: transformation " ^
                          "must preserve names(label)")

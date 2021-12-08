@@ -381,7 +381,7 @@ val get_trm_at : target -> trm
 
 val get_ast : unit -> trm
 
-val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> ?marks:string list -> string -> trm
+val var : ?annot:trm_annot list -> ?loc:location -> ?add:special_operator list -> ?typ:Ast.typ option -> ?attributes:attribute list -> ?ctx:ctx option -> ?marks:string list -> ?kind:varkind-> string -> trm
 
 val lit : string -> trm
 

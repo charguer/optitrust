@@ -28,7 +28,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
   match t.desc with
   | Trm_apps (f, dims_and_indices) ->
     begin match f.desc with
-    | Trm_var f_name when (Tools.pattern_matches "MINDEX" f_name) ->
+    | Trm_var (_, f_name) when (Tools.pattern_matches "MINDEX" f_name) ->
       let n = List.length dims_and_indices in
       if (n mod 2 = 0) then
         Some (Tools.split_list_at (n/2) dims_and_indices)
@@ -115,7 +115,7 @@ let alloc_inv (t : trm) : (trms * trm * zero_initialized)  option=
   match t.desc with
   | Trm_apps (f, args) ->
     begin match f.desc with
-    | Trm_var f_name ->
+    | Trm_var (_, f_name) ->
       let dims , size = Tools.unlast args in
       if (Tools.pattern_matches "MCALLOC" f_name) then Some (dims, size, true)
         else if (Tools.pattern_matches "MMALLOC" f_name) then Some (dims, size, false)
@@ -162,7 +162,7 @@ let vardef_alloc_inv (t : trm) : (string * typ * trms * trm * zero_initialized) 
 *)
 let intro_mcalloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var "calloc";_},[dim; size]) ->
+  | Trm_apps ({desc = Trm_var (_, "calloc");_},[dim; size]) ->
     alloc ~init:(Some (trm_int 0)) [dim] size
   | _ -> fail t.loc "intro_mcalloc_aux: expected a function call to mcalloc"
 
@@ -179,7 +179,7 @@ let intro_mcalloc : Target.Transfo.local =
 *)
 let intro_mmalloc_aux (t : trm) : trm =
   match t.desc with
-  | Trm_apps ({desc = Trm_var "malloc";_},[{desc = Trm_apps (_,[dim ;size]);_}]) ->
+  | Trm_apps ({desc = Trm_var (_, "malloc");_},[{desc = Trm_apps (_,[dim ;size]);_}]) ->
     alloc ~init:None [dim] size
   | _ -> fail t.loc "intro_mmalloc: expected a function call to mmalloc"
 

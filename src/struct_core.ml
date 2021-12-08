@@ -228,7 +228,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
            trm_struct ~annot:t.annot ~marks:t.marks new_sl
         | Trm_apps(_, [base]) ->
           begin match base.desc with
-          | Trm_var p ->
+          | Trm_var (_, p) ->
             let sl1  = List.map(fun x ->
               trm_apps ~annot: [Access] (trm_unop (Unop_get))[
                 trm_apps (trm_unop (Unop_struct_field_addr x)) [
@@ -362,7 +362,7 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
       | Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr y)))
         | Trm_val (Val_prim (Prim_unop (Unop_struct_field_get y))) when y = field ->
           begin match base.desc with
-          | Trm_var v when v = name ->
+          | Trm_var (_, v) when v = name ->
             trm_var (Convention.name_app name field)
           | _ -> trm_map aux t
           end

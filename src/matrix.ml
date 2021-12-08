@@ -16,11 +16,11 @@ let intro_mcalloc : Target.Transfo.t =
         begin match t1.desc with 
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[calloc_trm]) ->
           begin match calloc_trm.desc with
-          | Trm_apps ({desc = Trm_var "calloc";_}, _) ->
+          | Trm_apps ({desc = Trm_var (_, "calloc");_}, _) ->
             Matrix_basic.intro_mcalloc ((Target.target_of_path p) @ [Target.cFun "calloc"])
           | _ -> fail t1.loc "intro_mcalloc: couldn't find the call to calloc function"
           end
-        | Trm_apps ({desc = Trm_var "calloc";_},_) ->
+        | Trm_apps ({desc = Trm_var (_, "calloc");_},_) ->
           Matrix_basic.intro_mcalloc ((Target.target_of_path p) @ [Target.cFun "calloc"])
         | _ -> fail t1.loc "intro_mcalloc: couldn't find the call to calloc function'"
         end
@@ -43,11 +43,11 @@ let intro_mmalloc : Target.Transfo.t =
         begin match t1.desc with 
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
           begin match malloc_trm.desc with
-          | Trm_apps ({desc = Trm_var "malloc";_}, _) ->
+          | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
             Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
           | _ -> fail t1.loc "intro_mmalloc: could not find a call to malloc function"
           end
-        | Trm_apps ({desc = Trm_var "malloc";_},_) ->
+        | Trm_apps ({desc = Trm_var (_, "malloc");_},_) ->
           Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"])
         | _ -> fail t1.loc "intro_mmalloc: couldn't find a call to malloc function"
         end
@@ -86,18 +86,18 @@ let intro_mops (dim : trm) : Target.Transfo.t =
         begin match t1.desc with 
         | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_cast _)));_},[malloc_trm]) ->
           begin match malloc_trm.desc with
-          | Trm_apps ({desc = Trm_var "calloc";_}, _) ->
+          | Trm_apps ({desc = Trm_var (_, "calloc");_}, _) ->
             intro_mcalloc [Target.cVarDef x];
             Matrix_basic.intro_mindex dim tg_occs
-          | Trm_apps ({desc = Trm_var "malloc";_}, _) ->
+          | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
             Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
             Matrix_basic.intro_mindex dim tg_occs
           | _ -> fail t1.loc "intro_mops: couldn't find a call to calloc/malloc function"
           end
-        | Trm_apps ({desc = Trm_var "calloc";_}, _) ->
+        | Trm_apps ({desc = Trm_var (_, "calloc");_}, _) ->
             Matrix_basic.intro_mcalloc ((Target.target_of_path p) @ [Target.cFun "calloc"]);
             Matrix_basic.intro_mindex dim tg_occs
-        | Trm_apps ({desc = Trm_var "malloc";_}, _) ->
+        | Trm_apps ({desc = Trm_var (_, "malloc");_}, _) ->
             Matrix_basic.intro_mmalloc ((Target.target_of_path p) @ [Target.cFun "malloc"]);
             Matrix_basic.intro_mindex dim tg_occs
         | _ -> fail t1.loc "intro_mmalloc:"

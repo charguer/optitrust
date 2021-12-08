@@ -705,7 +705,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
   | Call {callee = f; args = el} ->
     let tf = translate_expr f in
     begin match tf.desc with
-    | Trm_var x when Str.string_match (Str.regexp "overloaded=") x 0 ->
+    | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
         begin match el with
         | [tl;tr] -> trm_set ~loc ~ctx  ~is_statement (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
         | _ -> fail loc "translate_expr: overloaded= expects two arguments"
@@ -767,7 +767,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
 
             *)
             begin match base.desc with
-              | Trm_var x when not (is_mutable_var x) ->
+              | Trm_var (_, x) when not (is_mutable_var x) ->
                 let base =
                   if b (* if arrow instead of dot *)
                     then trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get) [base]   (* Code is [b->f], we encode it as [( *b ).f] *)
@@ -824,7 +824,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
        or the result of a struct_get/array_get
       *)
     begin match te.desc with
-      | Trm_var x when not (is_mutable_var x) ->
+      | Trm_var (_, x) when not (is_mutable_var x) ->
         trm_apps ~loc ~ctx ~typ (trm_binop ~ctx ~loc Binop_array_cell_get) [te; ti]
       | Trm_apps
           ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))); _}, _)
@@ -871,7 +871,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         begin match translate_expr se with
           | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
             trm_prim ~loc ~ctx (Prim_new (typ_array tq (Const n)))
-          | {desc = Trm_var x; loc; _} ->
+          | {desc = Trm_var (_, x); loc; _} ->
             trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx x))))
           | _ ->
             fail loc ("translate_expr: new array size must be either " ^

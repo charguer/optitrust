@@ -364,7 +364,7 @@ and trm =
 
 and trm_desc =
   | Trm_val of value
-  | Trm_var of var (* LATER: varkind * var *)
+  | Trm_var of varkind * var 
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
@@ -754,8 +754,8 @@ let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
    attributes; ctx}
 
 let trm_var ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
-  ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) (x : var) : trm =
-  {annot; marks; desc = Trm_var x; loc = loc; is_statement = false; add; typ;
+  ?(attributes = []) ?(ctx : ctx option = None) ?(marks : mark list = []) ?(kind : varkind = Var_mutable) (x : var) : trm =
+  {annot; marks; desc = Trm_var (kind,x); loc = loc; is_statement = false; add; typ;
    attributes; ctx}
 
 let trm_array ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
@@ -1161,7 +1161,7 @@ let typ_map (f : typ -> typ) (ty : typ) : typ =
 let contains_variable (x : var) (t : trm) : bool =
   let rec aux (t : trm) : bool =
     match t.desc with
-    | Trm_var y when y = x -> true
+    | Trm_var (_, y) when y = x -> true
     | Trm_let (_, (_, _), init) -> aux init
     | Trm_apps (_, args) -> List.exists aux args
     | Trm_seq tl -> Mlist.fold_left (fun acc t -> acc || (aux t)) false tl
@@ -1261,7 +1261,7 @@ let for_loop_index (t : trm) : var =
 
      begin match init.desc with
      | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_set)); _},
-                 [{desc = Trm_var x; _}; _]) ->x
+                 [{desc = Trm_var (_, x); _}; _]) ->x
      | _ -> begin match decl_name init with
             | Some x -> x
             | None -> fail init.loc "for_loop_index: could't get the loop index"
@@ -1628,7 +1628,7 @@ let trm_for_c_inv_simple_init (init : trm) : (var * trm * bool) option =
     end
   | Trm_apps (_, [ls; rs]) when is_set_operation init ->
     begin match ls.desc with
-    | Trm_var x -> Some (x, rs, false)
+    | Trm_var (_, x) -> Some (x, rs, false)
     | _ -> None
     end
   | _ -> None

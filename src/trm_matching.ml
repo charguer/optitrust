@@ -90,7 +90,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     match Trm_map.find_opt x !inst with
     | None -> None
     | Some (ty,t0) -> match t0.desc with
-       | Trm_var y -> Some (y,ty)
+       | Trm_var (_, y) -> Some (y,ty)
        | _ -> None
     in
   let with_binding (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
@@ -135,16 +135,16 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     match t1.desc, t2.desc with
 
     (* Case for treating a match against a pattern variable *)
-    | Trm_var x, _ when is_var x -> find_var x t2
+    | Trm_var (_, x), _ when is_var x -> find_var x t2
 
     (* Case for treating a match against a pattern such as [body(i)],
        where [body] is a pattern variable that corresponds to a function. *)
-    | Trm_apps ({ desc = Trm_var x; _}, ts1), _ when higher_order_inst && is_var x ->
+    | Trm_apps ({ desc = Trm_var (_, x); _}, ts1), _ when higher_order_inst && is_var x ->
         let msg1 i ti = fail None (Printf.sprintf "rule_match: the %d-th argument of the higher-order function variable %s is not a variable. It is the term: %s" i x (Ast_to_text.ast_to_string ti)) in
         let xargs = List.mapi (fun i ti -> match ti.desc with
-          | Trm_var x
+          | Trm_var (_, x)
           (* LATER: find out if it is really correct to igore the get operation here *)
-          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var x; _}]) -> x
+          | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> x
           | _ -> msg1 i ti) ts1 in
         let msg2 i = fail None (Printf.sprintf "rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
         let targs = List.mapi (fun i xi -> match get_binding xi with Some typed_yi -> typed_yi | None -> msg2 i) xargs in
@@ -154,7 +154,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
         (* LATER: it would be equivalent, but slightly nicer, to use the types coming from the function type associated with x,
            rather that to take the local types associated with the variables provided as arguments to x. *)
 
-    | Trm_var x1, Trm_var x2 when x1 = x2 -> ()
+    | Trm_var (_, x1), Trm_var (_, x2) when x1 = x2 -> ()
 
     | Trm_val v1, Trm_val v2 when Internal.same_val v1 v2 -> ()
 

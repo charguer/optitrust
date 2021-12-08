@@ -275,8 +275,8 @@ let expr_to_string (atoms : atom_map) (e : expr) : string =
         | Some t1 ->
            (* Ast_to_text.print_ast stdout t1; *)
             begin match t1.desc with
-            | Trm_var x -> string x
-            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var x; _}]) -> string x
+            | Trm_var (_, x) -> string x
+            | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> string x
             | _ -> braces (Ast_to_c.trm_to_doc t1)
             end
         | _  ->

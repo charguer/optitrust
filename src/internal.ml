@@ -129,7 +129,7 @@ let change_typ ?(change_at : target list = [[]]) (ty_before : typ)
            { td with typdef_body = Typdef_prod (b, s)}
         | _ -> trm_map aux t
         end
-       | Trm_var x ->
+       | Trm_var (_, x) ->
           let ty = begin match t.typ with
                    | Some ty -> ty
                    | None -> fail t.loc "apply_change: all variable occurrences should have a type"
@@ -193,7 +193,7 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
 (* Rename all the occurrences of a variable by adding an underscore as prefix*)
 let fresh_args (t : trm) : trm = 
   match t.desc with 
-  | Trm_var x-> trm_var ("_" ^ x) 
+  | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x) 
   | _ -> t
 
 (* In the case of typedef struct give back the list of struct fields *)
@@ -256,7 +256,7 @@ let nb_inits (x : var) (t : trm) : int =
     match t.desc with
     | Trm_apps (_,[ls; _]) ->
       begin match ls.desc with
-      | Trm_var y when y = x -> incr counter; ls
+      | Trm_var (_, y) when y = x -> incr counter; ls
       | _ -> ls
       end
     | _ -> trm_map aux t
@@ -546,7 +546,7 @@ let apply_on_path_targeting_a_sequence ?(keep_label:bool = true) (tr:trm->trm) (
 (* make sure each occurrence of y in t is marked with type variable x *)
 let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
   match t.desc with
-  | Trm_var y' when y' = y ->
+  | Trm_var (_, y') when y' = y ->
     trm_var ~annot:t.annot ~loc:t.loc ~add:t.add ~typ:(Some (typ_constr  x )) y
   | _ -> trm_map (replace_type_with x y) t
 
@@ -556,7 +556,7 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
 let subst (tm : tmap) (t : trm) : trm = 
   let rec function_to_apply (t : trm) : trm =
     match t.desc with
-    | Trm_var x ->
+    | Trm_var (_, x) ->
       begin match Trm_map.find_opt x tm with
       | Some t1 -> t1
       | _ -> t
@@ -604,7 +604,7 @@ let rec functions_with_arg_type ?(outer_trm : trm option = None) (x : typvar) (t
       (* If f is a variable, we have to add f to ilsm if an argument has type x
         ignore the free function
       *)
-      | Trm_var f when f <> "free" ->
+      | Trm_var (_, f) when f <> "free" ->
           let il =
             fold_lefti
               (fun i il (t' : trm) ->

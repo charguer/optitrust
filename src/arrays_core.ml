@@ -18,18 +18,18 @@ open Ast
 let inline_array_access (array_var : var) (new_vars : vars) (t: trm) : trm =
   let rec aux (global_trm : trm) (t : trm) : trm =
     match t.desc with
-    | Trm_var y when y = array_var -> fail t.loc "inline_array_access: arrays should be accessed by using indices"
+    | Trm_var (_, y) when y = array_var -> fail t.loc "inline_array_access: arrays should be accessed by using indices"
     | Trm_apps(f,[arr_base;arr_index]) ->
       begin match f.desc with
       | Trm_val (Val_prim (Prim_binop Binop_array_cell_addr)) ->
         begin match arr_base.desc with
-        | Trm_var x when x = array_var ->
+        | Trm_var (_, x) when x = array_var ->
           begin match arr_index.desc with
           | Trm_val (Val_lit (Lit_int i)) ->
             if i >= List.length new_vars then fail t.loc "inline_array_access: not enough new_variables entered"
             else
               trm_var ~typ:t.typ ~add:t.add (List.nth new_vars i)
-          | Trm_apps ({desc = Trm_var "ANY";_}, _) ->
+          | Trm_apps ({desc = Trm_var (_, "ANY");_}, _) ->
             let nb_vars = List.length new_vars in
             trm_apps (trm_var "CHOOSE") ((trm_lit (Lit_int nb_vars)) :: (List.map trm_var new_vars))
           | _ -> fail t.loc "inline_array_access: only integer indexes are allowed"

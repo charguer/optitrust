@@ -17,7 +17,7 @@ let any_aux (array_index : var) (t : trm) : trm =
   match t.desc with 
   | Trm_apps (f,_) ->
     begin match f.desc with
-    | Trm_var any when Tools.pattern_matches "ANY?." any ->  trm_var array_index
+    | Trm_var (_, any) when Tools.pattern_matches "ANY?." any ->  trm_var array_index
     | _ -> fail f.loc "any_aux: expected the special function ANY"
     end
   | _ -> fail t.loc "any_aux: expected a trm_var with ANY annotation"
@@ -41,10 +41,10 @@ let choose_aux (select_arg : string list -> int) (t : trm) : trm =
        if nb <> List.length args then fail t.loc "choose_aux: number of args is not correct";
         let choices = List.map (fun arg -> 
           match arg.desc with 
-          | Trm_var s -> s 
+          | Trm_var (_, s) -> s 
           | Trm_apps (_, [v])  -> 
             begin match v.desc with 
-            | Trm_var v -> v 
+            | Trm_var (_, v) -> v 
             | _ -> fail arg.loc "choose_aux: could not match non constant variable"
             end
           | _ ->  

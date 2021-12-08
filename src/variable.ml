@@ -333,10 +333,10 @@ let inline_and_rename : Target.Transfo.t =
       | Some v ->
         let x =
         begin match v.desc with
-        | Trm_var x -> x
+        | Trm_var (_, x) -> x
         | Trm_apps (_, [v1]) when is_get_operation v ->
           begin match v1.desc with
-          | Trm_var x -> x
+          | Trm_var (_, x) -> x
           | _ -> ""
           end
         | _ -> ""

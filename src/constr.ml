@@ -713,7 +713,7 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         not ((List.exists (function No_braces _ -> true | _ -> false) t.annot) || List.mem Main_file t.annot)->
         check_list ~depth:(DepthAt 0) cl (Mlist.to_list tl) (* LATER/ check why depth 0 here and not
         in constra_app *)
-     | Constr_var name, Trm_var x ->
+     | Constr_var name, Trm_var (_, x) ->
         check_name name x
      | Constr_lit pred_l, Trm_val (Val_lit l) ->
         pred_l l

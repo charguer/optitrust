@@ -209,7 +209,7 @@ let node_to_js (aux : trm -> nodeid) (t : trm) : (json * json) list =
         [ kind_to_field "val";
           (strquote "value", Json.str (Tools.document_to_string (PPrint.bquotes(Ast_to_c.val_to_doc v))));
           children_to_field [] ]
-    | Trm_var x ->
+    | Trm_var (_, x) ->
         [ kind_to_field "var";
           value_to_field x;
           children_to_field [] ]

@@ -120,7 +120,7 @@ let rename_aux (index : int) (new_name : var) (t : trm) : trm =
     | Trm_let (vk, (x, tx), init) ->
       let rec aux (t : trm) : trm =
         match t.desc with
-        | Trm_var y when y = x -> {t with desc = Trm_var new_name}
+        | Trm_var (vk, y) when y = x -> {t with desc = Trm_var (vk, new_name)}
         | _ -> trm_map aux t
        in
       let lback = Mlist.map aux lback in
@@ -147,7 +147,7 @@ let rename (new_name : var) (index : int): Target.Transfo.local =
 
 let rec subst_aux (name : var) (space : trm) (t : trm) : trm =
   match t.desc with
-  | Trm_var y when y = name -> space
+  | Trm_var (_, y) when y = name -> space
   | _ -> trm_map (subst_aux name space) t
 
 let subst (name : var)(space : trm) : Target.Transfo.local =
@@ -480,7 +480,7 @@ let to_const_aux (index : int) (t : trm) : trm =
           begin match t1.desc with
           | Trm_apps (_, [ls; _rs]) when is_set_operation t1 ->
             begin match ls.desc with
-            | Trm_var y when y = x -> fail ls.loc "to_const_aux: can't convert a variable to a const variable if there are other write operations besides the first initalization"
+            | Trm_var (_, y) when y = x -> fail ls.loc "to_const_aux: can't convert a variable to a const variable if there are other write operations besides the first initalization"
             | _ -> ()
             end
           | _ -> ()

@@ -244,7 +244,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
      | Trm_val v ->
         if List.mem Empty_cond t.annot then empty
           else dattr ^^ val_to_doc v
-     | Trm_var x ->
+     | Trm_var (_, x) ->
         if List.mem Any t.annot then dattr ^^ string "ANY (" ^^ string x ^^ string ")"
           else
             dattr ^^ string x
@@ -562,10 +562,10 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
 
   match f.desc with
   (* Case of function pointers *)
-  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var x; _ } ]) ->
+  | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ]) ->
       aux_arguments (string x)
   (* Case of function by name *)
-  | Trm_var x ->
+  | Trm_var (_, x) ->
      if !decode && Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
         (* Note x is for example "overloaded=" *)
        let (d1, d2) =

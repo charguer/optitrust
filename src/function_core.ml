@@ -108,7 +108,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
     begin match fun_call.desc with 
     | Trm_apps(tfun, fun_call_args) ->
       let fun_decl = begin match tfun.desc with 
-      | Trm_var f -> 
+      | Trm_var (_, f) -> 
         begin match Internal.toplevel_decl f with
         | Some decl -> decl 
         | _ -> fail tfun.loc "inline_uax: couldn't find the toplevel decl for the targeted function call"
