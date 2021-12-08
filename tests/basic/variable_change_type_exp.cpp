@@ -1,6 +1,6 @@
-int const B = 10;
+const int B = 10;
 
-int const N = 100;
+const int N = 100;
 
 typedef struct {
   int x;

@@ -13,7 +13,7 @@ typedef vect myvect;
 
 int main() {
   int a = 5;
-  float const b = 5.;
+  const float b = 5.;
   int x = 3;
   int y = 1;
   printf("%d", y);

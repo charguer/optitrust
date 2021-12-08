@@ -14,7 +14,7 @@ int demo() {
   /*@body*/ { cx = c.x; } /*body@*/
   vect b = {0, 1};
   vect *p = (&b);
-  int const e = (p.x);
-  int const f = (p->x);
-  int const g = (*(&b)).x;
+  const int e = (p.x);
+  const int f = (p->x);
+  const int g = (*(&b)).x;
 }

@@ -1,6 +1,6 @@
 #include "../../include/optitrust.h"
 
-int const N = 2;
+const int N = 2;
 
 int main() {
   int corners[4];

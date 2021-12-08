@@ -1,4 +1,4 @@
-int const B = 8;
+const int B = 8;
 
 typedef int T_BLOCK[B];
 
@@ -18,7 +18,7 @@ typedef V_BLOCK V[(80 / B)];
 
 V v;
 
-int const N = 40;
+const int N = 40;
 
 int w[(N / B)][B];
 

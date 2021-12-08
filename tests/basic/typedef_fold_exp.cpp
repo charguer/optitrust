@@ -1,6 +1,6 @@
 typedef unsigned int uint;
 
-typedef double const cdouble;
+typedef const double cdouble;
 
 typedef struct {
   uint x;

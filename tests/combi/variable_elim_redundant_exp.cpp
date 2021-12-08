@@ -3,7 +3,7 @@ int main() {
   for (int i = 0; (i < 10); i++) {
     int c = ((a + a) + i);
   }
-  int const e = 5;
+  const int e = 5;
   int r = ((e + e) + e);
   double coef_x1[8] = {1., 1., 1., 1., 0., 0., 0., 0.};
   double sign_x1[8] = {(-1.), (-1.), (-1.), (-1.), 1., 1., 1., 1.};

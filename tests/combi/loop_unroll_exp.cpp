@@ -1,10 +1,10 @@
-int const N = 3;
+const int N = 3;
 
-int const M = 5;
+const int M = 5;
 
 int s = 2;
 
-int const u = 2;
+const int u = 2;
 
 int main() {
   int a0 = 1;

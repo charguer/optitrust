@@ -4,7 +4,7 @@ typedef struct {
   double z;
 } vect;
 
-int const nbCorners = 8;
+const int nbCorners = 8;
 
 typedef struct {
   double val[nbCorners];

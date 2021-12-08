@@ -11,7 +11,7 @@ int main() {
   int *b = (&m[1][1]);
   int r3 = ((*b) + (*b));
   (*b) = 9;
-  int const *v = m[0];
+  const int *v = m[0];
   int r4 = v[2];
   v[1] = 9;
 }

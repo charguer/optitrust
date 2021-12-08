@@ -1,4 +1,4 @@
-int const N = 5;
+const int N = 5;
 
 double t[N];
 

@@ -3,7 +3,7 @@
 #include "../../include/optitrust.h"
 
 int main() {
-  int const N = 10;
+  const int N = 10;
   int *p = (int *)MCALLOC1(N, sizeof(int));
   int *q = (int *)MCALLOC1(N, sizeof(int));
   return 0;

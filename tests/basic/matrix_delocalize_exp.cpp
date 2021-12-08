@@ -3,10 +3,10 @@
 typedef int T;
 
 int main() {
-  int const N0 = 5;
-  int const N1 = 10;
-  int const N2 = 11;
-  int const N3 = 12;
+  const int N0 = 5;
+  const int N1 = 10;
+  const int N2 = 11;
+  const int N3 = 12;
   T *a = (T *)MCALLOC3(N1, N2, N3, sizeof(T));
 mark : {
   T *x = (T *)MCALLOC4(N0, N1, N2, N3, sizeof(T));

@@ -1,4 +1,4 @@
-int const M = 20;
+const int M = 20;
 
 typedef struct {
   int y;

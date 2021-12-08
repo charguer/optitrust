@@ -1,6 +1,6 @@
 typedef unsigned int uint;
 
-typedef double const cdouble;
+typedef const double cdouble;
 
 typedef struct {
   unsigned int x;
@@ -13,7 +13,7 @@ typedef int **mat2d;
 
 typedef int ***mat3d;
 
-double const f(uint n, myvect v, int ***m) { return 2.; }
+const double f(uint n, myvect v, int ***m) { return 2.; }
 
 int main() {
   uint x;

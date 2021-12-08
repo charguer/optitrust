@@ -15,7 +15,7 @@ int main() {
   vect a, b;
   fuse:{
     a.x = b.x;
-    a.y = b.y
+    a.y = b.y;
   }
 }
 "
