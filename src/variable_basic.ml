@@ -13,29 +13,34 @@ let fold ?(deref : bool = false) ?(at : target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p,i) -> Variable_core.fold deref at i t p)
 
-(* internal function *)
-(* [inline_common delete at tg] expects the target [tg] to point to a variable declaration
-     it then will find all the occurrences of the variable and replaces them with it's assigned value.
-   [delete] ~ denotes a flag whether the declaration should be kept or not
-   [at] - denotes a target where inlining is done. If empty the
-    inlining operation is performed on all the ast nodes in the same level as the declaration
-    or deeper
+
+(* [unfold ~mark ~accept_functions ~at tg] expects the target [tg] to be pointing at an initialized
+     variable declaration, then it will  find all the occurrences of that variable and replace them with its
+     initial value. The argument [accept_functions] is a flag to decide if we want to inline functions in the 
+     beta way. Ex Suppose we have 
+     void f(int x) { ... } 
+     int main () {
+       f(3);
+       ....
+     }
+     Then it will transform it into;
+     void f(int x) {}
+     int main () {
+       (void f (int x) { ...}) (3);
+
+       ...
+     }
+
+     Assumption:
+      The targeted variable is a const variable,
 *)
-let inline_common ?(mark : mark = "") (delete : bool) (accept_functions : bool) (at : target) : Target.Transfo.t =
+let unfold ?(mark : mark = "") ?(accept_functions : bool = true) ?(at : Target.target = []) : Target.Transfo.t =
   Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> Variable_core.inline delete accept_functions mark at i t p)
+    (fun t (p,i) -> Variable_core.unfold false accept_functions mark at i t p)
 
-(* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to true.
-    an the target [at] left empty.
-*)
-let inline ?(delete : bool = true) ?(mark : mark = "") ?(accept_functions : bool = true): Target.Transfo.t =
-  inline_common ~mark delete accept_functions []
-
-(* [inline tg]: it's a specialization of [inline_common] with the flag [delete] set to false.
-    an the target [at] should be given by the user.
-*)
-let inline_at ?(accept_functions : bool = true) (at : target) : Target.Transfo.t =
-  inline_common false accept_functions at
+let inline ?(mark : mark = "") ?(accept_functions : bool = true) : Target.Transfo.t =
+  Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
+    (fun t (p, i) -> Variable_core.unfold true accept_functions mark [] i t p)
 
 (* [rename ~into tg] expects the target [tg] to be pointing at a declaration, then it will
     rename its declaration and all its occurrences

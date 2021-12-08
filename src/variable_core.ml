@@ -71,7 +71,7 @@ let fold (as_reference : bool) (fold_at : target) (index) : Target.Transfo.local
       the ast of the updated sequence which contains the declaration ast [t]
 *)
 
-let inline_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (inline_at : target) (index : int) (t : trm) : trm =
+let unfold_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) (t : trm) : trm =
   match t.desc with
   | Trm_seq tl ->
     let lfront, dl, lback = Internal.get_trm_and_its_relatives index tl in
@@ -80,29 +80,29 @@ let inline_aux (delete_decl : bool) (accept_functions : bool) (mark : mark) (inl
       let init = if mark = "" then init else trm_add_mark mark init in
       begin match vk with
       | Var_immutable ->
-        let new_lback = begin match inline_at with
+        let new_lback = begin match unfold_at with
         | [] -> Mlist.map (Internal.subst_var x init) lback
-        | _ -> Mlist.map (Internal.change_trm ~change_at:[inline_at] (trm_var x) init) lback
+        | _ -> Mlist.map (Internal.change_trm ~change_at:[unfold_at] (trm_var x) init) lback
         end
         in
         let new_tl = Mlist.merge lfront new_lback in
         let new_tl = if delete_decl then new_tl else Mlist.insert_at index dl new_tl in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
-      | Var_mutable -> fail dl.loc "inline_aux: only const variables are safe to inline"
+      | Var_mutable -> fail dl.loc "unfold_aux: only const variables are safe to unfold"
       end
     | Trm_let_fun (f, _, _, _) ->
       if accept_functions then
         let new_lback = Mlist.map (Internal.subst_var f dl) lback in
         let new_tl = Mlist.merge lfront new_lback in
         trm_seq ~annot:t.annot ~marks:t.marks new_tl
-      else fail dl.loc "inline_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
-    | _ -> fail t.loc "inline_aux: expected a target to a variable declaration"
+      else fail dl.loc "unfold_aux: to replace function calls with their declaration you need to set accept_functions arg to true"
+    | _ -> fail t.loc "unfold_aux: expected a target to a variable declaration"
     end
-  | _ -> fail t.loc "inline_aux: expected the surrounding sequence"
+  | _ -> fail t.loc "unfold_aux: expected the surrounding sequence"
 
 
-let inline (delete_decl : bool) (accept_functions : bool) (mark : mark) (inline_at : target) (index : int) : Target.Transfo.local =
-  Target.apply_on_path(inline_aux delete_decl accept_functions mark inline_at index)
+let unfold (delete_decl : bool) (accept_functions : bool) (mark : mark) (unfold_at : target) (index : int) : Target.Transfo.local =
+  Target.apply_on_path(unfold_aux delete_decl accept_functions mark unfold_at index)
 
 
 (* [rename_aux index new_name t] rename the variable declared in [t] and all its occurrences

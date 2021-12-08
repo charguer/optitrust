@@ -285,7 +285,7 @@ let unroll ?(braces : bool = false) ?(blocks : int list = []) ?(shuffle : bool =
     Marks.add my_mark (Target.target_of_path p);
     (* Function used in the case when the loop bound is a constant variable *)
     let aux (x : var) (t : trm) : int  =
-      Variable_basic.inline_at [Target.cMark my_mark] [Target.cVarDef x];
+      Variable_basic.unfold ~at:[Target.cMark my_mark] [Target.cVarDef x];
           let var_decl = match Internal.toplevel_decl x with
             | Some d -> d
             | None -> fail t.loc "unroll: could not find the declaration of the loop bound variable"

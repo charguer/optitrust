@@ -62,14 +62,13 @@ TESTS_WORKING := \
 	variable_fold.ml \
 	variable_init_attach.ml \
 	variable_init_detach.ml \
+	variable_inline.ml \
 	variable_insert.ml \
 	variable_local_name.ml \
 	variable_rename.ml \
 	variable_replace_occurrences.ml \
-
-# not working
-#	variable_inline.ml \
-
+  variable_unfold.ml \
+	
 TESTS_TOCHECK := \
 	accesses_intro.ml \
 	arith_simplify.ml \

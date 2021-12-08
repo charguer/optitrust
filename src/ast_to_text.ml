@@ -20,6 +20,7 @@ let rec print_typ_desc ?(only_desc : bool = false) (t : typ_desc) : document =
   | Typ_double -> string "Typ_double"
   | Typ_bool -> string "Typ_bool"
   | Typ_char -> string "Typ_char"
+  | Typ_string -> string "Typ_string"
   | Typ_ptr {ptr_kind = pk; inner_typ = ty} ->
      let dpk = begin match pk with
                | Ptr_kind_mut -> string "pointer"

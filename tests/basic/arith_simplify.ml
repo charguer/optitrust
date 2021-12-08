@@ -1,15 +1,12 @@
 open Optitrust
 open Target
 
-(* TODO: the operations don't seem to work here; an issue with the target? *)
-(* There is a problem using dBody with vardef because it will point to the new operation *)
-
 
 let _ = Run.doc_script_cpp (fun _ ->
-    !! Arith_basic.(simpl gather) [cVarDef "a"; dBody];
-       Arith_basic.(simpl gather) [cVarDef "b"; dBody];
-       Arith_basic.(simpl gather) [cVarDef "c"; dBody];
-       Arith_basic.(simpl expand) [cVarDef "d"; dBody];
+    !! Arith_basic.(simpl gather) [cVarDef "a"; cInit ()];
+       Arith_basic.(simpl gather) [cVarDef "b"; cInit ()];
+       Arith_basic.(simpl gather) [cVarDef "c"; cInit ()];
+       Arith_basic.(simpl expand) [cVarDef "d"; cInit ()];
   )
 "
 int main() {

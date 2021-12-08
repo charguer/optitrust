@@ -17,7 +17,7 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
 
-  !! Variable_basic.inline ~accept_functions:true [cFunDef "f"];
+  !! Variable_basic.unfold ~accept_functions:true [cFunDef "f"];
   !! Function_basic.beta [cFun ""];
 
 )

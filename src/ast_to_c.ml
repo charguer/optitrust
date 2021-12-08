@@ -19,6 +19,7 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
   | Typ_double -> string "double"
   | Typ_bool -> string "bool"
   | Typ_char -> string "char"
+  | Typ_string -> string "string"
   | Typ_ptr { ptr_kind = pk; inner_typ = t} ->
     begin match pk with
     | Ptr_kind_mut ->

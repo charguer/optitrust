@@ -3,11 +3,9 @@ int f(int a) {
 }
 
 int main() {
-  
-  // inlining of variable
+  // inlining without removal of 'a'
   const int a = 2;
   const int b = a + a;
-
 
   // inlining of function
   const int e = f(2);

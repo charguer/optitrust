@@ -348,7 +348,6 @@ and translate_stmt (s : stmt) : trm =
     let tc = translate_expr c in
     let ts = compute_scope Do_scope (fun () -> translate_stmt s) in
     trm_do_while ~loc ~ctx ts tc
-  (* todo: use while encoding in semantics *)
   | For {init = inito; condition_variable = None; cond = condo; inc = stepo;
          body} ->
     let translate_stmt_opt (so : stmt option) : trm =

@@ -140,7 +140,7 @@ let delocalize_in_vars ?(index : string = "dl_i") ?(mark : mark = "section_of_in
   ~local_vars:(lv : vars) (tg : Target.target) : unit =
   Variable_basic.local_name ~mark ov ~into:nv tg;
   Variable_basic.delocalize ~index ~array_size:arrs ~ops [Target.cMark mark];
-  Variable_basic.inline_at [Target.cFor index] [Target.nbAny;Target.cVarDef arrs];
+  Variable_basic.unfold ~at:[Target.cFor index] [Target.nbAny;Target.cVarDef arrs];
   Loop_basic.unroll ~braces:false [Target.nbMulti ;Target.cFor index];
   Arrays.to_variables  lv [Target.cVarDef nv];
   Marks.remove "section_of_interest" [Target.cMark "section_of_interest"]
@@ -269,18 +269,19 @@ let renames (rename : rename) : Target.Transfo.t =
       int b = f(x++,a);
       => not safe to inline a
     *)
-(* [inline ~accept_functions ~simple_deref tg] expects the target [tg] to be pointing a variable declaration.
-    If the variable has a struct type then a mark is created and passed as an argument to Variable_basic.inline 
-      on the next step, otherwise no marks needs to be created.
+(* [inline ~accept_functions ~simple_deref ~delete tg] expects the target [tg] to be pointing at a variable declaration.
+    If the variable has a struct type then a mark is created and passed as an argument to Variable_basic.unfold 
+      on the next step, otherwise no mark needs to be created.
       We consider the following cases:
-      1) If the targeted variable is mutable then try to make it immutable by calling Variable.to_const.
+      1) If the targeted variable is mutable then we try to make it immutable by calling Variable.to_const.
          WARNING: This step will fail in the case when there are any write operations on the targetd varibles.
-      2) If the transformation didn't fail in the first step we are sure that we are trying to inline a const varible
-         and we can call safely Variable_basic.inline 
+      2) If the transformation didn't fail in the first step we are sure that we are trying to inline a const variable
+         and we can call safely Variable_basic.unfold  
       3) If the targeted variable is a struct type then call Struct_basic.simpl_proj to remove all the occurrences
-          of struct initialization list, by projecting them on the field they are accesses. 
-          Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is not valied C code.
-          After calling Struct_basic.simpl_proj {0, 1}.x becomes 0 
+          of struct initialization list, by projecting them on the field they are accessed. 
+          Ex: int v = {0,1} if we had v.x then Variable_basic.inline will transform it to {0, 1}.x which is non valid C code.
+          After calling Struct_basic.simpl_proj {0, 1}.x becomes 0 .
+          Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them.
 *)
 let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = false): Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
@@ -294,10 +295,14 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
       let mark = if (Internal.is_struct_type var_type) then mark else "" in
       begin match vk with 
       | Var_immutable ->
-        Variable_basic.inline ~mark ~accept_functions ~delete (seq @ [Target.cVarDef x])
+        if delete 
+          then Variable_basic.inline ~mark ~accept_functions (seq @ [Target.cVarDef x]) 
+          else Variable_basic.unfold ~mark ~accept_functions (seq @ [Target.cVarDef x])
       | Var_mutable -> 
         Variable_basic.to_const (seq @ [Target.cVarDef x]);
-        Variable_basic.inline ~mark ~delete (seq @ [Target.cVarDef x])
+        if delete 
+          then Variable_basic.inline ~mark ~accept_functions (seq @ [Target.cVarDef x]) 
+          else Variable_basic.unfold ~mark ~accept_functions (seq @ [Target.cVarDef x])
       end;
      if mark <> "" then begin 
      Struct_basic.simpl_proj [Target.nbAny; Target.cFieldAccess ~base:[Target.cMark mark] ()];
@@ -306,7 +311,6 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
      end 
     | _ -> fail t.loc "inline: expected a target to a variable declaration"
   )
-
 
 
 (* [inline_and_rename tg] expects the target [tg] to be poiting at a variable declaration with an initial value

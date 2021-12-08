@@ -4,8 +4,7 @@ open Target
 let _ = Run.script_cpp (fun _ ->
 
    (* for variables *)
-   !! Variable_basic.inline_at [cVarDef "b"] [cVarDef "a"];
-   !! Variable_basic.inline [cVarDef "c"];
+   !! Variable_basic.inline [cVarDef "a"];
 
    (* for functions *)
    Tools.failure_expected (fun () ->

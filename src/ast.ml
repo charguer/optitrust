@@ -129,6 +129,7 @@ and typ_desc =
   | Typ_double
   | Typ_bool
   | Typ_char
+  | Typ_string 
   | Typ_ptr of  {ptr_kind : ptr_kind; inner_typ: typ } (* "int*" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
@@ -694,6 +695,9 @@ let typ_bool ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
 let typ_char ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
   {typ_annot = annot; typ_desc = Typ_char; typ_attributes}
 
+let typ_string ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ = 
+  {typ_annot = annot; typ_desc = Typ_string; typ_attributes}
+
 let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
   (kind : ptr_kind) (t : typ) : typ =
   {typ_annot = annot; typ_desc = Typ_ptr {ptr_kind = kind; inner_typ = t}; typ_attributes}
@@ -856,8 +860,7 @@ let typ_of_lit (l : lit) : typ option =
   | Lit_bool _ -> Some (typ_bool ())
   | Lit_int _ -> Some (typ_int ())
   | Lit_double _ -> Some (typ_double ())
-  (* todo: add type for strings *)
-  | Lit_string _ -> None
+  | Lit_string _ -> Some (typ_string ())
 
 let trm_lit ?(annot = []) ?(loc = None) ?(add = []) ?(ctx : ctx option = None) (l : lit) : trm =
   trm_val ~annot:annot ~loc ~add ~ctx ~typ:(typ_of_lit l) (Val_lit l)
@@ -1218,6 +1221,7 @@ let rec same_types ?(match_generated_star : bool = false) (typ_1 : typ) (typ_2 :
   | Typ_double, Typ_double -> true
   | Typ_bool, Typ_bool -> true
   | Typ_char, Typ_char -> true
+  | Typ_string, Typ_string -> true
   | Typ_ptr {ptr_kind = pk1; inner_typ = typ_a1}, Typ_ptr {ptr_kind = pk2; inner_typ = typ_a2} ->
    if match_generated_star then (pk1 = pk2) && (is_generated_star typ_1 && is_generated_star typ_2) && (aux typ_a1 typ_a2)
     else (not (is_generated_star typ_1 || is_generated_star typ_2)) && (pk1 = pk2) && (aux typ_a1 typ_a2)
@@ -1441,10 +1445,8 @@ let typ_kind_to_string (tpk : typ_kind) : string =
   end
 let is_atomic_typ (t : typ) : bool =
   match t.typ_desc with
-  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char -> true
+  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char |Typ_string -> true 
   | _ -> false
-
-
 
 let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
   if is_atomic_typ ty then Typ_kind_basic ty.typ_desc
