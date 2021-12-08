@@ -13,6 +13,7 @@ int h() {
 int main() {
   int a = 3;
   int t = f(g(a,4));
+  int u = f(f(a));
   int z = f(h());
   return 0;
 }

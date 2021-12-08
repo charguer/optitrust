@@ -43,6 +43,3 @@ let compute_aux (t : trm) : trm =
 
 let compute : Target.Transfo.local =
   Target.apply_on_path (compute_aux)
-
-
-

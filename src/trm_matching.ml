@@ -117,17 +117,12 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     let rec aux_with_bindings (ts1 : trms) (ts2 : trms) : unit =
       match ts1, ts2 with
       | [], [] -> ()
-      | ({ desc = Trm_let (vk1, (x1,t1), init1); _ } as dt1) :: tr1,
-        ({ desc = Trm_let (vk2, (x2,_t2), init2); _ } as dt2) :: tr2 ->
-          if not (vk1 = vk2) then begin
-            Tools.printf "Kind mismatch on trm_let\n";
-            mismatch ~t1:dt1 ~t2:dt2 ()
-          end;
-          (* TODO: find out why this test is making the fbody unit test fail
-           if not (same_types t1 t2) then begin
+      | ({ desc = Trm_let (_vk1, (x1,t1), init1); _ } as dt1) :: tr1,
+        ({ desc = Trm_let (_vk2, (x2,t2), init2); _ } as dt2) :: tr2 ->
+           if not (same_types ~match_generated_star:true t1 t2) then begin
             Tools.printf "Type mismatch on trm_let\n";
             mismatch ~t1:dt1 ~t2:dt2 ()
-          end; *)
+          end;
           aux init1 init2;
           with_binding t1 x1 x2 (fun () -> aux_with_bindings tr1 tr2)
       (* LATER: add support for Trm_let_fun, to allow matching local function definitions. *)
