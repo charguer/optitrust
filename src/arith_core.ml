@@ -376,7 +376,6 @@ let expr_to_trm (atoms : atom_map) (e : expr) : trm =
         else if n = 1 then t
         else (* n > 1 then *) trm_apps (trm_binop Binop_mul) [t; power t (n-1)]
         in
-      (* LATER: Since there isn't any power operator in C the last line is the same was the one in the previous case *)
       Tools.fold_lefti (fun i acc (w,e) ->
         if i = 0 then power (aux e) w else
         trm_apps (trm_binop (if w > 0 then Binop_mul else Binop_div)) [acc; power (aux e) (abs w)]

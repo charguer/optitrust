@@ -38,20 +38,6 @@ let fusion ?(nb : int = 2) (tg : Target.target) : unit =
   Sequence_basic.intro nb ~mark tg;
   Loop_basic.fusion_on_block [Target.cMark mark]
 
-
-(* LATER:
-       low-level
-  !! Sequence.intro ~mark:"deposit" ~start:[main; cVarDef "coeffs2"];
-  !! Instr.gather ~dest:GatherAtLast ~mark:"fusion" [cMark "deposit"; cFor "k"];
-  !! Loop_basic.fusion [cMark "fusion"];
-
-      high-level
-  !! Sequence.intro ~mark:"deposit" ~start:[main; cVarDef "coeffs2"];
-  !! Loop.fusion_targets [cMark "deposit"; cFor "k"];   // ~dest:GatherAtLast is the default
-
-     thus Loop.fusion_targets is just a combination of instr.gather and Loop_basic.fusion
-  *)
-
 (* [fusion_targets tg] expects the target [tg] to be pointing at a sequence that contains loops
     then it will move all the other instructions other than loops outside that sequence.
     After that, it will call fusion in block.
@@ -79,16 +65,16 @@ let fusion_targets (tg : Target.target) : unit =
   Loop_basic.fusion_on_block tg
 
 
-(* [invariant ~upto  tg] expects the target [tg] pointing to an instruction inside a for loop
+(* [move_out ~upto  tg] expects the target [tg] pointing to an instruction inside a for loop
     then it will move that instruction outside that loop. In the case of nested loops the user
     can specify before which loop with index [upto] wants the instruction to be moved to.
 *)
-let invariant ?(upto : string = "") (tg : Target.target) : unit =
+let move_out ?(upto : string = "") (tg : Target.target) : unit =
   Internal.nobrace_remove_after( fun _ ->
   Target.iter_on_targets (fun t exp ->
     let (p, _) = Internal.get_trm_in_surrounding_loop exp in
     match upto with
-    | "" -> Loop_basic.invariant tg
+    | "" -> Loop_basic.move_out tg
     | _ ->
           let quit_loop = ref false in
           let tmp_p = ref [] in
@@ -100,14 +86,14 @@ let invariant ?(upto : string = "") (tg : Target.target) : unit =
               let index = for_loop_index tg_trm in
               if index = upto then
                   begin
-                  Loop_basic.invariant tg;
+                  Loop_basic.move_out tg;
                   quit_loop := true;
                   end
                 else
-                  Loop_basic.invariant tg;
+                  Loop_basic.move_out tg;
                   tmp_p := List.rev(List.tl (List.rev !tmp_p))
             | _ ->
-              Loop_basic.invariant tg;
+              Loop_basic.move_out tg;
               tmp_p := List.rev(List.tl (List.rev !tmp_p))
             done
   ) tg

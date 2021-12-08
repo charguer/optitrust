@@ -30,7 +30,7 @@ TESTS_WORKING := \
 	loop_grid_enumerate.ml \
 	loop_hoist.ml \
 	loop_interchange.ml \
-	loop_invariant.ml \
+	loop_moveout.ml \
 	loop_tile.ml \
 	loop_to_unit_steps.ml \
 	loop_unroll.ml \

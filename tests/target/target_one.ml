@@ -2,7 +2,7 @@ open Optitrust
 open Target
 
 
-(* TODO: add unit test for each constraint function *)
+(* LATER: add unit test for each constraint function *)
 (*
   show [cFieldRead "x" ()];
   show [cFieldWrite "x" ()];
@@ -35,11 +35,6 @@ let _ = Run.script_cpp (fun () ->
 
   (* Vardef/initializer *)
   show [ cVarDef "r" ];
-  (* TOOO: move this to target.ml *)
-  (* let cPrimNew ?(arg:target = []) () =
-    cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false) in
-  let cInit ?(arg:target = []) () = cChain ([ cPrimNew ~arg (); dArg 0 ]) in
-  let dInit = cChain [ cStrict; cInit() ] in *)
   show [ cVarDef "r" ; cPrimNew() ];
   show [ cVarDef "r" ; cPrimNew(); dArg 0 ];
   show [ cVarDef "r" ; cInit () ];

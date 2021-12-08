@@ -301,7 +301,7 @@ let unroll (braces : bool)(my_mark : mark) : Target.Transfo.local =
   Target.apply_on_path (unroll_aux braces my_mark)
 
 
-(* [invariant_aux trm_index t]: take a constant term inside the body of the loop
+(* [move_out_aux trm_index t]: take a constant term inside the body of the loop
       in outside the loop.
     params:
       [trm_index]: index of the constant trm inside the body of the loop
@@ -309,7 +309,7 @@ let unroll (braces : bool)(my_mark : mark) : Target.Transfo.local =
     return:
 
 *)
-let invariant_aux (trm_index : int) (t : trm) : trm =
+let move_out_aux (trm_index : int) (t : trm) : trm =
   match t.desc with
   | Trm_for (index, start, direction, stop, step, _) ->
     let tl = for_loop_body_trms t in
@@ -321,10 +321,10 @@ let invariant_aux (trm_index : int) (t : trm) : trm =
     let lfront, trm_inv, lback = Internal.get_trm_and_its_relatives trm_index tl in
     trm_seq_no_brace  ([trm_inv] @ [
       trm_for_c init cond step (trm_seq (Mlist.merge lfront lback))])
-  | _ -> fail t.loc "invariant_aux: expected a loop"
+  | _ -> fail t.loc "move_out_aux: expected a loop"
 
-let invariant (trm_index : int) : Target.Transfo.local =
-  Target.apply_on_path (invariant_aux trm_index)
+let move_out (trm_index : int) : Target.Transfo.local =
+  Target.apply_on_path (move_out_aux trm_index)
 
 (* [unswitch_aux trm_index t]: extract and if statement inside the loop which is not
         dependent on the index of the loop ofr any local variables outside the loop.

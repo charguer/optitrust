@@ -1680,7 +1680,6 @@ let trm_for_c_inv_simple_step (step : trm) : loop_step option =
 (* [trm_for_of_trm_for_c t] checks if loops [t] is a simple loop or not, if yes then return the simple loop
     else returns [t]
  *)
-(* LATER: Support also loops of the form for( i = a ; i < b; i++) *)
 let trm_for_of_trm_for_c (t : trm) : trm =
   match t.desc with
   | Trm_for_c (init, cond , step, body) ->

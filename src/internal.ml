@@ -496,7 +496,7 @@ let is_trm_loop (t : trm) : bool =
 
 (* [is_struct_type t] check if t is type struct or not 
     Note: The current infrastructure of Optitrust supports only
-      struct declared via typedefs, later will add support for 
+      struct declared via typedefs, later we will add support for 
       struct types not declared via a typedef.
 *)
 let is_struct_type (t : typ) : bool = 

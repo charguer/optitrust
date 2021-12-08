@@ -216,7 +216,6 @@ let intro_mindex (dim : trm) : Target.Transfo.local =
       return:
         the updated ast of the call with reordered args
 *)
-(* LATER: Factorize this code *)
 let reorder_dims_aux (rotate_n : int) (order : int list) (t : trm) : trm =
   match mindex_inv t, alloc_inv t with
   | Some (dims, indices), None ->
