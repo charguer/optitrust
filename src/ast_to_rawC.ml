@@ -535,7 +535,7 @@ and apps_to_doc ?(display_star : bool = true)
               begin match op with
               | Unop_get ->
                 begin
-                  if display_star then parens (star ^^ d) else d
+                  if display_star then star ^^ d else d
                 end
               | Unop_address -> ampersand ^^ d
               | Unop_neg -> parens (bang ^^ d)
@@ -590,7 +590,12 @@ and apps_to_doc ?(display_star : bool = true)
              | _ -> 
               decorate_trm t2
              end  in 
-             separate (blank 1) [d1; op_d; d2] 
+             begin match op with 
+             | Binop_array_cell_addr | Binop_array_cell_get -> 
+              d1 ^^ brackets (d2)
+             | _ -> separate (blank 1) [d1; op_d; d2] 
+             end
+             
           | _ -> fail f.loc "apps_to_doc: binary_operators must have two arguments"
           end 
         | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b -> 

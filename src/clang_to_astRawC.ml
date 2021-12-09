@@ -210,9 +210,7 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
   match d with
   | Pointer q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
-    if const then
-      typ_const (typ_ptr Ptr_kind_mut t)
-    else
+    let t = if const then typ_const t else t in 
     typ_ptr Ptr_kind_mut t
   | LValueReference  q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
@@ -576,7 +574,9 @@ and translate_expr ?(is_statement : bool = false)
           | PreDec ->
             let t = translate_expr e in
             trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_dec) [t]
-          | Deref -> translate_expr e 
+          | Deref -> 
+            let t = translate_expr e in 
+            trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
           | Minus ->
             let t = translate_expr e in
             trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_opp) [t]
