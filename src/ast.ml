@@ -196,6 +196,7 @@ and typed_vars = typed_var list
 (* unary operators *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)
+  | Unop_address (* the "&" operator as in &p *)
   | Unop_bitwise_neg
   | Unop_neg
   | Unop_opp
@@ -241,6 +242,8 @@ and consistency_mode =
 and prim =
   | Prim_unop of unary_op (* e.g. "!b" *)
   | Prim_binop of binary_op (* e.g. "n + m" *)
+  | Prim_compound_assgn_op of binary_op (* e.g. "a += b" *)
+  | Prim_overloaded_op of prim (* used for overloaded operators *)
   | Prim_new of typ (* "new T" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
@@ -276,7 +279,6 @@ and trm_annot =
   | Main_file (* sequence annotated as the main file is not printed *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
-  | Any (* Used for only one specific transformation called delocalize *)
   | Non_local_index (* Used for loops whose index is not declared inside the scope of the loop body *)
 (* symbols to add while printing a C++ program.*)
 and special_operator =
@@ -2005,6 +2007,33 @@ let is_arith_fun (p : prim) : bool =
   | _ -> false
 
 
+(* [is_same_binop op1 op2 ] check if two primitive operations are the same or not. 
+    Used to decide if parentheses should be printed or not.
+*)
+let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool = 
+  match op1, op2 with 
+  | Binop_set, Binop_set -> true
+  | Binop_array_cell_addr, Binop_array_cell_addr -> true
+  | Binop_array_cell_get, Binop_array_cell_get -> true
+  | Binop_eq, Binop_eq -> true
+  | Binop_neq, Binop_neq -> true
+  | Binop_sub, Binop_sub -> true
+  | Binop_add, Binop_add -> true
+  | Binop_mul, Binop_mul -> true
+  | Binop_mod, Binop_mod -> true
+  | Binop_div, Binop_div -> true
+  | Binop_le, Binop_le -> true
+  | Binop_lt, Binop_lt -> true
+  | Binop_ge, Binop_ge -> true
+  | Binop_gt, Binop_gt -> true
+  | Binop_and, Binop_and -> true
+  | Binop_bitwise_and, Binop_bitwise_and -> true
+  | Binop_or, Binop_or -> true
+  | Binop_bitwise_or, Binop_bitwise_or -> true
+  | Binop_shiftl, Binop_shiftl -> true
+  | Binop_shiftr, Binop_shiftr -> true
+  | Binop_xor, Binop_xor -> true
+  | _, _ -> false
 
 
 (* [trm_access base field] create a dummy access without type checking*)
@@ -2112,4 +2141,7 @@ module AstParser = struct
 
 
 end
+
+
+
 

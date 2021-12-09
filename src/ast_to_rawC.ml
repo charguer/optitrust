@@ -1,13 +1,8 @@
 open PPrint
 open Ast
 
-(* Flag to control whether we should "decode" or not the encodings
-   that were performed when converting from Clang AST to our AST.
-   This global reference is to be accessed only from this file. *)
-let decode = ref true
-
 (* translate an ast to a C/C++ document *)
-let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
+let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_constr (tv, _, _) -> string tv
@@ -23,13 +18,7 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
     begin match pk with
     | Ptr_kind_mut ->
       typ_to_doc t ^^ star
-    | Ptr_kind_ref ->
-      if not !decode then
-        begin match const with
-        | true -> typ_to_doc t ^^ string "<annotation:&>"
-        | false -> typ_to_doc t ^^ star ^^ string "<annotation:&>"
-        end
-      else typ_to_doc t ^^ ampersand
+    | Ptr_kind_ref -> typ_to_doc t ^^ ampersand
     end
   | Typ_array (t, s) ->
      let d = typ_to_doc t in
@@ -74,8 +63,8 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   Tools.list_to_doc ~sep:comma (List.map aux t_annot)
 
 
-and typ_to_doc ?(const : bool = false) (t : typ) : document =
-  let d = typ_desc_to_doc ~const t.typ_desc in
+and typ_to_doc (t : typ) : document =
+  let d = typ_desc_to_doc t.typ_desc in
   let dannot =
     List.fold_left (fun d' a -> typ_annot_to_doc a ^^ blank 1 ^^ d') empty
       t.typ_annot
@@ -87,7 +76,7 @@ and typ_to_doc ?(const : bool = false) (t : typ) : document =
   in
   dattr ^^ dannot ^^ d
 
-and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
+and typed_var_to_doc (tx : typed_var) : document =
   let const_string = if false then blank 1 ^^ string " const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
@@ -117,7 +106,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
-  | _ -> const_string ^^ typ_to_doc ~const t ^^ blank 1 ^^ string x
+  | _ -> const_string ^^ typ_to_doc t ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =
   match l with
@@ -174,7 +163,7 @@ and prim_to_doc (p : prim) : document =
   | Prim_unop op -> unop_to_doc op
   | Prim_binop op -> binop_to_doc op
   | Prim_compound_assgn_op op -> equals ^^ (binop_to_doc op)
-  | Prim_overloaded_op p-> prim_to_doc p
+  | Prim_overloaded_op p -> prim_to_doc p
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op ->
      (* put holes to display the operator *)
@@ -200,7 +189,6 @@ and attr_to_doc (a : attribute) : document =
 
 and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
-  let dt =
     if t.marks = []
       then dt
       else
@@ -210,8 +198,6 @@ and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
         let sright =  string ("/*" ^ m ^ "@*/") in
         sleft ^^ dt ^^ sright
         end
-    in
-    if not !decode then trm_annot_to_doc t.annot ^^ dt else dt
 
 and trm_to_doc ?(semicolon=false) (t : trm) : document =
   let loc = t.loc in
@@ -223,95 +209,70 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   in
   (* For printing C code, we have (see explanations in [clang_to_ast.ml],
      search for [Address_operator] and [Star_operator]. *)
-  
-  match t.add with
-  | Address_operator :: addl ->
-     let d =
-       decorate_trm ~semicolon  {desc = t.desc; marks = t.marks; annot = t.annot; loc = t.loc;
-                   is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
-                   attributes = []}
-     in
-     let body = if !decode then parens (ampersand ^^ d)
-                else string "<annotation:addressof>" ^^ d in
-     dattr ^^ body ^^ dsemi
-  | Star_operator :: addl when !decode ->
-     let d =
-       decorate_trm ~semicolon  {desc = t.desc; annot = t.annot; marks = t.marks; loc = t.loc;
-                   is_statement = t.is_statement; add = addl; ctx = t.ctx; typ = t.typ;
-                   attributes = []}
-     in
-     let body = if !decode then parens (star ^^ d) else string "<annotation:valueof>" ^^ d in
-     dattr ^^ body ^^ dsemi
-  | _ ->
-     begin match t.desc with
-     | Trm_val v ->
-        if List.mem Empty_cond t.annot then empty
-          else dattr ^^ val_to_doc v
-     | Trm_var (_, x) ->
-            dattr ^^ string x
-     | Trm_array tl | Trm_struct tl ->
-        let tl = Mlist.to_list tl in
-        let dl = List.map (decorate_trm ~semicolon) tl in
-        dattr ^^ braces (separate (comma ^^ blank 1) dl)
-     | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
-     | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
-     | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
-     | Trm_if (b, then_, else_) ->
-        let db = decorate_trm ~semicolon:false b in
-        let dt = decorate_trm ~semicolon:true then_ in
-        begin match else_.desc with
-        | Trm_val (Val_lit Lit_unit) ->
-           dattr ^^ separate (blank 1) [string "if"; parens db; dt]
-        | _ ->
-           let de = decorate_trm ~semicolon:true else_ in
-           dattr ^^ separate (blank 1) [string "if"; parens db; dt] ^^
-             hardline ^^ string "else" ^^ blank 1 ^^ de
+    begin match t.desc with
+    | Trm_val v ->
+       if List.mem Empty_cond t.annot then empty
+         else dattr ^^ val_to_doc v
+    | Trm_var (_, x) ->
+           dattr ^^ string x
+    | Trm_array tl | Trm_struct tl ->
+       let tl = Mlist.to_list tl in
+       let dl = List.map (decorate_trm ~semicolon) tl in
+       dattr ^^ braces (separate (comma ^^ blank 1) dl)
+    | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
+    | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
+    | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
+    | Trm_if (b, then_, else_) ->
+       let db = decorate_trm ~semicolon:false b in
+       let dt = decorate_trm ~semicolon:true then_ in
+       begin match else_.desc with
+       | Trm_val (Val_lit Lit_unit) ->
+          dattr ^^ separate (blank 1) [string "if"; parens db; dt]
+       | _ ->
+          let de = decorate_trm ~semicolon:true else_ in
+          dattr ^^ separate (blank 1) [string "if"; parens db; dt] ^^
+            hardline ^^ string "else" ^^ blank 1 ^^ de
+       end
+    | Trm_seq tl ->
+       let tl_m = tl.marks in
+       let tl = Mlist.to_list tl in
+
+       if List.mem Multi_decl t.annot
+         then dattr ^^ multi_decl_to_doc loc tl
+       else if List.exists (function No_braces _ -> true | _ -> false) t.annot
+         then
+          let dl = List.map (decorate_trm ~semicolon:true) tl in
+          dattr ^^ separate hardline dl
+       else if List.mem Main_file t.annot then
+          let dl = List.map (decorate_trm ~semicolon:true) tl in
+          dattr ^^ separate (twice hardline) dl
+       else if List.exists (function Include _ -> true | _ -> false) t.annot then
+         (* LATER: restore printing of includes
+            sharp ^^ string "include" ^^ blank 1 ^^ dquote ^^ string (get_include_filename t) ^^ dquote *)
+         empty
+       else
+          let counter = ref (-1) in
+          let dl = List.map (decorate_trm ~semicolon:true) tl in
+          let dl = Tools.fold_lefti (fun i acc m ->
+           if m <> [] then
+             let () = incr counter in
+             let m = Tools.list_to_string ~sep:"," m in
+             let s = string ("/*@" ^ m ^ "@*/") in
+             Tools.insert_at (i + !counter) s acc
+           else acc
+          ) dl tl_m in
+          counter := -1;
+          dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
+    | Trm_apps (f, tl) ->
+       begin
+        (*
+          do not display * operator if the operand is a heap allocated
+          variable or a succession of accesses
+        *)
+         if List.mem Mutable_var_get t.annot || List.mem Access t.annot then  
+           dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
+         else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
         end
-     | Trm_seq tl ->
-        let tl_m = tl.marks in
-        let tl = Mlist.to_list tl in
-
-        if List.mem Multi_decl t.annot
-          then dattr ^^ multi_decl_to_doc loc tl
-        else if List.exists (function No_braces _ -> true | _ -> false) t.annot
-          then
-           let dl = List.map (decorate_trm ~semicolon:true) tl in
-           dattr ^^ separate hardline dl
-        else if List.mem Main_file t.annot then
-           let dl = List.map (decorate_trm ~semicolon:true) tl in
-           dattr ^^ separate (twice hardline) dl
-        else if List.exists (function Include _ -> true | _ -> false) t.annot then
-          (* LATER: restore printing of includes
-             sharp ^^ string "include" ^^ blank 1 ^^ dquote ^^ string (get_include_filename t) ^^ dquote *)
-          empty
-        else
-           let counter = ref (-1) in
-           let dl = List.map (decorate_trm ~semicolon:true) tl in
-           let dl = Tools.fold_lefti (fun i acc m ->
-            if m <> [] then
-              let () = incr counter in
-              let m = Tools.list_to_string ~sep:"," m in
-              let s = string ("/*@" ^ m ^ "@*/") in
-              Tools.insert_at (i + !counter) s acc
-            else acc
-           ) dl tl_m in
-           counter := -1;
-           dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
-     | Trm_apps (f, tl) ->
-        if List.mem App_and_set t.annot then
-           dattr ^^ apps_to_doc ~is_app_and_set:true f tl ^^ dsemi
-        else if  List.mem As_left_value t.annot then
-          dattr ^^ apps_to_doc ~as_left_value:true f tl
-
-        else begin
-           (*
-             do not display * operator if the operand is a heap allocated
-             variable or a succession of accesses
-           *)
-            if List.mem Mutable_var_get t.annot || List.mem Access t.annot then  
-              dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
-            else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
-            end
      | Trm_while (b, t) ->
         let db = decorate_trm b in
         let dt = decorate_trm ~semicolon:true t in
@@ -429,40 +390,31 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
   let dsemi = if semicolon then semi else empty in
   match varkind with
   | Var_immutable ->
-    let dtx = if not !decode then typ_to_doc ~const:true (snd tv)
-                else typed_var_to_doc tv in
+    let dtx = typed_var_to_doc tv in
     let initialisation = blank 1 ^^ equals ^^ blank 1 ^^ decorate_trm init ^^ dsemi in
-    if not !decode then string "let" ^^blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^ blank 1 ^^ dtx ^^ initialisation
-      else dtx ^^ initialisation
+      dtx ^^ initialisation
   | Var_mutable ->
     let dtx = begin match (snd tv).typ_desc with
               | Typ_ptr {ptr_kind = Ptr_kind_mut; inner_typ = tx} when is_generated_star (snd tv) ->
                   begin match tx.typ_desc with
-                  | Typ_ptr {ptr_kind = Ptr_kind_ref; _} ->
-                    if not !decode then (typ_to_doc tx)
-                     else typed_var_to_doc (fst tv,tx)
-                  | _->
-                    if not !decode then typ_to_doc (snd tv)
-                    else typed_var_to_doc (fst tv, tx)
+                  | Typ_ptr {ptr_kind = Ptr_kind_ref; _} -> typed_var_to_doc (fst tv,tx)
+                  | _-> typed_var_to_doc (fst tv, tx)
                   end
               | _ -> typed_var_to_doc tv
               end in
     let d_init, is_initialized  =
-    if not !decode  then init, true
-      else begin match init.desc with
+         begin match init.desc with
            | Trm_apps (_, [value]) -> value, true
            | Trm_val(Val_prim(Prim_new _)) -> trm_var "", false
            | _-> init, true
            end in
     let initialisation = blank 1 ^^ (if is_initialized then equals else empty) ^^ blank 1 ^^ decorate_trm d_init ^^ dsemi in
-    if not !decode then string "let" ^^ blank 1 ^^ string (fst tv) ^^ blank 1 ^^ colon ^^  blank 1 ^^ dtx ^^ initialisation
-      else dtx ^^ initialisation
+    dtx ^^ initialisation
 
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let f = Tools.string_subst "overloaded" "operator" f in
-  let argd = separate (comma ^^ blank 1) (List.map (fun tv ->
-    if is_typ_const (snd tv) then typed_var_to_doc ~const:true tv else typed_var_to_doc tv) tvl) in
+  let argd = separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   begin match b.desc with
   | Trm_val (Val_lit Lit_uninitialized) ->
@@ -555,7 +507,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false) 
+and apps_to_doc ?(display_star : bool = true)
   (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
@@ -566,35 +518,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
   | Trm_apps ({ desc = (Trm_val (Val_prim (Prim_unop Unop_get))); _ }, [ { desc = Trm_var (_, x); _ } ]) ->
       aux_arguments (string x)
   (* Case of function by name *)
-  | Trm_var (_, x) ->
-     if !decode && Str.string_match (Str.regexp "overloaded\\(.*\\)") x 0 then
-        (* Note x is for example "overloaded=" *)
-       let (d1, d2) =
-         begin match List.map decorate_trm tl with
-         | [d1; d2] -> (d1, d2)
-         | _ ->
-            fail f.loc "apps_to_doc: overloaded operators have two arguments"
-         end
-       in
-       let s = Str.string_after x (String.length "overloaded") in
-       if (s = "+") then
-         parens (separate (blank 1) [d1; plus; d2])
-       else if (s = "-") then
-         parens (separate (blank 1) [d1; minus; d2])
-       else if (s = "*") then
-         parens (separate (blank 1) [d1; star; d2])
-       else if (s = "=") then
-         separate (blank 1) [d1; equals; d2]
-       else if (s = "+=") then
-         separate (blank 1) [d1; plus ^^ equals; d2]
-       else if (s = "-=") then
-         separate (blank 1) [d1; minus ^^ equals; d2]
-       else if (s = "*=") then
-         separate (blank 1) [d1; star ^^ equals; d2]
-       else
-         fail f.loc "apps_to_doc: unsupported operator"
-     else
-       aux_arguments (string x)
+  | Trm_var (_, x) -> aux_arguments (string x)
 
   (* Case of inlined function *)
   | Trm_let_fun _ ->
@@ -609,28 +533,19 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
            | [t] ->
               let d = decorate_trm t in
               begin match op with
-              | Unop_get when as_left_value -> d
               | Unop_get ->
-                 if not !decode then begin
-                   string "get(" ^^ d ^^ string ")"
-                end else begin
-                  if display_star then parens (star ^^ d) else d
+                begin
+                  if display_star then star ^^ d else d
                 end
-              | Unop_address -> ampersand
+              | Unop_address -> ampersand ^^ d
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
-              | Unop_post_inc when !decode -> d ^^ twice plus
-              | Unop_post_inc  -> string "operator++(" ^^ d ^^ string ")"
-              | Unop_post_dec when !decode -> d ^^ twice minus
-              | Unop_post_dec  -> string "operator--(" ^^ d ^^ string ")"
-              | Unop_pre_inc when !decode -> twice plus ^^ d
-              | Unop_pre_inc  -> string "operator++(" ^^ d ^^ string ")"
-              | Unop_pre_dec when !decode -> twice minus ^^ d
-              | Unop_pre_dec  -> string "operator--(" ^^ d ^^ string ")"
-              (* | Unop_struct_field_get f  when !decode->
-                parens (d ^^ minus ^^ rangle ^^ string f) *)
-              | (Unop_struct_field_get f | Unop_struct_field_addr f) when !decode ->
+              | Unop_post_inc -> d ^^ twice plus
+              | Unop_post_dec -> d ^^ twice minus
+              | Unop_pre_inc -> twice plus ^^ d
+              | Unop_pre_dec -> twice minus ^^ d
+              | (Unop_struct_field_get f | Unop_struct_field_addr f) ->
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -650,10 +565,6 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                      (*parens (d ^^ dot ^^ string f)*)
                     d ^^ dot ^^ string f
                  end
-              | Unop_struct_field_get f  ->
-                  string "struct_get(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
-              | Unop_struct_field_addr f ->
-                  string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d
@@ -661,86 +572,41 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
            | _ ->
               fail f.loc "apps_to_doc: unary operators must have one argument"
            end
-        | Prim_binop op ->
-           begin match tl with
+        | Prim_binop op -> 
+          let op_d = binop_to_doc op in
+          begin match tl with 
+          | [t1; t2] -> 
+             let d1 = decorate_trm t1 in 
+             let d2 = 
+             begin match t2.desc with 
+             | Trm_apps (f, _) ->
+               begin match trm_prim_inv f with 
+               | Some (Prim_binop op1 ) when is_same_binop op op1 -> 
+                 decorate_trm t2
+               | _ -> 
+                let d = decorate_trm t2 in 
+                if (is_same_binop op Binop_set) then d else parens (d)
+               end
+             | _ -> 
+              decorate_trm t2
+             end  in 
+             begin match op with 
+             | Binop_array_cell_addr | Binop_array_cell_get -> 
+              d1 ^^ brackets (d2)
+             | _ -> separate (blank 1) [d1; op_d; d2] 
+             end
+             
+          | _ -> fail f.loc "apps_to_doc: binary_operators must have two arguments"
+          end 
+        | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b -> 
+           begin match tl with 
            | [t1; t2] ->
               let d1 = decorate_trm t1 in
               let d2 = decorate_trm t2 in
-              begin match op with
-              | Binop_set ->
-                 if not !decode then
-                   string "set(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-                 else if not is_app_and_set then
-                   separate (blank 1) [d1; equals; d2]
-                 else
-                   begin match t2.desc with
-                   | Trm_apps (f', [_; t2']) ->
-                      let d2 = decorate_trm t2' in
-                      begin match f'.desc with
-                      | Trm_val (Val_prim (Prim_binop Binop_add)) ->
-                         separate (blank 1) [d1; plus ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_sub)) ->
-                         separate (blank 1) [d1; minus ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_mul)) ->
-                         separate (blank 1) [d1; star ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_div)) ->
-                         separate (blank 1) [d1; slash ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_mod)) ->
-                         separate (blank 1) [d1; percent ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_shiftl)) ->
-                         separate (blank 1) [d1; (twice langle) ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_shiftr)) ->
-                         separate (blank 1) [d1; (twice rangle) ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_and)) ->
-                         separate (blank 1) [d1; ampersand ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_or)) ->
-                         separate (blank 1) [d1; bar ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_xor)) ->
-                         separate (blank 1) [d1; caret ^^ equals; d2]
-                      | _ -> fail f.loc "apps_to_doc: bad app_and_set operator"
-                      end
-                   | _ -> fail f.loc "apps_to_doc: bad app_and_set annotation"
-                   end
-              | Binop_eq -> parens (separate (blank 1) [d1; twice equals; d2])
-              | Binop_neq ->
-                 parens (separate (blank 1) [d1; bang ^^ equals; d2])
-              | Binop_sub -> parens (separate (blank 1) [d1; minus; d2])
-              | Binop_add -> parens (separate (blank 1) [d1; plus; d2])
-              | Binop_mul -> parens (separate (blank 1) [d1; star; d2])
-              | Binop_mod -> parens (separate (blank 1) [d1; percent; d2])
-              | Binop_div -> parens (separate (blank 1) [d1; slash; d2])
-              | Binop_le ->
-                 parens (separate (blank 1) [d1; langle ^^ equals; d2])
-              | Binop_lt -> parens (separate (blank 1) [d1; langle; d2])
-              | Binop_ge ->
-                 parens (separate (blank 1) [d1; rangle ^^ equals; d2])
-              | Binop_gt -> parens (separate (blank 1) [d1; rangle; d2])
-              | Binop_and ->
-                 parens (separate (blank 1) [d1; twice ampersand; d2])
-              | Binop_bitwise_and ->
-                 parens (separate (blank 1) [d1; ampersand; d2])
-              | Binop_or -> parens (separate (blank 1) [d1; twice bar; d2])
-              | Binop_bitwise_or -> parens (separate (blank 1) [d1; bar; d2])
-              | Binop_array_cell_addr when !decode ->
-                  d1 ^^ brackets (d2)
-              | Binop_array_cell_addr (* when not !decode *) ->
-                  string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-              | Binop_array_cell_get ->
-                 d1 ^^ brackets (d2)
-              | Binop_shiftl ->
-                 parens (separate (blank 1) [d1; twice langle; d2])
-              | Binop_shiftr ->
-                 parens (separate (blank 1) [d1; twice rangle; d2])
-              | Binop_xor -> parens (separate (blank 1) [d1; caret; d2])
-              end
-           | _ ->
-              fail f.loc "apps_to_doc: binary operators must have two arguments"
-           end
-        | Prim_new t ->
-          (* Here we assume that trm_apps has only one trm as argument *)
-          let value = List.hd tl in
-          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
-
+              let op_d = prim_to_doc p_b in
+              separate (blank 1) [d1; op_d; d2]
+          | _ -> fail f.loc "apps_to_doc: binary operators must have two arguments"
+          end
         | Prim_conditional_op ->
            begin match tl with
            | [t1; t2; t3] ->
@@ -752,8 +618,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               fail f.loc
                 "apps_to_doc: conditional operator must have three arguments"
            end
-        | _ -> fail f.loc "apps_to_doc: only op primitives may be applied"
-        
+        | Prim_new t ->
+          (* Here we assume that trm_apps has only one trm as argument *)
+          let value = List.hd tl in
+          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
+        (* | _ -> fail f.loc "apps_to_doc: only op primitives may be applied" *)
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end
@@ -966,24 +835,12 @@ and routine_to_doc (r : omp_routine) : document =
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)
 
-(* To obtain the C++ code without decoding, we temporary set the flag
-   "decode" (defined at the top of this file) to false. *)
-let ast_to_undecoded_doc (out : out_channel) (t : trm) : unit =
-  decode := false;
-  ast_to_doc out t;
-  decode := true
-
-let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
-  let old_decode = !decode in
-  decode := ast_decode;
+let ast_to_string (t : trm) : string =
   let b = Buffer.create 80 in
   PPrintEngine.ToBuffer.pretty 0.9 80 b (decorate_trm t);
-  decode := old_decode;
   Buffer.contents b
 
 let typ_to_string (ty : typ) : string =
   let b = Buffer.create 80 in
   PPrintEngine.ToBuffer.pretty 0.9 80 b (typ_to_doc ty);
   Buffer.contents b
-
-

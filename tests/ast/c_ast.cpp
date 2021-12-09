@@ -77,7 +77,7 @@ void test_loop() {
 // Stack allocated variables are turned into heap allocated variables
 void stack_var() {
   int r = 3;
-  r = r + 1;
+  r = r + 1 + 2;
   r += 2;
   r++;
   int s = f(r);
