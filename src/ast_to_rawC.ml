@@ -1,9 +1,8 @@
 open PPrint
 open Ast
 
-
 (* translate an ast to a C/C++ document *)
-let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
+let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
   | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_constr (tv, _, _) -> string tv
@@ -64,8 +63,8 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   Tools.list_to_doc ~sep:comma (List.map aux t_annot)
 
 
-and typ_to_doc ?(const : bool = false) (t : typ) : document =
-  let d = typ_desc_to_doc ~const t.typ_desc in
+and typ_to_doc (t : typ) : document =
+  let d = typ_desc_to_doc t.typ_desc in
   let dannot =
     List.fold_left (fun d' a -> typ_annot_to_doc a ^^ blank 1 ^^ d') empty
       t.typ_annot
@@ -77,7 +76,7 @@ and typ_to_doc ?(const : bool = false) (t : typ) : document =
   in
   dattr ^^ dannot ^^ d
 
-and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
+and typed_var_to_doc (tx : typed_var) : document =
   let const_string = if false then blank 1 ^^ string " const " ^^ blank 1 else empty in
   let rec aux (t : typ) (s : size) : document * document list =
     let ds =
@@ -107,7 +106,7 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
-  | _ -> const_string ^^ typ_to_doc ~const t ^^ blank 1 ^^ string x
+  | _ -> const_string ^^ typ_to_doc t ^^ blank 1 ^^ string x
 
 and lit_to_doc (l : lit) : document =
   match l with
@@ -163,8 +162,8 @@ and prim_to_doc (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc op
   | Prim_binop op -> binop_to_doc op
-  | Prim_compound_assgn_op op -> equal ^^ (binop_to_doc op)
-  | Prim_overloaded_op of p -> prim_to_doc p
+  | Prim_compound_assgn_op op -> equals ^^ (binop_to_doc op)
+  | Prim_overloaded_op p -> prim_to_doc p
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op ->
      (* put holes to display the operator *)
@@ -265,20 +264,15 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           counter := -1;
           dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
     | Trm_apps (f, tl) ->
-       if List.mem App_and_set t.annot then
-          dattr ^^ apps_to_doc ~is_app_and_set:true f tl ^^ dsemi
-       else if  List.mem As_left_value t.annot then
-         dattr ^^ apps_to_doc ~as_left_value:true f tl
-
-        else begin
-           (*
-             do not display * operator if the operand is a heap allocated
-             variable or a succession of accesses
-           *)
-            if List.mem Mutable_var_get t.annot || List.mem Access t.annot then  
-              dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
-            else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
-            end
+       begin
+        (*
+          do not display * operator if the operand is a heap allocated
+          variable or a succession of accesses
+        *)
+         if List.mem Mutable_var_get t.annot || List.mem Access t.annot then  
+           dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
+         else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
+        end
      | Trm_while (b, t) ->
         let db = decorate_trm b in
         let dt = decorate_trm ~semicolon:true t in
@@ -420,8 +414,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
   let f = Tools.string_subst "overloaded" "operator" f in
-  let argd = separate (comma ^^ blank 1) (List.map (fun tv ->
-    if is_typ_const (snd tv) then typed_var_to_doc ~const:true tv else typed_var_to_doc tv) tvl) in
+  let argd = separate (comma ^^ blank 1) (List.map (fun tv -> typed_var_to_doc tv) tvl) in
   let dr = typ_to_doc r in
   begin match b.desc with
   | Trm_val (Val_lit Lit_uninitialized) ->
@@ -514,7 +507,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false) 
+and apps_to_doc ?(display_star : bool = true)  
   (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
@@ -540,20 +533,19 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
            | [t] ->
               let d = decorate_trm t in
               begin match op with
-              | Unop_get when as_left_value -> d
               | Unop_get ->
                 begin
                   if display_star then parens (star ^^ d) else d
                 end
+              | Unop_address -> ampersand ^^ d
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
-              | Unop_post_inc when !decode -> d ^^ twice plus
-              | Unop_post_dec when !decode -> d ^^ twice minus
-              | Unop_pre_inc when !decode -> twice plus ^^ d
-              | Unop_pre_dec when !decode -> twice minus ^^ d
-              
-              | (Unop_struct_field_get f | Unop_struct_field_addr f) when !decode ->
+              | Unop_post_inc -> d ^^ twice plus
+              | Unop_post_dec -> d ^^ twice minus
+              | Unop_pre_inc -> twice plus ^^ d
+              | Unop_pre_dec -> twice minus ^^ d
+              | (Unop_struct_field_get f | Unop_struct_field_addr f) ->
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -580,74 +572,15 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
            | _ ->
               fail f.loc "apps_to_doc: unary operators must have one argument"
            end
-        | Prim_binop op ->
-           begin match tl with
+        | (Prim_binop _ | Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b -> 
+           begin match tl with 
            | [t1; t2] ->
               let d1 = decorate_trm t1 in
               let d2 = decorate_trm t2 in
-              begin match op with
-              | Binop_set ->
-                   begin match t2.desc with
-                   | Trm_apps (f', [_; t2']) ->
-                      let d2 = decorate_trm t2' in
-                      begin match f'.desc with
-                      | Trm_val (Val_prim (Prim_binop Binop_add)) ->
-                         separate (blank 1) [d1; plus ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_sub)) ->
-                         separate (blank 1) [d1; minus ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_mul)) ->
-                         separate (blank 1) [d1; star ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_div)) ->
-                         separate (blank 1) [d1; slash ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_mod)) ->
-                         separate (blank 1) [d1; percent ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_shiftl)) ->
-                         separate (blank 1) [d1; (twice langle) ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_shiftr)) ->
-                         separate (blank 1) [d1; (twice rangle) ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_and)) ->
-                         separate (blank 1) [d1; ampersand ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_or)) ->
-                         separate (blank 1) [d1; bar ^^ equals; d2]
-                      | Trm_val (Val_prim (Prim_binop Binop_xor)) ->
-                         separate (blank 1) [d1; caret ^^ equals; d2]
-                      | _ -> fail f.loc "apps_to_doc: bad app_and_set operator"
-                      end
-                   | _ -> fail f.loc "apps_to_doc: bad app_and_set annotation"
-                   end
-              | Binop_eq -> parens (separate (blank 1) [d1; twice equals; d2])
-              | Binop_neq ->
-                 parens (separate (blank 1) [d1; bang ^^ equals; d2])
-              | Binop_sub -> parens (separate (blank 1) [d1; minus; d2])
-              | Binop_add -> parens (separate (blank 1) [d1; plus; d2])
-              | Binop_mul -> parens (separate (blank 1) [d1; star; d2])
-              | Binop_mod -> parens (separate (blank 1) [d1; percent; d2])
-              | Binop_div -> parens (separate (blank 1) [d1; slash; d2])
-              | Binop_le ->
-                 parens (separate (blank 1) [d1; langle ^^ equals; d2])
-              | Binop_lt -> parens (separate (blank 1) [d1; langle; d2])
-              | Binop_ge ->
-                 parens (separate (blank 1) [d1; rangle ^^ equals; d2])
-              | Binop_gt -> parens (separate (blank 1) [d1; rangle; d2])
-              | Binop_and ->
-                 parens (separate (blank 1) [d1; twice ampersand; d2])
-              | Binop_bitwise_and ->
-                 parens (separate (blank 1) [d1; ampersand; d2])
-              | Binop_or -> parens (separate (blank 1) [d1; twice bar; d2])
-              | Binop_bitwise_or -> parens (separate (blank 1) [d1; bar; d2])
-              | Binop_array_cell_addr when !decode ->
-                  d1 ^^ brackets (d2)
-              | Binop_array_cell_get ->
-                 d1 ^^ brackets (d2)
-              | Binop_shiftl ->
-                 parens (separate (blank 1) [d1; twice langle; d2])
-              | Binop_shiftr ->
-                 parens (separate (blank 1) [d1; twice rangle; d2])
-              | Binop_xor -> parens (separate (blank 1) [d1; caret; d2])
-              end
-           | _ ->
-              fail f.loc "apps_to_doc: binary operators must have two arguments"
-           end
+              let op_d = prim_to_doc p_b in
+              parens (separate (blank 1) [d1; op_d; d2])
+          | _ -> fail f.loc "apps_to_doc: binary operators must have two arguments"
+          end
         | Prim_conditional_op ->
            begin match tl with
            | [t1; t2; t3] ->
@@ -876,12 +809,9 @@ and routine_to_doc (r : omp_routine) : document =
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)
 
-let ast_to_string ?(ast_decode:bool=true) (t : trm) : string =
-  let old_decode = !decode in
-  decode := ast_decode;
+let ast_to_string (t : trm) : string =
   let b = Buffer.create 80 in
   PPrintEngine.ToBuffer.pretty 0.9 80 b (decorate_trm t);
-  decode := old_decode;
   Buffer.contents b
 
 let typ_to_string (ty : typ) : string =

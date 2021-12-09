@@ -133,6 +133,7 @@ and lit_to_doc (l : lit) : document =
 and unop_to_doc (op : unary_op) : document =
   match op with
   | Unop_get -> star
+  | Unop_address -> ampersand
   | Unop_neg -> bang
   | Unop_bitwise_neg -> tilde
   | Unop_opp -> minus
@@ -172,6 +173,8 @@ and prim_to_doc (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc op
   | Prim_binop op -> binop_to_doc op
+  | Prim_compound_assgn_op op -> equals ^^ (binop_to_doc op)
+  | Prim_overloaded_op p-> prim_to_doc p
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op ->
      (* put holes to display the operator *)
@@ -613,7 +616,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                 end else begin
                   if display_star then parens (star ^^ d) else d
                 end
-
+              | Unop_address -> ampersand
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
               | Unop_opp -> parens (minus ^^ blank 1 ^^ d)
@@ -733,6 +736,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
            | _ ->
               fail f.loc "apps_to_doc: binary operators must have two arguments"
            end
+        | Prim_new t ->
+          (* Here we assume that trm_apps has only one trm as argument *)
+          let value = List.hd tl in
+          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
+
         | Prim_conditional_op ->
            begin match tl with
            | [t1; t2; t3] ->
@@ -744,11 +752,8 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               fail f.loc
                 "apps_to_doc: conditional operator must have three arguments"
            end
-        | Prim_new t ->
-          (* Here we assume that trm_apps has only one trm as argument *)
-          let value = List.hd tl in
-          string "new" ^^ blank 1 ^^ typ_to_doc t ^^ parens (decorate_trm value)
-        (* | _ -> fail f.loc "apps_to_doc: only op primitives may be applied" *)
+        | _ -> fail f.loc "apps_to_doc: only op primitives may be applied"
+        
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end

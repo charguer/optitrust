@@ -76,6 +76,7 @@ and print_typ ?(only_desc : bool = false) (t : typ) : document =
 and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   match op with
   | Unop_get -> string "Unop_get"
+  | Unop_address -> string "Unop_address"
   | Unop_neg -> string "Unop_neg"
   | Unop_bitwise_neg -> string "Unop_bitwise_neg"
   | Unop_opp -> string "Unop_opp"
@@ -128,6 +129,12 @@ and print_prim ?(only_desc : bool = false) (p : prim) : document =
   | Prim_binop op ->
      let dop = print_binop op in
      node "Prim_binop" ^^ dop
+  | Prim_compound_assgn_op op -> 
+    let dop = print_binop op in
+    node "Prim_compound_assgn_op" ^^ dop
+  | Prim_overloaded_op p -> 
+    let dp = print_prim p in 
+    node "Prim_overloaded_op" ^^ dp
   | Prim_new t ->
      let dt = print_typ ~only_desc t in
      node "Prim_new" ^^ dt
@@ -363,7 +370,6 @@ and print_trm ?(only_desc : bool = false) (t : trm) : document =
     | Main_file -> string "Main_file"
     | Mutable_var_get -> string "Mutable_var_get"
     | As_left_value -> string "As_left_value"
-    | Any -> string "Any" 
     | Non_local_index -> string "Non_local_index" in
 
   if only_desc then ddesc
