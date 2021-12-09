@@ -132,7 +132,6 @@ let parse (filename : string) : string * trm =
   print_info None "Translation done.\n";
   (includes, t)
 
-
 (******************************************************************************)
 (*                             Trace management                               *)
 (******************************************************************************)
@@ -487,7 +486,6 @@ let output_prog_opt  ?(ast_and_enc:bool=true) (ctx : context) (prefix : string) 
    of the source and ast after applying transformaion i.
 *)
 let output_js  ?(vars_declared : bool = false)(index : int) (prefix : string) (ast : trm) : unit =
-  (* DEPRECATED let (_, ast) = parse cpp_filename in *)
   let file_js = prefix ^ ".js" in
   let out_js = open_out file_js in
   try
