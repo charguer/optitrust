@@ -241,6 +241,7 @@ and consistency_mode =
 and prim =
   | Prim_unop of unary_op (* e.g. "!b" *)
   | Prim_binop of binary_op (* e.g. "n + m" *)
+  | Prim_compound_assgn_op of binary_op
   | Prim_new of typ (* "new T" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
