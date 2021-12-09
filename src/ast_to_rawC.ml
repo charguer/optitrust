@@ -507,7 +507,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-and apps_to_doc ?(display_star : bool = true)  
+and apps_to_doc ?(display_star : bool = true)
   (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
@@ -572,13 +572,34 @@ and apps_to_doc ?(display_star : bool = true)
            | _ ->
               fail f.loc "apps_to_doc: unary operators must have one argument"
            end
-        | (Prim_binop _ | Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b -> 
+        | Prim_binop op -> 
+          let op_d = binop_to_doc op in
+          begin match tl with 
+          | [t1; t2] -> 
+             let d1 = decorate_trm t1 in 
+             let d2 = 
+             begin match t2.desc with 
+             | Trm_apps (f, _) ->
+               begin match trm_prim_inv f with 
+               | Some (Prim_binop op1 ) when is_same_binop op op1 -> 
+                 decorate_trm t2
+               | _ -> 
+                let d = decorate_trm t2 in 
+                if (is_same_binop op Binop_set) then d else parens (d)
+               end
+             | _ -> 
+              decorate_trm t2
+             end  in 
+             separate (blank 1) [d1; op_d; d2] 
+          | _ -> fail f.loc "apps_to_doc: binary_operators must have two arguments"
+          end 
+        | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b -> 
            begin match tl with 
            | [t1; t2] ->
               let d1 = decorate_trm t1 in
               let d2 = decorate_trm t2 in
               let op_d = prim_to_doc p_b in
-              parens (separate (blank 1) [d1; op_d; d2])
+              separate (blank 1) [d1; op_d; d2]
           | _ -> fail f.loc "apps_to_doc: binary operators must have two arguments"
           end
         | Prim_conditional_op ->

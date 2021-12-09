@@ -2007,6 +2007,33 @@ let is_arith_fun (p : prim) : bool =
   | _ -> false
 
 
+(* [is_same_binop op1 op2 ] check if two primitive operations are the same or not. 
+    Used to decide if parentheses should be printed or not.
+*)
+let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool = 
+  match op1, op2 with 
+  | Binop_set, Binop_set -> true
+  | Binop_array_cell_addr, Binop_array_cell_addr -> true
+  | Binop_array_cell_get, Binop_array_cell_get -> true
+  | Binop_eq, Binop_eq -> true
+  | Binop_neq, Binop_neq -> true
+  | Binop_sub, Binop_sub -> true
+  | Binop_add, Binop_add -> true
+  | Binop_mul, Binop_mul -> true
+  | Binop_mod, Binop_mod -> true
+  | Binop_div, Binop_div -> true
+  | Binop_le, Binop_le -> true
+  | Binop_lt, Binop_lt -> true
+  | Binop_ge, Binop_ge -> true
+  | Binop_gt, Binop_gt -> true
+  | Binop_and, Binop_and -> true
+  | Binop_bitwise_and, Binop_bitwise_and -> true
+  | Binop_or, Binop_or -> true
+  | Binop_bitwise_or, Binop_bitwise_or -> true
+  | Binop_shiftl, Binop_shiftl -> true
+  | Binop_shiftr, Binop_shiftr -> true
+  | Binop_xor, Binop_xor -> true
+  | _, _ -> false
 
 
 (* [trm_access base field] create a dummy access without type checking*)
@@ -2114,4 +2141,7 @@ module AstParser = struct
 
 
 end
+
+
+
 
