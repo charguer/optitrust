@@ -196,6 +196,7 @@ and typed_vars = typed_var list
 (* unary operators *)
 and unary_op =
   | Unop_get (* the "*" operator as in *p  *)
+  | Unop_address (* the "&" operator as in &p *)
   | Unop_bitwise_neg
   | Unop_neg
   | Unop_opp
@@ -241,7 +242,8 @@ and consistency_mode =
 and prim =
   | Prim_unop of unary_op (* e.g. "!b" *)
   | Prim_binop of binary_op (* e.g. "n + m" *)
-  | Prim_compound_assgn_op of binary_op
+  | Prim_compound_assgn_op of binary_op (* e.g. "a += b" *)
+  | Prim_overloaded_op of prim (* used for overloaded operators *)
   | Prim_new of typ (* "new T" *)
   | Prim_conditional_op (* "(foo) ? x : y" *)
 
@@ -277,7 +279,6 @@ and trm_annot =
   | Main_file (* sequence annotated as the main file is not printed *)
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
-  | Any (* Used for only one specific transformation called delocalize *)
   | Non_local_index (* Used for loops whose index is not declared inside the scope of the loop body *)
 (* symbols to add while printing a C++ program.*)
 and special_operator =

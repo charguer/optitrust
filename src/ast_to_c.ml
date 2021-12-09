@@ -245,8 +245,6 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         if List.mem Empty_cond t.annot then empty
           else dattr ^^ val_to_doc v
      | Trm_var (_, x) ->
-        if List.mem Any t.annot then dattr ^^ string "ANY (" ^^ string x ^^ string ")"
-          else
             dattr ^^ string x
      | Trm_array tl | Trm_struct tl ->
         let tl = Mlist.to_list tl in

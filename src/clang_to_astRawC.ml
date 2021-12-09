@@ -18,11 +18,6 @@ let file_of_node (n : 'a node) : string =
   | Some {loc_file = filename; _} -> filename
   | _ -> fail None "file_of_node: bad location"
 
-(* type to control the way nodes are translated *)
-type val_type =
-  | Lvalue
-  | Rvalue
-
 type scope_kind =
   | For_scope
   | While_scope
@@ -190,27 +185,26 @@ let abort ?(break : bool = false) (t : trm) : trm =
  let string_of_overloaded_op ?(loc : location = None)
     (op : clang_ext_overloadedoperatorkind) : string =
   match op with
-  | Plus -> "overloaded+"
-  | Minus -> "overloaded-"
-  | Star -> "overloaded*"
-  | Equal -> "overloaded="
-  | PlusEqual -> "overloaded+="
-  | MinusEqual -> "overloaded-="
-  | StarEqual -> "overloaded*="
+  | Plus -> "+"
+  | Minus -> "-"
+  | Star -> "*"
+  | Equal -> "="
+  | PlusEqual -> "+="
+  | MinusEqual -> "-="
+  | StarEqual -> "*="
   | _ -> fail loc "string_of_overloaded_op: non supported operator"
 
-(* primitives for overloaded operators *)
-let overloaded_op ?(loc : location = None) (op : clang_ext_overloadedoperatorkind) : prim = 
-  match op with 
-  | Plus -> Prim_binop Binop_add
-  | Minus -> Prim_binop Binop_sub
-  | Star -> Prim_binop Binop_mul
-  | Equal -> Prim_binop Binop_set
-  | PlusEqual -> Prim_compound_assgn_op Binop_add
-  | MinusEqual -> Prim_compound_assgn_op Binop_sub
-  | StarEqual -> Prim_compound_assgn_op Binop_mul
-  | _ -> fail loc "overloaded_op: non supported operator"
-
+(* names for overloaded operators (later matched for printing) *)
+ let overloaded_op ?(loc : location = None) ?(ctx : context = None) ?(typ : typ = None)(op : clang_ext_overloadedoperatorkind) : trm =
+  match op with
+  | Plus -> trm_prim ~loc (Prim_overloaded_op (Prim_binop Binop_add))
+  | Minus -> trm_prim ~loc (Prim_overloaded_op (Prim_binop Binop_sub))
+  | Star -> trm_prim ~loc (Prim_overloaded_op (Prim_binop Binop_mul))
+  | Equal -> trm_prim ~loc (Prim_overloaded_op (Prim_binop Binop_set))
+  | PlusEqual -> trm_prim ~loc (Prim_overloaded_op (Prim_compound_assgn_op Binop_add))
+  | MinusEqual -> trm_prim ~loc (Prim_overloaded_op (Prim_compound_assgn_op Binop_sub))
+  | StarEqual -> trm_prim ~loc (Prim_overloaded_op (Prim_compound_assgn_op Binop_star))
+  | _ -> fail loc "string_of_overloaded_op: non supported operator"
 
 let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(translate_record_types : bool = true) (d : type_desc) : typ =
   match d with
@@ -486,12 +480,7 @@ and compute_body (loc : location) (body_acc : trms)
         compute_body loc (t :: body_acc) sl
     end
 
-(* To translate the address of operator (&t), we translate just t
-   as if it was a Lvalue, with [~val_t=Lvalue].
-   When we translate a Lvalue of the form [*t], we translate just
-   [t] as if it was a Rvalue. *)
-
-and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
+and translate_expr ?(is_statement : bool = false)
     (e : expr) : trm =
   let loc = loc_of_node e in
   let typ : typ option =
@@ -571,35 +560,23 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
            for example, [int p = 3; f(&p)]. In our AST, [p] represents
            the address of the cell at which [3] is stored, thus the
            call is actually [f(p)]. In other words we drop the [&] operator. *)
-        let t = translate_expr ~val_t:lvalue e in
-        trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim Prim_address_of) [t]
+        let t = translate_expr e in
+        trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop Unop_address) [t]
       | _ ->
         begin match k with
           | PostInc ->
-            let t = translate_expr ~val_t:Lvalue e in
+            let t = translate_expr e in
             trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_post_inc) [t]
           | PostDec ->
-            let t = translate_expr ~val_t:Lvalue e in
+            let t = translate_expr e in
             trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_post_dec) [t]
           | PreInc ->
-            let t = translate_expr ~val_t:Rvalue e in
+            let t = translate_expr e in
             trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_inc) [t]
           | PreDec ->
-            let t = translate_expr ~val_t:Rvalue e in
-            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_dec) [t]
-          | Deref ->
             let t = translate_expr e in
-            begin match val_t with
-              | Lvalue ->
-                (* We are translating a term t of the form [*p] that occurs
-                   on the left-hand side of an assignment, such as [*p = v].
-                   We want to encode the latter as [set(p, v)], this is why we
-                   want to drop the [*] operator. *)
-                trm_apps ~loc ~is_statement ~typ ~ctx (trm_prim Pirm_star_op) [t]
-
-              | Rvalue ->
-                trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
-            end
+            trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_dec) [t]
+          | Deref -> translate_expr e in
           | Minus ->
             let t = translate_expr e in
             trm_apps ~loc ~typ ~ctx (trm_unop ~loc ~ctx Unop_opp) [t]
@@ -622,46 +599,46 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     let tr = translate_expr re in
     begin match k with
       | Assign ->
-        let tl = translate_expr ~val_t:Lvalue le in
+        let tl = translate_expr le in
         trm_set ~loc ~ctx ~is_statement tl tr
       | AddAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
         trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_add) ) [tll; tlr]
       | SubAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
         trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_sub) ) [tll; tlr]
       | MulAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_mul) ) [tll; tlr]
       | DivAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_div) ) [tll; tlr]
       | RemAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_mod ) [tll; tlr]
       | ShlAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_shiftl) ) [tll; tlr]
       | ShrAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_shiftr) ) [tll; tlr]
       | AndAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_and) ) [tll; tlr]
       | OrAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_or) ) [tll; tlr]
       | XorAssign ->
-        let tll = translate_expr ~val_t:Lvalue le in
+        let tll = translate_expr le in
         let tlr = translate_expr ~val_t:val_t le in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_xor) ) [tll; tlr]
       | _ ->
@@ -693,7 +670,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     begin match tf.desc with
     | Trm_var (_, x) when Str.string_match (Str.regexp "overloaded=") x 0 ->
         begin match el with
-        | [tl;tr] -> trm_set ~loc ~ctx  ~is_statement (translate_expr ~val_t:Lvalue tl) (translate_expr tr)
+        | [tl;tr] -> trm_set ~loc ~ctx  ~is_statement (translate_expr tl) (translate_expr tr)
         | _ -> fail loc "translate_expr: overloaded= expects two arguments"
         end
     | _-> trm_apps ~loc ~ctx  ~is_statement ~typ tf (List.map translate_expr el)
@@ -715,10 +692,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
            * Some (translate_qual_type ~loc q) *)
           (* hack with ctx_var *)
           String_map.find_opt s !ctx_var
-        in
-        let kind = if is_mutable_var s then Var_mutable else Var_immutable in
-            trm_var ~loc ~ctx ~typ ~kind s
-      | OperatorName op -> trm_var ~loc ~ctx ~typ (string_of_overloaded_op ~loc op)
+        in trm_var ~loc ~ctx ~typ s
+      | OperatorName op -> overloaded_op ~loc ~ctx ~typ op
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
   | Member {base = eo; arrow = b; field = f} ->
@@ -728,7 +703,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         begin match f with
           | FieldName id ->
             let f = translate_ident id in
-            let base = translate_expr ~val_t:Lvalue e in
+            let base = translate_expr e in
            (*
              use struct_get when the base is a variable not heap allocated or
              the result of a struct_get/array_get
@@ -750,13 +725,6 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
             *)
             begin match base.desc with
               | Trm_var (_, x) when not (is_mutable_var x) ->
-                let base =
-                  if b (* if arrow instead of dot *)
-                    then trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get) [base]   (* Code is [b->f], we encode it as [( *b ).f] *)
-                    else base (* code is [b.f] *)
-                  in
-                    (* fail loc
-                      "translate_expr: 1arrow field access should be on a pointer" *)
                 trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_get f)) [base]
               | Trm_apps
                   ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))); _}, _)
@@ -768,19 +736,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                     "translate_expr: 2arrow field access should be on a pointer"
                 else
                   trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_field_get f)) [base]
-              | _ ->
-                let t =
-                  if b then trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get) [base]
-                  else base
-                in
-                let res =
-                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_addr f)) [t]
-                in
-                begin match val_t with
-                  | Lvalue -> res
-                  | Rvalue ->
-                    trm_apps ~annot:[Access] ~typ ~loc ~ctx
-                      (trm_unop ~loc ~ctx Unop_get) [res]
+              | _ -> 
+                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_addr f)) [base]
                 end
             end
           | _ -> fail loc "translate_expr: fields must be accessed by name"
@@ -788,7 +745,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
     end
   | ArraySubscript {base = e; index = i} ->
     let ti = translate_expr i in
-    let te = translate_expr ~val_t:Lvalue e in
+    let te = translate_expr e in
      (*
        override typ to account for typedefs:
        if e's type is x*, make sure typ is x (it is not always the case if x is
@@ -817,13 +774,7 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       | _ ->
         let res =
           trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_cell_addr) [te; ti]
-        in
-        begin match val_t with
-          | Lvalue -> res
-          | Rvalue ->
-            trm_apps ~annot:[Access] ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get)
-              [res]
-        end
+        in res
     end
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
@@ -853,8 +804,8 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
         begin match translate_expr se with
           | {desc = Trm_val (Val_lit (Lit_int n)); loc; _} ->
             trm_prim ~loc ~ctx (Prim_new (typ_array tq (Const n)))
-          | {desc = Trm_var (_, x); loc; _} ->
-            trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx x))))
+          | {desc = Trm_var (kind, x); loc; _} ->
+           trm_prim ~loc ~ctx (Prim_new (typ_array tq (Trm (trm_var ~loc ~ctx ~kind x))))
           | _ ->
             fail loc ("translate_expr: new array size must be either " ^
                       "constant or variable")
