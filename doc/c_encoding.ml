@@ -151,19 +151,16 @@ let rec stackvar_intro (t : trm) : trm =
   aux env_empty
 
 
-(* wip
-...
+(* [access_intro false t] eliminates the use of l-values in the AST *)
 
-let rec encode (lvalue : bool) (t : trm) : trm =
+let rec access_intro (lvalue : bool) (t : trm) : trm =
+  let aux ti = access_intro true ti in
+  let access ti = access_intro false ti in
   let mk td = { t with desc = td }
   if not lvalue then begin
     match t.desc with
-    | Trm_var x ->
-        if is_var_mutable env x
-          then trm_get (Trm_var x)
-          else mk (Trm_var x)
     | Trm_apps (Prim_array_set, [t1; t2]) ->
-        mk (Trm_apps (Prim_array_set, [access t1; aux t2])
+        mk (Trm_apps (Prim_array_set, [access t1; aux t2]))
     | Trm_apps (Prim_address_of, [t1]) ->
         access t1
     | Trm_apps (Prim_struct_get f, [t1])) ->
@@ -181,9 +178,7 @@ let rec encode (lvalue : bool) (t : trm) : trm =
             mk (Trm_apps (Prim_get, [Trm_apps (Prim_array_access, [u11; u12])]))
         | _ -> mk (Trm_apps (Prim_array_get, [u1; u2]))
         end
-    | Trm_apps (f, ts) ->
-        mk (Trm_apps ((aux f), (List.map aux ts)))
-
+    | _ -> trm_map aux t
 
   end else begin (* lvalue *)
     match t.desc with
@@ -198,7 +193,10 @@ let rec encode (lvalue : bool) (t : trm) : trm =
     | _ -> failwith "invalid lvalue"
   end
 
-  *)
+(* [access_elim false t] is the inverse of [access_intro] *)
+
+let rec access_elim (lvalue : bool) (t : trm) : trm =
+  ..
 
 
 
