@@ -102,11 +102,11 @@ and loop_step =
   | Step of trm
 
 (* Type used for the bound of the loop *)
-and loop_dir = 
+and loop_dir =
   | DirUp
-  | DirUpEq 
+  | DirUpEq
   | DirDown
-  | DirDownEq 
+  | DirDownEq
 
 and code_kind =
   | Lit of string
@@ -129,7 +129,7 @@ and typ_desc =
   | Typ_double
   | Typ_bool
   | Typ_char
-  | Typ_string 
+  | Typ_string
   | Typ_ptr of  {ptr_kind : ptr_kind; inner_typ: typ } (* "int*" *)
   | Typ_array of typ * size (* int[3], or int[], or int[2*n] *)
   | Typ_fun of (typ list) * typ  (* int f(int x, int y) *)
@@ -364,7 +364,7 @@ and trm =
 
 and trm_desc =
   | Trm_val of value
-  | Trm_var of varkind * var 
+  | Trm_var of varkind * var
   | Trm_array of trm mlist (* { 0, 3, 5} as an array *)
   | Trm_struct of trm mlist (* { 4, 5.3 } as a record *)
   | Trm_let of varkind * typed_var * trm (* int x = 3 *)
@@ -695,7 +695,7 @@ let typ_bool ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
 let typ_char ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
   {typ_annot = annot; typ_desc = Typ_char; typ_attributes}
 
-let typ_string ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ = 
+let typ_string ?(annot : typ_annot list = []) ?(typ_attributes = []) () : typ =
   {typ_annot = annot; typ_desc = Typ_string; typ_attributes}
 
 let typ_ptr ?(annot : typ_annot list = []) ?(typ_attributes = [])
@@ -1060,9 +1060,9 @@ let loop_step_to_trm (l_step: loop_step) : trm =
   | Step s -> s
 
 (* [is_step_one step] check if the step of the loop is one or not *)
-let is_step_one (step : loop_step) : bool = 
-  match step with 
-  | Post_inc | Post_dec | Pre_inc | Pre_dec -> true 
+let is_step_one (step : loop_step) : bool =
+  match step with
+  | Post_inc | Post_dec | Pre_inc | Pre_dec -> true
   | _ -> false
 
 (* [apply_on_loop_step] used for functions which need to be applied in trms*)
@@ -1445,7 +1445,7 @@ let typ_kind_to_string (tpk : typ_kind) : string =
   end
 let is_atomic_typ (t : typ) : bool =
   match t.typ_desc with
-  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char |Typ_string -> true 
+  | Typ_int | Typ_unit | Typ_float | Typ_double | Typ_bool | Typ_char |Typ_string -> true
   | _ -> false
 
 let rec get_typ_kind (ctx : ctx) (ty : typ) : typ_kind =
@@ -1590,11 +1590,11 @@ let is_get_operation (t : trm) : bool =
 
 
 (* [is_new_operation t] check if [t] is new operation *)
-let is_new_operation (t : trm) : bool = 
-  match t.desc with 
-  | Trm_apps (f, _) -> 
-    begin match trm_prim_inv f with 
-    | Some (Prim_new _) -> true 
+let is_new_operation (t : trm) : bool =
+  match t.desc with
+  | Trm_apps (f, _) ->
+    begin match trm_prim_inv f with
+    | Some (Prim_new _) -> true
     | _ -> false
     end
   | _ -> false
@@ -1734,7 +1734,7 @@ let trm_for_to_trm_for_c ?(annot = []) ?(loc = None) ?(add = []) ?(attributes = 
             trm_apps ~annot:[Mutable_var_get] (trm_unop Unop_get) [st]])
       | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
       end
-    | DirDown | DirDownEq -> 
+    | DirDown | DirDownEq ->
       begin match step with
       | Pre_dec ->
         trm_apps (trm_unop Unop_pre_dec) [trm_var index]
@@ -1943,32 +1943,32 @@ let is_typ (ty : typ) : bool =
 exception No_ast_or_code_provided
 exception Ast_and_code_provided
 
-(* [keep_only_function_bodies fun_names t] all the functions with the name listed in [fun_names] will be transformed into 
-    function prototypes. Return the chopped ast and a map were the keys are the function names that do not belong to 
+(* [keep_only_function_bodies fun_names t] all the functions with the name listed in [fun_names] will be transformed into
+    function prototypes. Return the chopped ast and a map were the keys are the function names that do not belong to
     [fun_names] and their values are their bodies.
  *)
-let keep_only_function_bodies (fun_names : vars) (t : trm) : trm * tmap = 
+let keep_only_function_bodies (fun_names : vars) (t : trm) : trm * tmap =
   let t_map = ref Trm_map.empty in
   let rec aux (t : trm) : trm =
     match t.desc with
     | Trm_let_fun (f,ty, tv, _) ->
-      if not (List.mem f fun_names) then begin 
+      if not (List.mem f fun_names) then begin
         t_map := Trm_map.add f t !t_map;
-      trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) end 
+      trm_let_fun ~annot:t.annot ~marks:t.marks f ty tv (trm_lit  Lit_uninitialized) end
        else t
     | _ -> trm_map aux t
     in
-  let res = aux t in 
+  let res = aux t in
   res, !t_map
 
 
 
-(* [update_chopped_ast chopped_ast chopped_fun_map] for all the functions whose bodies were removed during the creation  
-    of the chopped_ast restore their bodies by using [chopped_fun_map] which is map with keys the names of the functions 
+(* [update_chopped_ast chopped_ast chopped_fun_map] for all the functions whose bodies were removed during the creation
+    of the chopped_ast restore their bodies by using [chopped_fun_map] which is map with keys the names of the functions
     that were chopped and values their actual declaration
 *)
-let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm = 
-  match chopped_ast.desc with 
+let update_chopped_ast (chopped_ast : trm) (chopped_fun_map : tmap): trm =
+  match chopped_ast.desc with
   | Trm_seq tl ->
       let new_tl =
       Mlist.map (fun def -> match def.desc with
@@ -2063,9 +2063,9 @@ let trm_gt (t1 : trm) (t2 : trm) : trm =
     where # is one of the following operators <, <=, >, >=.
     The operator is provided implicitly through the [ineq_sng] arg
 *)
-let trm_ineq (ineq_sgn : loop_dir) (t1 : trm) (t2 : trm) : trm = 
-  match ineq_sgn with 
-  | DirUp -> trm_lt t1 t2 
+let trm_ineq (ineq_sgn : loop_dir) (t1 : trm) (t2 : trm) : trm =
+  match ineq_sgn with
+  | DirUp -> trm_lt t1 t2
   | DirUpEq -> trm_le t1 t2
   | DirDown ->  trm_gt t1 t2
   | DirDownEq -> trm_ge t1 t2
