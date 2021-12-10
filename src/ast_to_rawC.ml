@@ -4,8 +4,13 @@ open Ast
 (* translate an ast to a C/C++ document *)
 let rec typ_desc_to_doc (t : typ_desc) : document =
   match t with
+  (* LATER: probably more general
+      | Typ_const t when is_base_type t -> print const before t
+      | Typ_const t _ -> print const after t
+
+      where is_base_type is for int float etc... *)
   | Typ_const t when is_typ_ptr t ->
-    typ_to_doc t ^^ string " const" 
+    typ_to_doc t ^^ string " const"
   | Typ_const t -> string " const "  ^^ typ_to_doc t
   | Typ_constr (tv, _, _) -> string tv
   | Typ_auto  -> string "auto"
@@ -61,7 +66,7 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   | As_left_value -> string "As_left_value"
   | _ -> empty
   in
-  if t_annot = [] then empty else 
+  if t_annot = [] then empty else
   Tools.list_to_doc ~sep:comma (List.map aux t_annot)
 
 
@@ -164,7 +169,7 @@ and prim_to_doc (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc op
   | Prim_binop op -> binop_to_doc op
-  | Prim_compound_assgn_op op -> (binop_to_doc op) ^^ equals 
+  | Prim_compound_assgn_op op -> (binop_to_doc op) ^^ equals
   | Prim_overloaded_op p -> prim_to_doc p
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op ->
@@ -271,7 +276,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           do not display * operator if the operand is a heap allocated
           variable or a succession of accesses
         *)
-         if List.mem Mutable_var_get t.annot || List.mem Access t.annot then  
+         if List.mem Mutable_var_get t.annot || List.mem Access t.annot then
            dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
          else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
         end
@@ -445,7 +450,7 @@ and typedef_to_doc ?(semicolon : bool = true) (td : typedef) : document =
       | _ ->
          separate (blank 1) [string "typedef"; typ_to_doc t; string tname] ^^ dsemi
       end
-  | Typdef_prod  (tn, s) ->
+  | Typdef_prod (tn, s) ->
       let get_document_list s =
       let rec aux acc = function
          | [] -> acc
@@ -537,7 +542,7 @@ and apps_to_doc ?(display_star : bool = true)
               let d = decorate_trm t in
               begin match op with
               | Unop_get ->
-                begin
+                begin (* TODO: remove display_start *)
                   if display_star then star ^^ d else d
                 end
               | Unop_address -> ampersand ^^ d
@@ -548,6 +553,13 @@ and apps_to_doc ?(display_star : bool = true)
               | Unop_post_dec -> d ^^ twice minus
               | Unop_pre_inc -> twice plus ^^ d
               | Unop_pre_dec -> twice minus ^^ d
+              (* TODO:
+                | Unop_get -> print as  *t
+                | Unop_struct_field_addr ->  print as "struct_access(t, "f")"
+                | Unop_struct_field_get -> print as "t.f"
+              *)
+              (* TODO: struct_get struct_access array_get access_access *)
+
               | (Unop_struct_field_get f | Unop_struct_field_addr f) ->
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
@@ -575,34 +587,34 @@ and apps_to_doc ?(display_star : bool = true)
            | _ ->
               fail f.loc "apps_to_doc: unary operators must have one argument"
            end
-        | Prim_binop op -> 
+        | Prim_binop op ->
           let op_d = binop_to_doc op in
-          begin match tl with 
-          | [t1; t2] -> 
-             let d1 = decorate_trm t1 in 
-             let d2 = 
-             begin match t2.desc with 
+          begin match tl with
+          | [t1; t2] ->
+             let d1 = decorate_trm t1 in
+             let d2 =
+             begin match t2.desc with
              | Trm_apps (f, _) ->
-               begin match trm_prim_inv f with 
-               | Some (Prim_binop op1 ) when is_same_binop op op1 -> 
+               begin match trm_prim_inv f with
+               | Some (Prim_binop op1 ) when is_same_binop op op1 ->
                  decorate_trm t2
-               | _ -> 
-                let d = decorate_trm t2 in 
+               | _ ->
+                let d = decorate_trm t2 in
                 if (is_same_binop op Binop_set) then d else parens (d)
                end
-             | _ -> 
+             | _ ->
               decorate_trm t2
-             end  in 
-             begin match op with 
-             | Binop_array_cell_addr | Binop_array_cell_get -> 
+             end  in
+             begin match op with
+             | Binop_array_cell_addr | Binop_array_cell_get ->
               d1 ^^ brackets (d2)
-             | _ -> separate (blank 1) [d1; op_d; d2] 
+             | _ -> separate (blank 1) [d1; op_d; d2]
              end
-             
+
           | _ -> fail f.loc "apps_to_doc: binary_operators must have two arguments"
-          end 
-        | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b -> 
-           begin match tl with 
+          end
+        | (Prim_compound_assgn_op _ | Prim_overloaded_op _) as p_b ->
+           begin match tl with
            | [t1; t2] ->
               let d1 = decorate_trm t1 in
               let d2 = decorate_trm t2 in

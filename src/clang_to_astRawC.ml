@@ -82,6 +82,8 @@ let get_typid_from_trm (tv : typvar) : int  =
    | Some id -> id
    | None -> -1
    end
+
+(* TODO: get rid of this context stuff *)
 (* mutable_vars contains the information on which variables are [Var_mutable]
   stack of lists of heap allocated variables
   each list corresponds to a new scope
@@ -210,8 +212,8 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
   match d with
   | Pointer q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
-    let ty = typ_ptr Ptr_kind_mut t in 
-    if const then typ_const ty else ty 
+    let ty = typ_ptr Ptr_kind_mut t in
+    if const then typ_const ty else ty
   | LValueReference  q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
     if const then
@@ -480,6 +482,7 @@ and compute_body (loc : location) (body_acc : trms)
 
 and translate_expr ?(is_statement : bool = false)
     (e : expr) : trm =
+  (* let aux = translate_expr *)
   let loc = loc_of_node e in
   let typ : typ option =
     let q = Clang.Type.of_node e in
@@ -574,8 +577,8 @@ and translate_expr ?(is_statement : bool = false)
           | PreDec ->
             let t = translate_expr e in
             trm_apps ~loc ~is_statement ~typ ~ctx (trm_unop ~loc Unop_pre_dec) [t]
-          | Deref -> 
-            let t = translate_expr e in 
+          | Deref ->
+            let t = translate_expr e in
             trm_apps ~loc ~typ ~ctx (trm_unop ~loc Unop_get) [t]
           | Minus ->
             let t = translate_expr e in
@@ -697,6 +700,20 @@ and translate_expr ?(is_statement : bool = false)
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
   | Member {base = eo; arrow = b; field = f} ->
+      (* TODO: reimplement this case entirely
+      TODO: rename b to has_arrow
+          t->f  should be ( *t ).f with an annotation Annot_display_arrow
+
+          let e1 = unsome eo in
+          let t1 = aux e1 in
+          if has_arrow then begin
+            trm_apps (Trm_prim ({ desc = Prim_struct_get f; annot = [Annot_display_arrow])), [ trm_get ~loc:loc t1 ])
+          end else begin
+            trm_apps (Trm_prim (Prim_struct_get f), [t1])
+          end
+
+
+      *)
     begin match eo with
       | None -> fail loc "translate_expr: field accesses should have a base"
       | Some e ->
@@ -736,16 +753,20 @@ and translate_expr ?(is_statement : bool = false)
                     "translate_expr: 2arrow field access should be on a pointer"
                 else
                   trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_field_get f)) [base]
-              | _ -> 
+              | _ ->
                   trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_addr f)) [base]
             end
           | _ -> fail loc "translate_expr: fields must be accessed by name"
       end
     end
-    
+
   | ArraySubscript {base = e; index = i} ->
     let ti = translate_expr i in
     let te = translate_expr e in
+    (* TODO reimplement this case entirely
+          trm_apps (Prim_array_get, [ te ; ti ])
+    *)
+
      (*
        override typ to account for typedefs:
        if e's type is x*, make sure typ is x (it is not always the case if x is
@@ -998,7 +1019,7 @@ and translate_decl (d : decl) : trm =
         end
       |_ -> fail loc "translate_decl: should not happen"
     end
-  
+
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
 
     let rec contains_elaborated_type (q : qual_type) : bool =
@@ -1036,10 +1057,14 @@ and translate_decl (d : decl) : trm =
         end
       end
       in
-    ctx_var_add n tt;
+    ctx_var_add n tt; (* TODO: remove this stuff *)
+
+    (* TODO:  only one case:
+          let mut = if const then Var_immutable else .. in
+          trm_let ~loc ~is_statement:true mut (n,tt) te *)
     if const then
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
-    else begin 
+    else begin
       add_var n;
       trm_let ~loc Var_mutable (n, tt) te
       end
