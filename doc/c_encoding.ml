@@ -3,6 +3,16 @@
   -   e->f  should be encoded as  (*e).f,  with an annotation "display_arrow" on that struct_get term
   -   functions without body are encoded with body "trm_uninitialized".
   -   trm_let should have the flag is_var_mutable set according to whether "const" appears in the type
+
+  - LATER:
+      a reference should be considered as "mutable_var" not depending on whether its type is "const",
+      but depending on whether its initialization value (right-hand-side) is of type "const".
+      For example, in [int a = 3; const int& b = a;], the reference "b" should be treated as
+      "mutable reference". (the "const" only means that this reference is used only for read access
+      to a mutable cell; it does not mean here that we can treat the cell as a pure value.)
+  - LATER:
+      we may want to insert "const" type explicitly on the type of the function arguments;
+      for example f(int* p) should becomes f(int* const p)
 *)
 
 
@@ -13,10 +23,13 @@ type env = varkind Var_map
 let env_empty =
   Var_map.empty
 
-let is_var_mutable (env : env) (x : var) : varkind =
+let get_var_kind  (env : env) (x : var) : varkind =
   match Var_map.find_opt env x with
   | Some m -> m
   | None -> failwith "unbound variable"
+
+let is_var_mutable (env : env) (x : var) : bool =
+  get_var_kind env x = Var_mutable
 
 let env_extend (env : env) (e : var) (varkind : varkind) : env =
   Var_map.add env e varkind
@@ -36,7 +49,7 @@ let trm_address_of ?(simplify:bool=false) (t:trm) : trm =
 (* [trm_get t] returns the C term [*t];
    if ~simplify is true and [t] is of the form [&u], it returns just [u]. *)
 
-let trm_address_of ?(simplify:bool=false) (t:trm) : trm =
+let trm_get ?(simplify:bool=false) (t:trm) : trm =
   let aux t1 = Trm_apps (Prim_get, [t1]) in
    if not simplify
      then aux t
@@ -53,10 +66,7 @@ let trm_address_of ?(simplify:bool=false) (t:trm) : trm =
    For references, [int& b = a] becomes [<annotation:reference> int* b = a], as a simplification of (b = &*a)
     and [int& x = t[i]] becomes [<annotation:reference> int* x = &t[i]] if t has type [const int*].
     Here, the "reference" annotation is added to allow decoding.  *)
-
-   (* LATER: we'll have to handle:   int a = 3; const int& b = a;
-      but for now we simply don't support references on constants *)
-   (* LATER: one day we'll have to deal with references in function arguments *)
+   (* LATER: for now we simply don't support references on constants *)
 
 let rec stackvar_elim (t : trm) : trm =
   let rec aux (env : env) (t : trm) : trm =
@@ -84,12 +94,11 @@ let rec stackvar_elim (t : trm) : trm =
                       else trm_map (aux envi) ti
                   in
                 (env_extend envi x is_x_mutable, ti2)
-
-             (* LATER: technically, we should extend the environment
-               to include f, as this f might shadow another more,
-               but let's leave that for later..
-             | Trm_let_fun (retty, f, targs, tbody) -> *)
-
+             | Trm_let_fun (f, retty, targs, tbody) ->
+                let envi2 = env_extend envi f Var_immutable in
+                let envi2 = List.fold_left (fun envacc (x,ty) ->
+                              env_extend envacc x Var_immutable) envi2 targs in
+                (envi2, { ti with desc = Trm_let_fun (f, retty, targs, aux tbody) }
             | _ -> (envi, (aux env ti))
             in
           (envi2, ti2::acc) in
@@ -112,8 +121,8 @@ let rec stackvar_elim (t : trm) : trm =
 let rec stackvar_intro (t : trm) : trm =
   let rec aux (env : env) (t : trm) : trm =
     match t.desc with
-    (* shortcut, does not seem needed
-    | Trm_apps (Prim_get, [Trm_var x as t1]) when is_var_mutable env x -> t1 *)
+    (* Note: this shortcut does not seem needed:
+       | Trm_apps (Prim_get, [Trm_var x as t1]) when is_var_mutable env x -> t1 *)
     | Trm_var x ->
         if is_var_mutable env x
           then trm_address_of t
@@ -140,7 +149,11 @@ let rec stackvar_intro (t : trm) : trm =
                     trm_map (aux envi) ti
                   in
                 (env_extend envi x is_x_mutable, ti2)
-             (* LATER: handle trm_fun *)
+             | Trm_let_fun (f, retty, targs, tbody) ->
+                let envi2 = env_extend envi f Var_immutable in
+                let envi2 = List.fold_left (fun envacc (x,ty) ->
+                              env_extend envacc x Var_immutable) envi2 targs in
+                (envi2, { ti with desc = Trm_let_fun (f, retty, targs, aux tbody) }
             | _ -> (envi, (aux env ti))
             in
           (envi2, ti2::acc) in
@@ -151,13 +164,38 @@ let rec stackvar_intro (t : trm) : trm =
   aux env_empty
 
 
-(* [access_intro false t] eliminates the use of l-values in the AST *)
+(* [caddress_elim false t] eliminates the use of l-values in the AST.
 
-let rec access_intro (lvalue : bool) (t : trm) : trm =
-  let aux ti = access_intro true ti in
-  let access ti = access_intro false ti in
+   [*t1 = t2] is encoded as [set(t1, t2)].
+   [t[i] = t[i] + 1]  is encoded as [set(t+i, get(t+i) + 1]
+   [t.f = t.f + 1]   is encoded as [set(t+offset(f), get(t+offset(f)) + 1)].
+   [(*p).f.x] is encoded as [get((p+offset(f))+offset(x))].
+
+   [t+i] is represented as [Trm_apps (Prim_array_access, [t;i])] in the AST
+   [t+offset(f)] is represented as [Trm_apps (Prim_struct_access "f", [t])].
+
+   The transformation is implemented as [caddress_elim lvalue t], where the
+   boolean [lvalue] indicates whether we are currently translating a l-value
+   or a normal instruction or expression (r-value). *)
+
+let rec caddress_elim (lvalue : bool) (t : trm) : trm =
+  let aux ti = caddress_elim true ti in
+  let access ti = caddress_elim false ti in
   let mk td = { t with desc = td }
-  if not lvalue then begin
+  if lvalue then begin
+    match t.desc with
+    | Trm_apps (Prim_struct_get f, [t1]) ->
+        mk (Trm_apps (Prim_struct_access f, [access t1]))
+        (* TODO: if there is an annotation "Display_arrow" on the Prim_struct_get,
+           we should copy this annotation onto the Prim_struct_access term.
+           Note: we need to clarify whether the Display_arrow is on the Trm_apps
+           or on the Prim_struct_get; I think the later would be easier to work with. *)
+    | Trm_apps (Prim_array_get, [t1; t2])) ->
+        mk (Trm_apps (Prim_array_access, [access t1; aux t2]))
+    | Trm_apps (Prim_get t1) ->
+        aux t1
+    | _ -> failwith "invalid lvalue" (* TODO: for debugging, report location and print term *)
+  end else begin (* rvalue *)
     match t.desc with
     | Trm_apps (Prim_array_set, [t1; t2]) ->
         mk (Trm_apps (Prim_array_set, [access t1; aux t2]))
@@ -169,48 +207,71 @@ let rec access_intro (lvalue : bool) (t : trm) : trm =
         | Trm_apps (Prim_get, [u11]) ->
             mk (Trm_apps (Prim_get, [Trm_apps (Prim_struct_access f, [u11])]))
         | mk (Trm_apps (Prim_struct_get f, [u1]))
+        (* TODO: in the two cases above, if there is an annotation "Display_arrow"
+            on the Prim_struct_get, we should copy this annotation onto the
+            Prim_struct_access or the Prim_struct_get that we produce. *)
         end
     | Trm_apps (Prim_array_get, [t1; t2]) ->
         let u1 = aux t1 in
         let u2 = aux t2 in
         begin match u1.desc with
         | Trm_apps (Prim_get, [u11]) ->
-            mk (Trm_apps (Prim_get, [Trm_apps (Prim_array_access, [u11; u12])]))
+            mk (Trm_apps (Prim_get, [Trm_apps (Prim_array_access, [u11; u2])]))
         | _ -> mk (Trm_apps (Prim_array_get, [u1; u2]))
         end
     | _ -> trm_map aux t
-
-  end else begin (* lvalue *)
-    match t.desc with
-    | Trm_var x when is_var_mutable env x ->
-        mk (Trm_var x)
-    | Trm_apps (Prim_struct_get f, [t1]) ->
-        mk (Trm_apps (Prim_struct_access f, [access t1]))
-    | Trm_apps (Prim_array_get, [t1; t2])) ->
-        mk (Trm_apps (Prim_array_access, [access t1; aux t2]))
-    | Trm_apps (Prim_get t1) ->
-        aux t1
-    | _ -> failwith "invalid lvalue"
   end
 
-(* [access_elim false t] is the inverse of [access_intro] *)
+(* [caddress_intro false t] is the inverse of [caddress_elim]. *)
 
-let rec access_elim (lvalue : bool) (t : trm) : trm =
-  ..
+let is_access (t : trm) : bool =
+  match t with
+  | Trm_apps (Prim_struct_access _, _)
+  | Trm_apps (Prim_array_access, _)) -> true
+  | _ -> false
 
 
+let rec caddress_intro (lvalue : bool) (t : trm) : trm =
+  let aux ti = caddress_intro true ti in
+  let access ti = caddress_intro false ti in
+  let mk td = { t with desc = td }
+  if lvalue then begin
+    match t.desc with
+    | Trm_apps (Prim_struct_access f, [t1]) ->
+        mk (Trm_apps (Prim_struct_get f), [access t1])
+        (* TODO: we should preserve the annotation "Display_arrow" *)
+    | Trm_apps (Prim_array_access, [t1; t2])) ->
+        mk (Trm_apps (Prim_array_get, [access t1; aux t2]))
+    | _ ->
+        trm_get ~simplify:true (aux t)
+  end else begin (* rvalue *)
+    match t.desc with
+    | _ when is_access t ->
+        trm_address_of (access t)
+    | Trm_apps (Prim_get, [t1]) when is_access t1 ->
+        access t1
+    | Trm_apps (Prim_array_set, [t1; t2]) ->
+        mk (Trm_apps (Prim_array_set, [trm_get ~simplify:true (access t1); aux t2]))
+    | _ -> trm_map aux t
+  end
 
+
+(* TODO: use unit tests to check that
+    caddress_intro (caddress_elim t) = t
+   and
+    stackvar_intro (stackvar_elim t) = t
+*)
 
 let encode (t : trm) : trm =
-  access_intro (stackvar_elim t)
+  caddress_elim (stackvar_elim t)
   (* Note: in the unit tests, we could check that
-     stackvar_elim (access_intro t) produces the same result *)
+     stackvar_elim (caddress_elim t) produces the same result *)
 
 
 let decode (t : trm) : trm =
-  stackvar_intro (access_elim t)
+  stackvar_intro (caddress_intro t)
   (* Note: in the unit tests, we could check that
-     access_elim (stackvar_intro t) produces the same result *)
+     caddress_intro (stackvar_intro t) produces the same result *)
 
 
 

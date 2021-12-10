@@ -2007,11 +2007,11 @@ let is_arith_fun (p : prim) : bool =
   | _ -> false
 
 
-(* [is_same_binop op1 op2 ] check if two primitive operations are the same or not. 
+(* [is_same_binop op1 op2 ] check if two primitive operations are the same or not.
     Used to decide if parentheses should be printed or not.
 *)
-let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool = 
-  match op1, op2 with 
+let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
+  match op1, op2 with
   | Binop_set, Binop_set -> true
   | Binop_array_cell_addr, Binop_array_cell_addr -> true
   | Binop_array_cell_get, Binop_array_cell_get -> true
