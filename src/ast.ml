@@ -204,15 +204,15 @@ and unary_op =
   | Unop_post_dec
   | Unop_pre_inc
   | Unop_pre_dec
-  | Unop_struct_field_addr of field
-  | Unop_struct_field_get of field
+  | Unop_struct_field_addr of field  (* TODO: struct_access *)
+  | Unop_struct_field_get of field (* TODO: struct_get *)
   | Unop_cast of typ (* cast operator towards the specified type *)
 
 (* binary operators *)
 and binary_op =
   | Binop_set (* type annotation?    lvalue = rvalue *)
-  | Binop_array_cell_addr
-  | Binop_array_cell_get
+  | Binop_array_cell_addr (* TODO: array_access *)
+  | Binop_array_cell_get (* TODO: array_get *)
   | Binop_eq
   | Binop_neq
   | Binop_sub
