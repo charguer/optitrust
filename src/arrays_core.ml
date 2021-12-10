@@ -381,7 +381,7 @@ let tile (block_name : typvar) (block_size : var) (index : int): Target.Transfo.
      remaining cases: val, var, array, struct, if, seq, while, for, switch,
      abort, labelled
      inside values, array accesses may only happen in array sizes in types
-     todo: currently ignored, is it reasonable to expect such things to happen?
+     LATER: currently ignored, is it reasonable to expect such things to happen?
    *)
   | _ -> trm_map (apply_swapping x) t
 

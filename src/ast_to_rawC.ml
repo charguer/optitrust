@@ -118,9 +118,7 @@ and typed_var_to_doc (tx : typed_var) : document =
 and lit_to_doc (l : lit) : document =
   match l with
   | Lit_unit -> semi
-  | Lit_uninitialized ->
-     print_info None "lit_to_doc: uninitialized literal should not occur\n";
-     at
+  | Lit_uninitialized -> empty
   | Lit_bool b -> string (string_of_bool b)
   | Lit_int i -> string (string_of_int i)
   | Lit_double f -> string (string_of_float f)
@@ -290,7 +288,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
             blank 1 ^^ dbody
      | Trm_for (index, start, direction, stop, step, body) ->
        let local_index = not (List.mem Non_local_index t.annot) in
-       let full_loop = trm_for_to_trm_for_c ~local_index index start direction stop step body in
+       let full_loop = unpack_trm_for ~loc:t.loc ~local_index index start direction stop step body in
        decorate_trm full_loop
      | Trm_switch (cond, cases) ->
         let dcond = decorate_trm cond in
@@ -404,7 +402,6 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     let d_init, is_initialized  =
          begin match init.desc with
            | Trm_apps (_, [value]) -> value, true
-           | Trm_val(Val_prim(Prim_new _)) -> trm_var "", false (* TODO: Shouldn't add a trm var here *)
            | Trm_val (Val_lit Lit_uninitialized) -> trm_var "", false
            | _-> init, true
            end in
@@ -812,6 +809,44 @@ and routine_to_doc (r : omp_routine) : document =
   | Test_nest_lock lck -> string "omp_test_nest_lock" ^^ parens (ampersand ^^ string lck)
   | Get_wtime -> string "get_wtime" ^^ lparen ^^ blank 1 ^^ rparen
   | Get_wtick -> string "get_wtich" ^^ lparen ^^ blank 1 ^^ rparen
+
+and unpack_trm_for ?(loc = None) ?(local_index : bool = true) (index : var) (start : trm) (direction : loop_dir) (stop : trm) (step : loop_step) (body : trm) : trm =
+  let init = if not local_index
+                then trm_set (trm_var index) start
+                else trm_let Var_mutable (index, typ_int ()) start  in
+  let cond = begin match direction with
+    | DirUp -> trm_apps (trm_binop Binop_lt) [trm_var index;stop]
+    | DirUpEq -> trm_apps (trm_binop Binop_le) [trm_var index;stop]
+    | DirDown ->
+      trm_apps (trm_binop Binop_gt) [trm_var index;stop]
+    | DirDownEq ->
+      trm_apps (trm_binop Binop_ge) [trm_var index;stop]
+   end in
+  let step =
+    begin match direction with
+    | DirUp | DirUpEq ->
+      begin match step with
+      | Pre_inc ->
+        trm_apps (trm_unop Unop_pre_inc) [trm_var index]
+      | Post_inc ->
+        trm_apps (trm_unop Unop_post_inc) [trm_var index]
+      | Step st ->
+        trm_apps (trm_prim (Prim_compound_assgn_op Binop_add) ) [trm_var index; st]
+      | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
+      end
+    | DirDown | DirDownEq ->
+      begin match step with
+      | Pre_dec ->
+        trm_apps (trm_unop Unop_pre_dec) [trm_var index]
+      | Post_dec ->
+        trm_apps (trm_unop Unop_post_dec) [trm_var index]
+      | Step st ->
+        trm_apps (trm_prim (Prim_compound_assgn_op Binop_sub) ) [trm_var index; st]
+      | _ -> fail body.loc "trm_for_to_trm_for_c: can't use decrementing operators for upper bounded for loops"
+      end
+
+    end in
+    trm_for_c  ~loc init cond step body
 
 let ast_to_doc (out : out_channel) (t : trm) : unit =
   PPrintEngine.ToChannel.pretty 0.9 80 out (decorate_trm t)

@@ -111,7 +111,7 @@ let unroll ?(braces : bool = false) ?(my_mark : mark  = "")  (tg : Target.target
   Internal.nobrace_remove_after (fun _ ->
     Target.apply_on_targets (Loop_core.unroll braces my_mark) tg)
 
-(* TODO: Implement a combi transformation that will check if the targeted instruction 
+(* LATER: Implement a combi transformation that will check if the targeted instruction 
     is dependent on any local variable or the loop index.
 *)
 (* [move_out] expects the target [tg] to point to an instruction inside the loop
