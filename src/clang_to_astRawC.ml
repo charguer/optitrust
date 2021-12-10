@@ -603,43 +603,43 @@ and translate_expr ?(is_statement : bool = false)
         trm_set ~loc ~ctx ~is_statement tl tr
       | AddAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
         trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_add) ) [tll; tlr]
       | SubAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
         trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_sub) ) [tll; tlr]
       | MulAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_mul) ) [tll; tlr]
       | DivAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_div) ) [tll; tlr]
       | RemAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr le in
+        let tlr = translate_expr re in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_mod )) [tll; tlr]
       | ShlAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_shiftl) ) [tll; tlr]
       | ShrAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_shiftr) ) [tll; tlr]
       | AndAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_and) ) [tll; tlr]
       | OrAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_or) ) [tll; tlr]
       | XorAssign ->
         let tll = translate_expr le in
-        let tlr = translate_expr  le in
+        let tlr = translate_expr re in
          trm_apps ~loc ~is_statement  ~typ (trm_prim ~loc ~ctx (Prim_compound_assgn_op Binop_xor) ) [tll; tlr]
       | _ ->
         let tl = translate_expr  le in
@@ -998,6 +998,7 @@ and translate_decl (d : decl) : trm =
         end
       |_ -> fail loc "translate_decl: should not happen"
     end
+  
   | Var {linkage = _; var_name = n; var_type = t; var_init = eo; constexpr = _; _} ->
 
     let rec contains_elaborated_type (q : qual_type) : bool =
@@ -1018,9 +1019,7 @@ and translate_decl (d : decl) : trm =
     let const = is_typ_const tt in
     let te =
       begin match eo with
-      | None ->
-        if const then trm_lit ~loc Lit_uninitialized
-        else trm_prim ~loc (Prim_new tt)
+      | None -> trm_lit ~loc Lit_uninitialized
       | Some e ->
         begin match e.desc with
         | InitList el -> (* {e1,e2,e3} *)(* Array(struct intstantiation) declaration  with initialization *)
@@ -1040,26 +1039,9 @@ and translate_decl (d : decl) : trm =
     ctx_var_add n tt;
     if const then
       trm_let ~loc ~is_statement:true Var_immutable (n,tt) te
-    else
-      begin
-        begin match eo with
-        | None ->
-          add_var n;
-          trm_let ~loc  Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) te
-        | Some _ ->
-          begin match tt.typ_desc with
-          | Typ_ptr {ptr_kind = Ptr_kind_ref; inner_typ = tt1} -> begin match tt1.typ_desc with
-                           (* This check is needed because we don't want const references to be accessed by using get  *)
-                           | Typ_const _ -> trm_let ~loc Var_immutable (n, tt) (te)
-                           | _ ->
-                             add_var n;
-                             trm_let ~loc Var_mutable (n, typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) {te with annot = [As_left_value]}
-                           end
-          | _ ->
-            add_var n;
-            trm_let ~loc Var_mutable (n,typ_ptr ~typ_attributes:[GeneratedStar] Ptr_kind_mut tt) (trm_apps (trm_prim ~loc (Prim_new tt)) [te])
-          end
-        end
+    else begin 
+      add_var n;
+      trm_let ~loc Var_mutable (n, tt) te
       end
   | TypedefDecl {name = tn; underlying_type = q} ->
     let tid = next_typconstrid () in
