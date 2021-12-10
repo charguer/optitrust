@@ -70,6 +70,15 @@ let _ = Run.script_cpp (fun () ->
   show [ cFunDef "" ~args:[[cArg "t"];[]] ];
   show [ cFunDef "" ~args:[[cTrue];[cArg "varg"]]];
 
+
+  (* Function calls are
+    - instructions if return type is unit
+    - expressions otherwise *)
+  (* TODO
+    show [sInstr "myfun1("];  -- where myfun1 is returning void
+    show [sExpr "myfun2("];   --where myfun2 is returning an int
+  *)
+
   (* Regexp *)
   (* show [sInstr "j <"]; *) (* We can match only inside the body of the loop now*)
 
