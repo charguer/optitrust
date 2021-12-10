@@ -164,7 +164,7 @@ and prim_to_doc (p : prim) : document =
   match p with
   | Prim_unop op -> unop_to_doc op
   | Prim_binop op -> binop_to_doc op
-  | Prim_compound_assgn_op op -> equals ^^ (binop_to_doc op)
+  | Prim_compound_assgn_op op -> (binop_to_doc op) ^^ equals 
   | Prim_overloaded_op p -> prim_to_doc p
   | Prim_new t -> string "new" ^^ blank 1 ^^ typ_to_doc t
   | Prim_conditional_op ->
@@ -407,7 +407,8 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
     let d_init, is_initialized  =
          begin match init.desc with
            | Trm_apps (_, [value]) -> value, true
-           | Trm_val(Val_prim(Prim_new _)) -> trm_var "", false
+           | Trm_val(Val_prim(Prim_new _)) -> trm_var "", false (* TODO: Shouldn't add a trm var here *)
+           | Trm_val (Val_lit Lit_uninitialized) -> trm_var "", false
            | _-> init, true
            end in
     let initialisation = blank 1 ^^ (if is_initialized then equals else empty) ^^ blank 1 ^^ decorate_trm d_init ^^ dsemi in
