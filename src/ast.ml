@@ -280,6 +280,8 @@ and trm_annot =
   | Mutable_var_get (* Used for get(x) operations where x was a non-const stack allocated variable *)
   | As_left_value (* Used for reference encoding *)
   | Non_local_index (* Used for loops whose index is not declared inside the scope of the loop body *)
+  | Display_arrow (* Used for struct accesses of the form ( *p ).x or p -> x, with this annotation the arrow syntax sugar is used *)
+
 (* symbols to add while printing a C++ program.*)
 and special_operator =
   | Address_operator (* used to print the ampersand operator for declarations of the form int x = &b*)

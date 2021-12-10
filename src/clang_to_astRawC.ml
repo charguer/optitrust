@@ -593,75 +593,25 @@ and translate_expr ?(is_statement : bool = false)
       | OperatorName op -> overloaded_op ~loc ~ctx  op
       | _ -> fail loc "translate_expr: only identifiers allowed for variables"
     end
-  | Member {base = eo; arrow = b; field = f} ->
-      (* TODO: reimplement this case entirely
-      TODO: rename b to has_arrow
-          t->f  should be ( *t ).f with an annotation Annot_display_arrow
-
-          let e1 = unsome eo in
-          let t1 = aux e1 in
-          if has_arrow then begin
-            trm_apps (Trm_prim ({ desc = Prim_struct_get f; annot = [Annot_display_arrow])), [ trm_get ~loc:loc t1 ])
-          end else begin
-            trm_apps (Trm_prim (Prim_struct_get f), [t1])
-          end
-
-
-      *)
-    begin match eo with
-      | None -> fail loc "translate_expr: field accesses should have a base"
-      | Some e ->
-        begin match f with
-          | FieldName id ->
-            let f = translate_ident id in
-            let base = translate_expr e in
-           (*
-             use struct_get when the base is a variable not heap allocated or
-             the result of a struct_get/array_get
-             question: other cases?
-            *)
-            (*
-              case1: b was a function argument
-              case2: b was a stack variable turned into heap variable
-              case3: b was a const  --like in case 1.
-
-              b->f
-              b.f
-
-              case1: b.f   is struct_get f b,   b->f   is just ( * b).f  meaning (struct_get f (get b))
-              case2: b.f   translates to  b->f
-                     b->f   translates to ( * b) -> f
-                     the call to translate base already gives you "b" as "*b"
-
-            *)
-            begin match base.desc with
-              | Trm_var _ ->
-                trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_get f)) [base]
-              | Trm_apps
-                  ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))); _}, _)
-              | Trm_apps
-                  ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
-                   _) ->
-                if b then
-                  fail loc
-                    "translate_expr: 2arrow field access should be on a pointer"
-                else
-                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_field_get f)) [base]
-              | _ ->
-                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_addr f)) [base]
-            end
-          | _ -> fail loc "translate_expr: fields must be accessed by name"
+  | Member {base = eo; arrow = has_arrow; field = f} ->
+    begin match eo with 
+    | None -> fail loc "translate_expr: field accesses should have a base"
+    | Some e -> 
+      begin match f with 
+      | FieldName id -> 
+        let f = translate_ident id in 
+        let base = translate_expr e in 
+        if has_arrow then 
+          trm_apps (trm_unop ~annot:[Display_Arrow] (Unop_struct_field_get f) ) [trm_get base]
+        else 
+          trm_apps (trm_unop (Unop_struct_field_addr f)) [base]
+      | _ -> fail loc "translate_expr: fields should be accessed by names"
       end
-    end
-
-  | ArraySubscript {base = e; index = i} ->
-    let ti = translate_expr i in
-    let te = translate_expr e in
-    (* TODO reimplement this case entirely
-          trm_apps (Prim_array_get, [ te ; ti ])
-    *)
-
-     (*
+    end 
+  | ArraySubscript {base = e; index = i} ->   
+    let ti = translate_expr i in 
+    let te = translate_expr e in 
+    (*
        override typ to account for typedefs:
        if e's type is x*, make sure typ is x (it is not always the case if x is
        declared through a typedef)
@@ -673,24 +623,8 @@ and translate_expr ?(is_statement : bool = false)
       (* should not happen *)
       | _ -> None
     in
-     (*
-       as for struct_get, use array_get when te is a variable not heap allocated
-       or the result of a struct_get/array_get
-      *)
-    begin match te.desc with
-      | Trm_var _ ->
-        trm_apps ~loc ~ctx ~typ (trm_binop ~ctx ~loc Binop_array_cell_get) [te; ti]
-      | Trm_apps
-          ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))); _}, _)
-      | Trm_apps
-          ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
-           _) ->
-        trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_cell_get) [te; ti]
-      | _ ->
-        let res =
-          trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_cell_addr) [te; ti]
-        in res
-    end
+      trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx (Binop_array_cell_get)) [te; ti]
+
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)
     begin match el with
