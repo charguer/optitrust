@@ -210,8 +210,8 @@ let rec translate_type_desc ?(loc : location = None) ?(const : bool = false) ?(t
   match d with
   | Pointer q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
-    let t = if const then typ_const t else t in 
-    typ_ptr Ptr_kind_mut t
+    let ty = typ_ptr Ptr_kind_mut t in 
+    if const then typ_const ty else ty 
   | LValueReference  q ->
     let t = translate_qual_type ~loc ~translate_record_types q in
     if const then
