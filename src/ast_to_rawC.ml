@@ -135,8 +135,8 @@ and unop_to_doc (op : unary_op) : document =
   | Unop_opp -> minus
   | Unop_post_inc | Unop_pre_inc -> twice plus
   | Unop_post_dec | Unop_pre_dec -> twice minus
-  | Unop_struct_field_addr s -> dot ^^ string s
-  | Unop_struct_field_get s -> dot ^^ string s
+  | Unop_struct_access s -> dot ^^ string s
+  | Unop_struct_get s -> dot ^^ string s
   | Unop_cast t ->
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
@@ -144,8 +144,8 @@ and unop_to_doc (op : unary_op) : document =
 and binop_to_doc (op : binary_op) : document =
   match op with
   | Binop_set -> equals
-  | Binop_array_cell_addr -> lbracket ^^ rbracket
-  | Binop_array_cell_get -> lbracket ^^ rbracket
+  | Binop_array_access -> lbracket ^^ rbracket
+  | Binop_array_get -> lbracket ^^ rbracket
   | Binop_eq -> twice equals
   | Binop_neq -> bang ^^ equals
   | Binop_sub -> minus
@@ -271,15 +271,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
           counter := -1;
           dattr ^^ surround 2 1 lbrace (separate hardline dl) rbrace
     | Trm_apps (f, tl) ->
-       begin
-        (*
-          do not display * operator if the operand is a heap allocated
-          variable or a succession of accesses
-        *)
-         if List.mem Mutable_var_get t.annot || List.mem Access t.annot then
-           dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
-         else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
-        end
+           dattr ^^ apps_to_doc f tl ^^ dsemi
      | Trm_while (b, t) ->
         let db = decorate_trm b in
         let dt = decorate_trm ~semicolon:true t in
@@ -515,8 +507,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-and apps_to_doc ?(display_star : bool = true)
-  (f : trm) (tl : trms) : document =
+and apps_to_doc (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
       in
@@ -541,10 +532,7 @@ and apps_to_doc ?(display_star : bool = true)
            | [t] ->
               let d = decorate_trm t in
               begin match op with
-              | Unop_get ->
-                begin (* TODO: remove display_start *)
-                  if display_star then star ^^ d else d
-                end
+              | Unop_get -> star ^^ d 
               | Unop_address -> ampersand ^^ d
               | Unop_neg -> parens (bang ^^ d)
               | Unop_bitwise_neg -> parens (tilde ^^ d)
@@ -553,33 +541,11 @@ and apps_to_doc ?(display_star : bool = true)
               | Unop_post_dec -> d ^^ twice minus
               | Unop_pre_inc -> twice plus ^^ d
               | Unop_pre_dec -> twice minus ^^ d
-              (* TODO:
-                | Unop_get -> print as  *t
-                | Unop_struct_field_addr ->  print as "struct_access(t, "f")"
-                | Unop_struct_field_get -> print as "t.f"
-              *)
-              (* TODO: struct_get struct_access array_get access_access *)
-
-              | (Unop_struct_field_get f | Unop_struct_field_addr f) ->
-                 begin match t.desc with
-                 (* if t is get t' we can simplify the display *)
-                 | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
-                              _}, [t']) ->
-                    let d' = decorate_trm t' in
-                    (* if t' was a stack-allocated variable, use t'.f *)
-                    if List.mem  Mutable_var_get t.annot then parens (d' ^^ dot ^^ string f)
-                    (* otherwise use t'->f instead of *t'.f *)
-                    else if List.mem Access t.annot then parens (d ^^ dot ^^ string f)
-                    else
-                      begin match t'.desc with
-                      | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
-                              _}, _) -> d ^^ dot ^^ string f
-                      | _ -> parens (d' ^^ minus ^^ rangle ^^ string f)  (* parens (d' ^^ dot ^^ string f) *)
-                      end
-                 | _ ->
-                     (*parens (d ^^ dot ^^ string f)*)
+              | (Unop_struct_get f | Unop_struct_access f) ->
+                 if List.mem Display_arrow t.annot then 
+                  d ^^ minus ^^ rangle ^^ string f
+                  else 
                     d ^^ dot ^^ string f
-                 end
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d
@@ -606,7 +572,7 @@ and apps_to_doc ?(display_star : bool = true)
               decorate_trm t2
              end  in
              begin match op with
-             | Binop_array_cell_addr | Binop_array_cell_get ->
+             | Binop_array_access | Binop_array_get ->
               d1 ^^ brackets (d2)
              | _ -> separate (blank 1) [d1; op_d; d2]
              end

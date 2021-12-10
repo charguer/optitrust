@@ -84,8 +84,8 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
   | Unop_post_dec -> string "Unop_post_dec"
   | Unop_pre_inc -> string "Unop_pre_inc"
   | Unop_pre_dec -> string "Unop_pre_dec"
-  | Unop_struct_field_addr f -> node "Unop_struct_field_addr" ^^ string f
-  | Unop_struct_field_get f -> node "Unop_struct_field_get" ^^ string f
+  | Unop_struct_access f -> node "Unop_struct_access" ^^ string f
+  | Unop_struct_get f -> node "Unop_struct_get" ^^ string f
   (* | Unop_delete b -> node "Unop_delete" ^^ string (string_of_bool b) *)
   | Unop_cast t ->
      let dt = print_typ ~only_desc t in
@@ -94,8 +94,8 @@ and print_unop ?(only_desc : bool = false) (op : unary_op) : document =
 and print_binop (op : binary_op) : document =
   match op with
   | Binop_set -> string "Binop_set"
-  | Binop_array_cell_addr -> string "Binop_array_cell_addr"
-  | Binop_array_cell_get -> string "Binop_array_cell_get"
+  | Binop_array_access -> string "Binop_array_access"
+  | Binop_array_get -> string "Binop_array_get"
   | Binop_eq -> string "Binop_eq"
   | Binop_neq -> string "Binop_neq"
   | Binop_sub -> string "Binop_sub"

@@ -602,9 +602,9 @@ and translate_expr ?(is_statement : bool = false)
         let f = translate_ident id in 
         let base = translate_expr e in 
         if has_arrow then 
-          trm_apps (trm_unop ~annot:[Display_Arrow] (Unop_struct_field_get f) ) [trm_get base]
+          trm_apps (trm_unop ~annot:[Display_arrow] (Unop_struct_get f) ) [trm_get base]
         else 
-          trm_apps (trm_unop (Unop_struct_field_addr f)) [base]
+          trm_apps (trm_unop (Unop_struct_access f)) [base]
       | _ -> fail loc "translate_expr: fields should be accessed by names"
       end
     end 
@@ -623,7 +623,7 @@ and translate_expr ?(is_statement : bool = false)
       (* should not happen *)
       | _ -> None
     in
-      trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx (Binop_array_cell_get)) [te; ti]
+      trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx (Binop_array_get)) [te; ti]
 
   | Construct {qual_type = _; args = el} ->
     (* only known use case: return of a struct variable *)

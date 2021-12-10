@@ -139,8 +139,8 @@ and unop_to_doc (op : unary_op) : document =
   | Unop_opp -> minus
   | Unop_post_inc | Unop_pre_inc -> twice plus
   | Unop_post_dec | Unop_pre_dec -> twice minus
-  | Unop_struct_field_addr s -> dot ^^ string s
-  | Unop_struct_field_get s -> dot ^^ string s
+  | Unop_struct_access s -> dot ^^ string s
+  | Unop_struct_get s -> dot ^^ string s
   | Unop_cast t ->
      let dt = typ_to_doc t in
      string "static_cast" ^^ langle ^^ dt ^^ rangle
@@ -148,8 +148,8 @@ and unop_to_doc (op : unary_op) : document =
 and binop_to_doc (op : binary_op) : document =
   match op with
   | Binop_set -> equals
-  | Binop_array_cell_addr -> lbracket ^^ rbracket
-  | Binop_array_cell_get -> lbracket ^^ rbracket
+  | Binop_array_access -> lbracket ^^ rbracket
+  | Binop_array_get -> lbracket ^^ rbracket
   | Binop_eq -> twice equals
   | Binop_neq -> bang ^^ equals
   | Binop_sub -> minus
@@ -628,9 +628,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
               | Unop_pre_inc  -> string "operator++(" ^^ d ^^ string ")"
               | Unop_pre_dec when !decode -> twice minus ^^ d
               | Unop_pre_dec  -> string "operator--(" ^^ d ^^ string ")"
-              (* | Unop_struct_field_get f  when !decode->
+              (* | Unop_struct_get f  when !decode->
                 parens (d ^^ minus ^^ rangle ^^ string f) *)
-              | (Unop_struct_field_get f | Unop_struct_field_addr f) when !decode ->
+              | (Unop_struct_get f | Unop_struct_access f) when !decode ->
                  begin match t.desc with
                  (* if t is get t' we can simplify the display *)
                  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get));
@@ -650,9 +650,9 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                      (*parens (d ^^ dot ^^ string f)*)
                     d ^^ dot ^^ string f
                  end
-              | Unop_struct_field_get f  ->
+              | Unop_struct_get f  ->
                   string "struct_get(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
-              | Unop_struct_field_addr f ->
+              | Unop_struct_access f ->
                   string "struct_access(" ^^ d ^^ comma ^^ string " " ^^ dquotes (string f) ^^ string ")"
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
@@ -721,11 +721,11 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                  parens (separate (blank 1) [d1; ampersand; d2])
               | Binop_or -> parens (separate (blank 1) [d1; twice bar; d2])
               | Binop_bitwise_or -> parens (separate (blank 1) [d1; bar; d2])
-              | Binop_array_cell_addr when !decode ->
+              | Binop_array_access when !decode ->
                   d1 ^^ brackets (d2)
-              | Binop_array_cell_addr (* when not !decode *) ->
+              | Binop_array_access (* when not !decode *) ->
                   string "array_access(" ^^ d1 ^^ comma ^^ string " " ^^ d2 ^^ string ")"
-              | Binop_array_cell_get ->
+              | Binop_array_get ->
                  d1 ^^ brackets (d2)
               | Binop_shiftl ->
                  parens (separate (blank 1) [d1; twice langle; d2])

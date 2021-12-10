@@ -164,7 +164,7 @@ let intro_pattern_array ?(pattern_aux_vars : string = "") ~pattern_vars:(pattern
     let inst = Trm_matching.rule_match (pattern_vars @ pattern_aux_vars) pattern_instr (Target.get_trm_at (Target.target_of_path p)) in
     let values = Trm_matching.tmap_to_list pattern_vars (Trm_matching.tmap_filter_keys pattern_vars inst) in
     List.iteri (fun id_var v -> all_values.(id_var).(id_path) <- v) values;
-    let inst = List.map (fun  (x, _) -> trm_apps (trm_binop (Binop_array_cell_addr))[trm_var x; trm_int id_path]) pattern_vars in
+    let inst = List.map (fun  (x, _) -> trm_apps (trm_binop (Binop_array_access))[trm_var x; trm_int id_path]) pattern_vars in
     let new_inst = Trm_map.empty in
     let new_inst = List.fold_left2 (fun acc (x, _) y -> Trm_map.add x y acc) new_inst pattern_vars inst in
     let new_t = Internal.subst new_inst pattern_instr in

@@ -16,7 +16,7 @@ let compute_aux (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, ts) ->
     begin match (trm_prim_inv f), ts with
-    | Some (Prim_unop Unop_get) , _ | Some (Prim_unop (Unop_bitwise_neg)), _ | Some (Prim_unop Unop_opp), _ | Some (Prim_unop (Unop_struct_field_addr _)), _ | Some (Prim_unop (Unop_struct_field_get _)), _ -> t
+    | Some (Prim_unop Unop_get) , _ | Some (Prim_unop (Unop_bitwise_neg)), _ | Some (Prim_unop Unop_opp), _ | Some (Prim_unop (Unop_struct_access _)), _ | Some (Prim_unop (Unop_struct_get _)), _ -> t
     | Some (Prim_unop p), [t1] ->
       begin match trm_lit_inv t1 with
       | Some v1 -> compute_app_unop_value p v1

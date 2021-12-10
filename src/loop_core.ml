@@ -136,7 +136,7 @@ let hoist_aux (name : var) (decl_index : int) (t : trm) : trm =
       begin match var_decl.desc with
       | Trm_let (vk, (x, tx), _) ->
         let new_name = Tools.string_subst "${var}" x name in
-        let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var new_name; trm_var index] ) in
+        let new_decl = trm_let vk (x, typ_ptr Ptr_kind_ref (get_inner_ptr_type tx)) (trm_apps (trm_binop Binop_array_access) [trm_var new_name; trm_var index] ) in
         let new_tl = Mlist.merge lfront lback in
         let new_body = trm_seq (Mlist.insert_at decl_index new_decl new_tl) in
         let inner_typ = get_inner_ptr_type tx in

@@ -775,24 +775,24 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
                   in
                     (* fail loc
                       "translate_expr: 1arrow field access should be on a pointer" *)
-                trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_get f)) [base]
+                trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_get f)) [base]
               | Trm_apps
-                  ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))); _}, _)
+                  ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
               | Trm_apps
-                  ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
+                  ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
                    _) ->
                 if b then
                   fail loc
                     "translate_expr: 2arrow field access should be on a pointer"
                 else
-                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_field_get f)) [base]
+                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc (Unop_struct_get f)) [base]
               | _ ->
                 let t =
                   if b then trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx Unop_get) [base]
                   else base
                 in
                 let res =
-                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_field_addr f)) [t]
+                  trm_apps ~loc ~ctx ~typ (trm_unop ~loc ~ctx (Unop_struct_access f)) [t]
                 in
                 begin match val_t with
                   | Lvalue -> res
@@ -825,16 +825,16 @@ and translate_expr ?(val_t = Rvalue) ?(is_statement : bool = false)
       *)
     begin match te.desc with
       | Trm_var (_, x) when not (is_mutable_var x) ->
-        trm_apps ~loc ~ctx ~typ (trm_binop ~ctx ~loc Binop_array_cell_get) [te; ti]
+        trm_apps ~loc ~ctx ~typ (trm_binop ~ctx ~loc Binop_array_get) [te; ti]
       | Trm_apps
-          ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get _))); _}, _)
+          ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get _))); _}, _)
       | Trm_apps
-          ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
+          ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
            _) ->
-        trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_cell_get) [te; ti]
+        trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_get) [te; ti]
       | _ ->
         let res =
-          trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_cell_addr) [te; ti]
+          trm_apps ~loc ~ctx ~typ (trm_binop ~loc ~ctx Binop_array_access) [te; ti]
         in
         begin match val_t with
           | Lvalue -> res

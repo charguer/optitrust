@@ -43,7 +43,7 @@ let mindex_inv (t : trm) : (trms * trms) option =
 *)
 let access (t : trm) (dims : trms) (indices : trms) : trm =
   let mindex_trm = mindex dims indices in
-  trm_apps (trm_binop Binop_array_cell_addr) [t; mindex_trm]
+  trm_apps (trm_binop Binop_array_access) [t; mindex_trm]
 
 (* [access_inv t] returns the array access base, the list of dimensions and indices used
       as args in an array access  with that base and index a function call to MIDNEX with
@@ -53,7 +53,7 @@ let access_inv (t : trm) : (trm * trms * trms) option=
   match t.desc with
   | Trm_apps (f, [base;index]) ->
     begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_array_cell_addr) ->
+    | Some (Prim_binop Binop_array_access) ->
       begin match mindex_inv index with
       | Some (dm, ind) -> Some (base, dm, ind)
       | _ -> None
@@ -199,7 +199,7 @@ let intro_mindex_aux (dim : trm) (t : trm) : trm =
   match t.desc with
   | Trm_apps (f, [base;index]) ->
     begin match trm_prim_inv f with
-    | Some (Prim_binop Binop_array_cell_addr) ->
+    | Some (Prim_binop Binop_array_access) ->
       trm_apps ~annot:t.annot ~marks:t.marks f [base; mindex [dim] [index]]
     | _ -> fail t.loc "intro_mindex_aux: expected a primitive array access operation"
     end
@@ -312,8 +312,8 @@ let local_name_aux (mark : mark option) (var : var) (local_var : var) (malloc_tr
   | [] -> List.mapi (fun i _ -> "i" ^ (string_of_int (i + 1))) dims | _ as l -> l  end in
   let indices = List.map (fun ind -> trm_var ind) indices_list in
   let nested_loop_range = List.map2 (fun dim ind-> (ind, (trm_int 0), DirUp,  dim, Post_inc)) dims indices_list in
-  let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) in
-  let write_on_var = trm_set (trm_apps (trm_binop Binop_array_cell_addr) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_cell_addr) [trm_var local_var; mindex dims indices]) in
+  let write_on_local_var = trm_set (trm_apps (trm_binop Binop_array_access) [trm_var local_var; mindex dims indices]) (trm_apps (trm_binop Binop_array_access) [trm_var var; mindex dims indices]) in
+  let write_on_var = trm_set (trm_apps (trm_binop Binop_array_access) [trm_var var; mindex dims indices]) (trm_apps (trm_binop Binop_array_access) [trm_var local_var; mindex dims indices]) in
   let snd_instr = trm_fors nested_loop_range write_on_local_var in
   let new_t = Internal.subst_var var (trm_var local_var) t in 
   let thrd_instr = trm_fors nested_loop_range write_on_var in

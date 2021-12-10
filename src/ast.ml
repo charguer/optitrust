@@ -204,15 +204,15 @@ and unary_op =
   | Unop_post_dec
   | Unop_pre_inc
   | Unop_pre_dec
-  | Unop_struct_field_addr of field  (* TODO: struct_access *)
-  | Unop_struct_field_get of field (* TODO: struct_get *)
+  | Unop_struct_access of field  
+  | Unop_struct_get of field 
   | Unop_cast of typ (* cast operator towards the specified type *)
 
 (* binary operators *)
 and binary_op =
   | Binop_set (* type annotation?    lvalue = rvalue *)
-  | Binop_array_cell_addr (* TODO: array_access *)
-  | Binop_array_cell_get (* TODO: array_get *)
+  | Binop_array_access 
+  | Binop_array_get 
   | Binop_eq
   | Binop_neq
   | Binop_sub
@@ -1025,19 +1025,19 @@ type trm_access =
  *)
 let rec get_nested_accesses (t : trm) : trm * (trm_access list) =
   match t.desc with
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_addr f))); _},
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access f))); _},
               [t']) ->
      let (base, al) = get_nested_accesses t' in
      (base, Struct_access_addr f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_field_get f))); _},
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get f))); _},
               [t']) ->
      let (base, al) = get_nested_accesses t' in
      (base, Struct_access_get f :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_addr)); _},
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_access)); _},
               [t'; i]) ->
      let (base, al) = get_nested_accesses t' in
      (base, Array_access_addr i :: al)
-  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_cell_get)); _},
+  | Trm_apps ({desc = Trm_val (Val_prim (Prim_binop Binop_array_get)); _},
               [t'; i]) ->
      let (base, al) = get_nested_accesses t' in
      (base, Array_access_get i :: al)
@@ -1048,13 +1048,13 @@ let build_nested_accesses (base : trm) (access_list : trm_access list) : trm =
   List.fold_left (fun acc access ->
     match access with
     | Struct_access_addr f ->
-      trm_apps (trm_unop (Unop_struct_field_addr f)) [acc]
+      trm_apps (trm_unop (Unop_struct_access f)) [acc]
     | Struct_access_get f ->
-      trm_apps (trm_unop (Unop_struct_field_get f)) [acc]
+      trm_apps (trm_unop (Unop_struct_get f)) [acc]
     | Array_access_addr i ->
-      trm_apps (trm_binop (Binop_array_cell_addr)) [acc;i]
+      trm_apps (trm_binop (Binop_array_access)) [acc;i]
     | Array_access_get i ->
-      trm_apps (trm_binop (Binop_array_cell_get)) [acc;i]
+      trm_apps (trm_binop (Binop_array_get)) [acc;i]
   ) base access_list
 
 (* [loop_step_to_trm l_step] return the loop step as trm *)
@@ -2015,8 +2015,8 @@ let is_arith_fun (p : prim) : bool =
 let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
   match op1, op2 with
   | Binop_set, Binop_set -> true
-  | Binop_array_cell_addr, Binop_array_cell_addr -> true
-  | Binop_array_cell_get, Binop_array_cell_get -> true
+  | Binop_array_access, Binop_array_access -> true
+  | Binop_array_get, Binop_array_get -> true
   | Binop_eq, Binop_eq -> true
   | Binop_neq, Binop_neq -> true
   | Binop_sub, Binop_sub -> true
@@ -2040,7 +2040,7 @@ let is_same_binop (op1 : binary_op) (op2 : binary_op) : bool =
 
 (* [trm_access base field] create a dummy access without type checking*)
 let trm_access (base : trm) (field : var) : trm =
-  trm_apps (trm_unop (Unop_struct_field_addr field)) [base]
+  trm_apps (trm_unop (Unop_struct_access field)) [base]
 
 (* [trm_get t] generates a get operation in [t] *)
 let trm_get ?(annot : trm_annot list = []) (t : trm) : trm =
