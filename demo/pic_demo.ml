@@ -112,16 +112,16 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      [tBefore; cVarDef "nbSteps"];
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation after simplifier *)
-  !! Variable.inline [cVarDef "accel"];
-  (**) !! Trace.reparse();
+  !! Trace.reparse(); (* required to get the type right for simpl_proj to work *)
+    (* TODO: why are the types not there? it should be sufficient for the trm_struct to have the right type; and this type should be known because it was available in the variable definition that we inlined just before *)
+  !! Variable.inline ~delete:true [cVarDef "accel"]; (* TODO: remove the delete true, which should be automatic *)
   !! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
   (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-  !! Trace.reparse();
-  !! Arith.(simpl expand) [nbMulti;cFieldWrite ~regexp:true ~field:"\\(speed\\|pos\\)." (); dRHS];
+  !! Arith.(simpl expand) [nbMulti; cFieldWrite ~regexp:true ~field:"\\(speed\\|pos\\)." (); dRHS];
 
   (* Part: grid_enumeration *)
   !^ Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];

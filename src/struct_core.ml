@@ -573,6 +573,7 @@ let simpl_proj_aux (t : trm) : trm =
     | _ -> trm_map aux t
    in aux t
 
+(* LATER: perhaps we want to expose a nonrecursive version of the function simpl_proj *)
 
 let simpl_proj : Target.Transfo.local =
   Target.apply_on_path (simpl_proj_aux)
