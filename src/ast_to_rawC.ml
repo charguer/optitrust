@@ -192,8 +192,9 @@ and attr_to_doc (a : attribute) : document =
   | Aligned t -> underscore ^^ string "Alignas" ^^ parens (decorate_trm t)
   | GeneratedStar -> blank 1
 
-and decorate_trm ?(semicolon : bool = false) (t : trm) : document =
+and decorate_trm ?(semicolon : bool = false) ?(parentheses : bool = false) (t : trm) : document =
   let dt = trm_to_doc ~semicolon t in
+  let dt = if parentheses then parens (dt) else dt in     
     if t.marks = []
       then dt
       else
@@ -224,7 +225,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
        let tl = Mlist.to_list tl in
        let dl = List.map (decorate_trm ~semicolon) tl in
        dattr ^^ braces (separate (comma ^^ blank 1) dl)
-    | Trm_let (vk,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon vk tx t
+    | Trm_let (_,tx,t) -> dattr ^^ trm_let_to_doc ~semicolon tx t
     | Trm_let_fun (f, r, tvl, b) -> dattr ^^ trm_let_fun_to_doc ~semicolon f r tvl b
     | Trm_typedef t -> dattr ^^ typedef_to_doc ~semicolon t
     | Trm_if (b, then_, else_) ->
@@ -348,8 +349,8 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
         end
      | Trm_namespace (name, t1, inline) ->
       let inline = if inline then string "inline" else empty in
-      let dt = decorate_trm t1 in
-      dattr ^^ string "namespace " ^^ string name ^^ blank 1 ^^ inline ^^ blank 1 ^^ dt
+      let dt = decorate_trm ~semicolon:true t1 in
+      dattr ^^ inline ^^ string "namespace" ^^ blank 1 ^^ string name ^^  blank 1 ^^ dt
      | Trm_let_record (name, rt, tl, t1) ->
       let dname = if name = "" then empty else blank 1 ^^ string name in
       let drt = record_type_to_doc rt in
@@ -383,7 +384,16 @@ and record_type_to_doc (rt : record_type) : document =
   | Class -> string "class"
 
 
-and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
+and trm_let_to_doc ?(semicolon : bool = true) (tv : typed_var) (init : trm) : document = 
+  let dsemi = if semicolon then semi else empty in
+  let dtx = typed_var_to_doc tv in
+  let dinit = begin match init.desc with 
+  | Trm_val (Val_lit Lit_uninitialized) -> dsemi
+  | _ -> equals ^^ blank 1 ^^ decorate_trm init ^^ dsemi
+  end in
+    dtx ^^ blank 1 ^^ dinit
+
+(* and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_var) (init : trm) : document =
   let dsemi = if semicolon then semi else empty in
   match varkind with
   | Var_immutable ->
@@ -406,7 +416,7 @@ and trm_let_to_doc ?(semicolon : bool = true) (varkind : varkind) (tv : typed_va
            | _-> init, true
            end in
     let initialisation = blank 1 ^^ (if is_initialized then equals else empty) ^^ blank 1 ^^ decorate_trm d_init ^^ dsemi in
-    dtx ^^ initialisation
+    dtx ^^ initialisation *)
 
 and trm_let_fun_to_doc ?(semicolon : bool = true) (f : var) (r : typ) (tvl : typed_vars) (b : trm) : document =
   let dsemi = if semicolon then semi else empty in
@@ -538,11 +548,17 @@ and apps_to_doc (f : trm) (tl : trms) : document =
               | Unop_post_dec -> d ^^ twice minus
               | Unop_pre_inc -> twice plus ^^ d
               | Unop_pre_dec -> twice minus ^^ d
-              | (Unop_struct_get f | Unop_struct_access f) ->
-                 if List.mem Display_arrow t.annot then 
-                  d ^^ minus ^^ rangle ^^ string f
+              | (Unop_struct_get f1 | Unop_struct_access f1) ->
+                 if List.mem Display_arrow f.annot 
+                  then 
+                    let t1 = get_operation_arg t in 
+                    let d = decorate_trm t1 in
+                    d ^^ minus ^^ rangle ^^ string f1
                   else 
-                    d ^^ dot ^^ string f
+                    let parentheses = is_star_operation t in 
+                    (* Tools.printf "%b\n" parentheses; *)
+                    let d = decorate_trm ~parentheses t in
+                    d ^^ dot ^^ string f1
               | Unop_cast ty ->
                  let dty = typ_to_doc ty in
                  parens dty ^^ blank 1 ^^ d
