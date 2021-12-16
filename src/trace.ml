@@ -655,8 +655,10 @@ let dump_diff_and_exit () : unit =
    [check_exit_and_step] triggers a call to [dump_diff_and_exit].
    If the optional argument [~reparse:true] is passed to the function,
    then the [reparse] function is called, replacing the current AST with
-   a freshly parsed and typechecked version of it. *)
-let check_exit_and_step ?(line : int = -1) ?(is_small_step  : bool = false)  ?(reparse : bool = false) () : unit =
+   a freshly parsed and typechecked version of it.
+   The [~is_small_step] flag indicates whether the current step is small
+   and should be ignored when visualizing big steps only. *)
+let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(reparse : bool = false) () : unit =
   if !Flags.documentation_save_file_at_first_check <> "" then begin
     let trace =
       match !traces with
@@ -666,7 +668,7 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step  : bool = false)  ?(r
     let ctx = trace.context in
     output_prog ctx !Flags.documentation_save_file_at_first_check (trace.cur_ast)
   end else
-  let ignore_step = is_small_step && !Flags.ignore_small_steps in
+  let ignore_step = is_small_step && !Flags.only_big_steps in
   if not ignore_step then begin
     report_time_of_last_step();
     let should_exit =
@@ -700,9 +702,6 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step  : bool = false)  ?(r
     step();
  end
 
-
-
-(* TODO: Update docs *)
 (* [!!] is a prefix notation for the operation [check_exit_and_step].
    By default, it performs only [step]. The preprocessor of the OCaml script file
    can add the [line] argument to the call to [check_exit_and_step], in order
@@ -715,21 +714,26 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step  : bool = false)  ?(r
    Use [!!();] for a step in front of another language construct, e.g., a let-binding. *)
 
 let (!!) (x:'a) : 'a =
-  check_exit_and_step ~is_small_step:true ();
+  check_exit_and_step ~is_small_step:true ~reparse:false ();
   x
 
-(* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
+(* [!!!] is similar to [!!] but indicates the start of a big step in the transformation script. *)
 let (!!!) (x:'a) : 'a =
-  check_exit_and_step ~is_small_step:false ();
+  check_exit_and_step ~is_small_step:false ~reparse:false ();
   x
+
+(* [!!^] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
 
 let (!!^) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:true ~reparse:true ();
   x
 
+(* [!!!^] is similar to [!!!] but forces a [reparse] prior to the [step] operation. *)
+(* DOES NOT SEEM NEEDED
 let (!!!^) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:true ();
   x
+*)
 
 (* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.
    If there are several traces (e.g., due to a [switch]), it writes one file for each.

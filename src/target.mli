@@ -212,9 +212,9 @@ val cPrimFunArith : ?args:targets -> ?args_pred:target_list_pred -> unit -> cons
 
 val cPrimNew : ?arg:target -> unit -> constr
 
-val cInit : ?arg:target -> unit -> constr 
+val cInit : ?arg:target -> unit -> constr
 
-val dInit : constr 
+val dInit : constr
 
 val cMark : mark -> constr
 
@@ -373,7 +373,9 @@ val (!!!) : 'a -> 'a
 
 val (!!^) : 'a -> 'a
 
+(* DOES NOT SEEM NEEDED
 val (!!!^) : 'a -> 'a
+*)
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 

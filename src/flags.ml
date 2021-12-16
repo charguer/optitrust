@@ -25,12 +25,13 @@ let get_exit_line () : int option =
     else Some !exit_line
 
 (* ignore small steps to apply multiple transformations at one time *)
-let ignore_small_steps : bool ref = ref true
+let only_big_steps : bool ref = ref false
 
 let spec =
   Arg.align [
      ("-verbose", Arg.Set verbose, " activates debug printing");
-     ("-exit-line", Arg.Set_int exit_line, " specify the line after which a '!!' symbol should trigger an exit");
+     ("-exit-line", Arg.Set_int exit_line, " specify the line after which a '!!' or '!!!' symbol should trigger an exit");
+     ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines");
      ("-dump-trace", Arg.Set dump_all, " produce a JS file with all the steps performed by the transformation script");
      ("-dump-last", Arg.Set_int dump_last, " dump outputs the number of desired last steps; only for interactive mode");
      ("-dump-ast-details", Arg.Set dump_ast_details, " produce a .ast and a _enc.cpp file with details of the ast");

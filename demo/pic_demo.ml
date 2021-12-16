@@ -31,7 +31,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   *)
 
 
-  !!! ();
+  (* !!^ (); *)
+  Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();
 
   (* Part 0: Labelling the main loop*)
   !! Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
@@ -70,7 +71,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fold_instrs ~index:"k" [ctx];
 
   (* Part: reveal fields *)
-  !!! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; (* !!!(); *)
+  !!^ Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]]; (* !!^(); *)
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
   !! Variable.inline ~delete:true [main; cVarDef "p2"];
@@ -104,13 +105,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation after simplifier *)
   !! Variable_basic.inline [cVarDef "accel"];
-  !!! Variable_basic.inline [nbMulti; cVarDef ~regexp:true "factor?."];
+  !!^ Variable_basic.inline [nbMulti; cVarDef ~regexp:true "factor?."];
   (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-  !!! ();
+  !!^ ();
 
 
   (* Part: simplify expressions *)
@@ -138,7 +139,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
     Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
   !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
   !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
-  !!! ();
+  !!^ ();
 
   (* Part: introduce matrix operations, and mark a key loop *)
   !! Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];

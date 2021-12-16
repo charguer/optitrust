@@ -216,6 +216,11 @@ In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
     "args": "View diff",
   },
   {
+    "key": "alt+f6",
+    "command": "workbench.action.tasks.runTask",
+    "args": "View big step diff",
+  },
+  {
     "key":"shift+f6",
     "command": "workbench.action.tasks.runTask",
     "args": "Recompile and view diff",
