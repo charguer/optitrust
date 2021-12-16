@@ -30,7 +30,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   *)
 
-
   (* !! Trace.reparse(); *)
 
   (* Part 0: Labelling the main loop*)
@@ -46,9 +45,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Flow.insert_if [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
-  !! Trace.reparse();
-    (* LATER: try to not inline the bag_push operations, but to modify the code inside those functions *)
+  (* DEPRECATED !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]]; *)
 
   (* Part: optimization of vect_matrix_mul *)
   !^ let ctx = cTopFunDef "vect_matrix_mul" in
@@ -59,7 +56,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"];
   !! Function.inline [cFun "vect_matrix_mul"]; (* LATER: check if it is needed *)
-
 
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !^ let ctxf = cTopFunDef "cornerInterpolationCoeff" in
@@ -75,12 +71,17 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Trace.reparse();
 
   (* Part: reveal fields *)
+  !^ let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
+     Struct.set_explicit [nbMulti; ctx; cWrite ~typ:"particle" ()];
+  !! Struct.set_explicit [nbMulti; ctx; cWrite ~typ:"vect" ()];
+
+  (* Part: optimize vector computations *)
   !^ Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"particle" ()];
-  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
-  !! Variable.inline ~delete:true [main; cVarDef "p2"];
-  !! Variable.inline ~delete:true [main; cVarDef "p"];
+     Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
+
+  (* Part: eliminate variables *)
+  !^ Variable.inline ~delete:true [main; cVarDef "p2"];
+     Variable.inline ~delete:true [main; cVarDef "p"];
   !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
