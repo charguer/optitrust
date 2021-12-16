@@ -41,7 +41,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
 
   (* Part: Introducing an if-statement for slow particles *)
-  !!! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
+  !^ Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
       (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
   !! Flow.insert_if [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];

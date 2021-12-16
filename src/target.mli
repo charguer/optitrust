@@ -368,14 +368,10 @@ val string_to_rexp : bool -> bool -> string -> Constr.trm_kind -> Constr.rexp
 (* Shorthand *)
 
 val (!!) : 'a -> 'a
-
+val (!^) : 'a -> 'a
 val (!!!) : 'a -> 'a
-
 val (!!^) : 'a -> 'a
 
-(* DOES NOT SEEM NEEDED
-val (!!!^) : 'a -> 'a
-*)
 
 val reparse_after : ?reparse:bool -> Transfo.t -> Transfo.t
 

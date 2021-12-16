@@ -159,7 +159,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
         let res_inlining_needed = ref false in
         let mark_added = ref false in
         begin match tg_out_trm.desc with
-        | Trm_let (_, (x, _), init) ->
+        | Trm_let (_, (x, _), _init) ->
             (* DEPRECATED let init1 = match get_init_val init with
               | Some init1 -> init1
               | None -> fail t.loc "inline: coudl not get the target to the function call"

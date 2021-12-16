@@ -717,23 +717,23 @@ let (!!) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:true ~reparse:false ();
   x
 
-(* [!!!] is similar to [!!] but indicates the start of a big step in the transformation script. *)
-let (!!!) (x:'a) : 'a =
+(* [!^] is similar to [!!] but indicates the start of a big step in the transformation script. *)
+let (!^) (x:'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:false ();
   x
 
-(* [!!^] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
+(* [!!!] is similar to [!!] but forces a [reparse] prior to the [step] operation. *)
 
-let (!!^) (x : 'a) : 'a =
+let (!!!) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:true ~reparse:true ();
   x
 
-(* [!!!^] is similar to [!!!] but forces a [reparse] prior to the [step] operation. *)
-(* DOES NOT SEEM NEEDED
-let (!!!^) (x : 'a) : 'a =
+(* [!!^] is forces reparse before a big step. *)
+
+let (!!^) (x : 'a) : 'a =
   check_exit_and_step ~is_small_step:false ~reparse:true ();
   x
-*)
+
 
 (* [dump ~prefix] invokes [output_prog] to write the contents of the current AST.
    If there are several traces (e.g., due to a [switch]), it writes one file for each.
