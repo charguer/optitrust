@@ -80,8 +80,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
      Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
   (* Part: eliminate variables *)
-  !^ Variable.inline ~delete:true [main; cVarDef "p2"];
-     Variable.inline ~delete:true [main; cVarDef "p"];
+  !^ Variable.inline ~delete:true [main; cVarDef "p"]; (* TODO: why is inline not doing delete true? the fact that it is not const should not matter since we convert it to a const *)
   !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: optimization of accumulateChargeAtCorners *)
@@ -94,12 +93,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-  !^ Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; (* The issue is coming from function inline *)
-      Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
+  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; (* The issue is coming from function inline *)
+  !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
-  !^ Struct.inline "speed" [cTypDef "particle"];
-      Struct.inline "pos" [cTypDef "particle"];
+  !^ Struct.set_explicit [main; cVarDef "p2"];
+  !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
+  !! Struct.inline "speed" [cTypDef "particle"];
+  !! Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: scaling of field, speeds and positions *)
   !^ Variable.insert_list ~reparse:true ~defs:(

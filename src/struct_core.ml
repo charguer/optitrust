@@ -209,6 +209,7 @@ let inline_struct_accesses  (x : var) (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t
 in
 aux t t
+
 (* [inline_struct_initialization struct_name field_list field_index t]: change all struct in struct initializations
     params:
       [struct_name]: the type of the struct which is being inlined
