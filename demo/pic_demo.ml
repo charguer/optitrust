@@ -93,7 +93,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; (* The issue is coming from function inline *)
+  (* TODO: using the printing system with priorities, the parentheses could be avoided, to print t.v[k] instead of (t.v)[k]; this will allow removing the cOr below *)
+  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; sInstr "deltaChargeOnCorners.v[k] ="; cOr [[sExpr "coeffs2.v[k]"]; [sExpr "(coeffs2.v)[k]"]] ];
   !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
   (* Part: AOS-SOA *)
@@ -103,6 +104,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: scaling of field, speeds and positions *)
+  !! Trace.reparse();
   !^ Variable.insert_list ~reparse:true ~defs:(
          ["const double", "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), ("factor / cell" ^ d))))
@@ -110,7 +112,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation after simplifier *)
   !! Variable.inline [cVarDef "accel"];
-  (* !! Trace.reparse(); *)
+  (**) !! Trace.reparse();
   !! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
   (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
   !! iter_dims (fun d ->
