@@ -241,7 +241,7 @@ let cHasType (typ : string) : constr =
 let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default)  (tg : target) : target =
   if typ = "" && typ_pred == typ_constraint_default
     then tg
-    else [cAnd [tg; [Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
+    else [cAnd [tg; [cStrictNew; Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
 
 let cArgPred ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (pred : string -> bool) : constr =
   Constr_arg (pred, make_typ_constraint ~typ ~typ_pred ())

@@ -230,14 +230,26 @@ In a given folder, you can create `optitrust_flags.sh` with custom flags, e.g.:
     "command": "workbench.action.tasks.runTask",
     "args": "View diff for ast encoding",
   },
+
   {
     "key": "f7",
     "command": "workbench.action.tasks.runTask",
     "args": "Execute from intermediate state",
   },
   {
+    "key": "alt+f7",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Execute a big step from intermediate state",
+  },
+  {
     "key": "shift+f7",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Recompile and execute from intermediate state",
+  },
+  {
+    "key": "ctrl+f7",
     "command": "workbench.action.tasks.runTask",
     "args": "Save intermediate state",
   },
+
 ```

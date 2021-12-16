@@ -36,6 +36,11 @@ if [ "${VIEW}" = "view_diff" ]; then
 
   SOURCEBASE="${FILEBASE}_fast"
 
+  if [ ! -f "${FILEBASE}_inter.ml" ]; then
+    echo "Error: intermediate state ${FILEBASE}_inter.ml does not exist. Try saving a state first."  >> /dev/stderr
+    exit 1
+  fi
+
   # Compute the number of lines in the intermediate script
   LINE_INTER=`wc -l ${FILEBASE}_inter.ml | awk '{ print $1 }'`
 
@@ -94,12 +99,7 @@ fi
 #----------------------------------------------------
 # Instrument line numbers in the transformation program
 
-# From "${SOURCEBASE}.ml", create ""{SOURCEBASE}_with_lines.ml" by inserting
-# [~lines:__LINE__]   in the relevant places, and interpreting '!!' and '!!!'
-
-sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' "${SOURCEBASE}.ml" > "${SOURCEBASE}_with_lines.ml"
-# DEBUG: cat "${SOURCEBASE}_with_lines.ml"; exit 0
-
+${VSCODE}/add_lines.sh ${SOURCEBASE}.ml ${SOURCEBASE}_with_lines.ml
 
 #----------------------------------------------------
 # Compile the transformation program

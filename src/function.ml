@@ -45,10 +45,10 @@ let bind_args (fresh_names : vars) : Target.Transfo.t =
     that shoudl be assigned to all the declared variables.
 *)
 let elim_body ?(vars : rename = AddSuffix "") (tg : Target.target) : unit =
-  Target.iter_on_targets ( fun t p -> 
+  Target.iter_on_targets ( fun t p ->
     let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with 
-    | Trm_seq _ -> 
+    match tg_trm.desc with
+    | Trm_seq _ ->
       Variable.renames vars (Target.target_of_path p);
       Sequence_basic.elim (Target.target_of_path p)
     | _ -> fail tg_trm.loc "elim_body: the targetd should be pointing to a sequence"
@@ -146,35 +146,45 @@ int f2() { // result of Funciton_basic.inline_cal
 // where p is the path to the englobing sequence.
 *)
 
-let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit = 
+let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args : vars = []) (tg : Target.target) : unit =
     Target.iteri_on_transformed_targets (Internal.get_instruction_in_surrounding_sequence)
-      (fun i t (path_to_seq, local_path, i1) -> 
-        let _vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in 
+      (fun i t (path_to_seq, local_path, i1) ->
+        let vars = Variable.map (fun x -> Tools.string_subst "${occ}" (string_of_int i) x) vars in (* TODO: this does not seem to work *)
         let name_result = ref name_result in
         let path_to_instruction = path_to_seq @ [Dir_seq_nth i1] in
         let path_to_call = path_to_instruction @ local_path in
-        let tg_trm = Path.resolve_path (path_to_instruction @ local_path) t in
+        (* DEPRECATED let tg_trm = Path.resolve_path (path_to_instruction @ local_path) t in *)
         let tg_out_trm = Path.resolve_path path_to_instruction t in
         let my_mark = "__inline" ^ "_" ^ (string_of_int i) in
         let res_inlining_needed = ref false in
         let mark_added = ref false in
         begin match tg_out_trm.desc with
         | Trm_let (_, (x, _), init) ->
-          let init1 = match get_init_val init with
-          | Some init1 -> init1
-          | None -> fail t.loc "inline: coudl not get the target to the function call" in
-          if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case"
-            
+            (* DEPRECATED let init1 = match get_init_val init with
+              | Some init1 -> init1
+              | None -> fail t.loc "inline: coudl not get the target to the function call"
+              in
+            if !name_result <> "" && (Internal.same_trm init1 tg_trm) then fail tg_trm.loc "inline: no need to enter the result name in this case" *)
+            (* TODO: perhaps use something like this to disable inlining when structs are involved?
+            let init_is_initializer_list =
+              match init.desc with
+              | Trm_struct _ | Trm_array _ -> true
+              | _ -> false
+              in
+            *)
+            if !name_result <> "" then
+              res_inlining_needed := false
             else if List.length local_path <= 2 && List.length local_path > 0 then
               begin
               name_result := x;
               res_inlining_needed := false
               end
-            else
+            else (* TODO: should factorize better the code below; start the code with [if !name_result = ""] *)
                 begin match !name_result with
                 | ""  ->  name_result := "__TEMP_Optitrust";
                           Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
                           res_inlining_needed := true;
+                          (* TODO: maybe handle initializers like this?  res_inlining_needed := not init_is_initializer_list; *)
                           mark_added := true
 
                 | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
@@ -183,7 +193,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
                 end
         | Trm_apps (_f, [_; _]) when is_set_operation tg_out_trm ->
             begin match !name_result with
-            | ""  ->  
+            | ""  ->
                       name_result := "__TEMP_Optitrust";
                       Function_basic.bind_intro ~my_mark ~fresh_name:!name_result ~const:false (Target.target_of_path path_to_call);
                       res_inlining_needed := true;
@@ -191,7 +201,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
             | _ -> Function_basic.bind_intro ~my_mark ~fresh_name:!name_result (Target.target_of_path path_to_call);
                res_inlining_needed := false;
                mark_added := true
-           end 
+           end
         | Trm_apps _ -> res_inlining_needed := false
         | _ -> fail None "inline: expected a variable declaration or a function call"
         end;
@@ -202,18 +212,18 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
         Function_basic.inline ~body_mark [new_target];
         Accesses_basic.intro [Target.cMark body_mark];
         elim_body ~vars [Target.cMark body_mark];
-        if !name_result <> "" then begin 
-            let success_attach = ref true in 
+        if !name_result <> "" then begin
+            let success_attach = ref true in
             let _ = try Variable_basic.init_attach [new_target] with
                 | Variable_core.Init_attach_no_occurrences
                 | Variable_core.Init_attach_occurrence_below_control -> success_attach := false; ()
-                | e -> raise e in 
+                | e -> raise e in
              if !res_inlining_needed then Variable.inline ~delete:true [new_target];
             if !success_attach then Variable.inline_and_rename [Target.nbAny; Target.cVarDef !name_result];
             Marks.remove my_mark [Target.nbAny; new_target]
           end;
           Struct_basic.simpl_proj (Target.target_of_path path_to_seq)
-      
+
       ) tg
 (*
 
@@ -229,7 +239,7 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
 
 
         same result as if you ave
-> Executing task: ./run_action.sh ./view_result.sh 
+> Executing task: ./run_action.sh ./view_result.sh
           f(3)
 
         trm_app ~base:[trm_let_fun ~name:"f"]
@@ -245,61 +255,61 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
 
 *)
 
-(* [beta ~tg] if the target [tg] is given then this transformation expects this target to be pointing to a function call 
+(* [beta ~tg] if the target [tg] is given then this transformation expects this target to be pointing to a function call
     if not, then this transformation will try to target all the beta function declarations and reduce them
 *)
-let beta ?(tg : Target.target = []) ?(body_mark : mark = "") (): unit = 
+let beta ?(tg : Target.target = []) ?(body_mark : mark = "") (): unit =
   let tg = match tg with | [] -> [Target.cFun ~fun_:[Target.cFunDef ""] ""] | _ -> tg in
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
-    match tg_trm.desc with 
-    | Trm_apps _ -> 
+    match tg_trm.desc with
+    | Trm_apps _ ->
       Function_basic.beta ~body_mark tg
-    | Trm_let_fun (_f, _, _, _) -> 
+    | Trm_let_fun (_f, _, _, _) ->
       let parent_path, _ = Tools.unlast p in
       let parent_node = Path.resolve_path parent_path t in
-      begin match parent_node.desc with 
+      begin match parent_node.desc with
       | Trm_apps (_, _args) -> Function_basic.beta ~body_mark (Target.target_of_path parent_path)
       | _ -> ()
       end
     | _ -> fail t.loc "beta: this transformation expects a target to a function call"
 
   ) tg
-  
+
 (* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transforms them
     into x += a
  *)
-let use_infix_ops ?(allow_identity : bool = true) (tg : Target.target) : unit = 
+let use_infix_ops ?(allow_identity : bool = true) (tg : Target.target) : unit =
   let tg_infix_ops = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] in
-  Target.iter_on_targets (fun t p -> 
-    if p = [] then 
+  Target.iter_on_targets (fun t p ->
+    if p = [] then
       Function_basic.use_infix_ops_at ~allow_identity ((Target.target_of_path p) @ tg_infix_ops)
-      else 
-        let tg_trm = Path.resolve_path p t in 
+      else
+        let tg_trm = Path.resolve_path p t in
         let path_to_seq = if is_trm_seq tg_trm then p else fst (Internal.isolate_last_dir_in_seq p) in
-        let tg_seq = Target.target_of_path path_to_seq in 
+        let tg_seq = Target.target_of_path path_to_seq in
         Function_basic.use_infix_ops_at ~allow_identity (tg_seq @ tg_infix_ops)
   ) tg
 
-(* [uninline ~fxt tg] expects the target [tg] to be pointing at an instruction that is similar to the first instruction 
+(* [uninline ~fxt tg] expects the target [tg] to be pointing at an instruction that is similar to the first instruction
     of the body of the function declared in [fct]. Let nb be the number of instruction on the body of [fct]. The transformation
     will put the targeted instruction together with the following (nb -1) instructions into a sequence marked with a mark.
-    Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that 
+    Now the stage is ready for applying the basic version of uninline. After calling that transformation and assuming that
     everything went fine we can now eliminate the introduced sequence.
 *)
 let uninline ~fct:(fct : Target.target) : Target.Transfo.t =
-  let tg_fun_def = Target.get_trm_at fct in 
-  Target.iter_on_targets (fun _ p -> 
+  let tg_fun_def = Target.get_trm_at fct in
+  Target.iter_on_targets (fun _ p ->
     let mark = Mark.next () in
-    match tg_fun_def.desc with 
+    match tg_fun_def.desc with
     | Trm_let_fun (_, _, _, body) ->
-      begin match body.desc with 
-      | Trm_seq tl -> 
-        let nb = Mlist.length tl in 
+      begin match body.desc with
+      | Trm_seq tl ->
+        let nb = Mlist.length tl in
         Sequence_basic.intro nb ~mark (Target.target_of_path p);
         Function_basic.uninline ~fct [Target.cMark mark]
       | _ -> fail tg_fun_def.loc "uninline: weird function declaration "
-      end 
+      end
     | _ -> fail tg_fun_def.loc "uinline: fct arg should point to a a function declaration"
-  
+
 )

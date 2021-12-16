@@ -16,9 +16,9 @@ let fold ?(deref : bool = false) ?(at : target = []) : Target.Transfo.t =
 
 (* [unfold ~mark ~accept_functions ~at tg] expects the target [tg] to be pointing at an initialized
      variable declaration, then it will  find all the occurrences of that variable and replace them with its
-     initial value. The argument [accept_functions] is a flag to decide if we want to inline functions in the 
-     beta way. Ex Suppose we have 
-     void f(int x) { ... } 
+     initial value. The argument [accept_functions] is a flag to decide if we want to inline functions in the
+     beta way. Ex Suppose we have
+     void f(int x) { ... }
      int main () {
        f(3);
        ....

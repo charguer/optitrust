@@ -4,7 +4,7 @@ val script : (unit -> unit) -> unit
 
 val script_cpp : ?filename:string -> ?inline:(string list) -> ?check_exit_at_end:bool -> ?prefix:string -> (unit -> unit) -> unit
 
-val doc_script_cpp : ?filename:string -> (unit -> unit) -> string -> unit
+val doc_script_cpp : ?filename:string -> ?prefix:string -> (unit -> unit) -> string -> unit
 
 (** Debugging *)
 
