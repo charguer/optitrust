@@ -32,18 +32,18 @@ let intro ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int 
                 end
          end
 
-  
-(* [intro_targets tg] expects the target [tg] to be pointing at one or more consecutive instuctions 
+
+(* [intro_targets tg] expects the target [tg] to be pointing at one or more consecutive instuctions
       then it will introduce a sequence that contains those instructions.
 *)
-let intro_targets ?(mark : string = "")(tg : Target.target) : unit = 
+let intro_targets ?(mark : string = "")(tg : Target.target) : unit =
   let nb_targets = ref 0 in
   let prev_index = ref (-1) in
   let first_target = [Target.occFirst] @ (Target.filter_constr_occurrence tg) in
   let surrounding_seq = ref [] in
   let tg = Target.enable_multi_targets tg in
   Target.iteri_on_targets (
-    fun i t p -> 
+    fun i t p ->
       let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
       if i = 0 then surrounding_seq := path_to_seq
         else if !surrounding_seq <> path_to_seq then fail t.loc "intro_targets: all the targeted instructions should belong to the same scope and be consecutive one";
@@ -53,6 +53,14 @@ let intro_targets ?(mark : string = "")(tg : Target.target) : unit =
   if !nb_targets < 1 then fail None "fold_instrs: expected at least 1 instruction";
   Sequence_basic.intro ~mark !nb_targets first_target
 
+
+(* [apply ~start ~stop ~nb f] invokes [f mark] where the [mark] is attached to a temporary sequence created
+   by [Sequence.intro ~start ~stop ~nb]. This sequence is eliminated immediately afterwards. *)
+let apply ?(start : Target.target = []) ?(stop : Target.target = []) ?(nb : int = 0) (f : mark -> unit) : unit =
+  let mark = Mark.next () in
+  intro ~mark ~start ~stop ~nb ();
+  f mark;
+  elim [Target.cMark mark]
 
 
 

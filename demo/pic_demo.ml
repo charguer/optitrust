@@ -106,13 +106,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.inline "pos" [cTypDef "particle"];
 
   (* Part: scaling of field, speeds and positions *)
-  !^ Variable.insert_list ~reparse:true ~defs:(
+  !^ Instr.move ~dest:[tBefore; main] [nbMulti; cFunDef ~regexp:true "bag_push_.*"]; (* required for scaling *)
+  !! Variable.insert_list ~reparse:true ~defs:(
          ["const double", "factor", "particleCharge * stepDuration * stepDuration / particleMass"]
        @ (map_dims (fun d -> "const double", ("factor" ^ d), ("factor / cell" ^ d))))
      [tBefore; cVarDef "nbSteps"];
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation after simplifier *)
-  !! Trace.reparse(); (* required to get the type right for simpl_proj to work *)
+  !! Trace.reparse(); (* required to get the types right, for simpl_proj to work *)
     (* TODO: why are the types not there? it should be sufficient for the trm_struct to have the right type; and this type should be known because it was available in the variable definition that we inlined just before *)
   !! Variable.inline ~delete:true [cVarDef "accel"]; (* TODO: remove the delete true, which should be automatic *)
   !! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
@@ -121,7 +122,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        Accesses.scale ~factor:(expr ("stepDuration / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("speed" ^ d) ()]);
   !! iter_dims (fun d ->
        Accesses.scale ~factor:(expr ("1. / cell" ^ d)) [nbMulti; cFieldReadOrWrite ~field:("pos" ^ d) ()]);
-  !! Arith.(simpl expand) [nbMulti; cFieldWrite ~regexp:true ~field:"\\(speed\\|pos\\)." (); dRHS];
+  !! Trace.reparse(); (* required for the terms to be visible to the simplifier *)
+  !! Sequence.apply ~start:[tAfter; main; cWrite ~lhs:[cVar "fieldAtPosZ"]()] ~stop:[tAfter; main; cVarDef "coeffs2"] (fun m ->
+       Arith.(simpl expand) [nbMulti; main; cMark m; cWrite(); dRHS; cStrictNew; Arith.constr];
+       Function.use_infix_ops [cMark m]);
+    (* TODO: simplify and move this example into a unit test for Sequence.Apply
+      Sequence.intro ~mark:"simplify" ~start:[tAfter; main; cWrite ~lhs:[cVar "fieldAtPosZ"]()] ~stop:[tAfter; main; cVarDef "coeffs2"] ();
+      Arith.(simpl expand) [nbMulti; cMark "simplify"; cWrite(); dRHS; cStrictNew; Arith.constr];
+      Sequence.elim [cMark "simplify"]; *)
 
   (* Part: grid_enumeration *)
   !^ Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];

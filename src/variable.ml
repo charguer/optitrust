@@ -290,7 +290,7 @@ let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(de
     let tg_trm = Path.resolve_path p t in
     let mark = Mark.next () in
     match tg_trm.desc with
-    | Trm_let (vk, (x, tx), _init) ->
+    | Trm_let (vk, (x, _tx), _init) ->
 
       (* LATER: this test is incorrect; we need to check if the body is a trm_struct or trm_array, not if it has struct type ;
         for the moment, let's use the mark all the time
