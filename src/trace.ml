@@ -1,4 +1,10 @@
 open Ast
+
+
+(* Store the last line at which a step was declared *)
+let line_of_last_step = ref (-1)
+
+
 (******************************************************************************)
 (*                             Logging management                             *)
 (******************************************************************************)
@@ -568,7 +574,12 @@ let dump_trace_to_js ?(prefix : string = "") () : unit =
 (******************************************************************************)
 
 (* [reparse_trm ctx ast] print [ast] in a temporary file and reparses it using Clang. *)
-let reparse_trm (ctx : context) (ast : trm) : trm =
+let reparse_trm ?(info : string = "") (ctx : context) (ast : trm) : trm =
+  if !Flags.debug_reparse then begin
+    let info = if info <> "" then info else "of a term during the step starting at" in
+    Printf.printf "Reparse: %s line %d.\n" info !line_of_last_step;
+    flush stdout
+  end;
   let in_prefix = ctx.directory ^ "tmp_" ^ ctx.prefix in
   output_prog ~beautify:false ctx in_prefix ast;
   let (_, t) = parse (in_prefix ^ ctx.extension) in
@@ -578,9 +589,10 @@ let reparse_trm (ctx : context) (ast : trm) : trm =
 (* [reparse()] function takes the current AST, prints it to a file, and parses it
    as if it was a fresh input. Doing so ensures in particular that all the type
    information is properly set up. *)
-let reparse () : unit =
+let reparse ?(info : string = "") () : unit =
  List.iter (fun trace ->
-    trace.cur_ast <- reparse_trm trace.context trace.cur_ast)
+    let info = if info <> "" then info else "the code during the step starting at" in
+    trace.cur_ast <- reparse_trm ~info trace.context trace.cur_ast)
     !traces
 
 (* Work-around for a name clash *)
@@ -659,6 +671,9 @@ let dump_diff_and_exit () : unit =
    The [~is_small_step] flag indicates whether the current step is small
    and should be ignored when visualizing big steps only. *)
 let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(reparse : bool = false) () : unit =
+  (* Update the line of the last step entered *)
+  line_of_last_step := line;
+  (* Special hack for minimizing diff in documentation *)
   if !Flags.documentation_save_file_at_first_check <> "" then begin
     let trace =
       match !traces with
@@ -667,40 +682,45 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
       in
     let ctx = trace.context in
     output_prog ctx !Flags.documentation_save_file_at_first_check (trace.cur_ast)
-  end else
-  let ignore_step = is_small_step && !Flags.only_big_steps in
-  if not ignore_step then begin
-    report_time_of_last_step();
-    let should_exit =
-      match Flags.get_exit_line() with
-      | Some li -> (line > li)
-      | _ -> false
-      in
-    if should_exit then begin
-      if !Flags.analyse_time then begin
-         write_timing_log (Printf.sprintf "------------------------\n");
-      end;
-      dump_diff_and_exit();
-    end else begin
-
-      if reparse then begin
-        reparse_alias();
-        if !Flags.analyse_time then
-          let duration_of_reparse = last_time_update () in
-          write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
-      end;
-      if !Flags.analyse_time then begin
-        let txt =
-          if !ml_file_excerpts = Int_map.empty then "" else begin
-            match Int_map.find_opt line !ml_file_excerpts with
-            | Some txt -> txt
-            | None -> (*failwith*) Printf.sprintf "<unable to retrieve line %d from script>" line
-          end in
-        write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
-      end;
-      end;
-    step();
- end
+  end else begin
+    let ignore_step = is_small_step && !Flags.only_big_steps in
+    if not ignore_step then begin
+      report_time_of_last_step();
+      (* Handle exit of script *)
+      let should_exit =
+        match Flags.get_exit_line() with
+        | Some li -> (line > li)
+        | _ -> false
+        in
+      if should_exit then begin
+        if !Flags.analyse_time then begin
+          write_timing_log (Printf.sprintf "------------------------\n");
+        end;
+        dump_diff_and_exit();
+      end else begin
+        (* Handle reparse of code *)
+        if reparse || (!Flags.reparse_at_big_steps && not is_small_step) then begin
+          let info = if reparse then "the code on demand at" else "the code just before the big step at" in
+          reparse_alias ~info ();
+          if !Flags.analyse_time then
+            let duration_of_reparse = last_time_update () in
+            write_timing_log (Printf.sprintf "------------------------\nREPARSE: %d\tms\n" duration_of_reparse);
+        end;
+        (* Handle the reporting of the execution time *)
+        if !Flags.analyse_time then begin
+          let txt =
+            if !ml_file_excerpts = Int_map.empty then "" else begin
+              match Int_map.find_opt line !ml_file_excerpts with
+              | Some txt -> txt
+              | None -> (*failwith*) Printf.sprintf "<unable to retrieve line %d from script>" line
+            end in
+          write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
+        end;
+        end;
+      (* Save the current code in the trace *)
+      step();
+  end
+end
 
 (* [!!] is a prefix notation for the operation [check_exit_and_step].
    By default, it performs only [step]. The preprocessor of the OCaml script file

@@ -42,11 +42,12 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: Introducing an if-statement for slow particles *)
   !^ Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
-      (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
+        (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
   !! Flow.insert_if [main; cFun "bag_push"];
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-  !^ Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
+  !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]];
+  !! Trace.reparse();
     (* LATER: try to not inline the bag_push operations, but to modify the code inside those functions *)
 
   (* Part: optimization of vect_matrix_mul *)
@@ -59,11 +60,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"];
   !! Function.inline [cFun "vect_matrix_mul"]; (* LATER: check if it is needed *)
 
+
   (* Part: vectorization of cornerInterpolationCoeff #2 *)
   !^ let ctxf = cTopFunDef "cornerInterpolationCoeff" in
      let ctx = cChain [ctxf; sInstr "r.v"] in
      Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
+  !! Trace.reparse();
   !! Variable.intro_pattern_array
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;" ~pattern_aux_vars:"double rX, rY, rZ;"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
@@ -90,7 +93,6 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
   !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-
   !^ Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; cRead ~addr:[sExpr "coeffs2.v"] ()]; (* The issue is coming from function inline *)
       Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; cRead ~addr:[sExpr "deltaChargeOnCorners.v"] ()];
 
@@ -127,13 +129,11 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: Introduce names for new positions *)
   !^ iter_dims (fun d ->
       Variable.bind ("p" ^ d) [cFor "i"; cStrict; cFieldWrite ~field:("pos"^d) (); dRHS]);
-
   !! Instr.(gather_targets ~dest:(GatherAtFirst)) [main;cVarDef ~regexp:true "\\(i.2\\|p.\\)"];
 
   (* Part: Make positions relative, and convert sortage to float *)
   !^ iter_dims (fun d ->
-      Accesses.shift ~neg:true ~factor:(var ("i" ^ d)) [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]
-  );
+      Accesses.shift ~neg:true ~factor:(var ("i" ^ d)) [cVarDef ("p" ^ d); cRead ~addr:[sExpr ("(c->items)[i].pos" ^ d )] ()]);
   !! iter_dims (fun d ->
     Accesses.shift ~neg:true ~factor:(var ("i" ^ d ^ "2")) [cWrite ~lhs:[sExpr ("(c->items)[i].pos"^d)] () ]);
   !! Cast.insert (atyp "float") [sExprRegexp  ~substr:true "\\(p. - i.\\)"]; (* TODO: ARTHUR remove substr and try [sExprRegexp "p. - i.."]; *)
