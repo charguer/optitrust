@@ -103,10 +103,10 @@ typedef struct {
 } coord;
 
 coord coordOfCell(int idCell) {
-  int iZ = idCell % gridZ;
-  int iXY = idCell / gridZ;
-  int iY = iXY % gridY;
-  int iX = iXY / gridY;
+  const int iZ = idCell % gridZ;
+  const int iXY = idCell / gridZ;
+  const int iY = iXY % gridY;
+  const int iX = iXY / gridY;
   return { iX, iY, iZ };
 }
 
@@ -123,13 +123,13 @@ typedef struct {
 } vect_nbCorners;
 
 int_nbCorners indicesOfCorners(int idCell) {
-  coord coord = coordOfCell(idCell);
-  int x = coord.iX;
-  int y = coord.iY;
-  int z = coord.iZ;
-  int x2 = wrap(gridX, x+1);
-  int y2 = wrap(gridY, y+1);
-  int z2 = wrap(gridZ, z+1);
+  const coord coord = coordOfCell(idCell);
+  const int x = coord.iX;
+  const int y = coord.iY;
+  const int z = coord.iZ;
+  const int x2 = wrap(gridX, x+1);
+  const int y2 = wrap(gridY, y+1);
+  const int z2 = wrap(gridZ, z+1);
   return {
     cellOfCoord(x,y,z),
     cellOfCoord(x,y,z2),
@@ -144,7 +144,7 @@ int_nbCorners indicesOfCorners(int idCell) {
 }
 
 vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
-  int_nbCorners indices = indicesOfCorners(idCell);
+  const int_nbCorners indices = indicesOfCorners(idCell);
   vect_nbCorners res;
   for (int k = 0; k < nbCorners; k++) {
     res.v[k] = field[indices.v[k]];
@@ -157,7 +157,7 @@ vect_nbCorners getFieldAtCorners(int idCell, vect* field) {
 // charge are also accumulated in the corners of the cells
 
 void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners charges) {
-  int_nbCorners indices = indicesOfCorners(idCell);
+  const int_nbCorners indices = indicesOfCorners(idCell);
   for (int k = 0; k < nbCorners; k++) {
     nextCharge[indices.v[k]] += charges.v[k];
   }
@@ -171,12 +171,12 @@ void accumulateChargeAtCorners(double* nextCharge, int idCell, double_nbCorners 
 // and the opposite corner.
 
 double_nbCorners cornerInterpolationCoeff(vect pos) {
-  double rX = relativePosX(pos.x);
-  double rY = relativePosY(pos.y);
-  double rZ = relativePosZ(pos.z);
-  double cX = 1. + -1. * rX;
-  double cY = 1. + -1. * rY;
-  double cZ = 1. + -1. * rZ;
+  const double rX = relativePosX(pos.x);
+  const double rY = relativePosY(pos.y);
+  const double rZ = relativePosZ(pos.z);
+  const double cX = 1. + -1. * rX;
+  const double cY = 1. + -1. * rY;
+  const double cZ = 1. + -1. * rZ;
   double_nbCorners r;
   r.v[0] = cX * cY * cZ;
   r.v[1] = cX * cY * rZ;

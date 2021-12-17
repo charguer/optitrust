@@ -36,7 +36,7 @@ and dir =
   (* app *)
   | Dir_app_fun
   (* arg for fun application and declaration *)
-  | Dir_arg_nth of int 
+  | Dir_arg_nth of int
   (* name of declared var/fun or label *)
   | Dir_name
   (*
@@ -182,14 +182,14 @@ module Path_set = Set.Make(
 )
 
 (* [set_of_paths p1] create a set of paths *)
-let set_of_paths (p1 : paths) : Path_set.t = 
+let set_of_paths (p1 : paths) : Path_set.t =
   let set_of_p1 = Path_set.empty in
   List.fold_left (fun acc x -> Path_set.add x acc) set_of_p1 p1
- 
+
 
 
 (* [filter_duplicates p1] remove all the duplicate paths from p1 *)
-let filter_duplicates (ps : paths) : paths = 
+let filter_duplicates (ps : paths) : paths =
   let sp = set_of_paths ps in
   Path_set.elements sp
 
@@ -230,6 +230,8 @@ let app_to_nth (loc : location) (l : 'a list) (n : int) (cont : 'a -> 'b) : 'b =
        fail loc
          ("app_to_nth: not enough elements (>= " ^ (string_of_int (n + 1)) ^
             " expected)")
+        (* LATER: report a better error message when using dArg 1 on a function
+           with only 1 argument, for example *)
     | Some a -> cont a
   with
   | Invalid_argument _ ->
@@ -364,9 +366,9 @@ let apply_on_path (transfo : trm -> trm) (t : trm) (dl : path) : trm =
         | _, _ ->
            let s = dir_to_string d in
            fail t.loc (Printf.sprintf "apply_on_path: direction %s does not match with trm %s" s (Ast_to_c.ast_to_string t))
-           
+
        end in
-        { newt with typ = None; ctx = None } 
+        { newt with typ = None; ctx = None }
 
 
   in
@@ -454,11 +456,11 @@ let resolve_path_and_ctx (dl : path) (t : trm) : trm * (trm list) =
        | Dir_for_start, Trm_for (_, start, _, _, _, _) ->
           aux start ctx
        | Dir_for_stop, Trm_for (_,  _, _, stop, _, _) ->
-          aux stop ctx 
-          
+          aux stop ctx
+
        | Dir_for_step, Trm_for (_, _, _, _, step, _) ->
           let step_trm = loop_step_to_trm step in
-          aux step_trm ctx 
+          aux step_trm ctx
        | Dir_for_c_init, Trm_for_c (init, _, _, _) ->
           aux init ctx
        | Dir_for_c_step, Trm_for_c (init, _, step, _) ->
