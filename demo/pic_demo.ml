@@ -69,6 +69,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\|i\\).1"];
+  !! Instr.move_out ~dest:[tBefore; main] [nbMulti; main; cVarDef ~regexp:true "\\(coef\\|sign\\).0"];
 
   (* Part: optimization of charge accumulation *)
   !^ Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
@@ -214,24 +215,20 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
         (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
   !! Variable.insert ~const:true ~typ:"bool" ~name:"isDistFromBlockLessThanHalfABlock"
-      ~value:(trm_ands (map_dims (fun d -> expr ~vars:[d] "co.${0} - bi${0} >= - halfBlock && co.${0} - bi${0} < block + halfBlock")))
+      ~value:(trm_ands (map_dims (fun d ->
+         expr ~vars:[d] "co.i${0} - bi${0} >= - halfBlock && co.i${0} - bi${0} < block + halfBlock")))
       [tBefore; main; cVarDef "b2"];
   !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") [main; cFun "bag_push"];
        (* TODO: in insert_if, allow for an optional mark argument, to be attached to the new if statement; use this mark in the targets below *)
   !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
      Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
 
-
-
-
-
-
-
-  (* Part: loop splitting for treatments of speeds and positions and deposit *)
-  !^ Instr.move_out ~dest:[tBefore; main] [nbMulti; main; cVarDef ~regexp:true "\\(coef\\|sign\\).0"];
-  !! Loop.hoist [cVarDef "idCell2"];
-  !! Loop.fission [tBefore; main; cVarDef "pX"];
-  !! Loop.fission [tBefore; main; cVarDef "iX1"]; (* TODO: Check with Arthur *)
+  (* Part: loop splitting to separate processing of speeds, positions, and charge deposit *)
+  !^ Instr.move ~dest:[tBefore; main; cVarDef "p2"] [main; cVarDef "idCell2"];
+  !! Loop.hoist [main; cVarDef "idCell2"];
+  !! Loop.fission [nbMulti; tBefore; main; cOr [[cVarDef "pX"]; [cVarDef "p2"]]];
+  !! Variable.insert ~typ:"int&" ~name:"idCell2" ~value:(expr "idCell2_step[i]") [tBefore; main; cVarDef "p2"];
+    (* LATER: fission should automatically do the duplication of references when necessary *)
 
   (* Part: Parallelization *)
   !^ Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
@@ -286,6 +283,12 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
     For example, a scale on    sExpr "t[i]"  should operate on both the read and write in
       t[i] = t[i] + 1
 *)
+
+(* LATER:
+   instead of generating coefX0 and coefX1  using AddSuffix ${occ}
+   we could generate coefX and coefX2       using Pattern (fun i s -> if i = 0 then s else s ^ string_of_int (i+1))
+   this would avoid having "0" all around the place for redundant definitions. *)
+
 
 (* LATER:
      !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[^z]"];
