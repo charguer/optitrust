@@ -17,6 +17,15 @@ let _ = Run.script_cpp (*~inline:["particle_chunk.h";"particle_chunk_alloc.h";"p
 
 )
 
+  (* TODO: ARTHUR: simplify mybij calls in the sum
+
+
+    mybij(nbCells, nbCorners, indicesOfCorners(idCell2).val[k], k)
+  with
+    MINDEX2(nbCells, nbCorners, idCell2, k)
+ *)
+
+
 
 (*
 !! Instr.read_last_write [nbMulti; main; cWrite ~lhs:[sExpr "p2.pos"](); dRHS; cRead ~addr:[sExpr "(c->items)[i].pos"]()];

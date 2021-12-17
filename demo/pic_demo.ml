@@ -144,38 +144,46 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
   (* !! Trace.reparse (); *)
 
-
-  (* Part: introduce matrix operations, and mark a key loop *)
+  (* Part: introduce matrix operations, and prepare loop on charge deposit *)
   !^ Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
   !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
-
-  (* Part: duplication of corners for vectorization of change deposit *)
-  !^ Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~indices:["idCell"] ~init_zero:true ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
   !! Variable_basic.inline [main; cVarDef "indices"];
-  !! Specialize.any "k" [main; cAny];
-  let my_bij_code =
-    "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
-      coord coord = coordOfCell(idCell);
-      int iX = coord.iX;
-      int iY = coord.iY;
-      int iZ = coord.iZ;
-      int res[] = {
-        cellOfCoord(iX, iY, iZ),
-        cellOfCoord(iX, iY, wrap(gridZ,iZ-1)),
-        cellOfCoord(iX, wrap(gridY,iY-1), iZ),
-        cellOfCoord(iX, wrap(gridY,iY-1), wrap(gridZ,iZ-1)),
-        cellOfCoord(wrap(gridX,iX-1), iY, iZ),
-        cellOfCoord(wrap(gridX,iX-1), iY, wrap(gridZ,iZ-1)),
-        cellOfCoord(wrap(gridX,iX-1), wrap(gridY,iY-1), iZ),
-        cellOfCoord(wrap(gridX,iX-1), wrap(gridY,iY-1), wrap(gridZ,iZ-1)),
-      };
-     return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
-     }" in
-  !! Sequence.insert (stmt my_bij_code) [tBefore; main];
+
+  (* Part: duplicate the representation of charges at every corner *)
+  !^ Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~last:true ~indices:["idCell"] ~init_zero:true
+     ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
+  !! Specialize.any "k" [nbMulti; main; cAny]; (* TODO: Why nbMulti needed *)
+
+  (* Part: apply a bijection on the array storing charge to vectorize charge deposit *)
+  !^ let mybij_def =
+      "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
+        coord coord = coordOfCell(idCell);
+        int iX = coord.iX;
+        int iY = coord.iY;
+        int iZ = coord.iZ;
+        int res[] = {
+          cellOfCoord(iX, iY, iZ),
+          cellOfCoord(iX, iY, wrap(gridZ,iZ-1)),
+          cellOfCoord(iX, wrap(gridY,iY-1), iZ),
+          cellOfCoord(iX, wrap(gridY,iY-1), wrap(gridZ,iZ-1)),
+          cellOfCoord(wrap(gridX,iX-1), iY, iZ),
+          cellOfCoord(wrap(gridX,iX-1), iY, wrap(gridZ,iZ-1)),
+          cellOfCoord(wrap(gridX,iX-1), wrap(gridY,iY-1), iZ),
+          cellOfCoord(wrap(gridX,iX-1), wrap(gridY,iY-1), wrap(gridZ,iZ-1)),
+        };
+      return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
+      }" in
+     Sequence.insert (stmt mybij_def) [tBefore; main];
   !! Matrix.biject "mybij" [main; cVarDef "nextChargeCorners"];
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
-  !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)") [cFun "mybij"]; (* TODO: Check with Arthur *)
-  (* TODO: ARTHUR: simplify mybij calls in the sum *)
+  !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)")
+      [main; cLabel "charge"; cFun "mybij"];
+      (* LATER: use: sExpr "mybij(nbCorners, nbCells, indicesOfCorners(idCell2).v[k], k)" *)
+
+  (* ARTHUR: simplify mybij calls in the sum *)
+
+
+
 
   (* Part: duplication of corners for thread-independence of charge deposit #14 *)
   !^ Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main];
