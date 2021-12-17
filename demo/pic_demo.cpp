@@ -80,7 +80,7 @@ int idCellOfPos(vect pos) {
   int iX = int_of_double(pos.x / cellX);
   int iY = int_of_double(pos.y / cellY);
   int iZ = int_of_double(pos.z / cellZ);
-  return cellOfCoord(iZ, iY, iZ);
+  return cellOfCoord(iX, iY, iZ);
 }
 
 double relativePosX(double x) {

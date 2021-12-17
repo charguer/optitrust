@@ -147,12 +147,13 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* Part: introduce matrix operations, and prepare loop on charge deposit *)
   !^ Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
   !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
-  !! Variable_basic.inline [main; cVarDef "indices"];
+  !! Variable.inline [main; cVarDef "indices"];
 
-  (* Part: duplicate the representation of charges at every corner *)
+  (* Part: duplicate the charge of a corner for the 8 surrounding cells *)
   !^ Matrix.delocalize "nextCharge" ~into:"nextChargeCorners" ~last:true ~indices:["idCell"] ~init_zero:true
      ~dim:(var "nbCorners") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
-  !! Specialize.any "k" [nbMulti; main; cAny]; (* TODO: Why nbMulti needed *)
+  !! Specialize.any "k" [nbMulti; main; cAny]; (* TODO: Why nbMulti needed *) (* TODO: exploit the ~use argument in delocalize *)
+  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   (* Part: apply a bijection on the array storing charge to vectorize charge deposit *)
   !^ let mybij_def =
@@ -175,24 +176,56 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       }" in
      Sequence.insert (stmt mybij_def) [tBefore; main];
   !! Matrix.biject "mybij" [main; cVarDef "nextChargeCorners"];
-  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
   !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)")
       [main; cLabel "charge"; cFun "mybij"];
       (* LATER: use: sExpr "mybij(nbCorners, nbCells, indicesOfCorners(idCell2).v[k], k)" *)
 
-  (* ARTHUR: simplify mybij calls in the sum *)
+       (* ARTHUR: simplify mybij calls in the sum *)
 
+  (* Part: insert thread number and thread id *)
+  !^ Sequence.insert ~reparse:false (stmt "int omp_get_thread_num();") [tBefore; main]; (* TODO: use a include instead *)
+  !! Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main]; (* TODO: remove ~value, see comment in Variable.insert *)
+  !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"]; (* TODO: there is an extra semi-column appearing *)
+       (* TODO: this could be just   Variable.insert ~name"idThread" ~value:(Omp.get_thread_num())
+           where get_thread_num returns the term that corresponds to the function call; this would be more uniform. *)
 
+  (* Part: duplicate the charge of a corner for each of the threads *)
+  !^ Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idCell"; "idCorner"]
+      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "charge"];
+  !! Specialize.any "idThread" [nbMulti; main; cAny]; (* TODO: why nbMulti here? *) (* TODO: exploit the ~use argument in delocalize *)
 
-
-  (* Part: duplication of corners for thread-independence of charge deposit #14 *)
-  !^ Variable.insert ~name:"nbThreads" ~typ:"int" ~value:(lit "8") [tBefore; main];
-  !! Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idThread";"idCell"] ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add ~last:true [cLabel "charge"];
-  !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
+  (* Part: cleanup in the manipulation of the new matrices *)
+  !^ Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextChargeCorners"] ~index:[] ~rhs:[cDouble 0.] ()]];
   !! Instr.move_out ~dest:[tBefore; main; cLabel "core"] [nbMulti; main; cVarDef ~regexp:true "nextCharge."];
      Instr.move_out ~dest:[tAfter; main; cLabel "core"] [nbMulti; main; cFun "MFREE"];
-  !! Omp.get_thread_num "idThread" [tBefore; cLabel "charge"];
-  !! Specialize.any "idThread" [main; cAny];
+
+  (* Part: coloring *)
+  !^ Variable.insert_list ~defs:[("int","block","2"); ("int","halfBlock","block / 2")] [tBefore; cVarDef "nbCells"];
+  !! let colorize (tile : string) (color : string) (d:string) : unit =
+    let bd = "bi" ^ d in
+    Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [main; cFor ("i" ^ d)];
+    Loop.color color ~index:("ci"^d) [main; cFor bd]
+    in
+    iter_dims (fun d -> colorize "block" "block" d);
+  !! Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [main; cFor "ciX"];
+
+  (* Part: introduce atomic push operations, but only for particles moving more than one cell away *)
+  !^ Variable.insert ~const:true ~typ:"coord" ~name:"co" ~value:(expr "coordOfCell(idCell2)") [tAfter; main; cVarDef "idCell2"];
+  !! Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
+        (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
+  !! Variable.insert ~const:true ~typ:"bool" ~name:"isDistFromBlockLessThanHalfABlock"
+      ~value:(trm_ands (map_dims (fun d -> expr ~vars:[d] "co.${0} - bi${0} >= - halfBlock && co.${0} - bi${0} < block + halfBlock")))
+      [tBefore; main; cVarDef "b2"];
+  !! Flow.insert_if ~cond:(var "isDistFromBlockLessThanHalfABlock") [main; cFun "bag_push"];
+       (* TODO: in insert_if, allow for an optional mark argument, to be attached to the new if statement; use this mark in the targets below *)
+  !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
+     Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
+
+
+
+
+
+
 
   (* Part: loop splitting for treatments of speeds and positions and deposit *)
   !^ Instr.move_out ~dest:[tBefore; main] [nbMulti; main; cVarDef ~regexp:true "\\(coef\\|sign\\).0"];
@@ -200,37 +233,59 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fission [tBefore; main; cVarDef "pX"];
   !! Loop.fission [tBefore; main; cVarDef "iX1"]; (* TODO: Check with Arthur *)
 
-
-  (* Part: Introducing an if-statement for slow particles *)
-  !^ Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
-        (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
-  !! Flow.insert_if [main; cFun "bag_push"];
-  !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
-     Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-
-  (* Part: introduction of the computation *)
-  !^ Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"];
-  !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(trm_ands (map_dims (fun d -> expr ~vars:[d] "i${0} >= bi${0} - dist && i${0} < bi${0} + blockSize + dist"))) [tAfter; main; cVarDef "iZ2"];
-  !! Specialize.any "distanceToBlockLessThanHalfABlock" [main; cFun "ANY_BOOL"];
-
-  (* Part: Coloring *)
-  !^ let colorize (tile : string) (color : string) (d:string) : unit =
-    let bd = "bi" ^ d in
-    Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [cFor ("i" ^ d)];
-    Loop.color color ~index:("ci"^d) [cFor bd]
-    in
-    iter_dims (fun d -> colorize "blockSize" "blockSize" d);
-  !! Loop.reorder ~order:(Tools.((add_prefix "c" idims) @ (add_prefix "b" idims) @ idims)) [cFor "ciX"];
-
   (* Part: Parallelization *)
-  !^ Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore;cFor "idCell" ~body:[sInstr "sum +="]];
+  !^ Omp.parallel_for [Shared ["idCell"]] [nbMulti; tBefore; cFor "idCell" ~body:[sInstr "sum +="]];
      Omp.parallel_for [Shared ["bX";"bY";"bZ"]] [tBefore; cFor "biX"];
 
   (* Part: optimize chunk allocation *)  (* ARTHUR *)
-  (* skip #16 *)
 
 )
 
+
+
+
+
+
+
+
+(* TODO: insert the right include (using Instr.insert) to eliminate the error
+   pic_demo_debug.cpp:616:30: error: use of undeclared identifier 'omp_get_thread_num'
+   *)
+
+(* TODO: modify trm_add_mark so that it does not add any mark if the argument is "" *)
+
+(* TODO: generalize Specialize.any so that it takes a trm and not a string as argument.
+
+  TODO: Variable_core.delocalize_aux should take as argument a mark (possibly "", in which case it leaves no mark)
+  to annotate all the ANY that it introduces.  (use the modified trm_add_mark for this)
+
+  TODO: add an argument ?(use:trm) to (Variable and Matrix) delocalize to specialize the any on the fly;
+  if the argument is "Some t", then pass a fresh mark to delocalize_aux, then call Specialize.any on that mark with the trm t. *)
+
+(* TODO:
+    define the function
+        type path_with_trms = (dir * trm) list
+        trms_in_path : trm -> path -> path_with_trms
+    which takes an AST, a path in that AST, and returns a path decorated with all intermediate terms.
+
+     TODO: generalize the transformer argument in apply_on_transformed_targets
+       (transformer : path -> 'a)
+    to
+       (transformer : trm -> path -> 'a)
+       )
+
+    TODO: define the transformers
+      get_surrounding_access
+      get_surrounding_read
+      get_surrounding_write
+
+     which can be used as transformers in apply_on_transformed_targets;
+
+    TODO: use these transformers in Access.scale, to automatically take the path
+    given by the user and compute the surrounding paths.
+    For example, a scale on    sExpr "t[i]"  should operate on both the read and write in
+      t[i] = t[i] + 1
+*)
 
 (* LATER:
      !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[^z]"];
@@ -269,3 +324,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
    maybe name the function    Function.infix_ops_intro and infix_ops_elim *)
 
 (* LATER: cWrite has ~lhs and ~rhs, but cRead has ~addr, this is not coherent, cRead should have ~arg or cWrite should have ~addr and ~arg *)
+
+(* LATER  Variable.insert ~const:true
+    we should make const:true the default
+    and possibly introduce Variable.insert_mut   as a shorthand for   insert ~const:false *)
