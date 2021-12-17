@@ -30,60 +30,38 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   *)
 
-  (* !! Trace.reparse(); *)
-
-  (* Part 0: Labelling the main loop*)
-  !^ Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
-
-  (* Part1: space reuse *)
-  !^ Variable.reuse ~space:(expr "p.speed") [main; cVarDef "speed2"];
-     Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
-
-  (* Part: Introducing an if-statement for slow particles *)
-  !^ Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
-        (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
-  !! Flow.insert_if [main; cFun "bag_push"];
-  !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
-     Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
-  (* DEPRECATED !! Function.inline [main; cOr [[cFun "bag_push_serial"]; [cFun "bag_push_concurrent"]]]; *)
-
-  (* Part: optimization of vect_matrix_mul *)
-  !^ let ctx = cTopFunDef "vect_matrix_mul" in
+  (* Part: optimization and inlining of [matrix_vect_mul] *)
+  !^ let ctx = cTopFunDef "matrix_vect_mul" in
      Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
-     (* LATER: !! Loop.fission [nbMulti; tAllInBetween; ctx; cFor "k"; cSeq]; *)
-  !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; cFieldWrite ~base:[cVar "res"] ~regexp:true ~field:"[^z]" ()];
+  !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[^z]"];
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
   !! Instr.accumulate ~nb:8 [nbMulti; ctx; sInstrRegexp "res.*\\[0\\]"];
-  !! Function.inline [cFun "vect_matrix_mul"]; (* LATER: check if it is needed *)
+  !! Function.inline [cFun "matrix_vect_mul"];
 
-  (* Part: vectorization of cornerInterpolationCoeff #2 *)
+  (* Part: vectorization in [cornerInterpolationCoeff] *)
   !^ let ctxf = cTopFunDef "cornerInterpolationCoeff" in
      let ctx = cChain [ctxf; sInstr "r.v"] in
      Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
-  !! Trace.reparse();
-  !! Variable.intro_pattern_array
-      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;" ~pattern_aux_vars:"double rX, rY, rZ;"
+  !! Variable.intro_pattern_array ~pattern_aux_vars:"double rX, rY, rZ;"
+      ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;"
       ~pattern:"(coefX + signX * rX) * (coefY + signY * rY) * (coefZ + signZ * rZ);"
       [nbMulti; ctx; dRHS];
   !! Loop.fold_instrs ~index:"k" [ctx];
-  !! Trace.reparse();
 
-  (* Part: reveal fields *)
-  !^ let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
-     Struct.set_explicit [nbMulti; ctx; cWrite ~typ:"particle" ()];
-  !! Struct.set_explicit [nbMulti; ctx; cWrite ~typ:"vect" ()];
+  (* Part: update particles in-place instead of in a local variable *)
+  !^ Variable.reuse ~space:(expr "p.speed") [main; cVarDef "speed2" ];
+     Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
 
-  (* Part: optimize vector computations *)
-  !^ Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
-     Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
+  (* Part: reveal write operations involved manipulation of particles and vectors *)
+  !^ Trace.reparse();
+  !! let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
+     List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
+  !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
-  (* Part: eliminate variables *)
-  !^ Variable.inline ~delete:true [main; cVarDef "p"]; (* TODO: why is inline not doing delete true? the fact that it is not const should not matter since we convert it to a const *)
-  !! Struct.to_variables [main; cVarDef "fieldAtPos"];
-
-  (* Part: optimization of accumulateChargeAtCorners *)
+  (* Part: inlining [cornerInterpolationCoeff] and [accumulateChargeAtCorners] *)
   !^ Function.inline [cOr [
        [cFun "vect8_mul"];
        [cFunDef "cornerInterpolationCoeff"; cFun ~regexp:true "relativePos."];
@@ -91,12 +69,22 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline ~vars:(AddSuffix "2") [cFun "idCellOfPos"];
   !! Function.inline ~vars:(AddSuffix "${occ}") [nbMulti; cFun "cornerInterpolationCoeff"];
   !! Variable.elim_redundant [nbMulti; cVarDef ~regexp:true "\\(coef\\|sign\\).1"];
-  !! Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
+
+  (* Part: optimizing [cornerInterpolationCoeff] and [accumulateChargeAtCorners] *)
+  !^ Sequence.intro ~mark:"fuse" ~start:[main; cVarDef "coeffs2"] ();
      Loop.fusion_targets [cMark "fuse"];
-  !! Trace.reparse(); (* required to get the parentheses right *)
-  (* TODO: using the printing system with priorities, the parentheses could be avoided, to print t.v[k] instead of (t.v)[k]; *)
-  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2.v[k]"];
-  !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="] [main; sInstr "nextCharge[indices"; sExpr "deltaChargeOnCorners.v[k]"];
+  !! Trace.reparse(); (* required to get the parentheses right;
+        TODO: using the printing system with priorities,
+        we should be able to print t.v[k] instead of (t.v)[k]; *)
+  !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="]
+       [main; sInstr "deltaChargeOnCorners.v[k] ="; sExpr "coeffs2.v[k]"];
+  !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
+       [main; sInstr "nextCharge[indices"; sExpr "deltaChargeOnCorners.v[k]"];
+
+
+  (* Part: eliminate variables *)
+  !^ Variable.inline [main; cVarDef "p"];
+  !! Struct.to_variables [main; cVarDef "fieldAtPos"];
 
   (* Part: AOS-SOA *)
   !^ Struct.set_explicit [main; cVarDef "p2"];
@@ -115,7 +103,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
        Accesses.scale ~factor:(var ("factor" ^ d)) [cVarDef "accel"; cReadVar ("fieldAtPos" ^ d)]); (* ARTHUR: needs compensation after simplifier *)
   !! Trace.reparse(); (* required to get the types right, for simpl_proj to work *)
     (* TODO: why are the types not there? it should be sufficient for the trm_struct to have the right type; and this type should be known because it was available in the variable definition that we inlined just before *)
-  !! Variable.inline ~delete:true [cVarDef "accel"]; (* TODO: remove the delete true, which should be automatic *)
+  !! Variable.inline [cVarDef "accel"];
   !! Variable.inline [nbMulti; cVarDef ~regexp:true "factor?."];
   (* LATER: variable.inline_at which takes only the occurrence and finds automatically the source *)
   !! iter_dims (fun d ->
@@ -132,6 +120,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       Sequence.intro ~mark:"simplify" ~start:[tAfter; main; cWrite ~lhs:[cVar "fieldAtPosZ"]()] ~stop:[tAfter; main; cVarDef "coeffs2"] ();
       Arith.(simpl expand) [nbMulti; cMark "simplify"; cWrite(); dRHS; cStrictNew; Arith.constr];
       Sequence.elim [cMark "simplify"]; *)
+
+  (* Part: Labelling the main loop*)
+  !^ Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
 
   (* Part: grid_enumeration *)
   !^ Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
@@ -202,6 +193,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fission [tBefore; main; cVarDef "pX"];
   !! Loop.fission [tBefore; main; cVarDef "iX1"]; (* TODO: Check with Arthur *)
 
+
+  (* Part: Introducing an if-statement for slow particles *)
+  !^ Variable.bind "b2" [main; cFun "bag_push"; sExpr "&bagsNext"];
+        (* TODO: above, ~const:true  should create not a [const bag*]  but a [bag* const] *)
+  !! Flow.insert_if [main; cFun "bag_push"];
+  !! Instr.replace_fun "bag_push_serial" [main; cIf(); dThen; cFun "bag_push"];
+     Instr.replace_fun "bag_push_concurrent" [main; cIf(); dElse; cFun "bag_push"];
+
   (* Part: introduction of the computation *)
   !^ Variable.insert_list ~defs:[("int","blockSize","2"); ("int","dist","blockSize / 2")] [tBefore; cVarDef "nbCells"];
   !! Variable.insert ~typ:"bool" ~name:"distanceToBlockLessThanHalfABlock" ~value:(trm_ands (map_dims (fun d -> expr ~vars:[d] "i${0} >= bi${0} - dist && i${0} < bi${0} + blockSize + dist"))) [tAfter; main; cVarDef "iZ2"];
@@ -224,3 +223,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   (* skip #16 *)
 
 )
+
+
+(* LATER:
+     !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[^z]"];
+     could be
+     !! Loop.fission [nbMulti; tAllInBetween; ctx; cFor "k"; cSeq]; *)
+
+(* LATER:
+    !! Instr.inline_last_write ~write:[sInstr "coeffs2.v[k] ="] ..
+    we could automate better the inference of the last write performed on the same expression *)
+

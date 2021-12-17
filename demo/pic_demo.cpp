@@ -189,7 +189,7 @@ double_nbCorners cornerInterpolationCoeff(vect pos) {
   return r;
 }
 
-vect vect_matrix_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
+vect matrix_vect_mul(const double_nbCorners coeffs, const vect_nbCorners matrix) {
   vect res = { 0., 0., 0. };
   for (int k = 0; k < nbCorners; k++) {
     res = vect_add(res, vect_mul(coeffs.v[k], matrix.v[k]));
@@ -294,7 +294,7 @@ int main() {
 
           // Interpolate the field based on the position relative to the corners of the cell
           double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
-          vect fieldAtPos = vect_matrix_mul(coeffs, field_at_corners);
+          vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
 
           // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
           vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);

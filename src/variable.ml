@@ -283,7 +283,7 @@ let renames (rename : rename) : Target.Transfo.t =
           After calling Struct_basic.simpl_proj {0, 1}.x becomes 0 .
           Finally, if simple_deref is set to true then we will seach for all the occurrences of *& and &* and simplify them.
 *)
-let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = false): Target.Transfo.t =
+let inline ?(accept_functions : bool = false) ?(simpl_deref : bool = false) ?(delete : bool = true): Target.Transfo.t =
   Target.iter_on_targets (fun t p ->
     let tg_seq_path, _ = Internal.isolate_last_dir_in_seq p in
     let seq = Target.target_of_path tg_seq_path in
