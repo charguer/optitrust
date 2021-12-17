@@ -15,6 +15,13 @@ let _ = Run.script_cpp (*~inline:["particle_chunk.h";"particle_chunk_alloc.h";"p
 
 
 
+
+  (* Part: duplicate the charge of a corner for each of the threads *)
+  !^ Matrix.delocalize "nextChargeCorners" ~into:"nextChargeThreadCorners" ~indices:["idCell"; "idCorner"]
+      ~init_zero:true ~dim:(var "nbThreads") ~index:"k" ~acc:"sum" ~ops:delocalize_double_add [cLabel "core"];
+  !! Specialize.any "idThread" [nbMulti; main; cAny]; (* TODO: why nbMulti here? *) (* TODO: exploit the ~use argument in delocalize *)
+
+
 )
 
 
