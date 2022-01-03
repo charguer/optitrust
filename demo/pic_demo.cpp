@@ -290,18 +290,18 @@ int main() {
         // iterate over the items from the current chunk
         for (int i = 0; i < nb; i++) {
 
-          particle p = c->items[i];
+          particle* p = &c->items[i];
 
           // Interpolate the field based on the position relative to the corners of the cell
-          double_nbCorners coeffs = cornerInterpolationCoeff(p.pos);
+          double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
           vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
 
           // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
           vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
 
           // Compute the new speed and position for the particle.
-          vect speed2 = vect_add(p.speed, vect_mul(stepDuration, accel));
-          vect pos2 = vect_add(p.pos, vect_mul(stepDuration, speed2));
+          vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
+          vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
           particle p2 = { pos2, speed2 };
 
           // Compute the location of the cell that now contains the particle

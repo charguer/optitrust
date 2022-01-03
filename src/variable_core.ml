@@ -516,13 +516,13 @@ let to_const (index : int) : Target.Transfo.local =
 let simpl_deref_aux (t : trm) : trm =
   let rec aux (t : trm) : trm =
     match t.desc with
-    | Trm_apps (_, [t1]) ->
+    | Trm_apps (op, [t1]) ->
       (* First case  &* both & and * are encoded as annotations of t*)
       if List.mem Address_operator t.add && List.mem Star_operator t.add then
       let new_add = List.filter (function |Address_operator | Star_operator -> false) t.add in
       {t with add = new_add}
-      (* Second case: *& now * is a get operation and & is annotation encode inside  t1 *)
-      else if List.mem Address_operator t1.add then
+      (* Second case: * is a get operation and & is annotation encode inside  t1 *)
+      else if op.desc = Trm_val (Val_prim (Prim_unop Unop_get))  && List.mem Address_operator t1.add then
         begin
         let new_t1 = {t1 with add = []} in
         trm_get ~annot:[Mutable_var_get] new_t1

@@ -10,4 +10,6 @@ int main() {
   int d;
   d = *(&a);
 
+  int t[2] = { 1, 2 };
+  int* e = &t[0];
 }

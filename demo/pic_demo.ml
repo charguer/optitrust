@@ -51,8 +51,8 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Loop.fold_instrs ~index:"k" [ctx];
 
   (* Part: update particles in-place instead of in a local variable *)
-  !^ Variable.reuse ~space:(expr "p.speed") [main; cVarDef "speed2" ];
-     Variable.reuse ~space:(expr "p.pos") [main; cVarDef "pos2"];
+  !^ Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
+  !! Variable.reuse ~space:(expr "p->pos") [main; cVarDef "pos2"];
 
   (* Part: reveal write operations involved manipulation of particles and vectors *)
   !^ Trace.reparse();
@@ -84,6 +84,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: AOS-to-SOA *)
   !^ Variable.inline [main; cVarDef "p"];
+  !! Variable.simpl_deref [main];
   !^ Struct.set_explicit [main; cVarDef "p2"];
   !! Struct.set_explicit [nbMulti; main; sInstr "p2."];
   !! Trace.reparse(); (* required to get the types right *)
@@ -289,6 +290,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
    we could generate coefX and coefX2       using Pattern (fun i s -> if i = 0 then s else s ^ string_of_int (i+1))
    this would avoid having "0" all around the place for redundant definitions. *)
 
+(* LATER:
+  replace
+    !^ Variable.inline [main; cVarDef "p"];
+    !! Variable.simpl_deref [main];
+
+  with
+
+  !^ Variable.inline ~simpl_deref:true [main; cVarDef "p"];
+
+   if the definition of the variable inlined is of the form &t1, and the simpl_deref flag is activated,
+    the transformation should be invoked on the parent path of the variable occurence
+    (the operation will automatically be a noop if this parent path does not correspond to a get operation) *)
 
 (* LATER:
      !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[^z]"];
