@@ -12,23 +12,19 @@ let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
-  (* Part: inlining of the bag iteration *) (* skip #1 *)
-  (* TODO:
-    - see todo in file particle_chunk.h, next to function  bag_ho_iter_basic
-    - see todo in file pic_demo.cpp on how to write the loop code, just above "while (true)"
-    - see todo in file tests/basic/function_uninline and pattern_replace.ml and function_beta.ml
-    - the script here should be like:
-       Pattern.replace ~source:[cFunDef "bag_ho_iter_basic"] ~target:["cFunDef bag_ho_iter_chunk"]  [cVarDef "it"];
-    - internally, the transformation would be equivalent to performing those steps:
-        Sequence.intro ~mark:"iter" ~nb:2 [cVarDef "it"];
-        Function.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "iter"];
-        Expr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"];
-        Function.inline [main; cFun "bag_ho_iter_chunk"];
-        Function.beta [cFor "i"; cAppFun()];  // where cAppFun() = "cApp ~base:[cStrict; cFunDef]()"
+  (* Part: inlining of the bag iteration *)
+  !^ Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:3 ();
+  !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
+  !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "loop"];
+  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"]; (* LATER: why don't we also have Expr.replace_fun ? *)
+  !! Marks.add "iter" [cFun "bag_ho_iter_chunk"];
+  !! Variable_basic.unfold ~accept_functions:true [cFunDef "bag_ho_iter_chunk"];
+  show [main; cFunDef ""];
+  !! Function_basic.beta [cMark "iter"];
+  (* !! Function.inline [main; cFun "bag_ho_iter_chunk"]; *)
+  (*!! Function.beta [cFor "i"; cAppFun()];  // where cAppFun() = "cApp ~base:[cStrict; cFunDef]()"
         Mark.rem "iter"  // a shorthand for Mark.remove [cMark "iter"]
-        // maybe also with a sequence.inline on the body
-
-  *)
+        // maybe also with a sequence.inline on the body*)
 
   (* Part: optimization and inlining of [matrix_vect_mul] *)
   !^ let ctx = cTopFunDef "matrix_vect_mul" in

@@ -262,77 +262,35 @@ int main() {
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
 
-      /* TODO: first, modify the existing code to use
-           particle* p = &(c->items[i]);
-         and
-           p->pos and p->speed
-        After inlining, &(c->items[i])->pos  should simplify to c->items[i].pos
-        because q->pos = (*q).pos     and  (*(&x)) = x.
-        Thus, we'll get the same code as we have currently
-        (maybe inlining of 'p' needs to be done earlier than currently.
+      bag_iter* bag_it = bag_iter_begin(b);
+      for (particle* p = bag_iter_get(bag_it); p != NULL; p = bag_iter_next(bag_it, true)) {
 
+        // Interpolate the field based on the position relative to the corners of the cell
+        double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
+        vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
 
-        TODO: Implement the iteration over particles, instead of using [chunk* c] and a [while(true)],
-        with the following loop, which will be expanded later as a loop over chunks.
+        // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
+        vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
 
-          bag_iter it = bag_iter_begin(b);
-          for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
-            ...
-          }
-          bag_init(b);
+        // Compute the new speed and position for the particle.
+        vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
+        vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
+        particle p2 = { pos2, speed2 };
 
-      */
-      // Perform a destructive iteration on that bag,
-      // meaning that chunks are freed after traversal.
-      chunk* c = b->front;
-      while (true) { // loop on chunks
-        int nb = c->size;
-        // iterate over the items from the current chunk
-        for (int i = 0; i < nb; i++) {
+        // Compute the location of the cell that now contains the particle
+        int idCell2 = idCellOfPos(pos2);
 
-          particle* p = &c->items[i];
+        // Push the updated particle into the bag associated with its target cell
+        bag_push(&bagsNext[idCell2], p2);
 
-          // Interpolate the field based on the position relative to the corners of the cell
-          double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
-          vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
+        // Deposit the charge of the particle at the corners of the target cell
+        double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
+        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
+        accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
 
-          // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-          vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
-
-          // Compute the new speed and position for the particle.
-          vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
-          vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
-          particle p2 = { pos2, speed2 };
-
-          // Compute the location of the cell that now contains the particle
-          int idCell2 = idCellOfPos(pos2);
-
-          // Push the updated particle into the bag associated with its target cell
-          bag_push(&bagsNext[idCell2], p2);
-
-          // Deposit the charge of the particle at the corners of the target cell
-          double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
-          double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
-          accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
-        } // end of loop on chunk items
-
-        // moving on to the next chunk LATER: ARTHUR: move this into an auxiliary function.
-        //----
-        chunk* cnext = c->next;
-        if (cnext != NULL) {
-          // move to the next chunk, free the current chunk
-          chunk_free(c);
-          c = cnext; // beware that "c = c->next" would be illegal here, because c was freed
-        } else {
-          // finished the last chunk, clear the current chunk, clear the bag
-          c->size = 0;
-          b->front = c;
-          b->back = c; // this write is redundant, but let's do it for clarity
-          c->next = NULL; // this write is redundant, but let's do it for clarity
-          break; // exit the loop on chunks
-        }
-        //----
       }
+      free(bag_it);
+      bag_init_initial(b);
     }
 
     // For the next time step, the contents of bagNext is moved into bagCur (which is empty)

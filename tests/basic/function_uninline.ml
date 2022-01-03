@@ -36,11 +36,12 @@ let _ = Run.script_cpp (fun _ ->
     !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabelBody "gtwice_body"];
     !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabelBody "fbody"];
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabelBody "hobody"];
-    !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabelBody "bagbody"];
 
+    !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabelBody "bagbody"];
+    (* TODO: why do we have a particle **p   appearing in the function argument? *)
 )
 
-(* 
+(*
    LATER: we will improve the rule_match function so that it is not needed to
    introduce a sequence for matching "body(i)" against a list of instructions. *)
 
@@ -209,7 +210,7 @@ int main() {
 *)
 
 
-(* 
+(*
 ----------------
 At the combi level, the uninline operation should be able to automatically
 perform a Sequence_intro, when given the target of the first instruction

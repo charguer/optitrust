@@ -43,6 +43,7 @@ void test_ho() {
 }
 
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef struct { } particle;
 typedef struct { } bag;
@@ -56,6 +57,7 @@ void iter_bag(bag* b, void body(particle*)) {
   for (particle* p = bag_iter_get(it); p != NULL; p = bag_iter_next(it, true)) {
     body(p);
   }
+  free(it);
 }
 
 void test_bag() {
@@ -68,5 +70,36 @@ void test_bag() {
          if (p = p) { return; }
       }
     }
+    free(myit);
   }
 }
+
+/* TODO add support for this nicer version
+
+typedef struct { } particle;
+typedef struct { } bag;
+typedef struct { } bag_iter;
+particle* bag_iter_begin(bag_iter* it, bag* b);
+particle* bag_iter_next(bag_iter* it, bool destructive);
+
+void iter_bag(bag* b, void body(particle*)) {
+  bag_iter it;
+  for (particle* p = bag_iter_begin(&it, b); p != NULL; p = bag_iter_next(&it, true)) {
+    body(p);
+  }
+}
+
+void test_bag() {
+  bag* mybag;
+  bagbody: {
+    // This is the code pattern to use in pic_demo
+    bag_iter myit;
+    for (particle* p = bag_iter_begin(&myit, mybag); p != NULL; p = bag_iter_next(&myit, true)) {
+      {
+         if (p = p) { return; }
+      }
+    }
+  }
+}
+
+*/

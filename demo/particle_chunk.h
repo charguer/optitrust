@@ -355,9 +355,9 @@ void bag_iter_init(bag_iter* it, bag* b) {
   bag_iter_load_chunk(it, b->front);
 }
 
-bag_iter bag_iter_begin(bag* b) {
-  bag_iter it;
-  bag_iter_init(&it, b);
+bag_iter* bag_iter_begin(bag* b) {
+  bag_iter* it = new bag_iter();
+  bag_iter_init(it, b);
   return it;
 }
 
@@ -397,12 +397,16 @@ particle* bag_iter_next(bag_iter* it, bool destructive) {
 
 
 // example of a basic iteration over a bag
-void bag_ho_iter_basic(bag* b, void (*body) (particle*)) {
-  bag_iter it = bag_iter_begin(b);
-  for (particle* p = bag_iter_get(&it); p != NULL; p = bag_iter_next(&it, true)) {
+void bag_ho_iter_basic(bag* b, void body(particle*)) {
+  bag_iter* it = bag_iter_begin(b);
+  for (particle* p = bag_iter_get(it); p != NULL; p = bag_iter_next(it, true)) {
     body(p);
   }
+  free(it);
 }
+// LATER: see function_uninline.cpp for a simpler iteration function
+
+
 
 // example of an iteration over a bag with the loop over the chunk items revealed
 void bag_ho_iter_chunk(bag* b, void (*body) (particle*)) {
@@ -414,6 +418,32 @@ void bag_ho_iter_chunk(bag* b, void (*body) (particle*)) {
     }
   }
 }
+
+/* TEMPORARY LATER: remove
+      // Perform a destructive iteration on that bag,
+      // meaning that chunks are freed after traversal.
+      chunk* c = b->front;
+      while (true) { // loop on chunks
+        int nb = c->size;
+        // iterate over the items from the current chunk
+        for (int i = 0; i < nb; i++) {
+          ...
+        }
+        //----
+        chunk* cnext = c->next;
+        if (cnext != NULL) {
+          // move to the next chunk, free the current chunk
+          chunk_free(c);
+          c = cnext; // beware that "c = c->next" would be illegal here, because c was freed
+        } else {
+          // finished the last chunk, clear the current chunk, clear the bag
+          c->size = 0;
+          b->front = c;
+          b->back = c; // this write is redundant, but let's do it for clarity
+          c->next = NULL; // this write is redundant, but let's do it for clarity
+          break; // exit the loop on chunks
+        }
+*/
 
 
 //==========================================================================

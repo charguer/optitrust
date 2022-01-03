@@ -43,28 +43,28 @@ let intro ?(mark : string = "") ?(label : label = "") (nb : int) (tg : Target.ta
   (fun t (p, i) -> Sequence_core.intro mark label i nb t p) tg
 
 
-(* [intro_after ~marks ~label tg] same as intro but this function will include in the sequence all the instructions 
+(* [intro_after ~marks ~label tg] same as intro but this function will include in the sequence all the instructions
     which come after the targeted instruction and belong to the same scope.
  *)
-let intro_after ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit = 
-  Target.apply_on_targets (fun t p -> 
+let intro_after ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit =
+  Target.apply_on_targets (fun t p ->
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
-    match seq_trm.desc with 
+    match seq_trm.desc with
     | Trm_seq tl ->
       let seq_len = Mlist.length tl in
       Sequence_core.intro mark label index (seq_len - index) t path_to_seq
     | _ -> fail seq_trm.loc "intro_after: the targeted instruction should belong to a sequence"
   ) tg
 
-(* [intro_before ~marks ~label tg] same as intro but this function will include in the sequence all the instructions 
+(* [intro_before ~marks ~label tg] same as intro but this function will include in the sequence all the instructions
     which come before the targeted instruction and belong to the same scope.
 *)
-let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit = 
-  Target.apply_on_targets (fun t p -> 
+let intro_before ?(mark : mark = "") ? (label : label = "") (tg : Target.target) : unit =
+  Target.apply_on_targets (fun t p ->
     let path_to_seq, index = Internal.isolate_last_dir_in_seq p in
     let seq_trm = Path.resolve_path path_to_seq t in
-    match seq_trm.desc with 
+    match seq_trm.desc with
     | Trm_seq _tl ->
       Sequence_core.intro mark label index (-index-1) t path_to_seq
     | _ -> fail seq_trm.loc "intro_after: the targeted instruction should belong to a sequence"
@@ -119,7 +119,8 @@ let elim_around_instr (tg : Target.target) : unit =
     Target.apply_on_transformed_targets (Internal.isolate_last_dir_in_seq)
     (fun t (p, _) -> Sequence_core.elim t p) tg
    )
-
+(* LATER: the name unwrap should suggest the opposite of intro_on_instr,
+  maybe elim_on_instr *)
 
 (* [split tg] expects target [tg] to point around another target in a sequence meaning, before or after another target
     It will split the sequence which contains that target into two parts, depending on the fact that the entered target
