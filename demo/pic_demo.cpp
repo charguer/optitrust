@@ -262,34 +262,35 @@ int main() {
       // Consider the bag of particles in that cell
       bag* b = &bagsCur[idCell];
 
-      bag_iter* bag_it = bag_iter_begin(b);
-      for (particle* p = bag_iter_get(bag_it); p != NULL; p = bag_iter_next(bag_it, true)) {
+      for (chunk* c = b->front; c != NULL; c = chunk_next(c, true)) {
+        int nb = c->size;
+        for (int i = 0; i < nb; i++) {
+          particle* p = &c->items[i];
 
-        // Interpolate the field based on the position relative to the corners of the cell
-        double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
-        vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
+          // Interpolate the field based on the position relative to the corners of the cell
+          double_nbCorners coeffs = cornerInterpolationCoeff(p->pos);
+          vect fieldAtPos = matrix_vect_mul(coeffs, field_at_corners);
 
-        // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
-        vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
+          // Compute the acceleration: F = m*a and F = q*E  gives a = q/m*E
+          vect accel = vect_mul(particleCharge / particleMass, fieldAtPos);
 
-        // Compute the new speed and position for the particle.
-        vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
-        vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
-        particle p2 = { pos2, speed2 };
+          // Compute the new speed and position for the particle.
+          vect speed2 = vect_add(p->speed, vect_mul(stepDuration, accel));
+          vect pos2 = vect_add(p->pos, vect_mul(stepDuration, speed2));
+          particle p2 = { pos2, speed2 };
 
-        // Compute the location of the cell that now contains the particle
-        int idCell2 = idCellOfPos(pos2);
+          // Compute the location of the cell that now contains the particle
+          int idCell2 = idCellOfPos(pos2);
 
-        // Push the updated particle into the bag associated with its target cell
-        bag_push(&bagsNext[idCell2], p2);
+          // Push the updated particle into the bag associated with its target cell
+          bag_push(&bagsNext[idCell2], p2);
 
-        // Deposit the charge of the particle at the corners of the target cell
-        double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
-        double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
-        accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
-
+          // Deposit the charge of the particle at the corners of the target cell
+          double_nbCorners coeffs2 = cornerInterpolationCoeff(pos2);
+          double_nbCorners deltaChargeOnCorners = vect8_mul(particleCharge, coeffs2);
+          accumulateChargeAtCorners(nextCharge, idCell2, deltaChargeOnCorners);
+        }
       }
-      free(bag_it);
       bag_init_initial(b);
     }
 

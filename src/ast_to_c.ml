@@ -38,7 +38,7 @@ let rec typ_desc_to_doc ?(const : bool = false) (t : typ_desc) : document =
      | Const n -> d ^^ brackets (string (string_of_int n))
      | Trm t' -> d ^^ brackets (decorate_trm t')
      end
-  | Typ_fun _ ->
+  | Typ_fun _ -> (* Typ_fun (targs, tret) : todo, in C we need a name for the value.. *)
      print_info None "typ_desc_to_doc: typ_fun not implemented\n";
      at
   | Typ_var (t, _) -> string t
@@ -70,7 +70,7 @@ and trm_annot_to_doc (t_annot : trm_annot list) : document =
   | As_left_value -> string "As_left_value"
   | _ -> empty
   in
-  if t_annot = [] then empty else 
+  if t_annot = [] then empty else
   Tools.list_to_doc ~sep:comma (List.map aux t_annot)
 
 
@@ -113,7 +113,11 @@ and typed_var_to_doc ?(const:bool=false) (tx : typed_var) : document =
   | Typ_array (t, s) ->
      let (base, bracketl) = aux t s in
      dattr ^^ base ^^ blank 1 ^^ const_string ^^ string x ^^ concat bracketl
-  | Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_} ->
+  | Typ_fun (tyl, ty) -> (* TODO: should be deprecated? to discuss *)
+    let ret_type = typ_to_doc ty  in
+    let arg_types = List.map typ_to_doc tyl in
+    dattr ^^ ret_type ^^ blank 1 ^^ string x ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
+  | Typ_ptr {inner_typ = {typ_desc = Typ_fun (tyl, ty); _};_} -> (* TODO: should be deprecated? to discuss *)
     let ret_type = typ_to_doc ty  in
     let arg_types = List.map typ_to_doc tyl in
     dattr ^^ ret_type ^^ parens(star ^^ string x) ^^ (Tools.list_to_doc ~sep:comma ~bounds:[lparen; rparen] arg_types)
@@ -223,7 +227,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
   in
   (* For printing C code, we have (see explanations in [clang_to_ast.ml],
      search for [Address_operator] and [Star_operator]. *)
-  
+
   match t.add with
   | Address_operator :: addl ->
      let d =
@@ -308,7 +312,7 @@ and trm_to_doc ?(semicolon=false) (t : trm) : document =
              do not display * operator if the operand is a heap allocated
              variable or a succession of accesses
            *)
-            if List.mem Mutable_var_get t.annot || List.mem Access t.annot then  
+            if List.mem Mutable_var_get t.annot || List.mem Access t.annot then
               dattr ^^ apps_to_doc ~display_star:false f tl ^^ dsemi
             else  dattr ^^ apps_to_doc ~display_star:true  f tl ^^ dsemi
             end
@@ -555,7 +559,7 @@ and multi_decl_to_doc (loc : location) (tl : trms) : document =
   | _ -> fail loc "multi_decl_to_doc: expected a trm_let"
   end
 
-and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false) 
+and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?(as_left_value : bool = false)
   (f : trm) (tl : trms) : document =
   let aux_arguments f_as_doc =
       f_as_doc ^^ Tools.list_to_doc ~empty ~sep:comma ~bounds:[lparen; rparen]  (List.map (decorate_trm) tl)
@@ -753,7 +757,7 @@ and apps_to_doc ?(display_star : bool = true) ?(is_app_and_set : bool = false) ?
                 "apps_to_doc: conditional operator must have three arguments"
            end
         | _ -> fail f.loc "apps_to_doc: only op primitives may be applied"
-        
+
         end
      | _ -> fail f.loc "apps_to_doc: only primitive values may be applied"
      end

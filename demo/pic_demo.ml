@@ -12,20 +12,6 @@ let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
-  (* Part: inlining of the bag iteration *)
-  !^ Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:3 ();
-  !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
-  !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "loop"];
-  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"]; (* LATER: why don't we also have Expr.replace_fun ? *)
-  !! Marks.add "iter" [cFun "bag_ho_iter_chunk"];
-  !! Variable_basic.unfold ~accept_functions:true [cFunDef "bag_ho_iter_chunk"];
-  show [main; cFunDef ""];
-  !! Function_basic.beta [cMark "iter"];
-  (* !! Function.inline [main; cFun "bag_ho_iter_chunk"]; *)
-  (*!! Function.beta [cFor "i"; cAppFun()];  // where cAppFun() = "cApp ~base:[cStrict; cFunDef]()"
-        Mark.rem "iter"  // a shorthand for Mark.remove [cMark "iter"]
-        // maybe also with a sequence.inline on the body*)
-
   (* Part: optimization and inlining of [matrix_vect_mul] *)
   !^ let ctx = cTopFunDef "matrix_vect_mul" in
      Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
@@ -120,7 +106,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       (* ARTHUR: also missing simplifications in bag_push_concurrent *)
 
   (* Part: enumerate grid cells by coordinates *)
-  !^ Label.add "core" [cFor "idCell" ~body:[cWhile ()]];
+  !^ Label.add "core" [cFor "idCell" ~body:[cFor "i"]];
      Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
 
   (* Part: Make positions relative *)

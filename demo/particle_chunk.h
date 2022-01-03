@@ -409,7 +409,7 @@ void bag_ho_iter_basic(bag* b, void body(particle*)) {
 
 
 // example of an iteration over a bag with the loop over the chunk items revealed
-void bag_ho_iter_chunk(bag* b, void (*body) (particle*)) {
+void bag_ho_iter_chunk(bag* b, void body(particle*)) {
   for (chunk* c = b->front; c != NULL; c = chunk_next(c, true)) {
     int nb = c->size;
     for (int i = 0; i < nb; i++) {
