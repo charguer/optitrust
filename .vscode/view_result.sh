@@ -30,7 +30,7 @@ cd ${DIRNAME}
 
 
 # Read options from optitrust_flags.sh
-# options: e.g.,  -dump-ast-details -analyse-time-details
+# options: e.g., FLAGS="-dump-ast-details -analyse-time-details -debug-reparse"
 if [ -f "optitrust_flags.sh" ]; then
   source optitrust_flags.sh
 fi
@@ -59,9 +59,8 @@ PROG="${FILEBASE}_with_lines.byte"
 # From "${FILEBASE}.ml", create ""{FILEBASE}_with_lines.ml" by inserting
 # [~lines:__LINE__]   in the relevant places, and interpreting '!!' and '!!!'
 
-# NOTE: could be move
-sed 's/^\([[:space:]]*\)show /\1show ~line:__LINE__ /;s/\!\!\!/Trace.check_exit_and_step ~line:__LINE__ ~reparse:true ();/;s/!!/Trace.check_exit_and_step ~line:__LINE__ ();/' "${FILEBASE}.ml" > "${FILEBASE}_with_lines.ml"
- # DEBUG: cat "${FILEBASE}_with_lines.ml"; exit 0
+${VSCODE}/add_lines.sh ${FILEBASE}.ml ${FILEBASE}_with_lines.ml
+# DEBUG: cat "${FILEBASE}_with_lines.ml"; exit 0
 
 # LATER: add_exit should also introduce special commands for figuring out the line of the command that executes
 

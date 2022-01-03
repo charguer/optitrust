@@ -127,7 +127,7 @@ let dThen : constr =
 let dElse : constr =
     Constr_dir Dir_else
 
-let dBody : constr = 
+let dBody : constr =
   Constr_dir Dir_body
 
 let dForInit : constr =
@@ -241,7 +241,7 @@ let cHasType (typ : string) : constr =
 let with_type ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default)  (tg : target) : target =
   if typ = "" && typ_pred == typ_constraint_default
     then tg
-    else [cAnd [tg; [Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
+    else [cAnd [tg; [cStrictNew; Constr_hastype (make_typ_constraint ~typ ~typ_pred ())]]]
 
 let cArgPred ?(typ : string = "") ?(typ_pred : typ_constraint = typ_constraint_default) (pred : string -> bool) : constr =
   Constr_arg (pred, make_typ_constraint ~typ ~typ_pred ())
@@ -388,60 +388,60 @@ let cVar ?(regexp : bool = false) ?(trmkind : trm_kind = TrmKind_Expr) ?(typ : s
   Constr_target (with_type ~typ ~typ_pred [c])
 
 (* [cLitPred pred_l] matches all the literals that statisfy the predicate [pred_l] *)
-let cLitPred (pred_l : lit -> bool) : constr = 
+let cLitPred (pred_l : lit -> bool) : constr =
   Constr_lit pred_l
 
 (* [cLit ] matches all the literals *)
-let cLit : constr = 
+let cLit : constr =
   cLitPred (function _ -> true)
 
 
 (* [cIntPred pred] matches all the integer literals that statisfy the predicate [pred] *)
-let cIntPred (pred : int -> bool) : constr = 
-  cLitPred (function l -> 
-   begin match l with 
-   | Lit_int n -> pred n 
+let cIntPred (pred : int -> bool) : constr =
+  cLitPred (function l ->
+   begin match l with
+   | Lit_int n -> pred n
    | _ -> false
    end )
-  
+
 (* [cInt n] matches all string literals equal to [n] *)
-let cInt (n : int) : constr = 
+let cInt (n : int) : constr =
   cIntPred (function m -> m = n)
 
 (* [cDoublePred pred] matches all the double literals that statisfy the predicate [pred]*)
-let cDoublePred (pred : float -> bool) : constr = 
-  cLitPred (function l -> 
-   begin match l with 
-   | Lit_double d -> pred d 
+let cDoublePred (pred : float -> bool) : constr =
+  cLitPred (function l ->
+   begin match l with
+   | Lit_double d -> pred d
    | _ -> false
    end )
-  
+
 (* [cDouble d] matches all the doubles equal to [d] *)
-let cDouble (d : float) : constr = 
+let cDouble (d : float) : constr =
   cDoublePred (function d1 -> d1 = d)
 
 (* [cBoolPred pred] matches all the boolean literals that satisfy the predicate [pred] *)
-let cBoolPred (pred : bool -> bool) : constr = 
-  cLitPred (function l -> 
-   begin match l with 
+let cBoolPred (pred : bool -> bool) : constr =
+  cLitPred (function l ->
+   begin match l with
    | Lit_bool b -> pred b
    | _ -> false
    end )
-  
+
 (* [cBool b] matches all the booleans equal to [b] *)
-let cBool (b : bool) : constr = 
+let cBool (b : bool) : constr =
   cBoolPred (function b1 -> b1 = b)
 
 (* [cStringPred pred] matches all the string literals that satisfy the predicate [pred] *)
-let cStringPred (pred : string -> bool) : constr = 
-  cLitPred (function l -> 
-   begin match l with 
+let cStringPred (pred : string -> bool) : constr =
+  cLitPred (function l ->
+   begin match l with
    | Lit_string s -> pred s
    | _ -> false
    end )
-  
+
 (* [let cString s] matches all the string literals equal to [s] *)
-let cString (s : string) : constr = 
+let cString (s : string) : constr =
   cStringPred (function s1 -> s1 = s)
 
 (* [cCall] can match all kind of function calls *)
@@ -483,15 +483,15 @@ let cPrimFunArith ?(args : targets = []) ?(args_pred:target_list_pred = target_l
   cPrimPredFun ~args ~args_pred (fun p2 -> (is_arith_fun p2))
 
 (* [let cPrimNew ~arg ()] matches all the encode new primitive operations*)
-let cPrimNew ?(arg : target = []) () : constr = 
-  cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false) 
+let cPrimNew ?(arg : target = []) () : constr =
+  cPrimPredFun ~args:[arg] (function Prim_new _ -> true | _ -> false)
 
 (* [cInit ~arg ()] matches all the initialization values of variable declarations *)
-let cInit ?(arg:target = []) () : constr = 
-  cChain ([ cPrimNew ~arg (); dArg 0 ]) 
+let cInit ?(arg:target = []) () : constr =
+  cChain ([ cPrimNew ~arg (); dArg 0 ])
 
 (* [dInit] similar to cInit  but this one doesn't match on depth *)
-let dInit : constr = 
+let dInit : constr =
   cChain [cStrict; cInit ()]
 
 (* [cWrite ~lhs ~rhs ()] matches write operations with left hand side [lhs] and right hand side [rhs], if right(left) hand side are
@@ -985,7 +985,7 @@ let target_between_show_transfo (id : int) : Transfo.local_between =
    The operation add marks if the command line argument [-exit-line]
    matches the [line] argument provided to the function. Otherwise, the
    [show] function only checks that the path resolve properly.
-   There is no need for a prefix [!!] or [!!!] to the front of the [show]
+   There is no need for a prefix such as [!!] in front of the [show]
    function, because it is recognized as a special function by the preprocessor
    that generates the [foo_with_lines.ml] instrumented source. *)
 let show ?(line : int = -1) ?(reparse : bool = false) (tg : target) : unit =

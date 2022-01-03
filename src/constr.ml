@@ -667,9 +667,9 @@ let rec check_constraint (c : constr) (t : trm) : bool =
         check_target p_body body
      | Constr_for (p_index, p_start, p_direction, p_stop, p_step, p_body),
         Trm_for(index, start, direction, stop, step, body) ->
-        let direction_match = match p_direction with 
-        | None -> true 
-        | Some d -> d = direction in        
+        let direction_match = match p_direction with
+        | None -> true
+        | Some d -> d = direction in
         check_name p_index index &&
         direction_match &&
         check_target p_start start &&
@@ -881,10 +881,10 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
   let epl =
     match trs with
     | [] -> [[]]
-    | Constr_or tl :: [] -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at least one solution *)
+    | Constr_or tl :: trest -> (* LATER: maybe we'll add an option to enforce that each target from the list tl resolves to at least one solution *)
         let all_targets_must_resolve = false in
         List.fold_left (fun acc tr ->
-          let potential_targets = resolve_target_simple tr t in
+          let potential_targets = resolve_target_simple (tr @ trest) t in
           begin match potential_targets with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
@@ -910,12 +910,12 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
           end ) [] tl2 in
       Path.diff targets_to_keep targets_to_remove
 
-    | Constr_and tl :: [] ->
+    | Constr_and tl :: trest ->
         (* LATER: ARTHUR : optimize resolution by resolving the targets only by exploring
           through the paths that are candidates; using e.g. path_satisfies_target *)
         let all_targets_must_resolve = false in
         Tools.fold_lefti (fun i acc tr ->
-          let targetsi = resolve_target_simple tr t in
+          let targetsi = resolve_target_simple (tr @ trest) t in
           begin match targetsi with
           | ([] | [[]]) when all_targets_must_resolve -> fail t.loc "resolve_target_simple: for Constr_and all targets should match a trm"
           | _ ->
@@ -925,6 +925,16 @@ and resolve_target_simple ?(depth : depth = DepthAny) (trs : target_simple) (t :
             (* Compute the intersection of all resolved targets *)
               else Path.intersect acc targetsi
           end) [] tl
+
+    | Constr_diff (_ , _) :: _ ->
+        fail t.loc "cDiff can only appear at last item in a target"
+
+    (* DEPRECATED
+    | Constr_or _ :: _
+    | Constr_and _ :: _ ->
+        fail t.loc "currently, cOr and cAnd are only supported at last item in a target"
+    *)
+
     | Constr_depth new_depth :: tr ->
         (* Force the depth argument for the rest of the target, override the current [depth] *)
         resolve_target_simple ~depth:new_depth tr t

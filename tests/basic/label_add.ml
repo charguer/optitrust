@@ -14,7 +14,6 @@ int main() {
 
 let _ = Run.script_cpp (fun _ ->
     !! Label_basic.add "start" [cVarDef "x"] ;
-    !! Label_basic.add "loop" [cFor "i"];
     !! Label_basic.add "cond" [cIf ()];
     !! Label_basic.add "incr_1" [cIf (); sInstr "x++"];
     !! Label_basic.add "incr_2" [cIf (); sInstr "i++" ];

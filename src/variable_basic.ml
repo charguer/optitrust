@@ -16,9 +16,9 @@ let fold ?(deref : bool = false) ?(at : target = []) : Target.Transfo.t =
 
 (* [unfold ~mark ~accept_functions ~at tg] expects the target [tg] to be pointing at an initialized
      variable declaration, then it will  find all the occurrences of that variable and replace them with its
-     initial value. The argument [accept_functions] is a flag to decide if we want to inline functions in the 
-     beta way. Ex Suppose we have 
-     void f(int x) { ... } 
+     initial value. The argument [accept_functions] is a flag to decide if we want to inline functions in the
+     beta way. Ex Suppose we have
+     void f(int x) { ... }
      int main () {
        f(3);
        ....
@@ -139,6 +139,7 @@ let change_type (new_type : typvar) : Target.Transfo.t =
 
 (* [insert ~constr name typ value tg] expects the target [tg] to point to a location in a sequence
     then it wil insert a new variable declaration with name [name] type [typ] and initialization value [value]
+    TODO: value should be optional, with default value lit_uninitialized
 *)
 let insert ?(const : bool = false) ?(reparse : bool = false) ~name:(name : string) ~typ:(typ : string ) ~value:(value : trm) : Target.Transfo.t =
   Target.reparse_after ~reparse (Target.apply_on_targets_between (fun t (p,i) -> Variable_core.insert i const name typ value t p))

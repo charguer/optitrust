@@ -16,7 +16,7 @@ let set_explicit (tg : Target.target) : unit =
         Struct_basic.set_explicit ((Target.target_of_path surrounding_seq) @ [Target.cStrict;Target.cWriteVar x])
       | _ -> Struct_basic.set_explicit (Target.target_of_path p)
       end
-  
+
   ) tg
 
 (*  [set_implicit tg] expects [tg] to point to a struct set operation, with the assumption
@@ -37,17 +37,17 @@ let set_implicit (tg : Target.target) : unit =
       | _, -1 -> tid_r
       | _, _ -> if tid_r = tid_l then tid_r else fail t.loc "set_explicit_aux: different types in an assignment"
       in
-      let struct_def = 
-        if tid <> -1 then match Context.typid_to_typedef tid with 
-          | Some td -> td 
-          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
-        else    
-          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+      let struct_def =
+        if tid <> -1 then match Context.typid_to_typedef tid with
+          | Some td -> td
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
+        else
+          fail t.loc "set_explicit_aux: explicit assignment is supported only for struct types"
       in
       let field_list = Internal.get_field_list struct_def in
       let nb = List.length field_list in
       Sequence_basic.intro ~mark:"__SEQUENCE_MARK" nb tg;
       Struct_basic.set_implicit [Target.cMark "__SEQUENCE_MARK"];
     | _ -> fail tg_trm.loc "set_implicit: expected a set operation"
-  
+
 ) tg

@@ -32,3 +32,13 @@ let simplify : Target.Transfo.t =
 let normalize : Target.Transfo.t =
   simpl Arith_core.normalize
 *)
+
+let is_prim_arith (p : prim) : bool =
+  match p with
+  | Prim_binop (Binop_add | Binop_sub | Binop_mul | Binop_div)
+  | Prim_unop Unop_neg ->
+      true
+  | _ -> false
+
+let constr = (* alias cPrimArith *)
+  Target.cPrimPredFun is_prim_arith

@@ -72,6 +72,23 @@
         ]
       },
       {
+        "label": "View big step diff",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_no",
+            "-only-big-steps"
+        ]
+      },
+      {
         "label": "View diff for ast encoding",
         "type": "shell",
         "command": "./run_action.sh",
@@ -101,6 +118,39 @@
             "${lineNumber}",
             "view_diff",
             "recompile_optitrust_no",
+        ]
+      },
+      {
+        "label": "Recompile and execute from intermediate state",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result_intermediate.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_yes",
+        ]
+      },
+      {
+        "label": "Execute a big step from intermediate state",
+        "type": "shell",
+        "command": "./run_action.sh",
+        "options": {
+          "cwd": "${workspaceFolder}/.vscode"
+        },
+        "args": [
+            "./view_result_intermediate.sh",
+            "${fileDirname}",
+            "${fileBasenameNoExtension}",
+            "${lineNumber}",
+            "view_diff",
+            "recompile_optitrust_no",
+            "-only-big-steps",
         ]
       },
       {

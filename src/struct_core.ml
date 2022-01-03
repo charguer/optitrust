@@ -23,18 +23,22 @@ let set_explicit_aux (t : trm) : trm =
       | _, _ -> if tid_r = tid_l then tid_r
                   else fail t.loc "set_explicit_aux: different types in an assignment"
       in
-      let struct_def = 
-        if tid <> -1 then match Context.typid_to_typedef tid with 
-          | Some td -> td 
-          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
-        else   begin 
-          Tools.printf "%s\n" (Ast_to_text.ast_to_string t);
-          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types"  end
+      let struct_def =
+        if tid <> -1 then
+          match Context.typid_to_typedef tid with
+          | Some td -> td
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
+        else begin
+          (* Tools.printf "%s\n" (Ast_to_text.ast_to_string t); *)
+          Tools.printf "%s\n" (Ast_to_c.ast_to_string t);
+          fail t.loc "set_explicit_aux: explicit assignment cannot operate on unknown types"
+        end
       in
       let field_list = Internal.get_field_list struct_def in
+      (* LATER: factorize the code better here; also, check the [Some ty] they do not seem to all be correct *)
       begin match rt.desc with
       | Trm_apps(_f1, [rbase]) ->
-        let rt = if is_get_operation rt then rbase else rt in        
+        let rt = if is_get_operation rt then rbase else rt in
         begin match lt.desc with
         | Trm_apps (_f2, [lbase]) ->
           let lt = if is_get_operation lt then lbase else lt in
@@ -68,7 +72,7 @@ let set_explicit_aux (t : trm) : trm =
           trm_seq_no_brace exp_assgn
         | _ -> fail t.loc "set_explicit_aux: left term was not matched"
         end
-      | _ -> 
+      | _ ->
           let exp_assgn = List.map (fun (sf, ty) ->
               let new_f = trm_unop (Unop_struct_access sf) in
                 trm_set (trm_apps ~typ:(Some ty) new_f [lt]) (trm_apps ~annot:[Access] ~typ:(Some ty) (trm_unop (Unop_get )) [trm_apps ~typ:(Some ty) new_f [rt]])
@@ -181,7 +185,7 @@ let inline_struct_accesses  (x : var) (t : trm) : trm =
                   | Trm_val (Val_prim (Prim_unop Unop_struct_access z))
                     | Trm_val (Val_prim (Prim_unop (Unop_struct_get z ))) when z = x ->
                     let new_var = Convention.name_app z y in
-                    
+
                     let new_f = {f' with desc = Trm_val(Val_prim (Prim_unop (Unop_struct_access new_var)))} in
                     trm_apps ~annot:t.annot  f' [trm_apps new_f base3;index]
                   | _ -> trm_map (aux global_trm) t
@@ -205,6 +209,7 @@ let inline_struct_accesses  (x : var) (t : trm) : trm =
     | _ -> trm_map (aux global_trm) t
 in
 aux t t
+
 (* [inline_struct_initialization struct_name field_list field_index t]: change all struct in struct initializations
     params:
       [struct_name]: the type of the struct which is being inlined
@@ -222,7 +227,7 @@ let inline_struct_initialization (struct_name : string) (field_list : field list
       | Some { typ_desc = Typ_constr (y, _, _); _} when y = struct_name ->
         let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives field_index term_list in
         begin match trm_to_change.desc with
-        | Trm_struct sl -> 
+        | Trm_struct sl ->
            let new_sl = Mlist.merge lfront sl in
            let new_sl = Mlist.merge new_sl lback in
            trm_struct ~annot:t.annot ~marks:t.marks new_sl
@@ -283,12 +288,12 @@ let inline_aux (field_to_inline : field) (index : int) (t : trm ) =
        | _ -> fail t.loc  "inline_aux: expected a typ_constr"
        end
        in
-       let struct_def = 
-        if tyid <> -1 then match Context.typid_to_typedef tyid with 
-          | Some td -> td 
-          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef" 
-        else    
-          fail t.loc "set_explicit_aux: explicit assignemnt is supported only for struct types" 
+       let struct_def =
+        if tyid <> -1 then match Context.typid_to_typedef tyid with
+          | Some td -> td
+          | _ -> fail t.loc "set_explicit_aux: could not get the declaration of typedef"
+        else
+          fail t.loc "set_explicit_aux: explicit assignment is supported only for struct types"
        in
        let inner_type_field_list = begin match struct_def.typdef_body with
         | Typdef_prod (_, s) -> s
@@ -370,7 +375,7 @@ let inline_struct_accesses (name : var) (field : var) (t : trm) : trm =
       end
     | _ -> trm_map aux t
     end
-   in aux t 
+   in aux t
 
 
 (* [to_variables_aux index t] change a variable declaration of type typedef struct into a list
@@ -387,17 +392,17 @@ let to_variables_aux (index : int) (t : trm) : trm =
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     begin match trm_to_change.desc with
     | Trm_let (_, (x, tx), init) ->
-      
+
       let typid = begin match (get_inner_ptr_type tx).typ_desc with
                   | Typ_constr (_, tid, _) -> tid
                   | _ -> fail t.loc "struct_to_variables_aux: expected a struct type"
                   end in
-      let struct_def = 
-        if typid <> -1 then match Context.typid_to_typedef typid with 
-          | Some td -> td 
-          | _ -> fail t.loc "to_variables_aux: could not get the declaration of typedef" 
-        else    
-          fail t.loc "to_variables_aux: explicit assignemnt is supported only for struct types" 
+      let struct_def =
+        if typid <> -1 then match Context.typid_to_typedef typid with
+          | Some td -> td
+          | _ -> fail t.loc "to_variables_aux: could not get the declaration of typedef"
+        else
+          fail t.loc "to_variables_aux: explicit assignment is supported only for struct types"
        in
       let field_list = Internal.get_field_list struct_def in
       let struct_init_list = begin match init.desc with
@@ -439,13 +444,13 @@ module Rename = struct
   type t = string -> string
   let add_prefix (s : string) : t =
     fun str -> s ^ str
-  
-  let only_for (pattern : string) : t -> t = 
+
+  let only_for (pattern : string) : t -> t =
     fun tr s ->
       if Tools.pattern_matches pattern s then tr s else s
 end
 
-type rename = Rename.t 
+type rename = Rename.t
 
 
 (* [rename_struct_accesses struct_name renam t]: rename all the struct accesses based on [rename]
@@ -463,8 +468,8 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
       begin match f.desc with
       | Trm_val (Val_prim (Prim_unop (Unop_struct_access y))) ->
           begin match base.typ with
-          | Some ty -> 
-            begin match ty.typ_desc with 
+          | Some ty ->
+            begin match ty.typ_desc with
             | Typ_constr (x, _, _) when x = struct_name->
               trm_apps ~annot:t.annot ~typ:t.typ ~marks:t.marks ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_access (rename y))))})  [base]
             | _ -> trm_map (aux global_trm) t
@@ -473,8 +478,8 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
           end
       | Trm_val (Val_prim (Prim_unop (Unop_struct_get y))) ->
         begin match base.typ with
-          | Some ty -> 
-            begin match ty.typ_desc with 
+          | Some ty ->
+            begin match ty.typ_desc with
             | Typ_constr (x, _, _) when x = struct_name->
               trm_apps ~annot:t.annot ~typ:t.typ ~marks:t.marks ({f with desc = Trm_val (Val_prim (Prim_unop (Unop_struct_get (rename y))))})  [base]
             | _ -> trm_map (aux global_trm) t
@@ -487,19 +492,19 @@ let rename_struct_accesses (struct_name : var) (rename : rename) (t : trm) : trm
     end
    in aux t t
 
-(* [rename_fields_aux index rename t]: rename the struct fields in the struct declaration 
+(* [rename_fields_aux index rename t]: rename the struct fields in the struct declaration
     params:
       [index]: the index of the struct declaration in the sequence [t]
-      [rename]: a type used to rename 
+      [rename]: a type used to rename
       [t]: the ast of the sequence which contains the struct declaration
     return:
       the updated ast of the struct declaration and all its field accesses
 *)
 let rename_fields_aux (index : int) (rename : rename) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_seq tl ->
     let lfront, tdef , lback = Internal.get_trm_and_its_relatives index tl in
-    begin match tdef.desc with 
+    begin match tdef.desc with
     | Trm_typedef ({typdef_tconstr = name; typdef_body = Typdef_prod (tn, fl);_}  as td) ->
         let new_fl = List.map (fun (x, ty) -> (rename x, ty)) fl in
         let new_tdef = trm_typedef ~annot:tdef.annot ~marks:tdef.marks {td with typdef_body = Typdef_prod (tn, new_fl)} in
@@ -517,36 +522,36 @@ let rename_fields (index : int) (rename : rename) : Target.Transfo.local =
 (* [update_fields_type_aux pattern ty t]: change the current type to [ŧy] for all the struct fields
       which are matched with [pattern] for the struct declaration [t]
     params:
-      [rename]: a type used to rename 
+      [rename]: a type used to rename
       [t]: the ast of the typedef declaration
     return:
       the updated ast of the struct declaration
 *)
 let update_fields_type_aux (pattern : string ) (ty : typ) (t : trm) : trm =
-  match t.desc with 
+  match t.desc with
   | Trm_typedef ({typdef_body = Typdef_prod (tn, fl);_}  as td) ->
-      let replace_type (s : string) (ty1 : typ) : typ = 
-        if Tools.pattern_matches pattern s then ty else ty1 in 
+      let replace_type (s : string) (ty1 : typ) : typ =
+        if Tools.pattern_matches pattern s then ty else ty1 in
       let new_fl = List.map (fun (x, ty2) -> (x, replace_type x ty2)) fl in
       trm_typedef ~annot:t.annot ~marks:t.marks {td with typdef_body = Typdef_prod (tn, new_fl)}
     | _ -> fail t.loc "reanme_fields_aux: expected a typedef declaration"
 
 let update_fields_type (pattern : string) (ty : typ) : Target.Transfo.local =
   Target.apply_on_path (update_fields_type_aux pattern ty)
-(* [simpl_proj_aux t] transform all expression of the form {1, 2, 3}.f into the trm it projects to 
+(* [simpl_proj_aux t] transform all expression of the form {1, 2, 3}.f into the trm it projects to
     params:
       [t]: ast of the node whose descendants can contain struct initialization list projections
     return:
       the updated ast with all the simplified projections
 *)
-let simpl_proj_aux (t : trm) : trm = 
+let simpl_proj_aux (t : trm) : trm =
   (* Tools.printf "%s\n" (Ast_to_text.ast_to_string t); *)
-  let rec aux (t : trm) : trm = 
-    match t.desc with 
+  let rec aux (t : trm) : trm =
+    match t.desc with
     | Trm_apps (f, [struct_list]) ->
-      begin match trm_prim_inv f with 
-      | Some (Prim_unop (Unop_struct_get x)) | Some (Prim_unop (Unop_struct_access x))-> 
-        begin match struct_list.desc with 
+      begin match trm_prim_inv f with
+      | Some (Prim_unop (Unop_struct_get x)) | Some (Prim_unop (Unop_struct_access x))->
+        begin match struct_list.desc with
         | Trm_struct tl ->
           let tid = Internal.get_typid_from_trm struct_list in
             if tid <> -1 then begin
@@ -555,19 +560,20 @@ let simpl_proj_aux (t : trm) : trm =
               | _ -> fail struct_list.loc "simpl_proj_aux: couldn't retrieve the the struct declaration" in
               let field_list = Internal.get_field_list struct_def in
               let field_vars = fst (List.split field_list) in
-              match Tools.index_of x field_vars  with 
-              | Some i -> 
+              match Tools.index_of x field_vars  with
+              | Some i ->
                 Mlist.nth tl i
               | _ -> t
-              end 
+              end
               else  t
         | _ -> trm_map aux t
-        end 
-      | _ -> trm_map aux t 
+        end
+      | _ -> trm_map aux t
       end
-    | _ -> trm_map aux t 
+    | _ -> trm_map aux t
    in aux t
 
+(* LATER: perhaps we want to expose a nonrecursive version of the function simpl_proj *)
 
 let simpl_proj : Target.Transfo.local =
   Target.apply_on_path (simpl_proj_aux)

@@ -41,6 +41,10 @@ int main()
   v = (a / b * c / (a * d * d / b * e)); // = c / (d * d) / e
   v = (a * b * c / a); // = b * c
   v = ((a / (b / c)) + d * c / b) * (b / c); // = a + d
+  v = ((a * ((b / c) * (d / ((((b * a) * a) / c) / e)))) * (a / e)); // = d
+  v = (((a * d) / (a / e)) * (1. / e)); // = d
+  v = (((a / (1. / e)) + (b * (c / (b / e )))) * (1. / e)); // = a + c
+
 
   // test for recursion in atoms (LATER)
   w = a + a * 3 + f(b * f(c + c) / b); // = 4*a + f(f(2*c))
