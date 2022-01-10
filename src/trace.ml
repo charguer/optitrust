@@ -93,6 +93,10 @@ let report_time_of_last_step () : unit =
     write_timing_log (Printf.sprintf "===> TOTAL: %d\tms\n" duration_of_previous_step);
   end
 
+(* [id_big_step] traces the number of big steps executed; it is used only when
+   executing from the command line, in which case line numbers are not available *)
+let id_big_step = ref 0
+
 (******************************************************************************)
 (*                             File input                                     *)
 (******************************************************************************)
@@ -716,7 +720,17 @@ let check_exit_and_step ?(line : int = -1) ?(is_small_step : bool = true)  ?(rep
             end in
           write_timing_log (Printf.sprintf "------------------------\n[line %d]\n%s\n" line txt);
         end;
+        (* Handle progress report *)
+        if not is_small_step && !Flags.report_big_steps then begin
+          if line = -1 then begin
+            incr id_big_step;
+            Printf.printf "Executing big-step #%d\n" !id_big_step
+          end else begin
+            Printf.printf "Executing big-step line %d\n" line
+          end;
+          flush stdout
         end;
+      end;
       (* Save the current code in the trace *)
       step();
   end

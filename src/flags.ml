@@ -22,6 +22,9 @@ let debug_reparse : bool ref = ref false
 (* Flag to force reparsing on big steps *)
 let reparse_at_big_steps : bool ref = ref false
 
+(* Flag to report progress during a script execution *)
+let report_big_steps : bool ref = ref false
+
 (* exit line number *)
 let exit_line : int ref = ref max_int
 
@@ -37,6 +40,7 @@ let spec =
   Arg.align [
      ("-verbose", Arg.Set verbose, " activates debug printing");
      ("-exit-line", Arg.Set_int exit_line, " specify the line after which a '!!' or '!!!' symbol should trigger an exit");
+     ("-report-big-steps", Arg.Set report_big_steps, " report on the progress of the execution at each big step");
      ("-only-big-steps", Arg.Set only_big_steps, " consider only '!!!' for computing exit lines");
      ("-debug-reparse", Arg.Set debug_reparse, " print on stdout the line number at which each reparse is performed");
      ("-reparse-at-big-steps", Arg.Set reparse_at_big_steps, " force reparsing at every big step (implies -debug-reparse)");

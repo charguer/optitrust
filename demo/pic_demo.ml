@@ -2,6 +2,7 @@ open Optitrust
 open Target
 open Ast
 
+
 let main = cFunDef "main"
 let dims = ["X";"Y";"Z"]
 let nb_dims = List.length dims
@@ -10,27 +11,12 @@ let map_dims f = List.map f dims
 let idims = map_dims (fun d -> "i" ^ d)
 let delocalize_double_add = Delocalize_arith (Lit_double 0., Binop_add)
 
+
 let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"particle.h"] (fun () ->
 
-  (* Part: inlining of the bag iteration *)
-  (* TODO ARTHUR:
-  !^ Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:3 ();
-  !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
-  !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "loop"];
-  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"]; (* LATER: why don't we also have Expr.replace_fun ? *)
-  !! Marks.add "iter" [cFun "bag_ho_iter_chunk"];
-  !! Variable_basic.unfold ~accept_functions:true [cFunDef "bag_ho_iter_chunk"];
-  show [main; cFunDef ""];
-  !! Function_basic.beta [cMark "iter"];
-  (* !! Function.inline [main; cFun "bag_ho_iter_chunk"]; *)
-  (*!! Function.beta [cFor "i"; cAppFun()];  // where cAppFun() = "cApp ~base:[cStrict; cFunDef]()"
-  Mark.rem "iter"  // a shorthand for Mark.remove [cMark "iter"]
-  // maybe also with a sequence.inline on the body*)
-  *)
-
   (* Part: optimization and inlining of [matrix_vect_mul] *)
-  !^ let ctx = cTopFunDef "matrix_vect_mul" in
-     Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
+  let ctx = cTopFunDef "matrix_vect_mul" in
+  !^ Function.inline [ctx; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; ctx; cWriteVar "res"];
   !! Loop.fission [nbMulti; tAfter; ctx; cFor "k"; sInstrRegexp "res\\.[x-y]"]; (* TODO: split between *)
   !! Loop.unroll [nbMulti; ctx; cFor "k"];
@@ -38,9 +24,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Function.inline [cFun "matrix_vect_mul"];
 
   (* Part: vectorization in [cornerInterpolationCoeff] *)
-  !^ let ctxf = cTopFunDef "cornerInterpolationCoeff" in
-     let ctx = cChain [ctxf; sInstr "r.v"] in
-     Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
+  let ctxf = cTopFunDef "cornerInterpolationCoeff" in
+  let ctx = cChain [ctxf; sInstr "r.v"] in
+  !^ Rewrite.equiv_at "double a; ==> a == (0. + 1. * a);" [nbMulti; ctx; cVar ~regexp:true "r."];
   !! Variable.inline [nbMulti; ctxf; cVarDef ~regexp:true "c."];
   !! Variable.intro_pattern_array ~pattern_aux_vars:"double rX, rY, rZ;"
       ~pattern_vars:"double coefX, signX, coefY, signY, coefZ, signZ;"
@@ -48,14 +34,14 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
       [nbMulti; ctx; dRHS];   (* TODO: add ?(const:bool=true) to this operation, to generate const vars *)
   !! Loop.fold_instrs ~index:"k" [ctx];
 
-  (* Part: update particles in-place instead of in a local variable *)
+  (* Part: update particles in-place instead of in a local variable *) (* LATER: it might be possible to change the script to postpone this step *)
   !^ Variable.reuse ~space:(expr "p->speed") [main; cVarDef "speed2" ];
   !! Variable.reuse ~space:(expr "p->pos") [main; cVarDef "pos2"];
 
   (* Part: reveal write operations involved manipulation of particles and vectors *)
+  let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
   !^ Trace.reparse();
-  !! let ctx = cOr [[cFunDef "bag_push_serial"]; [cFunDef "bag_push_concurrent"]] in
-     List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
+  !! List.iter (fun typ -> Struct.set_explicit [nbMulti; ctx; cWrite ~typ ()]) ["particle"; "vect"];
   !! Function.inline [main; cOr [[cFun "vect_mul"]; [cFun "vect_add"]]];
   !! Struct.set_explicit [nbMulti; main; cWrite ~typ:"vect" ()];
 
@@ -80,7 +66,18 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.inline_last_write ~write:[sInstr "deltaChargeOnCorners.v[k] ="]
        [main; sInstr "nextCharge[indices"; sExpr "deltaChargeOnCorners.v[k]"];
 
-  (* Part: AOS-to-SOA *)
+  (* Part: inlining of the bag iteration *) (* LATER: it might be possible to move this later in the script *)
+  (* LATER: there are some missing Mutable_var_get tags on "p" inside the for_c loop; this might be fixed when using the new encodings *)
+  !^ Sequence.intro ~mark:"loop" ~start:[cVarDef "bag_it"] ~nb:2 ();
+  !! Sequence.intro_on_instr [cMark "loop"; cFor_c ""; dBody]; (* LATER: will be integrated in uninline *)
+  !! Function_basic.uninline ~fct:[cFunDef "bag_ho_iter_basic"] [cMark "loop"];
+  !! Instr.replace_fun "bag_ho_iter_chunk" [main; cFun "bag_ho_iter_basic"]; (* LATER: why don't we also have Expr.replace_fun ? *)
+  !! Function.inline [main; cFun "bag_ho_iter_chunk"];
+  (*!! Instr.update (fun t -> trm_annot_remove Mutable_var_get t) [main; cFun ~args:[[cStrict; cVar "p"]] ""; dArg 0];*)
+  !! Function.beta ~indepth:true [main];
+  !! Variable.to_const [main; cVarDef "p"];
+
+  (* Part: explicit record fields for each coordinate *)
   !^ Variable.inline [main; cVarDef "p"];
   !! Variable.simpl_deref [main];
   !^ Struct.set_explicit [main; cVarDef "p2"];
@@ -125,7 +122,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !^ Label.add "core" [cFor "idCell" ~body:[cFor "i"]];
      Loop.grid_enumerate (map_dims (fun d -> ("i" ^ d, "grid" ^ d))) [cLabelBody "core"];
 
-  (* Part: Make positions relative *)
+  (* Part: Make positions relative *) (* LATER: it might be possible to perform this transformation at a higher level, using vect operations *)
   !^ iter_dims (fun d ->
       Variable.bind ~const:true ("p" ^ d) [main; sInstr ("(c->items)[i].pos" ^ d ^ " ="); dRHS]);
   !! Instr.(gather_targets ~dest:GatherAtFirst) [main; cVarDef ~regexp:true "p[X-Z]"];
@@ -144,6 +141,9 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Struct.update_fields_type "pos." (atyp "float") [cTypDef "particle"];
   (* !! Trace.reparse (); *)
 
+  (* Part: AOS-to-SOA *) (* LATER: might be useful to group this next to the reveal of x/y/z *)
+  !! Struct.inline "items" [cTypDef "chunk"];
+
   (* Part: introduce matrix operations, and prepare loop on charge deposit *)
   !^ Matrix.intro_mops (var "nbCells") [main; cVarDef "nextCharge"];
   !! Label.add "charge" [main; cFor "k" ~body:[cVar "nextCharge"]];
@@ -156,7 +156,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
   !! Instr.delete [cFor "idCell" ~body:[cCellWrite ~base:[cVar "nextCharge"] ~index:[] ~rhs:[cDouble 0.] ()]];
 
   (* Part: apply a bijection on the array storing charge to vectorize charge deposit *)
-  !^ let mybij_def =
+  let mybij_def =
       "int mybij(int nbCells, int nbCorners, int idCell, int idCorner) {
         coord coord = coordOfCell(idCell);
         int iX = coord.iX;
@@ -174,7 +174,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
         };
       return MINDEX2(nbCells, nbCorners, res[idCorner], idCorner);
       }" in
-     Sequence.insert (stmt mybij_def) [tBefore; main];
+  !^ Sequence.insert (stmt mybij_def) [tBefore; main];
   !! Matrix.biject "mybij" [main; cVarDef "nextChargeCorners"];
   !! Instr.replace ~reparse:true (stmt "MINDEX2(nbCells, nbCorners, idCell2, k)")
       [main; cLabel "charge"; cFun "mybij"];
@@ -201,7 +201,7 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 
   (* Part: coloring *)
   !^ Variable.insert_list ~defs:[("int","block","2"); ("int","halfBlock","block / 2")] [tBefore; cVarDef "nbCells"];
-  !! let colorize (tile : string) (color : string) (d:string) : unit =
+  let colorize (tile : string) (color : string) (d:string) : unit =
     let bd = "bi" ^ d in
     Loop.tile tile ~bound:TileBoundDivides ~index:"b${id}" [main; cFor ("i" ^ d)];
     Loop.color color ~index:("ci"^d) [main; cFor bd]

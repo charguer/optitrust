@@ -83,17 +83,17 @@ let inline ?(body_mark : mark option) (tg : Target.target) : unit =
      contrary to function_inline which will need to find the toplevel declaration.
      At the basic level they are both the same.
 *)
-let beta  ?(body_mark : var = "body") (tg : Target.target) : unit =
+let beta ?(body_mark : var = "body") (tg : Target.target) : unit =
   inline ~body_mark tg
 
 (* [use_infix_ops tg] expects the target [tg] to be pointing at an instruction of the form x = x (op) a,
-    then it will transform that instruction into x (op)= a. 
+    then it will transform that instruction into x (op)= a.
     Note: This transformation can be used only with operators that have an infix version like +, -, *, / etc.
  *)
 let use_infix_ops_at ?(allow_identity : bool = true) : Target.Transfo.t =
   Target.apply_on_targets (Function_core.use_infix_ops allow_identity)
 
-(* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates 
+(* [uninline ~fct tg] expects the target [ŧg] to be pointing at a labelled sequence similar to what Function_basic.inline generates
     Then it will replace that sequence with a call to the fuction with declaration targeted by [fct].
 *)
 let uninline ~fct:(fct : Target.target) (tg : Target.target) : unit =

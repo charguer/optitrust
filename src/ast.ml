@@ -754,8 +754,15 @@ let trm_annot_add (a:trm_annot) (t:trm) : trm =
 let trm_annot_filter (pred:trm_annot->bool) (t:trm) : trm =
   { t with annot = List.filter pred t.annot }
 
-let trm_add_operator (a : special_operator) (t : trm) : trm =
-  { t with add = a :: t.add}
+let trm_annot_remove (annot : trm_annot) (t : trm) : trm =
+  { t with annot = Tools.list_remove annot t.annot }
+
+let trm_special_operator_add (a : special_operator) (t : trm) : trm =
+  { t with add = a :: t.add }
+
+let trm_special_operator_remove (sp : special_operator) (t : trm) : trm =
+  { t with add = Tools.list_remove sp t.add }
+
 
 let trm_val ?(annot = []) ?(loc = None) ?(add = []) ?(typ = None)
   ?(attributes = []) ?(ctx : ctx option = None) (v : value) : trm =
@@ -1584,7 +1591,7 @@ let is_lit (t : trm) : bool =
 
 (* [add_star t] add the star operator to a trm *)
 let add_star (t : trm) : trm =
-  trm_add_operator Star_operator t
+  trm_special_operator_add Star_operator t
 
 
 (* [is_typ_ptr ty] check if the type ty is a pointer type *)

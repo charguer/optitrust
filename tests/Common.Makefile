@@ -53,6 +53,7 @@ OPTITRUSTLIB ?= $(shell ocamlfind query optitrust)
 BROWSER ?= chromium-browser
 
 # Flags for executing the programs
+-include optitrust_flags.sh
 FLAGS ?=
 
 

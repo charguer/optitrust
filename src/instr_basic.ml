@@ -1,6 +1,14 @@
 open Ast
 open Target
 
+(* LATER: maybe move or duplicate "replace" and "map" to a module named Expr? *)
+
+(* [update f tg] applies the operation [f] to the targeted expressions *)
+let update ?(reparse: bool = false)  (f : trm -> trm) : Target.Transfo.t =
+  Target.reparse_after ~reparse (Target.apply_on_targets (Instr_core.update f))
+
+(* TODO: replace can be implemented as a particular case of update *)
+
 (* [replace code tg] expects the target to point at an instruction,
     then it will replace this instruction with [node]. Note that [node] can be
     also some code entered as string which is transformed into a trm through function code
@@ -25,14 +33,14 @@ let replace_fun (name : string) (tg : target) : unit =
       then it will remove that instruciton from that sequence
 *)
 let delete : Target.Transfo.t =
-  Sequence_basic.delete 
+  Sequence_basic.delete
 
-(* [move ~target tg] expects the target [tg] to point to the instruction which is 
+(* [move ~target tg] expects the target [tg] to point to the instruction which is
     going to be moved at the relative target [where]
 *)
-let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target) : unit = 
+let move ?(rev : bool = false) ~dest:(where : Target.target) (tg : Target.target) : unit =
   Target.apply_on_transformed_targets ~rev (Internal.isolate_last_dir_in_seq)
-    (fun t (p,i) -> 
+    (fun t (p,i) ->
       let tg_dest_path_seq, dest_index = Target.resolve_target_between_exactly_one where t in
       if tg_dest_path_seq <> p then fail None "move: the destination target should be unique and belong to the same block as the main targets";
       Instr_core.move dest_index i t p
@@ -47,7 +55,7 @@ let read_last_write ~write:(write : Target.target) (tg : Target.target) : unit =
   Target.apply_on_targets (fun t p -> Target.apply_on_path (fun _ -> write_trm) t p) tg
 
 
-(* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location 
+(* [accumulate tg] expects the target [tg] to point to a block of write operations in the same memory location
     then it will do an acumulation of those trms .
     Ex.
     int x;

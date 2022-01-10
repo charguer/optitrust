@@ -325,8 +325,8 @@ and translate_stmt (s : stmt) : trm =
   let ctx = Some (get_ctx ()) in
   match s.desc with
   | Compound sl ->
-    compute_scope ~loc Other_scope
-      (fun () -> trm_seq_nomarks ~loc ~ctx (List.map translate_stmt sl))
+    compute_scope ~loc Other_scope (fun () ->
+      trm_seq_nomarks ~loc ~ctx (List.map translate_stmt sl))
   | If {init = None; condition_variable = None; cond = c; then_branch = st;
         else_branch = seo} ->
     let tc = translate_expr c in
@@ -365,8 +365,18 @@ and translate_stmt (s : stmt) : trm =
            | Some e -> translate_expr e
          in
          let step = translate_stmt_opt stepo in
+
+         (* FOR FUTURE USE? let is_standard_for =
+            let init_ops = trm_for_c_inv_simple_init init in
+            let bound_ops = trm_for_c_inv_simple_stop cond in
+            let step_ops = trm_for_c_inv_simple_step step in
+            match init_ops, bound_ops, step_ops with
+            | Some _, Some _, Some _ -> true
+            | _ -> false
+            in *)
+
          let body = compute_scope For_scope (fun () -> translate_stmt body) in
-         trm_for_of_trm_for_c(trm_for_c~loc ~ctx init cond step body)
+         trm_for_of_trm_for_c (trm_for_c~loc ~ctx init cond step body)
       )
   | For _ ->
     fail loc "translate_stmt: variable declaration forbidden in for conditions"

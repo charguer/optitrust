@@ -355,18 +355,17 @@ void bag_iter_init(bag_iter* it, bag* b) {
   bag_iter_load_chunk(it, b->front);
 }
 
-bag_iter* bag_iter_begin(bag* b) {
-  bag_iter* it = new bag_iter();
-  bag_iter_init(it, b);
-  return it;
-}
-
 particle* bag_iter_get(bag_iter* it) {
   return &(it->iter_chunk->items[it->index]);
 }
 
 chunk* bag_iter_get_chunk(bag_iter* it) {
   return it->iter_chunk;
+}
+
+particle* bag_iter_begin(bag_iter* it, bag* b) {
+  bag_iter_init(it, b);
+  return bag_iter_get(it);
 }
 
 // Return the next chunk in the chain, possibly Null;
@@ -394,19 +393,13 @@ particle* bag_iter_next(bag_iter* it, bool destructive) {
   return bag_iter_get(it);
 }
 
-
-
 // example of a basic iteration over a bag
 void bag_ho_iter_basic(bag* b, void body(particle*)) {
-  bag_iter* it = bag_iter_begin(b);
-  for (particle* p = bag_iter_get(it); p != NULL; p = bag_iter_next(it, true)) {
+  bag_iter it;
+  for (particle* p = bag_iter_begin(&it, b); p != NULL; p = bag_iter_next(&it, true)) {
     body(p);
   }
-  free(it);
 }
-// LATER: see function_uninline.cpp for a simpler iteration function
-
-
 
 // example of an iteration over a bag with the loop over the chunk items revealed
 void bag_ho_iter_chunk(bag* b, void body(particle*)) {

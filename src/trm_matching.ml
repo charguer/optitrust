@@ -139,9 +139,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     if List.mem Address_operator t1.add then begin
       if not (List.mem Address_operator t2.add)
         then mismatch ~t1 ~t2 ();
-      let remove_addressof (t:trm) : trm =
-        { t with add = List.filter (fun a -> a <> Address_operator) t.add } in
-      aux (remove_addressof t1) (remove_addressof t2)
+      aux (Ast.trm_special_operator_remove Address_operator t1) (Ast.trm_special_operator_remove Address_operator t2)
     end else
     (* Else compare structures *)
     match t1.desc, t2.desc with

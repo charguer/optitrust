@@ -255,11 +255,12 @@ let inline ?(name_result : string = "") ?(vars : rename = AddSuffix "") ?(args :
 
 *)
 
-(* [beta ~tg] if the target [tg] is given then this transformation expects this target to be pointing to a function call
-    if not, then this transformation will try to target all the beta function declarations and reduce them
-*)
-let beta ?(tg : Target.target = []) ?(body_mark : mark = "") (): unit =
-  let tg = match tg with | [] -> [Target.cFun ~fun_:[Target.cFunDef ""] ""] | _ -> tg in
+(* [beta ~indepth tg] applies beta-reduction on candidate functions calls that appear
+    either "exactly at" or "anywhere in depth" in the target [tg], depending on the value of ~indepth. *)
+let beta ?(indepth : bool = false) ?(body_mark : mark = "") (tg : Target.target) : unit =
+  let tg = if indepth
+    then tg @ [Target.cFun ~fun_:[Target.cFunDef ""] ""]
+    else tg in
   Target.iter_on_targets (fun t p ->
     let tg_trm = Path.resolve_path p t in
     match tg_trm.desc with
@@ -273,12 +274,12 @@ let beta ?(tg : Target.target = []) ?(body_mark : mark = "") (): unit =
       | _ -> ()
       end
     | _ -> fail t.loc "beta: this transformation expects a target to a function call"
-
   ) tg
 
 (* [use_infix_ops ~tg_ops] by default it targets all the instructions of the form x = x + a or x = a + x an transforms them
     into x += a
  *)
+ (* TODO: add a ~indepth flag like in function beta, to control if we ust tg or go deeper *)
 let use_infix_ops ?(allow_identity : bool = true) (tg : Target.target) : unit =
   let tg_infix_ops = [Target.nbMulti;Target.cWrite ~rhs:[Target.cPrimPredFun is_infix_prim_fun] ()] in
   Target.iter_on_targets (fun t p ->

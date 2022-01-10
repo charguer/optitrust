@@ -6,7 +6,13 @@ open Ast
  * transformation. That's why there is not need to document them.                     *
  *)
 
-(* [replace code t]: replace an instruction with arbitrary code or ast code 
+(* [update f t]: replace an expression [t] with [f t]. *)
+let update (f : trm -> trm) : Target.Transfo.local =
+  Target.apply_on_path f
+
+(* TODO: replace can be implemented as a particular case of update *)
+
+(* [replace code t]: replace an instruction with arbitrary code or ast code
     params:
       [t]: ast node which is going to replace the current one
     return:
@@ -46,8 +52,8 @@ let replace_fun (name : string) : Target.Transfo.local =
     return:
       the updated [t]
 *)
-let move_aux (dest_index : int) (index : int) (t : trm) : trm = 
-  match t.desc with 
+let move_aux (dest_index : int) (index : int) (t : trm) : trm =
+  match t.desc with
   | Trm_seq tl ->
     let instr_to_move = Mlist.nth tl index in
     let index_to_remove = if dest_index <= index then index + 1 else index in
@@ -70,55 +76,55 @@ let move (dest_index : int) (index : int) : Target.Transfo.local =
       the accumulation is the one used in each write operation
  *)
 
-let accumulate_aux (t : trm) : trm = 
-  match t.desc with 
+let accumulate_aux (t : trm) : trm =
+  match t.desc with
   | Trm_seq tl ->
     let nb_instr = Mlist.length tl in
     if nb_instr < 2 then fail t.loc "accumulate_aux: expected at least two instructions";
     let is_infix_op = ref false in
-    Mlist.fold_lefti (fun i acc t1 -> 
-      begin match t1.desc with 
+    Mlist.fold_lefti (fun i acc t1 ->
+      begin match t1.desc with
       | Trm_apps (_, [ls; rs]) when is_set_operation t1 ->
-        begin match rs.desc with 
+        begin match rs.desc with
         | Trm_apps (f, [ls1; rs1]) ->
-          if i = 0 
+          if i = 0
             then begin
               if List.mem App_and_set t1.annot then is_infix_op := true;
-            rs1 
-            end 
-          else if i = nb_instr - 1 
-            then 
+            rs1
+            end
+          else if i = nb_instr - 1
+            then
               let acc = trm_apps f [acc; rs1] in
               let acc_trm = trm_apps f [ls1; acc] in
-              if !is_infix_op 
+              if !is_infix_op
                 then trm_annot_add App_and_set (trm_set ls acc_trm)
                 else trm_set ls acc_trm
-          else 
-            (trm_apps f [acc; rs1])  
-          (* let acc = if i = 0 
-            then 
-             begin 
+          else
+            (trm_apps f [acc; rs1])
+          (* let acc = if i = 0
+            then
+             begin
                if List.mem App_and_set t1.annot then is_infix_op := true;
-               acc 
-             end  
-            else acc in 
+               acc
+             end
+            else acc in
           let acc_trm = if i = nb_instr - 1 then trm_apps f [ls1; acc] else (trm_apps f [acc; rs1]) in
-          if i = nb_instr -1 
-            then 
-              if !is_infix_op 
-                then trm_annot_add App_and_set (trm_set ls acc_trm)  
-                else trm_set ls acc_trm 
+          if i = nb_instr -1
+            then
+              if !is_infix_op
+                then trm_annot_add App_and_set (trm_set ls acc_trm)
+                else trm_set ls acc_trm
             else acc_trm  *)
         | _-> fail t.loc "accumulate_aux: expected an instruction of the form x += A or x = x + A"
         end
       | _ -> fail t.loc "accumulate_aux: all the instructions should be write operations"
       end
 
-    ) (trm_int 0) tl 
+    ) (trm_int 0) tl
 
   | _ -> fail t.loc "accumulate_aux: expected a block of instructions"
 
 
-let accumulate : Target.Transfo.local = 
+let accumulate : Target.Transfo.local =
   Target.apply_on_path (accumulate_aux)
 
