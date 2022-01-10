@@ -81,8 +81,10 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
     | Some (ty,t0) ->
         if Ast.is_trm_uninitialized t0 then
           inst := Trm_map.add x (ty,u) !inst
-        else if not (Internal.same_trm t0 u) then begin
-          Tools.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'" x (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string u);
+        else if not (Internal.same_trm ~ast_decode:false t0 u) then begin
+          Tools.printf "Mismatch on variable '%s' already bound to '%s' which is not identical to '%s'.\n" x (Ast_to_c.ast_to_string t0) (Ast_to_c.ast_to_string u);
+          Tools.printf "Witout encodings: '%s' is not identical to '%s'.\n" (Ast_to_c.ast_to_string ~ast_decode:false t0) (Ast_to_c.ast_to_string ~ast_decode:false u);
+          Tools.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t0.loc) (Ast.loc_to_string u.loc);
           raise Rule_mismatch
         end
     in
@@ -93,8 +95,8 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
        | Trm_var (_, y) -> Some (y,ty)
        | _ -> None
     in
-  let with_binding (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
-     inst := Trm_map.add x (ty, trm_var y) !inst;
+  let with_binding ?(loc:location=None) (ty : typ) (x : var) (y : var) (f : unit -> unit) : unit =
+     inst := Trm_map.add x (ty, trm_var ~loc y) !inst;
      f();
      inst := Trm_map.remove x !inst;
     (* Note: it would be incorrect to simply restore the map to its value before the call to [f],
@@ -104,7 +106,8 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let mismatch ?(t1:trm=t1) ?(t2:trm=t2) () : unit =
-      Tools.printf "Mismatch on subterm, comparing '%s' with '%s'\n" (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
+      Tools.printf "Mismatch on subterm, comparing '%s' with '%s'.\n" (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
+      Tools.printf "Locations: '%s' and '%s.'\n" (Ast.loc_to_string t1.loc) (Ast.loc_to_string t2.loc);
       raise Rule_mismatch
       in
     let aux_list (ts1 : trms) (ts2 : trms) : unit =
@@ -124,7 +127,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
             mismatch ~t1:dt1 ~t2:dt2 ()
           end;
           aux init1 init2;
-          with_binding t1 x1 x2 (fun () -> aux_with_bindings tr1 tr2)
+          with_binding ~loc:dt2.loc t1 x1 x2 (fun () -> aux_with_bindings tr1 tr2)
       (* LATER: add support for Trm_let_fun, to allow matching local function definitions. *)
       | t1 :: tr1, t2 :: tr2 ->
           aux t1 t2;
@@ -132,6 +135,15 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
       | _ -> mismatch() (* note: in general, this should have been tested earlier on by comparing lengths *)
       in
 
+    (* Check matching addressof annotation -- TODO: maybe we should simply ignore additions that appear on t2? *)
+    if List.mem Address_operator t1.add then begin
+      if not (List.mem Address_operator t2.add)
+        then mismatch ~t1 ~t2 ();
+      let remove_addressof (t:trm) : trm =
+        { t with add = List.filter (fun a -> a <> Address_operator) t.add } in
+      aux (remove_addressof t1) (remove_addressof t2)
+    end else
+    (* Else compare structures *)
     match t1.desc, t2.desc with
 
     (* Case for treating a match against a pattern variable *)

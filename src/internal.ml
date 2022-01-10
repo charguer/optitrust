@@ -34,9 +34,9 @@ let same_kind (t1 : trm) (t2 : trm) : bool =
   | _ , _ -> false
 
 (* check if two ast nodes when translated give the same code *)
-let same_trm (t1 : trm) (t2 : trm) : bool =
+let same_trm ?(ast_decode:bool=false) (t1 : trm) (t2 : trm) : bool =
   if same_kind t1 t2 then
-    Ast_to_c.ast_to_string t1 = Ast_to_c.ast_to_string t2
+    Ast_to_c.ast_to_string ~ast_decode t1 = Ast_to_c.ast_to_string ~ast_decode t2
    else false
 
 (* check if two values are equal *)
@@ -191,9 +191,9 @@ let get_trm_in_surrounding_loop (dl : path) : path * int =
 
 
 (* Rename all the occurrences of a variable by adding an underscore as prefix*)
-let fresh_args (t : trm) : trm = 
-  match t.desc with 
-  | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x) 
+let fresh_args (t : trm) : trm =
+  match t.desc with
+  | Trm_var (kind, x) -> trm_var ~kind ("_" ^ x)
   | _ -> t
 
 (* In the case of typedef struct give back the list of struct fields *)
@@ -264,7 +264,7 @@ let nb_inits (x : var) (t : trm) : int =
     let _t = aux t in !counter
 
 (* Find the declaration of variable [x] if it exists in [t] where t usually is the full ast.*)
-let toplevel_decl (x : var) : trm option = 
+let toplevel_decl (x : var) : trm option =
   let full_ast = Target.get_ast () in
   match full_ast.desc with
   | Trm_seq tl ->
@@ -272,11 +272,11 @@ let toplevel_decl (x : var) : trm option =
       fun acc t1 ->
       match acc with
       | Some _ -> acc
-      | _ -> match t1.desc with 
+      | _ -> match t1.desc with
             | Trm_typedef td when td.typdef_tconstr = x -> Some t1
             | Trm_let (_, (y, _),_ ) when y = x -> Some t1
             | Trm_let_fun (y, _, _, _) when y = x -> Some t1
-            | _ -> None 
+            | _ -> None
   ) None tl
   | _ -> fail full_ast.loc "top_level_decl: the full ast starts with the main sequence which contains all the toplevel declarations"
 
@@ -494,20 +494,20 @@ let is_trm_loop (t : trm) : bool =
   | Trm_for _ | Trm_for_c _ -> true
   | _ -> false
 
-(* [is_struct_type t] check if t is type struct or not 
+(* [is_struct_type t] check if t is type struct or not
     Note: The current infrastructure of Optitrust supports only
-      struct declared via typedefs, later we will add support for 
+      struct declared via typedefs, later we will add support for
       struct types not declared via a typedef.
 *)
-let is_struct_type (t : typ) : bool = 
-  match t.typ_desc with 
-  | Typ_constr (_tv, tid, _) -> 
-    begin match Context.typid_to_typedef tid with 
+let is_struct_type (t : typ) : bool =
+  match t.typ_desc with
+  | Typ_constr (_tv, tid, _) ->
+    begin match Context.typid_to_typedef tid with
     | Some td ->
-      begin match td.typdef_body with 
+      begin match td.typdef_body with
       | Typdef_prod _ -> true
       | _ -> false
-      end 
+      end
     | _ -> false
     end
   | Typ_record _ -> false (* LATER: All the transformations that work with typedefs should also work with structs *)
@@ -553,7 +553,7 @@ let rec replace_type_with (x : typvar) (y : var) (t : trm) : trm =
 (* find all the occurrences of variables in [t] and check if they are key in map [tm]
     if yes then assign its values otherwise do nothing
 *)
-let subst (tm : tmap) (t : trm) : trm = 
+let subst (tm : tmap) (t : trm) : trm =
   let rec function_to_apply (t : trm) : trm =
     match t.desc with
     | Trm_var (_, x) ->

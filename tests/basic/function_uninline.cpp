@@ -74,32 +74,26 @@ void test_bag() {
   }
 }
 
-/* TODO add support for this nicer version
+particle* bag2_iter_begin(bag_iter* it, bag* b);
+particle* bag2_iter_next(bag_iter* it, bool destructive);
 
-typedef struct { } particle;
-typedef struct { } bag;
-typedef struct { } bag_iter;
-particle* bag_iter_begin(bag_iter* it, bag* b);
-particle* bag_iter_next(bag_iter* it, bool destructive);
-
-void iter_bag(bag* b, void body(particle*)) {
-  bag_iter it;
-  for (particle* p = bag_iter_begin(&it, b); p != NULL; p = bag_iter_next(&it, true)) {
+void iter_bag2(bag* b, void body(particle*)) {
+  bag_iter iter;
+  for (particle* p = bag2_iter_begin(&iter, b); p != NULL; p = bag2_iter_next(&iter, true)) {
     body(p);
   }
 }
 
-void test_bag() {
+void test_bag2() {
+  int x = 0;
   bag* mybag;
-  bagbody: {
-    // This is the code pattern to use in pic_demo
+  bagbody2: {
     bag_iter myit;
-    for (particle* p = bag_iter_begin(&myit, mybag); p != NULL; p = bag_iter_next(&myit, true)) {
+    for (particle* p = bag2_iter_begin(&myit, mybag); p != NULL; p = bag2_iter_next(&myit, true)) {
       {
-         if (p = p) { return; }
+         if (p = p) { x++; }
       }
     }
   }
 }
 
-*/

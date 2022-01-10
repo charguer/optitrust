@@ -34,13 +34,18 @@ let _ = Run.script_cpp (fun _ ->
     !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabelBody "gtwice_body"];
     !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabelBody "fbody"];
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabelBody "hobody"];
+
+    !! Function_basic.uninline ~fct:[cFunDef "iter_bag2"] [cLabelBody "bagbody2"];
+    (* Test to undo the action of the unlining: *)
+      !! Function_basic.inline [cFun "iter_bag2"];
+      !! Function_basic.beta [cTopFunDef "test_bag2"; cFor_c ""; dBody; cFun""];
+
     !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabelBody "bagbody"];
     (* LATER: bug if iter_bag uses variable name "it" instead of "iter", the variable
        is considered as non-const; maybe this will be fixed when encodings are reimplemented *)
     (* Test to undo the action of the unlining: *)
       !! Function_basic.inline [cFun "iter_bag"];
       !! Function_basic.beta [cTopFunDef "test_bag"; cFor_c ""; dBody; cFun""];
-
 
 )
 

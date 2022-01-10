@@ -204,15 +204,15 @@ and unary_op =
   | Unop_post_dec
   | Unop_pre_inc
   | Unop_pre_dec
-  | Unop_struct_access of field  
-  | Unop_struct_get of field 
+  | Unop_struct_access of field
+  | Unop_struct_get of field
   | Unop_cast of typ (* cast operator towards the specified type *)
 
 (* binary operators *)
 and binary_op =
   | Binop_set (* type annotation?    lvalue = rvalue *)
-  | Binop_array_access 
-  | Binop_array_get 
+  | Binop_array_access
+  | Binop_array_get
   | Binop_eq
   | Binop_neq
   | Binop_sub
@@ -734,12 +734,17 @@ exception TransfoError of string
 
 exception Resolve_target_failure of location option * string
 
+let loc_to_string (loc : location) : string =
+  match loc with
+  | None -> ""
+  | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
+     (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^
+     " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]")
+
 let fail (loc : location) (err : string) : 'a =
   match loc with
-  | None -> failwith err
-  | Some {loc_file = filename; loc_start = {pos_line = start_row; pos_col = start_column}; loc_end = {pos_line = end_row; pos_col = end_column}} ->
-     raise (TransfoError (filename ^ " start_location [" ^ (string_of_int start_row) ^": " ^ (string_of_int start_column) ^" ]" ^
-     " end_location [" ^ (string_of_int end_row) ^": " ^ (string_of_int end_column) ^" ]" ^ " : " ^ err))
+  | None -> raise (TransfoError err)
+  | Some _ -> raise (TransfoError (loc_to_string loc ^ " : " ^ err))
 
 (* *************************** Trm constructors *************************** *)
 
