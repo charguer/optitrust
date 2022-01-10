@@ -2,6 +2,13 @@
 open Optitrust
 open Target
 
+(* Note: In C11, any parameter of function type is adjusted to the corresponding pointer type. Eg:
+    int f(char g(double)); // declares int f(char ( *g )(double))
+    int h(int(void)); // declares int h(int ( * )(void))
+   We favor the lightweight notation on the left-hand side, to improve readability;
+   in the future, we may want to introduce an annotation to allow preserving the presentation
+  used by the original code in case it involves a star. *)
+
 
 let _ = Run.doc_script_cpp (fun _ ->
     !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabelBody "body"];
@@ -22,23 +29,19 @@ int main() {
 }
 "
 
-
-(* LATER: add a "compute" transformation to simplify
-    - products of int
-    - sums and products of doubles
-
-   LATER: simplification recursively in atoms, see example of [w];
-   to implement using trm_map. *)
-
 let _ = Run.script_cpp (fun _ ->
-
 
     !! Function_basic.uninline ~fct:[cFunDef "gtwice"] [cLabelBody "gtwice_body"];
     !! Function_basic.uninline ~fct:[cFunDef "f"] [cLabelBody "fbody"];
     !! Function_basic.uninline ~fct:[cFunDef "iter_nat_for"] [cLabelBody "hobody"];
-
     !! Function_basic.uninline ~fct:[cFunDef "iter_bag"] [cLabelBody "bagbody"];
-    (* TODO: why do we have a particle **p   appearing in the function argument? *)
+    (* LATER: bug if iter_bag uses variable name "it" instead of "iter", the variable
+       is considered as non-const; maybe this will be fixed when encodings are reimplemented *)
+    (* Test to undo the action of the unlining: *)
+      !! Function_basic.inline [cFun "iter_bag"];
+      !! Function_basic.beta [cTopFunDef "test_bag"; cFor_c ""; dBody; cFun""];
+
+
 )
 
 (*
@@ -183,12 +186,6 @@ Implementation:
   The argument is ["j"] because we are matching "body(i)" in a context where "i"
   is bound to "j" (from the time we entered the scope of the for loop and matched
   "for i" against "for j").
-
-
-----------------
-Pseudo code for rule_match
-
-
 
 
 ----------------

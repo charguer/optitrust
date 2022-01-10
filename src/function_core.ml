@@ -32,7 +32,7 @@ let bind_intro_aux (my_mark : string) (index : int) (fresh_name : var) (const : 
      (* Maybe it should fail here!! *)
      | None -> typ_auto() in
      let decl_to_insert =
-      if const 
+      if const
         then trm_let_immut (fresh_name, function_type) function_call
         else trm_let_mut (fresh_name, function_type) function_call
       in
@@ -55,7 +55,7 @@ let bind_intro ?(my_mark : string =  "") (index : int) (fresh_name : var) (const
     returns:
       the updated ast of the body of the function with the replaced all return statements
 *)
-let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm * int ) =
+let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm * int) =
   let nb_gotos = ref 0 in
   let rec aux (is_terminal : bool) (t : trm) : trm =
     match t.desc with
@@ -82,6 +82,7 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
           incr nb_gotos;
           trm_goto exit_label
       end
+    | Trm_let_fun _ -> t (* do not recurse through local function definitions *)
     | _-> trm_map_with_terminal is_terminal aux t
   in
   let t = aux true t in
@@ -100,33 +101,33 @@ let process_return_in_inlining (exit_label : label) (r : var) (t : trm) : (trm *
 (* LATER: inlining of f(3) could be ideally implemented as  variable.inline + function.beta,
    but for now we implement a function that covers both beta and inline at once, as it is simpler *)
 
-let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm) : trm = 
-  match t.desc with 
-  | Trm_seq tl -> 
+let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm) : trm =
+  match t.desc with
+  | Trm_seq tl ->
     let lfront, trm_to_change, lback = Internal.get_trm_and_its_relatives index tl in
     let fun_call = Path.resolve_path p_local trm_to_change in
-    begin match fun_call.desc with 
+    begin match fun_call.desc with
     | Trm_apps(tfun, fun_call_args) ->
-      let fun_decl = begin match tfun.desc with 
-      | Trm_var (_, f) -> 
+      let fun_decl = begin match tfun.desc with
+      | Trm_var (_, f) ->
         begin match Internal.toplevel_decl f with
-        | Some decl -> decl 
-        | _ -> fail tfun.loc "inline_uax: couldn't find the toplevel decl for the targeted function call"
+        | Some decl -> decl
+        | _ -> fail tfun.loc "inline_aux: couldn't find the toplevel decl for the targeted function call"
         end
-      | Trm_let_fun _ -> tfun 
+      | Trm_let_fun _ -> tfun
       | _ -> fail tfun.loc "inline_aux: expected either a function call or a beta function call"
       end in
-     begin match fun_decl.desc with 
-     | Trm_let_fun (_f, ty, args, body) -> 
+     begin match fun_decl.desc with
+     | Trm_let_fun (_f, ty, args, body) ->
         let fun_decl_arg_vars = fst (List.split args) in
-        let fresh_args = List.map Internal.fresh_args fun_call_args in 
+        let fresh_args = List.map Internal.fresh_args fun_call_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.subst_var x y acc) body fun_decl_arg_vars fresh_args in
         let fun_decl_body = List.fold_left2 (fun acc x y -> Internal.change_trm x y acc) fun_decl_body fresh_args fun_call_args in
         let name = match trm_to_change.desc with | Trm_let (_, (x, _), _) -> x | _ -> ""  in
         let processed_body, nb_gotos = process_return_in_inlining "exit_body" name fun_decl_body in
-        let marked_body = begin match body_mark with 
-        | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body 
-        | _ -> Internal.set_nobrace_if_sequence processed_body 
+        let marked_body = begin match body_mark with
+        | Some b_m -> if b_m <> "" then trm_add_mark b_m processed_body  else Internal.set_nobrace_if_sequence processed_body
+        | _ -> Internal.set_nobrace_if_sequence processed_body
         end  in
         let exit_label = if nb_gotos = 0 then trm_seq_no_brace [] else trm_labelled "exit_body" (trm_lit (Lit_unit)) in
         let inlined_body =
@@ -138,7 +139,7 @@ let inline_aux (index : int) (body_mark : mark option) (p_local : path) (t : trm
         let new_tl = Mlist.merge lfront (Mlist.of_list inlined_body) in
         let new_tl = Mlist.merge new_tl lback in
       trm_seq ~annot:t.annot ~marks:t.marks new_tl
-     | _ -> fail fun_decl.loc "inline_uax: failed to find the top level declaration of the function"
+     | _ -> fail fun_decl.loc "inline_aux: failed to find the top level declaration of the function"
      end
     | _ -> fail fun_call.loc "inline_aux: expected a target to a function call"
     end
@@ -165,12 +166,12 @@ let use_infix_ops_aux (allow_identity : bool) (t : trm) : trm =
         let final_trm =
         if Internal.same_trm ls get_ls then t else  trm_apps ~marks:t.marks f [ls; trm_apps f1 [arg; get_ls]] in
         trm_annot_add App_and_set final_trm
-      | _ -> 
-        if allow_identity then t else 
+      | _ ->
+        if allow_identity then t else
         fail f1.loc "use_infix_ops_aux: expected a write operatoin of the form x = f(get(x), arg where f should be a binary operation which supports app and set operations"
       end
     | _ ->
-      if allow_identity then t else 
+      if allow_identity then t else
       fail rs.loc "use_infix_ops: expected a write operation of the form x = f(get(x), arg)"
     end
 

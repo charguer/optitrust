@@ -86,7 +86,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
           raise Rule_mismatch
         end
     in
-  let get_binding (x : var) : (var * typ) option =
+  let _get_binding (x : var) : (var * typ) option =
     match Trm_map.find_opt x !inst with
     | None -> None
     | Some (ty,t0) -> match t0.desc with
@@ -104,7 +104,7 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
   let rec aux (t1 : trm) (t2 : trm) : unit =
     let mismatch ?(t1:trm=t1) ?(t2:trm=t2) () : unit =
-      Tools.printf "Comparing %s with %s" (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
+      Tools.printf "Mismatch on subterm, comparing '%s' with '%s'\n" (Ast_to_c.ast_to_string t1) (Ast_to_c.ast_to_string t2);
       raise Rule_mismatch
       in
     let aux_list (ts1 : trms) (ts2 : trms) : unit =
@@ -139,20 +139,28 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
     (* Case for treating a match against a pattern such as [body(i)],
        where [body] is a pattern variable that corresponds to a function. *)
-    | Trm_apps ({ desc = Trm_var (_, x); _}, ts1), _ when higher_order_inst && is_var x ->
+    | Trm_apps (({ desc = Trm_var (_, x); _} as trm_x), ts1), _ when higher_order_inst && is_var x ->
+        let typ_args, typ_ret =
+          match trm_x.typ with
+          | None -> fail t1.loc (Printf.sprintf "rule_match: no type available for %s; try reparsing first" x)
+          | Some ({typ_desc = Typ_fun (typ_args, typ_ret); _}) -> typ_args, typ_ret
+          | _ -> fail t1.loc (Printf.sprintf "rule_match: the variable %s is used as a function but does not have a function type" x)
+          in
         let msg1 i ti = fail None (Printf.sprintf "rule_match: the %d-th argument of the higher-order function variable %s is not a variable. It is the term: %s" i x (Ast_to_text.ast_to_string ti)) in
         let xargs = List.mapi (fun i ti -> match ti.desc with
           | Trm_var (_, x)
           (* LATER: find out if it is really correct to igore the get operation here *)
           | Trm_apps ({desc = Trm_val (Val_prim (Prim_unop Unop_get)); _}, [{desc = Trm_var (_, x); _}]) -> x
           | _ -> msg1 i ti) ts1 in
-        let msg2 i = fail None (Printf.sprintf "rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
-        let targs = List.mapi (fun i xi -> match get_binding xi with Some typed_yi -> typed_yi | None -> msg2 i) xargs in
+        (* DEPRECATED
+          let msg2 i = fail t2.loc (Printf.sprintf "rule_match: the %d-th argument of the higher-order function variable %s is not found in the instantiation map" i x) in
+          let targs = List.mapi (fun i xi -> match get_binding xi with Some typed_yi -> typed_yi | None -> msg2 i) xargs in *)
+        if List.length typ_args <> List.length xargs
+          then fail t2.loc (Printf.sprintf "rule_match: the function call does not have the same number of arguments as the higher-order function variable %s" x);
+        let targs = List.combine xargs typ_args in
         let body = t2 in
-        let func = trm_let_fun x (typ_unit()) targs body in
+        let func = trm_let_fun x typ_ret targs body in
         find_var x func
-        (* LATER: it would be equivalent, but slightly nicer, to use the types coming from the function type associated with x,
-           rather that to take the local types associated with the variables provided as arguments to x. *)
 
     | Trm_var (_, x1), Trm_var (_, x2) when x1 = x2 -> ()
 
@@ -181,7 +189,11 @@ let rule_match ?(higher_order_inst : bool = false ) (vars : typed_vars) (pat : t
 
     | _ -> mismatch()
     in
-  aux pat t;
+  begin try aux pat t
+  with Rule_mismatch ->
+    Tools.printf "Mismatch comparing\n------\n%s\n------\n%s\n------\n" (Ast_to_c.ast_to_string ~ast_decode:false pat) (Ast_to_c.ast_to_string ~ast_decode:false t);
+    raise Rule_mismatch
+  end;
   Trm_map.map (fun (_ty,t) -> t) !inst
 
 exception Rule_match_ast_list_no_occurrence_for of string

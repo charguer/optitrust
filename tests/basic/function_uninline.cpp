@@ -53,21 +53,21 @@ particle* bag_iter_get(bag_iter* it);
 particle* bag_iter_next(bag_iter* it, bool destructive);
 
 void iter_bag(bag* b, void body(particle*)) {
-  bag_iter* it = bag_iter_begin(b);
-  for (particle* p = bag_iter_get(it); p != NULL; p = bag_iter_next(it, true)) {
+  bag_iter* const iter = bag_iter_begin(b);
+  for (particle* p = bag_iter_get(iter); p != NULL; p = bag_iter_next(iter, true)) {
     body(p);
   }
-  free(it);
+  free(iter);
 }
 
 void test_bag() {
+  int x = 0;
   bag* mybag;
   bagbody: {
-    // This is the code pattern to use in pic_demo
-    bag_iter* myit = bag_iter_begin(mybag);
+    bag_iter* const myit = bag_iter_begin(mybag);
     for (particle* p = bag_iter_get(myit); p != NULL; p = bag_iter_next(myit, true)) {
       {
-         if (p = p) { return; }
+         if (p = p) { x++; }
       }
     }
     free(myit);

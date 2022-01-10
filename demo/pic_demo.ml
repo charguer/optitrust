@@ -342,3 +342,12 @@ let _ = Run.script_cpp ~inline:["particle_chunk.h";"particle_chunk_alloc.h";"par
 (* LATER  Variable.insert ~const:true
     we should make const:true the default
     and possibly introduce Variable.insert_mut   as a shorthand for   insert ~const:false *)
+
+
+
+(* LATER: add a "compute" transformation to simplify
+    - products of int
+    - sums and products of doubles
+
+   LATER: simplification recursively in atoms, see example of [w];
+   to implement using trm_map. *)
