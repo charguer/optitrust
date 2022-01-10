@@ -281,7 +281,9 @@ and trm_annot =
   | As_left_value (* Used for reference encoding *)
   | Non_local_index (* Used for loops whose index is not declared inside the scope of the loop body *)
   | Display_arrow (* Used for struct accesses of the form ( *p ).x or p -> x, with this annotation the arrow syntax sugar is used *)
-
+  | Reference (* Used to encode references as pointers with annotation Reference *)
+  | Stackvar (* Used to encode stack variables *)
+  
 (* symbols to add while printing a C++ program.*)
 and special_operator =
   | Address_operator (* used to print the ampersand operator for declarations of the form int x = &b*)
@@ -2059,6 +2061,10 @@ let trm_access (base : trm) (field : var) : trm =
 (* [trm_get t] generates a get operation in [t] *)
 let trm_get ?(annot : trm_annot list = []) (t : trm) : trm =
   trm_apps ~annot (trm_unop Unop_get) [t]
+
+(* [trm_new ty t] generates new ty (t) *)
+let trm_new (ty : typ) (t : trm) : trm = 
+  trm_apps (trm_prim (Prim_new ty)) [t]
 
 (* [trm_any_bool] generates ANY_BOOL () *)
 let trm_any_bool : trm =
